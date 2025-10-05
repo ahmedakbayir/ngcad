@@ -25,3 +25,5 @@ export function getCurrentMode() {
 export function getLastUsedMode() {
     return state.lastUsedMode;
 }
+
+//bir de bu test var
