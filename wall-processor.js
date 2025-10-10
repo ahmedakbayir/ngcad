@@ -140,52 +140,7 @@ function mergeCollinearChains() {
     }
 }
 
-function trimWallEnds() {
-    let changed = true;
-    const TRIM_TOLERANCE_SQ = 1.0 * 1.0;
-    while(changed) {
-        changed = false;
-        const nodeConnections = new Map();
-        state.nodes.forEach(n => nodeConnections.set(n, 0));
-        state.walls.forEach(w => {
-            nodeConnections.set(w.p1, nodeConnections.get(w.p1) + 1);
-            nodeConnections.set(w.p2, nodeConnections.get(w.p2) + 1);
-        });
-
-        for (const [node, count] of nodeConnections.entries()) {
-            if (count === 1) {
-                let wallToTrim = state.walls.find(w => w.p1 === node || w.p2 === node);
-                if (!wallToTrim) continue;
-
-                for (const targetWall of state.walls) {
-                    if (targetWall === wallToTrim) continue;
-
-                    const distSq = distToSegmentSquared(node, targetWall.p1, targetWall.p2);
-                    if (distSq < TRIM_TOLERANCE_SQ) {
-                        const {x: v_x, y: v_y} = targetWall.p1;
-                        const {x: w_x, y: w_y} = targetWall.p2;
-                        const l2 = (v_x - w_x)**2 + (v_y - w_y)**2;
-                        if (l2 === 0) continue;
-                        const t = ((node.x - v_x) * (w_x - v_x) + (node.y - v_y) * (w_y - v_y)) / l2;
-                        const projection = {
-                            x: v_x + t * (w_x - v_x),
-                            y: v_y + t * (w_y - v_y)
-                        };
-
-                        node.x = projection.x;
-                        node.y = projection.y;
-                        changed = true;
-                        break;
-                    }
-                }
-            }
-            if(changed) break;
-        }
-    }
-}
-
 export function processWalls() {
-    trimWallEnds();
     unifyNearbyNodes(1.0);
     const filteredWalls = state.walls.filter(w => w && w.p1 && w.p2 && Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y) > 0.1);
     const filteredDoors = state.doors.filter((d) => d.wall && filteredWalls.includes(d.wall));
@@ -244,4 +199,52 @@ export function splitWallAtMousePosition() {
     setState({ selectedObject: null });
     processWalls();
     saveState();
+}
+
+function cleanMiterJoints() {
+    const nodeWallMap = new Map();
+    state.nodes.forEach(n => nodeWallMap.set(n, []));
+    state.walls.forEach(w => {
+        nodeWallMap.get(w.p1).push(w);
+        nodeWallMap.get(w.p2).push(w);
+    });
+
+    for (const [node, connectedWalls] of nodeWallMap.entries()) {
+        if (connectedWalls.length !== 2) continue;
+
+        const wall1 = connectedWalls[0];
+        const wall2 = connectedWalls[1];
+
+        const v1 = (wall1.p1 === node) ? { x: wall1.p2.x - node.x, y: wall1.p2.y - node.y } : { x: wall1.p1.x - node.x, y: wall1.p1.y - node.y };
+        const v2 = (wall2.p1 === node) ? { x: wall2.p2.x - node.x, y: wall2.p2.y - node.y } : { x: wall2.p1.x - node.x, y: wall2.p1.y - node.y };
+
+        const len1 = Math.hypot(v1.x, v1.y);
+        const len2 = Math.hypot(v2.x, v2.y);
+        if (len1 < 1 || len2 < 1) continue;
+        v1.x /= len1; v1.y /= len1;
+        v2.x /= len2; v2.y /= len2;
+
+        const dot = v1.x * v2.x + v1.y * v2.y;
+        if (Math.abs(dot) > 0.999) continue;
+        
+        const angle = Math.acos(dot);
+        const sinHalfAngle = Math.sin(angle / 2);
+
+        if (Math.abs(sinHalfAngle) < 0.1) continue;
+
+        const offset = (WALL_THICKNESS / 2) / sinHalfAngle;
+        
+        let bisector = { x: v1.x + v2.x, y: v1.y + v2.y };
+        const lenB = Math.hypot(bisector.x, bisector.y);
+        if (lenB < 0.1) continue;
+        bisector.x /= lenB; bisector.y /= lenB;
+
+        const newPoint = {
+            x: node.x + bisector.x * offset,
+            y: node.y + bisector.y * offset
+        };
+        
+        node.x = newPoint.x;
+        node.y = newPoint.y;
+    }
 }

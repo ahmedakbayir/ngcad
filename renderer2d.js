@@ -39,7 +39,6 @@ function drawDimension(p1, p2, isPreview = false) {
     ctx2d.restore();
 }
 
-
 function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     const { ctx2d } = dom;
     const { wallBorderColor, lineThickness } = state;
@@ -64,11 +63,24 @@ function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     const jamb1_end = { x: doorP1.x + nx * halfWall, y: doorP1.y + ny * halfWall };
     const jamb2_start = { x: doorP2.x - nx * halfWall, y: doorP2.y - ny * halfWall };
     const jamb2_end = { x: doorP2.x + nx * halfWall, y: doorP2.y + ny * halfWall };
-    
-    // Sadece kapı kasası (jamb) çizgilerini çiz
+
+    // Kapı kasalarını çiz
     ctx2d.beginPath();
     ctx2d.moveTo(jamb1_start.x, jamb1_start.y); ctx2d.lineTo(jamb1_end.x, jamb1_end.y);
     ctx2d.moveTo(jamb2_start.x, jamb2_start.y); ctx2d.lineTo(jamb2_end.x, jamb2_end.y);
+    ctx2d.stroke();
+
+    // Kapı panelini temsil eden iç çizgileri çiz
+    const insetRatio = 1 / 3;
+    const jamb_vec_x = jamb1_end.x - jamb1_start.x, jamb_vec_y = jamb1_end.y - jamb1_start.y;
+    const p_line1_start = { x: jamb1_start.x + jamb_vec_x * insetRatio, y: jamb1_start.y + jamb_vec_y * insetRatio };
+    const p_line1_end = { x: jamb2_start.x + jamb_vec_x * insetRatio, y: jamb2_start.y + jamb_vec_y * insetRatio };
+    const p_line2_start = { x: jamb1_start.x + jamb_vec_x * (1 - insetRatio), y: jamb1_start.y + jamb_vec_y * (1 - insetRatio) };
+    const p_line2_end = { x: jamb2_start.x + jamb_vec_x * (1 - insetRatio), y: jamb2_start.y + jamb_vec_y * (1 - insetRatio) };
+    
+    ctx2d.beginPath();
+    ctx2d.moveTo(p_line1_start.x, p_line1_start.y); ctx2d.lineTo(p_line1_end.x, p_line1_end.y);
+    ctx2d.moveTo(p_line2_start.x, p_line2_start.y); ctx2d.lineTo(p_line2_end.x, p_line2_end.y);
     ctx2d.stroke();
 }
 
@@ -269,20 +281,21 @@ export function draw2D() {
         ctx2d.strokeStyle = "#8ab4f8"; ctx2d.lineWidth = 2; ctx2d.setLineDash([6, 3]);
         if (currentMode === "drawRoom") {
             ctx2d.strokeRect(startPoint.x, startPoint.y, mousePos.x - startPoint.x, mousePos.y - startPoint.y);
-            const snappedX = Math.round(mousePos.x / gridOptions.spacing) * gridOptions.spacing;
-            const snappedY = Math.round(mousePos.y / gridOptions.spacing) * gridOptions.spacing;
+            const snappedX = mousePos.x;
+            const snappedY = mousePos.y;
             drawDimension(startPoint, { x: snappedX, y: startPoint.y }, true);
             drawDimension({ x: snappedX, y: startPoint.y }, { x: snappedX, y: snappedY }, true);
         } else if (currentMode === "drawWall") {
-            ctx2d.beginPath(); ctx2d.moveTo(startPoint.x, startPoint.y); ctx2d.lineTo(mousePos.x, mousePos.y); ctx2d.stroke();
-            let dimensionEndPoint = { x: mousePos.x, y: mousePos.y };
-            const dx = Math.abs(dimensionEndPoint.x - startPoint.x), dy = Math.abs(dimensionEndPoint.y - startPoint.y);
-            if (dx > dy) {
-                dimensionEndPoint.y = startPoint.y;
+            let finalPos = { x: mousePos.x, y: mousePos.y };
+            const dx = Math.abs(finalPos.x - startPoint.x);
+            const dy = Math.abs(finalPos.y - startPoint.y);
+            if(dx > dy) {
+                finalPos.y = startPoint.y;
             } else {
-                dimensionEndPoint.x = startPoint.x;
+                finalPos.x = startPoint.x;
             }
-            drawDimension(startPoint, dimensionEndPoint, true);
+            ctx2d.beginPath(); ctx2d.moveTo(startPoint.x, startPoint.y); ctx2d.lineTo(finalPos.x, finalPos.y); ctx2d.stroke();
+            drawDimension(startPoint, finalPos, true);
         }
         ctx2d.setLineDash([]);
     }
