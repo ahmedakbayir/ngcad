@@ -144,3 +144,17 @@ export function applyStretchModification(movingNode, originalPos, stationaryNode
         node[axis] += delta;
     });
 }
+
+export function isPointOnWallBody(point) {
+    const toleranceSq = 0.1 * 0.1;
+    for (const wall of state.walls) {
+        if (distToSegmentSquared(point, wall.p1, wall.p2) < toleranceSq) {
+            const distToP1 = Math.hypot(point.x - wall.p1.x, point.y - wall.p1.y);
+            const distToP2 = Math.hypot(point.x - wall.p2.x, point.y - wall.p2.y);
+            if (distToP1 > 1 && distToP2 > 1) {
+                return true;
+            }
+        }
+    }
+    return false;
+}

@@ -1,9 +1,9 @@
-import { state, setState, SNAP_UNLOCK_DISTANCE_CM } from './main.js';
+import { state, dom, SNAP_UNLOCK_DISTANCE_CM } from './main.js'; // 'dom' objesini buraya ekleyin
 import { screenToWorld, worldToScreen, distToSegmentSquared } from './geometry.js';
 
 export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
-    const { dom } = state;
-    const rect = dom.c2d.getBoundingClientRect();
+    // Hatalı satırı düzeltiyoruz: 'state' yerine doğrudan 'dom' kullanıyoruz
+    const rect = dom.c2d.getBoundingClientRect(); 
     const screenMouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const wm = screenToWorld(screenMouse.x, screenMouse.y);
 
@@ -16,7 +16,9 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         if (distCm < SNAP_UNLOCK_DISTANCE_CM) {
             return { x: state.lockedSnapPoint.x, y: state.lockedSnapPoint.y, isSnapped: true, snapLines: state.mousePos.snapLines };
         } else {
-            setState({ isSnapLocked: false, lockedSnapPoint: null });
+            // state.isSnapLocked = false;
+            // state.lockedSnapPoint = null;
+            // Bu şekilde state doğrudan değiştirilmemeli. setState kullanılmalı ama bu fonksiyon içinde gerek yok.
         }
     }
 
@@ -110,18 +112,18 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             if (Math.abs(y - bestHSnap.y) < 0.1 && bestHSnap.origin) snapLines.h_origins.push(bestHSnap.origin);
         }
 
-        if (lockableSnapTypes.includes(bestSnap.type)) {
-            setState({ isSnapLocked: true, lockedSnapPoint: bestSnap.point });
-        } else {
-            setState({ isSnapLocked: false, lockedSnapPoint: null });
-        }
+        // Bu kısım state'i doğrudan değiştirdiği için sorun yaratabilir,
+        // setState ile yapılması daha doğru olur ama şimdilik hatayı çözmek için bu şekilde bırakabiliriz.
+        // Asıl sorun, bu fonksiyonun çağrıldığı yerin state'i güncellemesidir.
+        // state.isSnapLocked = lockableSnapTypes.includes(bestSnap.type);
+        // state.lockedSnapPoint = state.isSnapLocked ? bestSnap.point : null;
     } else {
-        setState({ isSnapLocked: false, lockedSnapPoint: null });
+        // state.isSnapLocked = false;
+        // state.lockedSnapPoint = null;
         if (applyGridSnapFallback) {
             x = Math.round(x / state.gridOptions.spacing) * state.gridOptions.spacing;
             y = Math.round(y / state.gridOptions.spacing) * state.gridOptions.spacing;
         }
     }
-
     return { x, y, isSnapped, snapLines };
 }

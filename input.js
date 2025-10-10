@@ -1,7 +1,7 @@
 import { state, dom, setState, setMode, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, areCollinear, getOrCreateNode, isPointOnWallBody } from './geometry.js';
-import { processWalls, splitWallAtMousePosition } from './wall-processor.js';
+import { processWalls, splitWallAtMousePosition, mergeNode } from './wall-processor.js';
 import { saveState, undo, redo, restoreState } from './history.js';
 import { showRoomNamePopup, cancelLengthEdit, startLengthEdit, positionLengthInput } from './ui.js';
 import { update3DScene } from './scene3d.js';
@@ -274,7 +274,7 @@ function onPointerMove(e) {
         if (state.isEditingLength) positionLengthInput();
         return;
     }
-    
+
     if (state.isDragging && !state.aDragOccurred) {
         const distSq = (e.clientX - state.dragStartScreen.x) ** 2 + (e.clientY - state.dragStartScreen.y) ** 2;
         if (distSq > 5 * 5) {
@@ -299,14 +299,66 @@ function onPointerMove(e) {
                 nodeToMove.y = snappedPos.y;
             }
         } else if (state.selectedObject.type === "wall" && state.selectedObject.handle === "body") {
-            // ... (duvar gövdesiyle taşıma mantığı)
+            const rect = dom.c2d.getBoundingClientRect();
+            const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+
+            const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+            const nodesToMove = new Set();
+            wallsToMove.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
+
+            let totalDelta = { x: unsnappedPos.x - state.initialDragPoint.x, y: unsnappedPos.y - state.initialDragPoint.y };
+
+            const wallDx = state.dragWallInitialVector.dx;
+            const wallDy = state.dragWallInitialVector.dy;
+            let normalVec = { x: -wallDy, y: wallDx };
+            const len = Math.hypot(normalVec.x, normalVec.y);
+            if (len > 0.1) { normalVec.x /= len; normalVec.y /= len; }
+            const projectedDistance = totalDelta.x * normalVec.x + totalDelta.y * normalVec.y;
+            totalDelta = { x: projectedDistance * normalVec.x, y: projectedDistance * normalVec.y };
+            
+            nodesToMove.forEach((node) => {
+                const originalPos = state.preDragNodeStates.get(node);
+                if (originalPos) {
+                    node.x = originalPos.x + totalDelta.x;
+                    node.y = originalPos.y + totalDelta.y;
+                }
+            });
+
         } else if (state.selectedObject.type === "door") {
-            // ... (kapı taşıma mantığı)
+            const door = state.selectedObject.object;
+            let closestWall = door.wall, minDistSq = Infinity;
+            const bodyHitTolerance = WALL_THICKNESS * 2;
+            for (const w of state.walls) {
+                const d = distToSegmentSquared(snappedPos, w.p1, w.p2);
+                if (d < bodyHitTolerance ** 2 && d < minDistSq) {
+                    minDistSq = d;
+                    closestWall = w;
+                }
+            }
+            if (closestWall) {
+                const placement = getDoorPlacement(closestWall, snappedPos);
+                if (placement) {
+                    const tempDoor = { ...placement, object: door };
+                    if (isSpaceForDoor(tempDoor)) {
+                        door.wall = closestWall;
+                        door.pos = placement.pos;
+                        door.width = placement.width;
+                    }
+                }
+            }
         }
-        
-        // Kapı pozisyonlarını güncelle
+
         if (state.affectedWalls.length > 0) {
-            // ... (orijinal koddaki kapı pozisyonu güncelleme mantığı)
+            state.affectedWalls.forEach((wall) => {
+                const originalState = state.preDragWallStates.get(wall);
+                if (originalState && originalState.doors) {
+                    const newLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                    originalState.doors.forEach((doorState) => {
+                        if (originalState.isP1Stationary) doorState.doorRef.pos = doorState.distFromP1;
+                        else doorState.doorRef.pos = newLength - doorState.distFromP2;
+                    });
+                }
+            });
         }
         update3DScene();
     }
@@ -314,8 +366,14 @@ function onPointerMove(e) {
 
 function onPointerUp(e) {
     setState({ isSnapLocked: false, lockedSnapPoint: null });
-    
+
     if (state.aDragOccurred) {
+        if (state.selectedObject?.type === "wall") {
+            const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+            const nodesToMerge = new Set();
+            wallsToProcess.forEach((w) => { nodesToMerge.add(w.p1); nodesToMerge.add(w.p2); });
+            nodesToMerge.forEach((node) => mergeNode(node));
+        }
         processWalls();
         saveState();
     }
@@ -342,16 +400,16 @@ function onWheel(e) {
     const rect = dom.c2d.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
+
     const before = screenToWorld(mouseX, mouseY);
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
     const newZoom = state.zoom * factor;
-    
+
     const after = {
         x: (mouseX - state.panOffset.x) / newZoom,
         y: (mouseY - state.panOffset.y) / newZoom
     };
-    
+
     const newPanOffset = {
         x: state.panOffset.x + (after.x - before.x) * newZoom,
         y: state.panOffset.y + (after.y - before.y) * newZoom,

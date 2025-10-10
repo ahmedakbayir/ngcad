@@ -1,5 +1,5 @@
 import { draw2D } from './renderer2d.js';
-import { renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene } from './scene3d.js';
+import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d } from './scene3d.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
@@ -167,13 +167,14 @@ function animate() {
     draw2D();
     if(dom.mainContainer.classList.contains('show-3d')) {
         controls3d.update();
-        renderer3d.render(scene3d, camera3d);
+        renderer3d.render(scene3d, camera3d); // Doğru parametrelerle çağır
     }
 }
 
 // ====== BAŞLATMA ======
 function initialize() {
     initializeSettings();
+    init3D(dom.c3d);
     setupUIListeners();
     setupInputListeners();
     setupFileIOListeners();

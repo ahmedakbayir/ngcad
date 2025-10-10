@@ -3,6 +3,23 @@ import { distToSegmentSquared, getOrCreateNode, getLineIntersection, areCollinea
 import { update3DScene } from './scene3d.js';
 import { saveState } from './history.js';
 
+export function mergeNode(node) {
+    const md = 14 / state.zoom;
+    for (const t of state.nodes) {
+        if (t === node) continue;
+        if (Math.hypot(node.x - t.x, node.y - t.y) < md) {
+            state.walls.forEach((w) => {
+                if (w.p1 === node) w.p1 = t;
+                if (w.p2 === node) w.p2 = t;
+            });
+            const idx = state.nodes.indexOf(node);
+            if (idx !== -1) state.nodes.splice(idx, 1);
+            return t;
+        }
+    }
+    return null;
+}
+
 function unifyNearbyNodes(tolerance) {
     let changed = true;
     while (changed) {
