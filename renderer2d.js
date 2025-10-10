@@ -1,22 +1,31 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
-import { screenToWorld, distToSegmentSquared } from './geometry.js';
+import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
+import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
 
 function drawDimension(p1, p2, isPreview = false) {
     const { ctx2d } = dom;
     const { zoom } = state;
-    
-    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
     const lengthCm = Math.hypot(dx, dy);
     if (lengthCm < 1) return;
-    
-    const displayText = `${Math.round(lengthCm)}`;
-    const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
-    let ang = Math.atan2(dy, dx);
-    const epsilon = 0.001;
 
-    if (Math.abs(dx) < epsilon) {
-        ang = -Math.PI / 2;
-    } else if (Math.abs(ang) > Math.PI / 2) {
+    const nx = -dy / lengthCm;
+    const ny = dx / lengthCm;
+
+    const offset = 20 / zoom;
+
+    let midX = (p1.x + p2.x) / 2;
+    let midY = (p1.y + p2.y) / 2;
+    
+    midX += nx * offset;
+    midY += ny * offset;
+
+    const displayText = `${Math.round(lengthCm)}`;
+    
+    let ang = Math.atan2(dy, dx);
+    if (Math.abs(ang) > Math.PI / 2) {
         ang += Math.PI;
     }
 
@@ -26,12 +35,13 @@ function drawDimension(p1, p2, isPreview = false) {
 
     const baseFontSize = 14;
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
-    const yOffset = -8 / zoom;
+    const yOffset = 0;
 
     ctx2d.font = `300 ${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = isPreview ? "#8ab4f8" : "#ffffff";
     ctx2d.textAlign = "center";
-    ctx2d.textBaseline = "bottom";
+    ctx2d.textBaseline = "middle";
+
     ctx2d.fillText(displayText, 0, yOffset);
     ctx2d.restore();
 }
@@ -133,7 +143,7 @@ export function draw2D() {
         panOffset, zoom, rooms, roomFillColor, walls, doors, selectedObject, 
         selectedGroup, wallBorderColor, lineThickness, showDimensions, 
         affectedWalls, startPoint, currentMode, mousePos, gridOptions,
-        isStretchDragging, stretchWallOrigin, isPanning, isDragging
+        isStretchDragging, stretchWallOrigin, isDragging, isPanning
     } = state;
 
     ctx2d.fillStyle = BG;
@@ -144,6 +154,30 @@ export function draw2D() {
     ctx2d.lineWidth = 1 / zoom;
     
     drawGrid();
+
+    const wallPx = WALL_THICKNESS;
+    ctx2d.lineJoin = "miter"; ctx2d.miterLimit = 4; ctx2d.lineCap = "square";
+
+    ctx2d.fillStyle = "#4a4a4f";
+    const epsilon = 0.1;
+    walls.forEach(wall => {
+        const dx = wall.p2.x - wall.p1.x;
+        const dy = wall.p2.y - wall.p1.y;
+        if (Math.abs(dx) > epsilon && Math.abs(dy) > epsilon) {
+            const length = Math.hypot(dx, dy);
+            if (length < 1) return;
+            const nx = -dy / length;
+            const ny = dx / length;
+            const halfThick = wallPx / 2;
+            ctx2d.beginPath();
+            ctx2d.moveTo(wall.p1.x + nx * halfThick, wall.p1.y + ny * halfThick);
+            ctx2d.lineTo(wall.p2.x + nx * halfThick, wall.p2.y + ny * halfThick);
+            ctx2d.lineTo(wall.p2.x - nx * halfThick, wall.p2.y - ny * halfThick);
+            ctx2d.lineTo(wall.p1.x - nx * halfThick, wall.p1.y - ny * halfThick);
+            ctx2d.closePath();
+            ctx2d.fill();
+        }
+    });
 
     if (rooms.length > 0) {
         ctx2d.strokeStyle = "rgba(138, 180, 248, 0.3)";
@@ -161,34 +195,23 @@ export function draw2D() {
         });
     }
 
-    const wallPx = WALL_THICKNESS;
-    ctx2d.lineJoin = "miter"; ctx2d.miterLimit = 4; ctx2d.lineCap = "square";
     const unselectedSegments = [], selectedSegments = [];
-
     walls.forEach((w) => {
         const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w);
         const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y);
         if (wallLen < 0.1) return;
-        
         const wallDoors = doors.filter((d) => d.wall === w).sort((a, b) => a.pos - b.pos);
         let currentSegments = []; let lastPos = 0;
-        
         wallDoors.forEach((door) => {
             const doorStart = door.pos - door.width / 2;
             if (doorStart > lastPos) currentSegments.push({ start: lastPos, end: doorStart });
             lastPos = door.pos + door.width / 2;
         });
-        
         if (lastPos < wallLen) currentSegments.push({ start: lastPos, end: wallLen });
-        
         const dx = (w.p2.x - w.p1.x) / wallLen, dy = (w.p2.y - w.p1.y) / wallLen;
-        const halfWallPx = wallPx / 2;
-        
         currentSegments.forEach((seg) => {
-            let p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
-            let p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
-            if (seg.start > 0) { p1.x += dx * halfWallPx; p1.y += dy * halfWallPx; }
-            if (seg.end < wallLen) { p2.x -= dx * halfWallPx; p2.y -= dy * halfWallPx; }
+            const p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
+            const p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
             const segmentData = { p1, p2 };
             if (isSelected) selectedSegments.push(segmentData); else unselectedSegments.push(segmentData);
         });
@@ -212,17 +235,14 @@ export function draw2D() {
         ctx2d.textAlign = "center";
         rooms.forEach((room) => {
             if (!room.center || !Array.isArray(room.center) || room.center.length < 2) return;
-            const baseNameFontSize = 16;
-            const baseAreaFontSize = 12;
+            const baseNameFontSize = 16, baseAreaFontSize = 12;
             const baseNameYOffset = showDimensions ? 8 : 0;
             const nameYOffset = baseNameYOffset / zoom;
-
             ctx2d.fillStyle = room.name === 'TANIMSIZ' ? '#e57373' : '#e8eaed';
             let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
             ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
             ctx2d.textBaseline = showDimensions ? "bottom" : "middle";
             ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
-
             if (showDimensions) {
                 ctx2d.fillStyle = "#e8eaed";
                 let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
@@ -238,22 +258,43 @@ export function draw2D() {
         const isSelected = selectedObject?.type === "door" && selectedObject.object === door;
         drawDoorSymbol(door, false, isSelected);
     });
-    
-    // ... (Kapı çizim önizlemesi, orijinal koddaki `drawDoor` modundaki mantık)
 
-    if (showDimensions) {
-        walls.forEach((w) => {
-            const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w);
-            drawDimension(w.p1, w.p2, isSelected);
+    if (currentMode === "drawDoor" && !isPanning && !isDragging) {
+        const doorsToPreview = [];
+        const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
+
+        if (hoveredNode) {
+            const connectedWalls = walls.filter(w => w.p1 === hoveredNode || w.p2 === hoveredNode);
+            connectedWalls.forEach(wall => {
+                const newDoor = getDoorPlacementAtNode(wall, hoveredNode);
+                if (newDoor) doorsToPreview.push(newDoor);
+            });
+        } else {
+            let closestWall = null, minDistSq = Infinity;
+            const bodyHitToleranceSq = (WALL_THICKNESS * 1.5) ** 2;
+            for (const w of [...walls].reverse()) {
+                const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
+                if (distSq < bodyHitToleranceSq && distSq < minDistSq) {
+                    minDistSq = distSq;
+                    closestWall = w;
+                }
+            }
+            if (closestWall) {
+                const previewDoor = getDoorPlacement(closestWall, mousePos);
+                if (previewDoor) doorsToPreview.push(previewDoor);
+            }
+        }
+
+        doorsToPreview.forEach(door => {
+            if (isSpaceForDoor(door, hoveredNode)) {
+                drawDoorSymbol(door, true);
+            }
         });
-    } else if (!isDragging && selectedObject?.type === "wall") {
-        drawDimension(selectedObject.object.p1, selectedObject.object.p2, true);
     }
-    if (isDragging && affectedWalls.length > 0) {
-        affectedWalls.forEach((wall) => {
-            drawDimension(wall.p1, wall.p2, true);
-        });
-    }
+
+    if (showDimensions) { walls.forEach((w) => { const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w); drawDimension(w.p1, w.p2, isSelected); }); }
+    else if (!isDragging && selectedObject?.type === "wall") { drawDimension(selectedObject.object.p1, selectedObject.object.p2, true); }
+    if (isDragging && affectedWalls.length > 0) { affectedWalls.forEach((wall) => { drawDimension(wall.p1, wall.p2, true); }); }
 
     if (selectedObject?.type === "wall" && !isDragging) {
         const w = selectedObject.object;
