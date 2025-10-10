@@ -129,23 +129,24 @@ export const dom = {
 // ====== MOD KONTROL ======
 export function setMode(mode) {
     if (mode !== "select") {
-        state.lastUsedMode = mode;
+        setState({ lastUsedMode: mode });
     }
-    state.currentMode = state.currentMode === mode && mode !== "select" ? "select" : mode;
-    
+    const newMode = state.currentMode === mode && mode !== "select" ? "select" : mode;
     setState({
+        currentMode: newMode,
         startPoint: null,
         selectedObject: null,
         selectedGroup: [],
         isDragging: false,
     });
-    
-    dom.bSel.classList.toggle("active", state.currentMode === "select");
-    dom.bWall.classList.toggle("active", state.currentMode === "drawWall");
-    dom.bRoom.classList.toggle("active", state.currentMode === "drawRoom");
-    dom.bDoor.classList.toggle("active", state.currentMode === "drawDoor");
-    dom.p2d.className = `panel ${state.currentMode}-mode`;
+
+    dom.bSel.classList.toggle("active", newMode === "select");
+    dom.bWall.classList.toggle("active", newMode === "drawWall");
+    dom.bRoom.classList.toggle("active", newMode === "drawRoom");
+    dom.bDoor.classList.toggle("active", newMode === "drawDoor");
+    dom.p2d.className = `panel ${newMode}-mode`;
 }
+
 
 // ====== CANVAS BOYUTLANDIRMA VE ANA DÖNGÜ ======
 export function resize() {
@@ -154,7 +155,7 @@ export function resize() {
     dom.c2d.height = r2d.height;
     
     const r3d = dom.p3d.getBoundingClientRect();
-    if (r3d.width > 0 && r3d.height > 0) {
+    if (r3d.width > 0 && r3d.height > 0 && camera3d && renderer3d) {
         camera3d.aspect = r3d.width / r3d.height;
         camera3d.updateProjectionMatrix();
         renderer3d.setPixelRatio(window.devicePixelRatio);
@@ -167,14 +168,14 @@ function animate() {
     draw2D();
     if(dom.mainContainer.classList.contains('show-3d')) {
         controls3d.update();
-        renderer3d.render(scene3d, camera3d); // Doğru parametrelerle çağır
+        renderer3d.render(scene3d, camera3d);
     }
 }
 
 // ====== BAŞLATMA ======
 function initialize() {
-    initializeSettings();
     init3D(dom.c3d);
+    initializeSettings();
     setupUIListeners();
     setupInputListeners();
     setupFileIOListeners();

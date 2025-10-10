@@ -1,28 +1,25 @@
-import { state, dom, SNAP_UNLOCK_DISTANCE_CM } from './main.js'; // 'dom' objesini buraya ekleyin
+import { state, dom, setState, SNAP_UNLOCK_DISTANCE_CM } from './main.js';
 import { screenToWorld, worldToScreen, distToSegmentSquared } from './geometry.js';
 
 export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
-    // Hatalı satırı düzeltiyoruz: 'state' yerine doğrudan 'dom' kullanıyoruz
-    const rect = dom.c2d.getBoundingClientRect(); 
+    const rect = dom.c2d.getBoundingClientRect();
     const screenMouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const wm = screenToWorld(screenMouse.x, screenMouse.y);
 
     if (state.currentMode === 'select' && !state.isDragging) {
-        return { x: wm.x, y: wm.y, isSnapped: false, snapLines: { h_origins: [], v_origins: [] } };
+        return { x: wm.x, y: wm.y, isSnapped: false, snapLines: { h_origins: [], v_origins: [] }, isLockable: false };
     }
 
     if (state.isSnapLocked && state.lockedSnapPoint) {
         const distCm = Math.hypot(wm.x - state.lockedSnapPoint.x, wm.y - state.lockedSnapPoint.y);
         if (distCm < SNAP_UNLOCK_DISTANCE_CM) {
-            return { x: state.lockedSnapPoint.x, y: state.lockedSnapPoint.y, isSnapped: true, snapLines: state.mousePos.snapLines };
+            return { ...state.lockedSnapPoint, isSnapped: true, snapLines: state.mousePos.snapLines, isLockable: true };
         } else {
-            // state.isSnapLocked = false;
-            // state.lockedSnapPoint = null;
-            // Bu şekilde state doğrudan değiştirilmemeli. setState kullanılmalı ama bu fonksiyon içinde gerek yok.
+             setState({ isSnapLocked: false, lockedSnapPoint: null });
         }
     }
 
-    let x = wm.x, y = wm.y, isSnapped = false;
+    let x = wm.x, y = wm.y, isSnapped = false, isLockable = false;
     let snapLines = { h_origins: [], v_origins: [] };
     const SNAP_RADIUS_PIXELS = 35;
     const lockableSnapTypes = ['INTERSECTION', 'ENDPOINT'];
@@ -67,9 +64,9 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         });
     }
 
-    const uniqueExtensionPoints = Array.from(new Set(extensionPoints));
+    const uniqueExtensionPoints = [...new Set(extensionPoints.filter(p => p !== draggedNode))];
+
     uniqueExtensionPoints.forEach(p => {
-        if (p === draggedNode) return;
         const dx = Math.abs(wm.x - p.x) * state.zoom;
         if (dx < SNAP_RADIUS_PIXELS && dx < bestVSnap.dist) {
             bestVSnap = { x: p.x, dist: dx, origin: p };
@@ -106,24 +103,18 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         x = bestSnap.point.x;
         y = bestSnap.point.y;
         isSnapped = true;
+        isLockable = lockableSnapTypes.includes(bestSnap.type);
 
         if (bestSnap.type === 'INTERSECTION' || bestSnap.type === 'PROJECTION') {
-            if (Math.abs(x - bestVSnap.x) < 0.1 && bestVSnap.origin) snapLines.v_origins.push(bestVSnap.origin);
-            if (Math.abs(y - bestHSnap.y) < 0.1 && bestHSnap.origin) snapLines.h_origins.push(bestHSnap.origin);
+            if (Math.abs(x - (bestVSnap.x || x)) < 0.1 && bestVSnap.origin) snapLines.v_origins.push(bestVSnap.origin);
+            if (Math.abs(y - (bestHSnap.y || y)) < 0.1 && bestHSnap.origin) snapLines.h_origins.push(bestHSnap.origin);
         }
-
-        // Bu kısım state'i doğrudan değiştirdiği için sorun yaratabilir,
-        // setState ile yapılması daha doğru olur ama şimdilik hatayı çözmek için bu şekilde bırakabiliriz.
-        // Asıl sorun, bu fonksiyonun çağrıldığı yerin state'i güncellemesidir.
-        // state.isSnapLocked = lockableSnapTypes.includes(bestSnap.type);
-        // state.lockedSnapPoint = state.isSnapLocked ? bestSnap.point : null;
     } else {
-        // state.isSnapLocked = false;
-        // state.lockedSnapPoint = null;
-        if (applyGridSnapFallback) {
+        if (applyGridSnapFallback && state.gridOptions.visible) {
             x = Math.round(x / state.gridOptions.spacing) * state.gridOptions.spacing;
             y = Math.round(y / state.gridOptions.spacing) * state.gridOptions.spacing;
         }
     }
-    return { x, y, isSnapped, snapLines };
+    
+    return { x, y, isSnapped, snapLines, isLockable, point: bestSnap ? bestSnap.point : null };
 }

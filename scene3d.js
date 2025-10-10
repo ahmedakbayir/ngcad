@@ -2,11 +2,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { state, WALL_HEIGHT, WALL_THICKNESS, DOOR_HEIGHT } from "./main.js";
 
-// Değişkenleri burada tanımla ama henüz değer atama
 let scene, camera, renderer, controls;
 let sceneObjects, doorMaterial;
 
-// Bu fonksiyon main.js tarafından çağrılacak
 export function init3D(canvasElement) {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1e1f20);
@@ -14,7 +12,6 @@ export function init3D(canvasElement) {
     camera = new THREE.PerspectiveCamera(60, 1, 0.1, 10000);
     camera.position.set(1500, 1800, 1500);
 
-    // Renderer'ı burada, canvas hazır olduğunda oluştur
     renderer = new THREE.WebGLRenderer({
         antialias: true,
         canvas: canvasElement,
@@ -33,11 +30,9 @@ export function init3D(canvasElement) {
     doorMaterial = new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.8 });
 }
 
-// Dışa aktarılacak referansları güncelle
 export { scene, camera, renderer, controls };
 
 function createWallSegmentMesh(p1, p2, material) {
-    // Bu fonksiyonun içeriği aynı kalıyor...
     const wallLength = Math.hypot(p2.x - p1.x, p2.y - p1.y);
     if (wallLength < 1) return null;
 
@@ -52,9 +47,10 @@ function createWallSegmentMesh(p1, p2, material) {
 }
 
 function createDoorMesh(door) {
-    // Bu fonksiyonun içeriği aynı kalıyor...
     const wall = door.wall;
+    if (!wall) return null;
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    if (wallLen < 0.1) return null;
     const dx = (wall.p2.x - wall.p1.x) / wallLen;
     const dy = (wall.p2.y - wall.p1.y) / wallLen;
     const doorCenterPos = { x: wall.p1.x + dx * door.pos, y: wall.p1.y + dy * door.pos };
@@ -67,9 +63,10 @@ function createDoorMesh(door) {
 }
 
 function createLintelMesh(door, material) {
-    // Bu fonksiyonun içeriği aynı kalıyor...
     const wall = door.wall;
+    if (!wall) return null;
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+     if (wallLen < 0.1) return null;
     const dx = (wall.p2.x - wall.p1.x) / wallLen;
     const dy = (wall.p2.y - wall.p1.y) / wallLen;
     const lintelHeight = WALL_HEIGHT - DOOR_HEIGHT;
@@ -84,11 +81,11 @@ function createLintelMesh(door, material) {
 }
 
 export function update3DScene() {
-    // Bu fonksiyonun içeriği aynı kalıyor...
-    const { mainContainer } = document.getElementById("main-container"); // dom objesi olmadan doğrudan erişim
     if (!document.getElementById("main-container").classList.contains('show-3d')) return;
 
+    if (!sceneObjects) return;
     sceneObjects.clear();
+    
     const { walls, doors, wallBorderColor } = state;
     const wallMaterial = new THREE.MeshStandardMaterial({ color: wallBorderColor });
 
@@ -113,12 +110,14 @@ export function update3DScene() {
             if (segMesh) sceneObjects.add(segMesh);
         });
     });
+
     doors.forEach(door => {
         const doorMesh = createDoorMesh(door);
         if (doorMesh) sceneObjects.add(doorMesh);
         const lintelMesh = createLintelMesh(door, wallMaterial);
         if (lintelMesh) sceneObjects.add(lintelMesh);
     });
+
     if (sceneObjects.children.length > 0) {
         const box = new THREE.Box3().setFromObject(sceneObjects);
         const center = new THREE.Vector3();
