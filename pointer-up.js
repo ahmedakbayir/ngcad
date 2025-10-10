@@ -59,8 +59,16 @@ export function onPointerUp(e) {
         if (state.selectedObject?.type === "wall") {
             const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
             const nodesToMerge = new Set();
-            wallsToProcess.forEach((w) => { nodesToMerge.add(w.p1); nodesToMerge.add(w.p2); });
-            nodesToMerge.forEach((node) => mergeNode(node));
+            
+            if (state.selectedObject.handle !== 'body' && state.affectedWalls) {
+                // Sadece sürüklenen noktayı birleştirmeyi dene
+                const nodeToMerge = state.selectedObject.object[state.selectedObject.handle];
+                mergeNode(nodeToMerge);
+            } else { 
+                // Gövde sürüklemesi için eski mantık
+                wallsToProcess.forEach((w) => { nodesToMerge.add(w.p1); nodesToMerge.add(w.p2); });
+                nodesToMerge.forEach((node) => mergeNode(node));
+            }
         }
         processWalls();
         saveState();
@@ -81,7 +89,6 @@ export function onPointerUp(e) {
         preDragNodeStates: new Map(),
         dragWallInitialVector: null,
         selectedObject: didClick ? state.selectedObject : null,
-        dragNodeBehaviors: null,
         dragOriginalNodes: null,
     });
 }

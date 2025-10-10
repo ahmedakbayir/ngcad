@@ -60,7 +60,7 @@ export let state = {
     preDragWallStates: new Map(),
     preDragNodeStates: new Map(),
     dragWallInitialVector: null,
-    dragNodeBehaviors: null,
+    dragAxis: null, // EKLENDİ: Sürükleme eksenini kilitler ('x', 'y' veya null)
     dragOriginalNodes: null,
     roomToEdit: null,
     clickOutsideRoomPopupListener: null,

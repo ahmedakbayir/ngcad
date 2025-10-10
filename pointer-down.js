@@ -27,7 +27,7 @@ export function onPointerDown(e) {
             return;
         }
         const selectedObject = getObjectAtPoint(pos);
-        setState({ selectedObject, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map() });
+        setState({ selectedObject, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(), dragAxis: null });
         
         if (selectedObject) {
             let startPointForDragging;
@@ -46,16 +46,43 @@ export function onPointerDown(e) {
             });
 
             if (selectedObject.type === "wall") {
+                // --- DÜĞÜM NOKTASI SÜRÜKLEME ---
                 if (selectedObject.handle !== "body") {
                     const nodeToDrag = selectedObject.object[selectedObject.handle];
+                    const draggedWall = selectedObject.object;
+                    
+                    const draggedWallVec = { x: draggedWall.p2.x - draggedWall.p1.x, y: draggedWall.p2.y - draggedWall.p1.y };
+                    const isDraggedWallHorizontal = Math.abs(draggedWallVec.y) < 1; // Toleranslı kontrol
+                    const isDraggedWallVertical = Math.abs(draggedWallVec.x) < 1;   // Toleranslı kontrol
+
+                    let dragAxis = null;
+                    // KURAL: Eğer sürüklenen duvar YATAY ise, hareket DİKEY (Y) eksende kilitlenmelidir.
+                    if (isDraggedWallHorizontal) {
+                        dragAxis = 'y';
+                    // KURAL: Eğer sürüklenen duvar DİKEY ise, hareket YATAY (X) eksende kilitlenmelidir.
+                    } else if (isDraggedWallVertical) {
+                        dragAxis = 'x';
+                    }
+                    // Açılı duvarlar için kilit yok (serbest hareket). dragAxis null kalır.
+                    setState({ dragAxis });
+
                     const affectedWalls = state.walls.filter((w) => w.p1 === nodeToDrag || w.p2 === nodeToDrag);
                     setState({ affectedWalls });
                     affectedWalls.forEach((wall) => {
                         const wallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                         if (wallLength > 0.1) {
-                            state.preDragWallStates.set(wall, { isP1Stationary: wall.p2 === nodeToDrag, doors: state.doors.filter((d) => d.wall === wall).map((door) => ({ doorRef: door, distFromP1: door.pos, distFromP2: wallLength - door.pos })) });
+                            state.preDragWallStates.set(wall, { 
+                                isP1Stationary: wall.p2 === nodeToDrag, 
+                                doors: state.doors.filter((d) => d.wall === wall).map((door) => ({ 
+                                    doorRef: door, 
+                                    distFromP1: door.pos, 
+                                    distFromP2: wallLength - door.pos 
+                                })) 
+                            });
                         }
                     });
+
+                // --- GÖVDE SÜRÜKLEME ---
                 } else { 
                     if (e.ctrlKey && e.shiftKey) {
                         setState({ selectedGroup: findCollinearChain(selectedObject.object) });
@@ -68,17 +95,6 @@ export function onPointerDown(e) {
 
                     const wall = selectedObject.object;
                     setState({ dragWallInitialVector: { dx: wall.p2.x - wall.p1.x, dy: wall.p2.y - wall.p1.y } });
-
-                    const affectedWalls = state.walls.filter((w) => !wallsBeingMoved.includes(w) && (nodesBeingMoved.has(w.p1) || nodesBeingMoved.has(w.p2)));
-                     setState({ affectedWalls });
-                    
-                    affectedWalls.forEach((wall) => {
-                        const wallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                        const isP1Stationary = !nodesBeingMoved.has(wall.p1);
-                        if (wallLength > 0.1) {
-                            state.preDragWallStates.set(wall, { isP1Stationary, doors: state.doors.filter((d) => d.wall === wall).map((door) => ({ doorRef: door, distFromP1: door.pos, distFromP2: wallLength - door.pos })) });
-                        }
-                    });
                     
                     if (e.altKey) {
                          setState({ isStretchDragging: true, stretchMode: "alt", stretchWallOrigin: { p1: { ...selectedObject.object.p1 }, p2: { ...selectedObject.object.p2 } }});
@@ -86,11 +102,22 @@ export function onPointerDown(e) {
                          setState({ isStretchDragging: true, stretchMode: "shift", stretchWallOrigin: { p1: { ...selectedObject.object.p1 }, p2: { ...selectedObject.object.p2 } }});
                     } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
                         const wallToMove = selectedObject.object;
-                        const p1 = wallToMove.p1, p2 = wallToMove.p2;
-                        const p1IsShared = state.walls.some((w) => w !== wallToMove && (w.p1 === p1 || w.p2 === p1));
-                        if (p1IsShared) { const newP1 = { x: p1.x, y: p1.y }; state.nodes.push(newP1); wallToMove.p1 = newP1; }
-                        const p2IsShared = state.walls.some((w) => w !== wallToMove && (w.p1 === p2 || w.p2 === p2));
-                        if (p2IsShared) { const newP2 = { x: p2.x, y: p2.y }; state.nodes.push(newP2); wallToMove.p2 = newP2; }
+                        const p1 = wallToMove.p1;
+                        const p1Connections = state.walls.filter(w => w.p1 === p1 || w.p2 === p1);
+                        if (p1Connections.length > 1) {
+                            const newP1 = { x: p1.x, y: p1.y };
+                            state.nodes.push(newP1);
+                            wallToMove.p1 = newP1;
+                            state.preDragNodeStates.set(newP1, { x: p1.x, y: p1.y });
+                        }
+                        const p2 = wallToMove.p2;
+                        const p2Connections = state.walls.filter(w => w.p1 === p2 || w.p2 === p2);
+                        if (p2Connections.length > 1) {
+                            const newP2 = { x: p2.x, y: p2.y };
+                            state.nodes.push(newP2);
+                            wallToMove.p2 = newP2;
+                            state.preDragNodeStates.set(newP2, { x: p2.x, y: p2.y });
+                        }
                     }
                 }
             }
@@ -108,7 +135,8 @@ export function onPointerDown(e) {
                 }
             });
         } else {
-            let closestWall = null, minDistSq = Infinity;
+            let closestWall = null;
+            let minDistSq = Infinity;
             const bodyHitTolerance = WALL_THICKNESS;
             for (const w of [...state.walls].reverse()) {
                 const p1 = w.p1, p2 = w.p2;
