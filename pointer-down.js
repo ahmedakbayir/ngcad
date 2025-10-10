@@ -1,16 +1,13 @@
 import { state, dom, setState, setMode, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
-import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared } from './geometry.js';
+import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, wallExists } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
 import { getObjectAtPoint, getDoorPlacement, getDoorPlacementAtNode, isSpaceForDoor } from './actions.js';
 
-function wallExists(p1, p2) {
-    return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
-}
-
 export function onPointerDown(e) {
+    // ... (dosyanın geri kalanı öncekiyle aynı)
     if (dom.settingsPopup.contains(e.target) || dom.settingsBtn.contains(e.target)) return;
     if (e.button === 1) { // Orta tuş
         setState({ isPanning: true, panStart: { x: e.clientX, y: e.clientY } });

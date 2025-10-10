@@ -73,7 +73,6 @@ export function detectRooms() {
         return;
     }
     
-    // Geçerli duvarları filtrele
     const validWalls = walls.filter(wall => {
         if (!wall || !wall.p1 || !wall.p2) return false;
         const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -198,4 +197,9 @@ export function isPointOnWallBody(point) {
         }
     }
     return false;
+}
+
+// *** EKLENDİ VE EXPORT EDİLDİ ***
+export function wallExists(p1, p2) {
+    return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
 }
