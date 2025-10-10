@@ -3,7 +3,9 @@ import { screenToWorld } from './geometry.js';
 import { restoreState } from './history.js';
 import { showRoomNamePopup, positionLengthInput } from './ui.js';
 import { onKeyDown } from './keyboard.js';
-import { onPointerDown, onPointerMove, onPointerUp } from './mouse-handlers.js';
+import { onPointerDown } from './pointer-down.js';
+import { onPointerMove } from './pointer-move.js';
+import { onPointerUp } from './pointer-up.js';
 
 function onWheel(e) {
     e.preventDefault();
@@ -25,7 +27,6 @@ function onWheel(e) {
 export function setupInputListeners() {
     const { c2d } = dom;
 
-    // Fare/Dokunma olayları
     c2d.addEventListener("pointerdown", onPointerDown);
     c2d.addEventListener("pointermove", onPointerMove);
     c2d.addEventListener("pointerup", onPointerUp);
@@ -54,6 +55,5 @@ export function setupInputListeners() {
         }
     });
     
-    // Klavye olayları
     window.addEventListener("keydown", onKeyDown);
 }
