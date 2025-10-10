@@ -29,48 +29,88 @@ export function onPointerMove(e) {
 
     if (state.isDragging && state.selectedObject) {
         if (state.selectedObject.type === "wall" && state.selectedObject.handle !== "body") {
-            const nodeToMove = selectedObject.object[state.selectedObject.handle];
-            
+            const nodeToMove = state.selectedObject.object[state.selectedObject.handle];
             const nodeInitialDragPoint = state.dragStartPoint;
+            
             const deltaX = snappedPos.x - nodeInitialDragPoint.x;
             const deltaY = snappedPos.y - nodeInitialDragPoint.y;
 
+            let finalPos = { x: snappedPos.x, y: snappedPos.y };
             if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                snappedPos.y = nodeInitialDragPoint.y;
+                finalPos.y = nodeInitialDragPoint.y;
             } else {
-                snappedPos.x = nodeInitialDragPoint.x;
+                finalPos.x = nodeInitialDragPoint.x;
             }
 
             const moveIsValid = state.affectedWalls.every((wall) => {
                 const otherNode = wall.p1 === nodeToMove ? wall.p2 : wall.p1;
-                return Math.hypot(snappedPos.x - otherNode.x, snappedPos.y - otherNode.y) >= getMinWallLength(wall);
+                return Math.hypot(finalPos.x - otherNode.x, finalPos.y - otherNode.y) >= getMinWallLength(wall);
             });
+
             if (moveIsValid) {
-                nodeToMove.x = snappedPos.x;
-                nodeToMove.y = snappedPos.y;
+                nodeToMove.x = finalPos.x;
+                nodeToMove.y = finalPos.y;
             }
         } else if (state.selectedObject.type === "wall" && state.selectedObject.handle === "body") {
             const rect = dom.c2d.getBoundingClientRect();
             const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-            
+
+            const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+            const nodesToMove = new Set();
+            wallsToMove.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
+
             let totalDelta = { x: unsnappedPos.x - state.initialDragPoint.x, y: unsnappedPos.y - state.initialDragPoint.y };
-
-            const snapCorrection = { x: snappedPos.x - unsnappedPos.x, y: snappedPos.y - unsnappedPos.y };
-            totalDelta.x += snapCorrection.x;
-            totalDelta.y += snapCorrection.y;
-
-            const wallDx = state.dragWallInitialVector.dx;
-            const wallDy = state.dragWallInitialVector.dy;
             
-            let normalVec = { x: -wallDy, y: wallDx };
-            const len = Math.hypot(normalVec.x, normalVec.y);
-            if (len > 0.1) { normalVec.x /= len; normalVec.y /= len; }
-            const projectedDistance = totalDelta.x * normalVec.x + totalDelta.y * normalVec.y;
-            totalDelta = { x: projectedDistance * normalVec.x, y: projectedDistance * normalVec.y };
+            // --- YENİ YÖNE DUYARLI TAŞIMA MANTIĞI ---
+            const wallVec = state.dragWallInitialVector;
+            const wallAngle = Math.abs(Math.atan2(wallVec.dy, wallVec.dx) * 180 / Math.PI) % 180; // 0-180 derece arası
+            const tolerance = 1; // Açı toleransı
 
-            state.preDragNodeStates.forEach((originalPos, node) => {
-                node.x = originalPos.x + totalDelta.x;
-                node.y = originalPos.y + totalDelta.y;
+            // Duvarın dikeye yakın olup olmadığını kontrol et (90 derece civarı)
+            if (wallAngle > 45 + tolerance && wallAngle < 135 - tolerance) { 
+                totalDelta.y = 0; // Dikey duvar, sadece X yönünde hareket eder
+            } 
+            // Duvarın yataya yakın olup olmadığını kontrol et (0 veya 180 derece civarı)
+            else if (wallAngle < 45 - tolerance || wallAngle > 135 + tolerance) {
+                totalDelta.x = 0; // Yatay duvar, sadece Y yönünde hareket eder
+            } 
+            // 45 Derece ve civarındaki eğimli duvarlar için
+            else {
+                // Fare hareketi hangi yönde daha fazlaysa, o yöne kilitle
+                if (Math.abs(totalDelta.x) > Math.abs(totalDelta.y)) {
+                    totalDelta.y = 0;
+                } else {
+                    totalDelta.x = 0;
+                }
+            }
+            
+            const snapRadiusWorld = 15;
+            let bestSnapVector = { x: 0, y: 0 };
+            let minSnapDistSq = snapRadiusWorld * snapRadiusWorld;
+            const movingNodesArray = Array.from(nodesToMove);
+            const stationaryNodes = state.nodes.filter(n => !nodesToMove.has(n));
+
+            for (const movingNode of movingNodesArray) {
+                const originalPos = state.preDragNodeStates.get(movingNode);
+                if (!originalPos) continue;
+                const proposedPos = { x: originalPos.x + totalDelta.x, y: originalPos.y + totalDelta.y };
+                for (const stationaryNode of stationaryNodes) {
+                    const distSq = (proposedPos.x - stationaryNode.x) ** 2 + (proposedPos.y - stationaryNode.y) ** 2;
+                    if (distSq < minSnapDistSq) {
+                        minSnapDistSq = distSq;
+                        bestSnapVector = { x: stationaryNode.x - proposedPos.x, y: stationaryNode.y - proposedPos.y };
+                    }
+                }
+            }
+            totalDelta.x += bestSnapVector.x;
+            totalDelta.y += bestSnapVector.y;
+
+            nodesToMove.forEach((node) => {
+                const originalPos = state.preDragNodeStates.get(node);
+                if (originalPos) {
+                    node.x = originalPos.x + totalDelta.x;
+                    node.y = originalPos.y + totalDelta.y;
+                }
             });
         } else if (state.selectedObject.type === "door") {
             const door = state.selectedObject.object;

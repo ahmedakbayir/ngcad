@@ -4,11 +4,13 @@ import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSe
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
-import { getObjectAtPoint, getDoorPlacement, getDoorPlacementAtNode, isSpaceForDoor } from './actions.js';
+import { getObjectAtPoint, getDoorPlacement, getDoorPlacementAtNode, isSpaceForDoor, findCollinearChain } from './actions.js';
 
 export function onPointerDown(e) {
-    // ... (dosyanın geri kalanı öncekiyle aynı)
-    if (dom.settingsPopup.contains(e.target) || dom.settingsBtn.contains(e.target)) return;
+    if (e.target !== dom.c2d) {
+        return;
+    }
+
     if (e.button === 1) { // Orta tuş
         setState({ isPanning: true, panStart: { x: e.clientX, y: e.clientY } });
         return;
@@ -28,9 +30,17 @@ export function onPointerDown(e) {
         setState({ selectedObject, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map() });
         
         if (selectedObject) {
+            let startPointForDragging;
+            if (selectedObject.type === 'wall' && selectedObject.handle !== 'body') {
+                const nodeToDrag = selectedObject.object[selectedObject.handle];
+                startPointForDragging = { x: nodeToDrag.x, y: nodeToDrag.y };
+            } else {
+                startPointForDragging = { x: snappedPos.x, y: snappedPos.y };
+            }
+
             setState({
                 isDragging: true,
-                dragStartPoint: {x: snappedPos.x, y: snappedPos.y},
+                dragStartPoint: startPointForDragging,
                 initialDragPoint: { x: pos.x, y: pos.y },
                 dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId },
             });
@@ -46,66 +56,42 @@ export function onPointerDown(e) {
                             state.preDragWallStates.set(wall, { isP1Stationary: wall.p2 === nodeToDrag, doors: state.doors.filter((d) => d.wall === wall).map((door) => ({ doorRef: door, distFromP1: door.pos, distFromP2: wallLength - door.pos })) });
                         }
                     });
-                } else {
-                    const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [selectedObject.object];
-                    const dragNodeBehaviors = new Map();
-                    const dragOriginalNodes = new Map();
-    
-                    const areVectorsCollinear = (v1, v2) => {
-                        const len1 = Math.hypot(v1.x, v1.y);
-                        const len2 = Math.hypot(v2.x, v2.y);
-                        if (len1 < 0.1 || len2 < 0.1) return true;
-                        const u1 = { x: v1.x / len1, y: v1.y / len1 };
-                        const u2 = { x: v2.x / len2, y: v2.y / len2 };
-                        const dotProduct = Math.abs(u1.x * u2.x + u1.y * u2.y);
-                        return dotProduct > 0.99;
-                    };
-    
-                    wallsToMove.forEach(wall => {
-                        const wallVector = { x: wall.p2.x - wall.p1.x, y: wall.p2.y - wall.p1.y };
-    
-                        const processNode = (node) => {
-                            if (dragNodeBehaviors.has(node)) return;
-                            const connectedWalls = state.walls.filter(w => !wallsToMove.includes(w) && (w.p1 === node || w.p2 === node));
-                            if (connectedWalls.length === 0) {
-                                dragNodeBehaviors.set(node, 'move');
-                                return;
-                            }
-                            const hasOffAxisWall = connectedWalls.some(connWall => {
-                                const connVector = { x: connWall.p2.x - connWall.p1.x, y: connWall.p2.y - connWall.p1.y };
-                                return !areVectorsCollinear(wallVector, connVector);
-                            });
-                            dragNodeBehaviors.set(node, hasOffAxisWall ? 'copy' : 'move');
-                        };
-                        processNode(wall.p1);
-                        processNode(wall.p2);
-                    });
-    
-                    const nodesToMoveSet = new Set();
-                    dragNodeBehaviors.forEach((behavior, node) => {
-                        if (behavior === 'move') {
-                            nodesToMoveSet.add(node);
-                        } else {
-                            const newNode = { x: node.x, y: node.y };
-                            state.nodes.push(newNode);
-                            nodesToMoveSet.add(newNode);
-                            dragOriginalNodes.set(newNode, node);
-                            wallsToMove.forEach(w => {
-                                if (w.p1 === node) w.p1 = newNode;
-                                if (w.p2 === node) w.p2 = newNode;
-                            });
+                } else { 
+                    if (e.ctrlKey && e.shiftKey) {
+                        setState({ selectedGroup: findCollinearChain(selectedObject.object) });
+                    }
+                    const wallsBeingMoved = state.selectedGroup.length > 0 ? state.selectedGroup : [selectedObject.object];
+                    const nodesBeingMoved = new Set();
+                    wallsBeingMoved.forEach((w) => { nodesBeingMoved.add(w.p1); nodesBeingMoved.add(w.p2); });
+
+                    nodesBeingMoved.forEach(node => { state.preDragNodeStates.set(node, { x: node.x, y: node.y }); });
+
+                    const wall = selectedObject.object;
+                    setState({ dragWallInitialVector: { dx: wall.p2.x - wall.p1.x, dy: wall.p2.y - wall.p1.y } });
+
+                    const affectedWalls = state.walls.filter((w) => !wallsBeingMoved.includes(w) && (nodesBeingMoved.has(w.p1) || nodesBeingMoved.has(w.p2)));
+                     setState({ affectedWalls });
+                    
+                    affectedWalls.forEach((wall) => {
+                        const wallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                        const isP1Stationary = !nodesBeingMoved.has(wall.p1);
+                        if (wallLength > 0.1) {
+                            state.preDragWallStates.set(wall, { isP1Stationary, doors: state.doors.filter((d) => d.wall === wall).map((door) => ({ doorRef: door, distFromP1: door.pos, distFromP2: wallLength - door.pos })) });
                         }
                     });
-    
-                    Array.from(nodesToMoveSet).forEach(node => {
-                        state.preDragNodeStates.set(node, { x: node.x, y: node.y });
-                    });
-    
-                    setState({
-                        dragNodeBehaviors,
-                        dragOriginalNodes,
-                        dragWallInitialVector: { dx: selectedObject.object.p2.x - selectedObject.object.p1.x, dy: selectedObject.object.p2.y - selectedObject.object.p1.y }
-                    });
+                    
+                    if (e.altKey) {
+                         setState({ isStretchDragging: true, stretchMode: "alt", stretchWallOrigin: { p1: { ...selectedObject.object.p1 }, p2: { ...selectedObject.object.p2 } }});
+                    } else if (e.shiftKey && !e.ctrlKey) {
+                         setState({ isStretchDragging: true, stretchMode: "shift", stretchWallOrigin: { p1: { ...selectedObject.object.p1 }, p2: { ...selectedObject.object.p2 } }});
+                    } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+                        const wallToMove = selectedObject.object;
+                        const p1 = wallToMove.p1, p2 = wallToMove.p2;
+                        const p1IsShared = state.walls.some((w) => w !== wallToMove && (w.p1 === p1 || w.p2 === p1));
+                        if (p1IsShared) { const newP1 = { x: p1.x, y: p1.y }; state.nodes.push(newP1); wallToMove.p1 = newP1; }
+                        const p2IsShared = state.walls.some((w) => w !== wallToMove && (w.p1 === p2 || w.p2 === p2));
+                        if (p2IsShared) { const newP2 = { x: p2.x, y: p2.y }; state.nodes.push(newP2); wallToMove.p2 = newP2; }
+                    }
                 }
             }
         }
@@ -155,14 +141,25 @@ export function onPointerDown(e) {
             if (d > 0.1) {
                 let geometryChanged = false;
                 if (state.currentMode === "drawWall") {
-                    const dx = Math.abs(snappedPos.x - state.startPoint.x);
-                    const dy = Math.abs(snappedPos.y - state.startPoint.y);
-                    if(dx > dy) {
-                        snappedPos.y = state.startPoint.y;
-                    } else {
-                        snappedPos.x = state.startPoint.x;
+                    if (!snappedPos.isSnapped) {
+                        const dx = snappedPos.x - state.startPoint.x;
+                        const dy = snappedPos.y - state.startPoint.y;
+                        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                        const snapAngle = 5;
+
+                        if (Math.abs(angle) < snapAngle || Math.abs(angle - 180) < snapAngle || Math.abs(angle + 180) < snapAngle) {
+                            snappedPos.y = state.startPoint.y;
+                        } else if (Math.abs(angle - 90) < snapAngle || Math.abs(angle + 90) < snapAngle) {
+                            snappedPos.x = state.startPoint.x;
+                        } else {
+                            if (Math.abs(dx) > Math.abs(dy)) {
+                                snappedPos.y = state.startPoint.y;
+                            } else {
+                                snappedPos.x = state.startPoint.x;
+                            }
+                        }
                     }
-                    
+
                     const nodesBefore = state.nodes.length;
                     const endNode = getOrCreateNode(snappedPos.x, snappedPos.y);
                     const didSnapToExistingNode = (state.nodes.length === nodesBefore);

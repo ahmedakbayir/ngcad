@@ -1,7 +1,7 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
-import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall } from './renderer2d.js';
+import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol } from './renderer2d.js';
 
 export function draw2D() {
     const { ctx2d, c2d } = dom;
@@ -9,7 +9,7 @@ export function draw2D() {
         panOffset, zoom, rooms, roomFillColor, walls, doors, selectedObject, 
         selectedGroup, wallBorderColor, lineThickness, showDimensions, 
         affectedWalls, startPoint, currentMode, mousePos, gridOptions,
-        isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning
+        isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning, nodes
     } = state;
 
     ctx2d.fillStyle = BG;
@@ -39,29 +39,44 @@ export function draw2D() {
 
     const wallPx = WALL_THICKNESS;
     ctx2d.lineJoin = "miter"; ctx2d.miterLimit = 4; ctx2d.lineCap = "square";
-    const unselectedSegments = [], selectedSegments = [];
+    
+    const orthoSegments = [], nonOrthoSegments = [], selectedSegments = [];
 
     walls.forEach((w) => {
         const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w);
+        const isOrthogonal = Math.abs(w.p1.x - w.p2.x) < 0.1 || Math.abs(w.p1.y - w.p2.y) < 0.1;
         const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y);
         if (wallLen < 0.1) return;
+        
         const wallDoors = doors.filter((d) => d.wall === w).sort((a, b) => a.pos - b.pos);
-        let currentSegments = []; let lastPos = 0;
+        let currentSegments = []; 
+        let lastPos = 0;
+        
         wallDoors.forEach((door) => {
             const doorStart = door.pos - door.width / 2;
             if (doorStart > lastPos) currentSegments.push({ start: lastPos, end: doorStart });
             lastPos = door.pos + door.width / 2;
         });
+        
         if (lastPos < wallLen) currentSegments.push({ start: lastPos, end: wallLen });
+        
         const dx = (w.p2.x - w.p1.x) / wallLen, dy = (w.p2.y - w.p1.y) / wallLen;
         const halfWallPx = wallPx / 2;
+        
         currentSegments.forEach((seg) => {
             let p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
             let p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
             if (seg.start > 0) { p1.x += dx * halfWallPx; p1.y += dy * halfWallPx; }
             if (seg.end < wallLen) { p2.x -= dx * halfWallPx; p2.y -= dy * halfWallPx; }
             const segmentData = { p1, p2 };
-            if (isSelected) selectedSegments.push(segmentData); else unselectedSegments.push(segmentData);
+            
+            if (isSelected) {
+                selectedSegments.push(segmentData);
+            } else if (isOrthogonal) {
+                orthoSegments.push(segmentData);
+            } else {
+                nonOrthoSegments.push(segmentData);
+            }
         });
     });
     
@@ -76,15 +91,31 @@ export function draw2D() {
         ctx2d.lineWidth = innerPx; ctx2d.strokeStyle = BG; ctx2d.stroke();
     };
 
-    drawSegments(unselectedSegments, wallBorderColor);
+    drawSegments(orthoSegments, wallBorderColor);
+    drawSegments(nonOrthoSegments, "#e57373");
     drawSegments(selectedSegments, "#8ab4f8");
+
+    // *** GÜNCELLEME BAŞLANGICI: Açı sembollerini çiz ***
+    const nodesToDrawAngle = new Set();
+    // Eğer bir köşe sürükleniyorsa, o köşedeki açıyı her zaman çiz
+    if (isDragging && selectedObject?.handle !== 'body') {
+        const nodeToDrag = selectedObject.object[selectedObject.handle];
+        nodesToDrawAngle.add(nodeToDrag);
+    } 
+    // Eğer bir duvar seçiliyse, onun köşelerindeki açıları çiz
+    else if (selectedObject?.type === 'wall') {
+        nodesToDrawAngle.add(selectedObject.object.p1);
+        nodesToDrawAngle.add(selectedObject.object.p2);
+    }
+    nodesToDrawAngle.forEach(node => drawAngleSymbol(node));
+    // *** GÜNCELLEME SONU ***
 
     if (rooms.length > 0) {
         ctx2d.textAlign = "center";
         rooms.forEach((room) => {
             if (!room.center || !Array.isArray(room.center) || room.center.length < 2) return;
-            const baseNameFontSize = 16, baseAreaFontSize = 12;
-            const baseNameYOffset = showDimensions ? 8 : 0;
+            const baseNameFontSize = 18, baseAreaFontSize = 14;
+            const baseNameYOffset = showDimensions ? 10 : 0;
             const nameYOffset = baseNameYOffset / zoom;
             
             ctx2d.fillStyle = room.name === 'TANIMSIZ' ? '#e57373' : '#8ab4f8'; 
@@ -122,10 +153,10 @@ export function draw2D() {
             });
         } else {
             let closestWall = null, minDistSq = Infinity;
-            const bodyHitToleranceSq = (WALL_THICKNESS * 1.5) ** 2;
+            const bodyHitoleranceSq = (WALL_THICKNESS * 1.5) ** 2;
             for (const w of [...walls].reverse()) {
                 const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
-                if (distSq < bodyHitToleranceSq && distSq < minDistSq) {
+                if (distSq < bodyHitoleranceSq && distSq < minDistSq) {
                     minDistSq = distSq;
                     closestWall = w;
                 }
@@ -164,13 +195,26 @@ export function draw2D() {
             drawDimension({ x: snappedX, y: startPoint.y }, { x: snappedX, y: snappedY }, true);
         } else if (currentMode === "drawWall") {
             let finalPos = { x: mousePos.x, y: mousePos.y };
-            const dx = Math.abs(finalPos.x - startPoint.x);
-            const dy = Math.abs(finalPos.y - startPoint.y);
-            if(dx > dy) {
-                finalPos.y = startPoint.y;
-            } else {
-                finalPos.x = startPoint.x;
+
+            if (!mousePos.isSnapped) {
+                const dx = finalPos.x - startPoint.x;
+                const dy = finalPos.y - startPoint.y;
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                const snapAngle = 5;
+
+                if (Math.abs(angle) < snapAngle || Math.abs(angle - 180) < snapAngle || Math.abs(angle + 180) < snapAngle) {
+                    finalPos.y = startPoint.y;
+                } else if (Math.abs(angle - 90) < snapAngle || Math.abs(angle + 90) < snapAngle) {
+                    finalPos.x = startPoint.x;
+                } else {
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        finalPos.y = startPoint.y;
+                    } else {
+                        finalPos.x = startPoint.x;
+                    }
+                }
             }
+
             ctx2d.beginPath(); ctx2d.moveTo(startPoint.x, startPoint.y); ctx2d.lineTo(finalPos.x, finalPos.y); ctx2d.stroke();
             drawDimension(startPoint, finalPos, true);
         }
@@ -229,19 +273,6 @@ export function draw2D() {
         const snapRadius = 10 / zoom;
         ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
         ctx2d.stroke();
-    }
-
-    if (isDragging && state.dragOriginalNodes && state.dragOriginalNodes.size > 0) {
-        ctx2d.strokeStyle = "rgba(138, 180, 248, 0.7)";
-        ctx2d.lineWidth = 1;
-        ctx2d.setLineDash([6, 3]);
-        ctx2d.beginPath();
-        state.dragOriginalNodes.forEach((originalNode, newNode) => {
-            ctx2d.moveTo(originalNode.x, originalNode.y);
-            ctx2d.lineTo(newNode.x, newNode.y);
-        });
-        ctx2d.stroke();
-        ctx2d.setLineDash([]);
     }
 
     ctx2d.restore();

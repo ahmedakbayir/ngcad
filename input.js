@@ -25,18 +25,19 @@ function onWheel(e) {
 }
 
 export function setupInputListeners() {
-    const { c2d } = dom;
+    const { p2d, c2d } = dom;
 
     c2d.addEventListener("pointerdown", onPointerDown);
-    c2d.addEventListener("pointermove", onPointerMove);
-    c2d.addEventListener("pointerup", onPointerUp);
+    p2d.addEventListener("pointermove", onPointerMove);
+    p2d.addEventListener("pointerup", onPointerUp);
+
     c2d.addEventListener("wheel", onWheel, { passive: false });
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null });
         setMode("select");
     });
-    c2d.addEventListener("pointerleave", (e) => {
+    p2d.addEventListener("pointerleave", (e) => {
         if (state.isDragging) {
             setState({ isDragging: false, isStretchDragging: false, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map() });
             if (state.history[state.historyIndex]) restoreState(state.history[state.historyIndex]);
@@ -44,6 +45,7 @@ export function setupInputListeners() {
         if (state.isPanning) setState({ isPanning: false });
     });
     c2d.addEventListener('dblclick', (e) => {
+        if (e.target !== c2d) return;
         if (dom.roomNamePopup.style.display === 'block') return;
         const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
         const point = turf.point([clickPos.x, clickPos.y]);

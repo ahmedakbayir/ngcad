@@ -1,4 +1,4 @@
-import { draw2D } from './renderer2d.js';
+import { draw2D } from './draw2d.js';
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d } from './scene3d.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
@@ -60,6 +60,8 @@ export let state = {
     preDragWallStates: new Map(),
     preDragNodeStates: new Map(),
     dragWallInitialVector: null,
+    dragNodeBehaviors: null,
+    dragOriginalNodes: null,
     roomToEdit: null,
     clickOutsideRoomPopupListener: null,
     wallBorderColor: "#e7e6d0",

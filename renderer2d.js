@@ -1,6 +1,87 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared } from './geometry.js';
 
+export function drawAngleSymbol(node) {
+    const { ctx2d } = dom;
+    const { walls, zoom } = state;
+
+    // Bu noktaya bağlı duvarları bul
+    const connectedWalls = walls.filter(w => w.p1 === node || w.p2 === node);
+
+    // Açı oluşturmak için en az 2 duvar gerekir
+    if (connectedWalls.length < 2) return;
+
+    // Şimdilik sadece 2 duvarlı köşeleri destekleyelim
+    if (connectedWalls.length === 2) {
+        const wall1 = connectedWalls[0];
+        const wall2 = connectedWalls[1];
+
+        // Noktadan dışarı doğru giden vektörleri oluştur
+        const v1 = wall1.p1 === node ? { x: wall1.p2.x - node.x, y: wall1.p2.y - node.y } : { x: wall1.p1.x - node.x, y: wall1.p1.y - node.y };
+        const v2 = wall2.p1 === node ? { x: wall2.p2.x - node.x, y: wall2.p2.y - node.y } : { x: wall2.p1.x - node.x, y: wall2.p1.y - node.y };
+
+        // Vektörlerin uzunluklarını (magnitudes) bul
+        const len1 = Math.hypot(v1.x, v1.y);
+        const len2 = Math.hypot(v2.x, v2.y);
+        if (len1 < 1 || len2 < 1) return;
+
+        // Vektörleri normalize et (birim vektör yap)
+        const v1n = { x: v1.x / len1, y: v1.y / len1 };
+        const v2n = { x: v2.x / len2, y: v2.y / len2 };
+
+        // Nokta çarpım (dot product) ile aradaki açıyı (radyan cinsinden) bul
+        const dotProduct = v1n.x * v2n.x + v1n.y * v2n.y;
+        const angleRad = Math.acos(Math.max(-1, Math.min(1, dotProduct))); // Kayan nokta hatalarına karşı koruma
+        
+        // Açıyı dereceye çevir
+        const angleDeg = angleRad * 180 / Math.PI;
+
+        const radius = 25; // Açı sembolünün yarıçapı
+        ctx2d.strokeStyle = "#8ab4f8";
+        ctx2d.fillStyle = "#8ab4f8";
+        ctx2d.lineWidth = 1;
+        ctx2d.beginPath();
+
+        // Açı 90 derece ise dik açı sembolü çiz
+        if (Math.abs(angleDeg - 90) < 0.5) {
+            const p1 = { x: node.x + v1n.x * radius, y: node.y + v1n.y * radius };
+            const p2 = { x: node.x + v2n.x * radius, y: node.y + v2n.y * radius };
+            const p3 = { x: p1.x + v2n.x * radius, y: p1.y + v2n.y * radius };
+            ctx2d.moveTo(p1.x, p1.y);
+            ctx2d.lineTo(p3.x, p3.y);
+            ctx2d.lineTo(p2.x, p2.y);
+        } else { // Değilse yay çiz
+            const angle1 = Math.atan2(v1.y, v1.x);
+            const angle2 = Math.atan2(v2.y, v2.x);
+            // Yay yönünü doğru belirlemek için cross product kontrolü
+            const crossProduct = v1.x * v2.y - v1.y * v2.x;
+            if (crossProduct > 0) {
+                ctx2d.arc(node.x, node.y, radius, angle1, angle2);
+            } else {
+                ctx2d.arc(node.x, node.y, radius, angle2, angle1);
+            }
+        }
+        ctx2d.stroke();
+
+        // Açı değerini yaz
+        const angleBisector = { x: v1n.x + v2n.x, y: v1n.y + v2n.y };
+        const lenBisector = Math.hypot(angleBisector.x, angleBisector.y);
+        if (lenBisector > 0.1) {
+            const textRadius = radius + 15;
+            const textX = node.x + (angleBisector.x / lenBisector) * textRadius;
+            const textY = node.y + (angleBisector.y / lenBisector) * textRadius;
+            
+            const baseFontSize = 12;
+            const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
+            ctx2d.font = `${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+            ctx2d.textAlign = "center";
+            ctx2d.textBaseline = "middle";
+            ctx2d.fillText(`${angleDeg.toFixed(0)}°`, textX, textY);
+        }
+    }
+}
+
+
 export function drawDimension(p1, p2, isPreview = false) {
     const { ctx2d } = dom;
     const { zoom } = state;
@@ -26,11 +107,11 @@ export function drawDimension(p1, p2, isPreview = false) {
     ctx2d.translate(midX, midY);
     ctx2d.rotate(ang);
 
-    const baseFontSize = 14;
+    const baseFontSize = 18;
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
-    const yOffset = -8 / zoom;
+    const yOffset = -8 /// zoom;
 
-    ctx2d.font = `300 ${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    ctx2d.font = `500 ${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = isPreview ? "#ffffff" : "#8ab4f8";
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "bottom";

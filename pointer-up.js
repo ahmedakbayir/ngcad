@@ -4,15 +4,6 @@ import { processWalls, mergeNode } from './wall-processor.js';
 import { saveState } from './history.js';
 
 export function onPointerUp(e) {
-    // ... (dosyanın geri kalanı öncekiyle aynı)
-    if (state.dragOriginalNodes && state.dragOriginalNodes.size > 0) {
-        state.dragOriginalNodes.forEach((originalNode, newNode) => {
-            if (Math.hypot(newNode.x - originalNode.x, newNode.y - originalNode.y) > 1) {
-                state.walls.push({ type: "wall", p1: originalNode, p2: newNode });
-            }
-        });
-    }
-
     setState({ isSnapLocked: false, lockedSnapPoint: null });
 
     if (state.isStretchDragging) {
