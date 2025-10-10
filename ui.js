@@ -1,9 +1,10 @@
 import { state, setState, dom, resize, MAHAL_LISTESI } from './main.js';
 import { saveState } from './history.js';
 import { update3DScene } from './scene3d.js';
-import { applyStretchModification } from './geometry.js'; // <-- EKLENDİ
+import { applyStretchModification } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { worldToScreen } from './geometry.js';
+import { getMinWallLength } from './actions.js'; // <-- EKLENDİ
 
 export function initializeSettings() {
     dom.borderPicker.value = state.wallBorderColor;
@@ -185,8 +186,16 @@ function confirmLengthEdit() {
         rawValue = rawValue.slice(0, -1);
     }
     const newLengthCm = parseFloat(rawValue);
+    const wall = state.selectedObject.object;
+
+    // === DUVAR KISALTMA KONTROLÜ EKLENDİ ===
+    if (newLengthCm < getMinWallLength(wall)) {
+        cancelLengthEdit();
+        return;
+    }
+    // =====================================
+
     if (!isNaN(newLengthCm) && newLengthCm > 0) {
-        const wall = state.selectedObject.object;
         const stationaryHandle = reverseDirection ? "p2" : "p1";
         const movingPointHandle = reverseDirection ? "p1" : "p2";
         const movingPoint = wall[movingPointHandle];

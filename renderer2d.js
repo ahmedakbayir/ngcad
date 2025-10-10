@@ -183,9 +183,12 @@ export function draw2D() {
         });
         if (lastPos < wallLen) currentSegments.push({ start: lastPos, end: wallLen });
         const dx = (w.p2.x - w.p1.x) / wallLen, dy = (w.p2.y - w.p1.y) / wallLen;
+        const halfWallPx = wallPx / 2;
         currentSegments.forEach((seg) => {
-            const p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
-            const p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
+            let p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
+            let p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
+            if (seg.start > 0) { p1.x += dx * halfWallPx; p1.y += dy * halfWallPx; }
+            if (seg.end < wallLen) { p2.x -= dx * halfWallPx; p2.y -= dy * halfWallPx; }
             const segmentData = { p1, p2 };
             if (isSelected) selectedSegments.push(segmentData); else unselectedSegments.push(segmentData);
         });
@@ -281,8 +284,8 @@ export function draw2D() {
         ctx2d.strokeStyle = "#8ab4f8"; ctx2d.lineWidth = 2; ctx2d.setLineDash([6, 3]);
         if (currentMode === "drawRoom") {
             ctx2d.strokeRect(startPoint.x, startPoint.y, mousePos.x - startPoint.x, mousePos.y - startPoint.y);
-            const snappedX = mousePos.x;
-            const snappedY = mousePos.y;
+            const snappedX = Math.round(mousePos.x / gridOptions.spacing) * gridOptions.spacing;
+            const snappedY = Math.round(mousePos.y / gridOptions.spacing) * gridOptions.spacing;
             drawDimension(startPoint, { x: snappedX, y: startPoint.y }, true);
             drawDimension({ x: snappedX, y: startPoint.y }, { x: snappedX, y: snappedY }, true);
         } else if (currentMode === "drawWall") {

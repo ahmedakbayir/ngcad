@@ -8,6 +8,7 @@ import { update3DScene } from './scene3d.js';
 import { getObjectAtPoint, getDoorPlacement, getDoorPlacementAtNode, isSpaceForDoor, getMinWallLength, findCollinearChain } from './actions.js';
 
 function wallExists(p1, p2) {
+    // state.walls yerine anlık duvar listesiyle kontrol etmek daha güvenli
     return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
 }
 
@@ -105,10 +106,17 @@ export function onPointerDown(e) {
             let closestWall = null, minDistSq = Infinity;
             const bodyHitTolerance = WALL_THICKNESS;
             for (const w of [...state.walls].reverse()) {
-                const d = distToSegmentSquared(snappedPos, w.p1, w.p2);
-                if (d < bodyHitTolerance ** 2 && d < minDistSq) {
-                    minDistSq = d;
-                    closestWall = w;
+                const p1 = w.p1, p2 = w.p2;
+                const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
+                if (l2 < 0.1) continue;
+                let t = ((snappedPos.x - p1.x) * (p2.x - p1.x) + (snappedPos.y - p1.y) * (p2.y - p1.y)) / l2;
+                const END_THRESHOLD = 0.05;
+                if (t > END_THRESHOLD && t < (1 - END_THRESHOLD)) {
+                    const d = distToSegmentSquared(snappedPos, p1, p2);
+                    if (d < bodyHitTolerance ** 2 && d < minDistSq) {
+                        minDistSq = d;
+                        closestWall = w;
+                    }
                 }
             }
             if (closestWall) {
@@ -128,7 +136,6 @@ export function onPointerDown(e) {
             if (d > 0.1) {
                 let geometryChanged = false;
                 if (state.currentMode === "drawWall") {
-                    // DUVAR ÇİZERKEN EKSEN KİLİTLEME
                     const dx = Math.abs(snappedPos.x - state.startPoint.x);
                     const dy = Math.abs(snappedPos.y - state.startPoint.y);
                     if(dx > dy) {
@@ -193,9 +200,8 @@ export function onPointerMove(e) {
 
     if (state.isDragging && state.selectedObject) {
         if (state.selectedObject.type === "wall" && state.selectedObject.handle !== "body") {
-            const nodeToMove = state.selectedObject.object[state.selectedObject.handle];
+            const nodeToMove = selectedObject.object[state.selectedObject.handle];
             
-            // NOKTA TAŞIRKEN EKSEN KİLİTLEME
             const nodeInitialDragPoint = state.dragStartPoint;
             const deltaX = snappedPos.x - nodeInitialDragPoint.x;
             const deltaY = snappedPos.y - nodeInitialDragPoint.y;
@@ -230,9 +236,9 @@ export function onPointerMove(e) {
             const angleTolerance = 5 * (Math.PI / 180);
 
             if (Math.abs(Math.abs(wallAngle) - Math.PI / 2) < angleTolerance) {
-                totalDelta.y = 0; // Neredeyse dikey, sadece X ekseninde hareket et
+                totalDelta.y = 0;
             } else if (Math.abs(wallAngle) < angleTolerance || Math.abs(Math.abs(wallAngle) - Math.PI) < angleTolerance) {
-                totalDelta.x = 0; // Neredeyse yatay, sadece Y ekseninde hareket et
+                totalDelta.x = 0;
             } else {
                 let normalVec = { x: -wallDy, y: wallDx };
                 const len = Math.hypot(normalVec.x, normalVec.y);
@@ -241,6 +247,27 @@ export function onPointerMove(e) {
                 totalDelta = { x: projectedDistance * normalVec.x, y: projectedDistance * normalVec.y };
             }
             
+            const snapRadiusWorld = 15;
+            let bestSnapVector = { x: 0, y: 0 };
+            let minSnapDistSq = snapRadiusWorld * snapRadiusWorld;
+            const movingNodesArray = Array.from(nodesToMove);
+            const stationaryNodes = state.nodes.filter(n => !nodesToMove.has(n));
+
+            for (const movingNode of movingNodesArray) {
+                const originalPos = state.preDragNodeStates.get(movingNode);
+                if (!originalPos) continue;
+                const proposedPos = { x: originalPos.x + totalDelta.x, y: originalPos.y + totalDelta.y };
+                for (const stationaryNode of stationaryNodes) {
+                    const distSq = (proposedPos.x - stationaryNode.x) ** 2 + (proposedPos.y - stationaryNode.y) ** 2;
+                    if (distSq < minSnapDistSq) {
+                        minSnapDistSq = distSq;
+                        bestSnapVector = { x: stationaryNode.x - proposedPos.x, y: stationaryNode.y - proposedPos.y };
+                    }
+                }
+            }
+            totalDelta.x += bestSnapVector.x;
+            totalDelta.y += bestSnapVector.y;
+
             nodesToMove.forEach((node) => {
                 const originalPos = state.preDragNodeStates.get(node);
                 if (originalPos) {
@@ -289,7 +316,9 @@ export function onPointerUp(e) {
     setState({ isSnapLocked: false, lockedSnapPoint: null });
 
     if (state.isStretchDragging) {
-        const { stretchWallOrigin, dragStartPoint, stretchMode, mousePos, walls, doors, nodes } = state;
+        const { stretchWallOrigin, dragStartPoint, stretchMode, mousePos } = state;
+        let { walls, doors, nodes } = state; // Değiştirilebilir kopyalar al
+
         const displacementVec = { x: mousePos.x - dragStartPoint.x, y: mousePos.y - dragStartPoint.y };
         const wallVec = { x: stretchWallOrigin.p2.x - stretchWallOrigin.p1.x, y: stretchWallOrigin.p2.y - stretchWallOrigin.p1.y };
         const normalVec = { x: -wallVec.y, y: wallVec.x };
@@ -302,24 +331,38 @@ export function onPointerUp(e) {
         const dx = distance * normalVec.x, dy = distance * normalVec.y;
 
         if (Math.hypot(dx, dy) > 0.1) {
-            const p1_orig = stretchWallOrigin.p1, p2_orig = stretchWallOrigin.p2;
+            const p1_orig = stretchWallOrigin.p1;
+            const p2_orig = stretchWallOrigin.p2;
+            
+            // Yeni oluşturulacak duvarlar için lokal bir liste kullan
+            let newWallsToAdd = [];
+            
             const t1_node = getOrCreateNode(p1_orig.x + dx, p1_orig.y + dy);
             const t2_node = getOrCreateNode(p2_orig.x + dx, p2_orig.y + dy);
-            if (!wallExists(p1_orig, t1_node)) walls.push({ type: "wall", p1: p1_orig, p2: t1_node });
-            if (!wallExists(p2_orig, t2_node)) walls.push({ type: "wall", p1: p2_orig, p2: t2_node });
-            if (!wallExists(t1_node, t2_node)) walls.push({ type: "wall", p1: t1_node, p2: t2_node });
+
+            if (!wallExists(p1_orig, t1_node)) newWallsToAdd.push({ type: "wall", p1: p1_orig, p2: t1_node });
+            if (!wallExists(p2_orig, t2_node)) newWallsToAdd.push({ type: "wall", p1: p2_orig, p2: t2_node });
+            if (!wallExists(t1_node, t2_node)) newWallsToAdd.push({ type: "wall", p1: t1_node, p2: t2_node });
             
             if (stretchMode === "shift") {
                 const wallToDelete = state.selectedObject.object;
                 const p1ToDelete = wallToDelete.p1, p2ToDelete = wallToDelete.p2;
-                const newDoors = doors.filter((d) => d.wall !== wallToDelete);
-                const newWalls = walls.filter((w) => w !== wallToDelete);
-                const p1IsUsed = newWalls.some((w) => w.p1 === p1ToDelete || w.p2 === p1ToDelete);
-                let newNodes = nodes;
-                if (!p1IsUsed) newNodes = newNodes.filter((n) => n !== p1ToDelete);
-                const p2IsUsed = newWalls.some((w) => w.p1 === p2ToDelete || w.p2 === p2ToDelete);
-                if (!p2IsUsed) newNodes = newNodes.filter((n) => n !== p2ToDelete);
-                setState({ doors: newDoors, walls: newWalls, nodes: newNodes });
+
+                // State'i direkt değiştirmek yerine yeni listeler oluştur
+                let finalDoors = doors.filter((d) => d.wall !== wallToDelete);
+                let finalWalls = walls.filter((w) => w !== wallToDelete).concat(newWallsToAdd); // Yeni duvarları ekle
+                
+                let finalNodes = [...nodes];
+                const p1IsUsed = finalWalls.some((w) => w.p1 === p1ToDelete || w.p2 === p1ToDelete);
+                if (!p1IsUsed) finalNodes = finalNodes.filter((n) => n !== p1ToDelete);
+                
+                const p2IsUsed = finalWalls.some((w) => w.p1 === p2ToDelete || w.p2 === p2ToDelete);
+                if (!p2IsUsed) finalNodes = finalNodes.filter((n) => n !== p2ToDelete);
+                
+                setState({ doors: finalDoors, walls: finalWalls, nodes: finalNodes });
+            } else {
+                 // Sadece yeni duvarları ekle
+                 setState({ walls: walls.concat(newWallsToAdd) });
             }
         }
     }

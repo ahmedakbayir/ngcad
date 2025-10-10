@@ -72,7 +72,38 @@ export function detectRooms() {
         setState({ rooms: [] });
         return;
     }
-    const lines = walls.map((wall) => turf.lineString([ [wall.p1.x, wall.p1.y], [wall.p2.x, wall.p2.y] ]));
+    
+    // Geçerli duvarları filtrele
+    const validWalls = walls.filter(wall => {
+        if (!wall || !wall.p1 || !wall.p2) return false;
+        const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+        return length > 0.1 && 
+               isFinite(wall.p1.x) && isFinite(wall.p1.y) && 
+               isFinite(wall.p2.x) && isFinite(wall.p2.y);
+    });
+    
+    if (validWalls.length < 3) {
+        setState({ rooms: [] });
+        return;
+    }
+    
+    const lines = validWalls.map((wall) => {
+        try {
+            return turf.lineString([
+                [wall.p1.x, wall.p1.y], 
+                [wall.p2.x, wall.p2.y]
+            ]);
+        } catch (e) {
+            console.error("LineString oluşturma hatası:", e, wall);
+            return null;
+        }
+    }).filter(line => line !== null);
+    
+    if (lines.length < 3) {
+        setState({ rooms: [] });
+        return;
+    }
+    
     const featureCollection = turf.featureCollection(lines);
     
     try {
@@ -80,26 +111,36 @@ export function detectRooms() {
         const newRooms = [];
         if (polygons.features.length > 0) {
             polygons.features.forEach((polygon) => {
-                const areaInCm2 = calculatePlanarArea(polygon.geometry.coordinates);
-                if (areaInCm2 < 1) return;
-                const areaInM2 = areaInCm2 / 10000;
-                const centerPoint = turf.pointOnFeature(polygon);
-                
-                let existingRoomName = 'TANIMSIZ';
-                if (oldRooms.length > 0) {
-                    const containedOldRooms = oldRooms.filter(r => r.center && turf.booleanPointInPolygon(r.center, polygon));
-                    if (containedOldRooms.length > 0) {
-                        containedOldRooms.sort((a, b) => b.area - a.area);
-                        existingRoomName = containedOldRooms[0].name;
+                try {
+                    const areaInCm2 = calculatePlanarArea(polygon.geometry.coordinates);
+                    if (areaInCm2 < 1) return;
+                    const areaInM2 = areaInCm2 / 10000;
+                    const centerPoint = turf.pointOnFeature(polygon);
+                    
+                    let existingRoomName = 'TANIMSIZ';
+                    if (oldRooms.length > 0) {
+                        const containedOldRooms = oldRooms.filter(r => {
+                            try {
+                                return r.center && turf.booleanPointInPolygon(r.center, polygon);
+                            } catch (e) {
+                                return false;
+                            }
+                        });
+                        if (containedOldRooms.length > 0) {
+                            containedOldRooms.sort((a, b) => b.area - a.area);
+                            existingRoomName = containedOldRooms[0].name;
+                        }
                     }
-                }
 
-                newRooms.push({
-                    polygon: polygon,
-                    area: areaInM2,
-                    center: centerPoint.geometry.coordinates,
-                    name: existingRoomName
-                });
+                    newRooms.push({
+                        polygon: polygon,
+                        area: areaInM2,
+                        center: centerPoint.geometry.coordinates,
+                        name: existingRoomName
+                    });
+                } catch (e) {
+                    console.error("Poligon işleme hatası:", e);
+                }
             });
         }
         setState({ rooms: newRooms });

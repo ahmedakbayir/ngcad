@@ -8,10 +8,39 @@ export function mergeNode(node) {
     for (const t of state.nodes) {
         if (t === node) continue;
         if (Math.hypot(node.x - t.x, node.y - t.y) < md) {
+            // Kapıları güncelle
+            state.doors.forEach((door) => {
+                const wall = door.wall;
+                if (!wall) return;
+                
+                // Eğer kapının duvarı bu düğümleri kullanıyorsa, kapının pozisyonunu güncelle
+                const oldWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                
+                // Duvarın düğümlerini güncelle
+                if (wall.p1 === node) wall.p1 = t;
+                if (wall.p2 === node) wall.p2 = t;
+                
+                // Yeni duvar uzunluğunu hesapla
+                const newWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                
+                // Eğer duvar uzunluğu değiştiyse ve pozisyon oranını koru
+                if (oldWallLength > 0.1 && newWallLength > 0.1) {
+                    const ratio = newWallLength / oldWallLength;
+                    door.pos = door.pos * ratio;
+                    
+                    // Kapının sınırlar içinde kalmasını sağla
+                    const minPos = door.width / 2 + 15;
+                    const maxPos = newWallLength - door.width / 2 - 15;
+                    door.pos = Math.max(minPos, Math.min(maxPos, door.pos));
+                }
+            });
+            
+            // Duvarları güncelle
             state.walls.forEach((w) => {
                 if (w.p1 === node) w.p1 = t;
                 if (w.p2 === node) w.p2 = t;
             });
+            
             const idx = state.nodes.indexOf(node);
             if (idx !== -1) state.nodes.splice(idx, 1);
             return t;
@@ -28,6 +57,29 @@ function unifyNearbyNodes(tolerance) {
             for (let j = i + 1; j < state.nodes.length; j++) {
                 const n1 = state.nodes[i], n2 = state.nodes[j];
                 if (n1 && n2 && Math.hypot(n1.x - n2.x, n1.y - n2.y) < tolerance) {
+                    // Kapıları güncelle
+                    state.doors.forEach((door) => {
+                        const wall = door.wall;
+                        if (!wall) return;
+                        
+                        const oldWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                        
+                        if (wall.p1 === n2) wall.p1 = n1;
+                        if (wall.p2 === n2) wall.p2 = n1;
+                        
+                        const newWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                        
+                        if (oldWallLength > 0.1 && newWallLength > 0.1) {
+                            const ratio = newWallLength / oldWallLength;
+                            door.pos = door.pos * ratio;
+                            
+                            const minPos = door.width / 2 + 15;
+                            const maxPos = newWallLength - door.width / 2 - 15;
+                            door.pos = Math.max(minPos, Math.min(maxPos, door.pos));
+                        }
+                    });
+                    
+                    // Duvarları güncelle
                     state.walls.forEach((w) => {
                         if (w.p1 === n2) w.p1 = n1;
                         if (w.p2 === n2) w.p2 = n1;
@@ -142,15 +194,44 @@ function mergeCollinearChains() {
 
 export function processWalls() {
     unifyNearbyNodes(1.0);
-    const filteredWalls = state.walls.filter(w => w && w.p1 && w.p2 && Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y) > 0.1);
-    const filteredDoors = state.doors.filter((d) => d.wall && filteredWalls.includes(d.wall));
+    
+    // Önce geçersiz duvarları ve kapıları filtrele
+    const filteredWalls = state.walls.filter(w => {
+        if (!w || !w.p1 || !w.p2) return false;
+        const length = Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y);
+        return length > 0.1;
+    });
+    
+    const filteredDoors = state.doors.filter((d) => {
+        if (!d.wall || !filteredWalls.includes(d.wall)) return false;
+        const wallLength = Math.hypot(d.wall.p2.x - d.wall.p1.x, d.wall.p2.y - d.wall.p1.y);
+        // Kapının duvar üzerinde geçerli bir pozisyonda olup olmadığını kontrol et
+        return d.pos >= 0 && d.pos <= wallLength;
+    });
+    
     setState({ walls: filteredWalls, doors: filteredDoors });
 
     splitWallsAtCrossings();
     splitWallsAtTjunctions();
     mergeDuplicateWalls();
     mergeCollinearChains();
-    detectRooms();
+    
+    // Oda tespitinden önce tekrar geçersiz duvarları temizle
+    const validWalls = state.walls.filter(w => {
+        if (!w || !w.p1 || !w.p2) return false;
+        const length = Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y);
+        return length > 0.1 && isFinite(w.p1.x) && isFinite(w.p1.y) && isFinite(w.p2.x) && isFinite(w.p2.y);
+    });
+    setState({ walls: validWalls });
+    
+    // Güvenli oda tespiti
+    try {
+        detectRooms();
+    } catch (error) {
+        console.error("Oda tespiti sırasında hata:", error);
+        setState({ rooms: [] });
+    }
+    
     update3DScene();
 }
 
