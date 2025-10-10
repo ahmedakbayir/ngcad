@@ -1,7 +1,7 @@
 import { state, setState, dom, resize, MAHAL_LISTESI } from './main.js';
 import { saveState } from './history.js';
 import { update3DScene } from './scene3d.js';
-import { applyStretchModification } from './geometry.js';
+import { applyStretchModification } from './geometry.js'; // <-- EKLENDİ
 import { processWalls } from './wall-processor.js';
 import { worldToScreen } from './geometry.js';
 

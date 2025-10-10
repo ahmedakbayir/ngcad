@@ -116,5 +116,12 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         }
     }
     
+    // Kilitlenme durumunu ayarla
+    if (isLockable) {
+        setState({ isSnapLocked: true, lockedSnapPoint: bestSnap.point });
+    } else {
+        setState({ isSnapLocked: false, lockedSnapPoint: null });
+    }
+
     return { x, y, isSnapped, snapLines, isLockable, point: bestSnap ? bestSnap.point : null };
 }

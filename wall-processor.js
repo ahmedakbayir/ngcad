@@ -140,7 +140,52 @@ function mergeCollinearChains() {
     }
 }
 
+function trimWallEnds() {
+    let changed = true;
+    const TRIM_TOLERANCE_SQ = 1.0 * 1.0;
+    while(changed) {
+        changed = false;
+        const nodeConnections = new Map();
+        state.nodes.forEach(n => nodeConnections.set(n, 0));
+        state.walls.forEach(w => {
+            nodeConnections.set(w.p1, nodeConnections.get(w.p1) + 1);
+            nodeConnections.set(w.p2, nodeConnections.get(w.p2) + 1);
+        });
+
+        for (const [node, count] of nodeConnections.entries()) {
+            if (count === 1) {
+                let wallToTrim = state.walls.find(w => w.p1 === node || w.p2 === node);
+                if (!wallToTrim) continue;
+
+                for (const targetWall of state.walls) {
+                    if (targetWall === wallToTrim) continue;
+
+                    const distSq = distToSegmentSquared(node, targetWall.p1, targetWall.p2);
+                    if (distSq < TRIM_TOLERANCE_SQ) {
+                        const {x: v_x, y: v_y} = targetWall.p1;
+                        const {x: w_x, y: w_y} = targetWall.p2;
+                        const l2 = (v_x - w_x)**2 + (v_y - w_y)**2;
+                        if (l2 === 0) continue;
+                        const t = ((node.x - v_x) * (w_x - v_x) + (node.y - v_y) * (w_y - v_y)) / l2;
+                        const projection = {
+                            x: v_x + t * (w_x - v_x),
+                            y: v_y + t * (w_y - v_y)
+                        };
+
+                        node.x = projection.x;
+                        node.y = projection.y;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+            if(changed) break;
+        }
+    }
+}
+
 export function processWalls() {
+    trimWallEnds();
     unifyNearbyNodes(1.0);
     const filteredWalls = state.walls.filter(w => w && w.p1 && w.p2 && Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y) > 0.1);
     const filteredDoors = state.doors.filter((d) => d.wall && filteredWalls.includes(d.wall));
