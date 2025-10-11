@@ -199,7 +199,27 @@ export function isPointOnWallBody(point) {
     return false;
 }
 
-// *** EKLENDİ VE EXPORT EDİLDİ ***
 export function wallExists(p1, p2) {
     return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
+}
+
+// YENİ FONKSİYON: Serbest çizimde duvar açısını 15 derecenin katlarına kısıtlar.
+export function snapTo15DegreeAngle(p1, p2) {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 10) return p2; // Çok kısa mesafelerde snap yapma
+
+    let angleRad = Math.atan2(dy, dx);
+    let angleDeg = angleRad * 180 / Math.PI;
+
+    // 15 derecenin katlarına yuvarla
+    const SNAP_ANGLE = 15;
+    const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
+    const snappedAngleRad = snappedAngleDeg * Math.PI / 180;
+
+    const snappedX = p1.x + distance * Math.cos(snappedAngleRad);
+    const snappedY = p1.y + distance * Math.sin(snappedAngleRad);
+
+    return { x: snappedX, y: snappedY };
 }

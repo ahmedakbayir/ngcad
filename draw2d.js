@@ -1,5 +1,5 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
-import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
+import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
 import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol } from './renderer2d.js';
 
@@ -247,11 +247,14 @@ export function draw2D() {
         
         // --- GÖRSEL SNAP (DISPLAY ONLY) İÇİN YUVARLANMIŞ NOKTAYI HESAPLA ---
         let displayPos = { x: finalPos.x, y: finalPos.y };
-        // Akıllı snap yoksa ve grid açıksa, boyut gösterimi için yuvarla.
+        
+        // Akıllı snap yoksa ve grid açıksa, displayPos'u grid aralığına yuvarla.
         if (!mousePos.isSnapped && gridOptions.visible) {
-            displayPos.x = Math.round(displayPos.x / gridOptions.spacing) * gridOptions.spacing;
-            displayPos.y = Math.round(displayPos.y / gridOptions.spacing) * gridOptions.spacing;
+             const gridSpacing = gridOptions.spacing;
+             displayPos.x = Math.round(displayPos.x / gridSpacing) * gridSpacing;
+             displayPos.y = Math.round(displayPos.y / gridSpacing) * gridSpacing;
         }
+
 
         if (currentMode === "drawRoom") {
             // Çizgiyi yuvarlanmış (DisplayPos) konuma göre çiz (GÖRSEL SNAP)
@@ -260,6 +263,9 @@ export function draw2D() {
             drawDimension(startPoint, { x: displayPos.x, y: startPoint.y }, true);
             drawDimension({ x: displayPos.x, y: startPoint.y }, { x: displayPos.x, y: displayPos.y }, true);
         } else if (currentMode === "drawWall") {
+
+            // 15 Derece Açı Snap'i Uygula (Önizleme konumu üzerinde)
+            displayPos = snapTo15DegreeAngle(startPoint, displayPos);
 
             // Çizgiyi yuvarlanmış (DisplayPos) konuma göre çiz (GÖRSEL SNAP)
             ctx2d.beginPath(); ctx2d.moveTo(startPoint.x, startPoint.y); ctx2d.lineTo(displayPos.x, displayPos.y); ctx2d.stroke();

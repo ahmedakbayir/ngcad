@@ -1,6 +1,6 @@
 import { state, dom, setState, setMode, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
-import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, wallExists, areCollinear } from './geometry.js';
+import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, wallExists, areCollinear, snapTo15DegreeAngle } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
@@ -35,8 +35,8 @@ export function onPointerDown(e) {
                 const nodeToDrag = selectedObject.object[selectedObject.handle];
                 startPointForDragging = { x: nodeToDrag.x, y: nodeToDrag.y };
             } else {
-                // Sürüklemenin başlangıç noktasını HER ZAMAN kenetlenmiş pozisyon olarak ayarla.
-                startPointForDragging = { x: snappedPos.x, y: snappedPos.y };
+                // Sürüklemenin başlangıç noktasını HER ZAMAN kenetlenmiş/yuvarlanmış pozisyon olarak ayarla.
+                startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY }; 
             }
 
             setState({
@@ -141,7 +141,7 @@ export function onPointerDown(e) {
             }
         }
     } else if (state.currentMode === "drawDoor") {
-        const clickedNode = findNodeAt(snappedPos.x, snappedPos.y);
+        const clickedNode = findNodeAt(snappedPos.roundedX, snappedPos.roundedY);
         let doorsAdded = false;
         if (clickedNode) {
             const connectedWalls = state.walls.filter(w => w.p1 === clickedNode || w.p2 === clickedNode);
@@ -160,10 +160,10 @@ export function onPointerDown(e) {
                 const p1 = w.p1, p2 = w.p2;
                 const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
                 if (l2 < 0.1) continue;
-                let t = ((snappedPos.x - p1.x) * (p2.x - p1.x) + (snappedPos.y - p1.y) * (p2.y - p1.y)) / l2;
+                let t = ((snappedPos.roundedX - p1.x) * (p2.x - p1.x) + (snappedPos.roundedY - p1.y) * (p2.y - p1.y)) / l2;
                 const END_THRESHOLD = 0.05;
                 if (t > END_THRESHOLD && t < (1 - END_THRESHOLD)) {
-                    const d = distToSegmentSquared(snappedPos, p1, p2);
+                    const d = distToSegmentSquared({ x: snappedPos.roundedX, y: snappedPos.roundedY }, p1, p2);
                     if (d < bodyHitTolerance ** 2 && d < minDistSq) {
                         minDistSq = d;
                         closestWall = w;
@@ -171,7 +171,7 @@ export function onPointerDown(e) {
                 }
             }
             if (closestWall) {
-                const newDoor = getDoorPlacement(closestWall, snappedPos);
+                const newDoor = getDoorPlacement(closestWall, { x: snappedPos.roundedX, y: snappedPos.roundedY });
                 if (newDoor && isSpaceForDoor(newDoor)) {
                     state.doors.push(newDoor);
                     doorsAdded = true;
@@ -182,30 +182,28 @@ export function onPointerDown(e) {
     } else {
         // ÇİZİM MODU BAŞLANGIÇ/DEVAM
         
-        let placementPos = { x: snappedPos.x, y: snappedPos.y };
-        const gridSpacing = state.gridOptions.spacing;
-        
-        // AKILLI SNAP (Endpoint/Intersection) YOKSA VE GRID AÇIKSA, KESİNLİKLE YUVARLA.
-        if (!snappedPos.isSnapped && state.gridOptions.visible) {
-             placementPos.x = Math.round(placementPos.x / gridSpacing) * gridSpacing;
-             placementPos.y = Math.round(placementPos.y / gridSpacing) * gridSpacing;
-        }
-
+        // placementPos, her zaman getSmartSnapPoint'ten gelen yuvarlanmış/snapped konumu kullanır.
+        let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY }; 
 
         if (!state.startPoint) {
             // İLK TIKLAMA: startPoint'i yerleştir
             setState({ startPoint: getOrCreateNode(placementPos.x, placementPos.y) });
         } else {
             // ZİNCİRLEME ÇİZİM/İKİNCİ TIKLAMA: Duvarı yerleştir
-            const d = Math.hypot(state.startPoint.x - snappedPos.x, state.startPoint.y - snappedPos.y); 
+            const d = Math.hypot(state.startPoint.x - placementPos.x, state.startPoint.y - placementPos.y); 
             
             if (d > 0.1) {
                 let geometryChanged = false;
                 
                 if (state.currentMode === "drawWall") {
                     
+                    // 15 Derece Açı Snap'i Uygula (gerçek yerleşim pozisyonuna)
+                    if (state.startPoint) {
+                        placementPos = snapTo15DegreeAngle(state.startPoint, placementPos);
+                    }
+
                     const nodesBefore = state.nodes.length;
-                    const endNode = getOrCreateNode(placementPos.x, placementPos.y); // Yuvarlanmış/Snapped konumu kullan
+                    const endNode = getOrCreateNode(placementPos.x, placementPos.y); 
                     const didSnapToExistingNode = (state.nodes.length === nodesBefore);
                     const didConnectToWallBody = !didSnapToExistingNode && isPointOnWallBody(endNode);
 

@@ -6,17 +6,25 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     const screenMouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const wm = screenToWorld(screenMouse.x, screenMouse.y);
 
+    // YENİ EKLENEN KISIM: Grid değerine göre yuvarlanmış konumu hesapla (1 cm = 1 birim)
+    const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1;
+    let roundedX = Math.round(wm.x / gridValue) * gridValue;
+    let roundedY = Math.round(wm.y / gridValue) * gridValue;
+
     if (state.currentMode === 'select' && !state.isDragging) {
-        return { x: wm.x, y: wm.y, isSnapped: false, snapLines: { h_origins: [], v_origins: [] }, isLockable: false };
+        return { x: wm.x, y: wm.y, isSnapped: false, snapLines: { h_origins: [], v_origins: [] }, isLockable: false, roundedX: wm.x, roundedY: wm.y };
     }
 
     if (state.isSnapLocked && state.lockedSnapPoint) {
-        const distCm = Math.hypot(wm.x - state.lockedSnapPoint.x, wm.y - state.lockedSnapPoint.y);
-        if (distCm < SNAP_UNLOCK_DISTANCE_CM) {
-            return { ...state.lockedSnapPoint, isSnapped: true, snapLines: state.mousePos.snapLines, isLockable: true };
-        } else {
-             setState({ isSnapLocked: false, lockedSnapPoint: null });
+        if (state.lockedSnapPoint.roundedX) { // Kilitli noktada zaten yuvarlanmış değer varsa onu kullan
+            const distCm = Math.hypot(wm.x - state.lockedSnapPoint.roundedX, wm.y - state.lockedSnapPoint.roundedY);
+            if (distCm < SNAP_UNLOCK_DISTANCE_CM) {
+                return { ...state.lockedSnapPoint, isSnapped: true, snapLines: state.mousePos.snapLines, isLockable: true, roundedX: state.lockedSnapPoint.roundedX, roundedY: state.lockedSnapPoint.roundedY };
+            } else {
+                 setState({ isSnapLocked: false, lockedSnapPoint: null });
+            }
         }
+        // Eğer lockedSnapPoint'te roundedX/Y yoksa normal şekilde devam et
     }
 
     let x = wm.x, y = wm.y, isSnapped = false, isLockable = false;
@@ -98,33 +106,39 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         });
         bestSnap = candidates[0];
     }
+    
+    // Grid değeri hesaplaması yukarıya taşındı.
 
     if (bestSnap) {
         x = bestSnap.point.x;
         y = bestSnap.point.y;
         isSnapped = true;
         isLockable = lockableSnapTypes.includes(bestSnap.type);
+        
+        // Akıllı snap varsa, yerleşimi de akıllı snap noktasına ayarla
+        roundedX = x;
+        roundedY = y;
 
         if (bestSnap.type === 'INTERSECTION' || bestSnap.type === 'PROJECTION') {
             if (Math.abs(x - (bestVSnap.x || x)) < 0.1 && bestVSnap.origin) snapLines.v_origins.push(bestVSnap.origin);
             if (Math.abs(y - (bestHSnap.y || y)) < 0.1 && bestHSnap.origin) snapLines.h_origins.push(bestHSnap.origin);
         }
     } else {
-        // *** ANA DÜZELTME BURADA ***
-        // Grid'e yapışma sadece sürükleme işlemi yokken (yani çizim yaparken) aktif olsun.
-        // Bu, sürükleme sırasında akıcı hareketi sağlar.
-        if (applyGridSnapFallback && state.gridOptions.visible && !state.isDragging) {
-            x = Math.round(x / state.gridOptions.spacing) * state.gridOptions.spacing;
-            y = Math.round(y / state.gridOptions.spacing) * state.gridOptions.spacing;
-        }
+        // Yumuşak hareket için x ve y ham kalır (Akıllı snap yok)
+        x = wm.x; 
+        y = wm.y; 
+        isSnapped = false;
+        
+        // roundedX ve roundedY grid/1cm değerlerine yuvarlanmış olarak yukarıda hesaplandı.
     }
     
     // Kilitlenme durumunu ayarla
-    if (isLockable) {
-        setState({ isSnapLocked: true, lockedSnapPoint: bestSnap.point });
+    if (isLockable && bestSnap) {
+        setState({ isSnapLocked: true, lockedSnapPoint: { ...bestSnap.point, roundedX: roundedX, roundedY: roundedY } }); // Rounded değerleri kilitli noktaya da ekle
     } else {
         setState({ isSnapLocked: false, lockedSnapPoint: null });
     }
 
-    return { x, y, isSnapped, snapLines, isLockable, point: bestSnap ? bestSnap.point : null };
+    // YENİ: Yuvarlanmış konumu da döndür
+    return { x, y, isSnapped, snapLines, isLockable, point: bestSnap ? bestSnap.point : null, roundedX, roundedY };
 }
