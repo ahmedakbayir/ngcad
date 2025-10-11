@@ -248,12 +248,14 @@ export function draw2D() {
         // --- GÖRSEL SNAP (DISPLAY ONLY) İÇİN YUVARLANMIŞ NOKTAYI HESAPLA ---
         let displayPos = { x: finalPos.x, y: finalPos.y };
         
-        // Akıllı snap yoksa ve grid açıksa, displayPos'u grid aralığına yuvarla.
+        // Kaba grid yuvarlama mantığı (GÖRSEL ÖNİZLEME İÇİN) kaldırıldı.
+        /*
         if (!mousePos.isSnapped && gridOptions.visible) {
              const gridSpacing = gridOptions.spacing;
              displayPos.x = Math.round(displayPos.x / gridSpacing) * gridSpacing;
              displayPos.y = Math.round(displayPos.y / gridSpacing) * gridSpacing;
         }
+        */
 
 
         if (currentMode === "drawRoom") {
