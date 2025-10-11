@@ -48,22 +48,11 @@ export function onPointerDown(e) {
             if (selectedObject.type === "wall") {
                 if (selectedObject.handle !== "body") {
                     const nodeToDrag = selectedObject.object[selectedObject.handle];
-                    const draggedWall = selectedObject.object;
-
-                    const draggedWallVec = { x: draggedWall.p2.x - draggedWall.p1.x, y: draggedWall.p2.y - draggedWall.p1.y };
-                    const isDraggedWallHorizontal = Math.abs(draggedWallVec.y) < 1;
-                    const isDraggedWallVertical = Math.abs(draggedWallVec.x) < 1;
-
-                    let dragAxis = null;
-                    if (isDraggedWallHorizontal) {
-                        dragAxis = 'y';
-                    } else if (isDraggedWallVertical) {
-                        dragAxis = 'x';
-                    }
-                    setState({ dragAxis });
-
                     const affectedWalls = state.walls.filter((w) => w.p1 === nodeToDrag || w.p2 === nodeToDrag);
-                    setState({ affectedWalls });
+                    
+                    // Düğüm sürüklemede eksen kilidi YOK - her yöne hareket edebilir
+                    setState({ affectedWalls, dragAxis: null });
+                    
                     affectedWalls.forEach((wall) => {
                         const wallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                         if (wallLength > 0.1) {
@@ -88,7 +77,35 @@ export function onPointerDown(e) {
                     nodesBeingMoved.forEach(node => { state.preDragNodeStates.set(node, { x: node.x, y: node.y }); });
 
                     const wall = selectedObject.object;
-                    setState({ dragWallInitialVector: { dx: wall.p2.x - wall.p1.x, dy: wall.p2.y - wall.p1.y } });
+                    const dx = wall.p2.x - wall.p1.x;
+                    const dy = wall.p2.y - wall.p1.y;
+                    const wallLength = Math.hypot(dx, dy);
+                    
+                    // Duvar yönü vektörünü normalize et
+                    const dirX = wallLength > 0.1 ? dx / wallLength : 0;
+                    const dirY = wallLength > 0.1 ? dy / wallLength : 0;
+                    
+                    // Açıyı hesapla (0-180 derece arası)
+                    let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+                    
+                    // Hareket yönünü belirle
+                    let dragAxis = null;
+                    
+                    if (Math.abs(angle - 45) < 1) {
+                        // 45° duvar: hem X hem Y yönünde hareket edebilir
+                        dragAxis = null;
+                    } else if (angle < 45) {
+                        // Yataya yakın: sadece Y yönünde hareket
+                        dragAxis = 'y';
+                    } else {
+                        // Düşeye yakın: sadece X yönünde hareket
+                        dragAxis = 'x';
+                    }
+                    
+                    setState({ 
+                        dragWallInitialVector: { dx, dy },
+                        dragAxis
+                    });
 
                     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
                         const checkAndSplitNode = (node) => {
@@ -202,7 +219,7 @@ export function onPointerDown(e) {
 
                     if (distance > 0.1) {
                         const snappedDistance = Math.round(distance / gridValue) * gridValue;
-                        if (Math.abs(snappedDistance - distance) > 0.01) { // Use a small epsilon
+                        if (Math.abs(snappedDistance - distance) > 0.01) {
                             const scale = snappedDistance / distance;
                             placementPos.x = state.startPoint.x + dx * scale;
                             placementPos.y = state.startPoint.y + dy * scale;

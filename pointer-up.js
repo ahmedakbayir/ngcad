@@ -94,11 +94,39 @@ export function onPointerUp(e) {
             const nodesToMerge = new Set();
             
             if (state.selectedObject.handle !== 'body' && state.affectedWalls) {
-                // Sadece sürüklenen noktayı birleştirmeyi dene
+                // DÜĞÜM SÜRÜKLEMEDE DUVAR EĞİMİNİ KORU
                 const nodeToMerge = state.selectedObject.object[state.selectedObject.handle];
-                mergeNode(nodeToMerge);
+                const affectedWalls = state.affectedWalls;
+                
+                // Önce merge işlemini yap
+                const mergedNode = mergeNode(nodeToMerge);
+                const finalNode = mergedNode || nodeToMerge;
+                
+                // Eğer bir düğüme snap olduysa, duvarların eğimini koru
+                if (mergedNode) {
+                    affectedWalls.forEach(wall => {
+                        const stationaryNode = wall.p1 === finalNode ? wall.p2 : wall.p1;
+                        const movingNode = finalNode;
+                        
+                        const dx = movingNode.x - stationaryNode.x;
+                        const dy = movingNode.y - stationaryNode.y;
+                        const length = Math.hypot(dx, dy);
+                        
+                        if (length > 0.1) {
+                            // Açıyı hesapla
+                            let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+                            
+                            // 5° altı ise düzelt (0° yap)
+                            if (angle < 5) {
+                                movingNode.y = stationaryNode.y;
+                            } else if (angle > 85) {
+                                movingNode.x = stationaryNode.x;
+                            }
+                        }
+                    });
+                }
             } else { 
-                // Gövde sürüklemesi için eski mantık (Node-to-Node snap ile çakışmaları çözmek için)
+                // Gövde sürüklemesi için eski mantık
                 const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
                 wallsToProcess.forEach((w) => { nodesToMerge.add(w.p1); nodesToMerge.add(w.p2); });
                 nodesToMerge.forEach((node) => mergeNode(node));

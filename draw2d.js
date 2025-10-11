@@ -171,6 +171,29 @@ export function draw2D() {
         });
     }
 
+    // DUVAR SÜRÜKLEMEDE KOMŞU DUVARLARIN BOYUTLARINI VE AÇILARINI GÖSTER
+    if (isDragging && selectedObject?.type === "wall" && selectedObject.handle === "body") {
+        const wallsBeingMoved = selectedGroup.length > 0 ? selectedGroup : [selectedObject.object];
+        const nodesBeingMoved = new Set();
+        wallsBeingMoved.forEach((w) => { nodesBeingMoved.add(w.p1); nodesBeingMoved.add(w.p2); });
+        
+        // Komşu duvarları bul (taşınmayan ama taşınan düğümlere bağlı olanlar)
+        const neighborWalls = walls.filter(w => {
+            if (wallsBeingMoved.includes(w)) return false;
+            return nodesBeingMoved.has(w.p1) || nodesBeingMoved.has(w.p2);
+        });
+        
+        // Komşu duvarların boyutlarını göster
+        neighborWalls.forEach(wall => {
+            drawDimension(wall.p1, wall.p2, true);
+        });
+        
+        // Komşu duvarların köşe açılarını göster
+        nodesBeingMoved.forEach(node => {
+            drawAngleSymbol(node);
+        });
+    }
+
     if (showDimensions) { walls.forEach((w) => { const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w); drawDimension(w.p1, w.p2, false); }); }
     else if (!isDragging && selectedObject?.type === "wall") { drawDimension(selectedObject.object.p1, selectedObject.object.p2, true); }
     if (isDragging && affectedWalls.length > 0) { affectedWalls.forEach((wall) => { drawDimension(wall.p1, wall.p2, true); }); }
@@ -202,7 +225,6 @@ export function draw2D() {
     if (startPoint) {
         ctx2d.strokeStyle = "#8ab4f8"; ctx2d.lineWidth = 2; ctx2d.setLineDash([6, 3]);
 
-        // Önizleme için ham (pürüzsüz) fare konumunu kullanıyoruz.
         let previewPos = { x: mousePos.x, y: mousePos.y };
 
         if (currentMode === "drawRoom") {
@@ -210,17 +232,13 @@ export function draw2D() {
             drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true);
             drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true);
         } else if (currentMode === "drawWall") {
-            // Açı snap'ini pürüzsüz pozisyona uyguluyoruz, bu sadece görsel bir yardım.
             previewPos = snapTo15DegreeAngle(startPoint, previewPos);
 
-            // Çizgiyi pürüzsüz (ama açıya kilitli) pozisyona göre çiziyoruz.
             ctx2d.beginPath();
             ctx2d.moveTo(startPoint.x, startPoint.y);
             ctx2d.lineTo(previewPos.x, previewPos.y);
             ctx2d.stroke();
             
-            // Boyut gösterimi de aynı pürüzsüz pozisyonu kullanıyor.
-            // drawDimension fonksiyonu, yazıyı göstermeden önce uzunluğu kendi içinde grid'e yuvarlayacak.
             drawDimension(startPoint, previewPos, true);
         }
         ctx2d.setLineDash([]);

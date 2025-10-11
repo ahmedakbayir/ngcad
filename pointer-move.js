@@ -31,16 +31,10 @@ export function onPointerMove(e) {
         // --- DÜĞÜM NOKTASI SÜRÜKLEME ---
         if (state.selectedObject.type === "wall" && state.selectedObject.handle !== "body") {
             const nodeToMove = state.selectedObject.object[state.selectedObject.handle];
-            const nodeInitialDragPoint = state.dragStartPoint;
             
             let finalPos = { x: snappedPos.x, y: snappedPos.y };
-
-            // Hareketi `pointer-down`da belirlenen `dragAxis`'e göre kilitle.
-            if (state.dragAxis === 'x') {
-                finalPos.y = nodeInitialDragPoint.y; // Y'yi sabitle, sadece X değişsin.
-            } else if (state.dragAxis === 'y') {
-                finalPos.x = nodeInitialDragPoint.x; // X'i sabitle, sadece Y değişsin.
-            }
+            
+            // Düğüm sürüklemede eksen kilidi YOK - serbest hareket
             
             const moveIsValid = state.affectedWalls.every((wall) => {
                 const otherNode = wall.p1 === nodeToMove ? wall.p2 : wall.p1;
@@ -82,38 +76,25 @@ export function onPointerMove(e) {
                 }
             }
 
-            // totalDelta'yı ham hareket ile başlat (pürüzsüz)
             let totalDelta = {
                 x: mouseDelta.x,
                 y: mouseDelta.y
             };
             
-            // --- HAREKET KONTROLÜ (Sadece Node Snap'i Uygula) ---
             const SNAP_VECTOR_THRESHOLD = 0.1; 
             
-            const wallVec = state.dragWallInitialVector;
-            let isVertical = false;
-            let isHorizontal = false;
-
-            if (wallVec) { 
-                 isVertical = Math.abs(wallVec.dx) < 0.1;
-                 isHorizontal = Math.abs(wallVec.dy) < 0.1;
-            }
-
-            // GÜÇLÜ NODE SNAP KONTROLÜ
             if (Math.hypot(bestSnapVector.x, bestSnapVector.y) >= SNAP_VECTOR_THRESHOLD) {
-                // Güçlü Node Snap bulundu: totalDelta'yı snap vektörüne göre ayarla.
                 totalDelta.x = mouseDelta.x + bestSnapVector.x;
                 totalDelta.y = mouseDelta.y + bestSnapVector.y;
             }
-            // --- HAREKET MANTIĞI SONU ---
             
-            // Sert Ortogonal Kilitleme
-            if (isVertical) {
-                totalDelta.y = 0;
-            } else if (isHorizontal) {
-                totalDelta.x = 0;
+            // Eksen kilidi uygula
+            if (state.dragAxis === 'x') {
+                totalDelta.y = 0; // Sadece X yönünde hareket
+            } else if (state.dragAxis === 'y') {
+                totalDelta.x = 0; // Sadece Y yönünde hareket
             }
+            // dragAxis null ise (45° duvar) her iki yönde hareket serbest
             
             nodesToMove.forEach((node) => {
                 const originalPos = state.preDragNodeStates.get(node);

@@ -5,44 +5,35 @@ export function drawAngleSymbol(node) {
     const { ctx2d } = dom;
     const { walls, zoom } = state;
 
-    // Bu noktaya bağlı duvarları bul
     const connectedWalls = walls.filter(w => w.p1 === node || w.p2 === node);
 
-    // Açı oluşturmak için en az 2 duvar gerekir
     if (connectedWalls.length < 2) return;
 
-    // Şimdilik sadece 2 duvarlı köşeleri destekleyelim
     if (connectedWalls.length === 2) {
         const wall1 = connectedWalls[0];
         const wall2 = connectedWalls[1];
 
-        // Noktadan dışarı doğru giden vektörleri oluştur
         const v1 = wall1.p1 === node ? { x: wall1.p2.x - node.x, y: wall1.p2.y - node.y } : { x: wall1.p1.x - node.x, y: wall1.p1.y - node.y };
         const v2 = wall2.p1 === node ? { x: wall2.p2.x - node.x, y: wall2.p2.y - node.y } : { x: wall2.p1.x - node.x, y: wall2.p1.y - node.y };
 
-        // Vektörlerin uzunluklarını (magnitudes) bul
         const len1 = Math.hypot(v1.x, v1.y);
         const len2 = Math.hypot(v2.x, v2.y);
         if (len1 < 1 || len2 < 1) return;
 
-        // Vektörleri normalize et (birim vektör yap)
         const v1n = { x: v1.x / len1, y: v1.y / len1 };
         const v2n = { x: v2.x / len2, y: v2.y / len2 };
 
-        // Nokta çarpım (dot product) ile aradaki açıyı (radyan cinsinden) bul
         const dotProduct = v1n.x * v2n.x + v1n.y * v2n.y;
-        const angleRad = Math.acos(Math.max(-1, Math.min(1, dotProduct))); // Kayan nokta hatalarına karşı koruma
+        const angleRad = Math.acos(Math.max(-1, Math.min(1, dotProduct)));
         
-        // Açıyı dereceye çevir
         const angleDeg = angleRad * 180 / Math.PI;
 
-        const radius = 25; // Açı sembolünün yarıçapı
+        const radius = 25;
         ctx2d.strokeStyle = "#8ab4f8";
         ctx2d.fillStyle = "#8ab4f8";
         ctx2d.lineWidth = 1;
         ctx2d.beginPath();
 
-        // Açı 90 derece ise dik açı sembolü çiz
         if (Math.abs(angleDeg - 90) < 0.5) {
             const p1 = { x: node.x + v1n.x * radius, y: node.y + v1n.y * radius };
             const p2 = { x: node.x + v2n.x * radius, y: node.y + v2n.y * radius };
@@ -50,10 +41,9 @@ export function drawAngleSymbol(node) {
             ctx2d.moveTo(p1.x, p1.y);
             ctx2d.lineTo(p3.x, p3.y);
             ctx2d.lineTo(p2.x, p2.y);
-        } else { // Değilse yay çiz
+        } else {
             const angle1 = Math.atan2(v1.y, v1.x);
             const angle2 = Math.atan2(v2.y, v2.x);
-            // Yay yönünü doğru belirlemek için cross product kontrolü
             const crossProduct = v1.x * v2.y - v1.y * v2.x;
             if (crossProduct > 0) {
                 ctx2d.arc(node.x, node.y, radius, angle1, angle2);
@@ -63,7 +53,6 @@ export function drawAngleSymbol(node) {
         }
         ctx2d.stroke();
 
-        // Açı değerini yaz
         const angleBisector = { x: v1n.x + v2n.x, y: v1n.y + v2n.y };
         const lenBisector = Math.hypot(angleBisector.x, angleBisector.y);
         if (lenBisector > 0.1) {
@@ -81,7 +70,6 @@ export function drawAngleSymbol(node) {
     }
 }
 
-
 export function drawDimension(p1, p2, isPreview = false) {
     const { ctx2d } = dom;
     const { zoom, gridOptions } = state;
@@ -91,12 +79,9 @@ export function drawDimension(p1, p2, isPreview = false) {
     const lengthCm = Math.hypot(dx, dy);
     if (lengthCm < 1) return;
 
-    // --- TEK DEĞİŞİKLİK BURADA ---
-    // Gösterilecek metni oluşturmadan önce, gerçek uzunluğu grid aralığına yuvarlıyoruz.
     const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
     const roundedLength = Math.round(lengthCm / gridSpacing) * gridSpacing;
     const displayText = `${Math.round(roundedLength)}`;
-    // --- DEĞİŞİKLİK SONU ---
 
     const midX = (p1.x + p2.x) / 2;
     const midY = (p1.y + p2.y) / 2;
@@ -176,34 +161,72 @@ export function drawGrid() {
     
     const { x: worldLeft, y: worldTop } = screenToWorld(0, 0);
     const { x: worldRight, y: worldBottom } = screenToWorld(c2d.width, c2d.height);
-    const MIN_PIXEL_SPACING_MAJOR = 80, MIN_PIXEL_SPACING_MINOR = 20;
-    const levels = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000];
     
-    let bestLevelIndex = levels.findIndex(level => level * zoom > MIN_PIXEL_SPACING_MAJOR);
-    if (bestLevelIndex === -1) bestLevelIndex = levels.length - 1;
+    // YENİ GRID SİSTEMİ: x - 5x - 10x - 50x - 100x
+    const baseSpacing = gridOptions.spacing; // x değeri
+    const MIN_PIXEL_SPACING = 20; // Minimum piksel aralığı
     
-    const majorSpacing = levels[bestLevelIndex];
-    const minorSpacing = bestLevelIndex > 0 ? levels[bestLevelIndex - 1] : -1;
+    // Hangi çarpanların görünür olduğunu belirle
+    const multipliers = [1, 5, 10, 50, 100];
+    const visibleMultipliers = [];
     
-    const drawLines = (spacing, color, weight) => {
-        if (spacing <= 0 || spacing * zoom < MIN_PIXEL_SPACING_MINOR / 2) return;
-        ctx2d.strokeStyle = color;
+    for (const mult of multipliers) {
+        const spacing = baseSpacing * mult;
+        const pixelSpacing = spacing * zoom;
+        
+        if (pixelSpacing >= MIN_PIXEL_SPACING) {
+            visibleMultipliers.push({ multiplier: mult, spacing: spacing });
+        }
+    }
+    
+    // En az 2 seviye göster
+    if (visibleMultipliers.length === 0) {
+        // Zoom çok küçükse en büyük 2 seviyeyi göster
+        visibleMultipliers.push({ multiplier: 50, spacing: baseSpacing * 50 });
+        visibleMultipliers.push({ multiplier: 100, spacing: baseSpacing * 100 });
+    } else if (visibleMultipliers.length === 1) {
+        // Sadece 1 seviye varsa bir üsttekini de ekle
+        const lastMult = visibleMultipliers[0].multiplier;
+        const nextMult = multipliers[multipliers.indexOf(lastMult) + 1] || lastMult * 2;
+        visibleMultipliers.push({ multiplier: nextMult, spacing: baseSpacing * nextMult });
+    }
+    
+    const drawLines = (spacing, alpha, weight) => {
+        if (spacing <= 0) return;
+        
+        const hexToRgba = (hex, a) => {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${a})`;
+        };
+        
+        ctx2d.strokeStyle = hexToRgba(gridOptions.color, alpha);
         ctx2d.lineWidth = weight;
         ctx2d.beginPath();
+        
         const startX = Math.floor(worldLeft / spacing) * spacing;
         const startY = Math.floor(worldTop / spacing) * spacing;
-        for (let x = startX; x <= worldRight; x += spacing) { ctx2d.moveTo(x, worldTop); ctx2d.lineTo(x, worldBottom); }
-        for (let y = startY; y <= worldBottom; y += spacing) { ctx2d.moveTo(worldLeft, y); ctx2d.lineTo(worldRight, y); }
+        
+        for (let x = startX; x <= worldRight; x += spacing) {
+            ctx2d.moveTo(x, worldTop);
+            ctx2d.lineTo(x, worldBottom);
+        }
+        
+        for (let y = startY; y <= worldBottom; y += spacing) {
+            ctx2d.moveTo(worldLeft, y);
+            ctx2d.lineTo(worldRight, y);
+        }
+        
         ctx2d.stroke();
     };
     
-    const hexToRgba = (hex, alpha) => {
-        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    };
-    
-    drawLines(minorSpacing, hexToRgba(gridOptions.color, 0.5), gridOptions.weight * 0.7);
-    drawLines(majorSpacing, gridOptions.color, gridOptions.weight);
+    // En ince çizgiden başlayarak çiz
+    visibleMultipliers.reverse().forEach((item, index) => {
+        const alpha = index === 0 ? 0.3 : (index === 1 ? 0.5 : 1.0);
+        const weight = index === 0 ? gridOptions.weight * 0.5 : (index === 1 ? gridOptions.weight * 0.7 : gridOptions.weight);
+        drawLines(item.spacing, alpha, weight);
+    });
 }
 
 export function isMouseOverWall() {

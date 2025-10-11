@@ -13,22 +13,18 @@ export function mergeNode(node) {
                 const wall = door.wall;
                 if (!wall) return;
                 
-                // Eğer kapının duvarı bu düğümleri kullanıyorsa, kapının pozisyonunu güncelle
                 const oldWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                 
                 // Duvarın düğümlerini güncelle
                 if (wall.p1 === node) wall.p1 = t;
                 if (wall.p2 === node) wall.p2 = t;
                 
-                // Yeni duvar uzunluğunu hesapla
                 const newWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                 
-                // Eğer duvar uzunluğu değiştiyse ve pozisyon oranını koru
                 if (oldWallLength > 0.1 && newWallLength > 0.1) {
                     const ratio = newWallLength / oldWallLength;
                     door.pos = door.pos * ratio;
                     
-                    // Kapının sınırlar içinde kalmasını sağla
                     const minPos = door.width / 2 + 15;
                     const maxPos = newWallLength - door.width / 2 - 15;
                     door.pos = Math.max(minPos, Math.min(maxPos, door.pos));
@@ -57,7 +53,6 @@ function unifyNearbyNodes(tolerance) {
             for (let j = i + 1; j < state.nodes.length; j++) {
                 const n1 = state.nodes[i], n2 = state.nodes[j];
                 if (n1 && n2 && Math.hypot(n1.x - n2.x, n1.y - n2.y) < tolerance) {
-                    // Kapıları güncelle
                     state.doors.forEach((door) => {
                         const wall = door.wall;
                         if (!wall) return;
@@ -79,7 +74,6 @@ function unifyNearbyNodes(tolerance) {
                         }
                     });
                     
-                    // Duvarları güncelle
                     state.walls.forEach((w) => {
                         if (w.p1 === n2) w.p1 = n1;
                         if (w.p2 === n2) w.p2 = n1;
@@ -192,10 +186,93 @@ function mergeCollinearChains() {
     }
 }
 
+// YENİ FONKSİYON: 5° altı eğimli duvarları düzelt
+function straightenNearlyHorizontalOrVerticalWalls() {
+    state.walls.forEach(wall => {
+        const dx = wall.p2.x - wall.p1.x;
+        const dy = wall.p2.y - wall.p1.y;
+        const length = Math.hypot(dx, dy);
+        
+        if (length < 0.1) return;
+        
+        // Açıyı hesapla (0-90 derece arası)
+        let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+        
+        // 5° altı ise yatay yap
+        if (angle < 5) {
+            // Hangi ucun serbest olduğunu kontrol et
+            const p1Connections = state.walls.filter(w => w !== wall && (w.p1 === wall.p1 || w.p2 === wall.p1)).length;
+            const p2Connections = state.walls.filter(w => w !== wall && (w.p1 === wall.p2 || w.p2 === wall.p2)).length;
+            
+            if (p1Connections === 0 && p2Connections > 0) {
+                // p1 serbest, p2 sabit
+                wall.p1.y = wall.p2.y;
+            } else if (p2Connections === 0 && p1Connections > 0) {
+                // p2 serbest, p1 sabit
+                wall.p2.y = wall.p1.y;
+            } else if (p1Connections > 0 && p2Connections > 0) {
+                // İki uç da bağlı, p2 ucunu dik duvar tarafına kaydır
+                const p2ConnectedWalls = state.walls.filter(w => w !== wall && (w.p1 === wall.p2 || w.p2 === wall.p2));
+                let hasVerticalConnection = false;
+                
+                for (const connWall of p2ConnectedWalls) {
+                    const connDx = connWall.p2.x - connWall.p1.x;
+                    const connDy = connWall.p2.y - connWall.p1.y;
+                    const connAngle = Math.atan2(Math.abs(connDy), Math.abs(connDx)) * 180 / Math.PI;
+                    if (connAngle > 85) {
+                        hasVerticalConnection = true;
+                        break;
+                    }
+                }
+                
+                if (hasVerticalConnection) {
+                    wall.p2.y = wall.p1.y;
+                } else {
+                    wall.p1.y = wall.p2.y;
+                }
+            } else {
+                // İki uç da serbest, p2'yi düzelt
+                wall.p2.y = wall.p1.y;
+            }
+        }
+        // 85° üstü ise düşey yap
+        else if (angle > 85) {
+            const p1Connections = state.walls.filter(w => w !== wall && (w.p1 === wall.p1 || w.p2 === wall.p1)).length;
+            const p2Connections = state.walls.filter(w => w !== wall && (w.p1 === wall.p2 || w.p2 === wall.p2)).length;
+            
+            if (p1Connections === 0 && p2Connections > 0) {
+                wall.p1.x = wall.p2.x;
+            } else if (p2Connections === 0 && p1Connections > 0) {
+                wall.p2.x = wall.p1.x;
+            } else if (p1Connections > 0 && p2Connections > 0) {
+                const p2ConnectedWalls = state.walls.filter(w => w !== wall && (w.p1 === wall.p2 || w.p2 === wall.p2));
+                let hasHorizontalConnection = false;
+                
+                for (const connWall of p2ConnectedWalls) {
+                    const connDx = connWall.p2.x - connWall.p1.x;
+                    const connDy = connWall.p2.y - connWall.p1.y;
+                    const connAngle = Math.atan2(Math.abs(connDy), Math.abs(connDx)) * 180 / Math.PI;
+                    if (connAngle < 5) {
+                        hasHorizontalConnection = true;
+                        break;
+                    }
+                }
+                
+                if (hasHorizontalConnection) {
+                    wall.p2.x = wall.p1.x;
+                } else {
+                    wall.p1.x = wall.p2.x;
+                }
+            } else {
+                wall.p2.x = wall.p1.x;
+            }
+        }
+    });
+}
+
 export function processWalls() {
     unifyNearbyNodes(1.0);
     
-    // Önce geçersiz duvarları ve kapıları filtrele
     const filteredWalls = state.walls.filter(w => {
         if (!w || !w.p1 || !w.p2) return false;
         const length = Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y);
@@ -205,7 +282,6 @@ export function processWalls() {
     const filteredDoors = state.doors.filter((d) => {
         if (!d.wall || !filteredWalls.includes(d.wall)) return false;
         const wallLength = Math.hypot(d.wall.p2.x - d.wall.p1.x, d.wall.p2.y - d.wall.p1.y);
-        // Kapının duvar üzerinde geçerli bir pozisyonda olup olmadığını kontrol et
         return d.pos >= 0 && d.pos <= wallLength;
     });
     
@@ -216,7 +292,9 @@ export function processWalls() {
     mergeDuplicateWalls();
     mergeCollinearChains();
     
-    // Oda tespitinden önce tekrar geçersiz duvarları temizle
+    // 5° altı eğimli duvarları düzelt
+    straightenNearlyHorizontalOrVerticalWalls();
+    
     const validWalls = state.walls.filter(w => {
         if (!w || !w.p1 || !w.p2) return false;
         const length = Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y);
@@ -224,7 +302,6 @@ export function processWalls() {
     });
     setState({ walls: validWalls });
     
-    // Güvenli oda tespiti
     try {
         detectRooms();
     } catch (error) {
