@@ -180,34 +180,32 @@ export function onPointerDown(e) {
         }
         if (doorsAdded) saveState();
     } else {
+        // ÇİZİM MODU BAŞLANGIÇ/DEVAM
+        
+        let placementPos = { x: snappedPos.x, y: snappedPos.y };
+        const gridSpacing = state.gridOptions.spacing;
+        
+        // AKILLI SNAP (Endpoint/Intersection) YOKSA VE GRID AÇIKSA, KESİNLİKLE YUVARLA.
+        if (!snappedPos.isSnapped && state.gridOptions.visible) {
+             placementPos.x = Math.round(placementPos.x / gridSpacing) * gridSpacing;
+             placementPos.y = Math.round(placementPos.y / gridSpacing) * gridSpacing;
+        }
+
+
         if (!state.startPoint) {
-            setState({ startPoint: getOrCreateNode(snappedPos.x, snappedPos.y) });
+            // İLK TIKLAMA: startPoint'i yerleştir
+            setState({ startPoint: getOrCreateNode(placementPos.x, placementPos.y) });
         } else {
-            const d = Math.hypot(state.startPoint.x - snappedPos.x, state.startPoint.y - snappedPos.y);
+            // ZİNCİRLEME ÇİZİM/İKİNCİ TIKLAMA: Duvarı yerleştir
+            const d = Math.hypot(state.startPoint.x - snappedPos.x, state.startPoint.y - snappedPos.y); 
+            
             if (d > 0.1) {
                 let geometryChanged = false;
+                
                 if (state.currentMode === "drawWall") {
-                    if (!snappedPos.isSnapped) {
-                        const dx = snappedPos.x - state.startPoint.x;
-                        const dy = snappedPos.y - state.startPoint.y;
-                        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-                        const snapAngle = 5;
-
-                        if (Math.abs(angle) < snapAngle || Math.abs(angle - 180) < snapAngle || Math.abs(angle + 180) < snapAngle) {
-                            snappedPos.y = state.startPoint.y;
-                        } else if (Math.abs(angle - 90) < snapAngle || Math.abs(angle + 90) < snapAngle) {
-                            snappedPos.x = state.startPoint.x;
-                        } else {
-                            if (Math.abs(dx) > Math.abs(dy)) {
-                                snappedPos.y = state.startPoint.y;
-                            } else {
-                                snappedPos.x = state.startPoint.x;
-                            }
-                        }
-                    }
-
+                    
                     const nodesBefore = state.nodes.length;
-                    const endNode = getOrCreateNode(snappedPos.x, snappedPos.y);
+                    const endNode = getOrCreateNode(placementPos.x, placementPos.y); // Yuvarlanmış/Snapped konumu kullan
                     const didSnapToExistingNode = (state.nodes.length === nodesBefore);
                     const didConnectToWallBody = !didSnapToExistingNode && isPointOnWallBody(endNode);
 
@@ -222,9 +220,17 @@ export function onPointerDown(e) {
                     }
                 } else if (state.currentMode === "drawRoom") {
                     const p1 = state.startPoint;
-                    const p2 = snappedPos;
-                    if (Math.abs(p1.x - p2.x) > 1 && Math.abs(p1.y - p2.y) > 1) {
-                        const v1 = p1, v2 = getOrCreateNode(p2.x, v1.y), v3 = getOrCreateNode(p2.x, p2.y), v4 = getOrCreateNode(v1.x, p2.y);
+                    
+                    if (Math.abs(p1.x - placementPos.x) > 1 && Math.abs(p1.y - placementPos.y) > 1) {
+                        
+                        let roundedX = placementPos.x;
+                        let roundedY = placementPos.y;
+                        
+                        const v1 = p1, 
+                              v2 = getOrCreateNode(roundedX, v1.y), 
+                              v3 = getOrCreateNode(roundedX, roundedY), 
+                              v4 = getOrCreateNode(v1.x, roundedY);
+                              
                         [ {p1:v1, p2:v2}, {p1:v2, p2:v3}, {p1:v3, p2:v4}, {p1:v4, p2:v1} ].forEach(pw => {
                             if (!wallExists(pw.p1, pw.p2)) state.walls.push({ type: "wall", ...pw });
                         });

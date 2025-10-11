@@ -41,7 +41,6 @@ export function onPointerMove(e) {
             } else if (state.dragAxis === 'y') {
                 finalPos.x = nodeInitialDragPoint.x; // X'i sabitle, sadece Y değişsin.
             }
-            // Eğer dragAxis null ise (açılı duvar), hareket serbest kalır.
             
             const moveIsValid = state.affectedWalls.every((wall) => {
                 const otherNode = wall.p1 === nodeToMove ? wall.p2 : wall.p1;
@@ -64,7 +63,8 @@ export function onPointerMove(e) {
 
             const mouseDelta = { x: unsnappedPos.x - state.initialDragPoint.x, y: unsnappedPos.y - state.initialDragPoint.y };
 
-            const snapRadius = 15;
+            const gridSpacing = state.gridOptions.spacing;
+            const snapRadius = gridSpacing; 
             let bestSnapVector = { x: 0, y: 0 };
             let minSnapDistSq = snapRadius * snapRadius;
             const stationaryNodes = [...new Set(state.walls.filter(w => !wallsToMove.includes(w)).flatMap(w => [w.p1, w.p2]))];
@@ -82,15 +82,33 @@ export function onPointerMove(e) {
                 }
             }
 
-            const totalDelta = {
-                x: mouseDelta.x + bestSnapVector.x,
-                y: mouseDelta.y + bestSnapVector.y
+            // totalDelta'yı ham hareket ile başlat (pürüzsüz)
+            let totalDelta = {
+                x: mouseDelta.x,
+                y: mouseDelta.y
             };
-
+            
+            // --- HAREKET KONTROLÜ (Sadece Node Snap'i Uygula) ---
+            const SNAP_VECTOR_THRESHOLD = 0.1; 
+            
             const wallVec = state.dragWallInitialVector;
-            const isVertical = Math.abs(wallVec.dx) < 0.1;
-            const isHorizontal = Math.abs(wallVec.dy) < 0.1;
+            let isVertical = false;
+            let isHorizontal = false;
 
+            if (wallVec) { 
+                 isVertical = Math.abs(wallVec.dx) < 0.1;
+                 isHorizontal = Math.abs(wallVec.dy) < 0.1;
+            }
+
+            // GÜÇLÜ NODE SNAP KONTROLÜ
+            if (Math.hypot(bestSnapVector.x, bestSnapVector.y) >= SNAP_VECTOR_THRESHOLD) {
+                // Güçlü Node Snap bulundu: totalDelta'yı snap vektörüne göre ayarla.
+                totalDelta.x = mouseDelta.x + bestSnapVector.x;
+                totalDelta.y = mouseDelta.y + bestSnapVector.y;
+            }
+            // --- HAREKET MANTIĞI SONU ---
+            
+            // Sert Ortogonal Kilitleme
             if (isVertical) {
                 totalDelta.y = 0;
             } else if (isHorizontal) {

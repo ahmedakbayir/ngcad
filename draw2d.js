@@ -175,9 +175,49 @@ export function draw2D() {
         });
     }
 
+    // Seçili duvarlar için boyut gösterimi (Sürükleme ve Seçim Modu)
     if (showDimensions) { walls.forEach((w) => { const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w); drawDimension(w.p1, w.p2, false); }); }
     else if (!isDragging && selectedObject?.type === "wall") { drawDimension(selectedObject.object.p1, selectedObject.object.p2, true); }
     if (isDragging && affectedWalls.length > 0) { affectedWalls.forEach((wall) => { drawDimension(wall.p1, wall.p2, true); }); }
+    
+    // Duvar Sürükleme Boyutu Gösterimi (Ham pozisyonu al, yuvarlanmış boyutu göster)
+    if (isDragging && selectedObject?.type === "wall" && (selectedObject.handle === "body" || selectedObject.handle === "p1" || selectedObject.object.handle === "p2")) {
+        const w = selectedObject.object;
+        const gridSpacing = gridOptions.spacing;
+        
+        const p1 = w.p1, p2 = w.p2;
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        
+        // Ham delta'yı yuvarlanmış delta olarak hesapla
+        const roundedDx = Math.round(dx / gridSpacing) * gridSpacing;
+        const roundedDy = Math.round(dy / gridSpacing) * gridSpacing;
+
+        // Yuvarlanmış boyutu göstermek için sanal bir nokta oluştur
+        let virtualP1 = p1;
+        let virtualP2 = p2;
+        
+        if (selectedObject.handle === "body") {
+            // Body drag: P1'i referans alıp P2'yi yuvarlanmış vektöre göre sanal olarak taşı
+            virtualP2 = { x: p1.x + roundedDx, y: p1.y + roundedDy };
+        } else {
+             // Node drag: Sabit noktayı virtualP1 yap
+             virtualP1 = (selectedObject.handle === "p1") ? p2 : p1; 
+             virtualP2 = (selectedObject.handle === "p1") ? p1 : p2; 
+             
+             const currentLen = Math.hypot(virtualP1.x - virtualP2.x, virtualP1.y - virtualP2.y);
+             const roundedLen = Math.round(currentLen / gridSpacing) * gridSpacing;
+             
+             // Yuvarlanmış uzunluğu göstermek için virtualP2'yi sanal olarak yeniden konumlandır
+             const angle = Math.atan2(virtualP2.y - virtualP1.y, virtualP2.x - virtualP1.x);
+             virtualP2 = {
+                 x: virtualP1.x + Math.cos(angle) * roundedLen,
+                 y: virtualP1.y + Math.sin(angle) * roundedLen
+             };
+        }
+        drawDimension(virtualP1, virtualP2, true);
+    }
+    
 
      // SÜPÜRME DUVARLARINI ÇİZ
     if (isSweeping && sweepWalls.length > 0) {
@@ -202,36 +242,29 @@ export function draw2D() {
 
     if (startPoint) {
         ctx2d.strokeStyle = "#8ab4f8"; ctx2d.lineWidth = 2; ctx2d.setLineDash([6, 3]);
+        // finalPos, ham mousePos'u kullanır (smooth line drawing)
+        let finalPos = { x: mousePos.x, y: mousePos.y };
+        
+        // --- GÖRSEL SNAP (DISPLAY ONLY) İÇİN YUVARLANMIŞ NOKTAYI HESAPLA ---
+        let displayPos = { x: finalPos.x, y: finalPos.y };
+        // Akıllı snap yoksa ve grid açıksa, boyut gösterimi için yuvarla.
+        if (!mousePos.isSnapped && gridOptions.visible) {
+            displayPos.x = Math.round(displayPos.x / gridOptions.spacing) * gridOptions.spacing;
+            displayPos.y = Math.round(displayPos.y / gridOptions.spacing) * gridOptions.spacing;
+        }
+
         if (currentMode === "drawRoom") {
-            ctx2d.strokeRect(startPoint.x, startPoint.y, mousePos.x - startPoint.x, mousePos.y - startPoint.y);
-            const snappedX = Math.round(mousePos.x / gridOptions.spacing) * gridOptions.spacing;
-            const snappedY = Math.round(mousePos.y / gridOptions.spacing) * gridOptions.spacing;
-            drawDimension(startPoint, { x: snappedX, y: startPoint.y }, true);
-            drawDimension({ x: snappedX, y: startPoint.y }, { x: snappedX, y: snappedY }, true);
+            // Çizgiyi yuvarlanmış (DisplayPos) konuma göre çiz (GÖRSEL SNAP)
+            ctx2d.strokeRect(startPoint.x, startPoint.y, displayPos.x - startPoint.x, displayPos.y - startPoint.y);
+            // Boyut gösteriminde YUVARLANMIŞ noktayı kullan
+            drawDimension(startPoint, { x: displayPos.x, y: startPoint.y }, true);
+            drawDimension({ x: displayPos.x, y: startPoint.y }, { x: displayPos.x, y: displayPos.y }, true);
         } else if (currentMode === "drawWall") {
-            let finalPos = { x: mousePos.x, y: mousePos.y };
 
-            if (!mousePos.isSnapped) {
-                const dx = finalPos.x - startPoint.x;
-                const dy = finalPos.y - startPoint.y;
-                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-                const snapAngle = 5;
-
-                if (Math.abs(angle) < snapAngle || Math.abs(angle - 180) < snapAngle || Math.abs(angle + 180) < snapAngle) {
-                    finalPos.y = startPoint.y;
-                } else if (Math.abs(angle - 90) < snapAngle || Math.abs(angle + 90) < snapAngle) {
-                    finalPos.x = startPoint.x;
-                } else {
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        finalPos.y = startPoint.y;
-                    } else {
-                        finalPos.x = startPoint.x;
-                    }
-                }
-            }
-
-            ctx2d.beginPath(); ctx2d.moveTo(startPoint.x, startPoint.y); ctx2d.lineTo(finalPos.x, finalPos.y); ctx2d.stroke();
-            drawDimension(startPoint, finalPos, true);
+            // Çizgiyi yuvarlanmış (DisplayPos) konuma göre çiz (GÖRSEL SNAP)
+            ctx2d.beginPath(); ctx2d.moveTo(startPoint.x, startPoint.y); ctx2d.lineTo(displayPos.x, displayPos.y); ctx2d.stroke();
+            // Boyut gösteriminde YUVARLANMIŞ noktayı kullan
+            drawDimension(startPoint, displayPos, true);
         }
         ctx2d.setLineDash([]);
     }

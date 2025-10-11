@@ -60,8 +60,37 @@ export function onPointerUp(e) {
             const newWalls = state.sweepWalls.filter(w => Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y) > 1);
             setState({ walls: [...state.walls, ...newWalls] });
         }
-        if (state.selectedObject?.type === "wall") {
+        
+        // --- Kesin Yerleşim Snap'i (Pointer-Up) ---
+        if (state.selectedObject?.type === "wall" && state.selectedObject.handle === "body") {
             const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+            const nodesToMove = new Set();
+            wallsToProcess.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
+
+            const gridSpacing = state.gridOptions.spacing;
+
+            // Yerleştirme anında ham hareketi grid adımına yuvarlayarak Kesin Yerleşimi sağla.
+            nodesToMove.forEach((node) => {
+                const originalPos = state.preDragNodeStates.get(node);
+                if (originalPos) {
+                    const movedX = node.x - originalPos.x;
+                    const movedY = node.y - originalPos.y;
+                    
+                    const roundedMovedX = Math.round(movedX / gridSpacing) * gridSpacing;
+                    const roundedMovedY = Math.round(movedY / gridSpacing) * gridSpacing;
+                    
+                    // Düğümün son pozisyonunu, yuvarlanmış hareket miktarına göre ayarla.
+                    node.x = originalPos.x + roundedMovedX;
+                    node.y = originalPos.y + roundedMovedY;
+                }
+                
+                mergeNode(node);
+            });
+        }
+        // --- Kesin Yerleşim Snap'i Sonu ---
+        
+        if (state.selectedObject?.type === "wall") {
+            // Düğüm sürüklemesi için eski mantık veya body drag sonrası merge.
             const nodesToMerge = new Set();
             
             if (state.selectedObject.handle !== 'body' && state.affectedWalls) {
@@ -69,7 +98,8 @@ export function onPointerUp(e) {
                 const nodeToMerge = state.selectedObject.object[state.selectedObject.handle];
                 mergeNode(nodeToMerge);
             } else { 
-                // Gövde sürüklemesi için eski mantık
+                // Gövde sürüklemesi için eski mantık (Node-to-Node snap ile çakışmaları çözmek için)
+                const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
                 wallsToProcess.forEach((w) => { nodesToMerge.add(w.p1); nodesToMerge.add(w.p2); });
                 nodesToMerge.forEach((node) => mergeNode(node));
             }
