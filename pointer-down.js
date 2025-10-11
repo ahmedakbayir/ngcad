@@ -202,6 +202,24 @@ export function onPointerDown(e) {
                         placementPos = snapTo15DegreeAngle(state.startPoint, placementPos);
                     }
 
+                    // YENİ KISIM BAŞLANGIÇ: Açı Snap'inden sonra uzunluğu tekrar grid'e yuvarla
+                    const dx = placementPos.x - state.startPoint.x;
+                    const dy = placementPos.y - state.startPoint.y;
+                    const distance = Math.hypot(dx, dy);
+                    // Grid ayarı görünür olmasa bile, varsayılan olarak 1cm (1 birim) kullanılır.
+                    const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1; 
+                    
+                    if (distance > 0.1) {
+                        const snappedDistance = Math.round(distance / gridValue) * gridValue;
+                        // Uzunluk değiştiyse, noktayı yeni uzunluğa göre tekrar konumlandır
+                        if (Math.abs(snappedDistance - distance) > 0.1) {
+                            const scale = snappedDistance / distance;
+                            placementPos.x = state.startPoint.x + dx * scale;
+                            placementPos.y = state.startPoint.y + dy * scale;
+                        }
+                    }
+                    // YENİ KISIM SONU
+
                     const nodesBefore = state.nodes.length;
                     const endNode = getOrCreateNode(placementPos.x, placementPos.y); 
                     const didSnapToExistingNode = (state.nodes.length === nodesBefore);
