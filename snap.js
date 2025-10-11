@@ -110,7 +110,10 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             if (Math.abs(y - (bestHSnap.y || y)) < 0.1 && bestHSnap.origin) snapLines.h_origins.push(bestHSnap.origin);
         }
     } else {
-        if (applyGridSnapFallback && state.gridOptions.visible) {
+        // *** ANA DÜZELTME BURADA ***
+        // Grid'e yapışma sadece sürükleme işlemi yokken (yani çizim yaparken) aktif olsun.
+        // Bu, sürükleme sırasında akıcı hareketi sağlar.
+        if (applyGridSnapFallback && state.gridOptions.visible && !state.isDragging) {
             x = Math.round(x / state.gridOptions.spacing) * state.gridOptions.spacing;
             y = Math.round(y / state.gridOptions.spacing) * state.gridOptions.spacing;
         }

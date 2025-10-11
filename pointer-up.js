@@ -56,6 +56,10 @@ export function onPointerUp(e) {
     }
     
     if (state.aDragOccurred) {
+        if (state.isSweeping) {
+            const newWalls = state.sweepWalls.filter(w => Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y) > 1);
+            setState({ walls: [...state.walls, ...newWalls] });
+        }
         if (state.selectedObject?.type === "wall") {
             const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
             const nodesToMerge = new Set();
@@ -90,5 +94,7 @@ export function onPointerUp(e) {
         dragWallInitialVector: null,
         selectedObject: didClick ? state.selectedObject : null,
         dragOriginalNodes: null,
+        isSweeping: false,
+        sweepWalls: [],
     });
 }

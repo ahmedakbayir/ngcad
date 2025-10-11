@@ -9,7 +9,8 @@ export function draw2D() {
         panOffset, zoom, rooms, roomFillColor, walls, doors, selectedObject, 
         selectedGroup, wallBorderColor, lineThickness, showDimensions, 
         affectedWalls, startPoint, currentMode, mousePos, gridOptions,
-        isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning, nodes
+        isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning, nodes,
+        isSweeping, sweepWalls
     } = state;
 
     ctx2d.fillStyle = BG;
@@ -177,6 +178,20 @@ export function draw2D() {
     if (showDimensions) { walls.forEach((w) => { const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w); drawDimension(w.p1, w.p2, false); }); }
     else if (!isDragging && selectedObject?.type === "wall") { drawDimension(selectedObject.object.p1, selectedObject.object.p2, true); }
     if (isDragging && affectedWalls.length > 0) { affectedWalls.forEach((wall) => { drawDimension(wall.p1, wall.p2, true); }); }
+
+     // SÜPÜRME DUVARLARINI ÇİZ
+    if (isSweeping && sweepWalls.length > 0) {
+        ctx2d.strokeStyle = "rgba(138, 180, 248, 0.7)";
+        ctx2d.lineWidth = 2;
+        ctx2d.setLineDash([6, 6]);
+        ctx2d.beginPath();
+        sweepWalls.forEach(wall => {
+            ctx2d.moveTo(wall.p1.x, wall.p1.y);
+            ctx2d.lineTo(wall.p2.x, wall.p2.y);
+        });
+        ctx2d.stroke();
+        ctx2d.setLineDash([]);
+    }
 
     if (selectedObject?.type === "wall" && !isDragging) {
         const w = selectedObject.object;

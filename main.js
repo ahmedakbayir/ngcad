@@ -82,6 +82,8 @@ export let state = {
         color: "#2d3134",
         weight: 0.5,
     },
+    isSweeping: false,
+    sweepWalls: [],
 };
 
 export function setState(newState) {

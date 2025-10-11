@@ -104,6 +104,22 @@ export function onPointerMove(e) {
                     node.y = originalPos.y + totalDelta.y;
                 }
             });
+
+            if (state.isSweeping) {
+                const sweepWalls = [];
+                wallsToMove.forEach(movedWall => {
+                    const originalP1 = state.preDragNodeStates.get(movedWall.p1);
+                    if (originalP1) {
+                        sweepWalls.push({ p1: originalP1, p2: movedWall.p1 });
+                    }
+                    const originalP2 = state.preDragNodeStates.get(movedWall.p2);
+                    if (originalP2) {
+                         sweepWalls.push({ p1: originalP2, p2: movedWall.p2 });
+                    }
+                });
+                setState({ sweepWalls });
+            }
+
         } else if (state.selectedObject.type === "door") {
             const door = state.selectedObject.object;
             let closestWall = door.wall;

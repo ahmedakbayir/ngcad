@@ -1,6 +1,6 @@
 import { state, dom, setState, setMode, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
-import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, wallExists } from './geometry.js';
+import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, wallExists, areCollinear } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
@@ -27,7 +27,7 @@ export function onPointerDown(e) {
             return;
         }
         const selectedObject = getObjectAtPoint(pos);
-        setState({ selectedObject, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(), dragAxis: null });
+        setState({ selectedObject, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(), dragAxis: null, isSweeping: false, sweepWalls: [] });
         
         if (selectedObject) {
             let startPointForDragging;
@@ -35,35 +35,32 @@ export function onPointerDown(e) {
                 const nodeToDrag = selectedObject.object[selectedObject.handle];
                 startPointForDragging = { x: nodeToDrag.x, y: nodeToDrag.y };
             } else {
+                // Sürüklemenin başlangıç noktasını HER ZAMAN kenetlenmiş pozisyon olarak ayarla.
                 startPointForDragging = { x: snappedPos.x, y: snappedPos.y };
             }
 
             setState({
                 isDragging: true,
                 dragStartPoint: startPointForDragging,
-                initialDragPoint: { x: pos.x, y: pos.y },
+                initialDragPoint: { x: pos.x, y: pos.y }, 
                 dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId },
             });
 
             if (selectedObject.type === "wall") {
-                // --- DÜĞÜM NOKTASI SÜRÜKLEME ---
                 if (selectedObject.handle !== "body") {
                     const nodeToDrag = selectedObject.object[selectedObject.handle];
                     const draggedWall = selectedObject.object;
                     
                     const draggedWallVec = { x: draggedWall.p2.x - draggedWall.p1.x, y: draggedWall.p2.y - draggedWall.p1.y };
-                    const isDraggedWallHorizontal = Math.abs(draggedWallVec.y) < 1; // Toleranslı kontrol
-                    const isDraggedWallVertical = Math.abs(draggedWallVec.x) < 1;   // Toleranslı kontrol
+                    const isDraggedWallHorizontal = Math.abs(draggedWallVec.y) < 1; 
+                    const isDraggedWallVertical = Math.abs(draggedWallVec.x) < 1;  
 
                     let dragAxis = null;
-                    // KURAL: Eğer sürüklenen duvar YATAY ise, hareket DİKEY (Y) eksende kilitlenmelidir.
                     if (isDraggedWallHorizontal) {
                         dragAxis = 'y';
-                    // KURAL: Eğer sürüklenen duvar DİKEY ise, hareket YATAY (X) eksende kilitlenmelidir.
                     } else if (isDraggedWallVertical) {
                         dragAxis = 'x';
                     }
-                    // Açılı duvarlar için kilit yok (serbest hareket). dragAxis null kalır.
                     setState({ dragAxis });
 
                     const affectedWalls = state.walls.filter((w) => w.p1 === nodeToDrag || w.p2 === nodeToDrag);
@@ -81,8 +78,6 @@ export function onPointerDown(e) {
                             });
                         }
                     });
-
-                // --- GÖVDE SÜRÜKLEME ---
                 } else { 
                     if (e.ctrlKey && e.shiftKey) {
                         setState({ selectedGroup: findCollinearChain(selectedObject.object) });
@@ -96,27 +91,50 @@ export function onPointerDown(e) {
                     const wall = selectedObject.object;
                     setState({ dragWallInitialVector: { dx: wall.p2.x - wall.p1.x, dy: wall.p2.y - wall.p1.y } });
                     
-                    if (e.altKey) {
-                         setState({ isStretchDragging: true, stretchMode: "alt", stretchWallOrigin: { p1: { ...selectedObject.object.p1 }, p2: { ...selectedObject.object.p2 } }});
-                    } else if (e.shiftKey && !e.ctrlKey) {
-                         setState({ isStretchDragging: true, stretchMode: "shift", stretchWallOrigin: { p1: { ...selectedObject.object.p1 }, p2: { ...selectedObject.object.p2 } }});
-                    } else if (e.ctrlKey && !e.altKey && !e.shiftKey) {
-                        const wallToMove = selectedObject.object;
-                        const p1 = wallToMove.p1;
-                        const p1Connections = state.walls.filter(w => w.p1 === p1 || w.p2 === p1);
-                        if (p1Connections.length > 1) {
-                            const newP1 = { x: p1.x, y: p1.y };
-                            state.nodes.push(newP1);
-                            wallToMove.p1 = newP1;
-                            state.preDragNodeStates.set(newP1, { x: p1.x, y: p1.y });
-                        }
-                        const p2 = wallToMove.p2;
-                        const p2Connections = state.walls.filter(w => w.p1 === p2 || w.p2 === p2);
-                        if (p2Connections.length > 1) {
-                            const newP2 = { x: p2.x, y: p2.y };
-                            state.nodes.push(newP2);
-                            wallToMove.p2 = newP2;
-                            state.preDragNodeStates.set(newP2, { x: p2.x, y: p2.y });
+                    if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+                        const checkAndSplitNode = (node) => {
+                            const connectedWalls = state.walls.filter(w => (w.p1 === node || w.p2 === node) && !wallsBeingMoved.includes(w));
+                            if (connectedWalls.length === 0) return false;
+
+                            const mainDraggedWall = selectedObject.object;
+                            const isMainWallHorizontal = Math.abs(mainDraggedWall.p2.y - mainDraggedWall.p1.y) < 1;
+                            
+                            let needsSplit = false;
+                            for (const connected of connectedWalls) {
+                                const isConnectedHorizontal = Math.abs(connected.p2.y - connected.p1.y) < 1;
+                                
+                                if (isMainWallHorizontal && isConnectedHorizontal) {
+                                    needsSplit = true;
+                                    break;
+                                }
+                                if (!isMainWallHorizontal && !isConnectedHorizontal) {
+                                    needsSplit = true;
+                                    break;
+                                }
+                            }
+
+                            if (needsSplit) {
+                                const newNode = { x: node.x, y: node.y };
+                                state.nodes.push(newNode);
+                                wallsBeingMoved.forEach(wall => {
+                                    if (wall.p1 === node) wall.p1 = newNode;
+                                    if (wall.p2 === node) wall.p2 = newNode;
+                                });
+                                state.preDragNodeStates.set(newNode, { x: node.x, y: node.y });
+                                return true; 
+                            }
+                            return false; 
+                        };
+
+                        let splitOccurred = false;
+                        nodesBeingMoved.forEach(node => {
+                            if (checkAndSplitNode(node)) {
+                                splitOccurred = true;
+                            }
+                        });
+
+                        if (splitOccurred) {
+                            setState({ isSweeping: true });
                         }
                     }
                 }
