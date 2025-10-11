@@ -5,11 +5,11 @@ import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymb
 
 export function draw2D() {
     const { ctx2d, c2d } = dom;
-    const { 
-        panOffset, zoom, rooms, roomFillColor, walls, doors, selectedObject, 
-        selectedGroup, wallBorderColor, lineThickness, showDimensions, 
-        affectedWalls, startPoint, currentMode, mousePos, gridOptions,
-        isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning, nodes,
+    const {
+        panOffset, zoom, rooms, roomFillColor, walls, doors, selectedObject,
+        selectedGroup, wallBorderColor, lineThickness, showDimensions,
+        affectedWalls, startPoint, currentMode, mousePos,
+        isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning,
         isSweeping, sweepWalls
     } = state;
 
@@ -19,7 +19,7 @@ export function draw2D() {
     ctx2d.translate(panOffset.x, panOffset.y);
     ctx2d.scale(zoom, zoom);
     ctx2d.lineWidth = 1 / zoom;
-    
+
     drawGrid();
 
     if (rooms.length > 0) {
@@ -40,7 +40,7 @@ export function draw2D() {
 
     const wallPx = WALL_THICKNESS;
     ctx2d.lineJoin = "miter"; ctx2d.miterLimit = 4; ctx2d.lineCap = "square";
-    
+
     const orthoSegments = [], nonOrthoSegments = [], selectedSegments = [];
 
     walls.forEach((w) => {
@@ -48,29 +48,29 @@ export function draw2D() {
         const isOrthogonal = Math.abs(w.p1.x - w.p2.x) < 0.1 || Math.abs(w.p1.y - w.p2.y) < 0.1;
         const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y);
         if (wallLen < 0.1) return;
-        
+
         const wallDoors = doors.filter((d) => d.wall === w).sort((a, b) => a.pos - b.pos);
-        let currentSegments = []; 
+        let currentSegments = [];
         let lastPos = 0;
-        
+
         wallDoors.forEach((door) => {
             const doorStart = door.pos - door.width / 2;
             if (doorStart > lastPos) currentSegments.push({ start: lastPos, end: doorStart });
             lastPos = door.pos + door.width / 2;
         });
-        
+
         if (lastPos < wallLen) currentSegments.push({ start: lastPos, end: wallLen });
-        
+
         const dx = (w.p2.x - w.p1.x) / wallLen, dy = (w.p2.y - w.p1.y) / wallLen;
         const halfWallPx = wallPx / 2;
-        
+
         currentSegments.forEach((seg) => {
             let p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
             let p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
             if (seg.start > 0) { p1.x += dx * halfWallPx; p1.y += dy * halfWallPx; }
             if (seg.end < wallLen) { p2.x -= dx * halfWallPx; p2.y -= dy * halfWallPx; }
             const segmentData = { p1, p2 };
-            
+
             if (isSelected) {
                 selectedSegments.push(segmentData);
             } else if (isOrthogonal) {
@@ -80,7 +80,7 @@ export function draw2D() {
             }
         });
     });
-    
+
     const drawSegments = (segmentList, color) => {
         if (segmentList.length === 0) return;
         ctx2d.beginPath();
@@ -96,20 +96,16 @@ export function draw2D() {
     drawSegments(nonOrthoSegments, "#e57373");
     drawSegments(selectedSegments, "#8ab4f8");
 
-    // *** GÜNCELLEME BAŞLANGICI: Açı sembollerini çiz ***
     const nodesToDrawAngle = new Set();
-    // Eğer bir köşe sürükleniyorsa, o köşedeki açıyı her zaman çiz
     if (isDragging && selectedObject?.handle !== 'body') {
         const nodeToDrag = selectedObject.object[selectedObject.handle];
         nodesToDrawAngle.add(nodeToDrag);
-    } 
-    // Eğer bir duvar seçiliyse, onun köşelerindeki açıları çiz
+    }
     else if (selectedObject?.type === 'wall') {
         nodesToDrawAngle.add(selectedObject.object.p1);
         nodesToDrawAngle.add(selectedObject.object.p2);
     }
     nodesToDrawAngle.forEach(node => drawAngleSymbol(node));
-    // *** GÜNCELLEME SONU ***
 
     if (rooms.length > 0) {
         ctx2d.textAlign = "center";
@@ -118,14 +114,14 @@ export function draw2D() {
             const baseNameFontSize = 18, baseAreaFontSize = 14;
             const baseNameYOffset = showDimensions ? 10 : 0;
             const nameYOffset = baseNameYOffset / zoom;
-            
-            ctx2d.fillStyle = room.name === 'TANIMSIZ' ? '#e57373' : '#8ab4f8'; 
-            
+
+            ctx2d.fillStyle = room.name === 'TANIMSIZ' ? '#e57373' : '#8ab4f8';
+
             let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
             ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
             ctx2d.textBaseline = showDimensions ? "bottom" : "middle";
             ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
-            
+
             if (showDimensions) {
                 ctx2d.fillStyle = "#8ab4f8";
                 let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
@@ -137,7 +133,7 @@ export function draw2D() {
         });
     }
 
-    doors.forEach((door) => { 
+    doors.forEach((door) => {
         const isSelected = selectedObject?.type === "door" && selectedObject.object === door;
         drawDoorSymbol(door, false, isSelected);
     });
@@ -175,51 +171,14 @@ export function draw2D() {
         });
     }
 
-    // Seçili duvarlar için boyut gösterimi (Sürükleme ve Seçim Modu)
     if (showDimensions) { walls.forEach((w) => { const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w); drawDimension(w.p1, w.p2, false); }); }
     else if (!isDragging && selectedObject?.type === "wall") { drawDimension(selectedObject.object.p1, selectedObject.object.p2, true); }
     if (isDragging && affectedWalls.length > 0) { affectedWalls.forEach((wall) => { drawDimension(wall.p1, wall.p2, true); }); }
-    
-    // Duvar Sürükleme Boyutu Gösterimi (Ham pozisyonu al, yuvarlanmış boyutu göster)
-    if (isDragging && selectedObject?.type === "wall" && (selectedObject.handle === "body" || selectedObject.handle === "p1" || selectedObject.object.handle === "p2")) {
-        const w = selectedObject.object;
-        const gridSpacing = gridOptions.spacing;
-        
-        const p1 = w.p1, p2 = w.p2;
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        
-        // Ham delta'yı yuvarlanmış delta olarak hesapla
-        const roundedDx = Math.round(dx / gridSpacing) * gridSpacing;
-        const roundedDy = Math.round(dy / gridSpacing) * gridSpacing;
 
-        // Yuvarlanmış boyutu göstermek için sanal bir nokta oluştur
-        let virtualP1 = p1;
-        let virtualP2 = p2;
-        
-        if (selectedObject.handle === "body") {
-            // Body drag: P1'i referans alıp P2'yi yuvarlanmış vektöre göre sanal olarak taşı
-            virtualP2 = { x: p1.x + roundedDx, y: p1.y + roundedDy };
-        } else {
-             // Node drag: Sabit noktayı virtualP1 yap
-             virtualP1 = (selectedObject.handle === "p1") ? p2 : p1; 
-             virtualP2 = (selectedObject.handle === "p1") ? p1 : p2; 
-             
-             const currentLen = Math.hypot(virtualP1.x - virtualP2.x, virtualP1.y - virtualP2.y);
-             const roundedLen = Math.round(currentLen / gridSpacing) * gridSpacing;
-             
-             // Yuvarlanmış uzunluğu göstermek için virtualP2'yi sanal olarak yeniden konumlandır
-             const angle = Math.atan2(virtualP2.y - virtualP1.y, virtualP2.x - virtualP1.x);
-             virtualP2 = {
-                 x: virtualP1.x + Math.cos(angle) * roundedLen,
-                 y: virtualP1.y + Math.sin(angle) * roundedLen
-             };
-        }
-        drawDimension(virtualP1, virtualP2, true);
+    if (isDragging && selectedObject?.type === "wall") {
+        drawDimension(selectedObject.object.p1, selectedObject.object.p2, true);
     }
-    
 
-     // SÜPÜRME DUVARLARINI ÇİZ
     if (isSweeping && sweepWalls.length > 0) {
         ctx2d.strokeStyle = "rgba(138, 180, 248, 0.7)";
         ctx2d.lineWidth = 2;
@@ -242,37 +201,27 @@ export function draw2D() {
 
     if (startPoint) {
         ctx2d.strokeStyle = "#8ab4f8"; ctx2d.lineWidth = 2; ctx2d.setLineDash([6, 3]);
-        // finalPos, ham mousePos'u kullanır (smooth line drawing)
-        let finalPos = { x: mousePos.x, y: mousePos.y };
-        
-        // --- GÖRSEL SNAP (DISPLAY ONLY) İÇİN YUVARLANMIŞ NOKTAYI HESAPLA ---
-        let displayPos = { x: finalPos.x, y: finalPos.y };
-        
-        // Kaba grid yuvarlama mantığı (GÖRSEL ÖNİZLEME İÇİN) kaldırıldı.
-        /*
-        if (!mousePos.isSnapped && gridOptions.visible) {
-             const gridSpacing = gridOptions.spacing;
-             displayPos.x = Math.round(displayPos.x / gridSpacing) * gridSpacing;
-             displayPos.y = Math.round(displayPos.y / gridSpacing) * gridSpacing;
-        }
-        */
 
+        // Önizleme için ham (pürüzsüz) fare konumunu kullanıyoruz.
+        let previewPos = { x: mousePos.x, y: mousePos.y };
 
         if (currentMode === "drawRoom") {
-            // Çizgiyi yuvarlanmış (DisplayPos) konuma göre çiz (GÖRSEL SNAP)
-            ctx2d.strokeRect(startPoint.x, startPoint.y, displayPos.x - startPoint.x, displayPos.y - startPoint.y);
-            // Boyut gösteriminde YUVARLANMIŞ noktayı kullan
-            drawDimension(startPoint, { x: displayPos.x, y: startPoint.y }, true);
-            drawDimension({ x: displayPos.x, y: startPoint.y }, { x: displayPos.x, y: displayPos.y }, true);
+            ctx2d.strokeRect(startPoint.x, startPoint.y, previewPos.x - startPoint.x, previewPos.y - startPoint.y);
+            drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true);
+            drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true);
         } else if (currentMode === "drawWall") {
+            // Açı snap'ini pürüzsüz pozisyona uyguluyoruz, bu sadece görsel bir yardım.
+            previewPos = snapTo15DegreeAngle(startPoint, previewPos);
 
-            // 15 Derece Açı Snap'i Uygula (Önizleme konumu üzerinde)
-            displayPos = snapTo15DegreeAngle(startPoint, displayPos);
-
-            // Çizgiyi yuvarlanmış (DisplayPos) konuma göre çiz (GÖRSEL SNAP)
-            ctx2d.beginPath(); ctx2d.moveTo(startPoint.x, startPoint.y); ctx2d.lineTo(displayPos.x, displayPos.y); ctx2d.stroke();
-            // Boyut gösteriminde YUVARLANMIŞ noktayı kullan
-            drawDimension(startPoint, displayPos, true);
+            // Çizgiyi pürüzsüz (ama açıya kilitli) pozisyona göre çiziyoruz.
+            ctx2d.beginPath();
+            ctx2d.moveTo(startPoint.x, startPoint.y);
+            ctx2d.lineTo(previewPos.x, previewPos.y);
+            ctx2d.stroke();
+            
+            // Boyut gösterimi de aynı pürüzsüz pozisyonu kullanıyor.
+            // drawDimension fonksiyonu, yazıyı göstermeden önce uzunluğu kendi içinde grid'e yuvarlayacak.
+            drawDimension(startPoint, previewPos, true);
         }
         ctx2d.setLineDash([]);
     }
@@ -298,7 +247,7 @@ export function draw2D() {
         drawDimension(stretchWallOrigin.p1, t1, true);
         drawDimension(stretchWallOrigin.p2, t2, true);
     }
-    
+
     const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom';
     if (isDrawingMode && mousePos.isSnapped) {
         const hasExtensionLines = mousePos.snapLines.h_origins.length > 0 || mousePos.snapLines.v_origins.length > 0;

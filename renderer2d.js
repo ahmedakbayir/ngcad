@@ -84,14 +84,20 @@ export function drawAngleSymbol(node) {
 
 export function drawDimension(p1, p2, isPreview = false) {
     const { ctx2d } = dom;
-    const { zoom } = state;
+    const { zoom, gridOptions } = state;
 
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const lengthCm = Math.hypot(dx, dy);
     if (lengthCm < 1) return;
 
-    const displayText = `${Math.round(lengthCm)}`;
+    // --- TEK DEĞİŞİKLİK BURADA ---
+    // Gösterilecek metni oluşturmadan önce, gerçek uzunluğu grid aralığına yuvarlıyoruz.
+    const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
+    const roundedLength = Math.round(lengthCm / gridSpacing) * gridSpacing;
+    const displayText = `${Math.round(roundedLength)}`;
+    // --- DEĞİŞİKLİK SONU ---
+
     const midX = (p1.x + p2.x) / 2;
     const midY = (p1.y + p2.y) / 2;
     let ang = Math.atan2(dy, dx);
@@ -109,7 +115,7 @@ export function drawDimension(p1, p2, isPreview = false) {
 
     const baseFontSize = 18;
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
-    const yOffset = -8 /// zoom;
+    const yOffset = -8 / zoom;
 
     ctx2d.font = `500 ${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = isPreview ? "#ffffff" : "#8ab4f8";

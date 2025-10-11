@@ -28,21 +28,20 @@ export function onPointerDown(e) {
         }
         const selectedObject = getObjectAtPoint(pos);
         setState({ selectedObject, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(), dragAxis: null, isSweeping: false, sweepWalls: [] });
-        
+
         if (selectedObject) {
             let startPointForDragging;
             if (selectedObject.type === 'wall' && selectedObject.handle !== 'body') {
                 const nodeToDrag = selectedObject.object[selectedObject.handle];
                 startPointForDragging = { x: nodeToDrag.x, y: nodeToDrag.y };
             } else {
-                // Sürüklemenin başlangıç noktasını HER ZAMAN kenetlenmiş/yuvarlanmış pozisyon olarak ayarla.
-                startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY }; 
+                startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY };
             }
 
             setState({
                 isDragging: true,
                 dragStartPoint: startPointForDragging,
-                initialDragPoint: { x: pos.x, y: pos.y }, 
+                initialDragPoint: { x: pos.x, y: pos.y },
                 dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId },
             });
 
@@ -50,10 +49,10 @@ export function onPointerDown(e) {
                 if (selectedObject.handle !== "body") {
                     const nodeToDrag = selectedObject.object[selectedObject.handle];
                     const draggedWall = selectedObject.object;
-                    
+
                     const draggedWallVec = { x: draggedWall.p2.x - draggedWall.p1.x, y: draggedWall.p2.y - draggedWall.p1.y };
-                    const isDraggedWallHorizontal = Math.abs(draggedWallVec.y) < 1; 
-                    const isDraggedWallVertical = Math.abs(draggedWallVec.x) < 1;  
+                    const isDraggedWallHorizontal = Math.abs(draggedWallVec.y) < 1;
+                    const isDraggedWallVertical = Math.abs(draggedWallVec.x) < 1;
 
                     let dragAxis = null;
                     if (isDraggedWallHorizontal) {
@@ -68,17 +67,17 @@ export function onPointerDown(e) {
                     affectedWalls.forEach((wall) => {
                         const wallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                         if (wallLength > 0.1) {
-                            state.preDragWallStates.set(wall, { 
-                                isP1Stationary: wall.p2 === nodeToDrag, 
-                                doors: state.doors.filter((d) => d.wall === wall).map((door) => ({ 
-                                    doorRef: door, 
-                                    distFromP1: door.pos, 
-                                    distFromP2: wallLength - door.pos 
-                                })) 
+                            state.preDragWallStates.set(wall, {
+                                isP1Stationary: wall.p2 === nodeToDrag,
+                                doors: state.doors.filter((d) => d.wall === wall).map((door) => ({
+                                    doorRef: door,
+                                    distFromP1: door.pos,
+                                    distFromP2: wallLength - door.pos
+                                }))
                             });
                         }
                     });
-                } else { 
+                } else {
                     if (e.ctrlKey && e.shiftKey) {
                         setState({ selectedGroup: findCollinearChain(selectedObject.object) });
                     }
@@ -90,7 +89,7 @@ export function onPointerDown(e) {
 
                     const wall = selectedObject.object;
                     setState({ dragWallInitialVector: { dx: wall.p2.x - wall.p1.x, dy: wall.p2.y - wall.p1.y } });
-                    
+
                     if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
                         const checkAndSplitNode = (node) => {
                             const connectedWalls = state.walls.filter(w => (w.p1 === node || w.p2 === node) && !wallsBeingMoved.includes(w));
@@ -98,11 +97,11 @@ export function onPointerDown(e) {
 
                             const mainDraggedWall = selectedObject.object;
                             const isMainWallHorizontal = Math.abs(mainDraggedWall.p2.y - mainDraggedWall.p1.y) < 1;
-                            
+
                             let needsSplit = false;
                             for (const connected of connectedWalls) {
                                 const isConnectedHorizontal = Math.abs(connected.p2.y - connected.p1.y) < 1;
-                                
+
                                 if (isMainWallHorizontal && isConnectedHorizontal) {
                                     needsSplit = true;
                                     break;
@@ -121,9 +120,9 @@ export function onPointerDown(e) {
                                     if (wall.p2 === node) wall.p2 = newNode;
                                 });
                                 state.preDragNodeStates.set(newNode, { x: node.x, y: node.y });
-                                return true; 
+                                return true;
                             }
-                            return false; 
+                            return false;
                         };
 
                         let splitOccurred = false;
@@ -180,48 +179,38 @@ export function onPointerDown(e) {
         }
         if (doorsAdded) saveState();
     } else {
-        // ÇİZİM MODU BAŞLANGIÇ/DEVAM
-        
-        // placementPos, her zaman getSmartSnapPoint'ten gelen yuvarlanmış/snapped konumu kullanır.
-        let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY }; 
+        // ÇİZİM MODU
+        let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY };
 
         if (!state.startPoint) {
-            // İLK TIKLAMA: startPoint'i yerleştir
             setState({ startPoint: getOrCreateNode(placementPos.x, placementPos.y) });
         } else {
-            // ZİNCİRLEME ÇİZİM/İKİNCİ TIKLAMA: Duvarı yerleştir
-            const d = Math.hypot(state.startPoint.x - placementPos.x, state.startPoint.y - placementPos.y); 
-            
+            const d = Math.hypot(state.startPoint.x - placementPos.x, state.startPoint.y - placementPos.y);
+
             if (d > 0.1) {
                 let geometryChanged = false;
-                
+
                 if (state.currentMode === "drawWall") {
-                    
-                    // 15 Derece Açı Snap'i Uygula (gerçek yerleşim pozisyonuna)
                     if (state.startPoint) {
                         placementPos = snapTo15DegreeAngle(state.startPoint, placementPos);
                     }
 
-                    // YENİ KISIM BAŞLANGIÇ: Açı Snap'inden sonra uzunluğu tekrar grid'e yuvarla
                     const dx = placementPos.x - state.startPoint.x;
                     const dy = placementPos.y - state.startPoint.y;
                     const distance = Math.hypot(dx, dy);
-                    // Grid ayarı görünür olmasa bile, varsayılan olarak 1cm (1 birim) kullanılır.
-                    const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1; 
-                    
+                    const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1;
+
                     if (distance > 0.1) {
                         const snappedDistance = Math.round(distance / gridValue) * gridValue;
-                        // Uzunluk değiştiyse, noktayı yeni uzunluğa göre tekrar konumlandır
-                        if (Math.abs(snappedDistance - distance) > 0.1) {
+                        if (Math.abs(snappedDistance - distance) > 0.01) { // Use a small epsilon
                             const scale = snappedDistance / distance;
                             placementPos.x = state.startPoint.x + dx * scale;
                             placementPos.y = state.startPoint.y + dy * scale;
                         }
                     }
-                    // YENİ KISIM SONU
 
                     const nodesBefore = state.nodes.length;
-                    const endNode = getOrCreateNode(placementPos.x, placementPos.y); 
+                    const endNode = getOrCreateNode(placementPos.x, placementPos.y);
                     const didSnapToExistingNode = (state.nodes.length === nodesBefore);
                     const didConnectToWallBody = !didSnapToExistingNode && isPointOnWallBody(endNode);
 
@@ -236,18 +225,17 @@ export function onPointerDown(e) {
                     }
                 } else if (state.currentMode === "drawRoom") {
                     const p1 = state.startPoint;
-                    
+
                     if (Math.abs(p1.x - placementPos.x) > 1 && Math.abs(p1.y - placementPos.y) > 1) {
-                        
                         let roundedX = placementPos.x;
                         let roundedY = placementPos.y;
-                        
-                        const v1 = p1, 
-                              v2 = getOrCreateNode(roundedX, v1.y), 
-                              v3 = getOrCreateNode(roundedX, roundedY), 
-                              v4 = getOrCreateNode(v1.x, roundedY);
-                              
-                        [ {p1:v1, p2:v2}, {p1:v2, p2:v3}, {p1:v3, p2:v4}, {p1:v4, p2:v1} ].forEach(pw => {
+
+                        const v1 = p1,
+                            v2 = getOrCreateNode(roundedX, v1.y),
+                            v3 = getOrCreateNode(roundedX, roundedY),
+                            v4 = getOrCreateNode(v1.x, roundedY);
+
+                        [{ p1: v1, p2: v2 }, { p1: v2, p2: v3 }, { p1: v3, p2: v4 }, { p1: v4, p2: v1 }].forEach(pw => {
                             if (!wallExists(pw.p1, pw.p2)) state.walls.push({ type: "wall", ...pw });
                         });
                         geometryChanged = true;
