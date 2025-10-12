@@ -1,5 +1,5 @@
 import { draw2D } from './draw2d.js';
-//import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d } from './scene3d.js';
+import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d } from './scene3d.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
@@ -32,8 +32,6 @@ export let state = {
     walls: [],
     doors: [],
     rooms: [],
-    arcWalls: [],
-    arcWallInProgress: null,
     selectedObject: null,
     showDimensions: false,
     zoom: 1,
@@ -103,11 +101,8 @@ export const dom = {
     c3d: document.getElementById("c3d"),
     bSel: document.getElementById("bSel"),
     bWall: document.getElementById("bWall"),
-    bArcWall: document.getElementById("bArcWall"),
     bRoom: document.getElementById("bRoom"),
     bDoor: document.getElementById("bDoor"),
-    bWindow: document.getElementById("bWindow"),
-    bVent: document.getElementById("bVent"),
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
@@ -152,11 +147,8 @@ export function setMode(mode) {
 
     dom.bSel.classList.toggle("active", newMode === "select");
     dom.bWall.classList.toggle("active", newMode === "drawWall");
-    dom.bArcWall.classList.toggle("active", newMode === "drawArcWall");
     dom.bRoom.classList.toggle("active", newMode === "drawRoom");
     dom.bDoor.classList.toggle("active", newMode === "drawDoor");
-    dom.bWindow.classList.toggle("active", newMode === "drawWindow");
-    dom.bVent.classList.toggle("active", newMode === "drawVent");
     dom.p2d.className = `panel ${newMode}-mode`;
 }
 
@@ -178,15 +170,15 @@ export function resize() {
 function animate() {
     requestAnimationFrame(animate);
     draw2D();
-    // if(dom.mainContainer.classList.contains('show-3d')) {
-    //     controls3d.update();
-    //     renderer3d.render(scene3d, camera3d);
-    // }
+    if(dom.mainContainer.classList.contains('show-3d')) {
+        controls3d.update();
+        renderer3d.render(scene3d, camera3d);
+    }
 }
 
 // ====== BAŞLATMA ======
 function initialize() {
- //   init3D(dom.c3d);
+    init3D(dom.c3d);
     initializeSettings();
     setupUIListeners();
     setupInputListeners();
@@ -195,11 +187,8 @@ function initialize() {
     
     dom.bSel.addEventListener("click", () => setMode("select"));
     dom.bWall.addEventListener("click", () => setMode("drawWall"));
-    dom.bArcWall.addEventListener("click", () => setMode("drawArcWall"));
     dom.bRoom.addEventListener("click", () => setMode("drawRoom"));
     dom.bDoor.addEventListener("click", () => setMode("drawDoor"));
-    dom.bWindow.addEventListener("click", () => setMode("drawWindow"));
-    dom.bVent.addEventListener("click", () => setMode("drawVent"));
     dom.b3d.addEventListener("click", toggle3DView);
     
     window.addEventListener("resize", resize);

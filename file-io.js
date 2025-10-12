@@ -1,115 +1,168 @@
 import { state, setState, dom } from './main.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
-//import { update3DScene } from './scene3d.js';
 
 export function setupFileIOListeners() {
-    dom.bSave.addEventListener('click', () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
-            nodes: state.nodes,
-            walls: state.walls,
-            doors: state.doors,
-            rooms: state.rooms,
-            arcWalls: state.arcWalls || [],
-            wallBorderColor: state.wallBorderColor,
-            roomFillColor: state.roomFillColor,
-            lineThickness: state.lineThickness,
-            snapOptions: state.snapOptions,
-            gridOptions: state.gridOptions,
-        }));
-        
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", "plan.json");
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
-    });
+    dom.bSave.addEventListener('click', saveProject);
+    dom.bOpen.addEventListener('click', () => dom.fileInput.click());
+    dom.fileInput.addEventListener('change', openProject);
+}
 
-    dom.bOpen.addEventListener('click', () => {
-        dom.fileInput.click();
-    });
+function saveProject() {
+    const projectData = {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        gridOptions: state.gridOptions,
+        snapOptions: state.snapOptions,
+        wallBorderColor: state.wallBorderColor,
+        roomFillColor: state.roomFillColor,
+        lineThickness: state.lineThickness,
+        nodes: state.nodes.map(n => ({
+            x: n.x,
+            y: n.y,
+            isColumn: n.isColumn,
+            columnSize: n.columnSize
+        })),
+        walls: state.walls.map(w => ({
+            type: w.type,
+            p1Index: state.nodes.indexOf(w.p1),
+            p2Index: state.nodes.indexOf(w.p2),
+            thickness: w.thickness || 20,
+            wallType: w.wallType || 'normal',
+            windows: w.windows || [],
+            vents: w.vents || []
+        })),
+        doors: state.doors.map(d => ({
+            wallIndex: state.walls.indexOf(d.wall),
+            pos: d.pos,
+            width: d.width,
+            type: d.type
+        })),
+        rooms: state.rooms.map(r => ({
+            polygon: r.polygon,
+            area: r.area,
+            center: r.center,
+            name: r.name
+        }))
+    };
 
-    dom.fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const dataStr = JSON.stringify(projectData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `floorplan_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const data = JSON.parse(event.target.result);
-                
-                // Duvarları yüklerken thickness ve wallType'ı koru
-                const loadedWalls = (data.walls || []).map(wall => ({
-                    ...wall,
-                    thickness: wall.thickness || 20,
-                    wallType: wall.wallType || 'normal'
-                }));
-                
-                // Yay duvarları yüklerken thickness ve wallType'ı koru
-                const loadedArcWalls = (data.arcWalls || []).map(arcWall => ({
-                    ...arcWall,
-                    thickness: arcWall.thickness || 20,
-                    wallType: arcWall.wallType || 'normal'
-                }));
-                
-                setState({
-                    nodes: data.nodes || [],
-                    walls: loadedWalls,
-                    doors: data.doors || [],
-                    rooms: data.rooms || [],
-                    arcWalls: loadedArcWalls,
-                    wallBorderColor: data.wallBorderColor || "#e7e6d0",
-                    roomFillColor: data.roomFillColor || "#1e1f20",
-                    lineThickness: data.lineThickness || 2,
-                    snapOptions: data.snapOptions || {
-                        endpoint: true,
-                        midpoint: true,
-                        endpointExtension: true,
-                        midpointExtension: false,
-                        nearestOnly: true,
-                    },
-                    gridOptions: data.gridOptions || {
-                        visible: true,
-                        spacing: 10,
-                        color: "#2d3134",
-                        weight: 0.5,
-                    },
-                    selectedObject: null,
-                    selectedGroup: [],
-                    startPoint: null,
-                });
+function openProject(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-                // UI'yi güncelle
-                if (dom.borderPicker) dom.borderPicker.value = state.wallBorderColor;
-                if (dom.roomPicker) dom.roomPicker.value = state.roomFillColor;
-                if (dom.lineThicknessInput) dom.lineThicknessInput.value = state.lineThickness;
-                if (dom.gridVisibleInput) dom.gridVisibleInput.checked = state.gridOptions.visible;
-                if (dom.gridColorInput) dom.gridColorInput.value = state.gridOptions.color;
-                if (dom.gridWeightInput) dom.gridWeightInput.value = state.gridOptions.weight;
-                if (dom.gridSpaceInput) dom.gridSpaceInput.value = state.gridOptions.spacing;
-                if (dom.snapEndpointInput) dom.snapEndpointInput.checked = state.snapOptions.endpoint;
-                if (dom.snapMidpointInput) dom.snapMidpointInput.checked = state.snapOptions.midpoint;
-                if (dom.snapEndpointExtInput) dom.snapEndpointExtInput.checked = state.snapOptions.endpointExtension;
-                if (dom.snapMidpointExtInput) dom.snapMidpointExtInput.checked = state.snapOptions.midpointExtension;
-                if (dom.snapNearestOnlyInput) dom.snapNearestOnlyInput.checked = state.snapOptions.nearestOnly;
-
-                processWalls();
-                update3DScene();
-                saveState();
-                
-                console.log('Plan yüklendi:', {
-                    duvarSayisi: state.walls.length,
-                    yayDuvarSayisi: state.arcWalls.length,
-                    kapiSayisi: state.doors.length,
-                    mahalSayisi: state.rooms.length
-                });
-            } catch (err) {
-                console.error('Dosya yükleme hatası:', err);
-                alert('Dosya yüklenirken hata oluştu!');
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const projectData = JSON.parse(event.target.result);
+            
+            if (!projectData.version || !projectData.nodes || !projectData.walls) {
+                alert('Geçersiz proje dosyası formatı!');
+                return;
             }
-        };
-        reader.readAsText(file);
-        e.target.value = '';
-    });
+
+            // Ayarları geri yükle
+            if (projectData.gridOptions) {
+                setState({ gridOptions: projectData.gridOptions });
+                dom.gridVisibleInput.checked = projectData.gridOptions.visible;
+                dom.gridColorInput.value = projectData.gridOptions.color;
+                dom.gridWeightInput.value = projectData.gridOptions.weight;
+                dom.gridSpaceInput.value = projectData.gridOptions.spacing;
+            }
+
+            if (projectData.snapOptions) {
+                setState({ snapOptions: projectData.snapOptions });
+                dom.snapEndpointInput.checked = projectData.snapOptions.endpoint;
+                dom.snapMidpointInput.checked = projectData.snapOptions.midpoint;
+                dom.snapEndpointExtInput.checked = projectData.snapOptions.endpointExtension;
+                dom.snapMidpointExtInput.checked = projectData.snapOptions.midpointExtension;
+                dom.snapNearestOnlyInput.checked = projectData.snapOptions.nearestOnly;
+            }
+
+            if (projectData.wallBorderColor) {
+                setState({ wallBorderColor: projectData.wallBorderColor });
+                dom.borderPicker.value = projectData.wallBorderColor;
+            }
+
+            if (projectData.roomFillColor) {
+                setState({ roomFillColor: projectData.roomFillColor });
+                dom.roomPicker.value = projectData.roomFillColor;
+            }
+
+            if (projectData.lineThickness) {
+                setState({ lineThickness: projectData.lineThickness });
+                dom.lineThicknessInput.value = projectData.lineThickness;
+            }
+
+            // Node'ları geri yükle
+            const restoredNodes = projectData.nodes.map(n => ({
+                x: n.x,
+                y: n.y,
+                isColumn: n.isColumn || false,
+                columnSize: n.columnSize || 30
+            }));
+
+            // Duvarları geri yükle
+            const restoredWalls = projectData.walls.map(w => ({
+                type: w.type || 'wall',
+                p1: restoredNodes[w.p1Index],
+                p2: restoredNodes[w.p2Index],
+                thickness: w.thickness || 20,
+                wallType: w.wallType || 'normal',
+                windows: w.windows || [],
+                vents: w.vents || []
+            }));
+
+            // Kapıları geri yükle
+            const restoredDoors = projectData.doors.map(d => ({
+                wall: restoredWalls[d.wallIndex],
+                pos: d.pos,
+                width: d.width,
+                type: d.type || 'door'
+            }));
+
+            // Odaları geri yükle
+            const restoredRooms = projectData.rooms.map(r => ({
+                polygon: r.polygon,
+                area: r.area,
+                center: r.center,
+                name: r.name
+            }));
+
+            // State'i güncelle
+            setState({
+                nodes: restoredNodes,
+                walls: restoredWalls,
+                doors: restoredDoors,
+                rooms: restoredRooms,
+                selectedObject: null,
+                selectedGroup: [],
+                startPoint: null
+            });
+
+            // Duvarları işle ve history'ye kaydet
+            processWalls();
+            saveState();
+
+            console.log('Proje başarıyla yüklendi!');
+        } catch (error) {
+            console.error('Proje yükleme hatası:', error);
+            alert('Proje dosyası açılırken bir hata oluştu!');
+        }
+    };
+
+    reader.readAsText(file);
+    e.target.value = ''; // Input'u temizle
 }

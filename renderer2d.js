@@ -233,10 +233,10 @@ export function isMouseOverWall() {
     return false;
 }
 
-// PENCERE - Duvar rengi ile aynı
+// PENCERE GÖSTERİMİ - 3 paralel çizgi, duvar kenarlarına kadar uzanıyor
 export function drawWindowSymbol(wall, window) {
     const { ctx2d } = dom;
-    const { selectedObject, wallBorderColor } = state;
+    const { selectedObject } = state;
     
     if (!wall || !wall.p1 || !wall.p2) return;
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -255,9 +255,10 @@ export function drawWindowSymbol(wall, window) {
     const halfWall = wallPx / 2;
     
     const isSelected = selectedObject?.type === "window" && selectedObject.object === window;
-    ctx2d.strokeStyle = isSelected ? "#8ab4f8" : wallBorderColor; // DUVAR RENGİ
+    ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e7e6d0";
     ctx2d.lineWidth = 1.5;
     
+    // Duvar kenarlarına kadar uzanan 3 paralel çizgi
     const line1_start = { x: windowP1.x - nx * halfWall, y: windowP1.y - ny * halfWall };
     const line1_end = { x: windowP2.x - nx * halfWall, y: windowP2.y - ny * halfWall };
     
@@ -276,6 +277,7 @@ export function drawWindowSymbol(wall, window) {
     ctx2d.lineTo(line3_end.x, line3_end.y);
     ctx2d.stroke();
     
+    // Kenar çizgileri
     ctx2d.beginPath();
     ctx2d.moveTo(line1_start.x, line1_start.y);
     ctx2d.lineTo(line3_start.x, line3_start.y);

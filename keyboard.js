@@ -65,7 +65,7 @@ export function onKeyDown(e) {
         setState({ startPoint: null });
         setMode("select");
     }
-if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
+        if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
         if (state.selectedObject) {
             if (state.selectedObject.type === "door") {
                 const newDoors = state.doors.filter((d) => d !== state.selectedObject.object);
@@ -80,12 +80,6 @@ if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || st
                 if (wall.vents) {
                     wall.vents = wall.vents.filter(v => v !== state.selectedObject.object);
                 }
-            } else if (state.selectedObject.type === "room") {
-                const newRooms = state.rooms.filter((r) => r !== state.selectedObject.object);
-                setState({ rooms: newRooms });
-            } else if (state.selectedObject.type === "arcWall") {
-                const newArcWalls = state.arcWalls.filter(aw => aw !== state.selectedObject.object);
-                setState({ arcWalls: newArcWalls });
             } else {
                 // Duvar silme
                 const wallsToDelete = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
