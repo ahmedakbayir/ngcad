@@ -5,17 +5,18 @@ import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
 import { getObjectAtPoint, getDoorPlacement, getDoorPlacementAtNode, isSpaceForDoor, findCollinearChain } from './actions.js';
+import { startLongPressDetection, clearLongPress, handleDoubleClick } from './wall-panel.js';
 
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) {
         return;
     }
 
-    if (e.button === 1) { // Orta tuş
+    if (e.button === 1) {
         setState({ isPanning: true, panStart: { x: e.clientX, y: e.clientY } });
         return;
     }
-    if (e.button === 2) return; // Sağ tuş
+    if (e.button === 2) return;
 
     const rect = dom.c2d.getBoundingClientRect();
     const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
@@ -27,6 +28,18 @@ export function onPointerDown(e) {
             return;
         }
         const selectedObject = getObjectAtPoint(pos);
+        
+        // SADECE DUVAR İÇİN çift tıklama ve long press
+        if (selectedObject && selectedObject.type === "wall") {
+            const isDoubleClick = handleDoubleClick(e, selectedObject.object);
+            if (isDoubleClick) {
+                // Çift tıklama tespit edildi, işlemi durdur
+                setState({ selectedObject: null });
+                return;
+            }
+            startLongPressDetection(e, selectedObject.object);
+        }
+        
         setState({ selectedObject, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(), dragAxis: null, isSweeping: false, sweepWalls: [] });
 
         if (selectedObject) {
@@ -50,7 +63,6 @@ export function onPointerDown(e) {
                     const nodeToDrag = selectedObject.object[selectedObject.handle];
                     const affectedWalls = state.walls.filter((w) => w.p1 === nodeToDrag || w.p2 === nodeToDrag);
                     
-                    // Düğüm sürüklemede eksen kilidi YOK - her yöne hareket edebilir
                     setState({ affectedWalls, dragAxis: null });
                     
                     affectedWalls.forEach((wall) => {
@@ -81,24 +93,18 @@ export function onPointerDown(e) {
                     const dy = wall.p2.y - wall.p1.y;
                     const wallLength = Math.hypot(dx, dy);
                     
-                    // Duvar yönü vektörünü normalize et
                     const dirX = wallLength > 0.1 ? dx / wallLength : 0;
                     const dirY = wallLength > 0.1 ? dy / wallLength : 0;
                     
-                    // Açıyı hesapla (0-180 derece arası)
                     let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
                     
-                    // Hareket yönünü belirle
                     let dragAxis = null;
                     
                     if (Math.abs(angle - 45) < 1) {
-                        // 45° duvar: hem X hem Y yönünde hareket edebilir
                         dragAxis = null;
                     } else if (angle < 45) {
-                        // Yataya yakın: sadece Y yönünde hareket
                         dragAxis = 'y';
                     } else {
-                        // Düşeye yakın: sadece X yönünde hareket
                         dragAxis = 'x';
                     }
                     
@@ -196,7 +202,6 @@ export function onPointerDown(e) {
         }
         if (doorsAdded) saveState();
     } else {
-        // ÇİZİM MODU
         let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY };
 
         if (!state.startPoint) {

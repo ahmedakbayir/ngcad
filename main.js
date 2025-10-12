@@ -4,6 +4,7 @@ import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
+import { createWallPanel } from './wall-panel.js';
 
 // ====== SABİTLER ======
 export const BG = "#1e1f20";
@@ -60,7 +61,7 @@ export let state = {
     preDragWallStates: new Map(),
     preDragNodeStates: new Map(),
     dragWallInitialVector: null,
-    dragAxis: null, // EKLENDİ: Sürükleme eksenini kilitler ('x', 'y' veya null)
+    dragAxis: null,
     dragOriginalNodes: null,
     roomToEdit: null,
     clickOutsideRoomPopupListener: null,
@@ -151,7 +152,6 @@ export function setMode(mode) {
     dom.p2d.className = `panel ${newMode}-mode`;
 }
 
-
 // ====== CANVAS BOYUTLANDIRMA VE ANA DÖNGÜ ======
 export function resize() {
     const r2d = dom.p2d.getBoundingClientRect();
@@ -183,6 +183,7 @@ function initialize() {
     setupUIListeners();
     setupInputListeners();
     setupFileIOListeners();
+    createWallPanel();
     
     dom.bSel.addEventListener("click", () => setMode("select"));
     dom.bWall.addEventListener("click", () => setMode("drawWall"));

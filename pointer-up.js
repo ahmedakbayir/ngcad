@@ -2,9 +2,12 @@ import { state, setState } from './main.js';
 import { getOrCreateNode, wallExists } from './geometry.js';
 import { processWalls, mergeNode } from './wall-processor.js';
 import { saveState } from './history.js';
+import { clearLongPress } from './wall-panel.js';
+
 
 export function onPointerUp(e) {
-    setState({ isSnapLocked: false, lockedSnapPoint: null });
+        clearLongPress();
+        setState({ isSnapLocked: false, lockedSnapPoint: null });
 
     if (state.isStretchDragging) {
         const { stretchWallOrigin, dragStartPoint, stretchMode, mousePos } = state;

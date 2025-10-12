@@ -65,12 +65,31 @@ export function onKeyDown(e) {
         setState({ startPoint: null });
         setMode("select");
     }
-    if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
-        if (state.selectedObject && state.selectedObject.type === "door") {
-            const newDoors = state.doors.filter((d) => d !== state.selectedObject.object);
-            setState({ doors: newDoors });
+        if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
+        if (state.selectedObject) {
+            if (state.selectedObject.type === "door") {
+                const newDoors = state.doors.filter((d) => d !== state.selectedObject.object);
+                setState({ doors: newDoors });
+            } else if (state.selectedObject.type === "window") {
+                const wall = state.selectedObject.wall;
+                if (wall.windows) {
+                    wall.windows = wall.windows.filter(w => w !== state.selectedObject.object);
+                }
+            } else if (state.selectedObject.type === "vent") {
+                const wall = state.selectedObject.wall;
+                if (wall.vents) {
+                    wall.vents = wall.vents.filter(v => v !== state.selectedObject.object);
+                }
+            } else {
+                // Duvar silme
+                const wallsToDelete = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+                const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w));
+                const newDoors = state.doors.filter((d) => !wallsToDelete.includes(d.wall));
+                setState({ walls: newWalls, doors: newDoors });
+            }
         } else {
-            const wallsToDelete = state.selectedGroup.length > 0 ? state.selectedGroup : state.selectedObject ? [state.selectedObject.object] : [];
+            // Grup silme
+            const wallsToDelete = state.selectedGroup;
             const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w));
             const newDoors = state.doors.filter((d) => !wallsToDelete.includes(d.wall));
             setState({ walls: newWalls, doors: newDoors });

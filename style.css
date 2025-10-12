@@ -226,3 +226,46 @@ canvas {
 #room-name-select:focus {
     outline: none;
 }
+
+    /* Mouse cursor'ları */
+    .panel {
+        cursor: default;
+    }
+    
+    .panel.select-mode {
+        cursor: default;
+    }
+    
+    .panel.drawWall-mode,
+    .panel.drawRoom-mode {
+        cursor: crosshair;
+    }
+    
+    .panel.drawDoor-mode {
+        cursor: cell;
+    }
+    
+    /* Sürüklerken */
+    .panel.dragging {
+        cursor: move !important;
+    }
+    
+    /* Pan yaparken */
+    .panel.panning {
+        cursor: grab !important;
+    }
+    
+    /* Snap noktasına yakınken */
+    .panel.near-snap {
+        cursor: copy;
+    }
+    
+    /* Duvar üzerindeyken */
+    .panel.over-wall {
+        cursor: pointer;
+    }
+    
+    /* Düğüm üzerindeyken */
+    .panel.over-node {
+        cursor: move;
+    }

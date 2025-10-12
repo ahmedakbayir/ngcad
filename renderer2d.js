@@ -124,7 +124,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     const startPos = door.pos - door.width / 2, endPos = door.pos + door.width / 2;
     const doorP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
     const doorP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
-    const wallPx = WALL_THICKNESS;
+    const wallPx = wall.thickness || WALL_THICKNESS;
     const halfWall = wallPx / 2;
     let color = isPreview || isSelected ? "#8ab4f8" : wallBorderColor;
     ctx2d.strokeStyle = color;
@@ -162,11 +162,9 @@ export function drawGrid() {
     const { x: worldLeft, y: worldTop } = screenToWorld(0, 0);
     const { x: worldRight, y: worldBottom } = screenToWorld(c2d.width, c2d.height);
     
-    // YENİ GRID SİSTEMİ: x - 5x - 10x - 50x - 100x
-    const baseSpacing = gridOptions.spacing; // x değeri
-    const MIN_PIXEL_SPACING = 20; // Minimum piksel aralığı
+    const baseSpacing = gridOptions.spacing;
+    const MIN_PIXEL_SPACING = 20;
     
-    // Hangi çarpanların görünür olduğunu belirle
     const multipliers = [1, 5, 10, 50, 100];
     const visibleMultipliers = [];
     
@@ -179,13 +177,10 @@ export function drawGrid() {
         }
     }
     
-    // En az 2 seviye göster
     if (visibleMultipliers.length === 0) {
-        // Zoom çok küçükse en büyük 2 seviyeyi göster
         visibleMultipliers.push({ multiplier: 50, spacing: baseSpacing * 50 });
         visibleMultipliers.push({ multiplier: 100, spacing: baseSpacing * 100 });
     } else if (visibleMultipliers.length === 1) {
-        // Sadece 1 seviye varsa bir üsttekini de ekle
         const lastMult = visibleMultipliers[0].multiplier;
         const nextMult = multipliers[multipliers.indexOf(lastMult) + 1] || lastMult * 2;
         visibleMultipliers.push({ multiplier: nextMult, spacing: baseSpacing * nextMult });
@@ -221,7 +216,6 @@ export function drawGrid() {
         ctx2d.stroke();
     };
     
-    // En ince çizgiden başlayarak çiz
     visibleMultipliers.reverse().forEach((item, index) => {
         const alpha = index === 0 ? 0.3 : (index === 1 ? 0.5 : 1.0);
         const weight = index === 0 ? gridOptions.weight * 0.5 : (index === 1 ? gridOptions.weight * 0.7 : gridOptions.weight);
@@ -237,4 +231,133 @@ export function isMouseOverWall() {
         }
     }
     return false;
+}
+
+// PENCERE GÖSTERİMİ - 3 paralel çizgi, duvar kenarlarına kadar uzanıyor
+export function drawWindowSymbol(wall, window) {
+    const { ctx2d } = dom;
+    const { selectedObject } = state;
+    
+    if (!wall || !wall.p1 || !wall.p2) return;
+    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    if (wallLen < 1) return;
+    
+    const dx = (wall.p2.x - wall.p1.x) / wallLen;
+    const dy = (wall.p2.y - wall.p1.y) / wallLen;
+    const nx = -dy, ny = dx;
+    
+    const startPos = window.pos - window.width / 2;
+    const endPos = window.pos + window.width / 2;
+    const windowP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
+    const windowP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
+    
+    const wallPx = wall.thickness || WALL_THICKNESS;
+    const halfWall = wallPx / 2;
+    
+    const isSelected = selectedObject?.type === "window" && selectedObject.object === window;
+    ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e7e6d0";
+    ctx2d.lineWidth = 1.5;
+    
+    // Duvar kenarlarına kadar uzanan 3 paralel çizgi
+    const line1_start = { x: windowP1.x - nx * halfWall, y: windowP1.y - ny * halfWall };
+    const line1_end = { x: windowP2.x - nx * halfWall, y: windowP2.y - ny * halfWall };
+    
+    const line2_start = { x: windowP1.x, y: windowP1.y };
+    const line2_end = { x: windowP2.x, y: windowP2.y };
+    
+    const line3_start = { x: windowP1.x + nx * halfWall, y: windowP1.y + ny * halfWall };
+    const line3_end = { x: windowP2.x + nx * halfWall, y: windowP2.y + ny * halfWall };
+    
+    ctx2d.beginPath();
+    ctx2d.moveTo(line1_start.x, line1_start.y);
+    ctx2d.lineTo(line1_end.x, line1_end.y);
+    ctx2d.moveTo(line2_start.x, line2_start.y);
+    ctx2d.lineTo(line2_end.x, line2_end.y);
+    ctx2d.moveTo(line3_start.x, line3_start.y);
+    ctx2d.lineTo(line3_end.x, line3_end.y);
+    ctx2d.stroke();
+    
+    // Kenar çizgileri
+    ctx2d.beginPath();
+    ctx2d.moveTo(line1_start.x, line1_start.y);
+    ctx2d.lineTo(line3_start.x, line3_start.y);
+    ctx2d.moveTo(line1_end.x, line1_end.y);
+    ctx2d.lineTo(line3_end.x, line3_end.y);
+    ctx2d.stroke();
+}
+
+export function drawVentSymbol(wall, vent) {
+    const { ctx2d } = dom;
+    const { selectedObject } = state;
+    
+    if (!wall || !wall.p1 || !wall.p2) return;
+    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    if (wallLen < 1) return;
+    
+    const dx = (wall.p2.x - wall.p1.x) / wallLen;
+    const dy = (wall.p2.y - wall.p1.y) / wallLen;
+    const nx = -dy, ny = dx;
+    
+    const startPos = vent.pos - vent.width / 2;
+    const endPos = vent.pos + vent.width / 2;
+    const ventP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
+    const ventP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
+    
+    const wallPx = wall.thickness || WALL_THICKNESS;
+    const halfWall = wallPx / 2;
+    
+    const isSelected = selectedObject?.type === "vent" && selectedObject.object === vent;
+    ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e57373";
+    ctx2d.fillStyle = "rgba(229, 115, 115, 0.2)";
+    ctx2d.lineWidth = 1.5;
+    
+    const box1_start = { x: ventP1.x - nx * halfWall, y: ventP1.y - ny * halfWall };
+    const box1_end = { x: ventP1.x + nx * halfWall, y: ventP1.y + ny * halfWall };
+    const box2_start = { x: ventP2.x - nx * halfWall, y: ventP2.y - ny * halfWall };
+    const box2_end = { x: ventP2.x + nx * halfWall, y: ventP2.y + ny * halfWall };
+    
+    ctx2d.beginPath();
+    ctx2d.moveTo(box1_start.x, box1_start.y);
+    ctx2d.lineTo(box1_end.x, box1_end.y);
+    ctx2d.lineTo(box2_end.x, box2_end.y);
+    ctx2d.lineTo(box2_start.x, box2_start.y);
+    ctx2d.closePath();
+    ctx2d.fill();
+    ctx2d.stroke();
+    
+    const numLines = 3;
+    for (let i = 1; i <= numLines; i++) {
+        const t = i / (numLines + 1);
+        const lineX = ventP1.x + (ventP2.x - ventP1.x) * t;
+        const lineY = ventP1.y + (ventP2.y - ventP1.y) * t;
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(lineX - nx * halfWall * 0.8, lineY - ny * halfWall * 0.8);
+        ctx2d.lineTo(lineX + nx * halfWall * 0.8, lineY + ny * halfWall * 0.8);
+        ctx2d.stroke();
+    }
+}
+
+export function drawColumnSymbol(node) {
+    const { ctx2d } = dom;
+    
+    const size = node.columnSize || 30;
+    
+    ctx2d.fillStyle = "#8ab4f8";
+    ctx2d.strokeStyle = "#ffffff";
+    ctx2d.lineWidth = 2;
+    
+    ctx2d.beginPath();
+    ctx2d.rect(node.x - size / 2, node.y - size / 2, size, size);
+    ctx2d.fill();
+    ctx2d.stroke();
+    
+    ctx2d.strokeStyle = "#ffffff";
+    ctx2d.lineWidth = 1;
+    ctx2d.beginPath();
+    ctx2d.moveTo(node.x - size / 2, node.y - size / 2);
+    ctx2d.lineTo(node.x + size / 2, node.y + size / 2);
+    ctx2d.moveTo(node.x + size / 2, node.y - size / 2);
+    ctx2d.lineTo(node.x - size / 2, node.y + size / 2);
+    ctx2d.stroke();
 }

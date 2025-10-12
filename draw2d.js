@@ -1,7 +1,7 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
-import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol } from './renderer2d.js';
+import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol, drawWindowSymbol, drawVentSymbol, drawColumnSymbol } from './renderer2d.js';
 
 export function draw2D() {
     const { ctx2d, c2d } = dom;
@@ -10,7 +10,7 @@ export function draw2D() {
         selectedGroup, wallBorderColor, lineThickness, showDimensions,
         affectedWalls, startPoint, currentMode, mousePos,
         isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning,
-        isSweeping, sweepWalls
+        isSweeping, sweepWalls, nodes
     } = state;
 
     ctx2d.fillStyle = BG;
@@ -39,9 +39,15 @@ export function draw2D() {
     }
 
     const wallPx = WALL_THICKNESS;
-    ctx2d.lineJoin = "miter"; ctx2d.miterLimit = 4; ctx2d.lineCap = "square";
+    ctx2d.lineJoin = "miter"; 
+    ctx2d.miterLimit = 10; // Miter limit'i artır
+    ctx2d.lineCap = "square";
 
-    const orthoSegments = [], nonOrthoSegments = [], selectedSegments = [];
+    // DUVAR TİPLERİNE GÖRE AYRI LİSTELER
+    const normalSegments = { ortho: [], nonOrtho: [], selected: [] };
+    const balconySegments = { ortho: [], nonOrtho: [], selected: [] };
+    const glassSegments = { ortho: [], nonOrtho: [], selected: [] };
+    const halfSegments = { ortho: [], nonOrtho: [], selected: [] };
 
     walls.forEach((w) => {
         const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w);
@@ -64,37 +70,204 @@ export function draw2D() {
         const dx = (w.p2.x - w.p1.x) / wallLen, dy = (w.p2.y - w.p1.y) / wallLen;
         const halfWallPx = wallPx / 2;
 
+        const wallType = w.wallType || 'normal';
+        let targetList;
+        
+        if (wallType === 'balcony') targetList = balconySegments;
+        else if (wallType === 'glass') targetList = glassSegments;
+        else if (wallType === 'half') targetList = halfSegments;
+        else targetList = normalSegments;
+
         currentSegments.forEach((seg) => {
             let p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
             let p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
+            
+            // Kapı varsa kenarları kısalt
             if (seg.start > 0) { p1.x += dx * halfWallPx; p1.y += dy * halfWallPx; }
             if (seg.end < wallLen) { p2.x -= dx * halfWallPx; p2.y -= dy * halfWallPx; }
-            const segmentData = { p1, p2 };
+            
+            const segmentData = { p1, p2, wall: w };
 
             if (isSelected) {
-                selectedSegments.push(segmentData);
+                targetList.selected.push(segmentData);
             } else if (isOrthogonal) {
-                orthoSegments.push(segmentData);
+                targetList.ortho.push(segmentData);
             } else {
-                nonOrthoSegments.push(segmentData);
+                targetList.nonOrtho.push(segmentData);
             }
         });
     });
 
-    const drawSegments = (segmentList, color) => {
+    // NORMAL DUVARLAR İÇİN ÇİZİM FONKSİYONU
+    const drawNormalSegments = (segmentList, color) => {
         if (segmentList.length === 0) return;
+        
+        // Dış çizgi (kalın)
         ctx2d.beginPath();
-        segmentList.forEach((seg) => { if (Math.hypot(seg.p1.x - seg.p2.x, seg.p1.y - seg.p2.y) >= 1) { ctx2d.moveTo(seg.p1.x, seg.p1.y); ctx2d.lineTo(seg.p2.x, seg.p2.y); } });
-        ctx2d.lineWidth = wallPx; ctx2d.strokeStyle = color; ctx2d.stroke();
+        segmentList.forEach((seg) => { 
+            if (Math.hypot(seg.p1.x - seg.p2.x, seg.p1.y - seg.p2.y) >= 1) { 
+                ctx2d.moveTo(seg.p1.x, seg.p1.y); 
+                ctx2d.lineTo(seg.p2.x, seg.p2.y); 
+            } 
+        });
+        const thickness = segmentList[0]?.wall?.thickness || wallPx;
+        ctx2d.lineWidth = thickness; 
+        ctx2d.strokeStyle = color; 
+        ctx2d.stroke();
+        
+        // İç çizgi (ince)
         ctx2d.beginPath();
-        segmentList.forEach((seg) => { if (Math.hypot(seg.p1.x - seg.p2.x, seg.p1.y - seg.p2.y) >= 1) { ctx2d.moveTo(seg.p1.x, seg.p1.y); ctx2d.lineTo(seg.p2.x, seg.p2.y); } });
-        const innerPx = Math.max(0.5, wallPx - lineThickness);
-        ctx2d.lineWidth = innerPx; ctx2d.strokeStyle = BG; ctx2d.stroke();
+        segmentList.forEach((seg) => { 
+            if (Math.hypot(seg.p1.x - seg.p2.x, seg.p1.y - seg.p2.y) >= 1) { 
+                ctx2d.moveTo(seg.p1.x, seg.p1.y); 
+                ctx2d.lineTo(seg.p2.x, seg.p2.y); 
+            } 
+        });
+        const innerPx = Math.max(0.5, thickness - lineThickness);
+        ctx2d.lineWidth = innerPx; 
+        ctx2d.strokeStyle = BG; 
+        ctx2d.stroke();
     };
 
-    drawSegments(orthoSegments, wallBorderColor);
-    drawSegments(nonOrthoSegments, "#e57373");
-    drawSegments(selectedSegments, "#8ab4f8");
+// CAMEKAN DUVARLAR (Çift çizgi sistemli)
+    const drawGlassSegments = (segmentList, color) => {
+        if (segmentList.length === 0) return;
+        
+        const thickness = segmentList[0]?.wall?.thickness || wallPx;
+        const spacing = 4; // İki çizgi arası boşluk
+        
+        ctx2d.strokeStyle = color;
+        ctx2d.lineWidth = 2;
+        
+        segmentList.forEach((seg) => { 
+            if (Math.hypot(seg.p1.x - seg.p2.x, seg.p1.y - seg.p2.y) < 1) return;
+            
+            const dx = seg.p2.x - seg.p1.x;
+            const dy = seg.p2.y - seg.p1.y;
+            const length = Math.hypot(dx, dy);
+            const dirX = dx / length;
+            const dirY = dy / length;
+            const normalX = -dirY;
+            const normalY = dirX;
+            
+            const offset = spacing / 2;
+            
+            // İlk çizgi (bir taraf)
+            ctx2d.beginPath();
+            ctx2d.moveTo(seg.p1.x + normalX * offset, seg.p1.y + normalY * offset);
+            ctx2d.lineTo(seg.p2.x + normalX * offset, seg.p2.y + normalY * offset);
+            ctx2d.stroke();
+            
+            // İkinci çizgi (diğer taraf)
+            ctx2d.beginPath();
+            ctx2d.moveTo(seg.p1.x - normalX * offset, seg.p1.y - normalY * offset);
+            ctx2d.lineTo(seg.p2.x - normalX * offset, seg.p2.y - normalY * offset);
+            ctx2d.stroke();
+            
+            // Bağlantı çizgileri (her 30cm'de bir)
+            const connectionSpacing = 30;
+            const numConnections = Math.floor(length / connectionSpacing);
+            
+            for (let i = 0; i <= numConnections; i++) {
+                const t = i / numConnections;
+                if (t > 1) continue;
+                const midX = seg.p1.x + dirX * length * t;
+                const midY = seg.p1.y + dirY * length * t;
+                
+                ctx2d.beginPath();
+                ctx2d.moveTo(midX + normalX * offset, midY + normalY * offset);
+                ctx2d.lineTo(midX - normalX * offset, midY - normalY * offset);
+                ctx2d.stroke();
+            }
+        });
+    };
+
+// BALKON DUVARLARI (Düz ince çizgi)
+    const drawBalconySegments = (segmentList, color) => {
+        if (segmentList.length === 0) return;
+        
+        ctx2d.strokeStyle = color;
+        ctx2d.lineWidth = 1.5; // İnce çizgi
+        
+        ctx2d.beginPath();
+        segmentList.forEach((seg) => { 
+            if (Math.hypot(seg.p1.x - seg.p2.x, seg.p1.y - seg.p2.y) >= 1) { 
+                ctx2d.moveTo(seg.p1.x, seg.p1.y); 
+                ctx2d.lineTo(seg.p2.x, seg.p2.y); 
+            } 
+        });
+        ctx2d.stroke();
+    };
+
+    // YARIM DUVARLAR (Tuğla dizilimi - yan yana dikdörtgenler)
+    const drawHalfSegments = (segmentList, color) => {
+        if (segmentList.length === 0) return;
+        
+        ctx2d.strokeStyle = color;
+        ctx2d.fillStyle = "rgba(231, 230, 208, 0.3)"; // Açık bej dolgu
+        ctx2d.lineWidth = 1.5;
+        
+        segmentList.forEach((seg) => {
+            const dx = seg.p2.x - seg.p1.x;
+            const dy = seg.p2.y - seg.p1.y;
+            const length = Math.hypot(dx, dy);
+            
+            if (length < 1) return;
+            
+            const dirX = dx / length;
+            const dirY = dy / length;
+            const normalX = -dirY;
+            const normalY = dirX;
+            
+            const thickness = seg.wall.thickness || wallPx;
+            const brickHeight = thickness;
+            const brickWidth = 20; // Her tuğla 20cm
+            
+            const numBricks = Math.ceil(length / brickWidth);
+            const actualBrickWidth = length / numBricks;
+            
+            // Tuğlaları çiz
+            for (let i = 0; i < numBricks; i++) {
+                const startT = i * actualBrickWidth;
+                const endT = (i + 1) * actualBrickWidth;
+                
+                const brick1 = { x: seg.p1.x + dirX * startT, y: seg.p1.y + dirY * startT };
+                const brick2 = { x: seg.p1.x + dirX * endT, y: seg.p1.y + dirY * endT };
+                
+                const corner1 = { x: brick1.x - normalX * brickHeight / 2, y: brick1.y - normalY * brickHeight / 2 };
+                const corner2 = { x: brick1.x + normalX * brickHeight / 2, y: brick1.y + normalY * brickHeight / 2 };
+                const corner3 = { x: brick2.x + normalX * brickHeight / 2, y: brick2.y + normalY * brickHeight / 2 };
+                const corner4 = { x: brick2.x - normalX * brickHeight / 2, y: brick2.y - normalY * brickHeight / 2 };
+                
+                // Tuğla dikdörtgeni çiz
+                ctx2d.beginPath();
+                ctx2d.moveTo(corner1.x, corner1.y);
+                ctx2d.lineTo(corner2.x, corner2.y);
+                ctx2d.lineTo(corner3.x, corner3.y);
+                ctx2d.lineTo(corner4.x, corner4.y);
+                ctx2d.closePath();
+                ctx2d.fill();
+                ctx2d.stroke();
+            }
+        });
+    };
+
+    // DUVARLARI ÇİZ (Tiplerine göre)
+    drawNormalSegments(normalSegments.ortho, wallBorderColor);
+    drawNormalSegments(normalSegments.nonOrtho, "#e57373");
+    drawNormalSegments(normalSegments.selected, "#8ab4f8");
+    
+    drawBalconySegments(balconySegments.ortho, wallBorderColor);
+    drawBalconySegments(balconySegments.nonOrtho, "#e57373");
+    drawBalconySegments(balconySegments.selected, "#8ab4f8");
+    
+    drawGlassSegments(glassSegments.ortho, wallBorderColor);
+    drawGlassSegments(glassSegments.nonOrtho, "#e57373");
+    drawGlassSegments(glassSegments.selected, "#8ab4f8");
+    
+    drawHalfSegments(halfSegments.ortho, wallBorderColor);
+    drawHalfSegments(halfSegments.nonOrtho, "#e57373");
+    drawHalfSegments(halfSegments.selected, "#8ab4f8");
 
     const nodesToDrawAngle = new Set();
     if (isDragging && selectedObject?.handle !== 'body') {
@@ -138,6 +311,28 @@ export function draw2D() {
         drawDoorSymbol(door, false, isSelected);
     });
 
+    walls.forEach(wall => {
+        if (wall.windows && wall.windows.length > 0) {
+            wall.windows.forEach(window => {
+                drawWindowSymbol(wall, window);
+            });
+        }
+    });
+
+    walls.forEach(wall => {
+        if (wall.vents && wall.vents.length > 0) {
+            wall.vents.forEach(vent => {
+                drawVentSymbol(wall, vent);
+            });
+        }
+    });
+
+    nodes.forEach(node => {
+        if (node.isColumn) {
+            drawColumnSymbol(node);
+        }
+    });
+
     if (currentMode === "drawDoor" && !isPanning && !isDragging) {
         const doorsToPreview = [];
         const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
@@ -171,32 +366,38 @@ export function draw2D() {
         });
     }
 
-    // DUVAR SÜRÜKLEMEDE KOMŞU DUVARLARIN BOYUTLARINI VE AÇILARINI GÖSTER
     if (isDragging && selectedObject?.type === "wall" && selectedObject.handle === "body") {
         const wallsBeingMoved = selectedGroup.length > 0 ? selectedGroup : [selectedObject.object];
         const nodesBeingMoved = new Set();
         wallsBeingMoved.forEach((w) => { nodesBeingMoved.add(w.p1); nodesBeingMoved.add(w.p2); });
         
-        // Komşu duvarları bul (taşınmayan ama taşınan düğümlere bağlı olanlar)
         const neighborWalls = walls.filter(w => {
             if (wallsBeingMoved.includes(w)) return false;
             return nodesBeingMoved.has(w.p1) || nodesBeingMoved.has(w.p2);
         });
         
-        // Komşu duvarların boyutlarını göster
         neighborWalls.forEach(wall => {
             drawDimension(wall.p1, wall.p2, true);
         });
         
-        // Komşu duvarların köşe açılarını göster
         nodesBeingMoved.forEach(node => {
             drawAngleSymbol(node);
         });
     }
 
-    if (showDimensions) { walls.forEach((w) => { const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w); drawDimension(w.p1, w.p2, false); }); }
-    else if (!isDragging && selectedObject?.type === "wall") { drawDimension(selectedObject.object.p1, selectedObject.object.p2, true); }
-    if (isDragging && affectedWalls.length > 0) { affectedWalls.forEach((wall) => { drawDimension(wall.p1, wall.p2, true); }); }
+    if (showDimensions) { 
+        walls.forEach((w) => { 
+            drawDimension(w.p1, w.p2, false); 
+        }); 
+    }
+    else if (!isDragging && selectedObject?.type === "wall") { 
+        drawDimension(selectedObject.object.p1, selectedObject.object.p2, true); 
+    }
+    if (isDragging && affectedWalls.length > 0) { 
+        affectedWalls.forEach((wall) => { 
+            drawDimension(wall.p1, wall.p2, true); 
+        }); 
+    }
 
     if (isDragging && selectedObject?.type === "wall") {
         drawDimension(selectedObject.object.p1, selectedObject.object.p2, true);
