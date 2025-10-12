@@ -1,128 +1,191 @@
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { state, WALL_HEIGHT, WALL_THICKNESS, DOOR_HEIGHT } from "./main.js";
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+import { state, WALL_HEIGHT, DOOR_HEIGHT } from './main.js';
 
-let scene, camera, renderer, controls;
-let sceneObjects, doorMaterial;
+export let scene, camera, renderer, controls;
 
-export function init3D(canvasElement) {
+export function init3D(canvas) {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1e1f20);
+    scene.background = new THREE.Color(0x0a0a0a);
 
-    camera = new THREE.PerspectiveCamera(60, 1, 0.1, 10000);
-    camera.position.set(1500, 1800, 1500);
+    camera = new THREE.PerspectiveCamera(60, canvas.clientWidth / canvas.clientHeight, 0.1, 10000);
+    camera.position.set(500, 400, 500);
+    camera.lookAt(0, 0, 0);
 
-    renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        canvas: canvasElement,
-    });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    controls = new OrbitControls(camera, renderer.domElement);
+    controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0, 0, 0);
 
-    const amb = new THREE.AmbientLight(0xffffff, 1.2);
-    const dir = new THREE.DirectionalLight(0xffffff, 1.5);
-    dir.position.set(2000, 3000, 1500);
-    scene.add(amb, dir);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
 
-    sceneObjects = new THREE.Group();
-    scene.add(sceneObjects);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(500, 1000, 500);
+    dirLight.castShadow = true;
+    dirLight.shadow.camera.left = -1000;
+    dirLight.shadow.camera.right = 1000;
+    dirLight.shadow.camera.top = 1000;
+    dirLight.shadow.camera.bottom = -1000;
+    dirLight.shadow.camera.near = 0.1;
+    dirLight.shadow.camera.far = 2000;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
 
-    doorMaterial = new THREE.MeshStandardMaterial({ color: '#333333', roughness: 0.8 });
-}
+    const gridHelper = new THREE.GridHelper(2000, 40, 0x444444, 0x222222);
+    scene.add(gridHelper);
 
-export { scene, camera, renderer, controls };
-
-function createWallSegmentMesh(p1, p2, material) {
-    const wallLength = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-    if (wallLength < 1) return null;
-
-    const wallGeom = new THREE.BoxGeometry(wallLength, WALL_HEIGHT, WALL_THICKNESS);
-    wallGeom.translate(0, WALL_HEIGHT / 2, 0);
-    const wallMesh = new THREE.Mesh(wallGeom, material);
-
-    wallMesh.position.set((p1.x + p2.x) / 2, 0, -(p1.y + p2.y) / 2);
-    wallMesh.rotation.y = Math.atan2(p1.y - p2.y, p2.x - p1.x);
-
-    return wallMesh;
-}
-
-function createDoorMesh(door) {
-    const wall = door.wall;
-    if (!wall) return null;
-    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    if (wallLen < 0.1) return null;
-    const dx = (wall.p2.x - wall.p1.x) / wallLen;
-    const dy = (wall.p2.y - wall.p1.y) / wallLen;
-    const doorCenterPos = { x: wall.p1.x + dx * door.pos, y: wall.p1.y + dy * door.pos };
-    const doorGeom = new THREE.BoxGeometry(door.width, DOOR_HEIGHT, 5);
-    doorGeom.translate(0, DOOR_HEIGHT / 2, 0);
-    const doorMesh = new THREE.Mesh(doorGeom, doorMaterial);
-    doorMesh.position.set(doorCenterPos.x, 0, -doorCenterPos.y);
-    doorMesh.rotation.y = Math.atan2(wall.p1.y - wall.p2.y, wall.p2.x - wall.p1.x);
-    return doorMesh;
-}
-
-function createLintelMesh(door, material) {
-    const wall = door.wall;
-    if (!wall) return null;
-    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-     if (wallLen < 0.1) return null;
-    const dx = (wall.p2.x - wall.p1.x) / wallLen;
-    const dy = (wall.p2.y - wall.p1.y) / wallLen;
-    const lintelHeight = WALL_HEIGHT - DOOR_HEIGHT;
-    if (lintelHeight <= 0) return null;
-    const doorCenterPos = { x: wall.p1.x + dx * door.pos, y: wall.p1.y + dy * door.pos };
-    const lintelGeom = new THREE.BoxGeometry(door.width, lintelHeight, WALL_THICKNESS);
-    lintelGeom.translate(0, DOOR_HEIGHT + lintelHeight / 2, 0);
-    const lintelMesh = new THREE.Mesh(lintelGeom, material);
-    lintelMesh.position.set(doorCenterPos.x, 0, -doorCenterPos.y);
-    lintelMesh.rotation.y = Math.atan2(wall.p1.y - wall.p2.y, wall.p2.x - wall.p1.x);
-    return lintelMesh;
+    const axesHelper = new THREE.AxesHelper(200);
+    scene.add(axesHelper);
 }
 
 export function update3DScene() {
-    if (!document.getElementById("main-container").classList.contains('show-3d')) return;
+    if (!scene) return;
 
-    if (!sceneObjects) return;
-    sceneObjects.clear();
-    
-    const { walls, doors, wallBorderColor } = state;
-    const wallMaterial = new THREE.MeshStandardMaterial({ color: wallBorderColor });
-
-    walls.forEach(w => {
-        const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y);
-        if (wallLen < 1) return;
-        const wallDoors = doors.filter(d => d.wall === w).sort((a, b) => a.pos - b.pos);
-        let lastPos = 0;
-        const wallSegments = [];
-        wallDoors.forEach(door => {
-            const doorStart = door.pos - door.width / 2;
-            if (doorStart > lastPos) wallSegments.push({ start: lastPos, end: doorStart });
-            lastPos = door.pos + door.width / 2;
-        });
-        if (lastPos < wallLen) wallSegments.push({ start: lastPos, end: wallLen });
-        const dx = (w.p2.x - w.p1.x) / wallLen;
-        const dy = (w.p2.y - w.p1.y) / wallLen;
-        wallSegments.forEach(seg => {
-            const p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
-            const p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
-            const segMesh = createWallSegmentMesh(p1, p2, wallMaterial);
-            if (segMesh) sceneObjects.add(segMesh);
-        });
+    // Eski duvarları ve kapıları temizle
+    scene.children = scene.children.filter(child => {
+        if (child.userData.isWall || child.userData.isDoor || child.userData.isArcWall) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(m => m.dispose());
+                } else {
+                    child.material.dispose();
+                }
+            }
+            return false;
+        }
+        return true;
     });
 
-    doors.forEach(door => {
-        const doorMesh = createDoorMesh(door);
-        if (doorMesh) sceneObjects.add(doorMesh);
-        const lintelMesh = createLintelMesh(door, wallMaterial);
-        if (lintelMesh) sceneObjects.add(lintelMesh);
+    const wallMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xe7e6d0, 
+        roughness: 0.8,
+        metalness: 0.2 
     });
 
-    if (sceneObjects.children.length > 0) {
-        const box = new THREE.Box3().setFromObject(sceneObjects);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        controls.target.copy(center);
+    const doorMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x8b4513,
+        roughness: 0.7,
+        metalness: 0.1
+    });
+
+    // Normal duvarları çiz
+    state.walls.forEach(wall => {
+        const dx = wall.p2.x - wall.p1.x;
+        const dy = wall.p2.y - wall.p1.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+
+        const thickness = wall.thickness || 20;
+        const geometry = new THREE.BoxGeometry(length, WALL_HEIGHT, thickness);
+        const mesh = new THREE.Mesh(geometry, wallMaterial);
+
+        mesh.position.x = (wall.p1.x + wall.p2.x) / 2;
+        mesh.position.y = WALL_HEIGHT / 2;
+        mesh.position.z = (wall.p1.y + wall.p2.y) / 2;
+        mesh.rotation.y = -angle;
+
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData.isWall = true;
+
+        scene.add(mesh);
+    });
+
+    // Yay duvarları çiz
+    if (state.arcWalls) {
+        state.arcWalls.forEach(arcWall => {
+            const steps = 30;
+            const points = [];
+            
+            // Bezier eğrisi noktalarını hesapla
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const x = Math.pow(1 - t, 2) * arcWall.p1.x + 
+                          2 * (1 - t) * t * arcWall.control.x + 
+                          Math.pow(t, 2) * arcWall.p2.x;
+                const z = Math.pow(1 - t, 2) * arcWall.p1.y + 
+                          2 * (1 - t) * t * arcWall.control.y + 
+                          Math.pow(t, 2) * arcWall.p2.y;
+                points.push(new THREE.Vector3(x, 0, z));
+            }
+
+            // Her segment için kutu oluştur
+            for (let i = 0; i < points.length - 1; i++) {
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                
+                const dx = p2.x - p1.x;
+                const dz = p2.z - p1.z;
+                const length = Math.sqrt(dx * dx + dz * dz);
+                const angle = Math.atan2(dz, dx);
+
+                const thickness = arcWall.thickness || 20;
+                const geometry = new THREE.BoxGeometry(length, WALL_HEIGHT, thickness);
+                const mesh = new THREE.Mesh(geometry, wallMaterial);
+
+                mesh.position.x = (p1.x + p2.x) / 2;
+                mesh.position.y = WALL_HEIGHT / 2;
+                mesh.position.z = (p1.z + p2.z) / 2;
+                mesh.rotation.y = -angle;
+
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData.isArcWall = true;
+
+                scene.add(mesh);
+            }
+        });
     }
-    controls.update();
+
+    // Kapıları çiz
+    state.doors.forEach(door => {
+        const wall = door.wall;
+        const dx = wall.p2.x - wall.p1.x;
+        const dy = wall.p2.y - wall.p1.y;
+        const wallLength = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+
+        const doorPosRatio = door.pos / wallLength;
+        const doorX = wall.p1.x + dx * doorPosRatio;
+        const doorZ = wall.p1.y + dy * doorPosRatio;
+
+        const thickness = wall.thickness || 20;
+        const geometry = new THREE.BoxGeometry(door.width, DOOR_HEIGHT, thickness + 2);
+        const mesh = new THREE.Mesh(geometry, doorMaterial);
+
+        mesh.position.x = doorX;
+        mesh.position.y = DOOR_HEIGHT / 2;
+        mesh.position.z = doorZ;
+        mesh.rotation.y = -angle;
+
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData.isDoor = true;
+
+        scene.add(mesh);
+    });
+
+    // Zemin
+    const floorGeometry = new THREE.PlaneGeometry(2000, 2000);
+    const floorMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x2a2b2c,
+        roughness: 0.9,
+        metalness: 0.1
+    });
+    const existingFloor = scene.children.find(child => child.userData.isFloor);
+    if (!existingFloor) {
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        floor.userData.isFloor = true;
+        scene.add(floor);
+    }
 }

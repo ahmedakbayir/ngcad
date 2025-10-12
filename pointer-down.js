@@ -1,10 +1,10 @@
 import { state, dom, setState, setMode, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
-import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, wallExists, areCollinear, snapTo15DegreeAngle } from './geometry.js';
+import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, wallExists, snapTo15DegreeAngle } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
-import { getObjectAtPoint, getDoorPlacement, getDoorPlacementAtNode, isSpaceForDoor, findCollinearChain } from './actions.js';
+import { getObjectAtPoint, getDoorPlacement, isSpaceForDoor, findCollinearChain, calculateDoorWidth } from './actions.js';
 import { startLongPressDetection, clearLongPress, handleDoubleClick } from './wall-panel.js';
 
 export function onPointerDown(e) {
@@ -29,18 +29,25 @@ export function onPointerDown(e) {
         }
         const selectedObject = getObjectAtPoint(pos);
         
-        // SADECE DUVAR İÇİN çift tıklama ve long press
         if (selectedObject && selectedObject.type === "wall") {
             const isDoubleClick = handleDoubleClick(e, selectedObject.object);
             if (isDoubleClick) {
-                // Çift tıklama tespit edildi, işlemi durdur
                 setState({ selectedObject: null });
                 return;
             }
             startLongPressDetection(e, selectedObject.object);
         }
         
-        setState({ selectedObject, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(), dragAxis: null, isSweeping: false, sweepWalls: [] });
+        setState({ 
+            selectedObject, 
+            selectedGroup: [], 
+            affectedWalls: [], 
+            preDragWallStates: new Map(), 
+            preDragNodeStates: new Map(), 
+            dragAxis: null, 
+            isSweeping: false, 
+            sweepWalls: [] 
+        });
 
         if (selectedObject) {
             let startPointForDragging;
@@ -162,45 +169,77 @@ export function onPointerDown(e) {
                 }
             }
         }
-    } else if (state.currentMode === "drawDoor") {
-        const clickedNode = findNodeAt(snappedPos.roundedX, snappedPos.roundedY);
-        let doorsAdded = false;
-        if (clickedNode) {
-            const connectedWalls = state.walls.filter(w => w.p1 === clickedNode || w.p2 === clickedNode);
-            connectedWalls.forEach(wall => {
-                const newDoor = getDoorPlacementAtNode(wall, clickedNode);
-                if (newDoor && isSpaceForDoor(newDoor, clickedNode)) {
-                    state.doors.push(newDoor);
-                    doorsAdded = true;
-                }
-            });
-        } else {
-            let closestWall = null;
-            let minDistSq = Infinity;
-            const bodyHitTolerance = WALL_THICKNESS;
-            for (const w of [...state.walls].reverse()) {
-                const p1 = w.p1, p2 = w.p2;
-                const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
-                if (l2 < 0.1) continue;
-                let t = ((snappedPos.roundedX - p1.x) * (p2.x - p1.x) + (snappedPos.roundedY - p1.y) * (p2.y - p1.y)) / l2;
-                const END_THRESHOLD = 0.05;
-                if (t > END_THRESHOLD && t < (1 - END_THRESHOLD)) {
-                    const d = distToSegmentSquared({ x: snappedPos.roundedX, y: snappedPos.roundedY }, p1, p2);
-                    if (d < bodyHitTolerance ** 2 && d < minDistSq) {
-                        minDistSq = d;
-                        closestWall = w;
-                    }
-                }
-            }
-            if (closestWall) {
-                const newDoor = getDoorPlacement(closestWall, { x: snappedPos.roundedX, y: snappedPos.roundedY });
-                if (newDoor && isSpaceForDoor(newDoor)) {
-                    state.doors.push(newDoor);
-                    doorsAdded = true;
+    } else if (state.currentMode === "drawDoor" || state.currentMode === "drawWindow" || state.currentMode === "drawVent") {
+        // Kapı/Pencere/Menfez ekleme - SADECE DUVAR GÖVDESİNE (KÖŞE DEĞİL)
+        let closestWall = null;
+        let minDistSq = Infinity;
+        const bodyHitTolerance = WALL_THICKNESS;
+        
+        for (const w of [...state.walls].reverse()) {
+            const p1 = w.p1, p2 = w.p2;
+            const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
+            if (l2 < 0.1) continue;
+            let t = ((snappedPos.roundedX - p1.x) * (p2.x - p1.x) + (snappedPos.roundedY - p1.y) * (p2.y - p1.y)) / l2;
+            const END_THRESHOLD = 0.05; // Duvar ucundan %5 içeride ol
+            if (t > END_THRESHOLD && t < (1 - END_THRESHOLD)) {
+                const d = distToSegmentSquared({ x: snappedPos.roundedX, y: snappedPos.roundedY }, p1, p2);
+                if (d < bodyHitTolerance ** 2 && d < minDistSq) {
+                    minDistSq = d;
+                    closestWall = w;
                 }
             }
         }
-        if (doorsAdded) saveState();
+        
+        if (closestWall) {
+            const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
+            
+            if (state.currentMode === "drawDoor") {
+                const doorWidth = calculateDoorWidth(wallLen);
+                if (doorWidth > 0) {
+                    const newDoor = getDoorPlacement(closestWall, { x: snappedPos.roundedX, y: snappedPos.roundedY });
+                    if (newDoor && isSpaceForDoor(newDoor)) {
+                        state.doors.push(newDoor);
+                        saveState();
+                    }
+                }
+            } else if (state.currentMode === "drawWindow") {
+                const windowWidth = Math.min(120, wallLen - 20);
+                if (windowWidth >= 40) {
+                    const dx = closestWall.p2.x - closestWall.p1.x;
+                    const dy = closestWall.p2.y - closestWall.p1.y;
+                    const t = Math.max(0, Math.min(1, ((snappedPos.roundedX - closestWall.p1.x) * dx + (snappedPos.roundedY - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
+                    const windowPos = t * wallLen;
+                    
+                    if (windowPos >= windowWidth / 2 + 10 && windowPos <= wallLen - windowWidth / 2 - 10) {
+                        if (!closestWall.windows) closestWall.windows = [];
+                        closestWall.windows.push({
+                            pos: windowPos,
+                            width: windowWidth,
+                            type: 'window'
+                        });
+                        saveState();
+                    }
+                }
+            } else if (state.currentMode === "drawVent") {
+                const ventWidth = 40;
+                if (wallLen >= ventWidth + 20) {
+                    const dx = closestWall.p2.x - closestWall.p1.x;
+                    const dy = closestWall.p2.y - closestWall.p1.y;
+                    const t = Math.max(0, Math.min(1, ((snappedPos.roundedX - closestWall.p1.x) * dx + (snappedPos.roundedY - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
+                    const ventPos = t * wallLen;
+                    
+                    if (ventPos >= ventWidth / 2 + 10 && ventPos <= wallLen - ventWidth / 2 - 10) {
+                        if (!closestWall.vents) closestWall.vents = [];
+                        closestWall.vents.push({
+                            pos: ventPos,
+                            width: ventWidth,
+                            type: 'vent'
+                        });
+                        saveState();
+                    }
+                }
+            }
+        }
     } else {
         let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY };
 
@@ -262,6 +301,43 @@ export function onPointerDown(e) {
                         });
                         geometryChanged = true;
                         setState({ startPoint: null });
+                    }
+                } else if (state.currentMode === "drawArcWall") {
+                    const p1 = state.startPoint;
+
+                    if (Math.abs(p1.x - placementPos.x) > 1 || Math.abs(p1.y - placementPos.y) > 1) {
+                        const endNode = getOrCreateNode(placementPos.x, placementPos.y);
+                        
+                        if (endNode !== p1) {
+                            // Yay için kontrol noktasını otomatik hesapla (orta nokta + yukarı offset)
+                            const midX = (p1.x + endNode.x) / 2;
+                            const midY = (p1.y + endNode.y) / 2;
+                            
+                            // Duvara dik yönde 30cm yukarı
+                            const dx = endNode.x - p1.x;
+                            const dy = endNode.y - p1.y;
+                            const length = Math.hypot(dx, dy);
+                            const normalX = -dy / length;
+                            const normalY = dx / length;
+                            
+                            const controlOffset = Math.min(50, length / 3); // Max 50cm veya uzunluğun 1/3'ü
+                            const controlNode = getOrCreateNode(
+                                midX + normalX * controlOffset,
+                                midY + normalY * controlOffset
+                            );
+                            
+                            state.arcWalls.push({
+                                type: "arcWall",
+                                p1: p1,
+                                p2: endNode,
+                                control: controlNode,
+                                thickness: WALL_THICKNESS,
+                                wallType: 'normal'
+                            });
+                            
+                            geometryChanged = true;
+                            setState({ startPoint: null });
+                        }
                     }
                 }
                 if (geometryChanged) { processWalls(); saveState(); }

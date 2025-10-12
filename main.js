@@ -101,11 +101,16 @@ export const dom = {
     c3d: document.getElementById("c3d"),
     bSel: document.getElementById("bSel"),
     bWall: document.getElementById("bWall"),
+    bArcWall: document.getElementById("bArcWall"),
     bRoom: document.getElementById("bRoom"),
     bDoor: document.getElementById("bDoor"),
+    bWindow: document.getElementById("bWindow"),
+    bVent: document.getElementById("bVent"),
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
+    arcWalls: [], // YENİ: Yay duvarlar
+    arcWallInProgress: null, // YENİ: Çizim sırasındaki yay
     fileInput: document.getElementById("file-input"),
     b3d: document.getElementById("b3d"),
     settingsBtn: document.getElementById("settings-btn"),
@@ -147,8 +152,11 @@ export function setMode(mode) {
 
     dom.bSel.classList.toggle("active", newMode === "select");
     dom.bWall.classList.toggle("active", newMode === "drawWall");
+    dom.bArcWall.classList.toggle("active", newMode === "drawArcWall");
     dom.bRoom.classList.toggle("active", newMode === "drawRoom");
     dom.bDoor.classList.toggle("active", newMode === "drawDoor");
+    dom.bWindow.classList.toggle("active", newMode === "drawWindow");
+    dom.bVent.classList.toggle("active", newMode === "drawVent");
     dom.p2d.className = `panel ${newMode}-mode`;
 }
 
@@ -187,8 +195,11 @@ function initialize() {
     
     dom.bSel.addEventListener("click", () => setMode("select"));
     dom.bWall.addEventListener("click", () => setMode("drawWall"));
+    dom.bArcWall.addEventListener("click", () => setMode("drawArcWall"));
     dom.bRoom.addEventListener("click", () => setMode("drawRoom"));
     dom.bDoor.addEventListener("click", () => setMode("drawDoor"));
+    dom.bWindow.addEventListener("click", () => setMode("drawWindow"));
+    dom.bVent.addEventListener("click", () => setMode("drawVent"));
     dom.b3d.addEventListener("click", toggle3DView);
     
     window.addEventListener("resize", resize);

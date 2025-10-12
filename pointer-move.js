@@ -86,6 +86,20 @@ export function onPointerMove(e) {
                 nodeToMove.y = finalPos.y;
             }
         
+        } else if (state.selectedObject.type === "arcWall") {
+            const arcWall = state.selectedObject.object;
+            const handle = state.selectedObject.handle;
+            
+            if (handle === "p1") {
+                arcWall.p1.x = snappedPos.x;
+                arcWall.p1.y = snappedPos.y;
+            } else if (handle === "p2") {
+                arcWall.p2.x = snappedPos.x;
+                arcWall.p2.y = snappedPos.y;
+            } else if (handle === "control") {
+                arcWall.control.x = snappedPos.x;
+                arcWall.control.y = snappedPos.y;
+            }
         } else if (state.selectedObject.type === "wall" && state.selectedObject.handle === "body") {
             const rect = dom.c2d.getBoundingClientRect();
             const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);

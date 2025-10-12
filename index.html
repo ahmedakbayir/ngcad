@@ -1,136 +1,174 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Profesyonel 2D/3D Mimari Editör</title>
-<link rel="stylesheet" href="style.css" />
-<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Plan Çizim</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="main" id="main-container">
-<div id="p2d" class="panel">
-<div id="ui">
- <button id="bSel" class="btn active">
- <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" stroke-width="1.5"></path></svg>
- Seç
- </button>
- <button id="bWall" class="btn">
-  <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke-width="4" stroke-linecap="round"></line></svg>
-  Duvar
- </button>
- <button id="bRoom" class="btn">
-  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-  Oda
- </button>
- <button id="bDoor" class="btn">
-  <svg viewBox="0 0 24 24"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"></path><line x1="10" y1="12" x2="10" y2="12" stroke-width="3" stroke-linecap="round"></line></svg>
-  Kapı
- </button>
- <button id="bSave" class="btn">
- <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
- Kaydet
- </button>
- <button id="bOpen" class="btn">
- <svg viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
- Aç
- </button>
- <button id="b3d" class="btn">
-  <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-  3D Göster
- </button>
-<input type="file" id="file-input" accept=".json" style="display: none"/>
+    <div id="main-container">
+        <div id="p2d" class="panel">
+            <canvas id="c2d"></canvas>
+            <input type="text" id="length-input" placeholder="100">
+        </div>
+        <div id="splitter"></div>
+        <div id="p3d">
+            <canvas id="c3d"></canvas>
+        </div>
+        
+<div id="toolbar">
+    <button id="bSel" title="Seç (Esc)">
+        <span class="icon">⬚</span>
+        <span class="label">Seç</span>
+    </button>
+    <button id="bWall" title="Duvar Çiz (W)">
+        <span class="icon">▬</span>
+        <span class="label">Duvar</span>
+    </button>
+    <button id="bArcWall" title="Yay Duvar (A)">
+        <span class="icon">⌒</span>
+        <span class="label">Yay Duvar</span>
+    </button>
+    <button id="bRoom" title="Oda Çiz (R)">
+        <span class="icon">▭</span>
+        <span class="label">Mahal</span>
+    </button>
+    
+    <div class="separator"></div>
+    
+    <button id="bDoor" title="Kapı Ekle (K)">
+        <span class="icon">🚪</span>
+        <span class="label">Kapı</span>
+    </button>
+    <button id="bWindow" title="Pencere Ekle (P)">
+        <span class="icon">🪟</span>
+        <span class="label">Pencere</span>
+    </button>
+    <button id="bVent" title="Menfez Ekle (M)">
+        <span class="icon">◫</span>
+        <span class="label">Menfez</span>
+    </button>
+    
+    <div class="separator"></div>
+    
+    <button id="b3d" title="3D Görünüm">
+        <span class="icon">📦</span>
+        <span class="label">3D Görünüm</span>
+    </button>
+    <button id="settings-btn" title="Ayarlar">
+        <span class="icon">⚙️</span>
+        <span class="label">Ayarlar</span>
+    </button>
+    
+    <div class="separator"></div>
+    
+    <button id="bSave" title="Kaydet">
+        <span class="icon">💾</span>
+        <span class="label">Kaydet</span>
+    </button>
+    <button id="bOpen" title="Aç">
+        <span class="icon">📁</span>
+        <span class="label">Aç</span>
+    </button>
+    <input type="file" id="file-input" accept=".json" style="display:none;">
 </div>
+    </div>
 
-<button id="settings-btn" class="btn">Ayarlar</button>
+    <div id="settings-popup">
+        <div class="popup-header">
+            <h2>Ayarlar</h2>
+            <button id="close-settings-popup">&times;</button>
+        </div>
+        
+        <div class="tab-buttons">
+            <button class="tab-btn active" id="tab-btn-general">Genel</button>
+            <button class="tab-btn" id="tab-btn-grid">Izgara</button>
+            <button class="tab-btn" id="tab-btn-snap">Yakalama</button>
+        </div>
 
-<div id="settings-popup">
- <div class="tab-bar">
- <button class="tab-btn active" id="tab-btn-general">Genel</button>
- <button class="tab-btn" id="tab-btn-grid">Grid</button>
- <button class="tab-btn" id="tab-btn-snap">Snap</button>
- </div>
- <div class="tab-content">
- <div class="tab-pane active" id="tab-pane-general">
-  <div class="setting-control">
-  <label for="borderPicker">Duvar Rengi</label>
-  <input type="color" id="borderPicker" />
-  </div>
-  <div class="setting-control">
-  <label for="roomPicker">Mahal Rengi</label>
-  <input type="color" id="roomPicker" />
-  </div>
-  <div class="setting-control">
-  <label for="line-thickness">Çizgi Kalınlığı</label>
-  <input type="number" id="line-thickness" min="1" max="10" step="0.5" />
-  </div>
- </div>
- <div class="tab-pane" id="tab-pane-grid">
-  <div class="setting-control">
-  <label for="grid-visible">Gridi Göster</label>
-  <input type="checkbox" id="grid-visible" />
-  </div>
-  <div class="setting-control">
-  <label for="grid-color">Renk</label>
-  <input type="color" id="grid-color" />
-  </div>
-  <div class="setting-control">
-  <label for="grid-weight">Kalınlık (px)</label>
-  <input type="number" id="grid-weight" min="0.1" max="5" step="0.1" />
-  </div>
-  <div class="setting-control">
-  <label for="grid-space">Aralık (cm)</label>
-  <input type="number" id="grid-space" min="1" max="50" step="1" />
-  </div>
- </div>
- <div class="tab-pane" id="tab-pane-snap">
-  <div class="setting-control">
-  <label for="snap-endpoint">Uç Noktalar</label>
-  <input type="checkbox" id="snap-endpoint" />
-  </div>
-  <div class="setting-control">
-  <label for="snap-midpoint">Orta Noktalar</label>
-  <input type="checkbox" id="snap-midpoint" />
-  </div>
-  <div class="setting-control">
-  <label for="snap-endpoint-ext">Uç Nokta Uzantıları</label>
-  <input type="checkbox" id="snap-endpoint-ext" />
-  </div>
-  <div class="setting-control">
-  <label for="snap-midpoint-ext">Orta Nokta Uzantıları</label>
-  <input type="checkbox" id="snap-midpoint-ext" />
-  </div>
-  <div class="setting-control">
-  <label for="snap-nearest-only">Sadece Yakın Duvarlar</label>
-  <input type="checkbox" id="snap-nearest-only" />
-  </div>
- </div>
- </div>
- <button id="close-settings-popup" class="btn">Kapat</button>
-</div>
+        <div id="tab-pane-general" class="tab-pane active">
+            <div class="setting-group">
+                <label for="borderPicker">Duvar Rengi</label>
+                <input type="color" id="borderPicker" value="#e7e6d0">
+            </div>
+            <div class="setting-group">
+                <label for="roomPicker">Mahal Dolgu Rengi</label>
+                <input type="color" id="roomPicker" value="#1e1f20">
+            </div>
+            <div class="setting-group">
+                <label for="line-thickness">Çizgi Kalınlığı</label>
+                <input type="number" id="line-thickness" min="1" max="5" step="0.5" value="2">
+            </div>
+        </div>
 
-<div id="room-name-popup">
- <input type="text" id="room-name-input" placeholder="Arama..."/>
- <select id="room-name-select" size="10"></select>
-</div>
+        <div id="tab-pane-grid" class="tab-pane">
+            <div class="setting-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="grid-visible" checked>
+                    Izgarayı Göster
+                </label>
+            </div>
+            <div class="setting-group">
+                <label for="grid-color">Izgara Rengi</label>
+                <input type="color" id="grid-color" value="#2d3134">
+            </div>
+            <div class="setting-group">
+                <label for="grid-weight">Izgara Kalınlığı</label>
+                <input type="number" id="grid-weight" min="0.1" max="3" step="0.1" value="0.5">
+            </div>
+            <div class="setting-group">
+                <label for="grid-space">Izgara Aralığı (cm)</label>
+                <input type="number" id="grid-space" min="1" max="100" step="1" value="10">
+            </div>
+        </div>
 
-<canvas id="c2d"></canvas>
-<input type="text" id="length-input" />
-</div>
-<div id="splitter"></div>
-<div id="p3d" class="panel"><canvas id="c3d"></canvas></div>
-</div>
+        <div id="tab-pane-snap" class="tab-pane">
+            <div class="setting-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="snap-endpoint" checked>
+                    Uç Noktalara Yakala
+                </label>
+            </div>
+            <div class="setting-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="snap-midpoint" checked>
+                    Orta Noktalara Yakala
+                </label>
+            </div>
+            <div class="setting-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="snap-endpoint-ext" checked>
+                    Uç Nokta Uzantılarına Yakala
+                </label>
+            </div>
+            <div class="setting-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="snap-midpoint-ext">
+                    Orta Nokta Uzantılarına Yakala
+                </label>
+            </div>
+            <div class="setting-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="snap-nearest-only" checked>
+                    Sadece En Yakına Yakala
+                </label>
+            </div>
+        </div>
+    </div>
 
-<script type="importmap">
-{
-"imports": {
-"three": "https://unpkg.com/three@0.163.0/build/three.module.js",
-"three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
-}
-}
-</script>
-<script type="module" src="main.js"></script>
-<script type="module" src="wall-panel.js"></script>
+    <div id="room-name-popup">
+        <h3>Mahal Adı</h3>
+        <select id="room-name-select">
+            <option value="">Seçiniz...</option>
+        </select>
+        <input type="text" id="room-name-input" placeholder="Özel isim girin...">
+        <div class="popup-buttons">
+            <button class="btn-secondary" id="cancel-room-name">İptal</button>
+            <button class="btn-primary" id="save-room-name">Kaydet</button>
+        </div>
+    </div>
 
+    <script type="module" src="main.js"></script>
 </body>
 </html>

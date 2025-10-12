@@ -98,6 +98,13 @@ export function draw2D() {
         });
     });
 
+    // YAY DUVARLARI ÇİZ
+    if (state.arcWalls && state.arcWalls.length > 0) {
+        state.arcWalls.forEach(arcWall => {
+            drawArcWall(arcWall);
+        });
+    }
+
     // NORMAL DUVARLAR İÇİN ÇİZİM FONKSİYONU
     const drawNormalSegments = (segmentList, color) => {
         if (segmentList.length === 0) return;
@@ -200,11 +207,11 @@ export function draw2D() {
     };
 
     // YARIM DUVARLAR (Tuğla dizilimi - yan yana dikdörtgenler)
+// YARIM DUVARLAR (Tuğla dizilimi - DOLGU YOK)
     const drawHalfSegments = (segmentList, color) => {
         if (segmentList.length === 0) return;
         
         ctx2d.strokeStyle = color;
-        ctx2d.fillStyle = "rgba(231, 230, 208, 0.3)"; // Açık bej dolgu
         ctx2d.lineWidth = 1.5;
         
         segmentList.forEach((seg) => {
@@ -221,12 +228,11 @@ export function draw2D() {
             
             const thickness = seg.wall.thickness || wallPx;
             const brickHeight = thickness;
-            const brickWidth = 20; // Her tuğla 20cm
+            const brickWidth = 20;
             
             const numBricks = Math.ceil(length / brickWidth);
             const actualBrickWidth = length / numBricks;
             
-            // Tuğlaları çiz
             for (let i = 0; i < numBricks; i++) {
                 const startT = i * actualBrickWidth;
                 const endT = (i + 1) * actualBrickWidth;
@@ -239,14 +245,13 @@ export function draw2D() {
                 const corner3 = { x: brick2.x + normalX * brickHeight / 2, y: brick2.y + normalY * brickHeight / 2 };
                 const corner4 = { x: brick2.x - normalX * brickHeight / 2, y: brick2.y - normalY * brickHeight / 2 };
                 
-                // Tuğla dikdörtgeni çiz
+                // Sadece çerçeve çiz, dolgu yok
                 ctx2d.beginPath();
                 ctx2d.moveTo(corner1.x, corner1.y);
                 ctx2d.lineTo(corner2.x, corner2.y);
                 ctx2d.lineTo(corner3.x, corner3.y);
                 ctx2d.lineTo(corner4.x, corner4.y);
                 ctx2d.closePath();
-                ctx2d.fill();
                 ctx2d.stroke();
             }
         });
@@ -365,7 +370,106 @@ export function draw2D() {
             }
         });
     }
-
+function drawArcWall(arcWall) {
+    const { ctx2d } = dom;
+    const { wallBorderColor, lineThickness, selectedObject } = state;
+    
+    const isSelected = selectedObject?.type === "arcWall" && selectedObject.object === arcWall;
+    const thickness = arcWall.thickness || WALL_THICKNESS;
+    
+    // Bezier eğrisini parçalara böl
+    const steps = 30;
+    const points = [];
+    
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = Math.pow(1 - t, 2) * arcWall.p1.x + 
+                  2 * (1 - t) * t * arcWall.control.x + 
+                  Math.pow(t, 2) * arcWall.p2.x;
+        const y = Math.pow(1 - t, 2) * arcWall.p1.y + 
+                  2 * (1 - t) * t * arcWall.control.y + 
+                  Math.pow(t, 2) * arcWall.p2.y;
+        points.push({ x, y });
+    }
+    
+    // Her segment için normal vektörü hesapla ve dış hatları çiz
+    ctx2d.strokeStyle = wallBorderColor;
+    ctx2d.fillStyle = BG;
+    ctx2d.lineWidth = lineThickness;
+    
+    // Üst kenar
+    ctx2d.beginPath();
+    for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.hypot(dx, dy);
+        const nx = -dy / len * thickness / 2;
+        const ny = dx / len * thickness / 2;
+        
+        if (i === 0) ctx2d.moveTo(p1.x + nx, p1.y + ny);
+        ctx2d.lineTo(p2.x + nx, p2.y + ny);
+    }
+    ctx2d.stroke();
+    
+    // Alt kenar
+    ctx2d.beginPath();
+    for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.hypot(dx, dy);
+        const nx = -dy / len * thickness / 2;
+        const ny = dx / len * thickness / 2;
+        
+        if (i === 0) ctx2d.moveTo(p1.x - nx, p1.y - ny);
+        ctx2d.lineTo(p2.x - nx, p2.y - ny);
+    }
+    ctx2d.stroke();
+    
+    // Kenar kapaklar
+    const firstNx = -(points[1].y - points[0].y) / Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) * thickness / 2;
+    const firstNy = (points[1].x - points[0].x) / Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) * thickness / 2;
+    
+    ctx2d.beginPath();
+    ctx2d.moveTo(points[0].x + firstNx, points[0].y + firstNy);
+    ctx2d.lineTo(points[0].x - firstNx, points[0].y - firstNy);
+    ctx2d.stroke();
+    
+    const lastIdx = points.length - 1;
+    const lastNx = -(points[lastIdx].y - points[lastIdx - 1].y) / Math.hypot(points[lastIdx].x - points[lastIdx - 1].x, points[lastIdx].y - points[lastIdx - 1].y) * thickness / 2;
+    const lastNy = (points[lastIdx].x - points[lastIdx - 1].x) / Math.hypot(points[lastIdx].x - points[lastIdx - 1].x, points[lastIdx].y - points[lastIdx - 1].y) * thickness / 2;
+    
+    ctx2d.beginPath();
+    ctx2d.moveTo(points[lastIdx].x + lastNx, points[lastIdx].y + lastNy);
+    ctx2d.lineTo(points[lastIdx].x - lastNx, points[lastIdx].y - lastNy);
+    ctx2d.stroke();
+    
+    // Seçiliyse kontrol noktasını göster
+    if (isSelected) {
+        // Kontrol çizgisi
+        ctx2d.strokeStyle = "#8ab4f8";
+        ctx2d.setLineDash([5, 5]);
+        ctx2d.lineWidth = 1;
+        ctx2d.beginPath();
+        ctx2d.moveTo(arcWall.p1.x, arcWall.p1.y);
+        ctx2d.lineTo(arcWall.control.x, arcWall.control.y);
+        ctx2d.lineTo(arcWall.p2.x, arcWall.p2.y);
+        ctx2d.stroke();
+        ctx2d.setLineDash([]);
+        
+        // Kontrol noktası
+        ctx2d.fillStyle = "#8ab4f8";
+        ctx2d.beginPath();
+        ctx2d.arc(arcWall.control.x, arcWall.control.y, 6, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.strokeStyle = "#ffffff";
+        ctx2d.lineWidth = 2;
+        ctx2d.stroke();
+    }
+}
     if (isDragging && selectedObject?.type === "wall" && selectedObject.handle === "body") {
         const wallsBeingMoved = selectedGroup.length > 0 ? selectedGroup : [selectedObject.object];
         const nodesBeingMoved = new Set();

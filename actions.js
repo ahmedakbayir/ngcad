@@ -69,7 +69,30 @@ export function getObjectAtPoint(worldPos) {
             }
         }
     }
-
+    // Yay duvarları kontrol et
+    for (const arcWall of state.arcWalls || []) {
+        // Kontrol noktasını kontrol et
+        const distToControl = Math.hypot(arcWall.control.x - worldPos.x, arcWall.control.y - worldPos.y);
+        if (distToControl < handleRadius) {
+            return { type: "arcWall", object: arcWall, handle: "control" };
+        }
+        
+        // Başlangıç ve bitiş noktalarını kontrol et
+        const distToP1 = Math.hypot(arcWall.p1.x - worldPos.x, arcWall.p1.y - worldPos.y);
+        if (distToP1 < handleRadius) {
+            return { type: "arcWall", object: arcWall, handle: "p1" };
+        }
+        const distToP2 = Math.hypot(arcWall.p2.x - worldPos.x, arcWall.p2.y - worldPos.y);
+        if (distToP2 < handleRadius) {
+            return { type: "arcWall", object: arcWall, handle: "p2" };
+        }
+        
+        // Yay gövdesini kontrol et (yaklaşık)
+        const distToArc = distanceToQuadraticBezier(worldPos, arcWall.p1, arcWall.control, arcWall.p2);
+        if (distToArc < bodyHitTolerance) {
+            return { type: "arcWall", object: arcWall, handle: "body" };
+        }
+    }
     // Duvar gövdelerini kontrol et
     const bodyHitTolerance = WALL_THICKNESS / 2;
     for (const wall of [...walls].reverse()) {
@@ -79,22 +102,18 @@ export function getObjectAtPoint(worldPos) {
         }
     }
 
-    // Mahal alanlarını kontrol et - DUVAR KALINLIĞININ YARISI KADAR İÇERİYE ÇEKİLMİŞ
-    const ROOM_INSET = WALL_THICKNESS / 2;
-    
+    // Mahal alanlarını kontrol et - SADECE MAHAL ADI YAKININDA (30cm çap)
     for (const room of rooms) {
         try {
-            if (!room.polygon || !room.polygon.geometry || !room.polygon.geometry.coordinates) continue;
+            if (!room.center || !Array.isArray(room.center) || room.center.length < 2) continue;
             
-            const coords = room.polygon.geometry.coordinates[0];
-            if (!coords || coords.length < 3) continue;
-
-            const insetPolygon = insetPolygonCoords(coords, ROOM_INSET);
+            const centerX = room.center[0];
+            const centerY = room.center[1];
             
-            if (insetPolygon && insetPolygon.length >= 3) {
-                if (isPointInPolygon(worldPos, insetPolygon)) {
-                    return { type: "room", object: room };
-                }
+            // Sadece mahal adının 30cm yakınındaysa tıklamayı kabul et
+            const distanceToCenter = Math.hypot(worldPos.x - centerX, worldPos.y - centerY);
+            if (distanceToCenter < 30) {
+                return { type: "room", object: room };
             }
         } catch (e) {
             console.error("Mahal kontrol hatası:", e);
@@ -104,111 +123,51 @@ export function getObjectAtPoint(worldPos) {
     return null;
 }
 
-// Poligonu içeri çeken yardımcı fonksiyon
-function insetPolygonCoords(coords, insetAmount) {
-    if (!coords || coords.length < 3) return null;
-    
-    try {
-        const insetCoords = [];
-        const n = coords.length - 1;
-        
-        for (let i = 0; i < n; i++) {
-            const prev = coords[(i - 1 + n) % n];
-            const curr = coords[i];
-            const next = coords[(i + 1) % n];
-            
-            const dx1 = curr[0] - prev[0];
-            const dy1 = curr[1] - prev[1];
-            const len1 = Math.hypot(dx1, dy1);
-            const nx1 = -dy1 / len1;
-            const ny1 = dx1 / len1;
-            
-            const dx2 = next[0] - curr[0];
-            const dy2 = next[1] - curr[1];
-            const len2 = Math.hypot(dx2, dy2);
-            const nx2 = -dy2 / len2;
-            const ny2 = dx2 / len2;
-            
-            const avgNx = (nx1 + nx2) / 2;
-            const avgNy = (ny1 + ny2) / 2;
-            const avgLen = Math.hypot(avgNx, avgNy);
-            
-            if (avgLen > 0.001) {
-                const normX = avgNx / avgLen;
-                const normY = avgNy / avgLen;
-                
-                insetCoords.push([
-                    curr[0] + normX * insetAmount,
-                    curr[1] + normY * insetAmount
-                ]);
-            } else {
-                insetCoords.push([curr[0], curr[1]]);
-            }
-        }
-        
-        if (insetCoords.length > 0) {
-            insetCoords.push([...insetCoords[0]]);
-        }
-        
-        return insetCoords;
-    } catch (e) {
-        console.error("Poligon inset hatası:", e);
-        return null;
+// Kapı boyutunu duvara göre hesapla
+export function calculateDoorWidth(wallLength) {
+    if (wallLength >= 90) {
+        return 70; // Standart kapı
+    } else if (wallLength >= 30 && wallLength < 90) {
+        return wallLength - 10; // Her iki taraftan 5cm boşluk
+    } else if (wallLength >= 20 && wallLength < 30) {
+        return 20; // Minimum kapı genişliği
     }
-}
-
-function isPointInPolygon(point, polygonCoords) {
-    let inside = false;
-    const x = point.x;
-    const y = point.y;
-    
-    for (let i = 0, j = polygonCoords.length - 1; i < polygonCoords.length; j = i++) {
-        const xi = polygonCoords[i][0];
-        const yi = polygonCoords[i][1];
-        const xj = polygonCoords[j][0];
-        const yj = polygonCoords[j][1];
-        
-        const intersect = ((yi > y) !== (yj > y)) && 
-                         (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-    }
-    
-    return inside;
+    return 0; // Çok kısa duvar, kapı eklenemez
 }
 
 export function getDoorPlacement(wall, mousePos) {
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    if (wallLen < 1) return null;
+    if (wallLen < 20) return null; // Minimum 20cm duvar gerekli
+
+    const doorWidth = calculateDoorWidth(wallLen);
+    if (doorWidth === 0) return null;
 
     const dx = wall.p2.x - wall.p1.x;
     const dy = wall.p2.y - wall.p1.y;
     const t = Math.max(0, Math.min(1, ((mousePos.x - wall.p1.x) * dx + (mousePos.y - wall.p1.y) * dy) / (dx * dx + dy * dy)));
     const pos = t * wallLen;
 
-    const doorWidth = 90;
-    const minDist = 15;
+    // Duvar boyutuna göre minimum mesafe
+    let minMargin;
+    if (wallLen >= 90) {
+        minMargin = 10; // Her iki taraftan 10cm
+    } else if (wallLen >= 30) {
+        minMargin = 5; // Her iki taraftan 5cm
+    } else {
+        // 20-30cm arası: eşit boşluk bırak
+        minMargin = (wallLen - doorWidth) / 2;
+    }
 
-    if (pos < doorWidth / 2 + minDist || pos > wallLen - doorWidth / 2 - minDist) {
+    if (pos < doorWidth / 2 + minMargin || pos > wallLen - doorWidth / 2 - minMargin) {
         return null;
     }
 
     return { wall, pos, width: doorWidth, type: 'door' };
 }
 
+// KÖŞE KAPI EKLEME İPTAL - Bu fonksiyon artık null döner
 export function getDoorPlacementAtNode(wall, node) {
-    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    if (wallLen < 1) return null;
-
-    const isP1 = wall.p1 === node;
-    const doorWidth = 90;
-    const minDist = 15;
-    const pos = isP1 ? doorWidth / 2 + minDist : wallLen - doorWidth / 2 - minDist;
-
-    if (pos < doorWidth / 2 + minDist || pos > wallLen - doorWidth / 2 - minDist) {
-        return null;
-    }
-
-    return { wall, pos, width: doorWidth, type: 'door' };
+    return null; // KÖŞEYE KAPI EKLENMESİN
 }
 
 export function isSpaceForDoor(doorData, atNode = null) {
@@ -217,12 +176,25 @@ export function isSpaceForDoor(doorData, atNode = null) {
     
     const doorStart = pos - width / 2;
     const doorEnd = pos + width / 2;
-    const minDist = 15;
+    
+    // Duvar boyutlarına göre minimum mesafe
+    let minDist;
+    if (wallLen >= 90) {
+        minDist = 10;
+    } else if (wallLen >= 30) {
+        minDist = 5;
+    } else if (wallLen >= 20) {
+        // 20-30cm arası: eşit boşluk
+        minDist = (wallLen - width) / 2;
+    } else {
+        return false;
+    }
 
     if (doorStart < minDist || doorEnd > wallLen - minDist) {
         return false;
     }
 
+    // Diğer kapılarla çakışma kontrolü
     for (const existingDoor of state.doors) {
         if (existingDoor.wall !== wall) continue;
         if (doorData.object && existingDoor === doorData.object) continue;
@@ -238,15 +210,47 @@ export function isSpaceForDoor(doorData, atNode = null) {
     return true;
 }
 
-export function getMinWallLength(wall) {
+// Duvar üzerindeki kapıların toplam genişliğini hesapla
+export function getTotalDoorWidth(wall) {
     const doorsOnWall = state.doors.filter(d => d.wall === wall);
-    if (doorsOnWall.length === 0) return 30;
-    
-    const totalDoorWidth = doorsOnWall.reduce((sum, d) => sum + d.width, 0);
-    const minSpacing = 15;
-    return totalDoorWidth + (doorsOnWall.length + 1) * minSpacing;
+    return doorsOnWall.reduce((sum, door) => sum + door.width, 0);
 }
 
+// Duvarın minimum uzunluğunu hesapla (kapılar + boşluklar)
+export function getMinWallLength(wall) {
+    const doorsOnWall = state.doors.filter(d => d.wall === wall);
+    if (doorsOnWall.length === 0) return 20; // Minimum 20cm
+    
+    const totalDoorWidth = getTotalDoorWidth(wall);
+    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    
+    // Duvar boyutuna göre minimum boşluk
+    let minSpacingPerDoor;
+    if (wallLen >= 90) {
+        minSpacingPerDoor = 20; // Her kapı için 20cm (her iki taraftan 10)
+    } else if (wallLen >= 30) {
+        minSpacingPerDoor = 10; // Her kapı için 10cm (her iki taraftan 5)
+    } else {
+        minSpacingPerDoor = 10; // 20-30cm arası minimum
+    }
+    
+    return totalDoorWidth + (doorsOnWall.length * minSpacingPerDoor);
+}
+// Bezier eğrisine olan mesafeyi hesapla
+function distanceToQuadraticBezier(point, p0, p1, p2) {
+    let minDist = Infinity;
+    const steps = 20;
+    
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const x = Math.pow(1 - t, 2) * p0.x + 2 * (1 - t) * t * p1.x + Math.pow(t, 2) * p2.x;
+        const y = Math.pow(1 - t, 2) * p0.y + 2 * (1 - t) * t * p1.y + Math.pow(t, 2) * p2.y;
+        const dist = Math.hypot(point.x - x, point.y - y);
+        minDist = Math.min(minDist, dist);
+    }
+    
+    return minDist;
+}
 export function findCollinearChain(startWall) {
     const chain = [startWall];
     const visited = new Set([startWall]);
