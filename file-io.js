@@ -1,7 +1,7 @@
 import { state, setState, dom } from './main.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
-import { update3DScene } from './scene3d.js';
+//import { update3DScene } from './scene3d.js';
 
 export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', () => {

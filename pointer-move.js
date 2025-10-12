@@ -2,7 +2,7 @@ import { state, dom, setState, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { positionLengthInput } from './ui.js';
-import { update3DScene } from './scene3d.js';
+//import { update3DScene } from './scene3d.js';
 import { getDoorPlacement, isSpaceForDoor, getMinWallLength } from './actions.js';
 import { cancelLongPress } from './wall-panel.js';
 
