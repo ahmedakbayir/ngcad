@@ -1,5 +1,5 @@
 import { draw2D } from './draw2d.js';
-import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d } from './scene3d.js';
+//import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d } from './scene3d.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
@@ -32,6 +32,8 @@ export let state = {
     walls: [],
     doors: [],
     rooms: [],
+    arcWalls: [],
+    arcWallInProgress: null,
     selectedObject: null,
     showDimensions: false,
     zoom: 1,
@@ -109,8 +111,6 @@ export const dom = {
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
-    arcWalls: [], // YENİ: Yay duvarlar
-    arcWallInProgress: null, // YENİ: Çizim sırasındaki yay
     fileInput: document.getElementById("file-input"),
     b3d: document.getElementById("b3d"),
     settingsBtn: document.getElementById("settings-btn"),
@@ -178,15 +178,15 @@ export function resize() {
 function animate() {
     requestAnimationFrame(animate);
     draw2D();
-    if(dom.mainContainer.classList.contains('show-3d')) {
-        controls3d.update();
-        renderer3d.render(scene3d, camera3d);
-    }
+    // if(dom.mainContainer.classList.contains('show-3d')) {
+    //     controls3d.update();
+    //     renderer3d.render(scene3d, camera3d);
+    // }
 }
 
 // ====== BAŞLATMA ======
 function initialize() {
-    init3D(dom.c3d);
+ //   init3D(dom.c3d);
     initializeSettings();
     setupUIListeners();
     setupInputListeners();
