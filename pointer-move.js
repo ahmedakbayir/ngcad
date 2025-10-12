@@ -2,7 +2,7 @@ import { state, dom, setState, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { positionLengthInput } from './ui.js';
-import { update3DScene } from './scene3d.js';
+//import { update3DScene } from './scene3d.js';
 import { getDoorPlacement, isSpaceForDoor, getMinWallLength } from './actions.js';
 import { cancelLongPress } from './wall-panel.js';
 
@@ -78,7 +78,8 @@ export function onPointerMove(e) {
             
             const moveIsValid = state.affectedWalls.every((wall) => {
                 const otherNode = wall.p1 === nodeToMove ? wall.p2 : wall.p1;
-                return Math.hypot(finalPos.x - otherNode.x, finalPos.y - otherNode.y) >= getMinWallLength(wall);
+                const newLength = Math.hypot(finalPos.x - otherNode.x, finalPos.y - otherNode.y);
+                return newLength >= getMinWallLength(wall);
             });
 
             if (moveIsValid) {
@@ -86,6 +87,20 @@ export function onPointerMove(e) {
                 nodeToMove.y = finalPos.y;
             }
         
+        } else if (state.selectedObject.type === "arcWall") {
+            const arcWall = state.selectedObject.object;
+            const handle = state.selectedObject.handle;
+            
+            if (handle === "p1") {
+                arcWall.p1.x = snappedPos.x;
+                arcWall.p1.y = snappedPos.y;
+            } else if (handle === "p2") {
+                arcWall.p2.x = snappedPos.x;
+                arcWall.p2.y = snappedPos.y;
+            } else if (handle === "control") {
+                arcWall.control.x = snappedPos.x;
+                arcWall.control.y = snappedPos.y;
+            }
         } else if (state.selectedObject.type === "wall" && state.selectedObject.handle === "body") {
             const rect = dom.c2d.getBoundingClientRect();
             const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
@@ -158,9 +173,16 @@ export function onPointerMove(e) {
 
         } else if (state.selectedObject.type === "door") {
             const door = state.selectedObject.object;
-            let closestWall = door.wall;
+            
+            // Orijinal genişliği sakla (ilk kez taşınıyorsa)
+            if (!door.originalWidth) {
+                door.originalWidth = door.width;
+            }
+            
+            let closestWall = null;
             let minDistSq = Infinity;
             const bodyHitTolerance = WALL_THICKNESS * 2;
+            
             for (const w of state.walls) {
                 const d = distToSegmentSquared(snappedPos, w.p1, w.p2);
                 if (d < bodyHitTolerance ** 2 && d < minDistSq) {
@@ -168,13 +190,44 @@ export function onPointerMove(e) {
                     closestWall = w;
                 }
             }
+            
             if (closestWall) {
-                const placement = getDoorPlacement(closestWall, snappedPos);
-                if (placement && isSpaceForDoor({ ...placement, object: door })) {
-                    door.wall = closestWall;
-                    door.pos = placement.pos;
-                    door.width = placement.width;
+                const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
+                const wallThickness = closestWall.thickness || 20;
+                const edgeMargin = (wallThickness / 2) + 5;
+                
+                // Kullanılabilir alan
+                const availableSpace = wallLen - (2 * edgeMargin);
+                
+                // Kapı genişliğini belirle
+                let newWidth;
+                if (availableSpace >= door.originalWidth) {
+                    newWidth = door.originalWidth; // Orijinal boyutunu kullan
+                } else if (availableSpace >= 20) {
+                    newWidth = availableSpace; // Duvara sığacak kadar küçült
+                } else {
+                    // Duvar çok küçük, orijinal boyuta dön
+                    door.width = door.originalWidth;
+                    updateMouseCursor();
+                    return;
                 }
+                
+                const dx = closestWall.p2.x - closestWall.p1.x;
+                const dy = closestWall.p2.y - closestWall.p1.y;
+                const t = Math.max(0, Math.min(1, ((snappedPos.x - closestWall.p1.x) * dx + (snappedPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
+                const newPos = t * wallLen;
+                
+                const minPos = edgeMargin + newWidth / 2;
+                const maxPos = wallLen - edgeMargin - newWidth / 2;
+                
+                if (newPos >= minPos && newPos <= maxPos) {
+                    door.wall = closestWall;
+                    door.pos = newPos;
+                    door.width = newWidth;
+                }
+            } else {
+                // Hiçbir duvara yakın değil, orijinal boyuta dön
+                door.width = door.originalWidth;
             }
         } else if (state.selectedObject.type === "window") {
             const window = state.selectedObject.object;
@@ -212,13 +265,23 @@ export function onPointerMove(e) {
         
         if (state.affectedWalls.length > 0) {
             state.affectedWalls.forEach((wall) => {
-                const originalState = state.preDragWallStates.get(wall);
-                if (originalState?.doors) {
-                    const newLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                    originalState.doors.forEach(ds => {
-                        ds.doorRef.pos = originalState.isP1Stationary ? ds.distFromP1 : newLength - ds.distFromP2;
-                    });
-                }
+                const wallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                const wallThickness = wall.thickness || 20;
+                const edgeMargin = (wallThickness / 2) + 5;
+                
+                state.doors.forEach((door) => {
+                    if (door.wall !== wall) return;
+                    
+                    const minPos = edgeMargin + door.width / 2;
+                    const maxPos = wallLength - edgeMargin - door.width / 2;
+                    
+                    if (minPos > maxPos) {
+                        door.pos = wallLength / 2;
+                    } else {
+                        if (door.pos < minPos) door.pos = minPos;
+                        if (door.pos > maxPos) door.pos = maxPos;
+                    }
+                });
             });
         }
         update3DScene();

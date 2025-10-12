@@ -176,23 +176,90 @@ function isPointInPolygon(point, polygonCoords) {
     return inside;
 }
 
+
 export function getDoorPlacement(wall, mousePos) {
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    if (wallLen < 1) return null;
-
+    
+    // Duvar kalınlığı
+    const wallThickness = wall.thickness || 20;
+    
+    // Her iki uçtan içeri alınacak mesafe: (duvarKalınlığı/2) + 5cm
+    const edgeMargin = (wallThickness / 2) + 5;
+    
+    // Mouse pozisyonu duvar üzerinde
     const dx = wall.p2.x - wall.p1.x;
     const dy = wall.p2.y - wall.p1.y;
-    const t = Math.max(0, Math.min(1, ((mousePos.x - wall.p1.x) * dx + (mousePos.y - wall.p1.y) * dy) / (dx * dx + dy * dy)));
-    const pos = t * wallLen;
-
-    const doorWidth = 90;
-    const minDist = 15;
-
-    if (pos < doorWidth / 2 + minDist || pos > wallLen - doorWidth / 2 - minDist) {
+    const t = ((mousePos.x - wall.p1.x) * dx + (mousePos.y - wall.p1.y) * dy) / (dx * dx + dy * dy);
+    const clampedT = Math.max(0, Math.min(1, t));
+    let pos = clampedT * wallLen;
+    
+    // A bölgesinin başlangıç ve bitiş noktaları
+    const aStart = edgeMargin;
+    const aEnd = wallLen - edgeMargin;
+    
+    // Mouse A bölgesinde mi kontrol et
+    if (pos < aStart || pos > aEnd) {
         return null;
     }
-
-    return { wall, pos, width: doorWidth, type: 'door' };
+    
+    // Mevcut kapıları kontrol et ve boş alanları bul
+    const existingDoors = state.doors.filter(d => d.wall === wall);
+    
+    // Boş bölgeleri hesapla
+    const occupiedRanges = existingDoors.map(door => ({
+        start: door.pos - door.width / 2 - edgeMargin * 2,
+        end: door.pos + door.width / 2 + edgeMargin * 2
+    }));
+    
+    // Mouse'un bulunduğu boş bölgeyi bul
+    let availableStart = aStart;
+    let availableEnd = aEnd;
+    
+    for (const range of occupiedRanges) {
+        if (pos >= range.start && pos <= range.end) {
+            // Mouse kapı bölgesinde, kapı eklenemez
+            return null;
+        }
+        
+        if (range.end < pos && range.end > availableStart) {
+            availableStart = range.end;
+        }
+        
+        if (range.start > pos && range.start < availableEnd) {
+            availableEnd = range.start;
+        }
+    }
+    
+    // Kullanılabilir alan
+    const availableSpace = availableEnd - availableStart;
+    
+    // Minimum 20cm gerekli
+    if (availableSpace < 20) {
+        return null;
+    }
+    
+    // Kapı genişliğini hesapla
+    let doorWidth;
+    if (availableSpace >= 70) {
+        doorWidth = 70;
+    } else {
+        doorWidth = availableSpace;
+    }
+    
+    // Kapının merkezi için sınırlar
+    const minCenterPos = availableStart + doorWidth / 2;
+    const maxCenterPos = availableEnd - doorWidth / 2;
+    
+    // Kapı merkezini hesapla
+    let centerPos = pos;
+    if (centerPos < minCenterPos) {
+        centerPos = minCenterPos;
+    }
+    if (centerPos > maxCenterPos) {
+        centerPos = maxCenterPos;
+    }
+    
+    return { wall, pos: centerPos, width: doorWidth, type: 'door' };
 }
 
 export function getDoorPlacementAtNode(wall, node) {
@@ -217,12 +284,17 @@ export function isSpaceForDoor(doorData, atNode = null) {
     
     const doorStart = pos - width / 2;
     const doorEnd = pos + width / 2;
-    const minDist = 15;
-
-    if (doorStart < minDist || doorEnd > wallLen - minDist) {
+    
+    // Duvar kalınlığı
+    const wallThickness = wall.thickness || 20;
+    const edgeMargin = (wallThickness / 2) + 5;
+    
+    // Duvar sınırları kontrolü
+    if (doorStart < edgeMargin || doorEnd > wallLen - edgeMargin) {
         return false;
     }
-
+    
+    // Diğer kapılarla çakışma kontrolü
     for (const existingDoor of state.doors) {
         if (existingDoor.wall !== wall) continue;
         if (doorData.object && existingDoor === doorData.object) continue;
@@ -230,7 +302,11 @@ export function isSpaceForDoor(doorData, atNode = null) {
         const existingStart = existingDoor.pos - existingDoor.width / 2;
         const existingEnd = existingDoor.pos + existingDoor.width / 2;
 
-        if (!(doorEnd < existingStart - minDist || doorStart > existingEnd + minDist)) {
+        // Kapılar iç içe GİREMEZ ama yanyana olabilir
+        // Aralarında en az edgeMargin*2 mesafe olmalı (her kapının kenarı için edgeMargin)
+        const minGap = edgeMargin * 2;
+        
+        if (!(doorEnd + minGap <= existingStart || doorStart >= existingEnd + minGap)) {
             return false;
         }
     }
@@ -240,13 +316,18 @@ export function isSpaceForDoor(doorData, atNode = null) {
 
 export function getMinWallLength(wall) {
     const doorsOnWall = state.doors.filter(d => d.wall === wall);
-    if (doorsOnWall.length === 0) return 30;
+    if (doorsOnWall.length === 0) return 20; // Minimum 20cm
     
-    const totalDoorWidth = doorsOnWall.reduce((sum, d) => sum + d.width, 0);
-    const minSpacing = 15;
-    return totalDoorWidth + (doorsOnWall.length + 1) * minSpacing;
+    const wallThickness = wall.thickness || 20;
+    const edgeMargin = (wallThickness / 2) + 5;
+    
+    const totalDoorWidth = doorsOnWall.reduce((sum, door) => sum + door.width, 0);
+    
+    // Toplam kapı genişliği + her iki uçtan edgeMargin
+    const minLength = totalDoorWidth + (2 * edgeMargin);
+    
+    return minLength;
 }
-
 export function findCollinearChain(startWall) {
     const chain = [startWall];
     const visited = new Set([startWall]);

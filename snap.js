@@ -6,6 +6,21 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     const screenMouse = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const wm = screenToWorld(screenMouse.x, screenMouse.y);
 
+        if (state.currentMode === 'drawDoor') {
+        const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1;
+        let roundedX = Math.round(wm.x / gridValue) * gridValue;
+        let roundedY = Math.round(wm.y / gridValue) * gridValue;
+        return { 
+            x: wm.x, 
+            y: wm.y, 
+            isSnapped: false, 
+            snapLines: { h_origins: [], v_origins: [] }, 
+            isLockable: false, 
+            roundedX: roundedX, 
+            roundedY: roundedY 
+        };
+    }
+    
     // YENİ EKLENEN KISIM: Grid değerine göre yuvarlanmış konumu hesapla (1 cm = 1 birim)
     const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1;
     let roundedX = Math.round(wm.x / gridValue) * gridValue;
@@ -43,15 +58,18 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     let draggedNode = (state.isDragging && state.selectedObject?.type === "wall" && state.selectedObject.handle !== "body")
         ? state.selectedObject.object[state.selectedObject.handle]
         : null;
-
     for (const wall of wallsToScan) {
         if (draggedNode === wall.p1 || draggedNode === wall.p2) continue;
         const p1 = wall.p1, p2 = wall.p2;
 
         const pointsToCheck = [];
-        if (state.snapOptions.endpoint) pointsToCheck.push({p: p1, type: 'ENDPOINT'}, {p: p2, type: 'ENDPOINT'});
-        if (state.snapOptions.midpoint) pointsToCheck.push({p: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }, type: 'MIDPOINT'});
-
+        // Kapı modunda endpoint snap YAPMA
+        if (state.snapOptions.endpoint && state.currentMode !== "drawDoor") {
+            pointsToCheck.push({p: p1, type: 'ENDPOINT'}, {p: p2, type: 'ENDPOINT'});
+        }
+        if (state.snapOptions.midpoint) {
+            pointsToCheck.push({p: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }, type: 'MIDPOINT'});
+        }
         pointsToCheck.forEach(item => {
             const screenPoint = worldToScreen(item.p.x, item.p.y);
             const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);

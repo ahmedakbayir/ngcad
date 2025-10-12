@@ -333,36 +333,30 @@ export function draw2D() {
         }
     });
 
-    if (currentMode === "drawDoor" && !isPanning && !isDragging) {
+if (currentMode === "drawDoor" && !isPanning && !isDragging) {
         const doorsToPreview = [];
-        const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
 
-        if (hoveredNode) {
-            const connectedWalls = walls.filter(w => w.p1 === hoveredNode || w.p2 === hoveredNode);
-            connectedWalls.forEach(wall => {
-                const newDoor = getDoorPlacementAtNode(wall, hoveredNode);
-                if (newDoor) doorsToPreview.push(newDoor);
-            });
-        } else {
-            let closestWall = null, minDistSq = Infinity;
-            const bodyHitoleranceSq = (WALL_THICKNESS * 1.5) ** 2;
-            for (const w of [...walls].reverse()) {
-                const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
-                if (distSq < bodyHitoleranceSq && distSq < minDistSq) {
-                    minDistSq = distSq;
-                    closestWall = w;
-                }
+        // En yakın duvarı bul
+        let closestWall = null, minDistSq = Infinity;
+        const bodyHitTolerance = (WALL_THICKNESS * 1.5) ** 2;
+        
+        for (const w of [...walls].reverse()) {
+            const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
+            if (distSq < bodyHitTolerance && distSq < minDistSq) {
+                minDistSq = distSq;
+                closestWall = w;
             }
-            if (closestWall) {
-                const previewDoor = getDoorPlacement(closestWall, mousePos);
-                if (previewDoor) doorsToPreview.push(previewDoor);
+        }
+        
+        if (closestWall) {
+            const previewDoor = getDoorPlacement(closestWall, mousePos);
+            if (previewDoor && isSpaceForDoor(previewDoor)) {
+                doorsToPreview.push(previewDoor);
             }
         }
 
         doorsToPreview.forEach(door => {
-            if (isSpaceForDoor(door, hoveredNode)) {
-                drawDoorSymbol(door, true);
-            }
+            drawDoorSymbol(door, true);
         });
     }
 
