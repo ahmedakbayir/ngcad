@@ -162,5 +162,5 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         setState({ isSnapLocked: false, lockedSnapPoint: null });
     }
 
-    return { x, y, isSnapped, snapLines, isLockable, point: bestSnap ? bestSnap.point : null, roundedX, roundedY };
+    return { x, y, isSnapped, snapLines, isLockable, point: bestSnap ? bestSnap.point : null, snapType: bestSnap ? bestSnap.type : null, roundedX, roundedY };
 }

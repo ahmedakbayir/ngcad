@@ -3,31 +3,21 @@ import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } 
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
 import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
 
-// --- YENİ YARDIMCI FONKSİYON ---
+// --- YARDIMCI FONKSİYONLAR ---
 function darkenColor(hex, percent) {
-    // # karakterini kaldır
     let color = hex.startsWith('#') ? hex.slice(1) : hex;
-
-    // R, G, B değerlerini parse et
     let r = parseInt(color.substring(0, 2), 16);
     let g = parseInt(color.substring(2, 4), 16);
     let b = parseInt(color.substring(4, 6), 16);
-
-    // Yüzdeye göre karart
     r = parseInt(r * (100 - percent) / 100);
     g = parseInt(g * (100 - percent) / 100);
     b = parseInt(b * (100 - percent) / 100);
-
-    // Değerleri 0-255 aralığında tut
     r = (r < 0) ? 0 : r;
     g = (g < 0) ? 0 : g;
     b = (b < 0) ? 0 : b;
-
-    // R, G, B'yi tekrar hex string'e çevir
     const rStr = (r.toString(16).length < 2) ? '0' + r.toString(16) : r.toString(16);
     const gStr = (g.toString(16).length < 2) ? '0' + g.toString(16) : g.toString(16);
     const bStr = (b.toString(16).length < 2) ? '0' + b.toString(16) : b.toString(16);
-
     return `#${rStr}${gStr}${bStr}`;
 }
 // ---------------------------------
@@ -466,40 +456,8 @@ export function draw2D() {
             ctx2d.stroke();
             
             drawDimension(startPoint, previewPos, true);
-            
-            if (mousePos.isSnapped && mousePos.snapLines) {
-                ctx2d.fillStyle = "#8ab4f8";
-                
-                mousePos.snapLines.h_origins.forEach(origin => {
-                    ctx2d.beginPath();
-                    ctx2d.arc(origin.x, origin.y, 3 / zoom, 0, Math.PI * 2);
-                    ctx2d.fill();
-                });
-                
-                mousePos.snapLines.v_origins.forEach(origin => {
-                    ctx2d.beginPath();
-                    ctx2d.arc(origin.x, origin.y, 3 / zoom, 0, Math.PI * 2);
-                    ctx2d.fill();
-                });
-            }
         }
         ctx2d.setLineDash([]);
-    }
-
-    if (!startPoint && mousePos.isSnapped && mousePos.snapLines) {
-        ctx2d.fillStyle = "#8ab4f8";
-        
-        mousePos.snapLines.h_origins.forEach(origin => {
-            ctx2d.beginPath();
-            ctx2d.arc(origin.x, origin.y, 3 / zoom, 0, Math.PI * 2);
-            ctx2d.fill();
-        });
-        
-        mousePos.snapLines.v_origins.forEach(origin => {
-            ctx2d.beginPath();
-            ctx2d.arc(origin.x, origin.y, 3 / zoom, 0, Math.PI * 2);
-            ctx2d.fill();
-        });
     }
 
     if (isStretchDragging) {
@@ -549,53 +507,27 @@ export function draw2D() {
 
     if (mousePos.isSnapped) {
         const snapRadius = 4 / zoom;
-        const color = "#e57373";
+        const color = "#8ab4f8";
         
-        // Snap türünü belirle - mousePos.x ve mousePos.y kullanarak
-        let snapType = null;
+        ctx2d.fillStyle = color;
         
-        const isEndpoint = state.walls.some(w => 
-            (Math.abs(w.p1.x - mousePos.x) < 0.5 && Math.abs(w.p1.y - mousePos.y) < 0.5) ||
-            (Math.abs(w.p2.x - mousePos.x) < 0.5 && Math.abs(w.p2.y - mousePos.y) < 0.5)
-        );
+        // İmleç pozisyonunda daire çiz
+        ctx2d.beginPath();
+        ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
+        ctx2d.fill();
         
-        if (isEndpoint) {
-            snapType = 'endpoint';
-        } else {
-            const isMidpoint = state.walls.some(w => {
-                const midX = (w.p1.x + w.p2.x) / 2;
-                const midY = (w.p1.y + w.p2.y) / 2;
-                return Math.abs(midX - mousePos.x) < 0.5 && Math.abs(midY - mousePos.y) < 0.5;
-            });
-            
-            if (isMidpoint) {
-                snapType = 'midpoint';
-            }
-        }
-        
-        if (snapType === 'endpoint') {
-            // Kare çiz (uç nokta)
-            ctx2d.fillStyle = color;
+        // Uzantıların kaynaklarında daire çiz
+        const allOrigins = [...mousePos.snapLines.h_origins, ...mousePos.snapLines.v_origins];
+        const drawnOrigins = new Set();
+        allOrigins.forEach(origin => {
+            const key = `${origin.x.toFixed(2)},${origin.y.toFixed(2)}`;
+            if (drawnOrigins.has(key)) return;
+
             ctx2d.beginPath();
-            ctx2d.rect(mousePos.x - snapRadius, mousePos.y - snapRadius, snapRadius * 2, snapRadius * 2);
+            ctx2d.arc(origin.x, origin.y, snapRadius, 0, Math.PI * 2);
             ctx2d.fill();
-        } else if (snapType === 'midpoint') {
-            // Üçgen çiz (orta nokta)
-            ctx2d.fillStyle = color;
-            ctx2d.beginPath();
-            const height = snapRadius * 1.5;
-            ctx2d.moveTo(mousePos.x, mousePos.y - height);
-            ctx2d.lineTo(mousePos.x - snapRadius, mousePos.y + height / 2);
-            ctx2d.lineTo(mousePos.x + snapRadius, mousePos.y + height / 2);
-            ctx2d.closePath();
-            ctx2d.fill();
-        } else {
-            // Varsayılan daire (intersection, projection vb.)
-            ctx2d.fillStyle = color;
-            ctx2d.beginPath();
-            ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
-            ctx2d.fill();
-        }
+            drawnOrigins.add(key);
+        });
     }
 
     ctx2d.restore();
