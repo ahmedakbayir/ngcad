@@ -382,7 +382,10 @@ export function onPointerDown(e) {
 
                 if (state.currentMode === "drawWall") {
                     if (state.startPoint) {
-                        placementPos = snapTo15DegreeAngle(state.startPoint, placementPos);
+                        // Eğer snap yakalanmadıysa 15 derece açı kısıtlaması uygula
+                        if (!snappedPos.isSnapped) {
+                            placementPos = snapTo15DegreeAngle(state.startPoint, placementPos);
+                        }
                     }
 
                     const dx = placementPos.x - state.startPoint.x;
@@ -391,11 +394,14 @@ export function onPointerDown(e) {
                     const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1;
 
                     if (distance > 0.1) {
-                        const snappedDistance = Math.round(distance / gridValue) * gridValue;
-                        if (Math.abs(snappedDistance - distance) > 0.01) {
-                            const scale = snappedDistance / distance;
-                            placementPos.x = state.startPoint.x + dx * scale;
-                            placementPos.y = state.startPoint.y + dy * scale;
+                        // Eğer snap yakalanmadıysa grid snapping uygula
+                        if (!snappedPos.isSnapped) {
+                            const snappedDistance = Math.round(distance / gridValue) * gridValue;
+                            if (Math.abs(snappedDistance - distance) > 0.01) {
+                                const scale = snappedDistance / distance;
+                                placementPos.x = state.startPoint.x + dx * scale;
+                                placementPos.y = state.startPoint.y + dy * scale;
+                            }
                         }
                     }
 

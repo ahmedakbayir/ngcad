@@ -459,8 +459,12 @@ if (currentMode === "drawDoor" && !isPanning && !isDragging) {
         ctx2d.beginPath(); ctx2d.arc(w.p2.x, w.p2.y, 3, 0, 2 * Math.PI); ctx2d.fill();
     }
 
+// draw2d.js içinde startPoint bölümünü şu şekilde güncelleyin:
+
     if (startPoint) {
-        ctx2d.strokeStyle = "#8ab4f8"; ctx2d.lineWidth = 2; ctx2d.setLineDash([6, 3]);
+        ctx2d.strokeStyle = "#8ab4f8"; 
+        ctx2d.lineWidth = 2; 
+        ctx2d.setLineDash([6, 3]);
 
         let previewPos = { x: mousePos.x, y: mousePos.y };
 
@@ -469,7 +473,13 @@ if (currentMode === "drawDoor" && !isPanning && !isDragging) {
             drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true);
             drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true);
         } else if (currentMode === "drawWall") {
-            previewPos = snapTo15DegreeAngle(startPoint, previewPos);
+            // Eğer snap yakalanmışsa, snap noktasını kullan
+            // Snap yakalanmamışsa 15 derece açı kısıtlaması uygula
+            if (mousePos.isSnapped) {
+                previewPos = { x: mousePos.x, y: mousePos.y };
+            } else {
+                previewPos = snapTo15DegreeAngle(startPoint, previewPos);
+            }
 
             ctx2d.beginPath();
             ctx2d.moveTo(startPoint.x, startPoint.y);
@@ -477,8 +487,46 @@ if (currentMode === "drawDoor" && !isPanning && !isDragging) {
             ctx2d.stroke();
             
             drawDimension(startPoint, previewPos, true);
+            
+            // Snap origin noktalarını kırmızı göster (duvar çizerken)
+            if (mousePos.isSnapped && mousePos.snapLines) {
+                ctx2d.fillStyle = "#e57373";
+                
+                // Horizontal snap origin'leri
+                mousePos.snapLines.h_origins.forEach(origin => {
+                    ctx2d.beginPath();
+                    ctx2d.arc(origin.x, origin.y, 5 / zoom, 0, Math.PI * 2);
+                    ctx2d.fill();
+                });
+                
+                // Vertical snap origin'leri
+                mousePos.snapLines.v_origins.forEach(origin => {
+                    ctx2d.beginPath();
+                    ctx2d.arc(origin.x, origin.y, 5 / zoom, 0, Math.PI * 2);
+                    ctx2d.fill();
+                });
+            }
         }
         ctx2d.setLineDash([]);
+    }
+
+    // Snap origin noktalarını kırmızı göster (startPoint olmadığında - oda çizerken)
+    if (!startPoint && mousePos.isSnapped && mousePos.snapLines) {
+        ctx2d.fillStyle = "#e57373";
+        
+        // Horizontal snap origin'leri
+        mousePos.snapLines.h_origins.forEach(origin => {
+            ctx2d.beginPath();
+            ctx2d.arc(origin.x, origin.y, 5 / zoom, 0, Math.PI * 2);
+            ctx2d.fill();
+        });
+        
+        // Vertical snap origin'leri
+        mousePos.snapLines.v_origins.forEach(origin => {
+            ctx2d.beginPath();
+            ctx2d.arc(origin.x, origin.y, 5 / zoom, 0, Math.PI * 2);
+            ctx2d.fill();
+        });
     }
 
     if (isStretchDragging) {
