@@ -6,6 +6,8 @@ import { onKeyDown } from './keyboard.js';
 import { onPointerDown } from './pointer-down.js';
 import { onPointerMove } from './pointer-move.js';
 import { onPointerUp } from './pointer-up.js';
+import { getObjectAtPoint } from './actions.js';
+import { showWallPanel } from './wall-panel.js';
 
 function onWheel(e) {
     e.preventDefault();
@@ -32,11 +34,22 @@ export function setupInputListeners() {
     p2d.addEventListener("pointerup", onPointerUp);
 
     c2d.addEventListener("wheel", onWheel, { passive: false });
+    
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null });
-        setMode("select");
+        const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
+        const object = getObjectAtPoint(clickPos);
+
+        if (object && (object.type === 'room' || object.type === 'roomName')) {
+            showRoomNamePopup(object.object, e);
+        } else if (object && object.type === 'wall') {
+            showWallPanel(object.object, e.clientX, e.clientY);
+        } else {
+            setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null, selectedObject: null });
+            setMode("select");
+        }
     });
+
     p2d.addEventListener("pointerleave", (e) => {
         if (state.isDragging) {
             setState({ isDragging: false, isStretchDragging: false, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map() });
@@ -44,18 +57,6 @@ export function setupInputListeners() {
         }
         if (state.isPanning) setState({ isPanning: false });
     });
-    c2d.addEventListener('dblclick', (e) => {
-        if (e.target !== c2d) return;
-        if (dom.roomNamePopup.style.display === 'block') return;
-        const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
-        const point = turf.point([clickPos.x, clickPos.y]);
-        for (const room of state.rooms) {
-            if (turf.booleanPointInPolygon(point, room.polygon)) {
-                showRoomNamePopup(room, e);
-                return;
-            }
-        }
-    });
-    
+
     window.addEventListener("keydown", onKeyDown);
 }

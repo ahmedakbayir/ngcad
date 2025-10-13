@@ -2,12 +2,15 @@ import { state, setState } from './main.js';
 import { getOrCreateNode, wallExists } from './geometry.js';
 import { processWalls, mergeNode } from './wall-processor.js';
 import { saveState } from './history.js';
-import { clearLongPress } from './wall-panel.js';
-
 
 export function onPointerUp(e) {
-        clearLongPress();
-        setState({ isSnapLocked: false, lockedSnapPoint: null });
+    if (state.isDraggingRoomName) {
+        setState({ isDraggingRoomName: null });
+        saveState();
+        return;
+    }
+
+    setState({ isSnapLocked: false, lockedSnapPoint: null });
 
     if (state.isStretchDragging) {
         const { stretchWallOrigin, dragStartPoint, stretchMode, mousePos } = state;
@@ -64,7 +67,6 @@ export function onPointerUp(e) {
             setState({ walls: [...state.walls, ...newWalls] });
         }
         
-        // --- Kesin Yerleşim Snap'i (Pointer-Up) ---
         if (state.selectedObject?.type === "wall" && state.selectedObject.handle === "body") {
             const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
             const nodesToMove = new Set();
@@ -72,7 +74,6 @@ export function onPointerUp(e) {
 
             const gridSpacing = state.gridOptions.spacing;
 
-            // Yerleştirme anında ham hareketi grid adımına yuvarlayarak Kesin Yerleşimi sağla.
             nodesToMove.forEach((node) => {
                 const originalPos = state.preDragNodeStates.get(node);
                 if (originalPos) {
@@ -82,7 +83,6 @@ export function onPointerUp(e) {
                     const roundedMovedX = Math.round(movedX / gridSpacing) * gridSpacing;
                     const roundedMovedY = Math.round(movedY / gridSpacing) * gridSpacing;
                     
-                    // Düğümün son pozisyonunu, yuvarlanmış hareket miktarına göre ayarla.
                     node.x = originalPos.x + roundedMovedX;
                     node.y = originalPos.y + roundedMovedY;
                 }
@@ -90,22 +90,17 @@ export function onPointerUp(e) {
                 mergeNode(node);
             });
         }
-        // --- Kesin Yerleşim Snap'i Sonu ---
         
         if (state.selectedObject?.type === "wall") {
-            // Düğüm sürüklemesi için eski mantık veya body drag sonrası merge.
             const nodesToMerge = new Set();
             
             if (state.selectedObject.handle !== 'body' && state.affectedWalls) {
-                // DÜĞÜM SÜRÜKLEMEDE DUVAR EĞİMİNİ KORU
                 const nodeToMerge = state.selectedObject.object[state.selectedObject.handle];
                 const affectedWalls = state.affectedWalls;
                 
-                // Önce merge işlemini yap
                 const mergedNode = mergeNode(nodeToMerge);
                 const finalNode = mergedNode || nodeToMerge;
                 
-                // Eğer bir düğüme snap olduysa, duvarların eğimini koru
                 if (mergedNode) {
                     affectedWalls.forEach(wall => {
                         const stationaryNode = wall.p1 === finalNode ? wall.p2 : wall.p1;
@@ -116,10 +111,8 @@ export function onPointerUp(e) {
                         const length = Math.hypot(dx, dy);
                         
                         if (length > 0.1) {
-                            // Açıyı hesapla
                             let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
                             
-                            // 5° altı ise düzelt (0° yap)
                             if (angle < 5) {
                                 movingNode.y = stationaryNode.y;
                             } else if (angle > 85) {
@@ -129,7 +122,6 @@ export function onPointerUp(e) {
                     });
                 }
             } else { 
-                // Gövde sürüklemesi için eski mantık
                 const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
                 wallsToProcess.forEach((w) => { nodesToMerge.add(w.p1); nodesToMerge.add(w.p2); });
                 nodesToMerge.forEach((node) => mergeNode(node));

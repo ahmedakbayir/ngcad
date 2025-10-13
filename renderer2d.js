@@ -27,14 +27,21 @@ export function drawAngleSymbol(node) {
         const angleRad = Math.acos(Math.max(-1, Math.min(1, dotProduct)));
         
         const angleDeg = angleRad * 180 / Math.PI;
-
+/*
+        // --- YENİ EKLENEN KONTROL ---
+        // Açı 90 dereceye çok yakınsa gösterme
+        if (Math.abs(angleDeg - 90) < 0.5) {
+            return;
+        }
+        // --------------------------
+*/
         const radius = 25;
         ctx2d.strokeStyle = "#8ab4f8";
         ctx2d.fillStyle = "#8ab4f8";
         ctx2d.lineWidth = 1;
         ctx2d.beginPath();
 
-        if (Math.abs(angleDeg - 90) < 0.5) {
+        if (Math.abs(angleDeg - 90) < 0.5) { // Bu kısım artık gereksiz ama yine de bırakıyorum
             const p1 = { x: node.x + v1n.x * radius, y: node.y + v1n.y * radius };
             const p2 = { x: node.x + v2n.x * radius, y: node.y + v2n.y * radius };
             const p3 = { x: p1.x + v2n.x * radius, y: p1.y + v2n.y * radius };

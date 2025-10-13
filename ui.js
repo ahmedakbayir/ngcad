@@ -4,7 +4,7 @@ import { update3DScene } from './scene3d.js';
 import { applyStretchModification } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { worldToScreen } from './geometry.js';
-import { getMinWallLength } from './actions.js'; // <-- EKLENDİ
+import { getMinWallLength } from './actions.js';
 
 export function initializeSettings() {
     dom.borderPicker.value = state.wallBorderColor;
@@ -95,7 +95,6 @@ export function toggle3DView() {
     }, 10);
 }
 
-// Splitter Mantığı
 let isResizing = false;
 function onSplitterPointerDown(e) {
     isResizing = true;
@@ -119,7 +118,7 @@ function onSplitterPointerMove(e) {
     if (p2dWidth < minWidth) p2dWidth = minWidth;
     if (p2dWidth > mainRect.width - minWidth) p2dWidth = mainRect.width - minWidth;
 
-    let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20; // 20 for main padding
+    let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20;
     if (p3dWidth > maxWidth) {
         p3dWidth = maxWidth;
         p2dWidth = mainRect.width - p3dWidth - dom.splitter.offsetWidth - 20;
@@ -140,7 +139,6 @@ function onSplitterPointerUp() {
 }
 
 
-// Duvar Uzunluğu Değiştirme
 function resizeWall(wall, newLengthCm, stationaryPointHandle) {
     if (!wall || isNaN(newLengthCm) || newLengthCm <= 0) return;
     const stationaryPoint = wall[stationaryPointHandle];
@@ -188,12 +186,10 @@ function confirmLengthEdit() {
     const newLengthCm = parseFloat(rawValue);
     const wall = state.selectedObject.object;
 
-    // === DUVAR KISALTMA KONTROLÜ EKLENDİ ===
     if (newLengthCm < getMinWallLength(wall)) {
         cancelLengthEdit();
         return;
     }
-    // =====================================
 
     if (!isNaN(newLengthCm) && newLengthCm > 0) {
         const stationaryHandle = reverseDirection ? "p2" : "p1";
@@ -216,12 +212,10 @@ export function cancelLengthEdit() {
 }
 
 export function setupUIListeners() {
-    // Ayarlar Pop-up
     dom.settingsBtn.addEventListener("click", () => { dom.settingsPopup.style.display = 'block'; });
     dom.closeSettingsPopupBtn.addEventListener("click", () => { dom.settingsPopup.style.display = 'none'; });
     Object.keys(dom.tabButtons).forEach(key => { dom.tabButtons[key].addEventListener('click', () => openTab(key)); });
 
-    // Ayarlar - İçerik
     dom.borderPicker.addEventListener("input", (e) => setState({ wallBorderColor: e.target.value }));
     dom.roomPicker.addEventListener("input", (e) => setState({ roomFillColor: e.target.value }));
     dom.lineThicknessInput.addEventListener("input", (e) => { const value = parseFloat(e.target.value); if(!isNaN(value)) setState({ lineThickness: value }); });
@@ -235,7 +229,6 @@ export function setupUIListeners() {
     dom.snapMidpointExtInput.addEventListener("change", (e) => state.snapOptions.midpointExtension = e.target.checked);
     dom.snapNearestOnlyInput.addEventListener("change", (e) => state.snapOptions.nearestOnly = e.target.checked);
     
-    // Mahal Adı Listesi
     dom.roomNameSelect.addEventListener('click', confirmRoomNameChange);
     dom.roomNameSelect.addEventListener('dblclick', confirmRoomNameChange);
     dom.roomNameInput.addEventListener('input', filterRoomNameList);
@@ -250,10 +243,8 @@ export function setupUIListeners() {
         }
     });
 
-    // Splitter
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
     
-    // Uzunluk Girişi
     dom.lengthInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); }
         else if (e.key === "Escape") { cancelLengthEdit(); }

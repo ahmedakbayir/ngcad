@@ -5,7 +5,6 @@ import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
 import { getObjectAtPoint, getDoorPlacement, isSpaceForDoor, findCollinearChain } from './actions.js';
-import { startLongPressDetection, clearLongPress, handleDoubleClick } from './wall-panel.js';
 
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) {
@@ -28,16 +27,21 @@ export function onPointerDown(e) {
             return;
         }
         const selectedObject = getObjectAtPoint(pos);
-        
-        if (selectedObject && selectedObject.type === "wall") {
-            const isDoubleClick = handleDoubleClick(e, selectedObject.object);
-            if (isDoubleClick) {
-                setState({ selectedObject: null });
-                return;
-            }
-            startLongPressDetection(e, selectedObject.object);
+
+        if (selectedObject && selectedObject.type === 'room') {
+            setState({ selectedRoom: selectedObject.object, selectedObject: null });
+        } else if (!selectedObject) {
+            setState({ selectedRoom: null });
         }
         
+        if (selectedObject && selectedObject.type === 'roomName') {
+            setState({ 
+                isDraggingRoomName: selectedObject.object, 
+                selectedObject: null 
+            });
+            return; 
+        }
+
         setState({ 
             selectedObject, 
             selectedGroup: [], 
@@ -86,10 +90,34 @@ export function onPointerDown(e) {
                         }
                     });
                 } else {
-                    if (e.ctrlKey && e.shiftKey) {
-                        setState({ selectedGroup: findCollinearChain(selectedObject.object) });
+                    // --- YENİ VE DÜZELTİLMİŞ MANTIK BAŞLANGICI ---
+                    const isCopying = e.ctrlKey && !e.shiftKey;
+                    const isSweeping = e.shiftKey && !e.ctrlKey;
+
+                    let wallsBeingMoved;
+                    
+                    // Kopyalama veya Süpürme yapılacaksa, orijinal duvarı kopyalayarak başla
+                    if (isCopying || isSweeping) {
+                        const originalWall = selectedObject.object;
+                        const newP1 = { x: originalWall.p1.x, y: originalWall.p1.y };
+                        const newP2 = { x: originalWall.p2.x, y: originalWall.p2.y };
+                        state.nodes.push(newP1, newP2);
+                        const newWall = { ...originalWall, p1: newP1, p2: newP2 };
+                        state.walls.push(newWall);
+                        
+                        // Sadece yeni oluşturulan duvar taşınacak
+                        wallsBeingMoved = [newWall];
+                        // Mevcut seçimi de bu yeni duvarla değiştir, böylece sürükleme mantığı onu hedefler.
+                        setState({ selectedObject: { ...selectedObject, object: newWall } });
+                    } 
+                    // Normal taşıma ise, mevcut seçimi kullan
+                    else {
+                        if (e.ctrlKey && e.shiftKey) {
+                            setState({ selectedGroup: findCollinearChain(selectedObject.object) });
+                        }
+                        wallsBeingMoved = state.selectedGroup.length > 0 ? state.selectedGroup : [selectedObject.object];
                     }
-                    const wallsBeingMoved = state.selectedGroup.length > 0 ? state.selectedGroup : [selectedObject.object];
+
                     const nodesBeingMoved = new Set();
                     wallsBeingMoved.forEach((w) => { nodesBeingMoved.add(w.p1); nodesBeingMoved.add(w.p2); });
 
@@ -98,29 +126,22 @@ export function onPointerDown(e) {
                     const wall = selectedObject.object;
                     const dx = wall.p2.x - wall.p1.x;
                     const dy = wall.p2.y - wall.p1.y;
-                    const wallLength = Math.hypot(dx, dy);
-                    
-                    const dirX = wallLength > 0.1 ? dx / wallLength : 0;
-                    const dirY = wallLength > 0.1 ? dy / wallLength : 0;
                     
                     let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
                     
                     let dragAxis = null;
-                    
-                    if (Math.abs(angle - 45) < 1) {
-                        dragAxis = null;
-                    } else if (angle < 45) {
-                        dragAxis = 'y';
-                    } else {
-                        dragAxis = 'x';
-                    }
+                    if (Math.abs(angle - 45) < 1) { dragAxis = null; } 
+                    else if (angle < 45) { dragAxis = 'y'; } 
+                    else { dragAxis = 'x'; }
                     
                     setState({ 
                         dragWallInitialVector: { dx, dy },
-                        dragAxis
+                        dragAxis,
+                        isSweeping: isSweeping // Sadece SHIFT basılıysa süpürmeyi etkinleştir
                     });
 
-                    if (!e.ctrlKey && !e.altKey && !e.shiftKey) {
+                    // Düğüm ayırma mantığı - sadece normal taşımada çalışır
+                    if (!isCopying && !isSweeping && !e.altKey && !e.shiftKey) {
                         const checkAndSplitNode = (node) => {
                             const connectedWalls = state.walls.filter(w => (w.p1 === node || w.p2 === node) && !wallsBeingMoved.includes(w));
                             if (connectedWalls.length === 0) return false;
@@ -131,12 +152,7 @@ export function onPointerDown(e) {
                             let needsSplit = false;
                             for (const connected of connectedWalls) {
                                 const isConnectedHorizontal = Math.abs(connected.p2.y - connected.p1.y) < 1;
-
-                                if (isMainWallHorizontal && isConnectedHorizontal) {
-                                    needsSplit = true;
-                                    break;
-                                }
-                                if (!isMainWallHorizontal && !isConnectedHorizontal) {
+                                if ((isMainWallHorizontal && isConnectedHorizontal) || (!isMainWallHorizontal && !isConnectedHorizontal)) {
                                     needsSplit = true;
                                     break;
                                 }
@@ -154,10 +170,10 @@ export function onPointerDown(e) {
                             }
                             return false;
                         };
-
+                        
                         let splitOccurred = false;
                         nodesBeingMoved.forEach(node => {
-                            if (checkAndSplitNode(node)) {
+                            if(checkAndSplitNode(node)) {
                                 splitOccurred = true;
                             }
                         });
@@ -166,11 +182,104 @@ export function onPointerDown(e) {
                             setState({ isSweeping: true });
                         }
                     }
+                    // --- YENİ VE DÜZELTİLMİŞ MANTIK SONU ---
                 }
             }
         }
-} else if (state.currentMode === "drawDoor" || state.currentMode === "drawWindow" || state.currentMode === "drawVent") {
-        // Kapı/Pencere/Menfez ekleme - duvar gövdesine
+    } else if (state.currentMode === "drawDoor" || state.currentMode === "drawWindow" || state.currentMode === "drawVent") {
+        // Önce mahalle tıklanıp tıklanmadığını kontrol et (sadece kapı modunda)
+        if (state.currentMode === "drawDoor") {
+            const clickedObject = getObjectAtPoint(pos);
+            
+            if (clickedObject && clickedObject.type === 'room') {
+                const clickedRoomFromClick = clickedObject.object;
+                
+                // state.rooms dizisinden gerçek mahalle objesini bul
+                let clickedRoom = null;
+                if (state.rooms) {
+                    for (const room of state.rooms) {
+                        if (room.center && clickedRoomFromClick.center &&
+                            room.center[0] === clickedRoomFromClick.center[0] &&
+                            room.center[1] === clickedRoomFromClick.center[1]) {
+                            clickedRoom = room;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!clickedRoom) {
+                    console.log('state.rooms içinde mahalle bulunamadı');
+                    return;
+                }
+                
+                console.log('Mahalle bulundu:', clickedRoom.name);
+                console.log('Mahalle duvarları:', clickedRoom.walls?.length);
+                console.log('Mahalle komşuları:', clickedRoom.neighbors?.length);
+                
+                const neighbors = clickedRoom.neighbors || [];
+                let doorsAdded = 0;
+                
+                neighbors.forEach(neighbor => {
+                    // Bu iki mahalle arasındaki ortak duvarları bul
+                    const sharedWalls = [];
+                    
+                    if (clickedRoom.walls && neighbor.walls) {
+                        clickedRoom.walls.forEach(wall1 => {
+                            neighbor.walls.forEach(wall2 => {
+                                if (wall1 === wall2) {
+                                    sharedWalls.push(wall1);
+                                }
+                            });
+                        });
+                    }
+                    
+                    console.log(`${neighbor.name} ile ortak duvar sayısı:`, sharedWalls.length);
+                    
+                    if (sharedWalls.length > 0) {
+                        // En uzun ortak duvarı bul
+                        let longestWall = sharedWalls[0];
+                        let maxLength = Math.hypot(longestWall.p2.x - longestWall.p1.x, longestWall.p2.y - longestWall.p1.y);
+                        
+                        sharedWalls.forEach(wall => {
+                            const len = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                            if (len > maxLength) {
+                                maxLength = len;
+                                longestWall = wall;
+                            }
+                        });
+                        
+                        // Bu duvarda zaten kapı var mı kontrol et
+                        const existingDoor = state.doors.find(d => d.wall === longestWall);
+                        
+                        if (!existingDoor) {
+                            // Duvarın ortasına kapı yerleştirmeye çalış
+                            const midX = (longestWall.p1.x + longestWall.p2.x) / 2;
+                            const midY = (longestWall.p1.y + longestWall.p2.y) / 2;
+                            
+                            const newDoor = getDoorPlacement(longestWall, { x: midX, y: midY });
+                            
+                            if (newDoor && isSpaceForDoor(newDoor)) {
+                                state.doors.push(newDoor);
+                                doorsAdded++;
+                                console.log(`${neighbor.name} ile arasına kapı eklendi!`);
+                            } else {
+                                console.log(`${neighbor.name} ile arasına kapı eklenemedi - yer yok`);
+                            }
+                        } else {
+                            console.log(`${neighbor.name} ile arasında zaten kapı var`);
+                        }
+                    }
+                });
+                
+                console.log('Toplam eklenen kapı:', doorsAdded);
+                if (doorsAdded > 0) {
+                    saveState();
+                }
+                return;
+            }
+        }
+        
+        // Normal duvar tıklama mantığı (mahalle tıklanmadıysa)
         let closestWall = null;
         let minDistSq = Infinity;
         const bodyHitTolerance = WALL_THICKNESS;

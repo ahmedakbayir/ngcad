@@ -33,6 +33,8 @@ export let state = {
     doors: [],
     rooms: [],
     selectedObject: null,
+    selectedRoom: null, 
+    isDraggingRoomName: null, // <-- DEĞİŞTİRİLDİ
     showDimensions: false,
     zoom: 1,
     panOffset: { x: 0, y: 0 },

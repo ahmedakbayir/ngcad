@@ -4,49 +4,19 @@ import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { positionLengthInput } from './ui.js';
 //import { update3DScene } from './scene3d.js';
 import { getDoorPlacement, isSpaceForDoor, getMinWallLength } from './actions.js';
-import { cancelLongPress } from './wall-panel.js';
-
-function updateMouseCursor() {
-    const { c2d } = dom;
-    const { currentMode, isDragging, isPanning, mousePos } = state;
-    
-    c2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node');
-    
-    if (isPanning) {
-        c2d.classList.add('panning');
-        return;
-    }
-    
-    if (isDragging) {
-        c2d.classList.add('dragging');
-        return;
-    }
-    
-    if (mousePos.isSnapped) {
-        c2d.classList.add('near-snap');
-        return;
-    }
-    
-    if (currentMode === 'select') {
-        const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
-        if (hoveredNode) {
-            c2d.classList.add('over-node');
-            return;
-        }
-        
-        const bodyHitTolerance = WALL_THICKNESS / 2;
-        for (const w of state.walls) {
-            if (distToSegmentSquared(mousePos, w.p1, w.p2) < bodyHitTolerance ** 2) {
-                c2d.classList.add('over-wall');
-                return;
-            }
-        }
-    }
-}
 
 export function onPointerMove(e) {
-    cancelLongPress(e);
-    
+    if (state.isDraggingRoomName) {
+        const rect = dom.c2d.getBoundingClientRect();
+        const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const point = turf.point([unsnappedPos.x, unsnappedPos.y]);
+
+        if (turf.booleanPointInPolygon(point, state.isDraggingRoomName.polygon)) {
+            state.isDraggingRoomName.center = [unsnappedPos.x, unsnappedPos.y];
+        }
+        return;
+    }
+
     if (state.isPanning) {
         const newPanOffset = { x: state.panOffset.x + e.clientX - state.panStart.x, y: state.panOffset.y + e.clientY - state.panStart.y };
         setState({ panOffset: newPanOffset, panStart: { x: e.clientX, y: e.clientY } });
@@ -111,36 +81,10 @@ export function onPointerMove(e) {
 
             const mouseDelta = { x: unsnappedPos.x - state.initialDragPoint.x, y: unsnappedPos.y - state.initialDragPoint.y };
 
-            const gridSpacing = state.gridOptions.spacing;
-            const snapRadius = gridSpacing; 
-            let bestSnapVector = { x: 0, y: 0 };
-            let minSnapDistSq = snapRadius * snapRadius;
-            const stationaryNodes = [...new Set(state.walls.filter(w => !wallsToMove.includes(w)).flatMap(w => [w.p1, w.p2]))];
-
-            for (const movingNode of nodesToMove) {
-                const originalPos = state.preDragNodeStates.get(movingNode);
-                if (!originalPos) continue;
-                const proposedPos = { x: originalPos.x + mouseDelta.x, y: originalPos.y + mouseDelta.y };
-                for (const sNode of stationaryNodes) {
-                    const distSq = (proposedPos.x - sNode.x)**2 + (proposedPos.y - sNode.y)**2;
-                    if (distSq < minSnapDistSq) {
-                        minSnapDistSq = distSq;
-                        bestSnapVector = { x: sNode.x - proposedPos.x, y: sNode.y - proposedPos.y };
-                    }
-                }
-            }
-
             let totalDelta = {
                 x: mouseDelta.x,
                 y: mouseDelta.y
             };
-            
-            const SNAP_VECTOR_THRESHOLD = 0.1; 
-            
-            if (Math.hypot(bestSnapVector.x, bestSnapVector.y) >= SNAP_VECTOR_THRESHOLD) {
-                totalDelta.x = mouseDelta.x + bestSnapVector.x;
-                totalDelta.y = mouseDelta.y + bestSnapVector.y;
-            }
             
             if (state.dragAxis === 'x') {
                 totalDelta.y = 0;
@@ -174,7 +118,6 @@ export function onPointerMove(e) {
         } else if (state.selectedObject.type === "door") {
             const door = state.selectedObject.object;
             
-            // Orijinal genişliği sakla (ilk kez taşınıyorsa)
             if (!door.originalWidth) {
                 door.originalWidth = door.width;
             }
@@ -195,23 +138,20 @@ export function onPointerMove(e) {
                 const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
                 const wallThickness = closestWall.thickness || 20;
                 const edgeMargin = (wallThickness / 2) + 5;
-                
-                // Kullanılabilir alan
                 const availableSpace = wallLen - (2 * edgeMargin);
                 
-                // Kapı genişliğini belirle
-                let newWidth;
-                if (availableSpace >= door.originalWidth) {
-                    newWidth = door.originalWidth; // Orijinal boyutunu kullan
-                } else if (availableSpace >= 20) {
-                    newWidth = availableSpace; // Duvara sığacak kadar küçült
-                } else {
-                    // Duvar çok küçük, orijinal boyuta dön
-                    door.width = door.originalWidth;
-                    updateMouseCursor();
-                    return;
-                }
+                let newWidth = door.originalWidth;
                 
+                if (availableSpace < door.originalWidth) {
+                    if (availableSpace >= door.originalWidth / 2) {
+                        newWidth = door.originalWidth / 2;
+                    } else {
+                        door.width = door.originalWidth;
+                        updateMouseCursor();
+                        return;
+                    }
+                }
+
                 const dx = closestWall.p2.x - closestWall.p1.x;
                 const dy = closestWall.p2.y - closestWall.p1.y;
                 const t = Math.max(0, Math.min(1, ((snappedPos.x - closestWall.p1.x) * dx + (snappedPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
@@ -226,7 +166,6 @@ export function onPointerMove(e) {
                     door.width = newWidth;
                 }
             } else {
-                // Hiçbir duvara yakın değil, orijinal boyuta dön
                 door.width = door.originalWidth;
             }
         } else if (state.selectedObject.type === "window") {
@@ -288,4 +227,42 @@ export function onPointerMove(e) {
     }
     
     updateMouseCursor();
+}
+
+function updateMouseCursor() {
+    const { c2d } = dom;
+    const { currentMode, isDragging, isPanning, mousePos, isDraggingRoomName } = state;
+    
+    c2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node');
+    
+    if (isPanning || isDraggingRoomName) {
+        c2d.classList.add('panning');
+        return;
+    }
+    
+    if (isDragging) {
+        c2d.classList.add('dragging');
+        return;
+    }
+    
+    if (mousePos.isSnapped) {
+        c2d.classList.add('near-snap');
+        return;
+    }
+    
+    if (currentMode === 'select') {
+        const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
+        if (hoveredNode) {
+            c2d.classList.add('over-node');
+            return;
+        }
+        
+        const bodyHitTolerance = WALL_THICKNESS / 2;
+        for (const w of state.walls) {
+            if (distToSegmentSquared(mousePos, w.p1, w.p2) < bodyHitTolerance ** 2) {
+                c2d.classList.add('over-wall');
+                return;
+            }
+        }
+    }
 }

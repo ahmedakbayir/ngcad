@@ -3,6 +3,36 @@ import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } 
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
 import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol, drawWindowSymbol, drawVentSymbol, drawColumnSymbol } from './renderer2d.js';
 
+// --- YENİ YARDIMCI FONKSİYON ---
+function darkenColor(hex, percent) {
+    // # karakterini kaldır
+    let color = hex.startsWith('#') ? hex.slice(1) : hex;
+
+    // R, G, B değerlerini parse et
+    let r = parseInt(color.substring(0, 2), 16);
+    let g = parseInt(color.substring(2, 4), 16);
+    let b = parseInt(color.substring(4, 6), 16);
+
+    // Yüzdeye göre karart
+    r = parseInt(r * (100 - percent) / 100);
+    g = parseInt(g * (100 - percent) / 100);
+    b = parseInt(b * (100 - percent) / 100);
+
+    // Değerleri 0-255 aralığında tut
+    r = (r < 0) ? 0 : r;
+    g = (g < 0) ? 0 : g;
+    b = (b < 0) ? 0 : b;
+
+    // R, G, B'yi tekrar hex string'e çevir
+    const rStr = (r.toString(16).length < 2) ? '0' + r.toString(16) : r.toString(16);
+    const gStr = (g.toString(16).length < 2) ? '0' + g.toString(16) : g.toString(16);
+    const bStr = (b.toString(16).length < 2) ? '0' + b.toString(16) : b.toString(16);
+
+    return `#${rStr}${gStr}${bStr}`;
+}
+// ---------------------------------
+
+
 export function draw2D() {
     const { ctx2d, c2d } = dom;
     const {
@@ -10,7 +40,7 @@ export function draw2D() {
         selectedGroup, wallBorderColor, lineThickness, showDimensions,
         affectedWalls, startPoint, currentMode, mousePos,
         isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning,
-        isSweeping, sweepWalls, nodes
+        isSweeping, sweepWalls, nodes, selectedRoom // <-- selectedRoom'u state'den al
     } = state;
 
     ctx2d.fillStyle = BG;
@@ -28,7 +58,16 @@ export function draw2D() {
         rooms.forEach((room) => {
             const coords = room.polygon.geometry.coordinates[0];
             if (coords.length < 3) return;
-            ctx2d.fillStyle = roomFillColor;
+
+            // --- DEĞİŞİKLİK BURADA ---
+            // Eğer bu oda seçili ise rengini koyulaştır
+            if (room === selectedRoom) {
+                ctx2d.fillStyle = darkenColor(roomFillColor, 20); // %20 koyulaştır
+            } else {
+                ctx2d.fillStyle = roomFillColor;
+            }
+            // -------------------------
+
             ctx2d.beginPath();
             ctx2d.moveTo(coords[0][0], coords[0][1]);
             for (let i = 1; i < coords.length; i++) ctx2d.lineTo(coords[i][0], coords[i][1]);

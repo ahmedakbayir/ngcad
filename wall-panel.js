@@ -5,10 +5,6 @@ import { screenToWorld } from './geometry.js';
 
 let wallPanel = null;
 let wallPanelWall = null;
-let longPressTimer = null;
-let longPressStartPos = null;
-let lastClickTime = 0;
-let lastClickWall = null;
 
 export function createWallPanel() {
     if (wallPanel) return;
@@ -34,7 +30,6 @@ export function createWallPanel() {
             Duvar Ayarları
         </div>
         
-        <!-- Duvara Çıkıntı Ver -->
         <button id="wall-extrude-btn" style="
             width: 100%;
             padding: 8px 12px;
@@ -51,7 +46,6 @@ export function createWallPanel() {
             Duvara Çıkıntı Ver
         </button>
         
-        <!-- Kalınlık -->
         <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0;">
                 Kalınlık (cm):
@@ -87,7 +81,6 @@ export function createWallPanel() {
             </div>
         </div>
         
-        <!-- DUVAR TİPİ -->
         <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0; font-weight: 500;">
                 DUVAR TİPİ:
@@ -112,7 +105,6 @@ export function createWallPanel() {
             </div>
         </div>
         
-        <!-- EKLE -->
         <div style="margin-bottom: 0;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0; font-weight: 500;">
                 EKLE:
@@ -186,31 +178,25 @@ function setupWallPanelListeners() {
     const extrudeBtn = document.getElementById('wall-extrude-btn');
     const wallTypeRadios = document.querySelectorAll('input[name="wall-type"]');
     
-    // Kalınlık slider - change event ile kaydet
     thicknessSlider.addEventListener('change', (e) => {
         if (wallPanelWall) {
             wallPanelWall.thickness = parseFloat(e.target.value);
-            console.log('Kalınlık değişti:', wallPanelWall.thickness); // Debug
             saveState();
         }
     });
     
-    // Kalınlık slider - input event ile sadece göster
     thicknessSlider.addEventListener('input', (e) => {
         thicknessNumber.value = e.target.value;
     });
     
-    // Kalınlık number input
     thicknessNumber.addEventListener('change', (e) => {
         thicknessSlider.value = e.target.value;
         if (wallPanelWall) {
             wallPanelWall.thickness = parseFloat(e.target.value);
-            console.log('Kalınlık değişti (number):', wallPanelWall.thickness); // Debug
             saveState();
         }
     });
     
-    // Duvara çıkıntı ver
     extrudeBtn.addEventListener('click', () => {
         if (wallPanelWall) {
             extrudeWall(wallPanelWall);
@@ -218,18 +204,15 @@ function setupWallPanelListeners() {
         }
     });
     
-    // Duvar tipi
     wallTypeRadios.forEach(radio => {
         radio.addEventListener('change', (e) => {
             if (wallPanelWall) {
                 wallPanelWall.wallType = e.target.value;
-                console.log('Duvar tipi değişti:', wallPanelWall.wallType); // Debug
                 saveState();
             }
         });
     });
     
-    // EKLE butonları
     document.getElementById('add-door-btn').addEventListener('click', () => {
         if (wallPanelWall) {
             addDoorToWall(wallPanelWall);
@@ -257,22 +240,10 @@ function setupWallPanelListeners() {
             hideWallPanel();
         }
     });
-    
-    // Panel dışına tıklanınca kapat - GECİKMELİ
-    let clickOutsideTimeout = null;
+
     document.addEventListener('mousedown', (e) => {
         if (wallPanel && wallPanel.style.display === 'block' && !wallPanel.contains(e.target)) {
-            clickOutsideTimeout = setTimeout(() => {
-                hideWallPanel();
-            }, 300);
-        }
-    });
-    
-    // Panel içine girildiğinde timeout'u iptal et
-    wallPanel.addEventListener('mouseenter', () => {
-        if (clickOutsideTimeout) {
-            clearTimeout(clickOutsideTimeout);
-            clickOutsideTimeout = null;
+            hideWallPanel();
         }
     });
 }
@@ -282,11 +253,8 @@ export function showWallPanel(wall, x, y) {
     
     wallPanelWall = wall;
     
-    // Duvar kalınlığını ve tipini yükle
     const thickness = wall.thickness || WALL_THICKNESS;
     const wallType = wall.wallType || 'normal';
-    
-    console.log('Panel açılıyor - Duvar kalınlığı:', thickness, 'Tip:', wallType); // Debug
     
     document.getElementById('wall-thickness-slider').value = thickness;
     document.getElementById('wall-thickness-number').value = thickness;
@@ -312,13 +280,9 @@ export function showWallPanel(wall, x, y) {
 export function hideWallPanel() {
     if (wallPanel) {
         wallPanel.style.display = 'none';
-        
-        // Panel kapanırken son durumu kaydet
         if (wallPanelWall) {
-            console.log('Panel kapanıyor - Son kalınlık:', wallPanelWall.thickness); // Debug
             saveState();
         }
-        
         wallPanelWall = null;
     }
 }
@@ -414,7 +378,25 @@ function addVentToWall(wall) {
         saveState();
     }
 }
+export function cancelLongPress(e) {
+    if (longPressTimer) {
+        if (longPressStartPos) {
+            const moved = Math.hypot(e.clientX - longPressStartPos.x, e.clientY - longPressStartPos.y);
+            if (moved > 10) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+    }
+}
 
+export function clearLongPress() {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+    longPressStartPos = null;
+}
 function addColumnToWall(wall) {
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const columnPos = length / 2;
@@ -445,51 +427,4 @@ function addColumnToWall(wall) {
     
     processWalls();
     saveState();
-}
-
-// Long press detection - 500ms
-export function startLongPressDetection(e, wall) {
-    longPressStartPos = { x: e.clientX, y: e.clientY };
-    
-    longPressTimer = setTimeout(() => {
-        showWallPanel(wall, e.clientX, e.clientY);
-        longPressTimer = null;
-    }, 500);
-}
-
-// Çift tıklama desteği - true döndürürse çift tıklama tespit edildi
-export function handleDoubleClick(e, wall) {
-    const now = Date.now();
-    const timeSinceLastClick = now - lastClickTime;
-    
-    if (timeSinceLastClick < 300 && lastClickWall === wall) {
-        showWallPanel(wall, e.clientX, e.clientY);
-        lastClickTime = 0;
-        lastClickWall = null;
-        return true;
-    } else {
-        lastClickTime = now;
-        lastClickWall = wall;
-        return false;
-    }
-}
-
-export function cancelLongPress(e) {
-    if (longPressTimer) {
-        if (longPressStartPos) {
-            const moved = Math.hypot(e.clientX - longPressStartPos.x, e.clientY - longPressStartPos.y);
-            if (moved > 10) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        }
-    }
-}
-
-export function clearLongPress() {
-    if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-    }
-    longPressStartPos = null;
 }
