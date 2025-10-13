@@ -296,6 +296,7 @@ export function draw2D() {
     }
     nodesToDrawAngle.forEach(node => drawAngleSymbol(node));
 
+    // ========== MAHAL İSİMLERİ - DÜZELTİLMİŞ BÖLÜM ==========
     if (rooms.length > 0) {
         ctx2d.textAlign = "center";
         rooms.forEach((room) => {
@@ -308,8 +309,23 @@ export function draw2D() {
 
             let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
             ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-            ctx2d.textBaseline = showDimensions ? "bottom" : "middle";
-            ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
+            
+            // İsmi boşluğa göre ayır
+            const nameParts = room.name.split(' ');
+            
+            if (nameParts.length === 2) {
+                // İKİ KELİMELİ İSİM - ALT ALTA YAZ
+                const lineGap = nameFontSize * 1.2;
+                ctx2d.textBaseline = "middle";
+                
+                ctx2d.fillText(nameParts[0], room.center[0], room.center[1] - nameYOffset - lineGap/2);
+                ctx2d.fillText(nameParts[1], room.center[0], room.center[1] - nameYOffset + lineGap/2);
+                
+            } else {
+                // TEK KELİMELİ İSİM - NORMAL
+                ctx2d.textBaseline = showDimensions ? "bottom" : "middle";
+                ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
+            }
 
             if (showDimensions) {
                 ctx2d.fillStyle = "#8ab4f8";
@@ -317,10 +333,17 @@ export function draw2D() {
                 ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
                 ctx2d.textBaseline = "top";
                 const text = `${room.area.toFixed(2)} m²`;
-                ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset);
+                
+                if (nameParts.length === 2) {
+                    const lineGap = nameFontSize * 1.2;
+                    ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset + lineGap);
+                } else {
+                    ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset);
+                }
             }
         });
     }
+    // ========== MAHAL İSİMLERİ SONU ==========
 
     doors.forEach((door) => {
         const isSelected = selectedObject?.type === "door" && selectedObject.object === door;

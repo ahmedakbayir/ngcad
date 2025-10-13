@@ -149,7 +149,7 @@ export function drawDimension(p1, p2, isPreview = false) {
     const yOffset = -8 / zoom;
 
     ctx2d.font = `500 ${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-    ctx2d.fillStyle = isPreview ? "#ffffff" : "#8ab4f8";
+    ctx2d.fillStyle = isPreview ? "#8ab4f8" : "rgba(0, 133, 0, 1)";
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "bottom";
     ctx2d.fillText(displayText, 0, yOffset);

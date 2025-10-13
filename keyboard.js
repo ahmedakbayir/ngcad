@@ -65,7 +65,7 @@ export function onKeyDown(e) {
         setState({ startPoint: null });
         setMode("select");
     }
-        if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
+    if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
         if (state.selectedObject) {
             if (state.selectedObject.type === "door") {
                 const newDoors = state.doors.filter((d) => d !== state.selectedObject.object);
