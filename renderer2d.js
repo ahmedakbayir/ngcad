@@ -76,7 +76,45 @@ export function drawAngleSymbol(node) {
         }
     }
 }
+// renderer2d.js dosyasına eklenecek yeni fonksiyon
 
+export function drawNodeWallCount(node) {
+    const { ctx2d } = dom;
+    const { walls, zoom } = state;
+
+    // Bu düğüme bağlı duvar sayısını hesapla
+    const connectedWalls = walls.filter(w => w.p1 === node || w.p2 === node);
+    const wallCount = connectedWalls.length;
+
+    // Eğer hiç duvar bağlı değilse veya sadece 1 duvar varsa gösterme
+    if (wallCount <= 1) return;
+
+    // Küçük bir offset ile sayıyı düğümün yanına yaz
+    const offset = 15;
+    const textX = node.x + offset;
+    const textY = node.y - offset;
+
+    const baseFontSize = 16;
+    const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
+
+    ctx2d.save();
+    
+    // Arka plan çemberi (daha okunabilir olması için)
+    ctx2d.fillStyle = "rgba(30, 31, 32, 0.8)"; // Koyu arka plan
+    ctx2d.beginPath();
+    const radius = 8 / zoom;
+    ctx2d.arc(textX, textY, radius, 0, Math.PI * 2);
+    ctx2d.fill();
+
+    // Sayıyı yaz
+    ctx2d.fillStyle = "#eeff00ff";
+    ctx2d.font = `600 ${Math.max(3 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    ctx2d.textAlign = "center";
+    ctx2d.textBaseline = "middle";
+    ctx2d.fillText(wallCount.toString(), textX, textY);
+
+    ctx2d.restore();
+}
 export function drawDimension(p1, p2, isPreview = false) {
     const { ctx2d } = dom;
     const { zoom, gridOptions } = state;

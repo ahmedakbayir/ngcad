@@ -1,7 +1,7 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
-import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol, drawWindowSymbol, drawVentSymbol, drawColumnSymbol } from './renderer2d.js';
+import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
 
 // --- YENİ YARDIMCI FONKSİYON ---
 function darkenColor(hex, percent) {
@@ -308,6 +308,9 @@ export function draw2D() {
     drawHalfSegments(halfSegments.nonOrtho, "#e57373");
     drawHalfSegments(halfSegments.selected, "#8ab4f8");
 
+    nodes.forEach(node => {
+    drawNodeWallCount(node);
+});
     const nodesToDrawAngle = new Set();
     if (isDragging && selectedObject?.handle !== 'body') {
         const nodeToDrag = selectedObject.object[selectedObject.handle];
