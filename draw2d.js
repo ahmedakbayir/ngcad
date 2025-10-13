@@ -528,6 +528,8 @@ export function draw2D() {
         }
     }
 
+// draw2d.js
+
     if (mousePos.isSnapped) {
         const snapRadius = 4 / zoom;
         const color = "#8ab4f8";
@@ -539,7 +541,8 @@ export function draw2D() {
         ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
         ctx2d.fill();
         
-        // Uzantıların kaynaklarında daire çiz
+        /*
+        // Uzantıların kaynaklarında daire çiz (Bu bölüm kaldırıldı)
         const allOrigins = [...mousePos.snapLines.h_origins, ...mousePos.snapLines.v_origins];
         const drawnOrigins = new Set();
         allOrigins.forEach(origin => {
@@ -551,7 +554,9 @@ export function draw2D() {
             ctx2d.fill();
             drawnOrigins.add(key);
         });
+        */
     }
+
 
     ctx2d.restore();
 }

@@ -2,7 +2,7 @@ import { state, dom, setState, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { positionLengthInput } from './ui.js';
-//import { update3DScene } from './scene3d.js';
+import { update3DScene } from './scene3d.js';
 import { getDoorPlacement, isSpaceForDoor, getMinWallLength } from './actions.js';
 
 export function onPointerMove(e) {
@@ -76,8 +76,13 @@ export function onPointerMove(e) {
             const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 
             const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+            
+            // nodesToMove'u her seferinde yeniden hesapla (split sonrası yeni node'lar için)
             const nodesToMove = new Set();
-            wallsToMove.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
+            wallsToMove.forEach((w) => { 
+                nodesToMove.add(w.p1); 
+                nodesToMove.add(w.p2); 
+            });
 
             const mouseDelta = { x: unsnappedPos.x - state.initialDragPoint.x, y: unsnappedPos.y - state.initialDragPoint.y };
 
@@ -92,6 +97,7 @@ export function onPointerMove(e) {
                 totalDelta.x = 0;
             }
             
+            // Önce mouse delta'ya göre hareket ettir
             nodesToMove.forEach((node) => {
                 const originalPos = state.preDragNodeStates.get(node);
                 if (originalPos) {
@@ -99,6 +105,81 @@ export function onPointerMove(e) {
                     node.y = originalPos.y + totalDelta.y;
                 }
             });
+
+            // MANYETİK YAPIŞTIRMA: Aynı doğrultudaki duvarların uçlarını birleştir
+            const MAGNETIC_SNAP_DISTANCE = 20; // 20 cm
+            const ANGLE_TOLERANCE = 2; // 2 derece
+            
+            let bestMagneticSnap = null;
+            let minMagneticDist = Infinity;
+            
+console.log('Manyetik kontrol başlıyor...');
+console.log('Hareket eden duvar sayısı:', wallsToMove.length);
+console.log('dragAxis:', state.dragAxis);
+console.log('isSweeping:', state.isSweeping);
+
+wallsToMove.forEach(movingWall => {
+    const dx1 = movingWall.p2.x - movingWall.p1.x;
+    const dy1 = movingWall.p2.y - movingWall.p1.y;
+    const len1 = Math.hypot(dx1, dy1);
+    if (len1 < 0.1) return;
+    
+    console.log('Duvar yönü (açı):', Math.atan2(Math.abs(dy1), Math.abs(dx1)) * 180 / Math.PI);
+    
+                const dir1 = { x: dx1 / len1, y: dy1 / len1 };
+                
+                // Diğer duvarları kontrol et
+                state.walls.forEach(staticWall => {
+                    if (wallsToMove.includes(staticWall)) return;
+                    
+                    const dx2 = staticWall.p2.x - staticWall.p1.x;
+                    const dy2 = staticWall.p2.y - staticWall.p1.y;
+                    const len2 = Math.hypot(dx2, dy2);
+                    if (len2 < 0.1) return;
+                    
+                    const dir2 = { x: dx2 / len2, y: dy2 / len2 };
+                    
+                    // Aynı doğrultuda mı kontrol et
+                    const dotProduct = Math.abs(dir1.x * dir2.x + dir1.y * dir2.y);
+                    if (dotProduct < Math.cos(ANGLE_TOLERANCE * Math.PI / 180)) return;
+                    
+                    // Hareket eden duvarın uçlarını kontrol et
+                    const nodePairs = [
+                        { moving: movingWall.p1, static: staticWall.p1 },
+                        { moving: movingWall.p1, static: staticWall.p2 },
+                        { moving: movingWall.p2, static: staticWall.p1 },
+                        { moving: movingWall.p2, static: staticWall.p2 }
+                    ];
+                    
+                    nodePairs.forEach(pair => {
+                        const dist = Math.hypot(pair.moving.x - pair.static.x, pair.moving.y - pair.static.y);
+                        if (dist < MAGNETIC_SNAP_DISTANCE && dist > 0.1 && dist < minMagneticDist) {
+                            minMagneticDist = dist;
+                            bestMagneticSnap = {
+                                dx: pair.static.x - pair.moving.x,
+                                dy: pair.static.y - pair.moving.y,
+                                wallAngle: Math.atan2(Math.abs(dy1), Math.abs(dx1)) * 180 / Math.PI
+                            };
+                        }
+                    });
+                });
+            });
+            
+            // En iyi manyetik kaymayı uygula
+            if (bestMagneticSnap) {
+                let magneticDx = bestMagneticSnap.dx;
+                let magneticDy = bestMagneticSnap.dy;
+                
+                // Yatay duvar (açı < 45°) ise sadece X'te yapış
+                // Dikey duvar (açı >= 45°) ise sadece Y'de yapış
+
+                
+                // Tüm hareket eden node'ları aynı miktarda kaydır
+                nodesToMove.forEach(node => {
+                    node.x += magneticDx;
+                    node.y += magneticDy;
+                });
+            }
 
             if (state.isSweeping) {
                 const sweepWalls = [];
