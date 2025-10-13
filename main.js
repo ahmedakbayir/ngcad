@@ -74,7 +74,7 @@ export let state = {
         endpoint: true,
         midpoint: true,
         endpointExtension: true,
-        midpointExtension: true,
+        midpointExtension: false,
         nearestOnly: true,
     },
     isSnapLocked: false,
@@ -82,7 +82,7 @@ export let state = {
     gridOptions: {
         visible: true,
         spacing: 10,
-        color: "#2d3134",
+        color: "#27292a",
         weight: 0.5,
     },
     isSweeping: false,
@@ -110,6 +110,7 @@ export const dom = {
     bOpen: document.getElementById("bOpen"),
     fileInput: document.getElementById("file-input"),
     b3d: document.getElementById("b3d"),
+    bAssignNames: document.getElementById("bAssignNames"),
     settingsBtn: document.getElementById("settings-btn"),
     settingsPopup: document.getElementById("settings-popup"),
     closeSettingsPopupBtn: document.getElementById("close-settings-popup"),
@@ -178,6 +179,72 @@ function animate() {
     }
 }
 
+// ====== OTOMATİK İSİM ATAMA ======
+function assignRoomNames() {
+    const unassignedRooms = state.rooms.filter(r => r.name === 'MAHAL');
+
+    if (unassignedRooms.length > 0) {
+        // Kural tabanlı atama
+        let roomsToAssign = [...unassignedRooms];
+        let assignedNames = new Set(state.rooms.filter(r => r.name !== 'MAHAL').map(r => r.name));
+        
+        // ... (Daha önce eklenen kural tabanlı atama mantığı burada kalabilir)
+        // Örnek olarak basitleştirilmiş hali:
+        if (roomsToAssign.length > 0) {
+            const antre = roomsToAssign.shift();
+            antre.name = "ANTRE";
+            assignedNames.add("ANTRE");
+        }
+        if (roomsToAssign.length > 0) {
+            roomsToAssign.sort((a, b) => a.area - b.area);
+            const bathroom = roomsToAssign.shift();
+            bathroom.name = "BANYO";
+            assignedNames.add("BANYO");
+        }
+        if (roomsToAssign.length > 0) {
+            roomsToAssign.sort((a, b) => b.area - a.area);
+            const livingRoom = roomsToAssign.shift();
+            livingRoom.name = "SALON";
+            assignedNames.add("SALON");
+        }
+        const otherRoomNames = ["MUTFAK", "YATAK ODASI", "OTURMA ODASI", "ÇOCUK ODASI"];
+        for (const name of otherRoomNames) {
+            if (roomsToAssign.length > 0 && !assignedNames.has(name)) {
+                const room = roomsToAssign.shift();
+                room.name = name;
+                assignedNames.add(name);
+            }
+        }
+        const remainingDefaultNames = MAHAL_LISTESI.filter(name => !assignedNames.has(name) && name !== 'MAHAL');
+        roomsToAssign.forEach(room => {
+            if (remainingDefaultNames.length > 0) {
+                room.name = remainingDefaultNames.shift();
+            }
+        });
+
+    } else {
+        // Rastgele atama
+        let availableNames = MAHAL_LISTESI.filter(name => name !== 'MAHAL');
+        // Fisher-Yates shuffle algoritması
+        for (let i = availableNames.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [availableNames[i], availableNames[j]] = [availableNames[j], availableNames[i]];
+        }
+
+        state.rooms.forEach(room => {
+            if (availableNames.length > 0) {
+                room.name = availableNames.pop();
+            } else {
+                // Eğer isimler biterse varsayılan bir isme geri dön
+                room.name = "ODA";
+            }
+        });
+    }
+
+    saveState();
+}
+
+
 // ====== BAŞLATMA ======
 function initialize() {
     init3D(dom.c3d);
@@ -192,6 +259,7 @@ function initialize() {
     dom.bRoom.addEventListener("click", () => setMode("drawRoom"));
     dom.bDoor.addEventListener("click", () => setMode("drawDoor"));
     dom.b3d.addEventListener("click", toggle3DView);
+    dom.bAssignNames.addEventListener("click", assignRoomNames);
     
     window.addEventListener("resize", resize);
     
