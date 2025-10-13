@@ -90,13 +90,11 @@ export function onPointerDown(e) {
                         }
                     });
                 } else {
-                    // --- YENİ VE DÜZELTİLMİŞ MANTIK BAŞLANGICI ---
                     const isCopying = e.ctrlKey && !e.shiftKey;
                     const isSweeping = e.shiftKey && !e.ctrlKey;
 
                     let wallsBeingMoved;
                     
-                    // Kopyalama veya Süpürme yapılacaksa, orijinal duvarı kopyalayarak başla
                     if (isCopying || isSweeping) {
                         const originalWall = selectedObject.object;
                         const newP1 = { x: originalWall.p1.x, y: originalWall.p1.y };
@@ -105,12 +103,9 @@ export function onPointerDown(e) {
                         const newWall = { ...originalWall, p1: newP1, p2: newP2 };
                         state.walls.push(newWall);
                         
-                        // Sadece yeni oluşturulan duvar taşınacak
                         wallsBeingMoved = [newWall];
-                        // Mevcut seçimi de bu yeni duvarla değiştir, böylece sürükleme mantığı onu hedefler.
                         setState({ selectedObject: { ...selectedObject, object: newWall } });
                     } 
-                    // Normal taşıma ise, mevcut seçimi kullan
                     else {
                         if (e.ctrlKey && e.shiftKey) {
                             setState({ selectedGroup: findCollinearChain(selectedObject.object) });
@@ -137,10 +132,9 @@ export function onPointerDown(e) {
                     setState({ 
                         dragWallInitialVector: { dx, dy },
                         dragAxis,
-                        isSweeping: isSweeping // Sadece SHIFT basılıysa süpürmeyi etkinleştir
+                        isSweeping: isSweeping
                     });
 
-                    // Düğüm ayırma mantığı - sadece normal taşımada çalışır
                     if (!isCopying && !isSweeping && !e.altKey && !e.shiftKey) {
                         const checkAndSplitNode = (node) => {
                             const connectedWalls = state.walls.filter(w => (w.p1 === node || w.p2 === node) && !wallsBeingMoved.includes(w));
@@ -182,11 +176,136 @@ export function onPointerDown(e) {
                             setState({ isSweeping: true });
                         }
                     }
-                    // --- YENİ VE DÜZELTİLMİŞ MANTIK SONU ---
                 }
             }
         }
     } else if (state.currentMode === "drawDoor" || state.currentMode === "drawWindow" || state.currentMode === "drawVent") {
+        // Önce mahalle tıklanıp tıklanmadığını kontrol et (sadece kapı modunda)
+        if (state.currentMode === "drawDoor") {
+            const clickedObject = getObjectAtPoint(pos);
+            
+            if (clickedObject && clickedObject.type === 'room') {
+                const clickedRoom = clickedObject.object;
+                
+                // Bu mahallenin duvarlarını polygon'dan bul
+                if (!clickedRoom.polygon || !clickedRoom.polygon.geometry) {
+                    console.log('Polygon bilgisi eksik');
+                    return;
+                }
+                
+                const coords = clickedRoom.polygon.geometry.coordinates[0];
+                const roomWalls = [];
+                
+                // Polygon kenarlarından duvarları bul
+                for (let i = 0; i < coords.length - 1; i++) {
+                    const p1Coord = coords[i];
+                    const p2Coord = coords[i + 1];
+                    
+                    // Bu koordinatlara karşılık gelen duvarı bul
+                    const wall = state.walls.find(w => {
+                        const dist1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) +
+                                     Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
+                        const dist2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) +
+                                     Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
+                        return Math.min(dist1, dist2) < 1;
+                    });
+                    
+                    if (wall) {
+                        roomWalls.push(wall);
+                    }
+                }
+                
+                console.log('Mahalle duvarları bulundu:', roomWalls.length);
+                
+                // Komşu mahalleri bul - aynı duvarı paylaşan mahalleler
+                const neighborRooms = [];
+                
+                state.rooms.forEach(otherRoom => {
+                    if (otherRoom === clickedRoom) return;
+                    
+                    if (!otherRoom.polygon || !otherRoom.polygon.geometry) return;
+                    
+                    const otherCoords = otherRoom.polygon.geometry.coordinates[0];
+                    const otherWalls = [];
+                    
+                    for (let i = 0; i < otherCoords.length - 1; i++) {
+                        const p1Coord = otherCoords[i];
+                        const p2Coord = otherCoords[i + 1];
+                        
+                        const wall = state.walls.find(w => {
+                            const dist1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) +
+                                         Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
+                            const dist2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) +
+                                         Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
+                            return Math.min(dist1, dist2) < 1;
+                        });
+                        
+                        if (wall) {
+                            otherWalls.push(wall);
+                        }
+                    }
+                    
+                    // Ortak duvar var mı kontrol et
+                    const sharedWalls = roomWalls.filter(w => otherWalls.includes(w));
+                    
+                    if (sharedWalls.length > 0) {
+                        neighborRooms.push({
+                            room: otherRoom,
+                            sharedWalls: sharedWalls
+                        });
+                    }
+                });
+                
+                console.log('Komşu mahalle sayısı:', neighborRooms.length);
+                
+                let doorsAdded = 0;
+                
+                neighborRooms.forEach(neighbor => {
+                    const sharedWalls = neighbor.sharedWalls;
+                    
+                    // En uzun ortak duvarı bul
+                    let longestWall = sharedWalls[0];
+                    let maxLength = Math.hypot(longestWall.p2.x - longestWall.p1.x, longestWall.p2.y - longestWall.p1.y);
+                    
+                    sharedWalls.forEach(wall => {
+                        const len = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                        if (len > maxLength) {
+                            maxLength = len;
+                            longestWall = wall;
+                        }
+                    });
+                    
+                    // Bu duvarda zaten kapı var mı kontrol et
+                    const existingDoor = state.doors.find(d => d.wall === longestWall);
+                    
+                    if (!existingDoor) {
+                        // Duvarın ortasına kapı yerleştirmeye çalış
+                        const midX = (longestWall.p1.x + longestWall.p2.x) / 2;
+                        const midY = (longestWall.p1.y + longestWall.p2.y) / 2;
+                        
+                        const newDoor = getDoorPlacement(longestWall, { x: midX, y: midY });
+                        
+                        if (newDoor && isSpaceForDoor(newDoor)) {
+                            state.doors.push(newDoor);
+                            doorsAdded++;
+                            console.log(`${neighbor.room.name} ile arasına kapı eklendi!`);
+                        } else {
+                            console.log(`${neighbor.room.name} ile arasına kapı eklenemedi - yer yok`);
+                        }
+                    } else {
+                        console.log(`${neighbor.room.name} ile arasında zaten kapı var`);
+                    }
+                });
+                
+                console.log('Toplam eklenen kapı:', doorsAdded);
+                if (doorsAdded > 0) {
+                    saveState();
+                }
+                return;
+            }
+        }
+        
+        // Normal duvar tıklama mantığı (mahalle tıklanmadıysa)
         let closestWall = null;
         let minDistSq = Infinity;
         const bodyHitTolerance = WALL_THICKNESS;
