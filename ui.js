@@ -172,7 +172,7 @@ export function startLengthEdit(initialKey = '') {
     const currentLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     dom.lengthInput.value = initialKey || currentLength.toFixed(0);
     dom.lengthInput.focus();
-    dom.lengthInput.select();
+    // dom.lengthInput.select(); // BU SATIRI SİLİN VEYA YORUM SATIRI YAPIN
 }
 
 function confirmLengthEdit() {
