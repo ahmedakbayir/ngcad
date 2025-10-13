@@ -16,7 +16,7 @@ export const DRAG_HANDLE_RADIUS = 8;
 export const EXTEND_RANGE = 500;
 export const SNAP_UNLOCK_DISTANCE_CM = 10;
 export const MAHAL_LISTESI = [
-    'TANIMSIZ', 'ODA', 'MUTFAK', 'AÇIK MUTFAK', 'SALON', 'YATAK ODASI',
+    'MAHAL', 'ODA', 'MUTFAK', 'AÇIK MUTFAK', 'SALON', 'YATAK ODASI',
     'OTURMA ODASI', 'ÇOCUK ODASI', 'KORİDOR', 'ANTRE', 'HOL', 'WC',
     'BANYO', 'BALKON (AÇIK)', 'BALKON (KAPALI)', 'DAİRE', 'SAHANLIK',
     'AÇIK SAHANLIK', 'AYDINLIK', 'ASANSÖR', 'KİLER', 'DEPO', 'CİHAZ ODASI',
@@ -74,7 +74,7 @@ export let state = {
         endpoint: true,
         midpoint: true,
         endpointExtension: true,
-        midpointExtension: false,
+        midpointExtension: true,
         nearestOnly: true,
     },
     isSnapLocked: false,

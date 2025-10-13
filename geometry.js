@@ -116,7 +116,7 @@ export function detectRooms() {
                     const areaInM2 = areaInCm2 / 10000;
                     const centerPoint = turf.pointOnFeature(polygon);
                     
-                    let existingRoomName = 'TANIMSIZ';
+                    let existingRoomName = 'MAHAL';
                     if (oldRooms.length > 0) {
                         const containedOldRooms = oldRooms.filter(r => {
                             try {

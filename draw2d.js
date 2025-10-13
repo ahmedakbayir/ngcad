@@ -40,7 +40,7 @@ export function draw2D() {
         selectedGroup, wallBorderColor, lineThickness, showDimensions,
         affectedWalls, startPoint, currentMode, mousePos,
         isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning,
-        isSweeping, sweepWalls, nodes, selectedRoom // <-- selectedRoom'u state'den al
+        isSweeping, sweepWalls, nodes, selectedRoom
     } = state;
 
     ctx2d.fillStyle = BG;
@@ -59,14 +59,11 @@ export function draw2D() {
             const coords = room.polygon.geometry.coordinates[0];
             if (coords.length < 3) return;
 
-            // --- DEĞİŞİKLİK BURADA ---
-            // Eğer bu oda seçili ise rengini koyulaştır
             if (room === selectedRoom) {
-                ctx2d.fillStyle = darkenColor(roomFillColor, 20); // %20 koyulaştır
+                ctx2d.fillStyle = darkenColor(roomFillColor, 20);
             } else {
                 ctx2d.fillStyle = roomFillColor;
             }
-            // -------------------------
 
             ctx2d.beginPath();
             ctx2d.moveTo(coords[0][0], coords[0][1]);
@@ -79,10 +76,9 @@ export function draw2D() {
 
     const wallPx = WALL_THICKNESS;
     ctx2d.lineJoin = "miter"; 
-    ctx2d.miterLimit = 10; // Miter limit'i artır
+    ctx2d.miterLimit = 10;
     ctx2d.lineCap = "square";
 
-    // DUVAR TİPLERİNE GÖRE AYRI LİSTELER
     const normalSegments = { ortho: [], nonOrtho: [], selected: [] };
     const balconySegments = { ortho: [], nonOrtho: [], selected: [] };
     const glassSegments = { ortho: [], nonOrtho: [], selected: [] };
@@ -121,7 +117,6 @@ export function draw2D() {
             let p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start };
             let p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end };
             
-            // Kapı varsa kenarları kısalt
             if (seg.start > 0) { p1.x += dx * halfWallPx; p1.y += dy * halfWallPx; }
             if (seg.end < wallLen) { p2.x -= dx * halfWallPx; p2.y -= dy * halfWallPx; }
             
@@ -137,11 +132,9 @@ export function draw2D() {
         });
     });
 
-    // NORMAL DUVARLAR İÇİN ÇİZİM FONKSİYONU
     const drawNormalSegments = (segmentList, color) => {
         if (segmentList.length === 0) return;
         
-        // Dış çizgi (kalın)
         ctx2d.beginPath();
         segmentList.forEach((seg) => { 
             if (Math.hypot(seg.p1.x - seg.p2.x, seg.p1.y - seg.p2.y) >= 1) { 
@@ -154,7 +147,6 @@ export function draw2D() {
         ctx2d.strokeStyle = color; 
         ctx2d.stroke();
         
-        // İç çizgi (ince)
         ctx2d.beginPath();
         segmentList.forEach((seg) => { 
             if (Math.hypot(seg.p1.x - seg.p2.x, seg.p1.y - seg.p2.y) >= 1) { 
@@ -168,12 +160,11 @@ export function draw2D() {
         ctx2d.stroke();
     };
 
-// CAMEKAN DUVARLAR (Çift çizgi sistemli)
     const drawGlassSegments = (segmentList, color) => {
         if (segmentList.length === 0) return;
         
         const thickness = segmentList[0]?.wall?.thickness || wallPx;
-        const spacing = 4; // İki çizgi arası boşluk
+        const spacing = 4;
         
         ctx2d.strokeStyle = color;
         ctx2d.lineWidth = 2;
@@ -191,19 +182,16 @@ export function draw2D() {
             
             const offset = spacing / 2;
             
-            // İlk çizgi (bir taraf)
             ctx2d.beginPath();
             ctx2d.moveTo(seg.p1.x + normalX * offset, seg.p1.y + normalY * offset);
             ctx2d.lineTo(seg.p2.x + normalX * offset, seg.p2.y + normalY * offset);
             ctx2d.stroke();
             
-            // İkinci çizgi (diğer taraf)
             ctx2d.beginPath();
             ctx2d.moveTo(seg.p1.x - normalX * offset, seg.p1.y - normalY * offset);
             ctx2d.lineTo(seg.p2.x - normalX * offset, seg.p2.y - normalY * offset);
             ctx2d.stroke();
             
-            // Bağlantı çizgileri (her 30cm'de bir)
             const connectionSpacing = 30;
             const numConnections = Math.floor(length / connectionSpacing);
             
@@ -221,12 +209,11 @@ export function draw2D() {
         });
     };
 
-// BALKON DUVARLARI (Düz ince çizgi)
     const drawBalconySegments = (segmentList, color) => {
         if (segmentList.length === 0) return;
         
         ctx2d.strokeStyle = color;
-        ctx2d.lineWidth = 1.5; // İnce çizgi
+        ctx2d.lineWidth = 1.5;
         
         ctx2d.beginPath();
         segmentList.forEach((seg) => { 
@@ -238,12 +225,11 @@ export function draw2D() {
         ctx2d.stroke();
     };
 
-    // YARIM DUVARLAR (Tuğla dizilimi - yan yana dikdörtgenler)
     const drawHalfSegments = (segmentList, color) => {
         if (segmentList.length === 0) return;
         
         ctx2d.strokeStyle = color;
-        ctx2d.fillStyle = "rgba(231, 230, 208, 0.3)"; // Açık bej dolgu
+        ctx2d.fillStyle = "rgba(231, 230, 208, 0.3)";
         ctx2d.lineWidth = 1.5;
         
         segmentList.forEach((seg) => {
@@ -260,12 +246,11 @@ export function draw2D() {
             
             const thickness = seg.wall.thickness || wallPx;
             const brickHeight = thickness;
-            const brickWidth = 20; // Her tuğla 20cm
+            const brickWidth = 20;
             
             const numBricks = Math.ceil(length / brickWidth);
             const actualBrickWidth = length / numBricks;
             
-            // Tuğlaları çiz
             for (let i = 0; i < numBricks; i++) {
                 const startT = i * actualBrickWidth;
                 const endT = (i + 1) * actualBrickWidth;
@@ -278,7 +263,6 @@ export function draw2D() {
                 const corner3 = { x: brick2.x + normalX * brickHeight / 2, y: brick2.y + normalY * brickHeight / 2 };
                 const corner4 = { x: brick2.x - normalX * brickHeight / 2, y: brick2.y - normalY * brickHeight / 2 };
                 
-                // Tuğla dikdörtgeni çiz
                 ctx2d.beginPath();
                 ctx2d.moveTo(corner1.x, corner1.y);
                 ctx2d.lineTo(corner2.x, corner2.y);
@@ -291,7 +275,6 @@ export function draw2D() {
         });
     };
 
-    // DUVARLARI ÇİZ (Tiplerine göre)
     drawNormalSegments(normalSegments.ortho, wallBorderColor);
     drawNormalSegments(normalSegments.nonOrtho, "#e57373");
     drawNormalSegments(normalSegments.selected, "#8ab4f8");
@@ -309,8 +292,9 @@ export function draw2D() {
     drawHalfSegments(halfSegments.selected, "#8ab4f8");
 
     nodes.forEach(node => {
-    drawNodeWallCount(node);
-});
+        drawNodeWallCount(node);
+    });
+
     const nodesToDrawAngle = new Set();
     if (isDragging && selectedObject?.handle !== 'body') {
         const nodeToDrag = selectedObject.object[selectedObject.handle];
@@ -330,7 +314,7 @@ export function draw2D() {
             const baseNameYOffset = showDimensions ? 10 : 0;
             const nameYOffset = baseNameYOffset / zoom;
 
-            ctx2d.fillStyle = room.name === 'TANIMSIZ' ? '#e57373' : '#8ab4f8';
+            ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
 
             let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
             ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
@@ -375,10 +359,9 @@ export function draw2D() {
         }
     });
 
-if (currentMode === "drawDoor" && !isPanning && !isDragging) {
+    if (currentMode === "drawDoor" && !isPanning && !isDragging) {
         const doorsToPreview = [];
 
-        // En yakın duvarı bul
         let closestWall = null, minDistSq = Infinity;
         const bodyHitTolerance = (WALL_THICKNESS * 1.5) ** 2;
         
@@ -459,8 +442,6 @@ if (currentMode === "drawDoor" && !isPanning && !isDragging) {
         ctx2d.beginPath(); ctx2d.arc(w.p2.x, w.p2.y, 3, 0, 2 * Math.PI); ctx2d.fill();
     }
 
-// draw2d.js içinde startPoint bölümünü şu şekilde güncelleyin:
-
     if (startPoint) {
         ctx2d.strokeStyle = "#8ab4f8"; 
         ctx2d.lineWidth = 2; 
@@ -473,8 +454,6 @@ if (currentMode === "drawDoor" && !isPanning && !isDragging) {
             drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true);
             drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true);
         } else if (currentMode === "drawWall") {
-            // Eğer snap yakalanmışsa, snap noktasını kullan
-            // Snap yakalanmamışsa 15 derece açı kısıtlaması uygula
             if (mousePos.isSnapped) {
                 previewPos = { x: mousePos.x, y: mousePos.y };
             } else {
@@ -488,21 +467,18 @@ if (currentMode === "drawDoor" && !isPanning && !isDragging) {
             
             drawDimension(startPoint, previewPos, true);
             
-            // Snap origin noktalarını kırmızı göster (duvar çizerken)
             if (mousePos.isSnapped && mousePos.snapLines) {
-                ctx2d.fillStyle = "#e57373";
+                ctx2d.fillStyle = "#8ab4f8";
                 
-                // Horizontal snap origin'leri
                 mousePos.snapLines.h_origins.forEach(origin => {
                     ctx2d.beginPath();
-                    ctx2d.arc(origin.x, origin.y, 5 / zoom, 0, Math.PI * 2);
+                    ctx2d.arc(origin.x, origin.y, 3 / zoom, 0, Math.PI * 2);
                     ctx2d.fill();
                 });
                 
-                // Vertical snap origin'leri
                 mousePos.snapLines.v_origins.forEach(origin => {
                     ctx2d.beginPath();
-                    ctx2d.arc(origin.x, origin.y, 5 / zoom, 0, Math.PI * 2);
+                    ctx2d.arc(origin.x, origin.y, 3 / zoom, 0, Math.PI * 2);
                     ctx2d.fill();
                 });
             }
@@ -510,21 +486,18 @@ if (currentMode === "drawDoor" && !isPanning && !isDragging) {
         ctx2d.setLineDash([]);
     }
 
-    // Snap origin noktalarını kırmızı göster (startPoint olmadığında - oda çizerken)
     if (!startPoint && mousePos.isSnapped && mousePos.snapLines) {
-        ctx2d.fillStyle = "#e57373";
+        ctx2d.fillStyle = "#8ab4f8";
         
-        // Horizontal snap origin'leri
         mousePos.snapLines.h_origins.forEach(origin => {
             ctx2d.beginPath();
-            ctx2d.arc(origin.x, origin.y, 5 / zoom, 0, Math.PI * 2);
+            ctx2d.arc(origin.x, origin.y, 3 / zoom, 0, Math.PI * 2);
             ctx2d.fill();
         });
         
-        // Vertical snap origin'leri
         mousePos.snapLines.v_origins.forEach(origin => {
             ctx2d.beginPath();
-            ctx2d.arc(origin.x, origin.y, 5 / zoom, 0, Math.PI * 2);
+            ctx2d.arc(origin.x, origin.y, 3 / zoom, 0, Math.PI * 2);
             ctx2d.fill();
         });
     }
@@ -575,12 +548,54 @@ if (currentMode === "drawDoor" && !isPanning && !isDragging) {
     }
 
     if (mousePos.isSnapped) {
-        ctx2d.strokeStyle = "rgba(138,180,248,.5)";
-        ctx2d.lineWidth = 1;
-        ctx2d.beginPath();
-        const snapRadius = 10 / zoom;
-        ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
-        ctx2d.stroke();
+        const snapRadius = 4 / zoom;
+        const color = "#e57373";
+        
+        // Snap türünü belirle - mousePos.x ve mousePos.y kullanarak
+        let snapType = null;
+        
+        const isEndpoint = state.walls.some(w => 
+            (Math.abs(w.p1.x - mousePos.x) < 0.5 && Math.abs(w.p1.y - mousePos.y) < 0.5) ||
+            (Math.abs(w.p2.x - mousePos.x) < 0.5 && Math.abs(w.p2.y - mousePos.y) < 0.5)
+        );
+        
+        if (isEndpoint) {
+            snapType = 'endpoint';
+        } else {
+            const isMidpoint = state.walls.some(w => {
+                const midX = (w.p1.x + w.p2.x) / 2;
+                const midY = (w.p1.y + w.p2.y) / 2;
+                return Math.abs(midX - mousePos.x) < 0.5 && Math.abs(midY - mousePos.y) < 0.5;
+            });
+            
+            if (isMidpoint) {
+                snapType = 'midpoint';
+            }
+        }
+        
+        if (snapType === 'endpoint') {
+            // Kare çiz (uç nokta)
+            ctx2d.fillStyle = color;
+            ctx2d.beginPath();
+            ctx2d.rect(mousePos.x - snapRadius, mousePos.y - snapRadius, snapRadius * 2, snapRadius * 2);
+            ctx2d.fill();
+        } else if (snapType === 'midpoint') {
+            // Üçgen çiz (orta nokta)
+            ctx2d.fillStyle = color;
+            ctx2d.beginPath();
+            const height = snapRadius * 1.5;
+            ctx2d.moveTo(mousePos.x, mousePos.y - height);
+            ctx2d.lineTo(mousePos.x - snapRadius, mousePos.y + height / 2);
+            ctx2d.lineTo(mousePos.x + snapRadius, mousePos.y + height / 2);
+            ctx2d.closePath();
+            ctx2d.fill();
+        } else {
+            // Varsayılan daire (intersection, projection vb.)
+            ctx2d.fillStyle = color;
+            ctx2d.beginPath();
+            ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
+            ctx2d.fill();
+        }
     }
 
     ctx2d.restore();

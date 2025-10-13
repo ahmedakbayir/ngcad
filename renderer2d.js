@@ -98,7 +98,7 @@ export function drawNodeWallCount(node) {
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
 
     ctx2d.save();
-    
+ /*   
     // Arka plan çemberi (daha okunabilir olması için)
     ctx2d.fillStyle = "rgba(30, 31, 32, 0.8)"; // Koyu arka plan
     ctx2d.beginPath();
@@ -112,6 +112,7 @@ export function drawNodeWallCount(node) {
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "middle";
     ctx2d.fillText(wallCount.toString(), textX, textY);
+*/
 
     ctx2d.restore();
 }
