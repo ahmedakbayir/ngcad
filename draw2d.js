@@ -1,6 +1,6 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
-import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
+import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor, getObjectAtPoint } from './actions.js';
 import { drawAngleSymbol, drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
 import { drawDimension, drawTotalDimensions } from './dimensions.js';
 
@@ -296,12 +296,25 @@ export function draw2D() {
 
     if (rooms.length > 0) {
         ctx2d.textAlign = "center";
+        
+        // Hover kontrolü
+        const hoveredObject = currentMode === 'select' && !isDragging ? getObjectAtPoint(mousePos) : null;
+        const hoveredRoom = (hoveredObject?.type === 'roomName' || hoveredObject?.type === 'roomArea') ? hoveredObject.object : null;
+        
         rooms.forEach((room) => {
             if (!room.center || !Array.isArray(room.center) || room.center.length < 2) return;
             const baseNameFontSize = 18, baseAreaFontSize = 14;
             const showArea = dimensionOptions.defaultView > 0;
             const baseNameYOffset = showArea ? 10 : 0;
             const nameYOffset = baseNameYOffset / zoom;
+
+            const isHovered = hoveredRoom === room;
+            
+            // Hover durumunda parlak gölge
+            if (isHovered) {
+                ctx2d.shadowColor = 'rgba(138, 180, 248, 0.6)';
+                ctx2d.shadowBlur = 8;
+            }
 
             ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
 
@@ -330,6 +343,12 @@ export function draw2D() {
                 // Daha fazla boşluk için offset arttırıldı
                 const areaYOffset = nameParts.length === 2 ? nameFontSize * 1.5 : nameFontSize * 1.1;
                 ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset + areaYOffset);
+            }
+
+            // Gölgeyi temizle
+            if (isHovered) {
+                ctx2d.shadowColor = 'transparent';
+                ctx2d.shadowBlur = 0;
             }
         });
     }
