@@ -1,5 +1,8 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared } from './geometry.js';
+// GLOBAL ÖLÇÜ RENKLERİ - Tüm ölçü fonksiyonlarında kullanılır
+export const DIMENSION_TEXT_COLOR = "rgba(255, 235, 168, 1)";      // Ölçü yazı rengi (yeşil)
+export const DIMENSION_LINE_COLOR = "rgba(100, 150, 200, 0.6)"; // Dış çerçeve çizgi rengi (mavi)
 
 export function drawAngleSymbol(node) {
     const { ctx2d } = dom;
@@ -27,21 +30,14 @@ export function drawAngleSymbol(node) {
         const angleRad = Math.acos(Math.max(-1, Math.min(1, dotProduct)));
         
         const angleDeg = angleRad * 180 / Math.PI;
-/*
-        // --- YENİ EKLENEN KONTROL ---
-        // Açı 90 dereceye çok yakınsa gösterme
-        if (Math.abs(angleDeg - 90) < 0.5) {
-            return;
-        }
-        // --------------------------
-*/
+
         const radius = 25;
         ctx2d.strokeStyle = "#8ab4f8";
         ctx2d.fillStyle = "#8ab4f8";
         ctx2d.lineWidth = 1;
         ctx2d.beginPath();
 
-        if (Math.abs(angleDeg - 90) < 0.5) { // Bu kısım artık gereksiz ama yine de bırakıyorum
+        if (Math.abs(angleDeg - 90) < 0.5) {
             const p1 = { x: node.x + v1n.x * radius, y: node.y + v1n.y * radius };
             const p2 = { x: node.x + v2n.x * radius, y: node.y + v2n.y * radius };
             const p3 = { x: p1.x + v2n.x * radius, y: p1.y + v2n.y * radius };
@@ -76,21 +72,16 @@ export function drawAngleSymbol(node) {
         }
     }
 }
-// renderer2d.js dosyasına eklenecek yeni fonksiyon
 
 export function drawNodeWallCount(node) {
     const { ctx2d } = dom;
     const { walls, zoom } = state;
 
-    // Bu düğüme bağlı duvar sayısını hesapla
     const connectedWalls = walls.filter(w => w.p1 === node || w.p2 === node);
     const wallCount = connectedWalls.length;
 
-    // Eğer hiç duvar bağlı değilse veya sadece 1 duvar varsa gösterme
     if (wallCount <= 1) return;
-
-    // Küçük bir offset ile sayıyı düğümün yanına yaz
-    const offset = 15;
+const offset = 15;
     const textX = node.x + offset;
     const textY = node.y - offset;
 
@@ -98,25 +89,10 @@ export function drawNodeWallCount(node) {
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
 
     ctx2d.save();
- /*   
-    // Arka plan çemberi (daha okunabilir olması için)
-    ctx2d.fillStyle = "rgba(30, 31, 32, 0.8)"; // Koyu arka plan
-    ctx2d.beginPath();
-    const radius = 8 / zoom;
-    ctx2d.arc(textX, textY, radius, 0, Math.PI * 2);
-    ctx2d.fill();
-
-    // Sayıyı yaz
-    ctx2d.fillStyle = "#eeff00ff";
-    ctx2d.font = `600 ${Math.max(3 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-    ctx2d.textAlign = "center";
-    ctx2d.textBaseline = "middle";
-    ctx2d.fillText(wallCount.toString(), textX, textY);
-*/
-
     ctx2d.restore();
 }
-export function drawDimension(p1, p2, isPreview = false) {
+
+export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     const { ctx2d } = dom;
     const { zoom, gridOptions } = state;
 
@@ -149,11 +125,342 @@ export function drawDimension(p1, p2, isPreview = false) {
     const yOffset = -8 / zoom;
 
     ctx2d.font = `500 ${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-    ctx2d.fillStyle = isPreview ? "#8ab4f8" : "rgba(0, 133, 0, 1)";
+    
+    // GLOBAL RENK DEĞİŞKENİNİ KULLAN
+    ctx2d.fillStyle = isPreview ? "#8ab4f8" : DIMENSION_TEXT_COLOR;
+    
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "bottom";
     ctx2d.fillText(displayText, 0, yOffset);
     ctx2d.restore();
+}
+
+export function drawTotalDimensions() {
+    const { ctx2d } = dom;
+    const { zoom, rooms, walls, gridOptions } = state;
+    
+    if (rooms.length === 0) return;
+    
+    // Standart ölçü formatı
+    const baseFontSize = 18;
+    const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
+    ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+    ctx2d.font = `500 ${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    ctx2d.textAlign = "center";
+    ctx2d.textBaseline = "bottom";
+    
+    const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
+    
+    // TÜM DUVAR GÖSTERİMLERİNİ TOPLA
+    const allWallDimensions = [];
+    
+    rooms.forEach(room => {
+        if (!room.polygon || !room.polygon.geometry) return;
+        
+        const coords = room.polygon.geometry.coordinates[0];
+        if (coords.length < 4) return;
+        
+        // Mahal duvarlarını bul
+        const roomWalls = [];
+        for (let i = 0; i < coords.length - 1; i++) {
+            const p1Coord = coords[i];
+            const p2Coord = coords[i + 1];
+            
+            const wall = walls.find(w => {
+                const dist1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) +
+                             Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
+                const dist2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) +
+                             Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
+                return Math.min(dist1, dist2) < 1;
+            });
+            
+            if (wall) {
+                roomWalls.push({
+                    wall: wall,
+                    p1: p1Coord,
+                    p2: p2Coord,
+                    room: room
+                });
+            }
+        }
+        
+        // Duvarları yöne göre grupla
+        const horizontalGroups = [];
+        const verticalGroups = [];
+        
+        roomWalls.forEach(rw => {
+            const dx = rw.p2[0] - rw.p1[0];
+            const dy = rw.p2[1] - rw.p1[1];
+            const isHorizontal = Math.abs(dy) < Math.abs(dx);
+            
+            if (isHorizontal) {
+                let group = horizontalGroups.find(g => Math.abs(g.y - rw.p1[1]) < 1);
+                if (!group) {
+                    group = { y: rw.p1[1], segments: [], room: rw.room };
+                    horizontalGroups.push(group);
+                }
+                group.segments.push(rw);
+            } else {
+                let group = verticalGroups.find(g => Math.abs(g.x - rw.p1[0]) < 1);
+                if (!group) {
+                    group = { x: rw.p1[0], segments: [], room: rw.room };
+                    verticalGroups.push(group);
+                }
+                group.segments.push(rw);
+            }
+        });
+        
+        // YATAY GRUPLAR
+        horizontalGroups.forEach(group => {
+            const minX = Math.min(...group.segments.map(s => Math.min(s.p1[0], s.p2[0])));
+            const maxX = Math.max(...group.segments.map(s => Math.max(s.p1[0], s.p2[0])));
+            const totalLength = maxX - minX;
+            const roundedLength = Math.round(totalLength / gridSpacing) * gridSpacing;
+            
+            allWallDimensions.push({
+                type: 'horizontal',
+                y: group.y,
+                minX: minX,
+                maxX: maxX,
+                length: roundedLength,
+                segments: group.segments.length,
+                room: group.room
+            });
+        });
+        
+        // DİKEY GRUPLAR
+        verticalGroups.forEach(group => {
+            const minY = Math.min(...group.segments.map(s => Math.min(s.p1[1], s.p2[1])));
+            const maxY = Math.max(...group.segments.map(s => Math.max(s.p1[1], s.p2[1])));
+            const totalLength = maxY - minY;
+            const roundedLength = Math.round(totalLength / gridSpacing) * gridSpacing;
+            
+            allWallDimensions.push({
+                type: 'vertical',
+                x: group.x,
+                minY: minY,
+                maxY: maxY,
+                length: roundedLength,
+                segments: group.segments.length,
+                room: group.room
+            });
+        });
+    });
+    
+    // YATAY DUVARLARI GRUPLA: Aynı X aralığı ve uzunlukta olanlar
+    const horizontalDimGroups = new Map();
+    allWallDimensions.filter(d => d.type === 'horizontal').forEach(dim => {
+        const key = `${Math.round(dim.minX)}_${Math.round(dim.maxX)}_${dim.length}`;
+        if (!horizontalDimGroups.has(key)) {
+            horizontalDimGroups.set(key, []);
+        }
+        horizontalDimGroups.get(key).push(dim);
+    });
+    
+    // Her gruptan EN ÜSTTEKİ ve EN AZ BÖLÜNENİ seç
+    horizontalDimGroups.forEach(group => {
+        // Önce en az bölüneni bul
+        const minSegments = Math.min(...group.map(d => d.segments));
+        const leastSegmented = group.filter(d => d.segments === minSegments);
+        
+        // Bunlardan en üsttekini seç (en küçük Y)
+        const best = leastSegmented.reduce((top, d) => d.y < top.y ? d : top);
+        
+        const midX = (best.minX + best.maxX) / 2;
+        
+        // Mahalin içinde konumlandır
+        let finalY = null;
+        const testOffsets = [30, 35, 40, 45, 50, 55, 60];
+        
+        for (const offset of testOffsets) {
+            const testY1 = best.y + offset;
+            const testY2 = best.y - offset;
+            
+            const testPoint1 = turf.point([midX, testY1]);
+            const testPoint2 = turf.point([midX, testY2]);
+            
+            try {
+                const isInside1 = turf.booleanPointInPolygon(testPoint1, best.room.polygon);
+                const isInside2 = turf.booleanPointInPolygon(testPoint2, best.room.polygon);
+                
+                if (isInside1) {
+                    finalY = testY1;
+                    break;
+                } else if (isInside2) {
+                    finalY = testY2;
+                    break;
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+        
+        if (finalY) {
+            ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+            ctx2d.fillText(Math.round(best.length).toString(), midX, finalY);
+        }
+    });
+    
+    // DİKEY DUVARLARI GRUPLA: Aynı Y aralığı ve uzunlukta olanlar
+    const verticalDimGroups = new Map();
+    allWallDimensions.filter(d => d.type === 'vertical').forEach(dim => {
+        const key = `${Math.round(dim.minY)}_${Math.round(dim.maxY)}_${dim.length}`;
+        if (!verticalDimGroups.has(key)) {
+            verticalDimGroups.set(key, []);
+        }
+        verticalDimGroups.get(key).push(dim);
+    });
+    
+    // Her gruptan EN SOLDAKİ ve EN AZ BÖLÜNENİ seç
+    verticalDimGroups.forEach(group => {
+        // Önce en az bölüneni bul
+        const minSegments = Math.min(...group.map(d => d.segments));
+        const leastSegmented = group.filter(d => d.segments === minSegments);
+        
+        // Bunlardan en soldakini seç (en küçük X)
+        const best = leastSegmented.reduce((left, d) => d.x < left.x ? d : left);
+        
+        const midY = (best.minY + best.maxY) / 2;
+        
+        // Mahalin içinde konumlandır
+        let finalX = null;
+        const testOffsets = [30, 35, 40, 45, 50, 55, 60];
+        
+        for (const offset of testOffsets) {
+            const testX1 = best.x + offset;
+            const testX2 = best.x - offset;
+            
+            const testPoint1 = turf.point([testX1, midY]);
+            const testPoint2 = turf.point([testX2, midY]);
+            
+            try {
+                const isInside1 = turf.booleanPointInPolygon(testPoint1, best.room.polygon);
+                const isInside2 = turf.booleanPointInPolygon(testPoint2, best.room.polygon);
+                
+                if (isInside1) {
+                    finalX = testX1;
+                    break;
+                } else if (isInside2) {
+                    finalX = testX2;
+                    break;
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+        
+        if (finalX) {
+            ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+            ctx2d.save();
+            ctx2d.translate(finalX, midY);
+            ctx2d.rotate(-Math.PI / 2);
+            ctx2d.fillText(Math.round(best.length).toString(), 0, 0);
+            ctx2d.restore();
+        }
+    });
+    
+    // DIŞ ÇERÇEVE İÇİN TOPLAM ÖLÇÜLER
+    if (walls.length > 0) {
+        const allX = walls.flatMap(w => [w.p1.x, w.p2.x]);
+        const allY = walls.flatMap(w => [w.p1.y, w.p2.y]);
+        
+        const minX = Math.min(...allX);
+        const maxX = Math.max(...allX);
+        const minY = Math.min(...allY);
+        const maxY = Math.max(...allY);
+        
+        const totalWidth = maxX - minX;
+        const totalHeight = maxY - minY;
+        
+        const dimLineOffset = 60 / zoom;
+        const extensionOvershoot = 8 / zoom;
+        const extensionLineLength = dimLineOffset + extensionOvershoot;
+        
+        ctx2d.strokeStyle = DIMENSION_LINE_COLOR;
+        ctx2d.fillStyle = DIMENSION_LINE_COLOR;
+        ctx2d.lineWidth = 1 / zoom;
+        
+        // ÜST YATAY ÖLÇÜ
+        const topDimY = minY - dimLineOffset;
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(minX, minY);
+        ctx2d.lineTo(minX, minY - extensionLineLength);
+        ctx2d.moveTo(maxX, minY);
+        ctx2d.lineTo(maxX, minY - extensionLineLength);
+        ctx2d.stroke();
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(minX, topDimY);
+        ctx2d.lineTo(maxX, topDimY);
+        ctx2d.stroke();
+        
+        const arrowSize = 4 / zoom;
+        ctx2d.beginPath();
+        ctx2d.moveTo(minX, topDimY);
+        ctx2d.lineTo(minX + arrowSize, topDimY - arrowSize/2);
+        ctx2d.lineTo(minX + arrowSize, topDimY + arrowSize/2);
+        ctx2d.closePath();
+        ctx2d.fill();
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(maxX, topDimY);
+        ctx2d.lineTo(maxX - arrowSize, topDimY - arrowSize/2);
+        ctx2d.lineTo(maxX - arrowSize, topDimY + arrowSize/2);
+        ctx2d.closePath();
+        ctx2d.fill();
+        
+        ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+        ctx2d.font = `500 ${Math.max(2 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+        ctx2d.textAlign = "center";
+        ctx2d.textBaseline = "bottom";
+        
+        const roundedWidth = Math.round(totalWidth / gridSpacing) * gridSpacing;
+        ctx2d.fillText(Math.round(roundedWidth).toString(), (minX + maxX) / 2, topDimY - 5 / zoom);
+        
+        // SOL DİKEY ÖLÇÜ
+        const leftDimX = minX - dimLineOffset;
+        
+        ctx2d.strokeStyle = DIMENSION_LINE_COLOR;
+        ctx2d.fillStyle = DIMENSION_LINE_COLOR;
+        ctx2d.lineWidth = 1 / zoom;
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(minX, minY);
+        ctx2d.lineTo(minX - extensionLineLength, minY);
+        ctx2d.moveTo(minX, maxY);
+        ctx2d.lineTo(minX - extensionLineLength, maxY);
+        ctx2d.stroke();
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftDimX, minY);
+        ctx2d.lineTo(leftDimX, maxY);
+        ctx2d.stroke();
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftDimX, minY);
+        ctx2d.lineTo(leftDimX - arrowSize/2, minY + arrowSize);
+        ctx2d.lineTo(leftDimX + arrowSize/2, minY + arrowSize);
+        ctx2d.closePath();
+        ctx2d.fill();
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftDimX, maxY);
+        ctx2d.lineTo(leftDimX - arrowSize/2, maxY - arrowSize);
+        ctx2d.lineTo(leftDimX + arrowSize/2, maxY - arrowSize);
+        ctx2d.closePath();
+        ctx2d.fill();
+        
+        ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+        const roundedHeight = Math.round(totalHeight / gridSpacing) * gridSpacing;
+        ctx2d.save();
+        ctx2d.translate(leftDimX - 5 / zoom, (minY + maxY) / 2);
+        ctx2d.rotate(-Math.PI / 2);
+        ctx2d.textAlign = "center";
+        ctx2d.textBaseline = "bottom";
+        ctx2d.fillText(Math.round(roundedHeight).toString(), 0, 0);
+        ctx2d.restore();
+    }
 }
 
 export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
@@ -279,7 +586,6 @@ export function isMouseOverWall() {
     return false;
 }
 
-// PENCERE GÖSTERİMİ - 3 paralel çizgi, duvar kenarlarına kadar uzanıyor
 export function drawWindowSymbol(wall, window) {
     const { ctx2d } = dom;
     const { selectedObject } = state;
@@ -304,7 +610,6 @@ export function drawWindowSymbol(wall, window) {
     ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e7e6d0";
     ctx2d.lineWidth = 1.5;
     
-    // Duvar kenarlarına kadar uzanan 3 paralel çizgi
     const line1_start = { x: windowP1.x - nx * halfWall, y: windowP1.y - ny * halfWall };
     const line1_end = { x: windowP2.x - nx * halfWall, y: windowP2.y - ny * halfWall };
     
@@ -323,7 +628,6 @@ export function drawWindowSymbol(wall, window) {
     ctx2d.lineTo(line3_end.x, line3_end.y);
     ctx2d.stroke();
     
-    // Kenar çizgileri
     ctx2d.beginPath();
     ctx2d.moveTo(line1_start.x, line1_start.y);
     ctx2d.lineTo(line3_start.x, line3_start.y);

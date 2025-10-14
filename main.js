@@ -34,8 +34,8 @@ export let state = {
     rooms: [],
     selectedObject: null,
     selectedRoom: null, 
-    isDraggingRoomName: null, // <-- DEĞİŞTİRİLDİ
-    showDimensions: false,
+    isDraggingRoomName: null,
+    dimensionMode: 0, // 0: kapalı, 1: parça, 2: toplam
     zoom: 1,
     panOffset: { x: 0, y: 0 },
     isPanning: false,
@@ -67,9 +67,9 @@ export let state = {
     dragOriginalNodes: null,
     roomToEdit: null,
     clickOutsideRoomPopupListener: null,
-    wallBorderColor: "#e7e6d0",
+    wallBorderColor: "#e1dbdb",
     roomFillColor: "#1e1f20",
-    lineThickness: 2,
+    lineThickness: 2.5,
     snapOptions: {
         endpoint: true,
         midpoint: true,
@@ -184,12 +184,9 @@ function assignRoomNames() {
     const unassignedRooms = state.rooms.filter(r => r.name === 'MAHAL');
 
     if (unassignedRooms.length > 0) {
-        // Kural tabanlı atama
         let roomsToAssign = [...unassignedRooms];
         let assignedNames = new Set(state.rooms.filter(r => r.name !== 'MAHAL').map(r => r.name));
         
-        // ... (Daha önce eklenen kural tabanlı atama mantığı burada kalabilir)
-        // Örnek olarak basitleştirilmiş hali:
         if (roomsToAssign.length > 0) {
             const antre = roomsToAssign.shift();
             antre.name = "ANTRE";
@@ -223,9 +220,7 @@ function assignRoomNames() {
         });
 
     } else {
-        // Rastgele atama
         let availableNames = MAHAL_LISTESI.filter(name => name !== 'MAHAL');
-        // Fisher-Yates shuffle algoritması
         for (let i = availableNames.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [availableNames[i], availableNames[j]] = [availableNames[j], availableNames[i]];
@@ -235,7 +230,6 @@ function assignRoomNames() {
             if (availableNames.length > 0) {
                 room.name = availableNames.pop();
             } else {
-                // Eğer isimler biterse varsayılan bir isme geri dön
                 room.name = "ODA";
             }
         });
@@ -243,7 +237,6 @@ function assignRoomNames() {
 
     saveState();
 }
-
 
 // ====== BAŞLATMA ======
 function initialize() {

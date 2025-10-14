@@ -1,7 +1,7 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
-import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
+import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawTotalDimensions } from './renderer2d.js';
 
 // --- YARDIMCI FONKSİYONLAR ---
 function darkenColor(hex, percent) {
@@ -27,7 +27,7 @@ export function draw2D() {
     const { ctx2d, c2d } = dom;
     const {
         panOffset, zoom, rooms, roomFillColor, walls, doors, selectedObject,
-        selectedGroup, wallBorderColor, lineThickness, showDimensions,
+        selectedGroup, wallBorderColor, lineThickness, dimensionMode,
         affectedWalls, startPoint, currentMode, mousePos,
         isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning,
         isSweeping, sweepWalls, nodes, selectedRoom
@@ -302,7 +302,7 @@ export function draw2D() {
         rooms.forEach((room) => {
             if (!room.center || !Array.isArray(room.center) || room.center.length < 2) return;
             const baseNameFontSize = 18, baseAreaFontSize = 14;
-            const baseNameYOffset = showDimensions ? 10 : 0;
+            const baseNameYOffset = dimensionMode > 0 ? 10 : 0;
             const nameYOffset = baseNameYOffset / zoom;
 
             ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
@@ -323,11 +323,11 @@ export function draw2D() {
                 
             } else {
                 // TEK KELİMELİ İSİM - NORMAL
-                ctx2d.textBaseline = showDimensions ? "bottom" : "middle";
+                ctx2d.textBaseline = dimensionMode > 0 ? "bottom" : "middle";
                 ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
             }
 
-            if (showDimensions) {
+            if (dimensionMode > 0) {
                 ctx2d.fillStyle = "#8ab4f8";
                 let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
                 ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
@@ -409,7 +409,7 @@ export function draw2D() {
         });
         
         neighborWalls.forEach(wall => {
-            drawDimension(wall.p1, wall.p2, true);
+            drawDimension(wall.p1, wall.p2, true, 'single');
         });
         
         nodesBeingMoved.forEach(node => {
@@ -417,22 +417,28 @@ export function draw2D() {
         });
     }
 
-    if (showDimensions) { 
+    // ÖLÇÜ GÖSTERİMİ
+    if (dimensionMode === 1) {
+        // Mod 1: Her duvar parçası için ayrı ölçü
         walls.forEach((w) => { 
-            drawDimension(w.p1, w.p2, false); 
+            drawDimension(w.p1, w.p2, false, 'single'); 
         }); 
+    } else if (dimensionMode === 2) {
+        // Mod 2: Toplam ölçüler
+        drawTotalDimensions();
     }
-    else if (!isDragging && selectedObject?.type === "wall") { 
-        drawDimension(selectedObject.object.p1, selectedObject.object.p2, true); 
+    
+    if (!isDragging && selectedObject?.type === "wall" && dimensionMode === 0) { 
+        drawDimension(selectedObject.object.p1, selectedObject.object.p2, true, 'single'); 
     }
-    if (isDragging && affectedWalls.length > 0) { 
+    if (isDragging && affectedWalls.length > 0 && dimensionMode === 0) { 
         affectedWalls.forEach((wall) => { 
-            drawDimension(wall.p1, wall.p2, true); 
+            drawDimension(wall.p1, wall.p2, true, 'single'); 
         }); 
     }
 
-    if (isDragging && selectedObject?.type === "wall") {
-        drawDimension(selectedObject.object.p1, selectedObject.object.p2, true);
+    if (isDragging && selectedObject?.type === "wall" && dimensionMode === 0) {
+        drawDimension(selectedObject.object.p1, selectedObject.object.p2, true, 'single');
     }
 
     if (isSweeping && sweepWalls.length > 0) {
@@ -464,8 +470,8 @@ export function draw2D() {
 
         if (currentMode === "drawRoom") {
             ctx2d.strokeRect(startPoint.x, startPoint.y, previewPos.x - startPoint.x, previewPos.y - startPoint.y);
-            drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true);
-            drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true);
+            drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true, 'single');
+            drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true, 'single');
         } else if (currentMode === "drawWall") {
             if (mousePos.isSnapped) {
                 previewPos = { x: mousePos.x, y: mousePos.y };
@@ -478,7 +484,7 @@ export function draw2D() {
             ctx2d.lineTo(previewPos.x, previewPos.y);
             ctx2d.stroke();
             
-            drawDimension(startPoint, previewPos, true);
+            drawDimension(startPoint, previewPos, true, 'single');
         }
         ctx2d.setLineDash([]);
     }
@@ -500,9 +506,9 @@ export function draw2D() {
         ctx2d.moveTo(t1.x, t1.y); ctx2d.lineTo(t2.x, t2.y);
         ctx2d.stroke();
         ctx2d.setLineDash([]);
-        drawDimension(t1, t2, true);
-        drawDimension(stretchWallOrigin.p1, t1, true);
-        drawDimension(stretchWallOrigin.p2, t2, true);
+        drawDimension(t1, t2, true, 'single');
+        drawDimension(stretchWallOrigin.p1, t1, true, 'single');
+        drawDimension(stretchWallOrigin.p2, t2, true, 'single');
     }
 
     const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom';
@@ -528,8 +534,6 @@ export function draw2D() {
         }
     }
 
-// draw2d.js
-
     if (mousePos.isSnapped) {
         const snapRadius = 4 / zoom;
         const color = "#8ab4f8";
@@ -540,23 +544,7 @@ export function draw2D() {
         ctx2d.beginPath();
         ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
         ctx2d.fill();
-        
-        /*
-        // Uzantıların kaynaklarında daire çiz (Bu bölüm kaldırıldı)
-        const allOrigins = [...mousePos.snapLines.h_origins, ...mousePos.snapLines.v_origins];
-        const drawnOrigins = new Set();
-        allOrigins.forEach(origin => {
-            const key = `${origin.x.toFixed(2)},${origin.y.toFixed(2)}`;
-            if (drawnOrigins.has(key)) return;
-
-            ctx2d.beginPath();
-            ctx2d.arc(origin.x, origin.y, snapRadius, 0, Math.PI * 2);
-            ctx2d.fill();
-            drawnOrigins.add(key);
-        });
-        */
     }
-
 
     ctx2d.restore();
 }

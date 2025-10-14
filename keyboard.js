@@ -39,7 +39,6 @@ function extendWallOnTabPress() {
     }
 }
 
-
 export function onKeyDown(e) {
     if (document.activeElement.closest("#settings-popup") || document.activeElement.closest("#room-name-popup")) return;
     if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
@@ -81,14 +80,12 @@ export function onKeyDown(e) {
                     wall.vents = wall.vents.filter(v => v !== state.selectedObject.object);
                 }
             } else {
-                // Duvar silme
                 const wallsToDelete = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
                 const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w));
                 const newDoors = state.doors.filter((d) => !wallsToDelete.includes(d.wall));
                 setState({ walls: newWalls, doors: newDoors });
             }
         } else {
-            // Grup silme
             const wallsToDelete = state.selectedGroup;
             const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w));
             const newDoors = state.doors.filter((d) => !wallsToDelete.includes(d.wall));
@@ -99,7 +96,10 @@ export function onKeyDown(e) {
         saveState();
     }
 
-    if (e.key.toLowerCase() === "d") setState({ showDimensions: !state.showDimensions });
+    if (e.key.toLowerCase() === "d") {
+        const newMode = (state.dimensionMode + 1) % 3;
+        setState({ dimensionMode: newMode });
+    }
     if (e.key.toLowerCase() === "w") setMode("drawWall");
     if (e.key.toLowerCase() === "r") setMode("drawRoom");
     if (e.key.toLowerCase() === "k") setMode("drawDoor");
