@@ -1,7 +1,8 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
-import { drawDimension, drawDoorSymbol, drawGrid, isMouseOverWall, drawAngleSymbol, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawTotalDimensions } from './renderer2d.js';
+import { drawAngleSymbol, drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
+import { drawDimension, drawTotalDimensions } from './dimensions.js'; // <- DEĞİŞİKLİK BURADA
 
 // --- YARDIMCI FONKSİYONLAR ---
 function darkenColor(hex, percent) {
