@@ -15,11 +15,21 @@ export const DRAG_HANDLE_RADIUS = 8;
 export const EXTEND_RANGE = 500;
 export const SNAP_UNLOCK_DISTANCE_CM = 10;
 export const MAHAL_LISTESI = [
-    'MAHAL', 'ODA', 'MUTFAK', 'AÇIK MUTFAK', 'SALON', 'YATAK ODASI',
-    'OTURMA ODASI', 'ÇOCUK ODASI', 'KORİDOR', 'ANTRE', 'HOL', 'WC',
-    'BANYO', 'BALKON (AÇIK)', 'BALKON (KAPALI)', 'DAİRE', 'SAHANLIK',
-    'AÇIK SAHANLIK', 'AYDINLIK', 'ASANSÖR', 'KİLER', 'DEPO', 'CİHAZ ODASI',
-    'KAZAN D.', 'DÜKKAN', 'OFİS', 'YAN BİNA'
+        'MAHAL','KORİDOR','ANTRE','WC','BANYO',
+           'MUTFAK','YATAK ODASI','OTURMA ODASI','YEMEK ODASI','SALON',
+           'BALKON (AÇIK)','AYDINLIK','SAHANLIK','ASANSÖR','ÇOCUK ODASI','OFİS','ATELYE','AÇIK AYDINLIK',
+           'BODRUM','ÇATI ARASI','DAİRE','ODA','KAZAN D.','DÜKKAN','KİLER','DEPO',
+           'LOKANTA','KANTİN','YEMEKHANE','KAHVEHANE','BAKKAL','MARKET','BACA',
+           'ÇAY OCAĞI','GARAJ','BAHÇE','LAVABO','SINIF','MESCİD','HOL','REVİR',
+           'SPOR SALONU','CAMİ','TERAS','OKUL','DUBLEKS ANTRE','SAĞLIK OCAĞI',
+           'SIĞINAK','MUAYENEHANE','AÇIK SAHANLIK','YAN BİNA','BİNA GİRİŞİ','CİHAZ ODASI',
+           'HAVALANDIRMA','TOPRAK DOLGU','DUBLEKS ANTRE-ÜST','DUBLEKS ANTRE-ALT',
+           'DUBLEKS ANTRE-ARA','SHOWROOM','TOPLANTI ODASI','MAĞAZA','BEKLEME ODASI',
+           'İMALATHANE','FIRIN','KAFE','ENDÜSTRİYEL MUTFAK','YANGIN MERDİVENİ',
+           'AÇIK OTOPARK','KURANGLEZ','SAYAÇ ODASI','SAYAÇ ŞAFTI','TESİSAT ŞAFTI',
+           'BACA ŞAFTI','KAPALI OTOPARK','KÖMÜRLÜK','ARŞİV','ÇALIŞMA ODASI',
+           'ISI MERKEZİ', 'BALKON (KAPALI)', 'FABRİKA', 'LABARATUVAR', 'TEKNİK HACİM',
+           'DANIŞMA / GÖREVLİ YERİ','<KULLANICI TANIMLI>', 'ISITILMAYAN MAHAL','AÇIK MUTFAK'
 ];
 
 export let state = {
@@ -65,8 +75,8 @@ export let state = {
     dragOriginalNodes: null,
     roomToEdit: null,
     clickOutsideRoomPopupListener: null,
-    wallBorderColor: "#e1dbdb",
-    roomFillColor: "#1e1f20",
+    wallBorderColor: "#b5b5b5",
+    roomFillColor: "#232425",
     lineThickness: 2.5,
     snapOptions: {
         endpoint: true,
@@ -85,9 +95,9 @@ export let state = {
     },
     dimensionOptions: {
         fontSize: 14,
-        color: "rgba(4, 206, 210, 1)",
+        color: "#80ef80",
         defaultView: 1, // 0: Kapalı, 1: Özet, 2: Detaylı
-        showOuter: true,
+        showOuter: false,
     },
     isSweeping: false,
     sweepWalls: [],
