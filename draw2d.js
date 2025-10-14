@@ -419,14 +419,14 @@ export function draw2D() {
 
     // ÖLÇÜ GÖSTERİMİ
     if (dimensionMode === 1) {
-        // Mod 1: Her duvar parçası için ayrı ölçü
+        // Mod 1: Toplam ölçüler
+        drawTotalDimensions();
+    } else if (dimensionMode === 2) {
+        // Mod 2: Her duvar parçası için ayrı ölçü
         walls.forEach((w) => { 
             drawDimension(w.p1, w.p2, false, 'single'); 
         }); 
-    } else if (dimensionMode === 2) {
-        // Mod 2: Toplam ölçüler
-        drawTotalDimensions();
-    }
+    } 
     
     if (!isDragging && selectedObject?.type === "wall" && dimensionMode === 0) { 
         drawDimension(selectedObject.object.p1, selectedObject.object.p2, true, 'single'); 
