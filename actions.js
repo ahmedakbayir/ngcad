@@ -285,17 +285,27 @@ export function findCollinearChain(startWall) {
         );
         
         for (const wall of connectedWalls) {
-            const v1 = { 
-                x: startWall.p2.x - startWall.p1.x, 
-                y: startWall.p2.y - startWall.p1.y 
-            };
-            const v2 = { 
-                x: wall.p2.x - wall.p1.x, 
-                y: wall.p2.y - wall.p1.y 
-            };
+            // Başlangıç duvarının yönü
+            const dx1 = startWall.p2.x - startWall.p1.x;
+            const dy1 = startWall.p2.y - startWall.p1.y;
+            const len1 = Math.hypot(dx1, dy1);
+            if (len1 < 0.1) continue;
             
-            const cross = Math.abs(v1.x * v2.y - v1.y * v2.x);
-            if (cross < 0.1) {
+            const dir1 = { x: dx1 / len1, y: dy1 / len1 };
+            
+            // Bağlı duvarın yönü
+            const dx2 = wall.p2.x - wall.p1.x;
+            const dy2 = wall.p2.y - wall.p1.y;
+            const len2 = Math.hypot(dx2, dy2);
+            if (len2 < 0.1) continue;
+            
+            const dir2 = { x: dx2 / len2, y: dy2 / len2 };
+            
+            // Aynı doğrultuda mı kontrol et (dot product)
+            const dotProduct = Math.abs(dir1.x * dir2.x + dir1.y * dir2.y);
+            const COLLINEAR_THRESHOLD = Math.cos(5 * Math.PI / 180); // 5 derece tolerans
+            
+            if (dotProduct > COLLINEAR_THRESHOLD) {
                 visited.add(wall);
                 chain.push(wall);
                 const nextNode = wall.p1 === node ? wall.p2 : wall.p1;

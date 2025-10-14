@@ -107,9 +107,12 @@ export function onPointerDown(e) {
                         setState({ selectedObject: { ...selectedObject, object: newWall } });
                     } 
                     else {
-                        if (e.ctrlKey && e.shiftKey) {
-                            setState({ selectedGroup: findCollinearChain(selectedObject.object) });
-                        }
+                            if (e.ctrlKey && e.shiftKey) {
+                                const chain = findCollinearChain(selectedObject.object);
+                                console.log('Collinear chain bulundu:', chain.length, 'duvar');
+                                console.log('Chain duvarları:', chain.map(w => `(${w.p1.x},${w.p1.y})-(${w.p2.x},${w.p2.y})`));
+                                setState({ selectedGroup: chain });
+                            }
                         wallsBeingMoved = state.selectedGroup.length > 0 ? state.selectedGroup : [selectedObject.object];
                     }
 
