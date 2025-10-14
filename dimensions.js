@@ -1,14 +1,9 @@
 import { state, dom } from './main.js';
 import { screenToWorld } from './geometry.js';
 
-// GLOBAL ÖLÇÜ RENKLERİ - Tüm ölçü fonksiyonlarında kullanılır
-export const DIMENSION_TEXT_COLOR = "rgba(255, 235, 168, 1)";      // Ölçü yazı rengi (yeşil)
-export const DIMENSION_LINE_COLOR = "rgba(100, 150, 200, 0.6)"; // Dış çerçeve çizgi rengi (mavi)
-export const baseFontSizeGlobal = 16;
-
 export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     const { ctx2d } = dom;
-    const { zoom, gridOptions } = state;
+    const { zoom, gridOptions, dimensionOptions } = state;
 
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
@@ -34,14 +29,13 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     ctx2d.translate(midX, midY);
     ctx2d.rotate(ang);
 
-    const baseFontSize = baseFontSizeGlobal;
+    const baseFontSize = dimensionOptions.fontSize;
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
-    const yOffset = -8 // zoom;
+    const yOffset = -8;
 
     ctx2d.font = `300 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     
-    // GLOBAL RENK DEĞİŞKENİNİ KULLAN
-    ctx2d.fillStyle = isPreview ? "#8ab4f8" : DIMENSION_TEXT_COLOR;
+    ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
     
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "bottom";
@@ -51,21 +45,19 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
 
 export function drawTotalDimensions() {
     const { ctx2d } = dom;
-    const { zoom, rooms, walls, gridOptions } = state;
+    const { zoom, rooms, walls, gridOptions, dimensionOptions } = state;
     
     if (rooms.length === 0) return;
     
-    // Standart ölçü formatı
-    const baseFontSize = baseFontSizeGlobal;
+    const baseFontSize = dimensionOptions.fontSize;
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
-    ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+    ctx2d.fillStyle = dimensionOptions.color;
     ctx2d.font = `300 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "bottom";
     
     const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
     
-    // TÜM DUVAR GÖSTERİMLERİNİ TOPLA
     const allWallDimensions = [];
     
     rooms.forEach(room => {
@@ -74,7 +66,6 @@ export function drawTotalDimensions() {
         const coords = room.polygon.geometry.coordinates[0];
         if (coords.length < 4) return;
         
-        // Mahal duvarlarını bul
         const roomWalls = [];
         for (let i = 0; i < coords.length - 1; i++) {
             const p1Coord = coords[i];
@@ -98,7 +89,6 @@ export function drawTotalDimensions() {
             }
         }
         
-        // Duvarları yöne göre grupla
         const horizontalGroups = [];
         const verticalGroups = [];
         
@@ -124,7 +114,6 @@ export function drawTotalDimensions() {
             }
         });
         
-        // YATAY GRUPLAR
         horizontalGroups.forEach(group => {
             const minX = Math.min(...group.segments.map(s => Math.min(s.p1[0], s.p2[0])));
             const maxX = Math.max(...group.segments.map(s => Math.max(s.p1[0], s.p2[0])));
@@ -142,7 +131,6 @@ export function drawTotalDimensions() {
             });
         });
         
-        // DİKEY GRUPLAR
         verticalGroups.forEach(group => {
             const minY = Math.min(...group.segments.map(s => Math.min(s.p1[1], s.p2[1])));
             const maxY = Math.max(...group.segments.map(s => Math.max(s.p1[1], s.p2[1])));
@@ -161,7 +149,6 @@ export function drawTotalDimensions() {
         });
     });
     
-    // YATAY DUVARLARI GRUPLA: Aynı X aralığı ve uzunlukta olanlar
     const horizontalDimGroups = new Map();
     allWallDimensions.filter(d => d.type === 'horizontal').forEach(dim => {
         const key = `${Math.round(dim.minX)}_${Math.round(dim.maxX)}_${dim.length}`;
@@ -171,18 +158,14 @@ export function drawTotalDimensions() {
         horizontalDimGroups.get(key).push(dim);
     });
     
-    // Her gruptan EN ÜSTTEKİ ve EN AZ BÖLÜNENİ seç
     horizontalDimGroups.forEach(group => {
-        // Önce en az bölüneni bul
         const minSegments = Math.min(...group.map(d => d.segments));
         const leastSegmented = group.filter(d => d.segments === minSegments);
         
-        // Bunlardan en üsttekini seç (en küçük Y)
         const best = leastSegmented.reduce((top, d) => d.y < top.y ? d : top);
         
         const midX = (best.minX + best.maxX) / 2;
         
-        // Mahalin içinde konumlandır
         let finalY = null;
         const testOffsets = [30, 35, 40, 45, 50, 55, 60];
         
@@ -210,12 +193,11 @@ export function drawTotalDimensions() {
         }
         
         if (finalY) {
-            ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+            ctx2d.fillStyle = dimensionOptions.color;
             ctx2d.fillText(Math.round(best.length).toString(), midX, finalY);
         }
     });
     
-    // DİKEY DUVARLARI GRUPLA: Aynı Y aralığı ve uzunlukta olanlar
     const verticalDimGroups = new Map();
     allWallDimensions.filter(d => d.type === 'vertical').forEach(dim => {
         const key = `${Math.round(dim.minY)}_${Math.round(dim.maxY)}_${dim.length}`;
@@ -225,18 +207,14 @@ export function drawTotalDimensions() {
         verticalDimGroups.get(key).push(dim);
     });
     
-    // Her gruptan EN SOLDAKİ ve EN AZ BÖLÜNENİ seç
     verticalDimGroups.forEach(group => {
-        // Önce en az bölüneni bul
         const minSegments = Math.min(...group.map(d => d.segments));
         const leastSegmented = group.filter(d => d.segments === minSegments);
         
-        // Bunlardan en soldakini seç (en küçük X)
         const best = leastSegmented.reduce((left, d) => d.x < left.x ? d : left);
         
         const midY = (best.minY + best.maxY) / 2;
         
-        // Mahalin içinde konumlandır
         let finalX = null;
         const testOffsets = [30, 35, 40, 45, 50, 55, 60];
         
@@ -264,7 +242,7 @@ export function drawTotalDimensions() {
         }
         
         if (finalX) {
-            ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+            ctx2d.fillStyle = dimensionOptions.color;
             ctx2d.save();
             ctx2d.translate(finalX, midY);
             ctx2d.rotate(-Math.PI / 2);
@@ -273,8 +251,7 @@ export function drawTotalDimensions() {
         }
     });
     
-    // DIŞ ÇERÇEVE İÇİN TOPLAM ÖLÇÜLER
-    if (walls.length > 0) {
+    if (dimensionOptions.showOuter && walls.length > 0) {
         const allX = walls.flatMap(w => [w.p1.x, w.p2.x]);
         const allY = walls.flatMap(w => [w.p1.y, w.p2.y]);
         
@@ -290,11 +267,10 @@ export function drawTotalDimensions() {
         const extensionOvershoot = 8 / zoom;
         const extensionLineLength = dimLineOffset + extensionOvershoot;
         
-        ctx2d.strokeStyle = DIMENSION_LINE_COLOR;
-        ctx2d.fillStyle = DIMENSION_LINE_COLOR;
+        ctx2d.strokeStyle = dimensionOptions.color;
+        ctx2d.fillStyle = dimensionOptions.color;
         ctx2d.lineWidth = 1 / zoom;
         
-        // ÜST YATAY ÖLÇÜ
         const topDimY = minY - dimLineOffset;
         
         ctx2d.beginPath();
@@ -324,7 +300,7 @@ export function drawTotalDimensions() {
         ctx2d.closePath();
         ctx2d.fill();
         
-        ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+        ctx2d.fillStyle = dimensionOptions.color;
         ctx2d.font = `300 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
         ctx2d.textAlign = "center";
         ctx2d.textBaseline = "bottom";
@@ -332,11 +308,10 @@ export function drawTotalDimensions() {
         const roundedWidth = Math.round(totalWidth / gridSpacing) * gridSpacing;
         ctx2d.fillText(Math.round(roundedWidth).toString(), (minX + maxX) / 2, topDimY - 5 / zoom);
         
-        // SOL DİKEY ÖLÇÜ
         const leftDimX = minX - dimLineOffset;
         
-        ctx2d.strokeStyle = DIMENSION_LINE_COLOR;
-        ctx2d.fillStyle = DIMENSION_LINE_COLOR;
+        ctx2d.strokeStyle = dimensionOptions.color;
+        ctx2d.fillStyle = dimensionOptions.color;
         ctx2d.lineWidth = 1 / zoom;
         
         ctx2d.beginPath();
@@ -365,10 +340,10 @@ export function drawTotalDimensions() {
         ctx2d.closePath();
         ctx2d.fill();
         
-        ctx2d.fillStyle = DIMENSION_TEXT_COLOR;
+        ctx2d.fillStyle = dimensionOptions.color;
         const roundedHeight = Math.round(totalHeight / gridSpacing) * gridSpacing;
         ctx2d.save();
-        ctx2d.translate(leftDimX - 5 /*/ zoom*/, (minY + maxY) / 2);
+        ctx2d.translate(leftDimX - 5, (minY + maxY) / 2);
         ctx2d.rotate(-Math.PI / 2);
         ctx2d.textAlign = "center";
         ctx2d.textBaseline = "bottom";

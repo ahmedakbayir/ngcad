@@ -2,9 +2,8 @@ import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor } from './actions.js';
 import { drawAngleSymbol, drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
-import { drawDimension, drawTotalDimensions } from './dimensions.js'; // <- DEĞİŞİKLİK BURADA
+import { drawDimension, drawTotalDimensions } from './dimensions.js';
 
-// --- YARDIMCI FONKSİYONLAR ---
 function darkenColor(hex, percent) {
     let color = hex.startsWith('#') ? hex.slice(1) : hex;
     let r = parseInt(color.substring(0, 2), 16);
@@ -21,8 +20,6 @@ function darkenColor(hex, percent) {
     const bStr = (b.toString(16).length < 2) ? '0' + b.toString(16) : b.toString(16);
     return `#${rStr}${gStr}${bStr}`;
 }
-// ---------------------------------
-
 
 export function draw2D() {
     const { ctx2d, c2d } = dom;
@@ -31,7 +28,7 @@ export function draw2D() {
         selectedGroup, wallBorderColor, lineThickness, dimensionMode,
         affectedWalls, startPoint, currentMode, mousePos,
         isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning,
-        isSweeping, sweepWalls, nodes, selectedRoom
+        isSweeping, sweepWalls, nodes, selectedRoom, dimensionOptions
     } = state;
 
     ctx2d.fillStyle = BG;
@@ -297,13 +294,13 @@ export function draw2D() {
     }
     nodesToDrawAngle.forEach(node => drawAngleSymbol(node));
 
-    // ========== MAHAL İSİMLERİ - DÜZELTİLMİŞ BÖLÜM ==========
     if (rooms.length > 0) {
         ctx2d.textAlign = "center";
         rooms.forEach((room) => {
             if (!room.center || !Array.isArray(room.center) || room.center.length < 2) return;
             const baseNameFontSize = 18, baseAreaFontSize = 14;
-            const baseNameYOffset = dimensionMode > 0 ? 10 : 0;
+            const showArea = dimensionOptions.defaultView > 0;
+            const baseNameYOffset = showArea ? 10 : 0;
             const nameYOffset = baseNameYOffset / zoom;
 
             ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
@@ -311,11 +308,9 @@ export function draw2D() {
             let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
             ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
             
-            // İsmi boşluğa göre ayır
             const nameParts = room.name.split(' ');
             
             if (nameParts.length === 2) {
-                // İKİ KELİMELİ İSİM - ALT ALTA YAZ
                 const lineGap = nameFontSize * 1.2;
                 ctx2d.textBaseline = "middle";
                 
@@ -323,12 +318,11 @@ export function draw2D() {
                 ctx2d.fillText(nameParts[1], room.center[0], room.center[1] - nameYOffset + lineGap/2);
                 
             } else {
-                // TEK KELİMELİ İSİM - NORMAL
-                ctx2d.textBaseline = dimensionMode > 0 ? "bottom" : "middle";
+                ctx2d.textBaseline = showArea ? "bottom" : "middle";
                 ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
             }
 
-            if (dimensionMode > 0) {
+            if (showArea) {
                 ctx2d.fillStyle = "#8ab4f8";
                 let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
                 ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
@@ -344,7 +338,6 @@ export function draw2D() {
             }
         });
     }
-    // ========== MAHAL İSİMLERİ SONU ==========
 
     doors.forEach((door) => {
         const isSelected = selectedObject?.type === "door" && selectedObject.object === door;
@@ -418,12 +411,9 @@ export function draw2D() {
         });
     }
 
-    // ÖLÇÜ GÖSTERİMİ
     if (dimensionMode === 1) {
-        // Mod 1: Toplam ölçüler
         drawTotalDimensions();
     } else if (dimensionMode === 2) {
-        // Mod 2: Her duvar parçası için ayrı ölçü
         walls.forEach((w) => { 
             drawDimension(w.p1, w.p2, false, 'single'); 
         }); 
@@ -541,7 +531,6 @@ export function draw2D() {
         
         ctx2d.fillStyle = color;
         
-        // İmleç pozisyonunda daire çiz
         ctx2d.beginPath();
         ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
         ctx2d.fill();

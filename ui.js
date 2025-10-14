@@ -19,6 +19,10 @@ export function initializeSettings() {
     dom.snapEndpointExtInput.checked = state.snapOptions.endpointExtension;
     dom.snapMidpointExtInput.checked = state.snapOptions.midpointExtension;
     dom.snapNearestOnlyInput.checked = state.snapOptions.nearestOnly;
+    dom.dimensionFontSizeInput.value = state.dimensionOptions.fontSize;
+    dom.dimensionColorInput.value = state.dimensionOptions.color;
+    dom.dimensionDefaultViewSelect.value = state.dimensionOptions.defaultView;
+    dom.dimensionShowOuterInput.checked = state.dimensionOptions.showOuter;
 }
 
 function openTab(tabName) {
@@ -172,7 +176,6 @@ export function startLengthEdit(initialKey = '') {
     const currentLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     dom.lengthInput.value = initialKey || currentLength.toFixed(0);
     dom.lengthInput.focus();
-    // dom.lengthInput.select(); // BU SATIRI SİLİN VEYA YORUM SATIRI YAPIN
 }
 
 function confirmLengthEdit() {
@@ -228,6 +231,11 @@ export function setupUIListeners() {
     dom.snapEndpointExtInput.addEventListener("change", (e) => state.snapOptions.endpointExtension = e.target.checked);
     dom.snapMidpointExtInput.addEventListener("change", (e) => state.snapOptions.midpointExtension = e.target.checked);
     dom.snapNearestOnlyInput.addEventListener("change", (e) => state.snapOptions.nearestOnly = e.target.checked);
+
+    dom.dimensionFontSizeInput.addEventListener("input", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.fontSize = value; });
+    dom.dimensionColorInput.addEventListener("input", (e) => { state.dimensionOptions.color = e.target.value; });
+    dom.dimensionDefaultViewSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) { state.dimensionOptions.defaultView = value; setState({ dimensionMode: value }); } });
+    dom.dimensionShowOuterInput.addEventListener("change", (e) => { state.dimensionOptions.showOuter = e.target.checked; });
     
     dom.roomNameSelect.addEventListener('click', confirmRoomNameChange);
     dom.roomNameSelect.addEventListener('dblclick', confirmRoomNameChange);

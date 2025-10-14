@@ -6,7 +6,6 @@ import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { createWallPanel } from './wall-panel.js';
 
-// ====== SABİTLER ======
 export const BG = "#1e1f20";
 export const METER_SCALE = 1;
 export const WALL_THICKNESS = 20;
@@ -23,7 +22,6 @@ export const MAHAL_LISTESI = [
     'KAZAN D.', 'DÜKKAN', 'OFİS', 'YAN BİNA'
 ];
 
-// ====== DURUM (STATE) ======
 export let state = {
     currentMode: "select",
     lastUsedMode: "drawWall",
@@ -35,7 +33,7 @@ export let state = {
     selectedObject: null,
     selectedRoom: null, 
     isDraggingRoomName: null,
-    dimensionMode: 0, // 0: kapalı, 1: parça, 2: toplam
+    dimensionMode: 1,
     zoom: 1,
     panOffset: { x: 0, y: 0 },
     isPanning: false,
@@ -85,6 +83,12 @@ export let state = {
         color: "#27292a",
         weight: 0.5,
     },
+    dimensionOptions: {
+        fontSize: 14,
+        color: "rgba(4, 206, 210, 1)",
+        defaultView: 1, // 0: Kapalı, 1: Özet, 2: Detaylı
+        showOuter: true,
+    },
     isSweeping: false,
     sweepWalls: [],
 };
@@ -93,7 +97,6 @@ export function setState(newState) {
     state = { ...state, ...newState };
 }
 
-// ====== DOM ELEMENTLERİ ======
 export const dom = {
     mainContainer: document.getElementById("main-container"),
     p2d: document.getElementById("p2d"),
@@ -114,8 +117,18 @@ export const dom = {
     settingsBtn: document.getElementById("settings-btn"),
     settingsPopup: document.getElementById("settings-popup"),
     closeSettingsPopupBtn: document.getElementById("close-settings-popup"),
-    tabButtons: { general: document.getElementById("tab-btn-general"), grid: document.getElementById("tab-btn-grid"), snap: document.getElementById("tab-btn-snap"), },
-    tabPanes: { general: document.getElementById("tab-pane-general"), grid: document.getElementById("tab-pane-grid"), snap: document.getElementById("tab-pane-snap"), },
+    tabButtons: { 
+        general: document.getElementById("tab-btn-general"), 
+        grid: document.getElementById("tab-btn-grid"), 
+        snap: document.getElementById("tab-btn-snap"),
+        dimension: document.getElementById("tab-btn-dimension"),
+    },
+    tabPanes: { 
+        general: document.getElementById("tab-pane-general"), 
+        grid: document.getElementById("tab-pane-grid"), 
+        snap: document.getElementById("tab-pane-snap"),
+        dimension: document.getElementById("tab-pane-dimension"),
+    },
     borderPicker: document.getElementById("borderPicker"),
     roomPicker: document.getElementById("roomPicker"),
     lineThicknessInput: document.getElementById("line-thickness"),
@@ -128,13 +141,16 @@ export const dom = {
     snapEndpointExtInput: document.getElementById("snap-endpoint-ext"),
     snapMidpointExtInput: document.getElementById("snap-midpoint-ext"),
     snapNearestOnlyInput: document.getElementById("snap-nearest-only"),
+    dimensionFontSizeInput: document.getElementById("dimension-font-size"),
+    dimensionColorInput: document.getElementById("dimension-color"),
+    dimensionDefaultViewSelect: document.getElementById("dimension-default-view"),
+    dimensionShowOuterInput: document.getElementById("dimension-show-outer"),
     roomNamePopup: document.getElementById("room-name-popup"),
     roomNameSelect: document.getElementById("room-name-select"),
     roomNameInput: document.getElementById("room-name-input"),
     splitter: document.getElementById("splitter"),
 };
 
-// ====== MOD KONTROL ======
 export function setMode(mode) {
     if (mode !== "select") {
         setState({ lastUsedMode: mode });
@@ -155,7 +171,6 @@ export function setMode(mode) {
     dom.p2d.className = `panel ${newMode}-mode`;
 }
 
-// ====== CANVAS BOYUTLANDIRMA VE ANA DÖNGÜ ======
 export function resize() {
     const r2d = dom.p2d.getBoundingClientRect();
     dom.c2d.width = r2d.width;
@@ -179,7 +194,6 @@ function animate() {
     }
 }
 
-// ====== OTOMATİK İSİM ATAMA ======
 function assignRoomNames() {
     const unassignedRooms = state.rooms.filter(r => r.name === 'MAHAL');
 
@@ -238,7 +252,6 @@ function assignRoomNames() {
     saveState();
 }
 
-// ====== BAŞLATMA ======
 function initialize() {
     init3D(dom.c3d);
     initializeSettings();

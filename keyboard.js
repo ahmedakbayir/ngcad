@@ -99,6 +99,8 @@ export function onKeyDown(e) {
     if (e.key.toLowerCase() === "d") {
         const newMode = (state.dimensionMode + 1) % 3;
         setState({ dimensionMode: newMode });
+        state.dimensionOptions.defaultView = newMode;
+        dom.dimensionDefaultViewSelect.value = newMode;
     }
     if (e.key.toLowerCase() === "w") setMode("drawWall");
     if (e.key.toLowerCase() === "r") setMode("drawRoom");

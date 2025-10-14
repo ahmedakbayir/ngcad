@@ -1,6 +1,5 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared } from './geometry.js';
-import { DIMENSION_TEXT_COLOR, DIMENSION_LINE_COLOR } from './dimensions.js'; // RENKLER YENİ YERDEN İÇE AKTARILDI
 
 export function drawAngleSymbol(node) {
     const { ctx2d } = dom;
