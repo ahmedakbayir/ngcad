@@ -3,7 +3,7 @@ import { screenToWorld } from './geometry.js';
 
 export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     const { ctx2d } = dom;
-    const { zoom, gridOptions, dimensionOptions } = state;
+    const { zoom, gridOptions, dimensionOptions, walls } = state;
 
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
@@ -14,8 +14,30 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     const roundedLength = Math.round(lengthCm / gridSpacing) * gridSpacing;
     const displayText = `${Math.round(roundedLength)}`;
 
-    const midX = (p1.x + p2.x) / 2;
-    const midY = (p1.y + p2.y) / 2;
+    // Duvarı bul (p1 ve p2'ye sahip duvar)
+    const wall = walls.find(w => 
+        (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1)
+    );
+    const wallThickness = wall?.thickness || 20;
+
+    // Normal vektör hesapla
+    const nx = -dy / lengthCm;
+    const ny = dx / lengthCm;
+
+    // Özet görünümle aynı mantık: Sol ve üst için yakın, sağ ve alt için uzak
+    let actualOffset;
+    if (nx < 0 || ny < 0) {
+        // Sol veya üst - yakın
+        actualOffset = wallThickness / 2 + 5;
+    } else {
+        // Sağ veya alt - uzak
+        actualOffset = wallThickness / 2 + 18;
+    }
+
+    // Metin pozisyonu
+    const midX = (p1.x + p2.x) / 2 + nx * actualOffset;
+    const midY = (p1.y + p2.y) / 2 + ny * actualOffset;
+    
     let ang = Math.atan2(dy, dx);
     const epsilon = 0.001;
 
@@ -31,15 +53,14 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
 
     const baseFontSize = dimensionOptions.fontSize;
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
-    const yOffset = -8;
 
     ctx2d.font = `300 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     
     ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
     
     ctx2d.textAlign = "center";
-    ctx2d.textBaseline = "bottom";
-    ctx2d.fillText(displayText, 0, yOffset);
+    ctx2d.textBaseline = "middle";
+    ctx2d.fillText(displayText, 0, 0);
     ctx2d.restore();
 }
 
@@ -166,30 +187,34 @@ export function drawTotalDimensions() {
         
         const midX = (best.minX + best.maxX) / 2;
         
+        // Duvar kalınlığına göre dinamik offset
+        const wallThickness = group[0]?.segments?.[0]?.wall?.thickness || 20;
+        const offsetTop = wallThickness / 2 + 5;  // Üst için: duvar merkezinden 10 cm
+        const offsetBottom = wallThickness / 2 + 18; // Alt için: duvar merkezinden 18 cm
+
+        const testY1 = best.y - offsetTop;    // Üst tarafa (yakın)
+        const testY2 = best.y + offsetBottom; // Alt tarafa (uzak)
+
+        const testPoint1 = turf.point([midX, testY1]);
+        const testPoint2 = turf.point([midX, testY2]);
+
         let finalY = null;
-        const testOffsets = [30, 35, 40, 45, 50, 55, 60];
-        
-        for (const offset of testOffsets) {
-            const testY1 = best.y + offset;
-            const testY2 = best.y - offset;
+        try {
+            const isInside1 = turf.booleanPointInPolygon(testPoint1, best.room.polygon);
+            const isInside2 = turf.booleanPointInPolygon(testPoint2, best.room.polygon);
             
-            const testPoint1 = turf.point([midX, testY1]);
-            const testPoint2 = turf.point([midX, testY2]);
-            
-            try {
-                const isInside1 = turf.booleanPointInPolygon(testPoint1, best.room.polygon);
-                const isInside2 = turf.booleanPointInPolygon(testPoint2, best.room.polygon);
-                
-                if (isInside1) {
-                    finalY = testY1;
-                    break;
-                } else if (isInside2) {
-                    finalY = testY2;
-                    break;
-                }
-            } catch (e) {
-                continue;
+            // Dışarıda olanı tercih et, yoksa içeride olanı kullan
+            if (!isInside1) {
+                finalY = testY1;
+            } else if (!isInside2) {
+                finalY = testY2;
+            } else if (isInside1) {
+                finalY = testY1; // İkisi de içerdeyse üsttekini kullan
+            } else if (isInside2) {
+                finalY = testY2; // İkisi de içerdeyse alttakini kullan
             }
+        } catch (e) {
+            finalY = testY1;
         }
         
         if (finalY) {
@@ -215,30 +240,34 @@ export function drawTotalDimensions() {
         
         const midY = (best.minY + best.maxY) / 2;
         
+        // Duvar kalınlığına göre dinamik offset
+        const wallThickness = group[0]?.segments?.[0]?.wall?.thickness || 20;
+        const offsetLeft = wallThickness / 2 + 5;  // Sol için: duvar merkezinden 10 cm
+        const offsetRight = wallThickness / 2 + 18; // Sağ için: duvar merkezinden 18 cm
+
+        const testX1 = best.x - offsetLeft;   // Sol tarafa (yakın)
+        const testX2 = best.x + offsetRight;  // Sağ tarafa (uzak)
+
+        const testPoint1 = turf.point([testX1, midY]);
+        const testPoint2 = turf.point([testX2, midY]);
+
         let finalX = null;
-        const testOffsets = [30, 35, 40, 45, 50, 55, 60];
-        
-        for (const offset of testOffsets) {
-            const testX1 = best.x + offset;
-            const testX2 = best.x - offset;
+        try {
+            const isInside1 = turf.booleanPointInPolygon(testPoint1, best.room.polygon);
+            const isInside2 = turf.booleanPointInPolygon(testPoint2, best.room.polygon);
             
-            const testPoint1 = turf.point([testX1, midY]);
-            const testPoint2 = turf.point([testX2, midY]);
-            
-            try {
-                const isInside1 = turf.booleanPointInPolygon(testPoint1, best.room.polygon);
-                const isInside2 = turf.booleanPointInPolygon(testPoint2, best.room.polygon);
-                
-                if (isInside1) {
-                    finalX = testX1;
-                    break;
-                } else if (isInside2) {
-                    finalX = testX2;
-                    break;
-                }
-            } catch (e) {
-                continue;
+            // Dışarıda olanı tercih et, yoksa içeride olanı kullan
+            if (!isInside1) {
+                finalX = testX1;
+            } else if (!isInside2) {
+                finalX = testX2;
+            } else if (isInside1) {
+                finalX = testX1; // İkisi de içerdeyse soldakini kullan
+            } else if (isInside2) {
+                finalX = testX2; // İkisi de içerdeyse sağdakini kullan
             }
+        } catch (e) {
+            finalX = testX1;
         }
         
         if (finalX) {
