@@ -310,31 +310,26 @@ export function draw2D() {
             
             const nameParts = room.name.split(' ');
             
+            ctx2d.textBaseline = "middle";
+
             if (nameParts.length === 2) {
                 const lineGap = nameFontSize * 1.2;
-                ctx2d.textBaseline = "middle";
-                
                 ctx2d.fillText(nameParts[0], room.center[0], room.center[1] - nameYOffset - lineGap/2);
                 ctx2d.fillText(nameParts[1], room.center[0], room.center[1] - nameYOffset + lineGap/2);
-                
             } else {
-                ctx2d.textBaseline = showArea ? "bottom" : "middle";
                 ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
             }
 
             if (showArea) {
-                ctx2d.fillStyle = "#8ab4f8";
+                ctx2d.fillStyle = dimensionOptions.color; // Ölçü rengiyle aynı
                 let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
                 ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-                ctx2d.textBaseline = "top";
+                ctx2d.textBaseline = "middle";
                 const text = `${room.area.toFixed(2)} m²`;
                 
-                if (nameParts.length === 2) {
-                    const lineGap = nameFontSize * 1.2;
-                    ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset + lineGap);
-                } else {
-                    ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset);
-                }
+                // Daha fazla boşluk için offset arttırıldı
+                const areaYOffset = nameParts.length === 2 ? nameFontSize * 1.5 : nameFontSize * 1.1;
+                ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset + areaYOffset);
             }
         });
     }

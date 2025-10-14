@@ -3,7 +3,7 @@ import { distToSegmentSquared } from './geometry.js';
 import { WALL_THICKNESS, DRAG_HANDLE_RADIUS } from './main.js';
 
 export function getObjectAtPoint(worldPos) {
-    const { walls, doors, rooms, zoom } = state;
+    const { walls, doors, rooms, zoom, dimensionOptions } = state;
     
     // Düğüm noktalarını kontrol et (en yüksek öncelik)
     const handleRadius = DRAG_HANDLE_RADIUS / zoom;
@@ -88,25 +88,73 @@ export function getObjectAtPoint(worldPos) {
         }
     }
 
-    // --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
-    // Mahal adlarını kontrol et
+// --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
+    // Mahal adlarını ve alan bilgilerini kontrol et
     const { ctx2d } = dom;
     for (const room of rooms) {
         if (!room.center || !Array.isArray(room.center) || room.center.length < 2) continue;
+        
         const baseNameFontSize = 18;
+        const baseAreaFontSize = 14;
+        const showArea = dimensionOptions.defaultView > 0;
+        
         let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
+        let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
+        
+        // Mahal adı bounding box hesapla
         ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-        const textMetrics = ctx2d.measureText(room.name);
-        const textWidth = textMetrics.width;
-        const textHeight = nameFontSize; // Yaklaşık bir değer
+        
+        const nameParts = room.name.split(' ');
+        let nameHeight;
+        let nameWidth = 0;
+        
+        if (nameParts.length === 2) {
+            const lineGap = nameFontSize * 1.2;
+            nameHeight = lineGap * 2;
+            nameParts.forEach(part => {
+                const metrics = ctx2d.measureText(part);
+                nameWidth = Math.max(nameWidth, metrics.width);
+            });
+        } else {
+            const textMetrics = ctx2d.measureText(room.name);
+            nameWidth = textMetrics.width;
+            nameHeight = nameFontSize;
+        }
+        
+        const baseNameYOffset = showArea ? 10 : 0;
+        const nameYOffset = baseNameYOffset / zoom;
+        
+        // Metin gerçekte nasıl çiziliyor ona göre bounding box hesapla
+        const baseTextOffset = nameParts.length === 2 ? nameFontSize * 0.6 : 0;
 
-        const textLeft = room.center[0] - textWidth / 2;
-        const textRight = room.center[0] + textWidth / 2;
-        const textTop = room.center[1] - textHeight / 2;
-        const textBottom = room.center[1] + textHeight / 2;
+        const nameLeft = room.center[0] - nameWidth / 2;
+        const nameRight = room.center[0] + nameWidth / 2;
+        const nameTop = room.center[1] - nameYOffset - nameHeight + baseTextOffset;
+        const nameBottom = room.center[1] - nameYOffset + baseTextOffset;
 
-        if (worldPos.x >= textLeft && worldPos.x <= textRight && worldPos.y >= textTop && worldPos.y <= textBottom) {
+        if (worldPos.x >= nameLeft && worldPos.x <= nameRight && worldPos.y >= nameTop && worldPos.y <= nameBottom) {
             return { type: "roomName", object: room };
+        }
+        
+        // Alan bilgisi bounding box hesapla (eğer gösteriliyorsa)
+        if (showArea) {
+            ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+            const areaText = `${room.area.toFixed(2)} m²`;
+            const areaMetrics = ctx2d.measureText(areaText);
+            const areaWidth = areaMetrics.width;
+            const areaHeight = areaFontSize;
+                        
+            let areaTop, areaBottom;
+            const areaYOffset = nameParts.length === 2 ? nameFontSize * 1.5 : nameFontSize * 1.1;
+            areaTop = room.center[1] - nameYOffset + areaYOffset - areaHeight / 2;
+            areaBottom = areaTop + areaHeight;
+            
+            const areaLeft = room.center[0] - areaWidth / 2;
+            const areaRight = room.center[0] + areaWidth / 2;
+            
+            if (worldPos.x >= areaLeft && worldPos.x <= areaRight && worldPos.y >= areaTop && worldPos.y <= areaBottom) {
+                return { type: "roomArea", object: room };
+            }
         }
     }
     // --- DEĞİŞİKLİK SONU ---

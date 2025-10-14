@@ -43,6 +43,8 @@ export let state = {
     selectedObject: null,
     selectedRoom: null, 
     isDraggingRoomName: null,
+    roomDragStartPos: null,
+    roomOriginalCenter: null,
     dimensionMode: 1,
     zoom: 1,
     panOffset: { x: 0, y: 0 },

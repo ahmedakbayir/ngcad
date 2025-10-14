@@ -4,11 +4,21 @@ import { processWalls, mergeNode } from './wall-processor.js';
 import { saveState } from './history.js';
 
 export function onPointerUp(e) {
-    if (state.isDraggingRoomName) {
-        setState({ isDraggingRoomName: null });
-        saveState();
-        return;
+if (state.isDraggingRoomName) {
+    // Taşıma işlemi tamamlandı - merkez dışarıda mı kontrol et
+    const room = state.isDraggingRoomName;
+    const point = turf.point(room.center);
+    
+    if (!turf.booleanPointInPolygon(point, room.polygon)) {
+        // Merkez dışarıda kaldıysa, polygon'un merkezine geri döndür
+        const centerPoint = turf.pointOnFeature(room.polygon);
+        room.center = centerPoint.geometry.coordinates;
     }
+    
+    setState({ isDraggingRoomName: null, roomDragStartPos: null, roomOriginalCenter: null });
+    saveState();
+    return;
+}
 
     setState({ isSnapLocked: false, lockedSnapPoint: null });
 

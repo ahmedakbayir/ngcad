@@ -116,7 +116,9 @@ export function detectRooms() {
                     const areaInM2 = areaInCm2 / 10000;
                     const centerPoint = turf.pointOnFeature(polygon);
                     
-                    let existingRoomName = 'MAHAL';
+                   let existingRoomName = 'MAHAL';
+                    let existingRoomCenter = null;
+
                     if (oldRooms.length > 0) {
                         const containedOldRooms = oldRooms.filter(r => {
                             try {
@@ -128,13 +130,17 @@ export function detectRooms() {
                         if (containedOldRooms.length > 0) {
                             containedOldRooms.sort((a, b) => b.area - a.area);
                             existingRoomName = containedOldRooms[0].name;
+                            // Eski merkez yeni polygon içindeyse koru
+                            if (turf.booleanPointInPolygon(containedOldRooms[0].center, polygon)) {
+                                existingRoomCenter = containedOldRooms[0].center;
+                            }
                         }
                     }
 
                     newRooms.push({
                         polygon: polygon,
                         area: areaInM2,
-                        center: centerPoint.geometry.coordinates,
+                        center: existingRoomCenter || centerPoint.geometry.coordinates,
                         name: existingRoomName
                     });
                 } catch (e) {

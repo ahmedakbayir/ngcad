@@ -11,8 +11,34 @@ export function onPointerMove(e) {
         const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const point = turf.point([unsnappedPos.x, unsnappedPos.y]);
 
+        // Mahal sınırları içinde mi kontrol et
         if (turf.booleanPointInPolygon(point, state.isDraggingRoomName.polygon)) {
-            state.isDraggingRoomName.center = [unsnappedPos.x, unsnappedPos.y];
+            const coords = state.isDraggingRoomName.polygon.geometry.coordinates[0];
+            
+            // En yakın duvar mesafesini hesapla
+            let minDistToWall = Infinity;
+            for (let i = 0; i < coords.length - 1; i++) {
+                const p1 = { x: coords[i][0], y: coords[i][1] };
+                const p2 = { x: coords[i + 1][0], y: coords[i + 1][1] };
+                
+                // Noktadan duvar segmentine mesafe
+                const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
+                if (l2 === 0) continue;
+                
+                let t = ((unsnappedPos.x - p1.x) * (p2.x - p1.x) + (unsnappedPos.y - p1.y) * (p2.y - p1.y)) / l2;
+                t = Math.max(0, Math.min(1, t));
+                
+                const projX = p1.x + t * (p2.x - p1.x);
+                const projY = p1.y + t * (p2.y - p1.y);
+                
+                const dist = Math.hypot(unsnappedPos.x - projX, unsnappedPos.y - projY);
+                minDistToWall = Math.min(minDistToWall, dist);
+            }
+            
+            // Duvara 30 cm'den fazla yaklaşmasın
+            if (minDistToWall >= 30) {
+                state.isDraggingRoomName.center = [unsnappedPos.x, unsnappedPos.y];
+            }
         }
         return;
     }

@@ -34,9 +34,11 @@ export function onPointerDown(e) {
             setState({ selectedRoom: null });
         }
         
-        if (selectedObject && selectedObject.type === 'roomName') {
+        if (selectedObject && (selectedObject.type === 'roomName' || selectedObject.type === 'roomArea')) {
             setState({ 
-                isDraggingRoomName: selectedObject.object, 
+                isDraggingRoomName: selectedObject.object,
+                roomDragStartPos: { x: pos.x, y: pos.y },
+                roomOriginalCenter: [...selectedObject.object.center],
                 selectedObject: null 
             });
             return; 
