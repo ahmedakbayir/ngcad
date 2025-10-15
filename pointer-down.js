@@ -187,6 +187,28 @@ export function onPointerDown(e) {
     } else if (state.currentMode === "drawDoor" || state.currentMode === "drawWindow" || state.currentMode === "drawVent") {
         // Önce mahalle tıklanıp tıklanmadığını kontrol et (sadece kapı modunda)
         if (state.currentMode === "drawDoor") {
+            // Öncelik: Eğer bir kapı önizlemesi varsa, doğrudan onu ekle.
+            let previewWall = null;
+            let minDistSqPreview = Infinity;
+            // Önizleme için daha geniş bir tolerans kullanılır
+            const bodyHitTolerancePreview = (WALL_THICKNESS * 1.5) ** 2;
+
+            for (const w of [...state.walls].reverse()) {
+                const distSq = distToSegmentSquared(snappedPos, w.p1, w.p2);
+                if (distSq < bodyHitTolerancePreview && distSq < minDistSqPreview) {
+                    minDistSqPreview = distSq;
+                    previewWall = w;
+                }
+            }
+
+            if (previewWall) {
+                const previewDoor = getDoorPlacement(previewWall, snappedPos);
+                if (previewDoor && isSpaceForDoor(previewDoor)) {
+                    state.doors.push(previewDoor);
+                    saveState();
+                    return; // Kapı eklendi, başka bir işlem yapma.
+                }
+            }
             const clickedObject = getObjectAtPoint(pos);
             
             if (clickedObject && clickedObject.type === 'room') {
