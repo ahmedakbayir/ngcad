@@ -9,7 +9,14 @@ export function onPointerMove(e) {
     if (state.isDraggingRoomName) {
         const rect = dom.c2d.getBoundingClientRect();
         const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-        const point = turf.point([unsnappedPos.x, unsnappedPos.y]);
+
+        const deltaX = unsnappedPos.x - state.roomDragStartPos.x;
+        const deltaY = unsnappedPos.y - state.roomDragStartPos.y;
+
+        const newCenterX = state.roomOriginalCenter[0] + deltaX;
+        const newCenterY = state.roomOriginalCenter[1] + deltaY;
+        
+        const point = turf.point([newCenterX, newCenterY]);
 
         // Mahal sınırları içinde mi kontrol et
         if (turf.booleanPointInPolygon(point, state.isDraggingRoomName.polygon)) {
@@ -25,19 +32,19 @@ export function onPointerMove(e) {
                 const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
                 if (l2 === 0) continue;
                 
-                let t = ((unsnappedPos.x - p1.x) * (p2.x - p1.x) + (unsnappedPos.y - p1.y) * (p2.y - p1.y)) / l2;
+                let t = ((newCenterX - p1.x) * (p2.x - p1.x) + (newCenterY - p1.y) * (p2.y - p1.y)) / l2;
                 t = Math.max(0, Math.min(1, t));
                 
                 const projX = p1.x + t * (p2.x - p1.x);
                 const projY = p1.y + t * (p2.y - p1.y);
                 
-                const dist = Math.hypot(unsnappedPos.x - projX, unsnappedPos.y - projY);
+                const dist = Math.hypot(newCenterX - projX, newCenterY - projY);
                 minDistToWall = Math.min(minDistToWall, dist);
             }
             
             // Duvara 30 cm'den fazla yaklaşmasın
             if (minDistToWall >= 30) {
-                state.isDraggingRoomName.center = [unsnappedPos.x, unsnappedPos.y];
+                state.isDraggingRoomName.center = [newCenterX, newCenterY];
             }
         }
         return;
