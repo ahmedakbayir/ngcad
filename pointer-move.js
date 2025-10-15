@@ -7,46 +7,33 @@ import { getDoorPlacement, isSpaceForDoor, getMinWallLength } from './actions.js
 
 export function onPointerMove(e) {
     if (state.isDraggingRoomName) {
+        const room = state.isDraggingRoomName;
         const rect = dom.c2d.getBoundingClientRect();
-        const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const mousePos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 
-        const deltaX = unsnappedPos.x - state.roomDragStartPos.x;
-        const deltaY = unsnappedPos.y - state.roomDragStartPos.y;
+        // Farenin sürüklemeye başladığı noktaya göre ne kadar yer değiştirdiğini bul
+        const mouseDeltaX = mousePos.x - state.roomDragStartPos.x;
+        const mouseDeltaY = mousePos.y - state.roomDragStartPos.y;
 
-        const newCenterX = state.roomOriginalCenter[0] + deltaX;
-        const newCenterY = state.roomOriginalCenter[1] + deltaY;
+        // Etiketin başlangıçtaki merkezine bu yer değişimini ekleyerek yeni merkezini bul
+        const newCenterX = state.roomOriginalCenter[0] + mouseDeltaX;
+        const newCenterY = state.roomOriginalCenter[1] + mouseDeltaY;
+
+        // Etiketin mutlak merkezini güncelle
+        room.center = [newCenterX, newCenterY];
+
+        // Bu yeni merkezin, mahalin sınırlayıcı kutusuna göre orantısal konumunu hesapla ve kaydet
+        const bbox = turf.bbox(room.polygon);
+        const bboxWidth = bbox[2] - bbox[0];
+        const bboxHeight = bbox[3] - bbox[1];
         
-        const point = turf.point([newCenterX, newCenterY]);
-
-        // Mahal sınırları içinde mi kontrol et
-        if (turf.booleanPointInPolygon(point, state.isDraggingRoomName.polygon)) {
-            const coords = state.isDraggingRoomName.polygon.geometry.coordinates[0];
-            
-            // En yakın duvar mesafesini hesapla
-            let minDistToWall = Infinity;
-            for (let i = 0; i < coords.length - 1; i++) {
-                const p1 = { x: coords[i][0], y: coords[i][1] };
-                const p2 = { x: coords[i + 1][0], y: coords[i + 1][1] };
-                
-                // Noktadan duvar segmentine mesafe
-                const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
-                if (l2 === 0) continue;
-                
-                let t = ((newCenterX - p1.x) * (p2.x - p1.x) + (newCenterY - p1.y) * (p2.y - p1.y)) / l2;
-                t = Math.max(0, Math.min(1, t));
-                
-                const projX = p1.x + t * (p2.x - p1.x);
-                const projY = p1.y + t * (p2.y - p1.y);
-                
-                const dist = Math.hypot(newCenterX - projX, newCenterY - projY);
-                minDistToWall = Math.min(minDistToWall, dist);
-            }
-            
-            // Duvara 30 cm'den fazla yaklaşmasın
-            if (minDistToWall >= 30) {
-                state.isDraggingRoomName.center = [newCenterX, newCenterY];
-            }
+        if (bboxWidth > 0 && bboxHeight > 0) {
+            room.centerOffset = {
+                x: (newCenterX - bbox[0]) / bboxWidth,
+                y: (newCenterY - bbox[1]) / bboxHeight
+            };
         }
+        
         return;
     }
 
@@ -110,7 +97,6 @@ export function onPointerMove(e) {
 
             const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
             
-            // nodesToMove'u her seferinde yeniden hesapla (split sonrası yeni node'lar için)
             const nodesToMove = new Set();
             wallsToMove.forEach((w) => { 
                 nodesToMove.add(w.p1); 
@@ -130,7 +116,6 @@ export function onPointerMove(e) {
                 totalDelta.x = 0;
             }
             
-            // Önce mouse delta'ya göre hareket ettir
             nodesToMove.forEach((node) => {
                 const originalPos = state.preDragNodeStates.get(node);
                 if (originalPos) {
@@ -139,29 +124,20 @@ export function onPointerMove(e) {
                 }
             });
 
-            // MANYETİK YAPIŞTIRMA: Aynı doğrultudaki duvarların uçlarını birleştir
-            const MAGNETIC_SNAP_DISTANCE = 20; // 20 cm
-            const ANGLE_TOLERANCE = 2; // 2 derece
+            const MAGNETIC_SNAP_DISTANCE = 20;
+            const ANGLE_TOLERANCE = 2;
             
             let bestMagneticSnap = null;
             let minMagneticDist = Infinity;
-            
-console.log('Manyetik kontrol başlıyor...');
-console.log('Hareket eden duvar sayısı:', wallsToMove.length);
-console.log('dragAxis:', state.dragAxis);
-console.log('isSweeping:', state.isSweeping);
 
-wallsToMove.forEach(movingWall => {
-    const dx1 = movingWall.p2.x - movingWall.p1.x;
-    const dy1 = movingWall.p2.y - movingWall.p1.y;
-    const len1 = Math.hypot(dx1, dy1);
-    if (len1 < 0.1) return;
-    
-    console.log('Duvar yönü (açı):', Math.atan2(Math.abs(dy1), Math.abs(dx1)) * 180 / Math.PI);
+            wallsToMove.forEach(movingWall => {
+                const dx1 = movingWall.p2.x - movingWall.p1.x;
+                const dy1 = movingWall.p2.y - movingWall.p1.y;
+                const len1 = Math.hypot(dx1, dy1);
+                if (len1 < 0.1) return;
     
                 const dir1 = { x: dx1 / len1, y: dy1 / len1 };
                 
-                // Diğer duvarları kontrol et
                 state.walls.forEach(staticWall => {
                     if (wallsToMove.includes(staticWall)) return;
                     
@@ -172,11 +148,9 @@ wallsToMove.forEach(movingWall => {
                     
                     const dir2 = { x: dx2 / len2, y: dy2 / len2 };
                     
-                    // Aynı doğrultuda mı kontrol et
                     const dotProduct = Math.abs(dir1.x * dir2.x + dir1.y * dir2.y);
                     if (dotProduct < Math.cos(ANGLE_TOLERANCE * Math.PI / 180)) return;
                     
-                    // Hareket eden duvarın uçlarını kontrol et
                     const nodePairs = [
                         { moving: movingWall.p1, static: staticWall.p1 },
                         { moving: movingWall.p1, static: staticWall.p2 },
@@ -198,16 +172,10 @@ wallsToMove.forEach(movingWall => {
                 });
             });
             
-            // En iyi manyetik kaymayı uygula
             if (bestMagneticSnap) {
                 let magneticDx = bestMagneticSnap.dx;
                 let magneticDy = bestMagneticSnap.dy;
                 
-                // Yatay duvar (açı < 45°) ise sadece X'te yapış
-                // Dikey duvar (açı >= 45°) ise sadece Y'de yapış
-
-                
-                // Tüm hareket eden node'ları aynı miktarda kaydır
                 nodesToMove.forEach(node => {
                     node.x += magneticDx;
                     node.y += magneticDy;

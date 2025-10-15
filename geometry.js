@@ -114,34 +114,62 @@ export function detectRooms() {
                     const areaInCm2 = calculatePlanarArea(polygon.geometry.coordinates);
                     if (areaInCm2 < 1) return;
                     const areaInM2 = areaInCm2 / 10000;
-                    const centerPoint = turf.pointOnFeature(polygon);
                     
-                   let existingRoomName = 'MAHAL';
-                    let existingRoomCenter = null;
+                    let existingRoomName = 'MAHAL';
+                    // Orantısal merkez için varsayılan değer (0.5 = %50)
+                    let existingRoomCenterOffset = { x: 0.5, y: 0.5 }; 
 
                     if (oldRooms.length > 0) {
                         const containedOldRooms = oldRooms.filter(r => {
                             try {
+                                // Eski etiket merkezi, bu yeni oluşan poligonun içinde mi diye kontrol et
                                 return r.center && turf.booleanPointInPolygon(r.center, polygon);
                             } catch (e) {
                                 return false;
                             }
                         });
                         if (containedOldRooms.length > 0) {
+                            // Birden fazla eşleşme varsa en büyüğünü referans al
                             containedOldRooms.sort((a, b) => b.area - a.area);
-                            existingRoomName = containedOldRooms[0].name;
-                            // Eski merkez yeni polygon içindeyse koru
-                            if (turf.booleanPointInPolygon(containedOldRooms[0].center, polygon)) {
-                                existingRoomCenter = containedOldRooms[0].center;
+                            const bestOldRoom = containedOldRooms[0];
+                            existingRoomName = bestOldRoom.name;
+                            // Eski odanın orantısal merkez bilgisini devral
+                            if (bestOldRoom.centerOffset) {
+                                existingRoomCenterOffset = bestOldRoom.centerOffset;
                             }
+                        }
+                    }
+
+                    // Poligonun sınırlayıcı kutusunu (bounding box) al
+                    const bbox = turf.bbox(polygon);
+                    const bboxWidth = bbox[2] - bbox[0];
+                    const bboxHeight = bbox[3] - bbox[1];
+                    
+                    // Yeni mutlak merkezi, orantısal bilgiye göre hesapla
+                    let newCenterX = bbox[0] + bboxWidth * existingRoomCenterOffset.x;
+                    let newCenterY = bbox[1] + bboxHeight * existingRoomCenterOffset.y;
+
+                    // Hesaplanan merkez poligon dışında kalırsa (örn: L şeklindeki odalar)
+                    // Turf'un güvenli merkez bulma fonksiyonunu kullan ve orantıyı yeniden hesapla
+                    const calculatedCenterPoint = turf.point([newCenterX, newCenterY]);
+                    if (!turf.booleanPointInPolygon(calculatedCenterPoint, polygon)) {
+                        const centerOnFeature = turf.pointOnFeature(polygon);
+                        newCenterX = centerOnFeature.geometry.coordinates[0];
+                        newCenterY = centerOnFeature.geometry.coordinates[1];
+                        if (bboxWidth > 0 && bboxHeight > 0) {
+                            existingRoomCenterOffset = {
+                                x: (newCenterX - bbox[0]) / bboxWidth,
+                                y: (newCenterY - bbox[1]) / bboxHeight
+                            };
                         }
                     }
 
                     newRooms.push({
                         polygon: polygon,
                         area: areaInM2,
-                        center: existingRoomCenter || centerPoint.geometry.coordinates,
-                        name: existingRoomName
+                        center: [newCenterX, newCenterY],
+                        name: existingRoomName,
+                        centerOffset: existingRoomCenterOffset // Orantısal bilgiyi kaydet
                     });
                 } catch (e) {
                     console.error("Poligon işleme hatası:", e);
@@ -209,17 +237,15 @@ export function wallExists(p1, p2) {
     return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
 }
 
-// YENİ FONKSİYON: Serbest çizimde duvar açısını 15 derecenin katlarına kısıtlar.
 export function snapTo15DegreeAngle(p1, p2) {
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const distance = Math.hypot(dx, dy);
-    if (distance < 10) return p2; // Çok kısa mesafelerde snap yapma
+    if (distance < 10) return p2;
 
     let angleRad = Math.atan2(dy, dx);
     let angleDeg = angleRad * 180 / Math.PI;
 
-    // 15 derecenin katlarına yuvarla
     const SNAP_ANGLE = 15;
     const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
     const snappedAngleRad = snappedAngleDeg * Math.PI / 180;
