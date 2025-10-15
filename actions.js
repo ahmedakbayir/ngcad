@@ -268,7 +268,7 @@ export function getDoorPlacementAtNode(wall, node) {
     if (wallLen < 1) return null;
 
     const isP1 = wall.p1 === node;
-    const doorWidth = 90;
+    const doorWidth = 70;
     const minDist = 15;
     const pos = isP1 ? doorWidth / 2 + minDist : wallLen - doorWidth / 2 - minDist;
 
