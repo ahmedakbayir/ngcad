@@ -124,6 +124,36 @@ export function onPointerMove(e) {
                 }
             });
 
+            // Sürüklenen mahal poligonunu ve merkezini güncelle
+            if (state.draggedRoomInfo && state.draggedRoomInfo.length > 0) {
+                const nodePositionMap = new Map();
+                nodesToMove.forEach(node => {
+                    const originalPos = state.preDragNodeStates.get(node);
+                    if (originalPos) {
+                        nodePositionMap.set(`${originalPos.x},${originalPos.y}`, { x: node.x, y: node.y });
+                    }
+                });
+
+                state.draggedRoomInfo.forEach(info => {
+                    const { originalCoords, tempPolygon, room } = info;
+
+                    const newCoords = originalCoords.map(coord => {
+                        const key = `${coord[0]},${coord[1]}`;
+                        if (nodePositionMap.has(key)) {
+                            const newPos = nodePositionMap.get(key);
+                            return [newPos.x, newPos.y];
+                        }
+                        return coord;
+                    });
+
+                    tempPolygon.geometry.coordinates[0] = newCoords;
+
+                    // Etiket için merkez noktasını yeniden hesapla
+                    const centerOnFeature = turf.pointOnFeature(tempPolygon);
+                    room.center = centerOnFeature.geometry.coordinates;
+                });
+            }
+
             const MAGNETIC_SNAP_DISTANCE = 20;
             const ANGLE_TOLERANCE = 2;
             

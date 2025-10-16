@@ -17,7 +17,7 @@ export const SNAP_UNLOCK_DISTANCE_CM = 10;
 export const MAHAL_LISTESI = [
     'MAHAL','MUTFAK','SALON','AÇIK MUTFAK','YATAK ODASI','OTURMA ODASI','ÇOCUK ODASI',
     'YEMEK ODASI','ÇALIŞMA ODASI','AÇIK BALKON','KAPALI BALKON','SAHANLIK','AÇIK SAHANLIK',
-    'DUBLEKS ANTRE','KORİDOR','ANTRE','HOL','BANYO','WC','LAVABO','ODA','ASANSÖR','OFİS',
+    'KORİDOR','ANTRE','DUBLEKS ANTRE','HOL','BANYO','WC','LAVABO','ODA','ASANSÖR','OFİS',
     'DAİRE','KAZAN DAİRESİ','DÜKKAN','YAN BİNA','KİLER','DEPO','BAHÇE','AYDINLIK','GARAJ',
     'TERAS','BODRUM','AÇIK OTOPARK','KAPALI OTOPARK','BACA','AÇIK AYDINLIK','ÇATI ARASI',
     'YANGIN MERDİVENİ','TESİSAT ŞAFTI','SAYAÇ ODASI','SAYAÇ ŞAFTI','KURANGLEZ','SIĞINAK',
@@ -98,9 +98,14 @@ export let state = {
     },
     isSweeping: false,
     sweepWalls: [],
+    draggedRoomInfo: [], // Sürüklenen mahal bilgisi için eklendi (artık bir dizi)
 };
 
 export function setState(newState) {
+    // Sürükleme bittiğinde geçici mahal bilgisini temizle
+    if (newState.isDragging === false) {
+        newState.draggedRoomInfo = [];
+    }
     state = { ...state, ...newState };
 }
 

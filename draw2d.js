@@ -29,7 +29,7 @@ export function draw2D() {
         selectedGroup, wallBorderColor, lineThickness, dimensionMode,
         affectedWalls, startPoint, currentMode, mousePos,
         isStretchDragging, stretchWallOrigin, dragStartPoint, isDragging, isPanning,
-        isSweeping, sweepWalls, nodes, selectedRoom, dimensionOptions
+        isSweeping, sweepWalls, nodes, selectedRoom, dimensionOptions, draggedRoomInfo
     } = state;
 
     ctx2d.fillStyle = BG;
@@ -40,11 +40,41 @@ export function draw2D() {
     ctx2d.lineWidth = 1 / zoom;
 
     drawGrid();
+    
+    // Sürüklenen geçici mahal poligonlarını çiz
+    if (isDragging && draggedRoomInfo.length > 0) {
+        draggedRoomInfo.forEach(info => {
+            const { tempPolygon } = info;
+            const coords = tempPolygon.geometry.coordinates[0];
+            if (coords.length >= 3) {
+                ctx2d.fillStyle = darkenColor(roomFillColor, 20);
+                ctx2d.strokeStyle = "rgba(138, 180, 248, 0.5)";
+                ctx2d.lineWidth = 2;
+                ctx2d.beginPath();
+                ctx2d.moveTo(coords[0][0], coords[0][1]);
+                for (let i = 1; i < coords.length; i++) {
+                    ctx2d.lineTo(coords[i][0], coords[i][1]);
+                }
+                ctx2d.closePath();
+                ctx2d.fill();
+                ctx2d.stroke();
+            }
+        });
+    }
+
+    const draggedRooms = isDragging && draggedRoomInfo.length > 0 
+        ? new Set(draggedRoomInfo.map(info => info.room)) 
+        : new Set();
 
     if (rooms.length > 0) {
         ctx2d.strokeStyle = "rgba(138, 180, 248, 0.3)";
         ctx2d.lineWidth = 1;
         rooms.forEach((room) => {
+            // Sürükleniyorsa orijinal mahali çizme
+            if (draggedRooms.has(room)) {
+                return;
+            }
+
             const coords = room.polygon.geometry.coordinates[0];
             if (coords.length < 3) return;
 
@@ -302,6 +332,11 @@ export function draw2D() {
         const hoveredRoom = (hoveredObject?.type === 'roomName' || hoveredObject?.type === 'roomArea') ? hoveredObject.object : null;
         
         rooms.forEach((room) => {
+             // Sürükleniyorsa orijinal mahal ismini/alanını çizme
+            if (draggedRooms.has(room)) {
+                return;
+            }
+
             if (!room.center || !Array.isArray(room.center) || room.center.length < 2) return;
             const baseNameFontSize = 18, baseAreaFontSize = 14;
             const showArea = dimensionOptions.defaultView > 0;
@@ -346,6 +381,27 @@ export function draw2D() {
             if (isHovered) {
                 ctx2d.shadowColor = 'transparent';
                 ctx2d.shadowBlur = 0;
+            }
+        });
+    }
+
+    // Sürüklenen geçici mahallerin isimlerini çiz
+    if (isDragging && draggedRoomInfo.length > 0) {
+        draggedRoomInfo.forEach(info => {
+            const { room } = info;
+            if (room.center && Array.isArray(room.center) && room.center.length >= 2) {
+                ctx2d.textAlign = "center";
+                ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
+                const baseNameFontSize = 18;
+                let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
+                ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+                const showArea = dimensionOptions.defaultView > 0;
+                const baseNameYOffset = showArea ? 10 : 0;
+                const nameYOffset = baseNameYOffset / zoom;
+
+                ctx2d.textBaseline = "middle";
+                ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
+                // Not: Alan bilgisi sürükleme sırasında güncellenmediği için çizilmiyor.
             }
         });
     }

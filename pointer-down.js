@@ -140,6 +140,29 @@ export function onPointerDown(e) {
                         isSweeping: isSweeping
                     });
 
+                    // Sürüklenen duvarla ilişkili mahali bul ve sakla
+                    const startWall = selectedObject.object;
+                    const affectedRoomsForDrag = state.rooms.filter(room => {
+                        if (!room.polygon || !room.polygon.geometry) return false;
+                        const roomCoords = room.polygon.geometry.coordinates[0];
+                        // Duvarın her iki ucunun da mahal poligonunun bir parçası olup olmadığını kontrol et
+                        const hasP1 = roomCoords.some(c => Math.hypot(c[0] - startWall.p1.x, c[1] - startWall.p1.y) < 0.1);
+                        const hasP2 = roomCoords.some(c => Math.hypot(c[0] - startWall.p2.x, c[1] - startWall.p2.y) < 0.1);
+                        return hasP1 && hasP2;
+                    });
+
+                    if (affectedRoomsForDrag.length > 0) {
+                        const draggedRoomInfos = affectedRoomsForDrag.map(room => ({
+                            room: room,
+                            originalCoords: JSON.parse(JSON.stringify(room.polygon.geometry.coordinates[0])),
+                            tempPolygon: JSON.parse(JSON.stringify(room.polygon))
+                        }));
+                         setState({
+                            draggedRoomInfo: draggedRoomInfos
+                        });
+                    }
+
+
                     if (!isCopying && !isSweeping && !e.altKey && !e.shiftKey) {
                         const checkAndSplitNode = (node) => {
                             const connectedWalls = state.walls.filter(w => (w.p1 === node || w.p2 === node) && !wallsBeingMoved.includes(w));
