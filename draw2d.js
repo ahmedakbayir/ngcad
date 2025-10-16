@@ -1,6 +1,7 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
-import { getDoorPlacementAtNode, getDoorPlacement, isSpaceForDoor, getObjectAtPoint } from './actions.js';
+// 'getDoorPlacementAtNode' bu satırdan kaldırıldı
+import { getDoorPlacement, isSpaceForDoor, getObjectAtPoint } from './actions.js';
 import { drawAngleSymbol, drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
 import { drawDimension, drawTotalDimensions } from './dimensions.js';
 
@@ -16,8 +17,8 @@ function darkenColor(hex, percent) {
     g = (g < 0) ? 0 : g;
     b = (b < 0) ? 0 : b;
     const rStr = (r.toString(16).length < 2) ? '0' + r.toString(16) : r.toString(16);
-    const gStr = (g.toString(16).length < 2) ? '0' + g.toString(16) : g.toString(16);
-    const bStr = (b.toString(16).length < 2) ? '0' + b.toString(16) : b.toString(16);
+    const gStr = (g.toString(16).length < 2) ? '0' + g.toString(16) : r.toString(16);
+    const bStr = (b.toString(16).length < 2) ? '0' + b.toString(16) : r.toString(16);
     return `#${rStr}${gStr}${bStr}`;
 }
 
@@ -297,7 +298,6 @@ export function draw2D() {
     if (rooms.length > 0) {
         ctx2d.textAlign = "center";
         
-        // Hover kontrolü
         const hoveredObject = currentMode === 'select' && !isDragging ? getObjectAtPoint(mousePos) : null;
         const hoveredRoom = (hoveredObject?.type === 'roomName' || hoveredObject?.type === 'roomArea') ? hoveredObject.object : null;
         
@@ -310,7 +310,6 @@ export function draw2D() {
 
             const isHovered = hoveredRoom === room;
             
-            // Hover durumunda parlak gölge
             if (isHovered) {
                 ctx2d.shadowColor = 'rgba(138, 180, 248, 0.6)';
                 ctx2d.shadowBlur = 8;
@@ -334,18 +333,16 @@ export function draw2D() {
             }
 
             if (showArea) {
-                ctx2d.fillStyle = dimensionOptions.color; // Ölçü rengiyle aynı
+                ctx2d.fillStyle = dimensionOptions.color;
                 let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
                 ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
                 ctx2d.textBaseline = "middle";
                 const text = `${room.area.toFixed(2)} m²`;
                 
-                // Daha fazla boşluk için offset arttırıldı
                 const areaYOffset = nameParts.length === 2 ? nameFontSize * 1.5 : nameFontSize * 1.1;
                 ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset + areaYOffset);
             }
 
-            // Gölgeyi temizle
             if (isHovered) {
                 ctx2d.shadowColor = 'transparent';
                 ctx2d.shadowBlur = 0;

@@ -1,4 +1,4 @@
-import { state, dom } from './main.js'; // dom eklendi
+import { state, dom } from './main.js';
 import { distToSegmentSquared } from './geometry.js';
 import { WALL_THICKNESS, DRAG_HANDLE_RADIUS } from './main.js';
 
@@ -88,9 +88,9 @@ export function getObjectAtPoint(worldPos) {
         }
     }
 
-// --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
     // Mahal adlarını ve alan bilgilerini kontrol et
     const { ctx2d } = dom;
+    const hitPadding = 10 / zoom; // Tıklama alanını genişletmek için padding
     for (const room of rooms) {
         if (!room.center || !Array.isArray(room.center) || room.center.length < 2) continue;
         
@@ -101,7 +101,6 @@ export function getObjectAtPoint(worldPos) {
         let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
         let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
         
-        // Mahal adı bounding box hesapla
         ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
         
         const nameParts = room.name.split(' ');
@@ -124,19 +123,17 @@ export function getObjectAtPoint(worldPos) {
         const baseNameYOffset = showArea ? 10 : 0;
         const nameYOffset = baseNameYOffset / zoom;
         
-        // Metin gerçekte nasıl çiziliyor ona göre bounding box hesapla
         const baseTextOffset = nameParts.length === 2 ? nameFontSize * 0.6 : 0;
 
-        const nameLeft = room.center[0] - nameWidth / 2;
-        const nameRight = room.center[0] + nameWidth / 2;
-        const nameTop = room.center[1] - nameYOffset - nameHeight + baseTextOffset;
-        const nameBottom = room.center[1] - nameYOffset + baseTextOffset;
+        const nameLeft = room.center[0] - nameWidth / 2 - hitPadding;
+        const nameRight = room.center[0] + nameWidth / 2 + hitPadding;
+        const nameTop = room.center[1] - nameYOffset - nameHeight + baseTextOffset - hitPadding;
+        const nameBottom = room.center[1] - nameYOffset + baseTextOffset + hitPadding;
 
         if (worldPos.x >= nameLeft && worldPos.x <= nameRight && worldPos.y >= nameTop && worldPos.y <= nameBottom) {
             return { type: "roomName", object: room };
         }
         
-        // Alan bilgisi bounding box hesapla (eğer gösteriliyorsa)
         if (showArea) {
             ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
             const areaText = `${room.area.toFixed(2)} m²`;
@@ -146,18 +143,17 @@ export function getObjectAtPoint(worldPos) {
                         
             let areaTop, areaBottom;
             const areaYOffset = nameParts.length === 2 ? nameFontSize * 1.5 : nameFontSize * 1.1;
-            areaTop = room.center[1] - nameYOffset + areaYOffset - areaHeight / 2;
-            areaBottom = areaTop + areaHeight;
+            areaTop = room.center[1] - nameYOffset + areaYOffset - areaHeight / 2 - hitPadding;
+            areaBottom = areaTop + areaHeight + (hitPadding * 2);
             
-            const areaLeft = room.center[0] - areaWidth / 2;
-            const areaRight = room.center[0] + areaWidth / 2;
+            const areaLeft = room.center[0] - areaWidth / 2 - hitPadding;
+            const areaRight = room.center[0] + areaWidth / 2 + hitPadding;
             
             if (worldPos.x >= areaLeft && worldPos.x <= areaRight && worldPos.y >= areaTop && worldPos.y <= areaBottom) {
                 return { type: "roomArea", object: room };
             }
         }
     }
-    // --- DEĞİŞİKLİK SONU ---
 
     // Mahal alanlarını kontrol et
     for (const room of rooms) {
@@ -172,26 +168,6 @@ export function getObjectAtPoint(worldPos) {
 
     return null;
 }
-
-function isPointInPolygon(point, polygonCoords) {
-    let inside = false;
-    const x = point.x;
-    const y = point.y;
-    
-    for (let i = 0, j = polygonCoords.length - 1; i < polygonCoords.length; j = i++) {
-        const xi = polygonCoords[i][0];
-        const yi = polygonCoords[i][1];
-        const xj = polygonCoords[j][0];
-        const yj = polygonCoords[j][1];
-        
-        const intersect = ((yi > y) !== (yj > y)) && 
-                         (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-    }
-    
-    return inside;
-}
-
 
 export function getDoorPlacement(wall, mousePos) {
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -263,22 +239,6 @@ export function getDoorPlacement(wall, mousePos) {
     return { wall, pos: centerPos, width: doorWidth, type: 'door' };
 }
 
-export function getDoorPlacementAtNode(wall, node) {
-    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    if (wallLen < 1) return null;
-
-    const isP1 = wall.p1 === node;
-    const doorWidth = 70;
-    const minDist = 15;
-    const pos = isP1 ? doorWidth / 2 + minDist : wallLen - doorWidth / 2 - minDist;
-
-    if (pos < doorWidth / 2 + minDist || pos > wallLen - doorWidth / 2 - minDist) {
-        return null;
-    }
-
-    return { wall, pos, width: doorWidth, type: 'door' };
-}
-
 export function isSpaceForDoor(doorData, atNode = null) {
     const { wall, pos, width } = doorData;
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -333,7 +293,6 @@ export function findCollinearChain(startWall) {
         );
         
         for (const wall of connectedWalls) {
-            // Başlangıç duvarının yönü
             const dx1 = startWall.p2.x - startWall.p1.x;
             const dy1 = startWall.p2.y - startWall.p1.y;
             const len1 = Math.hypot(dx1, dy1);
@@ -341,7 +300,6 @@ export function findCollinearChain(startWall) {
             
             const dir1 = { x: dx1 / len1, y: dy1 / len1 };
             
-            // Bağlı duvarın yönü
             const dx2 = wall.p2.x - wall.p1.x;
             const dy2 = wall.p2.y - wall.p1.y;
             const len2 = Math.hypot(dx2, dy2);
@@ -349,9 +307,8 @@ export function findCollinearChain(startWall) {
             
             const dir2 = { x: dx2 / len2, y: dy2 / len2 };
             
-            // Aynı doğrultuda mı kontrol et (dot product)
             const dotProduct = Math.abs(dir1.x * dir2.x + dir1.y * dir2.y);
-            const COLLINEAR_THRESHOLD = Math.cos(5 * Math.PI / 180); // 5 derece tolerans
+            const COLLINEAR_THRESHOLD = Math.cos(5 * Math.PI / 180);
             
             if (dotProduct > COLLINEAR_THRESHOLD) {
                 visited.add(wall);
