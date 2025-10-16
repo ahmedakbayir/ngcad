@@ -91,10 +91,11 @@ export let state = {
         weight: 0.5,
     },
     dimensionOptions: {
-        fontSize: 14,
-        color: "#80ef80",
+        fontSize: 16,
+        color: "#1fa6ea",
         defaultView: 1, // 0: Kapalı, 1: Özet, 2: Detaylı
-        showOuter: false,
+        showArea: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
+        showOuter: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
     },
     isSweeping: false,
     sweepWalls: [],
@@ -156,7 +157,8 @@ export const dom = {
     dimensionFontSizeInput: document.getElementById("dimension-font-size"),
     dimensionColorInput: document.getElementById("dimension-color"),
     dimensionDefaultViewSelect: document.getElementById("dimension-default-view"),
-    dimensionShowOuterInput: document.getElementById("dimension-show-outer"),
+    dimensionShowAreaSelect: document.getElementById("dimension-show-area"),
+    dimensionShowOuterSelect: document.getElementById("dimension-show-outer"),
     roomNamePopup: document.getElementById("room-name-popup"),
     roomNameSelect: document.getElementById("room-name-select"),
     roomNameInput: document.getElementById("room-name-input"),

@@ -22,7 +22,8 @@ export function initializeSettings() {
     dom.dimensionFontSizeInput.value = state.dimensionOptions.fontSize;
     dom.dimensionColorInput.value = state.dimensionOptions.color;
     dom.dimensionDefaultViewSelect.value = state.dimensionOptions.defaultView;
-    dom.dimensionShowOuterInput.checked = state.dimensionOptions.showOuter;
+    dom.dimensionShowAreaSelect.value = state.dimensionOptions.showArea;
+    dom.dimensionShowOuterSelect.value = state.dimensionOptions.showOuter;
 }
 
 function openTab(tabName) {
@@ -235,7 +236,8 @@ export function setupUIListeners() {
     dom.dimensionFontSizeInput.addEventListener("input", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.fontSize = value; });
     dom.dimensionColorInput.addEventListener("input", (e) => { state.dimensionOptions.color = e.target.value; });
     dom.dimensionDefaultViewSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) { state.dimensionOptions.defaultView = value; setState({ dimensionMode: value }); } });
-    dom.dimensionShowOuterInput.addEventListener("change", (e) => { state.dimensionOptions.showOuter = e.target.checked; });
+    dom.dimensionShowAreaSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showArea = value; });
+    dom.dimensionShowOuterSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showOuter = value; });
     
     dom.roomNameSelect.addEventListener('click', confirmRoomNameChange);
     dom.roomNameSelect.addEventListener('dblclick', confirmRoomNameChange);

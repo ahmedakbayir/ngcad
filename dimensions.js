@@ -279,8 +279,18 @@ export function drawTotalDimensions() {
             ctx2d.restore();
         }
     });
-    
-    if (dimensionOptions.showOuter && walls.length > 0) {
+}
+
+export function drawOuterDimensions() {
+    const { ctx2d } = dom;
+    const { zoom, walls, gridOptions, dimensionOptions, dimensionMode } = state;
+
+    const showOuterOption = dimensionOptions.showOuter;
+    const showOuter = showOuterOption === 1 ||
+                      (showOuterOption === 2 && dimensionMode === 1) ||
+                      (showOuterOption === 3 && dimensionMode === 2);
+
+    if (showOuter && walls.length > 0) {
         const allX = walls.flatMap(w => [w.p1.x, w.p2.x]);
         const allY = walls.flatMap(w => [w.p1.y, w.p2.y]);
         
@@ -300,6 +310,10 @@ export function drawTotalDimensions() {
         ctx2d.fillStyle = dimensionOptions.color;
         ctx2d.lineWidth = 1 / zoom;
         
+        const baseFontSize = dimensionOptions.fontSize;
+        const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
+        const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
+
         const topDimY = minY - dimLineOffset;
         
         ctx2d.beginPath();

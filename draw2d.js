@@ -3,7 +3,7 @@ import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } 
 // 'getDoorPlacementAtNode' bu satırdan kaldırıldı
 import { getDoorPlacement, isSpaceForDoor, getObjectAtPoint } from './actions.js';
 import { drawAngleSymbol, drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
-import { drawDimension, drawTotalDimensions } from './dimensions.js';
+import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 
 function darkenColor(hex, percent) {
     let color = hex.startsWith('#') ? hex.slice(1) : hex;
@@ -339,7 +339,12 @@ export function draw2D() {
 
             if (!room.center || !Array.isArray(room.center) || room.center.length < 2) return;
             const baseNameFontSize = 18, baseAreaFontSize = 14;
-            const showArea = dimensionOptions.defaultView > 0;
+
+            const showAreaOption = dimensionOptions.showArea;
+            const showArea = showAreaOption === 1 || 
+                             (showAreaOption === 2 && dimensionMode === 1) ||
+                             (showAreaOption === 3 && dimensionMode === 2);
+
             const baseNameYOffset = showArea ? 10 : 0;
             const nameYOffset = baseNameYOffset / zoom;
 
@@ -395,7 +400,12 @@ export function draw2D() {
                 const baseNameFontSize = 18;
                 let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
                 ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-                const showArea = dimensionOptions.defaultView > 0;
+
+                const showAreaOption = dimensionOptions.showArea;
+                const showArea = showAreaOption === 1 || 
+                                 (showAreaOption === 2 && dimensionMode === 1) ||
+                                 (showAreaOption === 3 && dimensionMode === 2);
+                
                 const baseNameYOffset = showArea ? 10 : 0;
                 const nameYOffset = baseNameYOffset / zoom;
 
@@ -484,7 +494,9 @@ export function draw2D() {
         walls.forEach((w) => { 
             drawDimension(w.p1, w.p2, false, 'single'); 
         }); 
-    } 
+    }
+    
+    drawOuterDimensions();
     
     if (!isDragging && selectedObject?.type === "wall" && dimensionMode === 0) { 
         drawDimension(selectedObject.object.p1, selectedObject.object.p2, true, 'single'); 
