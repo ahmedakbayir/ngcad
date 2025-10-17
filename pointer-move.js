@@ -4,8 +4,41 @@ import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { positionLengthInput } from './ui.js';
 import { update3DScene } from './scene3d.js';
 import { getDoorPlacement, isSpaceForDoor, getMinWallLength } from './actions.js';
+import { processWalls } from './wall-processor.js';
+import { saveState } from './history.js';
 
 export function onPointerMove(e) {
+    if (state.isCtrlDeleting) {
+        const rect = dom.c2d.getBoundingClientRect();
+        const mousePos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+
+        const wallsToDelete = new Set();
+        const bodyHitTolerance = WALL_THICKNESS / 2;
+
+        // Bütün duvarları kontrol et
+        for (const wall of state.walls) {
+            const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);
+            if (distSq < bodyHitTolerance ** 2) {
+                wallsToDelete.add(wall);
+            }
+        }
+
+        if (wallsToDelete.size > 0) {
+            const wallsToDeleteArray = Array.from(wallsToDelete);
+            const newWalls = state.walls.filter(w => !wallsToDeleteArray.includes(w));
+            const newDoors = state.doors.filter(d => !wallsToDeleteArray.includes(d.wall));
+            
+            setState({
+                walls: newWalls,
+                doors: newDoors
+            });
+
+            // Geometriyi anında güncelle
+            processWalls();
+        }
+        return;
+    }
+
     if (state.isDraggingRoomName) {
         const room = state.isDraggingRoomName;
         const rect = dom.c2d.getBoundingClientRect();

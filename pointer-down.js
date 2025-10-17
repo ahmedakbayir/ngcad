@@ -26,6 +26,16 @@ export function onPointerDown(e) {
             cancelLengthEdit();
             return;
         }
+
+        // Sadece CTRL tuşuna basılıyken (ALT veya SHIFT olmadan) silme modunu başlat
+        if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+            setState({
+                isCtrlDeleting: true,
+            });
+            // İşlemi burada sonlandır ki sürükleme mantığı devreye girmesin
+            return; 
+        }
+
         const selectedObject = getObjectAtPoint(pos);
 
         if (selectedObject && selectedObject.type === 'room') {
@@ -92,7 +102,8 @@ export function onPointerDown(e) {
                         }
                     });
                 } else {
-                    const isCopying = e.ctrlKey && !e.shiftKey;
+                    // Kopyalama: CTRL + ALT
+                    const isCopying = e.ctrlKey && e.altKey;
                     const isSweeping = e.shiftKey && !e.ctrlKey;
 
                     let wallsBeingMoved;

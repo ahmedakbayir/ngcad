@@ -100,6 +100,7 @@ export let state = {
     isSweeping: false,
     sweepWalls: [],
     draggedRoomInfo: [], // Sürüklenen mahal bilgisi için eklendi (artık bir dizi)
+    isCtrlDeleting: false,
 };
 
 export function setState(newState) {
