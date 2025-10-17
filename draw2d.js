@@ -341,7 +341,7 @@ export function draw2D() {
             const baseNameFontSize = 18, baseAreaFontSize = 14;
 
             const showAreaOption = dimensionOptions.showArea;
-            const showArea = showAreaOption === 1 || 
+            const showArea = (showAreaOption === 1 && (dimensionMode === 1 || dimensionMode === 2)) || 
                              (showAreaOption === 2 && dimensionMode === 1) ||
                              (showAreaOption === 3 && dimensionMode === 2);
 
@@ -402,7 +402,7 @@ export function draw2D() {
                 ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
 
                 const showAreaOption = dimensionOptions.showArea;
-                const showArea = showAreaOption === 1 || 
+                const showArea = (showAreaOption === 1 && (dimensionMode === 1 || dimensionMode === 2)) || 
                                  (showAreaOption === 2 && dimensionMode === 1) ||
                                  (showAreaOption === 3 && dimensionMode === 2);
                 
@@ -484,7 +484,7 @@ export function draw2D() {
         });
         
         nodesBeingMoved.forEach(node => {
-            drawAngleSymbol(node);
+          //  drawAngleSymbol(node);
         });
     }
 

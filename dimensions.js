@@ -28,7 +28,7 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     let actualOffset;
     if (nx < 0 || ny < 0) {
         // Sol veya üst - yakın
-        actualOffset = wallThickness / 2 + 5;
+        actualOffset = wallThickness / 2 + 5; 
     } else {
         // Sağ veya alt - uzak
         actualOffset = wallThickness / 2 + 18;
@@ -189,8 +189,8 @@ export function drawTotalDimensions() {
         
         // Duvar kalınlığına göre dinamik offset
         const wallThickness = group[0]?.segments?.[0]?.wall?.thickness || 20;
-        const offsetTop = wallThickness / 2 + 5;  // Üst için: duvar merkezinden 10 cm
-        const offsetBottom = wallThickness / 2 + 18; // Alt için: duvar merkezinden 18 cm
+        const offsetTop =  -1.5*wallThickness ;  // Üst için: duvar merkezinden 10 cm
+        const offsetBottom = wallThickness;// wallThickness / 2 + 18; // Alt için: duvar merkezinden 18 cm
 
         const testY1 = best.y - offsetTop;    // Üst tarafa (yakın)
         const testY2 = best.y + offsetBottom; // Alt tarafa (uzak)
@@ -242,8 +242,8 @@ export function drawTotalDimensions() {
         
         // Duvar kalınlığına göre dinamik offset
         const wallThickness = group[0]?.segments?.[0]?.wall?.thickness || 20;
-        const offsetLeft = wallThickness / 2 + 5;  // Sol için: duvar merkezinden 10 cm
-        const offsetRight = wallThickness / 2 + 18; // Sağ için: duvar merkezinden 18 cm
+        const offsetLeft = -1.5*wallThickness;  // Sol için: duvar merkezinden 10 cm
+        const offsetRight = wallThickness;//wallThickness / 2 + 18; // Sağ için: duvar merkezinden 18 cm
 
         const testX1 = best.x - offsetLeft;   // Sol tarafa (yakın)
         const testX2 = best.x + offsetRight;  // Sağ tarafa (uzak)
@@ -286,7 +286,7 @@ export function drawOuterDimensions() {
     const { zoom, walls, gridOptions, dimensionOptions, dimensionMode } = state;
 
     const showOuterOption = dimensionOptions.showOuter;
-    const showOuter = showOuterOption === 1 ||
+    const showOuter = (showOuterOption === 1 && (dimensionMode === 1 || dimensionMode === 2)) || 
                       (showOuterOption === 2 && dimensionMode === 1) ||
                       (showOuterOption === 3 && dimensionMode === 2);
 

@@ -94,8 +94,8 @@ export let state = {
         fontSize: 16,
         color: "#1fa6ea",
         defaultView: 1, // 0: Kapalı, 1: Özet, 2: Detaylı
-        showArea: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
-        showOuter: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
+        showArea: 3, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
+        showOuter: 3, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
     },
     isSweeping: false,
     sweepWalls: [],
