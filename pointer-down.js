@@ -27,10 +27,10 @@ export function onPointerDown(e) {
             return;
         }
 
-        // Sadece CTRL tuşuna basılıyken (ALT veya SHIFT olmadan) silme modunu başlat
-        if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+        // DEĞİŞİKLİK: Sadece ALT tuşuna basılıyken (CTRL veya SHIFT olmadan) silme modunu başlat
+        if (e.altKey && !e.shiftKey && !e.ctrlKey) {
             setState({
-                isCtrlDeleting: true,
+                isCtrlDeleting: true, // Durum adı backend'de aynı kalabilir
             });
             // İşlemi burada sonlandır ki sürükleme mantığı devreye girmesin
             return; 
@@ -102,9 +102,10 @@ export function onPointerDown(e) {
                         }
                     });
                 } else {
-                    // Kopyalama: CTRL + ALT
-                    const isCopying = e.ctrlKey && e.altKey;
-                    const isSweeping = e.shiftKey && !e.ctrlKey;
+                    // DEĞİŞİKLİK: Kopyalama CTRL oldu (önceden Ctrl+Alt idi)
+                    const isCopying = e.ctrlKey && !e.altKey && !e.shiftKey;
+                    // DEĞİŞİKLİK: Sweep (Esnetme) CTRL + ALT oldu (önceden Shift idi)
+                    const isSweeping =  !e.ctrlKey && !e.altKey && e.shiftKey;
 
                     let wallsBeingMoved;
                     

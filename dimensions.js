@@ -77,7 +77,6 @@ export function drawTotalDimensions() {
     ctx2d.fillStyle = dimensionOptions.color;
 
     const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
-    const offset = 25; // Yazının duvardan dışarıdaki mesafesi
     const TOLERANCE = 1;
 
     // Duvarların kaç odaya ait olduğunu saymak için bir harita
@@ -119,9 +118,12 @@ export function drawTotalDimensions() {
             const nx = -dy / length; // Normal vektör x
             const ny = dx / length;  // Normal vektör y
 
-            // Test noktasını duvarın normali yönünde offset kadar dışarıya koy
-            const testX = midX + nx * offset;
-            const testY = midY + ny * offset;
+            // --- YENİ MANTIK ---
+            
+            // 1. Dışa doğru yönü bul
+            const testDistance = 1.0;
+            const testX = midX + nx * testDistance;
+            const testY = midY + ny * testDistance;
             
             let isOutside = true;
             for(const room of rooms) {
@@ -131,12 +133,33 @@ export function drawTotalDimensions() {
                 }
             }
             
-            // Eğer test noktası herhangi bir odanın içindeyse, yönü ters çevir
+            // 2. Normal vektörün yönüne göre offset'i ayarla
+            let offset;
+            if (isHorizontal) {
+                // Yatay duvar. Normal Y yönündedir (ny).
+                if (ny < 0) { // ny < 0 -> Normal UP -> ÜST DUVAR
+                    offset = 30;
+                } else { // ny > 0 -> Normal DOWN -> ALT DUVAR
+                    offset = 10;
+                }
+            } else { // Dikey Duvar
+                // Dikey duvar. Normal X yönündedir (nx).
+                if (nx > 0) { // nx > 0 -> Normal RIGHT -> SOL DUVAR
+                    offset = 10;
+                } else { // nx < 0 -> Normal LEFT -> SAĞ DUVAR
+                    offset = 30;
+                }
+            }
+            
+            // 3. Yönü ve yeni atanan offset'i birleştir
             const finalOffset = isOutside ? offset : -offset;
+
+            // --- YENİ MANTIK SONU ---
 
             if (isHorizontal) {
                 ctx2d.textAlign = "center";
-                ctx2d.textBaseline = isOutside ? "bottom" : "top";
+                // Düzeltilmiş Hizalama:
+                ctx2d.textBaseline = isOutside ? "top" : "bottom";
                 ctx2d.fillText(roundedLength.toString(), midX, midY + finalOffset * (ny > 0 ? 1 : -1));
 
             } else { // Dikey
@@ -144,12 +167,14 @@ export function drawTotalDimensions() {
                 ctx2d.translate(midX + finalOffset * (nx > 0 ? 1 : -1), midY);
                 ctx2d.rotate(-Math.PI / 2);
                 ctx2d.textAlign = "center";
-                ctx2d.textBaseline = isOutside ? "top" : "bottom";
-                 if (nx < 0) { // Sol duvar
+                
+                // Düzeltilmiş Hizalama:
+                if (isOutside) { // Sol Duvar
                     ctx2d.textBaseline = "top";
-                } else { // Sağ duvar
+                } else { // Sağ Duvar
                     ctx2d.textBaseline = "bottom";
                 }
+                
                 ctx2d.fillText(roundedLength.toString(), 0, 0);
                 ctx2d.restore();
             }
