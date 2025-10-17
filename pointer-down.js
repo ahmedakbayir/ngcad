@@ -157,9 +157,7 @@ export function onPointerDown(e) {
                             originalCoords: JSON.parse(JSON.stringify(room.polygon.geometry.coordinates[0])),
                             tempPolygon: JSON.parse(JSON.stringify(room.polygon))
                         }));
-                         setState({
-                            draggedRoomInfo: draggedRoomInfos
-                        });
+                        // setState({draggedRoomInfo: draggedRoomInfos});
                     }
 
 
