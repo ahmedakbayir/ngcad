@@ -164,11 +164,18 @@ export function detectRooms() {
                         }
                     }
 
+                    // --- YENİ EKLEME: Alan 50m²'den büyükse adı "DAİRE" yap ---
+                    let finalRoomName = existingRoomName;
+                    if (areaInM2 > 40) {
+                        finalRoomName = 'DAİRE';
+                    }
+                    // --- YENİ EKLEME SONU ---
+
                     newRooms.push({
                         polygon: polygon,
                         area: areaInM2,
                         center: [newCenterX, newCenterY],
-                        name: existingRoomName,
+                        name: finalRoomName, // Değişken 'finalRoomName' olarak güncellendi
                         centerOffset: existingRoomCenterOffset // Orantısal bilgiyi kaydet
                     });
                 } catch (e) {

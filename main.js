@@ -92,10 +92,10 @@ export let state = {
     },
     dimensionOptions: {
         fontSize: 16,
-        color: "#1fa6ea",
+        color: "#ffffa8",
         defaultView: 1, // 0: Kapalı, 1: Özet, 2: Detaylı
-        showArea: 3, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
-        showOuter: 3, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
+        showArea: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
+        showOuter: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
     },
     isSweeping: false,
     sweepWalls: [],

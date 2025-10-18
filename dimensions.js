@@ -54,7 +54,7 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     const baseFontSize = dimensionOptions.fontSize;
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
 
-    ctx2d.font = `300 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    ctx2d.font = `400 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     
     ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
     
@@ -73,7 +73,7 @@ export function drawTotalDimensions() {
 
     const baseFontSize = dimensionOptions.fontSize;
     const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
-    ctx2d.font = `300 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    ctx2d.font = `400 ${Math.max(10 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = dimensionOptions.color;
 
     const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
@@ -246,7 +246,7 @@ export function drawOuterDimensions() {
         ctx2d.fill();
         
         ctx2d.fillStyle = dimensionOptions.color;
-        ctx2d.font = `300 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+        ctx2d.font = `400 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
         ctx2d.textAlign = "center";
         ctx2d.textBaseline = "bottom";
         

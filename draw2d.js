@@ -322,8 +322,7 @@ export function draw2D() {
     else if (selectedObject?.type === 'wall') {
         nodesToDrawAngle.add(selectedObject.object.p1);
         nodesToDrawAngle.add(selectedObject.object.p2);
-    }
-    nodesToDrawAngle.forEach(node => drawAngleSymbol(node));
+    }   
 
     if (rooms.length > 0) {
         ctx2d.textAlign = "center";
