@@ -78,6 +78,8 @@ export function onPointerUp(e) {
         }
     }
     
+    const didClick = Math.hypot(e.clientX - state.dragStartScreen.x, e.clientY - state.dragStartScreen.y) < 5;
+
     if (state.aDragOccurred) {
         if (state.isSweeping) {
             const newWalls = state.sweepWalls.filter(w => Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y) > 1);
@@ -146,9 +148,24 @@ export function onPointerUp(e) {
         }
         processWalls();
         saveState();
+    
+    // --- HATA DÜZELTMESİ: "Mükemmel Tıklama" senaryosunda parçalanan node'ları birleştir ---
+    } else if (didClick && state.isSweeping) {
+        // Bu bir "tıklama" idi, "sürükleme" değil.
+        // Eğer checkAndSplitNode (pointer-down'da) çalıştıysa state.isSweeping=true olmuştur.
+        // Bu, state.preDragNodeStates içinde birleştirilmesi gereken bir "newNode" olduğu anlamına gelir.
+        
+        if (state.preDragNodeStates.size > 0 && state.selectedObject?.type === 'wall') {
+            const nodesToMerge = Array.from(state.preDragNodeStates.keys());
+            nodesToMerge.forEach(node => {
+                mergeNode(node); // Bu, ..._new node'u orijinal node'a geri birleştirir.
+            });
+            processWalls(); // Geometriyi temizle
+            saveState(); // Durumu kaydet
+        }
+    // --- HATA DÜZELTMESİ SONU ---
     }
     
-    const didClick = Math.hypot(e.clientX - state.dragStartScreen.x, e.clientY - state.dragStartScreen.y) < 5;
 
     setState({
         isPanning: false,

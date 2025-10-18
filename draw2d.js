@@ -1,3 +1,5 @@
+// ahmedakbayir/ngcad/ngcad-a6b637b86b5133ae889a41590ba89e209f647ee8/draw2d.js
+
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 // 'getDoorPlacementAtNode' bu satırdan kaldırıldı
@@ -524,29 +526,23 @@ export function draw2D() {
     
 
     // --- YENİ SEÇİM VE KOMŞU ÖLÇÜLENDİRME MANTIĞI ---
-    
+
     if (isDragging && affectedWalls.length > 0 && (dimensionMode === 0 || dimensionMode === 1)) {
         // Sürüklerken, etkilenen duvarları 'Kapalı' (0) veya 'Özet' (1) modda geçici göster
-        affectedWalls.forEach((wall) => { 
-            drawDimension(wall.p1, wall.p2, true, 'single'); 
-        }); 
+        affectedWalls.forEach((wall) => {
+            drawDimension(wall.p1, wall.p2, true, 'single');
+        });
     } else if (!isDragging && selectedObject?.type === "wall") {
         // Bir duvar seçiliyken (sürüklenmiyorken)
         const selectedWall = selectedObject.object;
-        
-        // --- İSTEK 1: ÖZET (1) MODUNDA SEÇİLİ İÇ DUVARI GÖSTER ---
-        // Not: Dış duvarlar zaten drawTotalDimensions tarafından gösteriliyor.
-        if (dimensionMode === 1) { 
-            const adjacency = wallAdjacency.get(selectedWall);
-            if (adjacency > 1) { // 1'den fazlaysa (iç duvar)
-                drawDimension(selectedWall.p1, selectedWall.p2, true, 'single');
-            }
-        }
-        
-        // --- İSTEK 2: SEÇİLİ DUVARIN KOMŞULARINI GÖSTER (TÜM MODLAR) ---
+        const adjacency = wallAdjacency.get(selectedWall); // Duvarın iç mi dış mı olduğunu kontrol et
+        const isInteriorWall = adjacency > 1;
+
+        // --- ÖNCE KOMŞULARI ÇİZ ---
+        // Bu kısım değişmedi, komşular her zaman gösteriliyor.
         const node1 = selectedWall.p1;
         const node2 = selectedWall.p2;
-        
+
         walls.forEach(wall => {
             if (wall === selectedWall) return; // Kendisi hariç
             if (wall.p1 === node1 || wall.p2 === node1 || wall.p1 === node2 || wall.p2 === node2) {
@@ -554,14 +550,19 @@ export function draw2D() {
                 drawDimension(wall.p1, wall.p2, true, 'single');
             }
         });
-        
-        // --- MEVCUT DAVRANIŞ: 'KAPALI' (0) MODUNDA SEÇİLİ DUVARI GÖSTER ---
-        // (Mod 2 zaten tüm duvarları gösteriyor, Mod 1 yukarıda halledildi)
-        if (dimensionMode === 0) {
+        // --- KOMŞU ÇİZİMİ SONU ---
+
+
+        // --- SONRA SEÇİLİ DUVARIN KENDİ ÖLÇÜSÜNÜ ÇİZ (KOŞULLU) ---
+        // Sadece Mod 0'da (Kapalı) HER ZAMAN çiz VEYA Mod 1'de (Özet) SADECE İÇ DUVAR ise çiz.
+        // Mod 2 (Detaylı) zaten tüm duvarları çizdiği için burayı etkilemez.
+        if (dimensionMode === 0 || (dimensionMode === 1 && isInteriorWall)) {
              drawDimension(selectedWall.p1, selectedWall.p2, true, 'single');
         }
+        // --- SEÇİLİ DUVAR ÇİZİMİ SONU ---
+
     }
-    
+
     // --- YENİ MANTIĞIN SONU ---
 
 
