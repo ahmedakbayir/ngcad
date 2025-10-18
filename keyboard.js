@@ -105,5 +105,6 @@ export function onKeyDown(e) {
     if (e.key.toLowerCase() === "w") setMode("drawWall");
     if (e.key.toLowerCase() === "r") setMode("drawRoom");
     if (e.key.toLowerCase() === "k") setMode("drawDoor");
+    if (e.key.toLowerCase() === "p") setMode("drawWindow"); // YENİ EKLENDİ
     if (e.code === "Space" && state.currentMode === "select") { e.preventDefault(); setMode(state.lastUsedMode); }
 }

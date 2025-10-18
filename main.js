@@ -35,6 +35,7 @@ export let state = {
     walls: [],
     doors: [],
     rooms: [],
+    wallAdjacency: new Map(), // YENİ EKLENDİ
     selectedObject: null,
     selectedRoom: null, 
     isDraggingRoomName: null,
@@ -72,9 +73,9 @@ export let state = {
     dragOriginalNodes: null,
     roomToEdit: null,
     clickOutsideRoomPopupListener: null,
-    wallBorderColor: "#b5b5b5",
+    wallBorderColor: "#ffffff",
     roomFillColor: "#232425",
-    lineThickness: 2.5,
+    lineThickness: 1,
     snapOptions: {
         endpoint: true,
         midpoint: true,
@@ -122,6 +123,7 @@ export const dom = {
     bWall: document.getElementById("bWall"),
     bRoom: document.getElementById("bRoom"),
     bDoor: document.getElementById("bDoor"),
+    bWindow: document.getElementById("bWindow"), // YENİ EKLENDİ
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
@@ -183,6 +185,7 @@ export function setMode(mode) {
     dom.bWall.classList.toggle("active", newMode === "drawWall");
     dom.bRoom.classList.toggle("active", newMode === "drawRoom");
     dom.bDoor.classList.toggle("active", newMode === "drawDoor");
+    dom.bWindow.classList.toggle("active", newMode === "drawWindow"); // YENİ EKLENDİ
     dom.p2d.className = `panel ${newMode}-mode`;
 }
 
@@ -279,6 +282,7 @@ function initialize() {
     dom.bWall.addEventListener("click", () => setMode("drawWall"));
     dom.bRoom.addEventListener("click", () => setMode("drawRoom"));
     dom.bDoor.addEventListener("click", () => setMode("drawDoor"));
+    dom.bWindow.addEventListener("click", () => setMode("drawWindow")); // YENİ EKLENDİ
     dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames);
     

@@ -308,6 +308,31 @@ export function processWalls() {
         console.error("Oda tespiti sırasında hata:", error);
         setState({ rooms: [] });
     }
+
+    // --- YENİ EKLENEN KOD ---
+    // Dış duvar tespiti için wallAdjacency haritasını güncelle
+    const wallAdjacency = new Map();
+    state.walls.forEach(wall => wallAdjacency.set(wall, 0));
+    const TOLERANCE = 1; 
+
+    state.rooms.forEach(room => {
+        if (!room.polygon || !room.polygon.geometry) return;
+        const coords = room.polygon.geometry.coordinates[0];
+        for (let i = 0; i < coords.length - 1; i++) {
+            const p1Coord = coords[i];
+            const p2Coord = coords[i + 1];
+            const wall = state.walls.find(w => {
+                const d1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) + Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
+                const d2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) + Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
+                return Math.min(d1, d2) < TOLERANCE;
+            });
+            if (wall) {
+                wallAdjacency.set(wall, (wallAdjacency.get(wall) || 0) + 1);
+            }
+        }
+    });
+    setState({ wallAdjacency });
+    // --- YENİ KOD SONU ---
     
     update3DScene();
 }
