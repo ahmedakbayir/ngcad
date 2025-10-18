@@ -374,7 +374,7 @@ export function draw2D() {
             }
 
             if (showArea) {
-                ctx2d.fillStyle = dimensionOptions.color;
+                ctx2d.fillStyle = '#e57373';
                 let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
                 ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
                 ctx2d.textBaseline = "middle";
