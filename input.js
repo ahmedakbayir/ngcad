@@ -9,6 +9,7 @@ import { onPointerUp } from './pointer-up.js';
 import { getObjectAtPoint } from './actions.js';
 import { showWallPanel } from './wall-panel.js';
 
+
 function onWheel(e) {
     e.preventDefault();
     const rect = dom.c2d.getBoundingClientRect();
