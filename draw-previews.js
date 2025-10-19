@@ -146,7 +146,6 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
         ctx2d.setLineDash([]);
     }
 }
-
 export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
     const { currentMode, mousePos, isDragging, selectedObject, zoom, startPoint } = state;
     
@@ -174,8 +173,13 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
         }
     }
 
-    // Snap noktası gösterimi
-    if (mousePos.isSnapped && currentMode !== 'drawDoor' && currentMode !== 'drawWindow' && !(isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window'))) {
+    // Snap noktası gösterimi - SADECE ÇİZİM MODLARINDA GÖSTER
+    if (mousePos.isSnapped && 
+        (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn') && 
+        currentMode !== 'drawDoor' && 
+        currentMode !== 'drawWindow' && 
+        !(isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window'))) {
+        
         const snapRadius = 4 / zoom;
         const color = "#8ab4f8";
         

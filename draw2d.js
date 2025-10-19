@@ -1,11 +1,12 @@
 import { getDoorPlacement, isSpaceForDoor, getObjectAtPoint, getWindowPlacement, isSpaceForWindow } from './actions.js';
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
-// 'drawAngleSymbol' buradan kaldırıldı:
 import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
 import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 import { drawWallGeometry } from './draw-walls.js';
 import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
+import { drawColumn } from './renderer2d.js';
+import { getColumnCorners } from './columns.js'; // EKLE
 import { 
     drawObjectPlacementPreviews, 
     drawDragPreviews, 
@@ -30,21 +31,27 @@ export function draw2D() {
     ctx2d.scale(zoom, zoom);
     ctx2d.lineWidth = 1 / zoom;
 
-    // 1. Grid (renderer2d.js'den)
+    // 1. Grid
     drawGrid();
     
-    // 2. Mahaller (Poligonlar) (draw-rooms.js'den)
+    // 2. Mahaller (Poligonlar)
     drawRoomPolygons(ctx2d, state);
 
-    // 3. Duvar Geometrisi (draw-walls.js'den)
+    // 3. Duvar Geometrisi
     drawWallGeometry(ctx2d, state, BG);
 
-    // 4. Atomik Semboller (renderer2d.js'den)
+    // 4. KOLONLAR (Duvarlardan sonra, kapı/pencereden önce)
+    state.columns.forEach(column => {
+        const isSelected = selectedObject?.type === "column" && selectedObject.object === column;
+        drawColumn(column, isSelected);
+    });
+
+    // 5. Atomik Semboller
     nodes.forEach(node => {
         drawNodeWallCount(node);
     });
 
-    // 5. Açı Sembolleri (Seçim/Sürükleme anında) (renderer2d.js'den)
+    // 6. Açı Sembolleri
     const nodesToDrawAngle = new Set();
     if (isDragging && selectedObject?.handle !== 'body') {
         const nodeToDrag = selectedObject.object[selectedObject.handle];
@@ -53,17 +60,12 @@ export function draw2D() {
     else if (selectedObject?.type === 'wall') {
         nodesToDrawAngle.add(selectedObject.object.p1);
         nodesToDrawAngle.add(selectedObject.object.p2);
-    }   
-    // Not: Orijinal kodda bu set oluşturuluyor ama drawAngleSymbol çağrılmıyor.
-    // Eksik çağrıyı ekliyorum:
-    // nodesToDrawAngle.forEach(node => {
-    //     drawAngleSymbol(node);
-    // });
+    }
 
-    // 6. Mahal Etiketleri (İsim/Alan) (draw-rooms.js'den)
+    // 7. Mahal Etiketleri
     drawRoomNames(ctx2d, state, getObjectAtPoint);
 
-    // 7. Kapılar, Pencereler, Menfezler, Kolonlar (renderer2d.js'den)
+    // 8. Kapılar, Pencereler, Menfezler, Kolonlar (eski)
     doors.forEach((door) => {
         const isSelected = selectedObject?.type === "door" && selectedObject.object === door;
         drawDoorSymbol(door, false, isSelected);
@@ -92,11 +94,10 @@ export function draw2D() {
         }
     });
 
-    // 8. Obj. Yerleştirme Önizlemeleri (draw-previews.js'den)
-    // (Gerekli fonksiyonlar import edilmeli)
+    // 9. Obj. Yerleştirme Önizlemeleri
     drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol);
 
-    // 9. Ölçülendirmeler (dimensions.js'den)
+    // 10. Ölçülendirmeler
     if (dimensionMode === 1) {
         drawTotalDimensions();
     } else if (dimensionMode === 2) {
@@ -107,20 +108,18 @@ export function draw2D() {
     
     drawOuterDimensions();
 
-    // Seçili duvar ve komşu duvarların ölçüleri
     if (isDragging && affectedWalls.length > 0 && (dimensionMode === 0 || dimensionMode === 1)) {
         affectedWalls.forEach((wall) => {
             drawDimension(wall.p1, wall.p2, true, 'single');
         });
     } else if (!isDragging && selectedObject?.type === "wall") {
         const selectedWall = selectedObject.object;
-        const adjacency = wallAdjacency.get(selectedWall); // wallAdjacency'nin state'te güncel olduğunu varsayar
+        const adjacency = wallAdjacency.get(selectedWall);
         const isInteriorWall = adjacency > 1;
 
         const node1 = selectedWall.p1;
         const node2 = selectedWall.p2;
 
-        // Komşu duvarları göster
         walls.forEach(wall => {
             if (wall === selectedWall) return;
             if (wall.p1 === node1 || wall.p2 === node1 || wall.p1 === node2 || wall.p2 === node2) {
@@ -128,23 +127,15 @@ export function draw2D() {
             }
         });
 
-        // Seçili duvarın kendi ölçüsü
         if (dimensionMode === 0 || (dimensionMode === 1 && isInteriorWall)) {
              drawDimension(selectedWall.p1, selectedWall.p2, true, 'single');
         }
     }
 
-    // 10. Sürükleme/Çizim Geri Bildirimleri (draw-previews.js'den)
-    
-    // (Gerekli fonksiyonlar import edilmeli)
+    // 11. Sürükleme/Çizim Geri Bildirimleri
     drawDragPreviews(ctx2d, state, drawDimension);
-    
     drawSelectionFeedback(ctx2d, state);
-    
-    // (Gerekli fonksiyonlar import edilmeli)
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
-    
-    // (Gerekli fonksiyonlar import edilmeli)
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
 
     ctx2d.restore();

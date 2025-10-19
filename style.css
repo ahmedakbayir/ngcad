@@ -269,3 +269,6 @@ canvas {
     .panel.over-node {
         cursor: move;
     }
+    .drawColumn-mode #c2d {
+    cursor: crosshair;
+}

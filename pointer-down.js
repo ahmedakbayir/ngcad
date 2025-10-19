@@ -4,22 +4,23 @@ import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSe
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
-import { getObjectAtPoint, getDoorPlacement, isSpaceForDoor, findCollinearChain, getWindowPlacement, isSpaceForWindow } from './actions.js'; // getWindowPlacement, isSpaceForWindow eklendi
+import { getObjectAtPoint, getDoorPlacement, isSpaceForDoor, findCollinearChain, getWindowPlacement, isSpaceForWindow } from './actions.js';
+import { createColumn, getColumnCorners } from './columns.js';
 
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) {
         return;
     }
 
-    if (e.button === 1) { // Orta tuş
+    if (e.button === 1) {
         setState({ isPanning: true, panStart: { x: e.clientX, y: e.clientY } });
         return;
     }
-    if (e.button === 2) return; // Sağ tuş
+    if (e.button === 2) return;
 
     const rect = dom.c2d.getBoundingClientRect();
-    const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top); // Dünya koordinatları (snap'siz)
-    let snappedPos = getSmartSnapPoint(e); // Snap'li veya snap'siz (moda göre değişir)
+    const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    let snappedPos = getSmartSnapPoint(e);
 
     if (state.currentMode === "select") {
         if (state.isEditingLength) {
@@ -27,14 +28,23 @@ export function onPointerDown(e) {
             return;
         }
 
-        if (e.altKey && !e.shiftKey && !e.ctrlKey) { // Alt ile silme modu
-            setState({ isCtrlDeleting: true });
-            return;
+        const selectedObj = getObjectAtPoint(pos);
+        const isColumnCornerSelected = selectedObj?.type === 'column' && selectedObj?.handle === 'corner';
+                
+        if (e.altKey && !e.shiftKey && !e.ctrlKey) {
+            const objectAtMouse = getObjectAtPoint(pos);
+            
+            // Eğer kolon veya kolon handle'ı seçiliyse silme moduna geçme
+            if (objectAtMouse?.type !== 'column' && 
+                state.selectedObject?.type !== 'column') {
+                setState({ isCtrlDeleting: true });
+                return;
+            }
         }
 
-        const selectedObject = getObjectAtPoint(pos); // Tıklanan nesneyi bul
 
-        // Oda veya mahal adı/alanı tıklama
+        const selectedObject = getObjectAtPoint(pos);
+
         if (selectedObject && selectedObject.type === 'room') {
             setState({ selectedRoom: selectedObject.object, selectedObject: null });
         } else if (!selectedObject) {
@@ -50,7 +60,6 @@ export function onPointerDown(e) {
             return;
         }
 
-        // Genel sürükleme state'ini ayarla
         setState({
             selectedObject,
             selectedGroup: [],
@@ -60,14 +69,26 @@ export function onPointerDown(e) {
             dragAxis: null,
             isSweeping: false,
             sweepWalls: [],
-            dragOffset: { x: 0, y: 0 } // Offset'i sıfırla
+            dragOffset: { x: 0, y: 0 }
         });
 
-        if (selectedObject) { // Eğer bir nesneye tıklandıysa sürükleme başlat
+        // Kolon için preDragNodeStates
+        if (selectedObject && selectedObject.type === 'column') {
+            const column = selectedObject.object;
+            state.preDragNodeStates.set('center_x', column.center.x);
+            state.preDragNodeStates.set('center_y', column.center.y);
+            state.preDragNodeStates.set('size', column.size);
+            state.preDragNodeStates.set('rotation', column.rotation || 0);
+            state.preDragNodeStates.set('hollowWidth', column.hollowWidth || 0);
+            state.preDragNodeStates.set('hollowHeight', column.hollowHeight || 0);
+            state.preDragNodeStates.set('hollowOffsetX', column.hollowOffsetX || 0);
+            state.preDragNodeStates.set('hollowOffsetY', column.hollowOffsetY || 0);
+        }
+
+        if (selectedObject) {
             let startPointForDragging;
             let dragOffset = { x: 0, y: 0 };
 
-            // --- Offset Hesaplama Başlangıcı ---
             if (selectedObject.type === 'wall' && selectedObject.handle !== 'body') {
                 const nodeToDrag = selectedObject.object[selectedObject.handle];
                 startPointForDragging = { x: nodeToDrag.x, y: nodeToDrag.y };
@@ -107,15 +128,31 @@ export function onPointerDown(e) {
                  const ventCenterY = wall.p1.y + dy * vent.pos;
                  startPointForDragging = { x: ventCenterX, y: ventCenterY };
                  dragOffset = { x: ventCenterX - pos.x, y: ventCenterY - pos.y };
-            }
-             else { // Duvar gövdesi vb.
-                startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY }; // Snapli başlangıç
+            } else if (selectedObject.type === 'column') {
+                // Kolon için başlangıç noktası
+                if (selectedObject.handle === 'body') {
+                    // Body'den tutulduğunda mouse pozisyonunu kullan
+                    startPointForDragging = { x: pos.x, y: pos.y };
+                    dragOffset = { 
+                        x: selectedObject.object.center.x - pos.x, 
+                        y: selectedObject.object.center.y - pos.y 
+                    };
+                } else if (selectedObject.handle === 'center') {
+                    startPointForDragging = { x: selectedObject.object.center.x, y: selectedObject.object.center.y };
+                    dragOffset = { x: 0, y: 0 };
+                } else if (selectedObject.handle === 'corner') {
+                    const corners = getColumnCorners(selectedObject.object);
+                    startPointForDragging = { x: corners[1].x, y: corners[1].y };
+                    dragOffset = { x: 0, y: 0 };
+                } else {
+                    startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+                    dragOffset = { x: 0, y: 0 };
+                }
+            } else {
+                startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY };
                 dragOffset = { x: 0, y: 0 };
             }
-            // --- Offset Hesaplama Sonu ---
 
-
-            // Sürükleme state'ini ayarla
             setState({
                 isDragging: true,
                 dragStartPoint: startPointForDragging,
@@ -124,9 +161,8 @@ export function onPointerDown(e) {
                 dragOffset: dragOffset
             });
 
-            // Seçilen nesne duvarsa ek işlemler
             if (selectedObject.type === "wall") {
-                 if (selectedObject.handle !== "body") { // Duvar Ucu
+                 if (selectedObject.handle !== "body") {
                      const nodeToDrag = selectedObject.object[selectedObject.handle];
                      const affectedWalls = state.walls.filter((w) => w.p1 === nodeToDrag || w.p2 === nodeToDrag);
                      setState({ affectedWalls, dragAxis: null });
@@ -136,11 +172,11 @@ export function onPointerDown(e) {
                              state.preDragWallStates.set(wall, {
                                  isP1Stationary: wall.p2 === nodeToDrag,
                                  doors: state.doors.filter((d) => d.wall === wall).map((door) => ({ doorRef: door, distFromP1: door.pos, distFromP2: wallLength - door.pos })),
-                                 windows: (wall.windows || []).map((win) => ({ windowRef: win, distFromP1: win.pos, distFromP2: wallLength - win.pos })) // windows referansını düzelt
+                                 windows: (wall.windows || []).map((win) => ({ windowRef: win, distFromP1: win.pos, distFromP2: wallLength - win.pos }))
                              });
                          }
                      });
-                 } else { // Duvar Gövdesi
+                 } else {
                      const isCopying = e.ctrlKey && !e.altKey && !e.shiftKey;
                      const isSweeping =  !e.ctrlKey && !e.altKey && e.shiftKey;
                      let wallsBeingMoved;
@@ -185,7 +221,6 @@ export function onPointerDown(e) {
                                originalCoords: JSON.parse(JSON.stringify(room.polygon.geometry.coordinates[0])),
                                tempPolygon: JSON.parse(JSON.stringify(room.polygon))
                           }));
-                         // setState({draggedRoomInfo: draggedRoomInfos}); // Mahal taşıma bilgisini state'e ekle
                      }
                      if (!isCopying && !isSweeping && !e.altKey && !e.shiftKey) {
                          const checkAndSplitNode = (node) => {
@@ -224,30 +259,27 @@ export function onPointerDown(e) {
                          }
                      }
                  }
-            } // if (selectedObject.type === "wall") sonu
-        } // if (selectedObject) sonu
+            }
+        }
     } else if (state.currentMode === "drawDoor" || state.currentMode === "drawWindow" || state.currentMode === "drawVent") {
 
-        // Önizleme varsa onu ekle (ÖNCELİKLİ)
         if (state.currentMode === "drawWindow") {
             let previewWall = null, minDistSqPreview = Infinity;
             const bodyHitTolerancePreview = (WALL_THICKNESS * 1.5) ** 2;
             for (const w of [...state.walls].reverse()) {
                 if (!w.p1 || !w.p2) continue;
-                // Önizleme için HAM pozisyonu kullan (snap kapalı olduğu için snappedPos=pos)
                 const distSq = distToSegmentSquared(pos, w.p1, w.p2);
                 if (distSq < bodyHitTolerancePreview && distSq < minDistSqPreview) {
                     minDistSqPreview = distSq; previewWall = w;
                 }
             }
             if (previewWall) {
-                // Yerleşimi HAM pozisyona göre hesapla
                 const previewWindowData = getWindowPlacement(previewWall, pos);
                 if (previewWindowData && isSpaceForWindow(previewWindowData)) {
                     if (!previewWall.windows) previewWall.windows = [];
                     previewWall.windows.push({ pos: previewWindowData.pos, width: previewWindowData.width, type: 'window' });
                     saveState();
-                    return; // Pencere eklendi, bitir
+                    return;
                 }
             }
         } else if (state.currentMode === "drawDoor") {
@@ -255,32 +287,25 @@ export function onPointerDown(e) {
             const bodyHitTolerancePreview = (WALL_THICKNESS * 1.5) ** 2;
             for (const w of [...state.walls].reverse()) {
                  if (!w.p1 || !w.p2) continue;
-                 // Önizleme için HAM pozisyonu kullan
                  const distSq = distToSegmentSquared(pos, w.p1, w.p2);
                  if (distSq < bodyHitTolerancePreview && distSq < minDistSqPreview) {
                      minDistSqPreview = distSq; previewWall = w;
                  }
             }
             if (previewWall) {
-                // Yerleşimi HAM pozisyona göre hesapla
                 const previewDoor = getDoorPlacement(previewWall, pos);
                 if (previewDoor && isSpaceForDoor(previewDoor)) {
                     state.doors.push(previewDoor);
                     saveState();
-                    return; // Kapı eklendi, bitir
+                    return;
                 }
             }
         }
-        // --- Önizleme ekleme sonu ---
 
+        const clickedObject = getObjectAtPoint(pos);
 
-        // Önizleme eklenmediyse, oda/dışarısı tıklama mantığı devam eder
-        const clickedObject = getObjectAtPoint(pos); // Snap'siz pozisyonu kullan
-
-        // Odaya/Dışarıya tıklayarak PENCERE ekleme
         if (state.currentMode === "drawWindow") {
             const addWindowToWallMiddle = (wall) => {
-                // Zaten pencere varsa ekleme
                  if (wall.windows && wall.windows.length > 0) return false;
 
                 const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -290,24 +315,22 @@ export function onPointerDown(e) {
                 const minWidth = 40;
 
                 let windowWidth = defaultWidth;
-                if (wallLen < 300) { // Duvar 300'den kısaysa
+                if (wallLen < 300) {
                      const availableSpace = wallLen - 2 * margin;
                      windowWidth = Math.max(minWidth, Math.min(availableSpace, wallLen / 2));
-                } else { // Duvar 300 veya daha uzunsa
+                } else {
                      const availableSpace = wallLen - 2 * margin;
                      windowWidth = Math.min(defaultWidth, availableSpace);
                 }
 
-                 if(windowWidth < minWidth) return false; // Çok kısaysa ekleme
+                 if(windowWidth < minWidth) return false;
 
                 const windowPos = wallLen / 2;
 
-                 // GÜNCELLENDİ: Kapı ile çakışma kontrolü yerine isSpaceForWindow kullan
                  const tempWindowData = { wall: wall, pos: windowPos, width: windowWidth };
                  if (!isSpaceForWindow(tempWindowData)) {
-                     return false; // Yer yok veya çakışma var
+                     return false;
                  }
-
 
                 if (!wall.windows) wall.windows = [];
                 wall.windows.push({
@@ -318,7 +341,7 @@ export function onPointerDown(e) {
                 return true;
             };
 
-            if (clickedObject && clickedObject.type === 'room') { // Odaya tıklandı
+            if (clickedObject && clickedObject.type === 'room') {
                 const clickedRoom = clickedObject.object; const TOLERANCE = 1;
                 if (!clickedRoom.polygon || !clickedRoom.polygon.geometry) return;
                 const roomCoords = clickedRoom.polygon.geometry.coordinates[0]; const roomWalls = new Set();
@@ -337,7 +360,7 @@ export function onPointerDown(e) {
                 if (windowAdded) saveState();
                 return;
             }
-            if (!clickedObject) { // Dışarı tıklandı
+            if (!clickedObject) {
                 let windowAdded = false;
                 state.wallAdjacency.forEach((count, wall) => { if (count === 1) if (addWindowToWallMiddle(wall)) windowAdded = true; });
                 if (windowAdded) saveState();
@@ -345,7 +368,6 @@ export function onPointerDown(e) {
             }
         }
 
-        // Odaya tıklayarak KAPI ekleme
         if (state.currentMode === "drawDoor" && clickedObject && clickedObject.type === 'room') {
             const clickedRoom = clickedObject.object;
             if (!clickedRoom.polygon || !clickedRoom.polygon.geometry) return;
@@ -390,7 +412,7 @@ export function onPointerDown(e) {
                     const len = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                     if (len > maxLength) { maxLength = len; longestWall = wall; }
                 });
-                if(!longestWall || !longestWall.p1 || !longestWall.p2) return; // Güvenlik
+                if(!longestWall || !longestWall.p1 || !longestWall.p2) return;
                 const existingDoor = state.doors.find(d => d.wall === longestWall);
                 if (!existingDoor) {
                     const midX = (longestWall.p1.x + longestWall.p2.x) / 2;
@@ -403,15 +425,13 @@ export function onPointerDown(e) {
             return;
         }
 
-
-        // Menfez ekleme (duvara tıklayarak)
         if(state.currentMode === "drawVent") {
             let closestWall = null; let minDistSq = Infinity;
             const bodyHitTolerance = WALL_THICKNESS;
              for (const w of [...state.walls].reverse()) {
                  if (!w.p1 || !w.p2) continue;
                  const p1 = w.p1, p2 = w.p2; const l2 = (p1.x - p2.x)**2 + (p1.y - p2.y)**2; if(l2 < 0.1) continue;
-                 const d = distToSegmentSquared(snappedPos, p1, p2); // Menfez için snapli kullanabiliriz
+                 const d = distToSegmentSquared(snappedPos, p1, p2);
                  if (d < bodyHitTolerance**2 && d < minDistSq) { minDistSq = d; closestWall = w; }
              }
              if(closestWall) {
@@ -422,7 +442,6 @@ export function onPointerDown(e) {
                      const t = Math.max(0, Math.min(1, ((snappedPos.x - closestWall.p1.x) * dx + (snappedPos.y - closestWall.p1.y) * dy) / (dx*dx + dy*dy) ));
                      const ventPos = t * wallLen;
                      if (ventPos >= ventWidth/2 + ventMargin && ventPos <= wallLen - ventWidth/2 - ventMargin) {
-                         // TODO: Kapı/Pencere çakışma kontrolü
                          if (!closestWall.vents) closestWall.vents = [];
                          closestWall.vents.push({ pos: ventPos, width: ventWidth, type: 'vent' });
                          saveState();
@@ -431,9 +450,14 @@ export function onPointerDown(e) {
              }
         }
 
-
-    } else { // Draw Wall, Draw Room etc.
-        let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY }; // Snap'li kullan
+    } else if (state.currentMode === "drawColumn") {
+        const newColumn = createColumn(snappedPos.roundedX, snappedPos.roundedY, 40);
+        state.columns.push(newColumn);
+        saveState();
+        return;
+        
+    } else {
+        let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY };
         if (!state.startPoint) {
              setState({ startPoint: getOrCreateNode(placementPos.x, placementPos.y) });
         } else {
@@ -441,14 +465,13 @@ export function onPointerDown(e) {
             if (d > 0.1) {
                 let geometryChanged = false;
                 if (state.currentMode === "drawWall") {
-                     // 15 derece ve grid snap
-                     if (!snappedPos.isSnapped || snappedPos.snapType === 'GRID') { // Sadece grid snap ise veya snap yoksa açı snap uygula
+                     if (!snappedPos.isSnapped || snappedPos.snapType === 'GRID') {
                           placementPos = snapTo15DegreeAngle(state.startPoint, placementPos);
                      }
                      const dx = placementPos.x - state.startPoint.x, dy = placementPos.y - state.startPoint.y;
                      const distance = Math.hypot(dx, dy);
                      const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1;
-                     if (distance > 0.1 && (!snappedPos.isSnapped || snappedPos.snapType === 'GRID')) { // Sadece grid veya snap yoksa grid'e yapıştır
+                     if (distance > 0.1 && (!snappedPos.isSnapped || snappedPos.snapType === 'GRID')) {
                          const snappedDistance = Math.round(distance / gridValue) * gridValue;
                          if (Math.abs(snappedDistance - distance) > 0.01) {
                             const scale = snappedDistance / distance;
@@ -467,12 +490,11 @@ export function onPointerDown(e) {
                      if ((didSnapToExistingNode && endNode !== state.startPoint) || didConnectToWallBody) { setState({ startPoint: null }); }
                      else { setState({ startPoint: endNode }); }
                 } else if (state.currentMode === "drawRoom") {
-                    // Dikdörtgen oda çizimi
                     const p1 = state.startPoint;
                     if (Math.abs(p1.x - placementPos.x) > 1 && Math.abs(p1.y - placementPos.y) > 1) {
                        const v1 = p1, v2 = getOrCreateNode(placementPos.x, v1.y), v3 = getOrCreateNode(placementPos.x, placementPos.y), v4 = getOrCreateNode(v1.x, placementPos.y);
                        [{ p1: v1, p2: v2 }, { p1: v2, p2: v3 }, { p1: v3, p2: v4 }, { p1: v4, p2: v1 }].forEach(pw => {
-                           if (!wallExists(pw.p1, pw.p2)) state.walls.push({ type: "wall", ...pw, thickness: WALL_THICKNESS, wallType: 'normal' });
+                            if (!wallExists(pw.p1, pw.p2)) state.walls.push({ type: "wall", ...pw, thickness: WALL_THICKNESS, wallType: 'normal' });
                        });
                        geometryChanged = true;
                        setState({ startPoint: null });
@@ -481,5 +503,5 @@ export function onPointerDown(e) {
                 if (geometryChanged) { processWalls(); saveState(); }
             }
         }
-    } // Mod kontrolü sonu
-} // Fonksiyon sonu
+    }
+}

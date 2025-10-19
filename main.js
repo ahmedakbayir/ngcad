@@ -35,7 +35,8 @@ export let state = {
     walls: [],
     doors: [],
     rooms: [],
-    wallAdjacency: new Map(), // YENİ EKLENDİ
+    columns: [],
+    wallAdjacency: new Map(),
     selectedObject: null,
     selectedRoom: null, 
     isDraggingRoomName: null,
@@ -94,18 +95,17 @@ export let state = {
     dimensionOptions: {
         fontSize: 16,
         color: "#24ffda",
-        defaultView: 1, // 0: Kapalı, 1: Özet, 2: Detaylı
-        showArea: 1, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
-        showOuter: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
+        defaultView: 1,
+        showArea: 1,
+        showOuter: 0,
     },
     isSweeping: false,
     sweepWalls: [],
-    draggedRoomInfo: [], // Sürüklenen mahal bilgisi için eklendi (artık bir dizi)
+    draggedRoomInfo: [],
     isCtrlDeleting: false,
 };
 
 export function setState(newState) {
-    // Sürükleme bittiğinde geçici mahal bilgisini temizle
     if (newState.isDragging === false) {
         newState.draggedRoomInfo = [];
     }
@@ -123,7 +123,8 @@ export const dom = {
     bWall: document.getElementById("bWall"),
     bRoom: document.getElementById("bRoom"),
     bDoor: document.getElementById("bDoor"),
-    bWindow: document.getElementById("bWindow"), // YENİ EKLENDİ
+    bWindow: document.getElementById("bWindow"),
+    bColumn: document.getElementById("bColumn"),
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
@@ -185,7 +186,8 @@ export function setMode(mode) {
     dom.bWall.classList.toggle("active", newMode === "drawWall");
     dom.bRoom.classList.toggle("active", newMode === "drawRoom");
     dom.bDoor.classList.toggle("active", newMode === "drawDoor");
-    dom.bWindow.classList.toggle("active", newMode === "drawWindow"); // YENİ EKLENDİ
+    dom.bWindow.classList.toggle("active", newMode === "drawWindow");
+    dom.bColumn.classList.toggle("active", newMode === "drawColumn");
     dom.p2d.className = `panel ${newMode}-mode`;
 }
 
@@ -282,7 +284,8 @@ function initialize() {
     dom.bWall.addEventListener("click", () => setMode("drawWall"));
     dom.bRoom.addEventListener("click", () => setMode("drawRoom"));
     dom.bDoor.addEventListener("click", () => setMode("drawDoor"));
-    dom.bWindow.addEventListener("click", () => setMode("drawWindow")); // YENİ EKLENDİ
+    dom.bWindow.addEventListener("click", () => setMode("drawWindow"));
+    dom.bColumn.addEventListener("click", () => setMode("drawColumn"));
     dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames);
     

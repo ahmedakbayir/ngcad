@@ -1,5 +1,6 @@
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared } from './geometry.js';
+import { getColumnCorners } from './columns.js';
 
 export function drawNodeWallCount(node) {
     const { ctx2d } = dom;
@@ -167,9 +168,55 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     ctx2d.moveTo(left1.x, left1.y); ctx2d.lineTo(left2.x, left2.y);
     ctx2d.moveTo(right1.x, right1.y); ctx2d.lineTo(right2.x, right2.y);
     ctx2d.stroke();
+
+    // MERMER RAFI ÇİZ (DIŞ TARAFTA)
+    const marbleDepth = 1; // Mermer rafın derinliği
+    const marbleOverhang = 5; // Pencerenin yanlarından taşma miktarı
+    
+    // Mermer başlangıç ve bitiş noktaları (pencereden biraz daha uzun)
+    const marbleP1 = { 
+        x: windowP1.x - dx * marbleOverhang, 
+        y: windowP1.y - dy * marbleOverhang 
+    };
+    const marbleP2 = { 
+        x: windowP2.x + dx * marbleOverhang, 
+        y: windowP2.y + dy * marbleOverhang 
+    };
+    
+    // Mermer dış kenarı (duvarın dış yüzeyinden mermar derinliği kadar dışarıda)
+    const marbleOuter1 = { 
+        x: marbleP1.x - nx * (halfWall + marbleDepth), 
+        y: marbleP1.y - ny * (halfWall + marbleDepth) 
+    };
+    const marbleOuter2 = { 
+        x: marbleP2.x - nx * (halfWall + marbleDepth), 
+        y: marbleP2.y - ny * (halfWall + marbleDepth) 
+    };
+    
+    // Mermer iç kenarı (duvarın dış yüzeyi)
+    const marbleInner1 = { 
+        x: marbleP1.x - nx * halfWall, 
+        y: marbleP1.y - ny * halfWall 
+    };
+    const marbleInner2 = { 
+        x: marbleP2.x - nx * halfWall, 
+        y: marbleP2.y - ny * halfWall 
+    };
+    
+    // Mermer rafı çiz
+    ctx2d.fillStyle = isSelectedCalc ? 'rgba(138, 180, 248, 0.3)' : 'rgba(231, 230, 208, 0.4)';
+    ctx2d.strokeStyle = color;
+    ctx2d.lineWidth = lineThickness ;
+    
+    ctx2d.beginPath();
+    ctx2d.moveTo(marbleInner1.x, marbleInner1.y);
+    ctx2d.lineTo(marbleOuter1.x, marbleOuter1.y);
+    ctx2d.lineTo(marbleOuter2.x, marbleOuter2.y);
+    ctx2d.lineTo(marbleInner2.x, marbleInner2.y);
+    ctx2d.closePath();
+    ctx2d.fill();
+    ctx2d.stroke();
 }
-
-
 
 export function drawGrid() {
     const { ctx2d, c2d } = dom;
@@ -292,7 +339,7 @@ export function drawVentSymbol(wall, vent) {
     const halfWall = wallPx / 2;
 
     const isSelected = selectedObject?.type === "vent" && selectedObject.object === vent;
-    ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e57373";
+    ctx2d.strokeStyle = color; //ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e57373";
     ctx2d.fillStyle = "rgba(229, 115, 115, 0.2)";
     ctx2d.lineWidth = 1.5;
 
@@ -345,4 +392,147 @@ export function drawColumnSymbol(node) {
     ctx2d.moveTo(node.x + size / 2, node.y - size / 2);
     ctx2d.lineTo(node.x - size / 2, node.y + size / 2);
     ctx2d.stroke();
+}
+
+export function drawColumn(column, isSelected = false) {
+    const { ctx2d } = dom;
+    const { zoom, wallBorderColor, lineThickness, walls } = state;
+    
+    const corners = getColumnCorners(column);
+    
+    // İç renk = Duvar iç rengi (BG)
+    ctx2d.fillStyle = BG;
+    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
+    ctx2d.lineWidth = lineThickness / zoom;
+    
+    // Dış kare - ÖNCE DOLGU
+    ctx2d.beginPath();
+    ctx2d.moveTo(corners[0].x, corners[0].y);
+    for (let i = 1; i < corners.length; i++) {
+        ctx2d.lineTo(corners[i].x, corners[i].y);
+    }
+    ctx2d.closePath();
+    ctx2d.fill();
+    
+    // KENARLAR - Her kenarı ayrı kontrol et
+    // KENARLAR - Sadece kesişen kısımları gizle
+for (let i = 0; i < corners.length; i++) {
+    const p1 = corners[i];
+    const p2 = corners[(i + 1) % corners.length];
+    
+    // Kenarı parçalara böl
+    const segments = [];
+    const numSegments = 20; // Her kenarı 20 parçaya böl
+    
+    for (let j = 0; j < numSegments; j++) {
+        const t1 = j / numSegments;
+        const t2 = (j + 1) / numSegments;
+        
+        const seg1 = {
+            x: p1.x + (p2.x - p1.x) * t1,
+            y: p1.y + (p2.y - p1.y) * t1
+        };
+        const seg2 = {
+            x: p1.x + (p2.x - p1.x) * t2,
+            y: p1.y + (p2.y - p1.y) * t2
+        };
+        
+        // Bu segment duvarla çakışıyor mu?
+        const midX = (seg1.x + seg2.x) / 2;
+        const midY = (seg1.y + seg2.y) / 2;
+        
+        let overlapWithWall = false;
+        const OVERLAP_TOLERANCE = 8;
+        
+        for (const wall of walls) {
+            if (!wall || !wall.p1 || !wall.p2) continue;
+            
+            const distToWall = Math.sqrt(distToSegmentSquared(
+                { x: midX, y: midY },
+                wall.p1,
+                wall.p2
+            ));
+            
+            const wallThickness = wall.thickness || WALL_THICKNESS;
+            
+            if (distToWall < wallThickness / 2 + OVERLAP_TOLERANCE) {
+                overlapWithWall = true;
+                break;
+            }
+        }
+        
+        // Duvarla çakışmıyorsa bu segmenti çiz
+        if (!overlapWithWall) {
+            segments.push({ p1: seg1, p2: seg2 });
+        }
+    }
+    
+    // Çizilecek segmentleri çiz
+    segments.forEach(seg => {
+        ctx2d.beginPath();
+        ctx2d.moveTo(seg.p1.x, seg.p1.y);
+        ctx2d.lineTo(seg.p2.x, seg.p2.y);
+        ctx2d.stroke();
+    });
+}
+    // İçi boş kısmı çiz (L şekli)
+    if (column.hollowWidth && column.hollowHeight) {
+        const halfHollowW = column.hollowWidth / 2;
+        const halfHollowH = column.hollowHeight / 2;
+        const cx = column.center.x;
+        const cy = column.center.y;
+        const rot = (column.rotation || 0) * Math.PI / 180;
+        
+        const offsetX = column.hollowOffsetX || 0;
+        const offsetY = column.hollowOffsetY || 0;
+        
+        const hollowCorners = [
+            { x: offsetX - halfHollowW, y: offsetY - halfHollowH },
+            { x: offsetX + halfHollowW, y: offsetY - halfHollowH },
+            { x: offsetX + halfHollowW, y: offsetY + halfHollowH },
+            { x: offsetX - halfHollowW, y: offsetY + halfHollowH }
+        ].map(corner => {
+            const rotatedX = corner.x * Math.cos(rot) - corner.y * Math.sin(rot);
+            const rotatedY = corner.x * Math.sin(rot) + corner.y * Math.cos(rot);
+            return { x: cx + rotatedX, y: cy + rotatedY };
+        });
+        
+        // İç boşluk rengi = Oda rengi
+        ctx2d.fillStyle = state.roomFillColor;
+        ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
+        ctx2d.lineWidth = lineThickness / zoom;
+        
+        ctx2d.beginPath();
+        ctx2d.moveTo(hollowCorners[0].x, hollowCorners[0].y);
+        for (let i = 1; i < hollowCorners.length; i++) {
+            ctx2d.lineTo(hollowCorners[i].x, hollowCorners[i].y);
+        }
+        ctx2d.closePath();
+        ctx2d.fill();
+        ctx2d.stroke();
+    }
+    
+    // Handle'ları göster (seçiliyse)
+    if (isSelected) {
+        const handleRadius = 6 / zoom;
+        
+        // Merkez handle (yeşil)
+        ctx2d.fillStyle = '#4ade80';
+        ctx2d.beginPath();
+        ctx2d.arc(column.center.x, column.center.y, handleRadius, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.strokeStyle = '#ffffff';
+        ctx2d.lineWidth = 2 / zoom;
+        ctx2d.stroke();
+        
+        // Köşe handle (sağ üst - mavi)
+        const cornerHandle = corners[1];
+        ctx2d.fillStyle = '#3b82f6';
+        ctx2d.beginPath();
+        ctx2d.arc(cornerHandle.x, cornerHandle.y, handleRadius * 1.2, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.strokeStyle = '#ffffff';
+        ctx2d.lineWidth = 2 / zoom;
+        ctx2d.stroke();
+    }
 }

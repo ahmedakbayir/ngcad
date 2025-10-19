@@ -183,5 +183,7 @@ export function onPointerUp(e) {
         dragOriginalNodes: null,
         isSweeping: false,
         sweepWalls: [],
+        columnRotationOffset: null // EKLE - Rotation offset'i temizle
+
     });
 }

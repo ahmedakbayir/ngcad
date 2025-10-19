@@ -9,11 +9,16 @@ import { saveState } from './history.js';
 
 export function onPointerMove(e) {
     if (state.isCtrlDeleting) {
+        // Eğer kolon köşesi seçiliyse, silme modundan çık
+        if (state.selectedObject?.type === 'column' && state.selectedObject?.handle === 'corner') {
+            setState({ isCtrlDeleting: false });
+            return;
+        }
+        
         const rect = dom.c2d.getBoundingClientRect();
         const mousePos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 
         const wallsToDelete = new Set();
-        // Duvar kalınlığına göre tolerans
         for (const wall of state.walls) {
              const wallPx = wall.thickness || WALL_THICKNESS;
              const currentToleranceSq = (wallPx / 2)**2;
@@ -32,7 +37,7 @@ export function onPointerMove(e) {
                 walls: newWalls,
                 doors: newDoors,
             });
-            processWalls(); // Geometriyi yeniden işle (odaları vb. günceller)
+            processWalls();
         }
         return;
     }
@@ -73,14 +78,11 @@ export function onPointerMove(e) {
         }
     }
 
-    // Snap'i al (kapı/pencere sürükleniyorsa snap'siz döner)
     let snappedPos = getSmartSnapPoint(e, !state.isDragging);
-    setState({ mousePos: snappedPos }); // mousePos güncellenir
+    setState({ mousePos: snappedPos });
 
-    // Ham fare koordinatlarını al
     const rect = dom.c2d.getBoundingClientRect();
     const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-
 
     if (state.isStretchDragging) {
         update3DScene();
@@ -89,10 +91,8 @@ export function onPointerMove(e) {
     }
 
     if (state.isDragging && state.selectedObject) {
-        // --- Duvar Ucu Sürükleme ---
         if (state.selectedObject.type === "wall" && state.selectedObject.handle !== "body") {
             const nodeToMove = state.selectedObject.object[state.selectedObject.handle];
-            // Duvar ucu sürüklerken snap'li pozisyonu kullan
             let finalPos = { x: snappedPos.x, y: snappedPos.y };
 
             const moveIsValid = state.affectedWalls.every((wall) => {
@@ -106,7 +106,6 @@ export function onPointerMove(e) {
                 nodeToMove.y = finalPos.y;
             }
         }
-        // --- Duvar Gövdesi Sürükleme ---
         else if (state.selectedObject.type === "wall" && state.selectedObject.handle === "body") {
             const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
             const nodesToMove = new Set();
@@ -126,7 +125,6 @@ export function onPointerMove(e) {
                 }
             });
 
-            // Mahal güncelleme
             if (state.draggedRoomInfo && state.draggedRoomInfo.length > 0) {
                  const nodePositionMap = new Map();
                  nodesToMove.forEach(node => {
@@ -145,7 +143,6 @@ export function onPointerMove(e) {
                  });
             }
 
-            // Manyetik snap
              const MAGNETIC_SNAP_DISTANCE = 20;
              const ANGLE_TOLERANCE = 2;
              let bestMagneticSnap = null;
@@ -178,7 +175,6 @@ export function onPointerMove(e) {
                  nodesToMove.forEach(node => { node.x += bestMagneticSnap.dx; node.y += bestMagneticSnap.dy; });
              }
 
-            // Sweep walls
             if (state.isSweeping) {
                 const sweepWalls = [];
                 wallsToMove.forEach(movedWall => {
@@ -188,7 +184,6 @@ export function onPointerMove(e) {
                 setState({ sweepWalls });
             }
         }
-        // --- Kapı Sürükleme ---
         else if (state.selectedObject.type === "door") {
             const door = state.selectedObject.object;
             const targetX = unsnappedPos.x + state.dragOffset.x;
@@ -216,44 +211,33 @@ export function onPointerMove(e) {
                 const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
                 const newPos = t * wallLen;
 
-                // Kapı genişliğini koruma mantığı
                 let targetWidth = door.originalWidth || door.width;
                 let minPos = edgeMargin + targetWidth / 2;
                 let maxPos = wallLen - edgeMargin - targetWidth / 2;
 
-                // Eğer duvar, orijinal genişlik için çok kısaysa (minPos > maxPos)
-                // VE duvar değişiyorsa, yarısını dene
                 if (minPos > maxPos && closestWall !== door.wall) {
                      targetWidth = (door.originalWidth || door.width) / 2;
                      minPos = edgeMargin + targetWidth / 2;
                      maxPos = wallLen - edgeMargin - targetWidth / 2;
-                     // Yarı genişlik sığıyor mu ve minimumdan büyük mü?
                      if (wallLen >= targetWidth + 2 * edgeMargin && targetWidth >= 20) {
-                          // Yarı genişlik sığıyor, pozisyonu ayarla
                           const clampedPos = Math.max(minPos, Math.min(maxPos, newPos));
                           door.wall = closestWall;
                           door.pos = clampedPos;
-                          door.width = targetWidth; // Yarı genişliği kullan
+                          door.width = targetWidth;
                      } else {
-                         // Yarısı da sığmıyor, taşıma engellendi gibi davran (pozisyonu/genişliği güncelleme)
                      }
-                } else if (minPos <= maxPos) { // Duvar yeterince uzunsa veya aynı duvardaysa
-                     // Pozisyonu sınırlar içinde tut
+                } else if (minPos <= maxPos) {
                      const clampedPos = Math.max(minPos, Math.min(maxPos, newPos));
-                     door.wall = closestWall; // Duvar değişmiş olabilir
+                     door.wall = closestWall;
                      door.pos = clampedPos;
-                     // GÜNCELLENDİ: Genişliği sadece originalWidth varsa ona geri döndür
                      door.width = door.originalWidth || targetWidth;
-                     if (!door.originalWidth) door.originalWidth = door.width; // OriginalWidth'i kaydet
+                     if (!door.originalWidth) door.originalWidth = door.width;
                 }
-                 // Eğer minPos > maxPos ve AYNI duvardaysa, hiçbir şey yapma (kenara sıkıştı)
 
             } else {
-                 // Hiçbir duvara yakın değilse, orijinal genişliğe dön (opsiyonel)
                  door.width = door.originalWidth || door.width;
             }
         }
-        // --- Pencere Sürükleme ---
         else if (state.selectedObject.type === "window") {
             const window = state.selectedObject.object;
             const oldWall = state.selectedObject.wall;
@@ -282,31 +266,28 @@ export function onPointerMove(e) {
                 const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
                 const newPos = t * wallLen;
 
-                // Pozisyon geçerli mi? (Genişlik değişmez)
                  const minPos = window.width / 2 + margin;
                  const maxPos = wallLen - window.width / 2 - margin;
 
-                if (newPos >= minPos && newPos <= maxPos) { // Tamamen sığıyorsa
+                if (newPos >= minPos && newPos <= maxPos) {
                     window.pos = newPos;
-                    if (oldWall !== closestWall) { // Duvar değiştiyse
+                    if (oldWall !== closestWall) {
                         if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window);
                         if (!closestWall.windows) closestWall.windows = [];
                         closestWall.windows.push(window);
                         state.selectedObject.wall = closestWall;
                     }
-                } else if (wallLen >= window.width + 2*margin) { // Duvar yeterince uzun ama kenara geldi
-                     window.pos = Math.max(minPos, Math.min(maxPos, newPos)); // Pozisyonu sınıra çek
-                     if (oldWall !== closestWall) { // Duvar değiştiyse
+                } else if (wallLen >= window.width + 2*margin) {
+                     window.pos = Math.max(minPos, Math.min(maxPos, newPos));
+                     if (oldWall !== closestWall) {
                          if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window);
                          if (!closestWall.windows) closestWall.windows = [];
                          closestWall.windows.push(window);
                          state.selectedObject.wall = closestWall;
                      }
                 }
-                // Eğer duvar pencere için çok kısaysa (minPos > maxPos), pozisyonu güncelleme
             }
         }
-        // --- Menfez Sürükleme ---
         else if (state.selectedObject.type === "vent") {
              const vent = state.selectedObject.object;
              const oldWall = state.selectedObject.wall;
@@ -325,7 +306,7 @@ export function onPointerMove(e) {
              if (closestWall) {
                  const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
                  const ventMargin = 15;
-                 if (wallLen >= vent.width + 2 * ventMargin) { // Sadece sığıyorsa işlem yap
+                 if (wallLen >= vent.width + 2 * ventMargin) {
                      const dx = closestWall.p2.x - closestWall.p1.x;
                      const dy = closestWall.p2.y - closestWall.p1.y;
                      const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
@@ -333,7 +314,6 @@ export function onPointerMove(e) {
                      const minPos = vent.width / 2 + ventMargin;
                      const maxPos = wallLen - vent.width / 2 - ventMargin;
 
-                     // Pozisyonu sınırlar içinde tut
                      vent.pos = Math.max(minPos, Math.min(maxPos, newPos));
 
                      if (oldWall !== closestWall) {
@@ -345,30 +325,101 @@ export function onPointerMove(e) {
                  }
              }
         }
+else if (state.selectedObject.type === "column") {
+    const column = state.selectedObject.object;
+    const handle = state.selectedObject.handle;
+    
+    if (handle === 'body' || handle === 'center') {
+        // Tüm kolonu taşı
+        const dx = unsnappedPos.x - state.dragStartPoint.x;
+        const dy = unsnappedPos.y - state.dragStartPoint.y;
+        
+        const centerX = state.preDragNodeStates.get('center_x');
+        const centerY = state.preDragNodeStates.get('center_y');
+        
+        if (centerX !== undefined && centerY !== undefined) {
+            column.center.x = centerX + dx + state.dragOffset.x;
+            column.center.y = centerY + dy + state.dragOffset.y;
+        }
+        
+    } else if (handle === 'corner') {
+        // Mouse'un merkeze göre pozisyonu
+        const dx = unsnappedPos.x - column.center.x;
+        const dy = unsnappedPos.y - column.center.y;
+        
+        // Modifier tuşları kontrol et - DÜZELT
+        const currentEvent = window.event || e; // e parametresini de kabul et
+        const isCtrlPressed = currentEvent?.ctrlKey || false;
+        const isAltPressed = currentEvent?.altKey || false;
+        
+        // CTRL + Köşe = DÖNDÜRME
+        if (isCtrlPressed && !isAltPressed) {
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            
+            if (!state.columnRotationOffset) {
+                state.columnRotationOffset = angle - (column.rotation || 0);
+            }
+            
+            column.rotation = angle - state.columnRotationOffset;
+            column.rotation = Math.round(column.rotation / 15) * 15;
+        }
+        // ALT + Köşe = İÇİ BOŞALTMA (L Şekli)
+        else if (isAltPressed && !isCtrlPressed) {
+            // Mouse'un kolonun lokal koordinat sistemindeki pozisyonu
+            const rot = -(column.rotation || 0) * Math.PI / 180;
+            const localX = dx * Math.cos(rot) - dy * Math.sin(rot);
+            const localY = dx * Math.sin(rot) + dy * Math.cos(rot);
+            
+            const halfWidth = (column.width || column.size) / 2;
+            const halfHeight = (column.height || column.size) / 2;
+            
+            // Mouse hangi çeyrekte?
+            const quadrantX = localX > 0 ? 1 : -1;
+            const quadrantY = localY > 0 ? 1 : -1;
+            
+            // Boşaltma boyutları
+            const hollowWidth = Math.abs(halfWidth - Math.abs(localX)) * 2;
+            const hollowHeight = Math.abs(halfHeight - Math.abs(localY)) * 2;
+            
+            column.hollowWidth = Math.max(10, hollowWidth);
+            column.hollowHeight = Math.max(10, hollowHeight);
+            column.hollowOffsetX = quadrantX * (halfWidth - hollowWidth / 2);
+            column.hollowOffsetY = quadrantY * (halfHeight - hollowHeight / 2);
+        }
+        // Normal = SERBEST BOYUTLANDIRMA
+        else {
+            const rot = -(column.rotation || 0) * Math.PI / 180;
+            const localX = dx * Math.cos(rot) - dy * Math.sin(rot);
+            const localY = dx * Math.sin(rot) + dy * Math.cos(rot);
+            
+            const newWidth = Math.abs(localX) * 2;
+            const newHeight = Math.abs(localY) * 2;
+            
+            column.width = Math.max(20, newWidth);
+            column.height = Math.max(20, newHeight);
+            column.size = Math.max(column.width, column.height);
+        }
+    }
+}
 
-
-        // Küçülen duvarlardaki kapı/pencere/menfez ayarı
         if (state.affectedWalls.length > 0) {
              state.affectedWalls.forEach((wall) => {
                  const wallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                  const wallThickness = wall.thickness || 20;
                  const edgeMargin = (wallThickness / 2) + 5;
                  const ventMargin = 15;
-                 // Kapıları ayarla
                  (wall.doors || state.doors.filter(d => d.wall === wall)).forEach((door) => {
                      const minPos = edgeMargin + door.width / 2;
                      const maxPos = wallLength - edgeMargin - door.width / 2;
                      if (minPos > maxPos) door.pos = wallLength / 2;
                      else door.pos = Math.max(minPos, Math.min(maxPos, door.pos));
                  });
-                 // Pencereleri ayarla
                  (wall.windows || []).forEach((window) => {
                       const minPos = edgeMargin + window.width / 2;
                       const maxPos = wallLength - edgeMargin - window.width / 2;
                       if (minPos > maxPos) window.pos = wallLength / 2;
                       else window.pos = Math.max(minPos, Math.min(maxPos, window.pos));
                  });
-                 // Menfezleri ayarla
                   (wall.vents || []).forEach((vent) => {
                       const minPos = ventMargin + vent.width / 2;
                       const maxPos = wallLength - ventMargin - vent.width / 2;
@@ -378,10 +429,10 @@ export function onPointerMove(e) {
              });
         }
         update3DScene();
-    } // if (isDragging && selectedObject) sonu
+    }
 
     updateMouseCursor();
-} // onPointerMove sonu
+}
 
 function updateMouseCursor() {
     const { c2d } = dom;
@@ -399,7 +450,6 @@ function updateMouseCursor() {
         return;
     }
 
-    // Kapı veya pencere sürüklenmiyorsa ve snap varsa göster
     const isDraggingDoorOrWindow = isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window');
     if (!isDraggingDoorOrWindow && mousePos.isSnapped) {
         c2d.classList.add('near-snap');
@@ -413,7 +463,6 @@ function updateMouseCursor() {
             return;
         }
 
-        // Duvar üzerine gelme cursor'ı (kalınlığa göre)
         for (const w of state.walls) {
              const wallPx = w.thickness || WALL_THICKNESS;
              const bodyHitToleranceSq = (wallPx / 2) ** 2;
@@ -423,6 +472,4 @@ function updateMouseCursor() {
             }
         }
     }
-     // Eğer hiçbir özel durum yoksa, varsayılan cursor kalsın
-     // c2d.style.cursor = 'default'; // veya crosshair vb. moduna göre
 }

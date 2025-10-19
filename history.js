@@ -1,6 +1,14 @@
 import { state, setState } from './main.js';
 
 export function saveState() {
+    const currentState = {
+        nodes: JSON.parse(JSON.stringify(state.nodes)),
+        walls: JSON.parse(JSON.stringify(state.walls)),
+        doors: JSON.parse(JSON.stringify(state.doors)),
+        rooms: JSON.parse(JSON.stringify(state.rooms)),
+        columns: JSON.parse(JSON.stringify(state.columns)), // EKLE
+    };
+
     const snapshot = {
         nodes: state.nodes.map(n => ({ 
             x: n.x, 
