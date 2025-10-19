@@ -175,6 +175,20 @@ export function drawColumn(column, isSelected = false) {
     if (isSelected) {
         // Seçiliyse, tüm kenarları kesişime bakmadan çiz
         ctx2d.stroke(); // Yukarıdaki path'i kullanarak kenarlığı çiz
+        
+        // DÖNME GÜNCELLEMESİ: Köşe handle'larını (tutma noktalarını) çiz
+        const cornerRadius = 6 / zoom; // Handle yarıçapı
+        ctx2d.fillStyle = '#8ab4f8'; // Handle dolgu rengi
+        ctx2d.strokeStyle = '#ffffff'; // Handle kenarlık rengi
+        ctx2d.lineWidth = 1 / zoom; // Handle kenarlık kalınlığı
+        
+        corners.forEach(corner => {
+            ctx2d.beginPath();
+            ctx2d.arc(corner.x, corner.y, cornerRadius, 0, 2 * Math.PI);
+            ctx2d.fill();
+            ctx2d.stroke();
+        });
+
     } else {
         // Seçili değilse, kesişimleri kontrol ederek kenarları çiz
         for (let i = 0; i < corners.length; i++) {
@@ -343,7 +357,7 @@ export function drawColumn(column, isSelected = false) {
         ctx2d.beginPath(); ctx2d.moveTo(hollowCorners[0].x, hollowCorners[0].y); for (let i = 1; i < hollowCorners.length; i++) { ctx2d.lineTo(hollowCorners[i].x, hollowCorners[i].y); } ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke();
     }
 
-    // Handle'ları (kenar boyutlandırma noktaları) çizme kodu kaldırıldı.
+    // Handle'ları (kenar boyutlandırma noktaları) çizme kodu kaldırıldı. (AMA YUKARIDA isSelected İÇİNE KÖŞELERİ EKLEDİK)
 
 }
 // --- drawColumn Sonu ---

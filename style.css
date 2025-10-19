@@ -272,3 +272,8 @@ canvas {
     .drawColumn-mode #c2d {
     cursor: crosshair;
 }
+
+/* DÖNDÜRME İKONU EKLENDİ */
+.panel.rotate-mode {
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M24.73,19.47A10,10,0,1,0,19.47,24.73l.63-.63a9,9,0,1,1,4.63-4.63Z" fill="white" stroke="black" stroke-width="0.5"/><polygon points="20 18 20 27 29 22.5" fill="white" stroke="black" stroke-width="0.5"/></svg>') 16 16, auto;
+}

@@ -48,14 +48,26 @@ export function getColumnCorners(column) {
     });
 }
 
-// --- YENİ YARDIMCI FONKSİYON: Kenar Handle Tespiti ---
-// Verilen noktanın, kolonun hangi kenarına (veya yakınına) denk geldiğini belirler.
+// --- GÜNCELLENMİŞ YARDIMCI FONKSİYON: Kenar VEYA Köşe Handle Tespiti ---
+// Verilen noktanın, kolonun hangi kenarına veya köşesine denk geldiğini belirler.
 // point: Dünya koordinatlarında {x, y}
 // column: Kontrol edilecek kolon nesnesi
 // tolerance: Yakınlık toleransı (dünya birimi cinsinden)
-export function getEdgeHandleAtPoint(point, column, tolerance) {
+export function getColumnHandleAtPoint(point, column, tolerance) {
     const cx = column.center.x;
     const cy = column.center.y;
+    
+    // 1. Köşeleri Kontrol Et (Daha yüksek öncelikli)
+    const corners = getColumnCorners(column);
+    const cornerTolerance = tolerance * 1.5; // Köşeler için biraz daha fazla tolerans
+    for (let i = 0; i < corners.length; i++) {
+        const dist = Math.hypot(point.x - corners[i].x, point.y - corners[i].y);
+        if (dist < cornerTolerance) {
+            return `corner_${i}`; // Köşe handle'ı (örn: "corner_0")
+        }
+    }
+
+    // 2. Kenarları Kontrol Et
     // Noktayı kolonun lokal koordinat sistemine çevirmek için ters döndürme açısı
     const rot = -(column.rotation || 0) * Math.PI / 180;
 
@@ -88,47 +100,47 @@ export function getEdgeHandleAtPoint(point, column, tolerance) {
         return 'edge_right';
     }
 
-    return null; // Herhangi bir kenara yakın değil
+    return null; // Herhangi bir kenara veya köşeye yakın değil
 }
-// --- YENİ YARDIMCI FONKSİYON SONU ---
+// --- YARDIMCI FONKSİYON SONU ---
 
 
-// Verilen noktada hangi nesnenin (kolon, kenar, gövde) olduğunu belirler
+// Verilen noktada hangi nesnenin (kolon, kenar, köşe, gövde) olduğunu belirler
 export function getColumnAtPoint(point) {
     const { columns, zoom, selectedObject } = state;
-    // Kenar yakalama toleransı (Zoom'a göre ayarlı, dünya birimi)
-    const edgeTolerance = 8 / zoom;
+    // Kenar/Köşe yakalama toleransı (Zoom'a göre ayarlı, dünya birimi)
+    const handleTolerance = 8 / zoom;
     // Gövde yakalama toleransı (kenardan biraz daha büyük olabilir)
-    const bodyTolerance = 12 / zoom; // Bu aslında isPointInColumn içinde örtük olarak var
+    // const bodyTolerance = 12 / zoom; // Bu aslında isPointInColumn içinde örtük olarak var
 
-    // Önce seçili kolonun kenarlarını kontrol et (daha hassas seçim için)
+    // Önce seçili kolonun kenarlarını/köşelerini kontrol et (daha hassas seçim için)
     if (selectedObject?.type === 'column') {
         const column = selectedObject.object;
 
-        // Kenar tutamacını ara
-        const edgeHandle = getEdgeHandleAtPoint(point, column, edgeTolerance);
-        if (edgeHandle) {
-            // Bir kenar tutamacı bulunduysa, onu döndür
-            return { type: 'column', object: column, handle: edgeHandle };
+        // Kenar veya köşe tutamacını ara
+        const handle = getColumnHandleAtPoint(point, column, handleTolerance);
+        if (handle) {
+            // Bir tutamaç bulunduysa, onu döndür
+            return { type: 'column', object: column, handle: handle };
         }
-        // Seçili kolonun merkezi veya köşesi artık kontrol edilmiyor
+        // Seçili kolonun merkezi artık kontrol edilmiyor
     }
 
-    // Seçili kolonun kenarı tıklanmadıysa veya başka bir kolon seçiliyse,
+    // Seçili kolonun tutamacı tıklanmadıysa veya başka bir kolon seçiliyse,
     // tıklanan noktadaki kolonun gövdesini ara
     // Not: Üst üste binen kolonlarda en üsttekini seçmek için tersten iterate ediyoruz.
     for (const column of [...columns].reverse()) {
         // Nokta bu kolonun içinde mi?
         if (isPointInColumn(point, column)) {
-            // Nokta içinde, ama acaba bir kenara mı daha yakın? (Özellikle seçili olmayan kolonlarda önemli)
-            // Eğer seçili olmayan bir kolonun kenarına tıklanırsa, onu seçmek yerine gövdesinden sürüklemeli.
-            // Bu yüzden seçili OLMAYAN kolonlar için kenar kontrolü yapmıyoruz burada.
+            // Nokta içinde, ama acaba bir tutamaca mı daha yakın? (Özellikle seçili olmayan kolonlarda önemli)
+            // Eğer seçili olmayan bir kolonun kenarına/köşesine tıklanırsa, onu seçmek yerine gövdesinden sürüklemeli.
+            // Bu yüzden seçili OLMAYAN kolonlar için tutamaç kontrolü yapmıyoruz burada.
             // Sadece gövde içinde mi diye bakıyoruz.
             return { type: 'column', object: column, handle: 'body' };
         }
     }
 
-    return null; // Tıklanan noktada kolon veya kenarı bulunamadı
+    return null; // Tıklanan noktada kolon veya tutamacı bulunamadı
 }
 
 

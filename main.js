@@ -103,6 +103,7 @@ export let state = {
     sweepWalls: [],
     draggedRoomInfo: [],
     isCtrlDeleting: false,
+    columnRotationOffset: null, // DÖNDÜRME İÇİN EKLENDİ
 };
 
 export function setState(newState) {

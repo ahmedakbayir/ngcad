@@ -10,7 +10,8 @@ import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { currentModifierKeys } from './input.js';
 // Gerekli fonksiyonları import et
-import { getColumnCorners, getEdgeHandleAtPoint, getColumnAtPoint } from './columns.js';
+// DÖNME GÜNCELLEMESİ: getColumnHandleAtPoint olarak adını değiştirdik
+import { getColumnCorners, getColumnHandleAtPoint, getColumnAtPoint } from './columns.js';
 
 // Helper: Verilen bir noktanın (genellikle kolon merkezi) bir duvar merkez çizgisine snap olup olmadığını kontrol eder.
 // Snap varsa duvarı ve açısını döndürür.
@@ -39,8 +40,8 @@ function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
 export function onPointerMove(e) {
     if (state.isCtrlDeleting) {
         // Kontrol tuşu ile silme modu aktifse
-        // Eğer köşe handle seçiliyse silme modundan çık (köşe silinmez - köşe handle artık yok ama kalsın)
-        if (state.selectedObject?.type === 'column' && state.selectedObject?.handle === 'corner') { // 'corner' artık yok ama eski koddan kalma olabilir
+        // DÖNME GÜNCELLEMESİ: 'corner' -> 'corner_'
+        if (state.selectedObject?.type === 'column' && state.selectedObject?.handle.startsWith('corner_')) {
             setState({ isCtrlDeleting: false });
             return;
         }
@@ -248,7 +249,7 @@ export function onPointerMove(e) {
             // --- Duvarla birlikte Kolon Taşıma ---
             const SNAP_TOLERANCE_FOR_MOVE = 1.0; // Ne kadar yakınsa bağlı sayılacak (cm)
             state.columns.forEach(column => {
-                // if ((column.rotation || 0) !== 0) return; // Döndürülmüş kolonları da taşıyalım
+                // if ((column.rotation || 0) !== 0) return; // DÖNME GÜNCELLEMESİ: Artık döndürülmüş kolonları da taşı
                 const colIndex = state.columns.indexOf(column); // Kolonun index'ini bul
                 const originalColCenterX = state.preDragNodeStates.get(`col_${colIndex}_x`);
                 const originalColCenterY = state.preDragNodeStates.get(`col_${colIndex}_y`);
@@ -328,12 +329,44 @@ export function onPointerMove(e) {
              const vent = state.selectedObject.object; const oldWall = state.selectedObject.wall; const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY }; let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = WALL_THICKNESS * 2; for (const w of state.walls) { const d = distToSegmentSquared(targetPos, w.p1, w.p2); if (d < bodyHitTolerance ** 2 && d < minDistSq) { minDistSq = d; closestWall = w; } } if (closestWall) { const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y); const ventMargin = 15; if (wallLen >= vent.width + 2 * ventMargin) { const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y; const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy))); const newPos = t * wallLen; const minPos = vent.width / 2 + ventMargin; const maxPos = wallLen - vent.width / 2 - ventMargin; vent.pos = Math.max(minPos, Math.min(maxPos, newPos)); if (oldWall !== closestWall) { if (oldWall.vents) oldWall.vents = oldWall.vents.filter(v => v !== vent); if (!closestWall.vents) closestWall.vents = []; closestWall.vents.push(vent); state.selectedObject.wall = closestWall; } } }
         }
 else if (state.selectedObject.type === "column") {
-    // --- KOLON TAŞIMA veya KENARDAN BOYUTLANDIRMA ---
+    // --- KOLON TAŞIMA, BOYUTLANDIRMA veya DÖNDÜRME ---
     const column = state.selectedObject.object;
     const handle = state.selectedObject.handle;
 
-        // Gövdeden veya merkezden taşıma
-        if (handle === 'body' || handle === 'center') {
+    // DÖNME GÜNCELLEMESİ: Köşeden sürükleme (Döndürme)
+    if (handle.startsWith('corner_')) {
+        const center = column.center;
+        // Ham (snaplenmemiş) mouse pozisyonuna göre açıyı hesapla
+        const mouseAngle = Math.atan2(unsnappedPos.y - center.y, unsnappedPos.x - center.x);
+        // Başlangıç ofsetini uygula
+        let newRotationRad = mouseAngle + state.columnRotationOffset;
+
+        // --- YENİ SNAP MANTIĞI ---
+        // 1. Önce 1 derecelik adımlara snaple
+        const snapAngleRad1 = (1 * Math.PI / 180); // 1 derece (radyan)
+        newRotationRad = Math.round(newRotationRad / snapAngleRad1) * snapAngleRad1;
+
+        // 2. Sonra 90 derece katlarına yakınlığı kontrol et
+        let newRotationDeg = newRotationRad * 180 / Math.PI; // Dereceye çevir
+        const remainder = newRotationDeg % 90; // 90'a bölümünden kalan
+        const snapThreshold = 5; // Yakınlık eşiği (derece)
+
+        // Eğer kalan +/- snapThreshold içindeyse veya 90 - snapThreshold'dan büyükse
+        if (Math.abs(remainder) <= snapThreshold || Math.abs(remainder) >= (90 - snapThreshold)) {
+            // En yakın 90 derece katına yuvarla
+            newRotationDeg = Math.round(newRotationDeg / 90) * 90;
+            newRotationRad = newRotationDeg * Math.PI / 180; // Tekrar radyana çevir
+        }
+        // --- YENİ SNAP MANTIĞI SONU ---
+
+
+        // Yeni açıyı derece olarak ata
+        column.rotation = newRotationRad * 180 / Math.PI;
+
+        update3DScene(); // 3D görünümü güncelle
+    }
+    // Gövdeden veya merkezden taşıma
+    else if (handle === 'body' || handle === 'center') {
             let newCenterX = unsnappedPos.x + state.dragOffset.x;
             let newCenterY = unsnappedPos.y + state.dragOffset.y;
 
@@ -528,7 +561,7 @@ function updateMouseCursor() {
     const { currentMode, isDragging, isPanning, mousePos, selectedObject, zoom } = state; // Gerekli state değerleri
 
     // Önce tüm özel imleç sınıflarını kaldır
-    c2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node');
+    c2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node', 'rotate-mode'); // DÖNME GÜNCELLEMESİ: rotate-mode eklendi
     // Style'dan cursor'ı temizle (CSS devreye girsin diye)
     c2d.style.cursor = '';
 
@@ -546,12 +579,12 @@ function updateMouseCursor() {
 
     if (isDragging) {
         // Genel sürükleme imleci (taşıma)
-        // Eğer kenardan boyutlandırma yapılıyorsa farklı imleç gösterilebilir (aşağıda handle ediliyor)
+        // Eğer kenardan boyutlandırma veya döndürme yapılıyorsa farklı imleç gösterilebilir (aşağıda handle ediliyor)
         // Şimdilik genel 'grabbing' kullanalım
         c2d.style.cursor = 'grabbing';
         // c2d.classList.add('dragging');
-        // Kenardan boyutlandırma imlecini burada ayarlama, çünkü handle bilgisi lazım (aşağıda)
-        // return; // Aşağıdaki kontrollere devam etsin (kenar imleci için)
+        // Kenardan boyutlandırma veya döndürme imlecini burada ayarlama, çünkü handle bilgisi lazım (aşağıda)
+        // return; // Aşağıdaki kontrollere devam etsin (kenar/köşe imleci için)
     }
 
     // Kapı veya pencere sürüklenmiyorsa VE fare bir snap noktasındaysa
@@ -561,8 +594,15 @@ function updateMouseCursor() {
         return;
     }
 
-    // Seçim modunda ise (sürükleme yokken VEYA sürüklerken kenar imlecini ayarlamak için)
+    // Seçim modunda ise (sürükleme yokken VEYA sürüklerken kenar/köşe imlecini ayarlamak için)
     if (currentMode === 'select') {
+
+        // DÖNME GÜNCELLEMESİ: Kolon köşesi (Sürüklerken)
+        if (selectedObject?.type === 'column' && isDragging && selectedObject.handle?.startsWith('corner_')) {
+             c2d.classList.add('rotate-mode'); // Döndürme ikonunu CSS'den al
+             return;
+        }
+
         // Kolon kenarı için cursor (Sürüklerken de çalışmalı)
         if (selectedObject?.type === 'column' && isDragging && selectedObject.handle?.startsWith('edge_')) {
              const edgeHandle = selectedObject.handle;
@@ -579,15 +619,22 @@ function updateMouseCursor() {
              c2d.style.cursor = cursorType; // Cursor stilini ayarla
              return; // Başka cursor kontrolü yapma
         }
-         // Kolon kenarı için cursor (Sürükleme YOKKEN - hover durumu)
+         // Kolon kenarı VEYA köşesi için cursor (Sürükleme YOKKEN - hover durumu)
          else if (selectedObject?.type === 'column' && !isDragging) {
-             const edgeTolerance = 8 / zoom; // Hover için tolerans
-             const edgeHandle = getEdgeHandleAtPoint(mousePos, selectedObject.object, edgeTolerance); // mousePos kullan
-             if (edgeHandle) {
+             const handleTolerance = 8 / zoom; // Hover için tolerans
+             // DÖNME GÜNCELLEMESİ: getColumnHandleAtPoint'i çağır
+             const handle = getColumnHandleAtPoint(mousePos, selectedObject.object, handleTolerance); // mousePos kullan
+
+             if (handle && handle.startsWith('corner_')) {
+                 c2d.classList.add('rotate-mode'); // DÖNME GÜNCELLEMESİ: Köşe üzerine gelince rotate ikonu
+                 return;
+             }
+
+             if (handle && handle.startsWith('edge_')) {
                  const rotation = selectedObject.object.rotation || 0;
                  const angleDeg = Math.abs(rotation % 180);
                  let cursorType = 'ew-resize';
-                 if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') {
+                 if (handle === 'edge_top' || handle === 'edge_bottom') {
                     cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize';
                  } else {
                     cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize';

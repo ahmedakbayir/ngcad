@@ -146,6 +146,12 @@ export function onPointerUp(e) {
                 nodesToMerge.forEach((node) => mergeNode(node));
             }
         }
+
+        // DÖNME GÜNCELLEMESİ: Kolon döndürüldüyse duvarları işle
+        if (state.selectedObject?.type === "column" && state.columnRotationOffset !== null) {
+            processWalls();
+        }
+
         processWalls();
         saveState();
     
@@ -183,7 +189,7 @@ export function onPointerUp(e) {
         dragOriginalNodes: null,
         isSweeping: false,
         sweepWalls: [],
-        columnRotationOffset: null // EKLE - Rotation offset'i temizle
+        columnRotationOffset: null // DÖNME GÜNCELLEMESİ: Offset'i temizle
 
     });
 }

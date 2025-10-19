@@ -40,7 +40,8 @@ export function onPointerDown(e) {
         // Tıklanan noktadaki nesneyi al
         const selectedObj = getObjectAtPoint(pos);
         // Tıklanan nesne kolon köşesi mi? (Alt tuşu ile silme kontrolü için)
-        const isColumnCornerSelected = selectedObj?.type === 'column' && selectedObj?.handle === 'corner';
+        // DÖNME GÜNCELLEMESİ: Artık 'corner_X' formatında
+        const isColumnCornerSelected = selectedObj?.type === 'column' && selectedObj?.handle.startsWith('corner_');
 
         // Sadece Alt tuşuna basılıysa (Ctrl/Shift değil)
         if (e.altKey && !e.shiftKey && !e.ctrlKey) {
@@ -84,7 +85,8 @@ export function onPointerDown(e) {
             dragAxis: null, // Sürükleme eksenini temizle
             isSweeping: false, // Sweep modunu kapat
             sweepWalls: [], // Sweep duvarlarını temizle
-            dragOffset: { x: 0, y: 0 } // Sürükleme ofsetini sıfırla
+            dragOffset: { x: 0, y: 0 }, // Sürükleme ofsetini sıfırla
+            columnRotationOffset: null // DÖNME GÜNCELLEMESİ: Döndürme ofsetini temizle
         });
 
         // Eğer seçilen nesne kolonsa, boyutlandırma/döndürme için başlangıç durumunu kaydet
@@ -106,6 +108,7 @@ export function onPointerDown(e) {
         if (selectedObject) {
             let startPointForDragging; // Sürüklemenin başladığı *nesne* üzerindeki nokta
             let dragOffset = { x: 0, y: 0 }; // Mouse ile bu nokta arasındaki fark
+            let columnRotationOffset = null; // DÖNME GÜNCELLEMESİ: Ofseti hesaplamak için
 
             // Seçilen nesneye göre başlangıç noktası ve ofseti belirle
             if (selectedObject.type === 'wall' && selectedObject.handle !== 'body') {
@@ -165,14 +168,20 @@ export function onPointerDown(e) {
                         x: selectedObject.object.center.x - pos.x,
                         y: selectedObject.object.center.y - pos.y
                     };
-                } else if (selectedObject.handle === 'corner') {
-                    // Köşeden tutulduğunda köşe pozisyonu önemli
-                    const corners = getColumnCorners(selectedObject.object);
-                    // Doğru köşeyi al (sağ alt = index 2)
-                    startPointForDragging = { x: corners[2].x, y: corners[2].y };
-                    dragOffset = { x: 0, y: 0 }; // Köşeden boyutlandırma/döndürmede offset olmaz
+                } else if (selectedObject.handle.startsWith('corner_')) {
+                    // DÖNME GÜNCELLEMESİ: Köşeden tutulduğunda
+                    const column = selectedObject.object;
+                    // Döndürme merkez etrafında yapılır
+                    startPointForDragging = { x: column.center.x, y: column.center.y };
+                    dragOffset = { x: 0, y: 0 }; // Döndürmede offset olmaz
+                    
+                    // Döndürme açısı ofsetini hesapla
+                    const initialAngle = Math.atan2(pos.y - column.center.y, pos.x - column.center.x);
+                    const initialRotationRad = (column.rotation || 0) * Math.PI / 180;
+                    columnRotationOffset = initialRotationRad - initialAngle; // Bu ofseti state'e kaydedeceğiz
+
                 } else {
-                    // Diğer durumlar için (varsa) genel snap pozisyonu
+                    // Diğer durumlar için (kenar boyutlandırma) genel snap pozisyonu
                     startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY };
                     dragOffset = { x: 0, y: 0 };
                 }
@@ -187,7 +196,8 @@ export function onPointerDown(e) {
                 dragStartPoint: startPointForDragging, // Sürüklemenin başladığı *nesne* noktası
                 initialDragPoint: { x: pos.x, y: pos.y }, // Sürüklemenin başladığı *mouse* noktası
                 dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId }, // Ekran koordinatları (pointer up kontrolü için)
-                dragOffset: dragOffset // Mouse ile nesne arasındaki fark (gövdeden sürüklemede önemli)
+                dragOffset: dragOffset, // Mouse ile nesne arasındaki fark (gövdeden sürüklemede önemli)
+                columnRotationOffset: columnRotationOffset // DÖNME GÜNCELLEMESİ: Ofseti state'e ekle
             });
 
             // Eğer duvar seçildiyse ek hazırlıklar
@@ -244,10 +254,20 @@ export function onPointerDown(e) {
                      state.columns.forEach((col, index) => {
                          // Sadece döndürülmemiş kolonların pozisyonunu kaydetmek,
                          // birlikte hareket mantığı sadece onlar için çalıştığından yeterli.
-                         if ((col.rotation || 0) === 0) {
+                         // DÖNME GÜNCELLEMESİ: Artık döndürülmüş kolonları da taşıyabilmeli,
+                         // bu yüzden (col.rotation || 0) === 0 kontrolünü kaldırıyoruz.
+                         // (Ancak pointer-move'daki taşıma mantığı şimdilik sadece 0 derece için snap yapıyor,
+                         // bu yüzden şimdilik 0 derece kısıtlaması kalabilir,
+                         // ama kolon döndürme eklendiği için bu kısıtlamayı kaldırmak daha doğru olacak.)
+                         //
+                         // GÜNCELLEME: pointer-move'daki taşıma mantığı (getSnappedWallInfo)
+                         // artık snapli kolonları döndürüyor, bu yüzden buradaki 0 derece
+                         // kısıtlaması KALKMALI.
+                         
+                         // if ((col.rotation || 0) === 0) {
                              state.preDragNodeStates.set(`col_${index}_x`, col.center.x);
                              state.preDragNodeStates.set(`col_${index}_y`, col.center.y);
-                         }
+                         // }
                      });
                      // --- DEĞİŞİKLİK SONU ---
 
