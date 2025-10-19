@@ -99,32 +99,146 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     const doorP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
     const wallPx = wall.thickness || WALL_THICKNESS;
     const halfWall = wallPx / 2;
-    let color = isPreview ? "#8ab4f8" : (isSelected ? "#8ab4f8" : wallBorderColor); // Önizleme rengi
+    
+    // Renk hesaplama - %80 transparent
+    let color;
+    if (isPreview) {
+        color = "#8ab4f8";
+    } else if (isSelected) {
+        color = "#8ab4f8";
+    } else {
+        // wallBorderColor'dan RGB değerlerini al ve %80 opacity ekle
+        const hex = wallBorderColor.startsWith('#') ? wallBorderColor.slice(1) : wallBorderColor;
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        color = `rgba(${r}, ${g}, ${b}, 0.8)`;
+    }
+    
     ctx2d.strokeStyle = color;
-    ctx2d.lineWidth = lineThickness / 1.5; // Kapı çizgileri biraz daha ince
+    ctx2d.lineWidth = lineThickness / 1.5;
 
-    const jamb1_start = { x: doorP1.x - nx * halfWall, y: doorP1.y - ny * halfWall };
-    const jamb1_end = { x: doorP1.x + nx * halfWall, y: doorP1.y + ny * halfWall };
-    const jamb2_start = { x: doorP2.x - nx * halfWall, y: doorP2.y - ny * halfWall };
-    const jamb2_end = { x: doorP2.x + nx * halfWall, y: doorP2.y + ny * halfWall };
+    // İnset değeri
+    const inset = lineThickness / 4;
+
+    // İki paralel çizgi (duvarın iki yanında)
+    const insetRatio = 1 / 3;
+    const jamb_vec_x = nx * halfWall * 2;
+    const jamb_vec_y = ny * halfWall * 2;
+    
+    const p_line1_start = { x: doorP1.x - nx * halfWall + jamb_vec_x * insetRatio, y: doorP1.y - ny * halfWall + jamb_vec_y * insetRatio };
+    const p_line1_end = { x: doorP2.x - nx * halfWall + jamb_vec_x * insetRatio, y: doorP2.y - ny * halfWall + jamb_vec_y * insetRatio };
+    const p_line2_start = { x: doorP1.x - nx * halfWall + jamb_vec_x * (1 - insetRatio), y: doorP1.y - ny * halfWall + jamb_vec_y * (1 - insetRatio) };
+    const p_line2_end = { x: doorP2.x - nx * halfWall + jamb_vec_x * (1 - insetRatio), y: doorP2.y - ny * halfWall + jamb_vec_y * (1 - insetRatio) };
+
+    // Yan çizgiler için inset
+    const doorP1_inset = { x: doorP1.x + dx * inset, y: doorP1.y + dy * inset };
+    const doorP2_inset = { x: doorP2.x - dx * inset, y: doorP2.y - dy * inset };
+    
+    const jamb1_start = { x: doorP1_inset.x - nx * halfWall, y: doorP1_inset.y - ny * halfWall };
+    const jamb1_end = { x: doorP1_inset.x + nx * halfWall, y: doorP1_inset.y + ny * halfWall };
+    const jamb2_start = { x: doorP2_inset.x - nx * halfWall, y: doorP2_inset.y - ny * halfWall };
+    const jamb2_end = { x: doorP2_inset.x + nx * halfWall, y: doorP2_inset.y + ny * halfWall };
 
     ctx2d.beginPath();
+    // Paralel çizgiler
+    ctx2d.moveTo(p_line1_start.x, p_line1_start.y); ctx2d.lineTo(p_line1_end.x, p_line1_end.y);
+    ctx2d.moveTo(p_line2_start.x, p_line2_start.y); ctx2d.lineTo(p_line2_end.x, p_line2_end.y);
+    // Yan çizgiler
     ctx2d.moveTo(jamb1_start.x, jamb1_start.y); ctx2d.lineTo(jamb1_end.x, jamb1_end.y);
     ctx2d.moveTo(jamb2_start.x, jamb2_start.y); ctx2d.lineTo(jamb2_end.x, jamb2_end.y);
     ctx2d.stroke();
+}
 
-    const insetRatio = 1 / 3;
-    const jamb_vec_x = jamb1_end.x - jamb1_start.x, jamb_vec_y = jamb1_end.y - jamb1_start.y;
-    const p_line1_start = { x: jamb1_start.x + jamb_vec_x * insetRatio, y: jamb1_start.y + jamb_vec_y * insetRatio };
-    const p_line1_end = { x: jamb2_start.x + jamb_vec_x * insetRatio, y: jamb2_start.y + jamb_vec_y * insetRatio };
-    const p_line2_start = { x: jamb1_start.x + jamb_vec_x * (1 - insetRatio), y: jamb1_start.y + jamb_vec_y * (1 - insetRatio) };
-    const p_line2_end = { x: jamb2_start.x + jamb_vec_x * (1 - insetRatio), y: jamb2_start.y + jamb_vec_y * (1 - insetRatio) };
+export function drawWindowSymbol(wall, window, isPreview = false, isSelected = false) {
+    const { ctx2d } = dom;
+    const { selectedObject, wallBorderColor, lineThickness } = state;
+
+    if (!wall || !wall.p1 || !wall.p2) return;
+    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    if (wallLen < 0.1) return;
+
+    const dx = (wall.p2.x - wall.p1.x) / wallLen;
+    const dy = (wall.p2.y - wall.p1.y) / wallLen;
+    const nx = -dy, ny = dx;
+
+    const startPos = window.pos - window.width / 2;
+    const endPos = window.pos + window.width / 2;
+    const windowP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
+    const windowP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
+
+    const wallPx = wall.thickness || WALL_THICKNESS;
+    const halfWall = wallPx / 2;
+
+    const isSelectedCalc = isSelected || (selectedObject?.type === "window" && selectedObject.object === window);
+    
+    // Renk hesaplama - %80 transparent
+    let color;
+    if (isPreview) {
+        color = "#8ab4f8";
+    } else if (isSelectedCalc) {
+        color = "#8ab4f8";
+    } else {
+        const hex = wallBorderColor.startsWith('#') ? wallBorderColor.slice(1) : wallBorderColor;
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        color = `rgba(${r}, ${g}, ${b}, 0.8)`;
+    }
+    
+    ctx2d.strokeStyle = color;
+    ctx2d.lineWidth = lineThickness / 2;
+
+    // İnset değeri - çizgilerin duvar içinde kalması için
+    const inset = lineThickness / 4;
+
+    // 4 paralel çizgi (yatay) - iç çizgiler için de inset kullan
+    const offset25 = halfWall * 0.5;
+    const offset75 = halfWall * 0.5;
+    
+    // İç çizgiler için de inset ekle
+    const windowP1_inset_inner = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset };
+    const windowP2_inset_inner = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
+    
+    // Dış çizgiler
+    const line1_start = { x: windowP1.x - nx * (halfWall - inset), y: windowP1.y - ny * (halfWall - inset) };
+    const line1_end = { x: windowP2.x - nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) };
+    
+    const line4_start = { x: windowP1.x + nx * (halfWall - inset), y: windowP1.y + ny * (halfWall - inset) };
+    const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y + ny * (halfWall - inset) };
+    
+    // İç çizgiler - inset ile
+    const line2_start = { x: windowP1_inset_inner.x - nx * offset25, y: windowP1_inset_inner.y - ny * offset25 };
+    const line2_end = { x: windowP2_inset_inner.x - nx * offset25, y: windowP2_inset_inner.y - ny * offset25 };
+    
+    const line3_start = { x: windowP1_inset_inner.x + nx * offset75, y: windowP1_inset_inner.y + ny * offset75 };
+    const line3_end = { x: windowP2_inset_inner.x + nx * offset75, y: windowP2_inset_inner.y + ny * offset75 };
+
+    // Yan çizgiler için inset
+    const windowP1_inset = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset };
+    const windowP2_inset = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
+    
+    // Sol kenar
+    const left1 = { x: windowP1_inset.x - nx * (halfWall - inset), y: windowP1_inset.y - ny * (halfWall - inset) };
+    const left2 = { x: windowP1_inset.x + nx * (halfWall - inset), y: windowP1_inset.y + ny * (halfWall - inset) };
+    
+    // Sağ kenar
+    const right1 = { x: windowP2_inset.x - nx * (halfWall - inset), y: windowP2_inset.y - ny * (halfWall - inset) };
+    const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) };
 
     ctx2d.beginPath();
-    ctx2d.moveTo(p_line1_start.x, p_line1_start.y); ctx2d.lineTo(p_line1_end.x, p_line1_end.y);
-    ctx2d.moveTo(p_line2_start.x, p_line2_start.y); ctx2d.lineTo(p_line2_end.x, p_line2_end.y);
+    // Yatay çizgiler
+    ctx2d.moveTo(line1_start.x, line1_start.y); ctx2d.lineTo(line1_end.x, line1_end.y);
+    ctx2d.moveTo(line2_start.x, line2_start.y); ctx2d.lineTo(line2_end.x, line2_end.y);
+    ctx2d.moveTo(line3_start.x, line3_start.y); ctx2d.lineTo(line3_end.x, line3_end.y);
+    ctx2d.moveTo(line4_start.x, line4_start.y); ctx2d.lineTo(line4_end.x, line4_end.y);
+    // Yan çizgiler
+    ctx2d.moveTo(left1.x, left1.y); ctx2d.lineTo(left2.x, left2.y);
+    ctx2d.moveTo(right1.x, right1.y); ctx2d.lineTo(right2.x, right2.y);
     ctx2d.stroke();
 }
+
+
 
 export function drawGrid() {
     const { ctx2d, c2d } = dom;
@@ -223,88 +337,6 @@ export function isMouseOverWall() {
         }
     }
     return false;
-}
-
-// isPreview parametresi eklendi
-export function drawWindowSymbol(wall, window, isPreview = false) {
-    const { ctx2d } = dom;
-    const { selectedObject, wallBorderColor, lineThickness } = state;
-
-    if (!wall || !wall.p1 || !wall.p2) return;
-    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    if (wallLen < 0.1) return; // Çok kısa duvarları atla
-
-    const dx = (wall.p2.x - wall.p1.x) / wallLen;
-    const dy = (wall.p2.y - wall.p1.y) / wallLen;
-    const nx = -dy, ny = dx; // Normal vector
-
-    // Window start and end points along the wall's center line
-    const startPos = window.pos - window.width / 2;
-    const endPos = window.pos + window.width / 2;
-    const windowP1_geom = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
-    const windowP2_geom = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
-
-    // Use the actual thickness of the wall
-    const wallPx = wall.thickness || WALL_THICKNESS;
-    const halfWall = wallPx / 2;
-
-    const isSelected = selectedObject?.type === "window" && selectedObject.object === window;
-    // Önizleme rengi ayarı
-    ctx2d.strokeStyle = isPreview ? "#8ab4f8" : (isSelected ? "#8ab4f8" : wallBorderColor);
-
-    // Visual line thickness matching the wall outline effect
-    const visualLineThickness = lineThickness / 2;
-    ctx2d.lineWidth = visualLineThickness;
-    // Inset amount to prevent lines visually exceeding wall boundaries
-    const inset = visualLineThickness / 2;
-
-    // --- Calculate Line Positions with Inset ---
-
-    // Calculate inset start/end points along the wall direction for jambs and inner lines
-    const jambP1 = { x: windowP1_geom.x + dx * inset, y: windowP1_geom.y + dy * inset };
-    const jambP2 = { x: windowP2_geom.x - dx * inset, y: windowP2_geom.y - dy * inset };
-
-    // Offsets for the 4 parallel lines, adjusted for inset
-    const line1_offset = -halfWall + inset; // Outer line (0%) offset
-    const line4_offset = halfWall - inset;  // Inner line (100%) offset
-    const effectiveWidth = wallPx - 2 * inset; // The width between the inset outer/inner lines
-    const offset25 = line1_offset + effectiveWidth * 0.25; // 25% line offset
-    const offset75 = line1_offset + effectiveWidth * 0.75; // 75% line offset
-
-    // Line 1: Outer edge (0%), using original geom points but inset offset
-    const line1_start = { x: windowP1_geom.x + nx * line1_offset, y: windowP1_geom.y + ny * line1_offset };
-    const line1_end = { x: windowP2_geom.x + nx * line1_offset, y: windowP2_geom.y + ny * line1_offset };
-
-    // Line 4: Inner edge (100%), using original geom points but inset offset
-    const line4_start = { x: windowP1_geom.x + nx * line4_offset, y: windowP1_geom.y + ny * line4_offset };
-    const line4_end = { x: windowP2_geom.x + nx * line4_offset, y: windowP2_geom.y + ny * line4_offset };
-
-    // Line 2: 25% inwards, using INSET geom points (jambP1/jambP2)
-    const line2_start = { x: jambP1.x + nx * offset25, y: jambP1.y + ny * offset25 };
-    const line2_end = { x: jambP2.x + nx * offset25, y: jambP2.y + ny * offset25 };
-
-    // Line 3: 75% inwards, using INSET geom points (jambP1/jambP2)
-    const line3_start = { x: jambP1.x + nx * offset75, y: jambP1.y + ny * offset75 };
-    const line3_end = { x: jambP2.x + nx * offset75, y: jambP2.y + ny * offset75 };
-
-    // --- Draw the 4 Parallel Lines ---
-    ctx2d.beginPath();
-    ctx2d.moveTo(line1_start.x, line1_start.y); ctx2d.lineTo(line1_end.x, line1_end.y); // 0%
-    ctx2d.moveTo(line2_start.x, line2_start.y); ctx2d.lineTo(line2_end.x, line2_end.y); // 25%
-    ctx2d.moveTo(line3_start.x, line3_start.y); ctx2d.lineTo(line3_end.x, line3_end.y); // 75%
-    ctx2d.moveTo(line4_start.x, line4_start.y); ctx2d.lineTo(line4_end.x, line4_end.y); // 100%
-    ctx2d.stroke(); // Draw the 4 parallel lines
-
-    // --- Draw Vertical Jamb Lines (using inset points) ---
-    const jamb1_outer = { x: jambP1.x + nx * line1_offset, y: jambP1.y + ny * line1_offset };
-    const jamb1_inner = { x: jambP1.x + nx * line4_offset, y: jambP1.y + ny * line4_offset };
-    const jamb2_outer = { x: jambP2.x + nx * line1_offset, y: jambP2.y + ny * line1_offset };
-    const jamb2_inner = { x: jambP2.x + nx * line4_offset, y: jambP2.y + ny * line4_offset };
-
-    ctx2d.beginPath();
-    ctx2d.moveTo(jamb1_outer.x, jamb1_outer.y); ctx2d.lineTo(jamb1_inner.x, jamb1_inner.y); // Start Jamb
-    ctx2d.moveTo(jamb2_outer.x, jamb2_outer.y); ctx2d.lineTo(jamb2_inner.x, jamb2_inner.y); // End Jamb
-    ctx2d.stroke();
 }
 
 

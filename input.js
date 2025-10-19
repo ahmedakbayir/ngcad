@@ -17,7 +17,7 @@ function onWheel(e) {
 
     const before = screenToWorld(mouseX, mouseY);
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    const newZoom = state.zoom * factor;
+    const newZoom = Math.max(0.1, Math.min(10, state.zoom * factor));
     const after = { x: (mouseX - state.panOffset.x) / newZoom, y: (mouseY - state.panOffset.y) / newZoom };
     const newPanOffset = { x: state.panOffset.x + (after.x - before.x) * newZoom, y: state.panOffset.y + (after.y - before.y) * newZoom };
 

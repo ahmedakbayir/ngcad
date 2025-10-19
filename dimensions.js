@@ -52,9 +52,16 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     ctx2d.rotate(ang);
 
     const baseFontSize = dimensionOptions.fontSize;
-    const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
+    
+    // Önizleme ise sabit boyut, değilse zoom'a göre ayarla
+    let fontSize;
+    if (isPreview) {
+        fontSize = baseFontSize / zoom; // Sabit ekran boyutu
+    } else {
+        fontSize = zoom > 1 ? baseFontSize : baseFontSize * zoom; // Normal davranış
+    }
 
-    ctx2d.font = `400 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    ctx2d.font = `400 ${Math.max(5, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     
     ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
     
@@ -72,8 +79,8 @@ export function drawTotalDimensions() {
     if (rooms.length === 0) return;
 
     const baseFontSize = dimensionOptions.fontSize;
-    const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
-    ctx2d.font = `400 ${Math.max(10 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    const fontSize = zoom > 1 ? baseFontSize : baseFontSize * zoom;
+    ctx2d.font = `400 ${Math.max(10, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = dimensionOptions.color;
 
     const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
@@ -204,8 +211,8 @@ export function drawOuterDimensions() {
         const totalWidth = maxX - minX;
         const totalHeight = maxY - minY;
         
-        const dimLineOffset = 60 / zoom;
-        const extensionOvershoot = 8 / zoom;
+        const dimLineOffset = 60;
+        const extensionOvershoot = 8;
         const extensionLineLength = dimLineOffset + extensionOvershoot;
         
         ctx2d.strokeStyle = dimensionOptions.color;
@@ -213,7 +220,7 @@ export function drawOuterDimensions() {
         ctx2d.lineWidth = 1 / zoom;
         
         const baseFontSize = dimensionOptions.fontSize;
-        const fontSize = zoom > 1 ? baseFontSize / zoom : baseFontSize;
+        const fontSize = zoom > 1 ? baseFontSize : baseFontSize * zoom;
         const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
 
         const topDimY = minY - dimLineOffset;
@@ -230,7 +237,7 @@ export function drawOuterDimensions() {
         ctx2d.lineTo(maxX, topDimY);
         ctx2d.stroke();
         
-        const arrowSize = 4 / zoom;
+        const arrowSize = 4;
         ctx2d.beginPath();
         ctx2d.moveTo(minX, topDimY);
         ctx2d.lineTo(minX + arrowSize, topDimY - arrowSize/2);
@@ -246,12 +253,12 @@ export function drawOuterDimensions() {
         ctx2d.fill();
         
         ctx2d.fillStyle = dimensionOptions.color;
-        ctx2d.font = `400 ${Math.max(5 / zoom, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+        ctx2d.font = `400 ${Math.max(5, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
         ctx2d.textAlign = "center";
         ctx2d.textBaseline = "bottom";
         
         const roundedWidth = Math.round(totalWidth / gridSpacing) * gridSpacing;
-        ctx2d.fillText(Math.round(roundedWidth).toString(), (minX + maxX) / 2, topDimY - 5 / zoom);
+        ctx2d.fillText(Math.round(roundedWidth).toString(), (minX + maxX) / 2, topDimY - 5);
         
         const leftDimX = minX - dimLineOffset;
         

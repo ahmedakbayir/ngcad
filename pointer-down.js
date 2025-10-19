@@ -185,7 +185,7 @@ export function onPointerDown(e) {
                                originalCoords: JSON.parse(JSON.stringify(room.polygon.geometry.coordinates[0])),
                                tempPolygon: JSON.parse(JSON.stringify(room.polygon))
                           }));
-                          setState({draggedRoomInfo: draggedRoomInfos}); // Mahal taşıma bilgisini state'e ekle
+                         // setState({draggedRoomInfo: draggedRoomInfos}); // Mahal taşıma bilgisini state'e ekle
                      }
                      if (!isCopying && !isSweeping && !e.altKey && !e.shiftKey) {
                          const checkAndSplitNode = (node) => {

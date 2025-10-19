@@ -75,7 +75,7 @@ export let state = {
     clickOutsideRoomPopupListener: null,
     wallBorderColor: "#ffffff",
     roomFillColor: "#232425",
-    lineThickness: 1,
+    lineThickness: 2,
     snapOptions: {
         endpoint: true,
         midpoint: true,
@@ -92,8 +92,8 @@ export let state = {
         weight: 0.5,
     },
     dimensionOptions: {
-        fontSize: 16,
-        color: "#ffffa8",
+        fontSize: 20,
+        color: "#ffffe5",
         defaultView: 1, // 0: Kapalı, 1: Özet, 2: Detaylı
         showArea: 1, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
         showOuter: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
