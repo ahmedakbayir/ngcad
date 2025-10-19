@@ -92,8 +92,8 @@ export let state = {
         weight: 0.5,
     },
     dimensionOptions: {
-        fontSize: 20,
-        color: "#ffffe5",
+        fontSize: 16,
+        color: "#24ffda",
         defaultView: 1, // 0: Kapalı, 1: Özet, 2: Detaylı
         showArea: 1, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı
         showOuter: 0, // 0: Kapalı, 1: Açık, 2: Sadece Özet, 3: Sadece Detaylı

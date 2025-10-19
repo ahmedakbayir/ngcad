@@ -4,6 +4,9 @@ import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } 
 import { drawAngleSymbol, drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
 import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 
+// Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.7 yaklaşık olarak 10x zoomda yarı boyutu verir)
+const ZOOM_EXPONENT = -0.5; 
+
 function darkenColor(hex, percent) {
     let color = hex.startsWith('#') ? hex.slice(1) : hex;
     let r = parseInt(color.substring(0, 2), 16);
@@ -343,9 +346,15 @@ export function draw2D() {
                              (showAreaOption === 2 && dimensionMode === 1) ||
                              (showAreaOption === 3 && dimensionMode === 2);
 
-            const baseNameYOffset = showArea ? 10 : 0;
-            const nameYOffset = baseNameYOffset / zoom;
+            // Mahal adı ve alanı için YENİ MANTIK: Yazı boyutunu zoom'un üssü ile ölçekle
+            let nameFontSize = baseNameFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+            let areaFontSize = baseAreaFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+            const minWorldNameFontSize = 3;
+            const minWorldAreaFontSize = 2;
 
+            // Alan gösteriliyorsa ismin Y ofsetini ayarla (oranı koru, zoom'a bölme)
+            const baseNameYOffset = showArea ? 10 * Math.pow(zoom, ZOOM_EXPONENT) : 0; 
+            
             const isHovered = hoveredRoom === room;
             
             if (isHovered) {
@@ -355,30 +364,30 @@ export function draw2D() {
 
             ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
 
-            let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
-            ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+            ctx2d.font = `500 ${Math.max(minWorldNameFontSize, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
             
             const nameParts = room.name.split(' ');
             
             ctx2d.textBaseline = "middle";
 
             if (nameParts.length === 2) {
-                const lineGap = nameFontSize * 1.2;
-                ctx2d.fillText(nameParts[0], room.center[0], room.center[1] - nameYOffset - lineGap/2);
-                ctx2d.fillText(nameParts[1], room.center[0], room.center[1] - nameYOffset + lineGap/2);
+                 const currentFontSize = Math.max(minWorldNameFontSize, nameFontSize); // Gerçekte kullanılan font size
+                 const lineGap = currentFontSize * 1.2; // Satır aralığını kullanılan boyuta göre ayarla
+                 ctx2d.fillText(nameParts[0], room.center[0], room.center[1] - baseNameYOffset - lineGap / 2);
+                 ctx2d.fillText(nameParts[1], room.center[0], room.center[1] - baseNameYOffset + lineGap / 2);
             } else {
-                ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
+                ctx2d.fillText(room.name, room.center[0], room.center[1] - baseNameYOffset);
             }
 
             if (showArea) {
                 ctx2d.fillStyle = '#e57373';
-                let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
-                ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+                ctx2d.font = `400 ${Math.max(minWorldAreaFontSize, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
                 ctx2d.textBaseline = "middle";
                 const text = `${room.area.toFixed(2)} m²`;
                 
-                const areaYOffset = nameParts.length === 2 ? nameFontSize * 1.5 : nameFontSize * 1.1;
-                ctx2d.fillText(text, room.center[0], room.center[1] - nameYOffset + areaYOffset);
+                const currentNameFontSize = Math.max(minWorldNameFontSize, nameFontSize); // Gerçek isim font size'ı
+                const areaYOffset = nameParts.length === 2 ? currentNameFontSize * 1.5 : currentNameFontSize * 1.1; // Alanın Y ofsetini ismin boyutuna göre ayarla
+                ctx2d.fillText(text, room.center[0], room.center[1] - baseNameYOffset + areaYOffset);
             }
 
             if (isHovered) {
@@ -396,19 +405,21 @@ export function draw2D() {
                 ctx2d.textAlign = "center";
                 ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
                 const baseNameFontSize = 18;
-                let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
-                ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+                // YENİ MANTIK: Yazı boyutunu zoom'un üssü ile ölçekle
+                let nameFontSize = baseNameFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+                const minWorldNameFontSize = 3;
+
+                ctx2d.font = `500 ${Math.max(minWorldNameFontSize, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
 
                 const showAreaOption = dimensionOptions.showArea;
                 const showArea = (showAreaOption === 1 && (dimensionMode === 1 || dimensionMode === 2)) || 
                                  (showAreaOption === 2 && dimensionMode === 1) ||
                                  (showAreaOption === 3 && dimensionMode === 2);
                 
-                const baseNameYOffset = showArea ? 10 : 0;
-                const nameYOffset = baseNameYOffset / zoom;
+                 const baseNameYOffset = showArea ? 10 * Math.pow(zoom, ZOOM_EXPONENT) : 0; 
 
                 ctx2d.textBaseline = "middle";
-                ctx2d.fillText(room.name, room.center[0], room.center[1] - nameYOffset);
+                ctx2d.fillText(room.name, room.center[0], room.center[1] - baseNameYOffset);
             }
         });
     }

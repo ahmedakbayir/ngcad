@@ -2,6 +2,9 @@ import { state, dom } from './main.js';
 import { distToSegmentSquared } from './geometry.js';
 import { WALL_THICKNESS, DRAG_HANDLE_RADIUS } from './main.js';
 
+// Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.7 yaklaşık olarak 10x zoomda yarı boyutu verir)
+const ZOOM_EXPONENT = -0.5; 
+
 export function getObjectAtPoint(worldPos) {
     const { walls, doors, rooms, zoom, dimensionOptions } = state;
 
@@ -113,7 +116,10 @@ export function getObjectAtPoint(worldPos) {
 
     // Mahal adlarını ve alan bilgilerini kontrol et
     const { ctx2d } = dom;
-    const hitPadding = 10 / zoom;
+    
+    // Tıklama hassasiyetini de zoom üssüne göre ayarla
+    const hitPadding = 10 * Math.pow(zoom, ZOOM_EXPONENT); 
+    
     for (const room of rooms) {
         if (!room.center || !Array.isArray(room.center) || room.center.length < 2) continue;
 
@@ -121,17 +127,22 @@ export function getObjectAtPoint(worldPos) {
         const baseAreaFontSize = 14;
         const showArea = dimensionOptions.defaultView > 0; // Basitleştirildi
 
-        let nameFontSize = zoom > 1 ? baseNameFontSize / zoom : baseNameFontSize;
-        let areaFontSize = zoom > 1 ? baseAreaFontSize / zoom : baseAreaFontSize;
+        // YENİ MANTIK: Yazı boyutunu zoom'un üssü ile ölçekle
+        let nameFontSize = baseNameFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+        let areaFontSize = baseAreaFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+        const minWorldNameFontSize = 3;
+        const minWorldAreaFontSize = 2;
 
-        ctx2d.font = `500 ${Math.max(3 / zoom, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+        ctx2d.font = `500 ${Math.max(minWorldNameFontSize, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
 
         const nameParts = room.name.split(' ');
         let nameHeight;
         let nameWidth = 0;
+        
+        const currentNameFontSize = Math.max(minWorldNameFontSize, nameFontSize); // Gerçekte kullanılan font size
 
         if (nameParts.length === 2) {
-            const lineGap = nameFontSize * 1.2;
+            const lineGap = currentNameFontSize * 1.2;
             nameHeight = lineGap * 2;
             nameParts.forEach(part => {
                 const metrics = ctx2d.measureText(part);
@@ -140,15 +151,15 @@ export function getObjectAtPoint(worldPos) {
         } else {
             const textMetrics = ctx2d.measureText(room.name);
             nameWidth = textMetrics.width;
-            nameHeight = nameFontSize; // Tek satır yüksekliği
+            nameHeight = currentNameFontSize; // Tek satır yüksekliği
         }
 
-        const baseNameYOffset = showArea ? 10 : 0; // Alan gösteriliyorsa ismi yukarı kaydır
-        const nameYOffset = baseNameYOffset / zoom;
+        // Alan gösteriliyorsa ismin Y ofsetini ayarla
+        const baseNameYOffset = showArea ? 10 * Math.pow(zoom, ZOOM_EXPONENT) : 0; 
 
         // İsmin Bounding Box'ını hesapla (iki satır olasılığını düşünerek)
-        const nameTop = room.center[1] - nameYOffset - (nameParts.length === 2 ? nameFontSize * 1.2 / 2 : nameHeight / 2) - hitPadding;
-        const nameBottom = room.center[1] - nameYOffset + (nameParts.length === 2 ? nameFontSize * 1.2 / 2 : nameHeight / 2) + hitPadding;
+        const nameTop = room.center[1] - baseNameYOffset - (nameParts.length === 2 ? currentNameFontSize * 1.2 / 2 : nameHeight / 2) - hitPadding;
+        const nameBottom = room.center[1] - baseNameYOffset + (nameParts.length === 2 ? currentNameFontSize * 1.2 / 2 : nameHeight / 2) + hitPadding;
         const nameLeft = room.center[0] - nameWidth / 2 - hitPadding;
         const nameRight = room.center[0] + nameWidth / 2 + hitPadding;
 
@@ -158,14 +169,15 @@ export function getObjectAtPoint(worldPos) {
         }
 
         if (showArea) {
-            ctx2d.font = `400 ${Math.max(2 / zoom, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+            const currentAreaFontSize = Math.max(minWorldAreaFontSize, areaFontSize); // Gerçek alan font size'ı
+            ctx2d.font = `400 ${currentAreaFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
             const areaText = `${room.area.toFixed(2)} m²`;
             const areaMetrics = ctx2d.measureText(areaText);
             const areaWidth = areaMetrics.width;
-            const areaHeight = areaFontSize;
+            const areaHeight = currentAreaFontSize;
 
-            // Alanın y pozisyonunu hesapla (ismin hemen altına)
-            const areaYPos = room.center[1] - nameYOffset + (nameParts.length === 2 ? nameFontSize * 1.2 / 2 : nameHeight / 2) + areaHeight * 0.7; // Biraz boşluk bırak
+            // Alanın y pozisyonunu hesapla (ismin hemen altına, ismin gerçek boyutuna göre)
+            const areaYPos = room.center[1] - baseNameYOffset + (nameParts.length === 2 ? currentNameFontSize * 1.2 / 2 : nameHeight / 2) + areaHeight * 0.7; // Biraz boşluk bırak
             const areaTop = areaYPos - areaHeight / 2 - hitPadding;
             const areaBottom = areaYPos + areaHeight / 2 + hitPadding;
             const areaLeft = room.center[0] - areaWidth / 2 - hitPadding;

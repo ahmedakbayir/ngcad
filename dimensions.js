@@ -1,6 +1,9 @@
 import { state, dom } from './main.js';
 import { screenToWorld } from './geometry.js';
 
+// Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.7 yaklaşık olarak 10x zoomda yarı boyutu verir)
+const ZOOM_EXPONENT = -0.65; 
+
 export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     const { ctx2d } = dom;
     const { zoom, gridOptions, dimensionOptions, walls } = state;
@@ -53,15 +56,13 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
 
     const baseFontSize = dimensionOptions.fontSize;
     
-    // Önizleme ise sabit boyut, değilse zoom'a göre ayarla
-    let fontSize;
-    if (isPreview) {
-        fontSize = baseFontSize / zoom; // Sabit ekran boyutu
-    } else {
-        fontSize = zoom > 1 ? baseFontSize : baseFontSize * zoom; // Normal davranış
-    }
+    // YENİ MANTIK: Yazı boyutunu zoom'un üssü ile ölçekle
+    let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
 
-    ctx2d.font = `400 ${Math.max(5, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    // Minimum *dünya* boyutunu ayarla (ekran boyutu değil)
+    const minWorldFontSize = 5; // En küçük yazı boyutu (dünya biriminde)
+    
+    ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     
     ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
     
@@ -79,8 +80,11 @@ export function drawTotalDimensions() {
     if (rooms.length === 0) return;
 
     const baseFontSize = dimensionOptions.fontSize;
-    const fontSize = zoom > 1 ? baseFontSize : baseFontSize * zoom;
-    ctx2d.font = `400 ${Math.max(10, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    // YENİ MANTIK: Yazı boyutunu zoom'un üssü ile ölçekle
+    const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+    const minWorldFontSize = 10; // Özet görünüm için biraz daha büyük minimum
+
+    ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = dimensionOptions.color;
 
     const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
@@ -220,7 +224,10 @@ export function drawOuterDimensions() {
         ctx2d.lineWidth = 1 / zoom;
         
         const baseFontSize = dimensionOptions.fontSize;
-        const fontSize = zoom > 1 ? baseFontSize : baseFontSize * zoom;
+        // YENİ MANTIK: Yazı boyutunu zoom'un üssü ile ölçekle
+        const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+        const minWorldFontSize = 5; 
+        
         const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
 
         const topDimY = minY - dimLineOffset;
@@ -253,7 +260,7 @@ export function drawOuterDimensions() {
         ctx2d.fill();
         
         ctx2d.fillStyle = dimensionOptions.color;
-        ctx2d.font = `400 ${Math.max(5, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+        ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
         ctx2d.textAlign = "center";
         ctx2d.textBaseline = "bottom";
         
