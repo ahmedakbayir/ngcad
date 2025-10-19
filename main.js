@@ -42,7 +42,7 @@ export let state = {
     roomDragStartPos: null,
     roomOriginalCenter: null,
     dimensionMode: 1,
-    zoom: 1,
+    zoom: 0.75,
     panOffset: { x: 0, y: 0 },
     isPanning: false,
     panStart: { x: 0, y: 0 },

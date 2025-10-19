@@ -5,7 +5,7 @@ import { drawAngleSymbol, drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowS
 import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 
 // Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.7 yaklaşık olarak 10x zoomda yarı boyutu verir)
-const ZOOM_EXPONENT = -0.5; 
+const ZOOM_EXPONENT = -0.4; 
 
 function darkenColor(hex, percent) {
     let color = hex.startsWith('#') ? hex.slice(1) : hex;
