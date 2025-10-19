@@ -34,6 +34,22 @@ export function setupInputListeners() {
     p2d.addEventListener("pointermove", onPointerMove);
     p2d.addEventListener("pointerup", onPointerUp);
 
+    // --- YENİ EKLENEN KOD ---
+    c2d.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        
+        // Tıklanan pozisyondaki nesneyi bul
+        const rect = dom.c2d.getBoundingClientRect();
+        const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const object = getObjectAtPoint(clickPos);
+
+        // Eğer bir mahal, mahal adı veya mahal alanı ise, isim düzenleme popup'ını göster
+        if (object && (object.type === 'room' || object.type === 'roomName' || object.type === 'roomArea')) {
+            showRoomNamePopup(object.object, e);
+        }
+    });
+    // --- YENİ EKLENEN KOD SONU ---
+
     c2d.addEventListener("wheel", onWheel, { passive: false });
     
     c2d.addEventListener("contextmenu", (e) => {

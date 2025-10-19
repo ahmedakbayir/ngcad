@@ -1,4 +1,4 @@
-import { state, setState, setMode, EXTEND_RANGE } from './main.js';
+import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js';
 import { splitWallAtMousePosition, processWalls } from './wall-processor.js';
 import { undo, redo, saveState, restoreState } from './history.js';
 import { startLengthEdit, cancelLengthEdit } from './ui.js';
