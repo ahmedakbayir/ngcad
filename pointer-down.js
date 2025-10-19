@@ -7,7 +7,7 @@ import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
 import { getObjectAtPoint, getDoorPlacement, isSpaceForDoor, findCollinearChain, getWindowPlacement, isSpaceForWindow } from './actions.js';
-import { createColumn, getColumnCorners } from './columns.js';
+import { createColumn, getColumnCorners, isPointInColumn } from './columns.js';
 
 export function onPointerDown(e) {
     // Canvas dışına tıklanırsa işlemi durdur
@@ -634,14 +634,165 @@ export function onPointerDown(e) {
                  // Duvar kısa veya pozisyon geçersizse işlem yapma
              }
         } // Menfez sonu
-
-    } else if (state.currentMode === "drawColumn") {
+} else if (state.currentMode === "drawColumn") {
         // Kolon çizim modu tıklaması
-        const newColumn = createColumn(snappedPos.roundedX, snappedPos.roundedY, 40); // Snaplenmiş pozisyona 40x40 kolon ekle
+        
+        // --- Algılama için 'pos' (ham mouse pozisyonu) kullanılır ---
+        // const rect = dom.c2d.getBoundingClientRect(); // Zaten dosyanın başında tanımlı
+        // const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top); // Zaten dosyanın başında tanımlı
+        
+        // --- Yerleştirme için 'snappedPos' (snaplenmiş/gridlenmiş) kullanılır ---
+
+        // --- KONTROL 1: Mevcut Kolonun Üzerine Tıklama ---
+        let clickedOnExistingColumn = null;
+        
+        // DÜZELTME: Kolonları tersten kontrol et (en üsttekini bulmak için)
+        for (const col of [...state.columns].reverse()) {
+            // Algılama için 'pos' kullanılır
+            if (isPointInColumn(pos, col)) { 
+                clickedOnExistingColumn = col;
+                break;
+            }
+        }
+
+        // Varsayılan yerleşim pozisyonu grid'e snaplenmiş olandır
+        let finalX = snappedPos.roundedX;
+        let finalY = snappedPos.roundedY;
+        const newColSize = 40; // Yeni kolonun boyutu
+        const newHalfSize = newColSize / 2;
+        let newRotation = 0; // Varsayılan dönüş
+        let closestWall = null; // Snaplenen duvar
+
+        if (clickedOnExistingColumn) {
+            // Evet, mevcut kolonun üzerine tıklandı. Yanına yerleştir (Lokal X+ yönüne).
+            const rot = (clickedOnExistingColumn.rotation || 0) * Math.PI / 180;
+            const cosRot = Math.cos(rot);
+            const sinRot = Math.sin(rot);
+            
+            // Mevcut kolonun yarı genişliği + yeni kolonun yarı genişliği
+            const existingHalfWidth = (clickedOnExistingColumn.width || clickedOnExistingColumn.size) / 2;
+            const offset = existingHalfWidth + newHalfSize + 1; // +1 cm boşluk
+
+            // Ofseti lokal X ekseninde uygula
+            const localOffsetX = offset;
+            const localOffsetY = 0;
+
+            // Ofseti dünya koordinatlarına çevir
+            const worldOffsetX = localOffsetX * cosRot - localOffsetY * sinRot;
+            const worldOffsetY = localOffsetX * sinRot + localOffsetY * cosRot;
+            
+            // Yeni merkezi hesapla
+            finalX = clickedOnExistingColumn.center.x + worldOffsetX;
+            finalY = clickedOnExistingColumn.center.y + worldOffsetY;
+            // Rotasyonu devral
+            newRotation = clickedOnExistingColumn.rotation || 0;
+        
+        } else {
+            // --- KONTROL 2: Duvar Merkezine Tıklama ---
+            let minDistSq = Infinity;
+            
+            // Tolerans (duvar kalınlığının yarısı + 1cm pay)
+            const wallSnapTolerance = (WALL_THICKNESS / 2) + 1; // (11cm)
+
+            for (const wall of state.walls) {
+                if (!wall.p1 || !wall.p2) continue;
+                // Algılama için 'pos' (ham mouse pozisyonu) kullanılır
+                const distSq = distToSegmentSquared(pos, wall.p1, wall.p2);
+                
+                if (distSq < wallSnapTolerance * wallSnapTolerance && distSq < minDistSq) {
+                    minDistSq = distSq;
+                    closestWall = wall;
+                }
+            }
+
+            if (closestWall) {
+                // Duvar merkezine snap oldu. "İç" tarafı bul.
+                const wall = closestWall;
+                const dx = wall.p2.x - wall.p1.x;
+                const dy = wall.p2.y - wall.p1.y;
+                const length = Math.hypot(dx, dy);
+                
+                if (length > 0.1) {
+                    const nx = -dy / length; // Normal vektör (saat yönünün tersi)
+                    const ny = dx / length;
+
+                    // DUVAR ÜZERİNDEKİ SNAP NOKTASINI HESAPLA
+                    // Ham mouse 'pos' pozisyonunu duvar çizgisine project et
+                    const l2 = dx*dx + dy*dy;
+                    // t = izdüşüm parametresi
+                    const t = ((pos.x - wall.p1.x) * dx + (pos.y - wall.p1.y) * dy) / l2;
+                    // Snap noktasının segment üzerinde kalmasını sağla (0 ile 1 arası)
+                    const t_clamped = Math.max(0, Math.min(1, t));
+                    
+                    // DÜZELTME: Burası 'pos' (ham mouse) değil, 'snappedPos' (mavi nokta) olmalı
+                    // Eğer 'mavi nokta' (snappedPos) duvara yakınsa, onu kullan (daha hassas)
+                    const distSqSnapToWall = distToSegmentSquared(snappedPos, wall.p1, wall.p2);
+                    let wallSnapX, wallSnapY;
+                    
+                    if (distSqSnapToWall < wallSnapTolerance * wallSnapTolerance) {
+                         // Mavi noktayı duvara project et
+                         const t_snap = ((snappedPos.x - wall.p1.x) * dx + (snappedPos.y - wall.p1.y) * dy) / l2;
+                         const t_snap_clamped = Math.max(0, Math.min(1, t_snap));
+                         wallSnapX = wall.p1.x + t_snap_clamped * dx;
+                         wallSnapY = wall.p1.y + t_snap_clamped * dy;
+                    } else {
+                        // Mavi nokta uzaktaysa, ham mouse pozisyonunun izdüşümünü kullan
+                        wallSnapX = wall.p1.x + t_clamped * dx;
+                        wallSnapY = wall.p1.y + t_clamped * dy;
+                    }
+
+
+                    // "İç" tarafı bulmak için test noktaları
+                    const testDist = 5.0; // 5cm içeri/dışarı
+                    const p_test1 = { x: wallSnapX + nx * testDist, y: wallSnapY + ny * testDist };
+                    const p_test2 = { x: wallSnapX - nx * testDist, y: wallSnapY - ny * testDist };
+
+                    let is_p1_inside = false;
+                    let is_p2_inside = false;
+
+                    for (const room of state.rooms) {
+                        if (!room.polygon || !room.polygon.geometry) continue;
+                        if (turf.booleanPointInPolygon([p_test1.x, p_test1.y], room.polygon)) {
+                            is_p1_inside = true;
+                        }
+                        if (turf.booleanPointInPolygon([p_test2.x, p_test2.y], room.polygon)) {
+                            is_p2_inside = true;
+                        }
+                    }
+
+                    let offsetX = 0;
+                    let offsetY = 0;
+
+                    if (is_p1_inside && !is_p2_inside) {
+                        // p1 (nx, ny yönü) içerde. Kolonu o yöne ofsetle.
+                        offsetX = nx * newHalfSize;
+                        offsetY = ny * newHalfSize;
+                    } else if (is_p2_inside && !is_p1_inside) {
+                        // p2 (-nx, -ny yönü) içerde. Kolonu o yöne ofsetle.
+                        offsetX = -nx * newHalfSize;
+                        offsetY = -ny * newHalfSize;
+                    } else {
+                        // İkisi de dışarda (dış duvar) veya ikisi de içerde (ara duvar).
+                        // Varsayılan olarak p1 yönünü (nx, ny) "iç" kabul edelim.
+                        offsetX = nx * newHalfSize;
+                        offsetY = ny * newHalfSize;
+                    }
+                    
+                    // DÜZELTME: Nihai pozisyonu grid'den değil, hesaplanan wallSnap noktasından al
+                    finalX = wallSnapX + offsetX;
+                    finalY = wallSnapY + offsetY;
+                    
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                    newRotation = Math.round(angle / 15) * 15;
+                }
+            }
+        }
+        
+        const newColumn = createColumn(finalX, finalY, newColSize);
+        newColumn.rotation = newRotation;
         state.columns.push(newColumn);
-        saveState(); // Durumu kaydet
-        // setMode('select'); // İsteğe bağlı: Kolon ekledikten sonra seçim moduna geç
-        return; // İşlemi bitir
+        saveState();
+        return;
 
     } else { // Duvar veya Oda çizim modu
         let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY }; // Snaplenmiş veya grid'e yuvarlanmış pozisyon

@@ -556,120 +556,114 @@ else if (state.selectedObject.type === "column") {
 } // onPointerMove fonksiyonu sonu
 
 // Mouse imlecini duruma göre günceller
+
+// Mouse imlecini duruma göre günceller
+
+// Mouse imlecini duruma göre günceller
 function updateMouseCursor() {
     const { c2d } = dom; // Canvas elementi
     const { currentMode, isDragging, isPanning, mousePos, selectedObject, zoom } = state; // Gerekli state değerleri
 
     // Önce tüm özel imleç sınıflarını kaldır
-    c2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node', 'rotate-mode'); // DÖNME GÜNCELLEMESİ: rotate-mode eklendi
-    // Style'dan cursor'ı temizle (CSS devreye girsin diye)
-    c2d.style.cursor = '';
+    c2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node', 'rotate-mode');
+    c2d.style.cursor = ''; // Style'ı temizle
 
-    if (state.isDraggingRoomName) { // Oda ismi taşınıyorsa (isPanning'den önce kontrol et)
-        c2d.style.cursor = 'grabbing'; // Kapalı el imleci
-        // c2d.classList.add('panning'); // Alternatif olarak panning sınıfı da kullanılabilir
-        return;
-    }
-
-    if (isPanning) {
-        c2d.style.cursor = 'grabbing'; // Kapalı el imleci
-        // c2d.classList.add('panning');
-        return;
-    }
-
-    if (isDragging) {
-        // Genel sürükleme imleci (taşıma)
-        // Eğer kenardan boyutlandırma veya döndürme yapılıyorsa farklı imleç gösterilebilir (aşağıda handle ediliyor)
-        // Şimdilik genel 'grabbing' kullanalım
+    // 1. Pan veya Oda İsmi Taşıma (En Yüksek Öncelik)
+    if (state.isDraggingRoomName || isPanning) {
         c2d.style.cursor = 'grabbing';
-        // c2d.classList.add('dragging');
-        // Kenardan boyutlandırma veya döndürme imlecini burada ayarlama, çünkü handle bilgisi lazım (aşağıda)
-        // return; // Aşağıdaki kontrollere devam etsin (kenar/köşe imleci için)
-    }
-
-    // Kapı veya pencere sürüklenmiyorsa VE fare bir snap noktasındaysa
-    const isDraggingDoorOrWindow = isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window');
-    if (!isDraggingDoorOrWindow && mousePos.isSnapped && !isDragging) { // Sürüklemiyorsak snap imleci göster
-        c2d.classList.add('near-snap'); // CSS'deki snap imleci (genellikle artı)
         return;
     }
 
-    // Seçim modunda ise (sürükleme yokken VEYA sürüklerken kenar/köşe imlecini ayarlamak için)
-    if (currentMode === 'select') {
-
-        // DÖNME GÜNCELLEMESİ: Kolon köşesi (Sürüklerken)
-        if (selectedObject?.type === 'column' && isDragging && selectedObject.handle?.startsWith('corner_')) {
-             c2d.classList.add('rotate-mode'); // Döndürme ikonunu CSS'den al
-             return;
-        }
-
-        // Kolon kenarı için cursor (Sürüklerken de çalışmalı)
-        if (selectedObject?.type === 'column' && isDragging && selectedObject.handle?.startsWith('edge_')) {
-             const edgeHandle = selectedObject.handle;
-             const rotation = selectedObject.object.rotation || 0;
-             const angleDeg = Math.abs(rotation % 180); // 0-180 arası açı
-             let cursorType = 'ew-resize'; // Varsayılan: Doğu-Batı (yatay oklar)
-             if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') { // Üst/Alt kenar
-                 // Açı dikeye yakınsa ew, yataya yakınsa ns
-                 cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize';
-             } else { // Sol/Sağ kenar
-                 // Açı dikeye yakınsa ns, yataya yakınsa ew
-                 cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize';
-             }
-             c2d.style.cursor = cursorType; // Cursor stilini ayarla
-             return; // Başka cursor kontrolü yapma
-        }
-         // Kolon kenarı VEYA köşesi için cursor (Sürükleme YOKKEN - hover durumu)
-         else if (selectedObject?.type === 'column' && !isDragging) {
-             const handleTolerance = 8 / zoom; // Hover için tolerans
-             // DÖNME GÜNCELLEMESİ: getColumnHandleAtPoint'i çağır
-             const handle = getColumnHandleAtPoint(mousePos, selectedObject.object, handleTolerance); // mousePos kullan
-
-             if (handle && handle.startsWith('corner_')) {
-                 c2d.classList.add('rotate-mode'); // DÖNME GÜNCELLEMESİ: Köşe üzerine gelince rotate ikonu
-                 return;
-             }
-
-             if (handle && handle.startsWith('edge_')) {
-                 const rotation = selectedObject.object.rotation || 0;
-                 const angleDeg = Math.abs(rotation % 180);
-                 let cursorType = 'ew-resize';
-                 if (handle === 'edge_top' || handle === 'edge_bottom') {
-                    cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize';
-                 } else {
-                    cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize';
-                 }
-                 c2d.style.cursor = cursorType;
-                 return;
-             }
-         }
-
-
-        // Sürükleme yokken diğer hover durumları
-        if (!isDragging) {
-            const hoveredNode = findNodeAt(mousePos.x, mousePos.y); // Yakında node (duvar ucu) var mı?
-            if (hoveredNode) {
-                c2d.classList.add('over-node'); // Node taşıma imleci (CSS'de tanımlı)
+    // 2. Sürükleme (Dragging) Durumları
+    if (isDragging) {
+        if (selectedObject?.type === 'column') {
+            // Kolon köşesi sürükleniyorsa (Döndürme)
+            if (selectedObject.handle?.startsWith('corner_')) {
+                c2d.classList.add('rotate-mode');
                 return;
             }
-            // Duvar üzerinde mi?
-            for (const w of state.walls) {
-                 const wallPx = w.thickness || WALL_THICKNESS; // Duvar kalınlığı
-                 const bodyHitToleranceSq = (wallPx / 2)**2; // Tolerans (kalınlığın yarısı)
-                // Mesafenin karesi toleransın karesinden küçük mü?
-                if (distToSegmentSquared(mousePos, w.p1, w.p2) < bodyHitToleranceSq) {
-                    c2d.classList.add('over-wall'); // Duvar imleci (CSS'de tanımlı)
-                    return; // Duvar bulunduysa diğerlerini kontrol etme
+            // Kolon kenarı sürükleniyorsa (Boyutlandırma)
+            if (selectedObject.handle?.startsWith('edge_')) {
+                const edgeHandle = selectedObject.handle;
+                const rotation = selectedObject.object.rotation || 0;
+                const angleDeg = Math.abs(rotation % 180);
+                let cursorType = 'ew-resize';
+                if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') {
+                    cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize';
+                } else {
+                    cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize';
                 }
+                c2d.style.cursor = cursorType;
+                return;
             }
-            // Kolon gövdesi üzerinde mi? (Kenar değilse)
-            const columnHover = getColumnAtPoint(mousePos); // Tekrar kontrol et
-            if (columnHover && columnHover.handle === 'body') {
-                 c2d.style.cursor = 'move'; // Taşıma imleci
-                 return;
+        }
+        // Diğer tüm sürüklemeler (gövde, node, kapı vs.)
+        c2d.style.cursor = 'grabbing';
+        return;
+    }
+
+    // 3. Hover (Sürükleme Yokken) Durumları
+    
+    // YENİ ÖNCELİK: Önce seçili olup olmadığına bakmaksızın bir kolon handle'ı üzerinde miyiz diye bakalım.
+    // (getColumnAtPoint artık seçili olmasa da corner/edge dönebiliyor)
+    const hoveredColumnObject = getColumnAtPoint(mousePos);
+
+    if (hoveredColumnObject) {
+        const handle = hoveredColumnObject.handle;
+        
+        // Kolon Köşesi (Döndürme ikonu)
+        if (handle.startsWith('corner_')) {
+            c2d.classList.add('rotate-mode');
+            return;
+        }
+        // Kolon Kenarı (Boyutlandırma ikonu)
+        if (handle.startsWith('edge_')) {
+            const rotation = hoveredColumnObject.object.rotation || 0;
+            const angleDeg = Math.abs(rotation % 180);
+            let cursorType = 'ew-resize';
+            if (handle === 'edge_top' || handle === 'edge_bottom') {
+                cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize';
+            } else {
+                cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize';
+            }
+            c2d.style.cursor = cursorType;
+            return;
+        }
+        // Kolon Gövdesi (Taşıma ikonu)
+        if (handle === 'body' && currentMode === 'select') {
+            c2d.style.cursor = 'move';
+            return;
+        }
+    }
+
+    // 4. Snap İkonu (Kolon handle'larından SONRA kontrol edilir)
+    const isDraggingDoorOrWindow = isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window');
+    // Snap ikonunu sadece çizim modlarındayken veya seçiliyken node taşırken göster
+    const showSnap = (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn') ||
+                     (isDragging && selectedObject?.type === 'wall' && selectedObject.handle !== 'body');
+
+    if (!isDraggingDoorOrWindow && mousePos.isSnapped && !isDragging && showSnap) {
+        c2d.classList.add('near-snap'); // copy
+        return;
+    }
+
+    // 5. Diğer hover durumları (Node, Duvar)
+    if (currentMode === 'select') {
+        const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
+        if (hoveredNode) {
+            c2d.classList.add('over-node'); // move
+            return;
+        }
+        
+        for (const w of state.walls) {
+            const wallPx = w.thickness || WALL_THICKNESS;
+            const bodyHitToleranceSq = (wallPx / 2)**2;
+            if (distToSegmentSquared(mousePos, w.p1, w.p2) < bodyHitToleranceSq) {
+                c2d.classList.add('over-wall'); // pointer
+                return;
             }
         }
     }
-    // Hiçbir özel durum yoksa, style'ı temizle (CSS'deki varsayılan veya moda özel imleç geçerli olur)
-    // c2d.style.cursor = ''; // Zaten yukarıda temizlenmişti.
+    
+    // 6. Hiçbiri değilse, moda göre varsayılan imleç CSS'den gelir
 }

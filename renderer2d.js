@@ -177,17 +177,17 @@ export function drawColumn(column, isSelected = false) {
         ctx2d.stroke(); // Yukarıdaki path'i kullanarak kenarlığı çiz
         
         // DÖNME GÜNCELLEMESİ: Köşe handle'larını (tutma noktalarını) çiz
-        const cornerRadius = 6 / zoom; // Handle yarıçapı
-        ctx2d.fillStyle = '#8ab4f8'; // Handle dolgu rengi
-        ctx2d.strokeStyle = '#ffffff'; // Handle kenarlık rengi
-        ctx2d.lineWidth = 1 / zoom; // Handle kenarlık kalınlığı
+        // const cornerRadius = 6 / zoom; // Handle yarıçapı
+        // ctx2d.fillStyle = '#8ab4f8'; // Handle dolgu rengi
+        // ctx2d.strokeStyle = '#ffffff'; // Handle kenarlık rengi
+        // ctx2d.lineWidth = 1 / zoom; // Handle kenarlık kalınlığı
         
-        corners.forEach(corner => {
-            ctx2d.beginPath();
-            ctx2d.arc(corner.x, corner.y, cornerRadius, 0, 2 * Math.PI);
-            ctx2d.fill();
-            ctx2d.stroke();
-        });
+        // corners.forEach(corner => {
+        //     ctx2d.beginPath();
+        //     ctx2d.arc(corner.x, corner.y, cornerRadius, 0, 2 * Math.PI);
+        //     ctx2d.fill();
+        //     ctx2d.stroke();
+        // });
 
     } else {
         // Seçili değilse, kesişimleri kontrol ederek kenarları çiz
