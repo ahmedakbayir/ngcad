@@ -6,6 +6,7 @@ import { update3DScene } from './scene3d.js';
 import { getDoorPlacement, isSpaceForDoor, getMinWallLength } from './actions.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
+import { currentModifierKeys } from './input.js'; // EN ÜSTE EKLE
 
 export function onPointerMove(e) {
     if (state.isCtrlDeleting) {
@@ -329,28 +330,29 @@ else if (state.selectedObject.type === "column") {
     const column = state.selectedObject.object;
     const handle = state.selectedObject.handle;
     
-    if (handle === 'body' || handle === 'center') {
-        // Tüm kolonu taşı
-        const dx = unsnappedPos.x - state.dragStartPoint.x;
-        const dy = unsnappedPos.y - state.dragStartPoint.y;
+        if (handle === 'body' || handle === 'center') {
+            // Merkez veya body'den taşıma
+            const dx = unsnappedPos.x - state.initialDragPoint.x; // dragStartPoint yerine initialDragPoint
+            const dy = unsnappedPos.y - state.initialDragPoint.y;
+            
+            const centerX = state.preDragNodeStates.get('center_x');
+            const centerY = state.preDragNodeStates.get('center_y');
+            
+            if (centerX !== undefined && centerY !== undefined) {
+                column.center.x = centerX + dx;
+                column.center.y = centerY + dy;
+            }
+
         
-        const centerX = state.preDragNodeStates.get('center_x');
-        const centerY = state.preDragNodeStates.get('center_y');
-        
-        if (centerX !== undefined && centerY !== undefined) {
-            column.center.x = centerX + dx + state.dragOffset.x;
-            column.center.y = centerY + dy + state.dragOffset.y;
-        }
-        
-    } else if (handle === 'corner') {
-        // Mouse'un merkeze göre pozisyonu
+        } else if (handle === 'corner') {
         const dx = unsnappedPos.x - column.center.x;
         const dy = unsnappedPos.y - column.center.y;
         
-        // Modifier tuşları kontrol et - DÜZELT
-        const currentEvent = window.event || e; // e parametresini de kabul et
-        const isCtrlPressed = currentEvent?.ctrlKey || false;
-        const isAltPressed = currentEvent?.altKey || false;
+        // Modifier tuşları - DÜZGÜN ALGILAMA
+        const isCtrlPressed = currentModifierKeys.ctrl;
+        const isAltPressed = currentModifierKeys.alt;
+        
+        console.log('ALT:', isAltPressed, 'CTRL:', isCtrlPressed); // Debug için
         
         // CTRL + Köşe = DÖNDÜRME
         if (isCtrlPressed && !isAltPressed) {
@@ -363,9 +365,8 @@ else if (state.selectedObject.type === "column") {
             column.rotation = angle - state.columnRotationOffset;
             column.rotation = Math.round(column.rotation / 15) * 15;
         }
-        // ALT + Köşe = İÇİ BOŞALTMA (L Şekli)
+        // ALT + Köşe = İÇİ BOŞALTMA
         else if (isAltPressed && !isCtrlPressed) {
-            // Mouse'un kolonun lokal koordinat sistemindeki pozisyonu
             const rot = -(column.rotation || 0) * Math.PI / 180;
             const localX = dx * Math.cos(rot) - dy * Math.sin(rot);
             const localY = dx * Math.sin(rot) + dy * Math.cos(rot);
@@ -373,11 +374,9 @@ else if (state.selectedObject.type === "column") {
             const halfWidth = (column.width || column.size) / 2;
             const halfHeight = (column.height || column.size) / 2;
             
-            // Mouse hangi çeyrekte?
             const quadrantX = localX > 0 ? 1 : -1;
             const quadrantY = localY > 0 ? 1 : -1;
             
-            // Boşaltma boyutları
             const hollowWidth = Math.abs(halfWidth - Math.abs(localX)) * 2;
             const hollowHeight = Math.abs(halfHeight - Math.abs(localY)) * 2;
             
@@ -386,7 +385,7 @@ else if (state.selectedObject.type === "column") {
             column.hollowOffsetX = quadrantX * (halfWidth - hollowWidth / 2);
             column.hollowOffsetY = quadrantY * (halfHeight - hollowHeight / 2);
         }
-        // Normal = SERBEST BOYUTLANDIRMA
+        // Normal = BOYUTLANDIRMA
         else {
             const rot = -(column.rotation || 0) * Math.PI / 180;
             const localX = dx * Math.cos(rot) - dy * Math.sin(rot);

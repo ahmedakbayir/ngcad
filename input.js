@@ -1,3 +1,4 @@
+
 import { state, setState, setMode, dom, EXTEND_RANGE, WALL_THICKNESS } from './main.js';
 import { screenToWorld, getOrCreateNode } from './geometry.js';
 import { splitWallAtMousePosition, processWalls } from './wall-processor.js';
