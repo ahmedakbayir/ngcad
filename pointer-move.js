@@ -1,12 +1,12 @@
-// ahmedakbayir/ngcad/ngcad-b3712dab038a327c261e2256cbd1d4d58a069f34/pointer-move.js
+// ahmedakbayir/ngcad/ngcad-ad56530de4465cbe8a9f9e5e0a4ec4205c63557c/pointer-move.js
 
 import { state, dom, setState, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { positionLengthInput } from './ui.js';
 import { update3DScene } from './scene3d.js';
-// findLargestAvailableSegment fonksiyonunu import et
-import { getDoorPlacement, isSpaceForDoor, getMinWallLength, findLargestAvailableSegment } from './actions.js';
+// findLargestAvailableSegment ve findAvailableSegmentAt fonksiyonlarını import et
+import { getDoorPlacement, isSpaceForDoor, getMinWallLength, findLargestAvailableSegment, findAvailableSegmentAt } from './actions.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { currentModifierKeys } from './input.js';
@@ -340,25 +340,29 @@ export function onPointerMove(e) {
             if (closestWall) {
                 const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
 
-                // En büyük uygun segmenti bul (kendisini hariç tutarak)
-                const largestSegment = findLargestAvailableSegment(closestWall, door);
+                // Fare pozisyonunu duvar üzerine izdüşür (GÜNCELLEME: posOnWall hesapla)
+                const dx_pm = closestWall.p2.x - closestWall.p1.x;
+                const dy_pm = closestWall.p2.y - closestWall.p1.y;
+                const t_pm = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx_pm + (targetPos.y - closestWall.p1.y) * dy_pm) / (dx_pm * dx_pm + dy_pm * dy_pm)));
+                const posOnWall_pm = t_pm * DG;
 
-                if (largestSegment) {
-                    let KG = largestSegment.length; // Genişliği segmentin uzunluğu olarak al
+                // En büyük uygun segmenti bul (kendisini hariç tutarak)
+                // GÜNCELLEME: Fare pozisyonundaki segmenti bul
+                const segmentAtMouse = findAvailableSegmentAt(closestWall, posOnWall_pm, door);
+
+                if (segmentAtMouse) { // GÜNCELLEME: largestSegment -> segmentAtMouse
+                    let KG = segmentAtMouse.length; // Genişliği segmentin uzunluğu olarak al
                     KG = KG > 70 ? 70 : KG; // Max 70 ile sınırla
 
                     if (KG >= 20) { // Minimum genişlik kontrolü
                         const newWidth = KG;
 
-                        // Pozisyonu hesapla
-                        const dx = closestWall.p2.x - closestWall.p1.x;
-                        const dy = closestWall.p2.y - closestWall.p1.y;
-                        const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
-                        const posOnWall = t * DG;
+                        // Pozisyonu hesapla (posOnWall_pm zaten hesaplandı)
+                        const posOnWall = posOnWall_pm;
 
                         // Kapının yerleşebileceği min/max pozisyonlar (segment içinde)
-                        const minPos = largestSegment.start + newWidth / 2;
-                        const maxPos = largestSegment.end - newWidth / 2;
+                        const minPos = segmentAtMouse.start + newWidth / 2;
+                        const maxPos = segmentAtMouse.end - newWidth / 2;
 
                         if (minPos <= maxPos) { // Yer varsa
                             const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
@@ -401,25 +405,29 @@ export function onPointerMove(e) {
             if (closestWall) {
                 const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
 
-                 // En büyük uygun segmenti bul (kendisini hariç tutarak)
-                const largestSegment = findLargestAvailableSegment(closestWall, window);
+                // Fare pozisyonunu duvar üzerine izdüşür (GÜNCELLEME: posOnWall hesapla)
+                const dx_pm_w = closestWall.p2.x - closestWall.p1.x;
+                const dy_pm_w = closestWall.p2.y - closestWall.p1.y;
+                const t_pm_w = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx_pm_w + (targetPos.y - closestWall.p1.y) * dy_pm_w) / (dx_pm_w * dx_pm_w + dy_pm_w * dy_pm_w)));
+                const posOnWall_pm_w = t_pm_w * DG;
 
-                if (largestSegment) {
-                    let PG = largestSegment.length; // Genişliği segmentin uzunluğu olarak al
+                 // En büyük uygun segmenti bul (kendisini hariç tutarak)
+                 // GÜNCELLEME: Fare pozisyonundaki segmenti bul
+                const segmentAtMouse_w = findAvailableSegmentAt(closestWall, posOnWall_pm_w, window);
+
+                if (segmentAtMouse_w) { // GÜNCELLEME: largestSegment -> segmentAtMouse_w
+                    let PG = segmentAtMouse_w.length; // Genişliği segmentin uzunluğu olarak al
                     PG = PG > 120 ? 120 : PG; // Max 120 ile sınırla
 
                     if (PG >= 20) { // Minimum genişlik kontrolü
                         const newWidth = PG;
 
-                        // Pozisyonu hesapla
-                        const dx = closestWall.p2.x - closestWall.p1.x;
-                        const dy = closestWall.p2.y - closestWall.p1.y;
-                        const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
-                        const posOnWall = t * DG;
+                        // Pozisyonu hesapla (posOnWall_pm_w zaten hesaplandı)
+                        const posOnWall = posOnWall_pm_w;
 
                         // Pencerenin yerleşebileceği min/max pozisyonlar (segment içinde)
-                        const minPos = largestSegment.start + newWidth / 2;
-                        const maxPos = largestSegment.end - newWidth / 2;
+                        const minPos = segmentAtMouse_w.start + newWidth / 2;
+                        const maxPos = segmentAtMouse_w.end - newWidth / 2;
 
                         if (minPos <= maxPos) { // Yer varsa
                             const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));

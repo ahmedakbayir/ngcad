@@ -1,4 +1,4 @@
-// ahmedakbayir/ngcad/ngcad-b3712dab038a327c261e2256cbd1d4d58a069f34/renderer2d.js
+// ahmedakbayir/ngcad/ngcad-ad56530de4465cbe8a9f9e5e0a4ec4205c63557c/renderer2d.js
 
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 // getLineIntersectionPoint import edildiğinden emin ol
@@ -82,16 +82,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     ctx2d.stroke(); // Çizgileri çiz
 }
 
-// Pencere sembolünü çizer
-// ahmedakbayir/ngcad/ngcad-14c12fdb5eebc7f09a2c164bd4125e0b8c8894eb/renderer2d.js
-
-// ... (dosyanın üst kısmı)
-
-// ahmedakbayir/ngcad/ngcad-14c12fdb5eebc7f09a2c164bd4125e0b8c8894eb/renderer2d.js
-
-// ... (dosyanın üst kısmı)
-
-// Pencere sembolünü çizer
+// --- GÜNCELLENMİŞ Pencere Sembolü Çizimi ---
 export function drawWindowSymbol(wall, window, isPreview = false, isSelected = false) {
     const { ctx2d } = dom;
     const { selectedObject, wallBorderColor, lineThickness } = state;
@@ -110,42 +101,91 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
         color = `rgba(${r}, ${g}, ${b}, 0.8)`;
     }
     ctx2d.strokeStyle = color; ctx2d.lineWidth = lineThickness / 2; const inset = lineThickness / 4;
-    const offset25 = halfWall * 0.5; const offset75 = halfWall * 0.5;
-    const windowP1_inset_inner = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset }; const windowP2_inset_inner = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
-    const line1_start = { x: windowP1.x - nx * (halfWall - inset), y: windowP1.y - ny * (halfWall - inset) }; const line1_end = { x: windowP2.x - nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) };
-    
-    // --- DÜZELTME 1 (Dış Çizgi) ---
+    const offset25 = halfWall * 0.5; // İçteki çizgilerin konumu için yarı kalınlığın %50'si
+    // const offset75 = halfWall * 0.5; // Bu artık kullanılmıyor, yerine offset25 yeterli
+
+    // İç çizgiler için başlangıç ve bitiş noktaları (kenarlardan biraz içeride)
+    const windowP1_inset_inner = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset };
+    const windowP2_inset_inner = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
+
+    // Dıştaki iki paralel çizgi
+    const line1_start = { x: windowP1.x - nx * (halfWall - inset), y: windowP1.y - ny * (halfWall - inset) };
+    const line1_end = { x: windowP2.x - nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) };
     const line4_start = { x: windowP1.x + nx * (halfWall - inset), y: windowP1.y + ny * (halfWall - inset) };
-    // const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) }; // <-- HATA 1 BURADAYDI
-    const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y + ny * (halfWall - inset) }; // <-- DÜZELTİLDİ
-    // --- DÜZELTME 1 SONU ---
+    const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y + ny * (halfWall - inset) };
 
-    const line2_start = { x: windowP1_inset_inner.x - nx * offset25, y: windowP1_inset_inner.y - ny * offset25 }; const line2_end = { x: windowP2_inset_inner.x - nx * offset25, y: windowP2_inset_inner.y - ny * offset25 };
-    
-    // --- DÜZELTME 2 (İç Çizgi) ---
-    const line3_start = { x: windowP1_inset_inner.x + nx * offset75, y: windowP1_inset_inner.y + ny * offset75 };
-    // const line3_end = { x: windowP2_inset_inner.x + nx * offset75, y: windowP2_inset_inner.y - ny * offset75 }; // <-- HATA 2 BURADAYDI
-    const line3_end = { x: windowP2_inset_inner.x + nx * offset75, y: windowP2_inset_inner.y + ny * offset75 }; // <-- DÜZELTİLDİ
-    // --- DÜZELTME 2 SONU ---
+    // İçteki iki paralel çizgi (birbirine daha yakın)
+    const line2_start = { x: windowP1_inset_inner.x - nx * offset25, y: windowP1_inset_inner.y - ny * offset25 };
+    const line2_end = { x: windowP2_inset_inner.x - nx * offset25, y: windowP2_inset_inner.y - ny * offset25 };
+    const line3_start = { x: windowP1_inset_inner.x + nx * offset25, y: windowP1_inset_inner.y + ny * offset25 };
+    const line3_end = { x: windowP2_inset_inner.x + nx * offset25, y: windowP2_inset_inner.y + ny * offset25 };
 
-    const windowP1_inset = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset }; const windowP2_inset = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
-    const left1 = { x: windowP1_inset.x - nx * (halfWall - inset), y: windowP1_inset.y - ny * (halfWall - inset) }; const left2 = { x: windowP1_inset.x + nx * (halfWall - inset), y: windowP1_inset.y + ny * (halfWall - inset) };
-    const right1 = { x: windowP2_inset.x - nx * (halfWall - inset), y: windowP2_inset.y - ny * (halfWall - inset) }; const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) };
+    // Pencere kenarlarını birleştiren kısa çizgiler
+    const windowP1_inset = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset };
+    const windowP2_inset = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
+    const left1 = { x: windowP1_inset.x - nx * (halfWall - inset), y: windowP1_inset.y - ny * (halfWall - inset) }; // Dış sol
+    const left2 = { x: windowP1_inset.x + nx * (halfWall - inset), y: windowP1_inset.y + ny * (halfWall - inset) }; // İç sol
+    const right1 = { x: windowP2_inset.x - nx * (halfWall - inset), y: windowP2_inset.y - ny * (halfWall - inset) }; // Dış sağ
+    const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) }; // İç sağ
+
+    // Tüm çizgileri çiz
     ctx2d.beginPath();
-    ctx2d.moveTo(line1_start.x, line1_start.y); ctx2d.lineTo(line1_end.x, line1_end.y); ctx2d.moveTo(line2_start.x, line2_start.y); ctx2d.lineTo(line2_end.x, line2_end.y);
-    ctx2d.moveTo(line3_start.x, line3_start.y); ctx2d.lineTo(line3_end.x, line3_end.y); ctx2d.moveTo(line4_start.x, line4_start.y); ctx2d.lineTo(line4_end.x, line4_end.y);
-    ctx2d.moveTo(left1.x, left1.y); ctx2d.lineTo(left2.x, left2.y); ctx2d.moveTo(right1.x, right1.y); ctx2d.lineTo(right2.x, right2.y);
+    ctx2d.moveTo(line1_start.x, line1_start.y); ctx2d.lineTo(line1_end.x, line1_end.y); // Dış üst
+    ctx2d.moveTo(line2_start.x, line2_start.y); ctx2d.lineTo(line2_end.x, line2_end.y); // İç üst
+    ctx2d.moveTo(line3_start.x, line3_start.y); ctx2d.lineTo(line3_end.x, line3_end.y); // İç alt
+    ctx2d.moveTo(line4_start.x, line4_start.y); ctx2d.lineTo(line4_end.x, line4_end.y); // Dış alt
+    ctx2d.moveTo(left1.x, left1.y); ctx2d.lineTo(left2.x, left2.y); // Sol kenar birleştirme
+    ctx2d.moveTo(right1.x, right1.y); ctx2d.lineTo(right2.x, right2.y); // Sağ kenar birleştirme
     ctx2d.stroke();
-    // Mermer raf
-    const marbleDepth = 1; const marbleOverhang = 5;
-    const marbleP1 = { x: windowP1.x - dx * marbleOverhang, y: windowP1.y - dy * marbleOverhang }; const marbleP2 = { x: windowP2.x + dx * marbleOverhang, y: windowP2.y + dy * marbleOverhang };
-    const marbleOuter1 = { x: marbleP1.x - nx * (halfWall + marbleDepth), y: marbleP1.y - ny * (halfWall + marbleDepth) }; const marbleOuter2 = { x: marbleP2.x - nx * (halfWall + marbleDepth), y: marbleP2.y - ny * (halfWall + marbleDepth) };
-    const marbleInner1 = { x: marbleP1.x - nx * halfWall, y: marbleP1.y - ny * halfWall }; const marbleInner2 = { x: marbleP2.x - nx * halfWall, y: marbleP2.y - ny * halfWall };
-    ctx2d.fillStyle = isSelectedCalc ? 'rgba(138, 180, 248, 0.3)' : 'rgba(231, 230, 208, 0.4)'; ctx2d.strokeStyle = color; ctx2d.lineWidth = lineThickness ;
-    ctx2d.beginPath(); ctx2d.moveTo(marbleInner1.x, marbleInner1.y); ctx2d.lineTo(marbleOuter1.x, marbleOuter1.y); ctx2d.lineTo(marbleOuter2.x, marbleOuter2.y); ctx2d.lineTo(marbleInner2.x, marbleInner2.y); ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke();
-}
 
-// ... (dosyanın kalanı)
+    // Mermer raf (İnceltildi ve içe de eklendi)
+    const marbleDepth = 0.2; // GÜNCELLEME: Kalınlık azaltıldı (1 -> 0.5)
+    const marbleOverhang = 0; // GÜNCELLEME: Taşma miktarı azaltıldı (5 -> 3)
+
+    // Dış raf hesaplamaları
+    const marbleP1_out = { x: windowP1.x - dx * marbleOverhang, y: windowP1.y - dy * marbleOverhang };
+    const marbleP2_out = { x: windowP2.x + dx * marbleOverhang, y: windowP2.y + dy * marbleOverhang };
+    const marbleOuter1 = { x: marbleP1_out.x - nx * (halfWall + marbleDepth), y: marbleP1_out.y - ny * (halfWall + marbleDepth) };
+    const marbleOuter2 = { x: marbleP2_out.x - nx * (halfWall + marbleDepth), y: marbleP2_out.y - ny * (halfWall + marbleDepth) };
+    const marbleInner1_out = { x: marbleP1_out.x - nx * halfWall, y: marbleP1_out.y - ny * halfWall };
+    const marbleInner2_out = { x: marbleP2_out.x - nx * halfWall, y: marbleP2_out.y - ny * halfWall };
+
+    // İç raf hesaplamaları (normal vektör ters çevrildi)
+    const marbleP1_in = { x: windowP1.x - dx * marbleOverhang, y: windowP1.y - dy * marbleOverhang };
+    const marbleP2_in = { x: windowP2.x + dx * marbleOverhang, y: windowP2.y + dy * marbleOverhang };
+    const marbleInner1 = { x: marbleP1_in.x + nx * (halfWall + marbleDepth), y: marbleP1_in.y + ny * (halfWall + marbleDepth) };
+    const marbleInner2 = { x: marbleP2_in.x + nx * (halfWall + marbleDepth), y: marbleP2_in.y + ny * (halfWall + marbleDepth) };
+    const marbleOuter1_in = { x: marbleP1_in.x + nx * halfWall, y: marbleP1_in.y + ny * halfWall };
+    const marbleOuter2_in = { x: marbleP2_in.x + nx * halfWall, y: marbleP2_in.y + ny * halfWall };
+
+    // Rafları çiz
+    ctx2d.fillStyle = isSelectedCalc ? 'rgba(138, 180, 248, 0.3)' : 'rgba(231, 230, 208, 0.4)';
+    ctx2d.strokeStyle = color;
+    ctx2d.lineWidth = lineThickness / 2; // GÜNCELLEME: Raf çizgi kalınlığı inceltildi
+
+    // Dış raf
+    ctx2d.beginPath();
+    ctx2d.moveTo(marbleInner1_out.x, marbleInner1_out.y);
+    ctx2d.lineTo(marbleOuter1.x, marbleOuter1.y);
+    ctx2d.lineTo(marbleOuter2.x, marbleOuter2.y);
+    ctx2d.lineTo(marbleInner2_out.x, marbleInner2_out.y);
+    ctx2d.closePath();
+    ctx2d.fill();
+    ctx2d.stroke();
+
+    // İç raf
+    ctx2d.beginPath();
+    ctx2d.moveTo(marbleOuter1_in.x, marbleOuter1_in.y); // Başlangıç noktası duvar çizgisi
+    ctx2d.lineTo(marbleInner1.x, marbleInner1.y); // İç köşe
+    ctx2d.lineTo(marbleInner2.x, marbleInner2.y); // İç köşe
+    ctx2d.lineTo(marbleOuter2_in.x, marbleOuter2_in.y); // Bitiş noktası duvar çizgisi
+    ctx2d.closePath();
+    ctx2d.fill();
+    ctx2d.stroke();
+}
+// --- GÜNCELLENMİŞ Pencere Sembolü Çizimi SONU ---
+
+
 // Grid'i çizer
 export function drawGrid() {
     const { ctx2d, c2d } = dom; const { zoom, gridOptions } = state; if (!gridOptions.visible) return;
@@ -159,7 +199,7 @@ export function drawGrid() {
 
 // Farenin bir duvar üzerinde olup olmadığını kontrol eder
 export function isMouseOverWall() {
-    for (const w of state.walls) { const wallPx = w.thickness || WALL_THICKNESS; const bodyHitToleranceSq = (wallPx / 2)**2; if (distToSegmentSquared(state.mousePos, w.p1, w.p2) < bodyHitToleranceSq) { return true; } } return false;
+    for (const w of state.walls) { if (!w.p1 || !w.p2) continue; const wallPx = w.thickness || WALL_THICKNESS; const bodyHitToleranceSq = (wallPx / 2)**2; if (distToSegmentSquared(state.mousePos, w.p1, w.p2) < bodyHitToleranceSq) { return true; } } return false;
 }
 
 // Menfez sembolünü çizer
@@ -197,7 +237,7 @@ export function drawColumn(column, isSelected = false) {
     if (isSelected) {
         // Seçiliyse, tüm kenarları kesişime bakmadan çiz
         ctx2d.stroke(); // Yukarıdaki path'i kullanarak kenarlığı çiz
-        
+
     } else {
         // Seçili değilse, kesişimleri kontrol ederek kenarları çiz
         for (let i = 0; i < corners.length; i++) {
@@ -212,7 +252,7 @@ export function drawColumn(column, isSelected = false) {
 
             // 1. Duvarlarla Kesişim Kontrolü (Hassas Kırpma)
             walls.forEach(wall => {
-                if (!wall.p1 || !wall.p2) return; // Geçersiz duvarı atla
+                if (!wall || !wall.p1 || !wall.p2) return; // Geçersiz duvarı atla
                 const wallThickness = wall.thickness || WALL_THICKNESS;
                 const halfWallThickness = wallThickness / 2;
                 // Gizleme için kullanılacak mesafe karesi (merkez çizgisine göre)
@@ -236,24 +276,19 @@ export function drawColumn(column, isSelected = false) {
 
                     if (p1_inside && p2_inside) {
                         // Tamamen içindeyse: Bu segmenti gösterme (nextVisibleSegments'e ekleme)
-                    
-                    // --- DÜZELTME: Hatalı 'else if' bloğu kaldırıldı ---
-                    // Artık 'kısmen içerde' VEYA 'tamamen dışarıda (ama kesişim olabilir)'
-                    // durumlarının hepsi bu 'else' bloğunda işleniyor.
+
                     } else {
                         // Kesişim noktalarını DUVAR KENARLARI ile bul ve segmenti böl
                         const wallDx = wall.p2.x - wall.p1.x;
                         const wallDy = wall.p2.y - wall.p1.y;
                         const wallLen = Math.hypot(wallDx, wallDy);
-                        
+
                         if (wallLen < 0.1) {
                              // Duvar çok kısa, kesişim hesaplanamaz.
-                             // Segmentin tamamı içeride değilse (yukarıda kontrol edildi),
-                             // o zaman bu kısa duvardan etkilenmiyor demektir.
-                             nextVisibleSegments.push(visSeg); 
+                             nextVisibleSegments.push(visSeg);
                              return; // visibleSegments.forEach'in bir sonraki iterasyonuna geç
                         }
-                        
+
                         const wallNx = -wallDy / wallLen; // Normal vektör
                         const wallNy = wallDx / wallLen;
 
@@ -302,7 +337,7 @@ export function drawColumn(column, isSelected = false) {
 
                             // Orta nokta duvar merkez çizgisine duvar kalınlığının yarısından UZAKSA göster
                              const distSqToWallCenter = distToSegmentSquared(subMidPoint, wall.p1, wall.p2);
-                             
+
                              if (distSqToWallCenter >= hideToleranceSq) { // Merkez çizgisinin DIŞINDAYSA (toleransla)
                                  nextVisibleSegments.push({start: subStart, end: subEnd});
                              }
@@ -335,7 +370,7 @@ export function drawColumn(column, isSelected = false) {
 
                     // Kesişim mesafelerini topla
                     const dists = [visSeg.start, visSeg.end];
-                    
+
                     // Diğer kolonun 4 kenarı ile kesişimleri bul
                     otherEdges.forEach(edge => {
                         const intersection = getLineIntersectionPoint(currentP1, currentP2, edge.p1, edge.p2);
