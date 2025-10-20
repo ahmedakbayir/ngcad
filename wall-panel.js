@@ -309,7 +309,7 @@ function extrudeWall(wall) {
 
 function addDoorToWall(wall) {
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    const doorWidth = 90;
+    const doorWidth = 70;
     const doorPos = length / 2;
     const wallThickness = wall.thickness || WALL_THICKNESS;
     const margin = (wallThickness / 2) + 5;
@@ -344,7 +344,7 @@ function addDoorToWall(wall) {
         state.doors.push({ wall: wall, pos: doorPos, width: doorWidth, type: 'door' });
         saveState();
     }
-}
+}   
 
 
 function addWindowToWall(wall) {

@@ -5,7 +5,8 @@ import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { positionLengthInput } from './ui.js';
 import { update3DScene } from './scene3d.js';
-import { getDoorPlacement, isSpaceForDoor, getMinWallLength } from './actions.js';
+// findLargestAvailableSegment fonksiyonunu import et
+import { getDoorPlacement, isSpaceForDoor, getMinWallLength, findLargestAvailableSegment } from './actions.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { currentModifierKeys } from './input.js';
@@ -316,14 +317,135 @@ export function onPointerMove(e) {
                 setState({ sweepWalls }); // Çizilecek sweep duvarlarını state'e kaydet
             }
         } // Duvar gövdesi taşıma sonu
+
+        // --- GÜNCELLENMİŞ BLOK: KAPI TAŞIMA ---
         else if (state.selectedObject.type === "door") {
-            // Kapı taşıma (Değişiklik yok)
-            const door = state.selectedObject.object; const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY }; let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = WALL_THICKNESS * 2; for (const w of state.walls) { const d = distToSegmentSquared(targetPos, w.p1, w.p2); if (d < bodyHitTolerance ** 2 && d < minDistSq) { minDistSq = d; closestWall = w; } } if (closestWall) { const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y); const wallThickness = closestWall.thickness || 20; const edgeMargin = (wallThickness / 2) + 5; const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y; const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy))); const newPos = t * wallLen; let targetWidth = door.originalWidth || door.width; let minPos = edgeMargin + targetWidth / 2; let maxPos = wallLen - edgeMargin - targetWidth / 2; if (minPos > maxPos && closestWall !== door.wall) { targetWidth = (door.originalWidth || door.width) / 2; minPos = edgeMargin + targetWidth / 2; maxPos = wallLen - edgeMargin - targetWidth / 2; if (wallLen >= targetWidth + 2 * edgeMargin && targetWidth >= 20) { const clampedPos = Math.max(minPos, Math.min(maxPos, newPos)); door.wall = closestWall; door.pos = clampedPos; door.width = targetWidth; } } else if (minPos <= maxPos) { const clampedPos = Math.max(minPos, Math.min(maxPos, newPos)); door.wall = closestWall; door.pos = clampedPos; door.width = door.originalWidth || targetWidth; if (!door.originalWidth) door.originalWidth = door.width; } } else { door.width = door.originalWidth || door.width; }
+            const door = state.selectedObject.object;
+            const targetX = unsnappedPos.x + state.dragOffset.x;
+            const targetY = unsnappedPos.y + state.dragOffset.y;
+            const targetPos = { x: targetX, y: targetY };
+
+            let closestWall = null;
+            let minDistSq = Infinity;
+            const bodyHitTolerance = WALL_THICKNESS * 2;
+
+            for (const w of state.walls) {
+                const d = distToSegmentSquared(targetPos, w.p1, w.p2);
+                if (d < bodyHitTolerance ** 2 && d < minDistSq) {
+                    minDistSq = d;
+                    closestWall = w;
+                }
+            }
+
+            if (closestWall) {
+                const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
+
+                // En büyük uygun segmenti bul (kendisini hariç tutarak)
+                const largestSegment = findLargestAvailableSegment(closestWall, door);
+
+                if (largestSegment) {
+                    let KG = largestSegment.length; // Genişliği segmentin uzunluğu olarak al
+                    KG = KG > 70 ? 70 : KG; // Max 70 ile sınırla
+
+                    if (KG >= 20) { // Minimum genişlik kontrolü
+                        const newWidth = KG;
+
+                        // Pozisyonu hesapla
+                        const dx = closestWall.p2.x - closestWall.p1.x;
+                        const dy = closestWall.p2.y - closestWall.p1.y;
+                        const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
+                        const posOnWall = t * DG;
+
+                        // Kapının yerleşebileceği min/max pozisyonlar (segment içinde)
+                        const minPos = largestSegment.start + newWidth / 2;
+                        const maxPos = largestSegment.end - newWidth / 2;
+
+                        if (minPos <= maxPos) { // Yer varsa
+                            const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                            door.wall = closestWall;
+                            door.pos = clampedPos;
+                            door.width = newWidth; // Genişliği güncelle
+                        }
+                        // else: Segment, hesaplanan genişlik için yeterli değil, snap yapma
+                    }
+                    // else: Segment, minimum genişlik için bile yeterli değil, snap yapma
+                }
+                // else: Uygun segment bulunamadı, snap yapma
+            } else {
+                // En yakın duvar yoksa, genişliği max 70 yap
+                door.width = 70;
+            }
         }
+        // --- KAPI TAŞIMA SONU ---
+
+        // --- GÜNCELLENMİŞ BLOK: PENCERE TAŞIMA ---
         else if (state.selectedObject.type === "window") {
-            // Pencere taşıma (Değişiklik yok)
-            const window = state.selectedObject.object; const oldWall = state.selectedObject.wall; const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY }; let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = WALL_THICKNESS * 2; for (const w of state.walls) { const d = distToSegmentSquared(targetPos, w.p1, w.p2); if (d < bodyHitTolerance ** 2 && d < minDistSq) { minDistSq = d; closestWall = w; } } if (closestWall) { const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y); const wallThickness = closestWall.thickness || 20; const margin = (wallThickness / 2) + 5; const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y; const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy))); const newPos = t * wallLen; const minPos = window.width / 2 + margin; const maxPos = wallLen - window.width / 2 - margin; if (newPos >= minPos && newPos <= maxPos) { window.pos = newPos; if (oldWall !== closestWall) { if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window); if (!closestWall.windows) closestWall.windows = []; closestWall.windows.push(window); state.selectedObject.wall = closestWall; } } else if (wallLen >= window.width + 2*margin) { window.pos = Math.max(minPos, Math.min(maxPos, newPos)); if (oldWall !== closestWall) { if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window); if (!closestWall.windows) closestWall.windows = []; closestWall.windows.push(window); state.selectedObject.wall = closestWall; } } }
+            const window = state.selectedObject.object;
+            const oldWall = state.selectedObject.wall; // Eski duvarı sakla
+            const targetX = unsnappedPos.x + state.dragOffset.x;
+            const targetY = unsnappedPos.y + state.dragOffset.y;
+            const targetPos = { x: targetX, y: targetY };
+
+            let closestWall = null;
+            let minDistSq = Infinity;
+            const bodyHitTolerance = WALL_THICKNESS * 2;
+
+            for (const w of state.walls) {
+                const d = distToSegmentSquared(targetPos, w.p1, w.p2);
+                if (d < bodyHitTolerance ** 2 && d < minDistSq) {
+                    minDistSq = d;
+                    closestWall = w;
+                }
+            }
+
+            if (closestWall) {
+                const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
+
+                 // En büyük uygun segmenti bul (kendisini hariç tutarak)
+                const largestSegment = findLargestAvailableSegment(closestWall, window);
+
+                if (largestSegment) {
+                    let PG = largestSegment.length; // Genişliği segmentin uzunluğu olarak al
+                    PG = PG > 120 ? 120 : PG; // Max 120 ile sınırla
+
+                    if (PG >= 20) { // Minimum genişlik kontrolü
+                        const newWidth = PG;
+
+                        // Pozisyonu hesapla
+                        const dx = closestWall.p2.x - closestWall.p1.x;
+                        const dy = closestWall.p2.y - closestWall.p1.y;
+                        const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
+                        const posOnWall = t * DG;
+
+                        // Pencerenin yerleşebileceği min/max pozisyonlar (segment içinde)
+                        const minPos = largestSegment.start + newWidth / 2;
+                        const maxPos = largestSegment.end - newWidth / 2;
+
+                        if (minPos <= maxPos) { // Yer varsa
+                            const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                            window.pos = clampedPos;
+                            window.width = newWidth; // Genişliği güncelle
+
+                            // Duvar değiştirme mantığı
+                            if (oldWall !== closestWall) {
+                                if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window);
+                                if (!closestWall.windows) closestWall.windows = [];
+                                closestWall.windows.push(window);
+                                state.selectedObject.wall = closestWall;
+                            }
+                        }
+                        // else: Segment, hesaplanan genişlik için yeterli değil, snap yapma
+                    }
+                    // else: Segment, minimum genişlik için bile yeterli değil, snap yapma
+                }
+                 // else: Uygun segment bulunamadı, snap yapma
+            } else {
+                 // En yakın duvar yoksa, genişliği max 120 yap
+                window.width = 120;
+            }
         }
+        // --- PENCERE TAŞIMA SONU ---
+
         else if (state.selectedObject.type === "vent") {
              // Menfez taşıma (Değişiklik yok)
              const vent = state.selectedObject.object; const oldWall = state.selectedObject.wall; const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY }; let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = WALL_THICKNESS * 2; for (const w of state.walls) { const d = distToSegmentSquared(targetPos, w.p1, w.p2); if (d < bodyHitTolerance ** 2 && d < minDistSq) { minDistSq = d; closestWall = w; } } if (closestWall) { const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y); const ventMargin = 15; if (wallLen >= vent.width + 2 * ventMargin) { const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y; const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy))); const newPos = t * wallLen; const minPos = vent.width / 2 + ventMargin; const maxPos = wallLen - vent.width / 2 - ventMargin; vent.pos = Math.max(minPos, Math.min(maxPos, newPos)); if (oldWall !== closestWall) { if (oldWall.vents) oldWall.vents = oldWall.vents.filter(v => v !== vent); if (!closestWall.vents) closestWall.vents = []; closestWall.vents.push(vent); state.selectedObject.wall = closestWall; } } }

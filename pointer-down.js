@@ -256,9 +256,6 @@ export function onPointerDown(e) {
                          // birlikte hareket mantığı sadece onlar için çalıştığından yeterli.
                          // DÖNME GÜNCELLEMESİ: Artık döndürülmüş kolonları da taşıyabilmeli,
                          // bu yüzden (col.rotation || 0) === 0 kontrolünü kaldırıyoruz.
-                         // (Ancak pointer-move'daki taşıma mantığı şimdilik sadece 0 derece için snap yapıyor,
-                         // bu yüzden şimdilik 0 derece kısıtlaması kalabilir,
-                         // ama kolon döndürme eklendiği için bu kısıtlamayı kaldırmak daha doğru olacak.)
                          //
                          // GÜNCELLEME: pointer-move'daki taşıma mantığı (getSnappedWallInfo)
                          // artık snapli kolonları döndürüyor, bu yüzden buradaki 0 derece
@@ -451,41 +448,30 @@ export function onPointerDown(e) {
 
         if (state.currentMode === "drawWindow") {
             // Bir odaya tıklandıysa, o odanın dış duvarlarına (ortasına) pencere ekle
+            // --- GÜNCELLENMİŞ YARDIMCI FONKSİYON ---
             const addWindowToWallMiddle = (wall) => {
-                 // Eğer duvarda zaten pencere varsa ekleme (isteğe bağlı)
-                 if (wall.windows && wall.windows.length > 0) return false;
-
-                const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); // Duvar uzunluğu
-                const wallThickness = wall.thickness || WALL_THICKNESS; // Duvar kalınlığı
-                const margin = (wallThickness / 2) + 5; // Kenar boşluğu
-                const defaultWidth = 150; // Varsayılan pencere genişliği
-                const minWidth = 40; // Minimum pencere genişliği
-
-                let windowWidth = defaultWidth;
-                // Kısa duvar kontrolü
-                if (wallLen < 300) { // Duvar 3 metreden kısaysa
-                     const availableSpace = wallLen - 2 * margin; // Kenar boşluklarını çıkar
-                     // Kullanılabilir alanın yarısı kadar yap, min/max sınırları içinde
-                     windowWidth = Math.max(minWidth, Math.min(availableSpace, wallLen / 2));
-                } else { // Duvar 3 metre veya daha uzunsa
-                     const availableSpace = wallLen - 2 * margin;
-                     // Varsayılan genişlik veya sığan kadar yap
-                     windowWidth = Math.min(defaultWidth, availableSpace);
-                }
-
-                 // Eğer hesaplanan genişlik minimumdan küçükse ekleme
-                 if(windowWidth < minWidth) return false;
-
-                const windowPos = wallLen / 2; // Ortaya yerleştir
-
-                 // Geçici veri ile yer kontrolü yap (diğer kapı/pencerelerle çakışma)
-                 const tempWindowData = { wall: wall, pos: windowPos, width: windowWidth };
-                 if (!isSpaceForWindow(tempWindowData)) {
-                     return false; // Ekleme
+                 // Eğer duvarda zaten pencere, kapı veya menfez varsa ekleme (Otomatik ekleme sadece boş duvarlara yapılmalı)
+                 if ((wall.windows && wall.windows.length > 0) || 
+                     state.doors.some(d => d.wall === wall) || 
+                     (wall.vents && wall.vents.length > 0)) {
+                     return false;
                  }
+        
+                const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); // Duvar Genişliği
+                const DK = wall.thickness || WALL_THICKNESS; // Duvar Kalınlığı
+                const UM = (DK / 2) + 5; // Uç Mesafe
+                const GB = DG - 2 * UM; // Güvenli Bölge
+        
+                if (GB < 20) return false; // Kural 1
+        
+                let PG = GB; // Kural 2
+                PG = PG > 120 ? 120 : PG; // Kural 3 (Max 120)
+                
+                const windowWidth = PG;
+                const windowPos = DG / 2; // Duvarın tam ortası
 
                 // Ekleme işlemi
-                if (!wall.windows) wall.windows = []; // windows dizisi yoksa oluştur
+                if (!wall.windows) wall.windows = [];
                 wall.windows.push({
                     pos: windowPos,
                     width: windowWidth,
@@ -493,6 +479,7 @@ export function onPointerDown(e) {
                 });
                 return true; // Eklendi
             };
+            // --- GÜNCELLENMİŞ YARDIMCI FONKSİYON SONU ---
 
             if (clickedObject && clickedObject.type === 'room') { // Odaya tıklandıysa
                 const clickedRoom = clickedObject.object; const TOLERANCE = 1; // Oda duvarı eşleştirme toleransı
@@ -623,7 +610,7 @@ export function onPointerDown(e) {
                      const t = Math.max(0, Math.min(1, ((snappedPos.x - closestWall.p1.x) * dx + (snappedPos.y - closestWall.p1.y) * dy) / (dx*dx + dy*dy) ));
                      const ventPos = t * wallLen; // Pozisyon
                      // Pozisyon geçerli aralıkta mı?
-                     if (ventPos >= ventWidth/2 + ventMargin && ventPos <= wallLen - ventWidth/2 - ventMargin) {
+                     if (ventPos >= ventWidth/2 + ventMargin && ventPos <= wallLen - ventWidth/2 + ventMargin) {
                          if (!closestWall.vents) closestWall.vents = []; // vents dizisi yoksa oluştur
                          // Menfezi ekle
                          closestWall.vents.push({ pos: ventPos, width: ventWidth, type: 'vent' });
