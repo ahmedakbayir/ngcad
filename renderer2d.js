@@ -83,6 +83,15 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
 }
 
 // Pencere sembolünü çizer
+// ahmedakbayir/ngcad/ngcad-14c12fdb5eebc7f09a2c164bd4125e0b8c8894eb/renderer2d.js
+
+// ... (dosyanın üst kısmı)
+
+// ahmedakbayir/ngcad/ngcad-14c12fdb5eebc7f09a2c164bd4125e0b8c8894eb/renderer2d.js
+
+// ... (dosyanın üst kısmı)
+
+// Pencere sembolünü çizer
 export function drawWindowSymbol(wall, window, isPreview = false, isSelected = false) {
     const { ctx2d } = dom;
     const { selectedObject, wallBorderColor, lineThickness } = state;
@@ -104,9 +113,21 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const offset25 = halfWall * 0.5; const offset75 = halfWall * 0.5;
     const windowP1_inset_inner = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset }; const windowP2_inset_inner = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
     const line1_start = { x: windowP1.x - nx * (halfWall - inset), y: windowP1.y - ny * (halfWall - inset) }; const line1_end = { x: windowP2.x - nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) };
-    const line4_start = { x: windowP1.x + nx * (halfWall - inset), y: windowP1.y + ny * (halfWall - inset) }; const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) };
+    
+    // --- DÜZELTME 1 (Dış Çizgi) ---
+    const line4_start = { x: windowP1.x + nx * (halfWall - inset), y: windowP1.y + ny * (halfWall - inset) };
+    // const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) }; // <-- HATA 1 BURADAYDI
+    const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y + ny * (halfWall - inset) }; // <-- DÜZELTİLDİ
+    // --- DÜZELTME 1 SONU ---
+
     const line2_start = { x: windowP1_inset_inner.x - nx * offset25, y: windowP1_inset_inner.y - ny * offset25 }; const line2_end = { x: windowP2_inset_inner.x - nx * offset25, y: windowP2_inset_inner.y - ny * offset25 };
-    const line3_start = { x: windowP1_inset_inner.x + nx * offset75, y: windowP1_inset_inner.y + ny * offset75 }; const line3_end = { x: windowP2_inset_inner.x + nx * offset75, y: windowP2_inset_inner.y - ny * offset75 };
+    
+    // --- DÜZELTME 2 (İç Çizgi) ---
+    const line3_start = { x: windowP1_inset_inner.x + nx * offset75, y: windowP1_inset_inner.y + ny * offset75 };
+    // const line3_end = { x: windowP2_inset_inner.x + nx * offset75, y: windowP2_inset_inner.y - ny * offset75 }; // <-- HATA 2 BURADAYDI
+    const line3_end = { x: windowP2_inset_inner.x + nx * offset75, y: windowP2_inset_inner.y + ny * offset75 }; // <-- DÜZELTİLDİ
+    // --- DÜZELTME 2 SONU ---
+
     const windowP1_inset = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset }; const windowP2_inset = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
     const left1 = { x: windowP1_inset.x - nx * (halfWall - inset), y: windowP1_inset.y - ny * (halfWall - inset) }; const left2 = { x: windowP1_inset.x + nx * (halfWall - inset), y: windowP1_inset.y + ny * (halfWall - inset) };
     const right1 = { x: windowP2_inset.x - nx * (halfWall - inset), y: windowP2_inset.y - ny * (halfWall - inset) }; const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) };
@@ -124,6 +145,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     ctx2d.beginPath(); ctx2d.moveTo(marbleInner1.x, marbleInner1.y); ctx2d.lineTo(marbleOuter1.x, marbleOuter1.y); ctx2d.lineTo(marbleOuter2.x, marbleOuter2.y); ctx2d.lineTo(marbleInner2.x, marbleInner2.y); ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke();
 }
 
+// ... (dosyanın kalanı)
 // Grid'i çizer
 export function drawGrid() {
     const { ctx2d, c2d } = dom; const { zoom, gridOptions } = state; if (!gridOptions.visible) return;
