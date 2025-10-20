@@ -1,3 +1,4 @@
+// ahmedakbayir/ngcad/ngcad-055970f77eb108889ef674a7150694a41407eaee/wall-panel.js
 import { state, setState, WALL_THICKNESS } from './main.js';
 import { saveState } from './history.js';
 import { processWalls } from './wall-processor.js';
@@ -31,22 +32,6 @@ export function createWallPanel() {
         <div style="margin-bottom: 16px; font-size: 14px; font-weight: 500; color: #8ab4f8; border-bottom: 1px solid #3a3b3c; padding-bottom: 8px;">
             Duvar Ayarları
         </div>
-
-        <button id="wall-extrude-btn" style="
-            width: 100%;
-            padding: 8px 12px;
-            margin-bottom: 16px;
-            background: #3a3b3c;
-            color: #8ab4f8;
-            border: 1px solid #4a4b4c;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s;
-        ">
-            Duvara Çıkıntı Ver
-        </button>
 
         <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0;">
@@ -98,7 +83,7 @@ export function createWallPanel() {
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
                     <input type="radio" name="wall-type" value="glass" style="cursor: pointer;">
-                    <span style="font-size: 12px;">Camekan Duvar (ince-kalın)</span>
+                    <span style="font-size: 12px;">Camekan Duvar (tek çizgi)</span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
                     <input type="radio" name="wall-type" value="half" style="cursor: pointer;">
@@ -145,11 +130,6 @@ export function createWallPanel() {
             color: #8ab4f8;
         }
 
-        #wall-extrude-btn:hover {
-            background: #4a4b4c;
-            border-color: #8ab4f8;
-        }
-
         #wall-thickness-slider::-webkit-slider-thumb {
             appearance: none;
             width: 14px;
@@ -177,7 +157,6 @@ export function createWallPanel() {
 function setupWallPanelListeners() {
     const thicknessSlider = document.getElementById('wall-thickness-slider');
     const thicknessNumber = document.getElementById('wall-thickness-number');
-    const extrudeBtn = document.getElementById('wall-extrude-btn');
     const wallTypeRadios = document.querySelectorAll('input[name="wall-type"]');
 
     thicknessSlider.addEventListener('change', (e) => {
@@ -196,13 +175,6 @@ function setupWallPanelListeners() {
         if (wallPanelWall) {
             wallPanelWall.thickness = parseFloat(e.target.value);
             saveState();
-        }
-    });
-
-    extrudeBtn.addEventListener('click', () => {
-        if (wallPanelWall) {
-            extrudeWall(wallPanelWall);
-            hideWallPanel();
         }
     });
 
@@ -263,50 +235,6 @@ export function hideWallPanel() {
     }
 }
 
-function extrudeWall(wall) {
-    const dx = wall.p2.x - wall.p1.x;
-    const dy = wall.p2.y - wall.p1.y;
-    const length = Math.hypot(dx, dy);
-
-    if (length < 0.1) return;
-
-    const dirX = dx / length;
-    const dirY = dy / length;
-
-    const normalX = -dirY;
-    const normalY = dirX;
-
-    const midX = (wall.p1.x + wall.p2.x) / 2;
-    const midY = (wall.p1.y + wall.p2.y) / 2;
-
-    const extrudeLength = 100;
-
-    const newNode = {
-        x: midX + normalX * extrudeLength,
-        y: midY + normalY * extrudeLength
-    };
-
-    state.nodes.push(newNode);
-
-    const midNode = {
-        x: midX,
-        y: midY
-    };
-    state.nodes.push(midNode);
-
-    const wallIndex = state.walls.indexOf(wall);
-    if (wallIndex > -1) {
-        state.walls.splice(wallIndex, 1);
-
-        state.walls.push({ type: "wall", p1: wall.p1, p2: midNode, thickness: wall.thickness, wallType: wall.wallType });
-        state.walls.push({ type: "wall", p1: midNode, p2: wall.p2, thickness: wall.thickness, wallType: wall.wallType });
-        state.walls.push({ type: "wall", p1: midNode, p2: newNode, thickness: wall.thickness, wallType: wall.wallType });
-    }
-
-    processWalls();
-    saveState();
-}
-
 function addDoorToWall(wall) {
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const doorWidth = 70;
@@ -354,7 +282,7 @@ function addWindowToWall(wall) {
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const wallThickness = wall.thickness || WALL_THICKNESS;
     const margin = (wallThickness / 2) + 5;
-    const defaultWidth = 150; // Varsayılan boyut
+    const defaultWidth = 120; // Varsayılan boyut
     const minWidth = 40;
 
     let windowWidth = defaultWidth;

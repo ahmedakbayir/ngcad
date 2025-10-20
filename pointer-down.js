@@ -6,7 +6,8 @@ import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSe
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
-import { getObjectAtPoint, getDoorPlacement, isSpaceForDoor, findCollinearChain, getWindowPlacement, isSpaceForWindow } from './actions.js';
+// GÜNCELLEME: findLargestAvailableSegment eklendi
+import { getObjectAtPoint, getDoorPlacement, isSpaceForDoor, findCollinearChain, getWindowPlacement, isSpaceForWindow, findLargestAvailableSegment } from './actions.js';
 import { createColumn, getColumnCorners, isPointInColumn } from './columns.js';
 
 export function onPointerDown(e) {
@@ -448,27 +449,33 @@ export function onPointerDown(e) {
 
         if (state.currentMode === "drawWindow") {
             // Bir odaya tıklandıysa, o odanın dış duvarlarına (ortasına) pencere ekle
-            // --- GÜNCELLENMİŞ YARDIMCI FONKSİYON ---
+            // --- GÜNCELLENMİŞ YARDIMCI FONKSİYON (Request 3 Logic) ---
             const addWindowToWallMiddle = (wall) => {
-                 // Eğer duvarda zaten pencere, kapı veya menfez varsa ekleme (Otomatik ekleme sadece boş duvarlara yapılmalı)
-                 if ((wall.windows && wall.windows.length > 0) || 
-                     state.doors.some(d => d.wall === wall) || 
-                     (wall.vents && wall.vents.length > 0)) {
-                     return false;
-                 }
-        
-                const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); // Duvar Genişliği
-                const DK = wall.thickness || WALL_THICKNESS; // Duvar Kalınlığı
-                const UM = (DK / 2) + 5; // Uç Mesafe
-                const GB = DG - 2 * UM; // Güvenli Bölge
-        
-                if (GB < 20) return false; // Kural 1
-        
-                let PG = GB; // Kural 2
-                PG = PG > 120 ? 120 : PG; // Kural 3 (Max 120)
+                // Kural 1: Duvardaki en büyük boş segmenti bul
+                // (Bu fonksiyon zaten kenar boşluklarını, diğer kapı/pencere/menfezleri ve min. boşlukları hesaba katar)
+                const largestSegment = findLargestAvailableSegment(wall);
+
+                // Kural 2: Uygun segment yoksa ekleme
+                if (!largestSegment) {
+                    return false;
+                }
                 
-                const windowWidth = PG;
-                const windowPos = DG / 2; // Duvarın tam ortası
+                const defaultWidth = 120; // İstenen varsayılan pencere genişliği
+                let windowWidth;
+                let windowPos;
+
+                // Kural 3: Segment, varsayılan genişlikten büyük veya eşitse
+                if (largestSegment.length >= defaultWidth) {
+                    windowWidth = defaultWidth;
+                    // Pencereyi segmentin tam ortasına yerleştir
+                    windowPos = largestSegment.start + (largestSegment.length / 2);
+                } 
+                // Kural 4: Segment, varsayılan genişlikten küçükse
+                else {
+                    // (findLargestAvailableSegment zaten MIN_ITEM_WIDTH (20cm) kontrolü yaptı)
+                    windowWidth = largestSegment.length; // Pencere, segmentin genişliği kadar olsun
+                    windowPos = largestSegment.start + (largestSegment.length / 2); // Segmentin tam ortası
+                }
 
                 // Ekleme işlemi
                 if (!wall.windows) wall.windows = [];
