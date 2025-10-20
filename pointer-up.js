@@ -1,23 +1,20 @@
 import { state, setState } from './main.js';
 import { getOrCreateNode, wallExists } from './geometry.js';
-import { processWalls, mergeNode } from './wall-processor.js';
+import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
         setState({ isCtrlDeleting: false });
-        // Silme işlemi bittikten sonra son durumu kaydet
         saveState();
         return;
     }
 
     if (state.isDraggingRoomName) {
-        // Taşıma işlemi tamamlandı - merkez dışarıda mı kontrol et
         const room = state.isDraggingRoomName;
         const point = turf.point(room.center);
         
         if (!turf.booleanPointInPolygon(point, room.polygon)) {
-            // Merkez dışarıda kaldıysa, polygon'un merkezine geri döndür
             const centerPoint = turf.pointOnFeature(room.polygon);
             room.center = centerPoint.geometry.coordinates;
         }
@@ -106,18 +103,22 @@ export function onPointerUp(e) {
                     node.y = originalPos.y + roundedMovedY;
                 }
                 
-                mergeNode(node);
+                // BİRLEŞTİRME KAPALI - Lokal kalınlık için
+                // mergeNode(node);
             });
         }
         
         if (state.selectedObject?.type === "wall") {
-            const nodesToMerge = new Set();
+            // BİRLEŞTİRME KAPALI - Lokal kalınlık için
+            // const nodesToMerge = new Set();
             
             if (state.selectedObject.handle !== 'body' && state.affectedWalls) {
                 const nodeToMerge = state.selectedObject.object[state.selectedObject.handle];
                 const affectedWalls = state.affectedWalls;
                 
-                const mergedNode = mergeNode(nodeToMerge);
+                // BİRLEŞTİRME KAPALI
+                // const mergedNode = mergeNode(nodeToMerge);
+                const mergedNode = null;
                 const finalNode = mergedNode || nodeToMerge;
                 
                 if (mergedNode) {
@@ -141,13 +142,13 @@ export function onPointerUp(e) {
                     });
                 }
             } else { 
-                const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
-                wallsToProcess.forEach((w) => { nodesToMerge.add(w.p1); nodesToMerge.add(w.p2); });
-                nodesToMerge.forEach((node) => mergeNode(node));
+                // BİRLEŞTİRME KAPALI
+                // const wallsToProcess = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+                // wallsToProcess.forEach((w) => { nodesToMerge.add(w.p1); nodesToMerge.add(w.p2); });
+                // nodesToMerge.forEach((node) => mergeNode(node));
             }
         }
 
-        // DÖNME GÜNCELLEMESİ: Kolon döndürüldüyse duvarları işle
         if (state.selectedObject?.type === "column" && state.columnRotationOffset !== null) {
             processWalls();
         }
@@ -155,21 +156,16 @@ export function onPointerUp(e) {
         processWalls();
         saveState();
     
-    // --- HATA DÜZELTMESİ: "Mükemmel Tıklama" senaryosunda parçalanan node'ları birleştir ---
     } else if (didClick && state.isSweeping) {
-        // Bu bir "tıklama" idi, "sürükleme" değil.
-        // Eğer checkAndSplitNode (pointer-down'da) çalıştıysa state.isSweeping=true olmuştur.
-        // Bu, state.preDragNodeStates içinde birleştirilmesi gereken bir "newNode" olduğu anlamına gelir.
-        
         if (state.preDragNodeStates.size > 0 && state.selectedObject?.type === 'wall') {
-            const nodesToMerge = Array.from(state.preDragNodeStates.keys());
-            nodesToMerge.forEach(node => {
-                mergeNode(node); // Bu, ..._new node'u orijinal node'a geri birleştirir.
-            });
-            processWalls(); // Geometriyi temizle
-            saveState(); // Durumu kaydet
+            // BİRLEŞTİRME KAPALI
+            // const nodesToMerge = Array.from(state.preDragNodeStates.keys());
+            // nodesToMerge.forEach(node => {
+            //     mergeNode(node);
+            // });
+            processWalls();
+            saveState();
         }
-    // --- HATA DÜZELTMESİ SONU ---
     }
     
 
@@ -189,7 +185,6 @@ export function onPointerUp(e) {
         dragOriginalNodes: null,
         isSweeping: false,
         sweepWalls: [],
-        columnRotationOffset: null // DÖNME GÜNCELLEMESİ: Offset'i temizle
-
+        columnRotationOffset: null
     });
 }

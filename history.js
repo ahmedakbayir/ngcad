@@ -36,7 +36,9 @@ export function saveState() {
             area: r.area,
             center: r.center,
             name: r.name
-        }))
+        })),
+        // --- YENİ EKLENEN SATIR ---
+        columns: JSON.parse(JSON.stringify(state.columns)) // Kolonları derin kopyala
     };
 
     state.history = state.history.slice(0, state.historyIndex + 1);
@@ -85,7 +87,9 @@ export function restoreState(snapshot) {
             area: r.area,
             center: r.center,
             name: r.name
-        }))
+        })),
+        // --- YENİ EKLENEN SATIR ---
+        columns: snapshot.columns || [] // Kolonları geri yükle (veya boş dizi ata)
     });
 }
 

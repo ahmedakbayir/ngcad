@@ -3,6 +3,7 @@ import { saveState } from './history.js';
 import { processWalls } from './wall-processor.js';
 import { screenToWorld } from './geometry.js';
 import { isSpaceForWindow } from './actions.js'; // isSpaceForWindow eklendi
+import { createColumn } from './columns.js'; // --- YENİ EKLENEN IMPORT ---
 
 let wallPanel = null;
 let wallPanelWall = null;
@@ -439,15 +440,19 @@ export function clearLongPress() {
 }
 // End of long press functions
 
+
+// --- AŞAĞIDAKİ FONKSİYON TAMAMEN GÜNCELLENDİ ---
+// --- SADECE BU FONKSİYONU GÜNCELLEYİN ---
 function addColumnToWall(wall) {
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    const columnPos = length / 2;
+    const columnPos = length / 2; // Duvarın tam ortası
     const columnSize = 30; // Varsayılan kolon boyutu
+    const halfColumnSize = columnSize / 2; // Yarı boyut (offset için)
 
     // Minimum duvar uzunluğu kontrolü
     if (length < columnSize + 10) return; // Kolon + biraz boşluk
 
-    // Kapı/Pencere/Menfez çakışma kontrolü
+    // Kapı/Pencere/Menfez çakışma kontrolü (Değişiklik yok)
     const columnStart = columnPos - columnSize / 2;
     const columnEnd = columnPos + columnSize / 2;
     const margin = 5; // Hafif boşluk
@@ -470,65 +475,74 @@ function addColumnToWall(wall) {
          if (!(columnEnd + margin <= ventStart || columnStart >= ventEnd + margin)) return;
      }
 
-
+    // Duvar vektörlerini ve orta noktayı hesapla
     const dx = wall.p2.x - wall.p1.x;
     const dy = wall.p2.y - wall.p1.y;
-    const dirX = dx / length;
-    const dirY = dy / length;
+    const wallMidX = wall.p1.x + dx / 2;
+    const wallMidY = wall.p1.y + dy / 2;
 
-    const columnX = wall.p1.x + dirX * columnPos;
-    const columnY = wall.p1.y + dirY * columnPos;
+    let columnX = wallMidX; // Başlangıç X
+    let columnY = wallMidY; // Başlangıç Y
 
-    const columnNode = {
-        x: columnX,
-        y: columnY,
-        isColumn: true,
-        columnSize: columnSize
-    };
+    // --- İç Tarafı Bulma ve Offset Uygulama ---
+    if (length > 0.1) {
+        const nx = -dy / length; // Normal vektör (saat yönünün tersi)
+        const ny = dx / length;
 
-    state.nodes.push(columnNode);
+        // Test noktaları (duvarın iki tarafında 1cm ötede)
+        const testDist = 1.0;
+        const p_test1 = { x: wallMidX + nx * testDist, y: wallMidY + ny * testDist };
+        const p_test2 = { x: wallMidX - nx * testDist, y: wallMidY - ny * testDist };
 
-    const wallIndex = state.walls.indexOf(wall);
-    if (wallIndex > -1) {
-        // Orijinal duvarın pencere ve menfezlerini sakla
-        const originalWindows = wall.windows || [];
-        const originalVents = wall.vents || [];
+        let is_p1_inside = false;
+        let is_p2_inside = false;
 
-        state.walls.splice(wallIndex, 1); // Orijinal duvarı sil
-        const newWall1 = { type: "wall", p1: wall.p1, p2: columnNode, thickness: wall.thickness, wallType: wall.wallType, windows: [], vents: [] };
-        const newWall2 = { type: "wall", p1: columnNode, p2: wall.p2, thickness: wall.thickness, wallType: wall.wallType, windows: [], vents: [] };
-        state.walls.push(newWall1, newWall2);
+        // Odaları kontrol et
+        for (const room of state.rooms) {
+            if (!room.polygon || !room.polygon.geometry) continue;
+            // turf.js kullanarak test noktası odanın içinde mi?
+            if (turf.booleanPointInPolygon([p_test1.x, p_test1.y], room.polygon)) {
+                is_p1_inside = true;
+            }
+            if (turf.booleanPointInPolygon([p_test2.x, p_test2.y], room.polygon)) {
+                is_p2_inside = true;
+            }
+            // İki taraf da içerdeyse (veya ikisi de dışardaysa) döngüden çıkmaya gerek yok,
+            // bir iç taraf bulmak yeterli.
+            if (is_p1_inside || is_p2_inside) break;
+        }
 
+        let offsetX = 0;
+        let offsetY = 0;
 
-         // Kapıları yeni duvarlara ata (eğer varsa)
-         doorsOnWall.forEach(door => {
-             if (door.pos < columnPos) {
-                 door.wall = newWall1;
-             } else {
-                 door.wall = newWall2;
-                 door.pos -= columnPos; // Pozisyonu ikinci duvara göre ayarla
-             }
-         });
-         // Pencereleri yeni duvarlara ata (eğer varsa)
-          originalWindows.forEach(window => {
-              if (window.pos < columnPos) {
-                   newWall1.windows.push(window);
-              } else {
-                   window.pos -= columnPos;
-                   newWall2.windows.push(window);
-              }
-          });
-          // Menfezleri yeni duvarlara ata (eğer varsa)
-           originalVents.forEach(vent => {
-               if (vent.pos < columnPos) {
-                    newWall1.vents.push(vent);
-               } else {
-                    vent.pos -= columnPos;
-                    newWall2.vents.push(vent);
-               }
-           });
+        if (is_p1_inside) {
+            // p1 (nx, ny yönü) içerde. Kolonu o yöne yarım boyutu kadar ofsetle.
+            offsetX = nx * halfColumnSize;
+            offsetY = ny * halfColumnSize;
+        } else if (is_p2_inside) {
+            // p2 (-nx, -ny yönü) içerde. Kolonu o yöne yarım boyutu kadar ofsetle.
+            offsetX = -nx * halfColumnSize;
+            offsetY = -ny * halfColumnSize;
+        }
+        // else: İki taraf da dışardaysa (veya oda yoksa), offset uygulama (ortada kalsın).
+
+        // Hesaplanan offset'i orta noktaya ekle
+        columnX += offsetX;
+        columnY += offsetY;
     }
+    // --- Offset Sonu ---
 
-    processWalls();
+
+    // Duvarın açısını hesapla ve 15 dereceye yuvarla
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const roundedAngle = Math.round(angle / 15) * 15;
+
+    // Yeni kolon sistemini (createColumn) kullanarak kolonu oluştur
+    const newColumn = createColumn(columnX, columnY, columnSize);
+    newColumn.rotation = roundedAngle; // Açısını ayarla
+
+    // Kolonu 'state.columns' dizisine ekle
+    state.columns.push(newColumn);
+
     saveState();
 }

@@ -258,7 +258,6 @@ function straightenNearlyHorizontalOrVerticalWalls() {
     });
 }
 
-// KOLON-DUVAR BİRLEŞTİRME FONKSİYONU (YENİ YAPIYLA)
 function mergeColumnsWithWalls() {
     const MERGE_TOLERANCE = 5;
     
@@ -267,7 +266,6 @@ function mergeColumnsWithWalls() {
     state.columns.forEach(column => {
         if (!column || !column.center) return;
         
-        // Kolon merkezini kontrol et
         let closestWallNode = null;
         let minDist = MERGE_TOLERANCE;
         
@@ -292,11 +290,14 @@ function mergeColumnsWithWalls() {
     });
 }
 
-export function processWalls() {
+export function processWalls(skipMerge = false) {
     // Kolon node'larını duvar sisteminden ayır
     state.nodes = state.nodes.filter(n => !n.isColumnNode);
     
-    unifyNearbyNodes(1.0);
+    // LOKAL KALINLIK İÇİN: skipMerge true ise birleştirme yapma
+    if (!skipMerge) {
+        unifyNearbyNodes(1.0);
+    }
     
     const filteredWalls = state.walls.filter(w => {
         if (!w || !w.p1 || !w.p2) return false;
@@ -315,8 +316,12 @@ export function processWalls() {
     splitWallsAtCrossings();
     splitWallsAtTjunctions();
     mergeDuplicateWalls();
-    mergeCollinearChains();
-    straightenNearlyHorizontalOrVerticalWalls();
+    
+    // LOKAL KALINLIK İÇİN: skipMerge true ise birleştirme yapma
+    if (!skipMerge) {
+        mergeCollinearChains();
+        straightenNearlyHorizontalOrVerticalWalls();
+    }
     
     const validWalls = state.walls.filter(w => {
         if (!w || !w.p1 || !w.p2) return false;
@@ -325,7 +330,6 @@ export function processWalls() {
     });
     setState({ walls: validWalls });
     
-    // KOLON-DUVAR BİRLEŞTİRME
     mergeColumnsWithWalls();
     
     try {
