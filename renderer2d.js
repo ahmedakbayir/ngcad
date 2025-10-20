@@ -45,7 +45,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
         const b = parseInt(hex.substring(4, 6), 16);
-        color = `rgba(${r}, ${g}, ${b}, 0.8)`;
+        color = `rgba(${r}, ${g}, ${b}, 0.6`;
     }
     // Çizim ayarları
     ctx2d.strokeStyle = color;
@@ -70,6 +70,18 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     const jamb1_end = { x: doorP1_inset.x + nx * halfWall, y: doorP1_inset.y + ny * halfWall };
     const jamb2_start = { x: doorP2_inset.x - nx * halfWall, y: doorP2_inset.y - ny * halfWall };
     const jamb2_end = { x: doorP2_inset.x + nx * halfWall, y: doorP2_inset.y + ny * halfWall };
+
+    // --- YENİ EKLENEN DOLGU KODU ---
+    // Kapının "ortasındaki" (iç pervazlar arasındaki) bölgeyi doldur
+    ctx2d.fillStyle = color;
+    ctx2d.beginPath();
+    ctx2d.moveTo(p_line1_start.x, p_line1_start.y);
+    ctx2d.lineTo(p_line1_end.x, p_line1_end.y);
+    ctx2d.lineTo(p_line2_end.x, p_line2_end.y);
+    ctx2d.lineTo(p_line2_start.x, p_line2_start.y);
+    ctx2d.closePath();
+    ctx2d.fill();
+    // --- YENİ KOD SONU ---
 
     // Çizim işlemi
     ctx2d.beginPath();
@@ -100,7 +112,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     if (isPreview) { color = "#8ab4f8"; } else if (isSelectedCalc) { color = "#8ab4f8"; } else {
         const hex = wallBorderColor.startsWith('#') ? wallBorderColor.slice(1) : wallBorderColor;
         const r = parseInt(hex.substring(0, 2), 16); const g = parseInt(hex.substring(2, 4), 16); const b = parseInt(hex.substring(4, 6), 16);
-        color = `rgba(${r}, ${g}, ${b}, 0.8)`;
+        color = `rgba(${r}, ${g}, ${b}, 0.2)`;
     }
     ctx2d.strokeStyle = color; ctx2d.lineWidth = lineThickness / 2; const inset = lineThickness / 4;
     const offset25 = halfWall * 0.5; // İçteki çizgilerin konumu için yarı kalınlığın %50'si
@@ -129,6 +141,20 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const left2 = { x: windowP1_inset.x + nx * (halfWall - inset), y: windowP1_inset.y + ny * (halfWall - inset) }; // İç sol
     const right1 = { x: windowP2_inset.x - nx * (halfWall - inset), y: windowP2_inset.y - ny * (halfWall - inset) }; // Dış sağ
     const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) }; // İç sağ
+
+    // --- DÜZELTİLMİŞ DOLGU KODU ---
+    // Sadece pencerenin "iç" (cam) bölgesini doldur
+    ctx2d.fillStyle = color;
+
+    // Orta bölge (Cam) - "Pencerenin ortası"
+    ctx2d.beginPath();
+    ctx2d.moveTo(line2_start.x, line2_start.y);
+    ctx2d.lineTo(line2_end.x, line2_end.y);
+    ctx2d.lineTo(line3_end.x, line3_end.y);
+    ctx2d.lineTo(line3_start.x, line3_start.y);
+    ctx2d.closePath();
+    ctx2d.fill(); // Sadece burası doldurulacak
+    // --- DÜZELTME SONU ---
 
     // Tüm çizgileri çiz
     ctx2d.beginPath();

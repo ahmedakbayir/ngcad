@@ -66,7 +66,16 @@ function onKeyDown(e) {
         return;
     }
 
-    if (state.selectedObject?.type === "wall" && !state.isEditingLength && /^[0-9.]$/.test(e.key)) { e.preventDefault(); startLengthEdit(e.key); return; }
+    // --- GÜNCELLENDİ: Kapı ve Pencereler için de sayı girişini yakala ---
+    if (state.selectedObject && 
+        (state.selectedObject.type === "wall" || state.selectedObject.type === "door" || state.selectedObject.type === "window") && 
+        !state.isEditingLength && /^[0-9.]$/.test(e.key)) { 
+        e.preventDefault(); 
+        startLengthEdit(e.key); 
+        return; 
+    }
+    // --- GÜNCELLEME SONU ---
+    
     if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
     

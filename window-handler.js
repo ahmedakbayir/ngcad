@@ -16,13 +16,13 @@ export function getWindowAtPoint(pos, tolerance) {
         for (const window of wall.windows) {
             const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
             if (wallLen < 0.1) continue;
-            
+
             const dx = (wall.p2.x - wall.p1.x) / wallLen;
             const dy = (wall.p2.y - wall.p1.y) / wallLen;
             const windowCenterX = wall.p1.x + dx * window.pos;
             const windowCenterY = wall.p1.y + dy * window.pos;
             const wallPx = wall.thickness || WALL_THICKNESS;
-            
+
             const dx_p = pos.x - windowCenterX;
             const dy_p = pos.y - windowCenterY;
             const distPerpendicular = Math.abs(dx_p * (-dy) + dy_p * dx);
@@ -42,8 +42,8 @@ function addWindowToWallMiddle(wall) {
     if (!largestSegment) {
         return false;
     }
-    
-    const defaultWidth = 120;
+
+    const defaultWidth = 120; // Varsayılan pencere genişliği
     let windowWidth;
     let windowPos;
 
@@ -51,15 +51,22 @@ function addWindowToWallMiddle(wall) {
         windowWidth = defaultWidth;
         windowPos = largestSegment.start + (largestSegment.length / 2);
     } else {
-        windowWidth = largestSegment.length;
-        windowPos = largestSegment.start + (largestSegment.length / 2);
+        // En büyük segment varsayılan genişlikten küçükse, segment kadar yap
+        const MIN_ITEM_WIDTH = 20;
+        if (largestSegment.length >= MIN_ITEM_WIDTH) {
+            windowWidth = largestSegment.length;
+            windowPos = largestSegment.start + (largestSegment.length / 2);
+        } else {
+            return false; // Minimum genişlikten de küçükse ekleme
+        }
     }
 
     if (!wall.windows) wall.windows = [];
     wall.windows.push({
         pos: windowPos,
         width: windowWidth,
-        type: 'window'
+        type: 'window',
+        isWidthManuallySet: false // İşareti false başlat
     });
     return true;
 }
@@ -82,9 +89,16 @@ export function onPointerDownDraw(pos, clickedObject) {
     }
     if (previewWall) {
         const previewWindowData = getWindowPlacement(previewWall, pos);
+        // isSpaceForWindow'un previewWindowData'yı alması gerekiyor
         if (previewWindowData && isSpaceForWindow(previewWindowData)) {
             if (!previewWall.windows) previewWall.windows = [];
-            previewWall.windows.push({ pos: previewWindowData.pos, width: previewWindowData.width, type: 'window' });
+            // getWindowPlacement'ten dönen width ve pos'u kullan, işareti ekle
+            previewWall.windows.push({
+                pos: previewWindowData.pos,
+                width: previewWindowData.width,
+                type: 'window',
+                isWidthManuallySet: false
+             });
             saveState();
             return;
         }
@@ -114,7 +128,7 @@ export function onPointerDownDraw(pos, clickedObject) {
         if (windowAdded) saveState();
         return;
     }
-    
+
     // Boşluğa tıklandıysa, tüm dış duvarlara ekle
     if (!clickedObject) {
         let windowAdded = false;
@@ -137,7 +151,7 @@ export function onPointerDownSelect(selectedObject, pos) {
     const window = selectedObject.object;
     const wall = selectedObject.wall;
     if (!wall || !wall.p1 || !wall.p2) return { startPointForDragging: pos, dragOffset: { x: 0, y: 0 } };
-    
+
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     if (wallLen < 0.1) return { startPointForDragging: pos, dragOffset: { x: 0, y: 0 } };
 
@@ -147,10 +161,11 @@ export function onPointerDownSelect(selectedObject, pos) {
     const windowCenterY = wall.p1.y + dy * window.pos;
     const startPointForDragging = { x: windowCenterX, y: windowCenterY };
     const dragOffset = { x: windowCenterX - pos.x, y: windowCenterY - pos.y };
-    
+
     return { startPointForDragging, dragOffset };
 }
 
+// --- GÜNCELLENDİ: onPointerMove (isWidthManuallySet kontrolü eklendi) ---
 /**
  * Seçili bir pencereyi sürüklerken çağrılır.
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
@@ -167,6 +182,7 @@ export function onPointerMove(unsnappedPos) {
     const bodyHitTolerance = WALL_THICKNESS * 2;
 
     for (const w of state.walls) {
+        if (!w.p1 || !w.p2) continue; // Geçersiz duvarları atla
         const d = distToSegmentSquared(targetPos, w.p1, w.p2);
         if (d < bodyHitTolerance ** 2 && d < minDistSq) {
             minDistSq = d;
@@ -176,6 +192,8 @@ export function onPointerMove(unsnappedPos) {
 
     if (closestWall) {
         const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
+         if (DG < 0.1) return; // Çok kısa duvarı atla
+
         const dx_pm_w = closestWall.p2.x - closestWall.p1.x;
         const dy_pm_w = closestWall.p2.y - closestWall.p1.y;
         const t_pm_w = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx_pm_w + (targetPos.y - closestWall.p1.y) * dy_pm_w) / (dx_pm_w * dx_pm_w + dy_pm_w * dy_pm_w)));
@@ -183,37 +201,58 @@ export function onPointerMove(unsnappedPos) {
 
         const segmentAtMouse_w = findAvailableSegmentAt(closestWall, posOnWall, window);
 
-        if (segmentAtMouse_w) { 
-            const windowWidth = 120;
+        if (segmentAtMouse_w) {
+            // Kullanılacak genişliği belirle: Elle ayarlanmışsa onu, değilse varsayılanı al
+            const targetWidth = window.isWidthManuallySet ? window.width : 120;
             const MIN_ITEM_WIDTH = 20;
 
-            if (segmentAtMouse_w.length < windowWidth) {
-                const smallerWidth = segmentAtMouse_w.length;
-                if (smallerWidth >= MIN_ITEM_WIDTH) {
-                    const minPos = segmentAtMouse_w.start + smallerWidth / 2;
-                    const maxPos = segmentAtMouse_w.end - smallerWidth / 2;
-                    const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-                    window.pos = clampedPos;
-                    window.width = smallerWidth;
-                }
+            let finalWidth = targetWidth;
+            let finalPos;
+
+            // Segment, hedeflenen genişlik için yeterli mi?
+            if (segmentAtMouse_w.length >= targetWidth) {
+                // Yeterli, hedeflenen genişliği kullan
+                finalWidth = targetWidth;
+                const minPos = segmentAtMouse_w.start + finalWidth / 2;
+                const maxPos = segmentAtMouse_w.end - finalWidth / 2;
+                finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+            } else if (!window.isWidthManuallySet && segmentAtMouse_w.length >= MIN_ITEM_WIDTH) {
+                // Yeterli değil AMA elle ayarlanmamış ve minimumdan büyükse, küçült
+                finalWidth = segmentAtMouse_w.length;
+                const minPos = segmentAtMouse_w.start + finalWidth / 2;
+                const maxPos = segmentAtMouse_w.end - finalWidth / 2;
+                finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
             } else {
-                const minPos = segmentAtMouse_w.start + windowWidth / 2;
-                const maxPos = segmentAtMouse_w.end - windowWidth / 2;
-                const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-                window.pos = clampedPos;
-                window.width = windowWidth;
+                 // Yeterli değil VE (elle ayarlanmış VEYA minimumdan küçükse)
+                 // Pencereyi bu segmente yerleştirme (veya pozisyonu/genişliği güncelleme)
+                 // Şimdilik sadece pozisyonu kenara en yakın yere clamp edelim, genişlik kalsın
+                 const minPos = segmentAtMouse_w.start + window.width / 2;
+                 const maxPos = segmentAtMouse_w.end - window.width / 2;
+                 finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                 finalWidth = window.width; // Mevcut genişliği koru
             }
+
+            // Pencerenin state'ini güncelle
+            window.pos = finalPos;
+            window.width = finalWidth;
 
             // Duvar değiştirme
             if (oldWall !== closestWall) {
+                // Eski duvardan kaldır
                 if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window);
+                // Yeni duvara ekle
                 if (!closestWall.windows) closestWall.windows = [];
                 closestWall.windows.push(window);
+                // selectedObject'teki duvar referansını güncelle (önemli!)
                 state.selectedObject.wall = closestWall;
             }
         }
     } else {
-        window.width = 120;
+        // Eğer hiçbir duvara yakın değilse, genişliği sıfırla (eğer elle ayarlanmamışsa)
+        if (!window.isWidthManuallySet) {
+             window.width = 120; // Varsayılana dön
+        }
+         // Pozisyonu veya duvarı değiştirme
     }
 }
 
@@ -232,30 +271,43 @@ export function getWindowPlacement(wall, mousePos) {
     const segmentAtMouse = findAvailableSegmentAt(wall, posOnWall);
     if (!segmentAtMouse) return null;
 
-    const windowWidth = 120;
+    const windowWidth = 120; // Varsayılan pencere genişliği
     if (segmentAtMouse.length < windowWidth) {
         const smallerWidth = segmentAtMouse.length;
         if (smallerWidth < MIN_ITEM_WIDTH) return null;
         const minPos = segmentAtMouse.start + smallerWidth / 2;
         const maxPos = segmentAtMouse.end - smallerWidth / 2;
         const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-        return { wall: wall, pos: clampedPos, width: smallerWidth };
+        // Dönen objeye wall referansı ve isWidthManuallySet ekle
+        return { wall: wall, pos: clampedPos, width: smallerWidth, isWidthManuallySet: false };
     }
-    
+
     const minPos = segmentAtMouse.start + windowWidth / 2;
     const maxPos = segmentAtMouse.end - windowWidth / 2;
     const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-    return { wall: wall, pos: clampedPos, width: windowWidth };
+    // Dönen objeye wall referansı ve isWidthManuallySet ekle
+    return { wall: wall, pos: clampedPos, width: windowWidth, isWidthManuallySet: false };
 }
 
-export function isSpaceForWindow(windowData) {
-    const window = windowData.object || windowData;
-    const wall = windowData.wall;
+// isSpaceForWindow artık selectedObject veya windowData bekliyor
+export function isSpaceForWindow(windowDataOrSelectedObject) {
+    // Gelen argümanın selectedObject mi yoksa getWindowPlacement'ten gelen veri mi olduğunu kontrol et
+    const window = windowDataOrSelectedObject.object || windowDataOrSelectedObject;
+    const wall = windowDataOrSelectedObject.wall; // Her iki durumda da wall burada olmalı
     if (!wall) return false;
     const MIN_GAP = 0.1;
 
     const windowStart = window.pos - window.width / 2;
     const windowEnd = window.pos + window.width / 2;
+
+    // Duvarın uç boşluklarını kontrol et
+    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    const wallThickness = wall.thickness || WALL_THICKNESS;
+    const UM = (wallThickness / 2) + 5; // Uç marjı
+    if (windowStart < UM || windowEnd > wallLen - UM) {
+        return false;
+    }
+
 
     const doorsOnWall = state.doors.filter(d => d.wall === wall);
     for (const door of doorsOnWall) {
@@ -268,6 +320,7 @@ export function isSpaceForWindow(windowData) {
 
     const windowsOnWall = wall.windows || [];
     for (const existingWindow of windowsOnWall) {
+        // Kendisiyle karşılaştırmayı atla
         if (existingWindow === window) continue;
         const existingStart = existingWindow.pos - existingWindow.width / 2;
         const existingEnd = existingWindow.pos + existingWindow.width / 2;

@@ -137,7 +137,24 @@ export function draw2D() {
         if (dimensionMode === 0 || (dimensionMode === 1 && isInteriorWall)) {
              drawDimension(selectedWall.p1, selectedWall.p2, true, 'single');
         }
+    // --- YENİ EKLENDİ: Seçili kapı/pencere ölçüsünü çiz ---
+    } else if (!isDragging && (selectedObject?.type === "door" || selectedObject?.type === "window")) {
+        const item = selectedObject.object;
+        const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall;
+        if (wall && wall.p1 && wall.p2) {
+            const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+            if (wallLen > 0.1) {
+                const dx = (wall.p2.x - wall.p1.x) / wallLen;
+                const dy = (wall.p2.y - wall.p1.y) / wallLen;
+                const startPos = item.pos - item.width / 2;
+                const endPos = item.pos + item.width / 2;
+                const p1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
+                const p2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
+                drawDimension(p1, p2, true, 'single');
+            }
+        }
     }
+    // --- YENİ BLOK SONU ---
 
     // 11. Sürükleme/Çizim Geri Bildirimleri
     drawDragPreviews(ctx2d, state, drawDimension);

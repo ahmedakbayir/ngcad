@@ -16,13 +16,13 @@ export function getDoorAtPoint(pos, tolerance) {
         if (!wall || !wall.p1 || !wall.p2) continue;
         const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
         if (wallLen < 0.1) continue;
-        
+
         const dx = (wall.p2.x - wall.p1.x) / wallLen;
         const dy = (wall.p2.y - wall.p1.y) / wallLen;
         const doorCenterX = wall.p1.x + dx * door.pos;
         const doorCenterY = wall.p1.y + dy * door.pos;
         const wallPx = wall.thickness || WALL_THICKNESS;
-        
+
         const dx_p = pos.x - doorCenterX;
         const dy_p = pos.y - doorCenterY;
         const distPerpendicular = Math.abs(dx_p * (-dy) + dy_p * dx);
@@ -107,15 +107,15 @@ export function onPointerDownDraw(pos, clickedObject) {
             let longestWall = sharedWalls[0];
             let maxLength = 0;
              if(longestWall && longestWall.p1 && longestWall.p2) maxLength = Math.hypot(longestWall.p2.x - longestWall.p1.x, longestWall.p2.y - longestWall.p1.y);
-            
+
             sharedWalls.forEach(wall => {
                  if (!wall || !wall.p1 || !wall.p2) return;
                 const len = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                 if (len > maxLength) { maxLength = len; longestWall = wall; }
             });
-            
+
             if(!longestWall || !longestWall.p1 || !longestWall.p2) return;
-            
+
             const existingDoor = state.doors.find(d => d.wall === longestWall);
             if (!existingDoor) {
                 const midX = (longestWall.p1.x + longestWall.p2.x) / 2;
@@ -140,7 +140,7 @@ export function onPointerDownSelect(selectedObject, pos) {
     const door = selectedObject.object;
     const wall = door.wall;
     if (!wall || !wall.p1 || !wall.p2) return { startPointForDragging: pos, dragOffset: { x: 0, y: 0 } };
-    
+
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     if (wallLen < 0.1) return { startPointForDragging: pos, dragOffset: { x: 0, y: 0 } };
 
@@ -150,10 +150,11 @@ export function onPointerDownSelect(selectedObject, pos) {
     const doorCenterY = wall.p1.y + dy * door.pos;
     const startPointForDragging = { x: doorCenterX, y: doorCenterY };
     const dragOffset = { x: doorCenterX - pos.x, y: doorCenterY - pos.y };
-    
+
     return { startPointForDragging, dragOffset };
 }
 
+// --- GÜNCELLENDİ: onPointerMove (isWidthManuallySet kontrolü eklendi) ---
 /**
  * Seçili bir kapıyı sürüklerken çağrılır.
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
@@ -169,6 +170,7 @@ export function onPointerMove(unsnappedPos) {
     const bodyHitTolerance = WALL_THICKNESS * 2;
 
     for (const w of state.walls) {
+        if (!w.p1 || !w.p2) continue; // Geçersiz duvarları atla
         const d = distToSegmentSquared(targetPos, w.p1, w.p2);
         if (d < bodyHitTolerance ** 2 && d < minDistSq) {
             minDistSq = d;
@@ -178,6 +180,8 @@ export function onPointerMove(unsnappedPos) {
 
     if (closestWall) {
         const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
+        if (DG < 0.1) return; // Çok kısa duvarı atla
+
         const dx_pm = closestWall.p2.x - closestWall.p1.x;
         const dy_pm = closestWall.p2.y - closestWall.p1.y;
         const t_pm = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx_pm + (targetPos.y - closestWall.p1.y) * dy_pm) / (dx_pm * dx_pm + dy_pm * dy_pm)));
@@ -185,33 +189,54 @@ export function onPointerMove(unsnappedPos) {
 
         const segmentAtMouse = findAvailableSegmentAt(closestWall, posOnWall, door);
 
-        if (segmentAtMouse) { 
-            const doorWidth = 70;
+        if (segmentAtMouse) {
+            // Kullanılacak genişliği belirle: Elle ayarlanmışsa onu, değilse varsayılanı al
+            const targetWidth = door.isWidthManuallySet ? door.width : 70;
             const MIN_ITEM_WIDTH = 20;
 
-            if (segmentAtMouse.length < doorWidth) {
-                const smallerWidth = segmentAtMouse.length;
-                if (smallerWidth >= MIN_ITEM_WIDTH) {
-                    const minPos = segmentAtMouse.start + smallerWidth / 2;
-                    const maxPos = segmentAtMouse.end - smallerWidth / 2;
-                    const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-                    door.wall = closestWall;
-                    door.pos = clampedPos;
-                    door.width = smallerWidth;
-                }
+            let finalWidth = targetWidth;
+            let finalPos;
+
+            // Segment, hedeflenen genişlik için yeterli mi?
+            if (segmentAtMouse.length >= targetWidth) {
+                // Yeterli, hedeflenen genişliği kullan
+                finalWidth = targetWidth;
+                const minPos = segmentAtMouse.start + finalWidth / 2;
+                const maxPos = segmentAtMouse.end - finalWidth / 2;
+                finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+            } else if (!door.isWidthManuallySet && segmentAtMouse.length >= MIN_ITEM_WIDTH) {
+                // Yeterli değil AMA elle ayarlanmamış ve minimumdan büyükse, küçült
+                finalWidth = segmentAtMouse.length;
+                const minPos = segmentAtMouse.start + finalWidth / 2;
+                const maxPos = segmentAtMouse.end - finalWidth / 2;
+                finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                // Elle ayarlanmadığı için küçülttükten sonra işaretlemeye gerek yok
             } else {
-                const minPos = segmentAtMouse.start + doorWidth / 2;
-                const maxPos = segmentAtMouse.end - doorWidth / 2;
-                const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-                door.wall = closestWall;
-                door.pos = clampedPos;
-                door.width = doorWidth;
+                 // Yeterli değil VE (elle ayarlanmış VEYA minimumdan küçükse)
+                 // Kapıyı bu segmente yerleştirme (veya pozisyonu/genişliği güncelleme)
+                 // Şimdilik sadece pozisyonu kenara en yakın yere clamp edelim, genişlik kalsın
+                 // (Elle ayarlıysa elle ayarlanan, değilse bir önceki frame'deki genişlik)
+                 const minPos = segmentAtMouse.start + door.width / 2;
+                 const maxPos = segmentAtMouse.end - door.width / 2;
+                 finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                 finalWidth = door.width; // Mevcut genişliği koru
             }
+
+            // Kapının state'ini güncelle
+            door.wall = closestWall;
+            door.pos = finalPos;
+            door.width = finalWidth;
+
         }
     } else {
-        door.width = 70;
+        // Eğer hiçbir duvara yakın değilse, genişliği sıfırla (eğer elle ayarlanmamışsa)
+        if (!door.isWidthManuallySet) {
+             door.width = 70; // Varsayılana dön
+        }
+        // Pozisyonu veya duvarı değiştirme
     }
 }
+
 
 // --- 'actions.js' dosyasından taşınan yardımcılar ---
 
@@ -228,20 +253,20 @@ export function getDoorPlacement(wall, mousePos) {
     const segmentAtMouse = findAvailableSegmentAt(wall, posOnWall);
     if (!segmentAtMouse) return null;
 
-    const doorWidth = 70;
+    const doorWidth = 70; // Varsayılan kapı genişliği
     if (segmentAtMouse.length < doorWidth) {
         const smallerWidth = segmentAtMouse.length;
         if (smallerWidth < MIN_ITEM_WIDTH) return null;
         const minPos = segmentAtMouse.start + smallerWidth / 2;
         const maxPos = segmentAtMouse.end - smallerWidth / 2;
         const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-        return { wall: wall, pos: clampedPos, width: smallerWidth, type: 'door' };
+        return { wall: wall, pos: clampedPos, width: smallerWidth, type: 'door', isWidthManuallySet: false }; // İşareti false başlat
     }
-    
+
     const minPos = segmentAtMouse.start + doorWidth / 2;
     const maxPos = segmentAtMouse.end - doorWidth / 2;
     const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-    return { wall: wall, pos: clampedPos, width: doorWidth, type: 'door' };
+    return { wall: wall, pos: clampedPos, width: doorWidth, type: 'door', isWidthManuallySet: false }; // İşareti false başlat
 }
 
 export function isSpaceForDoor(door) {
@@ -251,6 +276,14 @@ export function isSpaceForDoor(door) {
 
     const doorStart = door.pos - door.width / 2;
     const doorEnd = door.pos + door.width / 2;
+
+    // Duvarın uç boşluklarını kontrol et
+    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    const wallThickness = wall.thickness || WALL_THICKNESS;
+    const UM = (wallThickness / 2) + 5; // Uç marjı
+    if (doorStart < UM || doorEnd > wallLen - UM) {
+        return false;
+    }
 
     const doorsOnWall = state.doors.filter(d => d.wall === wall && d !== door);
     for (const existingDoor of doorsOnWall) {

@@ -1,10 +1,15 @@
-import { state, setState, dom, resize, MAHAL_LISTESI } from './main.js';
+import { state, setState, dom, resize, MAHAL_LISTESI, WALL_THICKNESS } from './main.js'; // WALL_THICKNESS eklendi
 import { saveState } from './history.js';
 import { update3DScene } from './scene3d.js';
 import { applyStretchModification } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { worldToScreen } from './geometry.js';
 import { getMinWallLength } from './actions.js';
+import { isSpaceForDoor } from './door-handler.js';
+import { isSpaceForWindow } from './window-handler.js';
+// GEREKLİ İMPORT EKLENDİ
+import { findAvailableSegmentAt } from './wall-item-utils.js';
+
 
 export function initializeSettings() {
     dom.borderPicker.value = state.wallBorderColor;
@@ -159,55 +164,232 @@ function resizeWall(wall, newLengthCm, stationaryPointHandle) {
 }
 
 export function positionLengthInput() {
-    if (!state.selectedObject || state.selectedObject.type !== "wall") return;
-    const wall = state.selectedObject.object;
-    const midX = (wall.p1.x + wall.p2.x) / 2;
-    const midY = (wall.p1.y + wall.p2.y) / 2;
+    if (!state.selectedObject) return;
+
+    let midX, midY;
+    const { selectedObject } = state;
+
+    if (selectedObject.type === "wall") {
+        const wall = selectedObject.object;
+        midX = (wall.p1.x + wall.p2.x) / 2;
+        midY = (wall.p1.y + wall.p2.y) / 2;
+    } else if (selectedObject.type === "door" || selectedObject.type === "window") {
+        const item = selectedObject.object;
+        const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall;
+        if (!wall || !wall.p1 || !wall.p2) return;
+
+        const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+        if (wallLen < 0.1) return;
+
+        const dx = (wall.p2.x - wall.p1.x) / wallLen;
+        const dy = (wall.p2.y - wall.p1.y) / wallLen;
+        midX = wall.p1.x + dx * item.pos;
+        midY = wall.p1.y + dy * item.pos;
+    } else {
+        return; // Diğer nesne tipleri için gösterme
+    }
+
     const screenPos = worldToScreen(midX, midY);
     dom.lengthInput.style.left = `${screenPos.x}px`;
     dom.lengthInput.style.top = `${screenPos.y - 20}px`;
 }
 
 export function startLengthEdit(initialKey = '') {
-    if (!state.selectedObject || state.selectedObject.type !== "wall") return;
-    setState({ isEditingLength: true });
-    positionLengthInput();
-    dom.lengthInput.style.display = "block";
-    const wall = state.selectedObject.object;
-    const currentLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    dom.lengthInput.value = initialKey || currentLength.toFixed(0);
-    dom.lengthInput.focus();
-}
-
-function confirmLengthEdit() {
-    if (!state.selectedObject || state.selectedObject.type !== "wall") return;
-    let rawValue = dom.lengthInput.value.trim();
-    let reverseDirection = false;
-    if (rawValue.endsWith("-")) {
-        reverseDirection = true;
-        rawValue = rawValue.slice(0, -1);
-    }
-    const newLengthCm = parseFloat(rawValue);
-    const wall = state.selectedObject.object;
-
-    if (newLengthCm < getMinWallLength(wall)) {
-        cancelLengthEdit();
+    if (!state.selectedObject ||
+        (state.selectedObject.type !== "wall" &&
+         state.selectedObject.type !== "door" &&
+         state.selectedObject.type !== "window")) {
         return;
     }
 
-    if (!isNaN(newLengthCm) && newLengthCm > 0) {
-        const stationaryHandle = reverseDirection ? "p2" : "p1";
-        const movingPointHandle = reverseDirection ? "p1" : "p2";
-        const movingPoint = wall[movingPointHandle];
-        const stationaryPoint = wall[stationaryHandle];
-        const originalPos = { x: movingPoint.x, y: movingPoint.y };
-        resizeWall(state.selectedObject.object, newLengthCm, stationaryHandle);
-        applyStretchModification(movingPoint, originalPos, stationaryPoint);
-        processWalls();
-        saveState();
+    setState({ isEditingLength: true });
+    positionLengthInput();
+    dom.lengthInput.style.display = "block";
+
+    let currentValue = '';
+    if (state.selectedObject.type === "wall") {
+        const wall = state.selectedObject.object;
+        const currentLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+        currentValue = currentLength.toFixed(0);
+    } else { // Kapı veya Pencere
+        currentValue = state.selectedObject.object.width.toFixed(0);
     }
+
+    dom.lengthInput.value = initialKey || currentValue;
+    dom.lengthInput.focus();
+    if (!initialKey) { // Eğer klavyeden basılarak gelinmediyse, mevcut değeri seç
+         setTimeout(() => dom.lengthInput.select(), 0);
+    }
+}
+
+// --- GÜNCELLENDİ: confirmLengthEdit (Çarpma/Bölme eklendi) ---
+function confirmLengthEdit() {
+    if (!state.selectedObject) return;
+
+    let rawValue = dom.lengthInput.value.trim();
+    let reverseDirection = false;
+    let operation = null; // '*' veya '/'
+    let operand = NaN;
+    let newDimensionCm = NaN; // Hesaplanan veya doğrudan girilen yeni boyut
+
+    const { selectedObject } = state;
+
+    // İşlem kontrolü (* veya /)
+    const multiplyMatch = rawValue.match(/^(\d+(\.\d+)?)\*$/);
+    const divideMatch = rawValue.match(/^(\d+(\.\d+)?)\/$/);
+
+    if (multiplyMatch) {
+        operation = '*';
+        operand = parseFloat(multiplyMatch[1]);
+    } else if (divideMatch) {
+        operation = '/';
+        operand = parseFloat(divideMatch[1]);
+    }
+
+    // Mevcut boyutu al
+    let currentDimension = 0;
+    if (selectedObject.type === "wall") {
+        const wall = selectedObject.object;
+        currentDimension = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    } else if (selectedObject.type === "door" || selectedObject.type === "window") {
+        currentDimension = selectedObject.object.width;
+    }
+
+    // Yeni boyutu hesapla veya parse et
+    if (operation && !isNaN(operand) && operand > 0 && currentDimension > 0) {
+        if (operation === '*') {
+            newDimensionCm = currentDimension * operand;
+        } else { // operation === '/'
+            newDimensionCm = currentDimension / operand;
+        }
+    } else {
+        // Doğrudan sayı veya "-" ile yön belirtme (duvarlar için)
+        if (selectedObject.type === "wall" && rawValue.endsWith("-")) {
+            reverseDirection = true;
+            rawValue = rawValue.slice(0, -1);
+        }
+        newDimensionCm = parseFloat(rawValue);
+    }
+
+    // --- Boyut ayarlama mantığı (önceki haliyle aynı, sadece newLengthCm yerine newDimensionCm kullanıldı) ---
+
+    if (selectedObject.type === "wall") {
+        const wall = selectedObject.object;
+
+        if (newDimensionCm < getMinWallLength(wall)) {
+            cancelLengthEdit();
+            return;
+        }
+
+        if (!isNaN(newDimensionCm) && newDimensionCm > 0) {
+            const stationaryHandle = reverseDirection ? "p2" : "p1";
+            const movingPointHandle = reverseDirection ? "p1" : "p2";
+            const movingPoint = wall[movingPointHandle];
+            const stationaryPoint = wall[stationaryHandle];
+            const originalPos = { x: movingPoint.x, y: movingPoint.y };
+            resizeWall(selectedObject.object, newDimensionCm, stationaryHandle);
+            applyStretchModification(movingPoint, originalPos, stationaryPoint);
+            processWalls();
+            saveState();
+        }
+    } else if (selectedObject.type === "door" || selectedObject.type === "window") {
+        const item = selectedObject.object;
+        const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall;
+        const MIN_ITEM_WIDTH = 20;
+
+        if (isNaN(newDimensionCm) || newDimensionCm < MIN_ITEM_WIDTH || !wall) {
+            cancelLengthEdit();
+            return;
+        }
+
+        const originalWidth = item.width;
+        const originalPos = item.pos;
+
+        const segment = findAvailableSegmentAt(wall, item.pos, item);
+
+        if (!segment) {
+             cancelLengthEdit();
+             return;
+        }
+
+        let finalWidth = newDimensionCm;
+        let finalPos = item.pos;
+        const deltaWidth = newDimensionCm - originalWidth;
+
+        if (newDimensionCm <= segment.length) {
+            const currentItemStart = item.pos - originalWidth / 2;
+            const currentItemEnd = item.pos + originalWidth / 2;
+            const spaceLeft = currentItemStart - segment.start;
+            const spaceRight = segment.end - currentItemEnd;
+            const neededExpansionPerSide = deltaWidth / 2;
+
+            if (deltaWidth <= 0) {
+                finalWidth = newDimensionCm;
+            } else {
+                if (spaceLeft >= neededExpansionPerSide && spaceRight >= neededExpansionPerSide) {
+                    finalWidth = newDimensionCm;
+                } else if (spaceLeft >= deltaWidth) {
+                    finalWidth = newDimensionCm;
+                    finalPos = originalPos - neededExpansionPerSide;
+                } else if (spaceRight >= deltaWidth) {
+                    finalWidth = newDimensionCm;
+                    finalPos = originalPos + neededExpansionPerSide;
+                } else {
+                    if (spaceLeft > 0) {
+                         const maxExpandLeft = spaceLeft;
+                         const remainingExpansion = deltaWidth - maxExpandLeft;
+                         if (spaceRight >= remainingExpansion) {
+                              finalWidth = newDimensionCm;
+                              finalPos = originalPos - maxExpandLeft / 2 + remainingExpansion / 2;
+                         } else {
+                             finalWidth = segment.length;
+                             finalPos = segment.start + segment.length / 2;
+                         }
+                    } else if (spaceRight > 0) {
+                         const maxExpandRight = spaceRight;
+                         const remainingExpansion = deltaWidth - maxExpandRight;
+                         if (spaceLeft >= remainingExpansion) {
+                             finalWidth = newDimensionCm;
+                             finalPos = originalPos + maxExpandRight / 2 - remainingExpansion / 2;
+                         } else {
+                             finalWidth = segment.length;
+                             finalPos = segment.start + segment.length / 2;
+                         }
+                    } else {
+                        finalWidth = segment.length;
+                        finalPos = segment.start + segment.length / 2;
+                    }
+                }
+            }
+        }
+        else {
+            finalWidth = segment.length;
+            finalPos = segment.start + segment.length / 2;
+        }
+
+        item.width = finalWidth;
+        item.pos = finalPos;
+        item.isWidthManuallySet = true;
+
+        let isValid = false;
+        if (selectedObject.type === 'door') {
+            isValid = isSpaceForDoor(item);
+        } else {
+            isValid = isSpaceForWindow(selectedObject);
+        }
+
+        if (isValid) {
+            saveState();
+        } else {
+            item.width = originalWidth;
+            item.pos = originalPos;
+            item.isWidthManuallySet = false;
+        }
+    }
+
     cancelLengthEdit();
 }
+
 
 export function cancelLengthEdit() {
     setState({ isEditingLength: false });
@@ -238,7 +420,7 @@ export function setupUIListeners() {
     dom.dimensionDefaultViewSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) { state.dimensionOptions.defaultView = value; setState({ dimensionMode: value }); } });
     dom.dimensionShowAreaSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showArea = value; });
     dom.dimensionShowOuterSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showOuter = value; });
-    
+
     dom.roomNameSelect.addEventListener('click', confirmRoomNameChange);
     dom.roomNameSelect.addEventListener('dblclick', confirmRoomNameChange);
     dom.roomNameInput.addEventListener('input', filterRoomNameList);
@@ -254,7 +436,7 @@ export function setupUIListeners() {
     });
 
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
-    
+
     dom.lengthInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); }
         else if (e.key === "Escape") { cancelLengthEdit(); }
