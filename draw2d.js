@@ -1,18 +1,25 @@
-import { getDoorPlacement, isSpaceForDoor, getObjectAtPoint, getWindowPlacement, isSpaceForWindow } from './actions.js';
+// 'getObjectAtPoint' artık 'actions.js' dosyasından geliyor
+import { getObjectAtPoint } from './actions.js';
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
-import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount } from './renderer2d.js';
+// 'getDoorPlacement' ve 'isSpaceForDoor' artık 'door-handler.js' dosyasından geliyor
+import { getDoorPlacement, isSpaceForDoor } from './door-handler.js';
+// 'getWindowPlacement' ve 'isSpaceForWindow' artık 'window-handler.js' dosyasından geliyor
+import { getWindowPlacement, isSpaceForWindow } from './window-handler.js';
+import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn } from './renderer2d.js';
 import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 import { drawWallGeometry } from './draw-walls.js';
 import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
-import { drawColumn } from './renderer2d.js';
-import { getColumnCorners } from './columns.js'; // EKLE
-import { 
-    drawObjectPlacementPreviews, 
-    drawDragPreviews, 
-    drawSelectionFeedback, 
-    drawDrawingPreviews, 
-    drawSnapFeedback 
+// getColumnCorners eskiden renderer2d'deydi, şimdi columns.js'den gelmeli (eğer orada değilse oraya taşınmalı)
+// Eğer columns.js'de getColumnCorners yoksa, bu importu kaldırıp renderer2d'den almanız gerekir.
+// Ancak refactoring sonrası columns.js'de olması daha mantıklı.
+import { getColumnCorners } from './columns.js';
+import {
+    drawObjectPlacementPreviews,
+    drawDragPreviews,
+    drawSelectionFeedback,
+    drawDrawingPreviews,
+    drawSnapFeedback
 } from './draw-previews.js';
 
 

@@ -1,10 +1,10 @@
-// ahmedakbayir/ngcad/ngcad-055970f77eb108889ef674a7150694a41407eaee/wall-panel.js
 import { state, setState, WALL_THICKNESS } from './main.js';
 import { saveState } from './history.js';
 import { processWalls } from './wall-processor.js';
 import { screenToWorld } from './geometry.js';
-import { isSpaceForWindow } from './actions.js'; // isSpaceForWindow eklendi
-import { createColumn } from './columns.js'; // --- YENİ EKLENEN IMPORT ---
+// import { isSpaceForWindow } from './actions.js'; // <-- BU SATIRI SİLİN
+import { isSpaceForWindow } from './window-handler.js'; // <-- BU SATIRI EKLEYİN
+import { createColumn } from './columns.js';
 
 let wallPanel = null;
 let wallPanelWall = null;

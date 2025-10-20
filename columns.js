@@ -1,17 +1,21 @@
-// ahmedakbayir/ngcad/ngcad-b3712dab038a327c261e2256cbd1d4d58a069f34/columns.js
+// ahmedakbayir/ngcad/ngcad-54ad8bf2d516757e62115ea4acba62ce8c974e7f/columns.js
+// GÜNCELLENMİŞ: Sürükleme (drag/move/rotate) fonksiyonları eklendi.
 
 import { state } from './main.js';
+import { distToSegmentSquared } from './geometry.js';
+import { update3DScene } from './scene3d.js';
+import { currentModifierKeys } from './input.js';
 
 // Kolon nesnesi oluşturur
 export function createColumn(centerX, centerY, size = 40) {
+    // ... (mevcut kod - değişiklik yok)
     return {
         type: 'column',
         center: { x: centerX, y: centerY },
-        size: size, // Başlangıç boyutu, width/height öncelikli
+        size: size,
         width: size,
         height: size,
         rotation: 0,
-        // Hollow özellikleri (İçi boşaltma kaldırıldığı için artık aktif kullanılmıyor)
         hollowWidth: 0,
         hollowHeight: 0,
         hollowOffsetX: 0,
@@ -21,13 +25,13 @@ export function createColumn(centerX, centerY, size = 40) {
 
 // Kolonun dünya koordinatlarındaki köşe noktalarını hesaplar
 export function getColumnCorners(column) {
+    // ... (mevcut kod - değişiklik yok)
     const halfWidth = (column.width || column.size) / 2;
     const halfHeight = (column.height || column.size) / 2;
     const cx = column.center.x;
     const cy = column.center.y;
-    const rot = (column.rotation || 0) * Math.PI / 180; // Dereceyi radyana çevir
+    const rot = (column.rotation || 0) * Math.PI / 180;
 
-    // Lokal koordinatlardaki köşeler (merkeze göre)
     const corners = [
         { x: -halfWidth, y: -halfHeight },  // Sol üst   (index 0)
         { x: halfWidth, y: -halfHeight },   // Sağ üst   (index 1)
@@ -35,12 +39,9 @@ export function getColumnCorners(column) {
         { x: -halfWidth, y: halfHeight }    // Sol alt   (index 3)
     ];
 
-    // Döndürme uygula ve dünya koordinatlarına çevir
     return corners.map(corner => {
-        // Döndürme matrisi uygulaması
         const rotatedX = corner.x * Math.cos(rot) - corner.y * Math.sin(rot);
         const rotatedY = corner.x * Math.sin(rot) + corner.y * Math.cos(rot);
-        // Merkez koordinatlarını ekleyerek dünya koordinatlarına çevir
         return {
             x: cx + rotatedX,
             y: cy + rotatedY
@@ -48,112 +49,283 @@ export function getColumnCorners(column) {
     });
 }
 
-// --- GÜNCELLENMİŞ YARDIMCI FONKSİYON: Kenar VEYA Köşe Handle Tespiti ---
 // Verilen noktanın, kolonun hangi kenarına veya köşesine denk geldiğini belirler.
-// point: Dünya koordinatlarında {x, y}
-// column: Kontrol edilecek kolon nesnesi
-// tolerance: Yakınlık toleransı (dünya birimi cinsinden)
 export function getColumnHandleAtPoint(point, column, tolerance) {
+    // ... (mevcut kod - değişiklik yok)
     const cx = column.center.x;
     const cy = column.center.y;
     
-    // 1. Köşeleri Kontrol Et (Daha yüksek öncelikli)
+    // 1. Köşeleri Kontrol Et
     const corners = getColumnCorners(column);
-    const cornerTolerance = tolerance * 1.5; // Köşeler için biraz daha fazla tolerans
+    const cornerTolerance = tolerance * 1.5;
     for (let i = 0; i < corners.length; i++) {
         const dist = Math.hypot(point.x - corners[i].x, point.y - corners[i].y);
         if (dist < cornerTolerance) {
-            return `corner_${i}`; // Köşe handle'ı (örn: "corner_0")
+            return `corner_${i}`;
         }
     }
 
     // 2. Kenarları Kontrol Et
-    // Noktayı kolonun lokal koordinat sistemine çevirmek için ters döndürme açısı
     const rot = -(column.rotation || 0) * Math.PI / 180;
-
-    // Noktanın kolona göre göreli koordinatları (dx, dy)
     const dx = point.x - cx;
     const dy = point.y - cy;
-    // Göreli koordinatları kolonun açısına göre döndürerek lokal koordinatları bul
     const localX = dx * Math.cos(rot) - dy * Math.sin(rot);
     const localY = dx * Math.sin(rot) + dy * Math.cos(rot);
-
-    // Kolonun yarı genişlik ve yüksekliği (güncel width/height kullanılır)
     const halfWidth = (column.width || column.size) / 2;
     const halfHeight = (column.height || column.size) / 2;
 
-    // Lokal koordinatlara göre kenarlara olan mesafeleri kontrol et
-    // Üst kenar: localY ≈ -halfHeight ve |localX| <= halfWidth
-    if (Math.abs(localY + halfHeight) < tolerance && Math.abs(localX) <= halfWidth + tolerance) { // Genişlikte de küçük bir tolerans
-        return 'edge_top';
-    }
-    // Alt kenar: localY ≈ +halfHeight ve |localX| <= halfWidth
-    if (Math.abs(localY - halfHeight) < tolerance && Math.abs(localX) <= halfWidth + tolerance) {
-        return 'edge_bottom';
-    }
-    // Sol kenar: localX ≈ -halfWidth ve |localY| <= halfHeight
-    if (Math.abs(localX + halfWidth) < tolerance && Math.abs(localY) <= halfHeight + tolerance) {
-        return 'edge_left';
-    }
-    // Sağ kenar: localX ≈ +halfWidth ve |localY| <= halfHeight
-    if (Math.abs(localX - halfWidth) < tolerance && Math.abs(localY) <= halfHeight + tolerance) {
-        return 'edge_right';
-    }
+    if (Math.abs(localY + halfHeight) < tolerance && Math.abs(localX) <= halfWidth + tolerance) return 'edge_top';
+    if (Math.abs(localY - halfHeight) < tolerance && Math.abs(localX) <= halfWidth + tolerance) return 'edge_bottom';
+    if (Math.abs(localX + halfWidth) < tolerance && Math.abs(localY) <= halfHeight + tolerance) return 'edge_left';
+    if (Math.abs(localX - halfWidth) < tolerance && Math.abs(localY) <= halfHeight + tolerance) return 'edge_right';
 
-    return null; // Herhangi bir kenara veya köşeye yakın değil
+    return null;
 }
-// --- YARDIMCI FONKSİYON SONU ---
-
 
 // Verilen noktada hangi nesnenin (kolon, kenar, köşe, gövde) olduğunu belirler
 export function getColumnAtPoint(point) {
+    // ... (mevcut kod - değişiklik yok)
     const { columns, zoom } = state;
-    // Kenar/Köşe yakalama toleransı (Zoom'a göre ayarlı, dünya birimi)
     const handleTolerance = 8 / zoom;
 
-    // 1. Pas: Tüm kolonların handle'larını (köşe/kenar) ara
-    // Tersten iterate et ki üstteki kolonun handle'ı yakalansın
     for (const column of [...columns].reverse()) {
-        // Noktanın, bu kolonun bir handle'ında (köşe veya kenar) olup olmadığını kontrol et
         const handle = getColumnHandleAtPoint(point, column, handleTolerance);
         if (handle) {
-            // Bir tutamaç bulunduysa, hemen onu döndür
-            // Bu, 'corner_' veya 'edge_' olabilir
             return { type: 'column', object: column, handle: handle };
         }
     }
 
-    // 2. Pas: Handle bulunamadıysa, gövdeleri (body) ara
-    // (Handle kontrolünden sonra yapılır ki, kenara yakın tıklandığında 'body' yerine 'edge' dönsün)
     for (const column of [...columns].reverse()) {
-        // Nokta bu kolonun içinde mi?
         if (isPointInColumn(point, column)) {
-            // Gövde içinde mi diye bak
             return { type: 'column', object: column, handle: 'body' };
         }
     }
-
-    return null; // Tıklanan noktada kolon veya tutamacı bulunamadı
+    return null;
 }
 
-
 // Noktanın kolon içinde olup olmadığını kontrol eder
-// point: Dünya koordinatlarında {x, y}
-// column: Kontrol edilecek kolon nesnesi
 export function isPointInColumn(point, column) {
+    // ... (mevcut kod - değişiklik yok)
     const cx = column.center.x;
     const cy = column.center.y;
-    // Ters döndürme açısı
     const rot = -(column.rotation || 0) * Math.PI / 180;
-    // Göreli koordinatlar
     const dx = point.x - cx;
     const dy = point.y - cy;
-    // Lokal koordinatlar
     const localX = dx * Math.cos(rot) - dy * Math.sin(rot);
     const localY = dx * Math.sin(rot) + dy * Math.cos(rot);
-    // Yarı boyutlar (güncel width/height kullanılır)
     const halfWidth = (column.width || column.size) / 2;
     const halfHeight = (column.height || column.size) / 2;
-    // Lokal X ve Y, yarı boyutların içinde mi? (Eşitlik dahil)
     return Math.abs(localX) <= halfWidth && Math.abs(localY) <= halfHeight;
+}
+
+// --- YENİ EKLENEN FONKSİYONLAR (Refactoring) ---
+
+/**
+ * Bir kolon seçildiğinde sürükleme için ilk state'i ayarlar.
+ * (pointer-down.js'ten taşındı)
+ * @param {object} selectedObject - Seçilen kolon nesnesi
+ * @param {object} pos - Dünya koordinatları {x, y}
+ * @param {object} snappedPos - Snap uygulanmış fare pozisyonu
+ * @returns {object} - Sürükleme için { startPointForDragging, dragOffset, additionalState }
+ */
+export function onPointerDown(selectedObject, pos, snappedPos) {
+    const column = selectedObject.object;
+    
+    // Başlangıç durumunu (boyut, konum vb.) preDragNodeStates'e kaydet
+    state.preDragNodeStates.set('center_x', column.center.x);
+    state.preDragNodeStates.set('center_y', column.center.y);
+    state.preDragNodeStates.set('width', column.width || column.size);
+    state.preDragNodeStates.set('height', column.height || column.size);
+    state.preDragNodeStates.set('rotation', column.rotation || 0);
+    state.preDragNodeStates.set('hollowWidth', column.hollowWidth || 0);
+    state.preDragNodeStates.set('hollowHeight', column.hollowHeight || 0);
+    state.preDragNodeStates.set('hollowOffsetX', column.hollowOffsetX || 0);
+    state.preDragNodeStates.set('hollowOffsetY', column.hollowOffsetY || 0);
+
+    let startPointForDragging;
+    let dragOffset = { x: 0, y: 0 };
+    let additionalState = { columnRotationOffset: null };
+
+    if (selectedObject.handle === 'body' || selectedObject.handle === 'center') {
+        startPointForDragging = { x: pos.x, y: pos.y };
+        dragOffset = {
+            x: selectedObject.object.center.x - pos.x,
+            y: selectedObject.object.center.y - pos.y
+        };
+    } else if (selectedObject.handle.startsWith('corner_')) {
+        // Döndürme
+        startPointForDragging = { x: column.center.x, y: column.center.y };
+        const initialAngle = Math.atan2(pos.y - column.center.y, pos.x - column.center.x);
+        const initialRotationRad = (column.rotation || 0) * Math.PI / 180;
+        additionalState.columnRotationOffset = initialRotationRad - initialAngle;
+    } else {
+        // Kenar (boyutlandırma)
+        startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+    }
+
+    return { startPointForDragging, dragOffset, additionalState };
+}
+
+/**
+ * Seçili bir kolonu sürüklerken çağrılır.
+ * (pointer-move.js'ten taşındı)
+ * @param {object} snappedPos - Snap uygulanmış fare pozisyonu
+ * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
+ */
+export function onPointerMove(snappedPos, unsnappedPos) {
+    const column = state.selectedObject.object;
+    const handle = state.selectedObject.handle;
+
+    if (handle.startsWith('corner_')) {
+        // Döndürme
+        const center = column.center;
+        const mouseAngle = Math.atan2(unsnappedPos.y - center.y, unsnappedPos.x - center.x);
+        let newRotationRad = mouseAngle + state.columnRotationOffset;
+
+        // Snap
+        const snapAngleRad1 = (1 * Math.PI / 180);
+        newRotationRad = Math.round(newRotationRad / snapAngleRad1) * snapAngleRad1;
+        let newRotationDeg = newRotationRad * 180 / Math.PI;
+        const remainder = newRotationDeg % 90;
+        const snapThreshold = 5;
+        if (Math.abs(remainder) <= snapThreshold || Math.abs(remainder) >= (90 - snapThreshold)) {
+            newRotationDeg = Math.round(newRotationDeg / 90) * 90;
+        }
+        column.rotation = newRotationDeg;
+
+    } else if (handle === 'body' || handle === 'center') {
+        // Taşıma
+        let newCenterX = unsnappedPos.x + state.dragOffset.x;
+        let newCenterY = unsnappedPos.y + state.dragOffset.y;
+
+        // Duvar merkezine snap
+        const snappedWallInfo = getSnappedWallInfo({ x: newCenterX, y: newCenterY });
+        if (snappedWallInfo) {
+             column.rotation = snappedWallInfo.angle;
+             const wall = snappedWallInfo.wall; const p1 = wall.p1; const p2 = wall.p2;
+             const dx = p2.x - p1.x; const dy = p2.y - p1.y; const l2 = dx*dx + dy*dy;
+             if (l2 > 0.1) {
+                 const t = ((newCenterX - p1.x) * dx + (newCenterY - p1.y) * dy) / l2;
+                 newCenterX = p1.x + t * dx;
+                 newCenterY = p1.y + t * dy;
+             }
+        } else if ((column.rotation || 0) === 0) {
+            // 3-nokta snap (sadece 0 dereceyken)
+            const SNAP_DISTANCE = 10;
+            let bestSnapX = { diff: SNAP_DISTANCE, delta: 0 };
+            let bestSnapY = { diff: SNAP_DISTANCE, delta: 0 };
+            const halfW = (column.width || column.size) / 2;
+            const dragEdgesX = [newCenterX - halfW, newCenterX, newCenterX + halfW];
+            const halfH = (column.height || column.size) / 2;
+            const dragEdgesY = [newCenterY - halfH, newCenterY, newCenterY + halfH];
+
+            state.walls.forEach(wall => {
+                if (!wall.p1 || !wall.p2) return;
+                const isVertical = Math.abs(wall.p1.x - wall.p2.x) < 0.1;
+                const isHorizontal = Math.abs(wall.p1.y - wall.p2.y) < 0.1;
+
+                if (isVertical) {
+                    const wallX = wall.p1.x;
+                    for (const dX of dragEdgesX) {
+                        const diff = Math.abs(dX - wallX);
+                        if (diff < bestSnapX.diff) bestSnapX = { diff, delta: wallX - dX };
+                    }
+                } else if (isHorizontal) {
+                    const wallY = wall.p1.y;
+                    for (const dY of dragEdgesY) {
+                        const diff = Math.abs(dY - wallY);
+                        if (diff < bestSnapY.diff) bestSnapY = { diff, delta: wallY - dY };
+                    }
+                }
+            });
+            if (bestSnapX.delta !== 0) newCenterX += bestSnapX.delta;
+            if (bestSnapY.delta !== 0) newCenterY += bestSnapY.delta;
+        }
+
+        column.center.x = newCenterX;
+        column.center.y = newCenterY;
+
+    } else if (handle.startsWith('edge_')) {
+        // Boyutlandırma
+        const isAltPressed = currentModifierKeys.alt;
+        let fixedEdgeHandle;
+        if (handle === 'edge_top') fixedEdgeHandle = 'edge_bottom';
+        else if (handle === 'edge_bottom') fixedEdgeHandle = 'edge_top';
+        else if (handle === 'edge_left') fixedEdgeHandle = 'edge_right';
+        else if (handle === 'edge_right') fixedEdgeHandle = 'edge_left';
+        else return;
+
+        const initialWidth = state.preDragNodeStates.get('width');
+        const initialHeight = state.preDragNodeStates.get('height');
+        const initialCenterX = state.preDragNodeStates.get('center_x');
+        const initialCenterY = state.preDragNodeStates.get('center_y');
+        if (initialWidth === undefined) return;
+
+         const initialCorners = getColumnCorners({
+             center: { x: initialCenterX, y: initialCenterY },
+             width: initialWidth,
+             height: initialHeight,
+             rotation: column.rotation || 0
+         });
+
+         let fixedPoint1, fixedPoint2;
+         if (fixedEdgeHandle === 'edge_top') { fixedPoint1 = initialCorners[0]; fixedPoint2 = initialCorners[1]; }
+         else if (fixedEdgeHandle === 'edge_bottom') { fixedPoint1 = initialCorners[3]; fixedPoint2 = initialCorners[2]; }
+         else if (fixedEdgeHandle === 'edge_left') { fixedPoint1 = initialCorners[0]; fixedPoint2 = initialCorners[3]; }
+         else if (fixedEdgeHandle === 'edge_right') { fixedPoint1 = initialCorners[1]; fixedPoint2 = initialCorners[2]; }
+         const fixedEdgeMidPoint = { x: (fixedPoint1.x + fixedPoint2.x) / 2, y: (fixedPoint1.y + fixedPoint2.y) / 2 };
+
+         const rotRad = (column.rotation || 0) * Math.PI / 180;
+         const cosRot = Math.cos(rotRad);
+         const sinRot = Math.sin(rotRad);
+         let axisVector;
+         if (handle === 'edge_top' || handle === 'edge_bottom') {
+             axisVector = { x: -sinRot, y: cosRot };
+         } else {
+             axisVector = { x: cosRot, y: sinRot };
+         }
+
+         const mouseVec = { x: snappedPos.x - fixedEdgeMidPoint.x, y: snappedPos.y - fixedEdgeMidPoint.y };
+         const projection = mouseVec.x * axisVector.x + mouseVec.y * axisVector.y;
+         let newSize = Math.max(10, Math.abs(projection));
+         
+         const halfSizeVector = { x: axisVector.x * projection / 2, y: axisVector.y * projection / 2 };
+         const newCenterX = fixedEdgeMidPoint.x + halfSizeVector.x;
+         const newCenterY = fixedEdgeMidPoint.y + halfSizeVector.y;
+
+         if (handle === 'edge_top' || handle === 'edge_bottom') {
+             column.height = newSize;
+             column.size = Math.max(column.width || initialWidth, newSize);
+         } else {
+             column.width = newSize;
+             column.size = Math.max(newSize, column.height || initialHeight);
+         }
+        column.center.x = newCenterX;
+        column.center.y = newCenterY;
+        column.hollowWidth = 0; column.hollowHeight = 0; column.hollowOffsetX = 0; column.hollowOffsetY = 0;
+    }
+    
+    update3DScene();
+}
+
+/**
+ * Bir noktanın duvara snap olup olmadığını ve açısını kontrol eder.
+ * (pointer-move.js'ten taşındı)
+ * @param {object} point - {x, y}
+ * @param {number} tolerance - Tolerans (cm)
+ * @returns {object | null} - { wall, angle } veya null
+ */
+function getSnappedWallInfo(point, tolerance = 1.0) {
+    for (const wall of state.walls) {
+        if (!wall.p1 || !wall.p2) continue;
+        const distSq = distToSegmentSquared(point, wall.p1, wall.p2);
+        if (distSq < tolerance * tolerance) {
+            const dx = wall.p2.x - wall.p1.x;
+            const dy = wall.p2.y - wall.p1.y;
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            const roundedAngle = Math.round(angle / 15) * 15;
+            return { wall: wall, angle: roundedAngle };
+        }
+    }
+    return null;
 }

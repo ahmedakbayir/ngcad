@@ -1,5 +1,7 @@
 import { state, dom, WALL_THICKNESS } from './main.js';
-import { getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow } from './actions.js';
+// import { getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow } from './actions.js'; // <-- BU SATIRI SİLİN
+import { getDoorPlacement, isSpaceForDoor } from './door-handler.js'; // <-- BU SATIRI EKLEYİN
+import { getWindowPlacement, isSpaceForWindow } from './window-handler.js'; // <-- BU SATIRI EKLEYİN
 import { drawDoorSymbol, drawWindowSymbol, isMouseOverWall } from './renderer2d.js';
 import { drawDimension } from './dimensions.js';
 import { distToSegmentSquared, snapTo15DegreeAngle } from './geometry.js';
