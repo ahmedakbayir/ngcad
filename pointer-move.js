@@ -1,4 +1,5 @@
 // ahmedakbayir/ngcad/ngcad-ad56530de4465cbe8a9f9e5e0a4ec4205c63557c/pointer-move.js
+// GÜNCELLENMİŞ: Kapı/Pencere sürükleme mantığı iyileştirildi.
 
 import { state, dom, setState, WALL_THICKNESS } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
@@ -318,7 +319,7 @@ export function onPointerMove(e) {
             }
         } // Duvar gövdesi taşıma sonu
 
-        // --- GÜNCELLENMİŞ BLOK: KAPI TAŞIMA ---
+        // --- GÜNCELLENMİŞ BLOK: KAPI TAŞIMA (Request 2) ---
         else if (state.selectedObject.type === "door") {
             const door = state.selectedObject.object;
             const targetX = unsnappedPos.x + state.dragOffset.x;
@@ -340,49 +341,55 @@ export function onPointerMove(e) {
             if (closestWall) {
                 const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
 
-                // Fare pozisyonunu duvar üzerine izdüşür (GÜNCELLEME: posOnWall hesapla)
+                // Fare pozisyonunu duvar üzerine izdüşür
                 const dx_pm = closestWall.p2.x - closestWall.p1.x;
                 const dy_pm = closestWall.p2.y - closestWall.p1.y;
                 const t_pm = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx_pm + (targetPos.y - closestWall.p1.y) * dy_pm) / (dx_pm * dx_pm + dy_pm * dy_pm)));
-                const posOnWall_pm = t_pm * DG;
+                const posOnWall = t_pm * DG; // Bu, mouse'un duvar üzerindeki izdüşümü
 
-                // En büyük uygun segmenti bul (kendisini hariç tutarak)
-                // GÜNCELLEME: Fare pozisyonundaki segmenti bul
-                const segmentAtMouse = findAvailableSegmentAt(closestWall, posOnWall_pm, door);
+                // Fare pozisyonundaki segmenti bul
+                const segmentAtMouse = findAvailableSegmentAt(closestWall, posOnWall, door);
 
-                if (segmentAtMouse) { // GÜNCELLEME: largestSegment -> segmentAtMouse
-                    let KG = segmentAtMouse.length; // Genişliği segmentin uzunluğu olarak al
-                    KG = KG > 70 ? 70 : KG; // Max 70 ile sınırla
+                if (segmentAtMouse) { 
+                    // --- YENİ MANTIK ---
+                    const doorWidth = 70; // SABİT KAPI GENİŞLİĞİ
+                    const MIN_ITEM_WIDTH = 20;
 
-                    if (KG >= 20) { // Minimum genişlik kontrolü
-                        const newWidth = KG;
-
-                        // Pozisyonu hesapla (posOnWall_pm zaten hesaplandı)
-                        const posOnWall = posOnWall_pm;
-
-                        // Kapının yerleşebileceği min/max pozisyonlar (segment içinde)
-                        const minPos = segmentAtMouse.start + newWidth / 2;
-                        const maxPos = segmentAtMouse.end - newWidth / 2;
-
-                        if (minPos <= maxPos) { // Yer varsa
+                    // Segment bu kapı için yeterince geniş mi?
+                    if (segmentAtMouse.length < doorWidth) {
+                        // Yeterli değil. Alan ne kadarsa o kadar yap.
+                        const smallerWidth = segmentAtMouse.length;
+                        if (smallerWidth < MIN_ITEM_WIDTH) { 
+                            // Min. genişlikten de küçükse bir şey yapma (snap yok)
+                        } else {
+                            const minPos = segmentAtMouse.start + smallerWidth / 2;
+                            const maxPos = segmentAtMouse.end - smallerWidth / 2;
                             const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
                             door.wall = closestWall;
                             door.pos = clampedPos;
-                            door.width = newWidth; // Genişliği güncelle
+                            door.width = smallerWidth; // Genişliği küçült
                         }
-                        // else: Segment, hesaplanan genişlik için yeterli değil, snap yapma
+                    } else {
+                        // Segment 70cm veya daha BÜYÜKSE:
+                        const minPos = segmentAtMouse.start + doorWidth / 2;
+                        const maxPos = segmentAtMouse.end - doorWidth / 2;
+                        
+                        const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                        door.wall = closestWall;
+                        door.pos = clampedPos;
+                        door.width = doorWidth; // Genişliği 70 yap
                     }
-                    // else: Segment, minimum genişlik için bile yeterli değil, snap yapma
+                    // --- YENİ MANTIK SONU ---
                 }
                 // else: Uygun segment bulunamadı, snap yapma
             } else {
-                // En yakın duvar yoksa, genişliği max 70 yap
+                // En yakın duvar yoksa, genişliği 70 yap (serbest sürükleme)
                 door.width = 70;
             }
         }
         // --- KAPI TAŞIMA SONU ---
 
-        // --- GÜNCELLENMİŞ BLOK: PENCERE TAŞIMA ---
+        // --- GÜNCELLENMİŞ BLOK: PENCERE TAŞIMA (Request 2) ---
         else if (state.selectedObject.type === "window") {
             const window = state.selectedObject.object;
             const oldWall = state.selectedObject.wall; // Eski duvarı sakla
@@ -405,46 +412,48 @@ export function onPointerMove(e) {
             if (closestWall) {
                 const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
 
-                // Fare pozisyonunu duvar üzerine izdüşür (GÜNCELLEME: posOnWall hesapla)
+                // Fare pozisyonunu duvar üzerine izdüşür
                 const dx_pm_w = closestWall.p2.x - closestWall.p1.x;
                 const dy_pm_w = closestWall.p2.y - closestWall.p1.y;
                 const t_pm_w = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx_pm_w + (targetPos.y - closestWall.p1.y) * dy_pm_w) / (dx_pm_w * dx_pm_w + dy_pm_w * dy_pm_w)));
-                const posOnWall_pm_w = t_pm_w * DG;
+                const posOnWall = t_pm_w * DG;
 
-                 // En büyük uygun segmenti bul (kendisini hariç tutarak)
-                 // GÜNCELLEME: Fare pozisyonundaki segmenti bul
-                const segmentAtMouse_w = findAvailableSegmentAt(closestWall, posOnWall_pm_w, window);
+                 // Fare pozisyonundaki segmenti bul
+                const segmentAtMouse_w = findAvailableSegmentAt(closestWall, posOnWall, window);
 
-                if (segmentAtMouse_w) { // GÜNCELLEME: largestSegment -> segmentAtMouse_w
-                    let PG = segmentAtMouse_w.length; // Genişliği segmentin uzunluğu olarak al
-                    PG = PG > 120 ? 120 : PG; // Max 120 ile sınırla
+                if (segmentAtMouse_w) { 
+                    // --- YENİ MANTIK ---
+                    const windowWidth = 120; // SABİT PENCERE GENİŞLİĞİ
+                    const MIN_ITEM_WIDTH = 20;
 
-                    if (PG >= 20) { // Minimum genişlik kontrolü
-                        const newWidth = PG;
-
-                        // Pozisyonu hesapla (posOnWall_pm_w zaten hesaplandı)
-                        const posOnWall = posOnWall_pm_w;
-
-                        // Pencerenin yerleşebileceği min/max pozisyonlar (segment içinde)
-                        const minPos = segmentAtMouse_w.start + newWidth / 2;
-                        const maxPos = segmentAtMouse_w.end - newWidth / 2;
-
-                        if (minPos <= maxPos) { // Yer varsa
+                    if (segmentAtMouse_w.length < windowWidth) {
+                        const smallerWidth = segmentAtMouse_w.length;
+                        if (smallerWidth < MIN_ITEM_WIDTH) {
+                            // Snap yapma
+                        } else {
+                            const minPos = segmentAtMouse_w.start + smallerWidth / 2;
+                            const maxPos = segmentAtMouse_w.end - smallerWidth / 2;
                             const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
                             window.pos = clampedPos;
-                            window.width = newWidth; // Genişliği güncelle
-
-                            // Duvar değiştirme mantığı
-                            if (oldWall !== closestWall) {
-                                if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window);
-                                if (!closestWall.windows) closestWall.windows = [];
-                                closestWall.windows.push(window);
-                                state.selectedObject.wall = closestWall;
-                            }
+                            window.width = smallerWidth;
                         }
-                        // else: Segment, hesaplanan genişlik için yeterli değil, snap yapma
+                    } else {
+                        // Segment 120cm veya daha BÜYÜKSE:
+                        const minPos = segmentAtMouse_w.start + windowWidth / 2;
+                        const maxPos = segmentAtMouse_w.end - windowWidth / 2;
+                        const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                        window.pos = clampedPos;
+                        window.width = windowWidth;
                     }
-                    // else: Segment, minimum genişlik için bile yeterli değil, snap yapma
+
+                    // Duvar değiştirme mantığı
+                    if (oldWall !== closestWall) {
+                        if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window);
+                        if (!closestWall.windows) closestWall.windows = [];
+                        closestWall.windows.push(window);
+                        state.selectedObject.wall = closestWall;
+                    }
+                    // --- YENİ MANTIK SONU ---
                 }
                  // else: Uygun segment bulunamadı, snap yapma
             } else {
@@ -456,7 +465,7 @@ export function onPointerMove(e) {
 
         else if (state.selectedObject.type === "vent") {
              // Menfez taşıma (Değişiklik yok)
-             const vent = state.selectedObject.object; const oldWall = state.selectedObject.wall; const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY }; let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = WALL_THICKNESS * 2; for (const w of state.walls) { const d = distToSegmentSquared(targetPos, w.p1, w.p2); if (d < bodyHitTolerance ** 2 && d < minDistSq) { minDistSq = d; closestWall = w; } } if (closestWall) { const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y); const ventMargin = 15; if (wallLen >= vent.width + 2 * ventMargin) { const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y; const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy))); const newPos = t * wallLen; const minPos = vent.width / 2 + ventMargin; const maxPos = wallLen - vent.width / 2 - ventMargin; vent.pos = Math.max(minPos, Math.min(maxPos, newPos)); if (oldWall !== closestWall) { if (oldWall.vents) oldWall.vents = oldWall.vents.filter(v => v !== vent); if (!closestWall.vents) closestWall.vents = []; closestWall.vents.push(vent); state.selectedObject.wall = closestWall; } } }
+             const vent = state.selectedObject.object; const oldWall = state.selectedObject.wall; const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY }; let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = WALL_THICKNESS * 2; for (const w of state.walls) { const d = distToSegmentSquared(targetPos, w.p1, w.p2); if (d < bodyHitTolerance ** 2 && d < minDistSq) { minDistSq = d; closestWall = w; } } if (closestWall) { const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y); const ventMargin = 15; if (wallLen >= vent.width + 2 * ventMargin) { const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y; const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy))); const newPos = t * wallLen; const minPos = vent.width / 2 + ventMargin; const maxPos = wallLen - vent.width / 2 + ventMargin; vent.pos = Math.max(minPos, Math.min(maxPos, newPos)); if (oldWall !== closestWall) { if (oldWall.vents) oldWall.vents = oldWall.vents.filter(v => v !== vent); if (!closestWall.vents) closestWall.vents = []; closestWall.vents.push(vent); state.selectedObject.wall = closestWall; } } }
         }
 else if (state.selectedObject.type === "column") {
     // --- KOLON TAŞIMA, BOYUTLANDIRMA veya DÖNDÜRME ---

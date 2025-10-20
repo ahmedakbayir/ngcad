@@ -77,8 +77,10 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     ctx2d.moveTo(p_line1_start.x, p_line1_start.y); ctx2d.lineTo(p_line1_end.x, p_line1_end.y);
     ctx2d.moveTo(p_line2_start.x, p_line2_start.y); ctx2d.lineTo(p_line2_end.x, p_line2_end.y);
     // Başlık/eşik çizgileri
-    ctx2d.moveTo(jamb1_start.x, jamb1_start.y); ctx2d.lineTo(jamb1_end.x, jamb1_end.y);
-    ctx2d.moveTo(jamb2_start.x, jamb2_start.y); ctx2d.lineTo(jamb2_end.x, jamb2_end.y);
+    ctx2d.moveTo(jamb1_start.x, jamb1_start.y); 
+    ctx2d.lineTo(jamb1_end.x, jamb1_end.y);
+    ctx2d.moveTo(jamb2_start.x, jamb2_start.y); 
+    ctx2d.lineTo(jamb2_end.x, jamb2_end.y);
     ctx2d.stroke(); // Çizgileri çiz
 }
 
@@ -137,7 +139,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     ctx2d.moveTo(left1.x, left1.y); ctx2d.lineTo(left2.x, left2.y); // Sol kenar birleştirme
     ctx2d.moveTo(right1.x, right1.y); ctx2d.lineTo(right2.x, right2.y); // Sağ kenar birleştirme
     ctx2d.stroke();
-
+/*
     // Mermer raf (İnceltildi ve içe de eklendi)
     const marbleDepth = 0.2; // GÜNCELLEME: Kalınlık azaltıldı (1 -> 0.5)
     const marbleOverhang = 0; // GÜNCELLEME: Taşma miktarı azaltıldı (5 -> 3)
@@ -182,6 +184,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     ctx2d.closePath();
     ctx2d.fill();
     ctx2d.stroke();
+    */
 }
 // --- GÜNCELLENMİŞ Pencere Sembolü Çizimi SONU ---
 

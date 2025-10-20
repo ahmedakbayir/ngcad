@@ -1,4 +1,5 @@
 // ahmedakbayir/ngcad/ngcad-ad56530de4465cbe8a9f9e5e0a4ec4205c63557c/actions.js
+// GÜNCELLENMİŞ: Kapılar arası boşluk ve yerleştirme mantığı iyileştirildi.
 
 import { state, WALL_THICKNESS } from './main.js';
 import { distToSegmentSquared } from './geometry.js';
@@ -10,7 +11,8 @@ export function findLargestAvailableSegment(wall, itemToExclude = null) {
     const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const DK = wall.thickness || WALL_THICKNESS;
     const UM = (DK / 2) + 5;
-    const MIN_GAP = 42; // Elemanlar arası minimum boşluk (30 olarak ayarlandı)
+    // GÜNCELLEME: Kapılar arası minimum boşluk kaldırıldı (0.1)
+    const MIN_GAP = 0.1; // Elemanlar arası minimum boşluk (30 olarak ayarlandı)
     const MIN_ITEM_WIDTH = 20; // Yerleştirilebilecek en küçük eleman genişliği
 
     const itemsOnWall = [
@@ -74,7 +76,8 @@ export function findAvailableSegmentAt(wall, posOnWall, itemToExclude = null) {
     const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const DK = wall.thickness || WALL_THICKNESS;
     const UM = (DK / 2) + 5;
-    const MIN_GAP = 42; // Elemanlar arası minimum boşluk (30 olarak ayarlandı)
+    // GÜNCELLEME: Kapılar arası minimum boşluk kaldırıldı (0.1)
+    const MIN_GAP = 0.1; // Elemanlar arası minimum boşluk (30 olarak ayarlandı)
     const MIN_ITEM_WIDTH = 20; // Yerleştirilebilecek en küçük eleman genişliği
     const POSITION_TOLERANCE = 0.5; // GÜNCELLEME: Toleransı 0.1'den 0.5'e çıkardık
 
@@ -257,7 +260,7 @@ export function getObjectAtPoint(pos) {
     return null;
 }
 
-// --- GÜNCELLENMİŞ FONKSİYON ---
+// --- GÜNCELLENMİŞ FONKSİYON (Request 2) ---
 export function getDoorPlacement(wall, mousePos) {
     const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const MIN_ITEM_WIDTH = 20;
@@ -274,25 +277,35 @@ export function getDoorPlacement(wall, mousePos) {
 
     if (!segmentAtMouse) return null; // Farenin olduğu yerde uygun segment yoksa çık
 
-    let KG = segmentAtMouse.length; // Genişliği segmentin uzunluğu olarak al
-    KG = KG > 70 ? 70 : KG; // Max 70 ile sınırla
+    // --- YENİ YERLEŞTİRME MANTIĞI ---
+    const doorWidth = 70; // SABİT KAPI GENİŞLİĞİ
 
-    // Minimum genişlik kontrolü (Segment zaten >=20 olduğu için bu kontrol gereksiz olabilir ama kalsın)
-    if (KG < MIN_ITEM_WIDTH) return null;
-
-    const doorWidth = KG;
-
-    // Kapının yerleşebileceği minimum ve maksimum pozisyonlar (merkez noktası için)
+    // Segment bu kapı için yeterince geniş mi?
+    if (segmentAtMouse.length < doorWidth) {
+        // Yeterli değil. Alan ne kadarsa o kadar kapı göster.
+        const smallerWidth = segmentAtMouse.length;
+        if (smallerWidth < MIN_ITEM_WIDTH) return null; // Min. genişlikten de küçükse çık
+        
+        // Alan küçükse (örn 50cm), kapı 50cm olur ve segmentin tam ortasına kilitlenir
+        const minPos = segmentAtMouse.start + smallerWidth / 2;
+        const maxPos = segmentAtMouse.end - smallerWidth / 2;
+        // (Bu durumda minPos == maxPos olacak)
+        const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+        return { wall: wall, pos: clampedPos, width: smallerWidth, type: 'door' };
+    }
+    
+    // Segment 70cm veya daha BÜYÜKSE:
+    // Kapının yerleşebileceği min/max merkez pozisyonları (70cm genişlik için)
     const minPos = segmentAtMouse.start + doorWidth / 2;
     const maxPos = segmentAtMouse.end - doorWidth / 2;
 
-    // Hesaplanan genişlik için segment yeterince büyük mü? (Pratikte her zaman true olmalı)
-    if (minPos > maxPos) return null; // Yine de güvenlik için kalsın
+    // (minPos <= maxPos olmalı, çünkü segment.length >= doorWidth)
 
-    // Fare pozisyonunu bulunan segmentin sınırlarına kıstır
+    // Fare pozisyonunu bulunan segmentin sınırlarına kıstır (Mouse'u takip et)
     const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-
+    
     return { wall: wall, pos: clampedPos, width: doorWidth, type: 'door' };
+    // --- YENİ MANTIK SONU ---
 }
 // --- GÜNCELLENMİŞ FONKSİYON SONU ---
 
@@ -307,11 +320,12 @@ function checkOverlapAndGap(start1, end1, start2, end2, minGap) {
 }
 // --- YENİ ÇAKIŞMA KONTROL FONKSİYONU SONU ---
 
-// --- GÜNCELLENMİŞ FONKSİYON ---
+// --- GÜNCELLENMİŞ FONKSİYON (Request 1) ---
 export function isSpaceForDoor(door) {
     const wall = door.wall;
     if (!wall) return false;
-    const MIN_GAP = 42; // Elemanlar arası minimum boşluk
+    // GÜNCELLEME: Kapılar arası minimum boşluk kaldırıldı (0.1)
+    const MIN_GAP = 0.1; // Elemanlar arası minimum boşluk
 
     const doorStart = door.pos - door.width / 2;
     const doorEnd = door.pos + door.width / 2;
@@ -341,7 +355,7 @@ export function isSpaceForDoor(door) {
     for (const existingVent of ventsOnWall) {
         const ventStart = existingVent.pos - existingVent.width / 2;
         const ventEnd = existingVent.pos + existingVent.width / 2;
-        if (checkOverlapAndGap(doorStart, doorEnd, ventStart, ventEnd, MIN_GAP)) {
+         if (checkOverlapAndGap(doorStart, doorEnd, ventStart, ventEnd, MIN_GAP)) {
              return false;
          }
     }
@@ -351,7 +365,7 @@ export function isSpaceForDoor(door) {
 // --- GÜNCELLENMİŞ FONKSİYON SONU ---
 
 
-// --- GÜNCELLENMİŞ FONKSİYON ---
+// --- GÜNCELLENMİŞ FONKSİYON (Request 2) ---
 export function getWindowPlacement(wall, mousePos) {
     const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const MIN_ITEM_WIDTH = 20;
@@ -368,35 +382,38 @@ export function getWindowPlacement(wall, mousePos) {
 
     if (!segmentAtMouse) return null;
 
-    let PG = segmentAtMouse.length; // Genişliği segmentin uzunluğu olarak al
-    PG = PG > 120 ? 120 : PG; // Max 120 ile sınırla
+    // --- YENİ YERLEŞTİRME MANTIĞI ---
+    const windowWidth = 120; // SABİT PENCERE GENİŞLİĞİ
 
-    // Minimum genişlik kontrolü
-    if (PG < MIN_ITEM_WIDTH) return null;
-
-    const windowWidth = PG;
-
-    // Pencerenin yerleşebileceği minimum ve maksimum pozisyonlar (merkez noktası için)
+    // Segment bu pencere için yeterince geniş mi?
+    if (segmentAtMouse.length < windowWidth) {
+        // Yeterli değil. Alan ne kadarsa o kadar pencere göster.
+        const smallerWidth = segmentAtMouse.length;
+        if (smallerWidth < MIN_ITEM_WIDTH) return null;
+        
+        const minPos = segmentAtMouse.start + smallerWidth / 2;
+        const maxPos = segmentAtMouse.end - smallerWidth / 2;
+        const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+        return { wall: wall, pos: clampedPos, width: smallerWidth };
+    }
+    
+    // Segment 120cm veya daha BÜYÜKSE:
     const minPos = segmentAtMouse.start + windowWidth / 2;
     const maxPos = segmentAtMouse.end - windowWidth / 2;
-
-    // Hesaplanan genişlik için segment yeterince büyük mü?
-    if (minPos > maxPos) return null;
-
-    // Fare pozisyonunu bulunan segmentin sınırlarına kıstır
     const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-
     return { wall: wall, pos: clampedPos, width: windowWidth };
+    // --- YENİ MANTIK SONU ---
 }
 // --- GÜNCELLENMİŞ FONKSİYON SONU ---
 
-// --- GÜNCELLENMİŞ FONKSİYON ---
+// --- GÜNCELLENMİŞ FONKSİYON (Request 1) ---
 export function isSpaceForWindow(windowData) {
     // windowData'dan gelen pencere bilgilerini al (bu, yeni yerleştirilecek veya taşınan pencere olabilir)
     const window = windowData.object || windowData; // 'object' alanı taşıma sırasında gelir
     const wall = windowData.wall;
     if (!wall) return false;
-    const MIN_GAP = 42; // Elemanlar arası minimum boşluk
+    // GÜNCELLEME: Kapılar arası minimum boşluk kaldırıldı (0.1)
+    const MIN_GAP = 0.1; // Elemanlar arası minimum boşluk
 
     const windowStart = window.pos - window.width / 2;
     const windowEnd = window.pos + window.width / 2;
@@ -442,7 +459,8 @@ export function getMinWallLength(wall) {
     const wallThickness = wall.thickness || WALL_THICKNESS;
     const UM = (wallThickness / 2) + 5;
     const MIN_ITEM_WIDTH = 20; // En küçük eleman genişliği
-    const MIN_GAP = 42; // Elemanlar arası boşluk
+    // GÜNCELLEME: Kapılar arası minimum boşluk kaldırıldı (0.1)
+    const MIN_GAP = 0.1; // Elemanlar arası boşluk
     const minLength = 2 * UM + MIN_ITEM_WIDTH; // İki uç boşluk + minimum 20cm'lik yerleşebilir alan
 
     // Mevcut elemanların gerektirdiği minimum uzunluğu da kontrol edelim

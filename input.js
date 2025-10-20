@@ -70,7 +70,10 @@ function onKeyDown(e) {
     if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
     
-    if (e.key === "Escape") {
+    // GÜNCELLEME: Space tuşu da Escape gibi çalışsın
+    if (e.key === "Escape" || e.code === "Space") {
+        if (e.code === "Space") e.preventDefault(); // Space'in varsayılanını (örn: sayfa kaydırma) engelle
+        
         if (state.isEditingLength) cancelLengthEdit();
         if (state.isDragging) {
             setState({ isDragging: false, isStretchDragging: false, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map() });
@@ -137,7 +140,9 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === "k") setMode("drawDoor");
     if (e.key.toLowerCase() === "p") setMode("drawWindow");
     if (e.key.toLowerCase() === "c") setMode("drawColumn");
-    if (e.code === "Space" && state.currentMode === "select") { e.preventDefault(); setMode(state.lastUsedMode); }
+    
+    // GÜNCELLEME: Eski Space tuşu işlevi (toggle) kaldırıldı
+    // if (e.code === "Space" && state.currentMode === "select") { e.preventDefault(); setMode(state.lastUsedMode); }
 }
 
 function onKeyUp(e) {

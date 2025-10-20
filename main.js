@@ -28,8 +28,8 @@ export const MAHAL_LISTESI = [
     'ISI MERKEZİ','FABRİKA','LABARATUVAR','TEKNİK HACİM','DANIŞMA','ATÖLYE'];
 
 export let state = {
-    currentMode: "select",
-    lastUsedMode: "drawWall",
+    currentMode: "drawRoom", // Başlangıç modu "Oda Çiz"
+    lastUsedMode: "drawRoom", // Son kullanılan da "Oda Çiz"
     startPoint: null,
     nodes: [],
     walls: [],
@@ -38,7 +38,7 @@ export let state = {
     columns: [],
     wallAdjacency: new Map(),
     selectedObject: null,
-    selectedRoom: null, 
+    selectedRoom: null,
     isDraggingRoomName: null,
     roomDragStartPos: null,
     roomOriginalCenter: null,
@@ -135,15 +135,15 @@ export const dom = {
     settingsBtn: document.getElementById("settings-btn"),
     settingsPopup: document.getElementById("settings-popup"),
     closeSettingsPopupBtn: document.getElementById("close-settings-popup"),
-    tabButtons: { 
-        general: document.getElementById("tab-btn-general"), 
-        grid: document.getElementById("tab-btn-grid"), 
+    tabButtons: {
+        general: document.getElementById("tab-btn-general"),
+        grid: document.getElementById("tab-btn-grid"),
         snap: document.getElementById("tab-btn-snap"),
         dimension: document.getElementById("tab-btn-dimension"),
     },
-    tabPanes: { 
-        general: document.getElementById("tab-pane-general"), 
-        grid: document.getElementById("tab-pane-grid"), 
+    tabPanes: {
+        general: document.getElementById("tab-pane-general"),
+        grid: document.getElementById("tab-pane-grid"),
         snap: document.getElementById("tab-pane-snap"),
         dimension: document.getElementById("tab-pane-dimension"),
     },
@@ -170,11 +170,18 @@ export const dom = {
     splitter: document.getElementById("splitter"),
 };
 
-export function setMode(mode) {
-    if (mode !== "select") {
+// GÜNCELLENMİŞ setMode fonksiyonu
+export function setMode(mode, forceSet = false) { // forceSet parametresi eklendi
+    // Sadece zorla ayarlanmıyorsa ve seç modu değilse son kullanılanı güncelle
+    if (!forceSet && mode !== "select") {
         setState({ lastUsedMode: mode });
     }
-    const newMode = state.currentMode === mode && mode !== "select" ? "select" : mode;
+
+    // Eğer zorla ayarlama (forceSet) yoksa VE mevcut mod ile istenen mod aynıysa VE bu mod "select" değilse, "select" moduna geç (toggle).
+    // Aksi halde (zorla ayarlama varsa VEYA modlar farklıysa VEYA istenen mod "select" ise), doğrudan istenen modu (mode) kullan.
+    const newMode = (!forceSet && state.currentMode === mode && mode !== "select") ? "select" : mode;
+
+    // State'i yeni mod ile güncelle (geri kalanı aynı)
     setState({
         currentMode: newMode,
         startPoint: null,
@@ -183,6 +190,7 @@ export function setMode(mode) {
         isDragging: false,
     });
 
+    // Butonların 'active' durumunu güncelle (geri kalanı aynı)
     dom.bSel.classList.toggle("active", newMode === "select");
     dom.bWall.classList.toggle("active", newMode === "drawWall");
     dom.bRoom.classList.toggle("active", newMode === "drawRoom");
@@ -196,7 +204,7 @@ export function resize() {
     const r2d = dom.p2d.getBoundingClientRect();
     dom.c2d.width = r2d.width;
     dom.c2d.height = r2d.height;
-    
+
     const r3d = dom.p3d.getBoundingClientRect();
     if (r3d.width > 0 && r3d.height > 0 && camera3d && renderer3d) {
         camera3d.aspect = r3d.width / r3d.height;
@@ -221,7 +229,7 @@ function assignRoomNames() {
     if (unassignedRooms.length > 0) {
         let roomsToAssign = [...unassignedRooms];
         let assignedNames = new Set(state.rooms.filter(r => r.name !== 'MAHAL').map(r => r.name));
-        
+
         if (roomsToAssign.length > 0) {
             const antre = roomsToAssign.shift();
             antre.name = "ANTRE";
@@ -273,6 +281,7 @@ function assignRoomNames() {
     saveState();
 }
 
+// GÜNCELLENMİŞ initialize fonksiyonu
 function initialize() {
     init3D(dom.c3d);
     initializeSettings();
@@ -280,7 +289,7 @@ function initialize() {
     setupInputListeners();
     setupFileIOListeners();
     createWallPanel();
-    
+
     dom.bSel.addEventListener("click", () => setMode("select"));
     dom.bWall.addEventListener("click", () => setMode("drawWall"));
     dom.bRoom.addEventListener("click", () => setMode("drawRoom"));
@@ -289,12 +298,15 @@ function initialize() {
     dom.bColumn.addEventListener("click", () => setMode("drawColumn"));
     dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames);
-    
+
     window.addEventListener("resize", resize);
-    
+
+    // Başlangıç modunu zorla ayarla (toggle yapmaması için true gönder)
+    setMode(state.currentMode, true);
+
     resize();
     animate();
     saveState();
 }
 
-initialize();
+initialize(); // Bu satır zaten dosyanın sonunda olmalı
