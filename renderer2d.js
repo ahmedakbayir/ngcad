@@ -150,7 +150,7 @@ export function drawColumnSymbol(node) {
      const { ctx2d } = dom; const size = node.columnSize || 30; ctx2d.fillStyle = "#8ab4f8"; ctx2d.strokeStyle = "#ffffff"; ctx2d.lineWidth = 2; ctx2d.beginPath(); ctx2d.rect(node.x - size / 2, node.y - size / 2, size, size); ctx2d.fill(); ctx2d.stroke(); ctx2d.strokeStyle = "#ffffff"; ctx2d.lineWidth = 1; ctx2d.beginPath(); ctx2d.moveTo(node.x - size / 2, node.y - size / 2); ctx2d.lineTo(node.x + size / 2, node.y + size / 2); ctx2d.moveTo(node.x + size / 2, node.y - size / 2); ctx2d.lineTo(node.x - size / 2, node.y + size / 2); ctx2d.stroke();
 }
 
-// --- GÜNCELLENMİŞ drawColumn Fonksiyonu ---
+// --- GÜNCELLENMİŞ ve DÜZELTİLMİŞ drawColumn Fonksiyonu ---
 export function drawColumn(column, isSelected = false) {
     const { ctx2d } = dom;
     const { zoom, wallBorderColor, lineThickness, walls, columns } = state;
@@ -176,19 +176,6 @@ export function drawColumn(column, isSelected = false) {
         // Seçiliyse, tüm kenarları kesişime bakmadan çiz
         ctx2d.stroke(); // Yukarıdaki path'i kullanarak kenarlığı çiz
         
-        // DÖNME GÜNCELLEMESİ: Köşe handle'larını (tutma noktalarını) çiz
-        // const cornerRadius = 6 / zoom; // Handle yarıçapı
-        // ctx2d.fillStyle = '#8ab4f8'; // Handle dolgu rengi
-        // ctx2d.strokeStyle = '#ffffff'; // Handle kenarlık rengi
-        // ctx2d.lineWidth = 1 / zoom; // Handle kenarlık kalınlığı
-        
-        // corners.forEach(corner => {
-        //     ctx2d.beginPath();
-        //     ctx2d.arc(corner.x, corner.y, cornerRadius, 0, 2 * Math.PI);
-        //     ctx2d.fill();
-        //     ctx2d.stroke();
-        // });
-
     } else {
         // Seçili değilse, kesişimleri kontrol ederek kenarları çiz
         for (let i = 0; i < corners.length; i++) {
@@ -201,14 +188,14 @@ export function drawColumn(column, isSelected = false) {
 
             let visibleSegments = [{ start: 0, end: segmentLength }]; // Başlangıçta tüm segment görünür [{başlangıç mesafesi, bitiş mesafesi}]
 
-            // 1. Duvarlarla Kesişim Kontrolü (Hassaslaştırılmış)
+            // 1. Duvarlarla Kesişim Kontrolü (Hassas Kırpma)
             walls.forEach(wall => {
                 if (!wall.p1 || !wall.p2) return; // Geçersiz duvarı atla
                 const wallThickness = wall.thickness || WALL_THICKNESS;
                 const halfWallThickness = wallThickness / 2;
                 // Gizleme için kullanılacak mesafe karesi (merkez çizgisine göre)
-                // Neredeyse tam içindeyse gizle (çok küçük bir pay bırak)
-                const hideToleranceSq = (halfWallThickness - 0.5)**2; // 0.5cm tolerans
+                // Neredeyse tam içindeyse gizle (0.5cm tolerans)
+                const hideToleranceSq = (halfWallThickness - 0.5)**2;
 
                 let nextVisibleSegments = []; // Bu duvar kontrolünden sonra görünür kalacak segmentler
                 visibleSegments.forEach(visSeg => {
@@ -227,28 +214,24 @@ export function drawColumn(column, isSelected = false) {
 
                     if (p1_inside && p2_inside) {
                         // Tamamen içindeyse: Bu segmenti gösterme (nextVisibleSegments'e ekleme)
-                    } else if (!p1_inside && !p2_inside) {
-                        // Tamamen dışarıdaysa: Segmenti olduğu gibi göster
-                        // Ancak yine de duvar çizgisiyle kesişip kesişmediğini kontrol edelim (tam snap durumu)
-                        const intersection = getLineIntersectionPoint(currentP1, currentP2, wall.p1, wall.p2);
-                        if (intersection) { // Eğer merkez çizgisini kesiyorsa
-                            const distToIntersection = Math.hypot(intersection.x - currentP1.x, intersection.y - currentP1.y);
-                            const intersectionDistOnColSeg = visSeg.start + distToIntersection;
-                             // İki parça halinde ekle (kesişim noktası hariç)
-                             if (intersectionDistOnColSeg > visSeg.start + 0.5) nextVisibleSegments.push({ start: visSeg.start, end: intersectionDistOnColSeg });
-                             if (intersectionDistOnColSeg < visSeg.end - 0.5) nextVisibleSegments.push({ start: intersectionDistOnColSeg, end: visSeg.end });
-                        } else { // Kesişmiyorsa ve dışarıdaysa tamamını göster
-                           nextVisibleSegments.push(visSeg);
-                        }
-
+                    
+                    // --- DÜZELTME: Hatalı 'else if' bloğu kaldırıldı ---
+                    // Artık 'kısmen içerde' VEYA 'tamamen dışarıda (ama kesişim olabilir)'
+                    // durumlarının hepsi bu 'else' bloğunda işleniyor.
                     } else {
-                        // Kısmen içeride: Kesişim noktalarını DUVAR KENARLARI ile bul ve segmenti böl
+                        // Kesişim noktalarını DUVAR KENARLARI ile bul ve segmenti böl
                         const wallDx = wall.p2.x - wall.p1.x;
                         const wallDy = wall.p2.y - wall.p1.y;
                         const wallLen = Math.hypot(wallDx, wallDy);
-                        if (wallLen < 0.1) { // Çok kısa duvarı atla
-                             nextVisibleSegments.push(visSeg); return;
+                        
+                        if (wallLen < 0.1) {
+                             // Duvar çok kısa, kesişim hesaplanamaz.
+                             // Segmentin tamamı içeride değilse (yukarıda kontrol edildi),
+                             // o zaman bu kısa duvardan etkilenmiyor demektir.
+                             nextVisibleSegments.push(visSeg); 
+                             return; // visibleSegments.forEach'in bir sonraki iterasyonuna geç
                         }
+                        
                         const wallNx = -wallDy / wallLen; // Normal vektör
                         const wallNy = wallDx / wallLen;
 
@@ -297,11 +280,8 @@ export function drawColumn(column, isSelected = false) {
 
                             // Orta nokta duvar merkez çizgisine duvar kalınlığının yarısından UZAKSA göster
                              const distSqToWallCenter = distToSegmentSquared(subMidPoint, wall.p1, wall.p2);
-                             // --- DEĞİŞİKLİK: Hata Düzeltmesi ---
-                             // Önceki kodda yanlışlıkla halfWallThicknessSq kullanılmıştı, hideToleranceSq olmalı
-                             // if (distSqToWallCenter >= halfWallThicknessSq + 0.1) {
+                             
                              if (distSqToWallCenter >= hideToleranceSq) { // Merkez çizgisinin DIŞINDAYSA (toleransla)
-                             // --- DEĞİŞİKLİK SONU ---
                                  nextVisibleSegments.push({start: subStart, end: subEnd});
                              }
                         }
@@ -311,27 +291,73 @@ export function drawColumn(column, isSelected = false) {
             }); // Duvar döngüsü sonu
 
 
-            // 2. Diğer Kolonlarla Kesişim Kontrolü (İçinde kalan segmentleri gizle)
+            // 2. Diğer Kolonlarla Kesişim Kontrolü (Segment Kırpma)
              columns.forEach(otherColumn => {
                  if (otherColumn === column) return; // Kendisiyle kontrol etme
-                 let nextVisibleSegments = [];
-                 visibleSegments.forEach(visSeg => {
-                     // Segmentin başlangıç, orta ve bitiş noktalarını al
-                     const currentP1 = { x: p1.x + segmentDir.x * visSeg.start, y: p1.y + segmentDir.y * visSeg.start };
-                     const currentP2 = { x: p1.x + segmentDir.x * visSeg.end, y: p1.y + segmentDir.y * visSeg.end };
-                     const midT = (visSeg.start + visSeg.end) / 2;
-                     const midPoint = { x: p1.x + segmentDir.x * midT, y: p1.y + segmentDir.y * midT };
+                 if (!otherColumn || !otherColumn.center) return;
 
-                     // Başlangıç, bitiş VEYA orta nokta diğer kolonun içindeyse, segmenti gizle
-                     if (isPointInColumn(currentP1, otherColumn) || isPointInColumn(currentP2, otherColumn) || isPointInColumn(midPoint, otherColumn)) {
-                         // Gizle (nextVisibleSegments'e ekleme)
-                     } else {
-                         // Tamamen dışarıdaysa göster
-                         nextVisibleSegments.push(visSeg);
-                     }
-                 });
-                  visibleSegments = nextVisibleSegments; // Görünür segmentleri bu kolon için güncelle
+                // Diğer kolonun 4 kenarını al
+                const otherCorners = getColumnCorners(otherColumn);
+                const otherEdges = [
+                    { p1: otherCorners[0], p2: otherCorners[1] },
+                    { p1: otherCorners[1], p2: otherCorners[2] },
+                    { p1: otherCorners[2], p2: otherCorners[3] },
+                    { p1: otherCorners[3], p2: otherCorners[0] }
+                ];
+
+                let nextVisibleSegments = []; // Bir sonraki görünür segmentler listesi
+
+                visibleSegments.forEach(visSeg => {
+                    const currentP1 = { x: p1.x + segmentDir.x * visSeg.start, y: p1.y + segmentDir.y * visSeg.start };
+                    const currentP2 = { x: p1.x + segmentDir.x * visSeg.end, y: p1.y + segmentDir.y * visSeg.end };
+
+                    // Kesişim mesafelerini topla
+                    const dists = [visSeg.start, visSeg.end];
+                    
+                    // Diğer kolonun 4 kenarı ile kesişimleri bul
+                    otherEdges.forEach(edge => {
+                        const intersection = getLineIntersectionPoint(currentP1, currentP2, edge.p1, edge.p2);
+                        if (intersection) {
+                            const distToIntersection = Math.hypot(intersection.x - currentP1.x, intersection.y - currentP1.y);
+                            const intersectionDistOnColSeg = visSeg.start + distToIntersection;
+                            // Sadece segment aralığındaysa ekle (uç noktalar hariç)
+                            if (intersectionDistOnColSeg > visSeg.start + 0.1 && intersectionDistOnColSeg < visSeg.end - 0.1) {
+                                dists.push(intersectionDistOnColSeg);
+                            }
+                        }
+                    });
+
+                    // Mesafeleri sırala ve tekilleştir
+                    dists.sort((a, b) => a - b);
+                    const uniqueDists = [];
+                    if (dists.length > 0) {
+                        uniqueDists.push(dists[0]);
+                        for (let k = 1; k < dists.length; k++) {
+                            if (dists[k] - uniqueDists[uniqueDists.length - 1] > 0.1) {
+                                uniqueDists.push(dists[k]);
+                            }
+                        }
+                    }
+
+                    // Kesişim noktaları arasındaki alt segmentleri kontrol et
+                    for (let k = 0; k < uniqueDists.length - 1; k++) {
+                        const subStart = uniqueDists[k];
+                        const subEnd = uniqueDists[k + 1];
+                        if (subEnd - subStart < 0.1) continue; // Çok kısa alt segmentleri atla
+
+                        // Alt segmentin orta noktasını al
+                        const subMidT = (subStart + subEnd) / 2;
+                        const subMidPoint = { x: p1.x + segmentDir.x * subMidT, y: p1.y + segmentDir.y * subMidT };
+
+                        // Orta nokta diğer kolonun İÇİNDE DEĞİLSE göster
+                        if (!isPointInColumn(subMidPoint, otherColumn)) {
+                            nextVisibleSegments.push({ start: subStart, end: subEnd });
+                        }
+                    }
+                });
+                visibleSegments = nextVisibleSegments; // Görünür segmentleri bu kolon için güncelle
              }); // Kolon döngüsü sonu
+
 
             // Sonuçta görünür kalan segmentleri çiz
             visibleSegments.forEach(visSeg => {
@@ -356,8 +382,5 @@ export function drawColumn(column, isSelected = false) {
         ctx2d.fillStyle = state.roomFillColor; ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor; ctx2d.lineWidth = lineThickness / zoom;
         ctx2d.beginPath(); ctx2d.moveTo(hollowCorners[0].x, hollowCorners[0].y); for (let i = 1; i < hollowCorners.length; i++) { ctx2d.lineTo(hollowCorners[i].x, hollowCorners[i].y); } ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke();
     }
-
-    // Handle'ları (kenar boyutlandırma noktaları) çizme kodu kaldırıldı. (AMA YUKARIDA isSelected İÇİNE KÖŞELERİ EKLEDİK)
-
 }
 // --- drawColumn Sonu ---
