@@ -63,6 +63,7 @@ function getWallOffsetLinesRelativeToNode(wall, node, wallPx) {
 // --- DUVAR ÇİZİM FONKSİYONLARI ---
 
 // Kesişimleri hesaplar ve iki paralel çizgi çizer (Yön Bağımlı Sağ/Sol v7)
+// GÜNCELLENDİ: Önce kenarlık (stroke), SONRA dolgu (BG) çizer
 const drawNormalSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners) => {
     if (segmentList.length === 0) return;
 
@@ -71,51 +72,61 @@ const drawNormalSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG
     ctx2d.lineCap = "butt";
     ctx2d.lineJoin = "miter";
 
-    segmentList.forEach((seg) => {
+    // --- GÜNCELLEME: Çizim sırası değişti ---
+    // Her segment için iki işlem yapacağız:
+    // 1. Kenarlıkları (stroke) çiz
+    // 2. Dolguyu (fill) çiz
+    // Bu, dolgunun kenarlıkları "ezmesini" sağlar.
+    
+    // Köşe verilerini önceden hesapla/sakla
+    const segmentCornerData = segmentList.map(seg => {
         const wall = seg.wall;
         const node1 = wall.p1; const node2 = wall.p2;
         const thickness = wall.thickness || wallPx; const halfThickness = thickness / 2;
         const seg_p1 = seg.p1; const seg_p2 = seg.p2;
 
         const dx = wall.p2.x - wall.p1.x; const dy = wall.p2.y - wall.p1.y;
-        const len = Math.hypot(dx, dy); if (len < 0.1) return;
+        const len = Math.hypot(dx, dy);
+        if (len < 0.1) return null; // Geçersiz segment
+
         // p1->p2 yönüne göre normaller
         const nxLeft = -dy / len; const nyLeft = dx / len; // Sol normal
         const nxRight = dy / len; const nyRight = -dx / len; // Sağ normal
 
-        // Hesaplanan köşe noktalarını al (varsa) -> { pointA: Point, pointB: Point }
         const corner1 = precalculatedCorners.get(node1);
         const corner2 = precalculatedCorners.get(node2);
 
-        // Segmentin basit ofset noktaları (Sağ/Sol) - p1->p2 yönüne göre
         const simpleStartLeft = { x: seg_p1.x + nxLeft * halfThickness, y: seg_p1.y + nyLeft * halfThickness };
         const simpleStartRight = { x: seg_p1.x + nxRight * halfThickness, y: seg_p1.y + nyRight * halfThickness };
         const simpleEndLeft   = { x: seg_p2.x + nxLeft * halfThickness, y: seg_p2.y + nyLeft * halfThickness };
         const simpleEndRight   = { x: seg_p2.x + nxRight * halfThickness, y: seg_p2.y + nyRight * halfThickness };
 
-        // Başlangıç ve Bitiş noktalarını ayarla
         let startLeft = simpleStartLeft, startRight = simpleStartRight;
         let endLeft = simpleEndLeft,     endRight = simpleEndRight;
 
-        // Başlangıç Noktası Ayarlama
         if (corner1 && Math.hypot(seg_p1.x - node1.x, seg_p1.y - node1.y) < 0.1) {
-             // Basit 'Left' ofsetine (p1->p2 yönü) en yakın hesaplanmış köşe noktasını bul
              const dist_A_vs_Left = Math.hypot(corner1.pointA.x - simpleStartLeft.x, corner1.pointA.y - simpleStartLeft.y);
              const dist_B_vs_Left = Math.hypot(corner1.pointB.x - simpleStartLeft.x, corner1.pointB.y - simpleStartLeft.y);
              startLeft = (dist_A_vs_Left < dist_B_vs_Left) ? corner1.pointA : corner1.pointB;
              startRight = (startLeft === corner1.pointA) ? corner1.pointB : corner1.pointA;
         }
 
-        // Bitiş Noktası Ayarlama
         if (corner2 && Math.hypot(seg_p2.x - node2.x, seg_p2.y - node2.y) < 0.1) {
-             // Basit 'Left' ofsetine (p1->p2 yönü) en yakın hesaplanmış köşe noktasını bul
              const dist_A_vs_Left = Math.hypot(corner2.pointA.x - simpleEndLeft.x, corner2.pointA.y - simpleEndLeft.y);
              const dist_B_vs_Left = Math.hypot(corner2.pointB.x - simpleEndLeft.x, corner2.pointB.y - simpleEndLeft.y);
              endLeft = (dist_A_vs_Left < dist_B_vs_Left) ? corner2.pointA : corner2.pointB;
              endRight = (endLeft === corner2.pointA) ? corner2.pointB : corner2.pointA;
         }
 
-        // Her segment için ayrı bir path başlat
+        return { seg, wall, node1, node2, startLeft, startRight, endLeft, endRight, simpleStartLeft, simpleStartRight, simpleEndLeft, simpleEndRight, corner1, corner2 };
+    }).filter(data => data !== null);
+
+
+    // --- 1. AŞAMA: Tüm Kenarlıkları Çiz ---
+    segmentCornerData.forEach(data => {
+        const { seg, wall, node1, node2, startLeft, startRight, endLeft, endRight, simpleStartLeft, simpleStartRight, simpleEndLeft, simpleEndRight, corner1, corner2 } = data;
+        const seg_p1 = seg.p1; const seg_p2 = seg.p2;
+
         ctx2d.beginPath();
 
         // Ayarlanmış çizgileri çiz
@@ -141,22 +152,43 @@ const drawNormalSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG
         }
 
         ctx2d.stroke(); // Bu segmentin çizgilerini çiz
-    }); // Segment döngüsü sonu
+    });
+
+
+    // --- 2. AŞAMA: Tüm Dolguları Çiz ---
+    ctx2d.fillStyle = BG;
+    segmentCornerData.forEach(data => {
+        const { startLeft, startRight, endLeft, endRight } = data;
+
+        // Arka plan rengiyle (BG) duvarın içini doldur
+        // Bu, alttaki mahal rengini VE alttaki diğer duvarların çizgilerini "siler"
+        ctx2d.beginPath();
+        ctx2d.moveTo(startLeft.x, startLeft.y);
+        ctx2d.lineTo(endLeft.x, endLeft.y);
+        ctx2d.lineTo(endRight.x, endRight.y); // Yolu birleştir
+        ctx2d.lineTo(startRight.x, startRight.y);
+        ctx2d.closePath();
+        ctx2d.fill();
+    });
+    // --- GÜNCELLEME SONU ---
 };
 
 
 // --- (Diğer çizim fonksiyonları: drawGlassSegments, drawBalconySegments - değişiklik yok) ---
 const drawGlassSegments = (ctx2d, segmentList, color, wallPx) => { /* ... önceki kod ... */ if (segmentList.length === 0) return; const thickness = segmentList[0]?.wall?.thickness || wallPx; const spacing = 4; ctx2d.strokeStyle = color; ctx2d.lineWidth = 1.5; ctx2d.lineCap = "butt"; ctx2d.lineJoin = "miter"; segmentList.forEach((seg)=>{ if(Math.hypot(seg.p1.x-seg.p2.x, seg.p1.y-seg.p2.y)<1) return; const dx=seg.p2.x-seg.p1.x; const dy=seg.p2.y-seg.p1.y; const length=Math.hypot(dx,dy); const dirX=dx/length; const dirY=dy/length; const normalX=-dirY; const normalY=dirX; const offset=spacing/2; ctx2d.beginPath(); ctx2d.moveTo(seg.p1.x+normalX*offset, seg.p1.y+normalY*offset); ctx2d.lineTo(seg.p2.x+normalX*offset, seg.p2.y+normalY*offset); ctx2d.stroke(); ctx2d.beginPath(); ctx2d.moveTo(seg.p1.x-normalX*offset, seg.p1.y-normalY*offset); ctx2d.lineTo(seg.p2.x-normalX*offset, seg.p2.y-normalY*offset); ctx2d.stroke(); const connectionSpacing=30; const numConnections=Math.floor(length/connectionSpacing); ctx2d.beginPath(); for(let i=0; i<=numConnections; i++){ const t=i/numConnections; if(length*t > length+0.1) continue; const dist=Math.min(length, i*connectionSpacing+connectionSpacing/2); if(i===0) dist=Math.min(length, connectionSpacing/2); if(dist > length) continue; const midX=seg.p1.x+dirX*dist; const midY=seg.p1.y+dirY*dist; ctx2d.moveTo(midX+normalX*offset, midY+normalY*offset); ctx2d.lineTo(midX-normalX*offset, midY-normalY*offset); } ctx2d.stroke(); }); };
 const drawBalconySegments = (ctx2d, segmentList, color) => { /* ... önceki kod ... */ if (segmentList.length === 0) return; ctx2d.strokeStyle = color; ctx2d.lineWidth = 1.5; ctx2d.lineCap = "butt"; ctx2d.lineJoin = "miter"; ctx2d.beginPath(); segmentList.forEach((seg)=>{ if(Math.hypot(seg.p1.x-seg.p2.x, seg.p1.y-seg.p2.y)>=1){ ctx2d.moveTo(seg.p1.x, seg.p1.y); ctx2d.lineTo(seg.p2.x, seg.p2.y); } }); ctx2d.stroke(); };
+
 // Yarım duvarları da 'drawNormalSegments' ile çizip sonra içini dolduralım
+// GÜNCELLENDİ: Sıralama (stroke -> bg_fill -> half_fill)
 const drawHalfSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners) => {
      if (segmentList.length === 0) return;
 
-    // Önce normal segment gibi çizgilerini çiz (yeni köşe mantığıyla)
+    // 1. Önce normal segment gibi çiz (Bu artık ÖNCE STROKE, SONRA BG_FILL yapıyor)
     drawNormalSegments(ctx2d, segmentList, color, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
 
-    // Sonra içini doldur
-    ctx2d.fillStyle = "rgba(150, 150, 150, 0.3)";
+    // 2. Sonra yarım duvarın kendi (üzerine gelen) dolgusunu çiz
+    ctx2d.fillStyle = "rgba(150, 150, 150, 0.3)"; // Yarı saydam dolgu
+    
     segmentList.forEach((seg) => {
         const wall = seg.wall; const node1 = wall.p1; const node2 = wall.p2;
         const thickness = wall.thickness || wallPx; const halfThickness = thickness / 2;
@@ -167,7 +199,7 @@ const drawHalfSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG, 
         const nxRight = dy / len; const nyRight = -dx / len; // Sağ normal
         const corner1 = precalculatedCorners.get(node1); const corner2 = precalculatedCorners.get(node2);
 
-        // Dolgu için köşeleri tekrar hesapla/al
+        // Dolgu için köşeleri tekrar hesapla/al (drawNormalSegments'in içinden kopyalandı)
         let startLeft, startRight, endLeft, endRight;
         const simpleStartLeft = { x: seg_p1.x + nxLeft * halfThickness, y: seg_p1.y + nyLeft * halfThickness }; const simpleStartRight = { x: seg_p1.x + nxRight * halfThickness, y: seg_p1.y + nyRight * halfThickness };
         const simpleEndLeft   = { x: seg_p2.x + nxLeft * halfThickness, y: seg_p2.y + nyLeft * halfThickness }; const simpleEndRight   = { x: seg_p2.x + nxRight * halfThickness, y: seg_p2.y + nyRight * halfThickness };
@@ -180,7 +212,7 @@ const drawHalfSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG, 
         ctx2d.lineTo(endRight.x, endRight.y); // Doğru sıra: Sol ucu, Sağ ucu
         ctx2d.lineTo(startRight.x, startRight.y);
         ctx2d.closePath();
-        ctx2d.fill();
+        ctx2d.fill(); // Yarı saydam dolguyu BG dolgusunun üzerine çiz
     });
 };
 
@@ -267,6 +299,7 @@ export function drawWallGeometry(ctx2d, state, BG) {
      });
 
     // Gruplanmış segmentleri ilgili çizim fonksiyonlarıyla çiz
+    // (Artık hepsi önce stroke, sonra bg_fill çizecek)
     drawNormalSegments(ctx2d, normalSegments.ortho, wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawNormalSegments(ctx2d, normalSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawNormalSegments(ctx2d, normalSegments.selected, "#8ab4f8", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
@@ -279,7 +312,7 @@ export function drawWallGeometry(ctx2d, state, BG) {
     drawGlassSegments(ctx2d, glassSegments.nonOrtho, "#e57373", wallPx);
     drawGlassSegments(ctx2d, glassSegments.selected, "#8ab4f8", wallPx);
 
-    // Yarım duvarlar (köşe kırpma + dolgu)
+    // Yarım duvarlar (stroke -> bg_fill -> half_fill)
     drawHalfSegments(ctx2d, halfSegments.ortho, wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawHalfSegments(ctx2d, halfSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawHalfSegments(ctx2d, halfSegments.selected, "#8ab4f8", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
