@@ -113,7 +113,9 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
         const hex = wallBorderColor.startsWith('#') ? wallBorderColor.slice(1) : wallBorderColor;
         const r = parseInt(hex.substring(0, 2), 16); const g = parseInt(hex.substring(2, 4), 16); const b = parseInt(hex.substring(4, 6), 16);
         color = `rgba(${r}, ${g}, ${b}, 1)`;
-        color= "rgba(101, 101, 101, 0.54)"
+        //color= "rgba(101, 101, 101, 0.54)"
+        color= "rgba(234, 246, 247, 0.22)"
+
     }
     ctx2d.strokeStyle = color; ctx2d.lineWidth = lineThickness / 2; const inset = lineThickness / 4;
     const offset25 = halfWall * 0.5; // İçteki çizgilerin konumu için yarı kalınlığın %50'si

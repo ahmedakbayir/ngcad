@@ -46,13 +46,13 @@ function addWindowToWallMiddle(wall) {
     const defaultWidth = 120; // Varsayılan pencere genişliği
     let windowWidth;
     let windowPos;
+    const MIN_ITEM_WIDTH = 20;
 
     if (largestSegment.length >= defaultWidth) {
         windowWidth = defaultWidth;
         windowPos = largestSegment.start + (largestSegment.length / 2);
     } else {
         // En büyük segment varsayılan genişlikten küçükse, segment kadar yap
-        const MIN_ITEM_WIDTH = 20;
         if (largestSegment.length >= MIN_ITEM_WIDTH) {
             windowWidth = largestSegment.length;
             windowPos = largestSegment.start + (largestSegment.length / 2);
@@ -150,6 +150,11 @@ export function onPointerDownDraw(pos, clickedObject) {
 export function onPointerDownSelect(selectedObject, pos) {
     const window = selectedObject.object;
     const wall = selectedObject.wall;
+
+    // --- YENİ EKLENDİ: Sürükleme başlangıcında orijinal genişliği sakla ---
+    window.originalWidthBeforeDrag = window.width;
+    // --- YENİ EKLENDİ SONU ---
+
     if (!wall || !wall.p1 || !wall.p2) return { startPointForDragging: pos, dragOffset: { x: 0, y: 0 } };
 
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -165,7 +170,7 @@ export function onPointerDownSelect(selectedObject, pos) {
     return { startPointForDragging, dragOffset };
 }
 
-// --- GÜNCELLENDİ: onPointerMove (isWidthManuallySet kontrolü eklendi) ---
+// --- GÜNCELLENDİ: onPointerMove (Geçici daraltma eklendi) ---
 /**
  * Seçili bir pencereyi sürüklerken çağrılır.
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
@@ -180,6 +185,10 @@ export function onPointerMove(unsnappedPos) {
     let closestWall = null;
     let minDistSq = Infinity;
     const bodyHitTolerance = WALL_THICKNESS * 2;
+    const MIN_ITEM_WIDTH = 20;
+
+    // Sürükleme başında saklanan orijinal/manuel genişliği al
+    const intendedWidth = window.originalWidthBeforeDrag || (window.isWidthManuallySet ? window.width : 120);
 
     for (const w of state.walls) {
         if (!w.p1 || !w.p2) continue; // Geçersiz duvarları atla
@@ -192,7 +201,11 @@ export function onPointerMove(unsnappedPos) {
 
     if (closestWall) {
         const DG = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
-         if (DG < 0.1) return; // Çok kısa duvarı atla
+         if (DG < 0.1) {
+             // Duvar çok kısaysa, genişliği minimuma ayarla (geçici olarak)
+             window.width = MIN_ITEM_WIDTH;
+             return;
+         }
 
         const dx_pm_w = closestWall.p2.x - closestWall.p1.x;
         const dy_pm_w = closestWall.p2.y - closestWall.p1.y;
@@ -202,39 +215,38 @@ export function onPointerMove(unsnappedPos) {
         const segmentAtMouse_w = findAvailableSegmentAt(closestWall, posOnWall, window);
 
         if (segmentAtMouse_w) {
-            // Kullanılacak genişliği belirle: Elle ayarlanmışsa onu, değilse varsayılanı al
-            const targetWidth = window.isWidthManuallySet ? window.width : 120;
-            const MIN_ITEM_WIDTH = 20;
-
-            let finalWidth = targetWidth;
+            let finalWidth = intendedWidth; // Başlangıçta hedeflenen genişliği kullan
             let finalPos;
 
             // Segment, hedeflenen genişlik için yeterli mi?
-            if (segmentAtMouse_w.length >= targetWidth) {
+            if (segmentAtMouse_w.length >= intendedWidth) {
                 // Yeterli, hedeflenen genişliği kullan
-                finalWidth = targetWidth;
+                finalWidth = intendedWidth;
                 const minPos = segmentAtMouse_w.start + finalWidth / 2;
                 const maxPos = segmentAtMouse_w.end - finalWidth / 2;
                 finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-            } else if (!window.isWidthManuallySet && segmentAtMouse_w.length >= MIN_ITEM_WIDTH) {
-                // Yeterli değil AMA elle ayarlanmamış ve minimumdan büyükse, küçült
-                finalWidth = segmentAtMouse_w.length;
+            } else if (segmentAtMouse_w.length >= MIN_ITEM_WIDTH) {
+                // Yeterli değil AMA minimumdan büyükse, geçici olarak küçült
+                finalWidth = segmentAtMouse_w.length; // Segmentin uzunluğuna ayarla
                 const minPos = segmentAtMouse_w.start + finalWidth / 2;
                 const maxPos = segmentAtMouse_w.end - finalWidth / 2;
-                finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                finalPos = Math.max(minPos, Math.min(maxPos, posOnWall)); // Ortala
             } else {
-                 // Yeterli değil VE (elle ayarlanmış VEYA minimumdan küçükse)
-                 // Pencereyi bu segmente yerleştirme (veya pozisyonu/genişliği güncelleme)
-                 // Şimdilik sadece pozisyonu kenara en yakın yere clamp edelim, genişlik kalsın
-                 const minPos = segmentAtMouse_w.start + window.width / 2;
-                 const maxPos = segmentAtMouse_w.end - window.width / 2;
-                 finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-                 finalWidth = window.width; // Mevcut genişliği koru
+                 // Segment minimumdan bile küçükse, genişliği minimum yap ve ortala
+                 finalWidth = MIN_ITEM_WIDTH;
+                 const minPos = segmentAtMouse_w.start + finalWidth / 2;
+                 const maxPos = segmentAtMouse_w.end - finalWidth / 2;
+                 // Eğer minPos > maxPos ise (yani min genişlik bile sığmıyorsa) ortala
+                 if (minPos > maxPos) {
+                     finalPos = segmentAtMouse_w.start + segmentAtMouse_w.length / 2;
+                 } else {
+                     finalPos = Math.max(minPos, Math.min(maxPos, posOnWall));
+                 }
             }
 
-            // Pencerenin state'ini güncelle
+            // Pencerenin state'ini (geçici olarak) güncelle
             window.pos = finalPos;
-            window.width = finalWidth;
+            window.width = finalWidth; // Bu, çizim için kullanılır
 
             // Duvar değiştirme
             if (oldWall !== closestWall) {
@@ -246,15 +258,40 @@ export function onPointerMove(unsnappedPos) {
                 // selectedObject'teki duvar referansını güncelle (önemli!)
                 state.selectedObject.wall = closestWall;
             }
+        } else {
+            // Fare segment üzerinde değilse (ama hala duvara yakınsa)
+            // Genişliği orijinal/elle ayarlanmış değere geri getir
+            window.width = intendedWidth;
+            // Pozisyonu kenara en yakın yere clamp et (genişlik sığıyorsa)
+            const minPosPossible = (DG / 2) - window.width/2 > 0 ? window.width/2 + ((closestWall.thickness || WALL_THICKNESS) / 2 + 5) : DG/2;
+            const maxPosPossible = (DG / 2) + window.width/2 < DG ? DG - window.width/2 - ((closestWall.thickness || WALL_THICKNESS) / 2 + 5) : DG/2;
+
+             if(minPosPossible <= maxPosPossible){ // Eğer pencere teorik olarak sığıyorsa
+                 window.pos = Math.max(minPosPossible, Math.min(maxPosPossible, posOnWall));
+             } else { // Sığmıyorsa ortala
+                  window.pos = DG / 2;
+                  // ve genişliği de küçült (geçici olarak)
+                  const availableSpace = DG - 2 * ((closestWall.thickness || WALL_THICKNESS) / 2 + 5);
+                  window.width = Math.max(MIN_ITEM_WIDTH, availableSpace);
+             }
+
+
+             // Duvar değiştirme (segment olmasa da duvar değişebilir)
+             if (oldWall !== closestWall) {
+                 if (oldWall.windows) oldWall.windows = oldWall.windows.filter(w => w !== window);
+                 if (!closestWall.windows) closestWall.windows = [];
+                 closestWall.windows.push(window);
+                 state.selectedObject.wall = closestWall;
+             }
+
         }
     } else {
-        // Eğer hiçbir duvara yakın değilse, genişliği sıfırla (eğer elle ayarlanmamışsa)
-        if (!window.isWidthManuallySet) {
-             window.width = 120; // Varsayılana dön
-        }
-         // Pozisyonu veya duvarı değiştirme
+        // Eğer hiçbir duvara yakın değilse, genişliği orijinal/elle ayarlanmış değere geri getir
+        window.width = intendedWidth;
+        // Pozisyonu veya duvarı değiştirme
     }
 }
+
 
 // --- 'actions.js' dosyasından taşınan yardımcılar ---
 
@@ -294,7 +331,7 @@ export function isSpaceForWindow(windowDataOrSelectedObject) {
     // Gelen argümanın selectedObject mi yoksa getWindowPlacement'ten gelen veri mi olduğunu kontrol et
     const window = windowDataOrSelectedObject.object || windowDataOrSelectedObject;
     const wall = windowDataOrSelectedObject.wall; // Her iki durumda da wall burada olmalı
-    if (!wall) return false;
+    if (!wall || !wall.p1 || !wall.p2) return false; // Duvar geçerli değilse false
     const MIN_GAP = 0.1;
 
     const windowStart = window.pos - window.width / 2;
@@ -302,9 +339,10 @@ export function isSpaceForWindow(windowDataOrSelectedObject) {
 
     // Duvarın uç boşluklarını kontrol et
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+     if (wallLen < 0.1) return false; // Duvar çok kısaysa false
     const wallThickness = wall.thickness || WALL_THICKNESS;
     const UM = (wallThickness / 2) + 5; // Uç marjı
-    if (windowStart < UM || windowEnd > wallLen - UM) {
+    if (windowStart < UM - 0.01 || windowEnd > wallLen - UM + 0.01) { // Küçük tolerans eklendi
         return false;
     }
 

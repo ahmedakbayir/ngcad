@@ -167,14 +167,19 @@ export function onPointerMove(e) {
  * Mouse imlecini duruma göre günceller.
  * (Refactor edildi, artık `getColumnAtPoint`'i kullanıyor)
  */
+// ahmedakbayir/ngcad/ngcad-b55eb6ae3e1c1a580c424be5c2b8b3979c1b5b5e/pointer-move.js
+// ... (importlar ve diğer kodlar) ...
+
 function updateMouseCursor() {
-    const { c2d } = dom;
+    const { c2d, p2d } = dom; // p2d'yi de alalım
     const { currentMode, isDragging, isPanning, mousePos, selectedObject, zoom } = state;
 
-    c2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node', 'rotate-mode');
-    c2d.style.cursor = '';
+    // Sınıfları p2d üzerinden temizleyelim
+    p2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node', 'rotate-mode');
+    c2d.style.cursor = ''; // Canvas'ın cursor stilini sıfırla
 
     if (state.isDraggingRoomName || isPanning) {
+        // Pan/oda ismi sürüklerken cursor'ı doğrudan canvas'a verelim
         c2d.style.cursor = 'grabbing';
         return;
     }
@@ -182,10 +187,11 @@ function updateMouseCursor() {
     if (isDragging) {
         if (selectedObject?.type === 'column') {
             if (selectedObject.handle?.startsWith('corner_')) {
-                c2d.classList.add('rotate-mode');
+                p2d.classList.add('rotate-mode'); // Sınıfı p2d'ye ekle
                 return;
             }
             if (selectedObject.handle?.startsWith('edge_')) {
+                // Kenar boyutlandırma cursor'ını doğrudan c2d'ye verelim
                 const edgeHandle = selectedObject.handle;
                 const rotation = selectedObject.object.rotation || 0;
                 const angleDeg = Math.abs(rotation % 180);
@@ -199,20 +205,21 @@ function updateMouseCursor() {
                 return;
             }
         }
+        // Genel sürükleme cursor'ı
         c2d.style.cursor = 'grabbing';
         return;
     }
-    
-    // Hover durumları
-    // Not: `getColumnAtPoint` `columns.js` dosyasından import edilmeli.
+
+    // Hover durumları (Sürükleme yokken)
     const hoveredColumnObject = getColumnAtPoint(mousePos);
     if (hoveredColumnObject) {
         const handle = hoveredColumnObject.handle;
         if (handle.startsWith('corner_')) {
-            c2d.classList.add('rotate-mode');
+            p2d.classList.add('rotate-mode'); // Sınıfı p2d'ye ekle
             return;
         }
         if (handle.startsWith('edge_')) {
+             // Kenar boyutlandırma cursor'ını doğrudan c2d'ye verelim
             const rotation = hoveredColumnObject.object.rotation || 0;
             const angleDeg = Math.abs(rotation % 180);
             let cursorType = 'ew-resize';
@@ -225,34 +232,55 @@ function updateMouseCursor() {
             return;
         }
         if (handle === 'body' && currentMode === 'select') {
+             // Gövde üzerine gelince taşıma cursor'ını c2d'ye verelim
             c2d.style.cursor = 'move';
             return;
         }
     }
 
+    // Diğer hover durumları için sınıfları p2d'ye ekleyelim
     const isDraggingDoorOrWindow = isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window');
     const showSnap = (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn') ||
                      (isDragging && selectedObject?.type === 'wall' && selectedObject.handle !== 'body');
 
     if (!isDraggingDoorOrWindow && mousePos.isSnapped && !isDragging && showSnap) {
-        c2d.classList.add('near-snap');
+        p2d.classList.add('near-snap'); // Snap sınıfını p2d'ye
         return;
     }
 
     if (currentMode === 'select') {
         const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
         if (hoveredNode) {
-            c2d.classList.add('over-node');
+            p2d.classList.add('over-node'); // Node sınıfını p2d'ye
             return;
         }
-        
+
         for (const w of state.walls) {
+             if (!w.p1 || !w.p2) continue; // Eklendi: Geçersiz duvarları atlama
             const wallPx = w.thickness || WALL_THICKNESS;
-            const bodyHitToleranceSq = (wallPx / 2)**2;
+            // Toleransı biraz artıralım, özellikle kalın duvarlarda daha iyi olur
+            const bodyHitToleranceSq = (wallPx / 2 + 2 / zoom)**2; // +2 piksel tolerans
             if (distToSegmentSquared(mousePos, w.p1, w.p2) < bodyHitToleranceSq) {
-                c2d.classList.add('over-wall');
-                return;
+                 // Uçlara çok yakın değilse duvar gövdesi üzerindedir
+                 const d1Sq = (mousePos.x - w.p1.x)**2 + (mousePos.y - w.p1.y)**2;
+                 const d2Sq = (mousePos.x - w.p2.x)**2 + (mousePos.y - w.p2.y)**2;
+                 const nearEndpointToleranceSq = (8 / zoom) ** 2; // Node yakalama toleransı ile aynı
+                 if(d1Sq > nearEndpointToleranceSq && d2Sq > nearEndpointToleranceSq) {
+                    p2d.classList.add('over-wall'); // Duvar sınıfını p2d'ye
+                    return;
+                 }
             }
         }
     }
+
+     // Hiçbir özel durum yoksa, modu temel alan varsayılan cursor'ı ayarla (p2d üzerinden)
+     if (currentMode === 'select') p2d.classList.add('select-mode');
+     else if (currentMode === 'drawWall') p2d.classList.add('drawWall-mode');
+     else if (currentMode === 'drawRoom') p2d.classList.add('drawRoom-mode');
+     else if (currentMode === 'drawDoor') p2d.classList.add('drawDoor-mode');
+     else if (currentMode === 'drawWindow') { /* window için özel class yoksa default kalır */ }
+     else if (currentMode === 'drawColumn') p2d.classList.add('drawColumn-mode');
+
 }
+
+// ... (dosyanın geri kalanı) ...

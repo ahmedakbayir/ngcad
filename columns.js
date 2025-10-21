@@ -54,13 +54,22 @@ export function getColumnHandleAtPoint(point, column, tolerance) {
     // ... (mevcut kod - değişiklik yok)
     const cx = column.center.x;
     const cy = column.center.y;
-    
+
     // 1. Köşeleri Kontrol Et
     const corners = getColumnCorners(column);
     const cornerTolerance = tolerance * 1.5;
+    // --- DEBUG BAŞLANGIÇ ---
+    // console.log("Köşe kontrol ediliyor. Tolerans:", cornerTolerance, "Zoom:", state.zoom); // Zoom'u ve toleransı görelim
+    // --- DEBUG SONU ---
     for (let i = 0; i < corners.length; i++) {
         const dist = Math.hypot(point.x - corners[i].x, point.y - corners[i].y);
+        // --- DEBUG BAŞLANGIÇ ---
+        // if (i === 0) console.log("Köşe 0'a mesafe:", dist); // İlk köşeye mesafeyi logla
+        // --- DEBUG SONU ---
         if (dist < cornerTolerance) {
+            // --- DEBUG BAŞLANGIÇ ---
+            console.log(`>>> Köşe ${i} tespit edildi! Handle: corner_${i}`);
+            // --- DEBUG SONU ---
             return `corner_${i}`;
         }
     }
