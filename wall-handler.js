@@ -382,18 +382,40 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         // ... (şimdilik atlandı, `pointer-move.js` içinde bırakılabilir) ...
 
         // Sweep duvarlarını güncelle
-        if (state.isSweeping) {
+if (state.isSweeping) {
             const sweepWalls = [];
             wallsToMove.forEach(movedWall => {
-                const originalP1 = state.preDragNodeStates.get(movedWall.p1); if (originalP1) sweepWalls.push({ p1: originalP1, p2: movedWall.p1 });
-                const originalP2 = state.preDragNodeStates.get(movedWall.p2); if (originalP2) sweepWalls.push({ p1: originalP2, p2: movedWall.p2 });
+                // Taşınan duvarın özelliklerini al
+                const wallType = movedWall.wallType || 'normal';
+                const thickness = movedWall.thickness || state.wallThickness;
+
+                const originalP1 = state.preDragNodeStates.get(movedWall.p1); 
+                if (originalP1) {
+                    sweepWalls.push({ 
+                        p1: originalP1, 
+                        p2: movedWall.p1, 
+                        type: 'wall', // 'type' da eklenmeli
+                        wallType: wallType, 
+                        thickness: thickness 
+                    });
+                }
+                
+                const originalP2 = state.preDragNodeStates.get(movedWall.p2); 
+                if (originalP2) {
+                    sweepWalls.push({ 
+                        p1: originalP2, 
+                        p2: movedWall.p2, 
+                        type: 'wall', // 'type' da eklenmeli
+                        wallType: wallType, 
+                        thickness: thickness 
+                    });
+                }
             });
             setState({ sweepWalls });
         }
     }
     update3DScene();
 }
-
 /**
  * Aynı hizada olan duvar zincirini bulur.
  * @param {object} startWall - Başlangıç duvarı

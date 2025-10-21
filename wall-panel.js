@@ -79,15 +79,15 @@ export function createWallPanel() {
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
                     <input type="radio" name="wall-type" value="balcony" style="cursor: pointer;">
-                    <span style="font-size: 12px;">Balkon Duvarı (ince çizgi)</span>
+                    <span style="font-size: 12px;">Balkon Duvarı</span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
                     <input type="radio" name="wall-type" value="glass" style="cursor: pointer;">
-                    <span style="font-size: 12px;">Camekan Duvar (tek çizgi)</span>
+                    <span style="font-size: 12px;">Camekan</span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
                     <input type="radio" name="wall-type" value="half" style="cursor: pointer;">
-                    <span style="font-size: 12px;">Yarım Duvar (tuğla)</span>
+                    <span style="font-size: 12px;">Yarım Duvar</span>
                 </label>
             </div>
         </div>

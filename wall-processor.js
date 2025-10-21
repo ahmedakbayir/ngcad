@@ -98,10 +98,15 @@ function splitWallsAtCrossings() {
                     const n = getOrCreateNode(P.x, P.y);
                     state.walls.splice(j, 1);
                     state.walls.splice(i, 1);
-                    if (Math.hypot(w1.p1.x - n.x, w1.p1.y - n.y) > 1) state.walls.push({ type: "wall", p1: w1.p1, p2: n });
-                    if (Math.hypot(w1.p2.x - n.x, w1.p2.y - n.y) > 1) state.walls.push({ type: "wall", p1: n, p2: w1.p2 });
-                    if (Math.hypot(w2.p1.x - n.x, w2.p1.y - n.y) > 1) state.walls.push({ type: "wall", p1: w2.p1, p2: n });
-                    if (Math.hypot(w2.p2.x - n.x, w2.p2.y - n.y) > 1) state.walls.push({ type: "wall", p1: n, p2: w2.p2 });
+                    
+                    // Orijinal duvar özelliklerini al
+                    const w1_props = { thickness: w1.thickness || state.wallThickness, wallType: w1.wallType || 'normal' };
+                    const w2_props = { thickness: w2.thickness || state.wallThickness, wallType: w2.wallType || 'normal' };
+
+                    if (Math.hypot(w1.p1.x - n.x, w1.p1.y - n.y) > 1) state.walls.push({ type: "wall", p1: w1.p1, p2: n, ...w1_props });
+                    if (Math.hypot(w1.p2.x - n.x, w1.p2.y - n.y) > 1) state.walls.push({ type: "wall", p1: n, p2: w1.p2, ...w1_props });
+                    if (Math.hypot(w2.p1.x - n.x, w2.p1.y - n.y) > 1) state.walls.push({ type: "wall", p1: w2.p1, p2: n, ...w2_props });
+                    if (Math.hypot(w2.p2.x - n.x, w2.p2.y - n.y) > 1) state.walls.push({ type: "wall", p1: n, p2: w2.p2, ...w2_props });
                     changed = true;
                     break;
                 }
@@ -122,8 +127,12 @@ function splitWallsAtTjunctions() {
                 if (distToSegmentSquared(node, wall.p1, wall.p2) < 0.1) {
                     const originalP1 = wall.p1, originalP2 = wall.p2;
                     const nodeDist = Math.hypot(node.x - originalP1.x, node.y - originalP1.y);
-                    const newWall1 = { type: "wall", p1: originalP1, p2: node };
-                    const newWall2 = { type: "wall", p1: node, p2: originalP2 };
+                    
+                    // Orijinal duvar özelliklerini al
+                    const wall_props = { thickness: wall.thickness || state.wallThickness, wallType: wall.wallType || 'normal' };
+                    
+                    const newWall1 = { type: "wall", p1: originalP1, p2: node, ...wall_props };
+                    const newWall2 = { type: "wall", p1: node, p2: originalP2, ...wall_props };
                     state.doors.forEach((d) => {
                         if (d.wall === wall) {
                             if (d.pos < nodeDist) d.wall = newWall1;
@@ -175,7 +184,11 @@ function mergeCollinearChains() {
                 const ib = state.walls.indexOf(b.wall); if (ib >= 0) state.walls.splice(ib, 1);
                 const still = state.walls.some((w) => w.p1 === node || w.p2 === node);
                 if (!still) { const i = state.nodes.indexOf(node); if (i >= 0) state.nodes.splice(i, 1); }
-                if (a.other !== b.other) state.walls.push({ type: "wall", p1: a.other, p2: b.other });
+                if (a.other !== b.other) {
+                    // Özellikleri birleşen duvarlardan birinden devral (a.wall)
+                    const wall_props = { thickness: a.wall.thickness || state.wallThickness, wallType: a.wall.wallType || 'normal' };
+                    state.walls.push({ type: "wall", p1: a.other, p2: b.other, ...wall_props });
+                }                
                 changed = true;
                 break;
             }

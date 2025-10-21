@@ -43,7 +43,7 @@ export function getDoorAtPoint(pos, tolerance) {
 export function onPointerDownDraw(pos, clickedObject) {
     // 1. Direkt duvara yerleştirmeyi dene
     let previewWall = null, minDistSqPreview = Infinity;
-    const bodyHitTolerancePreview = (state.ALL_THICKNESS * 1.5) ** 2;
+    const bodyHitTolerancePreview = (state.wallThickness * 1.5) ** 2;
     for (const w of [...state.walls].reverse()) {
          if (!w.p1 || !w.p2) continue;
          const distSq = distToSegmentSquared(pos, w.p1, w.p2);
@@ -167,7 +167,7 @@ export function onPointerMove(unsnappedPos) {
 
     let closestWall = null;
     let minDistSq = Infinity;
-    const bodyHitTolerance = WALL_THICKNESS * 2;
+    const bodyHitTolerance = state.wallThickness * 2;
 
     for (const w of state.walls) {
         if (!w.p1 || !w.p2) continue; // Geçersiz duvarları atla
@@ -279,7 +279,7 @@ export function isSpaceForDoor(door) {
 
     // Duvarın uç boşluklarını kontrol et
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    const wallThickness = wall.thickness || WALL_THICKNESS;
+    const wallThickness = wall.thickness || state.wallThickness;
     const UM = (wallThickness / 2) + 5; // Uç marjı
     if (doorStart < UM || doorEnd > wallLen - UM) {
         return false;

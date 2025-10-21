@@ -66,7 +66,7 @@ export function findLargestAvailableSegment(wall, itemToExclude = null) {
  */
 export function findAvailableSegmentAt(wall, posOnWall, itemToExclude = null) {
     const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    const DK = wall.thickness || WALL_THICKNESS;
+    const DK = wall.thickness || state.wallThickness;
     const UM = (DK / 2) + 5;
     const MIN_GAP = 0.1;
     const MIN_ITEM_WIDTH = 20;

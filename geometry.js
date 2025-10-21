@@ -41,7 +41,7 @@ export function getLineIntersection(p1, p2, p3, p4) {
     // Eğer kesişim noktası her iki segmentin de üzerindeyse (0 ve 1 arasında, uçlara çok yakın değil)
     if (t > 0.0001 && t < 0.9999 && u > 0.0001 && u < 0.9999) {
         // Kesişim noktasını döndür
-         return { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+        return { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
     }
     return null; // Segmentler üzerinde kesişmiyor
 }
@@ -120,8 +120,8 @@ export function detectRooms() {
         if (!wall || !wall.p1 || !wall.p2) return false;
         const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
         return length > 0.1 &&
-               isFinite(wall.p1.x) && isFinite(wall.p1.y) &&
-               isFinite(wall.p2.x) && isFinite(wall.p2.y);
+            isFinite(wall.p1.x) && isFinite(wall.p1.y) &&
+            isFinite(wall.p2.x) && isFinite(wall.p2.y);
     });
 
     if (validWalls.length < 3) {
@@ -320,10 +320,9 @@ export function snapTo15DegreeAngle(p1, p2) {
     let angleRad = Math.atan2(dy, dx); // Açı (radyan)
     let angleDeg = angleRad * 180 / Math.PI; // Açı (derece)
 
+    if (state.drawingAngle === 0) return p2; // <--- DEĞİŞİKLİK BURADA
     const SNAP_ANGLE = state.drawingAngle || 15; // YENİ: State'den al
-    // Snap açısı 0 ise snap yapma
-    if (SNAP_ANGLE === 0) return p2;
-    
+
     // Açıyı en yakın SNAP_ANGLE katına yuvarla
     const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
     const snappedAngleRad = snappedAngleDeg * Math.PI / 180; // Yuvarlanmış açıyı radyana çevir
