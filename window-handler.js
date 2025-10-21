@@ -21,7 +21,7 @@ export function getWindowAtPoint(pos, tolerance) {
             const dy = (wall.p2.y - wall.p1.y) / wallLen;
             const windowCenterX = wall.p1.x + dx * window.pos;
             const windowCenterY = wall.p1.y + dy * window.pos;
-            const wallPx = wall.thickness || state.WALL_THICKNESS;
+            const wallPx = wall.thickness || state.wallThickness;
 
             const dx_p = pos.x - windowCenterX;
             const dy_p = pos.y - windowCenterY;
@@ -79,7 +79,7 @@ function addWindowToWallMiddle(wall) {
 export function onPointerDownDraw(pos, clickedObject) {
     // 1. Direkt duvara yerleştirmeyi dene
     let previewWall = null, minDistSqPreview = Infinity;
-    const bodyHitTolerancePreview = (state.WALL_THICKNESS * 1.5) ** 2;
+    const bodyHitTolerancePreview = (state.wallThickness * 1.5) ** 2;
     for (const w of [...state.walls].reverse()) {
         if (!w.p1 || !w.p2) continue;
         const distSq = distToSegmentSquared(pos, w.p1, w.p2);
@@ -184,7 +184,7 @@ export function onPointerMove(unsnappedPos) {
 
     let closestWall = null;
     let minDistSq = Infinity;
-    const bodyHitTolerance = state.WALL_THICKNESS * 2;
+    const bodyHitTolerance = state.wallThickness * 2;
     const MIN_ITEM_WIDTH = 20;
 
     // Sürükleme başında saklanan orijinal/manuel genişliği al
@@ -263,15 +263,15 @@ export function onPointerMove(unsnappedPos) {
             // Genişliği orijinal/elle ayarlanmış değere geri getir
             window.width = intendedWidth;
             // Pozisyonu kenara en yakın yere clamp et (genişlik sığıyorsa)
-            const minPosPossible = (DG / 2) - window.width/2 > 0 ? window.width/2 + ((closestWall.thickness || state.WALL_THICKNESS) / 2 + 5) : DG/2;
-            const maxPosPossible = (DG / 2) + window.width/2 < DG ? DG - window.width/2 - ((closestWall.thickness || state.WALL_THICKNESS) / 2 + 5) : DG/2;
+            const minPosPossible = (DG / 2) - window.width/2 > 0 ? window.width/2 + ((closestWall.thickness || state.wallThickness) / 2 + 5) : DG/2;
+            const maxPosPossible = (DG / 2) + window.width/2 < DG ? DG - window.width/2 - ((closestWall.thickness || state.wallThickness) / 2 + 5) : DG/2;
 
              if(minPosPossible <= maxPosPossible){ // Eğer pencere teorik olarak sığıyorsa
                  window.pos = Math.max(minPosPossible, Math.min(maxPosPossible, posOnWall));
              } else { // Sığmıyorsa ortala
                   window.pos = DG / 2;
                   // ve genişliği de küçült (geçici olarak)
-                  const availableSpace = DG - 2 * ((closestWall.thickness || state.WALL_THICKNESS) / 2 + 5);
+                  const availableSpace = DG - 2 * ((closestWall.thickness || state.wallThickness) / 2 + 5);
                   window.width = Math.max(MIN_ITEM_WIDTH, availableSpace);
              }
 
@@ -340,7 +340,7 @@ export function isSpaceForWindow(windowDataOrSelectedObject) {
     // Duvarın uç boşluklarını kontrol et
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
      if (wallLen < 0.1) return false; // Duvar çok kısaysa false
-    const wallThickness = wall.thickness || state.WALL_THICKNESS;
+    const wallThickness = wall.thickness || state.wallThickness;
     const UM = (wallThickness / 2) + 5; // Uç marjı
     if (windowStart < UM - 0.01 || windowEnd > wallLen - UM + 0.01) { // Küçük tolerans eklendi
         return false;

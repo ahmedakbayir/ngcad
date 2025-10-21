@@ -160,7 +160,7 @@ export function onPointerDown(e) {
         // TODO: `vent-handler.js` oluşturulup mantık oraya taşınabilir.
         // Şimdilik `pointer-down.js` içindeki mantık korunuyor.
         let closestWall = null; let minDistSq = Infinity;
-        const bodyHitTolerance = state.WALL_THICKNESS * 1.5;
+        const bodyHitTolerance = state.wallThickness * 1.5;
          for (const w of [...state.walls].reverse()) {
              if (!w.p1 || !w.p2) continue;
              const p1 = w.p1, p2 = w.p2; const l2 = (p1.x - p2.x)**2 + (p1.y - p2.y)**2; if(l2 < 0.1) continue;

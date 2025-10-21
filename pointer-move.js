@@ -50,7 +50,7 @@ export function onPointerMove(e) {
         // Duvar silme
         const wallsToDelete = new Set();
         for (const wall of state.walls) {
-             const wallPx = wall.thickness || state.WALL_THICKNESS;
+             const wallPx = wall.thickness || state.wallThickness;
              const currentToleranceSq = (wallPx / 2)**2;
             const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);
             if (distSq < currentToleranceSq) {
@@ -153,7 +153,7 @@ export function onPointerMove(e) {
                 // Şimdilik `pointer-move.js` içindeki mantık korunuyor.
                 const vent = state.selectedObject.object; const oldWall = state.selectedObject.wall;
                 const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY };
-                let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = state.WALL_THICKNESS * 2;
+                let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = state.wallThickness * 2;
                 for (const w of state.walls) {
                     const d = distToSegmentSquared(targetPos, w.p1, w.p2);
                     if (d < bodyHitTolerance ** 2 && d < minDistSq) { minDistSq = d; closestWall = w; }
@@ -277,7 +277,7 @@ function updateMouseCursor() {
 
         for (const w of state.walls) {
              if (!w.p1 || !w.p2) continue; // Eklendi: Geçersiz duvarları atlama
-            const wallPx = w.thickness || state.WALL_THICKNESS;
+            const wallPx = w.thickness || state.wallThickness;
             // Toleransı biraz artıralım, özellikle kalın duvarlarda daha iyi olur
             const bodyHitToleranceSq = (wallPx / 2 + 2 / zoom)**2; // +2 piksel tolerans
             if (distToSegmentSquared(mousePos, w.p1, w.p2) < bodyHitToleranceSq) {

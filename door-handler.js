@@ -21,7 +21,7 @@ export function getDoorAtPoint(pos, tolerance) {
         const dy = (wall.p2.y - wall.p1.y) / wallLen;
         const doorCenterX = wall.p1.x + dx * door.pos;
         const doorCenterY = wall.p1.y + dy * door.pos;
-        const wallPx = wall.thickness || state.WALL_THICKNESS;
+        const wallPx = wall.thickness || state.wallThickness;
 
         const dx_p = pos.x - doorCenterX;
         const dy_p = pos.y - doorCenterY;

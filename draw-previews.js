@@ -15,7 +15,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
         const doorsToPreview = [];
 
         let closestWall = null, minDistSq = Infinity;
-        const bodyHitTolerance = (state.WALL_THICKNESS * 1.5) ** 2;
+        const bodyHitTolerance = (state.wallThickness * 1.5) ** 2;
         
         for (const w of [...walls].reverse()) {
             const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
@@ -40,7 +40,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
     // Pencere önizlemesi
     if (currentMode === "drawWindow" && !isPanning && !isDragging) {
         let closestWall = null, minDistSq = Infinity;
-        const bodyHitTolerance = (state.WALL_THICKNESS * 1.5) ** 2;
+        const bodyHitTolerance = (state.wallThickness * 1.5) ** 2;
         
         for (const w of [...walls].reverse()) {
             if (!w.p1 || !w.p2) continue;

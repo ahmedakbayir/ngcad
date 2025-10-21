@@ -78,7 +78,7 @@ export let state = {
     roomFillColor: "#232425",
     lineThickness: 2,
     wallThickness: 20, // YENİ: Duvar kalınlığı state'e taşındı
-    drawingAngle: 15, // YENİ: Çizim açısı eklendi
+    drawingAngle: 0, // YENİ: Çizim açısı eklendi
     snapOptions: {
         endpoint: true,
         midpoint: true,
