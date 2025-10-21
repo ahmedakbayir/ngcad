@@ -1,3 +1,4 @@
+// ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/draw-previews.js
 import { state, dom, WALL_THICKNESS } from './main.js';
 // import { getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow } from './actions.js'; // <-- BU SATIRI SİLİN
 import { getDoorPlacement, isSpaceForDoor } from './door-handler.js'; // <-- BU SATIRI EKLEYİN
@@ -127,7 +128,8 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
 
         let previewPos = { x: mousePos.x, y: mousePos.y };
 
-        if (currentMode === "drawRoom") {
+        // <-- DEĞİŞİKLİK BURADA: "drawColumn" modu eklendi -->
+        if (currentMode === "drawRoom" || currentMode === "drawColumn") {
             ctx2d.strokeRect(startPoint.x, startPoint.y, previewPos.x - startPoint.x, previewPos.y - startPoint.y);
             drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true, 'single');
             drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true, 'single');

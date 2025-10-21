@@ -1,3 +1,5 @@
+// ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/draw2d.js
+
 // 'getObjectAtPoint' artık 'actions.js' dosyasından geliyor
 import { getObjectAtPoint } from './actions.js';
 import { state, dom, BG, WALL_THICKNESS } from './main.js';
@@ -153,8 +155,20 @@ export function draw2D() {
                 drawDimension(p1, p2, true, 'single');
             }
         }
+    
+    // --- YENİ KOLON ÖLÇÜ BLOĞU BAŞLANGICI ---
+    } else if (!isDragging && selectedObject?.type === "column") {
+        const column = selectedObject.object;
+        const corners = getColumnCorners(column); //
+        
+        // Köşeler [0:sol-üst, 1:sağ-üst, 2:sağ-alt, 3:sol-alt] (genellikle)
+        // "En" (Genişlik) için 0-1 arası
+        drawDimension(corners[0], corners[1], true, 'single'); //
+        // "Boy" (Yükseklik/Derinlik) için 1-2 arası
+        drawDimension(corners[1], corners[2], true, 'single'); //
     }
-    // --- YENİ BLOK SONU ---
+    // --- YENİ KOLON ÖLÇÜ BLOĞU SONU ---
+
 
     // 11. Sürükleme/Çizim Geri Bildirimleri
     drawDragPreviews(ctx2d, state, drawDimension);

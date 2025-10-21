@@ -67,9 +67,6 @@ export function getColumnHandleAtPoint(point, column, tolerance) {
         // if (i === 0) console.log("Köşe 0'a mesafe:", dist); // İlk köşeye mesafeyi logla
         // --- DEBUG SONU ---
         if (dist < cornerTolerance) {
-            // --- DEBUG BAŞLANGIÇ ---
-            console.log(`>>> Köşe ${i} tespit edildi! Handle: corner_${i}`);
-            // --- DEBUG SONU ---
             return `corner_${i}`;
         }
     }

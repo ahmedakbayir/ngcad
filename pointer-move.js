@@ -1,4 +1,4 @@
-// ahmedakbayir/ngcad/ngcad-54ad8bf2d516757e62115ea4acba62ce8c974e7f/pointer-move.js
+// ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/pointer-move.js
 // GÜNCELLENMİŞ: Bu dosya artık sadece bir yönlendiricidir.
 
 import { state, dom, setState, WALL_THICKNESS } from './main.js';
@@ -8,7 +8,8 @@ import { positionLengthInput } from './ui.js';
 import { update3DScene } from './scene3d.js';
 import { processWalls } from './wall-processor.js';
 import { currentModifierKeys } from './input.js';
-import { onPointerMove as onPointerMoveColumn, getColumnAtPoint } from './columns.js';
+// <-- DEĞİŞİKLİK BURADA: isPointInColumn eklendi -->
+import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from './columns.js';
 import { onPointerMove as onPointerMoveWall } from './wall-handler.js';
 import { onPointerMove as onPointerMoveDoor } from './door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from './window-handler.js';
@@ -45,6 +46,8 @@ export function onPointerMove(e) {
         }
         const rect = dom.c2d.getBoundingClientRect();
         const mousePos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        
+        // Duvar silme
         const wallsToDelete = new Set();
         for (const wall of state.walls) {
              const wallPx = wall.thickness || WALL_THICKNESS;
@@ -61,6 +64,23 @@ export function onPointerMove(e) {
             setState({ walls: newWalls, doors: newDoors });
             processWalls();
         }
+        
+        // <-- DEĞİŞİKLİK BURADA: Kolon silme mantığı eklendi -->
+        const columnsToDelete = new Set();
+        for (const column of state.columns) {
+            if (isPointInColumn(mousePos, column)) {
+                columnsToDelete.add(column);
+            }
+        }
+
+        if (columnsToDelete.size > 0) {
+            const columnsToDeleteArray = Array.from(columnsToDelete);
+            const newColumns = state.columns.filter(c => !columnsToDeleteArray.includes(c));
+            setState({ columns: newColumns });
+            processWalls(); // 3D sahneyi vb. güncellemek için
+        }
+        // <-- DEĞİŞİKLİK SONU -->
+        
         return;
     }
 
