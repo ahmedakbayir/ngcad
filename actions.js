@@ -2,7 +2,7 @@
 // GÜNCELLENMİŞ: Bu dosya artık sadece bir "hit testing" yönlendiricisi
 // ve birkaç genel yardımcı fonksiyon içeriyor.
 
-import { state, WALL_THICKNESS } from './main.js';
+import { state } from './main.js';
 import { getColumnAtPoint } from './columns.js';
 import { getWallAtPoint } from './wall-handler.js';
 import { getDoorAtPoint } from './door-handler.js';
@@ -48,7 +48,7 @@ export function getObjectAtPoint(pos) {
             const dy = (wall.p2.y - wall.p1.y) / wallLen;
             const ventCenterX = wall.p1.x + dx * vent.pos;
             const ventCenterY = wall.p1.y + dy * vent.pos;
-            const wallPx = wall.thickness || WALL_THICKNESS;
+            const wallPx = wall.thickness || state.WALL_THICKNESS;
             const dx_p = pos.x - ventCenterX;
             const dy_p = pos.y - ventCenterY;
             const distPerpendicular = Math.abs(dx_p * (-dy) + dy_p * dx);
@@ -102,7 +102,7 @@ export function getObjectAtPoint(pos) {
  * @returns {number} - Minimum uzunluk (cm)
  */
 export function getMinWallLength(wall) {
-    const wallThickness = wall.thickness || WALL_THICKNESS;
+    const wallThickness = wall.thickness || state.WALL_THICKNESS;
     const UM = (wallThickness / 2) + 5;
     const MIN_ITEM_WIDTH = 20;
     const MIN_GAP = 0.1;

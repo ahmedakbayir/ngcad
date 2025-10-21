@@ -1,6 +1,6 @@
 // ahmedakbayir/ngcad/ngcad-ad56530de4465cbe8a9f9e5e0a4ec4205c63557c/renderer2d.js
 
-import { state, dom, BG, WALL_THICKNESS } from './main.js';
+import { state, dom, BG } from './main.js';
 // getLineIntersectionPoint import edildiğinden emin ol
 import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from './geometry.js';
 import { getColumnCorners, isPointInColumn } from './columns.js';
@@ -31,7 +31,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     // Kapı köşe noktaları (dünya koordinatları)
     const doorP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
     const doorP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
-    const wallPx = wall.thickness || WALL_THICKNESS; // Duvar kalınlığı
+    const wallPx = wall.thickness || state.WALL_THICKNESS; // Duvar kalınlığı
     const halfWall = wallPx / 2; // Yarı kalınlık
     // Renk belirleme
     let color;
@@ -106,7 +106,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; const nx = -dy, ny = dx;
     const startPos = window.pos - window.width / 2; const endPos = window.pos + window.width / 2;
     const windowP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos }; const windowP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
-    const wallPx = wall.thickness || WALL_THICKNESS; const halfWall = wallPx / 2;
+    const wallPx = wall.thickness || state.WALL_THICKNESS; const halfWall = wallPx / 2;
     const isSelectedCalc = isSelected || (selectedObject?.type === "window" && selectedObject.object === window);
     let color;
     if (isPreview) { color = "#8ab4f8"; } else if (isSelectedCalc) { color = "#8ab4f8"; } else {
@@ -231,12 +231,12 @@ export function drawGrid() {
 
 // Farenin bir duvar üzerinde olup olmadığını kontrol eder
 export function isMouseOverWall() {
-    for (const w of state.walls) { if (!w.p1 || !w.p2) continue; const wallPx = w.thickness || WALL_THICKNESS; const bodyHitToleranceSq = (wallPx / 2)**2; if (distToSegmentSquared(state.mousePos, w.p1, w.p2) < bodyHitToleranceSq) { return true; } } return false;
+    for (const w of state.walls) { if (!w.p1 || !w.p2) continue; const wallPx = w.thickness || state.WALL_THICKNESS; const bodyHitToleranceSq = (wallPx / 2)**2; if (distToSegmentSquared(state.mousePos, w.p1, w.p2) < bodyHitToleranceSq) { return true; } } return false;
 }
 
 // Menfez sembolünü çizer
 export function drawVentSymbol(wall, vent) {
-    const { ctx2d } = dom; const { selectedObject } = state; if (!wall || !wall.p1 || !wall.p2) return; const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 1) return; const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; const nx = -dy, ny = dx; const startPos = vent.pos - vent.width / 2; const endPos = vent.pos + vent.width / 2; const ventP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos }; const ventP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos }; const wallPx = wall.thickness || WALL_THICKNESS; const halfWall = wallPx / 2; const isSelected = selectedObject?.type === "vent" && selectedObject.object === vent; ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e57373"; ctx2d.fillStyle = "rgba(229, 115, 115, 0.2)"; ctx2d.lineWidth = 1.5; const box1_start = { x: ventP1.x - nx * halfWall, y: ventP1.y - ny * halfWall }; const box1_end = { x: ventP1.x + nx * halfWall, y: ventP1.y + ny * halfWall }; const box2_start = { x: ventP2.x - nx * halfWall, y: ventP2.y - ny * halfWall }; const box2_end = { x: ventP2.x + nx * halfWall, y: ventP2.y + ny * halfWall }; ctx2d.beginPath(); ctx2d.moveTo(box1_start.x, box1_start.y); ctx2d.lineTo(box1_end.x, box1_end.y); ctx2d.lineTo(box2_end.x, box2_end.y); ctx2d.lineTo(box2_start.x, box2_start.y); ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke(); const numLines = 3; for (let i = 1; i <= numLines; i++) { const t = i / (numLines + 1); const lineX = ventP1.x + (ventP2.x - ventP1.x) * t; const lineY = ventP1.y + (ventP2.y - ventP1.y) * t; ctx2d.beginPath(); ctx2d.moveTo(lineX - nx * halfWall * 0.8, lineY - ny * halfWall * 0.8); ctx2d.lineTo(lineX + nx * halfWall * 0.8, lineY + ny * halfWall * 0.8); ctx2d.stroke(); }
+    const { ctx2d } = dom; const { selectedObject } = state; if (!wall || !wall.p1 || !wall.p2) return; const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 1) return; const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; const nx = -dy, ny = dx; const startPos = vent.pos - vent.width / 2; const endPos = vent.pos + vent.width / 2; const ventP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos }; const ventP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos }; const wallPx = wall.thickness || state.WALL_THICKNESS; const halfWall = wallPx / 2; const isSelected = selectedObject?.type === "vent" && selectedObject.object === vent; ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e57373"; ctx2d.fillStyle = "rgba(229, 115, 115, 0.2)"; ctx2d.lineWidth = 1.5; const box1_start = { x: ventP1.x - nx * halfWall, y: ventP1.y - ny * halfWall }; const box1_end = { x: ventP1.x + nx * halfWall, y: ventP1.y + ny * halfWall }; const box2_start = { x: ventP2.x - nx * halfWall, y: ventP2.y - ny * halfWall }; const box2_end = { x: ventP2.x + nx * halfWall, y: ventP2.y + ny * halfWall }; ctx2d.beginPath(); ctx2d.moveTo(box1_start.x, box1_start.y); ctx2d.lineTo(box1_end.x, box1_end.y); ctx2d.lineTo(box2_end.x, box2_end.y); ctx2d.lineTo(box2_start.x, box2_start.y); ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke(); const numLines = 3; for (let i = 1; i <= numLines; i++) { const t = i / (numLines + 1); const lineX = ventP1.x + (ventP2.x - ventP1.x) * t; const lineY = ventP1.y + (ventP2.y - ventP1.y) * t; ctx2d.beginPath(); ctx2d.moveTo(lineX - nx * halfWall * 0.8, lineY - ny * halfWall * 0.8); ctx2d.lineTo(lineX + nx * halfWall * 0.8, lineY + ny * halfWall * 0.8); ctx2d.stroke(); }
 }
 
 // Eski tip kolon sembolünü çizer (node tabanlı)
@@ -285,7 +285,7 @@ export function drawColumn(column, isSelected = false) {
             // 1. Duvarlarla Kesişim Kontrolü (Hassas Kırpma)
             walls.forEach(wall => {
                 if (!wall || !wall.p1 || !wall.p2) return; // Geçersiz duvarı atla
-                const wallThickness = wall.thickness || WALL_THICKNESS;
+                const wallThickness = wall.thickness || state.WALL_THICKNESS;
                 const halfWallThickness = wallThickness / 2;
                 // Gizleme için kullanılacak mesafe karesi (merkez çizgisine göre)
                 // Neredeyse tam içindeyse gizle (0.5cm tolerans)

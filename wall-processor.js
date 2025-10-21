@@ -1,4 +1,4 @@
-import { state, setState, WALL_THICKNESS } from './main.js';
+import { state, setState } from './main.js';
 import { distToSegmentSquared, getOrCreateNode, getLineIntersection, areCollinear, detectRooms } from './geometry.js';
 import { update3DScene } from './scene3d.js';
 import { saveState } from './history.js';
@@ -370,7 +370,7 @@ export function splitWallAtMousePosition() {
 
     let wallToSplit = null;
     let minDistSq = Infinity;
-    const hitToleranceSq = (WALL_THICKNESS) ** 2;
+    const hitToleranceSq = (state.WALL_THICKNESS) ** 2;
 
     for (const wall of walls) {
         const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);

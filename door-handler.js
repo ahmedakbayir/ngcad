@@ -1,5 +1,5 @@
 // door-handler.js
-import { state, setState, WALL_THICKNESS } from './main.js';
+import { state, setState } from './main.js';
 import { saveState } from './history.js';
 import { distToSegmentSquared } from './geometry.js';
 import { findAvailableSegmentAt, checkOverlapAndGap } from './wall-item-utils.js';
@@ -21,7 +21,7 @@ export function getDoorAtPoint(pos, tolerance) {
         const dy = (wall.p2.y - wall.p1.y) / wallLen;
         const doorCenterX = wall.p1.x + dx * door.pos;
         const doorCenterY = wall.p1.y + dy * door.pos;
-        const wallPx = wall.thickness || WALL_THICKNESS;
+        const wallPx = wall.thickness || state.WALL_THICKNESS;
 
         const dx_p = pos.x - doorCenterX;
         const dy_p = pos.y - doorCenterY;
@@ -43,7 +43,7 @@ export function getDoorAtPoint(pos, tolerance) {
 export function onPointerDownDraw(pos, clickedObject) {
     // 1. Direkt duvara yerleştirmeyi dene
     let previewWall = null, minDistSqPreview = Infinity;
-    const bodyHitTolerancePreview = (WALL_THICKNESS * 1.5) ** 2;
+    const bodyHitTolerancePreview = (state.ALL_THICKNESS * 1.5) ** 2;
     for (const w of [...state.walls].reverse()) {
          if (!w.p1 || !w.p2) continue;
          const distSq = distToSegmentSquared(pos, w.p1, w.p2);

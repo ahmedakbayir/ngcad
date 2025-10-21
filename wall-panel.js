@@ -1,4 +1,4 @@
-import { state, setState, WALL_THICKNESS } from './main.js';
+import { state, setState } from './main.js';
 import { saveState } from './history.js';
 import { processWalls } from './wall-processor.js';
 import { screenToWorld } from './geometry.js';
@@ -204,7 +204,7 @@ export function showWallPanel(wall, x, y) {
 
     wallPanelWall = wall;
 
-    const thickness = wall.thickness || WALL_THICKNESS;
+    const thickness = wall.thickness || state.WALL_THICKNESS;
     const wallType = wall.wallType || 'normal';
 
     document.getElementById('wall-thickness-slider').value = thickness;
@@ -239,7 +239,7 @@ function addDoorToWall(wall) {
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const doorWidth = 70;
     const doorPos = length / 2;
-    const wallThickness = wall.thickness || WALL_THICKNESS;
+    const wallThickness = wall.thickness || state.WALL_THICKNESS;
     const margin = (wallThickness / 2) + 5;
 
     // Kapı çakışma kontrolü
@@ -280,7 +280,7 @@ function addWindowToWall(wall) {
     // if (wall.windows && wall.windows.length > 0) return;
 
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    const wallThickness = wall.thickness || WALL_THICKNESS;
+    const wallThickness = wall.thickness || state.WALL_THICKNESS;
     const margin = (wallThickness / 2) + 5;
     const defaultWidth = 120; // Varsayılan boyut
     const minWidth = 40;

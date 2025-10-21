@@ -1,5 +1,5 @@
 // ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/draw-previews.js
-import { state, dom, WALL_THICKNESS } from './main.js';
+import { state, dom } from './main.js';
 // import { getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow } from './actions.js'; // <-- BU SATIRI SİLİN
 import { getDoorPlacement, isSpaceForDoor } from './door-handler.js'; // <-- BU SATIRI EKLEYİN
 import { getWindowPlacement, isSpaceForWindow } from './window-handler.js'; // <-- BU SATIRI EKLEYİN
@@ -9,14 +9,13 @@ import { distToSegmentSquared, snapTo15DegreeAngle } from './geometry.js';
 
 export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol) {
     const { currentMode, isPanning, isDragging, walls, mousePos } = state;
-    const WALL_THICKNESS = state.WALL_THICKNESS || 20;
 
     // Kapı önizlemesi
     if (currentMode === "drawDoor" && !isPanning && !isDragging) {
         const doorsToPreview = [];
 
         let closestWall = null, minDistSq = Infinity;
-        const bodyHitTolerance = (WALL_THICKNESS * 1.5) ** 2;
+        const bodyHitTolerance = (state.WALL_THICKNESS * 1.5) ** 2;
         
         for (const w of [...walls].reverse()) {
             const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
@@ -41,7 +40,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
     // Pencere önizlemesi
     if (currentMode === "drawWindow" && !isPanning && !isDragging) {
         let closestWall = null, minDistSq = Infinity;
-        const bodyHitTolerance = (WALL_THICKNESS * 1.5) ** 2;
+        const bodyHitTolerance = (state.WALL_THICKNESS * 1.5) ** 2;
         
         for (const w of [...walls].reverse()) {
             if (!w.p1 || !w.p2) continue;

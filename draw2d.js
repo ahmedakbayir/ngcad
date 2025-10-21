@@ -2,7 +2,7 @@
 
 // 'getObjectAtPoint' artık 'actions.js' dosyasından geliyor
 import { getObjectAtPoint } from './actions.js';
-import { state, dom, BG, WALL_THICKNESS } from './main.js';
+import { state, dom, BG } from './main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 // 'getDoorPlacement' ve 'isSpaceForDoor' artık 'door-handler.js' dosyasından geliyor
 import { getDoorPlacement, isSpaceForDoor } from './door-handler.js';

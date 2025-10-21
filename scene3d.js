@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { state, WALL_HEIGHT, WALL_THICKNESS, DOOR_HEIGHT } from "./main.js";
+import { state, WALL_HEIGHT, DOOR_HEIGHT } from "./main.js";
 
 let scene, camera, renderer, controls;
 let sceneObjects, doorMaterial;
@@ -36,7 +36,7 @@ function createWallSegmentMesh(p1, p2, material) {
     const wallLength = Math.hypot(p2.x - p1.x, p2.y - p1.y);
     if (wallLength < 1) return null;
 
-    const wallGeom = new THREE.BoxGeometry(wallLength, WALL_HEIGHT, WALL_THICKNESS);
+    const wallGeom = new THREE.BoxGeometry(wallLength, WALL_HEIGHT, state.wallThickness);
     wallGeom.translate(0, WALL_HEIGHT / 2, 0);
     const wallMesh = new THREE.Mesh(wallGeom, material);
 
@@ -72,7 +72,7 @@ function createLintelMesh(door, material) {
     const lintelHeight = WALL_HEIGHT - DOOR_HEIGHT;
     if (lintelHeight <= 0) return null;
     const doorCenterPos = { x: wall.p1.x + dx * door.pos, y: wall.p1.y + dy * door.pos };
-    const lintelGeom = new THREE.BoxGeometry(door.width, lintelHeight, WALL_THICKNESS);
+    const lintelGeom = new THREE.BoxGeometry(door.width, lintelHeight, state.wallThickness);
     lintelGeom.translate(0, DOOR_HEIGHT + lintelHeight / 2, 0);
     const lintelMesh = new THREE.Mesh(lintelGeom, material);
     lintelMesh.position.set(doorCenterPos.x, 0, -doorCenterPos.y);

@@ -1,5 +1,5 @@
 // wall-item-utils.js
-import { state, WALL_THICKNESS } from './main.js';
+import { state } from './main.js';
 
 /**
  * Duvardaki mevcut elemanları ve boşlukları dikkate alarak yerleşime uygun en büyük boş segmenti bulur.
@@ -9,7 +9,7 @@ import { state, WALL_THICKNESS } from './main.js';
  */
 export function findLargestAvailableSegment(wall, itemToExclude = null) {
     const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    const DK = wall.thickness || WALL_THICKNESS;
+    const DK = wall.thickness || state.WALL_THICKNESS;
     const UM = (DK / 2) + 5; // Uç marjı
     const MIN_GAP = 0.1; // Elemanlar arası minimum boşluk
     const MIN_ITEM_WIDTH = 20; // Yerleştirilebilecek en küçük eleman genişliği

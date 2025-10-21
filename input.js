@@ -1,4 +1,4 @@
-import { state, setState, setMode, dom, EXTEND_RANGE, WALL_THICKNESS } from './main.js';
+import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js';
 import { screenToWorld, getOrCreateNode, distToSegmentSquared } from './geometry.js'; // distToSegmentSquared ekleyin
 import { splitWallAtMousePosition, processWalls } from './wall-processor.js';
 import { undo, redo, saveState, restoreState } from './history.js';
@@ -44,7 +44,7 @@ function extendWallOnTabPress() {
     const finalEndPoint = bestIntersection ? bestIntersection : rayEnd;
     const endNode = getOrCreateNode(finalEndPoint.x, finalEndPoint.y);
     if (endNode !== state.startPoint && !wallExists(state.startPoint, endNode)) {
-        state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: WALL_THICKNESS, wallType: 'normal' });
+        state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.WALL_THICKNESS, wallType: 'normal' });
         setState({ startPoint: endNode });
         processWalls();
         saveState();
@@ -240,7 +240,7 @@ function splitWallAtMousePositionWithoutMerge() {
 
     let wallToSplit = null;
     let minDistSq = Infinity;
-    const hitToleranceSq = (WALL_THICKNESS * 1.5) ** 2;
+    const hitToleranceSq = (state.WALL_THICKNESS * 1.5) ** 2;
 
     for (const wall of walls) {
         const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);
@@ -270,7 +270,7 @@ function splitWallAtMousePositionWithoutMerge() {
         type: "wall", 
         p1: p1, 
         p2: splitNode, 
-        thickness: wallToSplit.thickness || WALL_THICKNESS, 
+        thickness: wallToSplit.thickness || state.WALL_THICKNESS, 
         wallType: wallToSplit.wallType || 'normal',
         windows: [],
         vents: []
@@ -279,7 +279,7 @@ function splitWallAtMousePositionWithoutMerge() {
         type: "wall", 
         p1: splitNode, 
         p2: p2, 
-        thickness: wallToSplit.thickness || WALL_THICKNESS, 
+        thickness: wallToSplit.thickness || state.WALL_THICKNESS, 
         wallType: wallToSplit.wallType || 'normal',
         windows: [],
         vents: []

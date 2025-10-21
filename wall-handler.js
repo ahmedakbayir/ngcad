@@ -1,5 +1,5 @@
 // wall-handler.js
-import { state, setState, WALL_THICKNESS } from './main.js';
+import { state, setState } from './main.js';
 import { getOrCreateNode, isPointOnWallBody, snapTo15DegreeAngle, distToSegmentSquared } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
@@ -35,7 +35,7 @@ export function getWallAtPoint(pos, tolerance) {
     // Duvar gövdesi kontrolü
     for (const wall of [...state.walls].reverse()) {
         if (!wall.p1 || !wall.p2) continue;
-        const wallPx = wall.thickness || WALL_THICKNESS;
+        const wallPx = wall.thickness || state.WALL_THICKNESS;
         const bodyHitToleranceSq = (wallPx / 2 + tolerance)**2;
         if (distToSegmentSquared(pos, wall.p1, wall.p2) < bodyHitToleranceSq) {
             const d1Sq = (pos.x - wall.p1.x)**2 + (pos.y - wall.p1.y)**2;
@@ -85,7 +85,7 @@ export function onPointerDownDraw(snappedPos) {
                  const didConnectToWallBody = !didSnapToExistingNode && isPointOnWallBody(endNode);
 
                  if (endNode !== state.startPoint && !wallExists(state.startPoint, endNode)) {
-                     state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: WALL_THICKNESS, wallType: 'normal' });
+                     state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.WALL_THICKNESS, wallType: 'normal' });
                      geometryChanged = true;
                  }
 
@@ -104,7 +104,7 @@ export function onPointerDownDraw(snappedPos) {
                          v4 = getOrCreateNode(v1.x, placementPos.y);
                    [{ p1: v1, p2: v2 }, { p1: v2, p2: v3 }, { p1: v3, p2: v4 }, { p1: v4, p2: v1 }].forEach(pw => {
                         if (!wallExists(pw.p1, pw.p2)) {
-                            state.walls.push({ type: "wall", ...pw, thickness: WALL_THICKNESS, wallType: 'normal' });
+                            state.walls.push({ type: "wall", ...pw, thickness: state.WALL_THICKNESS, wallType: 'normal' });
                         }
                    });
                    geometryChanged = true;
