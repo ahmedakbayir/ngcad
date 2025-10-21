@@ -15,7 +15,7 @@ export function saveState() {
             type: w.type,
             p1Index: state.nodes.indexOf(w.p1),
             p2Index: state.nodes.indexOf(w.p2),
-            thickness: w.thickness || 20, // main.js'den WALL_THICKNESS import edilebilir
+            thickness: w.thickness || state.wallThickness, // GÜNCELLENDİ
             wallType: w.wallType || 'normal',
             // --- GÜNCELLENDİ: Deep copy eklendi ---
             windows: w.windows ? JSON.parse(JSON.stringify(w.windows)) : [],
@@ -67,7 +67,7 @@ export function restoreState(snapshot) {
         type: w.type,
         p1: restoredNodes[w.p1Index],
         p2: restoredNodes[w.p2Index],
-        thickness: w.thickness || 20, // main.js'den WALL_THICKNESS import edilebilir
+        thickness: w.thickness || state.wallThickness, // GÜNCELLENDİ
         wallType: w.wallType || 'normal',
         // --- GÜNCELLENDİ: Deep copy (burada zaten JSON'dan parse edildiği için [... ] yeterli) ---
         // Windows ve vents verisi snapshot içinde zaten stringify/parse edilmiş düz obje olmalı.

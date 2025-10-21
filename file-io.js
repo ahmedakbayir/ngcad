@@ -17,6 +17,8 @@ function saveProject() {
         wallBorderColor: state.wallBorderColor,
         roomFillColor: state.roomFillColor,
         lineThickness: state.lineThickness,
+        wallThickness: state.wallThickness, // YENİ EKLENDİ
+        drawingAngle: state.drawingAngle, // YENİ EKLENDİ
         nodes: state.nodes.map(n => ({
             x: n.x,
             y: n.y,
@@ -27,7 +29,7 @@ function saveProject() {
             type: w.type,
             p1Index: state.nodes.indexOf(w.p1),
             p2Index: state.nodes.indexOf(w.p2),
-            thickness: w.thickness || 20,
+            thickness: w.thickness || state.wallThickness, // GÜNCELLENDİ
             wallType: w.wallType || 'normal',
             windows: w.windows || [],
             vents: w.vents || []
@@ -105,6 +107,16 @@ function openProject(e) {
                 setState({ lineThickness: projectData.lineThickness });
                 dom.lineThicknessInput.value = projectData.lineThickness;
             }
+            
+            // YENİ EKLENEN AYARLAR
+            if (projectData.wallThickness) {
+                setState({ wallThickness: projectData.wallThickness });
+                dom.wallThicknessInput.value = projectData.wallThickness;
+            }
+            if (projectData.drawingAngle) {
+                setState({ drawingAngle: projectData.drawingAngle });
+                dom.drawingAngleInput.value = projectData.drawingAngle;
+            }
 
             // Node'ları geri yükle
             const restoredNodes = projectData.nodes.map(n => ({
@@ -119,7 +131,7 @@ function openProject(e) {
                 type: w.type || 'wall',
                 p1: restoredNodes[w.p1Index],
                 p2: restoredNodes[w.p2Index],
-                thickness: w.thickness || 20,
+                thickness: w.thickness || 20, // 20 varsayılan olarak kalsın
                 wallType: w.wallType || 'normal',
                 windows: w.windows || [],
                 vents: w.vents || []

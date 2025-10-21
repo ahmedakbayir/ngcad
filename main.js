@@ -8,7 +8,7 @@ import { createWallPanel } from './wall-panel.js';
 
 export const BG = "#1e1f20";
 export const METER_SCALE = 1;
-export const WALL_THICKNESS = 20;
+// export const WALL_THICKNESS = 20; // SABİT KALDIRILDI
 export const WALL_HEIGHT = 270;
 export const DOOR_HEIGHT = 220;
 export const DRAG_HANDLE_RADIUS = 8;
@@ -77,6 +77,8 @@ export let state = {
     wallBorderColor: "#ffffff",
     roomFillColor: "#232425",
     lineThickness: 2,
+    wallThickness: 20, // YENİ: Duvar kalınlığı state'e taşındı
+    drawingAngle: 15, // YENİ: Çizim açısı eklendi
     snapOptions: {
         endpoint: true,
         midpoint: true,
@@ -150,6 +152,8 @@ export const dom = {
     borderPicker: document.getElementById("borderPicker"),
     roomPicker: document.getElementById("roomPicker"),
     lineThicknessInput: document.getElementById("line-thickness"),
+    wallThicknessInput: document.getElementById("wall-thickness"), // YENİ EKLENDİ
+    drawingAngleInput: document.getElementById("drawing-angle"), // YENİ EKLENDİ
     gridVisibleInput: document.getElementById("grid-visible"),
     gridColorInput: document.getElementById("grid-color"),
     gridWeightInput: document.getElementById("grid-weight"),

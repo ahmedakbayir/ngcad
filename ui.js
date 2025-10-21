@@ -1,4 +1,4 @@
-import { state, setState, dom, resize, MAHAL_LISTESI, WALL_THICKNESS } from './main.js'; // WALL_THICKNESS eklendi
+import { state, setState, dom, resize, MAHAL_LISTESI } from './main.js'; // WALL_THICKNESS kaldırıldı
 import { saveState } from './history.js';
 import { update3DScene } from './scene3d.js';
 import { applyStretchModification } from './geometry.js';
@@ -15,6 +15,8 @@ export function initializeSettings() {
     dom.borderPicker.value = state.wallBorderColor;
     dom.roomPicker.value = state.roomFillColor;
     dom.lineThicknessInput.value = state.lineThickness;
+    dom.wallThicknessInput.value = state.wallThickness; // YENİ EKLENDİ
+    dom.drawingAngleInput.value = state.drawingAngle; // YENİ EKLENDİ
     dom.gridVisibleInput.checked = state.gridOptions.visible;
     dom.gridColorInput.value = state.gridOptions.color;
     dom.gridWeightInput.value = state.gridOptions.weight;
@@ -405,6 +407,8 @@ export function setupUIListeners() {
     dom.borderPicker.addEventListener("input", (e) => setState({ wallBorderColor: e.target.value }));
     dom.roomPicker.addEventListener("input", (e) => setState({ roomFillColor: e.target.value }));
     dom.lineThicknessInput.addEventListener("input", (e) => { const value = parseFloat(e.target.value); if(!isNaN(value)) setState({ lineThickness: value }); });
+    dom.wallThicknessInput.addEventListener("input", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) setState({ wallThickness: value }); }); // YENİ EKLENDİ
+    dom.drawingAngleInput.addEventListener("input", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) setState({ drawingAngle: value }); }); // YENİ EKLENDİ
     dom.gridVisibleInput.addEventListener("change", (e) => { state.gridOptions.visible = e.target.checked; });
     dom.gridColorInput.addEventListener("input", (e) => { state.gridOptions.color = e.target.value; });
     dom.gridWeightInput.addEventListener("input", (e) => { const value = parseFloat(e.target.value); if (!isNaN(value)) state.gridOptions.weight = value; });

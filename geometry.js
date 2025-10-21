@@ -320,8 +320,11 @@ export function snapTo15DegreeAngle(p1, p2) {
     let angleRad = Math.atan2(dy, dx); // Açı (radyan)
     let angleDeg = angleRad * 180 / Math.PI; // Açı (derece)
 
-    const SNAP_ANGLE = 15; // Snap açısı
-    // Açıyı en yakın 15 derece katına yuvarla
+    const SNAP_ANGLE = state.drawingAngle || 15; // YENİ: State'den al
+    // Snap açısı 0 ise snap yapma
+    if (SNAP_ANGLE === 0) return p2;
+    
+    // Açıyı en yakın SNAP_ANGLE katına yuvarla
     const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
     const snappedAngleRad = snappedAngleDeg * Math.PI / 180; // Yuvarlanmış açıyı radyana çevir
 
