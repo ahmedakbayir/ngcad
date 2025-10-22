@@ -4,6 +4,7 @@
 
 import { state } from './main.js';
 import { getColumnAtPoint } from './columns.js';
+import { getBeamAtPoint } from './beams.js'; // <-- YENİ SATIRI EKLEYİN
 import { getWallAtPoint } from './wall-handler.js';
 import { getDoorAtPoint } from './door-handler.js';
 import { getWindowAtPoint } from './window-handler.js';
@@ -24,6 +25,12 @@ export function getObjectAtPoint(pos) {
     // 1. Kolon Kontrolü (En Yüksek Öncelik)
     const columnHit = getColumnAtPoint(pos);
     if (columnHit) return columnHit;
+
+    // YENİ KİRİŞ KONTROLÜNÜ AŞAĞIYA EKLEYİN
+    // 1.5. Kiriş Kontrolü
+    const beamHit = getBeamAtPoint(pos);
+    if (beamHit) return beamHit;
+    // YENİ KONTROL BİTİŞİ
 
     // 2. Duvar Ucu (Node) Kontrolü
     const wallHit = getWallAtPoint(pos, tolerance);

@@ -80,13 +80,62 @@ function createLintelMesh(door, material) {
     return lintelMesh;
 }
 
+// YENİ KOLON OLUŞTURMA FONKSİYONU
+function createColumnMesh(column, material) {
+    const columnWidth = column.width || column.size;
+    const columnHeight3D = WALL_HEIGHT; // Kolon yüksekliği duvar yüksekliği kadar
+    const columnDepth = column.height || column.size;
+
+    if (columnWidth < 1 || columnDepth < 1) return null;
+
+    // Geometri: Genişlik (X), Yükseklik (Y), Derinlik (Z)
+    const columnGeom = new THREE.BoxGeometry(columnWidth, columnHeight3D, columnDepth);
+    columnGeom.translate(0, columnHeight3D / 2, 0); // Y ekseninde yukarı kaydır
+
+    const columnMesh = new THREE.Mesh(columnGeom, material);
+
+    // Kolonun 2D merkezini (X, -Z) ve 3D Y pozisyonunu (0) ayarla
+    columnMesh.position.set(column.center.x, 0, -column.center.y);
+    // 2D açısını 3D Y rotasyonuna çevir
+    columnMesh.rotation.y = -(column.rotation || 0) * Math.PI / 180;
+
+    return columnMesh;
+}
+// YENİ FONKSİYON BİTİŞİ
+
+// KİRİŞ OLUŞTURMA FONKSİYONU
+function createBeamMesh(beam, material) {
+    const beamLength = beam.width; // Kiriş uzunluğu
+    const beamThickness = beam.height; // Kiriş eni
+    const beamDepth = beam.depth || 20; // Kiriş 3D yüksekliği
+
+    if (beamLength < 1) return null;
+
+    // Geometri: Uzunluk (X), Yükseklik (Y), En (Z)
+    const beamGeom = new THREE.BoxGeometry(beamLength, beamDepth, beamThickness);
+    
+    // 3D pozisyon (Y): Tavanın 20cm altı
+    const yPosition = WALL_HEIGHT - (beamDepth / 2);
+    
+    const beamMesh = new THREE.Mesh(beamGeom, material);
+
+    // Kirişin 2D merkezini (X, -Z) ve 3D Y pozisyonunu ayarla
+    beamMesh.position.set(beam.center.x, yPosition, -beam.center.y); 
+    // 2D açısını 3D Y rotasyonuna çevir (Y-up koordinat sistemi için -Z'ye bakarken açı ters döner)
+    beamMesh.rotation.y = - (beam.rotation || 0) * Math.PI / 180; 
+
+    return beamMesh;
+}
+// FONKSİYON BİTİŞİ
+
 export function update3DScene() {
     if (!document.getElementById("main-container").classList.contains('show-3d')) return;
 
     if (!sceneObjects) return;
     sceneObjects.clear();
     
-    const { walls, doors, wallBorderColor } = state;
+    // "beams" ve "columns" değişkenlerini state'ten alın
+    const { walls, doors, columns, beams, wallBorderColor } = state; // <-- beams ve columns EKLEYİN
     const wallMaterial = new THREE.MeshStandardMaterial({ color: wallBorderColor });
 
     walls.forEach(w => {
@@ -117,6 +166,26 @@ export function update3DScene() {
         const lintelMesh = createLintelMesh(door, wallMaterial);
         if (lintelMesh) sceneObjects.add(lintelMesh);
     });
+
+    // YENİ KOLON DÖNGÜSÜ
+    const columnMaterial = new THREE.MeshStandardMaterial({ color: wallBorderColor }); // Duvar rengiyle aynı
+    if (columns) {
+        columns.forEach(column => {
+            const columnMesh = createColumnMesh(column, columnMaterial);
+            if (columnMesh) sceneObjects.add(columnMesh);
+        });
+    }
+    // YENİ DÖNGÜ BİTİŞİ
+
+    // KİRİŞ DÖNGÜSÜ
+    const beamMaterial = new THREE.MeshStandardMaterial({ color: '#e57373' }); // Kırmızı malzeme
+    if (beams) {
+        beams.forEach(beam => {
+            const beamMesh = createBeamMesh(beam, beamMaterial);
+            if (beamMesh) sceneObjects.add(beamMesh);
+        });
+    }
+    // DÖNGÜ BİTİŞİ
 
     if (sceneObjects.children.length > 0) {
         const box = new THREE.Box3().setFromObject(sceneObjects);

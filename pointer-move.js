@@ -10,6 +10,8 @@ import { processWalls } from './wall-processor.js';
 import { currentModifierKeys } from './input.js';
 // <-- DEĞİŞİKLİK BURADA: isPointInColumn eklendi -->
 import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from './columns.js';
+// YENİ IMPORTLARI AŞAĞIYA EKLEYİN
+import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from './beams.js';
 import { onPointerMove as onPointerMoveWall } from './wall-handler.js';
 import { onPointerMove as onPointerMoveDoor } from './door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from './window-handler.js';
@@ -81,6 +83,22 @@ export function onPointerMove(e) {
         }
         // <-- DEĞİŞİKLİK SONU -->
         
+        // YENİ KİRİŞ SİLME BLOĞUNU AŞAĞIYA EKLEYİN
+        const beamsToDelete = new Set();
+        for (const beam of (state.beams || [])) {
+            if (isPointInBeam(mousePos, beam)) {
+                beamsToDelete.add(beam);
+            }
+        }
+
+        if (beamsToDelete.size > 0) {
+            const beamsToDeleteArray = Array.from(beamsToDelete);
+            const newBeams = state.beams.filter(b => !beamsToDeleteArray.includes(b));
+            setState({ beams: newBeams });
+            processWalls(); // 3D sahneyi vb. güncellemek için
+        }
+        // YENİ BLOK BİTİŞİ
+        
         return;
     }
 
@@ -138,6 +156,9 @@ export function onPointerMove(e) {
         switch (state.selectedObject.type) {
             case 'column':
                 onPointerMoveColumn(snappedPos, unsnappedPos);
+                break;
+            case 'beam': // <-- YENİ CASE EKLEYİN
+                onPointerMoveBeam(snappedPos, unsnappedPos);
                 break;
             case 'wall':
                 onPointerMoveWall(snappedPos, unsnappedPos);
@@ -205,7 +226,7 @@ function updateMouseCursor() {
     }
 
     if (isDragging) {
-        if (selectedObject?.type === 'column') {
+        if (selectedObject?.type === 'column' || selectedObject?.type === 'beam') { // <-- "beam" EKLEYİN
             if (selectedObject.handle?.startsWith('corner_')) {
                 p2d.classList.add('rotate-mode'); // Sınıfı p2d'ye ekle
                 return;
@@ -257,10 +278,37 @@ function updateMouseCursor() {
             return;
         }
     }
+    
+    // YENİ KİRİŞ CURSOR BLOĞUNU AŞAĞIYA EKLEYİN
+    const hoveredBeamObject = getBeamAtPoint(mousePos);
+    if (hoveredBeamObject) {
+        const handle = hoveredBeamObject.handle;
+        if (handle.startsWith('corner_')) {
+            p2d.classList.add('rotate-mode');
+            return;
+        }
+        if (handle.startsWith('edge_')) {
+            const rotation = hoveredBeamObject.object.rotation || 0;
+            const angleDeg = Math.abs(rotation % 180);
+            let cursorType = 'ew-resize';
+            if (handle === 'edge_top' || handle === 'edge_bottom') {
+                cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize';
+            } else {
+                cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize';
+            }
+            c2d.style.cursor = cursorType;
+            return;
+        }
+        if (handle === 'body' && currentMode === 'select') {
+            c2d.style.cursor = 'move';
+            return;
+        }
+    }
+    // YENİ BLOK BİTİŞİ
 
     // Diğer hover durumları için sınıfları p2d'ye ekleyelim
     const isDraggingDoorOrWindow = isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window');
-    const showSnap = (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn') ||
+    const showSnap = (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn' || currentMode === 'drawBeam') || // <-- "drawBeam" EKLEYİN
                      (isDragging && selectedObject?.type === 'wall' && selectedObject.handle !== 'body');
 
     if (!isDraggingDoorOrWindow && mousePos.isSnapped && !isDragging && showSnap) {
@@ -300,6 +348,7 @@ function updateMouseCursor() {
      else if (currentMode === 'drawDoor') p2d.classList.add('drawDoor-mode');
      else if (currentMode === 'drawWindow') { /* window için özel class yoksa default kalır */ }
      else if (currentMode === 'drawColumn') p2d.classList.add('drawColumn-mode');
+     else if (currentMode === 'drawBeam') p2d.classList.add('drawBeam-mode'); // <-- YENİ SATIRI EKLEYİN
 
 }
 

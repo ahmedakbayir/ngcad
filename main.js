@@ -36,6 +36,7 @@ export let state = {
     doors: [],
     rooms: [],
     columns: [],
+    beams: [],
     wallAdjacency: new Map(),
     selectedObject: null,
     selectedRoom: null,
@@ -128,6 +129,7 @@ export const dom = {
     bDoor: document.getElementById("bDoor"),
     bWindow: document.getElementById("bWindow"),
     bColumn: document.getElementById("bColumn"),
+    bBeam: document.getElementById("bBeam"),
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
@@ -201,6 +203,7 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bDoor.classList.toggle("active", newMode === "drawDoor");
     dom.bWindow.classList.toggle("active", newMode === "drawWindow");
     dom.bColumn.classList.toggle("active", newMode === "drawColumn");
+    dom.bBeam.classList.toggle("active", newMode === "drawBeam");
     dom.p2d.className = `panel ${newMode}-mode`;
 }
 
@@ -300,6 +303,7 @@ function initialize() {
     dom.bDoor.addEventListener("click", () => setMode("drawDoor"));
     dom.bWindow.addEventListener("click", () => setMode("drawWindow"));
     dom.bColumn.addEventListener("click", () => setMode("drawColumn"));
+    dom.bBeam.addEventListener("click", () => setMode("drawBeam"));
     dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames);
 

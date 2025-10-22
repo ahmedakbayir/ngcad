@@ -153,6 +153,12 @@ export function onPointerUp(e) {
             processWalls();
         }
 
+        // YENİ IF BLOĞUNU AŞAĞIYA EKLEYİN
+        if (state.selectedObject?.type === "beam") {
+            processWalls();
+        }
+        // YENİ BLOK BİTİŞİ
+
         processWalls();
         saveState();
     

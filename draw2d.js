@@ -8,7 +8,7 @@ import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } 
 import { getDoorPlacement, isSpaceForDoor } from './door-handler.js';
 // 'getWindowPlacement' ve 'isSpaceForWindow' artık 'window-handler.js' dosyasından geliyor
 import { getWindowPlacement, isSpaceForWindow } from './window-handler.js';
-import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn } from './renderer2d.js';
+import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn, drawBeam } from './renderer2d.js'; // <-- drawBeam EKLEYİN
 import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 import { drawWallGeometry } from './draw-walls.js';
 import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
@@ -16,6 +16,7 @@ import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
 // Eğer columns.js'de getColumnCorners yoksa, bu importu kaldırıp renderer2d'den almanız gerekir.
 // Ancak refactoring sonrası columns.js'de olması daha mantıklı.
 import { getColumnCorners } from './columns.js';
+import { getBeamCorners } from './beams.js'; // <-- YENİ SATIRI EKLEYİN
 import {
     drawObjectPlacementPreviews,
     drawDragPreviews,
@@ -28,8 +29,8 @@ import {
 export function draw2D() {
     const { ctx2d, c2d } = dom;
     const {
-        panOffset, zoom, rooms, walls, doors, selectedObject,
-        isDragging, dimensionMode, affectedWalls, startPoint, nodes, 
+        panOffset, zoom, rooms, walls, doors, beams, selectedObject, // <-- beams EKLEYİN
+        isDragging, dimensionMode, affectedWalls, startPoint, nodes,
         dimensionOptions, wallAdjacency,
     } = state;
 
@@ -42,7 +43,7 @@ export function draw2D() {
 
     // 1. Grid
     drawGrid();
-    
+
     // 2. Mahaller (Poligonlar)
     drawRoomPolygons(ctx2d, state);
 
@@ -54,6 +55,14 @@ export function draw2D() {
         const isSelected = selectedObject?.type === "column" && selectedObject.object === column;
         drawColumn(column, isSelected);
     });
+
+    // YENİ KİRİŞ ÇİZİM BLOĞUNU AŞAĞIYA EKLEYİN
+    // 4.5. KİRİŞLER
+    (state.beams || []).forEach(beam => {
+        const isSelected = selectedObject?.type === "beam" && selectedObject.object === beam;
+        drawBeam(beam, isSelected);
+    });
+    // YENİ BLOK BİTİŞİ
 
     // 5. Atomik Semboller
     nodes.forEach(node => {
@@ -110,11 +119,11 @@ export function draw2D() {
     if (dimensionMode === 1) {
         drawTotalDimensions();
     } else if (dimensionMode === 2) {
-        walls.forEach((w) => { 
-            drawDimension(w.p1, w.p2, false, 'single'); 
-        }); 
+        walls.forEach((w) => {
+            drawDimension(w.p1, w.p2, false, 'single');
+        });
     }
-    
+
     drawOuterDimensions();
 
     if (isDragging && affectedWalls.length > 0 && (dimensionMode === 0 || dimensionMode === 1)) {
@@ -155,19 +164,23 @@ export function draw2D() {
                 drawDimension(p1, p2, true, 'single');
             }
         }
-    
-    // --- YENİ KOLON ÖLÇÜ BLOĞU BAŞLANGICI ---
+
+    // --- KOLON ÖLÇÜ BLOĞU GÜNCELLENDİ (DIŞARI ÇIKARILDI) ---
     } else if (!isDragging && selectedObject?.type === "column") {
         const column = selectedObject.object;
-        const corners = getColumnCorners(column); //
-        
-        // Köşeler [0:sol-üst, 1:sağ-üst, 2:sağ-alt, 3:sol-alt] (genellikle)
-        // "En" (Genişlik) için 0-1 arası
-        drawDimension(corners[0], corners[1], true, 'single'); //
-        // "Boy" (Yükseklik/Derinlik) için 1-2 arası
-        drawDimension(corners[1], corners[2], true, 'single'); //
+        const corners = getColumnCorners(column);
+        drawDimension(corners[0], corners[1], true, 'columnBeam'); // Modu 'columnBeam' yap
+        drawDimension(corners[1], corners[2], true, 'columnBeam'); // Modu 'columnBeam' yap
+    // --- GÜNCELLEME SONU ---
+
+    // --- YENİ KİRİŞ ÖLÇÜ BLOĞU BAŞLANGICI ---
+    } else if (!isDragging && selectedObject?.type === "beam") {
+        const beam = selectedObject.object;
+        const corners = getBeamCorners(beam);
+        drawDimension(corners[0], corners[1], true, 'columnBeam'); // Modu 'columnBeam' yap
+        drawDimension(corners[1], corners[2], true, 'columnBeam'); // Modu 'columnBeam' yap
     }
-    // --- YENİ KOLON ÖLÇÜ BLOĞU SONU ---
+    // --- YENİ KİRİŞ ÖLÇÜ BLOĞU SONU ---
 
 
     // 11. Sürükleme/Çizim Geri Bildirimleri

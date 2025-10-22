@@ -9,6 +9,8 @@ import { cancelLengthEdit } from './ui.js';
 import { getObjectAtPoint } from './actions.js';
 // 'isPointInColumn' fonksiyonunu da columns.js'den import et
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from './columns.js';
+// YENİ IMPORTLARI AŞAĞIYA EKLEYİN
+import { createBeam, onPointerDown as onPointerDownBeam } from './beams.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall } from './wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from './door-handler.js';
 import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as onPointerDownSelectWindow } from './window-handler.js';
@@ -79,6 +81,9 @@ export function onPointerDown(e) {
             switch (selectedObject.type) {
                 case 'column':
                     dragInfo = onPointerDownColumn(selectedObject, pos, snappedPos);
+                    break;
+                case 'beam': // <-- YENİ CASE EKLEYİN
+                    dragInfo = onPointerDownBeam(selectedObject, pos, snappedPos);
                     break;
                 case 'wall':
                     dragInfo = onPointerDownSelectWall(selectedObject, pos, snappedPos, e);
@@ -156,6 +161,39 @@ export function onPointerDown(e) {
             // Başlangıç noktasını sıfırla
             setState({ startPoint: null }); 
         }
+    
+    // YENİ ELSE IF BLOĞUNU AŞAĞIYA EKLEYİN
+    } else if (state.currentMode === "drawBeam") {
+        if (!state.startPoint) {
+            // 1. Tıklama: Başlangıç noktasını ayarla
+            setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
+        } else {
+            // 2. Tıklama: Kirişi oluştur
+            const p1 = state.startPoint;
+            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const length = Math.hypot(dx, dy); // Kullanıcının çizdiği uzunluk
+
+            if (length > 1) { // Minimum 1cm kontrolü
+                const centerX = (p1.x + p2.x) / 2;
+                const centerY = (p1.y + p2.y) / 2;
+                
+                const width = length; // Kirişin uzunluğu
+                const height = state.wallThickness; // Kirişin eni (varsayılan duvar kalınlığı)
+                const rotation = Math.atan2(dy, dx) * 180 / Math.PI; // Açı
+
+                const newBeam = createBeam(centerX, centerY, width, height, rotation);
+            
+                state.beams.push(newBeam);
+                saveState();
+            }
+            // Başlangıç noktasını sıfırla
+            setState({ startPoint: null }); 
+        }
+    // YENİ BLOK BİTİŞİ
+    
     } else if (state.currentMode === "drawVent") {
         // TODO: `vent-handler.js` oluşturulup mantık oraya taşınabilir.
         // Şimdilik `pointer-down.js` içindeki mantık korunuyor.

@@ -4,6 +4,7 @@ import { state, dom, BG } from './main.js';
 // getLineIntersectionPoint import edildiğinden emin ol
 import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from './geometry.js';
 import { getColumnCorners, isPointInColumn } from './columns.js';
+import { getBeamCorners } from './beams.js'; // <-- YENİ SATIRI EKLEYİN
 
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
 export function drawNodeWallCount(node) {
@@ -473,3 +474,59 @@ export function drawColumn(column, isSelected = false) {
     }
 }
 // --- drawColumn Sonu ---
+
+// YENİ KİRİŞ ÇİZİM FONKSİYONUNU AŞAĞIYA EKLEYİN
+export function drawBeam(beam, isSelected = false) {
+    const { ctx2d } = dom;
+    const { zoom, lineThickness, BG } = state;
+
+    const corners = getBeamCorners(beam); // Kiriş köşe noktaları
+
+    // Çizim stilleri
+    ctx2d.fillStyle = BG; // İçini arka plan rengiyle doldur
+    const beamColor = isSelected ? '#8ab4f8' : '#e57373'; // Seçili değilse kırmızı
+    ctx2d.strokeStyle = beamColor;
+    ctx2d.lineWidth = lineThickness / zoom;
+
+    // Kesik çizgi ayarı
+    ctx2d.save();
+    ctx2d.setLineDash([8 / zoom, 4 / zoom]);
+
+    // Dış dikdörtgeni çiz (Önce dolgu, sonra kenarlık)
+    ctx2d.beginPath();
+    ctx2d.moveTo(corners[0].x, corners[0].y);
+    for (let i = 1; i < corners.length; i++) {
+        ctx2d.lineTo(corners[i].x, corners[i].y);
+    }
+    ctx2d.closePath();
+    ctx2d.fill(); // Dolguyu yap
+    ctx2d.stroke(); // Kenarlığı çiz (kesik çizgili)
+
+    // Kesik çizgiyi sıfırla
+    ctx2d.restore(); 
+
+    // "Kiriş" Yazısı
+    const center = beam.center;
+    const rotationRad = (beam.rotation || 0) * Math.PI / 180;
+    
+    ctx2d.save();
+    ctx2d.translate(center.x, center.y);
+    ctx2d.rotate(rotationRad);
+    
+    // Zoom'a göre ayarlı yazı boyutu
+    const ZOOM_EXPONENT = -0.65; 
+    const baseFontSize = 16;
+    let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+    const minWorldFontSize = 5; 
+
+    ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    ctx2d.fillStyle = beamColor;
+    ctx2d.textAlign = "center";
+    ctx2d.textBaseline = "middle";
+    ctx2d.fillText("Kiriş", 0, 0); // Tam ortasına yaz
+    
+    ctx2d.restore();
+
+    // (İçi boş kiriş çizimi - şimdilik eklenmedi, gerekirse kolon'dan kopyalanabilir)
+}
+// YENİ FONKSİYON BİTİŞİ

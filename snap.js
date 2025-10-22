@@ -21,7 +21,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     }
     // --- YENİ MANTIK SONU ---
 
-    if (state.currentMode === 'drawDoor') {
+    if (state.currentMode === 'drawDoor' || state.currentMode === 'drawBeam') { // <-- "drawBeam" EKLEYİN
         const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1;
         let roundedX = Math.round(wm.x / gridValue) * gridValue;
         let roundedY = Math.round(wm.y / gridValue) * gridValue;

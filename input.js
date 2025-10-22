@@ -149,6 +149,7 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === "k") setMode("drawDoor");
     if (e.key.toLowerCase() === "p") setMode("drawWindow");
     if (e.key.toLowerCase() === "c") setMode("drawColumn");
+    if (e.key.toLowerCase() === "b") setMode("drawBeam");
     
     // GÜNCELLEME: Eski Space tuşu işlevi (toggle) kaldırıldı
     // if (e.code === "Space" && state.currentMode === "select") { e.preventDefault(); setMode(state.lastUsedMode); }

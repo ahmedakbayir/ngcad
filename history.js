@@ -37,7 +37,8 @@ export function saveState() {
             name: r.name,
             centerOffset: r.centerOffset // Bu da JSON uyumlu olmalı {x, y}
         })),
-        columns: JSON.parse(JSON.stringify(state.columns)) // Kolonlar zaten deep copy yapılıyordu
+        columns: JSON.parse(JSON.stringify(state.columns)), // Kolonlar zaten deep copy yapılıyordu
+        beams: JSON.parse(JSON.stringify(state.beams)) // <-- YENİ SATIRI EKLEYİN
     };
 
     // History yönetimi (değişiklik yok)
@@ -99,7 +100,8 @@ export function restoreState(snapshot) {
             name: r.name,
             centerOffset: r.centerOffset // centerOffset'ı da geri yükle
         })),
-        columns: snapshot.columns || [] // Kolonları geri yükle (veya boş dizi ata)
+        columns: snapshot.columns || [], // Kolonları geri yükle (veya boş dizi ata)
+        beams: snapshot.beams || [] // <-- YENİ SATIRI EKLEYİN
     });
 }
 

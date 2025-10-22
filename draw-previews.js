@@ -132,7 +132,7 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
             ctx2d.strokeRect(startPoint.x, startPoint.y, previewPos.x - startPoint.x, previewPos.y - startPoint.y);
             drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true, 'single');
             drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true, 'single');
-        } else if (currentMode === "drawWall") {
+        } else if (currentMode === "drawWall" || currentMode === "drawBeam") { // <-- "drawBeam" EKLEYİN
             if (mousePos.isSnapped) {
                 previewPos = { x: mousePos.x, y: mousePos.y };
             } else {
@@ -153,7 +153,7 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
     const { currentMode, mousePos, isDragging, selectedObject, zoom, startPoint } = state;
     
     // Snap uzantı çizgileri
-    const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom';
+    const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawBeam'; // <-- "drawBeam" EKLEYİN
     if (isDrawingMode && mousePos.isSnapped) {
         const hasExtensionLines = mousePos.snapLines.h_origins.length > 0 || mousePos.snapLines.v_origins.length > 0;
         if (!startPoint && hasExtensionLines && !isMouseOverWall()) {
@@ -178,7 +178,7 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
 
     // Snap noktası gösterimi - SADECE ÇİZİM MODLARINDA GÖSTER
     if (mousePos.isSnapped && 
-        (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn') && 
+        (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn' || currentMode === 'drawBeam') && // <-- "drawBeam" EKLEYİN
         currentMode !== 'drawDoor' && 
         currentMode !== 'drawWindow' && 
         !(isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window'))) {

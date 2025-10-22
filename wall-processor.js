@@ -162,7 +162,7 @@ function mergeDuplicateWalls() {
             uniq.push(w);
         }
     }
-    setState({ walls: uniq });
+    setState({ walls: uniq, beams: state.beams }); // <-- beams EKLEYİN
 }
 
 function mergeCollinearChains() {
@@ -324,7 +324,7 @@ export function processWalls(skipMerge = false) {
         return d.pos >= 0 && d.pos <= wallLength;
     });
     
-    setState({ walls: filteredWalls, doors: filteredDoors });
+    setState({ walls: filteredWalls, doors: filteredDoors, beams: state.beams }); // <-- beams EKLEYİN
 
     splitWallsAtCrossings();
     splitWallsAtTjunctions();
@@ -341,7 +341,7 @@ export function processWalls(skipMerge = false) {
         const length = Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y);
         return length > 0.1 && isFinite(w.p1.x) && isFinite(w.p1.y) && isFinite(w.p2.x) && isFinite(w.p2.y);
     });
-    setState({ walls: validWalls });
+    setState({ walls: validWalls, beams: state.beams }); // <-- beams EKLEYİN
     
     mergeColumnsWithWalls();
     
@@ -372,7 +372,7 @@ export function processWalls(skipMerge = false) {
             }
         }
     });
-    setState({ wallAdjacency });
+    setState({ wallAdjacency, beams: state.beams }); // <-- beams EKLEYİN
     
     update3DScene();
 }

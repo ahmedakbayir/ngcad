@@ -45,7 +45,9 @@ function saveProject() {
             area: r.area,
             center: r.center,
             name: r.name
-        }))
+        })),
+        columns: state.columns, // <-- GÜNCELLENDİ/EKLENDİ
+        beams: state.beams // <-- YENİ SATIRI EKLEYİN
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -152,6 +154,12 @@ function openProject(e) {
                 center: r.center,
                 name: r.name
             }));
+            
+            // YENİ KODU AŞAĞIYA EKLEYİN
+            // Kolonları ve Kirişleri geri yükle
+            const restoredColumns = projectData.columns || [];
+            const restoredBeams = projectData.beams || [];
+            // YENİ KOD BİTİŞİ
 
             // State'i güncelle
             setState({
@@ -159,6 +167,8 @@ function openProject(e) {
                 walls: restoredWalls,
                 doors: restoredDoors,
                 rooms: restoredRooms,
+                columns: restoredColumns, // <-- GÜNCELLEYİN
+                beams: restoredBeams, // <-- YENİ SATIRI EKLEYİN
                 selectedObject: null,
                 selectedGroup: [],
                 startPoint: null
@@ -175,6 +185,6 @@ function openProject(e) {
         }
     };
 
-    reader.readAsText(file);
+    reader.readText(file);
     e.target.value = ''; // Input'u temizle
 }
