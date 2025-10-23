@@ -16,43 +16,39 @@ export function recalculateStepCount(stair) {
     const minStepRun = 25;
     const maxStepRun = 30;
 
-    if (totalRun <= 0) {
-        stair.stepCount = 1; // Geçersiz uzunluksa 1 basamak
+    if (!totalRun || totalRun <= 0) {
+        stair.stepCount = 1;
         return;
     }
 
-    // İdeal basamak sayısını hesapla (ortalama 27.5 cm hedefleyerek)
+    // İdeal basamak sayısını hesapla
     const idealStepRun = (minStepRun + maxStepRun) / 2;
     let idealStepCount = totalRun / idealStepRun;
 
-    // En yakın tam sayıya yuvarla
+    // En yakın tam sayıya yuvarla (minimum 1)
     let calculatedStepCount = Math.max(1, Math.round(idealStepCount));
 
     // Hesaplanan basamak derinliğini kontrol et
     let currentStepRun = totalRun / calculatedStepCount;
 
-    // Eğer aralık dışındaysa, basamak sayısını ayarlayarak aralığa sokmaya çalış
+    // Aralık kontrolü ve düzeltme
     if (currentStepRun < minStepRun) {
-        // Çok darsa, basamak sayısını azalt (derinliği artır)
         calculatedStepCount = Math.max(1, Math.floor(totalRun / minStepRun));
     } else if (currentStepRun > maxStepRun) {
-        // Çok derinse, basamak sayısını artır (derinliği azalt)
         calculatedStepCount = Math.max(1, Math.ceil(totalRun / maxStepRun));
     }
 
-    // Son bir kontrol (nadiren de olsa floor/ceil sonrası yine dışarıda kalabilir)
+    // Son kontrol
     currentStepRun = totalRun / calculatedStepCount;
-    if (currentStepRun < minStepRun - 0.1 || currentStepRun > maxStepRun + 0.1) {
-         // Hâlâ dışarıdaysa, en yakın sınıra göre ayarla
-         if(currentStepRun < minStepRun) {
-             calculatedStepCount = Math.max(1, Math.floor(totalRun / minStepRun));
-         } else {
-             calculatedStepCount = Math.max(1, Math.ceil(totalRun / maxStepRun));
-         }
+    if (currentStepRun < minStepRun - 0.5 || currentStepRun > maxStepRun + 0.5) {
+        if (currentStepRun < minStepRun) {
+            calculatedStepCount = Math.max(1, Math.floor(totalRun / minStepRun));
+        } else {
+            calculatedStepCount = Math.max(1, Math.ceil(totalRun / maxStepRun));
+        }
     }
 
-
-    stair.stepCount = calculatedStepCount;
+    stair.stepCount = Math.max(1, calculatedStepCount); // Ekstra güvenlik
 }
 // --- YENİ FONKSİYON SONU ---
 
@@ -133,18 +129,24 @@ export function getStairAtPoint(point) {
     const { stairs, zoom } = state;
     const handleTolerance = 8 / zoom;
 
+    // ÖNCE Handle kontrolü yap (SADECE EN ÜSTTEKİ MERDİVEN)
     for (const stair of [...(stairs || [])].reverse()) {
         const handle = getStairHandleAtPoint(point, stair, handleTolerance);
         if (handle) {
+            // Handle bulundu, SADECE BU MERDİVENİ döndür ve ÇIK
             return { type: 'stairs', object: stair, handle: handle };
         }
     }
 
+    // Handle bulunamadıysa, Body kontrolü yap (SADECE EN ÜSTTEKİ MERDİVEN)
     for (const stair of [...(stairs || [])].reverse()) {
         if (isPointInStair(point, stair)) {
+            // Body içinde, SADECE BU MERDİVENİ döndür ve ÇIK
             return { type: 'stairs', object: stair, handle: 'body' };
         }
     }
+    
+    // Hiçbir merdiven bulunamadı
     return null;
 }
 

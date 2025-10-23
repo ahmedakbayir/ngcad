@@ -110,14 +110,14 @@ export function init3D(canvasElement) {
         side: THREE.DoubleSide
     });
     // --- Güncelleme Sonu ---
-    // YENİ MALZEMEYİ AŞAĞIYA EKLEYİN
-    stairMaterial = new THREE.MeshStandardMaterial({
-        color: 0xCCCCCC, // Açık gri beton rengi (Beyaz DEĞİL)
-        roughness: 0.8,
-        transparent: true,
-        opacity: solidOpacity, // Diğerleriyle aynı opaklık
-        side: THREE.DoubleSide
-    });
+        // Merdiven Malzemesi
+        stairMaterial = new THREE.MeshStandardMaterial({
+            color: 0xCCCCCC, // Açık gri beton rengi (0xFFFFFF DEĞİL!)
+            roughness: 0.8,
+            transparent: true,
+            opacity: solidOpacity,
+            side: THREE.DoubleSide
+        });
     // --- Güncelleme Sonu ---
 }
 
@@ -296,51 +296,43 @@ function createBeamMesh(beam, material) {
     return beamMesh;
 }
 
-// YENİ MERDİVEN MESH FONKSİYONU (GÜNCELLENMİŞ)
 function createStairMesh(stair, material) {
-    const totalRun = stair.width; // Merdivenin 2D'deki "width"i (uzunluğu)
-    const stairWidth = stair.height; // Merdivenin 2D'deki "height"i (eni)
-    // Nesneden stepCount'u oku
-    const stepCount = stair.stepCount || 1; // Varsayılan 1 olsun (0 olmamalı)
-    const totalRise = WALL_HEIGHT; // Sabit duvar yüksekliği
+    const totalRun = stair.width;
+    const stairWidth = stair.height;
+    const stepCount = Math.max(1, stair.stepCount || 1); // Minimum 1 garanti et
+    const totalRise = WALL_HEIGHT;
 
-    // Negatif veya sıfır basamak sayısını engelle
-    if (totalRun < 1 || stairWidth < 1 || stepCount < 1) return null;
+    if (totalRun < 1 || stairWidth < 1 || stepCount < 1) {
+        console.warn("Invalid stair dimensions:", stair);
+        return null;
+    }
 
-    const stepRun = totalRun / stepCount; // Her bir basamağın derinliği
-    const stepRise = totalRise / stepCount; // Her bir basamağın yüksekliği
+    const stepRun = totalRun / stepCount;
+    const stepRise = totalRise / stepCount;
 
     const stairGroup = new THREE.Group();
 
-    // stepCount kadar basamak oluştur
+    // Basamakları oluştur
     for (let i = 0; i < stepCount; i++) {
         const stepGeom = new THREE.BoxGeometry(stepRun, stepRise, stairWidth);
-
-        // Geometrinin merkezini basamağın "alt-ön-merkezine" taşıyalım
         stepGeom.translate(0, stepRise / 2, 0);
 
         const stepMesh = new THREE.Mesh(stepGeom, material);
 
-        // Her basamağı konumlandır
-        // x: Merdiven grubunun merkezi (0) eksi yarım uzunluk + yarım basamak + (basamak * adım)
         const xPos = -totalRun / 2 + stepRun / 2 + i * stepRun;
-        // y: (basamak * yükseklik)
         const yPos = i * stepRise;
-        // z: 0 (Grup içinde merkezli)
         const zPos = 0;
 
         stepMesh.position.set(xPos, yPos, zPos);
         stairGroup.add(stepMesh);
     }
 
-    // Tüm grubu merdivenin 2D merkezine taşı ve döndür
+    // Grubu konumlandır
     stairGroup.position.set(stair.center.x, 0, stair.center.y);
     stairGroup.rotation.y = -(stair.rotation || 0) * Math.PI / 180;
 
     return stairGroup;
 }
-// YENİ FONKSİYON BİTİŞİ
-
 
 // --- GÜNCELLENDİ: Malzeme Güncellemesi ve Zemin Yönü/Pozisyonu ---
 export function update3DScene() {
@@ -358,7 +350,9 @@ export function update3DScene() {
     sillMaterial.transparent = true; sillMaterial.opacity = solidOpacity + 0.1; sillMaterial.needsUpdate = true;
     handleMaterial.transparent = false; handleMaterial.opacity = 1.0; handleMaterial.needsUpdate = true; // Kol opak
     floorMaterial.transparent = true; floorMaterial.opacity = 0.4; floorMaterial.needsUpdate = true;
-    stairMaterial.transparent = true; stairMaterial.opacity = solidOpacity;stairMaterial.color.set(0xCCCCCC);     
+    stairMaterial.transparent = true; 
+    stairMaterial.opacity = solidOpacity;
+    stairMaterial.color.set(0xCCCCCC); // 0xFFFFFF DEĞİL!
     stairMaterial.needsUpdate = true;
 
     const { walls, doors, columns, beams, rooms, stairs } = state; // <-- stairs EKLEYİN
@@ -391,10 +385,10 @@ export function update3DScene() {
 
     // YENİ MERDİVEN EKLEME BLOĞUNU AŞAĞIYA EKLEYİN
     // Merdivenleri ekle
-if (stairs) {
+    if (stairs) {
         stairs.forEach(stair => {
-            // createStairMesh doğru malzemeyi (stairMaterial) kullanıyor
-            const m = createStairMesh(stair, stairMaterial);
+            // stairMaterial kullandığından emin ol
+            const m = createStairMesh(stair, stairMaterial); // İKİNCİ PARAMETRE ÖNEMLİ
             if (m) sceneObjects.add(m);
         });
     }

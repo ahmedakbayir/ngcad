@@ -21,21 +21,21 @@ import { distToSegmentSquared } from './geometry.js';
  */
 export function getObjectAtPoint(pos) {
     const { walls, doors, rooms, zoom } = state;
-    const tolerance = 8 / zoom; // Genel tıklama toleransı
-
-    // Nesneleri ters sırada kontrol etmek genellikle en üsttekini bulmayı sağlar.
-    // Ancak handle'ları (köşe/kenar) gövdeden önce kontrol etmek daha doğru olur.
+    const tolerance = 8 / zoom;
 
     // 1. Handle Kontrolleri (Öncelikli)
     // 1.1 Kolon Handle
     const columnHandleHit = getColumnAtPoint(pos);
     if (columnHandleHit && columnHandleHit.handle !== 'body') return columnHandleHit;
+    
     // 1.2 Kiriş Handle
     const beamHandleHit = getBeamAtPoint(pos);
     if (beamHandleHit && beamHandleHit.handle !== 'body') return beamHandleHit;
-    // 1.3 Merdiven Handle
-    const stairHandleHit = getStairAtPoint(pos);
-    if (stairHandleHit && stairHandleHit.handle !== 'body') return stairHandleHit;
+    
+    // 1.3 Merdiven Handle - SADECE BİR KEZ ÇAĞIR
+    const stairHit = getStairAtPoint(pos); // ← BURADA ÇAĞIR
+    if (stairHit && stairHit.handle !== 'body') return stairHit; // ← Handle ise döndür
+    
     // 1.4 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
     if (wallNodeHit && wallNodeHit.handle !== 'body') return wallNodeHit;
@@ -44,11 +44,13 @@ export function getObjectAtPoint(pos) {
     // 2.1 Kapı
     const doorHit = getDoorAtPoint(pos, tolerance);
     if (doorHit) return doorHit;
+    
     // 2.2 Pencere
     const windowHit = getWindowAtPoint(pos, tolerance);
     if (windowHit) return windowHit;
+    
     // 2.3 Menfez
-    for (const wall of [...walls].reverse()) { // Ters sıra
+    for (const wall of [...walls].reverse()) {
         if (!wall.vents || wall.vents.length === 0 || !wall.p1 || !wall.p2) continue;
         for (const vent of wall.vents) {
             const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -63,39 +65,39 @@ export function getObjectAtPoint(pos) {
             const distPerpendicular = Math.abs(dx_p * (-dy) + dy_p * dx);
             const distParallel = Math.abs(dx_p * dx + dy_p * dy);
 
-            // Toleransı biraz daha hassas yapalım
             if (distPerpendicular < wallPx / 2 + tolerance / 2 && distParallel < vent.width / 2 + tolerance / 2) {
                 return { type: "vent", object: vent, wall: wall };
             }
         }
     }
-    // 2.4 Merdiven Gövdesi (Diğer gövdelerden önce kontrol edilebilir)
-    if (stairHandleHit && stairHandleHit.handle === 'body') return stairHandleHit;
+    
+    // 2.4 Merdiven Gövdesi - ZATEn YUKARIDA ÇAĞRILDI, stairHit'i kontrol et
+    if (stairHit && stairHit.handle === 'body') return stairHit; // ← Body ise döndür
+    
     // 2.5 Kiriş Gövdesi
     if (beamHandleHit && beamHandleHit.handle === 'body') return beamHandleHit;
+    
     // 2.6 Kolon Gövdesi
     if (columnHandleHit && columnHandleHit.handle === 'body') return columnHandleHit;
 
-    // 2.7 Mahal İsmi/Alanı (Duvar gövdesinden önce kontrol edelim)
+    // 2.7 Mahal İsmi/Alanı
     for (const room of [...rooms].reverse()) {
         if (!room.center || !Array.isArray(room.center) || room.center.length < 2) continue;
         const distToCenter = Math.hypot(pos.x - room.center[0], pos.y - room.center[1]);
-        // Mahal ismi için tıklama alanını biraz daha büyük yapabiliriz
         if (distToCenter < 40 / zoom) {
-             return { type: 'roomName', object: room }; // Hem isim hem alan için aynı type
+             return { type: 'roomName', object: room };
         }
     }
 
     // 2.8 Duvar Gövdesi
     if (wallNodeHit && wallNodeHit.handle === 'body') return wallNodeHit;
 
-    // 2.9 Mahal Alanı (En son)
+    // 2.9 Mahal Alanı
     for (const room of [...rooms].reverse()) {
-        if (!room.polygon?.geometry?.coordinates) continue; // Check added
+        if (!room.polygon?.geometry?.coordinates) continue;
         try {
             const point = turf.point([pos.x, pos.y]);
             if (turf.booleanPointInPolygon(point, room.polygon)) {
-                 // İsmin üzerine gelip gelmediğini tekrar kontrol et (yukarıdaki kontrol zaten yaptı ama emin olalım)
                  let isOverName = false;
                  if (room.center && Array.isArray(room.center) && room.center.length >= 2) {
                     const distToCenter = Math.hypot(pos.x - room.center[0], pos.y - room.center[1]);
@@ -103,7 +105,6 @@ export function getObjectAtPoint(pos) {
                         isOverName = true;
                     }
                  }
-                 // Eğer ismin üzerinde değilse, mahal alanı olarak kabul et
                  if (!isOverName) {
                     return { type: 'room', object: room };
                  }
@@ -114,7 +115,7 @@ export function getObjectAtPoint(pos) {
         }
     }
 
-    return null; // Hiçbir şey bulunamadı
+    return null;
 }
 
 /**

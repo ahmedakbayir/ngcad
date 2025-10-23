@@ -38,7 +38,7 @@ function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
 
 export function onPointerMove(e) {
     // isCtrlDeleting bloğu GÜNCELLENDİ (Merdiven silme eklendi)
-    if (state.isCtrlDeleting && e.altKey && e.ctrlKey) { // Sadece Alt+Ctrl basılıyken sil
+    if (state.isCtrlDeleting && e.altKey && !e.ctrlKey) { // Sadece Alt basılıyken sil
         const rect = dom.c2d.getBoundingClientRect();
         const mousePos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 

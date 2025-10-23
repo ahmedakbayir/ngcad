@@ -41,6 +41,7 @@ export let state = {
     columns: [],
     beams: [],
     stairs: [], // <-- YENİ SATIRI EKLEYİN
+    clipboard: null, // <-- YENİ SATIR EKLE
     wallAdjacency: new Map(),
     selectedObject: null,
     selectedRoom: null,

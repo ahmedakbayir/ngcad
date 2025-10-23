@@ -66,15 +66,16 @@ export function draw2D() {
         drawBeam(beam, isSelected);
     });
 
-    // 4.7. MERDİVENLER
-    (state.stairs || []).forEach(stair => {
-        // *** EN ÖNEMLİ KONTROL BURASI ***
-        // Her bir merdiven (stair) için, state'deki selectedObject ile eşleşip eşleşmediğini KESİN olarak kontrol et
-        const isSelected = !!(selectedObject && selectedObject.type === "stairs" && selectedObject.object === stair);
-        // console.log("Drawing stair:", stair, "Is selected?", isSelected, "Current selected:", selectedObject); // Debugging için
-        drawStairs(stair, isSelected); // Hesaplanan isSelected değerini gönder
-    });
-
+// 4.7. MERDİVENLER
+(state.stairs || []).forEach(stair => {
+    // Her bir merdiven için seçili olup olmadığını kontrol et
+    const isSelected = !!(
+        selectedObject && 
+        selectedObject.type === "stairs" && 
+        selectedObject.object === stair
+    );
+    drawStairs(stair, isSelected);
+});
 
     // 5. Atomik Semboller
     nodes.forEach(node => {
