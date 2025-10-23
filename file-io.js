@@ -53,7 +53,7 @@ function saveProject() {
     const dataStr = JSON.stringify(projectData, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     const a = document.createElement('a');
     a.href = url;
     a.download = `floorplan_${new Date().toISOString().slice(0, 10)}.json`;
@@ -71,7 +71,7 @@ function openProject(e) {
     reader.onload = (event) => {
         try {
             const projectData = JSON.parse(event.target.result);
-            
+
             if (!projectData.version || !projectData.nodes || !projectData.walls) {
                 alert('Geçersiz proje dosyası formatı!');
                 return;
@@ -109,7 +109,7 @@ function openProject(e) {
                 setState({ lineThickness: projectData.lineThickness });
                 dom.lineThicknessInput.value = projectData.lineThickness;
             }
-            
+
             // YENİ EKLENEN AYARLAR
             if (projectData.wallThickness) {
                 setState({ wallThickness: projectData.wallThickness });
@@ -154,12 +154,10 @@ function openProject(e) {
                 center: r.center,
                 name: r.name
             }));
-            
-            // YENİ KODU AŞAĞIYA EKLEYİN
+
             // Kolonları ve Kirişleri geri yükle
             const restoredColumns = projectData.columns || [];
             const restoredBeams = projectData.beams || [];
-            // YENİ KOD BİTİŞİ
 
             // State'i güncelle
             setState({
@@ -167,8 +165,8 @@ function openProject(e) {
                 walls: restoredWalls,
                 doors: restoredDoors,
                 rooms: restoredRooms,
-                columns: restoredColumns, // <-- GÜNCELLEYİN
-                beams: restoredBeams, // <-- YENİ SATIRI EKLEYİN
+                columns: restoredColumns,
+                beams: restoredBeams,
                 selectedObject: null,
                 selectedGroup: [],
                 startPoint: null
@@ -185,6 +183,9 @@ function openProject(e) {
         }
     };
 
-    reader.readText(file);
+    // --- HATA DÜZELTMESİ BURADA ---
+    reader.readAsText(file); // readText yerine readAsText kullanıldı
+    // --- DÜZELTME SONU ---
+
     e.target.value = ''; // Input'u temizle
 }

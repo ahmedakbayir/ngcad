@@ -32,10 +32,10 @@ body {
 }
 .main.show-3d #p3d {
     display: block;
-    flex-basis: 15%;
+    flex: 1 1 50%; /* <-- DEĞİŞTİRİLDİ */
 }
 .main.show-3d #p2d {
-    flex-basis: 85%;
+    flex: 1 1 50%; /* <-- DEĞİŞTİRİLDİ */
 }
 #splitter {
     flex: 0 0 10px;
