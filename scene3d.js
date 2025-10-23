@@ -42,7 +42,7 @@ export function init3D(canvasElement) {
     // --- Malzemeler Güncellendi: Opaklık %75 (cam hariç) ve Kapı Rengi ---
     const solidOpacity = 0.75;
     wallMaterial = new THREE.MeshStandardMaterial({
-        color: state.wallBorderColor,
+        color: 0x979694,
         roughness: 0.8,
         transparent: true,
         opacity: solidOpacity,
@@ -101,7 +101,7 @@ export function init3D(canvasElement) {
     });
     // Zemin Malzemesi (%40 opak)
     floorMaterial = new THREE.MeshStandardMaterial({
-        color: 0x444444, // Koyu Gri
+        color:  state.wallBorderColor, // Koyu Gri
         roughness: 0.9,
         transparent: true,
         opacity: 0.4,      // Yarı Saydam
@@ -331,27 +331,48 @@ export function update3DScene() {
     if (beams) { beams.forEach(beam => { const m = createBeamMesh(beam, beamMaterial); if (m) sceneObjects.add(m); }); }
 
     // --- Zeminleri Ekle (Yön Düzeltmesiyle) ---
-    if (rooms) {
-        rooms.forEach(room => {
-            if (room.polygon?.geometry?.coordinates) {
-                const coords = room.polygon.geometry.coordinates[0];
-                if (coords.length >= 3) {
-                    try {
-                        // 2D koordinatları THREE.Vector2'ye çevir (Y koordinatı olduğu gibi)
-                        const shapePoints = coords.map(p => new THREE.Vector2(p[0], p[1]));
-                        const roomShape = new THREE.Shape(shapePoints);
-                        const geometry = new THREE.ShapeGeometry(roomShape);
-                        const floorMesh = new THREE.Mesh(geometry, floorMaterial);
-                        // Zemini X ekseni etrafında -90 derece döndürerek XZ düzlemine yatır
-                        floorMesh.rotation.x = -Math.PI / 2; // <-- Döndürme eklendi/geri getirildi
-                        // Y pozisyonunu sıfır yap
-                        floorMesh.position.y = 0; // <-- Y=0
-                        sceneObjects.add(floorMesh);
-                    } catch (error) { console.error("Zemin oluşturulurken hata:", error, room); }
+// --- Zeminleri Ekle (Y İşareti Düzeltmesiyle) ---
+if (rooms) {
+    rooms.forEach(room => {
+        if (room.polygon?.geometry?.coordinates) {
+            const coords = room.polygon.geometry.coordinates[0];
+            if (coords.length >= 3) {
+                try {
+                    // Koordinatları Shape için hazırla (merkeze göre)
+                    let minX = Infinity, maxX = -Infinity;
+                    let minY = Infinity, maxY = -Infinity;
+                    coords.forEach(p => {
+                        minX = Math.min(minX, p[0]);
+                        maxX = Math.max(maxX, p[0]);
+                        minY = Math.min(minY, p[1]);
+                        maxY = Math.max(maxY, p[1]);
+                    });
+                    const centerX = (minX + maxX) / 2;
+                    const centerZ = (minY + maxY) / 2;
+                    
+                    // Shape'i merkeze göre oluştur - Y işaretini TERS ÇEVİR
+                    const shapePoints = coords.map(p => 
+                        new THREE.Vector2(p[0] - centerX, -(p[1] - centerZ)) // Eksi işareti eklendi
+                    );
+                    const roomShape = new THREE.Shape(shapePoints);
+                    const geometry = new THREE.ShapeGeometry(roomShape);
+                    
+                    const floorMesh = new THREE.Mesh(geometry, floorMaterial);
+                    
+                    // XY düzleminden XZ düzlemine döndür
+                    floorMesh.rotation.x = -Math.PI / 2;
+                    
+                    // Gerçek dünya pozisyonuna yerleştir
+                    floorMesh.position.set(centerX, 0.1, centerZ);
+                    
+                    sceneObjects.add(floorMesh);
+                } catch (error) { 
+                    console.error("Zemin oluşturulurken hata:", error, room); 
                 }
             }
-        });
-    }
+        }
+    });
+}
     // --- Zemin Ekleme Sonu ---
 
     // --- Orbit Hedefini Geri Yükle ---
