@@ -16,7 +16,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
 
         let closestWall = null, minDistSq = Infinity;
         const bodyHitTolerance = (state.wallThickness * 1.5) ** 2;
-        
+
         for (const w of [...walls].reverse()) {
             const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
             if (distSq < bodyHitTolerance && distSq < minDistSq) {
@@ -24,7 +24,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
                 closestWall = w;
             }
         }
-        
+
         if (closestWall) {
             const previewDoor = getDoorPlacement(closestWall, mousePos);
             if (previewDoor && isSpaceForDoor(previewDoor)) {
@@ -41,7 +41,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
     if (currentMode === "drawWindow" && !isPanning && !isDragging) {
         let closestWall = null, minDistSq = Infinity;
         const bodyHitTolerance = (state.wallThickness * 1.5) ** 2;
-        
+
         for (const w of [...walls].reverse()) {
             if (!w.p1 || !w.p2) continue;
             const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
@@ -50,7 +50,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
                 closestWall = w;
             }
         }
-        
+
         if (closestWall) {
             const previewWindowData = getWindowPlacement(closestWall, mousePos);
             if (previewWindowData && isSpaceForWindow(previewWindowData)) {
@@ -63,7 +63,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
 
 export function drawDragPreviews(ctx2d, state, drawDimension) {
     const { isStretchDragging, stretchWallOrigin, dragStartPoint, mousePos, isSweeping, sweepWalls, zoom } = state;
-    
+
     // Sweep duvarları
     if (isSweeping && sweepWalls.length > 0) {
         ctx2d.strokeStyle = "rgba(138, 180, 248, 0.7)";
@@ -77,7 +77,7 @@ export function drawDragPreviews(ctx2d, state, drawDimension) {
         ctx2d.stroke();
         ctx2d.setLineDash([]);
     }
-    
+
     // Esnetme modu önizlemesi
     if (isStretchDragging) {
         const displacementVec = { x: mousePos.x - dragStartPoint.x, y: mousePos.y - dragStartPoint.y };
@@ -89,8 +89,8 @@ export function drawDragPreviews(ctx2d, state, drawDimension) {
         const dx = distance * normalVec.x, dy = distance * normalVec.y;
         const t1 = { x: stretchWallOrigin.p1.x + dx, y: stretchWallOrigin.p1.y + dy };
         const t2 = { x: stretchWallOrigin.p2.x + dx, y: stretchWallOrigin.p2.y + dy };
-        ctx2d.strokeStyle = "rgba(138, 180, 248, 0.7)"; 
-        ctx2d.lineWidth = 2 / zoom; 
+        ctx2d.strokeStyle = "rgba(138, 180, 248, 0.7)";
+        ctx2d.lineWidth = 2 / zoom;
         ctx2d.setLineDash([6 / zoom, 3 / zoom]);
         ctx2d.beginPath();
         ctx2d.moveTo(stretchWallOrigin.p1.x, stretchWallOrigin.p1.y); ctx2d.lineTo(t1.x, t1.y);
@@ -106,7 +106,7 @@ export function drawDragPreviews(ctx2d, state, drawDimension) {
 
 export function drawSelectionFeedback(ctx2d, state) {
     const { selectedObject, isDragging, zoom } = state;
-    
+
     // Seçili duvar uç noktaları
     if (selectedObject?.type === "wall" && !isDragging) {
         const w = selectedObject.object;
@@ -118,20 +118,20 @@ export function drawSelectionFeedback(ctx2d, state) {
 
 export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension) {
     const { startPoint, currentMode, mousePos, zoom } = state;
-    
+
     // Çizim modu önizlemeleri
     if (startPoint) {
-        ctx2d.strokeStyle = "#8ab4f8"; 
-        ctx2d.lineWidth = 2 / zoom; 
+        ctx2d.strokeStyle = "#8ab4f8";
+        ctx2d.lineWidth = 2 / zoom;
         ctx2d.setLineDash([6 / zoom, 3 / zoom]);
 
         let previewPos = { x: mousePos.x, y: mousePos.y };
 
-        // <-- DEĞİŞİKLİK BURADA: "drawColumn" modu eklendi -->
-        if (currentMode === "drawRoom" || currentMode === "drawColumn") {
-            ctx2d.strokeRect(startPoint.x, startPoint.y, previewPos.x - startPoint.x, previewPos.y - startPoint.y);
-            drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true, 'single');
-            drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true, 'single');
+        // <-- DEĞİŞİKLİK BURADA: "drawStairs" modu eklendi -->
+        if (currentMode === "drawRoom" || currentMode === "drawColumn" || currentMode === "drawStairs") { //
+            ctx2d.strokeRect(startPoint.x, startPoint.y, previewPos.x - startPoint.x, previewPos.y - startPoint.y); //
+            drawDimension(startPoint, { x: previewPos.x, y: startPoint.y }, true, 'single'); //
+            drawDimension({ x: previewPos.x, y: startPoint.y }, previewPos, true, 'single'); //
         } else if (currentMode === "drawWall" || currentMode === "drawBeam") { // <-- "drawBeam" EKLEYİN
             if (mousePos.isSnapped) {
                 previewPos = { x: mousePos.x, y: mousePos.y };
@@ -143,7 +143,7 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
             ctx2d.moveTo(startPoint.x, startPoint.y);
             ctx2d.lineTo(previewPos.x, previewPos.y);
             ctx2d.stroke();
-            
+
             drawDimension(startPoint, previewPos, true, 'single');
         }
         ctx2d.setLineDash([]);
@@ -151,9 +151,9 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
 }
 export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
     const { currentMode, mousePos, isDragging, selectedObject, zoom, startPoint } = state;
-    
+
     // Snap uzantı çizgileri
-    const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawBeam'; // <-- "drawBeam" EKLEYİN
+    const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawBeam' || currentMode === 'drawStairs'; // <-- "drawStairs" EKLEYİN
     if (isDrawingMode && mousePos.isSnapped) {
         const hasExtensionLines = mousePos.snapLines.h_origins.length > 0 || mousePos.snapLines.v_origins.length > 0;
         if (!startPoint && hasExtensionLines && !isMouseOverWall()) {
@@ -177,17 +177,17 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
     }
 
     // Snap noktası gösterimi - SADECE ÇİZİM MODLARINDA GÖSTER
-    if (mousePos.isSnapped && 
-        (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn' || currentMode === 'drawBeam') && // <-- "drawBeam" EKLEYİN
-        currentMode !== 'drawDoor' && 
-        currentMode !== 'drawWindow' && 
+    if (mousePos.isSnapped &&
+        (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn' || currentMode === 'drawBeam' || currentMode === 'drawStairs') && // <-- "drawStairs" EKLEYİN
+        currentMode !== 'drawDoor' &&
+        currentMode !== 'drawWindow' &&
         !(isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window'))) {
-        
+
         const snapRadius = 4 / zoom;
         const color = "#8ab4f8";
-        
+
         ctx2d.fillStyle = color;
-        
+
         ctx2d.beginPath();
         ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
         ctx2d.fill();

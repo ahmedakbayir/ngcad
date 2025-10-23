@@ -1,3 +1,4 @@
+// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/history.js
 import { state, setState } from './main.js';
 
 export function saveState() {
@@ -38,7 +39,8 @@ export function saveState() {
             centerOffset: r.centerOffset // Bu da JSON uyumlu olmalı {x, y}
         })),
         columns: JSON.parse(JSON.stringify(state.columns)), // Kolonlar zaten deep copy yapılıyordu
-        beams: JSON.parse(JSON.stringify(state.beams)) // <-- YENİ SATIRI EKLEYİN
+        beams: JSON.parse(JSON.stringify(state.beams)), // <-- YENİ SATIRI EKLEYİN
+        stairs: JSON.parse(JSON.stringify(state.stairs)) // <-- YENİ SATIRI EKLEYİN
     };
 
     // History yönetimi (değişiklik yok)
@@ -101,7 +103,8 @@ export function restoreState(snapshot) {
             centerOffset: r.centerOffset // centerOffset'ı da geri yükle
         })),
         columns: snapshot.columns || [], // Kolonları geri yükle (veya boş dizi ata)
-        beams: snapshot.beams || [] // <-- YENİ SATIRI EKLEYİN
+        beams: snapshot.beams || [], // <-- YENİ SATIRI EKLEYİN
+        stairs: snapshot.stairs || [] // <-- YENİ SATIRI EKLEYİN
     });
 }
 

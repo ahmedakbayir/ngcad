@@ -1,3 +1,4 @@
+// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/file-io.js
 import { state, setState, dom } from './main.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
@@ -47,7 +48,8 @@ function saveProject() {
             name: r.name
         })),
         columns: state.columns, // <-- GÜNCELLENDİ/EKLENDİ
-        beams: state.beams // <-- YENİ SATIRI EKLEYİN
+        beams: state.beams, // <-- YENİ SATIRI EKLEYİN
+        stairs: state.stairs // <-- MERDİVEN EKLENDİ
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -155,9 +157,10 @@ function openProject(e) {
                 name: r.name
             }));
 
-            // Kolonları ve Kirişleri geri yükle
+            // Kolonları, Kirişleri ve Merdivenleri geri yükle
             const restoredColumns = projectData.columns || [];
             const restoredBeams = projectData.beams || [];
+            const restoredStairs = projectData.stairs || []; // <-- MERDİVEN EKLENDİ
 
             // State'i güncelle
             setState({
@@ -167,6 +170,7 @@ function openProject(e) {
                 rooms: restoredRooms,
                 columns: restoredColumns,
                 beams: restoredBeams,
+                stairs: restoredStairs, // <-- MERDİVEN EKLENDİ
                 selectedObject: null,
                 selectedGroup: [],
                 startPoint: null

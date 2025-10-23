@@ -1,10 +1,12 @@
-// ahmedakbayir/ngcad/ngcad-ad56530de4465cbe8a9f9e5e0a4ec4205c63557c/renderer2d.js
+// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/renderer2d.js
 
 import { state, dom, BG } from './main.js';
 // getLineIntersectionPoint import edildiğinden emin ol
 import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from './geometry.js';
 import { getColumnCorners, isPointInColumn } from './columns.js';
 import { getBeamCorners } from './beams.js'; // <-- YENİ SATIRI EKLEYİN
+// YENİ IMPORT'U AŞAĞIYA EKLEYİN
+import { getStairCorners } from './stairs.js'; //
 
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
 export function drawNodeWallCount(node) {
@@ -90,9 +92,9 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     ctx2d.moveTo(p_line1_start.x, p_line1_start.y); ctx2d.lineTo(p_line1_end.x, p_line1_end.y);
     ctx2d.moveTo(p_line2_start.x, p_line2_start.y); ctx2d.lineTo(p_line2_end.x, p_line2_end.y);
     // Başlık/eşik çizgileri
-    ctx2d.moveTo(jamb1_start.x, jamb1_start.y); 
+    ctx2d.moveTo(jamb1_start.x, jamb1_start.y);
     ctx2d.lineTo(jamb1_end.x, jamb1_end.y);
-    ctx2d.moveTo(jamb2_start.x, jamb2_start.y); 
+    ctx2d.moveTo(jamb2_start.x, jamb2_start.y);
     ctx2d.lineTo(jamb2_end.x, jamb2_end.y);
     ctx2d.stroke(); // Çizgileri çiz
 }
@@ -503,30 +505,159 @@ export function drawBeam(beam, isSelected = false) {
     ctx2d.stroke(); // Kenarlığı çiz (kesik çizgili)
 
     // Kesik çizgiyi sıfırla
-    ctx2d.restore(); 
+    ctx2d.restore();
 
     // "Kiriş" Yazısı
     const center = beam.center;
     const rotationRad = (beam.rotation || 0) * Math.PI / 180;
-    
+
     ctx2d.save();
     ctx2d.translate(center.x, center.y);
     ctx2d.rotate(rotationRad);
-    
+
     // Zoom'a göre ayarlı yazı boyutu
-    const ZOOM_EXPONENT = -0.65; 
+    const ZOOM_EXPONENT = -0.65;
     const baseFontSize = 16;
     let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
-    const minWorldFontSize = 5; 
+    const minWorldFontSize = 5;
 
     ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = beamColor;
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "middle";
     ctx2d.fillText("Kiriş", 0, 0); // Tam ortasına yaz
-    
+
     ctx2d.restore();
 
     // (İçi boş kiriş çizimi - şimdilik eklenmedi, gerekirse kolon'dan kopyalanabilir)
+}
+// YENİ FONKSİYON BİTİŞİ
+
+// YENİ MERDİVEN ÇİZİM FONKSİYONUNU AŞAĞIYA EKLEYİN
+export function drawStairs(stair, isSelected = false) {
+    const { ctx2d } = dom;
+    const { zoom, lineThickness, BG, wallBorderColor } = state; // wallBorderColor eklendi
+
+    const corners = getStairCorners(stair); // Merdiven köşe noktaları
+
+    // Çizim stilleri
+    const stairColor = isSelected ? '#8ab4f8' : wallBorderColor; // Seçiliyse mavi, değilse duvar rengi
+    ctx2d.fillStyle = BG; // İçini arka plan rengiyle doldur
+    ctx2d.strokeStyle = stairColor; // Rengi buradan al
+    ctx2d.lineWidth = lineThickness / zoom;
+
+    // --- ÇİFT KENAR ÇİZGİSİ BAŞLANGICI ---
+    const doubleLineOffset = 2 / zoom; // Çift çizgi arasındaki boşluk (piksel olarak, zoom'a göre ayarlı)
+
+    const rotRad = (stair.rotation || 0) * Math.PI / 180;
+    const perpX = -Math.sin(rotRad); // Genişlik ekseni normali
+    const perpY = Math.cos(rotRad);
+
+    // Dış çizgiler
+    ctx2d.beginPath();
+    ctx2d.moveTo(corners[0].x - perpX * doubleLineOffset, corners[0].y - perpY * doubleLineOffset);
+    ctx2d.lineTo(corners[1].x - perpX * doubleLineOffset, corners[1].y - perpY * doubleLineOffset);
+    ctx2d.lineTo(corners[2].x + perpX * doubleLineOffset, corners[2].y + perpY * doubleLineOffset);
+    ctx2d.lineTo(corners[3].x + perpX * doubleLineOffset, corners[3].y + perpY * doubleLineOffset);
+    ctx2d.closePath();
+    ctx2d.stroke(); // Dış çerçeve
+
+    // İç çizgiler (dolgudan önce çizilebilir veya sonra - burada sonra çiziliyor)
+     ctx2d.beginPath();
+     ctx2d.moveTo(corners[0].x + perpX * doubleLineOffset, corners[0].y + perpY * doubleLineOffset);
+     ctx2d.lineTo(corners[1].x + perpX * doubleLineOffset, corners[1].y + perpY * doubleLineOffset);
+     ctx2d.lineTo(corners[2].x - perpX * doubleLineOffset, corners[2].y - perpY * doubleLineOffset);
+     ctx2d.lineTo(corners[3].x - perpX * doubleLineOffset, corners[3].y - perpY * doubleLineOffset);
+     ctx2d.closePath();
+     // Dolguyu iç çizginin içine yapalım
+     ctx2d.fill(); // Dolguyu yap
+     ctx2d.stroke(); // İç çerçeve
+    // --- ÇİFT KENAR ÇİZGİSİ SONU ---
+
+    // Basamakları Çiz
+    const stepCount = stair.stepCount || 1; // 0 olmasını engelle
+    // Basamak çizgilerini çizmek için stepCount > 1 kontrolü
+    if (stepCount > 1) {
+        const dirX = Math.cos(rotRad); // Uzunluk ekseni
+        const dirY = Math.sin(rotRad);
+        // perpX, perpY yukarıda tanımlandı
+
+        // İç çizgiye göre ayarla (zoom'u hesaba katma, dünya birimi)
+        const innerOffsetWorld = doubleLineOffset * zoom;
+        const halfHeight = stair.height / 2 - innerOffsetWorld;
+
+        // Merdivenin "başlangıç" kenarının merkezi (uzunluk eksenine göre) - İÇ ÇİZGİYE GÖRE AYARLA
+        const startEdgeCenter = {
+            x: stair.center.x - dirX * (stair.width / 2),
+            y: stair.center.y - dirY * (stair.width / 2)
+        };
+
+        ctx2d.beginPath();
+        for (let i = 1; i < stepCount; i++) {
+            const stepOffset = (stair.width / stepCount) * i;
+
+            const lineCenterX = startEdgeCenter.x + dirX * stepOffset;
+            const lineCenterY = startEdgeCenter.y + dirY * stepOffset;
+
+            // Çizgileri iç kenarlar arasında çiz
+            const p1 = { x: lineCenterX + perpX * halfHeight, y: lineCenterY + perpY * halfHeight };
+            const p2 = { x: lineCenterX - perpX * halfHeight, y: lineCenterY - perpY * halfHeight };
+
+            ctx2d.moveTo(p1.x, p1.y);
+            ctx2d.lineTo(p2.x, p2.y);
+        }
+        ctx2d.lineWidth = (lineThickness / 2) / zoom; // Basamak çizgileri daha ince
+        ctx2d.strokeStyle = stairColor; // Rengi tekrar ayarla (önceki fill değiştirmiş olabilir)
+        ctx2d.stroke();
+    }
+
+
+    // Yön Okunu Çiz
+    const arrowLength = stair.width * 0.6; // Ok uzunluğu merdiven boyunun %60'ı
+    const arrowStart = {
+        x: stair.center.x - Math.cos(rotRad) * (arrowLength / 2),
+        y: stair.center.y - Math.sin(rotRad) * (arrowLength / 2)
+    };
+    const arrowEnd = {
+        x: stair.center.x + Math.cos(rotRad) * (arrowLength / 2),
+        y: stair.center.y + Math.sin(rotRad) * (arrowLength / 2)
+    };
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(arrowStart.x, arrowStart.y);
+    ctx2d.lineTo(arrowEnd.x, arrowEnd.y);
+
+    ctx2d.lineWidth = (lineThickness / 1.5) / zoom; // Ok çizgisi
+    ctx2d.strokeStyle = stairColor; // Ana renkte
+    ctx2d.stroke(); // Okun gövdesini çiz
+
+    // --- DOLU OK BAŞI ---
+    const arrowHeadSize = Math.min(stair.height * 0.3, 15 / zoom); // Ok başı boyutu (zoom'a göre ayarlı)
+    const dirX = Math.cos(rotRad);
+    const dirY = Math.sin(rotRad);
+    const perpXArrow = -dirY; // Ok için normal
+    const perpYArrow = dirX;
+
+    const headBase = { // Ok başının gövdeyle birleştiği nokta
+        x: arrowEnd.x - dirX * arrowHeadSize, // Biraz geriden başlatıldı
+        y: arrowEnd.y - dirY * arrowHeadSize
+    };
+    const headP1 = {
+        x: headBase.x + perpXArrow * arrowHeadSize * 0.6,
+        y: headBase.y + perpYArrow * arrowHeadSize * 0.6
+    };
+     const headP2 = {
+        x: headBase.x - perpXArrow * arrowHeadSize * 0.6,
+        y: headBase.y - perpYArrow * arrowHeadSize * 0.6
+    };
+
+    ctx2d.fillStyle = stairColor; // Dolgu rengini ayarla
+    ctx2d.beginPath();
+    ctx2d.moveTo(arrowEnd.x, arrowEnd.y); // Sivri uç
+    ctx2d.lineTo(headP1.x, headP1.y); // Yan köşe 1
+    ctx2d.lineTo(headP2.x, headP2.y); // Yan köşe 2
+    ctx2d.closePath(); // Üçgeni kapat
+    ctx2d.fill(); // Ok başını doldur
+    // --- DOLU OK BAŞI SONU ---
 }
 // YENİ FONKSİYON BİTİŞİ

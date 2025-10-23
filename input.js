@@ -1,3 +1,4 @@
+// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/input.js
 import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js';
 import { screenToWorld, getOrCreateNode, distToSegmentSquared } from './geometry.js'; // distToSegmentSquared ekleyin
 import { splitWallAtMousePosition, processWalls } from './wall-processor.js';
@@ -56,10 +57,10 @@ function onKeyDown(e) {
     if (e.key === 'Control') currentModifierKeys.ctrl = true;
     if (e.key === 'Alt') currentModifierKeys.alt = true;
     if (e.key === 'Shift') currentModifierKeys.shift = true;
-    
+
     if (document.activeElement.closest("#settings-popup") || document.activeElement.closest("#room-name-popup")) return;
     if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-    
+
     if (e.key === "Tab" && state.currentMode === "drawWall" && state.startPoint) {
         e.preventDefault();
         extendWallOnTabPress();
@@ -67,22 +68,22 @@ function onKeyDown(e) {
     }
 
     // --- GÜNCELLENDİ: Kapı ve Pencereler için de sayı girişini yakala ---
-    if (state.selectedObject && 
-        (state.selectedObject.type === "wall" || state.selectedObject.type === "door" || state.selectedObject.type === "window") && 
-        !state.isEditingLength && /^[0-9.]$/.test(e.key)) { 
-        e.preventDefault(); 
-        startLengthEdit(e.key); 
-        return; 
+    if (state.selectedObject &&
+        (state.selectedObject.type === "wall" || state.selectedObject.type === "door" || state.selectedObject.type === "window") &&
+        !state.isEditingLength && /^[0-9.]$/.test(e.key)) {
+        e.preventDefault();
+        startLengthEdit(e.key);
+        return;
     }
     // --- GÜNCELLEME SONU ---
-    
+
     if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
-    
+
     // GÜNCELLEME: Space tuşu da Escape gibi çalışsın
     if (e.key === "Escape" || e.code === "Space") {
         if (e.code === "Space") e.preventDefault(); // Space'in varsayılanını (örn: sayfa kaydırma) engelle
-        
+
         if (state.isEditingLength) cancelLengthEdit();
         if (state.isDragging) {
             setState({ isDragging: false, isStretchDragging: false, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map() });
@@ -93,51 +94,70 @@ function onKeyDown(e) {
         setState({ startPoint: null });
         setMode("select");
     }
-    
+
     if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
         e.preventDefault();
-        
+        let deleted = false; // Silme işlemi yapıldı mı?
+
         // Kolon silme
         if (state.selectedObject?.type === 'column') {
             const columnToDelete = state.selectedObject.object;
             state.columns = state.columns.filter(c => c !== columnToDelete);
-            setState({ selectedObject: null });
-            saveState();
-            return;
+            deleted = true;
         }
-        
-        // Diğer nesneleri silme
-        if (state.selectedObject) {
+        // Kiriş silme
+        else if (state.selectedObject?.type === 'beam') {
+            const beamToDelete = state.selectedObject.object;
+            state.beams = state.beams.filter(b => b !== beamToDelete);
+            deleted = true;
+        }
+        // Merdiven silme <-- YENİ EKLENDİ
+        else if (state.selectedObject?.type === 'stairs') {
+            const stairToDelete = state.selectedObject.object;
+            state.stairs = state.stairs.filter(s => s !== stairToDelete);
+            deleted = true;
+        }
+        // Diğer nesneleri silme (Kapı, Pencere, Menfez, Duvar Grubu/Tekil Duvar)
+        else if (state.selectedObject) {
             if (state.selectedObject.type === "door") {
                 const newDoors = state.doors.filter((d) => d !== state.selectedObject.object);
                 setState({ doors: newDoors });
+                deleted = true;
             } else if (state.selectedObject.type === "window") {
                 const wall = state.selectedObject.wall;
-                if (wall.windows) {
+                if (wall && wall.windows) { // wall kontrolü eklendi
                     wall.windows = wall.windows.filter(w => w !== state.selectedObject.object);
+                    deleted = true;
                 }
             } else if (state.selectedObject.type === "vent") {
                 const wall = state.selectedObject.wall;
-                if (wall.vents) {
+                if (wall && wall.vents) { // wall kontrolü eklendi
                     wall.vents = wall.vents.filter(v => v !== state.selectedObject.object);
+                    deleted = true;
                 }
-            } else {
+            } else if (state.selectedObject.type === "wall") { // Sadece duvar tipi ise
                 const wallsToDelete = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
                 const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w));
                 const newDoors = state.doors.filter((d) => !wallsToDelete.includes(d.wall));
                 setState({ walls: newWalls, doors: newDoors });
+                deleted = true;
             }
-        } else {
+        } else if (state.selectedGroup.length > 0) { // Sadece grup seçiliyse (ve duvarlardan oluşuyorsa)
             const wallsToDelete = state.selectedGroup;
             const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w));
             const newDoors = state.doors.filter((d) => !wallsToDelete.includes(d.wall));
             setState({ walls: newWalls, doors: newDoors });
+            deleted = true;
         }
-        setState({ selectedObject: null, selectedGroup: [] });
-        processWalls();
-        saveState();
+
+        // Eğer bir silme işlemi yapıldıysa state'i güncelle ve kaydet
+        if (deleted) {
+            setState({ selectedObject: null, selectedGroup: [] });
+            processWalls(); // Geometriyi yeniden işle (odalar vs.)
+            saveState(); // Değişikliği kaydet
+        }
     }
-    
+
     if (e.key.toLowerCase() === "d") {
         const newMode = (state.dimensionMode + 1) % 3;
         setState({ dimensionMode: newMode });
@@ -150,7 +170,8 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === "p") setMode("drawWindow");
     if (e.key.toLowerCase() === "c") setMode("drawColumn");
     if (e.key.toLowerCase() === "b") setMode("drawBeam");
-    
+    if (e.key.toLowerCase() === "m") setMode("drawStairs"); // 'm' harfi Merdiven için
+
     // GÜNCELLEME: Eski Space tuşu işlevi (toggle) kaldırıldı
     // if (e.code === "Space" && state.currentMode === "select") { e.preventDefault(); setMode(state.lastUsedMode); }
 }
@@ -197,7 +218,7 @@ c2d.addEventListener("dblclick", (e) => {
     // Önce oda kontrolü
     if (object && (object.type === 'room' || object.type === 'roomName' || object.type === 'roomArea')) {
         showRoomNamePopup(object.object, e);
-    } 
+    }
     // Eğer duvar üzerinde çift tıklandıysa böl
     else if (object && object.type === 'wall' && object.handle === 'body') {
         splitWallAtMousePositionWithoutMerge();
@@ -205,7 +226,7 @@ c2d.addEventListener("dblclick", (e) => {
 });
 
     c2d.addEventListener("wheel", onWheel, { passive: false });
-    
+
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
@@ -244,6 +265,7 @@ function splitWallAtMousePositionWithoutMerge() {
     const hitToleranceSq = (state.wallThickness * 1.5) ** 2;
 
     for (const wall of walls) {
+        if (!wall.p1 || !wall.p2) continue; // Check added
         const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);
         if (distSq < minDistSq) {
             minDistSq = distSq;
@@ -254,33 +276,34 @@ function splitWallAtMousePositionWithoutMerge() {
 
     const p1 = wallToSplit.p1, p2 = wallToSplit.p2;
     const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
+    if (l2 < 0.1) return; // Prevent division by zero or near-zero
     let t = ((mousePos.x - p1.x) * (p2.x - p1.x) + (mousePos.y - p1.y) * (p2.y - p1.y)) / l2;
     t = Math.max(0, Math.min(1, t));
     const splitPoint = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
 
     const MIN_SPLIT_DIST = 10;
-    if (Math.hypot(splitPoint.x - p1.x, splitPoint.y - p1.y) < MIN_SPLIT_DIST || 
+    if (Math.hypot(splitPoint.x - p1.x, splitPoint.y - p1.y) < MIN_SPLIT_DIST ||
         Math.hypot(splitPoint.x - p2.x, splitPoint.y - p2.y) < MIN_SPLIT_DIST) return;
-    
+
     const splitNode = getOrCreateNode(splitPoint.x, splitPoint.y);
     const wallIndex = walls.indexOf(wallToSplit);
     if (wallIndex > -1) walls.splice(wallIndex, 1);
 
     const distToSplitNode = Math.hypot(splitNode.x - p1.x, splitNode.y - p1.y);
-    const newWall1 = { 
-        type: "wall", 
-        p1: p1, 
-        p2: splitNode, 
-        thickness: wallToSplit.thickness || state.wallThickness, 
+    const newWall1 = {
+        type: "wall",
+        p1: p1,
+        p2: splitNode,
+        thickness: wallToSplit.thickness || state.wallThickness,
         wallType: wallToSplit.wallType || 'normal',
         windows: [],
         vents: []
     };
-    const newWall2 = { 
-        type: "wall", 
-        p1: splitNode, 
-        p2: p2, 
-        thickness: wallToSplit.thickness || state.wallThickness, 
+    const newWall2 = {
+        type: "wall",
+        p1: splitNode,
+        p2: p2,
+        thickness: wallToSplit.thickness || state.wallThickness,
         wallType: wallToSplit.wallType || 'normal',
         windows: [],
         vents: []
@@ -291,8 +314,8 @@ function splitWallAtMousePositionWithoutMerge() {
         if (door.wall === wallToSplit) {
             if (door.pos < distToSplitNode) {
                 door.wall = newWall1;
-            } else { 
-                door.wall = newWall2; 
+            } else {
+                door.wall = newWall2;
                 door.pos = door.pos - distToSplitNode;
             }
         }
@@ -324,7 +347,7 @@ function splitWallAtMousePositionWithoutMerge() {
 
     walls.push(newWall1, newWall2);
     setState({ selectedObject: null });
-    
+
     // BİRLEŞTİRME OLMADAN İŞLE
     processWalls(true);
     saveState();

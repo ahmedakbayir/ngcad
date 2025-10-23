@@ -1,3 +1,4 @@
+// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/main.js
 import { draw2D } from './draw2d.js';
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d } from './scene3d.js';
 import { setupInputListeners } from './input.js';
@@ -39,6 +40,7 @@ export let state = {
     rooms: [],
     columns: [],
     beams: [],
+    stairs: [], // <-- YENİ SATIRI EKLEYİN
     wallAdjacency: new Map(),
     selectedObject: null,
     selectedRoom: null,
@@ -93,7 +95,7 @@ export let state = {
     lockedSnapPoint: null,
     gridOptions: {
         visible: true,
-        spacing: 10,
+        spacing: 1,
         color: "#27292a",
         weight: 0.5,
     },
@@ -132,6 +134,7 @@ export const dom = {
     bWindow: document.getElementById("bWindow"),
     bColumn: document.getElementById("bColumn"),
     bBeam: document.getElementById("bBeam"),
+    bStairs: document.getElementById("bStairs"), // <-- YENİ SATIRI EKLEYİN
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
@@ -206,6 +209,7 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bWindow.classList.toggle("active", newMode === "drawWindow");
     dom.bColumn.classList.toggle("active", newMode === "drawColumn");
     dom.bBeam.classList.toggle("active", newMode === "drawBeam");
+    dom.bStairs.classList.toggle("active", newMode === "drawStairs"); // <-- YENİ SATIRI EKLEYİN
     dom.p2d.className = `panel ${newMode}-mode`;
 }
 
@@ -306,6 +310,7 @@ function initialize() {
     dom.bWindow.addEventListener("click", () => setMode("drawWindow"));
     dom.bColumn.addEventListener("click", () => setMode("drawColumn"));
     dom.bBeam.addEventListener("click", () => setMode("drawBeam"));
+    dom.bStairs.addEventListener("click", () => setMode("drawStairs")); // <-- YENİ SATIRI EKLEYİN
     dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames);
 

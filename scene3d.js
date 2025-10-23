@@ -1,3 +1,4 @@
+// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/scene3d.js
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // dom eklendi
@@ -5,7 +6,8 @@ import { state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGH
 
 let scene, camera, renderer, controls;
 // Malzemeler güncellendi (opacity) ve floorMaterial eklendi
-let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial;
+// Malzemelere stairMaterial ekle
+let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial, stairMaterial;
 
 // Yardımcı Fonksiyon: Kutu Mesh
 function createBoxMesh(width, height, depth, material, name = "") {
@@ -105,6 +107,15 @@ export function init3D(canvasElement) {
         roughness: 0.9,
         transparent: true,
         opacity: 0.4,      // Yarı Saydam
+        side: THREE.DoubleSide
+    });
+    // --- Güncelleme Sonu ---
+    // YENİ MALZEMEYİ AŞAĞIYA EKLEYİN
+    stairMaterial = new THREE.MeshStandardMaterial({
+        color: 0xCCCCCC, // Açık gri beton rengi (Beyaz DEĞİL)
+        roughness: 0.8,
+        transparent: true,
+        opacity: solidOpacity, // Diğerleriyle aynı opaklık
         side: THREE.DoubleSide
     });
     // --- Güncelleme Sonu ---
@@ -285,6 +296,52 @@ function createBeamMesh(beam, material) {
     return beamMesh;
 }
 
+// YENİ MERDİVEN MESH FONKSİYONU (GÜNCELLENMİŞ)
+function createStairMesh(stair, material) {
+    const totalRun = stair.width; // Merdivenin 2D'deki "width"i (uzunluğu)
+    const stairWidth = stair.height; // Merdivenin 2D'deki "height"i (eni)
+    // Nesneden stepCount'u oku
+    const stepCount = stair.stepCount || 1; // Varsayılan 1 olsun (0 olmamalı)
+    const totalRise = WALL_HEIGHT; // Sabit duvar yüksekliği
+
+    // Negatif veya sıfır basamak sayısını engelle
+    if (totalRun < 1 || stairWidth < 1 || stepCount < 1) return null;
+
+    const stepRun = totalRun / stepCount; // Her bir basamağın derinliği
+    const stepRise = totalRise / stepCount; // Her bir basamağın yüksekliği
+
+    const stairGroup = new THREE.Group();
+
+    // stepCount kadar basamak oluştur
+    for (let i = 0; i < stepCount; i++) {
+        const stepGeom = new THREE.BoxGeometry(stepRun, stepRise, stairWidth);
+
+        // Geometrinin merkezini basamağın "alt-ön-merkezine" taşıyalım
+        stepGeom.translate(0, stepRise / 2, 0);
+
+        const stepMesh = new THREE.Mesh(stepGeom, material);
+
+        // Her basamağı konumlandır
+        // x: Merdiven grubunun merkezi (0) eksi yarım uzunluk + yarım basamak + (basamak * adım)
+        const xPos = -totalRun / 2 + stepRun / 2 + i * stepRun;
+        // y: (basamak * yükseklik)
+        const yPos = i * stepRise;
+        // z: 0 (Grup içinde merkezli)
+        const zPos = 0;
+
+        stepMesh.position.set(xPos, yPos, zPos);
+        stairGroup.add(stepMesh);
+    }
+
+    // Tüm grubu merdivenin 2D merkezine taşı ve döndür
+    stairGroup.position.set(stair.center.x, 0, stair.center.y);
+    stairGroup.rotation.y = -(stair.rotation || 0) * Math.PI / 180;
+
+    return stairGroup;
+}
+// YENİ FONKSİYON BİTİŞİ
+
+
 // --- GÜNCELLENDİ: Malzeme Güncellemesi ve Zemin Yönü/Pozisyonu ---
 export function update3DScene() {
     if (!dom.mainContainer.classList.contains('show-3d') || !sceneObjects) return;
@@ -301,8 +358,10 @@ export function update3DScene() {
     sillMaterial.transparent = true; sillMaterial.opacity = solidOpacity + 0.1; sillMaterial.needsUpdate = true;
     handleMaterial.transparent = false; handleMaterial.opacity = 1.0; handleMaterial.needsUpdate = true; // Kol opak
     floorMaterial.transparent = true; floorMaterial.opacity = 0.4; floorMaterial.needsUpdate = true;
+    stairMaterial.transparent = true; stairMaterial.opacity = solidOpacity;stairMaterial.color.set(0xCCCCCC);     
+    stairMaterial.needsUpdate = true;
 
-    const { walls, doors, columns, beams, rooms } = state;
+    const { walls, doors, columns, beams, rooms, stairs } = state; // <-- stairs EKLEYİN
 
     // Duvarları, kapıları, pencereleri oluştur
     walls.forEach(w => {
@@ -330,49 +389,61 @@ export function update3DScene() {
     // Kirişleri ekle
     if (beams) { beams.forEach(beam => { const m = createBeamMesh(beam, beamMaterial); if (m) sceneObjects.add(m); }); }
 
+    // YENİ MERDİVEN EKLEME BLOĞUNU AŞAĞIYA EKLEYİN
+    // Merdivenleri ekle
+if (stairs) {
+        stairs.forEach(stair => {
+            // createStairMesh doğru malzemeyi (stairMaterial) kullanıyor
+            const m = createStairMesh(stair, stairMaterial);
+            if (m) sceneObjects.add(m);
+        });
+    }
+    // YENİ BLOK BİTİŞİ
+
+
     // --- Zeminleri Ekle (Yön Düzeltmesiyle) ---
-// --- Zeminleri Ekle (Y İşareti Düzeltmesiyle) ---
-if (rooms) {
-    rooms.forEach(room => {
-        if (room.polygon?.geometry?.coordinates) {
-            const coords = room.polygon.geometry.coordinates[0];
-            if (coords.length >= 3) {
-                try {
-                    // Koordinatları Shape için hazırla (merkeze göre)
-                    let minX = Infinity, maxX = -Infinity;
-                    let minY = Infinity, maxY = -Infinity;
-                    coords.forEach(p => {
-                        minX = Math.min(minX, p[0]);
-                        maxX = Math.max(maxX, p[0]);
-                        minY = Math.min(minY, p[1]);
-                        maxY = Math.max(maxY, p[1]);
-                    });
-                    const centerX = (minX + maxX) / 2;
-                    const centerZ = (minY + maxY) / 2;
-                    
-                    // Shape'i merkeze göre oluştur - Y işaretini TERS ÇEVİR
-                    const shapePoints = coords.map(p => 
-                        new THREE.Vector2(p[0] - centerX, -(p[1] - centerZ)) // Eksi işareti eklendi
-                    );
-                    const roomShape = new THREE.Shape(shapePoints);
-                    const geometry = new THREE.ShapeGeometry(roomShape);
-                    
-                    const floorMesh = new THREE.Mesh(geometry, floorMaterial);
-                    
-                    // XY düzleminden XZ düzlemine döndür
-                    floorMesh.rotation.x = -Math.PI / 2;
-                    
-                    // Gerçek dünya pozisyonuna yerleştir
-                    floorMesh.position.set(centerX, 0.1, centerZ);
-                    
-                    sceneObjects.add(floorMesh);
-                } catch (error) { 
-                    console.error("Zemin oluşturulurken hata:", error, room); 
+    // --- Zeminleri Ekle (Y İşareti Düzeltmesiyle) ---
+    if (rooms) {
+        rooms.forEach(room => {
+            if (room.polygon?.geometry?.coordinates) {
+                const coords = room.polygon.geometry.coordinates[0];
+                if (coords.length >= 3) {
+                    try {
+                        // Koordinatları Shape için hazırla (merkeze göre)
+                        let minX = Infinity, maxX = -Infinity;
+                        let minY = Infinity, maxY = -Infinity;
+                        coords.forEach(p => {
+                            minX = Math.min(minX, p[0]);
+                            maxX = Math.max(maxX, p[0]);
+                            minY = Math.min(minY, p[1]);
+                            maxY = Math.max(maxY, p[1]);
+                        });
+                        const centerX = (minX + maxX) / 2;
+                        const centerZ = (minY + maxY) / 2;
+
+                        // Shape'i merkeze göre oluştur - Y işaretini TERS ÇEVİR
+                        const shapePoints = coords.map(p =>
+                            new THREE.Vector2(p[0] - centerX, -(p[1] - centerZ)) // Eksi işareti eklendi
+                        );
+                        const roomShape = new THREE.Shape(shapePoints);
+                        const geometry = new THREE.ShapeGeometry(roomShape);
+
+                        const floorMesh = new THREE.Mesh(geometry, floorMaterial);
+
+                        // XY düzleminden XZ düzlemine döndür
+                        floorMesh.rotation.x = -Math.PI / 2;
+
+                        // Gerçek dünya pozisyonuna yerleştir
+                        floorMesh.position.set(centerX, 0.1, centerZ);
+
+                        sceneObjects.add(floorMesh);
+                    } catch (error) {
+                        console.error("Zemin oluşturulurken hata:", error, room);
+                    }
                 }
             }
-        }
-    });
-}
+        });
+    }
     // --- Zemin Ekleme Sonu ---
 
     // --- Orbit Hedefini Geri Yükle ---
@@ -380,7 +451,8 @@ if (rooms) {
         const boundingBox = new THREE.Box3();
         // Zeminleri hariç tutarak bounding box hesapla
         sceneObjects.children.forEach(obj => {
-             if (obj.material !== floorMaterial) { // Malzemeye göre kontrol et
+             // Merdivenleri de bounding box'a dahil et
+             if (obj.material !== floorMaterial) {
                  boundingBox.expandByObject(obj);
              }
          });

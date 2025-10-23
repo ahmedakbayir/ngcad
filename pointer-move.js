@@ -1,4 +1,4 @@
-// ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/pointer-move.js
+// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/pointer-move.js
 // GÜNCELLENMİŞ: Bu dosya artık sadece bir yönlendiricidir.
 
 import { state, dom, setState } from './main.js';
@@ -12,6 +12,7 @@ import { currentModifierKeys } from './input.js';
 import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from './columns.js';
 // YENİ IMPORTLARI AŞAĞIYA EKLEYİN
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from './beams.js';
+import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from './stairs.js'; // <-- MERDİVEN EKLENDİ
 import { onPointerMove as onPointerMoveWall } from './wall-handler.js';
 import { onPointerMove as onPointerMoveDoor } from './door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from './window-handler.js';
@@ -36,71 +37,89 @@ function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
 }
 
 export function onPointerMove(e) {
-    if (state.isCtrlDeleting) {
-        // ... (silme mantığı - değişiklik yok)
-        if (state.selectedObject?.type === 'column' && state.selectedObject?.handle.startsWith('corner_')) {
-            setState({ isCtrlDeleting: false });
-            return;
-        }
-        if (state.selectedObject?.type === 'column' && state.selectedObject?.handle?.startsWith('edge_')) {
-             setState({ isCtrlDeleting: false });
-             return;
-        }
+    // isCtrlDeleting bloğu GÜNCELLENDİ (Merdiven silme eklendi)
+    if (state.isCtrlDeleting && e.altKey && e.ctrlKey) { // Sadece Alt+Ctrl basılıyken sil
         const rect = dom.c2d.getBoundingClientRect();
         const mousePos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-        
+
+        let needsProcessing = false; // processWalls çağırmak gerekip gerekmediğini izle
+
         // Duvar silme
         const wallsToDelete = new Set();
         for (const wall of state.walls) {
+             if (!wall.p1 || !wall.p2) continue; // Geçersiz duvarları atla
              const wallPx = wall.thickness || state.wallThickness;
-             const currentToleranceSq = (wallPx / 2)**2;
-            const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);
-            if (distSq < currentToleranceSq) {
-                wallsToDelete.add(wall);
-            }
+             // Silme toleransını biraz artıralım
+             const currentToleranceSq = (wallPx / 2 + 3 / state.zoom)**2;
+             const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);
+             if (distSq < currentToleranceSq) {
+                 wallsToDelete.add(wall);
+             }
         }
         if (wallsToDelete.size > 0) {
             const wallsToDeleteArray = Array.from(wallsToDelete);
             const newWalls = state.walls.filter(w => !wallsToDeleteArray.includes(w));
-            const newDoors = state.doors.filter(d => !wallsToDeleteArray.includes(d.wall));
+            const newDoors = state.doors.filter(d => d.wall && !wallsToDeleteArray.includes(d.wall)); // d.wall kontrolü
             setState({ walls: newWalls, doors: newDoors });
-            processWalls();
+            needsProcessing = true;
         }
-        
-        // <-- DEĞİŞİKLİK BURADA: Kolon silme mantığı eklendi -->
+
+        // Kolon silme
         const columnsToDelete = new Set();
         for (const column of state.columns) {
             if (isPointInColumn(mousePos, column)) {
                 columnsToDelete.add(column);
             }
         }
-
         if (columnsToDelete.size > 0) {
             const columnsToDeleteArray = Array.from(columnsToDelete);
             const newColumns = state.columns.filter(c => !columnsToDeleteArray.includes(c));
             setState({ columns: newColumns });
-            processWalls(); // 3D sahneyi vb. güncellemek için
+            needsProcessing = true;
         }
-        // <-- DEĞİŞİKLİK SONU -->
-        
-        // YENİ KİRİŞ SİLME BLOĞUNU AŞAĞIYA EKLEYİN
+
+        // Kiriş silme
         const beamsToDelete = new Set();
         for (const beam of (state.beams || [])) {
             if (isPointInBeam(mousePos, beam)) {
                 beamsToDelete.add(beam);
             }
         }
-
         if (beamsToDelete.size > 0) {
             const beamsToDeleteArray = Array.from(beamsToDelete);
             const newBeams = state.beams.filter(b => !beamsToDeleteArray.includes(b));
             setState({ beams: newBeams });
-            processWalls(); // 3D sahneyi vb. güncellemek için
+            needsProcessing = true;
         }
-        // YENİ BLOK BİTİŞİ
-        
-        return;
+
+        // Merdiven silme <-- YENİ EKLENDİ VE GÜNCELLENDİ
+        const stairsToDelete = new Set();
+        for (const stair of (state.stairs || [])) {
+            if (isPointInStair(mousePos, stair)) {
+                stairsToDelete.add(stair);
+            }
+        }
+        if (stairsToDelete.size > 0) {
+            const stairsToDeleteArray = Array.from(stairsToDelete);
+            const newStairs = state.stairs.filter(s => !stairsToDeleteArray.includes(s));
+            setState({ stairs: newStairs });
+            needsProcessing = true;
+        }
+
+        // Eğer herhangi bir silme işlemi yapıldıysa processWalls çağır
+        if (needsProcessing) {
+            processWalls(); // Silme işlemi sonrası geometriyi güncelle
+            // saveState() burada çağrılmamalı, pointerUp'ta çağrılacak
+        }
+
+        return; // Silme modundan sonra başka işlem yapma
+    } else if (state.isCtrlDeleting && (!e.altKey || !e.ctrlKey)) {
+        // Eğer tuşlar bırakıldıysa silme modunu bitir (input.js'deki onKeyUp'a ek olarak)
+         setState({ isCtrlDeleting: false });
+         // saveState(); // pointerUp'ta çağrılacak
+         return; // Başka işlem yapma
     }
+
 
     if (state.isDraggingRoomName) {
         // ... (oda ismi taşıma mantığı - değişiklik yok)
@@ -112,14 +131,18 @@ export function onPointerMove(e) {
         const newCenterX = state.roomOriginalCenter[0] + mouseDeltaX;
         const newCenterY = state.roomOriginalCenter[1] + mouseDeltaY;
         room.center = [newCenterX, newCenterY];
-        const bbox = turf.bbox(room.polygon);
-        const bboxWidth = bbox[2] - bbox[0];
-        const bboxHeight = bbox[3] - bbox[1];
-        if (bboxWidth > 0 && bboxHeight > 0) {
-            room.centerOffset = {
-                x: (newCenterX - bbox[0]) / bboxWidth,
-                y: (newCenterY - bbox[1]) / bboxHeight
-            };
+        try { // Add try-catch for turf.bbox
+            const bbox = turf.bbox(room.polygon);
+            const bboxWidth = bbox[2] - bbox[0];
+            const bboxHeight = bbox[3] - bbox[1];
+            if (bboxWidth > 0 && bboxHeight > 0) {
+                room.centerOffset = {
+                    x: (newCenterX - bbox[0]) / bboxWidth,
+                    y: (newCenterY - bbox[1]) / bboxHeight
+                };
+            }
+        } catch (error) {
+            console.error("Error calculating bbox for room name dragging:", error);
         }
         return;
     }
@@ -146,7 +169,7 @@ export function onPointerMove(e) {
     const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 
     if (state.isStretchDragging) {
-        update3DScene();
+        update3DScene(); // Stretch dragging 3D'yi güncellesin
         updateMouseCursor();
         return;
     }
@@ -157,8 +180,11 @@ export function onPointerMove(e) {
             case 'column':
                 onPointerMoveColumn(snappedPos, unsnappedPos);
                 break;
-            case 'beam': // <-- YENİ CASE EKLEYİN
+            case 'beam':
                 onPointerMoveBeam(snappedPos, unsnappedPos);
+                break;
+            case 'stairs':
+                onPointerMoveStairs(snappedPos, unsnappedPos);
                 break;
             case 'wall':
                 onPointerMoveWall(snappedPos, unsnappedPos);
@@ -176,6 +202,7 @@ export function onPointerMove(e) {
                 const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY };
                 let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = state.wallThickness * 2;
                 for (const w of state.walls) {
+                    if (!w.p1 || !w.p2) continue; // Check added
                     const d = distToSegmentSquared(targetPos, w.p1, w.p2);
                     if (d < bodyHitTolerance ** 2 && d < minDistSq) { minDistSq = d; closestWall = w; }
                 }
@@ -189,15 +216,16 @@ export function onPointerMove(e) {
                         const minPos = vent.width / 2 + ventMargin; const maxPos = wallLen - vent.width / 2 + ventMargin;
                         vent.pos = Math.max(minPos, Math.min(maxPos, newPos));
                         if (oldWall !== closestWall) {
-                            if (oldWall.vents) oldWall.vents = oldWall.vents.filter(v => v !== vent);
+                            if (oldWall && oldWall.vents) oldWall.vents = oldWall.vents.filter(v => v !== vent); // oldWall check
                             if (!closestWall.vents) closestWall.vents = [];
                             closestWall.vents.push(vent);
-                            state.selectedObject.wall = closestWall;
+                            state.selectedObject.wall = closestWall; // Update selected object's wall reference
                         }
                     }
                 }
                 break;
         }
+        // Sadece sürükleme varsa 3D'yi güncelle
         update3DScene();
     }
 
@@ -206,18 +234,23 @@ export function onPointerMove(e) {
 
 /**
  * Mouse imlecini duruma göre günceller.
- * (Refactor edildi, artık `getColumnAtPoint`'i kullanıyor)
  */
-// ahmedakbayir/ngcad/ngcad-b55eb6ae3e1c1a580c424be5c2b8b3979c1b5b5e/pointer-move.js
-// ... (importlar ve diğer kodlar) ...
-
 function updateMouseCursor() {
     const { c2d, p2d } = dom; // p2d'yi de alalım
     const { currentMode, isDragging, isPanning, mousePos, selectedObject, zoom } = state;
 
     // Sınıfları p2d üzerinden temizleyelim
-    p2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node', 'rotate-mode');
+    p2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node', 'rotate-mode',
+                         'select-mode', 'drawWall-mode', 'drawRoom-mode', 'drawDoor-mode', 'drawWindow-mode',
+                         'drawColumn-mode', 'drawBeam-mode', 'drawStairs-mode'); // Tüm mod sınıfları
     c2d.style.cursor = ''; // Canvas'ın cursor stilini sıfırla
+
+    // Ctrl+Alt silme modu için özel cursor
+    if (state.isCtrlDeleting && currentModifierKeys.alt && currentModifierKeys.ctrl) {
+        c2d.style.cursor = 'crosshair'; // veya 'cell' gibi farklı bir cursor
+        return;
+    }
+
 
     if (state.isDraggingRoomName || isPanning) {
         // Pan/oda ismi sürüklerken cursor'ı doğrudan canvas'a verelim
@@ -226,22 +259,25 @@ function updateMouseCursor() {
     }
 
     if (isDragging) {
-        if (selectedObject?.type === 'column' || selectedObject?.type === 'beam') { // <-- "beam" EKLEYİN
+        // Kolon, Kiriş veya Merdiven döndürme/boyutlandırma
+        if (selectedObject?.type === 'column' || selectedObject?.type === 'beam' || selectedObject?.type === 'stairs') { // <-- "stairs" EKLEYİN
             if (selectedObject.handle?.startsWith('corner_')) {
                 p2d.classList.add('rotate-mode'); // Sınıfı p2d'ye ekle
                 return;
             }
             if (selectedObject.handle?.startsWith('edge_')) {
-                // Kenar boyutlandırma cursor'ını doğrudan c2d'ye verelim
                 const edgeHandle = selectedObject.handle;
                 const rotation = selectedObject.object.rotation || 0;
                 const angleDeg = Math.abs(rotation % 180);
-                let cursorType = 'ew-resize';
-                if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') {
+                let cursorType = 'ew-resize'; // Varsayılan
+
+                // Merdiven kenarları için cursor tipi (Kolon/Kiriş ile aynı mantık)
+                 if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') { // 'height' (en)
                     cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize';
-                } else {
+                 } else { // 'width' (uzunluk)
                     cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize';
-                }
+                 }
+
                 c2d.style.cursor = cursorType;
                 return;
             }
@@ -252,15 +288,15 @@ function updateMouseCursor() {
     }
 
     // Hover durumları (Sürükleme yokken)
+    // Kolon hover
     const hoveredColumnObject = getColumnAtPoint(mousePos);
     if (hoveredColumnObject) {
         const handle = hoveredColumnObject.handle;
         if (handle.startsWith('corner_')) {
-            p2d.classList.add('rotate-mode'); // Sınıfı p2d'ye ekle
+            p2d.classList.add('rotate-mode');
             return;
         }
         if (handle.startsWith('edge_')) {
-             // Kenar boyutlandırma cursor'ını doğrudan c2d'ye verelim
             const rotation = hoveredColumnObject.object.rotation || 0;
             const angleDeg = Math.abs(rotation % 180);
             let cursorType = 'ew-resize';
@@ -273,13 +309,12 @@ function updateMouseCursor() {
             return;
         }
         if (handle === 'body' && currentMode === 'select') {
-             // Gövde üzerine gelince taşıma cursor'ını c2d'ye verelim
             c2d.style.cursor = 'move';
             return;
         }
     }
-    
-    // YENİ KİRİŞ CURSOR BLOĞUNU AŞAĞIYA EKLEYİN
+
+    // Kiriş hover
     const hoveredBeamObject = getBeamAtPoint(mousePos);
     if (hoveredBeamObject) {
         const handle = hoveredBeamObject.handle;
@@ -304,11 +339,37 @@ function updateMouseCursor() {
             return;
         }
     }
-    // YENİ BLOK BİTİŞİ
+
+    // Merdiven hover <-- YENİ EKLENDİ
+    const hoveredStairObject = getStairAtPoint(mousePos);
+    if (hoveredStairObject) {
+        const handle = hoveredStairObject.handle;
+        if (handle.startsWith('corner_')) {
+            p2d.classList.add('rotate-mode');
+            return;
+        }
+        if (handle.startsWith('edge_')) {
+            const rotation = hoveredStairObject.object.rotation || 0;
+            const angleDeg = Math.abs(rotation % 180);
+            let cursorType = 'ew-resize';
+             if (handle === 'edge_top' || handle === 'edge_bottom') { // 'height' (en)
+                cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize';
+             } else { // 'width' (uzunluk)
+                cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize';
+             }
+            c2d.style.cursor = cursorType;
+            return;
+        }
+        if (handle === 'body' && currentMode === 'select') {
+            c2d.style.cursor = 'move';
+            return;
+        }
+    }
+
 
     // Diğer hover durumları için sınıfları p2d'ye ekleyelim
     const isDraggingDoorOrWindow = isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window');
-    const showSnap = (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn' || currentMode === 'drawBeam') || // <-- "drawBeam" EKLEYİN
+    const showSnap = (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn' || currentMode === 'drawBeam' || currentMode === 'drawStairs') || // <-- "drawStairs" EKLEYİN
                      (isDragging && selectedObject?.type === 'wall' && selectedObject.handle !== 'body');
 
     if (!isDraggingDoorOrWindow && mousePos.isSnapped && !isDragging && showSnap) {
@@ -346,10 +407,9 @@ function updateMouseCursor() {
      else if (currentMode === 'drawWall') p2d.classList.add('drawWall-mode');
      else if (currentMode === 'drawRoom') p2d.classList.add('drawRoom-mode');
      else if (currentMode === 'drawDoor') p2d.classList.add('drawDoor-mode');
-     else if (currentMode === 'drawWindow') { /* window için özel class yoksa default kalır */ }
+     else if (currentMode === 'drawWindow') { /* window için özel class yok */ }
      else if (currentMode === 'drawColumn') p2d.classList.add('drawColumn-mode');
-     else if (currentMode === 'drawBeam') p2d.classList.add('drawBeam-mode'); // <-- YENİ SATIRI EKLEYİN
+     else if (currentMode === 'drawBeam') p2d.classList.add('drawBeam-mode');
+     else if (currentMode === 'drawStairs') p2d.classList.add('drawStairs-mode'); // <-- YENİ SATIRI EKLEYİN
 
 }
-
-// ... (dosyanın geri kalanı) ...
