@@ -38,6 +38,13 @@ export function getWindowAtPoint(pos, tolerance) {
 
 // Pencereyi duvarın ortasına eklemek için yardımcı fonksiyon
 function addWindowToWallMiddle(wall) {
+    // ---- YENİ KONTROL ----
+    // Duvarda zaten pencere varsa ekleme
+    if (wall.windows && wall.windows.length > 0) {
+        return false; // Zaten pencere var, ekleme yapma
+    }
+    // ---- KONTROL SONU ----
+
     const largestSegment = findLargestAvailableSegment(wall);
     if (!largestSegment) {
         return false;
@@ -91,6 +98,11 @@ export function onPointerDownDraw(pos, clickedObject) {
         const previewWindowData = getWindowPlacement(previewWall, pos);
         // isSpaceForWindow'un previewWindowData'yı alması gerekiyor
         if (previewWindowData && isSpaceForWindow(previewWindowData)) {
+            // ---- YENİ KONTROL: Duvarda zaten pencere var mı? ----
+            if (previewWall.windows && previewWall.windows.length > 0) {
+                 return; // Zaten pencere varsa ekleme
+            }
+            // ---- KONTROL SONU ----
             if (!previewWall.windows) previewWall.windows = [];
             // getWindowPlacement'ten dönen width ve pos'u kullan, işareti ekle
             previewWall.windows.push({

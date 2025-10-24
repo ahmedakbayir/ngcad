@@ -2,7 +2,7 @@ import { state, dom } from './main.js';
 import { screenToWorld } from './geometry.js';
 
 // Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.7 yaklaşık olarak 10x zoomda yarı boyutu verir)
-const ZOOM_EXPONENT = -0.65; 
+const ZOOM_EXPONENT = -0.65;
 
 export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     const { ctx2d } = dom;
@@ -18,7 +18,7 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     const displayText = `${Math.round(roundedLength)}`;
 
     // Duvarı bul (p1 ve p2'ye sahip duvar)
-    const wall = walls.find(w => 
+    const wall = walls.find(w =>
         (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1)
     );
     const wallThickness = wall?.thickness || 20;
@@ -31,7 +31,7 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     let actualOffset;
     if (nx < 0 || ny < 0) {
         // Sol veya üst - yakın
-        actualOffset = wallThickness / 2 + 5; 
+        actualOffset = wallThickness / 2 + 5;
     } else {
         // Sağ veya alt - uzak
         actualOffset = wallThickness / 2 + 18;
@@ -40,7 +40,7 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     // Metin pozisyonu
     const midX = (p1.x + p2.x) / 2 + nx * actualOffset;
     const midY = (p1.y + p2.y) / 2 + ny * actualOffset;
-    
+
     let ang = Math.atan2(dy, dx);
     const epsilon = 0.001;
 
@@ -55,17 +55,24 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     ctx2d.rotate(ang);
 
     const baseFontSize = dimensionOptions.fontSize;
-    
+
     // YENİ MANTIK: Yazı boyutunu zoom'un üssü ile ölçekle
     let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
 
     // Minimum *dünya* boyutunu ayarla (ekran boyutu değil)
     const minWorldFontSize = 5; // En küçük yazı boyutu (dünya biriminde)
-    
+
     ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-    
-    ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
-    
+
+    // ---- RENK AYARLAMASI ----
+    // Kolon/Kiriş/Merdiven modu için her zaman dimensionOptions.color kullan
+    if (mode === 'columnBeam') {
+        ctx2d.fillStyle = dimensionOptions.color;
+    } else {
+        ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
+    }
+    // ---- AYARLAMA SONU ----
+
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "middle";
     ctx2d.fillText(displayText, 0, 0);
@@ -130,12 +137,12 @@ export function drawTotalDimensions() {
             const ny = dx / length;  // Normal vektör y
 
             // --- YENİ MANTIK ---
-            
+
             // 1. Dışa doğru yönü bul
             const testDistance = 1.0;
             const testX = midX + nx * testDistance;
             const testY = midY + ny * testDistance;
-            
+
             let isOutside = true;
             for(const room of rooms) {
                 if (turf.booleanPointInPolygon([testX, testY], room.polygon)) {
@@ -143,7 +150,7 @@ export function drawTotalDimensions() {
                     break;
                 }
             }
-            
+
             // 2. Normal vektörün yönüne göre offset'i ayarla
             let offset;
             if (isHorizontal) {
@@ -161,7 +168,7 @@ export function drawTotalDimensions() {
                     offset = 30;
                 }
             }
-            
+
             // 3. Yönü ve yeni atanan offset'i birleştir
             const finalOffset = isOutside ? offset : -offset;
 
@@ -178,14 +185,14 @@ export function drawTotalDimensions() {
                 ctx2d.translate(midX + finalOffset * (nx > 0 ? 1 : -1), midY);
                 ctx2d.rotate(-Math.PI / 2);
                 ctx2d.textAlign = "center";
-                
+
                 // Düzeltilmiş Hizalama:
                 if (isOutside) { // Sol Duvar
                     ctx2d.textBaseline = "top";
                 } else { // Sağ Duvar
                     ctx2d.textBaseline = "bottom";
                 }
-                
+
                 ctx2d.fillText(roundedLength.toString(), 0, 0);
                 ctx2d.restore();
             }
@@ -199,51 +206,51 @@ export function drawOuterDimensions() {
     const { zoom, walls, gridOptions, dimensionOptions, dimensionMode } = state;
 
     const showOuterOption = dimensionOptions.showOuter;
-    const showOuter = (showOuterOption === 1 && (dimensionMode === 1 || dimensionMode === 2)) || 
+    const showOuter = (showOuterOption === 1 && (dimensionMode === 1 || dimensionMode === 2)) ||
                       (showOuterOption === 2 && dimensionMode === 1) ||
                       (showOuterOption === 3 && dimensionMode === 2);
 
     if (showOuter && walls.length > 0) {
         const allX = walls.flatMap(w => [w.p1.x, w.p2.x]);
         const allY = walls.flatMap(w => [w.p1.y, w.p2.y]);
-        
+
         const minX = Math.min(...allX);
         const maxX = Math.max(...allX);
         const minY = Math.min(...allY);
         const maxY = Math.max(...allY);
-        
+
         const totalWidth = maxX - minX;
         const totalHeight = maxY - minY;
-        
+
         const dimLineOffset = 60;
         const extensionOvershoot = 8;
         const extensionLineLength = dimLineOffset + extensionOvershoot;
-        
+
         ctx2d.strokeStyle = dimensionOptions.color;
         ctx2d.fillStyle = dimensionOptions.color;
         ctx2d.lineWidth = 1 / zoom;
-        
+
         const baseFontSize = dimensionOptions.fontSize;
         // YENİ MANTIK: Yazı boyutunu zoom'un üssü ile ölçekle
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
-        const minWorldFontSize = 5; 
-        
+        const minWorldFontSize = 5;
+
         const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
 
         const topDimY = minY - dimLineOffset;
-        
+
         ctx2d.beginPath();
         ctx2d.moveTo(minX, minY);
         ctx2d.lineTo(minX, minY - extensionLineLength);
         ctx2d.moveTo(maxX, minY);
         ctx2d.lineTo(maxX, minY - extensionLineLength);
         ctx2d.stroke();
-        
+
         ctx2d.beginPath();
         ctx2d.moveTo(minX, topDimY);
         ctx2d.lineTo(maxX, topDimY);
         ctx2d.stroke();
-        
+
         const arrowSize = 4;
         ctx2d.beginPath();
         ctx2d.moveTo(minX, topDimY);
@@ -251,54 +258,54 @@ export function drawOuterDimensions() {
         ctx2d.lineTo(minX + arrowSize, topDimY + arrowSize/2);
         ctx2d.closePath();
         ctx2d.fill();
-        
+
         ctx2d.beginPath();
         ctx2d.moveTo(maxX, topDimY);
         ctx2d.lineTo(maxX - arrowSize, topDimY - arrowSize/2);
         ctx2d.lineTo(maxX - arrowSize, topDimY + arrowSize/2);
         ctx2d.closePath();
         ctx2d.fill();
-        
+
         ctx2d.fillStyle = dimensionOptions.color;
         ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
         ctx2d.textAlign = "center";
         ctx2d.textBaseline = "bottom";
-        
+
         const roundedWidth = Math.round(totalWidth / gridSpacing) * gridSpacing;
         ctx2d.fillText(Math.round(roundedWidth).toString(), (minX + maxX) / 2, topDimY - 5);
-        
+
         const leftDimX = minX - dimLineOffset;
-        
+
         ctx2d.strokeStyle = dimensionOptions.color;
         ctx2d.fillStyle = dimensionOptions.color;
         ctx2d.lineWidth = 1 / zoom;
-        
+
         ctx2d.beginPath();
         ctx2d.moveTo(minX, minY);
         ctx2d.lineTo(minX - extensionLineLength, minY);
         ctx2d.moveTo(minX, maxY);
         ctx2d.lineTo(minX - extensionLineLength, maxY);
         ctx2d.stroke();
-        
+
         ctx2d.beginPath();
         ctx2d.moveTo(leftDimX, minY);
         ctx2d.lineTo(leftDimX, maxY);
         ctx2d.stroke();
-        
+
         ctx2d.beginPath();
         ctx2d.moveTo(leftDimX, minY);
         ctx2d.lineTo(leftDimX - arrowSize/2, minY + arrowSize);
         ctx2d.lineTo(leftDimX + arrowSize/2, minY + arrowSize);
         ctx2d.closePath();
         ctx2d.fill();
-        
+
         ctx2d.beginPath();
         ctx2d.moveTo(leftDimX, maxY);
         ctx2d.lineTo(leftDimX - arrowSize/2, maxY - arrowSize);
         ctx2d.lineTo(leftDimX + arrowSize/2, maxY - arrowSize);
         ctx2d.closePath();
         ctx2d.fill();
-        
+
         ctx2d.fillStyle = dimensionOptions.color;
         const roundedHeight = Math.round(totalHeight / gridSpacing) * gridSpacing;
         ctx2d.save();

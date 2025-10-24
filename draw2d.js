@@ -70,8 +70,8 @@ export function draw2D() {
 (state.stairs || []).forEach(stair => {
     // Her bir merdiven için seçili olup olmadığını kontrol et
     const isSelected = !!(
-        selectedObject && 
-        selectedObject.type === "stairs" && 
+        selectedObject &&
+        selectedObject.type === "stairs" &&
         selectedObject.object === stair
     );
     drawStairs(stair, isSelected);
@@ -184,22 +184,22 @@ export function draw2D() {
             const column = selectedObject.object;
             const corners = getColumnCorners(column);
             if (corners && corners.length === 4) { // Köşeler hesaplandıysa
-                 drawDimension(corners[0], corners[1], true, 'columnBeam');
-                 drawDimension(corners[1], corners[2], true, 'columnBeam');
+                 drawDimension(corners[0], corners[1], false, 'columnBeam');
+                 drawDimension(corners[1], corners[2], false, 'columnBeam');
             }
         } else if (selectedObject.type === "beam") {
             const beam = selectedObject.object;
             const corners = getBeamCorners(beam);
              if (corners && corners.length === 4) { // Köşeler hesaplandıysa
-                 drawDimension(corners[0], corners[1], true, 'columnBeam');
-                 drawDimension(corners[1], corners[2], true, 'columnBeam');
+                 drawDimension(corners[0], corners[1], false, 'columnBeam');
+                 drawDimension(corners[1], corners[2], false, 'columnBeam');
              }
         } else if (selectedObject.type === "stairs") { // <-- MERDİVEN EKLENDİ
             const stair = selectedObject.object;
             const corners = getStairCorners(stair);
              if (corners && corners.length === 4) { // Köşeler hesaplandıysa
-                 drawDimension(corners[0], corners[1], true, 'columnBeam'); // Kiriş/Kolon ile aynı ölçü stilini kullan
-                 drawDimension(corners[1], corners[2], true, 'columnBeam');
+                 drawDimension(corners[0], corners[1], false, 'columnBeam'); // Kiriş/Kolon ile aynı ölçü stilini kullan
+                 drawDimension(corners[1], corners[2], false, 'columnBeam');
              }
         }
     }

@@ -143,20 +143,6 @@ canvas {
     cursor: crosshair; /* JS tarafından ayarlanıyor ama sınıfı koruyalım */
 }
 
-/* Dinamik Durumlar için Sınıflar (İmleçler JS'de ayarlanıyor) */
-.panel.panning,
-.panel.dragging {} /* İmleç JS'de ayarlanıyor */
-
-.panel.near-snap {} /* İmleç JS'de ayarlanıyor */
-
-.panel.over-wall {} /* İmleç JS'de ayarlanıyor */
-
-.panel.over-node {} /* İmleç JS'de ayarlanıyor */
-
-.panel.rotate-mode {} /* İmleç JS'de ayarlanıyor */
-
-
-/* --- Geri Kalan Stiller --- */
 
 #length-input {
     position: absolute;
