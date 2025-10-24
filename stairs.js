@@ -1,7 +1,7 @@
 // stairs.js
 // (Bu dosya beams.js ve columns.js'den uyarlanmıştır)
 
-import { state } from './main.js';
+import { state, setState } from './main.js'; // setState import edin
 import { distToSegmentSquared } from './geometry.js';
 import { update3DScene } from './scene3d.js';
 import { currentModifierKeys } from './input.js';
@@ -40,6 +40,7 @@ export function recalculateStepCount(stair) {
 
     // Son kontrol
     currentStepRun = totalRun / calculatedStepCount;
+    // Küçük bir tolerans ekleyelim
     if (currentStepRun < minStepRun - 0.5 || currentStepRun > maxStepRun + 0.5) {
         if (currentStepRun < minStepRun) {
             calculatedStepCount = Math.max(1, Math.floor(totalRun / minStepRun));
@@ -47,6 +48,7 @@ export function recalculateStepCount(stair) {
             calculatedStepCount = Math.max(1, Math.ceil(totalRun / maxStepRun));
         }
     }
+
 
     stair.stepCount = Math.max(1, calculatedStepCount); // Ekstra güvenlik
 }
@@ -130,7 +132,7 @@ export function getStairAtPoint(point) {
     const handleTolerance = 8 / zoom;
 
     // ÖNCE Handle kontrolü yap (SADECE EN ÜSTTEKİ MERDİVEN)
-    for (const stair of [...(stairs || [])].reverse()) {
+    for (const stair of [...(stairs || [])].reverse()) { // stairs undefined olabilir kontrolü
         const handle = getStairHandleAtPoint(point, stair, handleTolerance);
         if (handle) {
             // Handle bulundu, SADECE BU MERDİVENİ döndür ve ÇIK
@@ -139,13 +141,13 @@ export function getStairAtPoint(point) {
     }
 
     // Handle bulunamadıysa, Body kontrolü yap (SADECE EN ÜSTTEKİ MERDİVEN)
-    for (const stair of [...(stairs || [])].reverse()) {
+    for (const stair of [...(stairs || [])].reverse()) { // stairs undefined olabilir kontrolü
         if (isPointInStair(point, stair)) {
             // Body içinde, SADECE BU MERDİVENİ döndür ve ÇIK
             return { type: 'stairs', object: stair, handle: 'body' };
         }
     }
-    
+
     // Hiçbir merdiven bulunamadı
     return null;
 }
@@ -166,32 +168,52 @@ export function isPointInStair(point, stair) {
 
 /**
  * Bir merdiven seçildiğinde sürükleme için ilk state'i ayarlar.
+ * @param {object} selectedObject - Seçilen merdiven nesnesi
+ * @param {object} pos - Dünya koordinatları {x, y}
+ * @param {object} snappedPos - Snap uygulanmış fare pozisyonu
+ * @param {Event} e - PointerDown olayı
+ * @returns {object} - Sürükleme için { startPointForDragging, dragOffset, additionalState }
  */
-export function onPointerDown(selectedObject, pos, snappedPos) {
+export function onPointerDown(selectedObject, pos, snappedPos, e) { // 'e' event objesini ekleyin
     const stair = selectedObject.object;
 
-    state.preDragNodeStates.set('center_x', stair.center.x);
-    state.preDragNodeStates.set('center_y', stair.center.y);
-    state.preDragNodeStates.set('width', stair.width || 0);
-    state.preDragNodeStates.set('height', stair.height || 0);
-    state.preDragNodeStates.set('rotation', stair.rotation || 0);
-    // state.preDragNodeStates.set('stepCount', stair.stepCount || 15); // Kaydetmeye gerek yok, hesaplanacak
+    // --- YENİ CTRL+DRAG KOPYALAMA ---
+    const isCopying = e.ctrlKey && !e.altKey && !e.shiftKey && selectedObject.handle === 'body';
+    let effectiveStair = stair;
+
+    if (isCopying) {
+        const newStair = JSON.parse(JSON.stringify(stair));
+        state.stairs = state.stairs || []; // stairs dizisi yoksa oluştur
+        state.stairs.push(newStair);
+        effectiveStair = newStair;
+        setState({ selectedObject: { ...selectedObject, object: newStair } });
+        // Kopyalama sonrası işlem başarılıysa saveState ve update3DScene çağrılabilir (pointerUp'ta)
+    }
+    // --- YENİ CTRL+DRAG SONU ---
+
+    state.preDragNodeStates.set('center_x', effectiveStair.center.x);
+    state.preDragNodeStates.set('center_y', effectiveStair.center.y);
+    state.preDragNodeStates.set('width', effectiveStair.width || 0);
+    state.preDragNodeStates.set('height', effectiveStair.height || 0);
+    state.preDragNodeStates.set('rotation', effectiveStair.rotation || 0);
+    // state.preDragNodeStates.set('stepCount', effectiveStair.stepCount || 1); // Kaydetmeye gerek yok, kopyadan geliyor
 
     let startPointForDragging;
     let dragOffset = { x: 0, y: 0 };
     let additionalState = { columnRotationOffset: null }; // Kolon/Kiriş ile aynı state'i kullanalım
 
+    // İşlemleri 'effectiveStair' üzerinden yap
     if (selectedObject.handle === 'body' || selectedObject.handle === 'center') {
         startPointForDragging = { x: pos.x, y: pos.y };
         dragOffset = {
-            x: selectedObject.object.center.x - pos.x,
-            y: selectedObject.object.center.y - pos.y
+            x: effectiveStair.center.x - pos.x,
+            y: effectiveStair.center.y - pos.y
         };
     } else if (selectedObject.handle.startsWith('corner_')) {
         // Döndürme
-        startPointForDragging = { x: stair.center.x, y: stair.center.y };
-        const initialAngle = Math.atan2(pos.y - stair.center.y, pos.x - stair.center.x);
-        const initialRotationRad = (stair.rotation || 0) * Math.PI / 180;
+        startPointForDragging = { x: effectiveStair.center.x, y: effectiveStair.center.y };
+        const initialAngle = Math.atan2(pos.y - effectiveStair.center.y, pos.x - effectiveStair.center.x);
+        const initialRotationRad = (effectiveStair.rotation || 0) * Math.PI / 180;
         additionalState.columnRotationOffset = initialRotationRad - initialAngle;
     } else {
         // Kenar (boyutlandırma)
@@ -203,9 +225,11 @@ export function onPointerDown(selectedObject, pos, snappedPos) {
 
 /**
  * Seçili bir merdiveni sürüklerken çağrılır.
+ * @param {object} snappedPos - Snap uygulanmış fare pozisyonu
+ * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
-    const stair = state.selectedObject.object;
+    const stair = state.selectedObject.object; // Kopyalanmışsa güncel merdiven burada
     const handle = state.selectedObject.handle;
 
     if (handle.startsWith('corner_')) {
@@ -264,7 +288,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         });
 
         // 2. Diğer Merdivenlere Snap
-        state.stairs.forEach(otherStair => {
+        (state.stairs || []).forEach(otherStair => { // stairs undefined olabilir
              if (otherStair === stair) return; // Kendisine snap yapma
              const otherCorners = getStairCorners(otherStair);
              const otherPoints = [

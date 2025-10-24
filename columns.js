@@ -1,10 +1,11 @@
 // ahmedakbayir/ngcad/ngcad-54ad8bf2d516757e62115ea4acba62ce8c974e7f/columns.js
 // GÜNCELLENMİŞ: Sürükleme (drag/move/rotate) fonksiyonları eklendi.
 
-import { state } from './main.js';
+import { state, setState } from './main.js'; // setState import edin
 import { distToSegmentSquared } from './geometry.js';
 import { update3DScene } from './scene3d.js';
 import { currentModifierKeys } from './input.js';
+// createColumn'u kendi dosyasından import etmeye gerek yok
 
 // Kolon nesnesi oluşturur
 export function createColumn(centerX, centerY, size = 40) {
@@ -58,14 +59,8 @@ export function getColumnHandleAtPoint(point, column, tolerance) {
     // 1. Köşeleri Kontrol Et
     const corners = getColumnCorners(column);
     const cornerTolerance = tolerance * 1.5;
-    // --- DEBUG BAŞLANGIÇ ---
-    // console.log("Köşe kontrol ediliyor. Tolerans:", cornerTolerance, "Zoom:", state.zoom); // Zoom'u ve toleransı görelim
-    // --- DEBUG SONU ---
     for (let i = 0; i < corners.length; i++) {
         const dist = Math.hypot(point.x - corners[i].x, point.y - corners[i].y);
-        // --- DEBUG BAŞLANGIÇ ---
-        // if (i === 0) console.log("Köşe 0'a mesafe:", dist); // İlk köşeye mesafeyi logla
-        // --- DEBUG SONU ---
         if (dist < cornerTolerance) {
             return `corner_${i}`;
         }
@@ -94,14 +89,14 @@ export function getColumnAtPoint(point) {
     const { columns, zoom } = state;
     const handleTolerance = 8 / zoom;
 
-    for (const column of [...columns].reverse()) {
+    for (const column of [...(columns || [])].reverse()) { // columns undefined olabilir kontrolü
         const handle = getColumnHandleAtPoint(point, column, handleTolerance);
         if (handle) {
             return { type: 'column', object: column, handle: handle };
         }
     }
 
-    for (const column of [...columns].reverse()) {
+    for (const column of [...(columns || [])].reverse()) { // columns undefined olabilir kontrolü
         if (isPointInColumn(point, column)) {
             return { type: 'column', object: column, handle: 'body' };
         }
@@ -132,37 +127,56 @@ export function isPointInColumn(point, column) {
  * @param {object} selectedObject - Seçilen kolon nesnesi
  * @param {object} pos - Dünya koordinatları {x, y}
  * @param {object} snappedPos - Snap uygulanmış fare pozisyonu
+ * @param {Event} e - PointerDown olayı
  * @returns {object} - Sürükleme için { startPointForDragging, dragOffset, additionalState }
  */
-export function onPointerDown(selectedObject, pos, snappedPos) {
+export function onPointerDown(selectedObject, pos, snappedPos, e) { // 'e' event objesini ekleyin
     const column = selectedObject.object;
-    
-    // Başlangıç durumunu (boyut, konum vb.) preDragNodeStates'e kaydet
-    state.preDragNodeStates.set('center_x', column.center.x);
-    state.preDragNodeStates.set('center_y', column.center.y);
-    state.preDragNodeStates.set('width', column.width || column.size);
-    state.preDragNodeStates.set('height', column.height || column.size);
-    state.preDragNodeStates.set('rotation', column.rotation || 0);
-    state.preDragNodeStates.set('hollowWidth', column.hollowWidth || 0);
-    state.preDragNodeStates.set('hollowHeight', column.hollowHeight || 0);
-    state.preDragNodeStates.set('hollowOffsetX', column.hollowOffsetX || 0);
-    state.preDragNodeStates.set('hollowOffsetY', column.hollowOffsetY || 0);
+
+    // --- YENİ CTRL+DRAG KOPYALAMA ---
+    const isCopying = e.ctrlKey && !e.altKey && !e.shiftKey && selectedObject.handle === 'body'; // Sadece gövde sürüklenirken
+    let effectiveColumn = column; // Üzerinde işlem yapılacak kolon (orijinal veya kopya)
+
+    if (isCopying) {
+        const newColumn = JSON.parse(JSON.stringify(column)); // Derin kopya
+        state.columns.push(newColumn); // Yeni kolonu listeye ekle
+        effectiveColumn = newColumn; // Bundan sonra kopya üzerinde işlem yap
+        // Seçili nesneyi kopya ile güncelle (önemli!)
+        setState({ selectedObject: { ...selectedObject, object: newColumn } });
+        // Kopyalama sonrası işlem başarılıysa saveState ve update3DScene çağrılabilir (pointerUp'ta)
+    }
+    // --- YENİ CTRL+DRAG SONU ---
+
+
+    // Orijinal veya kopyalanmış kolonun state'ini kaydet
+    state.preDragNodeStates.set('center_x', effectiveColumn.center.x);
+    state.preDragNodeStates.set('center_y', effectiveColumn.center.y);
+    state.preDragNodeStates.set('width', effectiveColumn.width || effectiveColumn.size);
+    state.preDragNodeStates.set('height', effectiveColumn.height || effectiveColumn.size);
+    state.preDragNodeStates.set('rotation', effectiveColumn.rotation || 0);
+    // ... (hollow state'leri de kaydedin)
+    state.preDragNodeStates.set('hollowWidth', effectiveColumn.hollowWidth || 0);
+    state.preDragNodeStates.set('hollowHeight', effectiveColumn.hollowHeight || 0);
+    state.preDragNodeStates.set('hollowOffsetX', effectiveColumn.hollowOffsetX || 0);
+    state.preDragNodeStates.set('hollowOffsetY', effectiveColumn.hollowOffsetY || 0);
+
 
     let startPointForDragging;
     let dragOffset = { x: 0, y: 0 };
     let additionalState = { columnRotationOffset: null };
 
+    // İşlemleri 'effectiveColumn' üzerinden yap
     if (selectedObject.handle === 'body' || selectedObject.handle === 'center') {
         startPointForDragging = { x: pos.x, y: pos.y };
         dragOffset = {
-            x: selectedObject.object.center.x - pos.x,
-            y: selectedObject.object.center.y - pos.y
+            x: effectiveColumn.center.x - pos.x,
+            y: effectiveColumn.center.y - pos.y
         };
     } else if (selectedObject.handle.startsWith('corner_')) {
         // Döndürme
-        startPointForDragging = { x: column.center.x, y: column.center.y };
-        const initialAngle = Math.atan2(pos.y - column.center.y, pos.x - column.center.x);
-        const initialRotationRad = (column.rotation || 0) * Math.PI / 180;
+        startPointForDragging = { x: effectiveColumn.center.x, y: effectiveColumn.center.y };
+        const initialAngle = Math.atan2(pos.y - effectiveColumn.center.y, pos.x - effectiveColumn.center.x);
+        const initialRotationRad = (effectiveColumn.rotation || 0) * Math.PI / 180;
         additionalState.columnRotationOffset = initialRotationRad - initialAngle;
     } else {
         // Kenar (boyutlandırma)
@@ -172,6 +186,7 @@ export function onPointerDown(selectedObject, pos, snappedPos) {
     return { startPointForDragging, dragOffset, additionalState };
 }
 
+
 /**
  * Seçili bir kolonu sürüklerken çağrılır.
  * (pointer-move.js'ten taşındı)
@@ -179,6 +194,7 @@ export function onPointerDown(selectedObject, pos, snappedPos) {
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
+    // Sürüklenen nesne state.selectedObject.object altında güncel olmalı (kopyalanmışsa kopya, değilse orijinal)
     const column = state.selectedObject.object;
     const handle = state.selectedObject.handle;
 
@@ -209,12 +225,14 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         if (snappedWallInfo) {
              column.rotation = snappedWallInfo.angle;
              const wall = snappedWallInfo.wall; const p1 = wall.p1; const p2 = wall.p2;
-             const dx = p2.x - p1.x; const dy = p2.y - p1.y; const l2 = dx*dx + dy*dy;
-             if (l2 > 0.1) {
-                 const t = ((newCenterX - p1.x) * dx + (newCenterY - p1.y) * dy) / l2;
-                 newCenterX = p1.x + t * dx;
-                 newCenterY = p1.y + t * dy;
-             }
+              if (p1 && p2) { // p1 ve p2 kontrolü eklendi
+                 const dx = p2.x - p1.x; const dy = p2.y - p1.y; const l2 = dx*dx + dy*dy;
+                 if (l2 > 0.1) {
+                     const t = ((newCenterX - p1.x) * dx + (newCenterY - p1.y) * dy) / l2;
+                     newCenterX = p1.x + t * dx;
+                     newCenterY = p1.y + t * dy;
+                 }
+              }
         } else if ((column.rotation || 0) === 0) {
             // 3-nokta snap (sadece 0 dereceyken)
             const SNAP_DISTANCE = 10;
@@ -294,7 +312,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
          const mouseVec = { x: snappedPos.x - fixedEdgeMidPoint.x, y: snappedPos.y - fixedEdgeMidPoint.y };
          const projection = mouseVec.x * axisVector.x + mouseVec.y * axisVector.y;
          let newSize = Math.max(10, Math.abs(projection));
-         
+
          const halfSizeVector = { x: axisVector.x * projection / 2, y: axisVector.y * projection / 2 };
          const newCenterX = fixedEdgeMidPoint.x + halfSizeVector.x;
          const newCenterY = fixedEdgeMidPoint.y + halfSizeVector.y;
@@ -310,7 +328,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         column.center.y = newCenterY;
         column.hollowWidth = 0; column.hollowHeight = 0; column.hollowOffsetX = 0; column.hollowOffsetY = 0;
     }
-    
+
     update3DScene();
 }
 

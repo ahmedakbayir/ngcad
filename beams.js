@@ -1,7 +1,7 @@
 // ahmedakbayir/ngcad/ngcad-36d2e95fa4df91f140572e4119169d6a11aeaa8b/beams.js
 // YENİ DOSYA (columns.js'den kopyalandı ve düzenlendi)
 
-import { state } from './main.js';
+import { state, setState } from './main.js'; // setState import edin
 import { distToSegmentSquared } from './geometry.js';
 import { update3DScene } from './scene3d.js';
 import { currentModifierKeys } from './input.js';
@@ -84,14 +84,14 @@ export function getBeamAtPoint(point) {
     const { beams, zoom } = state;
     const handleTolerance = 8 / zoom;
 
-    for (const beam of [...(beams || [])].reverse()) {
+    for (const beam of [...(beams || [])].reverse()) { // beams undefined olabilir kontrolü
         const handle = getBeamHandleAtPoint(point, beam, handleTolerance);
         if (handle) {
             return { type: 'beam', object: beam, handle: handle };
         }
     }
 
-    for (const beam of [...(beams || [])].reverse()) {
+    for (const beam of [...(beams || [])].reverse()) { // beams undefined olabilir kontrolü
         if (isPointInBeam(point, beam)) {
             return { type: 'beam', object: beam, handle: 'body' };
         }
@@ -118,36 +118,54 @@ export function isPointInBeam(point, beam) {
  * @param {object} selectedObject - Seçilen kiriş nesnesi
  * @param {object} pos - Dünya koordinatları {x, y}
  * @param {object} snappedPos - Snap uygulanmış fare pozisyonu
+ * @param {Event} e - PointerDown olayı
  * @returns {object} - Sürükleme için { startPointForDragging, dragOffset, additionalState }
  */
-export function onPointerDown(selectedObject, pos, snappedPos) {
+export function onPointerDown(selectedObject, pos, snappedPos, e) { // 'e' event objesini ekleyin
     const beam = selectedObject.object;
-    
-    state.preDragNodeStates.set('center_x', beam.center.x);
-    state.preDragNodeStates.set('center_y', beam.center.y);
-    state.preDragNodeStates.set('width', beam.width || 0);
-    state.preDragNodeStates.set('height', beam.height || 0);
-    state.preDragNodeStates.set('rotation', beam.rotation || 0);
-    state.preDragNodeStates.set('hollowWidth', beam.hollowWidth || 0);
-    state.preDragNodeStates.set('hollowHeight', beam.hollowHeight || 0);
-    state.preDragNodeStates.set('hollowOffsetX', beam.hollowOffsetX || 0);
-    state.preDragNodeStates.set('hollowOffsetY', beam.hollowOffsetY || 0);
+
+    // --- YENİ CTRL+DRAG KOPYALAMA ---
+    const isCopying = e.ctrlKey && !e.altKey && !e.shiftKey && selectedObject.handle === 'body';
+    let effectiveBeam = beam;
+
+    if (isCopying) {
+        const newBeam = JSON.parse(JSON.stringify(beam));
+        state.beams = state.beams || []; // beams dizisi yoksa oluştur
+        state.beams.push(newBeam);
+        effectiveBeam = newBeam;
+        setState({ selectedObject: { ...selectedObject, object: newBeam } });
+        // Kopyalama sonrası işlem başarılıysa saveState ve update3DScene çağrılabilir (pointerUp'ta)
+    }
+    // --- YENİ CTRL+DRAG SONU ---
+
+    state.preDragNodeStates.set('center_x', effectiveBeam.center.x);
+    state.preDragNodeStates.set('center_y', effectiveBeam.center.y);
+    state.preDragNodeStates.set('width', effectiveBeam.width || 0);
+    state.preDragNodeStates.set('height', effectiveBeam.height || 0);
+    state.preDragNodeStates.set('rotation', effectiveBeam.rotation || 0);
+    // ... (hollow state'leri)
+    state.preDragNodeStates.set('hollowWidth', effectiveBeam.hollowWidth || 0);
+    state.preDragNodeStates.set('hollowHeight', effectiveBeam.hollowHeight || 0);
+    state.preDragNodeStates.set('hollowOffsetX', effectiveBeam.hollowOffsetX || 0);
+    state.preDragNodeStates.set('hollowOffsetY', effectiveBeam.hollowOffsetY || 0);
+
 
     let startPointForDragging;
     let dragOffset = { x: 0, y: 0 };
     let additionalState = { columnRotationOffset: null }; // Kiriş için de aynı değişken adını kullanalım
 
+    // İşlemleri 'effectiveBeam' üzerinden yap
     if (selectedObject.handle === 'body' || selectedObject.handle === 'center') {
         startPointForDragging = { x: pos.x, y: pos.y };
         dragOffset = {
-            x: selectedObject.object.center.x - pos.x,
-            y: selectedObject.object.center.y - pos.y
+            x: effectiveBeam.center.x - pos.x,
+            y: effectiveBeam.center.y - pos.y
         };
     } else if (selectedObject.handle.startsWith('corner_')) {
         // Döndürme
-        startPointForDragging = { x: beam.center.x, y: beam.center.y };
-        const initialAngle = Math.atan2(pos.y - beam.center.y, pos.x - beam.center.x);
-        const initialRotationRad = (beam.rotation || 0) * Math.PI / 180;
+        startPointForDragging = { x: effectiveBeam.center.x, y: effectiveBeam.center.y };
+        const initialAngle = Math.atan2(pos.y - effectiveBeam.center.y, pos.x - effectiveBeam.center.x);
+        const initialRotationRad = (effectiveBeam.rotation || 0) * Math.PI / 180;
         additionalState.columnRotationOffset = initialRotationRad - initialAngle; // columnRotationOffset kullanılıyor
     } else {
         // Kenar (boyutlandırma)
@@ -163,7 +181,7 @@ export function onPointerDown(selectedObject, pos, snappedPos) {
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
-    const beam = state.selectedObject.object;
+    const beam = state.selectedObject.object; // Kopyalanmışsa güncel beam burada
     const handle = state.selectedObject.handle;
 
     if (handle.startsWith('corner_')) {
@@ -192,11 +210,13 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         if (snappedWallInfo) {
              beam.rotation = snappedWallInfo.angle;
              const wall = snappedWallInfo.wall; const p1 = wall.p1; const p2 = wall.p2;
-             const dx = p2.x - p1.x; const dy = p2.y - p1.y; const l2 = dx*dx + dy*dy;
-             if (l2 > 0.1) {
-                 const t = ((newCenterX - p1.x) * dx + (newCenterY - p1.y) * dy) / l2;
-                 newCenterX = p1.x + t * dx;
-                 newCenterY = p1.y + t * dy;
+             if(p1 && p2){ // p1, p2 kontrolü
+                 const dx = p2.x - p1.x; const dy = p2.y - p1.y; const l2 = dx*dx + dy*dy;
+                 if (l2 > 0.1) {
+                     const t = ((newCenterX - p1.x) * dx + (newCenterY - p1.y) * dy) / l2;
+                     newCenterX = p1.x + t * dx;
+                     newCenterY = p1.y + t * dy;
+                 }
              }
         } else if ((beam.rotation || 0) === 0) {
             // 3-nokta snap (sadece 0 dereceyken)
@@ -276,7 +296,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
          const mouseVec = { x: snappedPos.x - fixedEdgeMidPoint.x, y: snappedPos.y - fixedEdgeMidPoint.y };
          const projection = mouseVec.x * axisVector.x + mouseVec.y * axisVector.y;
          let newSize = Math.max(10, Math.abs(projection));
-         
+
          const halfSizeVector = { x: axisVector.x * projection / 2, y: axisVector.y * projection / 2 };
          const newCenterX = fixedEdgeMidPoint.x + halfSizeVector.x;
          const newCenterY = fixedEdgeMidPoint.y + halfSizeVector.y;
@@ -290,7 +310,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         beam.center.y = newCenterY;
         beam.hollowWidth = 0; beam.hollowHeight = 0; beam.hollowOffsetX = 0; beam.hollowOffsetY = 0;
     }
-    
+
     update3DScene();
 }
 
