@@ -1,5 +1,8 @@
 import { state, dom, setState, SNAP_UNLOCK_DISTANCE_CM } from './main.js';
 import { screenToWorld, worldToScreen, distToSegmentSquared } from './geometry.js';
+import { getColumnCorners } from './columns.js';
+import { getBeamCorners } from './beams.js';
+import { getStairCorners } from './stairs.js';
 
 export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     const rect = dom.c2d.getBoundingClientRect();
@@ -21,7 +24,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     }
     // --- YENİ MANTIK SONU ---
 
-    if (state.currentMode === 'drawDoor' || state.currentMode === 'drawBeam') { // <-- "drawBeam" EKLEYİN
+    if (state.currentMode === 'drawDoor' || state.currentMode === 'drawBeam') {
         const gridValue = state.gridOptions.visible ? state.gridOptions.spacing : 1;
         let roundedX = Math.round(wm.x / gridValue) * gridValue;
         let roundedY = Math.round(wm.y / gridValue) * gridValue;
@@ -88,6 +91,84 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             if (distance < SNAP_RADIUS_PIXELS) candidates.push({ point: item.p, distance: distance, type: item.type });
         });
     }
+
+    // --- YENİ: KOLON, KİRİŞ VE MERDİVEN SNAP NOKTALARI ---
+    const COLUMN_BEAM_SNAP_DISTANCE_CM = 5; // Kolon ve kiriş için snap mesafesi (cm)
+    const COLUMN_BEAM_SNAP_DISTANCE_PIXELS = COLUMN_BEAM_SNAP_DISTANCE_CM * state.zoom;
+
+    // Kolonlar için snap noktaları
+    if (state.columns) {
+        for (const column of state.columns) {
+            const corners = getColumnCorners(column);
+            const center = column.center;
+            
+            // Köşeler ve merkez
+            const pointsToCheck = [...corners, center];
+            
+            for (const point of pointsToCheck) {
+                const screenPoint = worldToScreen(point.x, point.y);
+                const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
+                
+                // Sadece 5cm mesafe dahilinde snap yap
+                if (distance < COLUMN_BEAM_SNAP_DISTANCE_PIXELS) {
+                    candidates.push({ point: point, distance: distance, type: 'ENDPOINT' });
+                }
+            }
+        }
+    }
+
+    // Kirişler için snap noktaları
+    if (state.beams) {
+        for (const beam of state.beams) {
+            const corners = getBeamCorners(beam);
+            const center = beam.center;
+            
+            // Köşeler ve merkez
+            const pointsToCheck = [...corners, center];
+            
+            for (const point of pointsToCheck) {
+                const screenPoint = worldToScreen(point.x, point.y);
+                const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
+                
+                // Sadece 5cm mesafe dahilinde snap yap
+                if (distance < COLUMN_BEAM_SNAP_DISTANCE_PIXELS) {
+                    candidates.push({ point: point, distance: distance, type: 'ENDPOINT' });
+                }
+            }
+        }
+    }
+
+    // Merdivenler için snap noktaları (DIŞ KENAR ÇİZGİSİ)
+    if (state.stairs) {
+        for (const stair of state.stairs) {
+            const corners = getStairCorners(stair);
+            const rotRad = (stair.rotation || 0) * Math.PI / 180;
+            const perpX = -Math.sin(rotRad);
+            const perpY = Math.cos(rotRad);
+            const doubleLineOffset = 2 / state.zoom; // renderer2d.js'teki ile aynı
+            
+            // DIŞ kenar çizgisinin köşe noktaları
+            const outerCorners = [
+                { x: corners[0].x - perpX * doubleLineOffset, y: corners[0].y - perpY * doubleLineOffset },
+                { x: corners[1].x - perpX * doubleLineOffset, y: corners[1].y - perpY * doubleLineOffset },
+                { x: corners[2].x + perpX * doubleLineOffset, y: corners[2].y + perpY * doubleLineOffset },
+                { x: corners[3].x + perpX * doubleLineOffset, y: corners[3].y + perpY * doubleLineOffset }
+            ];
+            
+            // Dış köşeler ve merkez
+            const pointsToCheck = [...outerCorners, stair.center];
+            
+            for (const point of pointsToCheck) {
+                const screenPoint = worldToScreen(point.x, point.y);
+                const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
+                
+                if (distance < SNAP_RADIUS_PIXELS) {
+                    candidates.push({ point: point, distance: distance, type: 'ENDPOINT' });
+                }
+            }
+        }
+    }
+    // --- KOLON, KİRİŞ VE MERDİVEN SNAP NOKTALARI SONU ---
 
     let bestVSnap = { x: null, dist: Infinity, origin: null };
     let bestHSnap = { y: null, dist: Infinity, origin: null };

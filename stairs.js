@@ -253,7 +253,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         let newCenterX = unsnappedPos.x + state.dragOffset.x;
         let newCenterY = unsnappedPos.y + state.dragOffset.y;
 
-        // --- YENİ SNAP MANTIĞI ---
+        // --- GÜNCELLENMİŞ SNAP MANTIĞI (Duvar Kenarları Dahil) ---
         const SNAP_DISTANCE = 15; // Snap mesafesi (cm)
         let bestSnapX = { diff: SNAP_DISTANCE, delta: 0 };
         let bestSnapY = { diff: SNAP_DISTANCE, delta: 0 };
@@ -265,23 +265,44 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             { x: newCenterX, y: newCenterY } // Merkez
         ];
 
-        // 1. Duvarlara Snap
+        // 1. Duvarlara Snap (Merkez + Kenarlar)
         state.walls.forEach(wall => {
             if (!wall.p1 || !wall.p2) return;
+            const wallThickness = wall.thickness || state.wallThickness;
+            const halfThickness = wallThickness / 2;
+            
             const isVertical = Math.abs(wall.p1.x - wall.p2.x) < 0.1;
             const isHorizontal = Math.abs(wall.p1.y - wall.p2.y) < 0.1;
 
             if (isVertical) {
-                const wallX = wall.p1.x;
-                for (const dP of dragPoints) {
-                    const diff = Math.abs(dP.x - wallX);
-                    if (diff < bestSnapX.diff) bestSnapX = { diff, delta: wallX - dP.x };
+                const wallCenterX = wall.p1.x;
+                // Duvar merkezine ve iki kenarına snap
+                const snapXPositions = [
+                    wallCenterX,                    // Merkez
+                    wallCenterX - halfThickness,    // Sol kenar
+                    wallCenterX + halfThickness     // Sağ kenar
+                ];
+                
+                for (const snapX of snapXPositions) {
+                    for (const dP of dragPoints) {
+                        const diff = Math.abs(dP.x - snapX);
+                        if (diff < bestSnapX.diff) bestSnapX = { diff, delta: snapX - dP.x };
+                    }
                 }
             } else if (isHorizontal) {
-                const wallY = wall.p1.y;
-                for (const dP of dragPoints) {
-                    const diff = Math.abs(dP.y - wallY);
-                    if (diff < bestSnapY.diff) bestSnapY = { diff, delta: wallY - dP.y };
+                const wallCenterY = wall.p1.y;
+                // Duvar merkezine ve iki kenarına snap
+                const snapYPositions = [
+                    wallCenterY,                    // Merkez
+                    wallCenterY - halfThickness,    // Üst kenar
+                    wallCenterY + halfThickness     // Alt kenar
+                ];
+                
+                for (const snapY of snapYPositions) {
+                    for (const dP of dragPoints) {
+                        const diff = Math.abs(dP.y - snapY);
+                        if (diff < bestSnapY.diff) bestSnapY = { diff, delta: snapY - dP.y };
+                    }
                 }
             }
              // TODO: Açılı duvarlara snap gerekirse eklenebilir (daha karmaşık)

@@ -434,13 +434,26 @@ export function drawColumn(column, isSelected = false) {
 // YENİ KİRİŞ ÇİZİM FONKSİYONUNU AŞAĞIYA EKLEYİN
 export function drawBeam(beam, isSelected = false) {
     const { ctx2d } = dom;
-    const { zoom, lineThickness, BG } = state;
+    const { zoom, lineThickness } = state;
 
     const corners = getBeamCorners(beam); // Kiriş köşe noktaları
 
-    // Çizim stilleri
-    ctx2d.fillStyle = BG; // İçini arka plan rengiyle doldur
+    // Renk ayarları
     const beamColor = isSelected ? '#8ab4f8' : '#e57373'; // Seçili değilse kırmızı
+    
+    // Kenarlık renginden %21 opaklıkta dolgu rengi oluştur
+    let fillColor;
+    if (beamColor.startsWith('#')) {
+        const hex = beamColor.slice(1);
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        fillColor = `rgba(${r}, ${g}, ${b}, 0.06)`; // %21 opaklık
+    } else {
+        fillColor = beamColor; // Fallback (genelde olmamalı)
+    }
+
+    ctx2d.fillStyle = fillColor; // Dolgu rengi %21 transparans
     ctx2d.strokeStyle = beamColor;
     ctx2d.lineWidth = lineThickness / zoom;
 
@@ -455,7 +468,7 @@ export function drawBeam(beam, isSelected = false) {
         ctx2d.lineTo(corners[i].x, corners[i].y);
     }
     ctx2d.closePath();
-    ctx2d.fill(); // Dolguyu yap
+    ctx2d.fill(); // Dolguyu yap (%21 opaklıkta)
     ctx2d.stroke(); // Kenarlığı çiz (kesik çizgili)
 
     // Kesik çizgiyi sıfırla
@@ -568,7 +581,7 @@ export function drawStairs(stair, isSelected = false) {
     }
 
     // Yön Okunu Çiz
-    const arrowLength = stair.width * 0.6;
+    const arrowLength = stair.width * 0.8;
     const arrowStart = {
         x: stair.center.x - Math.cos(rotRad) * (arrowLength / 2),
         y: stair.center.y - Math.sin(rotRad) * (arrowLength / 2)
@@ -597,12 +610,12 @@ export function drawStairs(stair, isSelected = false) {
         y: arrowEnd.y - dirY * arrowHeadSize
     };
     const headP1 = {
-        x: headBase.x + perpXArrow * arrowHeadSize * 0.6,
-        y: headBase.y + perpYArrow * arrowHeadSize * 0.6
+        x: headBase.x + perpXArrow * arrowHeadSize * 0.3,
+        y: headBase.y + perpYArrow * arrowHeadSize * 0.5
     };
     const headP2 = {
-        x: headBase.x - perpXArrow * arrowHeadSize * 0.6,
-        y: headBase.y - perpYArrow * arrowHeadSize * 0.6
+        x: headBase.x - perpXArrow * arrowHeadSize * 0.3,
+        y: headBase.y - perpYArrow * arrowHeadSize * 0.5
     };
 
     ctx2d.fillStyle = stairColor;
