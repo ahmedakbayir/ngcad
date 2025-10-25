@@ -253,8 +253,9 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         let newCenterX = unsnappedPos.x + state.dragOffset.x;
         let newCenterY = unsnappedPos.y + state.dragOffset.y;
 
-        // --- GÜNCELLENMİŞ SNAP MANTIĞI (Duvar Kenarları Dahil) ---
+        // --- GÜNCELLENMİŞ SNAP MANTIĞI (Duvar Kenarları Dahil - 2cm Uzaklık) ---
         const SNAP_DISTANCE = 15; // Snap mesafesi (cm)
+        const WALL_OFFSET = 2; // Duvara uzaklık (cm)
         let bestSnapX = { diff: SNAP_DISTANCE, delta: 0 };
         let bestSnapY = { diff: SNAP_DISTANCE, delta: 0 };
 
@@ -265,7 +266,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             { x: newCenterX, y: newCenterY } // Merkez
         ];
 
-        // 1. Duvarlara Snap (Merkez + Kenarlar)
+        // 1. Duvarlara Snap (Merkez + Kenarlar + 2cm Uzaklık)
         state.walls.forEach(wall => {
             if (!wall.p1 || !wall.p2) return;
             const wallThickness = wall.thickness || state.wallThickness;
@@ -276,11 +277,11 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 
             if (isVertical) {
                 const wallCenterX = wall.p1.x;
-                // Duvar merkezine ve iki kenarına snap
+                // Duvar kenarlarına 2cm uzaklıktan snap
                 const snapXPositions = [
-                    wallCenterX,                    // Merkez
-                    wallCenterX - halfThickness,    // Sol kenar
-                    wallCenterX + halfThickness     // Sağ kenar
+                    wallCenterX,                                // Merkez
+                    wallCenterX - halfThickness - WALL_OFFSET, // Sol kenara 2cm uzaklık
+                    wallCenterX + halfThickness + WALL_OFFSET  // Sağ kenara 2cm uzaklık
                 ];
                 
                 for (const snapX of snapXPositions) {
@@ -291,11 +292,11 @@ export function onPointerMove(snappedPos, unsnappedPos) {
                 }
             } else if (isHorizontal) {
                 const wallCenterY = wall.p1.y;
-                // Duvar merkezine ve iki kenarına snap
+                // Duvar kenarlarına 2cm uzaklıktan snap
                 const snapYPositions = [
-                    wallCenterY,                    // Merkez
-                    wallCenterY - halfThickness,    // Üst kenar
-                    wallCenterY + halfThickness     // Alt kenar
+                    wallCenterY,                                // Merkez
+                    wallCenterY - halfThickness - WALL_OFFSET, // Üst kenara 2cm uzaklık
+                    wallCenterY + halfThickness + WALL_OFFSET  // Alt kenara 2cm uzaklık
                 ];
                 
                 for (const snapY of snapYPositions) {
