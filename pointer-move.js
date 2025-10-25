@@ -244,10 +244,7 @@ function updateMouseCursor() {
         p2d.classList.add('dragging'); // Sürükleme sınıfını ekle
         // Sürüklenen nesneye göre özel imleçler (köşe/kenar)
         if (selectedObject?.type === 'column' || selectedObject?.type === 'beam' || selectedObject?.type === 'stairs') {
-            if (selectedObject.handle?.startsWith('corner_')) {
-                c2d.style.cursor = 'grab'; // Döndürme
-                p2d.classList.add('rotate-mode'); // İlgili sınıfı da ekleyelim
-                return;
+            if (selectedObject.handle?.startsWith('corner_')) {p2d.classList.add('rotate-mode'); return;
             }
             if (selectedObject.handle?.startsWith('edge_')) {
                 // Boyutlandırma imlecini hesapla
@@ -307,7 +304,7 @@ function updateMouseCursor() {
         // Kolon/Kiriş/Merdiven handle hover
         const hoveredColumnObject = getColumnAtPoint(mousePos);
         if (hoveredColumnObject && hoveredColumnObject.handle !== 'body') {
-            if (hoveredColumnObject.handle.startsWith('corner_')) { c2d.style.cursor = 'grab'; p2d.classList.add('rotate-mode'); return; }
+            if (hoveredColumnObject.handle.startsWith('corner_')) {  p2d.classList.add('rotate-mode'); return; }
             if (hoveredColumnObject.handle.startsWith('edge_')) {
                 const edgeHandle = hoveredColumnObject.handle;
                 const rotation = hoveredColumnObject.object.rotation || 0;
@@ -320,7 +317,7 @@ function updateMouseCursor() {
         }
         const hoveredBeamObject = getBeamAtPoint(mousePos);
         if (hoveredBeamObject && hoveredBeamObject.handle !== 'body') {
-            if (hoveredBeamObject.handle.startsWith('corner_')) { c2d.style.cursor = 'grab'; p2d.classList.add('rotate-mode'); return; }
+            if (hoveredBeamObject.handle.startsWith('corner_')) {  p2d.classList.add('rotate-mode'); return; }
             if (hoveredBeamObject.handle.startsWith('edge_')) {
                 const edgeHandle = hoveredBeamObject.handle;
                 const rotation = hoveredBeamObject.object.rotation || 0;
@@ -333,7 +330,7 @@ function updateMouseCursor() {
         }
         const hoveredStairObject = getStairAtPoint(mousePos);
         if (hoveredStairObject && hoveredStairObject.handle !== 'body') {
-             if (hoveredStairObject.handle.startsWith('corner_')) { c2d.style.cursor = 'grab'; p2d.classList.add('rotate-mode'); return; }
+             if (hoveredStairObject.handle.startsWith('corner_')) {  p2d.classList.add('rotate-mode'); return; }
             if (hoveredStairObject.handle.startsWith('edge_')) {
                 const edgeHandle = hoveredStairObject.handle;
                 const rotation = hoveredStairObject.object.rotation || 0;

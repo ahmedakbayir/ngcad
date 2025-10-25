@@ -294,3 +294,7 @@ canvas {
 .wall-panel-btn:hover { background: #4a4b4c; border-color: #8ab4f8; color: #8ab4f8; }
 #wall-thickness-slider::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #8ab4f8; cursor: pointer; }
 #wall-thickness-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #8ab4f8; cursor: pointer; border: none; }
+
+
+.panel.rotate-mode {
+cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="2 4 20 16"><path d="M8.22673 13.3292C8.51492 14.1471 9.06116 14.8493 9.78313 15.3298C10.5051 15.8103 11.3637 16.0432 12.2296 15.9934C13.0954 15.9436 13.9216 15.6137 14.5837 15.0535C15.2458 14.4933 15.7078 13.7332 15.9003 12.8876C16.0927 12.042 16.0051 11.1567 15.6507 10.3652C15.2962 9.57374 14.6941 8.91887 13.9351 8.4993C13.176 8.07974 12.3012 7.91819 11.4424 8.03902C10.0777 8.23101 9.0827 9.23345 8 10M8 10V7M8 10H11" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>') 16 16, auto !important;    }   

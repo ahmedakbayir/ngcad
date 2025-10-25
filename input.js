@@ -1,7 +1,7 @@
 // ahmedakbayir/ngcad/ngcad-e7feb4c0224e7a314687ae1c86e34cb9211a573d/input.js
 import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom import edildiğinden emin olun
 import { screenToWorld, getOrCreateNode, distToSegmentSquared } from './geometry.js'; // distToSegmentSquared ekleyin
-import { splitWallAtMousePosition, processWalls } from './wall-processor.js';
+import { splitWallAtMousePosition, processWalls } from './wall-processor.js'; // <-- BUNU EKLEYİN
 import { undo, redo, saveState, restoreState } from './history.js';
 // --- DEĞİŞİKLİK BURADA: hideRoomNamePopup import edildi ---
 import { startLengthEdit, cancelLengthEdit, showRoomNamePopup, hideRoomNamePopup, positionLengthInput } from './ui.js';
@@ -288,17 +288,19 @@ export function setupInputListeners() {
     c2d.addEventListener("pointerdown", onPointerDown);
     p2d.addEventListener("pointermove", onPointerMove);
     p2d.addEventListener("pointerup", onPointerUp);
-    c2d.addEventListener("dblclick", (e) => {
-        e.preventDefault();
-        const rect = dom.c2d.getBoundingClientRect();
-        const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-        const object = getObjectAtPoint(clickPos);
-        if (object && (object.type === 'room' || object.type === 'roomName' || object.type === 'roomArea')) {
-            showRoomNamePopup(object.object, e);
-        } else if (object && object.type === 'wall' && object.handle === 'body') {
-            splitWallAtMousePositionWithoutMerge();
-        }
-    });
+c2d.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    const rect = dom.c2d.getBoundingClientRect();
+    const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const object = getObjectAtPoint(clickPos);
+    
+    if (object && (object.type === 'room' || object.type === 'roomName' || object.type === 'roomArea')) {
+        showRoomNamePopup(object.object, e);
+    } else if (object && object.type === 'wall' && object.handle === 'body') {
+        // Duvar gövdesine çift tıklanırsa bölme işlemi yap
+        splitWallAtClickPosition(clickPos); // <-- Pozisyonu parametre olarak gönder
+    }
+});
     c2d.addEventListener("wheel", onWheel, { passive: false });
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -334,36 +336,101 @@ export function setupInputListeners() {
 }
 
 // Duvar bölme (birleştirmesiz)
-function splitWallAtMousePositionWithoutMerge() {
-    const { walls, mousePos } = state;
+// Duvar bölme (birleştirmesiz) - DÜZELTİLMİŞ
+// Duvar bölme (birleştirmesiz) - DÜZELTİLMİŞ
+function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
+    const { walls } = state;
     if (state.currentMode !== 'select') return;
+    
     let wallToSplit = null;
     let minDistSq = Infinity;
     const hitToleranceSq = (state.wallThickness * 1.5) ** 2;
-    for (const wall of walls) { /* ... wallToSplit bul ... */ }
-    if (!wallToSplit || minDistSq > hitToleranceSq) return;
+    
+    // clickPos'u kullan (mousePos yerine)
+    for (const wall of walls) {
+        if (!wall || !wall.p1 || !wall.p2) continue;
+        const distSq = distToSegmentSquared(clickPos, wall.p1, wall.p2);
+        if (distSq < hitToleranceSq && distSq < minDistSq) {
+            minDistSq = distSq;
+            wallToSplit = wall;
+        }
+    }
+    
+    if (!wallToSplit) {
+        console.log("Bölünecek duvar bulunamadı"); // Debug için
+        return;
+    }
+    
     const p1 = wallToSplit.p1, p2 = wallToSplit.p2;
     const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
     if (l2 < 0.1) return;
-    let t = ((mousePos.x - p1.x) * (p2.x - p1.x) + (mousePos.y - p1.y) * (p2.y - p1.y)) / l2;
+    
+    // clickPos'u kullan (mousePos yerine)
+    let t = ((clickPos.x - p1.x) * (p2.x - p1.x) + (clickPos.y - p1.y) * (p2.y - p1.y)) / l2;
     t = Math.max(0, Math.min(1, t));
     const splitPoint = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+    
     const MIN_SPLIT_DIST = 10;
     if (Math.hypot(splitPoint.x - p1.x, splitPoint.y - p1.y) < MIN_SPLIT_DIST ||
-        Math.hypot(splitPoint.x - p2.x, splitPoint.y - p2.y) < MIN_SPLIT_DIST) return;
+        Math.hypot(splitPoint.x - p2.x, splitPoint.y - p2.y) < MIN_SPLIT_DIST) {
+        console.log("Bölme noktası duvar ucuna çok yakın"); // Debug için
+        return;
+    }
+    
+    console.log("Duvar bölünüyor:", splitPoint); // Debug için
+    
     const splitNode = getOrCreateNode(splitPoint.x, splitPoint.y);
     const wallIndex = walls.indexOf(wallToSplit);
     if (wallIndex > -1) walls.splice(wallIndex, 1);
+    
     const distToSplitNode = Math.hypot(splitNode.x - p1.x, splitNode.y - p1.y);
-    const newWall1 = { type: "wall", p1: p1, p2: splitNode, thickness: wallToSplit.thickness || state.wallThickness, wallType: wallToSplit.wallType || 'normal', windows: [], vents: [] };
-    const newWall2 = { type: "wall", p1: splitNode, p2: p2, thickness: wallToSplit.thickness || state.wallThickness, wallType: wallToSplit.wallType || 'normal', windows: [], vents: [] };
-    // Kapıları, Pencereleri, Menfezleri aktar
-    state.doors.forEach((door) => { if (door.wall === wallToSplit) { if (door.pos < distToSplitNode) door.wall = newWall1; else { door.wall = newWall2; door.pos -= distToSplitNode; } } });
-    (wallToSplit.windows || []).forEach(window => { if (window.pos < distToSplitNode) newWall1.windows.push(window); else { window.pos -= distToSplitNode; newWall2.windows.push(window); } });
-    (wallToSplit.vents || []).forEach(vent => { if (vent.pos < distToSplitNode) newWall1.vents.push(vent); else { vent.pos -= distToSplitNode; newWall2.vents.push(vent); } });
+    
+    // Orijinal duvar özelliklerini koru
+    const wall_props = { 
+        thickness: wallToSplit.thickness || state.wallThickness, 
+        wallType: wallToSplit.wallType || 'normal' 
+    };
+    
+    const newWall1 = { type: "wall", p1: p1, p2: splitNode, ...wall_props, windows: [], vents: [] };
+    const newWall2 = { type: "wall", p1: splitNode, p2: p2, ...wall_props, windows: [], vents: [] };
+    
+    // Kapıları aktar
+    state.doors.forEach((door) => { 
+        if (door.wall === wallToSplit) { 
+            if (door.pos < distToSplitNode) {
+                door.wall = newWall1;
+            } else { 
+                door.wall = newWall2; 
+                door.pos -= distToSplitNode;
+            } 
+        } 
+    });
+    
+    // Pencereleri aktar
+    (wallToSplit.windows || []).forEach(window => { 
+        if (window.pos < distToSplitNode) {
+            newWall1.windows.push(window);
+        } else { 
+            window.pos -= distToSplitNode;
+            newWall2.windows.push(window);
+        } 
+    });
+    
+    // Menfezleri aktar
+    (wallToSplit.vents || []).forEach(vent => { 
+        if (vent.pos < distToSplitNode) {
+            newWall1.vents.push(vent);
+        } else { 
+            vent.pos -= distToSplitNode;
+            newWall2.vents.push(vent);
+        } 
+    });
+    
     walls.push(newWall1, newWall2);
     setState({ selectedObject: null });
-    processWalls(true); // Birleştirmeden işle
+    processWalls(true); // true = skipMerge (birleştirme yapma)
     saveState();
     update3DScene();
+    
+    console.log("Duvar başarıyla bölündü"); // Debug için
 }
