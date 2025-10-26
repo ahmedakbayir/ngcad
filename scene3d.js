@@ -1,16 +1,16 @@
 // ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/scene3d.js
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, dom } from "./main.js";
+import { state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, dom, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "./main.js"; // Banyo sabitlerini import et
 
 let scene, camera, renderer, controls;
-let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial, stairMaterial;
+let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial, stairMaterial, stairMaterialTop;
 // YENİ: Özel duvar tipleri için malzemeler
-let balconyRailingMaterial, glassMaterial, halfWallCapMaterial;
+let balconyRailingMaterial, glassMaterial, halfWallCapMaterial ;
 
 // --- YENİ SABITLER ---
-const BALCONY_WALL_HEIGHT = 60; // Balkon duvarı yüksekliği (cm)
-const BALCONY_RAILING_HEIGHT = 20; // Korkuluk yüksekliği (cm) - toplam 120cm
+const BALCONY_WALL_HEIGHT = 70; // Balkon duvarı yüksekliği (cm)
+const BALCONY_RAILING_HEIGHT = 30; // Korkuluk yüksekliği (cm) - toplam 120cm
 const HALF_WALL_HEIGHT = 100; // Yarım duvar yüksekliği (cm)
 const HALF_WALL_CAP_WIDTH = 5; // Şapka genişliği (her iki taraf için, cm)
 const HALF_WALL_CAP_HEIGHT = 5; // Şapka kalınlığı (cm)
@@ -52,7 +52,7 @@ export function init3D(canvasElement) {
     
     // Mevcut malzemeler
     wallMaterial = new THREE.MeshStandardMaterial({
-        color: 0x979694,
+        color: '#dbdbdbff',
         roughness: 0.8,
         transparent: true,
         opacity: solidOpacity,
@@ -84,7 +84,7 @@ export function init3D(canvasElement) {
     });
     
     beamMaterial = new THREE.MeshStandardMaterial({
-        color: '#e57373',
+        color: state.wallBorderColor,
         roughness: 0.8,
         transparent: true,
         opacity: solidOpacity,
@@ -92,7 +92,7 @@ export function init3D(canvasElement) {
     });
     
     mullionMaterial = new THREE.MeshStandardMaterial({
-        color: 0xCCCCCC,
+        color: 0x435e9b,
         roughness: 0.7,
         transparent: true,
         opacity: solidOpacity,
@@ -100,7 +100,7 @@ export function init3D(canvasElement) {
     });
     
     sillMaterial = new THREE.MeshStandardMaterial({
-        color: 0xF5F5F5,
+        color: 0x2B3C63,
         roughness: 0.5,
         transparent: true,
         opacity: solidOpacity + 0.1,
@@ -159,6 +159,14 @@ export function init3D(canvasElement) {
         roughness: 0.7,
         transparent: true,
         opacity: solidOpacity,
+        side: THREE.DoubleSide
+    });
+
+    stairMaterialTop = new THREE.MeshStandardMaterial({
+        color: 0xCCCCCC, // Aynı renk
+        roughness: 0.8,
+        transparent: false, // Opak
+        opacity: 1.0,      // Tam opaklık
         side: THREE.DoubleSide
     });
 }
@@ -309,49 +317,150 @@ function createLintelMesh(door, thickness, material) {
     return lintelMesh;
 }
 
-// Detaylı pencere (değişiklik yok)
+
 function createComplexWindow(wall, window, thickness) {
     const windowGroup = new THREE.Group();
-    const windowHeight = WINDOW_TOP_HEIGHT - WINDOW_BOTTOM_HEIGHT; if (windowHeight <= 0) return null;
-    const mullionWidth = 5; const numBottomPanes = 3; const numTopPanes = 2;
-    const totalBottomGlassWidth = window.width - (numBottomPanes + 1) * mullionWidth;
-    const bottomPaneWidth = totalBottomGlassWidth / numBottomPanes;
-    const totalTopGlassWidth = window.width - (numTopPanes + 1) * mullionWidth;
-    const topPaneWidth = totalTopGlassWidth / numTopPanes;
-    const horizontalMullionY = WINDOW_BOTTOM_HEIGHT + windowHeight * 0.7;
-    const bottomSectionHeight = horizontalMullionY - WINDOW_BOTTOM_HEIGHT - mullionWidth / 2;
-    const topSectionHeight = WINDOW_TOP_HEIGHT - horizontalMullionY - mullionWidth / 2;
 
-    const horizontalMullion = createBoxMesh(window.width, mullionWidth, thickness * 0.8, mullionMaterial, "h_mullion");
-    horizontalMullion.position.y = horizontalMullionY; windowGroup.add(horizontalMullion);
+    // --- Banyo kontrolü ---
+    const isBathroom = window.roomName === 'BANYO';
+    const bottomHeight = isBathroom ? BATHROOM_WINDOW_BOTTOM_HEIGHT : WINDOW_BOTTOM_HEIGHT;
+    const topHeight = isBathroom ? BATHROOM_WINDOW_TOP_HEIGHT : WINDOW_TOP_HEIGHT;
+    // --- Banyo kontrolü SONU ---
 
-    let currentX = -window.width / 2;
+    const windowHeight = topHeight - bottomHeight;
+    if (windowHeight <= 0) return null;
+
+    // --- Bölme mantığı 2D ile senkronize edildi ---
+    const windowWidthCm = window.width;
+    const targetPaneWidth = 45;
+    const mullionWidth = 5; // Kayıt kalınlığı (cm)
+    const minPaneWidth = 40;
+    const maxPaneWidth = 50;
+
+    // Alt bölme sayısı
+    let numBottomPanes = Math.max(1, Math.round(windowWidthCm / targetPaneWidth));
+    let bottomPaneWidth = (windowWidthCm - (numBottomPanes + 1) * mullionWidth) / numBottomPanes;
+    if (bottomPaneWidth < minPaneWidth && numBottomPanes > 1) {
+        numBottomPanes--;
+        bottomPaneWidth = (windowWidthCm - (numBottomPanes + 1) * mullionWidth) / numBottomPanes;
+    } else if (bottomPaneWidth > maxPaneWidth) {
+        numBottomPanes++;
+        bottomPaneWidth = (windowWidthCm - (numBottomPanes + 1) * mullionWidth) / numBottomPanes;
+    }
+     if (numBottomPanes === 1 && bottomPaneWidth < minPaneWidth){
+         bottomPaneWidth = windowWidthCm - 2*mullionWidth;
+     }
+
+    // Üst bölme sayısı (alt ile aynı)
+    const numTopPanes = numBottomPanes;
+    // Üst bölme genişliği (alt ile aynı)
+    let topPaneWidth = bottomPaneWidth;
+
+    // Yatay kayıt pozisyonu (varsa, örneğin %70'de)
+    const hasHorizontalMullion = !isBathroom; // Banyoda yatay kayıt olmasın
+    const horizontalMullionY = bottomHeight + windowHeight * 0.7; // Eğer varsa pozisyonu
+    const bottomSectionHeight = hasHorizontalMullion ? (horizontalMullionY - bottomHeight - mullionWidth / 2) : windowHeight;
+    const topSectionHeight = hasHorizontalMullion ? (topHeight - horizontalMullionY - mullionWidth / 2) : 0; // Eğer yoksa üst bölüm yüksekliği 0
+    // --- Bölme mantığı SONU ---
+
+    // Yatay kayıt (varsa)
+    if (hasHorizontalMullion) {
+        const horizontalMullion = createBoxMesh(window.width, mullionWidth, thickness * 0.8, mullionMaterial, "h_mullion");
+        horizontalMullion.position.y = horizontalMullionY; windowGroup.add(horizontalMullion);
+    }
+
+    // --- DÜZELTME: bottomMullionPositions burada tanımlanmalı ve doldurulmalı ---
+    const bottomMullionPositions = []; // Diziyi burada tanımla
+    // --- DÜZELTME SONU ---
+
+    // Alt Bölmeler ve Dikey Kayıtlar
+    let currentX_bottom = -window.width / 2;
     for (let i = 0; i < numBottomPanes; i++) {
+        // Sol dikey kayıt
         const leftMullion = createBoxMesh(mullionWidth, bottomSectionHeight, thickness * 0.8, mullionMaterial);
-        leftMullion.position.set(currentX + mullionWidth / 2, WINDOW_BOTTOM_HEIGHT + bottomSectionHeight / 2, 0); windowGroup.add(leftMullion); currentX += mullionWidth;
-        if (bottomPaneWidth > 0.1) { const bottomPane = createBoxMesh(bottomPaneWidth, bottomSectionHeight, thickness * 0.5, windowMaterial); bottomPane.position.set(currentX + bottomPaneWidth / 2, WINDOW_BOTTOM_HEIGHT + bottomSectionHeight / 2, 0); windowGroup.add(bottomPane); currentX += bottomPaneWidth; }
+        const mullionX = currentX_bottom + mullionWidth / 2; // Kayıt X pozisyonu
+        leftMullion.position.set(mullionX, bottomHeight + bottomSectionHeight / 2, 0);
+        windowGroup.add(leftMullion);
+
+        // --- DÜZELTME: Kayıt pozisyonunu diziye ekle (ilk kayıt hariç) ---
+        if (i > 0) { // İlk kenar kaydını değil, aradakileri ekle
+            bottomMullionPositions.push(mullionX);
+        }
+        // --- DÜZELTME SONU ---
+
+        currentX_bottom += mullionWidth;
+        // Cam bölme
+        if (bottomPaneWidth > 0.1) {
+             const bottomPane = createBoxMesh(bottomPaneWidth, bottomSectionHeight, thickness * 0.5, windowMaterial);
+             bottomPane.position.set(currentX_bottom + bottomPaneWidth / 2, bottomHeight + bottomSectionHeight / 2, 0);
+             windowGroup.add(bottomPane);
+             currentX_bottom += bottomPaneWidth;
+        }
     }
+    // Son sağ dikey kayıt (alt bölüm için)
+    const lastBottomMullionX = window.width / 2 - mullionWidth / 2;
     const lastBottomMullion = createBoxMesh(mullionWidth, bottomSectionHeight, thickness * 0.8, mullionMaterial);
-    lastBottomMullion.position.set(window.width / 2 - mullionWidth / 2, WINDOW_BOTTOM_HEIGHT + bottomSectionHeight / 2, 0); windowGroup.add(lastBottomMullion);
+    lastBottomMullion.position.set(lastBottomMullionX, bottomHeight + bottomSectionHeight / 2, 0);
+    windowGroup.add(lastBottomMullion);
 
-    currentX = -window.width / 2;
-    for (let i = 0; i < numTopPanes; i++) {
-        const leftMullion = createBoxMesh(mullionWidth, topSectionHeight, thickness * 0.8, mullionMaterial);
-        leftMullion.position.set(currentX + mullionWidth / 2, horizontalMullionY + mullionWidth / 2 + topSectionHeight / 2, 0); windowGroup.add(leftMullion); currentX += mullionWidth;
-        if (topPaneWidth > 0.1) { const topPane = createBoxMesh(topPaneWidth, topSectionHeight, thickness * 0.5, windowMaterial); topPane.position.set(currentX + topPaneWidth / 2, horizontalMullionY + mullionWidth / 2 + topSectionHeight / 2, 0); windowGroup.add(topPane); currentX += topPaneWidth; }
+    // --- DÜZELTME: Son kaydı da diziye ekle (eğer birden fazla bölme varsa) ---
+    if (numBottomPanes > 1) {
+         bottomMullionPositions.push(lastBottomMullionX); // Veya currentX_bottom ? Hayır, lastMullionX doğru.
     }
-    const lastTopMullion = createBoxMesh(mullionWidth, topSectionHeight, thickness * 0.8, mullionMaterial);
-    lastTopMullion.position.set(window.width / 2 - mullionWidth / 2, horizontalMullionY + mullionWidth / 2 + topSectionHeight / 2, 0); windowGroup.add(lastTopMullion);
+    // --- DÜZELTME SONU ---
 
+
+    // Üst Bölmeler ve Dikey Kayıtlar (eğer varsa)
+    if (hasHorizontalMullion && topSectionHeight > 0.1) {
+        let currentX_top = -window.width / 2;
+
+        // Sol kenar kaydı (üst bölüm)
+        const firstTopMullion = createBoxMesh(mullionWidth, topSectionHeight, thickness * 0.8, mullionMaterial);
+        firstTopMullion.position.set(currentX_top + mullionWidth / 2, horizontalMullionY + mullionWidth / 2 + topSectionHeight / 2, 0);
+        windowGroup.add(firstTopMullion);
+        currentX_top += mullionWidth;
+
+        for (let i = 0; i < numTopPanes; i++) {
+            // Üst cam bölme
+             if (topPaneWidth > 0.1) {
+                 const topPane = createBoxMesh(topPaneWidth, topSectionHeight, thickness * 0.5, windowMaterial);
+                 const paneStartX = currentX_top;
+                 topPane.position.set(paneStartX + topPaneWidth / 2, horizontalMullionY + mullionWidth / 2 + topSectionHeight / 2, 0);
+                 windowGroup.add(topPane);
+                 currentX_top += topPaneWidth;
+             }
+
+            // Sağ dikey kayıt (alt kayıtlara hizalı) - Son bölme hariç
+             if (i < numTopPanes - 1) {
+                 // --- DÜZELTME: Tanımlı diziden pozisyonu al ---
+                 // Hatanın olduğu yer burasıydı. Artık bottomMullionPositions tanımlı olmalı.
+                 const mullionX = bottomMullionPositions[i]; // Alt kaydın X pozisyonunu kullan
+                 // --- DÜZELTME SONU ---
+
+                 const verticalMullion = createBoxMesh(mullionWidth, topSectionHeight, thickness * 0.8, mullionMaterial);
+                 // Pozisyonu ayarla
+                 verticalMullion.position.set(mullionX, horizontalMullionY + mullionWidth / 2 + topSectionHeight / 2, 0);
+                 windowGroup.add(verticalMullion);
+                 currentX_top += mullionWidth;
+             }
+        }
+         // Son sağ dikey kayıt (üst bölüm için)
+         const lastTopMullion = createBoxMesh(mullionWidth, topSectionHeight, thickness * 0.8, mullionMaterial);
+         lastTopMullion.position.set(window.width / 2 - mullionWidth / 2, horizontalMullionY + mullionWidth / 2 + topSectionHeight / 2, 0);
+         windowGroup.add(lastTopMullion);
+    }
+
+    // Mermer Denizlik (Sill)
     const sillOverhang = 5;
     const sillDepth = thickness + sillOverhang * 2;
     const sillWidth = window.width + sillOverhang * 2;
     const sillHeight = 4;
     const marbleSill = createBoxMesh(sillWidth, sillHeight, sillDepth, sillMaterial, "sill");
-    marbleSill.position.y = WINDOW_BOTTOM_HEIGHT - sillHeight / 2;
+    marbleSill.position.y = bottomHeight - sillHeight / 2;
     marbleSill.position.z = 0;
     windowGroup.add(marbleSill);
 
+    // Konumlandırma ve Döndürme
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 0.1) return null;
     const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
     const windowCenterPos = { x: wall.p1.x + dx * window.pos, y: wall.p1.y + dy * window.pos };
@@ -361,15 +470,18 @@ function createComplexWindow(wall, window, thickness) {
     return windowGroup;
 }
 
+// ... (Rest of scene3d.js) ...
+
 // Duvar parçası (değişiklik yok)
 function createWallPieceMesh(wall, item, yPos, height, thickness, material) {
+    if (!wall || !item) return null; // Ekstra kontrol
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 0.1 || height <= 0) return null;
     const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
     const centerPos = { x: wall.p1.x + dx * item.pos, y: wall.p1.y + dy * item.pos };
     const geom = new THREE.BoxGeometry(item.width, height, thickness);
-    geom.translate(0, yPos + height / 2, 0);
+    geom.translate(0, yPos + height / 2, 0); // Y pozisyonu doğru verilmeli
     const mesh = new THREE.Mesh(geom, material);
-    mesh.position.set(centerPos.x, 0, centerPos.y);
+    mesh.position.set(centerPos.x, 0, centerPos.y); // Dünya pozisyonu
     mesh.rotation.y = -Math.atan2(wall.p2.y - wall.p1.y, wall.p2.x - wall.p1.x);
     return mesh;
 }
@@ -399,7 +511,7 @@ function createBeamMesh(beam, material) {
 }
 
 // Merdiven (değişiklik yok)
-function createStairMesh(stair, material) {
+function createStairMesh(stair) { // material parametresini kaldırdık, içeride kullanacağız
     const totalRun = stair.width;
     const stairWidth = stair.height;
     const stepCount = Math.max(1, stair.stepCount || 1);
@@ -412,20 +524,35 @@ function createStairMesh(stair, material) {
 
     const stepRun = totalRun / stepCount;
     const stepRise = totalRise / stepCount;
+    const overlap = 10;
 
     const stairGroup = new THREE.Group();
 
+    // --- Materyal dizisini hazırla ---
+    // BoxGeometry yüzey sırası: +X (sağ), -X (sol), +Y (üst), -Y (alt), +Z (ön), -Z (arka)
+    const stepMaterials = [
+        stairMaterial,      // Sağ (+X) - Saydam
+        stairMaterial,      // Sol (-X) - Saydam
+        stairMaterialTop,   // Üst (+Y) - OPAK
+        stairMaterial,      // Alt (-Y) - Saydam
+        stairMaterial,      // Ön (+Z) - Saydam
+        stairMaterial       // Arka (-Z) - Saydam
+    ];
+    // --- Materyal dizisi sonu ---
+
     for (let i = 0; i < stepCount; i++) {
-        const stepGeom = new THREE.BoxGeometry(stepRun, stepRise, stairWidth);
-        stepGeom.translate(0, stepRise / 2, 0);
+        const stepGeom = new THREE.BoxGeometry(stepRun + overlap, stepRise, stairWidth);
+        stepGeom.translate(overlap / 2, stepRise / 2, 0);
 
-        const stepMesh = new THREE.Mesh(stepGeom, material);
+        // --- Mesh oluştururken materyal dizisini kullan ---
+        const stepMesh = new THREE.Mesh(stepGeom, stepMaterials);
+        // --- Değişiklik sonu ---
 
-        const xPos = -totalRun / 2 + stepRun / 2 + i * stepRun;
+        const stepStartX = -totalRun / 2 + i * stepRun;
         const yPos = i * stepRise;
         const zPos = 0;
 
-        stepMesh.position.set(xPos, yPos, zPos);
+        stepMesh.position.set(stepStartX, yPos, zPos);
         stairGroup.add(stepMesh);
     }
 
@@ -441,7 +568,8 @@ export function update3DScene() {
     sceneObjects.clear();
 
     const solidOpacity = 0.75;
-    wallMaterial.color.set(state.wallBorderColor); wallMaterial.transparent = true; wallMaterial.opacity = solidOpacity; wallMaterial.needsUpdate = true;
+    //wallMaterial.color.set(state.wallBorderColor); 
+    wallMaterial.transparent = true; wallMaterial.opacity = solidOpacity; wallMaterial.needsUpdate = true;
     doorMaterial.transparent = true; doorMaterial.opacity = solidOpacity; doorMaterial.needsUpdate = true;
     windowMaterial.opacity = 0.3; windowMaterial.transparent = true; windowMaterial.needsUpdate = true;
     columnMaterial.color.set(state.wallBorderColor); columnMaterial.transparent = true; columnMaterial.opacity = solidOpacity; columnMaterial.needsUpdate = true;
@@ -455,64 +583,75 @@ export function update3DScene() {
     stairMaterial.color.set(0xCCCCCC);
     stairMaterial.needsUpdate = true;
 
+    stairMaterialTop.transparent = false; // Opak olduğundan emin ol
+    stairMaterialTop.opacity = 1.0;
+    stairMaterialTop.color.set(0xCCCCCC); // Rengi eşitle
+    stairMaterialTop.needsUpdate = true;
+
     const { walls, doors, columns, beams, rooms, stairs } = state;
 
     // Duvarları, kapıları, pencereleri oluştur - DUVAR TİPİ DESTEĞİ İLE
-    walls.forEach(w => {
+walls.forEach(w => {
          if (!w.p1 || !w.p2) return;
         const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y); if (wallLen < 1) return;
         const wallThickness = w.thickness || state.wallThickness;
-        const wallType = w.wallType || 'normal'; // Duvar tipini al
-        
+        const wallType = w.wallType || 'normal';
+
         const itemsOnWall = [];
         (doors.filter(d => d.wall === w)).forEach(d => itemsOnWall.push({ item: d, type: 'door', pos: d.pos, width: d.width }));
-        (w.windows || []).forEach(win => itemsOnWall.push({ item: win, type: 'window', pos: win.pos, width: win.width }));
+        // --- YENİ: Pencere verisine oda adı ekleniyor ---
+        (w.windows || []).forEach(win => itemsOnWall.push({ item: { ...win, roomName: win.roomName }, type: 'window', pos: win.pos, width: win.width }));
+        // --- YENİ SONU ---
         itemsOnWall.sort((a, b) => a.pos - b.pos);
-        
+
         let lastPos = 0; const dx = (w.p2.x - w.p1.x) / wallLen; const dy = (w.p2.y - w.p1.y) / wallLen;
-        
+
         itemsOnWall.forEach(itemData => {
             const itemStart = itemData.pos - itemData.width / 2;
-            if (itemStart > lastPos + 0.1) { 
-                const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos}; 
-                const p2={x:w.p1.x+dx*itemStart, y:w.p1.y+dy*itemStart}; 
-                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial); // DUVAR TİPİ EKLENDİ
-                if(segMesh) sceneObjects.add(segMesh); 
+            if (itemStart > lastPos + 0.1) {
+                const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
+                const p2={x:w.p1.x+dx*itemStart, y:w.p1.y+dy*itemStart};
+                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial);
+                if(segMesh) sceneObjects.add(segMesh);
             }
-            
-            if (itemData.type === 'door') { 
-                const doorGroup = createDoorMesh(itemData.item); 
-                if(doorGroup) sceneObjects.add(doorGroup); 
-                
-                // Lento - özel duvar tiplerinde farklı davran
-                if (wallType === 'normal' || wallType === 'half') { // Sadece normal ve yarım duvarlarda lento
-                    const lintelMesh = createLintelMesh(itemData.item, wallThickness, wallMaterial); 
-                    if(lintelMesh) sceneObjects.add(lintelMesh); 
+
+            if (itemData.type === 'door') {
+                const doorGroup = createDoorMesh(itemData.item);
+                if(doorGroup) sceneObjects.add(doorGroup);
+                if (wallType === 'normal' || wallType === 'half') {
+                    const lintelMesh = createLintelMesh(itemData.item, wallThickness, wallMaterial);
+                    if(lintelMesh) sceneObjects.add(lintelMesh);
                 }
             }
-            else if (itemData.type === 'window') { 
-                const windowGroup = createComplexWindow(w, itemData.item, wallThickness); 
-                if(windowGroup) sceneObjects.add(windowGroup); 
-                
-                // Lento ve alt dolgu - özel duvar tiplerinde farklı davran
+            else if (itemData.type === 'window') {
+                // createComplexWindow artık oda adını itemData.item.roomName olarak alacak
+                const windowGroup = createComplexWindow(w, itemData.item, wallThickness);
+                if(windowGroup) sceneObjects.add(windowGroup);
+
+                // --- YENİ: Banyo kontrolü ile lento/alt dolgu yükseklikleri ---
+                const isBathroom = itemData.item.roomName === 'BANYO';
+                const bottomHeight = isBathroom ? BATHROOM_WINDOW_BOTTOM_HEIGHT : WINDOW_BOTTOM_HEIGHT;
+                const topHeight = isBathroom ? BATHROOM_WINDOW_TOP_HEIGHT : WINDOW_TOP_HEIGHT;
+                // --- YENİ SONU ---
+
                 if (wallType === 'normal' || wallType === 'half') {
-                    const lintelHeight = WALL_HEIGHT - WINDOW_TOP_HEIGHT; 
-                    const lintelMesh = createWallPieceMesh(w, itemData.item, WINDOW_TOP_HEIGHT, lintelHeight, wallThickness, wallMaterial); 
-                    if(lintelMesh) sceneObjects.add(lintelMesh); 
-                    
-                    const sillHeight = WINDOW_BOTTOM_HEIGHT; 
-                    const sillMesh = createWallPieceMesh(w, itemData.item, 0, sillHeight, wallThickness, wallMaterial); 
-                    if(sillMesh) sceneObjects.add(sillMesh); 
+                    const lintelHeight = WALL_HEIGHT - topHeight; // topHeight kullanıldı
+                    const lintelMesh = createWallPieceMesh(w, itemData.item, topHeight, lintelHeight, wallThickness, wallMaterial); // topHeight kullanıldı
+                    if(lintelMesh) sceneObjects.add(lintelMesh);
+
+                    const sillHeight = bottomHeight; // bottomHeight kullanıldı
+                    const sillMesh = createWallPieceMesh(w, itemData.item, 0, sillHeight, wallThickness, wallMaterial); // 0 ve sillHeight kullanıldı
+                    if(sillMesh) sceneObjects.add(sillMesh);
                 }
             }
             lastPos = itemData.pos + itemData.width / 2;
         });
-        
-        if (wallLen - lastPos > 0.1) { 
-            const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos}; 
-            const p2={x:w.p1.x+dx*wallLen, y:w.p1.y+dy*wallLen}; 
-            const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial); // DUVAR TİPİ EKLENDİ
-            if(segMesh) sceneObjects.add(segMesh); 
+
+        if (wallLen - lastPos > 0.1) {
+            const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
+            const p2={x:w.p1.x+dx*wallLen, y:w.p1.y+dy*wallLen};
+            const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial);
+            if(segMesh) sceneObjects.add(segMesh);
         }
     });
 
@@ -523,9 +662,10 @@ export function update3DScene() {
     if (beams) { beams.forEach(beam => { const m = createBeamMesh(beam, beamMaterial); if (m) sceneObjects.add(m); }); }
 
     // Merdivenleri ekle
-    if (stairs) {
+if (stairs) {
         stairs.forEach(stair => {
-            const m = createStairMesh(stair, stairMaterial);
+            // createStairMesh artık materyal parametresi almıyor
+            const m = createStairMesh(stair);
             if (m) sceneObjects.add(m);
         });
     }
