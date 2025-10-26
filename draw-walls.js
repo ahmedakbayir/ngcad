@@ -178,9 +178,9 @@ const drawNormalSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG
 const drawGlassSegments = (ctx2d, segmentList, color, wallPx) => {
     if (segmentList.length === 0) return;
     const thickness = segmentList[0]?.wall?.thickness || wallPx; // Kalınlığı al
-    const spacing = 4; // Çizgiler arası boşluk (önceden tanımlı varsayalım)
+    const spacing = 3; // Çizgiler arası boşluk (önceden tanımlı varsayalım)
     ctx2d.strokeStyle = color;
-    ctx2d.lineWidth = 1.5 / state.zoom; // Zoom'a göre ayarlı kalınlık
+    ctx2d.lineWidth = 3 / state.zoom; // Zoom'a göre ayarlı kalınlık
     ctx2d.lineCap = "butt";
     ctx2d.lineJoin = "miter";
     segmentList.forEach((seg)=>{

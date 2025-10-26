@@ -156,39 +156,118 @@ function handlePaste(e) {
 
 
 function onKeyDown(e) {
-    // Modifier tuşları
+    // Modifier tuşları (değişiklik yok)
     if (e.key === 'Control') currentModifierKeys.ctrl = true;
     if (e.key === 'Alt') currentModifierKeys.alt = true;
     if (e.key === 'Shift') currentModifierKeys.shift = true;
 
-    // Popup'lar veya input alanları aktifse çoğu kısa yolu engelle
-    if (document.activeElement.closest("#settings-popup")) return;
-    // --- DEĞİŞİKLİK BURADA: Mahal popup kontrolü ayrıldı ---
-    const isRoomPopupActive = !!document.activeElement.closest("#room-name-popup");
+    // --- YENİ KONTROL BAŞLANGICI ---
+    // Eğer aktif element mahal ismi input'u ise:
+    if (document.activeElement === dom.roomNameInput) {
+        // İzin verilen tuşlar: Enter (onay), Escape (iptal), ArrowDown (listeye geçiş)
+        if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'ArrowDown') {
+            // Bu tuşlar ui.js içindeki kendi listener'ları tarafından zaten handle ediliyor.
+            // Burada özel bir şey yapmaya gerek yok, fonksiyonun devam etmesini ENGELLEME!
+            // Ancak, diğer kısayolların çalışmaması için fonksiyonun sonunda return etmeliyiz.
+            // Şimdilik sadece geçmesine izin verelim, ui.js halleder.
+        }
+        // Yazı yazma tuşları (harfler, sayılar, boşluk vb.), Backspace, Delete, yön tuşları
+        // gibi input içinde kullanılan tuşlar doğal olarak çalışacaktır.
+        // Bu tuşlar için özel bir kontrol yapmaya gerek yok.
 
-    if (!isRoomPopupActive && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) {
-        if (e.ctrlKey && ['c', 'v', 'z', 'y'].includes(e.key.toLowerCase())) {
-             if (e.key.toLowerCase() === 'c') { handleCopy(e); return; }
-             if (e.key.toLowerCase() === 'v') { handlePaste(e); return; }
-        } else if (e.key === 'Escape') {
-             // Input içindeyken Escape tuşu özel işlemleri iptal etsin
-             if (state.isEditingLength) cancelLengthEdit();
-             // Başka iptal edilecek durum varsa buraya eklenebilir
-             return; // Diğer Escape işlemlerini engelle
-        } else {
-            return; // Diğer tuşlara izin ver
+        // ÖNEMLİ: Mahal ismi input'u aktifken, aşağıdaki genel kısayolların
+        // (mod değiştirme, undo/redo, delete vb.) çalışmaması için buradan çık.
+        // Sadece yukarıda özel olarak izin verilen veya input'un doğal çalışması
+        // gereken tuşlar dışında bir tuşa basıldıysa (örneğin W, R, K, Z, Y)
+        // fonksiyonun devam etmesini engelle.
+        const allowedKeysInPopup = ['Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Tab'];
+        // Eğer basılan tuş izin verilenlerden biri DEĞİLSE VE bir modifier tuşu DEĞİLSE
+        // VE tek bir karakterse (yani bir harf/sayı/sembol ise kısayol olabilir)
+        // VEYA Ctrl ile birlikte Z/Y ise (undo/redo engellensin)
+        if (!allowedKeysInPopup.includes(e.key) &&
+            !e.ctrlKey && !e.altKey && !e.metaKey &&
+            e.key.length === 1 || (e.ctrlKey && (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'y'))
+           ) {
+             // Kısayol olabilecek tuşlara basıldıysa, burada engelle
+             // e.preventDefault(); // Gerekirse default davranışı da engelleyebiliriz ama şimdilik return yeterli.
+             return; // Fonksiyonun geri kalanını çalıştırma
+        }
+        // Eğer izin verilen bir tuşsa (Enter, Esc, ArrowDown) veya normal yazı karakteriyse,
+        // fonksiyonun devamına izin verilebilir GİBİ görünse de, aşağıdaki genel
+        // kısayolların çalışmaması için, input aktifken genel kural olarak buradan çıkmak daha güvenli.
+        // Sadece ui.js'deki Enter/Escape/ArrowDown listener'ları çalışsın yeterli.
+        // Bu yüzden, yukarıdaki if kontrolünü biraz daha basitleştirip,
+        // input aktifse çoğu durumda return edebiliriz.
+
+        // --- YENİDEN DÜZENLENMİŞ KONTROL ---
+        if (e.key !== 'Enter' && e.key !== 'Escape' && e.key !== 'ArrowDown') {
+             // Enter, Escape, ArrowDown dışındaki tuşlar basıldığında,
+             // eğer bu bir kısayol tuşu ise (W, R, K, Ctrl+Z vb.)
+             // aşağıdaki genel kısayol kontrollerine GİRMEMESİ İÇİN buradan çık.
+             // Normal harf/sayı basımları input'a yazılacak,
+             // Backspace, Delete, yön tuşları input içinde çalışacak.
+             // Biz sadece W, R, K gibi mod değiştirme veya Ctrl+Z gibi
+             // eylemlerin tetiklenmesini engellemek istiyoruz.
+             // Bu kontrol çoğu kısayolu engeller.
+             if (e.key.length === 1 && !e.ctrlKey && !e.altKey || (e.ctrlKey && ['z', 'y', 'c', 'v'].includes(e.key.toLowerCase())) ) {
+                 return;
+             }
+        }
+        // Eğer Enter, Escape, ArrowDown ise veya diğer özel durumlar (örn: Tab)
+        // için aşağıdaki genel kontrollere GİTMEDEN ÖNCE ui.js listener'ları çalışacak.
+        // Ama yine de bu tuşlar için de aşağıdaki genel kısayollar (örn: Escape modu Select'e alır)
+        // çalışmamalı. Bu yüzden en temizi:
+        // return; // Eğer mahal input aktifse HER ZAMAN buradan çık. ui.js'deki listenerlar yeterli.
+
+    }
+    // --- YENİ KONTROL SONU ---
+
+
+    // Popup'lar veya DİĞER input alanları aktifse çoğu kısa yolu engelle
+    if (document.activeElement.closest("#settings-popup")) return;
+
+    // Uzunluk input'u için özel kontrol (Ctrl+C/V hariç)
+    // DİKKAT: Artık mahal input'u yukarıda handle edildiği için bu blok sadece #length-input için çalışmalı.
+    if (document.activeElement === dom.lengthInput) {
+        // Ctrl+C ve Ctrl+V'ye İZİN VER
+        if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
+             // handleCopy/handlePaste fonksiyonları çağrılmayacak çünkü target INPUT.
+             // Tarayıcının kendi kopyala/yapıştırını yapmasına izin ver.
+        }
+        // Escape tuşu (iptal eder)
+        else if (e.key === 'Escape') {
+            cancelLengthEdit(); // Sadece length input'u iptal et
+            return; // Diğer Escape işlemlerini engelle
+        }
+        // Enter tuşu (onaylar)
+        else if (e.key === 'Enter') {
+            // confirmLengthEdit() blur event'i ile zaten çağrılıyor, burada tekrar çağırmaya gerek yok.
+            // Sadece default davranışı engelleyebiliriz.
+            e.preventDefault();
+            dom.lengthInput.blur(); // Input'tan çıkışı tetikle, bu da confirm'i çağırır.
+            return;
+        }
+        // Diğer tüm tuşlar için (yazı yazma, silme, yön tuşları vs.)
+        // varsayılan davranışa izin ver VE aşağıdaki kısayolları engelle.
+        else {
+             // Sayısal olmayan veya izin verilmeyen başka bir tuşsa engelleme yapmaya gerek yok,
+             // input zaten kendi içinde halleder.
+             // Önemli olan aşağıdaki kısayolları çalıştırmamak.
+             return;
         }
     }
-    // --- DEĞİŞİKLİK SONU ---
 
-    // TAB ile duvar uzatma
+
+    // --- Buradan sonrası, HİÇBİR input alanı aktif değilken çalışacak kısayollar ---
+
+    // TAB ile duvar uzatma (değişiklik yok)
     if (e.key === "Tab" && state.currentMode === "drawWall" && state.startPoint) {
         e.preventDefault();
         extendWallOnTabPress();
         return;
     }
 
-    // Sayısal giriş ile boyut düzenleme
+    // Sayısal giriş ile boyut düzenleme (değişiklik yok)
     if (state.selectedObject &&
         (state.selectedObject.type === "wall" || state.selectedObject.type === "door" || state.selectedObject.type === "window") &&
         !state.isEditingLength && /^[0-9.]$/.test(e.key)) {
@@ -197,22 +276,26 @@ function onKeyDown(e) {
         return;
     }
 
-    // Geri Alma / İleri Alma
+    // Kopyala / Yapıştır (Input dışındayken)
+    if (e.ctrlKey && e.key.toLowerCase() === 'c') { handleCopy(e); return; }
+    if (e.ctrlKey && e.key.toLowerCase() === 'v') { handlePaste(e); return; }
+
+
+    // Geri Alma / İleri Alma (değişiklik yok)
     if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
 
-    // Escape veya Space ile iptal/seç moduna dönme
+    // Escape veya Space ile iptal/seç moduna dönme (değişiklik yok)
     if (e.key === "Escape" || e.code === "Space") {
         if (e.code === "Space") e.preventDefault();
 
-        // --- DEĞİŞİKLİK BURADA: Mahal popup'ı kapat ---
-        if (dom.roomNamePopup.style.display === 'block') {
-            hideRoomNamePopup();
-            return; // Diğer Escape işlemlerini yapma
-        }
-        // --- DEĞİŞİKLİK SONU ---
+        // Mahal popup kontrolü ZATEN YUKARIDA yapıldığı için burada tekrar gerekmez.
+        // if (dom.roomNamePopup.style.display === 'block') {
+        //     hideRoomNamePopup();
+        //     return;
+        // }
 
-        if (state.isEditingLength) cancelLengthEdit();
+        if (state.isEditingLength) cancelLengthEdit(); // Length input açıksa kapatır
         if (state.isDragging) {
             setState({ isDragging: false, isStretchDragging: false, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map() });
             restoreState(state.history[state.historyIndex]);
@@ -223,7 +306,7 @@ function onKeyDown(e) {
         setMode("select");
     }
 
-    // Delete veya Backspace ile silme
+    // Delete veya Backspace ile silme (değişiklik yok)
     if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
         e.preventDefault();
         let deleted = false;
@@ -244,7 +327,7 @@ function onKeyDown(e) {
         }
     }
 
-    // Mod değiştirme kısayolları
+    // Mod değiştirme kısayolları (değişiklik yok)
     if (e.key.toLowerCase() === "d") { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
     if (e.key.toLowerCase() === "w") setMode("drawWall");
     if (e.key.toLowerCase() === "r") setMode("drawRoom");

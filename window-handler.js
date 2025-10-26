@@ -1,8 +1,35 @@
+// ahmedakbayir/ngcad/ngcad-00d54c478fa934506781fd05812470b2bba6874c/window-handler.js
 // window-handler.js
 import { state, setState } from './main.js';
 import { saveState } from './history.js';
 import { distToSegmentSquared } from './geometry.js';
 import { findLargestAvailableSegment, findAvailableSegmentAt, checkOverlapAndGap } from './wall-item-utils.js';
+import { BATHROOM_WINDOW_DEFAULT_WIDTH } from './main.js'; // Banyo genişliği sabitini import et
+
+// Oda adını kontrol etmek için yardımcı fonksiyon (varsa)
+function getRoomsAdjacentToWall(wall) {
+    const adjacentRooms = [];
+    const TOLERANCE = 1;
+    if (!state.rooms || state.rooms.length === 0 || !wall || !wall.p1 || !wall.p2) return adjacentRooms;
+
+    for (const room of state.rooms) {
+        if (!room.polygon || !room.polygon.geometry) continue;
+        const coords = room.polygon.geometry.coordinates[0];
+        for (let i = 0; i < coords.length - 1; i++) {
+            const p1Coord = coords[i];
+            const p2Coord = coords[i + 1];
+            // Duvarın poligon kenarı ile eşleşip eşleşmediğini kontrol et
+            const d1 = Math.hypot(wall.p1.x - p1Coord[0], wall.p1.y - p1Coord[1]) + Math.hypot(wall.p2.x - p2Coord[0], wall.p2.y - p2Coord[1]);
+            const d2 = Math.hypot(wall.p1.x - p2Coord[0], wall.p1.y - p2Coord[1]) + Math.hypot(wall.p2.x - p1Coord[0], wall.p2.y - p1Coord[1]);
+            if (Math.min(d1, d2) < TOLERANCE) {
+                adjacentRooms.push(room);
+                break; // Bu duvar bu odaya ait, sonraki odaya geç
+            }
+        }
+    }
+    return adjacentRooms;
+}
+
 
 /**
  * Verilen noktaya (pos) en yakın pencereyi bulur.
@@ -36,21 +63,36 @@ export function getWindowAtPoint(pos, tolerance) {
     return null;
 }
 
-// Pencereyi duvarın ortasına eklemek için yardımcı fonksiyon
-function addWindowToWallMiddle(wall) {
-    // ---- YENİ KONTROL ----
+// Pencereyi duvarın ortasına eklemek için yardımcı fonksiyon (GÜNCELLENDİ)
+function addWindowToWallMiddle(wall, roomName = null) { // Oda adı parametresi eklendi
+    // Duvar tipini kontrol et
+    const wallType = wall.wallType || 'normal';
+    if (wallType !== 'normal') {
+        // Normal değilse, balkon duvarı mı diye bak
+        const adjacentRooms = getRoomsAdjacentToWall(wall);
+        const isBalconyWall = adjacentRooms.some(r => r.name === 'BALKON' || r.name === 'AÇIK BALKON' || r.name === 'KAPALI BALKON');
+        const isSharedWithNonBalcony = adjacentRooms.some(r => r.name !== 'BALKON' && r.name !== 'AÇIK BALKON' && r.name !== 'KAPALI BALKON');
+        // Eğer bir balkona bitişikse VE başka bir (balkon olmayan) odaya da bitişikse izin ver.
+        if (!(isBalconyWall && isSharedWithNonBalcony)) {
+            return false; // Uygun duvar tipi değil
+        }
+        // Eğer balkon duvarı ise ve normal bir odayla paylaşılıyorsa pencere eklenebilir.
+    }
+
+
     // Duvarda zaten pencere varsa ekleme
     if (wall.windows && wall.windows.length > 0) {
-        return false; // Zaten pencere var, ekleme yapma
+        return false;
     }
-    // ---- KONTROL SONU ----
 
     const largestSegment = findLargestAvailableSegment(wall);
     if (!largestSegment) {
         return false;
     }
 
-    const defaultWidth = 120; // Varsayılan pencere genişliği
+    // Banyo odası mı kontrol et
+    const isBathroom = roomName === 'BANYO';
+    const defaultWidth = isBathroom ? BATHROOM_WINDOW_DEFAULT_WIDTH : 120; // Banyo ise 50, değilse 120
     let windowWidth;
     let windowPos;
     const MIN_ITEM_WIDTH = 20;
@@ -59,12 +101,11 @@ function addWindowToWallMiddle(wall) {
         windowWidth = defaultWidth;
         windowPos = largestSegment.start + (largestSegment.length / 2);
     } else {
-        // En büyük segment varsayılan genişlikten küçükse, segment kadar yap
         if (largestSegment.length >= MIN_ITEM_WIDTH) {
             windowWidth = largestSegment.length;
             windowPos = largestSegment.start + (largestSegment.length / 2);
         } else {
-            return false; // Minimum genişlikten de küçükse ekleme
+            return false;
         }
     }
 
@@ -73,13 +114,15 @@ function addWindowToWallMiddle(wall) {
         pos: windowPos,
         width: windowWidth,
         type: 'window',
-        isWidthManuallySet: false // İşareti false başlat
+        isWidthManuallySet: false,
+        // Odanın adını pencere objesine ekleyelim (3D için)
+        roomName: roomName // Eğer doğrudan duvara tıklanırsa bu null olabilir
     });
     return true;
 }
 
 /**
- * 'drawWindow' modundayken tıklama işlemini yönetir.
+ * 'drawWindow' modundayken tıklama işlemini yönetir. (GÜNCELLENDİ)
  * @param {object} pos - Dünya koordinatları {x, y}
  * @param {object} clickedObject - Tıklanan nesne (getObjectAtPoint'ten)
  */
@@ -95,32 +138,53 @@ export function onPointerDownDraw(pos, clickedObject) {
         }
     }
     if (previewWall) {
-        const previewWindowData = getWindowPlacement(previewWall, pos);
-        // isSpaceForWindow'un previewWindowData'yı alması gerekiyor
-        if (previewWindowData && isSpaceForWindow(previewWindowData)) {
-            // ---- YENİ KONTROL: Duvarda zaten pencere var mı? ----
-            if (previewWall.windows && previewWall.windows.length > 0) {
-                 return; // Zaten pencere varsa ekleme
+        // Duvar tipini kontrol et
+        const wallType = previewWall.wallType || 'normal';
+        let placementAllowed = (wallType === 'normal');
+
+        if (!placementAllowed) {
+            // Balkon duvarı kontrolü
+            const adjacentRooms = getRoomsAdjacentToWall(previewWall);
+            const isBalconyWall = adjacentRooms.some(r => r.name === 'BALKON' || r.name === 'AÇIK BALKON' || r.name === 'KAPALI BALKON');
+             const isSharedWithNonBalcony = adjacentRooms.some(r => r.name !== 'BALKON' && r.name !== 'AÇIK BALKON' && r.name !== 'KAPALI BALKON');
+            if (isBalconyWall && isSharedWithNonBalcony) {
+                placementAllowed = true;
             }
-            // ---- KONTROL SONU ----
-            if (!previewWall.windows) previewWall.windows = [];
-            // getWindowPlacement'ten dönen width ve pos'u kullan, işareti ekle
-            previewWall.windows.push({
-                pos: previewWindowData.pos,
-                width: previewWindowData.width,
-                type: 'window',
-                isWidthManuallySet: false
-             });
-            saveState();
-            return;
+        }
+
+        if (placementAllowed) {
+            // Hangi odaya ait olduğunu bulmaya çalış (varsa)
+            const adjacentRooms = getRoomsAdjacentToWall(previewWall);
+            // Balkon olmayan ilk odayı referans alalım (Banyo kontrolü için)
+            const adjacentRoom = adjacentRooms.find(r => r.name !== 'BALKON' && r.name !== 'AÇIK BALKON' && r.name !== 'KAPALI BALKON');
+            const roomName = adjacentRoom ? adjacentRoom.name : null;
+            const isBathroom = roomName === 'BANYO';
+
+            const previewWindowData = getWindowPlacement(previewWall, pos, isBathroom); // isBathroom bilgisini gönder
+            if (previewWindowData && isSpaceForWindow(previewWindowData)) {
+                if (previewWall.windows && previewWall.windows.length > 0) {
+                     return;
+                }
+                if (!previewWall.windows) previewWall.windows = [];
+                previewWall.windows.push({
+                    pos: previewWindowData.pos,
+                    width: previewWindowData.width,
+                    type: 'window',
+                    isWidthManuallySet: false,
+                    roomName: roomName // Oda adını ekle
+                 });
+                saveState();
+                return;
+            }
         }
     }
 
-    // 2. Odaya veya boşluğa tıklayarak dış duvarlara pencere ekle
+    // 2. Odaya tıklayarak dış duvarlara pencere ekle
     if (clickedObject && clickedObject.type === 'room') {
         const clickedRoom = clickedObject.object; const TOLERANCE = 1;
         if (!clickedRoom.polygon || !clickedRoom.polygon.geometry) return;
         const roomCoords = clickedRoom.polygon.geometry.coordinates[0]; const roomWalls = new Set();
+        // ... (odanın duvarlarını bulma kodu - değişiklik yok) ...
         for (let i = 0; i < roomCoords.length - 1; i++) {
              const p1Coord = roomCoords[i]; const p2Coord = roomCoords[i + 1];
              const wall = state.walls.find(w => {
@@ -131,22 +195,41 @@ export function onPointerDownDraw(pos, clickedObject) {
               });
              if (wall) roomWalls.add(wall);
         }
+
         let windowAdded = false;
         roomWalls.forEach(wall => {
-            if (state.wallAdjacency.get(wall) === 1) { // Sadece dış duvarlar
-                if (addWindowToWallMiddle(wall)) windowAdded = true;
+            // Dış duvar VEYA balkon ile paylaşılan duvar kontrolü
+            const adjacentRooms = getRoomsAdjacentToWall(wall);
+            const isExterior = state.wallAdjacency.get(wall) === 1;
+            const isBalconyWall = adjacentRooms.some(r => r.name === 'BALKON' || r.name === 'AÇIK BALKON' || r.name === 'KAPALI BALKON');
+            const isSharedWithNonBalcony = adjacentRooms.some(r => r.name !== 'BALKON' && r.name !== 'AÇIK BALKON' && r.name !== 'KAPALI BALKON');
+
+            if (isExterior || (isBalconyWall && isSharedWithNonBalcony)) {
+                // Duvar tipinin 'normal' veya (balkonla paylaşılan) 'balcony' olması lazım, ama zaten üstte kontrol ettik.
+                // addWindowToWallMiddle zaten tip kontrolü yapıyor.
+                if (addWindowToWallMiddle(wall, clickedRoom.name)) { // Oda adını gönder
+                    windowAdded = true;
+                }
             }
         });
         if (windowAdded) saveState();
         return;
     }
 
-    // Boşluğa tıklandıysa, tüm dış duvarlara ekle
+    // Boşluğa tıklandıysa, tüm uygun dış duvarlara ekle
     if (!clickedObject) {
         let windowAdded = false;
         state.wallAdjacency.forEach((count, wall) => {
             if (count === 1) { // Sadece dış duvarlar
-                if (addWindowToWallMiddle(wall)) windowAdded = true;
+                const wallType = wall.wallType || 'normal';
+                if (wallType === 'normal') { // Sadece normal tipteki dış duvarlara ekle
+                   // Komşu odayı bul (Banyo kontrolü için)
+                   const adjacentRooms = getRoomsAdjacentToWall(wall);
+                   const room = adjacentRooms[0]; // Dış duvarın tek bir komşusu olmalı
+                   if (addWindowToWallMiddle(wall, room ? room.name : null)) { // Oda adını gönder
+                        windowAdded = true;
+                   }
+                }
             }
         });
         if (windowAdded) saveState();
@@ -182,7 +265,7 @@ export function onPointerDownSelect(selectedObject, pos) {
     return { startPointForDragging, dragOffset };
 }
 
-// --- GÜNCELLENDİ: onPointerMove (Geçici daraltma eklendi) ---
+// --- GÜNCELLENDİ: onPointerMove (Geçici daraltma eklendi + Duvar Tipi Kontrolü) ---
 /**
  * Seçili bir pencereyi sürüklerken çağrılır.
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
@@ -200,10 +283,30 @@ export function onPointerMove(unsnappedPos) {
     const MIN_ITEM_WIDTH = 20;
 
     // Sürükleme başında saklanan orijinal/manuel genişliği al
-    const intendedWidth = window.originalWidthBeforeDrag || (window.isWidthManuallySet ? window.width : 120);
+    // Banyo kontrolü: Eğer banyo penceresiyse ve elle ayarlanmamışsa, varsayılan banyo genişliğini kullan
+    const isBathroomWindow = window.roomName === 'BANYO';
+    const defaultNonManualWidth = isBathroomWindow ? BATHROOM_WINDOW_DEFAULT_WIDTH : 120;
+    const intendedWidth = window.originalWidthBeforeDrag || (window.isWidthManuallySet ? window.width : defaultNonManualWidth);
+
 
     for (const w of state.walls) {
-        if (!w.p1 || !w.p2) continue; // Geçersiz duvarları atla
+        if (!w.p1 || !w.p2) continue;
+
+        // --- YENİ: Sadece uygun duvar tiplerini dikkate al ---
+        const wallType = w.wallType || 'normal';
+        let isEligibleWall = (wallType === 'normal');
+        if (!isEligibleWall) {
+             const adjacentRooms = getRoomsAdjacentToWall(w);
+             const isBalconyWall = adjacentRooms.some(r => r.name === 'BALKON' || r.name === 'AÇIK BALKON' || r.name === 'KAPALI BALKON');
+             const isSharedWithNonBalcony = adjacentRooms.some(r => r.name !== 'BALKON' && r.name !== 'AÇIK BALKON' && r.name !== 'KAPALI BALKON');
+             if (isBalconyWall && isSharedWithNonBalcony) {
+                 isEligibleWall = true;
+             }
+        }
+        if (!isEligibleWall) continue; // Uygun değilse bu duvarı atla
+        // --- KONTROL SONU ---
+
+
         const d = distToSegmentSquared(targetPos, w.p1, w.p2);
         if (d < bodyHitTolerance ** 2 && d < minDistSq) {
             minDistSq = d;
@@ -269,21 +372,28 @@ export function onPointerMove(unsnappedPos) {
                 closestWall.windows.push(window);
                 // selectedObject'teki duvar referansını güncelle (önemli!)
                 state.selectedObject.wall = closestWall;
+                 // Yeni duvara göre oda adını güncelle (varsa)
+                const adjacentRoomsNew = getRoomsAdjacentToWall(closestWall);
+                const adjacentRoomNew = adjacentRoomsNew.find(r => r.name !== 'BALKON' && r.name !== 'AÇIK BALKON' && r.name !== 'KAPALI BALKON');
+                window.roomName = adjacentRoomNew ? adjacentRoomNew.name : null;
             }
         } else {
             // Fare segment üzerinde değilse (ama hala duvara yakınsa)
             // Genişliği orijinal/elle ayarlanmış değere geri getir
             window.width = intendedWidth;
             // Pozisyonu kenara en yakın yere clamp et (genişlik sığıyorsa)
-            const minPosPossible = (DG / 2) - window.width/2 > 0 ? window.width/2 + ((closestWall.thickness || state.wallThickness) / 2 + 5) : DG/2;
-            const maxPosPossible = (DG / 2) + window.width/2 < DG ? DG - window.width/2 - ((closestWall.thickness || state.wallThickness) / 2 + 5) : DG/2;
+            const wallThickness = closestWall.thickness || state.wallThickness;
+            const margin = (wallThickness / 2) + 5;
+            const minPosPossible = window.width / 2 + margin;
+            const maxPosPossible = DG - window.width / 2 - margin;
+
 
              if(minPosPossible <= maxPosPossible){ // Eğer pencere teorik olarak sığıyorsa
                  window.pos = Math.max(minPosPossible, Math.min(maxPosPossible, posOnWall));
              } else { // Sığmıyorsa ortala
                   window.pos = DG / 2;
                   // ve genişliği de küçült (geçici olarak)
-                  const availableSpace = DG - 2 * ((closestWall.thickness || state.wallThickness) / 2 + 5);
+                  const availableSpace = DG - 2 * margin;
                   window.width = Math.max(MIN_ITEM_WIDTH, availableSpace);
              }
 
@@ -294,6 +404,10 @@ export function onPointerMove(unsnappedPos) {
                  if (!closestWall.windows) closestWall.windows = [];
                  closestWall.windows.push(window);
                  state.selectedObject.wall = closestWall;
+                 // Yeni duvara göre oda adını güncelle
+                 const adjacentRoomsNew = getRoomsAdjacentToWall(closestWall);
+                 const adjacentRoomNew = adjacentRoomsNew.find(r => r.name !== 'BALKON' && r.name !== 'AÇIK BALKON' && r.name !== 'KAPALI BALKON');
+                 window.roomName = adjacentRoomNew ? adjacentRoomNew.name : null;
              }
 
         }
@@ -305,9 +419,8 @@ export function onPointerMove(unsnappedPos) {
 }
 
 
-// --- 'actions.js' dosyasından taşınan yardımcılar ---
-
-export function getWindowPlacement(wall, mousePos) {
+// --- getWindowPlacement (GÜNCELLENDİ: isBathroom parametresi eklendi) ---
+export function getWindowPlacement(wall, mousePos, isBathroom = false) { // isBathroom parametresi
     const DG = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const MIN_ITEM_WIDTH = 20;
     if (DG < MIN_ITEM_WIDTH) return null;
@@ -320,7 +433,7 @@ export function getWindowPlacement(wall, mousePos) {
     const segmentAtMouse = findAvailableSegmentAt(wall, posOnWall);
     if (!segmentAtMouse) return null;
 
-    const windowWidth = 120; // Varsayılan pencere genişliği
+    const windowWidth = isBathroom ? BATHROOM_WINDOW_DEFAULT_WIDTH : 120; // Banyo ise 50, değilse 120
     if (segmentAtMouse.length < windowWidth) {
         const smallerWidth = segmentAtMouse.length;
         if (smallerWidth < MIN_ITEM_WIDTH) return null;

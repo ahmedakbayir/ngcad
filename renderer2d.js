@@ -1,7 +1,7 @@
 // ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/renderer2d.js
 
-import { state, dom, BG } from './main.js';
-// getLineIntersectionPoint import edildiğinden emin ol
+import { state, dom, BG, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT } from './main.js'; // Sabitleri import et
+// // getLineIntersectionPoint import edildiğinden emin ol
 import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from './geometry.js';
 import { getColumnCorners, isPointInColumn } from './columns.js';
 import { getBeamCorners } from './beams.js'; // <-- YENİ SATIRI EKLEYİN
@@ -102,7 +102,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
 // --- GÜNCELLENMİŞ Pencere Sembolü Çizimi ---
 export function drawWindowSymbol(wall, window, isPreview = false, isSelected = false) {
     const { ctx2d } = dom;
-    const { selectedObject, wallBorderColor, lineThickness } = state;
+    const { selectedObject, wallBorderColor, lineThickness, zoom } = state; // zoom eklendi
     if (!wall || !wall.p1 || !wall.p2) return;
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     if (wallLen < 0.1) return;
@@ -113,64 +113,155 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const isSelectedCalc = isSelected || (selectedObject?.type === "window" && selectedObject.object === window);
     let color;
     if (isPreview) { color = "#8ab4f8"; } else if (isSelectedCalc) { color = "#8ab4f8"; } else {
-        const hex = wallBorderColor.startsWith('#') ? wallBorderColor.slice(1) : wallBorderColor;
-        const r = parseInt(hex.substring(0, 2), 16); const g = parseInt(hex.substring(2, 4), 16); const b = parseInt(hex.substring(4, 6), 16);
-        color = `rgba(${r}, ${g}, ${b}, 1)`;
-        //color= "rgba(101, 101, 101, 0.54)"
-        color= "rgba(234, 246, 247, 0.35)"
-
+        color = "rgba(234, 246, 247, 0.35)"; // Mevcut renk
     }
-    ctx2d.strokeStyle = color; ctx2d.lineWidth = lineThickness / 2; const inset = lineThickness / 4;
-    const offset25 = halfWall * 0.5; // İçteki çizgilerin konumu için yarı kalınlığın %50'si
-    // const offset75 = halfWall * 0.5; // Bu artık kullanılmıyor, yerine offset25 yeterli
+    ctx2d.strokeStyle = color;
+    ctx2d.lineWidth = lineThickness / 2 / zoom; // zoom'a böl
+    const inset = lineThickness / 4 / zoom; // zoom'a böl
 
-    // İç çizgiler için başlangıç ve bitiş noktaları (kenarlardan biraz içeride)
-    const windowP1_inset_inner = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset };
-    const windowP2_inset_inner = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
+    // --- YENİ BÖLME MANTIĞI ---
+    const windowWidthCm = window.width;
+    const targetPaneWidth = 45; // 40-50 cm arası hedef
+    const mullionWidthCm = 5; // Kayıt kalınlığı (cm) - sabit veya ayarlanabilir
 
-    // Dıştaki iki paralel çizgi
+    // Alt bölme sayısı
+    let numBottomPanes = Math.max(1, Math.round(windowWidthCm / targetPaneWidth));
+    // Alt bölme genişliği (kayıtları çıkararak)
+    let bottomPaneWidth = (windowWidthCm - (numBottomPanes + 1) * mullionWidthCm) / numBottomPanes;
+
+    // Eğer bölme genişliği çok küçük veya çok büyükse, bölme sayısını ayarla
+    const minPaneWidth = 40;
+    const maxPaneWidth = 50;
+    if (bottomPaneWidth < minPaneWidth && numBottomPanes > 1) {
+        numBottomPanes--;
+        bottomPaneWidth = (windowWidthCm - (numBottomPanes + 1) * mullionWidthCm) / numBottomPanes;
+    } else if (bottomPaneWidth > maxPaneWidth) {
+        numBottomPanes++;
+        bottomPaneWidth = (windowWidthCm - (numBottomPanes + 1) * mullionWidthCm) / numBottomPanes;
+    }
+     // Eğer hala minimumun altındaysa (tek bölme durumu), genişliği pencere genişliği yap
+     if (numBottomPanes === 1 && bottomPaneWidth < minPaneWidth){
+         bottomPaneWidth = windowWidthCm - 2*mullionWidthCm; // İki kenar kaydı
+     }
+
+
+    // Üst bölme sayısı (alt ile aynı)
+    const numTopPanes = numBottomPanes;
+    // Üst bölme genişliği (alt ile aynı) - ama kayıt pozisyonları farklı olacak
+    let topPaneWidth = bottomPaneWidth; // Genişlik aynı
+
+    // Yatay kayıt pozisyonu (varsayılan olarak %70)
+    // const horizontalMullionRatio = 0.7; // Bu oran kaldırıldı, artık sabit çizilecek
+    // const horizontalMullionPos = window.pos; // Yatay kayıt tam ortada olacak şekilde çizelim (basitlik için)
+    // Yatay kayıt için özel bir çizim yapmayacağız, sadece dikey kayıtları çizeceğiz.
+
+    // Dikey kayıtların X pozisyonları (pencerenin local X ekseninde, başlangıçtan itibaren)
+    const bottomMullionPositions = [];
+    let currentX = mullionWidthCm; // İlk kayıt
+    for (let i = 0; i < numBottomPanes -1; i++) { // n bölme için n-1 kayıt
+        currentX += bottomPaneWidth;
+        bottomMullionPositions.push(currentX);
+        currentX += mullionWidthCm;
+    }
+
+    // Üst kayıtların X pozisyonları (alt bölmelerin ortasına göre)
+    const topMullionPositions = [];
+    currentX = mullionWidthCm; // Sol kenar kaydı sonrası başlangıç
+    for (let i = 0; i < numBottomPanes; i++) {
+        const paneCenterX = currentX + bottomPaneWidth / 2;
+        if (i < numBottomPanes - 1) { // Son bölmenin sağına kayıt çizme
+            topMullionPositions.push(paneCenterX + mullionWidthCm / 2); // Kayıt merkezini değil, sağ kenarını ekleyelim
+                                                                      // Düzeltme: Alt bölme merkezi + yarım kayıt genişliği? Hayır, bu kayıtın merkezini verir.
+                                                                      // Üst kaydın X pozisyonu, alt bölmenin BİTİŞİ + YARIM KAYIT olmalı.
+                                                                      // Veya daha basiti: Alt kaydın pozisyonunu kullanalım
+             topMullionPositions.push(bottomMullionPositions[i]); // Alt dikey kayıtların X pozisyonunu kullan
+        }
+        currentX += bottomPaneWidth + mullionWidthCm;
+    }
+
+
+    // --- ÇİZİM KODU (YENİ BÖLMELERLE) ---
+
+    // Dıştaki iki paralel çizgi (değişiklik yok)
     const line1_start = { x: windowP1.x - nx * (halfWall - inset), y: windowP1.y - ny * (halfWall - inset) };
     const line1_end = { x: windowP2.x - nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) };
     const line4_start = { x: windowP1.x + nx * (halfWall - inset), y: windowP1.y + ny * (halfWall - inset) };
     const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y + ny * (halfWall - inset) };
 
-    // İçteki iki paralel çizgi (birbirine daha yakın)
-    const line2_start = { x: windowP1_inset_inner.x - nx * offset25, y: windowP1_inset_inner.y - ny * offset25 };
-    const line2_end = { x: windowP2_inset_inner.x - nx * offset25, y: windowP2_inset_inner.y - ny * offset25 };
-    const line3_start = { x: windowP1_inset_inner.x + nx * offset25, y: windowP1_inset_inner.y + ny * offset25 };
-    const line3_end = { x: windowP2_inset_inner.x + nx * offset25, y: windowP2_inset_inner.y + ny * offset25 };
+    // İçteki iki paralel çizgi (ortadaki camı temsil eder gibi)
+    const offsetInner = halfWall * 0.2; // Cam çizgileri için daha küçük offset
+    const line2_start = { x: windowP1.x - nx * offsetInner, y: windowP1.y - ny * offsetInner };
+    const line2_end = { x: windowP2.x - nx * offsetInner, y: windowP2.y - ny * offsetInner };
+    const line3_start = { x: windowP1.x + nx * offsetInner, y: windowP1.y + ny * offsetInner };
+    const line3_end = { x: windowP2.x + nx * offsetInner, y: windowP2.y + ny * offsetInner };
 
-    // Pencere kenarlarını birleştiren kısa çizgiler
+
+    // Pencere kenarlarını birleştiren kısa çizgiler (değişiklik yok)
     const windowP1_inset = { x: windowP1.x + dx * inset, y: windowP1.y + dy * inset };
     const windowP2_inset = { x: windowP2.x - dx * inset, y: windowP2.y - dy * inset };
-    const left1 = { x: windowP1_inset.x - nx * (halfWall - inset), y: windowP1_inset.y - ny * (halfWall - inset) }; // Dış sol
-    const left2 = { x: windowP1_inset.x + nx * (halfWall - inset), y: windowP1_inset.y + ny * (halfWall - inset) }; // İç sol
-    const right1 = { x: windowP2_inset.x - nx * (halfWall - inset), y: windowP2_inset.y - ny * (halfWall - inset) }; // Dış sağ
-    const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) }; // İç sağ
+    const left1 = { x: windowP1_inset.x - nx * (halfWall - inset), y: windowP1_inset.y - ny * (halfWall - inset) };
+    const left2 = { x: windowP1_inset.x + nx * (halfWall - inset), y: windowP1_inset.y + ny * (halfWall - inset) };
+    const right1 = { x: windowP2_inset.x - nx * (halfWall - inset), y: windowP2_inset.y - ny * (halfWall - inset) };
+    const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) };
 
-    // --- DÜZELTİLMİŞ DOLGU KODU ---
-    // Sadece pencerenin "iç" (cam) bölgesini doldur
+    // Dolgu (sadece iç bölge)
     ctx2d.fillStyle = color;
-
-    // Orta bölge (Cam) - "Pencerenin ortası"
     ctx2d.beginPath();
     ctx2d.moveTo(line2_start.x, line2_start.y);
     ctx2d.lineTo(line2_end.x, line2_end.y);
     ctx2d.lineTo(line3_end.x, line3_end.y);
     ctx2d.lineTo(line3_start.x, line3_start.y);
     ctx2d.closePath();
-    ctx2d.fill(); // Sadece burası doldurulacak
-    // --- DÜZELTME SONU ---
+    ctx2d.fill();
 
-    // Tüm çizgileri çiz
+    // Dış çizgiler ve kenar birleştirmeler
     ctx2d.beginPath();
     ctx2d.moveTo(line1_start.x, line1_start.y); ctx2d.lineTo(line1_end.x, line1_end.y); // Dış üst
-    ctx2d.moveTo(line2_start.x, line2_start.y); ctx2d.lineTo(line2_end.x, line2_end.y); // İç üst
-    ctx2d.moveTo(line3_start.x, line3_start.y); ctx2d.lineTo(line3_end.x, line3_end.y); // İç alt
     ctx2d.moveTo(line4_start.x, line4_start.y); ctx2d.lineTo(line4_end.x, line4_end.y); // Dış alt
     ctx2d.moveTo(left1.x, left1.y); ctx2d.lineTo(left2.x, left2.y); // Sol kenar birleştirme
     ctx2d.moveTo(right1.x, right1.y); ctx2d.lineTo(right2.x, right2.y); // Sağ kenar birleştirme
-    ctx2d.stroke();
+    // İç çizgiler (cam)
+    ctx2d.moveTo(line2_start.x, line2_start.y); ctx2d.lineTo(line2_end.x, line2_end.y); // İç üst
+    ctx2d.moveTo(line3_start.x, line3_start.y); ctx2d.lineTo(line3_end.x, line3_end.y); // İç alt
+    ctx2d.stroke(); // Ana çizgileri çiz
+
+    // --- YENİ: Dikey Kayıtları Çiz ---
+    ctx2d.beginPath();
+    ctx2d.lineWidth = lineThickness / 3 / zoom; // Kayıtlar için daha ince çizgi
+
+    // Alt dikey kayıtlar (ve üst dikey kayıtlar aynı pozisyonda)
+    bottomMullionPositions.forEach(mullionX_local => {
+        // Local X pozisyonunu dünya koordinatına çevir
+        const mullionWorldX = windowP1.x + dx * mullionX_local;
+        const mullionWorldY = windowP1.y + dy * mullionX_local;
+
+        // Kayıtın başlangıç ve bitiş noktaları (iç cam çizgileri arasında)
+        const mullionTop = { x: mullionWorldX - nx * offsetInner, y: mullionWorldY - ny * offsetInner };
+        const mullionBottom = { x: mullionWorldX + nx * offsetInner, y: mullionWorldY + ny * offsetInner };
+
+        ctx2d.moveTo(mullionTop.x, mullionTop.y);
+        ctx2d.lineTo(mullionBottom.x, mullionBottom.y);
+    });
+
+    // // Yatay kayıt (Artık çizilmiyor, sadece dikey kayıtlar var)
+    // const hMullionWorldX = windowP1.x + dx * horizontalMullionPos;
+    // const hMullionWorldY = windowP1.y + dy * horizontalMullionPos;
+    // const hMullionLeft = {x: hMullionWorldX - dx * mullionWidthCm / 2, y: hMullionWorldY - dy * mullionWidthCm / 2}; // Hatalı olabilir, Y ekseninde olmalı
+    // const hMullionRight = {x: hMullionWorldX + dx * mullionWidthCm / 2, y: hMullionWorldY + dy * mullionWidthCm / 2}; // Hatalı olabilir
+
+    // // Yatay kayıdın başlangıç ve bitiş noktaları (iç cam çizgileri arasında) - DÜZELTİLMELİ
+    // // Bu kısım karmaşıklaşıyor, şimdilik sadece dikey kayıtları çizelim.
+    // // const hMullionTop = ...
+    // // const hMullionBottom = ...
+    // // ctx2d.moveTo(hMullionTop.x, hMullionTop.y);
+    // // ctx2d.lineTo(hMullionBottom.x, hMullionBottom.y);
+
+
+    ctx2d.stroke(); // Kayıt çizgilerini çiz
+    // --- YENİ KAYIT ÇİZİMİ SONU ---
+
+    // Çizim state'ini geri yükle (opsiyonel ama iyi pratik)
+    // ctx2d.restore(); // save kullanmadık
 }
 // --- GÜNCELLENMİŞ Pencere Sembolü Çizimi SONU ---
 
@@ -439,7 +530,7 @@ export function drawBeam(beam, isSelected = false) {
     const corners = getBeamCorners(beam); // Kiriş köşe noktaları
 
     // Renk ayarları
-    const beamColor = isSelected ? '#8ab4f8' : '#e57373'; // Seçili değilse kırmızı
+    const beamColor = isSelected ? '#8ab4f8' : state.wallBorderColor; // Seçili değilse kırmızı
     
     // Kenarlık renginden %21 opaklıkta dolgu rengi oluştur
     let fillColor;
