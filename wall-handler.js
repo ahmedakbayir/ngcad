@@ -1,10 +1,11 @@
 // wall-handler.js
-import { state, setState } from './main.js';
+import { state, setState } from './main.js'; // setState import edildiğinden emin olun
 import { getOrCreateNode, isPointOnWallBody, snapTo15DegreeAngle, distToSegmentSquared } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { getMinWallLength } from './actions.js'; // actions.js'ten kalanları al
 import { update3DScene } from './scene3d.js';
+// drawDimension import'una gerek yok, draw2d.js içinde kullanılıyor
 
 /**
  * İki node arasında bir duvar olup olmadığını kontrol eder.
@@ -31,7 +32,7 @@ export function getWallAtPoint(pos, tolerance) {
         if (d1 < tolerance) return { type: "wall", object: wall, handle: "p1" };
         if (d2 < tolerance) return { type: "wall", object: wall, handle: "p2" };
     }
-    
+
     // Duvar gövdesi kontrolü
     for (const wall of [...state.walls].reverse()) {
         if (!wall.p1 || !wall.p2) continue;
@@ -137,7 +138,7 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
         // Duvar Ucu (Node) Sürükleme
         const nodeToDrag = selectedObject.object[selectedObject.handle];
         startPointForDragging = { x: nodeToDrag.x, y: nodeToDrag.y };
-        
+
         const affectedWalls = state.walls.filter((w) => w.p1 === nodeToDrag || w.p2 === nodeToDrag);
         additionalState.affectedWalls = affectedWalls;
         additionalState.dragAxis = null;
@@ -155,7 +156,7 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
     } else {
         // Duvar Gövdesi Sürükleme
         startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY }; // Snapli pozisyonu kullan
-        
+
         const isCopying = e.ctrlKey && !e.altKey && !e.shiftKey;
         const isSweeping = !e.ctrlKey && !e.altKey && e.shiftKey;
         let wallsBeingMoved;
@@ -235,7 +236,7 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
             }
         }
     }
-    
+
     return { startPointForDragging, dragOffset, additionalState };
 }
 
@@ -245,6 +246,8 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
+   let neighborWallsToDimension = new Set(); // Komşu duvarları saklamak için Set
+
     if (state.selectedObject.handle !== "body") {
         // Duvar Ucu (Node) Sürükleme
         const nodeToMove = state.selectedObject.object[state.selectedObject.handle];
@@ -260,7 +263,14 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             nodeToMove.x = finalPos.x;
             nodeToMove.y = finalPos.y;
         }
-        
+
+       // Sürüklenen node'a bağlı komşu duvarları bul (affectedWalls hariç)
+       state.walls.forEach(wall => {
+           if (!state.affectedWalls.includes(wall) && (wall.p1 === nodeToMove || wall.p2 === nodeToMove)) {
+               neighborWallsToDimension.add(wall);
+           }
+       });
+
         // Etkilenen duvarlardaki eleman pozisyonlarını güncelle
         if (state.affectedWalls.length > 0) {
              state.affectedWalls.forEach((wall) => {
@@ -268,7 +278,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
                  const wallThickness = wall.thickness || 20;
                  const edgeMargin = (wallThickness / 2) + 5;
                  const ventMargin = 15;
-                 
+
                  (wall.doors || state.doors.filter(d => d.wall === wall)).forEach((door) => {
                      const minPos = edgeMargin + door.width / 2;
                      const maxPos = wallLength - edgeMargin - door.width / 2;
@@ -378,36 +388,48 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             }
         });
 
+       // Sürüklenen nodelara bağlı komşu duvarları bul (wallsToMove hariç)
+       nodesToMove.forEach(node => {
+           state.walls.forEach(wall => {
+               // Duvarın geçerli olduğundan emin ol
+               if (!wall || !wall.p1 || !wall.p2) return;
+               // Sürüklenen duvarlardan değilse VE node'a bağlıysa ekle
+               if (!wallsToMove.includes(wall) && (wall.p1 === node || wall.p2 === node)) {
+                   neighborWallsToDimension.add(wall);
+               }
+           });
+       });
+
         // Oda merkezlerini güncelle (bu mantık `pointer-move.js` içinde kalabilir veya buraya taşınabilir)
         // ... (şimdilik atlandı, `pointer-move.js` içinde bırakılabilir) ...
 
         // Sweep duvarlarını güncelle
-if (state.isSweeping) {
+        if (state.isSweeping) {
             const sweepWalls = [];
             wallsToMove.forEach(movedWall => {
                 // Taşınan duvarın özelliklerini al
                 const wallType = movedWall.wallType || 'normal';
                 const thickness = movedWall.thickness || state.wallThickness;
 
-                const originalP1 = state.preDragNodeStates.get(movedWall.p1); 
+                const originalP1 = state.preDragNodeStates.get(movedWall.p1);
                 if (originalP1) {
-                    sweepWalls.push({ 
-                        p1: originalP1, 
-                        p2: movedWall.p1, 
+                    sweepWalls.push({
+                        p1: originalP1,
+                        p2: movedWall.p1,
                         type: 'wall', // 'type' da eklenmeli
-                        wallType: wallType, 
-                        thickness: thickness 
+                        wallType: wallType,
+                        thickness: thickness
                     });
                 }
-                
-                const originalP2 = state.preDragNodeStates.get(movedWall.p2); 
+
+                const originalP2 = state.preDragNodeStates.get(movedWall.p2);
                 if (originalP2) {
-                    sweepWalls.push({ 
-                        p1: originalP2, 
-                        p2: movedWall.p2, 
+                    sweepWalls.push({
+                        p1: originalP2,
+                        p2: movedWall.p2,
                         type: 'wall', // 'type' da eklenmeli
-                        wallType: wallType, 
-                        thickness: thickness 
+                        wallType: wallType,
+                        thickness: thickness
                     });
                 }
             });
@@ -415,6 +437,9 @@ if (state.isSweeping) {
         }
     }
     update3DScene();
+
+   // Bulunan komşu duvarları geçici state'e ata
+   setState({ tempNeighborWallsToDimension: neighborWallsToDimension });
 }
 /**
  * Aynı hizada olan duvar zincirini bulur.

@@ -188,15 +188,16 @@ export function onPointerUp(e) {
         aDragOccurred: false,
         stretchMode: null,
         initialDragPoint: null,
-        selectedGroup: [],
+        // selectedGroup: [], // Sürükleme sonrası seçimi korumak için yorumlandı
         affectedWalls: [],
         preDragWallStates: new Map(),
         preDragNodeStates: new Map(),
         dragWallInitialVector: null,
-        selectedObject: didClick ? state.selectedObject : null,
+        // selectedObject: didClick ? state.selectedObject : null, // Seçimi korumak için yorumlandı
         dragOriginalNodes: null,
         isSweeping: false,
         sweepWalls: [],
-        columnRotationOffset: null
+        columnRotationOffset: null,
+        tempNeighborWallsToDimension: null // Komşu duvar Set'ini temizle
     });
 }

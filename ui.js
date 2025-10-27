@@ -197,34 +197,161 @@ export function startLengthEdit(initialKey = '') {
 function confirmLengthEdit() {
     if (!state.selectedObject) return;
     let rawValue = dom.lengthInput.value.trim();
-    let reverseDirection = false, operation = null, operand = NaN, newDimensionCm = NaN;
+    let reverseDirection = false; // Duvar için yön
+    let operation = null;
+    let operand = NaN;
+    let newDimensionCm = NaN;
     const { selectedObject } = state;
-    const multiplyMatch = rawValue.match(/^(\d+(\.\d+)?)\*$/); const divideMatch = rawValue.match(/^(\d+(\.\d+)?)\/$/);
-    if (multiplyMatch) { operation = '*'; operand = parseFloat(multiplyMatch[1]); } else if (divideMatch) { operation = '/'; operand = parseFloat(divideMatch[1]); }
-    let currentDimension = 0;
-    if (selectedObject.type === "wall") { const wall = selectedObject.object; currentDimension = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); }
-    else if (selectedObject.type === "door" || selectedObject.type === "window") { currentDimension = selectedObject.object.width; }
-    if (operation && !isNaN(operand) && operand > 0 && currentDimension > 0) { if (operation === '*') newDimensionCm = currentDimension * operand; else newDimensionCm = currentDimension / operand; }
-    else { if (selectedObject.type === "wall" && rawValue.endsWith("-")) { reverseDirection = true; rawValue = rawValue.slice(0, -1); } newDimensionCm = parseFloat(rawValue); }
+    const MIN_ITEM_WIDTH = 20; // Kapı/Pencere için minimum genişlik
 
+    // Çarpma/Bölme operatörlerini ve 10'a bölme kuralını işle
+    const multiplyMatch = rawValue.match(/^(\d+(\.\d+)?)\*$/);
+    const divideMatch = rawValue.match(/^(\d+(\.\d+)?)\/$/);
+
+    if (multiplyMatch) {
+        operation = '*';
+        operand = parseFloat(multiplyMatch[1]);
+        if (operand > 10) operand /= 10; // 10'dan büyükse 10'a böl
+    } else if (divideMatch) {
+        operation = '/';
+        operand = parseFloat(divideMatch[1]);
+        if (operand > 10) operand /= 10; // 10'dan büyükse 10'a böl
+    }
+
+    let currentDimension = 0;
     if (selectedObject.type === "wall") {
         const wall = selectedObject.object;
-        if (newDimensionCm < getMinWallLength(wall)) { cancelLengthEdit(); return; }
-        if (!isNaN(newDimensionCm) && newDimensionCm > 0) { const stationaryHandle = reverseDirection ? "p2" : "p1"; const movingPointHandle = reverseDirection ? "p1" : "p2"; const movingPoint = wall[movingPointHandle]; const stationaryPoint = wall[stationaryHandle]; const originalPos = { x: movingPoint.x, y: movingPoint.y }; resizeWall(selectedObject.object, newDimensionCm, stationaryHandle); applyStretchModification(movingPoint, originalPos, stationaryPoint); processWalls(); saveState(); update3DScene(); } // update3DScene eklendi
+        currentDimension = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     } else if (selectedObject.type === "door" || selectedObject.type === "window") {
-        const item = selectedObject.object; const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall; const MIN_ITEM_WIDTH = 20;
-        if (isNaN(newDimensionCm) || newDimensionCm < MIN_ITEM_WIDTH || !wall) { cancelLengthEdit(); return; }
-        const originalWidth = item.width; const originalPos = item.pos;
-        const segment = findAvailableSegmentAt(wall, item.pos, item);
-        if (!segment) { cancelLengthEdit(); return; }
-        let finalWidth = newDimensionCm, finalPos = item.pos; const deltaWidth = newDimensionCm - originalWidth;
-        if (newDimensionCm <= segment.length) { /* ... finalWidth ve finalPos hesaplama mantığı ... */ } else { finalWidth = segment.length; finalPos = segment.start + segment.length / 2; }
-        item.width = finalWidth; item.pos = finalPos; item.isWidthManuallySet = true;
-        let isValid = (selectedObject.type === 'door') ? isSpaceForDoor(item) : isSpaceForWindow(selectedObject);
-        if (isValid) { saveState(); update3DScene(); } // update3DScene eklendi
-        else { item.width = originalWidth; item.pos = originalPos; item.isWidthManuallySet = false; }
+        currentDimension = selectedObject.object.width;
     }
-    cancelLengthEdit();
+
+    // Yeni boyutu hesapla
+    if (operation && !isNaN(operand) && operand > 0 && currentDimension > 0) {
+        if (operation === '*') newDimensionCm = currentDimension * operand;
+        else newDimensionCm = currentDimension / operand;
+    } else {
+        // Normal sayısal giriş veya duvar yönü
+        if (selectedObject.type === "wall" && rawValue.endsWith("-")) {
+            reverseDirection = true;
+            rawValue = rawValue.slice(0, -1);
+        }
+        newDimensionCm = parseFloat(rawValue);
+    }
+
+    // Hesaplamaları uygula
+    if (selectedObject.type === "wall") {
+        const wall = selectedObject.object;
+        if (newDimensionCm < getMinWallLength(wall)) { // Minimum duvar uzunluğu kontrolü
+            cancelLengthEdit();
+            return;
+        }
+        if (!isNaN(newDimensionCm) && newDimensionCm > 0) {
+            const stationaryHandle = reverseDirection ? "p2" : "p1";
+            const movingPointHandle = reverseDirection ? "p1" : "p2";
+            const movingPoint = wall[movingPointHandle];
+            const stationaryPoint = wall[stationaryHandle];
+            const originalPos = { x: movingPoint.x, y: movingPoint.y };
+            resizeWall(selectedObject.object, newDimensionCm, stationaryHandle);
+            applyStretchModification(movingPoint, originalPos, stationaryPoint);
+            processWalls();
+            saveState();
+            update3DScene(); // 3D sahneyi güncelle
+        }
+    } else if (selectedObject.type === "door" || selectedObject.type === "window") {
+        const item = selectedObject.object;
+        const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall;
+
+        // Geçersiz giriş veya duvar yoksa iptal et
+        if (isNaN(newDimensionCm) || newDimensionCm < MIN_ITEM_WIDTH || !wall || !wall.p1 || !wall.p2) {
+            cancelLengthEdit();
+            return;
+        }
+
+        const originalWidth = item.width;
+        const originalPos = item.pos;
+
+        // Öğenin bulunduğu boş segmenti bul (kendisini hariç tutarak)
+        const segment = findAvailableSegmentAt(wall, item.pos, item);
+        if (!segment) {
+            console.warn("Öğe için uygun segment bulunamadı.");
+            cancelLengthEdit();
+            return;
+        }
+
+        // --- Yeni İki Yönlü Genişletme Mantığı ---
+
+        const deltaWidth = newDimensionCm - originalWidth; // Toplam genişlik değişimi
+        const itemStartOriginal = originalPos - originalWidth / 2;
+        const itemEndOriginal = originalPos + originalWidth / 2;
+
+        // Segment içindeki boşlukları hesapla
+        const spaceLeft = itemStartOriginal - segment.start;
+        const spaceRight = segment.end - itemEndOriginal;
+
+        let deltaLeft = 0;
+        let deltaRight = 0;
+
+        if (deltaWidth > 0) { // Genişletme
+            const idealDelta = deltaWidth / 2;
+            // Sol tarafa ne kadar genişleyebilir?
+            deltaLeft = Math.min(idealDelta, spaceLeft);
+            // Sağ tarafa ne kadar genişleyebilir?
+            deltaRight = Math.min(idealDelta, spaceRight);
+
+            // Eğer bir taraf tam genişleyemediyse, diğer taraftan telafi etmeye çalış
+            if (deltaLeft < idealDelta) {
+                deltaRight = Math.min(deltaWidth - deltaLeft, spaceRight);
+            } else if (deltaRight < idealDelta) {
+                deltaLeft = Math.min(deltaWidth - deltaRight, spaceLeft);
+            }
+        } else { // Küçültme (deltaWidth negatif)
+            const idealDelta = deltaWidth / 2; // Negatif değer
+            // Her iki taraftan da ideal kadar küçült (sınır kontrolü gerekmez, çünkü içe doğru gidiyor)
+            deltaLeft = idealDelta;
+            deltaRight = idealDelta;
+            // Ancak, sonuç genişliğin minimumun altına düşmediğinden emin ol
+            const potentialFinalWidth = originalWidth + deltaLeft + deltaRight;
+            if (potentialFinalWidth < MIN_ITEM_WIDTH) {
+                // Minimuma ulaşıldı, küçültmeyi sınırla
+                const adjustment = MIN_ITEM_WIDTH - potentialFinalWidth;
+                // Ayarlamayı iki tarafa eşit dağıt (veya orantılı)
+                deltaLeft += adjustment / 2;
+                deltaRight += adjustment / 2;
+            }
+        }
+
+        // Yeni pozisyon ve genişliği hesapla
+        let finalWidth = originalWidth + deltaLeft + deltaRight;
+        let finalPos = originalPos + (deltaRight - deltaLeft) / 2; // Pozisyon kayması
+
+        // Son kontroller: Genişlik ve pozisyonun segment sınırları içinde kaldığından emin ol
+        finalWidth = Math.max(MIN_ITEM_WIDTH, Math.min(finalWidth, segment.length)); // Min/Max genişlik
+        const minPossiblePos = segment.start + finalWidth / 2;
+        const maxPossiblePos = segment.end - finalWidth / 2;
+        finalPos = Math.max(minPossiblePos, Math.min(maxPossiblePos, finalPos)); // Pozisyonu clamp et
+
+        // Öğeyi güncelle
+        item.width = finalWidth;
+        item.pos = finalPos;
+        item.isWidthManuallySet = true; // Elle ayarlandı olarak işaretle
+
+        // Son yerleşimin geçerliliğini kontrol et
+        let isValid = (selectedObject.type === 'door') ? isSpaceForDoor(item) : isSpaceForWindow(selectedObject); // selectedObject pencere için kullanılır
+
+        if (isValid) {
+            saveState(); // Geçerliyse kaydet
+            update3DScene(); // 3D sahneyi güncelle
+        } else {
+            // Geçerli değilse geri al
+            console.warn("Yeni boyutlandırma geçerli değil, geri alınıyor.");
+            item.width = originalWidth;
+            item.pos = originalPos;
+            item.isWidthManuallySet = false; // İşareti geri al
+        }
+        // --- Yeni Mantık Sonu ---
+    }
+    cancelLengthEdit(); // Düzenleme modunu bitir
 }
 
 

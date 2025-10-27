@@ -115,6 +115,7 @@ export let state = {
     draggedRoomInfo: [],
     isCtrlDeleting: false,
     columnRotationOffset: null, // DÖNDÜRME İÇİN EKLENDİ
+    tempNeighborWallsToDimension: null, // Komşu duvar ölçüleri için geçici Set
 };
 
 export function setState(newState) {

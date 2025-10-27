@@ -32,6 +32,13 @@ function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
 }
 
 export function onPointerMove(e) {
+    // Her fare hareketi başında geçici komşu duvar listesini temizle
+    // (Eğer wall-handler.js içinde setState({tempNeighborWallsToDimension: ...}) çağrısı varsa bu gerekli)
+    if (state.isDragging && state.selectedObject?.type === 'wall') {
+        // Sadece duvar sürükleniyorsa temizle, diğer sürüklemeleri etkilemesin
+        setState({ tempNeighborWallsToDimension: null });
+    }
+
     // --- Silme Modu Kontrolü (Alt tuşu ile) ---
     if (state.isCtrlDeleting && e.altKey && !e.ctrlKey && !e.shiftKey) {
         const rect = dom.c2d.getBoundingClientRect();

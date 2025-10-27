@@ -92,7 +92,7 @@ function addWindowToWallMiddle(wall, roomName = null) { // Oda adı parametresi 
 
     // Banyo odası mı kontrol et
     const isBathroom = roomName === 'BANYO';
-    const defaultWidth = isBathroom ? BATHROOM_WINDOW_DEFAULT_WIDTH : 120; // Banyo ise 50, değilse 120
+    const defaultWidth = isBathroom ? BATHROOM_WINDOW_DEFAULT_WIDTH : 150; // Banyo ise 50, değilse 120
     let windowWidth;
     let windowPos;
     const MIN_ITEM_WIDTH = 20;
@@ -285,7 +285,7 @@ export function onPointerMove(unsnappedPos) {
     // Sürükleme başında saklanan orijinal/manuel genişliği al
     // Banyo kontrolü: Eğer banyo penceresiyse ve elle ayarlanmamışsa, varsayılan banyo genişliğini kullan
     const isBathroomWindow = window.roomName === 'BANYO';
-    const defaultNonManualWidth = isBathroomWindow ? BATHROOM_WINDOW_DEFAULT_WIDTH : 120;
+    const defaultNonManualWidth = isBathroomWindow ? BATHROOM_WINDOW_DEFAULT_WIDTH : 150;
     const intendedWidth = window.originalWidthBeforeDrag || (window.isWidthManuallySet ? window.width : defaultNonManualWidth);
 
 
@@ -433,7 +433,7 @@ export function getWindowPlacement(wall, mousePos, isBathroom = false) { // isBa
     const segmentAtMouse = findAvailableSegmentAt(wall, posOnWall);
     if (!segmentAtMouse) return null;
 
-    const windowWidth = isBathroom ? BATHROOM_WINDOW_DEFAULT_WIDTH : 120; // Banyo ise 50, değilse 120
+    const windowWidth = isBathroom ? BATHROOM_WINDOW_DEFAULT_WIDTH : 150; // Banyo ise 50, değilse 120
     if (segmentAtMouse.length < windowWidth) {
         const smallerWidth = segmentAtMouse.length;
         if (smallerWidth < MIN_ITEM_WIDTH) return null;

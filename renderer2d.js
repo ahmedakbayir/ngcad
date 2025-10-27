@@ -113,7 +113,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const isSelectedCalc = isSelected || (selectedObject?.type === "window" && selectedObject.object === window);
     let color;
     if (isPreview) { color = "#8ab4f8"; } else if (isSelectedCalc) { color = "#8ab4f8"; } else {
-        color = "rgba(234, 246, 247, 0.35)"; // Mevcut renk
+        color = "rgba(230, 234, 255, 0.26)"; // Mevcut renk
     }
     ctx2d.strokeStyle = color;
     ctx2d.lineWidth = lineThickness / 2 / zoom; // zoom'a böl
@@ -189,7 +189,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y + ny * (halfWall - inset) };
 
     // İçteki iki paralel çizgi (ortadaki camı temsil eder gibi)
-    const offsetInner = halfWall * 0.2; // Cam çizgileri için daha küçük offset
+    const offsetInner = halfWall * 0.8; // Cam çizgileri için daha küçük offset
     const line2_start = { x: windowP1.x - nx * offsetInner, y: windowP1.y - ny * offsetInner };
     const line2_end = { x: windowP2.x - nx * offsetInner, y: windowP2.y - ny * offsetInner };
     const line3_start = { x: windowP1.x + nx * offsetInner, y: windowP1.y + ny * offsetInner };

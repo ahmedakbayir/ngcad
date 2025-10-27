@@ -174,7 +174,7 @@ function addWindowToWall(wall) {
     // ... (pencere ekleme mantığı aynı) ...
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const wallThickness = wall.thickness || state.wallThickness;
-    const margin = (wallThickness / 2) + 5; const defaultWidth = 120; const minWidth = 40;
+    const margin = (wallThickness / 2) + 5; const defaultWidth = 150; const minWidth = 20;
     let windowWidth = defaultWidth;
     if (length < 300) { /* ... calculate smaller width ... */ } else { /* ... */ }
     if(windowWidth < minWidth) return;

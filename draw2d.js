@@ -66,16 +66,16 @@ export function draw2D() {
         drawBeam(beam, isSelected);
     });
 
-// 4.7. MERDİVENLER
-(state.stairs || []).forEach(stair => {
-    // Her bir merdiven için seçili olup olmadığını kontrol et
-    const isSelected = !!(
-        selectedObject &&
-        selectedObject.type === "stairs" &&
-        selectedObject.object === stair
-    );
-    drawStairs(stair, isSelected);
-});
+    // 4.7. MERDİVENLER
+    (state.stairs || []).forEach(stair => {
+        // Her bir merdiven için seçili olup olmadığını kontrol et
+        const isSelected = !!(
+            selectedObject &&
+            selectedObject.type === "stairs" &&
+            selectedObject.object === stair
+        );
+        drawStairs(stair, isSelected);
+    });
 
     // 5. Atomik Semboller
     nodes.forEach(node => {
@@ -204,6 +204,17 @@ export function draw2D() {
         }
     }
 
+    // --- YENİ: Duvar sürüklerken komşu duvar ölçüleri ---
+    if (state.isDragging && state.tempNeighborWallsToDimension?.size > 0 && (state.selectedObject?.type === 'wall')) {
+        ctx2d.globalAlpha = 0.7; // Ölçüleri biraz soluk göster
+        state.tempNeighborWallsToDimension.forEach(neighborWall => {
+            if (neighborWall && neighborWall.p1 && neighborWall.p2) { // Duvarın hala geçerli olup olmadığını kontrol et
+                drawDimension(neighborWall.p1, neighborWall.p2, true, 'single'); // Önizleme olarak çiz
+            }
+        });
+        ctx2d.globalAlpha = 1.0; // Alpha değerini sıfırla
+    }
+    // --- YENİ KOD SONU ---
 
     // 11. Sürükleme/Çizim Geri Bildirimleri
     drawDragPreviews(ctx2d, state, drawDimension);
