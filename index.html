@@ -69,7 +69,7 @@
   3D Göster
  </button>
  <button id="bAssignNames" class="btn">Mahal İsimleri Ata</button>
-<input type="file" id="file-input" accept=".json" style="display: none"/>
+<input type="file" id="file-input" accept=".json, .pdf" style="display: none"/>
 </div>
 
 <button id="settings-btn" class="btn">Ayarlar</button>
@@ -195,6 +195,12 @@
 <div id="splitter"></div>
 <div id="p3d" class="panel"><canvas id="c3d"></canvas></div>
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script> 
+<script>
+    // PDF.js worker'ını ayarlayın (genellikle kütüphaneyle aynı yerden gelir)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+</script>
 
 <script type="importmap">
 {
