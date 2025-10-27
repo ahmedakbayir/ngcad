@@ -93,7 +93,7 @@ export function init3D(canvasElement) {
     });
 
     beamMaterial = new THREE.MeshStandardMaterial({
-        color: '#e57373',
+        color: state.wallBorderColor, // State'ten alınacak
         roughness: 0.8,
         transparent: true,
         opacity: solidOpacity,
