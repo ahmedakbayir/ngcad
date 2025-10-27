@@ -1,21 +1,23 @@
 // ahmedakbayir/ngcad/ngcad-e7feb4c0224e7a314687ae1c86e34cb9211a573d/input.js
 import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom import edildiğinden emin olun
-import { screenToWorld, getOrCreateNode, distToSegmentSquared } from './geometry.js'; // distToSegmentSquared ekleyin
-import { splitWallAtMousePosition, processWalls } from './wall-processor.js'; // <-- BUNU EKLEYİN
+import { screenToWorld, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, wallExists as geometryWallExists, snapTo15DegreeAngle } from './geometry.js'; // distToSegmentSquared ekleyin
+import { splitWallAtMousePosition, processWalls } from './wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 import { undo, redo, saveState, restoreState } from './history.js';
-// --- DEĞİŞİKLİK BURADA: hideRoomNamePopup import edildi ---
 import { startLengthEdit, cancelLengthEdit, showRoomNamePopup, hideRoomNamePopup, positionLengthInput } from './ui.js';
 import { onPointerDown } from './pointer-down.js';
 import { onPointerMove } from './pointer-move.js';
 import { onPointerUp } from './pointer-up.js';
 import { getObjectAtPoint } from './actions.js';
 import { showWallPanel } from './wall-panel.js';
-import { createColumn } from './columns.js'; // Gerekli importlar
-import { createBeam } from './beams.js';
-import { createStairs, recalculateStepCount } from './stairs.js';
+import { createColumn, isPointInColumn } from './columns.js'; // isPointInColumn eklendi
+import { createBeam, isPointInBeam } from './beams.js'; // isPointInBeam eklendi
+import { createStairs, recalculateStepCount, isPointInStair } from './stairs.js'; // isPointInStair eklendi
 // processWalls zaten import edilmiş
 // saveState zaten import edilmiş
 import { update3DScene } from './scene3d.js';
+// --- YENİ İMPORTLAR ---
+import { fitDrawingToScreen, onWheel } from './zoom.js'; // Fit to Screen ve onWheel zoom.js'den
+// --- YENİ İMPORTLAR SONU ---
 
 
 // Modifier tuşları için global state
@@ -65,7 +67,7 @@ function extendWallOnTabPress() {
 // Kopyalama Fonksiyonu
 function handleCopy(e) {
     if (!state.selectedObject && state.selectedGroup.length === 0) return;
-    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement === dom.roomNameSelect) return; // roomNameSelect eklendi
     e.preventDefault();
     let dataToCopy = null;
     let referencePoint = null;
@@ -102,7 +104,7 @@ function handleCopy(e) {
 // Yapıştırma Fonksiyonu
 function handlePaste(e) {
     if (!state.clipboard) return;
-    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement === dom.roomNameSelect) return; // roomNameSelect eklendi
     e.preventDefault();
     const pastePos = state.mousePos;
     if (!pastePos) return;
@@ -142,7 +144,15 @@ function handlePaste(e) {
             const newP2 = newNodesMap.get(originalP2Str);
             if (newP1 && newP2 && newP1 !== newP2 && !wallExists(newP1, newP2)) {
                  const { p1, p2, ...wallProps } = originalWall;
-                const newWall = { ...wallProps, type: 'wall', p1: newP1, p2: newP2, windows: [], vents: [] };
+                 // Kopyalanan duvarların kalınlık ve tipini koru
+                const newWall = {
+                    ...wallProps, // thickness ve wallType burada olmalı
+                    type: 'wall',
+                    p1: newP1,
+                    p2: newP2,
+                    windows: [], // Pencereleri kopyalama
+                    vents: []    // Menfezleri kopyalama
+                 };
                 state.walls.push(newWall);
                 newWalls.push(newWall);
                 geometryChanged = true;
@@ -156,118 +166,99 @@ function handlePaste(e) {
 
 
 function onKeyDown(e) {
-    // Modifier tuşları (değişiklik yok)
+    // Modifier tuşları
     if (e.key === 'Control') currentModifierKeys.ctrl = true;
     if (e.key === 'Alt') currentModifierKeys.alt = true;
     if (e.key === 'Shift') currentModifierKeys.shift = true;
 
-    // --- YENİ KONTROL BAŞLANGICI ---
-    // Eğer aktif element mahal ismi input'u ise:
-    if (document.activeElement === dom.roomNameInput) {
-        // İzin verilen tuşlar: Enter (onay), Escape (iptal), ArrowDown (listeye geçiş)
-        if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'ArrowDown') {
-            // Bu tuşlar ui.js içindeki kendi listener'ları tarafından zaten handle ediliyor.
-            // Burada özel bir şey yapmaya gerek yok, fonksiyonun devam etmesini ENGELLEME!
-            // Ancak, diğer kısayolların çalışmaması için fonksiyonun sonunda return etmeliyiz.
-            // Şimdilik sadece geçmesine izin verelim, ui.js halleder.
-        }
-        // Yazı yazma tuşları (harfler, sayılar, boşluk vb.), Backspace, Delete, yön tuşları
-        // gibi input içinde kullanılan tuşlar doğal olarak çalışacaktır.
-        // Bu tuşlar için özel bir kontrol yapmaya gerek yok.
 
-        // ÖNEMLİ: Mahal ismi input'u aktifken, aşağıdaki genel kısayolların
-        // (mod değiştirme, undo/redo, delete vb.) çalışmaması için buradan çık.
-        // Sadece yukarıda özel olarak izin verilen veya input'un doğal çalışması
-        // gereken tuşlar dışında bir tuşa basıldıysa (örneğin W, R, K, Z, Y)
-        // fonksiyonun devam etmesini engelle.
-        const allowedKeysInPopup = ['Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete', 'Tab'];
-        // Eğer basılan tuş izin verilenlerden biri DEĞİLSE VE bir modifier tuşu DEĞİLSE
-        // VE tek bir karakterse (yani bir harf/sayı/sembol ise kısayol olabilir)
-        // VEYA Ctrl ile birlikte Z/Y ise (undo/redo engellensin)
-        if (!allowedKeysInPopup.includes(e.key) &&
-            !e.ctrlKey && !e.altKey && !e.metaKey &&
-            e.key.length === 1 || (e.ctrlKey && (e.key.toLowerCase() === 'z' || e.key.toLowerCase() === 'y'))
-           ) {
-             // Kısayol olabilecek tuşlara basıldıysa, burada engelle
-             // e.preventDefault(); // Gerekirse default davranışı da engelleyebiliriz ama şimdilik return yeterli.
-             return; // Fonksiyonun geri kalanını çalıştırma
-        }
-        // Eğer izin verilen bir tuşsa (Enter, Esc, ArrowDown) veya normal yazı karakteriyse,
-        // fonksiyonun devamına izin verilebilir GİBİ görünse de, aşağıdaki genel
-        // kısayolların çalışmaması için, input aktifken genel kural olarak buradan çıkmak daha güvenli.
-        // Sadece ui.js'deki Enter/Escape/ArrowDown listener'ları çalışsın yeterli.
-        // Bu yüzden, yukarıdaki if kontrolünü biraz daha basitleştirip,
-        // input aktifse çoğu durumda return edebiliriz.
+    // --- Input alanı aktifse çoğu kısayolu engelleme mantığı ---
+    const activeEl = document.activeElement;
+    const isInputActive = activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT'; // SELECT eklendi
+    const isSettingsPopupActive = activeEl.closest("#settings-popup");
 
-        // --- YENİDEN DÜZENLENMİŞ KONTROL ---
-        if (e.key !== 'Enter' && e.key !== 'Escape' && e.key !== 'ArrowDown') {
-             // Enter, Escape, ArrowDown dışındaki tuşlar basıldığında,
-             // eğer bu bir kısayol tuşu ise (W, R, K, Ctrl+Z vb.)
-             // aşağıdaki genel kısayol kontrollerine GİRMEMESİ İÇİN buradan çık.
-             // Normal harf/sayı basımları input'a yazılacak,
-             // Backspace, Delete, yön tuşları input içinde çalışacak.
-             // Biz sadece W, R, K gibi mod değiştirme veya Ctrl+Z gibi
-             // eylemlerin tetiklenmesini engellemek istiyoruz.
-             // Bu kontrol çoğu kısayolu engeller.
-             if (e.key.length === 1 && !e.ctrlKey && !e.altKey || (e.ctrlKey && ['z', 'y', 'c', 'v'].includes(e.key.toLowerCase())) ) {
+    if (isInputActive || isSettingsPopupActive) {
+        // Mahal ismi popup'ı için özel tuşlar (Enter, Escape, ArrowDown)
+        if (activeEl === dom.roomNameInput || activeEl === dom.roomNameSelect) {
+            // ui.js bu tuşları handle ediyor, biz burada engelleme yapmayalım
+            // Ancak, aşağıdaki genel kısayolların çalışmaması için return KULLANILMAMALI
+            // Eğer Enter, Esc, ArrowDown değilse, diğer kısayolları engellemek için return edelim
+            if (!['Enter', 'Escape', 'ArrowDown', 'ArrowUp'].includes(e.key)) { // ArrowUp eklendi
+                // F tuşunu burada da engelle
+                if (e.key.toLowerCase() === 'f') {
+                    e.preventDefault();
+                    return;
+                }
+                // Ctrl+C/V'yi engelleme (input içinde çalışsın)
+                if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
+                    // Tarayıcının kendi kopyala/yapıştırına izin ver
+                }
+                // Diğer çoğu kısayolu engelle
+                else if (e.key.length === 1 || (e.ctrlKey && ['z', 'y'].includes(e.key.toLowerCase()))) {
+                     return;
+                }
+            }
+        }
+        // Length input için özel tuşlar (Escape, Enter)
+        else if (activeEl === dom.lengthInput) {
+            if (e.key === 'Escape') {
+                cancelLengthEdit();
+                return;
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                dom.lengthInput.blur();
+                return;
+            }
+             // F tuşunu burada da engelle
+             else if (e.key.toLowerCase() === 'f') {
+                 e.preventDefault();
                  return;
              }
+             // Ctrl+C/V'yi engelleme (input içinde çalışsın)
+             else if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
+                  // Tarayıcının kendi kopyala/yapıştırına izin ver
+             }
+            // Diğer harf/sayı olmayan kısayolları engelle
+            else if (e.key.length > 1 && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
+                return;
+            }
         }
-        // Eğer Enter, Escape, ArrowDown ise veya diğer özel durumlar (örn: Tab)
-        // için aşağıdaki genel kontrollere GİTMEDEN ÖNCE ui.js listener'ları çalışacak.
-        // Ama yine de bu tuşlar için de aşağıdaki genel kısayollar (örn: Escape modu Select'e alır)
-        // çalışmamalı. Bu yüzden en temizi:
-        // return; // Eğer mahal input aktifse HER ZAMAN buradan çık. ui.js'deki listenerlar yeterli.
-
-    }
-    // --- YENİ KONTROL SONU ---
-
-
-    // Popup'lar veya DİĞER input alanları aktifse çoğu kısa yolu engelle
-    if (document.activeElement.closest("#settings-popup")) return;
-
-    // Uzunluk input'u için özel kontrol (Ctrl+C/V hariç)
-    // DİKKAT: Artık mahal input'u yukarıda handle edildiği için bu blok sadece #length-input için çalışmalı.
-    if (document.activeElement === dom.lengthInput) {
-        // Ctrl+C ve Ctrl+V'ye İZİN VER
-        if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
-             // handleCopy/handlePaste fonksiyonları çağrılmayacak çünkü target INPUT.
-             // Tarayıcının kendi kopyala/yapıştırını yapmasına izin ver.
-        }
-        // Escape tuşu (iptal eder)
-        else if (e.key === 'Escape') {
-            cancelLengthEdit(); // Sadece length input'u iptal et
-            return; // Diğer Escape işlemlerini engelle
-        }
-        // Enter tuşu (onaylar)
-        else if (e.key === 'Enter') {
-            // confirmLengthEdit() blur event'i ile zaten çağrılıyor, burada tekrar çağırmaya gerek yok.
-            // Sadece default davranışı engelleyebiliriz.
-            e.preventDefault();
-            dom.lengthInput.blur(); // Input'tan çıkışı tetikle, bu da confirm'i çağırır.
-            return;
-        }
-        // Diğer tüm tuşlar için (yazı yazma, silme, yön tuşları vs.)
-        // varsayılan davranışa izin ver VE aşağıdaki kısayolları engelle.
+        // Diğer input/settings alanları için (genel engelleme)
         else {
-             // Sayısal olmayan veya izin verilmeyen başka bir tuşsa engelleme yapmaya gerek yok,
-             // input zaten kendi içinde halleder.
-             // Önemli olan aşağıdaki kısayolları çalıştırmamak.
-             return;
+             // F tuşunu engelle
+             if (e.key.toLowerCase() === 'f') {
+                 e.preventDefault();
+                 return;
+             }
+             // Ctrl+C/V'yi engelleme (input içinde çalışsın)
+             if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
+                 // Tarayıcının kendi kopyala/yapıştırına izin ver
+             }
+             // Diğer çoğu kısayolu engelle
+             else if (e.key.length === 1 || (e.ctrlKey && ['z', 'y'].includes(e.key.toLowerCase())) || ['Escape', 'Delete', 'Backspace', 'Tab', 'Space'].includes(e.key)) {
+                  return;
+             }
         }
     }
 
 
     // --- Buradan sonrası, HİÇBİR input alanı aktif değilken çalışacak kısayollar ---
 
-    // TAB ile duvar uzatma (değişiklik yok)
+    // Fit to Screen ('F' tuşu)
+    if (e.key.toLowerCase() === 'f') {
+        e.preventDefault(); // Tarayıcının varsayılan 'F' işlemini (Find) engelle
+        fitDrawingToScreen();
+        return; // Diğer kısayollarla çakışmasın
+    }
+
+    // TAB ile duvar uzatma
     if (e.key === "Tab" && state.currentMode === "drawWall" && state.startPoint) {
         e.preventDefault();
         extendWallOnTabPress();
         return;
     }
 
-    // Sayısal giriş ile boyut düzenleme (değişiklik yok)
+    // Sayısal giriş ile boyut düzenleme
     if (state.selectedObject &&
         (state.selectedObject.type === "wall" || state.selectedObject.type === "door" || state.selectedObject.type === "window") &&
         !state.isEditingLength && /^[0-9.]$/.test(e.key)) {
@@ -281,19 +272,15 @@ function onKeyDown(e) {
     if (e.ctrlKey && e.key.toLowerCase() === 'v') { handlePaste(e); return; }
 
 
-    // Geri Alma / İleri Alma (değişiklik yok)
+    // Geri Alma / İleri Alma
     if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
 
-    // Escape veya Space ile iptal/seç moduna dönme (değişiklik yok)
+    // Escape veya Space ile iptal/seç moduna dönme
     if (e.key === "Escape" || e.code === "Space") {
         if (e.code === "Space") e.preventDefault();
 
         // Mahal popup kontrolü ZATEN YUKARIDA yapıldığı için burada tekrar gerekmez.
-        // if (dom.roomNamePopup.style.display === 'block') {
-        //     hideRoomNamePopup();
-        //     return;
-        // }
 
         if (state.isEditingLength) cancelLengthEdit(); // Length input açıksa kapatır
         if (state.isDragging) {
@@ -306,7 +293,7 @@ function onKeyDown(e) {
         setMode("select");
     }
 
-    // Delete veya Backspace ile silme (değişiklik yok)
+    // Delete veya Backspace ile silme
     if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
         e.preventDefault();
         let deleted = false;
@@ -327,7 +314,7 @@ function onKeyDown(e) {
         }
     }
 
-    // Mod değiştirme kısayolları (değişiklik yok)
+    // Mod değiştirme kısayolları
     if (e.key.toLowerCase() === "d") { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
     if (e.key.toLowerCase() === "w") setMode("drawWall");
     if (e.key.toLowerCase() === "r") setMode("drawRoom");
@@ -350,20 +337,7 @@ function onKeyUp(e) {
      }
 }
 
-// Fare tekerleği (zoom)
-function onWheel(e) {
-    e.preventDefault();
-    const rect = dom.c2d.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const worldBeforeZoom = screenToWorld(mouseX, mouseY);
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    const newZoom = Math.max(0.1, Math.min(10, state.zoom * zoomFactor)); // Zoom sınırları
-    const worldAfterZoom = { x: (mouseX - state.panOffset.x) / newZoom, y: (mouseY - state.panOffset.y) / newZoom };
-    const newPanOffset = { x: state.panOffset.x + (worldAfterZoom.x - worldBeforeZoom.x) * newZoom, y: state.panOffset.y + (worldAfterZoom.y - worldBeforeZoom.y) * newZoom };
-    setState({ zoom: newZoom, panOffset: newPanOffset });
-    if (state.isEditingLength) positionLengthInput();
-}
+// Fare tekerleği (zoom) - Artık zoom.js'den import ediliyor
 
 // Olay dinleyicilerini ayarlama
 export function setupInputListeners() {
@@ -371,20 +345,20 @@ export function setupInputListeners() {
     c2d.addEventListener("pointerdown", onPointerDown);
     p2d.addEventListener("pointermove", onPointerMove);
     p2d.addEventListener("pointerup", onPointerUp);
-c2d.addEventListener("dblclick", (e) => {
-    e.preventDefault();
-    const rect = dom.c2d.getBoundingClientRect();
-    const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-    const object = getObjectAtPoint(clickPos);
-    
-    if (object && (object.type === 'room' || object.type === 'roomName' || object.type === 'roomArea')) {
-        showRoomNamePopup(object.object, e);
-    } else if (object && object.type === 'wall' && object.handle === 'body') {
-        // Duvar gövdesine çift tıklanırsa bölme işlemi yap
-        splitWallAtClickPosition(clickPos); // <-- Pozisyonu parametre olarak gönder
-    }
-});
-    c2d.addEventListener("wheel", onWheel, { passive: false });
+    c2d.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        const rect = dom.c2d.getBoundingClientRect();
+        const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const object = getObjectAtPoint(clickPos);
+
+        if (object && (object.type === 'room' || object.type === 'roomName' || object.type === 'roomArea')) {
+            showRoomNamePopup(object.object, e);
+        } else if (object && object.type === 'wall' && object.handle === 'body') {
+            // Duvar gövdesine çift tıklanırsa bölme işlemi yap
+            splitWallAtClickPosition(clickPos); // <-- Pozisyonu parametre olarak gönder
+        }
+    });
+    c2d.addEventListener("wheel", onWheel, { passive: false }); // onWheel'i zoom.js'den kullan
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
@@ -418,17 +392,15 @@ c2d.addEventListener("dblclick", (e) => {
     window.addEventListener("keyup", onKeyUp);
 }
 
-// Duvar bölme (birleştirmesiz)
-// Duvar bölme (birleştirmesiz) - DÜZELTİLMİŞ
 // Duvar bölme (birleştirmesiz) - DÜZELTİLMİŞ
 function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     const { walls } = state;
     if (state.currentMode !== 'select') return;
-    
+
     let wallToSplit = null;
     let minDistSq = Infinity;
     const hitToleranceSq = (state.wallThickness * 1.5) ** 2;
-    
+
     // clickPos'u kullan (mousePos yerine)
     for (const wall of walls) {
         if (!wall || !wall.p1 || !wall.p2) continue;
@@ -438,82 +410,82 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
             wallToSplit = wall;
         }
     }
-    
+
     if (!wallToSplit) {
         console.log("Bölünecek duvar bulunamadı"); // Debug için
         return;
     }
-    
+
     const p1 = wallToSplit.p1, p2 = wallToSplit.p2;
     const l2 = (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
     if (l2 < 0.1) return;
-    
+
     // clickPos'u kullan (mousePos yerine)
     let t = ((clickPos.x - p1.x) * (p2.x - p1.x) + (clickPos.y - p1.y) * (p2.y - p1.y)) / l2;
     t = Math.max(0, Math.min(1, t));
     const splitPoint = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
-    
+
     const MIN_SPLIT_DIST = 10;
     if (Math.hypot(splitPoint.x - p1.x, splitPoint.y - p1.y) < MIN_SPLIT_DIST ||
         Math.hypot(splitPoint.x - p2.x, splitPoint.y - p2.y) < MIN_SPLIT_DIST) {
         console.log("Bölme noktası duvar ucuna çok yakın"); // Debug için
         return;
     }
-    
+
     console.log("Duvar bölünüyor:", splitPoint); // Debug için
-    
+
     const splitNode = getOrCreateNode(splitPoint.x, splitPoint.y);
     const wallIndex = walls.indexOf(wallToSplit);
     if (wallIndex > -1) walls.splice(wallIndex, 1);
-    
+
     const distToSplitNode = Math.hypot(splitNode.x - p1.x, splitNode.y - p1.y);
-    
+
     // Orijinal duvar özelliklerini koru
-    const wall_props = { 
-        thickness: wallToSplit.thickness || state.wallThickness, 
-        wallType: wallToSplit.wallType || 'normal' 
+    const wall_props = {
+        thickness: wallToSplit.thickness || state.wallThickness,
+        wallType: wallToSplit.wallType || 'normal'
     };
-    
+
     const newWall1 = { type: "wall", p1: p1, p2: splitNode, ...wall_props, windows: [], vents: [] };
     const newWall2 = { type: "wall", p1: splitNode, p2: p2, ...wall_props, windows: [], vents: [] };
-    
+
     // Kapıları aktar
-    state.doors.forEach((door) => { 
-        if (door.wall === wallToSplit) { 
+    state.doors.forEach((door) => {
+        if (door.wall === wallToSplit) {
             if (door.pos < distToSplitNode) {
                 door.wall = newWall1;
-            } else { 
-                door.wall = newWall2; 
+            } else {
+                door.wall = newWall2;
                 door.pos -= distToSplitNode;
-            } 
-        } 
+            }
+        }
     });
-    
+
     // Pencereleri aktar
-    (wallToSplit.windows || []).forEach(window => { 
+    (wallToSplit.windows || []).forEach(window => {
         if (window.pos < distToSplitNode) {
             newWall1.windows.push(window);
-        } else { 
+        } else {
             window.pos -= distToSplitNode;
             newWall2.windows.push(window);
-        } 
+        }
     });
-    
+
     // Menfezleri aktar
-    (wallToSplit.vents || []).forEach(vent => { 
+    (wallToSplit.vents || []).forEach(vent => {
         if (vent.pos < distToSplitNode) {
             newWall1.vents.push(vent);
-        } else { 
+        } else {
             vent.pos -= distToSplitNode;
             newWall2.vents.push(vent);
-        } 
+        }
     });
-    
+
     walls.push(newWall1, newWall2);
     setState({ selectedObject: null });
     processWalls(true); // true = skipMerge (birleştirme yapma)
     saveState();
     update3DScene();
-    
+
     console.log("Duvar başarıyla bölündü"); // Debug için
 }
