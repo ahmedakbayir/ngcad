@@ -600,18 +600,40 @@ function createBeamMesh(beam, material) {
     return beamMesh;
 }
 
-// --- Merdiven Oluşturma (Ahşap Korkuluk, Mermer Burun ve Overlap Düzeltildi - SON HAL) ---
 function createStairMesh(stair) {
     const totalRun = stair.width; // Merdiven uzunluğu (X ekseni)
     const stairWidth = stair.height; // Merdiven eni (Z ekseni)
     const stepCount = Math.max(1, stair.stepCount || 1);
-    const totalRise = WALL_HEIGHT*0.8; // Merdiven toplam yüksekliği (Y ekseni)
+    const bottomElevation = stair.bottomElevation || 0; // Alt kot
+    const topElevation = stair.topElevation || 270; // Üst kot
+    const totalRise = topElevation - bottomElevation; // Merdiven toplam yüksekliği (Y ekseni)
+    const isLanding = stair.isLanding || false; // Sahanlık mı?
 
-    if (totalRun < 1 || stairWidth < 1 || stepCount < 1) {
-        console.warn("Invalid stair dimensions:", stair);
+    // Geçersiz boyutlar veya negatif yükseklik için kontrol
+    if (totalRun < 1 || stairWidth < 1 || stepCount < 1 || (!isLanding && totalRise <= 0)) {
+        console.warn("Invalid stair dimensions or elevation:", stair);
         return null;
     }
 
+    const stairGroup = new THREE.Group();
+    stairGroup.position.set(stair.center.x, 0, stair.center.y); // Zemin Y=0'a göre merkezle
+    stairGroup.rotation.y = -(stair.rotation || 0) * Math.PI / 180;
+
+    // --- SAHANLIK DURUMU ---
+    if (isLanding) {
+        const landingThickness = 10; // Sahanlık kalınlığı
+        const landingGeom = new THREE.BoxGeometry(totalRun, landingThickness, stairWidth);
+        // Sahanlığı alt kota göre konumlandır
+        landingGeom.translate(0, landingThickness / 2, 0); // Önce merkeze al
+        const landingMesh = new THREE.Mesh(landingGeom, stairMaterialTop); // Opak malzeme
+        landingMesh.position.y = bottomElevation; // Alt kota yerleştir
+        stairGroup.add(landingMesh);
+        return stairGroup; // Sahanlık çizildi, fonksiyondan çık
+    }
+    // --- SAHANLIK DURUMU SONU ---
+
+
+    // --- NORMAL MERDİVEN HESAPLAMALARI ---
     const stepRun = totalRun / stepCount; // Rıht derinliği
     const stepRise = totalRise / stepCount; // Rıht yüksekliği
     const overlap = 10; // Basamak bindirme payı
@@ -619,56 +641,40 @@ function createStairMesh(stair) {
     const NOSING_THICKNESS = 2; // Mermer kalınlığı
     const NOSING_OVERHANG = 2; // Öne çıkıntı miktarı
 
-    const stairGroup = new THREE.Group();
+    // Malzemeler (değişiklik yok)
+    const stepMaterials = [ stairMaterial, stairMaterial, stairMaterialTop, stairMaterial, stairMaterial, stairMaterial ];
+    const stepNosingMaterials = [ stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial ];
 
-    const stepMaterials = [
-        stairMaterial, stairMaterial, stairMaterialTop,
-        stairMaterial, stairMaterial, stairMaterial
-    ];
-    const stepNosingMaterials = [
-        stepNosingMaterial, stepNosingMaterial, stepNosingMaterial,
-        stepNosingMaterial, stepNosingMaterial, stepNosingMaterial
-    ];
-
-
+    // Basamakları oluştur (Kotları dikkate alarak)
     for (let i = 0; i < stepCount; i++) {
-        const yPos = i * stepRise;
+        const yPosBase = bottomElevation + i * stepRise; // Basamağın alt kotu
         const stepStartX = -totalRun / 2 + i * stepRun;
 
         // Beton Basamak Kısmı (Overlap dahil)
         const concreteStepRun = stepRun + overlap;
         const concreteStepGeom = new THREE.BoxGeometry(concreteStepRun, stepRise, stairWidth);
-        // Geometri merkezini X'te ayarla (overlap'ı hesaba kat)
         concreteStepGeom.translate(overlap / 2, stepRise / 2, 0);
         const concreteStepMesh = new THREE.Mesh(concreteStepGeom, stepMaterials);
-        // Mesh'i doğru X pozisyonuna yerleştir
-        concreteStepMesh.position.set(stepStartX, yPos, 0);
+        concreteStepMesh.position.set(stepStartX, yPosBase, 0); // Alt kota göre yerleştir
         stairGroup.add(concreteStepMesh);
 
         // Mermer Burun Kısmı
-        
-        const nosingRun = stepRun + NOSING_OVERHANG; // Rıht + çıkıntı
+        const nosingRun = stepRun + NOSING_OVERHANG;
         const nosingGeom = new THREE.BoxGeometry(nosingRun, NOSING_THICKNESS, stairWidth);
-        // ***** SON DÜZELTME: Geometri merkezini X'te ayarla *****
-        // Merkezin X'i = (Basamak Derinliği / 2)
         nosingGeom.translate(-nosingRun/2, NOSING_THICKNESS / 2, 0);
-       // nosingGeom.translate(stepRun / 2, NOSING_THICKNESS / 2, 0);
-        // *******************************************************
         const nosingMesh = new THREE.Mesh(nosingGeom, stepNosingMaterials);
-        // ***** SON DÜZELTME: Mesh pozisyonunu ayarla *****
-        // Konum: X başlangıcı + (Basamak Derinliği / 2) + (Çıkıntı / 2)
-        nosingMesh.position.set(stepStartX + stepRun / 2 + NOSING_OVERHANG / 2, yPos + stepRise, 0);
-        // ******************************************
+        // Mermerin Y pozisyonu = Basamağın üst kotu
+        nosingMesh.position.set(stepStartX + stepRun / 2 + NOSING_OVERHANG / 2, yPosBase + stepRise, 0);
         stairGroup.add(nosingMesh);
     }
 
-    // --- Korkulukları Oluştur (Ahşap Stil - Sıklık Düzeltildi) ---
-    const HANDRAIL_HEIGHT = 90;
+    // --- Korkulukları Oluştur (Kotları dikkate alarak) ---
+    const HANDRAIL_HEIGHT = 90; // Korkuluk yüksekliği (basamak üstünden)
     const HANDRAIL_INSET = 10;
     const POST_RADIUS = 3;
     const BALUSTER_RADIUS = 1.5;
     const HANDRAIL_RADIUS = 4;
-    const BALUSTER_SPACING = stepRun; // Her basamağa bir dikme
+    const BALUSTER_SPACING = stepRun;
 
     const postMaterial = handrailWoodMaterial;
     const balusterMaterialUsed = balusterMaterial;
@@ -678,50 +684,51 @@ function createStairMesh(stair) {
         const handrailGroup = new THREE.Group();
         const zOffset = side * (stairWidth / 2 - HANDRAIL_INSET);
 
-        // Başlangıç Dikmesi (Alt)
-        const startPostHeight = HANDRAIL_HEIGHT - HANDRAIL_RADIUS;
+        // Başlangıç Dikmesi (Alt) - Alt kota göre
+        const startPostHeight = HANDRAIL_HEIGHT - HANDRAIL_RADIUS; // Küpeşte altından basamak üstüne kadar
         const startPostGeom = new THREE.CylinderGeometry(POST_RADIUS, POST_RADIUS, startPostHeight, 16);
-        startPostGeom.translate(0, startPostHeight / 2, 0);
+        startPostGeom.translate(0, startPostHeight / 2, 0); // Merkeze al
         const startPost = new THREE.Mesh(startPostGeom, postMaterial);
-        startPost.position.set(-totalRun / 2 + POST_RADIUS, 0, zOffset);
+        // Dikmenin altı merdivenin alt kotunda (y=bottomElevation)
+        startPost.position.set(-totalRun / 2 + POST_RADIUS, bottomElevation, zOffset);
         handrailGroup.add(startPost);
 
-        // Bitiş Dikmesi (Üst)
-        const endPostYBase = totalRise + NOSING_THICKNESS; // Mermer üstü
+        // Bitiş Dikmesi (Üst) - Üst kota göre
+        const endPostYBase = topElevation; // Dikmenin altı merdivenin üst kotunda
         const endPostHeight = HANDRAIL_HEIGHT - HANDRAIL_RADIUS;
         const endPostGeom = new THREE.CylinderGeometry(POST_RADIUS, POST_RADIUS, endPostHeight, 16);
-        endPostGeom.translate(0, endPostHeight / 2, 0);
+        endPostGeom.translate(0, endPostHeight / 2, 0); // Merkeze al
         const endPost = new THREE.Mesh(endPostGeom, postMaterial);
         endPost.position.set(totalRun / 2 - POST_RADIUS, endPostYBase, zOffset);
         handrailGroup.add(endPost);
 
 
-        // Ara Dikmeler (Balusters)
-        const numBalusters = stepCount -1; // Her basamak arasına bir tane
-        const stairSlope = totalRise / totalRun; // Beton basamakların eğimi
+        // Ara Dikmeler (Balusters) - Kotları dikkate alarak
+        const numBalusters = stepCount -1;
+        const stairSlope = totalRise / totalRun; // Merdivenin eğimi
 
         for (let i = 0; i < numBalusters; i++) {
             const balusterX = -totalRun / 2 + (i + 1) * stepRun;
-            const balusterYBase = (i + 1) * stepRise + NOSING_THICKNESS;
-            // Küpeşte merkezinin Y'sini hesapla
-            const handrailCenterYAtX = (HANDRAIL_HEIGHT + HANDRAIL_RADIUS / 2) + (balusterX - (-totalRun / 2)) * stairSlope; // Başlangıç dikmesi tabanından eğim
+            const balusterYBase = bottomElevation + (i + 1) * stepRise + NOSING_THICKNESS; // Mermer üstü kotu
+            // Küpeşte merkezinin Y'sini hesapla (alt dikmenin tabanından başlayarak eğimle)
+            const handrailCenterYAtX = (bottomElevation + startPostHeight + HANDRAIL_RADIUS / 2) + (balusterX - (-totalRun / 2 + POST_RADIUS)) * stairSlope;
             const balusterHeight = handrailCenterYAtX - balusterYBase - HANDRAIL_RADIUS; // Küpeşte altı ile mermer üstü arası
 
             if (balusterHeight > 0.1) {
                 const balusterGeom = new THREE.CylinderGeometry(BALUSTER_RADIUS, BALUSTER_RADIUS, balusterHeight, 12);
-                balusterGeom.translate(0, balusterHeight / 2, 0);
+                balusterGeom.translate(0, balusterHeight / 2, 0); // Merkeze al
                 const baluster = new THREE.Mesh(balusterGeom, balusterMaterialUsed);
-                baluster.position.set(balusterX, balusterYBase, zOffset);
+                baluster.position.set(balusterX, balusterYBase, zOffset); // Mermer üstüne yerleştir
                 handrailGroup.add(baluster);
             }
         }
 
 
-        // Küpeşte (Eğimli Yuvarlak Kısım)
+        // Küpeşte (Eğimli Yuvarlak Kısım) - Kotları dikkate alarak
         const railingStartX = startPost.position.x;
-        const railingStartY = startPostHeight + HANDRAIL_RADIUS; // Küpeşte merkezi Y
+        const railingStartY = bottomElevation + startPostHeight + HANDRAIL_RADIUS; // Küpeşte merkezi Y (alt)
         const railingEndX = endPost.position.x;
-        const railingEndY = endPostYBase + endPostHeight + HANDRAIL_RADIUS; // Küpeşte merkezi Y
+        const railingEndY = topElevation + endPostHeight + HANDRAIL_RADIUS; // Küpeşte merkezi Y (üst)
 
         const deltaX = railingEndX - railingStartX;
         const deltaY = railingEndY - railingStartY;
@@ -735,16 +742,12 @@ function createStairMesh(stair) {
         const railingCenterY = (railingStartY + railingEndY) / 2;
 
         railingMesh.position.set(railingCenterX, railingCenterY, zOffset);
-        railingMesh.rotation.z = Math.PI / 2 + railingAngle;
+        railingMesh.rotation.z = Math.PI / 2 + railingAngle; // Doğru eksende döndür
 
         handrailGroup.add(railingMesh);
         stairGroup.add(handrailGroup);
     }
     // --- Korkuluk Sonu ---
-
-
-    stairGroup.position.set(stair.center.x, 0, stair.center.y);
-    stairGroup.rotation.y = -(stair.rotation || 0) * Math.PI / 180;
 
     return stairGroup;
 }

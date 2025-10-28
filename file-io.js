@@ -49,8 +49,20 @@ function saveProject() {
         })),
         columns: state.columns, // <-- GÜNCELLENDİ/EKLENDİ
         beams: state.beams, // <-- YENİ SATIRI EKLEYİN
-        stairs: state.stairs // <-- MERDİVEN EKLENDİ
-    };
+        stairs: state.stairs.map(s => ({ // <-- MERDİVEN GÜNCELLENDİ
+            type: s.type,
+            id: s.id, // ID eklendi
+            name: s.name, // name eklendi
+            center: s.center,
+            width: s.width,
+            height: s.height,
+            rotation: s.rotation,
+            stepCount: s.stepCount,
+            bottomElevation: s.bottomElevation, // eklendi
+            topElevation: s.topElevation, // eklendi
+            connectedStairId: s.connectedStairId, // eklendi
+            isLanding: s.isLanding // eklendi
+        }))    };
 
     const dataStr = JSON.stringify(projectData, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -160,8 +172,20 @@ function openProject(e) {
             // Kolonları, Kirişleri ve Merdivenleri geri yükle
             const restoredColumns = projectData.columns || [];
             const restoredBeams = projectData.beams || [];
-            const restoredStairs = projectData.stairs || []; // <-- MERDİVEN EKLENDİ
-
+            const restoredStairs = (projectData.stairs || []).map(s => ({
+                 type: s.type || 'stairs',
+                 id: s.id || `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`, // ID yoksa oluştur
+                 name: s.name || 'Merdiven', // isim yoksa varsayılan
+                 center: s.center,
+                 width: s.width,
+                 height: s.height,
+                 rotation: s.rotation,
+                 stepCount: s.stepCount || 1, // stepCount yoksa 1
+                 bottomElevation: s.bottomElevation || 0, // alt kot yoksa 0
+                 topElevation: s.topElevation || 270, // üst kot yoksa 270
+                 connectedStairId: s.connectedStairId || null, // bağlı ID yoksa null
+                 isLanding: s.isLanding || false // sahanlık yoksa false
+            }));
             // State'i güncelle
             setState({
                 nodes: restoredNodes,

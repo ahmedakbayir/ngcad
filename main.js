@@ -192,6 +192,15 @@ export const dom = {
     roomNameInput: document.getElementById("room-name-input"),
     splitter: document.getElementById("splitter"),
     bSymmetry: document.getElementById("bSymmetry"), // YENİ SATIR
+    stairPopup: document.getElementById("stair-popup"),
+    stairNameInput: document.getElementById("stair-name"),
+    stairBottomElevationInput: document.getElementById("stair-bottom-elevation"),
+    stairTopElevationInput: document.getElementById("stair-top-elevation"),
+    stairWidthEditInput: document.getElementById("stair-width-edit"),
+    stairConnectedStairSelect: document.getElementById("stair-connected-stair"),
+    stairIsLandingCheckbox: document.getElementById("stair-is-landing"),
+    confirmStairPopupButton: document.getElementById("confirm-stair-popup"),
+    cancelStairPopupButton: document.getElementById("cancel-stair-popup"),
 };
 
 // GÜNCELLENMİŞ setMode fonksiyonu

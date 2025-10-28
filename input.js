@@ -1,4 +1,5 @@
 // ahmedakbayir/ngcad/ngcad-e7feb4c0224e7a314687ae1c86e34cb9211a573d/input.js
+
 import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom import edildiğinden emin olun
 import { screenToWorld, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from './geometry.js'; // distToSegmentSquared ekleyin
 import { splitWallAtMousePosition, processWalls } from './wall-processor.js'; // <-- splitWallAtMousePosition import edildi
@@ -8,18 +9,16 @@ import { onPointerDown } from './pointer-down.js';
 import { onPointerMove } from './pointer-move.js';
 import { onPointerUp } from './pointer-up.js';
 import { getObjectAtPoint } from './actions.js';
-import { showWallPanel } from './wall-panel.js';
-import { createColumn, isPointInColumn } from './columns.js'; // isPointInColumn eklendi
-import { createBeam, isPointInBeam } from './beams.js'; // isPointInBeam eklendi
-import { createStairs, recalculateStepCount, isPointInStair } from './stairs.js'; // isPointInStair eklendi
-// processWalls zaten import edilmiş
-// saveState zaten import edilmiş
 import { update3DScene } from './scene3d.js';
 // --- YENİ İMPORTLAR ---
 import { fitDrawingToScreen, onWheel } from './zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { wallExists } from './wall-handler.js';
 // --- YENİ İMPORTLAR SONU ---
-
+import { showWallPanel } from './wall-panel.js';
+import { createColumn, isPointInColumn } from './columns.js'; // isPointInColumn eklendi
+import { createBeam, isPointInBeam } from './beams.js'; // isPointInBeam eklendi
+import { createStairs, recalculateStepCount, isPointInStair } from './stairs.js'; // isPointInStair eklendi
+import { showStairPopup } from './ui.js'; // showStairPopup import edildi
 
 // Modifier tuşları için global state
 export let currentModifierKeys = {
@@ -348,7 +347,7 @@ export function setupInputListeners() {
     c2d.addEventListener("pointerdown", onPointerDown);
     p2d.addEventListener("pointermove", onPointerMove);
     p2d.addEventListener("pointerup", onPointerUp);
-    c2d.addEventListener("dblclick", (e) => {
+c2d.addEventListener("dblclick", (e) => {
         e.preventDefault();
         const rect = dom.c2d.getBoundingClientRect();
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
@@ -359,6 +358,8 @@ export function setupInputListeners() {
         } else if (object && object.type === 'wall' && object.handle === 'body') {
             // Duvar gövdesine çift tıklanırsa bölme işlemi yap
             splitWallAtClickPosition(clickPos); // <-- Pozisyonu parametre olarak gönder
+        } else if (object && object.type === 'stairs') { // YENİ: Merdiven çift tıklama
+            showStairPopup(object.object, e); // Merdiven popup'ını göster
         }
     });
     c2d.addEventListener("wheel", onWheel, { passive: false }); // onWheel'i zoom.js'den kullan

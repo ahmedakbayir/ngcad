@@ -29,6 +29,106 @@ import {
 
 import { drawSymmetryPreview } from './draw-previews.js';
 
+function getStairStartPoint(stair) {
+    if (!stair || !stair.center) return null;
+    const corners = getStairCorners(stair);
+    // Başlangıç kenarı sol kenardır (corners[0] ve corners[3] arası)
+    return {
+        x: (corners[0].x + corners[3].x) / 2,
+        y: (corners[0].y + corners[3].y) / 2
+    };
+}
+
+// Verilen bir merdivenin bitiş kenarının orta noktasını döndürür
+function getStairEndPoint(stair) {
+    if (!stair || !stair.center) return null;
+    const corners = getStairCorners(stair);
+    // Bitiş kenarı sağ kenardır (corners[1] ve corners[2] arası)
+    return {
+        x: (corners[1].x + corners[2].x) / 2,
+        y: (corners[1].y + corners[2].y) / 2
+    };
+}
+
+// Bağlı merdiven zincirlerini bulur ve okları çizer
+function drawStairSequenceArrows(ctx2d, state) {
+    const { stairs, zoom, lineThickness, wallBorderColor } = state;
+    if (!stairs || stairs.length === 0) return;
+
+    const stairMap = new Map(stairs.map(s => [s.id, s]));
+    const visited = new Set(); // Zincirleri tekrar çizmemek için
+
+    stairs.forEach(startStair => {
+        // Eğer bu merdiven zaten bir zincirin parçasıysa veya altında normal bir merdiven varsa başlama noktası değildir
+        if (visited.has(startStair.id) || (startStair.connectedStairId && stairMap.get(startStair.connectedStairId))) {
+            return;
+        }
+
+        // Zinciri bul
+        const sequence = [];
+        let currentStair = startStair;
+        while (currentStair) {
+            sequence.push(currentStair);
+            visited.add(currentStair.id);
+            // Bir sonraki bağlı merdiveni bul
+            const nextStair = stairs.find(s => s.connectedStairId === currentStair.id);
+            currentStair = nextStair;
+        }
+
+        // Zincirde en az bir normal merdiven var mı?
+        const hasNormalStair = sequence.some(s => !s.isLanding);
+        if (!hasNormalStair) return; // Sadece sahanlıklardan oluşan zincir için ok çizme
+
+        // Zincirin başlangıç ve bitiş noktalarını al
+        const firstStairInSequence = sequence[0];
+        const lastStairInSequence = sequence[sequence.length - 1];
+
+        const overallStartPoint = getStairStartPoint(firstStairInSequence);
+        const overallEndPoint = getStairEndPoint(lastStairInSequence);
+
+        if (!overallStartPoint || !overallEndPoint) return; // Noktalar hesaplanamadıysa atla
+
+        // Ok çizgisini çiz
+        ctx2d.beginPath();
+        ctx2d.moveTo(overallStartPoint.x, overallStartPoint.y);
+        ctx2d.lineTo(overallEndPoint.x, overallEndPoint.y);
+        ctx2d.lineWidth = (lineThickness / 1.5) / zoom;
+        ctx2d.strokeStyle = wallBorderColor; // Şimdilik duvar rengiyle aynı
+        ctx2d.stroke();
+
+        // Ok başını SADECE zincirin sonuna çiz
+        const arrowHeadSize = Math.min(lastStairInSequence.height * 0.3, 15 / zoom); // Son merdivenin genişliğine göre boyut
+        const lastStairRotRad = (lastStairInSequence.rotation || 0) * Math.PI / 180;
+        const dirX = Math.cos(lastStairRotRad); // Son merdivenin yönü
+        const dirY = Math.sin(lastStairRotRad);
+        const perpXArrow = -dirY; // Ok başına dik vektör
+        const perpYArrow = dirX;
+
+        // Ok başının tabanını hesapla (overallEndPoint'ten geri gelerek)
+        const headBase = {
+            x: overallEndPoint.x - dirX * arrowHeadSize,
+            y: overallEndPoint.y - dirY * arrowHeadSize
+        };
+        // Ok başının köşe noktaları
+        const headP1 = {
+            x: headBase.x + perpXArrow * arrowHeadSize * 0.3,
+            y: headBase.y + perpYArrow * arrowHeadSize * 0.5
+        };
+        const headP2 = {
+            x: headBase.x - perpXArrow * arrowHeadSize * 0.3,
+            y: headBase.y - perpYArrow * arrowHeadSize * 0.5
+        };
+
+        ctx2d.fillStyle = wallBorderColor;
+        ctx2d.beginPath();
+        ctx2d.moveTo(overallEndPoint.x, overallEndPoint.y); // Okun ucu
+        ctx2d.lineTo(headP1.x, headP1.y);
+        ctx2d.lineTo(headP2.x, headP2.y);
+        ctx2d.closePath();
+        ctx2d.fill();
+    });
+}
+
 
 export function draw2D() {
     const { ctx2d, c2d } = dom;

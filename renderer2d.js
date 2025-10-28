@@ -1,12 +1,12 @@
 // ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/renderer2d.js
+// Son Güncelleme: Merdiven çift çizgisi kaldırıldı, ok mantığı güncellendi.
 
 import { state, dom, BG, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT } from './main.js'; // Sabitleri import et
 // // getLineIntersectionPoint import edildiğinden emin ol
 import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from './geometry.js';
 import { getColumnCorners, isPointInColumn } from './columns.js';
-import { getBeamCorners } from './beams.js'; // <-- YENİ SATIRI EKLEYİN
-// YENİ IMPORT'U AŞAĞIYA EKLEYİN
-import { getStairCorners } from './stairs.js'; //
+import { getBeamCorners } from './beams.js';
+import { getStairCorners } from './stairs.js';
 
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
 export function drawNodeWallCount(node) {
@@ -150,11 +150,6 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     // Üst bölme genişliği (alt ile aynı) - ama kayıt pozisyonları farklı olacak
     let topPaneWidth = bottomPaneWidth; // Genişlik aynı
 
-    // Yatay kayıt pozisyonu (varsayılan olarak %70)
-    // const horizontalMullionRatio = 0.7; // Bu oran kaldırıldı, artık sabit çizilecek
-    // const horizontalMullionPos = window.pos; // Yatay kayıt tam ortada olacak şekilde çizelim (basitlik için)
-    // Yatay kayıt için özel bir çizim yapmayacağız, sadece dikey kayıtları çizeceğiz.
-
     // Dikey kayıtların X pozisyonları (pencerenin local X ekseninde, başlangıçtan itibaren)
     const bottomMullionPositions = [];
     let currentX = mullionWidthCm; // İlk kayıt
@@ -163,22 +158,6 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
         bottomMullionPositions.push(currentX);
         currentX += mullionWidthCm;
     }
-
-    // Üst kayıtların X pozisyonları (alt bölmelerin ortasına göre)
-    const topMullionPositions = [];
-    currentX = mullionWidthCm; // Sol kenar kaydı sonrası başlangıç
-    for (let i = 0; i < numBottomPanes; i++) {
-        const paneCenterX = currentX + bottomPaneWidth / 2;
-        if (i < numBottomPanes - 1) { // Son bölmenin sağına kayıt çizme
-            topMullionPositions.push(paneCenterX + mullionWidthCm / 2); // Kayıt merkezini değil, sağ kenarını ekleyelim
-                                                                      // Düzeltme: Alt bölme merkezi + yarım kayıt genişliği? Hayır, bu kayıtın merkezini verir.
-                                                                      // Üst kaydın X pozisyonu, alt bölmenin BİTİŞİ + YARIM KAYIT olmalı.
-                                                                      // Veya daha basiti: Alt kaydın pozisyonunu kullanalım
-             topMullionPositions.push(bottomMullionPositions[i]); // Alt dikey kayıtların X pozisyonunu kullan
-        }
-        currentX += bottomPaneWidth + mullionWidthCm;
-    }
-
 
     // --- ÇİZİM KODU (YENİ BÖLMELERLE) ---
 
@@ -243,25 +222,8 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
         ctx2d.lineTo(mullionBottom.x, mullionBottom.y);
     });
 
-    // // Yatay kayıt (Artık çizilmiyor, sadece dikey kayıtlar var)
-    // const hMullionWorldX = windowP1.x + dx * horizontalMullionPos;
-    // const hMullionWorldY = windowP1.y + dy * horizontalMullionPos;
-    // const hMullionLeft = {x: hMullionWorldX - dx * mullionWidthCm / 2, y: hMullionWorldY - dy * mullionWidthCm / 2}; // Hatalı olabilir, Y ekseninde olmalı
-    // const hMullionRight = {x: hMullionWorldX + dx * mullionWidthCm / 2, y: hMullionWorldY + dy * mullionWidthCm / 2}; // Hatalı olabilir
-
-    // // Yatay kayıdın başlangıç ve bitiş noktaları (iç cam çizgileri arasında) - DÜZELTİLMELİ
-    // // Bu kısım karmaşıklaşıyor, şimdilik sadece dikey kayıtları çizelim.
-    // // const hMullionTop = ...
-    // // const hMullionBottom = ...
-    // // ctx2d.moveTo(hMullionTop.x, hMullionTop.y);
-    // // ctx2d.lineTo(hMullionBottom.x, hMullionBottom.y);
-
-
     ctx2d.stroke(); // Kayıt çizgilerini çiz
     // --- YENİ KAYIT ÇİZİMİ SONU ---
-
-    // Çizim state'ini geri yükle (opsiyonel ama iyi pratik)
-    // ctx2d.restore(); // save kullanmadık
 }
 // --- GÜNCELLENMİŞ Pencere Sembolü Çizimi SONU ---
 
@@ -283,13 +245,26 @@ export function isMouseOverWall() {
 }
 
 // Menfez sembolünü çizer
-export function drawVentSymbol(wall, vent) {
-    const { ctx2d } = dom; const { selectedObject } = state; if (!wall || !wall.p1 || !wall.p2) return; const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 1) return; const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; const nx = -dy, ny = dx; const startPos = vent.pos - vent.width / 2; const endPos = vent.pos + vent.width / 2; const ventP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos }; const ventP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos }; const wallPx = wall.thickness || state.wallThickness; const halfWall = wallPx / 2; const isSelected = selectedObject?.type === "vent" && selectedObject.object === vent; ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e57373"; ctx2d.fillStyle = "rgba(229, 115, 115, 0.2)"; ctx2d.lineWidth = 1.5; const box1_start = { x: ventP1.x - nx * halfWall, y: ventP1.y - ny * halfWall }; const box1_end = { x: ventP1.x + nx * halfWall, y: ventP1.y + ny * halfWall }; const box2_start = { x: ventP2.x - nx * halfWall, y: ventP2.y - ny * halfWall }; const box2_end = { x: ventP2.x + nx * halfWall, y: ventP2.y + ny * halfWall }; ctx2d.beginPath(); ctx2d.moveTo(box1_start.x, box1_start.y); ctx2d.lineTo(box1_end.x, box1_end.y); ctx2d.lineTo(box2_end.x, box2_end.y); ctx2d.lineTo(box2_start.x, box2_start.y); ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke(); const numLines = 3; for (let i = 1; i <= numLines; i++) { const t = i / (numLines + 1); const lineX = ventP1.x + (ventP2.x - ventP1.x) * t; const lineY = ventP1.y + (ventP2.y - ventP1.y) * t; ctx2d.beginPath(); ctx2d.moveTo(lineX - nx * halfWall * 0.8, lineY - ny * halfWall * 0.8); ctx2d.lineTo(lineX + nx * halfWall * 0.8, lineY + ny * halfWall * 0.8); ctx2d.stroke(); }
+export function drawVentSymbol(wall, vent, isSelected = false) { // isSelected parametresi eklendi
+    const { ctx2d } = dom; const { selectedObject } = state; if (!wall || !wall.p1 || !wall.p2) return; const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 1) return; const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; const nx = -dy, ny = dx; const startPos = vent.pos - vent.width / 2; const endPos = vent.pos + vent.width / 2; const ventP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos }; const ventP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos }; const wallPx = wall.thickness || state.wallThickness; const halfWall = wallPx / 2;
+    // const isSelected = selectedObject?.type === "vent" && selectedObject.object === vent; // isSelected parametre olarak geldi
+    ctx2d.strokeStyle = isSelected ? "#8ab4f8" : "#e57373";
+    ctx2d.fillStyle = isSelected ? "rgba(138, 180, 248, 0.2)" : "rgba(229, 115, 115, 0.2)"; // Seçiliyse fill rengini de değiştir
+    ctx2d.lineWidth = 1.5 / state.zoom; // Zoom'a göre ayarla
+    const box1_start = { x: ventP1.x - nx * halfWall, y: ventP1.y - ny * halfWall }; const box1_end = { x: ventP1.x + nx * halfWall, y: ventP1.y + ny * halfWall }; const box2_start = { x: ventP2.x - nx * halfWall, y: ventP2.y - ny * halfWall }; const box2_end = { x: ventP2.x + nx * halfWall, y: ventP2.y + ny * halfWall };
+    ctx2d.beginPath(); ctx2d.moveTo(box1_start.x, box1_start.y); ctx2d.lineTo(box1_end.x, box1_end.y); ctx2d.lineTo(box2_end.x, box2_end.y); ctx2d.lineTo(box2_start.x, box2_start.y); ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke();
+    const numLines = 3;
+    ctx2d.beginPath(); // Çizgiler için yeni path
+    for (let i = 1; i <= numLines; i++) {
+        const t = i / (numLines + 1); const lineX = ventP1.x + (ventP2.x - ventP1.x) * t; const lineY = ventP1.y + (ventP2.y - ventP1.y) * t;
+        ctx2d.moveTo(lineX - nx * halfWall * 0.8, lineY - ny * halfWall * 0.8); ctx2d.lineTo(lineX + nx * halfWall * 0.8, lineY + ny * halfWall * 0.8);
+    }
+    ctx2d.stroke(); // Çizgileri çiz
 }
 
-// Eski tip kolon sembolünü çizer (node tabanlı)
+// Eski tip kolon sembolünü çizer (node tabanlı) - KULLANILMIYOR
 export function drawColumnSymbol(node) {
-     const { ctx2d } = dom; const size = node.columnSize || 30; ctx2d.fillStyle = "#8ab4f8"; ctx2d.strokeStyle = "#ffffff"; ctx2d.lineWidth = 2; ctx2d.beginPath(); ctx2d.rect(node.x - size / 2, node.y - size / 2, size, size); ctx2d.fill(); ctx2d.stroke(); ctx2d.strokeStyle = "#ffffff"; ctx2d.lineWidth = 1; ctx2d.beginPath(); ctx2d.moveTo(node.x - size / 2, node.y - size / 2); ctx2d.lineTo(node.x + size / 2, node.y + size / 2); ctx2d.moveTo(node.x + size / 2, node.y - size / 2); ctx2d.lineTo(node.x - size / 2, node.y + size / 2); ctx2d.stroke();
+     /* const { ctx2d } = dom; const size = node.columnSize || 30; ctx2d.fillStyle = "#8ab4f8"; ctx2d.strokeStyle = "#ffffff"; ctx2d.lineWidth = 2; ctx2d.beginPath(); ctx2d.rect(node.x - size / 2, node.y - size / 2, size, size); ctx2d.fill(); ctx2d.stroke(); ctx2d.strokeStyle = "#ffffff"; ctx2d.lineWidth = 1; ctx2d.beginPath(); ctx2d.moveTo(node.x - size / 2, node.y - size / 2); ctx2d.lineTo(node.x + size / 2, node.y + size / 2); ctx2d.moveTo(node.x + size / 2, node.y - size / 2); ctx2d.lineTo(node.x - size / 2, node.y + size / 2); ctx2d.stroke(); */
 }
 
 // --- GÜNCELLENMİŞ ve DÜZELTİLMİŞ drawColumn Fonksiyonu ---
@@ -335,8 +310,6 @@ export function drawColumn(column, isSelected = false) {
                 if (!wall || !wall.p1 || !wall.p2) return; // Geçersiz duvarı atla
                 const wallThickness = wall.thickness || state.wallThickness;
                 const halfWallThickness = wallThickness / 2;
-                // Gizleme için kullanılacak mesafe karesi (merkez çizgisine göre)
-                // Neredeyse tam içindeyse gizle (0.5cm tolerans)
                 const hideToleranceSq = (halfWallThickness - 0.5)**2;
 
                 let nextVisibleSegments = []; // Bu duvar kontrolünden sonra görünür kalacak segmentler
@@ -346,125 +319,97 @@ export function drawColumn(column, isSelected = false) {
                     const currentLength = visSeg.end - visSeg.start;
                     if (currentLength < 0.1) return; // Çok kısa segmentleri atla
 
-                    // Segmentin başlangıç ve bitiş noktalarının duvar merkez çizgisine olan mesafelerinin karesini hesapla
                     const distSqP1 = distToSegmentSquared(currentP1, wall.p1, wall.p2);
                     const distSqP2 = distToSegmentSquared(currentP2, wall.p1, wall.p2);
-
-                    // Başlangıç ve bitiş noktaları duvar kalınlığının içinde mi?
                     const p1_inside = distSqP1 < hideToleranceSq;
                     const p2_inside = distSqP2 < hideToleranceSq;
 
                     if (p1_inside && p2_inside) {
-                        // Tamamen içindeyse: Bu segmenti gösterme (nextVisibleSegments'e ekleme)
-
+                        // Tamamen içindeyse gösterme
                     } else {
-                        // Kesişim noktalarını DUVAR KENARLARI ile bul ve segmenti böl
                         const wallDx = wall.p2.x - wall.p1.x;
                         const wallDy = wall.p2.y - wall.p1.y;
                         const wallLen = Math.hypot(wallDx, wallDy);
 
                         if (wallLen < 0.1) {
-                             // Duvar çok kısa, kesişim hesaplanamaz.
                              nextVisibleSegments.push(visSeg);
-                             return; // visibleSegments.forEach'in bir sonraki iterasyonuna geç
+                             return;
                         }
 
-                        const wallNx = -wallDy / wallLen; // Normal vektör
+                        const wallNx = -wallDy / wallLen;
                         const wallNy = wallDx / wallLen;
-
-                        // Duvarın iki kenarı için segmentler
                         const edge1_p1 = { x: wall.p1.x + wallNx * halfWallThickness, y: wall.p1.y + wallNy * halfWallThickness };
                         const edge1_p2 = { x: wall.p2.x + wallNx * halfWallThickness, y: wall.p2.y + wallNy * halfWallThickness };
                         const edge2_p1 = { x: wall.p1.x - wallNx * halfWallThickness, y: wall.p1.y - wallNy * halfWallThickness };
                         const edge2_p2 = { x: wall.p2.x - wallNx * halfWallThickness, y: wall.p2.y - wallNy * halfWallThickness };
 
-                        // Kolon kenarı ile duvarın iki kenarının kesişimlerini bul
                         const intersection1 = getLineIntersectionPoint(currentP1, currentP2, edge1_p1, edge1_p2);
                         const intersection2 = getLineIntersectionPoint(currentP1, currentP2, edge2_p1, edge2_p2);
 
-                        // Kesişim mesafelerini kolon kenarı başlangıcına göre hesapla (varsa)
                         const dists = [];
                         if (intersection1) dists.push(visSeg.start + Math.hypot(intersection1.x - currentP1.x, intersection1.y - currentP1.y));
                         if (intersection2) dists.push(visSeg.start + Math.hypot(intersection2.x - currentP1.x, intersection2.y - currentP1.y));
-
-                        // Başlangıç ve bitiş noktalarını da ekle
                         dists.push(visSeg.start);
                         dists.push(visSeg.end);
-                        // Mesafeleri sırala ve tekilleştir (küçük toleransla birleştir)
                         dists.sort((a, b) => a - b);
                         const uniqueDists = [];
                          if (dists.length > 0) {
                              uniqueDists.push(dists[0]);
                              for (let k = 1; k < dists.length; k++) {
-                                 // Birbirine çok yakın noktaları birleştir (0.1 cm tolerans)
                                  if (dists[k] - uniqueDists[uniqueDists.length - 1] > 0.1) {
                                      uniqueDists.push(dists[k]);
                                  }
                              }
                          }
-                         // Geçerli aralıkta kalanları filtrele (segmentin başlangıç ve bitişi dahil)
                          const finalDists = uniqueDists.filter(d => d >= visSeg.start - 0.1 && d <= visSeg.end + 0.1);
 
-                        // Kesişim noktaları arasındaki alt segmentleri kontrol et
                         for(let k = 0; k < finalDists.length - 1; k++){
                             const subStart = finalDists[k];
                             const subEnd = finalDists[k+1];
-                            if(subEnd - subStart < 0.1) continue; // Çok kısa alt segmentleri atla
+                            if(subEnd - subStart < 0.1) continue;
 
-                            // Alt segmentin orta noktasını al
                             const subMidT = (subStart + subEnd) / 2;
                             const subMidPoint = { x: p1.x + segmentDir.x * subMidT, y: p1.y + segmentDir.y * subMidT };
+                            const distSqToWallCenter = distToSegmentSquared(subMidPoint, wall.p1, wall.p2);
 
-                            // Orta nokta duvar merkez çizgisine duvar kalınlığının yarısından UZAKSA göster
-                             const distSqToWallCenter = distToSegmentSquared(subMidPoint, wall.p1, wall.p2);
-
-                             if (distSqToWallCenter >= hideToleranceSq) { // Merkez çizgisinin DIŞINDAYSA (toleransla)
+                             if (distSqToWallCenter >= hideToleranceSq) {
                                  nextVisibleSegments.push({start: subStart, end: subEnd});
                              }
                         }
                     }
                 });
-                visibleSegments = nextVisibleSegments; // Görünür segmentleri bu duvar için güncelle
+                visibleSegments = nextVisibleSegments;
             }); // Duvar döngüsü sonu
 
 
             // 2. Diğer Kolonlarla Kesişim Kontrolü (Segment Kırpma)
              columns.forEach(otherColumn => {
-                 if (otherColumn === column) return; // Kendisiyle kontrol etme
+                 if (otherColumn === column) return;
                  if (!otherColumn || !otherColumn.center) return;
 
-                // Diğer kolonun 4 kenarını al
                 const otherCorners = getColumnCorners(otherColumn);
                 const otherEdges = [
-                    { p1: otherCorners[0], p2: otherCorners[1] },
-                    { p1: otherCorners[1], p2: otherCorners[2] },
-                    { p1: otherCorners[2], p2: otherCorners[3] },
-                    { p1: otherCorners[3], p2: otherCorners[0] }
+                    { p1: otherCorners[0], p2: otherCorners[1] }, { p1: otherCorners[1], p2: otherCorners[2] },
+                    { p1: otherCorners[2], p2: otherCorners[3] }, { p1: otherCorners[3], p2: otherCorners[0] }
                 ];
 
-                let nextVisibleSegments = []; // Bir sonraki görünür segmentler listesi
-
+                let nextVisibleSegments = [];
                 visibleSegments.forEach(visSeg => {
                     const currentP1 = { x: p1.x + segmentDir.x * visSeg.start, y: p1.y + segmentDir.y * visSeg.start };
                     const currentP2 = { x: p1.x + segmentDir.x * visSeg.end, y: p1.y + segmentDir.y * visSeg.end };
-
-                    // Kesişim mesafelerini topla
                     const dists = [visSeg.start, visSeg.end];
 
-                    // Diğer kolonun 4 kenarı ile kesişimleri bul
                     otherEdges.forEach(edge => {
                         const intersection = getLineIntersectionPoint(currentP1, currentP2, edge.p1, edge.p2);
                         if (intersection) {
                             const distToIntersection = Math.hypot(intersection.x - currentP1.x, intersection.y - currentP1.y);
                             const intersectionDistOnColSeg = visSeg.start + distToIntersection;
-                            // Sadece segment aralığındaysa ekle (uç noktalar hariç)
                             if (intersectionDistOnColSeg > visSeg.start + 0.1 && intersectionDistOnColSeg < visSeg.end - 0.1) {
                                 dists.push(intersectionDistOnColSeg);
                             }
                         }
                     });
 
-                    // Mesafeleri sırala ve tekilleştir
                     dists.sort((a, b) => a - b);
                     const uniqueDists = [];
                     if (dists.length > 0) {
@@ -476,30 +421,26 @@ export function drawColumn(column, isSelected = false) {
                         }
                     }
 
-                    // Kesişim noktaları arasındaki alt segmentleri kontrol et
                     for (let k = 0; k < uniqueDists.length - 1; k++) {
                         const subStart = uniqueDists[k];
                         const subEnd = uniqueDists[k + 1];
-                        if (subEnd - subStart < 0.1) continue; // Çok kısa alt segmentleri atla
+                        if (subEnd - subStart < 0.1) continue;
 
-                        // Alt segmentin orta noktasını al
                         const subMidT = (subStart + subEnd) / 2;
                         const subMidPoint = { x: p1.x + segmentDir.x * subMidT, y: p1.y + segmentDir.y * subMidT };
 
-                        // Orta nokta diğer kolonun İÇİNDE DEĞİLSE göster
                         if (!isPointInColumn(subMidPoint, otherColumn)) {
                             nextVisibleSegments.push({ start: subStart, end: subEnd });
                         }
                     }
                 });
-                visibleSegments = nextVisibleSegments; // Görünür segmentleri bu kolon için güncelle
+                visibleSegments = nextVisibleSegments;
              }); // Kolon döngüsü sonu
 
 
             // Sonuçta görünür kalan segmentleri çiz
             visibleSegments.forEach(visSeg => {
-                 // Sadece anlamlı uzunluktaki segmentleri çiz
-                 if (visSeg.end - visSeg.start > 0.5) { // 0.5 cm'den uzunsa
+                 if (visSeg.end - visSeg.start > 0.5) {
                     const finalP1 = { x: p1.x + segmentDir.x * visSeg.start, y: p1.y + segmentDir.y * visSeg.start };
                     const finalP2 = { x: p1.x + segmentDir.x * visSeg.end, y: p1.y + segmentDir.y * visSeg.end };
                     ctx2d.beginPath();
@@ -522,198 +463,164 @@ export function drawColumn(column, isSelected = false) {
 }
 // --- drawColumn Sonu ---
 
-// YENİ KİRİŞ ÇİZİM FONKSİYONUNU AŞAĞIYA EKLEYİN
+// Kiriş çizimi
 export function drawBeam(beam, isSelected = false) {
     const { ctx2d } = dom;
     const { zoom, lineThickness } = state;
 
     const corners = getBeamCorners(beam); // Kiriş köşe noktaları
-
-    // Renk ayarları
-    const beamColor = isSelected ? '#8ab4f8' : state.wallBorderColor; // Seçili değilse kırmızı
-    
-    // Kenarlık renginden %21 opaklıkta dolgu rengi oluştur
+    const beamColor = isSelected ? '#8ab4f8' : state.wallBorderColor;
     let fillColor;
     if (beamColor.startsWith('#')) {
         const hex = beamColor.slice(1);
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
         const b = parseInt(hex.substring(4, 6), 16);
-        fillColor = `rgba(${r}, ${g}, ${b}, 0.06)`; // %21 opaklık
+        fillColor = `rgba(${r}, ${g}, ${b}, 0.06)`;
     } else {
-        fillColor = beamColor; // Fallback (genelde olmamalı)
+        fillColor = beamColor;
     }
 
-    ctx2d.fillStyle = fillColor; // Dolgu rengi %21 transparans
+    ctx2d.fillStyle = fillColor;
     ctx2d.strokeStyle = beamColor;
     ctx2d.lineWidth = lineThickness / zoom;
 
-    // Kesik çizgi ayarı
     ctx2d.save();
     ctx2d.setLineDash([8 / zoom, 4 / zoom]);
 
-    // Dış dikdörtgeni çiz (Önce dolgu, sonra kenarlık)
     ctx2d.beginPath();
     ctx2d.moveTo(corners[0].x, corners[0].y);
     for (let i = 1; i < corners.length; i++) {
         ctx2d.lineTo(corners[i].x, corners[i].y);
     }
     ctx2d.closePath();
-    ctx2d.fill(); // Dolguyu yap (%21 opaklıkta)
-    ctx2d.stroke(); // Kenarlığı çiz (kesik çizgili)
+    ctx2d.fill();
+    ctx2d.stroke();
 
-    // Kesik çizgiyi sıfırla
     ctx2d.restore();
 
     // "Kiriş" Yazısı
     const center = beam.center;
     const rotationRad = (beam.rotation || 0) * Math.PI / 180;
-
     ctx2d.save();
     ctx2d.translate(center.x, center.y);
     ctx2d.rotate(rotationRad);
-
-    // Zoom'a göre ayarlı yazı boyutu
     const ZOOM_EXPONENT = -0.65;
     const baseFontSize = 16;
     let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
     const minWorldFontSize = 5;
-
     ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = beamColor;
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "middle";
-    ctx2d.fillText("Kiriş", 0, 0); // Tam ortasına yaz
-
+    ctx2d.fillText("Kiriş", 0, 0);
     ctx2d.restore();
-
-    // (İçi boş kiriş çizimi - şimdilik eklenmedi, gerekirse kolon'dan kopyalanabilir)
 }
-// YENİ FONKSİYON BİTİŞİ
 
-// YENİ MERDİVEN ÇİZİM FONKSİYONUNU AŞAĞIYA EKLEYİN
+// GÜNCELLENMİŞ Merdiven Çizimi (Tek çizgi, ok mantığı düzeltilmiş)
 export function drawStairs(stair, isSelected = false) {
     const { ctx2d } = dom;
-    const { zoom, lineThickness, wallBorderColor, roomFillColor } = state; // BG'yi kaldırdık
+    const { zoom, lineThickness, wallBorderColor, roomFillColor } = state;
 
-    const corners = getStairCorners(stair);
-
-    // Çizim stilleri
+    const corners = getStairCorners(stair); // Köşe noktalarını al
     const stairColor = isSelected ? '#8ab4f8' : wallBorderColor;
-    const backgroundColor = roomFillColor || '#1e1f20'; // State'ten al veya varsayılan kullan
-    const doubleLineOffset = 2 / zoom;
-
+    const backgroundColor = roomFillColor || '#1e1f20';
     const rotRad = (stair.rotation || 0) * Math.PI / 180;
-    const perpX = -Math.sin(rotRad);
-    const perpY = Math.cos(rotRad);
+    const dirX = Math.cos(rotRad); // Ok için yön vektörleri
+    const dirY = Math.sin(rotRad);
+    const perpX = -dirY; // Kenara dik vektör
+    const perpY = dirX;
 
-    // --- ÖNCE ARKA PLAN DOLGUSUNU YAP ---
-    ctx2d.fillStyle = backgroundColor; // roomFillColor kullan
+    // --- ARKA PLAN VE KENARLIK ÇİZİMİ ---
+    ctx2d.fillStyle = backgroundColor;
     ctx2d.beginPath();
-    ctx2d.moveTo(corners[0].x + perpX * doubleLineOffset, corners[0].y + perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[1].x + perpX * doubleLineOffset, corners[1].y + perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[2].x - perpX * doubleLineOffset, corners[2].y - perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[3].x - perpX * doubleLineOffset, corners[3].y - perpY * doubleLineOffset);
+    ctx2d.moveTo(corners[0].x, corners[0].y);
+    ctx2d.lineTo(corners[1].x, corners[1].y);
+    ctx2d.lineTo(corners[2].x, corners[2].y);
+    ctx2d.lineTo(corners[3].x, corners[3].y);
     ctx2d.closePath();
     ctx2d.fill();
 
-    // --- ÇİFT KENAR ÇİZGİSİ ---
     ctx2d.strokeStyle = stairColor;
     ctx2d.lineWidth = lineThickness / zoom;
-
-    // Dış çizgiler
     ctx2d.beginPath();
-    ctx2d.moveTo(corners[0].x - perpX * doubleLineOffset, corners[0].y - perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[1].x - perpX * doubleLineOffset, corners[1].y - perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[2].x + perpX * doubleLineOffset, corners[2].y + perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[3].x + perpX * doubleLineOffset, corners[3].y + perpY * doubleLineOffset);
+    ctx2d.moveTo(corners[0].x, corners[0].y);
+    ctx2d.lineTo(corners[1].x, corners[1].y);
+    ctx2d.lineTo(corners[2].x, corners[2].y);
+    ctx2d.lineTo(corners[3].x, corners[3].y);
     ctx2d.closePath();
     ctx2d.stroke();
+    // --- KENAR ÇİZİMİ SONU ---
 
-    // İç çizgiler
-    ctx2d.beginPath();
-    ctx2d.moveTo(corners[0].x + perpX * doubleLineOffset, corners[0].y + perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[1].x + perpX * doubleLineOffset, corners[1].y + perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[2].x - perpX * doubleLineOffset, corners[2].y - perpY * doubleLineOffset);
-    ctx2d.lineTo(corners[3].x - perpX * doubleLineOffset, corners[3].y - perpY * doubleLineOffset);
-    ctx2d.closePath();
-    ctx2d.stroke();
 
-    // Basamakları Çiz
-    const stepCount = stair.stepCount || 1;
-    if (stepCount > 1) {
-        const dirX = Math.cos(rotRad);
-        const dirY = Math.sin(rotRad);
+    // --- SAHANLIK DEĞİLSE (NORMAL MERDİVEN) ---
+    if (!stair.isLanding) {
+        // Basamakları Çiz
+        const stepCount = stair.stepCount || 1;
+        if (stepCount > 1) {
+            const halfHeight = stair.height / 2; // Artık offset yok, tam yarı genişlik
+            const startEdgeCenter = {
+                x: (corners[0].x + corners[3].x) / 2, // (sol üst + sol alt) / 2
+                y: (corners[0].y + corners[3].y) / 2
+            };
 
-        const innerOffsetWorld = doubleLineOffset * zoom;
-        const halfHeight = stair.height / 2 - innerOffsetWorld;
+            ctx2d.beginPath();
+            for (let i = 1; i < stepCount; i++) {
+                const stepOffset = (stair.width / stepCount) * i; // width = merdiven uzunluğu
+                const lineCenterX = startEdgeCenter.x + dirX * stepOffset;
+                const lineCenterY = startEdgeCenter.y + dirY * stepOffset;
+                const p1 = { x: lineCenterX + perpX * halfHeight, y: lineCenterY + perpY * halfHeight };
+                const p2 = { x: lineCenterX - perpX * halfHeight, y: lineCenterY - perpY * halfHeight };
+                ctx2d.moveTo(p1.x, p1.y);
+                ctx2d.lineTo(p2.x, p2.y);
+            }
+            ctx2d.lineWidth = (lineThickness / 2) / zoom;
+            ctx2d.strokeStyle = stairColor; // Renk zaten ayarlı ama garanti olsun
+            ctx2d.stroke();
+        }
 
-        const startEdgeCenter = {
-            x: stair.center.x - dirX * (stair.width / 2),
-            y: stair.center.y - dirY * (stair.width / 2)
+        // --- NORMAL MERDİVEN İÇİN OK ÇİZİMİ ---
+        const arrowLength = stair.width * 0.8;
+        const arrowStart = {
+            x: stair.center.x - dirX * (arrowLength / 2),
+            y: stair.center.y - dirY * (arrowLength / 2)
+        };
+        const arrowEnd = {
+            x: stair.center.x + dirX * (arrowLength / 2),
+            y: stair.center.y + dirY * (arrowLength / 2)
         };
 
         ctx2d.beginPath();
-        for (let i = 1; i < stepCount; i++) {
-            const stepOffset = (stair.width / stepCount) * i;
-
-            const lineCenterX = startEdgeCenter.x + dirX * stepOffset;
-            const lineCenterY = startEdgeCenter.y + dirY * stepOffset;
-
-            const p1 = { x: lineCenterX + perpX * halfHeight, y: lineCenterY + perpY * halfHeight };
-            const p2 = { x: lineCenterX - perpX * halfHeight, y: lineCenterY - perpY * halfHeight };
-
-            ctx2d.moveTo(p1.x, p1.y);
-            ctx2d.lineTo(p2.x, p2.y);
-        }
-        ctx2d.lineWidth = (lineThickness / 2) / zoom;
+        ctx2d.moveTo(arrowStart.x, arrowStart.y);
+        ctx2d.lineTo(arrowEnd.x, arrowEnd.y);
+        ctx2d.lineWidth = (lineThickness / 1.5) / zoom;
         ctx2d.strokeStyle = stairColor;
         ctx2d.stroke();
+
+        // DOLU OK BAŞI
+        const arrowHeadSize = Math.min(stair.height * 0.3, 15 / zoom);
+        const perpXArrow = -dirY; // Ok başına dik vektör
+        const perpYArrow = dirX;
+        const headBase = {
+            x: arrowEnd.x - dirX * arrowHeadSize,
+            y: arrowEnd.y - dirY * arrowHeadSize
+        };
+        const headP1 = {
+            x: headBase.x + perpXArrow * arrowHeadSize * 0.3, // Ok başı genişliği ayarı
+            y: headBase.y + perpYArrow * arrowHeadSize * 0.5  // Ok başı yüksekliği ayarı
+        };
+        const headP2 = {
+            x: headBase.x - perpXArrow * arrowHeadSize * 0.3,
+            y: headBase.y - perpYArrow * arrowHeadSize * 0.5
+        };
+        ctx2d.fillStyle = stairColor;
+        ctx2d.beginPath();
+        ctx2d.moveTo(arrowEnd.x, arrowEnd.y);
+        ctx2d.lineTo(headP1.x, headP1.y);
+        ctx2d.lineTo(headP2.x, headP2.y);
+        ctx2d.closePath();
+        ctx2d.fill();
+        // --- OK ÇİZİMİ SONU ---
     }
-
-    // Yön Okunu Çiz
-    const arrowLength = stair.width * 0.8;
-    const arrowStart = {
-        x: stair.center.x - Math.cos(rotRad) * (arrowLength / 2),
-        y: stair.center.y - Math.sin(rotRad) * (arrowLength / 2)
-    };
-    const arrowEnd = {
-        x: stair.center.x + Math.cos(rotRad) * (arrowLength / 2),
-        y: stair.center.y + Math.sin(rotRad) * (arrowLength / 2)
-    };
-
-    ctx2d.beginPath();
-    ctx2d.moveTo(arrowStart.x, arrowStart.y);
-    ctx2d.lineTo(arrowEnd.x, arrowEnd.y);
-    ctx2d.lineWidth = (lineThickness / 1.5) / zoom;
-    ctx2d.strokeStyle = stairColor;
-    ctx2d.stroke();
-
-    // DOLU OK BAŞI
-    const arrowHeadSize = Math.min(stair.height * 0.3, 15 / zoom);
-    const dirX = Math.cos(rotRad);
-    const dirY = Math.sin(rotRad);
-    const perpXArrow = -dirY;
-    const perpYArrow = dirX;
-
-    const headBase = {
-        x: arrowEnd.x - dirX * arrowHeadSize,
-        y: arrowEnd.y - dirY * arrowHeadSize
-    };
-    const headP1 = {
-        x: headBase.x + perpXArrow * arrowHeadSize * 0.3,
-        y: headBase.y + perpYArrow * arrowHeadSize * 0.5
-    };
-    const headP2 = {
-        x: headBase.x - perpXArrow * arrowHeadSize * 0.3,
-        y: headBase.y - perpYArrow * arrowHeadSize * 0.5
-    };
-
-    ctx2d.fillStyle = stairColor;
-    ctx2d.beginPath();
-    ctx2d.moveTo(arrowEnd.x, arrowEnd.y);
-    ctx2d.lineTo(headP1.x, headP1.y);
-    ctx2d.lineTo(headP2.x, headP2.y);
-    ctx2d.closePath();
-    ctx2d.fill();
+    // SAHANLIK İSE, BURADA OK ÇİZİLMEZ (sadece kenarlık/dolgu çizildi)
 }

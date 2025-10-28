@@ -298,3 +298,59 @@ canvas {
 
 .panel.rotate-mode {
 cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="2 4 20 16"><path d="M8.22673 13.3292C8.51492 14.1471 9.06116 14.8493 9.78313 15.3298C10.5051 15.8103 11.3637 16.0432 12.2296 15.9934C13.0954 15.9436 13.9216 15.6137 14.5837 15.0535C15.2458 14.4933 15.7078 13.7332 15.9003 12.8876C16.0927 12.042 16.0051 11.1567 15.6507 10.3652C15.2962 9.57374 14.6941 8.91887 13.9351 8.4993C13.176 8.07974 12.3012 7.91819 11.4424 8.03902C10.0777 8.23101 9.0827 9.23345 8 10M8 10V7M8 10H11" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>') 16 16, auto !important;    }   
+
+
+/* Merdiven Popup Stilleri */
+
+#stair-popup {
+    display: none;
+    position: absolute;
+    background-color: #2a2b2c;
+    border: 1px solid #5f6368;
+    border-radius: 8px;
+    z-index: 200;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    padding: 15px;
+    width: 300px; /* Genişliği ayarlayın */
+    font-size: 14px;
+}
+
+#stair-popup h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #8ab4f8;
+    border-bottom: 1px solid #5f6368;
+    padding-bottom: 5px;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+#stair-popup .setting-control {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+#stair-popup label {
+    margin-right: 10px;
+    flex-shrink: 0; /* Etiketlerin küçülmesini engelle */
+}
+
+#stair-popup input[type="text"],
+#stair-popup input[type="number"],
+#stair-popup select {
+    background-color: #1e1f20;
+    color: #e8eaed;
+    border: 1px solid #5f6368;
+    border-radius: 4px;
+    padding: 5px;
+    width: 120px; /* Input genişliğini ayarla */
+    box-sizing: border-box;
+}
+#stair-popup input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: auto; /* Checkbox'ı sağa yasla */
+    margin-left: 5px; /* Input ile arasında boşluk */
+}

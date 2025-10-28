@@ -196,6 +196,40 @@
  <select id="room-name-select" size="10"></select>
 </div>
 
+<div id="stair-popup">
+    <h3>Merdiven Ayarları</h3>
+    <div class="setting-control">
+        <label for="stair-name">Merdiven Adı:</label>
+        <input type="text" id="stair-name" value="A"/>
+    </div>
+    <div class="setting-control">
+        <label for="stair-bottom-elevation">Alt Kot (cm):</label>
+        <input type="number" id="stair-bottom-elevation" value="0"/>
+    </div>
+    <div class="setting-control">
+        <label for="stair-top-elevation">Üst Kot (cm):</label>
+        <input type="number" id="stair-top-elevation" value="270"/>
+    </div>
+    <div class="setting-control">
+        <label for="stair-width-edit">Merdiven Genişliği (cm):</label>
+        <input type="number" id="stair-width-edit" value="120"/>
+    </div>
+    <div class="setting-control">
+        <label for="stair-connected-stair">Bağlı Olduğu Merdiven:</label>
+        <select id="stair-connected-stair">
+            <option value="">YOK</option>
+            </select>
+    </div>
+    <div class="setting-control">
+        <label for="stair-is-landing">Orta Düzlem (Sahanlık):</label>
+        <input type="checkbox" id="stair-is-landing"/>
+    </div>
+    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+         <button id="cancel-stair-popup" class="btn">İptal</button>
+         <button id="confirm-stair-popup" class="btn">Tamam</button>
+    </div>
+</div>
+
 <canvas id="c2d"></canvas>
 <input type="text" id="length-input" />
 </div>

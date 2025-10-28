@@ -1,46 +1,71 @@
 // stairs.js
-// (Bu dosya beams.js ve columns.js'den uyarlanmıştır)
+// Son Güncelleme: CTRL+Sürükle ile kopyalamada yeni isim atama, duvar yüzeyi snap düzeltmesi.
 
-import { state, setState } from './main.js'; // setState import edin
-import { distToSegmentSquared } from './geometry.js';
+import { state, setState, WALL_HEIGHT } from './main.js';
+import { distToSegmentSquared } from './geometry.js'; // getStairCorners'ı import et veya stairs.js içinde tanımlıysa importu kaldır
 import { update3DScene } from './scene3d.js';
 import { currentModifierKeys } from './input.js';
+// recalculateStepCount bu dosyada tanımlı olduğu için import etmeye gerek yok
 
-// --- YENİ FONKSİYON ---
-/**
- * Merdivenin uzunluğuna göre basamak sayısını (25-30cm aralığında) hesaplar ve günceller.
- * @param {object} stair - Merdiven nesnesi
- */
+// Sıradaki merdiven ismini verir
+function getNextStairLetter() {
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let highestCharIndex = -1;
+    (state.stairs || []).forEach(s => {
+        if (s.name && s.name.length === 1 && letters.includes(s.name)) {
+            highestCharIndex = Math.max(highestCharIndex, letters.indexOf(s.name));
+        }
+    });
+    if (highestCharIndex < letters.length - 1) {
+        return letters[highestCharIndex + 1];
+    } else {
+        return `Merdiven ${highestCharIndex + 2}`;
+    }
+}
+
+// Merdiven nesnesi oluşturur
+export function createStairs(centerX, centerY, width, height, rotation) {
+    const nextName = getNextStairLetter(); // Sıradaki ismi al
+    const newStair = {
+        type: 'stairs',
+        id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`, // Benzersiz ID
+        name: nextName, // Otomatik isim
+        center: { x: centerX, y: centerY },
+        width: width, // Merdivenin UZUNLUĞU (Basamakların toplam run'ı)
+        height: height, // Merdivenin ENİ
+        rotation: rotation, // Açı
+        stepCount: 1, // Başlangıç değeri, recalculate ile güncellenecek
+        bottomElevation: 0, // Alt Kot
+        topElevation: WALL_HEIGHT, // Üst Kot (WALL_HEIGHT kullanıldı)
+        connectedStairId: null, // Bağlı merdiven ID'si
+        isLanding: false // Sahanlık mı?
+    };
+    recalculateStepCount(newStair); // Oluştururken hesapla
+    return newStair;
+}
+
+// Merdivenin uzunluğuna göre basamak sayısını hesaplar (sahanlık durumunu dikkate alır)
 export function recalculateStepCount(stair) {
-    const totalRun = stair.width; // Merdivenin uzunluğu
-    const minStepRun = 25;
-    const maxStepRun = 30;
-
-    if (!totalRun || totalRun <= 0) {
+    if (stair.isLanding) {
         stair.stepCount = 1;
         return;
     }
-
-    // İdeal basamak sayısını hesapla
+    const totalRun = stair.width;
+    const minStepRun = 25;
+    const maxStepRun = 30;
+    if (!totalRun || totalRun <= 0) {
+        stair.stepCount = 1; return;
+    }
     const idealStepRun = (minStepRun + maxStepRun) / 2;
     let idealStepCount = totalRun / idealStepRun;
-
-    // En yakın tam sayıya yuvarla (minimum 1)
     let calculatedStepCount = Math.max(1, Math.round(idealStepCount));
-
-    // Hesaplanan basamak derinliğini kontrol et
     let currentStepRun = totalRun / calculatedStepCount;
-
-    // Aralık kontrolü ve düzeltme
     if (currentStepRun < minStepRun) {
         calculatedStepCount = Math.max(1, Math.floor(totalRun / minStepRun));
     } else if (currentStepRun > maxStepRun) {
         calculatedStepCount = Math.max(1, Math.ceil(totalRun / maxStepRun));
     }
-
-    // Son kontrol
     currentStepRun = totalRun / calculatedStepCount;
-    // Küçük bir tolerans ekleyelim
     if (currentStepRun < minStepRun - 0.5 || currentStepRun > maxStepRun + 0.5) {
         if (currentStepRun < minStepRun) {
             calculatedStepCount = Math.max(1, Math.floor(totalRun / minStepRun));
@@ -48,25 +73,7 @@ export function recalculateStepCount(stair) {
             calculatedStepCount = Math.max(1, Math.ceil(totalRun / maxStepRun));
         }
     }
-
-
-    stair.stepCount = Math.max(1, calculatedStepCount); // Ekstra güvenlik
-}
-// --- YENİ FONKSİYON SONU ---
-
-// Merdiven nesnesi oluşturur
-export function createStairs(centerX, centerY, width, height, rotation) {
-    const newStair = {
-        type: 'stairs',
-        center: { x: centerX, y: centerY },
-        width: width, // Merdivenin UZUNLUĞU (Basamakların toplam run'ı)
-        height: height, // Merdivenin ENİ
-        rotation: rotation, // Açı
-        stepCount: 1, // Başlangıç değeri, recalculate ile güncellenecek
-        // direction: 'up' // (Ok yönü için, şimdilik sadece rotasyona bağlı)
-    };
-    recalculateStepCount(newStair); // Oluştururken hesapla
-    return newStair;
+    stair.stepCount = Math.max(1, calculatedStepCount);
 }
 
 // Merdivenin dünya koordinatlarındaki köşe noktalarını hesaplar
@@ -98,18 +105,12 @@ export function getStairCorners(stair) {
 export function getStairHandleAtPoint(point, stair, tolerance) {
     const cx = stair.center.x;
     const cy = stair.center.y;
-
-    // 1. Köşeleri Kontrol Et
     const corners = getStairCorners(stair);
     const cornerTolerance = tolerance * 1.5;
     for (let i = 0; i < corners.length; i++) {
         const dist = Math.hypot(point.x - corners[i].x, point.y - corners[i].y);
-        if (dist < cornerTolerance) {
-            return `corner_${i}`; // Döndürme için
-        }
+        if (dist < cornerTolerance) { return `corner_${i}`; }
     }
-
-    // 2. Kenarları Kontrol Et
     const rot = -(stair.rotation || 0) * Math.PI / 180;
     const dx = point.x - cx;
     const dy = point.y - cy;
@@ -117,12 +118,10 @@ export function getStairHandleAtPoint(point, stair, tolerance) {
     const localY = dx * Math.sin(rot) + dy * Math.cos(rot);
     const halfWidth = (stair.width || 0) / 2;
     const halfHeight = (stair.height || 0) / 2;
-
     if (Math.abs(localY + halfHeight) < tolerance && Math.abs(localX) <= halfWidth + tolerance) return 'edge_top';
     if (Math.abs(localY - halfHeight) < tolerance && Math.abs(localX) <= halfWidth + tolerance) return 'edge_bottom';
     if (Math.abs(localX + halfWidth) < tolerance && Math.abs(localY) <= halfHeight + tolerance) return 'edge_left';
     if (Math.abs(localX - halfWidth) < tolerance && Math.abs(localY) <= halfHeight + tolerance) return 'edge_right';
-
     return null;
 }
 
@@ -130,25 +129,13 @@ export function getStairHandleAtPoint(point, stair, tolerance) {
 export function getStairAtPoint(point) {
     const { stairs, zoom } = state;
     const handleTolerance = 8 / zoom;
-
-    // ÖNCE Handle kontrolü yap (SADECE EN ÜSTTEKİ MERDİVEN)
-    for (const stair of [...(stairs || [])].reverse()) { // stairs undefined olabilir kontrolü
+    for (const stair of [...(stairs || [])].reverse()) {
         const handle = getStairHandleAtPoint(point, stair, handleTolerance);
-        if (handle) {
-            // Handle bulundu, SADECE BU MERDİVENİ döndür ve ÇIK
-            return { type: 'stairs', object: stair, handle: handle };
-        }
+        if (handle) { return { type: 'stairs', object: stair, handle: handle }; }
     }
-
-    // Handle bulunamadıysa, Body kontrolü yap (SADECE EN ÜSTTEKİ MERDİVEN)
-    for (const stair of [...(stairs || [])].reverse()) { // stairs undefined olabilir kontrolü
-        if (isPointInStair(point, stair)) {
-            // Body içinde, SADECE BU MERDİVENİ döndür ve ÇIK
-            return { type: 'stairs', object: stair, handle: 'body' };
-        }
+    for (const stair of [...(stairs || [])].reverse()) {
+        if (isPointInStair(point, stair)) { return { type: 'stairs', object: stair, handle: 'body' }; }
     }
-
-    // Hiçbir merdiven bulunamadı
     return null;
 }
 
@@ -174,52 +161,42 @@ export function isPointInStair(point, stair) {
  * @param {Event} e - PointerDown olayı
  * @returns {object} - Sürükleme için { startPointForDragging, dragOffset, additionalState }
  */
-export function onPointerDown(selectedObject, pos, snappedPos, e) { // 'e' event objesini ekleyin
+export function onPointerDown(selectedObject, pos, snappedPos, e) {
     const stair = selectedObject.object;
-
-    // --- YENİ CTRL+DRAG KOPYALAMA ---
     const isCopying = e.ctrlKey && !e.altKey && !e.shiftKey && selectedObject.handle === 'body';
     let effectiveStair = stair;
 
     if (isCopying) {
         const newStair = JSON.parse(JSON.stringify(stair));
-        state.stairs = state.stairs || []; // stairs dizisi yoksa oluştur
+        newStair.name = getNextStairLetter(); // Kopyaya yeni bir isim ver
+        newStair.id = `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`; // Yeni ID ata
+        state.stairs = state.stairs || [];
         state.stairs.push(newStair);
         effectiveStair = newStair;
         setState({ selectedObject: { ...selectedObject, object: newStair } });
-        // Kopyalama sonrası işlem başarılıysa saveState ve update3DScene çağrılabilir (pointerUp'ta)
     }
-    // --- YENİ CTRL+DRAG SONU ---
 
     state.preDragNodeStates.set('center_x', effectiveStair.center.x);
     state.preDragNodeStates.set('center_y', effectiveStair.center.y);
     state.preDragNodeStates.set('width', effectiveStair.width || 0);
     state.preDragNodeStates.set('height', effectiveStair.height || 0);
     state.preDragNodeStates.set('rotation', effectiveStair.rotation || 0);
-    // state.preDragNodeStates.set('stepCount', effectiveStair.stepCount || 1); // Kaydetmeye gerek yok, kopyadan geliyor
 
     let startPointForDragging;
     let dragOffset = { x: 0, y: 0 };
-    let additionalState = { columnRotationOffset: null }; // Kolon/Kiriş ile aynı state'i kullanalım
+    let additionalState = { columnRotationOffset: null };
 
-    // İşlemleri 'effectiveStair' üzerinden yap
     if (selectedObject.handle === 'body' || selectedObject.handle === 'center') {
         startPointForDragging = { x: pos.x, y: pos.y };
-        dragOffset = {
-            x: effectiveStair.center.x - pos.x,
-            y: effectiveStair.center.y - pos.y
-        };
+        dragOffset = { x: effectiveStair.center.x - pos.x, y: effectiveStair.center.y - pos.y };
     } else if (selectedObject.handle.startsWith('corner_')) {
-        // Döndürme
         startPointForDragging = { x: effectiveStair.center.x, y: effectiveStair.center.y };
         const initialAngle = Math.atan2(pos.y - effectiveStair.center.y, pos.x - effectiveStair.center.x);
         const initialRotationRad = (effectiveStair.rotation || 0) * Math.PI / 180;
         additionalState.columnRotationOffset = initialRotationRad - initialAngle;
     } else {
-        // Kenar (boyutlandırma)
         startPointForDragging = { x: snappedPos.roundedX, y: snappedPos.roundedY };
     }
-
     return { startPointForDragging, dragOffset, additionalState };
 }
 
@@ -229,15 +206,14 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) { // 'e' event
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
-    const stair = state.selectedObject.object; // Kopyalanmışsa güncel merdiven burada
+    const stair = state.selectedObject.object;
     const handle = state.selectedObject.handle;
 
     if (handle.startsWith('corner_')) {
-        // Döndürme (Kolon/Kiriş ile aynı)
+        // Döndürme
         const center = stair.center;
         const mouseAngle = Math.atan2(unsnappedPos.y - center.y, unsnappedPos.x - center.x);
         let newRotationRad = mouseAngle + state.columnRotationOffset;
-
         const snapAngleRad1 = (1 * Math.PI / 180);
         newRotationRad = Math.round(newRotationRad / snapAngleRad1) * snapAngleRad1;
         let newRotationDeg = newRotationRad * 180 / Math.PI;
@@ -253,97 +229,82 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         let newCenterX = unsnappedPos.x + state.dragOffset.x;
         let newCenterY = unsnappedPos.y + state.dragOffset.y;
 
-        // --- GÜNCELLENMİŞ SNAP MANTIĞI (Duvar Kenarları Dahil - 2cm Uzaklık) ---
-        const SNAP_DISTANCE = 15; // Snap mesafesi (cm)
-        const WALL_OFFSET = 2; // Duvara uzaklık (cm)
-        let bestSnapX = { diff: SNAP_DISTANCE, delta: 0 };
-        let bestSnapY = { diff: SNAP_DISTANCE, delta: 0 };
+        // --- GÜNCELLENMİŞ SNAP MANTIĞI (Duvar Yüzeyleri ve Diğer Merdivenler) ---
+        const SNAP_DISTANCE_WALL_SURFACE = 5; // Duvar yüzeyine snap mesafesi (cm)
+        const SNAP_DISTANCE_OTHER = 15; // Diğer snap türleri için mesafe (cm)
+        let bestSnapX = { diff: SNAP_DISTANCE_OTHER, delta: 0, type: 'other' };
+        let bestSnapY = { diff: SNAP_DISTANCE_OTHER, delta: 0, type: 'other' };
 
-        // Geçici merkeze göre köşe ve merkez noktalarını hesapla
         const tempCorners = getStairCorners({ ...stair, center: { x: newCenterX, y: newCenterY } });
-        const dragPoints = [
-            ...tempCorners, // Köşeler
-            { x: newCenterX, y: newCenterY } // Merkez
-        ];
+        const dragPoints = [ ...tempCorners, { x: newCenterX, y: newCenterY } ];
 
-        // 1. Duvarlara Snap (Merkez + Kenarlar + 2cm Uzaklık)
+        // 1. Duvar Yüzeylerine Snap
         state.walls.forEach(wall => {
             if (!wall.p1 || !wall.p2) return;
             const wallThickness = wall.thickness || state.wallThickness;
             const halfThickness = wallThickness / 2;
-            
-            const isVertical = Math.abs(wall.p1.x - wall.p2.x) < 0.1;
-            const isHorizontal = Math.abs(wall.p1.y - wall.p2.y) < 0.1;
+            const dxW = wall.p2.x - wall.p1.x;
+            const dyW = wall.p2.y - wall.p1.y;
+            const isVertical = Math.abs(dxW) < 0.1;
+            const isHorizontal = Math.abs(dyW) < 0.1;
 
             if (isVertical) {
-                const wallCenterX = wall.p1.x;
-                // Duvar kenarlarına 2cm uzaklıktan snap
-                const snapXPositions = [
-                    wallCenterX,                                // Merkez
-                    wallCenterX - halfThickness - WALL_OFFSET, // Sol kenara 2cm uzaklık
-                    wallCenterX + halfThickness + WALL_OFFSET  // Sağ kenara 2cm uzaklık
-                ];
-                
+                const wallX = wall.p1.x;
+                const snapXPositions = [ wallX - halfThickness, wallX + halfThickness ];
                 for (const snapX of snapXPositions) {
                     for (const dP of dragPoints) {
                         const diff = Math.abs(dP.x - snapX);
-                        if (diff < bestSnapX.diff) bestSnapX = { diff, delta: snapX - dP.x };
+                        if (diff < SNAP_DISTANCE_WALL_SURFACE && diff < bestSnapX.diff) {
+                            bestSnapX = { diff, delta: snapX - dP.x, type: 'wall_surface' };
+                        }
                     }
                 }
             } else if (isHorizontal) {
-                const wallCenterY = wall.p1.y;
-                // Duvar kenarlarına 2cm uzaklıktan snap
-                const snapYPositions = [
-                    wallCenterY,                                // Merkez
-                    wallCenterY - halfThickness - WALL_OFFSET, // Üst kenara 2cm uzaklık
-                    wallCenterY + halfThickness + WALL_OFFSET  // Alt kenara 2cm uzaklık
-                ];
-                
+                const wallY = wall.p1.y;
+                const snapYPositions = [ wallY - halfThickness, wallY + halfThickness ];
                 for (const snapY of snapYPositions) {
                     for (const dP of dragPoints) {
                         const diff = Math.abs(dP.y - snapY);
-                        if (diff < bestSnapY.diff) bestSnapY = { diff, delta: snapY - dP.y };
+                        if (diff < SNAP_DISTANCE_WALL_SURFACE && diff < bestSnapY.diff) {
+                            bestSnapY = { diff, delta: snapY - dP.y, type: 'wall_surface' };
+                        }
                     }
                 }
             }
-             // TODO: Açılı duvarlara snap gerekirse eklenebilir (daha karmaşık)
+            // Açılı duvar snap'i şimdilik atlandı
         });
 
-        // 2. Diğer Merdivenlere Snap
-        (state.stairs || []).forEach(otherStair => { // stairs undefined olabilir
-             if (otherStair === stair) return; // Kendisine snap yapma
-             const otherCorners = getStairCorners(otherStair);
-             const otherPoints = [
-                 ...otherCorners,
-                 otherStair.center
-             ];
-
-             // Basitlik için sadece X ve Y eksenlerine paralel kenarlara snap yapalım
-             // (Daha gelişmiş snap için köşe-köşe veya kenar-kenar hizalama gerekir)
-             otherPoints.forEach(oP => {
-                 // Dikey Hizalama (X)
-                 for (const dP of dragPoints) {
-                     const diffX = Math.abs(dP.x - oP.x);
-                     if (diffX < bestSnapX.diff) bestSnapX = { diff: diffX, delta: oP.x - dP.x };
-                 }
-                 // Yatay Hizalama (Y)
-                 for (const dP of dragPoints) {
-                     const diffY = Math.abs(dP.y - oP.y);
-                     if (diffY < bestSnapY.diff) bestSnapY = { diff: diffY, delta: oP.y - dP.y };
-                 }
-             });
-        });
+        // 2. Diğer Merdivenlere Snap (Eğer daha iyi duvar yüzeyi snap'i yoksa)
+        if (bestSnapX.type !== 'wall_surface' || bestSnapY.type !== 'wall_surface') {
+            (state.stairs || []).forEach(otherStair => {
+                if (otherStair === stair) return;
+                const otherCorners = getStairCorners(otherStair);
+                const otherPoints = [ ...otherCorners, otherStair.center ];
+                otherPoints.forEach(oP => {
+                    for (const dP of dragPoints) {
+                        const diffX = Math.abs(dP.x - oP.x);
+                        if (diffX < bestSnapX.diff || (bestSnapX.type === 'wall_surface' && diffX < SNAP_DISTANCE_OTHER)) {
+                            bestSnapX = { diff: diffX, delta: oP.x - dP.x, type: 'stair' };
+                        }
+                        const diffY = Math.abs(dP.y - oP.y);
+                        if (diffY < bestSnapY.diff || (bestSnapY.type === 'wall_surface' && diffY < SNAP_DISTANCE_OTHER)) {
+                            bestSnapY = { diff: diffY, delta: oP.y - dP.y, type: 'stair' };
+                        }
+                    }
+                });
+            });
+        }
 
         // Snap deltalarını uygula
-        if (bestSnapX.delta !== 0) newCenterX += bestSnapX.delta;
-        if (bestSnapY.delta !== 0) newCenterY += bestSnapY.delta;
+        newCenterX += bestSnapX.delta;
+        newCenterY += bestSnapY.delta;
         // --- SNAP MANTIĞI SONU ---
 
         stair.center.x = newCenterX;
         stair.center.y = newCenterY;
 
     } else if (handle.startsWith('edge_')) {
-        // Boyutlandırma (Kolon/Kiriş ile aynı)
+        // Boyutlandırma
         let fixedEdgeHandle;
         if (handle === 'edge_top') fixedEdgeHandle = 'edge_bottom';
         else if (handle === 'edge_bottom') fixedEdgeHandle = 'edge_top';
@@ -393,7 +354,6 @@ export function onPointerMove(snappedPos, unsnappedPos) {
              stair.height = newSize; // 'height' (en) değişti
          } else {
              stair.width = newSize; // 'width' (uzunluk) değişti
-             // Sadece uzunluk değiştiğinde basamakları yeniden hesapla
              recalculateStepCount(stair);
          }
         stair.center.x = newCenterX;

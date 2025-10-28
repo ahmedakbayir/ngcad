@@ -40,8 +40,20 @@ export function saveState() {
         })),
         columns: JSON.parse(JSON.stringify(state.columns)), // Kolonlar zaten deep copy yapılıyordu
         beams: JSON.parse(JSON.stringify(state.beams)), // <-- YENİ SATIRI EKLEYİN
-        stairs: JSON.parse(JSON.stringify(state.stairs)) // <-- YENİ SATIRI EKLEYİN
-    };
+        stairs: JSON.parse(JSON.stringify(state.stairs.map(s => ({ // <-- YENİ SATIRI EKLEYİN (ve içeriğini güncelle)
+                    type: s.type,
+                    id: s.id,
+                    name: s.name,
+                    center: s.center,
+                    width: s.width,
+                    height: s.height,
+                    rotation: s.rotation,
+                    stepCount: s.stepCount,
+                    bottomElevation: s.bottomElevation,
+                    topElevation: s.topElevation,
+                    connectedStairId: s.connectedStairId,
+                    isLanding: s.isLanding
+                }))))    };
 
     // History yönetimi (değişiklik yok)
     state.history = state.history.slice(0, state.historyIndex + 1);
@@ -104,8 +116,20 @@ export function restoreState(snapshot) {
         })),
         columns: snapshot.columns || [], // Kolonları geri yükle (veya boş dizi ata)
         beams: snapshot.beams || [], // <-- YENİ SATIRI EKLEYİN
-        stairs: snapshot.stairs || [] // <-- YENİ SATIRI EKLEYİN
-    });
+stairs: (snapshot.stairs || []).map(s => ({ // <-- YENİ SATIRI EKLEYİN (ve içeriğini güncelle)
+            type: s.type,
+            id: s.id,
+            name: s.name,
+            center: s.center,
+            width: s.width,
+            height: s.height,
+            rotation: s.rotation,
+            stepCount: s.stepCount,
+            bottomElevation: s.bottomElevation,
+            topElevation: s.topElevation,
+            connectedStairId: s.connectedStairId,
+            isLanding: s.isLanding
+        }))    });
 }
 
 // undo ve redo fonksiyonlarında değişiklik yok
