@@ -1,7 +1,8 @@
 import { state, setState } from './main.js';
-import { getOrCreateNode, wallExists } from './geometry.js';
+import { getOrCreateNode } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
+import { wallExists } from './wall-handler.js'; // <-- YENİ
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {

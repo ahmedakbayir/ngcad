@@ -27,6 +27,8 @@ import {
     drawSnapFeedback
 } from './draw-previews.js';
 
+import { drawSymmetryPreview } from './draw-previews.js';
+
 
 export function draw2D() {
     const { ctx2d, c2d } = dom;
@@ -221,6 +223,7 @@ export function draw2D() {
     drawSelectionFeedback(ctx2d, state); // Bu fonksiyon seçili nesnenin ne olduğuna göre farklı şeyler çizebilir
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
-
+    drawSymmetryPreview(ctx2d, state);
+    
     ctx2d.restore();
 }

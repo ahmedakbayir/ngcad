@@ -1,7 +1,8 @@
 // pointer-down.js
+import { currentModifierKeys } from './input.js';
 import { state, dom, setState, setMode } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
-import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, wallExists as geometryWallExists, snapTo15DegreeAngle } from './geometry.js';
+import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { update3DScene } from './scene3d.js'; // Doğru yerden import
 import { saveState } from './history.js';
@@ -10,9 +11,11 @@ import { getObjectAtPoint } from './actions.js';
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from './columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from './beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from './stairs.js';
-import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall } from './wall-handler.js';
+import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from './wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from './door-handler.js';
 import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as onPointerDownSelectWindow } from './window-handler.js';
+import { applySymmetry, applyCopy } from './symmetry.js';
+
 
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) return;
@@ -250,6 +253,59 @@ export function onPointerDown(e) {
                  }
              }
          }
+         } else if (state.currentMode === "drawSymmetry") {
+        if (!state.symmetryAxisP1) {
+            // İlk nokta: Ekseni başlat
+            setState({ 
+                symmetryAxisP1: { x: snappedPos.roundedX, y: snappedPos.roundedY },
+                symmetryAxisP2: null 
+            });
+        } else {
+            // İkinci nokta: Simetri veya kopya uygula
+            let axisP1 = state.symmetryAxisP1;
+            let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            
+            // SHIFT basılıysa 15'er derecelik açılara snap yap
+            if (currentModifierKeys.shift) {
+                const dx = axisP2.x - axisP1.x;
+                const dy = axisP2.y - axisP1.y;
+                const distance = Math.hypot(dx, dy);
+                
+                if (distance > 1) {
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                    // 15'er derecelik açılara yuvarla
+                    const snappedAngle = Math.round(angle / 15) * 15;
+                    const snappedAngleRad = snappedAngle * Math.PI / 180;
+                    
+                    axisP2 = {
+                        x: axisP1.x + distance * Math.cos(snappedAngleRad),
+                        y: axisP1.y + distance * Math.sin(snappedAngleRad)
+                    };
+                }
+            }
+            
+            // Ekseni kontrol et
+            const axisLength = Math.hypot(axisP2.x - axisP1.x, axisP2.y - axisP1.y);
+            if (axisLength > 10) { // Minimum 10cm
+                // CTRL basılıysa birebir kopya, değilse simetri
+                if (currentModifierKeys.ctrl) {
+                    applyCopy(axisP1, axisP2);
+                } else {
+                    applySymmetry(axisP1, axisP2);
+                }
+            }
+            
+            // Simetri modunu temizle
+            setState({ 
+                symmetryAxisP1: null, 
+                symmetryAxisP2: null,
+                symmetryPreviewElements: { 
+                    nodes: [], walls: [], doors: [], windows: [], vents: [],
+                    columns: [], beams: [], stairs: [], rooms: [] 
+                }
+            });
+            setMode("select"); // Seçim moduna dön
+        }
     }
 
     // Eğer yeni bir nesne oluşturulduysa (ve mod 'select' değilse), seçimi temizle

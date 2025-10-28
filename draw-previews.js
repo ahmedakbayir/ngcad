@@ -193,3 +193,149 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
         ctx2d.fill();
     }
 }
+
+/**
+ * Simetri eksenini ve önizlemesini çizer
+ */
+export function drawSymmetryPreview(ctx2d, state) {
+    const { symmetryAxisP1, symmetryAxisP2, symmetryPreviewElements, zoom, mousePos, currentMode } = state;
+    
+    // Simetri modundayken HER ZAMAN yeşil noktayı göster
+    if (currentMode === "drawSymmetry") {
+        if (!symmetryAxisP1) {
+            // İlk nokta belirlenmemiş - mouse ucunda yeşil nokta
+            ctx2d.fillStyle = "#24ffda";
+            ctx2d.beginPath();
+            ctx2d.arc(mousePos.x, mousePos.y, 3 / zoom, 0, Math.PI * 2);
+            ctx2d.fill();
+            
+            // İç içe halka efekti
+            ctx2d.strokeStyle = "#24ffda";
+            ctx2d.lineWidth = 1 / zoom;
+            ctx2d.beginPath();
+            ctx2d.arc(mousePos.x, mousePos.y, 5 / zoom, 0, Math.PI * 2);
+            ctx2d.stroke();
+            
+            return; // İlk nokta yoksa geri kalanı çizme
+        }
+    }
+    
+    // Eğer simetri modunda değilsek hiçbir şey çizme
+    if (!symmetryAxisP1) return;
+    
+    // 2. Ekseni çiz
+    if (symmetryAxisP2) {
+        ctx2d.strokeStyle = "#24ffda";
+        ctx2d.lineWidth = 2 / zoom;
+        ctx2d.setLineDash([8 / zoom, 4 / zoom]);
+        ctx2d.beginPath();
+        ctx2d.moveTo(symmetryAxisP1.x, symmetryAxisP1.y);
+        ctx2d.lineTo(symmetryAxisP2.x, symmetryAxisP2.y);
+        ctx2d.stroke();
+        ctx2d.setLineDash([]);
+    }
+    
+    // 3. Eksen uç noktalarını çiz
+    ctx2d.fillStyle = "#24ffda";
+    ctx2d.beginPath();
+    ctx2d.arc(symmetryAxisP1.x, symmetryAxisP1.y, 4 / zoom, 0, Math.PI * 2);
+    ctx2d.fill();
+    
+    if (symmetryAxisP2) {
+        ctx2d.beginPath();
+        ctx2d.arc(symmetryAxisP2.x, symmetryAxisP2.y, 4 / zoom, 0, Math.PI * 2);
+        ctx2d.fill();
+    }
+    
+    // 4. Önizleme elemanlarını çiz (yarı saydam)
+    if (!symmetryPreviewElements || !symmetryAxisP2) return;
+    
+    ctx2d.globalAlpha = 0.5; // Biraz daha opak yaptık
+    
+    // Kolonları çiz
+    if (symmetryPreviewElements.columns && symmetryPreviewElements.columns.length > 0) {
+        symmetryPreviewElements.columns.forEach(col => {
+            if (col.center) {
+                const halfW = (col.width || col.size || 30) / 2;
+                const halfH = (col.height || col.size || 30) / 2;
+                const rot = (col.rotation || 0) * Math.PI / 180;
+                
+                ctx2d.fillStyle = "#8ab4f8";
+                ctx2d.strokeStyle = "#8ab4f8";
+                ctx2d.lineWidth = 2 / zoom;
+                
+                ctx2d.save();
+                ctx2d.translate(col.center.x, col.center.y);
+                ctx2d.rotate(rot);
+                ctx2d.strokeRect(-halfW, -halfH, halfW * 2, halfH * 2);
+                ctx2d.restore();
+            }
+        });
+    }
+    
+    // Kirişleri çiz
+    if (symmetryPreviewElements.beams && symmetryPreviewElements.beams.length > 0) {
+        symmetryPreviewElements.beams.forEach(beam => {
+            if (beam.center) {
+                const halfW = beam.width / 2;
+                const halfH = beam.height / 2;
+                const rot = (beam.rotation || 0) * Math.PI / 180;
+                
+                ctx2d.strokeStyle = "#8ab4f8";
+                ctx2d.lineWidth = 2 / zoom;
+                ctx2d.setLineDash([6 / zoom, 3 / zoom]);
+                
+                ctx2d.save();
+                ctx2d.translate(beam.center.x, beam.center.y);
+                ctx2d.rotate(rot);
+                ctx2d.strokeRect(-halfW, -halfH, halfW * 2, halfH * 2);
+                ctx2d.restore();
+                
+                ctx2d.setLineDash([]);
+            }
+        });
+    }
+    
+    // Merdivenleri çiz
+    if (symmetryPreviewElements.stairs && symmetryPreviewElements.stairs.length > 0) {
+        symmetryPreviewElements.stairs.forEach(stair => {
+            if (stair.center) {
+                const halfW = stair.width / 2;
+                const halfH = stair.height / 2;
+                const rot = (stair.rotation || 0) * Math.PI / 180;
+                
+                ctx2d.strokeStyle = "#8ab4f8";
+                ctx2d.lineWidth = 2 / zoom;
+                
+                ctx2d.save();
+                ctx2d.translate(stair.center.x, stair.center.y);
+                ctx2d.rotate(rot);
+                ctx2d.strokeRect(-halfW, -halfH, halfW * 2, halfH * 2);
+                ctx2d.restore();
+            }
+        });
+    }
+    
+    // Duvarları çiz
+    ctx2d.strokeStyle = "#8ab4f8";
+    ctx2d.lineWidth = 2 / zoom;
+    ctx2d.setLineDash([]);
+    symmetryPreviewElements.walls.forEach(wall => {
+        if (wall.p1 && wall.p2) {
+            ctx2d.beginPath();
+            ctx2d.moveTo(wall.p1.x, wall.p1.y);
+            ctx2d.lineTo(wall.p2.x, wall.p2.y);
+            ctx2d.stroke();
+        }
+    });
+    
+    // Node'ları çiz
+    ctx2d.fillStyle = "#8ab4f8";
+    symmetryPreviewElements.nodes.forEach(node => {
+        ctx2d.beginPath();
+        ctx2d.arc(node.x, node.y, 3 / zoom, 0, Math.PI * 2);
+        ctx2d.fill();
+    });
+    
+    ctx2d.globalAlpha = 1.0;
+}

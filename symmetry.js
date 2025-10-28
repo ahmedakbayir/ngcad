@@ -11,6 +11,178 @@ import { update3DScene } from './scene3d.js';
 // Gerekirse turf import'u da buraya eklenebilir
 // import * as turf from '@turf/turf'; // Eğer @turf/turf import ediliyorsa
 
+// symmetry.js - calculateCopyPreview fonksiyonunu EXPORT EDİN
+
+/**
+ * Ctrl ile birebir kopya önizlemesini hesaplar
+ * @param {object} axisP1 - Eksen başlangıç noktası {x, y}
+ * @param {object} axisP2 - Eksen bitiş noktası {x, y}
+ */
+export function calculateCopyPreview(axisP1, axisP2) {
+    if (!axisP1 || !axisP2) {
+        setState({ symmetryPreviewElements: { 
+            nodes: [], walls: [], doors: [], windows: [], vents: [], 
+            columns: [], beams: [], stairs: [], rooms: [] 
+        }});
+        return;
+    }
+
+    const preview = {
+        nodes: [], walls: [], doors: [], windows: [], vents: [], 
+        columns: [], beams: [], stairs: [], rooms: []
+    };
+    
+    // Çeviri vektörü
+    const translationX = axisP2.x - axisP1.x;
+    const translationY = axisP2.y - axisP1.y;
+    
+    const nodeMap = new Map();
+
+    // 1. Nodeları kopyala
+    state.nodes.forEach(node => {
+        const copied = {
+            x: node.x + translationX,
+            y: node.y + translationY
+        };
+        nodeMap.set(node, copied);
+        preview.nodes.push(copied);
+    });
+
+    // 2. Duvarları kopyala
+    state.walls.forEach(wall => {
+        const copiedP1 = nodeMap.get(wall.p1);
+        const copiedP2 = nodeMap.get(wall.p2);
+        if (copiedP1 && copiedP2) {
+            preview.walls.push({
+                p1: copiedP1,
+                p2: copiedP2,
+                thickness: wall.thickness || state.wallThickness,
+                wallType: wall.wallType || 'normal'
+            });
+        }
+    });
+
+    // 3. Kapıları kopyala
+    state.doors.forEach(door => {
+        const wall = door.wall;
+        const copiedP1 = nodeMap.get(wall.p1);
+        const copiedP2 = nodeMap.get(wall.p2);
+        if (copiedP1 && copiedP2) {
+            const previewWall = { p1: copiedP1, p2: copiedP2 };
+            preview.doors.push({
+                wall: previewWall,
+                pos: door.pos,
+                width: door.width,
+                type: door.type
+            });
+        }
+    });
+
+    // 4. Pencereleri kopyala
+    state.walls.forEach(wall => {
+        const copiedP1 = nodeMap.get(wall.p1);
+        const copiedP2 = nodeMap.get(wall.p2);
+        if (copiedP1 && copiedP2) {
+            const previewWall = { p1: copiedP1, p2: copiedP2 };
+            
+            (wall.windows || []).forEach(window => {
+                preview.windows.push({
+                    wall: previewWall,
+                    pos: window.pos,
+                    width: window.width,
+                    type: window.type,
+                    roomName: window.roomName
+                });
+            });
+            
+            (wall.vents || []).forEach(vent => {
+                preview.vents.push({
+                    wall: previewWall,
+                    pos: vent.pos,
+                    width: vent.width,
+                    type: vent.type
+                });
+            });
+        }
+    });
+
+    // 5. Kolonları kopyala
+    state.columns.forEach(col => {
+        const copiedCenter = {
+            x: col.center.x + translationX,
+            y: col.center.y + translationY
+        };
+        preview.columns.push({
+            ...col, 
+            center: copiedCenter, 
+            rotation: col.rotation || 0
+        });
+    });
+
+    // 6. Kirişleri kopyala
+    state.beams.forEach(beam => {
+        const copiedCenter = {
+            x: beam.center.x + translationX,
+            y: beam.center.y + translationY
+        };
+        preview.beams.push({
+            ...beam, 
+            center: copiedCenter, 
+            rotation: beam.rotation || 0
+        });
+    });
+
+    // 7. Merdivenleri kopyala
+    state.stairs.forEach(stair => {
+        const copiedCenter = {
+            x: stair.center.x + translationX,
+            y: stair.center.y + translationY
+        };
+        preview.stairs.push({
+            ...stair, 
+            center: copiedCenter, 
+            rotation: stair.rotation || 0
+        });
+    });
+
+    // 8. Odaları kopyala
+    state.rooms.forEach(room => {
+        if (room.polygon?.geometry?.coordinates) {
+            const coords = room.polygon.geometry.coordinates[0];
+            const copiedCoords = coords.map(p => [p[0] + translationX, p[1] + translationY]);
+
+            if (copiedCoords.length >= 3) {
+                // Poligonu kapat
+                if (copiedCoords[0][0] !== copiedCoords[copiedCoords.length - 1][0] ||
+                    copiedCoords[0][1] !== copiedCoords[copiedCoords.length - 1][1]) {
+                    copiedCoords.push([...copiedCoords[0]]);
+                }
+                
+                let copiedCenter = null;
+                if (room.center) {
+                    copiedCenter = [
+                        room.center[0] + translationX,
+                        room.center[1] + translationY
+                    ];
+                }
+                
+                try {
+                    const copiedPolygon = turf.polygon([copiedCoords]);
+                    preview.rooms.push({
+                        polygon: copiedPolygon, 
+                        name: room.name, 
+                        center: copiedCenter
+                    });
+                } catch (e) {
+                    console.error("Kopya önizleme poligonu oluşturulamadı:", e);
+                }
+            }
+        }
+    });
+
+    setState({ symmetryPreviewElements: preview });
+}
+
 /**
  * Verilen eksene göre tüm elemanların simetri önizlemesini hesaplar ve state'i günceller.
  * @param {object} axisP1 - Eksen başlangıç noktası {x, y}
@@ -168,6 +340,158 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
 
     setState({ symmetryPreviewElements: preview });
 }
+
+
+
+/**
+ * Ctrl ile birebir kopya oluşturur (simetri değil, düz çeviri/translasyon)
+ * @param {object} axisP1 - Eksen başlangıç noktası {x, y}
+ * @param {object} axisP2 - Eksen bitiş noktası {x, y}
+ */
+export function applyCopy(axisP1, axisP2) {
+    if (!axisP1 || !axisP2) return;
+
+    // DÜZELTİLMİŞ: Çeviri vektörü - 2x kaldırıldı
+    const translationX = axisP2.x - axisP1.x;  // ÖNCEKİ: * 2
+    const translationY = axisP2.y - axisP1.y;  // ÖNCEKİ: * 2
+
+    const nodeMap = new Map();
+    const newWalls = [];
+    const newDoors = [];
+    const newWindowsMap = new Map();
+    const newVentsMap = new Map();
+    const newColumns = [];
+    const newBeams = [];
+    const newStairs = [];
+    const copiedRoomNames = new Map();
+
+    // 1. Nodeları Kopyala (çeviri uygula)
+    state.nodes.forEach(node => {
+        const copiedCoord = {
+            x: node.x + translationX,
+            y: node.y + translationY
+        };
+        const newNode = getOrCreateNode(copiedCoord.x, copiedCoord.y);
+        nodeMap.set(node, newNode);
+    });
+
+    // 2. Duvarları Oluştur
+    state.walls.forEach(wall => {
+        const newP1 = nodeMap.get(wall.p1);
+        const newP2 = nodeMap.get(wall.p2);
+        if (newP1 && newP2 && newP1 !== newP2 && !wallExists(newP1, newP2)) {
+            const newWall = {
+                type: 'wall', p1: newP1, p2: newP2,
+                thickness: wall.thickness || state.wallThickness,
+                wallType: wall.wallType || 'normal', windows: [], vents: []
+            };
+            newWalls.push(newWall);
+            newWindowsMap.set(newWall, []);
+            newVentsMap.set(newWall, []);
+
+            // Pencereleri ve menfezleri aynı pozisyonda kopyala
+            (wall.windows || []).forEach(window => {
+                newWindowsMap.get(newWall).push({ ...window });
+            });
+            (wall.vents || []).forEach(vent => {
+                newVentsMap.get(newWall).push({ ...vent });
+            });
+        }
+    });
+
+    // 3. Kapıları Oluştur
+    state.doors.forEach(door => {
+        const wall = door.wall;
+        const newP1 = nodeMap.get(wall.p1);
+        const newP2 = nodeMap.get(wall.p2);
+        const newWallRef = newWalls.find(nw => (nw.p1 === newP1 && nw.p2 === newP2) || (nw.p1 === newP2 && nw.p2 === newP1));
+
+        if (newWallRef) {
+            newDoors.push({ ...door, wall: newWallRef });
+        }
+    });
+
+    // 4. Kolonları Oluştur (rotasyon aynı kalır)
+    state.columns.forEach(col => {
+        const copiedCenter = {
+            x: col.center.x + translationX,
+            y: col.center.y + translationY
+        };
+        const newCol = createColumn(copiedCenter.x, copiedCenter.y, 0);
+        Object.assign(newCol, {
+            width: col.width || col.size, height: col.height || col.size,
+            size: Math.max(col.width || col.size, col.height || col.size),
+            rotation: col.rotation || 0, // Rotasyon aynı kalır
+            hollowWidth: col.hollowWidth, hollowHeight: col.hollowHeight,
+            hollowOffsetX: col.hollowOffsetX, hollowOffsetY: col.hollowOffsetY
+        });
+        newColumns.push(newCol);
+    });
+
+    // 5. Kirişleri Oluştur (rotasyon aynı kalır)
+    state.beams.forEach(beam => {
+        const copiedCenter = {
+            x: beam.center.x + translationX,
+            y: beam.center.y + translationY
+        };
+        const newBeam = createBeam(copiedCenter.x, copiedCenter.y, beam.width, beam.height, beam.rotation || 0);
+        Object.assign(newBeam, {
+            depth: beam.depth, hollowWidth: beam.hollowWidth, hollowHeight: beam.hollowHeight,
+            hollowOffsetX: beam.hollowOffsetX, hollowOffsetY: beam.hollowOffsetY
+        });
+        newBeams.push(newBeam);
+    });
+
+    // 6. Merdivenleri Oluştur (rotasyon aynı kalır)
+    state.stairs.forEach(stair => {
+        const copiedCenter = {
+            x: stair.center.x + translationX,
+            y: stair.center.y + translationY
+        };
+        const newStair = createStairs(copiedCenter.x, copiedCenter.y, stair.width, stair.height, stair.rotation || 0);
+        newStairs.push(newStair);
+    });
+
+    // 7. Oda İsimlerini Kopyala
+    state.rooms.forEach(room => {
+        if (room.center) {
+            const copiedCenter = {
+                x: room.center[0] + translationX,
+                y: room.center[1] + translationY
+            };
+            const key = `${copiedCenter.x.toFixed(3)},${copiedCenter.y.toFixed(3)}`;
+            copiedRoomNames.set(key, room.name);
+        }
+    });
+
+    // 8. Yeni Elemanları State'e Ekle
+    state.walls.push(...newWalls);
+    state.doors.push(...newDoors);
+    newWindowsMap.forEach((windows, wall) => wall.windows = windows);
+    newVentsMap.forEach((vents, wall) => wall.vents = vents);
+    state.columns.push(...newColumns);
+    state.beams.push(...newBeams);
+    state.stairs.push(...newStairs);
+
+    // 9. Duvarları İşle
+    processWalls();
+
+    // 10. Yeni Odalara İsim Ata
+    state.rooms.forEach(newRoom => {
+        if (newRoom.name === 'MAHAL' && newRoom.center) {
+            const key = `${newRoom.center[0].toFixed(3)},${newRoom.center[1].toFixed(3)}`;
+            const copiedName = copiedRoomNames.get(key);
+            if (copiedName) newRoom.name = copiedName;
+        }
+    });
+
+    // 11. Kaydet ve Güncelle
+    saveState();
+    if (dom.mainContainer.classList.contains('show-3d')) {
+        setTimeout(update3DScene, 0);
+    }
+}
+
 
 /**
  * Simetri eksenine göre mevcut planı kopyalar ve yansıtır.

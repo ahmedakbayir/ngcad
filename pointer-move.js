@@ -1,5 +1,3 @@
-// ahmedakbayir/ngcad/ngcad-e7feb4c0224e7a314687ae1c86e34cb9211a573d/pointer-move.js
-// GÜNCELLENMİŞ: updateMouseCursor çizim modlarına öncelik verir.
 
 import { state, dom, setState } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
@@ -14,6 +12,7 @@ import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair }
 import { onPointerMove as onPointerMoveWall } from './wall-handler.js';
 import { onPointerMove as onPointerMoveDoor } from './door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from './window-handler.js';
+import { calculateSymmetryPreview, calculateCopyPreview } from './symmetry.js'; // <-- BU SATIR OLMALI  
 
 // Helper: Verilen bir noktanın duvar merkez çizgisine snap olup olmadığını kontrol eder.
 function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
@@ -179,6 +178,8 @@ export function onPointerMove(e) {
         return;
     }
 
+
+
     // Normal Sürükleme
     if (state.isDragging && state.selectedObject) {
         // Nesne tipine göre ilgili onPointerMove fonksiyonunu çağır
@@ -219,7 +220,37 @@ export function onPointerMove(e) {
         }
         update3DScene(); // Sürükleme sonrası 3D'yi güncelle
     }
-
+    if (state.currentMode === "drawSymmetry" && state.symmetryAxisP1) {
+        // İkinci nokta mouse pozisyonu
+        let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+        
+        // SHIFT basılıysa DİK eksen yap
+        if (currentModifierKeys.shift) {
+            const dx = axisP2.x - state.symmetryAxisP1.x;
+            const dy = axisP2.y - state.symmetryAxisP1.y;
+            const distance = Math.hypot(dx, dy);
+            
+            if (distance > 1) {
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                const snappedAngle = Math.round(angle / 90) * 90;
+                const snappedAngleRad = snappedAngle * Math.PI / 180;
+                
+                axisP2 = {
+                    x: state.symmetryAxisP1.x + distance * Math.cos(snappedAngleRad),
+                    y: state.symmetryAxisP1.y + distance * Math.sin(snappedAngleRad)
+                };
+            }
+        }
+        
+        setState({ symmetryAxisP2: axisP2 });
+        
+        // CTRL basılıysa kopya önizlemesi, değilse simetri önizlemesi
+        if (currentModifierKeys.ctrl) {
+            calculateCopyPreview(state.symmetryAxisP1, axisP2); // axisP1 değil, state.symmetryAxisP1
+        } else {
+            calculateSymmetryPreview(state.symmetryAxisP1, axisP2); // axisP1 değil, state.symmetryAxisP1
+        }
+    }
     // Her fare hareketinde imleci güncelle
     updateMouseCursor();
 }

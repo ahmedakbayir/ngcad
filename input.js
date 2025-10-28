@@ -1,6 +1,6 @@
 // ahmedakbayir/ngcad/ngcad-e7feb4c0224e7a314687ae1c86e34cb9211a573d/input.js
 import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom import edildiğinden emin olun
-import { screenToWorld, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, wallExists as geometryWallExists, snapTo15DegreeAngle } from './geometry.js'; // distToSegmentSquared ekleyin
+import { screenToWorld, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from './geometry.js'; // distToSegmentSquared ekleyin
 import { splitWallAtMousePosition, processWalls } from './wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 import { undo, redo, saveState, restoreState } from './history.js';
 import { startLengthEdit, cancelLengthEdit, showRoomNamePopup, hideRoomNamePopup, positionLengthInput } from './ui.js';
@@ -17,6 +17,7 @@ import { createStairs, recalculateStepCount, isPointInStair } from './stairs.js'
 import { update3DScene } from './scene3d.js';
 // --- YENİ İMPORTLAR ---
 import { fitDrawingToScreen, onWheel } from './zoom.js'; // Fit to Screen ve onWheel zoom.js'den
+import { wallExists } from './wall-handler.js';
 // --- YENİ İMPORTLAR SONU ---
 
 
@@ -27,9 +28,9 @@ export let currentModifierKeys = {
     shift: false
 };
 
-function wallExists(p1, p2) {
-    return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
-}
+// function wallExists(p1, p2) {
+//     return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
+// }
 
 function extendWallOnTabPress() {
     if (!state.startPoint || !state.mousePos) return;
@@ -316,13 +317,15 @@ function onKeyDown(e) {
 
     // Mod değiştirme kısayolları
     if (e.key.toLowerCase() === "d") { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
-    if (e.key.toLowerCase() === "w") setMode("drawWall");
-    if (e.key.toLowerCase() === "r") setMode("drawRoom");
-    if (e.key.toLowerCase() === "k") setMode("drawDoor");
-    if (e.key.toLowerCase() === "p") setMode("drawWindow");
-    if (e.key.toLowerCase() === "c") setMode("drawColumn");
-    if (e.key.toLowerCase() === "b") setMode("drawBeam");
-    if (e.key.toLowerCase() === "m") setMode("drawStairs");
+    if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawWall");
+    if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawRoom");
+    if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawDoor");
+    if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawWindow");
+    if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawColumn");
+    if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawBeam");
+    if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawStairs");
+    if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawSymmetry"); // YENİ SATIR
+
 }
 
 function onKeyUp(e) {

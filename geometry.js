@@ -1,6 +1,7 @@
 // ahmedakbayir/ngcad/ngcad-b3712dab038a327c261e2256cbd1d4d58a069f34/geometry.js
 
 import { state, setState, DRAG_HANDLE_RADIUS, EXTEND_RANGE } from './main.js';
+import { wallExists } from './wall-handler.js'; // <-- YENİ
 
 export function screenToWorld(sx, sy) {
     const { zoom, panOffset } = state;
@@ -305,11 +306,12 @@ export function isPointOnWallBody(point) {
 }
 
 // Verilen iki node arasında zaten bir duvar olup olmadığını kontrol eder
-export function wallExists(p1, p2) {
-    return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
-}
+// function wallExists(p1, p2) {
+//     return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
+// }
 
 // İkinci noktayı (p2), birinci noktaya (p1) göre 15 derecelik açılara snapler
+
 export function snapTo15DegreeAngle(p1, p2) {
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
@@ -332,4 +334,34 @@ export function snapTo15DegreeAngle(p1, p2) {
     const snappedY = p1.y + distance * Math.sin(snappedAngleRad);
 
     return { x: snappedX, y: snappedY }; // Yeni p2 pozisyonunu döndür
+}
+
+// geometry.js - sonuna ekle
+
+/**
+ * Bir noktayı verilen eksene göre yansıtır
+ * @param {object} point - Yansıtılacak nokta {x, y}
+ * @param {object} axisP1 - Eksen başlangıç noktası {x, y}
+ * @param {object} axisP2 - Eksen bitiş noktası {x, y}
+ * @returns {object|null} - Yansıyan nokta {x, y} veya null
+ */
+export function reflectPoint(point, axisP1, axisP2) {
+    if (!point || !axisP1 || !axisP2) return null;
+    
+    const dx = axisP2.x - axisP1.x;
+    const dy = axisP2.y - axisP1.y;
+    const lenSq = dx * dx + dy * dy;
+    
+    if (lenSq < 0.1) return null; // Eksen çok kısa
+    
+    // Noktanın eksene izdüşümünü bul
+    const t = ((point.x - axisP1.x) * dx + (point.y - axisP1.y) * dy) / lenSq;
+    const projX = axisP1.x + t * dx;
+    const projY = axisP1.y + t * dy;
+    
+    // Yansımayı hesapla
+    const reflectedX = 2 * projX - point.x;
+    const reflectedY = 2 * projY - point.y;
+    
+    return { x: reflectedX, y: reflectedY };
 }

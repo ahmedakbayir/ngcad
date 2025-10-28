@@ -116,6 +116,13 @@ export let state = {
     isCtrlDeleting: false,
     columnRotationOffset: null, // DÖNDÜRME İÇİN EKLENDİ
     tempNeighborWallsToDimension: null, // Komşu duvar ölçüleri için geçici Set
+    symmetryAxisP1: null, // Simetri ekseninin ilk noktası
+    symmetryAxisP2: null, // Simetri ekseninin ikinci noktası (mouse pozisyonu)
+    symmetryPreviewElements: { // Önizleme elemanları
+        nodes: [], walls: [], doors: [], windows: [], vents: [],
+        columns: [], beams: [], stairs: [], rooms: []
+    },
+
 };
 
 export function setState(newState) {
@@ -184,6 +191,7 @@ export const dom = {
     roomNameSelect: document.getElementById("room-name-select"),
     roomNameInput: document.getElementById("room-name-input"),
     splitter: document.getElementById("splitter"),
+    bSymmetry: document.getElementById("bSymmetry"), // YENİ SATIR
 };
 
 // GÜNCELLENMİŞ setMode fonksiyonu
@@ -204,6 +212,13 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
         selectedObject: null,
         selectedGroup: [],
         isDragging: false,
+
+        symmetryAxisP1: null,
+        symmetryAxisP2: null,
+        symmetryPreviewElements: {
+            nodes: [], walls: [], doors: [], windows: [], vents: [],
+            columns: [], beams: [], stairs: [], rooms: []
+        }
     });
 
     // Butonların 'active' durumunu güncelle (geri kalanı aynı)
@@ -214,8 +229,10 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bWindow.classList.toggle("active", newMode === "drawWindow");
     dom.bColumn.classList.toggle("active", newMode === "drawColumn");
     dom.bBeam.classList.toggle("active", newMode === "drawBeam");
-    dom.bStairs.classList.toggle("active", newMode === "drawStairs"); // <-- YENİ SATIRI EKLEYİN
+    dom.bStairs.classList.toggle("active", newMode === "drawStairs");
+    dom.bSymmetry.classList.toggle("active", newMode === "drawSymmetry");
     dom.p2d.className = `panel ${newMode}-mode`;
+
 }
 
 export function resize() {
@@ -308,20 +325,22 @@ function initialize() {
     setupFileIOListeners();
     createWallPanel();
 
-    dom.bSel.addEventListener("click", () => setMode("select"));
-    dom.bWall.addEventListener("click", () => setMode("drawWall"));
-    dom.bRoom.addEventListener("click", () => setMode("drawRoom"));
-    dom.bDoor.addEventListener("click", () => setMode("drawDoor"));
-    dom.bWindow.addEventListener("click", () => setMode("drawWindow"));
-    dom.bColumn.addEventListener("click", () => setMode("drawColumn"));
-    dom.bBeam.addEventListener("click", () => setMode("drawBeam"));
-    dom.bStairs.addEventListener("click", () => setMode("drawStairs")); // <-- YENİ SATIRI EKLEYİN
+    dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
+    dom.bWall.addEventListener("click", () => setMode("drawWall", true));
+    dom.bRoom.addEventListener("click", () => setMode("drawRoom", true));
+    dom.bDoor.addEventListener("click", () => setMode("drawDoor", true));
+    dom.bWindow.addEventListener("click", () => setMode("drawWindow", true));
+    dom.bColumn.addEventListener("click", () => setMode("drawColumn", true));
+    dom.bBeam.addEventListener("click", () => setMode("drawBeam", true));
+    dom.bStairs.addEventListener("click", () => setMode("drawStairs", true)); // forceSet ekleyin
+    dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
+    
     dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames);
 
     window.addEventListener("resize", resize);
 
-    // Başlangıç modunu zorla ayarla (toggle yapmaması için true gönder)
+    // Başlangıç modunu zorla ayarla
     setMode(state.currentMode, true);
 
     resize();
