@@ -1,0 +1,328 @@
+// symmetry.js
+import { state, setState, dom } from './main.js';
+import { reflectPoint, getOrCreateNode } from './geometry.js';
+import { wallExists } from './wall-handler.js'; // Veya geometry.js'den
+import { createColumn } from './columns.js';
+import { createBeam } from './beams.js';
+import { createStairs } from './stairs.js';
+import { processWalls } from './wall-processor.js';
+import { saveState } from './history.js';
+import { update3DScene } from './scene3d.js';
+// Gerekirse turf import'u da buraya eklenebilir
+// import * as turf from '@turf/turf'; // Eğer @turf/turf import ediliyorsa
+
+/**
+ * Verilen eksene göre tüm elemanların simetri önizlemesini hesaplar ve state'i günceller.
+ * @param {object} axisP1 - Eksen başlangıç noktası {x, y}
+ * @param {object} axisP2 - Eksen bitiş noktası {x, y}
+ */
+export function calculateSymmetryPreview(axisP1, axisP2) {
+    if (!axisP1 || !axisP2) {
+        setState({ symmetryPreviewElements: { nodes: [], walls: [], doors: [], windows: [], vents: [], columns: [], beams: [], stairs: [], rooms: [] } });
+        return;
+    }
+
+    const preview = {
+        nodes: [], walls: [], doors: [], windows: [], vents: [], columns: [], beams: [], stairs: [], rooms: []
+    };
+    const nodeMap = new Map(); // Orijinal node -> Yansıyan node koordinatı eşlemesi
+
+    // 1. Nodeları yansıt (sadece koordinatları)
+    state.nodes.forEach(node => {
+        const reflected = reflectPoint(node, axisP1, axisP2);
+        if (reflected) {
+            nodeMap.set(node, reflected);
+            preview.nodes.push(reflected);
+        }
+    });
+
+    const axisAngleRad = Math.atan2(axisP2.y - axisP1.y, axisP2.x - axisP1.x);
+
+    // 2. Duvarları yansıt
+    state.walls.forEach(wall => {
+        const reflectedP1 = nodeMap.get(wall.p1);
+        const reflectedP2 = nodeMap.get(wall.p2);
+        if (reflectedP1 && reflectedP2) {
+            preview.walls.push({
+                p1: reflectedP1,
+                p2: reflectedP2,
+                thickness: wall.thickness || state.wallThickness,
+                wallType: wall.wallType || 'normal'
+            });
+        }
+    });
+
+    // 3. Kapıları yansıt
+    state.doors.forEach(door => {
+        const wall = door.wall;
+        const reflectedP1 = nodeMap.get(wall.p1);
+        const reflectedP2 = nodeMap.get(wall.p2);
+        if (reflectedP1 && reflectedP2) {
+            const previewWall = { p1: reflectedP1, p2: reflectedP2 };
+            const reflectedWallLen = Math.hypot(reflectedP2.x - reflectedP1.x, reflectedP2.y - reflectedP1.y);
+            const originalWallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+            // Orijinal duvar uzunluğu sıfıra çok yakınsa veya sıfırsa NaN hatasını önle
+             if (originalWallLen < 1e-6) {
+                 console.warn("calculateSymmetryPreview: Orijinal duvar uzunluğu çok küçük.", wall);
+                 return; // Bu kapıyı atla
+             }
+            const reflectedPos = reflectedWallLen > 0.1 ? (reflectedWallLen * (1 - door.pos / originalWallLen)) : reflectedWallLen / 2;
+
+            preview.doors.push({
+                wall: previewWall,
+                pos: reflectedPos,
+                width: door.width,
+                type: door.type
+            });
+        }
+    });
+
+    // 4. Pencereleri ve Menfezleri yansıt
+    state.walls.forEach(wall => {
+        const reflectedP1 = nodeMap.get(wall.p1);
+        const reflectedP2 = nodeMap.get(wall.p2);
+        if (reflectedP1 && reflectedP2) {
+            const previewWall = { p1: reflectedP1, p2: reflectedP2 };
+            const reflectedWallLen = Math.hypot(reflectedP2.x - reflectedP1.x, reflectedP2.y - reflectedP1.y);
+            const originalWallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+             if (originalWallLen < 1e-6) return; // Sıfıra bölme hatasını önle
+
+            (wall.windows || []).forEach(window => {
+                const reflectedPos = reflectedWallLen > 0.1 ? (reflectedWallLen * (1 - window.pos / originalWallLen)) : reflectedWallLen / 2;
+                preview.windows.push({
+                    wall: previewWall, pos: reflectedPos, width: window.width, type: window.type, roomName: window.roomName
+                });
+            });
+            (wall.vents || []).forEach(vent => {
+                const reflectedPos = reflectedWallLen > 0.1 ? (reflectedWallLen * (1 - vent.pos / originalWallLen)) : reflectedWallLen / 2;
+                preview.vents.push({
+                    wall: previewWall, pos: reflectedPos, width: vent.width, type: vent.type
+                });
+            });
+        }
+    });
+
+    // 5. Kolonları yansıt
+    state.columns.forEach(col => {
+        const reflectedCenter = reflectPoint(col.center, axisP1, axisP2);
+        if (reflectedCenter) {
+            const originalRotationRad = (col.rotation || 0) * Math.PI / 180;
+            const reflectedRotationRad = 2 * axisAngleRad - originalRotationRad;
+            preview.columns.push({
+                ...col, center: reflectedCenter, rotation: reflectedRotationRad * 180 / Math.PI
+            });
+        }
+    });
+
+    // 6. Kirişleri yansıt
+    state.beams.forEach(beam => {
+        const reflectedCenter = reflectPoint(beam.center, axisP1, axisP2);
+        if (reflectedCenter) {
+            const originalRotationRad = (beam.rotation || 0) * Math.PI / 180;
+            const reflectedRotationRad = 2 * axisAngleRad - originalRotationRad;
+            preview.beams.push({
+                ...beam, center: reflectedCenter, rotation: reflectedRotationRad * 180 / Math.PI
+            });
+        }
+    });
+
+    // 7. Merdivenleri yansıt
+    state.stairs.forEach(stair => {
+        const reflectedCenter = reflectPoint(stair.center, axisP1, axisP2);
+        if (reflectedCenter) {
+            const originalRotationRad = (stair.rotation || 0) * Math.PI / 180;
+            const reflectedRotationRad = 2 * axisAngleRad - originalRotationRad;
+            preview.stairs.push({
+                ...stair, center: reflectedCenter, rotation: reflectedRotationRad * 180 / Math.PI
+            });
+        }
+    });
+
+    // 8. Odaları yansıt
+    state.rooms.forEach(room => {
+        if (room.polygon?.geometry?.coordinates) {
+            const coords = room.polygon.geometry.coordinates[0];
+            const reflectedCoords = coords.map(p => {
+                const reflected = reflectPoint({ x: p[0], y: p[1] }, axisP1, axisP2);
+                return reflected ? [reflected.x, reflected.y] : null;
+            }).filter(p => p !== null);
+
+            if (reflectedCoords.length >= 3) {
+                 if (reflectedCoords[0][0] !== reflectedCoords[reflectedCoords.length - 1][0] ||
+                     reflectedCoords[0][1] !== reflectedCoords[reflectedCoords.length - 1][1]) {
+                     reflectedCoords.push([...reflectedCoords[0]]);
+                 }
+                let reflectedCenter = null;
+                if (room.center) {
+                    reflectedCenter = reflectPoint({ x: room.center[0], y: room.center[1] }, axisP1, axisP2);
+                }
+                try {
+                    const reflectedPolygon = turf.polygon([reflectedCoords]);
+                    preview.rooms.push({
+                        polygon: reflectedPolygon, name: room.name, center: reflectedCenter ? [reflectedCenter.x, reflectedCenter.y] : null
+                    });
+                } catch (e) { console.error("Önizleme poligonu oluşturulamadı:", e); }
+            }
+        }
+    });
+
+    setState({ symmetryPreviewElements: preview });
+}
+
+/**
+ * Simetri eksenine göre mevcut planı kopyalar ve yansıtır.
+ * @param {object} axisP1 - Eksen başlangıç noktası {x, y}
+ * @param {object} axisP2 - Eksen bitiş noktası {x, y}
+ */
+export function applySymmetry(axisP1, axisP2) {
+    if (!axisP1 || !axisP2) return;
+
+    const nodeMap = new Map();
+    const newWalls = [];
+    const newDoors = [];
+    const newWindowsMap = new Map();
+    const newVentsMap = new Map();
+    const newColumns = [];
+    const newBeams = [];
+    const newStairs = [];
+    const reflectedRoomNames = new Map();
+
+    const axisAngleRad = Math.atan2(axisP2.y - axisP1.y, axisP2.x - axisP1.x);
+
+    // 1. Nodeları Yansıt
+    state.nodes.forEach(node => {
+        const reflectedCoord = reflectPoint(node, axisP1, axisP2);
+        if (reflectedCoord) {
+            const newNode = getOrCreateNode(reflectedCoord.x, reflectedCoord.y);
+            nodeMap.set(node, newNode);
+        }
+    });
+
+    // 2. Duvarları Oluştur
+    state.walls.forEach(wall => {
+        const newP1 = nodeMap.get(wall.p1);
+        const newP2 = nodeMap.get(wall.p2);
+        if (newP1 && newP2 && newP1 !== newP2 && !wallExists(newP1, newP2)) {
+            const newWall = {
+                type: 'wall', p1: newP1, p2: newP2,
+                thickness: wall.thickness || state.wallThickness,
+                wallType: wall.wallType || 'normal', windows: [], vents: []
+            };
+            newWalls.push(newWall);
+            newWindowsMap.set(newWall, []);
+            newVentsMap.set(newWall, []);
+
+            const originalWallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+            const newWallLen = Math.hypot(newP2.x - newP1.x, newP2.y - newP1.y);
+             if (originalWallLen < 1e-6) return; // Sıfıra bölme hatasını önle
+
+            (wall.windows || []).forEach(window => {
+                const reflectedPos = newWallLen > 0.1 ? (newWallLen * (1 - window.pos / originalWallLen)) : newWallLen / 2;
+                newWindowsMap.get(newWall).push({ ...window, pos: reflectedPos }); // Kopyala ve pos'u güncelle
+            });
+            (wall.vents || []).forEach(vent => {
+                const reflectedPos = newWallLen > 0.1 ? (newWallLen * (1 - vent.pos / originalWallLen)) : newWallLen / 2;
+                newVentsMap.get(newWall).push({ ...vent, pos: reflectedPos }); // Kopyala ve pos'u güncelle
+            });
+        }
+    });
+
+    // 3. Kapıları Oluştur
+    state.doors.forEach(door => {
+        const wall = door.wall;
+        const newP1 = nodeMap.get(wall.p1);
+        const newP2 = nodeMap.get(wall.p2);
+        const newWallRef = newWalls.find(nw => (nw.p1 === newP1 && nw.p2 === newP2) || (nw.p1 === newP2 && nw.p2 === newP1));
+
+        if (newWallRef) {
+            const originalWallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+            const newWallLen = Math.hypot(newWallRef.p2.x - newWallRef.p1.x, newWallRef.p2.y - newWallRef.p1.y);
+             if (originalWallLen < 1e-6) return; // Sıfıra bölme hatasını önle
+            const reflectedPos = newWallLen > 0.1 ? (newWallLen * (1 - door.pos / originalWallLen)) : newWallLen / 2;
+            newDoors.push({ ...door, wall: newWallRef, pos: reflectedPos }); // Kopyala, wall ve pos'u güncelle
+        }
+    });
+
+    // 4. Kolonları Oluştur
+    state.columns.forEach(col => {
+        const reflectedCenter = reflectPoint(col.center, axisP1, axisP2);
+        if (reflectedCenter) {
+            const originalRotationRad = (col.rotation || 0) * Math.PI / 180;
+            const reflectedRotationRad = 2 * axisAngleRad - originalRotationRad;
+            const newCol = createColumn(reflectedCenter.x, reflectedCenter.y, 0);
+            Object.assign(newCol, { // Orijinal özellikleri kopyala, center ve rotation hariç
+                width: col.width || col.size, height: col.height || col.size,
+                size: Math.max(col.width || col.size, col.height || col.size),
+                hollowWidth: col.hollowWidth, hollowHeight: col.hollowHeight,
+                hollowOffsetX: col.hollowOffsetX, hollowOffsetY: col.hollowOffsetY
+            });
+            newCol.rotation = reflectedRotationRad * 180 / Math.PI;
+            newColumns.push(newCol);
+        }
+    });
+
+    // 5. Kirişleri Oluştur
+    state.beams.forEach(beam => {
+        const reflectedCenter = reflectPoint(beam.center, axisP1, axisP2);
+        if (reflectedCenter) {
+            const originalRotationRad = (beam.rotation || 0) * Math.PI / 180;
+            const reflectedRotationRad = 2 * axisAngleRad - originalRotationRad;
+            const newBeam = createBeam(reflectedCenter.x, reflectedCenter.y, beam.width, beam.height, reflectedRotationRad * 180 / Math.PI);
+            Object.assign(newBeam, { // Orijinal özellikleri kopyala, center, rotation, width, height hariç
+                 depth: beam.depth, hollowWidth: beam.hollowWidth, hollowHeight: beam.hollowHeight,
+                 hollowOffsetX: beam.hollowOffsetX, hollowOffsetY: beam.hollowOffsetY
+            });
+            newBeams.push(newBeam);
+        }
+    });
+
+    // 6. Merdivenleri Oluştur
+    state.stairs.forEach(stair => {
+        const reflectedCenter = reflectPoint(stair.center, axisP1, axisP2);
+        if (reflectedCenter) {
+            const originalRotationRad = (stair.rotation || 0) * Math.PI / 180;
+            const reflectedRotationRad = 2 * axisAngleRad - originalRotationRad;
+            const newStair = createStairs(reflectedCenter.x, reflectedCenter.y, stair.width, stair.height, reflectedRotationRad * 180 / Math.PI);
+            // stepCount zaten createStairs içinde hesaplanır
+            newStairs.push(newStair);
+        }
+    });
+
+    // 7. Oda İsimlerini Yansıt
+    state.rooms.forEach(room => {
+        if (room.center) {
+            const reflectedCenter = reflectPoint({ x: room.center[0], y: room.center[1] }, axisP1, axisP2);
+            if (reflectedCenter) {
+                const key = `${reflectedCenter.x.toFixed(3)},${reflectedCenter.y.toFixed(3)}`;
+                reflectedRoomNames.set(key, room.name);
+            }
+        }
+    });
+
+    // 8. Yeni Elemanları State'e Ekle
+    state.walls.push(...newWalls);
+    state.doors.push(...newDoors);
+    newWindowsMap.forEach((windows, wall) => wall.windows = windows);
+    newVentsMap.forEach((vents, wall) => wall.vents = vents);
+    state.columns.push(...newColumns);
+    state.beams.push(...newBeams);
+    state.stairs.push(...newStairs);
+
+    // 9. Duvarları İşle
+    processWalls();
+
+    // 10. Yeni Odalara İsim Ata
+    state.rooms.forEach(newRoom => {
+        if (newRoom.name === 'MAHAL' && newRoom.center) {
+             const key = `${newRoom.center[0].toFixed(3)},${newRoom.center[1].toFixed(3)}`;
+             const reflectedName = reflectedRoomNames.get(key);
+             if (reflectedName) newRoom.name = reflectedName;
+        }
+    });
+
+    // 11. Kaydet ve Güncelle
+    saveState();
+    if (dom.mainContainer.classList.contains('show-3d')) {
+        setTimeout(update3DScene, 0);
+    }
+}
