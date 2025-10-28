@@ -232,7 +232,7 @@ export function onPointerMove(e) {
             
             if (distance > 1) {
                 const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-                const snappedAngle = Math.round(angle / 90) * 90;
+                const snappedAngle = Math.round(angle / 15) * 15;
                 const snappedAngleRad = snappedAngle * Math.PI / 180;
                 
                 axisP2 = {

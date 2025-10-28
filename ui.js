@@ -468,28 +468,38 @@ function confirmStairChange() {
         stair.isLanding = dom.stairIsLandingCheckbox.checked;
 
         // Üst Kot'u ayarla
+        // Üst Kot'u ayarla
         if (stair.isLanding) {
-            // Sahanlık: Üst kotu, bağlı olduğu bir önceki merdivenin üst kotuna eşitle
+            // ORTA DÜZLEM: Üst kotu bağlı merdivenin üst kotuna eşitle
             if (stair.connectedStairId) {
                 const connectedStair = (state.stairs || []).find(s => s.id === stair.connectedStairId);
                 if (connectedStair) {
-                    stair.topElevation = connectedStair.topElevation || stair.bottomElevation; // Bağlı olanın üst kotu
+                    // ÖNEMLI: Orta düzlem üst kotu = bağlı merdivenin üst kotu
+                    stair.topElevation = connectedStair.topElevation || stair.bottomElevation;
                 } else {
-                     stair.topElevation = stair.bottomElevation; // Bağlı merdiven bulunamazsa alt kota eşitle
+                    stair.topElevation = stair.bottomElevation;
                 }
             } else {
-                stair.topElevation = stair.bottomElevation; // Bağlı değilse alt kota eşitle
+                // Bağlantı yoksa alt kota eşitle
+                stair.topElevation = stair.bottomElevation;
             }
+            
+            // ÖNEMLI: Alt kotu da güncelle (platform kalınlığı kadar aşağı)
+            const LANDING_THICKNESS = 10; // scene3d.js'teki ile aynı
+            stair.bottomElevation = stair.topElevation - LANDING_THICKNESS;
+            
         } else {
             // Normal merdiven: Girilen değeri al ve doğrula
             let topElevationInput = parseInt(dom.stairTopElevationInput.value, 10);
             if (isNaN(topElevationInput)) {
-                topElevationInput = stair.bottomElevation + WALL_HEIGHT; // Hatalı giriş
+                topElevationInput = stair.bottomElevation + WALL_HEIGHT;
             }
             // Alt kottan en az 10cm yüksek olmalı
             stair.topElevation = Math.max(stair.bottomElevation + 10, topElevationInput);
         }
-        // Input'u güncelle ve sahanlıksa disable et
+
+        // Alt kot input'unu da güncelle
+        dom.stairBottomElevationInput.value = stair.bottomElevation;
         dom.stairTopElevationInput.value = stair.topElevation;
         dom.stairTopElevationInput.disabled = stair.isLanding;
 

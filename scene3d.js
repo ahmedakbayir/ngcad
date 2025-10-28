@@ -168,7 +168,7 @@ export function init3D(canvasElement) {
         color: 0xDDDDDD, // Açık gri metalik/plastik gibi
         roughness: 0.4,
         metalness: 0.2,
-        transparent: true, // Diğerleriyle uyumlu olması için
+        transparent: true, // Diğerleriyle uyumlu
         opacity: solidOpacity,
         side: THREE.DoubleSide
     });
@@ -621,14 +621,24 @@ function createStairMesh(stair) {
 
     // --- SAHANLIK DURUMU ---
     if (isLanding) {
-        const landingThickness = 10; // Sahanlık kalınlığı
+        const landingThickness = 10; // Sahanlık beton kalınlığı
+        const marbleThickness = 2; // Mermer kalınlığı
+        
+        // Beton sahanlık
         const landingGeom = new THREE.BoxGeometry(totalRun, landingThickness, stairWidth);
-        // Sahanlığı alt kota göre konumlandır
-        landingGeom.translate(0, landingThickness / 2, 0); // Önce merkeze al
-        const landingMesh = new THREE.Mesh(landingGeom, stairMaterialTop); // Opak malzeme
-        landingMesh.position.y = bottomElevation; // Alt kota yerleştir
+        landingGeom.translate(0, landingThickness / 2, 0);
+        const landingMesh = new THREE.Mesh(landingGeom, stairMaterial);
+        landingMesh.position.y = bottomElevation;
         stairGroup.add(landingMesh);
-        return stairGroup; // Sahanlık çizildi, fonksiyondan çık
+        
+        // Üst mermer kaplama
+        const marbleGeom = new THREE.BoxGeometry(totalRun, marbleThickness, stairWidth);
+        marbleGeom.translate(0, marbleThickness / 2, 0);
+        const marbleMesh = new THREE.Mesh(marbleGeom, stepNosingMaterial);
+        marbleMesh.position.y = bottomElevation + landingThickness;
+        stairGroup.add(marbleMesh);
+        
+        return stairGroup;
     }
     // --- SAHANLIK DURUMU SONU ---
 
@@ -645,7 +655,7 @@ function createStairMesh(stair) {
     const stepMaterials = [ stairMaterial, stairMaterial, stairMaterialTop, stairMaterial, stairMaterial, stairMaterial ];
     const stepNosingMaterials = [ stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial ];
 
-    // Basamakları oluştur (Kotları dikkate alarak)
+    // Basamakları oluştur (Kotları dikkate alarak) - DÜZELTİLMİŞ
     for (let i = 0; i < stepCount; i++) {
         const yPosBase = bottomElevation + i * stepRise; // Basamağın alt kotu
         const stepStartX = -totalRun / 2 + i * stepRun;
@@ -653,18 +663,28 @@ function createStairMesh(stair) {
         // Beton Basamak Kısmı (Overlap dahil)
         const concreteStepRun = stepRun + overlap;
         const concreteStepGeom = new THREE.BoxGeometry(concreteStepRun, stepRise, stairWidth);
-        concreteStepGeom.translate(overlap / 2, stepRise / 2, 0);
+        // Geometriyi merkeze al, sonra pozisyonla
+        concreteStepGeom.translate(concreteStepRun / 2, stepRise / 2, 0);
         const concreteStepMesh = new THREE.Mesh(concreteStepGeom, stepMaterials);
         concreteStepMesh.position.set(stepStartX, yPosBase, 0); // Alt kota göre yerleştir
         stairGroup.add(concreteStepMesh);
 
-        // Mermer Burun Kısmı
-        const nosingRun = stepRun + NOSING_OVERHANG;
+        // Mermer Tabla (Üst Yüzey) - Basamağın tüm yüzeyini kaplar
+        const tablaRun = stepRun; // Basamağın tam uzunluğu
+        const tablaGeom = new THREE.BoxGeometry(tablaRun, NOSING_THICKNESS, stairWidth);
+        tablaGeom.translate(0, NOSING_THICKNESS / 2, 0); // Merkeze al
+        const tablaMesh = new THREE.Mesh(tablaGeom, stepNosingMaterials);
+        // Tablayı basamağın üst kotuna yerleştir
+        tablaMesh.position.set(stepStartX + stepRun / 2, yPosBase + stepRise, 0);
+        stairGroup.add(tablaMesh);
+
+        // Mermer Burun Kısmı (Öne çıkıntı)
+        const nosingRun = NOSING_OVERHANG;
         const nosingGeom = new THREE.BoxGeometry(nosingRun, NOSING_THICKNESS, stairWidth);
-        nosingGeom.translate(-nosingRun/2, NOSING_THICKNESS / 2, 0);
+        nosingGeom.translate(0, NOSING_THICKNESS / 2, 0); // Merkeze al
         const nosingMesh = new THREE.Mesh(nosingGeom, stepNosingMaterials);
-        // Mermerin Y pozisyonu = Basamağın üst kotu
-        nosingMesh.position.set(stepStartX + stepRun / 2 + NOSING_OVERHANG / 2, yPosBase + stepRise, 0);
+        // Burnu basamağın ön ucuna yerleştir
+        nosingMesh.position.set(stepStartX + stepRun + NOSING_OVERHANG / 2, yPosBase + stepRise, 0);
         stairGroup.add(nosingMesh);
     }
 

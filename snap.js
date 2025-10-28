@@ -74,6 +74,88 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     let draggedNode = (state.isDragging && state.selectedObject?.type === "wall" && state.selectedObject.handle !== "body")
         ? state.selectedObject.object[state.selectedObject.handle]
         : null;
+
+    if (state.currentMode === 'drawStairs') {
+    const edgeCandidates = [];
+    
+    for (const wall of wallsToScan) {
+        if (!wall.p1 || !wall.p2) continue;
+        
+        const wallThickness = wall.thickness || state.wallThickness;
+        const halfThickness = wallThickness / 2;
+        const dxW = wall.p2.x - wall.p1.x;
+        const dyW = wall.p2.y - wall.p1.y;
+        const wallLen = Math.hypot(dxW, dyW);
+        if (wallLen < 0.1) continue;
+        
+        const isVertical = Math.abs(dxW) < 0.1;
+        const isHorizontal = Math.abs(dyW) < 0.1;
+        
+        if (isVertical) {
+            const wallX = wall.p1.x;
+            const snapXPositions = [wallX - halfThickness, wallX + halfThickness];
+            
+            for (const snapX of snapXPositions) {
+                const screenSnapPoint = worldToScreen(snapX, wm.y);
+                const distance = Math.abs(screenMouse.x - screenSnapPoint.x);
+                
+                if (distance < SNAP_RADIUS_PIXELS) {
+                    edgeCandidates.push({
+                        point: { x: snapX, y: wm.y },
+                        distance: distance,
+                        type: 'WALL_EDGE'
+                    });
+                }
+            }
+        } else if (isHorizontal) {
+            const wallY = wall.p1.y;
+            const snapYPositions = [wallY - halfThickness, wallY + halfThickness];
+            
+            for (const snapY of snapYPositions) {
+                const screenSnapPoint = worldToScreen(wm.x, snapY);
+                const distance = Math.abs(screenMouse.y - screenSnapPoint.y);
+                
+                if (distance < SNAP_RADIUS_PIXELS) {
+                    edgeCandidates.push({
+                        point: { x: wm.x, y: snapY },
+                        distance: distance,
+                        type: 'WALL_EDGE'
+                    });
+                }
+            }
+        }
+    }
+    
+    // En yakın kenar snap'ini bul
+    if (edgeCandidates.length > 0) {
+        edgeCandidates.sort((a, b) => a.distance - b.distance);
+        const bestEdgeSnap = edgeCandidates[0];
+        
+        return {
+            x: bestEdgeSnap.point.x,
+            y: bestEdgeSnap.point.y,
+            isSnapped: true,
+            snapLines: { h_origins: [], v_origins: [] },
+            isLockable: false,
+            point: bestEdgeSnap.point,
+            snapType: 'WALL_EDGE',
+            roundedX: bestEdgeSnap.point.x,
+            roundedY: bestEdgeSnap.point.y
+        };
+    }
+    
+    // Kenar snap'i bulunamadıysa normal fare pozisyonu
+    return {
+        x: wm.x,
+        y: wm.y,
+        isSnapped: false,
+        snapLines: { h_origins: [], v_origins: [] },
+        isLockable: false,
+        roundedX: wm.x,
+        roundedY: wm.y
+    };
+}
+    
     for (const wall of wallsToScan) {
         if (draggedNode === wall.p1 || draggedNode === wall.p2) continue;
         const p1 = wall.p1, p2 = wall.p2;
@@ -145,7 +227,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             const rotRad = (stair.rotation || 0) * Math.PI / 180;
             const perpX = -Math.sin(rotRad);
             const perpY = Math.cos(rotRad);
-            const doubleLineOffset = 2 / state.zoom; // renderer2d.js'teki ile aynı
+            const doubleLineOffset = 0 / state.zoom; // renderer2d.js'teki ile aynı
             
             // DIŞ kenar çizgisinin köşe noktaları
             const outerCorners = [

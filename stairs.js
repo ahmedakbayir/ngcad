@@ -1,5 +1,5 @@
 // stairs.js
-// Son Güncelleme: CTRL+Sürükle ile kopyalamada yeni isim atama, duvar yüzeyi snap düzeltmesi.
+// Son Güncelleme: CTRL+Sürükle ile kopyalamada yeni isim atama, duvar yüzeyi snap düzeltmesi + kenar resize snap.
 
 import { state, setState, WALL_HEIGHT } from './main.js';
 import { distToSegmentSquared } from './geometry.js'; // getStairCorners'ı import et veya stairs.js içinde tanımlıysa importu kaldır
@@ -342,11 +342,65 @@ export function onPointerMove(snappedPos, unsnappedPos) {
              axisVector = { x: cosRot, y: sinRot }; // X ekseni (width/uzunluk)
          }
 
+         // İlk olarak snap olmadan projection hesapla
          const mouseVec = { x: snappedPos.x - fixedEdgeMidPoint.x, y: snappedPos.y - fixedEdgeMidPoint.y };
          const projection = mouseVec.x * axisVector.x + mouseVec.y * axisVector.y;
-         let newSize = Math.max(10, Math.abs(projection));
+         
+         // Sürüklenen kenarın olması gereken konumu
+         const draggedEdgePoint = {
+             x: fixedEdgeMidPoint.x + axisVector.x * projection,
+             y: fixedEdgeMidPoint.y + axisVector.y * projection
+         };
 
-         const halfSizeVector = { x: axisVector.x * projection / 2, y: axisVector.y * projection / 2 };
+         // --- KENAR SNAP MANTIĞI (Duvar Yüzeylerine) ---
+         const SNAP_DISTANCE_WALL_SURFACE = 5; // Duvar yüzeyine snap mesafesi (cm)
+         let bestSnapDelta = 0;
+         let bestSnapDiff = SNAP_DISTANCE_WALL_SURFACE;
+
+         // Duvar Yüzeylerine Snap - sadece hareket ekseni boyunca
+         state.walls.forEach(wall => {
+             if (!wall.p1 || !wall.p2) return;
+             const wallThickness = wall.thickness || state.wallThickness;
+             const halfThickness = wallThickness / 2;
+             const dxW = wall.p2.x - wall.p1.x;
+             const dyW = wall.p2.y - wall.p1.y;
+             const isVertical = Math.abs(dxW) < 0.1;
+             const isHorizontal = Math.abs(dyW) < 0.1;
+
+             if (isVertical && (handle === 'edge_left' || handle === 'edge_right')) {
+                 const wallX = wall.p1.x;
+                 const snapXPositions = [ wallX - halfThickness, wallX + halfThickness ];
+                 for (const snapX of snapXPositions) {
+                     const diff = Math.abs(draggedEdgePoint.x - snapX);
+                     if (diff < bestSnapDiff) {
+                         bestSnapDiff = diff;
+                         // Snap delta'yı projection uzunluğuna ekle/çıkar
+                         const deltaX = snapX - draggedEdgePoint.x;
+                         bestSnapDelta = deltaX / axisVector.x;
+                     }
+                 }
+             } else if (isHorizontal && (handle === 'edge_top' || handle === 'edge_bottom')) {
+                 const wallY = wall.p1.y;
+                 const snapYPositions = [ wallY - halfThickness, wallY + halfThickness ];
+                 for (const snapY of snapYPositions) {
+                     const diff = Math.abs(draggedEdgePoint.y - snapY);
+                     if (diff < bestSnapDiff) {
+                         bestSnapDiff = diff;
+                         // Snap delta'yı projection uzunluğuna ekle/çıkar
+                         const deltaY = snapY - draggedEdgePoint.y;
+                         bestSnapDelta = deltaY / axisVector.y;
+                     }
+                 }
+             }
+         });
+
+         // Snap deltasını uygula
+         const finalProjection = projection + bestSnapDelta;
+         // --- KENAR SNAP MANTIĞI SONU ---
+
+         let newSize = Math.max(10, Math.abs(finalProjection));
+
+         const halfSizeVector = { x: axisVector.x * finalProjection / 2, y: axisVector.y * finalProjection / 2 };
          const newCenterX = fixedEdgeMidPoint.x + halfSizeVector.x;
          const newCenterY = fixedEdgeMidPoint.y + halfSizeVector.y;
 
