@@ -189,7 +189,7 @@ export function onPointerUp(e) {
         aDragOccurred: false,
         stretchMode: null,
         initialDragPoint: null,
-        // selectedGroup: [], // Sürükleme sonrası seçimi korumak için yorumlandı
+        selectedGroup: [], // Sürükleme sonrası seçimi korumak için yorumlandı
         affectedWalls: [],
         preDragWallStates: new Map(),
         preDragNodeStates: new Map(),
