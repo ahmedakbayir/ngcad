@@ -54,6 +54,10 @@ export function init3D(canvasElement) {
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, WALL_HEIGHT / 2, 0);
+    controls.minDistance = 1; // Değeri küçülterek daha fazla yaklaşmaya izin verin (örneğin 1 veya 0.1)
+    controls.zoomSpeed=1
+    //controls.enableDamping = true; // Zaten varsa
+    //controls.dampingFactor = 0.02; // Değeri küçültebilirsiniz (varsayılan 0.05)
     controls.update();
 
     const amb = new THREE.AmbientLight(0xffffff, 1.2);
@@ -202,7 +206,7 @@ export function init3D(canvasElement) {
 
     // YENİ MERDİVEN MALZEMELERİNİ OLUŞTUR
     handrailWoodMaterial = new THREE.MeshStandardMaterial({
-        color: 0x5C3A21, // Koyu kahverengi (ahşap)
+        color: '#b3b5b6', 
         roughness: 0.7,  // Biraz pürüzlü
         metalness: 0.1,  // Hafif metalik olmayan yansıma
         transparent: true,
@@ -211,7 +215,7 @@ export function init3D(canvasElement) {
     });
 
     balusterMaterial = new THREE.MeshStandardMaterial({
-        color: 0x6B442A, // Biraz daha açık veya aynı ton ahşap
+        color: '#d0d2d3', 
         roughness: 0.75,
         metalness: 0.1,
         transparent: true,
@@ -220,7 +224,7 @@ export function init3D(canvasElement) {
     });
 
     stepNosingMaterial = new THREE.MeshStandardMaterial({
-        color: 0xFDF5E6, // Mermer rengi (örneğin krem)
+        color: '#4c4c4d', // Mermer rengi (örneğin krem)
         roughness: 0.4,  // Daha pürüzsüz
         metalness: 0.05,
         transparent: true,
@@ -600,6 +604,52 @@ function createBeamMesh(beam, material) {
     return beamMesh;
 }
 
+function createRoundedBoxMesh(width, height, depth, radius, material) {
+    const shape = new THREE.Shape();
+    const halfWidth = width / 2 - radius;
+    const halfHeight = height / 2 - radius; // Bu derinlik olacak (Z ekseni)
+    const halfDepth = depth / 2; // Bu yükseklik olacak (Y ekseni)
+
+    // Not: Three.js'de Shape 2D'dir (XY düzlemi). Extrude ile derinlik (Z) eklenir.
+    // Ancak bizim merdiven basamaklarımız XZ düzleminde uzanıyor ve Y yüksekliği var.
+    // Bu yüzden ExtrudeGeometry veya ShapeGeometry doğrudan uygun değil.
+    // Box + Cylinder kombinasyonunu kullanacağız.
+
+    const boxWidth = width - 2 * radius;
+    const boxDepth = depth; // Yüksekliği depth olarak alıyoruz
+    const boxHeight = height; // En'i height olarak alıyoruz
+
+    const group = new THREE.Group();
+
+    // Orta Kutu Kısmı (Eğer genişlik > 2*radius ise)
+    if (boxWidth > 0) {
+        const boxGeom = new THREE.BoxGeometry(boxWidth, boxDepth, boxHeight);
+        const boxMesh = new THREE.Mesh(boxGeom, material);
+        group.add(boxMesh);
+    }
+
+    // Uç Silindirler (Yarım)
+    const cylinderGeom = new THREE.CylinderGeometry(radius, radius, boxDepth, 16);
+    // Silindiri X ekseni etrafında 90 derece döndürerek Z eksenine paralel hale getir
+    cylinderGeom.rotateX(Math.PI / 2);
+
+    const leftCap = new THREE.Mesh(cylinderGeom, material);
+    leftCap.position.x = -boxWidth / 2; // Sol uca taşı
+    group.add(leftCap);
+
+    const rightCap = new THREE.Mesh(cylinderGeom, material);
+    rightCap.position.x = boxWidth / 2; // Sağ uca taşı
+    group.add(rightCap);
+
+    return group;
+}
+
+
+// ahmedakbayir/ngcad/ngcad-a560cec7fc337c4aaff6feec495df3495bee850d/scene3d.js
+// ... (importlar ve diğer fonksiyonlar) ...
+
+// ahmedakbayir/ngcad/ngcad-a560cec7fc337c4aaff6feec495df3495bee850d/scene3d.js
+
 function createStairMesh(stair) {
     const totalRun = stair.width; // Merdiven uzunluğu (X ekseni)
     const stairWidth = stair.height; // Merdiven eni (Z ekseni)
@@ -619,35 +669,29 @@ function createStairMesh(stair) {
     stairGroup.position.set(stair.center.x, 0, stair.center.y); // Zemin Y=0'a göre merkezle
     stairGroup.rotation.y = -(stair.rotation || 0) * Math.PI / 180;
 
-    // --- SAHANLIK DURUMU ---
+    // --- SAHANLIK DURUMU (Değişiklik yok) ---
     if (isLanding) {
-        const landingThickness = 10; // Sahanlık beton kalınlığı
-        const marbleThickness = 2; // Mermer kalınlığı
-        
-        // Beton sahanlık
+        const landingThickness = 10;
+        const marbleThickness = 2;
         const landingGeom = new THREE.BoxGeometry(totalRun, landingThickness, stairWidth);
         landingGeom.translate(0, landingThickness / 2, 0);
         const landingMesh = new THREE.Mesh(landingGeom, stairMaterial);
         landingMesh.position.y = bottomElevation;
         stairGroup.add(landingMesh);
-        
-        // Üst mermer kaplama
         const marbleGeom = new THREE.BoxGeometry(totalRun, marbleThickness, stairWidth);
         marbleGeom.translate(0, marbleThickness / 2, 0);
         const marbleMesh = new THREE.Mesh(marbleGeom, stepNosingMaterial);
         marbleMesh.position.y = bottomElevation + landingThickness;
         stairGroup.add(marbleMesh);
-        
         return stairGroup;
     }
     // --- SAHANLIK DURUMU SONU ---
 
 
-    // --- NORMAL MERDİVEN HESAPLAMALARI ---
+    // --- NORMAL MERDİVEN HESAPLAMALARI (Değişiklik yok) ---
     const stepRun = totalRun / stepCount; // Rıht derinliği
     const stepRise = totalRise / stepCount; // Rıht yüksekliği
     const overlap = 10; // Basamak bindirme payı
-
     const NOSING_THICKNESS = 2; // Mermer kalınlığı
     const NOSING_OVERHANG = 2; // Öne çıkıntı miktarı
 
@@ -655,7 +699,7 @@ function createStairMesh(stair) {
     const stepMaterials = [ stairMaterial, stairMaterial, stairMaterialTop, stairMaterial, stairMaterial, stairMaterial ];
     const stepNosingMaterials = [ stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial, stepNosingMaterial ];
 
-    // Basamakları oluştur (Kotları dikkate alarak) - DÜZELTİLMİŞ
+    // --- BASAMAKLARI OLUŞTUR (Standart BoxGeometry ile) ---
     for (let i = 0; i < stepCount; i++) {
         const yPosBase = bottomElevation + i * stepRise; // Basamağın alt kotu
         const stepStartX = -totalRun / 2 + i * stepRun;
@@ -687,85 +731,98 @@ function createStairMesh(stair) {
         nosingMesh.position.set(stepStartX + stepRun + NOSING_OVERHANG / 2, yPosBase + stepRise, 0);
         stairGroup.add(nosingMesh);
     }
+    // --- BASAMAK OLUŞTURMA SONU ---
 
-    // --- Korkulukları Oluştur (Kotları dikkate alarak) ---
-    const HANDRAIL_HEIGHT = 90; // Korkuluk yüksekliği (basamak üstünden)
+    // --- Korkulukları Oluştur (Kotları dikkate alarak - Küpeşte Uçları Yuvarlatılmış - Değişiklik Yok) ---
+    const HANDRAIL_HEIGHT = 90;
     const HANDRAIL_INSET = 10;
     const POST_RADIUS = 3;
     const BALUSTER_RADIUS = 1.5;
-    const HANDRAIL_RADIUS = 4;
+    const HANDRAIL_RADIUS = 4; // Küpeşte yarıçapı
     const BALUSTER_SPACING = stepRun;
 
     const postMaterial = handrailWoodMaterial;
     const balusterMaterialUsed = balusterMaterial;
     const handrailMaterialUsed = handrailWoodMaterial;
+    const sphereMaterial = handrailWoodMaterial; // Küreler için de aynı malzeme
 
     for (let side = -1; side <= 1; side += 2) {
         const handrailGroup = new THREE.Group();
         const zOffset = side * (stairWidth / 2 - HANDRAIL_INSET);
 
         // Başlangıç Dikmesi (Alt) - Alt kota göre
-        const startPostHeight = HANDRAIL_HEIGHT - HANDRAIL_RADIUS; // Küpeşte altından basamak üstüne kadar
+        const startPostHeight = HANDRAIL_HEIGHT - HANDRAIL_RADIUS;
         const startPostGeom = new THREE.CylinderGeometry(POST_RADIUS, POST_RADIUS, startPostHeight, 16);
-        startPostGeom.translate(0, startPostHeight / 2, 0); // Merkeze al
+        startPostGeom.translate(0, startPostHeight / 2, 0);
         const startPost = new THREE.Mesh(startPostGeom, postMaterial);
-        // Dikmenin altı merdivenin alt kotunda (y=bottomElevation)
         startPost.position.set(-totalRun / 2 + POST_RADIUS, bottomElevation, zOffset);
         handrailGroup.add(startPost);
 
         // Bitiş Dikmesi (Üst) - Üst kota göre
-        const endPostYBase = topElevation; // Dikmenin altı merdivenin üst kotunda
+        const endPostYBase = topElevation;
         const endPostHeight = HANDRAIL_HEIGHT - HANDRAIL_RADIUS;
         const endPostGeom = new THREE.CylinderGeometry(POST_RADIUS, POST_RADIUS, endPostHeight, 16);
-        endPostGeom.translate(0, endPostHeight / 2, 0); // Merkeze al
+        endPostGeom.translate(0, endPostHeight / 2, 0);
         const endPost = new THREE.Mesh(endPostGeom, postMaterial);
         endPost.position.set(totalRun / 2 - POST_RADIUS, endPostYBase, zOffset);
         handrailGroup.add(endPost);
 
-
         // Ara Dikmeler (Balusters) - Kotları dikkate alarak
         const numBalusters = stepCount -1;
-        const stairSlope = totalRise / totalRun; // Merdivenin eğimi
-
+        const stairSlope = totalRise / totalRun;
         for (let i = 0; i < numBalusters; i++) {
             const balusterX = -totalRun / 2 + (i + 1) * stepRun;
-            const balusterYBase = bottomElevation + (i + 1) * stepRise + NOSING_THICKNESS; // Mermer üstü kotu
-            // Küpeşte merkezinin Y'sini hesapla (alt dikmenin tabanından başlayarak eğimle)
-            const handrailCenterYAtX = (bottomElevation + startPostHeight + HANDRAIL_RADIUS / 2) + (balusterX - (-totalRun / 2 + POST_RADIUS)) * stairSlope;
-            const balusterHeight = handrailCenterYAtX - balusterYBase - HANDRAIL_RADIUS; // Küpeşte altı ile mermer üstü arası
+            const balusterYBase = bottomElevation + (i + 1) * stepRise + NOSING_THICKNESS;
+            const handrailCenterYAtX = (bottomElevation + startPostHeight + HANDRAIL_RADIUS) + (balusterX - (-totalRun / 2 + POST_RADIUS)) * stairSlope;
+            const balusterHeight = handrailCenterYAtX - balusterYBase - HANDRAIL_RADIUS;
 
             if (balusterHeight > 0.1) {
                 const balusterGeom = new THREE.CylinderGeometry(BALUSTER_RADIUS, BALUSTER_RADIUS, balusterHeight, 12);
-                balusterGeom.translate(0, balusterHeight / 2, 0); // Merkeze al
+                balusterGeom.translate(0, balusterHeight / 2, 0);
                 const baluster = new THREE.Mesh(balusterGeom, balusterMaterialUsed);
-                baluster.position.set(balusterX, balusterYBase, zOffset); // Mermer üstüne yerleştir
+                baluster.position.set(balusterX, balusterYBase, zOffset);
                 handrailGroup.add(baluster);
             }
         }
 
-
-        // Küpeşte (Eğimli Yuvarlak Kısım) - Kotları dikkate alarak
+        // --- KÜPEŞTE (Silindir + Küreler) ---
         const railingStartX = startPost.position.x;
-        const railingStartY = bottomElevation + startPostHeight + HANDRAIL_RADIUS; // Küpeşte merkezi Y (alt)
+        const railingStartY = bottomElevation + startPostHeight + HANDRAIL_RADIUS;
         const railingEndX = endPost.position.x;
-        const railingEndY = topElevation + endPostHeight + HANDRAIL_RADIUS; // Küpeşte merkezi Y (üst)
+        const railingEndY = topElevation + endPostHeight + HANDRAIL_RADIUS;
 
         const deltaX = railingEndX - railingStartX;
         const deltaY = railingEndY - railingStartY;
         const railingLength = Math.hypot(deltaX, deltaY);
         const railingAngle = Math.atan2(deltaY, deltaX);
 
-        const railingGeom = new THREE.CylinderGeometry(HANDRAIL_RADIUS, HANDRAIL_RADIUS, railingLength, 16);
+        // Ana Silindir Kısmı (Uçlardaki küreler için biraz kısaltılmış)
+        const cylinderLength = Math.max(0.1, railingLength - HANDRAIL_RADIUS * 2);
+        const railingGeom = new THREE.CylinderGeometry(HANDRAIL_RADIUS, HANDRAIL_RADIUS, cylinderLength, 16);
         const railingMesh = new THREE.Mesh(railingGeom, handrailMaterialUsed);
 
+        // Küre Geometrisi
+        const sphereGeom = new THREE.SphereGeometry(HANDRAIL_RADIUS, 16, 8);
+
+        // Başlangıç Küresi
+        const startSphere = new THREE.Mesh(sphereGeom, sphereMaterial);
+        startSphere.position.set(railingStartX, railingStartY, zOffset);
+        handrailGroup.add(startSphere);
+
+        // Bitiş Küresi
+        const endSphere = new THREE.Mesh(sphereGeom, sphereMaterial);
+        endSphere.position.set(railingEndX, railingEndY, zOffset);
+        handrailGroup.add(endSphere);
+
+        // Silindiri kürelerin arasına yerleştir
         const railingCenterX = (railingStartX + railingEndX) / 2;
         const railingCenterY = (railingStartY + railingEndY) / 2;
-
         railingMesh.position.set(railingCenterX, railingCenterY, zOffset);
-        railingMesh.rotation.z = Math.PI / 2 + railingAngle; // Doğru eksende döndür
+        railingMesh.rotation.z = Math.PI / 2 + railingAngle;
 
         handrailGroup.add(railingMesh);
         stairGroup.add(handrailGroup);
+        // --- KÜPEŞTE SONU ---
     }
     // --- Korkuluk Sonu ---
 
@@ -820,12 +877,112 @@ function createVentMesh(wall, vent) {
 
     return ventGroup; // Ana grubu döndür
 }
+
+export function fit3DViewToScreen() {
+    // Gerekli Three.js nesnelerinin varlığını kontrol et
+    if (!sceneObjects || !camera || !controls || !renderer || !scene) {
+        console.error("Fit 3D: Gerekli nesneler (sceneObjects, camera, controls, renderer, scene) bulunamadı.");
+        return;
+    }
+
+    const boundingBox = new THREE.Box3();
+    let hasContent = false;
+
+    // Görünür olan ve zemin olmayan nesneleri dahil et
+    sceneObjects.children.forEach(obj => {
+        if (obj.visible && obj.material !== floorMaterial) {
+            try {
+                // Nesnenin dünya matrisinin güncel olduğundan emin ol
+                obj.updateMatrixWorld(true);
+                // Nesnenin sınırlayıcı kutusunu dünya koordinatlarında al
+                const box = new THREE.Box3().setFromObject(obj, true); // true -> dünya koordinatları
+                if (!box.isEmpty()) {
+                    boundingBox.union(box); // Genel kutuya dahil et
+                    hasContent = true;
+                }
+            } catch (error) {
+                console.error("Fit 3D: Nesne sınırlayıcı kutusu hesaplanırken hata:", obj, error);
+            }
+        }
+    });
+
+    // İçerik yoksa veya kutu boşsa varsayılan görünüme dön
+    if (!hasContent || boundingBox.isEmpty()) {
+        console.log("Fit 3D: Sığdırılacak içerik bulunamadı, varsayılana dönülüyor.");
+        controls.target.set(0, WALL_HEIGHT / 2, 0);
+        camera.position.set(1500, 1800, 1500); // Varsayılan pozisyon
+        controls.update();
+        return;
+    }
+
+    const center = new THREE.Vector3();
+    const sphere = new THREE.Sphere();
+
+    try {
+        boundingBox.getCenter(center);
+        boundingBox.getBoundingSphere(sphere); // Kapsayan küreyi al
+    } catch (error) {
+        console.error("Fit 3D: Bounding box merkez/küre alınırken hata:", error);
+        return; // Hata durumunda işlemi durdur
+    }
+
+
+    // Küre yarıçapı sıfır veya geçersizse işlemi durdur
+    if (!sphere.radius || sphere.radius <= 0) {
+        console.warn("Fit 3D: Hesaplanan küre yarıçapı geçersiz:", sphere.radius);
+        // Hedefi merkeze alıp varsayılan bir mesafeye gitmeyi deneyebiliriz
+        controls.target.copy(center);
+        camera.position.set(center.x + 1000, center.y + 1000, center.z + 1000); // Örnek mesafe
+        controls.update();
+        return;
+    }
+
+
+    const radius = sphere.radius;
+    const fov = camera.fov * (Math.PI / 180); // FOV'u radyana çevir
+
+    // Küreyi dikey FOV'a sığdırmak için gereken mesafeyi hesapla
+    let distance = radius / Math.sin(fov / 2);
+
+    // Yatay FOV'u da hesaba kat (geniş nesneler için)
+    const aspect = camera.aspect;
+    const halfFovHorizontal = Math.atan(Math.tan(fov / 2) * aspect);
+    const distanceHorizontal = radius / Math.sin(halfFovHorizontal);
+    distance = Math.max(distance, distanceHorizontal); // İki mesafeden büyük olanı al
+
+    // Yeni kamera pozisyonunu hesapla (mevcut yönü koruyarak)
+    const direction = new THREE.Vector3();
+    // Kamera pozisyonu hedefe çok yakınsa veya aynıysa varsayılan bir yön kullan
+    if (camera.position.distanceTo(controls.target) < 0.1) {
+        direction.set(0, 0.5, 1).normalize(); // Örnek bir yön
+        console.warn("Fit 3D: Kamera hedefe çok yakın, varsayılan yön kullanılıyor.");
+    } else {
+        direction.subVectors(camera.position, controls.target).normalize();
+    }
+
+    const newPosition = new THREE.Vector3();
+    // Merkezden hesaplanan mesafe kadar geriye git + biraz pay (1.1)
+    newPosition.copy(center).addScaledVector(direction, distance * 1.1); // Padding faktörü 1.1
+
+    // Kamera ve hedefi güncelle
+    controls.target.copy(center);
+    camera.position.copy(newPosition);
+
+    // Kamera hedefe baktığından emin ol (opsiyonel ama faydalı olabilir)
+    // camera.lookAt(center);
+
+    controls.update();
+
+    // Debugging için
+    console.log("Fit 3D Başarılı: Center=", center.toArray().map(v => v.toFixed(2)), "Radius=", radius.toFixed(2), "Distance=", distance.toFixed(2), "NewPos=", newPosition.toArray().map(v => v.toFixed(2)));
+}
+
 // --- 3D Sahneyi Güncelleme ---
 export function update3DScene() {
     if (!dom.mainContainer.classList.contains('show-3d') || !sceneObjects) return;
     sceneObjects.clear();
 
-    const solidOpacity = 0.75;
+    const solidOpacity = 1 ;//0.75;
 
     // Materyal güncellemeleri
     // ... (diğer materyal güncellemeleri aynı) ...

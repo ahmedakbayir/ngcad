@@ -10,8 +10,7 @@ import { getMinWallLength } from './actions.js';
 import { isSpaceForDoor } from './door-handler.js';
 import { isSpaceForWindow } from './window-handler.js';
 import { findAvailableSegmentAt } from './wall-item-utils.js';
-import { recalculateStepCount } from './stairs.js'; // recalculateStepCount import edildi
-
+import { recalculateStepCount,updateConnectedStairElevations } from './stairs.js'; // recalculateStepCount import edildi
 
 export function initializeSettings() {
     dom.borderPicker.value = state.wallBorderColor;
@@ -368,6 +367,7 @@ export function cancelLengthEdit() {
 let currentEditingStair = null; // Düzenlenen merdiveni tutmak için
 
 export function showStairPopup(stair, e) {
+    setState({ isStairPopupVisible: true });
     if (!stair) return;
     currentEditingStair = stair;
     // console.log("showStairPopup: currentEditingStair ayarlandı:", currentEditingStair); // Debug log
@@ -376,8 +376,9 @@ export function showStairPopup(stair, e) {
     dom.stairNameInput.value = stair.name || 'Merdiven';
     dom.stairBottomElevationInput.value = stair.bottomElevation || 0;
     dom.stairTopElevationInput.value = stair.topElevation || WALL_HEIGHT;
-    dom.stairWidthEditInput.value = stair.height || 120; // Dikkat: 2D'de height, 3D'de en
+    dom.stairWidthEditInput.value = Math.round(stair.height || 120); // Math.round() eklendi
     dom.stairIsLandingCheckbox.checked = stair.isLanding || false;
+    dom.stairShowRailingCheckbox.checked = stair.showRailing !== undefined ? stair.showRailing : true; // <-- YENİ SATIR (Varsayılan true)
 
     // Bağlı merdiven select'ini doldur
     dom.stairConnectedStairSelect.innerHTML = '<option value="">YOK</option>'; // Önce temizle
@@ -428,6 +429,7 @@ export function showStairPopup(stair, e) {
 }
 
 export function hideStairPopup() {
+    setState({  isStairPopupVisible: false });
     // console.log("hideStairPopup çağrıldı, currentEditingStair null yapılıyor."); // Debug log
     dom.stairPopup.style.display = 'none';
     currentEditingStair = null; // <-- Referansı temizle
@@ -438,86 +440,70 @@ export function hideStairPopup() {
      dom.c2d.focus(); // Odağı geri ver
 }
 
+// ahmedakbayir/ngcad/ngcad-a560cec7fc337c4aaff6feec495df3495bee850d/ui.js
+
 function confirmStairChange() {
-    // console.log("confirmStairChange fonksiyonu çalıştı!"); // Debug log
+    // Düzenlenen merdiveni kontrol et
     if (!currentEditingStair) {
         console.error("HATA: confirmStairChange içinde currentEditingStair bulunamadı!");
+        // hideStairPopup(); // Hata durumunda da kapatmak için eklenebilir ama try bloğunun başında zaten var.
         return;
     }
-    // console.log("Düzenlenen merdiven (confirm başında):", JSON.stringify(currentEditingStair)); // Debug log
-
-    const stair = currentEditingStair;
+    const stair = currentEditingStair; // Kolay erişim için değişkene ata
 
     try {
-        stair.name = dom.stairNameInput.value.trim() || 'Merdiven';
+        hideStairPopup(); // <-- Popup'ı diğer işlemlerden ÖNCE kapat
+
+        // Formdaki değerleri al ve merdiven nesnesine ata
+        stair.name = dom.stairNameInput.value.trim() || 'Merdiven'; // İsim
         const connectedStairId = dom.stairConnectedStairSelect.value;
-        stair.connectedStairId = connectedStairId || null;
+        stair.connectedStairId = connectedStairId || null; // Bağlı merdiven ID'si
 
         // Alt kotu ayarla (bağlıysa otomatik, değilse inputtan)
         let bottomElevation = parseInt(dom.stairBottomElevationInput.value, 10) || 0;
         if (stair.connectedStairId) {
+            // Bağlı merdiveni bul
             const connectedStair = (state.stairs || []).find(s => s.id === stair.connectedStairId);
             if (connectedStair) {
-                bottomElevation = connectedStair.topElevation || 0; // Bağlı olanın üst kotunu al
+                // Bağlı merdivenin üst kotunu bu merdivenin alt kotu yap
+                bottomElevation = connectedStair.topElevation || 0;
             }
         }
-        stair.bottomElevation = bottomElevation;
-        dom.stairBottomElevationInput.value = stair.bottomElevation; // Input'u da güncelle
+        stair.bottomElevation = bottomElevation; // Hesaplanan alt kotu ata
 
-        stair.height = parseInt(dom.stairWidthEditInput.value, 10) || 120; // 2D height = genişlik
+        // Merdiven genişliğini (2D'deki height) ata
+        stair.height = parseInt(dom.stairWidthEditInput.value, 10) || 120;
+        // Sahanlık (orta düzlem) durumunu ata
         stair.isLanding = dom.stairIsLandingCheckbox.checked;
+        // Korkuluk gösterme durumunu ata
+        stair.showRailing = dom.stairShowRailingCheckbox.checked;
 
         // Üst Kot'u ayarla
-        // Üst Kot'u ayarla
+        const LANDING_THICKNESS = 10; // Sahanlık kalınlığı (scene3d.js ile aynı olmalı)
         if (stair.isLanding) {
-            // ORTA DÜZLEM: Üst kotu bağlı merdivenin üst kotuna eşitle
-            if (stair.connectedStairId) {
-                const connectedStair = (state.stairs || []).find(s => s.id === stair.connectedStairId);
-                if (connectedStair) {
-                    // ÖNEMLI: Orta düzlem üst kotu = bağlı merdivenin üst kotu
-                    stair.topElevation = connectedStair.topElevation || stair.bottomElevation;
-                } else {
-                    stair.topElevation = stair.bottomElevation;
-                }
-            } else {
-                // Bağlantı yoksa alt kota eşitle
-                stair.topElevation = stair.bottomElevation;
-            }
-            
-            // ÖNEMLI: Alt kotu da güncelle (platform kalınlığı kadar aşağı)
-            const LANDING_THICKNESS = 10; // scene3d.js'teki ile aynı
-            stair.bottomElevation = stair.topElevation - LANDING_THICKNESS;
-            
+            // SAHANLIK ise: Üst kot = alt kot + kalınlık
+            stair.topElevation = stair.bottomElevation + LANDING_THICKNESS;
         } else {
-            // Normal merdiven: Girilen değeri al ve doğrula
+            // NORMAL MERDİVEN ise: Input'taki değeri al veya varsayılanı hesapla
             let topElevationInput = parseInt(dom.stairTopElevationInput.value, 10);
+            // Input geçerli değilse, alt kot + varsayılan kat yüksekliği
             if (isNaN(topElevationInput)) {
                 topElevationInput = stair.bottomElevation + WALL_HEIGHT;
             }
-            // Alt kottan en az 10cm yüksek olmalı
+            // Üst kot, alt kottan en az 10cm yüksek olmalı
             stair.topElevation = Math.max(stair.bottomElevation + 10, topElevationInput);
         }
 
-        // Alt kot input'unu da güncelle
-        dom.stairBottomElevationInput.value = stair.bottomElevation;
-        dom.stairTopElevationInput.value = stair.topElevation;
-        dom.stairTopElevationInput.disabled = stair.isLanding;
+        recalculateStepCount(stair); // Basamak sayısını yeniden hesapla (gerekirse)
 
-        recalculateStepCount(stair); // Basamakları yeniden hesapla
-
-        // console.log("Kaydetme ve güncelleme yapılıyor..."); // Debug log
-        saveState();
-        update3DScene(); // 3D'yi güncelle
-        // console.log("İşlem tamamlandı, popup kapatılıyor..."); // Debug log
-        hideStairPopup(); // Popup'ı kapat
+        saveState(); // Değişiklikleri geçmişe kaydet
+        update3DScene(); // 3D sahneyi güncelle
 
     } catch (error) {
         console.error("confirmStairChange içinde hata oluştu:", error);
-        // Hata olsa bile popup'ı kapatmayı deneyebiliriz
-        // hideStairPopup();
+        // Popup zaten başta kapatıldığı için tekrar işlem yapmaya gerek yok.
     }
 }
-
 // --- MERDİVEN POPUP FONKSİYONLARI SONU ---
 
 // UI dinleyicilerini ayarlama (değişiklik yok)
@@ -597,6 +583,15 @@ export function setupUIListeners() {
              dom.stairTopElevationInput.value = dom.stairBottomElevationInput.value;
          }
      });
-
+[dom.stairNameInput, dom.stairBottomElevationInput, dom.stairTopElevationInput, dom.stairWidthEditInput].forEach(input => {
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Varsayılan Enter davranışını engelle
+            confirmStairChange();
+        } else if (e.key === 'Escape') {
+            hideStairPopup(); // Escape ile de kapatılsın
+        }
+    });
+});
     // MERDİVEN POPUP LISTENER'LARI SONU
 }

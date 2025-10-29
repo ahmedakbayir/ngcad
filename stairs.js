@@ -23,24 +23,89 @@ function getNextStairLetter() {
     }
 }
 
+
+
+/**
+ * Bir merdivenin kotları değiştiğinde ONA BAĞLANAN (altındaki) merdivenlerin kotlarını günceller.
+ * @param {string} changedStairId - Kotları değişen merdivenin ID'si
+ * @param {Set<string>} visited - Döngüleri önlemek için ziyaret edilen ID'ler kümesi
+ */
+export function updateConnectedStairElevations(changedStairId, visited = new Set()) {
+    if (visited.has(changedStairId)) {
+        return; // Sonsuz döngüleri önle
+    }
+    visited.add(changedStairId);
+
+    // Tüm merdivenleri ID'ye göre haritala (kolay erişim için)
+    const stairMap = new Map((state.stairs || []).map(s => [s.id, s]));
+    const changedStair = stairMap.get(changedStairId);
+
+    if (!changedStair) {
+        console.error("updateConnectedStairElevations: Değişen merdiven bulunamadı:", changedStairId);
+        return;
+    }
+
+    // --- ÜSTTEKİ MERDİVENİ GÜNCELLEME YOK ---
+
+    // --- ALTTAKİ MERDİVEN(LER)İ GÜNCELLE (changedStair'e bağlanan merdivenler) ---
+    const stairsBelow = (state.stairs || []).filter(s => s.connectedStairId === changedStairId);
+    stairsBelow.forEach(stairBelow => {
+        // Alttaki merdivenin ALT kotu, değişen (üstteki) merdivenin ÜST kotuna eşitlenmeli.
+        if (stairBelow.bottomElevation !== changedStair.topElevation) { // <-- DÜZELTİLDİ: changedStair.topElevation ile karşılaştırılıyor
+            console.log(`Alttaki güncelleniyor (${stairBelow.id}): altKot ${stairBelow.bottomElevation} -> ${changedStair.topElevation}`);
+            stairBelow.bottomElevation = changedStair.topElevation; // <-- DÜZELTİLDİ: changedStair.topElevation atanıyor
+
+            if (stairBelow.isLanding) {
+                const LANDING_THICKNESS = 10;
+                // Üst kot = Yeni alt kot + kalınlık
+                stairBelow.topElevation = stairBelow.bottomElevation + LANDING_THICKNESS;
+            } else {
+                // Normal merdiven... recalculateStepCount üst ve alt kota göre hesap yapar
+                const newRise = stairBelow.topElevation - stairBelow.bottomElevation;
+                if (newRise <= 0) {
+                    console.warn(`Merdiven ${stairBelow.id} yüksekliği <= 0 oldu.`);
+                    // İsteğe bağlı: Üst kotu da minimum yüksekliği sağlayacak şekilde ayarla
+                    // stairBelow.topElevation = stairBelow.bottomElevation + 10;
+                }
+                recalculateStepCount(stairBelow); // Basamakları yeni yükseklik/uzunluk oranına göre yeniden hesapla
+            }
+            // Değişikliği aşağı doğru yay
+            updateConnectedStairElevations(stairBelow.id, visited);
+        }
+    });
+}
+
 // Merdiven nesnesi oluşturur
 export function createStairs(centerX, centerY, width, height, rotation) {
     const nextName = getNextStairLetter(); // Sıradaki ismi al
+
+    // Varsayılan kotları hesapla
+    let defaultBottomElevation = 0;
+    let defaultTopElevation = WALL_HEIGHT / 2; // İlk merdiven için varsayılan üst kot
+
+    if (state.stairs && state.stairs.length > 0) {
+        // Mevcut merdivenlerin en yüksek üst kotunu bul
+        const maxExistingTopElevation = state.stairs.reduce((max, s) => Math.max(max, s.topElevation || 0), 0);
+        // Yeni merdivenin alt kotu, bulunan max üst kot veya WALL_HEIGHT/2'den büyük olanı olsun
+        defaultBottomElevation = Math.max(WALL_HEIGHT / 2, maxExistingTopElevation);
+        defaultTopElevation = WALL_HEIGHT; // Sonraki merdivenler tavana kadar gider
+    }
     const newStair = {
         type: 'stairs',
-        id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`, // Benzersiz ID
-        name: nextName, // Otomatik isim
+        id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        name: nextName,
         center: { x: centerX, y: centerY },
-        width: width, // Merdivenin UZUNLUĞU (Basamakların toplam run'ı)
-        height: height, // Merdivenin ENİ
-        rotation: rotation, // Açı
-        stepCount: 1, // Başlangıç değeri, recalculate ile güncellenecek
-        bottomElevation: 0, // Alt Kot
-        topElevation: WALL_HEIGHT, // Üst Kot (WALL_HEIGHT kullanıldı)
-        connectedStairId: null, // Bağlı merdiven ID'si
-        isLanding: false // Sahanlık mı?
+        width: width,
+        height: height,
+        rotation: rotation,
+        stepCount: 1,
+        bottomElevation: 0,
+        topElevation: defaultTopElevation,
+        connectedStairId: null,
+        isLanding: false,
+        showRailing: true // <-- YENİ ÖZELLİK EKLENDİ (Varsayılan: true)
     };
-    recalculateStepCount(newStair); // Oluştururken hesapla
+    recalculateStepCount(newStair);
     return newStair;
 }
 

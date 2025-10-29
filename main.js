@@ -6,6 +6,7 @@ import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { createWallPanel } from './wall-panel.js';
+import { fitDrawingToScreen } from './zoom.js'; // <-- BU SATIRI EKLEYİN
 
 export const BG = "#1e1f20";
 export const METER_SCALE = 1;
@@ -114,6 +115,7 @@ export let state = {
     sweepWalls: [],
     draggedRoomInfo: [],
     isCtrlDeleting: false,
+    isStairPopupVisible: false,
     columnRotationOffset: null, // DÖNDÜRME İÇİN EKLENDİ
     tempNeighborWallsToDimension: null, // Komşu duvar ölçüleri için geçici Set
     symmetryAxisP1: null, // Simetri ekseninin ilk noktası
@@ -199,6 +201,7 @@ export const dom = {
     stairWidthEditInput: document.getElementById("stair-width-edit"),
     stairConnectedStairSelect: document.getElementById("stair-connected-stair"),
     stairIsLandingCheckbox: document.getElementById("stair-is-landing"),
+    stairShowRailingCheckbox: document.getElementById("stair-show-railing"), // <-- YENİ SATIR BURAYA EKLENECEK
     confirmStairPopupButton: document.getElementById("confirm-stair-popup"),
     cancelStairPopupButton: document.getElementById("cancel-stair-popup"),
 };
@@ -261,6 +264,7 @@ export function resize() {
 function animate() {
     requestAnimationFrame(animate);
     draw2D();
+
     if(dom.mainContainer.classList.contains('show-3d')) {
         controls3d.update();
         renderer3d.render(scene3d, camera3d);
@@ -354,6 +358,7 @@ function initialize() {
 
     resize();
     animate();
+    setTimeout(fitDrawingToScreen, 100); // 100ms sonra fitDrawingToScreen'i çağır
     saveState();
 }
 

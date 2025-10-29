@@ -324,6 +324,23 @@ export function draw2D() {
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
-    
+ if (state.isStairPopupVisible && state.stairs && state.stairs.length > 0) {
+        ctx2d.textAlign = "center";
+        ctx2d.textBaseline = "middle";
+        ctx2d.fillStyle = "#e57373"; // Kırmızı renk
+
+        const baseFontSize = 24; // Daha büyük bir temel font boyutu
+        const ZOOM_EXPONENT_STAIR_NAME = -0.5; // Zoom ile nasıl küçüleceği (room names ile benzer veya farklı olabilir)
+        const minWorldFontSize = 8; // Minimum dünya boyutu
+
+        state.stairs.forEach(stair => {
+            if (stair.center && stair.name) {
+                let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT_STAIR_NAME);
+                ctx2d.font = `bold ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`; // Kalın font
+                ctx2d.fillText(stair.name, stair.center.x, stair.center.y);
+            }
+        });
+    }
+       
     ctx2d.restore();
 }

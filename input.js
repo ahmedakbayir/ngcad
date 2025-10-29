@@ -9,7 +9,7 @@ import { onPointerDown } from './pointer-down.js';
 import { onPointerMove } from './pointer-move.js';
 import { onPointerUp } from './pointer-up.js';
 import { getObjectAtPoint } from './actions.js';
-import { update3DScene } from './scene3d.js';
+import { update3DScene, fit3DViewToScreen } from './scene3d.js';
 // --- YENİ İMPORTLAR ---
 import { fitDrawingToScreen, onWheel } from './zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { wallExists } from './wall-handler.js';
@@ -186,9 +186,16 @@ function onKeyDown(e) {
             if (!['Enter', 'Escape', 'ArrowDown', 'ArrowUp'].includes(e.key)) { // ArrowUp eklendi
                 // F tuşunu burada da engelle
                 if (e.key.toLowerCase() === 'f') {
-                    e.preventDefault();
-                    return;
-                }
+                        e.preventDefault(); // Tarayıcının varsayılan 'F' işlemini (Find) engelle
+
+                        // 3D Ekran aktif mi kontrol et
+                        if (dom.mainContainer.classList.contains('show-3d')) {
+                            fit3DViewToScreen(); // 3D sığdırmayı çağır
+                        } else {
+                            fitDrawingToScreen(); // 2D sığdırmayı çağır
+                        }
+                        return; // Diğer kısayollarla çakışmasın
+                    }
                 // Ctrl+C/V'yi engelleme (input içinde çalışsın)
                 if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
                     // Tarayıcının kendi kopyala/yapıştırına izin ver

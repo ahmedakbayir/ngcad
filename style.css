@@ -351,6 +351,6 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
 #stair-popup input[type="checkbox"] {
     width: 18px;
     height: 18px;
-    margin-right: auto; /* Checkbox'ı sağa yasla */
+    /*margin-right: auto; /* Checkbox'ı sağa yasla */
     margin-left: 5px; /* Input ile arasında boşluk */
 }
