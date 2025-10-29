@@ -9,10 +9,12 @@ import { currentModifierKeys } from './input.js';
 import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from './columns.js';
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from './beams.js';
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from './stairs.js';
-import { onPointerMove as onPointerMoveWall } from './wall-handler.js';
+import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from './wall-handler.js';
 import { onPointerMove as onPointerMoveDoor } from './door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from './window-handler.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from './symmetry.js'; // <-- BU SATIR OLMALI  
+import { getObjectAtPoint } from './actions.js'; // getObjectAtPoint eklendi
+
 
 // Helper: Verilen bir noktanın duvar merkez çizgisine snap olup olmadığını kontrol eder.
 function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
@@ -255,168 +257,145 @@ export function onPointerMove(e) {
     updateMouseCursor();
 }
 
-/**
- * Mouse imlecini duruma göre günceller. (Önce Mod Kontrolü)
- */
 function updateMouseCursor() {
-    const { c2d, p2d } = dom; // p2d'yi de alalım
-    const { currentMode, isDragging, isPanning, mousePos, selectedObject, zoom } = state;
+    const { c2d } = dom;
+    const { currentMode, isDragging, isPanning, mousePos, selectedObject, zoom, isCtrlDeleting } = state;
 
-    // Önceki sınıfları temizle (panel seviyesinde)
-    p2d.classList.remove('dragging', 'panning', 'near-snap', 'over-wall', 'over-node', 'rotate-mode',
-                         'select-mode', 'drawWall-mode', 'drawRoom-mode', 'drawDoor-mode', 'drawWindow-mode',
-                         'drawColumn-mode', 'drawBeam-mode', 'drawStairs-mode');
-    c2d.style.cursor = ''; // Canvas'ın stilini sıfırla
+    // Önceki imleç sınıflarını temizle
+    const cursorClasses = [
+        'dragging-body', 'dragging-node', 'rotate-handle-hover', 'resize-ns', 'resize-ew',
+        'resize-nesw', 'resize-nwse', 'hover-node', 'hover-object-body', 'hover-wall-body',
+        'panning', 'delete-mode', 'hover-room-label' // hover-room-label eklendi
+    ];
+    cursorClasses.forEach(cls => c2d.classList.remove(cls));
+    c2d.style.cursor = ''; // Doğrudan stili de temizleyelim
 
-    // --- ÖNCELİK 1: Özel Durumlar (Silme, Pan, Drag) ---
-    if (state.isCtrlDeleting && currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
-        c2d.style.cursor = 'crosshair';
+    // --- ÖNCELİK 1: Özel Durumlar ---
+    if (isCtrlDeleting && currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
+        c2d.classList.add('delete-mode');
         return;
     }
     if (state.isDraggingRoomName || isPanning) {
-        c2d.style.cursor = 'grabbing';
-        p2d.classList.add(isPanning ? 'panning' : 'dragging'); // İlgili sınıfı ekle
+        c2d.classList.add('panning'); // Oda ismi sürükleme ve pan için
         return;
     }
-    if (isDragging) {
-        p2d.classList.add('dragging'); // Sürükleme sınıfını ekle
-        // Sürüklenen nesneye göre özel imleçler (köşe/kenar)
-        if (selectedObject?.type === 'column' || selectedObject?.type === 'beam' || selectedObject?.type === 'stairs') {
-            if (selectedObject.handle?.startsWith('corner_')) {p2d.classList.add('rotate-mode'); return;
+    if (isDragging && selectedObject) {
+        const handle = selectedObject.handle;
+        if (handle === 'body') {
+            c2d.classList.add('dragging-body');
+        } else if (handle === 'p1' || handle === 'p2') {
+            c2d.classList.add('dragging-node');
+        } else if (handle.startsWith('corner_')) {
+            c2d.classList.add('rotate-handle-hover'); // Döndürme sınıfı
+        } else if (handle.startsWith('edge_')) {
+            // Kenar sürüklerken resize imlecini hesapla ve sınıfı ekle
+            const rotation = selectedObject.object.rotation || 0;
+            const angleDeg = ((rotation % 360) + 360) % 360;
+            let cursorClass = 'resize-ew';
+            const isNearVertical = (angleDeg > 45 && angleDeg < 135) || (angleDeg > 225 && angleDeg < 315);
+            if (handle === 'edge_top' || handle === 'edge_bottom') {
+                cursorClass = isNearVertical ? 'resize-ew' : 'resize-ns';
+            } else {
+                cursorClass = isNearVertical ? 'resize-ns' : 'resize-ew';
             }
-            if (selectedObject.handle?.startsWith('edge_')) {
-                // Boyutlandırma imlecini hesapla
-                const edgeHandle = selectedObject.handle;
-                const rotation = selectedObject.object.rotation || 0;
-                const angleDeg = Math.abs(rotation % 180);
-                let cursorType = 'ew-resize';
-                if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') { cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize'; }
-                else { cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize'; }
-                c2d.style.cursor = cursorType;
+            c2d.classList.add(cursorClass);
+        } else {
+            c2d.classList.add('dragging-body'); // Bilinmeyen handle için
+        }
+        return; // Sürükleme durumuysa başka kontrol yapma
+    }
+
+    // --- ÖNCELİK 2: Çizim Modları ---
+    let modeCursorStyle = '';
+    switch (currentMode) {
+        // SVG ikonları olanlar için panel sınıfı yeterli olabilir,
+        // ama canvas'a da bir fallback (crosshair) atayalım.
+        case 'drawWall':
+        case 'drawRoom':
+            modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><path fill=\"white\" transform=\"translate(20 20) scale(0.5)\" d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z\"/></svg>') 16 16, crosshair"; // Örnek duvar ikonu + fallback
+            if (currentMode === 'drawRoom') {
+                 modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><rect x=\"20\" y=\"20\" width=\"10\" height=\"8\" fill=\"none\" stroke=\"white\" stroke-width=\"1.5\" rx=\"1\"/></svg>') 16 16, crosshair"; // Oda ikonu + fallback
+            }
+            break;
+        case 'drawColumn':
+        case 'drawBeam':
+        case 'drawStairs':
+        case 'drawDoor':
+        case 'drawWindow':
+        case 'drawVent':
+        case 'drawSymmetry':
+            modeCursorStyle = 'crosshair';
+            break;
+        case 'select':
+             // Select modu aşağıda ele alınacak
+             break;
+        default:
+             modeCursorStyle = 'default';
+    }
+
+    if (modeCursorStyle) {
+        c2d.style.cursor = modeCursorStyle; // İmleci doğrudan ayarla
+        // İlgili panel sınıfı CSS'te zaten ayarlı olmalı (örn: .panel.drawWall-mode)
+        // dom.p2d.className = `panel ${currentMode}-mode`; // Panelin sınıfını da güncelleyelim
+        return; // Çizim moduysa (select hariç) hover kontrolü yapma
+    }
+
+    // --- ÖNCELİK 3: Select Modu - Hover Durumları ---
+    if (currentMode === 'select') {
+        const hoveredObject = getObjectAtPoint(mousePos); // Nesneyi bul
+
+        if (hoveredObject) {
+            const handle = hoveredObject.handle;
+            // 1. Handle Hover
+            if (handle.startsWith('corner_')) {
+                c2d.classList.add('rotate-handle-hover'); // Döndürme imleci sınıfı
+                return;
+            } else if (handle.startsWith('edge_')) {
+                // Resize imlecini hesapla ve sınıfı ekle
+                const rotation = hoveredObject.object.rotation || 0;
+                const angleDeg = ((rotation % 360) + 360) % 360;
+                let cursorClass = 'resize-ew';
+                const isNearVertical = (angleDeg > 45 && angleDeg < 135) || (angleDeg > 225 && angleDeg < 315);
+                 if (handle === 'edge_top' || handle === 'edge_bottom') {
+                    cursorClass = isNearVertical ? 'resize-ew' : 'resize-ns';
+                 } else {
+                    cursorClass = isNearVertical ? 'resize-ns' : 'resize-ew';
+                 }
+                 c2d.classList.add(cursorClass);
+                return;
+            } else if (handle === 'p1' || handle === 'p2') { // Duvar Node'u
+                c2d.classList.add('hover-node'); // Taşıma imleci sınıfı
+                return;
+            }
+            // 2. Gövde Hover (Handle değilse)
+            else if (handle === 'body') {
+                if (hoveredObject.type === 'wall') {
+                    c2d.classList.add('hover-wall-body'); // Duvar gövdesi için özel (default ok)
+                } else if (hoveredObject.type === 'room' || hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
+                     // Mahal adı/alanı hover'ı burada yakalanıyor
+                     c2d.style.cursor = 'grab'; // Mahal adı için 'grab'
+                     c2d.classList.add('hover-room-label'); // Gölge efekti için sınıf (opsiyonel)
+                     // NOT: Gölge efekti zaten drawRoomNames içinde yapılıyor, bu sınıf sadece imleç içindi.
+                }
+                else {
+                    c2d.classList.add('hover-object-body'); // Diğer nesne gövdeleri için 'grab'
+                }
                 return;
             }
         }
-        // Diğer sürüklemeler için genel imleç
-        c2d.style.cursor = 'grabbing';
-        return;
-    }
 
-    // --- ÖNCELİK 2: Aktif Mod Çizim Modu mu? ---
-    // Bu blok, çizim modundayken hover kontrollerini atlayıp doğru imleci ayarlar.
-    if (currentMode === 'drawWall') {
-        p2d.classList.add('drawWall-mode'); // CSS'deki özel SVG ikonu için sınıfı ekle
-        // c2d.style.cursor = ''; // İmleci CSS yönetsin (SVG ikonlar için)
-        return; // Hover kontrolü yapma
-    }
-    if (currentMode === 'drawRoom') {
-        p2d.classList.add('drawRoom-mode'); // CSS'deki özel SVG ikonu için sınıfı ekle
-        // c2d.style.cursor = ''; // İmleci CSS yönetsin (SVG ikonlar için)
-        return; // Hover kontrolü yapma
-    }
-    if (currentMode === 'drawColumn' || currentMode === 'drawBeam' || currentMode === 'drawStairs') {
-        c2d.style.cursor = 'crosshair'; // Bu modlar için crosshair
-        p2d.classList.add(currentMode + '-mode'); // CSS'te de ayarlı, sınıfı ekleyelim
-        return; // Hover kontrolü yapma
-    }
-    if (currentMode === 'drawDoor') {
-        c2d.style.cursor = 'crosshair'; // Kapı için ok
-        p2d.classList.add('drawDoor-mode');
-        return; // Hover kontrolü yapma
-    }
-     if (currentMode === 'drawWindow') {
-        c2d.style.cursor = 'crosshair'; // Pencere için crosshair
-        p2d.classList.add('drawWindow-mode');
-        return; // Hover kontrolü yapma
-    }
-    // TODO: drawVent modu için de benzer bir kontrol eklenebilir.
-    if (currentMode === 'drawVent') {
-         c2d.style.cursor = 'crosshair'; // Menfez için crosshair
-         // p2d.classList.add('drawVent-mode'); // Eğer CSS'te varsa
-         return; // Hover kontrolü yapma
-    }
-
-    // --- ÖNCELİK 3: Select Modu ve Hover Durumları ---
-    if (currentMode === 'select') {
-        p2d.classList.add('select-mode'); // Select modu sınıfını ekle
-
-        // Kolon/Kiriş/Merdiven handle hover
-        const hoveredColumnObject = getColumnAtPoint(mousePos);
-        if (hoveredColumnObject && hoveredColumnObject.handle !== 'body') {
-            if (hoveredColumnObject.handle.startsWith('corner_')) {  p2d.classList.add('rotate-mode'); return; }
-            if (hoveredColumnObject.handle.startsWith('edge_')) {
-                const edgeHandle = hoveredColumnObject.handle;
-                const rotation = hoveredColumnObject.object.rotation || 0;
-                const angleDeg = Math.abs(rotation % 180);
-                let cursorType = 'ew-resize';
-                if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') { cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize'; }
-                else { cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize'; }
-                c2d.style.cursor = cursorType; return;
-            }
-        }
-        const hoveredBeamObject = getBeamAtPoint(mousePos);
-        if (hoveredBeamObject && hoveredBeamObject.handle !== 'body') {
-            if (hoveredBeamObject.handle.startsWith('corner_')) {  p2d.classList.add('rotate-mode'); return; }
-            if (hoveredBeamObject.handle.startsWith('edge_')) {
-                const edgeHandle = hoveredBeamObject.handle;
-                const rotation = hoveredBeamObject.object.rotation || 0;
-                const angleDeg = Math.abs(rotation % 180);
-                let cursorType = 'ew-resize';
-                if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') { cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize'; }
-                else { cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize'; }
-                c2d.style.cursor = cursorType; return;
-            }
-        }
-        const hoveredStairObject = getStairAtPoint(mousePos);
-        if (hoveredStairObject && hoveredStairObject.handle !== 'body') {
-             if (hoveredStairObject.handle.startsWith('corner_')) {  p2d.classList.add('rotate-mode'); return; }
-            if (hoveredStairObject.handle.startsWith('edge_')) {
-                const edgeHandle = hoveredStairObject.handle;
-                const rotation = hoveredStairObject.object.rotation || 0;
-                const angleDeg = Math.abs(rotation % 180);
-                let cursorType = 'ew-resize';
-                if (edgeHandle === 'edge_top' || edgeHandle === 'edge_bottom') { cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ew-resize' : 'ns-resize'; }
-                else { cursorType = (angleDeg > 45 && angleDeg < 135) ? 'ns-resize' : 'ew-resize'; }
-                c2d.style.cursor = cursorType; return;
-            }
-        }
-
-        // Node hover
+        // 3. Node Hover (getObjectAtPoint bulamadıysa, ek kontrol)
         const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
         if (hoveredNode) {
-            c2d.style.cursor = 'move';
-            p2d.classList.add('over-node');
+            c2d.classList.add('hover-node');
             return;
         }
 
-        // Kolon/Kiriş/Merdiven gövdesi hover
-        if (hoveredColumnObject && hoveredColumnObject.handle === 'body') { c2d.style.cursor = 'move'; return; }
-        if (hoveredBeamObject && hoveredBeamObject.handle === 'body') { c2d.style.cursor = 'move'; return; }
-        if (hoveredStairObject && hoveredStairObject.handle === 'body') { c2d.style.cursor = 'move'; return; }
-
-        // Duvar gövdesi hover
-        for (const w of state.walls) {
-             if (!w.p1 || !w.p2) continue;
-            const wallPx = w.thickness || state.wallThickness;
-            const bodyHitToleranceSq = (wallPx / 2 + 2 / zoom)**2;
-            if (distToSegmentSquared(mousePos, w.p1, w.p2) < bodyHitToleranceSq) {
-                 const d1Sq = (mousePos.x - w.p1.x)**2 + (mousePos.y - w.p1.y)**2;
-                 const d2Sq = (mousePos.x - w.p2.x)**2 + (mousePos.y - w.p2.y)**2;
-                 const nearEndpointToleranceSq = (8 / zoom) ** 2;
-                 if(d1Sq > nearEndpointToleranceSq && d2Sq > nearEndpointToleranceSq) {
-                    c2d.style.cursor = 'default'; // Duvar üzerinde ok
-                    p2d.classList.add('over-wall'); // CSS sınıfını ekle (belki stil için lazım olur)
-                    return;
-                 }
-            }
-        }
-        // TODO: Kapı/Pencere/Menfez gövdesi hover kontrolü eklenebilir (genelde default kalır)
-
-        // Hiçbir şeyin üzerinde değilse varsayılan select imleci
-        c2d.style.cursor = 'default';
+        // 4. Hiçbir şeyin üzerinde değilse
+        c2d.style.cursor = 'default'; // Varsayılan ok
         return;
     }
 
-    // --- Diğer Tüm Durumlar ---
-    // Eğer buraya gelinirse (bilinmeyen bir mod vb.), varsayılan imleci ayarla
+    // --- Varsayılan ---
     c2d.style.cursor = 'default';
 }

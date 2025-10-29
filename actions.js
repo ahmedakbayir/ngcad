@@ -1,4 +1,4 @@
-// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/actions.js
+// ahmedakbayir/ngcad/ngcad-1fde862049234ed29ab17f348568a2e3a4540854/actions.js
 // GÜNCELLENMİŞ: Bu dosya artık sadece bir "hit testing" yönlendiricisi
 // ve birkaç genel yardımcı fonksiyon içeriyor.
 
@@ -20,22 +20,22 @@ import { distToSegmentSquared } from './geometry.js';
  * @returns {object | null} - Bulunan nesne (seçim için) veya null
  */
 export function getObjectAtPoint(pos) {
-    const { walls, doors, rooms, zoom } = state;
+    const { walls, doors, rooms, zoom } = state; // rooms eklendi
     const tolerance = 8 / zoom;
 
     // 1. Handle Kontrolleri (Öncelikli)
     // 1.1 Kolon Handle
     const columnHandleHit = getColumnAtPoint(pos);
     if (columnHandleHit && columnHandleHit.handle !== 'body') return columnHandleHit;
-    
+
     // 1.2 Kiriş Handle
     const beamHandleHit = getBeamAtPoint(pos);
     if (beamHandleHit && beamHandleHit.handle !== 'body') return beamHandleHit;
-    
+
     // 1.3 Merdiven Handle - SADECE BİR KEZ ÇAĞIR
     const stairHit = getStairAtPoint(pos); // ← BURADA ÇAĞIR
     if (stairHit && stairHit.handle !== 'body') return stairHit; // ← Handle ise döndür
-    
+
     // 1.4 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
     if (wallNodeHit && wallNodeHit.handle !== 'body') return wallNodeHit;
@@ -44,11 +44,11 @@ export function getObjectAtPoint(pos) {
     // 2.1 Kapı
     const doorHit = getDoorAtPoint(pos, tolerance);
     if (doorHit) return doorHit;
-    
+
     // 2.2 Pencere
     const windowHit = getWindowAtPoint(pos, tolerance);
     if (windowHit) return windowHit;
-    
+
     // 2.3 Menfez
     for (const wall of [...walls].reverse()) {
         if (!wall.vents || wall.vents.length === 0 || !wall.p1 || !wall.p2) continue;
@@ -65,57 +65,87 @@ export function getObjectAtPoint(pos) {
             const distPerpendicular = Math.abs(dx_p * (-dy) + dy_p * dx);
             const distParallel = Math.abs(dx_p * dx + dy_p * dy);
 
+            // Toleransı biraz küçülttük menfez için
             if (distPerpendicular < wallPx / 2 + tolerance / 2 && distParallel < vent.width / 2 + tolerance / 2) {
                 return { type: "vent", object: vent, wall: wall };
             }
         }
     }
-    
+
     // 2.4 Merdiven Gövdesi - ZATEn YUKARIDA ÇAĞRILDI, stairHit'i kontrol et
     if (stairHit && stairHit.handle === 'body') return stairHit; // ← Body ise döndür
-    
+
     // 2.5 Kiriş Gövdesi
     if (beamHandleHit && beamHandleHit.handle === 'body') return beamHandleHit;
-    
+
     // 2.6 Kolon Gövdesi
     if (columnHandleHit && columnHandleHit.handle === 'body') return columnHandleHit;
 
     // 2.7 Mahal İsmi/Alanı
+    // Mahal alanı kontrolünden ÖNCE çalışmalı ki isim/alan daha öncelikli olsun
     for (const room of [...rooms].reverse()) {
-        if (!room.center || !Array.isArray(room.center) || room.center.length < 2) continue;
+        // Mahal merkezinin geçerli olup olmadığını kontrol et
+        if (!room.center || !Array.isArray(room.center) || room.center.length < 2 || typeof room.center[0] !== 'number' || typeof room.center[1] !== 'number') continue;
+        // Pos koordinatlarının geçerli olup olmadığını kontrol et
+        if (typeof pos?.x !== 'number' || typeof pos?.y !== 'number' || !isFinite(pos.x) || !isFinite(pos.y)) continue; // Pozisyon geçersizse bu odayı atla
+
         const distToCenter = Math.hypot(pos.x - room.center[0], pos.y - room.center[1]);
-        if (distToCenter < 40 / zoom) {
-             return { type: 'roomName', object: room };
+        const nameTolerance = 40 / zoom; // Mahal adı yakalama toleransı (draw-rooms.js ile aynı olmalı)
+        if (distToCenter < nameTolerance) {
+             // Mahal adı/alanına tıklandıysa bunu döndür
+             return { type: 'roomName', object: room }; // 'roomArea' yerine 'roomName' döndürelim, ikisi de aynı şekilde ele alınabilir
         }
     }
 
+
     // 2.8 Duvar Gövdesi
+    // Mahal adı kontrolünden SONRA çalışmalı
     if (wallNodeHit && wallNodeHit.handle === 'body') return wallNodeHit;
 
-    // 2.9 Mahal Alanı
+
+    // 2.9 Mahal Alanı (İsim/Alan hariç)
     for (const room of [...rooms].reverse()) {
-        if (!room.polygon?.geometry?.coordinates) continue;
+        // Poligonun ve koordinatlarının geçerli olup olmadığını kontrol et
+        if (!room.polygon?.geometry?.coordinates || !Array.isArray(room.polygon.geometry.coordinates[0]) || room.polygon.geometry.coordinates[0].length < 3) {
+            // console.warn("getObjectAtPoint: Invalid room polygon skipped:", room); // Opsiyonel: Hata ayıklama için
+            continue; // Geçersiz poligonu atla
+        }
+        // pos koordinatlarının geçerli (sayı) olup olmadığını kontrol et
+        if (typeof pos?.x !== 'number' || typeof pos?.y !== 'number' || !isFinite(pos.x) || !isFinite(pos.y)) {
+             console.error("getObjectAtPoint: Invalid mouse position received:", pos); // Hata ayıklama
+             continue; // Geçersiz pozisyonu atla (aslında yukarıda yapıldı ama tekrar kontrol edelim)
+        }
+        // Mahal merkezi koordinatlarının geçerli olup olmadığını kontrol et (isim/alan kontrolü için)
+        const hasValidCenter = room.center && Array.isArray(room.center) && room.center.length >= 2 && typeof room.center[0] === 'number' && typeof room.center[1] === 'number';
+
+
         try {
             const point = turf.point([pos.x, pos.y]);
             if (turf.booleanPointInPolygon(point, room.polygon)) {
+                 // Poligonun içindeyiz. Şimdi isim/alan üzerinde olup olmadığımızı kontrol edelim.
                  let isOverName = false;
-                 if (room.center && Array.isArray(room.center) && room.center.length >= 2) {
+                 if (hasValidCenter) {
                     const distToCenter = Math.hypot(pos.x - room.center[0], pos.y - room.center[1]);
-                    if (distToCenter < 40 / zoom) {
-                        isOverName = true;
+                    const nameTolerance = 40 / zoom;
+                    if (distToCenter < nameTolerance) {
+                        isOverName = true; // Evet, isim/alan üzerindeyiz
                     }
                  }
+                 // Eğer isim/alan üzerinde DEĞİLSEK, o zaman oda alanıdır.
                  if (!isOverName) {
                     return { type: 'room', object: room };
                  }
+                 // İsim/alan üzerindeysek, bu döngüyü atlayıp bir sonraki odaya geç (çünkü isim/alan daha önce handle edildi)
             }
         } catch (e) {
-            console.error("Error in turf.booleanPointInPolygon:", e, pos, room.polygon);
-            continue;
+            // Turf fonksiyonlarında hala bir hata olursa logla ve devam et
+            console.error("Error in turf.booleanPointInPolygon:", e, "Position:", pos, "Polygon structure (simplified):", room.polygon?.geometry?.type);
+            continue; // Hata durumunda bu odayı atla
         }
     }
 
-    return null;
+
+    return null; // Hiçbir şey bulunamadı
 }
 
 /**
@@ -145,20 +175,15 @@ export function getMinWallLength(wall) {
         const spaceBeforeFirst = items[0].pos - items[0].width / 2;
         // Son öğenin bitişi ile duvar bitişi arasındaki boşluk
         const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+        // Duvar uzunluğu sıfırsa veya çok küçükse devam etme
+        if (wallLen < 0.1) return Math.max(10, minLengthFromMargins);
+
         const spaceAfterLast = wallLen - (items[items.length - 1].pos + items[items.length - 1].width / 2);
 
         // Öğelerin kapladığı toplam genişlik (boşluklar hariç)
         const totalItemWidth = items.reduce((sum, item) => sum + item.width, 0);
 
-        // Gereken minimum toplam uzunluk: Marjlar + Öğeler + Öğeler arasındaki boşluklar
-        requiredByItems = UM + totalItemWidth + (items.length - 1) * MIN_GAP + UM;
-        // Ancak, öğeler arasındaki boşluklar zaten pozisyon farklarından geldiği için
-        // daha basit bir hesaplama: İlk öğenin başlangıcı + (Son öğenin bitişi - İlk öğenin başlangıcı) + Son öğeden sonraki marj
-        // Veya: Duvar Marjı + İlk Eleman Ortası - İlk Eleman Yarım Genişlik + Son Eleman Ortası + Son Eleman Yarım Genişlik - (İlk Eleman Ortası - İlk Eleman Yarım Genişlik) + Duvar Marjı
-        // En güvenli hesaplama: Tüm elemanların genişliği + (eleman sayısı+1) * marj (veya boşluk)
-        // requiredByItems = items.reduce((sum, item) => sum + item.width, 0) + (items.length -1) * MIN_GAP + 2 * UM;
-
-        // Daha doğru: İlk öğenin başlangıcı ile son öğenin bitişi arasındaki mesafe + 2 * marj
+        // Daha doğru hesaplama: İlk öğenin başlangıcı ile son öğenin bitişi arasındaki mesafe + 2 * marj
         requiredByItems = (items[items.length - 1].pos + items[items.length - 1].width / 2) - (items[0].pos - items[0].width / 2) + 2 * UM;
 
         // Eğer tek eleman varsa, onun genişliği + 2 * marj
@@ -172,7 +197,3 @@ export function getMinWallLength(wall) {
     // Ayrıca en az 10 gibi mutlak bir minimum da olabilir.
     return Math.max(10, minLengthFromMargins, requiredByItems);
 }
-
-// Kalan fonksiyonlar (findLargestAvailableSegment, findAvailableSegmentAt, checkOverlapAndGap,
-// getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, findCollinearChain)
-// ilgili handler dosyalarına (wall-item-utils.js, door-handler.js, window-handler.js, wall-handler.js) taşındı.

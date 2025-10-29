@@ -356,261 +356,275 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
     return { startPointForDragging, dragOffset, additionalState };
 }
 
+
 /**
- * Seçili bir merdiveni sürüklerken çağrılır.
- * @param {object} snappedPos - Snap uygulanmış fare pozisyonu
- * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
+ * Seçili bir merdiveni sürüklerken çağrılır. (DETAYLI SNAP İLE GÜNCELLENDİ)
+ * @param {object} snappedPosFromInput - Snap uygulanmış fare pozisyonu (input.js'den gelen genel snap sonucu)
+ * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu (doğrudan fareden)
  */
-export function onPointerMove(snappedPos, unsnappedPos) {
-    const stair = state.selectedObject.object; // Kopyalanmışsa güncel olanı alır
+export function onPointerMove(snappedPosFromInput, unsnappedPos) {
+    const stair = state.selectedObject.object;
     const handle = state.selectedObject.handle;
 
     if (handle.startsWith('corner_')) {
-        // Döndürme
+        // Döndürme (Mevcut kod aynı kalır, unsnappedPos kullanır)
         const center = stair.center;
-        const mouseAngle = Math.atan2(unsnappedPos.y - center.y, unsnappedPos.x - center.x); // Farenin merkez etrafındaki açısı
-        let newRotationRad = mouseAngle + state.columnRotationOffset; // state'deki başlangıç açı farkını ekle
-
-        // Açı snap'i (1 derece ve 90 derece)
-        const snapAngleRad1 = (1 * Math.PI / 180); // 1 derecelik snap adımı
-        newRotationRad = Math.round(newRotationRad / snapAngleRad1) * snapAngleRad1; // En yakın 1 dereceye yuvarla
-        let newRotationDeg = newRotationRad * 180 / Math.PI; // Dereceye çevir
-        const remainder = newRotationDeg % 90; // 90 dereceye göre kalan
-        const snapThreshold = 5; // 90 dereceye snap için tolerans (derece)
-        // 90 derecenin katlarına yakınsa oraya snap yap
+        const mouseAngle = Math.atan2(unsnappedPos.y - center.y, unsnappedPos.x - center.x);
+        let newRotationRad = mouseAngle + state.columnRotationOffset;
+        // Açı snap'i (1 ve 90 derece)
+        const snapAngleRad1 = (1 * Math.PI / 180);
+        newRotationRad = Math.round(newRotationRad / snapAngleRad1) * snapAngleRad1;
+        let newRotationDeg = newRotationRad * 180 / Math.PI;
+        const remainder = newRotationDeg % 90;
+        const snapThreshold = 5;
         if (Math.abs(remainder) <= snapThreshold || Math.abs(remainder) >= (90 - snapThreshold)) {
             newRotationDeg = Math.round(newRotationDeg / 90) * 90;
         }
-        stair.rotation = newRotationDeg; // Yeni açıyı ata
+        stair.rotation = newRotationDeg;
 
     } else if (handle === 'body' || handle === 'center') {
-        // Taşıma
-        // Yeni merkezi, farenin snaplenmemiş pozisyonu + başlangıç offset'i ile hesapla
+        // Taşıma (Detaylı Snap Mantığı)
+        // Hedeflenen merkezi hesapla (snaplenmemiş pozisyon + offset)
         let newCenterX = unsnappedPos.x + state.dragOffset.x;
         let newCenterY = unsnappedPos.y + state.dragOffset.y;
 
-        // --- GÜNCELLENMİŞ SNAP MANTIĞI (Duvar Yüzeyleri ve Diğer Merdivenler) ---
+        // --- DETAYLI SNAP KONTROLLERİ ---
         const SNAP_DISTANCE_WALL_SURFACE = 5; // Duvar yüzeyine snap mesafesi (cm)
-        const SNAP_DISTANCE_OTHER = 15; // Diğer snap türleri için mesafe (cm)
-        let bestSnapX = { diff: SNAP_DISTANCE_OTHER, delta: 0, type: 'other' }; // X ekseni için en iyi snap bilgisi
-        let bestSnapY = { diff: SNAP_DISTANCE_OTHER, delta: 0, type: 'other' }; // Y ekseni için en iyi snap bilgisi
+        const SNAP_DISTANCE_OTHER = 10; // Diğer snap türleri için mesafe (cm)
+        let bestSnapX = { diff: SNAP_DISTANCE_OTHER, delta: 0, type: 'none' };
+        let bestSnapY = { diff: SNAP_DISTANCE_OTHER, delta: 0, type: 'none' };
 
-        // Sürüklenen merdivenin geçici köşe ve merkez noktaları (snap kontrolü için)
+        // Sürüklenen merdivenin geçici köşe ve merkez noktaları
         const tempCorners = getStairCorners({ ...stair, center: { x: newCenterX, y: newCenterY } });
         const dragPoints = [ ...tempCorners, { x: newCenterX, y: newCenterY } ]; // Kontrol edilecek noktalar
 
-        // 1. Duvar Yüzeylerine Snap
+        // 1. Duvar Yüzeylerine Snap (Öncelikli)
         state.walls.forEach(wall => {
-            if (!wall.p1 || !wall.p2) return; // Geçersiz duvarı atla
+            if (!wall.p1 || !wall.p2) return;
             const wallThickness = wall.thickness || state.wallThickness;
             const halfThickness = wallThickness / 2;
             const dxW = wall.p2.x - wall.p1.x;
             const dyW = wall.p2.y - wall.p1.y;
-            const isVertical = Math.abs(dxW) < 0.1; // Duvar dikey mi?
-            const isHorizontal = Math.abs(dyW) < 0.1; // Duvar yatay mı?
+            const isVertical = Math.abs(dxW) < 0.1;
+            const isHorizontal = Math.abs(dyW) < 0.1;
 
             if (isVertical) {
-                // Dikey duvar: Sol ve Sağ yüzeylere (X) snap kontrolü
                 const wallX = wall.p1.x;
-                const snapXPositions = [ wallX - halfThickness, wallX + halfThickness ]; // Duvarın sol ve sağ yüzeyi X koordinatları
-                for (const snapX of snapXPositions) { // Her iki yüzey için
-                    for (const dP of dragPoints) { // Merdivenin her noktası için (köşeler + merkez)
-                        const diff = Math.abs(dP.x - snapX); // X eksenindeki fark
-                        // Eğer mesafe tolerans içinde VE önceki en iyi snap'ten daha iyiyse
+                const snapXPositions = [ wallX - halfThickness, wallX + halfThickness ];
+                for (const snapX of snapXPositions) {
+                    for (const dP of dragPoints) {
+                        const diff = Math.abs(dP.x - snapX);
                         if (diff < SNAP_DISTANCE_WALL_SURFACE && diff < bestSnapX.diff) {
-                            // En iyi snap'i güncelle (fark, düzeltme miktarı, tip)
                             bestSnapX = { diff, delta: snapX - dP.x, type: 'wall_surface' };
                         }
                     }
                 }
             } else if (isHorizontal) {
-                // Yatay duvar: Üst ve Alt yüzeylere (Y) snap kontrolü
                 const wallY = wall.p1.y;
-                const snapYPositions = [ wallY - halfThickness, wallY + halfThickness ]; // Duvarın üst ve alt yüzeyi Y koordinatları
-                for (const snapY of snapYPositions) { // Her iki yüzey için
-                    for (const dP of dragPoints) { // Merdivenin her noktası için
-                        const diff = Math.abs(dP.y - snapY); // Y eksenindeki fark
-                        // Eğer mesafe tolerans içinde VE önceki en iyi snap'ten daha iyiyse
+                const snapYPositions = [ wallY - halfThickness, wallY + halfThickness ];
+                for (const snapY of snapYPositions) {
+                    for (const dP of dragPoints) {
+                        const diff = Math.abs(dP.y - snapY);
                         if (diff < SNAP_DISTANCE_WALL_SURFACE && diff < bestSnapY.diff) {
-                            // En iyi snap'i güncelle
                             bestSnapY = { diff, delta: snapY - dP.y, type: 'wall_surface' };
                         }
                     }
                 }
             }
-            // Açılı duvar snap'i şimdilik atlandı (daha karmaşık)
+             // Açılı duvar yüzey snap'i eklenebilir.
         });
 
-        // 2. Diğer Merdivenlere Snap (Eğer daha iyi duvar yüzeyi snap'i yoksa veya mesafe uygunsa)
-        // Eğer X veya Y ekseninde hala duvar yüzeyine snap yapılmadıysa VEYA
-        // duvar yüzeyine snap yapılmış olsa bile diğer merdivene olan mesafe daha KISA ise (SNAP_DISTANCE_OTHER içinde)
+        // 2. Diğer Merdiven Kenarlarına/Köşelerine Snap
+        // (Duvar yüzeyi snap'i bulunamadıysa veya mesafe uygunsa)
         if (bestSnapX.type !== 'wall_surface' || bestSnapY.type !== 'wall_surface' || bestSnapX.diff > SNAP_DISTANCE_OTHER || bestSnapY.diff > SNAP_DISTANCE_OTHER) {
             (state.stairs || []).forEach(otherStair => {
                 if (otherStair === stair) return; // Kendisine snap yapma
                 const otherCorners = getStairCorners(otherStair);
-                const otherPoints = [ ...otherCorners, otherStair.center ]; // Diğer merdivenin köşe ve merkez noktaları
-                otherPoints.forEach(oP => { // Diğer merdivenin her noktası için
-                    for (const dP of dragPoints) { // Sürüklenen merdivenin her noktası için
-                        const diffX = Math.abs(dP.x - oP.x); // X farkı
-                        // Eğer mevcut X snap'i duvar yüzeyi DEĞİLSE VE bu fark daha iyiyse VEYA
-                        // mevcut X snap'i duvar yüzeyi AMA bu fark SNAP_DISTANCE_OTHER içinde VE daha iyiyse
-                        if ((bestSnapX.type !== 'wall_surface' && diffX < bestSnapX.diff) || (bestSnapX.type === 'wall_surface' && diffX < SNAP_DISTANCE_OTHER && diffX < bestSnapX.diff)) {
-                            bestSnapX = { diff: diffX, delta: oP.x - dP.x, type: 'stair' }; // X snap'ini güncelle
+                const otherPoints = [ ...otherCorners, otherStair.center ];
+
+                otherPoints.forEach(oP => {
+                    for (const dP of dragPoints) {
+                        // X Snap
+                        const diffX = Math.abs(dP.x - oP.x);
+                        if (diffX < SNAP_DISTANCE_OTHER && diffX < bestSnapX.diff) {
+                             // Eğer mevcut snap duvar yüzeyi değilse VEYA bu snap daha iyiyse
+                             if (bestSnapX.type !== 'wall_surface' || diffX < bestSnapX.diff) {
+                                bestSnapX = { diff: diffX, delta: oP.x - dP.x, type: 'stair' };
+                             }
                         }
-                        const diffY = Math.abs(dP.y - oP.y); // Y farkı
-                        // Aynı kontrol Y ekseni için
-                        if ((bestSnapY.type !== 'wall_surface' && diffY < bestSnapY.diff) || (bestSnapY.type === 'wall_surface' && diffY < SNAP_DISTANCE_OTHER && diffY < bestSnapY.diff)) {
-                            bestSnapY = { diff: diffY, delta: oP.y - dP.y, type: 'stair' }; // Y snap'ini güncelle
+                        // Y Snap
+                        const diffY = Math.abs(dP.y - oP.y);
+                        if (diffY < SNAP_DISTANCE_OTHER && diffY < bestSnapY.diff) {
+                            if (bestSnapY.type !== 'wall_surface' || diffY < bestSnapY.diff) {
+                                bestSnapY = { diff: diffY, delta: oP.y - dP.y, type: 'stair' };
+                            }
                         }
                     }
                 });
+
+                // Diğer merdiven kenarlarına (segmentlere) snap (daha karmaşık)
+                // ... (Segment snap mantığı buraya eklenebilir) ...
             });
         }
 
-        // Bulunan en iyi snap farklarını (delta) uygula
+        // 3. Kesişim Noktalarına Snap (Duvar-Duvar, Duvar-Merdiven)
+        // (Eğer hala iyi bir snap bulunamadıysa veya mesafe uygunsa)
+        // ... (snap.js'deki kesişim mantığı buraya adapte edilebilir) ...
+        // Örneğin:
+        // const intersectionSnap = findBestIntersectionSnap(newCenterX, newCenterY, SNAP_DISTANCE_OTHER);
+        // if (intersectionSnap) {
+        //     if (bestSnapX.type === 'none' || intersectionSnap.diffX < bestSnapX.diff) bestSnapX = intersectionSnap.snapX;
+        //     if (bestSnapY.type === 'none' || intersectionSnap.diffY < bestSnapY.diff) bestSnapY = intersectionSnap.snapY;
+        // }
+
+        // 4. Genel Snap Noktalarına (Duvar Uçları vb.) Snap (getSmartSnapPoint'ten gelen bilgi)
+        // (En düşük öncelik, sadece diğerleri başarısız olursa)
+        if (snappedPosFromInput.isSnapped && snappedPosFromInput.point &&
+            (bestSnapX.type === 'none' || bestSnapX.diff > SNAP_DISTANCE_OTHER * 1.5) && // Daha büyük tolerans
+            (bestSnapY.type === 'none' || bestSnapY.diff > SNAP_DISTANCE_OTHER * 1.5))
+        {
+             const diffX = Math.abs(newCenterX - snappedPosFromInput.x);
+             if (diffX < SNAP_DISTANCE_OTHER * 1.5 && diffX < bestSnapX.diff) {
+                 bestSnapX = { diff: diffX, delta: snappedPosFromInput.x - newCenterX, type: 'general' };
+             }
+             const diffY = Math.abs(newCenterY - snappedPosFromInput.y);
+             if (diffY < SNAP_DISTANCE_OTHER * 1.5 && diffY < bestSnapY.diff) {
+                 bestSnapY = { diff: diffY, delta: snappedPosFromInput.y - newCenterY, type: 'general' };
+             }
+        }
+
+        // Bulunan en iyi snap farklarını uygula
         newCenterX += bestSnapX.delta;
         newCenterY += bestSnapY.delta;
-        // --- SNAP MANTIĞI SONU ---
+        // --- DETAYLI SNAP KONTROLLERİ SONU ---
 
         // Hesaplanan yeni merkezi ata
         stair.center.x = newCenterX;
         stair.center.y = newCenterY;
 
     } else if (handle.startsWith('edge_')) {
-        // Boyutlandırma
-        let fixedEdgeHandle; // Sabit kalan karşı kenar
-        // Sürüklenen kenara göre sabit kenarı belirle
+        // Yeniden Boyutlandırma (Detaylı Snap Mantığı)
+        let fixedEdgeHandle;
         if (handle === 'edge_top') fixedEdgeHandle = 'edge_bottom';
         else if (handle === 'edge_bottom') fixedEdgeHandle = 'edge_top';
         else if (handle === 'edge_left') fixedEdgeHandle = 'edge_right';
         else if (handle === 'edge_right') fixedEdgeHandle = 'edge_left';
-        else return; // Geçersiz handle
+        else return;
 
-        // Başlangıç boyutlarını ve merkezini al (sürükleme öncesi kaydedilen)
         const initialWidth = state.preDragNodeStates.get('width');
         const initialHeight = state.preDragNodeStates.get('height');
         const initialCenterX = state.preDragNodeStates.get('center_x');
         const initialCenterY = state.preDragNodeStates.get('center_y');
-        if (initialWidth === undefined || initialHeight === undefined) return; // Başlangıç state yoksa çık
+        if (initialWidth === undefined || initialHeight === undefined) return;
 
-         // Başlangıçtaki köşe noktalarını hesapla
          const initialCorners = getStairCorners({
              center: { x: initialCenterX, y: initialCenterY },
-             width: initialWidth,
-             height: initialHeight,
-             rotation: stair.rotation || 0
+             width: initialWidth, height: initialHeight, rotation: stair.rotation || 0
          });
 
-         // Sabit kalan kenarın başlangıç ve bitiş noktalarını bul
          let fixedPoint1, fixedPoint2;
-         if (fixedEdgeHandle === 'edge_top') { fixedPoint1 = initialCorners[0]; fixedPoint2 = initialCorners[1]; }       // Sol üst, Sağ üst
-         else if (fixedEdgeHandle === 'edge_bottom') { fixedPoint1 = initialCorners[3]; fixedPoint2 = initialCorners[2]; } // Sol alt, Sağ alt
-         else if (fixedEdgeHandle === 'edge_left') { fixedPoint1 = initialCorners[0]; fixedPoint2 = initialCorners[3]; }   // Sol üst, Sol alt
-         else if (fixedEdgeHandle === 'edge_right') { fixedPoint1 = initialCorners[1]; fixedPoint2 = initialCorners[2]; }  // Sağ üst, Sağ alt
-         else return; // Hata durumu
-         // Sabit kenarın orta noktası (boyutlandırmanın referans noktası)
+         if (fixedEdgeHandle === 'edge_top') { fixedPoint1 = initialCorners[0]; fixedPoint2 = initialCorners[1]; }
+         else if (fixedEdgeHandle === 'edge_bottom') { fixedPoint1 = initialCorners[3]; fixedPoint2 = initialCorners[2]; }
+         else if (fixedEdgeHandle === 'edge_left') { fixedPoint1 = initialCorners[0]; fixedPoint2 = initialCorners[3]; }
+         else if (fixedEdgeHandle === 'edge_right') { fixedPoint1 = initialCorners[1]; fixedPoint2 = initialCorners[2]; }
+         else return;
          const fixedEdgeMidPoint = { x: (fixedPoint1.x + fixedPoint2.x) / 2, y: (fixedPoint1.y + fixedPoint2.y) / 2 };
 
-         // Merdivenin rotasyonunu ve boyutlandırma eksenini belirle
          const rotRad = (stair.rotation || 0) * Math.PI / 180;
          const cosRot = Math.cos(rotRad);
          const sinRot = Math.sin(rotRad);
-         let axisVector; // Boyutlandırmanın yapıldığı eksen vektörü (sabit kenara dik)
-         // Hangi kenar sürüklendiğine göre ekseni belirle
-         if (handle === 'edge_top' || handle === 'edge_bottom') {
-             // Üst/Alt kenar sürüklendi -> Y ekseninde boyutlandırma (height değişir)
-             axisVector = { x: -sinRot, y: cosRot }; // Lokal Y ekseni yönü (dünya koordinatlarında)
-         } else {
-             // Sol/Sağ kenar sürüklendi -> X ekseninde boyutlandırma (width değişir)
-             axisVector = { x: cosRot, y: sinRot }; // Lokal X ekseni yönü (dünya koordinatlarında)
-         }
+         let axisVector;
+         if (handle === 'edge_top' || handle === 'edge_bottom') { axisVector = { x: -sinRot, y: cosRot }; }
+         else { axisVector = { x: cosRot, y: sinRot }; }
 
-         // Fare pozisyonunun (snaplenmiş) sabit kenar orta noktasına göre vektörü
-         const mouseVec = { x: snappedPos.x - fixedEdgeMidPoint.x, y: snappedPos.y - fixedEdgeMidPoint.y };
-         // Farenin boyutlandırma ekseni üzerindeki izdüşümü (yeni toplam boyutun işaretli değerini verir)
-         const projection = mouseVec.x * axisVector.x + mouseVec.y * axisVector.y;
+         // Fare pozisyonunu al (inputtan gelen snaplenmişi kullanalım)
+         const mousePos = { x: snappedPosFromInput.x, y: snappedPosFromInput.y };
 
-         // Sürüklenen kenarın snap öncesi hedef konumu (izdüşüme göre)
-         const draggedEdgePoint = {
+         // Farenin sabit kenara göre izdüşümünü hesapla
+         const mouseVec = { x: mousePos.x - fixedEdgeMidPoint.x, y: mousePos.y - fixedEdgeMidPoint.y };
+         let projection = mouseVec.x * axisVector.x + mouseVec.y * axisVector.y;
+
+         // --- KENAR SNAP KONTROLÜ ---
+         const SNAP_DISTANCE_EDGE = 5; // Kenar snap mesafesi
+         let bestSnapDelta = 0; // Projeksiyona uygulanacak düzeltme
+         let minSnapDiff = SNAP_DISTANCE_EDGE;
+
+         // Sürüklenen kenarın (snap öncesi) hedef konumu
+         const targetEdgePoint = {
              x: fixedEdgeMidPoint.x + axisVector.x * projection,
              y: fixedEdgeMidPoint.y + axisVector.y * projection
          };
 
-         // --- KENAR SNAP MANTIĞI (Duvar Yüzeylerine) ---
-         const SNAP_DISTANCE_WALL_SURFACE = 5; // Duvar yüzeyine snap mesafesi (cm)
-         let bestSnapDelta = 0; // Uygulanacak snap mesafesi (projection cinsinden)
-         let bestSnapDiff = SNAP_DISTANCE_WALL_SURFACE; // Bulunan en iyi snap farkı
+         // 1. Duvar Yüzeylerine Snap
+         const wallSnap = getWallSurfaceSnap(targetEdgePoint, SNAP_DISTANCE_EDGE);
+         if (handle === 'edge_top' || handle === 'edge_bottom') { // Y ekseninde boyutlandırma
+             if (Math.abs(wallSnap.deltaY) > 1e-6 && Math.abs(wallSnap.deltaY) < minSnapDiff) {
+                 minSnapDiff = Math.abs(wallSnap.deltaY);
+                 // DeltaY'yi projeksiyona çevir (deltaY / axisVector.y)
+                 bestSnapDelta = Math.abs(axisVector.y) > 1e-6 ? (wallSnap.deltaY / axisVector.y) : 0;
+             }
+         } else { // X ekseninde boyutlandırma
+             if (Math.abs(wallSnap.deltaX) > 1e-6 && Math.abs(wallSnap.deltaX) < minSnapDiff) {
+                 minSnapDiff = Math.abs(wallSnap.deltaX);
+                 // DeltaX'i projeksiyona çevir (deltaX / axisVector.x)
+                 bestSnapDelta = Math.abs(axisVector.x) > 1e-6 ? (wallSnap.deltaX / axisVector.x) : 0;
+             }
+         }
 
-         // Duvarları kontrol et
-         state.walls.forEach(wall => {
-             if (!wall.p1 || !wall.p2) return; // Geçersiz duvarı atla
-             const wallThickness = wall.thickness || state.wallThickness;
-             const halfThickness = wallThickness / 2;
-             const dxW = wall.p2.x - wall.p1.x;
-             const dyW = wall.p2.y - wall.p1.y;
-             const isVertical = Math.abs(dxW) < 0.1; // Duvar dikey mi?
-             const isHorizontal = Math.abs(dyW) < 0.1; // Duvar yatay mı?
+         // 2. Diğer Merdiven Kenarlarına/Köşelerine Snap
+         (state.stairs || []).forEach(otherStair => {
+             if (otherStair === stair) return;
+             const otherCorners = getStairCorners(otherStair);
+             const otherPoints = [ ...otherCorners ]; // Sadece köşeler
 
-             // Eğer X ekseninde boyutlandırma yapılıyorsa (sol/sağ handle) VE duvar dikeys:
-             if (isVertical && (handle === 'edge_left' || handle === 'edge_right')) {
-                 const wallX = wall.p1.x;
-                 const snapXPositions = [ wallX - halfThickness, wallX + halfThickness ]; // Duvarın yüzeyleri
-                 for (const snapX of snapXPositions) { // Her iki yüzey için
-                     const diff = Math.abs(draggedEdgePoint.x - snapX); // Hedeflenen X ile duvar yüzeyi X arasındaki fark
-                     if (diff < bestSnapDiff) { // Daha iyi bir snap bulunduysa
-                         bestSnapDiff = diff;
-                         // Snap mesafesini X'teki farktan projection'a çevir (deltaX / axisVector.x)
-                         const deltaX = snapX - draggedEdgePoint.x; // Düzeltme miktarı (X ekseninde)
-                         // Eğer axisVector.x sıfıra çok yakınsa (örn. 90 derece dönmüş merdiven), bölme hatası olur.
+             otherPoints.forEach(oP => {
+                 // Sürüklenen kenarın hedef noktasının diğer merdiven noktalarına uzaklığı
+                 if (handle === 'edge_top' || handle === 'edge_bottom') { // Y ekseninde boyutlandırma
+                     const diffY = Math.abs(targetEdgePoint.y - oP.y);
+                     if (diffY < SNAP_DISTANCE_EDGE && diffY < minSnapDiff) {
+                         minSnapDiff = diffY;
+                         const deltaY = oP.y - targetEdgePoint.y;
+                         bestSnapDelta = Math.abs(axisVector.y) > 1e-6 ? (deltaY / axisVector.y) : 0;
+                     }
+                 } else { // X ekseninde boyutlandırma
+                     const diffX = Math.abs(targetEdgePoint.x - oP.x);
+                     if (diffX < SNAP_DISTANCE_EDGE && diffX < minSnapDiff) {
+                         minSnapDiff = diffX;
+                         const deltaX = oP.x - targetEdgePoint.x;
                          bestSnapDelta = Math.abs(axisVector.x) > 1e-6 ? (deltaX / axisVector.x) : 0;
                      }
                  }
-             }
-             // Eğer Y ekseninde boyutlandırma yapılıyorsa (üst/alt handle) VE duvar yataysa:
-             else if (isHorizontal && (handle === 'edge_top' || handle === 'edge_bottom')) {
-                 const wallY = wall.p1.y;
-                 const snapYPositions = [ wallY - halfThickness, wallY + halfThickness ]; // Duvarın yüzeyleri
-                 for (const snapY of snapYPositions) { // Her iki yüzey için
-                     const diff = Math.abs(draggedEdgePoint.y - snapY); // Hedeflenen Y ile duvar yüzeyi Y arasındaki fark
-                     if (diff < bestSnapDiff) { // Daha iyi bir snap bulunduysa
-                         bestSnapDiff = diff;
-                         // Snap mesafesini Y'deki farktan projection'a çevir (deltaY / axisVector.y)
-                         const deltaY = snapY - draggedEdgePoint.y; // Düzeltme miktarı (Y ekseninde)
-                         // Eğer axisVector.y sıfıra çok yakınsa (örn. 0 derece dönmüş merdiven), bölme hatası olur.
-                         bestSnapDelta = Math.abs(axisVector.y) > 1e-6 ? (deltaY / axisVector.y) : 0;
-                     }
-                 }
-             }
+             });
+              // Diğer merdiven kenarlarına (segmentlere) snap de eklenebilir.
          });
 
-         // Hesaplanan en iyi snap mesafesini izdüşüme ekle
-         const finalProjection = projection + bestSnapDelta;
-         // --- KENAR SNAP MANTIĞI SONU ---
+         // 3. Kesişim Noktalarına Snap
+         // ... (Kesişim snap mantığı buraya da eklenebilir) ...
 
-         // Yeni boyutu hesapla (minimum 10cm, mutlak değer)
-         let newSize = Math.max(10, Math.abs(finalProjection));
+         // En iyi snap düzeltmesini projeksiyona uygula
+         projection += bestSnapDelta;
+         // --- KENAR SNAP KONTROLÜ SONU ---
 
-         // Yeni merkezi hesapla (sabit kenarın ortası + eksen yönünde yeni boyutun yarısı kadar)
-         // finalProjection işaretli olduğu için yönü doğru verir (negatifse ters yönde yarısı kadar gider)
-         const halfSizeVector = { x: axisVector.x * finalProjection / 2, y: axisVector.y * finalProjection / 2 };
+
+         let newSize = Math.max(10, Math.abs(projection)); // Minimum boyut 10cm
+
+         const halfSizeVector = { x: axisVector.x * projection / 2, y: axisVector.y * projection / 2 };
          const newCenterX = fixedEdgeMidPoint.x + halfSizeVector.x;
          const newCenterY = fixedEdgeMidPoint.y + halfSizeVector.y;
 
-         // Hangi boyutun değiştiğini belirle ve ata
          if (handle === 'edge_top' || handle === 'edge_bottom') {
              stair.height = newSize; // 'height' (en) değişti
          } else {
              stair.width = newSize; // 'width' (uzunluk) değişti
              recalculateStepCount(stair); // Uzunluk değiştiyse basamak sayısını yeniden hesapla
          }
-        // Yeni merkezi ata
         stair.center.x = newCenterX;
         stair.center.y = newCenterY;
-        // İçi boş özelliklerini sıfırla (varsa, boyut değişince anlamsız kalır)
+        // İçi boş özellikler (varsa) sıfırlanır
         stair.hollowWidth = 0; stair.hollowHeight = 0; stair.hollowOffsetX = 0; stair.hollowOffsetY = 0;
     }
 
-    // 3D sahneyi güncelle (her hareket sonrası)
+    // 3D sahneyi güncelle
     if (dom.mainContainer.classList.contains('show-3d')) {
        update3DScene();
     }

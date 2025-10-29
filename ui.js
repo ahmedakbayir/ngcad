@@ -299,6 +299,29 @@ export function cancelLengthEdit() {
 let currentEditingStair = null; // Düzenlenen merdiveni tutmak için
 
 export function showStairPopup(stair, e) {
+    // --- YENİ EKLENEN GÜNCELLEME KODU ---
+    // Panel açılmadan önce tüm merdivenlerin basamak sayısını ve kotlarını güncelle
+    if (state.stairs && state.stairs.length > 0) {
+        // Önce tüm normal merdivenlerin basamak sayısını güncelle
+        state.stairs.forEach(s => {
+            if (!s.isLanding) {
+                recalculateStepCount(s);
+            }
+        });
+        // Sonra, en üstteki (bağlantısı olmayan) merdivenlerden başlayarak kotları güncelle
+        const topLevelStairs = state.stairs.filter(s => !s.connectedStairId);
+        topLevelStairs.forEach(topStair => {
+            updateConnectedStairElevations(topStair.id, new Set()); // Ziyaret edilenleri takip et
+        });
+        // Güncellenmiş merdiven nesnesini bul (referans değişmiş olabilir)
+        const updatedStair = state.stairs.find(s => s.id === stair.id);
+        if (updatedStair) {
+            stair = updatedStair; // Güncel referansı kullan
+        } else {
+            console.warn("showStairPopup: Düzenlenecek merdiven güncellendikten sonra bulunamadı.");
+            // Hata durumu - belki paneli kapatmak veya eski veriyle devam etmek gerekebilir
+        }
+    }
     setState({ isStairPopupVisible: true });
     if (!stair) return;
     currentEditingStair = stair;
@@ -311,8 +334,8 @@ export function showStairPopup(stair, e) {
     dom.stairIsLandingCheckbox.checked = stair.isLanding || false;
 
     // --- Korkuluk Checkbox Durumu ---
-    dom.stairShowRailingCheckbox.checked = !stair.isLanding && (stair.showRailing !== undefined ? stair.showRailing : true); // Sahanlıksa default false, değilse true
-    dom.stairShowRailingCheckbox.disabled = stair.isLanding; // Sahanlıksa disable
+    dom.stairShowRailingCheckbox.checked = !stair.isLanding && stair.showRailing;
+    dom.stairShowRailingCheckbox.disabled = stair.isLanding;
     // --- Korkuluk Checkbox Durumu SONU ---
 
     // Bağlı merdiven select'ini doldur
@@ -390,7 +413,7 @@ function confirmStairChange() {
 
         // --- Korkuluk Durumunu Ata ---
         // Sahanlıksa her zaman false, değilse checkbox'ın değeri
-        stair.showRailing = !stair.isLanding && dom.stairShowRailingCheckbox.checked;
+        stair.showRailing = !stair.isLanding ? dom.stairShowRailingCheckbox.checked : false;        
         // --- Korkuluk Durumu SONU ---
 
         // Alt kotu ayarla
