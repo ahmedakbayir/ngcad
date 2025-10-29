@@ -153,7 +153,7 @@ export function init3D(canvasElement) {
     });
 
     stairMaterial = new THREE.MeshStandardMaterial({
-        color: 0xCCCCCC,
+        color: 0xFFFFFF,
         roughness: 0.8,
         transparent: true, // Bu saydam kalacak
         opacity: solidOpacity,
@@ -161,9 +161,9 @@ export function init3D(canvasElement) {
     });
 
     stairMaterialTop = new THREE.MeshStandardMaterial({
-        color: 0xCCCCCC, // Aynı renk
+        color: 0xFFFFFF, // Aynı renk
         roughness: 0.8,
-        transparent: false, // Opak
+        transparent: true, // Opak
         opacity: 1.0,      // Tam opaklık
         side: THREE.DoubleSide
     });
@@ -206,32 +206,31 @@ export function init3D(canvasElement) {
 
     // YENİ MERDİVEN MALZEMELERİNİ OLUŞTUR
     handrailWoodMaterial = new THREE.MeshStandardMaterial({
-        color: '#b3b5b6', 
-        roughness: 0.7,  // Biraz pürüzlü
-        metalness: 0.1,  // Hafif metalik olmayan yansıma
-        transparent: true,
-        opacity: solidOpacity, // Diğerleriyle uyumlu
+        color: 0XE1E1E1,
+        metalness: 0.8,
+        roughness: 0.4,
+        transparent: false,
+        opacity: 1.0,
         side: THREE.DoubleSide
     });
 
     balusterMaterial = new THREE.MeshStandardMaterial({
-        color: '#d0d2d3', 
-        roughness: 0.75,
-        metalness: 0.1,
-        transparent: true,
-        opacity: solidOpacity,
+        color: 0XE1E1E1,
+        metalness: 0.8,
+        roughness: 0.4,
+        transparent: false,
+        opacity: 1.0,
         side: THREE.DoubleSide
     });
 
     stepNosingMaterial = new THREE.MeshStandardMaterial({
-        color: '#4c4c4d', // Mermer rengi (örneğin krem)
-        roughness: 0.4,  // Daha pürüzsüz
-        metalness: 0.05,
-        transparent: true,
-        opacity: solidOpacity + 0.1, // Biraz daha opak
+        color: 'rgba(121, 117, 117, 1)',
+        metalness: 0.0,
+        roughness: 0.5,
+        transparent: false,
+        opacity: 1.0,
         side: THREE.DoubleSide
     });
-    // --- MALZEME OLUŞTURMA SONU ---
 }
 
 export { scene, camera, renderer, controls };
@@ -675,21 +674,25 @@ function createStairMesh(stair) {
     if (isLanding) {
         // Sahanlık geometrisi (Beton + Mermer)
         const landingGeom = new THREE.BoxGeometry(totalRun, landingThickness, stairWidth);
-        landingGeom.translate(0, landingThickness / 2, 0); // Y ekseninde yukarı taşı
+        // ÖNEMLİ DÜZELTME: Sahanlığın altı bottomElevation'da, üstü topElevation'da olmalı
+        // Geometriyi (0, 0, 0) etrafında oluşturup, sonra pozisyonlamak daha kolay.
+        // Kalınlığın yarısı kadar aşağı kaydır, sonra topElevation'a ayarla.
+        landingGeom.translate(0, -landingThickness/2 , 0); 
         const landingMesh = new THREE.Mesh(landingGeom, stairMaterial); // Normal merdiven malzemesi
-        landingMesh.position.y = bottomElevation; // Alt kota yerleştir
+        // Pozisyon: Üst kot (topElevation) sahanlığın üst yüzeyi olmalı.
+        landingMesh.position.y = topElevation; // **** KOT DÜZELTMESİ ****
         stairGroup.add(landingMesh);
 
         const marbleGeom = new THREE.BoxGeometry(totalRun, marbleThickness, stairWidth);
         marbleGeom.translate(0, marbleThickness / 2, 0); // Y ekseninde yukarı taşı
         const marbleMesh = new THREE.Mesh(marbleGeom, stepNosingMaterial); // Mermer malzemesi
-        marbleMesh.position.y = bottomElevation + landingThickness; // Betonun üstüne yerleştir
+        marbleMesh.position.y = topElevation; // Betonun üstüne yerleştir
         stairGroup.add(marbleMesh);
 
         // --- SAHANLIK KORKULUĞU (Açıklık Kontrollü) ---
         if (stair.showRailing) { // Sadece görünürse ekle
-            const HANDRAIL_HEIGHT = 90;
-            const HANDRAIL_INSET = 10; // Korkuluğun kenardan içe mesafesi
+            const HANDRAIL_HEIGHT = 80;
+            const HANDRAIL_INSET = 5; // Korkuluğun kenardan içe mesafesi
             const POST_RADIUS = 3;
             const HANDRAIL_RADIUS = 4; // Küpeşte yarıçapı
             const postMaterial = handrailWoodMaterial;
@@ -705,7 +708,8 @@ function createStairMesh(stair) {
             const postHeight = HANDRAIL_HEIGHT - HANDRAIL_RADIUS; // Dikme yüksekliği (küpeşte altı)
             const postGeom = new THREE.CylinderGeometry(POST_RADIUS, POST_RADIUS, postHeight, 16);
             postGeom.translate(0, postHeight / 2, 0); // Y ekseninde yukarı taşı
-            const postY = bottomElevation + landingThickness + marbleThickness; // Dikmelerin başlayacağı Y seviyesi (sahanlığın üstü)
+            // **** KOT DÜZELTMESİ ****
+            const postY = topElevation + marbleThickness; // Dikmelerin başlayacağı Y seviyesi (sahanlığın mermer üstü)
 
             // Yan Korkuluklar (Z+ ve Z-)
             for (let side = -1; side <= 1; side += 2) {
@@ -839,7 +843,10 @@ function createStairMesh(stair) {
     const stepRise = totalRise / stepCount; // Rıht yüksekliği
     const overlap = 10; // Basamak bindirme payı (bu değer kullanılmıyor gibi?)
     const NOSING_THICKNESS = marbleThickness; // Mermer kalınlığı
-    const NOSING_OVERHANG = 2; // Öne çıkıntı miktarı
+    
+    // **** BİNDİRME DÜZELTMESİ BURADA ****
+    const NOSING_OVERHANG = 2; // Öne çıkıntı miktarı (2'den 10'a değiştirildi)
+    // **** DÜZELTME SONU ****
 
     // Malzemeler
     const stepMaterials = [ stairMaterial, stairMaterial, stairMaterialTop, stairMaterial, stairMaterial, stairMaterial ];
@@ -851,7 +858,7 @@ function createStairMesh(stair) {
         const stepStartX = -totalRun / 2 + i * stepRun; // Basamağın X eksenindeki başlangıcı
 
         // Beton Basamak Kısmı (Tam rıht yüksekliği kadar)
-        const concreteStepRun = stepRun; // Beton kısmı tam rıht derinliği kadar
+        const concreteStepRun = stepRun+10; // Beton kısmı tam rıht derinliği kadar
         const concreteStepGeom = new THREE.BoxGeometry(concreteStepRun, stepRise, stairWidth);
         // Geometriyi merkeze al, sonra pozisyonla
         concreteStepGeom.translate(concreteStepRun / 2, stepRise / 2, 0);
@@ -866,7 +873,7 @@ function createStairMesh(stair) {
         tablaGeom.translate(tablaRun / 2, NOSING_THICKNESS / 2, 0); // Merkeze al
         const tablaMesh = new THREE.Mesh(tablaGeom, stepNosingMaterials);
         // Tablayı basamağın üst kotuna ve X başlangıcına yerleştir
-        tablaMesh.position.set(stepStartX, yPosBase + stepRise, 0);
+        tablaMesh.position.set(stepStartX-NOSING_OVERHANG, yPosBase + stepRise, 0);
         stairGroup.add(tablaMesh);
 
         // // Eski Mermer Burun Kısmı (Artık tabla ile birleşti)

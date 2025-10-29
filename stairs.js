@@ -1,14 +1,14 @@
 // stairs.js
-// Son Güncelleme: Normal merdivenler için varsayılan yüksekliği WALL_HEIGHT / 2 olarak ayarlama.
+// Son Güncelleme: createStairs -> showRailing varsayılanı 'false' olarak değiştirildi.
 
-import { state, setState, WALL_HEIGHT } from './main.js';
+import { state, setState, dom, WALL_HEIGHT } from './main.js'; // dom import edildi
 import { distToSegmentSquared } from './geometry.js';
 import { update3DScene } from './scene3d.js';
 import { currentModifierKeys } from './input.js';
 // recalculateStepCount ve updateConnectedStairElevations bu dosyada tanımlı
 
 // Sıradaki merdiven ismini verir
-function getNextStairLetter() {
+export function getNextStairLetter() {
     const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let highestCharIndex = -1;
     (state.stairs || []).forEach(s => {
@@ -60,6 +60,7 @@ export function updateConnectedStairElevations(changedStairId, visited = new Set
                 // Eğer sahanlık, değişen merdivene bağlıysa, üst kotu değişmez. Alt kotu değişir.
                 // Üst kotu tekrar hesaplamak yerine, alt kota göre ayarlarız.
                 const LANDING_THICKNESS = 10;
+                stairBelow.bottomElevation = changedStair.topElevation - LANDING_THICKNESS;
                 stairBelow.topElevation = stairBelow.bottomElevation + LANDING_THICKNESS; // Alt kot + kalınlık
             } else {
                 // Normal merdivenin üst kotu sabit kalır, sadece alt kot değişir.
@@ -79,13 +80,13 @@ export function updateConnectedStairElevations(changedStairId, visited = new Set
 }
 
 
-// Merdiven nesnesi oluşturur - GÜNCELLENDİ (Normal merdiven yüksekliği WALL_HEIGHT / 2)
+// Merdiven nesnesi oluşturur - GÜNCELLENDİ (Normal merdiven yüksekliği WALL_HEIGHT / 2, Korkuluk varsayılan false)
 export function createStairs(centerX, centerY, width, height, rotation, isLanding = false) {
     const nextName = getNextStairLetter();
     const LANDING_THICKNESS = 10; // Sahanlık kalınlığı
 
     let defaultBottomElevation = 0;
-    let defaultTopElevation; // = WALL_HEIGHT; // Varsayılanı kaldır, aşağıda hesaplanacak
+    let defaultTopElevation;
     let connectedStairId = null;
     let connectedStairTopElevation = null; // Bağlı merdivenin üst kotunu saklamak için
 
@@ -98,30 +99,28 @@ export function createStairs(centerX, centerY, width, height, rotation, isLandin
         }
     }
 
-    // Kotları hesapla
+    // Kotları hesapla (KULLANICI İSTEĞİNE GÖRE GÜNCELLENDİ)
     if (connectedStairId !== null) { // Bağlı bir merdiven varsa
-        defaultBottomElevation = connectedStairTopElevation; // Alt kot = Bağlı merdivenin üst kotu
         if (isLanding) {
             // Sahanlık: Üst kot = Bağlı merdivenin üst kotu, Alt kot = Üst kot - kalınlık
             defaultTopElevation = connectedStairTopElevation;
             defaultBottomElevation = defaultTopElevation - LANDING_THICKNESS;
         } else {
-            // --- YENİ KURAL ---
-            // Normal merdiven: Üst kot = Alt kot + KAT YÜKSEKLİĞİ / 2
+            // Normal merdiven: Alt kot = Bağlı merdivenin üst kotu, Üst kot = Alt kot + YARIM KAT
+            defaultBottomElevation = connectedStairTopElevation;
             defaultTopElevation = defaultBottomElevation + WALL_HEIGHT / 2;
-            // --- YENİ KURAL SONU ---
         }
     } else {
         // İlk merdiven ise (bağlantı yok)
         defaultBottomElevation = 0; // Yerden başla
         if (isLanding) {
-            // İlk eleman sahanlıksa, üst kotu kalınlık kadar yukarıda
+            // İlk eleman sahanlıksa, alt kot 0, üst kot kalınlık kadar yukarıda
+            defaultBottomElevation = 0;
             defaultTopElevation = LANDING_THICKNESS;
         } else {
-            // --- YENİ KURAL ---
             // İlk eleman normal merdivense, yarım kat çıksın
+            defaultBottomElevation = 0;
             defaultTopElevation = WALL_HEIGHT / 2;
-            // --- YENİ KURAL SONU ---
         }
     }
 
@@ -139,11 +138,10 @@ export function createStairs(centerX, centerY, width, height, rotation, isLandin
         topElevation: defaultTopElevation,     // Hesaplanan üst kot
         connectedStairId: connectedStairId,    // Bağlantı ID'si
         isLanding: isLanding, // Parametreden gelen değeri ata
-        showRailing: true // Varsayılan korkuluk açık
+        showRailing: !isLanding // **** DEĞİŞİKLİK BURADA: Varsayılan olarak korkuluk yok ****
     };
 
-    // Basamak sayısını hesapla (sahanlık değilse veya kotlar farklıysa)
-    // Sahanlıklar için de stepCount=1 olmalı
+    // Basamak sayısını hesapla (sahanlık değilse)
     if (isLanding) {
         newStair.stepCount = 1;
     } else {
@@ -356,6 +354,54 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
     return { startPointForDragging, dragOffset, additionalState };
 }
 
+// Yardımcı Fonksiyon: Verilen noktanın en yakın duvar yüzeyine olan snap farkını bulur
+// (Bu fonksiyon onPointerMove içinde kullanılacak)
+function getWallSurfaceSnap(point, tolerance) {
+    let bestSnap = { deltaX: 0, deltaY: 0, diff: tolerance };
+
+    state.walls.forEach(wall => {
+        if (!wall.p1 || !wall.p2) return;
+        const wallThickness = wall.thickness || state.wallThickness;
+        const halfThickness = wallThickness / 2;
+        const dxW = wall.p2.x - wall.p1.x;
+        const dyW = wall.p2.y - wall.p1.y;
+        const lenSq = dxW * dxW + dyW * dyW;
+        if (lenSq < 0.1) return; // Çok kısa duvarı atla
+
+        const isVertical = Math.abs(dxW) < 0.1;
+        const isHorizontal = Math.abs(dyW) < 0.1;
+
+        if (isVertical) {
+            const wallX = wall.p1.x;
+            const snapXPositions = [wallX - halfThickness, wallX + halfThickness];
+            for (const snapX of snapXPositions) {
+                const diff = Math.abs(point.x - snapX);
+                // Sadece Y ekseni boyunca olan segment içinde mi diye kontrol et
+                const minY = Math.min(wall.p1.y, wall.p2.y) - tolerance;
+                const maxY = Math.max(wall.p1.y, wall.p2.y) + tolerance;
+                if (diff < bestSnap.diff && point.y >= minY && point.y <= maxY) {
+                    bestSnap = { deltaX: snapX - point.x, deltaY: 0, diff: diff };
+                }
+            }
+        } else if (isHorizontal) {
+            const wallY = wall.p1.y;
+            const snapYPositions = [wallY - halfThickness, wallY + halfThickness];
+            for (const snapY of snapYPositions) {
+                const diff = Math.abs(point.y - snapY);
+                // Sadece X ekseni boyunca olan segment içinde mi diye kontrol et
+                const minX = Math.min(wall.p1.x, wall.p2.x) - tolerance;
+                const maxX = Math.max(wall.p1.x, wall.p2.x) + tolerance;
+                if (diff < bestSnap.diff && point.x >= minX && point.x <= maxX) {
+                    bestSnap = { deltaX: 0, deltaY: snapY - point.y, diff: diff };
+                }
+            }
+        }
+        // TODO: Açılı duvar yüzeylerine snap eklenebilir (daha karmaşık)
+    });
+
+    return bestSnap; // { deltaX, deltaY, diff }
+}
+
 
 /**
  * Seçili bir merdiveni sürüklerken çağrılır. (DETAYLI SNAP İLE GÜNCELLENDİ)
@@ -556,7 +602,7 @@ export function onPointerMove(snappedPosFromInput, unsnappedPos) {
          };
 
          // 1. Duvar Yüzeylerine Snap
-         const wallSnap = getWallSurfaceSnap(targetEdgePoint, SNAP_DISTANCE_EDGE);
+         const wallSnap = getWallSurfaceSnap(targetEdgePoint, SNAP_DISTANCE_EDGE); // <-- HATA BURADAYDI
          if (handle === 'edge_top' || handle === 'edge_bottom') { // Y ekseninde boyutlandırma
              if (Math.abs(wallSnap.deltaY) > 1e-6 && Math.abs(wallSnap.deltaY) < minSnapDiff) {
                  minSnapDiff = Math.abs(wallSnap.deltaY);
@@ -625,7 +671,7 @@ export function onPointerMove(snappedPosFromInput, unsnappedPos) {
     }
 
     // 3D sahneyi güncelle
-    if (dom.mainContainer.classList.contains('show-3d')) {
+    if (dom.mainContainer.classList.contains('show-3d')) { // dom KULLANILDI
        update3DScene();
     }
 }

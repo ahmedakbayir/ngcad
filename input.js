@@ -17,7 +17,7 @@ import { wallExists } from './wall-handler.js';
 import { showWallPanel } from './wall-panel.js';
 import { createColumn, isPointInColumn } from './columns.js'; // isPointInColumn eklendi
 import { createBeam, isPointInBeam } from './beams.js'; // isPointInBeam eklendi
-import { createStairs, recalculateStepCount, isPointInStair } from './stairs.js'; // isPointInStair eklendi
+import { createStairs, recalculateStepCount, isPointInStair,getNextStairLetter} from './stairs.js'; // isPointInStair eklendi
 import { showStairPopup } from './ui.js'; // showStairPopup import edildi
 
 // Modifier tuşları için global state
@@ -118,9 +118,24 @@ function handlePaste(e) {
         const originalItem = data.items[0];
         const newItem = JSON.parse(JSON.stringify(originalItem));
         newItem.center.x += deltaX; newItem.center.y += deltaY;
-        if (data.type === 'column') state.columns.push(newItem);
-        else if (data.type === 'beam') state.beams.push(newItem);
-        else if (data.type === 'stairs') state.stairs.push(newItem);
+        if (data.type === 'column') 
+            state.columns.push(newItem);
+        else if (data.type === 'beam') 
+            state.beams.push(newItem);
+        else if (data.type === 'stairs') {
+            const originalItem = data.items[0];
+            const newItem = JSON.parse(JSON.stringify(originalItem));
+            newItem.center.x += deltaX;
+            newItem.center.y += deltaY;
+            // --- YENİ İSİM VE ID ATAMA ---
+            newItem.name = getNextStairLetter(); // Yeni isim al
+            newItem.id = `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`; // Yeni ID oluştur
+            newItem.connectedStairId = null; // Yapıştırılanın bağlantısını kaldır
+            // --- ATAMA SONU ---
+            state.stairs.push(newItem);
+            setState({ selectedObject: { type: data.type, object: newItem, handle: 'body' }, selectedGroup: [] });
+            geometryChanged = true;
+        }
         setState({ selectedObject: { type: data.type, object: newItem, handle: 'body' }, selectedGroup: [] });
         geometryChanged = true;
     } else if (data.type === 'wall' || data.type === 'wallGroup') {

@@ -212,9 +212,7 @@ export function detectRooms() {
 
                     // Alan 40m²'den büyükse adı "DAİRE" yap (Özel kural)
                     let finalRoomName = existingRoomName;
-                    if (areaInM2 > 40) {
-                        finalRoomName = 'DAİRE';
-                    }
+                    
 
                     // Yeni odayı listeye ekle
                     newRooms.push({
