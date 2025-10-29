@@ -4,12 +4,13 @@ import { state, dom, setState, setMode } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from './geometry.js';
 import { processWalls } from './wall-processor.js';
-import { update3DScene } from './scene3d.js'; // Doğru yerden import
+import { update3DScene } from './scene3d.js';
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
 import { getObjectAtPoint } from './actions.js';
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from './columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from './beams.js';
+// createStairs import edildiğinden emin olun, isLanding parametresini alacak şekilde güncellendi
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from './stairs.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from './wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from './door-handler.js';
@@ -18,76 +19,102 @@ import { applySymmetry, applyCopy } from './symmetry.js';
 
 
 export function onPointerDown(e) {
-    if (e.target !== dom.c2d) return;
+    if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
     if (e.button === 1) { // Orta tuş ile pan
         setState({ isPanning: true, panStart: { x: e.clientX, y: e.clientY } });
         dom.p2d.classList.add('panning'); // Pan cursor'ı ekle
         return;
     }
-    if (e.button === 2) return; // Sağ tuş (context menu)
+    if (e.button === 2) return; // Sağ tuş (context menu için ayrılmış)
 
+    // Tıklama konumunu dünya koordinatlarına çevir
     const rect = dom.c2d.getBoundingClientRect();
     const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    // Tıklama konumunu snap noktalarına göre ayarla
     let snappedPos = getSmartSnapPoint(e);
 
-    let needsUpdate3D = false; // 3D güncelleme bayrağı
-    let objectJustCreated = false; // Yeni bir nesne oluşturuldu mu flag'i (Seçimi temizlemek için)
-    let geometryChanged = false; // Genel geometri değişikliği flag'i (saveState için)
+    // Güncelleme bayrakları
+    let needsUpdate3D = false; // 3D sahne güncellenmeli mi?
+    let objectJustCreated = false; // Yeni bir nesne oluşturuldu mu?
+    let geometryChanged = false; // Geometri değişti mi (saveState için)?
 
+    // --- Seçim Modu ---
     if (state.currentMode === "select") {
+        // Uzunluk düzenleme modu aktifse iptal et
         if (state.isEditingLength) { cancelLengthEdit(); return; }
-        const clickedObject = getObjectAtPoint(pos); // Tıklanan nesneyi al
 
-        // Silme modu (Sadece Alt)
+        // Tıklanan nesneyi bul
+        const clickedObject = getObjectAtPoint(pos);
+
+        // Silme modu (Sadece Alt tuşu basılıysa)
         if (e.altKey && !e.ctrlKey && !e.shiftKey) {
-            setState({ isCtrlDeleting: true });
+            setState({ isCtrlDeleting: true }); // Silme modunu başlat
             dom.p2d.style.cursor = 'crosshair'; // Silme cursor'ı ayarla
-            return;
+            return; // Başka işlem yapma
         }
 
-        // Önceki seçimi temizle
-        setState({ selectedObject: null, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(), dragAxis: null, isSweeping: false, sweepWalls: [], dragOffset: { x: 0, y: 0 }, columnRotationOffset: null });
+        // Önceki seçimi temizle (eğer yeni bir nesneye tıklanmadıysa veya boşluğa tıklandıysa)
+        // Eğer tıklanan nesne varsa ve bu bir oda DEĞİLSE, seçimi daha sonra yapacağız.
+        // Eğer tıklanan nesne yoksa veya oda ise, seçimi şimdi temizleyebiliriz.
+        if (!clickedObject || clickedObject.type === 'room') {
+            setState({
+                selectedObject: null, selectedGroup: [],
+                affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(),
+                dragAxis: null, isSweeping: false, sweepWalls: [], dragOffset: { x: 0, y: 0 },
+                columnRotationOffset: null // Döndürme offset'ini de temizle
+            });
+        }
 
-        // Tıklanan nesne varsa seçili yap
+        // Tıklanan nesne varsa seçili yap ve sürüklemeyi başlat
         if (clickedObject) {
             if (clickedObject.type === 'room') {
-                setState({ selectedRoom: clickedObject.object }); // Oda seçimi farklı state'te tutuluyor
+                // Oda seçimi: Oda bilgisini sakla, nesne seçimini temizle
+                setState({ selectedRoom: clickedObject.object, selectedObject: null });
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
-                 setState({ isDraggingRoomName: clickedObject.object, roomDragStartPos: { x: pos.x, y: pos.y }, roomOriginalCenter: [...clickedObject.object.center] });
-                 // Oda ismi/alanı sürüklenecekse selectedObject null kalmalı
+                 // Oda ismi/alanı sürükleme: İlgili state'leri ayarla, nesne seçimini temizle
+                 setState({
+                     isDraggingRoomName: clickedObject.object,
+                     roomDragStartPos: { x: pos.x, y: pos.y },
+                     roomOriginalCenter: [...clickedObject.object.center],
+                     selectedObject: null // Nesne seçimini temizle
+                 });
+                 dom.p2d.classList.add('dragging'); // Sürükleme cursor'ı ekle (grabbing)
             } else {
-                 // Diğer nesneler için seçimi ayarla
-                 setState({ selectedObject: clickedObject, selectedRoom: null }); // selectedRoom'u temizle
+                 // Diğer nesneler (duvar, kapı, kolon vb.) için:
+                 // Seçimi yap
+                 setState({ selectedObject: clickedObject, selectedRoom: null }); // Oda seçimini temizle
 
-                 // Sürükleme için başlangıç bilgilerini ayarla
+                 // Sürükleme için başlangıç bilgilerini nesne tipine göre al
                  let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
                  switch (clickedObject.type) {
-                     case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break; // e eklendi
-                     case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;   // e eklendi
-                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; // e eklendi
-                     case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break; // e zaten vardı
+                     case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
+                     case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
+                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; // stairs.js'den gelen fonksiyonu kullan
+                     case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
                      case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;
                      case 'window': dragInfo = onPointerDownSelectWindow(clickedObject, pos); break;
                      case 'vent':
+                         // Menfez sürükleme başlangıcı
                          const vent = clickedObject.object; const wall = clickedObject.wall;
-                         if (wall && wall.p1 && wall.p2) {
+                         if (wall && wall.p1 && wall.p2) { // Duvar geçerliyse
                              const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                             if (wallLen > 0.1) {
+                             if (wallLen > 0.1) { // Duvar uzunluğu yeterliyse
                                  const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
                                  const ventCenterX = wall.p1.x + dx * vent.pos; const ventCenterY = wall.p1.y + dy * vent.pos;
-                                 dragInfo.startPointForDragging = { x: ventCenterX, y: ventCenterY };
-                                 dragInfo.dragOffset = { x: ventCenterX - pos.x, y: ventCenterY - pos.y };
+                                 dragInfo.startPointForDragging = { x: ventCenterX, y: ventCenterY }; // Başlangıç noktası
+                                 dragInfo.dragOffset = { x: ventCenterX - pos.x, y: ventCenterY - pos.y }; // Offset
                              }
                          }
                          break;
                  }
+                 // Sürükleme state'lerini ayarla
                  setState({
-                    isDragging: true,
-                    dragStartPoint: dragInfo.startPointForDragging,
-                    initialDragPoint: { x: pos.x, y: pos.y }, // Snap uygulanmamış ilk tıklama noktası
-                    dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId },
-                    dragOffset: dragInfo.dragOffset,
-                    ...(dragInfo.additionalState || {})
+                    isDragging: true, // Sürükleme başladı
+                    dragStartPoint: dragInfo.startPointForDragging, // Sürüklemenin referans noktası
+                    initialDragPoint: { x: pos.x, y: pos.y }, // İlk tıklama noktası (snaplenmemiş)
+                    dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId }, // Ekran koordinatları
+                    dragOffset: dragInfo.dragOffset, // Fare ile nesne arasındaki fark
+                    ...(dragInfo.additionalState || {}) // Nesneye özel ek state (örn: döndürme offset'i)
                  });
                  dom.p2d.classList.add('dragging'); // Sürükleme cursor'ı ekle
             }
@@ -96,229 +123,253 @@ export function onPointerDown(e) {
             setState({ selectedRoom: null });
         }
 
-
+    // --- Duvar veya Oda Çizim Modu ---
     } else if (state.currentMode === "drawWall" || state.currentMode === "drawRoom") {
-        // onPointerDownDrawWall artık true/false döndürmüyor, saveState'i kendi içinde yapıyor
-        onPointerDownDrawWall(snappedPos);
-        needsUpdate3D = true; // Duvar/Oda çizimi her zaman 3D'yi etkiler
-        // Duvar çizimi devam etmiyorsa (startPoint null olduysa) seçimi temizle
+        onPointerDownDrawWall(snappedPos); // Duvar çizme/ekleme işlemini yap (bu fonksiyon saveState'i yapar)
+        needsUpdate3D = true; // Duvar/Oda çizimi 3D'yi etkiler
+        // Eğer çizim bittiyse (startPoint sıfırlandıysa) seçimi kaldır
         if (!state.startPoint) setState({ selectedObject: null });
 
+    // --- Kapı Çizim Modu ---
     } else if (state.currentMode === "drawDoor") {
-        // onPointerDownDrawDoor artık true/false döndürmüyor, saveState'i kendi içinde yapıyor
-        onPointerDownDrawDoor(pos, getObjectAtPoint(pos)); // Tıklanan nesneyi ilet
-        needsUpdate3D = true;
-        objectJustCreated = true; // Bayrağı ayarla
-        setState({ selectedObject: null }); // Seçimi temizle
+        onPointerDownDrawDoor(pos, getObjectAtPoint(pos)); // Kapı ekleme işlemini yap (bu fonksiyon saveState'i yapar)
+        needsUpdate3D = true; // Kapı 3D'yi etkiler
+        objectJustCreated = true; // Yeni nesne oluşturuldu
+        setState({ selectedObject: null }); // Seçimi kaldır
 
+    // --- Pencere Çizim Modu ---
     } else if (state.currentMode === "drawWindow") {
-        // onPointerDownDrawWindow artık true/false döndürmüyor, saveState'i kendi içinde yapıyor
-        onPointerDownDrawWindow(pos, getObjectAtPoint(pos)); // Tıklanan nesneyi ilet
-         needsUpdate3D = true;
-         objectJustCreated = true; // Bayrağı ayarla
-         setState({ selectedObject: null }); // Seçimi temizle
+        onPointerDownDrawWindow(pos, getObjectAtPoint(pos)); // Pencere ekleme işlemini yap (bu fonksiyon saveState'i yapar)
+        needsUpdate3D = true; // Pencere 3D'yi etkiler
+        objectJustCreated = true; // Yeni nesne oluşturuldu
+        setState({ selectedObject: null }); // Seçimi kaldır
 
+    // --- Kolon Çizim Modu ---
     } else if (state.currentMode === "drawColumn") {
          if (!state.startPoint) {
+             // İlk tıklama: Başlangıç noktasını ayarla
             setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
          } else {
+             // İkinci tıklama: Kolonu oluştur
              const p1 = state.startPoint;
              const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+             // Dikdörtgenin boyutları yeterince büyükse
              if (Math.abs(p1.x - p2.x) > 1 && Math.abs(p1.y - p2.y) > 1) {
                  const centerX = (p1.x + p2.x) / 2; const centerY = (p1.y + p2.y) / 2;
                  const width = Math.abs(p1.x - p2.x); const height = Math.abs(p1.y - p2.y);
-                 const newColumn = createColumn(centerX, centerY, 0);
-                 newColumn.width = width; newColumn.height = height;
-                 newColumn.size = Math.max(width, height); newColumn.rotation = 0;
-                 state.columns.push(newColumn);
-                 geometryChanged = true;
-                 needsUpdate3D = true;
-                 objectJustCreated = true;
+                 // Yeni kolonu oluştur
+                 const newColumn = createColumn(centerX, centerY, 0); // Başlangıç boyutu 0
+                 newColumn.width = width; newColumn.height = height; // Hesaplanan boyutları ata
+                 newColumn.size = Math.max(width, height); // Genel boyut
+                 newColumn.rotation = 0; // Başlangıç açısı
+                 if (!state.columns) state.columns = []; // Kolon dizisi yoksa oluştur
+                 state.columns.push(newColumn); // Kolonu ekle
+                 geometryChanged = true; // Geometri değişti
+                 needsUpdate3D = true; // 3D güncellemesi gerekiyor
+                 objectJustCreated = true; // Yeni nesne oluşturuldu
              }
+             // İkinci tıklamadan sonra başlangıç noktasını sıfırla
              setState({ startPoint: null });
          }
+    // --- Kiriş Çizim Modu ---
     } else if (state.currentMode === "drawBeam") {
          if (!state.startPoint) {
+             // İlk tıklama: Başlangıç noktasını ayarla
              setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
          } else {
+             // İkinci tıklama: Kirişi oluştur
              const p1 = state.startPoint;
              const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
              const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-             const length = Math.hypot(dx, dy);
-             if (length > 1) {
+             const length = Math.hypot(dx, dy); // Kiriş uzunluğu
+             if (length > 1) { // Minimum uzunluk kontrolü
                  const centerX = (p1.x + p2.x) / 2; const centerY = (p1.y + p2.y) / 2;
-                 const width = length; const height = state.wallThickness; // Varsayılan duvar kalınlığı
-                 const rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                 const width = length; // Kiriş uzunluğu = width
+                 const height = state.wallThickness; // Kiriş eni = varsayılan duvar kalınlığı
+                 const rotation = Math.atan2(dy, dx) * 180 / Math.PI; // Kiriş açısı
+                 // Yeni kirişi oluştur
                  const newBeam = createBeam(centerX, centerY, width, height, rotation);
-                 state.beams = state.beams || []; // Dizi yoksa oluştur
-                 state.beams.push(newBeam);
-                 geometryChanged = true;
-                 needsUpdate3D = true;
-                 objectJustCreated = true;
+                 state.beams = state.beams || []; // Kiriş dizisi yoksa oluştur
+                 state.beams.push(newBeam); // Kirişi ekle
+                 geometryChanged = true; // Geometri değişti
+                 needsUpdate3D = true; // 3D güncellemesi gerekiyor
+                 objectJustCreated = true; // Yeni nesne oluşturuldu
              }
+             // İkinci tıklamadan sonra başlangıç noktasını sıfırla
              setState({ startPoint: null });
          }
-} else if (state.currentMode === "drawStairs") {
+    // --- Merdiven Çizim Modu ---
+    } else if (state.currentMode === "drawStairs") {
      if (!state.startPoint) {
+        // İlk tıklama: Başlangıç noktasını ayarla
         setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
      } else {
+         // İkinci tıklama: Merdiveni oluştur
          const p1 = state.startPoint;
          const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-         
-         // Dikdörtgenin kenar uzunluklarını hesapla
+
          const deltaX = p2.x - p1.x;
          const deltaY = p2.y - p1.y;
          const absWidth = Math.abs(deltaX);
          const absHeight = Math.abs(deltaY);
 
-         if (absWidth > 10 && absHeight > 10) {
-             const centerX = (p1.x + p2.x) / 2;
-             const centerY = (p1.y + p2.y) / 2;
-             
-             let width, height, rotation;
-             
-             // Hangi kenar daha uzun?
-             if (absWidth >= absHeight) {
-                 // Yatay dikdörtgen: X ekseni boyunca uzun
-                 width = absWidth;  // Uzun kenar (merdiven uzunluğu)
-                 height = absHeight; // Kısa kenar (merdiven eni)
-                 
-                 // Yönü belirle: p1'den p2'ye doğru
-                 if (deltaX > 0) {
-                     rotation = 0;    // Sağa doğru
-                 } else {
-                     rotation = 180;  // Sola doğru
-                 }
-             } else {
-                 // Dikey dikdörtgen: Y ekseni boyunca uzun
-                 width = absHeight; // Uzun kenar (merdiven uzunluğu)
-                 height = absWidth;  // Kısa kenar (merdiven eni)
-                 
-                 // Yönü belirle: p1'den p2'ye doğru
-                 if (deltaY > 0) {
-                     rotation = 90;   // Aşağı doğru
-                 } else {
-                     rotation = -90;  // Yukarı doğru (270)
-                 }
-             }
-             
-             const newStairs = createStairs(centerX, centerY, width, height, rotation);
+         // Minimum boyuttan büyükse merdiveni oluştur
+         if (absWidth > 10 && absHeight > 10) { // Minimum 10x10 cm
+             const centerX = (p1.x + p2.x) / 2; // Merkez X
+             const centerY = (p1.y + p2.y) / 2; // Merkez Y
 
-             state.stairs.push(newStairs);
-             needsUpdate3D = true;
-             objectJustCreated = true;
-             saveState();
+             let width, height, rotation; // Boyutlar ve açı
+
+             // Genişlik ve yüksekliği, çizilen dikdörtgenin yönüne göre ata
+             if (absWidth >= absHeight) { // Yatay veya kare dikdörtgen
+                 width = absWidth;  // Uzun kenar (merdiven uzunluğu) -> width
+                 height = absHeight; // Kısa kenar (merdiven eni) -> height
+                 rotation = (deltaX >= 0) ? 0 : 180; // Sağa (0 derece) veya sola (180 derece)
+             } else { // Dikey dikdörtgen
+                 width = absHeight; // Uzun kenar (merdiven uzunluğu) -> width
+                 height = absWidth;  // Kısa kenar (merdiven eni) -> height
+                 rotation = (deltaY >= 0) ? 90 : -90; // Aşağı (90 derece) veya yukarı (-90 derece)
+             }
+
+             // Ctrl tuşuna basılıp basılmadığını kontrol et (sahanlık için)
+             const isLanding = currentModifierKeys.ctrl;
+
+             // createStairs fonksiyonuna isLanding bilgisini gönder
+             const newStairs = createStairs(centerX, centerY, width, height, rotation, isLanding);
+
+             // state.stairs dizisi yoksa oluştur
+             if (!state.stairs) {
+                 state.stairs = [];
+             }
+             state.stairs.push(newStairs); // Yeni merdiveni ekle
+
+             needsUpdate3D = true;     // 3D güncellemesi gerekiyor
+             objectJustCreated = true; // Yeni nesne oluşturuldu
+             geometryChanged = true;   // Geometri değişti, kaydet
          }
+         // İkinci tıklamadan sonra başlangıç noktasını sıfırla ve seçimi kaldır
          setState({ startPoint: null, selectedObject: null });
      }
-} else if (state.currentMode === "drawVent") { // Menfez çizimi
+    // --- Menfez Çizim Modu ---
+    } else if (state.currentMode === "drawVent") {
         let closestWall = null; let minDistSq = Infinity;
-        const bodyHitTolerance = state.wallThickness * 1.5;
+        const bodyHitTolerance = (state.wallThickness * 1.5)**2; // Duvar gövdesine tıklama toleransı
+         // Tıklamaya en yakın duvarı bul
          for (const w of [...state.walls].reverse()) {
-             if (!w.p1 || !w.p2) continue;
-             const p1 = w.p1, p2 = w.p2; const l2 = (p1.x - p2.x)**2 + (p1.y - p2.y)**2; if(l2 < 0.1) continue;
-             const d = distToSegmentSquared(pos, p1, p2); // Snaplenmemiş pozisyonu kullan
-             if (d < bodyHitTolerance**2 && d < minDistSq) { minDistSq = d; closestWall = w; }
+             if (!w.p1 || !w.p2) continue; // Geçersiz duvarı atla
+             const distSq = distToSegmentSquared(pos, w.p1, w.p2); // Snaplenmemiş pozisyonu kullan
+             // Tolerans içinde ve en yakınsa
+             if (distSq < bodyHitTolerance && distSq < minDistSq) { minDistSq = distSq; closestWall = w; }
          }
+         // Duvar bulunduysa
          if(closestWall) {
             const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
-            const ventWidth = 40; const ventMargin = 10; // Uçlara olan min mesafe
+            const ventWidth = 25; // Menfez genişliği (çapı)
+            const ventMargin = 10; // Duvar uçlarına minimum mesafe
+            // Duvar, menfez ve marjlar için yeterince uzunsa
             if (wallLen >= ventWidth + 2 * ventMargin) {
                  const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y;
+                 // Tıklama noktasının duvar üzerindeki izdüşümünü bul (0-1 arası)
                  const t = Math.max(0, Math.min(1, ((pos.x - closestWall.p1.x) * dx + (pos.y - closestWall.p1.y) * dy) / (dx*dx + dy*dy) ));
-                 const ventPos = t * wallLen;
-                 // Pozisyonun kenarlara uygun olup olmadığını kontrol et
+                 const ventPos = t * wallLen; // Duvar üzerindeki pozisyon (cm)
+                 // Pozisyon marjlar içinde kalıyorsa
                  if (ventPos >= ventWidth/2 + ventMargin && ventPos <= wallLen - ventWidth/2 - ventMargin) {
-                     if (!closestWall.vents) closestWall.vents = [];
-                     // Çakışma kontrolü (varsa)
+                     if (!closestWall.vents) closestWall.vents = []; // Menfez dizisi yoksa oluştur
+                     // Çakışma kontrolü
                      let overlaps = false;
                      const newVentStart = ventPos - ventWidth / 2;
                      const newVentEnd = ventPos + ventWidth / 2;
-                     // Diğer menfezlerle kontrol
+                     // Diğer menfezlerle çakışıyor mu?
                      (closestWall.vents || []).forEach(existingVent => {
                           const existingStart = existingVent.pos - existingVent.width / 2;
                           const existingEnd = existingVent.pos + existingVent.width / 2;
-                          if (!(newVentEnd <= existingStart || newVentStart >= existingEnd)) {
-                              overlaps = true;
-                          }
+                          // Aralıklar kesişiyorsa çakışma var
+                          if (!(newVentEnd <= existingStart || newVentStart >= existingEnd)) { overlaps = true; }
                      });
-                     // Diğer kapı/pencere vb. ile kontrol (gerekirse eklenebilir)
+                     // Diğer elemanlarla (kapı, pencere) çakışma kontrolü eklenebilir
 
+                     // Çakışma yoksa menfezi ekle
                      if (!overlaps) {
                          closestWall.vents.push({ pos: ventPos, width: ventWidth, type: 'vent' });
-                         geometryChanged = true;
-                         objectJustCreated = true;
-                         // No 3D update for vents
+                         geometryChanged = true; // Geometri değişti
+                         objectJustCreated = true; // Yeni nesne oluşturuldu
+                         needsUpdate3D = true; // Menfezler 3D'de gösteriliyor
                      }
                  }
              }
          }
-         } else if (state.currentMode === "drawSymmetry") {
+         // Menfez ekledikten sonra seçimi kaldır
+         setState({ selectedObject: null });
+    // --- Simetri Modu ---
+    } else if (state.currentMode === "drawSymmetry") {
         if (!state.symmetryAxisP1) {
-            // İlk nokta: Ekseni başlat
-            setState({ 
-                symmetryAxisP1: { x: snappedPos.roundedX, y: snappedPos.roundedY },
-                symmetryAxisP2: null 
+            // İlk tıklama: Eksenin başlangıç noktasını ayarla
+            setState({
+                symmetryAxisP1: { x: snappedPos.roundedX, y: snappedPos.roundedY }, // Snaplenmiş nokta
+                symmetryAxisP2: null // İkinci noktayı temizle
             });
         } else {
-            // İkinci nokta: Simetri veya kopya uygula
-            let axisP1 = state.symmetryAxisP1;
-            let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-            
-            // SHIFT basılıysa 15'er derecelik açılara snap yap
+            // İkinci tıklama: Simetri veya kopya işlemini uygula
+            let axisP1 = state.symmetryAxisP1; // Eksenin başlangıcı
+            let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY }; // Eksenin sonu (snaplenmiş)
+
+            // Shift basılıysa ekseni 15 derecelik açılara snap yap
             if (currentModifierKeys.shift) {
                 const dx = axisP2.x - axisP1.x;
                 const dy = axisP2.y - axisP1.y;
-                const distance = Math.hypot(dx, dy);
-                
-                if (distance > 1) {
-                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-                    // 15'er derecelik açılara yuvarla
-                    const snappedAngle = Math.round(angle / 15) * 15;
-                    const snappedAngleRad = snappedAngle * Math.PI / 180;
-                    
+                const distance = Math.hypot(dx, dy); // Eksen uzunluğu
+                if (distance > 1) { // Çok kısaysa snap yapma
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI; // Mevcut açı (derece)
+                    const snappedAngle = Math.round(angle / 15) * 15; // En yakın 15 derece katı
+                    const snappedAngleRad = snappedAngle * Math.PI / 180; // Radyana çevir
+                    // Yeni eksen bitiş noktasını hesapla
                     axisP2 = {
                         x: axisP1.x + distance * Math.cos(snappedAngleRad),
                         y: axisP1.y + distance * Math.sin(snappedAngleRad)
                     };
                 }
             }
-            
-            // Ekseni kontrol et
+
+            // Eksen yeterince uzunsa işlemi yap
             const axisLength = Math.hypot(axisP2.x - axisP1.x, axisP2.y - axisP1.y);
-            if (axisLength > 10) { // Minimum 10cm
-                // CTRL basılıysa birebir kopya, değilse simetri
+            if (axisLength > 10) { // Minimum 10cm eksen uzunluğu
+                // Ctrl basılıysa: Birebir kopya (applyCopy)
+                // Değilse: Simetri al (applySymmetry)
                 if (currentModifierKeys.ctrl) {
                     applyCopy(axisP1, axisP2);
                 } else {
                     applySymmetry(axisP1, axisP2);
                 }
+                geometryChanged = true; // Geometri değişti
+                needsUpdate3D = true;   // 3D güncellemesi gerekebilir
             }
-            
-            // Simetri modunu temizle
-            setState({ 
-                symmetryAxisP1: null, 
+
+            // Simetri modunu ve önizlemeyi temizle
+            setState({
+                symmetryAxisP1: null,
                 symmetryAxisP2: null,
-                symmetryPreviewElements: { 
+                symmetryPreviewElements: { // Önizleme elemanlarını boşalt
                     nodes: [], walls: [], doors: [], windows: [], vents: [],
-                    columns: [], beams: [], stairs: [], rooms: [] 
+                    columns: [], beams: [], stairs: [], rooms: []
                 }
             });
-            setMode("select"); // Seçim moduna dön
+            setMode("select"); // İşlem sonrası Seçim moduna dön
         }
     }
+
+    // --- Son İşlemler ---
 
     // Eğer yeni bir nesne oluşturulduysa (ve mod 'select' değilse), seçimi temizle
     if (objectJustCreated && state.currentMode !== "select") {
         setState({ selectedObject: null });
     }
 
-    // Geometri değiştiyse kaydet
+    // Geometri değiştiyse (yeni nesne eklendi, simetri/kopya yapıldı vb.) state'i kaydet
     if (geometryChanged) {
         saveState();
     }
 
-    // --- Fonksiyon sonunda 3D güncellemesini kontrol et ve gecikmeli çağır ---
+    // 3D sahne güncellenmesi gerekiyorsa ve 3D görünüm aktifse, gecikmeli olarak güncelle
     if (needsUpdate3D && dom.mainContainer.classList.contains('show-3d')) {
         // Kısa bir gecikme ekleyerek state güncellemelerinin tamamlanmasını bekle
         setTimeout(update3DScene, 0);

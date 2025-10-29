@@ -1,5 +1,5 @@
-// ahmedakbayir/ngcad/ngcad-e7feb4c0224e7a314687ae1c86e34cb9211a573d/ui.js
-// Son Güncelleme: Merdiven popup Tamam butonu düzeltmesi ve kot mantığı.
+// ui.js
+// Son Güncelleme: Merdiven popup Tamam butonu düzeltmesi, kot mantığı ve sahanlık seçildiğinde korkuluk pasifleştirme.
 import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT } from './main.js';
 import { saveState } from './history.js';
 import { update3DScene } from './scene3d.js';
@@ -10,7 +10,8 @@ import { getMinWallLength } from './actions.js';
 import { isSpaceForDoor } from './door-handler.js';
 import { isSpaceForWindow } from './window-handler.js';
 import { findAvailableSegmentAt } from './wall-item-utils.js';
-import { recalculateStepCount,updateConnectedStairElevations } from './stairs.js'; // recalculateStepCount import edildi
+// updateConnectedStairElevations import edildiğinden emin olun:
+import { recalculateStepCount, updateConnectedStairElevations } from './stairs.js';
 
 export function initializeSettings() {
     dom.borderPicker.value = state.wallBorderColor;
@@ -95,7 +96,6 @@ export function showRoomNamePopup(room, e) {
      if (left < 10) left = 10;
      if (top < 10) top = 10;
 
-
     dom.roomNamePopup.style.left = `${left}px`;
     dom.roomNamePopup.style.top = `${top}px`;
     dom.roomNamePopup.style.display = 'block';
@@ -103,7 +103,7 @@ export function showRoomNamePopup(room, e) {
 
     // Dışarı tıklama dinleyicisini ayarla
     const clickListener = (event) => {
-        // Tıklanan element popup'ın içinde değilse ve popup butonu değilse kapat
+        // Tıklanan element popup'ın içinde değilse kapat
         if (!dom.roomNamePopup.contains(event.target)) {
              hideRoomNamePopup();
         }
@@ -113,22 +113,20 @@ export function showRoomNamePopup(room, e) {
     setTimeout(() => window.addEventListener('pointerdown', clickListener, { capture: true, once: true }), 0);
 }
 
-// --- DEĞİŞİKLİK BURADA: export eklendi ---
+// hideRoomNamePopup fonksiyonu
 export function hideRoomNamePopup() {
     dom.roomNamePopup.style.display = 'none';
     if (state.clickOutsideRoomPopupListener) {
-        // Dinleyiciyi kaldır (artık once:true kullanıldığı için gerekmeyebilir ama garanti olsun)
         window.removeEventListener('pointerdown', state.clickOutsideRoomPopupListener, { capture: true });
         setState({ clickOutsideRoomPopupListener: null, roomToEdit: null });
     }
-     // Odaklanmayı ana canvas'a geri verelim (opsiyonel ama iyi bir pratik)
      dom.c2d.focus();
 }
 
 function confirmRoomNameChange() {
     if (state.roomToEdit && dom.roomNameSelect.value) {
         state.roomToEdit.name = dom.roomNameSelect.value;
-        saveState();
+        saveState(); // İsim değişince kaydet
     }
     hideRoomNamePopup();
 }
@@ -141,23 +139,23 @@ export function toggle3DView() {
         if (dom.mainContainer.classList.contains('show-3d')) {
             update3DScene();
         }
-    }, 10); // Kısa bir gecikme ekleyerek geçişin tamamlanmasını bekle
+    }, 10);
 }
 
-// Splitter fonksiyonları (değişiklik yok)
+// Splitter fonksiyonları
 let isResizing = false;
-function onSplitterPointerDown(e) { /* ... */ isResizing = true; dom.p2d.style.pointerEvents = 'none'; dom.p3d.style.pointerEvents = 'none'; document.body.style.cursor = 'col-resize'; window.addEventListener('pointermove', onSplitterPointerMove); window.addEventListener('pointerup', onSplitterPointerUp); }
-function onSplitterPointerMove(e) { /* ... */ if (!isResizing) return; const mainRect = dom.mainContainer.getBoundingClientRect(); const p2dPanel = document.getElementById('p2d'); const p3dPanel = document.getElementById('p3d'); let p2dWidth = e.clientX - mainRect.left; const minWidth = 150; const maxWidth = mainRect.width / 2; if (p2dWidth < minWidth) p2dWidth = minWidth; if (p2dWidth > mainRect.width - minWidth) p2dWidth = mainRect.width - minWidth; let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20; if (p3dWidth > maxWidth) { p3dWidth = maxWidth; p2dWidth = mainRect.width - p3dWidth - dom.splitter.offsetWidth - 20; } p2dPanel.style.flex = `1 1 ${p2dWidth}px`; p3dPanel.style.flex = `1 1 ${p3dWidth}px`; resize(); }
-function onSplitterPointerUp() { /* ... */ isResizing = false; dom.p2d.style.pointerEvents = 'auto'; dom.p3d.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; window.removeEventListener('pointermove', onSplitterPointerMove); window.removeEventListener('pointerup', onSplitterPointerUp); }
+function onSplitterPointerDown(e) { isResizing = true; dom.p2d.style.pointerEvents = 'none'; dom.p3d.style.pointerEvents = 'none'; document.body.style.cursor = 'col-resize'; window.addEventListener('pointermove', onSplitterPointerMove); window.addEventListener('pointerup', onSplitterPointerUp); }
+function onSplitterPointerMove(e) { if (!isResizing) return; const mainRect = dom.mainContainer.getBoundingClientRect(); const p2dPanel = document.getElementById('p2d'); const p3dPanel = document.getElementById('p3d'); let p2dWidth = e.clientX - mainRect.left; const minWidth = 150; const maxWidth = mainRect.width / 2; if (p2dWidth < minWidth) p2dWidth = minWidth; if (p2dWidth > mainRect.width - minWidth) p2dWidth = mainRect.width - minWidth; let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20; if (p3dWidth > maxWidth) { p3dWidth = maxWidth; p2dWidth = mainRect.width - p3dWidth - dom.splitter.offsetWidth - 20; } p2dPanel.style.flex = `1 1 ${p2dWidth}px`; p3dPanel.style.flex = `1 1 ${p3dWidth}px`; resize(); }
+function onSplitterPointerUp() { isResizing = false; dom.p2d.style.pointerEvents = 'auto'; dom.p3d.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; window.removeEventListener('pointermove', onSplitterPointerMove); window.removeEventListener('pointerup', onSplitterPointerUp); }
 
 
-// Duvar boyutlandırma fonksiyonu (değişiklik yok)
+// Duvar boyutlandırma fonksiyonu
 function resizeWall(wall, newLengthCm, stationaryPointHandle) {
     if (!wall || isNaN(newLengthCm) || newLengthCm <= 0) return;
     const stationaryPoint = wall[stationaryPointHandle];
     const movingPointHandle = stationaryPointHandle === "p1" ? "p2" : "p1";
     const movingPoint = wall[movingPointHandle];
-    if(!stationaryPoint || !movingPoint) return; // Ekstra kontrol
+    if(!stationaryPoint || !movingPoint) return;
     const dx = movingPoint.x - stationaryPoint.x;
     const dy = movingPoint.y - stationaryPoint.y;
     const currentLength = Math.hypot(dx, dy);
@@ -167,7 +165,7 @@ function resizeWall(wall, newLengthCm, stationaryPointHandle) {
     movingPoint.y = stationaryPoint.y + dy * scale;
 }
 
-// Uzunluk input'unu konumlandırma (değişiklik yok)
+// Uzunluk input'unu konumlandırma
 export function positionLengthInput() {
     if (!state.selectedObject) return;
     let midX, midY;
@@ -180,7 +178,7 @@ export function positionLengthInput() {
     dom.lengthInput.style.top = `${screenPos.y - 20}px`;
 }
 
-// Uzunluk düzenlemeyi başlatma (değişiklik yok)
+// Uzunluk düzenlemeyi başlatma
 export function startLengthEdit(initialKey = '') {
     if (!state.selectedObject || (state.selectedObject.type !== "wall" && state.selectedObject.type !== "door" && state.selectedObject.type !== "window")) return;
     setState({ isEditingLength: true });
@@ -194,59 +192,40 @@ export function startLengthEdit(initialKey = '') {
     if (!initialKey) { setTimeout(() => dom.lengthInput.select(), 0); }
 }
 
-// Uzunluk düzenlemeyi onaylama (çarpma/bölme dahil - değişiklik yok)
+// Uzunluk düzenlemeyi onaylama
 function confirmLengthEdit() {
     if (!state.selectedObject) return;
     let rawValue = dom.lengthInput.value.trim();
-    let reverseDirection = false; // Duvar için yön
+    let reverseDirection = false;
     let operation = null;
     let operand = NaN;
     let newDimensionCm = NaN;
     const { selectedObject } = state;
-    const MIN_ITEM_WIDTH = 20; // Kapı/Pencere için minimum genişlik
+    const MIN_ITEM_WIDTH = 20;
 
-    // Çarpma/Bölme operatörlerini ve 10'a bölme kuralını işle
     const multiplyMatch = rawValue.match(/^(\d+(\.\d+)?)\*$/);
     const divideMatch = rawValue.match(/^(\d+(\.\d+)?)\/$/);
 
     if (multiplyMatch) {
-        operation = '*';
-        operand = parseFloat(multiplyMatch[1]);
-        if (operand > 10) operand /= 10; // 10'dan büyükse 10'a böl
+        operation = '*'; operand = parseFloat(multiplyMatch[1]); if (operand > 10) operand /= 10;
     } else if (divideMatch) {
-        operation = '/';
-        operand = parseFloat(divideMatch[1]);
-        if (operand > 10) operand /= 10; // 10'dan büyükse 10'a böl
+        operation = '/'; operand = parseFloat(divideMatch[1]); if (operand > 10) operand /= 10;
     }
 
     let currentDimension = 0;
-    if (selectedObject.type === "wall") {
-        const wall = selectedObject.object;
-        currentDimension = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-    } else if (selectedObject.type === "door" || selectedObject.type === "window") {
-        currentDimension = selectedObject.object.width;
-    }
+    if (selectedObject.type === "wall") { const wall = selectedObject.object; currentDimension = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); }
+    else if (selectedObject.type === "door" || selectedObject.type === "window") { currentDimension = selectedObject.object.width; }
 
-    // Yeni boyutu hesapla
     if (operation && !isNaN(operand) && operand > 0 && currentDimension > 0) {
-        if (operation === '*') newDimensionCm = currentDimension * operand;
-        else newDimensionCm = currentDimension / operand;
+        if (operation === '*') newDimensionCm = currentDimension * operand; else newDimensionCm = currentDimension / operand;
     } else {
-        // Normal sayısal giriş veya duvar yönü
-        if (selectedObject.type === "wall" && rawValue.endsWith("-")) {
-            reverseDirection = true;
-            rawValue = rawValue.slice(0, -1);
-        }
+        if (selectedObject.type === "wall" && rawValue.endsWith("-")) { reverseDirection = true; rawValue = rawValue.slice(0, -1); }
         newDimensionCm = parseFloat(rawValue);
     }
 
-    // Hesaplamaları uygula
     if (selectedObject.type === "wall") {
         const wall = selectedObject.object;
-        if (newDimensionCm < getMinWallLength(wall)) { // Minimum duvar uzunluğu kontrolü
-            cancelLengthEdit();
-            return;
-        }
+        if (newDimensionCm < getMinWallLength(wall)) { cancelLengthEdit(); return; }
         if (!isNaN(newDimensionCm) && newDimensionCm > 0) {
             const stationaryHandle = reverseDirection ? "p2" : "p1";
             const movingPointHandle = reverseDirection ? "p1" : "p2";
@@ -257,106 +236,59 @@ function confirmLengthEdit() {
             applyStretchModification(movingPoint, originalPos, stationaryPoint);
             processWalls();
             saveState();
-            update3DScene(); // 3D sahneyi güncelle
+            update3DScene();
         }
     } else if (selectedObject.type === "door" || selectedObject.type === "window") {
         const item = selectedObject.object;
         const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall;
 
-        // Geçersiz giriş veya duvar yoksa iptal et
-        if (isNaN(newDimensionCm) || newDimensionCm < MIN_ITEM_WIDTH || !wall || !wall.p1 || !wall.p2) {
-            cancelLengthEdit();
-            return;
-        }
+        if (isNaN(newDimensionCm) || newDimensionCm < MIN_ITEM_WIDTH || !wall || !wall.p1 || !wall.p2) { cancelLengthEdit(); return; }
 
         const originalWidth = item.width;
         const originalPos = item.pos;
-
-        // Öğenin bulunduğu boş segmenti bul (kendisini hariç tutarak)
         const segment = findAvailableSegmentAt(wall, item.pos, item);
-        if (!segment) {
-            console.warn("Öğe için uygun segment bulunamadı.");
-            cancelLengthEdit();
-            return;
-        }
+        if (!segment) { console.warn("Öğe için uygun segment bulunamadı."); cancelLengthEdit(); return; }
 
-        // --- Yeni İki Yönlü Genişletme Mantığı ---
-
-        const deltaWidth = newDimensionCm - originalWidth; // Toplam genişlik değişimi
+        const deltaWidth = newDimensionCm - originalWidth;
         const itemStartOriginal = originalPos - originalWidth / 2;
         const itemEndOriginal = originalPos + originalWidth / 2;
-
-        // Segment içindeki boşlukları hesapla
         const spaceLeft = itemStartOriginal - segment.start;
         const spaceRight = segment.end - itemEndOriginal;
-
-        let deltaLeft = 0;
-        let deltaRight = 0;
+        let deltaLeft = 0, deltaRight = 0;
 
         if (deltaWidth > 0) { // Genişletme
             const idealDelta = deltaWidth / 2;
-            // Sol tarafa ne kadar genişleyebilir?
             deltaLeft = Math.min(idealDelta, spaceLeft);
-            // Sağ tarafa ne kadar genişleyebilir?
             deltaRight = Math.min(idealDelta, spaceRight);
-
-            // Eğer bir taraf tam genişleyemediyse, diğer taraftan telafi etmeye çalış
-            if (deltaLeft < idealDelta) {
-                deltaRight = Math.min(deltaWidth - deltaLeft, spaceRight);
-            } else if (deltaRight < idealDelta) {
-                deltaLeft = Math.min(deltaWidth - deltaRight, spaceLeft);
-            }
-        } else { // Küçültme (deltaWidth negatif)
-            const idealDelta = deltaWidth / 2; // Negatif değer
-            // Her iki taraftan da ideal kadar küçült (sınır kontrolü gerekmez, çünkü içe doğru gidiyor)
-            deltaLeft = idealDelta;
-            deltaRight = idealDelta;
-            // Ancak, sonuç genişliğin minimumun altına düşmediğinden emin ol
+            if (deltaLeft < idealDelta) deltaRight = Math.min(deltaWidth - deltaLeft, spaceRight);
+            else if (deltaRight < idealDelta) deltaLeft = Math.min(deltaWidth - deltaRight, spaceLeft);
+        } else { // Küçültme
+            const idealDelta = deltaWidth / 2;
+            deltaLeft = idealDelta; deltaRight = idealDelta;
             const potentialFinalWidth = originalWidth + deltaLeft + deltaRight;
             if (potentialFinalWidth < MIN_ITEM_WIDTH) {
-                // Minimuma ulaşıldı, küçültmeyi sınırla
                 const adjustment = MIN_ITEM_WIDTH - potentialFinalWidth;
-                // Ayarlamayı iki tarafa eşit dağıt (veya orantılı)
-                deltaLeft += adjustment / 2;
-                deltaRight += adjustment / 2;
+                deltaLeft += adjustment / 2; deltaRight += adjustment / 2;
             }
         }
 
-        // Yeni pozisyon ve genişliği hesapla
         let finalWidth = originalWidth + deltaLeft + deltaRight;
-        let finalPos = originalPos + (deltaRight - deltaLeft) / 2; // Pozisyon kayması
-
-        // Son kontroller: Genişlik ve pozisyonun segment sınırları içinde kaldığından emin ol
-        finalWidth = Math.max(MIN_ITEM_WIDTH, Math.min(finalWidth, segment.length)); // Min/Max genişlik
+        let finalPos = originalPos + (deltaRight - deltaLeft) / 2;
+        finalWidth = Math.max(MIN_ITEM_WIDTH, Math.min(finalWidth, segment.length));
         const minPossiblePos = segment.start + finalWidth / 2;
         const maxPossiblePos = segment.end - finalWidth / 2;
-        finalPos = Math.max(minPossiblePos, Math.min(maxPossiblePos, finalPos)); // Pozisyonu clamp et
+        finalPos = Math.max(minPossiblePos, Math.min(maxPossiblePos, finalPos));
 
-        // Öğeyi güncelle
-        item.width = finalWidth;
-        item.pos = finalPos;
-        item.isWidthManuallySet = true; // Elle ayarlandı olarak işaretle
+        item.width = finalWidth; item.pos = finalPos; item.isWidthManuallySet = true;
 
-        // Son yerleşimin geçerliliğini kontrol et
-        let isValid = (selectedObject.type === 'door') ? isSpaceForDoor(item) : isSpaceForWindow(selectedObject); // selectedObject pencere için kullanılır
-
-        if (isValid) {
-            saveState(); // Geçerliyse kaydet
-            update3DScene(); // 3D sahneyi güncelle
-        } else {
-            // Geçerli değilse geri al
-            console.warn("Yeni boyutlandırma geçerli değil, geri alınıyor.");
-            item.width = originalWidth;
-            item.pos = originalPos;
-            item.isWidthManuallySet = false; // İşareti geri al
-        }
-        // --- Yeni Mantık Sonu ---
+        let isValid = (selectedObject.type === 'door') ? isSpaceForDoor(item) : isSpaceForWindow(selectedObject);
+        if (isValid) { saveState(); update3DScene(); }
+        else { console.warn("Yeni boyutlandırma geçerli değil, geri alınıyor."); item.width = originalWidth; item.pos = originalPos; item.isWidthManuallySet = false; }
     }
-    cancelLengthEdit(); // Düzenleme modunu bitir
+    cancelLengthEdit();
 }
 
-
-// Uzunluk düzenlemeyi iptal etme (değişiklik yok)
+// Uzunluk düzenlemeyi iptal etme
 export function cancelLengthEdit() {
     setState({ isEditingLength: false });
     dom.lengthInput.style.display = "none";
@@ -370,23 +302,26 @@ export function showStairPopup(stair, e) {
     setState({ isStairPopupVisible: true });
     if (!stair) return;
     currentEditingStair = stair;
-    // console.log("showStairPopup: currentEditingStair ayarlandı:", currentEditingStair); // Debug log
 
     // Popup'ı doldur
     dom.stairNameInput.value = stair.name || 'Merdiven';
     dom.stairBottomElevationInput.value = stair.bottomElevation || 0;
     dom.stairTopElevationInput.value = stair.topElevation || WALL_HEIGHT;
-    dom.stairWidthEditInput.value = Math.round(stair.height || 120); // Math.round() eklendi
+    dom.stairWidthEditInput.value = Math.round(stair.height || 120);
     dom.stairIsLandingCheckbox.checked = stair.isLanding || false;
-    dom.stairShowRailingCheckbox.checked = stair.showRailing !== undefined ? stair.showRailing : true; // <-- YENİ SATIR (Varsayılan true)
+
+    // --- Korkuluk Checkbox Durumu ---
+    dom.stairShowRailingCheckbox.checked = !stair.isLanding && (stair.showRailing !== undefined ? stair.showRailing : true); // Sahanlıksa default false, değilse true
+    dom.stairShowRailingCheckbox.disabled = stair.isLanding; // Sahanlıksa disable
+    // --- Korkuluk Checkbox Durumu SONU ---
 
     // Bağlı merdiven select'ini doldur
-    dom.stairConnectedStairSelect.innerHTML = '<option value="">YOK</option>'; // Önce temizle
+    dom.stairConnectedStairSelect.innerHTML = '<option value="">YOK</option>';
     (state.stairs || []).forEach(s => {
-        if (s.id !== stair.id) { // Kendisini ekleme
+        if (s.id !== stair.id) {
             const option = document.createElement('option');
             option.value = s.id;
-            option.textContent = s.name || `Merdiven (${s.id.substring(0, 4)})`; // İsim yoksa ID'nin başını göster
+            option.textContent = s.name || `Merdiven (${s.id.substring(0, 4)})`;
             option.selected = (stair.connectedStairId === s.id);
             dom.stairConnectedStairSelect.appendChild(option);
         }
@@ -398,7 +333,7 @@ export function showStairPopup(stair, e) {
     // Sahanlık checkbox durumuna göre Üst Kot input'unu etkinleştir/devre dışı bırak
     dom.stairTopElevationInput.disabled = dom.stairIsLandingCheckbox.checked;
 
-    // Popup'ı konumlandır (roomNamePopup ile benzer)
+    // Popup'ı konumlandır
     const popupWidth = dom.stairPopup.offsetWidth || 300;
     const popupHeight = dom.stairPopup.offsetHeight || 350;
     let left = e.clientX + 5;
@@ -412,101 +347,111 @@ export function showStairPopup(stair, e) {
     dom.stairPopup.style.top = `${top}px`;
     dom.stairPopup.style.display = 'block';
 
-    // Dışarı tıklama dinleyicisini ayarla (GÜNCELLENDİ)
+    // Dışarı tıklama dinleyicisini ayarla
     const clickListener = (event) => {
-        // Tıklanan element popup'ın içindeyse VEYA "Tamam"/"İptal" butonlarıysa kapatma
         if (!dom.stairPopup.contains(event.target) &&
-            event.target !== dom.confirmStairPopupButton && // <-- BU KONTROL EKLENDİ
-            event.target !== dom.cancelStairPopupButton) { // <-- BU KONTROL EKLENDİ
-             // console.log("Dışarı tıklandı, popup kapatılıyor."); // Debug log
+            event.target !== dom.confirmStairPopupButton &&
+            event.target !== dom.cancelStairPopupButton) {
              hideStairPopup();
-        } else {
-             // console.log("İçeri veya butona tıklandı, popup açık kalıyor."); // Debug log
         }
     };
-    setState({ clickOutsideRoomPopupListener: clickListener }); // Aynı listener state'ini kullanabiliriz
+    setState({ clickOutsideRoomPopupListener: clickListener });
     setTimeout(() => window.addEventListener('pointerdown', clickListener, { capture: true, once: true }), 0);
 }
 
 export function hideStairPopup() {
-    setState({  isStairPopupVisible: false });
-    // console.log("hideStairPopup çağrıldı, currentEditingStair null yapılıyor."); // Debug log
+    setState({ isStairPopupVisible: false });
     dom.stairPopup.style.display = 'none';
-    currentEditingStair = null; // <-- Referansı temizle
+    currentEditingStair = null;
     if (state.clickOutsideRoomPopupListener) {
         window.removeEventListener('pointerdown', state.clickOutsideRoomPopupListener, { capture: true });
         setState({ clickOutsideRoomPopupListener: null });
     }
-     dom.c2d.focus(); // Odağı geri ver
+     dom.c2d.focus();
 }
 
-// ahmedakbayir/ngcad/ngcad-a560cec7fc337c4aaff6feec495df3495bee850d/ui.js
-
+// --- GÜNCELLENMİŞ confirmStairChange ---
 function confirmStairChange() {
-    // Düzenlenen merdiveni kontrol et
     if (!currentEditingStair) {
         console.error("HATA: confirmStairChange içinde currentEditingStair bulunamadı!");
-        // hideStairPopup(); // Hata durumunda da kapatmak için eklenebilir ama try bloğunun başında zaten var.
+        hideStairPopup();
         return;
     }
-    const stair = currentEditingStair; // Kolay erişim için değişkene ata
+    const stair = currentEditingStair;
+    const previousTopElevation = stair.topElevation; // Kot güncellemesi için önceki değeri sakla
 
     try {
-        hideStairPopup(); // <-- Popup'ı diğer işlemlerden ÖNCE kapat
-
-        // Formdaki değerleri al ve merdiven nesnesine ata
-        stair.name = dom.stairNameInput.value.trim() || 'Merdiven'; // İsim
+        // Formdaki değerleri al
+        stair.name = dom.stairNameInput.value.trim() || 'Merdiven';
         const connectedStairId = dom.stairConnectedStairSelect.value;
-        stair.connectedStairId = connectedStairId || null; // Bağlı merdiven ID'si
+        stair.connectedStairId = connectedStairId || null;
+        stair.height = parseInt(dom.stairWidthEditInput.value, 10) || 120; // 2D genişlik (eni)
+        stair.isLanding = dom.stairIsLandingCheckbox.checked;
 
-        // Alt kotu ayarla (bağlıysa otomatik, değilse inputtan)
+        // --- Korkuluk Durumunu Ata ---
+        // Sahanlıksa her zaman false, değilse checkbox'ın değeri
+        stair.showRailing = !stair.isLanding && dom.stairShowRailingCheckbox.checked;
+        // --- Korkuluk Durumu SONU ---
+
+        // Alt kotu ayarla
         let bottomElevation = parseInt(dom.stairBottomElevationInput.value, 10) || 0;
         if (stair.connectedStairId) {
-            // Bağlı merdiveni bul
             const connectedStair = (state.stairs || []).find(s => s.id === stair.connectedStairId);
             if (connectedStair) {
-                // Bağlı merdivenin üst kotunu bu merdivenin alt kotu yap
-                bottomElevation = connectedStair.topElevation || 0;
+                bottomElevation = connectedStair.topElevation || 0; // Bağlı merdivenin üst kotu = bu merdivenin alt kotu
             }
         }
-        stair.bottomElevation = bottomElevation; // Hesaplanan alt kotu ata
-
-        // Merdiven genişliğini (2D'deki height) ata
-        stair.height = parseInt(dom.stairWidthEditInput.value, 10) || 120;
-        // Sahanlık (orta düzlem) durumunu ata
-        stair.isLanding = dom.stairIsLandingCheckbox.checked;
-        // Korkuluk gösterme durumunu ata
-        stair.showRailing = dom.stairShowRailingCheckbox.checked;
+        stair.bottomElevation = bottomElevation;
 
         // Üst Kot'u ayarla
-        const LANDING_THICKNESS = 10; // Sahanlık kalınlığı (scene3d.js ile aynı olmalı)
+        const LANDING_THICKNESS = 10;
         if (stair.isLanding) {
-            // SAHANLIK ise: Üst kot = alt kot + kalınlık
-            stair.topElevation = stair.bottomElevation + LANDING_THICKNESS;
+            // Sahanlık: Üst kot = Bağlı merdivenin üst kotu (değişmez) VEYA Alt kot + kalınlık
+             if (stair.connectedStairId) {
+                 const connectedStair = (state.stairs || []).find(s => s.id === stair.connectedStairId);
+                 if (connectedStair) {
+                     stair.topElevation = connectedStair.topElevation || (stair.bottomElevation + LANDING_THICKNESS);
+                 } else { // Bağlantı ID'si var ama merdiven bulunamadıysa (hata durumu)
+                      stair.topElevation = stair.bottomElevation + LANDING_THICKNESS;
+                 }
+             } else { // Bağlantı yoksa
+                 stair.topElevation = stair.bottomElevation + LANDING_THICKNESS;
+             }
+             // Sahanlığın alt kotunu üst kota göre ayarla
+             stair.bottomElevation = stair.topElevation - LANDING_THICKNESS;
+
         } else {
-            // NORMAL MERDİVEN ise: Input'taki değeri al veya varsayılanı hesapla
+            // Normal Merdiven: Input'taki değeri al veya varsayılanı hesapla
             let topElevationInput = parseInt(dom.stairTopElevationInput.value, 10);
-            // Input geçerli değilse, alt kot + varsayılan kat yüksekliği
             if (isNaN(topElevationInput)) {
-                topElevationInput = stair.bottomElevation + WALL_HEIGHT;
+                topElevationInput = stair.bottomElevation + WALL_HEIGHT; // Alt kot + kat yüksekliği
             }
             // Üst kot, alt kottan en az 10cm yüksek olmalı
             stair.topElevation = Math.max(stair.bottomElevation + 10, topElevationInput);
         }
 
-        recalculateStepCount(stair); // Basamak sayısını yeniden hesapla (gerekirse)
+        recalculateStepCount(stair); // Basamak sayısını yeniden hesapla
+
+        // Kot güncellemesini yay (eğer üst kot değiştiyse)
+        if (stair.topElevation !== previousTopElevation) {
+            // State'i güncelleyerek değişikliği tetikle (eğer state yönetim kütüphanesi kullanılıyorsa önemli)
+            setState({ stairs: [...(state.stairs || [])] });
+            updateConnectedStairElevations(stair.id); // Değişikliği yay
+        }
 
         saveState(); // Değişiklikleri geçmişe kaydet
         update3DScene(); // 3D sahneyi güncelle
 
     } catch (error) {
         console.error("confirmStairChange içinde hata oluştu:", error);
-        // Popup zaten başta kapatıldığı için tekrar işlem yapmaya gerek yok.
+    } finally {
+        hideStairPopup(); // Her durumda popup'ı kapat
     }
 }
-// --- MERDİVEN POPUP FONKSİYONLARI SONU ---
+// --- confirmStairChange Sonu ---
 
-// UI dinleyicilerini ayarlama (değişiklik yok)
+
+// --- GÜNCELLENMİŞ setupUIListeners ---
 export function setupUIListeners() {
     dom.settingsBtn.addEventListener("click", () => { dom.settingsPopup.style.display = 'block'; });
     dom.closeSettingsPopupBtn.addEventListener("click", () => { dom.settingsPopup.style.display = 'none'; });
@@ -530,68 +475,91 @@ export function setupUIListeners() {
     dom.dimensionDefaultViewSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) { state.dimensionOptions.defaultView = value; setState({ dimensionMode: value }); } });
     dom.dimensionShowAreaSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showArea = value; });
     dom.dimensionShowOuterSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showOuter = value; });
-    dom.roomNameSelect.addEventListener('click', confirmRoomNameChange);
+    dom.roomNameSelect.addEventListener('click', confirmRoomNameChange); // Tek tıklamada da onaylansın
     dom.roomNameSelect.addEventListener('dblclick', confirmRoomNameChange);
     dom.roomNameInput.addEventListener('input', filterRoomNameList);
     dom.roomNameSelect.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } });
     dom.roomNameInput.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); dom.roomNameSelect.focus(); } else if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } });
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
     dom.lengthInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); } else if (e.key === "Escape") { cancelLengthEdit(); } });
-    dom.lengthInput.addEventListener("blur", cancelLengthEdit);
+    dom.lengthInput.addEventListener("blur", cancelLengthEdit); // Odak dışı kalınca da iptal et
 
     // MERDİVEN POPUP LISTENER'LARI
-    dom.confirmStairPopupButton.addEventListener('click', confirmStairChange); // Bu satır önemli
+    dom.confirmStairPopupButton.addEventListener('click', confirmStairChange);
     dom.cancelStairPopupButton.addEventListener('click', hideStairPopup);
+
+    // "Orta Düzlem" checkbox'ı değiştiğinde:
     dom.stairIsLandingCheckbox.addEventListener('change', () => {
         const isLanding = dom.stairIsLandingCheckbox.checked;
-        dom.stairTopElevationInput.disabled = isLanding;
-        if (isLanding && currentEditingStair) { // currentEditingStair null değilse kontrol et
-             // Sahanlık seçildiğinde, üst kotu bir önceki bağlı merdivenin üst kotuna eşitle (varsa)
-             let topElev = dom.stairBottomElevationInput.value; // Varsayılan olarak alt kot
-             if (currentEditingStair.connectedStairId) {
-                 const connectedStair = (state.stairs || []).find(s => s.id === currentEditingStair.connectedStairId);
-                 if (connectedStair) {
-                     topElev = connectedStair.topElevation || dom.stairBottomElevationInput.value;
+        dom.stairTopElevationInput.disabled = isLanding; // Üst kotu pasifleştir/aktifleştir
+        dom.stairShowRailingCheckbox.disabled = isLanding; // Korkuluk seçeneğini pasifleştir/aktifleştir
+
+        if (isLanding) {
+            // Sahanlık seçildi: Korkuluk işaretini kaldır ve pasifleştir
+            dom.stairShowRailingCheckbox.checked = false;
+            // Sahanlık üst kotunu, bağlı merdiven varsa onun üst kotuna eşitle (veya alt + kalınlık)
+            if (currentEditingStair) { // Hata kontrolü
+                 let topElev;
+                 if (currentEditingStair.connectedStairId) {
+                     const connectedStair = (state.stairs || []).find(s => s.id === currentEditingStair.connectedStairId);
+                     topElev = connectedStair ? (connectedStair.topElevation || 0) : (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + 10;
+                 } else {
+                     topElev = (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + 10;
                  }
-             }
-            dom.stairTopElevationInput.value = topElev;
+                dom.stairTopElevationInput.value = topElev;
+            }
+        } else {
+            // Sahanlık kaldırıldı: Korkuluk seçeneğini aktifleştir ve işaretle
+            dom.stairShowRailingCheckbox.disabled = false;
+            dom.stairShowRailingCheckbox.checked = true;
+            // Üst kot inputunu tekrar normal davranışına bırak (kullanıcı değiştirebilir)
+            // İsteğe bağlı: Üst kotu varsayılan değere (örn: alt + WALL_HEIGHT) ayarlayabilirsiniz.
+            if (currentEditingStair) {
+                 dom.stairTopElevationInput.value = (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + WALL_HEIGHT;
+            }
         }
     });
+
+    // "Bağlı Merdiven" select'i değiştiğinde:
     dom.stairConnectedStairSelect.addEventListener('change', () => {
         const selectedId = dom.stairConnectedStairSelect.value;
-        let isConnected = false; // Bağlantı durumunu takip et
-        if (selectedId && currentEditingStair) { // currentEditingStair null değilse kontrol et
+        let isConnected = false; // Bağlantı durumu
+        if (selectedId && currentEditingStair) {
              const connectedStair = (state.stairs || []).find(s => s.id === selectedId);
              if (connectedStair) {
-                 dom.stairBottomElevationInput.value = connectedStair.topElevation || 0;
-                 isConnected = true; // Bağlantı var
-                 // Eğer sahanlık seçiliyse, üst kotu da güncelle
+                 dom.stairBottomElevationInput.value = connectedStair.topElevation || 0; // Alt kotu bağlanan merdivenin üst kotuna ayarla
+                 isConnected = true;
+                 // Eğer sahanlık seçiliyse, üst kotu da güncelle (artık sahanlık üst kotu=bağlı merdiven üst kotu)
                  if (dom.stairIsLandingCheckbox.checked) {
                      dom.stairTopElevationInput.value = connectedStair.topElevation || 0;
                  }
              }
         }
-        dom.stairBottomElevationInput.disabled = isConnected; // Duruma göre disable/enable et
-        // Bağlantı kaldırıldıysa ve sahanlıksa, üst kotu alt kota eşitle
+        dom.stairBottomElevationInput.disabled = isConnected; // Alt kot inputunu pasifleştir/aktifleştir
+        // Bağlantı kaldırıldıysa ve sahanlıksa, üst kotu alt kota göre tekrar ayarla (kalınlık ekleyerek)
         if (!isConnected && dom.stairIsLandingCheckbox.checked) {
-             dom.stairTopElevationInput.value = dom.stairBottomElevationInput.value;
+             dom.stairTopElevationInput.value = (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + 10;
         }
     });
+
+    // Alt kot inputu değişirse ve sahanlıksa üst kotu da güncelle
      dom.stairBottomElevationInput.addEventListener('input', () => {
-         // Alt kot değişirse ve sahanlıksa üst kotu da güncelle
          if (dom.stairIsLandingCheckbox.checked) {
-             dom.stairTopElevationInput.value = dom.stairBottomElevationInput.value;
+             dom.stairTopElevationInput.value = (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + 10;
          }
      });
-[dom.stairNameInput, dom.stairBottomElevationInput, dom.stairTopElevationInput, dom.stairWidthEditInput].forEach(input => {
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault(); // Varsayılan Enter davranışını engelle
-            confirmStairChange();
-        } else if (e.key === 'Escape') {
-            hideStairPopup(); // Escape ile de kapatılsın
-        }
+
+    // Merdiven popup inputları için Enter/Escape tuşları
+    [dom.stairNameInput, dom.stairBottomElevationInput, dom.stairTopElevationInput, dom.stairWidthEditInput].forEach(input => {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // Varsayılan Enter davranışını engelle
+                confirmStairChange(); // Değişiklikleri onayla
+            } else if (e.key === 'Escape') {
+                hideStairPopup(); // Popup'ı kapat
+            }
+        });
     });
-});
     // MERDİVEN POPUP LISTENER'LARI SONU
 }
+// --- setupUIListeners Sonu ---
