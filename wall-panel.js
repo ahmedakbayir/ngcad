@@ -40,6 +40,12 @@ export function createWallPanel() {
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;"><input type="radio" name="wall-type" value="half" style="cursor: pointer;"><span style="font-size: 12px;">Yarım Duvar</span></label>
             </div>
         </div>
+        <div style="margin-bottom: 16px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+                <input type="checkbox" id="arc-wall-checkbox" style="cursor: pointer;">
+                <span style="font-size: 12px; color: #8ab4f8; font-weight: 500;">YAY DUVAR</span>
+            </label>
+        </div>
         <div style="margin-bottom: 0;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0; font-weight: 500;">EKLE:</label>
             <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -68,6 +74,7 @@ function setupWallPanelListeners() {
     const thicknessSlider = document.getElementById('wall-thickness-slider');
     const thicknessNumber = document.getElementById('wall-thickness-number');
     const wallTypeRadios = document.querySelectorAll('input[name="wall-type"]');
+    const arcWallCheckbox = document.getElementById('arc-wall-checkbox');
 
     thicknessSlider.addEventListener('change', (e) => {
         if (wallPanelWall) {
@@ -94,6 +101,28 @@ function setupWallPanelListeners() {
                 if (dom.mainContainer.classList.contains('show-3d')) { setTimeout(update3DScene, 0); }
             }
         });
+    });
+    arcWallCheckbox.addEventListener('change', (e) => {
+        if (wallPanelWall) {
+            wallPanelWall.isArc = e.target.checked;
+            // İlk kez arc aktif edildiğinde kontrol noktalarını oluştur
+            if (wallPanelWall.isArc && !wallPanelWall.arcControl1) {
+                const dx = wallPanelWall.p2.x - wallPanelWall.p1.x;
+                const dy = wallPanelWall.p2.y - wallPanelWall.p1.y;
+                const wallLength = Math.hypot(dx, dy);
+                // Duvarın normalini bul
+                const nx = -dy / wallLength;
+                const ny = dx / wallLength;
+                // Duvarın ortasında, duvarın 1/4 uzunluğu kadar dışarıya doğru iki kontrol noktası
+                const midX = (wallPanelWall.p1.x + wallPanelWall.p2.x) / 2;
+                const midY = (wallPanelWall.p1.y + wallPanelWall.p2.y) / 2;
+                const offset = wallLength / 4;
+                wallPanelWall.arcControl1 = { x: midX + nx * offset * 0.7, y: midY + ny * offset * 0.7 };
+                wallPanelWall.arcControl2 = { x: midX + nx * offset * 1.3, y: midY + ny * offset * 1.3 };
+            }
+            saveState();
+            if (dom.mainContainer.classList.contains('show-3d')) { setTimeout(update3DScene, 0); }
+        }
     });
     document.getElementById('add-door-btn').addEventListener('click', () => { if (wallPanelWall) addDoorToWall(wallPanelWall); hideWallPanel(); });
     document.getElementById('add-window-btn').addEventListener('click', () => { if (wallPanelWall) addWindowToWall(wallPanelWall); hideWallPanel(); });
@@ -122,6 +151,10 @@ export function showWallPanel(wall, x, y) {
     // Paneldeki doğru duvar tipi radio butonunu seçili hale getir
     const typeRadio = document.querySelector(`input[name="wall-type"][value="${wallType}"]`);
     if (typeRadio) typeRadio.checked = true;
+
+    // Arc wall checkbox durumunu ayarla
+    const arcCheckbox = document.getElementById('arc-wall-checkbox');
+    if (arcCheckbox) arcCheckbox.checked = wall.isArc || false;
 
     // Panelin pozisyonunu ayarla (fare tıklama noktasına göre)
     wallPanel.style.left = `${x + 10}px`;

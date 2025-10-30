@@ -187,6 +187,18 @@ export function onPointerMove(e) {
     if (state.isDragging && state.selectedObject) {
         // Nesne tipine göre ilgili onPointerMove fonksiyonunu çağır
         switch (state.selectedObject.type) {
+            case 'arcControl':
+                // Arc kontrol noktası sürükleme
+                const wall = state.selectedObject.object;
+                const handle = state.selectedObject.handle;
+                if (handle === 'control1') {
+                    wall.arcControl1.x = snappedPos.x;
+                    wall.arcControl1.y = snappedPos.y;
+                } else if (handle === 'control2') {
+                    wall.arcControl2.x = snappedPos.x;
+                    wall.arcControl2.y = snappedPos.y;
+                }
+                break;
             case 'column': onPointerMoveColumn(snappedPos, unsnappedPos); break;
             case 'beam':   onPointerMoveBeam(snappedPos, unsnappedPos);   break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;

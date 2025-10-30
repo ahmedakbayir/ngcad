@@ -154,6 +154,54 @@ export function draw2D() {
     // 3. Duvar Geometrisi
     drawWallGeometry(ctx2d, state, BG);
 
+    // 3.5. Arc Duvar Kontrol Noktaları
+    walls.forEach(wall => {
+        if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
+            const isSelected = selectedObject?.type === "wall" && selectedObject.object === wall;
+            // Kontrol noktalarını sadece duvar seçiliyse veya hover'dayken göster
+            if (isSelected) {
+                const controlPointRadius = 6 / zoom;
+
+                // Kontrol noktası 1
+                ctx2d.beginPath();
+                ctx2d.arc(wall.arcControl1.x, wall.arcControl1.y, controlPointRadius, 0, Math.PI * 2);
+                ctx2d.fillStyle = "#8ab4f8";
+                ctx2d.fill();
+                ctx2d.strokeStyle = "#ffffff";
+                ctx2d.lineWidth = 2 / zoom;
+                ctx2d.stroke();
+
+                // Kontrol noktası 2
+                ctx2d.beginPath();
+                ctx2d.arc(wall.arcControl2.x, wall.arcControl2.y, controlPointRadius, 0, Math.PI * 2);
+                ctx2d.fillStyle = "#8ab4f8";
+                ctx2d.fill();
+                ctx2d.strokeStyle = "#ffffff";
+                ctx2d.lineWidth = 2 / zoom;
+                ctx2d.stroke();
+
+                // Kontrol çizgilerini çiz (duvar uçlarından kontrol noktalarına)
+                ctx2d.beginPath();
+                ctx2d.moveTo(wall.p1.x, wall.p1.y);
+                ctx2d.lineTo(wall.arcControl1.x, wall.arcControl1.y);
+                ctx2d.strokeStyle = "#8ab4f8";
+                ctx2d.lineWidth = 1 / zoom;
+                ctx2d.setLineDash([5 / zoom, 5 / zoom]);
+                ctx2d.stroke();
+                ctx2d.setLineDash([]);
+
+                ctx2d.beginPath();
+                ctx2d.moveTo(wall.arcControl2.x, wall.arcControl2.y);
+                ctx2d.lineTo(wall.p2.x, wall.p2.y);
+                ctx2d.strokeStyle = "#8ab4f8";
+                ctx2d.lineWidth = 1 / zoom;
+                ctx2d.setLineDash([5 / zoom, 5 / zoom]);
+                ctx2d.stroke();
+                ctx2d.setLineDash([]);
+            }
+        }
+    });
+
     // 4. KOLONLAR (Duvarlardan sonra, kapı/pencereden önce)
     state.columns.forEach(column => {
         // Her kolon için isSelected durumunu kontrol et
