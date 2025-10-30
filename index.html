@@ -240,18 +240,15 @@
 <div id="p3d" class="panel"><canvas id="c3d"></canvas></div>
 </div>
 
-<!-- SADECE BU BÖLÜM KALSIN -->
-<!-- pako.js - GZIP/Deflate decompression için -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 
-<!-- PDF.js - TEK VERSIYON (3.11.174) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
     // PDF.js worker'ını ayarla
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
 
-<!-- Three.js importmap -->
+<script src="https://unpkg.com/@tweenjs/tween.js@23.1.1/dist/tween.umd.js"></script>
 <script type="importmap">
 {
 "imports": {
@@ -261,7 +258,6 @@
 }
 </script>
 
-<!-- Ana script'ler -->
 <script type="module" src="main.js"></script>
 <script type="module" src="wall-panel.js"></script>
 
