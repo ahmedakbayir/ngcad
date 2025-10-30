@@ -60,6 +60,105 @@ function getWallOffsetLinesRelativeToNode(wall, node, wallPx) {
 }
 
 
+// --- ARC DUVAR ÇİZİM FONKSİYONU ---
+
+// Arc duvarlar için bezier eğrisi çizer
+const drawArcSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG) => {
+    if (segmentList.length === 0) return;
+
+    ctx2d.strokeStyle = color;
+    ctx2d.lineWidth = lineThickness / state.zoom;
+    ctx2d.lineCap = "round";
+    ctx2d.lineJoin = "round";
+
+    segmentList.forEach(seg => {
+        const wall = seg.wall;
+        if (!wall.arcControl1 || !wall.arcControl2) return;
+
+        const thickness = wall.thickness || wallPx;
+        const halfThickness = thickness / 2;
+
+        // Ana bezier eğrisini çiz
+        const p1 = wall.p1;
+        const p2 = wall.p2;
+        const c1 = wall.arcControl1;
+        const c2 = wall.arcControl2;
+
+        // Eğri boyunca normal vektörleri hesaplayarak paralel eğriler oluştur
+        // Basit yaklaşım: Eğriyi örnekle ve her noktada normal hesapla
+        const numSamples = 50;
+        const leftPoints = [];
+        const rightPoints = [];
+
+        for (let i = 0; i <= numSamples; i++) {
+            const t = i / numSamples;
+            // Cubic Bezier formülü: B(t) = (1-t)³P₀ + 3(1-t)²tP₁ + 3(1-t)t²P₂ + t³P₃
+            const mt = 1 - t;
+            const mt2 = mt * mt;
+            const mt3 = mt2 * mt;
+            const t2 = t * t;
+            const t3 = t2 * t;
+
+            const x = mt3 * p1.x + 3 * mt2 * t * c1.x + 3 * mt * t2 * c2.x + t3 * p2.x;
+            const y = mt3 * p1.y + 3 * mt2 * t * c1.y + 3 * mt * t2 * c2.y + t3 * p2.y;
+
+            // Türev (接線 vektörü)
+            const dx = -3 * mt2 * p1.x + 3 * mt2 * c1.x - 6 * mt * t * c1.x - 3 * t2 * c2.x + 6 * mt * t * c2.x + 3 * t2 * p2.x;
+            const dy = -3 * mt2 * p1.y + 3 * mt2 * c1.y - 6 * mt * t * c1.y - 3 * t2 * c2.y + 6 * mt * t * c2.y + 3 * t2 * p2.y;
+
+            const len = Math.hypot(dx, dy);
+            if (len > 0.001) {
+                // Normal vektörü (接線の垂直)
+                const nx = -dy / len;
+                const ny = dx / len;
+
+                leftPoints.push({ x: x + nx * halfThickness, y: y + ny * halfThickness });
+                rightPoints.push({ x: x - nx * halfThickness, y: y - ny * halfThickness });
+            }
+        }
+
+        // Sol eğriyi çiz (stroke)
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftPoints[0].x, leftPoints[0].y);
+        for (let i = 1; i < leftPoints.length; i++) {
+            ctx2d.lineTo(leftPoints[i].x, leftPoints[i].y);
+        }
+        ctx2d.stroke();
+
+        // Sağ eğriyi çiz (stroke)
+        ctx2d.beginPath();
+        ctx2d.moveTo(rightPoints[0].x, rightPoints[0].y);
+        for (let i = 1; i < rightPoints.length; i++) {
+            ctx2d.lineTo(rightPoints[i].x, rightPoints[i].y);
+        }
+        ctx2d.stroke();
+
+        // Uç noktaları birleştir
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftPoints[0].x, leftPoints[0].y);
+        ctx2d.lineTo(rightPoints[0].x, rightPoints[0].y);
+        ctx2d.stroke();
+
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftPoints[leftPoints.length - 1].x, leftPoints[leftPoints.length - 1].y);
+        ctx2d.lineTo(rightPoints[rightPoints.length - 1].x, rightPoints[rightPoints.length - 1].y);
+        ctx2d.stroke();
+
+        // İçini doldur (BG rengi ile)
+        ctx2d.fillStyle = BG;
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftPoints[0].x, leftPoints[0].y);
+        for (let i = 1; i < leftPoints.length; i++) {
+            ctx2d.lineTo(leftPoints[i].x, leftPoints[i].y);
+        }
+        for (let i = rightPoints.length - 1; i >= 0; i--) {
+            ctx2d.lineTo(rightPoints[i].x, rightPoints[i].y);
+        }
+        ctx2d.closePath();
+        ctx2d.fill();
+    });
+};
+
 // --- DUVAR ÇİZİM FONKSİYONLARI ---
 
 // Kesişimleri hesaplar ve iki paralel çizgi çizer (Yön Bağımlı Sağ/Sol v7)
@@ -325,12 +424,25 @@ export function drawWallGeometry(ctx2d, state, BG) {
     });
     // --- KÖŞE HESAPLAMALARI SONU ---
 
-    // Segment ayırma (değişiklik yok)
+    // Segment ayırma (arc duvarlar için de)
     const normalSegments = { ortho: [], nonOrtho: [], selected: [] };
     const balconySegments = { ortho: [], nonOrtho: [], selected: [] };
     const glassSegments = { ortho: [], nonOrtho: [], selected: [] };
     const halfSegments = { ortho: [], nonOrtho: [], selected: [] };
-    walls.forEach((w) => { /* ... segment ayırma kodu ... */
+    const arcSegments = { ortho: [], nonOrtho: [], selected: [] }; // Arc duvarlar için
+    walls.forEach((w) => {
+        // Arc duvarları ayrı işle
+        if (w.isArc && w.arcControl1 && w.arcControl2) {
+            const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w);
+            const segmentData = { p1: w.p1, p2: w.p2, wall: w };
+            if (isSelected) {
+                arcSegments.selected.push(segmentData);
+            } else {
+                arcSegments.ortho.push(segmentData);
+            }
+            return; // Arc duvarlar için normal segment ayırma yapma
+        }
+        /* ... segment ayırma kodu ... */
         if (!w.p1 || !w.p2) return;
         const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w);
         const isOrthogonal = Math.abs(w.p1.x - w.p2.x) < 0.1 || Math.abs(w.p1.y - w.p2.y) < 0.1;
@@ -364,6 +476,10 @@ export function drawWallGeometry(ctx2d, state, BG) {
     drawHalfSegments(ctx2d, halfSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawHalfSegments(ctx2d, halfSegments.selected, "#8ab4f8", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
 
+    // Arc duvarlar
+    drawArcSegments(ctx2d, arcSegments.ortho, wallBorderColor, lineThickness, wallPx, BG);
+    drawArcSegments(ctx2d, arcSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG);
+    drawArcSegments(ctx2d, arcSegments.selected, "#8ab4f8", lineThickness, wallPx, BG);
 
     // Varsayılan ayarlara dön
     ctx2d.lineCap = "butt";

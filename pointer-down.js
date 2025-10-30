@@ -87,6 +87,16 @@ export function onPointerDown(e) {
                  // Sürükleme için başlangıç bilgilerini nesne tipine göre al
                  let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
                  switch (clickedObject.type) {
+                     case 'arcControl':
+                         // Arc kontrol noktası sürükleme
+                         dragInfo = {
+                             startPointForDragging: clickedObject.handle === 'control1' ?
+                                 { x: clickedObject.object.arcControl1.x, y: clickedObject.object.arcControl1.y } :
+                                 { x: clickedObject.object.arcControl2.x, y: clickedObject.object.arcControl2.y },
+                             dragOffset: { x: 0, y: 0 },
+                             additionalState: {}
+                         };
+                         break;
                      case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                      case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                      case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; // stairs.js'den gelen fonksiyonu kullan

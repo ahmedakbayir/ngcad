@@ -24,6 +24,20 @@ export function getObjectAtPoint(pos) {
     const tolerance = 8 / zoom;
 
     // 1. Handle Kontrolleri (Öncelikli)
+    // 1.0 Arc Duvar Kontrol Noktaları (En yüksek öncelik)
+    for (const wall of [...walls].reverse()) {
+        if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
+            const d1 = Math.hypot(pos.x - wall.arcControl1.x, pos.y - wall.arcControl1.y);
+            const d2 = Math.hypot(pos.x - wall.arcControl2.x, pos.y - wall.arcControl2.y);
+            if (d1 < tolerance) {
+                return { type: "arcControl", object: wall, handle: "control1" };
+            }
+            if (d2 < tolerance) {
+                return { type: "arcControl", object: wall, handle: "control2" };
+            }
+        }
+    }
+
     // 1.1 Kolon Handle
     const columnHandleHit = getColumnAtPoint(pos);
     if (columnHandleHit && columnHandleHit.handle !== 'body') return columnHandleHit;
