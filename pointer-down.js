@@ -302,6 +302,14 @@ export function onPointerDown(e) {
          setState({ selectedObject: null });
     // --- Simetri Modu ---
     } else if (state.currentMode === "drawSymmetry") {
+        
+        // --- DÜZELTME: Bekleyen önizleme timer'ını iptal et ---
+        if (state.symmetryPreviewTimer) {
+            clearTimeout(state.symmetryPreviewTimer);
+            setState({ symmetryPreviewTimer: null });
+        }
+        // --- DÜZELTME SONU ---
+
         if (!state.symmetryAxisP1) {
             // İlk tıklama: Eksenin başlangıç noktasını ayarla
             setState({

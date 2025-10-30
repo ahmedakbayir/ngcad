@@ -52,7 +52,8 @@ export function saveState() {
                     bottomElevation: s.bottomElevation,
                     topElevation: s.topElevation,
                     connectedStairId: s.connectedStairId,
-                    isLanding: s.isLanding
+                    isLanding: s.isLanding,
+                    showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
                 }))))    };
 
     // History yönetimi (değişiklik yok)
@@ -128,7 +129,8 @@ stairs: (snapshot.stairs || []).map(s => ({ // <-- YENİ SATIRI EKLEYİN (ve iç
             bottomElevation: s.bottomElevation,
             topElevation: s.topElevation,
             connectedStairId: s.connectedStairId,
-            isLanding: s.isLanding
+            isLanding: s.isLanding,
+            showRailing: s.showRailing || false // <-- DÜZELTME: Korkuluk bilgisi okundu
         }))    });
 }
 

@@ -124,7 +124,7 @@ export let state = {
         nodes: [], walls: [], doors: [], windows: [], vents: [],
         columns: [], beams: [], stairs: [], rooms: []
     },
-
+    symmetryPreviewTimer: null // <-- DÜZELTME: Kilitlenme sorununu çözmek için eklendi
 };
 
 export function setState(newState) {
@@ -216,6 +216,13 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     // Eğer zorla ayarlama (forceSet) yoksa VE mevcut mod ile istenen mod aynıysa VE bu mod "select" değilse, "select" moduna geç (toggle).
     // Aksi halde (zorla ayarlama varsa VEYA modlar farklıysa VEYA istenen mod "select" ise), doğrudan istenen modu (mode) kullan.
     const newMode = (!forceSet && state.currentMode === mode && mode !== "select") ? "select" : mode;
+
+    // --- DÜZELTME: Mod değiştiğinde simetri timer'ını iptal et ---
+    if (newMode !== "drawSymmetry" && state.symmetryPreviewTimer) {
+        clearTimeout(state.symmetryPreviewTimer);
+        setState({ symmetryPreviewTimer: null });
+    }
+    // --- DÜZELTME SONU ---
 
     // State'i yeni mod ile güncelle (geri kalanı aynı)
     setState({

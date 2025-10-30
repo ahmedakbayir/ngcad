@@ -873,8 +873,9 @@ function createStairMesh(stair) {
         stairGroup.add(concreteStepMesh);
 
         // Mermer Tabla (Üst Yüzey) - Basamağın üstünü kaplar + öne çıkar
-        const tablaRun = stepRun + NOSING_OVERHANG; // Basamak derinliği + çıkıntı
-        const tablaGeom = new THREE.BoxGeometry(tablaRun, NOSING_THICKNESS, stairWidth);
+        const tablaRun = stepRun + NOSING_OVERHANG + overlap; // Basamak derinliği + çıkıntı
+        const tablaGeom = new THREE.BoxGeometry(tablaRun, NOSING_THICKNESS, stairWidth+2*NOSING_THICKNESS);
+
         tablaGeom.translate(tablaRun / 2, NOSING_THICKNESS / 2, 0); // Merkeze al
         const tablaMesh = new THREE.Mesh(tablaGeom, stepNosingMaterials);
         // Tablayı basamağın üst kotuna ve X başlangıcına yerleştir

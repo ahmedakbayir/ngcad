@@ -61,7 +61,8 @@ function saveProject() {
             bottomElevation: s.bottomElevation, // eklendi
             topElevation: s.topElevation, // eklendi
             connectedStairId: s.connectedStairId, // eklendi
-            isLanding: s.isLanding // eklendi
+            isLanding: s.isLanding, // eklendi
+            showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
         }))    };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -172,7 +173,7 @@ function openProject(e) {
             // Kolonları, Kirişleri ve Merdivenleri geri yükle
             const restoredColumns = projectData.columns || [];
             const restoredBeams = projectData.beams || [];
-            const restoredStairs = (projectData.stairs || []).map(s => ({
+            const restoredStairs = (projectData.stairs || []).map(s => ({ // <-- MERDİVEN EKLENDİ
                  type: s.type || 'stairs',
                  id: s.id || `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`, // ID yoksa oluştur
                  name: s.name || 'Merdiven', // isim yoksa varsayılan
@@ -184,7 +185,8 @@ function openProject(e) {
                  bottomElevation: s.bottomElevation || 0, // alt kot yoksa 0
                  topElevation: s.topElevation || 270, // üst kot yoksa 270
                  connectedStairId: s.connectedStairId || null, // bağlı ID yoksa null
-                 isLanding: s.isLanding || false // sahanlık yoksa false
+                 isLanding: s.isLanding || false, // sahanlık yoksa false
+                 showRailing: s.showRailing || false // <-- DÜZELTME: Korkuluk bilgisi okundu (varsayılan false)
             }));
             // State'i güncelle
             setState({

@@ -1,4 +1,3 @@
-
 import { state, dom, setState } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
@@ -12,9 +11,11 @@ import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair }
 import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from './wall-handler.js';
 import { onPointerMove as onPointerMoveDoor } from './door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from './window-handler.js';
-import { calculateSymmetryPreview, calculateCopyPreview } from './symmetry.js'; // <-- BU SATIR OLMALI  
+import { calculateSymmetryPreview, calculateCopyPreview } from './symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { getObjectAtPoint } from './actions.js'; // getObjectAtPoint eklendi
 
+// DÜZELTME: Debounce zamanlayıcısı eklendi
+const SYMMETRY_PREVIEW_DEBOUNCE_MS = 50; // 50ms gecikme
 
 // Helper: Verilen bir noktanın duvar merkez çizgisine snap olup olmadığını kontrol eder.
 function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
@@ -208,7 +209,7 @@ export function onPointerMove(e) {
                         const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y;
                         const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
                         const newPos = t * wallLen;
-                        const minPos = vent.width / 2 + ventMargin; const maxPos = wallLen - vent.width / 2 - ventMargin;
+                        const minPos = vent.width / 2 + ventMargin; const maxPos = wallLen - vent.width / 2 + ventMargin;
                         vent.pos = Math.max(minPos, Math.min(maxPos, newPos));
                         if (oldWall !== closestWall) {
                             if (oldWall && oldWall.vents) oldWall.vents = oldWall.vents.filter(v => v !== vent);
@@ -222,6 +223,8 @@ export function onPointerMove(e) {
         }
         update3DScene(); // Sürükleme sonrası 3D'yi güncelle
     }
+    
+    // --- DÜZELTME: Simetri önizlemesi debounce (gecikmeli) mantığı ile değiştirildi ---
     if (state.currentMode === "drawSymmetry" && state.symmetryAxisP1) {
         // İkinci nokta mouse pozisyonu
         let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
@@ -244,15 +247,48 @@ export function onPointerMove(e) {
             }
         }
         
+        // Eksenin ikinci noktasını state'e hemen ata (eksen çizgisi çizimi için)
         setState({ symmetryAxisP2: axisP2 });
         
-        // CTRL basılıysa kopya önizlemesi, değilse simetri önizlemesi
-        if (currentModifierKeys.ctrl) {
-            calculateCopyPreview(state.symmetryAxisP1, axisP2); // axisP1 değil, state.symmetryAxisP1
-        } else {
-            calculateSymmetryPreview(state.symmetryAxisP1, axisP2); // axisP1 değil, state.symmetryAxisP1
+        // --- DEBOUNCE LOGIC (state.symmetryPreviewTimer kullanarak) ---
+        // Önceki zamanlayıcıyı temizle
+        if (state.symmetryPreviewTimer) {
+            clearTimeout(state.symmetryPreviewTimer);
         }
+
+        // Kapatılacak (closure) değişkenleri ayarla
+        const p1 = state.symmetryAxisP1; // Tıklanan ilk nokta
+        const p2 = axisP2; // Farenin *şu anki* pozisyonu
+        const isCtrl = currentModifierKeys.ctrl; // Ctrl'nin *şu anki* durumu
+
+        // Yeni bir zamanlayıcı ayarla
+        const newTimer = setTimeout(() => {
+            // Zamanlayıcı çalıştığında, hala simetri modunda mıyız ve ilk nokta değişti mi diye bak
+            if (state.currentMode === "drawSymmetry" && state.symmetryAxisP1 === p1) { 
+                // Ağır hesaplama fonksiyonlarını *şimdi* çağır
+                if (isCtrl) {
+                    calculateCopyPreview(p1, p2); 
+                } else {
+                    calculateSymmetryPreview(p1, p2); 
+                }
+            }
+            // Zamanlayıcıyı state'ten temizle
+            setState({ symmetryPreviewTimer: null });
+        }, SYMMETRY_PREVIEW_DEBOUNCE_MS);
+        
+        // Yeni zamanlayıcıyı state'e kaydet
+        setState({ symmetryPreviewTimer: newTimer });
+        // --- END DEBOUNCE LOGIC ---
+
+    } else if (state.currentMode !== "drawSymmetry") {
+         // Eğer simetri modundan çıktıysak, bekleyen bir zamanlayıcı varsa iptal et
+         if (state.symmetryPreviewTimer) {
+            clearTimeout(state.symmetryPreviewTimer);
+            setState({ symmetryPreviewTimer: null });
+         }
     }
+    // --- DÜZELTME SONU ---
+    
     // Her fare hareketinde imleci güncelle
     updateMouseCursor();
 }
