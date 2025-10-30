@@ -1,4 +1,6 @@
 // ahmedakbayir/ngcad/ngcad-00d54c478fa934506781fd05812470b2bba6874c/scene3d.js
+// GÜNCELLEME: İç (Renk A) ve Dış (Renk B) yüzey malzemeleri eklendi.
+
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // Gerekli sabitleri main.js'ten import et
@@ -7,6 +9,12 @@ import { state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGH
 let scene, camera, renderer, controls;
 // Malzeme değişkenlerini burada (dışarıda) tanımla
 let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial, stairMaterial, stairMaterialTop, ventMaterial, trimMaterial;
+
+// --- YENİ EKLENEN MALZEMELER ---
+let wallMaterialInterior; // Renk A (İç yüzey - Mahale bakan)
+let wallMaterialExterior; // Renk B (Dış yüzey - Mahale bakmayan)
+// --- YENİ MALZEME SONU ---
+
 // Özel duvar tipleri için malzemeler
 let balconyRailingMaterial, glassMaterial, halfWallCapMaterial;
 // YENİ MERDİVEN MALZEMELERİ DE BURADA TANIMLANMALI
@@ -71,14 +79,28 @@ export function init3D(canvasElement) {
     const solidOpacity = 0.75;
 
     // --- Malzemeleri burada oluştur ---
-    wallMaterial = new THREE.MeshStandardMaterial({
-        color: 0x979694,
+    
+    // RENK B (DIŞ YÜZEY)
+    wallMaterialExterior = new THREE.MeshStandardMaterial({
+        color: 'rgba(160, 160, 160, 1)',
+        roughness: 0.8,
+        transparent: true,
+        opacity: solidOpacity,
+        side: THREE.DoubleSide
+    });
+    // wallMaterial'i kenarlar/üstler/altlar için varsayılan (Dış Renk) olarak kullanalım
+    
+    // RENK A (İÇ YÜZEY - MAHAL)
+    wallMaterialInterior = new THREE.MeshStandardMaterial({
+        color: 'rgba(120, 120, 120, 1)', // Daha açık bir gri (Renk A)
         roughness: 0.8,
         transparent: true,
         opacity: solidOpacity,
         side: THREE.DoubleSide
     });
 
+    wallMaterial = wallMaterialExterior; 
+    
     doorMaterial = new THREE.MeshStandardMaterial({
         color: '#146E70',
         roughness: 0.8,
@@ -95,22 +117,26 @@ export function init3D(canvasElement) {
         side: THREE.DoubleSide
     });
 
-    columnMaterial = new THREE.MeshStandardMaterial({
+    columnMaterial = wallMaterialInterior
+    /*
+    new THREE.MeshStandardMaterial({
         color: state.wallBorderColor, // State'ten alınacak
         roughness: 0.8,
         transparent: true,
         opacity: solidOpacity,
         side: THREE.DoubleSide
     });
-
-    beamMaterial = new THREE.MeshStandardMaterial({
+*/
+    beamMaterial = wallMaterialInterior
+    /*
+    new THREE.MeshStandardMaterial({
         color: state.wallBorderColor, // State'ten alınacak
         roughness: 0.8,
         transparent: true,
         opacity: solidOpacity,
         side: THREE.DoubleSide
     });
-
+*/
     mullionMaterial = new THREE.MeshStandardMaterial({
         color: 0x333333,
         roughness: 0.7,
@@ -153,21 +179,23 @@ export function init3D(canvasElement) {
     });
 
     stairMaterial = new THREE.MeshStandardMaterial({
-        color: 0xFFFFFF,
+        color: 'rgba(160, 159, 159, 1)',
         roughness: 0.8,
         transparent: true, // Bu saydam kalacak
         opacity: solidOpacity,
         side: THREE.DoubleSide
     });
 
-    stairMaterialTop = new THREE.MeshStandardMaterial({
+    stairMaterialTop = stairMaterial
+    /*
+    new THREE.MeshStandardMaterial({
         color: 0xFFFFFF, // Aynı renk
         roughness: 0.8,
         transparent: true, // Opak
         opacity: 1.0,      // Tam opaklık
         side: THREE.DoubleSide
     });
-
+*/
     ventMaterial = new THREE.MeshStandardMaterial({
         color: 0xDDDDDD, // Açık gri metalik/plastik gibi
         roughness: 0.4,
@@ -206,37 +234,108 @@ export function init3D(canvasElement) {
 
     // YENİ MERDİVEN MALZEMELERİNİ OLUŞTUR
     handrailWoodMaterial = new THREE.MeshStandardMaterial({
-        color: 0XE1E1E1,
-        metalness: 0.8,
-        roughness: 0.4,
+        color:'rgba(218, 234, 236, 1)',
+        metalness: 0.4,
+        roughness: 0,
         transparent: false,
         opacity: 1.0,
         side: THREE.DoubleSide
     });
 
     balusterMaterial = new THREE.MeshStandardMaterial({
-        color: 0XE1E1E1,
-        metalness: 0.8,
-        roughness: 0.4,
+        color:'rgba(218, 234, 236, 1)',
+        metalness: 0.4,
+        roughness: 0,
         transparent: false,
         opacity: 1.0,
         side: THREE.DoubleSide
     });
 
     stepNosingMaterial = new THREE.MeshStandardMaterial({
-        color: 'rgba(121, 117, 117, 1)',
-        metalness: 0.0,
-        roughness: 0.5,
-        transparent: false,
-        opacity: 1.0,
+        color: 'rgba(85, 85, 85, 1)',
+        metalness: 0.1,
+        roughness: 1,
+        transparent: true,
+        opacity: 0.8,
         side: THREE.DoubleSide
     });
 }
 
 export { scene, camera, renderer, controls };
 
+/**
+ * Duvarın 3D mesh yüzeyleri için doğru malzemeleri (İç/Dış) hesaplar.
+ * @param {object} wall - Kontrol edilecek duvar nesnesi (p1, p2, vb. içeren)
+ * @param {THREE.Material} defaultMaterial - Kenarlar/üst/alt için kullanılacak varsayılan malzeme
+ * @returns {Array<THREE.Material>} - BoxGeometry için 6 malzemelik bir dizi
+ */
+function getWallFaceMaterials(wall, defaultMaterial) {
+    const { rooms } = state; // Global state'ten odaları al
+    let matA = wallMaterialExterior; // Varsayılan: Renk B (Dış)
+    let matB = wallMaterialExterior; // Varsayılan: Renk B (Dış)
+
+    // Sadece odalar varsa ve duvar geçerliyse kontrol et
+    if (rooms && rooms.length > 0 && wall && wall.p1 && wall.p2) {
+        const dx_wall = wall.p2.x - wall.p1.x;
+        const dy_wall = wall.p2.y - wall.p1.y; // 2D Y -> 3D Z
+        const len_wall = Math.hypot(dx_wall, dy_wall);
+
+        if (len_wall > 0.1) {
+            // Duvarın 2D normal vektörü (bu, mesh'in lokal +Z yönüne karşılık gelir)
+            const nx = -dy_wall / len_wall; // Normalin 2D X bileşeni
+            const nz = dx_wall / len_wall;  // Normalin 2D Y bileşeni (3D Z olur)
+
+            const midX = (wall.p1.x + wall.p2.x) / 2;
+            const midZ = (wall.p1.y + wall.p2.y) / 2; // 2D Y -> 3D Z
+            const testDist = 1.0; // Duvardan ne kadar uzağı test edeceği (cm)
+
+            // Test Noktası A (Mesh'in +Z yüzeyine karşılık gelir)
+            const testP_A = [midX + nx * testDist, midZ + nz * testDist];
+            // Test Noktası B (Mesh'in -Z yüzeyine karşılık gelir)
+            const testP_B = [midX - nx * testDist, midZ - nz * testDist];
+
+            let sideA_isInside = false;
+            let sideB_isInside = false;
+
+            // Test noktalarının herhangi bir odanın içinde olup olmadığını kontrol et
+            for (const room of rooms) {
+                if (room.polygon?.geometry) {
+                    try {
+                        // Not: turf.booleanPointInPolygon global olarak index.html'den gelir
+                        if (!sideA_isInside && turf.booleanPointInPolygon(testP_A, room.polygon)) {
+                            sideA_isInside = true;
+                        }
+                        if (!sideB_isInside && turf.booleanPointInPolygon(testP_B, room.polygon)) {
+                            sideB_isInside = true;
+                        }
+                        if (sideA_isInside && sideB_isInside) break; // İki taraf da içerdeyse daha fazla aramaya gerek yok
+                    } catch (e) {
+                         // Hata olursa (örn. geçersiz poligon) konsola yaz ve devam et
+                         // console.error("Error in turf.booleanPointInPolygon (getWallFaceMaterials):", e);
+                    }
+                }
+            }
+
+            // Malzemeleri ata (A=İç, B=Dış)
+            matA = sideA_isInside ? wallMaterialInterior : wallMaterialExterior; // +Z yüzü (index 4)
+            matB = sideB_isInside ? wallMaterialInterior : wallMaterialExterior; // -Z yüzü (index 5)
+        }
+    }
+
+    // Three.js BoxGeometry malzeme sırası: [sağ, sol, üst, alt, ön(+Z), arka(-Z)]
+    return [
+        defaultMaterial, // sağ (+X)
+        defaultMaterial, // sol (-X)
+        defaultMaterial, // üst (+Y)
+        defaultMaterial, // alt (-Y)
+        matA,            // ön (+Z) - TestP_A
+        matB             // arka (-Z) - TestP_B
+    ];
+}
+
+
 // --- Duvar Segmenti Oluşturma (Duvar Tipine Göre) ---
-function createWallSegmentMesh(p1, p2, thickness, wallType, material) {
+function createWallSegmentMesh(p1, p2, thickness, wallType, material, wall) { // <-- 'wall' parametresi eklendi
     const overlap = 0.5;
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
@@ -250,7 +349,8 @@ function createWallSegmentMesh(p1, p2, thickness, wallType, material) {
         // Alt Duvar
         const baseWallGeom = new THREE.BoxGeometry(effectiveLength, BALCONY_WALL_HEIGHT, thickness);
         baseWallGeom.translate(0, BALCONY_WALL_HEIGHT / 2, 0);
-        const baseWallMesh = new THREE.Mesh(baseWallGeom, material);
+        const wallMaterials = getWallFaceMaterials(wall, material); // <-- Buraya da eklendi
+        const baseWallMesh = new THREE.Mesh(baseWallGeom, wallMaterials); // <-- Malzeme dizisi kullanıldı
         wallGroup.add(baseWallMesh);
 
         // Korkuluk
@@ -289,7 +389,8 @@ function createWallSegmentMesh(p1, p2, thickness, wallType, material) {
         // Yarım Duvar
         const halfWallGeom = new THREE.BoxGeometry(effectiveLength, HALF_WALL_HEIGHT, thickness);
         halfWallGeom.translate(0, HALF_WALL_HEIGHT / 2, 0);
-        const halfWallMesh = new THREE.Mesh(halfWallGeom, material);
+        const wallMaterials = getWallFaceMaterials(wall, material); // <-- Buraya da eklendi
+        const halfWallMesh = new THREE.Mesh(halfWallGeom, wallMaterials); // <-- Malzeme dizisi kullanıldı
         wallGroup.add(halfWallMesh);
 
         // Şapka
@@ -304,7 +405,14 @@ function createWallSegmentMesh(p1, p2, thickness, wallType, material) {
         // Normal duvar
         const wallGeom = new THREE.BoxGeometry(effectiveLength, WALL_HEIGHT, thickness);
         wallGeom.translate(0, WALL_HEIGHT / 2, 0);
-        const wallMesh = new THREE.Mesh(wallGeom, material);
+        
+        // --- DEĞİŞİKLİK BURADA ---
+        // Tek malzeme yerine malzeme dizisini al
+        const wallMaterials = getWallFaceMaterials(wall, material);
+        // Mesh'i malzeme dizisiyle oluştur
+        const wallMesh = new THREE.Mesh(wallGeom, wallMaterials);
+        // --- DEĞİŞİKLİK SONU ---
+        
         wallGroup.add(wallMesh);
     }
 
@@ -396,17 +504,23 @@ function createDoorMesh(door) {
 
 
 // --- Lento Oluşturma ---
-function createLintelMesh(door, thickness, material) {
-    const wall = door.wall; if (!wall) return null;
-    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 0.1) return null;
-    const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
+function createLintelMesh(door, thickness, material, wall) { // <-- 'wall' parametresi eklendi
+    const wall_ref = wall || door.wall; // 'wall' parametresi gelmezse kapıdan al
+    if (!wall_ref || !wall_ref.p1 || !wall_ref.p2) return null;
+    const wallLen = Math.hypot(wall_ref.p2.x - wall_ref.p1.x, wall_ref.p2.y - wall_ref.p1.y); if (wallLen < 0.1) return null;
+    const dx = (wall_ref.p2.x - wall_ref.p1.x) / wallLen; const dy = (wall_ref.p2.y - wall_ref.p1.y) / wallLen;
     const lintelHeight = WALL_HEIGHT - DOOR_HEIGHT; if (lintelHeight <= 0) return null;
-    const doorCenterPos = { x: wall.p1.x + dx * door.pos, y: wall.p1.y + dy * door.pos };
+    const doorCenterPos = { x: wall_ref.p1.x + dx * door.pos, y: wall_ref.p1.y + dy * door.pos };
     const lintelGeom = new THREE.BoxGeometry(door.width, lintelHeight, thickness);
     lintelGeom.translate(0, DOOR_HEIGHT + lintelHeight / 2, 0); // Y pozisyonunu ayarla
-    const lintelMesh = new THREE.Mesh(lintelGeom, material);
+
+    // --- DEĞİŞİKLİK BURADA ---
+    const lintelMaterials = getWallFaceMaterials(wall_ref, material);
+    const lintelMesh = new THREE.Mesh(lintelGeom, lintelMaterials);
+    // --- DEĞİŞİKLİK SONU ---
+
     lintelMesh.position.set(doorCenterPos.x, 0, doorCenterPos.y); // Z = 2D Y
-    lintelMesh.rotation.y = -Math.atan2(wall.p2.y - wall.p1.y, wall.p2.x - wall.p1.x);
+    lintelMesh.rotation.y = -Math.atan2(wall_ref.p2.y - wall_ref.p1.y, wall_ref.p2.x - wall_ref.p1.x);
     return lintelMesh;
 }
 
@@ -573,7 +687,12 @@ function createWallPieceMesh(wall, item, yPos, height, thickness, material) {
     const centerPos = { x: wall.p1.x + dx * item.pos, y: wall.p1.y + dy * item.pos };
     const geom = new THREE.BoxGeometry(item.width, height, thickness);
     geom.translate(0, yPos + height / 2, 0);
-    const mesh = new THREE.Mesh(geom, material);
+    
+    // --- DEĞİŞİKLİK BURADA ---
+    const pieceMaterials = getWallFaceMaterials(wall, material);
+    const mesh = new THREE.Mesh(geom, pieceMaterials);
+    // --- DEĞİŞİKLİK SONU ---
+    
     mesh.position.set(centerPos.x, 0, centerPos.y);
     mesh.rotation.y = -Math.atan2(wall.p2.y - wall.p1.y, wall.p2.x - wall.p1.x);
     return mesh;
@@ -1153,7 +1272,20 @@ export function update3DScene() {
 
     // Materyal güncellemeleri
     // ... (diğer materyal güncellemeleri aynı) ...
-    wallMaterial.color.set(state.wallBorderColor); wallMaterial.transparent = true; wallMaterial.opacity = solidOpacity; wallMaterial.needsUpdate = true;
+    //wallMaterial.color.set(state.wallBorderColor); wallMaterial.transparent = true; wallMaterial.opacity = solidOpacity; wallMaterial.needsUpdate = true;
+    
+    // YENİ: İç ve Dış Malzeme Güncellemesi
+    //wallMaterialExterior.color.set('#c6efff'); // Dış (B Rengi) - Duvar rengiyle aynı
+    wallMaterialExterior.transparent = true;
+    wallMaterialExterior.opacity = solidOpacity;
+    wallMaterialExterior.needsUpdate = true;
+    
+   // wallMaterialInterior.color.set('#eaf3f5'); // İç (A Rengi) - Açık Gri
+    wallMaterialInterior.transparent = true;
+    wallMaterialInterior.opacity = solidOpacity;
+    wallMaterialInterior.needsUpdate = true;
+    // YENİ SONU
+    
     doorMaterial.transparent = true; doorMaterial.opacity = solidOpacity; doorMaterial.needsUpdate = true;
     windowMaterial.opacity = 0.3; windowMaterial.transparent = true; windowMaterial.needsUpdate = true;
     columnMaterial.color.set(state.wallBorderColor); columnMaterial.transparent = true; columnMaterial.opacity = solidOpacity; columnMaterial.needsUpdate = true;
@@ -1162,8 +1294,8 @@ export function update3DScene() {
     sillMaterial.transparent = true; sillMaterial.opacity = solidOpacity + 0.1; sillMaterial.needsUpdate = true;
     handleMaterial.transparent = false; handleMaterial.opacity = 1.0; handleMaterial.needsUpdate = true;
     floorMaterial.transparent = true; floorMaterial.opacity = 0.4; floorMaterial.needsUpdate = true;
-    stairMaterial.transparent = true; stairMaterial.opacity = solidOpacity; stairMaterial.color.set(0xCCCCCC); stairMaterial.needsUpdate = true;
-    stairMaterialTop.transparent = false; stairMaterialTop.opacity = 1.0; stairMaterialTop.color.set(0xCCCCCC); stairMaterialTop.needsUpdate = true;
+    stairMaterial.transparent = true; stairMaterial.opacity = solidOpacity; stairMaterial.needsUpdate = true;
+    stairMaterialTop.transparent = false; stairMaterialTop.opacity = 1.0;  stairMaterialTop.needsUpdate = true;
     ventMaterial.transparent = true; ventMaterial.opacity = solidOpacity; ventMaterial.needsUpdate = true;
     trimMaterial.transparent = true; trimMaterial.opacity = solidOpacity; trimMaterial.needsUpdate = true;
     balconyRailingMaterial.transparent = true; balconyRailingMaterial.opacity = 0.85; balconyRailingMaterial.needsUpdate = true;
@@ -1197,7 +1329,9 @@ export function update3DScene() {
             if (itemStart > lastPos + 0.1) {
                 const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
                 const p2={x:w.p1.x+dx*itemStart, y:w.p1.y+dy*itemStart};
-                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial);
+                
+                // --- ÇAĞRI GÜNCELLENDİ ---
+                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, w);
                 if(segMesh) sceneObjects.add(segMesh);
             }
 
@@ -1205,7 +1339,8 @@ export function update3DScene() {
                 const doorGroup = createDoorMesh(itemData.item);
                 if(doorGroup) sceneObjects.add(doorGroup);
                 if (wallType === 'normal' || wallType === 'half') {
-                    const lintelMesh = createLintelMesh(itemData.item, wallThickness, wallMaterial);
+                    // --- ÇAĞRI GÜNCELLENDİ ---
+                    const lintelMesh = createLintelMesh(itemData.item, wallThickness, wallMaterial, w);
                     if(lintelMesh) sceneObjects.add(lintelMesh);
                 }
             }
@@ -1237,7 +1372,9 @@ export function update3DScene() {
         if (wallLen - lastPos > 0.1) {
             const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
             const p2={x:w.p1.x+dx*wallLen, y:w.p1.y+dy*wallLen};
-            const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial);
+            
+            // --- ÇAĞRI GÜNCELLENDİ ---
+            const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, w);
             if(segMesh) sceneObjects.add(segMesh);
         }
     });
