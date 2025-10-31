@@ -74,22 +74,11 @@ export function init3D(canvasElement) {
     pointerLockControls = new PointerLockControls(camera, renderer.domElement);
 
     // PointerLock olaylarını dinle
-    pointerLockControls.addEventListener('unlock', () => {
-        // Kullanıcı ESC tuşuna bastığında veya pointer lock kalktığında
-        // otomatik olarak orbit moda geri dön
-        if (cameraMode === 'firstPerson') {
-            cameraMode = 'orbit';
-            orbitControls.enabled = true;
-            controls = orbitControls;
-
-            // FPS kamera butonunu pasif hale getir
-            if (dom.bFirstPerson) {
-                dom.bFirstPerson.classList.remove('active');
-            }
-
-            // Kamera pozisyonunu izometrik görünüme geri getir
-            camera.position.set(1500, 1800, 1500);
-            orbitControls.update();
+    // ESC tuşuna basıldığında sadece pointer lock kalkar, FPS modu aktif kalır
+    // Kullanıcı 3D sahneye tekrar tıklarsa pointer lock tekrar aktif olur
+    renderer.domElement.addEventListener('click', () => {
+        if (cameraMode === 'firstPerson' && !pointerLockControls.isLocked) {
+            pointerLockControls.lock();
         }
     });
 
