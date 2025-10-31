@@ -158,8 +158,9 @@ export function draw2D() {
     walls.forEach(wall => {
         if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
             const isSelected = selectedObject?.type === "wall" && selectedObject.object === wall;
-            // Kontrol noktalarını sadece duvar seçiliyse veya hover'dayken göster
-            if (isSelected) {
+            const isArcControlSelected = selectedObject?.type === "arcControl" && selectedObject.object === wall;
+            // Kontrol noktalarını duvar seçiliyse veya arc kontrol noktası seçiliyse göster
+            if (isSelected || isArcControlSelected) {
                 const controlPointRadius = 6 / zoom;
 
                 // Kontrol noktası 1

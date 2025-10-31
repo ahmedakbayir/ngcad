@@ -1,6 +1,6 @@
 // wall-handler.js
 import { state, setState } from './main.js'; // setState import edildiğinden emin olun
-import { getOrCreateNode, isPointOnWallBody, snapTo15DegreeAngle, distToSegmentSquared } from './geometry.js';
+import { getOrCreateNode, isPointOnWallBody, snapTo15DegreeAngle, distToSegmentSquared, distToArcWallSquared } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { getMinWallLength } from './actions.js'; // actions.js'ten kalanları al
@@ -38,7 +38,16 @@ export function getWallAtPoint(pos, tolerance) {
         if (!wall.p1 || !wall.p2) continue;
         const wallPx = wall.thickness || state.wallThickness;
         const bodyHitToleranceSq = (wallPx / 2 + tolerance)**2;
-        if (distToSegmentSquared(pos, wall.p1, wall.p2) < bodyHitToleranceSq) {
+
+        // Arc duvarlar için özel kontrol
+        let distSq;
+        if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
+            distSq = distToArcWallSquared(pos, wall);
+        } else {
+            distSq = distToSegmentSquared(pos, wall.p1, wall.p2);
+        }
+
+        if (distSq < bodyHitToleranceSq) {
             const d1Sq = (pos.x - wall.p1.x)**2 + (pos.y - wall.p1.y)**2;
             const d2Sq = (pos.x - wall.p2.x)**2 + (pos.y - wall.p2.y)**2;
             if (d1Sq > tolerance**2 && d2Sq > tolerance**2) { // Uçlarda değilse
