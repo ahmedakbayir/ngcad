@@ -60,9 +60,9 @@ function getWallOffsetLinesRelativeToNode(wall, node, wallPx) {
 }
 
 
-// --- ARC DUVAR ÇİZİM FONKSİYONU ---
+// --- ARC DUVAR ÇİZİM FONKSİYONLARI ---
 
-// Arc duvarlar için bezier eğrisi çizer
+// Arc duvarlar için bezier eğrisi çizer (Normal duvar)
 const drawArcSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG) => {
     if (segmentList.length === 0) return;
 
@@ -146,6 +146,178 @@ const drawArcSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG) =
 
         // İçini doldur (BG rengi ile)
         ctx2d.fillStyle = BG;
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftPoints[0].x, leftPoints[0].y);
+        for (let i = 1; i < leftPoints.length; i++) {
+            ctx2d.lineTo(leftPoints[i].x, leftPoints[i].y);
+        }
+        for (let i = rightPoints.length - 1; i >= 0; i--) {
+            ctx2d.lineTo(rightPoints[i].x, rightPoints[i].y);
+        }
+        ctx2d.closePath();
+        ctx2d.fill();
+    });
+};
+
+// Arc balkon duvarlar için ince eğri çizer
+const drawArcBalconySegments = (ctx2d, segmentList, color) => {
+    if (segmentList.length === 0) return;
+
+    ctx2d.strokeStyle = color;
+    ctx2d.lineWidth = 1.5 / state.zoom;
+    ctx2d.lineCap = "round";
+    ctx2d.lineJoin = "round";
+
+    segmentList.forEach(seg => {
+        const wall = seg.wall;
+        if (!wall.arcControl1 || !wall.arcControl2) return;
+
+        const p1 = wall.p1;
+        const p2 = wall.p2;
+        const c1 = wall.arcControl1;
+        const c2 = wall.arcControl2;
+
+        // Tek ince eğri çiz
+        ctx2d.beginPath();
+        ctx2d.moveTo(p1.x, p1.y);
+        ctx2d.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, p2.x, p2.y);
+        ctx2d.stroke();
+    });
+};
+
+// Arc camekan duvarlar için çift paralel eğri + bağlantılar
+const drawArcGlassSegments = (ctx2d, segmentList, color, wallPx) => {
+    if (segmentList.length === 0) return;
+
+    ctx2d.strokeStyle = color;
+    ctx2d.lineWidth = 3 / state.zoom;
+    ctx2d.lineCap = "round";
+    ctx2d.lineJoin = "round";
+
+    const spacing = 3;
+
+    segmentList.forEach(seg => {
+        const wall = seg.wall;
+        if (!wall.arcControl1 || !wall.arcControl2) return;
+
+        const thickness = wall.thickness || wallPx;
+        const p1 = wall.p1;
+        const p2 = wall.p2;
+        const c1 = wall.arcControl1;
+        const c2 = wall.arcControl2;
+
+        // Eğri boyunca paralel hatlar için noktaları örnekle
+        const numSamples = 50;
+        const leftPoints = [];
+        const rightPoints = [];
+
+        for (let i = 0; i <= numSamples; i++) {
+            const t = i / numSamples;
+            const mt = 1 - t;
+            const mt2 = mt * mt;
+            const mt3 = mt2 * mt;
+            const t2 = t * t;
+            const t3 = t2 * t;
+
+            const x = mt3 * p1.x + 3 * mt2 * t * c1.x + 3 * mt * t2 * c2.x + t3 * p2.x;
+            const y = mt3 * p1.y + 3 * mt2 * t * c1.y + 3 * mt * t2 * c2.y + t3 * p2.y;
+
+            const dx = -3 * mt2 * p1.x + 3 * mt2 * c1.x - 6 * mt * t * c1.x - 3 * t2 * c2.x + 6 * mt * t * c2.x + 3 * t2 * p2.x;
+            const dy = -3 * mt2 * p1.y + 3 * mt2 * c1.y - 6 * mt * t * c1.y - 3 * t2 * c2.y + 6 * mt * t * c2.y + 3 * t2 * p2.y;
+
+            const len = Math.hypot(dx, dy);
+            if (len > 0.001) {
+                const nx = -dy / len;
+                const ny = dx / len;
+
+                leftPoints.push({ x: x + nx * spacing / 2, y: y + ny * spacing / 2 });
+                rightPoints.push({ x: x - nx * spacing / 2, y: y - ny * spacing / 2 });
+            }
+        }
+
+        // Sol çizgi
+        ctx2d.beginPath();
+        ctx2d.moveTo(leftPoints[0].x, leftPoints[0].y);
+        for (let i = 1; i < leftPoints.length; i++) {
+            ctx2d.lineTo(leftPoints[i].x, leftPoints[i].y);
+        }
+        ctx2d.stroke();
+
+        // Sağ çizgi
+        ctx2d.beginPath();
+        ctx2d.moveTo(rightPoints[0].x, rightPoints[0].y);
+        for (let i = 1; i < rightPoints.length; i++) {
+            ctx2d.lineTo(rightPoints[i].x, rightPoints[i].y);
+        }
+        ctx2d.stroke();
+
+        // Bağlantı çizgileri (her 30cm'de bir)
+        const arcLength = Math.hypot(p2.x - p1.x, p2.y - p1.y) * 1.5; // Yaklaşık arc uzunluğu
+        const connectionSpacing = 30;
+        const numConnections = Math.floor(arcLength / connectionSpacing);
+
+        for (let i = 0; i <= numConnections; i++) {
+            const idx = Math.floor((i * leftPoints.length) / (numConnections + 1));
+            if (idx < leftPoints.length) {
+                ctx2d.beginPath();
+                ctx2d.moveTo(leftPoints[idx].x, leftPoints[idx].y);
+                ctx2d.lineTo(rightPoints[idx].x, rightPoints[idx].y);
+                ctx2d.stroke();
+            }
+        }
+    });
+};
+
+// Arc yarım duvarlar için normal çizim + yarı saydam dolgu
+const drawArcHalfSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG) => {
+    if (segmentList.length === 0) return;
+
+    // Önce normal arc gibi çiz
+    drawArcSegments(ctx2d, segmentList, color, lineThickness, wallPx, BG);
+
+    // Sonra yarı saydam dolgu ekle
+    ctx2d.fillStyle = "rgba(150, 150, 150, 0.3)";
+
+    segmentList.forEach(seg => {
+        const wall = seg.wall;
+        if (!wall.arcControl1 || !wall.arcControl2) return;
+
+        const thickness = wall.thickness || wallPx;
+        const halfThickness = thickness / 2;
+        const p1 = wall.p1;
+        const p2 = wall.p2;
+        const c1 = wall.arcControl1;
+        const c2 = wall.arcControl2;
+
+        const numSamples = 50;
+        const leftPoints = [];
+        const rightPoints = [];
+
+        for (let i = 0; i <= numSamples; i++) {
+            const t = i / numSamples;
+            const mt = 1 - t;
+            const mt2 = mt * mt;
+            const mt3 = mt2 * mt;
+            const t2 = t * t;
+            const t3 = t2 * t;
+
+            const x = mt3 * p1.x + 3 * mt2 * t * c1.x + 3 * mt * t2 * c2.x + t3 * p2.x;
+            const y = mt3 * p1.y + 3 * mt2 * t * c1.y + 3 * mt * t2 * c2.y + t3 * p2.y;
+
+            const dx = -3 * mt2 * p1.x + 3 * mt2 * c1.x - 6 * mt * t * c1.x - 3 * t2 * c2.x + 6 * mt * t * c2.x + 3 * t2 * p2.x;
+            const dy = -3 * mt2 * p1.y + 3 * mt2 * c1.y - 6 * mt * t * c1.y - 3 * t2 * c2.y + 6 * mt * t * c2.y + 3 * t2 * p2.y;
+
+            const len = Math.hypot(dx, dy);
+            if (len > 0.001) {
+                const nx = -dy / len;
+                const ny = dx / len;
+
+                leftPoints.push({ x: x + nx * halfThickness, y: y + ny * halfThickness });
+                rightPoints.push({ x: x - nx * halfThickness, y: y - ny * halfThickness });
+            }
+        }
+
+        // Dolgu çiz
         ctx2d.beginPath();
         ctx2d.moveTo(leftPoints[0].x, leftPoints[0].y);
         for (let i = 1; i < leftPoints.length; i++) {
@@ -429,16 +601,30 @@ export function drawWallGeometry(ctx2d, state, BG) {
     const balconySegments = { ortho: [], nonOrtho: [], selected: [] };
     const glassSegments = { ortho: [], nonOrtho: [], selected: [] };
     const halfSegments = { ortho: [], nonOrtho: [], selected: [] };
-    const arcSegments = { ortho: [], nonOrtho: [], selected: [] }; // Arc duvarlar için
+
+    // Arc duvarlar için tip bazlı segment listeleri
+    const arcNormalSegments = { ortho: [], nonOrtho: [], selected: [] };
+    const arcBalconySegments = { ortho: [], nonOrtho: [], selected: [] };
+    const arcGlassSegments = { ortho: [], nonOrtho: [], selected: [] };
+    const arcHalfSegments = { ortho: [], nonOrtho: [], selected: [] };
+
     walls.forEach((w) => {
-        // Arc duvarları ayrı işle
+        // Arc duvarları tip bazlı işle
         if (w.isArc && w.arcControl1 && w.arcControl2) {
             const isSelected = (selectedObject?.type === "wall" && selectedObject.object === w) || selectedGroup.includes(w);
             const segmentData = { p1: w.p1, p2: w.p2, wall: w };
+            const wallType = w.wallType || 'normal';
+
+            let targetList;
+            if (wallType === 'balcony') targetList = arcBalconySegments;
+            else if (wallType === 'glass') targetList = arcGlassSegments;
+            else if (wallType === 'half') targetList = arcHalfSegments;
+            else targetList = arcNormalSegments;
+
             if (isSelected) {
-                arcSegments.selected.push(segmentData);
+                targetList.selected.push(segmentData);
             } else {
-                arcSegments.ortho.push(segmentData);
+                targetList.ortho.push(segmentData);
             }
             return; // Arc duvarlar için normal segment ayırma yapma
         }
@@ -476,10 +662,25 @@ export function drawWallGeometry(ctx2d, state, BG) {
     drawHalfSegments(ctx2d, halfSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawHalfSegments(ctx2d, halfSegments.selected, "#8ab4f8", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
 
-    // Arc duvarlar
-    drawArcSegments(ctx2d, arcSegments.ortho, wallBorderColor, lineThickness, wallPx, BG);
-    drawArcSegments(ctx2d, arcSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG);
-    drawArcSegments(ctx2d, arcSegments.selected, "#8ab4f8", lineThickness, wallPx, BG);
+    // Arc Normal Duvarlar
+    drawArcSegments(ctx2d, arcNormalSegments.ortho, wallBorderColor, lineThickness, wallPx, BG);
+    drawArcSegments(ctx2d, arcNormalSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG);
+    drawArcSegments(ctx2d, arcNormalSegments.selected, "#8ab4f8", lineThickness, wallPx, BG);
+
+    // Arc Balkon Duvarlar
+    drawArcBalconySegments(ctx2d, arcBalconySegments.ortho, wallBorderColor);
+    drawArcBalconySegments(ctx2d, arcBalconySegments.nonOrtho, "#e57373");
+    drawArcBalconySegments(ctx2d, arcBalconySegments.selected, "#8ab4f8");
+
+    // Arc Camekan Duvarlar
+    drawArcGlassSegments(ctx2d, arcGlassSegments.ortho, wallBorderColor, wallPx);
+    drawArcGlassSegments(ctx2d, arcGlassSegments.nonOrtho, "#e57373", wallPx);
+    drawArcGlassSegments(ctx2d, arcGlassSegments.selected, "#8ab4f8", wallPx);
+
+    // Arc Yarım Duvarlar
+    drawArcHalfSegments(ctx2d, arcHalfSegments.ortho, wallBorderColor, lineThickness, wallPx, BG);
+    drawArcHalfSegments(ctx2d, arcHalfSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG);
+    drawArcHalfSegments(ctx2d, arcHalfSegments.selected, "#8ab4f8", lineThickness, wallPx, BG);
 
     // Varsayılan ayarlara dön
     ctx2d.lineCap = "butt";
