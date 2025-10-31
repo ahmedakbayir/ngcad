@@ -3,6 +3,60 @@
 import { state, setState, DRAG_HANDLE_RADIUS, EXTEND_RANGE } from './main.js';
 import { wallExists } from './wall-handler.js'; // <-- YENİ
 
+// Arc duvarı segmentlere ayırır (bezier eğrisini örnekler)
+// Returns: Array of points [{x, y}, {x, y}, ...]
+export function getArcWallPoints(wall, numSamples = 20) {
+    if (!wall.isArc || !wall.arcControl1 || !wall.arcControl2) {
+        // Arc değilse sadece başlangıç ve bitiş noktalarını döndür
+        return [
+            { x: wall.p1.x, y: wall.p1.y },
+            { x: wall.p2.x, y: wall.p2.y }
+        ];
+    }
+
+    const points = [];
+    const p1 = wall.p1;
+    const p2 = wall.p2;
+    const c1 = wall.arcControl1;
+    const c2 = wall.arcControl2;
+
+    for (let i = 0; i <= numSamples; i++) {
+        const t = i / numSamples;
+        // Cubic Bezier formülü
+        const mt = 1 - t;
+        const mt2 = mt * mt;
+        const mt3 = mt2 * mt;
+        const t2 = t * t;
+        const t3 = t2 * t;
+
+        const x = mt3 * p1.x + 3 * mt2 * t * c1.x + 3 * mt * t2 * c2.x + t3 * p2.x;
+        const y = mt3 * p1.y + 3 * mt2 * t * c1.y + 3 * mt * t2 * c2.y + t3 * p2.y;
+
+        points.push({ x, y });
+    }
+
+    return points;
+}
+
+// Arc duvarının bir noktaya olan en yakın mesafesini hesaplar
+export function distToArcWallSquared(point, wall, tolerance = 1.0) {
+    if (!wall.isArc || !wall.arcControl1 || !wall.arcControl2) {
+        // Arc değilse normal segment mesafesini hesapla
+        return distToSegmentSquared(point, wall.p1, wall.p2);
+    }
+
+    // Arc için: Eğriyi örnekle ve her segmente olan en yakın mesafeyi bul
+    const arcPoints = getArcWallPoints(wall, 50);
+    let minDistSq = Infinity;
+
+    for (let i = 0; i < arcPoints.length - 1; i++) {
+        const distSq = distToSegmentSquared(point, arcPoints[i], arcPoints[i + 1]);
+        minDistSq = Math.min(minDistSq, distSq);
+    }
+
+    return minDistSq;
+}
+
 export function screenToWorld(sx, sy) {
     const { zoom, panOffset } = state;
     return {
@@ -131,17 +185,33 @@ export function detectRooms() {
     }
 
     // Geçerli duvarları Turf.js'in anlayacağı lineString formatına çevir
-    const lines = validWalls.map((wall) => {
+    // Arc duvarlar için segmentlere ayır
+    const lines = [];
+    validWalls.forEach((wall) => {
         try {
-            return turf.lineString([
-                [wall.p1.x, wall.p1.y],
-                [wall.p2.x, wall.p2.y]
-            ]);
+            if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
+                // Arc duvarı segmentlere ayır
+                const arcPoints = getArcWallPoints(wall, 20);
+                // Her segment için bir lineString oluştur
+                for (let i = 0; i < arcPoints.length - 1; i++) {
+                    const line = turf.lineString([
+                        [arcPoints[i].x, arcPoints[i].y],
+                        [arcPoints[i + 1].x, arcPoints[i + 1].y]
+                    ]);
+                    lines.push(line);
+                }
+            } else {
+                // Normal duvar
+                const line = turf.lineString([
+                    [wall.p1.x, wall.p1.y],
+                    [wall.p2.x, wall.p2.y]
+                ]);
+                lines.push(line);
+            }
         } catch (e) {
             console.error("LineString oluşturma hatası:", e, wall);
-            return null; // Hata olursa null döndür
         }
-    }).filter(line => line !== null); // Hatalı olanları filtrele
+    });
 
     if (lines.length < 3) {
         setState({ rooms: [] }); // Yeterli lineString yoksa
