@@ -3,6 +3,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // Gerekli sabitleri main.js'ten import et
 import { state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, dom, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "./main.js";
+// Geometry fonksiyonlarını import et
+import { getArcWallPoints } from "./geometry.js";
 
 let scene, camera, renderer, controls;
 // Malzeme değişkenlerini burada (dışarıda) tanımla
@@ -1259,6 +1261,24 @@ export function update3DScene() {
         const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y); if (wallLen < 1) return;
         const wallThickness = w.thickness || state.wallThickness;
         const wallType = w.wallType || 'normal';
+
+        // Arc duvarlar için özel işleme
+        if (w.isArc && w.arcControl1 && w.arcControl2) {
+            // Bezier eğrisini örnekle
+            const arcPoints = getArcWallPoints(w, 30); // 30 segment ile örnekle
+
+            // Ardışık noktalar arasında duvar segmentleri oluştur
+            for (let i = 0; i < arcPoints.length - 1; i++) {
+                const p1 = arcPoints[i];
+                const p2 = arcPoints[i + 1];
+                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, false, false);
+                if (segMesh) sceneObjects.add(segMesh);
+            }
+
+            // Arc duvarlar için şimdilik kapı/pencere desteği yok, direkt return
+            // TODO: Gelecekte arc duvarlar için kapı/pencere pozisyonlaması eklenebilir
+            return;
+        }
 
         // 1. SADECE Duvarı bölen elemanları (kapı, pencere) al
         const segmentBreakingItems = []; 
