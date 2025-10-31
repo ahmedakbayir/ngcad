@@ -2,7 +2,7 @@
 // Son Güncelleme: Sahanlık kotu (125-135) mantığı confirmStairChange ve ilgili listener'larda düzeltildi.
 import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT } from './main.js';
 import { saveState } from './history.js';
-import { update3DScene, toggleCameraMode } from './scene3d.js';
+import { update3DScene, toggleCameraMode, pointerLockControls } from './scene3d.js';
 import { applyStretchModification } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { worldToScreen } from './geometry.js';
@@ -607,9 +607,24 @@ export function setupUIListeners() {
 
     // FPS KAMERA BUTONU LISTENER'I
     dom.bFirstPerson.addEventListener('click', () => {
-        toggleCameraMode();
+        const wasActive = dom.bFirstPerson.classList.contains('active');
+
         // Butonu toggle et
         dom.bFirstPerson.classList.toggle('active');
+
+        // Kamera modunu değiştir
+        toggleCameraMode();
+
+        // Eğer FPS moduna geçildiyse (buton aktif olduysa), pointer lock'u başlat
+        if (!wasActive && pointerLockControls) {
+            // Buton tıklama event'i içinde olduğumuz için direkt lock() çağrısı güvenli
+            try {
+                pointerLockControls.lock();
+            } catch (e) {
+                console.warn('Pointer lock başlatılamadı:', e);
+                console.info('İpucu: 3D sahneye tıklayarak FPS modunu aktif edebilirsiniz');
+            }
+        }
     });
 }
 // --- setupUIListeners Sonu ---

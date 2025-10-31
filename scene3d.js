@@ -264,8 +264,8 @@ export function init3D(canvasElement) {
 
 }
 
-// GÜNCELLENDİ: 'sceneObjects' export'a eklendi
-export { scene, camera, renderer, controls, sceneObjects };
+// GÜNCELLENDİ: 'sceneObjects' ve 'pointerLockControls' export'a eklendi
+export { scene, camera, renderer, controls, sceneObjects, pointerLockControls };
 
 // --- Duvar Segmenti Oluşturma (Duvar Tipine Göre) ---
 // GÜNCELLENDİ: Korkuluk ve şapka uzamaları düzeltildi
@@ -1668,8 +1668,8 @@ export function toggleCameraMode() {
         camera.position.set(center.x, CAMERA_HEIGHT, center.z + 200);
         camera.rotation.set(0, 0, 0);
 
-        // PointerLockControls'ü aktifleştir
-        pointerLockControls.lock();
+        // PointerLockControls'ü kontrol olarak ayarla
+        // Lock işlemi ui.js'de buton tıklama event'i içinde yapılacak
         controls = pointerLockControls;
 
     } else {
