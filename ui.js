@@ -2,7 +2,7 @@
 // Son Güncelleme: Sahanlık kotu (125-135) mantığı confirmStairChange ve ilgili listener'larda düzeltildi.
 import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT } from './main.js';
 import { saveState } from './history.js';
-import { update3DScene } from './scene3d.js';
+import { update3DScene, toggleCameraMode } from './scene3d.js';
 import { applyStretchModification } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { worldToScreen } from './geometry.js';
@@ -134,6 +134,14 @@ function confirmRoomNameChange() {
 export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
     dom.b3d.classList.toggle('active');
+
+    // FPS kamera butonunu göster/gizle
+    if (dom.mainContainer.classList.contains('show-3d')) {
+        dom.bFirstPerson.style.display = 'inline-block';
+    } else {
+        dom.bFirstPerson.style.display = 'none';
+    }
+
     setTimeout(() => {
         resize();
         if (dom.mainContainer.classList.contains('show-3d')) {
@@ -596,5 +604,12 @@ export function setupUIListeners() {
         });
     });
     // MERDİVEN POPUP LISTENER'LARI SONU
+
+    // FPS KAMERA BUTONU LISTENER'I
+    dom.bFirstPerson.addEventListener('click', () => {
+        toggleCameraMode();
+        // Butonu toggle et
+        dom.bFirstPerson.classList.toggle('active');
+    });
 }
 // --- setupUIListeners Sonu ---

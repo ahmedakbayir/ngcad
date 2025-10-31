@@ -1,12 +1,21 @@
 // ahmedakbayir/ngcad/ngcad-00d54c478fa934506781fd05812470b2bba6874c/scene3d.js
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 // Gerekli sabitleri main.js'ten import et
 import { state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, dom, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "./main.js";
 // Geometry fonksiyonlarını import et
 import { getArcWallPoints } from "./geometry.js";
 
 let scene, camera, renderer, controls;
+let orbitControls, pointerLockControls;
+let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+const CAMERA_HEIGHT = 180; // Kamera yüksekliği (cm)
+const MOVE_SPEED = 300; // Hareket hızı (cm/saniye)
+const ROTATION_SPEED = 2; // Dönüş hızı (radyan/saniye)
 // Malzeme değişkenlerini burada (dışarıda) tanımla
 let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial, stairMaterial, stairMaterialTop, ventMaterial, trimMaterial;
 // Özel duvar tipleri için malzemeler
@@ -54,13 +63,18 @@ export function init3D(canvasElement) {
         canvas: canvasElement,
     });
 
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, WALL_HEIGHT / 2, 0);
-    controls.minDistance = 1; // Değeri küçülterek daha fazla yaklaşmaya izin verin (örneğin 1 veya 0.1)
-    controls.zoomSpeed=1
-    //controls.enableDamping = true; // Zaten varsa
-    //controls.dampingFactor = 0.02; // Değeri küçültebilirsiniz (varsayılan 0.05)
-    controls.update();
+    // OrbitControls'ü başlat
+    orbitControls = new OrbitControls(camera, renderer.domElement);
+    orbitControls.target.set(0, WALL_HEIGHT / 2, 0);
+    orbitControls.minDistance = 1;
+    orbitControls.zoomSpeed = 1;
+    orbitControls.update();
+
+    // PointerLockControls'ü başlat
+    pointerLockControls = new PointerLockControls(camera, renderer.domElement);
+
+    // Varsayılan olarak OrbitControls aktif
+    controls = orbitControls;
 
     const amb = new THREE.AmbientLight(0xffffff, 1.2);
     const dir = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -1424,3 +1438,249 @@ export function update3DScene() {
 
     controls.update();
 }
+
+// First-Person Kamera Kontrolü - Klavye event listener'ları
+function setupFirstPersonKeyControls() {
+    const onKeyDown = (event) => {
+        if (cameraMode !== 'firstPerson') return;
+
+        switch (event.code) {
+            case 'ArrowUp':
+            case 'KeyW':
+                moveForward = true;
+                break;
+            case 'ArrowDown':
+            case 'KeyS':
+                moveBackward = true;
+                break;
+            case 'ArrowLeft':
+                moveLeft = true;
+                break;
+            case 'ArrowRight':
+                moveRight = true;
+                break;
+        }
+    };
+
+    const onKeyUp = (event) => {
+        switch (event.code) {
+            case 'ArrowUp':
+            case 'KeyW':
+                moveForward = false;
+                break;
+            case 'ArrowDown':
+            case 'KeyS':
+                moveBackward = false;
+                break;
+            case 'ArrowLeft':
+                moveLeft = false;
+                break;
+            case 'ArrowRight':
+                moveRight = false;
+                break;
+        }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup', onKeyUp);
+}
+
+// Çarpışma tespiti - Duvarlarla çarpışma kontrolü
+function checkWallCollision(newPosition) {
+    const playerRadius = 30; // Oyuncu çarpışma yarıçapı (30cm)
+
+    for (const wall of state.walls) {
+        if (!wall.p1 || !wall.p2) continue;
+
+        const wallThickness = wall.thickness || state.wallThickness || 20;
+
+        // Duvar vektörü
+        const wallDx = wall.p2.x - wall.p1.x;
+        const wallDz = wall.p2.y - wall.p1.y;
+        const wallLength = Math.hypot(wallDx, wallDz);
+
+        if (wallLength < 0.1) continue;
+
+        // Normalize
+        const wallNormX = wallDx / wallLength;
+        const wallNormZ = wallDz / wallLength;
+
+        // Duvara dik vektör
+        const perpX = -wallNormZ;
+        const perpZ = wallNormX;
+
+        // Oyuncunun duvar doğrusuna olan mesafesi
+        const toPlayerX = newPosition.x - wall.p1.x;
+        const toPlayerZ = newPosition.z - wall.p1.y;
+
+        // Duvara dik mesafe
+        const perpDist = Math.abs(toPlayerX * perpX + toPlayerZ * perpZ);
+
+        // Duvar boyunca mesafe
+        const alongWall = toPlayerX * wallNormX + toPlayerZ * wallNormZ;
+
+        // Duvar segmenti içinde mi?
+        if (alongWall >= -playerRadius && alongWall <= wallLength + playerRadius) {
+            // Duvardan geçmesini engelle
+            if (perpDist < playerRadius + wallThickness / 2) {
+                // Kapı kontrolü - kapıdan geçebilir mi?
+                const doors = state.doors.filter(d => d.wall === wall);
+                let canPass = false;
+
+                for (const door of doors) {
+                    const doorStart = door.pos - door.width / 2;
+                    const doorEnd = door.pos + door.width / 2;
+
+                    if (alongWall >= doorStart - playerRadius && alongWall <= doorEnd + playerRadius) {
+                        canPass = true;
+                        break;
+                    }
+                }
+
+                if (!canPass) {
+                    return false; // Çarpışma var
+                }
+            }
+        }
+    }
+
+    return true; // Çarpışma yok
+}
+
+// Merdiven tespiti ve yükseklik ayarlama
+function checkStairElevation(position) {
+    let elevation = 0;
+
+    for (const stair of state.stairs || []) {
+        if (!stair.center) continue;
+
+        // Merdivenin sınırları
+        const minX = stair.center.x - stair.width / 2;
+        const maxX = stair.center.x + stair.width / 2;
+        const minZ = stair.center.y - stair.length / 2;
+        const maxZ = stair.center.y + stair.length / 2;
+
+        // Oyuncu merdiven üzerinde mi?
+        if (position.x >= minX && position.x <= maxX &&
+            position.z >= minZ && position.z <= maxZ) {
+
+            if (stair.type === 'landing') {
+                // Sahanlık - sabit yükseklik
+                elevation = Math.max(elevation, stair.bottomElevation || 0);
+            } else {
+                // Normal merdiven - basamaklar
+                const totalRise = (stair.topElevation || 0) - (stair.bottomElevation || 0);
+                const stepCount = stair.stepCount || 1;
+
+                // Oyuncunun merdiven üzerindeki konumu (0-1 arası)
+                const progress = (position.z - minZ) / stair.length;
+
+                // Yükseklik interpolasyonu
+                const currentElevation = (stair.bottomElevation || 0) + totalRise * progress;
+                elevation = Math.max(elevation, currentElevation);
+            }
+        }
+    }
+
+    return elevation;
+}
+
+// First-person kamerayı güncelle
+export function updateFirstPersonCamera(delta) {
+    if (cameraMode !== 'firstPerson' || !pointerLockControls.isLocked) return;
+
+    velocity.x -= velocity.x * 10.0 * delta;
+    velocity.z -= velocity.z * 10.0 * delta;
+
+    // Hareket yönünü hesapla
+    direction.z = Number(moveForward) - Number(moveBackward);
+    direction.x = Number(moveRight) - Number(moveLeft);
+    direction.normalize();
+
+    // Dönüş hızını uygula (sağa/sola ok tuşları)
+    if (moveLeft && !moveForward && !moveBackward) {
+        // Sadece sağa/sola basılıysa - yerinde dön
+        camera.rotation.y += ROTATION_SPEED * delta;
+    }
+    if (moveRight && !moveForward && !moveBackward) {
+        // Sadece sağa/sola basılıysa - yerinde dön
+        camera.rotation.y -= ROTATION_SPEED * delta;
+    }
+
+    // İleri/geri hareket
+    if (moveForward) velocity.z -= MOVE_SPEED * delta;
+    if (moveBackward) velocity.z += MOVE_SPEED * delta;
+
+    // Hareket vektörünü kamera yönüne göre ayarla
+    const moveX = -velocity.z * Math.sin(camera.rotation.y);
+    const moveZ = -velocity.z * Math.cos(camera.rotation.y);
+
+    // Yeni pozisyon
+    const newPosition = new THREE.Vector3(
+        camera.position.x + moveX,
+        camera.position.y,
+        camera.position.z + moveZ
+    );
+
+    // Çarpışma kontrolü
+    if (checkWallCollision(newPosition)) {
+        camera.position.x = newPosition.x;
+        camera.position.z = newPosition.z;
+
+        // Merdiven kontrolü ve yükseklik ayarlama
+        const elevation = checkStairElevation(camera.position);
+        camera.position.y = CAMERA_HEIGHT + elevation;
+    }
+}
+
+// Kamera modunu değiştir
+export function toggleCameraMode() {
+    if (cameraMode === 'orbit') {
+        // First-person moda geç
+        cameraMode = 'firstPerson';
+
+        // OrbitControls'ü devre dışı bırak
+        orbitControls.enabled = false;
+
+        // Kamera pozisyonunu ayarla (sahnenin merkezine, 180cm yüksekliğe)
+        const center = new THREE.Vector3();
+        if (sceneObjects.children.length > 0) {
+            const boundingBox = new THREE.Box3();
+            sceneObjects.children.forEach(obj => {
+                if (obj.material !== floorMaterial) {
+                    boundingBox.expandByObject(obj);
+                }
+            });
+            if (!boundingBox.isEmpty()) {
+                boundingBox.getCenter(center);
+            }
+        }
+
+        camera.position.set(center.x, CAMERA_HEIGHT, center.z + 200);
+        camera.rotation.set(0, 0, 0);
+
+        // PointerLockControls'ü aktifleştir
+        pointerLockControls.lock();
+        controls = pointerLockControls;
+
+    } else {
+        // Orbit moda geç
+        cameraMode = 'orbit';
+
+        // PointerLockControls'ü devre dışı bırak
+        if (pointerLockControls.isLocked) {
+            pointerLockControls.unlock();
+        }
+
+        // OrbitControls'ü aktifleştir
+        orbitControls.enabled = true;
+        controls = orbitControls;
+
+        // Kamera pozisyonunu izometrik görünüme geri getir
+        camera.position.set(1500, 1800, 1500);
+        orbitControls.update();
+    }
+}
+
+// İlk kurulum
+setupFirstPersonKeyControls();

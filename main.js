@@ -1,6 +1,6 @@
 // ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/main.js
 import { draw2D } from './draw2d.js';
-import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d } from './scene3d.js';
+import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d, updateFirstPersonCamera } from './scene3d.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
@@ -154,6 +154,7 @@ export const dom = {
     bOpen: document.getElementById("bOpen"),
     fileInput: document.getElementById("file-input"),
     b3d: document.getElementById("b3d"),
+    bFirstPerson: document.getElementById("bFirstPerson"),
     bAssignNames: document.getElementById("bAssignNames"),
     settingsBtn: document.getElementById("settings-btn"),
     settingsPopup: document.getElementById("settings-popup"),
@@ -268,18 +269,28 @@ export function resize() {
     }
 }
 
+let lastTime = performance.now();
+
 function animate() {
     requestAnimationFrame(animate);
-    
+
+    // Delta time hesaplama (saniye cinsinden)
+    const currentTime = performance.now();
+    const delta = (currentTime - lastTime) / 1000;
+    lastTime = currentTime;
+
     // YENİ: TWEEN animasyonlarını güncelle
     if (typeof TWEEN !== 'undefined') {
         TWEEN.update();
     }
     // YENİ SONU
-    
+
     draw2D();
 
     if(dom.mainContainer.classList.contains('show-3d')) {
+        // First-person kamera güncellemesi
+        updateFirstPersonCamera(delta);
+
         controls3d.update();
         renderer3d.render(scene3d, camera3d);
     }
