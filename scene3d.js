@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // Gerekli sabitleri main.js'ten import et
 import { state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, dom, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "./main.js";
+import { getArcWallPoints } from "./geometry.js";
 
 let scene, camera, renderer, controls;
 // Malzeme değişkenlerini burada (dışarıda) tanımla
@@ -1260,15 +1261,32 @@ export function update3DScene() {
         const wallThickness = w.thickness || state.wallThickness;
         const wallType = w.wallType || 'normal';
 
-        // 1. SADECE Duvarı bölen elemanları (kapı, pencere) al
-        const segmentBreakingItems = []; 
-        (doors.filter(d => d.wall === w)).forEach(d => segmentBreakingItems.push({ item: d, type: 'door', pos: d.pos, width: d.width }));
-        (w.windows || []).forEach(win => segmentBreakingItems.push({ item: { ...win, roomName: win.roomName }, type: 'window', pos: win.pos, width: win.width }));
-        segmentBreakingItems.sort((a, b) => a.pos - b.pos);
-        
-        let lastPos = 0;
-        let lastPosIsNode = true; 
-        const dx = (w.p2.x - w.p1.x) / wallLen; const dy = (w.p2.y - w.p1.y) / wallLen;
+        // Arc duvarlar için özel işlem
+        if (w.isArc && w.arcControl1 && w.arcControl2) {
+            // Arc duvarı küçük segmentlere ayır
+            const arcPoints = getArcWallPoints(w, 20);
+
+            // Her segment için mesh oluştur
+            for (let i = 0; i < arcPoints.length - 1; i++) {
+                const p1 = arcPoints[i];
+                const p2 = arcPoints[i + 1];
+                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial);
+                if (segMesh) sceneObjects.add(segMesh);
+            }
+
+            // Arc duvarlarda kapı/pencere/menfez desteklenmediği için direkt return
+            // (İleride eklenebilir)
+            return;
+        }
+
+        // Normal duvarlar için mevcut mantık
+        const itemsOnWall = [];
+        (doors.filter(d => d.wall === w)).forEach(d => itemsOnWall.push({ item: d, type: 'door', pos: d.pos, width: d.width }));
+        (w.windows || []).forEach(win => itemsOnWall.push({ item: { ...win, roomName: win.roomName }, type: 'window', pos: win.pos, width: win.width }));
+        (w.vents || []).forEach(v => itemsOnWall.push({ item: v, type: 'vent', pos: v.pos, width: v.width }));
+        itemsOnWall.sort((a, b) => a.pos - b.pos);
+
+        let lastPos = 0; const dx = (w.p2.x - w.p1.x) / wallLen; const dy = (w.p2.y - w.p1.y) / wallLen;
 
         // 2. Duvar segmentlerini, kapıları ve pencereleri çiz
         segmentBreakingItems.forEach(itemData => {
