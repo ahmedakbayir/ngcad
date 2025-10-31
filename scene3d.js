@@ -1463,9 +1463,11 @@ function setupFirstPersonKeyControls() {
                 moveBackward = true;
                 break;
             case 'ArrowLeft':
+            case 'KeyA':
                 moveLeft = true;
                 break;
             case 'ArrowRight':
+            case 'KeyD':
                 moveRight = true;
                 break;
         }
@@ -1482,9 +1484,11 @@ function setupFirstPersonKeyControls() {
                 moveBackward = false;
                 break;
             case 'ArrowLeft':
+            case 'KeyA':
                 moveLeft = false;
                 break;
             case 'ArrowRight':
+            case 'KeyD':
                 moveRight = false;
                 break;
         }
@@ -1689,6 +1693,11 @@ export function toggleCameraMode() {
         camera.position.set(1500, 1800, 1500);
         orbitControls.update();
     }
+}
+
+// FPS modunda mıyız kontrol fonksiyonu
+export function isFPSMode() {
+    return cameraMode === 'firstPerson';
 }
 
 // İlk kurulum

@@ -10,7 +10,7 @@ import { onPointerMove } from './pointer-move.js';
 import { onPointerUp } from './pointer-up.js';
 import { getObjectAtPoint } from './actions.js';
 // GÜNCELLENDİ: 3D tıklama için importlar eklendi
-import { update3DScene, fit3DViewToScreen, scene, camera, renderer, sceneObjects } from './scene3d.js';
+import { update3DScene, fit3DViewToScreen, scene, camera, renderer, sceneObjects, isFPSMode } from './scene3d.js';
 import * as THREE from "three"; // YENİ
 // --- YENİ İMPORTLAR ---
 import { fitDrawingToScreen, onWheel } from './zoom.js'; // Fit to Screen ve onWheel zoom.js'den
@@ -338,16 +338,18 @@ function onKeyDown(e) {
         }
     }
 
-    // Mod değiştirme kısayolları
-    if (e.key.toLowerCase() === "d") { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
-    if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawWall");
+    // Mod değiştirme kısayolları (FPS modundayken W/A/S/D engellenecek)
+    const inFPSMode = isFPSMode();
+
+    if (e.key.toLowerCase() === "d" && !inFPSMode) { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
+    if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");
     if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawRoom");
     if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawDoor");
     if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawWindow");
     if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawColumn");
     if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawBeam");
     if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawStairs");
-    if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawSymmetry"); // YENİ SATIR
+    if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry"); // YENİ SATIR
 
 }
 
