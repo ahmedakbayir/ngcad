@@ -110,15 +110,14 @@ function setupWallPanelListeners() {
                 const dx = wallPanelWall.p2.x - wallPanelWall.p1.x;
                 const dy = wallPanelWall.p2.y - wallPanelWall.p1.y;
                 const wallLength = Math.hypot(dx, dy);
-                // Duvarın normalini bul
+                // Duvarın normalini bul (duvara dik)
                 const nx = -dy / wallLength;
                 const ny = dx / wallLength;
-                // Duvarın ortasında, duvarın 1/4 uzunluğu kadar dışarıya doğru iki kontrol noktası
-                const midX = (wallPanelWall.p1.x + wallPanelWall.p2.x) / 2;
-                const midY = (wallPanelWall.p1.y + wallPanelWall.p2.y) / 2;
-                const offset = wallLength / 4;
-                wallPanelWall.arcControl1 = { x: midX + nx * offset * 0.7, y: midY + ny * offset * 0.7 };
-                wallPanelWall.arcControl2 = { x: midX + nx * offset * 1.3, y: midY + ny * offset * 1.3 };
+                // Kontrol noktalarını duvarın uçlarından duvara dik olarak ve duvar uzunluğunun yarısı kadar yerleştir
+                // İkisi de birbirine paralel (aynı normal yönünde)
+                const offset = wallLength / 2;
+                wallPanelWall.arcControl1 = { x: wallPanelWall.p1.x + nx * offset, y: wallPanelWall.p1.y + ny * offset };
+                wallPanelWall.arcControl2 = { x: wallPanelWall.p2.x + nx * offset, y: wallPanelWall.p2.y + ny * offset };
             }
             saveState();
             if (dom.mainContainer.classList.contains('show-3d')) { setTimeout(update3DScene, 0); }
