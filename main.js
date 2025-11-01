@@ -291,7 +291,10 @@ function animate() {
         // First-person kamera güncellemesi
         updateFirstPersonCamera(delta);
 
-        controls3d.update();
+        // PointerLockControls'un update() metodu yok, sadece OrbitControls'da var
+        if (controls3d && controls3d.update) {
+            controls3d.update();
+        }
         renderer3d.render(scene3d, camera3d);
     }
 }
