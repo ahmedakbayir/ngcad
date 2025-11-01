@@ -4,7 +4,7 @@ import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom 
 import { screenToWorld, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from './geometry.js'; // distToSegmentSquared ekleyin
 import { splitWallAtMousePosition, processWalls } from './wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 import { undo, redo, saveState, restoreState } from './history.js';
-import { startLengthEdit, cancelLengthEdit, showRoomNamePopup, hideRoomNamePopup, positionLengthInput } from './ui.js';
+import { startLengthEdit, cancelLengthEdit, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen } from './ui.js';
 import { onPointerDown } from './pointer-down.js';
 import { onPointerMove } from './pointer-move.js';
 import { onPointerUp } from './pointer-up.js';
@@ -340,6 +340,13 @@ function onKeyDown(e) {
 
     // Mod değiştirme kısayolları (FPS modundayken W/A/S/D engellenecek)
     const inFPSMode = isFPSMode();
+
+    // F tuşu ile 3D fullscreen toggle
+    if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        if (dom.mainContainer.classList.contains('show-3d')) {
+            toggle3DFullscreen();
+        }
+    }
 
     if (e.key.toLowerCase() === "d" && !inFPSMode) { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
     if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");

@@ -18,10 +18,10 @@ let manualHeightMode = false; // Manuel yükseklik kontrolü aktif mi?
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 const CAMERA_HEIGHT = 180; // Kamera yüksekliği (cm)
-const MOVE_SPEED = 100; // Hareket hızı (cm/saniye) - 1 m/s
-const ROTATION_SPEED = Math.PI / 6; // Dönüş hızı (radyan/saniye) - 30 derece/s
-const PITCH_SPEED = Math.PI / 6; // Pitch hızı (radyan/saniye) - 30 derece/s
-const VERTICAL_SPEED = 100; // Dikey hareket hızı (cm/saniye)
+const MOVE_SPEED = 150; // Hareket hızı (cm/saniye) - 1.5 m/s
+const ROTATION_SPEED = Math.PI / 4; // Dönüş hızı (radyan/saniye) - 45 derece/s
+const PITCH_SPEED = Math.PI / 4; // Pitch hızı (radyan/saniye) - 45 derece/s
+const VERTICAL_SPEED = 150; // Dikey hareket hızı (cm/saniye)
 // Malzeme değişkenlerini burada (dışarıda) tanımla
 let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial, stairMaterial, stairMaterialTop, ventMaterial, trimMaterial;
 // Özel duvar tipleri için malzemeler
@@ -1602,6 +1602,101 @@ function setupFirstPersonKeyControls() {
     document.addEventListener('keyup', onKeyUp);
 }
 
+// Yakındaki kapıları otomatik aç (50cm kala)
+function autoOpenNearbyDoors() {
+    if (cameraMode !== 'firstPerson') return;
+    if (!state.doors || state.doors.length === 0) return;
+
+    const AUTO_OPEN_DISTANCE = 50; // 50 cm mesafe
+    const cameraPos = camera.position;
+
+    // Kameranın baktığı yön
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+
+    for (const door of state.doors) {
+        if (!door.wall || !door.wall.p1 || !door.wall.p2) continue;
+
+        const wall = door.wall;
+        const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+        if (wallLen < 0.1) continue;
+
+        const dx = (wall.p2.x - wall.p1.x) / wallLen;
+        const dz = (wall.p2.y - wall.p1.y) / wallLen;
+
+        const doorCenterX = wall.p1.x + dx * door.pos;
+        const doorCenterZ = wall.p1.y + dz * door.pos;
+
+        // Kapıya olan mesafe
+        const distanceToDoor = Math.hypot(
+            cameraPos.x - doorCenterX,
+            cameraPos.z - doorCenterZ
+        );
+
+        // 50cm'den yakınsa aç
+        if (distanceToDoor < AUTO_OPEN_DISTANCE) {
+            // Kapıyı bul (3D obje)
+            const doorGroup = sceneObjects.children.find(child =>
+                child.userData?.type === 'door' && child.userData?.doorObject === door
+            );
+
+            if (doorGroup) {
+                // Orijinal rotasyonu kaydet
+                if (doorGroup.userData.originalRotation === undefined) {
+                    doorGroup.userData.originalRotation = doorGroup.rotation.y;
+                }
+
+                // Kapı zaten açıksa veya açılıyorsa işlem yapma
+                if (doorGroup.userData.isOpen || doorGroup.userData.isOpening) {
+                    continue;
+                }
+
+                // Kameranın hangi taraftan geldiğini belirle
+                const perpX = -dz;
+                const perpZ = dx;
+                const cameraOffset = (cameraPos.x - doorCenterX) * perpX + (cameraPos.z - doorCenterZ) * perpZ;
+
+                // İleri doğru açma yönü (kameranın geldiği tarafa göre)
+                const openDirection = cameraOffset > 0 ? 1 : -1;
+                const targetRotation = doorGroup.userData.originalRotation + (Math.PI / 2 * 0.95 * openDirection);
+
+                // Açma animasyonu
+                new TWEEN.Tween(doorGroup.rotation)
+                    .to({ y: targetRotation }, 800) // 0.8 saniye
+                    .easing(TWEEN.Easing.Cubic.Out)
+                    .onStart(() => {
+                        doorGroup.userData.isOpening = true;
+                    })
+                    .onComplete(() => {
+                        doorGroup.userData.isOpening = false;
+                        doorGroup.userData.isOpen = true;
+                    })
+                    .start();
+            }
+        } else if (distanceToDoor > AUTO_OPEN_DISTANCE + 100) {
+            // 150cm'den uzaksa kapat
+            const doorGroup = sceneObjects.children.find(child =>
+                child.userData?.type === 'door' && child.userData?.doorObject === door
+            );
+
+            if (doorGroup && doorGroup.userData.isOpen && !doorGroup.userData.isOpening) {
+                // Kapatma animasyonu
+                new TWEEN.Tween(doorGroup.rotation)
+                    .to({ y: doorGroup.userData.originalRotation }, 800)
+                    .easing(TWEEN.Easing.Cubic.In)
+                    .onStart(() => {
+                        doorGroup.userData.isOpening = true;
+                    })
+                    .onComplete(() => {
+                        doorGroup.userData.isOpening = false;
+                        doorGroup.userData.isOpen = false;
+                    })
+                    .start();
+            }
+        }
+    }
+}
+
 // SPACE tuşu ile önündeki kapıyı açma
 function openDoorInFront() {
     // Raycast ile kameranın baktığı yönde kapı olup olmadığını kontrol et
@@ -1669,10 +1764,27 @@ function openDoorInFront() {
 function checkWallCollision(newPosition) {
     const playerRadius = 30; // Oyuncu çarpışma yarıçapı (30cm)
 
+    // Kamera yüksekliği kontrolü - yüksekteyse duvarlardan rahatça geçebilir
+    const cameraHeight = camera.position.y;
+    const effectiveWallHeight = WALL_HEIGHT; // 270 cm
+
     for (const wall of state.walls) {
         if (!wall.p1 || !wall.p2) continue;
 
         const wallThickness = wall.thickness || state.wallThickness || 20;
+
+        // Duvar tipine göre yükseklik kontrolü
+        let wallHeight = effectiveWallHeight;
+        if (wall.type === 'balconyRailing') {
+            wallHeight = 100; // Balkon korkuluğu 100 cm
+        } else if (wall.type === 'halfWall') {
+            wallHeight = 100; // Yarım duvar 100 cm
+        }
+
+        // Eğer kamera duvar yüksekliğinin üzerindeyse, geç
+        if (cameraHeight > wallHeight + 20) { // 20cm tolerans
+            continue;
+        }
 
         // Duvar vektörü
         const wallDx = wall.p2.x - wall.p1.x;
@@ -1858,6 +1970,9 @@ export function updateFirstPersonCamera(delta) {
         // Debug: Hareket bilgisi (opsiyonel - performans için kapatılabilir)
         // console.log(`🚶 Pozisyon: x=${camera.position.x.toFixed(0)}, z=${camera.position.z.toFixed(0)}`);
     }
+
+    // Otomatik kapı açma - Kapıya 50cm kala ileri doğru açılır
+    autoOpenNearbyDoors();
 }
 
 // Kamera modunu değiştir
