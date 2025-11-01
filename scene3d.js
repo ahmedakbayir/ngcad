@@ -1997,5 +1997,33 @@ export function getCameraViewInfo() {
     };
 }
 
+// Kamera pozisyonunu ayarla (2D'den sürüklendiğinde)
+export function setCameraPosition(x, z) {
+    if (!camera || cameraMode !== 'firstPerson') return;
+
+    camera.position.x = x;
+    camera.position.z = z;
+
+    // Yükseklik kontrolü (manuel mod değilse otomatik ayarla)
+    if (!manualHeightMode) {
+        const elevation = checkStairElevation(camera.position);
+        camera.position.y = CAMERA_HEIGHT + elevation;
+    }
+}
+
+// Kamera rotasyonunu ayarla (2D'den sürüklendiğinde)
+export function setCameraRotation(yaw) {
+    if (!camera || cameraMode !== 'firstPerson') return;
+
+    // Mevcut pitch (x rotasyonu) koru
+    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    euler.setFromQuaternion(camera.quaternion);
+
+    // Sadece yaw'u (y rotasyonu) değiştir
+    euler.y = yaw;
+
+    camera.quaternion.setFromEuler(euler);
+}
+
 // İlk kurulum
 setupFirstPersonKeyControls();
