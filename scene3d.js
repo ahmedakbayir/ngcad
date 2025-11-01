@@ -1600,7 +1600,11 @@ function checkStairElevation(position) {
 
 // First-person kamerayı güncelle
 export function updateFirstPersonCamera(delta) {
-    if (cameraMode !== 'firstPerson' || !pointerLockControls.isLocked) return;
+    // Sadece FPS modundayken çalış (pointer lock şart değil!)
+    if (cameraMode !== 'firstPerson') return;
+
+    // Hareket yoksa güncellemeden çık
+    if (!moveForward && !moveBackward && !moveLeft && !moveRight) return;
 
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
@@ -1610,23 +1614,17 @@ export function updateFirstPersonCamera(delta) {
     direction.x = Number(moveRight) - Number(moveLeft);
     direction.normalize();
 
-    // Dönüş hızını uygula (sağa/sola ok tuşları)
-    if (moveLeft && !moveForward && !moveBackward) {
-        // Sadece sağa/sola basılıysa - yerinde dön
-        camera.rotation.y += ROTATION_SPEED * delta;
-    }
-    if (moveRight && !moveForward && !moveBackward) {
-        // Sadece sağa/sola basılıysa - yerinde dön
-        camera.rotation.y -= ROTATION_SPEED * delta;
-    }
-
     // İleri/geri hareket
     if (moveForward) velocity.z -= MOVE_SPEED * delta;
     if (moveBackward) velocity.z += MOVE_SPEED * delta;
 
+    // Sağa/sola hareket (strafe)
+    if (moveLeft) velocity.x -= MOVE_SPEED * delta;
+    if (moveRight) velocity.x += MOVE_SPEED * delta;
+
     // Hareket vektörünü kamera yönüne göre ayarla
-    const moveX = -velocity.z * Math.sin(camera.rotation.y);
-    const moveZ = -velocity.z * Math.cos(camera.rotation.y);
+    const moveX = velocity.x * Math.cos(camera.rotation.y) - velocity.z * Math.sin(camera.rotation.y);
+    const moveZ = velocity.x * Math.sin(camera.rotation.y) + velocity.z * Math.cos(camera.rotation.y);
 
     // Yeni pozisyon
     const newPosition = new THREE.Vector3(
@@ -1643,6 +1641,9 @@ export function updateFirstPersonCamera(delta) {
         // Merdiven kontrolü ve yükseklik ayarlama
         const elevation = checkStairElevation(camera.position);
         camera.position.y = CAMERA_HEIGHT + elevation;
+
+        // Debug: Hareket bilgisi (opsiyonel - performans için kapatılabilir)
+        // console.log(`🚶 Pozisyon: x=${camera.position.x.toFixed(0)}, z=${camera.position.z.toFixed(0)}`);
     }
 }
 
@@ -1651,6 +1652,7 @@ export function toggleCameraMode() {
     if (cameraMode === 'orbit') {
         // First-person moda geç
         cameraMode = 'firstPerson';
+        console.log('🎮 FPS MODU AKTİF - W/A/S/D ile hareket edin, fare ile etrafınıza bakın');
 
         // OrbitControls'ü devre dışı bırak
         orbitControls.enabled = false;
@@ -1672,6 +1674,8 @@ export function toggleCameraMode() {
         camera.position.set(center.x, CAMERA_HEIGHT, center.z + 200);
         camera.rotation.set(0, 0, 0);
 
+        console.log(`📍 Kamera konumu: x=${center.x.toFixed(0)}, y=${CAMERA_HEIGHT}, z=${(center.z + 200).toFixed(0)}`);
+
         // PointerLockControls'ü kontrol olarak ayarla
         // Lock işlemi ui.js'de buton tıklama event'i içinde yapılacak
         controls = pointerLockControls;
@@ -1679,6 +1683,7 @@ export function toggleCameraMode() {
     } else {
         // Orbit moda geç
         cameraMode = 'orbit';
+        console.log('🔄 Orbit modu aktif');
 
         // PointerLockControls'ü devre dışı bırak
         if (pointerLockControls.isLocked) {
