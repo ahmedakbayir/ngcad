@@ -9,7 +9,9 @@ import { onPointerDown } from './pointer-down.js';
 import { onPointerMove } from './pointer-move.js';
 import { onPointerUp } from './pointer-up.js';
 import { getObjectAtPoint } from './actions.js';
-import { update3DScene, fit3DViewToScreen } from './scene3d.js';
+// GÜNCELLENDİ: 3D tıklama için importlar eklendi
+import { update3DScene, fit3DViewToScreen, scene, camera, renderer, sceneObjects } from './scene3d.js';
+import * as THREE from "three"; // YENİ
 // --- YENİ İMPORTLAR ---
 import { fitDrawingToScreen, onWheel } from './zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { wallExists } from './wall-handler.js';
@@ -363,13 +365,112 @@ function onKeyUp(e) {
 
 // Fare tekerleği (zoom) - Artık zoom.js'den import ediliyor
 
+// --- YENİ: 3D KAPI AÇMA MANTIĞI ---
+
+// Animasyon döngüsünü başlat (Bu, TWEEN kütüphanesinin (index.html'e eklenmeli) çalışması için gereklidir)
+function animateTweens(time) {
+    requestAnimationFrame(animateTweens);
+    TWEEN.update(time);
+}
+animateTweens();
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+/**
+ * 3D Sahnedeki tıklamaları yönetir (Kapı açmak için)
+ */
+function on3DPointerDown(event) {
+    // Sadece sol tıklama
+    if (event.button !== 0) return;
+    
+    // Gerekli 3D nesneleri kontrol et
+    if (!renderer || !camera || !sceneObjects) return;
+
+    // Fare koordinatlarını normalize et (-1 to +1)
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Raycaster'ı ayarla
+    raycaster.setFromCamera(mouse, camera);
+
+    // Çarpışmaları bul (recursive = true, tüm alt objeleri de kontrol et)
+    const intersects = raycaster.intersectObjects(sceneObjects.children, true);
+
+    if (intersects.length > 0) {
+        let clickedDoorGroup = null;
+        let obj = intersects[0].object;
+
+        // Tıkladığımız nesnenin en üstteki "door" grubunu bul
+        // (scene3d.js'de kapı grubuna userData eklenmelidir)
+        while (obj.parent) {
+            // Not: scene3d.js'nin bu veriyi eklediğini varsayıyoruz:
+            // doorGroup.userData = { type: 'door', doorObject: door };
+            if (obj.userData?.type === 'door' && obj.userData?.doorObject) {
+                clickedDoorGroup = obj;
+                break;
+            }
+            if (obj.parent === sceneObjects || !obj.parent) break; // Ana gruba ulaştıysak dur
+            obj = obj.parent;
+        }
+
+        if (clickedDoorGroup) {
+            // console.log("Kapı tıklandı:", clickedDoorGroup.userData.doorObject);
+            
+            // Orijinal rotasyonu (eğer ayarlanmadıysa) kaydet
+            if (clickedDoorGroup.userData.originalRotation === undefined) {
+                 clickedDoorGroup.userData.originalRotation = clickedDoorGroup.rotation.y;
+            }
+
+            // Kapının zaten açık olup olmadığını veya animasyonda olup olmadığını kontrol et
+            if (clickedDoorGroup.userData.isOpening || clickedDoorGroup.userData.isOpen) {
+                // Kapatma animasyonu
+                new TWEEN.Tween(clickedDoorGroup.rotation)
+                    .to({ y: clickedDoorGroup.userData.originalRotation }, 1000) // 1 saniye
+                    .easing(TWEEN.Easing.Cubic.InOut)
+                    .onStart(() => { clickedDoorGroup.userData.isOpening = true; })
+                    .onComplete(() => {
+                        clickedDoorGroup.userData.isOpening = false;
+                        clickedDoorGroup.userData.isOpen = false;
+                    })
+                    .start();
+            } else {
+                // Açma animasyonu (90 derece = Math.PI / 2)
+                // Not: Menteşe yönünü (pivot) scene3d.js'de ayarladığımızı varsayıyoruz
+                // (scene3d.js'de doorGeom.translate(door.width / 2, ...) yapılmalı)
+                const targetRotation = (clickedDoorGroup.userData.originalRotation || 0) + (Math.PI / 2 * 0.95); // 90 derece aç
+                
+                new TWEEN.Tween(clickedDoorGroup.rotation)
+                    .to({ y: targetRotation }, 1000) // 1 saniye
+                    .easing(TWEEN.Easing.Cubic.InOut)
+                    .onStart(() => { clickedDoorGroup.userData.isOpening = true; })
+                    .onComplete(() => {
+                        clickedDoorGroup.userData.isOpening = false;
+                        clickedDoorGroup.userData.isOpen = true;
+                    })
+                    .start();
+            }
+        }
+    }
+}
+// --- 3D KAPI AÇMA MANTIĞI SONU ---
+
+
 // Olay dinleyicilerini ayarlama
 export function setupInputListeners() {
-    const { p2d, c2d } = dom;
+    const { p2d, c2d, c3d } = dom; // <-- c3d eklendi
     c2d.addEventListener("pointerdown", onPointerDown);
     p2d.addEventListener("pointermove", onPointerMove);
     p2d.addEventListener("pointerup", onPointerUp);
-c2d.addEventListener("dblclick", (e) => {
+    
+    // --- YENİ EKLENEN LİSTENER ---
+    if (c3d) { // c3d'nin varlığını kontrol et
+        c3d.addEventListener("pointerdown", on3DPointerDown);
+    }
+    // --- YENİ LİSTENER SONU ---
+
+    c2d.addEventListener("dblclick", (e) => {
         e.preventDefault();
         const rect = dom.c2d.getBoundingClientRect();
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
@@ -514,4 +615,4 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     update3DScene();
 
     console.log("Duvar başarıyla bölündü"); // Debug için
-}
+}   

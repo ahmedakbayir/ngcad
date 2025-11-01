@@ -270,6 +270,13 @@ export function resize() {
 
 function animate() {
     requestAnimationFrame(animate);
+    
+    // YENİ: TWEEN animasyonlarını güncelle
+    if (typeof TWEEN !== 'undefined') {
+        TWEEN.update();
+    }
+    // YENİ SONU
+    
     draw2D();
 
     if(dom.mainContainer.classList.contains('show-3d')) {

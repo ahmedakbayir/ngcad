@@ -130,8 +130,9 @@ export function init3D(canvasElement) {
         side: THREE.DoubleSide
     });
 
+    // GÜNCELLENDİ: Pervaz rengi düzeltildi
     trimMaterial = new THREE.MeshStandardMaterial({
-        color: 0x000000, // Açık gri/beyazımsı - pervaz
+        color: 0x000000, // Siyah (0x000000) yerine beyazımsı/açık gri
         roughness: 0.8,
         transparent: true, // Diğerleriyle uyumlu
         opacity: solidOpacity,
@@ -238,24 +239,46 @@ export function init3D(canvasElement) {
 
 }
 
-export { scene, camera, renderer, controls };
+// GÜNCELLENDİ: 'sceneObjects' export'a eklendi
+export { scene, camera, renderer, controls, sceneObjects };
 
 // --- Duvar Segmenti Oluşturma (Duvar Tipine Göre) ---
-function createWallSegmentMesh(p1, p2, thickness, wallType, material) {
-    const overlap = 0.5;
+// GÜNCELLENDİ: Korkuluk ve şapka uzamaları düzeltildi
+function createWallSegmentMesh(p1, p2, thickness, wallType, material, extendStart = false, extendEnd = false) {
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const wallLength = Math.hypot(dx, dy);
     if (wallLength < 1) return null;
-    const effectiveLength = wallLength + overlap * 2;
+
+    // GÜNCELLENDİ: Segmentin hangi ucunun uzatılacağını belirle
+    const startExtension = extendStart ? thickness / 2 : 0.1; // Düğüm ucuysa T/2 uzat, değilse 0.1
+    const endExtension = extendEnd ? thickness / 2 : 0.1; // Düğüm ucuysa T/2 uzat, değilse 0.1
+    // Beton/Ana duvar için efektif uzunluk
+    const effectiveLength = wallLength + startExtension + endExtension;
+
+    // Yön vektörü (normalize edilmiş)
+    const dirX = dx / wallLength;
+    const dirY = dy / wallLength; // 3D'de Z ekseni
 
     const wallGroup = new THREE.Group();
+    
+    // GÜNCELLENDİ: Grup merkezini kaydırmak için ofset
+    const groupCenterOffsetX = dirX * (endExtension - startExtension) / 2;
+    const groupCenterOffsetZ = dirY * (endExtension - startExtension) / 2; // 2D Y -> 3D Z
 
     if (wallType === 'balcony') {
-        // Alt Duvar
+        // --- YENİ: Korkuluk için ayrı uzunluk ve ofset ---
+        // Korkuluk z-fighting'i önlemek için sadece minimal uzar
+        const railingLength = wallLength + 0.1 + 0.1; 
+        // Korkuluğun, betonun merkezinden (X=0) ne kadar kaydırılacağı
+        // (Betonun kaymasının tersi yönünde)
+        const railingOffsetX = (startExtension - endExtension) / 2;
+        // --- YENİ SONU ---
+
+        // Alt Duvar (Beton) - effectiveLength kullanır
         const baseWallGeom = new THREE.BoxGeometry(effectiveLength, BALCONY_WALL_HEIGHT, thickness);
-        baseWallGeom.translate(0, BALCONY_WALL_HEIGHT / 2, 0);
         const baseWallMesh = new THREE.Mesh(baseWallGeom, material);
+        baseWallMesh.position.y = BALCONY_WALL_HEIGHT / 2; 
         wallGroup.add(baseWallMesh);
 
         // Korkuluk
@@ -263,138 +286,186 @@ function createWallSegmentMesh(p1, p2, thickness, wallType, material) {
         const railingStartY = BALCONY_WALL_HEIGHT;
         const railingBarThickness = 2;
         const railingSpacing = 15;
-        const numBars = Math.floor(effectiveLength / railingSpacing);
+        
+        // GÜNCELLENDİ: 'numBars' korkuluk uzunluğuna göre hesaplanmalı
+        const numBars = Math.floor(railingLength / railingSpacing);
 
-        const topBarGeom = new THREE.BoxGeometry(effectiveLength, railingBarThickness, railingBarThickness);
-        topBarGeom.translate(0, railingStartY + railingHeight - railingBarThickness/2, 0);
+        // Üst Bar - railingLength ve railingOffsetX kullanır
+        const topBarGeom = new THREE.BoxGeometry(railingLength, railingBarThickness, railingBarThickness);
         const topBarMesh = new THREE.Mesh(topBarGeom, balconyRailingMaterial);
+        topBarMesh.position.y = railingStartY + railingHeight - railingBarThickness/2; 
+        topBarMesh.position.x = railingOffsetX; // <-- GÜNCELLENDİ
         wallGroup.add(topBarMesh);
 
-        const bottomBarGeom = new THREE.BoxGeometry(effectiveLength, railingBarThickness, railingBarThickness);
-        bottomBarGeom.translate(0, railingStartY + railingBarThickness/2, 0);
+        // Alt Bar - railingLength ve railingOffsetX kullanır
+        const bottomBarGeom = new THREE.BoxGeometry(railingLength, railingBarThickness, railingBarThickness);
         const bottomBarMesh = new THREE.Mesh(bottomBarGeom, balconyRailingMaterial);
+        bottomBarMesh.position.y = railingStartY + railingBarThickness/2; 
+        bottomBarMesh.position.x = railingOffsetX; // <-- GÜNCELLENDİ
         wallGroup.add(bottomBarMesh);
 
+        // Dikey Barlar - railingLength ve railingOffsetX kullanır
         for (let i = 0; i <= numBars; i++) {
-            const x = -effectiveLength/2 + (i * railingSpacing);
-            const vertBarGeom = new THREE.BoxGeometry(railingBarThickness, railingHeight, railingBarThickness);
-            vertBarGeom.translate(x, railingStartY + railingHeight/2, 0);
+            const x = -railingLength/2 + (i * railingSpacing); // Lokal X (korkuluğa göre)
+            const vertBarGeom = new THREE.BoxGeometry(railingBarThickness, railingHeight, railingBarThickness); 
             const vertBarMesh = new THREE.Mesh(vertBarGeom, balconyRailingMaterial);
+            // GÜNCELLENDİ: Lokal X + korkuluk ofseti
+            vertBarMesh.position.set(x + railingOffsetX, railingStartY + railingHeight/2, 0); 
             wallGroup.add(vertBarMesh);
         }
 
     } else if (wallType === 'glass') {
-        // Camekan
+        // Camekan - effectiveLength kullanır
         const glassGeom = new THREE.BoxGeometry(effectiveLength, WALL_HEIGHT, GLASS_WALL_THICKNESS);
-        glassGeom.translate(0, WALL_HEIGHT / 2, 0);
         const glassMesh = new THREE.Mesh(glassGeom, glassMaterial);
+        glassMesh.position.y = WALL_HEIGHT / 2; 
         wallGroup.add(glassMesh);
 
     } else if (wallType === 'half') {
-        // Yarım Duvar
+        // --- YENİ: Şapka için ayrı uzunluk ve ofset ---
+        const capLength = wallLength + 0.1 + 0.1; // Şapka sadece minimal uzar
+        const capOffsetX = (startExtension - endExtension) / 2; // (Betonun kaymasının tersi)
+        // --- YENİ SONU ---
+
+        // Yarım Duvar (Beton) - effectiveLength kullanır
         const halfWallGeom = new THREE.BoxGeometry(effectiveLength, HALF_WALL_HEIGHT, thickness);
-        halfWallGeom.translate(0, HALF_WALL_HEIGHT / 2, 0);
         const halfWallMesh = new THREE.Mesh(halfWallGeom, material);
+        halfWallMesh.position.y = HALF_WALL_HEIGHT / 2; 
         wallGroup.add(halfWallMesh);
 
-        // Şapka
-        const capWidth = effectiveLength;
+        // Şapka - capLength ve capOffsetX kullanır
+        const capWidth = capLength; // <-- GÜNCELLENDİ
         const capDepth = thickness + (HALF_WALL_CAP_WIDTH * 2);
         const capGeom = new THREE.BoxGeometry(capWidth, HALF_WALL_CAP_HEIGHT, capDepth);
-        capGeom.translate(0, HALF_WALL_HEIGHT + HALF_WALL_CAP_HEIGHT/2, 0);
         const capMesh = new THREE.Mesh(capGeom, halfWallCapMaterial);
+        capMesh.position.y = HALF_WALL_HEIGHT + HALF_WALL_CAP_HEIGHT/2; 
+        capMesh.position.x = capOffsetX; // <-- GÜNCELLENDİ
         wallGroup.add(capMesh);
 
     } else {
-        // Normal duvar
+        // Normal duvar - effectiveLength kullanır
         const wallGeom = new THREE.BoxGeometry(effectiveLength, WALL_HEIGHT, thickness);
-        wallGeom.translate(0, WALL_HEIGHT / 2, 0);
         const wallMesh = new THREE.Mesh(wallGeom, material);
+        wallMesh.position.y = WALL_HEIGHT / 2; 
         wallGroup.add(wallMesh);
     }
 
     // Pozisyon ve rotasyon
-    wallGroup.position.set((p1.x + p2.x) / 2, 0, (p1.y + p2.y) / 2); // Z ekseni = 2D Y ekseni
+    // GÜNCELLENDİ: Orijinal orta nokta + hesaplanan ofset
+    const originalMidX = (p1.x + p2.x) / 2;
+    const originalMidZ = (p1.y + p2.y) / 2; // 2D Y -> 3D Z
+    wallGroup.position.set(originalMidX + groupCenterOffsetX, 0, originalMidZ + groupCenterOffsetZ);
     wallGroup.rotation.y = -Math.atan2(p2.y - p1.y, p2.x - p1.x); // Y ekseni etrafında döndür
 
     return wallGroup;
 }
 
 
-// --- Kapı Oluşturma (Pervaz Eklendi) ---
+// --- GÜNCELLENDİ: Kapı Oluşturma (Animasyon Pivot ve userData Eklendi) ---
 function createDoorMesh(door) {
     const wall = door.wall;
     if (!wall) return null;
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     if (wallLen < 0.1) return null;
 
-    const thickness = wall.thickness || state.wallThickness;
+    const thickness = wall.thickness/4 || state.wallThickness/4;
     const handleRadius = 2; const handleLength = 10; const handleHeight = DOOR_HEIGHT * 0.5;
     const handleDistanceFromEdge = 10; const handleOffsetZ = thickness / 2;
     const glassInset = 5; const glassHeight = 50; const glassTopY = DOOR_HEIGHT - glassInset;
     const glassBottomY = glassTopY - glassHeight; const glassWidth = door.width - 2 * glassInset;
     const glassThickness = 2;
 
+    // Ana Grup: Bu grup duvar boşluğuna ortalanır ve dönmez. Pervazları tutar.
     const doorGroup = new THREE.Group();
-    const doorGeom = new THREE.BoxGeometry(door.width, DOOR_HEIGHT, thickness);
-    doorGeom.translate(0, DOOR_HEIGHT / 2, 0);
-    const doorMesh = new THREE.Mesh(doorGeom, doorMaterial);
-    doorGroup.add(doorMesh);
+    // Dönen Grup: Bu grup kapı kanadını, kolu ve camı tutar. Menteşeden döner.
+    const doorPanelGroup = new THREE.Group();
+    
+    // **** YENİ DÜZELTME: Dönen grubu sol kenara (menteşe noktasına) kaydır ****
+    doorPanelGroup.position.x = -door.width / 2; 
+    
+    doorGroup.add(doorPanelGroup); // Dönen grubu ana gruba ekle
 
+    // Kapı kanadı geometrisi
+    const doorGeom = new THREE.BoxGeometry(door.width, DOOR_HEIGHT, thickness);
+    // PİVOT DÜZELTMESİ: Geometriyi, X ekseninde kenara (menteşeye) hizala
+    doorGeom.translate(door.width / 2, DOOR_HEIGHT / 2, 0); 
+    const doorMesh = new THREE.Mesh(doorGeom, doorMaterial);
+    doorPanelGroup.add(doorMesh); // Dönen gruba ekle
+
+    // Cam (eğer varsa) - pivot'u dikkate alarak
     if (glassWidth > 0 && glassHeight > 0) {
         const glassGeom = new THREE.BoxGeometry(glassWidth, glassHeight, glassThickness);
-        glassGeom.translate(0, (glassTopY + glassBottomY) / 2, 0);
+        // PİVOT DÜZELTMESİ: X pozisyonu (merkez 0'dan kaydırıldı)
+        // Orijinal merkez: 0. Yeni merkez: door.width / 2.
+        // Camın X merkezi = (door.width / 2)
+        glassGeom.translate(door.width / 2, (glassTopY + glassBottomY) / 2, 0); 
         const glassMesh = new THREE.Mesh(glassGeom, windowMaterial);
-        doorGroup.add(glassMesh);
+        doorPanelGroup.add(glassMesh); // Dönen gruba ekle
     }
 
+    // Kollar - pivot'u dikkate alarak
     const handleGeom = new THREE.CylinderGeometry(handleRadius, handleRadius, handleLength, 16);
-    handleGeom.rotateZ(Math.PI / 2); // Kolu yatay yap
+    handleGeom.rotateZ(Math.PI / 2); 
 
     const handleMesh1 = new THREE.Mesh(handleGeom, handleMaterial);
-    handleMesh1.position.set(door.width / 2 - handleDistanceFromEdge, handleHeight, handleOffsetZ);
-    doorGroup.add(handleMesh1);
+    // PİVOT DÜZELTMESİ: X pozisyonu (0 + door.width) - handleDistanceFromEdge
+    handleMesh1.position.set(door.width - handleDistanceFromEdge, handleHeight, handleOffsetZ); 
+    doorPanelGroup.add(handleMesh1); // Dönen gruba ekle
 
     const handleMesh2 = handleMesh1.clone();
     handleMesh2.position.z = -handleOffsetZ;
-    doorGroup.add(handleMesh2);
+    doorPanelGroup.add(handleMesh2); // Dönen gruba ekle
 
-    // --- PERVAZ EKLE ---
-    const trimDepthActual = thickness / 2 + TRIM_DEPTH; // Duvarın yarısı + çıkıntı
+    
+    // --- PERVAZLAR (SABİT) ---
+    // Pervazlar ana gruba (doorGroup) eklenir, böylece dönmezler
+    const trimDepthActual = thickness / 2 + TRIM_DEPTH; 
     const trimYCenter = DOOR_HEIGHT / 2;
     const trimTopYCenter = DOOR_HEIGHT + TRIM_WIDTH / 2;
 
-    // Sol Pervaz
+    // Sol Pervaz (Menteşe tarafı)
     const leftTrim = createBoxMesh(TRIM_WIDTH, DOOR_HEIGHT + TRIM_WIDTH, TRIM_DEPTH, trimMaterial, "left_trim");
+    // PİVOT DÜZELTMESİ: X pozisyonu -door.width / 2
     leftTrim.position.set(-door.width / 2 - TRIM_WIDTH / 2, trimYCenter, trimDepthActual);
-    doorGroup.add(leftTrim);
+    doorGroup.add(leftTrim); // Ana gruba ekle
     const leftTrimBack = leftTrim.clone();
     leftTrimBack.position.z = -trimDepthActual;
-    doorGroup.add(leftTrimBack);
+    doorGroup.add(leftTrimBack); // Ana gruba ekle
 
 
-    // Sağ Pervaz
+    // Sağ Pervaz (Kilit tarafı)
     const rightTrim = createBoxMesh(TRIM_WIDTH, DOOR_HEIGHT + TRIM_WIDTH, TRIM_DEPTH, trimMaterial, "right_trim");
+    // PİVOT DÜZELTMESİ: X pozisyonu +door.width / 2
     rightTrim.position.set(door.width / 2 + TRIM_WIDTH / 2, trimYCenter, trimDepthActual);
-    doorGroup.add(rightTrim);
+    doorGroup.add(rightTrim); // Ana gruba ekle
     const rightTrimBack = rightTrim.clone();
     rightTrimBack.position.z = -trimDepthActual;
-    doorGroup.add(rightTrimBack);
+    doorGroup.add(rightTrimBack); // Ana gruba ekle
 
     // Üst Pervaz
-    const topTrimWidth = door.width + 2 * TRIM_WIDTH; // Yan pervazların üzerine binecek
+    const topTrimWidth = door.width + 2 * TRIM_WIDTH; 
     const topTrim = createBoxMesh(topTrimWidth, TRIM_WIDTH, TRIM_DEPTH, trimMaterial, "top_trim");
-    topTrim.position.set(0, trimTopYCenter, trimDepthActual);
-    doorGroup.add(topTrim);
+    topTrim.position.set(0, trimTopYCenter, trimDepthActual); // X=0 (merkezli)
+    doorGroup.add(topTrim); // Ana gruba ekle
     const topTrimBack = topTrim.clone();
     topTrimBack.position.z = -trimDepthActual;
-    doorGroup.add(topTrimBack);
+    doorGroup.add(topTrimBack); // Ana gruba ekle
     // --- PERVAZ SONU ---
 
+    // Ana grubun pozisyonu (değişmedi, hala duvar boşluğunun ortası)
     const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
     const doorCenterPos = { x: wall.p1.x + dx * door.pos, y: wall.p1.y + dy * door.pos };
     doorGroup.position.set(doorCenterPos.x, 0, doorCenterPos.y); // Z = 2D Y
     doorGroup.rotation.y = -Math.atan2(wall.p2.y - wall.p1.y, wall.p2.x - wall.p1.x);
+
+    // YENİ: Animasyon için userData'yı DÖNEN GRUBA (doorPanelGroup) ekle
+    doorPanelGroup.userData = { 
+        type: 'door', 
+        doorObject: door, 
+        originalRotation: doorPanelGroup.rotation.y, // 0
+        isOpen: false, 
+        isOpening: false 
+    };
 
     return doorGroup;
 }
@@ -612,7 +683,7 @@ function createRoundedBoxMesh(width, height, depth, radius, material) {
     const shape = new THREE.Shape();
     const halfWidth = width / 2 - radius;
     const halfHeight = height / 2 - radius; // Bu derinlik olacak (Z ekseni)
-    const halfDepth = depth / 2; // Bu yükseklik olacak (Y ekseni)
+    const halfDepth = depth / 2; // Bu yüksekik olacak (Y ekseni)
 
     // Not: Three.js'de Shape 2D'dir (XY düzlemi). Extrude ile derinlik (Z) eklenir.
     // Ancak bizim merdiven basamaklarımız XZ düzleminde uzanıyor ve Y yüksekliği var.
@@ -1182,8 +1253,7 @@ export function update3DScene() {
 
     const { walls, doors, columns, beams, rooms, stairs } = state;
 
-    // Duvarları, kapıları, pencereleri, menfezleri oluştur
-    // ... (bu bölüm aynı) ...
+    // --- GÜNCELLENDİ: Menfez mantığı düzeltildi ---
     walls.forEach(w => {
         if (!w.p1 || !w.p2) return;
         const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y); if (wallLen < 1) return;
@@ -1198,12 +1268,13 @@ export function update3DScene() {
 
         let lastPos = 0; const dx = (w.p2.x - w.p1.x) / wallLen; const dy = (w.p2.y - w.p1.y) / wallLen;
 
-        itemsOnWall.forEach(itemData => {
+        // 2. Duvar segmentlerini, kapıları ve pencereleri çiz
+        segmentBreakingItems.forEach(itemData => {
             const itemStart = itemData.pos - itemData.width / 2;
             if (itemStart > lastPos + 0.1) {
                 const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
                 const p2={x:w.p1.x+dx*itemStart, y:w.p1.y+dy*itemStart};
-                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial);
+                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, false);
                 if(segMesh) sceneObjects.add(segMesh);
             }
 
@@ -1230,22 +1301,29 @@ export function update3DScene() {
                     if(sillMesh) sceneObjects.add(sillMesh);
                 }
             }
-            else if (itemData.type === 'vent') {
-                const ventMeshGroup = createVentMesh(w, itemData.item);
-                if (ventMeshGroup) sceneObjects.add(ventMeshGroup);
-            }
-
+            // 'vent' tipi buradan kaldırıldı
+            
+            // SADECE kapı ve pencere 'lastPos'u günceller
             if (itemData.type === 'door' || itemData.type === 'window') {
-                lastPos = itemData.pos + itemData.width / 2;
+                 lastPos = itemData.pos + itemData.width / 2;
+                 lastPosIsNode = false; 
             }
         });
 
+        // 3. Kalan son duvar segmentini çiz
         if (wallLen - lastPos > 0.1) {
             const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
             const p2={x:w.p1.x+dx*wallLen, y:w.p1.y+dy*wallLen};
-            const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial);
+            const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, true);
             if(segMesh) sceneObjects.add(segMesh);
         }
+        
+        // 4. Menfezleri (vents) AYRI BİR ŞEKİLDE, duvarı bölmeden ekle
+        (w.vents || []).forEach(v => {
+            const ventMeshGroup = createVentMesh(w, v); // 'v' direkt item objesidir
+            if (ventMeshGroup) sceneObjects.add(ventMeshGroup);
+        });
+        // --- GÜNCELLEME SONU ---
     });
 
 
