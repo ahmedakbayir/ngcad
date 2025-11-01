@@ -14,6 +14,7 @@ let moveForward = false, moveBackward = false, moveLeft = false, moveRight = fal
 let rotateLeft = false, rotateRight = false;
 let moveUp = false, moveDown = false; // SHIFT + Up/Down için
 let pitchUp = false, pitchDown = false; // CTRL + Up/Down için
+let manualHeightMode = false; // Manuel yükseklik kontrolü aktif mi?
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 const CAMERA_HEIGHT = 180; // Kamera yüksekliği (cm)
@@ -1552,6 +1553,11 @@ function setupFirstPersonKeyControls() {
             case 'KeyD':
                 moveRight = true;
                 break;
+            case 'KeyR':
+                // Manuel yükseklik modundan çık, otomatik moda dön
+                manualHeightMode = false;
+                console.log('🔄 Otomatik yükseklik moduna dönüldü');
+                break;
         }
     };
 
@@ -1829,6 +1835,7 @@ export function updateFirstPersonCamera(delta) {
 
     // Vertical hareket (SHIFT + Up/Down - kamerayı yükseltme/alçaltma)
     if (moveUp || moveDown) {
+        manualHeightMode = true; // Manuel yükseklik kontrolünü aktif et
         if (moveUp) {
             camera.position.y += VERTICAL_SPEED * delta;
         }
@@ -1872,8 +1879,8 @@ export function updateFirstPersonCamera(delta) {
         camera.position.x = newPosition.x;
         camera.position.z = newPosition.z;
 
-        // Merdiven kontrolü ve yükseklik ayarlama (sadece normal modda, SHIFT ile değilse)
-        if (!moveUp && !moveDown) {
+        // Merdiven kontrolü ve yükseklik ayarlama (sadece otomatik modda)
+        if (!manualHeightMode) {
             const elevation = checkStairElevation(camera.position);
             camera.position.y = CAMERA_HEIGHT + elevation;
         }
@@ -1996,6 +2003,33 @@ export function toggleCameraMode() {
 // FPS modunda mıyız kontrol fonksiyonu
 export function isFPSMode() {
     return cameraMode === 'firstPerson';
+}
+
+// Kamera pozisyonu ve yönü bilgisini döndür (2D gösterge için)
+export function getCameraViewInfo() {
+    if (!camera) return null;
+
+    // Kameranın baktığı yönü al
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+
+    // Yaw açısını hesapla (Y ekseni etrafında dönüş, radyan cinsinden)
+    const yaw = Math.atan2(direction.x, direction.z);
+
+    return {
+        position: {
+            x: camera.position.x,
+            y: camera.position.y,
+            z: camera.position.z
+        },
+        direction: {
+            x: direction.x,
+            y: direction.y,
+            z: direction.z
+        },
+        yaw: yaw, // Y ekseni etrafında dönüş açısı (radyan)
+        isFPS: cameraMode === 'firstPerson'
+    };
 }
 
 // İlk kurulum
