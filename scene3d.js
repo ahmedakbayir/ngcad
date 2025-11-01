@@ -1557,6 +1557,23 @@ function setupFirstPersonKeyControls() {
 
     const onKeyUp = (event) => {
         // Tüm modlarda çalışsın (FPS modundan çıkarken flag'ler temizlensin)
+
+        // Ctrl tuşu bırakıldığında tüm Ctrl+Ok tuşu hareketlerini durdur
+        if (event.key === 'Control') {
+            pitchUp = false;
+            pitchDown = false;
+            moveLeft = false;
+            moveRight = false;
+            return;
+        }
+
+        // Shift tuşu bırakıldığında tüm Shift+Ok tuşu hareketlerini durdur
+        if (event.key === 'Shift') {
+            moveUp = false;
+            moveDown = false;
+            return;
+        }
+
         switch (event.code) {
             case 'ArrowUp':
                 if (event.ctrlKey) {
