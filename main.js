@@ -1,6 +1,6 @@
 // ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/main.js
 import { draw2D } from './draw2d.js';
-import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d, updateFirstPersonCamera } from './scene3d.js';
+import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d, updateKeyboardCameraControls } from './scene3d.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
@@ -288,8 +288,8 @@ function animate() {
     draw2D();
 
     if(dom.mainContainer.classList.contains('show-3d')) {
-        // First-person kamera güncellemesi
-        updateFirstPersonCamera(delta);
+        // Klavye kamera kontrolleri güncelle
+        updateKeyboardCameraControls(delta);
 
         // PointerLockControls'un update() metodu yok, sadece OrbitControls'da var
         if (controls3d && controls3d.update) {

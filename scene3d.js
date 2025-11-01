@@ -9,7 +9,7 @@ import { getArcWallPoints } from "./geometry.js";
 
 let scene, camera, renderer, controls;
 let orbitControls, pointerLockControls;
-let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
+// Klavye kontrolleri (3D modda her zaman aktif)
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let rotateLeft = false, rotateRight = false;
 let moveUp = false, moveDown = false; // SHIFT + Up/Down için
@@ -1458,10 +1458,11 @@ export function update3DScene() {
     controls.update();
 }
 
-// First-Person Kamera Kontrolü - Klavye event listener'ları
-function setupFirstPersonKeyControls() {
+// Klavye Kamera Kontrolü - 3D modda her zaman aktif
+function setupKeyboardCameraControls() {
     const onKeyDown = (event) => {
-        if (cameraMode !== 'firstPerson') return;
+        // 3D mod açık değilse kontrolleri dinleme
+        if (!dom.mainContainer.classList.contains('show-3d')) return;
 
         // SPACE tuşu ile kapı açma
         if (event.code === 'Space') {
@@ -1611,7 +1612,6 @@ function setupFirstPersonKeyControls() {
 
 // Yakındaki kapıları otomatik aç (50cm kala)
 function autoOpenNearbyDoors() {
-    if (cameraMode !== 'firstPerson') return;
     if (!state.doors || state.doors.length === 0) return;
 
     const AUTO_OPEN_DISTANCE = 50; // 50 cm mesafe
@@ -1885,10 +1885,9 @@ function checkStairElevation(position) {
     return elevation;
 }
 
-// First-person kamerayı güncelle
-export function updateFirstPersonCamera(delta) {
-    // Sadece FPS modundayken çalış (pointer lock şart değil!)
-    if (cameraMode !== 'firstPerson') return;
+// Klavye kamera kontrollerini güncelle (3D modda her zaman aktif)
+export function updateKeyboardCameraControls(delta) {
+    if (!camera) return;
 
     const euler = new THREE.Euler(0, 0, 0, 'YXZ');
     euler.setFromQuaternion(camera.quaternion);
@@ -1977,120 +1976,31 @@ export function updateFirstPersonCamera(delta) {
 
         // Debug: Hareket bilgisi (opsiyonel - performans için kapatılabilir)
         // console.log(`🚶 Pozisyon: x=${camera.position.x.toFixed(0)}, z=${camera.position.z.toFixed(0)}`);
+
+        // OrbitControls target'ını güncelle (kameranın baktığı yöne)
+        if (orbitControls) {
+            const lookAtDistance = 200; // Kameranın 200cm önüne bak
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            orbitControls.target.copy(camera.position).add(forward.multiplyScalar(lookAtDistance));
+            orbitControls.update();
+        }
     }
 
     // Otomatik kapı açma - Kapıya 50cm kala ileri doğru açılır
     autoOpenNearbyDoors();
 }
 
-// Kamera modunu değiştir
+// Not: Artık ayrı kamera modu yok, 3D modda hem mouse (orbit) hem klavye çalışır
+// Bu fonksiyon geriye dönük uyumluluk için boş bırakıldı
 export function toggleCameraMode() {
-    if (cameraMode === 'orbit') {
-        // First-person moda geç
-        cameraMode = 'firstPerson';
-        console.log('🎮 FPS MODU AKTİF - W/A/S/D ile hareket edin, Ok tuşları ile etrafınıza bakın');
-
-        // OrbitControls'ü devre dışı bırak
-        orbitControls.enabled = false;
-
-        // Kamera pozisyonunu belirle: dış kapı varsa 3m önünde, yoksa binanın dışında 3m
-        let cameraPosition = new THREE.Vector3();
-        let cameraRotation = 0; // Y ekseni etrafında dönüş (radyan)
-
-        // Dış kapıyı bul (exterior door)
-        let exteriorDoor = null;
-        if (state.doors && state.doors.length > 0) {
-            // İlk kapıyı exterior kapı olarak kabul et (gelecekte exterior flag eklenebilir)
-            exteriorDoor = state.doors[0];
-        }
-
-        if (exteriorDoor && exteriorDoor.wall) {
-            // Kapının pozisyonunu hesapla
-            const wall = exteriorDoor.wall;
-            const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-
-            if (wallLen > 0.1) {
-                // Duvar yönü
-                const wallDx = (wall.p2.x - wall.p1.x) / wallLen;
-                const wallDz = (wall.p2.y - wall.p1.y) / wallLen;
-
-                // Duvara dik yön (dışa bakan)
-                const perpX = -wallDz;
-                const perpZ = wallDx;
-
-                // Kapının merkez pozisyonu
-                const doorPos = exteriorDoor.position || 0.5; // 0-1 arası duvar üzerinde pozisyon
-                const doorCenterX = wall.p1.x + wallDx * wallLen * doorPos;
-                const doorCenterZ = wall.p1.y + wallDz * wallLen * doorPos;
-
-                // Kamerayı kapının 3m (300cm) önüne yerleştir
-                const DOOR_OFFSET = 300;
-                cameraPosition.set(
-                    doorCenterX + perpX * DOOR_OFFSET,
-                    CAMERA_HEIGHT,
-                    doorCenterZ + perpZ * DOOR_OFFSET
-                );
-
-                // Kamerayı kapıya doğru döndür
-                cameraRotation = Math.atan2(-perpX, -perpZ);
-
-                console.log(`🚪 Dış kapı bulundu! Kapının ${DOOR_OFFSET}cm önüne konumlandırılıyor...`);
-            } else {
-                // Duvar geçersizse merkeze yerleştir
-                exteriorDoor = null;
-            }
-        }
-
-        if (!exteriorDoor) {
-            // Kapı yoksa binanın merkezini bul ve dışarıya yerleştir
-            const center = new THREE.Vector3();
-            if (sceneObjects.children.length > 0) {
-                const boundingBox = new THREE.Box3();
-                sceneObjects.children.forEach(obj => {
-                    if (obj.material !== floorMaterial) {
-                        boundingBox.expandByObject(obj);
-                    }
-                });
-                if (!boundingBox.isEmpty()) {
-                    boundingBox.getCenter(center);
-                }
-            }
-
-            // Binanın dışına 300cm (3m) mesafeye yerleştir (Z+ yönünde)
-            cameraPosition.set(center.x, CAMERA_HEIGHT, center.z + 300);
-            cameraRotation = 0; // Binaya doğru bak (Z- yönü)
-
-            console.log('📍 Dış kapı bulunamadı. Binanın dışına konumlandırılıyor...');
-        }
-
-        // Kamera pozisyonunu ve rotasyonunu ayarla
-        camera.position.copy(cameraPosition);
-        camera.rotation.set(0, cameraRotation, 0);
-
-        console.log(`📍 Kamera konumu: x=${cameraPosition.x.toFixed(0)}, y=${CAMERA_HEIGHT}, z=${cameraPosition.z.toFixed(0)}, rotation=${(cameraRotation * 180 / Math.PI).toFixed(0)}°`);
-
-        // NOT: Pointer lock kullanmıyoruz, klavye kontrolleri yeterli
-        // controls değişkenini boş bırakıyoruz (FPS modunda manuel kontrol)
-        controls = null;
-
-    } else {
-        // Orbit moda geç
-        cameraMode = 'orbit';
-        console.log('🔄 Orbit modu aktif');
-
-        // OrbitControls'ü aktifleştir
-        orbitControls.enabled = true;
-        controls = orbitControls;
-
-        // Kamera pozisyonunu izometrik görünüme geri getir
-        camera.position.set(1500, 1800, 1500);
-        orbitControls.update();
-    }
+    console.log('ℹ️ 3D modda hem mouse (döndürme/zoom) hem klavye (W/A/S/D hareket) kontrolleri her zaman aktiftir');
 }
 
-// FPS modunda mıyız kontrol fonksiyonu
+// 3D mod aktif mi kontrol fonksiyonu (klavye kontrolleri için)
 export function isFPSMode() {
-    return cameraMode === 'firstPerson';
+    // 3D mod açıksa klavye kontrolleri aktif
+    return dom.mainContainer.classList.contains('show-3d');
 }
 
 // Kamera pozisyonu ve yönü bilgisini döndür (2D gösterge için)
@@ -2117,13 +2027,13 @@ export function getCameraViewInfo() {
             z: direction.z
         },
         yaw: yaw, // Y ekseni etrafında dönüş açısı (radyan)
-        isFPS: cameraMode === 'firstPerson'
+        isFPS: dom.mainContainer.classList.contains('show-3d') // 3D modda gösterge göster
     };
 }
 
 // Kamera pozisyonunu ayarla (2D'den sürüklendiğinde)
 export function setCameraPosition(x, z) {
-    if (!camera || cameraMode !== 'firstPerson') return;
+    if (!camera) return;
 
     camera.position.x = x;
     camera.position.z = z;
@@ -2137,7 +2047,7 @@ export function setCameraPosition(x, z) {
 
 // Kamera rotasyonunu ayarla (2D'den sürüklendiğinde)
 export function setCameraRotation(yaw) {
-    if (!camera || cameraMode !== 'firstPerson') return;
+    if (!camera) return;
 
     // Mevcut pitch (x rotasyonu) koru
     const euler = new THREE.Euler(0, 0, 0, 'YXZ');
@@ -2149,5 +2059,5 @@ export function setCameraRotation(yaw) {
     camera.quaternion.setFromEuler(euler);
 }
 
-// İlk kurulum
-setupFirstPersonKeyControls();
+// İlk kurulum - Klavye kontrolleri (3D modda her zaman aktif)
+setupKeyboardCameraControls();
