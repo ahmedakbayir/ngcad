@@ -14,8 +14,8 @@ let moveForward = false, moveBackward = false, moveLeft = false, moveRight = fal
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 const CAMERA_HEIGHT = 180; // Kamera yüksekliği (cm)
-const MOVE_SPEED = 300; // Hareket hızı (cm/saniye)
-const ROTATION_SPEED = 2; // Dönüş hızı (radyan/saniye)
+const MOVE_SPEED = 100; // Hareket hızı (cm/saniye) - 1 m/s
+const ROTATION_SPEED = Math.PI / 6; // Dönüş hızı (radyan/saniye) - 30 derece/s
 // Malzeme değişkenlerini burada (dışarıda) tanımla
 let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial, stairMaterial, stairMaterialTop, ventMaterial, trimMaterial;
 // Özel duvar tipleri için malzemeler
@@ -72,6 +72,34 @@ export function init3D(canvasElement) {
 
     // PointerLockControls'ü başlat
     pointerLockControls = new PointerLockControls(camera, renderer.domElement);
+
+    // PointerLockControls'ün kendi fare handler'ını devre dışı bırak
+    // Sadece lock/unlock fonksiyonlarını kullanacağız
+    pointerLockControls.disconnect();
+
+    // Fare duyarlılığını ayarla (30 derece/saniye için)
+    // PointerLockControls'ün varsayılan duyarlılığı ~0.002, biz bunu azaltıyoruz
+    const MOUSE_SENSITIVITY = 0.001; // Yaklaşık 30 derece/saniye
+    let euler = new THREE.Euler(0, 0, 0, 'YXZ');
+
+    // Kendi fare hareketi handler'ımızı ekle
+    const onMouseMove = (event) => {
+        if (!pointerLockControls.isLocked) return;
+
+        const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+        const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+        euler.setFromQuaternion(camera.quaternion);
+        euler.y -= movementX * MOUSE_SENSITIVITY;
+        euler.x -= movementY * MOUSE_SENSITIVITY;
+
+        // Yukarı/aşağı bakış açısını sınırla
+        euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+
+        camera.quaternion.setFromEuler(euler);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
 
     // PointerLock olaylarını dinle
     // ESC tuşuna basıldığında sadece pointer lock kalkar, FPS modu aktif kalır
@@ -1606,31 +1634,29 @@ export function updateFirstPersonCamera(delta) {
     // Hareket yoksa güncellemeden çık
     if (!moveForward && !moveBackward && !moveLeft && !moveRight) return;
 
-    velocity.x -= velocity.x * 10.0 * delta;
-    velocity.z -= velocity.z * 10.0 * delta;
+    // Kameranın baktığı yönü al (yatay düzlemde - W tuşu daima baktığı yöne gider)
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0; // Yatay düzlemde tut (yukarı bakarken yukarı gitmesin)
+    forward.normalize();
 
-    // Hareket yönünü hesapla
-    direction.z = Number(moveForward) - Number(moveBackward);
-    direction.x = Number(moveRight) - Number(moveLeft);
-    direction.normalize();
+    // Sağ yönü hesapla (strafe için)
+    const right = new THREE.Vector3();
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+    right.normalize();
 
-    // İleri/geri hareket
-    if (moveForward) velocity.z -= MOVE_SPEED * delta;
-    if (moveBackward) velocity.z += MOVE_SPEED * delta;
-
-    // Sağa/sola hareket (strafe)
-    if (moveLeft) velocity.x -= MOVE_SPEED * delta;
-    if (moveRight) velocity.x += MOVE_SPEED * delta;
-
-    // Hareket vektörünü kamera yönüne göre ayarla
-    const moveX = velocity.x * Math.cos(camera.rotation.y) - velocity.z * Math.sin(camera.rotation.y);
-    const moveZ = velocity.x * Math.sin(camera.rotation.y) + velocity.z * Math.cos(camera.rotation.y);
+    // Hareket vektörünü hesapla (direkt hareket, velocity yerine)
+    const movement = new THREE.Vector3();
+    if (moveForward) movement.add(forward.clone().multiplyScalar(MOVE_SPEED * delta));
+    if (moveBackward) movement.add(forward.clone().multiplyScalar(-MOVE_SPEED * delta));
+    if (moveLeft) movement.add(right.clone().multiplyScalar(-MOVE_SPEED * delta));
+    if (moveRight) movement.add(right.clone().multiplyScalar(MOVE_SPEED * delta));
 
     // Yeni pozisyon
     const newPosition = new THREE.Vector3(
-        camera.position.x + moveX,
+        camera.position.x + movement.x,
         camera.position.y,
-        camera.position.z + moveZ
+        camera.position.z + movement.z
     );
 
     // Çarpışma kontrolü
