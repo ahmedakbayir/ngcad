@@ -1,6 +1,6 @@
 import { state, setState } from './main.js';
 import { distToSegmentSquared, getOrCreateNode, getLineIntersection, areCollinear, detectRooms } from './geometry.js';
-import { update3DScene } from './scene3d.js';
+import { update3DScene } from './scene3d-update.js'; // Değişti
 import { saveState } from './history.js';
 
 export function mergeNode(node) {

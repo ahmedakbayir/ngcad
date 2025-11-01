@@ -12,8 +12,7 @@ import { getWindowAtPoint } from './window-handler.js';
 // getVentAtPoint ve getRoomAtPoint için de benzer importlar gerekir.
 // Şimdilik, bu mantığı basitleştirmek için burada bırakıyorum.
 import { distToSegmentSquared } from './geometry.js';
-import { getCameraViewInfo } from './scene3d.js';
-
+import { getCameraViewInfo } from './scene3d-camera.js'; // Değişti
 
 /**
  * Verilen noktadaki (pos) en üstteki nesneyi bulur.

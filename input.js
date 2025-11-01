@@ -10,7 +10,9 @@ import { onPointerMove } from './pointer-move.js';
 import { onPointerUp } from './pointer-up.js';
 import { getObjectAtPoint } from './actions.js';
 // GÜNCELLENDİ: 3D tıklama için importlar eklendi
-import { update3DScene, fit3DViewToScreen, scene, camera, renderer, sceneObjects, isFPSMode } from './scene3d.js';
+import { update3DScene } from './scene3d-update.js'; // Değişti
+import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from './scene3d-core.js'; // Değişti
+import { isFPSMode } from './scene3d-camera.js'; // Değişti
 import * as THREE from "three"; // YENİ
 // --- YENİ İMPORTLAR ---
 import { fitDrawingToScreen, onWheel } from './zoom.js'; // Fit to Screen ve onWheel zoom.js'den

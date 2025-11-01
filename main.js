@@ -1,6 +1,12 @@
 // ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/main.js
 import { draw2D } from './draw2d.js';
-import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d, updateFirstPersonCamera } from './scene3d.js';
+// --- ESKİ IMPORT'U SİL ---
+// import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d, updateFirstPersonCamera } from './scene3d.js';
+// --- YENİ IMPORT'LARI EKLE ---
+import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from './scene3d-core.js';
+import { updateFirstPersonCamera } from './scene3d-camera.js';
+import { update3DScene } from './scene3d-update.js';
+// ---
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
@@ -271,6 +277,7 @@ export function resize() {
 
 let lastTime = performance.now();
 
+// --- GÜNCELLENMİŞ ANIMATE FONKSİYONU ---
 function animate() {
     requestAnimationFrame(animate);
 
@@ -288,16 +295,23 @@ function animate() {
     draw2D();
 
     if(dom.mainContainer.classList.contains('show-3d')) {
-        // First-person kamera güncellemesi
+        
+        // First-person kamera güncellemesi (HER ZAMAN ÇAĞRILIR)
+        // (Bu fonksiyon kendi içinde 'cameraMode'u kontrol edip FPS değilse hemen çıkacak)
         updateFirstPersonCamera(delta);
 
-        // PointerLockControls'un update() metodu yok, sadece OrbitControls'da var
+        // OrbitControls'u SADECE aktifse güncelle
+        // (controls3d değişkeni 'scene3d-core.js'den gelir ve
+        // toggleCameraMode tarafından 'orbitControls' veya 'null' olarak ayarlanır)
         if (controls3d && controls3d.update) {
             controls3d.update();
         }
+        
         renderer3d.render(scene3d, camera3d);
     }
 }
+// --- GÜNCELLEME SONU ---
+
 
 function assignRoomNames() {
     const unassignedRooms = state.rooms.filter(r => r.name === 'MAHAL');

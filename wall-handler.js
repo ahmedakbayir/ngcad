@@ -4,7 +4,7 @@ import { getOrCreateNode, isPointOnWallBody, snapTo15DegreeAngle, distToSegmentS
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
 import { getMinWallLength } from './actions.js'; // actions.js'ten kalanları al
-import { update3DScene } from './scene3d.js';
+import { update3DScene } from './scene3d-update.js'; // Değişti
 // drawDimension import'una gerek yok, draw2d.js içinde kullanılıyor
 
 /**

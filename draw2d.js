@@ -28,7 +28,7 @@ import {
 } from './draw-previews.js';
 
 import { drawSymmetryPreview } from './draw-previews.js';
-import { getCameraViewInfo } from './scene3d.js'; // Kamera bilgisi için
+import { getCameraViewInfo } from './scene3d-camera.js'; // Değişti
 
 // Kamera pozisyonunu ve bakış yönünü 2D sahnede göz sembolü ile göster
 function drawCameraViewIndicator(ctx2d, zoom) {

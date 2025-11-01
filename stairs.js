@@ -3,7 +3,7 @@
 
 import { state, setState, dom, WALL_HEIGHT } from './main.js'; // dom import edildi
 import { distToSegmentSquared } from './geometry.js';
-import { update3DScene } from './scene3d.js';
+import { update3DScene } from './scene3d-update.js'; // Değişti
 import { currentModifierKeys } from './input.js';
 // recalculateStepCount ve updateConnectedStairElevations bu dosyada tanımlı
 

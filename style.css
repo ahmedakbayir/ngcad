@@ -33,13 +33,13 @@ body {
 #p3d {
     flex: 0 1 0;
     display: none;
-    pointer-events: none; /* 3D canvas mouse event'lerini almaz, sadece gösterir */
+    /* pointer-events: none; */ /* <-- BU SATIRI SİLİN VEYA YORUMA ALIN */
 }
 
 .main.show-3d #p3d {
     display: block;
     flex: 1 1 50%;
-    pointer-events: none; /* FPS modunda 3D canvas sadece görsel, event'ler 2D'ye */
+    pointer-events: auto; /* <-- 'none' YERİNE 'auto' YAPIN (Tıklamaları etkinleştirir) */
 }
 
 .main.show-3d #p2d {

@@ -2,7 +2,7 @@
 import { state, setState, dom } from './main.js'; // dom eklendi
 import { saveState } from './history.js';
 import { processWalls } from './wall-processor.js';
-import { update3DScene } from './scene3d.js';      // Doğru yerden import
+import { update3DScene } from './scene3d-update.js'; // Değişti
 import { screenToWorld } from './geometry.js';
 import { isSpaceForWindow } from './window-handler.js';
 import { createColumn } from './columns.js';

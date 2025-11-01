@@ -7,7 +7,7 @@ import { createBeam } from './beams.js';
 import { createStairs } from './stairs.js';
 import { processWalls } from './wall-processor.js';
 import { saveState } from './history.js';
-import { update3DScene } from './scene3d.js';
+import { update3DScene } from './scene3d-update.js'; // Değişti
 // Gerekirse turf import'u da buraya eklenebilir
 // import * as turf from '@turf/turf'; // Eğer @turf/turf import ediliyorsa
 

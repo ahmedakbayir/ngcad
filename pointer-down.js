@@ -4,7 +4,7 @@ import { state, dom, setState, setMode } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from './geometry.js';
 import { processWalls } from './wall-processor.js';
-import { update3DScene } from './scene3d.js';
+import { update3DScene } from './scene3d-update.js'; // Değişti
 import { saveState } from './history.js';
 import { cancelLengthEdit } from './ui.js';
 import { getObjectAtPoint } from './actions.js';
