@@ -12,6 +12,7 @@ import { getWindowAtPoint } from './window-handler.js';
 // getVentAtPoint ve getRoomAtPoint için de benzer importlar gerekir.
 // Şimdilik, bu mantığı basitleştirmek için burada bırakıyorum.
 import { distToSegmentSquared } from './geometry.js';
+import { getCameraViewInfo } from './scene3d.js';
 
 
 /**
@@ -22,6 +23,37 @@ import { distToSegmentSquared } from './geometry.js';
 export function getObjectAtPoint(pos) {
     const { walls, doors, rooms, zoom } = state; // rooms eklendi
     const tolerance = 8 / zoom;
+
+    // 0. KAMERA KONTROLLERİ (En yüksek öncelik - FPS modunda)
+    const cameraInfo = getCameraViewInfo();
+    if (cameraInfo && cameraInfo.isFPS) {
+        const camX = cameraInfo.position.x;
+        const camZ = cameraInfo.position.z;
+        const yaw = cameraInfo.yaw;
+
+        // Kamera parametreleri (draw2d.js ile aynı değerler)
+        const eyeRadius = 30;
+        const viewLineLength = 80;
+
+        // Bakış yönü
+        const dirX = Math.sin(yaw);
+        const dirZ = Math.cos(yaw);
+
+        // Yön handle'ı (bakış yönü ucundaki nokta)
+        const dirHandleX = camX + dirX * viewLineLength;
+        const dirHandleZ = camZ + dirZ * viewLineLength;
+        const distToDirection = Math.hypot(pos.x - dirHandleX, pos.y - dirHandleZ);
+
+        if (distToDirection < tolerance * 2) {
+            return { type: "camera", handle: "direction", object: cameraInfo };
+        }
+
+        // Pozisyon handle'ı (göz merkezi)
+        const distToCamera = Math.hypot(pos.x - camX, pos.y - camZ);
+        if (distToCamera < eyeRadius) {
+            return { type: "camera", handle: "position", object: cameraInfo };
+        }
+    }
 
     // 1. Handle Kontrolleri (Öncelikli)
     // 1.0 Arc Duvar Kontrol Noktaları (En yüksek öncelik)

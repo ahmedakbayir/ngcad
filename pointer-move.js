@@ -2,7 +2,7 @@ import { state, dom, setState } from './main.js';
 import { getSmartSnapPoint } from './snap.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
 import { positionLengthInput } from './ui.js';
-import { update3DScene } from './scene3d.js';
+import { update3DScene, setCameraPosition, setCameraRotation } from './scene3d.js';
 import { processWalls } from './wall-processor.js';
 import { currentModifierKeys } from './input.js';
 import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from './columns.js';
@@ -187,6 +187,21 @@ export function onPointerMove(e) {
     if (state.isDragging && state.selectedObject) {
         // Nesne tipine göre ilgili onPointerMove fonksiyonunu çağır
         switch (state.selectedObject.type) {
+            case 'camera':
+                // Kamera pozisyon veya yön sürükleme
+                if (state.cameraHandle === 'position') {
+                    // Kamera pozisyonunu sürükle (XZ düzleminde)
+                    const newX = unsnappedPos.x + state.dragOffset.x;
+                    const newZ = unsnappedPos.y + state.dragOffset.y;
+                    setCameraPosition(newX, newZ);
+                } else if (state.cameraHandle === 'direction') {
+                    // Kamera yönünü döndür
+                    const dx = unsnappedPos.x - state.cameraCenter.x;
+                    const dz = unsnappedPos.y - state.cameraCenter.y;
+                    const newYaw = Math.atan2(dx, dz);
+                    setCameraRotation(newYaw);
+                }
+                break;
             case 'arcControl':
                 // Arc kontrol noktası sürükleme
                 const wall = state.selectedObject.object;

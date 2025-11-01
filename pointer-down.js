@@ -87,6 +87,27 @@ export function onPointerDown(e) {
                  // Sürükleme için başlangıç bilgilerini nesne tipine göre al
                  let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
                  switch (clickedObject.type) {
+                     case 'camera':
+                         // Kamera pozisyon veya yön sürükleme
+                         const camInfo = clickedObject.object;
+                         if (clickedObject.handle === 'position') {
+                             dragInfo = {
+                                 startPointForDragging: { x: camInfo.position.x, y: camInfo.position.z },
+                                 dragOffset: { x: camInfo.position.x - pos.x, y: camInfo.position.z - pos.y },
+                                 additionalState: { cameraHandle: 'position' }
+                             };
+                         } else if (clickedObject.handle === 'direction') {
+                             dragInfo = {
+                                 startPointForDragging: pos,
+                                 dragOffset: { x: 0, y: 0 },
+                                 additionalState: {
+                                     cameraHandle: 'direction',
+                                     initialYaw: camInfo.yaw,
+                                     cameraCenter: { x: camInfo.position.x, y: camInfo.position.z }
+                                 }
+                             };
+                         }
+                         break;
                      case 'arcControl':
                          // Arc kontrol noktası sürükleme
                          dragInfo = {

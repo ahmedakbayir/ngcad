@@ -81,6 +81,26 @@ function drawCameraViewIndicator(ctx2d, zoom) {
     ctx2d.stroke();
     ctx2d.setLineDash([]);
 
+    // Yön handle'ı (aydınlatma sembolü - ampul) - sürüklenebilir
+    const handleX = camX + dirX * viewLineLength;
+    const handleZ = camZ + dirZ * viewLineLength;
+    const handleRadius = 12; // Ampul çapı
+
+    // Ampul dış çemberi
+    ctx2d.beginPath();
+    ctx2d.arc(handleX, handleZ, handleRadius, 0, Math.PI * 2);
+    ctx2d.fillStyle = '#FFD700'; // Altın sarısı
+    ctx2d.fill();
+    ctx2d.strokeStyle = '#FF8C00'; // Koyu turuncu
+    ctx2d.lineWidth = 2 / zoom;
+    ctx2d.stroke();
+
+    // Ampul içi ışık efekti
+    ctx2d.beginPath();
+    ctx2d.arc(handleX, handleZ, handleRadius * 0.6, 0, Math.PI * 2);
+    ctx2d.fillStyle = '#FFF8DC'; // Açık sarı (ışık)
+    ctx2d.fill();
+
     // Görüş alanı (FOV) üçgeni
     const leftAngle = yaw - fovAngle / 2;
     const rightAngle = yaw + fovAngle / 2;
@@ -95,7 +115,7 @@ function drawCameraViewIndicator(ctx2d, zoom) {
     ctx2d.lineTo(camX + leftX, camZ + leftZ);
     ctx2d.lineTo(camX + rightX, camZ + rightZ);
     ctx2d.closePath();
-    ctx2d.fillStyle = 'rgba(255, 165, 0, 0.1)'; // Çok hafif turuncu
+    ctx2d.fillStyle = 'rgba(255, 215, 0, 0.15)'; // Hafif altın sarısı
     ctx2d.fill();
     ctx2d.strokeStyle = 'rgba(255, 165, 0, 0.5)'; // Yarı saydam turuncu
     ctx2d.lineWidth = 2 / zoom;
