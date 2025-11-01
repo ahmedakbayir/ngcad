@@ -607,24 +607,14 @@ export function setupUIListeners() {
 
     // FPS KAMERA BUTONU LISTENER'I
     dom.bFirstPerson.addEventListener('click', () => {
-        const wasActive = dom.bFirstPerson.classList.contains('active');
-
         // Butonu toggle et
         dom.bFirstPerson.classList.toggle('active');
 
         // Kamera modunu değiştir
         toggleCameraMode();
 
-        // Eğer FPS moduna geçildiyse (buton aktif olduysa), pointer lock'u başlat
-        if (!wasActive && pointerLockControls) {
-            // Buton tıklama event'i içinde olduğumuz için direkt lock() çağrısı güvenli
-            try {
-                pointerLockControls.lock();
-            } catch (e) {
-                console.warn('Pointer lock başlatılamadı:', e);
-                console.info('İpucu: 3D sahneye tıklayarak FPS modunu aktif edebilirsiniz');
-            }
-        }
+        // NOT: Pointer lock kullanmıyoruz - klavye kontrolleri yeterli
+        // Mouse serbest kalıyor, kullanıcı FPS modunda bile mouse ile UI'ya erişebilir
     });
 }
 // --- setupUIListeners Sonu ---

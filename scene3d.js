@@ -76,45 +76,14 @@ export function init3D(canvasElement) {
     orbitControls.zoomSpeed = 1;
     orbitControls.update();
 
-    // PointerLockControls'ü başlat
+    // PointerLockControls'ü başlat (sadece referans için, mouse kontrolü kullanmayacağız)
     pointerLockControls = new PointerLockControls(camera, renderer.domElement);
+    pointerLockControls.disconnect(); // Mouse kontrolünü tamamen devre dışı bırak
 
-    // PointerLockControls'ün kendi fare handler'ını devre dışı bırak
-    // Sadece lock/unlock fonksiyonlarını kullanacağız
-    pointerLockControls.disconnect();
-
-    // Fare duyarlılığını ayarla (30 derece/saniye için)
-    // PointerLockControls'ün varsayılan duyarlılığı ~0.002, biz bunu azaltıyoruz
-    const MOUSE_SENSITIVITY = 0.001; // Yaklaşık 30 derece/saniye
-    let euler = new THREE.Euler(0, 0, 0, 'YXZ');
-
-    // Kendi fare hareketi handler'ımızı ekle
-    const onMouseMove = (event) => {
-        if (!pointerLockControls.isLocked) return;
-
-        const movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
-        const movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
-
-        euler.setFromQuaternion(camera.quaternion);
-        euler.y -= movementX * MOUSE_SENSITIVITY;
-        euler.x -= movementY * MOUSE_SENSITIVITY;
-
-        // Yukarı/aşağı bakış açısını sınırla
-        euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
-
-        camera.quaternion.setFromEuler(euler);
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-
-    // PointerLock olaylarını dinle
-    // ESC tuşuna basıldığında sadece pointer lock kalkar, FPS modu aktif kalır
-    // Kullanıcı 3D sahneye tekrar tıklarsa pointer lock tekrar aktif olur
-    renderer.domElement.addEventListener('click', () => {
-        if (cameraMode === 'firstPerson' && !pointerLockControls.isLocked) {
-            pointerLockControls.lock();
-        }
-    });
+    // NOT: Mouse ile bakış kontrolü kaldırıldı - sadece klavye kontrolleri kullanılıyor
+    // Yaw (sağ/sol): Sol/Sağ Ok Tuşları
+    // Pitch (yukarı/aşağı): CTRL + Yukarı/Aşağı Ok Tuşları
+    // Strafe (yan hareket): CTRL + Sol/Sağ Ok Tuşları veya A/D tuşları
 
     // Varsayılan olarak OrbitControls aktif
     controls = orbitControls;
@@ -1487,9 +1456,10 @@ function setupFirstPersonKeyControls() {
     const onKeyDown = (event) => {
         if (cameraMode !== 'firstPerson') return;
 
-        // ENTER tuşu ile kapı açma
-        if (event.code === 'Enter') {
+        // SPACE tuşu ile kapı açma
+        if (event.code === 'Space') {
             openDoorInFront();
+            event.preventDefault(); // Sayfanın scroll olmasını engelle
             return;
         }
 
@@ -1632,7 +1602,7 @@ function setupFirstPersonKeyControls() {
     document.addEventListener('keyup', onKeyUp);
 }
 
-// ENTER tuşu ile önündeki kapıyı açma
+// SPACE tuşu ile önündeki kapıyı açma
 function openDoorInFront() {
     // Raycast ile kameranın baktığı yönde kapı olup olmadığını kontrol et
     const raycaster = new THREE.Raycaster();
@@ -1895,7 +1865,7 @@ export function toggleCameraMode() {
     if (cameraMode === 'orbit') {
         // First-person moda geç
         cameraMode = 'firstPerson';
-        console.log('🎮 FPS MODU AKTİF - W/A/S/D ile hareket edin, fare ile etrafınıza bakın');
+        console.log('🎮 FPS MODU AKTİF - W/A/S/D ile hareket edin, Ok tuşları ile etrafınıza bakın');
 
         // OrbitControls'ü devre dışı bırak
         orbitControls.enabled = false;
@@ -1976,19 +1946,14 @@ export function toggleCameraMode() {
 
         console.log(`📍 Kamera konumu: x=${cameraPosition.x.toFixed(0)}, y=${CAMERA_HEIGHT}, z=${cameraPosition.z.toFixed(0)}, rotation=${(cameraRotation * 180 / Math.PI).toFixed(0)}°`);
 
-        // PointerLockControls'ü kontrol olarak ayarla
-        // Lock işlemi ui.js'de buton tıklama event'i içinde yapılacak
-        controls = pointerLockControls;
+        // NOT: Pointer lock kullanmıyoruz, klavye kontrolleri yeterli
+        // controls değişkenini boş bırakıyoruz (FPS modunda manuel kontrol)
+        controls = null;
 
     } else {
         // Orbit moda geç
         cameraMode = 'orbit';
         console.log('🔄 Orbit modu aktif');
-
-        // PointerLockControls'ü devre dışı bırak
-        if (pointerLockControls.isLocked) {
-            pointerLockControls.unlock();
-        }
 
         // OrbitControls'ü aktifleştir
         orbitControls.enabled = true;
