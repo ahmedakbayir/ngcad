@@ -344,7 +344,9 @@ function onKeyDown(e) {
     // F tuşu ile 3D fullscreen toggle
     if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         if (dom.mainContainer.classList.contains('show-3d')) {
+            e.preventDefault();
             toggle3DFullscreen();
+            console.log('🖥️ 3D Fullscreen toggled:', dom.mainContainer.classList.contains('fullscreen-3d'));
         }
     }
 

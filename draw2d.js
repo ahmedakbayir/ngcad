@@ -59,9 +59,10 @@ function drawCameraViewIndicator(ctx2d, zoom) {
     ctx2d.lineWidth = 3 / zoom;
     ctx2d.stroke();
 
-    // Bakış yönü hesapla (yaw açısı Z ekseni referanslı)
+    // Bakış yönü hesapla (yaw açısı Y ekseni etrafında dönüş)
+    // Three.js koordinat sisteminde: yaw=0 → -Z yönü, yaw=π → +Z yönü
     const dirX = Math.sin(yaw);
-    const dirZ = Math.cos(yaw);
+    const dirZ = -Math.cos(yaw); // Negatif çünkü varsayılan bakış -Z yönünde
 
     // Göz bebeği (bakış yönünde kaydırılmış)
     const pupilOffsetX = dirX * (eyeRadius - pupilRadius) * 0.5;
@@ -106,9 +107,9 @@ function drawCameraViewIndicator(ctx2d, zoom) {
     const rightAngle = yaw + fovAngle / 2;
 
     const leftX = Math.sin(leftAngle) * fovLength;
-    const leftZ = Math.cos(leftAngle) * fovLength;
+    const leftZ = -Math.cos(leftAngle) * fovLength; // Negatif cos kullan
     const rightX = Math.sin(rightAngle) * fovLength;
-    const rightZ = Math.cos(rightAngle) * fovLength;
+    const rightZ = -Math.cos(rightAngle) * fovLength; // Negatif cos kullan
 
     ctx2d.beginPath();
     ctx2d.moveTo(camX, camZ);
