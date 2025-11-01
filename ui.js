@@ -2,7 +2,7 @@
 // Son Güncelleme: Sahanlık kotu (125-135) mantığı confirmStairChange ve ilgili listener'larda düzeltildi.
 import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT } from './main.js';
 import { saveState } from './history.js';
-import { update3DScene, toggleCameraMode, pointerLockControls } from './scene3d.js';
+import { update3DScene, toggleCameraMode } from './scene3d.js';
 import { applyStretchModification } from './geometry.js';
 import { processWalls } from './wall-processor.js';
 import { worldToScreen } from './geometry.js';

@@ -267,8 +267,8 @@ export function init3D(canvasElement) {
 
 }
 
-// GÜNCELLENDİ: 'sceneObjects' ve 'pointerLockControls' export'a eklendi
-export { scene, camera, renderer, controls, sceneObjects, pointerLockControls };
+// GÜNCELLENDİ: 'sceneObjects' export'a eklendi
+export { scene, camera, renderer, controls, sceneObjects };
 
 // --- Duvar Segmenti Oluşturma (Duvar Tipine Göre) ---
 // GÜNCELLENDİ: Korkuluk ve şapka uzamaları düzeltildi
