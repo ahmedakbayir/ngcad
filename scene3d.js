@@ -12,11 +12,15 @@ let orbitControls, pointerLockControls;
 let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let rotateLeft = false, rotateRight = false;
+let moveUp = false, moveDown = false; // SHIFT + Up/Down için
+let pitchUp = false, pitchDown = false; // CTRL + Up/Down için
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 const CAMERA_HEIGHT = 180; // Kamera yüksekliği (cm)
 const MOVE_SPEED = 100; // Hareket hızı (cm/saniye) - 1 m/s
 const ROTATION_SPEED = Math.PI / 6; // Dönüş hızı (radyan/saniye) - 30 derece/s
+const PITCH_SPEED = Math.PI / 6; // Pitch hızı (radyan/saniye) - 30 derece/s
+const VERTICAL_SPEED = 100; // Dikey hareket hızı (cm/saniye)
 // Malzeme değişkenlerini burada (dışarıda) tanımla
 let sceneObjects, wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial, mullionMaterial, sillMaterial, handleMaterial, floorMaterial, stairMaterial, stairMaterialTop, ventMaterial, trimMaterial;
 // Özel duvar tipleri için malzemeler
@@ -1482,6 +1486,51 @@ function setupFirstPersonKeyControls() {
     const onKeyDown = (event) => {
         if (cameraMode !== 'firstPerson') return;
 
+        // ENTER tuşu ile kapı açma
+        if (event.code === 'Enter') {
+            openDoorInFront();
+            return;
+        }
+
+        // CTRL + Arrow keys: Strafe (sağ/sol) ve pitch (yukarı/aşağı bakma)
+        if (event.ctrlKey) {
+            switch (event.code) {
+                case 'ArrowLeft':
+                    moveLeft = true;
+                    event.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    moveRight = true;
+                    event.preventDefault();
+                    break;
+                case 'ArrowUp':
+                    pitchUp = true;
+                    event.preventDefault();
+                    break;
+                case 'ArrowDown':
+                    pitchDown = true;
+                    event.preventDefault();
+                    break;
+            }
+            return;
+        }
+
+        // SHIFT + Arrow keys: Vertical hareket (yukarı/aşağı)
+        if (event.shiftKey) {
+            switch (event.code) {
+                case 'ArrowUp':
+                    moveUp = true;
+                    event.preventDefault();
+                    break;
+                case 'ArrowDown':
+                    moveDown = true;
+                    event.preventDefault();
+                    break;
+            }
+            return;
+        }
+
+        // Normal tuşlar (modifier olmadan)
         switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
@@ -1507,20 +1556,45 @@ function setupFirstPersonKeyControls() {
     };
 
     const onKeyUp = (event) => {
+        // Tüm modlarda çalışsın (FPS modundan çıkarken flag'ler temizlensin)
         switch (event.code) {
             case 'ArrowUp':
+                if (event.ctrlKey) {
+                    pitchUp = false;
+                } else if (event.shiftKey) {
+                    moveUp = false;
+                } else {
+                    moveForward = false;
+                }
+                break;
+            case 'ArrowDown':
+                if (event.ctrlKey) {
+                    pitchDown = false;
+                } else if (event.shiftKey) {
+                    moveDown = false;
+                } else {
+                    moveBackward = false;
+                }
+                break;
+            case 'ArrowLeft':
+                if (event.ctrlKey) {
+                    moveLeft = false;
+                } else {
+                    rotateLeft = false;
+                }
+                break;
+            case 'ArrowRight':
+                if (event.ctrlKey) {
+                    moveRight = false;
+                } else {
+                    rotateRight = false;
+                }
+                break;
             case 'KeyW':
                 moveForward = false;
                 break;
-            case 'ArrowDown':
             case 'KeyS':
                 moveBackward = false;
-                break;
-            case 'ArrowLeft':
-                rotateLeft = false;
-                break;
-            case 'ArrowRight':
-                rotateRight = false;
                 break;
             case 'KeyA':
                 moveLeft = false;
@@ -1533,6 +1607,69 @@ function setupFirstPersonKeyControls() {
 
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
+}
+
+// ENTER tuşu ile önündeki kapıyı açma
+function openDoorInFront() {
+    // Raycast ile kameranın baktığı yönde kapı olup olmadığını kontrol et
+    const raycaster = new THREE.Raycaster();
+    const direction = new THREE.Vector3();
+    camera.getWorldDirection(direction);
+
+    raycaster.set(camera.position, direction);
+
+    // Maksimum 300cm (3m) mesafede kapı ara
+    const intersects = raycaster.intersectObjects(sceneObjects.children, true);
+
+    for (const intersect of intersects) {
+        if (intersect.distance > 300) break; // 3m'den uzaksa devam etme
+
+        // Kapı objesi mi kontrol et
+        let doorGroup = intersect.object;
+        while (doorGroup && !doorGroup.userData.door) {
+            doorGroup = doorGroup.parent;
+        }
+
+        if (doorGroup && doorGroup.userData.door) {
+            const door = doorGroup.userData.door;
+            console.log(`🚪 Kapı bulundu! ${intersect.distance.toFixed(0)}cm mesafede`);
+
+            // Kapı panelini bul
+            const doorPanel = doorGroup.children.find(child =>
+                child.name === 'doorPanel' || child.userData.isDoorPanel
+            );
+
+            if (!doorPanel) {
+                console.warn('⚠️ Kapı paneli bulunamadı');
+                return;
+            }
+
+            // Kapı açık mı kapalı mı kontrol et
+            const isOpen = doorGroup.userData.isOpen || false;
+
+            if (!isOpen) {
+                // Kapıyı aç (geriye doğru 90 derece)
+                console.log('🔓 Kapı açılıyor...');
+                new TWEEN.Tween(doorPanel.rotation)
+                    .to({ y: -Math.PI / 2 }, 1000)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .start();
+                doorGroup.userData.isOpen = true;
+            } else {
+                // Kapıyı kapat
+                console.log('🔒 Kapı kapanıyor...');
+                new TWEEN.Tween(doorPanel.rotation)
+                    .to({ y: 0 }, 1000)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .start();
+                doorGroup.userData.isOpen = false;
+            }
+
+            return; // İlk kapıyı bulduktan sonra çık
+        }
+    }
+
+    console.log('❌ Önünüzde kapı bulunamadı (3m mesafe içinde)');
 }
 
 // Çarpışma tespiti - Duvarlarla çarpışma kontrolü
@@ -1640,19 +1777,49 @@ export function updateFirstPersonCamera(delta) {
     // Sadece FPS modundayken çalış (pointer lock şart değil!)
     if (cameraMode !== 'firstPerson') return;
 
-    // Döndürme kontrolü (ok tuşları)
-    if (rotateLeft || rotateRight) {
-        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-        euler.setFromQuaternion(camera.quaternion);
+    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    euler.setFromQuaternion(camera.quaternion);
+    let rotationChanged = false;
 
+    // Döndürme kontrolü (ok tuşları - yaw/yatay dönme)
+    if (rotateLeft || rotateRight) {
         if (rotateLeft) {
             euler.y += ROTATION_SPEED * delta;
         }
         if (rotateRight) {
             euler.y -= ROTATION_SPEED * delta;
         }
+        rotationChanged = true;
+    }
 
+    // Pitch kontrolü (CTRL + Up/Down - yukarı/aşağı bakma)
+    if (pitchUp || pitchDown) {
+        if (pitchUp) {
+            euler.x += PITCH_SPEED * delta;
+        }
+        if (pitchDown) {
+            euler.x -= PITCH_SPEED * delta;
+        }
+        // Yukarı/aşağı bakış açısını sınırla (-90° ile +90° arası)
+        euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+        rotationChanged = true;
+    }
+
+    // Rotation değişikliklerini uygula
+    if (rotationChanged) {
         camera.quaternion.setFromEuler(euler);
+    }
+
+    // Vertical hareket (SHIFT + Up/Down - kamerayı yükseltme/alçaltma)
+    if (moveUp || moveDown) {
+        if (moveUp) {
+            camera.position.y += VERTICAL_SPEED * delta;
+        }
+        if (moveDown) {
+            camera.position.y -= VERTICAL_SPEED * delta;
+        }
+        // Minimum yükseklik kontrolü (yere batmasın)
+        camera.position.y = Math.max(10, camera.position.y);
     }
 
     // Hareket yoksa güncellemeden çık
@@ -1688,9 +1855,11 @@ export function updateFirstPersonCamera(delta) {
         camera.position.x = newPosition.x;
         camera.position.z = newPosition.z;
 
-        // Merdiven kontrolü ve yükseklik ayarlama
-        const elevation = checkStairElevation(camera.position);
-        camera.position.y = CAMERA_HEIGHT + elevation;
+        // Merdiven kontrolü ve yükseklik ayarlama (sadece normal modda, SHIFT ile değilse)
+        if (!moveUp && !moveDown) {
+            const elevation = checkStairElevation(camera.position);
+            camera.position.y = CAMERA_HEIGHT + elevation;
+        }
 
         // Debug: Hareket bilgisi (opsiyonel - performans için kapatılabilir)
         // console.log(`🚶 Pozisyon: x=${camera.position.x.toFixed(0)}, z=${camera.position.z.toFixed(0)}`);
@@ -1707,24 +1876,81 @@ export function toggleCameraMode() {
         // OrbitControls'ü devre dışı bırak
         orbitControls.enabled = false;
 
-        // Kamera pozisyonunu ayarla (sahnenin merkezine, 180cm yüksekliğe)
-        const center = new THREE.Vector3();
-        if (sceneObjects.children.length > 0) {
-            const boundingBox = new THREE.Box3();
-            sceneObjects.children.forEach(obj => {
-                if (obj.material !== floorMaterial) {
-                    boundingBox.expandByObject(obj);
-                }
-            });
-            if (!boundingBox.isEmpty()) {
-                boundingBox.getCenter(center);
+        // Kamera pozisyonunu belirle: dış kapı varsa 3m önünde, yoksa binanın dışında 3m
+        let cameraPosition = new THREE.Vector3();
+        let cameraRotation = 0; // Y ekseni etrafında dönüş (radyan)
+
+        // Dış kapıyı bul (exterior door)
+        let exteriorDoor = null;
+        if (state.doors && state.doors.length > 0) {
+            // İlk kapıyı exterior kapı olarak kabul et (gelecekte exterior flag eklenebilir)
+            exteriorDoor = state.doors[0];
+        }
+
+        if (exteriorDoor && exteriorDoor.wall) {
+            // Kapının pozisyonunu hesapla
+            const wall = exteriorDoor.wall;
+            const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+
+            if (wallLen > 0.1) {
+                // Duvar yönü
+                const wallDx = (wall.p2.x - wall.p1.x) / wallLen;
+                const wallDz = (wall.p2.y - wall.p1.y) / wallLen;
+
+                // Duvara dik yön (dışa bakan)
+                const perpX = -wallDz;
+                const perpZ = wallDx;
+
+                // Kapının merkez pozisyonu
+                const doorPos = exteriorDoor.position || 0.5; // 0-1 arası duvar üzerinde pozisyon
+                const doorCenterX = wall.p1.x + wallDx * wallLen * doorPos;
+                const doorCenterZ = wall.p1.y + wallDz * wallLen * doorPos;
+
+                // Kamerayı kapının 3m (300cm) önüne yerleştir
+                const DOOR_OFFSET = 300;
+                cameraPosition.set(
+                    doorCenterX + perpX * DOOR_OFFSET,
+                    CAMERA_HEIGHT,
+                    doorCenterZ + perpZ * DOOR_OFFSET
+                );
+
+                // Kamerayı kapıya doğru döndür
+                cameraRotation = Math.atan2(-perpX, -perpZ);
+
+                console.log(`🚪 Dış kapı bulundu! Kapının ${DOOR_OFFSET}cm önüne konumlandırılıyor...`);
+            } else {
+                // Duvar geçersizse merkeze yerleştir
+                exteriorDoor = null;
             }
         }
 
-        camera.position.set(center.x, CAMERA_HEIGHT, center.z + 200);
-        camera.rotation.set(0, 0, 0);
+        if (!exteriorDoor) {
+            // Kapı yoksa binanın merkezini bul ve dışarıya yerleştir
+            const center = new THREE.Vector3();
+            if (sceneObjects.children.length > 0) {
+                const boundingBox = new THREE.Box3();
+                sceneObjects.children.forEach(obj => {
+                    if (obj.material !== floorMaterial) {
+                        boundingBox.expandByObject(obj);
+                    }
+                });
+                if (!boundingBox.isEmpty()) {
+                    boundingBox.getCenter(center);
+                }
+            }
 
-        console.log(`📍 Kamera konumu: x=${center.x.toFixed(0)}, y=${CAMERA_HEIGHT}, z=${(center.z + 200).toFixed(0)}`);
+            // Binanın dışına 300cm (3m) mesafeye yerleştir (Z+ yönünde)
+            cameraPosition.set(center.x, CAMERA_HEIGHT, center.z + 300);
+            cameraRotation = 0; // Binaya doğru bak (Z- yönü)
+
+            console.log('📍 Dış kapı bulunamadı. Binanın dışına konumlandırılıyor...');
+        }
+
+        // Kamera pozisyonunu ve rotasyonunu ayarla
+        camera.position.copy(cameraPosition);
+        camera.rotation.set(0, cameraRotation, 0);
+
+        console.log(`📍 Kamera konumu: x=${cameraPosition.x.toFixed(0)}, y=${CAMERA_HEIGHT}, z=${cameraPosition.z.toFixed(0)}, rotation=${(cameraRotation * 180 / Math.PI).toFixed(0)}°`);
 
         // PointerLockControls'ü kontrol olarak ayarla
         // Lock işlemi ui.js'de buton tıklama event'i içinde yapılacak
