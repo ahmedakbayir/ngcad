@@ -46,6 +46,29 @@ body {
     flex: 1 1 50%;
 }
 
+/* 3D Fullscreen Mode - 2D becomes mini-map */
+.main.fullscreen-3d #p3d {
+    flex: 1 1 100% !important;
+    pointer-events: auto !important; /* Fullscreen modda 3D interaktif */
+}
+
+.main.fullscreen-3d #p2d {
+    position: fixed !important;
+    top: 10px;
+    right: 10px;
+    width: calc(100vw / 5);
+    height: calc(100vh / 3);
+    z-index: 1000;
+    border: 3px solid #6495ED;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    flex: none !important;
+}
+
+.main.fullscreen-3d #splitter {
+    display: none !important;
+}
+
 #splitter {
     flex: 0 0 10px;
     cursor: col-resize;

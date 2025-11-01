@@ -150,6 +150,16 @@ export function toggle3DView() {
     }, 10);
 }
 
+// 3D sahneyi %100 genişlet / daralt
+export function toggle3DFullscreen() {
+    dom.mainContainer.classList.toggle('fullscreen-3d');
+
+    setTimeout(() => {
+        resize();
+        update3DScene();
+    }, 10);
+}
+
 // Splitter fonksiyonları
 let isResizing = false;
 function onSplitterPointerDown(e) { isResizing = true; dom.p2d.style.pointerEvents = 'none'; dom.p3d.style.pointerEvents = 'none'; document.body.style.cursor = 'col-resize'; window.addEventListener('pointermove', onSplitterPointerMove); window.addEventListener('pointerup', onSplitterPointerUp); }
