@@ -28,6 +28,81 @@ import {
 } from './draw-previews.js';
 
 import { drawSymmetryPreview } from './draw-previews.js';
+import { getCameraViewInfo } from './scene3d.js'; // Kamera bilgisi için
+
+// Kamera pozisyonunu ve bakış yönünü 2D sahnede göz sembolü ile göster
+function drawCameraViewIndicator(ctx2d, zoom) {
+    const cameraInfo = getCameraViewInfo();
+    if (!cameraInfo || !cameraInfo.isFPS) return; // Sadece FPS modunda göster
+
+    const { position, yaw } = cameraInfo;
+
+    // Kamera pozisyonu (XZ düzlemi - 2D planda)
+    const camX = position.x;
+    const camZ = position.z;
+
+    // Göz sembolü parametreleri
+    const eyeRadius = 30; // Göz dış çapı
+    const pupilRadius = 12; // Göz bebeği çapı
+    const viewLineLength = 80; // Bakış yönü çizgisi uzunluğu
+    const fovAngle = Math.PI / 3; // 60 derece görüş alanı
+    const fovLength = 120; // FOV üçgeninin uzunluğu
+
+    ctx2d.save();
+
+    // Göz dış çemberi
+    ctx2d.beginPath();
+    ctx2d.arc(camX, camZ, eyeRadius, 0, Math.PI * 2);
+    ctx2d.fillStyle = 'rgba(100, 149, 237, 0.3)'; // Yarı saydam mavi
+    ctx2d.fill();
+    ctx2d.strokeStyle = '#6495ED'; // Cornflower blue
+    ctx2d.lineWidth = 3 / zoom;
+    ctx2d.stroke();
+
+    // Bakış yönü hesapla (yaw açısı Z ekseni referanslı)
+    const dirX = Math.sin(yaw);
+    const dirZ = Math.cos(yaw);
+
+    // Göz bebeği (bakış yönünde kaydırılmış)
+    const pupilOffsetX = dirX * (eyeRadius - pupilRadius) * 0.5;
+    const pupilOffsetZ = dirZ * (eyeRadius - pupilRadius) * 0.5;
+    ctx2d.beginPath();
+    ctx2d.arc(camX + pupilOffsetX, camZ + pupilOffsetZ, pupilRadius, 0, Math.PI * 2);
+    ctx2d.fillStyle = '#1E3A8A'; // Koyu mavi
+    ctx2d.fill();
+
+    // Bakış yönü çizgisi
+    ctx2d.beginPath();
+    ctx2d.moveTo(camX, camZ);
+    ctx2d.lineTo(camX + dirX * viewLineLength, camZ + dirZ * viewLineLength);
+    ctx2d.strokeStyle = '#FFA500'; // Turuncu
+    ctx2d.lineWidth = 4 / zoom;
+    ctx2d.setLineDash([10 / zoom, 5 / zoom]);
+    ctx2d.stroke();
+    ctx2d.setLineDash([]);
+
+    // Görüş alanı (FOV) üçgeni
+    const leftAngle = yaw - fovAngle / 2;
+    const rightAngle = yaw + fovAngle / 2;
+
+    const leftX = Math.sin(leftAngle) * fovLength;
+    const leftZ = Math.cos(leftAngle) * fovLength;
+    const rightX = Math.sin(rightAngle) * fovLength;
+    const rightZ = Math.cos(rightAngle) * fovLength;
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(camX, camZ);
+    ctx2d.lineTo(camX + leftX, camZ + leftZ);
+    ctx2d.lineTo(camX + rightX, camZ + rightZ);
+    ctx2d.closePath();
+    ctx2d.fillStyle = 'rgba(255, 165, 0, 0.1)'; // Çok hafif turuncu
+    ctx2d.fill();
+    ctx2d.strokeStyle = 'rgba(255, 165, 0, 0.5)'; // Yarı saydam turuncu
+    ctx2d.lineWidth = 2 / zoom;
+    ctx2d.stroke();
+
+    ctx2d.restore();
+}
 
 function getStairStartPoint(stair) {
     if (!stair || !stair.center) return null;
@@ -390,6 +465,9 @@ export function draw2D() {
             }
         });
     }
-       
+
+    // 12. Kamera Görünüm Göstergesi (FPS modunda)
+    drawCameraViewIndicator(ctx2d, zoom);
+
     ctx2d.restore();
 }
