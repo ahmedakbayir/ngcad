@@ -11,6 +11,7 @@ let scene, camera, renderer, controls;
 let orbitControls, pointerLockControls;
 let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let rotateLeft = false, rotateRight = false;
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 const CAMERA_HEIGHT = 180; // Kamera yüksekliği (cm)
@@ -55,7 +56,7 @@ export function init3D(canvasElement) {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1e1f20);
 
-    camera = new THREE.PerspectiveCamera(60, 1, 0.1, 10000);
+    camera = new THREE.PerspectiveCamera(75, 1, 0.1, 10000);
     camera.position.set(1500, 1800, 1500);
 
     renderer = new THREE.WebGLRenderer({
@@ -1491,10 +1492,14 @@ function setupFirstPersonKeyControls() {
                 moveBackward = true;
                 break;
             case 'ArrowLeft':
+                rotateLeft = true;
+                break;
+            case 'ArrowRight':
+                rotateRight = true;
+                break;
             case 'KeyA':
                 moveLeft = true;
                 break;
-            case 'ArrowRight':
             case 'KeyD':
                 moveRight = true;
                 break;
@@ -1512,10 +1517,14 @@ function setupFirstPersonKeyControls() {
                 moveBackward = false;
                 break;
             case 'ArrowLeft':
+                rotateLeft = false;
+                break;
+            case 'ArrowRight':
+                rotateRight = false;
+                break;
             case 'KeyA':
                 moveLeft = false;
                 break;
-            case 'ArrowRight':
             case 'KeyD':
                 moveRight = false;
                 break;
@@ -1630,6 +1639,21 @@ function checkStairElevation(position) {
 export function updateFirstPersonCamera(delta) {
     // Sadece FPS modundayken çalış (pointer lock şart değil!)
     if (cameraMode !== 'firstPerson') return;
+
+    // Döndürme kontrolü (ok tuşları)
+    if (rotateLeft || rotateRight) {
+        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        euler.setFromQuaternion(camera.quaternion);
+
+        if (rotateLeft) {
+            euler.y += ROTATION_SPEED * delta;
+        }
+        if (rotateRight) {
+            euler.y -= ROTATION_SPEED * delta;
+        }
+
+        camera.quaternion.setFromEuler(euler);
+    }
 
     // Hareket yoksa güncellemeden çık
     if (!moveForward && !moveBackward && !moveLeft && !moveRight) return;
