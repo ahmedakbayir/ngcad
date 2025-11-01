@@ -163,7 +163,33 @@ export function toggle3DFullscreen() {
 // Splitter fonksiyonları
 let isResizing = false;
 function onSplitterPointerDown(e) { isResizing = true; dom.p2d.style.pointerEvents = 'none'; dom.p3d.style.pointerEvents = 'none'; document.body.style.cursor = 'col-resize'; window.addEventListener('pointermove', onSplitterPointerMove); window.addEventListener('pointerup', onSplitterPointerUp); }
-function onSplitterPointerMove(e) { if (!isResizing) return; const mainRect = dom.mainContainer.getBoundingClientRect(); const p2dPanel = document.getElementById('p2d'); const p3dPanel = document.getElementById('p3d'); let p2dWidth = e.clientX - mainRect.left; const minWidth = 150; const maxWidth = mainRect.width / 2; if (p2dWidth < minWidth) p2dWidth = minWidth; if (p2dWidth > mainRect.width - minWidth) p2dWidth = mainRect.width - minWidth; let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20; if (p3dWidth > maxWidth) { p3dWidth = maxWidth; p2dWidth = mainRect.width - p3dWidth - dom.splitter.offsetWidth - 20; } p2dPanel.style.flex = `1 1 ${p2dWidth}px`; p3dPanel.style.flex = `1 1 ${p3dWidth}px`; resize(); }
+function onSplitterPointerMove(e) {
+    if (!isResizing) return;
+
+    const mainRect = dom.mainContainer.getBoundingClientRect();
+    const p2dPanel = document.getElementById('p2d');
+    const p3dPanel = document.getElementById('p3d');
+
+    let p2dWidth = e.clientX - mainRect.left;
+
+    // Minimum genişlikler - 2D paneli 0'a kadar küçültülebilir (tam fullscreen için)
+    const min2DWidth = 0; // 2D paneli tamamen kapatılabilir
+    const min3DWidth = 150; // 3D paneli en az 150px olmalı
+
+    // 2D panel için minimum kontrol
+    if (p2dWidth < min2DWidth) p2dWidth = min2DWidth;
+
+    // 3D panel için minimum kontrol (2D panel maksimum genişliği)
+    const max2DWidth = mainRect.width - min3DWidth - dom.splitter.offsetWidth - 20;
+    if (p2dWidth > max2DWidth) p2dWidth = max2DWidth;
+
+    let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20;
+
+    p2dPanel.style.flex = `1 1 ${p2dWidth}px`;
+    p3dPanel.style.flex = `1 1 ${p3dWidth}px`;
+
+    resize();
+}
 function onSplitterPointerUp() { isResizing = false; dom.p2d.style.pointerEvents = 'auto'; dom.p3d.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; window.removeEventListener('pointermove', onSplitterPointerMove); window.removeEventListener('pointerup', onSplitterPointerUp); }
 
 

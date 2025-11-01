@@ -487,12 +487,19 @@ function createDoorMesh(door) {
     doorGroup.rotation.y = -Math.atan2(wall.p2.y - wall.p1.y, wall.p2.x - wall.p1.x);
 
     // YENİ: Animasyon için userData'yı DÖNEN GRUBA (doorPanelGroup) ekle
-    doorPanelGroup.userData = { 
-        type: 'door', 
-        doorObject: door, 
+    doorPanelGroup.userData = {
+        type: 'door',
+        doorObject: door,
         originalRotation: doorPanelGroup.rotation.y, // 0
-        isOpen: false, 
-        isOpening: false 
+        isOpen: false,
+        isOpening: false
+    };
+
+    // Ana gruba da userData ekle (otomat kapı açma için)
+    doorGroup.userData = {
+        type: 'door',
+        doorObject: door,
+        doorPanel: doorPanelGroup // Dönen panele referans
     };
 
     return doorGroup;
@@ -1640,14 +1647,11 @@ function autoOpenNearbyDoors() {
                 child.userData?.type === 'door' && child.userData?.doorObject === door
             );
 
-            if (doorGroup) {
-                // Orijinal rotasyonu kaydet
-                if (doorGroup.userData.originalRotation === undefined) {
-                    doorGroup.userData.originalRotation = doorGroup.rotation.y;
-                }
+            if (doorGroup && doorGroup.userData.doorPanel) {
+                const doorPanel = doorGroup.userData.doorPanel;
 
                 // Kapı zaten açıksa veya açılıyorsa işlem yapma
-                if (doorGroup.userData.isOpen || doorGroup.userData.isOpening) {
+                if (doorPanel.userData.isOpen || doorPanel.userData.isOpening) {
                     continue;
                 }
 
@@ -1658,18 +1662,18 @@ function autoOpenNearbyDoors() {
 
                 // İleri doğru açma yönü (kameranın geldiği tarafa göre)
                 const openDirection = cameraOffset > 0 ? 1 : -1;
-                const targetRotation = doorGroup.userData.originalRotation + (Math.PI / 2 * 0.95 * openDirection);
+                const targetRotation = doorPanel.userData.originalRotation + (Math.PI / 2 * 0.95 * openDirection);
 
                 // Açma animasyonu
-                new TWEEN.Tween(doorGroup.rotation)
+                new TWEEN.Tween(doorPanel.rotation)
                     .to({ y: targetRotation }, 800) // 0.8 saniye
                     .easing(TWEEN.Easing.Cubic.Out)
                     .onStart(() => {
-                        doorGroup.userData.isOpening = true;
+                        doorPanel.userData.isOpening = true;
                     })
                     .onComplete(() => {
-                        doorGroup.userData.isOpening = false;
-                        doorGroup.userData.isOpen = true;
+                        doorPanel.userData.isOpening = false;
+                        doorPanel.userData.isOpen = true;
                     })
                     .start();
             }
@@ -1679,19 +1683,23 @@ function autoOpenNearbyDoors() {
                 child.userData?.type === 'door' && child.userData?.doorObject === door
             );
 
-            if (doorGroup && doorGroup.userData.isOpen && !doorGroup.userData.isOpening) {
-                // Kapatma animasyonu
-                new TWEEN.Tween(doorGroup.rotation)
-                    .to({ y: doorGroup.userData.originalRotation }, 800)
-                    .easing(TWEEN.Easing.Cubic.In)
-                    .onStart(() => {
-                        doorGroup.userData.isOpening = true;
-                    })
-                    .onComplete(() => {
-                        doorGroup.userData.isOpening = false;
-                        doorGroup.userData.isOpen = false;
-                    })
-                    .start();
+            if (doorGroup && doorGroup.userData.doorPanel) {
+                const doorPanel = doorGroup.userData.doorPanel;
+
+                if (doorPanel.userData.isOpen && !doorPanel.userData.isOpening) {
+                    // Kapatma animasyonu
+                    new TWEEN.Tween(doorPanel.rotation)
+                        .to({ y: doorPanel.userData.originalRotation }, 800)
+                        .easing(TWEEN.Easing.Cubic.In)
+                        .onStart(() => {
+                            doorPanel.userData.isOpening = true;
+                        })
+                        .onComplete(() => {
+                            doorPanel.userData.isOpening = false;
+                            doorPanel.userData.isOpen = false;
+                        })
+                        .start();
+                }
             }
         }
     }
@@ -2094,7 +2102,8 @@ export function getCameraViewInfo() {
     camera.getWorldDirection(direction);
 
     // Yaw açısını hesapla (Y ekseni etrafında dönüş, radyan cinsinden)
-    const yaw = Math.atan2(direction.x, direction.z);
+    // Three.js'de kamera varsayılan olarak -Z yönüne bakar, bu yüzden -direction.z kullanıyoruz
+    const yaw = Math.atan2(direction.x, -direction.z);
 
     return {
         position: {

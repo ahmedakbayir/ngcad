@@ -198,7 +198,8 @@ export function onPointerMove(e) {
                     // Kamera yönünü döndür
                     const dx = unsnappedPos.x - state.cameraCenter.x;
                     const dz = unsnappedPos.y - state.cameraCenter.y;
-                    const newYaw = Math.atan2(dx, dz);
+                    // Three.js koordinat sistemine uygun yaw hesaplama (-cos kullanıldığı için -dz)
+                    const newYaw = Math.atan2(dx, -dz);
                     setCameraRotation(newYaw);
                 }
                 break;

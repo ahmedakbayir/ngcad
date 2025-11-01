@@ -194,8 +194,7 @@ export function onPointerUp(e) {
         preDragWallStates: new Map(),
         preDragNodeStates: new Map(),
         dragWallInitialVector: null,
-        // Kamera tipi için seçimi koru, diğerleri için temizle
-        selectedObject: (state.selectedObject?.type === 'camera') ? state.selectedObject : (didClick ? state.selectedObject : null),
+        selectedObject: didClick ? state.selectedObject : null, // Kamera da dahil tüm seçimler temizlenir
         dragOriginalNodes: null,
         isSweeping: false,
         sweepWalls: [],
