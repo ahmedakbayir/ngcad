@@ -237,8 +237,7 @@ export function draw2D() {
     // 1. Grid
     drawGrid();
 
-    // 1.5. Referans Çizgileri (Rehberler)
-    drawGuides(ctx2d, state); 
+
 
     // 2. Mahaller (Poligonlar)
     drawRoomPolygons(ctx2d, state);
@@ -485,6 +484,8 @@ export function draw2D() {
 
     // 12. Kamera Görünüm Göstergesi (FPS modunda)
     drawCameraViewIndicator(ctx2d, zoom);
-
+    // 1.5. Referans Çizgileri (Rehberler)
+    drawGuides(ctx2d, state); 
+    
     ctx2d.restore();
 }
