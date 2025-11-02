@@ -2,17 +2,17 @@
 // Son Güncelleme: Sahanlık kotu (125-135) mantığı confirmStairChange ve ilgili listener'larda düzeltildi.
 import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT, setMode } from './main.js'; // setMode import edildi
 import { saveState } from './history.js';
-import { update3DScene } from './scene3d-update.js';
-import { toggleCameraMode } from './scene3d-camera.js';
-import { applyStretchModification } from './geometry.js';
-import { processWalls } from './wall-processor.js';
-import { worldToScreen } from './geometry.js';
+import { update3DScene } from './scene3d/scene3d-update.js';
+import { toggleCameraMode } from './scene3d/scene3d-camera.js';
+import { applyStretchModification } from './draw/geometry.js';
+import { processWalls } from './wall/wall-processor.js';
+import { worldToScreen } from './draw/geometry.js';
 import { getMinWallLength } from './actions.js';
-import { isSpaceForDoor } from './door-handler.js';
-import { isSpaceForWindow } from './window-handler.js';
-import { findAvailableSegmentAt } from './wall-item-utils.js';
+import { isSpaceForDoor } from './architectural-objects/door-handler.js';
+import { isSpaceForWindow } from './architectural-objects/window-handler.js';
+import { findAvailableSegmentAt } from './wall/wall-item-utils.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
-import { recalculateStepCount, updateConnectedStairElevations } from './stairs.js';
+import { recalculateStepCount, updateConnectedStairElevations } from './architectural-objects/stairs.js';
 
 export function initializeSettings() {
     dom.borderPicker.value = state.wallBorderColor;

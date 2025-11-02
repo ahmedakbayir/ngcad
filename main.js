@@ -1,14 +1,15 @@
 // main.js
-import { draw2D } from './draw2d.js';
-import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from './scene3d-core.js';
-import { updateFirstPersonCamera } from './scene3d-camera.js';
-import { update3DScene } from './scene3d-update.js';
+import { draw2D } from './draw/draw2d.js';
+import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from './scene3d/scene3d-core.js';
+import { updateFirstPersonCamera } from './scene3d/scene3d-camera.js';
+import { update3DScene } from './scene3d/scene3d-update.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
-import { createWallPanel } from './wall-panel.js';
+import { createWallPanel } from './wall/wall-panel.js';
 import { fitDrawingToScreen } from './zoom.js';
+import { initGuideContextMenu } from './guide-menu.js'; // <-- YENİ EKLENDİ
 
 // --- RESİM ÇERÇEVESİ KODU ---
 // config.js'den (eğer varsa) API anahtarını güvenli bir şekilde okur
@@ -180,6 +181,7 @@ export let state = {
         columns: [], beams: [], stairs: [], rooms: []
     },
     symmetryPreviewTimer: null, // <-- DÜZELTME: Kilitlenme sorununu çözmek için eklendi
+    guides: [], // <-- YENİ EKLENDİ
     // --- YENİ: RESİM ÇERÇEVESİ İÇİN STATE ---
     pictureFrameCache: [], // Unsplash URL'lerini tutar
     pictureFrameMaterials: {} // 3D Malzemeleri (URL'ye göre) cache'ler
@@ -433,6 +435,7 @@ function initialize() {
     setupInputListeners();
     setupFileIOListeners();
     createWallPanel();
+    initGuideContextMenu(); // <-- YENİ EKLENDİ 
 
     loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 

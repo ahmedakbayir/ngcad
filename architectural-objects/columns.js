@@ -1,9 +1,9 @@
 // ahmedakbayir/ngcad/ngcad-54ad8bf2d516757e62115ea4acba62ce8c974e7f/columns.js
 // GÜNCELLENMİŞ: Sürükleme (drag/move/rotate) fonksiyonları eklendi.
 
-import { state, setState } from './main.js'; // setState import edin
-import { distToSegmentSquared } from './geometry.js';
-import { currentModifierKeys } from './input.js';
+import { state, setState } from '../main.js'; // setState import edin
+import { distToSegmentSquared } from '../draw/geometry.js';
+import { currentModifierKeys } from '../input.js';
 // createColumn'u kendi dosyasından import etmeye gerek yok
 
 // Kolon nesnesi oluşturur

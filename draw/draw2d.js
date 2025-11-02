@@ -1,24 +1,17 @@
 // ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/draw2d.js
 
-// 'getObjectAtPoint' artık 'actions.js' dosyasından geliyor
-import { getObjectAtPoint } from './actions.js';
-import { state, dom, BG } from './main.js';
+import { getObjectAtPoint } from '../actions.js';
+import { state, dom, BG } from '../main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
-// 'getDoorPlacement' ve 'isSpaceForDoor' artık 'door-handler.js' dosyasından geliyor
-import { getDoorPlacement, isSpaceForDoor } from './door-handler.js';
-// 'getWindowPlacement' ve 'isSpaceForWindow' artık 'window-handler.js' dosyasından geliyor
-import { getWindowPlacement, isSpaceForWindow } from './window-handler.js';
-// drawStairs import edildiğinden emin olun
-import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn, drawBeam, drawStairs } from './renderer2d.js'; // <-- drawStairs EKLEYİN
+import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js';
+import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js';
+import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn, drawBeam, drawStairs, drawGuides } from './renderer2d.js'; 
 import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 import { drawWallGeometry } from './draw-walls.js';
 import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
-// getColumnCorners eskiden renderer2d'deydi, şimdi columns.js'den gelmeli (eğer orada değilse oraya taşınmalı)
-// Eğer columns.js'de getColumnCorners yoksa, bu importu kaldırıp renderer2d'den almanız gerekir.
-// Ancak refactoring sonrası columns.js'de olması daha mantıklı.
-import { getColumnCorners } from './columns.js';
-import { getBeamCorners } from './beams.js'; // <-- YENİ SATIRI EKLEYİN
-import { getStairCorners } from './stairs.js'; // <-- MERDİVEN EKLENDİ
+import { getColumnCorners } from '../architectural-objects/columns.js';
+import { getBeamCorners } from '../architectural-objects/beams.js'; // <-- YENİ SATIRI EKLEYİN
+import { getStairCorners } from '../architectural-objects/stairs.js'; // <-- MERDİVEN EKLENDİ
 import {
     drawObjectPlacementPreviews,
     drawDragPreviews,
@@ -28,7 +21,9 @@ import {
 } from './draw-previews.js';
 
 import { drawSymmetryPreview } from './draw-previews.js';
-import { getCameraViewInfo } from './scene3d-camera.js'; // Değişti
+import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; // Değişti
+
+
 
 // Kamera pozisyonunu ve bakış yönünü 2D sahnede göz sembolü ile göster
 function drawCameraViewIndicator(ctx2d, zoom) {
@@ -243,6 +238,9 @@ export function draw2D() {
 
     // 1. Grid
     drawGrid();
+
+    // 1.5. Referans Çizgileri (Rehberler)
+    drawGuides(ctx2d, state); // <-- YENİ EKLENDİ
 
     // 2. Mahaller (Poligonlar)
     drawRoomPolygons(ctx2d, state);

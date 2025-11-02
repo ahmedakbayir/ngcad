@@ -1,8 +1,8 @@
 // door-handler.js
-import { state, setState } from './main.js';
-import { saveState } from './history.js';
-import { distToSegmentSquared } from './geometry.js';
-import { findAvailableSegmentAt, checkOverlapAndGap } from './wall-item-utils.js';
+import { state, setState } from '../main.js';
+import { saveState } from '../history.js';
+import { distToSegmentSquared } from '../draw/geometry.js';
+import { findAvailableSegmentAt, checkOverlapAndGap } from '../wall/wall-item-utils.js';
 
 /**
  * Verilen noktaya (pos) en yakın kapıyı bulur.

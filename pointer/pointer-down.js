@@ -1,22 +1,21 @@
 // pointer-down.js
-import { currentModifierKeys } from './input.js';
-import { state, dom, setState, setMode } from './main.js';
-import { getSmartSnapPoint } from './snap.js';
-import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from './geometry.js';
-import { processWalls } from './wall-processor.js';
-import { update3DScene } from './scene3d-update.js'; // Değişti
-import { saveState } from './history.js';
-import { cancelLengthEdit } from './ui.js';
-import { getObjectAtPoint } from './actions.js';
-import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from './columns.js';
-import { createBeam, onPointerDown as onPointerDownBeam } from './beams.js';
-// createStairs import edildiğinden emin olun, isLanding parametresini alacak şekilde güncellendi
-import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from './stairs.js';
-import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from './wall-handler.js';
-import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from './door-handler.js';
-import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as onPointerDownSelectWindow } from './window-handler.js';
-import { applySymmetry, applyCopy } from './symmetry.js';
-
+import { currentModifierKeys } from '../input.js';
+import { state, dom, setState, setMode } from '../main.js';
+import { getSmartSnapPoint } from '../snap.js';
+import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from '../draw/geometry.js';
+import { processWalls } from '../wall/wall-processor.js';
+import { update3DScene } from '../scene3d/scene3d-update.js'; // Değişti
+import { saveState } from '../history.js';
+import { cancelLengthEdit } from '../ui.js';
+import { getObjectAtPoint } from '../actions.js';
+import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
+import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
+import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
+import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
+import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
+import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as onPointerDownSelectWindow } from '../architectural-objects/window-handler.js';
+import { applySymmetry, applyCopy } from '../draw/symmetry.js';
+import { hideGuideContextMenu } from '../guide-menu.js'; // <-- YENİ EKLENDİ
 
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
@@ -118,6 +117,7 @@ export function onPointerDown(e) {
                              additionalState: {}
                          };
                          break;
+                     case 'guide': dragInfo = onPointerDownGuide(clickedObject, pos, snappedPos, e); break; // <-- YENİ EKLENDİ
                      case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                      case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                      case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; // stairs.js'den gelen fonksiyonu kullan
@@ -394,7 +394,43 @@ export function onPointerDown(e) {
             });
             setMode("select"); // İşlem sonrası Seçim moduna dön
         }
+    // --- YENİ EKLENDİ: Rehber Çizim Modları ---
+    } else if (state.currentMode === "drawGuideAngular" || state.currentMode === "drawGuideFree") {
+        
+        // Simetri ile aynı timer'ı kullanabiliriz
+        if (state.symmetryPreviewTimer) {
+            clearTimeout(state.symmetryPreviewTimer);
+            setState({ symmetryPreviewTimer: null });
+        }
+
+        if (state.startPoint) { // Bu ikinci tıklama
+            const p1 = state.startPoint;
+            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY }; // Snaplenmiş pozisyonu kullan
+            
+            if (Math.hypot(p1.x - p2.x, p1.y - p2.y) > 1) { // Minimum uzunluk
+                const subType = state.currentMode === "drawGuideAngular" ? 'angular' : 'free';
+                
+                if (!state.guides) state.guides = []; // guides dizisi yoksa oluştur
+                state.guides.push({
+                    type: 'guide',
+                    subType: subType,
+                    // p1 ve p2'nin referans değil, kopya olduğundan emin ol
+                    p1: { x: p1.x, y: p1.y }, 
+                    p2: { x: p2.x, y: p2.y }
+                });
+                
+                geometryChanged = true; // saveState'i tetikler
+            }
+            
+            // İkinci tıklamadan sonra modu sıfırla
+            setState({ startPoint: null });
+            setMode("select"); // Seçim moduna dön
+        }
+        // İlk tıklama (sağ tık menüsünden) zaten startPoint'i ayarlar
+        // ve onPointerDownDraw'da (yukarıda) olduğu gibi tekrar ayarlanmaz.
     }
+    // --- YENİ SONU ---
+
 
     // --- Son İşlemler ---
 

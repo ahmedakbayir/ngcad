@@ -5,8 +5,8 @@ import * as THREE from "three";
 import {
     state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
     BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT
-} from "./main.js";
-import { getArcWallPoints } from "./geometry.js";
+} from "../main.js";
+import { getArcWallPoints } from "../draw/geometry.js";
 import {
     wallMaterial, doorMaterial, windowMaterial, mullionMaterial, sillMaterial,
     handleMaterial, ventMaterial, trimMaterial, balconyRailingMaterial,

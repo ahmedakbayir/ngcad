@@ -5,10 +5,10 @@
 // yüzey kesişimlerini yakalar, duvar içi merkez çizgilerini/noktalarını YOK SAYAR.
 
 import { state, dom, setState, SNAP_UNLOCK_DISTANCE_CM } from './main.js';
-import { screenToWorld, worldToScreen, distToSegmentSquared, getLineIntersectionPoint } from './geometry.js';
-import { getColumnCorners } from './columns.js';
-import { getBeamCorners } from './beams.js';
-import { getStairCorners } from './stairs.js';
+import { screenToWorld, worldToScreen, distToSegmentSquared, getLineIntersectionPoint } from './draw/geometry.js';
+import { getColumnCorners } from './architectural-objects/columns.js';
+import { getBeamCorners } from './architectural-objects/beams.js';
+import { getStairCorners } from './architectural-objects/stairs.js';
 
 // --- MERDİVEN SNAP İÇİN YARDIMCI FONKSİYONLAR ---
 

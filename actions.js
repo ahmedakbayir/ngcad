@@ -3,16 +3,17 @@
 // ve birkaç genel yardımcı fonksiyon içeriyor.
 
 import { state } from './main.js';
-import { getColumnAtPoint } from './columns.js';
-import { getBeamAtPoint } from './beams.js'; // <-- YENİ SATIRI EKLEYİN
-import { getStairAtPoint } from './stairs.js'; // <-- MERDİVEN EKLENDİ
-import { getWallAtPoint } from './wall-handler.js';
-import { getDoorAtPoint } from './door-handler.js';
-import { getWindowAtPoint } from './window-handler.js';
+import { getColumnAtPoint } from './architectural-objects/columns.js';
+import { getBeamAtPoint } from './architectural-objects/beams.js'; // <-- YENİ SATIRI EKLEYİN
+import { getStairAtPoint } from './architectural-objects/stairs.js'; // <-- MERDİVEN EKLENDİ
+import { getWallAtPoint } from './wall/wall-handler.js';
+import { getDoorAtPoint } from './architectural-objects/door-handler.js';
+import { getWindowAtPoint } from './architectural-objects/window-handler.js';
 // getVentAtPoint ve getRoomAtPoint için de benzer importlar gerekir.
 // Şimdilik, bu mantığı basitleştirmek için burada bırakıyorum.
-import { distToSegmentSquared } from './geometry.js';
-import { getCameraViewInfo } from './scene3d-camera.js'; // Değişti
+import { distToSegmentSquared } from './draw/geometry.js';
+import { getCameraViewInfo } from './scene3d/scene3d-camera.js'; // Değişti
+import { getGuideAtPoint } from './architectural-objects/guide-handler.js'; // <-- YENİ EKLENDİ
 
 /**
  * Verilen noktadaki (pos) en üstteki nesneyi bulur.
@@ -84,6 +85,11 @@ export function getObjectAtPoint(pos) {
     // 1.4 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
     if (wallNodeHit && wallNodeHit.handle !== 'body') return wallNodeHit;
+    
+    // 2.0 REHBER ÇİZGİLERİ (Handle'lardan sonra, gövdelerden önce)
+    const guideHit = getGuideAtPoint(pos, tolerance); // <-- YENİ EKLENDİ
+    if (guideHit) return guideHit; // <-- YENİ EKLENDİ
+
 
     // 2. Gövde Kontrolleri (Handle'lardan sonra)
     // 2.1 Kapı

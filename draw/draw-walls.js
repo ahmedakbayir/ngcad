@@ -1,4 +1,4 @@
-import { state, dom, BG } from './main.js';
+import { state, dom, BG } from '../main.js';
 
 // --- YARDIMCI FONKSİYONLAR ---
 

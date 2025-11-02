@@ -3,7 +3,7 @@
 
 import * as THREE from "three";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
-import { state, WALL_HEIGHT } from "./main.js"; // <-- CAMERA_HEIGHT buradan kaldırıldı
+import { state, WALL_HEIGHT } from "../main.js"; // <-- CAMERA_HEIGHT buradan kaldırıldı
 import {
     scene, camera, orbitControls, pointerLockControls, sceneObjects,
     cameraMode, // <-- 'as coreCameraMode' kaldırıldı

@@ -236,7 +236,14 @@
          <button id="confirm-stair-popup" class="btn">Tamam</button>
     </div>
 </div>
-
+<div id="guide-context-menu">
+    <div class="context-menu-title">Referans Ekle</div>
+    <button id="guide-btn-point" class="context-menu-btn">Nokta</button>
+    <button id="guide-btn-horizontal" class="context-menu-btn">Yatay</button>
+    <button id="guide-btn-vertical" class="context-menu-btn">Düşey</button>
+    <button id="guide-btn-angular" class="context-menu-btn">Açısal</button>
+    <button id="guide-btn-free" class="context-menu-btn">Serbest</button>
+</div>
 <canvas id="c2d"></canvas>
 <input type="text" id="length-input" />
 </div>
@@ -263,7 +270,7 @@
 </script>
 <script src="config.js"></script>
 <script type="module" src="main.js"></script>
-<script type="module" src="wall-panel.js"></script>
-
+<script type="module" src="wall/wall-panel.js"></script>
+<script type="module" src="guide-menu.js"></script> </body>
 </body>
 </html>

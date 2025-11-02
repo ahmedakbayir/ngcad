@@ -1,28 +1,29 @@
 // ahmedakbayir/ngcad/ngcad-e7feb4c0224e7a314687ae1c86e34cb9211a573d/input.js
 
 import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom import edildiğinden emin olun
-import { screenToWorld, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from './geometry.js'; // distToSegmentSquared ekleyin
-import { splitWallAtMousePosition, processWalls } from './wall-processor.js'; // <-- splitWallAtMousePosition import edildi
+import { screenToWorld, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from './draw/geometry.js'; // distToSegmentSquared ekleyin
+import { splitWallAtMousePosition, processWalls } from './wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 import { undo, redo, saveState, restoreState } from './history.js';
 import { startLengthEdit, cancelLengthEdit, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen } from './ui.js';
-import { onPointerDown } from './pointer-down.js';
-import { onPointerMove } from './pointer-move.js';
-import { onPointerUp } from './pointer-up.js';
+import { onPointerDown } from './pointer/pointer-down.js';
+import { onPointerMove } from './pointer/pointer-move.js';
+import { onPointerUp } from './pointer/pointer-up.js';
 import { getObjectAtPoint } from './actions.js';
 // GÜNCELLENDİ: 3D tıklama için importlar eklendi
-import { update3DScene } from './scene3d-update.js'; // Değişti
-import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from './scene3d-core.js'; // Değişti
-import { isFPSMode } from './scene3d-camera.js'; // Değişti
+import { update3DScene } from './scene3d/scene3d-update.js'; // Değişti
+import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from './scene3d/scene3d-core.js'; // Değişti
+import { isFPSMode } from './scene3d/scene3d-camera.js'; // Değişti
 import * as THREE from "three"; // YENİ
 // --- YENİ İMPORTLAR ---
 import { fitDrawingToScreen, onWheel } from './zoom.js'; // Fit to Screen ve onWheel zoom.js'den
-import { wallExists } from './wall-handler.js';
+import { wallExists } from './wall/wall-handler.js';
 // --- YENİ İMPORTLAR SONU ---
-import { showWallPanel } from './wall-panel.js';
-import { createColumn, isPointInColumn } from './columns.js'; // isPointInColumn eklendi
-import { createBeam, isPointInBeam } from './beams.js'; // isPointInBeam eklendi
-import { createStairs, recalculateStepCount, isPointInStair,getNextStairLetter} from './stairs.js'; // isPointInStair eklendi
+import { showWallPanel, hideWallPanel } from './wall/wall-panel.js'; // <-- HIDEWALLPANEL EKLENDİ
+import { createColumn, isPointInColumn } from './architectural-objects/columns.js'; // isPointInColumn eklendi
+import { createBeam, isPointInBeam } from './architectural-objects/beams.js'; // isPointInBeam eklendi
+import { createStairs, recalculateStepCount, isPointInStair, getNextStairLetter} from './architectural-objects/stairs.js'; // isPointInStair eklendi
 import { showStairPopup } from './ui.js'; // showStairPopup import edildi
+import { showGuideContextMenu, hideGuideContextMenu } from './guide-menu.js'; // <-- YENİ EKLENDİ (BİRLEŞTİRİLDİ)
 
 // Modifier tuşları için global state
 export let currentModifierKeys = {
@@ -195,8 +196,12 @@ function onKeyDown(e) {
     const activeEl = document.activeElement;
     const isInputActive = activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT'; // SELECT eklendi
     const isSettingsPopupActive = activeEl.closest("#settings-popup");
+    
+    // --- YENİ EKLENDİ: Rehber menüsü de input sayılır ---
+    const isGuideMenuActive = activeEl.closest("#guide-context-menu");
+    if (isInputActive || isSettingsPopupActive || isGuideMenuActive) {
+    // --- YENİ SONU ---
 
-    if (isInputActive || isSettingsPopupActive) {
         // Mahal ismi popup'ı için özel tuşlar (Enter, Escape, ArrowDown)
         if (activeEl === dom.roomNameInput || activeEl === dom.roomNameSelect) {
             // ui.js bu tuşları handle ediyor, biz burada engelleme yapmayalım
@@ -327,6 +332,12 @@ function onKeyDown(e) {
         if (state.selectedObject?.type === 'column') { state.columns = state.columns.filter(c => c !== state.selectedObject.object); deleted = true; }
         else if (state.selectedObject?.type === 'beam') { state.beams = state.beams.filter(b => b !== state.selectedObject.object); deleted = true; }
         else if (state.selectedObject?.type === 'stairs') { state.stairs = state.stairs.filter(s => s !== state.selectedObject.object); deleted = true; }
+        // --- YENİ EKLENDİ ---
+        else if (state.selectedObject?.type === 'guide') { 
+            state.guides = state.guides.filter(g => g !== state.selectedObject.object); 
+            deleted = true; 
+        }
+        // --- YENİ SONU ---
         else if (state.selectedObject) {
             if (state.selectedObject.type === "door") { setState({ doors: state.doors.filter((d) => d !== state.selectedObject.object) }); deleted = true; }
             else if (state.selectedObject.type === "window") { const wall = state.selectedObject.wall; if (wall?.windows) { wall.windows = wall.windows.filter(w => w !== state.selectedObject.object); deleted = true; } }
@@ -336,7 +347,15 @@ function onKeyDown(e) {
 
         if (deleted) {
             setState({ selectedObject: null, selectedGroup: [] });
-            processWalls(); saveState(); update3DScene();
+            // --- GÜNCELLEME: processWalls() sadece rehber silindiyse çağrılmaz ---
+            if (state.selectedObject?.type !== 'guide') {
+                processWalls(); 
+            }
+            saveState(); 
+            // update3DScene() processWalls içinden çağrılır,
+            // ama rehber silindiyse (ve 3D açıksa) update'e gerek yok.
+            // (Rehberler 3D'de çizilmiyor)
+            // update3DScene(); // processWalls() zaten çağırıyor
         }
     }
 
@@ -503,11 +522,23 @@ export function setupInputListeners() {
         e.preventDefault();
         const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
         const object = getObjectAtPoint(clickPos);
+        
+        // Diğer tüm popupları/menüleri kapat
+        hideRoomNamePopup();
+        hideWallPanel();
+        hideGuideContextMenu(); // <-- YENİ EKLENDİ
+
         if (object && (object.type === 'room' || object.type === 'roomName')) {
             showRoomNamePopup(object.object, e);
         } else if (object && object.type === 'wall') {
             showWallPanel(object.object, e.clientX, e.clientY);
+        } else if (object && object.type === 'stairs') { // <-- YENİ EKLENDİ
+            showStairPopup(object.object, e); // Merdiven sağ tık
+        } else if (!object) {
+            // Boş alana tıklandı
+            showGuideContextMenu(e.clientX, e.clientY, clickPos); // <-- YENİ EKLENDİ
         } else {
+            // Diğer nesneler (kolon, kiriş, rehber vb.)
             setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null, selectedObject: null, selectedGroup: [] });
             setMode("select");
         }
@@ -628,4 +659,4 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     update3DScene();
 
     console.log("Duvar başarıyla bölündü"); // Debug için
-}   
+}

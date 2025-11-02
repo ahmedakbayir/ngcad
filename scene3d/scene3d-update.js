@@ -3,8 +3,8 @@
 
 import * as THREE from "three";
 // --- HATA DÜZELTMESİ: setState import edildi ---
-import { state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "./main.js";
-import { getArcWallPoints } from "./geometry.js";
+import { state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "../main.js";
+import { getArcWallPoints } from "../draw/geometry.js";
 
 // Core nesneleri ve malzemeleri import et
 import {
@@ -28,7 +28,7 @@ import {
 } from "./scene3d-structures.js";
 
 // YENİ IMPORT (wall-item-utils.js'den)
-import { findLargestAvailableSegment } from "./wall-item-utils.js";
+import { findLargestAvailableSegment } from "../wall/wall-item-utils.js";
 
 
 /**

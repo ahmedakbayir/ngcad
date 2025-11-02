@@ -1,10 +1,10 @@
 // ahmedakbayir/ngcad/ngcad-00d54c478fa934506781fd05812470b2bba6874c/window-handler.js
 // window-handler.js
-import { state, setState } from './main.js';
-import { saveState } from './history.js';
-import { distToSegmentSquared } from './geometry.js';
-import { findLargestAvailableSegment, findAvailableSegmentAt, checkOverlapAndGap } from './wall-item-utils.js';
-import { BATHROOM_WINDOW_DEFAULT_WIDTH } from './main.js'; // Banyo genişliği sabitini import et
+import { state, setState } from '../main.js';
+import { saveState } from '../history.js';
+import { distToSegmentSquared } from '../draw/geometry.js';
+import { findLargestAvailableSegment, findAvailableSegmentAt, checkOverlapAndGap } from '../wall/wall-item-utils.js';
+import { BATHROOM_WINDOW_DEFAULT_WIDTH } from '../main.js'; // Banyo genişliği sabitini import et
 
 // Oda adını kontrol etmek için yardımcı fonksiyon (varsa)
 function getRoomsAdjacentToWall(wall) {

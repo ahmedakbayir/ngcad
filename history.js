@@ -20,8 +20,11 @@ export function saveState() {
             wallType: w.wallType || 'normal',
             // --- GÜNCELLENDİ: Deep copy eklendi ---
             windows: w.windows ? JSON.parse(JSON.stringify(w.windows)) : [],
-            vents: w.vents ? JSON.parse(JSON.stringify(w.vents)) : []
+            vents: w.vents ? JSON.parse(JSON.stringify(w.vents)) : [],
             // --- GÜNCELLEME SONU ---
+            isArc: w.isArc, // EKLENDİ
+            arcControl1: w.arcControl1 ? { ...w.arcControl1 } : null, // EKLENDİ
+            arcControl2: w.arcControl2 ? { ...w.arcControl2 } : null  // EKLENDİ
         })),
         doors: state.doors.map(d => ({
             wallIndex: state.walls.indexOf(d.wall),
@@ -41,20 +44,22 @@ export function saveState() {
         columns: JSON.parse(JSON.stringify(state.columns)), // Kolonlar zaten deep copy yapılıyordu
         beams: JSON.parse(JSON.stringify(state.beams)), // <-- YENİ SATIRI EKLEYİN
         stairs: JSON.parse(JSON.stringify(state.stairs.map(s => ({ // <-- YENİ SATIRI EKLEYİN (ve içeriğini güncelle)
-                    type: s.type,
-                    id: s.id,
-                    name: s.name,
-                    center: s.center,
-                    width: s.width,
-                    height: s.height,
-                    rotation: s.rotation,
-                    stepCount: s.stepCount,
-                    bottomElevation: s.bottomElevation,
-                    topElevation: s.topElevation,
-                    connectedStairId: s.connectedStairId,
-                    isLanding: s.isLanding,
-                    showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
-                }))))    };
+            type: s.type,
+            id: s.id,
+            name: s.name,
+            center: s.center,
+            width: s.width,
+            height: s.height,
+            rotation: s.rotation,
+            stepCount: s.stepCount,
+            bottomElevation: s.bottomElevation,
+            topElevation: s.topElevation,
+            connectedStairId: s.connectedStairId,
+            isLanding: s.isLanding,
+            showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
+        })))),
+        guides: JSON.parse(JSON.stringify(state.guides || [])) // <-- REFERANS ÇİZGİSİ EKLENDİ
+    };
 
     // History yönetimi (değişiklik yok)
     state.history = state.history.slice(0, state.historyIndex + 1);
@@ -89,8 +94,11 @@ export function restoreState(snapshot) {
         // Windows ve vents verisi snapshot içinde zaten stringify/parse edilmiş düz obje olmalı.
         // Tekrar parse etmeye gerek yok, sadece kopyalamak yeterli.
         windows: w.windows ? [...w.windows] : [], // snapshot'taki veriyi kopyala
-        vents: w.vents ? [...w.vents] : []     // snapshot'taki veriyi kopyala
+        vents: w.vents ? [...w.vents] : [],     // snapshot'taki veriyi kopyala
         // --- GÜNCELLEME SONU ---
+        isArc: w.isArc, // EKLENDİ
+        arcControl1: w.arcControl1 ? { ...w.arcControl1 } : null, // EKLENDİ
+        arcControl2: w.arcControl2 ? { ...w.arcControl2 } : null  // EKLENDİ
     }));
 
     // Kapıları geri yükle
@@ -117,7 +125,7 @@ export function restoreState(snapshot) {
         })),
         columns: snapshot.columns || [], // Kolonları geri yükle (veya boş dizi ata)
         beams: snapshot.beams || [], // <-- YENİ SATIRI EKLEYİN
-stairs: (snapshot.stairs || []).map(s => ({ // <-- YENİ SATIRI EKLEYİN (ve içeriğini güncelle)
+        stairs: (snapshot.stairs || []).map(s => ({ // <-- YENİ SATIRI EKLEYİN (ve içeriğini güncelle)
             type: s.type,
             id: s.id,
             name: s.name,
@@ -131,7 +139,9 @@ stairs: (snapshot.stairs || []).map(s => ({ // <-- YENİ SATIRI EKLEYİN (ve iç
             connectedStairId: s.connectedStairId,
             isLanding: s.isLanding,
             showRailing: s.showRailing || false // <-- DÜZELTME: Korkuluk bilgisi okundu
-        }))    });
+        })),
+        guides: snapshot.guides || [] // <-- REFERANS ÇİZGİSİ EKLENDİ
+    });
 }
 
 // undo ve redo fonksiyonlarında değişiklik yok

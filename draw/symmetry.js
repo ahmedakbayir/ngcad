@@ -1,13 +1,13 @@
 // symmetry.js
-import { state, setState, dom } from './main.js';
+import { state, setState, dom } from '../main.js';
 import { reflectPoint, getOrCreateNode } from './geometry.js';
-import { wallExists } from './wall-handler.js'; // Veya geometry.js'den
-import { createColumn } from './columns.js';
-import { createBeam } from './beams.js';
-import { createStairs } from './stairs.js';
-import { processWalls } from './wall-processor.js';
-import { saveState } from './history.js';
-import { update3DScene } from './scene3d-update.js'; // Değişti
+import { wallExists } from '../wall/wall-handler.js'; // Veya geometry.js'den
+import { createColumn } from '../architectural-objects/columns.js';
+import { createBeam } from '../architectural-objects/beams.js';
+import { createStairs } from '../architectural-objects/stairs.js';
+import { processWalls } from '../wall/wall-processor.js';
+import { saveState } from '../history.js';
+import { update3DScene } from '../scene3d/scene3d-update.js'; // Değişti
 // Gerekirse turf import'u da buraya eklenebilir
 // import * as turf from '@turf/turf'; // Eğer @turf/turf import ediliyorsa
 

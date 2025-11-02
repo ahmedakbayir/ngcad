@@ -1,6 +1,6 @@
 // ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/file-io.js
 import { state, setState, dom } from './main.js';
-import { processWalls } from './wall-processor.js';
+import { processWalls } from './wall/wall-processor.js';
 import { saveState } from './history.js';
 
 export function setupFileIOListeners() {
@@ -15,6 +15,7 @@ function saveProject() {
         timestamp: new Date().toISOString(),
         gridOptions: state.gridOptions,
         snapOptions: state.snapOptions,
+        dimensionOptions: state.dimensionOptions, // EKLENDİ
         wallBorderColor: state.wallBorderColor,
         roomFillColor: state.roomFillColor,
         lineThickness: state.lineThickness,
@@ -33,19 +34,24 @@ function saveProject() {
             thickness: w.thickness || state.wallThickness, // GÜNCELLENDİ
             wallType: w.wallType || 'normal',
             windows: w.windows || [],
-            vents: w.vents || []
+            vents: w.vents || [],
+            isArc: w.isArc, // EKLENDİ
+            arcControl1: w.arcControl1, // EKLENDİ
+            arcControl2: w.arcControl2  // EKLENDİ
         })),
         doors: state.doors.map(d => ({
             wallIndex: state.walls.indexOf(d.wall),
             pos: d.pos,
             width: d.width,
-            type: d.type
+            type: d.type,
+            isWidthManuallySet: d.isWidthManuallySet // EKLENDİ
         })),
         rooms: state.rooms.map(r => ({
             polygon: r.polygon,
             area: r.area,
             center: r.center,
-            name: r.name
+            name: r.name,
+            centerOffset: r.centerOffset // EKLENDİ
         })),
         columns: state.columns, // <-- GÜNCELLENDİ/EKLENDİ
         beams: state.beams, // <-- YENİ SATIRI EKLEYİN
@@ -63,7 +69,9 @@ function saveProject() {
             connectedStairId: s.connectedStairId, // eklendi
             isLanding: s.isLanding, // eklendi
             showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
-        }))    };
+        })),
+        guides: state.guides || [] // <-- REFERANS ÇİZGİSİ EKLENDİ
+    };
 
     const dataStr = JSON.stringify(projectData, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
@@ -109,6 +117,16 @@ function openProject(e) {
                 dom.snapMidpointExtInput.checked = projectData.snapOptions.midpointExtension;
                 dom.snapNearestOnlyInput.checked = projectData.snapOptions.nearestOnly;
             }
+            
+            // Boyutlandırma ayarlarını geri yükle (EKSİKTİ, EKLENDİ)
+            if (projectData.dimensionOptions) {
+                setState({ dimensionOptions: projectData.dimensionOptions });
+                dom.dimensionFontSizeInput.value = projectData.dimensionOptions.fontSize;
+                dom.dimensionColorInput.value = projectData.dimensionOptions.color;
+                dom.dimensionDefaultViewSelect.value = projectData.dimensionOptions.defaultView;
+                dom.dimensionShowAreaSelect.value = projectData.dimensionOptions.showArea;
+                dom.dimensionShowOuterSelect.value = projectData.dimensionOptions.showOuter;
+            }
 
             if (projectData.wallBorderColor) {
                 setState({ wallBorderColor: projectData.wallBorderColor });
@@ -151,7 +169,10 @@ function openProject(e) {
                 thickness: w.thickness || 20, // 20 varsayılan olarak kalsın
                 wallType: w.wallType || 'normal',
                 windows: w.windows || [],
-                vents: w.vents || []
+                vents: w.vents || [],
+                isArc: w.isArc, // EKLENDİ
+                arcControl1: w.arcControl1, // EKLENDİ
+                arcControl2: w.arcControl2  // EKLENDİ
             }));
 
             // Kapıları geri yükle
@@ -159,7 +180,8 @@ function openProject(e) {
                 wall: restoredWalls[d.wallIndex],
                 pos: d.pos,
                 width: d.width,
-                type: d.type || 'door'
+                type: d.type || 'door',
+                isWidthManuallySet: d.isWidthManuallySet // EKLENDİ
             }));
 
             // Odaları geri yükle
@@ -167,7 +189,8 @@ function openProject(e) {
                 polygon: r.polygon,
                 area: r.area,
                 center: r.center,
-                name: r.name
+                name: r.name,
+                centerOffset: r.centerOffset // EKLENDİ
             }));
 
             // Kolonları, Kirişleri ve Merdivenleri geri yükle
@@ -188,6 +211,8 @@ function openProject(e) {
                  isLanding: s.isLanding || false, // sahanlık yoksa false
                  showRailing: s.showRailing || false // <-- DÜZELTME: Korkuluk bilgisi okundu (varsayılan false)
             }));
+            const restoredGuides = projectData.guides || []; // <-- REFERANS ÇİZGİSİ EKLENDİ
+            
             // State'i güncelle
             setState({
                 nodes: restoredNodes,
@@ -197,6 +222,7 @@ function openProject(e) {
                 columns: restoredColumns,
                 beams: restoredBeams,
                 stairs: restoredStairs, // <-- MERDİVEN EKLENDİ
+                guides: restoredGuides, // <-- REFERANS ÇİZGİSİ EKLENDİ
                 selectedObject: null,
                 selectedGroup: [],
                 startPoint: null

@@ -1,10 +1,10 @@
 // wall-handler.js
-import { state, setState } from './main.js'; // setState import edildiğinden emin olun
-import { getOrCreateNode, isPointOnWallBody, snapTo15DegreeAngle, distToSegmentSquared, distToArcWallSquared } from './geometry.js';
+import { state, setState } from '../main.js'; // setState import edildiğinden emin olun
+import { getOrCreateNode, isPointOnWallBody, snapTo15DegreeAngle, distToSegmentSquared, distToArcWallSquared } from '../draw/geometry.js';
 import { processWalls } from './wall-processor.js';
-import { saveState } from './history.js';
-import { getMinWallLength } from './actions.js'; // actions.js'ten kalanları al
-import { update3DScene } from './scene3d-update.js'; // Değişti
+import { saveState } from '../history.js';
+import { getMinWallLength } from '../actions.js'; // actions.js'ten kalanları al
+import { update3DScene } from '../scene3d/scene3d-update.js'; // Değişti
 // drawDimension import'una gerek yok, draw2d.js içinde kullanılıyor
 
 /**

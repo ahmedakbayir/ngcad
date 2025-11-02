@@ -1,19 +1,20 @@
-import { state, dom, setState } from './main.js';
-import { getSmartSnapPoint } from './snap.js';
-import { screenToWorld, distToSegmentSquared, findNodeAt } from './geometry.js';
-import { positionLengthInput } from './ui.js';
-import { update3DScene } from './scene3d-update.js';
-import { setCameraPosition, setCameraRotation } from './scene3d-camera.js';
-import { processWalls } from './wall-processor.js';
-import { currentModifierKeys } from './input.js';
-import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from './columns.js';
-import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from './beams.js';
-import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from './stairs.js';
-import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from './wall-handler.js';
-import { onPointerMove as onPointerMoveDoor } from './door-handler.js';
-import { onPointerMove as onPointerMoveWindow } from './window-handler.js';
-import { calculateSymmetryPreview, calculateCopyPreview } from './symmetry.js'; // <-- DÜZELTME: Bu import eklendi
-import { getObjectAtPoint } from './actions.js'; // getObjectAtPoint eklendi
+import { state, dom, setState } from '../main.js';
+import { getSmartSnapPoint } from '../snap.js';
+import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
+import { positionLengthInput } from '../ui.js';
+import { update3DScene } from '../scene3d/scene3d-update.js';
+import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
+import { processWalls } from '../wall/wall-processor.js';
+import { currentModifierKeys } from '../input.js';
+import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from '../architectural-objects/columns.js';
+import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from '../architectural-objects/beams.js';
+import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
+import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from '../wall/wall-handler.js';
+import { onPointerMove as onPointerMoveDoor } from '../architectural-objects/door-handler.js';
+import { onPointerMove as onPointerMoveWindow } from '../architectural-objects/window-handler.js';
+import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
+import { getObjectAtPoint } from '../actions.js'; // getObjectAtPoint eklendi
+import { onPointerMoveGuide, getGuideAtPoint } from '../architectural-objects/guide-handler.js'; // <-- YENİ EKLENDİ
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
 const SYMMETRY_PREVIEW_DEBOUNCE_MS = 50; // 50ms gecikme
@@ -66,6 +67,21 @@ export function onPointerMove(e) {
             setState({ walls: newWalls, doors: newDoors });
             needsProcessing = true;
         }
+        
+        // --- YENİ EKLENDİ: Rehber Silme ---
+        const guidesToDelete = new Set();
+        const tolerance = 8 / state.zoom;
+        const guideHit = getGuideAtPoint(mousePos, tolerance);
+        if (guideHit) {
+            guidesToDelete.add(guideHit.object);
+        }
+        if (guidesToDelete.size > 0) {
+            const guidesToDeleteArray = Array.from(guidesToDelete);
+            const newGuides = state.guides.filter(g => !guidesToDeleteArray.includes(g));
+            setState({ guides: newGuides });
+            // needsProcessing = false; // Rehber silmek processWalls gerektirmez
+        }
+        // --- YENİ SONU ---
 
         // Kolon silme
         const columnsToDelete = new Set();
@@ -216,6 +232,7 @@ export function onPointerMove(e) {
                     wall.arcControl2.y = snappedPos.y;
                 }
                 break;
+            case 'guide': onPointerMoveGuide(snappedPos, unsnappedPos); break; // <-- YENİ EKLENDİ
             case 'column': onPointerMoveColumn(snappedPos, unsnappedPos); break;
             case 'beam':   onPointerMoveBeam(snappedPos, unsnappedPos);   break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
@@ -332,7 +349,8 @@ function updateMouseCursor() {
     const cursorClasses = [
         'dragging-body', 'dragging-node', 'rotate-handle-hover', /* resize sınıflarını buradan kaldırın */
         'hover-node', 'hover-object-body', 'hover-wall-body',
-        'panning', 'delete-mode', 'hover-room-label'
+        'panning', 'delete-mode', 'hover-room-label',
+        'hover-guide' // <-- YENİ EKLENDİ
     ];
     cursorClasses.forEach(cls => c2d.classList.remove(cls));
     c2d.style.cursor = ''; // Stili her seferinde sıfırla
@@ -399,6 +417,10 @@ function updateMouseCursor() {
         case 'drawWindow':
         case 'drawVent':
         case 'drawSymmetry':
+        // --- YENİ EKLENDİ ---
+        case 'drawGuideAngular':
+        case 'drawGuideFree':
+        // --- YENİ SONU ---
             modeCursorStyle = 'crosshair';
             break;
         case 'select':
@@ -440,7 +462,12 @@ function updateMouseCursor() {
                     // --- YENİ SONU ---
                     return;
                 } else if (handle === 'p1' || handle === 'p2') {
-                    c2d.style.cursor = 'move'; // Node hover
+                    // --- GÜNCELLEME: guide handle'ı da 'move' olmalı ---
+                    if (hoveredObject.type === 'guide' || hoveredObject.type === 'wall') {
+                        c2d.style.cursor = 'move'; // Node veya Guide P1/P2 hover
+                    } else {
+                        c2d.style.cursor = 'move';
+                    }
                     // c2d.classList.add('hover-node');
                     return;
                 }
@@ -453,8 +480,14 @@ function updateMouseCursor() {
                          c2d.style.cursor = 'grab'; // Oda ismi/alanı
                          // c2d.classList.add('hover-room-label');
                     }
+                    // --- YENİ EKLENDİ ---
+                    else if (hoveredObject.type === 'guide') {
+                        c2d.style.cursor = 'move'; // Rehber gövdesi
+                        // c2d.classList.add('hover-guide'); // (Opsiyonel sınıf)
+                    }
+                    // --- YENİ SONU ---
                     else {
-                         c2d.style.cursor = 'grab'; // Diğer nesne gövdeleri
+                         c2d.style.cursor = 'grab'; // Diğer nesne gövdeleri (kolon, kiriş, merdiven, kapı, pencere)
                         // c2d.classList.add('hover-object-body');
                     }
                     return;

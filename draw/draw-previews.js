@@ -1,11 +1,11 @@
 // ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/draw-previews.js
-import { state, dom } from './main.js';
+import { state, dom } from '../main.js';
 // import { getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow } from './actions.js'; // <-- BU SATIRI SİLİN
-import { getDoorPlacement, isSpaceForDoor } from './door-handler.js'; // <-- BU SATIRI EKLEYİN
-import { getWindowPlacement, isSpaceForWindow } from './window-handler.js'; // <-- BU SATIRI EKLEYİN
+import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js'; // <-- BU SATIRI EKLEYİN
+import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js'; // <-- BU SATIRI EKLEYİN
 import { drawDoorSymbol, drawWindowSymbol, isMouseOverWall } from './renderer2d.js';
 import { drawDimension } from './dimensions.js';
-import { distToSegmentSquared, snapTo15DegreeAngle } from './geometry.js';
+import { distToSegmentSquared, snapTo15DegreeAngle, screenToWorld } from './geometry.js';
 
 export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol) {
     const { currentMode, isPanning, isDragging, walls, mousePos } = state;
@@ -145,6 +145,37 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
             ctx2d.stroke();
 
             drawDimension(startPoint, previewPos, true, 'single');
+        }else if (currentMode === "drawGuideAngular" || currentMode === "drawGuideFree") {
+            ctx2d.strokeStyle = "rgba(255, 0, 0, 0.7)"; // Kırmızı rehber rengi
+            ctx2d.lineWidth = 1.5 / zoom;
+            ctx2d.setLineDash([4 / zoom, 4 / zoom]);
+
+            previewPos = { x: mousePos.x, y: mousePos.y }; // Snaplenmiş pozisyonu kullanır (mousePos'tan gelir)
+
+            ctx2d.beginPath();
+            ctx2d.moveTo(startPoint.x, startPoint.y);
+            
+            let p_end = previewPos;
+
+            if (currentMode === "drawGuideAngular") {
+                // Çizgiyi ekranın dışına kadar uzat
+                const dx = previewPos.x - startPoint.x;
+                const dy = previewPos.y - startPoint.y;
+                const len = Math.hypot(dx, dy);
+                if (len > 0.1) {
+                    const { x: worldLeft, y: worldTop } = screenToWorld(0, 0);
+                    const { x: worldRight, y: worldBottom } = screenToWorld(dom.c2d.width, dom.c2d.height);
+                    const extend = Math.max(worldRight - worldLeft, worldBottom - worldTop) * 2;
+                    
+                    const p0 = { x: startPoint.x - (dx/len) * extend, y: startPoint.y - (dy/len) * extend };
+                    p_end = { x: startPoint.x + (dx/len) * extend, y: startPoint.y + (dy/len) * extend };
+                    ctx2d.moveTo(p0.x, p0.y); // Başlangıç noktasını da uzat
+                }
+            }
+            
+            ctx2d.lineTo(p_end.x, p_end.y);
+            ctx2d.stroke();
+            ctx2d.setLineDash([]);
         }
         ctx2d.setLineDash([]);
     }

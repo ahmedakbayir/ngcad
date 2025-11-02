@@ -1,9 +1,9 @@
 // ahmedakbayir/ngcad/ngcad-36d2e95fa4df91f140572e4119169d6a11aeaa8b/beams.js
 // YENİ DOSYA (columns.js'den kopyalandı ve düzenlendi)
 
-import { state, setState } from './main.js'; // setState import edin
-import { distToSegmentSquared } from './geometry.js';
-import { currentModifierKeys } from './input.js';
+import { state, setState } from '../main.js'; // setState import edin
+import { distToSegmentSquared } from '../draw/geometry.js';
+import { currentModifierKeys } from '../input.js';
 
 // Kiriş nesnesi oluşturur
 export function createBeam(centerX, centerY, width, height, rotation) {
