@@ -3,7 +3,6 @@
 
 import { state, setState, dom, WALL_HEIGHT } from './main.js'; // dom import edildi
 import { distToSegmentSquared } from './geometry.js';
-import { update3DScene } from './scene3d-update.js'; // Değişti
 import { currentModifierKeys } from './input.js';
 // recalculateStepCount ve updateConnectedStairElevations bu dosyada tanımlı
 
@@ -670,8 +669,5 @@ export function onPointerMove(snappedPosFromInput, unsnappedPos) {
         stair.hollowWidth = 0; stair.hollowHeight = 0; stair.hollowOffsetX = 0; stair.hollowOffsetY = 0;
     }
 
-    // 3D sahneyi güncelle
-    if (dom.mainContainer.classList.contains('show-3d')) { // dom KULLANILDI
-       update3DScene();
-    }
+
 }

@@ -177,7 +177,7 @@ export function onPointerMove(e) {
     // Stretch dragging
     if (state.isStretchDragging) {
         // TODO: Stretch dragging mantığını buraya taşı veya ayrı fonksiyona çıkar
-        update3DScene(); // Stretch dragging 3D'yi güncellesin
+        // update3DScene(); // <-- SİLİNDİ
         updateMouseCursor(); // İmleci güncelle
         return;
     }
@@ -250,7 +250,7 @@ export function onPointerMove(e) {
                 }
                 break;
         }
-        update3DScene(); // Sürükleme sonrası 3D'yi güncelle
+        // update3DScene(); // <-- SİLİNDİ (Sürükleme sonrası 3D'yi güncelle)
     }
     
     // --- DÜZELTME: Simetri önizlemesi debounce (gecikmeli) mantığı ile değiştirildi ---

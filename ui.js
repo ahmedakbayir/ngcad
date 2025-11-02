@@ -1,6 +1,6 @@
 // ui.js
 // Son Güncelleme: Sahanlık kotu (125-135) mantığı confirmStairChange ve ilgili listener'larda düzeltildi.
-import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT } from './main.js';
+import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT, setMode } from './main.js'; // setMode import edildi
 import { saveState } from './history.js';
 import { update3DScene } from './scene3d-update.js';
 import { toggleCameraMode } from './scene3d-camera.js';
@@ -139,6 +139,7 @@ export function toggle3DView() {
     // FPS kamera butonunu göster/gizle
     if (dom.mainContainer.classList.contains('show-3d')) {
         dom.bFirstPerson.style.display = 'inline-block';
+        setMode("select"); // <-- EKLENDİ: 3D açılırken modu "select" yap
     } else {
         dom.bFirstPerson.style.display = 'none';
     }

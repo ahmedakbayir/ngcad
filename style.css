@@ -70,14 +70,15 @@ body {
 }
 
 #splitter {
-    flex: 0 0 10px;
+    flex: 0 0 4px; /* DEĞİŞTİ (10px -> 4px) */
     cursor: col-resize;
     background-color: #3c4043;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='30' viewBox='0 0 10 30'%3E%3Cpath d='M4,10 L4,20 M6,10 L6,20' stroke='%23888' stroke-width='1'/%3E%3C/svg%3E");
+    /* DEĞİŞTİ: SVG genişliği (10->4) ve path (M4/M6 -> M1/M3) güncellendi */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='30' viewBox='0 0 4 30'%3E%3Cpath d='M1,10 L1,20 M3,10 L3,20' stroke='%23888' stroke-width='1'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: center;
     display: none;
-    margin: 0 5px;
+    margin: 0 3px; /* DEĞİŞTİ (5px -> 3px) */
     border-radius: 5px;
 }
 
@@ -97,9 +98,11 @@ canvas {
     left: 10px;
     z-index: 10;
     display: flex;
-    flex-wrap: wrap;
+    /* flex-wrap: wrap; */ /* DEĞİŞTİ */
+    flex-direction: column; /* EKLENDİ */
+    width: 120px; /* EKLENDİ */
     gap: 10px;
-    align-items: center;
+    /* align-items: center; */ /* SİLİNDİ */
 }
 
 .btn {
@@ -114,6 +117,14 @@ canvas {
     align-items: center;
     gap: 8px;
 }
+
+/* YENİ KURAL: Sadece UI içindeki butonları 100% genişlik yap */
+#ui .btn {
+    width: 100%; /* EKLENDİ */
+    box-sizing: border-box; /* EKLENDİ */
+    justify-content: flex-start; /* EKLENDİ */
+}
+
 
 .btn svg {
     width: 18px;

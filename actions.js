@@ -135,7 +135,10 @@ export function getObjectAtPoint(pos) {
         if (typeof pos?.x !== 'number' || typeof pos?.y !== 'number' || !isFinite(pos.x) || !isFinite(pos.y)) continue; // Pozisyon geçersizse bu odayı atla
 
         const distToCenter = Math.hypot(pos.x - room.center[0], pos.y - room.center[1]);
-        const nameTolerance = 40 / zoom; // Mahal adı yakalama toleransı (draw-rooms.js ile aynı olmalı)
+        
+        // DEĞİŞTİ: 40 -> (40 / 3)
+        const nameTolerance = 10 / zoom; // Mahal adı yakalama toleransı
+        
         if (distToCenter < nameTolerance) {
              // Mahal adı/alanına tıklandıysa bunu döndür
              return { type: 'roomName', object: room }; // 'roomArea' yerine 'roomName' döndürelim, ikisi de aynı şekilde ele alınabilir
@@ -171,7 +174,10 @@ export function getObjectAtPoint(pos) {
                  let isOverName = false;
                  if (hasValidCenter) {
                     const distToCenter = Math.hypot(pos.x - room.center[0], pos.y - room.center[1]);
-                    const nameTolerance = 40 / zoom;
+                    
+                    // DEĞİŞTİ: 40 -> (40 / 3)
+                    const nameTolerance = (40 / 3) / zoom; // Mahal adı yakalama toleransı
+                    
                     if (distToCenter < nameTolerance) {
                         isOverName = true; // Evet, isim/alan üzerindeyiz
                     }

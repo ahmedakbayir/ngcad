@@ -445,7 +445,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             setState({ sweepWalls });
         }
     }
-    update3DScene();
+    //update3DScene();
 
    // Bulunan komşu duvarları geçici state'e ata
    setState({ tempNeighborWallsToDimension: neighborWallsToDimension });

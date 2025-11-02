@@ -3,7 +3,6 @@
 
 import { state, setState } from './main.js'; // setState import edin
 import { distToSegmentSquared } from './geometry.js';
-import { update3DScene } from './scene3d-update.js'; // Değişti
 import { currentModifierKeys } from './input.js';
 // createColumn'u kendi dosyasından import etmeye gerek yok
 
@@ -329,7 +328,6 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         column.hollowWidth = 0; column.hollowHeight = 0; column.hollowOffsetX = 0; column.hollowOffsetY = 0;
     }
 
-    update3DScene();
 }
 
 /**

@@ -3,7 +3,6 @@
 
 import { state, setState } from './main.js'; // setState import edin
 import { distToSegmentSquared } from './geometry.js';
-import { update3DScene } from './scene3d-update.js'; // Değişti
 import { currentModifierKeys } from './input.js';
 
 // Kiriş nesnesi oluşturur
@@ -311,7 +310,6 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         beam.hollowWidth = 0; beam.hollowHeight = 0; beam.hollowOffsetX = 0; beam.hollowOffsetY = 0;
     }
 
-    update3DScene();
 }
 
 /**
