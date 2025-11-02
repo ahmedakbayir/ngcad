@@ -11,13 +11,15 @@ export let scene, camera, renderer, controls; // 'controls' MEVCUT aktif kontrol
 export let orbitControls, pointerLockControls;
 export let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
 export let sceneObjects;
+export let textureLoader; // <-- Resim çerçeveleri için eklendi
 
 // --- Malzemeler (Materials) ---
 export let wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
     mullionMaterial, sillMaterial, handleMaterial, floorMaterial,
     stairMaterial, stairMaterialTop, ventMaterial, trimMaterial,
     balconyRailingMaterial, glassMaterial, halfWallCapMaterial,
-    handrailWoodMaterial, balusterMaterial, stepNosingMaterial;
+    handrailWoodMaterial, balusterMaterial, stepNosingMaterial,
+    pictureFrameMaterial; // <-- Adı düzeltildi (pictureFrameBorderMaterial -> pictureFrameMaterial)
 
 // YENİ SETTER FONKSİYONLARI
 /**
@@ -52,6 +54,9 @@ export function init3D(canvasElement) {
         canvas: canvasElement,
     });
 
+    textureLoader = new THREE.TextureLoader(); // <-- Texture Loader'ı başlat
+    textureLoader.setCrossOrigin('anonymous'); // <-- DÜZELTME: CORS HATASI İÇİN EKLENDİ
+
     // OrbitControls'ü başlat
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.target.set(0, WALL_HEIGHT / 2, 0);
@@ -64,7 +69,7 @@ export function init3D(canvasElement) {
     pointerLockControls.disconnect(); // Mouse kontrolünü tamamen devre dışı bırak
 
     // Varsayılan olarak OrbitControls aktif
-    setActiveControls(orbitControls); // <-- YENİ SETTER KULLANILDI
+    setActiveControls(orbitControls); // <-- SETTER KULLANILDI
 
     const amb = new THREE.AmbientLight(0xffffff, 1.2);
     const dir = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -74,7 +79,7 @@ export function init3D(canvasElement) {
     sceneObjects = new THREE.Group();
     scene.add(sceneObjects);
 
-    const solidOpacity = 0.75;
+    const solidOpacity = 0.75; 
 
     // --- Malzemeleri burada oluştur ---
     wallMaterial = new THREE.MeshStandardMaterial({
@@ -160,6 +165,16 @@ export function init3D(canvasElement) {
     halfWallCapMaterial = new THREE.MeshStandardMaterial({
         color: 0xBDBDBD,
         roughness: 0.7, transparent: true, opacity: solidOpacity, side: THREE.DoubleSide
+    });
+
+    // YENİ MALZEME (Adı düzeltildi: pictureFrameMaterial)
+    pictureFrameMaterial = new THREE.MeshStandardMaterial({
+        color: 0x111111, // Koyu gri/siyah çerçeve
+        roughness: 0.8,
+        metalness: 0.1,
+        transparent: true,
+        opacity: solidOpacity, // solidOpacity'yi init3D içinden alır
+        side: THREE.DoubleSide
     });
 }
 

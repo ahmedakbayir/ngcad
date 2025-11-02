@@ -1,18 +1,66 @@
-// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/main.js
+// main.js
 import { draw2D } from './draw2d.js';
-// --- ESKİ IMPORT'U SİL ---
-// import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, update3DScene, scene as scene3d, updateFirstPersonCamera } from './scene3d.js';
-// --- YENİ IMPORT'LARI EKLE ---
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from './scene3d-core.js';
 import { updateFirstPersonCamera } from './scene3d-camera.js';
 import { update3DScene } from './scene3d-update.js';
-// ---
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { createWallPanel } from './wall-panel.js';
-import { fitDrawingToScreen } from './zoom.js'; // <-- BU SATIRI EKLEYİN
+import { fitDrawingToScreen } from './zoom.js';
+
+// --- RESİM ÇERÇEVESİ KODU ---
+// config.js'den (eğer varsa) API anahtarını güvenli bir şekilde okur
+const UNSPLASH_API_KEY = (window.NG_CONFIG && window.NG_CONFIG.UNSPLASH_API_KEY) ? window.NG_CONFIG.UNSPLASH_API_KEY : null;
+const IMAGE_COUNT_TO_CACHE = 50; // Başlangıçta 50 resim çek
+
+
+async function loadPictureFrameImages() {
+    console.log("Resim çerçevesi resimleri yükleniyor...");
+    if (!UNSPLASH_API_KEY || UNSPLASH_API_KEY === 'BURAYA_UNSPLASH_API_KEY_GİRİN') {
+        console.warn("Unsplash API Anahtarı (config.js) bulunamadı. Placeholder resimler kullanılıyor.");
+        // Placeholder URL'lerini (imgur) kullan
+        const placeholderImages = [
+            'https://i.imgur.com/S6RjY6A.jpeg', // Doğa
+            'https://i.imgur.com/GzQvjQy.jpeg', // Soyut
+            'https://i.imgur.com/PqN3pE0.jpeg', // Mimari
+            'https://i.imgur.com/yF9EMs8.jpeg'  // Teknoloji
+        ];
+        const fullCache = [];
+        for(let i=0; i<IMAGE_COUNT_TO_CACHE; i++) {
+            fullCache.push(placeholderImages[i % placeholderImages.length]);
+        }
+        setState({ pictureFrameCache: fullCache });
+        console.log(`${fullCache.length} adet placeholder resim cache'lendi.`);
+        return;
+    }
+    
+    // API Anahtarı varsa Unsplash'ten çek:
+    try {
+        // --- GÜNCELLEME: Sorguyu "canlı" resimler için değiştir ---
+        const url = `https://api.unsplash.com/photos/random?client_id=${UNSPLASH_API_KEY}&count=${IMAGE_COUNT_TO_CACHE}&query=business-strategy,desktop,office,town,artificial-intelligence,code,construction,building,city,city-at-night,urban,street,road,nature,architecture&content_filter=high&orientation=landscape`;
+        // --- GÜNCELLEME SONU ---
+
+        const response = await fetch(url);
+        if (!response.ok) { 
+             throw new Error(`API Hatası: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        const urls = data.map(item => item.urls.regular);
+        setState({ pictureFrameCache: urls });
+        console.log(`${urls.length} adet Unsplash resmi cache'lendi.`);
+    } catch (error) {
+        console.error("Unsplash resimleri çekilemedi, placeholder resimler kullanılıyor:", error);
+        // Hata durumunda da placeholder'ları yükle
+        // API anahtarını null olarak ayarlayıp (geçici) tekrar çağırarak placeholder'a zorla
+        const originalKey = UNSPLASH_API_KEY; // Orijinal anahtarı sakla
+        window.NG_CONFIG.UNSPLASH_API_KEY = null; // Geçici olarak null yap
+        await loadPictureFrameImages(); // Placeholder'ları yükle
+        window.NG_CONFIG.UNSPLASH_API_KEY = originalKey; // Anahtarı geri yükle
+    }
+}
+
 
 export const BG = "#1e1f20";
 export const METER_SCALE = 1;
@@ -34,12 +82,13 @@ export const MAHAL_LISTESI = [
     'DAİRE','KAZAN DAİRESİ','DÜKKAN','YAN BİNA','KİLER','DEPO','BAHÇE','AYDINLIK','GARAJ',
     'TERAS','BODRUM','AÇIK OTOPARK','KAPALI OTOPARK','BACA','AÇIK AYDINLIK','ÇATI ARASI',
     'YANGIN MERDİVENİ','TESİSAT ŞAFTI','SAYAÇ ODASI','SAYAÇ ŞAFTI','KURANGLEZ','SIĞINAK',
-    'CİHAZ ODASI','HAVALANDIRMA','TOPRAK DOLGU','ÇAY OCAĞI','LOKANTA','KANTİN','YEMEKHANE',
+    'CİHAZ ODASI','HAVALANDIRMA','TOPRAK DOLGU','ÇAY OCAĞİ','LOKANTA','KANTİN','YEMEKHANE',
     'KAHVEHANE','BAKKAL','MARKET','SINIF','REVİR','SPOR SALONU','MESCİD','CAMİ','OKUL',
     'SAĞLIK OCAĞI','MUAYENEHANE','İMALATHANE','FIRIN','KAFE','SHOWROOM','BEKLEME ODASI',
     'TOPLANTI ODASI','MAĞAZA','ENDÜSTRİYEL MUTFAK','BACA ŞAFTI','KÖMÜRLÜK','ARŞİV',
     'ISI MERKEZİ','FABRİKA','LABARATUVAR','TEKNİK HACİM','DANIŞMA','ATÖLYE'];
 
+    
 export let state = {
     currentMode: "drawRoom", // Başlangıç modu "Oda Çiz"
     lastUsedMode: "drawRoom", // Son kullanılan da "Oda Çiz"
@@ -130,7 +179,12 @@ export let state = {
         nodes: [], walls: [], doors: [], windows: [], vents: [],
         columns: [], beams: [], stairs: [], rooms: []
     },
-    symmetryPreviewTimer: null // <-- DÜZELTME: Kilitlenme sorununu çözmek için eklendi
+    symmetryPreviewTimer: null, // <-- DÜZELTME: Kilitlenme sorununu çözmek için eklendi
+    // --- YENİ: RESİM ÇERÇEVESİ İÇİN STATE ---
+    pictureFrameCache: [], // Unsplash URL'lerini tutar
+    pictureFrameMaterials: {} // 3D Malzemeleri (URL'ye göre) cache'ler
+    // --- YENİ STATE SONU ---
+    
 };
 
 export function setState(newState) {
@@ -379,6 +433,8 @@ function initialize() {
     setupInputListeners();
     setupFileIOListeners();
     createWallPanel();
+
+    loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
     dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
     dom.bWall.addEventListener("click", () => setMode("drawWall", true));

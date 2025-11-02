@@ -2,7 +2,8 @@
 // Ana 3D güncelleme döngüsünü (update3DScene) yönetir.
 
 import * as THREE from "three";
-import { state, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "./main.js";
+// --- HATA DÜZELTMESİ: setState import edildi ---
+import { state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "./main.js";
 import { getArcWallPoints } from "./geometry.js";
 
 // Core nesneleri ve malzemeleri import et
@@ -12,7 +13,8 @@ import {
     mullionMaterial, sillMaterial, handleMaterial, floorMaterial,
     stairMaterial, stairMaterialTop, ventMaterial, trimMaterial,
     balconyRailingMaterial, glassMaterial, halfWallCapMaterial,
-    handrailWoodMaterial, balusterMaterial, stepNosingMaterial
+    handrailWoodMaterial, balusterMaterial, stepNosingMaterial,
+    textureLoader, pictureFrameMaterial // İsim hatası da düzeltildi
 } from "./scene3d-core.js";
 
 // Mesh oluşturma fonksiyonlarını import et
@@ -24,6 +26,9 @@ import {
 import {
     createColumnMesh, createBeamMesh, createStairMesh
 } from "./scene3d-structures.js";
+
+// YENİ IMPORT (wall-item-utils.js'den)
+import { findLargestAvailableSegment } from "./wall-item-utils.js";
 
 
 /**
@@ -55,6 +60,10 @@ export function update3DScene() {
     handrailWoodMaterial.transparent = true; handrailWoodMaterial.opacity = solidOpacity; handrailWoodMaterial.needsUpdate = true;
     balusterMaterial.transparent = true; balusterMaterial.opacity = solidOpacity; balusterMaterial.needsUpdate = true;
     stepNosingMaterial.transparent = true; stepNosingMaterial.opacity = solidOpacity + 0.1; stepNosingMaterial.needsUpdate = true;
+    // Çerçeve malzemesi için opaklık (eğer gerekirse)
+    if (pictureFrameMaterial) {
+        pictureFrameMaterial.transparent = true; pictureFrameMaterial.opacity = solidOpacity; pictureFrameMaterial.needsUpdate = true;
+    }
 
     const { walls, doors, columns, beams, rooms, stairs } = state;
 
@@ -176,6 +185,15 @@ export function update3DScene() {
         });
     }
 
+    // --- YENİ: Resim Çerçevelerini Ekle ---
+    try {
+        buildPictureFrames(sceneObjects);
+    } catch (error) {
+        console.error("Resim çerçeveleri oluşturulurken bir hata oluştu:", error);
+    }
+    // --- YENİ SONU ---
+
+
     // --- Orbit Hedefini Ayarla ---
     if (controls === orbitControls) { // Sadece orbit modundaysa hedefi ayarla
         if (sceneObjects.children.length > 0) {
@@ -192,5 +210,292 @@ export function update3DScene() {
              controls.target.set(0, WALL_HEIGHT/2, 0);
         }
         controls.update();
+    }
+}
+
+
+// ===================================================================
+// AŞAĞIDAKİ YENİ FONKSİYONLAR (Dosyanın en altına)
+// ===================================================================
+
+/**
+ * Verilen bir URL için bir picture material oluşturur veya state'teki cache'den döndürür.
+ * (state.pictureFrameMaterials kullanır, textureLoader'ı scene3d-core'dan alır)
+ */
+function getPictureMaterial(url) {
+    if (state.pictureFrameMaterials[url]) {
+        return state.pictureFrameMaterials[url];
+    }
+    // textureLoader'ın scene3d-core.js'de başlatıldığını varsayıyoruz
+    const newMaterial = new THREE.MeshStandardMaterial({
+        map: textureLoader.load(url), // textureLoader'ı globalden kullan
+        color: 0xffffff,
+        roughness: 0.9, // Mat resim
+        metalness: 0.1
+    });
+    // Malzemeyi state'te cache'le
+    // --- HATA DÜZELTMESİ BURADA ---
+    // setState'i global scope'tan (main.js'den import edildi) kullan
+    setState({
+        pictureFrameMaterials: { ...state.pictureFrameMaterials, [url]: newMaterial }
+    });
+    // --- HATA DÜZELTMESİ SONU ---
+    return newMaterial;
+}
+
+/**
+ * Bir odayı oluşturan duvarları ve "içeri" bakan normal vektörlerini bulur.
+ * (wall-processor.js / geometry.js'deki oda tespit mantığını kullanır)
+ */
+function getWallsForRoom(room, allWalls) {
+    const roomWalls = [];
+    // --- DÜZELTME: Turf.js'nin (index.html'den) yüklendiğini kontrol et ---
+    if (!room.polygon?.geometry?.coordinates || typeof turf === 'undefined') {
+        if (typeof turf === 'undefined') console.warn("Turf.js bulunamadı, çerçeveler için iç/dış yönü hesaplanamıyor.");
+        return roomWalls;
+    }
+    
+    const coords = room.polygon.geometry.coordinates[0];
+    const TOLERANCE = 1; // 1 cm tolerans
+
+    for (let i = 0; i < coords.length - 1; i++) {
+        const p1Coord = coords[i];
+        const p2Coord = coords[i + 1];
+
+        // Bu poligonal segmentle eşleşen duvarı bul
+        const wall = allWalls.find(w => { // 'w' burada tanımlanır
+            if (!w || !w.p1 || !w.p2) return false;
+            // İki yönlü kontrol (p1->p2 veya p2->p1)
+            const d1_find = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) + Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
+            const d2_find = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) + Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
+            return Math.min(d1_find, d2_find) < TOLERANCE;
+        });
+
+        if (wall) {
+            const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+            if (wallLen < 0.1) continue;
+
+            // --- DÜZELTİLMİŞ "İÇERİ" NORMAL HESAPLAMASI ---
+            const dx = wall.p2.x - wall.p1.x; // Duvarın 2D X yönü
+            const dy = wall.p2.y - wall.p1.y; // Duvarın 2D Y yönü
+
+            const dirX = dx / wallLen; // Duvar yönü (p1->p2) X
+            const dirZ = dy / wallLen; // Duvar yönü (p1->p2) Z (2D Y)
+
+            // İki olası "içeri" normal (biri sol, biri sağ)
+            const leftNormal = { x: -dirZ, z: dirX }; // Sol normal
+            const rightNormal = { x: dirZ, z: -dirX }; // Sağ normal
+
+            // Duvarın orta noktasını test et
+            const midX = (wall.p1.x + wall.p2.x) / 2;
+            const midZ = (wall.p1.y + wall.p2.y) / 2; // 2D y -> 3D z
+
+            // Sol normal yönünde 1cm içeri gir
+            // 'turf.point' için koordinatlar [x, y] olmalı
+            const testPointLeft = turf.point([midX + leftNormal.x * 1, midZ + leftNormal.z * 1]); 
+            
+            let insideNormal;
+            // Test noktasının oda poligonunun içinde olup olmadığını kontrol et
+            if (turf.booleanPointInPolygon(testPointLeft, room.polygon)) {
+                insideNormal = leftNormal; // Sol normal içeride
+            } else {
+                // Teste gerek yok, diğeri olmalı
+                insideNormal = rightNormal; // Sağ normal içeride
+            }
+            
+            roomWalls.push({ wall, insideNormal });
+            // --- HESAPLAMA SONU ---
+        }
+    }
+    return roomWalls;
+}
+
+/**
+ * Resim çerçevesi (resim + kenarlıklar) için 3D mesh oluşturur
+ */
+function createPictureFrameMesh(wall, posOnWall, width, height, picMaterial, borderMaterial, insideNormal_3D, yPosition) {
+    
+    const frameGroup = new THREE.Group();
+    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+    if (wallLen < 0.1) return null;
+
+    const dx_wall = (wall.p2.x - wall.p1.x) / wallLen; // Duvarın 2D X yönü
+    const dy_wall = (wall.p2.y - wall.p1.y) / wallLen; // Duvarın 2D Y yönü (3D Z yönü)
+    
+    const wallThickness = wall.thickness || state.wallThickness;
+    const borderWidth = 4; // 4cm çerçeve kalınlığı
+    const frameDepth = 3;  // 3cm çerçeve derinliği (duvardan çıkıntı)
+
+    // 1. Resim Düzlemi (Plane)
+    const picWidth = width - (borderWidth * 2);
+    const picHeight = height - (borderWidth * 2);
+    if (picWidth <= 0 || picHeight <= 0) return null; // Çok küçük
+
+    // PlaneGeometry (Genişlik=X, Yükseklik=Y)
+    const picGeom = new THREE.PlaneGeometry(picWidth, picHeight); 
+    const picMesh = new THREE.Mesh(picGeom, picMaterial);
+    picMesh.position.y = yPosition; // İstenen Y yüksekliği (merkez)
+    frameGroup.add(picMesh);
+
+    // 2. Çerçeve Kenarlıkları (4 adet Box)
+    // Üst
+    const topBorderGeom = new THREE.BoxGeometry(width, borderWidth, frameDepth);
+    const topBorder = new THREE.Mesh(topBorderGeom, borderMaterial);
+    topBorder.position.y = yPosition + (picHeight / 2) + (borderWidth / 2); // Resmin üstü + yarım kenarlık
+    frameGroup.add(topBorder);
+    // Alt
+    const bottomBorderGeom = new THREE.BoxGeometry(width, borderWidth, frameDepth);
+    const bottomBorder = new THREE.Mesh(bottomBorderGeom, borderMaterial);
+    bottomBorder.position.y = yPosition - (picHeight / 2) - (borderWidth / 2); // Resmin altı - yarım kenarlık
+    frameGroup.add(bottomBorder);
+    // Sol
+    const leftBorderGeom = new THREE.BoxGeometry(borderWidth, picHeight, frameDepth); // picHeight (iç yükseklik)
+    const leftBorder = new THREE.Mesh(leftBorderGeom, borderMaterial);
+    leftBorder.position.x = - (picWidth / 2) - (borderWidth / 2); // Resmin solu - yarım kenarlık
+    leftBorder.position.y = yPosition;
+    frameGroup.add(leftBorder);
+    // Sağ
+    const rightBorderGeom = new THREE.BoxGeometry(borderWidth, picHeight, frameDepth);
+    const rightBorder = new THREE.Mesh(rightBorderGeom, borderMaterial);
+    rightBorder.position.x = (picWidth / 2) + (borderWidth / 2); // Resmin sağı + yarım kenarlık
+    rightBorder.position.y = yPosition;
+    frameGroup.add(rightBorder);
+
+    // Grubu XZ düzlemindeki (duvar üzerindeki) pozisyonuna taşı
+    const centerPos_x = wall.p1.x + dx_wall * posOnWall;
+    const centerPos_z = wall.p1.y + dy_wall * posOnWall; // 2D y -> 3D z
+
+    // Grubu duvardan "içeri" normale göre yarım duvar kalınlığı + yarım çerçeve derinliği kadar ötele
+    const offsetX = insideNormal_3D.x * (wallThickness / 2 + frameDepth / 2);
+    const offsetZ = insideNormal_3D.z * (wallThickness / 2 + frameDepth / 2);
+
+    frameGroup.position.set(centerPos_x + offsetX, 0, centerPos_z + offsetZ);
+
+    // Grubu "içeri" normale bakacak şekilde Y ekseni etrafında döndür
+    // Normalin XZ düzlemindeki açısı (atan2(x, z) X ekseninden başlar, Z'ye doğru)
+    const finalAngle = Math.atan2(insideNormal_3D.x, insideNormal_3D.z);
+    frameGroup.rotation.y = finalAngle;
+
+    return frameGroup;
+}
+
+
+/**
+ * 3D sahnede, kurallara göre resim çerçevelerini oluşturur ve ekler.
+ */
+let picFrameCacheIndex = 0; // Rastgele resimler için global index (state dışında tutulabilir)
+
+function buildPictureFrames(sceneObjects) {
+    // Cache'den resim URL'lerini al
+    const imageUrls = state.pictureFrameCache;
+    if (!imageUrls || imageUrls.length === 0) return; // Resim yoksa çık
+    
+    // --- DÜZELTME: Duvar kullanımını takip etmek için Set ---
+    // Bu Set, bir duvarın (iki tarafı da dahil) çerçeve için SADECE BİR KEZ kullanılmasını sağlar.
+    const usedWalls = new Set();
+    // --- DÜZELTME SONU ---
+
+    // Kurallar (cm)
+    const MAX_WIDTH = 150;
+    const MAX_HEIGHT = 80;
+    const MIN_WIDTH = 50; // Minimum çerçeve genişliği
+    const WALL_PADDING = 20; // Boşluğun kenarlarından bırakılacak toplam pay
+    const FRAME_Y_POSITION = 180; // Çerçevenin MERKEZİNİN yerden yüksekliği (115cm alt + 80/2 = 155cm)
+
+    // Odaya göre duvarları bul ve çerçeveleri yerleştir
+    for (const room of state.rooms) {
+        // 1. Bu odaya ait duvarları ve "içeri" normalini bul
+        const roomWalls = getWallsForRoom(room, state.walls);
+        
+        // --- YENİ KURAL: Özel duvar tipine sahip mahallere EKLEME ---
+        let hasSpecialWall = false;
+        for (const { wall } of roomWalls) {
+            const wallType = wall.wallType || 'normal';
+            if (wallType === 'balcony' || wallType === 'glass' || wallType === 'half') {
+                hasSpecialWall = true;
+                break;
+            }
+        }
+        // Eğer mahalde bu duvar tiplerinden biri varsa, o mahale hiç resim ekleme
+        if (hasSpecialWall) {
+            continue; 
+        }
+        // --- YENİ KURAL SONU ---
+
+        const segments = [];
+
+        // 2. Bu odaya ait duvarlardaki en büyük boşlukları bul
+        for (const { wall, insideNormal } of roomWalls) {
+            
+            // --- DÜZELTME: Duvar daha önce kullanıldıysa atla ---
+            if (usedWalls.has(wall)) continue;
+            // --- DÜZELTME SONU ---
+
+            // Sadece 'normal' tipteki duvarlara ekle
+            // (Yukarıdaki kural zaten odayı filtreledi ama bu yine de kalsın)
+            const wallType = wall.wallType || 'normal';
+            if (wallType !== 'normal') continue;
+
+            // Duvardaki en büyük *kullanılabilir* boşluğu bul
+            // (wall-item-utils.js'den import edilen fonksiyonu kullanıyoruz)
+            // Bu fonksiyon zaten kapı/pencere/menfezleri hesaba katar.
+            const largestSegment = findLargestAvailableSegment(wall); 
+            
+            if (largestSegment && largestSegment.length >= (MIN_WIDTH + WALL_PADDING)) {
+                segments.push({
+                    wall,
+                    segment: largestSegment,
+                    insideNormal // {x, z} 3D normali
+                });
+            }
+        }
+
+        // 3. Boşlukları büyüklüğe göre sırala ve en fazla 2 tanesini al (KURAL)
+        segments.sort((a, b) => b.segment.length - a.segment.length);
+        const wallsToPlace = segments.slice(0, 2);
+
+        // 4. Seçilen duvarlara çerçeveleri oluştur ve sahneye ekle
+        for (const { wall, segment, insideNormal } of wallsToPlace) {
+            
+            // Boyutları belirle (KURAL: max 150x80)
+            let frameWidth = Math.min(MAX_WIDTH, segment.length - WALL_PADDING);
+            let frameHeight = MAX_HEIGHT; // Önce maksimum yüksekliği dene
+            
+            // Oran (Genişlik / Yükseklik), örn: 150/80 = 1.875
+            // Eğer hesaplanan genişlik, bu oranı koruyarak max yükseklikten daha azını gerektiriyorsa yüksekliği azalt
+            // (Yani genişlik, yüksekliğin 1.875 katından küçükse)
+            if (frameWidth < MAX_HEIGHT * (MAX_WIDTH / MAX_HEIGHT)) {
+                frameHeight = frameWidth / (MAX_WIDTH / MAX_HEIGHT); // Genişliğe göre yüksekliği ayarla
+            } else {
+                // Yükseklik 80'de kaldı, şimdi genişliği de bu orana göre (gerekirse) küçült
+                frameWidth = frameHeight * (MAX_WIDTH / MAX_HEIGHT);
+            }
+
+
+            if (frameWidth < MIN_WIDTH) continue; // Çok küçükse atla
+
+            // Pozisyonu belirle (boşluğun ortası)
+            const posOnWall = segment.start + segment.length / 2;
+
+            // Resmi cache'den al
+            const picURL = imageUrls[picFrameCacheIndex % imageUrls.length];
+            const picMaterial = getPictureMaterial(picURL);
+            picFrameCacheIndex++;
+
+            // Mesh'i oluştur
+            const frameMesh = createPictureFrameMesh(
+                wall, posOnWall, frameWidth, frameHeight,
+                picMaterial, 
+                pictureFrameMaterial, // Kenarlık malzemesi (adı düzeltildi)
+                insideNormal, FRAME_Y_POSITION
+            );
+
+            if (frameMesh) {
+                sceneObjects.add(frameMesh);
+                // --- DÜZELTME: Duvarı kullanıldı olarak işaretle ---
+                usedWalls.add(wall);
+                // --- DÜZELTME SONU ---
+            }
+        }
     }
 }
