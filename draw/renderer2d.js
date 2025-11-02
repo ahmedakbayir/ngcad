@@ -1,12 +1,10 @@
 // ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/renderer2d.js
-// Son Güncelleme: Merdiven çift çizgisi kaldırıldı, ok mantığı güncellendi.
 
-import { state, dom, BG, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT } from '../main.js'; // Sabitleri import et
-// // getLineIntersectionPoint import edildiğinden emin ol
 import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from './geometry.js';
 import { getColumnCorners, isPointInColumn } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
+import { state, dom, BG, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT } from '../general-files/main.js'; // Sabitleri import et
 
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
 export function drawNodeWallCount(node) {

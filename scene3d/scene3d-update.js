@@ -2,11 +2,6 @@
 // Ana 3D güncelleme döngüsünü (update3DScene) yönetir.
 
 import * as THREE from "three";
-// --- HATA DÜZELTMESİ: setState import edildi ---
-import { state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "../main.js";
-import { getArcWallPoints } from "../draw/geometry.js";
-
-// Core nesneleri ve malzemeleri import et
 import {
     scene, camera, renderer, controls, sceneObjects,orbitControls,
     wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
@@ -15,21 +10,17 @@ import {
     balconyRailingMaterial, glassMaterial, halfWallCapMaterial,
     handrailWoodMaterial, balusterMaterial, stepNosingMaterial,
     textureLoader, pictureFrameMaterial // İsim hatası da düzeltildi
-} from "./scene3d-core.js";
+    } from "./scene3d-core.js";
 
 // Mesh oluşturma fonksiyonlarını import et
-import {
-    createWallSegmentMesh, createDoorMesh, createLintelMesh,
-    createComplexWindow, createWallPieceMesh, createVentMesh
-} from "./scene3d-walls.js";
-
-import {
-    createColumnMesh, createBeamMesh, createStairMesh
-} from "./scene3d-structures.js";
-
-// YENİ IMPORT (wall-item-utils.js'den)
+import {createWallSegmentMesh, createDoorMesh, createLintelMesh,
+    createComplexWindow, createWallPieceMesh, createVentMesh} 
+    from "./scene3d-walls.js";
+import {createColumnMesh, createBeamMesh, createStairMesh} from "./scene3d-structures.js";
+import {getArcWallPoints } from "../draw/geometry.js";
+import {state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
+    BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "../general-files/main.js";
 import { findLargestAvailableSegment } from "../wall/wall-item-utils.js";
-
 
 /**
  * 2D veriye (state) dayanarak 3D sahneyi temizler ve yeniden oluşturur.

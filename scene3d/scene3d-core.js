@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
-import { state, WALL_HEIGHT, dom } from "../main.js";
+import { state, WALL_HEIGHT, dom } from "../general-files/main.js";
 
 // --- Global Değişkenler ---
 export let scene, camera, renderer, controls; // 'controls' MEVCUT aktif kontrol olacak

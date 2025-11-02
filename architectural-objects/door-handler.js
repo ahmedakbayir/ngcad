@@ -1,7 +1,7 @@
 // door-handler.js
-import { state, setState } from '../main.js';
-import { saveState } from '../history.js';
 import { distToSegmentSquared } from '../draw/geometry.js';
+import { state, setState } from '../general-files/main.js';
+import { saveState } from '../general-files/history.js';
 import { findAvailableSegmentAt, checkOverlapAndGap } from '../wall/wall-item-utils.js';
 
 /**

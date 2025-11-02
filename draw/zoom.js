@@ -1,10 +1,10 @@
-import { state, setState, dom } from './main.js';
-import { screenToWorld } from './draw/geometry.js';
-import { positionLengthInput } from './ui.js';
+import { screenToWorld } from './geometry.js';
+import { getColumnCorners } from '../architectural-objects/columns.js';
+import { getBeamCorners } from '../architectural-objects/beams.js';
+import { getStairCorners } from '../architectural-objects/stairs.js';
+import { state, setState, dom } from '../general-files/main.js';
+import { positionLengthInput } from '../general-files/ui.js';
 // Gerekli importları ekle:
-import { getColumnCorners } from './architectural-objects/columns.js';
-import { getBeamCorners } from './architectural-objects/beams.js';
-import { getStairCorners } from './architectural-objects/stairs.js';
 
 export function onWheel(e) {
     e.preventDefault();

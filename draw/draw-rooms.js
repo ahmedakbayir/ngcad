@@ -1,5 +1,5 @@
-import { state, dom } from '../main.js';
-import { getObjectAtPoint } from '../actions.js';
+import { state, dom } from '../general-files/main.js';
+import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
 // Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.4 yaklaşık olarak...)

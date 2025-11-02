@@ -1,17 +1,15 @@
 // symmetry.js
-import { state, setState, dom } from '../main.js';
 import { reflectPoint, getOrCreateNode } from './geometry.js';
-import { wallExists } from '../wall/wall-handler.js'; // Veya geometry.js'den
-import { createColumn } from '../architectural-objects/columns.js';
-import { createBeam } from '../architectural-objects/beams.js';
 import { createStairs } from '../architectural-objects/stairs.js';
+import { createBeam } from '../architectural-objects/beams.js';
+import { createColumn } from '../architectural-objects/columns.js';
+import { state, setState, dom } from '../general-files/main.js';
+import { saveState } from '../general-files/history.js';
+import { update3DScene } from '../scene3d/scene3d-update.js'; 
+import { wallExists } from '../wall/wall-handler.js'; // Veya geometry.js'den
 import { processWalls } from '../wall/wall-processor.js';
-import { saveState } from '../history.js';
-import { update3DScene } from '../scene3d/scene3d-update.js'; // Değişti
-// Gerekirse turf import'u da buraya eklenebilir
-// import * as turf from '@turf/turf'; // Eğer @turf/turf import ediliyorsa
 
-// symmetry.js - calculateCopyPreview fonksiyonunu EXPORT EDİN
+
 
 /**
  * Ctrl ile birebir kopya önizlemesini hesaplar

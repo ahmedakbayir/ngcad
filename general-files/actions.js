@@ -3,17 +3,15 @@
 // ve birkaç genel yardımcı fonksiyon içeriyor.
 
 import { state } from './main.js';
-import { getColumnAtPoint } from './architectural-objects/columns.js';
-import { getBeamAtPoint } from './architectural-objects/beams.js'; // <-- YENİ SATIRI EKLEYİN
-import { getStairAtPoint } from './architectural-objects/stairs.js'; // <-- MERDİVEN EKLENDİ
-import { getWallAtPoint } from './wall/wall-handler.js';
-import { getDoorAtPoint } from './architectural-objects/door-handler.js';
-import { getWindowAtPoint } from './architectural-objects/window-handler.js';
-// getVentAtPoint ve getRoomAtPoint için de benzer importlar gerekir.
-// Şimdilik, bu mantığı basitleştirmek için burada bırakıyorum.
-import { distToSegmentSquared } from './draw/geometry.js';
-import { getCameraViewInfo } from './scene3d/scene3d-camera.js'; // Değişti
-import { getGuideAtPoint } from './architectural-objects/guide-handler.js'; // <-- YENİ EKLENDİ
+import { getColumnAtPoint } from '../architectural-objects/columns.js';
+import { getBeamAtPoint } from '../architectural-objects/beams.js'; 
+import { getStairAtPoint } from '../architectural-objects/stairs.js'; 
+import { getDoorAtPoint } from '../architectural-objects/door-handler.js';
+import { getGuideAtPoint } from '../architectural-objects/guide-handler.js'; 
+import { getWindowAtPoint } from '../architectural-objects/window-handler.js';
+import { distToSegmentSquared } from '../draw/geometry.js';
+import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; 
+import { getWallAtPoint } from '../wall/wall-handler.js';
 
 /**
  * Verilen noktadaki (pos) en üstteki nesneyi bulur.
@@ -87,8 +85,8 @@ export function getObjectAtPoint(pos) {
     if (wallNodeHit && wallNodeHit.handle !== 'body') return wallNodeHit;
     
     // 2.0 REHBER ÇİZGİLERİ (Handle'lardan sonra, gövdelerden önce)
-    const guideHit = getGuideAtPoint(pos, tolerance); // <-- YENİ EKLENDİ
-    if (guideHit) return guideHit; // <-- YENİ EKLENDİ
+    const guideHit = getGuideAtPoint(pos, tolerance); 
+    if (guideHit) return guideHit; 
 
 
     // 2. Gövde Kontrolleri (Handle'lardan sonra)

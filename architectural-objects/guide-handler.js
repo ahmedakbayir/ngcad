@@ -1,6 +1,6 @@
 // guide-handler.js
-import { state, setState, dom } from '../main.js';
 import { distToSegmentSquared, screenToWorld } from '../draw/geometry.js';
+import { state, setState, dom } from '../general-files/main.js';
 
 /**
  * Verilen noktaya (pos) en yakın rehber çizgisini (guide) bulur.

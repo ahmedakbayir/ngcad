@@ -1,12 +1,12 @@
 // wall-panel.js
-import { state, setState, dom } from '../main.js'; // dom eklendi
-import { saveState } from '../history.js';
+import { findAvailableSegmentAt } from './wall-item-utils.js'; // Bu import gerekli olabilir
 import { processWalls } from './wall-processor.js';
-import { update3DScene } from '../scene3d/scene3d-update.js'; // Değişti
-import { screenToWorld } from '../draw/geometry.js';
 import { isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { createColumn } from '../architectural-objects/columns.js';
-import { findAvailableSegmentAt } from './wall-item-utils.js'; // Bu import gerekli olabilir
+import { screenToWorld } from '../draw/geometry.js';
+import { state, setState, dom } from '../general-files/main.js'; // dom eklendi
+import { saveState } from '../general-files/history.js';
+import { update3DScene } from '../scene3d/scene3d-update.js'; 
 
 let wallPanel = null;
 let wallPanelWall = null;

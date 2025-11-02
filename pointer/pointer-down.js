@@ -1,21 +1,21 @@
 // pointer-down.js
-import { currentModifierKeys } from '../input.js';
-import { state, dom, setState, setMode } from '../main.js';
-import { getSmartSnapPoint } from '../snap.js';
-import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from '../draw/geometry.js';
-import { processWalls } from '../wall/wall-processor.js';
-import { update3DScene } from '../scene3d/scene3d-update.js'; // Değişti
-import { saveState } from '../history.js';
-import { cancelLengthEdit } from '../ui.js';
-import { getObjectAtPoint } from '../actions.js';
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
 import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as onPointerDownSelectWindow } from '../architectural-objects/window-handler.js';
+import { hideGuideContextMenu } from '../draw/guide-menu.js'; 
+import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from '../draw/geometry.js';
 import { applySymmetry, applyCopy } from '../draw/symmetry.js';
-import { hideGuideContextMenu } from '../guide-menu.js'; // <-- YENİ EKLENDİ
+import { state, dom, setState, setMode } from '../general-files/main.js';
+import { getSmartSnapPoint } from '../general-files/snap.js';
+import { currentModifierKeys } from '../general-files/input.js';
+import { saveState } from '../general-files/history.js';
+import { cancelLengthEdit } from '../general-files/ui.js';
+import { getObjectAtPoint } from '../general-files/actions.js';
+import { update3DScene } from '../scene3d/scene3d-update.js'; 
+import { processWalls } from '../wall/wall-processor.js';
 
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
@@ -117,7 +117,7 @@ export function onPointerDown(e) {
                              additionalState: {}
                          };
                          break;
-                     case 'guide': dragInfo = onPointerDownGuide(clickedObject, pos, snappedPos, e); break; // <-- YENİ EKLENDİ
+                     case 'guide': dragInfo = onPointerDownGuide(clickedObject, pos, snappedPos, e); break; 
                      case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                      case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                      case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; // stairs.js'den gelen fonksiyonu kullan

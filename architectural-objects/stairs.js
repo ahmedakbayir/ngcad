@@ -1,10 +1,9 @@
 // stairs.js
 // Son Güncelleme: createStairs -> showRailing varsayılanı 'false' olarak değiştirildi.
 
-import { state, setState, dom, WALL_HEIGHT } from '../main.js'; // dom import edildi
 import { distToSegmentSquared } from '../draw/geometry.js';
-import { currentModifierKeys } from '../input.js';
-// recalculateStepCount ve updateConnectedStairElevations bu dosyada tanımlı
+import { state, setState, dom, WALL_HEIGHT } from '../general-files/main.js'; // dom import edildi
+import { currentModifierKeys } from '../general-files/input.js';
 
 // Sıradaki merdiven ismini verir
 export function getNextStairLetter() {

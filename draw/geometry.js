@@ -1,6 +1,6 @@
 // ahmedakbayir/ngcad/ngcad-b3712dab038a327c261e2256cbd1d4d58a069f34/geometry.js
 
-import { state, setState, DRAG_HANDLE_RADIUS, EXTEND_RANGE } from '../main.js';
+import { state, setState, DRAG_HANDLE_RADIUS, EXTEND_RANGE } from '../general-files/main.js';
 import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 
 // Arc duvarı segmentlere ayırır (bezier eğrisini örnekler)

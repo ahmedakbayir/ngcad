@@ -1,7 +1,7 @@
-import { state, setState } from '../main.js';
 import { distToSegmentSquared, getOrCreateNode, getLineIntersection, areCollinear, detectRooms } from '../draw/geometry.js';
-import { update3DScene } from '../scene3d/scene3d-update.js'; // Değişti
-import { saveState } from '../history.js';
+import { state, setState } from '../general-files/main.js';
+import { saveState } from '../general-files/history.js';
+import { update3DScene } from '../scene3d/scene3d-update.js'; 
 
 export function mergeNode(node) {
     const md = 14 / state.zoom;

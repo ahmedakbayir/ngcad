@@ -1,27 +1,25 @@
 // ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/draw2d.js
 
-import { getObjectAtPoint } from '../actions.js';
-import { state, dom, BG } from '../main.js';
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
+import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, 
+    drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn, 
+    drawBeam, drawStairs, drawGuides 
+    } from './renderer2d.js'; 
+import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
+        drawDrawingPreviews,drawSnapFeedback
+        } from './draw-previews.js';
+import { drawWallGeometry } from './draw-walls.js';
+import { drawSymmetryPreview } from './draw-previews.js';
+import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
+import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
 import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js';
-import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn, drawBeam, drawStairs, drawGuides } from './renderer2d.js'; 
-import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
-import { drawWallGeometry } from './draw-walls.js';
-import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
 import { getColumnCorners } from '../architectural-objects/columns.js';
-import { getBeamCorners } from '../architectural-objects/beams.js'; // <-- YENİ SATIRI EKLEYİN
-import { getStairCorners } from '../architectural-objects/stairs.js'; // <-- MERDİVEN EKLENDİ
-import {
-    drawObjectPlacementPreviews,
-    drawDragPreviews,
-    drawSelectionFeedback,
-    drawDrawingPreviews,
-    drawSnapFeedback
-} from './draw-previews.js';
-
-import { drawSymmetryPreview } from './draw-previews.js';
-import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; // Değişti
+import { getBeamCorners } from '../architectural-objects/beams.js'; 
+import { getStairCorners } from '../architectural-objects/stairs.js'; 
+import { getObjectAtPoint } from '../general-files/actions.js';
+import { state, dom, BG } from '../general-files/main.js';
+import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; 
 
 
 
@@ -240,7 +238,7 @@ export function draw2D() {
     drawGrid();
 
     // 1.5. Referans Çizgileri (Rehberler)
-    drawGuides(ctx2d, state); // <-- YENİ EKLENDİ
+    drawGuides(ctx2d, state); 
 
     // 2. Mahaller (Poligonlar)
     drawRoomPolygons(ctx2d, state);
@@ -439,7 +437,7 @@ export function draw2D() {
                  drawDimension(corners[0], corners[1], false, 'columnBeam');
                  drawDimension(corners[1], corners[2], false, 'columnBeam');
              }
-        } else if (selectedObject.type === "stairs") { // <-- MERDİVEN EKLENDİ
+        } else if (selectedObject.type === "stairs") { 
             const stair = selectedObject.object;
             const corners = getStairCorners(stair);
              if (corners && corners.length === 4) { // Köşeler hesaplandıysa

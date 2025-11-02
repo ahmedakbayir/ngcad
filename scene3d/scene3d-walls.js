@@ -3,15 +3,15 @@
 
 import * as THREE from "three";
 import {
-    state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
-    BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT
-} from "../main.js";
-import { getArcWallPoints } from "../draw/geometry.js";
-import {
     wallMaterial, doorMaterial, windowMaterial, mullionMaterial, sillMaterial,
     handleMaterial, ventMaterial, trimMaterial, balconyRailingMaterial,
     glassMaterial, halfWallCapMaterial
-} from "./scene3d-core.js"; // Malzemeleri import et
+    } from "./scene3d-core.js"; // Malzemeleri import et
+import { getArcWallPoints } from "../draw/geometry.js";
+import {
+    state, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
+    BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT
+    } from "../general-files/main.js";
 
 // --- Sabitler ---
 const VENT_DIAMETER = 25;

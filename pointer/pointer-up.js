@@ -1,7 +1,7 @@
-import { state, setState } from '../main.js';
 import { getOrCreateNode } from '../draw/geometry.js';
+import { state, setState } from '../general-files/main.js';
+import { saveState } from '../general-files/history.js';
 import { processWalls } from '../wall/wall-processor.js';
-import { saveState } from '../history.js';
 import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 
 export function onPointerUp(e) {

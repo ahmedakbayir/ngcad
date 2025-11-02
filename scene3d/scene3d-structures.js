@@ -2,11 +2,11 @@
 // Kolon, kiriş ve merdivenler için 3D mesh oluşturma fonksiyonları.
 
 import * as THREE from "three";
-import { state, WALL_HEIGHT } from "../main.js";
 import {
     columnMaterial, beamMaterial, stairMaterial, stairMaterialTop,
     stepNosingMaterial, handrailWoodMaterial, balusterMaterial
-} from "./scene3d-core.js"; // Malzemeleri import et
+    } from "./scene3d-core.js"; // Malzemeleri import et
+import { state, WALL_HEIGHT } from "../general-files/main.js";
 
 /**
  * Bir kolon mesh'i oluşturur.

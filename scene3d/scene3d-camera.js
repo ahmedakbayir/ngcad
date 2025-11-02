@@ -3,7 +3,6 @@
 
 import * as THREE from "three";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
-import { state, WALL_HEIGHT } from "../main.js"; // <-- CAMERA_HEIGHT buradan kaldırıldı
 import {
     scene, camera, orbitControls, pointerLockControls, sceneObjects,
     cameraMode, // <-- 'as coreCameraMode' kaldırıldı
@@ -11,6 +10,7 @@ import {
     setActiveControls, // <-- YENİ IMPORT
     floorMaterial, // <-- YENİ IMPORT
 } from "./scene3d-core.js";
+import { state, WALL_HEIGHT } from "../general-files/main.js"; // <-- CAMERA_HEIGHT buradan kaldırıldı
 
 // --- Değişkenler (scene3d-core.js'den taşındı) ---
 // export let cameraMode = coreCameraMode; // <-- BU SATIR SİLİNDİ

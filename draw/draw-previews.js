@@ -1,11 +1,10 @@
 // ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/draw-previews.js
-import { state, dom } from '../main.js';
-// import { getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow } from './actions.js'; // <-- BU SATIRI SİLİN
-import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js'; // <-- BU SATIRI EKLEYİN
-import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js'; // <-- BU SATIRI EKLEYİN
 import { drawDoorSymbol, drawWindowSymbol, isMouseOverWall } from './renderer2d.js';
-import { drawDimension } from './dimensions.js';
 import { distToSegmentSquared, snapTo15DegreeAngle, screenToWorld } from './geometry.js';
+import { drawDimension } from './dimensions.js';
+import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js';
+import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js';
+import { state, dom } from '../general-files/main.js';
 
 export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol) {
     const { currentMode, isPanning, isDragging, walls, mousePos } = state;

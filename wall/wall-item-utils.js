@@ -1,5 +1,5 @@
 // wall-item-utils.js
-import { state } from '../main.js';
+import { state } from '../general-files/main.js';
 
 /**
  * Duvardaki mevcut elemanları ve boşlukları dikkate alarak yerleşime uygun en büyük boş segmenti bulur.

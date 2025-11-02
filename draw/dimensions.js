@@ -1,5 +1,5 @@
-import { state, dom } from '../main.js';
 import { screenToWorld } from './geometry.js';
+import { state, dom } from '../general-files/main.js';
 
 // Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.7 yaklaşık olarak 10x zoomda yarı boyutu verir)
 const ZOOM_EXPONENT = -0.65;
