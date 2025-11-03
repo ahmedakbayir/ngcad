@@ -194,8 +194,8 @@ function setupFirstPersonKeyControls() {
             return;
         }
 
-        // CTRL + OKLAR: Projeyi kamera etrafında döndür (4 yön)
-        if (event.ctrlKey) {
+        // CTRL + OKLAR: Sadece bakış açısını döndür (kamera pozisyonu sabit)
+        if (event.ctrlKey && !event.shiftKey) {
             switch (event.code) {
                 case 'ArrowUp': rotateProjectUp = true; event.preventDefault(); break;
                 case 'ArrowDown': rotateProjectDown = true; event.preventDefault(); break;
