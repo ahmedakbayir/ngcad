@@ -226,8 +226,28 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
     // Step 7: Add stairs (clsmerdiven)
     stairs.forEach(stairNode => {
         const insertionPoint = parsePoint(stairNode.querySelector('P[F="InsertionPoint"]')?.getAttribute('V'));
-        const width = Math.abs(parseFloat(stairNode.querySelector('P[F="Width"]')?.getAttribute('V') || 1.7)) * 100;
-        const height = Math.abs(parseFloat(stairNode.querySelector('P[F="Height"]')?.getAttribute('V') || 3.88)) * 100;
+        const widthRaw = parseFloat(stairNode.querySelector('P[F="Width"]')?.getAttribute('V') || 1.7);
+        const heightRaw = parseFloat(stairNode.querySelector('P[F="Height"]')?.getAttribute('V') || 3.88);
+        const width = Math.abs(widthRaw) * 100;
+        const height = Math.abs(heightRaw) * 100;
+
+        // Calculate rotation from arrow direction (mfleader)
+        let rotation = 0;
+        const mfleader = stairNode.querySelector('O[F="DrawEntities"] O[F="_Item"][T="mfleader"]');
+        if (mfleader) {
+            const arrowStart = parsePoint(mfleader.querySelector('P[F="StartPoint"]')?.getAttribute('V'));
+            const arrowEnd = parsePoint(mfleader.querySelector('P[F="EndPoint"]')?.getAttribute('V'));
+
+            // Calculate arrow direction vector (in original XML coordinates)
+            const dx = arrowEnd.x - arrowStart.x;
+            const dy = arrowEnd.y - arrowStart.y;
+
+            // Convert to rotation in degrees
+            // Note: Y-axis is flipped in canvas, so we need to adjust
+            // atan2 returns angle from positive X-axis
+            let angleRad = Math.atan2(-dy, dx); // Negate dy because Y is flipped
+            rotation = (angleRad * 180 / Math.PI + 360) % 360; // Normalize to 0-360
+        }
 
         // Calculate step count based on height (25-30cm per step)
         const stepCount = Math.max(1, Math.round(height / 28));
@@ -239,7 +259,7 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
             center: { x: insertionPoint.x * 100, y: (maxY - insertionPoint.y) * 100 }, // Flip Y-axis
             width: width,
             height: height,
-            rotation: 0,
+            rotation: rotation,
             stepCount: stepCount,
             bottomElevation: 0,
             topElevation: 270,
