@@ -19,6 +19,7 @@ let rotateLeft = false, rotateRight = false;
 let moveUp = false, moveDown = false;
 let pitchUp = false, pitchDown = false;
 let manualHeightMode = false;
+let sprintMode = false; // Ctrl+Shift+Arrow ile hızlı hareket modu
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 
@@ -31,52 +32,10 @@ const VERTICAL_SPEED = 150;
 
 // --- Fonksiyonlar ---
 
-// Çarpışma tespiti - Duvarlarla çarpışma kontrolü
+// Çarpışma tespiti - Duvarlarla çarpışma kontrolü (ŞU ANDA DEVREdışı - kamera duvarlardan geçebilir)
 function checkWallCollision(newPosition) {
-    const playerRadius = 30;
-    const cameraHeight = camera.position.y;
-    const effectiveWallHeight = WALL_HEIGHT;
-
-    for (const wall of state.walls) {
-        if (!wall.p1 || !wall.p2) continue;
-        const wallThickness = wall.thickness || state.wallThickness || 20;
-        let wallHeight = effectiveWallHeight;
-        if (wall.type === 'balconyRailing') wallHeight = 100;
-        else if (wall.type === 'halfWall') wallHeight = 100;
-
-        if (cameraHeight > wallHeight + 20) continue;
-
-        const wallDx = wall.p2.x - wall.p1.x;
-        const wallDz = wall.p2.y - wall.p1.y;
-        const wallLength = Math.hypot(wallDx, wallDz);
-        if (wallLength < 0.1) continue;
-
-        const wallNormX = wallDx / wallLength;
-        const wallNormZ = wallDz / wallLength;
-        const perpX = -wallNormZ;
-        const perpZ = wallNormX;
-        const toPlayerX = newPosition.x - wall.p1.x;
-        const toPlayerZ = newPosition.z - wall.p1.y;
-        const perpDist = Math.abs(toPlayerX * perpX + toPlayerZ * perpZ);
-        const alongWall = toPlayerX * wallNormX + toPlayerZ * wallNormZ;
-
-        if (alongWall >= -playerRadius && alongWall <= wallLength + playerRadius) {
-            if (perpDist < playerRadius + wallThickness / 2) {
-                const doors = state.doors.filter(d => d.wall === wall);
-                let canPass = false;
-                for (const door of doors) {
-                    const doorStart = door.pos - door.width / 2;
-                    const doorEnd = door.pos + door.width / 2;
-                    if (alongWall >= doorStart - playerRadius && alongWall <= doorEnd + playerRadius) {
-                        canPass = true;
-                        break;
-                    }
-                }
-                if (!canPass) return false; // Çarpışma var
-            }
-        }
-    }
-    return true; // Çarpışma yok
+    // Duvar çarpışması devre dışı - her zaman geçişe izin ver
+    return true;
 }
 
 // Merdiven tespiti ve yükseklik ayarlama
@@ -167,6 +126,18 @@ function setupFirstPersonKeyControls() {
     const onKeyDown = (event) => {
         if (cameraMode !== 'firstPerson') return;
         if (event.code === 'Space') { event.preventDefault(); return; }
+
+        // Ctrl+Shift+Arrow kombinasyonu - Sprint (hızlı hareket) modu
+        if (event.ctrlKey && event.shiftKey) {
+            switch (event.code) {
+                case 'ArrowUp': case 'KeyW': sprintMode = true; moveForward = true; event.preventDefault(); break;
+                case 'ArrowDown': case 'KeyS': sprintMode = true; moveBackward = true; event.preventDefault(); break;
+                case 'ArrowLeft': sprintMode = true; moveLeft = true; event.preventDefault(); break;
+                case 'ArrowRight': sprintMode = true; moveRight = true; event.preventDefault(); break;
+            }
+            return;
+        }
+
         if (event.ctrlKey) {
             switch (event.code) {
                 case 'ArrowLeft': moveLeft = true; event.preventDefault(); break;
@@ -194,6 +165,11 @@ function setupFirstPersonKeyControls() {
         }
     };
     const onKeyUp = (event) => {
+        // Sprint modunu kapat (Ctrl veya Shift bırakıldığında)
+        if (event.key === 'Control' || event.key === 'Shift') {
+            sprintMode = false;
+        }
+
         if (event.key === 'Control') { pitchUp = false; pitchDown = false; moveLeft = false; moveRight = false; return; }
         if (event.key === 'Shift') { moveUp = false; moveDown = false; return; }
         switch (event.code) {
@@ -239,13 +215,27 @@ export function updateFirstPersonCamera(delta) {
 
     if (!moveForward && !moveBackward && !moveLeft && !moveRight) return;
 
+    // Hareket hızı - Sprint modunda 2 katına çık
+    const currentSpeed = sprintMode ? (MOVE_SPEED * 2) : MOVE_SPEED;
+
     const forward = new THREE.Vector3(); camera.getWorldDirection(forward); forward.y = 0; forward.normalize();
     const right = new THREE.Vector3(); right.crossVectors(forward, new THREE.Vector3(0, 1, 0)); right.normalize();
     const movement = new THREE.Vector3();
-    if (moveForward) movement.add(forward.clone().multiplyScalar(MOVE_SPEED * delta));
-    if (moveBackward) movement.add(forward.clone().multiplyScalar(-MOVE_SPEED * delta));
-    if (moveLeft) movement.add(right.clone().multiplyScalar(-MOVE_SPEED * delta));
-    if (moveRight) movement.add(right.clone().multiplyScalar(MOVE_SPEED * delta));
+
+    // Geri giderken yön kontrolü tersine çevir (araç simülasyonu)
+    let effectiveLeft = moveLeft;
+    let effectiveRight = moveRight;
+    if (moveBackward && (moveLeft || moveRight)) {
+        // Geri basılıyken sola basarsak -> geriye ve SAĞA git
+        // Geri basılıyken sağa basarsak -> geriye ve SOLA git
+        effectiveLeft = moveRight;
+        effectiveRight = moveLeft;
+    }
+
+    if (moveForward) movement.add(forward.clone().multiplyScalar(currentSpeed * delta));
+    if (moveBackward) movement.add(forward.clone().multiplyScalar(-currentSpeed * delta));
+    if (effectiveLeft) movement.add(right.clone().multiplyScalar(-currentSpeed * delta));
+    if (effectiveRight) movement.add(right.clone().multiplyScalar(currentSpeed * delta));
 
     const newPosition = new THREE.Vector3(camera.position.x + movement.x, camera.position.y, camera.position.z + movement.z);
 

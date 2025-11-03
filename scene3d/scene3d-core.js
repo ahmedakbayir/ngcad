@@ -64,6 +64,47 @@ export function init3D(canvasElement) {
     orbitControls.zoomSpeed = 1;
     orbitControls.update();
 
+    // Pointer Lock özelliği ekle (mouse döndürme sırasında mouse sabit kalacak)
+    let isRotating = false;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+
+    renderer.domElement.addEventListener('mousedown', (e) => {
+        // Sağ tık veya orta tık (rotate için)
+        if (e.button === 2 || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+            isRotating = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            // Pointer lock'u etkinleştir
+            renderer.domElement.requestPointerLock();
+        }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isRotating && document.pointerLockElement === renderer.domElement) {
+            // movementX/Y pointer lock'ta mouse hareketini verir
+            const deltaX = e.movementX || 0;
+            const deltaY = e.movementY || 0;
+
+            // OrbitControls'ü manuel olarak döndür
+            const rotateSpeed = 0.005;
+            orbitControls.rotateLeft(deltaX * rotateSpeed);
+            orbitControls.rotateUp(-deltaY * rotateSpeed);
+            orbitControls.update();
+        }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        if (isRotating) {
+            isRotating = false;
+            // Pointer lock'u kapat
+            if (document.pointerLockElement === renderer.domElement) {
+                document.exitPointerLock();
+            }
+        }
+    });
+
     // PointerLockControls'ü başlat (sadece referans için, mouse kontrolü kullanmayacağız)
     pointerLockControls = new PointerLockControls(camera, renderer.domElement);
     pointerLockControls.disconnect(); // Mouse kontrolünü tamamen devre dışı bırak
