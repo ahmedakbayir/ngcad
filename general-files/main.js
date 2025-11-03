@@ -369,63 +369,249 @@ function animate() {
 // --- GÜNCELLEME SONU ---
 
 
+// ===================================================================
+// === GÜNCELLENMİŞ assignRoomNames (SAHANLIK + DÖNGÜ HATASI DÜZELTİLDİ) ===
+// ===================================================================
+
+/**
+ * Mahal isimlerini sağlanan kurallara göre otomatik olarak atar.
+ */
 function assignRoomNames() {
+    // Sadece 'MAHAL' ismindeki odaları al
     const unassignedRooms = state.rooms.filter(r => r.name === 'MAHAL');
+    if (unassignedRooms.length === 0) return; // Atanacak oda yoksa çık
 
-    if (unassignedRooms.length > 0) {
-        let roomsToAssign = [...unassignedRooms];
-        let assignedNames = new Set(state.rooms.filter(r => r.name !== 'MAHAL').map(r => r.name));
+    let roomsToAssign = [...unassignedRooms]; // Üzerinde çalışılacak kopya liste
+    const allRooms = state.rooms;
+    const allWalls = state.walls;
+    const allStairs = state.stairs || [];
 
-        if (roomsToAssign.length > 0) {
-            const antre = roomsToAssign.shift();
-            antre.name = "ANTRE";
-            assignedNames.add("ANTRE");
-        }
-        if (roomsToAssign.length > 0) {
-            roomsToAssign.sort((a, b) => a.area - b.area);
-            const bathroom = roomsToAssign.shift();
-            bathroom.name = "BANYO";
-            assignedNames.add("BANYO");
-        }
-        if (roomsToAssign.length > 0) {
-            roomsToAssign.sort((a, b) => b.area - a.area);
-            const livingRoom = roomsToAssign.shift();
-            livingRoom.name = "SALON";
-            assignedNames.add("SALON");
-        }
-        const otherRoomNames = ["MUTFAK", "YATAK ODASI", "OTURMA ODASI", "ÇOCUK ODASI"];
-        for (const name of otherRoomNames) {
-            if (roomsToAssign.length > 0 && !assignedNames.has(name)) {
-                const room = roomsToAssign.shift();
-                room.name = name;
-                assignedNames.add(name);
-            }
-        }
-        const remainingDefaultNames = MAHAL_LISTESI.filter(name => !assignedNames.has(name) && name !== 'MAHAL');
-        roomsToAssign.forEach(room => {
-            if (remainingDefaultNames.length > 0) {
-                room.name = remainingDefaultNames.shift();
-            }
-        });
+    // --- Yardımcı Fonksiyonlar ---
 
-    } else {
-        let availableNames = MAHAL_LISTESI.filter(name => name !== 'MAHAL');
-        for (let i = availableNames.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [availableNames[i], availableNames[j]] = [availableNames[j], availableNames[i]];
+    /**
+     * Bir odayı oluşturan duvar segmentlerini bulur.
+     * @param {object} room - Oda nesnesi
+     * @returns {Array<object>} - Duvar nesneleri dizisi
+     */
+    function getRoomWalls(room) {
+        const roomWalls = new Set();
+        if (!room.polygon?.geometry?.coordinates) return [];
+        const coords = room.polygon.geometry.coordinates[0];
+        const TOLERANCE = 1.0; // Eşleşme toleransı
+        for (let i = 0; i < coords.length - 1; i++) {
+            const p1Coord = coords[i];
+            const p2Coord = coords[i + 1];
+            // Poligon kenarına uyan duvarı bul
+            const wall = allWalls.find(w => {
+                if (!w || !w.p1 || !w.p2) return false;
+                // İki yönlü kontrol (p1->p1, p2->p2) veya (p1->p2, p2->p1)
+                const d1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) + Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
+                const d2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) + Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
+                return Math.min(d1, d2) < TOLERANCE;
+            });
+            if (wall) roomWalls.add(wall);
         }
-
-        state.rooms.forEach(room => {
-            if (availableNames.length > 0) {
-                room.name = availableNames.pop();
-            } else {
-                room.name = "ODA";
-            }
-        });
+        return Array.from(roomWalls);
     }
 
+    // Verimlilik için tüm odaların duvarlarını ve komşularını önceden hesapla
+    const roomWallMap = new Map();
+    allRooms.forEach(r => {
+        roomWallMap.set(r, getRoomWalls(r));
+    });
+
+    const neighborMap = new Map();
+    allRooms.forEach(r => {
+        const neighbors = new Set();
+        const roomWalls = roomWallMap.get(r) || [];
+        if (roomWalls.length > 0) {
+            for (const otherRoom of allRooms) {
+                if (otherRoom === r) continue;
+                const otherRoomWalls = roomWallMap.get(otherRoom) || [];
+                // Ortak duvar var mı?
+                if (roomWalls.some(wall => otherRoomWalls.includes(wall))) {
+                    neighbors.add(otherRoom);
+                }
+            }
+        }
+        neighborMap.set(r, Array.from(neighbors));
+    });
+
+    const assignedRooms = new Set(); // Atama yapılan odaları (nesne) takip et
+    const assignedNames = new Set(state.rooms.filter(r => r.name !== 'MAHAL').map(r => r.name)); // Atanan isimleri (string) takip et
+
+    /**
+     * GÜNCELLENMİŞ (Düzeltilmiş) assignName helper'ı
+     * Bu fonksiyon, atama yapar ve odayı roomsToAssign listesinden ÇIKARIR.
+     */
+    function assignName(room, name) {
+        // (HATA DÜZELTMESİ: roomsToAssign.includes(room) KONTROLÜ BURADA GEREKLİ)
+        if (room && !assignedRooms.has(room) && roomsToAssign.includes(room)) {
+            room.name = name;
+            assignedRooms.add(room);
+            assignedNames.add(name); // İsmi de kaydet
+            
+            const index = roomsToAssign.indexOf(room);
+            if (index > -1) {
+                roomsToAssign.splice(index, 1);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    // --- Kuralları Sırayla Uygula (Yeni Sıralama) ---
+
+    
+    // Kural 1: BALKONLAR (Duvar tipine göre, kaç tane varsa)
+    // (SAHANLIK'tan sonra, SALON'dan önce)
+    const balkonRooms = [];
+    const camekanRooms = [];
+    for (const room of roomsToAssign) {
+        const walls = roomWallMap.get(room) || [];
+        let hasBalconyWall = false;
+        let hasGlassWall = false;
+        const exteriorWalls = walls.filter(w => state.wallAdjacency.get(w) === 1);
+        for (const wall of exteriorWalls) {
+            if (wall.wallType === 'balcony') hasBalconyWall = true;
+            if (wall.wallType === 'glass') hasGlassWall = true;
+        }
+        if (hasBalconyWall) balkonRooms.push(room);
+        else if (hasGlassWall) camekanRooms.push(room);
+    }
+    balkonRooms.forEach(room => assignName(room, 'AÇIK BALKON'));
+    camekanRooms.forEach(room => assignName(room, 'KAPALI BALKON'));
+
+
+    // Kural 2: SAHANLIK (Merdiven varsa, kaç tane varsa)
+    // (HATA DÜZELTMESİ: 'isLanding' kontrolü kaldırıldı)
+    const sahanlikRooms = [];
+    for (const room of roomsToAssign) { // Kalanları kontrol et
+        const roomPoly = room.polygon;
+        if (!roomPoly || typeof turf === 'undefined') continue;
+        for (const stair of allStairs) {
+            // [FIX] Kural: Herhangi bir merdiven objesi (sahanlık VEYA normal)
+            if (stair.center && turf.booleanPointInPolygon([stair.center.x, stair.center.y], roomPoly)) {
+                sahanlikRooms.push(room);
+                break; // Bu oda bir merdiven/sahanlık alanı, sonraki odaya geç
+            }
+        }
+    }
+    sahanlikRooms.forEach(room => {
+        assignName(room, 'SAHANLIK'); // (unique=false gibi davranır)
+    });
+
+
+    
+    // Kural 3: DAİRE (Alanı >= 50 m², kaç tane varsa)
+    // (Iterate over a copy, 'assignName' modifies 'roomsToAssign')
+    const daireRooms = [...roomsToAssign].filter(room => room.area >= 50);
+    daireRooms.forEach(room => {
+        assignName(room, 'DAİRE'); // (unique=false gibi davranır, listeden çıkarır)
+    });
+
+
+
+    // Kural 4: ANTRE (En fazla komşu, 1 defa)
+    if (roomsToAssign.length > 0 && !assignedNames.has('ANTRE')) { // 'ANTRE' ismi hiç kullanılmadıysa
+        let maxNeighbors = -1;
+        let antreRoom = null;
+        for (const room of roomsToAssign) { // Kalanları kontrol et
+            const neighbors = neighborMap.get(room) || [];
+            if (neighbors.length > maxNeighbors) {
+                maxNeighbors = neighbors.length;
+                antreRoom = room;
+            }
+        }
+        if (antreRoom) {
+            assignName(antreRoom, 'ANTRE');
+        }
+    }
+
+
+    // Kural 5: SALON (Kalan en büyük, 1 defa)
+    if (roomsToAssign.length > 0 && !assignedNames.has('SALON')) {
+        roomsToAssign.sort((a, b) => b.area - a.area);
+        const salonRoom = roomsToAssign[0];
+        assignName(salonRoom, 'SALON');
+    }
+
+    // Kural 6: BANYO (Kalan en küçük, 1 defa)
+    if (roomsToAssign.length > 0 && !assignedNames.has('BANYO')) {
+        roomsToAssign.sort((a, b) => a.area - b.area);
+        const banyoRoom = roomsToAssign[0];
+        assignName(banyoRoom, 'BANYO');
+    }
+
+    // Kural 7: MUTFAK (Salona komşu en büyük, yoksa 2. büyük, 1 defa)
+    if (roomsToAssign.length > 0 && !assignedNames.has('MUTFAK')) {
+        const salonRoom = allRooms.find(r => r.name === 'SALON'); 
+        let mutfakRoom = null;
+        if (salonRoom) {
+            const salonNeighbors = neighborMap.get(salonRoom) || [];
+            // Kalan (atanmamış) komşuları bul
+            const unassignedNeighbors = salonNeighbors.filter(neighbor => roomsToAssign.includes(neighbor)); 
+            if (unassignedNeighbors.length > 0) {
+                unassignedNeighbors.sort((a, b) => b.area - a.area); // Komşuların en büyüğü
+                mutfakRoom = unassignedNeighbors[0];
+            }
+        }
+        // Eğer Salona komşu atanmamış oda yoksa, kalanlar içinde en büyüğü (2. büyük) al
+        if (!mutfakRoom && roomsToAssign.length > 0) {
+            roomsToAssign.sort((a, b) => b.area - a.area); // (Banyo ataması sırayı bozdu)
+            mutfakRoom = roomsToAssign[0]; // Kalanların en büyüğü
+        }
+        if (mutfakRoom) {
+            assignName(mutfakRoom, 'MUTFAK');
+        }
+    }
+    
+    // Kural 8: Kalanlar (Dönüşümlü Liste)
+    // (HATA DÜZELTMESİ)
+    roomsToAssign.sort((a, b) => b.area - a.area); // Kalanları alana göre sırala
+    
+    const sequentialNamesList = ['YATAK ODASI', 'OTURMA ODASI', 'ÇOCUK ODASI', 'YEMEK ODASI', 'ÇALIŞMA ODASI', 'KORİDOR', 'KİLER', 'DEPO'];
+    let nameIndex = 0;
+    
+    // 'roomsToAssign' listesi 'assignName' tarafından küçültüleceği için,
+    // 'while' döngüsü kullanmak artık GÜVENLİDİR.
+    
+    while (roomsToAssign.length > 0) {
+        // Döngünün başında en büyüğü al (sıralama zaten yapıldı)
+        const room = roomsToAssign[0]; // (shift() değil, sadece [0]'ı al)
+        
+        const baseName = sequentialNamesList[nameIndex % sequentialNamesList.length];
+        let finalName = baseName;
+
+        // Bu isim (örn: YATAK ODASI) zaten kullanılmış mı?
+        if (assignedNames.has(baseName)) { 
+            let counter = 2;
+            finalName = `${baseName} ${counter}`;
+            // 'YATAK ODASI 2' de varsa, 'YATAK ODASI 3'ü dene...
+            while(assignedNames.has(finalName)) {
+                counter++;
+                finalName = `${baseName} ${counter}`;
+            }
+        }
+        
+        // assignName(room, finalName) -> 'room'u roomsToAssign'den çıkaracak
+        // ve 'finalName'i 'assignedNames'e ekleyecek
+        assignName(room, finalName); 
+        
+        nameIndex++; // Sıradaki isme (OTURMA ODASI vb.) geç
+    }
+    
+    // Değişiklikleri kaydet
     saveState();
+    if (dom.mainContainer.classList.contains('show-3d')) {
+        setTimeout(update3DScene, 0);
+    }
 }
+
+// ===================================================================
+// === GÜNCELLENMİŞ assignRoomNames FONKSİYONU SONU ===
+// ===================================================================
+
 
 // GÜNCELLENMİŞ initialize fonksiyonu
 function initialize() {
@@ -450,7 +636,7 @@ function initialize() {
     dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
     
     dom.b3d.addEventListener("click", toggle3DView);
-    dom.bAssignNames.addEventListener("click", assignRoomNames);
+    dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
 
     window.addEventListener("resize", resize);
 
