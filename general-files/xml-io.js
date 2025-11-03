@@ -4,9 +4,10 @@
 /**
  * Parses XML string and converts to ngcad project data structure
  * @param {string} xmlString - XML content as string
+ * @param {Object} currentSettings - Current state settings to preserve (optional)
  * @returns {Object} ngcad project data object
  */
-export function parseXMLToProject(xmlString) {
+export function parseXMLToProject(xmlString, currentSettings = null) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
 
@@ -22,18 +23,18 @@ export function parseXMLToProject(xmlString) {
         throw new Error('No Entities node found in XML');
     }
 
-    // Initialize project data
+    // Initialize project data with current settings if available
     const projectData = {
         version: "1.0",
         timestamp: new Date().toISOString(),
-        gridOptions: { visible: true, color: "#e0e0e0", weight: 1, spacing: 100 },
-        snapOptions: { endpoint: true, midpoint: true, endpointExtension: false, midpointExtension: false, nearestOnly: false },
-        dimensionOptions: { fontSize: 14, color: "#000000", defaultView: "both", showArea: "selected", showOuter: "none" },
-        wallBorderColor: "#000000",
-        roomFillColor: "#f0f0f0",
-        lineThickness: 2,
-        wallThickness: 20,
-        drawingAngle: 90,
+        gridOptions: currentSettings?.gridOptions || { visible: true, color: "#e0e0e0", weight: 1, spacing: 100 },
+        snapOptions: currentSettings?.snapOptions || { endpoint: true, midpoint: true, endpointExtension: false, midpointExtension: false, nearestOnly: false },
+        dimensionOptions: currentSettings?.dimensionOptions || { fontSize: 14, color: "#000000", defaultView: "both", showArea: "selected", showOuter: "none" },
+        wallBorderColor: currentSettings?.wallBorderColor || "#000000",
+        roomFillColor: currentSettings?.roomFillColor || "#f0f0f0",
+        lineThickness: currentSettings?.lineThickness || 2,
+        wallThickness: currentSettings?.wallThickness || 20,
+        drawingAngle: currentSettings?.drawingAngle || 90,
         nodes: [],
         walls: [],
         doors: [],
@@ -52,6 +53,24 @@ export function parseXMLToProject(xmlString) {
     const menfezler = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="Menfez"]'));
     const stairs = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="clsmerdiven"]'));
 
+    // Step 0: Find max Y value for coordinate system conversion (flip Y-axis)
+    let maxY = -Infinity;
+    closeAreas.forEach(closeArea => {
+        const vdWalls = Array.from(closeArea.querySelectorAll('O[F="Walls"] O[F="_Item"][T="VdWall"]'));
+        vdWalls.forEach(vdWall => {
+            const startPointStr = vdWall.querySelector('P[F="StartPoint"]')?.getAttribute('V');
+            const endPointStr = vdWall.querySelector('P[F="EndPoint"]')?.getAttribute('V');
+            if (startPointStr) {
+                const pt = parsePoint(startPointStr);
+                maxY = Math.max(maxY, pt.y);
+            }
+            if (endPointStr) {
+                const pt = parsePoint(endPointStr);
+                maxY = Math.max(maxY, pt.y);
+            }
+        });
+    });
+
     // Step 1: Extract all unique nodes from walls
     const nodeMap = new Map(); // key: "x,y" -> value: node object
     const wallData = []; // Store wall info temporarily
@@ -68,14 +87,14 @@ export function parseXMLToProject(xmlString) {
                 const startPoint = parsePoint(startPointStr);
                 const endPoint = parsePoint(endPointStr);
 
-                // Add nodes to map
+                // Add nodes to map (flip Y-axis: maxY - y)
                 const startKey = `${startPoint.x},${startPoint.y}`;
                 const endKey = `${endPoint.x},${endPoint.y}`;
 
                 if (!nodeMap.has(startKey)) {
                     nodeMap.set(startKey, {
                         x: startPoint.x * 100, // Convert to cm
-                        y: startPoint.y * 100,
+                        y: (maxY - startPoint.y) * 100, // Flip Y-axis
                         isColumn: false,
                         columnSize: 30
                     });
@@ -83,7 +102,7 @@ export function parseXMLToProject(xmlString) {
                 if (!nodeMap.has(endKey)) {
                     nodeMap.set(endKey, {
                         x: endPoint.x * 100,
-                        y: endPoint.y * 100,
+                        y: (maxY - endPoint.y) * 100, // Flip Y-axis
                         isColumn: false,
                         columnSize: 30
                     });
@@ -93,8 +112,8 @@ export function parseXMLToProject(xmlString) {
                     handle: handle,
                     startKey: startKey,
                     endKey: endKey,
-                    startPoint: { x: startPoint.x * 100, y: startPoint.y * 100 },
-                    endPoint: { x: endPoint.x * 100, y: endPoint.y * 100 }
+                    startPoint: { x: startPoint.x * 100, y: (maxY - startPoint.y) * 100 },
+                    endPoint: { x: endPoint.x * 100, y: (maxY - endPoint.y) * 100 }
                 });
             }
         });
@@ -132,8 +151,8 @@ export function parseXMLToProject(xmlString) {
         const rotation = parseFloat(doorNode.querySelector('P[F="Rotation"]')?.getAttribute('V') || 0);
         const width = parseFloat(doorNode.querySelector('P[F="En"]')?.getAttribute('V') || 0.9) * 100; // Convert to cm
 
-        // Find closest wall
-        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: origin.y * 100 });
+        // Find closest wall (flip Y-axis)
+        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: (maxY - origin.y) * 100 });
 
         if (wallMatch) {
             projectData.doors.push({
@@ -152,8 +171,8 @@ export function parseXMLToProject(xmlString) {
         const rotation = parseFloat(windowNode.querySelector('P[F="Rotation"]')?.getAttribute('V') || 0);
         const width = parseFloat(windowNode.querySelector('P[F="En"]')?.getAttribute('V') || 1.5) * 100; // Convert to cm
 
-        // Find closest wall
-        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: origin.y * 100 });
+        // Find closest wall (flip Y-axis)
+        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: (maxY - origin.y) * 100 });
 
         if (wallMatch) {
             // Add window to wall
@@ -174,7 +193,7 @@ export function parseXMLToProject(xmlString) {
 
         projectData.columns.push({
             type: 'column',
-            center: { x: insertionPoint.x * 100, y: insertionPoint.y * 100 },
+            center: { x: insertionPoint.x * 100, y: (maxY - insertionPoint.y) * 100 }, // Flip Y-axis
             size: Math.max(width, height), // Use larger dimension as size
             width: width,
             height: height,
@@ -191,8 +210,8 @@ export function parseXMLToProject(xmlString) {
         const origin = parsePoint(menfezNode.querySelector('P[F="Origin"]')?.getAttribute('V'));
         const rotation = parseFloat(menfezNode.querySelector('P[F="Rotation"]')?.getAttribute('V') || 0);
 
-        // Find closest wall
-        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: origin.y * 100 });
+        // Find closest wall (flip Y-axis)
+        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: (maxY - origin.y) * 100 });
 
         if (wallMatch) {
             // Add vent to wall
@@ -217,7 +236,7 @@ export function parseXMLToProject(xmlString) {
             type: 'stairs',
             id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
             name: 'Merdiven',
-            center: { x: insertionPoint.x * 100, y: insertionPoint.y * 100 },
+            center: { x: insertionPoint.x * 100, y: (maxY - insertionPoint.y) * 100 }, // Flip Y-axis
             width: width,
             height: height,
             rotation: 0,

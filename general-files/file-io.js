@@ -100,9 +100,19 @@ function openProject(e) {
             const fileExt = file.name.toLowerCase().split('.').pop();
 
             if (fileExt === 'xml') {
-                // Parse XML file
+                // Parse XML file with current settings to preserve colors and UI config
                 console.log('Parsing XML file...');
-                projectData = parseXMLToProject(event.target.result);
+                const currentSettings = {
+                    gridOptions: state.gridOptions,
+                    snapOptions: state.snapOptions,
+                    dimensionOptions: state.dimensionOptions,
+                    wallBorderColor: state.wallBorderColor,
+                    roomFillColor: state.roomFillColor,
+                    lineThickness: state.lineThickness,
+                    wallThickness: state.wallThickness,
+                    drawingAngle: state.drawingAngle
+                };
+                projectData = parseXMLToProject(event.target.result, currentSettings);
             } else {
                 // Parse JSON file
                 projectData = JSON.parse(event.target.result);
