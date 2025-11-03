@@ -8,20 +8,29 @@
  * @returns {Object} ngcad project data object
  */
 export function parseXMLToProject(xmlString, currentSettings = null) {
+    console.log('[XML-IO] Starting XML parse...');
+    console.log('[XML-IO] XML length:', xmlString.length, 'characters');
+
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
 
     // Check for parsing errors
     const parserError = xmlDoc.querySelector('parsererror');
     if (parserError) {
+        console.error('[XML-IO] Parser error:', parserError.textContent);
         throw new Error('XML parsing error: ' + parserError.textContent);
     }
+
+    console.log('[XML-IO] XML parsed to DOM successfully');
 
     // Extract all entities
     const entitiesNode = xmlDoc.querySelector('O[F="Entities"]');
     if (!entitiesNode) {
+        console.error('[XML-IO] No Entities node found!');
         throw new Error('No Entities node found in XML');
     }
+
+    console.log('[XML-IO] Found Entities node');
 
     // Initialize project data with current settings if available
     const projectData = {
@@ -52,6 +61,15 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
     const kolons = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="Kolon"]'));
     const menfezler = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="Menfez"]'));
     const stairs = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="clsmerdiven"]'));
+
+    console.log('[XML-IO] Found elements:', {
+        closeAreas: closeAreas.length,
+        doors: doors.length,
+        windows: windows.length,
+        columns: kolons.length,
+        vents: menfezler.length,
+        stairs: stairs.length
+    });
 
     // Step 0: Find max Y value for coordinate system conversion (flip Y-axis)
     let maxY = -Infinity;
@@ -274,6 +292,15 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
         delete wall._handle;
         delete wall._p1;
         delete wall._p2;
+    });
+
+    console.log('[XML-IO] Parse complete! Returning:', {
+        version: projectData.version,
+        nodes: projectData.nodes.length,
+        walls: projectData.walls.length,
+        doors: projectData.doors.length,
+        columns: projectData.columns.length,
+        stairs: projectData.stairs.length
     });
 
     return projectData;
