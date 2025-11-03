@@ -106,6 +106,17 @@ export function onPointerDown(e) {
                                      cameraCenter: { x: camInfo.position.x, y: camInfo.position.z }
                                  }
                              };
+                         } else if (clickedObject.handle === 'fov') {
+                             // FOV üçgeninden yön döndürme
+                             dragInfo = {
+                                 startPointForDragging: pos,
+                                 dragOffset: { x: 0, y: 0 },
+                                 additionalState: {
+                                     cameraHandle: 'fov',
+                                     initialYaw: camInfo.yaw,
+                                     cameraCenter: { x: camInfo.position.x, y: camInfo.position.z }
+                                 }
+                             };
                          }
                          break;
                      case 'arcControl':

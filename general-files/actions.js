@@ -24,7 +24,7 @@ export function getObjectAtPoint(pos) {
 
     // 0. KAMERA KONTROLLERİ (En yüksek öncelik - FPS modunda)
     const cameraInfo = getCameraViewInfo();
-    if (cameraInfo && cameraInfo.isFPS) {
+    if (cameraInfo && cameraInfo.isFPS && cameraInfo.showIcon) {
         const camX = cameraInfo.position.x;
         const camZ = cameraInfo.position.z;
         const yaw = cameraInfo.yaw;
@@ -32,12 +32,37 @@ export function getObjectAtPoint(pos) {
         // Kamera parametreleri (draw2d.js ile aynı değerler)
         const eyeRadius = 30;
         const viewLineLength = 80;
+        const fovAngle = Math.PI / 3; // 60 derece
+        const fovLength = 120;
 
-        // Bakış yönü
+        // Bakış yönü (draw2d.js ile tutarlı)
         const dirX = Math.sin(yaw);
-        const dirZ = Math.cos(yaw);
+        const dirZ = -Math.cos(yaw);
 
-        // Yön handle'ı (bakış yönü ucundaki nokta)
+        // FOV üçgeni kontrolü - lamba sembolü üçgenine tıklama
+        const leftAngle = yaw - fovAngle / 2;
+        const rightAngle = yaw + fovAngle / 2;
+        const leftX = camX + Math.sin(leftAngle) * fovLength;
+        const leftZ = camZ - Math.cos(leftAngle) * fovLength;
+        const rightX = camX + Math.sin(rightAngle) * fovLength;
+        const rightZ = camZ - Math.cos(rightAngle) * fovLength;
+
+        // Nokta üçgen içinde mi?
+        const sign = (p1x, p1y, p2x, p2y, p3x, p3y) => {
+            return (p1x - p3x) * (p2y - p3y) - (p2x - p3x) * (p1y - p3y);
+        };
+        const d1 = sign(pos.x, pos.y, camX, camZ, leftX, leftZ);
+        const d2 = sign(pos.x, pos.y, leftX, leftZ, rightX, rightZ);
+        const d3 = sign(pos.x, pos.y, rightX, rightZ, camX, camZ);
+        const hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+        const hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+        if (!(hasNeg && hasPos)) {
+            // FOV üçgeni içindeyiz
+            return { type: "camera", handle: "fov", object: cameraInfo };
+        }
+
+        // Yön handle'ı (lamba sembolü - ampul)
         const dirHandleX = camX + dirX * viewLineLength;
         const dirHandleZ = camZ + dirZ * viewLineLength;
         const distToDirection = Math.hypot(pos.x - dirHandleX, pos.y - dirHandleZ);

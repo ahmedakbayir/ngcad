@@ -27,6 +27,7 @@ import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
 function drawCameraViewIndicator(ctx2d, zoom) {
     const cameraInfo = getCameraViewInfo();
     if (!cameraInfo || !cameraInfo.isFPS) return; // Sadece FPS modunda göster
+    if (!cameraInfo.showIcon) return; // Klavye kullanılmadıysa gösterme
 
     const { position, yaw } = cameraInfo;
 
@@ -114,6 +115,23 @@ function drawCameraViewIndicator(ctx2d, zoom) {
     ctx2d.strokeStyle = 'rgba(255, 165, 0, 0.5)'; // Yarı saydam turuncu
     ctx2d.lineWidth = 2 / zoom;
     ctx2d.stroke();
+
+    // Z yükseklik değerini göster
+    const heightText = `Z: ${Math.round(position.y)} cm`;
+    ctx2d.font = `${16 / zoom}px Arial`;
+    ctx2d.fillStyle = '#FFFFFF'; // Beyaz metin
+    ctx2d.strokeStyle = '#000000'; // Siyah kenar
+    ctx2d.lineWidth = 3 / zoom;
+    ctx2d.textAlign = 'left';
+    ctx2d.textBaseline = 'middle';
+
+    // Metni göz ikonunun sağ üstünde göster
+    const textX = camX + eyeRadius + 10;
+    const textY = camZ - eyeRadius;
+
+    // Metin konturunu çiz (okunabilirlik için)
+    ctx2d.strokeText(heightText, textX, textY);
+    ctx2d.fillText(heightText, textX, textY);
 
     ctx2d.restore();
 }
