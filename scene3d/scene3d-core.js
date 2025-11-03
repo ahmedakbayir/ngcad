@@ -44,10 +44,11 @@ let isRightMouseDown = false;
 let previousMousePosition = { x: 0, y: 0 };
 
 /**
- * Çizim sınırlarından merkez noktası hesaplar ve OrbitControls target'ını günceller
+ * Çizim sınırlarından merkez noktası hesaplar (SADECE SHIFT+SAĞ/SOL için)
+ * OrbitControls target'ını DEĞİŞTİRMEZ
  */
-export function updateDrawingCenter() {
-    if (!sceneObjects || !orbitControls) return;
+export function getDrawingCenter() {
+    if (!sceneObjects) return new THREE.Vector3(0, 0, 0);
 
     const boundingBox = new THREE.Box3();
     let hasContent = false;
@@ -62,7 +63,7 @@ export function updateDrawingCenter() {
                     hasContent = true;
                 }
             } catch (error) {
-                console.error("Drawing center hesaplama hatası:", obj, error);
+                // Hata durumunda devam et
             }
         }
     });
@@ -70,9 +71,31 @@ export function updateDrawingCenter() {
     if (hasContent && !boundingBox.isEmpty()) {
         const center = new THREE.Vector3();
         boundingBox.getCenter(center);
-        orbitControls.target.copy(center);
-        orbitControls.update();
+        return center;
     }
+
+    return new THREE.Vector3(0, 0, 0);
+}
+
+/**
+ * Mouse kullanımında kamera ikonunu gizle
+ */
+function setupMouseIconHiding() {
+    const canvas = renderer.domElement;
+
+    // İlk olarak hideCameraIcon import edilmeli
+    import('./scene3d-camera.js').then(module => {
+        const { hideCameraIcon } = module;
+
+        // Herhangi bir mouse hareketi veya tıklaması kamera ikonunu gizler
+        canvas.addEventListener('mousedown', () => {
+            hideCameraIcon();
+        });
+
+        canvas.addEventListener('wheel', () => {
+            hideCameraIcon();
+        });
+    });
 }
 
 /**
@@ -162,6 +185,9 @@ export function init3D(canvasElement) {
 
     // Sağ tık için custom kontrol
     setupRightClickRotation();
+
+    // Mouse kullanımında kamera ikonunu gizle
+    setupMouseIconHiding();
 
     // PointerLockControls'ü başlat (sadece referans için, mouse kontrolü kullanmayacağız)
     pointerLockControls = new PointerLockControls(camera, renderer.domElement);

@@ -9,7 +9,7 @@ import {
     setCameraMode, // <-- YENİ IMPORT
     setActiveControls, // <-- YENİ IMPORT
     floorMaterial, // <-- YENİ IMPORT
-    updateDrawingCenter, // <-- YENİ IMPORT
+    getDrawingCenter, // <-- Çizim merkezi hesaplama (SHIFT+SAĞ/SOL için)
 } from "./scene3d-core.js";
 import { state, WALL_HEIGHT } from "../general-files/main.js"; // <-- CAMERA_HEIGHT buradan kaldırıldı
 
@@ -25,6 +25,11 @@ let direction = new THREE.Vector3();
 
 // Kamera ikonu görünürlük kontrolü (klavye kullanılınca görünür olur)
 export let showCameraIcon = false;
+
+// Mouse kullanımında kamera ikonunu gizle
+export function hideCameraIcon() {
+    showCameraIcon = false;
+}
 
 // --- Sabitler (scene3d-core.js'den taşındı) ---
 const CAMERA_HEIGHT = 180; // <-- BU SABİT EKLENDİ
@@ -281,85 +286,41 @@ function setupFirstPersonKeyControls() {
     document.addEventListener('keyup', onKeyUp);
 }
 
-// Çizim merkezini hesapla (SHIFT+OKLAR için)
-function getDrawingCenter() {
-    if (!sceneObjects) return new THREE.Vector3(0, 180, 0);
-
-    const boundingBox = new THREE.Box3();
-    let hasContent = false;
-
-    sceneObjects.children.forEach(obj => {
-        if (obj.visible && obj.material !== floorMaterial) {
-            try {
-                obj.updateMatrixWorld(true);
-                const box = new THREE.Box3().setFromObject(obj, true);
-                if (!box.isEmpty()) {
-                    boundingBox.union(box);
-                    hasContent = true;
-                }
-            } catch (error) {
-                // Hata durumunda devam et
-            }
-        }
-    });
-
-    if (hasContent && !boundingBox.isEmpty()) {
-        const center = new THREE.Vector3();
-        boundingBox.getCenter(center);
-        center.y = 180; // Z yüksekliği 180 olarak sabit
-        return center;
-    }
-
-    return new THREE.Vector3(0, 180, 0);
-}
-
 // Kamera klavye kontrollerini güncelle (ana döngüden çağrılır)
 export function updateFirstPersonCamera(delta) {
     // Artık mod kontrolü yok - her zaman çalışır (3D göster modunda da)
 
-    // CTRL + OKLAR: Projeyi kamera etrafında döndür
+    // CTRL + OKLAR: Kamera pozisyonu SABİT, sadece bakış açısı döner
     if (rotateProjectLeft || rotateProjectRight || rotateProjectUp || rotateProjectDown) {
+        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        euler.setFromQuaternion(camera.quaternion);
+
         const rotationSpeed = Math.PI / 4 * delta; // 45 derece/saniye
 
         if (rotateProjectLeft) {
-            sceneObjects.position.sub(camera.position);
-            sceneObjects.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), rotationSpeed);
-            sceneObjects.position.add(camera.position);
+            euler.y += rotationSpeed; // Sola dön (yaw artı)
         }
         if (rotateProjectRight) {
-            sceneObjects.position.sub(camera.position);
-            sceneObjects.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), -rotationSpeed);
-            sceneObjects.position.add(camera.position);
+            euler.y -= rotationSpeed; // Sağa dön (yaw eksi)
         }
         if (rotateProjectUp) {
-            // X ekseni etrafında döndür (yukarı)
-            const right = new THREE.Vector3();
-            camera.getWorldDirection(right);
-            right.y = 0;
-            right.normalize();
-            const perpRight = new THREE.Vector3(-right.z, 0, right.x);
-
-            sceneObjects.position.sub(camera.position);
-            sceneObjects.rotateOnWorldAxis(perpRight, rotationSpeed);
-            sceneObjects.position.add(camera.position);
+            euler.x += rotationSpeed; // Yukarı bak (pitch artı)
         }
         if (rotateProjectDown) {
-            // X ekseni etrafında döndür (aşağı)
-            const right = new THREE.Vector3();
-            camera.getWorldDirection(right);
-            right.y = 0;
-            right.normalize();
-            const perpRight = new THREE.Vector3(-right.z, 0, right.x);
-
-            sceneObjects.position.sub(camera.position);
-            sceneObjects.rotateOnWorldAxis(perpRight, -rotationSpeed);
-            sceneObjects.position.add(camera.position);
+            euler.x -= rotationSpeed; // Aşağı bak (pitch eksi)
         }
+
+        // Pitch limitlerini uygula
+        euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+
+        // Kameranın rotasyonunu güncelle (pozisyon DEĞİŞMEZ)
+        camera.quaternion.setFromEuler(euler);
+
         return;
     }
 
-    // SHIFT + OKLAR: Çizim merkezi etrafında orbit
-    if (orbitLeft || orbitRight || orbitUp || orbitDown) {
+    // SHIFT + SAĞ/SOL: Çizim merkezi etrafında YATAY orbit
+    if (orbitLeft || orbitRight) {
         const center = getDrawingCenter();
         const orbitSpeed = Math.PI / 4 * delta; // 45 derece/saniye
 
@@ -374,16 +335,6 @@ export function updateFirstPersonCamera(delta) {
             // Y ekseni etrafında sağa orbit
             offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -orbitSpeed);
         }
-        if (orbitUp) {
-            // Yatay düzlemde yukarı orbit (Z ekseni)
-            const axis = new THREE.Vector3(-offset.z, 0, offset.x).normalize();
-            offset.applyAxisAngle(axis, orbitSpeed);
-        }
-        if (orbitDown) {
-            // Yatay düzlemde aşağı orbit (Z ekseni)
-            const axis = new THREE.Vector3(-offset.z, 0, offset.x).normalize();
-            offset.applyAxisAngle(axis, -orbitSpeed);
-        }
 
         // Yeni kamera pozisyonunu ayarla
         camera.position.copy(center).add(offset);
@@ -394,27 +345,63 @@ export function updateFirstPersonCamera(delta) {
         return;
     }
 
-    // OKLAR (veya CTRL+SHIFT+OKLAR ile 2x hız): Ok yönünde hareket
+    // SHIFT + YUKARI/AŞAĞI: DÜMDÜZ yukarı/aşağı hareket
+    if (orbitUp || orbitDown) {
+        manualHeightMode = true; // Yükseklik modunu aktif et
+
+        if (orbitUp) {
+            camera.position.y += VERTICAL_SPEED * delta;
+        }
+        if (orbitDown) {
+            camera.position.y -= VERTICAL_SPEED * delta;
+        }
+
+        // Minimum yüksekliği koru
+        camera.position.y = Math.max(10, camera.position.y);
+
+        return;
+    }
+
+    // OKLAR (veya CTRL+SHIFT+OKLAR ile 2x hız): Kamera yönünde DÜMDÜZ hareket
     if (moveForward || moveBackward || moveLeft || moveRight) {
         const speed = speedBoost ? (MOVE_SPEED * 2) : MOVE_SPEED;
 
-        // Mevcut bakış yönünü koru - DÜNYA KOORDINATLARINDA hareket et
-        const forward = new THREE.Vector3(0, 0, -1); // Dünya Z ekseni
-        const right = new THREE.Vector3(1, 0, 0);   // Dünya X ekseni
+        // Kamera yönünde hareket (y bileşenini sıfırla - yatay hareket)
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+        right.normalize();
+
         const movement = new THREE.Vector3();
 
-        if (moveForward) movement.add(forward.clone().multiplyScalar(speed * delta));
-        if (moveBackward) movement.add(forward.clone().multiplyScalar(-speed * delta));
+        if (moveForward) {
+            movement.add(forward.clone().multiplyScalar(speed * delta));
+        }
+        if (moveBackward) {
+            movement.add(forward.clone().multiplyScalar(-speed * delta));
+        }
 
-        // Geri giderken sağ-sol ok tuşları tersine çalışsın
+        // Geri giderken SADECE sağ-sol ok tuşları tersine çalışsın
         if (moveBackward && !moveForward) {
             // Geriye gidiyoruz, sağ-sol'u tersine çevir
-            if (moveLeft) movement.add(right.clone().multiplyScalar(speed * delta)); // Sol tuş → Sağa git
-            if (moveRight) movement.add(right.clone().multiplyScalar(-speed * delta)); // Sağ tuş → Sola git
+            if (moveLeft) {
+                movement.add(right.clone().multiplyScalar(speed * delta)); // Sol tuş → Sağa git
+            }
+            if (moveRight) {
+                movement.add(right.clone().multiplyScalar(-speed * delta)); // Sağ tuş → Sola git
+            }
         } else {
             // Normal hareket
-            if (moveLeft) movement.add(right.clone().multiplyScalar(-speed * delta));
-            if (moveRight) movement.add(right.clone().multiplyScalar(speed * delta));
+            if (moveLeft) {
+                movement.add(right.clone().multiplyScalar(-speed * delta));
+            }
+            if (moveRight) {
+                movement.add(right.clone().multiplyScalar(speed * delta));
+            }
         }
 
         const newPosition = new THREE.Vector3(
@@ -426,6 +413,8 @@ export function updateFirstPersonCamera(delta) {
         if (checkWallCollision(newPosition)) {
             camera.position.x = newPosition.x;
             camera.position.z = newPosition.z;
+
+            // Manuel yükseklik modunda değilse otomatik yükseklik ayarla
             if (!manualHeightMode) {
                 const elevation = checkStairElevation(camera.position);
                 camera.position.y = CAMERA_HEIGHT + elevation;
