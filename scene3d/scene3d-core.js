@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import { state, WALL_HEIGHT, dom } from "../general-files/main.js";
+import { setupMouseControls } from "./scene3d-camera.js";
 
 // --- Global Değişkenler ---
 export let scene, camera, renderer, controls; // 'controls' MEVCUT aktif kontrol olacak
@@ -176,6 +177,9 @@ export function init3D(canvasElement) {
         opacity: solidOpacity, // solidOpacity'yi init3D içinden alır
         side: THREE.DoubleSide
     });
+
+    // Mouse kontrollerini başlat (FPS modu için)
+    setupMouseControls(canvasElement);
 }
 
 /**

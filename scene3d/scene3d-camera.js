@@ -14,13 +14,29 @@ import { state, WALL_HEIGHT } from "../general-files/main.js"; // <-- CAMERA_HEI
 
 // --- Değişkenler (scene3d-core.js'den taşındı) ---
 // export let cameraMode = coreCameraMode; // <-- BU SATIR SİLİNDİ
+
+// Hareket kontrolleri
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+let fastMove = false; // CTRL+SHIFT için hızlı hareket
+
+// Rotasyon kontrolleri (CTRL + OKLAR - kamera sabit)
 let rotateLeft = false, rotateRight = false;
-let moveUp = false, moveDown = false;
 let pitchUp = false, pitchDown = false;
+
+// Orbit kontrolleri (SHIFT + OKLAR - merkez sabit, kamera döner)
+let orbitLeft = false, orbitRight = false, orbitUp = false, orbitDown = false;
+
 let manualHeightMode = false;
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
+
+// Kamera görünürlük kontrolü (klavye kullanıldığında kamera ikonu görünür olur)
+export let showCameraIcon = false;
+
+// Mouse kontrolleri için değişkenler
+let isMouseDragging = false;
+let mouseButton = -1; // 0: sol, 1: orta, 2: sağ
+let lastMouseX = 0, lastMouseY = 0;
 
 // --- Sabitler (scene3d-core.js'den taşındı) ---
 const CAMERA_HEIGHT = 180; // <-- BU SABİT EKLENDİ
@@ -28,12 +44,15 @@ const MOVE_SPEED = 150;
 const ROTATION_SPEED = Math.PI / 4;
 const PITCH_SPEED = Math.PI / 4;
 const VERTICAL_SPEED = 150;
+const MOUSE_PAN_SPEED = 2.0; // Mouse pan hızı
+const MOUSE_ROTATE_SPEED = 0.003; // Mouse rotate hızı
 
 // --- Fonksiyonlar ---
 
 // Çarpışma tespiti - Duvarlarla çarpışma kontrolü
 function checkWallCollision(newPosition) {
     const playerRadius = 30;
+    const doorTolerance = 50; // Kapıdan geçiş için ekstra tolerans (sağ ve soldan 50cm)
     const cameraHeight = camera.position.y;
     const effectiveWallHeight = WALL_HEIGHT;
 
@@ -65,9 +84,10 @@ function checkWallCollision(newPosition) {
                 const doors = state.doors.filter(d => d.wall === wall);
                 let canPass = false;
                 for (const door of doors) {
-                    const doorStart = door.pos - door.width / 2;
-                    const doorEnd = door.pos + door.width / 2;
-                    if (alongWall >= doorStart - playerRadius && alongWall <= doorEnd + playerRadius) {
+                    // Kapı toleransını artırıyoruz: sağ ve soldan 50cm ekstra
+                    const doorStart = door.pos - door.width / 2 - doorTolerance;
+                    const doorEnd = door.pos + door.width / 2 + doorTolerance;
+                    if (alongWall >= doorStart && alongWall <= doorEnd) {
                         canPass = true;
                         break;
                     }
@@ -167,48 +187,199 @@ function setupFirstPersonKeyControls() {
     const onKeyDown = (event) => {
         if (cameraMode !== 'firstPerson') return;
         if (event.code === 'Space') { event.preventDefault(); return; }
-        if (event.ctrlKey) {
+
+        // Klavye kullanıldığında kamera ikonunu göster
+        showCameraIcon = true;
+
+        // CTRL + SHIFT + OKLAR: Hızlı hareket (2x)
+        if (event.ctrlKey && event.shiftKey) {
+            fastMove = true;
             switch (event.code) {
+                case 'ArrowUp': moveForward = true; event.preventDefault(); break;
+                case 'ArrowDown': moveBackward = true; event.preventDefault(); break;
                 case 'ArrowLeft': moveLeft = true; event.preventDefault(); break;
                 case 'ArrowRight': moveRight = true; event.preventDefault(); break;
+            }
+            return;
+        }
+
+        // CTRL + OKLAR: Kamera sabit, rotate (yaw ve pitch)
+        if (event.ctrlKey && !event.shiftKey) {
+            switch (event.code) {
+                case 'ArrowLeft': rotateLeft = true; event.preventDefault(); break;
+                case 'ArrowRight': rotateRight = true; event.preventDefault(); break;
                 case 'ArrowUp': pitchUp = true; event.preventDefault(); break;
                 case 'ArrowDown': pitchDown = true; event.preventDefault(); break;
             }
             return;
         }
-        if (event.shiftKey) {
+
+        // SHIFT + OKLAR: Canvas ortası merkez, orbit around target
+        if (event.shiftKey && !event.ctrlKey) {
             switch (event.code) {
-                case 'ArrowUp': moveUp = true; event.preventDefault(); break;
-                case 'ArrowDown': moveDown = true; event.preventDefault(); break;
+                case 'ArrowLeft': orbitLeft = true; event.preventDefault(); break;
+                case 'ArrowRight': orbitRight = true; event.preventDefault(); break;
+                case 'ArrowUp': orbitUp = true; event.preventDefault(); break;
+                case 'ArrowDown': orbitDown = true; event.preventDefault(); break;
             }
             return;
         }
+
+        // OKLAR (modifier yok): Yön değiştirmeden hareket (strafe)
         switch (event.code) {
-            case 'ArrowUp': case 'KeyW': moveForward = true; break;
-            case 'ArrowDown': case 'KeyS': moveBackward = true; break;
-            case 'ArrowLeft': rotateLeft = true; break;
-            case 'ArrowRight': rotateRight = true; break;
+            case 'ArrowUp': moveForward = true; event.preventDefault(); break;
+            case 'ArrowDown': moveBackward = true; event.preventDefault(); break;
+            case 'ArrowLeft': moveLeft = true; event.preventDefault(); break;
+            case 'ArrowRight': moveRight = true; event.preventDefault(); break;
+            case 'KeyW': moveForward = true; break;
+            case 'KeyS': moveBackward = true; break;
             case 'KeyA': moveLeft = true; break;
             case 'KeyD': moveRight = true; break;
             case 'KeyR': manualHeightMode = false; break;
         }
     };
+
     const onKeyUp = (event) => {
-        if (event.key === 'Control') { pitchUp = false; pitchDown = false; moveLeft = false; moveRight = false; return; }
-        if (event.key === 'Shift') { moveUp = false; moveDown = false; return; }
+        // Modifier tuşları bırakıldığında ilgili kontrolleri sıfırla
+        if (event.key === 'Control') {
+            rotateLeft = false; rotateRight = false;
+            pitchUp = false; pitchDown = false;
+            fastMove = false;
+            return;
+        }
+        if (event.key === 'Shift') {
+            orbitLeft = false; orbitRight = false;
+            orbitUp = false; orbitDown = false;
+            fastMove = false;
+            return;
+        }
+
         switch (event.code) {
-            case 'ArrowUp': if (event.ctrlKey) pitchUp = false; else if (event.shiftKey) moveUp = false; else moveForward = false; break;
-            case 'ArrowDown': if (event.ctrlKey) pitchDown = false; else if (event.shiftKey) moveDown = false; else moveBackward = false; break;
-            case 'ArrowLeft': if (event.ctrlKey) moveLeft = false; else rotateLeft = false; break;
-            case 'ArrowRight': if (event.ctrlKey) moveRight = false; else rotateRight = false; break;
+            case 'ArrowUp':
+                moveForward = false;
+                pitchUp = false;
+                orbitUp = false;
+                break;
+            case 'ArrowDown':
+                moveBackward = false;
+                pitchDown = false;
+                orbitDown = false;
+                break;
+            case 'ArrowLeft':
+                moveLeft = false;
+                rotateLeft = false;
+                orbitLeft = false;
+                break;
+            case 'ArrowRight':
+                moveRight = false;
+                rotateRight = false;
+                orbitRight = false;
+                break;
             case 'KeyW': moveForward = false; break;
             case 'KeyS': moveBackward = false; break;
             case 'KeyA': moveLeft = false; break;
             case 'KeyD': moveRight = false; break;
         }
     };
+
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
+}
+
+// Mouse kontrolleri için event handler'lar
+export function setupMouseControls(canvas) {
+    if (!canvas) return;
+
+    const onMouseDown = (event) => {
+        if (cameraMode !== 'firstPerson') return;
+
+        isMouseDragging = true;
+        mouseButton = event.button;
+        lastMouseX = event.clientX;
+        lastMouseY = event.clientY;
+
+        event.preventDefault();
+    };
+
+    const onMouseMove = (event) => {
+        if (!isMouseDragging || cameraMode !== 'firstPerson') return;
+
+        const deltaX = event.clientX - lastMouseX;
+        const deltaY = event.clientY - lastMouseY;
+        lastMouseX = event.clientX;
+        lastMouseY = event.clientY;
+
+        // Sol tık (button 0): Pan (kamera yatay ve dikey hareket)
+        if (mouseButton === 0) {
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            forward.normalize();
+
+            const right = new THREE.Vector3();
+            right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+            right.normalize();
+
+            // Pan hareketi
+            const panX = -deltaX * MOUSE_PAN_SPEED;
+            const panY = -deltaY * MOUSE_PAN_SPEED;
+
+            const newPosition = new THREE.Vector3(
+                camera.position.x + right.x * panX + forward.x * panY,
+                camera.position.y,
+                camera.position.z + right.z * panX + forward.z * panY
+            );
+
+            if (checkWallCollision(newPosition)) {
+                camera.position.x = newPosition.x;
+                camera.position.z = newPosition.z;
+            }
+        }
+        // Orta tık (button 1): Rotate (orbit around target)
+        else if (mouseButton === 1) {
+            // Canvas merkezini hedef al
+            const center = new THREE.Vector3(0, CAMERA_HEIGHT, 0);
+            const offset = new THREE.Vector3().subVectors(camera.position, center);
+            const spherical = new THREE.Spherical().setFromVector3(offset);
+
+            spherical.theta -= deltaX * MOUSE_ROTATE_SPEED;
+            spherical.phi += deltaY * MOUSE_ROTATE_SPEED;
+            spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+
+            offset.setFromSpherical(spherical);
+            camera.position.copy(center).add(offset);
+            camera.lookAt(center);
+        }
+        // Sağ tık (button 2): Rotate in place (kamera sabit, sadece bakış yönü döner)
+        else if (mouseButton === 2) {
+            const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+            euler.setFromQuaternion(camera.quaternion);
+
+            euler.y -= deltaX * MOUSE_ROTATE_SPEED;
+            euler.x -= deltaY * MOUSE_ROTATE_SPEED;
+            euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+
+            camera.quaternion.setFromEuler(euler);
+        }
+    };
+
+    const onMouseUp = (event) => {
+        if (cameraMode !== 'firstPerson') return;
+        isMouseDragging = false;
+        mouseButton = -1;
+    };
+
+    const onContextMenu = (event) => {
+        // Sağ tık menüsünü engelle (3D modunda)
+        if (cameraMode === 'firstPerson') {
+            event.preventDefault();
+        }
+    };
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('contextmenu', onContextMenu);
 }
 
 // First-person kamerayı güncelle (ana döngüden çağrılır)
@@ -217,8 +388,10 @@ export function updateFirstPersonCamera(delta) {
     if (cameraMode !== 'firstPerson') {
          // FPS modunda değilsek, tüm hareket bayraklarını sıfırla (önemli!)
          moveForward = false; moveBackward = false; moveLeft = false; moveRight = false;
-         rotateLeft = false; rotateRight = false; moveUp = false; moveDown = false;
+         rotateLeft = false; rotateRight = false;
          pitchUp = false; pitchDown = false;
+         orbitLeft = false; orbitRight = false; orbitUp = false; orbitDown = false;
+         fastMove = false;
          return;
     }
 
@@ -226,6 +399,7 @@ export function updateFirstPersonCamera(delta) {
     euler.setFromQuaternion(camera.quaternion);
     let rotationChanged = false;
 
+    // CTRL + OKLAR: Kamera rotasyonu (kamera sabit)
     if (rotateLeft) { euler.y += ROTATION_SPEED * delta; rotationChanged = true; }
     if (rotateRight) { euler.y -= ROTATION_SPEED * delta; rotationChanged = true; }
     if (pitchUp) { euler.x += PITCH_SPEED * delta; rotationChanged = true; }
@@ -233,30 +407,75 @@ export function updateFirstPersonCamera(delta) {
     euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
     if (rotationChanged) camera.quaternion.setFromEuler(euler);
 
-    if (moveUp) { manualHeightMode = true; camera.position.y += VERTICAL_SPEED * delta; }
-    if (moveDown) { manualHeightMode = true; camera.position.y -= VERTICAL_SPEED * delta; }
-    camera.position.y = Math.max(10, camera.position.y);
+    // SHIFT + OKLAR: Orbit around canvas center
+    if (orbitLeft || orbitRight || orbitUp || orbitDown) {
+        // Canvas merkezini bul (orbitControls.target benzeri)
+        const center = new THREE.Vector3(0, CAMERA_HEIGHT, 0);
 
-    if (!moveForward && !moveBackward && !moveLeft && !moveRight) return;
+        // Kameranın merkeze olan uzaklığını hesapla
+        const radius = camera.position.distanceTo(center);
 
-    const forward = new THREE.Vector3(); camera.getWorldDirection(forward); forward.y = 0; forward.normalize();
-    const right = new THREE.Vector3(); right.crossVectors(forward, new THREE.Vector3(0, 1, 0)); right.normalize();
-    const movement = new THREE.Vector3();
-    if (moveForward) movement.add(forward.clone().multiplyScalar(MOVE_SPEED * delta));
-    if (moveBackward) movement.add(forward.clone().multiplyScalar(-MOVE_SPEED * delta));
-    if (moveLeft) movement.add(right.clone().multiplyScalar(-MOVE_SPEED * delta));
-    if (moveRight) movement.add(right.clone().multiplyScalar(MOVE_SPEED * delta));
+        // Mevcut pozisyonu spherical koordinatlara çevir
+        const offset = new THREE.Vector3().subVectors(camera.position, center);
+        const spherical = new THREE.Spherical().setFromVector3(offset);
 
-    const newPosition = new THREE.Vector3(camera.position.x + movement.x, camera.position.y, camera.position.z + movement.z);
+        // Orbit hareketlerini uygula
+        const orbitSpeed = ROTATION_SPEED * delta;
+        if (orbitLeft) spherical.theta -= orbitSpeed;
+        if (orbitRight) spherical.theta += orbitSpeed;
+        if (orbitUp) spherical.phi -= orbitSpeed;
+        if (orbitDown) spherical.phi += orbitSpeed;
 
-    if (checkWallCollision(newPosition)) {
-        camera.position.x = newPosition.x;
-        camera.position.z = newPosition.z;
-        if (!manualHeightMode) {
-            const elevation = checkStairElevation(camera.position);
-            camera.position.y = CAMERA_HEIGHT + elevation;
+        // Phi'yi sınırla (0 ile PI arası)
+        spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+
+        // Yeni pozisyonu hesapla
+        offset.setFromSpherical(spherical);
+        camera.position.copy(center).add(offset);
+
+        // Kamerayı merkeze baktır
+        camera.lookAt(center);
+
+        // Klavye kullanıldığında kamera ikonunu göster
+        showCameraIcon = true;
+    }
+
+    // OKLAR (veya W/A/S/D): Hareket (yön değiştirmeden strafe)
+    if (moveForward || moveBackward || moveLeft || moveRight) {
+        const forward = new THREE.Vector3();
+        camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
+
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
+        right.normalize();
+
+        const movement = new THREE.Vector3();
+        const speed = fastMove ? MOVE_SPEED * 2 : MOVE_SPEED; // Hızlı hareket için 2x
+
+        if (moveForward) movement.add(forward.clone().multiplyScalar(speed * delta));
+        if (moveBackward) movement.add(forward.clone().multiplyScalar(-speed * delta));
+        if (moveLeft) movement.add(right.clone().multiplyScalar(-speed * delta));
+        if (moveRight) movement.add(right.clone().multiplyScalar(speed * delta));
+
+        const newPosition = new THREE.Vector3(
+            camera.position.x + movement.x,
+            camera.position.y,
+            camera.position.z + movement.z
+        );
+
+        if (checkWallCollision(newPosition)) {
+            camera.position.x = newPosition.x;
+            camera.position.z = newPosition.z;
+            if (!manualHeightMode) {
+                const elevation = checkStairElevation(camera.position);
+                camera.position.y = CAMERA_HEIGHT + elevation;
+            }
         }
     }
+
+    camera.position.y = Math.max(10, camera.position.y);
     autoOpenNearbyDoors();
 }
 
@@ -330,7 +549,8 @@ export function getCameraViewInfo() {
         position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
         direction: { x: direction.x, y: direction.y, z: direction.z },
         yaw: yaw,
-        isFPS: cameraMode === 'firstPerson'
+        isFPS: cameraMode === 'firstPerson',
+        showIcon: showCameraIcon // Klavye kullanımında icon göster
     };
 }
 

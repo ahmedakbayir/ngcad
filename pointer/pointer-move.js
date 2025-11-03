@@ -218,6 +218,12 @@ export function onPointerMove(e) {
                     // Three.js koordinat sistemine uygun yaw hesaplama (-cos kullanıldığı için -dz)
                     const newYaw = Math.atan2(dx, -dz);
                     setCameraRotation(newYaw);
+                } else if (state.cameraHandle === 'fov') {
+                    // FOV üçgeninden yön döndürme (mouse ne tarafa sürüklenirse o yöne bak)
+                    const dx = unsnappedPos.x - state.cameraCenter.x;
+                    const dz = unsnappedPos.y - state.cameraCenter.y;
+                    const newYaw = Math.atan2(dx, -dz);
+                    setCameraRotation(newYaw);
                 }
                 break;
             case 'arcControl':
