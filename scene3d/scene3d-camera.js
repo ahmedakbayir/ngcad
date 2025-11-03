@@ -25,19 +25,12 @@ let direction = new THREE.Vector3();
 // Kamera ikonu görünürlük kontrolü (klavye kullanılınca görünür olur)
 export let showCameraIcon = false;
 
-// Mouse kontrolleri için değişkenler
-let isMouseDragging = false;
-let mouseButton = -1; // 0: sol, 1: orta, 2: sağ
-let lastMouseX = 0, lastMouseY = 0;
-
 // --- Sabitler (scene3d-core.js'den taşındı) ---
 const CAMERA_HEIGHT = 180; // <-- BU SABİT EKLENDİ
 const MOVE_SPEED = 150;
 const ROTATION_SPEED = Math.PI / 4;
 const PITCH_SPEED = Math.PI / 4;
 const VERTICAL_SPEED = 150;
-const MOUSE_PAN_SPEED = 2.0; // Mouse pan hızı
-const MOUSE_ROTATE_SPEED = 0.003; // Mouse rotate hızı
 
 // --- Fonksiyonlar ---
 
@@ -174,10 +167,10 @@ function openDoorInFront() {
     // Bu fonksiyon şu anda input.js tarafından çağrılmıyor, ancak gelecekte kullanılabilir.
 }
 
-// First-Person Kamera Kontrolü - Klavye event listener'ları
+// Klavye Kamera Kontrolleri - 3D Göster modunda da çalışır
 function setupFirstPersonKeyControls() {
     const onKeyDown = (event) => {
-        if (cameraMode !== 'firstPerson') return;
+        // Artık mod kontrolü yok - her zaman çalışır
         if (event.code === 'Space') { event.preventDefault(); return; }
 
         // Klavye kullanıldığında kamera ikonunu göster
@@ -227,16 +220,9 @@ function setupFirstPersonKeyControls() {
     document.addEventListener('keyup', onKeyUp);
 }
 
-// First-person kamerayı güncelle (ana döngüden çağrılır)
+// Kamera klavye kontrollerini güncelle (ana döngüden çağrılır)
 export function updateFirstPersonCamera(delta) {
-    // 'cameraMode' artık doğrudan core'dan import edilen global değişkeni okuyor
-    if (cameraMode !== 'firstPerson') {
-         // FPS modunda değilsek, tüm hareket bayraklarını sıfırla (önemli!)
-         moveForward = false; moveBackward = false; moveLeft = false; moveRight = false;
-         rotateLeft = false; rotateRight = false; moveUp = false; moveDown = false;
-         pitchUp = false; pitchDown = false;
-         return;
-    }
+    // Artık mod kontrolü yok - her zaman çalışır (3D göster modunda da)
 
     const euler = new THREE.Euler(0, 0, 0, 'YXZ');
     euler.setFromQuaternion(camera.quaternion);
@@ -356,14 +342,14 @@ export function getCameraViewInfo() {
         position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
         direction: { x: direction.x, y: direction.y, z: direction.z },
         yaw: yaw,
-        isFPS: cameraMode === 'firstPerson',
+        isFPS: true, // Her zaman true - 3D göster modunda da çalışır
         showIcon: showCameraIcon // Klavye kullanımında görünür
     };
 }
 
 // Kamera pozisyonunu ayarla (2D'den sürüklendiğinde)
 export function setCameraPosition(x, z) {
-    if (!camera || cameraMode !== 'firstPerson') return;
+    if (!camera) return;
     camera.position.x = x;
     camera.position.z = z;
     if (!manualHeightMode) {
@@ -374,106 +360,11 @@ export function setCameraPosition(x, z) {
 
 // Kamera rotasyonunu ayarla (2D'den sürüklendiğinde)
 export function setCameraRotation(yaw) {
-    if (!camera || cameraMode !== 'firstPerson') return;
+    if (!camera) return;
     const euler = new THREE.Euler(0, 0, 0, 'YXZ');
     euler.setFromQuaternion(camera.quaternion);
     euler.y = yaw;
     camera.quaternion.setFromEuler(euler);
-}
-
-// Mouse kontrolleri kurulum fonksiyonu (3D canvas için)
-export function setupMouseControls(canvas) {
-    if (!canvas) return;
-
-    const onMouseDown = (event) => {
-        if (cameraMode !== 'firstPerson') return;
-
-        isMouseDragging = true;
-        mouseButton = event.button;
-        lastMouseX = event.clientX;
-        lastMouseY = event.clientY;
-
-        event.preventDefault();
-    };
-
-    const onMouseMove = (event) => {
-        if (!isMouseDragging || cameraMode !== 'firstPerson') return;
-
-        const deltaX = event.clientX - lastMouseX;
-        const deltaY = event.clientY - lastMouseY;
-        lastMouseX = event.clientX;
-        lastMouseY = event.clientY;
-
-        // Sol tık (button 0): Pan (kamera yatay hareket)
-        if (mouseButton === 0) {
-            const forward = new THREE.Vector3();
-            camera.getWorldDirection(forward);
-            forward.y = 0;
-            forward.normalize();
-
-            const right = new THREE.Vector3();
-            right.crossVectors(forward, new THREE.Vector3(0, 1, 0));
-            right.normalize();
-
-            // Pan hareketi
-            const panX = -deltaX * MOUSE_PAN_SPEED;
-            const panY = -deltaY * MOUSE_PAN_SPEED;
-
-            const newPosition = new THREE.Vector3(
-                camera.position.x + right.x * panX + forward.x * panY,
-                camera.position.y,
-                camera.position.z + right.z * panX + forward.z * panY
-            );
-
-            if (checkWallCollision(newPosition)) {
-                camera.position.x = newPosition.x;
-                camera.position.z = newPosition.z;
-            }
-        }
-        // Orta tık (button 1): Rotate (orbit around center)
-        else if (mouseButton === 1) {
-            const center = new THREE.Vector3(0, CAMERA_HEIGHT, 0);
-            const offset = new THREE.Vector3().subVectors(camera.position, center);
-            const spherical = new THREE.Spherical().setFromVector3(offset);
-
-            spherical.theta -= deltaX * MOUSE_ROTATE_SPEED;
-            spherical.phi += deltaY * MOUSE_ROTATE_SPEED;
-            spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
-
-            offset.setFromSpherical(spherical);
-            camera.position.copy(center).add(offset);
-            camera.lookAt(center);
-        }
-        // Sağ tık (button 2): Rotate in place (kamera sabit, bakış yönü döner)
-        else if (mouseButton === 2) {
-            const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-            euler.setFromQuaternion(camera.quaternion);
-
-            euler.y -= deltaX * MOUSE_ROTATE_SPEED;
-            euler.x -= deltaY * MOUSE_ROTATE_SPEED;
-            euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
-
-            camera.quaternion.setFromEuler(euler);
-        }
-    };
-
-    const onMouseUp = (event) => {
-        if (cameraMode !== 'firstPerson') return;
-        isMouseDragging = false;
-        mouseButton = -1;
-    };
-
-    const onContextMenu = (event) => {
-        // Sağ tık menüsünü engelle (3D modunda)
-        if (cameraMode === 'firstPerson') {
-            event.preventDefault();
-        }
-    };
-
-    canvas.addEventListener('mousedown', onMouseDown);
-    canvas.addEventListener('mousemove', onMouseMove);
-    canvas.addEventListener('mouseup', onMouseUp);
-    canvas.addEventListener('contextmenu', onContextMenu);
 }
 
 // İlk kurulumu yap

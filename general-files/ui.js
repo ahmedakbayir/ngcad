@@ -136,12 +136,9 @@ export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
     dom.b3d.classList.toggle('active');
 
-    // FPS kamera butonunu göster/gizle
+    // FPS kamera butonu kaldırıldı - artık tek mod var: 3D Göster
     if (dom.mainContainer.classList.contains('show-3d')) {
-        dom.bFirstPerson.style.display = 'inline-block';
-        setMode("select"); // <-- EKLENDİ: 3D açılırken modu "select" yap
-    } else {
-        dom.bFirstPerson.style.display = 'none';
+        setMode("select"); // 3D açılırken modu "select" yap
     }
 
     setTimeout(() => {
@@ -643,16 +640,8 @@ export function setupUIListeners() {
     });
     // MERDİVEN POPUP LISTENER'LARI SONU
 
-    // FPS KAMERA BUTONU LISTENER'I
-    dom.bFirstPerson.addEventListener('click', () => {
-        // Butonu toggle et
-        dom.bFirstPerson.classList.toggle('active');
-
-        // Kamera modunu değiştir
-        toggleCameraMode();
-
-        // NOT: Pointer lock kullanmıyoruz - klavye kontrolleri yeterli
-        // Mouse serbest kalıyor, kullanıcı FPS modunda bile mouse ile UI'ya erişebilir
-    });
+    // FPS KAMERA BUTONU KALDIRILDI
+    // Artık tek mod var: 3D Göster (hem mouse hem klavye kontrolleri içerir)
+    // dom.bFirstPerson.addEventListener('click', () => { ... });
 }
 // --- setupUIListeners Sonu ---
