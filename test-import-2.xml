@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Begin>
+	<O T="vdDocument">
+		<O F="Model" T="vdLayout">
+			<O F="Entities" T="vdEntities">
+				<O F="_Item" T="CloseArea">
+					<P F="Handle" T="vdHandle" V="196"/>
+					<O F="VertexList" T="Vertexes">
+						<P F="streamed" V="BQAAAB5DmiEsXzBADDLzlbiUGkAAAAAAAAAAAAAAAAD7jQ1hLV8wQD+FWlqxlBpAAAAAAAAAAAAAAAAAAEpj0UtgXzBAPNm/xfyUGkAAAAAAAAAAAAAAAAA8U0FoYV8wQKSdv6RilRpAAAAAAAAAAAAAAAAAH1PkaWJfMECfgA5n5ZUaQAAAAAAAAAAAAAAAAA=="/>
+					</O>
+					<O F="Walls" T="vdArray`1">
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="195"/>
+							<P F="StartPoint" T="gPoint" V="15.069452890286875,6.6452353887257338,0"/>
+							<P F="EndPoint" T="gPoint" V="16.371767139588989,6.6452353887257338,0"/>
+						</O>
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="194"/>
+							<P F="StartPoint" T="gPoint" V="15.069452890286875,6.6452353887257338,0"/>
+							<P F="EndPoint" T="gPoint" V="15.069452890286875,3.0976064018991752,0"/>
+						</O>
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="193"/>
+							<P F="StartPoint" T="gPoint" V="15.069452890286875,3.0976064018991752,0"/>
+							<P F="EndPoint" T="gPoint" V="16.426080959663023,3.0976064018991752,0"/>
+						</O>
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="192"/>
+							<P F="StartPoint" T="gPoint" V="16.426080959663023,3.0976064018991752,0"/>
+							<P F="EndPoint" T="gPoint" V="16.426080959663023,3.4889093853779513,0"/>
+						</O>
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="191"/>
+							<P F="StartPoint" T="gPoint" V="16.426080959663023,3.4889093853779513,0"/>
+							<P F="EndPoint" T="gPoint" V="16.371767139588989,6.6452353887257338,0"/>
+						</O>
+					</O>
+				</O>
+				<O F="_Item" T="CloseArea">
+					<P F="Handle" T="vdHandle" V="217"/>
+					<O F="VertexList" T="Vertexes">
+						<P F="streamed" V="BQAAAB5DmiEsXzBADDLzlbiUGkAAAAAAAAAAAAAAAABKY9FLPl8wQDzZv8X8lBpAAAAAAAAAAAAAAAAAAEpj0UtgXzBAPNm/xfyUGkAAAAAAAAAAAAAAAACBjXxmYV8wQN7JRFL0lBpAAAAAAAAAAAAAAAAAAB9T5GlifzBAn4AOZ+WVGkAAAAAAAAAAAAAAAAA="/>
+					</O>
+					<O F="Walls" T="vdArray`1">
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="220"/>
+							<P F="StartPoint" T="gPoint" V="15.069452890286875,6.6452353887257338,0"/>
+							<P F="EndPoint" T="gPoint" V="15.015139070212841,3.0976064018991752,0"/>
+						</O>
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="219"/>
+							<P F="StartPoint" T="gPoint" V="15.015139070212841,3.0976064018991752,0"/>
+							<P F="EndPoint" T="gPoint" V="16.426080959663023,3.0976064018991752,0"/>
+						</O>
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="218"/>
+							<P F="StartPoint" T="gPoint" V="16.426080959663023,3.0976064018991752,0"/>
+							<P F="EndPoint" T="gPoint" V="16.371767139588989,6.6452353887257338,0"/>
+						</O>
+						<O F="_Item" T="VdWall">
+							<P F="Handle" T="vdHandle" V="216"/>
+							<P F="StartPoint" T="gPoint" V="16.371767139588989,6.6452353887257338,0"/>
+							<P F="EndPoint" T="gPoint" V="15.069452890286875,6.6452353887257338,0"/>
+						</O>
+					</O>
+				</O>
+				<O F="_Item" T="Door">
+					<P F="Handle" T="vdHandle" V="197"/>
+					<P F="Origin" T="gPoint" V="15.950609924937932,3.0976064018991752,0"/>
+					<P F="Rotation" T="Double" V="3.1415926535898"/>
+					<P F="En" T="Double" V="0.9"/>
+				</O>
+				<O F="_Item" T="Window">
+					<P F="Handle" T="vdHandle" V="198"/>
+					<P F="Origin" T="gPoint" V="15.069452890286875,5.1421179088605944,0"/>
+					<P F="En" T="Double" V="1.5"/>
+				</O>
+				<O F="_Item" T="Kolon">
+					<P F="Handle" T="vdHandle" V="212"/>
+					<P F="InsertionPoint" T="gPoint" V="15.437,3.4509999999999996,0.03"/>
+					<P F="Width" T="Double" V="0.25"/>
+					<P F="Height" T="Double" V="0.25"/>
+				</O>
+				<O F="_Item" T="Menfez">
+					<P F="Handle" T="vdHandle" V="221"/>
+					<P F="Origin" T="gPoint" V="16.371767139588989,5.9997367295431338,0"/>
+				</O>
+			</O>
+		</O>
+	</O>
+</Begin>
