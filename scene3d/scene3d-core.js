@@ -39,6 +39,94 @@ export function setActiveControls(activeControls) {
 }
 // YENİ SETTER FONKSİYONLARI SONU
 
+// Sağ tık ile kamera sabit rotasyon için değişkenler
+let isRightMouseDown = false;
+let previousMousePosition = { x: 0, y: 0 };
+
+/**
+ * Çizim sınırlarından merkez noktası hesaplar ve OrbitControls target'ını günceller
+ */
+export function updateDrawingCenter() {
+    if (!sceneObjects || !orbitControls) return;
+
+    const boundingBox = new THREE.Box3();
+    let hasContent = false;
+
+    sceneObjects.children.forEach(obj => {
+        if (obj.visible && obj.material !== floorMaterial) {
+            try {
+                obj.updateMatrixWorld(true);
+                const box = new THREE.Box3().setFromObject(obj, true);
+                if (!box.isEmpty()) {
+                    boundingBox.union(box);
+                    hasContent = true;
+                }
+            } catch (error) {
+                console.error("Drawing center hesaplama hatası:", obj, error);
+            }
+        }
+    });
+
+    if (hasContent && !boundingBox.isEmpty()) {
+        const center = new THREE.Vector3();
+        boundingBox.getCenter(center);
+        orbitControls.target.copy(center);
+        orbitControls.update();
+    }
+}
+
+/**
+ * Sağ tık ile kamera pozisyonu sabit kalarak projeyi döndürme
+ */
+function setupRightClickRotation() {
+    const canvas = renderer.domElement;
+
+    canvas.addEventListener('mousedown', (event) => {
+        if (event.button === 2) { // Sağ tık
+            isRightMouseDown = true;
+            previousMousePosition = { x: event.clientX, y: event.clientY };
+            orbitControls.enabled = false; // OrbitControls'u devre dışı bırak
+            event.preventDefault();
+        }
+    });
+
+    canvas.addEventListener('mousemove', (event) => {
+        if (!isRightMouseDown) return;
+
+        const deltaX = event.clientX - previousMousePosition.x;
+        const deltaY = event.clientY - previousMousePosition.y;
+        previousMousePosition = { x: event.clientX, y: event.clientY };
+
+        // Kamera pozisyonunu merkez olarak kullan
+        const rotationSpeed = 0.005;
+
+        // Yatay (Y ekseni) rotasyon
+        if (deltaX !== 0) {
+            const angle = deltaX * rotationSpeed;
+            sceneObjects.position.sub(camera.position);
+            sceneObjects.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), -angle);
+            sceneObjects.position.add(camera.position);
+        }
+
+        // Dikey rotasyon (şimdilik devre dışı, gerekirse eklenebilir)
+
+        event.preventDefault();
+    });
+
+    canvas.addEventListener('mouseup', (event) => {
+        if (event.button === 2) {
+            isRightMouseDown = false;
+            orbitControls.enabled = true; // OrbitControls'u tekrar aktif et
+            event.preventDefault();
+        }
+    });
+
+    // Sağ tık menüsünü engelle
+    canvas.addEventListener('contextmenu', (event) => {
+        event.preventDefault();
+    });
+}
+
 /**
  * 3D Sahneyi, kamerayı, ışıkları, kontrolleri ve malzemeleri başlatır.
  */
@@ -62,7 +150,18 @@ export function init3D(canvasElement) {
     orbitControls.target.set(0, WALL_HEIGHT / 2, 0);
     orbitControls.minDistance = 1;
     orbitControls.zoomSpeed = 1;
+
+    // Mouse button ayarları
+    orbitControls.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,    // Sol tık: Rotate (çizim merkezi etrafında)
+        MIDDLE: THREE.MOUSE.PAN,      // Orta tekerlek basıp sürükle: Pan
+        RIGHT: THREE.MOUSE.ROTATE     // Sağ tık: Şimdilik rotate (sonra özelleştireceğiz)
+    };
+
     orbitControls.update();
+
+    // Sağ tık için custom kontrol
+    setupRightClickRotation();
 
     // PointerLockControls'ü başlat (sadece referans için, mouse kontrolü kullanmayacağız)
     pointerLockControls = new PointerLockControls(camera, renderer.domElement);

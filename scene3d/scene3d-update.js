@@ -9,7 +9,8 @@ import {
     stairMaterial, stairMaterialTop, ventMaterial, trimMaterial,
     balconyRailingMaterial, glassMaterial, halfWallCapMaterial,
     handrailWoodMaterial, balusterMaterial, stepNosingMaterial,
-    textureLoader, pictureFrameMaterial // İsim hatası da düzeltildi
+    textureLoader, pictureFrameMaterial, // İsim hatası da düzeltildi
+    updateDrawingCenter // Çizim merkezi güncellemesi için
     } from "./scene3d-core.js";
 
 // Mesh oluşturma fonksiyonlarını import et
@@ -489,4 +490,7 @@ function buildPictureFrames(sceneObjects) {
             }
         }
     }
+
+    // Çizim merkezi hesapla ve OrbitControls target'ını güncelle
+    updateDrawingCenter();
 }
