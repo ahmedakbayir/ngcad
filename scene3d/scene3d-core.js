@@ -176,9 +176,9 @@ export function init3D(canvasElement) {
 
     // Mouse button ayarları
     orbitControls.mouseButtons = {
-        LEFT: THREE.MOUSE.ROTATE,    // Sol tık: Rotate (çizim merkezi etrafında)
+        LEFT: THREE.MOUSE.ROTATE,    // Sol tık: Rotate
         MIDDLE: THREE.MOUSE.PAN,      // Orta tekerlek basıp sürükle: Pan
-        RIGHT: THREE.MOUSE.ROTATE     // Sağ tık: Şimdilik rotate (sonra özelleştireceğiz)
+        RIGHT: null                    // Sağ tık: Custom rotasyon (OrbitControls kullanmaz)
     };
 
     orbitControls.update();

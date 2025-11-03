@@ -319,10 +319,13 @@ export function updateFirstPersonCamera(delta) {
         return;
     }
 
-    // SHIFT + SAĞ/SOL: Çizim merkezi etrafında YATAY orbit
+    // SHIFT + SAĞ/SOL: Çizim merkezi etrafında YATAY orbit (BAKIŞ AÇISI DEĞİŞMEZ!)
     if (orbitLeft || orbitRight) {
         const center = getDrawingCenter();
         const orbitSpeed = Math.PI / 4 * delta; // 45 derece/saniye
+
+        // Mevcut bakış açısını kaydet
+        const savedQuaternion = camera.quaternion.clone();
 
         // Kamera pozisyonunu merkeze göre hesapla
         const offset = new THREE.Vector3().subVectors(camera.position, center);
@@ -339,8 +342,8 @@ export function updateFirstPersonCamera(delta) {
         // Yeni kamera pozisyonunu ayarla
         camera.position.copy(center).add(offset);
 
-        // Kamerayı merkeze baktır
-        camera.lookAt(center);
+        // BAKIŞ AÇISINI KORU (lookAt kullanma!)
+        camera.quaternion.copy(savedQuaternion);
 
         return;
     }
