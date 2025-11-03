@@ -102,6 +102,8 @@ function openProject(e) {
             if (fileExt === 'xml') {
                 // Parse XML file with current settings to preserve colors and UI config
                 console.log('Parsing XML file...');
+                console.log('File name:', file.name);
+                console.log('File size:', file.size, 'bytes');
                 const currentSettings = {
                     gridOptions: state.gridOptions,
                     snapOptions: state.snapOptions,
@@ -113,6 +115,14 @@ function openProject(e) {
                     drawingAngle: state.drawingAngle
                 };
                 projectData = parseXMLToProject(event.target.result, currentSettings);
+                console.log('XML parsed successfully!');
+                console.log('Parsed data:', {
+                    version: projectData.version,
+                    nodes: projectData.nodes.length,
+                    walls: projectData.walls.length,
+                    doors: projectData.doors.length,
+                    columns: projectData.columns.length
+                });
             } else {
                 // Parse JSON file
                 projectData = JSON.parse(event.target.result);
