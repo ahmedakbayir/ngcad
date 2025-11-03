@@ -2,6 +2,7 @@
 import { state, setState, dom } from './main.js';
 import { saveState } from './history.js';
 import { processWalls } from '../wall/wall-processor.js';
+import { parseXMLToProject } from './xml-io.js';
 
 export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', saveProject);
@@ -93,7 +94,19 @@ function openProject(e) {
     const reader = new FileReader();
     reader.onload = (event) => {
         try {
-            const projectData = JSON.parse(event.target.result);
+            let projectData;
+
+            // Check file extension
+            const fileExt = file.name.toLowerCase().split('.').pop();
+
+            if (fileExt === 'xml') {
+                // Parse XML file
+                console.log('Parsing XML file...');
+                projectData = parseXMLToProject(event.target.result);
+            } else {
+                // Parse JSON file
+                projectData = JSON.parse(event.target.result);
+            }
 
             if (!projectData.version || !projectData.nodes || !projectData.walls) {
                 alert('Geçersiz proje dosyası formatı!');
