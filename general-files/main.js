@@ -92,10 +92,10 @@ export const MAHAL_LISTESI = [
 // VectorDraw XML'den gelen AreaType enum değerlerinin MAHAL_LISTESI'ndeki karşılıkları
 // NOT: Bu değerler MAHAL_LISTESI'ndeki isimlerle TAM AYNI olmak zorunda
 export const VECTORDRAW_AREA_TYPES = {
-    14: 'MUTFAK',      // MAHAL_LISTESI'nde var
-    16: 'KORİDOR',     // MAHAL_LISTESI'nde var
-    18: 'BANYO',       // MAHAL_LISTESI'nde var
-    38: 'SALON'        // MAHAL_LISTESI'nde var
+    14: 'KORİDOR',     // MAHAL_LISTESI'nde var
+    16: 'MUTFAK',      // MAHAL_LISTESI'nde var
+    18: 'SALON',       // MAHAL_LISTESI'nde var
+    38: 'BANYO'        // MAHAL_LISTESI'nde var
 };
 
 

@@ -614,8 +614,14 @@ export function importFromXML(xmlString) {
                     const centerPoint = turf.center(room.polygon);
                     room.center = centerPoint.geometry.coordinates;
 
-                    // Alan hesapla (m²)
-                    room.area = turf.area(room.polygon) / 10000; // cm² to m²
+                    // Alan hesapla - Shoelace formula (turf.area coğrafi koordinatlar içindir, cm için yanlış hesaplıyor)
+                    let area = 0;
+                    for (let i = 0; i < room.vertices.length; i++) {
+                        const j = (i + 1) % room.vertices.length;
+                        area += room.vertices[i].x * room.vertices[j].y;
+                        area -= room.vertices[j].x * room.vertices[i].y;
+                    }
+                    room.area = Math.abs(area / 2) / 10000; // cm² to m²
 
                     console.log(`  Room ${idx} (${room.name}): center=[${room.center[0].toFixed(2)}, ${room.center[1].toFixed(2)}], area=${room.area.toFixed(2)} m²`);
                 } catch (e) {
