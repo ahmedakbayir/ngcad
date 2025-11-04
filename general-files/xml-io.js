@@ -1,95 +1,79 @@
-// ahmedakbayir/ngcad XML Import Module
-// Converts VdDocument XML format to ngcad JSON format
+// general-files/xml-io.js
+// GÜNCELLENDİ: X eksenindeki simetri (aynalama) sorununu çözmek için tüm Y koordinatları (-1) ile çarpıldı.
+// GÜNCELLENDİ: Merdiven rotasyonu 90° CCW (-90) olarak ayarlandı ve boyutları (en/boy) buna göre düzeltildi.
+
+import { state, setState, dom } from './main.js';
+import { getOrCreateNode, distToSegmentSquared } from '../draw/geometry.js';
+import { wallExists } from '../wall/wall-handler.js';
+import { createColumn } from '../architectural-objects/columns.js';
+import { createBeam } from '../architectural-objects/beams.js'; 
+import { createStairs } from '../architectural-objects/stairs.js';
+import { processWalls } from '../wall/wall-processor.js';
+import { saveState } from './history.js';
+import { update3DScene } from '../scene3d/scene3d-update.js';
+import { fitDrawingToScreen } from '../draw/zoom.js';
+
+// XML'deki koordinatları cm'ye çevirmek için ölçek
+const SCALE = 100;
 
 /**
- * Parses XML string and converts to ngcad project data structure
- * @param {string} xmlString - XML content as string
- * @param {Object} currentSettings - Current state settings to preserve (optional)
- * @returns {Object} ngcad project data object
+ * Verilen bir mutlak X,Y koordinatına en yakın duvarı ve o duvar üzerindeki
+ * göreceli pozisyonu (pos) bulan yardımcı fonksiyon.
  */
-export function parseXMLToProject(xmlString, currentSettings = null) {
-    console.log('[XML-IO] Starting XML parse...');
-    console.log('[XML-IO] XML length:', xmlString.length, 'characters');
+function findClosestWallAndPosition(origin) {
+    let bestWall = null;
+    let bestPos = 0;
+    let minDisSq = Infinity;
+    
+    // Duvar kalınlığının iki katı kadar bir tolerans (cm cinsinden)
+    const toleranceSq = Math.pow(state.wallThickness * 2, 2); 
 
+    for (const wall of state.walls) {
+        if (!wall.p1 || !wall.p2) continue;
+
+        const disSq = distToSegmentSquared(origin, wall.p1, wall.p2);
+
+        if (disSq < toleranceSq && disSq < minDisSq) {
+            const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+            if (wallLen < 0.1) continue;
+
+            const dx = wall.p2.x - wall.p1.x;
+            const dy = wall.p2.y - wall.p1.y;
+            
+            // Noktanın segment üzerindeki izdüşümünü bul (0-1 arası)
+            let t = ((origin.x - wall.p1.x) * dx + (origin.y - wall.p1.y) * dy) / (dx * dx + dy * dy);
+            t = Math.max(0, Math.min(1, t)); // 0-1 arasında kalmasını sağla
+            
+            bestPos = t * wallLen; // cm cinsinden pozisyon
+            bestWall = wall;
+            minDisSq = disSq;
+        }
+    }
+    return { wall: bestWall, pos: bestPos };
+}
+
+
+/**
+ * Verilen XML metnini ayrıştırır ve ngcad state'ine ekler.
+ * @param {string} xmlString - Import edilecek XML içeriği
+ */
+export function importFromXML(xmlString) {
     const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
+    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
 
-    // Check for parsing errors
-    const parserError = xmlDoc.querySelector('parsererror');
-    if (parserError) {
-        console.error('[XML-IO] Parser error:', parserError.textContent);
-        throw new Error('XML parsing error: ' + parserError.textContent);
+    // Hata ayıklama: XML doğru okundu mu?
+    const entities = xmlDoc.querySelector("O[F='Entities']");
+    if (!entities) {
+        console.error("XML ayrıştırması başarısız oldu veya 'Entities' bulunamadı.");
+        alert("XML ayrıştırması başarısız oldu veya 'Entities' bulunamadı.");
+        return;
     }
 
-    console.log('[XML-IO] XML parsed to DOM successfully');
+    console.log("XML Import başlatılıyor...");
+    console.log("Entities bulundu:", entities);
 
-    // Extract all entities
-    const entitiesNode = xmlDoc.querySelector('O[F="Entities"]');
-    if (!entitiesNode) {
-        console.error('[XML-IO] No Entities node found!');
-        throw new Error('No Entities node found in XML');
-    }
-
-    console.log('[XML-IO] Found Entities node');
-
-    // DEBUG: Show structure and count all element types
-    const allChildren = Array.from(entitiesNode.children);
-    console.log('[XML-IO] Total children in Entities:', allChildren.length);
-
-    // Count each type
-    const typeCounts = {};
-    allChildren.forEach(child => {
-        const type = child.getAttribute('T');
-        const f = child.getAttribute('F');
-        if (f === '_Item' && type) {
-            typeCounts[type] = (typeCounts[type] || 0) + 1;
-        }
-    });
-    console.log('[XML-IO] Element types found (F="_Item"):', typeCounts);
-
-    // Show first 20 for structure understanding
-    const firstChildren = allChildren.slice(0, 20);
-    console.log('[XML-IO] First 20 child elements:');
-    firstChildren.forEach((child, i) => {
-        console.log(`  [${i}] Tag: ${child.tagName}, F="${child.getAttribute('F')}", T="${child.getAttribute('T')}"`);
-    });
-
-    // DEEP SEARCH: Try to find CloseArea anywhere in the document
-    console.log('[XML-IO] Searching entire document for CloseArea, Door, Window...');
-    const allCloseAreas = Array.from(xmlDoc.querySelectorAll('O[T="CloseArea"]'));
-    const allDoors = Array.from(xmlDoc.querySelectorAll('O[T="Door"]'));
-    const allWindows = Array.from(xmlDoc.querySelectorAll('O[T="Window"]'));
-    const allKolons = Array.from(xmlDoc.querySelectorAll('O[T="Kolon"]'));
-    console.log('[XML-IO] Found in entire document:', {
-        CloseArea: allCloseAreas.length,
-        Door: allDoors.length,
-        Window: allWindows.length,
-        Kolon: allKolons.length
-    });
-
-    // If found, show parent path of first CloseArea
-    if (allCloseAreas.length > 0) {
-        let elem = allCloseAreas[0];
-        const path = [];
-        while (elem && elem !== xmlDoc) {
-            path.unshift(`${elem.tagName}[F="${elem.getAttribute('F')}", T="${elem.getAttribute('T')}"]`);
-            elem = elem.parentElement;
-        }
-        console.log('[XML-IO] Path to first CloseArea:', path.join(' > '));
-    }
-
-    // Initialize project data with current settings if available
-    const projectData = {
-        version: "1.0",
-        timestamp: new Date().toISOString(),
-        gridOptions: currentSettings?.gridOptions || { visible: true, color: "#e0e0e0", weight: 1, spacing: 100 },
-        snapOptions: currentSettings?.snapOptions || { endpoint: true, midpoint: true, endpointExtension: false, midpointExtension: false, nearestOnly: false },
-        dimensionOptions: currentSettings?.dimensionOptions || { fontSize: 14, color: "#000000", defaultView: "both", showArea: "selected", showOuter: "none" },
-        wallBorderColor: currentSettings?.wallBorderColor || "#000000",
-        roomFillColor: currentSettings?.roomFillColor || "#f0f0f0",
-        lineThickness: currentSettings?.lineThickness || 2,
-        wallThickness: currentSettings?.wallThickness || 20,
-        drawingAngle: currentSettings?.drawingAngle || 90,
+    // --- ÖNEMLİ: Import öncesi mevcut state'i temizle ---
+    setState({
         nodes: [],
         walls: [],
         doors: [],
@@ -97,319 +81,343 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
         columns: [],
         beams: [],
         stairs: [],
-        guides: []
-    };
-
-    // Parse all elements - search in entire document since structure varies
-    // Some XML files have elements directly under Entities, others nest them differently
-    const closeAreas = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="CloseArea"]'));
-    const doors = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Door"]'));
-    const windows = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Window"]'));
-    const kolons = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Kolon"]'));
-    const menfezler = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Menfez"]'));
-    const stairs = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="clsmerdiven"]'));
-
-    console.log('[XML-IO] Found elements:', {
-        closeAreas: closeAreas.length,
-        doors: doors.length,
-        windows: windows.length,
-        columns: kolons.length,
-        vents: menfezler.length,
-        stairs: stairs.length
+        guides: [],
+        selectedObject: null,
+        selectedGroup: [],
+        startPoint: null
     });
+    // --- TEMİZLİK SONU ---
 
-    // Step 0: Find max Y value for coordinate system conversion (flip Y-axis)
-    let maxY = -Infinity;
-    closeAreas.forEach(closeArea => {
-        const vdWalls = Array.from(closeArea.querySelectorAll('O[F="Walls"] O[F="_Item"][T="VdWall"]'));
-        vdWalls.forEach(vdWall => {
-            const startPointStr = vdWall.querySelector('P[F="StartPoint"]')?.getAttribute('V');
-            const endPointStr = vdWall.querySelector('P[F="EndPoint"]')?.getAttribute('V');
-            if (startPointStr) {
-                const pt = parsePoint(startPointStr);
-                maxY = Math.max(maxY, pt.y);
-            }
-            if (endPointStr) {
-                const pt = parsePoint(endPointStr);
-                maxY = Math.max(maxY, pt.y);
-            }
-        });
-    });
 
-    // Step 1: Extract all unique nodes from walls
-    const nodeMap = new Map(); // key: "x,y" -> value: node object
-    const wallData = []; // Store wall info temporarily
+    // 1. Duvarları (VdWall) oluştur ve nodeları kaydet
+    // Yeni yapı: CloseArea içindeki Walls dizisini kontrol et
+    const closeAreas = entities.querySelectorAll("O[F='_Item'][T='CloseArea']");
+    console.log(`${closeAreas.length} CloseArea bulundu`);
 
-    closeAreas.forEach(closeArea => {
-        const vdWalls = Array.from(closeArea.querySelectorAll('O[F="Walls"] O[F="_Item"][T="VdWall"]'));
+    closeAreas.forEach((closeArea, idx) => {
+        try {
+            const wallsContainer = closeArea.querySelector("O[F='Walls']");
+            console.log(`CloseArea ${idx}: Walls container:`, wallsContainer ? "bulundu" : "bulunamadı");
 
-        vdWalls.forEach(vdWall => {
-            const handle = vdWall.querySelector('P[F="Handle"]')?.getAttribute('V');
-            const startPointStr = vdWall.querySelector('P[F="StartPoint"]')?.getAttribute('V');
-            const endPointStr = vdWall.querySelector('P[F="EndPoint"]')?.getAttribute('V');
+            if (wallsContainer) {
+                const wallElements = wallsContainer.querySelectorAll("O[F='_Item'][T='VdWall']");
+                console.log(`  -> ${wallElements.length} VdWall bulundu`);
 
-            if (startPointStr && endPointStr) {
-                const startPoint = parsePoint(startPointStr);
-                const endPoint = parsePoint(endPointStr);
-
-                // Add nodes to map (flip Y-axis: maxY - y)
-                const startKey = `${startPoint.x},${startPoint.y}`;
-                const endKey = `${endPoint.x},${endPoint.y}`;
-
-                if (!nodeMap.has(startKey)) {
-                    nodeMap.set(startKey, {
-                        x: startPoint.x * 100, // Convert to cm
-                        y: (maxY - startPoint.y) * 100, // Flip Y-axis
-                        isColumn: false,
-                        columnSize: 30
-                    });
-                }
-                if (!nodeMap.has(endKey)) {
-                    nodeMap.set(endKey, {
-                        x: endPoint.x * 100,
-                        y: (maxY - endPoint.y) * 100, // Flip Y-axis
-                        isColumn: false,
-                        columnSize: 30
-                    });
-                }
-
-                wallData.push({
-                    handle: handle,
-                    startKey: startKey,
-                    endKey: endKey,
-                    startPoint: { x: startPoint.x * 100, y: (maxY - startPoint.y) * 100 },
-                    endPoint: { x: endPoint.x * 100, y: (maxY - endPoint.y) * 100 }
+                wallElements.forEach((wallEl, wallIdx) => {
+                    console.log(`    -> Wall ${wallIdx} işleniyor...`);
+                    processWallElement(wallEl);
                 });
             }
-        });
-    });
-
-    // Convert nodeMap to array
-    projectData.nodes = Array.from(nodeMap.values());
-    const nodeKeys = Array.from(nodeMap.keys());
-
-    // Step 2: Create walls with node indices
-    wallData.forEach(wd => {
-        const p1Index = nodeKeys.indexOf(wd.startKey);
-        const p2Index = nodeKeys.indexOf(wd.endKey);
-
-        projectData.walls.push({
-            type: 'wall',
-            p1Index: p1Index,
-            p2Index: p2Index,
-            thickness: 20,
-            wallType: 'normal',
-            windows: [],
-            vents: [],
-            isArc: false,
-            arcControl1: null,
-            arcControl2: null,
-            _handle: wd.handle, // Store for door/window/vent matching
-            _p1: wd.startPoint,
-            _p2: wd.endPoint
-        });
-    });
-
-    // Step 3: Add doors
-    doors.forEach(doorNode => {
-        const origin = parsePoint(doorNode.querySelector('P[F="Origin"]')?.getAttribute('V'));
-        const rotation = parseFloat(doorNode.querySelector('P[F="Rotation"]')?.getAttribute('V') || 0);
-        const width = parseFloat(doorNode.querySelector('P[F="En"]')?.getAttribute('V') || 0.9) * 100; // Convert to cm
-
-        // Find closest wall (flip Y-axis)
-        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: (maxY - origin.y) * 100 });
-
-        if (wallMatch) {
-            projectData.doors.push({
-                wallIndex: wallMatch.wallIndex,
-                pos: wallMatch.pos,
-                width: width,
-                type: 'door',
-                isWidthManuallySet: false
-            });
+        } catch (e) {
+            console.error("CloseArea işlenirken hata:", e, closeArea);
         }
     });
 
-    // Step 4: Add windows
-    windows.forEach(windowNode => {
-        const origin = parsePoint(windowNode.querySelector('P[F="Origin"]')?.getAttribute('V'));
-        const rotation = parseFloat(windowNode.querySelector('P[F="Rotation"]')?.getAttribute('V') || 0);
-        const width = parseFloat(windowNode.querySelector('P[F="En"]')?.getAttribute('V') || 1.5) * 100; // Convert to cm
+    // Eski yapı için backward compatibility: Doğrudan VdWall elemanlarını kontrol et
+    // (CloseArea'ya ait olmayan duvarlar - sadece entities'in direkt child'ları)
+    const directWallElements = Array.from(entities.children).filter(child =>
+        (child.tagName === 'O' && child.getAttribute('T') === 'VdWall') ||
+        (child.tagName === 'O' && child.getAttribute('F') === '_Item' && child.getAttribute('T') === 'VdWall')
+    );
+    console.log(`${directWallElements.length} doğrudan VdWall bulundu (CloseArea dışı)`);
 
-        // Find closest wall (flip Y-axis)
-        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: (maxY - origin.y) * 100 });
+    directWallElements.forEach((wallEl, idx) => {
+        console.log(`  -> Doğrudan wall ${idx} işleniyor...`);
+        processWallElement(wallEl);
+    });
 
-        if (wallMatch) {
-            // Add window to wall
-            projectData.walls[wallMatch.wallIndex].windows.push({
-                pos: wallMatch.pos,
-                width: width,
-                type: 'window',
-                isWidthManuallySet: false
-            });
+    // Duvar işleme fonksiyonu
+    function processWallElement(wallEl) {
+        try {
+            const startPointEl = wallEl.querySelector("P[F='StartPoint']");
+            const endPointEl = wallEl.querySelector("P[F='EndPoint']");
+            const widthEl = wallEl.querySelector("P[F='Width']"); // Kalınlık
+
+            if (startPointEl && endPointEl) {
+                const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
+                const endCoords = endPointEl.getAttribute('V').split(',').map(Number);
+
+                // DÜZELTME: Y eksenini ters çevir (Y -> -Y)
+                const p1 = { x: startCoords[0] * SCALE, y: -startCoords[1] * SCALE };
+                const p2 = { x: endCoords[0] * SCALE, y: -endCoords[1] * SCALE };
+
+                console.log(`      StartPoint: (${p1.x.toFixed(2)}, ${p1.y.toFixed(2)})`);
+                console.log(`      EndPoint: (${p2.x.toFixed(2)}, ${p2.y.toFixed(2)})`);
+
+                const node1 = getOrCreateNode(p1.x, p1.y);
+                const node2 = getOrCreateNode(p2.x, p2.y);
+
+                if (node1 !== node2 && !wallExists(node1, node2)) {
+                    // Kalınlığı XML'den al, yoksa varsayılanı kullan
+                    const thickness = widthEl ? (parseFloat(widthEl.getAttribute('V')) * SCALE) : state.wallThickness;
+
+                    state.walls.push({
+                        type: "wall",
+                        p1: node1,
+                        p2: node2,
+                        thickness: thickness, // XML'den gelen kalınlık
+                        wallType: 'normal',
+                        windows: [],
+                        vents: []
+                    });
+                    console.log(`      -> Duvar eklendi (kalınlık: ${thickness})`);
+                } else {
+                    console.log(`      -> Duvar atlandı (duplicate veya aynı node)`);
+                }
+            } else {
+                console.log(`      -> StartPoint veya EndPoint bulunamadı`);
+            }
+        } catch (e) {
+            console.error("Duvar işlenirken hata:", e, wallEl);
         }
-    });
-
-    // Step 5: Add columns (Kolon)
-    kolons.forEach(kolonNode => {
-        const insertionPoint = parsePoint(kolonNode.querySelector('P[F="InsertionPoint"]')?.getAttribute('V'));
-        const width = parseFloat(kolonNode.querySelector('P[F="Width"]')?.getAttribute('V') || 0.6) * 100;
-        const height = parseFloat(kolonNode.querySelector('P[F="Height"]')?.getAttribute('V') || 0.6) * 100;
-
-        projectData.columns.push({
-            type: 'column',
-            center: { x: insertionPoint.x * 100, y: (maxY - insertionPoint.y) * 100 }, // Flip Y-axis
-            size: Math.max(width, height), // Use larger dimension as size
-            width: width,
-            height: height,
-            rotation: 0,
-            hollowWidth: 0,
-            hollowHeight: 0,
-            hollowOffsetX: 0,
-            hollowOffsetY: 0
-        });
-    });
-
-    // Step 6: Add vents (Menfez)
-    menfezler.forEach(menfezNode => {
-        const origin = parsePoint(menfezNode.querySelector('P[F="Origin"]')?.getAttribute('V'));
-        const rotation = parseFloat(menfezNode.querySelector('P[F="Rotation"]')?.getAttribute('V') || 0);
-
-        // Find closest wall (flip Y-axis)
-        const wallMatch = findClosestWall(projectData.walls, { x: origin.x * 100, y: (maxY - origin.y) * 100 });
-
-        if (wallMatch) {
-            // Add vent to wall
-            projectData.walls[wallMatch.wallIndex].vents.push({
-                pos: wallMatch.pos,
-                width: 30, // Default vent width
-                type: 'vent'
-            });
-        }
-    });
-
-    // Step 7: Add stairs (clsmerdiven)
-    stairs.forEach(stairNode => {
-        const insertionPoint = parsePoint(stairNode.querySelector('P[F="InsertionPoint"]')?.getAttribute('V'));
-        const widthRaw = parseFloat(stairNode.querySelector('P[F="Width"]')?.getAttribute('V') || 1.7);
-        const heightRaw = parseFloat(stairNode.querySelector('P[F="Height"]')?.getAttribute('V') || 3.88);
-        const width = Math.abs(widthRaw) * 100;
-        const height = Math.abs(heightRaw) * 100;
-
-        // Calculate rotation from arrow direction (mfleader)
-        let rotation = 0;
-        const mfleader = stairNode.querySelector('O[F="DrawEntities"] O[F="_Item"][T="mfleader"]');
-        if (mfleader) {
-            const arrowStart = parsePoint(mfleader.querySelector('P[F="StartPoint"]')?.getAttribute('V'));
-            const arrowEnd = parsePoint(mfleader.querySelector('P[F="EndPoint"]')?.getAttribute('V'));
-
-            // Calculate arrow direction vector (in original XML coordinates)
-            const dx = arrowEnd.x - arrowStart.x;
-            const dy = arrowEnd.y - arrowStart.y;
-
-            // Convert to rotation in degrees
-            // Note: Y-axis is flipped in canvas, so we need to adjust
-            // atan2 returns angle from positive X-axis
-            let angleRad = Math.atan2(-dy, dx); // Negate dy because Y is flipped
-            rotation = (angleRad * 180 / Math.PI + 360) % 360; // Normalize to 0-360
-        }
-
-        // Calculate step count based on height (25-30cm per step)
-        const stepCount = Math.max(1, Math.round(height / 28));
-
-        projectData.stairs.push({
-            type: 'stairs',
-            id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-            name: 'Merdiven',
-            center: { x: insertionPoint.x * 100, y: (maxY - insertionPoint.y) * 100 }, // Flip Y-axis
-            width: width,
-            height: height,
-            rotation: rotation,
-            stepCount: stepCount,
-            bottomElevation: 0,
-            topElevation: 270,
-            connectedStairId: null,
-            isLanding: false,
-            showRailing: true
-        });
-    });
-
-    // Clean up temporary properties
-    projectData.walls.forEach(wall => {
-        delete wall._handle;
-        delete wall._p1;
-        delete wall._p2;
-    });
-
-    console.log('[XML-IO] Parse complete! Returning:', {
-        version: projectData.version,
-        nodes: projectData.nodes.length,
-        walls: projectData.walls.length,
-        doors: projectData.doors.length,
-        columns: projectData.columns.length,
-        stairs: projectData.stairs.length
-    });
-
-    return projectData;
-}
-
-/**
- * Parses a point string "x,y,z" into object
- */
-function parsePoint(pointStr) {
-    if (!pointStr) return { x: 0, y: 0, z: 0 };
-    const parts = pointStr.split(',').map(p => parseFloat(p.trim()));
-    return {
-        x: parts[0] || 0,
-        y: parts[1] || 0,
-        z: parts[2] || 0
-    };
-}
-
-/**
- * Finds the closest wall to a point and returns wall index and position on wall
- */
-function findClosestWall(walls, point) {
-    let closestWall = null;
-    let minDistance = Infinity;
-    let closestPos = 0;
-
-    walls.forEach((wall, wallIndex) => {
-        const p1 = wall._p1;
-        const p2 = wall._p2;
-
-        // Calculate closest point on wall segment to given point
-        const wallLength = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
-        if (wallLength === 0) return;
-
-        // Vector from p1 to point
-        const dx = point.x - p1.x;
-        const dy = point.y - p1.y;
-
-        // Vector along wall
-        const wallDx = p2.x - p1.x;
-        const wallDy = p2.y - p1.y;
-
-        // Project point onto wall line
-        const t = Math.max(0, Math.min(1, (dx * wallDx + dy * wallDy) / (wallLength ** 2)));
-
-        // Closest point on wall
-        const closestX = p1.x + t * wallDx;
-        const closestY = p1.y + t * wallDy;
-
-        // Distance from point to wall
-        const distance = Math.sqrt((point.x - closestX) ** 2 + (point.y - closestY) ** 2);
-
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestWall = wallIndex;
-            closestPos = t * wallLength;
-        }
-    });
-
-    if (closestWall !== null && minDistance < 50) { // Within 50cm tolerance
-        return { wallIndex: closestWall, pos: closestPos };
     }
 
-    return null;
+    // 2. Kolonları (KolonHavalandirmasi) oluştur
+    const kolonElements = entities.querySelectorAll("O[T='KolonHavalandirmasi'], O[F='_Item'][T='KolonHavalandirmasi']");
+    console.log(`\n${kolonElements.length} KolonHavalandirmasi bulundu`);
+
+    kolonElements.forEach((kolonEl, idx) => {
+        console.log(`  -> Kolon ${idx} işleniyor...`);
+        try {
+            const insertionPointEl = kolonEl.querySelector("P[F='InsertionPoint']");
+            const widthEl = kolonEl.querySelector("P[F='Width']");
+            const heightEl = kolonEl.querySelector("P[F='Height']");
+            const rotationEl = kolonEl.querySelector("P[F='Rotation']"); // Rotasyon eklendi
+
+            if (insertionPointEl && widthEl && heightEl) {
+                const centerCoords = insertionPointEl.getAttribute('V').split(',').map(Number);
+                const width = parseFloat(widthEl.getAttribute('V')) * SCALE;
+                const height = parseFloat(heightEl.getAttribute('V')) * SCALE;
+                let rotationDeg = 0;
+                if (rotationEl) {
+                    const rotationRad = parseFloat(rotationEl.getAttribute('V'));
+                    rotationDeg = rotationRad * (180 / Math.PI);
+                }
+
+                // DÜZELTME: Y eksenini ters çevir
+                const newCol = createColumn(centerCoords[0] * SCALE, -centerCoords[1] * SCALE, 0);
+                newCol.width = width;
+                newCol.height = height;
+                newCol.size = Math.max(width, height);
+                newCol.rotation = rotationDeg;
+
+                if (!state.columns) state.columns = [];
+                state.columns.push(newCol);
+            }
+        } catch (e) {
+            console.error("Kolon işlenirken hata:", e, kolonEl);
+        }
+    });
+
+    // 3. Kapıları (Door) işle
+    const doorElements = entities.querySelectorAll("O[T='Door'], O[F='_Item'][T='Door']");
+    console.log(`\n${doorElements.length} Door bulundu`);
+
+    doorElements.forEach((doorEl, idx) => {
+        console.log(`  -> Door ${idx} işleniyor...`);
+
+        try {
+            const originEl = doorEl.querySelector("P[F='Origin']");
+            const widthEl = doorEl.querySelector("P[F='En']");
+
+            if (originEl && widthEl) {
+                const originCoords = originEl.getAttribute('V').split(',').map(Number);
+                // DÜZELTME: Y eksenini ters çevir
+                const origin = { x: originCoords[0] * SCALE, y: -originCoords[1] * SCALE };
+                const width = parseFloat(widthEl.getAttribute('V')) * SCALE;
+
+                const { wall, pos } = findClosestWallAndPosition(origin);
+                
+                if (wall) {
+                    state.doors.push({
+                        wall: wall,
+                        pos: pos,
+                        width: width,
+                        type: 'door'
+                    });
+                } else {
+                    console.warn("Kapı için yakın duvar bulunamadı:", origin);
+                }
+            }
+        } catch (e) {
+            console.error("Kapı işlenirken hata:", e, doorEl);
+        }
+    });
+
+    // 4. Pencereleri (Window) işle
+    const windowElements = entities.querySelectorAll("O[T='Window'], O[F='_Item'][T='Window']");
+    console.log(`\n${windowElements.length} Window bulundu`);
+
+    windowElements.forEach((winEl, idx) => {
+        console.log(`  -> Window ${idx} işleniyor...`);
+        try {
+            const originEl = winEl.querySelector("P[F='Origin']");
+            const widthEl = winEl.querySelector("P[F='En']");
+
+            if (originEl && widthEl) {
+                const originCoords = originEl.getAttribute('V').split(',').map(Number);
+                // DÜZELTME: Y eksenini ters çevir
+                const origin = { x: originCoords[0] * SCALE, y: -originCoords[1] * SCALE };
+                const width = parseFloat(widthEl.getAttribute('V')) * SCALE;
+
+                const { wall, pos } = findClosestWallAndPosition(origin);
+                
+                if (wall) {
+                    if (!wall.windows) wall.windows = [];
+                    wall.windows.push({
+                        pos: pos,
+                        width: width,
+                        type: 'window'
+                    });
+                } else {
+                    console.warn("Pencere için yakın duvar bulunamadı:", origin);
+                }
+            }
+        } catch (e) {
+            console.error("Pencere işlenirken hata:", e, winEl);
+        }
+    });
+
+    // 5. Menfezleri (Menfez) işle
+    const ventElements = entities.querySelectorAll("O[T='Menfez']");
+    ventElements.forEach(ventEl => {
+        try {
+            const originEl = ventEl.querySelector("P[F='Origin']");
+            if (originEl) {
+                const originCoords = originEl.getAttribute('V').split(',').map(Number);
+                // DÜZELTME: Y eksenini ters çevir
+                const origin = { x: originCoords[0] * SCALE, y: -originCoords[1] * SCALE };
+                const width = 30; // Varsayılan menfez çapı
+
+                const { wall, pos } = findClosestWallAndPosition(origin);
+                
+                if (wall) {
+                    if (!wall.vents) wall.vents = [];
+                    wall.vents.push({
+                        pos: pos,
+                        width: width,
+                        type: 'vent'
+                    });
+                } else {
+                    console.warn("Menfez için yakın duvar bulunamadı:", origin);
+                }
+            }
+        } catch (e) {
+            console.error("Menfez işlenirken hata:", e, ventEl);
+        }
+    });
+    
+    // 6. Merdivenleri (clsmerdiven) işle
+    const stairElements = entities.querySelectorAll("O[T='clsmerdiven']");
+    stairElements.forEach(stairEl => {
+        try {
+            const insertionPointEl = stairEl.querySelector("P[F='InsertionPoint']");
+            const widthEl = stairEl.querySelector("P[F='Width']"); // XML'deki Width (X boyutu)
+            const heightEl = stairEl.querySelector("P[F='Height']"); // XML'deki Height (Y boyutu)
+            const lines = stairEl.querySelectorAll("O[T='vdLine']"); // Basamak sayısı için
+
+            if (insertionPointEl && widthEl && heightEl && lines.length > 0) {
+                
+                // DÜZELTME: Y eksenini ters çevir (InsertionPoint)
+                const cornerCoords = insertionPointEl.getAttribute('V').split(',').map(Number);
+                const ipX = cornerCoords[0] * SCALE;
+                const ipY = -cornerCoords[1] * SCALE;
+
+                // DÜZELTME: Y boyutunu ters çevir
+                const xml_w = parseFloat(widthEl.getAttribute('V')) * SCALE;
+                const xml_h = -(parseFloat(heightEl.getAttribute('V')) * SCALE);
+
+                // Bizim 'width'imiz (uzunluk) X eksenindedir.
+                // Bizim 'height'imiz (en) Y eksenindedir.
+                
+                // XML merdiveni Y eksenine paralel (XML'de Height, bizde app_length)
+                // XML merdiven eni X eksenine paralel (XML'de Width, bizde app_thickness)
+                let app_length = Math.abs(xml_h);
+                let app_thickness = Math.abs(xml_w);
+                
+                // Merkezi Y-terslenmiş koordinatlara göre hesapla
+                const centerX = ipX + (xml_w / 2);
+                const centerY = ipY + (xml_h / 2);
+
+                // DÜZELTME: 90° CCW = -90 derece (veya 270)
+                // Bu, merdivenin "yukarı" (negatif Y) yönlü olmasını sağlar
+                const app_rotation = 90; 
+
+                // Basamak sayısını çizgilerden al
+                const stepCount = lines.length > 0 ? (lines.length - 1) : 12; // 13 çizgi = 12 basamak
+
+                // DÜZELTME: -90 derece rotasyon için,
+                // createStairs 'width' (X-ekseni) parametresi merdivenin Y-eksenindeki uzunluğu olmalı (app_length)
+                // createStairs 'height' (Y-ekseni) parametresi merdivenin X-eksenindeki eni olmalı (app_thickness)
+                const newStair = createStairs(centerX, centerY, app_length, app_thickness, app_rotation, false);
+                
+                newStair.stepCount = stepCount; 
+
+                if (!state.stairs) state.stairs = [];
+                state.stairs.push(newStair);
+            }
+        } catch (e) {
+            console.error("Merdiven işlenirken hata:", e, stairEl);
+        }
+    });
+
+
+    // 7. Kirişleri (clskiris) işle
+    const kirisElements = entities.querySelectorAll("O[T='clskiris']");
+    kirisElements.forEach(kirisEl => {
+        try {
+            const insertionPointEl = kirisEl.querySelector("P[F='InsertionPoint']");
+            const widthEl = kirisEl.querySelector("P[F='Width']"); // Kiriş eni (thickness)
+            const heightEl = kirisEl.querySelector("P[F='Height']"); // Kiriş uzunluğu (length)
+            const rotationEl = kirisEl.querySelector("P[F='Rotation']");
+
+            if (insertionPointEl && widthEl && heightEl && rotationEl) {
+                const centerCoords = insertionPointEl.getAttribute('V').split(',').map(Number);
+                const width_xml = parseFloat(widthEl.getAttribute('V')) * SCALE;
+                const height_xml = parseFloat(heightEl.getAttribute('V')) * SCALE;
+                const rotationRad = parseFloat(rotationEl.getAttribute('V'));
+                const rotationDeg = rotationRad * (180 / Math.PI);
+
+                // Bizim createBeam fonksiyonumuz: (centerX, centerY, length, thickness, rotation)
+                // XML'deki 'Height' bizim 'width' (uzunluk)
+                // XML'deki 'Width' bizim 'height' (kalınlık)
+                
+                // DÜZELTME: Y eksenini ters çevir
+                const newBeam = createBeam(
+                    centerCoords[0] * SCALE, 
+                    -centerCoords[1] * SCALE, 
+                    height_xml, // length
+                    width_xml,  // thickness
+                    rotationDeg
+                );
+
+                if (!state.beams) state.beams = [];
+                state.beams.push(newBeam);
+            }
+        } catch (e) {
+            console.error("Kiriş işlenirken hata:", e, kirisEl);
+        }
+    });
+
+
+    // 8. Son işlemler
+    console.log("\n=== İMPORT ÖZETİ ===");
+    console.log(`Duvarlar: ${state.walls.length}`);
+    console.log(`Node'lar: ${state.nodes.length}`);
+    console.log(`Kapılar: ${state.doors.length}`);
+    console.log(`Kolonlar: ${state.columns ? state.columns.length : 0}`);
+    console.log(`Kirişler: ${state.beams ? state.beams.length : 0}`);
+    console.log(`Merdivenler: ${state.stairs ? state.stairs.length : 0}`);
+    console.log("===================\n");
+
+    processWalls();
+    saveState();
+    // 'dom' artık import edildiği için bu kontrol çalışacaktır
+    if (dom.mainContainer.classList.contains('show-3d')) {
+         setTimeout(update3DScene, 0);
+    }
+    // Ekrana sığdır
+    setTimeout(fitDrawingToScreen, 100);
+
+    console.log("XML başarıyla import edildi!", state);
 }
