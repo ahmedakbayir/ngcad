@@ -16,6 +16,14 @@ import { fitDrawingToScreen } from '../draw/zoom.js';
 // XML'deki koordinatları cm'ye çevirmek için ölçek
 const SCALE = 100;
 
+// VectorDraw AreaType enum değerlerinin mahal isimlerine mapping'i
+const AREA_TYPE_NAMES = {
+    14: 'MUTFAK',
+    16: 'KORİDOR',
+    18: 'BANYO',
+    38: 'SALON'
+};
+
 /**
  * Verilen bir mutlak X,Y koordinatına en yakın duvarı ve o duvar üzerindeki
  * göreceli pozisyonu (pos) bulan yardımcı fonksiyon.
@@ -129,18 +137,28 @@ export function importFromXML(xmlString) {
 
     closeAreas.forEach((closeArea, idx) => {
         try {
-            // CloseArea içindeki TÜM child elementleri listele (mahal ismi için)
-            console.log(`\nCloseArea ${idx} - İçindeki tüm child'lar (ilk 15):`);
-            for (let i = 0; i < Math.min(15, closeArea.children.length); i++) {
-                const child = closeArea.children[i];
-                const fAttr = child.getAttribute('F');
-                const tAttr = child.getAttribute('T');
-                const vAttr = child.getAttribute('V');
-                console.log(`  ${i}: F="${fAttr}", T="${tAttr}", V="${vAttr ? vAttr.substring(0, 50) : 'null'}"`);
+            // AreaType'ı al (mahal tipi)
+            const areaTypeEl = closeArea.querySelector("P[F='AreaType']");
+            const areaTypeValue = areaTypeEl ? parseInt(areaTypeEl.getAttribute('V')) : null;
+            const roomName = areaTypeValue ? (AREA_TYPE_NAMES[areaTypeValue] || `Oda ${idx + 1}`) : `Oda ${idx + 1}`;
+
+            console.log(`\nCloseArea ${idx} - AreaType: ${areaTypeValue}, İsim: ${roomName}`);
+
+            // VertexList'ten köşe noktalarını al
+            const vertexListEl = closeArea.querySelector("O[F='VertexList']");
+            const vertices = [];
+            if (vertexListEl) {
+                const vertexElements = vertexListEl.querySelectorAll("P[F='_Item']");
+                vertexElements.forEach(vertexEl => {
+                    const coords = vertexEl.getAttribute('V').split(',').map(Number);
+                    // DÜZELTME: Y eksenini ters çevir
+                    vertices.push({ x: coords[0] * SCALE, y: -coords[1] * SCALE });
+                });
+                console.log(`  -> ${vertices.length} köşe noktası bulundu`);
             }
 
             const wallsContainer = closeArea.querySelector("O[F='Walls']");
-            console.log(`CloseArea ${idx}: Walls container:`, wallsContainer ? "bulundu" : "bulunamadı");
+            console.log(`  -> Walls container:`, wallsContainer ? "bulundu" : "bulunamadı");
 
             if (wallsContainer) {
                 const wallElements = wallsContainer.querySelectorAll("O[F='_Item'][T='VdWall']");
@@ -150,6 +168,18 @@ export function importFromXML(xmlString) {
                     console.log(`    -> Wall ${wallIdx} işleniyor...`);
                     processWallElement(wallEl);
                 });
+            }
+
+            // Room objesini oluştur ve state.rooms'a ekle
+            if (vertices.length > 0) {
+                const room = {
+                    type: 'room',
+                    name: roomName,
+                    vertices: vertices,
+                    areaType: areaTypeValue
+                };
+                state.rooms.push(room);
+                console.log(`  -> Room eklendi: ${roomName} (${vertices.length} köşe)`);
             }
         } catch (e) {
             console.error("CloseArea işlenirken hata:", e, closeArea);
@@ -461,6 +491,7 @@ export function importFromXML(xmlString) {
     console.log("\n=== İMPORT ÖZETİ ===");
     console.log(`Duvarlar: ${state.walls.length}`);
     console.log(`Node'lar: ${state.nodes.length}`);
+    console.log(`Odalar: ${state.rooms.length}`);
     console.log(`Kapılar: ${state.doors.length}`);
     console.log(`Kolonlar: ${state.columns ? state.columns.length : 0}`);
     console.log(`Kirişler: ${state.beams ? state.beams.length : 0}`);
