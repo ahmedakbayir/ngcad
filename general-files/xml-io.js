@@ -487,31 +487,32 @@ export function importFromXML(xmlString) {
             const lines = stairEl.querySelectorAll("O[T='vdLine']"); // Basamak sayısı için
 
             if (insertionPointEl && widthEl && heightEl && lines.length > 0) {
-                
+
                 // DÜZELTME: Y eksenini ters çevir (InsertionPoint)
                 const cornerCoords = insertionPointEl.getAttribute('V').split(',').map(Number);
                 const ipX = cornerCoords[0] * SCALE;
                 const ipY = -cornerCoords[1] * SCALE;
 
-                // DÜZELTME: Y boyutunu ters çevir
+                // XML Height değerinin orijinal işaretini koru (yön tespiti için)
                 const xml_w = parseFloat(widthEl.getAttribute('V')) * SCALE;
-                const xml_h = -(parseFloat(heightEl.getAttribute('V')) * SCALE);
+                const xml_h_original = parseFloat(heightEl.getAttribute('V'));
+                const xml_h = -(xml_h_original * SCALE);
 
                 // Bizim 'width'imiz (uzunluk) X eksenindedir.
                 // Bizim 'height'imiz (en) Y eksenindedir.
-                
+
                 // XML merdiveni Y eksenine paralel (XML'de Height, bizde app_length)
                 // XML merdiven eni X eksenine paralel (XML'de Width, bizde app_thickness)
                 let app_length = Math.abs(xml_h);
                 let app_thickness = Math.abs(xml_w);
-                
+
                 // Merkezi Y-terslenmiş koordinatlara göre hesapla
                 const centerX = ipX + (xml_w / 2);
                 const centerY = ipY + (xml_h / 2);
 
                 // DÜZELTME: 90° CCW = -90 derece (veya 270)
                 // Bu, merdivenin "yukarı" (negatif Y) yönlü olmasını sağlar
-                const app_rotation = 90; 
+                const app_rotation = 90;
 
                 // Basamak sayısını çizgilerden al
                 const stepCount = lines.length > 0 ? (lines.length - 1) : 12; // 13 çizgi = 12 basamak
@@ -520,8 +521,17 @@ export function importFromXML(xmlString) {
                 // createStairs 'width' (X-ekseni) parametresi merdivenin Y-eksenindeki uzunluğu olmalı (app_length)
                 // createStairs 'height' (Y-ekseni) parametresi merdivenin X-eksenindeki eni olmalı (app_thickness)
                 const newStair = createStairs(centerX, centerY, app_length, app_thickness, app_rotation, false);
-                
-                newStair.stepCount = stepCount; 
+
+                newStair.stepCount = stepCount;
+
+                // Merdiven yönünü XML Height işaretinden belirle
+                // Negatif Height = Aşağı inen merdiven (topElevation < bottomElevation)
+                if (xml_h_original < 0) {
+                    // Swap elevations to make it go DOWN
+                    const temp = newStair.bottomElevation;
+                    newStair.bottomElevation = newStair.topElevation;
+                    newStair.topElevation = temp;
+                } 
 
                 if (!state.stairs) state.stairs = [];
                 state.stairs.push(newStair);
@@ -553,14 +563,15 @@ export function importFromXML(xmlString) {
                 // Bizim createBeam fonksiyonumuz: (centerX, centerY, length, thickness, rotation)
                 // XML'deki 'Height' bizim 'width' (uzunluk)
                 // XML'deki 'Width' bizim 'height' (kalınlık)
-                
+
                 // DÜZELTME: Y eksenini ters çevir
+                // Y-ekseni terslendiğinde rotasyon da tersine dönmeli (ayna efekti)
                 const newBeam = createBeam(
-                    centerCoords[0] * SCALE, 
-                    -centerCoords[1] * SCALE, 
+                    centerCoords[0] * SCALE,
+                    -centerCoords[1] * SCALE,
                     height_xml, // length
                     width_xml,  // thickness
-                    rotationDeg
+                    -rotationDeg  // Negatif rotasyon (Y-ekseni ters çevrildiği için)
                 );
 
                 if (!state.beams) state.beams = [];
