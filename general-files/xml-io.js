@@ -148,13 +148,23 @@ export function importFromXML(xmlString) {
             const vertexListEl = closeArea.querySelector("O[F='VertexList']");
             const vertices = [];
             if (vertexListEl) {
+                console.log(`  -> VertexList bulundu, içindeki children:`, vertexListEl.children.length);
+                for (let i = 0; i < Math.min(5, vertexListEl.children.length); i++) {
+                    const child = vertexListEl.children[i];
+                    console.log(`    ${i}: tagName=${child.tagName}, F=${child.getAttribute('F')}, T=${child.getAttribute('T')}, V=${child.getAttribute('V')}`);
+                }
+
                 const vertexElements = vertexListEl.querySelectorAll("P[F='_Item']");
+                console.log(`  -> P[F='_Item'] selector ile ${vertexElements.length} vertex bulundu`);
+
                 vertexElements.forEach(vertexEl => {
                     const coords = vertexEl.getAttribute('V').split(',').map(Number);
                     // DÜZELTME: Y eksenini ters çevir
                     vertices.push({ x: coords[0] * SCALE, y: -coords[1] * SCALE });
                 });
-                console.log(`  -> ${vertices.length} köşe noktası bulundu`);
+                console.log(`  -> ${vertices.length} köşe noktası eklendi`);
+            } else {
+                console.log(`  -> VertexList bulunamadı!`);
             }
 
             const wallsContainer = closeArea.querySelector("O[F='Walls']");
