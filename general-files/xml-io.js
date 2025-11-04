@@ -32,6 +32,13 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
 
     console.log('[XML-IO] Found Entities node');
 
+    // DEBUG: Show first few child elements to understand structure
+    const firstChildren = Array.from(entitiesNode.children).slice(0, 5);
+    console.log('[XML-IO] First 5 child elements of Entities:');
+    firstChildren.forEach((child, i) => {
+        console.log(`  [${i}] Tag: ${child.tagName}, F="${child.getAttribute('F')}", T="${child.getAttribute('T')}"`);
+    });
+
     // Initialize project data with current settings if available
     const projectData = {
         version: "1.0",
