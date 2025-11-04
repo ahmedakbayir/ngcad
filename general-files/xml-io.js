@@ -1,6 +1,8 @@
 // ahmedakbayir/ngcad XML Import Module
 // Converts VdDocument XML format to ngcad JSON format
 
+
+
 /**
  * Parses XML string and converts to ngcad project data structure
  * @param {string} xmlString - XML content as string
@@ -8,8 +10,8 @@
  * @returns {Object} ngcad project data object
  */
 export function parseXMLToProject(xmlString, currentSettings = null) {
-    console.log('[XML-IO] Starting XML parse...');
-    console.log('[XML-IO] XML length:', xmlString.length, 'characters');
+    // console.log('[XML-IO] Starting XML parse...');
+    // console.log('[XML-IO] XML length:', xmlString.length, 'characters');
 
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
@@ -21,7 +23,7 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
         throw new Error('XML parsing error: ' + parserError.textContent);
     }
 
-    console.log('[XML-IO] XML parsed to DOM successfully');
+    // console.log('[XML-IO] XML parsed to DOM successfully');
 
     // Extract all entities
     const entitiesNode = xmlDoc.querySelector('O[F="Entities"]');
@@ -30,11 +32,11 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
         throw new Error('No Entities node found in XML');
     }
 
-    console.log('[XML-IO] Found Entities node');
+    // console.log('[XML-IO] Found Entities node');
 
     // DEBUG: Show structure and count all element types
     const allChildren = Array.from(entitiesNode.children);
-    console.log('[XML-IO] Total children in Entities:', allChildren.length);
+    // console.log('[XML-IO] Total children in Entities:', allChildren.length);
 
     // Count each type
     const typeCounts = {};
@@ -45,27 +47,27 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
             typeCounts[type] = (typeCounts[type] || 0) + 1;
         }
     });
-    console.log('[XML-IO] Element types found (F="_Item"):', typeCounts);
+    // console.log('[XML-IO] Element types found (F="_Item"):', typeCounts);
 
     // Show first 20 for structure understanding
     const firstChildren = allChildren.slice(0, 20);
-    console.log('[XML-IO] First 20 child elements:');
+    // console.log('[XML-IO] First 20 child elements:');
     firstChildren.forEach((child, i) => {
-        console.log(`  [${i}] Tag: ${child.tagName}, F="${child.getAttribute('F')}", T="${child.getAttribute('T')}"`);
+        // console.log(`  [${i}] Tag: ${child.tagName}, F="${child.getAttribute('F')}", T="${child.getAttribute('T')}"`);
     });
 
     // DEEP SEARCH: Try to find CloseArea anywhere in the document
-    console.log('[XML-IO] Searching entire document for CloseArea, Door, Window...');
+    // console.log('[XML-IO] Searching entire document for CloseArea, Door, Window...');
     const allCloseAreas = Array.from(xmlDoc.querySelectorAll('O[T="CloseArea"]'));
     const allDoors = Array.from(xmlDoc.querySelectorAll('O[T="Door"]'));
     const allWindows = Array.from(xmlDoc.querySelectorAll('O[T="Window"]'));
     const allKolons = Array.from(xmlDoc.querySelectorAll('O[T="Kolon"]'));
-    console.log('[XML-IO] Found in entire document:', {
-        CloseArea: allCloseAreas.length,
-        Door: allDoors.length,
-        Window: allWindows.length,
-        Kolon: allKolons.length
-    });
+    // console.log('[XML-IO] Found in entire document:', {
+    //     CloseArea: allCloseAreas.length,
+    //     Door: allDoors.length,
+    //     Window: allWindows.length,
+    //     Kolon: allKolons.length
+    // });
 
     // If found, show parent path of first CloseArea
     if (allCloseAreas.length > 0) {
@@ -75,7 +77,7 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
             path.unshift(`${elem.tagName}[F="${elem.getAttribute('F')}", T="${elem.getAttribute('T')}"]`);
             elem = elem.parentElement;
         }
-        console.log('[XML-IO] Path to first CloseArea:', path.join(' > '));
+        // console.log('[XML-IO] Path to first CloseArea:', path.join(' > '));
     }
 
     // Initialize project data with current settings if available
@@ -109,14 +111,14 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
     const menfezler = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Menfez"]'));
     const stairs = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="clsmerdiven"]'));
 
-    console.log('[XML-IO] Found elements:', {
-        closeAreas: closeAreas.length,
-        doors: doors.length,
-        windows: windows.length,
-        columns: kolons.length,
-        vents: menfezler.length,
-        stairs: stairs.length
-    });
+    // console.log('[XML-IO] Found elements:', {
+    //     closeAreas: closeAreas.length,
+    //     doors: doors.length,
+    //     windows: windows.length,
+    //     columns: kolons.length,
+    //     vents: menfezler.length,
+    //     stairs: stairs.length
+    // });
 
     // Step 0: Find max Y value for coordinate system conversion (flip Y-axis)
     let maxY = -Infinity;
@@ -341,14 +343,14 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
         delete wall._p2;
     });
 
-    console.log('[XML-IO] Parse complete! Returning:', {
-        version: projectData.version,
-        nodes: projectData.nodes.length,
-        walls: projectData.walls.length,
-        doors: projectData.doors.length,
-        columns: projectData.columns.length,
-        stairs: projectData.stairs.length
-    });
+    // console.log('[XML-IO] Parse complete! Returning:', {
+    //     version: projectData.version,
+    //     nodes: projectData.nodes.length,
+    //     walls: projectData.walls.length,
+    //     doors: projectData.doors.length,
+    //     columns: projectData.columns.length,
+    //     stairs: projectData.stairs.length
+    // });
 
     return projectData;
 }
