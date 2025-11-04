@@ -220,6 +220,38 @@ export function importFromXML(xmlString) {
             }
 
             // Room objesini oluştur ve state.rooms'a ekle
+            // Eğer vertices parse edilemedi ise, duvarlardan vertices'leri çıkar
+            if (vertices.length === 0 && wallsContainer) {
+                console.log(`  -> Vertices bulunamadı, duvarlardan köşe noktaları çıkarılıyor...`);
+                const wallElements = wallsContainer.querySelectorAll("O[F='_Item'][T='VdWall']");
+                const nodeSet = new Set();
+
+                wallElements.forEach(wallEl => {
+                    const startPointEl = wallEl.querySelector("P[F='StartPoint']");
+                    const endPointEl = wallEl.querySelector("P[F='EndPoint']");
+
+                    if (startPointEl && endPointEl) {
+                        const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
+                        const endCoords = endPointEl.getAttribute('V').split(',').map(Number);
+
+                        // Node'ları string key olarak sakla (köşeleri unique yapmak için)
+                        const p1Key = `${(startCoords[0] * SCALE).toFixed(2)},${(-startCoords[1] * SCALE).toFixed(2)}`;
+                        const p2Key = `${(endCoords[0] * SCALE).toFixed(2)},${(-endCoords[1] * SCALE).toFixed(2)}`;
+
+                        nodeSet.add(p1Key);
+                        nodeSet.add(p2Key);
+                    }
+                });
+
+                // Set'ten vertices array'e çevir
+                nodeSet.forEach(key => {
+                    const [x, y] = key.split(',').map(Number);
+                    vertices.push({ x, y });
+                });
+
+                console.log(`  -> Duvarlardan ${vertices.length} unique köşe noktası çıkarıldı`);
+            }
+
             if (vertices.length > 0) {
                 const room = {
                     type: 'room',
@@ -229,6 +261,8 @@ export function importFromXML(xmlString) {
                 };
                 state.rooms.push(room);
                 console.log(`  -> Room eklendi: ${roomName} (${vertices.length} köşe)`);
+            } else {
+                console.warn(`  -> Room eklenemedi: ${roomName} (vertices bulunamadı)`);
             }
         } catch (e) {
             console.error("CloseArea işlenirken hata:", e, closeArea);
