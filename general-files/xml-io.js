@@ -69,6 +69,9 @@ export function importFromXML(xmlString) {
         return;
     }
 
+    console.log("XML Import başlatılıyor...");
+    console.log("Entities bulundu:", entities);
+
     // --- ÖNEMLİ: Import öncesi mevcut state'i temizle ---
     setState({
         nodes: [],
@@ -89,12 +92,19 @@ export function importFromXML(xmlString) {
     // 1. Duvarları (VdWall) oluştur ve nodeları kaydet
     // Yeni yapı: CloseArea içindeki Walls dizisini kontrol et
     const closeAreas = entities.querySelectorAll("O[T='CloseArea']");
-    closeAreas.forEach(closeArea => {
+    console.log(`${closeAreas.length} CloseArea bulundu`);
+
+    closeAreas.forEach((closeArea, idx) => {
         try {
             const wallsContainer = closeArea.querySelector("O[F='Walls']");
+            console.log(`CloseArea ${idx}: Walls container:`, wallsContainer ? "bulundu" : "bulunamadı");
+
             if (wallsContainer) {
                 const wallElements = wallsContainer.querySelectorAll("O[F='_Item'][T='VdWall']");
-                wallElements.forEach(wallEl => {
+                console.log(`  -> ${wallElements.length} VdWall bulundu`);
+
+                wallElements.forEach((wallEl, wallIdx) => {
+                    console.log(`    -> Wall ${wallIdx} işleniyor...`);
                     processWallElement(wallEl);
                 });
             }
@@ -105,7 +115,10 @@ export function importFromXML(xmlString) {
 
     // Eski yapı için backward compatibility: Doğrudan VdWall elemanlarını kontrol et
     const directWallElements = entities.querySelectorAll("O[T='VdWall']");
-    directWallElements.forEach(wallEl => {
+    console.log(`${directWallElements.length} doğrudan VdWall bulundu`);
+
+    directWallElements.forEach((wallEl, idx) => {
+        console.log(`  -> Doğrudan wall ${idx} işleniyor...`);
         processWallElement(wallEl);
     });
 
@@ -124,6 +137,9 @@ export function importFromXML(xmlString) {
                 const p1 = { x: startCoords[0] * SCALE, y: -startCoords[1] * SCALE };
                 const p2 = { x: endCoords[0] * SCALE, y: -endCoords[1] * SCALE };
 
+                console.log(`      StartPoint: (${p1.x.toFixed(2)}, ${p1.y.toFixed(2)})`);
+                console.log(`      EndPoint: (${p2.x.toFixed(2)}, ${p2.y.toFixed(2)})`);
+
                 const node1 = getOrCreateNode(p1.x, p1.y);
                 const node2 = getOrCreateNode(p2.x, p2.y);
 
@@ -140,7 +156,12 @@ export function importFromXML(xmlString) {
                         windows: [],
                         vents: []
                     });
+                    console.log(`      -> Duvar eklendi (kalınlık: ${thickness})`);
+                } else {
+                    console.log(`      -> Duvar atlandı (duplicate veya aynı node)`);
                 }
+            } else {
+                console.log(`      -> StartPoint veya EndPoint bulunamadı`);
             }
         } catch (e) {
             console.error("Duvar işlenirken hata:", e, wallEl);
@@ -149,7 +170,10 @@ export function importFromXML(xmlString) {
 
     // 2. Kolonları (KolonHavalandirmasi) oluştur
     const kolonElements = entities.querySelectorAll("O[T='KolonHavalandirmasi'], O[F='_Item'][T='KolonHavalandirmasi']");
-    kolonElements.forEach(kolonEl => {
+    console.log(`\n${kolonElements.length} KolonHavalandirmasi bulundu`);
+
+    kolonElements.forEach((kolonEl, idx) => {
+        console.log(`  -> Kolon ${idx} işleniyor...`);
         try {
             const insertionPointEl = kolonEl.querySelector("P[F='InsertionPoint']");
             const widthEl = kolonEl.querySelector("P[F='Width']");
@@ -183,7 +207,11 @@ export function importFromXML(xmlString) {
 
     // 3. Kapıları (Door) işle
     const doorElements = entities.querySelectorAll("O[T='Door'], O[F='_Item'][T='Door']");
-    doorElements.forEach(doorEl => {
+    console.log(`\n${doorElements.length} Door bulundu`);
+
+    doorElements.forEach((doorEl, idx) => {
+        console.log(`  -> Door ${idx} işleniyor...`);
+
         try {
             const originEl = doorEl.querySelector("P[F='Origin']");
             const widthEl = doorEl.querySelector("P[F='En']");
@@ -214,7 +242,10 @@ export function importFromXML(xmlString) {
 
     // 4. Pencereleri (Window) işle
     const windowElements = entities.querySelectorAll("O[T='Window'], O[F='_Item'][T='Window']");
-    windowElements.forEach(winEl => {
+    console.log(`\n${windowElements.length} Window bulundu`);
+
+    windowElements.forEach((winEl, idx) => {
+        console.log(`  -> Window ${idx} işleniyor...`);
         try {
             const originEl = winEl.querySelector("P[F='Origin']");
             const widthEl = winEl.querySelector("P[F='En']");
@@ -366,6 +397,15 @@ export function importFromXML(xmlString) {
 
 
     // 8. Son işlemler
+    console.log("\n=== İMPORT ÖZETİ ===");
+    console.log(`Duvarlar: ${state.walls.length}`);
+    console.log(`Node'lar: ${state.nodes.length}`);
+    console.log(`Kapılar: ${state.doors.length}`);
+    console.log(`Kolonlar: ${state.columns ? state.columns.length : 0}`);
+    console.log(`Kirişler: ${state.beams ? state.beams.length : 0}`);
+    console.log(`Merdivenler: ${state.stairs ? state.stairs.length : 0}`);
+    console.log("===================\n");
+
     processWalls();
     saveState();
     // 'dom' artık import edildiği için bu kontrol çalışacaktır
