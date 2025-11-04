@@ -583,9 +583,7 @@ export function importFromXML(xmlString) {
     console.log(`Merdivenler: ${state.stairs ? state.stairs.length : 0}`);
     console.log("===================\n");
 
-    processWalls();
-
-    // Room'lar için polygon ve center hesapla (turf.js kullanarak)
+    // Room'lar için polygon ve center hesapla (turf.js kullanarak) - processWalls'tan ÖNCE
     if (state.rooms && state.rooms.length > 0) {
         console.log("\n=== ROOM POLYGON VE CENTER HESAPLANIYOR ===");
         console.log(`state.rooms.length: ${state.rooms.length}`);
@@ -629,6 +627,10 @@ export function importFromXML(xmlString) {
         });
         console.log("==========================================\n");
     }
+
+    // Duvarları process et ama room detection'ı skip et (room'lar XML'den geldi)
+    console.log("\nprocessWalls çağrılıyor (skipRoomDetection=true)...");
+    processWalls(false, true); // skipMerge=false, skipRoomDetection=true
 
     saveState();
     // 'dom' artık import edildiği için bu kontrol çalışacaktır
