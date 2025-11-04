@@ -76,6 +76,16 @@ export function importFromXML(xmlString) {
     for (let i = 0; i < Math.min(5, entities.children.length); i++) {
         const child = entities.children[i];
         console.log(`  ${i}: tagName=${child.tagName}, F=${child.getAttribute('F')}, T=${child.getAttribute('T')}`);
+
+        // vdPolyhatch içini kontrol et
+        if (child.getAttribute('T') === 'vdPolyhatch') {
+            console.log(`    vdPolyhatch içindeki child count: ${child.children.length}`);
+            console.log(`    vdPolyhatch içindeki ilk 5 child:`);
+            for (let j = 0; j < Math.min(5, child.children.length); j++) {
+                const subchild = child.children[j];
+                console.log(`      ${j}: tagName=${subchild.tagName}, F=${subchild.getAttribute('F')}, T=${subchild.getAttribute('T')}`);
+            }
+        }
     }
 
     // --- ÖNEMLİ: Import öncesi mevcut state'i temizle ---
@@ -97,8 +107,9 @@ export function importFromXML(xmlString) {
 
     // 1. Duvarları (VdWall) oluştur ve nodeları kaydet
     // Yeni yapı: CloseArea içindeki Walls dizisini kontrol et
-    const closeAreas = entities.querySelectorAll("O[F='_Item'][T='CloseArea']");
-    console.log(`${closeAreas.length} CloseArea bulundu`);
+    // DÜZELTME: entities içinde değil, xmlDoc'un her yerinde ara
+    const closeAreas = xmlDoc.querySelectorAll("O[F='_Item'][T='CloseArea']");
+    console.log(`${closeAreas.length} CloseArea bulundu (tüm XML'de arama yapıldı)`);
 
     closeAreas.forEach((closeArea, idx) => {
         try {
@@ -120,11 +131,19 @@ export function importFromXML(xmlString) {
     });
 
     // Eski yapı için backward compatibility: Doğrudan VdWall elemanlarını kontrol et
-    // (CloseArea'ya ait olmayan duvarlar - sadece entities'in direkt child'ları)
-    const directWallElements = Array.from(entities.children).filter(child =>
-        (child.tagName === 'O' && child.getAttribute('T') === 'VdWall') ||
-        (child.tagName === 'O' && child.getAttribute('F') === '_Item' && child.getAttribute('T') === 'VdWall')
-    );
+    // DÜZELTME: Tüm VdWall elemanlarını bul, sonra CloseArea içinde olanları filtrele
+    const allWallElements = xmlDoc.querySelectorAll("O[T='VdWall']");
+    console.log(`${allWallElements.length} toplam VdWall bulundu (tüm XML'de)`);
+
+    // CloseArea içindeki duvarları bul
+    const wallsInCloseAreas = new Set();
+    closeAreas.forEach(closeArea => {
+        const wallsInThisArea = closeArea.querySelectorAll("O[T='VdWall']");
+        wallsInThisArea.forEach(wall => wallsInCloseAreas.add(wall));
+    });
+
+    // CloseArea içinde OLMAYAN duvarları filtrele
+    const directWallElements = Array.from(allWallElements).filter(wall => !wallsInCloseAreas.has(wall));
     console.log(`${directWallElements.length} doğrudan VdWall bulundu (CloseArea dışı)`);
 
     directWallElements.forEach((wallEl, idx) => {
@@ -179,8 +198,8 @@ export function importFromXML(xmlString) {
     }
 
     // 2. Kolonları (KolonHavalandirmasi) oluştur
-    const kolonElements = entities.querySelectorAll("O[T='KolonHavalandirmasi'], O[F='_Item'][T='KolonHavalandirmasi']");
-    console.log(`\n${kolonElements.length} KolonHavalandirmasi bulundu`);
+    const kolonElements = xmlDoc.querySelectorAll("O[T='KolonHavalandirmasi']");
+    console.log(`\n${kolonElements.length} KolonHavalandirmasi bulundu (tüm XML'de)`);
 
     kolonElements.forEach((kolonEl, idx) => {
         console.log(`  -> Kolon ${idx} işleniyor...`);
@@ -216,8 +235,8 @@ export function importFromXML(xmlString) {
     });
 
     // 3. Kapıları (Door) işle
-    const doorElements = entities.querySelectorAll("O[T='Door'], O[F='_Item'][T='Door']");
-    console.log(`\n${doorElements.length} Door bulundu`);
+    const doorElements = xmlDoc.querySelectorAll("O[T='Door']");
+    console.log(`\n${doorElements.length} Door bulundu (tüm XML'de)`);
 
     doorElements.forEach((doorEl, idx) => {
         console.log(`  -> Door ${idx} işleniyor...`);
@@ -251,8 +270,8 @@ export function importFromXML(xmlString) {
     });
 
     // 4. Pencereleri (Window) işle
-    const windowElements = entities.querySelectorAll("O[T='Window'], O[F='_Item'][T='Window']");
-    console.log(`\n${windowElements.length} Window bulundu`);
+    const windowElements = xmlDoc.querySelectorAll("O[T='Window']");
+    console.log(`\n${windowElements.length} Window bulundu (tüm XML'de)`);
 
     windowElements.forEach((winEl, idx) => {
         console.log(`  -> Window ${idx} işleniyor...`);
@@ -285,8 +304,10 @@ export function importFromXML(xmlString) {
     });
 
     // 5. Menfezleri (Menfez) işle
-    const ventElements = entities.querySelectorAll("O[T='Menfez']");
-    ventElements.forEach(ventEl => {
+    const ventElements = xmlDoc.querySelectorAll("O[T='Menfez']");
+    console.log(`\n${ventElements.length} Menfez bulundu (tüm XML'de)`);
+    ventElements.forEach((ventEl, idx) => {
+        console.log(`  -> Menfez ${idx} işleniyor...`);
         try {
             const originEl = ventEl.querySelector("P[F='Origin']");
             if (originEl) {
@@ -314,8 +335,10 @@ export function importFromXML(xmlString) {
     });
     
     // 6. Merdivenleri (clsmerdiven) işle
-    const stairElements = entities.querySelectorAll("O[T='clsmerdiven']");
-    stairElements.forEach(stairEl => {
+    const stairElements = xmlDoc.querySelectorAll("O[T='clsmerdiven']");
+    console.log(`\n${stairElements.length} clsmerdiven bulundu (tüm XML'de)`);
+    stairElements.forEach((stairEl, idx) => {
+        console.log(`  -> Merdiven ${idx} işleniyor...`);
         try {
             const insertionPointEl = stairEl.querySelector("P[F='InsertionPoint']");
             const widthEl = stairEl.querySelector("P[F='Width']"); // XML'deki Width (X boyutu)
@@ -369,8 +392,10 @@ export function importFromXML(xmlString) {
 
 
     // 7. Kirişleri (clskiris) işle
-    const kirisElements = entities.querySelectorAll("O[T='clskiris']");
-    kirisElements.forEach(kirisEl => {
+    const kirisElements = xmlDoc.querySelectorAll("O[T='clskiris']");
+    console.log(`\n${kirisElements.length} clskiris bulundu (tüm XML'de)`);
+    kirisElements.forEach((kirisEl, idx) => {
+        console.log(`  -> Kiriş ${idx} işleniyor...`);
         try {
             const insertionPointEl = kirisEl.querySelector("P[F='InsertionPoint']");
             const widthEl = kirisEl.querySelector("P[F='Width']"); // Kiriş eni (thickness)
