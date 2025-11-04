@@ -72,6 +72,22 @@ export function importFromXML(xmlString) {
     console.log("XML Import başlatılıyor...");
     console.log("Entities bulundu:", entities);
     console.log("Entities children count:", entities.children.length);
+
+    // TÜM XML'deki element tiplerini topla
+    const allElements = xmlDoc.querySelectorAll("O[T]");
+    const elementTypes = new Map();
+    allElements.forEach(el => {
+        const type = el.getAttribute('T');
+        elementTypes.set(type, (elementTypes.get(type) || 0) + 1);
+    });
+
+    console.log("\n=== XML'DEKİ TÜM ELEMENT TİPLERİ ===");
+    console.log("Toplam O elementi:", allElements.length);
+    elementTypes.forEach((count, type) => {
+        console.log(`  ${type}: ${count} adet`);
+    });
+    console.log("====================================\n");
+
     console.log("Entities first 5 children:");
     for (let i = 0; i < Math.min(5, entities.children.length); i++) {
         const child = entities.children[i];
@@ -80,8 +96,8 @@ export function importFromXML(xmlString) {
         // vdPolyhatch içini kontrol et
         if (child.getAttribute('T') === 'vdPolyhatch') {
             console.log(`    vdPolyhatch içindeki child count: ${child.children.length}`);
-            console.log(`    vdPolyhatch içindeki ilk 5 child:`);
-            for (let j = 0; j < Math.min(5, child.children.length); j++) {
+            console.log(`    vdPolyhatch içindeki ilk 10 child:`);
+            for (let j = 0; j < Math.min(10, child.children.length); j++) {
                 const subchild = child.children[j];
                 console.log(`      ${j}: tagName=${subchild.tagName}, F=${subchild.getAttribute('F')}, T=${subchild.getAttribute('T')}`);
             }
