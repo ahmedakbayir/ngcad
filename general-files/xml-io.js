@@ -125,8 +125,10 @@ export function importFromXML(xmlString) {
         }
     });
 
-    // 2. Kolonları (Kolon) oluştur
-    const kolonElements = entities.querySelectorAll("O[T='Kolon']");
+    // 2. Kolonları (KolonHavalandirmasi) oluştur
+    // ***** DEĞİŞİKLİK BURADA *****
+    const kolonElements = entities.querySelectorAll("O[T='KolonHavalandirmasi']"); 
+    // ***** DEĞİŞİKLİK SONU *****
     kolonElements.forEach(kolonEl => {
         try {
             const insertionPointEl = kolonEl.querySelector("P[F='InsertionPoint']");
