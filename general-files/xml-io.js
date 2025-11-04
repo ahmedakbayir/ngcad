@@ -2,11 +2,11 @@
 // GÜNCELLENDİ: X eksenindeki simetri (aynalama) sorununu çözmek için tüm Y koordinatları (-1) ile çarpıldı.
 // GÜNCELLENDİ: Merdiven rotasyonu 90° CCW (-90) olarak ayarlandı ve boyutları (en/boy) buna göre düzeltildi.
 
-import { state, setState, dom } from './main.js';
+import { state, setState, dom, VECTORDRAW_AREA_TYPES } from './main.js';
 import { getOrCreateNode, distToSegmentSquared } from '../draw/geometry.js';
 import { wallExists } from '../wall/wall-handler.js';
 import { createColumn } from '../architectural-objects/columns.js';
-import { createBeam } from '../architectural-objects/beams.js'; 
+import { createBeam } from '../architectural-objects/beams.js';
 import { createStairs } from '../architectural-objects/stairs.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { saveState } from './history.js';
@@ -15,14 +15,6 @@ import { fitDrawingToScreen } from '../draw/zoom.js';
 
 // XML'deki koordinatları cm'ye çevirmek için ölçek
 const SCALE = 100;
-
-// VectorDraw AreaType enum değerlerinin mahal isimlerine mapping'i
-const AREA_TYPE_NAMES = {
-    14: 'MUTFAK',
-    16: 'KORİDOR',
-    18: 'BANYO',
-    38: 'SALON'
-};
 
 /**
  * Verilen bir mutlak X,Y koordinatına en yakın duvarı ve o duvar üzerindeki
@@ -140,7 +132,7 @@ export function importFromXML(xmlString) {
             // AreaType'ı al (mahal tipi)
             const areaTypeEl = closeArea.querySelector("P[F='AreaType']");
             const areaTypeValue = areaTypeEl ? parseInt(areaTypeEl.getAttribute('V')) : null;
-            const roomName = areaTypeValue ? (AREA_TYPE_NAMES[areaTypeValue] || `Oda ${idx + 1}`) : `Oda ${idx + 1}`;
+            const roomName = areaTypeValue ? (VECTORDRAW_AREA_TYPES[areaTypeValue] || `Oda ${idx + 1}`) : `Oda ${idx + 1}`;
 
             console.log(`\nCloseArea ${idx} - AreaType: ${areaTypeValue}, İsim: ${roomName}`);
 

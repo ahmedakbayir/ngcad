@@ -89,7 +89,16 @@ export const MAHAL_LISTESI = [
     'TOPLANTI ODASI','MAĞAZA','ENDÜSTRİYEL MUTFAK','BACA ŞAFTI','KÖMÜRLÜK','ARŞİV',
     'ISI MERKEZİ','FABRİKA','LABARATUVAR','TEKNİK HACİM','DANIŞMA','ATÖLYE'];
 
-    
+// VectorDraw XML'den gelen AreaType enum değerlerinin MAHAL_LISTESI'ndeki karşılıkları
+// NOT: Bu değerler MAHAL_LISTESI'ndeki isimlerle TAM AYNI olmak zorunda
+export const VECTORDRAW_AREA_TYPES = {
+    14: 'MUTFAK',      // MAHAL_LISTESI'nde var
+    16: 'KORİDOR',     // MAHAL_LISTESI'nde var
+    18: 'BANYO',       // MAHAL_LISTESI'nde var
+    38: 'SALON'        // MAHAL_LISTESI'nde var
+};
+
+
 export let state = {
     currentMode: "drawRoom", // Başlangıç modu "Oda Çiz"
     lastUsedMode: "drawRoom", // Son kullanılan da "Oda Çiz"
