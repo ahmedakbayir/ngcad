@@ -582,6 +582,37 @@ export function importFromXML(xmlString) {
     console.log("===================\n");
 
     processWalls();
+
+    // Room'lar için polygon ve center hesapla (turf.js kullanarak)
+    if (state.rooms && state.rooms.length > 0) {
+        console.log("\n=== ROOM POLYGON VE CENTER HESAPLANIYOR ===");
+        state.rooms.forEach((room, idx) => {
+            if (room.vertices && room.vertices.length >= 3) {
+                try {
+                    // Turf.js için koordinat formatı: [[x, y], [x, y], ...]
+                    const turfCoords = room.vertices.map(v => [v.x, v.y]);
+                    // İlk ve son nokta aynı olmalı (kapalı polygon)
+                    turfCoords.push(turfCoords[0]);
+
+                    // Turf polygon oluştur
+                    room.polygon = turf.polygon([turfCoords]);
+
+                    // Center hesapla
+                    const centerPoint = turf.center(room.polygon);
+                    room.center = centerPoint.geometry.coordinates;
+
+                    // Alan hesapla (m²)
+                    room.area = turf.area(room.polygon) / 10000; // cm² to m²
+
+                    console.log(`  Room ${idx} (${room.name}): center=[${room.center[0].toFixed(2)}, ${room.center[1].toFixed(2)}], area=${room.area.toFixed(2)} m²`);
+                } catch (e) {
+                    console.error(`  Room ${idx} (${room.name}) polygon hesaplama hatası:`, e);
+                }
+            }
+        });
+        console.log("==========================================\n");
+    }
+
     saveState();
     // 'dom' artık import edildiği için bu kontrol çalışacaktır
     if (dom.mainContainer.classList.contains('show-3d')) {
