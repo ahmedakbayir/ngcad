@@ -102,7 +102,7 @@ export function getBeamAtPoint(point) {
 export function isPointInBeam(point, beam) {
     const cx = beam.center.x;
     const cy = beam.center.y;
-    const rot = -(beam.rotation || 0) * Math.PI / 180;
+    const rot = (beam.rotation || 0) * Math.PI / 180;
     const dx = point.x - cx;
     const dy = point.y - cy;
     const localX = dx * Math.cos(rot) - dy * Math.sin(rot);
