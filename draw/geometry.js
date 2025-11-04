@@ -147,7 +147,7 @@ export function getOrCreateNode(x, y) {
 }
 
 // Bir poligonun (koordinat dizisi) alanını hesaplar
-function calculatePlanarArea(coords) {
+export function calculatePlanarArea(coords) {
     let area = 0;
     const points = coords[0]; // Dış halka koordinatları
     if (!points || points.length < 3) return 0; // Geçersiz poligon
