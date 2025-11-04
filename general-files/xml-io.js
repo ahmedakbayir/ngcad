@@ -129,6 +129,16 @@ export function importFromXML(xmlString) {
 
     closeAreas.forEach((closeArea, idx) => {
         try {
+            // CloseArea içindeki TÜM child elementleri listele (mahal ismi için)
+            console.log(`\nCloseArea ${idx} - İçindeki tüm child'lar (ilk 15):`);
+            for (let i = 0; i < Math.min(15, closeArea.children.length); i++) {
+                const child = closeArea.children[i];
+                const fAttr = child.getAttribute('F');
+                const tAttr = child.getAttribute('T');
+                const vAttr = child.getAttribute('V');
+                console.log(`  ${i}: F="${fAttr}", T="${tAttr}", V="${vAttr ? vAttr.substring(0, 50) : 'null'}"`);
+            }
+
             const wallsContainer = closeArea.querySelector("O[F='Walls']");
             console.log(`CloseArea ${idx}: Walls container:`, wallsContainer ? "bulundu" : "bulunamadı");
 
