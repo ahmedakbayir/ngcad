@@ -160,18 +160,30 @@ export function importFromXML(xmlString) {
                                 bytes[i] = binaryString.charCodeAt(i);
                             }
 
+                            console.log(`  -> Toplam byte sayısı: ${bytes.length}`);
+
                             // İlk 4 byte vertex sayısını içerir (int32)
                             const dataView = new DataView(bytes.buffer);
                             const vertexCount = dataView.getInt32(0, true); // little-endian
                             console.log(`  -> Vertex sayısı: ${vertexCount}`);
 
-                            // Vertex'leri oku (her biri 2 double = 16 byte, ama toplam 6 double = 48 byte per vertex - X,Y,Z,bulge,startWidth,endWidth)
+                            // Byte per vertex hesapla
+                            const bytesPerVertex = (bytes.length - 4) / vertexCount;
+                            console.log(`  -> Byte per vertex: ${bytesPerVertex} (${(bytes.length - 4)} / ${vertexCount})`);
+
+                            // Vertex'leri oku - her vertex için uygun byte sayısını kullan
                             let offset = 4; // İlk 4 byte'ı atla (vertex count)
                             for (let i = 0; i < vertexCount; i++) {
+                                if (offset + 16 > bytes.length) {
+                                    console.warn(`  -> Offset ${offset} aralık dışında, vertex ${i} atlandı`);
+                                    break;
+                                }
+
                                 const x = dataView.getFloat64(offset, true);
                                 const y = dataView.getFloat64(offset + 8, true);
-                                // Z, bulge, startWidth, endWidth'i atla (3 * 8 = 24 byte daha var)
-                                offset += 48; // 6 double = 48 byte
+
+                                // Kalan byte'ları atla (Z, bulge, width vs.)
+                                offset += bytesPerVertex;
 
                                 // DÜZELTME: Y eksenini ters çevir
                                 vertices.push({ x: x * SCALE, y: -y * SCALE });
