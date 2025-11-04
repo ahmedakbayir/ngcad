@@ -91,7 +91,7 @@ export function importFromXML(xmlString) {
 
     // 1. Duvarları (VdWall) oluştur ve nodeları kaydet
     // Yeni yapı: CloseArea içindeki Walls dizisini kontrol et
-    const closeAreas = entities.querySelectorAll("O[T='CloseArea']");
+    const closeAreas = entities.querySelectorAll("O[F='_Item'][T='CloseArea']");
     console.log(`${closeAreas.length} CloseArea bulundu`);
 
     closeAreas.forEach((closeArea, idx) => {
