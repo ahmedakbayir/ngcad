@@ -588,8 +588,13 @@ export function importFromXML(xmlString) {
     // Room'lar için polygon ve center hesapla (turf.js kullanarak)
     if (state.rooms && state.rooms.length > 0) {
         console.log("\n=== ROOM POLYGON VE CENTER HESAPLANIYOR ===");
+        console.log(`state.rooms.length: ${state.rooms.length}`);
         state.rooms.forEach((room, idx) => {
+            console.log(`  forEach room ${idx}:`, room);
+            console.log(`  room.vertices:`, room.vertices);
+            console.log(`  room.vertices?.length:`, room.vertices?.length);
             if (room.vertices && room.vertices.length >= 3) {
+                console.log(`  --> IF BLOĞUNA GİRDİ room ${idx}`);
                 try {
                     // turf undefined check
                     if (typeof turf === 'undefined') {
