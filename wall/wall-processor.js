@@ -303,53 +303,56 @@ function mergeColumnsWithWalls() {
     });
 }
 
-export function processWalls(skipMerge = false) {
+export function processWalls(skipMerge = false, skipRoomDetection = false) {
     // Kolon node'larını duvar sisteminden ayır
     state.nodes = state.nodes.filter(n => !n.isColumnNode);
-    
+
     // LOKAL KALINLIK İÇİN: skipMerge true ise birleştirme yapma
     if (!skipMerge) {
         unifyNearbyNodes(1.0);
     }
-    
+
     const filteredWalls = state.walls.filter(w => {
         if (!w || !w.p1 || !w.p2) return false;
         const length = Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y);
         return length > 0.1;
     });
-    
+
     const filteredDoors = state.doors.filter((d) => {
         if (!d.wall || !filteredWalls.includes(d.wall)) return false;
         const wallLength = Math.hypot(d.wall.p2.x - d.wall.p1.x, d.wall.p2.y - d.wall.p1.y);
         return d.pos >= 0 && d.pos <= wallLength;
     });
-    
+
     setState({ walls: filteredWalls, doors: filteredDoors, beams: state.beams }); // <-- beams EKLEYİN
 
     splitWallsAtCrossings();
     splitWallsAtTjunctions();
     mergeDuplicateWalls();
-    
+
     // LOKAL KALINLIK İÇİN: skipMerge true ise birleştirme yapma
     if (!skipMerge) {
         mergeCollinearChains();
         straightenNearlyHorizontalOrVerticalWalls();
     }
-    
+
     const validWalls = state.walls.filter(w => {
         if (!w || !w.p1 || !w.p2) return false;
         const length = Math.hypot(w.p1.x - w.p2.x, w.p1.y - w.p2.y);
         return length > 0.1 && isFinite(w.p1.x) && isFinite(w.p1.y) && isFinite(w.p2.x) && isFinite(w.p2.y);
     });
     setState({ walls: validWalls, beams: state.beams }); // <-- beams EKLEYİN
-    
+
     mergeColumnsWithWalls();
-    
-    try {
-        detectRooms();
-    } catch (error) {
-        console.error("Oda tespiti sırasında hata:", error);
-        setState({ rooms: [] });
+
+    // XML import gibi durumlarda room'lar zaten var, detectRooms() atla
+    if (!skipRoomDetection) {
+        try {
+            detectRooms();
+        } catch (error) {
+            console.error("Oda tespiti sırasında hata:", error);
+            setState({ rooms: [] });
+        }
     }
 
     const wallAdjacency = new Map();
