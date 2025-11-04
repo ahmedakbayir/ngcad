@@ -32,9 +32,24 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
 
     console.log('[XML-IO] Found Entities node');
 
-    // DEBUG: Show first few child elements to understand structure
-    const firstChildren = Array.from(entitiesNode.children).slice(0, 5);
-    console.log('[XML-IO] First 5 child elements of Entities:');
+    // DEBUG: Show structure and count all element types
+    const allChildren = Array.from(entitiesNode.children);
+    console.log('[XML-IO] Total children in Entities:', allChildren.length);
+
+    // Count each type
+    const typeCounts = {};
+    allChildren.forEach(child => {
+        const type = child.getAttribute('T');
+        const f = child.getAttribute('F');
+        if (f === '_Item' && type) {
+            typeCounts[type] = (typeCounts[type] || 0) + 1;
+        }
+    });
+    console.log('[XML-IO] Element types found (F="_Item"):', typeCounts);
+
+    // Show first 20 for structure understanding
+    const firstChildren = allChildren.slice(0, 20);
+    console.log('[XML-IO] First 20 child elements:');
     firstChildren.forEach((child, i) => {
         console.log(`  [${i}] Tag: ${child.tagName}, F="${child.getAttribute('F')}", T="${child.getAttribute('T')}"`);
     });
