@@ -148,21 +148,56 @@ export function importFromXML(xmlString) {
             const vertexListEl = closeArea.querySelector("O[F='VertexList']");
             const vertices = [];
             if (vertexListEl) {
-                console.log(`  -> VertexList bulundu, içindeki children:`, vertexListEl.children.length);
-                for (let i = 0; i < Math.min(5, vertexListEl.children.length); i++) {
-                    const child = vertexListEl.children[i];
-                    console.log(`    ${i}: tagName=${child.tagName}, F=${child.getAttribute('F')}, T=${child.getAttribute('T')}, V=${child.getAttribute('V')}`);
+                console.log(`  -> VertexList bulundu`);
+
+                // Önce P[F='_Item'] formatını dene (eski format)
+                let vertexElements = vertexListEl.querySelectorAll("P[F='_Item']");
+
+                if (vertexElements.length === 0) {
+                    // Yeni format: P[F='streamed'] - base64 encoded binary data
+                    const streamedEl = vertexListEl.querySelector("P[F='streamed']");
+                    if (streamedEl) {
+                        console.log(`  -> Streamed format bulundu, decode ediliyor...`);
+                        const base64Data = streamedEl.getAttribute('V');
+
+                        try {
+                            // Base64 decode
+                            const binaryString = atob(base64Data);
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }
+
+                            // İlk 4 byte vertex sayısını içerir (int32)
+                            const dataView = new DataView(bytes.buffer);
+                            const vertexCount = dataView.getInt32(0, true); // little-endian
+                            console.log(`  -> Vertex sayısı: ${vertexCount}`);
+
+                            // Vertex'leri oku (her biri 2 double = 16 byte, ama toplam 6 double = 48 byte per vertex - X,Y,Z,bulge,startWidth,endWidth)
+                            let offset = 4; // İlk 4 byte'ı atla (vertex count)
+                            for (let i = 0; i < vertexCount; i++) {
+                                const x = dataView.getFloat64(offset, true);
+                                const y = dataView.getFloat64(offset + 8, true);
+                                // Z, bulge, startWidth, endWidth'i atla (3 * 8 = 24 byte daha var)
+                                offset += 48; // 6 double = 48 byte
+
+                                // DÜZELTME: Y eksenini ters çevir
+                                vertices.push({ x: x * SCALE, y: -y * SCALE });
+                            }
+                            console.log(`  -> ${vertices.length} köşe noktası decode edildi`);
+                        } catch (e) {
+                            console.error(`  -> Streamed data decode hatası:`, e);
+                        }
+                    }
+                } else {
+                    // Eski format: P[F='_Item'] elementleri
+                    vertexElements.forEach(vertexEl => {
+                        const coords = vertexEl.getAttribute('V').split(',').map(Number);
+                        // DÜZELTME: Y eksenini ters çevir
+                        vertices.push({ x: coords[0] * SCALE, y: -coords[1] * SCALE });
+                    });
+                    console.log(`  -> ${vertices.length} köşe noktası bulundu (eski format)`);
                 }
-
-                const vertexElements = vertexListEl.querySelectorAll("P[F='_Item']");
-                console.log(`  -> P[F='_Item'] selector ile ${vertexElements.length} vertex bulundu`);
-
-                vertexElements.forEach(vertexEl => {
-                    const coords = vertexEl.getAttribute('V').split(',').map(Number);
-                    // DÜZELTME: Y eksenini ters çevir
-                    vertices.push({ x: coords[0] * SCALE, y: -coords[1] * SCALE });
-                });
-                console.log(`  -> ${vertices.length} köşe noktası eklendi`);
             } else {
                 console.log(`  -> VertexList bulunamadı!`);
             }
