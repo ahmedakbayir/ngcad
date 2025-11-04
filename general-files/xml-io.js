@@ -71,6 +71,12 @@ export function importFromXML(xmlString) {
 
     console.log("XML Import başlatılıyor...");
     console.log("Entities bulundu:", entities);
+    console.log("Entities children count:", entities.children.length);
+    console.log("Entities first 5 children:");
+    for (let i = 0; i < Math.min(5, entities.children.length); i++) {
+        const child = entities.children[i];
+        console.log(`  ${i}: tagName=${child.tagName}, F=${child.getAttribute('F')}, T=${child.getAttribute('T')}`);
+    }
 
     // --- ÖNEMLİ: Import öncesi mevcut state'i temizle ---
     setState({
