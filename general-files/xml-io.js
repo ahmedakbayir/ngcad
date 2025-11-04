@@ -114,8 +114,12 @@ export function importFromXML(xmlString) {
     });
 
     // Eski yapı için backward compatibility: Doğrudan VdWall elemanlarını kontrol et
-    const directWallElements = entities.querySelectorAll("O[T='VdWall']");
-    console.log(`${directWallElements.length} doğrudan VdWall bulundu`);
+    // (CloseArea'ya ait olmayan duvarlar - sadece entities'in direkt child'ları)
+    const directWallElements = Array.from(entities.children).filter(child =>
+        (child.tagName === 'O' && child.getAttribute('T') === 'VdWall') ||
+        (child.tagName === 'O' && child.getAttribute('F') === '_Item' && child.getAttribute('T') === 'VdWall')
+    );
+    console.log(`${directWallElements.length} doğrudan VdWall bulundu (CloseArea dışı)`);
 
     directWallElements.forEach((wallEl, idx) => {
         console.log(`  -> Doğrudan wall ${idx} işleniyor...`);
