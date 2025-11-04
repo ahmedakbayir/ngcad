@@ -12,6 +12,7 @@ import { processWalls } from '../wall/wall-processor.js';
 import { saveState } from './history.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
+import * as turf from '../libs/turf.js';
 
 // XML'deki koordinatları cm'ye çevirmek için ölçek
 const SCALE = 100;
