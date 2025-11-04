@@ -54,6 +54,30 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
         console.log(`  [${i}] Tag: ${child.tagName}, F="${child.getAttribute('F')}", T="${child.getAttribute('T')}"`);
     });
 
+    // DEEP SEARCH: Try to find CloseArea anywhere in the document
+    console.log('[XML-IO] Searching entire document for CloseArea, Door, Window...');
+    const allCloseAreas = Array.from(xmlDoc.querySelectorAll('O[T="CloseArea"]'));
+    const allDoors = Array.from(xmlDoc.querySelectorAll('O[T="Door"]'));
+    const allWindows = Array.from(xmlDoc.querySelectorAll('O[T="Window"]'));
+    const allKolons = Array.from(xmlDoc.querySelectorAll('O[T="Kolon"]'));
+    console.log('[XML-IO] Found in entire document:', {
+        CloseArea: allCloseAreas.length,
+        Door: allDoors.length,
+        Window: allWindows.length,
+        Kolon: allKolons.length
+    });
+
+    // If found, show parent path of first CloseArea
+    if (allCloseAreas.length > 0) {
+        let elem = allCloseAreas[0];
+        const path = [];
+        while (elem && elem !== xmlDoc) {
+            path.unshift(`${elem.tagName}[F="${elem.getAttribute('F')}", T="${elem.getAttribute('T')}"]`);
+            elem = elem.parentElement;
+        }
+        console.log('[XML-IO] Path to first CloseArea:', path.join(' > '));
+    }
+
     // Initialize project data with current settings if available
     const projectData = {
         version: "1.0",
