@@ -591,10 +591,18 @@ export function importFromXML(xmlString) {
         state.rooms.forEach((room, idx) => {
             if (room.vertices && room.vertices.length >= 3) {
                 try {
+                    // turf undefined check
+                    if (typeof turf === 'undefined') {
+                        console.error(`  Room ${idx} (${room.name}): turf undefined! CDN yüklenmemiş olabilir.`);
+                        return;
+                    }
+
                     // Turf.js için koordinat formatı: [[x, y], [x, y], ...]
                     const turfCoords = room.vertices.map(v => [v.x, v.y]);
                     // İlk ve son nokta aynı olmalı (kapalı polygon)
                     turfCoords.push(turfCoords[0]);
+
+                    console.log(`  Room ${idx} (${room.name}): ${turfCoords.length} koordinat`);
 
                     // Turf polygon oluştur
                     room.polygon = turf.polygon([turfCoords]);
@@ -609,6 +617,8 @@ export function importFromXML(xmlString) {
                     console.log(`  Room ${idx} (${room.name}): center=[${room.center[0].toFixed(2)}, ${room.center[1].toFixed(2)}], area=${room.area.toFixed(2)} m²`);
                 } catch (e) {
                     console.error(`  Room ${idx} (${room.name}) polygon hesaplama hatası:`, e);
+                    console.error(`  Error name: ${e.name}, message: ${e.message}`);
+                    console.error(`  Stack:`, e.stack);
                 }
             }
         });
