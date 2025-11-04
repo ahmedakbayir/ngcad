@@ -87,13 +87,35 @@ export function importFromXML(xmlString) {
 
 
     // 1. Duvarları (VdWall) oluştur ve nodeları kaydet
-    const wallElements = entities.querySelectorAll("O[T='VdWall']");
-    wallElements.forEach(wallEl => {
+    // Yeni yapı: CloseArea içindeki Walls dizisini kontrol et
+    const closeAreas = entities.querySelectorAll("O[T='CloseArea']");
+    closeAreas.forEach(closeArea => {
+        try {
+            const wallsContainer = closeArea.querySelector("O[F='Walls']");
+            if (wallsContainer) {
+                const wallElements = wallsContainer.querySelectorAll("O[F='_Item'][T='VdWall']");
+                wallElements.forEach(wallEl => {
+                    processWallElement(wallEl);
+                });
+            }
+        } catch (e) {
+            console.error("CloseArea işlenirken hata:", e, closeArea);
+        }
+    });
+
+    // Eski yapı için backward compatibility: Doğrudan VdWall elemanlarını kontrol et
+    const directWallElements = entities.querySelectorAll("O[T='VdWall']");
+    directWallElements.forEach(wallEl => {
+        processWallElement(wallEl);
+    });
+
+    // Duvar işleme fonksiyonu
+    function processWallElement(wallEl) {
         try {
             const startPointEl = wallEl.querySelector("P[F='StartPoint']");
             const endPointEl = wallEl.querySelector("P[F='EndPoint']");
             const widthEl = wallEl.querySelector("P[F='Width']"); // Kalınlık
-            
+
             if (startPointEl && endPointEl) {
                 const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
                 const endCoords = endPointEl.getAttribute('V').split(',').map(Number);
@@ -123,12 +145,10 @@ export function importFromXML(xmlString) {
         } catch (e) {
             console.error("Duvar işlenirken hata:", e, wallEl);
         }
-    });
+    }
 
     // 2. Kolonları (KolonHavalandirmasi) oluştur
-    // ***** DEĞİŞİKLİK BURADA *****
-    const kolonElements = entities.querySelectorAll("O[T='KolonHavalandirmasi']"); 
-    // ***** DEĞİŞİKLİK SONU *****
+    const kolonElements = entities.querySelectorAll("O[T='KolonHavalandirmasi'], O[F='_Item'][T='KolonHavalandirmasi']");
     kolonElements.forEach(kolonEl => {
         try {
             const insertionPointEl = kolonEl.querySelector("P[F='InsertionPoint']");
@@ -162,7 +182,7 @@ export function importFromXML(xmlString) {
     });
 
     // 3. Kapıları (Door) işle
-    const doorElements = entities.querySelectorAll("O[T='Door']");
+    const doorElements = entities.querySelectorAll("O[T='Door'], O[F='_Item'][T='Door']");
     doorElements.forEach(doorEl => {
         try {
             const originEl = doorEl.querySelector("P[F='Origin']");
@@ -193,7 +213,7 @@ export function importFromXML(xmlString) {
     });
 
     // 4. Pencereleri (Window) işle
-    const windowElements = entities.querySelectorAll("O[T='Window']");
+    const windowElements = entities.querySelectorAll("O[T='Window'], O[F='_Item'][T='Window']");
     windowElements.forEach(winEl => {
         try {
             const originEl = winEl.querySelector("P[F='Origin']");
