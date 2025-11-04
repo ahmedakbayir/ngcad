@@ -100,13 +100,14 @@ export function parseXMLToProject(xmlString, currentSettings = null) {
         guides: []
     };
 
-    // Parse all elements
-    const closeAreas = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="CloseArea"]'));
-    const doors = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="Door"]'));
-    const windows = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="Window"]'));
-    const kolons = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="Kolon"]'));
-    const menfezler = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="Menfez"]'));
-    const stairs = Array.from(entitiesNode.querySelectorAll('O[F="_Item"][T="clsmerdiven"]'));
+    // Parse all elements - search in entire document since structure varies
+    // Some XML files have elements directly under Entities, others nest them differently
+    const closeAreas = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="CloseArea"]'));
+    const doors = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Door"]'));
+    const windows = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Window"]'));
+    const kolons = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Kolon"]'));
+    const menfezler = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="Menfez"]'));
+    const stairs = Array.from(xmlDoc.querySelectorAll('O[F="_Item"][T="clsmerdiven"]'));
 
     console.log('[XML-IO] Found elements:', {
         closeAreas: closeAreas.length,
