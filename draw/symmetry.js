@@ -492,8 +492,17 @@ export function applyCopy(axisP1, axisP2) {
             x: stair.center.x + translationX,
             y: stair.center.y + translationY
         };
-        // --- DÜZELTME: isLanding bilgisi eklendi ---
         const newStair = createStairs(copiedCenter.x, copiedCenter.y, stair.width, stair.height, stair.rotation || 0, stair.isLanding);
+
+        // Kot bilgilerini ve diğer özellikleri orijinal merdivenden kopyala
+        Object.assign(newStair, {
+            bottomElevation: stair.bottomElevation,
+            topElevation: stair.topElevation,
+            showRailing: stair.showRailing,
+            stepCount: stair.stepCount,
+            // connectedStairId kopyalanmaz (null kalır) çünkü kopya bağımsız olmalı
+        });
+
         newStairs.push(newStair);
     });
 
@@ -679,9 +688,17 @@ export function applySymmetry(axisP1, axisP2) {
         if (reflectedCenter) {
             const originalRotationRad = (stair.rotation || 0) * Math.PI / 180;
             const reflectedRotationRad = 2 * axisAngleRad - originalRotationRad;
-            // --- DÜZELTME: isLanding bilgisi eklendi ---
             const newStair = createStairs(reflectedCenter.x, reflectedCenter.y, stair.width, stair.height, reflectedRotationRad * 180 / Math.PI, stair.isLanding);
-            // stepCount zaten createStairs içinde hesaplanır
+
+            // Kot bilgilerini ve diğer özellikleri orijinal merdivenden kopyala
+            Object.assign(newStair, {
+                bottomElevation: stair.bottomElevation,
+                topElevation: stair.topElevation,
+                showRailing: stair.showRailing,
+                stepCount: stair.stepCount,
+                // connectedStairId kopyalanmaz (null kalır) çünkü simetrik merdiven bağımsız olmalı
+            });
+
             newStairs.push(newStair);
         }
     });
