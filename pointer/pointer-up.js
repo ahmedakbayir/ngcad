@@ -194,7 +194,7 @@ export function onPointerUp(e) {
         preDragWallStates: new Map(),
         preDragNodeStates: new Map(),
         dragWallInitialVector: null,
-        selectedObject: didClick ? state.selectedObject : null, // Kamera da dahil tüm seçimler temizlenir
+        selectedObject: (didClick || state.selectedObject?.type === "arcControl") ? state.selectedObject : null, // arcControl sürüklemesi sonrası seçimi koru
         dragOriginalNodes: null,
         isSweeping: false,
         sweepWalls: [],

@@ -105,20 +105,50 @@ function setupWallPanelListeners() {
     arcWallCheckbox.addEventListener('change', (e) => {
         if (wallPanelWall) {
             wallPanelWall.isArc = e.target.checked;
-            // İlk kez arc aktif edildiğinde kontrol noktalarını oluştur
-            if (wallPanelWall.isArc && !wallPanelWall.arcControl1) {
-                const dx = wallPanelWall.p2.x - wallPanelWall.p1.x;
-                const dy = wallPanelWall.p2.y - wallPanelWall.p1.y;
-                const wallLength = Math.hypot(dx, dy);
-                // Duvarın normalini bul (duvara dik)
-                const nx = -dy / wallLength;
-                const ny = dx / wallLength;
-                // Kontrol noktalarını duvarın uçlarından duvara dik olarak ve duvar uzunluğunun yarısı kadar yerleştir
-                // İkisi de birbirine paralel (aynı normal yönünde)
-                const offset = wallLength / 2;
-                wallPanelWall.arcControl1 = { x: wallPanelWall.p1.x + nx * offset, y: wallPanelWall.p1.y + ny * offset };
-                wallPanelWall.arcControl2 = { x: wallPanelWall.p2.x + nx * offset, y: wallPanelWall.p2.y + ny * offset };
+
+            if (wallPanelWall.isArc) {
+                if (!wallPanelWall.arcControl1) {
+                    // İlk kez arc aktif edildiğinde kontrol noktalarını oluştur
+                    const dx = wallPanelWall.p2.x - wallPanelWall.p1.x;
+                    const dy = wallPanelWall.p2.y - wallPanelWall.p1.y;
+                    const wallLength = Math.hypot(dx, dy);
+                    // Duvarın normalini bul (duvara dik)
+                    const nx = -dy / wallLength;
+                    const ny = dx / wallLength;
+                    // Kontrol noktalarını duvarın uçlarından duvara dik olarak ve duvar uzunluğunun yarısı kadar yerleştir
+                    const offset = wallLength / 2;
+                    wallPanelWall.arcControl1 = { x: wallPanelWall.p1.x + nx * offset, y: wallPanelWall.p1.y + ny * offset };
+                    wallPanelWall.arcControl2 = { x: wallPanelWall.p2.x + nx * offset, y: wallPanelWall.p2.y + ny * offset };
+                } else {
+                    // Kontrol noktaları zaten var, duvar üzerinden 180° ters çevir
+                    const p1 = wallPanelWall.p1;
+                    const p2 = wallPanelWall.p2;
+                    const dx = p2.x - p1.x;
+                    const dy = p2.y - p1.y;
+                    const lenSq = dx * dx + dy * dy;
+
+                    if (lenSq > 1e-6) {
+                        // arcControl1'i flip et
+                        const t1 = ((wallPanelWall.arcControl1.x - p1.x) * dx + (wallPanelWall.arcControl1.y - p1.y) * dy) / lenSq;
+                        const proj1X = p1.x + t1 * dx;
+                        const proj1Y = p1.y + t1 * dy;
+                        wallPanelWall.arcControl1 = {
+                            x: 2 * proj1X - wallPanelWall.arcControl1.x,
+                            y: 2 * proj1Y - wallPanelWall.arcControl1.y
+                        };
+
+                        // arcControl2'yi flip et
+                        const t2 = ((wallPanelWall.arcControl2.x - p1.x) * dx + (wallPanelWall.arcControl2.y - p1.y) * dy) / lenSq;
+                        const proj2X = p1.x + t2 * dx;
+                        const proj2Y = p1.y + t2 * dy;
+                        wallPanelWall.arcControl2 = {
+                            x: 2 * proj2X - wallPanelWall.arcControl2.x,
+                            y: 2 * proj2Y - wallPanelWall.arcControl2.y
+                        };
+                    }
+                }
             }
+
             saveState();
             if (dom.mainContainer.classList.contains('show-3d')) { setTimeout(update3DScene, 0); }
         }
