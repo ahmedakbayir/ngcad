@@ -29,7 +29,7 @@ export function getDoorAtPoint(pos, tolerance) {
         const distParallel = Math.abs(dx_p * dx + dy_p * dy);
 
         if (distPerpendicular < wallPx / 2 + tolerance && distParallel < door.width / 2 + tolerance) {
-             return { type: "door", object: door };
+             return { type: "door", object: door, handle: 'body' };
         }
     }
     return null;

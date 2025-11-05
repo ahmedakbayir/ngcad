@@ -46,11 +46,6 @@ export function onPointerDown(e) {
         // Tıklanan nesneyi bul
         const clickedObject = getObjectAtPoint(pos);
 
-        // DEBUG: CTRL basılıyken ne oluyor
-        if (e.ctrlKey && clickedObject) {
-            console.log('🎯 CTRL pressed, clicked:', clickedObject.type, 'handle:', clickedObject.handle);
-        }
-
         // Silme modu (Sadece Alt tuşu basılıysa)
         if (e.altKey && !e.ctrlKey && !e.shiftKey) {
             setState({ isCtrlDeleting: true }); // Silme modunu başlat
@@ -63,9 +58,6 @@ export function onPointerDown(e) {
         if (e.ctrlKey && !e.altKey && !e.shiftKey && clickedObject &&
             ['column', 'beam', 'stairs', 'door', 'window'].includes(clickedObject.type) &&
             clickedObject.handle === 'body') {
-
-            console.log('🔵 CTRL Multi-Select Triggered:', clickedObject.type, clickedObject.handle);
-
             // Seçili grup içinde bu nesne var mı kontrol et
             const existingIndex = state.selectedGroup.findIndex(item =>
                 item.type === clickedObject.type && item.object === clickedObject.object
@@ -76,14 +68,12 @@ export function onPointerDown(e) {
                 const newGroup = [...state.selectedGroup];
                 newGroup.splice(existingIndex, 1);
                 setState({ selectedGroup: newGroup, selectedObject: null });
-                console.log('✅ Removed from group. New group size:', newGroup.length);
             } else {
                 // Seçili değilse, gruba ekle (toggle on)
                 setState({
                     selectedGroup: [...state.selectedGroup, clickedObject],
                     selectedObject: null
                 });
-                console.log('✅ Added to group. New group size:', state.selectedGroup.length + 1);
             }
             return; // Multi-select işlemi bitti, sürükleme başlatma
         }

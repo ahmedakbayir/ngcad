@@ -55,7 +55,7 @@ export function getWindowAtPoint(pos, tolerance) {
             const distParallel = Math.abs(dx_p * dx + dy_p * dy);
 
              if (distPerpendicular < wallPx / 2 + tolerance && distParallel < window.width / 2 + tolerance) {
-                 return { type: "window", object: window, wall: wall };
+                 return { type: "window", object: window, wall: wall, handle: 'body' };
              }
         }
     }
