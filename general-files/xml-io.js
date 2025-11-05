@@ -134,7 +134,7 @@ export function importFromXML(xmlString) {
             // AreaType'ı al (mahal tipi)
             const areaTypeEl = closeArea.querySelector("P[F='AreaType']");
             const areaTypeValue = areaTypeEl ? parseInt(areaTypeEl.getAttribute('V')) : null;
-            const roomName = areaTypeValue ? (VECTORDRAW_AREA_TYPES[areaTypeValue] || `Oda ${idx + 1}`) : `Oda ${idx + 1}`;
+            const roomName = areaTypeValue ? (VECTORDRAW_AREA_TYPES[areaTypeValue] || `MAHAL`) : `MAHAL`;
 
             console.log(`\nCloseArea ${idx} - AreaType: ${areaTypeValue}, İsim: ${roomName}`);
 

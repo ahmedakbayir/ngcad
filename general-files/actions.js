@@ -180,7 +180,7 @@ export function getObjectAtPoint(pos) {
                     const distToCenter = Math.hypot(pos.x - room.center[0], pos.y - room.center[1]);
                     
                     // DEĞİŞTİ: 40 -> (40 / 3)
-                    const nameTolerance = (40 / 3) / zoom; // Mahal adı yakalama toleransı
+                    const nameTolerance = (75 / 3) / zoom; // Mahal adı yakalama toleransı
                     
                     if (distToCenter < nameTolerance) {
                         isOverName = true; // Evet, isim/alan üzerindeyiz
