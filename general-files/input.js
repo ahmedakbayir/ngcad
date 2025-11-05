@@ -294,6 +294,20 @@ function onKeyDown(e) {
         return;
     }
 
+    // Mahal (room) seçiliyken harf girişi ile filtreleme
+    if (state.selectedObject && state.selectedObject.type === "room" && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key)) {
+        e.preventDefault();
+        const room = state.selectedObject.object;
+        // Get room center position for popup
+        const centerX = room.center ? room.center.x : 0;
+        const centerY = room.center ? room.center.y : 0;
+        const screenPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        // Create a synthetic event with screen position
+        const syntheticEvent = { clientX: screenPos.x, clientY: screenPos.y };
+        showRoomNamePopup(room, syntheticEvent, e.key);
+        return;
+    }
+
     // Kopyala / Yapıştır (Input dışındayken)
     if (e.ctrlKey && e.key.toLowerCase() === 'c') { handleCopy(e); return; }
     if (e.ctrlKey && e.key.toLowerCase() === 'v') { handlePaste(e); return; }

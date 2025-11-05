@@ -76,10 +76,10 @@ function filterRoomNameList() {
     populateRoomNameList(dom.roomNameInput.value);
 }
 
-export function showRoomNamePopup(room, e) {
+export function showRoomNamePopup(room, e, initialKey = '') {
     setState({ roomToEdit: room });
-    dom.roomNameInput.value = ''; // Input'u temizle
-    populateRoomNameList(); // Listeyi doldur
+    dom.roomNameInput.value = initialKey; // Initial key veya boş
+    populateRoomNameList(initialKey); // Listeyi doldur (varsa filtre ile)
 
     // Popup'ı konumlandır
     const popupWidth = dom.roomNamePopup.offsetWidth || 200; // Genişliği al veya varsay
@@ -100,7 +100,11 @@ export function showRoomNamePopup(room, e) {
     dom.roomNamePopup.style.left = `${left}px`;
     dom.roomNamePopup.style.top = `${top}px`;
     dom.roomNamePopup.style.display = 'block';
-    dom.roomNameInput.focus(); // Input alanına odaklan
+
+    // Use setTimeout to ensure focus works correctly
+    setTimeout(() => {
+        dom.roomNameInput.focus();
+    }, 0);
 
     // Dışarı tıklama dinleyicisini ayarla
     const clickListener = (event) => {
@@ -234,8 +238,13 @@ export function startLengthEdit(initialKey = '') {
     if (state.selectedObject.type === "wall") { const wall = selectedObject.object; const currentLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); currentValue = currentLength.toFixed(0); }
     else { currentValue = state.selectedObject.object.width.toFixed(0); }
     dom.lengthInput.value = initialKey || currentValue;
-    dom.lengthInput.focus();
-    if (!initialKey) { setTimeout(() => dom.lengthInput.select(), 0); }
+    // Use setTimeout to ensure the input is fully rendered before focusing
+    setTimeout(() => {
+        dom.lengthInput.focus();
+        if (!initialKey) {
+            dom.lengthInput.select();
+        }
+    }, 0);
 }
 
 // Uzunluk düzenlemeyi onaylama
