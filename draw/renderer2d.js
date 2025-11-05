@@ -523,7 +523,12 @@ export function drawStairs(stair, isSelected = false) {
     const corners = getStairCorners(stair); // Köşe noktalarını al
     const stairColor = isSelected ? '#8ab4f8' : wallBorderColor;
     const backgroundColor = roomFillColor || '#1e1f20';
-    const rotRad = (stair.rotation || 0) * Math.PI / 180;
+
+    // Merdiven yönünü belirle (bottomElevation > topElevation ise aşağı iniyor)
+    const isGoingDown = (stair.bottomElevation || 0) > (stair.topElevation || 0);
+    // Aşağı iniyorsa rotasyonu 180° ters çevir
+    const effectiveRotation = isGoingDown ? (stair.rotation || 0) + 180 : (stair.rotation || 0);
+    const rotRad = effectiveRotation * Math.PI / 180;
     const dirX = Math.cos(rotRad); // Ok için yön vektörleri
     const dirY = Math.sin(rotRad);
     const perpX = -dirY; // Kenara dik vektör

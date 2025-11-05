@@ -27,7 +27,8 @@ export function getBeamCorners(beam) {
     const halfHeight = (beam.height || 0) / 2;
     const cx = beam.center.x;
     const cy = beam.center.y;
-    const rot = (beam.rotation || 0) * Math.PI / 180;
+    // Y-ekseni ters çevrildiği için rotasyonu da ters çevir
+    const rot = -(beam.rotation || 0) * Math.PI / 180;
 
     const corners = [
         { x: -halfWidth, y: -halfHeight },  // Sol üst
@@ -102,7 +103,8 @@ export function getBeamAtPoint(point) {
 export function isPointInBeam(point, beam) {
     const cx = beam.center.x;
     const cy = beam.center.y;
-    const rot = (beam.rotation || 0) * Math.PI / 180;
+    // Y-ekseni ters çevrildiği için rotasyonu da ters çevir (ters rotasyon matrisi için)
+    const rot = -(beam.rotation || 0) * Math.PI / 180;
     const dx = point.x - cx;
     const dy = point.y - cy;
     const localX = dx * Math.cos(rot) - dy * Math.sin(rot);
@@ -282,7 +284,8 @@ export function onPointerMove(snappedPos, unsnappedPos) {
          else if (fixedEdgeHandle === 'edge_right') { fixedPoint1 = initialCorners[1]; fixedPoint2 = initialCorners[2]; }
          const fixedEdgeMidPoint = { x: (fixedPoint1.x + fixedPoint2.x) / 2, y: (fixedPoint1.y + fixedPoint2.y) / 2 };
 
-         const rotRad = (beam.rotation || 0) * Math.PI / 180;
+         // Y-ekseni ters çevrildiği için rotasyonu da ters çevir
+         const rotRad = -(beam.rotation || 0) * Math.PI / 180;
          const cosRot = Math.cos(rotRad);
          const sinRot = Math.sin(rotRad);
          let axisVector;
