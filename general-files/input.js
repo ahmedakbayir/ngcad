@@ -8,7 +8,7 @@ import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, h
 import { createStairs, recalculateStepCount, isPointInStair, getNextStairLetter} from '../architectural-objects/stairs.js'; // isPointInStair eklendi
 import { createColumn, isPointInColumn } from '../architectural-objects/columns.js'; // isPointInColumn eklendi
 import { createBeam, isPointInBeam } from '../architectural-objects/beams.js'; // isPointInBeam eklendi
-import { screenToWorld, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from '../draw/geometry.js'; // distToSegmentSquared ekleyin
+import { screenToWorld, worldToScreen, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from '../draw/geometry.js'; // distToSegmentSquared ekleyin
 import { showGuideContextMenu, hideGuideContextMenu } from '../draw/guide-menu.js';
 import { fitDrawingToScreen, onWheel } from '../draw/zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { showWallPanel, hideWallPanel } from '../wall/wall-panel.js'; // <-- HIDEWALLPANEL EKLENDİ
@@ -298,10 +298,10 @@ function onKeyDown(e) {
     if (state.selectedObject && state.selectedObject.type === "room" && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key)) {
         e.preventDefault();
         const room = state.selectedObject.object;
-        // Get room center position for popup
+        // Get room center position and convert to screen coordinates
         const centerX = room.center ? room.center.x : 0;
         const centerY = room.center ? room.center.y : 0;
-        const screenPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+        const screenPos = worldToScreen(centerX, centerY);
         // Create a synthetic event with screen position
         const syntheticEvent = { clientX: screenPos.x, clientY: screenPos.y };
         showRoomNamePopup(room, syntheticEvent, e.key);
