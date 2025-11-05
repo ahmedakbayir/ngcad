@@ -189,7 +189,7 @@ export function onPointerUp(e) {
         aDragOccurred: false,
         stretchMode: null,
         initialDragPoint: null,
-        selectedGroup: [], // Sürükleme sonrası seçimi korumak için yorumlandı
+        // selectedGroup: [], // REMOVED - Bu satır CTRL multi-select'i bozuyordu
         affectedWalls: [],
         preDragWallStates: new Map(),
         preDragNodeStates: new Map(),
