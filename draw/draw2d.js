@@ -343,14 +343,16 @@ export function draw2D() {
 
     // 8. Kapılar, Pencereler, Menfezler
     doors.forEach((door) => {
-        const isSelected = selectedObject?.type === "door" && selectedObject.object === door;
+        const isSelected = (selectedObject?.type === "door" && selectedObject.object === door) ||
+                          state.selectedGroup.some(item => item.type === "door" && item.object === door);
         drawDoorSymbol(door, false, isSelected);
     });
 
     walls.forEach(wall => {
         if (wall.windows && wall.windows.length > 0) {
             wall.windows.forEach(window => {
-                const isSelected = selectedObject?.type === "window" && selectedObject.object === window;
+                const isSelected = (selectedObject?.type === "window" && selectedObject.object === window) ||
+                                  state.selectedGroup.some(item => item.type === "window" && item.object === window);
                 drawWindowSymbol(wall, window, false, isSelected);
             });
         }

@@ -55,7 +55,7 @@ export function onPointerDown(e) {
 
         // CTRL ile multi-select modu (sadece CTRL basılıyken, sürüklenebilir nesneler için)
         if (e.ctrlKey && !e.altKey && !e.shiftKey && clickedObject &&
-            ['column', 'beam', 'stairs'].includes(clickedObject.type)) {
+            ['column', 'beam', 'stairs', 'door', 'window'].includes(clickedObject.type)) {
             // Seçili grup içinde bu nesne var mı kontrol et
             const existingIndex = state.selectedGroup.findIndex(item =>
                 item.type === clickedObject.type && item.object === clickedObject.object
