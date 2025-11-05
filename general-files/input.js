@@ -373,7 +373,7 @@ function onKeyDown(e) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         // Tek nesne veya grup seçimi kontrolü
         const hasSelection = state.selectedGroup.length > 0 ||
-                           (state.selectedObject && ['column', 'beam', 'stairs'].includes(state.selectedObject.type));
+                           (state.selectedObject && ['column', 'beam', 'stairs', 'door', 'window'].includes(state.selectedObject.type));
 
         if (!hasSelection) return; // Hiç seçili nesne yoksa çık
 
@@ -402,19 +402,96 @@ function onKeyDown(e) {
                 } else if (selectedItem.type === 'stairs' && obj.center) {
                     obj.center.x += deltaX;
                     obj.center.y += deltaY;
+                } else if (selectedItem.type === 'door' && obj.wall) {
+                    // Kapı için: mevcut pozisyonunu hesapla, hareket ettir, yeni pos'u bul
+                    const wall = obj.wall;
+                    if (wall.p1 && wall.p2) {
+                        const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                        if (wallLen > 0.1) {
+                            const dx = (wall.p2.x - wall.p1.x) / wallLen;
+                            const dy = (wall.p2.y - wall.p1.y) / wallLen;
+                            // Mevcut merkez
+                            let centerX = wall.p1.x + dx * obj.pos;
+                            let centerY = wall.p1.y + dy * obj.pos;
+                            // Hareket ettir
+                            centerX += deltaX;
+                            centerY += deltaY;
+                            // Yeni pos'u hesapla (duvara izdüşüm)
+                            const newPos = Math.max(obj.width / 2, Math.min(wallLen - obj.width / 2,
+                                ((centerX - wall.p1.x) * dx + (centerY - wall.p1.y) * dy)));
+                            obj.pos = newPos;
+                        }
+                    }
+                } else if (selectedItem.type === 'window' && selectedItem.wall) {
+                    // Pencere için: wall referansı selectedItem içinde
+                    const wall = selectedItem.wall;
+                    if (wall.p1 && wall.p2) {
+                        const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                        if (wallLen > 0.1) {
+                            const dx = (wall.p2.x - wall.p1.x) / wallLen;
+                            const dy = (wall.p2.y - wall.p1.y) / wallLen;
+                            // Mevcut merkez
+                            let centerX = wall.p1.x + dx * obj.pos;
+                            let centerY = wall.p1.y + dy * obj.pos;
+                            // Hareket ettir
+                            centerX += deltaX;
+                            centerY += deltaY;
+                            // Yeni pos'u hesapla (duvara izdüşüm)
+                            const newPos = Math.max(obj.width / 2, Math.min(wallLen - obj.width / 2,
+                                ((centerX - wall.p1.x) * dx + (centerY - wall.p1.y) * dy)));
+                            obj.pos = newPos;
+                        }
+                    }
                 }
             });
         }
         // Tek nesne seçimi varsa, sadece onu hareket ettir
         else if (state.selectedObject) {
             const obj = state.selectedObject.object;
-            if (obj && obj.center && ['column', 'beam', 'stairs'].includes(state.selectedObject.type)) {
+            const type = state.selectedObject.type;
+
+            if (obj && obj.center && ['column', 'beam', 'stairs'].includes(type)) {
                 obj.center.x += deltaX;
                 obj.center.y += deltaY;
+            } else if (type === 'door' && obj.wall) {
+                // Kapı için
+                const wall = obj.wall;
+                if (wall.p1 && wall.p2) {
+                    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                    if (wallLen > 0.1) {
+                        const dx = (wall.p2.x - wall.p1.x) / wallLen;
+                        const dy = (wall.p2.y - wall.p1.y) / wallLen;
+                        let centerX = wall.p1.x + dx * obj.pos;
+                        let centerY = wall.p1.y + dy * obj.pos;
+                        centerX += deltaX;
+                        centerY += deltaY;
+                        const newPos = Math.max(obj.width / 2, Math.min(wallLen - obj.width / 2,
+                            ((centerX - wall.p1.x) * dx + (centerY - wall.p1.y) * dy)));
+                        obj.pos = newPos;
+                    }
+                }
+            } else if (type === 'window' && state.selectedObject.wall) {
+                // Pencere için
+                const wall = state.selectedObject.wall;
+                if (wall.p1 && wall.p2) {
+                    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                    if (wallLen > 0.1) {
+                        const dx = (wall.p2.x - wall.p1.x) / wallLen;
+                        const dy = (wall.p2.y - wall.p1.y) / wallLen;
+                        let centerX = wall.p1.x + dx * obj.pos;
+                        let centerY = wall.p1.y + dy * obj.pos;
+                        centerX += deltaX;
+                        centerY += deltaY;
+                        const newPos = Math.max(obj.width / 2, Math.min(wallLen - obj.width / 2,
+                            ((centerX - wall.p1.x) * dx + (centerY - wall.p1.y) * dy)));
+                        obj.pos = newPos;
+                    }
+                }
             }
         }
 
         // Değişiklikleri kaydet ve 3D sahneyi güncelle
+        processWalls(); // Duvar elemanları değiştiğinde processWalls çağır
         saveState();
         if (dom.mainContainer.classList.contains('show-3d')) {
             update3DScene();
