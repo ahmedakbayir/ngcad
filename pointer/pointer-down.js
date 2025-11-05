@@ -76,22 +76,30 @@ export function onPointerDown(e) {
             clickedObject.handle === 'body') {
             console.log('✅ CTRL Multi-Select Mode Active');
 
+            // Eğer selectedGroup boş ama selectedObject varsa, önce onu gruba ekle
+            let currentGroup = [...state.selectedGroup];
+            if (currentGroup.length === 0 && state.selectedObject &&
+                ['column', 'beam', 'stairs', 'door', 'window'].includes(state.selectedObject.type)) {
+                console.log('🔄 Converting selectedObject to selectedGroup');
+                currentGroup.push(state.selectedObject);
+            }
+
             // Seçili grup içinde bu nesne var mı kontrol et
-            const existingIndex = state.selectedGroup.findIndex(item =>
+            const existingIndex = currentGroup.findIndex(item =>
                 item.type === clickedObject.type && item.object === clickedObject.object
             );
 
             if (existingIndex !== -1) {
                 // Zaten seçiliyse, seçimden çıkar (toggle off)
                 console.log('➖ Removing from selection');
-                const newGroup = [...state.selectedGroup];
-                newGroup.splice(existingIndex, 1);
-                setState({ selectedGroup: newGroup, selectedObject: null });
+                currentGroup.splice(existingIndex, 1);
+                setState({ selectedGroup: currentGroup, selectedObject: null });
             } else {
                 // Seçili değilse, gruba ekle (toggle on)
                 console.log('➕ Adding to selection');
+                currentGroup.push(clickedObject);
                 setState({
-                    selectedGroup: [...state.selectedGroup, clickedObject],
+                    selectedGroup: currentGroup,
                     selectedObject: null
                 });
             }
