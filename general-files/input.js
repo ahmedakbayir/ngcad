@@ -295,9 +295,9 @@ function onKeyDown(e) {
     }
 
     // Mahal (room) seçiliyken harf girişi ile filtreleme
-    if (state.selectedObject && state.selectedObject.type === "room" && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key)) {
+    if (state.selectedRoom && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key)) {
         e.preventDefault();
-        const room = state.selectedObject.object;
+        const room = state.selectedRoom;
         // Get room center position and convert to screen coordinates
         const centerX = room.center ? room.center.x : 0;
         const centerY = room.center ? room.center.y : 0;
