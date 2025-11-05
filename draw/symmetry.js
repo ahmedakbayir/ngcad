@@ -51,12 +51,27 @@ export function calculateCopyPreview(axisP1, axisP2) {
         const copiedP1 = nodeMap.get(wall.p1);
         const copiedP2 = nodeMap.get(wall.p2);
         if (copiedP1 && copiedP2) {
-            preview.walls.push({
+            const copiedWall = {
                 p1: copiedP1,
                 p2: copiedP2,
                 thickness: wall.thickness || state.wallThickness,
-                wallType: wall.wallType || 'normal'
-            });
+                wallType: wall.wallType || 'normal',
+                isArc: wall.isArc
+            };
+
+            // Yay duvarları için kontrol noktalarını kopyala
+            if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
+                copiedWall.arcControl1 = {
+                    x: wall.arcControl1.x + translationX,
+                    y: wall.arcControl1.y + translationY
+                };
+                copiedWall.arcControl2 = {
+                    x: wall.arcControl2.x + translationX,
+                    y: wall.arcControl2.y + translationY
+                };
+            }
+
+            preview.walls.push(copiedWall);
         }
     });
 
@@ -213,12 +228,25 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
         const reflectedP1 = nodeMap.get(wall.p1);
         const reflectedP2 = nodeMap.get(wall.p2);
         if (reflectedP1 && reflectedP2) {
-            preview.walls.push({
+            const reflectedWall = {
                 p1: reflectedP1,
                 p2: reflectedP2,
                 thickness: wall.thickness || state.wallThickness,
-                wallType: wall.wallType || 'normal'
-            });
+                wallType: wall.wallType || 'normal',
+                isArc: wall.isArc
+            };
+
+            // Yay duvarları için kontrol noktalarını yansıt
+            if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
+                const reflectedControl1 = reflectPoint(wall.arcControl1, axisP1, axisP2);
+                const reflectedControl2 = reflectPoint(wall.arcControl2, axisP1, axisP2);
+                if (reflectedControl1 && reflectedControl2) {
+                    reflectedWall.arcControl1 = reflectedControl1;
+                    reflectedWall.arcControl2 = reflectedControl2;
+                }
+            }
+
+            preview.walls.push(reflectedWall);
         }
     });
 
@@ -384,8 +412,23 @@ export function applyCopy(axisP1, axisP2) {
             const newWall = {
                 type: 'wall', p1: newP1, p2: newP2,
                 thickness: wall.thickness || state.wallThickness,
-                wallType: wall.wallType || 'normal', windows: [], vents: []
+                wallType: wall.wallType || 'normal',
+                isArc: wall.isArc,
+                windows: [], vents: []
             };
+
+            // Yay duvarları için kontrol noktalarını kopyala
+            if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
+                newWall.arcControl1 = {
+                    x: wall.arcControl1.x + translationX,
+                    y: wall.arcControl1.y + translationY
+                };
+                newWall.arcControl2 = {
+                    x: wall.arcControl2.x + translationX,
+                    y: wall.arcControl2.y + translationY
+                };
+            }
+
             newWalls.push(newWall);
             newWindowsMap.set(newWall, []);
             newVentsMap.set(newWall, []);
@@ -461,8 +504,7 @@ export function applyCopy(axisP1, axisP2) {
                 x: room.center[0] + translationX,
                 y: room.center[1] + translationY
             };
-            const key = `${copiedCenter.x.toFixed(3)},${copiedCenter.y.toFixed(3)}`;
-            copiedRoomNames.set(key, room.name);
+            copiedRoomNames.set(room, copiedCenter);
         }
     });
 
@@ -478,12 +520,24 @@ export function applyCopy(axisP1, axisP2) {
     // 9. Duvarları İşle
     processWalls();
 
-    // 10. Yeni Odalara İsim Ata
+    // 10. Yeni Odalara İsim Ata (Yakınlık bazlı eşleştirme ile)
     state.rooms.forEach(newRoom => {
         if (newRoom.name === 'MAHAL' && newRoom.center) {
-            const key = `${newRoom.center[0].toFixed(3)},${newRoom.center[1].toFixed(3)}`;
-            const copiedName = copiedRoomNames.get(key);
-            if (copiedName) newRoom.name = copiedName;
+            let bestMatch = null;
+            let minDist = Infinity;
+
+            copiedRoomNames.forEach((copiedCenter, originalRoom) => {
+                const dist = Math.hypot(newRoom.center[0] - copiedCenter.x, newRoom.center[1] - copiedCenter.y);
+                // L şeklindeki mahaller için tolerans artırıldı (500cm)
+                if (dist < 500 && dist < minDist) {
+                    minDist = dist;
+                    bestMatch = originalRoom;
+                }
+            });
+
+            if (bestMatch) {
+                newRoom.name = bestMatch.name;
+            }
         }
     });
 
@@ -533,8 +587,21 @@ export function applySymmetry(axisP1, axisP2) {
             const newWall = {
                 type: 'wall', p1: newP1, p2: newP2,
                 thickness: wall.thickness || state.wallThickness,
-                wallType: wall.wallType || 'normal', windows: [], vents: []
+                wallType: wall.wallType || 'normal',
+                isArc: wall.isArc,
+                windows: [], vents: []
             };
+
+            // Yay duvarları için kontrol noktalarını yansıt
+            if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
+                const reflectedControl1 = reflectPoint(wall.arcControl1, axisP1, axisP2);
+                const reflectedControl2 = reflectPoint(wall.arcControl2, axisP1, axisP2);
+                if (reflectedControl1 && reflectedControl2) {
+                    newWall.arcControl1 = reflectedControl1;
+                    newWall.arcControl2 = reflectedControl2;
+                }
+            }
+
             newWalls.push(newWall);
             newWindowsMap.set(newWall, []);
             newVentsMap.set(newWall, []);
@@ -675,9 +742,9 @@ export function applySymmetry(axisP1, axisP2) {
             reflectedRoomDataMap.forEach((data, centerKey) => {
                 const refCenter = data.originalCenter; // Sakladığımız yansıtılmış merkezi al
                 const dist = Math.hypot(newRoom.center[0] - refCenter.x, newRoom.center[1] - refCenter.y);
-                
-                // Eğer merkezler 100cm'den (keyfi tolerans) yakınsa ve en yakınıysa
-                if (dist < 100 && dist < minCenterDist) { 
+
+                // Eğer merkezler 500cm'den yakınsa ve en yakınıysa (L şeklindeki mahaller için tolerans artırıldı)
+                if (dist < 500 && dist < minCenterDist) {
                     minCenterDist = dist;
                     bestMatchData = { data: data, key: centerKey };
                 }
