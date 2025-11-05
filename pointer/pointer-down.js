@@ -46,8 +46,24 @@ export function onPointerDown(e) {
         // Tıklanan nesneyi bul
         const clickedObject = getObjectAtPoint(pos);
 
+        // Debug logging for CTRL multi-select
+        console.log('🔍 Pointer Down Debug:', {
+            'e.ctrlKey': e.ctrlKey,
+            'e.altKey': e.altKey,
+            'e.shiftKey': e.shiftKey,
+            'currentModifierKeys.ctrl': currentModifierKeys.ctrl,
+            'currentModifierKeys.alt': currentModifierKeys.alt,
+            'currentModifierKeys.shift': currentModifierKeys.shift,
+            clickedObject: clickedObject ? {
+                type: clickedObject.type,
+                handle: clickedObject.handle,
+                object: clickedObject.object
+            } : null,
+            currentSelectedGroup: state.selectedGroup.length
+        });
+
         // Silme modu (Sadece Alt tuşu basılıysa)
-        if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+        if (currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
             setState({ isCtrlDeleting: true }); // Silme modunu başlat
             dom.p2d.style.cursor = 'crosshair'; // Silme cursor'ı ayarla
             return; // Başka işlem yapma
@@ -55,9 +71,11 @@ export function onPointerDown(e) {
 
         // CTRL ile multi-select modu (sadece CTRL basılıyken, body'ye tıklandığında)
         // Handle'lara (köşe, kenar) tıklandığında normal işlemler devam eder
-        if (e.ctrlKey && !e.altKey && !e.shiftKey && clickedObject &&
+        if (currentModifierKeys.ctrl && !currentModifierKeys.alt && !currentModifierKeys.shift && clickedObject &&
             ['column', 'beam', 'stairs', 'door', 'window'].includes(clickedObject.type) &&
             clickedObject.handle === 'body') {
+            console.log('✅ CTRL Multi-Select Mode Active');
+
             // Seçili grup içinde bu nesne var mı kontrol et
             const existingIndex = state.selectedGroup.findIndex(item =>
                 item.type === clickedObject.type && item.object === clickedObject.object
@@ -65,16 +83,19 @@ export function onPointerDown(e) {
 
             if (existingIndex !== -1) {
                 // Zaten seçiliyse, seçimden çıkar (toggle off)
+                console.log('➖ Removing from selection');
                 const newGroup = [...state.selectedGroup];
                 newGroup.splice(existingIndex, 1);
                 setState({ selectedGroup: newGroup, selectedObject: null });
             } else {
                 // Seçili değilse, gruba ekle (toggle on)
+                console.log('➕ Adding to selection');
                 setState({
                     selectedGroup: [...state.selectedGroup, clickedObject],
                     selectedObject: null
                 });
             }
+            console.log('📊 Updated selectedGroup:', state.selectedGroup.length, 'items');
             return; // Multi-select işlemi bitti, sürükleme başlatma
         }
 
