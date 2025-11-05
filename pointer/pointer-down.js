@@ -53,6 +53,29 @@ export function onPointerDown(e) {
             return; // Başka işlem yapma
         }
 
+        // CTRL ile multi-select modu (sadece CTRL basılıyken, sürüklenebilir nesneler için)
+        if (e.ctrlKey && !e.altKey && !e.shiftKey && clickedObject &&
+            ['column', 'beam', 'stairs'].includes(clickedObject.type)) {
+            // Seçili grup içinde bu nesne var mı kontrol et
+            const existingIndex = state.selectedGroup.findIndex(item =>
+                item.type === clickedObject.type && item.object === clickedObject.object
+            );
+
+            if (existingIndex !== -1) {
+                // Zaten seçiliyse, seçimden çıkar (toggle off)
+                const newGroup = [...state.selectedGroup];
+                newGroup.splice(existingIndex, 1);
+                setState({ selectedGroup: newGroup, selectedObject: null });
+            } else {
+                // Seçili değilse, gruba ekle (toggle on)
+                setState({
+                    selectedGroup: [...state.selectedGroup, clickedObject],
+                    selectedObject: null
+                });
+            }
+            return; // Multi-select işlemi bitti, sürükleme başlatma
+        }
+
         // Önceki seçimi temizle (eğer yeni bir nesneye tıklanmadıysa veya boşluğa tıklandıysa)
         // Eğer tıklanan nesne varsa ve bu bir oda DEĞİLSE, seçimi daha sonra yapacağız.
         // Eğer tıklanan nesne yoksa veya oda ise, seçimi şimdi temizleyebiliriz.
