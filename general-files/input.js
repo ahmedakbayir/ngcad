@@ -338,34 +338,84 @@ function onKeyDown(e) {
     if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
         e.preventDefault();
         let deleted = false;
-        // ... (Silme mantığı - önceki gibi) ...
+
+        // Tek nesne silme (selectedObject)
         if (state.selectedObject?.type === 'column') { state.columns = state.columns.filter(c => c !== state.selectedObject.object); deleted = true; }
         else if (state.selectedObject?.type === 'beam') { state.beams = state.beams.filter(b => b !== state.selectedObject.object); deleted = true; }
         else if (state.selectedObject?.type === 'stairs') { state.stairs = state.stairs.filter(s => s !== state.selectedObject.object); deleted = true; }
-        // --- YENİ EKLENDİ ---
-        else if (state.selectedObject?.type === 'guide') { 
-            state.guides = state.guides.filter(g => g !== state.selectedObject.object); 
-            deleted = true; 
+        else if (state.selectedObject?.type === 'guide') {
+            state.guides = state.guides.filter(g => g !== state.selectedObject.object);
+            deleted = true;
         }
-        // --- YENİ SONU ---
         else if (state.selectedObject) {
             if (state.selectedObject.type === "door") { setState({ doors: state.doors.filter((d) => d !== state.selectedObject.object) }); deleted = true; }
             else if (state.selectedObject.type === "window") { const wall = state.selectedObject.wall; if (wall?.windows) { wall.windows = wall.windows.filter(w => w !== state.selectedObject.object); deleted = true; } }
             else if (state.selectedObject.type === "vent") { const wall = state.selectedObject.wall; if (wall?.vents) { wall.vents = wall.vents.filter(v => v !== state.selectedObject.object); deleted = true; } }
             else if (state.selectedObject.type === "wall") { const wallsToDelete = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object]; const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w)); const newDoors = state.doors.filter((d) => d.wall && !wallsToDelete.includes(d.wall)); setState({ walls: newWalls, doors: newDoors }); deleted = true; }
-        } else if (state.selectedGroup.length > 0) { const wallsToDelete = state.selectedGroup; const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w)); const newDoors = state.doors.filter((d) => d.wall && !wallsToDelete.includes(d.wall)); setState({ walls: newWalls, doors: newDoors }); deleted = true; }
+        }
+        // Toplu silme (selectedGroup) - TÜM NESNE TİPLERİ İÇİN
+        else if (state.selectedGroup.length > 0) {
+            console.log('🗑️ Deleting selectedGroup:', state.selectedGroup.length, 'items');
+
+            // Her nesne tipini grupla
+            const itemsByType = {
+                column: [],
+                beam: [],
+                stairs: [],
+                door: [],
+                window: [],
+                wall: []
+            };
+
+            state.selectedGroup.forEach(item => {
+                if (itemsByType[item.type]) {
+                    itemsByType[item.type].push(item.object);
+                }
+            });
+
+            // Her tipteki nesneleri sil
+            if (itemsByType.column.length > 0) {
+                state.columns = state.columns.filter(c => !itemsByType.column.includes(c));
+                deleted = true;
+            }
+            if (itemsByType.beam.length > 0) {
+                state.beams = state.beams.filter(b => !itemsByType.beam.includes(b));
+                deleted = true;
+            }
+            if (itemsByType.stairs.length > 0) {
+                state.stairs = state.stairs.filter(s => !itemsByType.stairs.includes(s));
+                deleted = true;
+            }
+            if (itemsByType.door.length > 0) {
+                setState({ doors: state.doors.filter(d => !itemsByType.door.includes(d)) });
+                deleted = true;
+            }
+            if (itemsByType.window.length > 0) {
+                // Pencereleri duvarlardan sil
+                state.walls.forEach(wall => {
+                    if (wall.windows) {
+                        wall.windows = wall.windows.filter(w => !itemsByType.window.includes(w));
+                    }
+                });
+                deleted = true;
+            }
+            if (itemsByType.wall.length > 0) {
+                const newWalls = state.walls.filter(w => !itemsByType.wall.includes(w));
+                const newDoors = state.doors.filter(d => d.wall && !itemsByType.wall.includes(d.wall));
+                setState({ walls: newWalls, doors: newDoors });
+                deleted = true;
+            }
+
+            console.log('✅ Deleted', state.selectedGroup.length, 'items');
+        }
 
         if (deleted) {
             setState({ selectedObject: null, selectedGroup: [] });
-            // --- GÜNCELLEME: processWalls() sadece rehber silindiyse çağrılmaz ---
+            // processWalls() sadece rehber silindiyse çağrılmaz
             if (state.selectedObject?.type !== 'guide') {
                 processWalls();
             }
             saveState();
-            // update3DScene() processWalls içinden çağrılır,
-            // ama rehber silindiyse (ve 3D açıksa) update'e gerek yok.
-            // (Rehberler 3D'de çizilmiyor)
-            // update3DScene(); // processWalls() zaten çağırıyor
         }
     }
 
