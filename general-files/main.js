@@ -10,7 +10,7 @@ import { updateFirstPersonCamera } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from '../scene3d/scene3d-core.js';
 import { createWallPanel } from '../wall/wall-panel.js';
-
+/*
 // --- RESİM ÇERÇEVESİ KODU ---
 // config.js'den (eğer varsa) API anahtarını güvenli bir şekilde okur
 const UNSPLASH_API_KEY = (window.NG_CONFIG && window.NG_CONFIG.UNSPLASH_API_KEY) ? window.NG_CONFIG.UNSPLASH_API_KEY : null;
@@ -18,6 +18,7 @@ const IMAGE_COUNT_TO_CACHE = 50; // Başlangıçta 50 resim çek
 
 
 async function loadPictureFrameImages() {
+    //bu kodu silmeyin. ilerde kullanılabilir.
     console.log("Resim çerçevesi resimleri yükleniyor...");
     if (!UNSPLASH_API_KEY || UNSPLASH_API_KEY === 'BURAYA_UNSPLASH_API_KEY_GİRİN') {
         console.warn("Unsplash API Anahtarı (config.js) bulunamadı. Placeholder resimler kullanılıyor.");
@@ -61,7 +62,7 @@ async function loadPictureFrameImages() {
         window.NG_CONFIG.UNSPLASH_API_KEY = originalKey; // Anahtarı geri yükle
     }
 }
-
+*/
 
 export const BG = "#1e1f20";
 export const METER_SCALE = 1;
@@ -721,7 +722,7 @@ function initialize() {
     createWallPanel();
     initGuideContextMenu();  
 
-    loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
+    //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
     dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
     dom.bWall.addEventListener("click", () => setMode("drawWall", true));
