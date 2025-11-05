@@ -235,7 +235,7 @@ export function startLengthEdit(initialKey = '') {
     positionLengthInput();
     dom.lengthInput.style.display = "block";
     let currentValue = '';
-    if (state.selectedObject.type === "wall") { const wall = selectedObject.object; const currentLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); currentValue = currentLength.toFixed(0); }
+    if (state.selectedObject.type === "wall") { const wall = state.selectedObject.object; const currentLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); currentValue = currentLength.toFixed(0); }
     else { currentValue = state.selectedObject.object.width.toFixed(0); }
     dom.lengthInput.value = initialKey || currentValue;
     // Use setTimeout to ensure the input is fully rendered before focusing
@@ -244,7 +244,7 @@ export function startLengthEdit(initialKey = '') {
         if (!initialKey) {
             dom.lengthInput.select();
         }
-    }, 0);
+    }, 10);
 }
 
 // Uzunluk düzenlemeyi onaylama
