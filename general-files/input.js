@@ -298,9 +298,9 @@ function onKeyDown(e) {
     if (state.selectedRoom && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key)) {
         e.preventDefault();
         const room = state.selectedRoom;
-        // Get room center position and convert to screen coordinates
-        const centerX = room.center ? room.center.x : 0;
-        const centerY = room.center ? room.center.y : 0;
+        // Get room center position (stored as array [x, y]) and convert to screen coordinates
+        const centerX = room.center ? room.center[0] : 0;
+        const centerY = room.center ? room.center[1] : 0;
         const screenPos = worldToScreen(centerX, centerY);
         // Create a synthetic event with screen position
         const syntheticEvent = { clientX: screenPos.x, clientY: screenPos.y };
