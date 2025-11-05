@@ -359,14 +359,67 @@ function onKeyDown(e) {
             setState({ selectedObject: null, selectedGroup: [] });
             // --- GÜNCELLEME: processWalls() sadece rehber silindiyse çağrılmaz ---
             if (state.selectedObject?.type !== 'guide') {
-                processWalls(); 
+                processWalls();
             }
-            saveState(); 
+            saveState();
             // update3DScene() processWalls içinden çağrılır,
             // ama rehber silindiyse (ve 3D açıksa) update'e gerek yok.
             // (Rehberler 3D'de çizilmiyor)
             // update3DScene(); // processWalls() zaten çağırıyor
         }
+    }
+
+    // Ok tuşları ile seçili nesneleri hareket ettirme (1cm artışlarla)
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        // Tek nesne veya grup seçimi kontrolü
+        const hasSelection = state.selectedGroup.length > 0 ||
+                           (state.selectedObject && ['column', 'beam', 'stairs'].includes(state.selectedObject.type));
+
+        if (!hasSelection) return; // Hiç seçili nesne yoksa çık
+
+        e.preventDefault();
+
+        const MOVE_STEP = 1; // 1 cm hareket miktarı
+        let deltaX = 0, deltaY = 0;
+
+        // Hareket yönünü belirle
+        if (e.key === 'ArrowUp') deltaY = -MOVE_STEP;
+        else if (e.key === 'ArrowDown') deltaY = MOVE_STEP;
+        else if (e.key === 'ArrowLeft') deltaX = -MOVE_STEP;
+        else if (e.key === 'ArrowRight') deltaX = MOVE_STEP;
+
+        // Grup seçimi varsa, tüm grup nesnelerini hareket ettir
+        if (state.selectedGroup.length > 0) {
+            state.selectedGroup.forEach(selectedItem => {
+                const obj = selectedItem.object;
+
+                if (selectedItem.type === 'column' && obj.center) {
+                    obj.center.x += deltaX;
+                    obj.center.y += deltaY;
+                } else if (selectedItem.type === 'beam' && obj.center) {
+                    obj.center.x += deltaX;
+                    obj.center.y += deltaY;
+                } else if (selectedItem.type === 'stairs' && obj.center) {
+                    obj.center.x += deltaX;
+                    obj.center.y += deltaY;
+                }
+            });
+        }
+        // Tek nesne seçimi varsa, sadece onu hareket ettir
+        else if (state.selectedObject) {
+            const obj = state.selectedObject.object;
+            if (obj && obj.center && ['column', 'beam', 'stairs'].includes(state.selectedObject.type)) {
+                obj.center.x += deltaX;
+                obj.center.y += deltaY;
+            }
+        }
+
+        // Değişiklikleri kaydet ve 3D sahneyi güncelle
+        saveState();
+        if (dom.mainContainer.classList.contains('show-3d')) {
+            update3DScene();
+        }
+        return;
     }
 
     // Mod değiştirme kısayolları (FPS modundayken W/A/S/D engellenecek)

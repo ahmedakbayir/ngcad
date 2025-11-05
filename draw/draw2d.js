@@ -296,25 +296,26 @@ export function draw2D() {
 
     // 4. KOLONLAR (Duvarlardan sonra, kapı/pencereden önce)
     state.columns.forEach(column => {
-        // Her kolon için isSelected durumunu kontrol et
-        const isSelected = selectedObject?.type === "column" && selectedObject.object === column;
+        // Her kolon için isSelected durumunu kontrol et (tek seçim veya grup seçimi)
+        const isSelected = (selectedObject?.type === "column" && selectedObject.object === column) ||
+                          state.selectedGroup.some(item => item.type === "column" && item.object === column);
         drawColumn(column, isSelected);
     });
 
     // 4.5. KİRİŞLER
     (state.beams || []).forEach(beam => {
-        // Her kiriş için isSelected durumunu kontrol et
-        const isSelected = selectedObject?.type === "beam" && selectedObject.object === beam;
+        // Her kiriş için isSelected durumunu kontrol et (tek seçim veya grup seçimi)
+        const isSelected = (selectedObject?.type === "beam" && selectedObject.object === beam) ||
+                          state.selectedGroup.some(item => item.type === "beam" && item.object === beam);
         drawBeam(beam, isSelected);
     });
 
     // 4.7. MERDİVENLER
     (state.stairs || []).forEach(stair => {
-        // Her bir merdiven için seçili olup olmadığını kontrol et
+        // Her bir merdiven için seçili olup olmadığını kontrol et (tek seçim veya grup seçimi)
         const isSelected = !!(
-            selectedObject &&
-            selectedObject.type === "stairs" &&
-            selectedObject.object === stair
+            (selectedObject && selectedObject.type === "stairs" && selectedObject.object === stair) ||
+            state.selectedGroup.some(item => item.type === "stairs" && item.object === stair)
         );
         drawStairs(stair, isSelected);
     });
