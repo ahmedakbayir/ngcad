@@ -47,6 +47,7 @@ export function onPointerDown(e) {
         const clickedObject = getObjectAtPoint(pos);
 
         // Debug logging for CTRL multi-select
+ /*
         console.log('🔍 Pointer Down Debug:', {
             'e.ctrlKey': e.ctrlKey,
             'e.altKey': e.altKey,
@@ -61,7 +62,7 @@ export function onPointerDown(e) {
             } : null,
             currentSelectedGroup: state.selectedGroup.length
         });
-
+*/
         // Silme modu (Sadece Alt tuşu basılıysa)
         if (currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
             setState({ isCtrlDeleting: true }); // Silme modunu başlat
