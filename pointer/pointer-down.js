@@ -107,6 +107,16 @@ export function onPointerDown(e) {
             return; // Multi-select işlemi bitti, sürükleme başlatma
         }
 
+        // CTRL basılı DEĞİLSE ve multi-select yapılabilir bir nesneye tıklandıysa,
+        // selectedGroup'u temizle ve normal tek seçime dön
+        if (!currentModifierKeys.ctrl && clickedObject &&
+            ['column', 'beam', 'stairs', 'door', 'window'].includes(clickedObject.type) &&
+            state.selectedGroup.length > 0) {
+            console.log('🔄 Clearing selectedGroup - returning to single selection');
+            // selectedGroup'u temizle, normal seçime geç
+            // (Aşağıdaki kod zaten bunu yapacak, ama açıkça belirtelim)
+        }
+
         // Önceki seçimi temizle (eğer yeni bir nesneye tıklanmadıysa veya boşluğa tıklandıysa)
         // Eğer tıklanan nesne varsa ve bu bir oda DEĞİLSE, seçimi daha sonra yapacağız.
         // Eğer tıklanan nesne yoksa veya oda ise, seçimi şimdi temizleyebiliriz.
