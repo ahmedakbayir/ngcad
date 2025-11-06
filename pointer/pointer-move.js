@@ -183,8 +183,8 @@ export function onPointerMove(e) {
     }
 
     // Fare pozisyonunu güncelle (snap ile)
-    // Sürükleme sırasında da snap aktif olsun
-    let snappedPos = getSmartSnapPoint(e, true); // Her zaman grid snap kullan
+    // Sürükleme sırasında grid snap'i KAPAT (smooth hareket için)
+    let snappedPos = getSmartSnapPoint(e, !state.isDragging); // Sürüklerken grid snap yok
     setState({ mousePos: snappedPos });
 
     // Snaplenmemiş pozisyonu al
