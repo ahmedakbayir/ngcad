@@ -282,9 +282,28 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         ? state.selectedObject.object[state.selectedObject.handle]
         : null;
 
+    // Taşınan duvarların nodlarını tespit et (self-snapping'i önlemek için)
+    let nodesBeingMoved = new Set();
+    if (state.isDragging && state.selectedObject?.type === 'wall') {
+        // selectedGroup elemanları BAZEN {type, object, handle} wrapper, BAZEN direkt wall objesi
+        // Her iki durumu da destekle
+        const wallsToExclude = state.selectedGroup.length > 0
+            ? state.selectedGroup.map(item => item.object || item) // wrapper ise .object, değilse kendisi
+            : [state.selectedObject.object];
+
+        // Tüm taşınan duvarların nodlarını topla
+        wallsToExclude.forEach(w => {
+            if (w && w.p1) nodesBeingMoved.add(w.p1);
+            if (w && w.p2) nodesBeingMoved.add(w.p2);
+        });
+    }
+
     // Genel Snap Noktaları (Duvar Uçları ve Ortaları)
     for (const wall of wallsToScan) {
+        // Taşınan duvarın nodlarını snap yapma
         if (draggedNode === wall.p1 || draggedNode === wall.p2) continue;
+        if (nodesBeingMoved.has(wall.p1) || nodesBeingMoved.has(wall.p2)) continue;
+
         const p1 = wall.p1, p2 = wall.p2;
         if (!p1 || !p2) continue;
 
