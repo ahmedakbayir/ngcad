@@ -4,7 +4,7 @@ import { setupFileIOListeners } from './file-io.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
-import { initGuideContextMenu } from '../draw/guide-menu.js'; 
+import { initGuideContextMenu } from '../draw/guide-menu.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls } from '../scene3d/scene3d-camera.js';
@@ -12,6 +12,8 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from '../scene3d/scene3d-core.js';
 // --- DEĞİŞİKLİK SONU ---
 import { createWallPanel } from '../wall/wall-panel.js';
+import { createFloorPanel, showFloorPanel } from '../floor/floor-panel.js';
+import { initializeDefaultFloors } from '../floor/floor-handler.js';
 /*
 // --- RESİM ÇERÇEVESİ KODU ---
 // config.js'den (eğer varsa) API anahtarını güvenli bir şekilde okur
@@ -201,7 +203,7 @@ export let state = {
     rooms: [],
     columns: [],
     beams: [],
-    stairs: [], 
+    stairs: [],
     clipboard: null, // <-- YENİ SATIR EKLE
     wallAdjacency: new Map(),
     selectedObject: null,
@@ -282,15 +284,21 @@ export let state = {
         columns: [], beams: [], stairs: [], rooms: []
     },
     symmetryPreviewTimer: null, // <-- DÜZELTME: Kilitlenme sorununu çözmek için eklendi
-    guides: [], 
+    guides: [],
     // --- YENİ: RESİM ÇERÇEVESİ İÇİN STATE ---
     pictureFrameCache: [], // Unsplash URL'lerini tutar
     pictureFrameMaterials: {}, // 3D Malzemeleri (URL'ye göre) cache'ler
     // --- YENİ STATE SONU ---
-    
+
     // --- YENİ: 3D FARE DURUMU ---
-    is3DMouseDown: false // 3D canvas'ta fare basılı mı?
+    is3DMouseDown: false, // 3D canvas'ta fare basılı mı?
     // --- YENİ STATE SONU ---
+
+    // --- YENİ: KAT YÖNETİMİ ---
+    floors: [], // Katlar dizisi
+    currentFloor: null, // Aktif kat
+    defaultFloorHeight: 270, // Varsayılan kat yüksekliği (cm)
+    // --- KAT YÖNETİMİ SONU ---
 };
 
 export function setState(newState) {
@@ -322,6 +330,7 @@ export const dom = {
     b3d: document.getElementById("b3d"),
     bFirstPerson: document.getElementById("bFirstPerson"),
     bAssignNames: document.getElementById("bAssignNames"),
+    bFloors: document.getElementById("bFloors"),
     settingsBtn: document.getElementById("settings-btn"),
     settingsPopup: document.getElementById("settings-popup"),
     closeSettingsPopupBtn: document.getElementById("close-settings-popup"),
@@ -728,7 +737,9 @@ function initialize() {
     setupInputListeners();
     setupFileIOListeners();
     createWallPanel();
-    initGuideContextMenu();  
+    createFloorPanel();
+    initializeDefaultFloors();
+    initGuideContextMenu();
 
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
@@ -741,9 +752,10 @@ function initialize() {
     dom.bBeam.addEventListener("click", () => setMode("drawBeam", true));
     dom.bStairs.addEventListener("click", () => setMode("drawStairs", true)); // forceSet ekleyin
     dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
-    
+
     dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
+    dom.bFloors.addEventListener("click", showFloorPanel);
 
     window.addEventListener("resize", resize);
 
