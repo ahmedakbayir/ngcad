@@ -44,17 +44,12 @@ export function createWallPanel() {
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
                 <input type="checkbox" id="arc-wall-checkbox" style="cursor: pointer;">
                 <span style="font-size: 12px; color: #8ab4f8; font-weight: 500;">YAY DUVAR</span>
-            </label>
-        </div>
-        <div id="flip-arc-container" style="margin-bottom: 16px; display: none;">
-            <button id="flip-arc-btn" class="wall-panel-btn" style="display: flex; align-items: center; gap: 8px; justify-content: center;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg id="flip-arc-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: none; margin-left: auto;">
                     <polyline points="1 4 1 10 7 10"></polyline>
                     <polyline points="23 20 23 14 17 14"></polyline>
                     <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
                 </svg>
-                <span>Ters Çevir</span>
-            </button>
+            </label>
         </div>
         <div style="margin-bottom: 0;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0; font-weight: 500;">EKLE:</label>
@@ -73,6 +68,7 @@ export function createWallPanel() {
         .wall-panel-btn:hover { background: #4a4b4c; border-color: #8ab4f8; color: #8ab4f8; }
         #wall-thickness-slider::-webkit-slider-thumb { appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #8ab4f8; cursor: pointer; }
         #wall-thickness-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #8ab4f8; cursor: pointer; border: none; }
+        #flip-arc-icon:hover { opacity: 1 !important; }
     `;
     document.head.appendChild(style);
     document.body.appendChild(wallPanel);
@@ -123,7 +119,7 @@ function setupWallPanelListeners() {
     const thicknessNumber = document.getElementById('wall-thickness-number');
     const wallTypeRadios = document.querySelectorAll('input[name="wall-type"]');
     const arcWallCheckbox = document.getElementById('arc-wall-checkbox');
-    const flipArcBtn = document.getElementById('flip-arc-btn');
+    const flipArcIcon = document.getElementById('flip-arc-icon');
 
     thicknessSlider.addEventListener('change', (e) => {
         if (wallPanelWall) {
@@ -174,17 +170,19 @@ function setupWallPanelListeners() {
                 }
             }
 
-            // Flip butonunu göster/gizle
-            const flipArcContainer = document.getElementById('flip-arc-container');
-            if (flipArcContainer) {
-                flipArcContainer.style.display = (wallPanelWall.isArc && wallPanelWall.arcControl1 && wallPanelWall.arcControl2) ? 'block' : 'none';
+            // Flip icon'u göster/gizle
+            if (flipArcIcon) {
+                flipArcIcon.style.display = (wallPanelWall.isArc && wallPanelWall.arcControl1 && wallPanelWall.arcControl2) ? 'inline' : 'none';
             }
 
             saveState();
             if (dom.mainContainer.classList.contains('show-3d')) { setTimeout(update3DScene, 0); }
         }
     });
-    flipArcBtn.addEventListener('click', () => {
+
+    // Flip icon'a tıklandığında yayı ters çevir
+    flipArcIcon.addEventListener('click', (e) => {
+        e.stopPropagation(); // Checkbox'ın tetiklenmesini engelle
         if (wallPanelWall && wallPanelWall.isArc) {
             flipArcWall(wallPanelWall);
         }
@@ -221,10 +219,10 @@ export function showWallPanel(wall, x, y) {
     const arcCheckbox = document.getElementById('arc-wall-checkbox');
     if (arcCheckbox) arcCheckbox.checked = wall.isArc || false;
 
-    // Flip Arc butonunu sadece arc wall aktifse göster
-    const flipArcContainer = document.getElementById('flip-arc-container');
-    if (flipArcContainer) {
-        flipArcContainer.style.display = (wall.isArc && wall.arcControl1 && wall.arcControl2) ? 'block' : 'none';
+    // Flip icon'u sadece arc wall aktifse göster
+    const flipArcIcon = document.getElementById('flip-arc-icon');
+    if (flipArcIcon) {
+        flipArcIcon.style.display = (wall.isArc && wall.arcControl1 && wall.arcControl2) ? 'inline' : 'none';
     }
 
     // Panelin pozisyonunu ayarla (fare tıklama noktasına göre)
