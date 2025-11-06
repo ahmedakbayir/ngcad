@@ -183,9 +183,14 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
         } else {
              if (e.ctrlKey && e.shiftKey) {
                  const chain = findCollinearChain(selectedObject.object);
-                 setState({ selectedGroup: chain });
+                 // findCollinearChain wall objelerini döndürüyor, wrapper formatına çevir
+                 const wrappedChain = chain.map(wall => ({ type: 'wall', object: wall, handle: 'body' }));
+                 setState({ selectedGroup: wrappedChain });
              }
-             wallsBeingMoved = state.selectedGroup.length > 0 ? state.selectedGroup : [selectedObject.object];
+             // selectedGroup elemanları {type, object, handle} formatında!
+             wallsBeingMoved = state.selectedGroup.length > 0
+                 ? state.selectedGroup.map(item => item.object)
+                 : [selectedObject.object];
         }
 
         const nodesBeingMoved = new Set();
@@ -327,7 +332,10 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             let bestSnapY = { diff: SNAP_DISTANCE, value: null };
 
             // Taşınan duvarları tespit et (grup veya tek duvar)
-            const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+            // selectedGroup elemanları {type, object, handle} formatında!
+            const wallsToMove = state.selectedGroup.length > 0
+                ? state.selectedGroup.map(item => item.object)
+                : [state.selectedObject.object];
 
             // Tüm duvar yüzeylerine snap kontrolü
             state.walls.forEach(wall => {
@@ -432,7 +440,10 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         // Duvar Gövdesi Sürükleme
         console.log('🏗️ Wall BODY dragging');
 
-        const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+        // selectedGroup elemanları {type, object, handle} formatında!
+        const wallsToMove = state.selectedGroup.length > 0
+            ? state.selectedGroup.map(item => item.object)
+            : [state.selectedObject.object];
         const nodesToMove = new Set();
         wallsToMove.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
 

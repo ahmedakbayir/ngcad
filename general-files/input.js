@@ -174,8 +174,13 @@ function handlePaste(e) {
                 geometryChanged = true;
             }
         });
-         if (newWalls.length > 0) setState({ selectedObject: null, selectedGroup: newWalls });
-         else setState({ selectedObject: null, selectedGroup: [] });
+         if (newWalls.length > 0) {
+             // newWalls'ı wrapper formatına çevir
+             const wrappedWalls = newWalls.map(wall => ({ type: 'wall', object: wall, handle: 'body' }));
+             setState({ selectedObject: null, selectedGroup: wrappedWalls });
+         } else {
+             setState({ selectedObject: null, selectedGroup: [] });
+         }
     }
     if(geometryChanged){ processWalls(); saveState(); update3DScene(); }
 }

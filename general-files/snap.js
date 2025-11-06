@@ -287,7 +287,10 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     let nodesBeingMoved = new Set();
     if (state.isDragging && state.selectedObject?.type === 'wall') {
         // Grup seçimi varsa grubu, yoksa tek duvarı al
-        wallsBeingMoved = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+        // selectedGroup elemanları {type, object, handle} formatında!
+        wallsBeingMoved = state.selectedGroup.length > 0
+            ? state.selectedGroup.map(item => item.object)
+            : [state.selectedObject.object];
         // Tüm taşınan duvarların nodlarını topla
         wallsBeingMoved.forEach(w => {
             if (w.p1) nodesBeingMoved.add(w.p1);
