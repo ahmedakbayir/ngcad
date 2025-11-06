@@ -267,6 +267,12 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 
         let finalPos;
 
+        console.log('🔍 Snap state:', {
+            hasLock: !!state.wallNodeSnapLock,
+            lock: state.wallNodeSnapLock,
+            mousePos: { x: snappedPos.x, y: snappedPos.y }
+        });
+
         // Eğer zaten snap'lenmişse, LOCK POZİSYONUNU kullan (mouse pozisyonunu ignore et!)
         if (state.wallNodeSnapLock) {
             const lockX = state.wallNodeSnapLock.x;
@@ -277,6 +283,8 @@ export function onPointerMove(snappedPos, unsnappedPos) {
                 x: lockX !== null ? lockX : snappedPos.x,
                 y: lockY !== null ? lockY : snappedPos.y
             };
+
+            console.log('🔒 Using LOCKED position:', finalPos, '(ignoring mouse)');
 
             // Snap'lenmiş pozisyondan ne kadar uzak? (mouse'un GERÇEK pozisyonuyla karşılaştır)
             const distFromLockX = lockX !== null ? Math.abs(snappedPos.x - lockX) : Infinity;
@@ -354,6 +362,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 
             // Yeni snap bulunduysa uygula ve kilitle
             if (bestSnapX.value !== null || bestSnapY.value !== null) {
+                console.log('✅ NEW SNAP FOUND! Locking at:', { x: bestSnapX.value, y: bestSnapY.value });
                 setState({
                     wallNodeSnapLock: {
                         x: bestSnapX.value,
@@ -362,6 +371,9 @@ export function onPointerMove(snappedPos, unsnappedPos) {
                 });
                 if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
                 if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
+                console.log('🎯 Final position after snap:', finalPos);
+            } else {
+                console.log('❌ No snap found');
             }
         }
 
