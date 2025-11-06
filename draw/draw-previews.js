@@ -229,20 +229,6 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
         ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
         ctx2d.fill();
     }
-
-    // Hedef işareti göster (eğer sürükleme sırasında hedef işaretlendiyse)
-    if (isDragging && state.dragTargetPoint) {
-        const targetRadius = 6 / zoom;
-        ctx2d.strokeStyle = "#ff6b6b";
-        ctx2d.lineWidth = 2 / zoom;
-        ctx2d.setLineDash([4 / zoom, 4 / zoom]);
-
-        ctx2d.beginPath();
-        ctx2d.arc(state.dragTargetPoint.x, state.dragTargetPoint.y, targetRadius, 0, Math.PI * 2);
-        ctx2d.stroke();
-
-        ctx2d.setLineDash([]);
-    }
 }
 
 /**

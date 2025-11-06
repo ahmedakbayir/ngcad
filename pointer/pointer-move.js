@@ -183,41 +183,8 @@ export function onPointerMove(e) {
     }
 
     // Fare pozisyonunu güncelle (snap ile)
-    let snappedPos = getSmartSnapPoint(e, !state.isDragging);
-
-    // Hedef kısıtlama (sürükleme sırasında hedef işaretlenmişse)
-    if (state.isDragging && state.dragTargetPoint) {
-        const target = state.dragTargetPoint;
-        const current = snappedPos;
-
-        // Hangi eksende kısıtlama yapılacağını belirle
-        const deltaX = Math.abs(current.x - target.x);
-        const deltaY = Math.abs(current.y - target.y);
-
-        // Daha uzak olan eksende snap et (sürükleme yönüne göre)
-        if (deltaX > deltaY) {
-            // Yatay hareket → X ekseninde hedefe snap et
-            snappedPos = {
-                ...snappedPos,
-                x: target.x,
-                roundedX: target.x
-            };
-        } else {
-            // Dikey hareket → Y ekseninde hedefe snap et
-            snappedPos = {
-                ...snappedPos,
-                y: target.y,
-                roundedY: target.y
-            };
-        }
-
-        console.log('🎯 Constrained to target:', {
-            axis: deltaX > deltaY ? 'X' : 'Y',
-            target: target,
-            result: { x: snappedPos.x, y: snappedPos.y }
-        });
-    }
-
+    // Sürükleme sırasında da snap aktif olsun
+    let snappedPos = getSmartSnapPoint(e, true); // Her zaman grid snap kullan
     setState({ mousePos: snappedPos });
 
     // Snaplenmemiş pozisyonu al

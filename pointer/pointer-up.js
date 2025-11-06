@@ -199,7 +199,6 @@ export function onPointerUp(e) {
         isSweeping: false,
         sweepWalls: [],
         columnRotationOffset: null,
-        tempNeighborWallsToDimension: null, // Komşu duvar Set'ini temizle
-        dragTargetPoint: null // Hedef işaretini temizle
+        tempNeighborWallsToDimension: null // Komşu duvar Set'ini temizle
     });
 }

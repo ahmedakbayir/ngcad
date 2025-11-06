@@ -716,24 +716,6 @@ export function setupInputListeners() {
         e.preventDefault();
         const rect = c2d.getBoundingClientRect();
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-
-        // Sürükleme sırasında sağ tıklama: Hedef nokta işaretle
-        if (state.isDragging && state.selectedObject) {
-            // Snap noktasını al (mevcut mouse pozisyonu snap'lenmiş olabilir)
-            const snappedPos = getSmartSnapPoint(e);
-
-            // Hedef noktayı işaretle
-            setState({
-                dragTargetPoint: {
-                    x: snappedPos.roundedX || snappedPos.x,
-                    y: snappedPos.roundedY || snappedPos.y
-                }
-            });
-
-            console.log('🎯 Drag target marked:', state.dragTargetPoint);
-            return; // Context menu gösterme
-        }
-
         const object = getObjectAtPoint(clickPos);
 
         // Diğer tüm popupları/menüleri kapat
