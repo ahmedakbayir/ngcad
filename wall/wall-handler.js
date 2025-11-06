@@ -326,10 +326,15 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             let bestSnapX = { diff: SNAP_DISTANCE, value: null };
             let bestSnapY = { diff: SNAP_DISTANCE, value: null };
 
+            // Taşınan duvarları tespit et (grup veya tek duvar)
+            const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+
             // Tüm duvar yüzeylerine snap kontrolü
             state.walls.forEach(wall => {
                 // Sürüklenen node'un bağlı olduğu duvarları atla
                 if (state.affectedWalls.includes(wall)) return;
+                // Taşınan duvarları atla (grup seçimi durumunda)
+                if (wallsToMove.includes(wall)) return;
                 if (!wall.p1 || !wall.p2) return;
 
                 const wallThickness = wall.thickness || state.wallThickness;
