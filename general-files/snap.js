@@ -282,30 +282,33 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         ? state.selectedObject.object[state.selectedObject.handle]
         : null;
 
-    // Taşınan duvarların nodlarını tespit et (self-snapping'i önlemek için)
+    // Taşınan tüm duvarları ve nodları tespit et
+    let wallsBeingMoved = [];
     let nodesBeingMoved = new Set();
     if (state.isDragging && state.selectedObject?.type === 'wall') {
-        // selectedGroup elemanları BAZEN {type, object, handle} wrapper, BAZEN direkt wall objesi
-        // Her iki durumu da destekle
-        const wallsToExclude = state.selectedGroup.length > 0
-            ? state.selectedGroup.map(item => item.object || item) // wrapper ise .object, değilse kendisi
+        // Grup seçimi varsa grubu, yoksa tek duvarı al
+        // selectedGroup elemanları {type, object, handle} formatında!
+        wallsBeingMoved = state.selectedGroup.length > 0
+            ? state.selectedGroup.map(item => item.object)
             : [state.selectedObject.object];
-
         // Tüm taşınan duvarların nodlarını topla
-        wallsToExclude.forEach(w => {
-            if (w && w.p1) nodesBeingMoved.add(w.p1);
-            if (w && w.p2) nodesBeingMoved.add(w.p2);
+        wallsBeingMoved.forEach(w => {
+            if (w.p1) nodesBeingMoved.add(w.p1);
+            if (w.p2) nodesBeingMoved.add(w.p2);
         });
     }
 
     // Genel Snap Noktaları (Duvar Uçları ve Ortaları)
     for (const wall of wallsToScan) {
-        // Taşınan duvarın nodlarını snap yapma
-        if (draggedNode === wall.p1 || draggedNode === wall.p2) continue;
-        if (nodesBeingMoved.has(wall.p1) || nodesBeingMoved.has(wall.p2)) continue;
+        // Duvarın kendisi taşınıyorsa snap yapma
+        if (wallsBeingMoved.includes(wall)) continue;
 
         const p1 = wall.p1, p2 = wall.p2;
         if (!p1 || !p2) continue;
+
+        // Bu duvarın nodları taşınıyorsa snap yapma
+        if (draggedNode === wall.p1 || draggedNode === wall.p2) continue;
+        if (nodesBeingMoved.has(p1) || nodesBeingMoved.has(p2)) continue;
 
         const pointsToCheck = [];
         // DİKKAT: Merdiven modu zaten yukarıda halledildi, burada ENDPOINT kontrolü güvende.
@@ -320,12 +323,6 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             const screenPoint = worldToScreen(item.p.x, item.p.y);
             const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
             if (distance < SNAP_RADIUS_PIXELS) {
-                 if (state.isDragging && state.selectedObject) {
-                     if (state.selectedObject.type === 'wall') {
-                        const selWall = state.selectedObject.object;
-                        if (item.p === selWall.p1 || item.p === selWall.p2) return;
-                     }
-                 }
                 candidates.push({ point: item.p, distance: distance, type: item.type });
             }
         });
@@ -433,9 +430,14 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     // DİKKAT: Bu blok merdiven çizerken çalışmaz (yukarıda return edildi).
     for (let i = 0; i < wallsToScan.length; i++) {
         const wall1 = wallsToScan[i]; if (!wall1.p1 || !wall1.p2) continue;
+        // Taşınan duvarı kontrol et
+        if (wallsBeingMoved.includes(wall1)) continue;
+
         for (let j = i + 1; j < wallsToScan.length; j++) {
             const wall2 = wallsToScan[j]; if (!wall2.p1 || !wall2.p2) continue;
-            if (state.isDragging && state.selectedObject?.type === 'wall') { const selWall = state.selectedObject.object; if(selWall === wall1 || selWall === wall2) continue; }
+            // Taşınan duvarı kontrol et
+            if (wallsBeingMoved.includes(wall2)) continue;
+
             const intersection = getLineIntersectionPoint(wall1.p1, wall1.p2, wall2.p1, wall2.p2); // Merkez çizgisi kesişimi
             if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
                 const screenIntersect = worldToScreen(intersection.x, intersection.y);
@@ -449,6 +451,9 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     if (state.stairs) {
         for (const wall of wallsToScan) {
             if (!wall.p1 || !wall.p2) continue;
+            // Taşınan duvarı kontrol et
+            if (wallsBeingMoved.includes(wall)) continue;
+
             for (const stair of state.stairs) {
                  if (state.isDragging && state.selectedObject?.type === 'stairs' && state.selectedObject.object === stair) continue;
                  try {

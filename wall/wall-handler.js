@@ -183,11 +183,13 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
         } else {
              if (e.ctrlKey && e.shiftKey) {
                  const chain = findCollinearChain(selectedObject.object);
-                 setState({ selectedGroup: chain });
+                 // findCollinearChain wall objelerini döndürüyor, wrapper formatına çevir
+                 const wrappedChain = chain.map(wall => ({ type: 'wall', object: wall, handle: 'body' }));
+                 setState({ selectedGroup: wrappedChain });
              }
-             // selectedGroup elemanları BAZEN {type, object, handle} wrapper, BAZEN direkt wall objesi
+             // selectedGroup elemanları {type, object, handle} formatında!
              wallsBeingMoved = state.selectedGroup.length > 0
-                 ? state.selectedGroup.map(item => item.object || item)
+                 ? state.selectedGroup.map(item => item.object)
                  : [selectedObject.object];
         }
 
@@ -329,17 +331,18 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             let bestSnapX = { diff: SNAP_DISTANCE, value: null };
             let bestSnapY = { diff: SNAP_DISTANCE, value: null };
 
-            // Taşınan duvarları tespit et (self-snapping'i önlemek için)
-            const wallsToExclude = state.selectedGroup.length > 0
-                ? state.selectedGroup.map(item => item.object || item)
+            // Taşınan duvarları tespit et (grup veya tek duvar)
+            // selectedGroup elemanları {type, object, handle} formatında!
+            const wallsToMove = state.selectedGroup.length > 0
+                ? state.selectedGroup.map(item => item.object)
                 : [state.selectedObject.object];
 
             // Tüm duvar yüzeylerine snap kontrolü
             state.walls.forEach(wall => {
                 // Sürüklenen node'un bağlı olduğu duvarları atla
                 if (state.affectedWalls.includes(wall)) return;
-                // Taşınan duvarları atla (self-snapping'i önle)
-                if (wallsToExclude.includes(wall)) return;
+                // Taşınan duvarları atla (grup seçimi durumunda)
+                if (wallsToMove.includes(wall)) return;
                 if (!wall.p1 || !wall.p2) return;
 
                 const wallThickness = wall.thickness || state.wallThickness;
@@ -437,9 +440,9 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         // Duvar Gövdesi Sürükleme
         console.log('🏗️ Wall BODY dragging');
 
-        // selectedGroup elemanları BAZEN {type, object, handle} wrapper, BAZEN direkt wall objesi
+        // selectedGroup elemanları {type, object, handle} formatında!
         const wallsToMove = state.selectedGroup.length > 0
-            ? state.selectedGroup.map(item => item.object || item)
+            ? state.selectedGroup.map(item => item.object)
             : [state.selectedObject.object];
         const nodesToMove = new Set();
         wallsToMove.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
