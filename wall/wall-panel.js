@@ -46,6 +46,16 @@ export function createWallPanel() {
                 <span style="font-size: 12px; color: #8ab4f8; font-weight: 500;">YAY DUVAR</span>
             </label>
         </div>
+        <div id="flip-arc-container" style="margin-bottom: 16px; display: none;">
+            <button id="flip-arc-btn" class="wall-panel-btn" style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <polyline points="23 20 23 14 17 14"></polyline>
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                </svg>
+                <span>Ters Çevir</span>
+            </button>
+        </div>
         <div style="margin-bottom: 0;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0; font-weight: 500;">EKLE:</label>
             <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -69,12 +79,51 @@ export function createWallPanel() {
     setupWallPanelListeners();
 }
 
+// Yay duvarın bezier tutamaçlarını 180° ters çeviren fonksiyon
+function flipArcWall(wall) {
+    if (!wall || !wall.isArc || !wall.arcControl1 || !wall.arcControl2) {
+        return;
+    }
+
+    const p1 = wall.p1;
+    const p2 = wall.p2;
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const lenSq = dx * dx + dy * dy;
+
+    if (lenSq > 1e-6) {
+        // arcControl1'i flip et
+        const t1 = ((wall.arcControl1.x - p1.x) * dx + (wall.arcControl1.y - p1.y) * dy) / lenSq;
+        const proj1X = p1.x + t1 * dx;
+        const proj1Y = p1.y + t1 * dy;
+        wall.arcControl1 = {
+            x: 2 * proj1X - wall.arcControl1.x,
+            y: 2 * proj1Y - wall.arcControl1.y
+        };
+
+        // arcControl2'yi flip et
+        const t2 = ((wall.arcControl2.x - p1.x) * dx + (wall.arcControl2.y - p1.y) * dy) / lenSq;
+        const proj2X = p1.x + t2 * dx;
+        const proj2Y = p1.y + t2 * dy;
+        wall.arcControl2 = {
+            x: 2 * proj2X - wall.arcControl2.x,
+            y: 2 * proj2Y - wall.arcControl2.y
+        };
+    }
+
+    saveState();
+    if (dom.mainContainer.classList.contains('show-3d')) {
+        setTimeout(update3DScene, 0);
+    }
+}
+
 // setupWallPanelListeners fonksiyonu aynı...
 function setupWallPanelListeners() {
     const thicknessSlider = document.getElementById('wall-thickness-slider');
     const thicknessNumber = document.getElementById('wall-thickness-number');
     const wallTypeRadios = document.querySelectorAll('input[name="wall-type"]');
     const arcWallCheckbox = document.getElementById('arc-wall-checkbox');
+    const flipArcBtn = document.getElementById('flip-arc-btn');
 
     thicknessSlider.addEventListener('change', (e) => {
         if (wallPanelWall) {
@@ -121,36 +170,23 @@ function setupWallPanelListeners() {
                     wallPanelWall.arcControl2 = { x: wallPanelWall.p2.x + nx * offset, y: wallPanelWall.p2.y + ny * offset };
                 } else {
                     // Kontrol noktaları zaten var, duvar üzerinden 180° ters çevir
-                    const p1 = wallPanelWall.p1;
-                    const p2 = wallPanelWall.p2;
-                    const dx = p2.x - p1.x;
-                    const dy = p2.y - p1.y;
-                    const lenSq = dx * dx + dy * dy;
-
-                    if (lenSq > 1e-6) {
-                        // arcControl1'i flip et
-                        const t1 = ((wallPanelWall.arcControl1.x - p1.x) * dx + (wallPanelWall.arcControl1.y - p1.y) * dy) / lenSq;
-                        const proj1X = p1.x + t1 * dx;
-                        const proj1Y = p1.y + t1 * dy;
-                        wallPanelWall.arcControl1 = {
-                            x: 2 * proj1X - wallPanelWall.arcControl1.x,
-                            y: 2 * proj1Y - wallPanelWall.arcControl1.y
-                        };
-
-                        // arcControl2'yi flip et
-                        const t2 = ((wallPanelWall.arcControl2.x - p1.x) * dx + (wallPanelWall.arcControl2.y - p1.y) * dy) / lenSq;
-                        const proj2X = p1.x + t2 * dx;
-                        const proj2Y = p1.y + t2 * dy;
-                        wallPanelWall.arcControl2 = {
-                            x: 2 * proj2X - wallPanelWall.arcControl2.x,
-                            y: 2 * proj2Y - wallPanelWall.arcControl2.y
-                        };
-                    }
+                    flipArcWall(wallPanelWall);
                 }
+            }
+
+            // Flip butonunu göster/gizle
+            const flipArcContainer = document.getElementById('flip-arc-container');
+            if (flipArcContainer) {
+                flipArcContainer.style.display = (wallPanelWall.isArc && wallPanelWall.arcControl1 && wallPanelWall.arcControl2) ? 'block' : 'none';
             }
 
             saveState();
             if (dom.mainContainer.classList.contains('show-3d')) { setTimeout(update3DScene, 0); }
+        }
+    });
+    flipArcBtn.addEventListener('click', () => {
+        if (wallPanelWall && wallPanelWall.isArc) {
+            flipArcWall(wallPanelWall);
         }
     });
     document.getElementById('add-door-btn').addEventListener('click', () => { if (wallPanelWall) addDoorToWall(wallPanelWall); hideWallPanel(); });
@@ -184,6 +220,12 @@ export function showWallPanel(wall, x, y) {
     // Arc wall checkbox durumunu ayarla
     const arcCheckbox = document.getElementById('arc-wall-checkbox');
     if (arcCheckbox) arcCheckbox.checked = wall.isArc || false;
+
+    // Flip Arc butonunu sadece arc wall aktifse göster
+    const flipArcContainer = document.getElementById('flip-arc-container');
+    if (flipArcContainer) {
+        flipArcContainer.style.display = (wall.isArc && wall.arcControl1 && wall.arcControl2) ? 'block' : 'none';
+    }
 
     // Panelin pozisyonunu ayarla (fare tıklama noktasına göre)
     wallPanel.style.left = `${x + 10}px`;
