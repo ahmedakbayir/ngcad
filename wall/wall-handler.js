@@ -260,7 +260,52 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     if (state.selectedObject.handle !== "body") {
         // Duvar Ucu (Node) Sürükleme
         const nodeToMove = state.selectedObject.object[state.selectedObject.handle];
+
+        // Temel snap pozisyonu
         let finalPos = { x: snappedPos.x, y: snappedPos.y };
+
+        // UZAK DUVAR YÜZEY SNAP (Merdiven mantığından uyarlandı)
+        const SNAP_DISTANCE_WALL_SURFACE = 10; // Duvar yüzeyine snap mesafesi (cm)
+        let bestSnapX = { diff: SNAP_DISTANCE_WALL_SURFACE, delta: 0 };
+        let bestSnapY = { diff: SNAP_DISTANCE_WALL_SURFACE, delta: 0 };
+
+        // Tüm duvar yüzeylerine snap kontrolü
+        state.walls.forEach(wall => {
+            // Sürüklenen node'un bağlı olduğu duvarları atla
+            if (state.affectedWalls.includes(wall)) return;
+            if (!wall.p1 || !wall.p2) return;
+
+            const wallThickness = wall.thickness || state.wallThickness;
+            const halfThickness = wallThickness / 2;
+            const dxW = wall.p2.x - wall.p1.x;
+            const dyW = wall.p2.y - wall.p1.y;
+            const isVertical = Math.abs(dxW) < 0.1;
+            const isHorizontal = Math.abs(dyW) < 0.1;
+
+            if (isVertical) {
+                const wallX = wall.p1.x;
+                const snapXPositions = [wallX - halfThickness, wallX + halfThickness, wallX]; // Yüzeyler ve merkez
+                for (const snapX of snapXPositions) {
+                    const diff = Math.abs(finalPos.x - snapX);
+                    if (diff < SNAP_DISTANCE_WALL_SURFACE && diff < bestSnapX.diff) {
+                        bestSnapX = { diff, delta: snapX - finalPos.x };
+                    }
+                }
+            } else if (isHorizontal) {
+                const wallY = wall.p1.y;
+                const snapYPositions = [wallY - halfThickness, wallY + halfThickness, wallY]; // Yüzeyler ve merkez
+                for (const snapY of snapYPositions) {
+                    const diff = Math.abs(finalPos.y - snapY);
+                    if (diff < SNAP_DISTANCE_WALL_SURFACE && diff < bestSnapY.diff) {
+                        bestSnapY = { diff, delta: snapY - finalPos.y };
+                    }
+                }
+            }
+        });
+
+        // Snap delta'larını uygula
+        if (bestSnapX.delta !== 0) finalPos.x += bestSnapX.delta;
+        if (bestSnapY.delta !== 0) finalPos.y += bestSnapY.delta;
 
         const moveIsValid = state.affectedWalls.every((wall) => {
             const otherNode = wall.p1 === nodeToMove ? wall.p2 : wall.p1;

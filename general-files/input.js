@@ -782,23 +782,24 @@ export function setupInputListeners() {
     c2d.addEventListener("wheel", onWheel, { passive: false }); // onWheel'i zoom.js'den kullan
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
+        const rect = c2d.getBoundingClientRect();
+        const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const object = getObjectAtPoint(clickPos);
-        
+
         // Diğer tüm popupları/menüleri kapat
         hideRoomNamePopup();
         hideWallPanel();
-        hideGuideContextMenu(); 
+        hideGuideContextMenu();
 
         if (object && (object.type === 'room' || object.type === 'roomName')) {
             showRoomNamePopup(object.object, e);
         } else if (object && object.type === 'wall') {
             showWallPanel(object.object, e.clientX, e.clientY);
-        } else if (object && object.type === 'stairs') { 
+        } else if (object && object.type === 'stairs') {
             showStairPopup(object.object, e); // Merdiven sağ tık
         } else if (!object) {
             // Boş alana tıklandı
-            showGuideContextMenu(e.clientX, e.clientY, clickPos); 
+            showGuideContextMenu(e.clientX, e.clientY, clickPos);
         } else {
             // Diğer nesneler (kolon, kiriş, rehber vb.)
             setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null, selectedObject: null, selectedGroup: [] });
