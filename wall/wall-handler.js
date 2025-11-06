@@ -425,11 +425,58 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         }
     } else {
         // Duvar Gövdesi Sürükleme
+        console.log('🏗️ Wall BODY dragging');
+
         const wallsToMove = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object];
         const nodesToMove = new Set();
         wallsToMove.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
 
-        const mouseDelta = { x: unsnappedPos.x - state.initialDragPoint.x, y: unsnappedPos.y - state.initialDragPoint.y };
+        // STICKY SNAP for wall body dragging
+        const SNAP_DISTANCE = 25;
+        const SNAP_RELEASE_DISTANCE = 40;
+
+        let mouseDelta;
+
+        // Eğer snap locked ise, mouse delta'yı hesaplarken snap pozisyonunu kullan
+        if (state.wallBodySnapLock) {
+            const lockDelta = state.wallBodySnapLock;
+            console.log('🔒 Wall body using LOCKED delta:', lockDelta);
+
+            // Mouse'un gerçek pozisyonunu kontrol et (snap'ten çıktı mı?)
+            const actualMouseDelta = {
+                x: unsnappedPos.x - state.initialDragPoint.x,
+                y: unsnappedPos.y - state.initialDragPoint.y
+            };
+
+            const distFromLockX = Math.abs(actualMouseDelta.x - lockDelta.x);
+            const distFromLockY = Math.abs(actualMouseDelta.y - lockDelta.y);
+
+            // Snap mesafesinden çıktı mı?
+            if (distFromLockX >= SNAP_RELEASE_DISTANCE || distFromLockY >= SNAP_RELEASE_DISTANCE) {
+                console.log('🔓 Wall body snap released');
+                setState({ wallBodySnapLock: null });
+                mouseDelta = actualMouseDelta;
+            } else {
+                // Hala locked, lock delta'yı kullan
+                mouseDelta = { x: lockDelta.x, y: lockDelta.y };
+            }
+        } else {
+            // Lock yok, normal mouse delta
+            mouseDelta = { x: unsnappedPos.x - state.initialDragPoint.x, y: unsnappedPos.y - state.initialDragPoint.y };
+
+            // Yeni snap ara
+            const snappedMouseDelta = { x: snappedPos.x - state.initialDragPoint.x, y: snappedPos.y - state.initialDragPoint.y };
+            const snapDiffX = Math.abs(snappedMouseDelta.x - mouseDelta.x);
+            const snapDiffY = Math.abs(snappedMouseDelta.y - mouseDelta.y);
+
+            // Eğer snap bulunduysa (snappedPos != unsnappedPos)
+            if (snapDiffX > 0.1 || snapDiffY > 0.1) {
+                console.log('✅ Wall body snap found! Locking delta:', snappedMouseDelta);
+                setState({ wallBodySnapLock: { x: snappedMouseDelta.x, y: snappedMouseDelta.y } });
+                mouseDelta = snappedMouseDelta;
+            }
+        }
+
         let totalDelta = { x: mouseDelta.x, y: mouseDelta.y };
 
         if (state.dragAxis === 'x') totalDelta.y = 0;

@@ -200,6 +200,7 @@ export function onPointerUp(e) {
         sweepWalls: [],
         columnRotationOffset: null,
         tempNeighborWallsToDimension: null, // Komşu duvar Set'ini temizle
-        wallNodeSnapLock: null // Snap lock'u temizle
+        wallNodeSnapLock: null, // Snap lock'u temizle
+        wallBodySnapLock: null  // Wall body snap lock'u temizle
     });
 }
