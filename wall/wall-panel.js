@@ -40,16 +40,16 @@ export function createWallPanel() {
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;"><input type="radio" name="wall-type" value="half" style="cursor: pointer;"><span style="font-size: 12px;">Yarım Duvar</span></label>
             </div>
         </div>
-        <div style="margin-bottom: 16px;">
-            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s;">
+        <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px; border-radius: 4px; transition: background 0.2s; flex: 0 0 auto;">
                 <input type="checkbox" id="arc-wall-checkbox" style="cursor: pointer;">
                 <span style="font-size: 12px; color: #8ab4f8; font-weight: 500;">YAY DUVAR</span>
-                <svg id="flip-arc-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: none; margin-left: auto;">
-                    <polyline points="1 4 1 10 7 10"></polyline>
-                    <polyline points="23 20 23 14 17 14"></polyline>
-                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
-                </svg>
             </label>
+            <svg id="flip-arc-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor: pointer; opacity: 0.5; transition: opacity 0.2s; display: none;">
+                <polyline points="1 4 1 10 7 10"></polyline>
+                <polyline points="23 20 23 14 17 14"></polyline>
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+            </svg>
         </div>
         <div style="margin-bottom: 0;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0; font-weight: 500;">EKLE:</label>
@@ -181,8 +181,7 @@ function setupWallPanelListeners() {
     });
 
     // Flip icon'a tıklandığında yayı ters çevir
-    flipArcIcon.addEventListener('click', (e) => {
-        e.stopPropagation(); // Checkbox'ın tetiklenmesini engelle
+    flipArcIcon.addEventListener('click', () => {
         if (wallPanelWall && wallPanelWall.isArc) {
             flipArcWall(wallPanelWall);
         }
