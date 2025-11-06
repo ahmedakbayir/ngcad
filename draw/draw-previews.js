@@ -206,12 +206,19 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
         }
     }
 
-    // Snap noktası gösterimi - SADECE ÇİZİM MODLARINDA GÖSTER
+    // Snap noktası gösterimi - ÇİZİM MODLARINDA VE SÜRÜKLEME SIRASINDA GÖSTER
+    const isInDrawMode = (currentMode === 'drawWall' || currentMode === 'drawRoom' ||
+                          currentMode === 'drawColumn' || currentMode === 'drawBeam' ||
+                          currentMode === 'drawStairs');
+
+    // Sürükleme sırasında da snap göster (door/window hariç)
+    const isDraggingValidObject = isDragging && selectedObject &&
+                                  !['door', 'window'].includes(selectedObject.type);
+
     if (mousePos.isSnapped &&
-        (currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawColumn' || currentMode === 'drawBeam' || currentMode === 'drawStairs') && // <-- "drawStairs" EKLEYİN
+        (isInDrawMode || isDraggingValidObject) &&
         currentMode !== 'drawDoor' &&
-        currentMode !== 'drawWindow' &&
-        !(isDragging && (selectedObject?.type === 'door' || selectedObject?.type === 'window'))) {
+        currentMode !== 'drawWindow') {
 
         const snapRadius = 4 / zoom;
         const color = "#8ab4f8";
