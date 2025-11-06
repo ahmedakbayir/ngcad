@@ -145,7 +145,6 @@ export function onPointerDown(e) {
                  dom.p2d.classList.add('dragging'); // Sürükleme cursor'ı ekle (grabbing)
             } else {
                  // Diğer nesneler (duvar, kapı, kolon vb.) için:
-                 // Seçimi yap ve grup seçimini temizle
                  setState({ selectedObject: clickedObject, selectedRoom: null, selectedGroup: [] });
 
                  // Sürükleme için başlangıç bilgilerini nesne tipine göre al
