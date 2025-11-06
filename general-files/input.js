@@ -339,74 +339,6 @@ function onKeyDown(e) {
         e.preventDefault();
         let deleted = false;
 
-        // Tek nesne silme (selectedObject)
-        if (state.selectedObject?.type === 'column') { state.columns = state.columns.filter(c => c !== state.selectedObject.object); deleted = true; }
-        else if (state.selectedObject?.type === 'beam') { state.beams = state.beams.filter(b => b !== state.selectedObject.object); deleted = true; }
-        else if (state.selectedObject?.type === 'stairs') { state.stairs = state.stairs.filter(s => s !== state.selectedObject.object); deleted = true; }
-        else if (state.selectedObject?.type === 'guide') {
-            state.guides = state.guides.filter(g => g !== state.selectedObject.object);
-            deleted = true;
-        }
-        else if (state.selectedObject) {
-            if (state.selectedObject.type === "door") { setState({ doors: state.doors.filter((d) => d !== state.selectedObject.object) }); deleted = true; }
-            else if (state.selectedObject.type === "window") { const wall = state.selectedObject.wall; if (wall?.windows) { wall.windows = wall.windows.filter(w => w !== state.selectedObject.object); deleted = true; } }
-            else if (state.selectedObject.type === "vent") { const wall = state.selectedObject.wall; if (wall?.vents) { wall.vents = wall.vents.filter(v => v !== state.selectedObject.object); deleted = true; } }
-            else if (state.selectedObject.type === "wall") { const wallsToDelete = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object]; const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w)); const newDoors = state.doors.filter((d) => d.wall && !wallsToDelete.includes(d.wall)); setState({ walls: newWalls, doors: newDoors }); deleted = true; }
-        }
-        // Toplu silme (selectedGroup) - TÜM NESNE TİPLERİ İÇİN
-        else if (state.selectedGroup.length > 0) {
-            console.log('🗑️ Deleting selectedGroup:', state.selectedGroup.length, 'items');
-
-            // Her nesne tipini grupla
-            const itemsByType = {
-                column: [],
-                beam: [],
-                stairs: [],
-                door: [],
-                window: [],
-                wall: []
-            };
-
-            state.selectedGroup.forEach(item => {
-                if (itemsByType[item.type]) {
-                    itemsByType[item.type].push(item.object);
-                }
-            });
-
-            // Her tipteki nesneleri sil
-            if (itemsByType.column.length > 0) {
-                state.columns = state.columns.filter(c => !itemsByType.column.includes(c));
-                deleted = true;
-            }
-            if (itemsByType.beam.length > 0) {
-                state.beams = state.beams.filter(b => !itemsByType.beam.includes(b));
-                deleted = true;
-            }
-            if (itemsByType.stairs.length > 0) {
-                state.stairs = state.stairs.filter(s => !itemsByType.stairs.includes(s));
-                deleted = true;
-            }
-            if (itemsByType.door.length > 0) {
-                setState({ doors: state.doors.filter(d => !itemsByType.door.includes(d)) });
-                deleted = true;
-            }
-            if (itemsByType.window.length > 0) {
-                // Pencereleri duvarlardan sil
-                state.walls.forEach(wall => {
-                    if (wall.windows) {
-                        wall.windows = wall.windows.filter(w => !itemsByType.window.includes(w));
-                    }
-                });
-                deleted = true;
-            }
-            if (itemsByType.wall.length > 0) {
-                const newWalls = state.walls.filter(w => !itemsByType.wall.includes(w));
-                const newDoors = state.doors.filter(d => d.wall && !itemsByType.wall.includes(d.wall));
-                setState({ walls: newWalls, doors: newDoors });
-                deleted = true;
-            }
-
-            console.log('✅ Deleted', state.selectedGroup.length, 'items');
         // Önce selectedGroup'u kontrol et (toplu silme)
         if (state.selectedGroup.length > 0) {
             // Grup içindeki her nesneyi tipine göre sil
@@ -479,7 +411,7 @@ function onKeyDown(e) {
                 setState({ walls: newWalls, doors: newDoors });
                 deleted = true;
             }
-       }
+        }
 
         if (deleted) {
             setState({ selectedObject: null, selectedGroup: [] });
@@ -782,23 +714,24 @@ export function setupInputListeners() {
     c2d.addEventListener("wheel", onWheel, { passive: false }); // onWheel'i zoom.js'den kullan
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
+        const rect = c2d.getBoundingClientRect();
+        const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const object = getObjectAtPoint(clickPos);
-        
+
         // Diğer tüm popupları/menüleri kapat
         hideRoomNamePopup();
         hideWallPanel();
-        hideGuideContextMenu(); 
+        hideGuideContextMenu();
 
         if (object && (object.type === 'room' || object.type === 'roomName')) {
             showRoomNamePopup(object.object, e);
         } else if (object && object.type === 'wall') {
             showWallPanel(object.object, e.clientX, e.clientY);
-        } else if (object && object.type === 'stairs') { 
+        } else if (object && object.type === 'stairs') {
             showStairPopup(object.object, e); // Merdiven sağ tık
         } else if (!object) {
             // Boş alana tıklandı
-            showGuideContextMenu(e.clientX, e.clientY, clickPos); 
+            showGuideContextMenu(e.clientX, e.clientY, clickPos);
         } else {
             // Diğer nesneler (kolon, kiriş, rehber vb.)
             setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null, selectedObject: null, selectedGroup: [] });
