@@ -3,7 +3,7 @@ import { state, setState } from '../general-files/main.js';
 
 /**
  * Default katları initialize eder
- * İlk açılışta: alt kat (placeholder), zemin (aktif), üst kat (placeholder)
+ * İlk açılışta: üst placeholder, zemin (aktif), alt placeholder
  */
 export function initializeDefaultFloors() {
     // Eğer zaten katlar varsa, tekrar initialize etme
@@ -13,14 +13,15 @@ export function initializeDefaultFloors() {
 
     const defaultHeight = state.defaultFloorHeight;
 
-    // Alt kat (placeholder)
+    // Alt kat (placeholder) - Zemin altı
     const lowerFloor = {
         id: 'floor-lower-placeholder',
-        name: 'BODRUM (Hazır)',
+        name: 'KAT EKLE',
         bottomElevation: -defaultHeight,
         topElevation: 0,
         visible: false,
-        isPlaceholder: true
+        isPlaceholder: true,
+        isBelow: true  // Zemin altında
     };
 
     // Zemin kat (aktif)
@@ -33,14 +34,15 @@ export function initializeDefaultFloors() {
         isPlaceholder: false
     };
 
-    // Üst kat (placeholder)
+    // Üst kat (placeholder) - Zemin üstü
     const upperFloor = {
         id: 'floor-upper-placeholder',
-        name: '1.KAT (Hazır)',
+        name: 'KAT EKLE',
         bottomElevation: defaultHeight,
         topElevation: defaultHeight * 2,
         visible: false,
-        isPlaceholder: true
+        isPlaceholder: true,
+        isBelow: false  // Zemin üstünde
     };
 
     setState({

@@ -86,9 +86,21 @@ export function renderFloorTable() {
 
     sortedFloors.forEach((floor, index) => {
         const isActive = state.currentFloor?.id === floor.id;
-        const rowStyle = isActive ?
-            'background: rgba(138, 180, 248, 0.1); border-left: 3px solid #8ab4f8;' :
-            '';
+        let rowStyle = '';
+
+        if (floor.isPlaceholder) {
+            // Placeholder satırları için özel stil
+            rowStyle = 'background: rgba(95, 99, 104, 0.1);';
+        } else if (isActive) {
+            rowStyle = 'background: rgba(138, 180, 248, 0.1); border-left: 3px solid #8ab4f8;';
+        }
+
+        // Kat adını belirle (placeholder için ok işareti ekle)
+        let floorNameDisplay = floor.name;
+        if (floor.isPlaceholder) {
+            const arrow = floor.isBelow ? '↓' : '↑';
+            floorNameDisplay = `${arrow} ${floor.name} ${arrow}`;
+        }
 
         html += `
             <tr data-floor-id="${floor.id}"
@@ -104,9 +116,9 @@ export function renderFloorTable() {
                                 style="cursor: pointer;"/>`
                     }
                 </td>
-                <td style="padding: 8px; color: ${isActive ? '#8ab4f8' : '#e7e6d0'}; font-size: 13px;">
-                    ${floor.name}
-                    ${isActive ? '<span style="color: #24ffda; font-size: 11px;"> (AKTİF)</span>' : ''}
+                <td style="padding: 8px; color: ${floor.isPlaceholder ? '#5f6368' : (isActive ? '#8ab4f8' : '#e7e6d0')}; font-size: 13px; font-weight: ${floor.isPlaceholder ? 'bold' : 'normal'};">
+                    ${floorNameDisplay}
+                    ${isActive && !floor.isPlaceholder ? '<span style="color: #24ffda; font-size: 11px;"> (AKTİF)</span>' : ''}
                 </td>
                 <td style="padding: 8px;">
                     ${floor.isPlaceholder ?
@@ -274,16 +286,32 @@ function addFloorFromPlaceholder(placeholderId) {
     if (placeholderIndex === -1) return;
 
     const placeholder = floors[placeholderIndex];
+    const isAboveGround = placeholder.bottomElevation >= 0; // Zemin ve üstü
 
-    // Yeni kat adını belirle
-    const existingFloorNumbers = floors
-        .filter(f => !f.isPlaceholder && f.name.includes('.KAT'))
-        .map(f => parseInt(f.name.split('.')[0]))
-        .filter(n => !isNaN(n));
+    let newFloorName;
+    let newPlaceholderName;
 
-    const maxFloorNumber = existingFloorNumbers.length > 0 ? Math.max(...existingFloorNumbers) : 0;
-    const newFloorNumber = maxFloorNumber + 1;
-    const newFloorName = `${newFloorNumber}.KAT`;
+    if (isAboveGround) {
+        // Zemin üstü - KAT ekleme
+        const existingFloors = floors
+            .filter(f => !f.isPlaceholder && f.name.includes('.KAT'))
+            .map(f => parseInt(f.name.split('.')[0]))
+            .filter(n => !isNaN(n));
+
+        const maxFloorNumber = existingFloors.length > 0 ? Math.max(...existingFloors) : 0;
+        const newFloorNumber = maxFloorNumber + 1;
+        newFloorName = `${newFloorNumber}.KAT`;
+    } else {
+        // Zemin altı - BODRUM ekleme
+        const existingBasements = floors
+            .filter(f => !f.isPlaceholder && f.name.includes('.BODRUM'))
+            .map(f => parseInt(f.name.split('.')[0]))
+            .filter(n => !isNaN(n));
+
+        const maxBasementNumber = existingBasements.length > 0 ? Math.max(...existingBasements) : 0;
+        const newBasementNumber = maxBasementNumber + 1;
+        newFloorName = `${newBasementNumber}.BODRUM`;
+    }
 
     // Placeholder'ı gerçek kata dönüştür
     floors[placeholderIndex] = {
@@ -293,21 +321,44 @@ function addFloorFromPlaceholder(placeholderId) {
         visible: true
     };
 
-    // Yeni placeholder ekle (üste)
-    const newBottomElevation = floors[placeholderIndex].topElevation;
-    const newTopElevation = newBottomElevation + state.defaultFloorHeight;
+    // Yeni placeholder ekle
+    let newBottomElevation, newTopElevation;
 
-    floors.splice(placeholderIndex, 0, {
-        id: `floor-${Date.now()}`,
-        name: `${newFloorNumber + 1}.KAT (Hazır)`,
-        bottomElevation: newBottomElevation,
-        topElevation: newTopElevation,
-        visible: false,
-        isPlaceholder: true
-    });
+    if (isAboveGround) {
+        // Üste yeni placeholder ekle
+        newBottomElevation = floors[placeholderIndex].topElevation;
+        newTopElevation = newBottomElevation + state.defaultFloorHeight;
 
-    // Yeni katı aktif yap
-    const newFloor = floors[placeholderIndex + 1];
+        floors.splice(placeholderIndex, 0, {
+            id: `floor-placeholder-${Date.now()}`,
+            name: 'KAT EKLE',
+            bottomElevation: newBottomElevation,
+            topElevation: newTopElevation,
+            visible: false,
+            isPlaceholder: true,
+            isBelow: false
+        });
+    } else {
+        // Alta yeni placeholder ekle
+        newTopElevation = floors[placeholderIndex].bottomElevation;
+        newBottomElevation = newTopElevation - state.defaultFloorHeight;
+
+        floors.splice(placeholderIndex + 1, 0, {
+            id: `floor-placeholder-${Date.now()}`,
+            name: 'KAT EKLE',
+            bottomElevation: newBottomElevation,
+            topElevation: newTopElevation,
+            visible: false,
+            isPlaceholder: true,
+            isBelow: true
+        });
+    }
+
+    // Katları yüksekliğe göre sırala
+    floors.sort((a, b) => a.bottomElevation - b.bottomElevation);
+
+    // Yeni eklenen katı bul ve aktif yap
+    const newFloor = floors.find(f => f.name === newFloorName);
 
     setState({
         floors,
