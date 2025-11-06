@@ -6,9 +6,11 @@ import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../draw/guide-menu.js'; 
 import { fitDrawingToScreen } from '../draw/zoom.js';
-import { updateFirstPersonCamera } from '../scene3d/scene3d-camera.js';
+// --- DEĞİŞİKLİK BURADA ---
+import { updateFirstPersonCamera, setupFirstPersonMouseControls } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from '../scene3d/scene3d-core.js';
+// --- DEĞİŞİKLİK SONU ---
 import { createWallPanel } from '../wall/wall-panel.js';
 /*
 // --- RESİM ÇERÇEVESİ KODU ---
@@ -283,9 +285,12 @@ export let state = {
     guides: [], 
     // --- YENİ: RESİM ÇERÇEVESİ İÇİN STATE ---
     pictureFrameCache: [], // Unsplash URL'lerini tutar
-    pictureFrameMaterials: {} // 3D Malzemeleri (URL'ye göre) cache'ler
+    pictureFrameMaterials: {}, // 3D Malzemeleri (URL'ye göre) cache'ler
     // --- YENİ STATE SONU ---
     
+    // --- YENİ: 3D FARE DURUMU ---
+    is3DMouseDown: false // 3D canvas'ta fare basılı mı?
+    // --- YENİ STATE SONU ---
 };
 
 export function setState(newState) {
@@ -455,7 +460,7 @@ function animate() {
         // (Bu fonksiyon kendi içinde 'cameraMode'u kontrol edip FPS değilse hemen çıkacak)
         updateFirstPersonCamera(delta);
 
-        // OrbitControls'u SADECE aktifse güncelle
+        // OrbitControls'ü SADECE aktifse güncelle
         // (controls3d değişkeni 'scene3d-core.js'den gelir ve
         // toggleCameraMode tarafından 'orbitControls' veya 'null' olarak ayarlanır)
         if (controls3d && controls3d.update) {
@@ -715,6 +720,9 @@ function assignRoomNames() {
 // GÜNCELLENMİŞ initialize fonksiyonu
 function initialize() {
     init3D(dom.c3d);
+    // --- DEĞİŞİKLİK BURADA ---
+    // Hata veren fonksiyon çağrısı (setupFirstPersonMouseControls) kaldırıldı
+    // --- DEĞİŞİKLİK SONU ---
     initializeSettings();
     setupUIListeners();
     setupInputListeners();

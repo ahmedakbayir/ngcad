@@ -5,15 +5,15 @@ import * as THREE from "three";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 import {
     scene, camera, orbitControls, pointerLockControls, sceneObjects,
-    cameraMode, // <-- 'as coreCameraMode' kaldırıldı
-    setCameraMode, // <-- YENİ IMPORT
-    setActiveControls, // <-- YENİ IMPORT
-    floorMaterial, // <-- YENİ IMPORT
+    renderer, // <-- BURAYA EKLENDİ
+    cameraMode,
+    setCameraMode, 
+    setActiveControls, 
+    floorMaterial, 
 } from "./scene3d-core.js";
-import { state, WALL_HEIGHT } from "../general-files/main.js"; // <-- CAMERA_HEIGHT buradan kaldırıldı
+import { state, WALL_HEIGHT } from "../general-files/main.js"; 
 
 // --- Değişkenler (scene3d-core.js'den taşındı) ---
-// export let cameraMode = coreCameraMode; // <-- BU SATIR SİLİNDİ
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
 let rotateLeft = false, rotateRight = false;
 let moveUp = false, moveDown = false;
@@ -24,7 +24,7 @@ let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 
 // --- Sabitler (scene3d-core.js'den taşındı) ---
-const CAMERA_HEIGHT = 180; // <-- BU SABİT EKLENDİ
+const CAMERA_HEIGHT = 180; 
 const MOVE_SPEED = 150;
 const ROTATION_SPEED = Math.PI / 4;
 const PITCH_SPEED = Math.PI / 4;
@@ -164,25 +164,64 @@ function setupFirstPersonKeyControls() {
             case 'KeyR': manualHeightMode = false; break;
         }
     };
+    
+    // --- GÜNCELLEME: SPRINT (TAKILMA) HATASI DÜZELTİLDİ ---
     const onKeyUp = (event) => {
         // Sprint modunu kapat (Ctrl veya Shift bırakıldığında)
         if (event.key === 'Control' || event.key === 'Shift') {
             sprintMode = false;
         }
 
-        if (event.key === 'Control') { pitchUp = false; pitchDown = false; moveLeft = false; moveRight = false; return; }
-        if (event.key === 'Shift') { moveUp = false; moveDown = false; return; }
+        // Modifier tuşları bırakıldığında ilgili hareketleri durdur
+        if (event.key === 'Control') { 
+            pitchUp = false; 
+            pitchDown = false; 
+            // Sprint modunda değilse (sadece Ctrl basılıysa) A/D (moveLeft/Right) durdur
+            if (!event.shiftKey) {
+                moveLeft = false; 
+                moveRight = false;
+            }
+            return; 
+        }
+        if (event.key === 'Shift') { 
+            moveUp = false; 
+            moveDown = false; 
+            // Sprint modunda değilse (sadece Shift basılıysa) A/D (moveLeft/Right) durdur
+            if (!event.ctrlKey) {
+                moveLeft = false; 
+                moveRight = false;
+            }
+            return; 
+        }
+        
+        // Yön tuşları bırakıldığında, modifier'lar basılı olsa bile hareketi durdur
         switch (event.code) {
-            case 'ArrowUp': if (event.ctrlKey) pitchUp = false; else if (event.shiftKey) moveUp = false; else moveForward = false; break;
-            case 'ArrowDown': if (event.ctrlKey) pitchDown = false; else if (event.shiftKey) moveDown = false; else moveBackward = false; break;
-            case 'ArrowLeft': if (event.ctrlKey) moveLeft = false; else rotateLeft = false; break;
-            case 'ArrowRight': if (event.ctrlKey) moveRight = false; else rotateRight = false; break;
-            case 'KeyW': moveForward = false; break;
-            case 'KeyS': moveBackward = false; break;
-            case 'KeyA': moveLeft = false; break;
-            case 'KeyD': moveRight = false; break;
+            case 'ArrowUp': 
+            case 'KeyW':
+                moveForward = false; 
+                break;
+            case 'ArrowDown': 
+            case 'KeyS':
+                moveBackward = false; 
+                break;
+            case 'ArrowLeft': 
+                rotateLeft = false; // Normal döndürme
+                moveLeft = false;   // Ctrl veya Ctrl+Shift ile hareket
+                break;
+            case 'ArrowRight': 
+                rotateRight = false; // Normal döndürme
+                moveRight = false;   // Ctrl veya Ctrl+Shift ile hareket
+                break;
+            case 'KeyA': 
+                moveLeft = false; // A tuşu her zaman moveLeft'tir
+                break;
+            case 'KeyD': 
+                moveRight = false; // D tuşu her zaman moveRight'tır
+                break;
         }
     };
+    // --- GÜNCELLEME SONU ---
+    
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 }
@@ -269,7 +308,11 @@ export function toggleCameraMode() {
             const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
             if (wallLen > 0.1) {
                 const wallDx = (wall.p2.x - wall.p1.x) / wallLen; const wallDz = (wall.p2.y - wall.p1.y) / wallLen;
+                
+                // --- HATA DÜZELTMESİ BURADA ---
                 const perpX = -wallDz; const perpZ = wallDx;
+                // --- HATA DÜZELTMESİ SONU ---
+
                 const doorPos = exteriorDoor.position || 0.5;
                 const doorCenterX = wall.p1.x + wallDx * wallLen * doorPos;
                 const doorCenterZ = wall.p1.y + wallDz * wallLen * doorPos;
@@ -346,3 +389,72 @@ export function setCameraRotation(yaw) {
 
 // İlk kurulumu yap
 setupFirstPersonKeyControls();
+
+// --- YENİ EKLENDİ: FPS Modu için Orta Tuş (MMB) ile Döndürme ---
+// --- DEĞİŞİKLİK: Fonksiyon 'export' edildi ---
+export function setupFirstPersonMouseControls() {
+    let isMmbDown = false; // Orta tuş (MMB) basılı mı?
+
+    // 3D canvas (renderer.domElement 'scene3d-core.js'den import edildi)
+    // Hata kontrolü: renderer veya domElement tanımsızsa fonksiyonu çalıştırma
+    if (!renderer || !renderer.domElement) {
+        console.error("FPS Mouse Kontrolü: Renderer veya Canvas (domElement) bulunamadı.");
+        return;
+    }
+    const canvas = renderer.domElement; 
+
+    canvas.addEventListener('mousedown', (e) => {
+        // Sadece FPS modunda ve Orta Tuş (button 1) ise
+        if (cameraMode === 'firstPerson' && e.button === 1) { 
+            isMmbDown = true;
+            e.preventDefault();
+            // Mouse'u kilitlemek (pointer lock) daha akıcı bir deneyim sağlar
+            try {
+                canvas.requestPointerLock();
+            } catch (err) {
+                console.warn("Pointer lock istenemedi:", err);
+            }
+        }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        // Sadece MMB basılıysa ve pointer kilitliyse (veya kilitlenemediyse ama MMB basılıysa)
+        if (isMmbDown && (document.pointerLockElement === canvas || !document.pointerLockElement)) {
+            
+            // Pointer lock varsa 'movementX' kullan, yoksa 'e.movementX' (fallback)
+            const deltaX = e.movementX || 0;
+            
+            if (deltaX === 0) return; // Gerçek bir hareket yoksa çık
+
+            const rotateSpeedFactor = 0.002; // Klavye hızından (delta) bağımsız, daha düşük bir faktör
+
+            // 'updateFirstPersonCamera' içindeki Euler hesaplamasının aynısı
+            const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+            euler.setFromQuaternion(camera.quaternion);
+            
+            // Sadece Y ekseninde (Yaw) döndür
+            // Mouse sağa (+deltaX) -> euler.y azalmalı (-)
+            euler.y -= deltaX * rotateSpeedFactor; 
+
+            camera.quaternion.setFromEuler(euler);
+        }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        // Orta tuş (button 1) bırakıldıysa
+        if (e.button === 1) {
+            isMmbDown = false;
+            // Mouse kilidini aç
+            if (document.pointerLockElement === canvas) {
+                document.exitPointerLock();
+            }
+        }
+    });
+
+    // Pointer lock değiştiğinde (örn. Esc ile çıkıldığında) MMB durumunu sıfırla
+    document.addEventListener('pointerlockchange', () => {
+        if (document.pointerLockElement !== canvas) {
+            isMmbDown = false;
+        }
+    }, false);
+}

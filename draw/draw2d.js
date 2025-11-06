@@ -25,6 +25,10 @@ import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
 
 // Kamera pozisyonunu ve bakış yönünü 2D sahnede göz sembolü ile göster
 function drawCameraViewIndicator(ctx2d, zoom) {
+    // --- YENİ EKLENDİ: 3D fare basılıysa gösterme ---
+    if (state.is3DMouseDown) return;
+    // --- YENİ KOD SONU ---
+
     const cameraInfo = getCameraViewInfo();
     if (!cameraInfo || !cameraInfo.isFPS) return; // Sadece FPS modunda göster
 
