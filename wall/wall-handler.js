@@ -264,48 +264,84 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         // Temel snap pozisyonu
         let finalPos = { x: snappedPos.x, y: snappedPos.y };
 
-        // UZAK DUVAR YÜZEY SNAP (Merdiven mantığından uyarlandı)
-        const SNAP_DISTANCE_WALL_SURFACE = 10; // Duvar yüzeyine snap mesafesi (cm)
-        let bestSnapX = { diff: SNAP_DISTANCE_WALL_SURFACE, delta: 0 };
-        let bestSnapY = { diff: SNAP_DISTANCE_WALL_SURFACE, delta: 0 };
+        // UZAK DUVAR YÜZEY SNAP (Sticky snap ile)
+        const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
+        const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm) - daha büyük
 
-        // Tüm duvar yüzeylerine snap kontrolü
-        state.walls.forEach(wall => {
-            // Sürüklenen node'un bağlı olduğu duvarları atla
-            if (state.affectedWalls.includes(wall)) return;
-            if (!wall.p1 || !wall.p2) return;
+        // Eğer zaten snap'lenmişse (state'te kayıtlıysa), daha büyük toleransla kontrol et
+        let useLockedSnap = false;
+        if (state.wallNodeSnapLock) {
+            const lockX = state.wallNodeSnapLock.x;
+            const lockY = state.wallNodeSnapLock.y;
 
-            const wallThickness = wall.thickness || state.wallThickness;
-            const halfThickness = wallThickness / 2;
-            const dxW = wall.p2.x - wall.p1.x;
-            const dyW = wall.p2.y - wall.p1.y;
-            const isVertical = Math.abs(dxW) < 0.1;
-            const isHorizontal = Math.abs(dyW) < 0.1;
+            // Snap'lenmiş pozisyondan ne kadar uzak?
+            const distFromLockX = lockX !== null ? Math.abs(finalPos.x - lockX) : Infinity;
+            const distFromLockY = lockY !== null ? Math.abs(finalPos.y - lockY) : Infinity;
 
-            if (isVertical) {
-                const wallX = wall.p1.x;
-                const snapXPositions = [wallX - halfThickness, wallX + halfThickness, wallX]; // Yüzeyler ve merkez
-                for (const snapX of snapXPositions) {
-                    const diff = Math.abs(finalPos.x - snapX);
-                    if (diff < SNAP_DISTANCE_WALL_SURFACE && diff < bestSnapX.diff) {
-                        bestSnapX = { diff, delta: snapX - finalPos.x };
-                    }
-                }
-            } else if (isHorizontal) {
-                const wallY = wall.p1.y;
-                const snapYPositions = [wallY - halfThickness, wallY + halfThickness, wallY]; // Yüzeyler ve merkez
-                for (const snapY of snapYPositions) {
-                    const diff = Math.abs(finalPos.y - snapY);
-                    if (diff < SNAP_DISTANCE_WALL_SURFACE && diff < bestSnapY.diff) {
-                        bestSnapY = { diff, delta: snapY - finalPos.y };
-                    }
-                }
+            // Hala snap mesafesinde mi?
+            if ((lockX !== null && distFromLockX < SNAP_RELEASE_DISTANCE) ||
+                (lockY !== null && distFromLockY < SNAP_RELEASE_DISTANCE)) {
+                useLockedSnap = true;
+                // Locked snap'i uygula
+                if (lockX !== null && distFromLockX < SNAP_RELEASE_DISTANCE) finalPos.x = lockX;
+                if (lockY !== null && distFromLockY < SNAP_RELEASE_DISTANCE) finalPos.y = lockY;
+            } else {
+                // Snap'ten çıktı, lock'u temizle
+                setState({ wallNodeSnapLock: null });
             }
-        });
+        }
 
-        // Snap delta'larını uygula
-        if (bestSnapX.delta !== 0) finalPos.x += bestSnapX.delta;
-        if (bestSnapY.delta !== 0) finalPos.y += bestSnapY.delta;
+        // Eğer locked snap kullanmıyorsak, yeni snap ara
+        if (!useLockedSnap) {
+            let bestSnapX = { diff: SNAP_DISTANCE, value: null };
+            let bestSnapY = { diff: SNAP_DISTANCE, value: null };
+
+            // Tüm duvar yüzeylerine snap kontrolü
+            state.walls.forEach(wall => {
+                // Sürüklenen node'un bağlı olduğu duvarları atla
+                if (state.affectedWalls.includes(wall)) return;
+                if (!wall.p1 || !wall.p2) return;
+
+                const wallThickness = wall.thickness || state.wallThickness;
+                const halfThickness = wallThickness / 2;
+                const dxW = wall.p2.x - wall.p1.x;
+                const dyW = wall.p2.y - wall.p1.y;
+                const isVertical = Math.abs(dxW) < 0.1;
+                const isHorizontal = Math.abs(dyW) < 0.1;
+
+                if (isVertical) {
+                    const wallX = wall.p1.x;
+                    const snapXPositions = [wallX - halfThickness, wallX + halfThickness, wallX];
+                    for (const snapX of snapXPositions) {
+                        const diff = Math.abs(finalPos.x - snapX);
+                        if (diff < bestSnapX.diff) {
+                            bestSnapX = { diff, value: snapX };
+                        }
+                    }
+                } else if (isHorizontal) {
+                    const wallY = wall.p1.y;
+                    const snapYPositions = [wallY - halfThickness, wallY + halfThickness, wallY];
+                    for (const snapY of snapYPositions) {
+                        const diff = Math.abs(finalPos.y - snapY);
+                        if (diff < bestSnapY.diff) {
+                            bestSnapY = { diff, value: snapY };
+                        }
+                    }
+                }
+            });
+
+            // Yeni snap bulunduysa uygula ve kilitle
+            if (bestSnapX.value !== null || bestSnapY.value !== null) {
+                setState({
+                    wallNodeSnapLock: {
+                        x: bestSnapX.value,
+                        y: bestSnapY.value
+                    }
+                });
+                if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
+                if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
+            }
+        }
 
         const moveIsValid = state.affectedWalls.every((wall) => {
             const otherNode = wall.p1 === nodeToMove ? wall.p2 : wall.p1;
