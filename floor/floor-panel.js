@@ -10,71 +10,61 @@ let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
 export function createFloorPanel() {
     if (miniPanel) return;
 
-    // Mini panel oluştur - Üstte yatay
+    // Ev butonu oluştur - Sol alt köşede (3D Göster'in yanında)
+    const floorButton = document.createElement('button');
+    floorButton.id = 'floor-home-btn';
+    floorButton.className = 'btn';
+    floorButton.style.cssText = `
+        position: absolute;
+        bottom: 10px;
+        left: 320px;
+        z-index: 11;
+    `;
+    floorButton.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+        Katlar
+    `;
+
+    document.getElementById('p2d').appendChild(floorButton);
+
+    // Mini panel oluştur - Sol altta ev butonunun üstünde
     miniPanel = document.createElement('div');
     miniPanel.id = 'floor-mini-panel';
     miniPanel.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(42, 43, 44, 0.9);
+        position: absolute;
+        bottom: 55px;
+        left: 320px;
+        background: rgba(42, 43, 44, 0.95);
         border: 1px solid #5f6368;
-        border-top: none;
-        border-radius: 0 0 8px 8px;
-        padding: 6px 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        border-radius: 8px;
+        padding: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         z-index: 1000;
-        max-width: 80vw;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
+        max-height: 70vh;
+        overflow-y: auto;
+        display: none;
+        flex-direction: column;
         gap: 6px;
         backdrop-filter: blur(4px);
+        min-width: 200px;
     `;
 
     miniPanel.innerHTML = `
-        <div id="floor-expand-btn" style="cursor: pointer; padding: 4px 8px; background: transparent; border: 1px solid #5f6368; border-radius: 4px; transition: all 0.2s;" title="Katlar Panelini Aç">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <!-- Evin dış çerçevesi (önden vaziyet) -->
-                <rect x="3" y="6" width="18" height="16" stroke="#8ab4f8" fill="none"></rect>
-                <!-- Kat çizgileri (yatay) - katları gösterir -->
-                <line x1="3" y1="10" x2="21" y2="10" stroke="#8ab4f8"></line>
-                <line x1="3" y1="14" x2="21" y2="14" stroke="#8ab4f8"></line>
-                <line x1="3" y1="18" x2="21" y2="18" stroke="#8ab4f8"></line>
-                <!-- Çatı -->
-                <polyline points="12,2 21,6 3,6" stroke="#8ab4f8" fill="none"></polyline>
-            </svg>
-        </div>
-        <div id="floor-scroll-left" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 14px;">◀</div>
-        <div id="floor-mini-list" style="flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: row; align-items: center; gap: 6px; max-width: 70vw; scrollbar-width: none;">
+        <div id="floor-mini-list" style="display: flex; flex-direction: column; gap: 6px;">
             <!-- Katlar buraya dinamik olarak eklenecek -->
         </div>
-        <div id="floor-scroll-right" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 14px;">▶</div>
     `;
 
-    document.body.appendChild(miniPanel);
+    document.getElementById('p2d').appendChild(miniPanel);
 
-    // Genişleme butonu
-    const expandBtn = miniPanel.querySelector('#floor-expand-btn');
-    expandBtn.addEventListener('click', (e) => {
+    // Ev butonu tıklama
+    floorButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        showDetailPanel();
+        toggleMiniPanel();
     });
-
-    // Hover efekti
-    expandBtn.addEventListener('mouseenter', () => {
-        expandBtn.style.background = 'rgba(95, 99, 104, 0.3)';
-    });
-    expandBtn.addEventListener('mouseleave', () => {
-        expandBtn.style.background = 'transparent';
-    });
-
-    // Çift tıklama ile detaylı panel aç
-    miniPanel.addEventListener('dblclick', showDetailPanel);
-
-    // Kaydırma okları
-    setupScrollButtons();
 
     // Detaylı panel oluştur
     createDetailPanel();
@@ -83,44 +73,25 @@ export function createFloorPanel() {
     renderMiniPanel();
 }
 
-/**
- * Kaydırma butonlarını kurar (yatay)
- */
-function setupScrollButtons() {
-    const scrollLeft = miniPanel.querySelector('#floor-scroll-left');
-    const scrollRight = miniPanel.querySelector('#floor-scroll-right');
-    const floorList = miniPanel.querySelector('#floor-mini-list');
-
-    scrollLeft.addEventListener('click', (e) => {
-        e.stopPropagation();
-        floorList.scrollLeft -= 100;
-        updateScrollButtons();
-    });
-
-    scrollRight.addEventListener('click', (e) => {
-        e.stopPropagation();
-        floorList.scrollLeft += 100;
-        updateScrollButtons();
-    });
-
-    floorList.addEventListener('scroll', updateScrollButtons);
+function toggleMiniPanel() {
+    if (miniPanel.style.display === 'none' || miniPanel.style.display === '') {
+        miniPanel.style.display = 'flex';
+        renderMiniPanel();
+    } else {
+        miniPanel.style.display = 'none';
+    }
 }
 
-/**
- * Kaydırma butonlarının görünürlüğünü günceller (yatay)
- */
-function updateScrollButtons() {
-    const scrollLeft = miniPanel.querySelector('#floor-scroll-left');
-    const scrollRight = miniPanel.querySelector('#floor-scroll-right');
-    const floorList = miniPanel.querySelector('#floor-mini-list');
+// Panel dışına tıklanınca kapat
+document.addEventListener('click', (e) => {
+    if (miniPanel && miniPanel.style.display === 'flex') {
+        const floorButton = document.getElementById('floor-home-btn');
+        if (!miniPanel.contains(e.target) && e.target !== floorButton && !floorButton.contains(e.target)) {
+            miniPanel.style.display = 'none';
+        }
+    }
+});
 
-    // Sola kaydırma göster
-    scrollLeft.style.display = floorList.scrollLeft > 0 ? 'block' : 'none';
-
-    // Sağa kaydırma göster
-    const isAtRight = floorList.scrollWidth - floorList.scrollLeft <= floorList.clientWidth + 5;
-    scrollRight.style.display = isAtRight ? 'none' : 'block';
-}
 
 /**
  * Mini paneli render eder
@@ -131,10 +102,10 @@ export function renderMiniPanel() {
     const floorList = miniPanel.querySelector('#floor-mini-list');
     const floors = state.floors || [];
 
-    // Tüm katları sırala (küçükten büyüğe, soldan sağa)
+    // Tüm katları sırala (büyükten küçüğe, yukarıdan aşağıya - en üstteki kat en üstte)
     const allSortedFloors = [...floors]
         .filter(f => !f.isPlaceholder)
-        .sort((a, b) => a.bottomElevation - b.bottomElevation);
+        .sort((a, b) => b.bottomElevation - a.bottomElevation);
 
     let html = '';
 
@@ -143,54 +114,48 @@ export function renderMiniPanel() {
         const isVisible = floor.visible !== false;
 
         if (!isVisible) {
-            // Gizli kat - tek tire işareti göster
-            html += `
-                <div style="width: 8px; height: 36px; display: flex; align-items: center; justify-content: center; color: #5f6368; font-size: 18px;">
-                    –
-                </div>
-            `;
             return; // Gizli katı gösterme
         }
 
-        // Kat kısa adı
-        const shortName = getShortFloorName(floor.name);
+        // Kat tam adı
+        const floorName = floor.name;
 
         // Katta çizim var mı kontrol et
         const hasContent = state.walls?.length > 0 || state.doors?.length > 0;
 
         // Durum renkler
-        let bgColor, textColor, dotColor;
+        let bgColor, textColor, borderColor;
 
         if (isActive) {
             // Aktif görünür - Mavi
-            bgColor = '#8ab4f8';
-            textColor = '#1e1f20';
-            dotColor = '#1e5a8e'; // Koyu mavi nokta
+            bgColor = 'rgba(138, 180, 248, 0.2)';
+            textColor = '#8ab4f8';
+            borderColor = '#8ab4f8';
         } else {
             // Pasif görünür - Koyu gri
-            bgColor = '#4a4b4c';
+            bgColor = 'transparent';
             textColor = '#e7e6d0';
-            dotColor = '#808080'; // Gri nokta
+            borderColor = '#5f6368';
         }
 
-        // Nokta HTML (sadece içerik varsa, sağ üst köşede)
-        const dotHtml = hasContent ? `<span style="position: absolute; top: 4px; right: 4px; width: 4px; height: 4px; border-radius: 50%; background: ${dotColor};"></span>` : '';
+        // İçerik göstergesi (nokta)
+        const dotHtml = hasContent ? `<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${textColor}; margin-right: 6px;"></span>` : '';
 
         html += `
             <div class="floor-mini-item clickable"
                  data-floor-id="${floor.id}"
-                 style="position: relative;
-                        background: ${bgColor};
+                 style="background: ${bgColor};
                         color: ${textColor};
-                        padding: 6px 8px;
+                        padding: 8px 12px;
+                        border: 1px solid ${borderColor};
                         border-radius: 4px;
-                        font-size: 11px;
-                        font-weight: bold;
-                        text-align: center;
-                        min-width: 36px;
+                        font-size: 12px;
+                        font-weight: ${isActive ? 'bold' : 'normal'};
                         cursor: pointer;
-                        transition: all 0.2s;">
-                ${shortName}${dotHtml}
+                        transition: all 0.2s;
+                        display: flex;
+                        align-items: center;">
+                ${dotHtml}${floorName}
             </div>
         `;
     });
@@ -218,15 +183,15 @@ export function renderMiniPanel() {
         // Hover efekti
         item.addEventListener('mouseenter', () => {
             if (item.dataset.floorId !== state.currentFloor?.id) {
-                item.style.transform = 'scale(1.05)';
+                item.style.background = 'rgba(95, 99, 104, 0.3)';
             }
         });
         item.addEventListener('mouseleave', () => {
-            item.style.transform = 'scale(1)';
+            if (item.dataset.floorId !== state.currentFloor?.id) {
+                item.style.background = 'transparent';
+            }
         });
     });
-
-    updateScrollButtons();
 }
 
 /**

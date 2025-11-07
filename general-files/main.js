@@ -345,6 +345,7 @@ export const dom = {
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
     fileInput: document.getElementById("file-input"),
+    b3d: document.getElementById("b3d"),
     bFirstPerson: document.getElementById("bFirstPerson"),
     bAssignNames: document.getElementById("bAssignNames"),
     settingsBtn: document.getElementById("settings-btn"),
@@ -807,6 +808,7 @@ function initialize() {
     dom.bStairs.addEventListener("click", () => setMode("drawStairs", true)); // forceSet ekleyin
     dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
 
+    dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
 
     window.addEventListener("resize", resize);
