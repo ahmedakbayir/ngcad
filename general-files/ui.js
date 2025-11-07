@@ -156,6 +156,7 @@ function confirmRoomNameChange() {
 
 export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
+    dom.b3d.classList.toggle('active');
 
     if (dom.mainContainer.classList.contains('show-3d')) {
         setMode("select"); // 3D açılırken modu "select" yap

@@ -201,10 +201,17 @@ canvas {
     transform: translate(-50%, -50%);
 }
 
-#settings-btn {
+#b3d {
     position: absolute;
     bottom: 10px;
     left: 10px;
+    z-index: 11;
+}
+
+#settings-btn {
+    position: absolute;
+    bottom: 10px;
+    left: 160px;
     z-index: 11;
 }
 
@@ -212,7 +219,7 @@ canvas {
     display: none;
     position: absolute;
     bottom: 55px;
-    left: 10px;
+    left: 160px;
     background-color: #2a2b2c;
     border: 1px solid #5f6368;
     border-radius: 8px;
@@ -251,10 +258,11 @@ canvas {
     padding-right: 8px;
     border-right: 1px solid #5f6368;
     min-width: 90px;
+    align-items: stretch;
 }
 
 .tab-btn-vertical {
-    padding: 6px 10px;
+    padding: 4px 8px;
     cursor: pointer;
     border: none;
     background-color: transparent;
@@ -263,6 +271,9 @@ canvas {
     font-size: 11px;
     text-align: left;
     transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .tab-btn-vertical:hover {
@@ -294,8 +305,8 @@ canvas {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
-    gap: 8px;
+    margin-bottom: 6px;
+    gap: 4px;
 }
 
 .setting-control label {
