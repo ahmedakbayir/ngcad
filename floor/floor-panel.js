@@ -104,8 +104,9 @@ export function renderMiniPanel() {
     const floors = state.floors || [];
 
     // Katları yüksekliğe göre sırala (en üstten en alta)
+    // Sadece görünür katları göster
     const sortedFloors = [...floors]
-        .filter(f => !f.isPlaceholder)
+        .filter(f => !f.isPlaceholder && f.visible !== false)
         .sort((a, b) => b.bottomElevation - a.bottomElevation);
 
     let html = '';
@@ -162,6 +163,7 @@ export function renderMiniPanel() {
 
     // Kat tıklama event'leri
     floorList.querySelectorAll('.floor-mini-item.clickable').forEach(item => {
+        // Tek tıklama - kat değiştir
         item.addEventListener('click', (e) => {
             const floorId = item.dataset.floorId;
             const floor = floors.find(f => f.id === floorId);
@@ -169,6 +171,12 @@ export function renderMiniPanel() {
                 setState({ currentFloor: floor });
                 renderMiniPanel();
             }
+        });
+
+        // Çift tıklama - detaylı panel aç
+        item.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            showDetailPanel();
         });
 
         // Hover efekti
@@ -365,12 +373,28 @@ function renderDetailPanel() {
 }
 
 /**
- * Görünürlük toggle göz ikonu
+ * Görünürlük toggle göz ikonu (SVG)
  */
 function renderVisibilityToggle(floor) {
     const isVisible = floor.visible !== false;
-    const icon = isVisible ? '👁️' : '👁️‍🗨️'; // Göz / Kapalı göz
     const title = isVisible ? 'Gizle' : 'Göster';
+    const color = isVisible ? '#8ab4f8' : '#5f6368';
+
+    // Görünür - Göz ikonu
+    const eyeIcon = `
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+    `;
+
+    // Gizli - Çizili göz ikonu (password şeklinde)
+    const eyeOffIcon = `
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+        </svg>
+    `;
 
     return `
         <button class="floor-visibility-btn"
@@ -378,11 +402,13 @@ function renderVisibilityToggle(floor) {
                 style="background: transparent;
                        border: none;
                        cursor: pointer;
-                       font-size: 16px;
-                       padding: 0;
-                       opacity: ${isVisible ? '1' : '0.4'};"
+                       padding: 2px;
+                       display: flex;
+                       align-items: center;
+                       justify-content: center;
+                       transition: transform 0.2s;"
                 title="${title}">
-            ${icon}
+            ${isVisible ? eyeIcon : eyeOffIcon}
         </button>
     `;
 }

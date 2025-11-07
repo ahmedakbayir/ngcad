@@ -330,7 +330,6 @@ export const dom = {
     b3d: document.getElementById("b3d"),
     bFirstPerson: document.getElementById("bFirstPerson"),
     bAssignNames: document.getElementById("bAssignNames"),
-    bFloors: document.getElementById("bFloors"),
     settingsBtn: document.getElementById("settings-btn"),
     settingsPopup: document.getElementById("settings-popup"),
     closeSettingsPopupBtn: document.getElementById("close-settings-popup"),
@@ -755,7 +754,6 @@ function initialize() {
 
     dom.b3d.addEventListener("click", toggle3DView);
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
-    dom.bFloors.addEventListener("click", showFloorPanel);
 
     window.addEventListener("resize", resize);
 
