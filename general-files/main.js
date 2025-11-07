@@ -12,7 +12,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from '../scene3d/scene3d-core.js';
 // --- DEĞİŞİKLİK SONU ---
 import { createWallPanel } from '../wall/wall-panel.js';
-import { createFloorPanel, showFloorPanel } from '../floor/floor-panel.js';
+import { createFloorPanel, showFloorPanel, renderMiniPanel } from '../floor/floor-panel.js';
 import { initializeDefaultFloors } from '../floor/floor-handler.js';
 /*
 // --- RESİM ÇERÇEVESİ KODU ---
@@ -305,7 +305,17 @@ export function setState(newState) {
     if (newState.isDragging === false) {
         newState.draggedRoomInfo = [];
     }
+
+    // Walls veya doors değiştiğinde mini paneli güncelle
+    const wallsChanged = newState.walls !== undefined && newState.walls !== state.walls;
+    const doorsChanged = newState.doors !== undefined && newState.doors !== state.doors;
+
     state = { ...state, ...newState };
+
+    // Kat içerik durumu değiştiyse mini panel'i güncelle
+    if (wallsChanged || doorsChanged) {
+        renderMiniPanel();
+    }
 }
 
 export const dom = {
