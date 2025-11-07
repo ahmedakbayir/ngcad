@@ -1,17 +1,213 @@
 // floor-panel.js
 import { state, setState } from '../general-files/main.js';
 
-let floorPanel = null;
+let miniPanel = null; // Sağda sabit dar panel
+let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
 
 /**
- * Kat panelini oluşturur (sadece bir kez)
+ * Mini kat panelini oluşturur (sağda sabit)
  */
 export function createFloorPanel() {
-    if (floorPanel) return;
+    if (miniPanel) return;
 
-    floorPanel = document.createElement('div');
-    floorPanel.id = 'floor-panel';
-    floorPanel.style.cssText = `
+    // Mini panel oluştur
+    miniPanel = document.createElement('div');
+    miniPanel.id = 'floor-mini-panel';
+    miniPanel.style.cssText = `
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #2a2b2c;
+        border: 1px solid #5f6368;
+        border-right: none;
+        border-radius: 8px 0 0 8px;
+        padding: 8px 4px;
+        box-shadow: -2px 0 8px rgba(0,0,0,0.3);
+        z-index: 1000;
+        width: 50px;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    `;
+
+    miniPanel.innerHTML = `
+        <div id="floor-scroll-up" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 16px;">▲</div>
+        <div id="floor-mini-list" style="flex: 1; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0;">
+            <!-- Katlar buraya dinamik olarak eklenecek -->
+        </div>
+        <div id="floor-scroll-down" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 16px;">▼</div>
+    `;
+
+    document.body.appendChild(miniPanel);
+
+    // Çift tıklama ile detaylı panel aç
+    miniPanel.addEventListener('dblclick', showDetailPanel);
+
+    // Kaydırma okları
+    setupScrollButtons();
+
+    // Detaylı panel oluştur
+    createDetailPanel();
+
+    // İlk render
+    renderMiniPanel();
+}
+
+/**
+ * Kaydırma butonlarını kurar
+ */
+function setupScrollButtons() {
+    const scrollUp = miniPanel.querySelector('#floor-scroll-up');
+    const scrollDown = miniPanel.querySelector('#floor-scroll-down');
+    const floorList = miniPanel.querySelector('#floor-mini-list');
+
+    scrollUp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        floorList.scrollTop -= 50;
+        updateScrollButtons();
+    });
+
+    scrollDown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        floorList.scrollTop += 50;
+        updateScrollButtons();
+    });
+
+    floorList.addEventListener('scroll', updateScrollButtons);
+}
+
+/**
+ * Kaydırma butonlarının görünürlüğünü günceller
+ */
+function updateScrollButtons() {
+    const scrollUp = miniPanel.querySelector('#floor-scroll-up');
+    const scrollDown = miniPanel.querySelector('#floor-scroll-down');
+    const floorList = miniPanel.querySelector('#floor-mini-list');
+
+    // Yukarı kaydırma göster
+    scrollUp.style.display = floorList.scrollTop > 0 ? 'block' : 'none';
+
+    // Aşağı kaydırma göster
+    const isAtBottom = floorList.scrollHeight - floorList.scrollTop <= floorList.clientHeight + 5;
+    scrollDown.style.display = isAtBottom ? 'none' : 'block';
+}
+
+/**
+ * Mini paneli render eder
+ */
+export function renderMiniPanel() {
+    if (!miniPanel) return;
+
+    const floorList = miniPanel.querySelector('#floor-mini-list');
+    const floors = state.floors || [];
+
+    // Katları yüksekliğe göre sırala (en üstten en alta)
+    const sortedFloors = [...floors]
+        .filter(f => !f.isPlaceholder)
+        .sort((a, b) => b.bottomElevation - a.bottomElevation);
+
+    let html = '';
+
+    sortedFloors.forEach(floor => {
+        const isActive = state.currentFloor?.id === floor.id;
+        const isVisible = floor.visible !== false;
+
+        // Kat kısa adı
+        const shortName = getShortFloorName(floor.name);
+
+        // Durum renkler
+        let bgColor, textColor, opacity;
+
+        if (!isVisible) {
+            // Görünmez
+            bgColor = '#1e1f20';
+            textColor = '#5f6368';
+            opacity = '0.5';
+        } else if (isActive) {
+            // Aktif görünür
+            bgColor = '#8ab4f8';
+            textColor = '#1e1f20';
+            opacity = '1';
+        } else {
+            // Pasif görünür
+            bgColor = '#3a5f8f';
+            textColor = '#e7e6d0';
+            opacity = '1';
+        }
+
+        const cursor = isVisible ? 'pointer' : 'not-allowed';
+
+        html += `
+            <div class="floor-mini-item ${isVisible ? 'clickable' : ''}"
+                 data-floor-id="${floor.id}"
+                 style="background: ${bgColor};
+                        color: ${textColor};
+                        opacity: ${opacity};
+                        padding: 6px 8px;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        text-align: center;
+                        min-width: 36px;
+                        cursor: ${cursor};
+                        transition: all 0.2s;">
+                ${shortName}
+            </div>
+        `;
+    });
+
+    floorList.innerHTML = html;
+
+    // Kat tıklama event'leri
+    floorList.querySelectorAll('.floor-mini-item.clickable').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const floorId = item.dataset.floorId;
+            const floor = floors.find(f => f.id === floorId);
+            if (floor && floor.visible !== false) {
+                setState({ currentFloor: floor });
+                renderMiniPanel();
+            }
+        });
+
+        // Hover efekti
+        item.addEventListener('mouseenter', () => {
+            if (item.dataset.floorId !== state.currentFloor?.id) {
+                item.style.transform = 'scale(1.05)';
+            }
+        });
+        item.addEventListener('mouseleave', () => {
+            item.style.transform = 'scale(1)';
+        });
+    });
+
+    updateScrollButtons();
+}
+
+/**
+ * Kat adını kısaltır (K3, K2, K1, Z, B1, B2)
+ */
+function getShortFloorName(fullName) {
+    if (fullName === 'ZEMİN') return 'Z';
+    if (fullName.includes('.KAT')) {
+        return 'K' + fullName.split('.')[0];
+    }
+    if (fullName.includes('.BODRUM')) {
+        return 'B' + fullName.split('.')[0];
+    }
+    return fullName.substring(0, 2);
+}
+
+/**
+ * Detaylı kat panelini oluşturur
+ */
+function createDetailPanel() {
+    if (detailPanel) return;
+
+    detailPanel = document.createElement('div');
+    detailPanel.id = 'floor-detail-panel';
+    detailPanel.style.cssText = `
         position: fixed;
         background: #2a2b2c;
         border: 1px solid #8ab4f8;
@@ -20,62 +216,90 @@ export function createFloorPanel() {
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         z-index: 10000;
         display: none;
-        min-width: 500px;
-        max-width: 600px;
+        width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
     `;
 
-    floorPanel.innerHTML = `
+    detailPanel.innerHTML = `
         <div style="margin-bottom: 16px; font-size: 14px; font-weight: 500;
                     color: #8ab4f8; border-bottom: 1px solid #3a3b3c; padding-bottom: 8px;
                     display: flex; justify-content: space-between; align-items: center;">
             <span>KAT YÖNETİMİ</span>
-            <button id="close-floor-panel" style="background: transparent; border: none;
+            <button id="close-detail-panel" style="background: transparent; border: none;
                     color: #e7e6d0; cursor: pointer; font-size: 18px; padding: 0; width: 24px; height: 24px;">
                 ✕
             </button>
         </div>
-        <div id="floor-table-container" style="overflow-y: auto; max-height: 400px;">
+        <div id="floor-detail-table-container">
             <!-- Tablo buraya dinamik olarak eklenecek -->
         </div>
     `;
 
-    document.body.appendChild(floorPanel);
-    setupFloorPanelListeners();
+    document.body.appendChild(detailPanel);
+    setupDetailPanelListeners();
 }
 
 /**
- * Panel event listener'larını kurar
+ * Detaylı panel event listener'ları
  */
-function setupFloorPanelListeners() {
-    const closeBtn = floorPanel.querySelector('#close-floor-panel');
-    closeBtn.addEventListener('click', hideFloorPanel);
+function setupDetailPanelListeners() {
+    const closeBtn = detailPanel.querySelector('#close-detail-panel');
+    closeBtn.addEventListener('click', hideDetailPanel);
 
     // Panel dışına tıklandığında kapat
     document.addEventListener('click', (e) => {
-        if (floorPanel.style.display === 'block' &&
-            !floorPanel.contains(e.target) &&
-            e.target.id !== 'bFloors') {
-            hideFloorPanel();
+        if (detailPanel.style.display === 'block' &&
+            !detailPanel.contains(e.target) &&
+            !miniPanel.contains(e.target)) {
+            hideDetailPanel();
         }
     });
 }
 
 /**
- * Kat tablosunu render eder
+ * Detaylı paneli gösterir
  */
-export function renderFloorTable() {
-    if (!floorPanel) return;
+export function showDetailPanel() {
+    if (!detailPanel) {
+        createDetailPanel();
+    }
 
-    const tableContainer = floorPanel.querySelector('#floor-table-container');
+    // Panel'i ekranın ortasına yerleştir
+    detailPanel.style.display = 'block';
+    detailPanel.style.left = '50%';
+    detailPanel.style.top = '50%';
+    detailPanel.style.transform = 'translate(-50%, -50%)';
+
+    renderDetailPanel();
+}
+
+/**
+ * Detaylı paneli gizler
+ */
+export function hideDetailPanel() {
+    if (detailPanel) {
+        detailPanel.style.display = 'none';
+    }
+}
+
+/**
+ * Detaylı kat tablosunu render eder
+ */
+function renderDetailPanel() {
+    if (!detailPanel) return;
+
+    const tableContainer = detailPanel.querySelector('#floor-detail-table-container');
     const floors = state.floors || [];
 
     let html = `
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="border-bottom: 1px solid #3a3b3c;">
-                    <th style="padding: 8px; text-align: left; color: #8ab4f8; font-size: 12px; width: 60px;">Göster</th>
-                    <th style="padding: 8px; text-align: left; color: #8ab4f8; font-size: 12px; width: 120px;">Kat Adı</th>
-                    <th style="padding: 8px; text-align: left; color: #8ab4f8; font-size: 12px;">Ön İzleme</th>
+                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 40px;">Göster</th>
+                    <th style="padding: 6px; text-align: left; color: #8ab4f8; font-size: 11px; width: 100px;">Kat Adı</th>
+                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px;">Ön İzleme</th>
+                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 40px;">Sil</th>
                 </tr>
             </thead>
             <tbody>
@@ -84,15 +308,20 @@ export function renderFloorTable() {
     // Katları ters sırada göster (en üstteki kat en üstte)
     const sortedFloors = [...floors].reverse();
 
-    sortedFloors.forEach((floor, index) => {
+    sortedFloors.forEach(floor => {
         const isActive = state.currentFloor?.id === floor.id;
+        const isVisible = floor.visible !== false;
         let rowStyle = '';
 
         if (floor.isPlaceholder) {
-            // Placeholder satırları için özel stil
             rowStyle = 'background: rgba(95, 99, 104, 0.1);';
         } else if (isActive) {
             rowStyle = 'background: rgba(138, 180, 248, 0.1); border-left: 3px solid #8ab4f8;';
+        }
+
+        // Gizli katlar için opacity ekle
+        if (!isVisible && !floor.isPlaceholder) {
+            rowStyle += ' opacity: 0.4;';
         }
 
         // Kat adını belirle (placeholder için ok işareti ekle)
@@ -104,27 +333,23 @@ export function renderFloorTable() {
 
         html += `
             <tr data-floor-id="${floor.id}"
-                style="${rowStyle} border-bottom: 1px solid #3a3b3c; cursor: pointer;"
+                style="${rowStyle} border-bottom: 1px solid #3a3b3c; cursor: pointer; height: 50px;"
                 class="floor-row">
-                <td style="padding: 8px;">
-                    ${floor.isPlaceholder ?
-                        '' :
-                        `<input type="checkbox"
-                                class="floor-visibility-toggle"
-                                data-floor-id="${floor.id}"
-                                ${floor.visible ? 'checked' : ''}
-                                style="cursor: pointer;"/>`
-                    }
+                <td style="padding: 4px; text-align: center;">
+                    ${floor.isPlaceholder ? '' : renderVisibilityToggle(floor)}
                 </td>
-                <td style="padding: 8px; color: ${floor.isPlaceholder ? '#5f6368' : (isActive ? '#8ab4f8' : '#e7e6d0')}; font-size: 13px; font-weight: ${floor.isPlaceholder ? 'bold' : 'normal'};">
+                <td style="padding: 4px; color: ${floor.isPlaceholder ? '#5f6368' : (isActive ? '#8ab4f8' : '#e7e6d0')}; font-size: 12px; font-weight: ${floor.isPlaceholder ? 'bold' : 'normal'};">
                     ${floorNameDisplay}
-                    ${isActive && !floor.isPlaceholder ? '<span style="color: #24ffda; font-size: 11px;"> (AKTİF)</span>' : ''}
+                    ${isActive && !floor.isPlaceholder ? '<span style="color: #24ffda; font-size: 10px;"> (AKTİF)</span>' : ''}
                 </td>
-                <td style="padding: 8px;">
+                <td style="padding: 4px; text-align: center;">
                     ${floor.isPlaceholder ?
                         renderPlaceholderPreview(floor) :
                         renderFloorPreview(floor)
                     }
+                </td>
+                <td style="padding: 4px; text-align: center;">
+                    ${floor.isPlaceholder || floor.name === 'ZEMİN' ? '' : renderDeleteButton(floor)}
                 </td>
             </tr>
         `;
@@ -136,31 +361,73 @@ export function renderFloorTable() {
     `;
 
     tableContainer.innerHTML = html;
-
-    // Event listener'ları ekle
-    setupTableEventListeners();
+    setupDetailTableEventListeners();
 }
 
 /**
- * Placeholder kat önizlemesi (kesikli çizgiler + buton)
+ * Görünürlük toggle göz ikonu
+ */
+function renderVisibilityToggle(floor) {
+    const isVisible = floor.visible !== false;
+    const icon = isVisible ? '👁️' : '👁️‍🗨️'; // Göz / Kapalı göz
+    const title = isVisible ? 'Gizle' : 'Göster';
+
+    return `
+        <button class="floor-visibility-btn"
+                data-floor-id="${floor.id}"
+                style="background: transparent;
+                       border: none;
+                       cursor: pointer;
+                       font-size: 16px;
+                       padding: 0;
+                       opacity: ${isVisible ? '1' : '0.4'};"
+                title="${title}">
+            ${icon}
+        </button>
+    `;
+}
+
+/**
+ * Silme butonu (çöp kutusu)
+ */
+function renderDeleteButton(floor) {
+    return `
+        <button class="floor-delete-btn"
+                data-floor-id="${floor.id}"
+                style="background: transparent;
+                       border: 1px solid #e74c3c;
+                       color: #e74c3c;
+                       border-radius: 4px;
+                       cursor: pointer;
+                       font-size: 14px;
+                       padding: 2px 6px;
+                       transition: all 0.2s;"
+                title="Katı Sil">
+            🗑️
+        </button>
+    `;
+}
+
+/**
+ * Placeholder kat önizlemesi (küçük, kesikli çizgiler + buton)
  */
 function renderPlaceholderPreview(floor) {
     return `
-        <div style="position: relative; width: 150px; height: 60px;">
-            <svg width="150" height="60" style="display: block;">
-                <rect x="10" y="10" width="130" height="40"
+        <div style="position: relative; width: 80px; height: 40px; display: inline-block;">
+            <svg width="80" height="40" style="display: block;">
+                <rect x="5" y="5" width="70" height="30"
                       fill="none"
                       stroke="#5f6368"
                       stroke-width="1"
-                      stroke-dasharray="4,4"/>
-                <line x1="10" y1="10" x2="140" y2="50"
+                      stroke-dasharray="3,3"/>
+                <line x1="5" y1="5" x2="75" y2="35"
                       stroke="#5f6368"
-                      stroke-width="1"
-                      stroke-dasharray="4,4"/>
-                <line x1="140" y1="10" x2="10" y2="50"
+                      stroke-width="0.5"
+                      stroke-dasharray="3,3"/>
+                <line x1="75" y1="5" x2="5" y2="35"
                       stroke="#5f6368"
-                      stroke-width="1"
-                      stroke-dasharray="4,4"/>
+                      stroke-width="0.5"
+                      stroke-dasharray="3,3"/>
             </svg>
             <button class="add-floor-btn"
                     data-floor-id="${floor.id}"
@@ -172,14 +439,15 @@ function renderPlaceholderPreview(floor) {
                            color: #8ab4f8;
                            border: 1px solid #8ab4f8;
                            border-radius: 50%;
-                           width: 30px;
-                           height: 30px;
-                           font-size: 18px;
+                           width: 20px;
+                           height: 20px;
+                           font-size: 14px;
                            cursor: pointer;
                            display: flex;
                            align-items: center;
                            justify-content: center;
-                           transition: all 0.2s;">
+                           transition: all 0.2s;
+                           line-height: 1;">
                 +
             </button>
         </div>
@@ -187,61 +455,83 @@ function renderPlaceholderPreview(floor) {
 }
 
 /**
- * Normal kat önizlemesi (düz çizgiler)
+ * Normal kat önizlemesi (küçük, düz çizgiler)
  */
 function renderFloorPreview(floor) {
     return `
-        <svg width="150" height="60" style="display: block;">
-            <rect x="10" y="10" width="130" height="40"
+        <svg width="80" height="40" style="display: block; margin: 0 auto;">
+            <rect x="5" y="5" width="70" height="30"
                   fill="none"
                   stroke="#e7e6d0"
-                  stroke-width="1.5"/>
-            <line x1="10" y1="10" x2="140" y2="50"
-                  stroke="#e7e6d0"
                   stroke-width="1"/>
-            <line x1="140" y1="10" x2="10" y2="50"
+            <line x1="5" y1="5" x2="75" y2="35"
                   stroke="#e7e6d0"
-                  stroke-width="1"/>
+                  stroke-width="0.5"/>
+            <line x1="75" y1="5" x2="5" y2="35"
+                  stroke="#e7e6d0"
+                  stroke-width="0.5"/>
         </svg>
     `;
 }
 
 /**
- * Tablo event listener'larını kurar
+ * Detaylı tablo event listener'ları
  */
-function setupTableEventListeners() {
+function setupDetailTableEventListeners() {
     // Satıra tıklama - katı aktif yap
-    const rows = floorPanel.querySelectorAll('.floor-row');
+    const rows = detailPanel.querySelectorAll('.floor-row');
     rows.forEach(row => {
         row.addEventListener('click', (e) => {
-            // Checkbox veya button tıklamasıysa ignore et
-            if (e.target.classList.contains('floor-visibility-toggle') ||
-                e.target.classList.contains('add-floor-btn')) {
+            // Eğer buton tıklamasıysa ignore et
+            if (e.target.closest('.floor-visibility-btn') ||
+                e.target.closest('.floor-delete-btn') ||
+                e.target.closest('.add-floor-btn')) {
                 return;
             }
 
             const floorId = row.dataset.floorId;
             const floor = state.floors.find(f => f.id === floorId);
 
-            if (floor && !floor.isPlaceholder) {
+            if (floor && !floor.isPlaceholder && floor.visible !== false) {
                 setState({ currentFloor: floor });
-                renderFloorTable();
+                renderDetailPanel();
+                renderMiniPanel();
             }
         });
     });
 
     // Görünürlük toggle'ları
-    const visibilityToggles = floorPanel.querySelectorAll('.floor-visibility-toggle');
-    visibilityToggles.forEach(toggle => {
-        toggle.addEventListener('click', (e) => {
+    const visibilityBtns = detailPanel.querySelectorAll('.floor-visibility-btn');
+    visibilityBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const floorId = toggle.dataset.floorId;
+            const floorId = btn.dataset.floorId;
             toggleFloorVisibility(floorId);
         });
     });
 
+    // Silme butonları
+    const deleteBtns = detailPanel.querySelectorAll('.floor-delete-btn');
+    deleteBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const floorId = btn.dataset.floorId;
+            confirmDeleteFloor(floorId);
+        });
+
+        // Hover efekti
+        btn.addEventListener('mouseenter', () => {
+            btn.style.background = '#e74c3c';
+            btn.style.color = '#fff';
+        });
+        btn.addEventListener('mouseleave', () => {
+            btn.style.background = 'transparent';
+            btn.style.color = '#e74c3c';
+        });
+    });
+
     // Kat ekleme butonları
-    const addButtons = floorPanel.querySelectorAll('.add-floor-btn');
+    const addButtons = detailPanel.querySelectorAll('.add-floor-btn');
     addButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -273,7 +563,69 @@ function toggleFloorVisibility(floorId) {
     });
 
     setState({ floors });
-    renderFloorTable();
+    renderDetailPanel();
+    renderMiniPanel();
+}
+
+/**
+ * Kat silme onayı
+ */
+function confirmDeleteFloor(floorId) {
+    const floor = state.floors.find(f => f.id === floorId);
+    if (!floor) return;
+
+    const confirmed = confirm(`"${floor.name}" katı silinecek. Emin misiniz?`);
+    if (confirmed) {
+        deleteFloor(floorId);
+    }
+}
+
+/**
+ * Katı siler ve diğer katları kaydırır
+ */
+function deleteFloor(floorId) {
+    const floor = state.floors.find(f => f.id === floorId);
+    if (!floor) return;
+
+    const floors = [...state.floors];
+    const floorIndex = floors.findIndex(f => f.id === floorId);
+
+    if (floorIndex === -1) return;
+
+    const isAboveGround = floor.bottomElevation >= 0;
+    const floorHeight = floor.topElevation - floor.bottomElevation;
+
+    // Katı sil
+    floors.splice(floorIndex, 1);
+
+    // Diğer katları kaydır
+    if (isAboveGround) {
+        // Zemin üstü - üstteki katları aşağı kaydır
+        floors.forEach(f => {
+            if (f.bottomElevation > floor.bottomElevation) {
+                f.bottomElevation -= floorHeight;
+                f.topElevation -= floorHeight;
+            }
+        });
+    } else {
+        // Zemin altı - alttaki katları yukarı kaydır
+        floors.forEach(f => {
+            if (f.topElevation <= floor.bottomElevation) {
+                f.bottomElevation += floorHeight;
+                f.topElevation += floorHeight;
+            }
+        });
+    }
+
+    // Eğer silinen kat aktifse, başka bir kata geç
+    let newCurrentFloor = state.currentFloor;
+    if (state.currentFloor?.id === floorId) {
+        newCurrentFloor = floors.find(f => !f.isPlaceholder && f.visible !== false) || null;
+    }
+
+    setState({ floors, currentFloor: newCurrentFloor });
+    renderDetailPanel();
+    renderMiniPanel();
 }
 
 /**
@@ -286,10 +638,9 @@ function addFloorFromPlaceholder(placeholderId) {
     if (placeholderIndex === -1) return;
 
     const placeholder = floors[placeholderIndex];
-    const isAboveGround = placeholder.bottomElevation >= 0; // Zemin ve üstü
+    const isAboveGround = placeholder.bottomElevation >= 0;
 
     let newFloorName;
-    let newPlaceholderName;
 
     if (isAboveGround) {
         // Zemin üstü - KAT ekleme
@@ -365,38 +716,20 @@ function addFloorFromPlaceholder(placeholderId) {
         currentFloor: newFloor
     });
 
-    renderFloorTable();
+    renderDetailPanel();
+    renderMiniPanel();
 }
 
 /**
- * Kat panelini gösterir
+ * Eski showFloorPanel - şimdi detaylı paneli açar
  */
 export function showFloorPanel() {
-    if (!floorPanel) {
-        createFloorPanel();
-    }
-
-    // Panel'i ekranın ortasına yerleştir
-    floorPanel.style.display = 'block';
-    floorPanel.style.left = '50%';
-    floorPanel.style.top = '50%';
-    floorPanel.style.transform = 'translate(-50%, -50%)';
-
-    renderFloorTable();
+    showDetailPanel();
 }
 
 /**
- * Kat panelini gizler
+ * Eski hideFloorPanel - şimdi detaylı paneli kapatır
  */
 export function hideFloorPanel() {
-    if (floorPanel) {
-        floorPanel.style.display = 'none';
-    }
-}
-
-/**
- * Kat panelinin görünür olup olmadığını döndürür
- */
-export function isFloorPanelVisible() {
-    return floorPanel && floorPanel.style.display === 'block';
+    hideDetailPanel();
 }
