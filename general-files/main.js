@@ -8,7 +8,7 @@ import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../draw/guide-menu.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
-import { updateFirstPersonCamera, setupFirstPersonMouseControls } from '../scene3d/scene3d-camera.js';
+import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from '../scene3d/scene3d-core.js';
 // --- DEĞİŞİKLİK SONU ---
@@ -500,14 +500,19 @@ function animate() {
         }
     }
 
-    // Mouse Coordinates Display güncelleme
-    const mouseCoords = document.getElementById('mouse-coords');
-    if (mouseCoords) {
-        // 1 cm hassasiyetle göster (ondalık bir basamak)
-        const x = mouse3DCoords.x.toFixed(1); // cm cinsinden
-        const y = mouse3DCoords.y.toFixed(1);
-        const z = mouse3DCoords.z.toFixed(1);
-        mouseCoords.textContent = `x: ${x} cm, y: ${y} cm, z: ${z} cm`;
+    // Camera Coordinates Display güncelleme (sadece FPS modundayken)
+    const cameraCoords = document.getElementById('camera-coords');
+    if (cameraCoords && camera3d) {
+        if (isFPSMode()) {
+            cameraCoords.style.display = '';
+            // Kamera konumunu tam sayı olarak göster
+            const x = Math.round(camera3d.position.x);
+            const y = Math.round(camera3d.position.y);
+            const z = Math.round(camera3d.position.z);
+            cameraCoords.textContent = `Kamera: x: ${x} cm, y: ${y} cm, z: ${z} cm`;
+        } else {
+            cameraCoords.style.display = 'none';
+        }
     }
 
     // YENİ: TWEEN animasyonlarını güncelle
