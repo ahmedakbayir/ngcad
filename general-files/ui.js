@@ -143,12 +143,10 @@ export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
     dom.b3d.classList.toggle('active');
 
-    // FPS kamera butonunu göster/gizle
     if (dom.mainContainer.classList.contains('show-3d')) {
-        dom.bFirstPerson.style.display = 'inline-block';
-        setMode("select"); // <-- EKLENDİ: 3D açılırken modu "select" yap
+        setMode("select"); // 3D açılırken modu "select" yap
 
-        // Overlay'leri göster
+        // Overlay'leri göster (FPS Kamera butonu stats-overlay içinde olduğu için otomatik görünür)
         const statsOverlay = document.getElementById('stats-overlay');
         const splitButtons = document.getElementById('split-ratio-buttons');
         if (statsOverlay) statsOverlay.style.display = 'flex';
@@ -157,8 +155,6 @@ export function toggle3DView() {
         // Varsayılan split ratio'yu ayarla (50%)
         setSplitRatio(50);
     } else {
-        dom.bFirstPerson.style.display = 'none';
-
         // Overlay'leri gizle
         const statsOverlay = document.getElementById('stats-overlay');
         const splitButtons = document.getElementById('split-ratio-buttons');
@@ -219,7 +215,6 @@ export function setSplitRatio(ratio) {
         // Overlay'leri ve 3D'yi göster
         dom.mainContainer.classList.add('show-3d');
         dom.b3d.classList.add('active');
-        dom.bFirstPerson.style.display = 'inline-block';
         setMode("select");
 
         const statsOverlay = document.getElementById('stats-overlay');
