@@ -69,10 +69,6 @@
  <svg viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
  Aç
  </button>
- <button id="b3d" class="btn">
- <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
- 3D Göster
- </button>
  <button id="bAssignNames" class="btn">Mahal Tanımla</button>
 <input type="file" id="file-input" accept=".json, .pdf, .xml" style="display: none"/>
 </div>
@@ -275,10 +271,10 @@
 <div id="splitter"></div>
 <div id="p3d" class="panel">
     <canvas id="c3d"></canvas>
-    <!-- 3D Overlay: FPS ve Kamera Konumu (Sol Üst) -->
+    <!-- 3D Overlay: FPS Kamera ve Koordinatlar (Sol Üst) -->
     <div id="stats-overlay" style="display: none;">
         <button id="bFirstPerson" class="btn">FPS Kamera</button>
-        <span id="camera-coords">x: 0, y: 0, z: 0</span>
+        <span id="camera-coords" style="display: none;">x: 0, y: 0, z: 0</span>
     </div>
     <!-- 3D Overlay: Ekran Bölme Oranı Butonları (Sağ Üst) -->
     <div id="split-ratio-buttons" style="display: none;">

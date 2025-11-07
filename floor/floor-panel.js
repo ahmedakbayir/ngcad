@@ -35,11 +35,15 @@ export function createFloorPanel() {
 
     miniPanel.innerHTML = `
         <div id="floor-expand-btn" style="cursor: pointer; padding: 4px 8px; background: transparent; border: 1px solid #5f6368; border-radius: 4px; transition: all 0.2s;" title="Katlar Panelini Aç">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <!-- Evin dış çerçevesi (önden vaziyet) -->
+                <rect x="3" y="6" width="18" height="16" stroke="#8ab4f8" fill="none"></rect>
+                <!-- Kat çizgileri (yatay) - katları gösterir -->
+                <line x1="3" y1="10" x2="21" y2="10" stroke="#8ab4f8"></line>
+                <line x1="3" y1="14" x2="21" y2="14" stroke="#8ab4f8"></line>
+                <line x1="3" y1="18" x2="21" y2="18" stroke="#8ab4f8"></line>
+                <!-- Çatı -->
+                <polyline points="12,2 21,6 3,6" stroke="#8ab4f8" fill="none"></polyline>
             </svg>
         </div>
         <div id="floor-scroll-left" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 14px;">◀</div>
@@ -127,10 +131,10 @@ export function renderMiniPanel() {
     const floorList = miniPanel.querySelector('#floor-mini-list');
     const floors = state.floors || [];
 
-    // Tüm katları sırala (gizli olanları tespit için)
+    // Tüm katları sırala (küçükten büyüğe, soldan sağa)
     const allSortedFloors = [...floors]
         .filter(f => !f.isPlaceholder)
-        .sort((a, b) => b.bottomElevation - a.bottomElevation);
+        .sort((a, b) => a.bottomElevation - b.bottomElevation);
 
     let html = '';
 
