@@ -151,18 +151,26 @@ export function renderMiniPanel() {
         // Kat kısa adı
         const shortName = getShortFloorName(floor.name);
 
+        // Katta çizim var mı kontrol et
+        const hasContent = state.walls?.length > 0 || state.doors?.length > 0;
+
         // Durum renkler
-        let bgColor, textColor;
+        let bgColor, textColor, dotColor;
 
         if (isActive) {
             // Aktif görünür - Mavi
             bgColor = '#8ab4f8';
             textColor = '#1e1f20';
+            dotColor = '#1e5a8e'; // Koyu mavi nokta
         } else {
             // Pasif görünür - Koyu gri
             bgColor = '#4a4b4c';
             textColor = '#e7e6d0';
+            dotColor = '#808080'; // Gri nokta
         }
+
+        // Nokta HTML (sadece içerik varsa)
+        const dotHtml = hasContent ? `<span style="display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: ${dotColor}; margin-left: 4px; vertical-align: middle;"></span>` : '';
 
         html += `
             <div class="floor-mini-item clickable"
@@ -177,7 +185,7 @@ export function renderMiniPanel() {
                         min-width: 36px;
                         cursor: pointer;
                         transition: all 0.2s;">
-                ${shortName}
+                ${shortName}${dotHtml}
             </div>
         `;
     });
@@ -826,10 +834,38 @@ function toggleFloorVisibility(floorId) {
         return f;
     });
 
-    // Aktif kat gizleniyorsa, ZEMİN'i aktif yap
+    // Aktif kat gizleniyorsa, yeni aktif kat bul
     let newCurrentFloor = state.currentFloor;
     if (isCurrentlyActive && willBeHidden) {
-        newCurrentFloor = floors.find(f => f.name === 'ZEMİN');
+        // 1. Önce ZEMİN'e bak
+        const zeminFloor = floors.find(f => f.name === 'ZEMİN');
+        if (zeminFloor && zeminFloor.visible !== false) {
+            newCurrentFloor = zeminFloor;
+        } else {
+            // 2. ZEMİN de gizliyse, en yakın görünür komşuyu bul
+            const currentElevation = floor.bottomElevation;
+            const visibleFloors = floors.filter(f =>
+                !f.isPlaceholder && f.visible !== false
+            );
+
+            if (visibleFloors.length > 0) {
+                // En yakın komşuyu bul (elevation farkına göre)
+                let closest = visibleFloors[0];
+                let minDistance = Math.abs(closest.bottomElevation - currentElevation);
+
+                visibleFloors.forEach(f => {
+                    const distance = Math.abs(f.bottomElevation - currentElevation);
+                    if (distance < minDistance ||
+                        (distance === minDistance && f.bottomElevation < currentElevation)) {
+                        // Eşitse alttakini seç (bottomElevation küçük olan)
+                        closest = f;
+                        minDistance = distance;
+                    }
+                });
+
+                newCurrentFloor = closest;
+            }
+        }
     }
 
     setState({ floors, currentFloor: newCurrentFloor });
