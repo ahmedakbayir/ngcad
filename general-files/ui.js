@@ -156,7 +156,6 @@ function confirmRoomNameChange() {
 
 export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
-    dom.b3d.classList.toggle('active');
 
     if (dom.mainContainer.classList.contains('show-3d')) {
         setMode("select"); // 3D açılırken modu "select" yap
@@ -167,8 +166,8 @@ export function toggle3DView() {
         if (statsOverlay) statsOverlay.style.display = 'flex';
         if (splitButtons) splitButtons.style.display = 'flex';
 
-        // Varsayılan split ratio'yu ayarla (50%)
-        setSplitRatio(50);
+        // Varsayılan split ratio'yu ayarla (25%)
+        setSplitRatio(25);
     } else {
         // Overlay'leri gizle
         const statsOverlay = document.getElementById('stats-overlay');
@@ -790,6 +789,17 @@ export function setupUIListeners() {
 
         // Kamera modunu değiştir
         toggleCameraMode();
+
+        // Koordinat görüntülemesini toggle et
+        const cameraCoords = document.getElementById('camera-coords');
+        if (cameraCoords) {
+            // FPS modunda mıyız kontrol et (aktif buton = FPS modu)
+            if (dom.bFirstPerson.classList.contains('active')) {
+                cameraCoords.style.display = 'block';
+            } else {
+                cameraCoords.style.display = 'none';
+            }
+        }
 
         // NOT: Pointer lock kullanmıyoruz - klavye kontrolleri yeterli
         // Mouse serbest kalıyor, kullanıcı FPS modunda bile mouse ile UI'ya erişebilir
