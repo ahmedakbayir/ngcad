@@ -100,7 +100,7 @@ canvas {
     display: flex;
     /* flex-wrap: wrap; */ /* DEĞİŞTİ */
     flex-direction: column; /* EKLENDİ */
-    width: 120px; /* EKLENDİ */
+    width: 140px; /* GENİŞLİK ARTTIRILDI: 120px -> 140px */
     gap: 10px;
     /* align-items: center; */ /* SİLİNDİ */
 }
@@ -508,6 +508,14 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
 #stats-overlay .btn,
 #stats-overlay button {
     pointer-events: auto;
+}
+
+/* Stats overlay içindeki FPS Kamera butonu özel stili */
+#stats-overlay #bFirstPerson {
+    padding: 6px 10px;
+    font-size: 12px;
+    min-width: auto;
+    white-space: nowrap;
 }
 
 #fps-display {
