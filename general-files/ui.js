@@ -198,9 +198,19 @@ export function setSplitRatio(ratio) {
 
     // Ratio 0 ise 3D panelini kapat
     if (ratio === 0) {
+        // Önce 2D panelini tam ekran yap
+        p2dPanel.style.flex = '1 1 100%';
+        p3dPanel.style.flex = '0 0 0';
+
+        // Sonra 3D'yi kapat
         if (dom.mainContainer.classList.contains('show-3d')) {
             toggle3DView(); // 3D'yi kapat
         }
+
+        // resize'ı çağır
+        setTimeout(() => {
+            resize();
+        }, 10);
         return;
     }
 
