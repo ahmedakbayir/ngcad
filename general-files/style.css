@@ -271,7 +271,7 @@ canvas {
 }
 
 .tab-btn-vertical {
-    padding: 6px 10px;
+    padding: 8px 10px; /* Arttırıldı: 6px -> 8px */
     cursor: pointer;
     border: none;
     background-color: transparent;
@@ -280,6 +280,9 @@ canvas {
     font-size: 11px;
     text-align: left;
     transition: all 0.2s;
+    display: flex;
+    align-items: flex-end; /* Alta dayandı */
+    font-weight: 500; /* Daha belirgin */
 }
 
 .tab-btn-vertical:hover {
@@ -290,6 +293,7 @@ canvas {
     color: #8ab4f8;
     border-left-color: #8ab4f8;
     background-color: rgba(138, 180, 248, 0.1);
+    font-weight: 600; /* Aktif tab daha belirgin */
 }
 
 .tab-content-vertical {
@@ -311,8 +315,8 @@ canvas {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
-    gap: 8px;
+    margin-bottom: 6px; /* Azaltıldı: 8px -> 6px */
+    gap: 4px; /* Azaltıldı: 8px -> 4px - etiket ve seçenekler yakınlaştı */
 }
 
 .setting-control label {
