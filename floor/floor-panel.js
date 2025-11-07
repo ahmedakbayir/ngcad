@@ -10,14 +10,14 @@ let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
 export function createFloorPanel() {
     if (miniPanel) return;
 
-    // Ev butonu oluştur - Sol alt köşede (3D Göster'in yanında)
+    // Ev butonu oluştur - Sağ üst köşede
     const floorButton = document.createElement('button');
     floorButton.id = 'floor-home-btn';
     floorButton.className = 'btn';
     floorButton.style.cssText = `
         position: absolute;
-        bottom: 10px;
-        left: 320px;
+        top: 10px;
+        right: 10px;
         z-index: 11;
     `;
     floorButton.innerHTML = `
@@ -30,13 +30,13 @@ export function createFloorPanel() {
 
     document.getElementById('p2d').appendChild(floorButton);
 
-    // Mini panel oluştur - Sol altta ev butonunun üstünde
+    // Mini panel oluştur - Sağ üstte ev butonunun altında
     miniPanel = document.createElement('div');
     miniPanel.id = 'floor-mini-panel';
     miniPanel.style.cssText = `
         position: absolute;
-        bottom: 55px;
-        left: 320px;
+        top: 55px;
+        right: 10px;
         background: rgba(42, 43, 44, 0.95);
         border: 1px solid #5f6368;
         border-radius: 8px;
