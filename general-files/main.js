@@ -303,7 +303,7 @@ export let state = {
     // --- MERDİVEN AYARLARI ---
     stairSettings: {
         showRailing: false, // Varsayılan korkuluk durumu
-        stepDepthRange: "25-35" // Varsayılan basamak derinliği aralığı
+        stepDepthRange: "30-40" // Varsayılan basamak derinliği aralığı
     }
     // --- MERDİVEN AYARLARI SONU ---
 };
