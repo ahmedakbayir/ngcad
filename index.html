@@ -89,6 +89,7 @@
  <button class="tab-btn" id="tab-btn-grid">Grid</button>
  <button class="tab-btn" id="tab-btn-snap">Snap</button>
  <button class="tab-btn" id="tab-btn-dimension">Ölçülendirme</button>
+ <button class="tab-btn" id="tab-btn-stairs">Merdiven</button>
  </div>
  <div class="tab-content">
  <div class="tab-pane active" id="tab-pane-general">
@@ -111,6 +112,10 @@
   <div class="setting-control">
   <label for="drawing-angle">Çizim Açısı (°)</label>
   <input type="number" id="drawing-angle" min="0" max="180" step="1" />
+  </div>
+  <div class="setting-control">
+  <label for="default-floor-height">Kat Yüksekliği (cm)</label>
+  <input type="number" id="default-floor-height" min="100" max="500" step="10" />
   </div>
   </div>
  <div class="tab-pane" id="tab-pane-grid">
@@ -187,6 +192,24 @@
     <option value="2">Sadece Özet Görünümde</option>
     <option value="3">Sadece Detaylı Görünümde</option>
    </select>
+  </div>
+ </div>
+ <div class="tab-pane" id="tab-pane-stairs">
+  <div class="setting-control">
+  <label for="stairs-show-railing">Korkuluk Göster</label>
+  <input type="checkbox" id="stairs-show-railing" />
+  </div>
+  <div class="setting-control">
+  <label for="stairs-step-depth">Basamak Derinliği</label>
+  <select id="stairs-step-depth">
+   <option value="20-30">20-30 cm</option>
+   <option value="25-35">25-35 cm</option>
+   <option value="30-40">30-40 cm</option>
+   <option value="35-45">35-45 cm</option>
+   <option value="40-50">40-50 cm</option>
+   <option value="45-55">45-55 cm</option>
+   <option value="50-60">50-60 cm</option>
+  </select>
   </div>
  </div>
  </div>

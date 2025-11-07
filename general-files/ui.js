@@ -20,6 +20,7 @@ export function initializeSettings() {
     dom.lineThicknessInput.value = state.lineThickness;
     dom.wallThicknessInput.value = state.wallThickness;
     dom.drawingAngleInput.value = state.drawingAngle;
+    dom.defaultFloorHeightInput.value = state.defaultFloorHeight; // YENİ EKLENDİ
     dom.gridVisibleInput.checked = state.gridOptions.visible;
     dom.gridColorInput.value = state.gridOptions.color;
     dom.gridWeightInput.value = state.gridOptions.weight;
@@ -34,6 +35,8 @@ export function initializeSettings() {
     dom.dimensionDefaultViewSelect.value = state.dimensionOptions.defaultView;
     dom.dimensionShowAreaSelect.value = state.dimensionOptions.showArea;
     dom.dimensionShowOuterSelect.value = state.dimensionOptions.showOuter;
+    dom.stairsShowRailingInput.checked = state.stairSettings.showRailing; // YENİ EKLENDİ
+    dom.stairsStepDepthSelect.value = state.stairSettings.stepDepthRange; // YENİ EKLENDİ
 }
 
 function openTab(tabName) {
@@ -553,6 +556,9 @@ export function setupUIListeners() {
     dom.dimensionDefaultViewSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) { state.dimensionOptions.defaultView = value; setState({ dimensionMode: value }); } });
     dom.dimensionShowAreaSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showArea = value; });
     dom.dimensionShowOuterSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showOuter = value; });
+    dom.defaultFloorHeightInput.addEventListener("input", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) setState({ defaultFloorHeight: value }); }); // YENİ EKLENDİ
+    dom.stairsShowRailingInput.addEventListener("change", (e) => { state.stairSettings.showRailing = e.target.checked; }); // YENİ EKLENDİ
+    dom.stairsStepDepthSelect.addEventListener("change", (e) => { state.stairSettings.stepDepthRange = e.target.value; }); // YENİ EKLENDİ
     dom.roomNameSelect.addEventListener('click', confirmRoomNameChange);
     dom.roomNameSelect.addEventListener('dblclick', confirmRoomNameChange);
     dom.roomNameInput.addEventListener('input', filterRoomNameList);
