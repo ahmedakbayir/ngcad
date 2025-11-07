@@ -299,6 +299,13 @@ export let state = {
     currentFloor: null, // Aktif kat
     defaultFloorHeight: 270, // Varsayılan kat yüksekliği (cm)
     // --- KAT YÖNETİMİ SONU ---
+
+    // --- MERDİVEN AYARLARI ---
+    stairSettings: {
+        showRailing: false, // Varsayılan korkuluk durumu
+        stepDepthRange: "25-35" // Varsayılan basamak derinliği aralığı
+    }
+    // --- MERDİVEN AYARLARI SONU ---
 };
 
 export function setState(newState) {
@@ -348,18 +355,21 @@ export const dom = {
         grid: document.getElementById("tab-btn-grid"),
         snap: document.getElementById("tab-btn-snap"),
         dimension: document.getElementById("tab-btn-dimension"),
+        stairs: document.getElementById("tab-btn-stairs"),
     },
     tabPanes: {
         general: document.getElementById("tab-pane-general"),
         grid: document.getElementById("tab-pane-grid"),
         snap: document.getElementById("tab-pane-snap"),
         dimension: document.getElementById("tab-pane-dimension"),
+        stairs: document.getElementById("tab-pane-stairs"),
     },
     borderPicker: document.getElementById("borderPicker"),
     roomPicker: document.getElementById("roomPicker"),
     lineThicknessInput: document.getElementById("line-thickness"),
     wallThicknessInput: document.getElementById("wall-thickness"), // YENİ EKLENDİ
     drawingAngleInput: document.getElementById("drawing-angle"), // YENİ EKLENDİ
+    defaultFloorHeightInput: document.getElementById("default-floor-height"), // YENİ EKLENDİ
     gridVisibleInput: document.getElementById("grid-visible"),
     gridColorInput: document.getElementById("grid-color"),
     gridWeightInput: document.getElementById("grid-weight"),
@@ -374,6 +384,8 @@ export const dom = {
     dimensionDefaultViewSelect: document.getElementById("dimension-default-view"),
     dimensionShowAreaSelect: document.getElementById("dimension-show-area"),
     dimensionShowOuterSelect: document.getElementById("dimension-show-outer"),
+    stairsShowRailingInput: document.getElementById("stairs-show-railing"), // YENİ EKLENDİ
+    stairsStepDepthSelect: document.getElementById("stairs-step-depth"), // YENİ EKLENDİ
     roomNamePopup: document.getElementById("room-name-popup"),
     roomNameSelect: document.getElementById("room-name-select"),
     roomNameInput: document.getElementById("room-name-input"),
