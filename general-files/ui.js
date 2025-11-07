@@ -804,5 +804,10 @@ export function setupUIListeners() {
         // NOT: Pointer lock kullanmıyoruz - klavye kontrolleri yeterli
         // Mouse serbest kalıyor, kullanıcı FPS modunda bile mouse ile UI'ya erişebilir
     });
+
+    // 3D GÖSTER BUTONU LISTENER'I
+    dom.b3d.addEventListener('click', () => {
+        toggle3DView();
+    });
 }
 // --- setupUIListeners Sonu ---
