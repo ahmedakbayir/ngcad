@@ -100,8 +100,8 @@ canvas {
     display: flex;
     /* flex-wrap: wrap; */ /* DEĞİŞTİ */
     flex-direction: column; /* EKLENDİ */
-    width: 140px; /* GENİŞLİK ARTTIRILDI: 120px -> 140px */
-    gap: 10px;
+    width: 120px; /* Küçültüldü: 140px -> 120px */
+    gap: 6px; /* Küçültüldü: 10px -> 6px */
     /* align-items: center; */ /* SİLİNDİ */
 }
 
@@ -118,11 +118,20 @@ canvas {
     gap: 8px;
 }
 
-/* YENİ KURAL: Sadece UI içindeki butonları 100% genişlik yap */
+/* YENİ KURAL: Sadece UI içindeki butonları 100% genişlik yap ve küçült */
 #ui .btn {
     width: 100%; /* EKLENDİ */
     box-sizing: border-box; /* EKLENDİ */
     justify-content: flex-start; /* EKLENDİ */
+    padding: 5px 8px; /* Küçültüldü: 8px 12px -> 5px 8px */
+    font-size: 11px; /* Küçültüldü: 14px -> 11px */
+    gap: 6px; /* Küçültüldü: 8px -> 6px */
+}
+
+/* UI içindeki buton iconlarını küçült */
+#ui .btn svg {
+    width: 14px; /* Küçültüldü: 18px -> 14px */
+    height: 14px; /* Küçültüldü: 18px -> 14px */
 }
 
 
@@ -206,6 +215,14 @@ canvas {
     bottom: 10px;
     left: 10px;
     z-index: 11;
+    padding: 5px 8px; /* Küçültüldü */
+    font-size: 11px; /* Küçültüldü */
+    gap: 6px; /* Küçültüldü */
+}
+
+#settings-btn svg {
+    width: 14px; /* Küçültüldü */
+    height: 14px; /* Küçültüldü */
 }
 
 #settings-popup {
