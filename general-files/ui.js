@@ -147,8 +147,23 @@ export function toggle3DView() {
     if (dom.mainContainer.classList.contains('show-3d')) {
         dom.bFirstPerson.style.display = 'inline-block';
         setMode("select"); // <-- EKLENDİ: 3D açılırken modu "select" yap
+
+        // Overlay'leri göster
+        const statsOverlay = document.getElementById('stats-overlay');
+        const splitButtons = document.getElementById('split-ratio-buttons');
+        if (statsOverlay) statsOverlay.style.display = 'flex';
+        if (splitButtons) splitButtons.style.display = 'flex';
+
+        // Varsayılan split ratio'yu ayarla (50%)
+        setSplitRatio(50);
     } else {
         dom.bFirstPerson.style.display = 'none';
+
+        // Overlay'leri gizle
+        const statsOverlay = document.getElementById('stats-overlay');
+        const splitButtons = document.getElementById('split-ratio-buttons');
+        if (statsOverlay) statsOverlay.style.display = 'none';
+        if (splitButtons) splitButtons.style.display = 'none';
     }
 
     setTimeout(() => {
@@ -162,6 +177,61 @@ export function toggle3DView() {
 // 3D sahneyi %100 genişlet / daralt
 export function toggle3DFullscreen() {
     dom.mainContainer.classList.toggle('fullscreen-3d');
+
+    setTimeout(() => {
+        resize();
+        update3DScene();
+    }, 10);
+}
+
+// Ekran bölme oranını ayarla
+export function setSplitRatio(ratio) {
+    const p2dPanel = document.getElementById('p2d');
+    const p3dPanel = document.getElementById('p3d');
+
+    // Buton aktif durumlarını güncelle
+    document.querySelectorAll('.split-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`split-${ratio}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Ratio 0 ise 3D panelini kapat
+    if (ratio === 0) {
+        if (dom.mainContainer.classList.contains('show-3d')) {
+            toggle3DView(); // 3D'yi kapat
+        }
+        return;
+    }
+
+    // 3D açık değilse, önce aç sonra ratio'yu tekrar ayarla
+    if (!dom.mainContainer.classList.contains('show-3d')) {
+        // Overlay'leri ve 3D'yi göster
+        dom.mainContainer.classList.add('show-3d');
+        dom.b3d.classList.add('active');
+        dom.bFirstPerson.style.display = 'inline-block';
+        setMode("select");
+
+        const statsOverlay = document.getElementById('stats-overlay');
+        const splitButtons = document.getElementById('split-ratio-buttons');
+        if (statsOverlay) statsOverlay.style.display = 'flex';
+        if (splitButtons) splitButtons.style.display = 'flex';
+    }
+
+    // Panel genişliklerini ayarla
+    if (ratio === 100) {
+        p2dPanel.style.flex = '0 0 0';
+        p3dPanel.style.flex = '1 1 100%';
+    } else if (ratio === 75) {
+        p2dPanel.style.flex = '1 1 25%';
+        p3dPanel.style.flex = '1 1 75%';
+    } else if (ratio === 50) {
+        p2dPanel.style.flex = '1 1 50%';
+        p3dPanel.style.flex = '1 1 50%';
+    } else if (ratio === 25) {
+        p2dPanel.style.flex = '1 1 75%';
+        p3dPanel.style.flex = '1 1 25%';
+    }
 
     setTimeout(() => {
         resize();
@@ -579,6 +649,13 @@ export function setupUIListeners() {
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
     dom.lengthInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); } else if (e.key === "Escape") { cancelLengthEdit(); } });
     dom.lengthInput.addEventListener("blur", cancelLengthEdit);
+
+    // EKRAN BÖLME ORANI BUTONLARI
+    document.getElementById('split-100')?.addEventListener('click', () => setSplitRatio(100));
+    document.getElementById('split-75')?.addEventListener('click', () => setSplitRatio(75));
+    document.getElementById('split-50')?.addEventListener('click', () => setSplitRatio(50));
+    document.getElementById('split-25')?.addEventListener('click', () => setSplitRatio(25));
+    document.getElementById('split-0')?.addEventListener('click', () => setSplitRatio(0));
 
     // MERDİVEN POPUP LISTENER'LARI
     dom.confirmStairPopupButton.addEventListener('click', confirmStairChange);
