@@ -1,4 +1,5 @@
 // main.js
+import * as THREE from 'three';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { setupInputListeners } from './input.js';
@@ -467,6 +468,14 @@ export function resize() {
 
 let lastTime = performance.now();
 
+// FPS Tracking
+let fpsFrames = 0;
+let fpsTime = 0;
+let currentFPS = 60;
+
+// Mouse 3D Coordinates Tracking
+let mouse3DCoords = { x: 0, y: 0, z: 0 };
+
 // --- GÜNCELLENMİŞ ANIMATE FONKSİYONU ---
 function animate() {
     requestAnimationFrame(animate);
@@ -475,6 +484,31 @@ function animate() {
     const currentTime = performance.now();
     const delta = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
+
+    // FPS Calculation
+    fpsFrames++;
+    fpsTime += delta;
+    if (fpsTime >= 0.5) { // Her 0.5 saniyede bir FPS'i güncelle
+        currentFPS = Math.round(fpsFrames / fpsTime);
+        fpsFrames = 0;
+        fpsTime = 0;
+
+        // FPS Display güncelleme
+        const fpsDisplay = document.getElementById('fps-display');
+        if (fpsDisplay) {
+            fpsDisplay.textContent = `FPS: ${currentFPS}`;
+        }
+    }
+
+    // Mouse Coordinates Display güncelleme
+    const mouseCoords = document.getElementById('mouse-coords');
+    if (mouseCoords) {
+        // 1 cm hassasiyetle göster (ondalık bir basamak)
+        const x = mouse3DCoords.x.toFixed(1); // cm cinsinden
+        const y = mouse3DCoords.y.toFixed(1);
+        const z = mouse3DCoords.z.toFixed(1);
+        mouseCoords.textContent = `x: ${x} cm, y: ${y} cm, z: ${z} cm`;
+    }
 
     // YENİ: TWEEN animasyonlarını güncelle
     if (typeof TWEEN !== 'undefined') {
@@ -485,7 +519,7 @@ function animate() {
     draw2D();
 
     if(dom.mainContainer.classList.contains('show-3d')) {
-        
+
         // First-person kamera güncellemesi (HER ZAMAN ÇAĞRILIR)
         // (Bu fonksiyon kendi içinde 'cameraMode'u kontrol edip FPS değilse hemen çıkacak)
         updateFirstPersonCamera(delta);
@@ -496,7 +530,7 @@ function animate() {
         if (controls3d && controls3d.update) {
             controls3d.update();
         }
-        
+
         renderer3d.render(scene3d, camera3d);
     }
 }
@@ -778,6 +812,32 @@ function initialize() {
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
 
     window.addEventListener("resize", resize);
+
+    // 3D Canvas Mouse Tracking
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // Y=0 plane (zemin)
+
+    dom.c3d.addEventListener('mousemove', (event) => {
+        if (!dom.mainContainer.classList.contains('show-3d')) return;
+
+        const rect = dom.c3d.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera3d);
+
+        // Zemin düzlemi ile kesişim noktasını bul
+        const intersectPoint = new THREE.Vector3();
+        raycaster.ray.intersectPlane(floorPlane, intersectPoint);
+
+        if (intersectPoint) {
+            // Koordinatları cm cinsinden sakla (Three.js cm birimiyle çalışıyor)
+            mouse3DCoords.x = intersectPoint.x;
+            mouse3DCoords.y = intersectPoint.y;
+            mouse3DCoords.z = intersectPoint.z;
+        }
+    });
 
     // Başlangıç modunu zorla ayarla
     setMode(state.currentMode, true);

@@ -269,7 +269,45 @@
 <input type="text" id="length-input" />
 </div>
 <div id="splitter"></div>
-<div id="p3d" class="panel"><canvas id="c3d"></canvas></div>
+<div id="p3d" class="panel">
+    <canvas id="c3d"></canvas>
+    <!-- 3D Overlay: FPS ve Mouse Koordinatları (Sol Üst) -->
+    <div id="stats-overlay" style="display: none;">
+        <span id="fps-display">FPS: 60</span>
+        <span id="mouse-coords">x: 0.00 cm, y: 0.00 cm, z: 0.00 cm</span>
+    </div>
+    <!-- 3D Overlay: Ekran Bölme Oranı Butonları (Sağ Üst) -->
+    <div id="split-ratio-buttons" style="display: none;">
+        <button id="split-100" class="split-btn" data-ratio="100" title="Tam Ekran 3D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="20" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+        <button id="split-75" class="split-btn" data-ratio="75" title="75% 3D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="15" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
+                <rect x="17" y="2" width="5" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+        <button id="split-50" class="split-btn" data-ratio="50" title="50% 3D / 50% 2D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="10" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
+                <rect x="12" y="2" width="10" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+        <button id="split-25" class="split-btn" data-ratio="25" title="25% 3D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="5" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
+                <rect x="7" y="2" width="15" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+        <button id="split-0" class="split-btn" data-ratio="0" title="3D Kapalı">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="20" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+    </div>
+</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
