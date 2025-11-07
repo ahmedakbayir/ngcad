@@ -271,25 +271,40 @@ function createDetailPanel() {
     setupDetailPanelListeners();
 }
 
+// Global listener'lar için flag
+let detailPanelListenersAdded = false;
+
 /**
  * Detaylı panel event listener'ları
  */
 function setupDetailPanelListeners() {
     const closeBtn = detailPanel.querySelector('#close-detail-panel');
-    closeBtn.addEventListener('click', hideDetailPanel);
-
-    // Panel dışına tıklandığında kapat
-    document.addEventListener('click', (e) => {
-        if (detailPanel.style.display === 'block' &&
-            !detailPanel.contains(e.target) &&
-            !miniPanel.contains(e.target)) {
-            hideDetailPanel();
-        }
+    closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideDetailPanel();
     });
+
+    // Global listener'ları sadece bir kez ekle
+    if (detailPanelListenersAdded) return;
+    detailPanelListenersAdded = true;
+
+    // Panel dışına tıklandığında kapat (async ile timing düzelt)
+    document.addEventListener('click', (e) => {
+        // Mini panel'in expand butonuna tıklamayı bekle
+        setTimeout(() => {
+            if (detailPanel &&
+                detailPanel.style.display === 'block' &&
+                !detailPanel.contains(e.target) &&
+                !miniPanel.contains(e.target)) {
+                hideDetailPanel();
+            }
+        }, 0);
+    }, true); // Capture phase kullan
 
     // ESC tuşuna basıldığında kapat
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && detailPanel.style.display === 'block') {
+        if (e.key === 'Escape' && detailPanel && detailPanel.style.display === 'block') {
+            e.preventDefault();
             hideDetailPanel();
         }
     });
