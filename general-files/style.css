@@ -219,22 +219,56 @@ canvas {
     padding: 15px;
     z-index: 100;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    width: 280px;
+    width: 380px;
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #5f6368;
+}
+
+.settings-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #e8eaed;
+}
+
+.settings-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.btn-small {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.btn-small svg {
+    width: 14px;
+    height: 14px;
 }
 
 .tab-bar {
     display: flex;
+    flex-wrap: wrap;
     border-bottom: 1px solid #5f6368;
     margin-bottom: 15px;
+    gap: 4px;
 }
 
 .tab-btn {
-    padding: 8px 16px;
+    padding: 8px 12px;
     cursor: pointer;
     border: none;
     background-color: transparent;
     color: #9aa0a6;
     border-bottom: 2px solid transparent;
+    font-size: 13px;
 }
 
 .tab-btn.active {
