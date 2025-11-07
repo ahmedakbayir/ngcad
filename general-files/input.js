@@ -321,6 +321,12 @@ function onKeyDown(e) {
     if (e.key === "Escape" || e.code === "Space") {
         if (e.code === "Space") e.preventDefault();
 
+        // Settings popup açıksa kapat
+        if (dom.settingsPopup.style.display === 'block') {
+            dom.settingsPopup.style.display = 'none';
+            return;
+        }
+
         // Mahal popup kontrolü ZATEN YUKARIDA yapıldığı için burada tekrar gerekmez.
 
         if (state.isEditingLength) cancelLengthEdit(); // Length input açıksa kapatır

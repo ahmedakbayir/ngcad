@@ -534,8 +534,20 @@ function confirmStairChange() {
 
 // --- GÜNCELLENMİŞ setupUIListeners (Sahanlık kotu mantığını düzelten) ---
 export function setupUIListeners() {
-    dom.settingsBtn.addEventListener("click", () => { dom.settingsPopup.style.display = 'block'; });
+    dom.settingsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dom.settingsPopup.style.display = 'block';
+    });
     dom.closeSettingsPopupBtn.addEventListener("click", () => { dom.settingsPopup.style.display = 'none'; });
+
+    // Ayarlar popup'ı dışında bir yere tıklanınca kapat
+    document.addEventListener("click", (e) => {
+        if (dom.settingsPopup.style.display === 'block' &&
+            !dom.settingsPopup.contains(e.target) &&
+            e.target !== dom.settingsBtn) {
+            dom.settingsPopup.style.display = 'none';
+        }
+    });
     Object.keys(dom.tabButtons).forEach(key => { dom.tabButtons[key].addEventListener('click', () => openTab(key)); });
     dom.borderPicker.addEventListener("input", (e) => setState({ wallBorderColor: e.target.value }));
     dom.roomPicker.addEventListener("input", (e) => setState({ roomFillColor: e.target.value }));
