@@ -16,7 +16,7 @@ export function initializeDefaultFloors() {
     // Alt kat (placeholder) - Zemin altı
     const lowerFloor = {
         id: 'floor-lower-placeholder',
-        name: 'KAT EKLE',
+        name: 'ALTA KAT EKLE',
         bottomElevation: -defaultHeight,
         topElevation: 0,
         visible: false,
@@ -37,7 +37,7 @@ export function initializeDefaultFloors() {
     // Üst kat (placeholder) - Zemin üstü
     const upperFloor = {
         id: 'floor-upper-placeholder',
-        name: 'KAT EKLE',
+        name: 'ÜSTE KAT EKLE',
         bottomElevation: defaultHeight,
         topElevation: defaultHeight * 2,
         visible: false,

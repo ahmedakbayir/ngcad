@@ -33,6 +33,11 @@ export function createFloorPanel() {
     `;
 
     miniPanel.innerHTML = `
+        <div id="floor-expand-btn" style="position: absolute; left: -20px; top: 50%; transform: translateY(-50%); cursor: pointer; background: #2a2b2c; border: 1px solid #5f6368; border-right: none; border-radius: 4px 0 0 4px; padding: 8px 4px; box-shadow: -2px 0 4px rgba(0,0,0,0.2); transition: left 0.2s; z-index: 1;" title="Katlar Panelini Aç">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="8 2, 4 6, 8 10"></polyline>
+            </svg>
+        </div>
         <div id="floor-scroll-up" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 16px;">▲</div>
         <div id="floor-mini-list" style="flex: 1; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0;">
             <!-- Katlar buraya dinamik olarak eklenecek -->
@@ -41,6 +46,21 @@ export function createFloorPanel() {
     `;
 
     document.body.appendChild(miniPanel);
+
+    // Genişleme butonu
+    const expandBtn = miniPanel.querySelector('#floor-expand-btn');
+    expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showDetailPanel();
+    });
+
+    // Hover efekti - genişleme butonunu daha görünür yap
+    miniPanel.addEventListener('mouseenter', () => {
+        expandBtn.style.left = '-24px';
+    });
+    miniPanel.addEventListener('mouseleave', () => {
+        expandBtn.style.left = '-20px';
+    });
 
     // Çift tıklama ile detaylı panel aç
     miniPanel.addEventListener('dblclick', showDetailPanel);
@@ -103,56 +123,59 @@ export function renderMiniPanel() {
     const floorList = miniPanel.querySelector('#floor-mini-list');
     const floors = state.floors || [];
 
-    // Katları yüksekliğe göre sırala (en üstten en alta)
-    // Sadece görünür katları göster
-    const sortedFloors = [...floors]
-        .filter(f => !f.isPlaceholder && f.visible !== false)
+    // Tüm katları sırala (gizli olanları tespit için)
+    const allSortedFloors = [...floors]
+        .filter(f => !f.isPlaceholder)
         .sort((a, b) => b.bottomElevation - a.bottomElevation);
 
     let html = '';
 
-    sortedFloors.forEach(floor => {
+    allSortedFloors.forEach((floor, index) => {
         const isActive = state.currentFloor?.id === floor.id;
         const isVisible = floor.visible !== false;
+
+        if (!isVisible) {
+            // Gizli kat - kesikli çizgi göster
+            const gapHeight = Math.max(8, state.defaultFloorHeight / 5 * 0.1); // Piksel cinsinden boşluk
+            html += `
+                <div style="width: 30px; height: ${gapHeight}px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="24" height="${gapHeight}" viewBox="0 0 24 ${gapHeight}">
+                        <line x1="2" y1="${gapHeight/2}" x2="22" y2="${gapHeight/2}"
+                              stroke="#5f6368" stroke-width="1" stroke-dasharray="2,2" />
+                    </svg>
+                </div>
+            `;
+            return; // Gizli katı gösterme
+        }
 
         // Kat kısa adı
         const shortName = getShortFloorName(floor.name);
 
         // Durum renkler
-        let bgColor, textColor, opacity;
+        let bgColor, textColor;
 
-        if (!isVisible) {
-            // Görünmez
-            bgColor = '#1e1f20';
-            textColor = '#5f6368';
-            opacity = '0.5';
-        } else if (isActive) {
-            // Aktif görünür
+        if (isActive) {
+            // Aktif görünür - Mavi
             bgColor = '#8ab4f8';
             textColor = '#1e1f20';
-            opacity = '1';
         } else {
-            // Pasif görünür
-            bgColor = '#3a5f8f';
+            // Pasif görünür - Koyu gri
+            bgColor = '#4a4b4c';
             textColor = '#e7e6d0';
-            opacity = '1';
         }
 
-        const cursor = isVisible ? 'pointer' : 'not-allowed';
-
         html += `
-            <div class="floor-mini-item ${isVisible ? 'clickable' : ''}"
+            <div class="floor-mini-item clickable"
                  data-floor-id="${floor.id}"
                  style="background: ${bgColor};
                         color: ${textColor};
-                        opacity: ${opacity};
                         padding: 6px 8px;
                         border-radius: 4px;
                         font-size: 11px;
                         font-weight: bold;
                         text-align: center;
                         min-width: 36px;
-                        cursor: ${cursor};
+                        cursor: pointer;
                         transition: all 0.2s;">
                 ${shortName}
             </div>
@@ -708,7 +731,7 @@ function addFloorFromPlaceholder(placeholderId) {
 
         floors.splice(placeholderIndex, 0, {
             id: `floor-placeholder-${Date.now()}`,
-            name: 'KAT EKLE',
+            name: 'ÜSTE KAT EKLE',
             bottomElevation: newBottomElevation,
             topElevation: newTopElevation,
             visible: false,
@@ -722,7 +745,7 @@ function addFloorFromPlaceholder(placeholderId) {
 
         floors.splice(placeholderIndex + 1, 0, {
             id: `floor-placeholder-${Date.now()}`,
-            name: 'KAT EKLE',
+            name: 'ALTA KAT EKLE',
             bottomElevation: newBottomElevation,
             topElevation: newTopElevation,
             visible: false,
