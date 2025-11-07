@@ -75,18 +75,18 @@
 
 <button id="settings-btn" class="btn">Ayarlar</button>
 
+<button id="b3d" class="btn">
+ <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+ 3D Göster
+</button>
+
+<button id="bFirstPerson" class="btn" style="display: none;">
+ FPS Kamera
+</button>
+
 <div id="settings-popup">
  <div class="settings-header">
   <span class="settings-title">Ayarlar</span>
-  <div class="settings-actions">
-   <button id="b3d" class="btn btn-small">
-    <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-    3D Göster
-   </button>
-   <button id="bFirstPerson" class="btn btn-small" style="display: none;">
-    FPS Kamera
-   </button>
-  </div>
  </div>
  <div class="tab-bar">
  <button class="tab-btn active" id="tab-btn-general">Genel</button>
@@ -275,10 +275,10 @@
 <div id="splitter"></div>
 <div id="p3d" class="panel">
     <canvas id="c3d"></canvas>
-    <!-- 3D Overlay: FPS ve Mouse Koordinatları (Sol Üst) -->
+    <!-- 3D Overlay: FPS ve Kamera Konumu (Sol Üst) -->
     <div id="stats-overlay" style="display: none;">
         <span id="fps-display">FPS: 60</span>
-        <span id="mouse-coords">x: 0.00 cm, y: 0.00 cm, z: 0.00 cm</span>
+        <span id="camera-coords" style="display: none;">Kamera: x: 0 cm, y: 0 cm, z: 0 cm</span>
     </div>
     <!-- 3D Overlay: Ekran Bölme Oranı Butonları (Sağ Üst) -->
     <div id="split-ratio-buttons" style="display: none;">
@@ -289,20 +289,20 @@
         </button>
         <button id="split-75" class="split-btn" data-ratio="75" title="75% 3D">
             <svg viewBox="0 0 24 24" width="24" height="24">
-                <rect x="2" y="2" width="15" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
-                <rect x="17" y="2" width="5" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="2" y="2" width="5" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="7" y="2" width="15" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
             </svg>
         </button>
         <button id="split-50" class="split-btn" data-ratio="50" title="50% 3D / 50% 2D">
             <svg viewBox="0 0 24 24" width="24" height="24">
-                <rect x="2" y="2" width="10" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
-                <rect x="12" y="2" width="10" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="2" y="2" width="10" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="12" y="2" width="10" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
             </svg>
         </button>
         <button id="split-25" class="split-btn" data-ratio="25" title="25% 3D">
             <svg viewBox="0 0 24 24" width="24" height="24">
-                <rect x="2" y="2" width="5" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
-                <rect x="7" y="2" width="15" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="2" y="2" width="15" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="17" y="2" width="5" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
             </svg>
         </button>
         <button id="split-0" class="split-btn" data-ratio="0" title="3D Kapalı">
