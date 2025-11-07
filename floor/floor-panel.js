@@ -10,39 +10,43 @@ let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
 export function createFloorPanel() {
     if (miniPanel) return;
 
-    // Mini panel oluştur
+    // Mini panel oluştur - Üstte yatay
     miniPanel = document.createElement('div');
     miniPanel.id = 'floor-mini-panel';
     miniPanel.style.cssText = `
         position: fixed;
-        right: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        background: #2a2b2c;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(42, 43, 44, 0.9);
         border: 1px solid #5f6368;
-        border-right: none;
-        border-radius: 8px 0 0 8px;
-        padding: 8px 4px;
-        box-shadow: -2px 0 8px rgba(0,0,0,0.3);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 6px 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         z-index: 1000;
-        width: 50px;
-        max-height: 80vh;
+        max-width: 80vw;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
+        gap: 6px;
+        backdrop-filter: blur(4px);
     `;
 
     miniPanel.innerHTML = `
-        <div id="floor-expand-btn" style="position: absolute; left: -20px; top: 50%; transform: translateY(-50%); cursor: pointer; background: #2a2b2c; border: 1px solid #5f6368; border-right: none; border-radius: 4px 0 0 4px; padding: 8px 4px; box-shadow: -2px 0 4px rgba(0,0,0,0.2); transition: left 0.2s; z-index: 1;" title="Katlar Panelini Aç">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="8 2, 4 6, 8 10"></polyline>
+        <div id="floor-expand-btn" style="cursor: pointer; padding: 4px 8px; background: transparent; border: 1px solid #5f6368; border-radius: 4px; transition: all 0.2s;" title="Katlar Panelini Aç">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
             </svg>
         </div>
-        <div id="floor-scroll-up" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 16px;">▲</div>
-        <div id="floor-mini-list" style="flex: 1; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0;">
+        <div id="floor-scroll-left" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 14px;">◀</div>
+        <div id="floor-mini-list" style="flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: row; align-items: center; gap: 6px; max-width: 70vw; scrollbar-width: none;">
             <!-- Katlar buraya dinamik olarak eklenecek -->
         </div>
-        <div id="floor-scroll-down" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 16px;">▼</div>
+        <div id="floor-scroll-right" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 14px;">▶</div>
     `;
 
     document.body.appendChild(miniPanel);
@@ -54,12 +58,12 @@ export function createFloorPanel() {
         showDetailPanel();
     });
 
-    // Hover efekti - genişleme butonunu daha görünür yap
-    miniPanel.addEventListener('mouseenter', () => {
-        expandBtn.style.left = '-24px';
+    // Hover efekti
+    expandBtn.addEventListener('mouseenter', () => {
+        expandBtn.style.background = 'rgba(95, 99, 104, 0.3)';
     });
-    miniPanel.addEventListener('mouseleave', () => {
-        expandBtn.style.left = '-20px';
+    expandBtn.addEventListener('mouseleave', () => {
+        expandBtn.style.background = 'transparent';
     });
 
     // Çift tıklama ile detaylı panel aç
@@ -76,22 +80,22 @@ export function createFloorPanel() {
 }
 
 /**
- * Kaydırma butonlarını kurar
+ * Kaydırma butonlarını kurar (yatay)
  */
 function setupScrollButtons() {
-    const scrollUp = miniPanel.querySelector('#floor-scroll-up');
-    const scrollDown = miniPanel.querySelector('#floor-scroll-down');
+    const scrollLeft = miniPanel.querySelector('#floor-scroll-left');
+    const scrollRight = miniPanel.querySelector('#floor-scroll-right');
     const floorList = miniPanel.querySelector('#floor-mini-list');
 
-    scrollUp.addEventListener('click', (e) => {
+    scrollLeft.addEventListener('click', (e) => {
         e.stopPropagation();
-        floorList.scrollTop -= 50;
+        floorList.scrollLeft -= 100;
         updateScrollButtons();
     });
 
-    scrollDown.addEventListener('click', (e) => {
+    scrollRight.addEventListener('click', (e) => {
         e.stopPropagation();
-        floorList.scrollTop += 50;
+        floorList.scrollLeft += 100;
         updateScrollButtons();
     });
 
@@ -99,19 +103,19 @@ function setupScrollButtons() {
 }
 
 /**
- * Kaydırma butonlarının görünürlüğünü günceller
+ * Kaydırma butonlarının görünürlüğünü günceller (yatay)
  */
 function updateScrollButtons() {
-    const scrollUp = miniPanel.querySelector('#floor-scroll-up');
-    const scrollDown = miniPanel.querySelector('#floor-scroll-down');
+    const scrollLeft = miniPanel.querySelector('#floor-scroll-left');
+    const scrollRight = miniPanel.querySelector('#floor-scroll-right');
     const floorList = miniPanel.querySelector('#floor-mini-list');
 
-    // Yukarı kaydırma göster
-    scrollUp.style.display = floorList.scrollTop > 0 ? 'block' : 'none';
+    // Sola kaydırma göster
+    scrollLeft.style.display = floorList.scrollLeft > 0 ? 'block' : 'none';
 
-    // Aşağı kaydırma göster
-    const isAtBottom = floorList.scrollHeight - floorList.scrollTop <= floorList.clientHeight + 5;
-    scrollDown.style.display = isAtBottom ? 'none' : 'block';
+    // Sağa kaydırma göster
+    const isAtRight = floorList.scrollWidth - floorList.scrollLeft <= floorList.clientWidth + 5;
+    scrollRight.style.display = isAtRight ? 'none' : 'block';
 }
 
 /**
@@ -135,14 +139,10 @@ export function renderMiniPanel() {
         const isVisible = floor.visible !== false;
 
         if (!isVisible) {
-            // Gizli kat - kesikli çizgi göster
-            const gapHeight = Math.max(8, state.defaultFloorHeight / 5 * 0.1); // Piksel cinsinden boşluk
+            // Gizli kat - tek tire işareti göster
             html += `
-                <div style="width: 30px; height: ${gapHeight}px; display: flex; align-items: center; justify-content: center;">
-                    <svg width="24" height="${gapHeight}" viewBox="0 0 24 ${gapHeight}">
-                        <line x1="2" y1="${gapHeight/2}" x2="22" y2="${gapHeight/2}"
-                              stroke="#5f6368" stroke-width="1" stroke-dasharray="2,2" />
-                    </svg>
+                <div style="width: 8px; height: 36px; display: flex; align-items: center; justify-content: center; color: #5f6368; font-size: 18px;">
+                    –
                 </div>
             `;
             return; // Gizli katı gösterme

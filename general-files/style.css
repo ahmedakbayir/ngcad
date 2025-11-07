@@ -203,16 +203,16 @@ canvas {
 
 #settings-btn {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    bottom: 10px;
+    left: 10px;
     z-index: 11;
 }
 
-/* 3D Göster ve FPS Kamera butonları */
+/* 3D Göster butonu - sağ üst köşe */
 #b3d {
     position: absolute;
     top: 10px;
-    right: 100px;
+    right: 10px;
     z-index: 11;
 }
 
@@ -226,30 +226,120 @@ canvas {
 #settings-popup {
     display: none;
     position: absolute;
-    top: 55px;
-    right: 10px;
+    bottom: 55px;
+    left: 10px;
     background-color: #2a2b2c;
     border: 1px solid #5f6368;
     border-radius: 8px;
-    padding: 15px;
+    padding: 12px;
     z-index: 100;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    width: 380px;
+    width: auto;
+    max-height: 70vh;
+    overflow: visible;
 }
 
 .settings-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid #5f6368;
 }
 
 .settings-title {
-    font-size: 18px;
-    font-weight: bold;
+    font-size: 15px;
+    font-weight: 600;
     color: #e8eaed;
+}
+
+.settings-body {
+    display: flex;
+    gap: 0;
+}
+
+.tab-bar-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 8px;
+    border-right: 1px solid #5f6368;
+    min-width: 90px;
+}
+
+.tab-btn-vertical {
+    padding: 6px 10px;
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+    color: #9aa0a6;
+    border-left: 3px solid transparent;
+    font-size: 11px;
+    text-align: left;
+    transition: all 0.2s;
+}
+
+.tab-btn-vertical:hover {
+    background-color: rgba(95, 99, 104, 0.3);
+}
+
+.tab-btn-vertical.active {
+    color: #8ab4f8;
+    border-left-color: #8ab4f8;
+    background-color: rgba(138, 180, 248, 0.1);
+}
+
+.tab-content-vertical {
+    flex: 1;
+    padding-left: 10px;
+    min-width: 280px;
+    max-width: 320px;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.setting-control {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.setting-control label {
+    font-size: 11px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.setting-control input[type="number"],
+.setting-control input[type="color"],
+.setting-control select {
+    background-color: #1e1f20;
+    color: #e8eaed;
+    border: 1px solid #5f6368;
+    border-radius: 4px;
+    padding: 3px;
+    font-size: 11px;
+    width: 60px;
+}
+
+.setting-control select {
+    width: 120px;
+}
+
+.setting-control input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
 }
 
 .settings-actions {
@@ -268,6 +358,7 @@ canvas {
     height: 14px;
 }
 
+/* Eski tab-bar ve tab-btn kullanılmıyor artık, ama uyumluluk için bırakıyoruz */
 .tab-bar {
     display: flex;
     flex-wrap: wrap;
@@ -289,51 +380,6 @@ canvas {
 .tab-btn.active {
     color: #8ab4f8;
     border-bottom-color: #8ab4f8;
-}
-
-.tab-pane {
-    display: none;
-}
-
-.tab-pane.active {
-    display: block;
-}
-
-.setting-control {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.setting-control label {
-    font-size: 14px;
-    margin-right: 10px;
-}
-
-.setting-control input[type="number"],
-.setting-control input[type="color"],
-.setting-control select {
-    background-color: #1e1f20;
-    color: #e8eaed;
-    border: 1px solid #5f6368;
-    border-radius: 4px;
-    padding: 4px;
-    width: 70px;
-}
-
-.setting-control select {
-    width: 140px;
-}
-
-.setting-control input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-}
-
-#close-settings-popup {
-    width: 100%;
-    margin-top: 15px;
 }
 
 #room-name-popup {
@@ -480,21 +526,21 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
     color: #8ab4f8;
 }
 
-/* 3D Overlay: FPS ve Mouse Koordinatları */
+/* 3D Overlay: FPS ve Kamera Koordinatları - Sol Üst */
 #stats-overlay {
     position: absolute;
     top: 10px;
     left: 10px;
     z-index: 100;
     display: flex;
-    gap: 20px;
+    gap: 12px;
     align-items: center;
     background: rgba(30, 31, 32, 0.85);
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-radius: 6px;
     border: 1px solid rgba(100, 149, 237, 0.3);
     font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 13px;
+    font-size: 11px;
     color: #e8eaed;
     pointer-events: none;
     backdrop-filter: blur(4px);
@@ -512,8 +558,8 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
 
 /* Stats overlay içindeki FPS Kamera butonu özel stili */
 #stats-overlay #bFirstPerson {
-    padding: 6px 10px;
-    font-size: 12px;
+    padding: 5px 8px;
+    font-size: 11px;
     min-width: auto;
     white-space: nowrap;
 }
@@ -525,27 +571,28 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
 
 #camera-coords {
     color: #a8dadc;
+    font-size: 11px;
 }
 
-/* 3D Overlay: Ekran Bölme Oranı Butonları */
+/* 3D Overlay: Ekran Bölme Oranı Butonları - Daha Compact */
 #split-ratio-buttons {
     position: absolute;
     top: 10px;
-    right: 10px;
+    right: 60px;
     z-index: 100;
     display: flex;
-    gap: 6px;
+    gap: 4px;
     background: rgba(30, 31, 32, 0.85);
-    padding: 6px;
+    padding: 4px;
     border-radius: 6px;
     border: 1px solid rgba(100, 149, 237, 0.3);
     backdrop-filter: blur(4px);
 }
 
 .split-btn {
-    width: 36px;
-    height: 36px;
-    padding: 6px;
+    width: 28px;
+    height: 28px;
+    padding: 4px;
     background: rgba(60, 64, 67, 0.8);
     border: 1px solid #5f6368;
     border-radius: 4px;
