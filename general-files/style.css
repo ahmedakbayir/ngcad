@@ -271,17 +271,18 @@ canvas {
 }
 
 .tab-btn-vertical {
-    padding: 8px 10px; /* Arttırıldı: 6px -> 8px */
+    padding: 10px 10px; /* Arttırıldı */
     cursor: pointer;
     border: none;
     background-color: transparent;
     color: #9aa0a6;
     border-left: 3px solid transparent;
-    font-size: 11px;
+    font-size: 12px; /* Arttırıldı: 11px -> 12px */
     text-align: left;
     transition: all 0.2s;
     display: flex;
-    align-items: flex-end; /* Alta dayandı */
+    align-items: center; /* Ortaya hizalı */
+    min-height: 32px; /* Minimum yükseklik */
     font-weight: 500; /* Daha belirgin */
 }
 
@@ -298,9 +299,9 @@ canvas {
 
 .tab-content-vertical {
     flex: 1;
-    padding-left: 10px;
-    min-width: 280px;
-    max-width: 320px;
+    padding: 8px 0 8px 12px; /* Üst-alt padding eklendi, sol padding arttırıldı */
+    min-width: 300px; /* Biraz genişletildi */
+    max-width: 340px;
 }
 
 .tab-pane {
@@ -316,7 +317,7 @@ canvas {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 6px; /* Azaltıldı: 8px -> 6px */
-    gap: 4px; /* Azaltıldı: 8px -> 4px - etiket ve seçenekler yakınlaştı */
+    gap: 8px; /* Etiket ve input arasında yeterli boşluk */
 }
 
 .setting-control label {
@@ -325,8 +326,10 @@ canvas {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-right: 0; /* Etiket sağ margin yok */
 }
 
+/* Tüm input elemanlarını aynı genişlikte yap */
 .setting-control input[type="number"],
 .setting-control input[type="color"],
 .setting-control select {
@@ -334,18 +337,21 @@ canvas {
     color: #e8eaed;
     border: 1px solid #5f6368;
     border-radius: 4px;
-    padding: 3px;
+    padding: 4px 6px;
     font-size: 11px;
-    width: 60px;
+    width: 100px; /* Tüm inputlar aynı genişlikte */
+    flex-shrink: 0; /* Input elemanları küçülmesin */
 }
 
+/* Select elemanları biraz daha geniş olabilir */
 .setting-control select {
-    width: 120px;
+    width: 140px;
 }
 
 .setting-control input[type="checkbox"] {
     width: 16px;
     height: 16px;
+    flex-shrink: 0;
 }
 
 .settings-actions {
