@@ -514,12 +514,10 @@ function renderFloorPreview(floor) {
     const svgWidth = 80;
     const svgHeight = 40;
 
-    // Kattaki elemanları filtrele
+    // Sadece duvarları göster
     const walls = state.walls || [];
-    const doors = state.doors || [];
-    const rooms = state.rooms || [];
 
-    // Tüm elemanların bounds'ını hesapla
+    // Tüm duvarların bounds'ını hesapla
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
     walls.forEach(wall => {
@@ -575,16 +573,6 @@ function renderFloorPreview(floor) {
         }
     });
 
-    // Kapıları çiz (kırmızı)
-    doors.forEach(door => {
-        if (door.position) {
-            const x = (door.position.x - centerX) * finalScale + svgWidth / 2;
-            const y = (door.position.y - centerY) * finalScale + svgHeight / 2;
-
-            svgContent += `<circle cx="${x}" cy="${y}" r="0.8" fill="#ff6b6b"/>`;
-        }
-    });
-
     return `
         <svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" style="display: block; margin: 0 auto; background: #1e1f20;">
             ${svgContent}
@@ -596,7 +584,7 @@ function renderFloorPreview(floor) {
  * Detaylı tablo event listener'ları
  */
 function setupDetailTableEventListeners() {
-    // Satıra tıklama - katı aktif yap
+    // Satıra tıklama - katı aktif yap veya placeholder'dan kat ekle
     const rows = detailPanel.querySelectorAll('.floor-row');
     rows.forEach(row => {
         row.addEventListener('click', (e) => {
@@ -610,10 +598,16 @@ function setupDetailTableEventListeners() {
             const floorId = row.dataset.floorId;
             const floor = state.floors.find(f => f.id === floorId);
 
-            if (floor && !floor.isPlaceholder && floor.visible !== false) {
-                setState({ currentFloor: floor });
-                renderDetailPanel();
-                renderMiniPanel();
+            if (floor) {
+                if (floor.isPlaceholder) {
+                    // Placeholder satırına tıklanırsa yeni kat ekle
+                    addFloorFromPlaceholder(floorId);
+                } else if (floor.visible !== false) {
+                    // Normal kata tıklanırsa aktif yap
+                    setState({ currentFloor: floor });
+                    renderDetailPanel();
+                    renderMiniPanel();
+                }
             }
         });
     });

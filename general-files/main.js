@@ -736,8 +736,8 @@ function initialize() {
     setupInputListeners();
     setupFileIOListeners();
     createWallPanel();
-    createFloorPanel();
-    initializeDefaultFloors();
+    initializeDefaultFloors(); // Önce katları initialize et
+    createFloorPanel(); // Sonra paneli oluştur
     initGuideContextMenu();
 
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
