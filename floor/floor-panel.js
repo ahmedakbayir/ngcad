@@ -286,6 +286,13 @@ function setupDetailPanelListeners() {
             hideDetailPanel();
         }
     });
+
+    // ESC tuşuna basıldığında kapat
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && detailPanel.style.display === 'block') {
+            hideDetailPanel();
+        }
+    });
 }
 
 /**
@@ -789,6 +796,12 @@ function swapFloors(draggedFloorId, targetFloorId, insertBefore) {
  * Kat görünürlüğünü toggle eder
  */
 function toggleFloorVisibility(floorId) {
+    const floor = state.floors.find(f => f.id === floorId);
+    if (!floor) return;
+
+    const isCurrentlyActive = state.currentFloor?.id === floorId;
+    const willBeHidden = floor.visible !== false; // Şu anda görünür, gizlenecek
+
     const floors = state.floors.map(f => {
         if (f.id === floorId) {
             return { ...f, visible: !f.visible };
@@ -796,7 +809,13 @@ function toggleFloorVisibility(floorId) {
         return f;
     });
 
-    setState({ floors });
+    // Aktif kat gizleniyorsa, ZEMİN'i aktif yap
+    let newCurrentFloor = state.currentFloor;
+    if (isCurrentlyActive && willBeHidden) {
+        newCurrentFloor = floors.find(f => f.name === 'ZEMİN');
+    }
+
+    setState({ floors, currentFloor: newCurrentFloor });
     renderDetailPanel();
     renderMiniPanel();
 }
