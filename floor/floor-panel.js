@@ -284,22 +284,24 @@ function setupDetailPanelListeners() {
         hideDetailPanel();
     });
 
+    // Panel içindeki TÜM tıklamaları durdur (document'e bubble up etmesin)
+    detailPanel.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
     // Global listener'ları sadece bir kez ekle
     if (detailPanelListenersAdded) return;
     detailPanelListenersAdded = true;
 
-    // Panel dışına tıklandığında kapat (async ile timing düzelt)
+    // Panel dışına tıklandığında kapat
     document.addEventListener('click', (e) => {
-        // Mini panel'in expand butonuna tıklamayı bekle
-        setTimeout(() => {
-            if (detailPanel &&
-                detailPanel.style.display === 'block' &&
-                !detailPanel.contains(e.target) &&
-                !miniPanel.contains(e.target)) {
-                hideDetailPanel();
-            }
-        }, 0);
-    }, true); // Capture phase kullan
+        if (detailPanel &&
+            detailPanel.style.display === 'block' &&
+            !detailPanel.contains(e.target) &&
+            !miniPanel.contains(e.target)) {
+            hideDetailPanel();
+        }
+    });
 
     // ESC tuşuna basıldığında kapat
     document.addEventListener('keydown', (e) => {
