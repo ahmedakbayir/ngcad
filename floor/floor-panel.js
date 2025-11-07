@@ -383,7 +383,7 @@ function renderDetailPanel() {
                     }
                 </td>
                 <td style="padding: 4px; text-align: center;">
-                    ${floor.isPlaceholder || floor.name === 'ZEMİN' ? '' : renderDeleteButton(floor)}
+                    ${floor.isPlaceholder ? '' : renderDeleteButton(floor)}
                 </td>
             </tr>
         `;
@@ -443,18 +443,24 @@ function renderVisibilityToggle(floor) {
  * Silme butonu (çöp kutusu)
  */
 function renderDeleteButton(floor) {
+    const isZemin = floor.name === 'ZEMİN';
+    const cursor = isZemin ? 'not-allowed' : 'pointer';
+    const opacity = isZemin ? '0.4' : '1';
+    const title = isZemin ? 'Zemin kat silinemez' : 'Katı Sil';
+
     return `
-        <button class="floor-delete-btn"
+        <button class="floor-delete-btn ${isZemin ? 'zemin-delete-disabled' : ''}"
                 data-floor-id="${floor.id}"
                 style="background: transparent;
                        border: 1px solid #e74c3c;
                        color: #e74c3c;
                        border-radius: 4px;
-                       cursor: pointer;
+                       cursor: ${cursor};
                        font-size: 14px;
                        padding: 2px 6px;
-                       transition: all 0.2s;"
-                title="Katı Sil">
+                       transition: all 0.2s;
+                       opacity: ${opacity};"
+                title="${title}">
             🗑️
         </button>
     `;
@@ -631,15 +637,18 @@ function setupDetailTableEventListeners() {
             confirmDeleteFloor(floorId);
         });
 
-        // Hover efekti
-        btn.addEventListener('mouseenter', () => {
-            btn.style.background = '#e74c3c';
-            btn.style.color = '#fff';
-        });
-        btn.addEventListener('mouseleave', () => {
-            btn.style.background = 'transparent';
-            btn.style.color = '#e74c3c';
-        });
+        // Hover efekti (ZEMİN için değil)
+        const isDisabled = btn.classList.contains('zemin-delete-disabled');
+        if (!isDisabled) {
+            btn.addEventListener('mouseenter', () => {
+                btn.style.background = '#e74c3c';
+                btn.style.color = '#fff';
+            });
+            btn.addEventListener('mouseleave', () => {
+                btn.style.background = 'transparent';
+                btn.style.color = '#e74c3c';
+            });
+        }
     });
 
     // Kat ekleme butonları
@@ -799,6 +808,11 @@ function confirmDeleteFloor(floorId) {
     const floor = state.floors.find(f => f.id === floorId);
     if (!floor) return;
 
+    // ZEMİN katı silinemez
+    if (floor.name === 'ZEMİN') {
+        return;
+    }
+
     const confirmed = confirm(`"${floor.name}" katı silinecek. Emin misiniz?`);
     if (confirmed) {
         deleteFloor(floorId);
@@ -860,24 +874,22 @@ function deleteFloor(floorId) {
  * Katları sırasına göre yeniden numaralandırır
  */
 function renumberFloors(floors) {
-    // Katları yüksekliğe göre sırala
+    // Katları yüksekliğe göre sırala (ZEMİN hariç)
     const sortedFloors = [...floors]
-        .filter(f => !f.isPlaceholder)
+        .filter(f => !f.isPlaceholder && f.name !== 'ZEMİN')
         .sort((a, b) => a.bottomElevation - b.bottomElevation);
 
-    // Zemin üstü katlar
-    const aboveGroundFloors = sortedFloors.filter(f =>
-        f.bottomElevation > 0 && f.name.includes('.KAT')
-    );
+    // Zemin üstü katlar (bottomElevation >= 270, ZEMİN'in üstünde)
+    // İsim kontrolü YOK - sadece pozisyona göre
+    const aboveGroundFloors = sortedFloors.filter(f => f.bottomElevation >= 270);
 
     aboveGroundFloors.forEach((floor, index) => {
         floor.name = `${index + 1}.KAT`;
     });
 
-    // Zemin altı katlar (bodrum)
-    const belowGroundFloors = sortedFloors.filter(f =>
-        f.topElevation <= 0 && f.name.includes('.BODRUM')
-    ).reverse(); // En alttakinden başla
+    // Zemin altı katlar (topElevation <= 0, ZEMİN'in altında)
+    // İsim kontrolü YOK - sadece pozisyona göre
+    const belowGroundFloors = sortedFloors.filter(f => f.topElevation <= 0).reverse();
 
     belowGroundFloors.forEach((floor, index) => {
         floor.name = `${index + 1}.BODRUM`;
