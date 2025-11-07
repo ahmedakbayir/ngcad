@@ -33,6 +33,11 @@ export function createFloorPanel() {
     `;
 
     miniPanel.innerHTML = `
+        <div id="floor-expand-btn" style="position: absolute; left: -20px; top: 50%; transform: translateY(-50%); cursor: pointer; background: #2a2b2c; border: 1px solid #5f6368; border-right: none; border-radius: 4px 0 0 4px; padding: 8px 4px; box-shadow: -2px 0 4px rgba(0,0,0,0.2); transition: left 0.2s; z-index: 1;" title="Katlar Panelini Aç">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="8 2, 4 6, 8 10"></polyline>
+            </svg>
+        </div>
         <div id="floor-scroll-up" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 16px;">▲</div>
         <div id="floor-mini-list" style="flex: 1; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0;">
             <!-- Katlar buraya dinamik olarak eklenecek -->
@@ -41,6 +46,21 @@ export function createFloorPanel() {
     `;
 
     document.body.appendChild(miniPanel);
+
+    // Genişleme butonu
+    const expandBtn = miniPanel.querySelector('#floor-expand-btn');
+    expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showDetailPanel();
+    });
+
+    // Hover efekti - genişleme butonunu daha görünür yap
+    miniPanel.addEventListener('mouseenter', () => {
+        expandBtn.style.left = '-24px';
+    });
+    miniPanel.addEventListener('mouseleave', () => {
+        expandBtn.style.left = '-20px';
+    });
 
     // Çift tıklama ile detaylı panel aç
     miniPanel.addEventListener('dblclick', showDetailPanel);
@@ -103,56 +123,59 @@ export function renderMiniPanel() {
     const floorList = miniPanel.querySelector('#floor-mini-list');
     const floors = state.floors || [];
 
-    // Katları yüksekliğe göre sırala (en üstten en alta)
-    // Sadece görünür katları göster
-    const sortedFloors = [...floors]
-        .filter(f => !f.isPlaceholder && f.visible !== false)
+    // Tüm katları sırala (gizli olanları tespit için)
+    const allSortedFloors = [...floors]
+        .filter(f => !f.isPlaceholder)
         .sort((a, b) => b.bottomElevation - a.bottomElevation);
 
     let html = '';
 
-    sortedFloors.forEach(floor => {
+    allSortedFloors.forEach((floor, index) => {
         const isActive = state.currentFloor?.id === floor.id;
         const isVisible = floor.visible !== false;
+
+        if (!isVisible) {
+            // Gizli kat - kesikli çizgi göster
+            const gapHeight = Math.max(8, state.defaultFloorHeight / 5 * 0.1); // Piksel cinsinden boşluk
+            html += `
+                <div style="width: 30px; height: ${gapHeight}px; display: flex; align-items: center; justify-content: center;">
+                    <svg width="24" height="${gapHeight}" viewBox="0 0 24 ${gapHeight}">
+                        <line x1="2" y1="${gapHeight/2}" x2="22" y2="${gapHeight/2}"
+                              stroke="#5f6368" stroke-width="1" stroke-dasharray="2,2" />
+                    </svg>
+                </div>
+            `;
+            return; // Gizli katı gösterme
+        }
 
         // Kat kısa adı
         const shortName = getShortFloorName(floor.name);
 
         // Durum renkler
-        let bgColor, textColor, opacity;
+        let bgColor, textColor;
 
-        if (!isVisible) {
-            // Görünmez
-            bgColor = '#1e1f20';
-            textColor = '#5f6368';
-            opacity = '0.5';
-        } else if (isActive) {
-            // Aktif görünür
+        if (isActive) {
+            // Aktif görünür - Mavi
             bgColor = '#8ab4f8';
             textColor = '#1e1f20';
-            opacity = '1';
         } else {
-            // Pasif görünür
-            bgColor = '#3a5f8f';
+            // Pasif görünür - Koyu gri
+            bgColor = '#4a4b4c';
             textColor = '#e7e6d0';
-            opacity = '1';
         }
 
-        const cursor = isVisible ? 'pointer' : 'not-allowed';
-
         html += `
-            <div class="floor-mini-item ${isVisible ? 'clickable' : ''}"
+            <div class="floor-mini-item clickable"
                  data-floor-id="${floor.id}"
                  style="background: ${bgColor};
                         color: ${textColor};
-                        opacity: ${opacity};
                         padding: 6px 8px;
                         border-radius: 4px;
                         font-size: 11px;
                         font-weight: bold;
                         text-align: center;
                         min-width: 36px;
-                        cursor: ${cursor};
+                        cursor: pointer;
                         transition: all 0.2s;">
                 ${shortName}
             </div>
@@ -339,10 +362,13 @@ function renderDetailPanel() {
             floorNameDisplay = `${arrow} ${floor.name} ${arrow}`;
         }
 
+        const isDraggable = !floor.isPlaceholder && floor.name !== 'ZEMİN';
+
         html += `
             <tr data-floor-id="${floor.id}"
-                style="${rowStyle} border-bottom: 1px solid #3a3b3c; cursor: pointer; height: 50px;"
-                class="floor-row">
+                style="${rowStyle} border-bottom: 1px solid #3a3b3c; cursor: ${isDraggable ? 'move' : 'pointer'}; height: 50px;"
+                class="floor-row ${isDraggable ? 'floor-draggable' : ''}"
+                draggable="${isDraggable}">
                 <td style="padding: 4px; text-align: center;">
                     ${floor.isPlaceholder ? '' : renderVisibilityToggle(floor)}
                 </td>
@@ -481,21 +507,87 @@ function renderPlaceholderPreview(floor) {
 }
 
 /**
- * Normal kat önizlemesi (küçük, düz çizgiler)
+ * Normal kat önizlemesi - proje içeriği ile (1/500 ölçek)
  */
 function renderFloorPreview(floor) {
+    const scale = 1 / 500; // 1:500 ölçek
+    const svgWidth = 80;
+    const svgHeight = 40;
+
+    // Kattaki elemanları filtrele
+    const walls = state.walls || [];
+    const doors = state.doors || [];
+    const rooms = state.rooms || [];
+
+    // Tüm elemanların bounds'ını hesapla
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    walls.forEach(wall => {
+        if (wall.p1 && wall.p2) {
+            minX = Math.min(minX, wall.p1.x, wall.p2.x);
+            minY = Math.min(minY, wall.p1.y, wall.p2.y);
+            maxX = Math.max(maxX, wall.p1.x, wall.p2.x);
+            maxY = Math.max(maxY, wall.p1.y, wall.p2.y);
+        }
+    });
+
+    // Eğer hiç eleman yoksa basit önizleme göster
+    if (!isFinite(minX)) {
+        return `
+            <svg width="${svgWidth}" height="${svgHeight}" style="display: block; margin: 0 auto;">
+                <rect x="5" y="5" width="70" height="30"
+                      fill="none"
+                      stroke="#5f6368"
+                      stroke-width="1"
+                      stroke-dasharray="2,2"/>
+                <text x="40" y="25" text-anchor="middle" font-size="8" fill="#5f6368">Boş</text>
+            </svg>
+        `;
+    }
+
+    const width = maxX - minX;
+    const height = maxY - minY;
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    // Ölçekleme faktörü
+    const padding = 5;
+    const availableWidth = svgWidth - 2 * padding;
+    const availableHeight = svgHeight - 2 * padding;
+
+    const scaleX = availableWidth / (width * scale || 1);
+    const scaleY = availableHeight / (height * scale || 1);
+    const finalScale = Math.min(scaleX, scaleY) * scale;
+
+    // SVG çiz
+    let svgContent = '';
+
+    // Duvarları çiz
+    walls.forEach(wall => {
+        if (wall.p1 && wall.p2) {
+            const x1 = (wall.p1.x - centerX) * finalScale + svgWidth / 2;
+            const y1 = (wall.p1.y - centerY) * finalScale + svgHeight / 2;
+            const x2 = (wall.p2.x - centerX) * finalScale + svgWidth / 2;
+            const y2 = (wall.p2.y - centerY) * finalScale + svgHeight / 2;
+
+            svgContent += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+                                stroke="#e7e6d0" stroke-width="0.5"/>`;
+        }
+    });
+
+    // Kapıları çiz (kırmızı)
+    doors.forEach(door => {
+        if (door.position) {
+            const x = (door.position.x - centerX) * finalScale + svgWidth / 2;
+            const y = (door.position.y - centerY) * finalScale + svgHeight / 2;
+
+            svgContent += `<circle cx="${x}" cy="${y}" r="0.8" fill="#ff6b6b"/>`;
+        }
+    });
+
     return `
-        <svg width="80" height="40" style="display: block; margin: 0 auto;">
-            <rect x="5" y="5" width="70" height="30"
-                  fill="none"
-                  stroke="#e7e6d0"
-                  stroke-width="1"/>
-            <line x1="5" y1="5" x2="75" y2="35"
-                  stroke="#e7e6d0"
-                  stroke-width="0.5"/>
-            <line x1="75" y1="5" x2="5" y2="35"
-                  stroke="#e7e6d0"
-                  stroke-width="0.5"/>
+        <svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" style="display: block; margin: 0 auto; background: #1e1f20;">
+            ${svgContent}
         </svg>
     `;
 }
@@ -575,6 +667,119 @@ function setupDetailTableEventListeners() {
             btn.style.color = '#8ab4f8';
         });
     });
+
+    // Drag & Drop - Sürüklenebilir katlar
+    const draggableRows = detailPanel.querySelectorAll('.floor-draggable');
+    let draggedRow = null;
+
+    draggableRows.forEach(row => {
+        // Drag başladı
+        row.addEventListener('dragstart', (e) => {
+            draggedRow = row;
+            row.style.opacity = '0.5';
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', row.innerHTML);
+        });
+
+        // Drag bitti
+        row.addEventListener('dragend', (e) => {
+            row.style.opacity = '1';
+
+            // Tüm satırlardan drop-target class'ını kaldır
+            draggableRows.forEach(r => {
+                r.style.borderTop = '';
+                r.style.borderBottom = '';
+            });
+        });
+
+        // Üzerine gelindi
+        row.addEventListener('dragover', (e) => {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropType = 'move';
+
+            // Görsel feedback
+            if (draggedRow !== row) {
+                const rect = row.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+
+                if (e.clientY < midpoint) {
+                    row.style.borderTop = '2px solid #8ab4f8';
+                    row.style.borderBottom = '';
+                } else {
+                    row.style.borderTop = '';
+                    row.style.borderBottom = '2px solid #8ab4f8';
+                }
+            }
+        });
+
+        // Üzerinden çıkıldı
+        row.addEventListener('dragleave', (e) => {
+            row.style.borderTop = '';
+            row.style.borderBottom = '';
+        });
+
+        // Bırakıldı
+        row.addEventListener('drop', (e) => {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            row.style.borderTop = '';
+            row.style.borderBottom = '';
+
+            if (draggedRow !== row) {
+                const draggedFloorId = draggedRow.dataset.floorId;
+                const targetFloorId = row.dataset.floorId;
+
+                swapFloors(draggedFloorId, targetFloorId, e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2);
+            }
+
+            return false;
+        });
+    });
+}
+
+/**
+ * İki katın yerini değiştirir
+ */
+function swapFloors(draggedFloorId, targetFloorId, insertBefore) {
+    const draggedFloor = state.floors.find(f => f.id === draggedFloorId);
+    if (!draggedFloor) return;
+
+    // Onay dialogu
+    const confirmed = confirm(`"${draggedFloor.name}" katının yerini değiştirmek istediğinize emin misiniz?`);
+    if (!confirmed) return;
+
+    const floors = [...state.floors];
+    const draggedIndex = floors.findIndex(f => f.id === draggedFloorId);
+    const targetIndex = floors.findIndex(f => f.id === targetFloorId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const draggedFloorObj = floors[draggedIndex];
+    const targetFloorObj = floors[targetIndex];
+
+    // Yükseklikleri değiştir
+    const tempBottom = draggedFloorObj.bottomElevation;
+    const tempTop = draggedFloorObj.topElevation;
+
+    draggedFloorObj.bottomElevation = targetFloorObj.bottomElevation;
+    draggedFloorObj.topElevation = targetFloorObj.topElevation;
+
+    targetFloorObj.bottomElevation = tempBottom;
+    targetFloorObj.topElevation = tempTop;
+
+    // Katları yeniden sırala
+    floors.sort((a, b) => a.bottomElevation - b.bottomElevation);
+
+    // Kat numaralarını yeniden düzenle
+    renumberFloors(floors);
+
+    setState({ floors });
+    renderDetailPanel();
+    renderMiniPanel();
 }
 
 /**
@@ -607,7 +812,7 @@ function confirmDeleteFloor(floorId) {
 }
 
 /**
- * Katı siler ve diğer katları kaydırır
+ * Katı siler, diğer katları kaydırır ve yeniden isimlendirir
  */
 function deleteFloor(floorId) {
     const floor = state.floors.find(f => f.id === floorId);
@@ -643,6 +848,9 @@ function deleteFloor(floorId) {
         });
     }
 
+    // Kat numaralarını yeniden düzenle
+    renumberFloors(floors);
+
     // Eğer silinen kat aktifse, başka bir kata geç
     let newCurrentFloor = state.currentFloor;
     if (state.currentFloor?.id === floorId) {
@@ -652,6 +860,34 @@ function deleteFloor(floorId) {
     setState({ floors, currentFloor: newCurrentFloor });
     renderDetailPanel();
     renderMiniPanel();
+}
+
+/**
+ * Katları sırasına göre yeniden numaralandırır
+ */
+function renumberFloors(floors) {
+    // Katları yüksekliğe göre sırala
+    const sortedFloors = [...floors]
+        .filter(f => !f.isPlaceholder)
+        .sort((a, b) => a.bottomElevation - b.bottomElevation);
+
+    // Zemin üstü katlar
+    const aboveGroundFloors = sortedFloors.filter(f =>
+        f.bottomElevation > 0 && f.name.includes('.KAT')
+    );
+
+    aboveGroundFloors.forEach((floor, index) => {
+        floor.name = `${index + 1}.KAT`;
+    });
+
+    // Zemin altı katlar (bodrum)
+    const belowGroundFloors = sortedFloors.filter(f =>
+        f.topElevation <= 0 && f.name.includes('.BODRUM')
+    ).reverse(); // En alttakinden başla
+
+    belowGroundFloors.forEach((floor, index) => {
+        floor.name = `${index + 1}.BODRUM`;
+    });
 }
 
 /**
@@ -708,7 +944,7 @@ function addFloorFromPlaceholder(placeholderId) {
 
         floors.splice(placeholderIndex, 0, {
             id: `floor-placeholder-${Date.now()}`,
-            name: 'KAT EKLE',
+            name: 'ÜSTE KAT EKLE',
             bottomElevation: newBottomElevation,
             topElevation: newTopElevation,
             visible: false,
@@ -722,7 +958,7 @@ function addFloorFromPlaceholder(placeholderId) {
 
         floors.splice(placeholderIndex + 1, 0, {
             id: `floor-placeholder-${Date.now()}`,
-            name: 'KAT EKLE',
+            name: 'ALTA KAT EKLE',
             bottomElevation: newBottomElevation,
             topElevation: newTopElevation,
             visible: false,
