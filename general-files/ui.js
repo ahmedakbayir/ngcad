@@ -40,10 +40,25 @@ export function initializeSettings() {
 }
 
 function openTab(tabName) {
+    // Tüm tab pane'leri gizle
     Object.values(dom.tabPanes).forEach(pane => pane.classList.remove('active'));
-    Object.values(dom.tabButtons).forEach(btn => btn.classList.remove('active'));
+
+    // Tüm tab butonlarını pasif yap (hem yatay hem dikey)
+    if (dom.tabButtons) {
+        Object.values(dom.tabButtons).forEach(btn => btn.classList.remove('active'));
+    }
+    const verticalBtns = document.querySelectorAll('.tab-btn-vertical');
+    verticalBtns.forEach(btn => btn.classList.remove('active'));
+
+    // Seçilen tab'ı aktif yap
     dom.tabPanes[tabName].classList.add('active');
-    dom.tabButtons[tabName].classList.add('active');
+    if (dom.tabButtons && dom.tabButtons[tabName]) {
+        dom.tabButtons[tabName].classList.add('active');
+    }
+    const activeVerticalBtn = document.getElementById(`tab-btn-${tabName}`);
+    if (activeVerticalBtn) {
+        activeVerticalBtn.classList.add('active');
+    }
 }
 
 function populateRoomNameList(filter = '') {
@@ -623,7 +638,23 @@ export function setupUIListeners() {
             dom.settingsPopup.style.display = 'none';
         }
     });
-    Object.keys(dom.tabButtons).forEach(key => { dom.tabButtons[key].addEventListener('click', () => openTab(key)); });
+
+    // Dikey tab butonları için listener'lar ekle
+    const tabBtnsVertical = document.querySelectorAll('.tab-btn-vertical');
+    tabBtnsVertical.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabName = btn.id.replace('tab-btn-', '');
+            openTab(tabName);
+        });
+    });
+
+    // Eski yatay tab butonları da varsa destekle
+    if (dom.tabButtons) {
+        Object.keys(dom.tabButtons).forEach(key => {
+            dom.tabButtons[key].addEventListener('click', () => openTab(key));
+        });
+    }
+
     dom.borderPicker.addEventListener("input", (e) => setState({ wallBorderColor: e.target.value }));
     dom.roomPicker.addEventListener("input", (e) => setState({ roomFillColor: e.target.value }));
     dom.lineThicknessInput.addEventListener("input", (e) => { const value = parseFloat(e.target.value); if(!isNaN(value)) setState({ lineThickness: value }); });

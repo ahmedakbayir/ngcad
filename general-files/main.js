@@ -500,19 +500,14 @@ function animate() {
         }
     }
 
-    // Camera Coordinates Display güncelleme (sadece FPS modundayken)
+    // Camera Coordinates Display güncelleme (her zaman göster)
     const cameraCoords = document.getElementById('camera-coords');
     if (cameraCoords && camera3d) {
-        if (isFPSMode()) {
-            cameraCoords.style.display = '';
-            // Kamera konumunu tam sayı olarak göster
-            const x = Math.round(camera3d.position.x);
-            const y = Math.round(camera3d.position.y);
-            const z = Math.round(camera3d.position.z);
-            cameraCoords.textContent = `Kamera: x: ${x} cm, y: ${y} cm, z: ${z} cm`;
-        } else {
-            cameraCoords.style.display = 'none';
-        }
+        // Kamera konumunu tam sayı olarak göster
+        const x = Math.round(camera3d.position.x);
+        const y = Math.round(camera3d.position.y);
+        const z = Math.round(camera3d.position.z);
+        cameraCoords.textContent = `x: ${x}, y: ${y}, z: ${z}`;
     }
 
     // YENİ: TWEEN animasyonlarını güncelle
