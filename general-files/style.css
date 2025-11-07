@@ -100,8 +100,8 @@ canvas {
     display: flex;
     /* flex-wrap: wrap; */ /* DEĞİŞTİ */
     flex-direction: column; /* EKLENDİ */
-    width: 140px; /* Daraltıldı: 150px -> 140px (yazı sonrası boşluk azaldı) */
-    gap: 8px; /* %25 büyütüldü: 6px -> 8px */
+    width: 125px; /* DARALTILDI: 140px -> 125px */
+    gap: 6px; /* Azaltıldı: 8px -> 6px */
     /* align-items: center; */ /* SİLİNDİ */
 }
 
@@ -123,9 +123,9 @@ canvas {
     width: 100%; /* EKLENDİ */
     box-sizing: border-box; /* EKLENDİ */
     justify-content: flex-start; /* EKLENDİ */
-    padding: 7px 10px; /* %25 büyütüldü: 5px 8px -> 7px 10px */
+    padding: 6px 8px; /* Daraltıldı: 7px 10px -> 6px 8px */
     font-size: 14px; /* %25 büyütüldü: 11px -> 14px */
-    gap: 8px; /* %25 büyütüldü: 6px -> 8px */
+    gap: 6px; /* Daraltıldı: 8px -> 6px */
 }
 
 /* UI içindeki buton iconları */
@@ -215,9 +215,9 @@ canvas {
     bottom: 10px;
     left: 10px;
     z-index: 11;
-    padding: 7px 10px; /* %25 büyütüldü: 5px 8px -> 7px 10px */
+    padding: 6px 8px; /* Daraltıldı: 7px 10px -> 6px 8px */
     font-size: 14px; /* %25 büyütüldü: 11px -> 14px */
-    gap: 8px; /* %25 büyütüldü: 6px -> 8px */
+    gap: 6px; /* Daraltıldı: 8px -> 6px */
 }
 
 #settings-btn svg {
@@ -271,7 +271,7 @@ canvas {
 }
 
 .tab-btn-vertical {
-    padding: 10px 10px; /* Arttırıldı */
+    padding: 6px 10px 10px 10px; /* Alt padding daha büyük - yazı aşağı dayansın */
     cursor: pointer;
     border: none;
     background-color: transparent;
@@ -282,7 +282,7 @@ canvas {
     transition: all 0.2s;
     display: flex;
     align-items: flex-end; /* ALTA DAYANDI */
-    min-height: 32px; /* Minimum yükseklik */
+    height: 40px; /* Sabit yükseklik - tablar aynı hizada */
     font-weight: 500; /* Daha belirgin */
 }
 
@@ -339,13 +339,8 @@ canvas {
     border-radius: 4px;
     padding: 4px 6px;
     font-size: 11px;
-    width: 80px; /* Daraltıldı: 100px -> 80px */
+    width: 100px; /* TÜM ELEMANLAR AYNI GENİŞLİKTE */
     flex-shrink: 0; /* Input elemanları küçülmesin */
-}
-
-/* Select elemanları biraz daha geniş olabilir */
-.setting-control select {
-    width: 120px; /* Daraltıldı: 140px -> 120px */
 }
 
 .setting-control input[type="checkbox"] {
