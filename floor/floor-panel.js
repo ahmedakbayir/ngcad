@@ -169,13 +169,14 @@ export function renderMiniPanel() {
             dotColor = '#808080'; // Gri nokta
         }
 
-        // Nokta HTML (sadece içerik varsa)
-        const dotHtml = hasContent ? `<span style="display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: ${dotColor}; margin-left: 4px; vertical-align: middle;"></span>` : '';
+        // Nokta HTML (sadece içerik varsa, sağ üst köşede)
+        const dotHtml = hasContent ? `<span style="position: absolute; top: 4px; right: 4px; width: 4px; height: 4px; border-radius: 50%; background: ${dotColor};"></span>` : '';
 
         html += `
             <div class="floor-mini-item clickable"
                  data-floor-id="${floor.id}"
-                 style="background: ${bgColor};
+                 style="position: relative;
+                        background: ${bgColor};
                         color: ${textColor};
                         padding: 6px 8px;
                         border-radius: 4px;
