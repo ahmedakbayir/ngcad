@@ -49,6 +49,75 @@ export function initializeDefaultFloors() {
         floors: [lowerFloor, groundFloor, upperFloor],
         currentFloor: groundFloor
     });
+
+    // Migration: floorId olmayan eski çizimleri zemin katına ata
+    migrateOldDrawingsToFloor(groundFloor.id);
+}
+
+/**
+ * floorId olmayan eski çizimleri belirtilen kata atar
+ * @param {string} targetFloorId - Hedef kat ID'si
+ */
+function migrateOldDrawingsToFloor(targetFloorId) {
+    let migrated = false;
+
+    // Duvarları migrate et
+    state.walls.forEach(wall => {
+        if (!wall.floorId) {
+            wall.floorId = targetFloorId;
+            migrated = true;
+        }
+    });
+
+    // Kapıları migrate et (duvarlardan floorId alınacak)
+    state.doors.forEach(door => {
+        if (!door.floorId && door.wall && door.wall.floorId) {
+            door.floorId = door.wall.floorId;
+            migrated = true;
+        }
+    });
+
+    // Kolonları migrate et
+    if (state.columns) {
+        state.columns.forEach(column => {
+            if (!column.floorId) {
+                column.floorId = targetFloorId;
+                migrated = true;
+            }
+        });
+    }
+
+    // Kirişleri migrate et
+    if (state.beams) {
+        state.beams.forEach(beam => {
+            if (!beam.floorId) {
+                beam.floorId = targetFloorId;
+                migrated = true;
+            }
+        });
+    }
+
+    // Merdivenleri migrate et
+    if (state.stairs) {
+        state.stairs.forEach(stair => {
+            if (!stair.floorId) {
+                stair.floorId = targetFloorId;
+                migrated = true;
+            }
+        });
+    }
+
+    // Odaları migrate et
+    state.rooms.forEach(room => {
+        if (!room.floorId) {
+            room.floorId = targetFloorId;
+            migrated = true;
+        }
+    });
+
+    if (migrated) {
+        console.log(`✅ Eski çizimler "${targetFloorId}" katına aktarıldı`);
+    }
 }
 
 /**
