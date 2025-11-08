@@ -81,11 +81,16 @@ export function createFloorPanel() {
 
     document.body.appendChild(miniPanel);
 
-    // Genişleme butonu
+    // Genişleme butonu - toggle (aç/kapat)
     const expandBtn = miniPanel.querySelector('#floor-expand-btn');
     expandBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        showDetailPanel();
+        // Detaylı panel açıksa kapat, kapalıysa aç
+        if (detailPanel && detailPanel.style.display === 'block') {
+            hideDetailPanel();
+        } else {
+            showDetailPanel();
+        }
     });
 
     // Hover efekti
@@ -95,9 +100,6 @@ export function createFloorPanel() {
     expandBtn.addEventListener('mouseleave', () => {
         expandBtn.style.background = 'transparent';
     });
-
-    // Çift tıklama ile detaylı panel aç
-    miniPanel.addEventListener('dblclick', showDetailPanel);
 
     // Kaydırma okları
     setupScrollButtons();
@@ -154,7 +156,17 @@ function updateScrollButtons() {
     const scrollRight = miniPanel.querySelector('#floor-scroll-right');
     const floorList = miniPanel.querySelector('#floor-mini-list');
 
-    // Okları her zaman görünür yap, sadece opacity ile kontrol et
+    // Scroll gerekli mi kontrol et
+    const needsScroll = floorList.scrollWidth > floorList.clientWidth + 5;
+
+    // Scroll gerekmiyorsa okları tamamen gizle
+    if (!needsScroll) {
+        scrollLeft.style.display = 'none';
+        scrollRight.style.display = 'none';
+        return;
+    }
+
+    // Scroll gerekiyorsa okları göster ve opacity ile kontrol et
     scrollLeft.style.display = 'flex';
     scrollRight.style.display = 'flex';
 
@@ -1464,4 +1476,9 @@ function bulkSetHeight() {
     selectedFloorObjects.forEach(floor => {
         updateFloorHeight(floor.id, newHeight);
     });
+}
+
+// Window'a export et (klavye kısayolları için)
+if (typeof window !== 'undefined') {
+    window.renderMiniPanel = renderMiniPanel;
 }

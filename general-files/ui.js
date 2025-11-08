@@ -803,5 +803,54 @@ export function setupUIListeners() {
     dom.b3d.addEventListener('click', () => {
         toggle3DView();
     });
+
+    // KATI GÖSTER / BİNAYI GÖSTER TOGGLE BUTONU
+    if (dom.bFloorView) {
+        dom.bFloorView.addEventListener('click', () => {
+            const currentMode = dom.bFloorView.getAttribute('data-view-mode');
+            const floorIcon = document.getElementById('floor-icon');
+            const buildingIcon = document.getElementById('building-icon');
+            const label = document.getElementById('bFloorViewLabel');
+
+            if (currentMode === 'floor') {
+                // Binayı göster moduna geç
+                dom.bFloorView.setAttribute('data-view-mode', 'building');
+                if (floorIcon) floorIcon.style.display = 'none';
+                if (buildingIcon) buildingIcon.style.display = 'block';
+                if (label) label.textContent = 'Binayı Göster';
+
+                // Tüm katları görünür yap (TODO: 3D sahneyi güncelle)
+                const floors = state.floors || [];
+                floors.forEach(f => {
+                    if (!f.isPlaceholder) {
+                        f.visible = true;
+                    }
+                });
+                setState({ floors });
+            } else {
+                // Katı göster moduna geç
+                dom.bFloorView.setAttribute('data-view-mode', 'floor');
+                if (floorIcon) floorIcon.style.display = 'block';
+                if (buildingIcon) buildingIcon.style.display = 'none';
+                if (label) label.textContent = 'Katı Göster';
+
+                // Sadece aktif katı görünür yap
+                const floors = state.floors || [];
+                const currentFloorId = state.currentFloor?.id;
+                floors.forEach(f => {
+                    if (!f.isPlaceholder) {
+                        f.visible = (f.id === currentFloorId);
+                    }
+                });
+                setState({ floors });
+            }
+
+            // 3D sahneyi güncelle
+            update3DScene();
+
+            // Mini panel'i güncelle
+            if (window.renderMiniPanel) window.renderMiniPanel();
+        });
+    }
 }
 // --- setupUIListeners Sonu ---

@@ -278,11 +278,43 @@ function onKeyDown(e) {
         return; // Diğer kısayollarla çakışmasın
     }
 
-    // TAB ile duvar uzatma
-    if (e.key === "Tab" && state.currentMode === "drawWall" && state.startPoint) {
-        e.preventDefault();
-        extendWallOnTabPress();
-        return;
+    // TAB ile duvar uzatma veya kat değiştirme
+    if (e.key === "Tab") {
+        // Shift+Tab veya Ctrl+Shift+Tab ile kat değiştirme
+        if (e.shiftKey) {
+            e.preventDefault();
+
+            // Görünür katları al ve sırala
+            const visibleFloors = (state.floors || [])
+                .filter(f => !f.isPlaceholder && f.visible !== false)
+                .sort((a, b) => a.bottomElevation - b.bottomElevation);
+
+            if (visibleFloors.length === 0) return;
+
+            const currentIndex = visibleFloors.findIndex(f => f.id === state.currentFloor?.id);
+
+            let newIndex;
+            if (e.ctrlKey) {
+                // Ctrl+Shift+Tab: Önceki kat (circular)
+                newIndex = currentIndex <= 0 ? visibleFloors.length - 1 : currentIndex - 1;
+            } else {
+                // Shift+Tab: Sonraki kat (circular)
+                newIndex = currentIndex >= visibleFloors.length - 1 ? 0 : currentIndex + 1;
+            }
+
+            setState({ currentFloor: visibleFloors[newIndex] });
+
+            // Mini panel'i güncelle (eğer varsa)
+            if (window.renderMiniPanel) window.renderMiniPanel();
+
+            return;
+        }
+        // Tab ile duvar uzatma (sadece drawWall modundayken ve startPoint varsa)
+        else if (state.currentMode === "drawWall" && state.startPoint) {
+            e.preventDefault();
+            extendWallOnTabPress();
+            return;
+        }
     }
 
     // Sayısal giriş ile boyut düzenleme

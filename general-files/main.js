@@ -352,6 +352,7 @@ export const dom = {
     bOpen: document.getElementById("bOpen"),
     fileInput: document.getElementById("file-input"),
     bFirstPerson: document.getElementById("bFirstPerson"),
+    bFloorView: document.getElementById("bFloorView"),
     bAssignNames: document.getElementById("bAssignNames"),
     settingsBtn: document.getElementById("settings-btn"),
     settingsPopup: document.getElementById("settings-popup"),
