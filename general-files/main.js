@@ -320,11 +320,17 @@ export function setState(newState) {
 
     state = { ...state, ...newState };
 
+    // Debug: State güncellendiğinde window'u da güncelle
+    window.DEBUG_state = state;
+
     // Kat içerik durumu değiştiyse mini panel'i güncelle
     if (wallsChanged || doorsChanged) {
         renderMiniPanel();
     }
 }
+
+// Debug: State'i global erişime aç
+window.DEBUG_state = state;
 
 export const dom = {
     mainContainer: document.getElementById("main-container"),
