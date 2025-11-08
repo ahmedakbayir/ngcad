@@ -104,7 +104,7 @@ export function update3DScene() {
                 const p2 = arcPoints[i + 1];
                 const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, false, false);
                 if (segMesh) {
-                    segMesh.position.z = floorElevation;
+                    segMesh.position.y = floorElevation;
                     sceneObjects.add(segMesh);
                 }
             }
@@ -127,7 +127,7 @@ export function update3DScene() {
                 const p2={x:w.p1.x+dx*itemStart, y:w.p1.y+dy*itemStart};
                 const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, false);
                 if(segMesh) {
-                    segMesh.position.z = floorElevation;
+                    segMesh.position.y = floorElevation;
                     sceneObjects.add(segMesh);
                 }
             }
@@ -135,13 +135,13 @@ export function update3DScene() {
             if (itemData.type === 'door') {
                 const doorGroup = createDoorMesh(itemData.item);
                 if(doorGroup) {
-                    doorGroup.position.z = floorElevation;
+                    doorGroup.position.y = floorElevation;
                     sceneObjects.add(doorGroup);
                 }
                 if (wallType === 'normal' || wallType === 'half') {
                     const lintelMesh = createLintelMesh(itemData.item, wallThickness, wallMaterial);
                     if(lintelMesh) {
-                        lintelMesh.position.z = floorElevation;
+                        lintelMesh.position.y = floorElevation;
                         sceneObjects.add(lintelMesh);
                     }
                 }
@@ -149,7 +149,7 @@ export function update3DScene() {
             else if (itemData.type === 'window') {
                 const windowGroup = createComplexWindow(w, itemData.item, wallThickness);
                 if(windowGroup) {
-                    windowGroup.position.z = floorElevation;
+                    windowGroup.position.y = floorElevation;
                     sceneObjects.add(windowGroup);
                 }
                 const isBathroom = itemData.item.roomName === 'BANYO';
@@ -159,13 +159,13 @@ export function update3DScene() {
                     const lintelHeight = WALL_HEIGHT - topHeight;
                     const lintelMesh = createWallPieceMesh(w, itemData.item, topHeight, lintelHeight, wallThickness, wallMaterial);
                     if(lintelMesh) {
-                        lintelMesh.position.z = floorElevation;
+                        lintelMesh.position.y = floorElevation;
                         sceneObjects.add(lintelMesh);
                     }
                     const sillHeight = bottomHeight;
                     const sillMesh = createWallPieceMesh(w, itemData.item, 0, sillHeight, wallThickness, wallMaterial);
                     if(sillMesh) {
-                        sillMesh.position.z = floorElevation;
+                        sillMesh.position.y = floorElevation;
                         sceneObjects.add(sillMesh);
                     }
                 }
@@ -182,7 +182,7 @@ export function update3DScene() {
             const p2={x:w.p1.x+dx*wallLen, y:w.p1.y+dy*wallLen};
             const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, true);
             if(segMesh) {
-                segMesh.position.z = floorElevation;
+                segMesh.position.y = floorElevation;
                 sceneObjects.add(segMesh);
             }
         }
@@ -190,7 +190,7 @@ export function update3DScene() {
         (w.vents || []).forEach(v => {
             const ventMeshGroup = createVentMesh(w, v);
             if (ventMeshGroup) {
-                ventMeshGroup.position.z = floorElevation;
+                ventMeshGroup.position.y = floorElevation;
                 sceneObjects.add(ventMeshGroup);
             }
         });
@@ -201,7 +201,7 @@ export function update3DScene() {
         columns.forEach(column => {
             const m = createColumnMesh(column, columnMaterial);
             if (m) {
-                m.position.z = getFloorElevation(column.floorId);
+                m.position.y = getFloorElevation(column.floorId);
                 sceneObjects.add(m);
             }
         });
@@ -212,7 +212,7 @@ export function update3DScene() {
         beams.forEach(beam => {
             const m = createBeamMesh(beam, beamMaterial);
             if (m) {
-                m.position.z = getFloorElevation(beam.floorId);
+                m.position.y = getFloorElevation(beam.floorId);
                 sceneObjects.add(m);
             }
         });
@@ -223,7 +223,7 @@ export function update3DScene() {
         stairs.forEach(stair => {
             const m = createStairMesh(stair);
             if (m) {
-                m.position.z = getFloorElevation(stair.floorId);
+                m.position.y = getFloorElevation(stair.floorId);
                 sceneObjects.add(m);
             }
         });
@@ -569,7 +569,7 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
             );
 
             if (frameMesh) {
-                frameMesh.position.z = roomFloorElevation;
+                frameMesh.position.y = roomFloorElevation;
                 sceneObjects.add(frameMesh);
                 // --- DÜZELTME: Duvarı kullanıldı olarak işaretle ---
                 usedWalls.add(wall);
