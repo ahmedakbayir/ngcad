@@ -25,7 +25,11 @@ export function wallExists(p1, p2) {
  */
 export function getWallAtPoint(pos, tolerance) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    // STRICT FLOOR FILTERING: Only check walls from current floor
+    const walls = (state.walls || []).filter(w => {
+        if (currentFloorId) return w.floorId === currentFloorId;
+        return !w.floorId;
+    });
 
     // Duvar ucu (node) kontrolü
     for (const wall of [...walls].reverse()) {
@@ -36,8 +40,8 @@ export function getWallAtPoint(pos, tolerance) {
         if (d2 < tolerance) return { type: "wall", object: wall, handle: "p2" };
     }
 
-    // Duvar gövdesi kontrolü
-    for (const wall of [...state.walls].reverse()) {
+    // Duvar gövdesi kontrolü - CRITICAL FIX: Use filtered 'walls' not 'state.walls'
+    for (const wall of [...walls].reverse()) {
         if (!wall.p1 || !wall.p2) continue;
         const wallPx = wall.thickness || state.wallThickness;
         const bodyHitToleranceSq = (wallPx / 2 + tolerance)**2;
@@ -259,7 +263,11 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    // STRICT FLOOR FILTERING: Only work with walls from current floor
+    const walls = (state.walls || []).filter(w => {
+        if (currentFloorId) return w.floorId === currentFloorId;
+        return !w.floorId;
+    });
     let neighborWallsToDimension = new Set(); // Komşu duvarları saklamak için Set
 
     if (state.selectedObject.handle !== "body") {
