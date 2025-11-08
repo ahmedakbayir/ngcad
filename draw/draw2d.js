@@ -240,17 +240,6 @@ export function draw2D() {
     const stairs = state.stairs?.filter(s => !currentFloorId || s.floorId === currentFloorId) || [];
     const columns = state.columns?.filter(c => !currentFloorId || c.floorId === currentFloorId) || [];
 
-    // Debug: İlk render'da konsola yazdır
-    if (Math.random() < 0.01) { // %1 ihtimalle log (her frame'de spam olmasın)
-        console.log('🎨 Render filtreleme:', {
-            currentFloor: state.currentFloor?.name,
-            currentFloorId: currentFloorId,
-            totalWalls: state.walls.length,
-            filteredWalls: walls.length,
-            wallFloorIds: state.walls.map(w => w.floorId)
-        });
-    }
-
     ctx2d.fillStyle = BG;
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
     ctx2d.save();
