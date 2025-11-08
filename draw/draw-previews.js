@@ -7,7 +7,11 @@ import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/w
 import { state, dom } from '../general-files/main.js';
 
 export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol) {
-    const { currentMode, isPanning, isDragging, walls, mousePos } = state;
+    const { currentMode, isPanning, isDragging, mousePos } = state;
+
+    // FLOOR ISOLATION: Sadece aktif kattaki duvarları kullan
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
 
     // Kapı önizlemesi
     if (currentMode === "drawDoor" && !isPanning && !isDragging) {
