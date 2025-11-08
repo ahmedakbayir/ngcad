@@ -360,7 +360,7 @@ export function draw2D() {
 
 
     // 7. Mahal Etiketleri
-    drawRoomNames(ctx2d, state, getObjectAtPoint);
+    drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
 
     // 8. Kapılar, Pencereler, Menfezler
     doors.forEach((door) => {
