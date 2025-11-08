@@ -539,15 +539,17 @@ export function onPointerMove(snappedPos, unsnappedPos) {
                 // Taşınan duvarın özelliklerini al
                 const wallType = movedWall.wallType || 'normal';
                 const thickness = movedWall.thickness || state.wallThickness;
+                const floorId = movedWall.floorId; // Kat ID'sini al
 
                 const originalP1 = state.preDragNodeStates.get(movedWall.p1);
                 if (originalP1) {
                     sweepWalls.push({
                         p1: originalP1,
                         p2: movedWall.p1,
-                        type: 'wall', // 'type' da eklenmeli
+                        type: 'wall',
                         wallType: wallType,
-                        thickness: thickness
+                        thickness: thickness,
+                        floorId: floorId // floorId ekle
                     });
                 }
 
@@ -556,9 +558,10 @@ export function onPointerMove(snappedPos, unsnappedPos) {
                     sweepWalls.push({
                         p1: originalP2,
                         p2: movedWall.p2,
-                        type: 'wall', // 'type' da eklenmeli
+                        type: 'wall',
                         wallType: wallType,
-                        thickness: thickness
+                        thickness: thickness,
+                        floorId: floorId // floorId ekle
                     });
                 }
             });
