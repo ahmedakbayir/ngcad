@@ -57,7 +57,7 @@ function extendWallOnTabPress() {
     const finalEndPoint = bestIntersection ? bestIntersection : rayEnd;
     const endNode = getOrCreateNode(finalEndPoint.x, finalEndPoint.y);
     if (endNode !== state.startPoint && !wallExists(state.startPoint, endNode)) {
-        state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.wallThickness, wallType: 'normal' });
+        state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.wallThickness, wallType: 'normal', floorId: state.currentFloor?.id });
         setState({ startPoint: endNode });
         processWalls();
         saveState();
@@ -815,7 +815,8 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     // Orijinal duvar özelliklerini koru
     const wall_props = {
         thickness: wallToSplit.thickness || state.wallThickness,
-        wallType: wallToSplit.wallType || 'normal'
+        wallType: wallToSplit.wallType || 'normal',
+        floorId: wallToSplit.floorId
     };
 
     const newWall1 = { type: "wall", p1: p1, p2: splitNode, ...wall_props, windows: [], vents: [] };

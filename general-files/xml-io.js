@@ -324,7 +324,8 @@ export function importFromXML(xmlString) {
                         thickness: thickness, // XML'den gelen kalınlık
                         wallType: 'normal',
                         windows: [],
-                        vents: []
+                        vents: [],
+                        floorId: state.currentFloor?.id // XML import edilirken aktif kata ekle
                     });
                     console.log(`      -> Duvar eklendi (kalınlık: ${thickness})`);
                 } else {
