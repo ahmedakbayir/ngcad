@@ -252,11 +252,11 @@ export function draw2D() {
 
 
 
-    // 2. Mahaller (Poligonlar)
-    drawRoomPolygons(ctx2d, state);
+    // 2. Mahaller (Poligonlar) - Filtrelenmiş odaları kullan
+    drawRoomPolygons(ctx2d, { ...state, rooms });
 
-    // 3. Duvar Geometrisi
-    drawWallGeometry(ctx2d, state, BG);
+    // 3. Duvar Geometrisi - Filtrelenmiş duvarları kullan
+    drawWallGeometry(ctx2d, { ...state, walls, doors }, BG);
 
     // 3.5. Arc Duvar Kontrol Noktaları
     walls.forEach(wall => {
