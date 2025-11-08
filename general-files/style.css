@@ -533,52 +533,24 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
     color: #8ab4f8;
 }
 
-/* 3D Overlay: FPS ve Kamera Koordinatları - Sol Üst */
-#stats-overlay {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 100;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    background: rgba(30, 31, 32, 0.85);
+/* 3D Overlay: Kamera Koordinatları - split-ratio-buttons içinde */
+#split-ratio-buttons #camera-coords {
+    background: rgba(30, 31, 32, 0.9);
     padding: 6px 10px;
-    border-radius: 6px;
+    border-radius: 4px;
     border: 1px solid rgba(100, 149, 237, 0.3);
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 11px;
-    color: #e8eaed;
-    pointer-events: none;
-    backdrop-filter: blur(4px);
-}
-
-#stats-overlay span {
-    white-space: nowrap;
-}
-
-/* Stats overlay içindeki butonlar tıklanabilir olmalı */
-#stats-overlay .btn,
-#stats-overlay button {
-    pointer-events: auto;
-}
-
-/* Stats overlay içindeki FPS Kamera butonu özel stili */
-#stats-overlay #bFirstPerson {
-    padding: 5px 8px;
-    font-size: 11px;
-    min-width: auto;
-    white-space: nowrap;
-}
-
-#fps-display {
-    color: #87CEEB;
-    font-weight: 600;
-}
-
-#camera-coords {
     color: #a8dadc;
     font-size: 11px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    white-space: nowrap;
+    margin-right: 4px;
+}
+
+/* FPS Kamera butonu aktif olduğunda özel stil */
+#bFirstPerson.active {
+    background: rgba(100, 149, 237, 0.3);
+    border-color: #87CEEB;
+    box-shadow: 0 0 8px rgba(135, 206, 235, 0.4);
 }
 
 /* 3D Overlay: Ekran Bölme Oranı Butonları - Daha Compact */

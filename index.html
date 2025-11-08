@@ -282,13 +282,18 @@
 <div id="splitter"></div>
 <div id="p3d" class="panel">
     <canvas id="c3d"></canvas>
-    <!-- 3D Overlay: FPS Kamera ve Koordinatlar (Sol Üst) -->
-    <div id="stats-overlay" style="display: none;">
-        <button id="bFirstPerson" class="btn">FPS Kamera</button>
-        <span id="camera-coords" style="display: none;">x: 0, y: 0, z: 0</span>
-    </div>
-    <!-- 3D Overlay: Ekran Bölme Oranı Butonları (Sağ Üst) -->
+    <!-- 3D Overlay: Ekran Bölme Oranı Butonları ve FPS Kamera (Sağ Üst) -->
     <div id="split-ratio-buttons" style="display: none;">
+        <!-- Koordinatlar (en solda) -->
+        <span id="camera-coords" style="display: none;">x: 0, y: 0, z: 0</span>
+        <!-- FPS Kamera butonu -->
+        <button id="bFirstPerson" class="split-btn" title="FPS Kamera">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <circle cx="12" cy="12" r="3" fill="#8ab4f8" stroke="#666" stroke-width="1"/>
+                <path d="M12 5 L12 9 M12 15 L12 19 M5 12 L9 12 M15 12 L19 12" stroke="#8ab4f8" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+        <!-- Ekran bölme butonları -->
         <button id="split-100" class="split-btn" data-ratio="100" title="Tam Ekran 3D">
             <svg viewBox="0 0 24 24" width="24" height="24">
                 <rect x="2" y="2" width="20" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
