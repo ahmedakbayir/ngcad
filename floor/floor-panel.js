@@ -696,10 +696,10 @@ function renderFloorPreview(floor) {
     const svgWidth = 80;
     const svgHeight = 40;
 
-    // Sadece duvarları göster
-    const walls = state.walls || [];
+    // Sadece bu kata ait duvarları göster
+    const walls = (state.walls || []).filter(w => !floor || w.floorId === floor.id);
 
-    // Tüm duvarların bounds'ını hesapla
+    // Bu katın duvarlarının bounds'ını hesapla
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
     walls.forEach(wall => {
