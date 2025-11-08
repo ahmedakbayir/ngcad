@@ -17,7 +17,8 @@ export function createBeam(centerX, centerY, width, height, rotation) {
         hollowWidth: 0,
         hollowHeight: 0,
         hollowOffsetX: 0,
-        hollowOffsetY: 0
+        hollowOffsetY: 0,
+        floorId: state.currentFloor?.id
     };
 }
 

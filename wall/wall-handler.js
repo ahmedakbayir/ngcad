@@ -95,7 +95,7 @@ export function onPointerDownDraw(snappedPos) {
                  const didConnectToWallBody = !didSnapToExistingNode && isPointOnWallBody(endNode);
 
                  if (endNode !== state.startPoint && !wallExists(state.startPoint, endNode)) {
-                     state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.wallThickness, wallType: 'normal' });
+                     state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.wallThickness, wallType: 'normal', floorId: state.currentFloor?.id });
                      geometryChanged = true;
                  }
 
@@ -114,7 +114,7 @@ export function onPointerDownDraw(snappedPos) {
                          v4 = getOrCreateNode(v1.x, placementPos.y);
                    [{ p1: v1, p2: v2 }, { p1: v2, p2: v3 }, { p1: v3, p2: v4 }, { p1: v4, p2: v1 }].forEach(pw => {
                         if (!wallExists(pw.p1, pw.p2)) {
-                            state.walls.push({ type: "wall", ...pw, thickness: state.wallThickness, wallType: 'normal' });
+                            state.walls.push({ type: "wall", ...pw, thickness: state.wallThickness, wallType: 'normal', floorId: state.currentFloor?.id });
                         }
                    });
                    geometryChanged = true;
@@ -260,7 +260,122 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     if (state.selectedObject.handle !== "body") {
         // Duvar Ucu (Node) Sürükleme
         const nodeToMove = state.selectedObject.object[state.selectedObject.handle];
-        let finalPos = { x: snappedPos.x, y: snappedPos.y };
+
+        // UZAK DUVAR YÜZEY SNAP (Sticky snap ile)
+        const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
+        const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm) - daha büyük
+
+        let finalPos;
+
+        // console.log('🔍 Snap state:', {
+        //     hasLock: !!state.wallNodeSnapLock,
+        //     lock: state.wallNodeSnapLock,
+        //     mousePos: { x: snappedPos.x, y: snappedPos.y }
+        // });
+
+        // Eğer zaten snap'lenmişse, LOCK POZİSYONUNU kullan (mouse pozisyonunu ignore et!)
+        if (state.wallNodeSnapLock) {
+            const lockX = state.wallNodeSnapLock.x;
+            const lockY = state.wallNodeSnapLock.y;
+
+            // Lock pozisyonundan başla
+            finalPos = {
+                x: lockX !== null ? lockX : snappedPos.x,
+                y: lockY !== null ? lockY : snappedPos.y
+            };
+
+            console.log('🔒 Using LOCKED position:', finalPos, '(ignoring mouse)');
+
+            // Snap'lenmiş pozisyondan ne kadar uzak? (mouse'un GERÇEK pozisyonuyla karşılaştır)
+            const distFromLockX = lockX !== null ? Math.abs(snappedPos.x - lockX) : Infinity;
+            const distFromLockY = lockY !== null ? Math.abs(snappedPos.y - lockY) : Infinity;
+
+            // Mouse snap mesafesinden çıktı mı kontrol et
+            if ((lockX !== null && distFromLockX >= SNAP_RELEASE_DISTANCE) &&
+                (lockY !== null && distFromLockY >= SNAP_RELEASE_DISTANCE)) {
+                // Her iki eksende de snap'ten çıktı, lock'u temizle
+                setState({ wallNodeSnapLock: null });
+                finalPos = { x: snappedPos.x, y: snappedPos.y }; // Normal pozisyona dön
+            }
+            // Sadece bir eksende snap'ten çıktıysa, o ekseni serbest bırak
+            else {
+                if (lockX !== null && distFromLockX >= SNAP_RELEASE_DISTANCE) {
+                    finalPos.x = snappedPos.x; // X ekseninde serbest
+                    setState({
+                        wallNodeSnapLock: {
+                            x: null,
+                            y: state.wallNodeSnapLock.y
+                        }
+                    });
+                }
+                if (lockY !== null && distFromLockY >= SNAP_RELEASE_DISTANCE) {
+                    finalPos.y = snappedPos.y; // Y ekseninde serbest
+                    setState({
+                        wallNodeSnapLock: {
+                            x: state.wallNodeSnapLock.x,
+                            y: null
+                        }
+                    });
+                }
+            }
+        } else {
+            // Lock yok, normal pozisyondan başla
+            finalPos = { x: snappedPos.x, y: snappedPos.y };
+
+            // Yeni snap ara
+            let bestSnapX = { diff: SNAP_DISTANCE, value: null };
+            let bestSnapY = { diff: SNAP_DISTANCE, value: null };
+
+            // Tüm duvar yüzeylerine snap kontrolü
+            state.walls.forEach(wall => {
+                // Sürüklenen node'un bağlı olduğu duvarları atla
+                if (state.affectedWalls.includes(wall)) return;
+                if (!wall.p1 || !wall.p2) return;
+
+                const wallThickness = wall.thickness || state.wallThickness;
+                const halfThickness = wallThickness / 2;
+                const dxW = wall.p2.x - wall.p1.x;
+                const dyW = wall.p2.y - wall.p1.y;
+                const isVertical = Math.abs(dxW) < 0.1;
+                const isHorizontal = Math.abs(dyW) < 0.1;
+
+                if (isVertical) {
+                    const wallX = wall.p1.x;
+                    const snapXPositions = [wallX - halfThickness, wallX + halfThickness, wallX];
+                    for (const snapX of snapXPositions) {
+                        const diff = Math.abs(finalPos.x - snapX);
+                        if (diff < bestSnapX.diff) {
+                            bestSnapX = { diff, value: snapX };
+                        }
+                    }
+                } else if (isHorizontal) {
+                    const wallY = wall.p1.y;
+                    const snapYPositions = [wallY - halfThickness, wallY + halfThickness, wallY];
+                    for (const snapY of snapYPositions) {
+                        const diff = Math.abs(finalPos.y - snapY);
+                        if (diff < bestSnapY.diff) {
+                            bestSnapY = { diff, value: snapY };
+                        }
+                    }
+                }
+            });
+
+            // Yeni snap bulunduysa uygula ve kilitle
+            if (bestSnapX.value !== null || bestSnapY.value !== null) {
+                //console.log('✅ NEW SNAP FOUND! Locking at:', { x: bestSnapX.value, y: bestSnapY.value });
+                setState({
+                    wallNodeSnapLock: {
+                        x: bestSnapX.value,
+                        y: bestSnapY.value
+                    }
+                });
+                if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
+                if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
+                //console.log('🎯 Final position after snap:', finalPos);
+            } else {
+                //console.log('❌ No snap found');
+            }
+        }
 
         const moveIsValid = state.affectedWalls.every((wall) => {
             const otherNode = wall.p1 === nodeToMove ? wall.p2 : wall.p1;

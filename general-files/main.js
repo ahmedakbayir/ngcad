@@ -1,15 +1,20 @@
 // main.js
+import * as THREE from 'three';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
-import { initGuideContextMenu } from '../draw/guide-menu.js'; 
+import { initGuideContextMenu } from '../draw/guide-menu.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
-import { updateFirstPersonCamera } from '../scene3d/scene3d-camera.js';
+// --- DEĞİŞİKLİK BURADA ---
+import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from '../scene3d/scene3d-core.js';
+// --- DEĞİŞİKLİK SONU ---
 import { createWallPanel } from '../wall/wall-panel.js';
+import { createFloorPanel, showFloorPanel, renderMiniPanel } from '../floor/floor-panel.js';
+import { initializeDefaultFloors } from '../floor/floor-handler.js';
 /*
 // --- RESİM ÇERÇEVESİ KODU ---
 // config.js'den (eğer varsa) API anahtarını güvenli bir şekilde okur
@@ -199,7 +204,7 @@ export let state = {
     rooms: [],
     columns: [],
     beams: [],
-    stairs: [], 
+    stairs: [],
     clipboard: null, // <-- YENİ SATIR EKLE
     wallAdjacency: new Map(),
     selectedObject: null,
@@ -280,20 +285,52 @@ export let state = {
         columns: [], beams: [], stairs: [], rooms: []
     },
     symmetryPreviewTimer: null, // <-- DÜZELTME: Kilitlenme sorununu çözmek için eklendi
-    guides: [], 
+    guides: [],
     // --- YENİ: RESİM ÇERÇEVESİ İÇİN STATE ---
     pictureFrameCache: [], // Unsplash URL'lerini tutar
-    pictureFrameMaterials: {} // 3D Malzemeleri (URL'ye göre) cache'ler
+    pictureFrameMaterials: {}, // 3D Malzemeleri (URL'ye göre) cache'ler
     // --- YENİ STATE SONU ---
-    
+
+    // --- YENİ: 3D FARE DURUMU ---
+    is3DMouseDown: false, // 3D canvas'ta fare basılı mı?
+    // --- YENİ STATE SONU ---
+
+    // --- YENİ: KAT YÖNETİMİ ---
+    floors: [], // Katlar dizisi
+    currentFloor: null, // Aktif kat
+    defaultFloorHeight: 270, // Varsayılan kat yüksekliği (cm)
+    // --- KAT YÖNETİMİ SONU ---
+
+    // --- MERDİVEN AYARLARI ---
+    stairSettings: {
+        showRailing: false, // Varsayılan korkuluk durumu
+        stepDepthRange: "30-40" // Varsayılan basamak derinliği aralığı
+    }
+    // --- MERDİVEN AYARLARI SONU ---
 };
 
 export function setState(newState) {
     if (newState.isDragging === false) {
         newState.draggedRoomInfo = [];
     }
+
+    // Walls veya doors değiştiğinde mini paneli güncelle
+    const wallsChanged = newState.walls !== undefined && newState.walls !== state.walls;
+    const doorsChanged = newState.doors !== undefined && newState.doors !== state.doors;
+
     state = { ...state, ...newState };
+
+    // Debug: State güncellendiğinde window'u da güncelle
+    window.DEBUG_state = state;
+
+    // Kat içerik durumu değiştiyse mini panel'i güncelle
+    if (wallsChanged || doorsChanged) {
+        renderMiniPanel();
+    }
 }
+
+// Debug: State'i global erişime aç
+window.DEBUG_state = state;
 
 export const dom = {
     mainContainer: document.getElementById("main-container"),
@@ -314,7 +351,6 @@ export const dom = {
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
     fileInput: document.getElementById("file-input"),
-    b3d: document.getElementById("b3d"),
     bFirstPerson: document.getElementById("bFirstPerson"),
     bAssignNames: document.getElementById("bAssignNames"),
     settingsBtn: document.getElementById("settings-btn"),
@@ -325,18 +361,21 @@ export const dom = {
         grid: document.getElementById("tab-btn-grid"),
         snap: document.getElementById("tab-btn-snap"),
         dimension: document.getElementById("tab-btn-dimension"),
+        stairs: document.getElementById("tab-btn-stairs"),
     },
     tabPanes: {
         general: document.getElementById("tab-pane-general"),
         grid: document.getElementById("tab-pane-grid"),
         snap: document.getElementById("tab-pane-snap"),
         dimension: document.getElementById("tab-pane-dimension"),
+        stairs: document.getElementById("tab-pane-stairs"),
     },
     borderPicker: document.getElementById("borderPicker"),
     roomPicker: document.getElementById("roomPicker"),
     lineThicknessInput: document.getElementById("line-thickness"),
     wallThicknessInput: document.getElementById("wall-thickness"), // YENİ EKLENDİ
     drawingAngleInput: document.getElementById("drawing-angle"), // YENİ EKLENDİ
+    defaultFloorHeightInput: document.getElementById("default-floor-height"), // YENİ EKLENDİ
     gridVisibleInput: document.getElementById("grid-visible"),
     gridColorInput: document.getElementById("grid-color"),
     gridWeightInput: document.getElementById("grid-weight"),
@@ -351,6 +390,8 @@ export const dom = {
     dimensionDefaultViewSelect: document.getElementById("dimension-default-view"),
     dimensionShowAreaSelect: document.getElementById("dimension-show-area"),
     dimensionShowOuterSelect: document.getElementById("dimension-show-outer"),
+    stairsShowRailingInput: document.getElementById("stairs-show-railing"), // YENİ EKLENDİ
+    stairsStepDepthSelect: document.getElementById("stairs-step-depth"), // YENİ EKLENDİ
     roomNamePopup: document.getElementById("room-name-popup"),
     roomNameSelect: document.getElementById("room-name-select"),
     roomNameInput: document.getElementById("room-name-input"),
@@ -366,6 +407,7 @@ export const dom = {
     stairShowRailingCheckbox: document.getElementById("stair-show-railing"), // <-- YENİ SATIR BURAYA EKLENECEK
     confirmStairPopupButton: document.getElementById("confirm-stair-popup"),
     cancelStairPopupButton: document.getElementById("cancel-stair-popup"),
+    b3d: document.getElementById("b3d"), // 3D Göster butonu
 };
 
 // GÜNCELLENMİŞ setMode fonksiyonu
@@ -432,6 +474,14 @@ export function resize() {
 
 let lastTime = performance.now();
 
+// FPS Tracking
+let fpsFrames = 0;
+let fpsTime = 0;
+let currentFPS = 60;
+
+// Mouse 3D Coordinates Tracking
+let mouse3DCoords = { x: 0, y: 0, z: 0 };
+
 // --- GÜNCELLENMİŞ ANIMATE FONKSİYONU ---
 function animate() {
     requestAnimationFrame(animate);
@@ -440,6 +490,31 @@ function animate() {
     const currentTime = performance.now();
     const delta = (currentTime - lastTime) / 1000;
     lastTime = currentTime;
+
+    // FPS Calculation
+    fpsFrames++;
+    fpsTime += delta;
+    if (fpsTime >= 0.5) { // Her 0.5 saniyede bir FPS'i güncelle
+        currentFPS = Math.round(fpsFrames / fpsTime);
+        fpsFrames = 0;
+        fpsTime = 0;
+
+        // FPS Display güncelleme
+        const fpsDisplay = document.getElementById('fps-display');
+        if (fpsDisplay) {
+            fpsDisplay.textContent = `FPS: ${currentFPS}`;
+        }
+    }
+
+    // Camera Coordinates Display güncelleme (her zaman göster)
+    const cameraCoords = document.getElementById('camera-coords');
+    if (cameraCoords && camera3d) {
+        // Kamera konumunu tam sayı olarak göster
+        const x = Math.round(camera3d.position.x);
+        const y = Math.round(camera3d.position.y);
+        const z = Math.round(camera3d.position.z);
+        cameraCoords.textContent = `x: ${x}, y: ${y}, z: ${z}`;
+    }
 
     // YENİ: TWEEN animasyonlarını güncelle
     if (typeof TWEEN !== 'undefined') {
@@ -450,18 +525,18 @@ function animate() {
     draw2D();
 
     if(dom.mainContainer.classList.contains('show-3d')) {
-        
+
         // First-person kamera güncellemesi (HER ZAMAN ÇAĞRILIR)
         // (Bu fonksiyon kendi içinde 'cameraMode'u kontrol edip FPS değilse hemen çıkacak)
         updateFirstPersonCamera(delta);
 
-        // OrbitControls'u SADECE aktifse güncelle
+        // OrbitControls'ü SADECE aktifse güncelle
         // (controls3d değişkeni 'scene3d-core.js'den gelir ve
         // toggleCameraMode tarafından 'orbitControls' veya 'null' olarak ayarlanır)
         if (controls3d && controls3d.update) {
             controls3d.update();
         }
-        
+
         renderer3d.render(scene3d, camera3d);
     }
 }
@@ -715,12 +790,17 @@ function assignRoomNames() {
 // GÜNCELLENMİŞ initialize fonksiyonu
 function initialize() {
     init3D(dom.c3d);
+    // --- DEĞİŞİKLİK BURADA ---
+    // Hata veren fonksiyon çağrısı (setupFirstPersonMouseControls) kaldırıldı
+    // --- DEĞİŞİKLİK SONU ---
     initializeSettings();
     setupUIListeners();
     setupInputListeners();
     setupFileIOListeners();
     createWallPanel();
-    initGuideContextMenu();  
+    initializeDefaultFloors(); // Önce katları initialize et
+    createFloorPanel(); // Sonra paneli oluştur
+    initGuideContextMenu();
 
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
@@ -733,11 +813,36 @@ function initialize() {
     dom.bBeam.addEventListener("click", () => setMode("drawBeam", true));
     dom.bStairs.addEventListener("click", () => setMode("drawStairs", true)); // forceSet ekleyin
     dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
-    
-    dom.b3d.addEventListener("click", toggle3DView);
+
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
 
     window.addEventListener("resize", resize);
+
+    // 3D Canvas Mouse Tracking
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // Y=0 plane (zemin)
+
+    dom.c3d.addEventListener('mousemove', (event) => {
+        if (!dom.mainContainer.classList.contains('show-3d')) return;
+
+        const rect = dom.c3d.getBoundingClientRect();
+        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera3d);
+
+        // Zemin düzlemi ile kesişim noktasını bul
+        const intersectPoint = new THREE.Vector3();
+        raycaster.ray.intersectPlane(floorPlane, intersectPoint);
+
+        if (intersectPoint) {
+            // Koordinatları cm cinsinden sakla (Three.js cm birimiyle çalışıyor)
+            mouse3DCoords.x = intersectPoint.x;
+            mouse3DCoords.y = intersectPoint.y;
+            mouse3DCoords.z = intersectPoint.z;
+        }
+    });
 
     // Başlangıç modunu zorla ayarla
     setMode(state.currentMode, true);

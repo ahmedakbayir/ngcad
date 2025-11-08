@@ -80,9 +80,11 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
 }
 
 
-export function drawTotalDimensions() {
+export function drawTotalDimensions(filteredWalls = null, filteredRooms = null) {
     const { ctx2d } = dom;
-    const { zoom, rooms, walls, gridOptions, dimensionOptions } = state;
+    const { zoom, gridOptions, dimensionOptions } = state;
+    const rooms = filteredRooms || state.rooms;
+    const walls = filteredWalls || state.walls;
 
     if (rooms.length === 0) return;
 
@@ -201,9 +203,10 @@ export function drawTotalDimensions() {
 }
 
 
-export function drawOuterDimensions() {
+export function drawOuterDimensions(filteredWalls = null) {
     const { ctx2d } = dom;
-    const { zoom, walls, gridOptions, dimensionOptions, dimensionMode } = state;
+    const { zoom, gridOptions, dimensionOptions, dimensionMode } = state;
+    const walls = filteredWalls || state.walls;
 
     const showOuterOption = dimensionOptions.showOuter;
     const showOuter = (showOuterOption === 1 && (dimensionMode === 1 || dimensionMode === 2)) ||

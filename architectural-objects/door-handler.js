@@ -260,13 +260,13 @@ export function getDoorPlacement(wall, mousePos) {
         const minPos = segmentAtMouse.start + smallerWidth / 2;
         const maxPos = segmentAtMouse.end - smallerWidth / 2;
         const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-        return { wall: wall, pos: clampedPos, width: smallerWidth, type: 'door', isWidthManuallySet: false }; // İşareti false başlat
+        return { wall: wall, pos: clampedPos, width: smallerWidth, type: 'door', isWidthManuallySet: false, floorId: wall.floorId }; // İşareti false başlat
     }
 
     const minPos = segmentAtMouse.start + doorWidth / 2;
     const maxPos = segmentAtMouse.end - doorWidth / 2;
     const clampedPos = Math.max(minPos, Math.min(maxPos, posOnWall));
-    return { wall: wall, pos: clampedPos, width: doorWidth, type: 'door', isWidthManuallySet: false }; // İşareti false başlat
+    return { wall: wall, pos: clampedPos, width: doorWidth, type: 'door', isWidthManuallySet: false, floorId: wall.floorId }; // İşareti false başlat
 }
 
 export function isSpaceForDoor(door) {

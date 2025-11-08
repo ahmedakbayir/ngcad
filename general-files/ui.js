@@ -20,6 +20,7 @@ export function initializeSettings() {
     dom.lineThicknessInput.value = state.lineThickness;
     dom.wallThicknessInput.value = state.wallThickness;
     dom.drawingAngleInput.value = state.drawingAngle;
+    dom.defaultFloorHeightInput.value = state.defaultFloorHeight; // YENİ EKLENDİ
     dom.gridVisibleInput.checked = state.gridOptions.visible;
     dom.gridColorInput.value = state.gridOptions.color;
     dom.gridWeightInput.value = state.gridOptions.weight;
@@ -34,13 +35,30 @@ export function initializeSettings() {
     dom.dimensionDefaultViewSelect.value = state.dimensionOptions.defaultView;
     dom.dimensionShowAreaSelect.value = state.dimensionOptions.showArea;
     dom.dimensionShowOuterSelect.value = state.dimensionOptions.showOuter;
+    dom.stairsShowRailingInput.checked = state.stairSettings.showRailing; // YENİ EKLENDİ
+    dom.stairsStepDepthSelect.value = state.stairSettings.stepDepthRange; // YENİ EKLENDİ
 }
 
 function openTab(tabName) {
+    // Tüm tab pane'leri gizle
     Object.values(dom.tabPanes).forEach(pane => pane.classList.remove('active'));
-    Object.values(dom.tabButtons).forEach(btn => btn.classList.remove('active'));
+
+    // Tüm tab butonlarını pasif yap (hem yatay hem dikey)
+    if (dom.tabButtons) {
+        Object.values(dom.tabButtons).forEach(btn => btn.classList.remove('active'));
+    }
+    const verticalBtns = document.querySelectorAll('.tab-btn-vertical');
+    verticalBtns.forEach(btn => btn.classList.remove('active'));
+
+    // Seçilen tab'ı aktif yap
     dom.tabPanes[tabName].classList.add('active');
-    dom.tabButtons[tabName].classList.add('active');
+    if (dom.tabButtons && dom.tabButtons[tabName]) {
+        dom.tabButtons[tabName].classList.add('active');
+    }
+    const activeVerticalBtn = document.getElementById(`tab-btn-${tabName}`);
+    if (activeVerticalBtn) {
+        activeVerticalBtn.classList.add('active');
+    }
 }
 
 function populateRoomNameList(filter = '') {
@@ -138,14 +156,20 @@ function confirmRoomNameChange() {
 
 export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
-    dom.b3d.classList.toggle('active');
 
-    // FPS kamera butonunu göster/gizle
     if (dom.mainContainer.classList.contains('show-3d')) {
-        dom.bFirstPerson.style.display = 'inline-block';
-        setMode("select"); // <-- EKLENDİ: 3D açılırken modu "select" yap
+        setMode("select"); // 3D açılırken modu "select" yap
+
+        // Split ratio butonlarını göster
+        const splitButtons = document.getElementById('split-ratio-buttons');
+        if (splitButtons) splitButtons.style.display = 'flex';
+
+        // Varsayılan split ratio'yu ayarla (25%)
+        setSplitRatio(25);
     } else {
-        dom.bFirstPerson.style.display = 'none';
+        // Split ratio butonlarını gizle
+        const splitButtons = document.getElementById('split-ratio-buttons');
+        if (splitButtons) splitButtons.style.display = 'none';
     }
 
     setTimeout(() => {
@@ -159,6 +183,68 @@ export function toggle3DView() {
 // 3D sahneyi %100 genişlet / daralt
 export function toggle3DFullscreen() {
     dom.mainContainer.classList.toggle('fullscreen-3d');
+
+    setTimeout(() => {
+        resize();
+        update3DScene();
+    }, 10);
+}
+
+// Ekran bölme oranını ayarla
+export function setSplitRatio(ratio) {
+    const p2dPanel = document.getElementById('p2d');
+    const p3dPanel = document.getElementById('p3d');
+
+    // Buton aktif durumlarını güncelle
+    document.querySelectorAll('.split-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`split-${ratio}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Ratio 0 ise 3D panelini kapat
+    if (ratio === 0) {
+        // Önce 2D panelini tam ekran yap
+        p2dPanel.style.flex = '1 1 100%';
+        p3dPanel.style.flex = '0 0 0';
+
+        // Sonra 3D'yi kapat
+        if (dom.mainContainer.classList.contains('show-3d')) {
+            toggle3DView(); // 3D'yi kapat
+        }
+
+        // resize'ı çağır
+        setTimeout(() => {
+            resize();
+        }, 10);
+        return;
+    }
+
+    // 3D açık değilse, önce aç sonra ratio'yu tekrar ayarla
+    if (!dom.mainContainer.classList.contains('show-3d')) {
+        // Split ratio butonlarını ve 3D'yi göster
+        dom.mainContainer.classList.add('show-3d');
+        dom.b3d.classList.add('active');
+        setMode("select");
+
+        const splitButtons = document.getElementById('split-ratio-buttons');
+        if (splitButtons) splitButtons.style.display = 'flex';
+    }
+
+    // Panel genişliklerini ayarla
+    if (ratio === 100) {
+        p2dPanel.style.flex = '0 0 0';
+        p3dPanel.style.flex = '1 1 100%';
+    } else if (ratio === 75) {
+        p2dPanel.style.flex = '1 1 25%';
+        p3dPanel.style.flex = '1 1 75%';
+    } else if (ratio === 50) {
+        p2dPanel.style.flex = '1 1 50%';
+        p3dPanel.style.flex = '1 1 50%';
+    } else if (ratio === 25) {
+        p2dPanel.style.flex = '1 1 75%';
+        p3dPanel.style.flex = '1 1 25%';
+    }
 
     setTimeout(() => {
         resize();
@@ -531,9 +617,37 @@ function confirmStairChange() {
 
 // --- GÜNCELLENMİŞ setupUIListeners (Sahanlık kotu mantığını düzelten) ---
 export function setupUIListeners() {
-    dom.settingsBtn.addEventListener("click", () => { dom.settingsPopup.style.display = 'block'; });
+    dom.settingsBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dom.settingsPopup.style.display = 'block';
+    });
     dom.closeSettingsPopupBtn.addEventListener("click", () => { dom.settingsPopup.style.display = 'none'; });
-    Object.keys(dom.tabButtons).forEach(key => { dom.tabButtons[key].addEventListener('click', () => openTab(key)); });
+
+    // Ayarlar popup'ı dışında bir yere tıklanınca kapat
+    document.addEventListener("click", (e) => {
+        if (dom.settingsPopup.style.display === 'block' &&
+            !dom.settingsPopup.contains(e.target) &&
+            e.target !== dom.settingsBtn) {
+            dom.settingsPopup.style.display = 'none';
+        }
+    });
+
+    // Dikey tab butonları için listener'lar ekle
+    const tabBtnsVertical = document.querySelectorAll('.tab-btn-vertical');
+    tabBtnsVertical.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabName = btn.id.replace('tab-btn-', '');
+            openTab(tabName);
+        });
+    });
+
+    // Eski yatay tab butonları da varsa destekle
+    if (dom.tabButtons) {
+        Object.keys(dom.tabButtons).forEach(key => {
+            dom.tabButtons[key].addEventListener('click', () => openTab(key));
+        });
+    }
+
     dom.borderPicker.addEventListener("input", (e) => setState({ wallBorderColor: e.target.value }));
     dom.roomPicker.addEventListener("input", (e) => setState({ roomFillColor: e.target.value }));
     dom.lineThicknessInput.addEventListener("input", (e) => { const value = parseFloat(e.target.value); if(!isNaN(value)) setState({ lineThickness: value }); });
@@ -553,6 +667,9 @@ export function setupUIListeners() {
     dom.dimensionDefaultViewSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) { state.dimensionOptions.defaultView = value; setState({ dimensionMode: value }); } });
     dom.dimensionShowAreaSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showArea = value; });
     dom.dimensionShowOuterSelect.addEventListener("change", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) state.dimensionOptions.showOuter = value; });
+    dom.defaultFloorHeightInput.addEventListener("input", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) setState({ defaultFloorHeight: value }); }); // YENİ EKLENDİ
+    dom.stairsShowRailingInput.addEventListener("change", (e) => { state.stairSettings.showRailing = e.target.checked; }); // YENİ EKLENDİ
+    dom.stairsStepDepthSelect.addEventListener("change", (e) => { state.stairSettings.stepDepthRange = e.target.value; }); // YENİ EKLENDİ
     dom.roomNameSelect.addEventListener('click', confirmRoomNameChange);
     dom.roomNameSelect.addEventListener('dblclick', confirmRoomNameChange);
     dom.roomNameInput.addEventListener('input', filterRoomNameList);
@@ -561,6 +678,13 @@ export function setupUIListeners() {
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
     dom.lengthInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); } else if (e.key === "Escape") { cancelLengthEdit(); } });
     dom.lengthInput.addEventListener("blur", cancelLengthEdit);
+
+    // EKRAN BÖLME ORANI BUTONLARI
+    document.getElementById('split-100')?.addEventListener('click', () => setSplitRatio(100));
+    document.getElementById('split-75')?.addEventListener('click', () => setSplitRatio(75));
+    document.getElementById('split-50')?.addEventListener('click', () => setSplitRatio(50));
+    document.getElementById('split-25')?.addEventListener('click', () => setSplitRatio(25));
+    document.getElementById('split-0')?.addEventListener('click', () => setSplitRatio(0));
 
     // MERDİVEN POPUP LISTENER'LARI
     dom.confirmStairPopupButton.addEventListener('click', confirmStairChange);
@@ -660,8 +784,24 @@ export function setupUIListeners() {
         // Kamera modunu değiştir
         toggleCameraMode();
 
+        // Koordinat görüntülemesini toggle et
+        const cameraCoords = document.getElementById('camera-coords');
+        if (cameraCoords) {
+            // FPS modunda mıyız kontrol et (aktif buton = FPS modu)
+            if (dom.bFirstPerson.classList.contains('active')) {
+                cameraCoords.style.display = 'block';
+            } else {
+                cameraCoords.style.display = 'none';
+            }
+        }
+
         // NOT: Pointer lock kullanmıyoruz - klavye kontrolleri yeterli
         // Mouse serbest kalıyor, kullanıcı FPS modunda bile mouse ile UI'ya erişebilir
+    });
+
+    // 3D GÖSTER BUTONU LISTENER'I
+    dom.b3d.addEventListener('click', () => {
+        toggle3DView();
     });
 }
 // --- setupUIListeners Sonu ---

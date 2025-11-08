@@ -11,27 +11,27 @@
 <div class="main" id="main-container">
 <div id="p2d" class="panel">
 <div id="ui">
-<button id="bSel" class="btn">
+<button id="bSel" class="btn" title="Seç">
  <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" stroke-width="1.5"></path></svg>
  Seç
  </button>
- <button id="bWall" class="btn">
+ <button id="bWall" class="btn" title="Duvar">
   <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke-width="4" stroke-linecap="round"></line></svg>
   Duvar
  </button>
- <button id="bRoom" class="btn">
+ <button id="bRoom" class="btn" title="Oda">
   <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
   Oda
  </button>
- <button id="bDoor" class="btn">
+ <button id="bDoor" class="btn" title="Kapı">
   <svg viewBox="0 0 24 24"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"></path><line x1="10" y1="12" x2="10" y2="12" stroke-width="3" stroke-linecap="round"></line></svg>
   Kapı
  </button>
- <button id="bWindow" class="btn">
+ <button id="bWindow" class="btn" title="Pencere">
   <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1" ry="1" stroke-width="1.5"></rect><line x1="12" y1="3" x2="12" y2="21" stroke-width="1.5"></line><line x1="3" y1="12" x2="21" y2="12" stroke-width="1.5"></line></svg>
   Pencere
  </button>
- <button id="bColumn" class="btn">
+ <button id="bColumn" class="btn" title="Kolon">
   <svg viewBox="0 0 24 24">
     <rect x="8" y="4" width="8" height="2" stroke-width="1.5" fill="currentColor"/>
     <line x1="10" y1="6" x2="10" y2="18" stroke-width="1.5"/>
@@ -40,13 +40,13 @@
   </svg>
   Kolon
 </button>
-<button id="bBeam" class="btn">
+<button id="bBeam" class="btn" title="Kiriş">
   <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
     <rect x="3" y="10" width="18" height="4" stroke-width="1.5"/>
   </svg>
   Kiriş
 </button>
-<button id="bStairs" class="btn">
+<button id="bStairs" class="btn" title="Merdiven">
   <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
     <line x1="6" y1="19" x2="6" y2="5" stroke-width="1.5"/>
     <line x1="18" y1="19" x2="18" y2="5" stroke-width="1.5"/>
@@ -56,141 +56,177 @@
   </svg>
   Merdiven
 </button>
-<button id="bSymmetry" class="btn"> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+<button id="bSymmetry" class="btn" title="Simetri"> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 3v18"/> <path d="M8 7l-5 5 5 5"/> <path d="M16 7l5 5-5 5"/> <path d="M3 12h5"/> <path d="M16 12h5"/> </svg>
     Simetri
  </button>
 
-<button id="bSave" class="btn">
+<button id="bSave" class="btn" title="Kaydet">
  <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
  Kaydet
  </button>
- <button id="bOpen" class="btn">
+ <button id="bOpen" class="btn" title="Aç">
  <svg viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
  Aç
  </button>
- <button id="b3d" class="btn">
-  <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-  3D Göster
+ <button id="bAssignNames" class="btn" title="Mahal Tanımla">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Ana puzzle parçası gövdesi -->
+    <path d="M5 9h14v10H5z"/>
+    <!-- Üst çıkıntı -->
+    <path d="M9 9V7c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v2"/>
+    <!-- Sağ çıkıntı -->
+    <path d="M19 13h2c1.1 0 2 .9 2 2v0c0 1.1-.9 2-2 2h-2"/>
+  </svg>
+  Mahal Tanımla
  </button>
- <button id="bFirstPerson" class="btn" style="display: none;">
-  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v6m0 6v6M5.6 5.6l4.2 4.2m4.2 4.2l4.2 4.2M1 12h6m6 0h6M5.6 18.4l4.2-4.2m4.2-4.2l4.2-4.2"></path></svg>
-  FPS Kamera
- </button>
- <button id="bAssignNames" class="btn">Mahal Tanımla</button>
 <input type="file" id="file-input" accept=".json, .pdf, .xml" style="display: none"/>
 </div>
 
-<button id="settings-btn" class="btn">Ayarlar</button>
+<button id="settings-btn" class="btn">
+ <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="3"></circle>
+  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+ </svg>
+ Ayarlar
+</button>
 
 <div id="settings-popup">
- <div class="tab-bar">
- <button class="tab-btn active" id="tab-btn-general">Genel</button>
- <button class="tab-btn" id="tab-btn-grid">Grid</button>
- <button class="tab-btn" id="tab-btn-snap">Snap</button>
- <button class="tab-btn" id="tab-btn-dimension">Ölçülendirme</button>
+ <div class="settings-header">
+  <span class="settings-title">Ayarlar</span>
+  <button id="close-settings-popup" style="background: transparent; border: none; color: #e7e6d0; cursor: pointer; font-size: 18px; padding: 0; width: 24px; height: 24px;">✕</button>
  </div>
- <div class="tab-content">
- <div class="tab-pane active" id="tab-pane-general">
-  <div class="setting-control">
-  <label for="borderPicker">Duvar Rengi</label>
-  <input type="color" id="borderPicker" />
+ <div class="settings-body">
+  <div class="tab-bar-vertical">
+   <button class="tab-btn-vertical active" id="tab-btn-general">Genel</button>
+   <button class="tab-btn-vertical" id="tab-btn-grid">Grid</button>
+   <button class="tab-btn-vertical" id="tab-btn-snap">Snap</button>
+   <button class="tab-btn-vertical" id="tab-btn-dimension">Ölçülendirme</button>
+   <button class="tab-btn-vertical" id="tab-btn-stairs">Merdiven</button>
   </div>
-  <div class="setting-control">
-  <label for="roomPicker">Mahal Rengi</label>
-  <input type="color" id="roomPicker" />
-  </div>
-  <div class="setting-control">
-  <label for="line-thickness">Duvar Çizgi Kalınlığı</label>
-  <input type="number" id="line-thickness" min="1" max="10" step="0.5" />
-  </div>
-  <div class="setting-control">
-  <label for="wall-thickness">Duvar Kalınlığı (cm)</label>
-  <input type="number" id="wall-thickness" min="1" max="100" step="1" />
-  </div>
-  <div class="setting-control">
-  <label for="drawing-angle">Çizim Açısı (°)</label>
-  <input type="number" id="drawing-angle" min="0" max="180" step="1" />
-  </div>
-  </div>
- <div class="tab-pane" id="tab-pane-grid">
-  <div class="setting-control">
-  <label for="grid-visible">Gridi Göster</label>
-  <input type="checkbox" id="grid-visible" />
-  </div>
-  <div class="setting-control">
-  <label for="grid-color">Renk</label>
-  <input type="color" id="grid-color" />
-  </div>
-  <div class="setting-control">
-  <label for="grid-weight">Kalınlık (px)</label>
-  <input type="number" id="grid-weight" min="0.1" max="5" step="0.1" />
-  </div>
-  <div class="setting-control">
-  <label for="grid-space">Aralık (cm)</label>
-  <input type="number" id="grid-space" min="1" max="50" step="1" />
+  <div class="tab-content-vertical">
+   <div class="tab-pane active" id="tab-pane-general">
+    <div class="setting-control">
+     <label for="borderPicker">Duvar Rengi</label>
+     <input type="color" id="borderPicker" />
+    </div>
+    <div class="setting-control">
+     <label for="roomPicker">Mahal Rengi</label>
+     <input type="color" id="roomPicker" />
+    </div>
+    <div class="setting-control">
+     <label for="line-thickness">Duvar Çizgi Kalınlığı</label>
+     <input type="number" id="line-thickness" min="1" max="10" step="0.5" />
+    </div>
+    <div class="setting-control">
+     <label for="wall-thickness">Duvar Kalınlığı (cm)</label>
+     <input type="number" id="wall-thickness" min="1" max="100" step="1" />
+    </div>
+    <div class="setting-control">
+     <label for="drawing-angle">Çizim Açısı (°)</label>
+     <input type="number" id="drawing-angle" min="0" max="180" step="1" />
+    </div>
+    <div class="setting-control">
+     <label for="default-floor-height">Kat Yüksekliği (cm)</label>
+     <input type="number" id="default-floor-height" min="100" max="500" step="10" />
+    </div>
+   </div>
+   <div class="tab-pane" id="tab-pane-grid">
+    <div class="setting-control">
+     <label for="grid-visible">Gridi Göster</label>
+     <input type="checkbox" id="grid-visible" />
+    </div>
+    <div class="setting-control">
+     <label for="grid-color">Renk</label>
+     <input type="color" id="grid-color" />
+    </div>
+    <div class="setting-control">
+     <label for="grid-weight">Kalınlık (px)</label>
+     <input type="number" id="grid-weight" min="0.1" max="5" step="0.1" />
+    </div>
+    <div class="setting-control">
+     <label for="grid-space">Aralık (cm)</label>
+     <input type="number" id="grid-space" min="1" max="50" step="1" />
+    </div>
+   </div>
+   <div class="tab-pane" id="tab-pane-snap">
+    <div class="setting-control">
+     <label for="snap-endpoint">Uç Noktalar</label>
+     <input type="checkbox" id="snap-endpoint" />
+    </div>
+    <div class="setting-control">
+     <label for="snap-midpoint">Orta Noktalar</label>
+     <input type="checkbox" id="snap-midpoint" />
+    </div>
+    <div class="setting-control">
+     <label for="snap-endpoint-ext">Uç Nokta Uzantıları</label>
+     <input type="checkbox" id="snap-endpoint-ext" />
+    </div>
+    <div class="setting-control">
+     <label for="snap-midpoint-ext">Orta Nokta Uzantıları</label>
+     <input type="checkbox" id="snap-midpoint-ext" />
+    </div>
+    <div class="setting-control">
+     <label for="snap-nearest-only">Sadece Yakın Duvarlar</label>
+     <input type="checkbox" id="snap-nearest-only" />
+    </div>
+   </div>
+   <div class="tab-pane" id="tab-pane-dimension">
+    <div class="setting-control">
+     <label for="dimension-font-size">Yazı Boyutu</label>
+     <input type="number" id="dimension-font-size" min="6" max="32" step="1" />
+    </div>
+    <div class="setting-control">
+     <label for="dimension-color">Renk</label>
+     <input type="color" id="dimension-color" />
+    </div>
+    <div class="setting-control">
+     <label for="dimension-default-view">Varsayılan Görünüm</label>
+     <select id="dimension-default-view">
+      <option value="0">Kapalı</option>
+      <option value="1">Özet</option>
+      <option value="2">Detaylı</option>
+     </select>
+    </div>
+    <div class="setting-control">
+     <label for="dimension-show-area">m² Bilgisini Göster</label>
+     <select id="dimension-show-area">
+      <option value="0">Kapalı</option>
+      <option value="1">Açık</option>
+      <option value="2">Sadece Özet Görünümde</option>
+      <option value="3">Sadece Detaylı Görünümde</option>
+     </select>
+    </div>
+    <div class="setting-control">
+     <label for="dimension-show-outer">Dış Ölçüyü Göster</label>
+     <select id="dimension-show-outer">
+      <option value="0">Kapalı</option>
+      <option value="1">Açık</option>
+      <option value="2">Sadece Özet Görünümde</option>
+      <option value="3">Sadece Detaylı Görünümde</option>
+     </select>
+    </div>
+   </div>
+   <div class="tab-pane" id="tab-pane-stairs">
+    <div class="setting-control">
+     <label for="stairs-show-railing">Korkuluk Göster</label>
+     <input type="checkbox" id="stairs-show-railing" />
+    </div>
+    <div class="setting-control">
+     <label for="stairs-step-depth">Basamak Derinliği</label>
+     <select id="stairs-step-depth">
+      <option value="20-30">20-30 cm</option>
+      <option value="25-35">25-35 cm</option>
+      <option value="30-40">30-40 cm</option>
+      <option value="35-45">35-45 cm</option>
+      <option value="40-50">40-50 cm</option>
+      <option value="45-55">45-55 cm</option>
+      <option value="50-60">50-60 cm</option>
+     </select>
+    </div>
+   </div>
   </div>
  </div>
- <div class="tab-pane" id="tab-pane-snap">
-  <div class="setting-control">
-  <label for="snap-endpoint">Uç Noktalar</label>
-  <input type="checkbox" id="snap-endpoint" />
-  </div>
-  <div class="setting-control">
-  <label for="snap-midpoint">Orta Noktalar</label>
-  <input type="checkbox" id="snap-midpoint" />
-  </div>
-  <div class="setting-control">
-  <label for="snap-endpoint-ext">Uç Nokta Uzantıları</label>
-  <input type="checkbox" id="snap-endpoint-ext" />
-  </div>
-  <div class="setting-control">
-  <label for="snap-midpoint-ext">Orta Nokta Uzantıları</label>
-  <input type="checkbox" id="snap-midpoint-ext" />
-  </div>
-  <div class="setting-control">
-  <label for="snap-nearest-only">Sadece Yakın Duvarlar</label>
-  <input type="checkbox" id="snap-nearest-only" />
-  </div>
- </div>
- <div class="tab-pane" id="tab-pane-dimension">
-  <div class="setting-control">
-  <label for="dimension-font-size">Yazı Boyutu</label>
-  <input type="number" id="dimension-font-size" min="6" max="32" step="1" />
-  </div>
-  <div class="setting-control">
-  <label for="dimension-color">Renk</label>
-  <input type="color" id="dimension-color" />
-  </div>
-  <div class="setting-control">
-  <label for="dimension-default-view">Varsayılan Görünüm</label>
-  <select id="dimension-default-view">
-   <option value="0">Kapalı</option>
-   <option value="1">Özet</option>
-   <option value="2">Detaylı</option>
-  </select>
-  </div>
-  <div class="setting-control">
-   <label for="dimension-show-area">m² Bilgisini Göster</label>
-   <select id="dimension-show-area">
-    <option value="0">Kapalı</option>
-    <option value="1">Açık</option>
-    <option value="2">Sadece Özet Görünümde</option>
-    <option value="3">Sadece Detaylı Görünümde</option>
-   </select>
-  </div>
-  <div class="setting-control">
-   <label for="dimension-show-outer">Dış Ölçüyü Göster</label>
-   <select id="dimension-show-outer">
-    <option value="0">Kapalı</option>
-    <option value="1">Açık</option>
-    <option value="2">Sadece Özet Görünümde</option>
-    <option value="3">Sadece Detaylı Görünümde</option>
-   </select>
-  </div>
- </div>
- </div>
- <button id="close-settings-popup" class="btn">Kapat</button>
 </div>
 
 <div id="room-name-popup">
@@ -244,9 +280,57 @@
 </div>
 <canvas id="c2d"></canvas>
 <input type="text" id="length-input" />
+<button id="b3d" class="btn btn-show-3d">
+ <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+ </svg>
+ 3D Göster
+</button>
 </div>
 <div id="splitter"></div>
-<div id="p3d" class="panel"><canvas id="c3d"></canvas></div>
+<div id="p3d" class="panel">
+    <canvas id="c3d"></canvas>
+    <!-- 3D Overlay: Ekran Bölme Oranı Butonları ve FPS Kamera (Sağ Üst) -->
+    <div id="split-ratio-buttons" style="display: none;">
+        <!-- Koordinatlar (en solda) -->
+        <span id="camera-coords" style="display: none;">x: 0, y: 0, z: 0</span>
+        <!-- FPS Kamera butonu -->
+        <button id="bFirstPerson" class="fps-btn" title="FPS Kamera">FPS Kamera</button>
+        <!-- Ayırıcı -->
+        <div style="width: 1px; height: 24px; background: #5f6368; margin: 0 4px;"></div>
+        <!-- Ekran bölme butonları -->
+        <button id="split-100" class="split-btn" data-ratio="100" title="Tam Ekran 3D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="20" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+        <button id="split-75" class="split-btn" data-ratio="75" title="75% 3D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="5" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="7" y="2" width="15" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+        <button id="split-50" class="split-btn" data-ratio="50" title="50% 3D / 50% 2D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="10" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="12" y="2" width="10" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+        <button id="split-25" class="split-btn" data-ratio="25" title="25% 3D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="15" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+                <rect x="17" y="2" width="5" height="20" fill="#87CEEB" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+        <button id="split-0" class="split-btn" data-ratio="0" title="3D Kapalı">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <rect x="2" y="2" width="20" height="20" fill="#999" stroke="#666" stroke-width="1"/>
+            </svg>
+        </button>
+    </div>
+</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
@@ -266,7 +350,7 @@
 }
 }
 </script>
-<script src="config.js"></script>
+<!-- <script src="config.js"></script> -->
 <script type="module" src="general-files/main.js"></script>
 <script type="module" src="wall/wall-panel.js"></script>
 <script type="module" src="draw/guide-menu.js"></script> </body>

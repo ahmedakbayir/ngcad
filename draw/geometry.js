@@ -282,7 +282,21 @@ export function detectRooms() {
 
                     // Alan 40m²'den büyükse adı "DAİRE" yap (Özel kural)
                     let finalRoomName = existingRoomName;
-                    
+
+                    // Odanın hangi kata ait olduğunu bul (poligonu oluşturan duvarlardan birinin floorId'si)
+                    let roomFloorId = null;
+                    const coords = polygon.geometry.coordinates[0];
+                    for (let i = 0; i < coords.length - 1 && !roomFloorId; i++) {
+                        const p1Coord = coords[i];
+                        const p2Coord = coords[i + 1];
+                        const wall = validWalls.find(w => {
+                            if (!w || !w.p1 || !w.p2) return false;
+                            const d1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) + Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
+                            const d2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) + Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
+                            return Math.min(d1, d2) < 1;
+                        });
+                        if (wall && wall.floorId) roomFloorId = wall.floorId;
+                    }
 
                     // Yeni odayı listeye ekle
                     newRooms.push({
@@ -290,7 +304,8 @@ export function detectRooms() {
                         area: areaInM2, // Alan (m²)
                         center: [newCenterX, newCenterY], // Hesaplanan merkez [x, y]
                         name: finalRoomName, // İsim
-                        centerOffset: existingRoomCenterOffset // Orantısal merkez bilgisi
+                        centerOffset: existingRoomCenterOffset, // Orantısal merkez bilgisi
+                        floorId: roomFloorId // Odanın ait olduğu kat
                     });
                 } catch (e) {
                     console.error("Poligon işleme hatası:", e); // Hata olursa konsola yaz

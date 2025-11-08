@@ -100,8 +100,8 @@ function splitWallsAtCrossings() {
                     state.walls.splice(i, 1);
                     
                     // Orijinal duvar özelliklerini al
-                    const w1_props = { thickness: w1.thickness || state.wallThickness, wallType: w1.wallType || 'normal' };
-                    const w2_props = { thickness: w2.thickness || state.wallThickness, wallType: w2.wallType || 'normal' };
+                    const w1_props = { thickness: w1.thickness || state.wallThickness, wallType: w1.wallType || 'normal', floorId: w1.floorId };
+                    const w2_props = { thickness: w2.thickness || state.wallThickness, wallType: w2.wallType || 'normal', floorId: w2.floorId };
 
                     if (Math.hypot(w1.p1.x - n.x, w1.p1.y - n.y) > 1) state.walls.push({ type: "wall", p1: w1.p1, p2: n, ...w1_props });
                     if (Math.hypot(w1.p2.x - n.x, w1.p2.y - n.y) > 1) state.walls.push({ type: "wall", p1: n, p2: w1.p2, ...w1_props });
@@ -129,8 +129,8 @@ function splitWallsAtTjunctions() {
                     const nodeDist = Math.hypot(node.x - originalP1.x, node.y - originalP1.y);
                     
                     // Orijinal duvar özelliklerini al
-                    const wall_props = { thickness: wall.thickness || state.wallThickness, wallType: wall.wallType || 'normal' };
-                    
+                    const wall_props = { thickness: wall.thickness || state.wallThickness, wallType: wall.wallType || 'normal', floorId: wall.floorId };
+
                     const newWall1 = { type: "wall", p1: originalP1, p2: node, ...wall_props };
                     const newWall2 = { type: "wall", p1: node, p2: originalP2, ...wall_props };
                     state.doors.forEach((d) => {
@@ -186,7 +186,7 @@ function mergeCollinearChains() {
                 if (!still) { const i = state.nodes.indexOf(node); if (i >= 0) state.nodes.splice(i, 1); }
                 if (a.other !== b.other) {
                     // Özellikleri birleşen duvarlardan birinden devral (a.wall)
-                    const wall_props = { thickness: a.wall.thickness || state.wallThickness, wallType: a.wall.wallType || 'normal' };
+                    const wall_props = { thickness: a.wall.thickness || state.wallThickness, wallType: a.wall.wallType || 'normal', floorId: a.wall.floorId };
                     state.walls.push({ type: "wall", p1: a.other, p2: b.other, ...wall_props });
                 }                
                 changed = true;
@@ -411,8 +411,8 @@ export function splitWallAtMousePosition() {
     if (wallIndex > -1) walls.splice(wallIndex, 1);
 
     const distToSplitNode = Math.hypot(splitNode.x - p1.x, splitNode.y - p1.y);
-    const newWall1 = { type: "wall", p1: p1, p2: splitNode };
-    const newWall2 = { type: "wall", p1: splitNode, p2: p2 };
+    const newWall1 = { type: "wall", p1: p1, p2: splitNode, thickness: wallToSplit.thickness, wallType: wallToSplit.wallType, floorId: wallToSplit.floorId };
+    const newWall2 = { type: "wall", p1: splitNode, p2: p2, thickness: wallToSplit.thickness, wallType: wallToSplit.wallType, floorId: wallToSplit.floorId };
 
     state.doors.forEach((door) => {
         if (door.wall === wallToSplit) {
