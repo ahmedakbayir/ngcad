@@ -22,7 +22,7 @@ const SYMMETRY_PREVIEW_DEBOUNCE_MS = 50; // 50ms gecikme
 // Helper: Verilen bir noktanın duvar merkez çizgisine snap olup olmadığını kontrol eder.
 function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
     for (const wall of walls) {
         if (!wall.p1 || !wall.p2) continue;
         const distSq = distToSegmentSquared(point, wall.p1, wall.p2);
@@ -52,7 +52,7 @@ export function onPointerMove(e) {
         let needsProcessing = false;
 
         const currentFloorId_delete = state.currentFloor?.id;
-        const walls_delete = (state.walls || []).filter(w => !currentFloorId_delete || w.floorId === currentFloorId_delete);
+        const walls_delete = (state.walls || []).filter(w => !currentFloorId_delete || !w.floorId || w.floorId === currentFloorId_delete);
 
         // Duvar silme
         const wallsToDelete = new Set();
@@ -247,7 +247,7 @@ export function onPointerMove(e) {
             case 'window': onPointerMoveWindow(unsnappedPos);             break;
             case 'vent':
                 const currentFloorId_vent = state.currentFloor?.id;
-                const walls_vent = (state.walls || []).filter(w => !currentFloorId_vent || w.floorId === currentFloorId_vent);
+                const walls_vent = (state.walls || []).filter(w => !currentFloorId_vent || !w.floorId || w.floorId === currentFloorId_vent);
                 const vent = state.selectedObject.object; const oldWall = state.selectedObject.wall;
                 const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY };
                 let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = state.wallThickness * 2;

@@ -12,7 +12,7 @@ function getRoomsAdjacentToWall(wall) {
     if (!state.rooms || state.rooms.length === 0 || !wall || !wall.p1 || !wall.p2) return adjacentRooms;
 
     const currentFloorId = state.currentFloor?.id;
-    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
 
     for (const room of rooms) {
         if (!room.polygon || !room.polygon.geometry) continue;
@@ -41,7 +41,7 @@ function getRoomsAdjacentToWall(wall) {
  */
 export function getWindowAtPoint(pos, tolerance) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
 
     for (const wall of walls) {
         if (!wall.windows || wall.windows.length === 0 || !wall.p1 || !wall.p2) continue;
@@ -133,7 +133,7 @@ function addWindowToWallMiddle(wall, roomName = null) { // Oda adı parametresi 
  */
 export function onPointerDownDraw(pos, clickedObject) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
 
     // 1. Direkt duvara yerleştirmeyi dene
     let previewWall = null, minDistSqPreview = Infinity;
@@ -286,7 +286,7 @@ export function onPointerMove(unsnappedPos) {
     const targetPos = { x: targetX, y: targetY };
 
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
 
     let closestWall = null;
     let minDistSq = Infinity;

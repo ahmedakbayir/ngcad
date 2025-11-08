@@ -12,7 +12,7 @@ import { findAvailableSegmentAt, checkOverlapAndGap } from '../wall/wall-item-ut
  */
 export function getDoorAtPoint(pos, tolerance) {
     const currentFloorId = state.currentFloor?.id;
-    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || !d.floorId || d.floorId === currentFloorId);
 
     for (const door of [...doors].reverse()) {
         const wall = door.wall;
@@ -45,8 +45,8 @@ export function getDoorAtPoint(pos, tolerance) {
  */
 export function onPointerDownDraw(pos, clickedObject) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
-    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
 
     // 1. Direkt duvara yerleştirmeyi dene
     let previewWall = null, minDistSqPreview = Infinity;

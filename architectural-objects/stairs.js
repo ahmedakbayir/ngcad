@@ -269,7 +269,7 @@ export function getStairAtPoint(point) {
     const { zoom } = state;
     const currentFloorId = state.currentFloor?.id;
     // Sadece aktif kata ait merdivenleri filtrele
-    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
     if (stairs.length === 0) return null; // Merdiven yoksa null dön
     const handleTolerance = 8 / zoom; // Handle yakalama toleransı (zoom'a bağlı)
     // Önce handle'ları kontrol et (daha küçük hedef alan, daha öncelikli)
