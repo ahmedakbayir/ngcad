@@ -98,15 +98,13 @@ canvas {
     left: 10px;
     z-index: 10;
     display: flex;
-    /* flex-wrap: wrap; */ /* DEĞİŞTİ */
-    flex-direction: column; /* EKLENDİ */
-    width: 125px; /* DARALTILDI: 140px -> 125px */
-    gap: 10px; /* Artırıldı: 6px -> 10px */
-    /* align-items: center; */ /* SİLİNDİ */
+    flex-direction: row; /* Yatay düzen */
+    width: auto; /* Otomatik genişlik */
+    gap: 8px; /* Butonlar arası boşluk */
     background: rgba(42, 43, 44, 0.9);
     border: 1px solid #5f6368;
     border-radius: 8px;
-    padding: 8px;
+    padding: 6px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     backdrop-filter: blur(4px);
     box-sizing: border-box;
@@ -125,20 +123,23 @@ canvas {
     gap: 8px;
 }
 
-/* YENİ KURAL: Sadece UI içindeki butonları 100% genişlik yap */
+/* YENİ KURAL: UI içindeki butonları sadece ikon göster */
 #ui .btn {
-    width: 100%; /* EKLENDİ */
-    box-sizing: border-box; /* EKLENDİ */
-    justify-content: flex-start; /* EKLENDİ */
-    padding: 6px 8px; /* Daraltıldı: 7px 10px -> 6px 8px */
-    font-size: 14px; /* %25 büyütüldü: 11px -> 14px */
-    gap: 6px; /* Daraltıldı: 8px -> 6px */
+    width: auto; /* Otomatik genişlik */
+    min-width: 36px; /* Minimum genişlik */
+    height: 36px; /* Sabit yükseklik */
+    box-sizing: border-box;
+    justify-content: center; /* İkonu ortala */
+    align-items: center; /* İkonu ortala */
+    padding: 8px; /* Eşit padding */
+    font-size: 0; /* Metni gizle */
+    gap: 0; /* Gap gerekmez */
 }
 
 /* UI içindeki buton iconları */
 #ui .btn svg {
-    width: 18px; /* %25 büyütüldü: 14px -> 18px */
-    height: 18px; /* %25 büyütüldü: 14px -> 18px */
+    width: 20px; /* Biraz daha büyük */
+    height: 20px;
 }
 
 
