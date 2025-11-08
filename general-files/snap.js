@@ -381,9 +381,74 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         }
     }
 
-    // Rehber (Guide) Snap Noktaları
+    // Rehber (Guide) Snap Noktaları ve Kesişimleri
     const guides = state.guides || [];
     if (guides.length > 0 && state.selectedObject?.type !== 'guide') {
+        // Önce rehber kesişimlerini hesapla (yüksek öncelikli)
+        for (let i = 0; i < guides.length; i++) {
+            for (let j = i + 1; j < guides.length; j++) {
+                const g1 = guides[i];
+                const g2 = guides[j];
+
+                try {
+                    let intersection = null;
+
+                    // Yatay-Dikey kesişim
+                    if (g1.subType === 'horizontal' && g2.subType === 'vertical') {
+                        intersection = { x: g2.x, y: g1.y };
+                    } else if (g1.subType === 'vertical' && g2.subType === 'horizontal') {
+                        intersection = { x: g1.x, y: g2.y };
+                    }
+                    // Açısal/Serbest çizgiler arası kesişim
+                    else if ((g1.subType === 'angular' || g1.subType === 'free') &&
+                             (g2.subType === 'angular' || g2.subType === 'free')) {
+                        if (g1.p1 && g1.p2 && g2.p1 && g2.p2) {
+                            intersection = getLineIntersectionPoint(g1.p1, g1.p2, g2.p1, g2.p2);
+                        }
+                    }
+                    // Açısal/Serbest - Yatay kesişim
+                    else if ((g1.subType === 'angular' || g1.subType === 'free') && g2.subType === 'horizontal') {
+                        if (g1.p1 && g1.p2) {
+                            const lineStart = { x: g1.p1.x - 10000, y: g2.y };
+                            const lineEnd = { x: g1.p1.x + 10000, y: g2.y };
+                            intersection = getLineIntersectionPoint(g1.p1, g1.p2, lineStart, lineEnd);
+                        }
+                    } else if (g1.subType === 'horizontal' && (g2.subType === 'angular' || g2.subType === 'free')) {
+                        if (g2.p1 && g2.p2) {
+                            const lineStart = { x: g2.p1.x - 10000, y: g1.y };
+                            const lineEnd = { x: g2.p1.x + 10000, y: g1.y };
+                            intersection = getLineIntersectionPoint(g2.p1, g2.p2, lineStart, lineEnd);
+                        }
+                    }
+                    // Açısal/Serbest - Dikey kesişim
+                    else if ((g1.subType === 'angular' || g1.subType === 'free') && g2.subType === 'vertical') {
+                        if (g1.p1 && g1.p2) {
+                            const lineStart = { x: g2.x, y: g1.p1.y - 10000 };
+                            const lineEnd = { x: g2.x, y: g1.p1.y + 10000 };
+                            intersection = getLineIntersectionPoint(g1.p1, g1.p2, lineStart, lineEnd);
+                        }
+                    } else if (g1.subType === 'vertical' && (g2.subType === 'angular' || g2.subType === 'free')) {
+                        if (g2.p1 && g2.p2) {
+                            const lineStart = { x: g1.x, y: g2.p1.y - 10000 };
+                            const lineEnd = { x: g1.x, y: g2.p1.y + 10000 };
+                            intersection = getLineIntersectionPoint(g2.p1, g2.p2, lineStart, lineEnd);
+                        }
+                    }
+
+                    if (intersection) {
+                        const screenPoint = worldToScreen(intersection.x, intersection.y);
+                        const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
+                        if (distance < SNAP_RADIUS_PIXELS) {
+                            candidates.push({ point: intersection, distance: distance * 0.5, type: 'GUIDE_INTERSECTION' });
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error processing guide intersection:", error, g1, g2);
+                }
+            }
+        }
+
+        // Sonra bireysel rehber snap noktaları
         for (const guide of guides) {
             try {
                 if (guide.subType === 'point') {

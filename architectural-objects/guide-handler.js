@@ -89,43 +89,17 @@ export function getGuideAtPoint(pos, tolerance) {
  * @returns {object} - Sürükleme için { startPointForDragging, dragOffset, additionalState }
  */
 export function onPointerDownGuide(selectedObject, pos, snappedPos, e) {
-    const guide = selectedObject.object;
+    let guide = selectedObject.object;
     const handle = selectedObject.handle;
 
-    // CTRL basılıysa rehberi kopyala
+    // CTRL basılıysa kopyalama flag'i koy (gerçek kopyalama pointer-move'da yapılacak)
     if (e.ctrlKey) {
-        let copiedGuide = null;
-
-        // Rehber türüne göre kopyala
-        if (guide.subType === 'point') {
-            copiedGuide = { type: 'guide', subType: 'point', x: guide.x, y: guide.y };
-        } else if (guide.subType === 'horizontal') {
-            copiedGuide = { type: 'guide', subType: 'horizontal', y: guide.y };
-        } else if (guide.subType === 'vertical') {
-            copiedGuide = { type: 'guide', subType: 'vertical', x: guide.x };
-        } else if (guide.subType === 'angular' || guide.subType === 'free') {
-            copiedGuide = {
-                type: 'guide',
-                subType: guide.subType,
-                p1: { x: guide.p1.x, y: guide.p1.y },
-                p2: { x: guide.p2.x, y: guide.p2.y }
-            };
-        }
-
-        // Kopyalanan rehberi state'e ekle
-        if (copiedGuide) {
-            if (!state.guides) state.guides = [];
-            state.guides.push(copiedGuide);
-
-            // Kopyalanan rehberi seç
-            setState({
-                selectedObject: { type: 'guide', object: copiedGuide, handle: handle }
-            });
-
-            // Devam eden sürükleme için orijinal yerine kopyayı kullan
-            guide = copiedGuide;
-            selectedObject.object = copiedGuide;
-        }
+        state.guideCopyPending = true;
+        state.originalGuideForCopy = guide;
+        state.copyHandleForGuide = handle;
+    } else {
+        state.guideCopyPending = false;
+        state.originalGuideForCopy = null;
     }
 
     // Sürükleme öncesi state'i kaydet (pointer-up.js'de saveState() çağrılacak)
@@ -181,6 +155,63 @@ export function onPointerDownGuide(selectedObject, pos, snappedPos, e) {
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
  */
 export function onPointerMoveGuide(snappedPos, unsnappedPos) {
+    // CTRL ile kopyalama: İlk hareket anında kopyala
+    if (state.guideCopyPending && state.originalGuideForCopy) {
+        let copiedGuide = null;
+        const originalGuide = state.originalGuideForCopy;
+        const handle = state.copyHandleForGuide;
+
+        // Rehber türüne göre kopyala
+        if (originalGuide.subType === 'point') {
+            copiedGuide = { type: 'guide', subType: 'point', x: originalGuide.x, y: originalGuide.y };
+        } else if (originalGuide.subType === 'horizontal') {
+            copiedGuide = { type: 'guide', subType: 'horizontal', y: originalGuide.y };
+        } else if (originalGuide.subType === 'vertical') {
+            copiedGuide = { type: 'guide', subType: 'vertical', x: originalGuide.x };
+        } else if (originalGuide.subType === 'angular' || originalGuide.subType === 'free') {
+            copiedGuide = {
+                type: 'guide',
+                subType: originalGuide.subType,
+                p1: { x: originalGuide.p1.x, y: originalGuide.p1.y },
+                p2: { x: originalGuide.p2.x, y: originalGuide.p2.y }
+            };
+        }
+
+        // Kopyalanan rehberi state'e ekle
+        if (copiedGuide) {
+            if (!state.guides) state.guides = [];
+            state.guides.push(copiedGuide);
+
+            // Kopyalanan rehberi seç ve preDragNodeStates'i yeniden ayarla
+            setState({
+                selectedObject: { type: 'guide', object: copiedGuide, handle: handle }
+            });
+
+            // preDragNodeStates'i kopyalanan rehber için ayarla
+            state.preDragNodeStates.clear();
+            if (handle === 'p1' && copiedGuide.p1) {
+                state.preDragNodeStates.set(copiedGuide.p1, { x: copiedGuide.p1.x, y: copiedGuide.p1.y });
+            } else if (handle === 'p2' && copiedGuide.p2) {
+                state.preDragNodeStates.set(copiedGuide.p2, { x: copiedGuide.p2.x, y: copiedGuide.p2.y });
+            } else if (handle === 'body') {
+                if (copiedGuide.subType === 'point' || copiedGuide.subType === 'vertical') {
+                    state.preDragNodeStates.set(copiedGuide, { x: copiedGuide.x });
+                }
+                if (copiedGuide.subType === 'point' || copiedGuide.subType === 'horizontal') {
+                    state.preDragNodeStates.set(copiedGuide, { ...state.preDragNodeStates.get(copiedGuide), y: copiedGuide.y });
+                }
+                if (copiedGuide.subType === 'free' || copiedGuide.subType === 'angular') {
+                    state.preDragNodeStates.set(copiedGuide.p1, { x: copiedGuide.p1.x, y: copiedGuide.p1.y });
+                    state.preDragNodeStates.set(copiedGuide.p2, { x: copiedGuide.p2.x, y: copiedGuide.p2.y });
+                }
+            }
+
+            // Flag'i temizle
+            state.guideCopyPending = false;
+            state.originalGuideForCopy = null;
+        }
+    }
+
     const guide = state.selectedObject.object;
     const handle = state.selectedObject.handle;
     
