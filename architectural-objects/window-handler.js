@@ -11,7 +11,10 @@ function getRoomsAdjacentToWall(wall) {
     const TOLERANCE = 1;
     if (!state.rooms || state.rooms.length === 0 || !wall || !wall.p1 || !wall.p2) return adjacentRooms;
 
-    for (const room of state.rooms) {
+    const currentFloorId = state.currentFloor?.id;
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+
+    for (const room of rooms) {
         if (!room.polygon || !room.polygon.geometry) continue;
         const coords = room.polygon.geometry.coordinates[0];
         for (let i = 0; i < coords.length - 1; i++) {
@@ -37,7 +40,10 @@ function getRoomsAdjacentToWall(wall) {
  * @returns {object | null} - Bulunan pencere nesnesi (seçim için) veya null
  */
 export function getWindowAtPoint(pos, tolerance) {
-    for (const wall of state.walls) {
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+
+    for (const wall of walls) {
         if (!wall.windows || wall.windows.length === 0 || !wall.p1 || !wall.p2) continue;
         for (const window of wall.windows) {
             const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -126,10 +132,13 @@ function addWindowToWallMiddle(wall, roomName = null) { // Oda adı parametresi 
  * @param {object} clickedObject - Tıklanan nesne (getObjectAtPoint'ten)
  */
 export function onPointerDownDraw(pos, clickedObject) {
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+
     // 1. Direkt duvara yerleştirmeyi dene
     let previewWall = null, minDistSqPreview = Infinity;
     const bodyHitTolerancePreview = (state.wallThickness * 1.5) ** 2;
-    for (const w of [...state.walls].reverse()) {
+    for (const w of [...walls].reverse()) {
         if (!w.p1 || !w.p2) continue;
         const distSq = distToSegmentSquared(pos, w.p1, w.p2);
         if (distSq < bodyHitTolerancePreview && distSq < minDistSqPreview) {
@@ -186,7 +195,7 @@ export function onPointerDownDraw(pos, clickedObject) {
         // ... (odanın duvarlarını bulma kodu - değişiklik yok) ...
         for (let i = 0; i < roomCoords.length - 1; i++) {
              const p1Coord = roomCoords[i]; const p2Coord = roomCoords[i + 1];
-             const wall = state.walls.find(w => {
+             const wall = walls.find(w => {
                  if (!w || !w.p1 || !w.p2) return false;
                  const d1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) + Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
                  const d2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) + Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
@@ -276,6 +285,9 @@ export function onPointerMove(unsnappedPos) {
     const targetY = unsnappedPos.y + state.dragOffset.y;
     const targetPos = { x: targetX, y: targetY };
 
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+
     let closestWall = null;
     let minDistSq = Infinity;
     const bodyHitTolerance = state.wallThickness * 2;
@@ -288,7 +300,7 @@ export function onPointerMove(unsnappedPos) {
     const intendedWidth = window.originalWidthBeforeDrag || (window.isWidthManuallySet ? window.width : defaultNonManualWidth);
 
 
-    for (const w of state.walls) {
+    for (const w of walls) {
         if (!w.p1 || !w.p2) continue;
 
         // --- YENİ: Sadece uygun duvar tiplerini dikkate al ---

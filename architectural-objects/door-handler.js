@@ -11,7 +11,10 @@ import { findAvailableSegmentAt, checkOverlapAndGap } from '../wall/wall-item-ut
  * @returns {object | null} - Bulunan kapı nesnesi (seçim için) veya null
  */
 export function getDoorAtPoint(pos, tolerance) {
-    for (const door of [...state.doors].reverse()) {
+    const currentFloorId = state.currentFloor?.id;
+    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
+
+    for (const door of [...doors].reverse()) {
         const wall = door.wall;
         if (!wall || !wall.p1 || !wall.p2) continue;
         const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -41,10 +44,14 @@ export function getDoorAtPoint(pos, tolerance) {
  * @param {object} clickedObject - Tıklanan nesne (getObjectAtPoint'ten)
  */
 export function onPointerDownDraw(pos, clickedObject) {
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+
     // 1. Direkt duvara yerleştirmeyi dene
     let previewWall = null, minDistSqPreview = Infinity;
     const bodyHitTolerancePreview = (state.wallThickness * 1.5) ** 2;
-    for (const w of [...state.walls].reverse()) {
+    for (const w of [...walls].reverse()) {
          if (!w.p1 || !w.p2) continue;
          const distSq = distToSegmentSquared(pos, w.p1, w.p2);
          if (distSq < bodyHitTolerancePreview && distSq < minDistSqPreview) {
@@ -69,7 +76,7 @@ export function onPointerDownDraw(pos, clickedObject) {
         // Tıklanan odanın duvarlarını bul
         for (let i = 0; i < coords.length - 1; i++) {
             const p1Coord = coords[i]; const p2Coord = coords[i + 1];
-            const wall = state.walls.find(w => {
+            const wall = walls.find(w => {
                 if (!w || !w.p1 || !w.p2) return false;
                const dist1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) + Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
                const dist2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) + Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);
@@ -80,13 +87,13 @@ export function onPointerDownDraw(pos, clickedObject) {
 
         const neighborRooms = [];
         // Komşu odaları bul
-        state.rooms.forEach(otherRoom => {
+        rooms.forEach(otherRoom => {
             if (otherRoom === clickedRoom || !otherRoom.polygon || !otherRoom.polygon.geometry) return;
             const otherCoords = otherRoom.polygon.geometry.coordinates[0];
             const otherWalls = [];
             for (let i = 0; i < otherCoords.length - 1; i++) {
                  const p1Coord = otherCoords[i]; const p2Coord = otherCoords[i + 1];
-                 const wall = state.walls.find(w => {
+                 const wall = walls.find(w => {
                      if (!w || !w.p1 || !w.p2) return false;
                     const dist1 = Math.hypot(w.p1.x - p1Coord[0], w.p1.y - p1Coord[1]) + Math.hypot(w.p2.x - p2Coord[0], w.p2.y - p2Coord[1]);
                     const dist2 = Math.hypot(w.p1.x - p2Coord[0], w.p1.y - p2Coord[1]) + Math.hypot(w.p2.x - p1Coord[0], w.p2.y - p1Coord[1]);

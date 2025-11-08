@@ -56,7 +56,14 @@ export function update3DScene() {
         pictureFrameMaterial.transparent = true; pictureFrameMaterial.opacity = solidOpacity; pictureFrameMaterial.needsUpdate = true;
     }
 
-    const { walls, doors, columns, beams, rooms, stairs } = state;
+    // Sadece aktif kata ait elementleri filtrele
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
 
     // --- Duvarları, Kapıları, Pencereleri ve Menfezleri Oluştur ---
     walls.forEach(w => {
