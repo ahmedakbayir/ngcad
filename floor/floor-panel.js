@@ -39,7 +39,7 @@ export function createFloorPanel() {
         padding: 6px 10px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         z-index: 1000;
-        max-width: 80vw;
+        max-width: 90vw;
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -72,7 +72,7 @@ export function createFloorPanel() {
             </svg>
         </div>
         <div id="floor-scroll-left" style="display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px 6px; color: #8ab4f8; font-size: 16px; transition: all 0.2s; opacity: 0.3;">◀</div>
-        <div id="floor-mini-list" style="flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: row; align-items: center; gap: 6px; max-width: 70vw; scrollbar-width: none;">
+        <div id="floor-mini-list" style="flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: row; align-items: center; gap: 6px; scrollbar-width: none;">
             <!-- Katlar buraya dinamik olarak eklenecek -->
         </div>
         <div id="floor-scroll-right" style="display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px 6px; color: #8ab4f8; font-size: 16px; transition: all 0.2s; opacity: 0.3;">▶</div>
@@ -279,8 +279,17 @@ function adjustFloorPanelPosition() {
     const uiRect = uiMenu.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
 
-    const minGap = 16; // Minimum boşluk
+    const minGap = 16; // Sol menüden minimum boşluk
     const uiRight = uiRect.right; // Sol menünün sağ kenarı
+    const rightLimit = viewportWidth * 0.7; // Sağdan maksimum %30 uzaklık (ekranın %70'i)
+
+    // Kullanılabilir maksimum genişlik
+    const maxAvailableWidth = rightLimit - (uiRight + minGap);
+
+    // Panele maksimum genişlik uygula
+    if (maxAvailableWidth > 0) {
+        miniPanel.style.maxWidth = `${maxAvailableWidth}px`;
+    }
 
     // Önce paneli merkeze al
     miniPanel.style.left = '50%';
@@ -289,18 +298,38 @@ function adjustFloorPanelPosition() {
     // Panelin güncel pozisyonunu kontrol et
     const panelRect = miniPanel.getBoundingClientRect();
     const panelLeft = panelRect.left;
+    const panelRight = panelRect.right;
     const panelWidth = panelRect.width;
 
     // Panelin sol kenarının olması gereken minimum pozisyon
     const minPanelLeft = uiRight + minGap;
 
+    let adjustedLeft = null;
+
+    // Sol taraftan kontrol
     if (panelLeft < minPanelLeft) {
         // Çakışma var, paneli sağa kaydır
-        // Panelin merkezi sol kenardan panel_width/2 kadar sağda olmalı
         const newCenterPx = minPanelLeft + (panelWidth / 2);
+        adjustedLeft = (newCenterPx / viewportWidth) * 100;
+    }
+
+    // Sağ taraftan kontrol
+    if (panelRight > rightLimit) {
+        // Sağ sınırı aşıyor, paneli sola kaydır
+        const newCenterPx = rightLimit - (panelWidth / 2);
         const newLeftPercent = (newCenterPx / viewportWidth) * 100;
 
-        miniPanel.style.left = `${newLeftPercent}%`;
+        // Eğer sol kontrol de ayarlama yaptıysa, ikisinin ortalamasını al
+        if (adjustedLeft !== null) {
+            adjustedLeft = Math.max(adjustedLeft, newLeftPercent);
+        } else {
+            adjustedLeft = newLeftPercent;
+        }
+    }
+
+    // Ayarlama yapılacaksa uygula
+    if (adjustedLeft !== null) {
+        miniPanel.style.left = `${adjustedLeft}%`;
     }
 }
 
