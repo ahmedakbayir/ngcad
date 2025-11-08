@@ -758,6 +758,46 @@ export function setupInputListeners() {
              saveState();
         }
     });
+
+    // ALT+TAB stuck state fix: Window focus kaybolduğunda state'i temizle
+    window.addEventListener("blur", () => {
+        console.log('🔄 Window blur - Cleaning up stuck states');
+
+        // Tüm modifier key'leri resetle
+        currentModifierKeys.ctrl = false;
+        currentModifierKeys.alt = false;
+        currentModifierKeys.shift = false;
+
+        // Dragging state'i temizle
+        if (state.isDragging) {
+            setState({
+                isDragging: false,
+                isStretchDragging: false,
+                affectedWalls: [],
+                preDragWallStates: new Map(),
+                preDragNodeStates: new Map()
+            });
+            if (state.history[state.historyIndex]) restoreState(state.history[state.historyIndex]);
+        }
+
+        // Panning state'i temizle
+        if (state.isPanning) {
+            setState({ isPanning: false });
+            dom.p2d.classList.remove('panning');
+        }
+
+        // Delete mode'u temizle
+        if (state.isCtrlDeleting) {
+            setState({ isCtrlDeleting: false });
+            dom.p2d.style.cursor = '';
+        }
+
+        // Cursor'u resetle
+        if (dom.p2d) {
+            dom.p2d.style.cursor = '';
+        }
+    });
+
     window.addEventListener("copy", handleCopy);
     window.addEventListener("paste", handlePaste);
     window.addEventListener("keydown", onKeyDown);
