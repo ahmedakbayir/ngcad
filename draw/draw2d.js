@@ -226,10 +226,11 @@ function drawStairSequenceArrows(ctx2d, state) {
 export function draw2D() {
     const { ctx2d, c2d } = dom;
     const {
-        panOffset, zoom, selectedObject, // <-- stairs EKLEYİN
-        isDragging, dimensionMode, affectedWalls, startPoint, nodes,
+        panOffset, zoom, rooms, walls, doors, beams, stairs, selectedObject,
+        isDragging, dimensionMode, affectedWalls, startPoint,
         dimensionOptions, wallAdjacency,
     } = state;
+    const nodes = state.nodes || [];
 
     // Sadece aktif kata ait çizimleri filtrele
     const currentFloorId = state.currentFloor?.id;
