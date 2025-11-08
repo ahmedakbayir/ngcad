@@ -271,21 +271,19 @@ export function renderMiniPanel() {
 }
 
 /**
- * Kat panelinin pozisyonunu sol menüye göre ayarlar
+ * Kat panelinin pozisyonunu ekran sınırlarına göre ayarlar
  */
 function adjustFloorPanelPosition() {
-    const uiMenu = document.getElementById('ui');
-    if (!uiMenu || !miniPanel) return;
+    if (!miniPanel) return;
 
-    const uiRect = uiMenu.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
 
-    const minGap = 16; // Sol menüden minimum boşluk
-    const uiRight = uiRect.right; // Sol menünün sağ kenarı
-    const rightLimit = viewportWidth * 0.7; // Sağdan maksimum %30 uzaklık (ekranın %70'i)
+    // Sol ve sağ boşluk oranları (ekranın %26'sı)
+    const leftLimit = viewportWidth * 0.26; // Soldan %26 boşluk
+    const rightLimit = viewportWidth * 0.74; // Sağdan %26 boşluk (ekranın %74'üne kadar)
 
     // Kullanılabilir maksimum genişlik
-    const maxAvailableWidth = rightLimit - (uiRight + minGap);
+    const maxAvailableWidth = rightLimit - leftLimit;
 
     // Panele maksimum genişlik uygula
     if (maxAvailableWidth > 0) {
@@ -302,19 +300,16 @@ function adjustFloorPanelPosition() {
     const panelRight = panelRect.right;
     const panelWidth = panelRect.width;
 
-    // Panelin sol kenarının olması gereken minimum pozisyon
-    const minPanelLeft = uiRight + minGap;
-
     let adjustedLeft = null;
 
-    // Sol taraftan kontrol
-    if (panelLeft < minPanelLeft) {
-        // Çakışma var, paneli sağa kaydır
-        const newCenterPx = minPanelLeft + (panelWidth / 2);
+    // Sol taraftan kontrol - ekranın %26'sından sola gitmesin
+    if (panelLeft < leftLimit) {
+        // Sol sınırı aşıyor, paneli sağa kaydır
+        const newCenterPx = leftLimit + (panelWidth / 2);
         adjustedLeft = (newCenterPx / viewportWidth) * 100;
     }
 
-    // Sağ taraftan kontrol
+    // Sağ taraftan kontrol - ekranın %74'ünden sağa gitmesin
     if (panelRight > rightLimit) {
         // Sağ sınırı aşıyor, paneli sola kaydır
         const newCenterPx = rightLimit - (panelWidth / 2);
