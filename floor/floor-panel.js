@@ -601,7 +601,7 @@ function renderDetailPanel() {
         if (index === upperPlaceholderIndex && upperPlaceholderIndex !== -1) {
             html += `
                 <tr style="height: 2px; background: #5f6368;">
-                    <td colspan="6" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
+                    <td colspan="7" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
                 </tr>
             `;
         }
@@ -1338,12 +1338,9 @@ function addFloorFromPlaceholder(placeholderId) {
     // Katları yüksekliğe göre sırala
     floors.sort((a, b) => a.bottomElevation - b.bottomElevation);
 
-    // Yeni eklenen katı bul ve aktif yap
-    const newFloor = floors.find(f => f.name === newFloorName);
-
+    // Yeni eklenen katı ekle ama aktif katı değiştirme
     setState({
-        floors,
-        currentFloor: newFloor
+        floors
     });
 
     renderDetailPanel();
