@@ -740,8 +740,8 @@ function renderFloorPreview(floor, globalBounds) {
     // Sadece bu kata ait duvarları göster
     const walls = (state.walls || []).filter(w => !floor || w.floorId === floor.id);
 
-    // Eğer global bounds yoksa veya bu katta duvar yoksa boş önizleme göster
-    if (!globalBounds || walls.length === 0) {
+    // Eğer bu katta duvar yoksa boş önizleme göster
+    if (walls.length === 0) {
         return `
             <svg width="${svgWidth}" height="${svgHeight}" style="display: block; margin: 0 auto;">
                 <rect x="${svgWidth * 0.05}" y="${svgHeight * 0.05}"
@@ -756,19 +756,38 @@ function renderFloorPreview(floor, globalBounds) {
         `;
     }
 
+    // Global bounds kullan veya bu katın kendi bounds'ını hesapla
+    let useBounds;
+    if (globalBounds) {
+        useBounds = globalBounds;
+    } else {
+        // Fallback: Bu katın kendi bounds'ını hesapla
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        walls.forEach(wall => {
+            if (wall.p1 && wall.p2) {
+                minX = Math.min(minX, wall.p1.x, wall.p2.x);
+                minY = Math.min(minY, wall.p1.y, wall.p2.y);
+                maxX = Math.max(maxX, wall.p1.x, wall.p2.x);
+                maxY = Math.max(maxY, wall.p1.y, wall.p2.y);
+            }
+        });
+        useBounds = {
+            width: maxX - minX,
+            height: maxY - minY,
+            centerX: (minX + maxX) / 2,
+            centerY: (minY + maxY) / 2
+        };
+    }
+
     // %5 padding kullan - %90 alan kullanılabilir
     const paddingPercent = 0.05;
     const availableWidth = svgWidth * (1 - 2 * paddingPercent);
     const availableHeight = svgHeight * (1 - 2 * paddingPercent);
 
-    // Global bounds'ı kullanarak ölçekleme faktörünü hesapla
-    const scaleX = availableWidth / (globalBounds.width * scale || 1);
-    const scaleY = availableHeight / (globalBounds.height * scale || 1);
+    // Ölçekleme faktörünü hesapla
+    const scaleX = availableWidth / (useBounds.width * scale || 1);
+    const scaleY = availableHeight / (useBounds.height * scale || 1);
     const finalScale = Math.min(scaleX, scaleY) * scale;
-
-    // Global center'ı kullan - böylece tüm katlar aynı koordinat sisteminde
-    const globalCenterX = globalBounds.centerX;
-    const globalCenterY = globalBounds.centerY;
 
     // SVG çiz
     let svgContent = '';
@@ -776,10 +795,10 @@ function renderFloorPreview(floor, globalBounds) {
     // Duvarları çiz - global center'a göre konumlandır
     walls.forEach(wall => {
         if (wall.p1 && wall.p2) {
-            const x1 = (wall.p1.x - globalCenterX) * finalScale + svgWidth / 2;
-            const y1 = (wall.p1.y - globalCenterY) * finalScale + svgHeight / 2;
-            const x2 = (wall.p2.x - globalCenterX) * finalScale + svgWidth / 2;
-            const y2 = (wall.p2.y - globalCenterY) * finalScale + svgHeight / 2;
+            const x1 = (wall.p1.x - useBounds.centerX) * finalScale + svgWidth / 2;
+            const y1 = (wall.p1.y - useBounds.centerY) * finalScale + svgHeight / 2;
+            const x2 = (wall.p2.x - useBounds.centerX) * finalScale + svgWidth / 2;
+            const y2 = (wall.p2.y - useBounds.centerY) * finalScale + svgHeight / 2;
 
             svgContent += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
                                 stroke="#e7e6d0" stroke-width="0.5"/>`;
