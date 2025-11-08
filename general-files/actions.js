@@ -14,6 +14,58 @@ import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
 import { getWallAtPoint } from '../wall/wall-handler.js';
 
 /**
+ * Final validation: Seçilen objenin floor'u aktif floor ile eşleşiyor mu kontrol et
+ * @param {object} result - getObjectAtPoint'ten dönen sonuç
+ * @param {string} currentFloorId - Aktif kat ID'si
+ * @returns {object | null} - Validated sonuç veya null
+ */
+function validateFloorMatch(result, currentFloorId) {
+    if (!result || !currentFloorId) return result;
+
+    const obj = result.object;
+    if (!obj) return result;
+
+    // Camera ve guide objelerini atlayabiliriz (floor-agnostic)
+    if (result.type === 'camera' || result.type === 'guide') return result;
+
+    // Objenin floorId'si varsa ve aktif kat ile eşleşmiyorsa, REDDET
+    if (obj.floorId !== undefined && obj.floorId !== currentFloorId) {
+        console.warn('⚠️ FLOOR MISMATCH BLOCKED!', {
+            type: result.type,
+            objectFloor: obj.floorId,
+            currentFloor: currentFloorId
+        });
+        return null;
+    }
+
+    // Wall için extra kontrol (wall objesinin kendisi result.object'te)
+    if (result.type === 'wall' && obj.floorId !== currentFloorId) {
+        console.warn('⚠️ WALL FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
+        return null;
+    }
+
+    // Door için wall üzerinden kontrol
+    if (result.type === 'door' && result.wall && result.wall.floorId !== currentFloorId) {
+        console.warn('⚠️ DOOR WALL FLOOR MISMATCH BLOCKED!');
+        return null;
+    }
+
+    // Window için wall üzerinden kontrol
+    if (result.type === 'window' && result.wall && result.wall.floorId !== currentFloorId) {
+        console.warn('⚠️ WINDOW WALL FLOOR MISMATCH BLOCKED!');
+        return null;
+    }
+
+    // Vent için wall üzerinden kontrol
+    if (result.type === 'vent' && result.wall && result.wall.floorId !== currentFloorId) {
+        console.warn('⚠️ VENT WALL FLOOR MISMATCH BLOCKED!');
+        return null;
+    }
+
+    return result;
+}
+
+/**
  * Verilen noktadaki (pos) en üstteki nesneyi bulur.
  * @param {object} pos - Dünya koordinatları {x, y}
  * @returns {object | null} - Bulunan nesne (seçim için) veya null
@@ -22,10 +74,19 @@ export function getObjectAtPoint(pos) {
     const { zoom } = state;
     const currentFloorId = state.currentFloor?.id;
 
-    // Sadece aktif kata ait elemanları filtrele
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
-    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
-    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+    // STRICT FLOOR FILTERING: Eğer currentFloor varsa, SADECE o kattaki objeleri al
+    const walls = (state.walls || []).filter(w => {
+        if (currentFloorId) return w.floorId === currentFloorId;
+        return !w.floorId; // currentFloor yoksa, sadece floorId olmayan duvarları al
+    });
+    const doors = (state.doors || []).filter(d => {
+        if (currentFloorId) return d.floorId === currentFloorId;
+        return !d.floorId;
+    });
+    const rooms = (state.rooms || []).filter(r => {
+        if (currentFloorId) return r.floorId === currentFloorId;
+        return !r.floorId;
+    });
 
     const tolerance = 8 / zoom;
 
@@ -67,10 +128,10 @@ export function getObjectAtPoint(pos) {
             const d1 = Math.hypot(pos.x - wall.arcControl1.x, pos.y - wall.arcControl1.y);
             const d2 = Math.hypot(pos.x - wall.arcControl2.x, pos.y - wall.arcControl2.y);
             if (d1 < tolerance) {
-                return { type: "arcControl", object: wall, handle: "control1" };
+                return validateFloorMatch({ type: "arcControl", object: wall, handle: "control1" }, currentFloorId);
             }
             if (d2 < tolerance) {
-                return { type: "arcControl", object: wall, handle: "control2" };
+                return validateFloorMatch({ type: "arcControl", object: wall, handle: "control2" }, currentFloorId);
             }
         }
     }
@@ -89,7 +150,7 @@ export function getObjectAtPoint(pos) {
 
     // 1.4 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
-    if (wallNodeHit && wallNodeHit.handle !== 'body') return wallNodeHit;
+    if (wallNodeHit && wallNodeHit.handle !== 'body') return validateFloorMatch(wallNodeHit, currentFloorId);
     
     // 2.0 REHBER ÇİZGİLERİ (Handle'lardan sonra, gövdelerden önce)
     const guideHit = getGuideAtPoint(pos, tolerance); 
@@ -99,11 +160,11 @@ export function getObjectAtPoint(pos) {
     // 2. Gövde Kontrolleri (Handle'lardan sonra)
     // 2.1 Kapı
     const doorHit = getDoorAtPoint(pos, tolerance);
-    if (doorHit) return doorHit;
+    if (doorHit) return validateFloorMatch(doorHit, currentFloorId);
 
     // 2.2 Pencere
     const windowHit = getWindowAtPoint(pos, tolerance);
-    if (windowHit) return windowHit;
+    if (windowHit) return validateFloorMatch(windowHit, currentFloorId);
 
     // 2.3 Menfez
     for (const wall of [...walls].reverse()) {
@@ -123,7 +184,7 @@ export function getObjectAtPoint(pos) {
 
             // Toleransı biraz küçülttük menfez için
             if (distPerpendicular < wallPx / 2 + tolerance / 2 && distParallel < vent.width / 2 + tolerance / 2) {
-                return { type: "vent", object: vent, wall: wall };
+                return validateFloorMatch({ type: "vent", object: vent, wall: wall }, currentFloorId);
             }
         }
     }
@@ -159,7 +220,7 @@ export function getObjectAtPoint(pos) {
 
     // 2.8 Duvar Gövdesi
     // Mahal adı kontrolünden SONRA çalışmalı
-    if (wallNodeHit && wallNodeHit.handle === 'body') return wallNodeHit;
+    if (wallNodeHit && wallNodeHit.handle === 'body') return validateFloorMatch(wallNodeHit, currentFloorId);
 
 
     // 2.9 Mahal Alanı (İsim/Alan hariç)
@@ -208,6 +269,52 @@ export function getObjectAtPoint(pos) {
 
 
     return null; // Hiçbir şey bulunamadı
+}
+
+/**
+ * Final validation: Seçilen objenin floor'u aktif floor ile eşleşiyor mu kontrol et
+ * @param {object} result - getObjectAtPoint'ten dönen sonuç
+ * @param {string} currentFloorId - Aktif kat ID'si
+ * @returns {object | null} - Validated sonuç veya null
+ */
+function validateFloorMatch(result, currentFloorId) {
+    if (!result || !currentFloorId) return result;
+
+    const obj = result.object;
+    if (!obj) return result;
+
+    // Camera ve guide objelerini atlayabiliriz (floor-agnostic)
+    if (result.type === 'camera' || result.type === 'guide') return result;
+
+    // Objenin floorId'si varsa ve aktif kat ile eşleşmiyorsa, REDDET
+    if (obj.floorId !== undefined && obj.floorId !== currentFloorId) {
+        console.warn('⚠️ FLOOR MISMATCH BLOCKED!', {
+            type: result.type,
+            objectFloor: obj.floorId,
+            currentFloor: currentFloorId
+        });
+        return null;
+    }
+
+    // Wall için extra kontrol (wall objesinin kendisi result.object'te)
+    if (result.type === 'wall' && obj.floorId !== currentFloorId) {
+        console.warn('⚠️ WALL FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
+        return null;
+    }
+
+    // Door için wall üzerinden kontrol
+    if (result.type === 'door' && result.wall && result.wall.floorId !== currentFloorId) {
+        console.warn('⚠️ DOOR WALL FLOOR MISMATCH BLOCKED!');
+        return null;
+    }
+
+    // Window için wall üzerinden kontrol
+    if (result.type === 'window' && result.wall && result.wall.floorId !== currentFloorId) {
+        console.warn('⚠️ WINDOW WALL FLOOR MISMATCH BLOCKED!');
+        return null;
+    }
+
+    return result;
 }
 
 /**
