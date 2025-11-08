@@ -226,20 +226,19 @@ function drawStairSequenceArrows(ctx2d, state) {
 export function draw2D() {
     const { ctx2d, c2d } = dom;
     const {
-        panOffset, zoom, rooms, walls, doors, columns, beams, stairs, selectedObject,
+        panOffset, zoom, selectedObject,
         isDragging, dimensionMode, affectedWalls, startPoint,
         dimensionOptions, wallAdjacency,
     } = state;
-    const nodes = state.nodes || [];
 
     // Sadece aktif kata ait çizimleri filtrele
     const currentFloorId = state.currentFloor?.id;
-    const rooms = state.rooms.filter(r => !currentFloorId || r.floorId === currentFloorId);
-    const walls = state.walls.filter(w => !currentFloorId || w.floorId === currentFloorId);
-    const doors = state.doors.filter(d => !currentFloorId || d.floorId === currentFloorId);
-    const beams = state.beams?.filter(b => !currentFloorId || b.floorId === currentFloorId) || [];
-    const stairs = state.stairs?.filter(s => !currentFloorId || s.floorId === currentFloorId) || [];
-    const columns = state.columns?.filter(c => !currentFloorId || c.floorId === currentFloorId) || [];
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
 
     // Sadece aktif kata ait node'ları filtrele (duvarlardan topla)
     const nodesSet = new Set();
