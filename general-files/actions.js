@@ -22,16 +22,6 @@ export function getObjectAtPoint(pos) {
     const { zoom } = state;
     const currentFloorId = state.currentFloor?.id;
 
-    // DEBUG: Log floor filtering info
-    if (currentFloorId) {
-        console.log('🔍 getObjectAtPoint - Current Floor:', currentFloorId);
-        console.log('📊 Total walls:', state.walls?.length, 'Filtered walls:', (state.walls || []).filter(w => w.floorId === currentFloorId).length);
-        const wallsWithoutFloor = (state.walls || []).filter(w => !w.floorId);
-        if (wallsWithoutFloor.length > 0) {
-            console.warn('⚠️ Found', wallsWithoutFloor.length, 'walls WITHOUT floorId!', wallsWithoutFloor);
-        }
-    }
-
     // Sadece aktif kata ait elemanları filtrele
     const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
     const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
