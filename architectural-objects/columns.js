@@ -19,7 +19,8 @@ export function createColumn(centerX, centerY, size = 40) {
         hollowWidth: 0,
         hollowHeight: 0,
         hollowOffsetX: 0,
-        hollowOffsetY: 0
+        hollowOffsetY: 0,
+        floorId: state.currentFloor?.id
     };
 }
 

@@ -226,10 +226,19 @@ function drawStairSequenceArrows(ctx2d, state) {
 export function draw2D() {
     const { ctx2d, c2d } = dom;
     const {
-        panOffset, zoom, rooms, walls, doors, beams, stairs, selectedObject, // <-- stairs EKLEYİN
+        panOffset, zoom, selectedObject, // <-- stairs EKLEYİN
         isDragging, dimensionMode, affectedWalls, startPoint, nodes,
         dimensionOptions, wallAdjacency,
     } = state;
+
+    // Sadece aktif kata ait çizimleri filtrele
+    const currentFloorId = state.currentFloor?.id;
+    const rooms = state.rooms.filter(r => !currentFloorId || r.floorId === currentFloorId);
+    const walls = state.walls.filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const doors = state.doors.filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const beams = state.beams?.filter(b => !currentFloorId || b.floorId === currentFloorId) || [];
+    const stairs = state.stairs?.filter(s => !currentFloorId || s.floorId === currentFloorId) || [];
+    const columns = state.columns?.filter(c => !currentFloorId || c.floorId === currentFloorId) || [];
 
     ctx2d.fillStyle = BG;
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
@@ -299,7 +308,7 @@ export function draw2D() {
     });
 
     // 4. KOLONLAR (Duvarlardan sonra, kapı/pencereden önce)
-    state.columns.forEach(column => {
+    columns.forEach(column => {
         // Her kolon için isSelected durumunu kontrol et (tek seçim veya grup seçimi)
         const isSelected = (selectedObject?.type === "column" && selectedObject.object === column) ||
                           state.selectedGroup.some(item => item.type === "column" && item.object === column);
@@ -307,7 +316,7 @@ export function draw2D() {
     });
 
     // 4.5. KİRİŞLER
-    (state.beams || []).forEach(beam => {
+    beams.forEach(beam => {
         // Her kiriş için isSelected durumunu kontrol et (tek seçim veya grup seçimi)
         const isSelected = (selectedObject?.type === "beam" && selectedObject.object === beam) ||
                           state.selectedGroup.some(item => item.type === "beam" && item.object === beam);
@@ -315,7 +324,7 @@ export function draw2D() {
     });
 
     // 4.7. MERDİVENLER
-    (state.stairs || []).forEach(stair => {
+    stairs.forEach(stair => {
         // Her bir merdiven için seçili olup olmadığını kontrol et (tek seçim veya grup seçimi)
         const isSelected = !!(
             (selectedObject && selectedObject.type === "stairs" && selectedObject.object === stair) ||
@@ -471,7 +480,7 @@ export function draw2D() {
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
- if (state.isStairPopupVisible && state.stairs && state.stairs.length > 0) {
+ if (state.isStairPopupVisible && stairs && stairs.length > 0) {
         ctx2d.textAlign = "center";
         ctx2d.textBaseline = "middle";
         ctx2d.fillStyle = "#e57373"; // Kırmızı renk
@@ -480,7 +489,7 @@ export function draw2D() {
         const ZOOM_EXPONENT_STAIR_NAME = -0.5; // Zoom ile nasıl küçüleceği (room names ile benzer veya farklı olabilir)
         const minWorldFontSize = 8; // Minimum dünya boyutu
 
-        state.stairs.forEach(stair => {
+        stairs.forEach(stair => {
             if (stair.center && stair.name) {
                 let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT_STAIR_NAME);
                 ctx2d.font = `bold ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`; // Kalın font
