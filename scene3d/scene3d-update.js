@@ -63,7 +63,8 @@ export function update3DScene() {
     // 'floor' modunda sadece aktif kat, 'building' modunda tüm katlar görünür
     const shouldShowFloor = (floorId) => {
         if (viewMode === 'building') return true; // Tüm katlar
-        return !currentFloorId || !floorId || floorId === currentFloorId; // Sadece aktif kat
+        // Sadece currentFloorId ve floorId eşleşiyorsa göster (floorId olmayan öğeleri gösterme!)
+        return currentFloorId && floorId === currentFloorId;
     };
 
     const walls = (state.walls || []).filter(w => shouldShowFloor(w.floorId));
@@ -256,7 +257,8 @@ export function update3DScene() {
 
     // --- YENİ: Resim Çerçevelerini Ekle ---
     try {
-        buildPictureFrames(sceneObjects, getFloorElevation);
+        // Filtrelenmiş rooms ve walls'u picture frame fonksiyonuna geç
+        buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls);
     } catch (error) {
         console.error("Resim çerçeveleri oluşturulurken bir hata oluştu:", error);
     }
@@ -451,14 +453,18 @@ function createPictureFrameMesh(wall, posOnWall, width, height, picMaterial, bor
 
 /**
  * 3D sahnede, kurallara göre resim çerçevelerini oluşturur ve ekler.
+ * @param {THREE.Group} sceneObjects - 3D sahne nesneleri grubu
+ * @param {Function} getFloorElevation - Kat yüksekliğini döndüren fonksiyon
+ * @param {Array} rooms - Filtrelenmiş oda listesi (floorId'ye göre)
+ * @param {Array} walls - Filtrelenmiş duvar listesi (floorId'ye göre)
  */
 let picFrameCacheIndex = 0; // Rastgele resimler için global index (state dışında tutulabilir)
 
-function buildPictureFrames(sceneObjects, getFloorElevation) {
+function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
     // Cache'den resim URL'lerini al
     const imageUrls = state.pictureFrameCache;
     if (!imageUrls || imageUrls.length === 0) return; // Resim yoksa çık
-    
+
     // --- DÜZELTME: Duvar kullanımını takip etmek için Set ---
     // Bu Set, bir duvarın (iki tarafı da dahil) çerçeve için SADECE BİR KEZ kullanılmasını sağlar.
     const usedWalls = new Set();
@@ -472,12 +478,12 @@ function buildPictureFrames(sceneObjects, getFloorElevation) {
     const FRAME_Y_POSITION = 180; // Çerçevenin MERKEZİNİN yerden yüksekliği (115cm alt + 80/2 = 155cm)
 
     // Odaya göre duvarları bul ve çerçeveleri yerleştir
-    for (const room of state.rooms) {
+    for (const room of rooms) {
         // Odanın kat yüksekliğini al
         const roomFloorElevation = getFloorElevation(room.floorId);
 
         // 1. Bu odaya ait duvarları ve "içeri" normalini bul
-        const roomWalls = getWallsForRoom(room, state.walls);
+        const roomWalls = getWallsForRoom(room, walls);
         
         // --- YENİ KURAL: Özel duvar tipine sahip mahallere EKLEME ---
         let hasSpecialWall = false;
