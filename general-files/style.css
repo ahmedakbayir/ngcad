@@ -94,8 +94,8 @@ canvas {
 
 #ui {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 0;
+    left: 0;
     z-index: 10;
     display: flex;
     flex-direction: row; /* Yatay düzen */
@@ -103,7 +103,8 @@ canvas {
     gap: 8px; /* Butonlar arası boşluk */
     background: rgba(42, 43, 44, 0.9);
     border: 1px solid #5f6368;
-    border-radius: 8px;
+    border-top: none; /* Tavanda border yok */
+    border-radius: 0 0 8px 8px; /* Sadece alt köşeler yuvarlanmış */
     padding: 6px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     backdrop-filter: blur(4px);
