@@ -130,6 +130,31 @@ export function onPointerDown(e) {
             });
         }
 
+        // FLOOR VALIDATION: Farklı kattaki objeleri seçmeyi engelle
+        if (clickedObject && state.currentFloor?.id) {
+            const currentFloorId = state.currentFloor.id;
+            const obj = clickedObject.object;
+
+            // Wall, door, window, vent, column, beam, stairs için floor kontrolü
+            if (['wall', 'door', 'window', 'vent', 'column', 'beam', 'stairs'].includes(clickedObject.type)) {
+                // Wall için direkt object'ten kontrol
+                if (clickedObject.type === 'wall' && obj.floorId && obj.floorId !== currentFloorId) {
+                    console.log('🚫 Cross-floor wall selection blocked:', obj.floorId, '!==', currentFloorId);
+                    clickedObject = null;
+                }
+                // Door/window/vent için wall üzerinden kontrol
+                else if (['door', 'window', 'vent'].includes(clickedObject.type) && clickedObject.wall?.floorId && clickedObject.wall.floorId !== currentFloorId) {
+                    console.log('🚫 Cross-floor', clickedObject.type, 'selection blocked');
+                    clickedObject = null;
+                }
+                // Column, beam, stairs için direkt object'ten kontrol
+                else if (['column', 'beam', 'stairs'].includes(clickedObject.type) && obj.floorId && obj.floorId !== currentFloorId) {
+                    console.log('🚫 Cross-floor', clickedObject.type, 'selection blocked');
+                    clickedObject = null;
+                }
+            }
+        }
+
         // Tıklanan nesne varsa seçili yap ve sürüklemeyi başlat
         if (clickedObject) {
             if (clickedObject.type === 'room') {
