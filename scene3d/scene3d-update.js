@@ -73,12 +73,28 @@ export function update3DScene() {
     const rooms = (state.rooms || []).filter(r => shouldShowFloor(r.floorId));
     const stairs = (state.stairs || []).filter(s => shouldShowFloor(s.floorId));
 
+    // Kat yüksekliklerini Map'te sakla (floorId -> elevation in meters)
+    const floorElevations = new Map();
+    (state.floors || []).forEach(floor => {
+        if (!floor.isPlaceholder) {
+            // bottomElevation cm cinsinden, metreye çeviriyoruz
+            floorElevations.set(floor.id, (floor.bottomElevation || 0) / 100);
+        }
+    });
+
+    // Bir elementin kat yüksekliğini döndüren helper fonksiyon
+    const getFloorElevation = (floorId) => {
+        if (!floorId) return 0;
+        return floorElevations.get(floorId) || 0;
+    };
+
     // --- Duvarları, Kapıları, Pencereleri ve Menfezleri Oluştur ---
     walls.forEach(w => {
         if (!w.p1 || !w.p2) return;
         const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y); if (wallLen < 1) return;
         const wallThickness = w.thickness || state.wallThickness;
         const wallType = w.wallType || 'normal';
+        const floorElevation = getFloorElevation(w.floorId);
 
         if (w.isArc && w.arcControl1 && w.arcControl2) {
             const arcPoints = getArcWallPoints(w, 30);
@@ -86,7 +102,10 @@ export function update3DScene() {
                 const p1 = arcPoints[i];
                 const p2 = arcPoints[i + 1];
                 const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, false, false);
-                if (segMesh) sceneObjects.add(segMesh);
+                if (segMesh) {
+                    segMesh.position.z = floorElevation;
+                    sceneObjects.add(segMesh);
+                }
             }
             return; // Arc duvarlarda kapı/pencere desteği şimdilik yok
         }
@@ -106,36 +125,54 @@ export function update3DScene() {
                 const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
                 const p2={x:w.p1.x+dx*itemStart, y:w.p1.y+dy*itemStart};
                 const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, false);
-                if(segMesh) sceneObjects.add(segMesh);
+                if(segMesh) {
+                    segMesh.position.z = floorElevation;
+                    sceneObjects.add(segMesh);
+                }
             }
 
             if (itemData.type === 'door') {
                 const doorGroup = createDoorMesh(itemData.item);
-                if(doorGroup) sceneObjects.add(doorGroup);
+                if(doorGroup) {
+                    doorGroup.position.z = floorElevation;
+                    sceneObjects.add(doorGroup);
+                }
                 if (wallType === 'normal' || wallType === 'half') {
                     const lintelMesh = createLintelMesh(itemData.item, wallThickness, wallMaterial);
-                    if(lintelMesh) sceneObjects.add(lintelMesh);
+                    if(lintelMesh) {
+                        lintelMesh.position.z = floorElevation;
+                        sceneObjects.add(lintelMesh);
+                    }
                 }
             }
             else if (itemData.type === 'window') {
                 const windowGroup = createComplexWindow(w, itemData.item, wallThickness);
-                if(windowGroup) sceneObjects.add(windowGroup);
+                if(windowGroup) {
+                    windowGroup.position.z = floorElevation;
+                    sceneObjects.add(windowGroup);
+                }
                 const isBathroom = itemData.item.roomName === 'BANYO';
                 const bottomHeight = isBathroom ? BATHROOM_WINDOW_BOTTOM_HEIGHT : WINDOW_BOTTOM_HEIGHT;
                 const topHeight = isBathroom ? BATHROOM_WINDOW_TOP_HEIGHT : WINDOW_TOP_HEIGHT;
                 if (wallType === 'normal' || wallType === 'half') {
                     const lintelHeight = WALL_HEIGHT - topHeight;
                     const lintelMesh = createWallPieceMesh(w, itemData.item, topHeight, lintelHeight, wallThickness, wallMaterial);
-                    if(lintelMesh) sceneObjects.add(lintelMesh);
+                    if(lintelMesh) {
+                        lintelMesh.position.z = floorElevation;
+                        sceneObjects.add(lintelMesh);
+                    }
                     const sillHeight = bottomHeight;
                     const sillMesh = createWallPieceMesh(w, itemData.item, 0, sillHeight, wallThickness, wallMaterial);
-                    if(sillMesh) sceneObjects.add(sillMesh);
+                    if(sillMesh) {
+                        sillMesh.position.z = floorElevation;
+                        sceneObjects.add(sillMesh);
+                    }
                 }
             }
-            
+
             if (itemData.type === 'door' || itemData.type === 'window') {
                  lastPos = itemData.pos + itemData.width / 2;
-                 lastPosIsNode = false; 
+                 lastPosIsNode = false;
             }
         });
 
@@ -143,26 +180,51 @@ export function update3DScene() {
             const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
             const p2={x:w.p1.x+dx*wallLen, y:w.p1.y+dy*wallLen};
             const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, true);
-            if(segMesh) sceneObjects.add(segMesh);
+            if(segMesh) {
+                segMesh.position.z = floorElevation;
+                sceneObjects.add(segMesh);
+            }
         }
-        
+
         (w.vents || []).forEach(v => {
             const ventMeshGroup = createVentMesh(w, v);
-            if (ventMeshGroup) sceneObjects.add(ventMeshGroup);
+            if (ventMeshGroup) {
+                ventMeshGroup.position.z = floorElevation;
+                sceneObjects.add(ventMeshGroup);
+            }
         });
     });
 
     // --- Kolonları Ekle ---
-    if (columns) { columns.forEach(column => { const m = createColumnMesh(column, columnMaterial); if (m) sceneObjects.add(m); }); }
+    if (columns) {
+        columns.forEach(column => {
+            const m = createColumnMesh(column, columnMaterial);
+            if (m) {
+                m.position.z = getFloorElevation(column.floorId);
+                sceneObjects.add(m);
+            }
+        });
+    }
 
     // --- Kirişleri Ekle ---
-    if (beams) { beams.forEach(beam => { const m = createBeamMesh(beam, beamMaterial); if (m) sceneObjects.add(m); }); }
+    if (beams) {
+        beams.forEach(beam => {
+            const m = createBeamMesh(beam, beamMaterial);
+            if (m) {
+                m.position.z = getFloorElevation(beam.floorId);
+                sceneObjects.add(m);
+            }
+        });
+    }
 
     // --- Merdivenleri Ekle ---
     if (stairs) {
         stairs.forEach(stair => {
             const m = createStairMesh(stair);
-            if (m) sceneObjects.add(m);
+            if (m) {
+                m.position.z = getFloorElevation(stair.floorId);
+                sceneObjects.add(m);
+            }
         });
     }
 
@@ -181,7 +243,8 @@ export function update3DScene() {
                         const geometry = new THREE.ShapeGeometry(roomShape);
                         const floorMesh = new THREE.Mesh(geometry, floorMaterial);
                         floorMesh.rotation.x = -Math.PI / 2;
-                        floorMesh.position.set(centerX, 0.1, centerZ);
+                        const roomFloorElevation = getFloorElevation(room.floorId);
+                        floorMesh.position.set(centerX, 0.1 + roomFloorElevation, centerZ);
                         sceneObjects.add(floorMesh);
                     } catch (error) {
                         console.error("Zemin oluşturulurken hata:", error, room);
@@ -193,7 +256,7 @@ export function update3DScene() {
 
     // --- YENİ: Resim Çerçevelerini Ekle ---
     try {
-        buildPictureFrames(sceneObjects);
+        buildPictureFrames(sceneObjects, getFloorElevation);
     } catch (error) {
         console.error("Resim çerçeveleri oluşturulurken bir hata oluştu:", error);
     }
@@ -391,7 +454,7 @@ function createPictureFrameMesh(wall, posOnWall, width, height, picMaterial, bor
  */
 let picFrameCacheIndex = 0; // Rastgele resimler için global index (state dışında tutulabilir)
 
-function buildPictureFrames(sceneObjects) {
+function buildPictureFrames(sceneObjects, getFloorElevation) {
     // Cache'den resim URL'lerini al
     const imageUrls = state.pictureFrameCache;
     if (!imageUrls || imageUrls.length === 0) return; // Resim yoksa çık
@@ -410,6 +473,9 @@ function buildPictureFrames(sceneObjects) {
 
     // Odaya göre duvarları bul ve çerçeveleri yerleştir
     for (const room of state.rooms) {
+        // Odanın kat yüksekliğini al
+        const roomFloorElevation = getFloorElevation(room.floorId);
+
         // 1. Bu odaya ait duvarları ve "içeri" normalini bul
         const roomWalls = getWallsForRoom(room, state.walls);
         
@@ -497,6 +563,7 @@ function buildPictureFrames(sceneObjects) {
             );
 
             if (frameMesh) {
+                frameMesh.position.z = roomFloorElevation;
                 sceneObjects.add(frameMesh);
                 // --- DÜZELTME: Duvarı kullanıldı olarak işaretle ---
                 usedWalls.add(wall);
