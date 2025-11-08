@@ -92,6 +92,42 @@ export function onPointerDownGuide(selectedObject, pos, snappedPos, e) {
     const guide = selectedObject.object;
     const handle = selectedObject.handle;
 
+    // CTRL basılıysa rehberi kopyala
+    if (e.ctrlKey) {
+        let copiedGuide = null;
+
+        // Rehber türüne göre kopyala
+        if (guide.subType === 'point') {
+            copiedGuide = { type: 'guide', subType: 'point', x: guide.x, y: guide.y };
+        } else if (guide.subType === 'horizontal') {
+            copiedGuide = { type: 'guide', subType: 'horizontal', y: guide.y };
+        } else if (guide.subType === 'vertical') {
+            copiedGuide = { type: 'guide', subType: 'vertical', x: guide.x };
+        } else if (guide.subType === 'angular' || guide.subType === 'free') {
+            copiedGuide = {
+                type: 'guide',
+                subType: guide.subType,
+                p1: { x: guide.p1.x, y: guide.p1.y },
+                p2: { x: guide.p2.x, y: guide.p2.y }
+            };
+        }
+
+        // Kopyalanan rehberi state'e ekle
+        if (copiedGuide) {
+            if (!state.guides) state.guides = [];
+            state.guides.push(copiedGuide);
+
+            // Kopyalanan rehberi seç
+            setState({
+                selectedObject: { type: 'guide', object: copiedGuide, handle: handle }
+            });
+
+            // Devam eden sürükleme için orijinal yerine kopyayı kullan
+            guide = copiedGuide;
+            selectedObject.object = copiedGuide;
+        }
+    }
+
     // Sürükleme öncesi state'i kaydet (pointer-up.js'de saveState() çağrılacak)
     // Önemli: preDragNodeStates, key olarak nesne referansı bekler
     if (handle === 'p1') {

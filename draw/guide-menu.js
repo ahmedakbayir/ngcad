@@ -58,6 +58,16 @@ export function initGuideContextMenu() {
         }
         hideGuideContextMenu();
     });
+
+    document.getElementById('guide-btn-clear-all').addEventListener('click', () => {
+        if (state.guides && state.guides.length > 0) {
+            if (confirm(`${state.guides.length} adet referans çizgisi silinecek. Emin misiniz?`)) {
+                state.guides = [];
+                saveState();
+            }
+        }
+        hideGuideContextMenu();
+    });
 }
 
 export function showGuideContextMenu(screenX, screenY, worldPos) {

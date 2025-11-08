@@ -271,12 +271,21 @@
     </div>
 </div>
 <div id="guide-context-menu">
-    <div class="context-menu-title">Referans Ekle</div>
-    <button id="guide-btn-point" class="context-menu-btn">Nokta</button>
-    <button id="guide-btn-horizontal" class="context-menu-btn">Yatay</button>
-    <button id="guide-btn-vertical" class="context-menu-btn">Düşey</button>
-    <button id="guide-btn-angular" class="context-menu-btn">Açısal</button>
-    <button id="guide-btn-free" class="context-menu-btn">Serbest</button>
+    <div class="context-menu-title">Sağ Tık Menüsü</div>
+    <div class="context-menu-item-with-submenu">
+        <button class="context-menu-btn submenu-trigger">
+            Referans Ekle ▶
+        </button>
+        <div class="context-submenu">
+            <button id="guide-btn-point" class="context-menu-btn">Nokta</button>
+            <button id="guide-btn-horizontal" class="context-menu-btn">Yatay</button>
+            <button id="guide-btn-vertical" class="context-menu-btn">Düşey</button>
+            <button id="guide-btn-angular" class="context-menu-btn">Açısal</button>
+            <button id="guide-btn-free" class="context-menu-btn">Serbest</button>
+            <div class="context-menu-divider"></div>
+            <button id="guide-btn-clear-all" class="context-menu-btn context-menu-danger">Referansları Temizle</button>
+        </div>
+    </div>
 </div>
 <canvas id="c2d"></canvas>
 <input type="text" id="length-input" />

@@ -557,6 +557,48 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
     color: #8ab4f8;
 }
 
+.context-menu-item-with-submenu {
+    position: relative;
+}
+
+.submenu-trigger {
+    position: relative;
+}
+
+.context-submenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background-color: #2a2b2c;
+    border: 1px solid #5f6368;
+    border-radius: 6px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    padding: 5px;
+    min-width: 180px;
+    margin-left: 2px;
+    z-index: 201;
+}
+
+.context-menu-item-with-submenu:hover .context-submenu {
+    display: block;
+}
+
+.context-menu-divider {
+    height: 1px;
+    background: #3a3b3c;
+    margin: 4px 0;
+}
+
+.context-menu-danger {
+    color: #f28b82 !important;
+}
+
+.context-menu-danger:hover {
+    background: #5f2120 !important;
+    color: #ff6b6b !important;
+}
+
 /* 3D Overlay: Kamera Koordinatları */
 #camera-coords {
     background: rgba(30, 31, 32, 0.9);

@@ -381,6 +381,82 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         }
     }
 
+    // Rehber (Guide) Snap Noktaları
+    const guides = state.guides || [];
+    if (guides.length > 0 && state.selectedObject?.type !== 'guide') {
+        for (const guide of guides) {
+            try {
+                if (guide.subType === 'point') {
+                    // Nokta rehberi - doğrudan nokta
+                    const screenPoint = worldToScreen(guide.x, guide.y);
+                    const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
+                    if (distance < SNAP_RADIUS_PIXELS) {
+                        candidates.push({ point: { x: guide.x, y: guide.y }, distance: distance, type: 'GUIDE_POINT' });
+                    }
+                } else if (guide.subType === 'horizontal') {
+                    // Yatay rehber - Y sabit, X fare konumunda
+                    const guidePoint = { x: wm.x, y: guide.y };
+                    const screenPoint = worldToScreen(guidePoint.x, guidePoint.y);
+                    const distance = Math.abs(screenMouse.y - screenPoint.y);
+                    if (distance < SNAP_RADIUS_PIXELS) {
+                        candidates.push({ point: guidePoint, distance: distance, type: 'GUIDE_HORIZONTAL' });
+                    }
+                } else if (guide.subType === 'vertical') {
+                    // Dikey rehber - X sabit, Y fare konumunda
+                    const guidePoint = { x: guide.x, y: wm.y };
+                    const screenPoint = worldToScreen(guidePoint.x, guidePoint.y);
+                    const distance = Math.abs(screenMouse.x - screenPoint.x);
+                    if (distance < SNAP_RADIUS_PIXELS) {
+                        candidates.push({ point: guidePoint, distance: distance, type: 'GUIDE_VERTICAL' });
+                    }
+                } else if (guide.subType === 'angular' || guide.subType === 'free') {
+                    // Açısal/Serbest rehber - Uç noktalar
+                    if (guide.p1) {
+                        const screenPoint = worldToScreen(guide.p1.x, guide.p1.y);
+                        const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
+                        if (distance < SNAP_RADIUS_PIXELS) {
+                            candidates.push({ point: guide.p1, distance: distance, type: 'GUIDE_ENDPOINT' });
+                        }
+                    }
+                    if (guide.p2) {
+                        const screenPoint = worldToScreen(guide.p2.x, guide.p2.y);
+                        const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
+                        if (distance < SNAP_RADIUS_PIXELS) {
+                            candidates.push({ point: guide.p2, distance: distance, type: 'GUIDE_ENDPOINT' });
+                        }
+                    }
+
+                    // Çizgi üzerindeki en yakın nokta
+                    if (guide.p1 && guide.p2) {
+                        const dx = guide.p2.x - guide.p1.x;
+                        const dy = guide.p2.y - guide.p1.y;
+                        const lenSq = dx * dx + dy * dy;
+                        if (lenSq > 0.1) {
+                            let t = ((wm.x - guide.p1.x) * dx + (wm.y - guide.p1.y) * dy) / lenSq;
+
+                            // Serbest rehber için segmente sınırla, açısal için sonsuz çizgi
+                            if (guide.subType === 'free') {
+                                t = Math.max(0, Math.min(1, t));
+                            }
+
+                            const closest = {
+                                x: guide.p1.x + t * dx,
+                                y: guide.p1.y + t * dy
+                            };
+                            const screenPoint = worldToScreen(closest.x, closest.y);
+                            const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
+                            if (distance < SNAP_RADIUS_PIXELS) {
+                                candidates.push({ point: closest, distance: distance, type: 'GUIDE_LINE' });
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error("Error processing guide for snap:", error, guide);
+            }
+        }
+    }
+
     // Uzantı Çizgileri ve Kesişimler
     let bestVSnap = { x: null, dist: Infinity, origin: null };
     let bestHSnap = { y: null, dist: Infinity, origin: null };
