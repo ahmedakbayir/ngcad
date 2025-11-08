@@ -254,19 +254,6 @@ export function renderMiniPanel() {
     updateScrollButtons();
 }
 
-/**
- * Kat adını kısaltır (K3, K2, K1, Z, B1, B2)
- */
-function getShortFloorName(fullName) {
-    if (fullName === 'ZEMİN') return 'Z';
-    if (fullName.includes('.KAT')) {
-        return 'K' + fullName.split('.')[0];
-    }
-    if (fullName.includes('.BODRUM')) {
-        return 'B' + fullName.split('.')[0];
-    }
-    return fullName.substring(0, 2);
-}
 
 /**
  * Detaylı kat panelini oluşturur
