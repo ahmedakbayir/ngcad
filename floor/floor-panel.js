@@ -277,29 +277,30 @@ function adjustFloorPanelPosition() {
     if (!uiMenu || !miniPanel) return;
 
     const uiRect = uiMenu.getBoundingClientRect();
-    const panelRect = miniPanel.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
 
     const minGap = 16; // Minimum boşluk
     const uiRight = uiRect.right; // Sol menünün sağ kenarı
-    const panelLeft = panelRect.left; // Kat panelinin sol kenarı
 
-    const currentGap = panelLeft - uiRight;
+    // Önce paneli merkeze al
+    miniPanel.style.left = '50%';
+    miniPanel.style.transform = 'translateX(-50%)';
 
-    if (currentGap < minGap) {
-        // Çakışma var, kat panelini sağa kaydır
-        const neededShift = minGap - currentGap;
-        const currentLeft = parseFloat(miniPanel.style.left) || 50; // %50
-        const panelWidth = panelRect.width;
-        const viewportWidth = window.innerWidth;
+    // Panelin güncel pozisyonunu kontrol et
+    const panelRect = miniPanel.getBoundingClientRect();
+    const panelLeft = panelRect.left;
+    const panelWidth = panelRect.width;
 
-        // Yeni left değerini hesapla (px cinsinden)
-        const newLeftPx = (viewportWidth / 2) + neededShift;
-        const newLeftPercent = (newLeftPx / viewportWidth) * 100;
+    // Panelin sol kenarının olması gereken minimum pozisyon
+    const minPanelLeft = uiRight + minGap;
+
+    if (panelLeft < minPanelLeft) {
+        // Çakışma var, paneli sağa kaydır
+        // Panelin merkezi sol kenardan panel_width/2 kadar sağda olmalı
+        const newCenterPx = minPanelLeft + (panelWidth / 2);
+        const newLeftPercent = (newCenterPx / viewportWidth) * 100;
 
         miniPanel.style.left = `${newLeftPercent}%`;
-    } else {
-        // Çakışma yok, merkeze döndür
-        miniPanel.style.left = '50%';
     }
 }
 

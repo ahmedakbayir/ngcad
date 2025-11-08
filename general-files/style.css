@@ -127,20 +127,20 @@ canvas {
 /* YENİ KURAL: UI içindeki butonları sadece ikon göster */
 #ui .btn {
     width: auto; /* Otomatik genişlik */
-    min-width: 36px; /* Minimum genişlik */
-    height: 36px; /* Sabit yükseklik */
+    min-width: 28px; /* Minimum genişlik - kat çubuğu ile uyumlu */
+    height: 28px; /* Sabit yükseklik - kat çubuğu ile uyumlu */
     box-sizing: border-box;
     justify-content: center; /* İkonu ortala */
     align-items: center; /* İkonu ortala */
-    padding: 8px; /* Eşit padding */
+    padding: 6px; /* Eşit padding */
     font-size: 0; /* Metni gizle */
     gap: 0; /* Gap gerekmez */
 }
 
 /* UI içindeki buton iconları */
 #ui .btn svg {
-    width: 20px; /* Biraz daha büyük */
-    height: 20px;
+    width: 16px; /* Kat çubuğu ile uyumlu boyut */
+    height: 16px;
 }
 
 
