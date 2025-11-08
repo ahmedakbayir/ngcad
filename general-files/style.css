@@ -545,11 +545,30 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
     margin-right: 4px;
 }
 
-/* FPS Kamera butonu aktif olduğunda özel stil */
-#bFirstPerson.active {
+/* FPS Kamera butonu */
+.fps-btn {
+    padding: 5px 10px;
+    background: rgba(60, 64, 67, 0.8);
+    border: 1px solid #5f6368;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #e8eaed;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.fps-btn:hover {
+    background: rgba(80, 84, 87, 1);
+    border-color: #87CEEB;
+}
+
+.fps-btn.active {
     background: rgba(100, 149, 237, 0.3);
     border-color: #87CEEB;
     box-shadow: 0 0 8px rgba(135, 206, 235, 0.4);
+    color: #a8dadc;
 }
 
 /* 3D Overlay: Ekran Bölme Oranı Butonları - Daha Compact */
