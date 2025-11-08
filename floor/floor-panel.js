@@ -1373,6 +1373,10 @@ function bulkDeleteFloors() {
     if (!confirmed) return;
 
     const newFloors = floors.filter(f => !selectedFloors.has(f.id));
+
+    // Kalan katları yeniden numaralandır
+    renumberFloors(newFloors);
+
     setState({ floors: newFloors });
 
     // Aktif kat silinmişse, ilk görünür katı aktif yap
