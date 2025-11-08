@@ -232,7 +232,7 @@ export function renderMiniPanel() {
                         font-size: 11px;
                         font-weight: bold;
                         text-align: center;
-                        min-width: 36px;
+                        min-width: 40px;
                         cursor: pointer;
                         transition: all 0.2s;">
                 ${shortName}${dotHtml}
@@ -252,12 +252,6 @@ export function renderMiniPanel() {
                 setState({ currentFloor: floor });
                 renderMiniPanel();
             }
-        });
-
-        // Çift tıklama - detaylı panel aç
-        item.addEventListener('dblclick', (e) => {
-            e.stopPropagation();
-            showDetailPanel();
         });
 
         // Hover efekti
