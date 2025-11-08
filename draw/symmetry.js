@@ -18,26 +18,43 @@ import { processWalls } from '../wall/wall-processor.js';
  */
 export function calculateCopyPreview(axisP1, axisP2) {
     if (!axisP1 || !axisP2) {
-        setState({ symmetryPreviewElements: { 
-            nodes: [], walls: [], doors: [], windows: [], vents: [], 
-            columns: [], beams: [], stairs: [], rooms: [] 
+        setState({ symmetryPreviewElements: {
+            nodes: [], walls: [], doors: [], windows: [], vents: [],
+            columns: [], beams: [], stairs: [], rooms: []
         }});
         return;
     }
 
+    // FLOOR ISOLATION: Sadece aktif kattaki elemanları kopyala
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+
+    // Aktif kattaki duvarlardan node'ları topla
+    const nodesSet = new Set();
+    walls.forEach(w => {
+        if (w.p1) nodesSet.add(w.p1);
+        if (w.p2) nodesSet.add(w.p2);
+    });
+    const nodes = Array.from(nodesSet);
+
     const preview = {
-        nodes: [], walls: [], doors: [], windows: [], vents: [], 
+        nodes: [], walls: [], doors: [], windows: [], vents: [],
         columns: [], beams: [], stairs: [], rooms: []
     };
-    
+
     // Çeviri vektörü
     const translationX = axisP2.x - axisP1.x;
     const translationY = axisP2.y - axisP1.y;
-    
+
     const nodeMap = new Map();
 
     // 1. Nodeları kopyala
-    state.nodes.forEach(node => {
+    nodes.forEach(node => {
         const copied = {
             x: node.x + translationX,
             y: node.y + translationY
@@ -47,7 +64,7 @@ export function calculateCopyPreview(axisP1, axisP2) {
     });
 
     // 2. Duvarları kopyala
-    state.walls.forEach(wall => {
+    walls.forEach(wall => {
         const copiedP1 = nodeMap.get(wall.p1);
         const copiedP2 = nodeMap.get(wall.p2);
         if (copiedP1 && copiedP2) {
@@ -76,7 +93,7 @@ export function calculateCopyPreview(axisP1, axisP2) {
     });
 
     // 3. Kapıları kopyala
-    state.doors.forEach(door => {
+    doors.forEach(door => {
         const wall = door.wall;
         const copiedP1 = nodeMap.get(wall.p1);
         const copiedP2 = nodeMap.get(wall.p2);
@@ -92,7 +109,7 @@ export function calculateCopyPreview(axisP1, axisP2) {
     });
 
     // 4. Pencereleri kopyala
-    state.walls.forEach(wall => {
+    walls.forEach(wall => {
         const copiedP1 = nodeMap.get(wall.p1);
         const copiedP2 = nodeMap.get(wall.p2);
         if (copiedP1 && copiedP2) {
@@ -120,7 +137,7 @@ export function calculateCopyPreview(axisP1, axisP2) {
     });
 
     // 5. Kolonları kopyala
-    state.columns.forEach(col => {
+    columns.forEach(col => {
         const copiedCenter = {
             x: col.center.x + translationX,
             y: col.center.y + translationY
@@ -133,7 +150,7 @@ export function calculateCopyPreview(axisP1, axisP2) {
     });
 
     // 6. Kirişleri kopyala
-    state.beams.forEach(beam => {
+    beams.forEach(beam => {
         const copiedCenter = {
             x: beam.center.x + translationX,
             y: beam.center.y + translationY
@@ -146,7 +163,7 @@ export function calculateCopyPreview(axisP1, axisP2) {
     });
 
     // 7. Merdivenleri kopyala
-    state.stairs.forEach(stair => {
+    stairs.forEach(stair => {
         const copiedCenter = {
             x: stair.center.x + translationX,
             y: stair.center.y + translationY
@@ -159,7 +176,7 @@ export function calculateCopyPreview(axisP1, axisP2) {
     });
 
     // 8. Odaları kopyala
-    state.rooms.forEach(room => {
+    rooms.forEach(room => {
         if (room.polygon?.geometry?.coordinates) {
             const coords = room.polygon.geometry.coordinates[0];
             const copiedCoords = coords.map(p => [p[0] + translationX, p[1] + translationY]);
@@ -207,13 +224,30 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
         return;
     }
 
+    // FLOOR ISOLATION: Sadece aktif kattaki elemanları yansıt
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+
+    // Aktif kattaki duvarlardan node'ları topla
+    const nodesSet = new Set();
+    walls.forEach(w => {
+        if (w.p1) nodesSet.add(w.p1);
+        if (w.p2) nodesSet.add(w.p2);
+    });
+    const nodes = Array.from(nodesSet);
+
     const preview = {
         nodes: [], walls: [], doors: [], windows: [], vents: [], columns: [], beams: [], stairs: [], rooms: []
     };
     const nodeMap = new Map(); // Orijinal node -> Yansıyan node koordinatı eşlemesi
 
     // 1. Nodeları yansıt (sadece koordinatları)
-    state.nodes.forEach(node => {
+    nodes.forEach(node => {
         const reflected = reflectPoint(node, axisP1, axisP2);
         if (reflected) {
             nodeMap.set(node, reflected);
@@ -224,7 +258,7 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
     const axisAngleRad = Math.atan2(axisP2.y - axisP1.y, axisP2.x - axisP1.x);
 
     // 2. Duvarları yansıt
-    state.walls.forEach(wall => {
+    walls.forEach(wall => {
         const reflectedP1 = nodeMap.get(wall.p1);
         const reflectedP2 = nodeMap.get(wall.p2);
         if (reflectedP1 && reflectedP2) {
@@ -251,7 +285,7 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
     });
 
     // 3. Kapıları yansıt
-    state.doors.forEach(door => {
+    doors.forEach(door => {
         const wall = door.wall;
         const reflectedP1 = nodeMap.get(wall.p1);
         const reflectedP2 = nodeMap.get(wall.p2);
@@ -277,7 +311,7 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
     });
 
     // 4. Pencereleri ve Menfezleri yansıt
-    state.walls.forEach(wall => {
+    walls.forEach(wall => {
         const reflectedP1 = nodeMap.get(wall.p1);
         const reflectedP2 = nodeMap.get(wall.p2);
         if (reflectedP1 && reflectedP2) {
@@ -304,7 +338,7 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
     });
 
     // 5. Kolonları yansıt
-    state.columns.forEach(col => {
+    columns.forEach(col => {
         const reflectedCenter = reflectPoint(col.center, axisP1, axisP2);
         if (reflectedCenter) {
             const originalRotationRad = (col.rotation || 0) * Math.PI / 180;
@@ -316,7 +350,7 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
     });
 
     // 6. Kirişleri yansıt
-    state.beams.forEach(beam => {
+    beams.forEach(beam => {
         const reflectedCenter = reflectPoint(beam.center, axisP1, axisP2);
         if (reflectedCenter) {
             const originalRotationRad = (beam.rotation || 0) * Math.PI / 180;
@@ -328,7 +362,7 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
     });
 
     // 7. Merdivenleri yansıt
-    state.stairs.forEach(stair => {
+    stairs.forEach(stair => {
         const reflectedCenter = reflectPoint(stair.center, axisP1, axisP2);
         if (reflectedCenter) {
             const originalRotationRad = (stair.rotation || 0) * Math.PI / 180;
@@ -340,7 +374,7 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
     });
 
     // 8. Odaları yansıt
-    state.rooms.forEach(room => {
+    rooms.forEach(room => {
         if (room.polygon?.geometry?.coordinates) {
             const coords = room.polygon.geometry.coordinates[0];
             const reflectedCoords = coords.map(p => {

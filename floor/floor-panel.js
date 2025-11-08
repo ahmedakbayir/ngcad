@@ -201,8 +201,14 @@ export function renderMiniPanel() {
         // Kat kısa adı
         const shortName = getShortFloorName(floor.name);
 
-        // Katta çizim var mı kontrol et
-        const hasContent = state.walls?.length > 0 || state.doors?.length > 0;
+        // Bu katta çizim var mı kontrol et (floor-specific)
+        const floorWalls = (state.walls || []).filter(w => w.floorId === floor.id);
+        const floorDoors = (state.doors || []).filter(d => d.floorId === floor.id);
+        const floorColumns = (state.columns || []).filter(c => c.floorId === floor.id);
+        const floorBeams = (state.beams || []).filter(b => b.floorId === floor.id);
+        const floorStairs = (state.stairs || []).filter(s => s.floorId === floor.id);
+        const hasContent = floorWalls.length > 0 || floorDoors.length > 0 ||
+                          floorColumns.length > 0 || floorBeams.length > 0 || floorStairs.length > 0;
 
         // Durum renkler
         let bgColor, textColor, dotColor;
