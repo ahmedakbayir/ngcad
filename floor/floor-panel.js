@@ -71,11 +71,11 @@ export function createFloorPanel() {
                 <polyline points="12,3 20,8 4,8" stroke="#8ab4f8" fill="none"></polyline>
             </svg>
         </div>
-        <div id="floor-scroll-left" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 14px;">◀</div>
+        <div id="floor-scroll-left" style="display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px 6px; color: #8ab4f8; font-size: 16px; transition: all 0.2s; opacity: 0.3;">◀</div>
         <div id="floor-mini-list" style="flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; flex-direction: row; align-items: center; gap: 6px; max-width: 70vw; scrollbar-width: none;">
             <!-- Katlar buraya dinamik olarak eklenecek -->
         </div>
-        <div id="floor-scroll-right" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 14px;">▶</div>
+        <div id="floor-scroll-right" style="display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px 6px; color: #8ab4f8; font-size: 16px; transition: all 0.2s; opacity: 0.3;">▶</div>
     `;
 
     document.body.appendChild(miniPanel);
@@ -106,6 +106,13 @@ export function createFloorPanel() {
 
     // İlk render
     renderMiniPanel();
+
+    // Window resize'da pozisyon kontrolü
+    window.addEventListener('resize', () => {
+        if (miniPanel) {
+            adjustFloorPanelPosition();
+        }
+    });
 }
 
 /**
@@ -128,6 +135,13 @@ function setupScrollButtons() {
         updateScrollButtons();
     });
 
+    // Mouse wheel ile yatay kaydırma
+    floorList.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        floorList.scrollLeft += e.deltaY;
+        updateScrollButtons();
+    });
+
     floorList.addEventListener('scroll', updateScrollButtons);
 }
 
@@ -139,12 +153,18 @@ function updateScrollButtons() {
     const scrollRight = miniPanel.querySelector('#floor-scroll-right');
     const floorList = miniPanel.querySelector('#floor-mini-list');
 
-    // Sola kaydırma göster
-    scrollLeft.style.display = floorList.scrollLeft > 0 ? 'block' : 'none';
+    // Okları her zaman görünür yap, sadece opacity ile kontrol et
+    scrollLeft.style.display = 'flex';
+    scrollRight.style.display = 'flex';
 
-    // Sağa kaydırma göster
+    // Sola kaydırma - başta ise soluk
+    scrollLeft.style.opacity = floorList.scrollLeft > 0 ? '1' : '0.3';
+    scrollLeft.style.cursor = floorList.scrollLeft > 0 ? 'pointer' : 'default';
+
+    // Sağa kaydırma - sonda ise soluk
     const isAtRight = floorList.scrollWidth - floorList.scrollLeft <= floorList.clientWidth + 5;
-    scrollRight.style.display = isAtRight ? 'none' : 'block';
+    scrollRight.style.opacity = isAtRight ? '0.3' : '1';
+    scrollRight.style.cursor = isAtRight ? 'default' : 'pointer';
 }
 
 /**
@@ -252,6 +272,41 @@ export function renderMiniPanel() {
     });
 
     updateScrollButtons();
+    adjustFloorPanelPosition();
+}
+
+/**
+ * Kat panelinin pozisyonunu sol menüye göre ayarlar
+ */
+function adjustFloorPanelPosition() {
+    const uiMenu = document.getElementById('ui');
+    if (!uiMenu || !miniPanel) return;
+
+    const uiRect = uiMenu.getBoundingClientRect();
+    const panelRect = miniPanel.getBoundingClientRect();
+
+    const minGap = 16; // Minimum boşluk
+    const uiRight = uiRect.right; // Sol menünün sağ kenarı
+    const panelLeft = panelRect.left; // Kat panelinin sol kenarı
+
+    const currentGap = panelLeft - uiRight;
+
+    if (currentGap < minGap) {
+        // Çakışma var, kat panelini sağa kaydır
+        const neededShift = minGap - currentGap;
+        const currentLeft = parseFloat(miniPanel.style.left) || 50; // %50
+        const panelWidth = panelRect.width;
+        const viewportWidth = window.innerWidth;
+
+        // Yeni left değerini hesapla (px cinsinden)
+        const newLeftPx = (viewportWidth / 2) + neededShift;
+        const newLeftPercent = (newLeftPx / viewportWidth) * 100;
+
+        miniPanel.style.left = `${newLeftPercent}%`;
+    } else {
+        // Çakışma yok, merkeze döndür
+        miniPanel.style.left = '50%';
+    }
 }
 
 /**
