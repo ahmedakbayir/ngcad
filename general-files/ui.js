@@ -164,12 +164,20 @@ export function toggle3DView() {
         const splitButtons = document.getElementById('split-ratio-buttons');
         if (splitButtons) splitButtons.style.display = 'flex';
 
+        // FPS kamera kontrollerini göster
+        const fpsControls = document.getElementById('fps-camera-controls');
+        if (fpsControls) fpsControls.style.display = 'flex';
+
         // Varsayılan split ratio'yu ayarla (25%)
         setSplitRatio(25);
     } else {
         // Split ratio butonlarını gizle
         const splitButtons = document.getElementById('split-ratio-buttons');
         if (splitButtons) splitButtons.style.display = 'none';
+
+        // FPS kamera kontrollerini gizle
+        const fpsControls = document.getElementById('fps-camera-controls');
+        if (fpsControls) fpsControls.style.display = 'none';
     }
 
     setTimeout(() => {
@@ -808,18 +816,14 @@ export function setupUIListeners() {
     if (dom.bFloorView) {
         dom.bFloorView.addEventListener('click', () => {
             const currentMode = dom.bFloorView.getAttribute('data-view-mode');
-            const floorIcon = document.getElementById('floor-icon');
-            const buildingIcon = document.getElementById('building-icon');
-            const label = document.getElementById('bFloorViewLabel');
 
             if (currentMode === 'floor') {
                 // Binayı göster moduna geç
                 dom.bFloorView.setAttribute('data-view-mode', 'building');
-                if (floorIcon) floorIcon.style.display = 'none';
-                if (buildingIcon) buildingIcon.style.display = 'block';
-                if (label) label.textContent = 'Binayı Göster';
+                dom.bFloorView.textContent = 'BİNA';
+                dom.bFloorView.title = 'Binayı Göster (Tüm Katlar)';
 
-                // Tüm katları görünür yap (TODO: 3D sahneyi güncelle)
+                // Tüm katları görünür yap
                 const floors = state.floors || [];
                 floors.forEach(f => {
                     if (!f.isPlaceholder) {
@@ -830,9 +834,8 @@ export function setupUIListeners() {
             } else {
                 // Katı göster moduna geç
                 dom.bFloorView.setAttribute('data-view-mode', 'floor');
-                if (floorIcon) floorIcon.style.display = 'block';
-                if (buildingIcon) buildingIcon.style.display = 'none';
-                if (label) label.textContent = 'Katı Göster';
+                dom.bFloorView.textContent = 'KAT';
+                dom.bFloorView.title = 'Katı Göster (Sadece Aktif Kat)';
 
                 // Sadece aktif katı görünür yap
                 const floors = state.floors || [];

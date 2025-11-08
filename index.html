@@ -292,29 +292,14 @@
 <div id="splitter"></div>
 <div id="p3d" class="panel">
     <canvas id="c3d"></canvas>
-    <!-- 3D Overlay: Ekran Bölme Oranı Butonları ve FPS Kamera (Sağ Üst) -->
+    <!-- 3D Overlay: Ekran Bölme Oranı Butonları (Sağ Üst) -->
     <div id="split-ratio-buttons" style="display: none;">
-        <!-- Koordinatlar (en solda) -->
-        <span id="camera-coords" style="display: none;">x: 0, y: 0, z: 0</span>
-        <!-- Katı Göster / Binayı Göster toggle butonu -->
-        <button id="bFloorView" class="fps-btn" title="Katı Göster / Binayı Göster" data-view-mode="floor">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
-                <!-- Kat görünümü ikonu (tek kat) -->
-                <rect id="floor-icon" x="4" y="10" width="16" height="8" stroke="currentColor" fill="none" stroke-width="1.5"></rect>
-                <line x1="4" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1"></line>
-                <!-- Bina görünümü ikonu (çok katlı) - başlangıçta gizli -->
-                <g id="building-icon" style="display: none;">
-                    <rect x="4" y="6" width="16" height="12" stroke="currentColor" fill="none" stroke-width="1.5"></rect>
-                    <line x1="4" y1="10" x2="20" y2="10" stroke="currentColor" stroke-width="1"></line>
-                    <line x1="4" y1="14" x2="20" y2="14" stroke="currentColor" stroke-width="1"></line>
-                </g>
-            </svg>
-            <span id="bFloorViewLabel">Katı Göster</span>
+        <!-- Katı Göster / Binayı Göster toggle butonu (dikdörtgen, sadece metin) -->
+        <button id="bFloorView" class="floor-view-btn" title="Katı Göster / Binayı Göster" data-view-mode="floor">
+            KAT
         </button>
-        <!-- FPS Kamera butonu -->
-        <button id="bFirstPerson" class="fps-btn" title="FPS Kamera">FPS Kamera</button>
         <!-- Ayırıcı -->
-        <div style="width: 1px; height: 24px; background: #5f6368; margin: 0 4px;"></div>
+        <div style="width: 1px; height: 24px; background: #5f6368; margin: 0 6px;"></div>
         <!-- Ekran bölme butonları -->
         <button id="split-100" class="split-btn" data-ratio="100" title="Tam Ekran 3D">
             <svg viewBox="0 0 24 24" width="24" height="24">
@@ -347,6 +332,11 @@
                 <line x1="16" y1="8" x2="8" y2="16" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
             </svg>
         </button>
+    </div>
+    <!-- FPS Kamera ve Koordinatlar (Sağ Alt) -->
+    <div id="fps-camera-controls" style="display: none;">
+        <span id="camera-coords" style="display: none;">x: 0, y: 0, z: 0</span>
+        <button id="bFirstPerson" class="fps-btn" title="FPS Kamera">FPS Kamera</button>
     </div>
 </div>
 </div>
