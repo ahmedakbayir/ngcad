@@ -18,6 +18,7 @@ export function saveState() {
             p2Index: state.nodes.indexOf(w.p2),
             thickness: w.thickness || state.wallThickness, // GÜNCELLENDİ
             wallType: w.wallType || 'normal',
+            floorId: w.floorId, // FLOOR ISOLATION: floorId kaydet
             // --- GÜNCELLENDİ: Deep copy eklendi ---
             windows: w.windows ? JSON.parse(JSON.stringify(w.windows)) : [],
             vents: w.vents ? JSON.parse(JSON.stringify(w.vents)) : [],
@@ -31,6 +32,7 @@ export function saveState() {
             pos: d.pos,
             width: d.width,
             type: d.type,
+            floorId: d.floorId, // FLOOR ISOLATION: floorId kaydet
             // --- YENİ: isWidthManuallySet kaydedilmeli ---
             isWidthManuallySet: d.isWidthManuallySet || false
         })),
@@ -39,6 +41,7 @@ export function saveState() {
             area: r.area,
             center: r.center, // center zaten array, JSON uyumlu
             name: r.name,
+            floorId: r.floorId, // FLOOR ISOLATION: floorId kaydet
             centerOffset: r.centerOffset // Bu da JSON uyumlu olmalı {x, y}
         })),
         columns: JSON.parse(JSON.stringify(state.columns)), // Kolonlar zaten deep copy yapılıyordu
@@ -58,7 +61,9 @@ export function saveState() {
             isLanding: s.isLanding,
             showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
         })))),
-        guides: JSON.parse(JSON.stringify(state.guides || [])) // <-- REFERANS ÇİZGİSİ EKLENDİ
+        guides: JSON.parse(JSON.stringify(state.guides || [])), // <-- REFERANS ÇİZGİSİ EKLENDİ
+        floors: JSON.parse(JSON.stringify(state.floors || [])), // FLOOR ISOLATION: floors kaydet
+        currentFloor: state.currentFloor ? { id: state.currentFloor.id } : null // FLOOR ISOLATION: currentFloor ID'sini kaydet
     };
 
     // History yönetimi (değişiklik yok)
@@ -90,6 +95,7 @@ export function restoreState(snapshot) {
         p2: restoredNodes[w.p2Index],
         thickness: w.thickness || state.wallThickness, // GÜNCELLENDİ
         wallType: w.wallType || 'normal',
+        floorId: w.floorId, // FLOOR ISOLATION: floorId geri yükle
         // --- GÜNCELLENDİ: Deep copy (burada zaten JSON'dan parse edildiği için [... ] yeterli) ---
         // Windows ve vents verisi snapshot içinde zaten stringify/parse edilmiş düz obje olmalı.
         // Tekrar parse etmeye gerek yok, sadece kopyalamak yeterli.
@@ -107,11 +113,18 @@ export function restoreState(snapshot) {
         pos: d.pos,
         width: d.width,
         type: d.type,
+        floorId: d.floorId, // FLOOR ISOLATION: floorId geri yükle
         // --- YENİ: isWidthManuallySet geri yüklenmeli ---
         isWidthManuallySet: d.isWidthManuallySet || false
     }));
 
-    // State'i güncelle (rooms ve columns için değişiklik yok)
+    // Floors'u geri yükle ve currentFloor'u bul
+    const restoredFloors = snapshot.floors || [];
+    const restoredCurrentFloor = snapshot.currentFloor
+        ? restoredFloors.find(f => f.id === snapshot.currentFloor.id)
+        : null;
+
+    // State'i güncelle
     setState({
         nodes: restoredNodes,
         walls: restoredWalls,
@@ -121,6 +134,7 @@ export function restoreState(snapshot) {
             area: r.area,
             center: r.center,
             name: r.name,
+            floorId: r.floorId, // FLOOR ISOLATION: floorId geri yükle
             centerOffset: r.centerOffset // centerOffset'ı da geri yükle
         })),
         columns: snapshot.columns || [], // Kolonları geri yükle (veya boş dizi ata)
@@ -140,7 +154,9 @@ export function restoreState(snapshot) {
             isLanding: s.isLanding,
             showRailing: s.showRailing || false // <-- DÜZELTME: Korkuluk bilgisi okundu
         })),
-        guides: snapshot.guides || [] // <-- REFERANS ÇİZGİSİ EKLENDİ
+        guides: snapshot.guides || [], // <-- REFERANS ÇİZGİSİ EKLENDİ
+        floors: restoredFloors, // FLOOR ISOLATION: floors geri yükle
+        currentFloor: restoredCurrentFloor // FLOOR ISOLATION: currentFloor geri yükle
     });
 }
 
