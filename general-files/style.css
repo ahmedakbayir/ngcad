@@ -691,19 +691,3 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
 .main.show-3d .btn-show-3d {
     display: none;
 }
-
-/* Kat paneli checkbox stilleri - kırık beyaz tonlar */
-#floor-detail-panel input[type="checkbox"] {
-    accent-color: #5f6368; /* Kırık gri-mavi ton */
-    cursor: pointer;
-    width: 14px;
-    height: 14px;
-}
-
-#floor-detail-panel input[type="checkbox"]:hover {
-    accent-color: #8ab4f8; /* Hover'da mavi ton */
-}
-
-#floor-detail-panel input[type="checkbox"]:checked {
-    accent-color: #6b7278; /* Seçili durumda biraz daha belirgin gri */
-}
