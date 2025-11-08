@@ -95,7 +95,13 @@ export function onPointerDownDraw(snappedPos) {
                  const didConnectToWallBody = !didSnapToExistingNode && isPointOnWallBody(endNode);
 
                  if (endNode !== state.startPoint && !wallExists(state.startPoint, endNode)) {
-                     state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.wallThickness, wallType: 'normal', floorId: state.currentFloor?.id });
+                     const newWall = { type: "wall", p1: state.startPoint, p2: endNode, thickness: state.wallThickness, wallType: 'normal', floorId: state.currentFloor?.id };
+                     console.log('🏗️ Yeni duvar oluşturuluyor:', {
+                         currentFloor: state.currentFloor?.name,
+                         floorId: newWall.floorId,
+                         wall: newWall
+                     });
+                     state.walls.push(newWall);
                      geometryChanged = true;
                  }
 
@@ -114,7 +120,12 @@ export function onPointerDownDraw(snappedPos) {
                          v4 = getOrCreateNode(v1.x, placementPos.y);
                    [{ p1: v1, p2: v2 }, { p1: v2, p2: v3 }, { p1: v3, p2: v4 }, { p1: v4, p2: v1 }].forEach(pw => {
                         if (!wallExists(pw.p1, pw.p2)) {
-                            state.walls.push({ type: "wall", ...pw, thickness: state.wallThickness, wallType: 'normal', floorId: state.currentFloor?.id });
+                            const newWall = { type: "wall", ...pw, thickness: state.wallThickness, wallType: 'normal', floorId: state.currentFloor?.id };
+                            console.log('🏗️ Yeni oda duvarı oluşturuluyor:', {
+                                currentFloor: state.currentFloor?.name,
+                                floorId: newWall.floorId
+                            });
+                            state.walls.push(newWall);
                         }
                    });
                    geometryChanged = true;
