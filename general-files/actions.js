@@ -74,19 +74,10 @@ export function getObjectAtPoint(pos) {
     const { zoom } = state;
     const currentFloorId = state.currentFloor?.id;
 
-    // STRICT FLOOR FILTERING: Eğer currentFloor varsa, SADECE o kattaki objeleri al
-    const walls = (state.walls || []).filter(w => {
-        if (currentFloorId) return w.floorId === currentFloorId;
-        return !w.floorId; // currentFloor yoksa, sadece floorId olmayan duvarları al
-    });
-    const doors = (state.doors || []).filter(d => {
-        if (currentFloorId) return d.floorId === currentFloorId;
-        return !d.floorId;
-    });
-    const rooms = (state.rooms || []).filter(r => {
-        if (currentFloorId) return r.floorId === currentFloorId;
-        return !r.floorId;
-    });
+    // Floor filtering: currentFloor varsa sadece o kattaki objeleri al
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
 
     const tolerance = 8 / zoom;
 

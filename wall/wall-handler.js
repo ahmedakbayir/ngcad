@@ -25,11 +25,7 @@ export function wallExists(p1, p2) {
  */
 export function getWallAtPoint(pos, tolerance) {
     const currentFloorId = state.currentFloor?.id;
-    // STRICT FLOOR FILTERING: Only check walls from current floor
-    const walls = (state.walls || []).filter(w => {
-        if (currentFloorId) return w.floorId === currentFloorId;
-        return !w.floorId;
-    });
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
 
     // Duvar ucu (node) kontrolü
     for (const wall of [...walls].reverse()) {
@@ -263,11 +259,7 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
     const currentFloorId = state.currentFloor?.id;
-    // STRICT FLOOR FILTERING: Only work with walls from current floor
-    const walls = (state.walls || []).filter(w => {
-        if (currentFloorId) return w.floorId === currentFloorId;
-        return !w.floorId;
-    });
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
     let neighborWallsToDimension = new Set(); // Komşu duvarları saklamak için Set
 
     if (state.selectedObject.handle !== "body") {
