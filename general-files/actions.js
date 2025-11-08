@@ -268,45 +268,7 @@ export function getObjectAtPoint(pos) {
  * @param {string} currentFloorId - Aktif kat ID'si
  * @returns {object | null} - Validated sonuç veya null
  */
-function validateFloorMatch(result, currentFloorId) {
-    if (!result || !currentFloorId) return result;
 
-    const obj = result.object;
-    if (!obj) return result;
-
-    // Camera ve guide objelerini atlayabiliriz (floor-agnostic)
-    if (result.type === 'camera' || result.type === 'guide') return result;
-
-    // Objenin floorId'si varsa ve aktif kat ile eşleşmiyorsa, REDDET
-    if (obj.floorId !== undefined && obj.floorId !== currentFloorId) {
-        console.warn('⚠️ FLOOR MISMATCH BLOCKED!', {
-            type: result.type,
-            objectFloor: obj.floorId,
-            currentFloor: currentFloorId
-        });
-        return null;
-    }
-
-    // Wall için extra kontrol (wall objesinin kendisi result.object'te)
-    if (result.type === 'wall' && obj.floorId !== currentFloorId) {
-        console.warn('⚠️ WALL FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
-        return null;
-    }
-
-    // Door için wall üzerinden kontrol
-    if (result.type === 'door' && result.wall && result.wall.floorId !== currentFloorId) {
-        console.warn('⚠️ DOOR WALL FLOOR MISMATCH BLOCKED!');
-        return null;
-    }
-
-    // Window için wall üzerinden kontrol
-    if (result.type === 'window' && result.wall && result.wall.floorId !== currentFloorId) {
-        console.warn('⚠️ WINDOW WALL FLOOR MISMATCH BLOCKED!');
-        return null;
-    }
-
-    return result;
-}
 
 /**
  * Bir duvarın sahip olabileceği minimum uzunluğu hesaplar.
