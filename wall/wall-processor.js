@@ -93,6 +93,10 @@ function splitWallsAtCrossings() {
             for (let j = i + 1; j < state.walls.length; j++) {
                 const w1 = state.walls[i], w2 = state.walls[j];
                 if (!w1 || !w2 || !w1.p1 || !w1.p2 || !w2.p1 || !w2.p2) continue;
+
+                // FLOOR ISOLATION: Sadece aynı kattaki duvarlar birbirini kesebilir
+                if (w1.floorId !== w2.floorId) continue;
+
                 const P = getLineIntersection(w1.p1, w1.p2, w2.p1, w2.p2);
                 if (P) {
                     const n = getOrCreateNode(P.x, P.y);
@@ -121,9 +125,16 @@ function splitWallsAtTjunctions() {
     while (changed) {
         changed = false;
         for (const node of state.nodes) {
+            // FLOOR ISOLATION: Bu node'un hangi kata ait olduğunu bul
+            const nodeFloorId = state.walls.find(w => w.p1 === node || w.p2 === node)?.floorId;
+
             for (let i = state.walls.length - 1; i >= 0; i--) {
                 const wall = state.walls[i];
                 if (wall.p1 === node || wall.p2 === node) continue;
+
+                // FLOOR ISOLATION: Sadece aynı kattaki node ve duvar etkileşebilir
+                if (wall.floorId !== nodeFloorId) continue;
+
                 if (distToSegmentSquared(node, wall.p1, wall.p2) < 0.1) {
                     const originalP1 = wall.p1, originalP2 = wall.p2;
                     const nodeDist = Math.hypot(node.x - originalP1.x, node.y - originalP1.y);
@@ -179,6 +190,10 @@ function mergeCollinearChains() {
         for (const [node, list] of incident.entries()) {
             if (list.length !== 2) continue;
             const a = list[0], b = list[1];
+
+            // FLOOR ISOLATION: Sadece aynı kattaki duvarları birleştir
+            if (a.wall.floorId !== b.wall.floorId) continue;
+
             if (areCollinear(a.other, node, b.other)) {
                 const ia = state.walls.indexOf(a.wall); if (ia >= 0) state.walls.splice(ia, 1);
                 const ib = state.walls.indexOf(b.wall); if (ib >= 0) state.walls.splice(ib, 1);
@@ -201,21 +216,22 @@ function straightenNearlyHorizontalOrVerticalWalls() {
         const dx = wall.p2.x - wall.p1.x;
         const dy = wall.p2.y - wall.p1.y;
         const length = Math.hypot(dx, dy);
-        
+
         if (length < 0.1) return;
-        
+
         let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
-        
+
         if (angle < 5) {
-            const p1Connections = state.walls.filter(w => w !== wall && (w.p1 === wall.p1 || w.p2 === wall.p1)).length;
-            const p2Connections = state.walls.filter(w => w !== wall && (w.p1 === wall.p2 || w.p2 === wall.p2)).length;
+            // FLOOR ISOLATION: Sadece aynı kattaki bağlantıları say
+            const p1Connections = state.walls.filter(w => w !== wall && w.floorId === wall.floorId && (w.p1 === wall.p1 || w.p2 === wall.p1)).length;
+            const p2Connections = state.walls.filter(w => w !== wall && w.floorId === wall.floorId && (w.p1 === wall.p2 || w.p2 === wall.p2)).length;
             
             if (p1Connections === 0 && p2Connections > 0) {
                 wall.p1.y = wall.p2.y;
             } else if (p2Connections === 0 && p1Connections > 0) {
                 wall.p2.y = wall.p1.y;
             } else if (p1Connections > 0 && p2Connections > 0) {
-                const p2ConnectedWalls = state.walls.filter(w => w !== wall && (w.p1 === wall.p2 || w.p2 === wall.p2));
+                const p2ConnectedWalls = state.walls.filter(w => w !== wall && w.floorId === wall.floorId && (w.p1 === wall.p2 || w.p2 === wall.p2));
                 let hasVerticalConnection = false;
                 
                 for (const connWall of p2ConnectedWalls) {
@@ -238,15 +254,16 @@ function straightenNearlyHorizontalOrVerticalWalls() {
             }
         }
         else if (angle > 85) {
-            const p1Connections = state.walls.filter(w => w !== wall && (w.p1 === wall.p1 || w.p2 === wall.p1)).length;
-            const p2Connections = state.walls.filter(w => w !== wall && (w.p1 === wall.p2 || w.p2 === wall.p2)).length;
+            // FLOOR ISOLATION: Sadece aynı kattaki bağlantıları say
+            const p1Connections = state.walls.filter(w => w !== wall && w.floorId === wall.floorId && (w.p1 === wall.p1 || w.p2 === wall.p1)).length;
+            const p2Connections = state.walls.filter(w => w !== wall && w.floorId === wall.floorId && (w.p1 === wall.p2 || w.p2 === wall.p2)).length;
             
             if (p1Connections === 0 && p2Connections > 0) {
                 wall.p1.x = wall.p2.x;
             } else if (p2Connections === 0 && p1Connections > 0) {
                 wall.p2.x = wall.p1.x;
             } else if (p1Connections > 0 && p2Connections > 0) {
-                const p2ConnectedWalls = state.walls.filter(w => w !== wall && (w.p1 === wall.p2 || w.p2 === wall.p2));
+                const p2ConnectedWalls = state.walls.filter(w => w !== wall && w.floorId === wall.floorId && (w.p1 === wall.p2 || w.p2 === wall.p2));
                 let hasHorizontalConnection = false;
                 
                 for (const connWall of p2ConnectedWalls) {
