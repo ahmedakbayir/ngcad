@@ -124,7 +124,18 @@ export function getLineIntersectionPoint(p1, p2, p3, p4) {
 
 
 export function findNodeAt(x, y) {
-    const { nodes, zoom } = state;
+    const { zoom } = state;
+    const currentFloorId = state.currentFloor?.id;
+
+    // Sadece aktif kattaki duvarlardan node'ları topla
+    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const nodesSet = new Set();
+    currentFloorWalls.forEach(w => {
+        if (w.p1) nodesSet.add(w.p1);
+        if (w.p2) nodesSet.add(w.p2);
+    });
+    const nodes = Array.from(nodesSet);
+
     const r = DRAG_HANDLE_RADIUS / zoom; // Ekransal yarıçapı dünya birimine çevir
     for (const n of nodes) {
         if (Math.hypot(n.x - x, n.y - y) < r) return n; // Mesafe yarıçaptan küçükse node bulundu
@@ -134,7 +145,18 @@ export function findNodeAt(x, y) {
 
 // Verilen koordinata yakın bir node varsa onu döndürür, yoksa yeni bir node oluşturur ve döndürür
 export function getOrCreateNode(x, y) {
-    const { nodes, zoom } = state;
+    const { zoom } = state;
+    const currentFloorId = state.currentFloor?.id;
+
+    // Sadece aktif kattaki duvarlardan node'ları topla
+    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const nodesSet = new Set();
+    currentFloorWalls.forEach(w => {
+        if (w.p1) nodesSet.add(w.p1);
+        if (w.p2) nodesSet.add(w.p2);
+    });
+    const nodes = Array.from(nodesSet);
+
     const SNAP_RADIUS = 6 / zoom; // Snap yarıçapı (dünya birimi)
     // Mevcut nodeları kontrol et
     for (const n of nodes) {
@@ -142,7 +164,7 @@ export function getOrCreateNode(x, y) {
     }
     // Yoksa yeni node oluştur
     const nn = { x, y };
-    nodes.push(nn); // Yeni node'u listeye ekle
+    state.nodes.push(nn); // Yeni node'u GLOBAL listeye ekle (geriye uyumluluk için)
     return nn; // Yeni node'u döndür
 }
 
@@ -162,11 +184,16 @@ export function calculatePlanarArea(coords) {
 
 // Duvarlardan kapalı alanları (odaları) tespit eder
 export function detectRooms() {
-    const { walls } = state;
-    const oldRooms = [...state.rooms]; // Önceki odaları (isim/merkez korumak için) kopyala
+    const currentFloorId = state.currentFloor?.id;
+    // Sadece aktif kattaki duvarları kullan
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const oldRooms = [...state.rooms].filter(r => !currentFloorId || r.floorId === currentFloorId); // Sadece aktif kattaki önceki odaları koru
+
     // Yeterli duvar yoksa oda oluşmaz
     if (walls.length < 3) {
-        setState({ rooms: [] });
+        // Sadece aktif kattaki odaları temizle, diğer katların odalarını koru
+        const otherFloorRooms = (state.rooms || []).filter(r => currentFloorId && r.floorId !== currentFloorId);
+        setState({ rooms: otherFloorRooms });
         return;
     }
 
@@ -180,7 +207,9 @@ export function detectRooms() {
     });
 
     if (validWalls.length < 3) {
-        setState({ rooms: [] }); // Geçerli duvar sayısı yetersizse
+        // Sadece aktif kattaki odaları temizle, diğer katların odalarını koru
+        const otherFloorRooms = (state.rooms || []).filter(r => currentFloorId && r.floorId !== currentFloorId);
+        setState({ rooms: otherFloorRooms });
         return;
     }
 
@@ -214,7 +243,9 @@ export function detectRooms() {
     });
 
     if (lines.length < 3) {
-        setState({ rooms: [] }); // Yeterli lineString yoksa
+        // Sadece aktif kattaki odaları temizle, diğer katların odalarını koru
+        const otherFloorRooms = (state.rooms || []).filter(r => currentFloorId && r.floorId !== currentFloorId);
+        setState({ rooms: otherFloorRooms });
         return;
     }
 
@@ -312,10 +343,14 @@ export function detectRooms() {
                 }
             });
         }
-        setState({ rooms: newRooms }); // Yeni oda listesini state'e ata
+        // Diğer katların odalarını koru, sadece aktif katın odalarını güncelle
+        const otherFloorRooms = (state.rooms || []).filter(r => currentFloorId && r.floorId !== currentFloorId);
+        setState({ rooms: [...otherFloorRooms, ...newRooms] });
     } catch (e) {
         console.error("Mahal analizi sırasında hata oluştu (Geometri geçersiz olabilir):", e);
-        setState({ rooms: [] }); // Hata olursa odaları temizle
+        // Sadece aktif kattaki odaları temizle, diğer katların odalarını koru
+        const otherFloorRooms = (state.rooms || []).filter(r => currentFloorId && r.floorId !== currentFloorId);
+        setState({ rooms: otherFloorRooms });
     }
 }
 

@@ -266,8 +266,11 @@ export function getStairHandleAtPoint(point, stair, tolerance) {
 
 // Verilen noktada hangi nesnenin (merdiven, kenar, köşe, gövde) olduğunu belirler
 export function getStairAtPoint(point) {
-    const { stairs, zoom } = state;
-    if (!stairs) return null; // stairs dizisi yoksa null dön
+    const { zoom } = state;
+    const currentFloorId = state.currentFloor?.id;
+    // Sadece aktif kata ait merdivenleri filtrele
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
+    if (stairs.length === 0) return null; // Merdiven yoksa null dön
     const handleTolerance = 8 / zoom; // Handle yakalama toleransı (zoom'a bağlı)
     // Önce handle'ları kontrol et (daha küçük hedef alan, daha öncelikli)
     for (const stair of [...stairs].reverse()) { // Sondan başa doğru kontrol (üstteki önce bulunur)

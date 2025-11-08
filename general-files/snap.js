@@ -65,8 +65,9 @@ function getStairEdges(stair) {
  */
 function getStairSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     const candidates = [];
-    const walls = state.walls;
-    const stairs = state.stairs || [];
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
 
     // Aday ekleme yardımcısı
     const addCandidate = (point, type, distance) => {
@@ -269,13 +270,17 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     let snapLines = { h_origins: [], v_origins: [] };
     const lockableSnapTypes = ['INTERSECTION', 'ENDPOINT'];
 
+    // Sadece aktif kata ait duvarları kullan
+    const currentFloorId = state.currentFloor?.id;
+    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+
     // Taranacak duvarlar
     const wallsToScan = state.snapOptions.nearestOnly
-        ? state.walls.map(wall => ({ wall, distance: Math.sqrt(distToSegmentSquared(wm, wall.p1, wall.p2)) }))
+        ? currentFloorWalls.map(wall => ({ wall, distance: Math.sqrt(distToSegmentSquared(wm, wall.p1, wall.p2)) }))
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 5)
           .map(item => item.wall)
-        : state.walls;
+        : currentFloorWalls;
 
     const candidates = [];
     let draggedNode = (state.isDragging && state.selectedObject?.type === "wall" && state.selectedObject.handle !== "body")
@@ -312,9 +317,10 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         });
     }
 
-    // Kolon, Kiriş Snap Noktaları
-    if (state.columns) {
-        state.columns.forEach(column => {
+    // Kolon, Kiriş Snap Noktaları (sadece aktif kat)
+    const currentFloorColumns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
+    if (currentFloorColumns.length > 0) {
+        currentFloorColumns.forEach(column => {
              if (state.isDragging && state.selectedObject?.type === 'column' && state.selectedObject.object === column) return;
              try {
                  const corners = getColumnCorners(column);
@@ -331,8 +337,9 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
              } catch (error) { console.error("Error processing column corners for snap:", error, column); }
         });
     }
-    if (state.beams) {
-         state.beams.forEach(beam => {
+    const currentFloorBeams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
+    if (currentFloorBeams.length > 0) {
+         currentFloorBeams.forEach(beam => {
              if (state.isDragging && state.selectedObject?.type === 'beam' && state.selectedObject.object === beam) return;
               try {
                  const corners = getBeamCorners(beam);
@@ -350,9 +357,10 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
          });
     }
 
-    // Merdiven Köşe/Merkez Snap (Çizim modu DIŞINDA)
-    if (state.currentMode !== 'drawStairs' && state.stairs) {
-        for (const stair of state.stairs) {
+    // Merdiven Köşe/Merkez Snap (Çizim modu DIŞINDA, sadece aktif kat)
+    const currentFloorStairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
+    if (state.currentMode !== 'drawStairs' && currentFloorStairs.length > 0) {
+        for (const stair of currentFloorStairs) {
              if (state.isDragging && state.selectedObject?.type === 'stairs' && state.selectedObject.object === stair) continue;
              try {
                  const corners = getStairCorners(stair);
@@ -385,8 +393,8 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             if (state.snapOptions.midpointExtension) extensionPoints.push({ x: (w.p1.x + w.p2.x) / 2, y: (w.p1.y + w.p2.y) / 2 });
         });
     }
-    if (state.snapOptions.endpointExtension && state.stairs) {
-        state.stairs.forEach(stair => {
+    if (state.snapOptions.endpointExtension && currentFloorStairs.length > 0) {
+        currentFloorStairs.forEach(stair => {
              if (state.isDragging && state.selectedObject?.type === 'stairs' && state.selectedObject.object === stair) return;
              try { const corners = getStairCorners(stair); if (corners) extensionPoints.push(...corners); } catch (e) {}
         });
@@ -427,10 +435,10 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             }
         }
     }
-    if (state.stairs) {
+    if (currentFloorStairs.length > 0) {
         for (const wall of wallsToScan) {
             if (!wall.p1 || !wall.p2) continue;
-            for (const stair of state.stairs) {
+            for (const stair of currentFloorStairs) {
                  if (state.isDragging && state.selectedObject?.type === 'stairs' && state.selectedObject.object === stair) continue;
                  try {
                      const corners = getStairCorners(stair); if (!corners || corners.length !== 4) continue;

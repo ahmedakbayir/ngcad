@@ -19,7 +19,14 @@ import { getWallAtPoint } from '../wall/wall-handler.js';
  * @returns {object | null} - Bulunan nesne (seçim için) veya null
  */
 export function getObjectAtPoint(pos) {
-    const { walls, doors, rooms, zoom } = state; // rooms eklendi
+    const { zoom } = state;
+    const currentFloorId = state.currentFloor?.id;
+
+    // Sadece aktif kata ait elemanları filtrele
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+
     const tolerance = 8 / zoom;
 
     // 0. KAMERA KONTROLLERİ (En yüksek öncelik - FPS modunda)
