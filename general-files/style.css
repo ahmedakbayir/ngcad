@@ -101,7 +101,7 @@ canvas {
     /* flex-wrap: wrap; */ /* DEĞİŞTİ */
     flex-direction: column; /* EKLENDİ */
     width: 125px; /* DARALTILDI: 140px -> 125px */
-    gap: 6px; /* Azaltıldı: 8px -> 6px */
+    gap: 10px; /* Artırıldı: 6px -> 10px */
     /* align-items: center; */ /* SİLİNDİ */
 }
 
@@ -152,6 +152,13 @@ canvas {
 
 .btn:hover:not(.active) {
     background: #5f6368;
+}
+
+/* UI içindeki butonlar için gelişmiş hover efekti */
+#ui .btn:hover:not(.active) {
+    background: #5f6368;
+    border-color: #87CEEB;
+    box-shadow: 0 2px 8px rgba(135, 206, 235, 0.3);
 }
 
 /* --- Mouse İmleçleri (CSS - Sınıflara göre genel ayarlar) --- */
@@ -267,7 +274,8 @@ canvas {
     gap: 2px;
     padding-right: 8px;
     border-right: 1px solid #5f6368;
-    min-width: 90px;
+    min-width: 120px; /* Artırıldı: 90px -> 120px (kalın font için) */
+    width: 120px; /* Sabit genişlik - kalın font seçilse de titremez */
 }
 
 .tab-btn-vertical {
@@ -284,6 +292,8 @@ canvas {
     align-items: flex-end; /* ALTA DAYANDI */
     height: 40px; /* Sabit yükseklik - tablar aynı hizada */
     font-weight: 500; /* Daha belirgin */
+    width: 100%; /* Tüm butonlar aynı genişlik */
+    box-sizing: border-box; /* Padding dahil genişlik hesapla */
 }
 
 .tab-btn-vertical:hover {
