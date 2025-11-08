@@ -260,7 +260,7 @@ function createDetailPanel() {
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         z-index: 10000;
         display: none;
-        width: 600px;
+        width: 750px;
         max-height: 80vh;
         overflow-y: auto;
     `;
@@ -333,11 +333,11 @@ export function showDetailPanel() {
         createDetailPanel();
     }
 
-    // Panel'i ekranın ortasına yerleştir
+    // Panel'i ekranın üst ortasına yerleştir
     detailPanel.style.display = 'block';
     detailPanel.style.left = '50%';
-    detailPanel.style.top = '50%';
-    detailPanel.style.transform = 'translate(-50%, -50%)';
+    detailPanel.style.top = '10px';
+    detailPanel.style.transform = 'translateX(-50%)';
 
     renderDetailPanel();
 }
@@ -366,6 +366,8 @@ function renderDetailPanel() {
                 <tr style="border-bottom: 1px solid #3a3b3c;">
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 40px;">Göster</th>
                     <th style="padding: 6px; text-align: left; color: #8ab4f8; font-size: 11px; width: 100px;">Kat Adı</th>
+                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 70px;">Kat Y.<br>(cm)</th>
+                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 80px;">Toplam Y.<br>(cm)</th>
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px;">Ön İzleme</th>
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 40px;">Sil</th>
                 </tr>
@@ -376,7 +378,11 @@ function renderDetailPanel() {
     // Katları ters sırada göster (en üstteki kat en üstte)
     const sortedFloors = [...floors].reverse();
 
-    sortedFloors.forEach(floor => {
+    // İlk placeholder'ı (üste ekle) bulalım - satırlar arası ayırıcı için
+    const upperPlaceholderIndex = sortedFloors.findIndex(f => f.isPlaceholder && !f.isBelow);
+    const lowerPlaceholderIndex = sortedFloors.findIndex(f => f.isPlaceholder && f.isBelow);
+
+    sortedFloors.forEach((floor, index) => {
         const isActive = state.currentFloor?.id === floor.id;
         const isVisible = floor.visible !== false;
         let rowStyle = '';
@@ -401,6 +407,10 @@ function renderDetailPanel() {
 
         const isDraggable = !floor.isPlaceholder && floor.name !== 'ZEMİN';
 
+        // Kat yüksekliği ve toplam Y. hesapla
+        const floorHeight = floor.isPlaceholder ? '' : Math.round(floor.topElevation - floor.bottomElevation);
+        const totalY = floor.isPlaceholder ? '' : `${Math.round(floor.bottomElevation)}-${Math.round(floor.topElevation)}`;
+
         html += `
             <tr data-floor-id="${floor.id}"
                 style="${rowStyle} border-bottom: 1px solid #3a3b3c; cursor: ${isDraggable ? 'move' : 'pointer'}; height: 50px;"
@@ -414,6 +424,21 @@ function renderDetailPanel() {
                     ${isActive && !floor.isPlaceholder ? '<span style="color: #24ffda; font-size: 10px;"> (AKTİF)</span>' : ''}
                 </td>
                 <td style="padding: 4px; text-align: center;">
+                    ${floor.isPlaceholder ? '' : `
+                        <input type="number"
+                               class="floor-height-input"
+                               data-floor-id="${floor.id}"
+                               value="${floorHeight}"
+                               style="width: 60px; padding: 2px 4px; background: #3a3b3c; color: #e7e6d0; border: 1px solid #5f6368; border-radius: 3px; text-align: center; font-size: 11px;"
+                               min="100"
+                               max="1000"
+                               step="10" />
+                    `}
+                </td>
+                <td style="padding: 4px; text-align: center; color: #e7e6d0; font-size: 11px;">
+                    ${totalY}
+                </td>
+                <td style="padding: 4px; text-align: center;">
                     ${floor.isPlaceholder ?
                         renderPlaceholderPreview(floor) :
                         renderFloorPreview(floor)
@@ -424,6 +449,15 @@ function renderDetailPanel() {
                 </td>
             </tr>
         `;
+
+        // Üst placeholder'dan sonra ayırıcı çizgi ekle
+        if (index === upperPlaceholderIndex && upperPlaceholderIndex !== -1) {
+            html += `
+                <tr style="height: 2px; background: #5f6368;">
+                    <td colspan="6" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
+                </tr>
+            `;
+        }
     });
 
     html += `
@@ -705,6 +739,35 @@ function setupDetailTableEventListeners() {
         btn.addEventListener('mouseleave', () => {
             btn.style.background = '#3a3b3c';
             btn.style.color = '#8ab4f8';
+        });
+    });
+
+    // Kat yüksekliği input'ları
+    const heightInputs = detailPanel.querySelectorAll('.floor-height-input');
+    heightInputs.forEach(input => {
+        input.addEventListener('change', (e) => {
+            const floorId = input.dataset.floorId;
+            const newHeight = parseFloat(input.value);
+
+            if (!newHeight || newHeight < 100 || newHeight > 1000) {
+                alert('Kat yüksekliği 100-1000 cm arasında olmalıdır.');
+                renderDetailPanel();
+                return;
+            }
+
+            updateFloorHeight(floorId, newHeight);
+        });
+
+        // Enter tuşuna basıldığında da değişikliği uygula
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.target.blur(); // Input'tan çık, change event'ini tetikle
+            }
+        });
+
+        // Tıklanma event'ini durdur (satır tıklamasını engellemek için)
+        input.addEventListener('click', (e) => {
+            e.stopPropagation();
         });
     });
 
@@ -1077,4 +1140,38 @@ export function showFloorPanel() {
  */
 export function hideFloorPanel() {
     hideDetailPanel();
+}
+
+/**
+ * Bir katın yüksekliğini günceller ve üstteki katları kaydırır
+ * @param {string} floorId - Kat ID'si
+ * @param {number} newHeight - Yeni kat yüksekliği (cm)
+ */
+function updateFloorHeight(floorId, newHeight) {
+    const floors = [...state.floors];
+    const floorIndex = floors.findIndex(f => f.id === floorId);
+
+    if (floorIndex === -1) return;
+
+    const floor = floors[floorIndex];
+    const oldHeight = floor.topElevation - floor.bottomElevation;
+    const heightDifference = newHeight - oldHeight;
+
+    // Katın yeni yüksekliğini ayarla
+    floor.topElevation = floor.bottomElevation + newHeight;
+
+    // Üstteki tüm katları kaydır (placeholder'lar dahil)
+    floors.forEach(f => {
+        if (f.bottomElevation >= floor.topElevation - newHeight && f.id !== floor.id) {
+            f.bottomElevation += heightDifference;
+            f.topElevation += heightDifference;
+        }
+    });
+
+    // State'i güncelle
+    setState({ floors });
+
+    // Panelleri yeniden render et
+    renderDetailPanel();
+    renderMiniPanel();
 }
