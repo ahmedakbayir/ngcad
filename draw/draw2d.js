@@ -240,6 +240,14 @@ export function draw2D() {
     const stairs = state.stairs?.filter(s => !currentFloorId || s.floorId === currentFloorId) || [];
     const columns = state.columns?.filter(c => !currentFloorId || c.floorId === currentFloorId) || [];
 
+    // Sadece aktif kata ait node'ları filtrele (duvarlardan topla)
+    const nodesSet = new Set();
+    walls.forEach(wall => {
+        if (wall.p1) nodesSet.add(wall.p1);
+        if (wall.p2) nodesSet.add(wall.p2);
+    });
+    const nodes = Array.from(nodesSet);
+
     ctx2d.fillStyle = BG;
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
     ctx2d.save();
@@ -390,14 +398,14 @@ export function draw2D() {
 
     // 10. Ölçülendirmeler
     if (dimensionMode === 1) {
-        drawTotalDimensions();
+        drawTotalDimensions(walls, rooms);
     } else if (dimensionMode === 2) {
         walls.forEach((w) => {
             if (w.p1 && w.p2) drawDimension(w.p1, w.p2, false, 'single'); // Check added
         });
     }
 
-    drawOuterDimensions(); // Dış ölçüler
+    drawOuterDimensions(walls); // Dış ölçüler
 
     // Seçili nesne veya sürüklenen duvarlar için geçici ölçüler
     if (isDragging && affectedWalls.length > 0 && (dimensionMode === 0 || dimensionMode === 1) && selectedObject?.type === 'wall') {
