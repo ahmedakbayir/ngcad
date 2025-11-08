@@ -5,6 +5,20 @@ let miniPanel = null; // Sağda sabit dar panel
 let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
 
 /**
+ * Kat isminin kısa versiyonunu döndürür
+ */
+function getShortFloorName(fullName) {
+    if (fullName === 'ZEMİN') return 'ZEMİN';
+    if (fullName.includes('.KAT')) {
+        return fullName.split('.')[0] + '. KAT';
+    }
+    if (fullName.includes('.BODRUM')) {
+        return fullName.split('.')[0] + '. BODRUM' ;
+    }
+    return fullName.substring(0, 2);
+}
+
+/**
  * Mini kat panelini oluşturur (sağda sabit)
  */
 export function createFloorPanel() {
