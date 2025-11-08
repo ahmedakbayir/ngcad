@@ -490,9 +490,6 @@ function renderDetailPanel() {
     // Katları ters sırada göster (en üstteki kat en üstte)
     const sortedFloors = [...floors].reverse();
 
-    // Tüm katlar için global bounds hesapla (önizlemeler için)
-    const globalBounds = calculateGlobalBounds();
-
     // İlk placeholder'ı (üste ekle) bulalım - satırlar arası ayırıcı için
     const upperPlaceholderIndex = sortedFloors.findIndex(f => f.isPlaceholder && !f.isBelow);
     const lowerPlaceholderIndex = sortedFloors.findIndex(f => f.isPlaceholder && f.isBelow);
@@ -588,7 +585,7 @@ function renderDetailPanel() {
                 <td style="padding: 4px; text-align: center;">
                     ${floor.isPlaceholder ?
                         renderPlaceholderPreview(floor) :
-                        renderFloorPreview(floor, globalBounds)
+                        renderFloorPreview(floor)
                     }
                 </td>
                 <td style="padding: 4px; text-align: center;">
@@ -692,18 +689,20 @@ function renderPlaceholderPreview(floor) {
 }
 
 /**
- * Tüm katlardaki duvarların toplam sınırlarını hesapla
+ * Normal kat önizlemesi - proje içeriği ile (1/500 ölçek)
  */
-function calculateGlobalBounds() {
-    const allWalls = state.walls || [];
+function renderFloorPreview(floor) {
+    const scale = 1 / 500; // 1:500 ölçek
+    const svgWidth = 80;
+    const svgHeight = 40;
 
-    if (allWalls.length === 0) {
-        return null;
-    }
+    // Sadece bu kata ait duvarları göster
+    const walls = (state.walls || []).filter(w => !floor || w.floorId === floor.id);
 
+    // Bu katın duvarlarının bounds'ını hesapla
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-    allWalls.forEach(wall => {
+    walls.forEach(wall => {
         if (wall.p1 && wall.p2) {
             minX = Math.min(minX, wall.p1.x, wall.p2.x);
             minY = Math.min(minY, wall.p1.y, wall.p2.y);
@@ -712,74 +711,44 @@ function calculateGlobalBounds() {
         }
     });
 
+    // Eğer hiç eleman yoksa basit önizleme göster
     if (!isFinite(minX)) {
-        return null;
-    }
-
-    return {
-        minX,
-        minY,
-        maxX,
-        maxY,
-        width: maxX - minX,
-        height: maxY - minY,
-        centerX: (minX + maxX) / 2,
-        centerY: (minY + maxY) / 2
-    };
-}
-
-/**
- * Normal kat önizlemesi - proje içeriği ile (1/500 ölçek)
- * Global bounds kullanarak tüm katların aynı koordinat sisteminde gösterilmesini sağlar
- */
-function renderFloorPreview(floor, globalBounds) {
-    const scale = 1 / 500; // 1:500 ölçek
-    const svgWidth = 80;
-    const svgHeight = 40;
-
-    // Sadece bu kata ait duvarları göster
-    const walls = (state.walls || []).filter(w => !floor || w.floorId === floor.id);
-
-    // Eğer global bounds yoksa veya bu katta duvar yoksa boş önizleme göster
-    if (!globalBounds || walls.length === 0) {
         return `
             <svg width="${svgWidth}" height="${svgHeight}" style="display: block; margin: 0 auto;">
-                <rect x="${svgWidth * 0.05}" y="${svgHeight * 0.05}"
-                      width="${svgWidth * 0.9}" height="${svgHeight * 0.9}"
+                <rect x="5" y="5" width="70" height="30"
                       fill="none"
                       stroke="#5f6368"
                       stroke-width="1"
                       stroke-dasharray="2,2"/>
-                <text x="${svgWidth / 2}" y="${svgHeight / 2}"
-                      text-anchor="middle" font-size="8" fill="#5f6368">Boş</text>
+                <text x="40" y="25" text-anchor="middle" font-size="8" fill="#5f6368">Boş</text>
             </svg>
         `;
     }
 
-    // %5 padding kullan - %90 alan kullanılabilir
-    const paddingPercent = 0.05;
-    const availableWidth = svgWidth * (1 - 2 * paddingPercent);
-    const availableHeight = svgHeight * (1 - 2 * paddingPercent);
+    const width = maxX - minX;
+    const height = maxY - minY;
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
 
-    // Global bounds'ı kullanarak ölçekleme faktörünü hesapla
-    const scaleX = availableWidth / (globalBounds.width * scale || 1);
-    const scaleY = availableHeight / (globalBounds.height * scale || 1);
+    // Ölçekleme faktörü
+    const padding = 5;
+    const availableWidth = svgWidth - 2 * padding;
+    const availableHeight = svgHeight - 2 * padding;
+
+    const scaleX = availableWidth / (width * scale || 1);
+    const scaleY = availableHeight / (height * scale || 1);
     const finalScale = Math.min(scaleX, scaleY) * scale;
-
-    // Global center'ı kullan - böylece tüm katlar aynı koordinat sisteminde
-    const globalCenterX = globalBounds.centerX;
-    const globalCenterY = globalBounds.centerY;
 
     // SVG çiz
     let svgContent = '';
 
-    // Duvarları çiz - global center'a göre konumlandır
+    // Duvarları çiz
     walls.forEach(wall => {
         if (wall.p1 && wall.p2) {
-            const x1 = (wall.p1.x - globalCenterX) * finalScale + svgWidth / 2;
-            const y1 = (wall.p1.y - globalCenterY) * finalScale + svgHeight / 2;
-            const x2 = (wall.p2.x - globalCenterX) * finalScale + svgWidth / 2;
-            const y2 = (wall.p2.y - globalCenterY) * finalScale + svgHeight / 2;
+            const x1 = (wall.p1.x - centerX) * finalScale + svgWidth / 2;
+            const y1 = (wall.p1.y - centerY) * finalScale + svgHeight / 2;
+            const x2 = (wall.p2.x - centerX) * finalScale + svgWidth / 2;
+            const y2 = (wall.p2.y - centerY) * finalScale + svgHeight / 2;
 
             svgContent += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
                                 stroke="#e7e6d0" stroke-width="0.5"/>`;
