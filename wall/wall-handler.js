@@ -24,8 +24,11 @@ export function wallExists(p1, p2) {
  * @returns {object | null} - Bulunan duvar nesnesi (seçim için) veya null
  */
 export function getWallAtPoint(pos, tolerance) {
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+
     // Duvar ucu (node) kontrolü
-    for (const wall of [...state.walls].reverse()) {
+    for (const wall of [...walls].reverse()) {
         if (!wall.p1 || !wall.p2) continue;
         const d1 = Math.hypot(pos.x - wall.p1.x, pos.y - wall.p1.y);
         const d2 = Math.hypot(pos.x - wall.p2.x, pos.y - wall.p2.y);
@@ -255,7 +258,9 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
  * @param {object} unsnappedPos - Snap uygulanmamış fare pozisyonu
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
-   let neighborWallsToDimension = new Set(); // Komşu duvarları saklamak için Set
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    let neighborWallsToDimension = new Set(); // Komşu duvarları saklamak için Set
 
     if (state.selectedObject.handle !== "body") {
         // Duvar Ucu (Node) Sürükleme
@@ -327,7 +332,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             let bestSnapY = { diff: SNAP_DISTANCE, value: null };
 
             // Tüm duvar yüzeylerine snap kontrolü
-            state.walls.forEach(wall => {
+            walls.forEach(wall => {
                 // Sürüklenen node'un bağlı olduğu duvarları atla
                 if (state.affectedWalls.includes(wall)) return;
                 if (!wall.p1 || !wall.p2) return;
@@ -389,7 +394,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         }
 
        // Sürüklenen node'a bağlı komşu duvarları bul (affectedWalls hariç)
-       state.walls.forEach(wall => {
+       walls.forEach(wall => {
            if (!state.affectedWalls.includes(wall) && (wall.p1 === nodeToMove || wall.p2 === nodeToMove)) {
                neighborWallsToDimension.add(wall);
            }
@@ -446,7 +451,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
              const len1 = Math.hypot(dx1, dy1); if (len1 < 0.1) return;
              const dir1 = { x: dx1 / len1, y: dy1 / len1 };
 
-             state.walls.forEach(staticWall => {
+             walls.forEach(staticWall => {
                  if (wallsToMove.includes(staticWall)) return;
                  const dx2 = staticWall.p2.x - staticWall.p1.x, dy2 = staticWall.p2.y - staticWall.p1.y;
                  const len2 = Math.hypot(dx2, dy2); if (len2 < 0.1) return;
@@ -514,7 +519,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 
        // Sürüklenen nodelara bağlı komşu duvarları bul (wallsToMove hariç)
        nodesToMove.forEach(node => {
-           state.walls.forEach(wall => {
+           walls.forEach(wall => {
                // Duvarın geçerli olduğundan emin ol
                if (!wall || !wall.p1 || !wall.p2) return;
                // Sürüklenen duvarlardan değilse VE node'a bağlıysa ekle
