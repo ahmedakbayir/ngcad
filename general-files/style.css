@@ -103,6 +103,13 @@ canvas {
     width: 125px; /* DARALTILDI: 140px -> 125px */
     gap: 10px; /* Artırıldı: 6px -> 10px */
     /* align-items: center; */ /* SİLİNDİ */
+    background: rgba(42, 43, 44, 0.9);
+    border: 1px solid #5f6368;
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    backdrop-filter: blur(4px);
+    box-sizing: border-box;
 }
 
 .btn {
@@ -225,6 +232,11 @@ canvas {
     padding: 6px 8px; /* Daraltıldı: 7px 10px -> 6px 8px */
     font-size: 14px; /* %25 büyütüldü: 11px -> 14px */
     gap: 6px; /* Daraltıldı: 8px -> 6px */
+    background: rgba(42, 43, 44, 0.9);
+    border: 1px solid #5f6368;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    backdrop-filter: blur(4px);
 }
 
 #settings-btn svg {
