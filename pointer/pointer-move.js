@@ -183,7 +183,8 @@ export function onPointerMove(e) {
     }
 
     // Fare pozisyonunu güncelle (snap ile)
-    let snappedPos = getSmartSnapPoint(e, !state.isDragging);
+    // Sürükleme sırasında da snap aktif olsun
+    let snappedPos = getSmartSnapPoint(e, true); // Her zaman grid snap kullan
     setState({ mousePos: snappedPos });
 
     // Snaplenmemiş pozisyonu al
@@ -441,6 +442,21 @@ function updateMouseCursor() {
         const hoveredObject = getObjectAtPoint(mousePos);
 
         if (hoveredObject) {
+
+           // --- YENİ ÖNCELİKLİ KONTROL ---
+           // 1. Mahal Adı/Alanı Hover (Handle'dan bağımsız)
+           if (hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
+                c2d.style.cursor = 'grab'; // Oda ismi/alanı (İstediğiniz sarı "hand" ikonu)
+                // c2d.classList.add('hover-room-label'); // (Opsiyonel sınıf)
+                return; // Öncelikli olarak çık
+           }
+           // --- YENİ KONTROL SONU ---
+            // 2. Mahal Alanı (Etiket hariç)
+            if (hoveredObject.type === 'room') {
+                c2d.style.cursor = 'default'; // Alanın üzeri 'default' (beyaz ok)
+                return; // Çık
+            }
+            // --- GÜNCELLENMİŞ KONTROL SONU ---
             const handle = hoveredObject.handle;
             if (typeof handle === 'string') {
                 // 1. Handle Hover
@@ -476,9 +492,9 @@ function updateMouseCursor() {
                     if (hoveredObject.type === 'wall') {
                         c2d.style.cursor = 'default'; // Duvar gövdesi
                         // c2d.classList.add('hover-wall-body');
-                    } else if (hoveredObject.type === 'room' || hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
-                         c2d.style.cursor = 'grab'; // Oda ismi/alanı
-                         // c2d.classList.add('hover-room-label');
+                    // } else if (hoveredObject.type === 'room' || hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
+                    //      c2d.style.cursor = 'grab'; // Oda ismi/alanı
+                    //      // c2d.classList.add('hover-room-label');
                     }
                     // --- YENİ EKLENDİ ---
                     else if (hoveredObject.type === 'guide') {

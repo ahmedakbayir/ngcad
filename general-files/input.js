@@ -57,7 +57,7 @@ function extendWallOnTabPress() {
     const finalEndPoint = bestIntersection ? bestIntersection : rayEnd;
     const endNode = getOrCreateNode(finalEndPoint.x, finalEndPoint.y);
     if (endNode !== state.startPoint && !wallExists(state.startPoint, endNode)) {
-        state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.wallThickness, wallType: 'normal' });
+        state.walls.push({ type: "wall", p1: state.startPoint, p2: endNode, thickness: state.wallThickness, wallType: 'normal', floorId: state.currentFloor?.id });
         setState({ startPoint: endNode });
         processWalls();
         saveState();
@@ -321,6 +321,12 @@ function onKeyDown(e) {
     if (e.key === "Escape" || e.code === "Space") {
         if (e.code === "Space") e.preventDefault();
 
+        // Settings popup açıksa kapat
+        if (dom.settingsPopup.style.display === 'block') {
+            dom.settingsPopup.style.display = 'none';
+            return;
+        }
+
         // Mahal popup kontrolü ZATEN YUKARIDA yapıldığı için burada tekrar gerekmez.
 
         if (state.isEditingLength) cancelLengthEdit(); // Length input açıksa kapatır
@@ -338,34 +344,88 @@ function onKeyDown(e) {
     if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
         e.preventDefault();
         let deleted = false;
-        // ... (Silme mantığı - önceki gibi) ...
-        if (state.selectedObject?.type === 'column') { state.columns = state.columns.filter(c => c !== state.selectedObject.object); deleted = true; }
-        else if (state.selectedObject?.type === 'beam') { state.beams = state.beams.filter(b => b !== state.selectedObject.object); deleted = true; }
-        else if (state.selectedObject?.type === 'stairs') { state.stairs = state.stairs.filter(s => s !== state.selectedObject.object); deleted = true; }
-        // --- YENİ EKLENDİ ---
-        else if (state.selectedObject?.type === 'guide') { 
-            state.guides = state.guides.filter(g => g !== state.selectedObject.object); 
-            deleted = true; 
+
+        // Önce selectedGroup'u kontrol et (toplu silme)
+        if (state.selectedGroup.length > 0) {
+            // Grup içindeki her nesneyi tipine göre sil
+            state.selectedGroup.forEach(item => {
+                if (item.type === 'column') {
+                    state.columns = state.columns.filter(c => c !== item.object);
+                    deleted = true;
+                } else if (item.type === 'beam') {
+                    state.beams = state.beams.filter(b => b !== item.object);
+                    deleted = true;
+                } else if (item.type === 'stairs') {
+                    state.stairs = state.stairs.filter(s => s !== item.object);
+                    deleted = true;
+                } else if (item.type === 'door') {
+                    state.doors = state.doors.filter(d => d !== item.object);
+                    deleted = true;
+                } else if (item.type === 'window') {
+                    if (item.wall && item.wall.windows) {
+                        item.wall.windows = item.wall.windows.filter(w => w !== item.object);
+                        deleted = true;
+                    }
+                } else if (item.type === 'wall') {
+                    // Duvar silme için özel işlem (kapıları da sil)
+                    const newWalls = state.walls.filter(w => w !== item.object);
+                    const newDoors = state.doors.filter(d => d.wall !== item.object);
+                    setState({ walls: newWalls, doors: newDoors });
+                    deleted = true;
+                }
+            });
         }
-        // --- YENİ SONU ---
+        // Tek nesne seçimi varsa
         else if (state.selectedObject) {
-            if (state.selectedObject.type === "door") { setState({ doors: state.doors.filter((d) => d !== state.selectedObject.object) }); deleted = true; }
-            else if (state.selectedObject.type === "window") { const wall = state.selectedObject.wall; if (wall?.windows) { wall.windows = wall.windows.filter(w => w !== state.selectedObject.object); deleted = true; } }
-            else if (state.selectedObject.type === "vent") { const wall = state.selectedObject.wall; if (wall?.vents) { wall.vents = wall.vents.filter(v => v !== state.selectedObject.object); deleted = true; } }
-            else if (state.selectedObject.type === "wall") { const wallsToDelete = state.selectedGroup.length > 0 ? state.selectedGroup : [state.selectedObject.object]; const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w)); const newDoors = state.doors.filter((d) => d.wall && !wallsToDelete.includes(d.wall)); setState({ walls: newWalls, doors: newDoors }); deleted = true; }
-        } else if (state.selectedGroup.length > 0) { const wallsToDelete = state.selectedGroup; const newWalls = state.walls.filter((w) => !wallsToDelete.includes(w)); const newDoors = state.doors.filter((d) => d.wall && !wallsToDelete.includes(d.wall)); setState({ walls: newWalls, doors: newDoors }); deleted = true; }
+            if (state.selectedObject.type === 'column') {
+                state.columns = state.columns.filter(c => c !== state.selectedObject.object);
+                deleted = true;
+            }
+            else if (state.selectedObject.type === 'beam') {
+                state.beams = state.beams.filter(b => b !== state.selectedObject.object);
+                deleted = true;
+            }
+            else if (state.selectedObject.type === 'stairs') {
+                state.stairs = state.stairs.filter(s => s !== state.selectedObject.object);
+                deleted = true;
+            }
+            else if (state.selectedObject.type === 'guide') {
+                state.guides = state.guides.filter(g => g !== state.selectedObject.object);
+                deleted = true;
+            }
+            else if (state.selectedObject.type === "door") {
+                setState({ doors: state.doors.filter((d) => d !== state.selectedObject.object) });
+                deleted = true;
+            }
+            else if (state.selectedObject.type === "window") {
+                const wall = state.selectedObject.wall;
+                if (wall?.windows) {
+                    wall.windows = wall.windows.filter(w => w !== state.selectedObject.object);
+                    deleted = true;
+                }
+            }
+            else if (state.selectedObject.type === "vent") {
+                const wall = state.selectedObject.wall;
+                if (wall?.vents) {
+                    wall.vents = wall.vents.filter(v => v !== state.selectedObject.object);
+                    deleted = true;
+                }
+            }
+            else if (state.selectedObject.type === "wall") {
+                const newWalls = state.walls.filter((w) => w !== state.selectedObject.object);
+                const newDoors = state.doors.filter((d) => d.wall !== state.selectedObject.object);
+                setState({ walls: newWalls, doors: newDoors });
+                deleted = true;
+            }
+        }
 
         if (deleted) {
             setState({ selectedObject: null, selectedGroup: [] });
-            // --- GÜNCELLEME: processWalls() sadece rehber silindiyse çağrılmaz ---
+            // processWalls() sadece rehber silindiyse çağrılmaz
             if (state.selectedObject?.type !== 'guide') {
                 processWalls();
             }
             saveState();
-            // update3DScene() processWalls içinden çağrılır,
-            // ama rehber silindiyse (ve 3D açıksa) update'e gerek yok.
-            // (Rehberler 3D'de çizilmiyor)
-            // update3DScene(); // processWalls() zaten çağırıyor
         }
     }
 
@@ -660,23 +720,24 @@ export function setupInputListeners() {
     c2d.addEventListener("wheel", onWheel, { passive: false }); // onWheel'i zoom.js'den kullan
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        const clickPos = screenToWorld(e.clientX - c2d.getBoundingClientRect().left, e.clientY - c2d.getBoundingClientRect().top);
+        const rect = c2d.getBoundingClientRect();
+        const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const object = getObjectAtPoint(clickPos);
-        
+
         // Diğer tüm popupları/menüleri kapat
         hideRoomNamePopup();
         hideWallPanel();
-        hideGuideContextMenu(); 
+        hideGuideContextMenu();
 
         if (object && (object.type === 'room' || object.type === 'roomName')) {
             showRoomNamePopup(object.object, e);
         } else if (object && object.type === 'wall') {
             showWallPanel(object.object, e.clientX, e.clientY);
-        } else if (object && object.type === 'stairs') { 
+        } else if (object && object.type === 'stairs') {
             showStairPopup(object.object, e); // Merdiven sağ tık
         } else if (!object) {
             // Boş alana tıklandı
-            showGuideContextMenu(e.clientX, e.clientY, clickPos); 
+            showGuideContextMenu(e.clientX, e.clientY, clickPos);
         } else {
             // Diğer nesneler (kolon, kiriş, rehber vb.)
             setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null, selectedObject: null, selectedGroup: [] });
@@ -754,7 +815,8 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     // Orijinal duvar özelliklerini koru
     const wall_props = {
         thickness: wallToSplit.thickness || state.wallThickness,
-        wallType: wallToSplit.wallType || 'normal'
+        wallType: wallToSplit.wallType || 'normal',
+        floorId: wallToSplit.floorId
     };
 
     const newWall1 = { type: "wall", p1: p1, p2: splitNode, ...wall_props, windows: [], vents: [] };

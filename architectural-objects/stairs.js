@@ -136,7 +136,8 @@ export function createStairs(centerX, centerY, width, height, rotation, isLandin
         topElevation: defaultTopElevation,     // Hesaplanan üst kot
         connectedStairId: connectedStairId,    // Bağlantı ID'si
         isLanding: isLanding, // Parametreden gelen değeri ata
-        showRailing: !isLanding // **** DEĞİŞİKLİK BURADA: Varsayılan olarak korkuluk yok ****
+        showRailing: isLanding ? false : state.stairSettings.showRailing, // Sahanlıksa false, normal merdivense ayarlardan al
+        floorId: state.currentFloor?.id
     };
 
     // Basamak sayısını hesapla (sahanlık değilse)
@@ -157,8 +158,9 @@ export function recalculateStepCount(stair) {
         return;
     }
     const totalRun = stair.width; // Merdiven uzunluğu
-    const minStepRun = 25; // Minimum basamak derinliği
-    const maxStepRun = 30; // Maksimum basamak derinliği
+
+    // Basamak derinliği aralığını ayarlardan al
+    const [minStepRun, maxStepRun] = state.stairSettings.stepDepthRange.split('-').map(val => parseInt(val, 10));
 
     // Geçersiz uzunluk veya yükseklik durumunda 1 basamak ata
     const totalRise = stair.topElevation - stair.bottomElevation;

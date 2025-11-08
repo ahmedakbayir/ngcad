@@ -47,6 +47,7 @@ export function onPointerDown(e) {
         const clickedObject = getObjectAtPoint(pos);
 
         // Debug logging for CTRL multi-select
+ /*
         console.log('🔍 Pointer Down Debug:', {
             'e.ctrlKey': e.ctrlKey,
             'e.altKey': e.altKey,
@@ -61,7 +62,7 @@ export function onPointerDown(e) {
             } : null,
             currentSelectedGroup: state.selectedGroup.length
         });
-
+*/
         // Silme modu (Sadece Alt tuşu basılıysa)
         if (currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
             setState({ isCtrlDeleting: true }); // Silme modunu başlat
@@ -107,6 +108,16 @@ export function onPointerDown(e) {
             return; // Multi-select işlemi bitti, sürükleme başlatma
         }
 
+        // CTRL basılı DEĞİLSE ve multi-select yapılabilir bir nesneye tıklandıysa,
+        // selectedGroup'u temizle ve normal tek seçime dön
+        if (!currentModifierKeys.ctrl && clickedObject &&
+            ['column', 'beam', 'stairs', 'door', 'window'].includes(clickedObject.type) &&
+            state.selectedGroup.length > 0) {
+            console.log('🔄 Clearing selectedGroup - returning to single selection');
+            // selectedGroup'u temizle, normal seçime geç
+            // (Aşağıdaki kod zaten bunu yapacak, ama açıkça belirtelim)
+        }
+
         // Önceki seçimi temizle (eğer yeni bir nesneye tıklanmadıysa veya boşluğa tıklandıysa)
         // Eğer tıklanan nesne varsa ve bu bir oda DEĞİLSE, seçimi daha sonra yapacağız.
         // Eğer tıklanan nesne yoksa veya oda ise, seçimi şimdi temizleyebiliriz.
@@ -135,7 +146,6 @@ export function onPointerDown(e) {
                  dom.p2d.classList.add('dragging'); // Sürükleme cursor'ı ekle (grabbing)
             } else {
                  // Diğer nesneler (duvar, kapı, kolon vb.) için:
-                 // Seçimi yap ve grup seçimini temizle
                  setState({ selectedObject: clickedObject, selectedRoom: null, selectedGroup: [] });
 
                  // Sürükleme için başlangıç bilgilerini nesne tipine göre al

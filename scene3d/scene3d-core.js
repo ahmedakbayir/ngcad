@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
-import { state, WALL_HEIGHT, dom } from "../general-files/main.js";
+import { state, WALL_HEIGHT, dom, setState } from "../general-files/main.js"; // <-- setState eklendi
 
 // --- Global Değişkenler ---
 export let scene, camera, renderer, controls; // 'controls' MEVCUT aktif kontrol olacak
@@ -64,17 +64,30 @@ export function init3D(canvasElement) {
     orbitControls.zoomSpeed = 1;
     orbitControls.update();
 
-    // Pointer Lock özelliği ekle (mouse döndürme sırasında mouse sabit kalacak)
+    // --- YENİ EKLENDİ: Mouse tuş atamaları (İsteğinize göre güncellendi) ---
+    orbitControls.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,   // Sol Tuş = Döndürme
+        MIDDLE: THREE.MOUSE.PAN,    // Orta Tuş = Pan (Kaydırma)
+        // Sağ Tuş (RIGHT) burada ayarlanmadı, aşağıdaki özel dinleyici tarafından ele alınacak
+    };
+    // --- YENİ KOD SONU ---
+
+    // --- DEĞİŞİKLİK: SADECE SAĞ TUŞ (RMB) İÇİN FPS STİLİ DÖNDÜRME ---
+    // --- VE is3DMouseDown KONTROLÜ ---
     let isRotating = false;
-    let lastMouseX = 0;
-    let lastMouseY = 0;
 
     renderer.domElement.addEventListener('mousedown', (e) => {
-        // Sağ tık veya orta tık (rotate için)
-        if (e.button === 2 || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+        // 2D kamera göstergesini gizlemek için state'i ayarla
+        setState({ is3DMouseDown: true });
+
+        // SADECE Sağ tık (RMB) FPS-style rotate (Yaw/Pitch) yapsın
+        // VE SADECE Orbit modundayken çalışsın
+        if (e.button === 2 && cameraMode === 'orbit') { 
+            // OrbitControls'ün bu tuşu işlemesini engelle
+            e.preventDefault(); 
+            e.stopPropagation();
+            
             isRotating = true;
-            lastMouseX = e.clientX;
-            lastMouseY = e.clientY;
 
             // Pointer lock'u etkinleştir
             renderer.domElement.requestPointerLock();
@@ -87,16 +100,45 @@ export function init3D(canvasElement) {
             const deltaX = e.movementX || 0;
             const deltaY = e.movementY || 0;
 
-            // OrbitControls'ü manuel olarak döndür
-            const rotateSpeed = 0.005;
-            orbitControls.rotateLeft(deltaX * rotateSpeed);
-            orbitControls.rotateUp(-deltaY * rotateSpeed);
+            // Hata veren 'orbitControls.rotateLeft' yerine manuel Euler rotasyonu
+            const rotateSpeed = 0.003; // Döndürme hızı/hassasiyeti
+
+            // 1. Kameranın mevcut Euler açılarını al (YXZ sırası FPS için önemlidir)
+            const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+            euler.setFromQuaternion(camera.quaternion);
+
+            // 2. Deltaları uygula (Yaw ve Pitch)
+            euler.y -= deltaX * rotateSpeed; // Yaw (Y ekseni etrafında)
+            euler.x -= deltaY * rotateSpeed; // Pitch (X ekseni etrafında)
+
+            // 3. Pitch açısını sınırla (ters dönmeyi engelle)
+            euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+
+            // 4. Yeni rotasyonu kameraya uygula
+            camera.quaternion.setFromEuler(euler);
+
+            // 5. OrbitControls'ün hedefini (target) kameranın baktığı yere güncelle
+            // (Bu, Sol Tuş'a (ROTATE) geçtiğinizde kameranın sıçramasını engeller)
+            const distance = camera.position.distanceTo(orbitControls.target);
+            const newDirection = new THREE.Vector3();
+            camera.getWorldDirection(newDirection);
+            const newTarget = new THREE.Vector3();
+            newTarget.copy(camera.position).addScaledVector(newDirection, distance);
+            
+            orbitControls.target.copy(newTarget);
+
+            // 6. OrbitControls'ü güncelle (kameranın yeni durumunu senkronize et)
             orbitControls.update();
         }
     });
 
-    document.addEventListener('mouseup', (e) => {
-        if (isRotating) {
+    // GENEL mouseup (sadece document üzerinde değil, window'da)
+    window.addEventListener('mouseup', (e) => {
+        // 2D kamera göstergesini geri getirmek için state'i ayarla
+        setState({ is3DMouseDown: false });
+
+        // Sadece Sağ tuş bırakıldıysa rotasyonu durdur
+        if (isRotating && e.button === 2) {
             isRotating = false;
             // Pointer lock'u kapat
             if (document.pointerLockElement === renderer.domElement) {
@@ -104,6 +146,8 @@ export function init3D(canvasElement) {
             }
         }
     });
+    // --- DEĞİŞİKLİK SONU ---
+
 
     // PointerLockControls'ü başlat (sadece referans için, mouse kontrolü kullanmayacağız)
     pointerLockControls = new PointerLockControls(camera, renderer.domElement);

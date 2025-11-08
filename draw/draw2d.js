@@ -25,6 +25,10 @@ import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
 
 // Kamera pozisyonunu ve bakış yönünü 2D sahnede göz sembolü ile göster
 function drawCameraViewIndicator(ctx2d, zoom) {
+    // --- YENİ EKLENDİ: 3D fare basılıysa gösterme ---
+    if (state.is3DMouseDown) return;
+    // --- YENİ KOD SONU ---
+
     const cameraInfo = getCameraViewInfo();
     if (!cameraInfo || !cameraInfo.isFPS) return; // Sadece FPS modunda göster
 
@@ -228,6 +232,23 @@ export function draw2D() {
     } = state;
     const nodes = state.nodes || [];
 
+    // Sadece aktif kata ait çizimleri filtrele
+    const currentFloorId = state.currentFloor?.id;
+    const rooms = state.rooms.filter(r => !currentFloorId || r.floorId === currentFloorId);
+    const walls = state.walls.filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const doors = state.doors.filter(d => !currentFloorId || d.floorId === currentFloorId);
+    const beams = state.beams?.filter(b => !currentFloorId || b.floorId === currentFloorId) || [];
+    const stairs = state.stairs?.filter(s => !currentFloorId || s.floorId === currentFloorId) || [];
+    const columns = state.columns?.filter(c => !currentFloorId || c.floorId === currentFloorId) || [];
+
+    // Sadece aktif kata ait node'ları filtrele (duvarlardan topla)
+    const nodesSet = new Set();
+    walls.forEach(wall => {
+        if (wall.p1) nodesSet.add(wall.p1);
+        if (wall.p2) nodesSet.add(wall.p2);
+    });
+    const nodes = Array.from(nodesSet);
+
     ctx2d.fillStyle = BG;
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
     ctx2d.save();
@@ -240,11 +261,11 @@ export function draw2D() {
 
 
 
-    // 2. Mahaller (Poligonlar)
-    drawRoomPolygons(ctx2d, state);
+    // 2. Mahaller (Poligonlar) - Filtrelenmiş odaları kullan
+    drawRoomPolygons(ctx2d, { ...state, rooms });
 
-    // 3. Duvar Geometrisi
-    drawWallGeometry(ctx2d, state, BG);
+    // 3. Duvar Geometrisi - Filtrelenmiş duvarları kullan
+    drawWallGeometry(ctx2d, { ...state, walls, doors }, BG);
 
     // 3.5. Arc Duvar Kontrol Noktaları
     walls.forEach(wall => {
@@ -296,7 +317,7 @@ export function draw2D() {
     });
 
     // 4. KOLONLAR (Duvarlardan sonra, kapı/pencereden önce)
-    state.columns.forEach(column => {
+    columns.forEach(column => {
         // Her kolon için isSelected durumunu kontrol et (tek seçim veya grup seçimi)
         const isSelected = (selectedObject?.type === "column" && selectedObject.object === column) ||
                           state.selectedGroup.some(item => item.type === "column" && item.object === column);
@@ -304,7 +325,7 @@ export function draw2D() {
     });
 
     // 4.5. KİRİŞLER
-    (state.beams || []).forEach(beam => {
+    beams.forEach(beam => {
         // Her kiriş için isSelected durumunu kontrol et (tek seçim veya grup seçimi)
         const isSelected = (selectedObject?.type === "beam" && selectedObject.object === beam) ||
                           state.selectedGroup.some(item => item.type === "beam" && item.object === beam);
@@ -312,7 +333,7 @@ export function draw2D() {
     });
 
     // 4.7. MERDİVENLER
-    (state.stairs || []).forEach(stair => {
+    stairs.forEach(stair => {
         // Her bir merdiven için seçili olup olmadığını kontrol et (tek seçim veya grup seçimi)
         const isSelected = !!(
             (selectedObject && selectedObject.type === "stairs" && selectedObject.object === stair) ||
@@ -378,14 +399,14 @@ export function draw2D() {
 
     // 10. Ölçülendirmeler
     if (dimensionMode === 1) {
-        drawTotalDimensions();
+        drawTotalDimensions(walls, rooms);
     } else if (dimensionMode === 2) {
         walls.forEach((w) => {
             if (w.p1 && w.p2) drawDimension(w.p1, w.p2, false, 'single'); // Check added
         });
     }
 
-    drawOuterDimensions(); // Dış ölçüler
+    drawOuterDimensions(walls); // Dış ölçüler
 
     // Seçili nesne veya sürüklenen duvarlar için geçici ölçüler
     if (isDragging && affectedWalls.length > 0 && (dimensionMode === 0 || dimensionMode === 1) && selectedObject?.type === 'wall') {
@@ -468,7 +489,7 @@ export function draw2D() {
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
- if (state.isStairPopupVisible && state.stairs && state.stairs.length > 0) {
+ if (state.isStairPopupVisible && stairs && stairs.length > 0) {
         ctx2d.textAlign = "center";
         ctx2d.textBaseline = "middle";
         ctx2d.fillStyle = "#e57373"; // Kırmızı renk
@@ -477,7 +498,7 @@ export function draw2D() {
         const ZOOM_EXPONENT_STAIR_NAME = -0.5; // Zoom ile nasıl küçüleceği (room names ile benzer veya farklı olabilir)
         const minWorldFontSize = 8; // Minimum dünya boyutu
 
-        state.stairs.forEach(stair => {
+        stairs.forEach(stair => {
             if (stair.center && stair.name) {
                 let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT_STAIR_NAME);
                 ctx2d.font = `bold ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`; // Kalın font

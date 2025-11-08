@@ -675,40 +675,40 @@ export function drawWallGeometry(ctx2d, state, BG) {
     // Gruplanmış segmentleri ilgili çizim fonksiyonlarıyla çiz
     // (Artık hepsi önce stroke, sonra bg_fill çizecek)
     drawNormalSegments(ctx2d, normalSegments.ortho, wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
-    drawNormalSegments(ctx2d, normalSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
+    drawNormalSegments(ctx2d, normalSegments.nonOrtho, wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawNormalSegments(ctx2d, normalSegments.selected, "#8ab4f8", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
 
     drawBalconySegments(ctx2d, balconySegments.ortho, wallBorderColor);
-    drawBalconySegments(ctx2d, balconySegments.nonOrtho, "#e57373");
+    drawBalconySegments(ctx2d, balconySegments.nonOrtho, wallBorderColor);
     drawBalconySegments(ctx2d, balconySegments.selected, "#8ab4f8");
 
     drawGlassSegments(ctx2d, glassSegments.ortho, wallBorderColor, wallPx);
-    drawGlassSegments(ctx2d, glassSegments.nonOrtho, "#e57373", wallPx);
+    drawGlassSegments(ctx2d, glassSegments.nonOrtho, wallBorderColor, wallPx);
     drawGlassSegments(ctx2d, glassSegments.selected, "#8ab4f8", wallPx);
 
     // Yarım duvarlar (stroke -> bg_fill -> half_fill)
     drawHalfSegments(ctx2d, halfSegments.ortho, wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
-    drawHalfSegments(ctx2d, halfSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
+    drawHalfSegments(ctx2d, halfSegments.nonOrtho,wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawHalfSegments(ctx2d, halfSegments.selected, "#8ab4f8", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
 
     // Arc normal duvarlar
     drawArcSegments(ctx2d, arcNormalSegments.ortho, wallBorderColor, lineThickness, wallPx, BG);
-    drawArcSegments(ctx2d, arcNormalSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG);
+    drawArcSegments(ctx2d, arcNormalSegments.nonOrtho, wallBorderColor, lineThickness, wallPx, BG);
     drawArcSegments(ctx2d, arcNormalSegments.selected, "#8ab4f8", lineThickness, wallPx, BG);
 
     // Arc balkon duvarlar
     drawArcBalconySegments(ctx2d, arcBalconySegments.ortho, wallBorderColor);
-    drawArcBalconySegments(ctx2d, arcBalconySegments.nonOrtho, "#e57373");
+    drawArcBalconySegments(ctx2d, arcBalconySegments.nonOrtho, wallBorderColor);
     drawArcBalconySegments(ctx2d, arcBalconySegments.selected, "#8ab4f8");
 
     // Arc camekan duvarlar
     drawArcGlassSegments(ctx2d, arcGlassSegments.ortho, wallBorderColor);
-    drawArcGlassSegments(ctx2d, arcGlassSegments.nonOrtho, "#e57373");
+    drawArcGlassSegments(ctx2d, arcGlassSegments.nonOrtho, wallBorderColor);
     drawArcGlassSegments(ctx2d, arcGlassSegments.selected, "#8ab4f8");
 
     // Arc yarım duvarlar
     drawArcHalfSegments(ctx2d, arcHalfSegments.ortho, wallBorderColor, lineThickness, wallPx, BG);
-    drawArcHalfSegments(ctx2d, arcHalfSegments.nonOrtho, "#e57373", lineThickness, wallPx, BG);
+    drawArcHalfSegments(ctx2d, arcHalfSegments.nonOrtho, wallBorderColor, lineThickness, wallPx, BG);
     drawArcHalfSegments(ctx2d, arcHalfSegments.selected, "#8ab4f8", lineThickness, wallPx, BG);
 
     // Varsayılan ayarlara dön

@@ -141,7 +141,7 @@ export function getObjectAtPoint(pos) {
         const distToCenter = Math.hypot(pos.x - room.center[0], pos.y - room.center[1]);
         
         // DEĞİŞTİ: 40 -> (40 / 3)
-        const nameTolerance = 10 / zoom; // Mahal adı yakalama toleransı
+        const nameTolerance = 25 / zoom; // Mahal adı yakalama toleransı
         
         if (distToCenter < nameTolerance) {
              // Mahal adı/alanına tıklandıysa bunu döndür
