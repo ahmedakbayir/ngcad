@@ -222,10 +222,11 @@ function drawStairSequenceArrows(ctx2d, state) {
 export function draw2D() {
     const { ctx2d, c2d } = dom;
     const {
-        panOffset, zoom, rooms, walls, doors, beams, stairs, selectedObject, // <-- stairs EKLEYİN
-        isDragging, dimensionMode, affectedWalls, startPoint, nodes,
+        panOffset, zoom, rooms, walls, doors, beams, stairs, selectedObject,
+        isDragging, dimensionMode, affectedWalls, startPoint,
         dimensionOptions, wallAdjacency,
     } = state;
+    const nodes = state.nodes || [];
 
     ctx2d.fillStyle = BG;
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
