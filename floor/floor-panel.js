@@ -380,7 +380,7 @@ function renderDetailPanel() {
             <thead>
                 <tr style="border-bottom: 1px solid #3a3b3c;">
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 40px;">Göster</th>
-                    <th style="padding: 6px; text-align: left; color: #8ab4f8; font-size: 11px; width: 100px;">Kat Adı</th>
+                    <th style="padding: 6px; text-align: left; color: #8ab4f8; font-size: 11px; width: 160px;">Kat Adı</th>
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 70px;">Kat Y.<br>(cm)</th>
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 80px;">Toplam Y.<br>(cm)</th>
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px;">Ön İzleme</th>
@@ -582,29 +582,10 @@ function renderDeleteButton(floor) {
 }
 
 /**
- * Placeholder kat önizlemesi (sadece + buton)
+ * Placeholder kat önizlemesi (boş - sadece inline buton kullanılıyor)
  */
 function renderPlaceholderPreview(floor) {
-    return `
-        <button class="add-floor-btn"
-                data-floor-id="${floor.id}"
-                style="background: #3a3b3c;
-                       color: #8ab4f8;
-                       border: 1px solid #8ab4f8;
-                       border-radius: 50%;
-                       width: 24px;
-                       height: 24px;
-                       font-size: 16px;
-                       cursor: pointer;
-                       display: flex;
-                       align-items: center;
-                       justify-content: center;
-                       transition: all 0.2s;
-                       line-height: 1;
-                       margin: 0 auto;">
-            +
-        </button>
-    `;
+    return '';
 }
 
 /**
@@ -746,8 +727,8 @@ function setupDetailTableEventListeners() {
         }
     });
 
-    // Kat ekleme butonları (hem inline hem de önizleme sütunundaki)
-    const addButtons = detailPanel.querySelectorAll('.add-floor-btn, .add-floor-btn-inline');
+    // Kat ekleme butonları (sadece inline)
+    const addButtons = detailPanel.querySelectorAll('.add-floor-btn-inline');
     addButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
