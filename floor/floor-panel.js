@@ -260,7 +260,7 @@ function createDetailPanel() {
         box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         z-index: 10000;
         display: none;
-        width: 750px;
+        width: 650px;
         max-height: 80vh;
         overflow-y: auto;
     `;
@@ -333,10 +333,14 @@ export function showDetailPanel() {
         createDetailPanel();
     }
 
-    // Panel'i ekranın üst ortasına yerleştir
+    // Panel'i mini panel'in hemen altında aç
     detailPanel.style.display = 'block';
     detailPanel.style.left = '50%';
-    detailPanel.style.top = '10px';
+
+    // Mini panel'in yüksekliğini hesapla ve hemen altında aç
+    const miniPanelHeight = miniPanel ? miniPanel.offsetHeight : 40;
+    detailPanel.style.top = `${miniPanelHeight + 5}px`;
+
     detailPanel.style.transform = 'translateX(-50%)';
 
     renderDetailPanel();
@@ -409,7 +413,7 @@ function renderDetailPanel() {
 
         // Kat yüksekliği ve toplam Y. hesapla
         const floorHeight = floor.isPlaceholder ? '' : Math.round(floor.topElevation - floor.bottomElevation);
-        const totalY = floor.isPlaceholder ? '' : `${Math.round(floor.bottomElevation)}-${Math.round(floor.topElevation)}`;
+        const totalY = floor.isPlaceholder ? '' : Math.round(floor.topElevation);
 
         html += `
             <tr data-floor-id="${floor.id}"
@@ -429,7 +433,7 @@ function renderDetailPanel() {
                                class="floor-height-input"
                                data-floor-id="${floor.id}"
                                value="${floorHeight}"
-                               style="width: 60px; padding: 2px 4px; background: #3a3b3c; color: #e7e6d0; border: 1px solid #5f6368; border-radius: 3px; text-align: center; font-size: 11px;"
+                               style="width: 60px; padding: 6px 4px; background: #3a3b3c; color: #e7e6d0; border: 1px solid #5f6368; border-radius: 3px; text-align: center; font-size: 11px; height: 30px;"
                                min="100"
                                max="1000"
                                step="10" />
@@ -452,6 +456,15 @@ function renderDetailPanel() {
 
         // Üst placeholder'dan sonra ayırıcı çizgi ekle
         if (index === upperPlaceholderIndex && upperPlaceholderIndex !== -1) {
+            html += `
+                <tr style="height: 2px; background: #5f6368;">
+                    <td colspan="6" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
+                </tr>
+            `;
+        }
+
+        // Alt placeholder'dan önce ayırıcı çizgi ekle
+        if (index === lowerPlaceholderIndex && lowerPlaceholderIndex !== -1) {
             html += `
                 <tr style="height: 2px; background: #5f6368;">
                     <td colspan="6" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
@@ -538,48 +551,28 @@ function renderDeleteButton(floor) {
 }
 
 /**
- * Placeholder kat önizlemesi (küçük, kesikli çizgiler + buton)
+ * Placeholder kat önizlemesi (sadece + buton)
  */
 function renderPlaceholderPreview(floor) {
     return `
-        <div style="position: relative; width: 80px; height: 40px; display: inline-block;">
-            <svg width="80" height="40" style="display: block;">
-                <rect x="5" y="5" width="70" height="30"
-                      fill="none"
-                      stroke="#5f6368"
-                      stroke-width="1"
-                      stroke-dasharray="3,3"/>
-                <line x1="5" y1="5" x2="75" y2="35"
-                      stroke="#5f6368"
-                      stroke-width="0.5"
-                      stroke-dasharray="3,3"/>
-                <line x1="75" y1="5" x2="5" y2="35"
-                      stroke="#5f6368"
-                      stroke-width="0.5"
-                      stroke-dasharray="3,3"/>
-            </svg>
-            <button class="add-floor-btn"
-                    data-floor-id="${floor.id}"
-                    style="position: absolute;
-                           top: 50%;
-                           left: 50%;
-                           transform: translate(-50%, -50%);
-                           background: #3a3b3c;
-                           color: #8ab4f8;
-                           border: 1px solid #8ab4f8;
-                           border-radius: 50%;
-                           width: 20px;
-                           height: 20px;
-                           font-size: 14px;
-                           cursor: pointer;
-                           display: flex;
-                           align-items: center;
-                           justify-content: center;
-                           transition: all 0.2s;
-                           line-height: 1;">
-                +
-            </button>
-        </div>
+        <button class="add-floor-btn"
+                data-floor-id="${floor.id}"
+                style="background: #3a3b3c;
+                       color: #8ab4f8;
+                       border: 1px solid #8ab4f8;
+                       border-radius: 50%;
+                       width: 24px;
+                       height: 24px;
+                       font-size: 16px;
+                       cursor: pointer;
+                       display: flex;
+                       align-items: center;
+                       justify-content: center;
+                       transition: all 0.2s;
+                       line-height: 1;
+                       margin: 0 auto;">
+            +
+        </button>
     `;
 }
 
