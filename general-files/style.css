@@ -298,10 +298,9 @@ canvas {
 }
 
 .tab-content-vertical {
-    flex: 1;
+    flex: 0 0 300px; /* Sabit genişlik - tab değişiminde genişleme/daralma yok */
     padding: 8px 0 8px 12px; /* Üst-alt padding eklendi, sol padding arttırıldı */
-    min-width: 280px; /* Daraltıldı: 300px -> 280px */
-    max-width: 300px; /* Daraltıldı: 340px -> 300px */
+    width: 300px; /* Sabit genişlik */
 }
 
 .tab-pane {

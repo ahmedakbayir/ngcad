@@ -35,15 +35,26 @@ export function createFloorPanel() {
 
     miniPanel.innerHTML = `
         <div id="floor-expand-btn" style="cursor: pointer; padding: 4px 8px; background: transparent; border: 1px solid #5f6368; border-radius: 4px; transition: all 0.2s;" title="Katlar Panelini Aç">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <!-- Evin dış çerçevesi (önden vaziyet) -->
-                <rect x="3" y="6" width="18" height="16" stroke="#8ab4f8" fill="none"></rect>
-                <!-- Kat çizgileri (yatay) - katları gösterir -->
-                <line x1="3" y1="10" x2="21" y2="10" stroke="#8ab4f8"></line>
-                <line x1="3" y1="14" x2="21" y2="14" stroke="#8ab4f8"></line>
-                <line x1="3" y1="18" x2="21" y2="18" stroke="#8ab4f8"></line>
-                <!-- Çatı -->
-                <polyline points="12,2 21,6 3,6" stroke="#8ab4f8" fill="none"></polyline>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <!-- Bina temeli -->
+                <rect x="2" y="20" width="20" height="2" fill="#8ab4f8" stroke="none"></rect>
+                <!-- Bina gövdesi (3 katlı) -->
+                <rect x="4" y="8" width="16" height="12" stroke="#8ab4f8" fill="none"></rect>
+                <!-- Kat çizgileri (yatay) -->
+                <line x1="4" y1="12" x2="20" y2="12" stroke="#8ab4f8"></line>
+                <line x1="4" y1="16" x2="20" y2="16" stroke="#8ab4f8"></line>
+                <!-- Pencereler (her katta 3 pencere) -->
+                <rect x="6" y="9.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <rect x="11" y="9.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <rect x="16" y="9.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <rect x="6" y="13.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <rect x="11" y="13.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <rect x="16" y="13.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <rect x="6" y="17.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <rect x="11" y="17.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <rect x="16" y="17.5" width="2" height="1.5" fill="#8ab4f8"></rect>
+                <!-- Çatı (üçgen) -->
+                <polyline points="12,3 20,8 4,8" stroke="#8ab4f8" fill="none"></polyline>
             </svg>
         </div>
         <div id="floor-scroll-left" style="display: none; cursor: pointer; padding: 4px; color: #8ab4f8; font-size: 14px;">◀</div>
@@ -387,6 +398,15 @@ function renderDetailPanel() {
     const lowerPlaceholderIndex = sortedFloors.findIndex(f => f.isPlaceholder && f.isBelow);
 
     sortedFloors.forEach((floor, index) => {
+        // Alt placeholder'dan önce ayırıcı çizgi ekle
+        if (index === lowerPlaceholderIndex && lowerPlaceholderIndex !== -1) {
+            html += `
+                <tr style="height: 2px; background: #5f6368;">
+                    <td colspan="6" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
+                </tr>
+            `;
+        }
+
         const isActive = state.currentFloor?.id === floor.id;
         const isVisible = floor.visible !== false;
         let rowStyle = '';
@@ -402,11 +422,31 @@ function renderDetailPanel() {
             rowStyle += ' opacity: 0.4;';
         }
 
-        // Kat adını belirle (placeholder için ok işareti ekle)
+        // Kat adını belirle (placeholder için + butonu ekle)
         let floorNameDisplay = floor.name;
         if (floor.isPlaceholder) {
-            const arrow = floor.isBelow ? '↓' : '↑';
-            floorNameDisplay = `${arrow} ${floor.name} ${arrow}`;
+            floorNameDisplay = `
+                <button class="add-floor-btn-inline"
+                        data-floor-id="${floor.id}"
+                        style="background: #3a3b3c;
+                               color: #8ab4f8;
+                               border: 1px solid #8ab4f8;
+                               border-radius: 50%;
+                               width: 20px;
+                               height: 20px;
+                               font-size: 14px;
+                               cursor: pointer;
+                               display: inline-flex;
+                               align-items: center;
+                               justify-content: center;
+                               transition: all 0.2s;
+                               line-height: 1;
+                               margin-right: 8px;
+                               vertical-align: middle;">
+                    +
+                </button>
+                <span style="vertical-align: middle;">${floor.name}</span>
+            `;
         }
 
         const isDraggable = !floor.isPlaceholder && floor.name !== 'ZEMİN';
@@ -456,15 +496,6 @@ function renderDetailPanel() {
 
         // Üst placeholder'dan sonra ayırıcı çizgi ekle
         if (index === upperPlaceholderIndex && upperPlaceholderIndex !== -1) {
-            html += `
-                <tr style="height: 2px; background: #5f6368;">
-                    <td colspan="6" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
-                </tr>
-            `;
-        }
-
-        // Alt placeholder'dan önce ayırıcı çizgi ekle
-        if (index === lowerPlaceholderIndex && lowerPlaceholderIndex !== -1) {
             html += `
                 <tr style="height: 2px; background: #5f6368;">
                     <td colspan="6" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
@@ -715,8 +746,8 @@ function setupDetailTableEventListeners() {
         }
     });
 
-    // Kat ekleme butonları
-    const addButtons = detailPanel.querySelectorAll('.add-floor-btn');
+    // Kat ekleme butonları (hem inline hem de önizleme sütunundaki)
+    const addButtons = detailPanel.querySelectorAll('.add-floor-btn, .add-floor-btn-inline');
     addButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
