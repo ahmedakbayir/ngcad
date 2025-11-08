@@ -128,7 +128,7 @@ export function findNodeAt(x, y) {
     const currentFloorId = state.currentFloor?.id;
 
     // Sadece aktif kattaki duvarlardan node'ları topla
-    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
     const nodesSet = new Set();
     currentFloorWalls.forEach(w => {
         if (w.p1) nodesSet.add(w.p1);
@@ -149,7 +149,7 @@ export function getOrCreateNode(x, y) {
     const currentFloorId = state.currentFloor?.id;
 
     // Sadece aktif kattaki duvarlardan node'ları topla
-    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
     const nodesSet = new Set();
     currentFloorWalls.forEach(w => {
         if (w.p1) nodesSet.add(w.p1);
@@ -186,8 +186,8 @@ export function calculatePlanarArea(coords) {
 export function detectRooms() {
     const currentFloorId = state.currentFloor?.id;
     // Sadece aktif kattaki duvarları kullan
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
-    const oldRooms = [...state.rooms].filter(r => !currentFloorId || r.floorId === currentFloorId); // Sadece aktif kattaki önceki odaları koru
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const oldRooms = [...state.rooms].filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId); // Sadece aktif kattaki önceki odaları koru
 
     // Yeterli duvar yoksa oda oluşmaz
     if (walls.length < 3) {

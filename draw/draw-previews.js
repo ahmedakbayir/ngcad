@@ -11,7 +11,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
 
     // FLOOR ISOLATION: Sadece aktif kattaki duvarları kullan
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
 
     // Kapı önizlemesi
     if (currentMode === "drawDoor" && !isPanning && !isDragging) {

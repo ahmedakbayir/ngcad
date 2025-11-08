@@ -58,12 +58,12 @@ export function update3DScene() {
 
     // Sadece aktif kata ait elementleri filtrele
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
-    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
-    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
-    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
-    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
-    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || !d.floorId || d.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || !c.floorId || c.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || !b.floorId || b.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
 
     // --- Duvarları, Kapıları, Pencereleri ve Menfezleri Oluştur ---
     walls.forEach(w => {

@@ -27,12 +27,12 @@ export function calculateCopyPreview(axisP1, axisP2) {
 
     // FLOOR ISOLATION: Sadece aktif kattaki elemanları kopyala
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
-    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
-    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
-    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
-    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
-    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || !d.floorId || d.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || !c.floorId || c.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || !b.floorId || b.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
 
     // Aktif kattaki duvarlardan node'ları topla
     const nodesSet = new Set();
@@ -226,12 +226,12 @@ export function calculateSymmetryPreview(axisP1, axisP2) {
 
     // FLOOR ISOLATION: Sadece aktif kattaki elemanları yansıt
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || w.floorId === currentFloorId);
-    const doors = (state.doors || []).filter(d => !currentFloorId || d.floorId === currentFloorId);
-    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
-    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
-    const stairs = (state.stairs || []).filter(s => !currentFloorId || s.floorId === currentFloorId);
-    const rooms = (state.rooms || []).filter(r => !currentFloorId || r.floorId === currentFloorId);
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || !d.floorId || d.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || !c.floorId || c.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || !b.floorId || b.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
 
     // Aktif kattaki duvarlardan node'ları topla
     const nodesSet = new Set();

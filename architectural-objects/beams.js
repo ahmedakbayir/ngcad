@@ -84,7 +84,7 @@ export function getBeamAtPoint(point) {
     const { zoom } = state;
     const currentFloorId = state.currentFloor?.id;
     // Sadece aktif kata ait kirişleri filtrele
-    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || !b.floorId || b.floorId === currentFloorId);
     const handleTolerance = 8 / zoom;
 
     for (const beam of [...beams].reverse()) {

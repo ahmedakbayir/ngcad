@@ -41,7 +41,8 @@ function saveProject() {
             vents: w.vents || [],
             isArc: w.isArc, // EKLENDİ
             arcControl1: w.arcControl1, // EKLENDİ
-            arcControl2: w.arcControl2  // EKLENDİ
+            arcControl2: w.arcControl2,  // EKLENDİ
+            floorId: w.floorId // floorId ekle
         })),
         doors: state.doors.map(d => ({
             wallIndex: state.walls.indexOf(d.wall),
@@ -190,7 +191,8 @@ function openProject(e) {
                     vents: w.vents || [],
                     isArc: w.isArc,
                     arcControl1: w.arcControl1,
-                    arcControl2: w.arcControl2
+                    arcControl2: w.arcControl2,
+                    floorId: w.floorId // floorId geri yükle
                 }));
 
                 // Kapıları geri yükle

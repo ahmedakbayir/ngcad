@@ -88,7 +88,7 @@ export function getColumnAtPoint(point) {
     const { zoom } = state;
     const currentFloorId = state.currentFloor?.id;
     // Sadece aktif kata ait kolonları filtrele
-    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || !c.floorId || c.floorId === currentFloorId);
     const handleTolerance = 8 / zoom;
 
     for (const column of [...columns].reverse()) {
