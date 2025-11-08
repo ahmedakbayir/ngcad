@@ -3,6 +3,7 @@ import { state, setState } from '../general-files/main.js';
 
 let miniPanel = null; // Sağda sabit dar panel
 let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
+let selectedFloors = new Set(); // Seçili katların ID'leri
 
 /**
  * Kat isminin kısa versiyonunu döndürür
@@ -35,7 +36,7 @@ export function createFloorPanel() {
         background: rgba(42, 43, 44, 0.9);
         border: 1px solid #5f6368;
         border-top: none;
-        border-radius: 0 0 8px 8px;
+        border-radius: 0;
         padding: 6px 10px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         z-index: 1000;
@@ -443,6 +444,8 @@ export function showDetailPanel() {
 export function hideDetailPanel() {
     if (detailPanel) {
         detailPanel.style.display = 'none';
+        // Panel kapatıldığında seçimleri temizle
+        selectedFloors.clear();
     }
 }
 
@@ -455,10 +458,29 @@ function renderDetailPanel() {
     const tableContainer = detailPanel.querySelector('#floor-detail-table-container');
     const floors = state.floors || [];
 
-    let html = `
+    // Toplu işlem butonları
+    const bulkActionsHtml = selectedFloors.size > 0 ? `
+        <div style="margin-bottom: 12px; padding: 8px; background: rgba(138, 180, 248, 0.1); border: 1px solid #8ab4f8; border-radius: 4px; display: flex; gap: 8px; align-items: center;">
+            <span style="color: #8ab4f8; font-size: 11px; font-weight: 500;">${selectedFloors.size} kat seçildi</span>
+            <button id="bulk-delete-btn" class="wall-panel-btn" style="padding: 4px 8px; font-size: 11px; background: rgba(220, 53, 69, 0.2); border-color: #dc3545; color: #dc3545;">
+                Seçilenleri Sil
+            </button>
+            <button id="bulk-height-btn" class="wall-panel-btn" style="padding: 4px 8px; font-size: 11px;">
+                Yükseklik Ver
+            </button>
+            <button id="clear-selection-btn" class="wall-panel-btn" style="padding: 4px 8px; font-size: 11px; background: transparent;">
+                Seçimi Temizle
+            </button>
+        </div>
+    ` : '';
+
+    let html = bulkActionsHtml + `
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="border-bottom: 1px solid #3a3b3c;">
+                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 35px;">
+                        <input type="checkbox" id="select-all-floors" style="cursor: pointer;" ${selectedFloors.size === floors.filter(f => !f.isPlaceholder).length && selectedFloors.size > 0 ? 'checked' : ''}>
+                    </th>
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 40px;">Göster</th>
                     <th style="padding: 6px; text-align: left; color: #8ab4f8; font-size: 11px; width: 160px;">Kat Adı</th>
                     <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 70px;">Kat Y.<br>(cm)</th>
@@ -482,7 +504,7 @@ function renderDetailPanel() {
         if (index === lowerPlaceholderIndex && lowerPlaceholderIndex !== -1) {
             html += `
                 <tr style="height: 2px; background: #5f6368;">
-                    <td colspan="6" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
+                    <td colspan="7" style="padding: 0; height: 2px; background: linear-gradient(to right, transparent, #8ab4f8, transparent);"></td>
                 </tr>
             `;
         }
@@ -540,6 +562,9 @@ function renderDetailPanel() {
                 style="${rowStyle} border-bottom: 1px solid #3a3b3c; cursor: ${isDraggable ? 'move' : 'pointer'}; height: 50px;"
                 class="floor-row ${isDraggable ? 'floor-draggable' : ''}"
                 draggable="${isDraggable}">
+                <td style="padding: 4px; text-align: center;">
+                    ${floor.isPlaceholder ? '' : `<input type="checkbox" class="floor-checkbox" data-floor-id="${floor.id}" style="cursor: pointer;" ${selectedFloors.has(floor.id) ? 'checked' : ''}>`}
+                </td>
                 <td style="padding: 4px; text-align: center;">
                     ${floor.isPlaceholder ? '' : renderVisibilityToggle(floor)}
                 </td>
@@ -753,7 +778,8 @@ function setupDetailTableEventListeners() {
             // Eğer buton tıklamasıysa ignore et
             if (e.target.closest('.floor-visibility-btn') ||
                 e.target.closest('.floor-delete-btn') ||
-                e.target.closest('.add-floor-btn')) {
+                e.target.closest('.add-floor-btn') ||
+                e.target.closest('.floor-checkbox')) {
                 return;
             }
 
@@ -927,6 +953,72 @@ function setupDetailTableEventListeners() {
             return false;
         });
     });
+
+    // Checkbox event listener'ları
+    const checkboxes = detailPanel.querySelectorAll('.floor-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            e.stopPropagation();
+            const floorId = checkbox.dataset.floorId;
+
+            if (checkbox.checked) {
+                selectedFloors.add(floorId);
+            } else {
+                selectedFloors.delete(floorId);
+            }
+
+            renderDetailPanel();
+        });
+
+        // Checkbox tıklamasının satır tıklamasını tetiklemesini engelle
+        checkbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    });
+
+    // Tümünü seç checkbox
+    const selectAllCheckbox = detailPanel.querySelector('#select-all-floors');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', (e) => {
+            const floors = state.floors || [];
+            const selectableFloors = floors.filter(f => !f.isPlaceholder);
+
+            if (e.target.checked) {
+                // Tümünü seç
+                selectableFloors.forEach(floor => {
+                    selectedFloors.add(floor.id);
+                });
+            } else {
+                // Tüm seçimi kaldır
+                selectedFloors.clear();
+            }
+
+            renderDetailPanel();
+        });
+    }
+
+    // Toplu işlem butonları
+    const bulkDeleteBtn = detailPanel.querySelector('#bulk-delete-btn');
+    if (bulkDeleteBtn) {
+        bulkDeleteBtn.addEventListener('click', () => {
+            bulkDeleteFloors();
+        });
+    }
+
+    const bulkHeightBtn = detailPanel.querySelector('#bulk-height-btn');
+    if (bulkHeightBtn) {
+        bulkHeightBtn.addEventListener('click', () => {
+            bulkSetHeight();
+        });
+    }
+
+    const clearSelectionBtn = detailPanel.querySelector('#clear-selection-btn');
+    if (clearSelectionBtn) {
+        clearSelectionBtn.addEventListener('click', () => {
+            selectedFloors.clear();
+            renderDetailPanel();
+        });
+    }
 }
 
 /**
@@ -1259,4 +1351,65 @@ function updateFloorHeight(floorId, newHeight) {
     // Panelleri yeniden render et
     renderDetailPanel();
     renderMiniPanel();
+}
+
+/**
+ * Seçili katları toplu olarak siler
+ */
+function bulkDeleteFloors() {
+    if (selectedFloors.size === 0) return;
+
+    const floors = state.floors || [];
+    const floorsToDelete = floors.filter(f => selectedFloors.has(f.id));
+
+    // ZEMİN katını silmeye çalışıyor muyuz?
+    const hasZemin = floorsToDelete.some(f => f.name === 'ZEMİN');
+    if (hasZemin) {
+        alert('Zemin kat silinemez.');
+        return;
+    }
+
+    const confirmed = confirm(`${selectedFloors.size} kat silinecek. Emin misiniz?`);
+    if (!confirmed) return;
+
+    const newFloors = floors.filter(f => !selectedFloors.has(f.id));
+    setState({ floors: newFloors });
+
+    // Aktif kat silinmişse, ilk görünür katı aktif yap
+    if (selectedFloors.has(state.currentFloor?.id)) {
+        const firstVisible = newFloors.find(f => !f.isPlaceholder && f.visible !== false);
+        setState({ currentFloor: firstVisible || null });
+    }
+
+    selectedFloors.clear();
+    renderDetailPanel();
+    renderMiniPanel();
+}
+
+/**
+ * Seçili katlara toplu olarak yükseklik verir
+ */
+function bulkSetHeight() {
+    if (selectedFloors.size === 0) return;
+
+    const heightStr = prompt('Tüm seçili katlar için yükseklik (cm):', '270');
+    if (!heightStr) return;
+
+    const newHeight = parseFloat(heightStr);
+    if (!newHeight || newHeight < 100 || newHeight > 1000) {
+        alert('Kat yüksekliği 100-1000 cm arasında olmalıdır.');
+        return;
+    }
+
+    // Seçili katları yüksekliğe göre sırala (alttakilerden başla)
+    const floors = [...state.floors];
+    const selectedFloorIds = Array.from(selectedFloors);
+    const selectedFloorObjects = floors
+        .filter(f => selectedFloorIds.includes(f.id))
+        .sort((a, b) => a.bottomElevation - b.bottomElevation);
+
+    // Her kata yüksekliği uygula (alttakilerden başlayarak)
+    selectedFloorObjects.forEach(floor => {
+        updateFloorHeight(floor.id, newHeight);
+    });
 }
