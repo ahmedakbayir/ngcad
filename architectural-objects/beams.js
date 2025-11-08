@@ -81,17 +81,20 @@ export function getBeamHandleAtPoint(point, beam, tolerance) {
 
 // Verilen noktada hangi nesnenin (kiriş, kenar, köşe, gövde) olduğunu belirler
 export function getBeamAtPoint(point) {
-    const { beams, zoom } = state;
+    const { zoom } = state;
+    const currentFloorId = state.currentFloor?.id;
+    // Sadece aktif kata ait kirişleri filtrele
+    const beams = (state.beams || []).filter(b => !currentFloorId || b.floorId === currentFloorId);
     const handleTolerance = 8 / zoom;
 
-    for (const beam of [...(beams || [])].reverse()) { // beams undefined olabilir kontrolü
+    for (const beam of [...beams].reverse()) {
         const handle = getBeamHandleAtPoint(point, beam, handleTolerance);
         if (handle) {
             return { type: 'beam', object: beam, handle: handle };
         }
     }
 
-    for (const beam of [...(beams || [])].reverse()) { // beams undefined olabilir kontrolü
+    for (const beam of [...beams].reverse()) {
         if (isPointInBeam(point, beam)) {
             return { type: 'beam', object: beam, handle: 'body' };
         }

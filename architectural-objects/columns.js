@@ -85,18 +85,20 @@ export function getColumnHandleAtPoint(point, column, tolerance) {
 
 // Verilen noktada hangi nesnenin (kolon, kenar, köşe, gövde) olduğunu belirler
 export function getColumnAtPoint(point) {
-    // ... (mevcut kod - değişiklik yok)
-    const { columns, zoom } = state;
+    const { zoom } = state;
+    const currentFloorId = state.currentFloor?.id;
+    // Sadece aktif kata ait kolonları filtrele
+    const columns = (state.columns || []).filter(c => !currentFloorId || c.floorId === currentFloorId);
     const handleTolerance = 8 / zoom;
 
-    for (const column of [...(columns || [])].reverse()) { // columns undefined olabilir kontrolü
+    for (const column of [...columns].reverse()) {
         const handle = getColumnHandleAtPoint(point, column, handleTolerance);
         if (handle) {
             return { type: 'column', object: column, handle: handle };
         }
     }
 
-    for (const column of [...(columns || [])].reverse()) { // columns undefined olabilir kontrolü
+    for (const column of [...columns].reverse()) {
         if (isPointInColumn(point, column)) {
             return { type: 'column', object: column, handle: 'body' };
         }
