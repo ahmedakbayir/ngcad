@@ -5,6 +5,7 @@ import { state, setState, dom } from './main.js';
 import { saveState } from './history.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { importFromXML } from './xml-io.js'; // <-- HATA BURADAYDI (Satır 5)
+import { renderMiniPanel } from '../floor/floor-panel.js'; // <-- KAT PANELİ İÇİN EKLENDİ
 
 export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', saveProject);
@@ -73,7 +74,10 @@ function saveProject() {
             isLanding: s.isLanding, // eklendi
             showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
         })),
-        guides: state.guides || [] // <-- REFERANS ÇİZGİSİ EKLENDİ
+        guides: state.guides || [], // <-- REFERANS ÇİZGİSİ EKLENDİ
+        floors: state.floors || [], // <-- KAT BİLGİLERİ EKLENDİ
+        currentFloor: state.currentFloor || null, // <-- AKTİF KAT EKLENDİ
+        defaultFloorHeight: state.defaultFloorHeight || 270 // <-- VARSAYILAN KAT YÜKSEKLİĞİ EKLENDİ
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -226,7 +230,13 @@ function openProject(e) {
                      showRailing: s.showRailing || false
                 }));
                 const restoredGuides = projectData.guides || [];
-                
+
+                // Katları geri yükle
+                const restoredFloors = projectData.floors || [];
+                const restoredCurrentFloor = projectData.currentFloor ?
+                    restoredFloors.find(f => f.id === projectData.currentFloor.id) : null;
+                const restoredDefaultFloorHeight = projectData.defaultFloorHeight || 270;
+
                 // State'i güncelle
                 setState({
                     nodes: restoredNodes,
@@ -235,12 +245,20 @@ function openProject(e) {
                     rooms: restoredRooms,
                     columns: restoredColumns,
                     beams: restoredBeams,
-                    stairs: restoredStairs, 
+                    stairs: restoredStairs,
                     guides: restoredGuides,
+                    floors: restoredFloors,
+                    currentFloor: restoredCurrentFloor,
+                    defaultFloorHeight: restoredDefaultFloorHeight,
                     selectedObject: null,
                     selectedGroup: [],
                     startPoint: null
                 });
+
+                // Kat panelini güncelle
+                if (restoredFloors.length > 0) {
+                    renderMiniPanel();
+                }
 
                 // Duvarları işle ve history'ye kaydet
                 processWalls();
