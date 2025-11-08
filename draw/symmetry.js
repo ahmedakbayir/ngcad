@@ -414,7 +414,8 @@ export function applyCopy(axisP1, axisP2) {
                 thickness: wall.thickness || state.wallThickness,
                 wallType: wall.wallType || 'normal',
                 isArc: wall.isArc,
-                windows: [], vents: []
+                windows: [], vents: [],
+                floorId: wall.floorId
             };
 
             // Yay duvarları için kontrol noktalarını kopyala
@@ -467,7 +468,8 @@ export function applyCopy(axisP1, axisP2) {
             size: Math.max(col.width || col.size, col.height || col.size),
             rotation: col.rotation || 0, // Rotasyon aynı kalır
             hollowWidth: col.hollowWidth, hollowHeight: col.hollowHeight,
-            hollowOffsetX: col.hollowOffsetX, hollowOffsetY: col.hollowOffsetY
+            hollowOffsetX: col.hollowOffsetX, hollowOffsetY: col.hollowOffsetY,
+            floorId: col.floorId
         });
         newColumns.push(newCol);
     });
@@ -481,7 +483,8 @@ export function applyCopy(axisP1, axisP2) {
         const newBeam = createBeam(copiedCenter.x, copiedCenter.y, beam.width, beam.height, beam.rotation || 0);
         Object.assign(newBeam, {
             depth: beam.depth, hollowWidth: beam.hollowWidth, hollowHeight: beam.hollowHeight,
-            hollowOffsetX: beam.hollowOffsetX, hollowOffsetY: beam.hollowOffsetY
+            hollowOffsetX: beam.hollowOffsetX, hollowOffsetY: beam.hollowOffsetY,
+            floorId: beam.floorId
         });
         newBeams.push(newBeam);
     });
@@ -500,6 +503,7 @@ export function applyCopy(axisP1, axisP2) {
             topElevation: stair.topElevation,
             showRailing: stair.showRailing,
             stepCount: stair.stepCount,
+            floorId: stair.floorId,
             // connectedStairId kopyalanmaz (null kalır) çünkü kopya bağımsız olmalı
         });
 
@@ -598,7 +602,8 @@ export function applySymmetry(axisP1, axisP2) {
                 thickness: wall.thickness || state.wallThickness,
                 wallType: wall.wallType || 'normal',
                 isArc: wall.isArc,
-                windows: [], vents: []
+                windows: [], vents: [],
+                floorId: wall.floorId
             };
 
             // Yay duvarları için kontrol noktalarını yansıt

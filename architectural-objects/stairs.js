@@ -136,7 +136,8 @@ export function createStairs(centerX, centerY, width, height, rotation, isLandin
         topElevation: defaultTopElevation,     // Hesaplanan üst kot
         connectedStairId: connectedStairId,    // Bağlantı ID'si
         isLanding: isLanding, // Parametreden gelen değeri ata
-        showRailing: isLanding ? false : state.stairSettings.showRailing // Sahanlıksa false, normal merdivense ayarlardan al
+        showRailing: isLanding ? false : state.stairSettings.showRailing, // Sahanlıksa false, normal merdivense ayarlardan al
+        floorId: state.currentFloor?.id
     };
 
     // Basamak sayısını hesapla (sahanlık değilse)
