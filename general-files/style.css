@@ -557,8 +557,8 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
     color: #8ab4f8;
 }
 
-/* 3D Overlay: Kamera Koordinatları - split-ratio-buttons içinde */
-#split-ratio-buttons #camera-coords {
+/* 3D Overlay: Kamera Koordinatları */
+#camera-coords {
     background: rgba(30, 31, 32, 0.9);
     padding: 6px 10px;
     border-radius: 4px;

@@ -56,14 +56,22 @@ export function update3DScene() {
         pictureFrameMaterial.transparent = true; pictureFrameMaterial.opacity = solidOpacity; pictureFrameMaterial.needsUpdate = true;
     }
 
-    // Sadece aktif kata ait elementleri filtrele
+    // 3D görünüm moduna göre filtreleme
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
-    const doors = (state.doors || []).filter(d => !currentFloorId || !d.floorId || d.floorId === currentFloorId);
-    const columns = (state.columns || []).filter(c => !currentFloorId || !c.floorId || c.floorId === currentFloorId);
-    const beams = (state.beams || []).filter(b => !currentFloorId || !b.floorId || b.floorId === currentFloorId);
-    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
-    const stairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
+    const viewMode = state.viewMode3D || 'floor';
+
+    // 'floor' modunda sadece aktif kat, 'building' modunda tüm katlar görünür
+    const shouldShowFloor = (floorId) => {
+        if (viewMode === 'building') return true; // Tüm katlar
+        return !currentFloorId || !floorId || floorId === currentFloorId; // Sadece aktif kat
+    };
+
+    const walls = (state.walls || []).filter(w => shouldShowFloor(w.floorId));
+    const doors = (state.doors || []).filter(d => shouldShowFloor(d.floorId));
+    const columns = (state.columns || []).filter(c => shouldShowFloor(c.floorId));
+    const beams = (state.beams || []).filter(b => shouldShowFloor(b.floorId));
+    const rooms = (state.rooms || []).filter(r => shouldShowFloor(r.floorId));
+    const stairs = (state.stairs || []).filter(s => shouldShowFloor(s.floorId));
 
     // --- Duvarları, Kapıları, Pencereleri ve Menfezleri Oluştur ---
     walls.forEach(w => {

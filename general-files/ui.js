@@ -818,41 +818,21 @@ export function setupUIListeners() {
             const currentMode = dom.bFloorView.getAttribute('data-view-mode');
 
             if (currentMode === 'floor') {
-                // Binayı göster moduna geç
+                // Binayı göster moduna geç (3D'de tüm katları göster)
                 dom.bFloorView.setAttribute('data-view-mode', 'building');
                 dom.bFloorView.textContent = 'BİNA';
-                dom.bFloorView.title = 'Binayı Göster (Tüm Katlar)';
-
-                // Tüm katları görünür yap
-                const floors = state.floors || [];
-                floors.forEach(f => {
-                    if (!f.isPlaceholder) {
-                        f.visible = true;
-                    }
-                });
-                setState({ floors });
+                dom.bFloorView.title = 'Binayı Göster (3D\'de Tüm Katlar)';
+                setState({ viewMode3D: 'building' });
             } else {
-                // Katı göster moduna geç
+                // Katı göster moduna geç (3D'de sadece aktif katı göster)
                 dom.bFloorView.setAttribute('data-view-mode', 'floor');
                 dom.bFloorView.textContent = 'KAT';
-                dom.bFloorView.title = 'Katı Göster (Sadece Aktif Kat)';
-
-                // Sadece aktif katı görünür yap
-                const floors = state.floors || [];
-                const currentFloorId = state.currentFloor?.id;
-                floors.forEach(f => {
-                    if (!f.isPlaceholder) {
-                        f.visible = (f.id === currentFloorId);
-                    }
-                });
-                setState({ floors });
+                dom.bFloorView.title = 'Katı Göster (3D\'de Sadece Aktif Kat)';
+                setState({ viewMode3D: 'floor' });
             }
 
             // 3D sahneyi güncelle
             update3DScene();
-
-            // Mini panel'i güncelle
-            if (window.renderMiniPanel) window.renderMiniPanel();
         });
     }
 }
