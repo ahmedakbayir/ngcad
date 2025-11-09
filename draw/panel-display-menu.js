@@ -52,7 +52,7 @@ export function showPanelDisplayMenu(clientX, clientY) {
     menu.style.display = 'block';
 
     // Aktif modu vurgula
-    const currentMode = localStorage.getItem('panelDisplayMode') || 'big-icon-text';
+    const currentMode = localStorage.getItem('panelDisplayMode') || 'big-icon';
     document.querySelectorAll('.display-mode-option').forEach(btn => {
         const btnMode = btn.getAttribute('data-mode');
         if (btnMode === currentMode) {
@@ -111,10 +111,10 @@ export function initPanelDisplayMenu() {
     }
 
     // Sayfa yüklendiğinde kaydedilmiş modu uygula
-    const savedMode = localStorage.getItem('panelDisplayMode') || 'big-icon-text';
+    const savedMode = localStorage.getItem('panelDisplayMode') || 'big-icon';
     if (ui) {
         ui.classList.remove('display-small-icon', 'display-small-icon-text', 'display-big-icon', 'display-big-icon-text');
-        // Varsayılan mod artık big-icon-text olduğu için herzaman sınıfı ekle
+        // Varsayılan mod artık big-icon olduğu için herzaman sınıfı ekle
         ui.classList.add(`display-${savedMode}`);
     }
 

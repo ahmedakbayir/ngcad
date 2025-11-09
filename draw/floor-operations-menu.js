@@ -105,13 +105,15 @@ export function pasteFloorArchitecture() {
 
         let p1 = nodeMap.get(p1Key);
         if (!p1) {
-            p1 = getOrCreateNode(wallData.p1.x, wallData.p1.y);
+            // Manuel node oluştur (getOrCreateNode kullanma - aktif kata bağımlı)
+            p1 = { x: wallData.p1.x, y: wallData.p1.y };
             nodeMap.set(p1Key, p1);
         }
 
         let p2 = nodeMap.get(p2Key);
         if (!p2) {
-            p2 = getOrCreateNode(wallData.p2.x, wallData.p2.y);
+            // Manuel node oluştur (getOrCreateNode kullanma - aktif kata bağımlı)
+            p2 = { x: wallData.p2.x, y: wallData.p2.y };
             nodeMap.set(p2Key, p2);
         }
 
@@ -280,13 +282,15 @@ function pasteToAllFloors() {
 
             let p1 = nodeMap.get(p1Key);
             if (!p1) {
-                p1 = getOrCreateNode(wallData.p1.x, wallData.p1.y);
+                // Manuel node oluştur (getOrCreateNode kullanma - aktif kata bağımlı)
+                p1 = { x: wallData.p1.x, y: wallData.p1.y };
                 nodeMap.set(p1Key, p1);
             }
 
             let p2 = nodeMap.get(p2Key);
             if (!p2) {
-                p2 = getOrCreateNode(wallData.p2.x, wallData.p2.y);
+                // Manuel node oluştur (getOrCreateNode kullanma - aktif kata bağımlı)
+                p2 = { x: wallData.p2.x, y: wallData.p2.y };
                 nodeMap.set(p2Key, p2);
             }
 
