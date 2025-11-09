@@ -56,7 +56,8 @@ function saveProject() {
             area: r.area,
             center: r.center,
             name: r.name,
-            centerOffset: r.centerOffset // EKLENDİ
+            centerOffset: r.centerOffset, // EKLENDİ
+            floorId: r.floorId // EKLENDİ
         })),
         columns: state.columns, // <-- GÜNCELLENDİ/EKLENDİ
         beams: state.beams, 
@@ -210,7 +211,8 @@ function openProject(e) {
                     area: r.area,
                     center: r.center,
                     name: r.name,
-                    centerOffset: r.centerOffset
+                    centerOffset: r.centerOffset,
+                    floorId: r.floorId
                 }));
 
                 // Kolonları, Kirişleri ve Merdivenleri geri yükle

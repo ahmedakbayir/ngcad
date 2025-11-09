@@ -169,6 +169,7 @@ export function pasteFloorArchitecture() {
     floorClipboard.columns.forEach(columnData => {
         const newColumn = {
             ...columnData,
+            center: { x: columnData.center.x, y: columnData.center.y }, // Deep copy
             floorId: currentFloorId
         };
         state.columns.push(newColumn);
@@ -178,6 +179,7 @@ export function pasteFloorArchitecture() {
     floorClipboard.beams.forEach(beamData => {
         const newBeam = {
             ...beamData,
+            center: { x: beamData.center.x, y: beamData.center.y }, // Deep copy
             floorId: currentFloorId
         };
         state.beams.push(newBeam);
@@ -187,6 +189,7 @@ export function pasteFloorArchitecture() {
     floorClipboard.stairs.forEach(stairData => {
         const newStair = {
             ...stairData,
+            center: { x: stairData.center.x, y: stairData.center.y }, // Deep copy
             id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
             name: getNextStairLetter(),
             connectedStairId: null,
@@ -199,6 +202,8 @@ export function pasteFloorArchitecture() {
     floorClipboard.rooms.forEach(roomData => {
         const newRoom = {
             ...roomData,
+            center: roomData.center ? [...roomData.center] : undefined, // Deep copy array
+            centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined, // Deep copy object
             floorId: currentFloorId
         };
         state.rooms.push(newRoom);
@@ -324,6 +329,7 @@ function pasteToAllFloors() {
         floorClipboard.columns.forEach(columnData => {
             const newColumn = {
                 ...columnData,
+                center: { x: columnData.center.x, y: columnData.center.y }, // Deep copy
                 floorId: floorId
             };
             state.columns.push(newColumn);
@@ -333,6 +339,7 @@ function pasteToAllFloors() {
         floorClipboard.beams.forEach(beamData => {
             const newBeam = {
                 ...beamData,
+                center: { x: beamData.center.x, y: beamData.center.y }, // Deep copy
                 floorId: floorId
             };
             state.beams.push(newBeam);
@@ -342,6 +349,7 @@ function pasteToAllFloors() {
         floorClipboard.stairs.forEach(stairData => {
             const newStair = {
                 ...stairData,
+                center: { x: stairData.center.x, y: stairData.center.y }, // Deep copy
                 id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
                 name: getNextStairLetter(),
                 connectedStairId: null,
@@ -354,6 +362,8 @@ function pasteToAllFloors() {
         floorClipboard.rooms.forEach(roomData => {
             const newRoom = {
                 ...roomData,
+                center: roomData.center ? [...roomData.center] : undefined, // Deep copy array
+                centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined, // Deep copy object
                 floorId: floorId
             };
             state.rooms.push(newRoom);
