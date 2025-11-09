@@ -176,15 +176,18 @@ function handlePaste(e) {
             const newP1 = newNodesMap.get(originalP1Str);
             const newP2 = newNodesMap.get(originalP2Str);
             if (newP1 && newP2 && newP1 !== newP2 && !wallExists(newP1, newP2)) {
-                 const { p1, p2, ...wallProps } = originalWall;
-                 // Kopyalanan duvarların kalınlık ve tipini koru
+                 const { p1, p2, windows, vents, ...wallProps } = originalWall;
+                 // Pencereleri ve menfezleri kopyala
+                 const newWindows = (windows || []).map(w => JSON.parse(JSON.stringify(w)));
+                 const newVents = (vents || []).map(v => JSON.parse(JSON.stringify(v)));
+                 // Kopyalanan duvarların tüm özelliklerini koru
                 const newWall = {
-                    ...wallProps, // thickness ve wallType burada olmalı
+                    ...wallProps, // thickness, wallType, isArc, arcControl1, arcControl2, floorId vb.
                     type: 'wall',
                     p1: newP1,
                     p2: newP2,
-                    windows: [], // Pencereleri kopyalama
-                    vents: []    // Menfezleri kopyalama
+                    windows: newWindows, // Pencereleri kopyala
+                    vents: newVents      // Menfezleri kopyala
                  };
                 state.walls.push(newWall);
                 newWalls.push(newWall);
