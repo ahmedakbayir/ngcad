@@ -144,6 +144,40 @@ canvas {
     height: 16px;
 }
 
+/* Display Mode: Küçük İkon + Metin */
+#ui.display-small-icon-text .btn {
+    font-size: 14px; /* Metni göster */
+    gap: 8px; /* İkon ve metin arası boşluk */
+    width: auto;
+    min-width: auto;
+    padding: 6px 12px;
+}
+
+/* Display Mode: Büyük İkon */
+#ui.display-big-icon .btn {
+    min-width: 42px; /* 28 * 1.5 */
+    height: 42px;
+    padding: 9px; /* 6 * 1.5 */
+}
+
+#ui.display-big-icon .btn svg {
+    width: 24px; /* 16 * 1.5 */
+    height: 24px;
+}
+
+/* Display Mode: Büyük İkon + Metin */
+#ui.display-big-icon-text .btn {
+    font-size: 16.8px; /* 14 * 1.2 */
+    gap: 10px; /* 8 * 1.25 */
+    width: auto;
+    min-width: auto;
+    padding: 9px 15px; /* Biraz daha geniş padding */
+}
+
+#ui.display-big-icon-text .btn svg {
+    width: 24px; /* 16 * 1.5 */
+    height: 24px;
+}
 
 .btn svg {
     width: 18px;
@@ -516,6 +550,18 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
     margin-left: 5px; /* Input ile arasında boşluk */
 }
 
+
+#panel-display-menu {
+    display: none;
+    position: absolute;
+    background-color: #2a2b2c;
+    border: 1px solid #5f6368;
+    border-radius: 6px;
+    z-index: 200;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    padding: 5px;
+    width: 200px;
+}
 
 #guide-context-menu {
     display: none;
