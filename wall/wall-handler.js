@@ -391,12 +391,11 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         const nodesToMove = new Set();
         wallsToMove.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
 
-        // Mouse pozisyonunu takip et (smooth - snap olmadan)
-        const mouseDelta = {
-            x: unsnappedPos.x - state.initialDragPoint.x,
-            y: unsnappedPos.y - state.initialDragPoint.y
+        // Mouse pozisyonunu takip et (snap ile smooth)
+        let totalDelta = {
+            x: snappedPos.x - state.initialDragPoint.x,
+            y: snappedPos.y - state.initialDragPoint.y
         };
-        let totalDelta = { ...mouseDelta };
 
         // Eksen kısıtlaması uygula
         if (state.dragAxis === 'x') totalDelta.y = 0;
