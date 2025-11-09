@@ -641,8 +641,8 @@ export function importFromXML(xmlString) {
     }
 
     // Duvarları process et ama room detection'ı skip et (room'lar XML'den geldi)
-    console.log("\nprocessWalls çağrılıyor (skipRoomDetection=true)...");
-    processWalls(false, true); // skipMerge=false, skipRoomDetection=true
+    console.log("\nprocessWalls çağrılıyor (skipRoomDetection=true, processAllFloors=true)...");
+    processWalls(false, true, true); // skipMerge=false, skipRoomDetection=true, processAllFloors=true
 
     saveState();
     // 'dom' artık import edildiği için bu kontrol çalışacaktır

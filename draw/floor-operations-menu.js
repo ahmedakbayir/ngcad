@@ -40,7 +40,7 @@ export function initFloorOperationsMenu() {
 }
 
 // Mevcut kattaki tüm mimariyi kopyala
-function copyFloorArchitecture() {
+export function copyFloorArchitecture() {
     if (!state.currentFloor) {
         alert('Aktif kat bulunamadı!');
         return;
@@ -73,7 +73,7 @@ function copyFloorArchitecture() {
 }
 
 // Kopyalanan mimariyi mevcut kata yapıştır
-function pasteFloorArchitecture() {
+export function pasteFloorArchitecture() {
     if (!floorClipboard) {
         alert('Önce bir mimari plan kopyalamalısınız!');
         return;
@@ -362,7 +362,8 @@ function pasteToAllFloors() {
         pastedFloorCount++;
     });
 
-    processWalls();
+    // Tüm katları işle (processAllFloors = true)
+    processWalls(false, false, true);
     saveState();
     update3DScene();
 

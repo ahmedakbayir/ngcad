@@ -69,15 +69,18 @@ export function mergeNode(node) {
     return null;
 }
 
-function unifyNearbyNodes(tolerance) {
+function unifyNearbyNodes(tolerance, processAllFloors = false) {
     // KAT BAZLI NODE BIRLEŞTIRME: Her kat için ayrı ayrı merge yap
     const floors = state.floors || [];
     const currentFloorId = state.currentFloor?.id;
 
+    // Eğer processAllFloors true ise tüm katları işle
     // Eğer currentFloorId varsa sadece o katı işle, yoksa tüm katları işle (legacy)
-    const floorsToProcess = currentFloorId
-        ? floors.filter(f => f.id === currentFloorId)
-        : (floors.length > 0 ? floors : [{ id: null }]); // Legacy: kat yoksa null id kullan
+    const floorsToProcess = processAllFloors
+        ? (floors.length > 0 ? floors : [{ id: null }])
+        : currentFloorId
+            ? floors.filter(f => f.id === currentFloorId)
+            : (floors.length > 0 ? floors : [{ id: null }]); // Legacy: kat yoksa null id kullan
 
     floorsToProcess.forEach(floor => {
         const floorId = floor.id;
@@ -378,13 +381,13 @@ function mergeColumnsWithWalls() {
     });
 }
 
-export function processWalls(skipMerge = false, skipRoomDetection = false) {
+export function processWalls(skipMerge = false, skipRoomDetection = false, processAllFloors = false) {
     // Kolon node'larını duvar sisteminden ayır
     state.nodes = state.nodes.filter(n => !n.isColumnNode);
 
     // LOKAL KALINLIK İÇİN: skipMerge true ise birleştirme yapma
     if (!skipMerge) {
-        unifyNearbyNodes(1.0);
+        unifyNearbyNodes(1.0, processAllFloors);
     }
 
     const filteredWalls = state.walls.filter(w => {
