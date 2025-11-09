@@ -135,9 +135,8 @@ export function onPointerDownDraw(pos, clickedObject) {
     const currentFloorId = state.currentFloor?.id;
     const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
 
-    // 1. Direkt duvara yerleştirmeyi dene - SADECE duvara yakınsa
+    // 1. Duvara yakın mı kontrol et (simülasyon ile aynı tolerans)
     let previewWall = null, minDistSqPreview = Infinity;
-    // Daha sıkı tolerans: sadece duvar kalınlığı kadar (önizleme ile aynı)
     const bodyHitTolerancePreview = (state.wallThickness * 0.75) ** 2;
     for (const w of [...walls].reverse()) {
         if (!w.p1 || !w.p2) continue;
@@ -146,6 +145,8 @@ export function onPointerDownDraw(pos, clickedObject) {
             minDistSqPreview = distSq; previewWall = w;
         }
     }
+
+    // Eğer duvara yakınsak (simülasyon gösteriyorsa):
     if (previewWall) {
         // Duvar tipini kontrol et
         const wallType = previewWall.wallType || 'normal';
@@ -169,7 +170,7 @@ export function onPointerDownDraw(pos, clickedObject) {
             const roomName = adjacentRoom ? adjacentRoom.name : null;
             const isBathroom = roomName === 'BANYO';
 
-            const previewWindowData = getWindowPlacement(previewWall, pos, isBathroom); // isBathroom bilgisini gönder
+            const previewWindowData = getWindowPlacement(previewWall, pos, isBathroom);
             if (previewWindowData && isSpaceForWindow(previewWindowData)) {
                 if (previewWall.windows && previewWall.windows.length > 0) {
                      return;
@@ -180,15 +181,16 @@ export function onPointerDownDraw(pos, clickedObject) {
                     width: previewWindowData.width,
                     type: 'window',
                     isWidthManuallySet: false,
-                    roomName: roomName // Oda adını ekle
+                    roomName: roomName
                  });
                 saveState();
-                return;
             }
         }
+        // Yer olsun olmasın, duvara yakınsak odaya/boşluğa açma moduna gitme!
+        return;
     }
 
-    // 2. Odaya tıklayarak dış duvarlara pencere ekle
+    // 2. Duvara yakın DEĞİLSEK, odaya tıklayarak dış duvarlara pencere ekle
     if (clickedObject && clickedObject.type === 'room') {
         const clickedRoom = clickedObject.object; const TOLERANCE = 1;
         if (!clickedRoom.polygon || !clickedRoom.polygon.geometry) return;

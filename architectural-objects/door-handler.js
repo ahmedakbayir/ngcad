@@ -48,9 +48,8 @@ export function onPointerDownDraw(pos, clickedObject) {
     const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
     const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
 
-    // 1. Direkt duvara yerleştirmeyi dene - SADECE duvara yakınsa
+    // 1. Duvara yakın mı kontrol et (simülasyon ile aynı tolerans)
     let previewWall = null, minDistSqPreview = Infinity;
-    // Daha sıkı tolerans: sadece duvar kalınlığı kadar (önizleme ile aynı)
     const bodyHitTolerancePreview = (state.wallThickness * 0.75) ** 2;
     for (const w of [...walls].reverse()) {
          if (!w.p1 || !w.p2) continue;
@@ -59,16 +58,20 @@ export function onPointerDownDraw(pos, clickedObject) {
              minDistSqPreview = distSq; previewWall = w;
          }
     }
+
+    // Eğer duvara yakınsak (simülasyon gösteriyorsa):
     if (previewWall) {
         const previewDoor = getDoorPlacement(previewWall, pos);
         if (previewDoor && isSpaceForDoor(previewDoor)) {
+            // Yer varsa: kapı ekle
             state.doors.push(previewDoor);
             saveState();
-            return;
         }
+        // Yer olsun olmasın, duvara yakınsak odaya açma moduna gitme!
+        return;
     }
 
-    // 2. Odaya tıklayarak komşulara kapı eklemeyi dene
+    // 2. Duvara yakın DEĞİLSEK, odaya tıklayarak komşulara kapı eklemeyi dene
     if (clickedObject && clickedObject.type === 'room') {
         const clickedRoom = clickedObject.object;
         if (!clickedRoom.polygon || !clickedRoom.polygon.geometry) return;
