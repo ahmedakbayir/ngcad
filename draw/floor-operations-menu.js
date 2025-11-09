@@ -86,8 +86,10 @@ export function pasteFloorArchitecture() {
     const currentFloorId = state.currentFloor.id;
 
     // Önce mevcut kattaki mimariyi temizle
+    // DÜZELTME: Kapı filtresi için önce silinecek duvarları belirle
+    const wallsToDelete = state.walls.filter(w => w.floorId === currentFloorId);
+    state.doors = state.doors.filter(d => !d.wall || !wallsToDelete.includes(d.wall));
     state.walls = state.walls.filter(w => w.floorId !== currentFloorId);
-    state.doors = state.doors.filter(d => !d.wall || !state.walls.find(w => w === d.wall && w.floorId === currentFloorId));
     state.columns = state.columns.filter(c => c.floorId !== currentFloorId);
     state.beams = state.beams.filter(b => b.floorId !== currentFloorId);
     state.stairs = state.stairs.filter(s => s.floorId !== currentFloorId);
@@ -264,8 +266,10 @@ function pasteToAllFloors() {
         const floorId = floor.id;
 
         // Önce mevcut kattaki mimariyi temizle (normal yapıştırmadaki gibi)
+        // DÜZELTME: Kapı filtresi için önce silinecek duvarları belirle
+        const wallsToDelete = state.walls.filter(w => w.floorId === floorId);
+        state.doors = state.doors.filter(d => !d.wall || !wallsToDelete.includes(d.wall));
         state.walls = state.walls.filter(w => w.floorId !== floorId);
-        state.doors = state.doors.filter(d => !d.wall || d.wall.floorId !== floorId);
         state.columns = state.columns.filter(c => c.floorId !== floorId);
         state.beams = state.beams.filter(b => b.floorId !== floorId);
         state.stairs = state.stairs.filter(s => s.floorId !== floorId);
@@ -431,8 +435,10 @@ function clearFloorArchitecture() {
     }
 
     // Mimariyi temizle
+    // DÜZELTME: Kapı filtresi için önce silinecek duvarları belirle
+    const wallsToDelete = state.walls.filter(w => w.floorId === currentFloorId);
+    state.doors = state.doors.filter(d => !d.wall || !wallsToDelete.includes(d.wall));
     state.walls = state.walls.filter(w => w.floorId !== currentFloorId);
-    state.doors = state.doors.filter(d => !d.wall || !state.walls.find(w => w === d.wall && w.floorId === currentFloorId));
     state.columns = state.columns.filter(c => c.floorId !== currentFloorId);
     state.beams = state.beams.filter(b => b.floorId !== currentFloorId);
     state.stairs = state.stairs.filter(s => s.floorId !== currentFloorId);
