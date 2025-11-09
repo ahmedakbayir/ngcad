@@ -13,10 +13,12 @@ import { showGuideContextMenu, hideGuideContextMenu } from '../draw/guide-menu.j
 import { fitDrawingToScreen, onWheel } from '../draw/zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { showWallPanel, hideWallPanel } from '../wall/wall-panel.js'; // <-- HIDEWALLPANEL EKLENDİ
 import { copyFloorArchitecture, pasteFloorArchitecture } from '../draw/floor-operations-menu.js'; // <-- KAT MİMARİSİ KOPYALA/YAPIŞTIR
+import { onPointerDownDraw as doorPointerDownDraw } from '../architectural-objects/door-handler.js'; // SAĞTIK İÇİN
+import { onPointerDownDraw as windowPointerDownDraw } from '../architectural-objects/window-handler.js'; // SAĞTIK İÇİN
 import { onPointerDown } from '../pointer/pointer-down.js';
 import { onPointerMove } from '../pointer/pointer-move.js';
 import { onPointerUp } from '../pointer/pointer-up.js';
-import { isFPSMode } from '../scene3d/scene3d-camera.js'; 
+import { isFPSMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js'; 
 import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../scene3d/scene3d-core.js'; 
 import { wallExists } from '../wall/wall-handler.js';
@@ -771,19 +773,15 @@ export function setupInputListeners() {
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const object = getObjectAtPoint(clickPos);
 
-        // drawDoor modundayken duvara sağ tıklanırsa kapı ekle
-        if (state.currentMode === 'drawDoor' && object && object.type === 'wall') {
-            import('../architectural-objects/door-handler.js').then(module => {
-                module.onPointerDownDraw(clickPos, object);
-            });
+        // drawDoor modundayken sağ tıklanırsa kapı ekle (sadece duvara)
+        if (state.currentMode === 'drawDoor') {
+            doorPointerDownDraw(clickPos, null);
             return;
         }
 
-        // drawWindow modundayken duvara sağ tıklanırsa pencere ekle
-        if (state.currentMode === 'drawWindow' && object && object.type === 'wall') {
-            import('../architectural-objects/window-handler.js').then(module => {
-                module.onPointerDownDraw(clickPos, object);
-            });
+        // drawWindow modundayken sağ tıklanırsa pencere ekle (sadece duvara)
+        if (state.currentMode === 'drawWindow') {
+            windowPointerDownDraw(clickPos, null);
             return;
         }
 
