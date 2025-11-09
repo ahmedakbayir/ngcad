@@ -43,7 +43,7 @@ function getRoomsAdjacentToWall(wall) {
  */
 export function getWindowAtPoint(pos, tolerance) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : (state.walls || []);
 
     for (const wall of walls) {
         if (!wall.windows || wall.windows.length === 0 || !wall.p1 || !wall.p2) continue;
