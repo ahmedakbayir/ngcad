@@ -14,7 +14,8 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
  */
 export function getDoorAtPoint(pos, tolerance) {
     const currentFloorId = state.currentFloor?.id;
-    const doors = currentFloorId ? (state.doors || []).filter(d => d.floorId === currentFloorId) : (state.doors || []);
+    // floorId undefined olan kapıları da dahil et (eski projelerle uyumluluk için)
+    const doors = currentFloorId ? (state.doors || []).filter(d => !d.floorId || d.floorId === currentFloorId) : (state.doors || []);
 
     for (const door of [...doors].reverse()) {
         const wall = door.wall;
@@ -47,8 +48,9 @@ export function getDoorAtPoint(pos, tolerance) {
  */
 export function onPointerDownDraw(pos, clickedObject) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : (state.walls || []);
-    const rooms = currentFloorId ? (state.rooms || []).filter(r => r.floorId === currentFloorId) : (state.rooms || []);
+    // floorId undefined olan duvarları da dahil et (eski projelerle uyumluluk için)
+    const walls = currentFloorId ? (state.walls || []).filter(w => !w.floorId || w.floorId === currentFloorId) : (state.walls || []);
+    const rooms = currentFloorId ? (state.rooms || []).filter(r => !r.floorId || r.floorId === currentFloorId) : (state.rooms || []);
 
     // 1. Duvara yakın mı kontrol et (simülasyon ile aynı tolerans)
     let previewWall = null, minDistSqPreview = Infinity;
