@@ -136,15 +136,13 @@ function handlePaste(e) {
         const originalItem = data.items[0];
         const newItem = JSON.parse(JSON.stringify(originalItem));
         newItem.center.x += deltaX; newItem.center.y += deltaY;
-        if (data.type === 'column') 
+        // Aktif kata ata (önemli!)
+        newItem.floorId = state.currentFloor?.id;
+        if (data.type === 'column')
             state.columns.push(newItem);
-        else if (data.type === 'beam') 
+        else if (data.type === 'beam')
             state.beams.push(newItem);
         else if (data.type === 'stairs') {
-            const originalItem = data.items[0];
-            const newItem = JSON.parse(JSON.stringify(originalItem));
-            newItem.center.x += deltaX;
-            newItem.center.y += deltaY;
             // --- YENİ İSİM VE ID ATAMA ---
             newItem.name = getNextStairLetter(); // Yeni isim al
             newItem.id = `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`; // Yeni ID oluştur
