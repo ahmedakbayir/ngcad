@@ -125,8 +125,8 @@ canvas {
     gap: 8px;
 }
 
-/* YENİ KURAL: UI içindeki butonları sadece ikon göster */
-#ui .btn {
+/* YENİ KURAL: UI içindeki butonları sadece ikon göster (küçük ikon modu) */
+#ui.display-small-icon .btn {
     width: auto; /* Otomatik genişlik */
     min-width: 28px; /* Minimum genişlik - kat çubuğu ile uyumlu */
     height: 28px; /* Sabit yükseklik - kat çubuğu ile uyumlu */
@@ -138,8 +138,8 @@ canvas {
     gap: 0; /* Gap gerekmez */
 }
 
-/* UI içindeki buton iconları */
-#ui .btn svg {
+/* UI içindeki buton iconları (küçük ikon modu) */
+#ui.display-small-icon .btn svg {
     width: 16px; /* Kat çubuğu ile uyumlu boyut */
     height: 16px;
 }
@@ -151,6 +151,12 @@ canvas {
     width: auto;
     min-width: auto;
     padding: 6px 12px;
+    justify-content: flex-start; /* Sola dayalı */
+}
+
+#ui.display-small-icon-text .btn svg {
+    width: 16px;
+    height: 16px;
 }
 
 /* Display Mode: Büyük İkon */
@@ -167,11 +173,12 @@ canvas {
 
 /* Display Mode: Büyük İkon + Metin */
 #ui.display-big-icon-text .btn {
-    font-size: 16.8px; /* 14 * 1.2 */
-    gap: 10px; /* 8 * 1.25 */
+    font-size: 14px; /* Küçük ikonla aynı font boyutu */
+    gap: 8px; /* İkon ve metin arası boşluk */
     width: auto;
     min-width: auto;
-    padding: 9px 15px; /* Biraz daha geniş padding */
+    padding: 9px 12px; /* Büyük padding ama mantıklı */
+    justify-content: flex-start; /* Sola dayalı */
 }
 
 #ui.display-big-icon-text .btn svg {

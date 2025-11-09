@@ -12,10 +12,8 @@ function setPanelDisplayMode(mode) {
     // Tüm mod sınıflarını kaldır
     ui.classList.remove('display-small-icon', 'display-small-icon-text', 'display-big-icon', 'display-big-icon-text');
 
-    // Yeni modu ekle (small-icon varsayılan olduğu için sınıf eklemeye gerek yok)
-    if (mode !== 'small-icon') {
-        ui.classList.add(`display-${mode}`);
-    }
+    // Yeni modu ekle
+    ui.classList.add(`display-${mode}`);
 
     // Tercihi localStorage'a kaydet
     localStorage.setItem('panelDisplayMode', mode);
@@ -54,7 +52,7 @@ export function showPanelDisplayMenu(clientX, clientY) {
     menu.style.display = 'block';
 
     // Aktif modu vurgula
-    const currentMode = localStorage.getItem('panelDisplayMode') || 'small-icon';
+    const currentMode = localStorage.getItem('panelDisplayMode') || 'big-icon-text';
     document.querySelectorAll('.display-mode-option').forEach(btn => {
         const btnMode = btn.getAttribute('data-mode');
         if (btnMode === currentMode) {
@@ -113,12 +111,11 @@ export function initPanelDisplayMenu() {
     }
 
     // Sayfa yüklendiğinde kaydedilmiş modu uygula
-    const savedMode = localStorage.getItem('panelDisplayMode') || 'small-icon';
+    const savedMode = localStorage.getItem('panelDisplayMode') || 'big-icon-text';
     if (ui) {
         ui.classList.remove('display-small-icon', 'display-small-icon-text', 'display-big-icon', 'display-big-icon-text');
-        if (savedMode !== 'small-icon') {
-            ui.classList.add(`display-${savedMode}`);
-        }
+        // Varsayılan mod artık big-icon-text olduğu için herzaman sınıfı ekle
+        ui.classList.add(`display-${savedMode}`);
     }
 
     console.log('Panel display menü başlatıldı. Aktif mod:', savedMode);
