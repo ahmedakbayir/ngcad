@@ -6,6 +6,7 @@ import { saveState } from '../general-files/history.js';
 let guideMenuEl = null;
 let menuWorldPos = null;
 let clickOutsideListener = null;
+let blurListener = null;
 
 export function initGuideContextMenu() {
     guideMenuEl = document.getElementById('guide-context-menu');
@@ -99,6 +100,13 @@ export function showGuideContextMenu(screenX, screenY, worldPos) {
     };
     // Use setTimeout to avoid capturing the same click that opened the menu
     setTimeout(() => window.addEventListener('pointerdown', clickOutsideListener, { capture: true, once: true }), 0);
+
+    // Add blur listener to close menu when focus is lost
+    blurListener = () => {
+        // Small delay to allow clicks on menu items to register first
+        setTimeout(() => hideGuideContextMenu(), 100);
+    };
+    window.addEventListener('blur', blurListener);
 }
 
 export function hideGuideContextMenu() {
@@ -108,6 +116,10 @@ export function hideGuideContextMenu() {
     if (clickOutsideListener) {
         window.removeEventListener('pointerdown', clickOutsideListener, { capture: true });
         clickOutsideListener = null;
+    }
+    if (blurListener) {
+        window.removeEventListener('blur', blurListener);
+        blurListener = null;
     }
     menuWorldPos = null;
 }

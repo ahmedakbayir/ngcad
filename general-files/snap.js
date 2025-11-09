@@ -395,7 +395,8 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         }
     }
 
-    // Rehber (Guide) Snap Noktaları ve Kesişimleri
+    // Rehber (Guide) Snap Noktaları ve Kesişimleri - DEVRE DIŞI
+    /*
     const guides = state.guides || [];
     if (guides.length > 0 && state.selectedObject?.type !== 'guide') {
         // Önce rehber kesişimlerini hesapla (yüksek öncelikli)
@@ -536,6 +537,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             }
         }
     }
+    */
 
     // Uzantı Çizgileri ve Kesişimler
     let bestVSnap = { x: null, dist: Infinity, origin: null };
