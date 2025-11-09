@@ -69,7 +69,6 @@ export function copyFloorArchitecture() {
                       floorClipboard.rooms.length;
 
     console.log(`Mimari plan kopyalandı: ${totalItems} eleman`);
-    alert(`Mimari plan kopyalandı!\n${floorClipboard.walls.length} duvar, ${floorClipboard.doors.length} kapı, ${floorClipboard.columns.length} kolon, ${floorClipboard.beams.length} kiriş, ${floorClipboard.stairs.length} merdiven, ${floorClipboard.rooms.length} oda`);
 }
 
 // Kopyalanan mimariyi mevcut kata yapıştır
@@ -221,14 +220,17 @@ export function pasteFloorArchitecture() {
                       floorClipboard.rooms.length;
 
     console.log(`Mimari plan yapıştırıldı: ${totalItems} eleman`);
-    alert(`Mimari plan yapıştırıldı!\n${floorClipboard.walls.length} duvar, ${floorClipboard.doors.length} kapı, ${floorClipboard.columns.length} kolon, ${floorClipboard.beams.length} kiriş, ${floorClipboard.stairs.length} merdiven, ${floorClipboard.rooms.length} oda`);
 }
 
 // Kopyalanan mimariyi diğer tüm katlara yapıştır
 function pasteToAllFloors() {
+    // Eğer clipboard boşsa, önce mevcut katı kopyala
     if (!floorClipboard) {
-        alert('Önce bir mimari plan kopyalamalısınız!');
-        return;
+        copyFloorArchitecture();
+        // Eğer hala boşsa (kopyalama başarısızsa), çık
+        if (!floorClipboard) {
+            return;
+        }
     }
 
     if (!state.floors || state.floors.length === 0) {
@@ -378,7 +380,6 @@ function pasteToAllFloors() {
     update3DScene();
 
     console.log(`Mimari plan ${pastedFloorCount} kata yapıştırıldı`);
-    alert(`Mimari plan ${pastedFloorCount} kata başarıyla yapıştırıldı!`);
 }
 
 // Mevcut kattaki tüm mimariyi sil
@@ -427,5 +428,4 @@ function clearFloorArchitecture() {
     update3DScene();
 
     console.log(`${totalItems} mimari eleman silindi`);
-    alert(`${totalItems} mimari eleman başarıyla silindi!`);
 }

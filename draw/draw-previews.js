@@ -13,12 +13,13 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
     const currentFloorId = state.currentFloor?.id;
     const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
 
-    // Kapı önizlemesi
+    // Kapı önizlemesi - SADECE duvara yakınsa göster
     if (currentMode === "drawDoor" && !isPanning && !isDragging) {
         const doorsToPreview = [];
 
         let closestWall = null, minDistSq = Infinity;
-        const bodyHitTolerance = (state.wallThickness * 1.5) ** 2;
+        // Daha sıkı tolerans: sadece duvar kalınlığı kadar
+        const bodyHitTolerance = (state.wallThickness * 0.75) ** 2;
 
         for (const w of [...walls].reverse()) {
             const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
@@ -40,10 +41,11 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
         });
     }
 
-    // Pencere önizlemesi
+    // Pencere önizlemesi - SADECE duvara yakınsa göster
     if (currentMode === "drawWindow" && !isPanning && !isDragging) {
         let closestWall = null, minDistSq = Infinity;
-        const bodyHitTolerance = (state.wallThickness * 1.5) ** 2;
+        // Daha sıkı tolerans: sadece duvar kalınlığı kadar
+        const bodyHitTolerance = (state.wallThickness * 0.75) ** 2;
 
         for (const w of [...walls].reverse()) {
             if (!w.p1 || !w.p2) continue;
