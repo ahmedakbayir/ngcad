@@ -263,7 +263,7 @@ function pasteToAllFloors() {
 
         // Önce mevcut kattaki mimariyi temizle (normal yapıştırmadaki gibi)
         state.walls = state.walls.filter(w => w.floorId !== floorId);
-        state.doors = state.doors.filter(d => !d.wall || !state.walls.find(w => w === d.wall && w.floorId === floorId));
+        state.doors = state.doors.filter(d => !d.wall || d.wall.floorId !== floorId);
         state.columns = state.columns.filter(c => c.floorId !== floorId);
         state.beams = state.beams.filter(b => b.floorId !== floorId);
         state.stairs = state.stairs.filter(s => s.floorId !== floorId);
@@ -382,12 +382,18 @@ function pasteToAllFloors() {
         pastedFloorCount++;
     });
 
+    // Yapıştırma sonrası ilk hedef kata geç (kullanıcının yapıştırılan katı görmesi için)
+    if (targetFloors.length > 0) {
+        setState({ currentFloor: targetFloors[0] });
+        if (window.renderMiniPanel) window.renderMiniPanel();
+    }
+
     // Tüm katları işle (processAllFloors = true)
     processWalls(false, false, true);
     saveState();
     update3DScene();
 
-    console.log(`Mimari plan ${pastedFloorCount} kata yapıştırıldı`);
+    console.log(`Mimari plan ${pastedFloorCount} kata yapıştırıldı (${floorClipboard.walls.length} duvar, ${floorClipboard.doors.length} kapı, ${floorClipboard.columns.length} kolon, ${floorClipboard.beams.length} kiriş, ${floorClipboard.stairs.length} merdiven, ${floorClipboard.rooms.length} mahal)`);
 }
 
 // Mevcut kattaki tüm mimariyi sil
