@@ -14,7 +14,12 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
  * @returns {boolean} - Duvar varsa true
  */
 export function wallExists(p1, p2) {
-    return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
+    // Sadece aktif kattaki duvarları kontrol et (farklı katlarda aynı noktadan duvar çizilebilmeli)
+    const currentFloorId = state.currentFloor?.id;
+    const wallsToCheck = currentFloorId
+        ? state.walls.filter(w => w.floorId === currentFloorId)
+        : state.walls;
+    return wallsToCheck.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
 }
 
 /**
@@ -25,7 +30,9 @@ export function wallExists(p1, p2) {
  */
 export function getWallAtPoint(pos, tolerance) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const walls = currentFloorId
+        ? (state.walls || []).filter(w => w.floorId === currentFloorId)
+        : (state.walls || []);
 
     // Duvar ucu (node) kontrolü
     for (const wall of [...walls].reverse()) {

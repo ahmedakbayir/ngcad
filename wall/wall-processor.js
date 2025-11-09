@@ -5,35 +5,62 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 
 export function mergeNode(node) {
     const md = 14 / state.zoom;
+    const currentFloorId = state.currentFloor?.id;
+
+    // Bu node'u kullanan duvarları bul ve onların floorId'sini al
+    const nodeFloorIds = new Set();
+    state.walls.forEach(w => {
+        if (w.p1 === node || w.p2 === node) {
+            nodeFloorIds.add(w.floorId);
+        }
+    });
+
+    // Sadece aynı katlardaki node'larla merge et
     for (const t of state.nodes) {
         if (t === node) continue;
         if (Math.hypot(node.x - t.x, node.y - t.y) < md) {
+            // t node'unun floorId'lerini bul
+            const tFloorIds = new Set();
+            state.walls.forEach(w => {
+                if (w.p1 === t || w.p2 === t) {
+                    tFloorIds.add(w.floorId);
+                }
+            });
+
+            // Ortak floorId var mı kontrol et
+            const hasCommonFloor = [...nodeFloorIds].some(id => tFloorIds.has(id));
+            if (!hasCommonFloor) continue; // Farklı katlardaysa merge etme
+
+            // Sadece ortak floorlardaki duvarları güncelle
+            const commonFloorIds = [...nodeFloorIds].filter(id => tFloorIds.has(id));
+
             state.doors.forEach((door) => {
                 const wall = door.wall;
-                if (!wall) return;
-                
+                if (!wall || !commonFloorIds.includes(wall.floorId)) return;
+
                 const oldWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                
+
                 if (wall.p1 === node) wall.p1 = t;
                 if (wall.p2 === node) wall.p2 = t;
-                
+
                 const newWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                
+
                 if (oldWallLength > 0.1 && newWallLength > 0.1) {
                     const ratio = newWallLength / oldWallLength;
                     door.pos = door.pos * ratio;
-                    
+
                     const minPos = door.width / 2 + 15;
                     const maxPos = newWallLength - door.width / 2 - 15;
                     door.pos = Math.max(minPos, Math.min(maxPos, door.pos));
                 }
             });
-            
+
             state.walls.forEach((w) => {
+                if (!commonFloorIds.includes(w.floorId)) return;
                 if (w.p1 === node) w.p1 = t;
                 if (w.p2 === node) w.p2 = t;
             });
-            
+
             const idx = state.nodes.indexOf(node);
             if (idx !== -1) state.nodes.splice(idx, 1);
             return t;
@@ -43,41 +70,71 @@ export function mergeNode(node) {
 }
 
 function unifyNearbyNodes(tolerance) {
-    let changed = true;
-    while (changed) {
-        changed = false;
-        for (let i = 0; i < state.nodes.length; i++) {
-            for (let j = i + 1; j < state.nodes.length; j++) {
-                const n1 = state.nodes[i], n2 = state.nodes[j];
-                if (n1 && n2 && Math.hypot(n1.x - n2.x, n1.y - n2.y) < tolerance) {
-                    state.doors.forEach((door) => {
-                        const wall = door.wall;
-                        if (!wall) return;
-                        
-                        const oldWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                        
-                        if (wall.p1 === n2) wall.p1 = n1;
-                        if (wall.p2 === n2) wall.p2 = n1;
-                        
-                        const newWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                        
-                        if (oldWallLength > 0.1 && newWallLength > 0.1) {
-                            const ratio = newWallLength / oldWallLength;
-                            door.pos = door.pos * ratio;
-                            
-                            const minPos = door.width / 2 + 15;
-                            const maxPos = newWallLength - door.width / 2 - 15;
-                            door.pos = Math.max(minPos, Math.min(maxPos, door.pos));
-                        }
-                    });
-                    
-                    state.walls.forEach((w) => {
-                        if (w.p1 === n2) w.p1 = n1;
-                        if (w.p2 === n2) w.p2 = n1;
-                    });
-                    state.nodes.splice(j, 1);
-                    changed = true;
-                    break;
+    // KAT BAZLI NODE BIRLEŞTIRME: Her kat için ayrı ayrı merge yap
+    const floors = state.floors || [];
+    const currentFloorId = state.currentFloor?.id;
+
+    // Eğer currentFloorId varsa sadece o katı işle, yoksa tüm katları işle (legacy)
+    const floorsToProcess = currentFloorId
+        ? floors.filter(f => f.id === currentFloorId)
+        : (floors.length > 0 ? floors : [{ id: null }]); // Legacy: kat yoksa null id kullan
+
+    floorsToProcess.forEach(floor => {
+        const floorId = floor.id;
+
+        // Bu kata ait duvarları ve node'ları topla
+        const floorWalls = currentFloorId || floorId
+            ? state.walls.filter(w => w.floorId === floorId)
+            : state.walls; // Legacy: floorId yoksa tüm duvarlar
+
+        const floorNodesSet = new Set();
+        floorWalls.forEach(w => {
+            if (w.p1) floorNodesSet.add(w.p1);
+            if (w.p2) floorNodesSet.add(w.p2);
+        });
+        const floorNodes = Array.from(floorNodesSet);
+
+        // Sadece bu kattaki node'ları merge et
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (let i = 0; i < floorNodes.length; i++) {
+                for (let j = i + 1; j < floorNodes.length; j++) {
+                    const n1 = floorNodes[i], n2 = floorNodes[j];
+                    if (!n1 || !n2) continue;
+                    if (Math.hypot(n1.x - n2.x, n1.y - n2.y) < tolerance) {
+                        // Sadece bu kattaki duvarları güncelle
+                        state.doors.forEach((door) => {
+                            const wall = door.wall;
+                            if (!wall || !floorWalls.includes(wall)) return;
+
+                            const oldWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+
+                            if (wall.p1 === n2) wall.p1 = n1;
+                            if (wall.p2 === n2) wall.p2 = n1;
+
+                            const newWallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+
+                            if (oldWallLength > 0.1 && newWallLength > 0.1) {
+                                const ratio = newWallLength / oldWallLength;
+                                door.pos = door.pos * ratio;
+
+                                const minPos = door.width / 2 + 15;
+                                const maxPos = newWallLength - door.width / 2 - 15;
+                                door.pos = Math.max(minPos, Math.min(maxPos, door.pos));
+                            }
+                        });
+
+                        floorWalls.forEach((w) => {
+                            if (w.p1 === n2) w.p1 = n1;
+                            if (w.p2 === n2) w.p2 = n1;
+                        });
+
+                        const globalIdx = state.nodes.indexOf(n2);
+                        if (globalIdx !== -1) state.nodes.splice(globalIdx, 1);
+                        floorNodes.splice(j, 1);
+                        changed = true;
+                        break;
                 }
             }
             if (changed) break;
