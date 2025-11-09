@@ -776,13 +776,13 @@ export function setupInputListeners() {
 
         // drawDoor modundayken sağ tıklanırsa kapı ekle (sadece duvara)
         if (state.currentMode === 'drawDoor') {
-            doorPointerDownDraw(clickPos, null);
+            doorPointerDownDraw(clickPos, object);
             return;
         }
 
         // drawWindow modundayken sağ tıklanırsa pencere ekle (sadece duvara)
         if (state.currentMode === 'drawWindow') {
-            windowPointerDownDraw(clickPos, null);
+            windowPointerDownDraw(clickPos, object);
             return;
         }
 
