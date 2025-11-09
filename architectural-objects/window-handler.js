@@ -135,7 +135,7 @@ function addWindowToWallMiddle(wall, roomName = null) { // Oda adı parametresi 
  */
 export function onPointerDownDraw(pos, clickedObject) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : (state.walls || []);
 
     // 1. Duvara yakın mı kontrol et (simülasyon ile aynı tolerans)
     let previewWall = null, minDistSqPreview = Infinity;
