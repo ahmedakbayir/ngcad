@@ -47,8 +47,8 @@ export function getDoorAtPoint(pos, tolerance) {
  */
 export function onPointerDownDraw(pos, clickedObject) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
-    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
+    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : (state.walls || []);
+    const rooms = currentFloorId ? (state.rooms || []).filter(r => r.floorId === currentFloorId) : (state.rooms || []);
 
     // 1. Duvara yakın mı kontrol et (simülasyon ile aynı tolerans)
     let previewWall = null, minDistSqPreview = Infinity;
