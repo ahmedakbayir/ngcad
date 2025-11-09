@@ -212,7 +212,10 @@ export function update3DScene() {
         beams.forEach(beam => {
             const m = createBeamMesh(beam, beamMaterial);
             if (m) {
-                m.position.y = getFloorElevation(beam.floorId);
+                // Kirişler katın üstünde (tavan seviyesinde) olmalı
+                const floorElevation = getFloorElevation(beam.floorId);
+                const beamDepth = beam.depth || 20;
+                m.position.y = floorElevation + WALL_HEIGHT + (beamDepth / 2);
                 sceneObjects.add(m);
             }
         });

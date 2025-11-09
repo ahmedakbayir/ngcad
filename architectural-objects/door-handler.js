@@ -143,7 +143,11 @@ export function onPointerDownDraw(pos, clickedObject) {
                 }
             }
         });
-        if (doorsAdded > 0) saveState();
+        if (doorsAdded > 0) {
+            processWalls(); // Render için processWalls çağır
+            saveState();
+            update3DScene(); // 3D sahneyi güncelle
+        }
     }
 }
 
