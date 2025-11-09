@@ -149,7 +149,7 @@ export function getOrCreateNode(x, y) {
     const currentFloorId = state.currentFloor?.id;
 
     // Sadece aktif kattaki duvarlardan node'ları topla
-    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const currentFloorWalls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : [];
     const nodesSet = new Set();
     currentFloorWalls.forEach(w => {
         if (w.p1) nodesSet.add(w.p1);

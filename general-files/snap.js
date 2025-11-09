@@ -66,8 +66,8 @@ function getStairEdges(stair) {
 function getStairSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     const candidates = [];
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
-    const stairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
+    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : [];
+    const stairs = currentFloorId ? (state.stairs || []).filter(s => s.floorId === currentFloorId) : [];
 
     // Aday ekleme yardımcısı
     const addCandidate = (point, type, distance) => {
@@ -272,7 +272,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
 
     // Sadece aktif kata ait duvarları kullan
     const currentFloorId = state.currentFloor?.id;
-    const currentFloorWalls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const currentFloorWalls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : [];
 
     // Taranacak duvarlar
     const wallsToScan = state.snapOptions.nearestOnly
@@ -318,7 +318,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     }
 
     // Kolon, Kiriş Snap Noktaları (sadece aktif kat)
-    const currentFloorColumns = (state.columns || []).filter(c => !currentFloorId || !c.floorId || c.floorId === currentFloorId);
+    const currentFloorColumns = currentFloorId ? (state.columns || []).filter(c => c.floorId === currentFloorId) : [];
     if (currentFloorColumns.length > 0) {
         currentFloorColumns.forEach(column => {
              if (state.isDragging && state.selectedObject?.type === 'column' && state.selectedObject.object === column) return;
@@ -337,7 +337,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
              } catch (error) { console.error("Error processing column corners for snap:", error, column); }
         });
     }
-    const currentFloorBeams = (state.beams || []).filter(b => !currentFloorId || !b.floorId || b.floorId === currentFloorId);
+    const currentFloorBeams = currentFloorId ? (state.beams || []).filter(b => b.floorId === currentFloorId) : [];
     if (currentFloorBeams.length > 0) {
          currentFloorBeams.forEach(beam => {
              if (state.isDragging && state.selectedObject?.type === 'beam' && state.selectedObject.object === beam) return;
@@ -358,7 +358,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     }
 
     // Merdiven Köşe/Merkez Snap (Çizim modu DIŞINDA, sadece aktif kat)
-    const currentFloorStairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
+    const currentFloorStairs = currentFloorId ? (state.stairs || []).filter(s => s.floorId === currentFloorId) : [];
     if (state.currentMode !== 'drawStairs' && currentFloorStairs.length > 0) {
         for (const stair of currentFloorStairs) {
              if (state.isDragging && state.selectedObject?.type === 'stairs' && state.selectedObject.object === stair) continue;

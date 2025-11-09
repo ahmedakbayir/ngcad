@@ -155,7 +155,12 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
         const nodeToDrag = selectedObject.object[selectedObject.handle];
         startPointForDragging = { x: nodeToDrag.x, y: nodeToDrag.y };
 
-        const affectedWalls = state.walls.filter((w) => w.p1 === nodeToDrag || w.p2 === nodeToDrag);
+        // Sadece aktif kattaki duvarları etkile (diğer katlardaki node'ları etkilemeden)
+        const currentFloorId = state.currentFloor?.id;
+        const affectedWalls = state.walls.filter((w) =>
+            (w.p1 === nodeToDrag || w.p2 === nodeToDrag) &&
+            (!currentFloorId || w.floorId === currentFloorId)
+        );
         additionalState.affectedWalls = affectedWalls;
         additionalState.dragAxis = null;
 
@@ -585,11 +590,14 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 export function findCollinearChain(startWall) {
     const chain = [startWall];
     const visited = new Set([startWall]);
+    // Sadece aynı kattaki duvarları tara
+    const currentFloorId = state.currentFloor?.id;
+    const wallsOnSameFloor = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : [];
 
     const exploreFrom = (wall) => {
         if (!wall || !wall.p1 || !wall.p2) return;
         [wall.p1, wall.p2].forEach(node => {
-            state.walls.forEach(w => {
+            wallsOnSameFloor.forEach(w => {
                 if (visited.has(w)) return;
                 if (!w || w.p1 !== node && w.p2 !== node) return;
                 if (!w.p1 || !w.p2) return;
