@@ -285,6 +285,18 @@
             <button id="guide-btn-clear-all" class="context-menu-btn context-menu-danger">Referansları Temizle</button>
         </div>
     </div>
+    <div class="context-menu-item-with-submenu">
+        <button class="context-menu-btn submenu-trigger">
+            Kat İşlemleri ▶
+        </button>
+        <div class="context-submenu">
+            <button id="floor-btn-copy" class="context-menu-btn">Mimari Planı Kopyala <span style="opacity: 0.6; font-size: 0.9em;">(CTRL + C)</span></button>
+            <button id="floor-btn-paste" class="context-menu-btn">Mimari Planı Yapıştır <span style="opacity: 0.6; font-size: 0.9em;">(CTRL + V)</span></button>
+            <button id="floor-btn-paste-all" class="context-menu-btn">Mimari Planı Diğer Katlara Yapıştır</button>
+            <div class="context-menu-divider"></div>
+            <button id="floor-btn-clear" class="context-menu-btn context-menu-danger">Mimariyi Sil</button>
+        </div>
+    </div>
 </div>
 <canvas id="c2d"></canvas>
 <input type="text" id="length-input" />
@@ -369,6 +381,7 @@
 <!-- <script src="config.js"></script> -->
 <script type="module" src="general-files/main.js"></script>
 <script type="module" src="wall/wall-panel.js"></script>
-<script type="module" src="draw/guide-menu.js"></script> </body>
+<script type="module" src="draw/guide-menu.js"></script>
+<script type="module" src="draw/floor-operations-menu.js"></script>
 </body>
 </html>
