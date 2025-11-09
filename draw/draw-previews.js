@@ -7,11 +7,15 @@ import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/w
 import { state, dom } from '../general-files/main.js';
 
 export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol) {
-    const { currentMode, isPanning, isDragging, mousePos } = state;
+    const { currentMode, isPanning, isDragging, unsnappedMousePos } = state;
 
     // FLOOR ISOLATION: Sadece aktif kattaki duvarları kullan
     const currentFloorId = state.currentFloor?.id;
     const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+
+    // Snap uygulanmamış pozisyonu kullan (eğer yoksa snapli olanı kullan)
+    const previewMousePos = unsnappedMousePos || state.mousePos;
+    if (!previewMousePos) return; // Eğer fare pozisyonu yoksa çık
 
     // Kapı önizlemesi - SADECE duvara yakınsa göster
     if (currentMode === "drawDoor" && !isPanning && !isDragging) {
@@ -22,7 +26,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
         const bodyHitTolerance = (state.wallThickness * 0.75) ** 2;
 
         for (const w of [...walls].reverse()) {
-            const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
+            const distSq = distToSegmentSquared(previewMousePos, w.p1, w.p2);
             if (distSq < bodyHitTolerance && distSq < minDistSq) {
                 minDistSq = distSq;
                 closestWall = w;
@@ -30,7 +34,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
         }
 
         if (closestWall) {
-            const previewDoor = getDoorPlacement(closestWall, mousePos);
+            const previewDoor = getDoorPlacement(closestWall, previewMousePos);
             if (previewDoor && isSpaceForDoor(previewDoor)) {
                 doorsToPreview.push(previewDoor);
             }
@@ -49,7 +53,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
 
         for (const w of [...walls].reverse()) {
             if (!w.p1 || !w.p2) continue;
-            const distSq = distToSegmentSquared(mousePos, w.p1, w.p2);
+            const distSq = distToSegmentSquared(previewMousePos, w.p1, w.p2);
             if (distSq < bodyHitTolerance && distSq < minDistSq) {
                 minDistSq = distSq;
                 closestWall = w;
@@ -57,7 +61,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
         }
 
         if (closestWall) {
-            const previewWindowData = getWindowPlacement(closestWall, mousePos);
+            const previewWindowData = getWindowPlacement(closestWall, previewMousePos);
             if (previewWindowData && isSpaceForWindow(previewWindowData)) {
                 const tempWindow = { pos: previewWindowData.pos, width: previewWindowData.width };
                 drawWindowSymbol(closestWall, tempWindow, true);

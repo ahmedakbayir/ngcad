@@ -261,6 +261,14 @@ function pasteToAllFloors() {
     targetFloors.forEach(floor => {
         const floorId = floor.id;
 
+        // Önce mevcut kattaki mimariyi temizle (normal yapıştırmadaki gibi)
+        state.walls = state.walls.filter(w => w.floorId !== floorId);
+        state.doors = state.doors.filter(d => !d.wall || !state.walls.find(w => w === d.wall && w.floorId === floorId));
+        state.columns = state.columns.filter(c => c.floorId !== floorId);
+        state.beams = state.beams.filter(b => b.floorId !== floorId);
+        state.stairs = state.stairs.filter(s => s.floorId !== floorId);
+        state.rooms = state.rooms.filter(r => r.floorId !== floorId);
+
         // Her kat için node mapping
         const nodeMap = new Map();
 

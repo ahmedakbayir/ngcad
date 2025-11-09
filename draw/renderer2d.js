@@ -268,7 +268,12 @@ export function drawColumnSymbol(node) {
 // --- GÜNCELLENMİŞ ve DÜZELTİLMİŞ drawColumn Fonksiyonu ---
 export function drawColumn(column, isSelected = false) {
     const { ctx2d } = dom;
-    const { zoom, wallBorderColor, lineThickness, walls, columns } = state;
+    const { zoom, wallBorderColor, lineThickness, currentFloor } = state;
+
+    // FLOOR ISOLATION: Sadece aktif kattaki duvarlar ve kolonlarla kesişim kontrolü yap
+    const currentFloorId = currentFloor?.id;
+    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : (state.walls || []);
+    const columns = currentFloorId ? (state.columns || []).filter(c => c.floorId === currentFloorId) : (state.columns || []);
 
     const corners = getColumnCorners(column); // Kolonun köşe noktaları
 
