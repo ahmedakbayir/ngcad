@@ -74,7 +74,8 @@ function saveProject() {
             topElevation: s.topElevation, // eklendi
             connectedStairId: s.connectedStairId, // eklendi
             isLanding: s.isLanding, // eklendi
-            showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
+            showRailing: s.showRailing, // <-- DÜZELTME: Korkuluk bilgisi eklendi
+            floorId: s.floorId // <-- DÜZELTME: Kat bilgisi eklendi
         })),
         guides: state.guides || [], // <-- REFERANS ÇİZGİSİ EKLENDİ
         floors: state.floors || [], // <-- KAT BİLGİLERİ EKLENDİ
@@ -218,7 +219,7 @@ function openProject(e) {
                 // Kolonları, Kirişleri ve Merdivenleri geri yükle
                 const restoredColumns = projectData.columns || [];
                 const restoredBeams = projectData.beams || [];
-                const restoredStairs = (projectData.stairs || []).map(s => ({ 
+                const restoredStairs = (projectData.stairs || []).map(s => ({
                      type: s.type || 'stairs',
                      id: s.id || `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
                      name: s.name || 'Merdiven',
@@ -231,7 +232,8 @@ function openProject(e) {
                      topElevation: s.topElevation || 270,
                      connectedStairId: s.connectedStairId || null,
                      isLanding: s.isLanding || false,
-                     showRailing: s.showRailing || false
+                     showRailing: s.showRailing || false,
+                     floorId: s.floorId // <-- DÜZELTME: Kat bilgisi geri yükleniyor
                 }));
                 const restoredGuides = projectData.guides || [];
 
