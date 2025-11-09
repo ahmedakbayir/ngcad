@@ -66,7 +66,11 @@ export function getWallAtPoint(pos, tolerance) {
  * @param {object} snappedPos - Snap uygulanmış fare pozisyonu
  */
 export function onPointerDownDraw(snappedPos) {
-    let placementPos = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+    // Eğer snap olunmuşsa (guide, endpoint vb.), snapped pozisyonu kullan
+    // Değilse grid-rounded pozisyonu kullan
+    let placementPos = snappedPos.isSnapped
+        ? { x: snappedPos.x, y: snappedPos.y }
+        : { x: snappedPos.roundedX, y: snappedPos.roundedY };
 
     if (!state.startPoint) {
         setState({ startPoint: getOrCreateNode(placementPos.x, placementPos.y) });

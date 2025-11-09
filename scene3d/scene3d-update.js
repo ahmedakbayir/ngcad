@@ -74,12 +74,12 @@ export function update3DScene() {
     const rooms = (state.rooms || []).filter(r => shouldShowFloor(r.floorId));
     const stairs = (state.stairs || []).filter(s => shouldShowFloor(s.floorId));
 
-    // Kat yüksekliklerini Map'te sakla (floorId -> elevation in meters)
+    // Kat yüksekliklerini Map'te sakla (floorId -> elevation in cm)
     const floorElevations = new Map();
     (state.floors || []).forEach(floor => {
         if (!floor.isPlaceholder) {
-            // bottomElevation cm cinsinden, metreye çeviriyoruz
-            floorElevations.set(floor.id, (floor.bottomElevation || 0) / 100);
+            // bottomElevation zaten cm cinsinden, olduğu gibi kullan
+            floorElevations.set(floor.id, floor.bottomElevation || 0);
         }
     });
 

@@ -142,10 +142,6 @@ export function getObjectAtPoint(pos) {
     // 1.4 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
     if (wallNodeHit && wallNodeHit.handle !== 'body') return validateFloorMatch(wallNodeHit, currentFloorId);
-    
-    // 2.0 REHBER ÇİZGİLERİ (Handle'lardan sonra, gövdelerden önce)
-    const guideHit = getGuideAtPoint(pos, tolerance); 
-    if (guideHit) return guideHit; 
 
 
     // 2. Gövde Kontrolleri (Handle'lardan sonra)
@@ -213,6 +209,9 @@ export function getObjectAtPoint(pos) {
     // Mahal adı kontrolünden SONRA çalışmalı
     if (wallNodeHit && wallNodeHit.handle === 'body') return validateFloorMatch(wallNodeHit, currentFloorId);
 
+    // 2.8.5 REHBER ÇİZGİLERİ (Duvar/Kapı/Pencere'den sonra, oda ismi/alanından önce, daha küçük toleransla)
+    const guideHit = getGuideAtPoint(pos, tolerance * 0.6); // Toleransı %40 azalt
+    if (guideHit) return guideHit;
 
     // 2.9 Mahal Alanı (İsim/Alan hariç)
     for (const room of [...rooms].reverse()) {

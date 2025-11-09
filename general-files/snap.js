@@ -190,8 +190,8 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     const wm = screenToWorld(screenMouse.x, screenMouse.y); // Raw mouse world coordinates
 
     // --- SABİT PİKSEL SNAP TOLERANSI ---
-    const SNAP_RADIUS_PIXELS = 35; // Piksel cinsinden yakalama yarıçapı
-    const INTERSECTION_SNAP_RADIUS_PIXELS = SNAP_RADIUS_PIXELS * 0.7; // Kesişimler için
+    const SNAP_RADIUS_PIXELS = 45; // Piksel cinsinden yakalama yarıçapı (35->45 artırıldı)
+    const INTERSECTION_SNAP_RADIUS_PIXELS = SNAP_RADIUS_PIXELS * 1.3; // Kesişimler için DAHA BÜYÜK (0.7->1.3)
     // --- SABİT PİKSEL SNAP TOLERANSI SONU ---
 
 
@@ -438,8 +438,9 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
                     if (intersection) {
                         const screenPoint = worldToScreen(intersection.x, intersection.y);
                         const distance = Math.hypot(screenMouse.x - screenPoint.x, screenMouse.y - screenPoint.y);
-                        if (distance < SNAP_RADIUS_PIXELS) {
-                            candidates.push({ point: intersection, distance: distance * 0.5, type: 'GUIDE_INTERSECTION' });
+                        if (distance < INTERSECTION_SNAP_RADIUS_PIXELS) {
+                            // Kesişimlere çok yüksek öncelik: distance * 0.2 (0.5 -> 0.2)
+                            candidates.push({ point: intersection, distance: distance * 0.2, type: 'GUIDE_INTERSECTION' });
                         }
                     }
                 } catch (error) {
