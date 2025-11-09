@@ -233,13 +233,13 @@ export function draw2D() {
 
     // Sadece aktif kata ait çizimleri filtrele
     const currentFloorId = state.currentFloor?.id;
-    // Sadece currentFloorId ile eşleşen öğeleri göster (floorId olmayan öğeleri gösterme!)
-    const rooms = currentFloorId ? (state.rooms || []).filter(r => r.floorId === currentFloorId) : [];
-    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : [];
-    const doors = currentFloorId ? (state.doors || []).filter(d => d.floorId === currentFloorId) : [];
-    const beams = currentFloorId ? (state.beams || []).filter(b => b.floorId === currentFloorId) : [];
-    const stairs = currentFloorId ? (state.stairs || []).filter(s => s.floorId === currentFloorId) : [];
-    const columns = currentFloorId ? (state.columns || []).filter(c => c.floorId === currentFloorId) : [];
+    // Eğer currentFloorId yoksa (eski projeler), tüm öğeleri göster
+    const rooms = currentFloorId ? (state.rooms || []).filter(r => r.floorId === currentFloorId) : (state.rooms || []);
+    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : (state.walls || []);
+    const doors = currentFloorId ? (state.doors || []).filter(d => d.floorId === currentFloorId) : (state.doors || []);
+    const beams = currentFloorId ? (state.beams || []).filter(b => b.floorId === currentFloorId) : (state.beams || []);
+    const stairs = currentFloorId ? (state.stairs || []).filter(s => s.floorId === currentFloorId) : (state.stairs || []);
+    const columns = currentFloorId ? (state.columns || []).filter(c => c.floorId === currentFloorId) : (state.columns || []);
 
     // Sadece aktif kata ait node'ları filtrele (duvarlardan topla)
     const nodesSet = new Set();
