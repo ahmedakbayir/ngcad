@@ -33,9 +33,9 @@ export function createBeamMesh(beam, material) {
      const beamThickness = beam.height;
      const beamDepth = beam.depth || 20;
      if (beamLength < 1) return null;
-     
+
     const beamGeom = new THREE.BoxGeometry(beamLength, beamDepth, beamThickness);
-    const yPosition = WALL_HEIGHT - (beamDepth / 2);
+    const yPosition = WALL_HEIGHT + (beamDepth / 2); // Katın üstüne yerleştir (tavan seviyesi)
     const beamMesh = new THREE.Mesh(beamGeom, material);
     beamMesh.position.set(beam.center.x, yPosition, beam.center.y);
     beamMesh.rotation.y = -(beam.rotation || 0) * Math.PI / 180;
