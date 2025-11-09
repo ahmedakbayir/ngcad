@@ -164,6 +164,9 @@ canvas {
     min-width: 42px; /* 28 * 1.5 */
     height: 42px;
     padding: 9px; /* 6 * 1.5 */
+    font-size: 0; /* Metni gizle */
+    gap: 0; /* Gap gerekmez */
+    justify-content: center; /* İkonu ortala */
 }
 
 #ui.display-big-icon .btn svg {
