@@ -321,6 +321,7 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
         newStair.name = getNextStairLetter(); // Kopyaya yeni bir isim ver
         newStair.id = `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`; // Yeni ID ata
         newStair.connectedStairId = null; // Kopyanın bağlantısını kaldır
+        newStair.floorId = state.currentFloor?.id; // Aktif kata ata
         state.stairs = state.stairs || []; // Dizi yoksa oluştur
         state.stairs.push(newStair); // Yeni merdiveni listeye ekle
         effectiveStair = newStair; // Bundan sonra kopya üzerinde işlem yap

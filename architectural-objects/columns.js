@@ -141,6 +141,7 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) { // 'e' event
 
     if (isCopying) {
         const newColumn = JSON.parse(JSON.stringify(column)); // Derin kopya
+        newColumn.floorId = state.currentFloor?.id; // Aktif kata ata
         state.columns.push(newColumn); // Yeni kolonu listeye ekle
         effectiveColumn = newColumn; // Bundan sonra kopya üzerinde işlem yap
         // Seçili nesneyi kopya ile güncelle (önemli!)

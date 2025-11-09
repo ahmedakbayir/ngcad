@@ -133,6 +133,7 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) { // 'e' event
 
     if (isCopying) {
         const newBeam = JSON.parse(JSON.stringify(beam));
+        newBeam.floorId = state.currentFloor?.id; // Aktif kata ata
         state.beams = state.beams || []; // beams dizisi yoksa oluştur
         state.beams.push(newBeam);
         effectiveBeam = newBeam;
