@@ -14,7 +14,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
  */
 export function getDoorAtPoint(pos, tolerance) {
     const currentFloorId = state.currentFloor?.id;
-    const doors = (state.doors || []).filter(d => !currentFloorId || !d.floorId || d.floorId === currentFloorId);
+    const doors = currentFloorId ? (state.doors || []).filter(d => d.floorId === currentFloorId) : (state.doors || []);
 
     for (const door of [...doors].reverse()) {
         const wall = door.wall;

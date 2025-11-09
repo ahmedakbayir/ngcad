@@ -11,7 +11,7 @@ export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSp
 
     // FLOOR ISOLATION: Sadece aktif kattaki duvarları kullan
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : (state.walls || []);
 
     // Snap uygulanmamış pozisyonu kullan (eğer yoksa snapli olanı kullan)
     const previewMousePos = unsnappedMousePos || state.mousePos;
