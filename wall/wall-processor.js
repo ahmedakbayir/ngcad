@@ -137,9 +137,10 @@ function unifyNearbyNodes(tolerance) {
                         break;
                 }
             }
-            if (changed) break;
         }
-    }
+            if (changed) break;
+    }   
+    }   );
 }
 
 function splitWallsAtCrossings() {
