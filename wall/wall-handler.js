@@ -391,11 +391,56 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         const nodesToMove = new Set();
         wallsToMove.forEach((w) => { nodesToMove.add(w.p1); nodesToMove.add(w.p2); });
 
-        // Mouse pozisyonunu takip et (snap ile smooth)
-        let totalDelta = {
-            x: snappedPos.x - state.initialDragPoint.x,
-            y: snappedPos.y - state.initialDragPoint.y
-        };
+        // SNAP LOCK MEKANIZMASI - Dalgalanmayı önle
+        const SNAP_LOCK_DISTANCE = 10; // Snap'ten ayrılma için minimum mesafe (cm)
+
+        let totalDelta;
+
+        // Eğer snap lock varsa ve hala snap mesafesindeyse, lock'u kullan
+        if (state.wallBodySnapLock && snappedPos.isSnapped) {
+            // Lock'u koru
+            totalDelta = {
+                x: state.wallBodySnapLock.dx,
+                y: state.wallBodySnapLock.dy
+            };
+
+            // Mouse unsnapped pozisyona çok uzaklaştı mı kontrol et
+            const currentMouseDelta = {
+                x: unsnappedPos.x - state.initialDragPoint.x,
+                y: unsnappedPos.y - state.initialDragPoint.y
+            };
+            const distFromLock = Math.hypot(
+                currentMouseDelta.x - totalDelta.x,
+                currentMouseDelta.y - totalDelta.y
+            );
+
+            // Snap'ten uzaklaştıysa lock'u kaldır
+            if (distFromLock > SNAP_LOCK_DISTANCE) {
+                setState({ wallBodySnapLock: null });
+                totalDelta = {
+                    x: snappedPos.x - state.initialDragPoint.x,
+                    y: snappedPos.y - state.initialDragPoint.y
+                };
+            }
+        } else if (snappedPos.isSnapped) {
+            // Yeni snap yakalandı, lock'la
+            totalDelta = {
+                x: snappedPos.x - state.initialDragPoint.x,
+                y: snappedPos.y - state.initialDragPoint.y
+            };
+            setState({
+                wallBodySnapLock: {
+                    dx: totalDelta.x,
+                    dy: totalDelta.y
+                }
+            });
+        } else {
+            // Snap yok, lock yok, normal takip et
+            totalDelta = {
+                x: snappedPos.x - state.initialDragPoint.x,
+                y: snappedPos.y - state.initialDragPoint.y
+            };
+        }
 
         // Eksen kısıtlaması uygula
         if (state.dragAxis === 'x') totalDelta.y = 0;
