@@ -4,6 +4,8 @@ import { distToSegmentSquared } from '../draw/geometry.js';
 import { state, setState, BATHROOM_WINDOW_DEFAULT_WIDTH } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
 import { findLargestAvailableSegment, findAvailableSegmentAt, checkOverlapAndGap } from '../wall/wall-item-utils.js';
+import { processWalls } from '../wall/wall-processor.js';
+import { update3DScene } from '../scene3d/scene3d-update.js';
 
 // Oda adını kontrol etmek için yardımcı fonksiyon (varsa)
 function getRoomsAdjacentToWall(wall) {
@@ -183,7 +185,9 @@ export function onPointerDownDraw(pos, clickedObject) {
                     isWidthManuallySet: false,
                     roomName: roomName
                  });
+                processWalls(); // Render için processWalls çağır
                 saveState();
+                update3DScene(); // 3D sahneyi güncelle
             }
         }
         // Yer olsun olmasın, duvara yakınsak odaya/boşluğa açma moduna gitme!

@@ -3,6 +3,8 @@ import { distToSegmentSquared } from '../draw/geometry.js';
 import { state, setState } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
 import { findAvailableSegmentAt, checkOverlapAndGap } from '../wall/wall-item-utils.js';
+import { processWalls } from '../wall/wall-processor.js';
+import { update3DScene } from '../scene3d/scene3d-update.js';
 
 /**
  * Verilen noktaya (pos) en yakın kapıyı bulur.
@@ -65,7 +67,9 @@ export function onPointerDownDraw(pos, clickedObject) {
         if (previewDoor && isSpaceForDoor(previewDoor)) {
             // Yer varsa: kapı ekle
             state.doors.push(previewDoor);
+            processWalls(); // Render için processWalls çağır
             saveState();
+            update3DScene(); // 3D sahneyi güncelle
         }
         // Yer olsun olmasın, duvara yakınsak odaya açma moduna gitme!
         return;
