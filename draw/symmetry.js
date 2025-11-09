@@ -418,6 +418,23 @@ export function applyCopy(axisP1, axisP2) {
     const translationX = axisP2.x - axisP1.x;  // ÖNCEKİ: * 2
     const translationY = axisP2.y - axisP1.y;  // ÖNCEKİ: * 2
 
+    // FLOOR ISOLATION: Sadece aktif kattaki elemanları kopyala
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || !d.floorId || d.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || !c.floorId || c.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || !b.floorId || b.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
+
+    // Aktif kattaki duvarlardan node'ları topla
+    const nodesSet = new Set();
+    walls.forEach(w => {
+        if (w.p1) nodesSet.add(w.p1);
+        if (w.p2) nodesSet.add(w.p2);
+    });
+    const nodes = Array.from(nodesSet);
+
     const nodeMap = new Map();
     const newWalls = [];
     const newDoors = [];
@@ -429,7 +446,7 @@ export function applyCopy(axisP1, axisP2) {
     const copiedRoomNames = new Map();
 
     // 1. Nodeları Kopyala (çeviri uygula)
-    state.nodes.forEach(node => {
+    nodes.forEach(node => {
         const copiedCoord = {
             x: node.x + translationX,
             y: node.y + translationY
@@ -439,7 +456,7 @@ export function applyCopy(axisP1, axisP2) {
     });
 
     // 2. Duvarları Oluştur
-    state.walls.forEach(wall => {
+    walls.forEach(wall => {
         const newP1 = nodeMap.get(wall.p1);
         const newP2 = nodeMap.get(wall.p2);
         if (newP1 && newP2 && newP1 !== newP2 && !wallExists(newP1, newP2)) {
@@ -479,7 +496,7 @@ export function applyCopy(axisP1, axisP2) {
     });
 
     // 3. Kapıları Oluştur
-    state.doors.forEach(door => {
+    doors.forEach(door => {
         const wall = door.wall;
         const newP1 = nodeMap.get(wall.p1);
         const newP2 = nodeMap.get(wall.p2);
@@ -491,7 +508,7 @@ export function applyCopy(axisP1, axisP2) {
     });
 
     // 4. Kolonları Oluştur (rotasyon aynı kalır)
-    state.columns.forEach(col => {
+    columns.forEach(col => {
         const copiedCenter = {
             x: col.center.x + translationX,
             y: col.center.y + translationY
@@ -509,7 +526,7 @@ export function applyCopy(axisP1, axisP2) {
     });
 
     // 5. Kirişleri Oluştur (rotasyon aynı kalır)
-    state.beams.forEach(beam => {
+    beams.forEach(beam => {
         const copiedCenter = {
             x: beam.center.x + translationX,
             y: beam.center.y + translationY
@@ -524,7 +541,7 @@ export function applyCopy(axisP1, axisP2) {
     });
 
     // 6. Merdivenleri Oluştur (rotasyon aynı kalır)
-    state.stairs.forEach(stair => {
+    stairs.forEach(stair => {
         const copiedCenter = {
             x: stair.center.x + translationX,
             y: stair.center.y + translationY
@@ -545,7 +562,7 @@ export function applyCopy(axisP1, axisP2) {
     });
 
     // 7. Oda İsimlerini Kopyala
-    state.rooms.forEach(room => {
+    rooms.forEach(room => {
         if (room.center) {
             const copiedCenter = {
                 x: room.center[0] + translationX,
@@ -604,6 +621,23 @@ export function applyCopy(axisP1, axisP2) {
 export function applySymmetry(axisP1, axisP2) {
     if (!axisP1 || !axisP2) return;
 
+    // FLOOR ISOLATION: Sadece aktif kattaki elemanları yansıt
+    const currentFloorId = state.currentFloor?.id;
+    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+    const doors = (state.doors || []).filter(d => !currentFloorId || !d.floorId || d.floorId === currentFloorId);
+    const columns = (state.columns || []).filter(c => !currentFloorId || !c.floorId || c.floorId === currentFloorId);
+    const beams = (state.beams || []).filter(b => !currentFloorId || !b.floorId || b.floorId === currentFloorId);
+    const stairs = (state.stairs || []).filter(s => !currentFloorId || !s.floorId || s.floorId === currentFloorId);
+    const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
+
+    // Aktif kattaki duvarlardan node'ları topla
+    const nodesSet = new Set();
+    walls.forEach(w => {
+        if (w.p1) nodesSet.add(w.p1);
+        if (w.p2) nodesSet.add(w.p2);
+    });
+    const nodes = Array.from(nodesSet);
+
     const nodeMap = new Map();
     const newWalls = [];
     const newDoors = [];
@@ -618,7 +652,7 @@ export function applySymmetry(axisP1, axisP2) {
     const axisAngleRad = Math.atan2(axisP2.y - axisP1.y, axisP2.x - axisP1.x);
 
     // 1. Nodeları Yansıt
-    state.nodes.forEach(node => {
+    nodes.forEach(node => {
         const reflectedCoord = reflectPoint(node, axisP1, axisP2);
         if (reflectedCoord) {
             const newNode = getOrCreateNode(reflectedCoord.x, reflectedCoord.y);
@@ -627,7 +661,7 @@ export function applySymmetry(axisP1, axisP2) {
     });
 
     // 2. Duvarları Oluştur
-    state.walls.forEach(wall => {
+    walls.forEach(wall => {
         const newP1 = nodeMap.get(wall.p1);
         const newP2 = nodeMap.get(wall.p2);
         if (newP1 && newP2 && newP1 !== newP2 && !wallExists(newP1, newP2)) {
@@ -672,7 +706,7 @@ export function applySymmetry(axisP1, axisP2) {
     });
 
     // 3. Kapıları Oluştur
-    state.doors.forEach(door => {
+    doors.forEach(door => {
         const wall = door.wall;
         const newP1 = nodeMap.get(wall.p1);
         const newP2 = nodeMap.get(wall.p2);
@@ -689,7 +723,7 @@ export function applySymmetry(axisP1, axisP2) {
     });
 
     // 4. Kolonları Oluştur
-    state.columns.forEach(col => {
+    columns.forEach(col => {
         const reflectedCenter = reflectPoint(col.center, axisP1, axisP2);
         if (reflectedCenter) {
             const originalRotationRad = (col.rotation || 0) * Math.PI / 180;
@@ -707,7 +741,7 @@ export function applySymmetry(axisP1, axisP2) {
     });
 
     // 5. Kirişleri Oluştur
-    state.beams.forEach(beam => {
+    beams.forEach(beam => {
         const reflectedCenter = reflectPoint(beam.center, axisP1, axisP2);
         if (reflectedCenter) {
             const originalRotationRad = (beam.rotation || 0) * Math.PI / 180;
@@ -722,7 +756,7 @@ export function applySymmetry(axisP1, axisP2) {
     });
 
     // 6. Merdivenleri Oluştur
-    state.stairs.forEach(stair => {
+    stairs.forEach(stair => {
         const reflectedCenter = reflectPoint(stair.center, axisP1, axisP2);
         if (reflectedCenter) {
             const originalRotationRad = (stair.rotation || 0) * Math.PI / 180;
@@ -743,7 +777,7 @@ export function applySymmetry(axisP1, axisP2) {
     });
 
     // 7. Oda İsimlerini ve Göreceli Konumlarını Yansıt (DÜZELTİLMİŞ)
-    state.rooms.forEach(room => {
+    rooms.forEach(room => {
         if (room.center && room.centerOffset) { // centerOffset olduğundan emin ol
             const reflectedCenter = reflectPoint({ x: room.center[0], y: room.center[1] }, axisP1, axisP2);
             if (reflectedCenter) {

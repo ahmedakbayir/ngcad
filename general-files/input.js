@@ -771,6 +771,22 @@ export function setupInputListeners() {
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const object = getObjectAtPoint(clickPos);
 
+        // drawDoor modundayken duvara sağ tıklanırsa kapı ekle
+        if (state.currentMode === 'drawDoor' && object && object.type === 'wall') {
+            import('../architectural-objects/door-handler.js').then(module => {
+                module.onPointerDownDraw(clickPos, object);
+            });
+            return;
+        }
+
+        // drawWindow modundayken duvara sağ tıklanırsa pencere ekle
+        if (state.currentMode === 'drawWindow' && object && object.type === 'wall') {
+            import('../architectural-objects/window-handler.js').then(module => {
+                module.onPointerDownDraw(clickPos, object);
+            });
+            return;
+        }
+
         // Diğer tüm popupları/menüleri kapat
         hideRoomNamePopup();
         hideWallPanel();

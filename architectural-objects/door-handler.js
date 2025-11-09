@@ -48,9 +48,10 @@ export function onPointerDownDraw(pos, clickedObject) {
     const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
     const rooms = (state.rooms || []).filter(r => !currentFloorId || !r.floorId || r.floorId === currentFloorId);
 
-    // 1. Direkt duvara yerleştirmeyi dene
+    // 1. Direkt duvara yerleştirmeyi dene - SADECE duvara yakınsa
     let previewWall = null, minDistSqPreview = Infinity;
-    const bodyHitTolerancePreview = (state.wallThickness * 1.5) ** 2;
+    // Daha sıkı tolerans: sadece duvar kalınlığı kadar (önizleme ile aynı)
+    const bodyHitTolerancePreview = (state.wallThickness * 0.75) ** 2;
     for (const w of [...walls].reverse()) {
          if (!w.p1 || !w.p2) continue;
          const distSq = distToSegmentSquared(pos, w.p1, w.p2);
