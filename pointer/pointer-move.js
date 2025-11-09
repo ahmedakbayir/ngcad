@@ -190,11 +190,15 @@ export function onPointerMove(e) {
     // Fare pozisyonunu güncelle (snap ile)
     // Sürükleme sırasında da snap aktif olsun
     let snappedPos = getSmartSnapPoint(e, true); // Her zaman grid snap kullan
-    setState({ mousePos: snappedPos });
 
     // Snaplenmemiş pozisyonu al
     const rect = dom.c2d.getBoundingClientRect();
     const unsnappedPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+
+    setState({
+        mousePos: snappedPos,
+        unsnappedMousePos: unsnappedPos // Simülasyonlar için snap uygulanmamış pozisyon
+    });
 
     // Stretch dragging
     if (state.isStretchDragging) {
