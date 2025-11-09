@@ -305,8 +305,6 @@ export function onPointerMove(snappedPos, unsnappedPos) {
                 y: lockY !== null ? lockY : snappedPos.y
             };
 
-            console.log('🔒 Using LOCKED position:', finalPos, '(ignoring mouse)');
-
             // Snap'lenmiş pozisyondan ne kadar uzak? (mouse'un GERÇEK pozisyonuyla karşılaştır)
             const distFromLockX = lockX !== null ? Math.abs(snappedPos.x - lockX) : Infinity;
             const distFromLockY = lockY !== null ? Math.abs(snappedPos.y - lockY) : Infinity;
@@ -476,12 +474,9 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 
             // Snap mesafesinden çıktı mı?
             if (distFromLock >= SNAP_RELEASE_DISTANCE) {
-                console.log('🔓 Snap lock released, distance:', distFromLock);
                 setState({ wallBodySnapLock: null });
                 // Lock kaldırıldı, şimdi snapped pozisyondan devam et
                 totalDelta = currentMouseDelta;
-            } else {
-                console.log('🔒 Using LOCKED delta:', totalDelta, 'distance from lock:', distFromLock);
             }
         } else {
             // Lock yok, normal pozisyondan başla
@@ -493,7 +488,6 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             // Snap yakalandı mı kontrol et
             if (snappedPos.isSnapped) {
                 // getSmartSnapPoint snap buldu, lock'la!
-                console.log('✅ NEW SNAP FOUND! Locking delta:', totalDelta);
                 setState({
                     wallBodySnapLock: {
                         dx: totalDelta.x,
