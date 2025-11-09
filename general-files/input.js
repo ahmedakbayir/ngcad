@@ -12,6 +12,7 @@ import { screenToWorld, worldToScreen, getOrCreateNode, distToSegmentSquared, fi
 import { showGuideContextMenu, hideGuideContextMenu } from '../draw/guide-menu.js';
 import { fitDrawingToScreen, onWheel } from '../draw/zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { showWallPanel, hideWallPanel } from '../wall/wall-panel.js'; // <-- HIDEWALLPANEL EKLENDİ
+import { copyFloorArchitecture, pasteFloorArchitecture } from '../draw/floor-operations-menu.js'; // <-- KAT MİMARİSİ KOPYALA/YAPIŞTIR
 import { onPointerDown } from '../pointer/pointer-down.js';
 import { onPointerMove } from '../pointer/pointer-move.js';
 import { onPointerUp } from '../pointer/pointer-up.js';
@@ -67,8 +68,15 @@ function extendWallOnTabPress() {
 
 // Kopyalama Fonksiyonu
 function handleCopy(e) {
-    if (!state.selectedObject && state.selectedGroup.length === 0) return;
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement === dom.roomNameSelect) return; // roomNameSelect eklendi
+
+    // Hiçbir obje seçili değilse, kat mimarisini kopyala
+    if (!state.selectedObject && state.selectedGroup.length === 0) {
+        e.preventDefault();
+        copyFloorArchitecture();
+        return;
+    }
+
     e.preventDefault();
     let dataToCopy = null;
     let referencePoint = null;
@@ -104,8 +112,15 @@ function handleCopy(e) {
 
 // Yapıştırma Fonksiyonu
 function handlePaste(e) {
-    if (!state.clipboard) return;
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement === dom.roomNameSelect) return; // roomNameSelect eklendi
+
+    // Eğer clipboard boşsa, kat mimarisi yapıştırmayı dene
+    if (!state.clipboard) {
+        e.preventDefault();
+        pasteFloorArchitecture();
+        return;
+    }
+
     e.preventDefault();
     const pastePos = state.mousePos;
     if (!pastePos) return;

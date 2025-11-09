@@ -262,8 +262,8 @@ function openProject(e) {
                     renderMiniPanel();
                 }
 
-                // Duvarları işle ve history'ye kaydet
-                processWalls();
+                // Duvarları işle ve history'ye kaydet - TÜM KATLARI İŞLE
+                processWalls(false, false, true);
                 saveState();
 
                 console.log('JSON Proje başarıyla yüklendi!');
