@@ -282,13 +282,27 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         ? (state.walls || []).filter(w => w.floorId === currentFloorId)
         : (state.walls || []);
 
+    // Sürüklenen duvarları tespit et
+    const draggedWalls = [];
+    if (state.isDragging && state.selectedObject?.type === 'wall') {
+        // Tek duvar veya grup sürükleniyor
+        if (state.selectedGroup && state.selectedGroup.length > 0) {
+            draggedWalls.push(...state.selectedGroup);
+        } else {
+            draggedWalls.push(state.selectedObject.object);
+        }
+    }
+
+    // Sürüklenen duvarları snap hesaplamalarından ÇIKAR
+    const wallsForSnap = currentFloorWalls.filter(w => !draggedWalls.includes(w));
+
     // Taranacak duvarlar
     const wallsToScan = state.snapOptions.nearestOnly
-        ? currentFloorWalls.map(wall => ({ wall, distance: Math.sqrt(distToSegmentSquared(wm, wall.p1, wall.p2)) }))
+        ? wallsForSnap.map(wall => ({ wall, distance: Math.sqrt(distToSegmentSquared(wm, wall.p1, wall.p2)) }))
           .sort((a, b) => a.distance - b.distance)
           .slice(0, 5)
           .map(item => item.wall)
-        : currentFloorWalls;
+        : wallsForSnap;
 
     const candidates = [];
     let draggedNode = (state.isDragging && state.selectedObject?.type === "wall" && state.selectedObject.handle !== "body")

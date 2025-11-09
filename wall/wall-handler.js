@@ -275,7 +275,17 @@ export function onPointerDownSelect(selectedObject, pos, snappedPos, e) {
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
     const currentFloorId = state.currentFloor?.id;
-    const walls = (state.walls || []).filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId);
+
+    // Sürüklenen duvarları tespit et
+    const draggedWalls = state.selectedGroup && state.selectedGroup.length > 0
+        ? state.selectedGroup
+        : [state.selectedObject.object];
+
+    // Snap için kullanılacak duvarlar - sürüklenen duvarları ÇIKAR
+    const walls = (state.walls || [])
+        .filter(w => !currentFloorId || !w.floorId || w.floorId === currentFloorId)
+        .filter(w => !draggedWalls.includes(w));
+
     let neighborWallsToDimension = new Set(); // Komşu duvarları saklamak için Set
 
     if (state.selectedObject.handle !== "body") {
