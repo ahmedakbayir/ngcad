@@ -269,6 +269,13 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
             dragState
         });
     }
+
+    // Return değeri - pointer-down.js için gerekli
+    return {
+        startPointForDragging: pos,
+        dragOffset: { x: 0, y: 0 },
+        additionalState: {}
+    };
 }
 
 /**
