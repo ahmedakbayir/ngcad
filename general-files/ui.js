@@ -835,5 +835,68 @@ export function setupUIListeners() {
             update3DScene();
         });
     }
+
+    // OPACITY KONTROLLERI
+    setupOpacityControls();
 }
 // --- setupUIListeners Sonu ---
+
+/**
+ * Opacity kontrol UI'sini başlatır
+ */
+function setupOpacityControls() {
+    const toggleBtn = document.getElementById('opacity-toggle-btn');
+    const panel = document.getElementById('opacity-panel');
+    const container = document.getElementById('opacity-controls-container');
+
+    if (!toggleBtn || !panel || !container) return;
+
+    // Toggle butonu click event
+    toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('expanded');
+        toggleBtn.classList.toggle('active');
+    });
+
+    // Her bir slider için event listener ekle
+    const sliderTypes = ['wall', 'floor', 'door', 'window', 'column', 'beam', 'stair'];
+
+    sliderTypes.forEach(type => {
+        const slider = document.getElementById(`opacity-${type}`);
+        const valueDisplay = slider?.nextElementSibling;
+
+        if (!slider || !valueDisplay) return;
+
+        // Slider değiştiğinde
+        slider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            valueDisplay.textContent = value;
+
+            // State'i güncelle
+            const newOpacitySettings = { ...state.opacitySettings, [type]: value };
+            setState({ opacitySettings: newOpacitySettings });
+
+            // 3D sahneyi güncelle
+            update3DScene();
+        });
+
+        // Başlangıç değerlerini state'ten al ve UI'ya yansıt
+        const initialValue = state.opacitySettings?.[type] || 100;
+        slider.value = initialValue;
+        valueDisplay.textContent = initialValue;
+    });
+
+    // 3D açıldığında container'ı göster
+    const observer = new MutationObserver(() => {
+        const is3DVisible = dom.mainContainer.classList.contains('show-3d');
+        container.style.display = is3DVisible ? 'block' : 'none';
+    });
+
+    observer.observe(dom.mainContainer, {
+        attributes: true,
+        attributeFilter: ['class']
+    });
+
+    // İlk yükleme için kontrol
+    const is3DVisible = dom.mainContainer.classList.contains('show-3d');
+    container.style.display = is3DVisible ? 'block' : 'none';
+}
