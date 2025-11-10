@@ -838,7 +838,18 @@ function initialize() {
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
     dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
-    dom.bDelete.addEventListener("click", () => handleDelete());
+
+    // DELETE butonu - mousedown ile seçimi koru
+    dom.bDelete.addEventListener("mousedown", (e) => {
+        e.preventDefault(); // Blur event'ini engelle
+        e.stopPropagation();
+    });
+    dom.bDelete.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleDelete();
+    });
+
     dom.bWall.addEventListener("click", () => setMode("drawWall", true));
     dom.bRoom.addEventListener("click", () => setMode("drawRoom", true));
     dom.bDoor.addEventListener("click", () => setMode("drawDoor", true));
