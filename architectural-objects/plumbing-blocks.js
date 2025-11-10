@@ -18,15 +18,15 @@ export const PLUMBING_BLOCK_TYPES = {
         name: 'Servis Kutusu',
         // 3D boyutlar (cm)
         width: 31,      // en (X ekseni)
-        height: 64,     // yükseklik (Y ekseni / Z ekseninde depth)
-        depth: 15,      // derinlik (3D'de yükseklik)
-        cornerRadius: 2,
+        height: 15,     // derinlik (2D Y ekseni, 3D Z ekseni) - üstten bakınca görünen
+        depth: 64,      // yükseklik (3D Y ekseni) - duvara dik yükseliş
+        cornerRadius: 1, // 1 cm yuvarlama
         // Bağlantı noktası (merkeze göre offset)
         connectionPoints: [
-            { x: 15.5, y: -17, label: 'çıkış' } // Sağda, yerden 15cm yukarıda
+            { x: 15.5, y: 0, label: 'çıkış' } // Sağda ortada
         ],
         mountType: 'wall', // duvara monte
-        color: 0xD9DCE0,
+        color: 0xF5F5F5, // Beyaza yakın gri
     },
     SAYAC: {
         id: 'sayac',
@@ -34,13 +34,13 @@ export const PLUMBING_BLOCK_TYPES = {
         width: 20,
         height: 21,
         depth: 12,
-        cornerRadius: 1,
+        cornerRadius: 1, // 1 cm yuvarlama
         connectionPoints: [
             { x: -7, y: 10.5, label: 'giriş' },   // Sol üst
             { x: 7, y: 10.5, label: 'çıkış' }      // Sağ üst
         ],
         mountType: 'wall',
-        color: 0xE8EAED,
+        color: 0xF5F5F5, // Beyaza yakın gri
     },
     VANA: {
         id: 'vana',

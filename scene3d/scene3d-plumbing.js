@@ -180,15 +180,14 @@ function createSayacMesh(block, material) {
 function createVanaMesh(block, material) {
     const config = PLUMBING_BLOCK_TYPES.VANA;
 
-    // Çift kesik koni geometrisi
+    // Çift kesik koni geometrisi (dar uçlar ortada birleşik)
     const geometry = createDoubleConeFrustumGeometry(
         config.width,
         config.height / 2,  // Geniş yarıçap
         1                    // Dar yarıçap
     );
 
-    // X ekseni boyunca uzansın (yatay)
-    geometry.rotateZ(Math.PI / 2);
+    // Geometri zaten X ekseni boyunca doğru yönde, rotasyon gerekmez
     geometry.translate(0, config.height / 2, 0); // Yerden yükselt
 
     const mesh = new THREE.Mesh(geometry, material.clone());
