@@ -36,35 +36,47 @@ export function update3DScene() {
         column: 100, beam: 100, stair: 100
     };
 
-    // 0-100 arasındaki değeri 0-1 arasına normalize et
-    const normalizeOpacity = (value) => value / 100;
+    // Base opacity değerleri (her materyalin normal/varsayılan opacity'si)
+    const BASE_OPACITY = {
+        wall: 0.75,
+        door: 0.75,
+        window: 0.3,
+        column: 0.75,
+        beam: 0.75,
+        floor: 0.8,
+        stair: 0.75
+    };
+
+    // 0-100 arasındaki slider değerini 0-1 arasına normalize et ve base opacity ile çarp
+    const calculateOpacity = (sliderValue, baseOpacity) => (sliderValue / 100) * baseOpacity;
+
+    // Her nesne türü için opacity hesapla
+    const wallOpacity = calculateOpacity(opacitySettings.wall, BASE_OPACITY.wall);
+    const doorOpacity = calculateOpacity(opacitySettings.door, BASE_OPACITY.door);
+    const windowOpacity = calculateOpacity(opacitySettings.window, BASE_OPACITY.window);
+    const columnOpacity = calculateOpacity(opacitySettings.column, BASE_OPACITY.column);
+    const beamOpacity = calculateOpacity(opacitySettings.beam, BASE_OPACITY.beam);
+    const floorOpacity = calculateOpacity(opacitySettings.floor, BASE_OPACITY.floor);
+    const stairOpacity = calculateOpacity(opacitySettings.stair, BASE_OPACITY.stair);
 
     // Malzemelerin opaklık/şeffaflık ayarlarını güncelle
-    const wallOpacity = normalizeOpacity(opacitySettings.wall);
-    const doorOpacity = normalizeOpacity(opacitySettings.door);
-    const windowOpacity = normalizeOpacity(opacitySettings.window);
-    const columnOpacity = normalizeOpacity(opacitySettings.column);
-    const beamOpacity = normalizeOpacity(opacitySettings.beam);
-    const floorOpacity = normalizeOpacity(opacitySettings.floor);
-    const stairOpacity = normalizeOpacity(opacitySettings.stair);
-
     wallMaterial.transparent = true; wallMaterial.opacity = wallOpacity; wallMaterial.needsUpdate = true;
     doorMaterial.transparent = true; doorMaterial.opacity = doorOpacity; doorMaterial.needsUpdate = true;
-    windowMaterial.opacity = windowOpacity * 0.3; windowMaterial.transparent = true; windowMaterial.needsUpdate = true;
+    windowMaterial.opacity = windowOpacity; windowMaterial.transparent = true; windowMaterial.needsUpdate = true;
     columnMaterial.transparent = true; columnMaterial.opacity = columnOpacity; columnMaterial.needsUpdate = true;
     beamMaterial.transparent = true; beamMaterial.opacity = beamOpacity; beamMaterial.needsUpdate = true;
     mullionMaterial.transparent = true; mullionMaterial.opacity = windowOpacity; mullionMaterial.needsUpdate = true;
     sillMaterial.transparent = true; sillMaterial.opacity = windowOpacity; sillMaterial.needsUpdate = true;
     handleMaterial.transparent = true; handleMaterial.opacity = doorOpacity; handleMaterial.needsUpdate = true;
-    floorMaterial.transparent = true; floorMaterial.opacity = floorOpacity * 0.8; floorMaterial.needsUpdate = true;
-    evenFloorMaterial.transparent = true; evenFloorMaterial.opacity = floorOpacity * 0.8; evenFloorMaterial.needsUpdate = true;
-    oddFloorMaterial.transparent = true; oddFloorMaterial.opacity = floorOpacity * 0.8; oddFloorMaterial.needsUpdate = true;
+    floorMaterial.transparent = true; floorMaterial.opacity = floorOpacity; floorMaterial.needsUpdate = true;
+    evenFloorMaterial.transparent = true; evenFloorMaterial.opacity = floorOpacity; evenFloorMaterial.needsUpdate = true;
+    oddFloorMaterial.transparent = true; oddFloorMaterial.opacity = floorOpacity; oddFloorMaterial.needsUpdate = true;
     stairMaterial.transparent = true; stairMaterial.opacity = stairOpacity; stairMaterial.needsUpdate = true;
     stairMaterialTop.transparent = true; stairMaterialTop.opacity = stairOpacity; stairMaterialTop.needsUpdate = true;
     ventMaterial.transparent = true; ventMaterial.opacity = wallOpacity; ventMaterial.needsUpdate = true;
     trimMaterial.transparent = true; trimMaterial.opacity = doorOpacity; trimMaterial.needsUpdate = true;
-    balconyRailingMaterial.transparent = true; balconyRailingMaterial.opacity = wallOpacity * 0.85; balconyRailingMaterial.needsUpdate = true;
-    glassMaterial.transparent = true; glassMaterial.opacity = windowOpacity * 0.4; glassMaterial.needsUpdate = true;
+    balconyRailingMaterial.transparent = true; balconyRailingMaterial.opacity = wallOpacity * 0.85 / 0.75; balconyRailingMaterial.needsUpdate = true;
+    glassMaterial.transparent = true; glassMaterial.opacity = windowOpacity * 0.4 / 0.3; glassMaterial.needsUpdate = true;
     halfWallCapMaterial.transparent = true; halfWallCapMaterial.opacity = wallOpacity; halfWallCapMaterial.needsUpdate = true;
     handrailWoodMaterial.transparent = true; handrailWoodMaterial.opacity = stairOpacity; handrailWoodMaterial.needsUpdate = true;
     balusterMaterial.transparent = true; balusterMaterial.opacity = stairOpacity; balusterMaterial.needsUpdate = true;
