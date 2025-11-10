@@ -255,6 +255,7 @@ export function handleDelete() {
     // Tek nesne seçimi varsa
     else if (selectedObjectSnapshot) {
         const objType = selectedObjectSnapshot.type;
+        console.log('🔍 Deleting single object, type:', objType);
 
         if (objType === 'column') {
             state.columns = state.columns.filter(c => c !== selectedObjectSnapshot.object);
