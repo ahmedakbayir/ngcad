@@ -5,6 +5,7 @@ import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from '../architectural-objects/beams.js';
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
 import { onPointerMove as onPointerMovePlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
+import { onPointerMove as onPointerMovePlumbingPipe } from '../architectural-objects/plumbing-pipes.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
 import { getObjectAtPoint } from '../general-files/actions.js'; // getObjectAtPoint eklendi
@@ -248,6 +249,7 @@ export function onPointerMove(e) {
             case 'beam':   onPointerMoveBeam(snappedPos, unsnappedPos);   break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
             case 'plumbingBlock': onPointerMovePlumbingBlock(snappedPos, unsnappedPos); break;
+            case 'plumbingPipe': onPointerMovePlumbingPipe(snappedPos, unsnappedPos); break;
             case 'wall':   onPointerMoveWall(snappedPos, unsnappedPos);   break;
             case 'door':   onPointerMoveDoor(unsnappedPos);               break;
             case 'window': onPointerMoveWindow(unsnappedPos);             break;
@@ -427,6 +429,7 @@ function updateMouseCursor() {
         case 'drawColumn':
         case 'drawBeam':
         case 'drawStairs':
+        case 'drawPlumbingPipe':
         case 'drawDoor':
         case 'drawWindow':
         case 'drawVent':

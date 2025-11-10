@@ -3,6 +3,7 @@ import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } f
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
 import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
+import { createPlumbingPipe, snapToConnectionPoint } from '../architectural-objects/plumbing-pipes.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
 import { onPointerDownGuide } from '../architectural-objects/guide-handler.js';
@@ -389,6 +390,39 @@ export function onPointerDown(e) {
          // İkinci tıklamadan sonra başlangıç noktasını sıfırla ve seçimi kaldır
          setState({ startPoint: null, selectedObject: null });
      }
+    // --- Tesisat Borusu Çizim Modu ---
+    } else if (state.currentMode === "drawPlumbingPipe") {
+        if (!state.startPoint) {
+            // İlk tıklama: Başlangıç noktasını ayarla (bağlantı noktasına snap)
+            const snap = snapToConnectionPoint(pos, 10);
+            const startPos = snap ? { x: snap.x, y: snap.y } : { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            setState({ startPoint: startPos });
+        } else {
+            // İkinci tıklama: Boruyu oluştur
+            const p1 = state.startPoint;
+            const snap = snapToConnectionPoint(pos, 10);
+            const p2 = snap ? { x: snap.x, y: snap.y } : { x: snappedPos.roundedX, y: snappedPos.roundedY };
+
+            // Minimum uzunluk kontrolü (5 cm)
+            const length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            if (length > 5) {
+                const pipeType = state.currentPlumbingPipeType || 'STANDARD';
+                const newPipe = createPlumbingPipe(p1.x, p1.y, p2.x, p2.y, pipeType);
+
+                if (newPipe) {
+                    if (!state.plumbingPipes) state.plumbingPipes = [];
+                    state.plumbingPipes.push(newPipe);
+                    geometryChanged = true;
+                    needsUpdate3D = true;
+                    objectJustCreated = true;
+                }
+            }
+
+            // Başlangıç noktasını tekrar ikinci tıklama pozisyonuna ayarla (zincirleme çizim)
+            const nextSnap = snapToConnectionPoint(p2, 10);
+            const nextStart = nextSnap ? { x: nextSnap.x, y: nextSnap.y } : p2;
+            setState({ startPoint: nextStart });
+        }
     // --- Menfez Çizim Modu ---
     } else if (state.currentMode === "drawVent") {
         let closestWall = null; let minDistSq = Infinity;

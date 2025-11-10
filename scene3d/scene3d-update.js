@@ -18,7 +18,7 @@ import {createWallSegmentMesh, createDoorMesh, createLintelMesh,
     createComplexWindow, createWallPieceMesh, createVentMesh}
     from "./scene3d-walls.js";
 import {createColumnMesh, createBeamMesh, createStairMesh} from "./scene3d-structures.js";
-import {createPlumbingBlockMesh, createPlumbingBlockMaterial} from "./scene3d-plumbing.js";
+import {createPlumbingBlockMesh, createPlumbingBlockMaterial, createPlumbingPipeMesh, createPlumbingPipeMaterial} from "./scene3d-plumbing.js";
 import {getArcWallPoints } from "../draw/geometry.js";
 import {state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
     BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "../general-files/main.js";
@@ -108,6 +108,7 @@ export function update3DScene() {
     const rooms = (state.rooms || []).filter(r => shouldShowFloor(r.floorId));
     const stairs = (state.stairs || []).filter(s => shouldShowFloor(s.floorId));
     const plumbingBlocks = (state.plumbingBlocks || []).filter(pb => shouldShowFloor(pb.floorId));
+    const plumbingPipes = (state.plumbingPipes || []).filter(pp => shouldShowFloor(pp.floorId));
 
     // Kat yüksekliklerini Map'te sakla (floorId -> elevation in cm)
     const floorElevations = new Map();
@@ -290,6 +291,22 @@ export function update3DScene() {
             const m = createPlumbingBlockMesh(block, plumbingMaterial);
             if (m) {
                 m.position.y = getFloorElevation(block.floorId);
+                sceneObjects.add(m);
+            }
+        });
+    }
+
+    // --- Tesisat Borularını Ekle ---
+    if (plumbingPipes && opacitySettings.plumbing > 0) {
+        const pipeMaterial = createPlumbingPipeMaterial();
+        pipeMaterial.opacity = plumbingOpacity;
+        pipeMaterial.transparent = true;
+        pipeMaterial.needsUpdate = true;
+
+        plumbingPipes.forEach(pipe => {
+            const m = createPlumbingPipeMesh(pipe, pipeMaterial);
+            if (m) {
+                m.position.y = getFloorElevation(pipe.floorId);
                 sceneObjects.add(m);
             }
         });

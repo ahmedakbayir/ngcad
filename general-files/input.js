@@ -236,6 +236,9 @@ export function handleDelete() {
             } else if (item.type === 'plumbingBlock') {
                 state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== item.object);
                 deleted = true;
+            } else if (item.type === 'plumbingPipe') {
+                state.plumbingPipes = state.plumbingPipes.filter(pp => pp !== item.object);
+                deleted = true;
             } else if (item.type === 'door') {
                 state.doors = state.doors.filter(d => d !== item.object);
                 deleted = true;
@@ -271,6 +274,10 @@ export function handleDelete() {
         }
         else if (objType === 'plumbingBlock') {
             state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== selectedObjectSnapshot.object);
+            deleted = true;
+        }
+        else if (objType === 'plumbingPipe') {
+            state.plumbingPipes = state.plumbingPipes.filter(pp => pp !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === 'guide') {
