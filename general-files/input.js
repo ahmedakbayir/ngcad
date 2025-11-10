@@ -200,15 +200,19 @@ function handlePaste(e) {
 
 // Silme Fonksiyonu
 export function handleDelete() {
+    // Seçimi HEMEN yakala (blur olayından etkilenmemesi için)
+    const selectedObjectSnapshot = state.selectedObject;
+    const selectedGroupSnapshot = [...(state.selectedGroup || [])];
+
     console.log('🗑️ handleDelete called', {
-        selectedObject: state.selectedObject,
-        selectedGroupLength: state.selectedGroup.length,
+        selectedObject: selectedObjectSnapshot,
+        selectedGroupLength: selectedGroupSnapshot.length,
         stairs: state.stairs?.length || 0,
         columns: state.columns?.length || 0,
         beams: state.beams?.length || 0
     });
 
-    if (!state.selectedObject && state.selectedGroup.length === 0) {
+    if (!selectedObjectSnapshot && selectedGroupSnapshot.length === 0) {
         console.warn('⚠️ Nothing selected to delete');
         return;
     }
@@ -217,9 +221,9 @@ export function handleDelete() {
     let isGuideDeleted = false;
 
     // Önce selectedGroup'u kontrol et (toplu silme)
-    if (state.selectedGroup.length > 0) {
+    if (selectedGroupSnapshot.length > 0) {
         // Grup içindeki her nesneyi tipine göre sil
-        state.selectedGroup.forEach(item => {
+        selectedGroupSnapshot.forEach(item => {
             if (item.type === 'column') {
                 state.columns = state.columns.filter(c => c !== item.object);
                 deleted = true;
@@ -249,51 +253,51 @@ export function handleDelete() {
         });
     }
     // Tek nesne seçimi varsa
-    else if (state.selectedObject) {
-        const objType = state.selectedObject.type;
+    else if (selectedObjectSnapshot) {
+        const objType = selectedObjectSnapshot.type;
 
         if (objType === 'column') {
-            state.columns = state.columns.filter(c => c !== state.selectedObject.object);
+            state.columns = state.columns.filter(c => c !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === 'beam') {
-            state.beams = state.beams.filter(b => b !== state.selectedObject.object);
+            state.beams = state.beams.filter(b => b !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === 'stairs') {
-            state.stairs = state.stairs.filter(s => s !== state.selectedObject.object);
+            state.stairs = state.stairs.filter(s => s !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === 'plumbingBlock') {
-            state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== state.selectedObject.object);
+            state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === 'guide') {
-            state.guides = state.guides.filter(g => g !== state.selectedObject.object);
+            state.guides = state.guides.filter(g => g !== selectedObjectSnapshot.object);
             deleted = true;
             isGuideDeleted = true;
         }
         else if (objType === "door") {
-            state.doors = state.doors.filter((d) => d !== state.selectedObject.object);
+            state.doors = state.doors.filter((d) => d !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === "window") {
-            const wall = state.selectedObject.wall;
+            const wall = selectedObjectSnapshot.wall;
             if (wall?.windows) {
-                wall.windows = wall.windows.filter(w => w !== state.selectedObject.object);
+                wall.windows = wall.windows.filter(w => w !== selectedObjectSnapshot.object);
                 deleted = true;
             }
         }
         else if (objType === "vent") {
-            const wall = state.selectedObject.wall;
+            const wall = selectedObjectSnapshot.wall;
             if (wall?.vents) {
-                wall.vents = wall.vents.filter(v => v !== state.selectedObject.object);
+                wall.vents = wall.vents.filter(v => v !== selectedObjectSnapshot.object);
                 deleted = true;
             }
         }
         else if (objType === "wall") {
-            state.walls = state.walls.filter((w) => w !== state.selectedObject.object);
-            state.doors = state.doors.filter((d) => d.wall !== state.selectedObject.object);
+            state.walls = state.walls.filter((w) => w !== selectedObjectSnapshot.object);
+            state.doors = state.doors.filter((d) => d.wall !== selectedObjectSnapshot.object);
             deleted = true;
         }
     }

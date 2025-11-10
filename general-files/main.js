@@ -839,21 +839,29 @@ function initialize() {
 
     dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
 
-    // DELETE butonu - mousedown ile seçimi koru
+    // DELETE butonu - mousedown'da HEMEN handleDelete çağır (blur öncesi)
+    let deleteButtonPressed = false;
     dom.bDelete.addEventListener("mousedown", (e) => {
         e.preventDefault(); // Blur event'ini engelle
         e.stopPropagation();
-        // Butonun focus almasını engelle
-        if (document.activeElement === dom.bDelete) {
-            dom.bDelete.blur();
-        }
+
+        // Seçim kaybolmadan HEMEN handleDelete çağır
+        console.log('🗑️ DELETE button mousedown, calling handleDelete immediately');
+        deleteButtonPressed = true;
+        handleDelete();
+        deleteButtonPressed = false;
+
+        // Focus'u canvas'a geri ver
+        setTimeout(() => {
+            dom.c2d.focus();
+        }, 0);
+
         return false;
     });
     dom.bDelete.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log('🗑️ DELETE button clicked, calling handleDelete');
-        handleDelete();
+        // mousedown'da zaten handleDelete çağrıldı, tekrar çağırma
         return false;
     });
 
