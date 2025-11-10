@@ -11,86 +11,128 @@
 <div class="main" id="main-container">
 <div id="p2d" class="panel">
 <div id="ui">
-<button id="bSel" class="btn" title="Seç">
- <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" stroke-width="1.5"></path></svg>
- Seç
- </button>
- <button id="bWall" class="btn" title="Duvar">
-  <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke-width="4" stroke-linecap="round"></line></svg>
-  Duvar
- </button>
- <button id="bRoom" class="btn" title="Oda">
-  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-  Oda
- </button>
- <button id="bDoor" class="btn" title="Kapı">
-  <svg viewBox="0 0 24 24"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"></path><line x1="10" y1="12" x2="10" y2="12" stroke-width="3" stroke-linecap="round"></line></svg>
-  Kapı
- </button>
- <button id="bWindow" class="btn" title="Pencere">
-  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1" ry="1" stroke-width="1.5"></rect><line x1="12" y1="3" x2="12" y2="21" stroke-width="1.5"></line><line x1="3" y1="12" x2="21" y2="12" stroke-width="1.5"></line></svg>
-  Pencere
- </button>
- <button id="bColumn" class="btn" title="Kolon">
-  <svg viewBox="0 0 24 24">
-    <rect x="8" y="4" width="8" height="2" stroke-width="1.5" fill="currentColor"/>
-    <line x1="10" y1="6" x2="10" y2="18" stroke-width="1.5"/>
-    <line x1="14" y1="6" x2="14" y2="18" stroke-width="1.5"/>
-    <rect x="8" y="18" width="8" height="2" stroke-width="1.5" fill="currentColor"/>
-  </svg>
-  Kolon
-</button>
-<button id="bBeam" class="btn" title="Kiriş">
-  <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
-    <rect x="3" y="10" width="18" height="4" stroke-width="1.5"/>
-  </svg>
-  Kiriş
-</button>
-<button id="bStairs" class="btn" title="Merdiven">
-  <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
-    <line x1="6" y1="19" x2="6" y2="5" stroke-width="1.5"/>
-    <line x1="18" y1="19" x2="18" y2="5" stroke-width="1.5"/>
-    <line x1="6" y1="19" x2="18" y2="19" stroke-width="1.5"/>
-    <line x1="6" y1="14" x2="18" y2="14" stroke-width="1.5"/>
-    <line x1="6" y1="9" x2="18" y2="9" stroke-width="1.5"/>
-  </svg>
-  Merdiven
-</button>
 
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- GENEL İŞLEMLER -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="button-group">
+  <div class="group-label">GENEL</div>
+  <button id="bSave" class="btn" title="Kaydet">
+    <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+    Kaydet
+  </button>
+  <button id="bOpen" class="btn" title="Aç">
+    <svg viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
+    Aç
+  </button>
+  <button id="bAssignNames" class="btn" title="Mahal Tanımla">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M5 9h14v10H5z"/>
+      <path d="M9 9V7c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v2"/>
+      <path d="M19 13h2c1.1 0 2 .9 2 2v0c0 1.1-.9 2-2 2h-2"/>
+    </svg>
+    Mahal Tanımla
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- MİMARİ ELEMANLAR -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="button-group">
+  <div class="group-label">MİMARİ</div>
+  <button id="bSel" class="btn" title="Seç">
+    <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" stroke-width="1.5"></path></svg>
+    Seç
+  </button>
+  <button id="bWall" class="btn" title="Duvar">
+    <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke-width="4" stroke-linecap="round"></line></svg>
+    Duvar
+  </button>
+  <button id="bRoom" class="btn" title="Oda">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+    Oda
+  </button>
+  <button id="bDoor" class="btn" title="Kapı">
+    <svg viewBox="0 0 24 24"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"></path><line x1="10" y1="12" x2="10" y2="12" stroke-width="3" stroke-linecap="round"></line></svg>
+    Kapı
+  </button>
+  <button id="bWindow" class="btn" title="Pencere">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1" ry="1" stroke-width="1.5"></rect><line x1="12" y1="3" x2="12" y2="21" stroke-width="1.5"></line><line x1="3" y1="12" x2="21" y2="12" stroke-width="1.5"></line></svg>
+    Pencere
+  </button>
+  <button id="bColumn" class="btn" title="Kolon">
+    <svg viewBox="0 0 24 24">
+      <rect x="8" y="4" width="8" height="2" stroke-width="1.5" fill="currentColor"/>
+      <line x1="10" y1="6" x2="10" y2="18" stroke-width="1.5"/>
+      <line x1="14" y1="6" x2="14" y2="18" stroke-width="1.5"/>
+      <rect x="8" y="18" width="8" height="2" stroke-width="1.5" fill="currentColor"/>
+    </svg>
+    Kolon
+  </button>
+  <button id="bBeam" class="btn" title="Kiriş">
+    <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+      <rect x="3" y="10" width="18" height="4" stroke-width="1.5"/>
+    </svg>
+    Kiriş
+  </button>
+  <button id="bStairs" class="btn" title="Merdiven">
+    <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+      <line x1="6" y1="19" x2="6" y2="5" stroke-width="1.5"/>
+      <line x1="18" y1="19" x2="18" y2="5" stroke-width="1.5"/>
+      <line x1="6" y1="19" x2="18" y2="19" stroke-width="1.5"/>
+      <line x1="6" y1="14" x2="18" y2="14" stroke-width="1.5"/>
+      <line x1="6" y1="9" x2="18" y2="9" stroke-width="1.5"/>
+    </svg>
+    Merdiven
+  </button>
+  <button id="bSymmetry" class="btn" title="Simetri">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3v18"/>
+      <path d="M8 7l-5 5 5 5"/>
+      <path d="M16 7l5 5-5 5"/>
+      <path d="M3 12h5"/>
+      <path d="M16 12h5"/>
+    </svg>
+    Simetri
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- TESİSAT BLOKLARI -->
-<div style="display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; padding: 4px; background: rgba(255,255,255,0.05); border-radius: 4px;">
-  <div style="width: 100%; font-size: 11px; color: #999; padding: 2px 4px;">Tesisat</div>
-  <button id="bServisKutusu" class="btn" title="Servis Kutusu" style="flex: 1; min-width: 80px; font-size: 11px; padding: 4px 8px;">
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="button-group">
+  <div class="group-label">TESİSAT</div>
+  <button id="bServisKutusu" class="btn" title="Servis Kutusu">
     <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
       <rect x="6" y="4" width="12" height="16" rx="1" stroke-width="1.5"/>
       <circle cx="16" cy="14" r="1.5" fill="currentColor"/>
     </svg>
-    SK
+    Servis Kutusu
   </button>
-  <button id="bSayac" class="btn" title="Sayaç" style="flex: 1; min-width: 80px; font-size: 11px; padding: 4px 8px;">
+  <button id="bSayac" class="btn" title="Sayaç">
     <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
       <rect x="7" y="8" width="10" height="8" rx="1" stroke-width="1.5"/>
       <circle cx="10" cy="8" r="1" fill="#0F0"/>
       <circle cx="14" cy="8" r="1" fill="#F00"/>
     </svg>
-    SAY
+    Sayaç
   </button>
-  <button id="bVana" class="btn" title="Vana" style="flex: 1; min-width: 80px; font-size: 11px; padding: 4px 8px;">
+  <button id="bVana" class="btn" title="Vana">
     <svg viewBox="0 0 24 24" stroke="currentColor" fill="currentColor">
       <path d="M 4 12 L 10 8 L 10 16 Z"/>
       <path d="M 20 12 L 14 8 L 14 16 Z"/>
     </svg>
-    VAN
+    Vana
   </button>
-  <button id="bKombi" class="btn" title="Kombi" style="flex: 1; min-width: 80px; font-size: 11px; padding: 4px 8px;">
+  <button id="bKombi" class="btn" title="Kombi">
     <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
       <circle cx="12" cy="12" r="7" stroke-width="1.5"/>
       <circle cx="12" cy="12" r="4" stroke-width="1.5"/>
       <text x="12" y="14" text-anchor="middle" font-size="8" fill="currentColor">G</text>
     </svg>
-    KMB
+    Kombi
   </button>
-  <button id="bOcak" class="btn" title="Ocak" style="flex: 1; min-width: 80px; font-size: 11px; padding: 4px 8px;">
+  <button id="bOcak" class="btn" title="Ocak">
     <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
       <rect x="5" y="5" width="14" height="14" rx="2" stroke-width="1.5"/>
       <circle cx="9" cy="9" r="1.5" stroke-width="1"/>
@@ -98,35 +140,9 @@
       <circle cx="9" cy="15" r="1.5" stroke-width="1"/>
       <circle cx="15" cy="15" r="1.5" stroke-width="1"/>
     </svg>
-    OCK
+    Ocak
   </button>
 </div>
-<!-- TESİSAT BLOKLARI SONU -->
-
-<button id="bSymmetry" class="btn" title="Simetri"> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 3v18"/> <path d="M8 7l-5 5 5 5"/> <path d="M16 7l5 5-5 5"/> <path d="M3 12h5"/> <path d="M16 12h5"/> </svg>
-    Simetri
- </button>
-
-<button id="bSave" class="btn" title="Kaydet">
- <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
- Kaydet
- </button>
- <button id="bOpen" class="btn" title="Aç">
- <svg viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
- Aç
- </button>
- <button id="bAssignNames" class="btn" title="Mahal Tanımla">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-    <!-- Ana puzzle parçası gövdesi -->
-    <path d="M5 9h14v10H5z"/>
-    <!-- Üst çıkıntı -->
-    <path d="M9 9V7c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v2"/>
-    <!-- Sağ çıkıntı -->
-    <path d="M19 13h2c1.1 0 2 .9 2 2v0c0 1.1-.9 2-2 2h-2"/>
-  </svg>
-  Mahal Tanımla
- </button>
 <input type="file" id="file-input" accept=".json, .pdf, .xml" style="display: none"/>
 </div>
 
