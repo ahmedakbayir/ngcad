@@ -147,7 +147,16 @@ export function pasteFloorArchitecture() {
         state.walls.push(newWall);
     });
 
+    // DÜZELTME: Node'ları state.nodes'a ekle (processWalls için gerekli)
+    const newNodes = Array.from(nodeMap.values());
+    newNodes.forEach(node => {
+        if (!state.nodes.includes(node)) {
+            state.nodes.push(node);
+        }
+    });
+
     console.log(`${newWalls.length} duvar state'e eklendi, aktif kat: ${currentFloorId}`);
+    console.log(`${newNodes.length} node state.nodes'a eklendi`);
     console.log('İlk duvar örneği:', newWalls[0]);
     console.log('Toplam state.walls sayısı:', state.walls.length);
 
@@ -335,6 +344,14 @@ function pasteToAllFloors() {
 
             newWalls.push(newWall);
             state.walls.push(newWall);
+        });
+
+        // DÜZELTME: Node'ları state.nodes'a ekle (processWalls için gerekli)
+        const newNodes = Array.from(nodeMap.values());
+        newNodes.forEach(node => {
+            if (!state.nodes.includes(node)) {
+                state.nodes.push(node);
+            }
         });
 
         // Kapıları yapıştır
