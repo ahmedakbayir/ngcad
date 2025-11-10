@@ -518,7 +518,7 @@ function onKeyDown(e) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         // Tek nesne veya grup seçimi kontrolü
         const hasSelection = state.selectedGroup.length > 0 ||
-                           (state.selectedObject && ['column', 'beam', 'stairs', 'door', 'window'].includes(state.selectedObject.type));
+                           (state.selectedObject && ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock'].includes(state.selectedObject.type));
 
         if (!hasSelection) return; // Hiç seçili nesne yoksa çık
 
@@ -545,6 +545,9 @@ function onKeyDown(e) {
                     obj.center.x += deltaX;
                     obj.center.y += deltaY;
                 } else if (selectedItem.type === 'stairs' && obj.center) {
+                    obj.center.x += deltaX;
+                    obj.center.y += deltaY;
+                } else if (selectedItem.type === 'plumbingBlock' && obj.center) {
                     obj.center.x += deltaX;
                     obj.center.y += deltaY;
                 } else if (selectedItem.type === 'door' && obj.wall) {
@@ -595,7 +598,7 @@ function onKeyDown(e) {
             const obj = state.selectedObject.object;
             const type = state.selectedObject.type;
 
-            if (obj && obj.center && ['column', 'beam', 'stairs'].includes(type)) {
+            if (obj && obj.center && ['column', 'beam', 'stairs', 'plumbingBlock'].includes(type)) {
                 obj.center.x += deltaX;
                 obj.center.y += deltaY;
             } else if (type === 'door' && obj.wall) {
