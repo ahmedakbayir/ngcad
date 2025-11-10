@@ -288,7 +288,8 @@ export function handleDelete() {
     }
 
     if (deleted) {
-        setState({ selectedObject: null, selectedGroup: [] });
+        state.selectedObject = null;
+        state.selectedGroup = [];
         // processWalls() sadece rehber silindiyse çağrılmaz
         if (!isGuideDeleted) {
             processWalls();
