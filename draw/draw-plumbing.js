@@ -110,9 +110,9 @@ function drawVana(block, isSelected) {
     ctx2d.translate(block.center.x, block.center.y);
     ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    const halfLength = config.width / 2;
+    const halfLength = config.width / 2.5; // Konileri yaklaştır
     const largeRadius = config.height / 2;
-    const smallRadius = 1;
+    const smallRadius = 0.5; // Ortadaki birleşimi daha dar yap
 
     // Çift kesik koni (elmas şekli)
     ctx2d.fillStyle = '#A0A0A0';
