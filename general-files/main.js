@@ -843,11 +843,18 @@ function initialize() {
     dom.bDelete.addEventListener("mousedown", (e) => {
         e.preventDefault(); // Blur event'ini engelle
         e.stopPropagation();
+        // Butonun focus almasını engelle
+        if (document.activeElement === dom.bDelete) {
+            dom.bDelete.blur();
+        }
+        return false;
     });
     dom.bDelete.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        console.log('🗑️ DELETE button clicked, calling handleDelete');
         handleDelete();
+        return false;
     });
 
     dom.bWall.addEventListener("click", () => setMode("drawWall", true));
