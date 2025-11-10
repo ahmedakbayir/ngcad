@@ -203,6 +203,7 @@ export function handleDelete() {
     if (!state.selectedObject && state.selectedGroup.length === 0) return;
 
     let deleted = false;
+    let isGuideDeleted = false;
 
     // Önce selectedGroup'u kontrol et (toplu silme)
     if (state.selectedGroup.length > 0) {
@@ -239,45 +240,48 @@ export function handleDelete() {
     }
     // Tek nesne seçimi varsa
     else if (state.selectedObject) {
-        if (state.selectedObject.type === 'column') {
+        const objType = state.selectedObject.type;
+
+        if (objType === 'column') {
             state.columns = state.columns.filter(c => c !== state.selectedObject.object);
             deleted = true;
         }
-        else if (state.selectedObject.type === 'beam') {
+        else if (objType === 'beam') {
             state.beams = state.beams.filter(b => b !== state.selectedObject.object);
             deleted = true;
         }
-        else if (state.selectedObject.type === 'stairs') {
+        else if (objType === 'stairs') {
             state.stairs = state.stairs.filter(s => s !== state.selectedObject.object);
             deleted = true;
         }
-        else if (state.selectedObject.type === 'plumbingBlock') {
+        else if (objType === 'plumbingBlock') {
             state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== state.selectedObject.object);
             deleted = true;
         }
-        else if (state.selectedObject.type === 'guide') {
+        else if (objType === 'guide') {
             state.guides = state.guides.filter(g => g !== state.selectedObject.object);
             deleted = true;
+            isGuideDeleted = true;
         }
-        else if (state.selectedObject.type === "door") {
+        else if (objType === "door") {
             setState({ doors: state.doors.filter((d) => d !== state.selectedObject.object) });
             deleted = true;
         }
-        else if (state.selectedObject.type === "window") {
+        else if (objType === "window") {
             const wall = state.selectedObject.wall;
             if (wall?.windows) {
                 wall.windows = wall.windows.filter(w => w !== state.selectedObject.object);
                 deleted = true;
             }
         }
-        else if (state.selectedObject.type === "vent") {
+        else if (objType === "vent") {
             const wall = state.selectedObject.wall;
             if (wall?.vents) {
                 wall.vents = wall.vents.filter(v => v !== state.selectedObject.object);
                 deleted = true;
             }
         }
-        else if (state.selectedObject.type === "wall") {
+        else if (objType === "wall") {
             const newWalls = state.walls.filter((w) => w !== state.selectedObject.object);
             const newDoors = state.doors.filter((d) => d.wall !== state.selectedObject.object);
             setState({ walls: newWalls, doors: newDoors });
@@ -288,7 +292,7 @@ export function handleDelete() {
     if (deleted) {
         setState({ selectedObject: null, selectedGroup: [] });
         // processWalls() sadece rehber silindiyse çağrılmaz
-        if (state.selectedObject?.type !== 'guide') {
+        if (!isGuideDeleted) {
             processWalls();
         }
         saveState();
