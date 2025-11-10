@@ -1,5 +1,4 @@
 import { state, setState } from '../general-files/main.js';
-import { distanceToSegment } from '../general-files/utils.js';
 
 /**
  * TESİSAT BLOKLARI - SABĐT BOYUTLU MĐMARĐ ELEMANLAR
