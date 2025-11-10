@@ -23,7 +23,7 @@ export const PLUMBING_BLOCK_TYPES = {
         cornerRadius: 2, // 2 cm yuvarlama
         // Bağlantı noktası (merkeze göre offset)
         connectionPoints: [
-            { x: 0, y: -10, label: 'çıkış' } // Dar kıyıda (üst kenarda) ortada
+            { x: 0, y: -10, z: 15, label: 'çıkış' } // Dar kıyıda ortada, yerden 15 cm yukarıda
         ],
         mountType: 'wall', // duvara monte
         color: 0xA8A8A8, // Gri ton
@@ -37,8 +37,8 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 30,      // yükseklik (3D Y ekseni)
         cornerRadius: 2, // 2 cm yuvarlama
         connectionPoints: [
-            { x: -10, y: 7.5, label: 'giriş' },   // Sol üst
-            { x: 10, y: 7.5, label: 'çıkış' }      // Sağ üst
+            { x: -10, y: 7.5, z: 15, label: 'giriş' },   // Sol üst, yerden 15 cm
+            { x: 10, y: 7.5, z: 15, label: 'çıkış' }      // Sağ üst, yerden 15 cm
         ],
         mountType: 'wall',
         color: 0xA8A8A8, // Gri ton
@@ -51,8 +51,8 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 5,
         cornerRadius: 1,
         connectionPoints: [
-            { x: -5, y: 0, label: 'giriş' },
-            { x: 5, y: 0, label: 'çıkış' }
+            { x: -5, y: 0, z: 2.5, label: 'giriş' },  // Sol taraf, orta yükseklikte
+            { x: 5, y: 0, z: 2.5, label: 'çıkış' }    // Sağ taraf, orta yükseklikte
         ],
         mountType: 'free', // Serbest yerleşim
         color: 0xA0A0A0,
@@ -66,7 +66,7 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 29,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: -36, label: 'bağlantı' } // Alt ortada
+            { x: 0, y: -36, z: 10, label: 'bağlantı' } // Alt ortada, yerden 10 cm yukarıda
         ],
         mountType: 'wall',
         color: 0xFFFFFF,
@@ -79,7 +79,7 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 59,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: 0, label: 'bağlantı' } // Arkada ortada
+            { x: 0, y: 0, z: 10, label: 'bağlantı' } // Arkada ortada, yerden 10 cm yukarıda
         ],
         mountType: 'floor', // Zemine oturur
         color: 0x303030,
