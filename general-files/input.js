@@ -231,9 +231,8 @@ export function handleDelete() {
                 }
             } else if (item.type === 'wall') {
                 // Duvar silme için özel işlem (kapıları da sil)
-                const newWalls = state.walls.filter(w => w !== item.object);
-                const newDoors = state.doors.filter(d => d.wall !== item.object);
-                setState({ walls: newWalls, doors: newDoors });
+                state.walls = state.walls.filter(w => w !== item.object);
+                state.doors = state.doors.filter(d => d.wall !== item.object);
                 deleted = true;
             }
         });
@@ -264,7 +263,7 @@ export function handleDelete() {
             isGuideDeleted = true;
         }
         else if (objType === "door") {
-            setState({ doors: state.doors.filter((d) => d !== state.selectedObject.object) });
+            state.doors = state.doors.filter((d) => d !== state.selectedObject.object);
             deleted = true;
         }
         else if (objType === "window") {
@@ -282,9 +281,8 @@ export function handleDelete() {
             }
         }
         else if (objType === "wall") {
-            const newWalls = state.walls.filter((w) => w !== state.selectedObject.object);
-            const newDoors = state.doors.filter((d) => d.wall !== state.selectedObject.object);
-            setState({ walls: newWalls, doors: newDoors });
+            state.walls = state.walls.filter((w) => w !== state.selectedObject.object);
+            state.doors = state.doors.filter((d) => d.wall !== state.selectedObject.object);
             deleted = true;
         }
     }
