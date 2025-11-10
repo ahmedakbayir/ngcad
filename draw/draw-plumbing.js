@@ -281,6 +281,7 @@ function drawOcak(block, isSelected) {
  * Tesisat bloğu çizer (factory pattern)
  */
 export function drawPlumbingBlock(block, isSelected = false) {
+    const { ctx2d } = dom;
     const blockType = block.blockType;
 
     ctx2d.save();
