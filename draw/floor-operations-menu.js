@@ -51,7 +51,8 @@ export function copyFloorArchitecture() {
     // Kattaki tüm elemanları topla
     const floorData = {
         walls: state.walls.filter(w => w.floorId === currentFloorId),
-        doors: state.doors.filter(d => d.wall && state.walls.find(w => w === d.wall && w.floorId === currentFloorId)),
+        // DÜZELTME: Kapılar duvar üzerinden filtrelenmeli
+        doors: state.doors.filter(d => d.wall && (!d.wall.floorId || d.wall.floorId === currentFloorId)),
         columns: state.columns.filter(c => c.floorId === currentFloorId),
         beams: state.beams.filter(b => b.floorId === currentFloorId),
         stairs: state.stairs.filter(s => s.floorId === currentFloorId),
@@ -228,14 +229,18 @@ export function pasteFloorArchitecture() {
 
 // Kopyalanan mimariyi diğer tüm katlara yapıştır
 function pasteToAllFloors() {
+    console.log('pasteToAllFloors başladı');
     // Eğer clipboard boşsa, önce mevcut katı kopyala
     if (!floorClipboard) {
+        console.log('Clipboard boş, kopyalama yapılıyor...');
         copyFloorArchitecture();
         // Eğer hala boşsa (kopyalama başarısızsa), çık
         if (!floorClipboard) {
+            console.error('Kopyalama başarısız, clipboard hala boş!');
             return;
         }
     }
+    console.log('Clipboard içeriği:', floorClipboard);
 
     if (!state.floors || state.floors.length === 0) {
         alert('Başka kat bulunamadı!');
@@ -388,20 +393,24 @@ function pasteToAllFloors() {
         });
 
         pastedFloorCount++;
+        console.log(`${floor.name} katına yapıştırıldı: ${newWalls.length} duvar`);
     });
 
-    // Yapıştırma sonrası ilk hedef kata geç (kullanıcının yapıştırılan katı görmesi için)
-    if (targetFloors.length > 0) {
-        setState({ currentFloor: targetFloors[0] });
-        if (window.renderMiniPanel) window.renderMiniPanel();
-    }
+    console.log(`Toplam ${pastedFloorCount} kata yapıştırıldı`);
+
+    // Yapıştırma sonrası MEVCUT KATTA KAL (kullanıcı kendi katında kalmalı)
+    // setState({ currentFloor: targetFloors[0] }); // KALDIRILDI
+    if (window.renderMiniPanel) window.renderMiniPanel();
 
     // Tüm katları işle (processAllFloors = true)
+    console.log('processWalls çağrılıyor (tüm katlar)...');
     processWalls(false, false, true);
+    console.log('saveState çağrılıyor...');
     saveState();
+    console.log('update3DScene çağrılıyor...');
     update3DScene();
 
-    console.log(`Mimari plan ${pastedFloorCount} kata yapıştırıldı (${floorClipboard.walls.length} duvar, ${floorClipboard.doors.length} kapı, ${floorClipboard.columns.length} kolon, ${floorClipboard.beams.length} kiriş, ${floorClipboard.stairs.length} merdiven, ${floorClipboard.rooms.length} mahal)`);
+    console.log(`✓ Mimari plan ${pastedFloorCount} kata yapıştırıldı (${floorClipboard.walls.length} duvar, ${floorClipboard.doors.length} kapı, ${floorClipboard.columns.length} kolon, ${floorClipboard.beams.length} kiriş, ${floorClipboard.stairs.length} merdiven, ${floorClipboard.rooms.length} mahal)`);
 }
 
 // Mevcut kattaki tüm mimariyi sil
