@@ -183,8 +183,16 @@ export function init3D(canvasElement) {
         roughness: 0.1, transparent: true, opacity: 0.3, side: THREE.DoubleSide
     });
 
-    columnMaterial = wallMaterial;
-    beamMaterial = wallMaterial;
+    // Kolon ve kiriş için ayrı materyaller (wallMaterial ile aynı özelliklerde)
+    columnMaterial = new THREE.MeshStandardMaterial({
+        color: 'rgba(217, 220, 223, 1)',
+        roughness: 0.8, transparent: true, opacity: solidOpacity, side: THREE.DoubleSide
+    });
+
+    beamMaterial = new THREE.MeshStandardMaterial({
+        color: 'rgba(217, 220, 223, 1)',
+        roughness: 0.8, transparent: true, opacity: solidOpacity, side: THREE.DoubleSide
+    });
 
     mullionMaterial = new THREE.MeshStandardMaterial({
         color: 0x333333,
@@ -228,8 +236,12 @@ export function init3D(canvasElement) {
         color: 'rgba(151, 151, 147, 1)',
         roughness: 0.8, transparent: true, opacity: solidOpacity, side: THREE.DoubleSide
     });
-    
-    stairMaterialTop = wallMaterial; // stairMaterial ile aynı
+
+    // Merdiven üstü için ayrı materyal (stairMaterial ile aynı özelliklerde)
+    stairMaterialTop = new THREE.MeshStandardMaterial({
+        color: 'rgba(151, 151, 147, 1)',
+        roughness: 0.8, transparent: true, opacity: solidOpacity, side: THREE.DoubleSide
+    });
        
     stepNosingMaterial = new THREE.MeshStandardMaterial({
         color: 'rgba(73, 72, 72, 1)',

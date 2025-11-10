@@ -838,8 +838,8 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
 /* 3D Opacity Kontrolleri */
 #opacity-controls-container {
     position: absolute;
-    top: 50px;
-    right: 10px;
+    top: 10px;
+    right: 320px; /* split-ratio-buttons'ın soluna yerleştir */
     z-index: 100;
 }
 
