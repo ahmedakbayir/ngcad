@@ -1,5 +1,6 @@
 import { state, dom } from '../general-files/main.js';
 import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
+import { PLUMBING_PIPE_TYPES } from '../architectural-objects/plumbing-pipes.js';
 
 /**
  * TESİSAT BLOKLARI 2D RENDERING
@@ -387,5 +388,122 @@ export function drawPlumbingBlockHandles(block) {
         ctx2d.arc(cp.x, cp.y, 4 / zoom, 0, Math.PI * 2);
         ctx2d.fill();
         ctx2d.stroke();
+    }
+}
+
+/**
+ * TESİSAT BORULARI 2D RENDERING
+ */
+
+/**
+ * Tek bir boruyu çizer
+ * @param {object} pipe - Boru nesnesi
+ * @param {boolean} isSelected - Seçili mi?
+ */
+export function drawPlumbingPipe(pipe, isSelected = false) {
+    const { ctx2d } = dom;
+    const { zoom } = state;
+    const config = pipe.typeConfig || PLUMBING_PIPE_TYPES[pipe.pipeType];
+
+    // Boru çizgisi
+    ctx2d.save();
+    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : `#${config.color.toString(16).padStart(6, '0')}`;
+    ctx2d.lineWidth = (isSelected ? config.lineWidth + 2 : config.lineWidth) / zoom;
+    ctx2d.lineCap = 'round';
+    ctx2d.lineJoin = 'round';
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(pipe.p1.x, pipe.p1.y);
+    ctx2d.lineTo(pipe.p2.x, pipe.p2.y);
+    ctx2d.stroke();
+
+    ctx2d.restore();
+
+    // Uç noktaları çiz (seçiliyse)
+    if (isSelected) {
+        ctx2d.fillStyle = '#8ab4f8';
+        ctx2d.strokeStyle = '#FFFFFF';
+        ctx2d.lineWidth = 1.5 / zoom;
+
+        // P1
+        ctx2d.beginPath();
+        ctx2d.arc(pipe.p1.x, pipe.p1.y, 4 / zoom, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.stroke();
+
+        // P2
+        ctx2d.beginPath();
+        ctx2d.arc(pipe.p2.x, pipe.p2.y, 4 / zoom, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.stroke();
+    }
+}
+
+/**
+ * Tüm tesisat borularını çizer
+ */
+export function drawPlumbingPipes() {
+    const currentFloorId = state.currentFloor?.id;
+    const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
+
+    for (const pipe of pipes) {
+        const isSelected = state.selectedObject?.object === pipe;
+        drawPlumbingPipe(pipe, isSelected);
+    }
+}
+
+/**
+ * Boru çizim modu için önizleme çizer
+ */
+export function drawPlumbingPipePreview() {
+    if (state.currentMode !== 'drawPlumbingPipe' || !state.startPoint || !state.mousePos) {
+        return;
+    }
+
+    const { ctx2d } = dom;
+    const { zoom } = state;
+    const pipeType = state.currentPlumbingPipeType || 'STANDARD';
+    const config = PLUMBING_PIPE_TYPES[pipeType];
+
+    // Önizleme çizgisi
+    ctx2d.save();
+    ctx2d.strokeStyle = `#${config.color.toString(16).padStart(6, '0')}`;
+    ctx2d.lineWidth = config.lineWidth / zoom;
+    ctx2d.lineCap = 'round';
+    ctx2d.globalAlpha = 0.7;
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(state.startPoint.x, state.startPoint.y);
+    ctx2d.lineTo(state.mousePos.x, state.mousePos.y);
+    ctx2d.stroke();
+
+    ctx2d.restore();
+
+    // Başlangıç noktası
+    ctx2d.fillStyle = '#00FF00';
+    ctx2d.beginPath();
+    ctx2d.arc(state.startPoint.x, state.startPoint.y, 4 / zoom, 0, Math.PI * 2);
+    ctx2d.fill();
+
+    // Uzunluk göster
+    const length = Math.hypot(
+        state.mousePos.x - state.startPoint.x,
+        state.mousePos.y - state.startPoint.y
+    );
+
+    if (length > 1) {
+        const midX = (state.startPoint.x + state.mousePos.x) / 2;
+        const midY = (state.startPoint.y + state.mousePos.y) / 2;
+
+        ctx2d.fillStyle = '#FFFFFF';
+        ctx2d.strokeStyle = '#000000';
+        ctx2d.lineWidth = 2 / zoom;
+        ctx2d.font = `bold ${14 / zoom}px Arial`;
+        ctx2d.textAlign = 'center';
+        ctx2d.textBaseline = 'middle';
+
+        const text = `${Math.round(length)} cm`;
+        ctx2d.strokeText(text, midX, midY);
+        ctx2d.fillText(text, midX, midY);
     }
 }
