@@ -200,13 +200,16 @@ function handlePaste(e) {
 
 // Silme Fonksiyonu
 export function handleDelete() {
-    console.log('handleDelete called', {
+    console.log('🗑️ handleDelete called', {
         selectedObject: state.selectedObject,
-        selectedGroupLength: state.selectedGroup.length
+        selectedGroupLength: state.selectedGroup.length,
+        stairs: state.stairs?.length || 0,
+        columns: state.columns?.length || 0,
+        beams: state.beams?.length || 0
     });
 
     if (!state.selectedObject && state.selectedGroup.length === 0) {
-        console.log('Nothing selected to delete');
+        console.warn('⚠️ Nothing selected to delete');
         return;
     }
 
@@ -296,7 +299,7 @@ export function handleDelete() {
     }
 
     if (deleted) {
-        console.log('Delete successful');
+        console.log('✅ Delete successful');
         state.selectedObject = null;
         state.selectedGroup = [];
         // processWalls() sadece rehber silindiyse çağrılmaz
@@ -306,7 +309,7 @@ export function handleDelete() {
         saveState();
         update3DScene();
     } else {
-        console.log('Delete failed - nothing was deleted');
+        console.warn('❌ Delete failed - nothing was deleted');
     }
 }
 
