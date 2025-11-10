@@ -206,8 +206,9 @@ export function pasteFloorArchitecture() {
     floorClipboard.rooms.forEach(roomData => {
         const newRoom = {
             ...roomData,
-            center: roomData.center ? [...roomData.center] : undefined, // Deep copy array
-            centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined, // Deep copy object
+            center: roomData.center ? [...roomData.center] : undefined,
+            centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined,
+            polygon: roomData.polygon ? JSON.parse(JSON.stringify(roomData.polygon)) : undefined, // DÜZELTME: polygon da kopyalanmalı
             floorId: currentFloorId
         };
         state.rooms.push(newRoom);
@@ -385,8 +386,9 @@ function pasteToAllFloors() {
         floorClipboard.rooms.forEach(roomData => {
             const newRoom = {
                 ...roomData,
-                center: roomData.center ? [...roomData.center] : undefined, // Deep copy array
-                centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined, // Deep copy object
+                center: roomData.center ? [...roomData.center] : undefined,
+                centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined,
+                polygon: roomData.polygon ? JSON.parse(JSON.stringify(roomData.polygon)) : undefined, // DÜZELTME: polygon da kopyalanmalı
                 floorId: floorId
             };
             state.rooms.push(newRoom);
