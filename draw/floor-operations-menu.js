@@ -46,13 +46,8 @@ export function copyFloorArchitecture() {
         return;
     }
 
-    // DÜZELTME: Placeholder katlardan kopyalama yapma
-    if (state.currentFloor.isPlaceholder) {
-        alert('Placeholder katlardan mimari kopyalanamaz! Lütfen gerçek bir kat seçin.');
-        return;
-    }
-
     const currentFloorId = state.currentFloor.id;
+    console.log('Kopyalama başladı, kaynak kat:', currentFloorId, 'isPlaceholder:', state.currentFloor.isPlaceholder);
 
     // Kattaki tüm elemanları topla
     const floorData = {
@@ -90,13 +85,8 @@ export function pasteFloorArchitecture() {
         return;
     }
 
-    // DÜZELTME: Placeholder katlara yapıştırma yapma
-    if (state.currentFloor.isPlaceholder) {
-        alert('Placeholder katlara mimari yapıştırılamaz! Lütfen gerçek bir kat seçin.');
-        return;
-    }
-
     const currentFloorId = state.currentFloor.id;
+    console.log('Yapıştırma başladı, hedef kat:', currentFloorId, 'isPlaceholder:', state.currentFloor.isPlaceholder);
 
     // Önce mevcut kattaki mimariyi temizle
     // DÜZELTME: Kapı filtresi için önce silinecek duvarları belirle
@@ -158,6 +148,8 @@ export function pasteFloorArchitecture() {
     });
 
     console.log(`${newWalls.length} duvar state'e eklendi, aktif kat: ${currentFloorId}`);
+    console.log('İlk duvar örneği:', newWalls[0]);
+    console.log('Toplam state.walls sayısı:', state.walls.length);
 
     // Kapıları yapıştır (duvar referanslarını güncelle)
     floorClipboard.doors.forEach((doorData, index) => {
@@ -228,8 +220,12 @@ export function pasteFloorArchitecture() {
         state.rooms.push(newRoom);
     });
 
+    console.log('processWalls çağrılıyor...');
     processWalls();
+    console.log('processWalls tamamlandı, state.walls sayısı:', state.walls.length);
+    console.log('saveState çağrılıyor...');
     saveState();
+    console.log('update3DScene çağrılıyor...');
     update3DScene();
 
     const totalItems = floorClipboard.walls.length +
