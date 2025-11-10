@@ -209,6 +209,7 @@ export let state = {
     beams: [],
     stairs: [],
     plumbingBlocks: [], // TESİSAT BLOKLARI
+    plumbingPipes: [], // TESİSAT BORULARI
     clipboard: null, // <-- YENİ SATIR EKLE
     wallAdjacency: new Map(),
     selectedObject: null,

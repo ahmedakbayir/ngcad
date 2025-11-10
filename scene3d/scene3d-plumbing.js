@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PLUMBING_BLOCK_TYPES } from '../architectural-objects/plumbing-blocks.js';
+import { PLUMBING_PIPE_TYPES } from '../architectural-objects/plumbing-pipes.js';
 
 /**
  * TESİSAT BLOKLARI 3D RENDERING
@@ -369,5 +370,63 @@ export function createPlumbingBlockMaterial() {
         transparent: true,
         opacity: 0.85,
         side: THREE.DoubleSide
+    });
+}
+
+/**
+ * TESİSAT BORULARI 3D RENDERING
+ */
+
+/**
+ * Tek bir boruyu 3D silindir olarak oluşturur
+ * @param {object} pipe - Boru nesnesi
+ * @param {THREE.Material} material - Varsayılan materyal
+ * @returns {THREE.Mesh} - Boru mesh'i
+ */
+export function createPlumbingPipeMesh(pipe, material) {
+    const config = pipe.typeConfig || PLUMBING_PIPE_TYPES[pipe.pipeType];
+
+    // Boru uzunluğu
+    const length = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+    if (length < 0.1) return null; // Çok kısa boru
+
+    // Silindir geometrisi (yatay olarak oluşturulacak)
+    const radius = config.diameter / 2; // Yarıçap
+    const geometry = new THREE.CylinderGeometry(radius, radius, length, 16);
+
+    // Silindiri 90 derece döndür (Y ekseni -> X ekseni)
+    geometry.rotateZ(Math.PI / 2);
+
+    // Materyal oluştur
+    const pipeMaterial = new THREE.MeshStandardMaterial({
+        color: config.color,
+        metalness: 0.6,
+        roughness: 0.4
+    });
+
+    const mesh = new THREE.Mesh(geometry, pipeMaterial);
+
+    // Merkez noktası
+    const midX = (pipe.p1.x + pipe.p2.x) / 2;
+    const midZ = (pipe.p1.y + pipe.p2.y) / 2;
+
+    // Rotasyon açısı (X-Z düzleminde)
+    const angle = Math.atan2(pipe.p2.y - pipe.p1.y, pipe.p2.x - pipe.p1.x);
+
+    // Pozisyon ve rotasyon ayarla
+    mesh.position.set(midX, radius, midZ); // Yerden radius kadar yükselt
+    mesh.rotation.y = -angle; // Y ekseninde döndür
+
+    return mesh;
+}
+
+/**
+ * Boru materyal oluşturur
+ */
+export function createPlumbingPipeMaterial() {
+    return new THREE.MeshStandardMaterial({
+        color: 0x808080,
+        roughness: 0.4,
+        metalness: 0.6
     });
 }

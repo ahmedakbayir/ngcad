@@ -5,7 +5,7 @@ import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
     drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
     drawBeam, drawStairs, drawGuides
     } from './renderer2d.js';
-import { drawPlumbingBlocks, drawPlumbingBlockHandles } from './draw-plumbing.js'; 
+import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview } from './draw-plumbing.js'; 
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
         } from './draw-previews.js';
@@ -348,6 +348,9 @@ export function draw2D() {
     // 4.8. TESİSAT BLOKLARI
     drawPlumbingBlocks();
 
+    // 4.9. TESİSAT BORULARI
+    drawPlumbingPipes();
+
     // 5. Atomik Semboller
     nodes.forEach(node => {
         drawNodeWallCount(node);
@@ -499,6 +502,7 @@ export function draw2D() {
     }
 
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
+    drawPlumbingPipePreview(); // Boru çizim önizlemesi
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
  if (state.isStairPopupVisible && stairs && stairs.length > 0) {

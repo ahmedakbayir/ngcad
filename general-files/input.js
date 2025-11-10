@@ -236,6 +236,9 @@ export function handleDelete() {
             } else if (item.type === 'plumbingBlock') {
                 state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== item.object);
                 deleted = true;
+            } else if (item.type === 'plumbingPipe') {
+                state.plumbingPipes = state.plumbingPipes.filter(pp => pp !== item.object);
+                deleted = true;
             } else if (item.type === 'door') {
                 state.doors = state.doors.filter(d => d !== item.object);
                 deleted = true;
@@ -271,6 +274,10 @@ export function handleDelete() {
         }
         else if (objType === 'plumbingBlock') {
             state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== selectedObjectSnapshot.object);
+            deleted = true;
+        }
+        else if (objType === 'plumbingPipe') {
+            state.plumbingPipes = state.plumbingPipes.filter(pp => pp !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === 'guide') {
@@ -668,6 +675,7 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawColumn");
     if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawBeam");
     if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawStairs");
+    if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawPlumbingPipe"); // Tesisat borusu
     if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry"); // YENİ SATIR
 
 }
