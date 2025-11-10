@@ -115,20 +115,20 @@ canvas {
     cursor: default;
 }
 
-/* Varsayılan pozisyonlar */
+/* Varsayılan pozisyonlar - yan yana */
 #group-general {
     top: 0;
     left: 0;
 }
 
 #group-architecture {
-    top: 120px;
-    left: 0;
+    top: 0;
+    left: 130px;
 }
 
 #group-plumbing {
-    top: 580px;
-    left: 0;
+    top: 0;
+    left: 260px;
 }
 
 /* Grup Etiketi - Sürükleme Handle */

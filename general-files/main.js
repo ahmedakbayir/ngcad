@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
-import { setupInputListeners } from './input.js';
+import { setupInputListeners, handleDelete } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../draw/guide-menu.js';
@@ -358,6 +358,7 @@ export const dom = {
     p3d: document.getElementById("p3d"),
     c3d: document.getElementById("c3d"),
     bSel: document.getElementById("bSel"),
+    bDelete: document.getElementById("bDelete"),
     bWall: document.getElementById("bWall"),
     bRoom: document.getElementById("bRoom"),
     bDoor: document.getElementById("bDoor"),
@@ -837,6 +838,7 @@ function initialize() {
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
     dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
+    dom.bDelete.addEventListener("click", () => handleDelete());
     dom.bWall.addEventListener("click", () => setMode("drawWall", true));
     dom.bRoom.addEventListener("click", () => setMode("drawRoom", true));
     dom.bDoor.addEventListener("click", () => setMode("drawDoor", true));
