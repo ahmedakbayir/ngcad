@@ -1,5 +1,6 @@
 // floor-panel.js
 import { state, setState } from '../general-files/main.js';
+import { update3DScene } from '../scene3d/scene3d-update.js';
 
 let miniPanel = null; // Sağda sabit dar panel
 let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
@@ -270,6 +271,7 @@ export function renderMiniPanel() {
             if (floor && floor.visible !== false) {
                 setState({ currentFloor: floor });
                 renderMiniPanel();
+                update3DScene(); // 3D sahneyi güncelle
             }
         });
 
@@ -858,6 +860,7 @@ function setupDetailTableEventListeners() {
                     setState({ currentFloor: floor });
                     renderDetailPanel();
                     renderMiniPanel();
+                    update3DScene(); // 3D sahneyi güncelle
                 }
             }
         });
@@ -1123,6 +1126,7 @@ function swapFloors(draggedFloorId, targetFloorId, insertBefore) {
     setState({ floors });
     renderDetailPanel();
     renderMiniPanel();
+    update3DScene(); // 3D sahneyi güncelle
 }
 
 /**
@@ -1179,6 +1183,7 @@ function toggleFloorVisibility(floorId) {
     setState({ floors, currentFloor: newCurrentFloor });
     renderDetailPanel();
     renderMiniPanel();
+    update3DScene(); // 3D sahneyi güncelle
 }
 
 /**
@@ -1248,6 +1253,7 @@ function deleteFloor(floorId) {
     setState({ floors, currentFloor: newCurrentFloor });
     renderDetailPanel();
     renderMiniPanel();
+    update3DScene(); // 3D sahneyi güncelle
 }
 
 /**
@@ -1363,6 +1369,7 @@ function addFloorFromPlaceholder(placeholderId) {
 
     renderDetailPanel();
     renderMiniPanel();
+    update3DScene(); // 3D sahneyi güncelle
 }
 
 /**
@@ -1411,6 +1418,7 @@ function updateFloorHeight(floorId, newHeight) {
     // Panelleri yeniden render et
     renderDetailPanel();
     renderMiniPanel();
+    update3DScene(); // 3D sahneyi güncelle
 }
 
 /**
@@ -1448,6 +1456,7 @@ function bulkDeleteFloors() {
     selectedFloors.clear();
     renderDetailPanel();
     renderMiniPanel();
+    update3DScene(); // 3D sahneyi güncelle
 }
 
 /**
