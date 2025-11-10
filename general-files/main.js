@@ -308,8 +308,20 @@ export let state = {
     stairSettings: {
         showRailing: false, // Varsayılan korkuluk durumu
         stepDepthRange: "30-40" // Varsayılan basamak derinliği aralığı
-    }
+    },
     // --- MERDİVEN AYARLARI SONU ---
+
+    // --- OPACITY AYARLARI ---
+    opacitySettings: {
+        wall: 100,    // Duvar saydamlığı (0-100)
+        floor: 100,   // Zemin saydamlığı (0-100)
+        door: 100,    // Kapı saydamlığı (0-100)
+        window: 100,  // Pencere saydamlığı (0-100)
+        column: 100,  // Kolon saydamlığı (0-100)
+        beam: 100,    // Kiriş saydamlığı (0-100)
+        stair: 100    // Merdiven saydamlığı (0-100)
+    }
+    // --- OPACITY AYARLARI SONU ---
 };
 
 export function setState(newState) {

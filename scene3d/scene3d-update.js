@@ -30,31 +30,48 @@ export function update3DScene() {
     if (!dom.mainContainer.classList.contains('show-3d') || !sceneObjects) return;
     sceneObjects.clear(); // Sahnedeki eski objeleri temizle
 
-    const solidOpacity = 1; // 0.75;
+    // Opacity ayarlarını state'ten al (0-100 arası değer)
+    const opacitySettings = state.opacitySettings || {
+        wall: 100, floor: 100, door: 100, window: 100,
+        column: 100, beam: 100, stair: 100
+    };
+
+    // 0-100 arasındaki değeri 0-1 arasına normalize et
+    const normalizeOpacity = (value) => value / 100;
 
     // Malzemelerin opaklık/şeffaflık ayarlarını güncelle
-    wallMaterial.transparent = true; wallMaterial.opacity = solidOpacity; wallMaterial.needsUpdate = true;
-    doorMaterial.transparent = true; doorMaterial.opacity = solidOpacity; doorMaterial.needsUpdate = true;
-    windowMaterial.opacity = 0.3; windowMaterial.transparent = true; windowMaterial.needsUpdate = true;
-    columnMaterial.transparent = true; columnMaterial.opacity = solidOpacity; columnMaterial.needsUpdate = true;
-    beamMaterial.transparent = true; beamMaterial.opacity = solidOpacity; beamMaterial.needsUpdate = true;
-    mullionMaterial.transparent = true; mullionMaterial.opacity = solidOpacity; mullionMaterial.needsUpdate = true;
-    sillMaterial.transparent = true; sillMaterial.opacity = solidOpacity + 0.1; sillMaterial.needsUpdate = true;
-    handleMaterial.transparent = false; handleMaterial.opacity = 1.0; handleMaterial.needsUpdate = true;
-    floorMaterial.transparent = true; floorMaterial.opacity = 0.8; floorMaterial.needsUpdate = true;
-    stairMaterial.transparent = true; stairMaterial.opacity = solidOpacity; stairMaterial.needsUpdate = true;
-    stairMaterialTop.transparent = false; stairMaterialTop.opacity = 1.0; stairMaterialTop.needsUpdate = true;
-    ventMaterial.transparent = true; ventMaterial.opacity = solidOpacity; ventMaterial.needsUpdate = true;
-    trimMaterial.transparent = true; trimMaterial.opacity = solidOpacity; trimMaterial.needsUpdate = true;
-    balconyRailingMaterial.transparent = true; balconyRailingMaterial.opacity = 0.85; balconyRailingMaterial.needsUpdate = true;
-    glassMaterial.transparent = true; glassMaterial.opacity = 0.4; glassMaterial.needsUpdate = true;
-    halfWallCapMaterial.transparent = true; halfWallCapMaterial.opacity = solidOpacity; halfWallCapMaterial.needsUpdate = true;
-    handrailWoodMaterial.transparent = true; handrailWoodMaterial.opacity = solidOpacity; handrailWoodMaterial.needsUpdate = true;
-    balusterMaterial.transparent = true; balusterMaterial.opacity = solidOpacity; balusterMaterial.needsUpdate = true;
-    stepNosingMaterial.transparent = true; stepNosingMaterial.opacity = solidOpacity + 0.1; stepNosingMaterial.needsUpdate = true;
+    const wallOpacity = normalizeOpacity(opacitySettings.wall);
+    const doorOpacity = normalizeOpacity(opacitySettings.door);
+    const windowOpacity = normalizeOpacity(opacitySettings.window);
+    const columnOpacity = normalizeOpacity(opacitySettings.column);
+    const beamOpacity = normalizeOpacity(opacitySettings.beam);
+    const floorOpacity = normalizeOpacity(opacitySettings.floor);
+    const stairOpacity = normalizeOpacity(opacitySettings.stair);
+
+    wallMaterial.transparent = true; wallMaterial.opacity = wallOpacity; wallMaterial.needsUpdate = true;
+    doorMaterial.transparent = true; doorMaterial.opacity = doorOpacity; doorMaterial.needsUpdate = true;
+    windowMaterial.opacity = windowOpacity * 0.3; windowMaterial.transparent = true; windowMaterial.needsUpdate = true;
+    columnMaterial.transparent = true; columnMaterial.opacity = columnOpacity; columnMaterial.needsUpdate = true;
+    beamMaterial.transparent = true; beamMaterial.opacity = beamOpacity; beamMaterial.needsUpdate = true;
+    mullionMaterial.transparent = true; mullionMaterial.opacity = windowOpacity; mullionMaterial.needsUpdate = true;
+    sillMaterial.transparent = true; sillMaterial.opacity = windowOpacity; sillMaterial.needsUpdate = true;
+    handleMaterial.transparent = true; handleMaterial.opacity = doorOpacity; handleMaterial.needsUpdate = true;
+    floorMaterial.transparent = true; floorMaterial.opacity = floorOpacity * 0.8; floorMaterial.needsUpdate = true;
+    evenFloorMaterial.transparent = true; evenFloorMaterial.opacity = floorOpacity * 0.8; evenFloorMaterial.needsUpdate = true;
+    oddFloorMaterial.transparent = true; oddFloorMaterial.opacity = floorOpacity * 0.8; oddFloorMaterial.needsUpdate = true;
+    stairMaterial.transparent = true; stairMaterial.opacity = stairOpacity; stairMaterial.needsUpdate = true;
+    stairMaterialTop.transparent = true; stairMaterialTop.opacity = stairOpacity; stairMaterialTop.needsUpdate = true;
+    ventMaterial.transparent = true; ventMaterial.opacity = wallOpacity; ventMaterial.needsUpdate = true;
+    trimMaterial.transparent = true; trimMaterial.opacity = doorOpacity; trimMaterial.needsUpdate = true;
+    balconyRailingMaterial.transparent = true; balconyRailingMaterial.opacity = wallOpacity * 0.85; balconyRailingMaterial.needsUpdate = true;
+    glassMaterial.transparent = true; glassMaterial.opacity = windowOpacity * 0.4; glassMaterial.needsUpdate = true;
+    halfWallCapMaterial.transparent = true; halfWallCapMaterial.opacity = wallOpacity; halfWallCapMaterial.needsUpdate = true;
+    handrailWoodMaterial.transparent = true; handrailWoodMaterial.opacity = stairOpacity; handrailWoodMaterial.needsUpdate = true;
+    balusterMaterial.transparent = true; balusterMaterial.opacity = stairOpacity; balusterMaterial.needsUpdate = true;
+    stepNosingMaterial.transparent = true; stepNosingMaterial.opacity = stairOpacity; stepNosingMaterial.needsUpdate = true;
     // Çerçeve malzemesi için opaklık (eğer gerekirse)
     if (pictureFrameMaterial) {
-        pictureFrameMaterial.transparent = true; pictureFrameMaterial.opacity = solidOpacity; pictureFrameMaterial.needsUpdate = true;
+        pictureFrameMaterial.transparent = true; pictureFrameMaterial.opacity = wallOpacity; pictureFrameMaterial.needsUpdate = true;
     }
 
     // 3D görünüm moduna göre filtreleme
@@ -101,6 +118,8 @@ export function update3DScene() {
     };
 
     // --- Duvarları, Kapıları, Pencereleri ve Menfezleri Oluştur ---
+    // Duvarları sadece opacity > 0 ise göster
+    if (opacitySettings.wall > 0) {
     walls.forEach(w => {
         if (!w.p1 || !w.p2) return;
         const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y); if (wallLen < 1) return;
@@ -143,7 +162,7 @@ export function update3DScene() {
                 }
             }
 
-            if (itemData.type === 'door') {
+            if (itemData.type === 'door' && opacitySettings.door > 0) {
                 const doorGroup = createDoorMesh(itemData.item);
                 if(doorGroup) {
                     doorGroup.position.y = floorElevation;
@@ -157,7 +176,7 @@ export function update3DScene() {
                     }
                 }
             }
-            else if (itemData.type === 'window') {
+            else if (itemData.type === 'window' && opacitySettings.window > 0) {
                 const windowGroup = createComplexWindow(w, itemData.item, wallThickness);
                 if(windowGroup) {
                     windowGroup.position.y = floorElevation;
@@ -206,9 +225,10 @@ export function update3DScene() {
             }
         });
     });
+    } // Duvar opacity kontrolü sonu
 
     // --- Kolonları Ekle ---
-    if (columns) {
+    if (columns && opacitySettings.column > 0) {
         columns.forEach(column => {
             const m = createColumnMesh(column, columnMaterial);
             if (m) {
@@ -219,7 +239,7 @@ export function update3DScene() {
     }
 
     // --- Kirişleri Ekle ---
-    if (beams) {
+    if (beams && opacitySettings.beam > 0) {
         beams.forEach(beam => {
             const m = createBeamMesh(beam, beamMaterial);
             if (m) {
@@ -233,7 +253,7 @@ export function update3DScene() {
     }
 
     // --- Merdivenleri Ekle ---
-    if (stairs) {
+    if (stairs && opacitySettings.stair > 0) {
         stairs.forEach(stair => {
             const m = createStairMesh(stair);
             if (m) {
@@ -244,7 +264,7 @@ export function update3DScene() {
     }
 
     // --- Zeminleri Ekle ---
-    if (rooms) {
+    if (rooms && opacitySettings.floor > 0) {
         rooms.forEach(room => {
             if (room.polygon?.geometry?.coordinates) {
                 const coords = room.polygon.geometry.coordinates[0];
