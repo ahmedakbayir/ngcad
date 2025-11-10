@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
-import { setupInputListeners, handleDelete } from './input.js';
+import { setupInputListeners } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../draw/guide-menu.js';
@@ -838,7 +838,11 @@ function initialize() {
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
     dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
-    dom.bDelete.addEventListener("click", () => handleDelete());
+    dom.bDelete.addEventListener("click", () => {
+        // DELETE tuşu event'ini tetikle
+        const event = new KeyboardEvent('keydown', { key: 'Delete' });
+        document.dispatchEvent(event);
+    });
     dom.bWall.addEventListener("click", () => setMode("drawWall", true));
     dom.bRoom.addEventListener("click", () => setMode("drawRoom", true));
     dom.bDoor.addEventListener("click", () => setMode("drawDoor", true));
