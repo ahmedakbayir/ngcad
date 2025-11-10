@@ -149,7 +149,7 @@ export function getObjectAtPoint(pos) {
 
     // 1.4 Tesisat Bloğu Handle
     const plumbingBlockHit = getPlumbingBlockAtPoint(pos);
-    if (plumbingBlockHit && plumbingBlockHit.handle !== 'body') return plumbingBlockHit;
+    if (plumbingBlockHit && plumbingBlockHit.handle !== 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
 
     // 1.4 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
@@ -192,7 +192,7 @@ export function getObjectAtPoint(pos) {
     if (stairHit && stairHit.handle === 'body') return stairHit; // ← Body ise döndür
 
     // 2.5 Tesisat Bloğu Gövdesi
-    if (plumbingBlockHit && plumbingBlockHit.handle === 'body') return plumbingBlockHit;
+    if (plumbingBlockHit && plumbingBlockHit.handle === 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
 
     // 2.6 Kiriş Gövdesi
     if (beamHandleHit && beamHandleHit.handle === 'body') return beamHandleHit;
