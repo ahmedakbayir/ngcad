@@ -17,8 +17,7 @@ function drawServisKutusu(block, isSelected) {
 
     const corners = getPlumbingBlockCorners(block);
 
-    // Ana dikdörtgen
-    ctx2d.fillStyle = '#F5F5F5';
+    // Ana dikdörtgen (sadece kenar çizgisi, dolgu yok)
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
 
@@ -28,7 +27,6 @@ function drawServisKutusu(block, isSelected) {
         ctx2d.lineTo(corners[i].x, corners[i].y);
     }
     ctx2d.closePath();
-    ctx2d.fill();
     ctx2d.stroke();
 
     // Bağlantı noktası
@@ -61,8 +59,7 @@ function drawSayac(block, isSelected) {
 
     const corners = getPlumbingBlockCorners(block);
 
-    // Ana dikdörtgen
-    ctx2d.fillStyle = '#FFFFFF';
+    // Ana dikdörtgen (sadece kenar çizgisi, dolgu yok)
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
 
@@ -72,7 +69,6 @@ function drawSayac(block, isSelected) {
         ctx2d.lineTo(corners[i].x, corners[i].y);
     }
     ctx2d.closePath();
-    ctx2d.fill();
     ctx2d.stroke();
 
     // Bağlantı noktaları
@@ -114,8 +110,7 @@ function drawVana(block, isSelected) {
     const largeRadius = config.height / 2;
     const smallRadius = 0.5; // Ortadaki birleşimi daha dar yap
 
-    // Çift kesik koni (elmas şekli)
-    ctx2d.fillStyle = '#A0A0A0';
+    // Çift kesik koni (elmas şekli, sadece kenar çizgisi)
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
 
@@ -125,7 +120,6 @@ function drawVana(block, isSelected) {
     ctx2d.lineTo(-smallRadius, 0);
     ctx2d.lineTo(-halfLength, largeRadius);
     ctx2d.closePath();
-    ctx2d.fill();
     ctx2d.stroke();
 
     ctx2d.beginPath();
@@ -134,12 +128,10 @@ function drawVana(block, isSelected) {
     ctx2d.lineTo(halfLength, -largeRadius);
     ctx2d.lineTo(halfLength, largeRadius);
     ctx2d.closePath();
-    ctx2d.fill();
     ctx2d.stroke();
 
-    // Ortadaki dar birleşim bölgesi
-    ctx2d.fillStyle = '#808080';
-    ctx2d.fillRect(-smallRadius, -smallRadius, smallRadius * 2, smallRadius * 2);
+    // Ortadaki dar birleşim bölgesi (sadece kenar çizgisi)
+    ctx2d.strokeRect(-smallRadius, -smallRadius, smallRadius * 2, smallRadius * 2);
 
     ctx2d.restore();
 
@@ -164,23 +156,19 @@ function drawKombi(block, isSelected) {
     ctx2d.translate(block.center.x, block.center.y);
     ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    // Dış daire (50 cm çap)
+    // Dış daire (50 cm çap, sadece kenar çizgisi)
     const outerRadius = 25;
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
-    ctx2d.fillStyle = '#FFFFFF';
 
     ctx2d.beginPath();
     ctx2d.arc(0, 0, outerRadius, 0, Math.PI * 2);
-    ctx2d.fill();
     ctx2d.stroke();
 
-    // İç daire (36 cm çap) - gri dolgu
+    // İç daire (36 cm çap, sadece kenar çizgisi)
     const innerRadius = 18;
-    ctx2d.fillStyle = '#808080'; // Gri
     ctx2d.beginPath();
     ctx2d.arc(0, 0, innerRadius, 0, Math.PI * 2);
-    ctx2d.fill();
     ctx2d.stroke();
 
     // G harfi
@@ -214,11 +202,10 @@ function drawOcak(block, isSelected) {
     ctx2d.translate(block.center.x, block.center.y);
     ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    // Yuvarlatılmış dikdörtgen (50 cm, köşe yarıçapı 5 cm)
+    // Yuvarlatılmış dikdörtgen (50 cm, köşe yarıçapı 5 cm, sadece kenar çizgisi)
     const boxSize = 25; // Yarım boyut
     const cornerRadius = 5;
 
-    ctx2d.fillStyle = '#303030';
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
 
@@ -233,42 +220,33 @@ function drawOcak(block, isSelected) {
     ctx2d.lineTo(-boxSize, -boxSize + cornerRadius);
     ctx2d.arcTo(-boxSize, -boxSize, -boxSize + cornerRadius, -boxSize, cornerRadius);
     ctx2d.closePath();
-    ctx2d.fill();
     ctx2d.stroke();
 
-    // 4 ocak gözü (daireler, çaplar 13-16-15-14 cm)
-    const burnerRadiusTopLeft = 6.5;    // 13 cm çap
-    const burnerRadiusTopRight = 8;     // 16 cm çap
-    const burnerRadiusBottomLeft = 7.5; // 15 cm çap
-    const burnerRadiusBottomRight = 7;  // 14 cm çap
+    // 4 ocak gözü (daireler, hepsi eşit - 7 cm radius = 14 cm çap)
+    const burnerRadius = 7;  // Tüm gözler 14 cm çap
     const offset = 10;
 
-    ctx2d.fillStyle = '#606060';
     ctx2d.strokeStyle = '#404040';
     ctx2d.lineWidth = 1 / zoom;
 
-    // Sol üst (13 cm)
+    // Sol üst
     ctx2d.beginPath();
-    ctx2d.arc(-offset, -offset, burnerRadiusTopLeft, 0, Math.PI * 2);
-    ctx2d.fill();
+    ctx2d.arc(-offset, -offset, burnerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
 
-    // Sağ üst (16 cm)
+    // Sağ üst
     ctx2d.beginPath();
-    ctx2d.arc(offset, -offset, burnerRadiusTopRight, 0, Math.PI * 2);
-    ctx2d.fill();
+    ctx2d.arc(offset, -offset, burnerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
 
-    // Sol alt (15 cm)
+    // Sol alt
     ctx2d.beginPath();
-    ctx2d.arc(-offset, offset, burnerRadiusBottomLeft, 0, Math.PI * 2);
-    ctx2d.fill();
+    ctx2d.arc(-offset, offset, burnerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
 
-    // Sağ alt (14 cm)
+    // Sağ alt
     ctx2d.beginPath();
-    ctx2d.arc(offset, offset, burnerRadiusBottomRight, 0, Math.PI * 2);
-    ctx2d.fill();
+    ctx2d.arc(offset, offset, burnerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
 
     ctx2d.restore();
