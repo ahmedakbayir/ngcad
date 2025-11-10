@@ -333,6 +333,9 @@ export function onPointerDown(e) {
             geometryChanged = true;
             needsUpdate3D = true;
             objectJustCreated = true;
+
+            // Blok eklendikten sonra komuttan çık
+            setMode("select");
         }
     // --- Merdiven Çizim Modu ---
     } else if (state.currentMode === "drawStairs") {

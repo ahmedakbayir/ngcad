@@ -16,31 +16,32 @@ export const PLUMBING_BLOCK_TYPES = {
     SERVIS_KUTUSU: {
         id: 'servis-kutusu',
         name: 'Servis Kutusu',
-        // 3D boyutlar (cm)
-        width: 31,      // en (X ekseni)
-        height: 15,     // derinlik (2D Y ekseni, 3D Z ekseni) - üstten bakınca görünen
-        depth: 64,      // yükseklik (3D Y ekseni) - duvara dik yükseliş
-        cornerRadius: 1, // 1 cm yuvarlama
+        // 3D boyutlar (cm) - 20x40x70
+        width: 40,      // duvar boyunca (X ekseni)
+        height: 20,     // duvardan dışa çıkan (2D Y ekseni, 3D Z ekseni)
+        depth: 70,      // yükseklik (3D Y ekseni) - duvara dik yükseliş
+        cornerRadius: 2, // 2 cm yuvarlama
         // Bağlantı noktası (merkeze göre offset)
         connectionPoints: [
-            { x: 15.5, y: 0, label: 'çıkış' } // Sağda ortada
+            { x: 20, y: 10, label: 'çıkış' } // Sağ üst köşede dışarıda
         ],
         mountType: 'wall', // duvara monte
-        color: 0xF5F5F5, // Beyaza yakın gri
+        color: 0xA8A8A8, // Gri ton
     },
     SAYAC: {
         id: 'sayac',
         name: 'Sayaç',
-        width: 20,
-        height: 21,
-        depth: 12,
-        cornerRadius: 1, // 1 cm yuvarlama
+        // 3D boyutlar (cm) - 15x30x30
+        width: 30,      // duvar boyunca (X ekseni)
+        height: 15,     // duvardan dışa çıkan (2D Y ekseni, 3D Z ekseni)
+        depth: 30,      // yükseklik (3D Y ekseni)
+        cornerRadius: 2, // 2 cm yuvarlama
         connectionPoints: [
-            { x: -7, y: 10.5, label: 'giriş' },   // Sol üst
-            { x: 7, y: 10.5, label: 'çıkış' }      // Sağ üst
+            { x: -10, y: 7.5, label: 'giriş' },   // Sol üst
+            { x: 10, y: 7.5, label: 'çıkış' }      // Sağ üst
         ],
         mountType: 'wall',
-        color: 0xF5F5F5, // Beyaza yakın gri
+        color: 0xA8A8A8, // Gri ton
     },
     VANA: {
         id: 'vana',
