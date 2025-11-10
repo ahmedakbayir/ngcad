@@ -273,13 +273,13 @@ function createOcakMesh(block, material) {
     // Ana gövde
     const geometry = createRoundedBoxGeometry(
         config.width,
-        config.depth, // Depth Z ekseninde
-        config.height,
+        config.height, // 2D Y boyutu (shape height)
+        config.depth,  // 3D Y eksenindeki yükseklik (extrude depth)
         config.cornerRadius
     );
 
     geometry.rotateX(Math.PI / 2);
-    geometry.translate(0, config.height / 2, 0);
+    geometry.translate(0, config.depth / 2, 0); // depth kullan (59 cm yükseklik)
 
     const mesh = new THREE.Mesh(geometry, material.clone());
     mesh.material.color.setHex(config.color);
@@ -304,7 +304,7 @@ function createOcakMesh(block, material) {
             roughness: 0.2
         });
         const burnerMesh = new THREE.Mesh(burnerGeom, burnerMat);
-        burnerMesh.position.set(pos.x, config.height + 1, pos.z); // Ocağın üstünde
+        burnerMesh.position.set(pos.x, config.depth, pos.z); // Ocağın tepesinde (depth = 59 cm)
         group.add(burnerMesh);
     });
 

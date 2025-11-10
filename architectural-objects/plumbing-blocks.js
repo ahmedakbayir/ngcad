@@ -23,7 +23,7 @@ export const PLUMBING_BLOCK_TYPES = {
         cornerRadius: 2, // 2 cm yuvarlama
         // Bağlantı noktası (merkeze göre offset)
         connectionPoints: [
-            { x: 0, y: -10, z: 15, label: 'çıkış' } // Dar kıyıda ortada, yerden 15 cm yukarıda
+            { x: 20, y: 0, z: -15, label: 'çıkış' } // Sağda ortada, yerden -15 cm
         ],
         mountType: 'wall', // duvara monte
         color: 0xA8A8A8, // Gri ton
@@ -69,7 +69,7 @@ export const PLUMBING_BLOCK_TYPES = {
             { x: 0, y: -36, z: 10, label: 'bağlantı' } // Alt ortada, yerden 10 cm yukarıda
         ],
         mountType: 'wall',
-        color: 0xFFFFFF,
+        color: 0xC0C0C0, // Gri renk (beyaz yerine)
     },
     OCAK: {
         id: 'ocak',
