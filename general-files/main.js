@@ -937,9 +937,13 @@ function initializeDraggableGroups() {
             isDragging = true;
             group.classList.add('dragging');
 
-            const rect = group.getBoundingClientRect();
-            initialX = e.clientX - rect.left;
-            initialY = e.clientY - rect.top;
+            // Mevcut pozisyonu al (parent'a göre)
+            const currentLeft = parseInt(group.style.left) || 0;
+            const currentTop = parseInt(group.style.top) || 0;
+
+            // Fare ile mevcut pozisyon arasındaki offset
+            initialX = e.clientX - currentLeft;
+            initialY = e.clientY - currentTop;
 
             e.preventDefault();
         });
