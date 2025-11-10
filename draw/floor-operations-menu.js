@@ -69,7 +69,7 @@ export function copyFloorArchitecture() {
                       floorClipboard.stairs.length +
                       floorClipboard.rooms.length;
 
-    console.log(`Mimari plan kopyalandı: ${totalItems} eleman`);
+    console.log(`✓ Mimari plan kopyalandı: ${totalItems} eleman (${floorClipboard.walls.length} duvar, ${floorClipboard.doors.length} kapı, ${floorClipboard.columns.length} kolon, ${floorClipboard.beams.length} kiriş, ${floorClipboard.stairs.length} merdiven, ${floorClipboard.rooms.length} oda)`);
 }
 
 // Kopyalanan mimariyi mevcut kata yapıştır
