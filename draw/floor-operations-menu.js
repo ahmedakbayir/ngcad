@@ -145,6 +145,8 @@ export function pasteFloorArchitecture() {
         state.walls.push(newWall);
     });
 
+    console.log(`${newWalls.length} duvar state'e eklendi, aktif kat: ${currentFloorId}`);
+
     // Kapıları yapıştır (duvar referanslarını güncelle)
     floorClipboard.doors.forEach((doorData, index) => {
         // Orijinal duvarın indeksini bul
