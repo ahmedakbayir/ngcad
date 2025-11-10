@@ -46,6 +46,12 @@ export function copyFloorArchitecture() {
         return;
     }
 
+    // DÜZELTME: Placeholder katlardan kopyalama yapma
+    if (state.currentFloor.isPlaceholder) {
+        alert('Placeholder katlardan mimari kopyalanamaz! Lütfen gerçek bir kat seçin.');
+        return;
+    }
+
     const currentFloorId = state.currentFloor.id;
 
     // Kattaki tüm elemanları topla
@@ -81,6 +87,12 @@ export function pasteFloorArchitecture() {
 
     if (!state.currentFloor) {
         alert('Aktif kat bulunamadı!');
+        return;
+    }
+
+    // DÜZELTME: Placeholder katlara yapıştırma yapma
+    if (state.currentFloor.isPlaceholder) {
+        alert('Placeholder katlara mimari yapıştırılamaz! Lütfen gerçek bir kat seçin.');
         return;
     }
 
