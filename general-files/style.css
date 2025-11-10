@@ -955,3 +955,16 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
     text-align: right;
     min-width: 30px;
 }
+
+/* HEPSİ slider'ı için özel stil */
+.opacity-item-all label {
+    font-weight: 600;
+    color: #87CEEB;
+}
+
+/* Ayırıcı çizgi */
+.opacity-divider {
+    height: 1px;
+    background: #5f6368;
+    margin: 8px 0;
+}
