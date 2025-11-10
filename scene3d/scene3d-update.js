@@ -15,9 +15,10 @@ import {
 
 // Mesh oluşturma fonksiyonlarını import et
 import {createWallSegmentMesh, createDoorMesh, createLintelMesh,
-    createComplexWindow, createWallPieceMesh, createVentMesh} 
+    createComplexWindow, createWallPieceMesh, createVentMesh}
     from "./scene3d-walls.js";
 import {createColumnMesh, createBeamMesh, createStairMesh} from "./scene3d-structures.js";
+import {createPlumbingBlockMesh, createPlumbingBlockMaterial} from "./scene3d-plumbing.js";
 import {getArcWallPoints } from "../draw/geometry.js";
 import {state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
     BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "../general-files/main.js";
@@ -33,7 +34,7 @@ export function update3DScene() {
     // Opacity ayarlarını state'ten al (0-100 arası değer)
     const opacitySettings = state.opacitySettings || {
         wall: 100, floor: 100, door: 100, window: 100,
-        column: 100, beam: 100, stair: 100
+        column: 100, beam: 100, stair: 100, plumbing: 100
     };
 
     // Base opacity değerleri (her materyalin normal/varsayılan opacity'si)
@@ -44,7 +45,8 @@ export function update3DScene() {
         column: 0.75,
         beam: 0.75,
         floor: 0.8,
-        stair: 0.75
+        stair: 0.75,
+        plumbing: 0.85
     };
 
     // 0-100 arasındaki slider değerini 0-1 arasına normalize et ve base opacity ile çarp
@@ -58,6 +60,7 @@ export function update3DScene() {
     const beamOpacity = calculateOpacity(opacitySettings.beam, BASE_OPACITY.beam);
     const floorOpacity = calculateOpacity(opacitySettings.floor, BASE_OPACITY.floor);
     const stairOpacity = calculateOpacity(opacitySettings.stair, BASE_OPACITY.stair);
+    const plumbingOpacity = calculateOpacity(opacitySettings.plumbing, BASE_OPACITY.plumbing);
 
     // Malzemelerin opaklık/şeffaflık ayarlarını güncelle
     wallMaterial.transparent = true; wallMaterial.opacity = wallOpacity; wallMaterial.needsUpdate = true;
@@ -104,6 +107,7 @@ export function update3DScene() {
     const beams = (state.beams || []).filter(b => shouldShowFloor(b.floorId));
     const rooms = (state.rooms || []).filter(r => shouldShowFloor(r.floorId));
     const stairs = (state.stairs || []).filter(s => shouldShowFloor(s.floorId));
+    const plumbingBlocks = (state.plumbingBlocks || []).filter(pb => shouldShowFloor(pb.floorId));
 
     // Kat yüksekliklerini Map'te sakla (floorId -> elevation in cm)
     const floorElevations = new Map();
@@ -270,6 +274,22 @@ export function update3DScene() {
             const m = createStairMesh(stair);
             if (m) {
                 m.position.y = getFloorElevation(stair.floorId);
+                sceneObjects.add(m);
+            }
+        });
+    }
+
+    // --- Tesisat Bloklarını Ekle ---
+    if (plumbingBlocks && opacitySettings.plumbing > 0) {
+        const plumbingMaterial = createPlumbingBlockMaterial();
+        plumbingMaterial.opacity = plumbingOpacity;
+        plumbingMaterial.transparent = true;
+        plumbingMaterial.needsUpdate = true;
+
+        plumbingBlocks.forEach(block => {
+            const m = createPlumbingBlockMesh(block, plumbingMaterial);
+            if (m) {
+                m.position.y = getFloorElevation(block.floorId);
                 sceneObjects.add(m);
             }
         });

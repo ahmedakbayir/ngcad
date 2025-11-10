@@ -1,9 +1,10 @@
-import { onPointerMoveGuide, getGuideAtPoint } from '../architectural-objects/guide-handler.js'; 
+import { onPointerMoveGuide, getGuideAtPoint } from '../architectural-objects/guide-handler.js';
 import { onPointerMove as onPointerMoveDoor } from '../architectural-objects/door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from '../architectural-objects/window-handler.js';
 import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from '../architectural-objects/columns.js';
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from '../architectural-objects/beams.js';
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
+import { onPointerMove as onPointerMovePlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
 import { getObjectAtPoint } from '../general-files/actions.js'; // getObjectAtPoint eklendi
@@ -242,10 +243,11 @@ export function onPointerMove(e) {
                     wall.arcControl2.y = snappedPos.y;
                 }
                 break;
-            case 'guide': onPointerMoveGuide(snappedPos, unsnappedPos); break; 
+            case 'guide': onPointerMoveGuide(snappedPos, unsnappedPos); break;
             case 'column': onPointerMoveColumn(snappedPos, unsnappedPos); break;
             case 'beam':   onPointerMoveBeam(snappedPos, unsnappedPos);   break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
+            case 'plumbingBlock': onPointerMovePlumbingBlock(snappedPos, unsnappedPos); break;
             case 'wall':   onPointerMoveWall(snappedPos, unsnappedPos);   break;
             case 'door':   onPointerMoveDoor(unsnappedPos);               break;
             case 'window': onPointerMoveWindow(unsnappedPos);             break;

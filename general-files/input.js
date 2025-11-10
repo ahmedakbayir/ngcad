@@ -408,6 +408,9 @@ function onKeyDown(e) {
                 } else if (item.type === 'stairs') {
                     state.stairs = state.stairs.filter(s => s !== item.object);
                     deleted = true;
+                } else if (item.type === 'plumbingBlock') {
+                    state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== item.object);
+                    deleted = true;
                 } else if (item.type === 'door') {
                     state.doors = state.doors.filter(d => d !== item.object);
                     deleted = true;
@@ -437,6 +440,10 @@ function onKeyDown(e) {
             }
             else if (state.selectedObject.type === 'stairs') {
                 state.stairs = state.stairs.filter(s => s !== state.selectedObject.object);
+                deleted = true;
+            }
+            else if (state.selectedObject.type === 'plumbingBlock') {
+                state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== state.selectedObject.object);
                 deleted = true;
             }
             else if (state.selectedObject.type === 'guide') {

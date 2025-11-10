@@ -2,6 +2,7 @@
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
+import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
 import { onPointerDownGuide } from '../architectural-objects/guide-handler.js';
@@ -211,6 +212,7 @@ export function onPointerDown(e) {
                      case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                      case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                      case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; // stairs.js'den gelen fonksiyonu kullan
+                     case 'plumbingBlock': dragInfo = onPointerDownPlumbingBlock(clickedObject, pos, snappedPos, e); break;
                      case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
                      case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;
                      case 'window': dragInfo = onPointerDownSelectWindow(clickedObject, pos); break;
@@ -319,6 +321,19 @@ export function onPointerDown(e) {
              // İkinci tıklamadan sonra başlangıç noktasını sıfırla
              setState({ startPoint: null });
          }
+    // --- Tesisat Bloğu Çizim Modu ---
+    } else if (state.currentMode === "drawPlumbingBlock") {
+        // Tek tıklama ile tesisat bloğu yerleştir
+        const blockType = state.currentPlumbingBlockType || 'SERVIS_KUTUSU';
+        const newBlock = createPlumbingBlock(snappedPos.roundedX, snappedPos.roundedY, blockType);
+
+        if (newBlock) {
+            if (!state.plumbingBlocks) state.plumbingBlocks = [];
+            state.plumbingBlocks.push(newBlock);
+            geometryChanged = true;
+            needsUpdate3D = true;
+            objectJustCreated = true;
+        }
     // --- Merdiven Çizim Modu ---
     } else if (state.currentMode === "drawStairs") {
      if (!state.startPoint) {

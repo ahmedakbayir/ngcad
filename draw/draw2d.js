@@ -1,10 +1,11 @@
 // ahmedakbayir/ngcad/ngcad-57ad1e9e29c68ba90143525c3fd3ac20a130f44e/draw2d.js
 
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
-import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol, 
-    drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn, 
-    drawBeam, drawStairs, drawGuides 
-    } from './renderer2d.js'; 
+import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
+    drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
+    drawBeam, drawStairs, drawGuides
+    } from './renderer2d.js';
+import { drawPlumbingBlocks, drawPlumbingBlockHandles } from './draw-plumbing.js'; 
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
         } from './draw-previews.js';
@@ -241,6 +242,7 @@ export function draw2D() {
     const beams = currentFloorId ? (state.beams || []).filter(b => b.floorId === currentFloorId) : (state.beams || []);
     const stairs = currentFloorId ? (state.stairs || []).filter(s => s.floorId === currentFloorId) : (state.stairs || []);
     const columns = currentFloorId ? (state.columns || []).filter(c => c.floorId === currentFloorId) : (state.columns || []);
+    const plumbingBlocks = currentFloorId ? (state.plumbingBlocks || []).filter(pb => pb.floorId === currentFloorId) : (state.plumbingBlocks || []);
 
     // Sadece aktif kata ait node'ları filtrele (duvarlardan topla)
     const nodesSet = new Set();
@@ -342,6 +344,9 @@ export function draw2D() {
         );
         drawStairs(stair, isSelected);
     });
+
+    // 4.8. TESİSAT BLOKLARI
+    drawPlumbingBlocks();
 
     // 5. Atomik Semboller
     nodes.forEach(node => {
@@ -487,6 +492,12 @@ export function draw2D() {
     // 11. Sürükleme/Çizim Geri Bildirimleri
     drawDragPreviews(ctx2d, state, drawDimension);
     drawSelectionFeedback(ctx2d, state); // Bu fonksiyon seçili nesnenin ne olduğuna göre farklı şeyler çizebilir
+
+    // 11.5. Seçili tesisat bloğu handle'ları
+    if (selectedObject?.type === 'plumbingBlock') {
+        drawPlumbingBlockHandles(selectedObject.object);
+    }
+
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
