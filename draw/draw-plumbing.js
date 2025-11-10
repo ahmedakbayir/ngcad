@@ -8,26 +8,48 @@ import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints } fr
  */
 
 /**
- * Servis Kutusu çizer (basit dikdörtgen)
+ * Servis Kutusu çizer (yuvarlatılmış dikdörtgen)
  */
 function drawServisKutusu(block, isSelected) {
     const { ctx2d } = dom;
     const { zoom, wallBorderColor } = state;
     const config = PLUMBING_BLOCK_TYPES.SERVIS_KUTUSU;
 
-    const corners = getPlumbingBlockCorners(block);
+    ctx2d.save();
+    ctx2d.translate(block.center.x, block.center.y);
+    ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    // Ana dikdörtgen (sadece kenar çizgisi, dolgu yok)
+    // Yuvarlatılmış dikdörtgen (2 cm köşe yarıçapı)
+    const halfW = config.width / 2;
+    const halfH = config.height / 2;
+    const cornerRadius = 2;
+
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
 
     ctx2d.beginPath();
-    ctx2d.moveTo(corners[0].x, corners[0].y);
-    for (let i = 1; i < corners.length; i++) {
-        ctx2d.lineTo(corners[i].x, corners[i].y);
-    }
+    ctx2d.moveTo(-halfW + cornerRadius, -halfH);
+    ctx2d.lineTo(halfW - cornerRadius, -halfH);
+    ctx2d.arcTo(halfW, -halfH, halfW, -halfH + cornerRadius, cornerRadius);
+    ctx2d.lineTo(halfW, halfH - cornerRadius);
+    ctx2d.arcTo(halfW, halfH, halfW - cornerRadius, halfH, cornerRadius);
+    ctx2d.lineTo(-halfW + cornerRadius, halfH);
+    ctx2d.arcTo(-halfW, halfH, -halfW, halfH - cornerRadius, cornerRadius);
+    ctx2d.lineTo(-halfW, -halfH + cornerRadius);
+    ctx2d.arcTo(-halfW, -halfH, -halfW + cornerRadius, -halfH, cornerRadius);
     ctx2d.closePath();
     ctx2d.stroke();
+
+    // SK yazısı - beyaz büyük
+    if (zoom > 0.2) {
+        ctx2d.fillStyle = '#FFFFFF';
+        ctx2d.font = `bold ${18 / zoom}px Arial`;
+        ctx2d.textAlign = 'center';
+        ctx2d.textBaseline = 'middle';
+        ctx2d.fillText('SK', 0, 0);
+    }
+
+    ctx2d.restore();
 
     // Bağlantı noktası
     const connections = getConnectionPoints(block);
@@ -35,41 +57,42 @@ function drawServisKutusu(block, isSelected) {
     ctx2d.beginPath();
     ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
     ctx2d.fill();
-
-    // Etiket
-    if (zoom > 0.3) {
-        ctx2d.save();
-        ctx2d.translate(block.center.x, block.center.y);
-        ctx2d.rotate(block.rotation * Math.PI / 180);
-        ctx2d.fillStyle = '#333';
-        ctx2d.font = `${12 / zoom}px Arial`;
-        ctx2d.textAlign = 'center';
-        ctx2d.textBaseline = 'middle';
-        ctx2d.fillText('SK', 0, 0);
-        ctx2d.restore();
-    }
 }
 
 /**
- * Sayaç çizer (dikdörtgen)
+ * Sayaç çizer (yuvarlatılmış dikdörtgen)
  */
 function drawSayac(block, isSelected) {
     const { ctx2d } = dom;
     const { zoom, wallBorderColor } = state;
+    const config = PLUMBING_BLOCK_TYPES.SAYAC;
 
-    const corners = getPlumbingBlockCorners(block);
+    ctx2d.save();
+    ctx2d.translate(block.center.x, block.center.y);
+    ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    // Ana dikdörtgen (sadece kenar çizgisi, dolgu yok)
+    // Yuvarlatılmış dikdörtgen (2 cm köşe yarıçapı)
+    const halfW = config.width / 2;
+    const halfH = config.height / 2;
+    const cornerRadius = 2;
+
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
 
     ctx2d.beginPath();
-    ctx2d.moveTo(corners[0].x, corners[0].y);
-    for (let i = 1; i < corners.length; i++) {
-        ctx2d.lineTo(corners[i].x, corners[i].y);
-    }
+    ctx2d.moveTo(-halfW + cornerRadius, -halfH);
+    ctx2d.lineTo(halfW - cornerRadius, -halfH);
+    ctx2d.arcTo(halfW, -halfH, halfW, -halfH + cornerRadius, cornerRadius);
+    ctx2d.lineTo(halfW, halfH - cornerRadius);
+    ctx2d.arcTo(halfW, halfH, halfW - cornerRadius, halfH, cornerRadius);
+    ctx2d.lineTo(-halfW + cornerRadius, halfH);
+    ctx2d.arcTo(-halfW, halfH, -halfW, halfH - cornerRadius, cornerRadius);
+    ctx2d.lineTo(-halfW, -halfH + cornerRadius);
+    ctx2d.arcTo(-halfW, -halfH, -halfW + cornerRadius, -halfH, cornerRadius);
     ctx2d.closePath();
     ctx2d.stroke();
+
+    ctx2d.restore();
 
     // Bağlantı noktaları
     const connections = getConnectionPoints(block);
@@ -80,16 +103,18 @@ function drawSayac(block, isSelected) {
         ctx2d.fill();
     });
 
-    // Etiket
+    // G4 yazısı - dışarıda (önünde)
     if (zoom > 0.3) {
         ctx2d.save();
         ctx2d.translate(block.center.x, block.center.y);
         ctx2d.rotate(block.rotation * Math.PI / 180);
+
+        // G4 yazısını bloğun önüne koy (y: -halfH - 8)
         ctx2d.fillStyle = '#333';
-        ctx2d.font = `${11 / zoom}px Arial`;
+        ctx2d.font = `bold ${12 / zoom}px Arial`;
         ctx2d.textAlign = 'center';
-        ctx2d.textBaseline = 'middle';
-        ctx2d.fillText('SAY', 0, 0);
+        ctx2d.textBaseline = 'bottom';
+        ctx2d.fillText('G4', 0, -halfH - 3);
         ctx2d.restore();
     }
 }
@@ -106,7 +131,7 @@ function drawVana(block, isSelected) {
     ctx2d.translate(block.center.x, block.center.y);
     ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    const halfLength = config.width / 2.5; // Konileri yaklaştır
+    const halfLength = config.width / 3; // Konileri daha da yaklaştır
     const largeRadius = config.height / 2;
     const smallRadius = 0.5; // Ortadaki birleşimi daha dar yap
 
