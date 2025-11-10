@@ -127,7 +127,8 @@ function createServisKutusuMesh(block, material) {
         emissiveIntensity: 0.3
     });
     const connectionMesh = new THREE.Mesh(connectionGeom, connectionMat);
-    connectionMesh.position.set(config.connectionPoints[0].x, config.depth / 2, config.connectionPoints[0].y);
+    const cp = config.connectionPoints[0];
+    connectionMesh.position.set(cp.x, cp.z, cp.y); // z koordinatını Y eksenine kullan
 
     const group = new THREE.Group();
     group.add(mesh);
@@ -167,7 +168,7 @@ function createSayacMesh(block, material) {
             emissiveIntensity: 0.3
         });
         const connectionMesh = new THREE.Mesh(connectionGeom, connectionMat);
-        connectionMesh.position.set(cp.x, config.depth / 2, cp.y);
+        connectionMesh.position.set(cp.x, cp.z, cp.y); // z koordinatını Y eksenine kullan
         group.add(connectionMesh);
     });
 
@@ -207,7 +208,7 @@ function createVanaMesh(block, material) {
             emissiveIntensity: 0.3
         });
         const connectionMesh = new THREE.Mesh(connectionGeom, connectionMat);
-        connectionMesh.position.set(cp.x, config.height / 2, cp.y);
+        connectionMesh.position.set(cp.x, cp.z, cp.y); // z koordinatını Y eksenine kullan
         group.add(connectionMesh);
     });
 
@@ -256,7 +257,8 @@ function createKombiMesh(block, material) {
         emissiveIntensity: 0.3
     });
     const connectionMesh = new THREE.Mesh(connectionGeom, connectionMat);
-    connectionMesh.position.set(config.connectionPoints[0].x, 0, config.connectionPoints[0].y);
+    const cpKombi = config.connectionPoints[0];
+    connectionMesh.position.set(cpKombi.x, cpKombi.z, cpKombi.y); // z koordinatını Y eksenine kullan
     group.add(connectionMesh);
 
     return group;
@@ -285,23 +287,24 @@ function createOcakMesh(block, material) {
     const group = new THREE.Group();
     group.add(mesh);
 
-    // Ocak gözleri (4 adet silindir)
+    // Ocak gözleri (4 adet silindir) - 2D ile uyumlu (offset = 10 cm)
+    const burnerOffset = 10; // 2D'deki offset ile aynı
     const burnerPositions = [
-        { x: -config.width * 0.25, z: -config.depth * 0.25 },
-        { x: config.width * 0.25, z: -config.depth * 0.25 },
-        { x: -config.width * 0.25, z: config.depth * 0.25 },
-        { x: config.width * 0.25, z: config.depth * 0.25 }
+        { x: -burnerOffset, z: -burnerOffset },
+        { x: burnerOffset, z: -burnerOffset },
+        { x: -burnerOffset, z: burnerOffset },
+        { x: burnerOffset, z: burnerOffset }
     ];
 
     burnerPositions.forEach(pos => {
-        const burnerGeom = new THREE.CylinderGeometry(6, 6, 2, 16);
+        const burnerGeom = new THREE.CylinderGeometry(7, 7, 2, 16); // 7 cm radius (2D ile aynı)
         const burnerMat = new THREE.MeshStandardMaterial({
             color: 0x101010,
             metalness: 0.8,
             roughness: 0.2
         });
         const burnerMesh = new THREE.Mesh(burnerGeom, burnerMat);
-        burnerMesh.position.set(pos.x, config.height + 1, pos.z);
+        burnerMesh.position.set(pos.x, config.height + 1, pos.z); // Ocağın üstünde
         group.add(burnerMesh);
     });
 
@@ -313,7 +316,8 @@ function createOcakMesh(block, material) {
         emissiveIntensity: 0.3
     });
     const connectionMesh = new THREE.Mesh(connectionGeom, connectionMat);
-    connectionMesh.position.set(0, config.height / 2, -config.depth / 2);
+    const cpOcak = config.connectionPoints[0];
+    connectionMesh.position.set(cpOcak.x, cpOcak.z, cpOcak.y); // z koordinatını Y eksenine kullan
     group.add(connectionMesh);
 
     return group;
