@@ -68,7 +68,8 @@ export function update3DScene() {
     };
 
     const walls = (state.walls || []).filter(w => shouldShowFloor(w.floorId));
-    const doors = (state.doors || []).filter(d => shouldShowFloor(d.floorId));
+    // DÜZELTME: Kapılar duvar üzerinden filtrelenmeli (d.wall.floorId)
+    const doors = (state.doors || []).filter(d => d.wall && shouldShowFloor(d.wall.floorId));
     const columns = (state.columns || []).filter(c => shouldShowFloor(c.floorId));
     const beams = (state.beams || []).filter(b => shouldShowFloor(b.floorId));
     const rooms = (state.rooms || []).filter(r => shouldShowFloor(r.floorId));
