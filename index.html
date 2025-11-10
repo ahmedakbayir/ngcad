@@ -15,8 +15,8 @@
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- GENEL İŞLEMLER -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<div class="button-group">
-  <div class="group-label">GENEL</div>
+<div class="button-group draggable-group" id="group-general">
+  <div class="group-label drag-handle">GENEL</div>
   <button id="bSave" class="btn" title="Kaydet">
     <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
     Kaydet
@@ -25,6 +25,13 @@
     <svg viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
     Aç
   </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- MİMARİ ELEMANLAR -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="button-group draggable-group" id="group-architecture">
+  <div class="group-label drag-handle">MİMARİ</div>
   <button id="bAssignNames" class="btn" title="Mahal Tanımla">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M5 9h14v10H5z"/>
@@ -33,13 +40,6 @@
     </svg>
     Mahal Tanımla
   </button>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- MİMARİ ELEMANLAR -->
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<div class="button-group">
-  <div class="group-label">MİMARİ</div>
   <button id="bSel" class="btn" title="Seç">
     <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z" stroke-width="1.5"></path></svg>
     Seç
@@ -100,8 +100,8 @@
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- TESİSAT BLOKLARI -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<div class="button-group">
-  <div class="group-label">TESİSAT</div>
+<div class="button-group draggable-group" id="group-plumbing">
+  <div class="group-label drag-handle">TESİSAT</div>
   <button id="bServisKutusu" class="btn" title="Servis Kutusu">
     <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
       <rect x="6" y="4" width="12" height="16" rx="1" stroke-width="1.5"/>

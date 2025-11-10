@@ -902,10 +902,74 @@ function initialize() {
     // Başlangıç modunu zorla ayarla
     setMode(state.currentMode, true);
 
+    // Sürüklenebilir gruplar için drag & drop
+    initializeDraggableGroups();
+
     resize();
     animate();
     setTimeout(fitDrawingToScreen, 100); // 100ms sonra fitDrawingToScreen'i çağır
     saveState();
+}
+
+// Sürüklenebilir grup fonksiyonu
+function initializeDraggableGroups() {
+    const groups = document.querySelectorAll('.draggable-group');
+
+    groups.forEach(group => {
+        const handle = group.querySelector('.drag-handle');
+        if (!handle) return;
+
+        let isDragging = false;
+        let currentX = 0;
+        let currentY = 0;
+        let initialX = 0;
+        let initialY = 0;
+
+        // localStorage'dan pozisyonları yükle
+        const savedPos = localStorage.getItem(`group-pos-${group.id}`);
+        if (savedPos) {
+            const { x, y } = JSON.parse(savedPos);
+            group.style.left = x + 'px';
+            group.style.top = y + 'px';
+        }
+
+        handle.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            group.classList.add('dragging');
+
+            const rect = group.getBoundingClientRect();
+            initialX = e.clientX - rect.left;
+            initialY = e.clientY - rect.top;
+
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            e.preventDefault();
+
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+
+            group.style.left = currentX + 'px';
+            group.style.top = currentY + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                group.classList.remove('dragging');
+
+                // Pozisyonu kaydet
+                const rect = group.getBoundingClientRect();
+                localStorage.setItem(`group-pos-${group.id}`, JSON.stringify({
+                    x: parseInt(group.style.left),
+                    y: parseInt(group.style.top)
+                }));
+            }
+        });
+    });
 }
 
 initialize(); // Bu satır zaten dosyanın sonunda olmalı
