@@ -59,7 +59,8 @@ export function saveState() {
             topElevation: s.topElevation,
             connectedStairId: s.connectedStairId,
             isLanding: s.isLanding,
-            showRailing: s.showRailing // <-- DÜZELTME: Korkuluk bilgisi eklendi
+            showRailing: s.showRailing, // <-- DÜZELTME: Korkuluk bilgisi eklendi
+            floorId: s.floorId // FLOOR ISOLATION: floorId kaydet
         })))),
         guides: JSON.parse(JSON.stringify(state.guides || [])), // <-- REFERANS ÇİZGİSİ EKLENDİ
         floors: JSON.parse(JSON.stringify(state.floors || [])), // FLOOR ISOLATION: floors kaydet
@@ -152,7 +153,8 @@ export function restoreState(snapshot) {
             topElevation: s.topElevation,
             connectedStairId: s.connectedStairId,
             isLanding: s.isLanding,
-            showRailing: s.showRailing || false // <-- DÜZELTME: Korkuluk bilgisi okundu
+            showRailing: s.showRailing || false, // <-- DÜZELTME: Korkuluk bilgisi okundu
+            floorId: s.floorId // FLOOR ISOLATION: floorId geri yükle
         })),
         guides: snapshot.guides || [], // <-- REFERANS ÇİZGİSİ EKLENDİ
         floors: restoredFloors, // FLOOR ISOLATION: floors geri yükle
