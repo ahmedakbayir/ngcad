@@ -4,13 +4,14 @@
 
 import { state } from './main.js';
 import { getColumnAtPoint } from '../architectural-objects/columns.js';
-import { getBeamAtPoint } from '../architectural-objects/beams.js'; 
-import { getStairAtPoint } from '../architectural-objects/stairs.js'; 
+import { getBeamAtPoint } from '../architectural-objects/beams.js';
+import { getStairAtPoint } from '../architectural-objects/stairs.js';
+import { getPlumbingBlockAtPoint } from '../architectural-objects/plumbing-blocks.js';
 import { getDoorAtPoint } from '../architectural-objects/door-handler.js';
-import { getGuideAtPoint } from '../architectural-objects/guide-handler.js'; 
+import { getGuideAtPoint } from '../architectural-objects/guide-handler.js';
 import { getWindowAtPoint } from '../architectural-objects/window-handler.js';
 import { distToSegmentSquared } from '../draw/geometry.js';
-import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; 
+import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
 import { getWallAtPoint } from '../wall/wall-handler.js';
 
 /**
@@ -146,6 +147,10 @@ export function getObjectAtPoint(pos) {
     const stairHit = getStairAtPoint(pos); // ← BURADA ÇAĞIR
     if (stairHit && stairHit.handle !== 'body') return stairHit; // ← Handle ise döndür
 
+    // 1.4 Tesisat Bloğu Handle
+    const plumbingBlockHit = getPlumbingBlockAtPoint(pos);
+    if (plumbingBlockHit && plumbingBlockHit.handle !== 'body') return plumbingBlockHit;
+
     // 1.4 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
     if (wallNodeHit && wallNodeHit.handle !== 'body') return validateFloorMatch(wallNodeHit, currentFloorId);
@@ -186,10 +191,13 @@ export function getObjectAtPoint(pos) {
     // 2.4 Merdiven Gövdesi - ZATEn YUKARIDA ÇAĞRILDI, stairHit'i kontrol et
     if (stairHit && stairHit.handle === 'body') return stairHit; // ← Body ise döndür
 
-    // 2.5 Kiriş Gövdesi
+    // 2.5 Tesisat Bloğu Gövdesi
+    if (plumbingBlockHit && plumbingBlockHit.handle === 'body') return plumbingBlockHit;
+
+    // 2.6 Kiriş Gövdesi
     if (beamHandleHit && beamHandleHit.handle === 'body') return beamHandleHit;
 
-    // 2.6 Kolon Gövdesi
+    // 2.7 Kolon Gövdesi
     if (columnHandleHit && columnHandleHit.handle === 'body') return columnHandleHit;
 
     // 2.7 Mahal İsmi/Alanı

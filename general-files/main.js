@@ -199,6 +199,7 @@ export const VECTORDRAW_AREA_TYPES = {
 export let state = {
     currentMode: "drawRoom", // Başlangıç modu "Oda Çiz"
     lastUsedMode: "drawRoom", // Son kullanılan da "Oda Çiz"
+    currentPlumbingBlockType: 'SERVIS_KUTUSU', // Aktif tesisat bloğu tipi
     startPoint: null,
     nodes: [],
     walls: [],
@@ -207,6 +208,7 @@ export let state = {
     columns: [],
     beams: [],
     stairs: [],
+    plumbingBlocks: [], // TESİSAT BLOKLARI
     clipboard: null, // <-- YENİ SATIR EKLE
     wallAdjacency: new Map(),
     selectedObject: null,
@@ -319,7 +321,8 @@ export let state = {
         window: 100,  // Pencere saydamlığı (0-100)
         column: 100,  // Kolon saydamlığı (0-100)
         beam: 100,    // Kiriş saydamlığı (0-100)
-        stair: 100    // Merdiven saydamlığı (0-100)
+        stair: 100,   // Merdiven saydamlığı (0-100)
+        plumbing: 100 // Tesisat saydamlığı (0-100)
     }
     // --- OPACITY AYARLARI SONU ---
 };
@@ -361,7 +364,12 @@ export const dom = {
     bWindow: document.getElementById("bWindow"),
     bColumn: document.getElementById("bColumn"),
     bBeam: document.getElementById("bBeam"),
-    bStairs: document.getElementById("bStairs"), 
+    bStairs: document.getElementById("bStairs"),
+    bServisKutusu: document.getElementById("bServisKutusu"),
+    bSayac: document.getElementById("bSayac"),
+    bVana: document.getElementById("bVana"),
+    bKombi: document.getElementById("bKombi"),
+    bOcak: document.getElementById("bOcak"),
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
@@ -469,6 +477,12 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bColumn.classList.toggle("active", newMode === "drawColumn");
     dom.bBeam.classList.toggle("active", newMode === "drawBeam");
     dom.bStairs.classList.toggle("active", newMode === "drawStairs");
+    // Tesisat blokları - hepsi aynı mode'u kullanıyor, hangisi aktifse onu göster
+    dom.bServisKutusu.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'SERVIS_KUTUSU');
+    dom.bSayac.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'SAYAC');
+    dom.bVana.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'VANA');
+    dom.bKombi.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'KOMBI');
+    dom.bOcak.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'OCAK');
     dom.bSymmetry.classList.toggle("active", newMode === "drawSymmetry");
     dom.p2d.className = `panel ${newMode}-mode`;
 
@@ -830,6 +844,29 @@ function initialize() {
     dom.bColumn.addEventListener("click", () => setMode("drawColumn", true));
     dom.bBeam.addEventListener("click", () => setMode("drawBeam", true));
     dom.bStairs.addEventListener("click", () => setMode("drawStairs", true)); // forceSet ekleyin
+
+    // Tesisat blokları
+    dom.bServisKutusu.addEventListener("click", () => {
+        setState({ currentPlumbingBlockType: 'SERVIS_KUTUSU' });
+        setMode("drawPlumbingBlock", true);
+    });
+    dom.bSayac.addEventListener("click", () => {
+        setState({ currentPlumbingBlockType: 'SAYAC' });
+        setMode("drawPlumbingBlock", true);
+    });
+    dom.bVana.addEventListener("click", () => {
+        setState({ currentPlumbingBlockType: 'VANA' });
+        setMode("drawPlumbingBlock", true);
+    });
+    dom.bKombi.addEventListener("click", () => {
+        setState({ currentPlumbingBlockType: 'KOMBI' });
+        setMode("drawPlumbingBlock", true);
+    });
+    dom.bOcak.addEventListener("click", () => {
+        setState({ currentPlumbingBlockType: 'OCAK' });
+        setMode("drawPlumbingBlock", true);
+    });
+
     dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
 
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
