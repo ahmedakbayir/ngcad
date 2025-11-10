@@ -236,7 +236,8 @@ export function draw2D() {
     // Eğer currentFloorId yoksa (eski projeler), tüm öğeleri göster
     const rooms = currentFloorId ? (state.rooms || []).filter(r => r.floorId === currentFloorId) : (state.rooms || []);
     const walls = currentFloorId ? (state.walls || []).filter(w => w.floorId === currentFloorId) : (state.walls || []);
-    const doors = currentFloorId ? (state.doors || []).filter(d => d.floorId === currentFloorId) : (state.doors || []);
+    // DÜZELTME: Kapılar duvar üzerinden filtrelenmeli (d.wall.floorId)
+    const doors = currentFloorId ? (state.doors || []).filter(d => d.wall && (!d.wall.floorId || d.wall.floorId === currentFloorId)) : (state.doors || []);
     const beams = currentFloorId ? (state.beams || []).filter(b => b.floorId === currentFloorId) : (state.beams || []);
     const stairs = currentFloorId ? (state.stairs || []).filter(s => s.floorId === currentFloorId) : (state.stairs || []);
     const columns = currentFloorId ? (state.columns || []).filter(c => c.floorId === currentFloorId) : (state.columns || []);
