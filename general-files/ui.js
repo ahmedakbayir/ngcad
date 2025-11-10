@@ -860,6 +860,36 @@ function setupOpacityControls() {
     // Her bir slider için event listener ekle
     const sliderTypes = ['wall', 'floor', 'door', 'window', 'column', 'beam', 'stair'];
 
+    // HEPSİ slider'ı
+    const allSlider = document.getElementById('opacity-all');
+    const allValueDisplay = allSlider?.nextElementSibling;
+
+    if (allSlider && allValueDisplay) {
+        allSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            allValueDisplay.textContent = value;
+
+            // Tüm diğer slider'ları da aynı değere ayarla
+            const newOpacitySettings = {};
+            sliderTypes.forEach(type => {
+                const slider = document.getElementById(`opacity-${type}`);
+                const valueDisplay = slider?.nextElementSibling;
+
+                if (slider && valueDisplay) {
+                    slider.value = value;
+                    valueDisplay.textContent = value;
+                    newOpacitySettings[type] = value;
+                }
+            });
+
+            // State'i güncelle
+            setState({ opacitySettings: { ...state.opacitySettings, ...newOpacitySettings } });
+
+            // 3D sahneyi güncelle
+            update3DScene();
+        });
+    }
+
     sliderTypes.forEach(type => {
         const slider = document.getElementById(`opacity-${type}`);
         const valueDisplay = slider?.nextElementSibling;
