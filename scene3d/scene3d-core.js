@@ -16,6 +16,7 @@ export let textureLoader; // <-- Resim çerçeveleri için eklendi
 // --- Malzemeler (Materials) ---
 export let wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
     mullionMaterial, sillMaterial, handleMaterial, floorMaterial,
+    evenFloorMaterial, oddFloorMaterial, // <-- Tek ve çift katlar için ayrı materyaller
     stairMaterial, stairMaterialTop, ventMaterial, trimMaterial,
     balconyRailingMaterial, glassMaterial, halfWallCapMaterial,
     handrailWoodMaterial, balusterMaterial, stepNosingMaterial,
@@ -205,8 +206,21 @@ export function init3D(canvasElement) {
         metalness: 0.8, roughness: 0.4, transparent: false, opacity: 1.0
     });
 
+    // Eski tek materyal (geri uyumluluk için)
     floorMaterial = new THREE.MeshStandardMaterial({
         color: 'rgba(116, 116, 116, 1)',
+        roughness: 0.5, transparent: true, opacity: 0.8, side: THREE.DoubleSide
+    });
+
+    // Tek katlar için (normal renk)
+    oddFloorMaterial = new THREE.MeshStandardMaterial({
+        color: 'rgb(116, 116, 116)', // Normal renk
+        roughness: 0.5, transparent: true, opacity: 0.8, side: THREE.DoubleSide
+    });
+
+    // Çift katlar için (%20 koyu)
+    evenFloorMaterial = new THREE.MeshStandardMaterial({
+        color: 'rgb(93, 93, 93)', // %20 koyu (116 * 0.8 = 92.8)
         roughness: 0.5, transparent: true, opacity: 0.8, side: THREE.DoubleSide
     });
     

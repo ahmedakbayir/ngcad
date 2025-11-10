@@ -6,6 +6,7 @@ import {
     scene, camera, renderer, controls, sceneObjects,orbitControls,
     wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
     mullionMaterial, sillMaterial, handleMaterial, floorMaterial,
+    evenFloorMaterial, oddFloorMaterial, // <-- Tek ve çift katlar için materyaller
     stairMaterial, stairMaterialTop, ventMaterial, trimMaterial,
     balconyRailingMaterial, glassMaterial, halfWallCapMaterial,
     handrailWoodMaterial, balusterMaterial, stepNosingMaterial,
@@ -83,6 +84,15 @@ export function update3DScene() {
             floorElevations.set(floor.id, floor.bottomElevation || 0);
         }
     });
+
+    // Kat indekslerini Map'te sakla (floorId -> index, 0'dan başlayarak)
+    // Tek/çift kat renklerini belirlemek için kullanılır
+    const floorIndices = new Map();
+    (state.floors || [])
+        .filter(f => !f.isPlaceholder)
+        .forEach((floor, index) => {
+            floorIndices.set(floor.id, index);
+        });
 
     // Bir elementin kat yüksekliğini döndüren helper fonksiyon
     const getFloorElevation = (floorId) => {
@@ -246,7 +256,13 @@ export function update3DScene() {
                         const shapePoints = coords.map(p => new THREE.Vector2(p[0] - centerX, -(p[1] - centerZ)) );
                         const roomShape = new THREE.Shape(shapePoints);
                         const geometry = new THREE.ShapeGeometry(roomShape);
-                        const floorMesh = new THREE.Mesh(geometry, floorMaterial);
+
+                        // Kat numarasına göre doğru materyali seç (tek/çift)
+                        const floorIndex = floorIndices.get(room.floorId) || 0;
+                        const isEvenFloor = floorIndex % 2 === 0;
+                        const selectedMaterial = isEvenFloor ? evenFloorMaterial : oddFloorMaterial;
+
+                        const floorMesh = new THREE.Mesh(geometry, selectedMaterial);
                         floorMesh.rotation.x = -Math.PI / 2;
                         const roomFloorElevation = getFloorElevation(room.floorId);
                         floorMesh.position.set(centerX, 0.1 + roomFloorElevation, centerZ);
