@@ -31,15 +31,17 @@ export const PLUMBING_BLOCK_TYPES = {
     SAYAC: {
         id: 'sayac',
         name: 'Sayaç',
-        // 3D boyutlar (cm) - 15x30x30
-        width: 30,      // duvar boyunca (X ekseni)
+        // 3D boyutlar (cm) - 15x24x40 - Daha dar ve daha yüksek
+        width: 24,      // duvar boyunca (X ekseni) - 30'dan 24'e düşürüldü
         height: 15,     // duvardan dışa çıkan (2D Y ekseni, 3D Z ekseni)
-        depth: 30,      // yükseklik (3D Y ekseni)
+        depth: 40,      // yükseklik (3D Y ekseni) - 30'dan 40'a artırıldı
         cornerRadius: 2, // 2 cm yuvarlama
         connectionPoints: [
-            { x: -10, y: 7.5, z: 15, label: 'giriş' },   // Sol üst, yerden 15 cm
-            { x: 10, y: 7.5, z: 15, label: 'çıkış' }      // Sağ üst, yerden 15 cm
+            { x: -12, y: 7.5, z: 20, label: 'giriş' },   // Sol, yerden 20 cm (ortada)
+            { x: 12, y: 7.5, z: 20, label: 'çıkış' }      // Sağ, yerden 20 cm (ortada)
         ],
+        // 10 cm bağlantı çizgileri için offset
+        connectionLineLength: 10,
         mountType: 'wall',
         color: 0xA8A8A8, // Gri ton
     },
@@ -66,7 +68,7 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 29,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: -36, z: 10, label: 'bağlantı' } // Alt ortada, yerden 10 cm yukarıda
+            { x: 0, y: -36, z: 10, label: 'bağlantı' } // Alt kenarın TÂ KENDİSİNDE (height/2 = 36)
         ],
         mountType: 'wall',
         color: 0xC0C0C0, // Gri renk (beyaz yerine)
@@ -79,7 +81,7 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 59,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: -30, z: 10, label: 'bağlantı' } // Arka kenarın ortasında, yerden 10 cm yukarıda
+            { x: 0, y: -30, z: 10, label: 'bağlantı' } // Arka kenarın TÂ KENDİSİNDE (height/2 = 30)
         ],
         mountType: 'floor', // Zemine oturur
         color: 0x303030,
@@ -292,6 +294,15 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     const dy = snappedPos.roundedY - startPos.y;
 
     if (handle === 'center' || handle === 'body') {
+        // OCAK veya KOMBI bağlantı kontrolü - BAĞLIYSA KOPARAMAZ
+        if (block.blockType === 'OCAK' || block.blockType === 'KOMBI') {
+            const isConnected = checkIfBlockIsConnected(block);
+            if (isConnected) {
+                // Bağlı ise taşımaya izin verme
+                return true;
+            }
+        }
+
         // Taşıma - Bloğun eski ve yeni pozisyonunu hesapla
         const oldCenter = { ...startCenter };
         block.center.x = startCenter.x + dx;
@@ -322,7 +333,31 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 }
 
 /**
+ * Bloğun bir hatta bağlı olup olmadığını kontrol eder
+ */
+function checkIfBlockIsConnected(block) {
+    const connections = getConnectionPoints(block);
+    const tolerance = 5; // 5 cm tolerans
+
+    // Her bağlantı noktası için boruları kontrol et
+    for (const conn of connections) {
+        for (const pipe of (state.plumbingPipes || [])) {
+            // p1 veya p2 bu bağlantı noktasına yakın mı?
+            const dist1 = Math.hypot(pipe.p1.x - conn.x, pipe.p1.y - conn.y);
+            const dist2 = Math.hypot(pipe.p2.x - conn.x, pipe.p2.y - conn.y);
+
+            if (dist1 < tolerance || dist2 < tolerance) {
+                return true; // Bağlantı bulundu
+            }
+        }
+    }
+
+    return false; // Bağlantı yok
+}
+
+/**
  * Bloğa bağlı boruları güncelle (taşıma sonrası)
+ * ÇOK SIKI BAĞLILIK: Tolerans artırıldı ve explicit connection tracking eklendi
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
     const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
@@ -331,19 +366,39 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
     // Her bağlantı noktası için bağlı boruları bul ve güncelle
     oldConnections.forEach((oldConn, index) => {
         const newConn = newConnections[index];
-        const tolerance = 1; // 1 cm tolerans
+        const tolerance = 5; // 5 cm tolerans - ÇOK DAHA GÜÇLÜ BAĞLANTILAR
 
         // Bu bağlantı noktasına bağlı boruları bul
         (state.plumbingPipes || []).forEach(pipe => {
+            let updated = false;
+
             // p1 bu bağlantı noktasına mı bağlı?
             if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
                 pipe.p1.x = newConn.x;
                 pipe.p1.y = newConn.y;
+
+                // Explicit bağlantı kaydı
+                if (!pipe.connections) pipe.connections = { start: null, end: null };
+                pipe.connections.start = {
+                    blockId: block,
+                    connectionIndex: index,
+                    blockType: block.blockType
+                };
+                updated = true;
             }
             // p2 bu bağlantı noktasına mı bağlı?
             if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
                 pipe.p2.x = newConn.x;
                 pipe.p2.y = newConn.y;
+
+                // Explicit bağlantı kaydı
+                if (!pipe.connections) pipe.connections = { start: null, end: null };
+                pipe.connections.end = {
+                    blockId: block,
+                    connectionIndex: index,
+                    blockType: block.blockType
+                };
+                updated = true;
             }
         });
     });
@@ -351,6 +406,7 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
 
 /**
  * Bloğa bağlı boruları döndürme sonrası güncelle
+ * ÇOK SIKI BAĞLILIK: Tolerans artırıldı ve explicit connection tracking eklendi
  */
 function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
     // Eski rotasyonda bağlantı noktalarını hesapla
@@ -361,16 +417,36 @@ function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
     // Her bağlantı noktası için bağlı boruları bul ve güncelle
     oldConnections.forEach((oldConn, index) => {
         const newConn = newConnections[index];
-        const tolerance = 1;
+        const tolerance = 5; // 5 cm tolerans - ÇOK DAHA GÜÇLÜ BAĞLANTILAR
 
         (state.plumbingPipes || []).forEach(pipe => {
+            let updated = false;
+
             if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
                 pipe.p1.x = newConn.x;
                 pipe.p1.y = newConn.y;
+
+                // Explicit bağlantı kaydı
+                if (!pipe.connections) pipe.connections = { start: null, end: null };
+                pipe.connections.start = {
+                    blockId: block,
+                    connectionIndex: index,
+                    blockType: block.blockType
+                };
+                updated = true;
             }
             if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
                 pipe.p2.x = newConn.x;
                 pipe.p2.y = newConn.y;
+
+                // Explicit bağlantı kaydı
+                if (!pipe.connections) pipe.connections = { start: null, end: null };
+                pipe.connections.end = {
+                    blockId: block,
+                    connectionIndex: index,
+                    blockType: block.blockType
+                };
+                updated = true;
             }
         });
     });

@@ -218,6 +218,7 @@ function createVanaMesh(block, material) {
 
 /**
  * Kombi mesh'i oluşturur
+ * SADELEŞTIRILMIŞ: Fazladan panel şekilleri kaldırıldı
  */
 function createKombiMesh(block, material) {
     const config = PLUMBING_BLOCK_TYPES.KOMBI;
@@ -235,20 +236,8 @@ function createKombiMesh(block, material) {
     const mesh = new THREE.Mesh(geometry, material.clone());
     mesh.material.color.setHex(config.color);
 
-    // Ön panel detayı
-    const panelGeom = new THREE.BoxGeometry(config.width * 0.8, config.depth + 1, config.height * 0.6);
-    panelGeom.rotateX(Math.PI / 2);
-    panelGeom.translate(0, config.depth / 2 + 0.5, 0);
-    const panelMat = new THREE.MeshStandardMaterial({
-        color: 0x2196F3,
-        metalness: 0.3,
-        roughness: 0.5
-    });
-    const panelMesh = new THREE.Mesh(panelGeom, panelMat);
-
     const group = new THREE.Group();
     group.add(mesh);
-    group.add(panelMesh);
 
     // Bağlantı noktası (altta)
     const connectionGeom = new THREE.SphereGeometry(3, 8, 8);
