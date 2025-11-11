@@ -2,7 +2,7 @@
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
-import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
+import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock, getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
 import { createPlumbingPipe, snapToConnectionPoint, onPointerDown as onPointerDownPlumbingPipe } from '../architectural-objects/plumbing-pipes.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
@@ -380,20 +380,24 @@ export function onPointerDown(e) {
                 const newBlock = createPlumbingBlock(splitX, splitY, blockType);
                 newBlock.rotation = Math.round(angle / 15) * 15; // Boru yönüne uygun dönüş
 
-                // Boruyu ikiye böl
+                // Bloğun bağlantı noktalarını al
+                const connectionPoints = getConnectionPoints(newBlock);
+
+                // Eski boruyu sil
                 const oldP1 = { ...pipe.p1 };
                 const oldP2 = { ...pipe.p2 };
                 const oldPipeType = pipe.pipeType;
+                const oldIsConnected = pipe.isConnectedToValve;
 
-                // Eski boruyu sil
                 state.plumbingPipes = state.plumbingPipes.filter(p => p !== pipe);
 
-                // İki yeni boru ekle (bloktan önce ve sonra)
-                const pipe1 = createPlumbingPipe(oldP1.x, oldP1.y, splitX, splitY, oldPipeType);
-                const pipe2 = createPlumbingPipe(splitX, splitY, oldP2.x, oldP2.y, oldPipeType);
+                // İki yeni boru ekle - bağlantı noktalarına snap
+                // Vana/Sayaç için: connectionPoints[0] = giriş (sol), connectionPoints[1] = çıkış (sağ)
+                const pipe1 = createPlumbingPipe(oldP1.x, oldP1.y, connectionPoints[0].x, connectionPoints[0].y, oldPipeType);
+                const pipe2 = createPlumbingPipe(connectionPoints[1].x, connectionPoints[1].y, oldP2.x, oldP2.y, oldPipeType);
 
                 // Vanadan/Sayaçtan önceki borunun isConnectedToValve durumunu koru
-                pipe1.isConnectedToValve = pipe.isConnectedToValve;
+                pipe1.isConnectedToValve = oldIsConnected;
 
                 // Vanadan sonraki boru ve ondan sonraki TÜM borular düz çizgi olsun
                 pipe2.isConnectedToValve = true;
@@ -407,11 +411,11 @@ export function onPointerDown(e) {
                 if (!state.plumbingBlocks) state.plumbingBlocks = [];
                 state.plumbingBlocks.push(newBlock);
 
-                geometryChanged = true;
+                geometryChanged = true; // saveState çağırılacak
                 needsUpdate3D = true;
                 objectJustCreated = true;
 
-                console.log('✅ Block added to pipe, pipe split into 2');
+                console.log('✅ Block added to pipe, pipe split into 2 and connected to connection points');
                 setMode("select");
                 return;
             }
@@ -521,11 +525,42 @@ export function onPointerDown(e) {
         console.log('🚀 PIPE DRAWING MODE - Click registered:', { hasStartPoint: !!state.startPoint, pos });
 
         if (!state.startPoint) {
-            // İlk tıklama: Başlangıç noktasını ayarla (bağlantı noktasına snap)
-            const snap = snapToConnectionPoint(pos, 10);
-            const startPos = snap ? { x: snap.x, y: snap.y } : { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            // İlk tıklama: Başlangıç noktasını ayarla
+
+            // ÖNCELİK 1: Projede boşta Servis Kutusu varsa onun çıkış noktasından başla
+            const currentFloorId = state.currentFloor?.id;
+            const blocks = (state.plumbingBlocks || []).filter(b =>
+                b.floorId === currentFloorId && b.blockType === 'SERVIS_KUTUSU'
+            );
+
+            let startPos = null;
+
+            // Eğer Servis Kutusu varsa ve hiç borusu yoksa
+            if (blocks.length > 0) {
+                const servKutusu = blocks[0];
+                const connections = getConnectionPoints(servKutusu);
+
+                // Servis kutusunun çıkış noktasından boru çıkıyor mu kontrol et
+                const hasConnectedPipe = (state.plumbingPipes || []).some(p =>
+                    Math.hypot(p.p1.x - connections[0].x, p.p1.y - connections[0].y) < 1 ||
+                    Math.hypot(p.p2.x - connections[0].x, p.p2.y - connections[0].y) < 1
+                );
+
+                if (!hasConnectedPipe) {
+                    // Servis kutusundan boru çıkmamışsa, çıkış noktasından başla
+                    startPos = { x: connections[0].x, y: connections[0].y };
+                    console.log('✅ Starting from Servis Kutusu connection point:', startPos);
+                }
+            }
+
+            // ÖNCELİK 2: Bağlantı noktasına (boru ucu) snap
+            if (!startPos) {
+                const snap = snapToConnectionPoint(pos, 10);
+                startPos = snap ? { x: snap.x, y: snap.y } : { x: snappedPos.roundedX, y: snappedPos.roundedY };
+                console.log('✅ Start point set:', startPos);
+            }
+
             setState({ startPoint: startPos });
-            console.log('✅ Start point set:', startPos);
         } else {
             // İkinci tıklama: Boruyu oluştur
             const p1 = state.startPoint;
