@@ -3,7 +3,7 @@ import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } f
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
 import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock, getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
-import { createPlumbingPipe, snapToConnectionPoint, onPointerDown as onPointerDownPlumbingPipe } from '../architectural-objects/plumbing-pipes.js';
+import { createPlumbingPipe, snapToConnectionPoint, snapToPipeEndpoint, onPointerDown as onPointerDownPlumbingPipe } from '../architectural-objects/plumbing-pipes.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
 import { onPointerDownGuide } from '../architectural-objects/guide-handler.js';
@@ -421,12 +421,21 @@ export function onPointerDown(e) {
             }
         }
 
-        // OCAK ve KOMBI sadece boru ucuna eklenebilir
+        // OCAK ve KOMBI sadece boru ucuna veya servis kutusuna eklenebilir
         if (blockType === 'OCAK' || blockType === 'KOMBI') {
-            // Bağlantı noktasına snap et (sadece boru uçları)
-            const snap = snapToConnectionPoint(pos, 15);
+            // Önce boru uçlarına snap et
+            const pipeSnap = snapToPipeEndpoint(pos, 15);
+
+            // Eğer boru ucu yoksa, sadece servis kutusuna snap et
+            const blockSnap = pipeSnap ? null : snapToConnectionPoint(pos, 15, (block) => {
+                // Sadece servis kutusu connection point'lerine izin ver
+                return block.blockType === 'SERVIS_KUTUSU';
+            });
+
+            const snap = pipeSnap || blockSnap;
+
             if (!snap) {
-                console.warn('⚠️', blockType, 'can only be placed at pipe ends');
+                console.warn('⚠️', blockType, 'can only be placed at pipe ends or service box connection points');
                 return;
             }
 
@@ -451,7 +460,7 @@ export function onPointerDown(e) {
             needsUpdate3D = true;
             objectJustCreated = true;
 
-            console.log('✅', blockType, 'added to pipe end');
+            console.log('✅', blockType, 'added to pipe end or service box');
             setMode("select");
             return;
         }
@@ -578,6 +587,29 @@ export function onPointerDown(e) {
                 console.log('🔧 Pipe created:', newPipe);
 
                 if (newPipe) {
+                    // Borunun bağlantı durumunu belirle
+                    // p1 servis kutusu, vana veya sayaç connection point'inde mi?
+                    const startBlockSnap = snapToConnectionPoint(p1, 1); // 1 cm tolerans ile kontrol et
+                    if (startBlockSnap &&
+                        (startBlockSnap.block.blockType === 'SERVIS_KUTUSU' ||
+                         startBlockSnap.block.blockType === 'VANA' ||
+                         startBlockSnap.block.blockType === 'SAYAC')) {
+                        newPipe.isConnectedToValve = true;
+                        console.log('✅ Pipe starts from', startBlockSnap.block.blockType, '-> solid line');
+                    } else {
+                        // Veya önceki boru connected mıydı?
+                        const prevPipe = state.plumbingPipes?.find(p =>
+                            Math.hypot(p.p2.x - p1.x, p.p2.y - p1.y) < 1
+                        );
+                        if (prevPipe && prevPipe.isConnectedToValve) {
+                            newPipe.isConnectedToValve = true;
+                            console.log('✅ Pipe continues from connected pipe -> solid line');
+                        } else {
+                            newPipe.isConnectedToValve = false;
+                            console.log('⚠️ Pipe not connected to source -> dashed line');
+                        }
+                    }
+
                     if (!state.plumbingPipes) state.plumbingPipes = [];
                     state.plumbingPipes.push(newPipe);
                     console.log('✅ Pipe added to state. Total pipes:', state.plumbingPipes.length);
