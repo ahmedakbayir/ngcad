@@ -376,33 +376,31 @@ export function onPointerDown(e) {
                 const splitX = pipe.p1.x + t * dx;
                 const splitY = pipe.p1.y + t * dy;
 
-                // SAYAÇ İÇİN: Hattın düzlüğünü bozmamak için boruya dik yönde kaydır
+                // SAYAÇ İÇİN: Hattın düzlüğünü bozmamak için HATTA GÖRENİN KENDİNİ AYARLA
                 let blockX = splitX;
                 let blockY = splitY;
+                let blockRotation = Math.round(angle / 15) * 15; // Varsayılan: boru yönü
 
                 if (blockType === 'SAYAC') {
-                    // Boruya dik yön (perpendicular)
-                    const pipeLength = Math.hypot(dx, dy);
-                    const perpX = -dy / pipeLength; // Normalize edilmiş dik vektör X
-                    const perpY = dx / pipeLength;  // Normalize edilmiş dik vektör Y
+                    // Sayacı boruya PARALEL yerleştir, connection point'ler otomatik olarak dik çıkar
+                    // Boruya dik yönde kaydırma YOK - direkt boru üzerinde
 
-                    // Sayacın yarı yüksekliği (height / 2)
-                    const SAYAC_CONFIG = PLUMBING_BLOCK_TYPES.SAYAC;
-                    const offset = SAYAC_CONFIG.height / 2; // 15 / 2 = 7.5 cm
+                    // Borunun yönüne göre sayacı ayarla:
+                    // - Yatay hat (angle ≈ 0, 180): Sayaç yatay, bağlantılar yukarı/aşağı
+                    // - Dikey hat (angle ≈ 90, -90): Sayaç dikey, bağlantılar sağa/sola
 
-                    // Tıklama noktasına göre hangi tarafa kaydırılacağını belirle
-                    // Tıklama noktasından boruya olan dik mesafe
-                    const signedDist = (pos.x - splitX) * perpX + (pos.y - splitY) * perpY;
-                    const direction = signedDist >= 0 ? 1 : -1;
+                    // Açıyı normalize et (-180 ile 180 arası)
+                    let normalizedAngle = angle;
+                    while (normalizedAngle > 180) normalizedAngle -= 360;
+                    while (normalizedAngle < -180) normalizedAngle += 360;
 
-                    // Sayacı dik yönde kaydır
-                    blockX = splitX + perpX * offset * direction;
-                    blockY = splitY + perpY * offset * direction;
+                    // Sayaç rotasyonu = borunun rotasyonu (paralel)
+                    blockRotation = Math.round(normalizedAngle / 15) * 15;
                 }
 
                 // Yeni blok oluştur
                 const newBlock = createPlumbingBlock(blockX, blockY, blockType);
-                newBlock.rotation = Math.round(angle / 15) * 15; // Boru yönüne uygun dönüş
+                newBlock.rotation = blockRotation;
 
                 // Bloğun bağlantı noktalarını al
                 const connectionPoints = getConnectionPoints(newBlock);
@@ -485,35 +483,23 @@ export function onPointerDown(e) {
             const valveConnections = getConnectionPoints(newValve);
             const valveOutlet = valveConnections[1]; // Çıkış noktası (sağ taraf)
 
-            // 2. VANA ÇIKIŞINDAN 10 CM UZAKTA KISA BORU EKLE
-            const pipeLength = 10; // 10 cm kısa boru
-            const angleRad = (newValve.rotation || 0) * Math.PI / 180;
-            const pipeEndX = valveOutlet.x + pipeLength * Math.cos(angleRad);
-            const pipeEndY = valveOutlet.y + pipeLength * Math.sin(angleRad);
-
-            const connectionPipe = createPlumbingPipe(
-                valveOutlet.x, valveOutlet.y,
-                pipeEndX, pipeEndY,
-                'STANDARD'
-            );
-            connectionPipe.isConnectedToValve = true; // Düz çizgi
-
-            // 3. CİHAZI (OCAK/KOMBI) BORU UCUNA EKLE
-            const newBlock = createPlumbingBlock(pipeEndX, pipeEndY, blockType);
+            // 2. CİHAZI (OCAK/KOMBI) DİREKT VANANIN UCUNA EKLE (ARADA BORU YOK)
+            const newBlock = createPlumbingBlock(valveOutlet.x, valveOutlet.y, blockType);
             newBlock.rotation = Math.round(pipeAngle / 15) * 15;
 
             // State'e ekle
             if (!state.plumbingBlocks) state.plumbingBlocks = [];
             state.plumbingBlocks.push(newValve, newBlock);
 
-            if (!state.plumbingPipes) state.plumbingPipes = [];
-            state.plumbingPipes.push(connectionPipe);
+            // ARADA BORU YOK - Sadece vana ve cihaz ekleniyor
+            // if (!state.plumbingPipes) state.plumbingPipes = [];
+            // state.plumbingPipes.push(connectionPipe);
 
             geometryChanged = true;
             needsUpdate3D = true;
             objectJustCreated = true;
 
-            console.log('✅ Valve +', blockType, 'added with 10cm connecting pipe');
+            console.log('✅ Valve +', blockType, 'added directly (no pipe between)');
             setMode("select");
             return;
         }

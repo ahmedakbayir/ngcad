@@ -31,17 +31,17 @@ export const PLUMBING_BLOCK_TYPES = {
     SAYAC: {
         id: 'sayac',
         name: 'Sayaç',
-        // 3D boyutlar (cm) - 15x24x40 - Daha dar ve daha yüksek
-        width: 24,      // duvar boyunca (X ekseni) - 30'dan 24'e düşürüldü
+        // 3D boyutlar (cm) - 15x18x40 - 6 cm daraltıldı (24'ten 18'e)
+        width: 18,      // duvar boyunca (X ekseni) - 24'ten 18'e düşürüldü
         height: 15,     // duvardan dışa çıkan (2D Y ekseni, 3D Z ekseni)
-        depth: 40,      // yükseklik (3D Y ekseni) - 30'dan 40'a artırıldü
+        depth: 40,      // yükseklik (3D Y ekseni)
         cornerRadius: 2, // 2 cm yuvarlama
         connectionPoints: [
             // ÜST KISIMDA ÇAPRAZ BAĞLANTI NOKTALARI
             // Giriş: Sol üst köşeden çıkıntılı (10 cm dışarı çıkıntı)
-            { x: -8, y: -7.5 - 10, z: 30, label: 'giriş' },   // Sol-arka-üst, 10 cm çıkıntı
+            { x: -6, y: -7.5 - 10, z: 30, label: 'giriş' },   // Sol-arka-üst, 10 cm çıkıntı (x: -8'den -6'ya)
             // Çıkış: Sağ üst köşeden çıkıntılı (10 cm dışarı çıkıntı)
-            { x: 8, y: -7.5 - 10, z: 30, label: 'çıkış' }     // Sağ-arka-üst, 10 cm çıkıntı
+            { x: 6, y: -7.5 - 10, z: 30, label: 'çıkış' }     // Sağ-arka-üst, 10 cm çıkıntı (x: 8'den 6'ya)
         ],
         // 10 cm bağlantı çizgileri için offset
         connectionLineLength: 10,
@@ -66,12 +66,12 @@ export const PLUMBING_BLOCK_TYPES = {
     KOMBI: {
         id: 'kombi',
         name: 'Kombi',
-        width: 41,
-        height: 72,
+        width: 50,       // Dış daire çapı (2D çizimde outerRadius=25, çap=50)
+        height: 50,      // Dış daire çapı
         depth: 29,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: -36, z: 0, label: 'bağlantı' } // Alt kenarın kendisinde, ZEMİN seviyesinde
+            { x: 0, y: -25, z: 0, label: 'bağlantı' } // Dış dairenin tam alt kenarında (outerRadius=25)
         ],
         mountType: 'wall',
         color: 0xC0C0C0, // Gri renk (beyaz yerine)
@@ -79,12 +79,12 @@ export const PLUMBING_BLOCK_TYPES = {
     OCAK: {
         id: 'ocak',
         name: 'Ocak',
-        width: 52,
-        height: 60,
+        width: 50,       // Dikdörtgen boyutu (2D çizimde boxSize=25, çap=50)
+        height: 50,      // Dikdörtgen boyutu
         depth: 59,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: -30, z: 0, label: 'bağlantı' } // Arka kenarın kendisinde, ZEMİN seviyesinde
+            { x: 0, y: -25, z: 0, label: 'bağlantı' } // Arka kenarın tam üzerinde (boxSize=25)
         ],
         mountType: 'floor', // Zemine oturur
         color: 0x303030,
