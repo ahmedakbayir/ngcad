@@ -139,13 +139,7 @@ export function getPipeAtPoint(point, tolerance = 8) {
     const currentFloorId = state.currentFloor?.id;
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
-    console.log('🔍 getPipeAtPoint called:', {
-        point,
-        tolerance,
-        totalPipes: state.plumbingPipes?.length || 0,
-        currentFloorPipes: pipes.length,
-        currentFloorId
-    });
+    // Debug log kaldırıldı (her mouse move'da çağrılıyor)
 
     // Ters sırada kontrol et (en son eklenen önce)
     for (const pipe of [...pipes].reverse()) {
