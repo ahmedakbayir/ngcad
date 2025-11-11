@@ -526,7 +526,7 @@ function onKeyDown(e) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         // Tek nesne veya grup seçimi kontrolü
         const hasSelection = state.selectedGroup.length > 0 ||
-                           (state.selectedObject && ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock'].includes(state.selectedObject.type));
+                           (state.selectedObject && ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(state.selectedObject.type));
 
         if (!hasSelection) return; // Hiç seçili nesne yoksa çık
 
@@ -558,6 +558,11 @@ function onKeyDown(e) {
                 } else if (selectedItem.type === 'plumbingBlock' && obj.center) {
                     obj.center.x += deltaX;
                     obj.center.y += deltaY;
+                } else if (selectedItem.type === 'plumbingPipe' && obj.p1 && obj.p2) {
+                    obj.p1.x += deltaX;
+                    obj.p1.y += deltaY;
+                    obj.p2.x += deltaX;
+                    obj.p2.y += deltaY;
                 } else if (selectedItem.type === 'door' && obj.wall) {
                     // Kapı için: mevcut pozisyonunu hesapla, hareket ettir, yeni pos'u bul
                     const wall = obj.wall;
@@ -609,6 +614,11 @@ function onKeyDown(e) {
             if (obj && obj.center && ['column', 'beam', 'stairs', 'plumbingBlock'].includes(type)) {
                 obj.center.x += deltaX;
                 obj.center.y += deltaY;
+            } else if (type === 'plumbingPipe' && obj.p1 && obj.p2) {
+                obj.p1.x += deltaX;
+                obj.p1.y += deltaY;
+                obj.p2.x += deltaX;
+                obj.p2.y += deltaY;
             } else if (type === 'door' && obj.wall) {
                 // Kapı için
                 const wall = obj.wall;

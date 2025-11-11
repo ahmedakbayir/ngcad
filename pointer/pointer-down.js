@@ -3,7 +3,7 @@ import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } f
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
 import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
-import { createPlumbingPipe, snapToConnectionPoint } from '../architectural-objects/plumbing-pipes.js';
+import { createPlumbingPipe, snapToConnectionPoint, onPointerDown as onPointerDownPlumbingPipe } from '../architectural-objects/plumbing-pipes.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
 import { onPointerDownGuide } from '../architectural-objects/guide-handler.js';
@@ -75,14 +75,14 @@ export function onPointerDown(e) {
         // CTRL ile multi-select modu (sadece CTRL basılıyken, body'ye tıklandığında)
         // Handle'lara (köşe, kenar) tıklandığında normal işlemler devam eder
         if (currentModifierKeys.ctrl && !currentModifierKeys.alt && !currentModifierKeys.shift && clickedObject &&
-            ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock'].includes(clickedObject.type) &&
+            ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
             clickedObject.handle === 'body') {
             console.log('✅ CTRL Multi-Select Mode Active');
 
             // Eğer selectedGroup boş ama selectedObject varsa, önce onu gruba ekle
             let currentGroup = [...state.selectedGroup];
             if (currentGroup.length === 0 && state.selectedObject &&
-                ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock'].includes(state.selectedObject.type)) {
+                ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(state.selectedObject.type)) {
                 console.log('🔄 Converting selectedObject to selectedGroup');
                 currentGroup.push(state.selectedObject);
             }
@@ -113,7 +113,7 @@ export function onPointerDown(e) {
         // CTRL basılı DEĞİLSE ve multi-select yapılabilir bir nesneye tıklandıysa,
         // selectedGroup'u temizle ve normal tek seçime dön
         if (!currentModifierKeys.ctrl && clickedObject &&
-            ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock'].includes(clickedObject.type) &&
+            ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
             state.selectedGroup.length > 0) {
             console.log('🔄 Clearing selectedGroup - returning to single selection');
             // selectedGroup'u temizle, normal seçime geç
@@ -137,8 +137,8 @@ export function onPointerDown(e) {
             const currentFloorId = state.currentFloor.id;
             const obj = clickedObject.object;
 
-            // Wall, door, window, vent, column, beam, stairs, plumbingBlock için floor kontrolü
-            if (['wall', 'door', 'window', 'vent', 'column', 'beam', 'stairs', 'plumbingBlock'].includes(clickedObject.type)) {
+            // Wall, door, window, vent, column, beam, stairs, plumbingBlock, plumbingPipe için floor kontrolü
+            if (['wall', 'door', 'window', 'vent', 'column', 'beam', 'stairs', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type)) {
                 // Wall için direkt object'ten kontrol
                 if (clickedObject.type === 'wall' && obj.floorId && obj.floorId !== currentFloorId) {
                     console.log('🚫 Cross-floor wall selection blocked:', obj.floorId, '!==', currentFloorId);
@@ -149,8 +149,8 @@ export function onPointerDown(e) {
                     console.log('🚫 Cross-floor', clickedObject.type, 'selection blocked');
                     clickedObject = null;
                 }
-                // Column, beam, stairs, plumbingBlock için direkt object'ten kontrol
-                else if (['column', 'beam', 'stairs', 'plumbingBlock'].includes(clickedObject.type) && obj.floorId && obj.floorId !== currentFloorId) {
+                // Column, beam, stairs, plumbingBlock, plumbingPipe için direkt object'ten kontrol
+                else if (['column', 'beam', 'stairs', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) && obj.floorId && obj.floorId !== currentFloorId) {
                     console.log('🚫 Cross-floor', clickedObject.type, 'selection blocked');
                     clickedObject = null;
                 }
@@ -214,6 +214,7 @@ export function onPointerDown(e) {
                      case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                      case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; // stairs.js'den gelen fonksiyonu kullan
                      case 'plumbingBlock': dragInfo = onPointerDownPlumbingBlock(clickedObject, pos, snappedPos, e); break;
+                     case 'plumbingPipe': dragInfo = onPointerDownPlumbingPipe(clickedObject, pos, snappedPos, e); break;
                      case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
                      case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;
                      case 'window': dragInfo = onPointerDownSelectWindow(clickedObject, pos); break;
