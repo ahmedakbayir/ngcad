@@ -446,6 +446,7 @@ export function onPointerDown(e) {
         }
 
         // OCAK ve KOMBI sadece boru ucuna veya servis kutusuna eklenebilir
+        // ÖNCE VANA, SONRA CİHAZ EKLENİR
         if (blockType === 'OCAK' || blockType === 'KOMBI') {
             // Önce boru uçlarına snap et
             const pipeSnap = snapToPipeEndpoint(pos, 15);
@@ -463,28 +464,56 @@ export function onPointerDown(e) {
                 return;
             }
 
-            const newBlock = createPlumbingBlock(snap.x, snap.y, blockType);
-
             // Borunun yönünü hesapla (eğer boru varsa)
             const nearbyPipe = state.plumbingPipes?.find(p =>
                 Math.hypot(p.p1.x - snap.x, p.p1.y - snap.y) < 1 ||
                 Math.hypot(p.p2.x - snap.x, p.p2.y - snap.y) < 1
             );
 
+            let pipeAngle = 0;
             if (nearbyPipe) {
                 const dx = nearbyPipe.p2.x - nearbyPipe.p1.x;
                 const dy = nearbyPipe.p2.y - nearbyPipe.p1.y;
-                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-                newBlock.rotation = Math.round(angle / 15) * 15;
+                pipeAngle = Math.atan2(dy, dx) * 180 / Math.PI;
             }
 
+            // 1. VANA EKLE
+            const newValve = createPlumbingBlock(snap.x, snap.y, 'VANA');
+            newValve.rotation = Math.round(pipeAngle / 15) * 15;
+
+            // Vananın bağlantı noktalarını al
+            const valveConnections = getConnectionPoints(newValve);
+            const valveOutlet = valveConnections[1]; // Çıkış noktası (sağ taraf)
+
+            // 2. VANA ÇIKIŞINDAN 10 CM UZAKTA KISA BORU EKLE
+            const pipeLength = 10; // 10 cm kısa boru
+            const angleRad = (newValve.rotation || 0) * Math.PI / 180;
+            const pipeEndX = valveOutlet.x + pipeLength * Math.cos(angleRad);
+            const pipeEndY = valveOutlet.y + pipeLength * Math.sin(angleRad);
+
+            const connectionPipe = createPlumbingPipe(
+                valveOutlet.x, valveOutlet.y,
+                pipeEndX, pipeEndY,
+                'STANDARD'
+            );
+            connectionPipe.isConnectedToValve = true; // Düz çizgi
+
+            // 3. CİHAZI (OCAK/KOMBI) BORU UCUNA EKLE
+            const newBlock = createPlumbingBlock(pipeEndX, pipeEndY, blockType);
+            newBlock.rotation = Math.round(pipeAngle / 15) * 15;
+
+            // State'e ekle
             if (!state.plumbingBlocks) state.plumbingBlocks = [];
-            state.plumbingBlocks.push(newBlock);
+            state.plumbingBlocks.push(newValve, newBlock);
+
+            if (!state.plumbingPipes) state.plumbingPipes = [];
+            state.plumbingPipes.push(connectionPipe);
+
             geometryChanged = true;
             needsUpdate3D = true;
             objectJustCreated = true;
 
-            console.log('✅', blockType, 'added to pipe end or service box');
+            console.log('✅ Valve +', blockType, 'added with 10cm connecting pipe');
             setMode("select");
             return;
         }
@@ -586,11 +615,65 @@ export function onPointerDown(e) {
                 }
             }
 
-            // ÖNCELİK 2: Bağlantı noktasına (boru ucu) snap
+            // ÖNCELİK 2: Boru ucuna snap (pipe endpoint)
             if (!startPos) {
-                const snap = snapToConnectionPoint(pos, 10);
-                startPos = snap ? { x: snap.x, y: snap.y } : { x: snappedPos.roundedX, y: snappedPos.roundedY };
-                console.log('✅ Start point set:', startPos);
+                const pipeEndSnap = snapToPipeEndpoint(pos, 10);
+                if (pipeEndSnap) {
+                    startPos = { x: pipeEndSnap.x, y: pipeEndSnap.y };
+                    console.log('✅ Starting from pipe endpoint:', startPos);
+                }
+            }
+
+            // ÖNCELİK 3: Bağlantı noktasına snap
+            if (!startPos) {
+                const blockSnap = snapToConnectionPoint(pos, 10);
+                if (blockSnap) {
+                    startPos = { x: blockSnap.x, y: blockSnap.y };
+                    console.log('✅ Starting from block connection point:', startPos);
+                }
+            }
+
+            // ÖNCELİK 4: Boru üzerine tıklama (branch/dal oluşturma)
+            if (!startPos) {
+                const clickedPipe = getObjectAtPoint(pos);
+                if (clickedPipe && clickedPipe.type === 'plumbingPipe') {
+                    const pipe = clickedPipe.object;
+
+                    // Tıklama noktasına en yakın noktayı borudan bul
+                    const dx = pipe.p2.x - pipe.p1.x;
+                    const dy = pipe.p2.y - pipe.p1.y;
+                    const lengthSq = dx * dx + dy * dy;
+
+                    if (lengthSq > 0.1) { // Boru yeterince uzunsa
+                        const t = Math.max(0, Math.min(1,
+                            ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / lengthSq
+                        ));
+                        const splitX = pipe.p1.x + t * dx;
+                        const splitY = pipe.p1.y + t * dy;
+
+                        // Eğer boru ucuna çok yakınsa (5 cm), dal oluşturma (endpoint snap kullan)
+                        const distToP1 = Math.hypot(splitX - pipe.p1.x, splitY - pipe.p1.y);
+                        const distToP2 = Math.hypot(splitX - pipe.p2.x, splitY - pipe.p2.y);
+
+                        if (distToP1 < 5 || distToP2 < 5) {
+                            // Uç noktaya çok yakın, normal endpoint snap kullan
+                            startPos = distToP1 < distToP2 ?
+                                { x: pipe.p1.x, y: pipe.p1.y } :
+                                { x: pipe.p2.x, y: pipe.p2.y };
+                            console.log('✅ Starting from pipe endpoint (near click):', startPos);
+                        } else {
+                            // Boru ortasında, dal oluştur
+                            startPos = { x: splitX, y: splitY };
+                            console.log('✅ Starting from pipe body (branch):', startPos);
+                        }
+                    }
+                }
+            }
+
+            // ÖNCELİK 5: Normal snapped pozisyon
+            if (!startPos) {
+                startPos = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+                console.log('✅ Start point set (normal):', startPos);
             }
 
             setState({ startPoint: startPos });
