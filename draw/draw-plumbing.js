@@ -137,13 +137,15 @@ function drawServisKutusu(block, isSelected) {
     ctx2d.closePath();
     ctx2d.stroke();
 
-    // SK yazısı - beyaz büyük ve dolgun (zoom ile birlikte büyür)
+    // SK yazısı - sadece kontur (dış dolgusu yok), boyut 2/3'e düşürüldü (18 -> 12)
     if (zoom > 0.15) {
-        ctx2d.fillStyle = '#FFFFFF';
-        ctx2d.font = `bold 18px Arial`;
+        ctx2d.strokeStyle = '#FFFFFF';
+        ctx2d.lineWidth = 2;
+        ctx2d.lineJoin = 'round';
+        ctx2d.font = `bold 12px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
-        ctx2d.fillText('SK', 0, 0);
+        ctx2d.strokeText('SK', 0, 0);
     }
 
     ctx2d.restore();
@@ -222,27 +224,24 @@ function drawSayac(block, isSelected) {
     //     ctx2d.fill();
     // });
 
-    // G4 yazısı - BEYAZ, BÜYÜK ve DOLGUN (zoom ile birlikte büyür)
+    // G4 yazısı - sadece beyaz kontur (dış dolgusu yok), boyut 2/3'e düşürüldü (14 -> 9)
     if (zoom > 0.2) {
         ctx2d.save();
         ctx2d.translate(block.center.x, block.center.y);
         ctx2d.rotate(block.rotation * Math.PI / 180);
 
-        // Yazı boyutları - zoom ile birlikte büyür
-        const fontSize = 14;
+        // Yazı boyutları - 2/3 oranında (14'ten 9'a düşürüldü)
+        const fontSize = 9;
         ctx2d.font = `bold ${fontSize}px Arial`;
 
-        // G4 yazısını bloğun ortasına koy - TAM BEYAZ (#FFFFFF)
-        // Siyah kontur ile okunabilirliği artır
-        ctx2d.strokeStyle = '#000000';
+        // G4 yazısını bloğun ortasına koy - sadece beyaz kontur
+        ctx2d.strokeStyle = '#FFFFFF';
         ctx2d.lineWidth = 2;
         ctx2d.lineJoin = 'round';
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
         ctx2d.strokeText('G4', 0, 0);
 
-        ctx2d.fillStyle = '#FFFFFF';  // Tam beyaz
-        ctx2d.fillText('G4', 0, 0);
         ctx2d.restore();
     }
 }
@@ -324,20 +323,15 @@ function drawKombi(block, isSelected) {
     ctx2d.arc(0, 0, innerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
 
-    // G harfi - BÜYÜK ve DOLGUN (zoom ile birlikte büyür)
+    // G harfi - sadece beyaz kontur (dış dolgusu yok)
     if (zoom > 0.15) {
-        ctx2d.fillStyle = '#FFFFFF';  // Beyaz renk (mavi yerine)
+        ctx2d.strokeStyle = '#FFFFFF';  // Beyaz renk
+        ctx2d.lineWidth = 2;
+        ctx2d.lineJoin = 'round';
         ctx2d.font = `bold 20px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
-
-        // Siyah kontur ile okunabilirliği artır
-        ctx2d.strokeStyle = '#000000';
-        ctx2d.lineWidth = 3;
-        ctx2d.lineJoin = 'round';
         ctx2d.strokeText('G', 0, 0);
-
-        ctx2d.fillText('G', 0, 0);
     }
 
     ctx2d.restore();

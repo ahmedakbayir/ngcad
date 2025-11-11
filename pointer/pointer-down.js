@@ -637,20 +637,60 @@ export function onPointerDown(e) {
                         const splitX = pipe.p1.x + t * dx;
                         const splitY = pipe.p1.y + t * dy;
 
-                        // Eğer boru ucuna çok yakınsa (5 cm), dal oluşturma (endpoint snap kullan)
+                        // Eğer boru ucuna çok yakınsa (10 cm), dal oluşturma (endpoint snap kullan)
                         const distToP1 = Math.hypot(splitX - pipe.p1.x, splitY - pipe.p1.y);
                         const distToP2 = Math.hypot(splitX - pipe.p2.x, splitY - pipe.p2.y);
 
-                        if (distToP1 < 5 || distToP2 < 5) {
+                        if (distToP1 < 10 || distToP2 < 10) {
                             // Uç noktaya çok yakın, normal endpoint snap kullan
                             startPos = distToP1 < distToP2 ?
                                 { x: pipe.p1.x, y: pipe.p1.y } :
                                 { x: pipe.p2.x, y: pipe.p2.y };
                             console.log('✅ Starting from pipe endpoint (near click):', startPos);
                         } else {
-                            // Boru ortasında, dal oluştur
-                            startPos = { x: splitX, y: splitY };
-                            console.log('✅ Starting from pipe body (branch):', startPos);
+                            // Boru ortasında, BORUYU BÖL ve dal oluştur
+                            const originalP1 = { ...pipe.p1 };
+                            const originalP2 = { ...pipe.p2 };
+                            const splitPoint = { x: splitX, y: splitY };
+
+                            // Orijinal borunun özelliklerini sakla
+                            const pipeType = pipe.pipeType;
+                            const pipeConfig = pipe.typeConfig;
+                            const isConnected = pipe.isConnectedToValve;
+
+                            // Orijinal boruyu sil
+                            const pipeIndex = state.plumbingPipes.indexOf(pipe);
+                            if (pipeIndex > -1) {
+                                state.plumbingPipes.splice(pipeIndex, 1);
+                            }
+
+                            // İki yeni boru oluştur: p1->splitPoint ve splitPoint->p2
+                            const pipe1 = createPlumbingPipe(originalP1.x, originalP1.y, splitX, splitY, pipeType);
+                            const pipe2 = createPlumbingPipe(splitX, splitY, originalP2.x, originalP2.y, pipeType);
+
+                            // Bağlantı durumunu koru
+                            if (pipe1) {
+                                pipe1.isConnectedToValve = isConnected;
+                                // Orijinal p1 bağlantısını koru
+                                if (pipe.connections?.start) {
+                                    pipe1.connections.start = pipe.connections.start;
+                                }
+                                state.plumbingPipes.push(pipe1);
+                            }
+
+                            if (pipe2) {
+                                pipe2.isConnectedToValve = isConnected;
+                                // Orijinal p2 bağlantısını koru
+                                if (pipe.connections?.end) {
+                                    pipe2.connections.end = pipe.connections.end;
+                                }
+                                state.plumbingPipes.push(pipe2);
+                            }
+
+                            startPos = splitPoint;
+                            console.log('✅ Pipe split at body, branch starting from:', startPos);
+                            geometryChanged = true;
+                            needsUpdate3D = true;
                         }
                     }
                 }

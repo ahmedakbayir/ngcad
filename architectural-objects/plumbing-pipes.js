@@ -121,11 +121,13 @@ export function snapToConnectionPoint(point, tolerance = 10, filterFn = null) {
             const dist = Math.hypot(point.x - cp.x, point.y - cp.y);
 
             if (dist < minDist) {
-                // SAYAÇ KONTROLÜ: Bu bağlantı noktasına zaten bir boru bağlı mı?
+                // SAYAÇ VE VANA KONTROLÜ: Bu bağlantı noktasına zaten bir boru bağlı mı?
+                // Sayaç ve vana'nın her bağlantı noktasına sadece BİR boru bağlanabilir
                 if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
+                    const CONNECTION_TOLERANCE = 5; // 5 cm tolerans (2'den 5'e artırıldı)
                     const isOccupied = (state.plumbingPipes || []).some(pipe =>
-                        Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < 2 ||
-                        Math.hypot(pipe.p2.x - cp.x, pipe.p2.y - cp.y) < 2
+                        Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < CONNECTION_TOLERANCE ||
+                        Math.hypot(pipe.p2.x - cp.x, pipe.p2.y - cp.y) < CONNECTION_TOLERANCE
                     );
 
                     if (isOccupied) {
@@ -274,6 +276,31 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     const dy = snappedPos.roundedY - startPos.y;
 
     if (handle === 'p1') {
+        // BAĞLI UÇLARI TAŞIMAYA İZİN VERME - tek parça gibi davran
+        // Boru ucu bir bloğa bağlıysa taşınamaz
+        const CONNECTION_TOLERANCE = 5; // 5 cm tolerans
+        const currentFloorId = state.currentFloor?.id;
+        const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
+
+        let isConnectedToBlock = false;
+        for (const block of blocks) {
+            const connections = getConnectionPoints(block);
+
+            for (const cp of connections) {
+                const dist = Math.hypot(startP1.x - cp.x, startP1.y - cp.y);
+                if (dist < CONNECTION_TOLERANCE) {
+                    isConnectedToBlock = true;
+                    break;
+                }
+            }
+            if (isConnectedToBlock) break;
+        }
+
+        if (isConnectedToBlock) {
+            // Bağlı ise taşımaya izin verme
+            return true;
+        }
+
         // Başlangıç noktasını taşı
         pipe.p1.x = startP1.x + dx;
         pipe.p1.y = startP1.y + dy;
@@ -286,6 +313,30 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         }
         return true;
     } else if (handle === 'p2') {
+        // BAĞLI UÇLARI TAŞIMAYA İZİN VERME - tek parça gibi davran
+        const CONNECTION_TOLERANCE = 5; // 5 cm tolerans
+        const currentFloorId = state.currentFloor?.id;
+        const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
+
+        let isConnectedToBlock = false;
+        for (const block of blocks) {
+            const connections = getConnectionPoints(block);
+
+            for (const cp of connections) {
+                const dist = Math.hypot(startP2.x - cp.x, startP2.y - cp.y);
+                if (dist < CONNECTION_TOLERANCE) {
+                    isConnectedToBlock = true;
+                    break;
+                }
+            }
+            if (isConnectedToBlock) break;
+        }
+
+        if (isConnectedToBlock) {
+            // Bağlı ise taşımaya izin verme
+            return true;
+        }
+
         // Bitiş noktasını taşı
         pipe.p2.x = startP2.x + dx;
         pipe.p2.y = startP2.y + dy;
