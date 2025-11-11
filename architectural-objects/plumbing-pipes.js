@@ -97,11 +97,17 @@ export function isPointOnPipe(point, pipe, tolerance = 5) {
  * Bağlantı noktasına snap mesafesini hesaplar
  * @param {object} point - Kontrol edilecek nokta
  * @param {number} tolerance - Snap toleransı
+ * @param {function} filterFn - Opsiyonel: Blokları filtreleme fonksiyonu (block) => boolean
  * @returns {object|null} - Snap noktası veya null
  */
-export function snapToConnectionPoint(point, tolerance = 10) {
+export function snapToConnectionPoint(point, tolerance = 10, filterFn = null) {
     const currentFloorId = state.currentFloor?.id;
-    const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
+    let blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
+
+    // Eğer filter fonksiyonu varsa uygula
+    if (filterFn) {
+        blocks = blocks.filter(filterFn);
+    }
 
     let closestSnap = null;
     let minDist = tolerance;
@@ -123,6 +129,48 @@ export function snapToConnectionPoint(point, tolerance = 10) {
                     label: cp.label
                 };
             }
+        }
+    }
+
+    return closestSnap;
+}
+
+/**
+ * Boru uçlarına snap et (appliance'lar için)
+ * @param {object} point - Kontrol edilecek nokta
+ * @param {number} tolerance - Snap toleransı
+ * @returns {object|null} - Snap noktası veya null
+ */
+export function snapToPipeEndpoint(point, tolerance = 10) {
+    const currentFloorId = state.currentFloor?.id;
+    const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
+
+    let closestSnap = null;
+    let minDist = tolerance;
+
+    for (const pipe of pipes) {
+        // p1'e olan mesafe
+        const dist1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
+        if (dist1 < minDist) {
+            minDist = dist1;
+            closestSnap = {
+                x: pipe.p1.x,
+                y: pipe.p1.y,
+                pipe: pipe,
+                endpoint: 'p1'
+            };
+        }
+
+        // p2'ye olan mesafe
+        const dist2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
+        if (dist2 < minDist) {
+            minDist = dist2;
+            closestSnap = {
+                x: pipe.p2.x,
+                y: pipe.p2.y,
+                pipe: pipe,
+                endpoint: 'p2'
+            };
         }
     }
 
