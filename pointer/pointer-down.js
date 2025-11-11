@@ -383,11 +383,6 @@ export function onPointerDown(e) {
 
                 if (blockType === 'SAYAC') {
                     // Sayacı boruya PARALEL yerleştir, connection point'ler otomatik olarak dik çıkar
-                    // Boruya dik yönde kaydırma YOK - direkt boru üzerinde
-
-                    // Borunun yönüne göre sayacı ayarla:
-                    // - Yatay hat (angle ≈ 0, 180): Sayaç yatay, bağlantılar yukarı/aşağı
-                    // - Dikey hat (angle ≈ 90, -90): Sayaç dikey, bağlantılar sağa/sola
 
                     // Açıyı normalize et (-180 ile 180 arası)
                     let normalizedAngle = angle;
@@ -396,6 +391,20 @@ export function onPointerDown(e) {
 
                     // Sayaç rotasyonu = borunun rotasyonu (paralel)
                     blockRotation = Math.round(normalizedAngle / 15) * 15;
+
+                    // SAYACIN CONNECTION POINT'LERİNİN ORTASI BORUYA GELSİN
+                    // Connection point'ler lokal koordinatlarda y=-17.5'te (offset: -7.5 - 10)
+                    // Yani connection point'lerin ortası boru üzerinde olacak şekilde merkezi ayarla
+                    const connectionPointAvgOffset = -17.5; // y ekseni, lokal koordinat
+
+                    // Rotasyonu uygula (boru yönüne göre)
+                    const rotRad = blockRotation * Math.PI / 180;
+                    const offsetX = -connectionPointAvgOffset * Math.sin(rotRad);
+                    const offsetY = connectionPointAvgOffset * Math.cos(rotRad);
+
+                    // Merkezi offset et
+                    blockX = splitX + offsetX;
+                    blockY = splitY + offsetY;
                 }
 
                 // Yeni blok oluştur
@@ -483,8 +492,14 @@ export function onPointerDown(e) {
             const valveConnections = getConnectionPoints(newValve);
             const valveOutlet = valveConnections[1]; // Çıkış noktası (sağ taraf)
 
-            // 2. CİHAZI (OCAK/KOMBI) DİREKT VANANIN UCUNA EKLE (ARADA BORU YOK)
-            const newBlock = createPlumbingBlock(valveOutlet.x, valveOutlet.y, blockType);
+            // 2. CİHAZI (OCAK/KOMBI) BORUNUN DOĞRULTUSUNDA UZAĞA KOY (FLEX HOSE GÖRÜNSÜN)
+            // Borunun yönünde 40 cm ileriye cihazı yerleştir
+            const flexHoseLength = 40; // 40 cm flex hose
+            const angleRad = pipeAngle * Math.PI / 180;
+            const deviceX = valveOutlet.x + Math.cos(angleRad) * flexHoseLength;
+            const deviceY = valveOutlet.y + Math.sin(angleRad) * flexHoseLength;
+
+            const newBlock = createPlumbingBlock(deviceX, deviceY, blockType);
             newBlock.rotation = Math.round(pipeAngle / 15) * 15;
 
             // State'e ekle

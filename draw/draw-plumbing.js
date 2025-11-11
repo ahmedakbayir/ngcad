@@ -140,9 +140,9 @@ function drawServisKutusu(block, isSelected) {
     // SK yazısı - sadece kontur (dış dolgusu yok), boyut 2/3'e düşürüldü (18 -> 12)
     if (zoom > 0.15) {
         ctx2d.strokeStyle = '#FFFFFF';
-        ctx2d.lineWidth = 2;
+        ctx2d.lineWidth = 1.5;
         ctx2d.lineJoin = 'round';
-        ctx2d.font = `bold 12px Arial`;
+        ctx2d.font = `12px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
         ctx2d.strokeText('SK', 0, 0);
@@ -232,11 +232,11 @@ function drawSayac(block, isSelected) {
 
         // Yazı boyutları - 2/3 oranında (14'ten 9'a düşürüldü)
         const fontSize = 9;
-        ctx2d.font = `bold ${fontSize}px Arial`;
+        ctx2d.font = `${fontSize}px Arial`;
 
         // G4 yazısını bloğun ortasına koy - sadece beyaz kontur
         ctx2d.strokeStyle = '#FFFFFF';
-        ctx2d.lineWidth = 2;
+        ctx2d.lineWidth = 1.5;
         ctx2d.lineJoin = 'round';
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
@@ -326,9 +326,9 @@ function drawKombi(block, isSelected) {
     // G harfi - sadece beyaz kontur (dış dolgusu yok)
     if (zoom > 0.15) {
         ctx2d.strokeStyle = '#FFFFFF';  // Beyaz renk
-        ctx2d.lineWidth = 2;
+        ctx2d.lineWidth = 1.5;
         ctx2d.lineJoin = 'round';
-        ctx2d.font = `bold 20px Arial`;
+        ctx2d.font = `20px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
         ctx2d.strokeText('G', 0, 0);
@@ -479,7 +479,12 @@ export function drawPlumbingBlockHandles(block) {
     // Bağlantı noktası handle'ları çiz
     for (let i = 0; i < connections.length; i++) {
         const cp = connections[i];
-        ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
+        // Servis kutusu için tüm noktalar yeşil (6 nokta), diğerleri için ilk yeşil, diğerleri kırmızı
+        if (block.blockType === 'SERVIS_KUTUSU') {
+            ctx2d.fillStyle = '#00FF00'; // Tüm noktalar yeşil
+        } else {
+            ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
+        }
         ctx2d.strokeStyle = '#FFFFFF';
         ctx2d.lineWidth = 1.5 / zoom;
         ctx2d.beginPath();

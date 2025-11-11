@@ -278,7 +278,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     if (handle === 'p1') {
         // BAĞLI UÇLARI TAŞIMAYA İZİN VERME - tek parça gibi davran
         // Boru ucu bir bloğa bağlıysa taşınamaz
-        const CONNECTION_TOLERANCE = 5; // 5 cm tolerans
+        const CONNECTION_TOLERANCE = 15; // 15 cm tolerans - tutarlılık için
         const currentFloorId = state.currentFloor?.id;
         const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
 
@@ -314,7 +314,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         return true;
     } else if (handle === 'p2') {
         // BAĞLI UÇLARI TAŞIMAYA İZİN VERME - tek parça gibi davran
-        const CONNECTION_TOLERANCE = 5; // 5 cm tolerans
+        const CONNECTION_TOLERANCE = 15; // 15 cm tolerans - tutarlılık için
         const currentFloorId = state.currentFloor?.id;
         const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
 
