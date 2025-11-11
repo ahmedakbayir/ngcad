@@ -9,6 +9,82 @@ import { PLUMBING_PIPE_TYPES } from '../architectural-objects/plumbing-pipes.js'
  */
 
 /**
+ * Sinüs dalgalı bağlantı çizgisi çizer (Ocak/Kombi için)
+ * Eğer bağlantı noktası boru ucuna doğrudan bağlı değilse, araya sinüs çizgisi çizer
+ */
+function drawWavyConnectionLine(connectionPoint, zoom) {
+    const { ctx2d } = dom;
+    const currentFloorId = state.currentFloor?.id;
+    const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
+
+    // En yakın boru ucunu bul
+    let closestPipeEnd = null;
+    let minDist = Infinity;
+    const DIRECT_CONNECTION_TOLERANCE = 2; // 2 cm - doğrudan bağlı kabul edilme mesafesi
+
+    for (const pipe of pipes) {
+        // p1'e olan mesafe
+        const dist1 = Math.hypot(pipe.p1.x - connectionPoint.x, pipe.p1.y - connectionPoint.y);
+        if (dist1 < minDist) {
+            minDist = dist1;
+            closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
+        }
+
+        // p2'ye olan mesafe
+        const dist2 = Math.hypot(pipe.p2.x - connectionPoint.x, pipe.p2.y - connectionPoint.y);
+        if (dist2 < minDist) {
+            minDist = dist2;
+            closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
+        }
+    }
+
+    // Eğer doğrudan bağlı değilse (mesafe > tolerans), sinüs çizgisi çiz
+    if (closestPipeEnd && minDist > DIRECT_CONNECTION_TOLERANCE) {
+        const dx = closestPipeEnd.x - connectionPoint.x;
+        const dy = closestPipeEnd.y - connectionPoint.y;
+        const distance = Math.hypot(dx, dy);
+
+        // Sinüs parametreleri
+        const amplitude = 3; // Dalga genliği (cm)
+        const frequency = 3; // Dalga frekansı (tam dalga sayısı)
+        const segments = 50; // Çizgi segmentleri
+
+        ctx2d.save();
+        ctx2d.strokeStyle = '#2196F3'; // Mavi renk
+        ctx2d.lineWidth = 2 / zoom;
+        ctx2d.lineCap = 'round';
+
+        ctx2d.beginPath();
+        ctx2d.moveTo(connectionPoint.x, connectionPoint.y);
+
+        // Sinüs eğrisi çiz
+        for (let i = 1; i <= segments; i++) {
+            const t = i / segments; // 0-1 arası parametre
+
+            // Ana çizgi üzerindeki nokta
+            const baseX = connectionPoint.x + dx * t;
+            const baseY = connectionPoint.y + dy * t;
+
+            // Perpendicular (dik) yön
+            const perpX = -dy / distance;
+            const perpY = dx / distance;
+
+            // Sinüs offset'i
+            const sineOffset = Math.sin(t * frequency * Math.PI * 2) * amplitude;
+
+            // Final pozisyon
+            const finalX = baseX + perpX * sineOffset;
+            const finalY = baseY + perpY * sineOffset;
+
+            ctx2d.lineTo(finalX, finalY);
+        }
+
+        ctx2d.stroke();
+        ctx2d.restore();
+    }
+}
+
+/**
  * Servis Kutusu çizer (yuvarlatılmış dikdörtgen)
  */
 function drawServisKutusu(block, isSelected) {
@@ -104,15 +180,31 @@ function drawSayac(block, isSelected) {
         ctx2d.fill();
     });
 
-    // G4 yazısı - dışarıda (önünde)
+    // G4 yazısı - beyaz dikdörtgen arka plan + siyah yazı
     if (zoom > 0.3) {
         ctx2d.save();
         ctx2d.translate(block.center.x, block.center.y);
         ctx2d.rotate(block.rotation * Math.PI / 180);
 
-        // G4 yazısını bloğun önüne koy (y: -halfH - 8)
-        ctx2d.fillStyle = '#333';
-        ctx2d.font = `bold ${12 / zoom}px Arial`;
+        // Yazı boyutlarını hesapla
+        const fontSize = 12 / zoom;
+        ctx2d.font = `bold ${fontSize}px Arial`;
+        const textMetrics = ctx2d.measureText('G4');
+        const textWidth = textMetrics.width;
+        const textHeight = fontSize;
+
+        // Beyaz dikdörtgen arka plan (padding ile)
+        const padding = 2 / zoom;
+        const bgX = -textWidth / 2 - padding;
+        const bgY = -halfH - textHeight - 3 - padding;
+        const bgWidth = textWidth + padding * 2;
+        const bgHeight = textHeight + padding * 2;
+
+        ctx2d.fillStyle = '#FFFFFF';
+        ctx2d.fillRect(bgX, bgY, bgWidth, bgHeight);
+
+        // G4 yazısını bloğun önüne koy - siyah renk
+        ctx2d.fillStyle = '#000000';
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'bottom';
         ctx2d.fillText('G4', 0, -halfH - 3);
@@ -214,6 +306,9 @@ function drawKombi(block, isSelected) {
     ctx2d.beginPath();
     ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
     ctx2d.fill();
+
+    // Sinüs çizgisi çiz (eğer boru ucuna doğrudan bağlı değilse)
+    drawWavyConnectionLine(connections[0], zoom);
 }
 
 /**
@@ -283,6 +378,9 @@ function drawOcak(block, isSelected) {
     ctx2d.beginPath();
     ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
     ctx2d.fill();
+
+    // Sinüs çizgisi çiz (eğer boru ucuna doğrudan bağlı değilse)
+    drawWavyConnectionLine(connections[0], zoom);
 }
 
 /**

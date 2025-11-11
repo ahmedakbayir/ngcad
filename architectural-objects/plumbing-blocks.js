@@ -79,7 +79,7 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 59,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: 0, z: 10, label: 'bağlantı' } // Arkada ortada, yerden 10 cm yukarıda
+            { x: 0, y: -30, z: 10, label: 'bağlantı' } // Arka kenarın ortasında, yerden 10 cm yukarıda
         ],
         mountType: 'floor', // Zemine oturur
         color: 0x303030,

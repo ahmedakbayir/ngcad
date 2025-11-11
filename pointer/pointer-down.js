@@ -2,7 +2,7 @@
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
-import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock, getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
+import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock, getConnectionPoints, PLUMBING_BLOCK_TYPES } from '../architectural-objects/plumbing-blocks.js';
 import { createPlumbingPipe, snapToConnectionPoint, snapToPipeEndpoint, onPointerDown as onPointerDownPlumbingPipe } from '../architectural-objects/plumbing-pipes.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
@@ -376,8 +376,32 @@ export function onPointerDown(e) {
                 const splitX = pipe.p1.x + t * dx;
                 const splitY = pipe.p1.y + t * dy;
 
-                // Yeni blok oluştur (boru üzerinde)
-                const newBlock = createPlumbingBlock(splitX, splitY, blockType);
+                // SAYAÇ İÇİN: Hattın düzlüğünü bozmamak için boruya dik yönde kaydır
+                let blockX = splitX;
+                let blockY = splitY;
+
+                if (blockType === 'SAYAC') {
+                    // Boruya dik yön (perpendicular)
+                    const pipeLength = Math.hypot(dx, dy);
+                    const perpX = -dy / pipeLength; // Normalize edilmiş dik vektör X
+                    const perpY = dx / pipeLength;  // Normalize edilmiş dik vektör Y
+
+                    // Sayacın yarı yüksekliği (height / 2)
+                    const SAYAC_CONFIG = PLUMBING_BLOCK_TYPES.SAYAC;
+                    const offset = SAYAC_CONFIG.height / 2; // 15 / 2 = 7.5 cm
+
+                    // Tıklama noktasına göre hangi tarafa kaydırılacağını belirle
+                    // Tıklama noktasından boruya olan dik mesafe
+                    const signedDist = (pos.x - splitX) * perpX + (pos.y - splitY) * perpY;
+                    const direction = signedDist >= 0 ? 1 : -1;
+
+                    // Sayacı dik yönde kaydır
+                    blockX = splitX + perpX * offset * direction;
+                    blockY = splitY + perpY * offset * direction;
+                }
+
+                // Yeni blok oluştur
+                const newBlock = createPlumbingBlock(blockX, blockY, blockType);
                 newBlock.rotation = Math.round(angle / 15) * 15; // Boru yönüne uygun dönüş
 
                 // Bloğun bağlantı noktalarını al
