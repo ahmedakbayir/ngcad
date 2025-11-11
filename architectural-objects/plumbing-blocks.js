@@ -4,7 +4,7 @@ import { state, setState } from '../general-files/main.js';
  * TESİSAT BLOKLARI - SABĐT BOYUTLU MĐMARĐ ELEMANLAR
  *
  * 5 Temel Tesisat Bloğu:
- * 1. Servis Kutusu - Tek bağlantı noktalı
+ * 1. Servis Kutusu - 6 bağlantı noktalı (sağda 3, solda 3)
  * 2. Sayaç - Çift bağlantı noktalı (giriş-çıkış)
  * 3. Vana - Çift bağlantı noktalı
  * 4. Kombi - Tek bağlantı noktalı, duvara monte
@@ -302,13 +302,12 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 
         return true;
     } else if (handle === 'body') {
-        // OCAK veya KOMBI bağlantı kontrolü - BAĞLIYSA KOPARAMAZ
-        if (block.blockType === 'OCAK' || block.blockType === 'KOMBI') {
-            const isConnected = checkIfBlockIsConnected(block);
-            if (isConnected) {
-                // Bağlı ise taşımaya izin verme
-                return true;
-            }
+        // TÜM CİHAZLAR için bağlantı kontrolü - BAĞLIYSA KOPARAMAZ
+        // Bir kez bağlandıktan sonra cihaz ve boru tek parça gibi davranır
+        const isConnected = checkIfBlockIsConnected(block);
+        if (isConnected) {
+            // Bağlı ise taşımaya izin verme - tek parça olarak davranır
+            return true;
         }
 
         // Taşıma - Bloğun eski ve yeni pozisyonunu hesapla

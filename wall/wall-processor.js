@@ -386,8 +386,9 @@ export function processWalls(skipMerge = false, skipRoomDetection = false, proce
     state.nodes = state.nodes.filter(n => !n.isColumnNode);
 
     // LOKAL KALINLIK İÇİN: skipMerge true ise birleştirme yapma
+    // Tolerans artırıldı: 1.0 cm'den 5.0 cm'ye (duvarların kopmasını önlemek için)
     if (!skipMerge) {
-        unifyNearbyNodes(1.0, processAllFloors);
+        unifyNearbyNodes(5.0, processAllFloors);
     }
 
     const filteredWalls = state.walls.filter(w => {
