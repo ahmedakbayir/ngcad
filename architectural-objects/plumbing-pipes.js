@@ -149,11 +149,11 @@ export function getPipeAtPoint(point, tolerance = 8) {
             const distP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
 
             if (distP1 < tolerance) {
-                return { object: pipe, handle: 'p1' };
+                return { type: 'plumbingPipe', object: pipe, handle: 'p1' };
             } else if (distP2 < tolerance) {
-                return { object: pipe, handle: 'p2' };
+                return { type: 'plumbingPipe', object: pipe, handle: 'p2' };
             } else {
-                return { object: pipe, handle: 'body' };
+                return { type: 'plumbingPipe', object: pipe, handle: 'body' };
             }
         }
     }
