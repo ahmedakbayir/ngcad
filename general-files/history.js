@@ -1,5 +1,9 @@
-// ahmedakbayir/ngcad/ngcad-fb1bec1810a1fbdad8c3efe1b2520072bc3cd1d5/history.js
+// ahmedakbayir/ngcad/ngcad-25cb8b9daa7f201d20b7282862eee992cd9d77b2/general-files/history.js
+// GÜNCELLENDİ: Tesisat nesneleri (plumbingBlocks, plumbingPipes) eklendi.
+// GÜNCELLENDİ: Boru bağlantı referansları (blockId) için indeksleme eklendi.
 import { state, setState } from './main.js';
+// YENİ İMPORT: Boru tiplerini geri yüklemek için eklendi
+import { PLUMBING_PIPE_TYPES } from '../architectural-objects/plumbing-pipes.js';
 
 export function saveState() {
     // Mevcut state'in derin kopyasını oluşturmaya gerek yok, snapshot yeterli.
@@ -62,6 +66,32 @@ export function saveState() {
             showRailing: s.showRailing, // <-- DÜZELTME: Korkuluk bilgisi eklendi
             floorId: s.floorId // FLOOR ISOLATION: floorId kaydet
         })))),
+        
+        // --- YENİ EKLENEN TESİSAT KAYDI ---
+        plumbingBlocks: JSON.parse(JSON.stringify(state.plumbingBlocks || [])), // Blokları kopyala
+        plumbingPipes: (state.plumbingPipes || []).map(p => ({
+            // Boru özelliklerini kopyala
+            pipeType: p.pipeType,
+            p1: { ...p.p1 },
+            p2: { ...p.p2 },
+            floorId: p.floorId,
+            isConnectedToValve: p.isConnectedToValve,
+            // Bağlantıları (referansları) indekse çevir
+            connections: {
+                start: (p.connections.start && p.connections.start.blockId) ? {
+                    blockIndex: state.plumbingBlocks.indexOf(p.connections.start.blockId), // Referans -> İndeks
+                    connectionIndex: p.connections.start.connectionIndex,
+                    blockType: p.connections.start.blockType
+                } : null,
+                end: (p.connections.end && p.connections.end.blockId) ? {
+                    blockIndex: state.plumbingBlocks.indexOf(p.connections.end.blockId), // Referans -> İndeks
+                    connectionIndex: p.connections.end.connectionIndex,
+                    blockType: p.connections.end.blockType
+                } : null
+            }
+        })),
+        // --- YENİ KAYIT SONU ---
+
         guides: JSON.parse(JSON.stringify(state.guides || [])), // <-- REFERANS ÇİZGİSİ EKLENDİ
         floors: JSON.parse(JSON.stringify(state.floors || [])), // FLOOR ISOLATION: floors kaydet
         currentFloor: state.currentFloor ? { id: state.currentFloor.id } : null // FLOOR ISOLATION: currentFloor ID'sini kaydet
@@ -119,6 +149,38 @@ export function restoreState(snapshot) {
         isWidthManuallySet: d.isWidthManuallySet || false
     }));
 
+    // --- YENİ EKLENEN TESİSAT GERİ YÜKLEME ---
+    // Önce blokları kopyala
+    const restoredPlumbingBlocks = snapshot.plumbingBlocks ? JSON.parse(JSON.stringify(snapshot.plumbingBlocks)) : [];
+
+    // Sonra boruları geri yükle ve referansları bağla
+    const restoredPlumbingPipes = (snapshot.plumbingPipes || []).map(p => {
+        // typeConfig'i geri yüklerken PLUMBING_PIPE_TYPES'ı kullan
+        const pipeConfig = PLUMBING_PIPE_TYPES[p.pipeType] || PLUMBING_PIPE_TYPES['STANDARD'];
+        return {
+            type: 'plumbingPipe',
+            pipeType: p.pipeType,
+            p1: { ...p.p1 },
+            p2: { ...p.p2 },
+            floorId: p.floorId,
+            typeConfig: pipeConfig, // typeConfig'i geri yükle
+            isConnectedToValve: p.isConnectedToValve,
+            connections: {
+                start: (p.connections.start && p.connections.start.blockIndex !== -1 && restoredPlumbingBlocks[p.connections.start.blockIndex]) ? {
+                    blockId: restoredPlumbingBlocks[p.connections.start.blockIndex], // İndeksi objeye çevir
+                    connectionIndex: p.connections.start.connectionIndex,
+                    blockType: p.connections.start.blockType
+                } : null,
+                end: (p.connections.end && p.connections.end.blockIndex !== -1 && restoredPlumbingBlocks[p.connections.end.blockIndex]) ? {
+                    blockId: restoredPlumbingBlocks[p.connections.end.blockIndex], // İndeksi objeye çevir
+                    connectionIndex: p.connections.end.connectionIndex,
+                    blockType: p.connections.end.blockType
+                } : null
+            }
+        };
+    });
+    // --- YENİ GERİ YÜKLEME SONU ---
+
     // Floors'u geri yükle ve currentFloor'u bul
     const restoredFloors = snapshot.floors || [];
     const restoredCurrentFloor = snapshot.currentFloor
@@ -156,6 +218,12 @@ export function restoreState(snapshot) {
             showRailing: s.showRailing || false, // <-- DÜZELTME: Korkuluk bilgisi okundu
             floorId: s.floorId // FLOOR ISOLATION: floorId geri yükle
         })),
+
+        // --- YENİ EKLENEN STATE GÜNCELLEMESİ ---
+        plumbingBlocks: restoredPlumbingBlocks,
+        plumbingPipes: restoredPlumbingPipes,
+        // --- YENİ GÜNCELLEME SONU ---
+
         guides: snapshot.guides || [], // <-- REFERANS ÇİZGİSİ EKLENDİ
         floors: restoredFloors, // FLOOR ISOLATION: floors geri yükle
         currentFloor: restoredCurrentFloor // FLOOR ISOLATION: currentFloor geri yükle
