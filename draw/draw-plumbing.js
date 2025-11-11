@@ -414,7 +414,7 @@ export function drawPlumbingPipe(pipe, isSelected = false) {
 
     // Kesikli çizgi kontrolü - eğer vanaya bağlı değilse kesikli çiz
     if (!pipe.isConnectedToValve) {
-        ctx2d.setLineDash([8 / zoom, 6 / zoom]);
+        ctx2d.setLineDash([15 / zoom, 10 / zoom]); // Daha açık kesikli çizgi
     }
 
     ctx2d.beginPath();
