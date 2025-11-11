@@ -21,9 +21,14 @@ export const PLUMBING_BLOCK_TYPES = {
         height: 20,     // duvardan dışa çıkan (2D Y ekseni, 3D Z ekseni)
         depth: 70,      // yükseklik (3D Y ekseni) - duvara dik yükseliş
         cornerRadius: 2, // 2 cm yuvarlama
-        // Bağlantı noktası (merkeze göre offset)
+        // Bağlantı noktaları (merkeze göre offset) - 6 ADET
         connectionPoints: [
-            { x: 20, y: 0, z: -15, label: 'çıkış' } // Sağda ortada, yerden -15 cm
+            { x: 20, y: 0, z: -15, label: 'sağ-orta' },      // Sağda ortada (mevcut)
+            { x: -20, y: 0, z: -15, label: 'sol-orta' },     // Solda ortada (karşısı)
+            { x: 20, y: -10, z: -15, label: 'sağ-üst' },     // Sağ üst köşe
+            { x: -20, y: -10, z: -15, label: 'sol-üst' },    // Sol üst köşe
+            { x: 20, y: 10, z: -15, label: 'sağ-alt' },      // Sağ alt köşe
+            { x: -20, y: 10, z: -15, label: 'sol-alt' }      // Sol alt köşe
         ],
         mountType: 'wall', // duvara monte
         color: 0xA8A8A8, // Gri ton
@@ -182,7 +187,7 @@ export function isPointInPlumbingBlock(point, block) {
 
 /**
  * Tıklanan noktada blok ve handle bulur
- * SADECE BAĞLANTI NOKTALARI VE BODY - Köşe ve rotation handle'lar kaldırıldı
+ * Bağlantı noktaları + Rotation handle + Body
  */
 export function getPlumbingBlockAtPoint(point) {
     const { zoom } = state;
@@ -190,7 +195,20 @@ export function getPlumbingBlockAtPoint(point) {
     const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
     const tolerance = 8 / zoom;
 
-    // Önce bağlantı noktalarını kontrol et
+    // Önce rotation handle'ları kontrol et (daha öncelikli)
+    for (const block of blocks) {
+        const rotationHandleDistance = 30;
+        const angle = (block.rotation || 0) * Math.PI / 180;
+        const handleX = block.center.x + Math.sin(angle) * rotationHandleDistance;
+        const handleY = block.center.y - Math.cos(angle) * rotationHandleDistance;
+
+        const rotDist = Math.hypot(point.x - handleX, point.y - handleY);
+        if (rotDist < tolerance) {
+            return { type: 'plumbingBlock', object: block, handle: 'rotation' };
+        }
+    }
+
+    // Sonra bağlantı noktalarını kontrol et
     for (const block of blocks) {
         const connectionPoints = getConnectionPoints(block);
         for (let i = 0; i < connectionPoints.length; i++) {
@@ -202,7 +220,7 @@ export function getPlumbingBlockAtPoint(point) {
         }
     }
 
-    // Hiç bağlantı noktası yoksa, body kontrolü
+    // Hiç handle yoksa, body kontrolü
     for (const block of blocks) {
         if (isPointInPlumbingBlock(point, block)) {
             return { type: 'plumbingBlock', object: block, handle: 'body' };
@@ -258,17 +276,32 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
 
 /**
  * Pointer move event handler
- * SADECE BODY HAREKETİ - Rotation ve corner handle'lar kaldırıldı
+ * Body hareketi + Rotation
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
     if (!dragState || dragState.type !== 'plumbingBlock') return false;
 
-    const { block, handle, startPos, startCenter } = dragState;
+    const { block, handle, startPos, startCenter, startRotation } = dragState;
     const dx = snappedPos.roundedX - startPos.x;
     const dy = snappedPos.roundedY - startPos.y;
 
-    if (handle === 'body') {
+    if (handle === 'rotation') {
+        // Rotation handle - Mouse pozisyonuna göre açı hesapla
+        const angleToMouse = Math.atan2(
+            snappedPos.roundedX - block.center.x,
+            -(snappedPos.roundedY - block.center.y)
+        ) * 180 / Math.PI;
+
+        // 15 derecelik snaplama
+        const oldRotation = block.rotation || 0;
+        block.rotation = Math.round(angleToMouse / 15) * 15;
+
+        // Bağlı boruları güncelle (rotasyon sonrası)
+        updateConnectedPipesAfterRotation(block, oldRotation, block.rotation);
+
+        return true;
+    } else if (handle === 'body') {
         // OCAK veya KOMBI bağlantı kontrolü - BAĞLIYSA KOPARAMAZ
         if (block.blockType === 'OCAK' || block.blockType === 'KOMBI') {
             const isConnected = checkIfBlockIsConnected(block);

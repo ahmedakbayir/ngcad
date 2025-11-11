@@ -120,20 +120,21 @@ function createServisKutusuMesh(block, material) {
     const mesh = new THREE.Mesh(geometry, material.clone());
     mesh.material.color.setHex(config.color);
 
-    // Bağlantı noktası göstergesi (küçük küre)
-    const connectionGeom = new THREE.SphereGeometry(3, 8, 8);
-    const connectionMat = new THREE.MeshStandardMaterial({
-        color: 0xFF0000,
-        emissive: 0xFF0000,
-        emissiveIntensity: 0.3
-    });
-    const connectionMesh = new THREE.Mesh(connectionGeom, connectionMat);
-    const cp = config.connectionPoints[0];
-    connectionMesh.position.set(cp.x, cp.z, cp.y); // z koordinatını Y eksenine kullan
-
     const group = new THREE.Group();
     group.add(mesh);
-    group.add(connectionMesh);
+
+    // Tüm bağlantı noktalarını göster (6 adet)
+    config.connectionPoints.forEach((cp, i) => {
+        const connectionGeom = new THREE.SphereGeometry(2, 8, 8);
+        const connectionMat = new THREE.MeshStandardMaterial({
+            color: 0xFF0000,
+            emissive: 0xFF0000,
+            emissiveIntensity: 0.3
+        });
+        const connectionMesh = new THREE.Mesh(connectionGeom, connectionMat);
+        connectionMesh.position.set(cp.x, cp.z, cp.y); // z koordinatını Y eksenine kullan
+        group.add(connectionMesh);
+    });
 
     return group;
 }
