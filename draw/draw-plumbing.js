@@ -71,7 +71,7 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
         ctx2d.beginPath();
         ctx2d.moveTo(connectionPoint.x, connectionPoint.y);
 
-        // Sinüs eğrisi çiz - BAŞTA VE SONDA TEĞET OLMALI
+        // Sinüs eğrisi çiz - BAŞTA VE SONDA TEĞET OLMALI (hem değer hem türev 0)
         for (let i = 1; i <= segments; i++) {
             const t = i / segments; // 0-1 arası parametre
 
@@ -83,9 +83,14 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
             const perpX = -dy / distance;
             const perpY = dx / distance;
 
-            // Sinüs offset'i - başta ve sonda 0 olacak şekilde (teğet için)
-            // sin(0) = 0, sin(π) = 0 olduğundan başta ve sonda düz olur
-            const sineOffset = Math.sin(t * Math.PI) * amplitude * Math.sin(t * frequency * Math.PI * 2);
+            // Smoothstep envelope - başta ve sonda hem değer hem türev 0 olur (TEĞET)
+            const smoothEnvelope = t * t * (3 - 2 * t); // Smoothstep: 0'da 0, 1'de 1, türev başta ve sonda 0
+
+            // Sinüs dalgası
+            const wave = Math.sin(smoothEnvelope * frequency * Math.PI * 2);
+
+            // Son offset - envelope ile çarparak başta ve sonda teğet olmasını sağla
+            const sineOffset = smoothEnvelope * (1 - smoothEnvelope) * 4 * amplitude * wave;
 
             // Final pozisyon
             const finalX = baseX + perpX * sineOffset;
@@ -152,7 +157,7 @@ function drawServisKutusu(block, isSelected) {
 }
 
 /**
- * Sayaç çizer (yuvarlatılmış dikdörtgen + 10cm bağlantı çizgileri)
+ * Sayaç çizer (yuvarlatılmış dikdörtgen + 10cm çapraz bağlantı çizgileri)
  */
 function drawSayac(block, isSelected) {
     const { ctx2d } = dom;
@@ -184,22 +189,26 @@ function drawSayac(block, isSelected) {
     ctx2d.closePath();
     ctx2d.stroke();
 
-    // 10 cm bağlantı çizgileri - bağlantı noktalarından dışarı çıkan
+    // 10 cm bağlantı çizgileri - ÜST KISIMDANÇAPRAZ olarak dışarı çıkan
     const lineLength = config.connectionLineLength || 10;
 
-    // Sol bağlantı çizgisi (giriş)
+    // Sol üst köşeden çapraz çıkıntı (giriş)
     ctx2d.strokeStyle = '#00FF00'; // Yeşil
     ctx2d.lineWidth = 2 / zoom;
     ctx2d.beginPath();
-    ctx2d.moveTo(-halfW, 0);
-    ctx2d.lineTo(-halfW - lineLength, 0);
+    // Sayaç gövdesinden başlangıç noktası (sol üst köşeye yakın)
+    ctx2d.moveTo(-8, -halfH);
+    // 10 cm yukarı ve biraz dışarı çıkıntı
+    ctx2d.lineTo(-8, -halfH - lineLength);
     ctx2d.stroke();
 
-    // Sağ bağlantı çizgisi (çıkış)
+    // Sağ üst köşeden çapraz çıkıntı (çıkış)
     ctx2d.strokeStyle = '#FF0000'; // Kırmızı
     ctx2d.beginPath();
-    ctx2d.moveTo(halfW, 0);
-    ctx2d.lineTo(halfW + lineLength, 0);
+    // Sayaç gövdesinden başlangıç noktası (sağ üst köşeye yakın)
+    ctx2d.moveTo(8, -halfH);
+    // 10 cm yukarı ve biraz dışarı çıkıntı
+    ctx2d.lineTo(8, -halfH - lineLength);
     ctx2d.stroke();
 
     ctx2d.restore();
@@ -223,17 +232,17 @@ function drawSayac(block, isSelected) {
         const fontSize = 12 / zoom;
         ctx2d.font = `bold ${fontSize}px Arial`;
 
-        // G4 yazısını bloğun üstüne koy - DAHA BEYAZ (#FFFFFF)
+        // G4 yazısını bloğun ortasına koy - DAHA BEYAZ (#FFFFFF)
         // Siyah kontur ile okunabilirliği artır
         ctx2d.strokeStyle = '#000000';
         ctx2d.lineWidth = 3 / zoom;
         ctx2d.lineJoin = 'round';
         ctx2d.textAlign = 'center';
-        ctx2d.textBaseline = 'bottom';
-        ctx2d.strokeText('G4', 0, -halfH - 3);
+        ctx2d.textBaseline = 'middle';
+        ctx2d.strokeText('G4', 0, 0);
 
         ctx2d.fillStyle = '#FFFFFF';  // Tam beyaz
-        ctx2d.fillText('G4', 0, -halfH - 3);
+        ctx2d.fillText('G4', 0, 0);
         ctx2d.restore();
     }
 }
@@ -720,18 +729,6 @@ export function drawPlumbingBlockDragPreview() {
         ctx2d.lineTo(closestPipeEnd.x, closestPipeEnd.y);
         ctx2d.stroke();
         ctx2d.setLineDash([]);
-
-        // "BAĞLANACAK" yazısı
-        ctx2d.fillStyle = '#00FF00';
-        ctx2d.strokeStyle = '#000000';
-        ctx2d.lineWidth = 3 / zoom;
-        ctx2d.font = `bold ${14 / zoom}px Arial`;
-        ctx2d.textAlign = 'center';
-        ctx2d.textBaseline = 'bottom';
-        const midX = (connectionPoint.x + closestPipeEnd.x) / 2;
-        const midY = (connectionPoint.y + closestPipeEnd.y) / 2 - 10 / zoom;
-        ctx2d.strokeText('BAĞLANACAK', midX, midY);
-        ctx2d.fillText('BAĞLANACAK', midX, midY);
     }
 
     ctx2d.restore();

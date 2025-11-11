@@ -219,19 +219,27 @@ function createVanaMesh(block, material) {
 /**
  * Kombi mesh'i oluşturur
  * SADELEŞTIRILMIŞ: Fazladan panel şekilleri kaldırıldı
+ * DİK DURUŞ: Kombi duvara monte, dik olarak durmalı
  */
 function createKombiMesh(block, material) {
     const config = PLUMBING_BLOCK_TYPES.KOMBI;
 
+    // Kombi için geometri: genişlik x yükseklik x derinlik
+    // X: 41 (genişlik), Y: 29 (yükseklik/derinlik için shape), Z: 72 (extrude - dik yükseklik)
     const geometry = createRoundedBoxGeometry(
-        config.width,
-        config.height,
-        config.depth,
+        config.width,      // 41 -> X (genişlik)
+        config.depth,      // 29 -> Y (shape yüksekliği)
+        config.height,     // 72 -> Z (extrude - dik yükseklik)
         config.cornerRadius
     );
 
-    geometry.rotateX(Math.PI / 2);
-    geometry.translate(0, config.depth / 2, 0);
+    // Kombi dik duracak, rotateX YAPMA
+    // Ama shape XY düzleminde, biz XZ düzleminde istiyoruz
+    // O yüzden 90 derece rotasyonla XZ düzlemine getir
+    geometry.rotateX(-Math.PI / 2); // -90 derece: Y -> Z, Z -> -Y
+
+    // Merkezi ayarla: Dik yükseklik (height=72) Y ekseninde olmalı
+    geometry.translate(0, config.height / 2, 0);
 
     const mesh = new THREE.Mesh(geometry, material.clone());
     mesh.material.color.setHex(config.color);
@@ -239,7 +247,7 @@ function createKombiMesh(block, material) {
     const group = new THREE.Group();
     group.add(mesh);
 
-    // Bağlantı noktası (altta)
+    // Bağlantı noktası (altta, zemin seviyesinde)
     const connectionGeom = new THREE.SphereGeometry(3, 8, 8);
     const connectionMat = new THREE.MeshStandardMaterial({
         color: 0xFF0000,
@@ -278,6 +286,7 @@ function createOcakMesh(block, material) {
     group.add(mesh);
 
     // Ocak gözleri (4 adet silindir) - 2D ile uyumlu (offset = 10 cm)
+    // DÜZELTME: Gözler ocağın üst yüzeyine yakın, ocaktan kopuk değil
     const burnerOffset = 10; // 2D'deki offset ile aynı
     const burnerPositions = [
         { x: -burnerOffset, z: -burnerOffset },
@@ -287,14 +296,15 @@ function createOcakMesh(block, material) {
     ];
 
     burnerPositions.forEach(pos => {
-        const burnerGeom = new THREE.CylinderGeometry(7, 7, 2, 16); // 7 cm radius (2D ile aynı)
+        const burnerGeom = new THREE.CylinderGeometry(7, 7, 1, 16); // 7 cm radius, 1 cm yükseklik (daha ince)
         const burnerMat = new THREE.MeshStandardMaterial({
             color: 0x101010,
             metalness: 0.8,
             roughness: 0.2
         });
         const burnerMesh = new THREE.Mesh(burnerGeom, burnerMat);
-        burnerMesh.position.set(pos.x, config.depth, pos.z); // Ocağın tepesinde (depth = 59 cm)
+        // Ocağın üst yüzeyinin hemen üstünde (depth + 0.5 cm)
+        burnerMesh.position.set(pos.x, config.depth + 0.5, pos.z);
         group.add(burnerMesh);
     });
 
