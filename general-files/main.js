@@ -483,7 +483,7 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     // Tesisat blokları - hepsi aynı mode'u kullanıyor, hangisi aktifse onu göster
     dom.bServisKutusu.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'SERVIS_KUTUSU');
     dom.bSayac.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'SAYAC');
-    dom.bVana.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'VANA');
+    dom.bVana.classList.toggle("active", newMode === "drawValve");
     dom.bKombi.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'KOMBI');
     dom.bOcak.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'OCAK');
     dom.bBoru.classList.toggle("active", newMode === "drawPlumbingPipe");
@@ -886,8 +886,7 @@ function initialize() {
         setMode("drawPlumbingBlock", true);
     });
     dom.bVana.addEventListener("click", () => {
-        setState({ currentPlumbingBlockType: 'VANA' });
-        setMode("drawPlumbingBlock", true);
+        setMode("drawValve", true);
     });
     dom.bKombi.addEventListener("click", () => {
         setState({ currentPlumbingBlockType: 'KOMBI' });

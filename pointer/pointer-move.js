@@ -5,7 +5,7 @@ import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from '../architectural-objects/beams.js';
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
 import { onPointerMove as onPointerMovePlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
-import { onPointerMove as onPointerMovePlumbingPipe } from '../architectural-objects/plumbing-pipes.js';
+import { onPointerMove as onPointerMovePlumbingPipe, isSpaceForValve } from '../architectural-objects/plumbing-pipes.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
 import { getObjectAtPoint } from '../general-files/actions.js'; // getObjectAtPoint eklendi
@@ -250,6 +250,70 @@ export function onPointerMove(e) {
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
             case 'plumbingBlock': onPointerMovePlumbingBlock(snappedPos, unsnappedPos); break;
             case 'plumbingPipe': onPointerMovePlumbingPipe(snappedPos, unsnappedPos); break;
+            case 'valve':
+                // Vana taşıma (boru üzerinde kaydırma ve başka boruya geçirme)
+                const valve = state.selectedObject.object;
+                const currentPipe = state.selectedObject.pipe;
+
+                // Fare pozisyonu
+                const mouseX = unsnappedPos.x;
+                const mouseY = unsnappedPos.y;
+
+                // En yakın boruyu bul
+                const currentFloorId_valve = state.currentFloor?.id;
+                const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId_valve);
+
+                let closestPipe = null;
+                let minDist = Infinity;
+                let closestPos = 0;
+
+                for (const pipe of pipes) {
+                    const dx = pipe.p2.x - pipe.p1.x;
+                    const dy = pipe.p2.y - pipe.p1.y;
+                    const pipeLength = Math.hypot(dx, dy);
+                    if (pipeLength < 0.1) continue;
+
+                    // Fare pozisyonunun boru üzerindeki izdüşümü
+                    const t = Math.max(0, Math.min(1,
+                        ((mouseX - pipe.p1.x) * dx + (mouseY - pipe.p1.y) * dy) / (dx * dx + dy * dy)
+                    ));
+                    const projX = pipe.p1.x + t * dx;
+                    const projY = pipe.p1.y + t * dy;
+                    const dist = Math.hypot(mouseX - projX, mouseY - projY);
+
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestPipe = pipe;
+                        closestPos = t * pipeLength;
+                    }
+                }
+
+                // En yakın boru bulunduysa
+                if (closestPipe && minDist < 30) { // 30 cm tolerans
+                    // Yeni pozisyonda yer var mı kontrol et (valve.width import edilmeli)
+                    const valveWidth = valve.width || 12;
+
+                    if (isSpaceForValve(closestPipe, closestPos, valveWidth, valve)) {
+                        // Vana pozisyonunu güncelle
+                        valve.pos = closestPos;
+
+                        // Eğer boru değiştiyse
+                        if (closestPipe !== currentPipe) {
+                            // Eski borudan çıkar
+                            if (currentPipe && currentPipe.valves) {
+                                currentPipe.valves = currentPipe.valves.filter(v => v !== valve);
+                            }
+
+                            // Yeni boruya ekle
+                            if (!closestPipe.valves) closestPipe.valves = [];
+                            closestPipe.valves.push(valve);
+
+                            // selectedObject'i güncelle
+                            state.selectedObject.pipe = closestPipe;
+                        }
+                    }
+                }
+                break;
             case 'wall':   onPointerMoveWall(snappedPos, unsnappedPos);   break;
             case 'door':   onPointerMoveDoor(unsnappedPos);               break;
             case 'window': onPointerMoveWindow(unsnappedPos);             break;
@@ -430,6 +494,7 @@ function updateMouseCursor() {
         case 'drawBeam':
         case 'drawStairs':
         case 'drawPlumbingPipe':
+        case 'drawValve':
         case 'drawDoor':
         case 'drawWindow':
         case 'drawVent':

@@ -53,6 +53,8 @@ export function createPlumbingPipe(x1, y1, x2, y2, pipeType = 'STANDARD') {
         },
         // Kesikli çizgi kontrolü için
         isConnectedToValve: false, // Eğer false ise kesikli çizilir,
+        // Boru üzerindeki vanalar (boru nesneleri)
+        valves: [] // { pos: number (p1'e olan uzaklık), width: number }
     };
 }
 
@@ -354,4 +356,81 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     }
 
     return false;
+}
+
+/**
+ * Boru üzerinde vana için yer olup olmadığını kontrol eder
+ * @param {object} pipe - Boru nesnesi
+ * @param {number} pos - p1'den olan uzaklık (cm)
+ * @param {number} valveWidth - Vana genişliği (cm) - varsayılan 12
+ * @param {object} excludeValve - Kontrol edilmeyecek vana (taşıma sırasında kendini hariç tutmak için)
+ * @returns {boolean} - Yer varsa true
+ */
+export function isSpaceForValve(pipe, pos, valveWidth = 12, excludeValve = null) {
+    const MIN_MARGIN = 5; // Uç noktalara minimum mesafe (cm)
+    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+
+    // Boru uçlarına çok yakınsa izin verme
+    if (pos - valveWidth / 2 < MIN_MARGIN || pos + valveWidth / 2 > pipeLength - MIN_MARGIN) {
+        return false;
+    }
+
+    // Diğer vanalarla çakışma kontrolü
+    for (const valve of (pipe.valves || [])) {
+        if (valve === excludeValve) continue; // Kendini hariç tut
+
+        const otherStart = valve.pos - valve.width / 2;
+        const otherEnd = valve.pos + valve.width / 2;
+        const newStart = pos - valveWidth / 2;
+        const newEnd = pos + valveWidth / 2;
+
+        // Aralıklar kesişiyorsa çakışma var
+        if (!(newEnd <= otherStart || newStart >= otherEnd)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Bir noktada vana var mı kontrol eder
+ * @param {object} point - Kontrol edilecek nokta {x, y}
+ * @param {number} tolerance - Tolerans (cm)
+ * @returns {object|null} - { type: 'valve', object: valve, pipe: pipe, handle: 'body' } veya null
+ */
+export function getValveAtPoint(point, tolerance = 8) {
+    const currentFloorId = state.currentFloor?.id;
+    const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
+
+    for (const pipe of pipes) {
+        if (!pipe.valves || pipe.valves.length === 0) continue;
+
+        const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+        if (pipeLength < 0.1) continue;
+
+        const dx = (pipe.p2.x - pipe.p1.x) / pipeLength;
+        const dy = (pipe.p2.y - pipe.p1.y) / pipeLength;
+
+        for (const valve of pipe.valves) {
+            // Vananın merkez pozisyonu
+            const valveCenterX = pipe.p1.x + dx * valve.pos;
+            const valveCenterY = pipe.p1.y + dy * valve.pos;
+
+            // Noktanın vanaya uzaklığı
+            const dist = Math.hypot(point.x - valveCenterX, point.y - valveCenterY);
+
+            // Tolerans içindeyse vanayı döndür
+            if (dist < tolerance) {
+                return {
+                    type: 'valve',
+                    object: valve,
+                    pipe: pipe,
+                    handle: 'body'
+                };
+            }
+        }
+    }
+
+    return null;
 }

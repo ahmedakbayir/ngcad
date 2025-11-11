@@ -285,6 +285,17 @@ export function handleDelete() {
             state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== selectedObjectSnapshot.object);
             deleted = true;
         }
+        // --- VANA SİLME (Boru üzerinden) ---
+        else if (objType === 'valve') {
+            const valve = selectedObjectSnapshot.object;
+            const pipe = selectedObjectSnapshot.pipe;
+
+            if (pipe && pipe.valves) {
+                pipe.valves = pipe.valves.filter(v => v !== valve);
+                deleted = true;
+                console.log('✅ Valve deleted from pipe');
+            }
+        }
         // --- YENİ: BORU SİLME VE "HEAL" MANTIĞI ---
         else if (objType === 'plumbingPipe') {
             const pipeToDelete = selectedObjectSnapshot.object;
