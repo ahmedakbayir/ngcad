@@ -11,14 +11,16 @@ import { PLUMBING_PIPE_TYPES } from '../architectural-objects/plumbing-pipes.js'
 /**
  * Sinüs dalgalı bağlantı çizgisi çizer (Ocak/Kombi için)
  * Eğer bağlantı noktası boru ucuna doğrudan bağlı değilse, araya sinüs çizgisi çizer
+ * SİNÜS BORÜYA TEĞET OLARAK BAĞLANIR
  */
 function drawWavyConnectionLine(connectionPoint, zoom) {
     const { ctx2d } = dom;
     const currentFloorId = state.currentFloor?.id;
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
-    // En yakın boru ucunu bul
+    // En yakın boru ucunu ve boru yönünü bul
     let closestPipeEnd = null;
+    let pipeDirection = null;
     let minDist = Infinity;
     const DIRECT_CONNECTION_TOLERANCE = 2; // 2 cm - doğrudan bağlı kabul edilme mesafesi
 
@@ -28,6 +30,12 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
         if (dist1 < minDist) {
             minDist = dist1;
             closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
+            // Boru yönü: p2'den p1'e (boru ucundan içeriye)
+            const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+            pipeDirection = {
+                x: (pipe.p2.x - pipe.p1.x) / pipeLength,
+                y: (pipe.p2.y - pipe.p1.y) / pipeLength
+            };
         }
 
         // p2'ye olan mesafe
@@ -35,11 +43,17 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
         if (dist2 < minDist) {
             minDist = dist2;
             closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
+            // Boru yönü: p1'den p2'ye (boru ucundan içeriye)
+            const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+            pipeDirection = {
+                x: (pipe.p1.x - pipe.p2.x) / pipeLength,
+                y: (pipe.p1.y - pipe.p2.y) / pipeLength
+            };
         }
     }
 
     // Eğer doğrudan bağlı değilse (mesafe > tolerans), sinüs çizgisi çiz
-    if (closestPipeEnd && minDist > DIRECT_CONNECTION_TOLERANCE) {
+    if (closestPipeEnd && pipeDirection && minDist > DIRECT_CONNECTION_TOLERANCE) {
         const dx = closestPipeEnd.x - connectionPoint.x;
         const dy = closestPipeEnd.y - connectionPoint.y;
         const distance = Math.hypot(dx, dy);
@@ -57,7 +71,7 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
         ctx2d.beginPath();
         ctx2d.moveTo(connectionPoint.x, connectionPoint.y);
 
-        // Sinüs eğrisi çiz
+        // Sinüs eğrisi çiz - BAŞTA VE SONDA TEĞET OLMALI
         for (let i = 1; i <= segments; i++) {
             const t = i / segments; // 0-1 arası parametre
 
@@ -69,8 +83,9 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
             const perpX = -dy / distance;
             const perpY = dx / distance;
 
-            // Sinüs offset'i
-            const sineOffset = Math.sin(t * frequency * Math.PI * 2) * amplitude;
+            // Sinüs offset'i - başta ve sonda 0 olacak şekilde (teğet için)
+            // sin(0) = 0, sin(π) = 0 olduğundan başta ve sonda düz olur
+            const sineOffset = Math.sin(t * Math.PI) * amplitude * Math.sin(t * frequency * Math.PI * 2);
 
             // Final pozisyon
             const finalX = baseX + perpX * sineOffset;
@@ -137,7 +152,7 @@ function drawServisKutusu(block, isSelected) {
 }
 
 /**
- * Sayaç çizer (yuvarlatılmış dikdörtgen)
+ * Sayaç çizer (yuvarlatılmış dikdörtgen + 10cm bağlantı çizgileri)
  */
 function drawSayac(block, isSelected) {
     const { ctx2d } = dom;
@@ -169,9 +184,27 @@ function drawSayac(block, isSelected) {
     ctx2d.closePath();
     ctx2d.stroke();
 
+    // 10 cm bağlantı çizgileri - bağlantı noktalarından dışarı çıkan
+    const lineLength = config.connectionLineLength || 10;
+
+    // Sol bağlantı çizgisi (giriş)
+    ctx2d.strokeStyle = '#00FF00'; // Yeşil
+    ctx2d.lineWidth = 2 / zoom;
+    ctx2d.beginPath();
+    ctx2d.moveTo(-halfW, 0);
+    ctx2d.lineTo(-halfW - lineLength, 0);
+    ctx2d.stroke();
+
+    // Sağ bağlantı çizgisi (çıkış)
+    ctx2d.strokeStyle = '#FF0000'; // Kırmızı
+    ctx2d.beginPath();
+    ctx2d.moveTo(halfW, 0);
+    ctx2d.lineTo(halfW + lineLength, 0);
+    ctx2d.stroke();
+
     ctx2d.restore();
 
-    // Bağlantı noktaları
+    // Bağlantı noktaları (çizgilerin uçlarında)
     const connections = getConnectionPoints(block);
     connections.forEach((cp, i) => {
         ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
@@ -180,7 +213,7 @@ function drawSayac(block, isSelected) {
         ctx2d.fill();
     });
 
-    // G4 yazısı - beyaz dikdörtgen arka plan + siyah yazı
+    // G4 yazısı - DAHA BEYAZ, ARKA PLAN YOK
     if (zoom > 0.3) {
         ctx2d.save();
         ctx2d.translate(block.center.x, block.center.y);
@@ -189,24 +222,17 @@ function drawSayac(block, isSelected) {
         // Yazı boyutlarını hesapla
         const fontSize = 12 / zoom;
         ctx2d.font = `bold ${fontSize}px Arial`;
-        const textMetrics = ctx2d.measureText('G4');
-        const textWidth = textMetrics.width;
-        const textHeight = fontSize;
 
-        // Beyaz dikdörtgen arka plan (padding ile)
-        const padding = 2 / zoom;
-        const bgX = -textWidth / 2 - padding;
-        const bgY = -halfH - textHeight - 3 - padding;
-        const bgWidth = textWidth + padding * 2;
-        const bgHeight = textHeight + padding * 2;
-
-        ctx2d.fillStyle = '#FFFFFF';
-        ctx2d.fillRect(bgX, bgY, bgWidth, bgHeight);
-
-        // G4 yazısını bloğun önüne koy - siyah renk
-        ctx2d.fillStyle = '#000000';
+        // G4 yazısını bloğun üstüne koy - DAHA BEYAZ (#FFFFFF)
+        // Siyah kontur ile okunabilirliği artır
+        ctx2d.strokeStyle = '#000000';
+        ctx2d.lineWidth = 3 / zoom;
+        ctx2d.lineJoin = 'round';
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'bottom';
+        ctx2d.strokeText('G4', 0, -halfH - 3);
+
+        ctx2d.fillStyle = '#FFFFFF';  // Tam beyaz
         ctx2d.fillText('G4', 0, -halfH - 3);
         ctx2d.restore();
     }
@@ -612,4 +638,101 @@ export function drawPlumbingPipePreview() {
         ctx2d.strokeText(text, midX, midY);
         ctx2d.fillText(text, midX, midY);
     }
+}
+
+/**
+ * OCAK/KOMBI sürükleme önizlemesi - Mouse ucunda simülasyon gösterir
+ * Hat ucuna gelince simülatif bağlantı gösterir
+ */
+export function drawPlumbingBlockDragPreview() {
+    const { dragState, mousePos } = state;
+    if (!dragState || dragState.type !== 'plumbingBlock') return;
+
+    const { block } = dragState;
+    if (!block || (block.blockType !== 'OCAK' && block.blockType !== 'KOMBI')) return;
+    if (!mousePos) return;
+
+    const { ctx2d } = dom;
+    const { zoom } = state;
+    const currentFloorId = state.currentFloor?.id;
+    const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
+
+    // Bloğun bağlantı noktasını hesapla (mouse pozisyonunda)
+    const config = PLUMBING_BLOCK_TYPES[block.blockType];
+    const angle = (block.rotation || 0) * Math.PI / 180;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const cp = config.connectionPoints[0];
+
+    const connectionPoint = {
+        x: mousePos.x + cp.x * cos - cp.y * sin,
+        y: mousePos.y + cp.x * sin + cp.y * cos
+    };
+
+    // En yakın boru ucunu bul
+    let closestPipeEnd = null;
+    let minDist = Infinity;
+    const SNAP_TOLERANCE = 15; // 15 cm snap mesafesi
+
+    for (const pipe of pipes) {
+        // p1'e olan mesafe
+        const dist1 = Math.hypot(pipe.p1.x - connectionPoint.x, pipe.p1.y - connectionPoint.y);
+        if (dist1 < minDist) {
+            minDist = dist1;
+            closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
+        }
+
+        // p2'ye olan mesafe
+        const dist2 = Math.hypot(pipe.p2.x - connectionPoint.x, pipe.p2.y - connectionPoint.y);
+        if (dist2 < minDist) {
+            minDist = dist2;
+            closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
+        }
+    }
+
+    // Bağlantı noktasını göster
+    ctx2d.save();
+    ctx2d.fillStyle = '#FF6B00';
+    ctx2d.strokeStyle = '#FFFFFF';
+    ctx2d.lineWidth = 2 / zoom;
+    ctx2d.beginPath();
+    ctx2d.arc(connectionPoint.x, connectionPoint.y, 5 / zoom, 0, Math.PI * 2);
+    ctx2d.fill();
+    ctx2d.stroke();
+
+    // Eğer boru ucuna yakınsa, snap önizlemesi göster
+    if (closestPipeEnd && minDist < SNAP_TOLERANCE) {
+        // Boru ucunu vurgula
+        ctx2d.fillStyle = '#00FF00';
+        ctx2d.strokeStyle = '#FFFFFF';
+        ctx2d.lineWidth = 3 / zoom;
+        ctx2d.beginPath();
+        ctx2d.arc(closestPipeEnd.x, closestPipeEnd.y, 7 / zoom, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.stroke();
+
+        // Bağlantı çizgisi (kesikli)
+        ctx2d.strokeStyle = '#00FF00';
+        ctx2d.lineWidth = 2 / zoom;
+        ctx2d.setLineDash([5 / zoom, 5 / zoom]);
+        ctx2d.beginPath();
+        ctx2d.moveTo(connectionPoint.x, connectionPoint.y);
+        ctx2d.lineTo(closestPipeEnd.x, closestPipeEnd.y);
+        ctx2d.stroke();
+        ctx2d.setLineDash([]);
+
+        // "BAĞLANACAK" yazısı
+        ctx2d.fillStyle = '#00FF00';
+        ctx2d.strokeStyle = '#000000';
+        ctx2d.lineWidth = 3 / zoom;
+        ctx2d.font = `bold ${14 / zoom}px Arial`;
+        ctx2d.textAlign = 'center';
+        ctx2d.textBaseline = 'bottom';
+        const midX = (connectionPoint.x + closestPipeEnd.x) / 2;
+        const midY = (connectionPoint.y + closestPipeEnd.y) / 2 - 10 / zoom;
+        ctx2d.strokeText('BAĞLANACAK', midX, midY);
+        ctx2d.fillText('BAĞLANACAK', midX, midY);
+    }
+
+    ctx2d.restore();
 }

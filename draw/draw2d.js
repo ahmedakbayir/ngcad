@@ -5,7 +5,7 @@ import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
     drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
     drawBeam, drawStairs, drawGuides
     } from './renderer2d.js';
-import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview } from './draw-plumbing.js'; 
+import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockDragPreview } from './draw-plumbing.js'; 
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
         } from './draw-previews.js';
@@ -503,6 +503,7 @@ export function draw2D() {
 
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
     drawPlumbingPipePreview(); // Boru çizim önizlemesi
+    drawPlumbingBlockDragPreview(); // OCAK/KOMBI sürükleme önizlemesi
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
  if (state.isStairPopupVisible && stairs && stairs.length > 0) {
