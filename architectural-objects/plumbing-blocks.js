@@ -292,22 +292,106 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     const dy = snappedPos.roundedY - startPos.y;
 
     if (handle === 'center' || handle === 'body') {
-        // Taşıma
+        // Taşıma - Bloğun eski ve yeni pozisyonunu hesapla
+        const oldCenter = { ...startCenter };
         block.center.x = startCenter.x + dx;
         block.center.y = startCenter.y + dy;
+
+        // Bağlı boruları güncelle - BORULAR KOPMAMALI
+        updateConnectedPipes(block, oldCenter, block.center);
+
         return true;
     } else if (handle === 'rotate') {
-        // Döndürme
+        // Döndürme - Eski ve yeni rotasyonu hesapla
+        const oldRotation = startRotation;
+
         const angleToMouse = Math.atan2(
             unsnappedPos.y - block.center.y,
             unsnappedPos.x - block.center.x
         ) * 180 / Math.PI;
 
         block.rotation = Math.round(angleToMouse / 15) * 15; // 15 derece snap
+
+        // Döndürme sonrası bağlı boruları güncelle
+        updateConnectedPipesAfterRotation(block, oldRotation, block.rotation);
+
         return true;
     }
 
     return false;
+}
+
+/**
+ * Bloğa bağlı boruları güncelle (taşıma sonrası)
+ */
+function updateConnectedPipes(block, oldCenter, newCenter) {
+    const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
+    const newConnections = getConnectionPoints(block);
+
+    // Her bağlantı noktası için bağlı boruları bul ve güncelle
+    oldConnections.forEach((oldConn, index) => {
+        const newConn = newConnections[index];
+        const tolerance = 1; // 1 cm tolerans
+
+        // Bu bağlantı noktasına bağlı boruları bul
+        (state.plumbingPipes || []).forEach(pipe => {
+            // p1 bu bağlantı noktasına mı bağlı?
+            if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
+                pipe.p1.x = newConn.x;
+                pipe.p1.y = newConn.y;
+            }
+            // p2 bu bağlantı noktasına mı bağlı?
+            if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
+                pipe.p2.x = newConn.x;
+                pipe.p2.y = newConn.y;
+            }
+        });
+    });
+}
+
+/**
+ * Bloğa bağlı boruları döndürme sonrası güncelle
+ */
+function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
+    // Eski rotasyonda bağlantı noktalarını hesapla
+    const tempBlock = { ...block, rotation: oldRotation };
+    const oldConnections = getConnectionPoints(tempBlock);
+    const newConnections = getConnectionPoints(block);
+
+    // Her bağlantı noktası için bağlı boruları bul ve güncelle
+    oldConnections.forEach((oldConn, index) => {
+        const newConn = newConnections[index];
+        const tolerance = 1;
+
+        (state.plumbingPipes || []).forEach(pipe => {
+            if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
+                pipe.p1.x = newConn.x;
+                pipe.p1.y = newConn.y;
+            }
+            if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
+                pipe.p2.x = newConn.x;
+                pipe.p2.y = newConn.y;
+            }
+        });
+    });
+}
+
+/**
+ * Belirli bir pozisyondaki bloğun bağlantı noktalarını hesapla
+ */
+function getConnectionPointsAtPosition(block, center) {
+    const typeConfig = block.typeConfig || PLUMBING_BLOCK_TYPES[block.blockType];
+    const cx = center.x;
+    const cy = center.y;
+    const angle = (block.rotation || 0) * Math.PI / 180;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    return typeConfig.connectionPoints.map(cp => ({
+        x: cx + cp.x * cos - cp.y * sin,
+        y: cy + cp.x * sin + cp.y * cos,
+        label: cp.label
+    }));
 }
 
 /**
