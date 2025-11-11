@@ -25,10 +25,14 @@ export const PLUMBING_BLOCK_TYPES = {
         connectionPoints: [
             { x: 20, y: 0, z: -15, label: 'sağ-orta' },      // Sağda ortada (mevcut)
             { x: -20, y: 0, z: -15, label: 'sol-orta' },     // Solda ortada (karşısı)
-            { x: 20, y: -10, z: -15, label: 'sağ-üst' },     // Sağ üst köşe
-            { x: -20, y: -10, z: -15, label: 'sol-üst' },    // Sol üst köşe
-            { x: 20, y: 10, z: -15, label: 'sağ-alt' },      // Sağ alt köşe
-            { x: -20, y: 10, z: -15, label: 'sol-alt' }      // Sol alt köşe
+            { x: 20, y: -8, z: -15, label: 'sağ-üst' },     // Sağ üst köşe
+            { x: -20, y: -8, z: -15, label: 'sol-üst' },    // Sol üst köşe
+            { x: 20, y: 8, z: -15, label: 'sağ-alt' },      // Sağ alt köşe
+            { x: -20, y: 8, z: -15, label: 'sol-alt' },     // Sol alt köşe
+            { x: 0, y: 0, z: 35, label: 'sol-alt' },    
+            { x: 0, y: 0, z: -35, label: 'sol-alt' },
+            { x: 0, y: -10, z: -15, label: 'sol-alt' },    
+            { x: 0, y: 10, z: -15, label: 'sol-alt' }     
         ],
         mountType: 'wall', // duvara monte
         color: 0xA8A8A8, // Gri ton
