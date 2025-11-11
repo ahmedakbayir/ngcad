@@ -17,14 +17,14 @@ export const PLUMBING_PIPE_TYPES = {
         id: 'standard',
         name: 'Standart Boru',
         diameter: 2,        // 2 cm çap
-        color: 0x4885e8,    // Mavi (#4885e8)
+        color: 0x2d7a2d,    // Koyu yeşil
         lineWidth: 6,       // 2D çizgi kalınlığı (piksel) - 2 kat kalın
     },
     THICK: {
         id: 'thick',
         name: 'Kalın Boru',
         diameter: 4,        // 4 cm çap
-        color: 0x4885e8,    // Mavi (#4885e8)
+        color: 0x1b5e20,    // Daha koyu yeşil
         lineWidth: 10,      // 2D çizgi kalınlığı (piksel)
     }
 };
