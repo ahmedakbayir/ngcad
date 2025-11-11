@@ -139,13 +139,13 @@ function drawServisKutusu(block, isSelected) {
 
     // SK yazısı - sadece kontur (dış dolgusu yok), boyut 2/3'e düşürüldü (18 -> 12)
     if (zoom > 0.15) {
-        ctx2d.strokeStyle = '#FFFFFF';
+        ctx2d.fillStyle = '#FFFFFF';
         ctx2d.lineWidth = 1.5;
         ctx2d.lineJoin = 'round';
-        ctx2d.font = `12px Arial`;
+        ctx2d.font = `10px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
-        ctx2d.strokeText('SK', 0, 0);
+        ctx2d.fillText('SK', 0, 0);
     }
 
     ctx2d.restore();
@@ -192,25 +192,25 @@ function drawSayac(block, isSelected) {
     ctx2d.stroke();
 
     // 10 cm bağlantı çizgileri - ÜST KISIMDANÇAPRAZ olarak dışarı çıkan
-    const lineLength = config.connectionLineLength || 10;
+    const lineLength = config.connectionLineLength || 6;
 
     // Sol üst köşeden çapraz çıkıntı (giriş)
-    ctx2d.strokeStyle = '#00FF00'; // Yeşil
+    ctx2d.strokeStyle = '#ffffff'; // Yeşil
     ctx2d.lineWidth = 2 / zoom;
     ctx2d.beginPath();
     // Sayaç gövdesinden başlangıç noktası (sol üst köşeye yakın)
-    ctx2d.moveTo(-6, -halfH);
+    ctx2d.moveTo(-5, -halfH);
     // 10 cm yukarı ve biraz dışarı çıkıntı
-    ctx2d.lineTo(-6, -halfH - lineLength);
+    ctx2d.lineTo(-5, -halfH - lineLength);
     ctx2d.stroke();
 
     // Sağ üst köşeden çapraz çıkıntı (çıkış)
-    ctx2d.strokeStyle = '#FF0000'; // Kırmızı
+    ctx2d.strokeStyle = '#FFffff'; // Kırmızı
     ctx2d.beginPath();
     // Sayaç gövdesinden başlangıç noktası (sağ üst köşeye yakın)
-    ctx2d.moveTo(6, -halfH);
+    ctx2d.moveTo(5, -halfH);
     // 10 cm yukarı ve biraz dışarı çıkıntı
-    ctx2d.lineTo(6, -halfH - lineLength);
+    ctx2d.lineTo(5, -halfH - lineLength);
     ctx2d.stroke();
 
     ctx2d.restore();
@@ -235,12 +235,12 @@ function drawSayac(block, isSelected) {
         ctx2d.font = `${fontSize}px Arial`;
 
         // G4 yazısını bloğun ortasına koy - sadece beyaz kontur
-        ctx2d.strokeStyle = '#FFFFFF';
+        ctx2d.fillStyle = '#FFFFFF';
         ctx2d.lineWidth = 1.5;
         ctx2d.lineJoin = 'round';
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
-        ctx2d.strokeText('G4', 0, 0);
+        ctx2d.fillText('G4', 0, 0);
 
         ctx2d.restore();
     }
@@ -263,38 +263,46 @@ function drawVana(block, isSelected) {
     const smallRadius = 0.5; // Ortadaki birleşimi daha dar yap
 
     // Çift kesik koni (elmas şekli, sadece kenar çizgisi)
-    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
+    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : 'rgba(255, 255, 255, 1)';
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
 
     ctx2d.beginPath();
     // Sol taraf - geniş uç solda, dar uç ortada
     ctx2d.moveTo(-halfLength, -largeRadius);
-    ctx2d.lineTo(-smallRadius, 0);
+    ctx2d.lineTo(0, 0);
     ctx2d.lineTo(-halfLength, largeRadius);
     ctx2d.closePath();
     ctx2d.stroke();
 
     ctx2d.beginPath();
     // Sağ taraf - dar uç ortada, geniş uç sağda
-    ctx2d.moveTo(smallRadius, 0);
+    ctx2d.moveTo(0, 0);
     ctx2d.lineTo(halfLength, -largeRadius);
     ctx2d.lineTo(halfLength, largeRadius);
     ctx2d.closePath();
     ctx2d.stroke();
 
     // Ortadaki dar birleşim bölgesi (sadece kenar çizgisi)
-    ctx2d.strokeRect(-smallRadius, -smallRadius, smallRadius * 2, smallRadius * 2);
+    ctx2d.strokeRect(-smallRadius/2, -smallRadius/2, smallRadius , smallRadius);
+    
+    ctx2d.lineWidth = 6/ zoom;
+    
+    // ctx2d.beginPath();
+    // ctx2d.moveTo(0,0);
+    // ctx2d.lineTo(0,-largeRadius-smallRadius*3);
+    // ctx2d.lineTo(-largeRadius-smallRadius*3,-largeRadius-smallRadius*3);
+    // ctx2d.stroke();
+
+
+    ctx2d.beginPath();
+    ctx2d.moveTo(-largeRadius-smallRadius-0.5,0);
+    ctx2d.lineTo(-largeRadius-smallRadius-2, 0);
+    ctx2d.moveTo(largeRadius+smallRadius+0.5,0);
+    ctx2d.lineTo(largeRadius+smallRadius+2, 0);    
+    ctx2d.stroke();
+
 
     ctx2d.restore();
-
-    // Bağlantı noktaları - KALDIRILDI (kullanıcı isteği üzerine)
-    // const connections = getConnectionPoints(block);
-    // connections.forEach((cp, i) => {
-    //     ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
-    //     ctx2d.beginPath();
-    //     ctx2d.arc(cp.x, cp.y, 2 / zoom, 0, Math.PI * 2);
-    //     ctx2d.fill();
-    // });
 }
 
 /**
@@ -322,16 +330,16 @@ function drawKombi(block, isSelected) {
     ctx2d.beginPath();
     ctx2d.arc(0, 0, innerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
+;
 
-    // G harfi - sadece beyaz kontur (dış dolgusu yok)
     if (zoom > 0.15) {
-        ctx2d.strokeStyle = '#FFFFFF';  // Beyaz renk
-        ctx2d.lineWidth = 1.5;
+        ctx2d.fillStyle = '#FFFFFF';  // Beyaz renk
+        ctx2d.lineWidth = 1;
         ctx2d.lineJoin = 'round';
         ctx2d.font = `20px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
-        ctx2d.strokeText('G', 0, 0);
+        ctx2d.fillText('G', 0, 0);
     }
 
     ctx2d.restore();
@@ -708,8 +716,7 @@ export function drawPlumbingBlockPlacementPreview() {
     ctx2d.translate(deviceCenterX, deviceCenterY);
 
     // Yarı saydam cihaz kutusu
-    ctx2d.fillStyle = 'rgba(255, 165, 0, 0.2)'; // Turuncu yarı saydam
-    ctx2d.strokeStyle = '#FF8C00';
+    ctx2d.strokeStyle = state.wallBorderColor;
     ctx2d.lineWidth = 2 / zoom;
     ctx2d.setLineDash([5 / zoom, 5 / zoom]);
 
@@ -740,7 +747,7 @@ export function drawPlumbingBlockPlacementPreview() {
     ctx2d.setLineDash([]);
 
     // Cihaz ismi
-    ctx2d.fillStyle = '#FF8C00';
+    ctx2d.fillStyle = '#ffffff';
     ctx2d.font = `bold ${12 / zoom}px Arial`;
     ctx2d.textAlign = 'center';
     ctx2d.textBaseline = 'middle';
@@ -839,17 +846,17 @@ export function drawPlumbingBlockPlacementPreview() {
         }
 
         // "VANA + CİHAZ EKLENECEK" yazısı
-        const midX = (mousePos.x + closestPipeEnd.x) / 2;
-        const midY = (mousePos.y + closestPipeEnd.y) / 2 - 15 / zoom;
+        // const midX = (mousePos.x + closestPipeEnd.x) / 2;
+        // const midY = (mousePos.y + closestPipeEnd.y) / 2 - 15 / zoom;
 
-        ctx2d.fillStyle = '#00FF00';
-        ctx2d.strokeStyle = '#000000';
-        ctx2d.lineWidth = 3 / zoom;
-        ctx2d.font = `bold ${12 / zoom}px Arial`;
-        ctx2d.textAlign = 'center';
-        ctx2d.textBaseline = 'bottom';
-        ctx2d.strokeText('VANA + ' + currentPlumbingBlockType, midX, midY);
-        ctx2d.fillText('VANA + ' + currentPlumbingBlockType, midX, midY);
+        // ctx2d.fillStyle = '#00FF00';
+        // ctx2d.strokeStyle = '#000000';
+        // ctx2d.lineWidth = 3 / zoom;
+        // ctx2d.font = `bold ${12 / zoom}px Arial`;
+        // ctx2d.textAlign = 'center';
+        // ctx2d.textBaseline = 'bottom';
+        // ctx2d.strokeText('VANA + ' + currentPlumbingBlockType, midX, midY);
+        // ctx2d.fillText('VANA + ' + currentPlumbingBlockType, midX, midY);
 
         ctx2d.restore();
     }

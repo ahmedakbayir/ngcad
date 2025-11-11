@@ -40,7 +40,7 @@ export const PLUMBING_BLOCK_TYPES = {
         width: 18,      // duvar boyunca (X ekseni) - 24'ten 18'e düşürüldü
         height: 15,     // duvardan dışa çıkan (2D Y ekseni, 3D Z ekseni)
         depth: 40,      // yükseklik (3D Y ekseni)
-        cornerRadius: 2, // 2 cm yuvarlama
+        cornerRadius: 1, // 2 cm yuvarlama
         connectionPoints: [
             // ÜST KISIMDA ÇAPRAZ BAĞLANTI NOKTALARI
             // Giriş: Sol üst köşeden çıkıntılı (10 cm dışarı çıkıntı)
@@ -56,13 +56,13 @@ export const PLUMBING_BLOCK_TYPES = {
     VANA: {
         id: 'vana',
         name: 'Vana',
-        width: 10,      // Birleşik uzunluk
-        height: 5,      // Geniş çap
-        depth: 5,
+        width: 12,      // Birleşik uzunluk
+        height: 6,      // Geniş çap
+        depth: 6,
         cornerRadius: 1,
         connectionPoints: [
-            { x: -5, y: 0, z: 2.5, label: 'giriş' },  // Sol taraf, orta yükseklikte
-            { x: 5, y: 0, z: 2.5, label: 'çıkış' }    // Sağ taraf, orta yükseklikte
+            { x: -6, y: 0, z: -2.50, label: 'giriş' },  // Sol taraf, orta yükseklikte
+            { x: 6, y: 0, z: -2.50, label: 'çıkış' }    // Sağ taraf, orta yükseklikte
         ],
         mountType: 'free', // Serbest yerleşim
         color: 0xA0A0A0,
@@ -76,7 +76,7 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 29,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: -25, z: 0, label: 'bağlantı' } // Dış dairenin tam alt kenarında (outerRadius=25)
+            { x: -25, y: 0, z: 0, label: 'bağlantı' } // Dış dairenin tam alt kenarında (outerRadius=25)
         ],
         mountType: 'wall',
         color: 0xC0C0C0, // Gri renk (beyaz yerine)
@@ -89,7 +89,7 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 59,
         cornerRadius: 2,
         connectionPoints: [
-            { x: 0, y: -25, z: 0, label: 'bağlantı' } // Arka kenarın tam üzerinde (boxSize=25)
+            { x: -25, y: 0, z: 0, label: 'bağlantı' } // Arka kenarın tam üzerinde (boxSize=25)
         ],
         mountType: 'floor', // Zemine oturur
         color: 0x303030,
