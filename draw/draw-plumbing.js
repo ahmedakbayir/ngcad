@@ -269,21 +269,21 @@ function drawVana(block, isSelected) {
     ctx2d.beginPath();
     // Sol taraf - geniş uç solda, dar uç ortada
     ctx2d.moveTo(-halfLength, -largeRadius);
-    ctx2d.lineTo(0, 0);
+    ctx2d.lineTo(smallRadius, 0);
     ctx2d.lineTo(-halfLength, largeRadius);
     ctx2d.closePath();
     ctx2d.stroke();
 
     ctx2d.beginPath();
     // Sağ taraf - dar uç ortada, geniş uç sağda
-    ctx2d.moveTo(0, 0);
+    ctx2d.moveTo(-smallRadius, 0);
     ctx2d.lineTo(halfLength, -largeRadius);
     ctx2d.lineTo(halfLength, largeRadius);
     ctx2d.closePath();
     ctx2d.stroke();
 
     // Ortadaki dar birleşim bölgesi (sadece kenar çizgisi)
-    ctx2d.strokeRect(-smallRadius/2, -smallRadius/2, smallRadius , smallRadius);
+    //ctx2d.strokeRect(-smallRadius, -smallRadius, smallRadius*2 , smallRadius*2);
     
     ctx2d.lineWidth = 6/ zoom;
     

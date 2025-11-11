@@ -352,7 +352,7 @@ export function onPointerDown(e) {
              setState({ startPoint: null });
          }
     // --- Tesisat Bloğu Çizim Modu ---
-    } else if (state.currentMode === "drawPlumbingBlock") {
+} else if (state.currentMode === "drawPlumbingBlock") {
         const blockType = state.currentPlumbingBlockType || 'SERVIS_KUTUSU';
 
         // VANA ve SAYAÇ için boru üzerine ekleme kontrolü
@@ -361,6 +361,7 @@ export function onPointerDown(e) {
             const clickedPipe = getObjectAtPoint(pos);
 
             if (clickedPipe && clickedPipe.type === 'plumbingPipe') {
+                // ... (VANA ve SAYAÇ ekleme mantığı değişmedi) ...
                 const pipe = clickedPipe.object;
                 console.log('🔧 Adding', blockType, 'to pipe');
 
@@ -395,7 +396,7 @@ export function onPointerDown(e) {
                     // SAYACIN CONNECTION POINT'LERİNİN ORTASI BORUYA GELSİN
                     // Connection point'ler lokal koordinatlarda y=-17.5'te (offset: -7.5 - 10)
                     // Yani connection point'lerin ortası boru üzerinde olacak şekilde merkezi ayarla
-                    const connectionPointAvgOffset = 17.5; // y ekseni, lokal koordinat
+                    const connectionPointAvgOffset = 19; // y ekseni, lokal koordinat
 
                     // Rotasyonu uygula (boru yönüne göre)
                     const rotRad = blockRotation * Math.PI / 180;
@@ -453,7 +454,7 @@ export function onPointerDown(e) {
         }
 
         // OCAK ve KOMBI sadece boru ucuna veya servis kutusuna eklenebilir
-        // ÖNCE VANA, SONRA CİHAZ EKLENİR
+        // GÜNCELLEME: ÖNCE VANA, SONRA CİHAZ EKLENİR MANTIĞI KALDIRILDI.
         if (blockType === 'OCAK' || blockType === 'KOMBI') {
             // Önce boru uçlarına snap et
             const pipeSnap = snapToPipeEndpoint(pos, 15);
@@ -484,31 +485,19 @@ export function onPointerDown(e) {
                 pipeAngle = Math.atan2(dy, dx) * 180 / Math.PI;
             }
 
-            // 1. VANA EKLE
-            const newValve = createPlumbingBlock(snap.x, snap.y, 'VANA');
-            newValve.rotation = Math.round(pipeAngle / 15) * 15;
-
-            // Vananın bağlantı noktalarını al
-            const valveConnections = getConnectionPoints(newValve);
-            const valveOutlet = valveConnections[1]; // Çıkış noktası (sağ taraf)
-
-            // 2. CİHAZI (OCAK/KOMBI) BORUNUN DOĞRULTUSUNDA UZAĞA KOY (FLEX HOSE GÖRÜNSÜN)
-            // Borunun yönünde 40 cm ileriye cihazı yerleştir
-            const flexHoseLength = 40; // 40 cm flex hose
-            const angleRad = pipeAngle * Math.PI / 180;
-            const deviceX = valveOutlet.x + Math.cos(angleRad) * flexHoseLength;
-            const deviceY = valveOutlet.y + Math.sin(angleRad) * flexHoseLength;
-
-            const newBlock = createPlumbingBlock(deviceX, deviceY, blockType);
+            // --- GÜNCELLENMİŞ BLOK ---
+            // KULLANICI İSTEĞİ: Sadece cihazı ekle, vana ekleme.
+            // Cihazı doğrudan snap noktasına yerleştir.
+            
+            // 1. CİHAZI (OCAK/KOMBI) EKLE
+            const newBlock = createPlumbingBlock(snap.x, snap.y, blockType);
             newBlock.rotation = Math.round(pipeAngle / 15) * 15;
 
-            // State'e ekle
+            // State'e ekle (Sadece newBlock)
             if (!state.plumbingBlocks) state.plumbingBlocks = [];
-            state.plumbingBlocks.push(newValve, newBlock);
+            state.plumbingBlocks.push(newBlock);
+            // --- GÜNCELLEME SONU ---
 
-            // ARADA BORU YOK - Sadece vana ve cihaz ekleniyor
-            // if (!state.plumbingPipes) state.plumbingPipes = [];
-            // state.plumbingPipes.push(connectionPipe);
 
             geometryChanged = true;
             needsUpdate3D = true;

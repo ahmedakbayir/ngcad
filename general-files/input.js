@@ -1,4 +1,5 @@
-// ahmedakbayir/ngcad/ngcad-e7feb4c0224e7a314687ae1c86e34cb9211a573d/input.js
+// ahmedakbayir/ngcad/ngcad-25cb8b9daa7f201d20b7282862eee992cd9d77b2/general-files/input.js
+// GÜNCELLENDİ: handleDelete, boru silindiğinde bağlantıyı "iyileştirecek" (heal) şekilde güncellendi.
 
 import * as THREE from "three"; // YENİ
 import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom import edildiğinden emin olun
@@ -23,8 +24,11 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../scene3d/scene3d-core.js'; 
 import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
+// YENİ İMPORT: Silme işlemi için getConnectionPoints eklendi
+import { getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
 
-// Modifier tuşları için global state
+
+// ... (dosyanın üst kısmı değişmedi: currentModifierKeys, extendWallOnTabPress, handleCopy, handlePaste) ...
 export let currentModifierKeys = {
     ctrl: false,
     alt: false,
@@ -198,7 +202,9 @@ function handlePaste(e) {
     if(geometryChanged){ processWalls(); saveState(); update3DScene(); }
 }
 
+
 // Silme Fonksiyonu
+// GÜNCELLENDİ: Boru silme (Heal) mantığı eklendi
 export function handleDelete() {
     // Seçimi HEMEN yakala (blur olayından etkilenmemesi için)
     const selectedObjectSnapshot = state.selectedObject;
@@ -237,8 +243,11 @@ export function handleDelete() {
                 state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== item.object);
                 deleted = true;
             } else if (item.type === 'plumbingPipe') {
+                // --- YENİ: Toplu silme için "Heal" mantığı (Basitleştirilmiş: Sadece sil) ---
+                // Toplu silmede heal yapmak çok karmaşık, şimdilik sadece silelim.
                 state.plumbingPipes = state.plumbingPipes.filter(pp => pp !== item.object);
                 deleted = true;
+                // --- YENİ SONU ---
             } else if (item.type === 'door') {
                 state.doors = state.doors.filter(d => d !== item.object);
                 deleted = true;
@@ -276,10 +285,103 @@ export function handleDelete() {
             state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== selectedObjectSnapshot.object);
             deleted = true;
         }
+        // --- YENİ: BORU SİLME VE "HEAL" MANTIĞI ---
         else if (objType === 'plumbingPipe') {
-            state.plumbingPipes = state.plumbingPipes.filter(pp => pp !== selectedObjectSnapshot.object);
+            const pipeToDelete = selectedObjectSnapshot.object;
+            
+            // Bağlantı "iyileştirme" (heal) mantığı
+            const startConn = pipeToDelete.connections.start;
+            const endConn = pipeToDelete.connections.end;
+            
+            let connectedPipeAtStart = null;
+            let connectedPipeAtEnd = null;
+            let startPointToConnect = null; // A'nın p2'si veya BlockA'nın cp'si
+            let endPointToConnect = null; // C'nin p1'i veya BlockC'nin cp'si
+            let pipeToModify = null; // C borusu (eğer varsa)
+            let blockToModify = null; // A bloğu (eğer varsa)
+            let pipeToModifyHandle = null; // A borusu (eğer varsa)
+
+            const tolerance = 15; // 15 cm (bağlantı toleransı)
+
+            // 1. Silinen borunun BAŞLANGICINA (p1) ne bağlı?
+            if (startConn && startConn.blockId) {
+                // Bir bloğa bağlı (BlockA)
+                const blockA_connections = getConnectionPoints(startConn.blockId);
+                startPointToConnect = blockA_connections[startConn.connectionIndex];
+                blockToModify = startConn.blockId; // A Bloğu
+            } else {
+                // Bir bloğa bağlı değil, başka bir boruya (PipeA.p2) mı bağlı?
+                connectedPipeAtStart = (state.plumbingPipes || []).find(p =>
+                    p !== pipeToDelete &&
+                    (Math.hypot(p.p2.x - pipeToDelete.p1.x, p.p2.y - pipeToDelete.p1.y) < tolerance)
+                );
+                if (connectedPipeAtStart) {
+                    startPointToConnect = connectedPipeAtStart.p2; // A'nın p2'si
+                    pipeToModifyHandle = connectedPipeAtStart; // A Borusu
+                }
+            }
+
+            // 2. Silinen borunun BİTİŞİNE (p2) ne bağlı?
+            if (endConn && endConn.blockId) {
+                // Bir bloğa bağlı (BlockC)
+                const blockC_connections = getConnectionPoints(endConn.blockId);
+                endPointToConnect = blockC_connections[endConn.connectionIndex];
+                // (Eğer A da bloksa, hiçbir şey yapma, sadece boruyu sil)
+            } else {
+                // Bir bloğa bağlı değil, başka bir boruya (PipeC.p1) mı bağlı?
+                connectedPipeAtEnd = (state.plumbingPipes || []).find(p =>
+                    p !== pipeToDelete &&
+                    (Math.hypot(p.p1.x - pipeToDelete.p2.x, p.p1.y - pipeToDelete.p2.y) < tolerance)
+                );
+                if (connectedPipeAtEnd) {
+                    endPointToConnect = connectedPipeAtEnd.p1; // C'nin p1'i
+                    pipeToModify = connectedPipeAtEnd; // C Borusu
+                }
+            }
+
+            // 3. Durumları Değerlendir ve İyileştir (Heal)
+            
+            // Durum: PipeA -> pipeToDelete -> PipeC
+            if (connectedPipeAtStart && connectedPipeAtEnd && startPointToConnect && pipeToModify) {
+                console.log('🩹 Healing pipe connection (A -> C)');
+                // PipeC'nin p1'ini (endPointToConnect), PipeA'nın p2'sine (startPointToConnect) taşı
+                pipeToModify.p1.x = startPointToConnect.x;
+                pipeToModify.p1.y = startPointToConnect.y;
+                // PipeC'nin 'start' bağlantısını PipeA'nın 'end' bağlantısına ayarla (eğer varsa)
+                if (pipeToModify.connections) {
+                     pipeToModify.connections.start = connectedPipeAtStart.connections.end;
+                }
+            }
+            // Durum: BlockA -> pipeToDelete -> PipeC
+            else if (blockToModify && connectedPipeAtEnd && startPointToConnect && pipeToModify) {
+                console.log('🩹 Healing block connection (BlockA -> C)');
+                // PipeC'nin p1'ini (endPointToConnect), BlockA'nın cp'sine (startPointToConnect) taşı
+                pipeToModify.p1.x = startPointToConnect.x;
+                pipeToModify.p1.y = startPointToConnect.y;
+                // PipeC'nin 'start' bağlantısını BlockA olarak ayarla
+                if (pipeToModify.connections) {
+                    pipeToModify.connections.start = { ...startConn };
+                }
+            }
+            // Durum: PipeA -> pipeToDelete -> BlockC
+            else if (connectedPipeAtStart && endConn && startPointToConnect && endPointToConnect) {
+                console.log('🩹 Healing block connection (A -> BlockC)');
+                // PipeA'nın p2'sini (startPointToConnect), BlockC'nin cp'sine (endPointToConnect) taşı
+                pipeToModifyHandle.p2.x = endPointToConnect.x;
+                pipeToModifyHandle.p2.y = endPointToConnect.y;
+                // PipeA'nın 'end' bağlantısını BlockC olarak ayarla
+                if (pipeToModifyHandle.connections) {
+                    pipeToModifyHandle.connections.end = { ...endConn };
+                }
+            }
+            // Durum: BlockA -> pipeToDelete -> BlockC
+            // (Hiçbir şey yapma, sadece boruyu sil)
+
+            // 4. Boruyu sil
+            state.plumbingPipes = state.plumbingPipes.filter(pp => pp !== pipeToDelete);
             deleted = true;
         }
+        // --- BORU SİLME SONU ---
         else if (objType === 'guide') {
             state.guides = state.guides.filter(g => g !== selectedObjectSnapshot.object);
             deleted = true;
@@ -325,6 +427,7 @@ export function handleDelete() {
     }
 }
 
+// ... (dosyanın kalanı değişmedi: onKeyDown, onKeyUp, on3DPointerDown, setupInputListeners, splitWallAtClickPosition) ...
 function onKeyDown(e) {
     // Modifier tuşları
     if (e.key === 'Control') currentModifierKeys.ctrl = true;
