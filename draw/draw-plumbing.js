@@ -137,10 +137,10 @@ function drawServisKutusu(block, isSelected) {
     ctx2d.closePath();
     ctx2d.stroke();
 
-    // SK yazısı - beyaz büyük
-    if (zoom > 0.2) {
+    // SK yazısı - beyaz büyük ve dolgun (sabit boyut)
+    if (zoom > 0.15) {
         ctx2d.fillStyle = '#FFFFFF';
-        ctx2d.font = `bold ${18 / zoom}px Arial`;
+        ctx2d.font = `bold ${24 / zoom}px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
         ctx2d.fillText('SK', 0, 0);
@@ -148,12 +148,12 @@ function drawServisKutusu(block, isSelected) {
 
     ctx2d.restore();
 
-    // Bağlantı noktası
-    const connections = getConnectionPoints(block);
-    ctx2d.fillStyle = '#FF0000';
-    ctx2d.beginPath();
-    ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
-    ctx2d.fill();
+    // Bağlantı noktası - KALDIRILDI (kullanıcı isteği üzerine)
+    // const connections = getConnectionPoints(block);
+    // ctx2d.fillStyle = '#FF0000';
+    // ctx2d.beginPath();
+    // ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
+    // ctx2d.fill();
 }
 
 /**
@@ -197,45 +197,45 @@ function drawSayac(block, isSelected) {
     ctx2d.lineWidth = 2 / zoom;
     ctx2d.beginPath();
     // Sayaç gövdesinden başlangıç noktası (sol üst köşeye yakın)
-    ctx2d.moveTo(-8, -halfH);
+    ctx2d.moveTo(-6, -halfH);
     // 10 cm yukarı ve biraz dışarı çıkıntı
-    ctx2d.lineTo(-8, -halfH - lineLength);
+    ctx2d.lineTo(-6, -halfH - lineLength);
     ctx2d.stroke();
 
     // Sağ üst köşeden çapraz çıkıntı (çıkış)
     ctx2d.strokeStyle = '#FF0000'; // Kırmızı
     ctx2d.beginPath();
     // Sayaç gövdesinden başlangıç noktası (sağ üst köşeye yakın)
-    ctx2d.moveTo(8, -halfH);
+    ctx2d.moveTo(6, -halfH);
     // 10 cm yukarı ve biraz dışarı çıkıntı
-    ctx2d.lineTo(8, -halfH - lineLength);
+    ctx2d.lineTo(6, -halfH - lineLength);
     ctx2d.stroke();
 
     ctx2d.restore();
 
-    // Bağlantı noktaları (çizgilerin uçlarında)
-    const connections = getConnectionPoints(block);
-    connections.forEach((cp, i) => {
-        ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
-        ctx2d.beginPath();
-        ctx2d.arc(cp.x, cp.y, 2.5 / zoom, 0, Math.PI * 2);
-        ctx2d.fill();
-    });
+    // Bağlantı noktaları - KALDIRILDI (kullanıcı isteği üzerine)
+    // const connections = getConnectionPoints(block);
+    // connections.forEach((cp, i) => {
+    //     ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
+    //     ctx2d.beginPath();
+    //     ctx2d.arc(cp.x, cp.y, 2.5 / zoom, 0, Math.PI * 2);
+    //     ctx2d.fill();
+    // });
 
-    // G4 yazısı - DAHA BEYAZ, ARKA PLAN YOK
-    if (zoom > 0.3) {
+    // G4 yazısı - BEYAZ, BÜYÜK ve DOLGUN (sabit boyut)
+    if (zoom > 0.2) {
         ctx2d.save();
         ctx2d.translate(block.center.x, block.center.y);
         ctx2d.rotate(block.rotation * Math.PI / 180);
 
-        // Yazı boyutlarını hesapla
-        const fontSize = 12 / zoom;
+        // Yazı boyutlarını hesapla - Daha büyük ve dolgun
+        const fontSize = 18 / zoom;
         ctx2d.font = `bold ${fontSize}px Arial`;
 
-        // G4 yazısını bloğun ortasına koy - DAHA BEYAZ (#FFFFFF)
+        // G4 yazısını bloğun ortasına koy - TAM BEYAZ (#FFFFFF)
         // Siyah kontur ile okunabilirliği artır
         ctx2d.strokeStyle = '#000000';
-        ctx2d.lineWidth = 3 / zoom;
+        ctx2d.lineWidth = 4 / zoom;
         ctx2d.lineJoin = 'round';
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
@@ -288,14 +288,14 @@ function drawVana(block, isSelected) {
 
     ctx2d.restore();
 
-    // Bağlantı noktaları
-    const connections = getConnectionPoints(block);
-    connections.forEach((cp, i) => {
-        ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
-        ctx2d.beginPath();
-        ctx2d.arc(cp.x, cp.y, 2 / zoom, 0, Math.PI * 2);
-        ctx2d.fill();
-    });
+    // Bağlantı noktaları - KALDIRILDI (kullanıcı isteği üzerine)
+    // const connections = getConnectionPoints(block);
+    // connections.forEach((cp, i) => {
+    //     ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
+    //     ctx2d.beginPath();
+    //     ctx2d.arc(cp.x, cp.y, 2 / zoom, 0, Math.PI * 2);
+    //     ctx2d.fill();
+    // });
 }
 
 /**
@@ -324,25 +324,33 @@ function drawKombi(block, isSelected) {
     ctx2d.arc(0, 0, innerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
 
-    // G harfi
-    if (zoom > 0.2) {
-        ctx2d.fillStyle = '#2196F3';
-        ctx2d.font = `bold ${20 / zoom}px Arial`;
+    // G harfi - BÜYÜK ve DOLGUN (sabit boyut)
+    if (zoom > 0.15) {
+        ctx2d.fillStyle = '#FFFFFF';  // Beyaz renk (mavi yerine)
+        ctx2d.font = `bold ${28 / zoom}px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
+
+        // Siyah kontur ile okunabilirliği artır
+        ctx2d.strokeStyle = '#000000';
+        ctx2d.lineWidth = 4 / zoom;
+        ctx2d.lineJoin = 'round';
+        ctx2d.strokeText('G', 0, 0);
+
         ctx2d.fillText('G', 0, 0);
     }
 
     ctx2d.restore();
 
-    // Bağlantı noktası (altta)
-    const connections = getConnectionPoints(block);
-    ctx2d.fillStyle = '#FF0000';
-    ctx2d.beginPath();
-    ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
-    ctx2d.fill();
+    // Bağlantı noktası - KALDIRILDI (kullanıcı isteği üzerine)
+    // const connections = getConnectionPoints(block);
+    // ctx2d.fillStyle = '#FF0000';
+    // ctx2d.beginPath();
+    // ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
+    // ctx2d.fill();
 
     // Sinüs çizgisi çiz (eğer boru ucuna doğrudan bağlı değilse)
+    const connections = getConnectionPoints(block);
     drawWavyConnectionLine(connections[0], zoom);
 }
 
@@ -407,14 +415,15 @@ function drawOcak(block, isSelected) {
 
     ctx2d.restore();
 
-    // Bağlantı noktası (arka ortada)
-    const connections = getConnectionPoints(block);
-    ctx2d.fillStyle = '#FF0000';
-    ctx2d.beginPath();
-    ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
-    ctx2d.fill();
+    // Bağlantı noktası - KALDIRILDI (kullanıcı isteği üzerine)
+    // const connections = getConnectionPoints(block);
+    // ctx2d.fillStyle = '#FF0000';
+    // ctx2d.beginPath();
+    // ctx2d.arc(connections[0].x, connections[0].y, 3 / zoom, 0, Math.PI * 2);
+    // ctx2d.fill();
 
     // Sinüs çizgisi çiz (eğer boru ucuna doğrudan bağlı değilse)
+    const connections = getConnectionPoints(block);
     drawWavyConnectionLine(connections[0], zoom);
 }
 
@@ -613,6 +622,7 @@ export function drawPlumbingPipePreview() {
 
 /**
  * OCAK/KOMBI EKLEME MODU ÖNİZLEMESİ - Mouse ucunda cihaz simülasyonu
+ * CİHAZ BAĞLANTI NOKTASINDAN TUTULUR (mousePos = bağlantı noktası)
  * Boru ucuna gelince snap göstergesi gösterir
  */
 export function drawPlumbingBlockPlacementPreview() {
@@ -628,21 +638,52 @@ export function drawPlumbingBlockPlacementPreview() {
     const currentFloorId = state.currentFloor?.id;
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
-    // Mouse pozisyonunda cihaz önizlemesi çiz
+    // CİHAZ BAĞLANTI NOKTASINDAN TUTULUR
+    // mousePos = bağlantı noktası pozisyonu
+    // Cihazın merkezi = mousePos + connectionPoint offsetinin tersi
     const config = PLUMBING_BLOCK_TYPES[currentPlumbingBlockType];
+    const connectionPointOffset = config.connectionPoints[0]; // { x: 0, y: -25 } (kombi/ocak için)
+
+    // Cihazın merkezi = mousePos - connectionPointOffset (rotasyon 0 için)
+    const deviceCenterX = mousePos.x - connectionPointOffset.x;
+    const deviceCenterY = mousePos.y - connectionPointOffset.y;
+
     const halfW = config.width / 2;
     const halfH = config.height / 2;
 
     ctx2d.save();
-    ctx2d.translate(mousePos.x, mousePos.y);
+    ctx2d.translate(deviceCenterX, deviceCenterY);
 
     // Yarı saydam cihaz kutusu
     ctx2d.fillStyle = 'rgba(255, 165, 0, 0.2)'; // Turuncu yarı saydam
     ctx2d.strokeStyle = '#FF8C00';
     ctx2d.lineWidth = 2 / zoom;
     ctx2d.setLineDash([5 / zoom, 5 / zoom]);
-    ctx2d.strokeRect(-halfW, -halfH, config.width, config.height);
-    ctx2d.fillRect(-halfW, -halfH, config.width, config.height);
+
+    if (currentPlumbingBlockType === 'KOMBI') {
+        // Kombi için daire çiz
+        ctx2d.beginPath();
+        ctx2d.arc(0, 0, 25, 0, Math.PI * 2);
+        ctx2d.stroke();
+        ctx2d.fill();
+    } else {
+        // Ocak için yuvarlatılmış dikdörtgen çiz
+        const cornerRadius = 5;
+        ctx2d.beginPath();
+        ctx2d.moveTo(-halfW + cornerRadius, -halfH);
+        ctx2d.lineTo(halfW - cornerRadius, -halfH);
+        ctx2d.arcTo(halfW, -halfH, halfW, -halfH + cornerRadius, cornerRadius);
+        ctx2d.lineTo(halfW, halfH - cornerRadius);
+        ctx2d.arcTo(halfW, halfH, halfW - cornerRadius, halfH, cornerRadius);
+        ctx2d.lineTo(-halfW + cornerRadius, halfH);
+        ctx2d.arcTo(-halfW, halfH, -halfW, halfH - cornerRadius, cornerRadius);
+        ctx2d.lineTo(-halfW, -halfH + cornerRadius);
+        ctx2d.arcTo(-halfW, -halfH, -halfW + cornerRadius, -halfH, cornerRadius);
+        ctx2d.closePath();
+        ctx2d.stroke();
+        ctx2d.fill();
+    }
+
     ctx2d.setLineDash([]);
 
     // Cihaz ismi
@@ -654,14 +695,10 @@ export function drawPlumbingBlockPlacementPreview() {
 
     ctx2d.restore();
 
-    // Bağlantı noktası göster (cihazın altında)
-    const connectionY = currentPlumbingBlockType === 'KOMBI' ?
-        mousePos.y + config.height / 2 : // Kombi altı
-        mousePos.y + config.height / 2;  // Ocak arkası
-
-    ctx2d.fillStyle = '#FF0000';
+    // Bağlantı noktası göster (mousePos = bağlantı noktası)
+    ctx2d.fillStyle = '#00FF00'; // Yeşil (kırmızı yerine)
     ctx2d.beginPath();
-    ctx2d.arc(mousePos.x, connectionY, 4 / zoom, 0, Math.PI * 2);
+    ctx2d.arc(mousePos.x, mousePos.y, 4 / zoom, 0, Math.PI * 2);
     ctx2d.fill();
 
     // En yakın boru ucunu bul ve snap göstergesi göster
