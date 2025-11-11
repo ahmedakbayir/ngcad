@@ -17,15 +17,15 @@ export const PLUMBING_PIPE_TYPES = {
         id: 'standard',
         name: 'Standart Boru',
         diameter: 2,        // 2 cm çap
-        color: 0x808080,    // Gri
-        lineWidth: 3,       // 2D çizgi kalınlığı (piksel)
+        color: 0x4885e8,    // Mavi (#4885e8)
+        lineWidth: 6,       // 2D çizgi kalınlığı (piksel) - 2 kat kalın
     },
     THICK: {
         id: 'thick',
         name: 'Kalın Boru',
         diameter: 4,        // 4 cm çap
-        color: 0x606060,    // Koyu gri
-        lineWidth: 5,       // 2D çizgi kalınlığı (piksel)
+        color: 0x4885e8,    // Mavi (#4885e8)
+        lineWidth: 10,      // 2D çizgi kalınlığı (piksel)
     }
 };
 
@@ -57,7 +57,9 @@ export function createPlumbingPipe(x1, y1, x2, y2, pipeType = 'STANDARD') {
         connections: {
             start: null, // { blockId, connectionIndex }
             end: null    // { blockId, connectionIndex }
-        }
+        },
+        // Kesikli çizgi kontrolü için
+        isConnectedToValve: false, // Eğer false ise kesikli çizilir
     };
 }
 
