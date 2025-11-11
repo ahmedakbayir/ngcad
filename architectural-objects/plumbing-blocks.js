@@ -193,7 +193,7 @@ export function getPlumbingBlockAtPoint(point) {
         // Merkez handle
         const centerDist = Math.hypot(point.x - block.center.x, point.y - block.center.y);
         if (centerDist < tolerance) {
-            return { object: block, handle: 'center' };
+            return { type: 'plumbingBlock', object: block, handle: 'center' };
         }
 
         // Rotasyon handle (sağ üst köşeden biraz dışarıda)
@@ -203,7 +203,7 @@ export function getPlumbingBlockAtPoint(point) {
         };
         const rotateDist = Math.hypot(point.x - rotateHandlePos.x, point.y - rotateHandlePos.y);
         if (rotateDist < tolerance) {
-            return { object: block, handle: 'rotate' };
+            return { type: 'plumbingBlock', object: block, handle: 'rotate' };
         }
 
         // Bağlantı noktaları
@@ -212,7 +212,7 @@ export function getPlumbingBlockAtPoint(point) {
             const cp = connectionPoints[i];
             const cpDist = Math.hypot(point.x - cp.x, point.y - cp.y);
             if (cpDist < tolerance) {
-                return { object: block, handle: `connection${i}`, connectionPoint: cp };
+                return { type: 'plumbingBlock', object: block, handle: `connection${i}`, connectionPoint: cp };
             }
         }
 
@@ -221,7 +221,7 @@ export function getPlumbingBlockAtPoint(point) {
             const corner = corners[i];
             const cornerDist = Math.hypot(point.x - corner.x, point.y - corner.y);
             if (cornerDist < tolerance) {
-                return { object: block, handle: `corner${i}` };
+                return { type: 'plumbingBlock', object: block, handle: `corner${i}` };
             }
         }
     }
@@ -229,7 +229,7 @@ export function getPlumbingBlockAtPoint(point) {
     // Hiç handle yoksa, body kontrolü
     for (const block of blocks) {
         if (isPointInPlumbingBlock(point, block)) {
-            return { object: block, handle: 'body' };
+            return { type: 'plumbingBlock', object: block, handle: 'body' };
         }
     }
 
