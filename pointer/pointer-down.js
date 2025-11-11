@@ -17,8 +17,36 @@ import { currentModifierKeys } from '../general-files/input.js';
 import { saveState } from '../general-files/history.js';
 import { cancelLengthEdit } from '../general-files/ui.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
-import { update3DScene } from '../scene3d/scene3d-update.js'; 
+import { update3DScene } from '../scene3d/scene3d-update.js';
 import { processWalls } from '../wall/wall-processor.js';
+
+/**
+ * Vanadan/Sayaçtan sonraki tüm bağlı boruları düz çizgi yap
+ */
+function markAllDownstreamPipesAsConnected(startPipe) {
+    const visited = new Set();
+    const queue = [startPipe];
+
+    while (queue.length > 0) {
+        const pipe = queue.shift();
+        if (visited.has(pipe)) continue;
+        visited.add(pipe);
+
+        pipe.isConnectedToValve = true;
+
+        // p2 ucuna bağlı diğer boruları bul
+        const connectedPipes = (state.plumbingPipes || []).filter(p =>
+            !visited.has(p) && (
+                (Math.hypot(p.p1.x - pipe.p2.x, p.p1.y - pipe.p2.y) < 1) ||
+                (Math.hypot(p.p2.x - pipe.p2.x, p.p2.y - pipe.p2.y) < 1)
+            )
+        );
+
+        queue.push(...connectedPipes);
+    }
+
+    console.log('✅ Marked', visited.size, 'pipes as connected to valve');
+}
 
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
@@ -364,11 +392,17 @@ export function onPointerDown(e) {
                 const pipe1 = createPlumbingPipe(oldP1.x, oldP1.y, splitX, splitY, oldPipeType);
                 const pipe2 = createPlumbingPipe(splitX, splitY, oldP2.x, oldP2.y, oldPipeType);
 
-                // Vanadan sonraki boru düz çizgi olsun
+                // Vanadan/Sayaçtan önceki borunun isConnectedToValve durumunu koru
+                pipe1.isConnectedToValve = pipe.isConnectedToValve;
+
+                // Vanadan sonraki boru ve ondan sonraki TÜM borular düz çizgi olsun
                 pipe2.isConnectedToValve = true;
 
                 if (!state.plumbingPipes) state.plumbingPipes = [];
                 state.plumbingPipes.push(pipe1, pipe2);
+
+                // Vanadan sonraki tüm bağlı boruları düz yap
+                markAllDownstreamPipesAsConnected(pipe2);
 
                 if (!state.plumbingBlocks) state.plumbingBlocks = [];
                 state.plumbingBlocks.push(newBlock);
@@ -484,11 +518,14 @@ export function onPointerDown(e) {
      }
     // --- Tesisat Borusu Çizim Modu ---
     } else if (state.currentMode === "drawPlumbingPipe") {
+        console.log('🚀 PIPE DRAWING MODE - Click registered:', { hasStartPoint: !!state.startPoint, pos });
+
         if (!state.startPoint) {
             // İlk tıklama: Başlangıç noktasını ayarla (bağlantı noktasına snap)
             const snap = snapToConnectionPoint(pos, 10);
             const startPos = snap ? { x: snap.x, y: snap.y } : { x: snappedPos.roundedX, y: snappedPos.roundedY };
             setState({ startPoint: startPos });
+            console.log('✅ Start point set:', startPos);
         } else {
             // İkinci tıklama: Boruyu oluştur
             const p1 = state.startPoint;
