@@ -406,17 +406,26 @@ export function onPointerDown(e) {
 
             // Minimum uzunluk kontrolü (5 cm)
             const length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            console.log('🔧 Creating pipe:', { p1, p2, length, minLength: 5 });
+
             if (length > 5) {
                 const pipeType = state.currentPlumbingPipeType || 'STANDARD';
                 const newPipe = createPlumbingPipe(p1.x, p1.y, p2.x, p2.y, pipeType);
 
+                console.log('🔧 Pipe created:', newPipe);
+
                 if (newPipe) {
                     if (!state.plumbingPipes) state.plumbingPipes = [];
                     state.plumbingPipes.push(newPipe);
+                    console.log('✅ Pipe added to state. Total pipes:', state.plumbingPipes.length);
                     geometryChanged = true;
                     needsUpdate3D = true;
                     objectJustCreated = true;
+                } else {
+                    console.error('❌ newPipe is null/undefined!');
                 }
+            } else {
+                console.warn('⚠️ Pipe too short:', length, '< 5');
             }
 
             // Başlangıç noktasını tekrar ikinci tıklama pozisyonuna ayarla (zincirleme çizim)
