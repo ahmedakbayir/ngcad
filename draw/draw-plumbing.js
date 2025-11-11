@@ -465,58 +465,20 @@ export function drawPlumbingBlocks() {
 
 /**
  * Seçili tesisat bloğunun handle'larını çizer
+ * SADECE BAĞLANTI NOKTALARI - Köşe ve rotation handle'lar kaldırıldı
  */
 export function drawPlumbingBlockHandles(block) {
     const { ctx2d } = dom;
     const { zoom } = state;
 
-    const corners = getPlumbingBlockCorners(block);
     const connections = getConnectionPoints(block);
 
-    // Köşe handle'ları
-    ctx2d.fillStyle = '#8ab4f8';
-    ctx2d.strokeStyle = '#FFFFFF';
-    ctx2d.lineWidth = 1.5 / zoom;
-
-    for (const corner of corners) {
-        ctx2d.beginPath();
-        ctx2d.arc(corner.x, corner.y, 5 / zoom, 0, Math.PI * 2);
-        ctx2d.fill();
-        ctx2d.stroke();
-    }
-
-    // Merkez handle
-    ctx2d.fillStyle = '#FF9800';
-    ctx2d.beginPath();
-    ctx2d.arc(block.center.x, block.center.y, 6 / zoom, 0, Math.PI * 2);
-    ctx2d.fill();
-    ctx2d.stroke();
-
-    // Rotasyon handle (sağ üst köşeden biraz dışarıda)
-    const rotateHandlePos = {
-        x: corners[1].x + 20 / zoom,
-        y: corners[1].y - 20 / zoom
-    };
-    ctx2d.fillStyle = '#4CAF50';
-    ctx2d.beginPath();
-    ctx2d.arc(rotateHandlePos.x, rotateHandlePos.y, 5 / zoom, 0, Math.PI * 2);
-    ctx2d.fill();
-    ctx2d.stroke();
-
-    // Rotasyon handle'ına çizgi
-    ctx2d.strokeStyle = '#4CAF50';
-    ctx2d.setLineDash([3 / zoom, 3 / zoom]);
-    ctx2d.beginPath();
-    ctx2d.moveTo(corners[1].x, corners[1].y);
-    ctx2d.lineTo(rotateHandlePos.x, rotateHandlePos.y);
-    ctx2d.stroke();
-    ctx2d.setLineDash([]);
-
-    // Bağlantı noktası handle'ları
+    // SADECE Bağlantı noktası handle'ları çiz
     for (let i = 0; i < connections.length; i++) {
         const cp = connections[i];
         ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
         ctx2d.strokeStyle = '#FFFFFF';
+        ctx2d.lineWidth = 1.5 / zoom;
         ctx2d.beginPath();
         ctx2d.arc(cp.x, cp.y, 4 / zoom, 0, Math.PI * 2);
         ctx2d.fill();

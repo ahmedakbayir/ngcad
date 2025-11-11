@@ -95,6 +95,7 @@ export function isPointOnPipe(point, pipe, tolerance = 5) {
 
 /**
  * Bağlantı noktasına snap mesafesini hesaplar
+ * SAYAÇ ÇİFT BAĞLANTI KONTROLÜ: Bir tarafa bağlıysa aynı tarafa başka boru bağlanamaz
  * @param {object} point - Kontrol edilecek nokta
  * @param {number} tolerance - Snap toleransı
  * @param {function} filterFn - Opsiyonel: Blokları filtreleme fonksiyonu (block) => boolean
@@ -120,6 +121,19 @@ export function snapToConnectionPoint(point, tolerance = 10, filterFn = null) {
             const dist = Math.hypot(point.x - cp.x, point.y - cp.y);
 
             if (dist < minDist) {
+                // SAYAÇ KONTROLÜ: Bu bağlantı noktasına zaten bir boru bağlı mı?
+                if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
+                    const isOccupied = (state.plumbingPipes || []).some(pipe =>
+                        Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < 2 ||
+                        Math.hypot(pipe.p2.x - cp.x, pipe.p2.y - cp.y) < 2
+                    );
+
+                    if (isOccupied) {
+                        // Bu bağlantı noktası dolu, atla
+                        continue;
+                    }
+                }
+
                 minDist = dist;
                 closestSnap = {
                     x: cp.x,
