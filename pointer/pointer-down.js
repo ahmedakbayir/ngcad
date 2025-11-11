@@ -325,8 +325,100 @@ export function onPointerDown(e) {
          }
     // --- Tesisat Bloğu Çizim Modu ---
     } else if (state.currentMode === "drawPlumbingBlock") {
-        // Tek tıklama ile tesisat bloğu yerleştir
         const blockType = state.currentPlumbingBlockType || 'SERVIS_KUTUSU';
+
+        // VANA ve SAYAÇ için boru üzerine ekleme kontrolü
+        if (blockType === 'VANA' || blockType === 'SAYAC') {
+            // Boru üzerine mi tıklandı kontrol et
+            const clickedPipe = getObjectAtPoint(pos);
+
+            if (clickedPipe && clickedPipe.type === 'plumbingPipe') {
+                const pipe = clickedPipe.object;
+                console.log('🔧 Adding', blockType, 'to pipe');
+
+                // Borunun yönünü hesapla
+                const dx = pipe.p2.x - pipe.p1.x;
+                const dy = pipe.p2.y - pipe.p1.y;
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                // Tıklama noktasına en yakın noktayı borudan bul
+                const t = Math.max(0, Math.min(1,
+                    ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / (dx * dx + dy * dy)
+                ));
+                const splitX = pipe.p1.x + t * dx;
+                const splitY = pipe.p1.y + t * dy;
+
+                // Yeni blok oluştur (boru üzerinde)
+                const newBlock = createPlumbingBlock(splitX, splitY, blockType);
+                newBlock.rotation = Math.round(angle / 15) * 15; // Boru yönüne uygun dönüş
+
+                // Boruyu ikiye böl
+                const oldP1 = { ...pipe.p1 };
+                const oldP2 = { ...pipe.p2 };
+                const oldPipeType = pipe.pipeType;
+
+                // Eski boruyu sil
+                state.plumbingPipes = state.plumbingPipes.filter(p => p !== pipe);
+
+                // İki yeni boru ekle (bloktan önce ve sonra)
+                const pipe1 = createPlumbingPipe(oldP1.x, oldP1.y, splitX, splitY, oldPipeType);
+                const pipe2 = createPlumbingPipe(splitX, splitY, oldP2.x, oldP2.y, oldPipeType);
+
+                // Vanadan sonraki boru düz çizgi olsun
+                pipe2.isConnectedToValve = true;
+
+                if (!state.plumbingPipes) state.plumbingPipes = [];
+                state.plumbingPipes.push(pipe1, pipe2);
+
+                if (!state.plumbingBlocks) state.plumbingBlocks = [];
+                state.plumbingBlocks.push(newBlock);
+
+                geometryChanged = true;
+                needsUpdate3D = true;
+                objectJustCreated = true;
+
+                console.log('✅ Block added to pipe, pipe split into 2');
+                setMode("select");
+                return;
+            }
+        }
+
+        // OCAK ve KOMBI sadece boru ucuna eklenebilir
+        if (blockType === 'OCAK' || blockType === 'KOMBI') {
+            // Bağlantı noktasına snap et (sadece boru uçları)
+            const snap = snapToConnectionPoint(pos, 15);
+            if (!snap) {
+                console.warn('⚠️', blockType, 'can only be placed at pipe ends');
+                return;
+            }
+
+            const newBlock = createPlumbingBlock(snap.x, snap.y, blockType);
+
+            // Borunun yönünü hesapla (eğer boru varsa)
+            const nearbyPipe = state.plumbingPipes?.find(p =>
+                Math.hypot(p.p1.x - snap.x, p.p1.y - snap.y) < 1 ||
+                Math.hypot(p.p2.x - snap.x, p.p2.y - snap.y) < 1
+            );
+
+            if (nearbyPipe) {
+                const dx = nearbyPipe.p2.x - nearbyPipe.p1.x;
+                const dy = nearbyPipe.p2.y - nearbyPipe.p1.y;
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                newBlock.rotation = Math.round(angle / 15) * 15;
+            }
+
+            if (!state.plumbingBlocks) state.plumbingBlocks = [];
+            state.plumbingBlocks.push(newBlock);
+            geometryChanged = true;
+            needsUpdate3D = true;
+            objectJustCreated = true;
+
+            console.log('✅', blockType, 'added to pipe end');
+            setMode("select");
+            return;
+        }
+
+        // Diğer bloklar (SERVIS_KUTUSU) - normal yerleştirme
         const newBlock = createPlumbingBlock(snappedPos.roundedX, snappedPos.roundedY, blockType);
 
         if (newBlock) {
@@ -336,7 +428,6 @@ export function onPointerDown(e) {
             needsUpdate3D = true;
             objectJustCreated = true;
 
-            // Blok eklendikten sonra komuttan çık
             setMode("select");
         }
     // --- Merdiven Çizim Modu ---
