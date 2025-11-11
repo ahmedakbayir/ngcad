@@ -184,6 +184,14 @@ export function getPlumbingBlockAtPoint(point) {
     const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
     const tolerance = 8 / zoom;
 
+    console.log('🔍 getPlumbingBlockAtPoint called:', {
+        point,
+        tolerance,
+        totalBlocks: state.plumbingBlocks?.length || 0,
+        currentFloorBlocks: blocks.length,
+        currentFloorId
+    });
+
     // Önce handle'ları kontrol et
     for (const block of blocks) {
         const corners = getPlumbingBlockCorners(block);
