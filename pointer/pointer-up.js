@@ -166,6 +166,16 @@ export function onPointerUp(e) {
         }
         // YENİ BLOK BİTİŞİ
 
+        // TESİSAT İŞLEMLERİ İÇİN UNDO/REDO DESTEĞİ
+        if (state.selectedObject?.type === "plumbingBlock") {
+            processWalls();
+        }
+
+        if (state.selectedObject?.type === "plumbingPipe") {
+            processWalls();
+        }
+        // TESİSAT BLOK BİTİŞİ
+
         processWalls();
         saveState();
 
