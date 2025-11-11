@@ -182,6 +182,7 @@ export function isPointInPlumbingBlock(point, block) {
 
 /**
  * Tıklanan noktada blok ve handle bulur
+ * SADECE BAĞLANTI NOKTALARI VE BODY - Köşe ve rotation handle'lar kaldırıldı
  */
 export function getPlumbingBlockAtPoint(point) {
     const { zoom } = state;
@@ -189,29 +190,8 @@ export function getPlumbingBlockAtPoint(point) {
     const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
     const tolerance = 8 / zoom;
 
-    // Debug log kaldırıldı (her mouse move'da çağrılıyor)
-
-    // Önce handle'ları kontrol et
+    // Önce bağlantı noktalarını kontrol et
     for (const block of blocks) {
-        const corners = getPlumbingBlockCorners(block);
-
-        // Merkez handle
-        const centerDist = Math.hypot(point.x - block.center.x, point.y - block.center.y);
-        if (centerDist < tolerance) {
-            return { type: 'plumbingBlock', object: block, handle: 'center' };
-        }
-
-        // Rotasyon handle (sağ üst köşeden biraz dışarıda)
-        const rotateHandlePos = {
-            x: corners[1].x + 20 / zoom,
-            y: corners[1].y - 20 / zoom
-        };
-        const rotateDist = Math.hypot(point.x - rotateHandlePos.x, point.y - rotateHandlePos.y);
-        if (rotateDist < tolerance) {
-            return { type: 'plumbingBlock', object: block, handle: 'rotate' };
-        }
-
-        // Bağlantı noktaları
         const connectionPoints = getConnectionPoints(block);
         for (let i = 0; i < connectionPoints.length; i++) {
             const cp = connectionPoints[i];
@@ -220,18 +200,9 @@ export function getPlumbingBlockAtPoint(point) {
                 return { type: 'plumbingBlock', object: block, handle: `connection${i}`, connectionPoint: cp };
             }
         }
-
-        // Köşe handle'ları
-        for (let i = 0; i < corners.length; i++) {
-            const corner = corners[i];
-            const cornerDist = Math.hypot(point.x - corner.x, point.y - corner.y);
-            if (cornerDist < tolerance) {
-                return { type: 'plumbingBlock', object: block, handle: `corner${i}` };
-            }
-        }
     }
 
-    // Hiç handle yoksa, body kontrolü
+    // Hiç bağlantı noktası yoksa, body kontrolü
     for (const block of blocks) {
         if (isPointInPlumbingBlock(point, block)) {
             return { type: 'plumbingBlock', object: block, handle: 'body' };
@@ -287,16 +258,17 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
 
 /**
  * Pointer move event handler
+ * SADECE BODY HAREKETİ - Rotation ve corner handle'lar kaldırıldı
  */
 export function onPointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
     if (!dragState || dragState.type !== 'plumbingBlock') return false;
 
-    const { block, handle, startPos, startCenter, startRotation } = dragState;
+    const { block, handle, startPos, startCenter } = dragState;
     const dx = snappedPos.roundedX - startPos.x;
     const dy = snappedPos.roundedY - startPos.y;
 
-    if (handle === 'center' || handle === 'body') {
+    if (handle === 'body') {
         // OCAK veya KOMBI bağlantı kontrolü - BAĞLIYSA KOPARAMAZ
         if (block.blockType === 'OCAK' || block.blockType === 'KOMBI') {
             const isConnected = checkIfBlockIsConnected(block);
@@ -311,23 +283,8 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         block.center.x = startCenter.x + dx;
         block.center.y = startCenter.y + dy;
 
-        // Bağlı boruları güncelle - BORULAR KOPMAMALI
+        // Bağlı boruları güncelle - BORULAR KESİNLİKLE KOPMAMALI
         updateConnectedPipes(block, oldCenter, block.center);
-
-        return true;
-    } else if (handle === 'rotate') {
-        // Döndürme - Eski ve yeni rotasyonu hesapla
-        const oldRotation = startRotation;
-
-        const angleToMouse = Math.atan2(
-            unsnappedPos.y - block.center.y,
-            unsnappedPos.x - block.center.x
-        ) * 180 / Math.PI;
-
-        block.rotation = Math.round(angleToMouse / 15) * 15; // 15 derece snap
-
-        // Döndürme sonrası bağlı boruları güncelle
-        updateConnectedPipesAfterRotation(block, oldRotation, block.rotation);
 
         return true;
     }
