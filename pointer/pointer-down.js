@@ -3,7 +3,7 @@ import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } f
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
 import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock, getConnectionPoints, PLUMBING_BLOCK_TYPES } from '../architectural-objects/plumbing-blocks.js';
-import { createPlumbingPipe, snapToConnectionPoint, snapToPipeEndpoint, onPointerDown as onPointerDownPlumbingPipe } from '../architectural-objects/plumbing-pipes.js';
+import { createPlumbingPipe, snapToConnectionPoint, snapToPipeEndpoint, onPointerDown as onPointerDownPlumbingPipe, isSpaceForValve } from '../architectural-objects/plumbing-pipes.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
 import { onPointerDownGuide } from '../architectural-objects/guide-handler.js';
@@ -355,8 +355,8 @@ export function onPointerDown(e) {
 } else if (state.currentMode === "drawPlumbingBlock") {
         const blockType = state.currentPlumbingBlockType || 'SERVIS_KUTUSU';
 
-        // VANA ve SAYAÇ için boru üzerine ekleme kontrolü
-        if (blockType === 'VANA' || blockType === 'SAYAC') {
+        // SAYAÇ için boru üzerine ekleme kontrolü
+        if (blockType === 'SAYAC') {
             // Boru üzerine mi tıklandı kontrol et
             const clickedPipe = getObjectAtPoint(pos);
 
@@ -520,6 +520,58 @@ export function onPointerDown(e) {
 
             setMode("select");
         }
+    // --- Vana Çizim Modu (Boru Üzerinde) ---
+    } else if (state.currentMode === "drawValve") {
+        // Sadece boru üzerine tıklanırsa vana ekle
+        const clickedPipe = getObjectAtPoint(pos);
+
+        if (!clickedPipe || clickedPipe.type !== 'plumbingPipe') {
+            console.warn('⚠️ Vana sadece boru üzerine eklenebilir');
+            return;
+        }
+
+        const pipe = clickedPipe.object;
+        console.log('🔧 Adding valve to pipe');
+
+        // Borunun yönünü hesapla
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const pipeLength = Math.hypot(dx, dy);
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        // Tıklama noktasına en yakın noktayı borudan bul (p1'e göre uzaklık)
+        const t = Math.max(0, Math.min(1,
+            ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / (dx * dx + dy * dy)
+        ));
+        const valvePos = t * pipeLength; // p1'den uzaklık (cm)
+
+        // Vana genişliği
+        const valveWidth = PLUMBING_BLOCK_TYPES.VANA.width; // 12 cm
+
+        // Vana için yer var mı kontrol et
+        if (!isSpaceForValve(pipe, valvePos, valveWidth)) {
+            console.warn('⚠️ Bu konumda vana için yeterli yer yok');
+            return;
+        }
+
+        // Yeni vana nesnesi oluştur
+        const newValve = {
+            pos: valvePos,
+            width: valveWidth,
+            rotation: Math.round(angle / 15) * 15 // Boru yönünde
+        };
+
+        // Borunun valves dizisine ekle
+        if (!pipe.valves) pipe.valves = [];
+        pipe.valves.push(newValve);
+
+        // İşlem başarılı
+        geometryChanged = true;
+        needsUpdate3D = true;
+        objectJustCreated = true;
+
+        console.log('✅ Valve added to pipe at position', valvePos);
+        // setMode("select"); // Mod değiştirme, zincirleme vana eklemek için
     // --- Merdiven Çizim Modu ---
     } else if (state.currentMode === "drawStairs") {
      if (!state.startPoint) {

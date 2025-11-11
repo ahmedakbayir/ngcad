@@ -7,7 +7,7 @@ import { getColumnAtPoint } from '../architectural-objects/columns.js';
 import { getBeamAtPoint } from '../architectural-objects/beams.js';
 import { getStairAtPoint } from '../architectural-objects/stairs.js';
 import { getPlumbingBlockAtPoint } from '../architectural-objects/plumbing-blocks.js';
-import { getPipeAtPoint } from '../architectural-objects/plumbing-pipes.js';
+import { getPipeAtPoint, getValveAtPoint } from '../architectural-objects/plumbing-pipes.js';
 import { getDoorAtPoint } from '../architectural-objects/door-handler.js';
 import { getGuideAtPoint } from '../architectural-objects/guide-handler.js';
 import { getWindowAtPoint } from '../architectural-objects/window-handler.js';
@@ -206,6 +206,10 @@ export function getObjectAtPoint(pos) {
 
     // 2.5 Tesisat Bloğu Gövdesi
     if (plumbingBlockHit && plumbingBlockHit.handle === 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
+
+    // 2.5.3 Vana (Boru Üzerinde)
+    const valveHit = getValveAtPoint(pos, tolerance);
+    if (valveHit) return validateFloorMatch(valveHit, currentFloorId);
 
     // 2.5.5 Tesisat Borusu
     const pipeHit = getPipeAtPoint(pos, tolerance);

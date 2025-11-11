@@ -5,7 +5,7 @@ import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
     drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
     drawBeam, drawStairs, drawGuides
     } from './renderer2d.js';
-import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview } from './draw-plumbing.js'; 
+import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview, drawValvesOnPipes } from './draw-plumbing.js'; 
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
         } from './draw-previews.js';
@@ -356,6 +356,9 @@ export function draw2D() {
 
     // 4.9. TESİSAT BORULARI
     drawPlumbingPipes();
+
+    // 4.9.5. VANALAR (Boru Üzerinde)
+    drawValvesOnPipes();
 
     // 5. Atomik Semboller
     nodes.forEach(node => {

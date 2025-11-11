@@ -462,15 +462,86 @@ export function drawPlumbingBlock(block, isSelected = false) {
 }
 
 /**
- * Tüm tesisat bloklarını çizer
+ * Tüm tesisat bloklarını çizer (VANA HARİÇ - vanalar artık boru üzerinde)
  */
 export function drawPlumbingBlocks() {
     const currentFloorId = state.currentFloor?.id;
-    const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
+    const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId && b.blockType !== 'VANA');
 
     for (const block of blocks) {
         const isSelected = state.selectedObject?.object === block;
         drawPlumbingBlock(block, isSelected);
+    }
+}
+
+/**
+ * Tüm vanaları boru üzerinde çizer
+ */
+export function drawValvesOnPipes() {
+    const { ctx2d } = dom;
+    const { zoom, wallBorderColor } = state;
+    const currentFloorId = state.currentFloor?.id;
+    const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
+
+    for (const pipe of pipes) {
+        if (!pipe.valves || pipe.valves.length === 0) continue;
+
+        const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+        if (pipeLength < 0.1) continue;
+
+        const dx = (pipe.p2.x - pipe.p1.x) / pipeLength;
+        const dy = (pipe.p2.y - pipe.p1.y) / pipeLength;
+
+        for (const valve of pipe.valves) {
+            // Vananın merkez pozisyonu
+            const centerX = pipe.p1.x + dx * valve.pos;
+            const centerY = pipe.p1.y + dy * valve.pos;
+
+            // Vananın rotasyonu (boru yönünde)
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+            const rotation = valve.rotation || Math.round(angle / 15) * 15;
+
+            // Vana seçili mi kontrol et
+            const isSelected = state.selectedObject?.type === 'valve' && state.selectedObject?.object === valve;
+
+            // Vana çizimini yap (drawVana fonksiyonunun benzeri ama merkezde)
+            ctx2d.save();
+            ctx2d.translate(centerX, centerY);
+            ctx2d.rotate(rotation * Math.PI / 180);
+
+            const config = PLUMBING_BLOCK_TYPES.VANA;
+            const halfLength = config.width / 3;
+            const largeRadius = config.height / 2;
+            const smallRadius = 0.5;
+
+            ctx2d.strokeStyle = isSelected ? '#8ab4f8' : 'rgba(255, 255, 255, 1)';
+            ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
+
+            // Çift kesik koni (elmas şekli)
+            ctx2d.beginPath();
+            ctx2d.moveTo(-halfLength, -largeRadius);
+            ctx2d.lineTo(smallRadius, 0);
+            ctx2d.lineTo(-halfLength, largeRadius);
+            ctx2d.closePath();
+            ctx2d.stroke();
+
+            ctx2d.beginPath();
+            ctx2d.moveTo(-smallRadius, 0);
+            ctx2d.lineTo(halfLength, -largeRadius);
+            ctx2d.lineTo(halfLength, largeRadius);
+            ctx2d.closePath();
+            ctx2d.stroke();
+
+            ctx2d.lineWidth = 6 / zoom;
+            ctx2d.beginPath();
+            ctx2d.moveTo(-largeRadius - smallRadius - 0.5, 0);
+            ctx2d.lineTo(-largeRadius - smallRadius - 2, 0);
+            ctx2d.moveTo(largeRadius + smallRadius + 0.5, 0);
+            ctx2d.lineTo(largeRadius + smallRadius + 2, 0);
+            ctx2d.stroke();
+
+            ctx2d.restore();
+        }
     }
 }
 

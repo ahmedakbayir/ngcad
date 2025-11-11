@@ -180,7 +180,7 @@ function createSayacMesh(block, material) {
 /**
  * Vana mesh'i oluşturur
  */
-function createVanaMesh(block, material) {
+export function createVanaMesh(block, material) {
     const config = PLUMBING_BLOCK_TYPES.VANA;
 
     // Çift kesik koni geometrisi (dar uçlar ortada birleşik)

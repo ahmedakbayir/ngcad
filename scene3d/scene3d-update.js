@@ -18,7 +18,7 @@ import {createWallSegmentMesh, createDoorMesh, createLintelMesh,
     createComplexWindow, createWallPieceMesh, createVentMesh}
     from "./scene3d-walls.js";
 import {createColumnMesh, createBeamMesh, createStairMesh} from "./scene3d-structures.js";
-import {createPlumbingBlockMesh, createPlumbingBlockMaterial, createPlumbingPipeMesh, createPlumbingPipeMaterial} from "./scene3d-plumbing.js";
+import {createPlumbingBlockMesh, createPlumbingBlockMaterial, createPlumbingPipeMesh, createPlumbingPipeMaterial, createVanaMesh} from "./scene3d-plumbing.js";
 import {getArcWallPoints } from "../draw/geometry.js";
 import {state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
     BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "../general-files/main.js";
@@ -308,6 +308,37 @@ export function update3DScene() {
             if (m) {
                 m.position.y = getFloorElevation(pipe.floorId);
                 sceneObjects.add(m);
+            }
+
+            // Boru üzerindeki vanaları çiz
+            if (pipe.valves && pipe.valves.length > 0) {
+                const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+                if (pipeLength >= 0.1) {
+                    const dx = (pipe.p2.x - pipe.p1.x) / pipeLength;
+                    const dy = (pipe.p2.y - pipe.p1.y) / pipeLength;
+
+                    pipe.valves.forEach(valve => {
+                        // Vana pozisyonu (p1'den uzaklık)
+                        const valveCenterX = pipe.p1.x + dx * valve.pos;
+                        const valveCenterY = pipe.p1.y + dy * valve.pos;
+
+                        // Vana yönü (boru yönü)
+                        const angle = Math.atan2(dy, dx);
+
+                        // Vana mesh'ini oluştur (block benzeri parametre gerek)
+                        const valveBlock = {
+                            center: { x: valveCenterX, y: valveCenterY },
+                            rotation: -(angle * 180 / Math.PI), // Rotasyon
+                            blockType: 'VANA'
+                        };
+
+                        const valveMesh = createVanaMesh(valveBlock, plumbingMaterial);
+                        if (valveMesh) {
+                            valveMesh.position.y = getFloorElevation(pipe.floorId);
+                            sceneObjects.add(valveMesh);
+                        }
+                    });
+                }
             }
         });
     }
