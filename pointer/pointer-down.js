@@ -680,9 +680,30 @@ export function onPointerDown(e) {
                 console.log('🔧 Pipe created:', newPipe);
 
                 if (newPipe) {
-                    // Borunun bağlantı durumunu belirle
-                    // p1 servis kutusu, vana veya sayaç connection point'inde mi?
-                    const startBlockSnap = snapToConnectionPoint(p1, 1); // 1 cm tolerans ile kontrol et
+                    // EXPLICIT CONNECTION TRACKING - p1 ve p2 için bağlantı bilgilerini kaydet
+                    const startBlockSnap = snapToConnectionPoint(p1, 2); // 2 cm tolerans
+                    if (startBlockSnap) {
+                        // p1 bir bloğa bağlı
+                        newPipe.connections.start = {
+                            blockId: startBlockSnap.block,
+                            connectionIndex: startBlockSnap.connectionIndex,
+                            blockType: startBlockSnap.block.blockType
+                        };
+                        console.log('✅ P1 connected to', startBlockSnap.block.blockType, 'connection', startBlockSnap.connectionIndex);
+                    }
+
+                    const endBlockSnap = snapToConnectionPoint(p2, 2); // 2 cm tolerans
+                    if (endBlockSnap) {
+                        // p2 bir bloğa bağlı
+                        newPipe.connections.end = {
+                            blockId: endBlockSnap.block,
+                            connectionIndex: endBlockSnap.connectionIndex,
+                            blockType: endBlockSnap.block.blockType
+                        };
+                        console.log('✅ P2 connected to', endBlockSnap.block.blockType, 'connection', endBlockSnap.connectionIndex);
+                    }
+
+                    // Borunun bağlantı durumunu belirle (kesikli/düz çizgi için)
                     if (startBlockSnap &&
                         (startBlockSnap.block.blockType === 'SERVIS_KUTUSU' ||
                          startBlockSnap.block.blockType === 'VANA' ||

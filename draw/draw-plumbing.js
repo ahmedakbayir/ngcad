@@ -1,6 +1,6 @@
 import { state, dom } from '../general-files/main.js';
 import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
-import { PLUMBING_PIPE_TYPES } from '../architectural-objects/plumbing-pipes.js';
+import { PLUMBING_PIPE_TYPES, snapToConnectionPoint, snapToPipeEndpoint } from '../architectural-objects/plumbing-pipes.js';
 
 /**
  * TESİSAT BLOKLARI 2D RENDERING
@@ -137,10 +137,10 @@ function drawServisKutusu(block, isSelected) {
     ctx2d.closePath();
     ctx2d.stroke();
 
-    // SK yazısı - beyaz büyük ve dolgun (sabit boyut)
+    // SK yazısı - beyaz büyük ve dolgun (zoom ile birlikte büyür)
     if (zoom > 0.15) {
         ctx2d.fillStyle = '#FFFFFF';
-        ctx2d.font = `bold ${24 / zoom}px Arial`;
+        ctx2d.font = `bold 18px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
         ctx2d.fillText('SK', 0, 0);
@@ -222,20 +222,20 @@ function drawSayac(block, isSelected) {
     //     ctx2d.fill();
     // });
 
-    // G4 yazısı - BEYAZ, BÜYÜK ve DOLGUN (sabit boyut)
+    // G4 yazısı - BEYAZ, BÜYÜK ve DOLGUN (zoom ile birlikte büyür)
     if (zoom > 0.2) {
         ctx2d.save();
         ctx2d.translate(block.center.x, block.center.y);
         ctx2d.rotate(block.rotation * Math.PI / 180);
 
-        // Yazı boyutlarını hesapla - Daha büyük ve dolgun
-        const fontSize = 18 / zoom;
+        // Yazı boyutları - zoom ile birlikte büyür
+        const fontSize = 14;
         ctx2d.font = `bold ${fontSize}px Arial`;
 
         // G4 yazısını bloğun ortasına koy - TAM BEYAZ (#FFFFFF)
         // Siyah kontur ile okunabilirliği artır
         ctx2d.strokeStyle = '#000000';
-        ctx2d.lineWidth = 4 / zoom;
+        ctx2d.lineWidth = 2;
         ctx2d.lineJoin = 'round';
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
@@ -324,16 +324,16 @@ function drawKombi(block, isSelected) {
     ctx2d.arc(0, 0, innerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
 
-    // G harfi - BÜYÜK ve DOLGUN (sabit boyut)
+    // G harfi - BÜYÜK ve DOLGUN (zoom ile birlikte büyür)
     if (zoom > 0.15) {
         ctx2d.fillStyle = '#FFFFFF';  // Beyaz renk (mavi yerine)
-        ctx2d.font = `bold ${28 / zoom}px Arial`;
+        ctx2d.font = `bold 20px Arial`;
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
 
         // Siyah kontur ile okunabilirliği artır
         ctx2d.strokeStyle = '#000000';
-        ctx2d.lineWidth = 4 / zoom;
+        ctx2d.lineWidth = 3;
         ctx2d.lineJoin = 'round';
         ctx2d.strokeText('G', 0, 0);
 
@@ -474,7 +474,7 @@ export function drawPlumbingBlocks() {
 
 /**
  * Seçili tesisat bloğunun handle'larını çizer
- * SADECE BAĞLANTI NOKTALARI - Köşe ve rotation handle'lar kaldırıldı
+ * Bağlantı noktaları + Rotation handle
  */
 export function drawPlumbingBlockHandles(block) {
     const { ctx2d } = dom;
@@ -482,7 +482,7 @@ export function drawPlumbingBlockHandles(block) {
 
     const connections = getConnectionPoints(block);
 
-    // SADECE Bağlantı noktası handle'ları çiz
+    // Bağlantı noktası handle'ları çiz
     for (let i = 0; i < connections.length; i++) {
         const cp = connections[i];
         ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
@@ -493,6 +493,31 @@ export function drawPlumbingBlockHandles(block) {
         ctx2d.fill();
         ctx2d.stroke();
     }
+
+    // Rotation handle (merkez üstünde, 30 cm yukarıda)
+    const rotationHandleDistance = 30;
+    const angle = (block.rotation || 0) * Math.PI / 180;
+    const handleX = block.center.x + Math.sin(angle) * rotationHandleDistance;
+    const handleY = block.center.y - Math.cos(angle) * rotationHandleDistance;
+
+    // Rotation handle'a çizgi çiz
+    ctx2d.strokeStyle = '#8ab4f8';
+    ctx2d.lineWidth = 2 / zoom;
+    ctx2d.setLineDash([5 / zoom, 5 / zoom]);
+    ctx2d.beginPath();
+    ctx2d.moveTo(block.center.x, block.center.y);
+    ctx2d.lineTo(handleX, handleY);
+    ctx2d.stroke();
+    ctx2d.setLineDash([]);
+
+    // Rotation handle'ı çiz (daire içinde ok)
+    ctx2d.fillStyle = '#8ab4f8';
+    ctx2d.strokeStyle = '#FFFFFF';
+    ctx2d.lineWidth = 1.5 / zoom;
+    ctx2d.beginPath();
+    ctx2d.arc(handleX, handleY, 6 / zoom, 0, Math.PI * 2);
+    ctx2d.fill();
+    ctx2d.stroke();
 }
 
 /**
@@ -577,16 +602,34 @@ export function drawPlumbingPipePreview() {
     const pipeType = state.currentPlumbingPipeType || 'STANDARD';
     const config = PLUMBING_PIPE_TYPES[pipeType];
 
+    // Snap kontrolü - hem bağlantı noktalarına hem boru uçlarına
+    let endPoint = { x: state.mousePos.x, y: state.mousePos.y };
+    let isSnapped = false;
+
+    // Önce bağlantı noktalarına snap
+    const blockSnap = snapToConnectionPoint(endPoint, 15);
+    if (blockSnap) {
+        endPoint = { x: blockSnap.x, y: blockSnap.y };
+        isSnapped = true;
+    } else {
+        // Bağlantı noktası yoksa boru uçlarına snap
+        const pipeSnap = snapToPipeEndpoint(endPoint, 15);
+        if (pipeSnap) {
+            endPoint = { x: pipeSnap.x, y: pipeSnap.y };
+            isSnapped = true;
+        }
+    }
+
     // Önizleme çizgisi
     ctx2d.save();
-    ctx2d.strokeStyle = `#${config.color.toString(16).padStart(6, '0')}`;
+    ctx2d.strokeStyle = isSnapped ? '#00FF00' : `#${config.color.toString(16).padStart(6, '0')}`;
     ctx2d.lineWidth = config.lineWidth / zoom;
     ctx2d.lineCap = 'round';
     ctx2d.globalAlpha = 0.7;
 
     ctx2d.beginPath();
     ctx2d.moveTo(state.startPoint.x, state.startPoint.y);
-    ctx2d.lineTo(state.mousePos.x, state.mousePos.y);
+    ctx2d.lineTo(endPoint.x, endPoint.y);
     ctx2d.stroke();
 
     ctx2d.restore();
@@ -597,15 +640,26 @@ export function drawPlumbingPipePreview() {
     ctx2d.arc(state.startPoint.x, state.startPoint.y, 4 / zoom, 0, Math.PI * 2);
     ctx2d.fill();
 
+    // Bitiş noktası (snap varsa vurgula)
+    if (isSnapped) {
+        ctx2d.fillStyle = '#00FF00';
+        ctx2d.strokeStyle = '#FFFFFF';
+        ctx2d.lineWidth = 2 / zoom;
+        ctx2d.beginPath();
+        ctx2d.arc(endPoint.x, endPoint.y, 6 / zoom, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.stroke();
+    }
+
     // Uzunluk göster
     const length = Math.hypot(
-        state.mousePos.x - state.startPoint.x,
-        state.mousePos.y - state.startPoint.y
+        endPoint.x - state.startPoint.x,
+        endPoint.y - state.startPoint.y
     );
 
     if (length > 1) {
-        const midX = (state.startPoint.x + state.mousePos.x) / 2;
-        const midY = (state.startPoint.y + state.mousePos.y) / 2;
+        const midX = (state.startPoint.x + endPoint.x) / 2;
+        const midY = (state.startPoint.y + endPoint.y) / 2;
 
         ctx2d.fillStyle = '#FFFFFF';
         ctx2d.strokeStyle = '#000000';
@@ -734,15 +788,56 @@ export function drawPlumbingBlockPlacementPreview() {
         ctx2d.fill();
         ctx2d.stroke();
 
-        // Snap çizgisi (kesikli)
-        ctx2d.strokeStyle = '#00FF00';
-        ctx2d.lineWidth = 2 / zoom;
-        ctx2d.setLineDash([5 / zoom, 5 / zoom]);
-        ctx2d.beginPath();
-        ctx2d.moveTo(mousePos.x, mousePos.y);
-        ctx2d.lineTo(closestPipeEnd.x, closestPipeEnd.y);
-        ctx2d.stroke();
-        ctx2d.setLineDash([]);
+        // Esnek hat önizlemesi (sinüs eğrisi) - boru ucundan cihaza
+        const dx = mousePos.x - closestPipeEnd.x;
+        const dy = mousePos.y - closestPipeEnd.y;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > 2) {
+            // Sinüs parametreleri
+            const amplitude = 3;
+            const frequency = 3;
+            const segments = 30;
+
+            ctx2d.strokeStyle = '#00FF00';
+            ctx2d.lineWidth = 3 / zoom;
+            ctx2d.setLineDash([]);
+            ctx2d.globalAlpha = 0.8;
+
+            ctx2d.beginPath();
+            ctx2d.moveTo(closestPipeEnd.x, closestPipeEnd.y);
+
+            // Sinüs eğrisi çiz
+            for (let i = 1; i <= segments; i++) {
+                const t = i / segments;
+
+                // Ana çizgi
+                const baseX = closestPipeEnd.x + dx * t;
+                const baseY = closestPipeEnd.y + dy * t;
+
+                // Perpendicular yön
+                const perpX = -dy / distance;
+                const perpY = dx / distance;
+
+                // Smoothstep envelope
+                const smoothEnvelope = t * t * (3 - 2 * t);
+
+                // Sinüs dalgası
+                const wave = Math.sin(smoothEnvelope * frequency * Math.PI * 2);
+
+                // Offset
+                const sineOffset = smoothEnvelope * (1 - smoothEnvelope) * 4 * amplitude * wave;
+
+                // Final pozisyon
+                const finalX = baseX + perpX * sineOffset;
+                const finalY = baseY + perpY * sineOffset;
+
+                ctx2d.lineTo(finalX, finalY);
+            }
+
+            ctx2d.stroke();
+            ctx2d.globalAlpha = 1.0;
+        }
 
         // "VANA + CİHAZ EKLENECEK" yazısı
         const midX = (mousePos.x + closestPipeEnd.x) / 2;
