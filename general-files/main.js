@@ -372,6 +372,7 @@ export const dom = {
     bVana: document.getElementById("bVana"),
     bKombi: document.getElementById("bKombi"),
     bOcak: document.getElementById("bOcak"),
+    bBoru: document.getElementById("bBoru"),
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
     bOpen: document.getElementById("bOpen"),
@@ -485,6 +486,7 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bVana.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'VANA');
     dom.bKombi.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'KOMBI');
     dom.bOcak.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'OCAK');
+    dom.bBoru.classList.toggle("active", newMode === "drawPlumbingPipe");
     dom.bSymmetry.classList.toggle("active", newMode === "drawSymmetry");
     dom.p2d.className = `panel ${newMode}-mode`;
 
@@ -894,6 +896,9 @@ function initialize() {
     dom.bOcak.addEventListener("click", () => {
         setState({ currentPlumbingBlockType: 'OCAK' });
         setMode("drawPlumbingBlock", true);
+    });
+    dom.bBoru.addEventListener("click", () => {
+        setMode("drawPlumbingPipe", true);
     });
 
     dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin

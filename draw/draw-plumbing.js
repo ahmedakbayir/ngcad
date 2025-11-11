@@ -412,10 +412,18 @@ export function drawPlumbingPipe(pipe, isSelected = false) {
     ctx2d.lineCap = 'round';
     ctx2d.lineJoin = 'round';
 
+    // Kesikli çizgi kontrolü - eğer vanaya bağlı değilse kesikli çiz
+    if (!pipe.isConnectedToValve) {
+        ctx2d.setLineDash([8 / zoom, 6 / zoom]);
+    }
+
     ctx2d.beginPath();
     ctx2d.moveTo(pipe.p1.x, pipe.p1.y);
     ctx2d.lineTo(pipe.p2.x, pipe.p2.y);
     ctx2d.stroke();
+
+    // LineDash'i sıfırla
+    ctx2d.setLineDash([]);
 
     ctx2d.restore();
 
