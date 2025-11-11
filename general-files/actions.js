@@ -64,6 +64,18 @@ function validateFloorMatch(result, currentFloorId) {
         return null;
     }
 
+    // PlumbingBlock için kontrol
+    if (result.type === 'plumbingBlock' && obj.floorId !== currentFloorId) {
+        console.warn('⚠️ PLUMBING BLOCK FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
+        return null;
+    }
+
+    // PlumbingPipe için kontrol
+    if (result.type === 'plumbingPipe' && obj.floorId !== currentFloorId) {
+        console.warn('⚠️ PLUMBING PIPE FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
+        return null;
+    }
+
     return result;
 }
 
