@@ -329,7 +329,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
  */
 function checkIfBlockIsConnected(block) {
     const connections = getConnectionPoints(block);
-    const tolerance = 5; // 5 cm tolerans
+    const tolerance = 15; // 15 cm tolerans - updateConnectedPipes ile aynı
 
     // Her bağlantı noktası için boruları kontrol et
     for (const conn of connections) {
