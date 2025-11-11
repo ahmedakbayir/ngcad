@@ -5,7 +5,7 @@ import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
     drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
     drawBeam, drawStairs, drawGuides
     } from './renderer2d.js';
-import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockDragPreview } from './draw-plumbing.js'; 
+import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview } from './draw-plumbing.js'; 
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
         } from './draw-previews.js';
@@ -29,6 +29,12 @@ function drawCameraViewIndicator(ctx2d, zoom) {
     // --- YENİ EKLENDİ: 3D fare basılıysa gösterme ---
     if (state.is3DMouseDown) return;
     // --- YENİ KOD SONU ---
+
+    // Ocak/Kombi ekleme modundayken gösterme
+    if (state.currentMode === 'drawPlumbingBlock' &&
+        (state.currentPlumbingBlockType === 'OCAK' || state.currentPlumbingBlockType === 'KOMBI')) {
+        return;
+    }
 
     const cameraInfo = getCameraViewInfo();
     if (!cameraInfo || !cameraInfo.isFPS) return; // Sadece FPS modunda göster
@@ -503,7 +509,7 @@ export function draw2D() {
 
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
     drawPlumbingPipePreview(); // Boru çizim önizlemesi
-    drawPlumbingBlockDragPreview(); // OCAK/KOMBI sürükleme önizlemesi
+    drawPlumbingBlockPlacementPreview(); // OCAK/KOMBI ekleme modu önizlemesi
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
  if (state.isStairPopupVisible && stairs && stairs.length > 0) {
