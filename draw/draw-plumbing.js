@@ -249,7 +249,7 @@ function drawSayac(block, isSelected) {
 /**
  * Vana çizer (iki kesik koninin birleşimi)
  */
-function drawVana(block, isSelected) {
+/*function drawVana(block, isSelected) {
     const { ctx2d } = dom;
     const { zoom, wallBorderColor } = state;
     const config = PLUMBING_BLOCK_TYPES.VANA;
@@ -260,7 +260,7 @@ function drawVana(block, isSelected) {
 
     const halfLength = config.width / 3; // Konileri daha da yaklaştır
     const largeRadius = config.height / 2;
-    const smallRadius = 0.5; // Ortadaki birleşimi daha dar yap
+    const smallRadius = 2; // Ortadaki birleşimi daha dar yap
 
     // Çift kesik koni (elmas şekli, sadece kenar çizgisi)
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : 'rgba(255, 255, 255, 1)';
@@ -272,6 +272,8 @@ function drawVana(block, isSelected) {
     ctx2d.lineTo(smallRadius, 0);
     ctx2d.lineTo(-halfLength, largeRadius);
     ctx2d.closePath();
+    //ctx2d.fillStyle = 'black'; // veya istediğin renk
+    ctx2d.fill();
     ctx2d.stroke();
 
     ctx2d.beginPath();
@@ -280,10 +282,12 @@ function drawVana(block, isSelected) {
     ctx2d.lineTo(halfLength, -largeRadius);
     ctx2d.lineTo(halfLength, largeRadius);
     ctx2d.closePath();
+    ctx2d.fillStyle ='rgba(255, 255, 255, 1)';
+    ctx.fill();
     ctx2d.stroke();
 
     // Ortadaki dar birleşim bölgesi (sadece kenar çizgisi)
-    //ctx2d.strokeRect(-smallRadius, -smallRadius, smallRadius*2 , smallRadius*2);
+    ctx2d.strokeRect(-smallRadius, -smallRadius, smallRadius*2 , smallRadius*2);
     
     ctx2d.lineWidth = 6/ zoom;
     
@@ -304,7 +308,7 @@ function drawVana(block, isSelected) {
 
     ctx2d.restore();
 }
-
+*/
 /**
  * Kombi çizer (iç içe iki daire + G harfi)
  */
@@ -523,6 +527,8 @@ export function drawValvesOnPipes() {
             ctx2d.lineTo(smallRadius, 0);
             ctx2d.lineTo(-halfLength, largeRadius);
             ctx2d.closePath();
+            ctx2d.fillStyle = 'rgba(255, 255, 255, 1)';
+            ctx2d.fill()
             ctx2d.stroke();
 
             ctx2d.beginPath();
@@ -530,16 +536,20 @@ export function drawValvesOnPipes() {
             ctx2d.lineTo(halfLength, -largeRadius);
             ctx2d.lineTo(halfLength, largeRadius);
             ctx2d.closePath();
+            ctx2d.fillStyle = 'rgba(255, 255, 255, 1)';
+            ctx2d.fill()
             ctx2d.stroke();
 
-            ctx2d.lineWidth = 6 / zoom;
+            ctx2d.strokeRect(-smallRadius, -smallRadius, smallRadius*2 , smallRadius*2);
+
+ /*           ctx2d.lineWidth = 6 / zoom;
             ctx2d.beginPath();
             ctx2d.moveTo(-largeRadius - smallRadius - 0.5, 0);
             ctx2d.lineTo(-largeRadius - smallRadius - 2, 0);
             ctx2d.moveTo(largeRadius + smallRadius + 0.5, 0);
             ctx2d.lineTo(largeRadius + smallRadius + 2, 0);
             ctx2d.stroke();
-
+*/
             ctx2d.restore();
         }
     }
