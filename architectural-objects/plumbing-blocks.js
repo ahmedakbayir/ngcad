@@ -405,61 +405,82 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
     const newConnections = getConnectionPoints(block);
 
     // KULLANICI İSTEĞİ: Servis kutusu taşınırken boru uçları kutuyla birlikte taşınsın
-    // Normal güncelleme mantığı kullanılacak (diğer bloklarla aynı)
+    // Bağlantı noktası sabit kalmalı (index değişmemeli) - hızlı hareket sırasında atlama olmasın
 
-    oldConnections.forEach((oldConn, index) => {
-        const newConn = newConnections[index];
-        const tolerance = 15;
+    (state.plumbingPipes || []).forEach(pipe => {
+        let shouldUpdateStart = false;
+        let shouldUpdateEnd = false;
+        let startIndex = null;
+        let endIndex = null;
 
-        (state.plumbingPipes || []).forEach(pipe => {
-            let shouldUpdateStart = false;
-            let shouldUpdateEnd = false;
-
-            if (pipe.connections?.start?.blockId === block && pipe.connections.start.connectionIndex === index) {
-                shouldUpdateStart = true;
-            } else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
-                shouldUpdateStart = true;
+        // Boru başlangıcı kontrolü
+        if (pipe.connections?.start?.blockId === block) {
+            // Bağlantı bilgisi var - mevcut index'i kullan (DEĞİŞTİRME!)
+            startIndex = pipe.connections.start.connectionIndex;
+            shouldUpdateStart = true;
+        } else {
+            // Bağlantı bilgisi yok - tolerance ile ara (geriye dönük uyumluluk)
+            const tolerance = 15;
+            for (let i = 0; i < oldConnections.length; i++) {
+                if (Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y) < tolerance) {
+                    startIndex = i;
+                    shouldUpdateStart = true;
+                    break; // İlk eşleşen noktayı kullan
+                }
             }
+        }
 
-            if (pipe.connections?.end?.blockId === block && pipe.connections.end.connectionIndex === index) {
-                shouldUpdateEnd = true;
-            } else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
-                shouldUpdateEnd = true;
+        // Boru bitişi kontrolü
+        if (pipe.connections?.end?.blockId === block) {
+            // Bağlantı bilgisi var - mevcut index'i kullan (DEĞİŞTİRME!)
+            endIndex = pipe.connections.end.connectionIndex;
+            shouldUpdateEnd = true;
+        } else {
+            // Bağlantı bilgisi yok - tolerance ile ara (geriye dönük uyumluluk)
+            const tolerance = 15;
+            for (let i = 0; i < oldConnections.length; i++) {
+                if (Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y) < tolerance) {
+                    endIndex = i;
+                    shouldUpdateEnd = true;
+                    break; // İlk eşleşen noktayı kullan
+                }
             }
+        }
 
-            // Eski boru uzunluğu
-            const oldPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+        // Eski boru uzunluğu
+        const oldPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
 
-            if (shouldUpdateStart) {
-                pipe.p1.x = newConn.x;
-                pipe.p1.y = newConn.y;
+        if (shouldUpdateStart && startIndex !== null) {
+            const newConn = newConnections[startIndex];
+            pipe.p1.x = newConn.x;
+            pipe.p1.y = newConn.y;
 
-                if (!pipe.connections) pipe.connections = { start: null, end: null };
-                pipe.connections.start = {
-                    blockId: block,
-                    connectionIndex: index,
-                    blockType: block.blockType
-                };
-            }
+            if (!pipe.connections) pipe.connections = { start: null, end: null };
+            pipe.connections.start = {
+                blockId: block,
+                connectionIndex: startIndex,
+                blockType: block.blockType
+            };
+        }
 
-            if (shouldUpdateEnd) {
-                pipe.p2.x = newConn.x;
-                pipe.p2.y = newConn.y;
+        if (shouldUpdateEnd && endIndex !== null) {
+            const newConn = newConnections[endIndex];
+            pipe.p2.x = newConn.x;
+            pipe.p2.y = newConn.y;
 
-                if (!pipe.connections) pipe.connections = { start: null, end: null };
-                pipe.connections.end = {
-                    blockId: block,
-                    connectionIndex: index,
-                    blockType: block.blockType
-                };
-            }
+            if (!pipe.connections) pipe.connections = { start: null, end: null };
+            pipe.connections.end = {
+                blockId: block,
+                connectionIndex: endIndex,
+                blockType: block.blockType
+            };
+        }
 
-            // Boru güncellendiyse vana pozisyonlarını da güncelle
-            if ((shouldUpdateStart || shouldUpdateEnd) && pipe.valves && pipe.valves.length > 0) {
-                const newPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-                updateValvePositionsOnResize(pipe, oldPipeLength, newPipeLength);
-            }
-        });
+        // Boru güncellendiyse vana pozisyonlarını da güncelle
+        if ((shouldUpdateStart || shouldUpdateEnd) && pipe.valves && pipe.valves.length > 0) {
+            const newPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+            updateValvePositionsOnResize(pipe, oldPipeLength, newPipeLength);
+        }
     });
 }
 
