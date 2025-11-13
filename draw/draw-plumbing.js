@@ -729,15 +729,6 @@ export function drawPlumbingPipePreview() {
             ctx2d.fill();
             ctx2d.stroke();
 
-            // Label göster (zoom yeterliyse)
-            if (zoom > 0.3) {
-                ctx2d.fillStyle = '#FFFFFF';
-                ctx2d.font = `${12 / zoom}px Arial`;
-                ctx2d.textAlign = 'center';
-                ctx2d.textBaseline = 'bottom';
-                ctx2d.fillText(closestPoint.label, closestPoint.x, closestPoint.y - 8 / zoom);
-            }
-
             ctx2d.restore();
         }
 
