@@ -1,12 +1,20 @@
 // ahmedakbayir/ngcad/ngcad-25cb8b9daa7f201d20b7282862eee992cd9d77b2/architectural-objects/plumbing-pipes.js
-// GÜNCELLENDİ: Boru gövde taşıma devre dışı bırakıldı
-// GÜNCELLENDİ: Vana taşıma için boru uzunluğu kontrolleri eklendi
+// GÜNCELLENDİ: "Graph Move" (Kopmayan taşıma) için düzenlendi.
+// GÜNCELLENDİ: `getConnectionPoints` import edildi.
+// GÜNCELLENDİ: `findAllConnectedComponents` eklendi ve export edildi.
+// GÜNCELLENDİ: onPointerDown ve onPointerMove, bağlı bileşenleri taşıyacak şekilde güncellendi.
+// GÜNCELLENDİ (Tekrar): "Graph Move" (body) kaldırıldı, "Stretch Move" (p1/p2) ve "Single Move" (body) geri yüklendi.
+// GÜNCELLENDİ (Kural): Boru gövdeden (body) taşınamaz. Sadece uçlardan (p1/p2) esnetilebilir.
+// GÜNCELLENDİ (Kural): Vana taşıma marjı 1 cm'ye düşürüldü.
+// GÜNCELLENDİ (Kural): Boru esnetme (kısaltma), vana toplam genişliği + 2cm (uçlardan 1'er cm) altına inemez.
 
 import { state, setState } from '../general-files/main.js';
+// YENİ İMPORT: Blok bağlantı noktaları için eklendi
 import { getPlumbingBlockAtPoint, getConnectionPoints } from './plumbing-blocks.js';
 
 /**
  * TESİSAT BORULARI - Tesisat nesnelerini birbirine bağlayan borular
+ * ... (PLUMBING_PIPE_TYPES, createPlumbingPipe, isPointOnPipe, snapToConnectionPoint, snapToPipeEndpoint, getPipeAtPoint, deletePlumbingPipe fonksiyonları değişmedi) ...
  */
  
 export const PLUMBING_PIPE_TYPES = {
@@ -41,30 +49,37 @@ export function createPlumbingPipe(x1, y1, x2, y2, pipeType = 'STANDARD') {
         p2: { x: x2, y: y2 },
         floorId: state.currentFloor?.id,
         typeConfig: typeConfig,
+        // Bağlantı bilgileri (opsiyonel)
         connections: {
-            start: null,
-            end: null
+            start: null, // { blockId, connectionIndex }
+            end: null    // { blockId, connectionIndex }
         },
-        isConnectedToValve: false,
-        valves: []
+        // Kesikli çizgi kontrolü için
+        isConnectedToValve: false, // Eğer false ise kesikli çizilir,
+        // Boru üzerindeki vanalar (boru nesneleri)
+        valves: [] // { pos: number (p1'e olan uzaklık), width: number }
     };
 }
 
 export function isPointOnPipe(point, pipe, tolerance = 5) {
     const { p1, p2 } = pipe;
 
+    // Segment uzunluğu
     const dx = p2.x - p1.x;
     const dy = p2.y - p1.y;
     const lengthSq = dx * dx + dy * dy;
 
-    if (lengthSq < 0.01) return false;
+    if (lengthSq < 0.01) return false; // Çok kısa segment
 
+    // Parametrik pozisyon (0-1 arası)
     let t = ((point.x - p1.x) * dx + (point.y - p1.y) * dy) / lengthSq;
     t = Math.max(0, Math.min(1, t));
 
+    // En yakın nokta
     const closestX = p1.x + t * dx;
     const closestY = p1.y + t * dy;
 
+    // Mesafe kontrolü
     const distSq = (point.x - closestX) ** 2 + (point.y - closestY) ** 2;
     return distSq < tolerance * tolerance;
 }
@@ -73,6 +88,7 @@ export function snapToConnectionPoint(point, tolerance = 10, filterFn = null) {
     const currentFloorId = state.currentFloor?.id;
     let blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
 
+    // Eğer filter fonksiyonu varsa uygula
     if (filterFn) {
         blocks = blocks.filter(filterFn);
     }
@@ -88,14 +104,17 @@ export function snapToConnectionPoint(point, tolerance = 10, filterFn = null) {
             const dist = Math.hypot(point.x - cp.x, point.y - cp.y);
 
             if (dist < minDist) {
+                // SAYAÇ VE VANA KONTROLÜ: Bu bağlantı noktasına zaten bir boru bağlı mı?
+                // Sayaç ve vana'nın her bağlantı noktasına sadece BİR boru bağlanabilir
                 if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
-                    const CONNECTION_TOLERANCE = 5;
+                    const CONNECTION_TOLERANCE = 5; // 5 cm tolerans (2'den 5'e artırıldı)
                     const isOccupied = (state.plumbingPipes || []).some(pipe =>
                         Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < CONNECTION_TOLERANCE ||
                         Math.hypot(pipe.p2.x - cp.x, pipe.p2.y - cp.y) < CONNECTION_TOLERANCE
                     );
 
                     if (isOccupied) {
+                        // Bu bağlantı noktası dolu, atla
                         continue;
                     }
                 }
@@ -115,7 +134,7 @@ export function snapToConnectionPoint(point, tolerance = 10, filterFn = null) {
     return closestSnap;
 }
 
-export function snapToPipeEndpoint(point, tolerance = 10, selfPipe = null) {
+export function snapToPipeEndpoint(point, tolerance = 10, selfPipe = null) { // selfPipe eklendi
     const currentFloorId = state.currentFloor?.id;
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
@@ -123,8 +142,9 @@ export function snapToPipeEndpoint(point, tolerance = 10, selfPipe = null) {
     let minDist = tolerance;
 
     for (const pipe of pipes) {
-        if (pipe === selfPipe) continue;
+        if (pipe === selfPipe) continue; // Kendine snap yapma
 
+        // p1'e olan mesafe
         const dist1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
         if (dist1 < minDist) {
             minDist = dist1;
@@ -136,6 +156,7 @@ export function snapToPipeEndpoint(point, tolerance = 10, selfPipe = null) {
             };
         }
 
+        // p2'ye olan mesafe
         const dist2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
         if (dist2 < minDist) {
             minDist = dist2;
@@ -155,8 +176,12 @@ export function getPipeAtPoint(point, tolerance = 8) {
     const currentFloorId = state.currentFloor?.id;
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
+    // Debug log kaldırıldı (her mouse move'da çağrılıyor)
+
+    // Ters sırada kontrol et (en son eklenen önce)
     for (const pipe of [...pipes].reverse()) {
         if (isPointOnPipe(point, pipe, tolerance)) {
+            // Uç noktalara mı yakın?
             const distP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
             const distP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
 
@@ -182,6 +207,8 @@ export function deletePlumbingPipe(pipe) {
     return false;
 }
 
+// --- YENİ YARDIMCI FONKSİYON: Tüm bağlı bileşenleri bul (BFS) ---
+// (Bu fonksiyon hala "Graph Move" için gerekli olabilir, ancak pipe.js'de kullanılmayacak)
 export function findAllConnectedComponents(startObject, startType) {
     const queue = [{ object: startObject, type: startType }];
     const visited = new Set();
@@ -189,14 +216,16 @@ export function findAllConnectedComponents(startObject, startType) {
         blocks: new Set(),
         pipes: new Set()
     };
-    const tolerance = 15;
+    const tolerance = 15; // 15 cm bağlantı toleransı
 
+    // (state.plumbingBlocks ve state.plumbingPipes'in tanımlı olduğundan emin ol)
     const allPipes = state.plumbingPipes || [];
     const allBlocks = state.plumbingBlocks || [];
 
     while (queue.length > 0) {
         const current = queue.shift();
         
+        // Zaten ziyaret edildi mi? (Referans kontrolü)
         const visitedKey = current.object; 
         if (visited.has(visitedKey)) continue;
         visited.add(visitedKey);
@@ -206,8 +235,9 @@ export function findAllConnectedComponents(startObject, startType) {
             components.blocks.add(block);
             const blockConnections = getConnectionPoints(block);
 
+            // Find pipes connected to this block
             allPipes.forEach(pipe => {
-                if (visited.has(pipe)) return;
+                if (visited.has(pipe)) return; // Boru zaten ziyaret edildiyse atla
                 for (const cp of blockConnections) {
                     if (Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < tolerance ||
                         Math.hypot(pipe.p2.x - cp.x, pipe.p2.y - cp.y) < tolerance) {
@@ -221,8 +251,9 @@ export function findAllConnectedComponents(startObject, startType) {
             const pipe = current.object;
             components.pipes.add(pipe);
 
+            // Find blocks connected to this pipe
             allBlocks.forEach(block => {
-                if (visited.has(block)) return;
+                if (visited.has(block)) return; // Blok zaten ziyaret edildiyse atla
                 const blockConnections = getConnectionPoints(block);
                 for (const cp of blockConnections) {
                     if (Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < tolerance ||
@@ -233,6 +264,7 @@ export function findAllConnectedComponents(startObject, startType) {
                 }
             });
 
+            // Find other pipes connected to this pipe
             allPipes.forEach(otherPipe => {
                 if (otherPipe === pipe || visited.has(otherPipe)) return;
                 if (Math.hypot(pipe.p1.x - otherPipe.p1.x, pipe.p1.y - otherPipe.p1.y) < tolerance ||
@@ -244,9 +276,15 @@ export function findAllConnectedComponents(startObject, startType) {
             });
         }
     }
-    return components;
+    return components; // { blocks: Set, pipes: Set }
 }
+// --- YARDIMCI FONKSİYON SONU ---
 
+
+/**
+ * Boru pointer down handler
+ * GÜNCELLENDİ: "Graph Move" mantığı kaldırıldı
+ */
 export function onPointerDown(selectedObject, pos, snappedPos, e) {
     const pipe = selectedObject.object;
     const handle = selectedObject.handle;
@@ -257,10 +295,14 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
         handle: handle,
         startPos: { ...pos },
         startP1: { ...pipe.p1 },
-        startP2: { ...pipe.p2 }
+        startP2: { ...pipe.p2 },
+        lastValidP1: { ...pipe.p1 }, // Kural 1 (Destek): Vana limiti için son geçerli pozisyon
+        lastValidP2: { ...pipe.p2 }  // Kural 1 (Destek): Vana limiti için son geçerli pozisyon
     };
 
     setState({ dragState });
+
+    // --- "Graph Move" mantığı (preDragNodeStates) kaldırıldı ---
 
     return {
         startPointForDragging: pos,
@@ -269,32 +311,61 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
     };
 }
 
+/**
+ * Boru pointer move handler
+ * GÜNCELLENDİ: "Graph Move" (body) kaldırıldı, "Single Move" (body) geri yüklendi.
+ * GÜNCELLENDİ: Kural 1 (Vana Limiti) ve Kural 3 (Gövdeden Taşıma Yok) eklendi.
+ */
 export function onPointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
     if (!dragState || dragState.type !== 'plumbingPipe') return false;
 
     const { pipe, handle, startPos, startP1, startP2 } = dragState;
     
+    // Taşıma miktarını snappedPos'a göre hesapla (orijinal "stretch" mantığı)
     const dx = snappedPos.roundedX - startPos.x;
     const dy = snappedPos.roundedY - startPos.y;
 
     if (handle === 'p1' || handle === 'p2') {
+        // P1/P2 HAREKETİ (ESNETME / STRETCH)
+        
         const targetPoint = (handle === 'p1') ? pipe.p1 : pipe.p2;
+        const otherPoint = (handle === 'p1') ? pipe.p2 : pipe.p1; // Sabit uç
         const startPoint = (handle === 'p1') ? startP1 : startP2;
+        const lastValidTarget = (handle === 'p1') ? dragState.lastValidP1 : dragState.lastValidP2;
 
+        // Hedef pozisyonu snaplenmiş fare pozisyonu olarak ayarla
         targetPoint.x = snappedPos.x;
         targetPoint.y = snappedPos.y;
 
+        // Bağlantı noktasına snap (hem blok hem boru ucu)
+        // Kendisi hariç (selfPipe = pipe)
         const snap = snapToConnectionPoint(targetPoint, 15) || snapToPipeEndpoint(targetPoint, 15, pipe);
         if (snap) {
             targetPoint.x = snap.x;
             targetPoint.y = snap.y;
         }
+        
+        // Kural 1 (Vana Limiti): Minimum uzunluk kontrolü
+        const totalValveWidth = (pipe.valves || []).reduce((sum, v) => sum + v.width, 0);
+        const minPipeLength = totalValveWidth + 20; // Toplam vana genişliği + 2cm (iki uçtan 1'er cm)
+        const newPipeLength = Math.hypot(targetPoint.x - otherPoint.x, targetPoint.y - otherPoint.y);
+
+        if (newPipeLength < minPipeLength) {
+            // Eğer yeni uzunluk limitten azsa, eski geçerli pozisyona geri dön
+            targetPoint.x = lastValidTarget.x;
+            targetPoint.y = lastValidTarget.y;
+        } else {
+            // Pozisyon geçerliyse, 'son geçerli' pozisyonu güncelle
+            lastValidTarget.x = targetPoint.x;
+            lastValidTarget.y = targetPoint.y;
+        }
+        
         return true;
         
     } else if (handle === 'body') {
-        // GÖVDE HAREKETİ DEVRE DIŞI
-        // Boru gövdeden taşınamaz, sadece uçlardan taşınabilir
+        // Kural 3: Boru gövdeden taşınamaz.
+        // Bu bloğu boş bırakarak veya false döndürerek taşımayı engelle.
         return false;
     }
 
@@ -303,10 +374,14 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 
 /**
  * Boru üzerinde vana için yer olup olmadığını kontrol eder
- * GÜNCELLENDİ: Boru uçlarından 1 cm mesafe kontrolü eklendi
+ * @param {object} pipe - Boru nesnesi
+ * @param {number} pos - p1'den olan uzaklık (cm)
+ * @param {number} valveWidth - Vana genişliği (cm) - varsayılan 12
+ * @param {object} excludeValve - Kontrol edilmeyecek vana (taşıma sırasında kendini hariç tutmak için)
+ * @returns {boolean} - Yer varsa true
  */
 export function isSpaceForValve(pipe, pos, valveWidth = 12, excludeValve = null) {
-    const MIN_MARGIN = 1; // Uç noktalara minimum mesafe - 5 cm'den 1 cm'ye düşürüldü
+    const MIN_MARGIN = 1; // Kural 2: 5cm'den 1cm'ye düşürüldü
     const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
 
     // Boru uçlarına çok yakınsa izin verme
@@ -316,13 +391,14 @@ export function isSpaceForValve(pipe, pos, valveWidth = 12, excludeValve = null)
 
     // Diğer vanalarla çakışma kontrolü
     for (const valve of (pipe.valves || [])) {
-        if (valve === excludeValve) continue;
+        if (valve === excludeValve) continue; // Kendini hariç tut
 
         const otherStart = valve.pos - valve.width / 2;
         const otherEnd = valve.pos + valve.width / 2;
         const newStart = pos - valveWidth / 2;
         const newEnd = pos + valveWidth / 2;
 
+        // Aralıklar kesişiyorsa çakışma var
         if (!(newEnd <= otherStart || newStart >= otherEnd)) {
             return false;
         }
@@ -333,6 +409,9 @@ export function isSpaceForValve(pipe, pos, valveWidth = 12, excludeValve = null)
 
 /**
  * Bir noktada vana var mı kontrol eder
+ * @param {object} point - Kontrol edilecek nokta {x, y}
+ * @param {number} tolerance - Tolerans (cm)
+ * @returns {object|null} - { type: 'valve', object: valve, pipe: pipe, handle: 'body' } veya null
  */
 export function getValveAtPoint(point, tolerance = 8) {
     const currentFloorId = state.currentFloor?.id;
@@ -348,11 +427,14 @@ export function getValveAtPoint(point, tolerance = 8) {
         const dy = (pipe.p2.y - pipe.p1.y) / pipeLength;
 
         for (const valve of pipe.valves) {
+            // Vananın merkez pozisyonu
             const valveCenterX = pipe.p1.x + dx * valve.pos;
             const valveCenterY = pipe.p1.y + dy * valve.pos;
 
+            // Noktanın vanaya uzaklığı
             const dist = Math.hypot(point.x - valveCenterX, point.y - valveCenterY);
 
+            // Tolerans içindeyse vanayı döndür
             if (dist < tolerance) {
                 return {
                     type: 'valve',
@@ -365,58 +447,4 @@ export function getValveAtPoint(point, tolerance = 8) {
     }
 
     return null;
-}
-
-/**
- * YENİ FONKSİYON: Boru üzerindeki tüm vanaların toplam uzunluğunu hesapla
- */
-export function getTotalValveLength(pipe) {
-    if (!pipe.valves || pipe.valves.length === 0) return 0;
-    
-    return pipe.valves.reduce((sum, valve) => sum + (valve.width || 12), 0);
-}
-
-/**
- * YENİ FONKSİYON: Vana taşıma için pozisyon sınırını hesapla
- * Vana, borunun baştan ve sondan 1 cm kalana kadar taşınabilir
- */
-export function getValveMovementLimits(pipe, valve) {
-    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-    const valveWidth = valve.width || 12;
-    const MIN_MARGIN = 1; // 1 cm kenar boşluğu
-
-    return {
-        minPos: MIN_MARGIN + valveWidth / 2,
-        maxPos: pipeLength - MIN_MARGIN - valveWidth / 2,
-        pipeLength: pipeLength
-    };
-}
-
-/**
- * YENİ FONKSİYON: Boru uzunluğu değiştiğinde vana pozisyonlarını güncelle
- * Vanaların toplam uzunluğu + 2 cm'den daha fazla kısalmasın kontrolü
- */
-export function updateValvePositionsOnPipeResize(pipe, oldLength, newLength) {
-    if (!pipe.valves || pipe.valves.length === 0) return true;
-
-    const totalValveLength = getTotalValveLength(pipe);
-    const MIN_REQUIRED_LENGTH = totalValveLength + 2; // +2 cm: her uçtan 1 cm
-
-    // Boru çok kısaldıysa izin verme
-    if (newLength < MIN_REQUIRED_LENGTH) {
-        console.warn(`Boru çok kısa! Minimum gerekli uzunluk: ${MIN_REQUIRED_LENGTH.toFixed(1)} cm`);
-        return false;
-    }
-
-    // Vana pozisyonlarını oranla güncelle
-    const ratio = newLength / oldLength;
-    pipe.valves.forEach(valve => {
-        valve.pos = valve.pos * ratio;
-        
-        // Sınırlar içinde tut (1 cm kenar boşluğu)
-        const limits = getValveMovementLimits(pipe, valve);
-        valve.pos = Math.max(limits.minPos, Math.min(limits.maxPos, valve.pos));
-    });
-
-    return true;
 }

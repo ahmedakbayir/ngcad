@@ -204,8 +204,7 @@ export function onPointerUp(e) {
         preDragWallStates: new Map(),
         preDragNodeStates: new Map(),
         dragWallInitialVector: null,
-        selectedObject: (didClick || state.selectedObject?.type === "arcControl") ? state.selectedObject : null, // arcControl sürüklemesi sonrası seçimi koru
-        dragOriginalNodes: null,
+        selectedObject: (didClick || state.selectedObject?.type === "arcControl" || state.selectedObject?.type === "valve") ? state.selectedObject : null, // arcControl VE VANA sürüklemesi sonrası seçimi koru        dragOriginalNodes: null,
         isSweeping: false,
         sweepWalls: [],
         columnRotationOffset: null,
