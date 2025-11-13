@@ -144,14 +144,24 @@ export function getConnectionPoints(block) {
 
 /**
  * Servis kutusunun aktif çıkış noktalarını döndür
- * Şimdilik sadece alttan (z = -35) çıkış kullanılabilir
+ * - Tüm kenar noktaları (z = -15) kullanılabilir
+ * - Üst/alt merkez noktalarından sadece ALT (z = -35) kullanılabilir
  */
 export function getActiveConnectionPoints(block) {
     const allPoints = getConnectionPoints(block);
 
-    // Servis kutusu için sadece alt çıkış noktasını döndür (z = -35)
+    // Servis kutusu için: Kenarlar + alt merkez
     if (block.blockType === 'SERVIS_KUTUSU') {
-        return allPoints.filter(cp => cp.label === 'alt');
+        return allPoints.filter(cp => {
+            // Kenar noktaları (z = -15) - KULLAN
+            if (cp.z === -15) return true;
+
+            // Alt merkez (z = -35) - KULLAN
+            if (cp.label === 'alt') return true;
+
+            // Üst merkez (z = 35) - KULLANMA
+            return false;
+        });
     }
 
     // Diğer bloklar için tüm çıkış noktalarını döndür
@@ -388,17 +398,45 @@ function checkIfBlockIsConnected(block) {
 /**
  * Bağlı boruları güncelle
  * GÜNCELLENDİ: Vana pozisyonlarını da güncelle
- * GÜNCELLENDİ: Servis kutusu için boru uçlarını GÜNCELLEME (sabit kalsın)
+ * GÜNCELLENDİ: Servis kutusu için bağlantı bilgisini temizle (boru ucu sabit kalsın)
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
-    // KULLANICI İSTEĞİ: Servis kutusu taşınırken boru uçları sabit kalmalı
-    if (block.blockType === 'SERVIS_KUTUSU') {
-        console.log('🔒 Servis kutusu taşınıyor - çıkış noktaları sabit kalacak');
-        return; // Boru uçlarını güncelleme!
-    }
-
     const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
     const newConnections = getConnectionPoints(block);
+
+    // KULLANICI İSTEĞİ: Servis kutusu taşınırken boru uçları sabit kalmalı
+    // Bağlantı bilgisini temizle ki boru serbest kalsın
+    if (block.blockType === 'SERVIS_KUTUSU') {
+        console.log('🔒 Servis kutusu taşınıyor - boru bağlantıları temizleniyor');
+
+        oldConnections.forEach((oldConn, index) => {
+            const tolerance = 15;
+
+            (state.plumbingPipes || []).forEach(pipe => {
+                // p1 bağlantısını kontrol et
+                if (pipe.connections?.start?.blockId === block && pipe.connections.start.connectionIndex === index) {
+                    pipe.connections.start = null;
+                    console.log('🔓 P1 bağlantısı temizlendi');
+                } else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
+                    if (!pipe.connections) pipe.connections = { start: null, end: null };
+                    pipe.connections.start = null;
+                }
+
+                // p2 bağlantısını kontrol et
+                if (pipe.connections?.end?.blockId === block && pipe.connections.end.connectionIndex === index) {
+                    pipe.connections.end = null;
+                    console.log('🔓 P2 bağlantısı temizlendi');
+                } else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
+                    if (!pipe.connections) pipe.connections = { start: null, end: null };
+                    pipe.connections.end = null;
+                }
+            });
+        });
+
+        return; // Koordinatları güncelleme, sadece bağlantıyı temizle
+    }
+
+    // Diğer bloklar için normal güncelleme
 
     oldConnections.forEach((oldConn, index) => {
         const newConn = newConnections[index];

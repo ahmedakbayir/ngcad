@@ -1,5 +1,5 @@
 import { state, dom } from '../general-files/main.js';
-import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
+import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints, getActiveConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
 import { PLUMBING_PIPE_TYPES, snapToConnectionPoint, snapToPipeEndpoint } from '../architectural-objects/plumbing-pipes.js';
 
 /**
@@ -699,7 +699,7 @@ export function drawPlumbingPipePreview() {
         );
 
         for (const block of blocks) {
-            const activePoints = getConnectionPoints(block).filter(cp => cp.label === 'alt'); // Sadece alt çıkış
+            const activePoints = getActiveConnectionPoints(block); // Aktif çıkış noktaları (kenarlar + alt merkez)
             const mousePos = state.mousePos;
 
             // Mouse kutunun yakınında mı kontrol et (50 cm)
