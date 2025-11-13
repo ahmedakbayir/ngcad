@@ -215,7 +215,7 @@ function drawSayac(block, isSelected) {
     ctx2d.lineTo(x2, y1);
     
     ctx2d.stroke(); // Çıkıntının konturunu çiz
-
+/*
     // --- GÜNCELLEME: İsteğiniz üzerine geri eklenen bağlantı kolları ---
     // Bu kollar, plumbing-blocks.js'deki connectionPoints ile eşleşir
     const lineLength = config.connectionLineLength || 10; // 10cm
@@ -239,7 +239,7 @@ function drawSayac(block, isSelected) {
     ctx2d.lineTo(outletCP_X, armEndY);
     ctx2d.stroke();
     // --- GÜNCELLEME SONU ---
-
+*/
     // G4 yazısı
     if (zoom > 0.2) {
         ctx2d.fillStyle = '#FFFFFF';
