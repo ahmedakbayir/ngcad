@@ -401,12 +401,13 @@ function checkIfBlockIsConnected(block) {
  * GÜNCELLENDİ: Servis kutusu için de boru ucunu taşı (kopmasın)
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
+    const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
     const newConnections = getConnectionPoints(block);
 
-    // KULLANICI İSTEĞİ: Sadece zaten bu kutuya bağlı olan boruları güncelle
-    // - Bağlantı noktası sabit kalmalı (index değişmemeli)
-    // - Başka uçları yakalama (tolerance kontrolü YOK)
-    // - Sadece pipe.connections bilgisi olanları güncelle
+    // KULLANICI İSTEĞİ:
+    // 1. Zaten bu kutuya bağlı olan boruları güncelle (bağlantı noktası değişmemeli)
+    // 2. Serbest uçları (connections null) güncelle (tolerance ile)
+    // 3. BAŞKA bloklara bağlı uçları ASLA yakalama
 
     (state.plumbingPipes || []).forEach(pipe => {
         let shouldUpdateStart = false;
@@ -414,16 +415,41 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
         let startIndex = null;
         let endIndex = null;
 
-        // SADECE bu kutuya bağlı olan boru uçlarını güncelle
+        // ========== BORU BAŞLANGICI (p1) ==========
         if (pipe.connections?.start?.blockId === block) {
+            // DURUM 1: Zaten bu bloğa bağlı - mevcut index'i kullan (DEĞİŞTİRME!)
             startIndex = pipe.connections.start.connectionIndex;
             shouldUpdateStart = true;
+        } else if (!pipe.connections?.start || !pipe.connections.start.blockId) {
+            // DURUM 2: Serbest uç (connections null veya blockId null) - tolerance ile ara
+            const tolerance = 15;
+            for (let i = 0; i < oldConnections.length; i++) {
+                if (Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y) < tolerance) {
+                    startIndex = i;
+                    shouldUpdateStart = true;
+                    break; // İlk eşleşen noktayı kullan (index değişmesin)
+                }
+            }
         }
+        // DURUM 3: Başka bloğa bağlı - yakalama (hiçbir şey yapma)
 
+        // ========== BORU BİTİŞİ (p2) ==========
         if (pipe.connections?.end?.blockId === block) {
+            // DURUM 1: Zaten bu bloğa bağlı - mevcut index'i kullan (DEĞİŞTİRME!)
             endIndex = pipe.connections.end.connectionIndex;
             shouldUpdateEnd = true;
+        } else if (!pipe.connections?.end || !pipe.connections.end.blockId) {
+            // DURUM 2: Serbest uç (connections null veya blockId null) - tolerance ile ara
+            const tolerance = 15;
+            for (let i = 0; i < oldConnections.length; i++) {
+                if (Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y) < tolerance) {
+                    endIndex = i;
+                    shouldUpdateEnd = true;
+                    break; // İlk eşleşen noktayı kullan (index değişmesin)
+                }
+            }
         }
+        // DURUM 3: Başka bloğa bağlı - yakalama (hiçbir şey yapma)
 
         // Hiçbir ucu bu kutuya bağlı değilse, atla
         if (!shouldUpdateStart && !shouldUpdateEnd) return;
@@ -437,6 +463,7 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             pipe.p1.y = newConn.y;
 
             // Bağlantı bilgisini güncelle
+            if (!pipe.connections) pipe.connections = { start: null, end: null };
             pipe.connections.start = {
                 blockId: block,
                 connectionIndex: startIndex,
@@ -450,6 +477,7 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             pipe.p2.y = newConn.y;
 
             // Bağlantı bilgisini güncelle
+            if (!pipe.connections) pipe.connections = { start: null, end: null };
             pipe.connections.end = {
                 blockId: block,
                 connectionIndex: endIndex,
