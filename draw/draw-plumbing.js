@@ -119,7 +119,7 @@ function drawServisKutusu(block, isSelected) {
     // Yuvarlatılmış dikdörtgen (2 cm köşe yarıçapı)
     const halfW = config.width / 2;
     const halfH = config.height / 2;
-    const cornerRadius = 2;
+    const cornerRadius = 1;
 
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;

@@ -10,7 +10,7 @@ export const PLUMBING_BLOCK_TYPES = {
         width: 40,
         height: 20,
         depth: 70,
-        cornerRadius: 2,
+        cornerRadius: 1,
         connectionPoints: [
             { x: 20, y: 0, z: -15, label: 'sağ-orta' },
             { x: -20, y: 0, z: -15, label: 'sol-orta' },
