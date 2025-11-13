@@ -646,7 +646,7 @@ export function onPointerDown(e) {
                 // En yakın çıkış noktasını bul
                 for (const cp of activePoints) {
                     const dist = Math.hypot(pos.x - cp.x, pos.y - cp.y);
-                    if (dist < 15) { // 15 cm tolerans
+                    if (dist < 3) { // 3 cm tolerans
                         startPos = { x: cp.x, y: cp.y };
                         console.log('✅ Starting from Servis Kutusu connection point (user clicked):', startPos, cp.label);
                         break;
