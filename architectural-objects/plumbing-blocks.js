@@ -401,11 +401,12 @@ function checkIfBlockIsConnected(block) {
  * GÜNCELLENDİ: Servis kutusu için de boru ucunu taşı (kopmasın)
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
-    const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
     const newConnections = getConnectionPoints(block);
 
-    // KULLANICI İSTEĞİ: Servis kutusu taşınırken boru uçları kutuyla birlikte taşınsın
-    // Bağlantı noktası sabit kalmalı (index değişmemeli) - hızlı hareket sırasında atlama olmasın
+    // KULLANICI İSTEĞİ: Sadece zaten bu kutuya bağlı olan boruları güncelle
+    // - Bağlantı noktası sabit kalmalı (index değişmemeli)
+    // - Başka uçları yakalama (tolerance kontrolü YOK)
+    // - Sadece pipe.connections bilgisi olanları güncelle
 
     (state.plumbingPipes || []).forEach(pipe => {
         let shouldUpdateStart = false;
@@ -413,39 +414,19 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
         let startIndex = null;
         let endIndex = null;
 
-        // Boru başlangıcı kontrolü
+        // SADECE bu kutuya bağlı olan boru uçlarını güncelle
         if (pipe.connections?.start?.blockId === block) {
-            // Bağlantı bilgisi var - mevcut index'i kullan (DEĞİŞTİRME!)
             startIndex = pipe.connections.start.connectionIndex;
             shouldUpdateStart = true;
-        } else {
-            // Bağlantı bilgisi yok - tolerance ile ara (geriye dönük uyumluluk)
-            const tolerance = 15;
-            for (let i = 0; i < oldConnections.length; i++) {
-                if (Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y) < tolerance) {
-                    startIndex = i;
-                    shouldUpdateStart = true;
-                    break; // İlk eşleşen noktayı kullan
-                }
-            }
         }
 
-        // Boru bitişi kontrolü
         if (pipe.connections?.end?.blockId === block) {
-            // Bağlantı bilgisi var - mevcut index'i kullan (DEĞİŞTİRME!)
             endIndex = pipe.connections.end.connectionIndex;
             shouldUpdateEnd = true;
-        } else {
-            // Bağlantı bilgisi yok - tolerance ile ara (geriye dönük uyumluluk)
-            const tolerance = 15;
-            for (let i = 0; i < oldConnections.length; i++) {
-                if (Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y) < tolerance) {
-                    endIndex = i;
-                    shouldUpdateEnd = true;
-                    break; // İlk eşleşen noktayı kullan
-                }
-            }
         }
+
+        // Hiçbir ucu bu kutuya bağlı değilse, atla
+        if (!shouldUpdateStart && !shouldUpdateEnd) return;
 
         // Eski boru uzunluğu
         const oldPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
@@ -455,7 +436,7 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             pipe.p1.x = newConn.x;
             pipe.p1.y = newConn.y;
 
-            if (!pipe.connections) pipe.connections = { start: null, end: null };
+            // Bağlantı bilgisini güncelle
             pipe.connections.start = {
                 blockId: block,
                 connectionIndex: startIndex,
@@ -468,7 +449,7 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             pipe.p2.x = newConn.x;
             pipe.p2.y = newConn.y;
 
-            if (!pipe.connections) pipe.connections = { start: null, end: null };
+            // Bağlantı bilgisini güncelle
             pipe.connections.end = {
                 blockId: block,
                 connectionIndex: endIndex,
@@ -477,7 +458,7 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
         }
 
         // Boru güncellendiyse vana pozisyonlarını da güncelle
-        if ((shouldUpdateStart || shouldUpdateEnd) && pipe.valves && pipe.valves.length > 0) {
+        if (pipe.valves && pipe.valves.length > 0) {
             const newPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
             updateValvePositionsOnResize(pipe, oldPipeLength, newPipeLength);
         }
