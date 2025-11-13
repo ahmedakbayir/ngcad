@@ -797,22 +797,22 @@ export function onPointerDown(e) {
                     if (startBlockSnap) {
                         // p1 bir bloğa bağlı
                         newPipe.connections.start = {
-                            blockId: startBlockSnap.block,
+                            blockId: startBlockSnap.block.id || startBlockSnap.block, // ID varsa ID kullan, yoksa object (backward compat)
                             connectionIndex: startBlockSnap.connectionIndex,
                             blockType: startBlockSnap.block.blockType
                         };
-                        console.log('✅ P1 connected to', startBlockSnap.block.blockType, 'connection', startBlockSnap.connectionIndex);
+                        console.log('✅ P1 connected to', startBlockSnap.block.blockType, 'ID:', startBlockSnap.block.id, 'connection', startBlockSnap.connectionIndex);
                     }
 
                     const endBlockSnap = snapToConnectionPoint(p2, 2); // 2 cm tolerans
                     if (endBlockSnap) {
                         // p2 bir bloğa bağlı
                         newPipe.connections.end = {
-                            blockId: endBlockSnap.block,
+                            blockId: endBlockSnap.block.id || endBlockSnap.block, // ID varsa ID kullan, yoksa object (backward compat)
                             connectionIndex: endBlockSnap.connectionIndex,
                             blockType: endBlockSnap.block.blockType
                         };
-                        console.log('✅ P2 connected to', endBlockSnap.block.blockType, 'connection', endBlockSnap.connectionIndex);
+                        console.log('✅ P2 connected to', endBlockSnap.block.blockType, 'ID:', endBlockSnap.block.id, 'connection', endBlockSnap.connectionIndex);
                     }
 
                     // Borunun bağlantı durumunu belirle (kesikli/düz çizgi için)
