@@ -698,42 +698,49 @@ export function drawPlumbingPipePreview() {
             b.floorId === currentFloorId && b.blockType === 'SERVIS_KUTUSU'
         );
 
+        const mousePos = state.mousePos;
+        const SNAP_TOLERANCE = 3; // 3 cm içinde yakala
+
+        // TÜM blokların TÜM aktif noktalarından en yakın olanı bul
+        let closestPoint = null;
+        let minDist = SNAP_TOLERANCE;
+
         for (const block of blocks) {
             const activePoints = getActiveConnectionPoints(block); // Aktif çıkış noktaları (kenarlar + alt merkez)
-            const mousePos = state.mousePos;
 
-            // Mouse kutunun yakınında mı kontrol et (50 cm)
-            const distToBlock = Math.hypot(mousePos.x - block.center.x, mousePos.y - block.center.y);
-
-            if (distToBlock < 50) {
-                // Çıkış noktalarını çiz
-                for (const cp of activePoints) {
-                    const distToCP = Math.hypot(mousePos.x - cp.x, mousePos.y - cp.y);
-                    const isHighlighted = distToCP < 15; // 15 cm'den yakınsa highlight
-
-                    ctx2d.save();
-                    ctx2d.fillStyle = isHighlighted ? '#00FF00' : '#FFA500'; // Yeşil highlight, turuncu normal
-                    ctx2d.strokeStyle = '#FFFFFF';
-                    ctx2d.lineWidth = 2 / zoom;
-
-                    ctx2d.beginPath();
-                    ctx2d.arc(cp.x, cp.y, (isHighlighted ? 6 : 4) / zoom, 0, Math.PI * 2);
-                    ctx2d.fill();
-                    ctx2d.stroke();
-
-                    // Label göster (zoom yeterliyse)
-                    if (zoom > 0.3 && isHighlighted) {
-                        ctx2d.fillStyle = '#FFFFFF';
-                        ctx2d.font = `${12 / zoom}px Arial`;
-                        ctx2d.textAlign = 'center';
-                        ctx2d.textBaseline = 'bottom';
-                        ctx2d.fillText(cp.label, cp.x, cp.y - 8 / zoom);
-                    }
-
-                    ctx2d.restore();
+            for (const cp of activePoints) {
+                const distToCP = Math.hypot(mousePos.x - cp.x, mousePos.y - cp.y);
+                if (distToCP < minDist) {
+                    minDist = distToCP;
+                    closestPoint = cp;
                 }
             }
         }
+
+        // Sadece en yakın ve 3 cm içindeki noktayı göster
+        if (closestPoint) {
+            ctx2d.save();
+            ctx2d.fillStyle = '#00FF00'; // Yeşil
+            ctx2d.strokeStyle = '#FFFFFF';
+            ctx2d.lineWidth = 2 / zoom;
+
+            ctx2d.beginPath();
+            ctx2d.arc(closestPoint.x, closestPoint.y, 6 / zoom, 0, Math.PI * 2);
+            ctx2d.fill();
+            ctx2d.stroke();
+
+            // Label göster (zoom yeterliyse)
+            if (zoom > 0.3) {
+                ctx2d.fillStyle = '#FFFFFF';
+                ctx2d.font = `${12 / zoom}px Arial`;
+                ctx2d.textAlign = 'center';
+                ctx2d.textBaseline = 'bottom';
+                ctx2d.fillText(closestPoint.label, closestPoint.x, closestPoint.y - 8 / zoom);
+            }
+
+            ctx2d.restore();
+        }
+
         return; // startPoint yoksa, sadece çıkış noktalarını göster
     }
 
