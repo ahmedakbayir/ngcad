@@ -29,13 +29,13 @@ export const PLUMBING_BLOCK_TYPES = {
     SAYAC: {
         id: 'sayac',
         name: 'Sayaç',
-        width: 18,
-        height: 18,
+        width: 20,
+        height: 14,
         depth: 40,
         cornerRadius: 1,
         connectionPoints: [
-            { x: -6, y: -9 - 10, z: 30, label: 'giriş' },
-            { x: 6, y: -9 - 10, z: 30, label: 'çıkış' }
+            { x: -6, y: -7- 10, z: 30, label: 'giriş' },
+            { x: 6, y: -7- 10, z: 30, label: 'çıkış' }
         ],
         connectionLineLength: 10,
         mountType: 'wall',
