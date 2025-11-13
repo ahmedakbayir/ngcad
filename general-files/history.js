@@ -76,15 +76,27 @@ export function saveState() {
             p2: { ...p.p2 },
             floorId: p.floorId,
             isConnectedToValve: p.isConnectedToValve,
-            // Bağlantıları (referansları) indekse çevir
+            // Bağlantıları kaydet (ID veya index)
             connections: {
                 start: (p.connections.start && p.connections.start.blockId) ? {
-                    blockIndex: state.plumbingBlocks.indexOf(p.connections.start.blockId), // Referans -> İndeks
+                    // Eğer blockId string ise (ID), direkt kaydet
+                    blockId: typeof p.connections.start.blockId === 'string'
+                        ? p.connections.start.blockId
+                        : (p.connections.start.blockId.id || null), // Object ise ID'sini al
+                    blockIndex: typeof p.connections.start.blockId === 'object'
+                        ? state.plumbingBlocks.indexOf(p.connections.start.blockId)
+                        : -1, // Fallback için index
                     connectionIndex: p.connections.start.connectionIndex,
                     blockType: p.connections.start.blockType
                 } : null,
                 end: (p.connections.end && p.connections.end.blockId) ? {
-                    blockIndex: state.plumbingBlocks.indexOf(p.connections.end.blockId), // Referans -> İndeks
+                    // Eğer blockId string ise (ID), direkt kaydet
+                    blockId: typeof p.connections.end.blockId === 'string'
+                        ? p.connections.end.blockId
+                        : (p.connections.end.blockId.id || null), // Object ise ID'sini al
+                    blockIndex: typeof p.connections.end.blockId === 'object'
+                        ? state.plumbingBlocks.indexOf(p.connections.end.blockId)
+                        : -1, // Fallback için index
                     connectionIndex: p.connections.end.connectionIndex,
                     blockType: p.connections.end.blockType
                 } : null
@@ -157,6 +169,33 @@ export function restoreState(snapshot) {
     const restoredPlumbingPipes = (snapshot.plumbingPipes || []).map(p => {
         // typeConfig'i geri yüklerken PLUMBING_PIPE_TYPES'ı kullan
         const pipeConfig = PLUMBING_PIPE_TYPES[p.pipeType] || PLUMBING_PIPE_TYPES['STANDARD'];
+
+        // Start connection için blockId bul (ID bazlı veya index bazlı)
+        let startBlockId = null;
+        if (p.connections.start) {
+            if (p.connections.start.blockId) {
+                // ID varsa (yeni sistem), ID ile bloğu bul
+                startBlockId = restoredPlumbingBlocks.find(b => b.id === p.connections.start.blockId);
+            }
+            if (!startBlockId && p.connections.start.blockIndex !== -1) {
+                // ID yoksa veya bulunamadıysa, index kullan (fallback)
+                startBlockId = restoredPlumbingBlocks[p.connections.start.blockIndex];
+            }
+        }
+
+        // End connection için blockId bul (ID bazlı veya index bazlı)
+        let endBlockId = null;
+        if (p.connections.end) {
+            if (p.connections.end.blockId) {
+                // ID varsa (yeni sistem), ID ile bloğu bul
+                endBlockId = restoredPlumbingBlocks.find(b => b.id === p.connections.end.blockId);
+            }
+            if (!endBlockId && p.connections.end.blockIndex !== -1) {
+                // ID yoksa veya bulunamadıysa, index kullan (fallback)
+                endBlockId = restoredPlumbingBlocks[p.connections.end.blockIndex];
+            }
+        }
+
         return {
             type: 'plumbingPipe',
             pipeType: p.pipeType,
@@ -166,13 +205,13 @@ export function restoreState(snapshot) {
             typeConfig: pipeConfig, // typeConfig'i geri yükle
             isConnectedToValve: p.isConnectedToValve,
             connections: {
-                start: (p.connections.start && p.connections.start.blockIndex !== -1 && restoredPlumbingBlocks[p.connections.start.blockIndex]) ? {
-                    blockId: restoredPlumbingBlocks[p.connections.start.blockIndex], // İndeksi objeye çevir
+                start: (startBlockId) ? {
+                    blockId: startBlockId.id || startBlockId, // ID varsa ID, yoksa object
                     connectionIndex: p.connections.start.connectionIndex,
                     blockType: p.connections.start.blockType
                 } : null,
-                end: (p.connections.end && p.connections.end.blockIndex !== -1 && restoredPlumbingBlocks[p.connections.end.blockIndex]) ? {
-                    blockId: restoredPlumbingBlocks[p.connections.end.blockIndex], // İndeksi objeye çevir
+                end: (endBlockId) ? {
+                    blockId: endBlockId.id || endBlockId, // ID varsa ID, yoksa object
                     connectionIndex: p.connections.end.connectionIndex,
                     blockType: p.connections.end.blockType
                 } : null
