@@ -631,7 +631,7 @@ export function onPointerDown(e) {
         if (!state.startPoint) {
             // İlk tıklama: Başlangıç noktasını ayarla
 
-            // ÖNCELİK 1: Projede boşta Servis Kutusu varsa onun çıkış noktasından başla
+            // ÖNCELİK 1: Mouse ile servis kutusunun çıkış noktasına yakın mı kontrol et
             const currentFloorId = state.currentFloor?.id;
             const blocks = (state.plumbingBlocks || []).filter(b =>
                 b.floorId === currentFloorId && b.blockType === 'SERVIS_KUTUSU'
@@ -639,10 +639,26 @@ export function onPointerDown(e) {
 
             let startPos = null;
 
-            // Eğer Servis Kutusu varsa ve hiç borusu yoksa
-            if (blocks.length > 0) {
+            // KULLANICI İSTEĞİ: Servis kutusunun çıkış noktalarına yaklaşıp tıklayarak çizime başla
+            for (const block of blocks) {
+                const activePoints = getConnectionPoints(block).filter(cp => cp.label === 'alt'); // Sadece alt çıkış
+
+                // En yakın çıkış noktasını bul
+                for (const cp of activePoints) {
+                    const dist = Math.hypot(pos.x - cp.x, pos.y - cp.y);
+                    if (dist < 15) { // 15 cm tolerans
+                        startPos = { x: cp.x, y: cp.y };
+                        console.log('✅ Starting from Servis Kutusu connection point (user clicked):', startPos);
+                        break;
+                    }
+                }
+                if (startPos) break;
+            }
+
+            // ÖNCELİK 1.5: Eğer çıkış noktasına tıklanmadıysa, boşta servis kutusu varsa otomatik başla
+            if (!startPos && blocks.length > 0) {
                 const servKutusu = blocks[0];
-                const connections = getConnectionPoints(servKutusu);
+                const connections = getConnectionPoints(servKutusu).filter(cp => cp.label === 'alt');
 
                 // Servis kutusunun çıkış noktasından boru çıkıyor mu kontrol et
                 const hasConnectedPipe = (state.plumbingPipes || []).some(p =>
@@ -653,7 +669,7 @@ export function onPointerDown(e) {
                 if (!hasConnectedPipe) {
                     // Servis kutusundan boru çıkmamışsa, çıkış noktasından başla
                     startPos = { x: connections[0].x, y: connections[0].y };
-                    console.log('✅ Starting from Servis Kutusu connection point:', startPos);
+                    console.log('✅ Starting from Servis Kutusu connection point (auto):', startPos);
                 }
             }
 

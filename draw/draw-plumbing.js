@@ -678,9 +678,10 @@ export function drawPlumbingPipes() {
 
 /**
  * Boru çizim modu için önizleme çizer
+ * GÜNCELLENDİ: Servis kutusunun çıkış noktalarını göster
  */
 export function drawPlumbingPipePreview() {
-    if (state.currentMode !== 'drawPlumbingPipe' || !state.startPoint || !state.mousePos) {
+    if (state.currentMode !== 'drawPlumbingPipe' || !state.mousePos) {
         return;
     }
 
@@ -688,6 +689,53 @@ export function drawPlumbingPipePreview() {
     const { zoom } = state;
     const pipeType = state.currentPlumbingPipeType || 'STANDARD';
     const config = PLUMBING_PIPE_TYPES[pipeType];
+
+    // KULLANICI İSTEĞİ: Boru çizim modunda servis kutusunun çıkış noktalarını göster
+    if (!state.startPoint) {
+        // İlk tıklamadan önce: Servis kutusunun çıkış noktalarını göster
+        const currentFloorId = state.currentFloor?.id;
+        const blocks = (state.plumbingBlocks || []).filter(b =>
+            b.floorId === currentFloorId && b.blockType === 'SERVIS_KUTUSU'
+        );
+
+        for (const block of blocks) {
+            const activePoints = getConnectionPoints(block).filter(cp => cp.label === 'alt'); // Sadece alt çıkış
+            const mousePos = state.mousePos;
+
+            // Mouse kutunun yakınında mı kontrol et (50 cm)
+            const distToBlock = Math.hypot(mousePos.x - block.center.x, mousePos.y - block.center.y);
+
+            if (distToBlock < 50) {
+                // Çıkış noktalarını çiz
+                for (const cp of activePoints) {
+                    const distToCP = Math.hypot(mousePos.x - cp.x, mousePos.y - cp.y);
+                    const isHighlighted = distToCP < 15; // 15 cm'den yakınsa highlight
+
+                    ctx2d.save();
+                    ctx2d.fillStyle = isHighlighted ? '#00FF00' : '#FFA500'; // Yeşil highlight, turuncu normal
+                    ctx2d.strokeStyle = '#FFFFFF';
+                    ctx2d.lineWidth = 2 / zoom;
+
+                    ctx2d.beginPath();
+                    ctx2d.arc(cp.x, cp.y, (isHighlighted ? 6 : 4) / zoom, 0, Math.PI * 2);
+                    ctx2d.fill();
+                    ctx2d.stroke();
+
+                    // Label göster (zoom yeterliyse)
+                    if (zoom > 0.3 && isHighlighted) {
+                        ctx2d.fillStyle = '#FFFFFF';
+                        ctx2d.font = `${12 / zoom}px Arial`;
+                        ctx2d.textAlign = 'center';
+                        ctx2d.textBaseline = 'bottom';
+                        ctx2d.fillText(cp.label, cp.x, cp.y - 8 / zoom);
+                    }
+
+                    ctx2d.restore();
+                }
+            }
+        }
+        return; // startPoint yoksa, sadece çıkış noktalarını göster
+    }
 
     // Snap kontrolü - hem bağlantı noktalarına hem boru uçlarına
     let endPoint = { x: state.mousePos.x, y: state.mousePos.y };
