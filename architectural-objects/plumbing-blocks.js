@@ -133,11 +133,29 @@ export function getConnectionPoints(block) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    return typeConfig.connectionPoints.map(cp => ({
+    return typeConfig.connectionPoints.map((cp, index) => ({
         x: cx + cp.x * cos - cp.y * sin,
         y: cy + cp.x * sin + cp.y * cos,
-        label: cp.label
+        label: cp.label,
+        index: index,
+        z: cp.z  // z koordinatını da ekle (alt/üst ayırımı için)
     }));
+}
+
+/**
+ * Servis kutusunun aktif çıkış noktalarını döndür
+ * Şimdilik sadece alttan (z = -35) çıkış kullanılabilir
+ */
+export function getActiveConnectionPoints(block) {
+    const allPoints = getConnectionPoints(block);
+
+    // Servis kutusu için sadece alt çıkış noktasını döndür (z = -35)
+    if (block.blockType === 'SERVIS_KUTUSU') {
+        return allPoints.filter(cp => cp.label === 'alt');
+    }
+
+    // Diğer bloklar için tüm çıkış noktalarını döndür
+    return allPoints;
 }
 
 export function isPointInPlumbingBlock(point, block) {
@@ -370,8 +388,15 @@ function checkIfBlockIsConnected(block) {
 /**
  * Bağlı boruları güncelle
  * GÜNCELLENDİ: Vana pozisyonlarını da güncelle
+ * GÜNCELLENDİ: Servis kutusu için boru uçlarını GÜNCELLEME (sabit kalsın)
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
+    // KULLANICI İSTEĞİ: Servis kutusu taşınırken boru uçları sabit kalmalı
+    if (block.blockType === 'SERVIS_KUTUSU') {
+        console.log('🔒 Servis kutusu taşınıyor - çıkış noktaları sabit kalacak');
+        return; // Boru uçlarını güncelleme!
+    }
+
     const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
     const newConnections = getConnectionPoints(block);
 
