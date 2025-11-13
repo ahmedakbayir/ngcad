@@ -2,7 +2,7 @@
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
-import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock, getConnectionPoints, PLUMBING_BLOCK_TYPES } from '../architectural-objects/plumbing-blocks.js';
+import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock, getConnectionPoints, getActiveConnectionPoints, PLUMBING_BLOCK_TYPES } from '../architectural-objects/plumbing-blocks.js';
 import { createPlumbingPipe, snapToConnectionPoint, snapToPipeEndpoint, onPointerDown as onPointerDownPlumbingPipe, isSpaceForValve } from '../architectural-objects/plumbing-pipes.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
@@ -641,14 +641,14 @@ export function onPointerDown(e) {
 
             // KULLANICI İSTEĞİ: Servis kutusunun çıkış noktalarına yaklaşıp tıklayarak çizime başla
             for (const block of blocks) {
-                const activePoints = getConnectionPoints(block).filter(cp => cp.label === 'alt'); // Sadece alt çıkış
+                const activePoints = getActiveConnectionPoints(block); // Aktif çıkış noktaları (kenarlar + alt merkez)
 
                 // En yakın çıkış noktasını bul
                 for (const cp of activePoints) {
                     const dist = Math.hypot(pos.x - cp.x, pos.y - cp.y);
                     if (dist < 15) { // 15 cm tolerans
                         startPos = { x: cp.x, y: cp.y };
-                        console.log('✅ Starting from Servis Kutusu connection point (user clicked):', startPos);
+                        console.log('✅ Starting from Servis Kutusu connection point (user clicked):', startPos, cp.label);
                         break;
                     }
                 }
@@ -658,7 +658,7 @@ export function onPointerDown(e) {
             // ÖNCELİK 1.5: Eğer çıkış noktasına tıklanmadıysa, boşta servis kutusu varsa otomatik başla
             if (!startPos && blocks.length > 0) {
                 const servKutusu = blocks[0];
-                const connections = getConnectionPoints(servKutusu).filter(cp => cp.label === 'alt');
+                const connections = getActiveConnectionPoints(servKutusu); // Aktif noktalar
 
                 // Servis kutusunun çıkış noktasından boru çıkıyor mu kontrol et
                 const hasConnectedPipe = (state.plumbingPipes || []).some(p =>
