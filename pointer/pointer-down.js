@@ -558,7 +558,7 @@ export function onPointerDown(e) {
         const newValve = {
             pos: valvePos,
             width: valveWidth,
-            rotation: Math.round(angle / 15) * 15 // Boru yönünde
+            rotation: angle // Boru yönünü doğrudan ata
         };
 
         // Borunun valves dizisine ekle

@@ -1,101 +1,85 @@
 // ahmedakbayir/ngcad/ngcad-25cb8b9daa7f201d20b7282862eee992cd9d77b2/architectural-objects/plumbing-blocks.js
-// GÜNCELLENDİ: "Graph Move" mantığı kaldırıldı (kullanıcının isteği üzerine).
-// GÜNCELLENDİ: onPointerMove, rijit bloklar (Vana/Sayaç) için "Stretch Move" (kopmaz)
-//             ve esnek bloklar (Ocak/Kombi) için "Kopma Move" (esnek) kullanacak şekilde geri yüklendi.
+// GÜNCELLENDİ: Blok taşıma sırasında bağlı boruların vanaları için uzunluk kontrolleri eklendi
 
 import { state, setState } from '../general-files/main.js';
-// YENİ İMPORT KALDIRILDI: findAllConnectedComponents artık kullanılmıyor.
-// import { findAllConnectedComponents } from './plumbing-pipes.js'; 
-
-/**
- * TESİSAT BLOKLARI - SABİT BOYUTLU MİMARİ ELEMANLAR
- * ... (PLUMBING_BLOCK_TYPES, createPlumbingBlock, getPlumbingBlockCorners, getConnectionPoints, isPointInPlumbingBlock, getPlumbingBlockAtPoint fonksiyonları değişmedi) ...
- */
  
 export const PLUMBING_BLOCK_TYPES = {
     SERVIS_KUTUSU: {
         id: 'servis-kutusu',
         name: 'Servis Kutusu',
-        // 3D boyutlar (cm) - 20x40x70
-        width: 40,      // duvar boyunca (X ekseni)
-        height: 20,     // duvardan dışa çıkan (2D Y ekseni, 3D Z ekseni)
-        depth: 70,      // yükseklik (3D Y ekseni) - duvara dik yükseliş
-        cornerRadius: 2, // 2 cm yuvarlama
-        // Bağlantı noktaları (merkeze göre offset) - 6 ADET
+        width: 40,
+        height: 20,
+        depth: 70,
+        cornerRadius: 2,
         connectionPoints: [
-            { x: 20, y: 0, z: -15, label: 'sağ-orta' },      // Sağda ortada (mevcut)
-            { x: -20, y: 0, z: -15, label: 'sol-orta' },     // Solda ortada (karşısı)
-            { x: 20, y: -8, z: -15, label: 'sağ-üst' },     // Sağ üst köşe
-            { x: -20, y: -8, z: -15, label: 'sol-üst' },    // Sol üst köşe
-            { x: 20, y: 8, z: -15, label: 'sağ-alt' },      // Sağ alt köşe
-            { x: -20, y: 8, z: -15, label: 'sol-alt' },     // Sol alt köşe
-            { x: 0, y: 0, z: 35, label: 'sol-alt' },    
-            { x: 0, y: 0, z: -35, label: 'sol-alt' },
-            { x: 0, y: -10, z: -15, label: 'sol-alt' },    
-            { x: 0, y: 10, z: -15, label: 'sol-alt' }     
+            { x: 20, y: 0, z: -15, label: 'sağ-orta' },
+            { x: -20, y: 0, z: -15, label: 'sol-orta' },
+            { x: 20, y: -8, z: -15, label: 'sağ-üst' },
+            { x: -20, y: -8, z: -15, label: 'sol-üst' },
+            { x: 20, y: 8, z: -15, label: 'sağ-alt' },
+            { x: -20, y: 8, z: -15, label: 'sol-alt' },
+            { x: 0, y: 0, z: 35, label: 'üst' },
+            { x: 0, y: 0, z: -35, label: 'alt' },
+            { x: 0, y: -10, z: -15, label: 'orta-üst' },
+            { x: 0, y: 10, z: -15, label: 'orta-alt' }
         ],
-        mountType: 'wall', // duvara monte
-        color: 0xA8A8A8, // Gri ton
+        mountType: 'wall',
+        color: 0xA8A8A8,
     },
     SAYAC: {
         id: 'sayac',
         name: 'Sayaç',
-        // 3D boyutlar (cm) - 15x18x40 - 6 cm daraltıldı (24'ten 18'e)
-        width: 18,      // duvar boyunca (X ekseni) - 24'ten 18'e düşürüldü
-        height: 18,     // duvardan dışa çıkan (2D Y ekseni, 3D Z ekseni)
-        depth: 40,      // yükseklik (3D Y ekseni)
-        cornerRadius: 1, // 2 cm yuvarlama
+        width: 18,
+        height: 18,
+        depth: 40,
+        cornerRadius: 1,
         connectionPoints: [
-            // ÜST KISIMDA ÇAPRAZ BAĞLANTI NOKTALARI
-            // Giriş: Sol üst köşeden çıkıntılı (10 cm dışarı çıkıntı)
-            { x: -6, y: -9 - 10, z: 30, label: 'giriş' },   // Sol-arka-üst, 10 cm çıkıntı (x: -8'den -6'ya)
-            // Çıkış: Sağ üst köşeden çıkıntılı (10 cm dışarı çıkıntı)
-            { x: 6, y: -9 - 10, z: 30, label: 'çıkış' }     // Sağ-arka-üst, 10 cm çıkıntı (x: 8'den 6'ya)
+            { x: -6, y: -9 - 10, z: 30, label: 'giriş' },
+            { x: 6, y: -9 - 10, z: 30, label: 'çıkış' }
         ],
-        // 10 cm bağlantı çizgileri için offset
         connectionLineLength: 10,
         mountType: 'wall',
-        color: 0xA8A8A8, // Gri ton
+        color: 0xA8A8A8,
     },
     VANA: {
         id: 'vana',
         name: 'Vana',
-        width: 12,      // Birleşik uzunluk
-        height: 6,      // Geniş çap
+        width: 12,
+        height: 6,
         depth: 6,
         cornerRadius: 1,
         connectionPoints: [
-            { x: -6, y: 0, z: -2.50, label: 'giriş' },  // Sol taraf, orta yükseklikte
-            { x: 6, y: 0, z: -2.50, label: 'çıkış' }    // Sağ taraf, orta yükseklikte
+            { x: -6, y: 0, z: -2.50, label: 'giriş' },
+            { x: 6, y: 0, z: -2.50, label: 'çıkış' }
         ],
-        mountType: 'free', // Serbest yerleşim
+        mountType: 'free',
         color: 0xA0A0A0,
-        shape: 'doubleConeFrustum' // Özel şekil
+        shape: 'doubleConeFrustum'
     },
     KOMBI: {
         id: 'kombi',
         name: 'Kombi',
-        width: 50,       // Dış daire çapı (2D çizimde outerRadius=25, çap=50)
-        height: 50,      // Dış daire çapı
+        width: 50,
+        height: 50,
         depth: 29,
         cornerRadius: 2,
         connectionPoints: [
-            { x: -25, y: 0, z: 0, label: 'bağlantı' } // Dış dairenin tam alt kenarında (outerRadius=25)
+            { x: -25, y: 0, z: 0, label: 'bağlantı' }
         ],
         mountType: 'wall',
-        color: 0xC0C0C0, // Gri renk (beyaz yerine)
+        color: 0xC0C0C0,
     },
     OCAK: {
         id: 'ocak',
         name: 'Ocak',
-        width: 50,       // Dikdörtgen boyutu (2D çizimde boxSize=25, çap=50)
-        height: 50,      // Dikdörtgen boyutu
+        width: 50,
+        height: 50,
         depth: 59,
         cornerRadius: 2,
         connectionPoints: [
-            { x: -25, y: 0, z: 0, label: 'bağlantı' } // Arka kenarın tam üzerinde (boxSize=25)
+            { x: -25, y: 0, z: 0, label: 'bağlantı' }
         ],
-        mountType: 'floor', // Zemine oturur
+        mountType: 'floor',
         color: 0x303030,
     }
 };
@@ -112,9 +96,8 @@ export function createPlumbingBlock(centerX, centerY, blockType = 'SERVIS_KUTUSU
         type: 'plumbingBlock',
         blockType: blockType,
         center: { x: centerX, y: centerY },
-        rotation: 0, // Derece cinsinden
+        rotation: 0,
         floorId: state.currentFloor?.id,
-        // Tip bilgisini sakla
         typeConfig: typeConfig
     };
 }
@@ -129,7 +112,6 @@ export function getPlumbingBlockCorners(block) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    // Döndürülmemiş köşeler
     const corners = [
         { x: -halfW, y: -halfH },
         { x: halfW, y: -halfH },
@@ -137,7 +119,6 @@ export function getPlumbingBlockCorners(block) {
         { x: -halfW, y: halfH }
     ];
 
-    // Rotasyon ve merkeze taşıma
     return corners.map(corner => ({
         x: cx + corner.x * cos - corner.y * sin,
         y: cy + corner.x * sin + corner.y * cos
@@ -167,7 +148,6 @@ export function isPointInPlumbingBlock(point, block) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    // Ters rotasyon uygula
     const localX = dx * cos - dy * sin;
     const localY = dx * sin + dy * cos;
 
@@ -183,7 +163,6 @@ export function getPlumbingBlockAtPoint(point) {
     const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
     const tolerance = 8 / zoom;
 
-    // Önce rotation handle'ları kontrol et (daha öncelikli)
     for (const block of blocks) {
         const rotationHandleDistance = 30;
         const angle = (block.rotation || 0) * Math.PI / 180;
@@ -196,7 +175,6 @@ export function getPlumbingBlockAtPoint(point) {
         }
     }
 
-    // Sonra bağlantı noktalarını kontrol et
     for (const block of blocks) {
         const connectionPoints = getConnectionPoints(block);
         for (let i = 0; i < connectionPoints.length; i++) {
@@ -208,7 +186,6 @@ export function getPlumbingBlockAtPoint(point) {
         }
     }
 
-    // Hiç handle yoksa, body kontrolü
     for (const block of blocks) {
         if (isPointInPlumbingBlock(point, block)) {
             return { type: 'plumbingBlock', object: block, handle: 'body' };
@@ -218,17 +195,11 @@ export function getPlumbingBlockAtPoint(point) {
     return null;
 }
 
-
-/**
- * Pointer down event handler
- * GÜNCELLENDİ: "Graph Move" (Ocak/Kombi hariç) için bağlı bileşenleri saklar
- */
 export function onPointerDown(selectedObject, pos, snappedPos, e) {
     const block = selectedObject.object;
     const handle = selectedObject.handle;
-    let effectiveBlock = block; // Üzerinde işlem yapılacak blok
+    let effectiveBlock = block;
 
-    // CTRL ile kopyalama
     const isCopying = e.ctrlKey || e.metaKey;
     if (isCopying) {
         const copy = createPlumbingBlock(block.center.x, block.center.y, block.blockType);
@@ -239,13 +210,11 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
         state.plumbingBlocks.push(copy);
 
         effectiveBlock = copy;
-        // Seçili nesneyi kopya ile güncelle
         setState({
             selectedObject: { ...selectedObject, object: copy, handle: 'center' },
         });
     }
 
-    // Başlangıç durumunu (orijinal veya kopya) kaydet
     const dragState = {
         type: 'plumbingBlock',
         block: effectiveBlock,
@@ -256,20 +225,6 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
     };
     setState({ dragState });
 
-
-    // --- GÜNCELLENDİ: "Graph Move" (Kopmama) SADECE RİJİT bloklar (Vana, Sayaç, Kutu) için geçerli ---
-    // Sadece 'body' sürükleniyorsa VE RİJİT bir bloksa tüm zinciri bul
-    if (handle === 'body' && effectiveBlock.blockType !== 'OCAK' && effectiveBlock.blockType !== 'KOMBI') {
-        
-        // "Graph Move" mantığı Geri Alma isteği üzerine KALDIRILDI.
-        // state.preDragNodeStates.clear(); 
-        // ... (Graph Move için preDragNodeStates doldurma kodu kaldırıldı) ...
-
-    }
-    // --- GÜNCELLEME SONU ---
-
-
-    // Return değeri - pointer-down.js için gerekli
     return {
         startPointForDragging: pos,
         dragOffset: { x: 0, y: 0 },
@@ -278,139 +233,175 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
 }
 
 /**
- * Pointer move event handler
- * Body hareketi (Graph Move veya Stretch Move) + Rotation
- * GÜNCELLENDİ: "Graph Move" kaldırıldı, "Stretch Move" (rijit) ve "Kopma Move" (esnek) geri yüklendi.
+ * YENİ YARDIMCI FONKSİYON: Blok taşınırken bağlı borular için vana kontrolü yap
+ * Boru çok kısalıyorsa taşımayı iptal et
  */
+function checkPipeValveLengthBeforeMove(block, newCenter) {
+    const oldConnections = getConnectionPoints(block);
+    const tempBlock = { ...block, center: newCenter };
+    const newConnections = getConnectionPoints(tempBlock);
+
+    const tolerance = 15;
+
+    for (let index = 0; index < oldConnections.length; index++) {
+        const oldConn = oldConnections[index];
+        const newConn = newConnections[index];
+
+        // Bu bağlantı noktasına bağlı boruları bul
+        for (const pipe of (state.plumbingPipes || [])) {
+            let affectsP1 = false;
+            let affectsP2 = false;
+
+            // Explicit connection kontrolü
+            if (pipe.connections?.start?.blockId === block && pipe.connections.start.connectionIndex === index) {
+                affectsP1 = true;
+            } else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
+                affectsP1 = true;
+            }
+
+            if (pipe.connections?.end?.blockId === block && pipe.connections.end.connectionIndex === index) {
+                affectsP2 = true;
+            } else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
+                affectsP2 = true;
+            }
+
+            // Eğer bu boru etkileniyorsa
+            if (affectsP1 || affectsP2) {
+                // Vana var mı kontrol et
+                if (pipe.valves && pipe.valves.length > 0) {
+                    // Yeni boru uzunluğunu hesapla
+                    const newP1 = affectsP1 ? newConn : pipe.p1;
+                    const newP2 = affectsP2 ? newConn : pipe.p2;
+                    const newLength = Math.hypot(newP2.x - newP1.x, newP2.y - newP1.y);
+
+                    // Toplam vana uzunluğu
+                    const totalValveLength = pipe.valves.reduce((sum, v) => sum + (v.width || 12), 0);
+                    const minRequired = totalValveLength + 2; // +2 cm: her uçtan 1 cm
+
+                    if (newLength < minRequired) {
+                        console.warn(`Taşıma iptal! Boru çok kısa olacak: ${newLength.toFixed(1)} cm < ${minRequired.toFixed(1)} cm (gerekli)`);
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
 export function onPointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
     if (!dragState || dragState.type !== 'plumbingBlock') return false;
 
     const { block, handle, startPos, startCenter, startRotation } = dragState;
     
-    // Taşıma miktarını SADECE snaplenmemiş pozisyona göre hesapla (pürüzsüz taşıma için)
-    // (state.initialDragPoint, pointer-down.js'de ayarlanır)
-    // GÜNCELLEME: dx/dy hesaplaması snappedPos.roundedX/Y kullanmalı (orijinal 'stretch' mantığı)
     const dx = snappedPos.roundedX - startPos.x;
     const dy = snappedPos.roundedY - startPos.y;
 
-
     if (handle === 'rotation') {
-        // Rotation handle - Mouse pozisyonuna göre açı hesapla
         const angleToMouse = Math.atan2(
             snappedPos.roundedX - block.center.x,
             -(snappedPos.roundedY - block.center.y)
         ) * 180 / Math.PI;
 
-        // 15 derecelik snaplama
         const oldRotation = block.rotation || 0;
         const newRotation = Math.round(angleToMouse / 15) * 15;
         
         if (oldRotation !== newRotation) {
             block.rotation = newRotation;
-            // Bağlı boruları güncelle (rotasyon sonrası)
             updateConnectedPipesAfterRotation(block, oldRotation, block.rotation);
         }
 
         return true;
         
     } else if (handle === 'body') {
-        
-        // --- GÜNCELLEME: Blok tipine göre taşıma mantığını ayır ---
-        
-        // 1. RİJİT BLOKLAR (Vana, Sayaç, Servis Kutusu) -> "Stretch Move" (Bağlı borular esner)
+        // RİJİT BLOKLAR için boru uzunluğu kontrolü
         if (block.blockType !== 'OCAK' && block.blockType !== 'KOMBI') {
-            
-            const oldCenter = { ...block.center }; // Mevcut (bir frame önceki) merkezi sakla
-            
-            // Bloğun merkezini taşı
-            block.center.x = startCenter.x + dx;
-            block.center.y = startCenter.y + dy;
+            const newCenter = {
+                x: startCenter.x + dx,
+                y: startCenter.y + dy
+            };
 
-            // Bağlı boruları güncelle (esnet)
+            // Vana kontrolü - taşıma güvenli mi?
+            if (!checkPipeValveLengthBeforeMove(block, newCenter)) {
+                // Taşıma iptal - bloğu eski pozisyonunda bırak
+                return false;
+            }
+
+            const oldCenter = { ...block.center };
+            
+            block.center.x = newCenter.x;
+            block.center.y = newCenter.y;
+
             updateConnectedPipes(block, oldCenter, block.center);
             
             return true;
         }
-        
-        // 2. FLEKSİBL BLOKLAR (Ocak, Kombi) -> "Kopma Move" (Bağlantı kopar, esnek hat çizilir)
+        // FLEKSİBL BLOKLAR için normal taşıma
         else {
-            // Cihazı (Ocak/Kombi) serbestçe taşı.
-            // Bağlantı kopacak ve `draw-plumbing.js` içindeki `drawWavyConnectionLine`
-            // (sinüs eğrisi) bu boşluğu görsel olarak dolduracak.
-            
             block.center.x = startCenter.x + dx;
             block.center.y = startCenter.y + dy;
-
-            // (updateConnectedPipes çağırmıyoruz, çünkü bağlantı esnek)
             return true;
         }
-        // --- GÜNCELLEME SONU ---
     }
 
     return false;
 }
 
-// ... (checkIfBlockIsConnected, updateConnectedPipes, updateConnectedPipesAfterRotation, getConnectionPointsAtPosition, deletePlumbingBlock, getDefaultRotationForWall fonksiyonları değişmedi) ...
 function checkIfBlockIsConnected(block) {
     const connections = getConnectionPoints(block);
-    const tolerance = 15; // 15 cm tolerans - updateConnectedPipes ile aynı
+    const tolerance = 15;
 
-    // Her bağlantı noktası için boruları kontrol et
     for (const conn of connections) {
         for (const pipe of (state.plumbingPipes || [])) {
-            // p1 veya p2 bu bağlantı noktasına yakın mı?
             const dist1 = Math.hypot(pipe.p1.x - conn.x, pipe.p1.y - conn.y);
             const dist2 = Math.hypot(pipe.p2.x - conn.x, pipe.p2.y - conn.y);
 
             if (dist1 < tolerance || dist2 < tolerance) {
-                return true; // Bağlantı bulundu
+                return true;
             }
         }
     }
 
-    return false; // Bağlantı yok
+    return false;
 }
 
+/**
+ * Bağlı boruları güncelle
+ * GÜNCELLENDİ: Vana pozisyonlarını da güncelle
+ */
 function updateConnectedPipes(block, oldCenter, newCenter) {
     const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
     const newConnections = getConnectionPoints(block);
 
-    // Her bağlantı noktası için bağlı boruları bul ve güncelle
     oldConnections.forEach((oldConn, index) => {
         const newConn = newConnections[index];
-        const tolerance = 15; // 15 cm tolerans - ÇOK DAHA GÜÇLÜ BAĞLANTILAR
+        const tolerance = 15;
 
-        // Bu bağlantı noktasına bağlı boruları bul
         (state.plumbingPipes || []).forEach(pipe => {
-            // Önce explicit connection kontrolü yap
             let shouldUpdateStart = false;
             let shouldUpdateEnd = false;
 
-            // Explicit connection varsa direkt kullan
             if (pipe.connections?.start?.blockId === block && pipe.connections.start.connectionIndex === index) {
                 shouldUpdateStart = true;
-            }
-            // Yoksa mesafe kontrolü yap
-            else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
+            } else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
                 shouldUpdateStart = true;
             }
 
-            // Explicit connection varsa direkt kullan
             if (pipe.connections?.end?.blockId === block && pipe.connections.end.connectionIndex === index) {
                 shouldUpdateEnd = true;
-            }
-            // Yoksa mesafe kontrolü yap
-            else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
+            } else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
                 shouldUpdateEnd = true;
             }
 
-            // p1 güncelleme
+            // Eski boru uzunluğu
+            const oldPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+
             if (shouldUpdateStart) {
                 pipe.p1.x = newConn.x;
                 pipe.p1.y = newConn.y;
 
-                // Explicit bağlantı kaydı
                 if (!pipe.connections) pipe.connections = { start: null, end: null };
                 pipe.connections.start = {
                     blockId: block,
@@ -419,12 +410,10 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
                 };
             }
 
-            // p2 güncelleme
             if (shouldUpdateEnd) {
                 pipe.p2.x = newConn.x;
                 pipe.p2.y = newConn.y;
 
-                // Explicit bağlantı kaydı
                 if (!pipe.connections) pipe.connections = { start: null, end: null };
                 pipe.connections.end = {
                     blockId: block,
@@ -432,50 +421,65 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
                     blockType: block.blockType
                 };
             }
+
+            // Boru güncellendiyse vana pozisyonlarını da güncelle
+            if ((shouldUpdateStart || shouldUpdateEnd) && pipe.valves && pipe.valves.length > 0) {
+                const newPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+                updateValvePositionsOnResize(pipe, oldPipeLength, newPipeLength);
+            }
         });
     });
 }
 
+/**
+ * YENİ YARDIMCI FONKSİYON: Vana pozisyonlarını boru boyutuna göre güncelle
+ */
+function updateValvePositionsOnResize(pipe, oldLength, newLength) {
+    if (!pipe.valves || pipe.valves.length === 0) return;
+
+    const ratio = newLength / oldLength;
+    pipe.valves.forEach(valve => {
+        valve.pos = valve.pos * ratio;
+        
+        // Sınırlar içinde tut (1 cm kenar boşluğu)
+        const valveWidth = valve.width || 12;
+        const MIN_MARGIN = 1;
+        const minPos = MIN_MARGIN + valveWidth / 2;
+        const maxPos = newLength - MIN_MARGIN - valveWidth / 2;
+        
+        valve.pos = Math.max(minPos, Math.min(maxPos, valve.pos));
+    });
+}
+
 function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
-    // Eski rotasyonda bağlantı noktalarını hesapla
     const tempBlock = { ...block, rotation: oldRotation };
     const oldConnections = getConnectionPoints(tempBlock);
     const newConnections = getConnectionPoints(block);
 
-    // Her bağlantı noktası için bağlı boruları bul ve güncelle
     oldConnections.forEach((oldConn, index) => {
         const newConn = newConnections[index];
-        const tolerance = 15; // 15 cm tolerans - ÇOK DAHA GÜÇLÜ BAĞLANTILAR
+        const tolerance = 15;
 
         (state.plumbingPipes || []).forEach(pipe => {
-            // Önce explicit connection kontrolü yap
             let shouldUpdateStart = false;
             let shouldUpdateEnd = false;
 
-            // Explicit connection varsa direkt kullan
             if (pipe.connections?.start?.blockId === block && pipe.connections.start.connectionIndex === index) {
                 shouldUpdateStart = true;
-            }
-            // Yoksa mesafe kontrolü yap
-            else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
+            } else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
                 shouldUpdateStart = true;
             }
 
-            // Explicit connection varsa direkt kullan
             if (pipe.connections?.end?.blockId === block && pipe.connections.end.connectionIndex === index) {
                 shouldUpdateEnd = true;
-            }
-            // Yoksa mesafe kontrolü yap
-            else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
+            } else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
                 shouldUpdateEnd = true;
             }
 
-            // p1 güncelleme
             if (shouldUpdateStart) {
                 pipe.p1.x = newConn.x;
                 pipe.p1.y = newConn.y;
 
-                // Explicit bağlantı kaydı
                 if (!pipe.connections) pipe.connections = { start: null, end: null };
                 pipe.connections.start = {
                     blockId: block,
@@ -484,12 +488,10 @@ function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
                 };
             }
 
-            // p2 güncelleme
             if (shouldUpdateEnd) {
                 pipe.p2.x = newConn.x;
                 pipe.p2.y = newConn.y;
 
-                // Explicit bağlantı kaydı
                 if (!pipe.connections) pipe.connections = { start: null, end: null };
                 pipe.connections.end = {
                     blockId: block,
@@ -526,6 +528,5 @@ export function deletePlumbingBlock(block) {
 }
 
 export function getDefaultRotationForWall(wallAngle) {
-    // Duvar açısına dik olacak şekilde yerleştir
     return Math.round((wallAngle + 90) / 15) * 15;
 }

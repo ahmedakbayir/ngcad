@@ -503,8 +503,7 @@ export function drawValvesOnPipes() {
 
             // Vananın rotasyonu (boru yönünde)
             const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-            const rotation = valve.rotation || Math.round(angle / 15) * 15;
-
+            const rotation = angle; // Boru yönünü doğrudan kullan, 15 dereceye snap YAPMA
             // Vana seçili mi kontrol et
             const isSelected = state.selectedObject?.type === 'valve' && state.selectedObject?.object === valve;
 
