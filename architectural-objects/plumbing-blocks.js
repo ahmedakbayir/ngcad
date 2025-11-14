@@ -522,8 +522,9 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             // ASLA YAKALAMA! (skip)
         }
         // DURUM 3: Hiçbir bloğa bağlı değil (ESKİ boru, connections bilgisi yok)
-        // Pozisyon bazlı kontrol: Eğer eski pozisyonda bu bloğa yakınsa, güncelle
-        else {
+        // Pozisyon bazlı kontrol: SADECE SAYAC/VANA için (eski borular için backward compat)
+        // SERVIS_KUTUSU için YAKALAMA (serbest boruları içine çekmesin!)
+        else if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
             const tolerance = 15;
             for (let i = 0; i < oldConnections.length; i++) {
                 if (Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y) < tolerance) {
@@ -552,8 +553,9 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             // ASLA YAKALAMA! (skip)
         }
         // DURUM 3: Hiçbir bloğa bağlı değil (ESKİ boru, connections bilgisi yok)
-        // Pozisyon bazlı kontrol: Eğer eski pozisyonda bu bloğa yakınsa, güncelle
-        else {
+        // Pozisyon bazlı kontrol: SADECE SAYAC/VANA için (eski borular için backward compat)
+        // SERVIS_KUTUSU için YAKALAMA (serbest boruları içine çekmesin!)
+        else if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
             const tolerance = 15;
             for (let i = 0; i < oldConnections.length; i++) {
                 if (Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y) < tolerance) {
@@ -652,14 +654,34 @@ function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
 
             if (isStartConnectedToThisBlock) {
                 shouldUpdateStart = true;
-            } else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
-                shouldUpdateStart = true;
+            } else if ((block.blockType === 'SAYAC' || block.blockType === 'VANA') &&
+                       Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
+                // Pozisyon bazlı kontrol SADECE SAYAC/VANA için (eski borular için backward compat)
+                // SERVIS_KUTUSU için pozisyon bazlı yakalama yapma
+                // SORUN ÖNLEMESİ: Eğer p1 zaten bu bloğa BAŞKA bir index'ten bağlıysa, ATLA
+                const isP1AlreadyConnectedToThisBlock = pipe.connections?.start?.blockId && (
+                    pipe.connections.start.blockId === block.id ||
+                    pipe.connections.start.blockId === block
+                );
+                if (!isP1AlreadyConnectedToThisBlock) {
+                    shouldUpdateStart = true;
+                }
             }
 
             if (isEndConnectedToThisBlock) {
                 shouldUpdateEnd = true;
-            } else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
-                shouldUpdateEnd = true;
+            } else if ((block.blockType === 'SAYAC' || block.blockType === 'VANA') &&
+                       Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
+                // Pozisyon bazlı kontrol SADECE SAYAC/VANA için (eski borular için backward compat)
+                // SERVIS_KUTUSU için pozisyon bazlı yakalama yapma
+                // SORUN ÖNLEMESİ: Eğer p2 zaten bu bloğa BAŞKA bir index'ten bağlıysa, ATLA
+                const isP2AlreadyConnectedToThisBlock = pipe.connections?.end?.blockId && (
+                    pipe.connections.end.blockId === block.id ||
+                    pipe.connections.end.blockId === block
+                );
+                if (!isP2AlreadyConnectedToThisBlock) {
+                    shouldUpdateEnd = true;
+                }
             }
 
             if (shouldUpdateStart) {
