@@ -434,6 +434,21 @@ export function onPointerDown(e) {
                 // Vanadan sonraki boru ve ondan sonraki TÜM borular düz çizgi olsun
                 pipe2.isConnectedToValve = true;
 
+                // BAĞLANTI BİLGİLERİNİ EKLE - Sayaç/Vana kopmasın
+                if (!pipe1.connections) pipe1.connections = { start: null, end: null };
+                pipe1.connections.end = {
+                    blockId: newBlock.id || newBlock,
+                    connectionIndex: 0, // giriş
+                    blockType: newBlock.blockType
+                };
+
+                if (!pipe2.connections) pipe2.connections = { start: null, end: null };
+                pipe2.connections.start = {
+                    blockId: newBlock.id || newBlock,
+                    connectionIndex: 1, // çıkış
+                    blockType: newBlock.blockType
+                };
+
                 if (!state.plumbingPipes) state.plumbingPipes = [];
                 state.plumbingPipes.push(pipe1, pipe2);
 
