@@ -304,21 +304,19 @@ function repairMissingConnections(block) {
 }
 
 function checkPipeValveLengthBeforeRotation(block, newRotation) {
-    const oldConnections = getConnectionPoints(block);
     const tempBlock = { ...block, rotation: newRotation };
     const newConnections = getConnectionPoints(tempBlock);
 
-    const tolerance = 15;
     const MIN_PIPE_LENGTH = 5;
 
-    for (let index = 0; index < oldConnections.length; index++) {
-        const oldConn = oldConnections[index];
+    for (let index = 0; index < newConnections.length; index++) {
         const newConn = newConnections[index];
 
         for (const pipe of (state.plumbingPipes || [])) {
             let affectsP1 = false;
             let affectsP2 = false;
 
+            // SADECE explicit bağlantıları kontrol et
             const isP1ConnectedToThisBlock = pipe.connections?.start?.blockId && (
                 pipe.connections.start.blockId === block.id ||
                 pipe.connections.start.blockId === block
@@ -331,13 +329,9 @@ function checkPipeValveLengthBeforeRotation(block, newRotation) {
 
             if (isP1ConnectedToThisBlock) {
                 affectsP1 = true;
-            } else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
-                affectsP1 = true;
             }
 
             if (isP2ConnectedToThisBlock) {
-                affectsP2 = true;
-            } else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
                 affectsP2 = true;
             }
 
@@ -365,20 +359,17 @@ function checkPipeValveLengthBeforeRotation(block, newRotation) {
 }
 
 function checkPipeValveLengthBeforeMove(block, newCenter) {
-    const oldConnections = getConnectionPoints(block);
     const tempBlock = { ...block, center: newCenter };
     const newConnections = getConnectionPoints(tempBlock);
 
-    const tolerance = 15;
-
-    for (let index = 0; index < oldConnections.length; index++) {
-        const oldConn = oldConnections[index];
+    for (let index = 0; index < newConnections.length; index++) {
         const newConn = newConnections[index];
 
         for (const pipe of (state.plumbingPipes || [])) {
             let affectsP1 = false;
             let affectsP2 = false;
 
+            // SADECE explicit bağlantıları kontrol et
             const isP1ConnectedToThisBlock = pipe.connections?.start?.blockId && (
                 pipe.connections.start.blockId === block.id ||
                 pipe.connections.start.blockId === block
@@ -391,13 +382,9 @@ function checkPipeValveLengthBeforeMove(block, newCenter) {
 
             if (isP1ConnectedToThisBlock) {
                 affectsP1 = true;
-            } else if (Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
-                affectsP1 = true;
             }
 
             if (isP2ConnectedToThisBlock) {
-                affectsP2 = true;
-            } else if (Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
                 affectsP2 = true;
             }
 
