@@ -565,35 +565,51 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             }
         }
 
-        // ⭐ NODE-BASED MOVEMENT: SADECE AYNI REFERANS ise birlikte taşı
-        // Pozisyon kontrolü YOK - sadece === operatörü ile referans karşılaştırması
-        
+        // ⭐ DÜZELTME: Hem referans hem pozisyon kontrolü (eski borular için)
+        // Aynı koordinattaki borular birlikte taşınmalı
+
         const oldX = targetPoint.x;
         const oldY = targetPoint.y;
+        const POSITION_TOLERANCE = 2; // 2 cm tolerans
 
         (state.plumbingPipes || []).forEach(otherPipe => {
             if (otherPipe === pipe) {
                 return;
             }
 
-            // ⭐ REFERANS KONTROLÜ: AYNI DÜĞÜM Mü?
-            // P1 AYNI düğüm mü? (referans karşılaştırması)
-            if (otherPipe.p1 === targetPoint) {
+            // ⭐ 1. REFERANS KONTROLÜ: AYNI DÜĞÜM MÜ?
+            const p1SameRef = (otherPipe.p1 === targetPoint);
+            const p2SameRef = (otherPipe.p2 === targetPoint);
+
+            // ⭐ 2. POZİSYON KONTROLÜ: AYNI KOORDINATTA MI?
+            const p1SamePos = Math.hypot(otherPipe.p1.x - oldX, otherPipe.p1.y - oldY) < POSITION_TOLERANCE;
+            const p2SamePos = Math.hypot(otherPipe.p2.x - oldX, otherPipe.p2.y - oldY) < POSITION_TOLERANCE;
+
+            // P1 taşınmalı mı? (referans VEYA pozisyon)
+            if (p1SameRef || p1SamePos) {
                 otherPipe.p1.x = finalX;
                 otherPipe.p1.y = finalY;
-                console.log(`🔗 P1 is THE SAME NODE - moved together`);
+                if (p1SameRef) {
+                    console.log(`🔗 P1 is THE SAME NODE (ref) - moved together`);
+                } else {
+                    console.log(`🔗 P1 is AT SAME POSITION - moved together & merged`);
+                    // Node referansını birleştir
+                    otherPipe.p1 = targetPoint;
+                }
             }
 
-            // P2 AYNI düğüm mü? (referans karşılaştırması)
-            if (otherPipe.p2 === targetPoint) {
+            // P2 taşınmalı mı? (referans VEYA pozisyon)
+            if (p2SameRef || p2SamePos) {
                 otherPipe.p2.x = finalX;
                 otherPipe.p2.y = finalY;
-                console.log(`🔗 P2 is THE SAME NODE - moved together`);
+                if (p2SameRef) {
+                    console.log(`🔗 P2 is THE SAME NODE (ref) - moved together`);
+                } else {
+                    console.log(`🔗 P2 is AT SAME POSITION - moved together & merged`);
+                    // Node referansını birleştir
+                    otherPipe.p2 = targetPoint;
+                }
             }
-            
-            // ⭐ POZİSYON KONTROLÜ YOK
-            // "Aynı koordinatta" kontrolü kaldırıldı
-            // Sadece AYNI REFERANS kontrolü var
         });
 
         // Seçili borunun ucunu güncelle
@@ -609,17 +625,23 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             // Eğer yeni uzunluk limitten azsa, tüm boruları eski pozisyona geri dön
             targetPoint.x = lastValidTarget.x;
             targetPoint.y = lastValidTarget.y;
-            
-            // Aynı düğümü kullanan boruları da geri al
+
+            // ⭐ DÜZELTME: Aynı düğümü (referans VEYA pozisyon) kullanan boruları da geri al
             (state.plumbingPipes || []).forEach(otherPipe => {
                 if (otherPipe === pipe) return;
-                
-                if (otherPipe.p1 === targetPoint) {
+
+                // Referans veya pozisyon kontrolü
+                const p1SameRef = (otherPipe.p1 === targetPoint);
+                const p2SameRef = (otherPipe.p2 === targetPoint);
+                const p1SamePos = Math.hypot(otherPipe.p1.x - finalX, otherPipe.p1.y - finalY) < POSITION_TOLERANCE;
+                const p2SamePos = Math.hypot(otherPipe.p2.x - finalX, otherPipe.p2.y - finalY) < POSITION_TOLERANCE;
+
+                if (p1SameRef || p1SamePos) {
                     otherPipe.p1.x = oldX;
                     otherPipe.p1.y = oldY;
                 }
-                
-                if (otherPipe.p2 === targetPoint) {
+
+                if (p2SameRef || p2SamePos) {
                     otherPipe.p2.x = oldX;
                     otherPipe.p2.y = oldY;
                 }

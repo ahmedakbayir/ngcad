@@ -481,11 +481,13 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 }
 
 /**
- * ⭐ ÇALIŞAN VERSİYON - Bağlı boruları güncelle
- * SADECE connections.blockId kontrolü
+ * ⭐ GÜNCELLENDİ: Bağlı boruları güncelle
+ * Hem explicit bağlantı (connections.blockId) hem pozisyon kontrolü
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
+    const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
     const newConnections = getConnectionPoints(block);
+    const PROXIMITY_TOLERANCE = 5; // 5 cm - yakınlık toleransı
 
     (state.plumbingPipes || []).forEach(pipe => {
         let shouldUpdateStart = false;
@@ -493,7 +495,7 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
         let startIndex = null;
         let endIndex = null;
 
-        // P1 - SADECE explicit bağlantı
+        // P1 - Explicit bağlantı kontrolü
         const isStartExplicitlyConnected = pipe.connections?.start?.blockId && (
             pipe.connections.start.blockId === block.id ||
             pipe.connections.start.blockId === block
@@ -503,8 +505,20 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             startIndex = pipe.connections.start.connectionIndex;
             shouldUpdateStart = true;
         }
+        // ⭐ YENİ: P1 - Pozisyon kontrolü (eski connection point'lere yakınsa)
+        else {
+            for (let i = 0; i < oldConnections.length; i++) {
+                const dist = Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y);
+                if (dist < PROXIMITY_TOLERANCE) {
+                    startIndex = i;
+                    shouldUpdateStart = true;
+                    console.log(`🔗 P1 yakın (${dist.toFixed(1)}cm) - birleştiriliyor`);
+                    break;
+                }
+            }
+        }
 
-        // P2 - SADECE explicit bağlantı
+        // P2 - Explicit bağlantı kontrolü
         const isEndExplicitlyConnected = pipe.connections?.end?.blockId && (
             pipe.connections.end.blockId === block.id ||
             pipe.connections.end.blockId === block
@@ -513,6 +527,18 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
         if (isEndExplicitlyConnected) {
             endIndex = pipe.connections.end.connectionIndex;
             shouldUpdateEnd = true;
+        }
+        // ⭐ YENİ: P2 - Pozisyon kontrolü (eski connection point'lere yakınsa)
+        else {
+            for (let i = 0; i < oldConnections.length; i++) {
+                const dist = Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y);
+                if (dist < PROXIMITY_TOLERANCE) {
+                    endIndex = i;
+                    shouldUpdateEnd = true;
+                    console.log(`🔗 P2 yakın (${dist.toFixed(1)}cm) - birleştiriliyor`);
+                    break;
+                }
+            }
         }
 
         if (!shouldUpdateStart && !shouldUpdateEnd) return;
