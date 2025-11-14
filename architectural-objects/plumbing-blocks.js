@@ -5,6 +5,7 @@
 // ✅ Silinebilir ve birleştirir
 
 import { state, setState } from '../general-files/main.js';
+import { cleanupVeryShortPipes } from './plumbing-pipes.js';
  
 export const PLUMBING_BLOCK_TYPES = {
     SERVIS_KUTUSU: {
@@ -708,37 +709,33 @@ function mergePipesAfterBlockDeletion(block) {
         const pipe1 = pipe1Info.pipe;
         const pipe2 = pipe2Info.pipe;
 
-        // ⭐ NODE PAYLAŞIMI: Yeni objeler yerine mevcut node referanslarını kullan
-        const newP1Node = pipe1Info.end === 'p1' ? pipe1.p2 : pipe1.p1;
-        const newP2Node = pipe2Info.end === 'p2' ? pipe2.p1 : pipe2.p2;
+        // ⭐ DÜZELTME: Her iki boruyu silip yeni boru yaratmak yerine,
+        // bir boruyu koru ve diğer borunun ucuna uzat
 
-        const newPipe = {
-            type: 'plumbingPipe',
-            pipeType: pipe1.pipeType || 'STANDARD',
-            p1: newP1Node,  // Node referansını paylaş
-            p2: newP2Node,  // Node referansını paylaş
-            floorId: pipe1.floorId,
-            typeConfig: pipe1.typeConfig,
-            isConnectedToValve: pipe1.isConnectedToValve || pipe2.isConnectedToValve,
-            connections: {
-                start: pipe1Info.end === 'p1' ? pipe1.connections.end : pipe1.connections.start,
-                end: pipe2Info.end === 'p2' ? pipe2.connections.start : pipe2.connections.end
-            },
-            valves: [...(pipe1.valves || []), ...(pipe2.valves || [])]  // Vanaları birleştir
-        };
+        // pipe1'i koruyoruz, pipe2'yi siliyoruz
+        // pipe1'in bloğa bağlı olan ucunu, pipe2'nin dış ucuna bağlıyoruz
 
-        const idx1 = state.plumbingPipes.indexOf(pipe1);
-        const idx2 = state.plumbingPipes.indexOf(pipe2);
-
-        if (idx1 > -1) state.plumbingPipes.splice(idx1, 1);
-        if (idx2 > -1) {
-            const newIdx2 = state.plumbingPipes.indexOf(pipe2);
-            if (newIdx2 > -1) state.plumbingPipes.splice(newIdx2, 1);
+        if (pipe1Info.end === 'p1') {
+            // pipe1'in p1'i bloğa bağlı, p2'yi değiştir
+            pipe1.p2 = pipe2Info.end === 'p2' ? pipe2.p1 : pipe2.p2;
+            pipe1.connections.end = pipe2Info.end === 'p2' ? pipe2.connections.start : pipe2.connections.end;
+        } else {
+            // pipe1'in p2'si bloğa bağlı, p1'i değiştir
+            pipe1.p1 = pipe2Info.end === 'p2' ? pipe2.p1 : pipe2.p2;
+            pipe1.connections.start = pipe2Info.end === 'p2' ? pipe2.connections.start : pipe2.connections.end;
         }
 
-        state.plumbingPipes.push(newPipe);
+        // pipe2'nin vanalarını pipe1'e aktar
+        pipe1.valves = [...(pipe1.valves || []), ...(pipe2.valves || [])];
+        pipe1.isConnectedToValve = pipe1.isConnectedToValve || pipe2.isConnectedToValve;
 
-        console.log('✅ Block deleted, pipes merged (with node sharing)');
+        // Sadece pipe2'yi sil
+        const idx2 = state.plumbingPipes.indexOf(pipe2);
+        if (idx2 > -1) {
+            state.plumbingPipes.splice(idx2, 1);
+        }
+
+        console.log('✅ Block deleted, pipe1 extended to merge with pipe2 (pipe2 deleted)');
     } else if (connectedPipes.length > 0) {
         connectedPipes.forEach(info => {
             if (info.end === 'p1' && info.pipe.connections?.start) {
@@ -749,6 +746,9 @@ function mergePipesAfterBlockDeletion(block) {
         });
         console.log('⚠️ Block deleted, connections cleared');
     }
+
+    // Blok silindikten sonra çok kısa boruları temizle
+    cleanupVeryShortPipes();
 }
 
 export function getDefaultRotationForWall(wallAngle) {

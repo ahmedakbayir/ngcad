@@ -77,7 +77,12 @@ export function isPointOnPipe(point, pipe, tolerance = 5) {
     const dy = p2.y - p1.y;
     const lengthSq = dx * dx + dy * dy;
 
-    if (lengthSq < 0.01) return false;
+    // Çok kısa borular için uç noktalarına yakınlık kontrolü
+    if (lengthSq < 0.01) {
+        const distP1 = Math.hypot(point.x - p1.x, point.y - p1.y);
+        const distP2 = Math.hypot(point.x - p2.x, point.y - p2.y);
+        return distP1 < tolerance || distP2 < tolerance;
+    }
 
     let t = ((point.x - p1.x) * dx + (point.y - p1.y) * dy) / lengthSq;
     t = Math.max(0, Math.min(1, t));
@@ -418,6 +423,35 @@ export function deletePlumbingPipeAndMerge(pipeToDelete) {
     else {
         console.log('ℹ️ Pipe deleted without merging (no adjacent pipes or too many)');
     }
+
+    // Silme işleminden sonra çok kısa boruları temizle
+    cleanupVeryShortPipes();
+}
+
+/**
+ * Çok kısa boruları (< 1 cm) otomatik olarak temizler
+ * Bu fonksiyon nokta şeklinde kalan hatları önler
+ */
+export function cleanupVeryShortPipes() {
+    const MIN_PIPE_LENGTH = 1; // 1 cm minimum uzunluk
+    const pipesToDelete = [];
+
+    (state.plumbingPipes || []).forEach(pipe => {
+        const length = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+        if (length < MIN_PIPE_LENGTH) {
+            pipesToDelete.push(pipe);
+        }
+    });
+
+    pipesToDelete.forEach(pipe => {
+        const index = state.plumbingPipes.indexOf(pipe);
+        if (index > -1) {
+            state.plumbingPipes.splice(index, 1);
+            console.log(`🧹 Cleaned up very short pipe (${Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y).toFixed(2)} cm)`);
+        }
+    });
+
+    return pipesToDelete.length;
 }
 
 export function findAllConnectedComponents(startObject, startType) {
@@ -534,8 +568,8 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         const newX = snappedPos.x;
         const newY = snappedPos.y;
 
-        // Bağlantı noktasına snap (hem blok hem boru ucu)
-        const snap = snapToConnectionPoint({ x: newX, y: newY }, 15) || snapToPipeEndpoint({ x: newX, y: newY }, 15, pipe);
+        // Bağlantı noktasına snap (hem blok hem boru ucu) - tolerance azaltıldı
+        const snap = snapToConnectionPoint({ x: newX, y: newY }, 10) || snapToPipeEndpoint({ x: newX, y: newY }, 10, pipe);
         
         let finalX = newX;
         let finalY = newY;
@@ -622,31 +656,33 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         const newPipeLength = Math.hypot(targetPoint.x - otherPoint.x, targetPoint.y - otherPoint.y);
 
         if (newPipeLength < minPipeLength) {
-            // Eğer yeni uzunluk limitten azsa, tüm boruları eski pozisyona geri dön
-            targetPoint.x = lastValidTarget.x;
-            targetPoint.y = lastValidTarget.y;
+            // ⭐ DÜZELTME: Snap-back yerine lastValidTarget pozisyonunda tut (daha smooth)
+            // Sadece geçerli son pozisyona geri dön, ani sıçrama olmadan
+            const validX = lastValidTarget.x;
+            const validY = lastValidTarget.y;
 
-            // ⭐ DÜZELTME: Aynı düğümü (referans VEYA pozisyon) kullanan boruları da geri al
+            targetPoint.x = validX;
+            targetPoint.y = validY;
+
+            // Bağlı boruları da geçerli pozisyona güncelle
             (state.plumbingPipes || []).forEach(otherPipe => {
                 if (otherPipe === pipe) return;
 
-                // Referans veya pozisyon kontrolü
                 const p1SameRef = (otherPipe.p1 === targetPoint);
                 const p2SameRef = (otherPipe.p2 === targetPoint);
-                const p1SamePos = Math.hypot(otherPipe.p1.x - finalX, otherPipe.p1.y - finalY) < POSITION_TOLERANCE;
-                const p2SamePos = Math.hypot(otherPipe.p2.x - finalX, otherPipe.p2.y - finalY) < POSITION_TOLERANCE;
 
-                if (p1SameRef || p1SamePos) {
-                    otherPipe.p1.x = oldX;
-                    otherPipe.p1.y = oldY;
+                if (p1SameRef) {
+                    otherPipe.p1.x = validX;
+                    otherPipe.p1.y = validY;
                 }
 
-                if (p2SameRef || p2SamePos) {
-                    otherPipe.p2.x = oldX;
-                    otherPipe.p2.y = oldY;
+                if (p2SameRef) {
+                    otherPipe.p2.x = validX;
+                    otherPipe.p2.y = validY;
                 }
             });
         } else {
+            // Geçerli bir hareket, lastValidTarget'ı güncelle
             lastValidTarget.x = targetPoint.x;
             lastValidTarget.y = targetPoint.y;
         }
