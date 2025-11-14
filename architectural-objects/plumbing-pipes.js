@@ -137,15 +137,31 @@ export function snapToConnectionPoint(point, tolerance = 10, filterFn = null) {
                         continue;
                     }
                 } else if (block.blockType === 'SERVIS_KUTUSU') {
-                    // SERVIS_KUTUSU: Bir noktadan BORU çıktıysa, o kutuya başka tesisat BAĞLANAMAZ
-                    const KUTU_CONNECTION_TOLERANCE = 5; // 5 cm tolerans
-                    const hasAnyConnection = (state.plumbingPipes || []).some(pipe =>
-                        Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < KUTU_CONNECTION_TOLERANCE ||
-                        Math.hypot(pipe.p2.x - cp.x, pipe.p2.y - cp.y) < KUTU_CONNECTION_TOLERANCE
+                    // SERVIS_KUTUSU: Her bağlantı noktasına sadece BİR boru bağlanabilir
+                    // İKİ YÖNTEMLİ KONTROL (SAYAC/VANA ile aynı mantık):
+
+                    // 1. Bağlantı bilgisi (connections) üzerinden kontrol (kesin)
+                    const isOccupiedByConnection = (state.plumbingPipes || []).some(pipe => {
+                        const p1Connected = pipe.connections?.start?.blockId &&
+                            (pipe.connections.start.blockId === block.id || pipe.connections.start.blockId === block) &&
+                            pipe.connections.start.connectionIndex === i;
+
+                        const p2Connected = pipe.connections?.end?.blockId &&
+                            (pipe.connections.end.blockId === block.id || pipe.connections.end.blockId === block) &&
+                            pipe.connections.end.connectionIndex === i;
+
+                        return p1Connected || p2Connected;
+                    });
+
+                    // 2. Pozisyon bazlı kontrol (yedek, eski borular için)
+                    const CONNECTION_TOLERANCE = 10; // 10 cm tolerans
+                    const isOccupiedByPosition = (state.plumbingPipes || []).some(pipe =>
+                        Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < CONNECTION_TOLERANCE ||
+                        Math.hypot(pipe.p2.x - cp.x, pipe.p2.y - cp.y) < CONNECTION_TOLERANCE
                     );
 
-                    if (hasAnyConnection) {
-                        // Bu kutuya zaten boru bağlı, atla
+                    if (isOccupiedByConnection || isOccupiedByPosition) {
+                        // Bu bağlantı noktası dolu, atla
                         continue;
                     }
                 }
@@ -375,8 +391,31 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         if (snap) {
             targetPoint.x = snap.x;
             targetPoint.y = snap.y;
+
+            // Snap yapıldıysa bağlantı bilgisini güncelle
+            const connectionKey = handle === 'p1' ? 'start' : 'end';
+            if (!pipe.connections) pipe.connections = { start: null, end: null };
+
+            if (snap.block) {
+                // Bloğa snap yapıldı
+                pipe.connections[connectionKey] = {
+                    blockId: snap.block.id || snap.block,
+                    connectionIndex: snap.connectionIndex,
+                    blockType: snap.block.blockType
+                };
+            } else {
+                // Boru ucuna snap yapıldı (blok değil)
+                pipe.connections[connectionKey] = null;
+            }
+        } else {
+            // Snap yapılmadı - eğer daha önce bloğa bağlıysa bağlantıyı kes
+            const connectionKey = handle === 'p1' ? 'start' : 'end';
+            if (pipe.connections?.[connectionKey]?.blockId) {
+                console.log(`⚠️ Boru ucu bloğa bağlıyken snap alanından çıktı, bağlantı koparıldı`);
+                pipe.connections[connectionKey] = null;
+            }
         }
-        
+
         // Kural 1 (Vana Limiti): Minimum uzunluk kontrolü
         const totalValveWidth = (pipe.valves || []).reduce((sum, v) => sum + v.width, 0);
         const minPipeLength = totalValveWidth + 20; // Toplam vana genişliği + 2cm (iki uçtan 1'er cm)
