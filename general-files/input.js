@@ -282,7 +282,71 @@ export function handleDelete() {
             deleted = true;
         }
         else if (objType === 'plumbingBlock') {
-            state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== selectedObjectSnapshot.object);
+            const blockToDelete = selectedObjectSnapshot.object;
+
+            // Bloğa bağlı boruları bul
+            const connectedPipes = (state.plumbingPipes || []).filter(pipe =>
+                (pipe.connections.start && pipe.connections.start.blockId === blockToDelete.id) ||
+                (pipe.connections.end && pipe.connections.end.blockId === blockToDelete.id)
+            );
+
+            console.log('🔍 Found', connectedPipes.length, 'pipes connected to block', blockToDelete.blockType);
+
+            // Eğer tam 2 boru varsa, bunları birleştir
+            if (connectedPipes.length === 2) {
+                const pipe1 = connectedPipes[0];
+                const pipe2 = connectedPipes[1];
+
+                // Pipe1'in hangi ucu bloğa bağlı?
+                const pipe1ConnectedAtStart = pipe1.connections.start && pipe1.connections.start.blockId === blockToDelete.id;
+                const pipe2ConnectedAtStart = pipe2.connections.start && pipe2.connections.start.blockId === blockToDelete.id;
+
+                console.log('🩹 Healing: Connecting two pipes after block deletion');
+
+                if (pipe1ConnectedAtStart && pipe2ConnectedAtStart) {
+                    // Her iki boru da start'tan bağlı
+                    // Pipe2'nin p1'ini Pipe1'in p1'ine bağla
+                    pipe2.p1.x = pipe1.p1.x;
+                    pipe2.p1.y = pipe1.p1.y;
+                    pipe2.connections.start = pipe1.connections.start;
+                } else if (!pipe1ConnectedAtStart && !pipe2ConnectedAtStart) {
+                    // Her iki boru da end'den bağlı
+                    // Pipe2'nin p2'sini Pipe1'in p2'sine bağla
+                    pipe2.p2.x = pipe1.p2.x;
+                    pipe2.p2.y = pipe1.p2.y;
+                    pipe2.connections.end = pipe1.connections.end;
+                } else if (pipe1ConnectedAtStart && !pipe2ConnectedAtStart) {
+                    // Pipe1 start'tan, Pipe2 end'den bağlı
+                    // Pipe2'nin p2'sini Pipe1'in p1'ine bağla
+                    pipe2.p2.x = pipe1.p1.x;
+                    pipe2.p2.y = pipe1.p1.y;
+                    pipe2.connections.end = pipe1.connections.start;
+                } else {
+                    // Pipe1 end'den, Pipe2 start'tan bağlı
+                    // Pipe2'nin p1'ini Pipe1'in p2'sine bağla
+                    pipe2.p1.x = pipe1.p2.x;
+                    pipe2.p1.y = pipe1.p2.y;
+                    pipe2.connections.start = pipe1.connections.end;
+                }
+
+                // Pipe1'i sil
+                state.plumbingPipes = state.plumbingPipes.filter(p => p !== pipe1);
+                console.log('✅ Pipes merged successfully');
+            } else if (connectedPipes.length > 0) {
+                // Boruları bloğa bağlı olmaktan çıkar
+                console.log('🔌 Disconnecting', connectedPipes.length, 'pipes from block');
+                connectedPipes.forEach(pipe => {
+                    if (pipe.connections.start && pipe.connections.start.blockId === blockToDelete.id) {
+                        pipe.connections.start = null;
+                    }
+                    if (pipe.connections.end && pipe.connections.end.blockId === blockToDelete.id) {
+                        pipe.connections.end = null;
+                    }
+                });
+            }
+
+            // Bloğu sil
+            state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== blockToDelete);
             deleted = true;
         }
         // --- VANA SİLME (Boru üzerinden) ---
@@ -317,9 +381,12 @@ export function handleDelete() {
             // 1. Silinen borunun BAŞLANGICINA (p1) ne bağlı?
             if (startConn && startConn.blockId) {
                 // Bir bloğa bağlı (BlockA)
-                const blockA_connections = getConnectionPoints(startConn.blockId);
-                startPointToConnect = blockA_connections[startConn.connectionIndex];
-                blockToModify = startConn.blockId; // A Bloğu
+                const blockA = state.plumbingBlocks.find(b => b.id === startConn.blockId);
+                if (blockA) {
+                    const blockA_connections = getConnectionPoints(blockA);
+                    startPointToConnect = blockA_connections[startConn.connectionIndex];
+                    blockToModify = startConn.blockId; // A Bloğu ID'si
+                }
             } else {
                 // Bir bloğa bağlı değil, başka bir boruya (PipeA.p2) mı bağlı?
                 connectedPipeAtStart = (state.plumbingPipes || []).find(p =>
@@ -335,8 +402,11 @@ export function handleDelete() {
             // 2. Silinen borunun BİTİŞİNE (p2) ne bağlı?
             if (endConn && endConn.blockId) {
                 // Bir bloğa bağlı (BlockC)
-                const blockC_connections = getConnectionPoints(endConn.blockId);
-                endPointToConnect = blockC_connections[endConn.connectionIndex];
+                const blockC = state.plumbingBlocks.find(b => b.id === endConn.blockId);
+                if (blockC) {
+                    const blockC_connections = getConnectionPoints(blockC);
+                    endPointToConnect = blockC_connections[endConn.connectionIndex];
+                }
                 // (Eğer A da bloksa, hiçbir şey yapma, sadece boruyu sil)
             } else {
                 // Bir bloğa bağlı değil, başka bir boruya (PipeC.p1) mı bağlı?
