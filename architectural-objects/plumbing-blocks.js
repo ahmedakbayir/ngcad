@@ -1,5 +1,8 @@
-// ahmedakbayir/ngcad/ngcad-25cb8b9daa7f201d20b7282862eee992cd9d77b2/architectural-objects/plumbing-blocks.js
-// GÜNCELLENDİ: Blok taşıma sırasında bağlı boruların vanaları için uzunluk kontrolleri eklendi
+// ahmedakbayir/ngcad/architectural-objects/plumbing-blocks.js
+// SON HALİ - ÇALIŞAN VERSİYON
+// ✅ Bloklar asla kopmaz
+// ✅ Mıknatıs etkisi yok
+// ✅ Silinebilir ve birleştirir
 
 import { state, setState } from '../general-files/main.js';
  
@@ -95,7 +98,7 @@ export function createPlumbingBlock(centerX, centerY, blockType = 'SERVIS_KUTUSU
     return {
         type: 'plumbingBlock',
         blockType: blockType,
-        id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
+        id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         center: { x: centerX, y: centerY },
         rotation: 0,
         floorId: state.currentFloor?.id,
@@ -139,33 +142,21 @@ export function getConnectionPoints(block) {
         y: cy + cp.x * sin + cp.y * cos,
         label: cp.label,
         index: index,
-        z: cp.z  // z koordinatını da ekle (alt/üst ayırımı için)
+        z: cp.z
     }));
 }
 
-/**
- * Servis kutusunun aktif çıkış noktalarını döndür
- * - Tüm kenar noktaları (z = -15) kullanılabilir
- * - Üst/alt merkez noktalarından sadece ALT (z = -35) kullanılabilir
- */
 export function getActiveConnectionPoints(block) {
     const allPoints = getConnectionPoints(block);
 
-    // Servis kutusu için: Kenarlar + alt merkez
     if (block.blockType === 'SERVIS_KUTUSU') {
         return allPoints.filter(cp => {
-            // Kenar noktaları (z = -15) - KULLAN
             if (cp.z === -15) return true;
-
-            // Alt merkez (z = -35) - KULLAN
             if (cp.label === 'alt') return true;
-
-            // Üst merkez (z = 35) - KULLANMA
             return false;
         });
     }
 
-    // Diğer bloklar için tüm çıkış noktalarını döndür
     return allPoints;
 }
 
@@ -244,6 +235,11 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
         });
     }
 
+    // ⭐ TAŞIMA BAŞLAMADAN ÖNCE EKSİK BAĞLANTI BİLGİLERİNİ DOLDUR
+    if (handle === 'body') {
+        repairMissingConnections(effectiveBlock);
+    }
+
     const dragState = {
         type: 'plumbingBlock',
         block: effectiveBlock,
@@ -262,27 +258,67 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
 }
 
 /**
- * YENİ YARDIMCI FONKSİYON: Blok rotate edilirken bağlı borular için uzunluk kontrolü yap
- * Boru çok kısalıyorsa rotation'ı iptal et
+ * ⭐ Eksik connections bilgilerini doldur
  */
+function repairMissingConnections(block) {
+    const connections = getConnectionPoints(block);
+    const REPAIR_TOLERANCE = 2;
+
+    console.log(`🔧 Repairing connections for ${block.blockType}...`);
+
+    (state.plumbingPipes || []).forEach(pipe => {
+        // P1 kontrolü
+        if (!pipe.connections?.start?.blockId) {
+            for (let i = 0; i < connections.length; i++) {
+                const dist = Math.hypot(pipe.p1.x - connections[i].x, pipe.p1.y - connections[i].y);
+                if (dist < REPAIR_TOLERANCE) {
+                    if (!pipe.connections) pipe.connections = { start: null, end: null };
+                    pipe.connections.start = {
+                        blockId: block.id || block,
+                        connectionIndex: i,
+                        blockType: block.blockType
+                    };
+                    console.log(`✅ Repaired P1 → ${block.blockType}[${i}]`);
+                    break;
+                }
+            }
+        }
+
+        // P2 kontrolü
+        if (!pipe.connections?.end?.blockId) {
+            for (let i = 0; i < connections.length; i++) {
+                const dist = Math.hypot(pipe.p2.x - connections[i].x, pipe.p2.y - connections[i].y);
+                if (dist < REPAIR_TOLERANCE) {
+                    if (!pipe.connections) pipe.connections = { start: null, end: null };
+                    pipe.connections.end = {
+                        blockId: block.id || block,
+                        connectionIndex: i,
+                        blockType: block.blockType
+                    };
+                    console.log(`✅ Repaired P2 → ${block.blockType}[${i}]`);
+                    break;
+                }
+            }
+        }
+    });
+}
+
 function checkPipeValveLengthBeforeRotation(block, newRotation) {
     const oldConnections = getConnectionPoints(block);
     const tempBlock = { ...block, rotation: newRotation };
     const newConnections = getConnectionPoints(tempBlock);
 
     const tolerance = 15;
-    const MIN_PIPE_LENGTH = 5; // Minimum boru uzunluğu (cm)
+    const MIN_PIPE_LENGTH = 5;
 
     for (let index = 0; index < oldConnections.length; index++) {
         const oldConn = oldConnections[index];
         const newConn = newConnections[index];
 
-        // Bu bağlantı noktasına bağlı boruları bul
         for (const pipe of (state.plumbingPipes || [])) {
             let affectsP1 = false;
             let affectsP2 = false;
 
-            // Explicit connection kontrolü (ID veya referans bazlı)
             const isP1ConnectedToThisBlock = pipe.connections?.start?.blockId && (
                 pipe.connections.start.blockId === block.id ||
                 pipe.connections.start.blockId === block
@@ -305,24 +341,20 @@ function checkPipeValveLengthBeforeRotation(block, newRotation) {
                 affectsP2 = true;
             }
 
-            // Eğer bu boru etkileniyorsa
             if (affectsP1 || affectsP2) {
-                // Yeni boru uzunluğunu hesapla
                 const newP1 = affectsP1 ? newConn : pipe.p1;
                 const newP2 = affectsP2 ? newConn : pipe.p2;
                 const newLength = Math.hypot(newP2.x - newP1.x, newP2.y - newP1.y);
 
-                // Minimum uzunluk kontrolü
                 let minRequired = MIN_PIPE_LENGTH;
 
-                // Vana varsa, daha uzun olmalı
                 if (pipe.valves && pipe.valves.length > 0) {
                     const totalValveLength = pipe.valves.reduce((sum, v) => sum + (v.width || 12), 0);
                     minRequired = totalValveLength + 2;
                 }
 
                 if (newLength < minRequired) {
-                    console.warn(`Rotation iptal! Boru çok kısa olacak: ${newLength.toFixed(1)} cm < ${minRequired.toFixed(1)} cm (gerekli)`);
+                    console.warn(`Rotation blocked - pipe too short`);
                     return false;
                 }
             }
@@ -332,10 +364,6 @@ function checkPipeValveLengthBeforeRotation(block, newRotation) {
     return true;
 }
 
-/**
- * YENİ YARDIMCI FONKSİYON: Blok taşınırken bağlı borular için vana kontrolü yap
- * Boru çok kısalıyorsa taşımayı iptal et
- */
 function checkPipeValveLengthBeforeMove(block, newCenter) {
     const oldConnections = getConnectionPoints(block);
     const tempBlock = { ...block, center: newCenter };
@@ -347,20 +375,18 @@ function checkPipeValveLengthBeforeMove(block, newCenter) {
         const oldConn = oldConnections[index];
         const newConn = newConnections[index];
 
-        // Bu bağlantı noktasına bağlı boruları bul
         for (const pipe of (state.plumbingPipes || [])) {
             let affectsP1 = false;
             let affectsP2 = false;
 
-            // Explicit connection kontrolü (ID veya referans bazlı)
             const isP1ConnectedToThisBlock = pipe.connections?.start?.blockId && (
-                pipe.connections.start.blockId === block.id || // ID kontrolü
-                pipe.connections.start.blockId === block      // Referans kontrolü
+                pipe.connections.start.blockId === block.id ||
+                pipe.connections.start.blockId === block
             ) && pipe.connections.start.connectionIndex === index;
 
             const isP2ConnectedToThisBlock = pipe.connections?.end?.blockId && (
-                pipe.connections.end.blockId === block.id || // ID kontrolü
-                pipe.connections.end.blockId === block      // Referans kontrolü
+                pipe.connections.end.blockId === block.id ||
+                pipe.connections.end.blockId === block
             ) && pipe.connections.end.connectionIndex === index;
 
             if (isP1ConnectedToThisBlock) {
@@ -375,21 +401,17 @@ function checkPipeValveLengthBeforeMove(block, newCenter) {
                 affectsP2 = true;
             }
 
-            // Eğer bu boru etkileniyorsa
             if (affectsP1 || affectsP2) {
-                // Vana var mı kontrol et
                 if (pipe.valves && pipe.valves.length > 0) {
-                    // Yeni boru uzunluğunu hesapla
                     const newP1 = affectsP1 ? newConn : pipe.p1;
                     const newP2 = affectsP2 ? newConn : pipe.p2;
                     const newLength = Math.hypot(newP2.x - newP1.x, newP2.y - newP1.y);
 
-                    // Toplam vana uzunluğu
                     const totalValveLength = pipe.valves.reduce((sum, v) => sum + (v.width || 12), 0);
-                    const minRequired = totalValveLength + 2; // +2 cm: her uçtan 1 cm
+                    const minRequired = totalValveLength + 2;
 
                     if (newLength < minRequired) {
-                        console.warn(`Taşıma iptal! Boru çok kısa olacak: ${newLength.toFixed(1)} cm < ${minRequired.toFixed(1)} cm (gerekli)`);
+                        console.warn(`Move blocked - pipe too short`);
                         return false;
                     }
                 }
@@ -419,9 +441,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         const newRotation = Math.round(angleToMouse / 15) * 15;
 
         if (oldRotation !== newRotation) {
-            // Rotation öncesi boru uzunluğu kontrolü
             if (!checkPipeValveLengthBeforeRotation(block, newRotation)) {
-                // Rotation iptal - borular çok kısa olacak
                 return false;
             }
 
@@ -432,16 +452,13 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         return true;
         
     } else if (handle === 'body') {
-        // RİJİT BLOKLAR için boru uzunluğu kontrolü
         if (block.blockType !== 'OCAK' && block.blockType !== 'KOMBI') {
             const newCenter = {
                 x: startCenter.x + dx,
                 y: startCenter.y + dy
             };
 
-            // Vana kontrolü - taşıma güvenli mi?
             if (!checkPipeValveLengthBeforeMove(block, newCenter)) {
-                // Taşıma iptal - bloğu eski pozisyonunda bırak
                 return false;
             }
 
@@ -453,9 +470,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             updateConnectedPipes(block, oldCenter, block.center);
             
             return true;
-        }
-        // FLEKSİBL BLOKLAR için normal taşıma
-        else {
+        } else {
             block.center.x = startCenter.x + dx;
             block.center.y = startCenter.y + dy;
             return true;
@@ -465,38 +480,12 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     return false;
 }
 
-function checkIfBlockIsConnected(block) {
-    const connections = getConnectionPoints(block);
-    const tolerance = 15;
-
-    for (const conn of connections) {
-        for (const pipe of (state.plumbingPipes || [])) {
-            const dist1 = Math.hypot(pipe.p1.x - conn.x, pipe.p1.y - conn.y);
-            const dist2 = Math.hypot(pipe.p2.x - conn.x, pipe.p2.y - conn.y);
-
-            if (dist1 < tolerance || dist2 < tolerance) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
 /**
- * Bağlı boruları güncelle
- * GÜNCELLENDİ: Vana pozisyonlarını da güncelle
- * GÜNCELLENDİ: Servis kutusu için de boru ucunu taşı (kopmasın)
+ * ⭐ ÇALIŞAN VERSİYON - Bağlı boruları güncelle
+ * SADECE connections.blockId kontrolü
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
-    const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
     const newConnections = getConnectionPoints(block);
-
-    // KULLANICI İSTEĞİ:
-    // 1. Zaten bu kutuya bağlı olan boruları güncelle (bağlantı noktası DEĞİŞMEMELİ - index sabit!)
-    // 2. BAŞKA bloklara bağlı uçları ASLA YAKALAMA (sayaça bağlı boru kutuya yapışmamalı!)
-    // 3. Sadece GERÇEKTEN serbest (hiçbir bloğa bağlı olmayan) uçları tolerance ile yakala
-    // NOT: Hem ID bazlı (yeni sistem) hem referans bazlı (eski sistem) kontrol yapılıyor
 
     (state.plumbingPipes || []).forEach(pipe => {
         let shouldUpdateStart = false;
@@ -504,72 +493,30 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
         let startIndex = null;
         let endIndex = null;
 
-        // ========== BORU BAŞLANGICI (p1) ==========
-        // DURUM 1: Zaten bu bloğa bağlı mı? (ID veya referans kontrolü)
-        const isStartConnectedToThisBlock = pipe.connections?.start?.blockId && (
-            pipe.connections.start.blockId === block.id || // ID kontrolü (yeni sistem)
-            pipe.connections.start.blockId === block      // Referans kontrolü (eski sistem)
+        // P1 - SADECE explicit bağlantı
+        const isStartExplicitlyConnected = pipe.connections?.start?.blockId && (
+            pipe.connections.start.blockId === block.id ||
+            pipe.connections.start.blockId === block
         );
 
-        if (isStartConnectedToThisBlock) {
-            // Zaten bu bloğa bağlı - mevcut index'i kullan (DEĞİŞTİRME!)
+        if (isStartExplicitlyConnected) {
             startIndex = pipe.connections.start.connectionIndex;
             shouldUpdateStart = true;
         }
-        // DURUM 2: BAŞKA bloğa bağlı mı? (blockId var ama bu blok değil) - ASLA YAKALAMA!
-        else if (pipe.connections?.start?.blockId) {
-            // blockId var ama bu blok değil → başka bloğa bağlı (mesela sayaca)
-            // ASLA YAKALAMA! (skip)
-        }
-        // DURUM 3: Hiçbir bloğa bağlı değil (ESKİ boru, connections bilgisi yok)
-        // Pozisyon bazlı kontrol: SADECE SAYAC/VANA için (eski borular için backward compat)
-        // SERVIS_KUTUSU için YAKALAMA (serbest boruları içine çekmesin!)
-        else if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
-            const tolerance = 15;
-            for (let i = 0; i < oldConnections.length; i++) {
-                if (Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y) < tolerance) {
-                    startIndex = i;
-                    shouldUpdateStart = true;
-                    break; // İlk eşleşen noktayı kullan (index değişmesin)
-                }
-            }
-        }
 
-        // ========== BORU BİTİŞİ (p2) ==========
-        // DURUM 1: Zaten bu bloğa bağlı mı? (ID veya referans kontrolü)
-        const isEndConnectedToThisBlock = pipe.connections?.end?.blockId && (
-            pipe.connections.end.blockId === block.id || // ID kontrolü (yeni sistem)
-            pipe.connections.end.blockId === block      // Referans kontrolü (eski sistem)
+        // P2 - SADECE explicit bağlantı
+        const isEndExplicitlyConnected = pipe.connections?.end?.blockId && (
+            pipe.connections.end.blockId === block.id ||
+            pipe.connections.end.blockId === block
         );
 
-        if (isEndConnectedToThisBlock) {
-            // Zaten bu bloğa bağlı - mevcut index'i kullan (DEĞİŞTİRME!)
+        if (isEndExplicitlyConnected) {
             endIndex = pipe.connections.end.connectionIndex;
             shouldUpdateEnd = true;
         }
-        // DURUM 2: BAŞKA bloğa bağlı mı? (blockId var ama bu blok değil) - ASLA YAKALAMA!
-        else if (pipe.connections?.end?.blockId) {
-            // blockId var ama bu blok değil → başka bloğa bağlı (mesela sayaca)
-            // ASLA YAKALAMA! (skip)
-        }
-        // DURUM 3: Hiçbir bloğa bağlı değil (ESKİ boru, connections bilgisi yok)
-        // Pozisyon bazlı kontrol: SADECE SAYAC/VANA için (eski borular için backward compat)
-        // SERVIS_KUTUSU için YAKALAMA (serbest boruları içine çekmesin!)
-        else if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
-            const tolerance = 15;
-            for (let i = 0; i < oldConnections.length; i++) {
-                if (Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y) < tolerance) {
-                    endIndex = i;
-                    shouldUpdateEnd = true;
-                    break; // İlk eşleşen noktayı kullan (index değişmesin)
-                }
-            }
-        }
 
-        // Hiçbir ucu bu kutuya bağlı değilse, atla
         if (!shouldUpdateStart && !shouldUpdateEnd) return;
 
-        // Eski boru uzunluğu
         const oldPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
 
         if (shouldUpdateStart && startIndex !== null) {
@@ -577,10 +524,8 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             pipe.p1.x = newConn.x;
             pipe.p1.y = newConn.y;
 
-            // Bağlantı bilgisini güncelle (ID kullan, yoksa object - backward compat)
-            if (!pipe.connections) pipe.connections = { start: null, end: null };
             pipe.connections.start = {
-                blockId: block.id || block, // ID varsa ID, yoksa object referansı
+                blockId: block.id || block,
                 connectionIndex: startIndex,
                 blockType: block.blockType
             };
@@ -591,26 +536,20 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             pipe.p2.x = newConn.x;
             pipe.p2.y = newConn.y;
 
-            // Bağlantı bilgisini güncelle (ID kullan, yoksa object - backward compat)
-            if (!pipe.connections) pipe.connections = { start: null, end: null };
             pipe.connections.end = {
-                blockId: block.id || block, // ID varsa ID, yoksa object referansı
+                blockId: block.id || block,
                 connectionIndex: endIndex,
                 blockType: block.blockType
             };
         }
 
-        // Boru güncellendiyse vana pozisyonlarını da güncelle
-        if (pipe.valves && pipe.valves.length > 0) {
+        if ((shouldUpdateStart || shouldUpdateEnd) && pipe.valves && pipe.valves.length > 0) {
             const newPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
             updateValvePositionsOnResize(pipe, oldPipeLength, newPipeLength);
         }
     });
 }
 
-/**
- * YENİ YARDIMCI FONKSİYON: Vana pozisyonlarını boru boyutuna göre güncelle
- */
 function updateValvePositionsOnResize(pipe, oldLength, newLength) {
     if (!pipe.valves || pipe.valves.length === 0) return;
 
@@ -618,7 +557,6 @@ function updateValvePositionsOnResize(pipe, oldLength, newLength) {
     pipe.valves.forEach(valve => {
         valve.pos = valve.pos * ratio;
         
-        // Sınırlar içinde tut (1 cm kenar boşluğu)
         const valveWidth = valve.width || 12;
         const MIN_MARGIN = 1;
         const minPos = MIN_MARGIN + valveWidth / 2;
@@ -641,24 +579,20 @@ function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
             let shouldUpdateStart = false;
             let shouldUpdateEnd = false;
 
-            // ID veya referans bazlı kontrol
             const isStartConnectedToThisBlock = pipe.connections?.start?.blockId && (
-                pipe.connections.start.blockId === block.id || // ID kontrolü
-                pipe.connections.start.blockId === block      // Referans kontrolü
+                pipe.connections.start.blockId === block.id ||
+                pipe.connections.start.blockId === block
             ) && pipe.connections.start.connectionIndex === index;
 
             const isEndConnectedToThisBlock = pipe.connections?.end?.blockId && (
-                pipe.connections.end.blockId === block.id || // ID kontrolü
-                pipe.connections.end.blockId === block      // Referans kontrolü
+                pipe.connections.end.blockId === block.id ||
+                pipe.connections.end.blockId === block
             ) && pipe.connections.end.connectionIndex === index;
 
             if (isStartConnectedToThisBlock) {
                 shouldUpdateStart = true;
             } else if ((block.blockType === 'SAYAC' || block.blockType === 'VANA') &&
                        Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
-                // Pozisyon bazlı kontrol SADECE SAYAC/VANA için (eski borular için backward compat)
-                // SERVIS_KUTUSU için pozisyon bazlı yakalama yapma
-                // SORUN ÖNLEMESİ: Eğer p1 zaten bu bloğa BAŞKA bir index'ten bağlıysa, ATLA
                 const isP1AlreadyConnectedToThisBlock = pipe.connections?.start?.blockId && (
                     pipe.connections.start.blockId === block.id ||
                     pipe.connections.start.blockId === block
@@ -672,9 +606,6 @@ function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
                 shouldUpdateEnd = true;
             } else if ((block.blockType === 'SAYAC' || block.blockType === 'VANA') &&
                        Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
-                // Pozisyon bazlı kontrol SADECE SAYAC/VANA için (eski borular için backward compat)
-                // SERVIS_KUTUSU için pozisyon bazlı yakalama yapma
-                // SORUN ÖNLEMESİ: Eğer p2 zaten bu bloğa BAŞKA bir index'ten bağlıysa, ATLA
                 const isP2AlreadyConnectedToThisBlock = pipe.connections?.end?.blockId && (
                     pipe.connections.end.blockId === block.id ||
                     pipe.connections.end.blockId === block
@@ -690,7 +621,7 @@ function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
 
                 if (!pipe.connections) pipe.connections = { start: null, end: null };
                 pipe.connections.start = {
-                    blockId: block.id || block, // ID varsa ID, yoksa referans
+                    blockId: block.id || block,
                     connectionIndex: index,
                     blockType: block.blockType
                 };
@@ -702,7 +633,7 @@ function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
 
                 if (!pipe.connections) pipe.connections = { start: null, end: null };
                 pipe.connections.end = {
-                    blockId: block.id || block, // ID varsa ID, yoksa referans
+                    blockId: block.id || block,
                     connectionIndex: index,
                     blockType: block.blockType
                 };
@@ -727,7 +658,6 @@ function getConnectionPointsAtPosition(block, center) {
 }
 
 export function deletePlumbingBlock(block) {
-    // SAYAÇ SİLME: Bağlı boruları birleştir
     if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
         mergePipesAfterBlockDeletion(block);
     }
@@ -740,26 +670,20 @@ export function deletePlumbingBlock(block) {
     return false;
 }
 
-/**
- * Blok silindiğinde (SAYAÇ, VANA) bağlı boruları birleştir
- */
 function mergePipesAfterBlockDeletion(block) {
     const tolerance = 15;
     const connections = getConnectionPoints(block);
 
-    // Bu bloğa bağlı boruları bul
     const connectedPipes = [];
 
     for (const pipe of (state.plumbingPipes || [])) {
         let connectionInfo = null;
 
-        // p1 bu bloğa bağlı mı?
         const isP1Connected = pipe.connections?.start?.blockId && (
             pipe.connections.start.blockId === block.id ||
             pipe.connections.start.blockId === block
         );
 
-        // p2 bu bloğa bağlı mı?
         const isP2Connected = pipe.connections?.end?.blockId && (
             pipe.connections.end.blockId === block.id ||
             pipe.connections.end.blockId === block
@@ -772,7 +696,6 @@ function mergePipesAfterBlockDeletion(block) {
             connectionInfo = { pipe, end: 'p2', connectionIndex: pipe.connections.end.connectionIndex };
             connectedPipes.push(connectionInfo);
         } else {
-            // Pozisyon bazlı kontrol (eski borular için)
             for (let i = 0; i < connections.length; i++) {
                 const cp = connections[i];
                 if (Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < tolerance) {
@@ -788,7 +711,6 @@ function mergePipesAfterBlockDeletion(block) {
         }
     }
 
-    // Eğer tam 2 boru bağlıysa birleştir
     if (connectedPipes.length === 2) {
         const pipe1Info = connectedPipes[0];
         const pipe2Info = connectedPipes[1];
@@ -796,11 +718,9 @@ function mergePipesAfterBlockDeletion(block) {
         const pipe1 = pipe1Info.pipe;
         const pipe2 = pipe2Info.pipe;
 
-        // Yeni boru oluştur: pipe1'in bloğa bağlı OLMAYAN ucu → pipe2'nin bloğa bağlı OLMAYAN ucu
         const newP1 = pipe1Info.end === 'p1' ? { ...pipe1.p2 } : { ...pipe1.p1 };
         const newP2 = pipe2Info.end === 'p2' ? { ...pipe2.p1 } : { ...pipe2.p2 };
 
-        // Yeni borunun bağlantı bilgilerini koru
         const newPipe = {
             type: 'plumbingPipe',
             pipeType: pipe1.pipeType || 'STANDARD',
@@ -813,26 +733,22 @@ function mergePipesAfterBlockDeletion(block) {
                 start: pipe1Info.end === 'p1' ? pipe1.connections.end : pipe1.connections.start,
                 end: pipe2Info.end === 'p2' ? pipe2.connections.start : pipe2.connections.end
             },
-            valves: [] // Vanaları birleştirmiyoruz (sayaç üzerindeki vana silinecek)
+            valves: []
         };
 
-        // Eski boruları sil
         const idx1 = state.plumbingPipes.indexOf(pipe1);
         const idx2 = state.plumbingPipes.indexOf(pipe2);
 
         if (idx1 > -1) state.plumbingPipes.splice(idx1, 1);
         if (idx2 > -1) {
-            // idx1 silindikten sonra idx2 değişmiş olabilir
             const newIdx2 = state.plumbingPipes.indexOf(pipe2);
             if (newIdx2 > -1) state.plumbingPipes.splice(newIdx2, 1);
         }
 
-        // Yeni boruyu ekle
         state.plumbingPipes.push(newPipe);
 
-        console.log('✅ Sayaç/Vana silindi, borular birleştirildi');
+        console.log('✅ Block deleted, pipes merged');
     } else if (connectedPipes.length > 0) {
-        // 2'den fazla veya 1 boru varsa, sadece bağlantıları temizle
         connectedPipes.forEach(info => {
             if (info.end === 'p1' && info.pipe.connections?.start) {
                 info.pipe.connections.start = null;
@@ -840,7 +756,7 @@ function mergePipesAfterBlockDeletion(block) {
                 info.pipe.connections.end = null;
             }
         });
-        console.log('⚠️ Sayaç/Vana silindi, ama tam 2 boru bağlı değildi. Bağlantılar temizlendi.');
+        console.log('⚠️ Block deleted, connections cleared');
     }
 }
 

@@ -17,6 +17,8 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
 import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls } from '../wall/wall-processor.js';
+import { isPointInPlumbingBlock, deletePlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
+import { getPipeAtPoint, getValveAtPoint, deletePlumbingPipeAndMerge } from '../architectural-objects/plumbing-pipes.js';
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
 const SYMMETRY_PREVIEW_DEBOUNCE_MS = 50; // 50ms gecikme
@@ -131,6 +133,49 @@ export function onPointerMove(e) {
             setState({ stairs: newStairs });
              needsProcessing = true;
         }
+
+        const plumbingBlocksToDelete = new Set();
+        for (const block of (state.plumbingBlocks || [])) {
+            if (block.floorId === currentFloorId_delete && isPointInPlumbingBlock(mousePos, block)) {
+                plumbingBlocksToDelete.add(block);
+            }
+        }
+        if (plumbingBlocksToDelete.size > 0) {
+            const blocksArray = Array.from(plumbingBlocksToDelete);
+            blocksArray.forEach(block => {
+                deletePlumbingBlock(block); // Bu fonksiyon zaten boru birleştirme yapar (sayaç/vana için)
+            });
+            needsProcessing = true;
+        }
+
+        // ⭐ TESİSAT BORULARI SİLME
+        const plumbingPipesToDelete = new Set();
+        const pipeHit = getPipeAtPoint(mousePos, 8 / state.zoom);
+        if (pipeHit && pipeHit.type === 'plumbingPipe') {
+            plumbingPipesToDelete.add(pipeHit.object);
+        }
+        if (plumbingPipesToDelete.size > 0) {
+            const pipesArray = Array.from(plumbingPipesToDelete);
+            pipesArray.forEach(pipe => {
+                deletePlumbingPipeAndMerge(pipe); // ⭐ Silme + komşu borularla birleştirme
+            });
+            needsProcessing = true;
+        }
+
+        // ⭐ VANA SİLME (boru üzerindeki)
+        const valvesToDelete = new Set();
+        const valveHit = getValveAtPoint(mousePos, 8 / state.zoom);
+        if (valveHit && valveHit.type === 'valve') {
+            // Vana, bağlı olduğu pipe'dan çıkarılır
+            const pipe = valveHit.pipe;
+            const valve = valveHit.object;
+            if (pipe.valves) {
+                pipe.valves = pipe.valves.filter(v => v !== valve);
+                needsProcessing = true;
+                console.log('✅ Valve deleted from pipe');
+            }
+        }
+
 
         if (needsProcessing) {
             processWalls();
