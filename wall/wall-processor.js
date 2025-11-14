@@ -4,7 +4,9 @@ import { saveState } from '../general-files/history.js';
 import { update3DScene } from '../scene3d/scene3d-update.js'; 
 
 export function mergeNode(node) {
-    const md = 14 / state.zoom;
+    // Merge toleransı artırıldı: 14/zoom'dan sabit 15 cm'ye
+    // Kullanıcı isteği: Ortak noktalar kopmadan taşınmalı
+    const md = 15; // 15 cm sabit tolerans
     const currentFloorId = state.currentFloor?.id;
 
     // Bu node'u kullanan duvarları bul ve onların floorId'sini al
@@ -386,9 +388,10 @@ export function processWalls(skipMerge = false, skipRoomDetection = false, proce
     state.nodes = state.nodes.filter(n => !n.isColumnNode);
 
     // LOKAL KALINLIK İÇİN: skipMerge true ise birleştirme yapma
-    // Tolerans artırıldı: 1.0 cm'den 5.0 cm'ye (duvarların kopmasını önlemek için)
+    // Tolerans artırıldı: 1.0 cm'den 5.0 cm'ye, sonra 15.0 cm'ye (duvarların kopmasını önlemek için)
+    // Kullanıcı isteği: Node taşındığında ortak noktalar kopmadan taşınmalı
     if (!skipMerge) {
-        unifyNearbyNodes(5.0, processAllFloors);
+        unifyNearbyNodes(15.0, processAllFloors);
     }
 
     const filteredWalls = state.walls.filter(w => {
