@@ -22,6 +22,27 @@ export const PLUMBING_PIPE_TYPES = {
     }
 };
 
+/**
+ * Mevcut borularda verilen koordinata sahip node'u arar.
+ * Bulursa o node'u döndürür, bulamazsa yeni bir node oluşturur.
+ */
+function getOrCreateNode(x, y, tolerance = 2) {
+    // Mevcut borularda bu koordinata sahip bir node var mı?
+    for (const pipe of (state.plumbingPipes || [])) {
+        // p1'i kontrol et
+        if (Math.abs(pipe.p1.x - x) < tolerance && Math.abs(pipe.p1.y - y) < tolerance) {
+            return pipe.p1;
+        }
+        // p2'yi kontrol et
+        if (Math.abs(pipe.p2.x - x) < tolerance && Math.abs(pipe.p2.y - y) < tolerance) {
+            return pipe.p2;
+        }
+    }
+
+    // Bulunamadı, yeni node oluştur
+    return { x, y };
+}
+
 export function createPlumbingPipe(x1, y1, x2, y2, pipeType = 'STANDARD') {
     const typeConfig = PLUMBING_PIPE_TYPES[pipeType];
 
@@ -30,11 +51,15 @@ export function createPlumbingPipe(x1, y1, x2, y2, pipeType = 'STANDARD') {
         return null;
     }
 
+    // Node paylaşımı: Aynı koordinatta mevcut node varsa onu kullan
+    const p1 = getOrCreateNode(x1, y1);
+    const p2 = getOrCreateNode(x2, y2);
+
     return {
         type: 'plumbingPipe',
         pipeType: pipeType,
-        p1: { x: x1, y: y1 },
-        p2: { x: x2, y: y2 },
+        p1: p1,
+        p2: p2,
         floorId: state.currentFloor?.id,
         typeConfig: typeConfig,
         connections: {
@@ -213,68 +238,120 @@ export function deletePlumbingPipe(pipe) {
 
 /**
  * ⭐ YENİ FONKSİYON: Boru sil ve komşu boruları birleştir
- * 
+ *
  * Senaryolar:
  * 1. Her iki uçta 1'er boru → birleştir
  * 2. Sadece bir uçta boru → o ucu diğer uca çek
  * 3. Hiç boru yok veya 2'den fazla → sadece sil
+ *
+ * ⭐ GÜNCELLENDİ: Node referansı + pozisyon + blok bağlantısı kontrolü
  */
 export function deletePlumbingPipeAndMerge(pipeToDelete) {
     const tolerance = 2; // 2 cm - aynı noktada kabul edilme
-    
-    // Silinecek borunun uç noktaları
-    const p1 = { ...pipeToDelete.p1 };
-    const p2 = { ...pipeToDelete.p2 };
-    
+
+    // Silinecek borunun uç noktaları ve bağlantıları
+    const p1Node = pipeToDelete.p1;
+    const p2Node = pipeToDelete.p2;
+    const p1Coord = { x: p1Node.x, y: p1Node.y };
+    const p2Coord = { x: p2Node.x, y: p2Node.y };
+    const p1Connection = pipeToDelete.connections?.start;
+    const p2Connection = pipeToDelete.connections?.end;
+
     // Bu uç noktalara bağlı BAŞKA boruları bul
+    // Üç yöntem: 1) Node referansı, 2) Pozisyon, 3) Blok bağlantısı
     const pipesAtP1 = [];
     const pipesAtP2 = [];
-    
+
     (state.plumbingPipes || []).forEach(pipe => {
         if (pipe === pipeToDelete) return;
-        
-        // P1'e bağlı borular
-        if (Math.hypot(pipe.p1.x - p1.x, pipe.p1.y - p1.y) < tolerance) {
+
+        // P1'e bağlı borular - 3 kontrol yöntemi
+        // 1) Node referansı (en güvenilir)
+        if (pipe.p1 === p1Node || pipe.p2 === p1Node) {
+            const end = pipe.p1 === p1Node ? 'p1' : 'p2';
+            pipesAtP1.push({ pipe, end });
+        }
+        // 2) Pozisyon kontrolü (node referansı yoksa)
+        else if (Math.hypot(pipe.p1.x - p1Coord.x, pipe.p1.y - p1Coord.y) < tolerance) {
             pipesAtP1.push({ pipe, end: 'p1' });
-        } else if (Math.hypot(pipe.p2.x - p1.x, pipe.p2.y - p1.y) < tolerance) {
+        } else if (Math.hypot(pipe.p2.x - p1Coord.x, pipe.p2.y - p1Coord.y) < tolerance) {
             pipesAtP1.push({ pipe, end: 'p2' });
         }
-        
-        // P2'ye bağlı borular
-        if (Math.hypot(pipe.p1.x - p2.x, pipe.p1.y - p2.y) < tolerance) {
-            pipesAtP2.push({ pipe, end: 'p1' });
-        } else if (Math.hypot(pipe.p2.x - p2.x, pipe.p2.y - p2.y) < tolerance) {
-            pipesAtP2.push({ pipe, end: 'p2' });
+        // 3) Blok bağlantısı kontrolü (explicit connection)
+        else if (p1Connection?.blockId && (
+            (pipe.connections?.start?.blockId === p1Connection.blockId &&
+             pipe.connections.start.connectionIndex === p1Connection.connectionIndex) ||
+            (pipe.connections?.end?.blockId === p1Connection.blockId &&
+             pipe.connections.end.connectionIndex === p1Connection.connectionIndex)
+        )) {
+            const end = pipe.connections?.start?.blockId === p1Connection.blockId ? 'p1' : 'p2';
+            pipesAtP1.push({ pipe, end });
+        }
+
+        // P2'ye bağlı borular - 3 kontrol yöntemi
+        // 1) Node referansı (en güvenilir)
+        if (pipe.p1 === p2Node || pipe.p2 === p2Node) {
+            const end = pipe.p1 === p2Node ? 'p1' : 'p2';
+            // Aynı boruyu iki kez ekleme (eğer her iki uç da aynı node'a bağlıysa)
+            if (!pipesAtP1.some(p => p.pipe === pipe)) {
+                pipesAtP2.push({ pipe, end });
+            }
+        }
+        // 2) Pozisyon kontrolü (node referansı yoksa)
+        else if (Math.hypot(pipe.p1.x - p2Coord.x, pipe.p1.y - p2Coord.y) < tolerance) {
+            if (!pipesAtP1.some(p => p.pipe === pipe)) {
+                pipesAtP2.push({ pipe, end: 'p1' });
+            }
+        } else if (Math.hypot(pipe.p2.x - p2Coord.x, pipe.p2.y - p2Coord.y) < tolerance) {
+            if (!pipesAtP1.some(p => p.pipe === pipe)) {
+                pipesAtP2.push({ pipe, end: 'p2' });
+            }
+        }
+        // 3) Blok bağlantısı kontrolü (explicit connection)
+        else if (p2Connection?.blockId && (
+            (pipe.connections?.start?.blockId === p2Connection.blockId &&
+             pipe.connections.start.connectionIndex === p2Connection.connectionIndex) ||
+            (pipe.connections?.end?.blockId === p2Connection.blockId &&
+             pipe.connections.end.connectionIndex === p2Connection.connectionIndex)
+        )) {
+            if (!pipesAtP1.some(p => p.pipe === pipe)) {
+                const end = pipe.connections?.start?.blockId === p2Connection.blockId ? 'p1' : 'p2';
+                pipesAtP2.push({ pipe, end });
+            }
         }
     });
-    
-    console.log(`🗑️ Deleting pipe, p1 has ${pipesAtP1.length} connections, p2 has ${pipesAtP2.length} connections`);
-    
+
+    // Duplicate removal (aynı boru hem p1 hem p2'de olabilir)
+    const uniquePipesAtP1 = Array.from(new Map(pipesAtP1.map(item => [item.pipe, item])).values());
+    const uniquePipesAtP2 = Array.from(new Map(pipesAtP2.map(item => [item.pipe, item])).values());
+
+    console.log(`🗑️ Deleting pipe, p1 has ${uniquePipesAtP1.length} connections, p2 has ${uniquePipesAtP2.length} connections`);
+
     // BORU SİL
     const index = state.plumbingPipes.indexOf(pipeToDelete);
     if (index > -1) {
         state.plumbingPipes.splice(index, 1);
     }
-    
+
     // ⭐ SENARYO 1: Her iki uçta TAM 1 boru varsa, bu boruları birleştir
-    if (pipesAtP1.length === 1 && pipesAtP2.length === 1) {
-        const pipe1Info = pipesAtP1[0];
-        const pipe2Info = pipesAtP2[0];
-        
+    if (uniquePipesAtP1.length === 1 && uniquePipesAtP2.length === 1) {
+        const pipe1Info = uniquePipesAtP1[0];
+        const pipe2Info = uniquePipesAtP2[0];
+
         // Aynı boru değillerse birleştir
         if (pipe1Info.pipe !== pipe2Info.pipe) {
             const pipe1 = pipe1Info.pipe;
             const pipe2 = pipe2Info.pipe;
-            
-            // Yeni birleştirilmiş boru oluştur
-            const newP1 = pipe1Info.end === 'p1' ? { ...pipe1.p2 } : { ...pipe1.p1 };
-            const newP2 = pipe2Info.end === 'p2' ? { ...pipe2.p1 } : { ...pipe2.p2 };
-            
+
+            // Yeni birleştirilmiş boru oluştur - NODE PAYLAŞIMI ile
+            const newP1Node = pipe1Info.end === 'p1' ? pipe1.p2 : pipe1.p1;
+            const newP2Node = pipe2Info.end === 'p2' ? pipe2.p1 : pipe2.p2;
+
             const mergedPipe = {
                 type: 'plumbingPipe',
                 pipeType: pipe1.pipeType || 'STANDARD',
-                p1: newP1,
-                p2: newP2,
+                p1: newP1Node,  // Node referansını paylaş
+                p2: newP2Node,  // Node referansını paylaş
                 floorId: pipe1.floorId,
                 typeConfig: pipe1.typeConfig,
                 isConnectedToValve: pipe1.isConnectedToValve || pipe2.isConnectedToValve,
@@ -284,58 +361,62 @@ export function deletePlumbingPipeAndMerge(pipeToDelete) {
                 },
                 valves: [...(pipe1.valves || []), ...(pipe2.valves || [])] // Vanaları birleştir
             };
-            
+
             // Eski boruları sil
             const idx1 = state.plumbingPipes.indexOf(pipe1);
             const idx2 = state.plumbingPipes.indexOf(pipe2);
-            
+
             if (idx1 > -1) state.plumbingPipes.splice(idx1, 1);
             if (idx2 > -1) {
                 const newIdx2 = state.plumbingPipes.indexOf(pipe2);
                 if (newIdx2 > -1) state.plumbingPipes.splice(newIdx2, 1);
             }
-            
+
             // Yeni boruyu ekle
             state.plumbingPipes.push(mergedPipe);
-            
-            console.log('✅ Pipes merged after deletion');
+
+            console.log('✅ Pipes merged after deletion (with node sharing)');
         }
     }
     // ⭐ SENARYO 2: p1'de hiç boru yoksa ama p2'de 1 boru varsa → İleriye çek
-    else if (pipesAtP1.length === 0 && pipesAtP2.length === 1) {
-        const pipeInfo = pipesAtP2[0];
+    else if (uniquePipesAtP1.length === 0 && uniquePipesAtP2.length === 1) {
+        const pipeInfo = uniquePipesAtP2[0];
         const pipe = pipeInfo.pipe;
-        
-        // p2'deki borunun ucunu p1'e çek
-        if (pipeInfo.end === 'p1') {
-            pipe.p1.x = p1.x;
-            pipe.p1.y = p1.y;
-        } else {
-            pipe.p2.x = p1.x;
-            pipe.p2.y = p1.y;
+
+        // p2'deki borunun ucunu p1'e çek (node'u güncelle)
+        const targetNode = pipeInfo.end === 'p1' ? pipe.p1 : pipe.p2;
+        targetNode.x = p1Coord.x;
+        targetNode.y = p1Coord.y;
+
+        // Bağlantıyı güncelle (eğer p1'de blok bağlantısı varsa)
+        if (p1Connection) {
+            const connectionKey = pipeInfo.end === 'p1' ? 'start' : 'end';
+            pipe.connections[connectionKey] = p1Connection;
         }
-        
+
         console.log('✅ Forward pipe pulled back to p1');
     }
     // ⭐ SENARYO 3: p2'de hiç boru yoksa ama p1'de 1 boru varsa → Geriye çek
-    else if (pipesAtP2.length === 0 && pipesAtP1.length === 1) {
-        const pipeInfo = pipesAtP1[0];
+    else if (uniquePipesAtP2.length === 0 && uniquePipesAtP1.length === 1) {
+        const pipeInfo = uniquePipesAtP1[0];
         const pipe = pipeInfo.pipe;
-        
-        // p1'deki borunun ucunu p2'ye çek
-        if (pipeInfo.end === 'p1') {
-            pipe.p1.x = p2.x;
-            pipe.p1.y = p2.y;
-        } else {
-            pipe.p2.x = p2.x;
-            pipe.p2.y = p2.y;
+
+        // p1'deki borunun ucunu p2'ye çek (node'u güncelle)
+        const targetNode = pipeInfo.end === 'p1' ? pipe.p1 : pipe.p2;
+        targetNode.x = p2Coord.x;
+        targetNode.y = p2Coord.y;
+
+        // Bağlantıyı güncelle (eğer p2'de blok bağlantısı varsa)
+        if (p2Connection) {
+            const connectionKey = pipeInfo.end === 'p1' ? 'start' : 'end';
+            pipe.connections[connectionKey] = p2Connection;
         }
-        
+
         console.log('✅ Backward pipe pulled forward to p2');
     }
     // SENARYO 4: Hiç boru yok veya 2'den fazla → sadece silindi
     else {
-        console.log('ℹ️ Pipe deleted without merging');
+        console.log('ℹ️ Pipe deleted without merging (no adjacent pipes or too many)');
     }
 }
 
