@@ -164,7 +164,14 @@ export function getObjectAtPoint(pos) {
     const plumbingBlockHit = getPlumbingBlockAtPoint(pos);
     if (plumbingBlockHit && plumbingBlockHit.handle !== 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
 
-    // 1.4 Duvar Ucu (Node)
+    // 1.5 Tesisat Borusu Handle (p1, p2) - BLOKTAN ÖNCE!
+    const pipeHit = getPipeAtPoint(pos, tolerance);
+    if (pipeHit && pipeHit.handle !== 'body') {
+        const result = { type: 'plumbingPipe', object: pipeHit.object, handle: pipeHit.handle };
+        return validateFloorMatch(result, currentFloorId);
+    }
+
+    // 1.6 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
     if (wallNodeHit && wallNodeHit.handle !== 'body') return validateFloorMatch(wallNodeHit, currentFloorId);
 
@@ -211,9 +218,8 @@ export function getObjectAtPoint(pos) {
     const valveHit = getValveAtPoint(pos, tolerance);
     if (valveHit) return validateFloorMatch(valveHit, currentFloorId);
 
-    // 2.5.5 Tesisat Borusu
-    const pipeHit = getPipeAtPoint(pos, tolerance);
-    if (pipeHit) {
+    // 2.5.5 Tesisat Borusu Gövdesi (p1, p2 zaten yukarıda kontrol edildi)
+    if (pipeHit && pipeHit.handle === 'body') {
         const result = { type: 'plumbingPipe', object: pipeHit.object, handle: pipeHit.handle };
         return validateFloorMatch(result, currentFloorId);
     }

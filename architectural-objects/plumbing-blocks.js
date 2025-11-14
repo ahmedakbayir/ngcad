@@ -444,17 +444,19 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             // blockId var ama bu blok değil → başka bloğa bağlı (mesela sayaca)
             // ASLA YAKALAMA! (skip)
         }
-        // DURUM 3: Hiçbir bloğa bağlı değil (GERÇEKTEN serbest) - YAKALAMA (kutu boruları içine çekmesin!)
-        // else {
-        //     const tolerance = 15;
-        //     for (let i = 0; i < oldConnections.length; i++) {
-        //         if (Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y) < tolerance) {
-        //             startIndex = i;
-        //             shouldUpdateStart = true;
-        //             break; // İlk eşleşen noktayı kullan (index değişmesin)
-        //         }
-        //     }
-        // }
+        // DURUM 3: Hiçbir bloğa bağlı değil (GERÇEKTEN serbest) - YAKALAMA
+        // NOT: Sadece SERVIS_KUTUSU için yakalama (diğer boruları içine çekmesin!)
+        // SAYAC, VANA gibi bloklar için YAKALA (bağlı boruları taşısın!)
+        else if (block.blockType !== 'SERVIS_KUTUSU') {
+            const tolerance = 15;
+            for (let i = 0; i < oldConnections.length; i++) {
+                if (Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y) < tolerance) {
+                    startIndex = i;
+                    shouldUpdateStart = true;
+                    break; // İlk eşleşen noktayı kullan (index değişmesin)
+                }
+            }
+        }
 
         // ========== BORU BİTİŞİ (p2) ==========
         // DURUM 1: Zaten bu bloğa bağlı mı? (ID veya referans kontrolü)
@@ -473,17 +475,19 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             // blockId var ama bu blok değil → başka bloğa bağlı (mesela sayaca)
             // ASLA YAKALAMA! (skip)
         }
-        // DURUM 3: Hiçbir bloğa bağlı değil (GERÇEKTEN serbest) - YAKALAMA (kutu boruları içine çekmesin!)
-        // else {
-        //     const tolerance = 15;
-        //     for (let i = 0; i < oldConnections.length; i++) {
-        //         if (Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y) < tolerance) {
-        //             endIndex = i;
-        //             shouldUpdateEnd = true;
-        //             break; // İlk eşleşen noktayı kullan (index değişmesin)
-        //         }
-        //     }
-        // }
+        // DURUM 3: Hiçbir bloğa bağlı değil (GERÇEKTEN serbest) - YAKALAMA
+        // NOT: Sadece SERVIS_KUTUSU için yakalama (diğer boruları içine çekmesin!)
+        // SAYAC, VANA gibi bloklar için YAKALA (bağlı boruları taşısın!)
+        else if (block.blockType !== 'SERVIS_KUTUSU') {
+            const tolerance = 15;
+            for (let i = 0; i < oldConnections.length; i++) {
+                if (Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y) < tolerance) {
+                    endIndex = i;
+                    shouldUpdateEnd = true;
+                    break; // İlk eşleşen noktayı kullan (index değişmesin)
+                }
+            }
+        }
 
         // Hiçbir ucu bu kutuya bağlı değilse, atla
         if (!shouldUpdateStart && !shouldUpdateEnd) return;
