@@ -396,7 +396,7 @@ export function onPointerDown(e) {
                     // SAYACIN CONNECTION POINT'LERİNİN ORTASI BORUYA GELSİN
                     // Connection point'ler lokal koordinatlarda y=-17.5'te (offset: -7.5 - 10)
                     // Yani connection point'lerin ortası boru üzerinde olacak şekilde merkezi ayarla
-                    const connectionPointAvgOffset = 4; // y ekseni, lokal koordinat
+                    const connectionPointAvgOffset = 19; // y ekseni, lokal koordinat
 
                     // Rotasyonu uygula (boru yönüne göre)
                     const rotRad = blockRotation * Math.PI / 180;

@@ -168,7 +168,7 @@ function drawSayac(block, isSelected) {
     // --- Ana Gövde ---
     const halfW = config.width / 2;     // 9
     const halfH = config.height / 2;    // 9
-    const cornerRadius = 2;             // İstenen: 1cm
+    const cornerRadius = 0.5;             // İstenen: 1cm
 
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
@@ -190,7 +190,7 @@ function drawSayac(block, isSelected) {
 
     // --- Ön Çıkıntı ---
     // (İsteğiniz üzerine: gövde derinliğinin 1/4'ü = 18/4 = 4.5cm)
-    const protrusionDepth = config.height / 9;  // 4.5
+    const protrusionDepth = 1;  // 4.5
     // (İsteğiniz üzerine: yanlardan 3'er cm içerde = 18 - 3 - 3 = 12cm)
     const protrusionWidth = config.width - 3; // 12
     const halfProtW = protrusionWidth / 2;    // 6
@@ -215,7 +215,7 @@ function drawSayac(block, isSelected) {
     ctx2d.lineTo(x2, y1);
     
     ctx2d.stroke(); // Çıkıntının konturunu çiz
-/*
+
     // --- GÜNCELLEME: İsteğiniz üzerine geri eklenen bağlantı kolları ---
     // Bu kollar, plumbing-blocks.js'deki connectionPoints ile eşleşir
     const lineLength = config.connectionLineLength || 10; // 10cm
@@ -239,7 +239,7 @@ function drawSayac(block, isSelected) {
     ctx2d.lineTo(outletCP_X, armEndY);
     ctx2d.stroke();
     // --- GÜNCELLEME SONU ---
-*/
+
     // G4 yazısı
     if (zoom > 0.2) {
         ctx2d.fillStyle = '#FFFFFF';
