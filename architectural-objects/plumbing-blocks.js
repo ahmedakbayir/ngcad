@@ -670,6 +670,9 @@ export function deletePlumbingBlock(block) {
     return false;
 }
 
+/**
+ * ⭐ GÜNCELLENDİ: Node paylaşımı ile blok silindiğinde boruları birleştir
+ */
 function mergePipesAfterBlockDeletion(block) {
     const tolerance = 15;
     const connections = getConnectionPoints(block);
@@ -718,14 +721,15 @@ function mergePipesAfterBlockDeletion(block) {
         const pipe1 = pipe1Info.pipe;
         const pipe2 = pipe2Info.pipe;
 
-        const newP1 = pipe1Info.end === 'p1' ? { ...pipe1.p2 } : { ...pipe1.p1 };
-        const newP2 = pipe2Info.end === 'p2' ? { ...pipe2.p1 } : { ...pipe2.p2 };
+        // ⭐ NODE PAYLAŞIMI: Yeni objeler yerine mevcut node referanslarını kullan
+        const newP1Node = pipe1Info.end === 'p1' ? pipe1.p2 : pipe1.p1;
+        const newP2Node = pipe2Info.end === 'p2' ? pipe2.p1 : pipe2.p2;
 
         const newPipe = {
             type: 'plumbingPipe',
             pipeType: pipe1.pipeType || 'STANDARD',
-            p1: newP1,
-            p2: newP2,
+            p1: newP1Node,  // Node referansını paylaş
+            p2: newP2Node,  // Node referansını paylaş
             floorId: pipe1.floorId,
             typeConfig: pipe1.typeConfig,
             isConnectedToValve: pipe1.isConnectedToValve || pipe2.isConnectedToValve,
@@ -733,7 +737,7 @@ function mergePipesAfterBlockDeletion(block) {
                 start: pipe1Info.end === 'p1' ? pipe1.connections.end : pipe1.connections.start,
                 end: pipe2Info.end === 'p2' ? pipe2.connections.start : pipe2.connections.end
             },
-            valves: []
+            valves: [...(pipe1.valves || []), ...(pipe2.valves || [])]  // Vanaları birleştir
         };
 
         const idx1 = state.plumbingPipes.indexOf(pipe1);
@@ -747,7 +751,7 @@ function mergePipesAfterBlockDeletion(block) {
 
         state.plumbingPipes.push(newPipe);
 
-        console.log('✅ Block deleted, pipes merged');
+        console.log('✅ Block deleted, pipes merged (with node sharing)');
     } else if (connectedPipes.length > 0) {
         connectedPipes.forEach(info => {
             if (info.end === 'p1' && info.pipe.connections?.start) {
