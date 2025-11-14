@@ -654,10 +654,10 @@ export function drawPlumbingPipePreview() {
             ctx2d.save();
             ctx2d.fillStyle = '#00FF00'; // Yeşil
             ctx2d.strokeStyle = '#FFFFFF';
-            ctx2d.lineWidth = 2 / zoom;
+            ctx2d.lineWidth = 1 / zoom; // Stroke kalınlığı azaltıldı: 2 -> 1
 
             ctx2d.beginPath();
-            ctx2d.arc(closestPoint.x, closestPoint.y, 6 / zoom, 0, Math.PI * 2);
+            ctx2d.arc(closestPoint.x, closestPoint.y, 4 / zoom, 0, Math.PI * 2); // Yarıçap küçültüldü: 6 -> 4
             ctx2d.fill();
             ctx2d.stroke();
 
@@ -718,9 +718,9 @@ export function drawPlumbingPipePreview() {
     if (isSnapped) {
         ctx2d.fillStyle = '#00FF00';
         ctx2d.strokeStyle = '#FFFFFF';
-        ctx2d.lineWidth = 2 / zoom;
+        ctx2d.lineWidth = 1 / zoom; // Stroke kalınlığı azaltıldı: 2 -> 1
         ctx2d.beginPath();
-        ctx2d.arc(endPoint.x, endPoint.y, 6 / zoom, 0, Math.PI * 2);
+        ctx2d.arc(endPoint.x, endPoint.y, 4 / zoom, 0, Math.PI * 2); // Yarıçap küçültüldü: 6 -> 4
         ctx2d.fill();
         ctx2d.stroke();
     }
