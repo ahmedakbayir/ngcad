@@ -27,8 +27,8 @@ export function drawPlumbingSnapLines() {
         ? (state.walls || []).filter(w => w.floorId === currentFloorId)
         : (state.walls || []);
     
-    const PLUMBING_OFFSET = 3; // 3 cm offset
-    const EXTENSION_LENGTH = 50; // Her iki uçtan 50 cm uzatma
+    const PLUMBING_OFFSET = 5; // 3 cm offset
+    const EXTENSION_LENGTH = state.wallThickness/2 + PLUMBING_OFFSET; // Her iki uçtan 50 cm uzatma
     
     ctx2d.save();
     ctx2d.strokeStyle = 'rgba(255, 0, 0, 0.4)'; // Kırmızı, yarı saydam

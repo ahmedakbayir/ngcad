@@ -196,8 +196,8 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     const wm = screenToWorld(screenMouse.x, screenMouse.y); // Raw mouse world coordinates
 
     // --- SABİT PİKSEL SNAP TOLERANSI ---
-    const SNAP_RADIUS_PIXELS = 45; // Piksel cinsinden yakalama yarıçapı (35->45 artırıldı)
-    const INTERSECTION_SNAP_RADIUS_PIXELS = SNAP_RADIUS_PIXELS * 1.3; // Kesişimler için DAHA BÜYÜK (0.7->1.3)
+    const SNAP_RADIUS_PIXELS = 30; // Piksel cinsinden yakalama yarıçapı (35->45 artırıldı)
+    const INTERSECTION_SNAP_RADIUS_PIXELS = SNAP_RADIUS_PIXELS * 1.5; // Kesişimler için DAHA BÜYÜK (0.7->1.3)
     // --- SABİT PİKSEL SNAP TOLERANSI SONU ---
 
 

@@ -416,8 +416,8 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 
     const { block, handle, startPos, startCenter, startRotation } = dragState;
     
-    const dx = snappedPos.roundedX - startPos.x;
-    const dy = snappedPos.roundedY - startPos.y;
+    const dx = unsnappedPos.x - startPos.x;
+    const dy = unsnappedPos.y - startPos.y;
 
     if (handle === 'rotation') {
         const angleToMouse = Math.atan2(
