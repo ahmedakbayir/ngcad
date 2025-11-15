@@ -118,5 +118,5 @@ export function initPanelDisplayMenu() {
         ui.classList.add(`display-${savedMode}`);
     }
 
-    console.log('Panel display menü başlatıldı. Aktif mod:', savedMode);
+    //console.log('Panel display menü başlatıldı. Aktif mod:', savedMode);
 }

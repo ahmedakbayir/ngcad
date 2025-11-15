@@ -9,6 +9,7 @@ import { getColumnCorners } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
 import { screenToWorld, worldToScreen, distToSegmentSquared, getLineIntersectionPoint } from '../draw/geometry.js';
+import { getPlumbingSnapPoint, isPlumbingMode } from './snap-plumbing.js';
 
 // --- MERDİVEN SNAP İÇİN YARDIMCI FONKSİYONLAR ---
 
@@ -269,6 +270,34 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         // Merdiven snap bulamadıysa, aşağıdaki genel grid snap'e düşmesine izin ver.
     }
     // --- MERDİVEN MODU KONTROLÜ SONU ---
+
+    if (isPlumbingMode()) {
+    const plumbingSnap = getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS);
+    
+    if (plumbingSnap) {
+        setState({ 
+            isSnapLocked: true, 
+            lockedSnapPoint: { 
+                ...plumbingSnap.point, 
+                roundedX: plumbingSnap.point.x, 
+                roundedY: plumbingSnap.point.y 
+            } 
+        });
+        
+        return {
+            x: plumbingSnap.point.x, 
+            y: plumbingSnap.point.y,
+            isSnapped: true, 
+            snapLines: { h_origins: [], v_origins: [] }, 
+            isLockable: true,
+            point: plumbingSnap.point, 
+            snapType: plumbingSnap.type,
+            roundedX: plumbingSnap.point.x, 
+            roundedY: plumbingSnap.point.y
+        };
+    }
+    // Tesisat snap bulamadıysa, normal snap'e devam et 
+    }
 
     // Snap hesaplamaları başlangıcı (MERDİVEN DIŞINDAKİ MODLAR İÇİN)
     let x = wm.x, y = wm.y, isSnapped = false, isLockable = false;

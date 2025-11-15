@@ -21,6 +21,7 @@ import { getStairCorners } from '../architectural-objects/stairs.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 import { state, dom, BG } from '../general-files/main.js';
 import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; 
+import { drawPlumbingSnapLines } from './draw-plumbing-snap.js';
 
 
 
@@ -269,8 +270,10 @@ export function draw2D() {
     drawGrid();
 
 
+    // 1.5. TESİSAT SNAP HATLARI (Debug - Tesisat modunda görünür)
+    drawPlumbingSnapLines();
 
-    // 2. Mahaller (Poligonlar) - Filtrelenmiş odaları kullan
+    // 2. Mahaller (Poligonlar)
     drawRoomPolygons(ctx2d, { ...state, rooms });
 
     // 3. Duvar Geometrisi - Filtrelenmiş duvarları kullan
