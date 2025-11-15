@@ -275,6 +275,20 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     const plumbingSnap = getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS);
     
     if (plumbingSnap) {
+
+        let snapAngle = 0;
+            // Eğer snap bir duvar yüzeyine yapıldıysa, duvarın açısını al
+            if (plumbingSnap.type === 'PLUMBING_WALL_SURFACE' && plumbingSnap.wall) {
+                const wall = plumbingSnap.wall;
+                if (wall.p1 && wall.p2) {
+                    const dx = wall.p2.x - wall.p1.x;
+                    const dy = wall.p2.y - wall.p1.y;
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                    // Blok yerleşimi için 90 derece katlarına yuvarla
+                    snapAngle = Math.round(angle / 90) * 90;
+                }
+            }
+
         setState({ 
             isSnapLocked: true, 
             lockedSnapPoint: { 
@@ -696,13 +710,16 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
 
     // --- SON DOĞRULAMA ---
     const finalX = isFinite(x) ? x : wm.x;
-    const finalY = isFinite(y) ? y : wm.y; // Hata düzeltildi: wm.t -> wm.y
+    const finalY = isFinite(y) ? y : wm.y; 
     const finalRoundedX = isFinite(roundedX) ? roundedX : Math.round(wm.x / (gridValue > 0 ? gridValue : 1));
     const finalRoundedY = isFinite(roundedY) ? roundedY : Math.round(wm.y / (gridValue > 0 ? gridValue : 1));
     const finalIsSnapped = isFinite(finalX) && isFinite(finalY) && isSnapped;
     const finalIsLockable = finalIsSnapped && isLockable;
     const finalBestSnapPoint = (finalIsSnapped && bestSnap && bestSnap.point) ? bestSnap.point : null;
     const finalSnapType = (finalIsSnapped && bestSnap) ? bestSnap.type : (finalIsSnapped ? 'GRID' : null);
+    // snapAngle'ı bestSnap'ten al (eğer varsa, yoksa 0)
+    const finalSnapAngle = (finalIsSnapped && bestSnap && bestSnap.snapAngle) ? bestSnap.snapAngle : 0;
+
 
     return {
         x: finalX,
@@ -713,6 +730,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         point: finalBestSnapPoint,
         snapType: finalSnapType,
         roundedX: finalRoundedX,
-        roundedY: finalRoundedY
+        roundedY: finalRoundedY,
+        snapAngle: finalSnapAngle // <-- YENİ: Genel snap dönüşüne de eklendi (tesisat dışı modlar için 0 olacak)
     };
 }

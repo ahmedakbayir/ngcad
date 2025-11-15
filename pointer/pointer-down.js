@@ -76,23 +76,6 @@ export function onPointerDown(e) {
         // Tıklanan nesneyi bul
         const clickedObject = getObjectAtPoint(pos);
 
-        // Debug logging for CTRL multi-select
- /*
-        console.log('🔍 Pointer Down Debug:', {
-            'e.ctrlKey': e.ctrlKey,
-            'e.altKey': e.altKey,
-            'e.shiftKey': e.shiftKey,
-            'currentModifierKeys.ctrl': currentModifierKeys.ctrl,
-            'currentModifierKeys.alt': currentModifierKeys.alt,
-            'currentModifierKeys.shift': currentModifierKeys.shift,
-            clickedObject: clickedObject ? {
-                type: clickedObject.type,
-                handle: clickedObject.handle,
-                object: clickedObject.object
-            } : null,
-            currentSelectedGroup: state.selectedGroup.length
-        });
-*/
         // Silme modu (Sadece Alt tuşu basılıysa)
         if (currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
             setState({ isCtrlDeleting: true }); // Silme modunu başlat
@@ -101,85 +84,61 @@ export function onPointerDown(e) {
         }
 
         // CTRL ile multi-select modu (sadece CTRL basılıyken, body'ye tıklandığında)
-        // Handle'lara (köşe, kenar) tıklandığında normal işlemler devam eder
         if (currentModifierKeys.ctrl && !currentModifierKeys.alt && !currentModifierKeys.shift && clickedObject &&
             ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
             clickedObject.handle === 'body') {
-            console.log('✅ CTRL Multi-Select Mode Active');
-
-            // Eğer selectedGroup boş ama selectedObject varsa, önce onu gruba ekle
+            
             let currentGroup = [...state.selectedGroup];
             if (currentGroup.length === 0 && state.selectedObject &&
                 ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(state.selectedObject.type)) {
-                console.log('🔄 Converting selectedObject to selectedGroup');
                 currentGroup.push(state.selectedObject);
             }
 
-            // Seçili grup içinde bu nesne var mı kontrol et
             const existingIndex = currentGroup.findIndex(item =>
                 item.type === clickedObject.type && item.object === clickedObject.object
             );
 
             if (existingIndex !== -1) {
-                // Zaten seçiliyse, seçimden çıkar (toggle off)
-                console.log('➖ Removing from selection');
                 currentGroup.splice(existingIndex, 1);
                 setState({ selectedGroup: currentGroup, selectedObject: null });
             } else {
-                // Seçili değilse, gruba ekle (toggle on)
-                console.log('➕ Adding to selection');
                 currentGroup.push(clickedObject);
                 setState({
                     selectedGroup: currentGroup,
                     selectedObject: null
                 });
             }
-            console.log('📊 Updated selectedGroup:', state.selectedGroup.length, 'items');
-            return; // Multi-select işlemi bitti, sürükleme başlatma
+            return; 
         }
 
-        // CTRL basılı DEĞİLSE ve multi-select yapılabilir bir nesneye tıklandıysa,
-        // selectedGroup'u temizle ve normal tek seçime dön
         if (!currentModifierKeys.ctrl && clickedObject &&
             ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
             state.selectedGroup.length > 0) {
-            console.log('🔄 Clearing selectedGroup - returning to single selection');
-            // selectedGroup'u temizle, normal seçime geç
-            // (Aşağıdaki kod zaten bunu yapacak, ama açıkça belirtelim)
+            // (selectedGroup'u temizle - aşağıda yapılıyor)
         }
 
-        // Önceki seçimi temizle (eğer yeni bir nesneye tıklanmadıysa veya boşluğa tıklandıysa)
-        // Eğer tıklanan nesne varsa ve bu bir oda DEĞİLSE, seçimi daha sonra yapacağız.
-        // Eğer tıklanan nesne yoksa veya oda ise, seçimi şimdi temizleyebiliriz.
         if (!clickedObject || clickedObject.type === 'room') {
             setState({
                 selectedObject: null, selectedGroup: [],
                 affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(),
                 dragAxis: null, isSweeping: false, sweepWalls: [], dragOffset: { x: 0, y: 0 },
-                columnRotationOffset: null // Döndürme offset'ini de temizle
+                columnRotationOffset: null 
             });
         }
 
-        // FLOOR VALIDATION: Farklı kattaki objeleri seçmeyi engelle
+        // FLOOR VALIDATION
         if (clickedObject && state.currentFloor?.id) {
             const currentFloorId = state.currentFloor.id;
             const obj = clickedObject.object;
 
-            // Wall, door, window, vent, column, beam, stairs, plumbingBlock, plumbingPipe için floor kontrolü
             if (['wall', 'door', 'window', 'vent', 'column', 'beam', 'stairs', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type)) {
-                // Wall için direkt object'ten kontrol
                 if (clickedObject.type === 'wall' && obj.floorId && obj.floorId !== currentFloorId) {
-                    console.log('🚫 Cross-floor wall selection blocked:', obj.floorId, '!==', currentFloorId);
                     clickedObject = null;
                 }
-                // Door/window/vent için wall üzerinden kontrol
                 else if (['door', 'window', 'vent'].includes(clickedObject.type) && clickedObject.wall?.floorId && clickedObject.wall.floorId !== currentFloorId) {
-                    console.log('🚫 Cross-floor', clickedObject.type, 'selection blocked');
                     clickedObject = null;
                 }
-                // Column, beam, stairs, plumbingBlock, plumbingPipe için direkt object'ten kontrol
                 else if (['column', 'beam', 'stairs', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) && obj.floorId && obj.floorId !== currentFloorId) {
-                    console.log('🚫 Cross-floor', clickedObject.type, 'selection blocked');
                     clickedObject = null;
                 }
             }
@@ -188,26 +147,21 @@ export function onPointerDown(e) {
         // Tıklanan nesne varsa seçili yap ve sürüklemeyi başlat
         if (clickedObject) {
             if (clickedObject.type === 'room') {
-                // Oda seçimi: Oda bilgisini sakla, nesne seçimini temizle
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
-                 // Oda ismi/alanı sürükleme: İlgili state'leri ayarla, nesne seçimini temizle
                  setState({
                      isDraggingRoomName: clickedObject.object,
                      roomDragStartPos: { x: pos.x, y: pos.y },
                      roomOriginalCenter: [...clickedObject.object.center],
-                     selectedObject: null // Nesne seçimini temizle
+                     selectedObject: null 
                  });
-                 dom.p2d.classList.add('dragging'); // Sürükleme cursor'ı ekle (grabbing)
+                 dom.p2d.classList.add('dragging');
             } else {
-                 // Diğer nesneler (duvar, kapı, kolon vb.) için:
                  setState({ selectedObject: clickedObject, selectedRoom: null, selectedGroup: [] });
 
-                 // Sürükleme için başlangıç bilgilerini nesne tipine göre al
                  let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
                  switch (clickedObject.type) {
                      case 'camera':
-                         // Kamera pozisyon veya yön sürükleme
                          const camInfo = clickedObject.object;
                          if (clickedObject.handle === 'position') {
                              dragInfo = {
@@ -228,7 +182,6 @@ export function onPointerDown(e) {
                          }
                          break;
                      case 'arcControl':
-                         // Arc kontrol noktası sürükleme
                          dragInfo = {
                              startPointForDragging: clickedObject.handle === 'control1' ?
                                  { x: clickedObject.object.arcControl1.x, y: clickedObject.object.arcControl1.y } :
@@ -240,228 +193,172 @@ export function onPointerDown(e) {
                      case 'guide': dragInfo = onPointerDownGuide(clickedObject, pos, snappedPos, e); break; 
                      case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                      case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
-                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; // stairs.js'den gelen fonksiyonu kullan
+                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; 
                      case 'plumbingBlock': dragInfo = onPointerDownPlumbingBlock(clickedObject, pos, snappedPos, e); break;
                      case 'plumbingPipe': dragInfo = onPointerDownPlumbingPipe(clickedObject, pos, snappedPos, e); break;
                      case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
                      case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;
                      case 'window': dragInfo = onPointerDownSelectWindow(clickedObject, pos); break;
                      case 'vent':
-                         // Menfez sürükleme başlangıcı
                          const vent = clickedObject.object; const wall = clickedObject.wall;
-                         if (wall && wall.p1 && wall.p2) { // Duvar geçerliyse
+                         if (wall && wall.p1 && wall.p2) { 
                              const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                             if (wallLen > 0.1) { // Duvar uzunluğu yeterliyse
+                             if (wallLen > 0.1) { 
                                  const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
                                  const ventCenterX = wall.p1.x + dx * vent.pos; const ventCenterY = wall.p1.y + dy * vent.pos;
-                                 dragInfo.startPointForDragging = { x: ventCenterX, y: ventCenterY }; // Başlangıç noktası
-                                 dragInfo.dragOffset = { x: ventCenterX - pos.x, y: ventCenterY - pos.y }; // Offset
+                                 dragInfo.startPointForDragging = { x: ventCenterX, y: ventCenterY }; 
+                                 dragInfo.dragOffset = { x: ventCenterX - pos.x, y: ventCenterY - pos.y }; 
                              }
                          }
                          break;
                  }
-                 // Sürükleme state'lerini ayarla
                  setState({
-                    isDragging: true, // Sürükleme başladı
-                    dragStartPoint: dragInfo.startPointForDragging, // Sürüklemenin referans noktası
-                    initialDragPoint: { x: pos.x, y: pos.y }, // İlk tıklama noktası (snaplenmemiş)
-                    dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId }, // Ekran koordinatları
-                    dragOffset: dragInfo.dragOffset, // Fare ile nesne arasındaki fark
-                    ...(dragInfo.additionalState || {}) // Nesneye özel ek state (örn: döndürme offset'i)
+                    isDragging: true, 
+                    dragStartPoint: dragInfo.startPointForDragging, 
+                    initialDragPoint: { x: pos.x, y: pos.y }, 
+                    dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId }, 
+                    dragOffset: dragInfo.dragOffset, 
+                    ...(dragInfo.additionalState || {}) 
                  });
-                 dom.p2d.classList.add('dragging'); // Sürükleme cursor'ı ekle
+                 dom.p2d.classList.add('dragging'); 
             }
         } else {
-            // Boşluğa tıklandıysa oda seçimini de temizle
             setState({ selectedRoom: null });
         }
 
     // --- Duvar veya Oda Çizim Modu ---
     } else if (state.currentMode === "drawWall" || state.currentMode === "drawRoom") {
-        onPointerDownDrawWall(snappedPos); // Duvar çizme/ekleme işlemini yap (bu fonksiyon saveState'i yapar)
-        needsUpdate3D = true; // Duvar/Oda çizimi 3D'yi etkiler
-        // Eğer çizim bittiyse (startPoint sıfırlandıysa) seçimi kaldır
+        onPointerDownDrawWall(snappedPos); 
+        needsUpdate3D = true; 
         if (!state.startPoint) setState({ selectedObject: null });
 
     // --- Kapı Çizim Modu ---
     } else if (state.currentMode === "drawDoor") {
-        onPointerDownDrawDoor(pos, getObjectAtPoint(pos)); // Kapı ekleme işlemini yap (bu fonksiyon saveState'i yapar)
-        needsUpdate3D = true; // Kapı 3D'yi etkiler
-        objectJustCreated = true; // Yeni nesne oluşturuldu
-        setState({ selectedObject: null }); // Seçimi kaldır
+        onPointerDownDrawDoor(pos, getObjectAtPoint(pos)); 
+        needsUpdate3D = true; 
+        objectJustCreated = true; 
+        setState({ selectedObject: null }); 
 
     // --- Pencere Çizim Modu ---
     } else if (state.currentMode === "drawWindow") {
-        onPointerDownDrawWindow(pos, getObjectAtPoint(pos)); // Pencere ekleme işlemini yap (bu fonksiyon saveState'i yapar)
-        needsUpdate3D = true; // Pencere 3D'yi etkiler
-        objectJustCreated = true; // Yeni nesne oluşturuldu
-        setState({ selectedObject: null }); // Seçimi kaldır
+        onPointerDownDrawWindow(pos, getObjectAtPoint(pos)); 
+        needsUpdate3D = true; 
+        objectJustCreated = true; 
+        setState({ selectedObject: null }); 
 
     // --- Kolon Çizim Modu ---
     } else if (state.currentMode === "drawColumn") {
          if (!state.startPoint) {
-             // İlk tıklama: Başlangıç noktasını ayarla
             setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
          } else {
-             // İkinci tıklama: Kolonu oluştur
              const p1 = state.startPoint;
              const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-             // Dikdörtgenin boyutları yeterince büyükse
              if (Math.abs(p1.x - p2.x) > 1 && Math.abs(p1.y - p2.y) > 1) {
                  const centerX = (p1.x + p2.x) / 2; const centerY = (p1.y + p2.y) / 2;
                  const width = Math.abs(p1.x - p2.x); const height = Math.abs(p1.y - p2.y);
-                 // Yeni kolonu oluştur
-                 const newColumn = createColumn(centerX, centerY, 0); // Başlangıç boyutu 0
-                 newColumn.width = width; newColumn.height = height; // Hesaplanan boyutları ata
-                 newColumn.size = Math.max(width, height); // Genel boyut
-                 newColumn.rotation = 0; // Başlangıç açısı
-                 if (!state.columns) state.columns = []; // Kolon dizisi yoksa oluştur
-                 state.columns.push(newColumn); // Kolonu ekle
-                 geometryChanged = true; // Geometri değişti
-                 needsUpdate3D = true; // 3D güncellemesi gerekiyor
-                 objectJustCreated = true; // Yeni nesne oluşturuldu
+                 const newColumn = createColumn(centerX, centerY, 0); 
+                 newColumn.width = width; newColumn.height = height; 
+                 newColumn.size = Math.max(width, height); 
+                 newColumn.rotation = 0; 
+                 if (!state.columns) state.columns = []; 
+                 state.columns.push(newColumn); 
+                 geometryChanged = true; 
+                 needsUpdate3D = true; 
+                 objectJustCreated = true; 
              }
-             // İkinci tıklamadan sonra başlangıç noktasını sıfırla
              setState({ startPoint: null });
          }
     // --- Kiriş Çizim Modu ---
     } else if (state.currentMode === "drawBeam") {
          if (!state.startPoint) {
-             // İlk tıklama: Başlangıç noktasını ayarla
              setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
          } else {
-             // İkinci tıklama: Kirişi oluştur
              const p1 = state.startPoint;
              const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
              const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-             const length = Math.hypot(dx, dy); // Kiriş uzunluğu
-             if (length > 1) { // Minimum uzunluk kontrolü
+             const length = Math.hypot(dx, dy); 
+             if (length > 1) { 
                  const centerX = (p1.x + p2.x) / 2; const centerY = (p1.y + p2.y) / 2;
-                 const width = length; // Kiriş uzunluğu = width
-                 const height = state.wallThickness; // Kiriş eni = varsayılan duvar kalınlığı
-                 const rotation = Math.atan2(dy, dx) * 180 / Math.PI; // Kiriş açısı
-                 // Yeni kirişi oluştur
+                 const width = length; 
+                 const height = state.wallThickness; 
+                 const rotation = Math.atan2(dy, dx) * 180 / Math.PI; 
                  const newBeam = createBeam(centerX, centerY, width, height, rotation);
-                 state.beams = state.beams || []; // Kiriş dizisi yoksa oluştur
-                 state.beams.push(newBeam); // Kirişi ekle
-                 geometryChanged = true; // Geometri değişti
-                 needsUpdate3D = true; // 3D güncellemesi gerekiyor
-                 objectJustCreated = true; // Yeni nesne oluşturuldu
+                 state.beams = state.beams || []; 
+                 state.beams.push(newBeam); 
+                 geometryChanged = true; 
+                 needsUpdate3D = true; 
+                 objectJustCreated = true; 
              }
-             // İkinci tıklamadan sonra başlangıç noktasını sıfırla
              setState({ startPoint: null });
          }
-    // --- Tesisat Bloğu Çizim Modu ---
-} else if (state.currentMode === "drawPlumbingBlock") {
+    
+    // ===================================================================
+    // === BAŞLANGIÇ: Tesisat Bloğu Çizim Modu (GÜNCELLENMİŞ BLOK) ===
+    // ===================================================================
+    } else if (state.currentMode === "drawPlumbingBlock") {
         const blockType = state.currentPlumbingBlockType || 'SERVIS_KUTUSU';
 
         // SAYAÇ için boru üzerine ekleme kontrolü
         if (blockType === 'SAYAC') {
-            // Boru üzerine mi tıklandı kontrol et
             const clickedPipe = getObjectAtPoint(pos);
-
             if (clickedPipe && clickedPipe.type === 'plumbingPipe') {
-                // ... (VANA ve SAYAÇ ekleme mantığı değişmedi) ...
                 const pipe = clickedPipe.object;
                 console.log('🔧 Adding', blockType, 'to pipe');
-
-                // Borunun yönünü hesapla
                 const dx = pipe.p2.x - pipe.p1.x;
                 const dy = pipe.p2.y - pipe.p1.y;
                 const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-                // Tıklama noktasına en yakın noktayı borudan bul
                 const t = Math.max(0, Math.min(1,
                     ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / (dx * dx + dy * dy)
                 ));
                 const splitX = pipe.p1.x + t * dx;
                 const splitY = pipe.p1.y + t * dy;
-
-                // SAYAÇ İÇİN: Hattın düzlüğünü bozmamak için HATTA GÖRENİN KENDİNİ AYARLA
                 let blockX = splitX;
                 let blockY = splitY;
-                let blockRotation = Math.round(angle / 15) * 15; // Varsayılan: boru yönü
-
+                let blockRotation = Math.round(angle / 15) * 15; 
                 if (blockType === 'SAYAC') {
-                    // Sayacı boruya PARALEL yerleştir, connection point'ler otomatik olarak dik çıkar
-
-                    // Açıyı normalize et (-180 ile 180 arası)
                     let normalizedAngle = angle;
                     while (normalizedAngle > 180) normalizedAngle -= 360;
                     while (normalizedAngle < -180) normalizedAngle += 360;
-
-                    // Sayaç rotasyonu = borunun rotasyonu (paralel)
                     blockRotation = Math.round(normalizedAngle / 15) * 15;
-
-                    // SAYACIN CONNECTION POINT'LERİNİN ORTASI BORUYA GELSİN
-                    // Connection point'ler lokal koordinatlarda y=-17.5'te (offset: -7.5 - 10)
-                    // Yani connection point'lerin ortası boru üzerinde olacak şekilde merkezi ayarla
-                    const connectionPointAvgOffset = 19; // y ekseni, lokal koordinat
-
-                    // Rotasyonu uygula (boru yönüne göre)
+                    const connectionPointAvgOffset = 19; 
                     const rotRad = blockRotation * Math.PI / 180;
                     const offsetX = -connectionPointAvgOffset * Math.sin(rotRad);
                     const offsetY = connectionPointAvgOffset * Math.cos(rotRad);
-
-                    // Merkezi offset et
                     blockX = splitX + offsetX;
                     blockY = splitY + offsetY;
                 }
-
-                // Yeni blok oluştur
                 const newBlock = createPlumbingBlock(blockX, blockY, blockType);
                 newBlock.rotation = blockRotation;
-
-                // Bloğun bağlantı noktalarını al
                 const connectionPoints = getConnectionPoints(newBlock);
-
-                // Eski boruyu sil
                 const oldP1 = { ...pipe.p1 };
                 const oldP2 = { ...pipe.p2 };
                 const oldPipeType = pipe.pipeType;
                 const oldIsConnected = pipe.isConnectedToValve;
-
                 state.plumbingPipes = state.plumbingPipes.filter(p => p !== pipe);
-
-                // İki yeni boru ekle - bağlantı noktalarına snap
-                // Vana/Sayaç için: connectionPoints[0] = giriş (sol), connectionPoints[1] = çıkış (sağ)
                 const pipe1 = createPlumbingPipe(oldP1.x, oldP1.y, connectionPoints[0].x, connectionPoints[0].y, oldPipeType);
                 const pipe2 = createPlumbingPipe(connectionPoints[1].x, connectionPoints[1].y, oldP2.x, oldP2.y, oldPipeType);
-
-                // Vanadan/Sayaçtan önceki borunun isConnectedToValve durumunu koru
                 pipe1.isConnectedToValve = oldIsConnected;
-
-                // Vanadan sonraki boru ve ondan sonraki TÜM borular düz çizgi olsun
                 pipe2.isConnectedToValve = true;
-
-                // BAĞLANTI BİLGİLERİNİ EKLE - Sayaç/Vana kopmasın
                 if (!pipe1.connections) pipe1.connections = { start: null, end: null };
                 pipe1.connections.end = {
                     blockId: newBlock.id || newBlock,
-                    connectionIndex: 0, // giriş
+                    connectionIndex: 0, 
                     blockType: newBlock.blockType
                 };
-
                 if (!pipe2.connections) pipe2.connections = { start: null, end: null };
                 pipe2.connections.start = {
                     blockId: newBlock.id || newBlock,
-                    connectionIndex: 1, // çıkış
+                    connectionIndex: 1, 
                     blockType: newBlock.blockType
                 };
-
                 if (!state.plumbingPipes) state.plumbingPipes = [];
                 state.plumbingPipes.push(pipe1, pipe2);
-
-                // Vanadan sonraki tüm bağlı boruları düz yap
                 markAllDownstreamPipesAsConnected(pipe2);
-
                 if (!state.plumbingBlocks) state.plumbingBlocks = [];
                 state.plumbingBlocks.push(newBlock);
-
-                geometryChanged = true; // saveState çağırılacak
+                geometryChanged = true; 
                 needsUpdate3D = true;
                 objectJustCreated = true;
-
                 console.log('✅ Block added to pipe, pipe split into 2 and connected to connection points');
                 setMode("select");
                 return;
@@ -469,174 +366,144 @@ export function onPointerDown(e) {
         }
 
         // OCAK ve KOMBI sadece boru ucuna veya servis kutusuna eklenebilir
-        // GÜNCELLEME: ÖNCE VANA, SONRA CİHAZ EKLENİR MANTIĞI KALDIRILDI.
         if (blockType === 'OCAK' || blockType === 'KOMBI') {
-            // Önce boru uçlarına snap et
             const pipeSnap = snapToPipeEndpoint(pos, 15);
-
-            // Eğer boru ucu yoksa, sadece servis kutusuna snap et
-            const blockSnap = pipeSnap ? null : snapToConnectionPoint(pos, 15, (block) => {
-                // Sadece servis kutusu connection point'lerine izin ver
-                return block.blockType === 'SERVIS_KUTUSU';
-            });
-
-            const snap = pipeSnap || blockSnap;
+            // GÜNCELLENDİ: Servis kutusuna snap artık kenarlara (BLOCK_EDGE) yapılır
+            // snapToConnectionPoint (blok merkezi) yerine snappedPos'u (kenar) kullanacağız
+            
+            let snap = pipeSnap; // Önce boru ucunu dene
 
             if (!snap) {
-                console.warn('⚠️', blockType, 'can only be placed at pipe ends or service box connection points');
+                // Boru ucu yoksa, 'PLUMBING_BLOCK_EDGE' snap'i var mı diye bak
+                if (snappedPos.isSnapped && snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' && snappedPos.wall?.blockType === 'SERVIS_KUTUSU') {
+                    // Kenara snap yapıldı, buraya yerleştir
+                    const newBlock = createPlumbingBlock(snappedPos.x, snappedPos.y, blockType);
+                    newBlock.rotation = snappedPos.snapAngle || 0; // Duvar açısını al
+                    
+                    if (!state.plumbingBlocks) state.plumbingBlocks = [];
+                    state.plumbingBlocks.push(newBlock);
+                    
+                    geometryChanged = true;
+                    needsUpdate3D = true;
+                    objectJustCreated = true;
+                    console.log('✅', blockType, 'added directly to block edge');
+                    setMode("select");
+                    return;
+                }
+                
+                console.warn('⚠️', blockType, 'can only be placed at pipe ends or block edges');
                 return;
             }
-
-            // Borunun yönünü hesapla (eğer boru varsa)
+            
+            // (Boru ucuna snap yapıldıysa)
             const nearbyPipe = state.plumbingPipes?.find(p =>
                 Math.hypot(p.p1.x - snap.x, p.p1.y - snap.y) < 1 ||
                 Math.hypot(p.p2.x - snap.x, p.p2.y - snap.y) < 1
             );
-
             let pipeAngle = 0;
             if (nearbyPipe) {
                 const dx = nearbyPipe.p2.x - nearbyPipe.p1.x;
                 const dy = nearbyPipe.p2.y - nearbyPipe.p1.y;
                 pipeAngle = Math.atan2(dy, dx) * 180 / Math.PI;
             }
-
-            // --- GÜNCELLENMİŞ BLOK ---
-            // KULLANICI İSTEĞİ: Sadece cihazı ekle, vana ekleme.
-            // Cihazı doğrudan snap noktasına yerleştir.
-            
-            // 1. CİHAZI (OCAK/KOMBI) EKLE
             const newBlock = createPlumbingBlock(snap.x, snap.y, blockType);
             newBlock.rotation = Math.round(pipeAngle / 15) * 15;
-
-            // State'e ekle (Sadece newBlock)
             if (!state.plumbingBlocks) state.plumbingBlocks = [];
             state.plumbingBlocks.push(newBlock);
-            // --- GÜNCELLEME SONU ---
-
-
             geometryChanged = true;
             needsUpdate3D = true;
             objectJustCreated = true;
-
-            console.log('✅ Valve +', blockType, 'added directly (no pipe between)');
+            console.log('✅', blockType, 'added directly to pipe end');
             setMode("select");
             return;
         }
-
-        // Diğer bloklar (SERVIS_KUTUSU) - normal yerleştirme
-        const newBlock = createPlumbingBlock(snappedPos.roundedX, snappedPos.roundedY, blockType);
+        
+        // Diğer bloklar (SERVIS_KUTUSU)
+        const newBlock = createPlumbingBlock(snappedPos.x, snappedPos.y, blockType);
 
         if (newBlock) {
+            if (snappedPos.snapAngle) {
+                newBlock.rotation = snappedPos.snapAngle;
+            }
+            
             if (!state.plumbingBlocks) state.plumbingBlocks = [];
             state.plumbingBlocks.push(newBlock);
             geometryChanged = true;
             needsUpdate3D = true;
             objectJustCreated = true;
-
-            setMode("select");
+            setMode("select"); 
         }
+    // ===================================================================
+    // === BİTİŞ: Tesisat Bloğu Çizim Modu (GÜNCELLENMİŞ BLOK) ===
+    // ===================================================================
+
     // --- Vana Çizim Modu (Boru Üzerinde) ---
     } else if (state.currentMode === "drawValve") {
-        // Sadece boru üzerine tıklanırsa vana ekle
         const clickedPipe = getObjectAtPoint(pos);
-
         if (!clickedPipe || clickedPipe.type !== 'plumbingPipe') {
             console.warn('⚠️ Vana sadece boru üzerine eklenebilir');
             return;
         }
-
         const pipe = clickedPipe.object;
         console.log('🔧 Adding valve to pipe');
-
-        // Borunun yönünü hesapla
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
         const pipeLength = Math.hypot(dx, dy);
         const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-        // Tıklama noktasına en yakın noktayı borudan bul (p1'e göre uzaklık)
         const t = Math.max(0, Math.min(1,
             ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / (dx * dx + dy * dy)
         ));
-        const valvePos = t * pipeLength; // p1'den uzaklık (cm)
-
-        // Vana genişliği
-        const valveWidth = PLUMBING_BLOCK_TYPES.VANA.width; // 12 cm
-
-        // Vana için yer var mı kontrol et
+        const valvePos = t * pipeLength; 
+        const valveWidth = PLUMBING_BLOCK_TYPES.VANA.width; 
         if (!isSpaceForValve(pipe, valvePos, valveWidth)) {
             console.warn('⚠️ Bu konumda vana için yeterli yer yok');
             return;
         }
-
-        // Yeni vana nesnesi oluştur
         const newValve = {
             pos: valvePos,
             width: valveWidth,
-            rotation: angle // Boru yönünü doğrudan ata
+            rotation: angle 
         };
-
-        // Borunun valves dizisine ekle
         if (!pipe.valves) pipe.valves = [];
         pipe.valves.push(newValve);
-
-        // İşlem başarılı
         geometryChanged = true;
         needsUpdate3D = true;
         objectJustCreated = true;
-
         console.log('✅ Valve added to pipe at position', valvePos);
-        // setMode("select"); // Mod değiştirme, zincirleme vana eklemek için
     // --- Merdiven Çizim Modu ---
     } else if (state.currentMode === "drawStairs") {
      if (!state.startPoint) {
-        // İlk tıklama: Başlangıç noktasını ayarla
         setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
      } else {
-         // İkinci tıklama: Merdiveni oluştur
          const p1 = state.startPoint;
          const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-
          const deltaX = p2.x - p1.x;
          const deltaY = p2.y - p1.y;
          const absWidth = Math.abs(deltaX);
          const absHeight = Math.abs(deltaY);
-
-         // Minimum boyuttan büyükse merdiveni oluştur
-         if (absWidth > 10 && absHeight > 10) { // Minimum 10x10 cm
-             const centerX = (p1.x + p2.x) / 2; // Merkez X
-             const centerY = (p1.y + p2.y) / 2; // Merkez Y
-
-             let width, height, rotation; // Boyutlar ve açı
-
-             // Genişlik ve yüksekliği, çizilen dikdörtgenin yönüne göre ata
-             if (absWidth >= absHeight) { // Yatay veya kare dikdörtgen
-                 width = absWidth;  // Uzun kenar (merdiven uzunluğu) -> width
-                 height = absHeight; // Kısa kenar (merdiven eni) -> height
-                 rotation = (deltaX >= 0) ? 0 : 180; // Sağa (0 derece) veya sola (180 derece)
-             } else { // Dikey dikdörtgen
-                 width = absHeight; // Uzun kenar (merdiven uzunluğu) -> width
-                 height = absWidth;  // Kısa kenar (merdiven eni) -> height
-                 rotation = (deltaY >= 0) ? 90 : -90; // Aşağı (90 derece) veya yukarı (-90 derece)
+         if (absWidth > 10 && absHeight > 10) { 
+             const centerX = (p1.x + p2.x) / 2; 
+             const centerY = (p1.y + p2.y) / 2; 
+             let width, height, rotation; 
+             if (absWidth >= absHeight) { 
+                 width = absWidth;  
+                 height = absHeight; 
+                 rotation = (deltaX >= 0) ? 0 : 180; 
+             } else { 
+                 width = absHeight; 
+                 height = absWidth;  
+                 rotation = (deltaY >= 0) ? 90 : -90; 
              }
-
-             // Ctrl tuşuna basılıp basılmadığını kontrol et (sahanlık için)
              const isLanding = currentModifierKeys.ctrl;
-
-             // createStairs fonksiyonuna isLanding bilgisini gönder
              const newStairs = createStairs(centerX, centerY, width, height, rotation, isLanding);
-
-             // state.stairs dizisi yoksa oluştur
              if (!state.stairs) {
                  state.stairs = [];
              }
-             state.stairs.push(newStairs); // Yeni merdiveni ekle
-
-             needsUpdate3D = true;     // 3D güncellemesi gerekiyor
-             objectJustCreated = true; // Yeni nesne oluşturuldu
-             geometryChanged = true;   // Geometri değişti, kaydet
+             state.stairs.push(newStairs); 
+             needsUpdate3D = true;     
+             objectJustCreated = true; 
+             geometryChanged = true;   
          }
-         // İkinci tıklamadan sonra başlangıç noktasını sıfırla ve seçimi kaldır
          setState({ startPoint: null, selectedObject: null });
      }
     // --- Tesisat Borusu Çizim Modu ---
@@ -644,50 +511,14 @@ export function onPointerDown(e) {
         console.log('🚀 PIPE DRAWING MODE - Click registered:', { hasStartPoint: !!state.startPoint, pos });
 
         if (!state.startPoint) {
-            // İlk tıklama: Başlangıç noktasını ayarla
-
-            // ÖNCELİK 1: Mouse ile servis kutusunun çıkış noktasına yakın mı kontrol et
-            const currentFloorId = state.currentFloor?.id;
-            const blocks = (state.plumbingBlocks || []).filter(b =>
-                b.floorId === currentFloorId && b.blockType === 'SERVIS_KUTUSU'
-            );
-
             let startPos = null;
 
-            // KULLANICI İSTEĞİ: Servis kutusunun çıkış noktalarına yaklaşıp tıklayarak çizime başla
-            for (const block of blocks) {
-                const activePoints = getActiveConnectionPoints(block); // Aktif çıkış noktaları (kenarlar + alt merkez)
-
-                // En yakın çıkış noktasını bul
-                for (const cp of activePoints) {
-                    const dist = Math.hypot(pos.x - cp.x, pos.y - cp.y);
-                    if (dist < 3) { // 3 cm tolerans
-                        startPos = { x: cp.x, y: cp.y };
-                        console.log('✅ Starting from Servis Kutusu connection point (user clicked):', startPos, cp.label);
-                        break;
-                    }
-                }
-                if (startPos) break;
+            // GÜNCELLENDİ: ÖNCELİK 1: Blok Kenarı (PLUMBING_BLOCK_EDGE)
+            if (snappedPos.isSnapped && (snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' || snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION')) {
+                startPos = { x: snappedPos.x, y: snappedPos.y };
+                console.log('✅ Starting from Block Edge / Edge-Wall Intersection:', startPos);
             }
-
-            // ÖNCELİK 1.5: Eğer çıkış noktasına tıklanmadıysa, boşta servis kutusu varsa otomatik başla
-            if (!startPos && blocks.length > 0) {
-                const servKutusu = blocks[0];
-                const connections = getActiveConnectionPoints(servKutusu); // Aktif noktalar
-
-                // Servis kutusunun çıkış noktasından boru çıkıyor mu kontrol et
-                const hasConnectedPipe = (state.plumbingPipes || []).some(p =>
-                    Math.hypot(p.p1.x - connections[0].x, p.p1.y - connections[0].y) < 1 ||
-                    Math.hypot(p.p2.x - connections[0].x, p.p2.y - connections[0].y) < 1
-                );
-
-                if (!hasConnectedPipe) {
-                    // Servis kutusundan boru çıkmamışsa, çıkış noktasından başla
-                    startPos = { x: connections[0].x, y: connections[0].y };
-                    console.log('✅ Starting from Servis Kutusu connection point (auto):', startPos);
-                }
-            }
-
+            
             // ÖNCELİK 2: Boru ucuna snap (pipe endpoint)
             if (!startPos) {
                 const pipeEndSnap = snapToPipeEndpoint(pos, 10);
@@ -697,7 +528,7 @@ export function onPointerDown(e) {
                 }
             }
 
-            // ÖNCELİK 3: Bağlantı noktasına snap
+            // ÖNCELİK 3: Bağlantı noktasına snap (Sayaç, Vana, Kombi, Ocak)
             if (!startPos) {
                 const blockSnap = snapToConnectionPoint(pos, 10);
                 if (blockSnap) {
@@ -711,69 +542,50 @@ export function onPointerDown(e) {
                 const clickedPipe = getObjectAtPoint(pos);
                 if (clickedPipe && clickedPipe.type === 'plumbingPipe') {
                     const pipe = clickedPipe.object;
-
-                    // Tıklama noktasına en yakın noktayı borudan bul
                     const dx = pipe.p2.x - pipe.p1.x;
                     const dy = pipe.p2.y - pipe.p1.y;
                     const lengthSq = dx * dx + dy * dy;
-
-                    if (lengthSq > 0.1) { // Boru yeterince uzunsa
+                    if (lengthSq > 0.1) { 
                         const t = Math.max(0, Math.min(1,
                             ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / lengthSq
                         ));
                         const splitX = pipe.p1.x + t * dx;
                         const splitY = pipe.p1.y + t * dy;
-
-                        // Eğer boru ucuna çok yakınsa (10 cm), dal oluşturma (endpoint snap kullan)
                         const distToP1 = Math.hypot(splitX - pipe.p1.x, splitY - pipe.p1.y);
                         const distToP2 = Math.hypot(splitX - pipe.p2.x, splitY - pipe.p2.y);
 
                         if (distToP1 < 10 || distToP2 < 10) {
-                            // Uç noktaya çok yakın, normal endpoint snap kullan
                             startPos = distToP1 < distToP2 ?
                                 { x: pipe.p1.x, y: pipe.p1.y } :
                                 { x: pipe.p2.x, y: pipe.p2.y };
                             console.log('✅ Starting from pipe endpoint (near click):', startPos);
                         } else {
-                            // Boru ortasında, BORUYU BÖL ve dal oluştur
                             const originalP1 = { ...pipe.p1 };
                             const originalP2 = { ...pipe.p2 };
                             const splitPoint = { x: splitX, y: splitY };
-
-                            // Orijinal borunun özelliklerini sakla
                             const pipeType = pipe.pipeType;
                             const pipeConfig = pipe.typeConfig;
                             const isConnected = pipe.isConnectedToValve;
-
-                            // Orijinal boruyu sil
                             const pipeIndex = state.plumbingPipes.indexOf(pipe);
                             if (pipeIndex > -1) {
                                 state.plumbingPipes.splice(pipeIndex, 1);
                             }
-
-                            // İki yeni boru oluştur: p1->splitPoint ve splitPoint->p2
                             const pipe1 = createPlumbingPipe(originalP1.x, originalP1.y, splitX, splitY, pipeType);
                             const pipe2 = createPlumbingPipe(splitX, splitY, originalP2.x, originalP2.y, pipeType);
-
-                            // Bağlantı durumunu koru
                             if (pipe1) {
                                 pipe1.isConnectedToValve = isConnected;
-                                // Orijinal p1 bağlantısını koru
                                 if (pipe.connections?.start) {
                                     pipe1.connections.start = pipe.connections.start;
                                 }
                                 state.plumbingPipes.push(pipe1);
                             }
-
                             if (pipe2) {
                                 pipe2.isConnectedToValve = isConnected;
-                                // Orijinal p2 bağlantısını koru
                                 if (pipe.connections?.end) {
                                     pipe2.connections.end = pipe.connections.end;
                                 }
                                 state.plumbingPipes.push(pipe2);
                             }
-
                             startPos = splitPoint;
                             console.log('✅ Pipe split at body, branch starting from:', startPos);
                             geometryChanged = true;
@@ -793,67 +605,80 @@ export function onPointerDown(e) {
         } else {
             // İkinci tıklama: Boruyu oluştur
             const p1 = state.startPoint;
-            const snap = snapToConnectionPoint(pos, 10);
-            const p2 = snap ? { x: snap.x, y: snap.y } : { x: snappedPos.roundedX, y: snappedPos.roundedY };
-
-            // Minimum uzunluk kontrolü (5 cm)
+            
+            // GÜNCELLENDİ: Bitiş noktası için öncelik sırası
+            let p2;
+            const blockEdgeSnap = (snappedPos.isSnapped && (snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' || snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION')) ? { x: snappedPos.x, y: snappedPos.y, ...snappedPos } : null;
+            const blockSnap = snapToConnectionPoint(pos, 10);
+            const pipeSnap = snapToPipeEndpoint(pos, 10);
+            
+            if (blockSnap) {
+                p2 = { x: blockSnap.x, y: blockSnap.y };
+                console.log('🔗 Pipe end snapped to BLOCK CONNECTION');
+            } else if (pipeSnap) {
+                p2 = { x: pipeSnap.x, y: pipeSnap.y };
+                console.log('🔗 Pipe end snapped to PIPE END');
+            } else if (blockEdgeSnap) {
+                p2 = { x: blockEdgeSnap.x, y: blockEdgeSnap.y };
+                console.log('🔗 Pipe end snapped to BLOCK EDGE');
+            } else {
+                p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            }
+            // --- GÜNCELLEME SONU ---
+            
             const length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
             console.log('🔧 Creating pipe:', { p1, p2, length, minLength: 5 });
 
             if (length > 5) {
                 const pipeType = state.currentPlumbingPipeType || 'STANDARD';
                 const newPipe = createPlumbingPipe(p1.x, p1.y, p2.x, p2.y, pipeType);
-
                 console.log('🔧 Pipe created:', newPipe);
-
                 if (newPipe) {
-                    // EXPLICIT CONNECTION TRACKING - p1 ve p2 için bağlantı bilgilerini kaydet
-                    const startBlockSnap = snapToConnectionPoint(p1, 2); // 2 cm tolerans
-                    if (startBlockSnap) {
-                        // p1 bir bloğa bağlı
-                        newPipe.connections.start = {
-                            blockId: startBlockSnap.block.id || startBlockSnap.block, // ID varsa ID kullan, yoksa object (backward compat)
-                            connectionIndex: startBlockSnap.connectionIndex,
-                            blockType: startBlockSnap.block.blockType
-                        };
-                        console.log('✅ P1 connected to', startBlockSnap.block.blockType, 'ID:', startBlockSnap.block.id, 'connection', startBlockSnap.connectionIndex);
+                    // EXPLICIT CONNECTION TRACKING
+                    const startSnap = snapToConnectionPoint(p1, 2) || (state.startPoint && state.startPoint.snapType === 'PLUMBING_BLOCK_EDGE' ? { block: state.startPoint.wall } : null); // 'wall' burada 'block'
+                    if (startSnap && startSnap.block) {
+                        if (startSnap.block.blockType !== 'SERVIS_KUTUSU') {
+                            newPipe.connections.start = {
+                                blockId: startSnap.block.id || startSnap.block, 
+                                connectionIndex: startSnap.connectionIndex, 
+                                blockType: startSnap.block.blockType
+                            };
+                            console.log('✅ P1 connected to', startSnap.block.blockType, 'connection', startSnap.connectionIndex);
+                        }
                     }
 
-                    const endBlockSnap = snapToConnectionPoint(p2, 2); // 2 cm tolerans
-                    if (endBlockSnap) {
-                        // p2 bir bloğa bağlı
-                        newPipe.connections.end = {
-                            blockId: endBlockSnap.block.id || endBlockSnap.block, // ID varsa ID kullan, yoksa object (backward compat)
-                            connectionIndex: endBlockSnap.connectionIndex,
-                            blockType: endBlockSnap.block.blockType
-                        };
-                        console.log('✅ P2 connected to', endBlockSnap.block.blockType, 'ID:', endBlockSnap.block.id, 'connection', endBlockSnap.connectionIndex);
+                    const endSnap = snapToConnectionPoint(p2, 2) || (blockEdgeSnap ? { block: blockEdgeSnap.wall } : null); // 'wall' burada 'block'
+                    if (endSnap && endSnap.block) {
+                        if (endSnap.block.blockType !== 'SERVIS_KUTUSU') {
+                            newPipe.connections.end = {
+                                blockId: endSnap.block.id || endSnap.block, 
+                                connectionIndex: endSnap.connectionIndex,
+                                blockType: endSnap.block.blockType
+                            };
+                            console.log('✅ P2 connected to', endSnap.block.blockType, 'connection', endSnap.connectionIndex);
+                        }
                     }
 
-                    // Borunun bağlantı durumunu belirle (kesikli/düz çizgi için)
-                    if (startBlockSnap &&
-                        (startBlockSnap.block.blockType === 'SERVIS_KUTUSU' ||
-                         startBlockSnap.block.blockType === 'VANA' ||
-                         startBlockSnap.block.blockType === 'SAYAC')) {
+                    // isConnectedToValve mantığı
+                    const startBlock = startSnap ? startSnap.block : null;
+                    if (startBlock &&
+                        (startBlock.blockType === 'SERVIS_KUTUSU' ||
+                         startBlock.blockType === 'VANA' ||
+                         startBlock.blockType === 'SAYAC')) {
                         newPipe.isConnectedToValve = true;
-                        console.log('✅ Pipe starts from', startBlockSnap.block.blockType, '-> solid line');
                     } else {
-                        // Veya önceki boru connected mıydı?
                         const prevPipe = state.plumbingPipes?.find(p =>
-                            Math.hypot(p.p2.x - p1.x, p.p2.y - p1.y) < 1
+                            (p.p2 === p1) || (Math.hypot(p.p2.x - p1.x, p.p2.y - p1.y) < 1)
                         );
                         if (prevPipe && prevPipe.isConnectedToValve) {
                             newPipe.isConnectedToValve = true;
-                            console.log('✅ Pipe continues from connected pipe -> solid line');
                         } else {
                             newPipe.isConnectedToValve = false;
-                            console.log('⚠️ Pipe not connected to source -> dashed line');
                         }
                     }
 
                     if (!state.plumbingPipes) state.plumbingPipes = [];
                     state.plumbingPipes.push(newPipe);
-                    console.log('✅ Pipe added to state. Total pipes:', state.plumbingPipes.length);
                     geometryChanged = true;
                     needsUpdate3D = true;
                     objectJustCreated = true;
@@ -864,92 +689,73 @@ export function onPointerDown(e) {
                 console.warn('⚠️ Pipe too short:', length, '< 5');
             }
 
-            // Başlangıç noktasını tekrar ikinci tıklama pozisyonuna ayarla (zincirleme çizim)
-            const nextSnap = snapToConnectionPoint(p2, 10);
+            // GÜNCELLENDİ: Zincirleme çizim için sonraki başlangıç noktası
+            const nextSnap = snapToConnectionPoint(p2, 10) || snapToPipeEndpoint(p2, 10);
             const nextStart = nextSnap ? { x: nextSnap.x, y: nextSnap.y } : p2;
             setState({ startPoint: nextStart });
         }
     // --- Menfez Çizim Modu ---
     } else if (state.currentMode === "drawVent") {
         let closestWall = null; let minDistSq = Infinity;
-        const bodyHitTolerance = (state.wallThickness * 1.5)**2; // Duvar gövdesine tıklama toleransı
-         // Tıklamaya en yakın duvarı bul
+        const bodyHitTolerance = (state.wallThickness * 1.5)**2; 
          for (const w of [...state.walls].reverse()) {
-             if (!w.p1 || !w.p2) continue; // Geçersiz duvarı atla
-             const distSq = distToSegmentSquared(pos, w.p1, w.p2); // Snaplenmemiş pozisyonu kullan
-             // Tolerans içinde ve en yakınsa
+             if (!w.p1 || !w.p2) continue; 
+             const distSq = distToSegmentSquared(pos, w.p1, w.p2); 
              if (distSq < bodyHitTolerance && distSq < minDistSq) { minDistSq = distSq; closestWall = w; }
          }
-         // Duvar bulunduysa
          if(closestWall) {
             const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
-            const ventWidth = 25; // Menfez genişliği (çapı)
-            const ventMargin = 10; // Duvar uçlarına minimum mesafe
-            // Duvar, menfez ve marjlar için yeterince uzunsa
+            const ventWidth = 25; 
+            const ventMargin = 10; 
             if (wallLen >= ventWidth + 2 * ventMargin) {
                  const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y;
-                 // Tıklama noktasının duvar üzerindeki izdüşümünü bul (0-1 arası)
                  const t = Math.max(0, Math.min(1, ((pos.x - closestWall.p1.x) * dx + (pos.y - closestWall.p1.y) * dy) / (dx*dx + dy*dy) ));
-                 const ventPos = t * wallLen; // Duvar üzerindeki pozisyon (cm)
-                 // Pozisyon marjlar içinde kalıyorsa
+                 const ventPos = t * wallLen; 
                  if (ventPos >= ventWidth/2 + ventMargin && ventPos <= wallLen - ventWidth/2 - ventMargin) {
-                     if (!closestWall.vents) closestWall.vents = []; // Menfez dizisi yoksa oluştur
-                     // Çakışma kontrolü
+                     if (!closestWall.vents) closestWall.vents = []; 
                      let overlaps = false;
                      const newVentStart = ventPos - ventWidth / 2;
                      const newVentEnd = ventPos + ventWidth / 2;
-                     // Diğer menfezlerle çakışıyor mu?
                      (closestWall.vents || []).forEach(existingVent => {
                           const existingStart = existingVent.pos - existingVent.width / 2;
                           const existingEnd = existingVent.pos + existingVent.width / 2;
-                          // Aralıklar kesişiyorsa çakışma var
                           if (!(newVentEnd <= existingStart || newVentStart >= existingEnd)) { overlaps = true; }
                      });
-                     // Diğer elemanlarla (kapı, pencere) çakışma kontrolü eklenebilir
-
-                     // Çakışma yoksa menfezi ekle
                      if (!overlaps) {
                          closestWall.vents.push({ pos: ventPos, width: ventWidth, type: 'vent' });
-                         geometryChanged = true; // Geometri değişti
-                         objectJustCreated = true; // Yeni nesne oluşturuldu
-                         needsUpdate3D = true; // Menfezler 3D'de gösteriliyor
+                         geometryChanged = true; 
+                         objectJustCreated = true; 
+                         needsUpdate3D = true; 
                      }
                  }
              }
          }
-         // Menfez ekledikten sonra seçimi kaldır
          setState({ selectedObject: null });
     // --- Simetri Modu ---
     } else if (state.currentMode === "drawSymmetry") {
         
-        // --- DÜZELTME: Bekleyen önizleme timer'ını iptal et ---
         if (state.symmetryPreviewTimer) {
             clearTimeout(state.symmetryPreviewTimer);
             setState({ symmetryPreviewTimer: null });
         }
-        // --- DÜZELTME SONU ---
 
         if (!state.symmetryAxisP1) {
-            // İlk tıklama: Eksenin başlangıç noktasını ayarla
             setState({
-                symmetryAxisP1: { x: snappedPos.roundedX, y: snappedPos.roundedY }, // Snaplenmiş nokta
-                symmetryAxisP2: null // İkinci noktayı temizle
+                symmetryAxisP1: { x: snappedPos.roundedX, y: snappedPos.roundedY }, 
+                symmetryAxisP2: null 
             });
         } else {
-            // İkinci tıklama: Simetri veya kopya işlemini uygula
-            let axisP1 = state.symmetryAxisP1; // Eksenin başlangıcı
-            let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY }; // Eksenin sonu (snaplenmiş)
+            let axisP1 = state.symmetryAxisP1; 
+            let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY }; 
 
-            // Shift basılıysa ekseni 15 derecelik açılara snap yap
             if (currentModifierKeys.shift) {
                 const dx = axisP2.x - axisP1.x;
                 const dy = axisP2.y - axisP1.y;
-                const distance = Math.hypot(dx, dy); // Eksen uzunluğu
-                if (distance > 1) { // Çok kısaysa snap yapma
-                    const angle = Math.atan2(dy, dx) * 180 / Math.PI; // Mevcut açı (derece)
-                    const snappedAngle = Math.round(angle / 15) * 15; // En yakın 15 derece katı
-                    const snappedAngleRad = snappedAngle * Math.PI / 180; // Radyana çevir
-                    // Yeni eksen bitiş noktasını hesapla
+                const distance = Math.hypot(dx, dy); 
+                if (distance > 1) { 
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI; 
+                    const snappedAngle = Math.round(angle / 15) * 15; 
+                    const snappedAngleRad = snappedAngle * Math.PI / 180; 
                     axisP2 = {
                         x: axisP1.x + distance * Math.cos(snappedAngleRad),
                         y: axisP1.y + distance * Math.sin(snappedAngleRad)
@@ -957,35 +763,30 @@ export function onPointerDown(e) {
                 }
             }
 
-            // Eksen yeterince uzunsa işlemi yap
             const axisLength = Math.hypot(axisP2.x - axisP1.x, axisP2.y - axisP1.y);
-            if (axisLength > 10) { // Minimum 10cm eksen uzunluğu
-                // Ctrl basılıysa: Birebir kopya (applyCopy)
-                // Değilse: Simetri al (applySymmetry)
+            if (axisLength > 10) { 
                 if (currentModifierKeys.ctrl) {
                     applyCopy(axisP1, axisP2);
                 } else {
                     applySymmetry(axisP1, axisP2);
                 }
-                geometryChanged = true; // Geometri değişti
-                needsUpdate3D = true;   // 3D güncellemesi gerekebilir
+                geometryChanged = true; 
+                needsUpdate3D = true;   
             }
 
-            // Simetri modunu ve önizlemeyi temizle
             setState({
                 symmetryAxisP1: null,
                 symmetryAxisP2: null,
-                symmetryPreviewElements: { // Önizleme elemanlarını boşalt
+                symmetryPreviewElements: { 
                     nodes: [], walls: [], doors: [], windows: [], vents: [],
                     columns: [], beams: [], stairs: [], rooms: []
                 }
             });
-            setMode("select"); // İşlem sonrası Seçim moduna dön
+            setMode("select"); 
         }
-    // --- YENİ EKLENDİ: Rehber Çizim Modları ---
+    // --- Rehber Çizim Modları ---
     } else if (state.currentMode === "drawGuideAngular" || state.currentMode === "drawGuideFree") {
         
-        // Simetri ile aynı timer'ı kullanabiliriz
         if (state.symmetryPreviewTimer) {
             clearTimeout(state.symmetryPreviewTimer);
             setState({ symmetryPreviewTimer: null });
@@ -993,48 +794,38 @@ export function onPointerDown(e) {
 
         if (state.startPoint) { // Bu ikinci tıklama
             const p1 = state.startPoint;
-            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY }; // Snaplenmiş pozisyonu kullan
+            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY }; 
             
-            if (Math.hypot(p1.x - p2.x, p1.y - p2.y) > 1) { // Minimum uzunluk
+            if (Math.hypot(p1.x - p2.x, p1.y - p2.y) > 1) { 
                 const subType = state.currentMode === "drawGuideAngular" ? 'angular' : 'free';
                 
-                if (!state.guides) state.guides = []; // guides dizisi yoksa oluştur
+                if (!state.guides) state.guides = []; 
                 state.guides.push({
                     type: 'guide',
                     subType: subType,
-                    // p1 ve p2'nin referans değil, kopya olduğundan emin ol
                     p1: { x: p1.x, y: p1.y }, 
                     p2: { x: p2.x, y: p2.y }
                 });
                 
-                geometryChanged = true; // saveState'i tetikler
+                geometryChanged = true; 
             }
             
-            // İkinci tıklamadan sonra modu sıfırla
             setState({ startPoint: null });
-            setMode("select"); // Seçim moduna dön
+            setMode("select"); 
         }
-        // İlk tıklama (sağ tık menüsünden) zaten startPoint'i ayarlar
-        // ve onPointerDownDraw'da (yukarıda) olduğu gibi tekrar ayarlanmaz.
     }
-    // --- YENİ SONU ---
-
 
     // --- Son İşlemler ---
 
-    // Eğer yeni bir nesne oluşturulduysa (ve mod 'select' değilse), seçimi temizle
     if (objectJustCreated && state.currentMode !== "select") {
         setState({ selectedObject: null });
     }
 
-    // Geometri değiştiyse (yeni nesne eklendi, simetri/kopya yapıldı vb.) state'i kaydet
     if (geometryChanged) {
         saveState();
     }
 
-    // 3D sahne güncellenmesi gerekiyorsa ve 3D görünüm aktifse, gecikmeli olarak güncelle
     if (needsUpdate3D && dom.mainContainer.classList.contains('show-3d')) {
-        // Kısa bir gecikme ekleyerek state güncellemelerinin tamamlanmasını bekle
         setTimeout(update3DScene, 0);
     }
 }

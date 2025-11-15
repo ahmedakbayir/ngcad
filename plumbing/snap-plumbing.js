@@ -1,15 +1,15 @@
 // snap-plumbing.js
 // TESİSAT ELEMANLARI İÇİN ÖZEL SNAP FONKSİYONLARI
 // Duvar merkez çizgisine DEĞİL, duvar yüzeyinden 3 cm içerdeki paralel çizgilere snap yapar
+// GÜNCELLENDİ: Blok kenarlarına snap eklendi (PLUMBING_BLOCK_EDGE)
+// GÜNCELLENDİ: Blok kenarı-Duvar snap çizgisi kesişimine snap eklendi (PLUMBING_WALL_BLOCK_INTERSECTION)
 
 import { state } from '../general-files/main.js';
-import { worldToScreen, getLineIntersectionPoint } from '../draw/geometry.js';
-import { getConnectionPoints } from './plumbing-blocks.js';
+import { worldToScreen, getLineIntersectionPoint, distToSegmentSquared } from '../draw/geometry.js';
+import { getConnectionPoints, getPlumbingBlockCorners, PLUMBING_BLOCK_TYPES } from '../plumbing/plumbing-blocks.js';
 
 /**
  * TESİSAT ELEMANLARI İÇİN ÖZEL SNAP FONKSİYONU
- * Duvar merkez çizgisine DEĞİL, duvar yüzeyinden 3 cm içerdeki paralel çizgilere snap yapar
- * 
  * @param {object} wm - Mouse pozisyonu (dünya koordinatları)
  * @param {object} screenMouse - Mouse pozisyonu (ekran koordinatları)
  * @param {number} SNAP_RADIUS_PIXELS - Snap toleransı (piksel)
@@ -21,21 +21,29 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     const walls = currentFloorId
         ? (state.walls || []).filter(w => w.floorId === currentFloorId)
         : (state.walls || []);
+    const plumbingBlocks = currentFloorId 
+        ? (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId)
+        : (state.plumbingBlocks || []);
+    const plumbingPipes = currentFloorId
+        ? (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId)
+        : (state.plumbingPipes || []);
 
-    // Aday ekleme yardımcısı
-    const addCandidate = (point, type, distance) => {
+    // Aday ekleme yardımcısı (wall: 'wall', 'block', 'pipe' olabilir)
+    const addCandidate = (point, type, distance, wall = null) => {
         if (point && isFinite(point.x) && isFinite(point.y)) {
-            candidates.push({ point, type, distance });
+            candidates.push({ point, type, distance, wall });
         }
     };
 
-    // --- DUVAR YÜZEY SNAP HATLARI (Yüzey + 3cm offset) ---
-    const PLUMBING_OFFSET = 5; // 3 cm içeri offset
-    const EXTENSION_LENGTH = 50; // Her iki uçtan 50 cm uzatma (kesişimleri kapsamak için)
-    const INTERSECTION_SNAP_RADIUS = SNAP_RADIUS_PIXELS * 1.5; // Kesişimler için daha büyük tolerans
+    const isBlockMode = state.currentMode === 'drawPlumbingBlock';
+    const blockConfig = isBlockMode ? PLUMBING_BLOCK_TYPES[state.currentPlumbingBlockType] : null;
+
+    // --- DUVAR YÜZEY SNAP HATLARI (Kırmızı çizgiler) ---
+    const PLUMBING_OFFSET = 5; 
+    const EXTENSION_LENGTH = 50; 
+    const INTERSECTION_SNAP_RADIUS = SNAP_RADIUS_PIXELS * 1.5; 
     
-    // Tüm snap hatlarını topla (kesişim hesabı için)
-    const allSnapLines = [];
+    const allSnapLines = []; // {line, wall}
     
     walls.forEach(wall => {
         if (!wall.p1 || !wall.p2) return;
@@ -43,23 +51,25 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         const wallThickness = wall.thickness || state.wallThickness;
         const halfThickness = wallThickness / 2;
         
-        // Duvar yönü ve normal vektörü
         const dx = wall.p2.x - wall.p1.x;
         const dy = wall.p2.y - wall.p1.y;
         const len = Math.hypot(dx, dy);
         if (len < 0.1) return;
         
-        // Normalize edilmiş yön vektörleri
         const dirX = dx / len;
         const dirY = dy / len;
-        const nx = -dy / len; // Normal (dik) yön
+        const nx = -dy / len; 
         const ny = dx / len;
         
-        // İki paralel snap hattı: yüzeyden 3 cm içerde
-        // Offset = duvar kalınlığı/2 + 3 cm
-        const offset = halfThickness + PLUMBING_OFFSET;
+        let offset;
+        if (isBlockMode && blockConfig) {
+            // Blok modunda: Duvar Yüzeyi + Blok Yarı-Yüksekliği (2D'de)
+            offset = halfThickness + (blockConfig.height / 2);
+        } else {
+            // Boru modunda: Duvar Yüzeyi + 5cm
+            offset = halfThickness + PLUMBING_OFFSET;
+        }
         
-        // Uç noktaları uzat
         const extendedP1 = {
             x: wall.p1.x - dirX * EXTENSION_LENGTH,
             y: wall.p1.y - dirY * EXTENSION_LENGTH
@@ -69,50 +79,83 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
             y: wall.p2.y + dirY * EXTENSION_LENGTH
         };
         
-        // Snap hattı 1 (bir taraf) - UZATILMIŞ
         const line1 = {
             p1: { x: extendedP1.x + nx * offset, y: extendedP1.y + ny * offset },
             p2: { x: extendedP2.x + nx * offset, y: extendedP2.y + ny * offset }
         };
-
-        // Snap hattı 2 (diğer taraf) - UZATILMIŞ
         const line2 = {
             p1: { x: extendedP1.x - nx * offset, y: extendedP1.y - ny * offset },
             p2: { x: extendedP2.x - nx * offset, y: extendedP2.y - ny * offset }
         };
         
-        // Hem kesişim hesabı hem de yüzey snap için sakla
-        allSnapLines.push(line1, line2);
+        allSnapLines.push({ line: line1, wall: wall }, { line: line2, wall: wall });
     });
 
-    // --- ⭐ YENİ: KESİŞİM NOKTALARI HESAPLA (EN YÜKSEK ÖNCELİK) ---
+    // --- BLOK KENARLARI (Sadece Servis Kutuları için) ---
+    const allPlumbingBlockEdges = []; // {block, p1, p2}
+    plumbingBlocks.forEach(block => {
+        if (block.blockType !== 'SERVIS_KUTUSU') return; 
+
+        const corners = getPlumbingBlockCorners(block);
+        if (corners.length < 4) return;
+        for (let i = 0; i < 4; i++) {
+            allPlumbingBlockEdges.push({
+                block: block,
+                p1: corners[i],
+                p2: corners[(i + 1) % 4]
+            });
+        }
+    });
+
+    // --- KESİŞİM NOKTALARI 1 (Duvar Snap Çizgisi <-> Blok Kenarı) ---
+    allSnapLines.forEach(snapLineItem => {
+        const wallSnapLine = snapLineItem.line;
+        allPlumbingBlockEdges.forEach(blockEdge => {
+            
+            const intersection = getLineIntersectionPoint(
+                wallSnapLine.p1, wallSnapLine.p2, 
+                blockEdge.p1, blockEdge.p2
+            );
+            
+            if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
+                const screenPt = worldToScreen(intersection.x, intersection.y);
+                const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+                
+                if (dist < INTERSECTION_SNAP_RADIUS) { 
+                    // Yeni snap tipi: PLUMBING_WALL_BLOCK_INTERSECTION
+                    addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * 0.5, blockEdge.block); // Yüksek öncelik (0.5)
+                }
+            }
+        });
+    });
+
+    // --- KESİŞİM NOKTALARI 2 (Duvar Snap Çizgisi <-> Duvar Snap Çizgisi) ---
     for (let i = 0; i < allSnapLines.length; i++) {
         for (let j = i + 1; j < allSnapLines.length; j++) {
-            const line1 = allSnapLines[i];
-            const line2 = allSnapLines[j];
+            const line1 = allSnapLines[i].line;
+            const line2 = allSnapLines[j].line;
             
-            // Kesişim noktasını hesapla
             const intersection = getLineIntersectionPoint(line1.p1, line1.p2, line2.p1, line2.p2);
             
             if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
                 const screenPt = worldToScreen(intersection.x, intersection.y);
                 const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
                 
-                // Kesişimler için DAHA BÜYÜK tolerans
                 if (dist < INTERSECTION_SNAP_RADIUS) {
-                    // Kesişimlere çok yüksek öncelik: distance * 0.1
-                    addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * 0.1);
+                    addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * 0.1, null);
                 }
             }
         }
     }
     
-    // --- YÜZEY SNAP HATLARI (Kesişimlerden sonra) ---
-    allSnapLines.forEach(line => {
+    // --- YÜZEY SNAP HATLARI (Duvar) ---
+    allSnapLines.forEach(item => {
+        const line = item.line;
+        const wall = item.wall;
+
         const l2 = (line.p1.x - line.p2.x) ** 2 + (line.p1.y - line.p2.y) ** 2;
         if (l2 < 1e-6) return;
         
-        // Mouse'un snap hattı üzerindeki izdüşümünü bul
         let t = ((wm.x - line.p1.x) * (line.p2.x - line.p1.x) + 
                  (wm.y - line.p1.y) * (line.p2.y - line.p1.y)) / l2;
         
@@ -125,59 +168,72 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
         
         if (dist < SNAP_RADIUS_PIXELS) {
-            addCandidate(closest, 'PLUMBING_WALL_SURFACE', dist);
+            addCandidate(closest, 'PLUMBING_WALL_SURFACE', dist, wall);
         }
     });
 
-    // --- BAĞLANTI NOKTALARI (En yüksek öncelik) ---
-    const plumbingBlocks = currentFloorId 
-        ? (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId)
-        : (state.plumbingBlocks || []);
-    
+    // --- BAĞLANTI NOKTALARI (Sayaç, Vana, Kombi, Ocak) ---
     plumbingBlocks.forEach(block => {
+        if (block.blockType === 'SERVIS_KUTUSU') return; // Servis kutusunun sabit noktası yok
+
         const connections = getConnectionPoints(block);
         connections.forEach(cp => {
             const screenPt = worldToScreen(cp.x, cp.y);
             const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
             if (dist < SNAP_RADIUS_PIXELS) {
-                // Bağlantı noktalarına daha yüksek öncelik (distance * 0.05 - kesişimden önce)
-                addCandidate({ x: cp.x, y: cp.y }, 'PLUMBING_CONNECTION', dist * 0.05);
+                addCandidate({ x: cp.x, y: cp.y }, 'PLUMBING_CONNECTION', dist * 0.05, block);
             }
         });
     });
 
-    // --- BORU UÇ NOKTALARI (Orta öncelik) ---
-    const plumbingPipes = currentFloorId
-        ? (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId)
-        : (state.plumbingPipes || []);
-    
+    // --- BORU UÇ NOKTALARI ---
     plumbingPipes.forEach(pipe => {
         [pipe.p1, pipe.p2].forEach(point => {
             const screenPt = worldToScreen(point.x, point.y);
             const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
             if (dist < SNAP_RADIUS_PIXELS) {
-                // Boru uçlarına orta öncelik (distance * 0.6)
-                addCandidate({ x: point.x, y: point.y }, 'PLUMBING_PIPE_END', dist * 0.6);
+                addCandidate({ x: point.x, y: point.y }, 'PLUMBING_PIPE_END', dist * 0.6, pipe);
             }
         });
     });
+
+    // --- BLOK KENARLARI (Servis Kutusu) ---
+    allPlumbingBlockEdges.forEach(edge => {
+        const l2 = (edge.p1.x - edge.p2.x) ** 2 + (edge.p1.y - edge.p2.y) ** 2;
+        if (l2 < 1e-6) return;
+        
+        let t = ((wm.x - edge.p1.x) * (edge.p2.x - edge.p1.x) + (wm.y - edge.p1.y) * (edge.p2.y - edge.p1.y)) / l2;
+        t = Math.max(0, Math.min(1, t)); // Segment üzerinde kal
+        
+        const closest = { x: edge.p1.x + t * (edge.p2.x - edge.p1.x), y: edge.p1.y + t * (edge.p2.y - edge.p1.y) };
+        
+        const screenPt = worldToScreen(closest.x, closest.y);
+        const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+
+        if (dist < SNAP_RADIUS_PIXELS) {
+            addCandidate(closest, 'PLUMBING_BLOCK_EDGE', dist * 0.7, edge.block);
+        }
+    });
+
 
     // Aday yoksa null dön
     if (candidates.length === 0) return null;
 
     // Adayları öncelik sırasına göre sırala
     const priority = {
-        'PLUMBING_CONNECTION': 0,      // En yüksek: Blok bağlantı noktaları
-        'PLUMBING_INTERSECTION': 1,    // İkinci: Snap hatlarının kesişimi
-        'PLUMBING_PIPE_END': 2,        // Üçüncü: Boru uç noktaları
-        'PLUMBING_WALL_SURFACE': 3     // En düşük: Duvar yüzey snap hatları
+        'PLUMBING_CONNECTION': 0,
+        'PLUMBING_PIPE_END': 1,
+        'PLUMBING_WALL_BLOCK_INTERSECTION': 2, // YENİ (Kutu-Duvar Kesişimi)
+        'PLUMBING_BLOCK_EDGE': 3,
+        'PLUMBING_INTERSECTION': 4,
+        'PLUMBING_WALL_SURFACE': 5
     };
 
     candidates.sort((a, b) => {
         const pA = priority[a.type] ?? 99;
         const pB = priority[b.type] ?? 99;
         if (pA !== pB) return pA - pB;
-        return a.distance - b.distance; // Aynı öncelikteyse mesafeye göre
+        return a.distance - b.distance; 
     });
     
     return candidates[0]; // En iyi adayı döndür

@@ -3,6 +3,8 @@
 // ✅ Bloklar asla kopmaz
 // ✅ Mıknatıs etkisi yok
 // ✅ Silinebilir ve birleştirir
+// GÜNCELLENDİ: Servis Kutusu bağlantı noktaları kaldırıldı (kenara snap için)
+// GÜNCELLENDİ: updateConnectedPipes/Rotation, pozisyona göre bağlı boruları da taşıyacak şekilde güncellendi
 
 import { state, setState } from '../general-files/main.js';
 import { cleanupVeryShortPipes } from './plumbing-pipes.js';
@@ -15,18 +17,8 @@ export const PLUMBING_BLOCK_TYPES = {
         height: 20,
         depth: 70,
         cornerRadius: 1,
-        connectionPoints: [
-            { x: 20, y: 0, z: -15, label: 'sağ-orta' },
-            { x: -20, y: 0, z: -15, label: 'sol-orta' },
-            { x: 20, y: -8, z: -15, label: 'sağ-üst' },
-            { x: -20, y: -8, z: -15, label: 'sol-üst' },
-            { x: 20, y: 8, z: -15, label: 'sağ-alt' },
-            { x: -20, y: 8, z: -15, label: 'sol-alt' },
-            { x: 0, y: 0, z: 35, label: 'üst' },
-            { x: 0, y: 0, z: -35, label: 'alt' },
-            { x: 0, y: -10, z: -15, label: 'orta-üst' },
-            { x: 0, y: 10, z: -15, label: 'orta-alt' }
-        ],
+        // GÜNCELLENDİ: Bağlantı noktaları kaldırıldı. Snap artık kenarlara yapılacak.
+        connectionPoints: [],
         mountType: 'wall',
         color: 0xA8A8A8,
     },
@@ -131,6 +123,12 @@ export function getPlumbingBlockCorners(block) {
 }
 
 export function getConnectionPoints(block) {
+    // GÜNCELLENDİ: Servis kutusunun artık sabit bağlantı noktası yok
+    if (block.blockType === 'SERVIS_KUTUSU') {
+        return [];
+    }
+    // --- GÜNCELLEME SONU ---
+
     const typeConfig = block.typeConfig || PLUMBING_BLOCK_TYPES[block.blockType];
     const cx = block.center.x;
     const cy = block.center.y;
@@ -150,12 +148,9 @@ export function getConnectionPoints(block) {
 export function getActiveConnectionPoints(block) {
     const allPoints = getConnectionPoints(block);
 
+    // GÜNCELLENDİ: Servis kutusu mantığı kaldırıldı (zaten boş array dönecek)
     if (block.blockType === 'SERVIS_KUTUSU') {
-        return allPoints.filter(cp => {
-            if (cp.z === -15) return true;
-            if (cp.label === 'alt') return true;
-            return false;
-        });
+        return allPoints; // Boş array döner
     }
 
     return allPoints;
@@ -197,7 +192,7 @@ export function getPlumbingBlockAtPoint(point) {
     }
 
     for (const block of blocks) {
-        const connectionPoints = getConnectionPoints(block);
+        const connectionPoints = getConnectionPoints(block); // Artık Servis Kutusu için boş
         for (let i = 0; i < connectionPoints.length; i++) {
             const cp = connectionPoints[i];
             const cpDist = Math.hypot(point.x - cp.x, point.y - cp.y);
@@ -266,6 +261,10 @@ function repairMissingConnections(block) {
     const REPAIR_TOLERANCE = 2;
 
     console.log(`🔧 Repairing connections for ${block.blockType}...`);
+    
+    // GÜNCELLENDİ: Servis kutusunun bağlantı noktası yok, tamir etme
+    if (block.blockType === 'SERVIS_KUTUSU') return;
+    // --- GÜNCELLEME SONU ---
 
     (state.plumbingPipes || []).forEach(pipe => {
         // P1 kontrolü
@@ -307,6 +306,10 @@ function repairMissingConnections(block) {
 function checkPipeValveLengthBeforeRotation(block, newRotation) {
     const tempBlock = { ...block, rotation: newRotation };
     const newConnections = getConnectionPoints(tempBlock);
+
+    // GÜNCELLENDİ: Servis kutusunun bağlantı noktası yok, kontrol etme
+    if (block.blockType === 'SERVIS_KUTUSU') return true;
+    // --- GÜNCELLEME SONU ---
 
     const MIN_PIPE_LENGTH = 5;
 
@@ -362,6 +365,10 @@ function checkPipeValveLengthBeforeRotation(block, newRotation) {
 function checkPipeValveLengthBeforeMove(block, newCenter) {
     const tempBlock = { ...block, center: newCenter };
     const newConnections = getConnectionPoints(tempBlock);
+
+    // GÜNCELLENDİ: Servis kutusunun bağlantı noktası yok, kontrol etme
+    if (block.blockType === 'SERVIS_KUTUSU') return true;
+    // --- GÜNCELLEME SONU ---
 
     for (let index = 0; index < newConnections.length; index++) {
         const newConn = newConnections[index];
@@ -440,7 +447,9 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         return true;
         
     } else if (handle === 'body') {
-        if (block.blockType !== 'OCAK' && block.blockType !== 'KOMBI') {
+        // GÜNCELLENDİ: 'OCAK' ve 'KOMBI' de artık diğerleri gibi davranır
+        // (Snap ve boru güncelleme mantığı hepsi için aynı)
+        // if (block.blockType !== 'OCAK' && block.blockType !== 'KOMBI') {
             const newCenter = {
                 x: startCenter.x + dx,
                 y: startCenter.y + dy
@@ -458,22 +467,27 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             updateConnectedPipes(block, oldCenter, block.center);
             
             return true;
-        } else {
-            block.center.x = startCenter.x + dx;
-            block.center.y = startCenter.y + dy;
-            return true;
-        }
+        // } else {
+        //     block.center.x = startCenter.x + dx;
+        //     block.center.y = startCenter.y + dy;
+        //     return true;
+        // }
     }
 
     return false;
 }
 
 /**
- * ⭐ ÇALIŞAN VERSİYON - Bağlı boruları güncelle
- * SADECE connections.blockId kontrolü (explicit bağlantılar)
+ * GÜNCELLENMİŞ updateConnectedPipes
+ * Artık SADECE explicit (connections objesi olan) bağlantıları değil,
+ * FİZİKSEL YAKINLIK (Math.hypot) ile bağlı olan boruları da taşır.
+ * Bu, 'SERVIS_KUTUSU'nun kenarına yapışan boruların da taşınmasını sağlar.
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
     const newConnections = getConnectionPoints(block);
+    // GÜNCELLENDİ: Eski bağlantı noktalarını da al (fiziksel yakınlık kontrolü için)
+    const oldConnections = getConnectionPointsAtPosition(block, oldCenter); // oldCenter'ı kullanan helper lazım
+    const REPAIR_TOLERANCE = 2; // Fiziksel yakınlık toleransı
 
     (state.plumbingPipes || []).forEach(pipe => {
         let shouldUpdateStart = false;
@@ -481,7 +495,8 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
         let startIndex = null;
         let endIndex = null;
 
-        // P1 - SADECE explicit bağlantı
+        // --- P1 KONTROLÜ ---
+        // 1. Explicit bağlantı var mı?
         const isStartExplicitlyConnected = pipe.connections?.start?.blockId && (
             pipe.connections.start.blockId === block.id ||
             pipe.connections.start.blockId === block
@@ -489,10 +504,44 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
 
         if (isStartExplicitlyConnected) {
             startIndex = pipe.connections.start.connectionIndex;
-            shouldUpdateStart = true;
+            // GÜNCELLENDİ: Servis kutusu için index 0 olabilir ama newConnections[0] olmayabilir
+            if (startIndex < newConnections.length) {
+                shouldUpdateStart = true;
+            }
+        } else if (!pipe.connections?.start?.blockId) {
+            // 2. Explicit bağlantı yoksa, fiziksel olarak eski bir bağlantı noktasına yakın mı?
+            // (Sadece 'SERVIS_KUTUSU' gibi bağlantı noktası olmayanlar için)
+            if (block.blockType === 'SERVIS_KUTUSU') {
+                 // Servis kutusu için özel: Kenarlara yakınlığı kontrol et (daha karmaşık)
+                 // Şimdilik: Bloğun merkeziyle hareket et
+                 // VEYA: Eski merkezi kullanarak 'implicit' bağlantı ara
+                 const oldCorners = getPlumbingBlockCorners({ ...block, center: oldCenter });
+                 for(let i=0; i<oldCorners.length; i++) {
+                     const edgeP1 = oldCorners[i];
+                     const edgeP2 = oldCorners[(i+1)%4];
+                     const distSq = distToSegmentSquared(pipe.p1, edgeP1, edgeP2);
+                     if (distSq < REPAIR_TOLERANCE * REPAIR_TOLERANCE) {
+                         shouldUpdateStart = true;
+                         // Kenara bağlı, index yok
+                         startIndex = -1; // Kenara bağlı olduğunu belirt
+                         break;
+                     }
+                 }
+            } else {
+                // Diğer bloklar (Sayaç, Vana vb.) için eski bağlantı noktalarını kontrol et
+                for (let i = 0; i < oldConnections.length; i++) {
+                    const dist = Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y);
+                    if (dist < REPAIR_TOLERANCE) {
+                        shouldUpdateStart = true;
+                        startIndex = i;
+                        break;
+                    }
+                }
+            }
         }
 
-        // P2 - SADECE explicit bağlantı
+        // --- P2 KONTROLÜ ---
+        // 1. Explicit bağlantı var mı?
         const isEndExplicitlyConnected = pipe.connections?.end?.blockId && (
             pipe.connections.end.blockId === block.id ||
             pipe.connections.end.blockId === block
@@ -500,35 +549,87 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
 
         if (isEndExplicitlyConnected) {
             endIndex = pipe.connections.end.connectionIndex;
-            shouldUpdateEnd = true;
+            if (endIndex < newConnections.length) {
+                shouldUpdateEnd = true;
+            }
+        } else if (!pipe.connections?.end?.blockId) {
+            // 2. Explicit bağlantı yoksa, fiziksel olarak eski bir bağlantı noktasına yakın mı?
+            if (block.blockType === 'SERVIS_KUTUSU') {
+                const oldCorners = getPlumbingBlockCorners({ ...block, center: oldCenter });
+                 for(let i=0; i<oldCorners.length; i++) {
+                     const edgeP1 = oldCorners[i];
+                     const edgeP2 = oldCorners[(i+1)%4];
+                     const distSq = distToSegmentSquared(pipe.p2, edgeP1, edgeP2);
+                     if (distSq < REPAIR_TOLERANCE * REPAIR_TOLERANCE) {
+                         shouldUpdateEnd = true;
+                         endIndex = -1; // Kenara bağlı
+                         break;
+                     }
+                 }
+            } else {
+                for (let i = 0; i < oldConnections.length; i++) {
+                    const dist = Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y);
+                    if (dist < REPAIR_TOLERANCE) {
+                        shouldUpdateEnd = true;
+                        endIndex = i;
+                        break;
+                    }
+                }
+            }
         }
+        // --- KONTROLLER SONU ---
+
 
         if (!shouldUpdateStart && !shouldUpdateEnd) return;
 
         const oldPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
 
-        if (shouldUpdateStart && startIndex !== null) {
-            const newConn = newConnections[startIndex];
-            pipe.p1.x = newConn.x;
-            pipe.p1.y = newConn.y;
-
-            pipe.connections.start = {
-                blockId: block.id || block,
-                connectionIndex: startIndex,
-                blockType: block.blockType
-            };
+        if (shouldUpdateStart) {
+            if (startIndex !== -1) {
+                // Bağlantı noktasına bağlı
+                const newConn = newConnections[startIndex];
+                pipe.p1.x = newConn.x;
+                pipe.p1.y = newConn.y;
+                // Bağlantıyı onar (eğer eksikse)
+                if (!isStartExplicitlyConnected) {
+                    if (!pipe.connections) pipe.connections = { start: null, end: null };
+                    pipe.connections.start = {
+                        blockId: block.id || block,
+                        connectionIndex: startIndex,
+                        blockType: block.blockType
+                    };
+                }
+            } else {
+                // Kenara bağlı (startIndex === -1), sadece taşı
+                const deltaX = newCenter.x - oldCenter.x;
+                const deltaY = newCenter.y - oldCenter.y;
+                pipe.p1.x += deltaX;
+                pipe.p1.y += deltaY;
+            }
         }
 
-        if (shouldUpdateEnd && endIndex !== null) {
-            const newConn = newConnections[endIndex];
-            pipe.p2.x = newConn.x;
-            pipe.p2.y = newConn.y;
-
-            pipe.connections.end = {
-                blockId: block.id || block,
-                connectionIndex: endIndex,
-                blockType: block.blockType
-            };
+        if (shouldUpdateEnd) {
+             if (endIndex !== -1) {
+                // Bağlantı noktasına bağlı
+                const newConn = newConnections[endIndex];
+                pipe.p2.x = newConn.x;
+                pipe.p2.y = newConn.y;
+                // Bağlantıyı onar (eğer eksikse)
+                if (!isEndExplicitlyConnected) {
+                     if (!pipe.connections) pipe.connections = { start: null, end: null };
+                     pipe.connections.end = {
+                        blockId: block.id || block,
+                        connectionIndex: endIndex,
+                        blockType: block.blockType
+                    };
+                }
+            } else {
+                 // Kenara bağlı (endIndex === -1), sadece taşı
+                const deltaX = newCenter.x - oldCenter.x;
+                const deltaY = newCenter.y - oldCenter.y;
+                pipe.p2.x += deltaX;
+                pipe.p2.y += deltaY;
+            }
         }
 
         if ((shouldUpdateStart || shouldUpdateEnd) && pipe.valves && pipe.valves.length > 0) {
@@ -540,6 +641,7 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
 
 function updateValvePositionsOnResize(pipe, oldLength, newLength) {
     if (!pipe.valves || pipe.valves.length === 0) return;
+    if (oldLength < 1) oldLength = newLength; // Sıfıra bölme hatasını önle
 
     const ratio = newLength / oldLength;
     pipe.valves.forEach(valve => {
@@ -554,83 +656,190 @@ function updateValvePositionsOnResize(pipe, oldLength, newLength) {
     });
 }
 
+/**
+ * GÜNCELLENMİŞ updateConnectedPipesAfterRotation
+ * Artık SADECE explicit (connections objesi olan) bağlantıları değil,
+ * FİZİKSEL YAKINLIK (Math.hypot) ile bağlı olan boruları da döndürür.
+ */
 function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
     const tempBlock = { ...block, rotation: oldRotation };
     const oldConnections = getConnectionPoints(tempBlock);
     const newConnections = getConnectionPoints(block);
+    
+    // GÜNCELLENDİ: Servis kutusu için eski ve yeni köşe noktaları
+    const oldCorners = (block.blockType === 'SERVIS_KUTUSU') ? getPlumbingBlockCorners(tempBlock) : [];
+    const newCorners = (block.blockType === 'SERVIS_KUTUSU') ? getPlumbingBlockCorners(block) : [];
 
-    oldConnections.forEach((oldConn, index) => {
-        const newConn = newConnections[index];
-        const tolerance = 15;
+    const REPAIR_TOLERANCE = 2; // Fiziksel yakınlık toleransı
 
-        (state.plumbingPipes || []).forEach(pipe => {
-            let shouldUpdateStart = false;
-            let shouldUpdateEnd = false;
+    (state.plumbingPipes || []).forEach(pipe => {
+        let shouldUpdateStart = false;
+        let shouldUpdateEnd = false;
+        let startIndex = null;
+        let endIndex = null;
 
-            const isStartConnectedToThisBlock = pipe.connections?.start?.blockId && (
-                pipe.connections.start.blockId === block.id ||
-                pipe.connections.start.blockId === block
-            ) && pipe.connections.start.connectionIndex === index;
+        // --- P1 KONTROLÜ ---
+        // 1. Explicit bağlantı var mı?
+        const isStartExplicitlyConnected = pipe.connections?.start?.blockId && (
+            pipe.connections.start.blockId === block.id ||
+            pipe.connections.start.blockId === block
+        );
 
-            const isEndConnectedToThisBlock = pipe.connections?.end?.blockId && (
-                pipe.connections.end.blockId === block.id ||
-                pipe.connections.end.blockId === block
-            ) && pipe.connections.end.connectionIndex === index;
-
-            if (isStartConnectedToThisBlock) {
+        if (isStartExplicitlyConnected) {
+            startIndex = pipe.connections.start.connectionIndex;
+            if (startIndex < newConnections.length) { // Servis kutusu için newConnections boş olabilir
                 shouldUpdateStart = true;
-            } else if ((block.blockType === 'SAYAC' || block.blockType === 'VANA') &&
-                       Math.hypot(pipe.p1.x - oldConn.x, pipe.p1.y - oldConn.y) < tolerance) {
-                const isP1AlreadyConnectedToThisBlock = pipe.connections?.start?.blockId && (
-                    pipe.connections.start.blockId === block.id ||
-                    pipe.connections.start.blockId === block
-                );
-                if (!isP1AlreadyConnectedToThisBlock) {
-                    shouldUpdateStart = true;
+            }
+        } else if (!pipe.connections?.start?.blockId) {
+            // 2. Explicit bağlantı yoksa, fiziksel olarak eski bir bağlantı noktasına yakın mı?
+            if (block.blockType === 'SERVIS_KUTUSU') {
+                 // Servis kutusu için: Eski *kenarlara* yakınlığı kontrol et
+                 for(let i=0; i<oldCorners.length; i++) {
+                     const edgeP1 = oldCorners[i];
+                     const edgeP2 = oldCorners[(i+1)%4];
+                     const distSq = distToSegmentSquared(pipe.p1, edgeP1, edgeP2);
+                     if (distSq < REPAIR_TOLERANCE * REPAIR_TOLERANCE) {
+                         shouldUpdateStart = true;
+                         startIndex = -1; // Kenara bağlı olduğunu belirt
+                         break;
+                     }
+                 }
+            } else {
+                // Diğer bloklar (Sayaç, Vana vb.) için eski bağlantı noktalarını kontrol et
+                for (let i = 0; i < oldConnections.length; i++) {
+                    const dist = Math.hypot(pipe.p1.x - oldConnections[i].x, pipe.p1.y - oldConnections[i].y);
+                    if (dist < REPAIR_TOLERANCE) {
+                        shouldUpdateStart = true;
+                        startIndex = i;
+                        break;
+                    }
                 }
             }
+        }
 
-            if (isEndConnectedToThisBlock) {
+        // --- P2 KONTROLÜ ---
+        // 1. Explicit bağlantı var mı?
+        const isEndExplicitlyConnected = pipe.connections?.end?.blockId && (
+            pipe.connections.end.blockId === block.id ||
+            pipe.connections.end.blockId === block
+        );
+
+        if (isEndExplicitlyConnected) {
+            endIndex = pipe.connections.end.connectionIndex;
+            if (endIndex < newConnections.length) {
                 shouldUpdateEnd = true;
-            } else if ((block.blockType === 'SAYAC' || block.blockType === 'VANA') &&
-                       Math.hypot(pipe.p2.x - oldConn.x, pipe.p2.y - oldConn.y) < tolerance) {
-                const isP2AlreadyConnectedToThisBlock = pipe.connections?.end?.blockId && (
-                    pipe.connections.end.blockId === block.id ||
-                    pipe.connections.end.blockId === block
-                );
-                if (!isP2AlreadyConnectedToThisBlock) {
-                    shouldUpdateEnd = true;
+            }
+        } else if (!pipe.connections?.end?.blockId) {
+            // 2. Explicit bağlantı yoksa, fiziksel olarak eski bir bağlantı noktasına yakın mı?
+            if (block.blockType === 'SERVIS_KUTUSU') {
+                 for(let i=0; i<oldCorners.length; i++) {
+                     const edgeP1 = oldCorners[i];
+                     const edgeP2 = oldCorners[(i+1)%4];
+                     const distSq = distToSegmentSquared(pipe.p2, edgeP1, edgeP2);
+                     if (distSq < REPAIR_TOLERANCE * REPAIR_TOLERANCE) {
+                         shouldUpdateEnd = true;
+                         endIndex = -1; // Kenara bağlı
+                         break;
+                     }
+                 }
+            } else {
+                for (let i = 0; i < oldConnections.length; i++) {
+                    const dist = Math.hypot(pipe.p2.x - oldConnections[i].x, pipe.p2.y - oldConnections[i].y);
+                    if (dist < REPAIR_TOLERANCE) {
+                        shouldUpdateEnd = true;
+                        endIndex = i;
+                        break;
+                    }
                 }
             }
+        }
+        // --- KONTROLLER SONU ---
 
-            if (shouldUpdateStart) {
+
+        if (shouldUpdateStart) {
+            if (startIndex !== -1) {
+                // Bağlantı noktasına bağlı
+                const newConn = newConnections[startIndex];
                 pipe.p1.x = newConn.x;
                 pipe.p1.y = newConn.y;
-
-                if (!pipe.connections) pipe.connections = { start: null, end: null };
-                pipe.connections.start = {
-                    blockId: block.id || block,
-                    connectionIndex: index,
-                    blockType: block.blockType
-                };
+                // Bağlantıyı onar (eğer eksikse)
+                if (!isStartExplicitlyConnected) {
+                    if (!pipe.connections) pipe.connections = { start: null, end: null };
+                    pipe.connections.start = {
+                        blockId: block.id || block,
+                        connectionIndex: startIndex,
+                        blockType: block.blockType
+                    };
+                }
+            } else {
+                // Kenara bağlı (startIndex === -1), en yakın yeni kenara snap et
+                let closestDistSq = Infinity;
+                let snapPoint = { x: pipe.p1.x, y: pipe.p1.y }; // Varsayılan: hareket etme
+                for(let i=0; i<newCorners.length; i++) {
+                    const edgeP1 = newCorners[i];
+                    const edgeP2 = newCorners[(i+1)%4];
+                    const distSq = distToSegmentSquared(pipe.p1, edgeP1, edgeP2);
+                    if (distSq < closestDistSq) {
+                        closestDistSq = distSq;
+                        // En yakın noktayı hesapla
+                        const l2 = (edgeP1.x - edgeP2.x)**2 + (edgeP1.y - edgeP2.y)**2;
+                        let t = ((pipe.p1.x - edgeP1.x) * (edgeP2.x - edgeP1.x) + (pipe.p1.y - edgeP1.y) * (edgeP2.y - edgeP1.y)) / l2;
+                        t = Math.max(0, Math.min(1, t));
+                        snapPoint = { x: edgeP1.x + t * (edgeP2.x - edgeP1.x), y: edgeP1.y + t * (edgeP2.y - edgeP1.y) };
+                    }
+                }
+                pipe.p1.x = snapPoint.x;
+                pipe.p1.y = snapPoint.y;
             }
+        }
 
-            if (shouldUpdateEnd) {
+        if (shouldUpdateEnd) {
+            if (endIndex !== -1) {
+                // Bağlantı noktasına bağlı
+                const newConn = newConnections[endIndex];
                 pipe.p2.x = newConn.x;
                 pipe.p2.y = newConn.y;
-
-                if (!pipe.connections) pipe.connections = { start: null, end: null };
-                pipe.connections.end = {
-                    blockId: block.id || block,
-                    connectionIndex: index,
-                    blockType: block.blockType
-                };
+                // Bağlantıyı onar (eğer eksikse)
+                if (!isEndExplicitlyConnected) {
+                    if (!pipe.connections) pipe.connections = { start: null, end: null };
+                    pipe.connections.end = {
+                        blockId: block.id || block,
+                        connectionIndex: endIndex,
+                        blockType: block.blockType
+                    };
+                }
+            } else {
+                // Kenara bağlı (endIndex === -1), en yakın yeni kenara snap et
+                let closestDistSq = Infinity;
+                let snapPoint = { x: pipe.p2.x, y: pipe.p2.y };
+                for(let i=0; i<newCorners.length; i++) {
+                    const edgeP1 = newCorners[i];
+                    const edgeP2 = newCorners[(i+1)%4];
+                    const distSq = distToSegmentSquared(pipe.p2, edgeP1, edgeP2);
+                    if (distSq < closestDistSq) {
+                        closestDistSq = distSq;
+                        const l2 = (edgeP1.x - edgeP2.x)**2 + (edgeP1.y - edgeP2.y)**2;
+                        let t = ((pipe.p2.x - edgeP1.x) * (edgeP2.x - edgeP1.x) + (pipe.p2.y - edgeP1.y) * (edgeP2.y - edgeP1.y)) / l2;
+                        t = Math.max(0, Math.min(1, t));
+                        snapPoint = { x: edgeP1.x + t * (edgeP2.x - edgeP1.x), y: edgeP1.y + t * (edgeP2.y - edgeP1.y) };
+                    }
+                }
+                pipe.p2.x = snapPoint.x;
+                pipe.p2.y = snapPoint.y;
             }
-        });
+        }
     });
 }
 
+
+// GÜNCELLENDİ: Bu yardımcı fonksiyon eklendi
 function getConnectionPointsAtPosition(block, center) {
+    // GÜNCELLENDİ: Servis kutusunun bağlantı noktası yok
+    if (block.blockType === 'SERVIS_KUTUSU') {
+        return [];
+    }
+    // --- GÜNCELLEME SONU ---
+
     const typeConfig = block.typeConfig || PLUMBING_BLOCK_TYPES[block.blockType];
     const cx = center.x;
     const cy = center.y;
@@ -638,10 +847,12 @@ function getConnectionPointsAtPosition(block, center) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    return typeConfig.connectionPoints.map(cp => ({
+    return typeConfig.connectionPoints.map((cp, index) => ({
         x: cx + cp.x * cos - cp.y * sin,
         y: cy + cp.x * sin + cp.y * cos,
-        label: cp.label
+        label: cp.label,
+        index: index, // index eklendi
+        z: cp.z
     }));
 }
 
@@ -649,6 +860,12 @@ export function deletePlumbingBlock(block) {
     if (block.blockType === 'SAYAC' || block.blockType === 'VANA') {
         mergePipesAfterBlockDeletion(block);
     }
+    // GÜNCELLENDİ: Servis kutusu silindiğinde de bağlantıları kopar
+    else if (block.blockType === 'SERVIS_KUTUSU') {
+        clearConnectionsToBlock(block);
+    }
+    // --- GÜNCELLEME SONU ---
+
 
     const index = state.plumbingBlocks?.indexOf(block);
     if (index !== undefined && index > -1) {
@@ -657,6 +874,49 @@ export function deletePlumbingBlock(block) {
     }
     return false;
 }
+
+// GÜNCELLENDİ: Servis kutusu için bu fonksiyon eklendi
+/**
+ * Bir blok (özellikle Servis Kutusu) silindiğinde, ona bağlı (fiziksel olarak) boruların bağlantısını keser.
+ */
+function clearConnectionsToBlock(block) {
+    const REPAIR_TOLERANCE = 2; // Fiziksel yakınlık toleransı
+    const corners = getPlumbingBlockCorners(block);
+
+    (state.plumbingPipes || []).forEach(pipe => {
+        // P1'i kontrol et
+        let p1Near = false;
+        for(let i=0; i<corners.length; i++) {
+            const edgeP1 = corners[i];
+            const edgeP2 = corners[(i+1)%4];
+            if (distToSegmentSquared(pipe.p1, edgeP1, edgeP2) < REPAIR_TOLERANCE * REPAIR_TOLERANCE) {
+                p1Near = true;
+                break;
+            }
+        }
+        if (p1Near && pipe.connections?.start) {
+             console.log(`Clearing implicit connection for pipe (P1) from deleted ${block.blockType}`);
+             pipe.connections.start = null;
+        }
+
+        // P2'yi kontrol et
+        let p2Near = false;
+        for(let i=0; i<corners.length; i++) {
+            const edgeP1 = corners[i];
+            const edgeP2 = corners[(i+1)%4];
+            if (distToSegmentSquared(pipe.p2, edgeP1, edgeP2) < REPAIR_TOLERANCE * REPAIR_TOLERANCE) {
+                p2Near = true;
+                break;
+            }
+        }
+         if (p2Near && pipe.connections?.end) {
+             console.log(`Clearing implicit connection for pipe (P2) from deleted ${block.blockType}`);
+             pipe.connections.end = null;
+        }
+    });
+}
+// --- GÜNCELLEME SONU ---
+
 
 /**
  * ⭐ GÜNCELLENDİ: Node paylaşımı ile blok silindiğinde boruları birleştir
@@ -687,6 +947,7 @@ function mergePipesAfterBlockDeletion(block) {
             connectionInfo = { pipe, end: 'p2', connectionIndex: pipe.connections.end.connectionIndex };
             connectedPipes.push(connectionInfo);
         } else {
+            // GÜNCELLENDİ: Servis kutusu için bu döngü çalışmayacak (connections boş)
             for (let i = 0; i < connections.length; i++) {
                 const cp = connections[i];
                 if (Math.hypot(pipe.p1.x - cp.x, pipe.p1.y - cp.y) < tolerance) {
@@ -716,13 +977,13 @@ function mergePipesAfterBlockDeletion(block) {
         // pipe1'in bloğa bağlı olan ucunu, pipe2'nin dış ucuna bağlıyoruz
 
         if (pipe1Info.end === 'p1') {
-            // pipe1'in p1'i bloğa bağlı, p2'yi değiştir
-            pipe1.p2 = pipe2Info.end === 'p2' ? pipe2.p1 : pipe2.p2;
-            pipe1.connections.end = pipe2Info.end === 'p2' ? pipe2.connections.start : pipe2.connections.end;
+            // pipe1'in p1'i bloğa bağlı, p2'yi değiştir (YANLIŞ, p1'i değiştir)
+            pipe1.p1 = (pipe2Info.end === 'p2') ? pipe2.p1 : pipe2.p2;
+            pipe1.connections.start = (pipe2Info.end === 'p2') ? pipe2.connections.start : pipe2.connections.end;
         } else {
-            // pipe1'in p2'si bloğa bağlı, p1'i değiştir
-            pipe1.p1 = pipe2Info.end === 'p2' ? pipe2.p1 : pipe2.p2;
-            pipe1.connections.start = pipe2Info.end === 'p2' ? pipe2.connections.start : pipe2.connections.end;
+            // pipe1'in p2'si bloğa bağlı, p2'yi değiştir
+            pipe1.p2 = (pipe2Info.end === 'p2') ? pipe2.p1 : pipe2.p2;
+            pipe1.connections.end = (pipe2Info.end === 'p2') ? pipe2.connections.start : pipe2.connections.end;
         }
 
         // pipe2'nin vanalarını pipe1'e aktar
