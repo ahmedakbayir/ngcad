@@ -2,7 +2,7 @@
 
 import { state, dom } from '../general-files/main.js';
 import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints, getActiveConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
-import { PLUMBING_PIPE_TYPES, snapToConnectionPoint, snapToPipeEndpoint } from '../architectural-objects/plumbing-pipes.js';
+import { PLUMBING_PIPE_TYPES, snapToConnectionPoint, snapToPipeEndpoint } from './plumbing-pipes.js';
 
 /**
  * TESİSAT BLOKLARI 2D RENDERING

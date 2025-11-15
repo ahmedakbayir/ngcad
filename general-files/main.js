@@ -7,7 +7,7 @@ import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../draw/guide-menu.js';
 import { initFloorOperationsMenu } from '../draw/floor-operations-menu.js';
-import { initPanelDisplayMenu } from '../draw/panel-display-menu.js';
+import { initPanelDisplayMenu } from '../menu/panel-display-menu.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';

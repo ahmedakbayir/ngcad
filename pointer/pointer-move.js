@@ -5,7 +5,7 @@ import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from '../architectural-objects/beams.js';
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
 import { onPointerMove as onPointerMovePlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
-import { onPointerMove as onPointerMovePlumbingPipe, isSpaceForValve } from '../architectural-objects/plumbing-pipes.js';
+import { onPointerMove as onPointerMovePlumbingPipe, isSpaceForValve } from '../plumbing/plumbing-pipes.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
 import { getObjectAtPoint } from '../general-files/actions.js'; // getObjectAtPoint eklendi
@@ -18,7 +18,7 @@ import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.
 import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { isPointInPlumbingBlock, deletePlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
-import { getPipeAtPoint, getValveAtPoint, deletePlumbingPipeAndMerge } from '../architectural-objects/plumbing-pipes.js';
+import { getPipeAtPoint, getValveAtPoint, deletePlumbingPipeAndMerge } from '../plumbing/plumbing-pipes.js';
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
 const SYMMETRY_PREVIEW_DEBOUNCE_MS = 50; // 50ms gecikme

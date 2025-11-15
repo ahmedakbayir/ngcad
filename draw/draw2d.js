@@ -5,7 +5,7 @@ import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
     drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
     drawBeam, drawStairs, drawGuides
     } from './renderer2d.js';
-import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview, drawValvesOnPipes } from './draw-plumbing.js'; 
+import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview, drawValvesOnPipes } from '../plumbing/draw-plumbing.js'; 
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
         } from './draw-previews.js';
@@ -21,7 +21,7 @@ import { getStairCorners } from '../architectural-objects/stairs.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 import { state, dom, BG } from '../general-files/main.js';
 import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; 
-import { drawPlumbingSnapLines } from './draw-plumbing-snap.js';
+import { drawPlumbingSnapLines } from '../plumbing/draw-plumbing-snap.js';
 
 
 
