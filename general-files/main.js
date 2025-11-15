@@ -5,8 +5,8 @@ import { setupFileIOListeners } from './file-io.js';
 import { setupInputListeners, handleDelete } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
-import { initGuideContextMenu } from '../draw/guide-menu.js';
-import { initFloorOperationsMenu } from '../draw/floor-operations-menu.js';
+import { initGuideContextMenu } from '../menu/guide-menu.js';
+import { initFloorOperationsMenu } from '../menu/floor-operations-menu.js';
 import { initPanelDisplayMenu } from '../menu/panel-display-menu.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---

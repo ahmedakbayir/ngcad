@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLUMBING_BLOCK_TYPES } from '../architectural-objects/plumbing-blocks.js';
+import { PLUMBING_BLOCK_TYPES } from '../plumbing/plumbing-blocks.js';
 import { PLUMBING_PIPE_TYPES } from '../plumbing/plumbing-pipes.js';
 
 /**

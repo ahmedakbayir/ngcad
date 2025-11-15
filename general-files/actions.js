@@ -6,7 +6,7 @@ import { state } from './main.js';
 import { getColumnAtPoint } from '../architectural-objects/columns.js';
 import { getBeamAtPoint } from '../architectural-objects/beams.js';
 import { getStairAtPoint } from '../architectural-objects/stairs.js';
-import { getPlumbingBlockAtPoint } from '../architectural-objects/plumbing-blocks.js';
+import { getPlumbingBlockAtPoint } from '../plumbing/plumbing-blocks.js';
 import { getPipeAtPoint, getValveAtPoint } from '../plumbing/plumbing-pipes.js';
 import { getDoorAtPoint } from '../architectural-objects/door-handler.js';
 import { getGuideAtPoint } from '../architectural-objects/guide-handler.js';

@@ -4,7 +4,7 @@ import { onPointerMove as onPointerMoveWindow } from '../architectural-objects/w
 import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from '../architectural-objects/columns.js';
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from '../architectural-objects/beams.js';
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
-import { onPointerMove as onPointerMovePlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
+import { onPointerMove as onPointerMovePlumbingBlock } from '../plumbing/plumbing-blocks.js';
 import { onPointerMove as onPointerMovePlumbingPipe, isSpaceForValve } from '../plumbing/plumbing-pipes.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
@@ -17,7 +17,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
 import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls } from '../wall/wall-processor.js';
-import { isPointInPlumbingBlock, deletePlumbingBlock } from '../architectural-objects/plumbing-blocks.js';
+import { isPointInPlumbingBlock, deletePlumbingBlock } from '../plumbing/plumbing-blocks.js';
 import { getPipeAtPoint, getValveAtPoint, deletePlumbingPipeAndMerge } from '../plumbing/plumbing-pipes.js';
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi

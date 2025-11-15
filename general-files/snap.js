@@ -9,7 +9,7 @@ import { getColumnCorners } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
 import { screenToWorld, worldToScreen, distToSegmentSquared, getLineIntersectionPoint } from '../draw/geometry.js';
-import { getPlumbingSnapPoint, isPlumbingMode } from './snap-plumbing.js';
+import { getPlumbingSnapPoint, isPlumbingMode } from '../plumbing/snap-plumbing.js';
 
 // --- MERDİVEN SNAP İÇİN YARDIMCI FONKSİYONLAR ---
 

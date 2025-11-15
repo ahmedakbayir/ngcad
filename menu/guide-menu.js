@@ -1,5 +1,5 @@
 // guide-menu.js
-import { getOrCreateNode } from './geometry.js';
+import { getOrCreateNode } from '../draw/geometry.js';
 import { state, setState, dom, setMode } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
 

@@ -10,10 +10,10 @@ import { createStairs, recalculateStepCount, isPointInStair, getNextStairLetter}
 import { createColumn, isPointInColumn } from '../architectural-objects/columns.js'; // isPointInColumn eklendi
 import { createBeam, isPointInBeam } from '../architectural-objects/beams.js'; // isPointInBeam eklendi
 import { screenToWorld, worldToScreen, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from '../draw/geometry.js'; // distToSegmentSquared ekleyin
-import { showGuideContextMenu, hideGuideContextMenu } from '../draw/guide-menu.js';
+import { showGuideContextMenu, hideGuideContextMenu } from '../menu/guide-menu.js';
 import { fitDrawingToScreen, onWheel } from '../draw/zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { showWallPanel, hideWallPanel } from '../wall/wall-panel.js'; // <-- HIDEWALLPANEL EKLENDİ
-import { copyFloorArchitecture, pasteFloorArchitecture } from '../draw/floor-operations-menu.js'; // <-- KAT MİMARİSİ KOPYALA/YAPIŞTIR
+import { copyFloorArchitecture, pasteFloorArchitecture } from '../menu/floor-operations-menu.js'; // <-- KAT MİMARİSİ KOPYALA/YAPIŞTIR
 import { onPointerDownDraw as doorPointerDownDraw } from '../architectural-objects/door-handler.js'; // SAĞTIK İÇİN
 import { onPointerDownDraw as windowPointerDownDraw } from '../architectural-objects/window-handler.js'; // SAĞTIK İÇİN
 import { onPointerDown } from '../pointer/pointer-down.js';
@@ -25,7 +25,7 @@ import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../sce
 import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 // YENİ İMPORT: Silme işlemi için getConnectionPoints eklendi
-import { getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
+import { getConnectionPoints } from '../plumbing/plumbing-blocks.js';
 
 
 // ... (dosyanın üst kısmı değişmedi: currentModifierKeys, extendWallOnTabPress, handleCopy, handlePaste) ...

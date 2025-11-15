@@ -2,9 +2,9 @@
 // TESİSAT ELEMANLARI İÇİN ÖZEL SNAP FONKSİYONLARI
 // Duvar merkez çizgisine DEĞİL, duvar yüzeyinden 3 cm içerdeki paralel çizgilere snap yapar
 
-import { state } from './main.js';
+import { state } from '../general-files/main.js';
 import { worldToScreen, getLineIntersectionPoint } from '../draw/geometry.js';
-import { getConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
+import { getConnectionPoints } from './plumbing-blocks.js';
 
 /**
  * TESİSAT ELEMANLARI İÇİN ÖZEL SNAP FONKSİYONU

@@ -1,7 +1,7 @@
 // draw/draw-plumbing.js
 
 import { state, dom } from '../general-files/main.js';
-import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints, getActiveConnectionPoints } from '../architectural-objects/plumbing-blocks.js';
+import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints, getActiveConnectionPoints } from './plumbing-blocks.js';
 import { PLUMBING_PIPE_TYPES, snapToConnectionPoint, snapToPipeEndpoint } from './plumbing-pipes.js';
 
 /**

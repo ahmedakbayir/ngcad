@@ -1,7 +1,7 @@
 // floor-operations-menu.js
 import { state, setState } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
-import { getOrCreateNode } from './geometry.js';
+import { getOrCreateNode } from '../draw/geometry.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { getNextStairLetter } from '../architectural-objects/stairs.js';
