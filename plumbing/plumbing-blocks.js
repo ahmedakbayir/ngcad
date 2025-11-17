@@ -433,6 +433,61 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         let targetY = startCenter.y + dy;
         let useSnap = false;
 
+        // ✅ SAYAÇ için boru snap ve otomatik rotasyon
+        if (block.blockType === 'SAYAC') {
+            const currentFloorId = state.currentFloor?.id;
+            const pipes = currentFloorId
+                ? (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId)
+                : (state.plumbingPipes || []);
+
+            // Yakındaki boruyu bul
+            let closestPipe = null;
+            let closestDist = Infinity;
+            const PIPE_SNAP_THRESHOLD = 15;
+
+            pipes.forEach(pipe => {
+                const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+                if (pipeLength < 0.1) return;
+
+                const dx_pipe = pipe.p2.x - pipe.p1.x;
+                const dy_pipe = pipe.p2.y - pipe.p1.y;
+                const lengthSq = dx_pipe * dx_pipe + dy_pipe * dy_pipe;
+
+                // Boruya olan mesafeyi hesapla
+                let t = ((unsnappedPos.x - pipe.p1.x) * dx_pipe + (unsnappedPos.y - pipe.p1.y) * dy_pipe) / lengthSq;
+                t = Math.max(0, Math.min(1, t));
+
+                const closestX = pipe.p1.x + t * dx_pipe;
+                const closestY = pipe.p1.y + t * dy_pipe;
+                const dist = Math.hypot(unsnappedPos.x - closestX, unsnappedPos.y - closestY);
+
+                if (dist < closestDist && dist < PIPE_SNAP_THRESHOLD) {
+                    closestDist = dist;
+                    closestPipe = { pipe, t, closestX, closestY };
+                }
+            });
+
+            // Eğer yakın bir boru varsa, o borunun yönüne göre dön
+            if (closestPipe) {
+                const pipe = closestPipe.pipe;
+                const pipeAngle = Math.atan2(
+                    pipe.p2.y - pipe.p1.y,
+                    pipe.p2.x - pipe.p1.x
+                ) * 180 / Math.PI;
+
+                // Borunun açısına göre sayaç rotation'ını ayarla
+                let normalizedAngle = pipeAngle;
+                while (normalizedAngle > 180) normalizedAngle -= 360;
+                while (normalizedAngle < -180) normalizedAngle += 360;
+                block.rotation = Math.round(normalizedAngle / 15) * 15;
+
+                // Sayacı boruya snap et
+                targetX = closestPipe.closestX;
+                targetY = closestPipe.closestY;
+                useSnap = true;
+            }
+        }
+
         if (block.blockType === 'SERVIS_KUTUSU') {
             // ✅ DÜZELTME: Hysteresis eşikleri düşürüldü (smooth taşıma)
             const SNAP_ACTIVATE_THRESHOLD = 10; // 20 -> 10 (daha hızlı snap)
@@ -536,14 +591,15 @@ export function onPointerMove(snappedPos, unsnappedPos) {
 }
 
 /**
- * ✅ DÜZELTME: Basitleştirilmiş ve genişletilmiş tolerans ile boru taşıma
- * - REPAIR_TOLERANCE 2cm -> 5cm (daha geniş yakalama alanı)
- * - Servis Kutusu kenara bağlı boruları düzgün taşır
+ * ✅ DÜZELTME: Sadece DOĞRUDAN bağlı boruları taşır, diğer node'lara dokunmaz
+ * - Explicit connection varsa kesinlikle taşır
+ * - Fiziksel yakınlık kontrolü SADECE explicit connection yoksa ve çok dar tolerance ile
+ * - REPAIR_TOLERANCE daraltıldı (1cm) - diğer boruların node'larını yutmaz
  */
 function updateConnectedPipes(block, oldCenter, newCenter) {
     const newConnections = getConnectionPoints(block);
     const oldConnections = getConnectionPointsAtPosition(block, oldCenter);
-    const REPAIR_TOLERANCE = 5; // ✅ 2cm -> 5cm artırıldı (daha geniş yakalama)
+    const REPAIR_TOLERANCE = 1; // ✅ 5cm -> 1cm daraltıldı (node'ları yutmamak için)
 
     (state.plumbingPipes || []).forEach(pipe => {
         let shouldUpdateStart = false;
@@ -734,11 +790,11 @@ function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
     const tempBlock = { ...block, rotation: oldRotation };
     const oldConnections = getConnectionPoints(tempBlock);
     const newConnections = getConnectionPoints(block);
-    
+
     const oldCorners = (block.blockType === 'SERVIS_KUTUSU') ? getPlumbingBlockCorners(tempBlock) : [];
     const newCorners = (block.blockType === 'SERVIS_KUTUSU') ? getPlumbingBlockCorners(block) : [];
 
-    const REPAIR_TOLERANCE = 5; // ✅ 2cm -> 5cm
+    const REPAIR_TOLERANCE = 1; // ✅ 5cm -> 1cm (node'ları yutmamak için)
 
     (state.plumbingPipes || []).forEach(pipe => {
         let shouldUpdateStart = false;
@@ -971,7 +1027,7 @@ export function deletePlumbingBlock(block) {
 }
 
 function clearConnectionsToBlock(block) {
-    const REPAIR_TOLERANCE = 5; // ✅ 2cm -> 5cm
+    const REPAIR_TOLERANCE = 1; // ✅ 5cm -> 1cm (node'ları yutmamak için)
     const corners = getPlumbingBlockCorners(block);
 
     (state.plumbingPipes || []).forEach(pipe => {

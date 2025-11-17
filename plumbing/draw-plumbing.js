@@ -819,3 +819,88 @@ export function drawPlumbingBlockPlacementPreview() {
         }
     }
 }
+
+/**
+ * ✅ TESİSAT SNAP YAKALAMA İŞARETİ
+ * Boru çizimi ve servis kutusu yaklaştığında snap noktalarını gösterir
+ */
+export function drawPlumbingSnapIndicator() {
+    const { mousePos, currentMode, zoom } = state;
+    const { ctx2d } = dom;
+
+    if (!mousePos || !mousePos.isSnapped) return;
+
+    // Sadece plumbing modlarında göster
+    const isPlumbingMode = currentMode === 'drawPlumbingPipe' ||
+                           currentMode === 'drawPlumbingBlock' ||
+                           (state.isDragging && state.selectedObject?.type === 'plumbingBlock');
+
+    if (!isPlumbingMode) return;
+
+    const snapType = mousePos.snapType;
+
+    // Snap tiplerine göre farklı renkler ve stiller
+    let indicatorColor = '#00FF00'; // Varsayılan yeşil
+    let indicatorSize = 6 / zoom;
+    let showCross = false;
+
+    if (snapType === 'PLUMBING_INTERSECTION' || snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION') {
+        // Kesişimler için daha büyük ve sarı indicator
+        indicatorColor = '#FFD700'; // Altın sarısı
+        indicatorSize = 8 / zoom;
+        showCross = true;
+    } else if (snapType === 'PLUMBING_BLOCK_CENTER') {
+        // Merkez için mavi indicator
+        indicatorColor = '#2196F3';
+        indicatorSize = 7 / zoom;
+        showCross = true;
+    } else if (snapType === 'PLUMBING_BLOCK_EDGE') {
+        // Kenar için yeşil indicator
+        indicatorColor = '#00FF00';
+        indicatorSize = 6 / zoom;
+    } else if (snapType === 'PLUMBING_CONNECTION') {
+        // Bağlantı noktaları için kırmızı indicator
+        indicatorColor = '#FF4444';
+        indicatorSize = 6 / zoom;
+    } else if (snapType === 'PLUMBING_PIPE_END') {
+        // Boru ucu için mavi indicator
+        indicatorColor = '#4444FF';
+        indicatorSize = 6 / zoom;
+    } else if (snapType === 'PLUMBING_WALL_SURFACE') {
+        // Duvar yüzeyi için açık yeşil indicator
+        indicatorColor = '#88FF88';
+        indicatorSize = 5 / zoom;
+    }
+
+    ctx2d.save();
+
+    // Dış çember (beyaz kenarlık)
+    ctx2d.strokeStyle = '#FFFFFF';
+    ctx2d.lineWidth = 2 / zoom;
+    ctx2d.fillStyle = indicatorColor;
+    ctx2d.beginPath();
+    ctx2d.arc(mousePos.x, mousePos.y, indicatorSize, 0, Math.PI * 2);
+    ctx2d.fill();
+    ctx2d.stroke();
+
+    // Kesişimler ve merkez için artı işareti
+    if (showCross) {
+        ctx2d.strokeStyle = '#FFFFFF';
+        ctx2d.lineWidth = 2 / zoom;
+        const crossSize = indicatorSize * 1.5;
+
+        // Yatay çizgi
+        ctx2d.beginPath();
+        ctx2d.moveTo(mousePos.x - crossSize, mousePos.y);
+        ctx2d.lineTo(mousePos.x + crossSize, mousePos.y);
+        ctx2d.stroke();
+
+        // Dikey çizgi
+        ctx2d.beginPath();
+        ctx2d.moveTo(mousePos.x, mousePos.y - crossSize);
+        ctx2d.lineTo(mousePos.x, mousePos.y + crossSize);
+        ctx2d.stroke();
+    }
+
+    ctx2d.restore();
+}

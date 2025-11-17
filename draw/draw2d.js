@@ -5,7 +5,7 @@ import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
     drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
     drawBeam, drawStairs, drawGuides
     } from './renderer2d.js';
-import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview, drawValvesOnPipes } from '../plumbing/draw-plumbing.js'; 
+import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview, drawValvesOnPipes, drawPlumbingSnapIndicator } from '../plumbing/draw-plumbing.js'; 
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
         } from './draw-previews.js';
@@ -516,6 +516,7 @@ export function draw2D() {
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
     drawPlumbingPipePreview(); // Boru çizim önizlemesi
     drawPlumbingBlockPlacementPreview(); // OCAK/KOMBI ekleme modu önizlemesi
+    drawPlumbingSnapIndicator(); // ✅ Tesisat snap yakalama işareti
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
  if (state.isStairPopupVisible && stairs && stairs.length > 0) {
