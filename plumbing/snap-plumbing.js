@@ -108,41 +108,43 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         }
     });
 
-    // Kesişimler (blok modu için)
-    if (!isPipeDrawingActive) {
-        allSnapLines.forEach(snapLineItem => {
-            const wallSnapLine = snapLineItem.line;
-            allPlumbingBlockEdges.forEach(blockEdge => {
-                const intersection = getLineIntersectionPoint(
-                    wallSnapLine.p1, wallSnapLine.p2, 
-                    blockEdge.p1, blockEdge.p2
-                );
-                
-                if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
-                    const screenPt = worldToScreen(intersection.x, intersection.y);
-                    const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
-                    
-                    if (dist < INTERSECTION_SNAP_RADIUS) {
-                        addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * 0.5, snapLineItem.wall, allowLocking);
-                    }
-                }
-            });
-        });
+    // ✅ Kesişimler (boru çizimi için ÖNCELİKLE aktif, blok modu için de)
+    allSnapLines.forEach(snapLineItem => {
+        const wallSnapLine = snapLineItem.line;
+        allPlumbingBlockEdges.forEach(blockEdge => {
+            const intersection = getLineIntersectionPoint(
+                wallSnapLine.p1, wallSnapLine.p2,
+                blockEdge.p1, blockEdge.p2
+            );
 
-        for (let i = 0; i < allSnapLines.length; i++) {
-            for (let j = i + 1; j < allSnapLines.length; j++) {
-                const line1 = allSnapLines[i].line;
-                const line2 = allSnapLines[j].line;
-                
-                const intersection = getLineIntersectionPoint(line1.p1, line1.p2, line2.p1, line2.p2);
-                
-                if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
-                    const screenPt = worldToScreen(intersection.x, intersection.y);
-                    const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
-                    
-                    if (dist < INTERSECTION_SNAP_RADIUS) {
-                        addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * 0.1, allSnapLines[i].wall, allowLocking);
-                    }
+            if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
+                const screenPt = worldToScreen(intersection.x, intersection.y);
+                const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+
+                if (dist < INTERSECTION_SNAP_RADIUS) {
+                    // Boru çiziminde daha yüksek öncelik (dist * 0.05), blok modunda normal öncelik
+                    const priorityMultiplier = isPipeDrawing ? 0.05 : 0.5;
+                    addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * priorityMultiplier, snapLineItem.wall, allowLocking);
+                }
+            }
+        });
+    });
+
+    for (let i = 0; i < allSnapLines.length; i++) {
+        for (let j = i + 1; j < allSnapLines.length; j++) {
+            const line1 = allSnapLines[i].line;
+            const line2 = allSnapLines[j].line;
+
+            const intersection = getLineIntersectionPoint(line1.p1, line1.p2, line2.p1, line2.p2);
+
+            if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
+                const screenPt = worldToScreen(intersection.x, intersection.y);
+                const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+
+                if (dist < INTERSECTION_SNAP_RADIUS) {
+                    // Boru çiziminde en yüksek öncelik (dist * 0.01), blok modunda düşük öncelik
+                    const priorityMultiplier = isPipeDrawing ? 0.01 : 0.1;
+                    addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * priorityMultiplier, allSnapLines[i].wall, allowLocking);
                 }
             }
         }
@@ -210,17 +212,17 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         });
     });
 
-    // Blok Kenarları
-    if (!isPipeDrawingActive) {
+    // ✅ Blok Kenarları ve Merkez (Boru çizimi için)
+    if (isPipeDrawing) {
         allPlumbingBlockEdges.forEach(edge => {
             const l2 = (edge.p1.x - edge.p2.x) ** 2 + (edge.p1.y - edge.p2.y) ** 2;
             if (l2 < 1e-6) return;
-            
+
             let t = ((wm.x - edge.p1.x) * (edge.p2.x - edge.p1.x) + (wm.y - edge.p1.y) * (edge.p2.y - edge.p1.y)) / l2;
             t = Math.max(0, Math.min(1, t));
-            
+
             const closest = { x: edge.p1.x + t * (edge.p2.x - edge.p1.x), y: edge.p1.y + t * (edge.p2.y - edge.p1.y) };
-            
+
             const screenPt = worldToScreen(closest.x, closest.y);
             const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
 
@@ -228,17 +230,48 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
                 addCandidate(closest, 'PLUMBING_BLOCK_EDGE', dist * 0.7, edge.block, allowLocking);
             }
         });
+
+        // ✅ Kutu Merkezi (tüm kenarlardan + merkez snap için)
+        plumbingBlocks.forEach(block => {
+            if (block.blockType !== 'SERVIS_KUTUSU') return;
+            if (isDraggingBlock && block === draggedBlock) return;
+
+            const screenPt = worldToScreen(block.center.x, block.center.y);
+            const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+
+            if (dist < effectiveSnapRadius) {
+                addCandidate(
+                    { x: block.center.x, y: block.center.y },
+                    'PLUMBING_BLOCK_CENTER',
+                    dist * 0.65,
+                    block,
+                    allowLocking
+                );
+            }
+        });
     }
 
     if (candidates.length === 0) return null;
 
-    const priority = {
+    // ✅ ÖNCELİK SIRASI: Boru çizerken snap çizgisi kesişimleri ÖNCELİKLİ
+    const priority = isPipeDrawing ? {
+        // Boru çizimi sırasında: Kesişimler en öncelikli
+        'PLUMBING_INTERSECTION': 0,  // Snap çizgisi kesişimleri
+        'PLUMBING_WALL_BLOCK_INTERSECTION': 1,  // Duvar-kutu kesişimleri
+        'PLUMBING_CONNECTION': 2,
+        'PLUMBING_PIPE_END': 3,
+        'PLUMBING_BLOCK_CENTER': 4,  // Kutu merkezi
+        'PLUMBING_BLOCK_EDGE': 5,  // Kutu kenarları
+        'PLUMBING_WALL_SURFACE': 6
+    } : {
+        // Blok yerleştirme sırasında: Bağlantı noktaları öncelikli
         'PLUMBING_CONNECTION': 0,
         'PLUMBING_PIPE_END': 1,
         'PLUMBING_WALL_BLOCK_INTERSECTION': 2,
         'PLUMBING_BLOCK_EDGE': 3,
-        'PLUMBING_INTERSECTION': 4,
-        'PLUMBING_WALL_SURFACE': 5
+        'PLUMBING_BLOCK_CENTER': 4,
+        'PLUMBING_INTERSECTION': 5,
+        'PLUMBING_WALL_SURFACE': 6
     };
 
     candidates.sort((a, b) => {
