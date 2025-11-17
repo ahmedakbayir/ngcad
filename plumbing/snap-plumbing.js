@@ -3,6 +3,7 @@
 // Duvar merkez çizgisine DEĞİL, duvar yüzeyinden 3 cm içerdeki paralel çizgilere snap yapar
 // GÜNCELLENDİ: Blok kenarlarına snap eklendi (PLUMBING_BLOCK_EDGE)
 // GÜNCELLENDİ: Blok kenarı-Duvar snap çizgisi kesişimine snap eklendi (PLUMBING_WALL_BLOCK_INTERSECTION)
+// GÜNCELLENDİ: Servis kutusu taşıma sırasında snap desteği (snapAngle eklendi)
 
 import { state } from '../general-files/main.js';
 import { worldToScreen, getLineIntersectionPoint, distToSegmentSquared } from '../draw/geometry.js';
@@ -36,12 +37,18 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     };
 
     const isBlockMode = state.currentMode === 'drawPlumbingBlock';
+    const isDraggingBlock = state.isDragging && state.selectedObject?.type === 'plumbingBlock';
     const blockConfig = isBlockMode ? PLUMBING_BLOCK_TYPES[state.currentPlumbingBlockType] : null;
+    const draggedBlock = isDraggingBlock ? state.selectedObject?.object : null;
 
     // --- DUVAR YÜZEY SNAP HATLARI (Kırmızı çizgiler) ---
     const PLUMBING_OFFSET = 5; 
     const EXTENSION_LENGTH = 50; 
-    const INTERSECTION_SNAP_RADIUS = SNAP_RADIUS_PIXELS * 1.5; 
+    
+    // GÜNCELLENDİ: Taşıma sırasında snap toleransını hafifçe artır (1.5x)
+    // Hysteresis mekanizması ile birlikte çalışacak şekilde optimize edildi
+    const effectiveSnapRadius = isDraggingBlock ? SNAP_RADIUS_PIXELS * 1.5 : SNAP_RADIUS_PIXELS;
+    const INTERSECTION_SNAP_RADIUS = effectiveSnapRadius * 1.5; 
     
     const allSnapLines = []; // {line, wall}
     
@@ -62,9 +69,10 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         const ny = dx / len;
         
         let offset;
-        if (isBlockMode && blockConfig) {
-            // Blok modunda: Duvar Yüzeyi + Blok Yarı-Yüksekliği (2D'de)
-            offset = halfThickness + (blockConfig.height / 2);
+        if ((isBlockMode || isDraggingBlock) && (blockConfig || draggedBlock)) {
+            // Blok modunda veya blok taşırken: Duvar Yüzeyi + Blok Yarı-Yüksekliği (2D'de)
+            const activeConfig = blockConfig || (draggedBlock ? PLUMBING_BLOCK_TYPES[draggedBlock.blockType] : null);
+            offset = halfThickness + (activeConfig ? (activeConfig.height / 2) : PLUMBING_OFFSET);
         } else {
             // Boru modunda: Duvar Yüzeyi + 5cm
             offset = halfThickness + PLUMBING_OFFSET;
@@ -95,6 +103,8 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     const allPlumbingBlockEdges = []; // {block, p1, p2}
     plumbingBlocks.forEach(block => {
         if (block.blockType !== 'SERVIS_KUTUSU') return; 
+        // Kendi bloğunu ekle (taşırken diğer kutulara snap için)
+        if (isDraggingBlock && block === draggedBlock) return;
 
         const corners = getPlumbingBlockCorners(block);
         if (corners.length < 4) return;
@@ -123,7 +133,7 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
                 
                 if (dist < INTERSECTION_SNAP_RADIUS) { 
                     // Yeni snap tipi: PLUMBING_WALL_BLOCK_INTERSECTION
-                    addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * 0.5, blockEdge.block); // Yüksek öncelik (0.5)
+                    addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * 0.5, snapLineItem.wall); // Duvar bilgisini ekledik
                 }
             }
         });
@@ -142,7 +152,7 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
                 const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
                 
                 if (dist < INTERSECTION_SNAP_RADIUS) {
-                    addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * 0.1, null);
+                    addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * 0.1, allSnapLines[i].wall);
                 }
             }
         }
@@ -167,7 +177,7 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         const screenPt = worldToScreen(closest.x, closest.y);
         const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
         
-        if (dist < SNAP_RADIUS_PIXELS) {
+        if (dist < effectiveSnapRadius) {
             addCandidate(closest, 'PLUMBING_WALL_SURFACE', dist, wall);
         }
     });
@@ -210,7 +220,7 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         const screenPt = worldToScreen(closest.x, closest.y);
         const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
 
-        if (dist < SNAP_RADIUS_PIXELS) {
+        if (dist < effectiveSnapRadius) {
             addCandidate(closest, 'PLUMBING_BLOCK_EDGE', dist * 0.7, edge.block);
         }
     });
@@ -236,7 +246,25 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         return a.distance - b.distance; 
     });
     
-    return candidates[0]; // En iyi adayı döndür
+    const bestCandidate = candidates[0];
+
+    // GÜNCELLENDİ: Duvar snap'i için rotation bilgisi ekle
+    if ((bestCandidate.type === 'PLUMBING_WALL_SURFACE' || 
+         bestCandidate.type === 'PLUMBING_WALL_BLOCK_INTERSECTION' ||
+         bestCandidate.type === 'PLUMBING_INTERSECTION') && 
+        bestCandidate.wall) {
+        
+        const wall = bestCandidate.wall;
+        const wallAngle = Math.atan2(
+            wall.p2.y - wall.p1.y,
+            wall.p2.x - wall.p1.x
+        ) * 180 / Math.PI;
+        
+        // Duvara dik açı (90 derece ekle ve 15'in katına yuvarla)
+        bestCandidate.snapAngle = Math.round((wallAngle + 90) / 15) * 15;
+    }
+
+    return bestCandidate; // En iyi adayı döndür
 }
 
 /**

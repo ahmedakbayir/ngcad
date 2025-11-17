@@ -211,47 +211,7 @@ export function getPlumbingBlockAtPoint(point) {
     return null;
 }
 
-export function onPointerDown(selectedObject, pos, snappedPos, e) {
-    const block = selectedObject.object;
-    const handle = selectedObject.handle;
-    let effectiveBlock = block;
 
-    const isCopying = e.ctrlKey || e.metaKey;
-    if (isCopying) {
-        const copy = createPlumbingBlock(block.center.x, block.center.y, block.blockType);
-        copy.rotation = block.rotation;
-        copy.typeConfig = block.typeConfig;
-
-        if (!state.plumbingBlocks) state.plumbingBlocks = [];
-        state.plumbingBlocks.push(copy);
-
-        effectiveBlock = copy;
-        setState({
-            selectedObject: { ...selectedObject, object: copy, handle: 'center' },
-        });
-    }
-
-    // ⭐ TAŞIMA BAŞLAMADAN ÖNCE EKSİK BAĞLANTI BİLGİLERİNİ DOLDUR
-    if (handle === 'body') {
-        repairMissingConnections(effectiveBlock);
-    }
-
-    const dragState = {
-        type: 'plumbingBlock',
-        block: effectiveBlock,
-        handle: handle,
-        startPos: { ...pos },
-        startCenter: { ...effectiveBlock.center },
-        startRotation: effectiveBlock.rotation || 0
-    };
-    setState({ dragState });
-
-    return {
-        startPointForDragging: pos,
-        dragOffset: { x: 0, y: 0 },
-        additionalState: {}
-    };
-}
 
 /**
  * ⭐ Eksik connections bilgilerini doldur
@@ -417,6 +377,61 @@ function checkPipeValveLengthBeforeMove(block, newCenter) {
     return true;
 }
 
+
+// plumbing-blocks.js içindeki GÜNCELLENMİŞ FONKSİYONLAR
+// Hysteresis (yapışma-kopma eşiği) mekanizması eklendi
+
+// ============================================
+// 1. onPointerDown - Snap durumunu başlat
+// ============================================
+export function onPointerDown(selectedObject, pos, snappedPos, e) {
+    const block = selectedObject.object;
+    const handle = selectedObject.handle;
+    let effectiveBlock = block;
+
+    const isCopying = e.ctrlKey || e.metaKey;
+    if (isCopying) {
+        const copy = createPlumbingBlock(block.center.x, block.center.y, block.blockType);
+        copy.rotation = block.rotation;
+        copy.typeConfig = block.typeConfig;
+
+        if (!state.plumbingBlocks) state.plumbingBlocks = [];
+        state.plumbingBlocks.push(copy);
+
+        effectiveBlock = copy;
+        setState({
+            selectedObject: { ...selectedObject, object: copy, handle: 'center' },
+        });
+    }
+
+    // ⭐ TAŞIMA BAŞLAMADAN ÖNCE EKSİK BAĞLANTI BİLGİLERİNİ DOLDUR
+    if (handle === 'body') {
+        repairMissingConnections(effectiveBlock);
+    }
+
+    const dragState = {
+        type: 'plumbingBlock',
+        block: effectiveBlock,
+        handle: handle,
+        startPos: { ...pos },
+        startCenter: { ...effectiveBlock.center },
+        startRotation: effectiveBlock.rotation || 0,
+        isSnapped: false, // GÜNCELLENDİ: Snap durumu takibi
+        lastSnapType: null, // GÜNCELLENDİ: Son snap tipi
+        lastSnapPoint: null // GÜNCELLENDİ: Son snap noktası
+    };
+    setState({ dragState });
+
+    return {
+        startPointForDragging: pos,
+        dragOffset: { x: 0, y: 0 },
+        additionalState: {}
+    };
+}
+
+// ============================================
+// 2. onPointerMove - Hysteresis ile snap
+// ============================================
 export function onPointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
     if (!dragState || dragState.type !== 'plumbingBlock') return false;
@@ -447,35 +462,130 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         return true;
         
     } else if (handle === 'body') {
-        // GÜNCELLENDİ: 'OCAK' ve 'KOMBI' de artık diğerleri gibi davranır
-        // (Snap ve boru güncelleme mantığı hepsi için aynı)
-        // if (block.blockType !== 'OCAK' && block.blockType !== 'KOMBI') {
-            const newCenter = {
-                x: startCenter.x + dx,
-                y: startCenter.y + dy
-            };
+        // GÜNCELLENDİ: Hysteresis mekanizması ile snap
+        let targetX = startCenter.x + dx;
+        let targetY = startCenter.y + dy;
+        let useSnap = false;
 
-            if (!checkPipeValveLengthBeforeMove(block, newCenter)) {
-                return false;
+        // Servis kutusu için snap mantığı
+        if (block.blockType === 'SERVIS_KUTUSU') {
+            // HYSTERESIS MANTĞI:
+            // - Snap edilmemişse: Normal tolerans ile snap ara
+            // - Snap edildiyse: 2x toleransta kal, yoksa kop
+            
+            const SNAP_ACTIVATE_THRESHOLD = 20; // Snap yakalamak için mesafe (dünya koordinatı)
+            const SNAP_RELEASE_THRESHOLD = 40; // Snap'ten kopmak için mesafe (dünya koordinatı)
+            
+            if (snappedPos.isSnapped && 
+                (snappedPos.snapType === 'PLUMBING_WALL_SURFACE' || 
+                 snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' ||
+                 snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION' ||
+                 snappedPos.snapType === 'PLUMBING_INTERSECTION')) {
+                
+                // Snap mevcut
+                if (dragState.isSnapped && dragState.lastSnapPoint) {
+                    // Zaten snap edilmişti - kopmak için daha uzağa git
+                    const distToLastSnap = Math.hypot(
+                        unsnappedPos.x - dragState.lastSnapPoint.x,
+                        unsnappedPos.y - dragState.lastSnapPoint.y
+                    );
+                    
+                    if (distToLastSnap < SNAP_RELEASE_THRESHOLD) {
+                        // Hala yakın, snap'i koru
+                        targetX = dragState.lastSnapPoint.x;
+                        targetY = dragState.lastSnapPoint.y;
+                        useSnap = true;
+                        
+                        // Rotasyonu da koru
+                        if (dragState.lastSnapAngle !== undefined) {
+                            block.rotation = dragState.lastSnapAngle;
+                        }
+                    } else {
+                        // Kopma eşiği aşıldı
+                        dragState.isSnapped = false;
+                        dragState.lastSnapType = null;
+                        dragState.lastSnapPoint = null;
+                        dragState.lastSnapAngle = null;
+                    }
+                } else {
+                    // İlk kez snap ediliyor
+                    const distToNewSnap = Math.hypot(
+                        unsnappedPos.x - snappedPos.x,
+                        unsnappedPos.y - snappedPos.y
+                    );
+                    
+                    if (distToNewSnap < SNAP_ACTIVATE_THRESHOLD) {
+                        // Snap'i yakala
+                        targetX = snappedPos.x;
+                        targetY = snappedPos.y;
+                        useSnap = true;
+                        
+                        // Snap durumunu kaydet
+                        dragState.isSnapped = true;
+                        dragState.lastSnapType = snappedPos.snapType;
+                        dragState.lastSnapPoint = { x: snappedPos.x, y: snappedPos.y };
+                        dragState.lastSnapAngle = snappedPos.snapAngle;
+                        
+                        // Snap açısını uygula
+                        if (snappedPos.snapAngle !== undefined && 
+                            (snappedPos.snapType === 'PLUMBING_WALL_SURFACE' ||
+                             snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION' ||
+                             snappedPos.snapType === 'PLUMBING_INTERSECTION')) {
+                            block.rotation = snappedPos.snapAngle;
+                        }
+                    }
+                }
+            } else {
+                // Snap mevcut değil
+                if (dragState.isSnapped && dragState.lastSnapPoint) {
+                    // Önceki snap'ten kopmak için kontrol
+                    const distToLastSnap = Math.hypot(
+                        unsnappedPos.x - dragState.lastSnapPoint.x,
+                        unsnappedPos.y - dragState.lastSnapPoint.y
+                    );
+                    
+                    if (distToLastSnap < SNAP_RELEASE_THRESHOLD) {
+                        // Hala yakın, snap'i koru (manyetik etki)
+                        targetX = dragState.lastSnapPoint.x;
+                        targetY = dragState.lastSnapPoint.y;
+                        useSnap = true;
+                        
+                        if (dragState.lastSnapAngle !== undefined) {
+                            block.rotation = dragState.lastSnapAngle;
+                        }
+                    } else {
+                        // Kopma eşiği aşıldı
+                        dragState.isSnapped = false;
+                        dragState.lastSnapType = null;
+                        dragState.lastSnapPoint = null;
+                        dragState.lastSnapAngle = null;
+                    }
+                }
             }
+        }
 
-            const oldCenter = { ...block.center };
-            
-            block.center.x = newCenter.x;
-            block.center.y = newCenter.y;
+        const newCenter = {
+            x: targetX,
+            y: targetY
+        };
 
-            updateConnectedPipes(block, oldCenter, block.center);
-            
-            return true;
-        // } else {
-        //     block.center.x = startCenter.x + dx;
-        //     block.center.y = startCenter.y + dy;
-        //     return true;
-        // }
+        if (!checkPipeValveLengthBeforeMove(block, newCenter)) {
+            return false;
+        }
+
+        const oldCenter = { ...block.center };
+        
+        block.center.x = newCenter.x;
+        block.center.y = newCenter.y;
+
+        updateConnectedPipes(block, oldCenter, block.center);
+        
+        return true;
     }
 
     return false;
 }
+
 
 /**
  * GÜNCELLENMİŞ updateConnectedPipes
