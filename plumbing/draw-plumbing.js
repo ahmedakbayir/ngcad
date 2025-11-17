@@ -1,43 +1,37 @@
 // draw/draw-plumbing.js
+// ✅ DÜZELTME: Tüm borular sürekli çizgi (isConnectedToValve kontrolü kaldırıldı)
 
-import { state, dom } from '../general-files/main.js';
+import { state, dom, BG} from '../general-files/main.js';
 import { PLUMBING_BLOCK_TYPES, getPlumbingBlockCorners, getConnectionPoints, getActiveConnectionPoints } from './plumbing-blocks.js';
-import { PLUMBING_PIPE_TYPES, snapToConnectionPoint, snapToPipeEndpoint, isSpaceForValve } from './plumbing-pipes.js'; // isSpaceForValve import edildi
-import { getObjectAtPoint } from '../general-files/actions.js'; // getObjectAtPoint import edildi
-import { distToSegmentSquared } from '../draw/geometry.js'; // Gerekli import eklendi
-import { snapTo15DegreeAngle } from '../draw/geometry.js'; // Gerekli import eklendi
+import { PLUMBING_PIPE_TYPES, snapToConnectionPoint, snapToPipeEndpoint, isSpaceForValve } from './plumbing-pipes.js';
+import { getObjectAtPoint } from '../general-files/actions.js';
+import { distToSegmentSquared } from '../draw/geometry.js';
+import { snapTo15DegreeAngle } from '../draw/geometry.js';
 
 /**
  * TESİSAT BLOKLARI 2D RENDERING
- *
- * Her blok tipi için özel 2D sembol çizimi
  */
 
 /**
  * Sinüs dalgalı bağlantı çizgisi çizer (Ocak/Kombi için)
- * Eğer bağlantı noktası boru ucuna doğrudan bağlı değilse, araya sinüs çizgisi çizer
- * SİNÜS BORÜYA TEĞET OLARAK BAĞLANIR
  */
 function drawWavyConnectionLine(connectionPoint, zoom) {
     const { ctx2d } = dom;
     const currentFloorId = state.currentFloor?.id;
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
-    // En yakın boru ucunu ve boru yönünü bul
     let closestPipeEnd = null;
     let pipeDirection = null;
     let minDist = Infinity;
-    const DIRECT_CONNECTION_TOLERANCE = 2; // 2 cm - doğrudan bağlı kabul edilme mesafesi
+    const DIRECT_CONNECTION_TOLERANCE = 2;
 
     for (const pipe of pipes) {
-        // p1'e olan mesafe
         const dist1 = Math.hypot(pipe.p1.x - connectionPoint.x, pipe.p1.y - connectionPoint.y);
         if (dist1 < minDist) {
             minDist = dist1;
             closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
-            // Boru yönü: p2'den p1'e (boru ucundan içeriye)
             const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-            if (pipeLength > 0) { // Sıfıra bölmeyi engelle
+            if (pipeLength > 0) {
                 pipeDirection = {
                     x: (pipe.p2.x - pipe.p1.x) / pipeLength,
                     y: (pipe.p2.y - pipe.p1.y) / pipeLength
@@ -45,14 +39,12 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
             }
         }
 
-        // p2'ye olan mesafe
         const dist2 = Math.hypot(pipe.p2.x - connectionPoint.x, pipe.p2.y - connectionPoint.y);
         if (dist2 < minDist) {
             minDist = dist2;
             closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
-            // Boru yönü: p1'den p2'ye (boru ucundan içeriye)
             const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-             if (pipeLength > 0) { // Sıfıra bölmeyi engelle
+             if (pipeLength > 0) {
                 pipeDirection = {
                     x: (pipe.p1.x - pipe.p2.x) / pipeLength,
                     y: (pipe.p1.y - pipe.p2.y) / pipeLength
@@ -61,49 +53,40 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
         }
     }
 
-    // Eğer doğrudan bağlı değilse (mesafe > tolerans), sinüs çizgisi çiz
     if (closestPipeEnd && pipeDirection && minDist > DIRECT_CONNECTION_TOLERANCE) {
         const dx = closestPipeEnd.x - connectionPoint.x;
         const dy = closestPipeEnd.y - connectionPoint.y;
         const distance = Math.hypot(dx, dy);
         
-        if (distance < 0.1) return; // Çok kısaysa çizme
+        if (distance < 0.1) return;
 
-        // Sinüs parametreleri
-        const amplitude = 3; // Dalga genliği (cm)
-        const frequency = 3; // Dalga frekansı (tam dalga sayısı)
-        const segments = 50; // Çizgi segmentleri
+        const amplitude = 3;
+        const frequency = 3;
+        const segments = 50;
 
         ctx2d.save();
-        ctx2d.strokeStyle = '#2196F3'; // Mavi renk
+        ctx2d.strokeStyle = '#2196F3';
         ctx2d.lineWidth = 2 / zoom;
         ctx2d.lineCap = 'round';
 
         ctx2d.beginPath();
         ctx2d.moveTo(connectionPoint.x, connectionPoint.y);
 
-        // Sinüs eğrisi çiz - BAŞTA VE SONDA TEĞET OLMALI (hem değer hem türev 0)
         for (let i = 1; i <= segments; i++) {
-            const t = i / segments; // 0-1 arası parametre
+            const t = i / segments;
 
-            // Ana çizgi üzerindeki nokta
             const baseX = connectionPoint.x + dx * t;
             const baseY = connectionPoint.y + dy * t;
 
-            // Perpendicular (dik) yön
             const perpX = -dy / distance;
             const perpY = dx / distance;
 
-            // Smoothstep envelope - başta ve sonda hem değer hem türev 0 olur (TEĞET)
-            const smoothEnvelope = t * t * (3 - 2 * t); // Smoothstep: 0'da 0, 1'de 1, türev başta ve sonda 0
+            const smoothEnvelope = t * t * (3 - 2 * t);
 
-            // Sinüs dalgası
             const wave = Math.sin(smoothEnvelope * frequency * Math.PI * 2);
 
-            // Son offset - envelope ile çarparak başta ve sonda teğet olmasını sağla
             const sineOffset = smoothEnvelope * (1 - smoothEnvelope) * 4 * amplitude * wave;
 
-            // Final pozisyon
             const finalX = baseX + perpX * sineOffset;
             const finalY = baseY + perpY * sineOffset;
 
@@ -116,7 +99,7 @@ function drawWavyConnectionLine(connectionPoint, zoom) {
 }
 
 /**
- * Servis Kutusu çizer (yuvarlatılmış dikdörtgen)
+ * Servis Kutusu çizer
  */
 function drawServisKutusu(block, isSelected) {
     const { ctx2d } = dom;
@@ -127,7 +110,6 @@ function drawServisKutusu(block, isSelected) {
     ctx2d.translate(block.center.x, block.center.y);
     ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    // Yuvarlatılmış dikdörtgen (1 cm köşe yarıçapı)
     const halfW = config.width / 2;
     const halfH = config.height / 2;
     const cornerRadius = 1;
@@ -147,10 +129,9 @@ function drawServisKutusu(block, isSelected) {
     ctx2d.lineTo(-halfW, -halfH + cornerRadius);
     ctx2d.arcTo(-halfW, -halfH, -halfW + cornerRadius, -halfH, cornerRadius);
     ctx2d.closePath();
-    ctx2d.fill(); // Dolgu
+    ctx2d.fill();
     ctx2d.stroke();
 
-    // SK yazısı
     if (zoom > 0.15) {
         ctx2d.fillStyle = '#FFFFFF';
         ctx2d.lineWidth = 1.5;
@@ -165,52 +146,49 @@ function drawServisKutusu(block, isSelected) {
 }
 
 /**
- * Sayaç çizer (GÜNCELLENMİŞ: Ön çıkıntılı tasarım ve geri eklenen kollar)
+ * Sayaç çizer
  */
 function drawSayac(block, isSelected) {
     const { ctx2d } = dom;
     const { zoom, wallBorderColor } = state;
-    const config = PLUMBING_BLOCK_TYPES.SAYAC; // width: 18, height: 18
+    const config = PLUMBING_BLOCK_TYPES.SAYAC;
 
     ctx2d.save();
     ctx2d.translate(block.center.x, block.center.y);
     ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    // --- Ana Gövde ---
-    const halfW = config.width / 2;     // 9
-    const halfH = config.height / 2;    // 9
-    const cornerRadius = 0.5;             // İstenen: 1cm
+    const halfW = config.width / 2;
+    const halfH = config.height / 2;
+    const cornerRadius = 0.5;
 
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
-    ctx2d.fillStyle = isSelected ? 'rgba(138, 180, 248, 0.1)' : 'rgba(30, 31, 32, 0.8)'; // Hafif dolgu
+    ctx2d.fillStyle = isSelected ? 'rgba(138, 180, 248, 0.1)' : 'rgba(30, 31, 32, 0.8)';
 
     ctx2d.beginPath();
-    ctx2d.moveTo(-halfW + cornerRadius, -halfH); // Sol üst
-    ctx2d.lineTo(halfW - cornerRadius, -halfH);  // Sağ üst
+    ctx2d.moveTo(-halfW + cornerRadius, -halfH);
+    ctx2d.lineTo(halfW - cornerRadius, -halfH);
     ctx2d.arcTo(halfW, -halfH, halfW, -halfH + cornerRadius, cornerRadius);
-    ctx2d.lineTo(halfW, halfH - cornerRadius);  // Sağ alt
+    ctx2d.lineTo(halfW, halfH - cornerRadius);
     ctx2d.arcTo(halfW, halfH, halfW - cornerRadius, halfH, cornerRadius);
-    ctx2d.lineTo(-halfW + cornerRadius, halfH); // Sol alt
+    ctx2d.lineTo(-halfW + cornerRadius, halfH);
     ctx2d.arcTo(-halfW, halfH, -halfW, halfH - cornerRadius, cornerRadius);
-    ctx2d.lineTo(-halfW, -halfH + cornerRadius); // Sol üst
+    ctx2d.lineTo(-halfW, -halfH + cornerRadius);
     ctx2d.arcTo(-halfW, -halfH, -halfW + cornerRadius, -halfH, cornerRadius);
     ctx2d.closePath();
-    ctx2d.fill(); // Dolgu
-    ctx2d.stroke(); // Kontur
+    ctx2d.fill();
+    ctx2d.stroke();
 
-    // --- Ön Çıkıntı ---
-    const protrusionDepth = 1;  // 4.5
-    const protrusionWidth = config.width - 3; // 12
-    const halfProtW = protrusionWidth / 2;    // 6
-    const protRadius = 0.5; // 1cm
+    const protrusionDepth = 1;
+    const protrusionWidth = config.width - 3;
+    const halfProtW = protrusionWidth / 2;
+    const protRadius = 0.5;
 
-    const y1 = halfH;                     // 9 (ana gövdenin önü)
-    const y2 = halfH + protrusionDepth;   // 9 + 4.5 = 13.5 (çıkıntının önü)
-    const x1 = -halfProtW;                // -6
-    const x2 = halfProtW;                 // 6
+    const y1 = halfH;
+    const y2 = halfH + protrusionDepth;
+    const x1 = -halfProtW;
+    const x2 = halfProtW;
 
-    // Çıkıntıyı çiz (sadece 3 kenar, arka kenar ana gövdeye yapışık)
     ctx2d.beginPath();
     ctx2d.moveTo(x1, y1);
     ctx2d.lineTo(x1, y2 - protRadius);
@@ -220,29 +198,25 @@ function drawSayac(block, isSelected) {
     ctx2d.lineTo(x2, y1);
     ctx2d.stroke(); 
 
-    // --- Bağlantı kolları ---
-    const lineLength = config.connectionLineLength || 10; // 10cm
-    const inletCP_X = config.connectionPoints[0].x;     // -5 (Düzeltildi)
-    const outletCP_X = config.connectionPoints[1].x;   // 5 (Düzeltildi)
-    const armStartY = config.connectionPoints[0].y + lineLength; // -19 + 10 = -9
-    const armEndY = config.connectionPoints[0].y; // -19 
+    const lineLength = config.connectionLineLength || 10;
+    const inletCP_X = config.connectionPoints[0].x;
+    const outletCP_X = config.connectionPoints[1].x;
+    const armStartY = config.connectionPoints[0].y + lineLength;
+    const armEndY = config.connectionPoints[0].y;
 
     ctx2d.strokeStyle = wallBorderColor; 
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom; 
 
-    // Sol kol (Giriş)
     ctx2d.beginPath();
     ctx2d.moveTo(inletCP_X, armStartY);
     ctx2d.lineTo(inletCP_X, armEndY);
     ctx2d.stroke();
 
-    // Sağ kol (Çıkış)
     ctx2d.beginPath();
     ctx2d.moveTo(outletCP_X, armStartY);
     ctx2d.lineTo(outletCP_X, armEndY);
     ctx2d.stroke();
 
-    // G4 yazısı
     if (zoom > 0.2) {
         ctx2d.fillStyle = '#FFFFFF';
         ctx2d.lineWidth = 1.5;
@@ -256,20 +230,18 @@ function drawSayac(block, isSelected) {
     ctx2d.restore();
 }
 
-
 /**
- * Kombi çizer (iç içe iki daire + G harfi)
+ * Kombi çizer
  */
 function drawKombi(block, isSelected) {
     const { ctx2d } = dom;
     const { zoom, wallBorderColor } = state;
-    const config = PLUMBING_BLOCK_TYPES.KOMBI; // width: 18, height: 18
+    const config = PLUMBING_BLOCK_TYPES.KOMBI;
 
     ctx2d.save();
     ctx2d.translate(block.center.x, block.center.y);
     ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    // Dış daire (50 cm çap, sadece kenar çizgisi)
     const outerRadius = 25;
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
     ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
@@ -280,12 +252,10 @@ function drawKombi(block, isSelected) {
     ctx2d.fill(); 
     ctx2d.stroke();
 
-    // İç daire (36 cm çap, sadece kenar çizgisi)
     const innerRadius = 18;
     ctx2d.beginPath();
     ctx2d.arc(0, 0, innerRadius, 0, Math.PI * 2);
     ctx2d.stroke();
-;
 
     if (zoom > 0.15) {
         ctx2d.fillStyle = '#FFFFFF';  
@@ -304,7 +274,7 @@ function drawKombi(block, isSelected) {
 }
 
 /**
- * Ocak çizer (yuvarlatılmış dikdörtgen + 4 daire)
+ * Ocak çizer
  */
 function drawOcak(block, isSelected) {
     const { ctx2d } = dom;
@@ -315,8 +285,7 @@ function drawOcak(block, isSelected) {
     ctx2d.translate(block.center.x, block.center.y);
     ctx2d.rotate(block.rotation * Math.PI / 180);
 
-    // Yuvarlatılmış dikdörtgen (50 cm, köşe yarıçapı 5 cm, sadece kenar çizgisi)
-    const boxSize = 25; // Yarım boyut
+    const boxSize = 25;
     const cornerRadius = 5;
 
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor;
@@ -337,8 +306,7 @@ function drawOcak(block, isSelected) {
     ctx2d.fill(); 
     ctx2d.stroke();
 
-    // 4 ocak gözü (daireler, hepsi eşit - 7 cm radius = 14 cm çap)
-    const burnerRadius = 7;  // Tüm gözler 14 cm çap
+    const burnerRadius = 7;
     const offset = 10;
 
     ctx2d.strokeStyle = '#404040';
@@ -356,7 +324,7 @@ function drawOcak(block, isSelected) {
 }
 
 /**
- * Tesisat bloğu çizer (factory pattern)
+ * Tesisat bloğu çizer
  */
 export function drawPlumbingBlock(block, isSelected = false) {
     const { ctx2d } = dom;
@@ -388,7 +356,7 @@ export function drawPlumbingBlock(block, isSelected = false) {
 }
 
 /**
- * Tüm tesisat bloklarını çizer (VANA HARİÇ - vanalar artık boru üzerinde)
+ * Tüm tesisat bloklarını çizer (VANA HARİÇ)
  */
 export function drawPlumbingBlocks() {
     const currentFloorId = state.currentFloor?.id;
@@ -401,7 +369,7 @@ export function drawPlumbingBlocks() {
 }
 
 /**
- * Vana 2D çizim fonksiyonu (artık boru üzerinde çağrılmak için)
+ * Vana 2D çizim fonksiyonu
  */
 function drawVana(block, isSelected) {
     const { ctx2d } = dom;
@@ -412,15 +380,14 @@ function drawVana(block, isSelected) {
     ctx2d.rotate((block.rotation || 0) * Math.PI / 180);
 
     const config = PLUMBING_BLOCK_TYPES.VANA;
-    const halfLength = config.width / 2; // 6
-    const largeRadius = config.height / 2; // 3
-    const smallRadius = 0.5; // 0.5
+    const halfLength = config.width / 2;
+    const largeRadius = config.height / 2;
+    const smallRadius = 0.5;
 
     ctx2d.strokeStyle = isSelected ? '#8ab4f8' : 'rgba(255, 255, 255, 1)';
-    ctx2d.lineWidth = (isSelected ? 3 : 2) / zoom;
-    ctx2d.fillStyle = 'rgba(255,255,255, 1)'; // Koyu dolgu (boru çizgisini silmek için)
+    ctx2d.lineWidth = (isSelected ? 3 : 4) / zoom;
+    ctx2d.fillStyle = 'rgba(255,255,255, 1)';
 
-    // Çift kesik koni (elmas şekli)
     ctx2d.beginPath();
     ctx2d.moveTo(-halfLength, -largeRadius);
     ctx2d.lineTo(0, -smallRadius);
@@ -430,12 +397,14 @@ function drawVana(block, isSelected) {
     ctx2d.lineTo(-halfLength, largeRadius);
     ctx2d.closePath();
     
-    ctx2d.fill(); // Önce dolgu (boruyu sil)
-    ctx2d.stroke(); // Sonra kenarlık
+    ctx2d.stroke();
+    ctx2d.fillStyle = BG;
+
+    ctx2d.fill();
+    
 
     ctx2d.restore();
 }
-
 
 /**
  * Tüm vanaları boru üzerinde çizer
@@ -476,12 +445,11 @@ export function drawPlumbingBlockHandles(block) {
     const { ctx2d } = dom;
     const { zoom } = state;
 
-    const connections = getConnectionPoints(block); // Servis Kutusu için boş
+    const connections = getConnectionPoints(block);
 
-    // Bağlantı noktası handle'ları çiz
     for (let i = 0; i < connections.length; i++) {
         const cp = connections[i];
-        ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000'; // Sayaç/Vana
+        ctx2d.fillStyle = i === 0 ? '#00FF00' : '#FF0000';
         ctx2d.strokeStyle = '#FFFFFF';
         ctx2d.lineWidth = 1.5 / zoom;
         ctx2d.beginPath();
@@ -490,13 +458,11 @@ export function drawPlumbingBlockHandles(block) {
         ctx2d.stroke();
     }
 
-    // Rotation handle (merkez üstünde, 30 cm yukarıda)
     const rotationHandleDistance = 30;
     const angle = (block.rotation || 0) * Math.PI / 180;
     const handleX = block.center.x + Math.sin(angle) * rotationHandleDistance;
     const handleY = block.center.y - Math.cos(angle) * rotationHandleDistance;
 
-    // Rotation handle'a çizgi çiz
     ctx2d.strokeStyle = '#8ab4f8';
     ctx2d.lineWidth = 2 / zoom;
     ctx2d.setLineDash([5 / zoom, 5 / zoom]);
@@ -506,7 +472,6 @@ export function drawPlumbingBlockHandles(block) {
     ctx2d.stroke();
     ctx2d.setLineDash([]);
 
-    // Rotation handle'ı çiz (daire içinde ok)
     ctx2d.fillStyle = '#8ab4f8';
     ctx2d.strokeStyle = '#FFFFFF';
     ctx2d.lineWidth = 1.5 / zoom;
@@ -522,6 +487,7 @@ export function drawPlumbingBlockHandles(block) {
 
 /**
  * Tek bir boruyu çizer
+ * ✅ DÜZELTME: isConnectedToValve kontrolü kaldırıldı - TÜM BORULAR SÜREKLİ ÇİZGİ
  */
 export function drawPlumbingPipe(pipe, isSelected = false) {
     const { ctx2d } = dom;
@@ -534,15 +500,16 @@ export function drawPlumbingPipe(pipe, isSelected = false) {
     ctx2d.lineCap = 'round';
     ctx2d.lineJoin = 'round';
 
-    if (!pipe.isConnectedToValve) {
-        ctx2d.setLineDash([15 / zoom, 10 / zoom]); 
-    }
+    // ✅ DÜZELTME: Kesikli çizgi mantığı kaldırıldı - her zaman sürekli çizgi
+    // if (!pipe.isConnectedToValve) {
+    //     ctx2d.setLineDash([15 / zoom, 10 / zoom]); 
+    // }
 
     ctx2d.beginPath();
     ctx2d.moveTo(pipe.p1.x, pipe.p1.y);
     ctx2d.lineTo(pipe.p2.x, pipe.p2.y);
     ctx2d.stroke();
-    ctx2d.setLineDash([]);
+    ctx2d.setLineDash([]); // Her zaman reset (artık gerek yok ama güvenlik için)
     ctx2d.restore();
 
     if (isSelected) {
@@ -656,10 +623,8 @@ export function drawPlumbingPipePreview() {
     }
 }
 
-
 /**
- * GÜNCELLENDİ: 'SAYAC' tipi için yeni önizleme mantığı eklendi
- * OCAK/KOMBI/SERVİS KUTUSU/SAYAÇ EKLEME MODU ÖNİZLEMESİ
+ * BLOK EKLEME MODU ÖNİZLEMESİ
  */
 export function drawPlumbingBlockPlacementPreview() {
     const { mousePos, currentMode, currentPlumbingBlockType } = state;
@@ -673,7 +638,6 @@ export function drawPlumbingBlockPlacementPreview() {
     const currentFloorId = state.currentFloor?.id;
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
-    // 'OCAK' ve 'KOMBI' (Bağlantı noktasından tutma)
     if (currentPlumbingBlockType === 'OCAK' || currentPlumbingBlockType === 'KOMBI') {
         const config = PLUMBING_BLOCK_TYPES[currentPlumbingBlockType];
         const connectionPointOffset = config.connectionPoints[0]; 
@@ -717,7 +681,7 @@ export function drawPlumbingBlockPlacementPreview() {
         ctx2d.setLineDash([]);
         ctx2d.restore();
 
-        ctx2d.fillStyle = '#00FF00'; // Yeşil
+        ctx2d.fillStyle = '#00FF00';
         ctx2d.beginPath();
         ctx2d.arc(mousePos.x, mousePos.y, 4 / zoom, 0, Math.PI * 2);
         ctx2d.fill();
@@ -763,20 +727,16 @@ export function drawPlumbingBlockPlacementPreview() {
         }
 
     } else if (currentPlumbingBlockType === 'SAYAC') {
-        // --- YENİ: SAYAÇ ÖNİZLEMESİ (BORU ÜZERİNDE) ---
-        // Mouse boru üzerinde mi?
         const clickedPipe = getObjectAtPoint(mousePos);
         if (!clickedPipe || clickedPipe.type !== 'plumbingPipe' || clickedPipe.handle !== 'body') {
-            return; // Boru üzerinde değilse önizleme yok
+            return;
         }
         
         const pipe = clickedPipe.object;
         const config = PLUMBING_BLOCK_TYPES.SAYAC;
-        // Bağlantı noktaları arasındaki mesafe (10cm)
         const connectionDistance = Math.abs(config.connectionPoints[0].x - config.connectionPoints[1].x); 
         const halfDist = connectionDistance / 2;
 
-        // 2. Boru üzerindeki pozisyonu (merkezi) bul
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
         const lengthSq = dx * dx + dy * dy;
@@ -788,28 +748,23 @@ export function drawPlumbingBlockPlacementPreview() {
         const centerX = pipe.p1.x + t * dx;
         const centerY = pipe.p1.y + t * dy;
 
-        // 3. Boru açısını al (vektörleri al)
         const len = Math.hypot(dx, dy);
-        const dirX = dx / len; // Boru yönü
+        const dirX = dx / len;
         const dirY = dy / len;
         
-        // 4. Bağlantı noktalarını hesapla (merkeze göre 5cm sol/sağ)
         const cp1 = { x: centerX - dirX * halfDist, y: centerY - dirY * halfDist };
         const cp2 = { x: centerX + dirX * halfDist, y: centerY + dirY * halfDist };
         
-        // 5. Bağlantı noktalarını (giriş/çıkış) çiz
         ctx2d.save();
         ctx2d.strokeStyle = '#FFFFFF';
         ctx2d.lineWidth = 1.5 / zoom;
         
-        // Giriş (Yeşil) - Sayaç konfigürasyonuna göre (x: -5)
         ctx2d.fillStyle = '#00FF00';
         ctx2d.beginPath();
         ctx2d.arc(cp1.x, cp1.y, 5 / zoom, 0, Math.PI * 2);
         ctx2d.fill();
         ctx2d.stroke();
 
-        // Çıkış (Kırmızı) - Sayaç konfigürasyonuna göre (x: 5)
         ctx2d.fillStyle = '#FF0000';
         ctx2d.beginPath();
         ctx2d.arc(cp2.x, cp2.y, 5 / zoom, 0, Math.PI * 2);
@@ -819,7 +774,6 @@ export function drawPlumbingBlockPlacementPreview() {
         ctx2d.restore();
         
     } else if (currentPlumbingBlockType === 'SERVIS_KUTUSU') {
-        // --- Mevcut SERVIS KUTUSU mantığı ---
         const config = PLUMBING_BLOCK_TYPES[currentPlumbingBlockType];
         if (!config) return;
 

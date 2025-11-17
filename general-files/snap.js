@@ -275,7 +275,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     const plumbingSnap = getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS);
     
     if (plumbingSnap) {
-
+        const shouldLock = plumbingSnap.isLockable !== false;
         let snapAngle = 0;
             // Eğer snap bir duvar yüzeyine yapıldıysa, duvarın açısını al
             if (plumbingSnap.type === 'PLUMBING_WALL_SURFACE' && plumbingSnap.wall) {
@@ -289,6 +289,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
                 }
             }
 
+        if (shouldLock) {
         setState({ 
             isSnapLocked: true, 
             lockedSnapPoint: { 
@@ -296,7 +297,8 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
                 roundedX: plumbingSnap.point.x, 
                 roundedY: plumbingSnap.point.y 
             } 
-        });
+        })
+    };
         
         return {
             x: plumbingSnap.point.x, 
