@@ -324,8 +324,12 @@ export let state = {
         beam: 100,    // Kiriş saydamlığı (0-100)
         stair: 100,   // Merdiven saydamlığı (0-100)
         plumbing: 100 // Tesisat saydamlığı (0-100)
-    }
+    },
     // --- OPACITY AYARLARI SONU ---
+
+    // --- PENCERE YERLEŞTIRME AŞAMASI ---
+    windowPlacementStage: 0 // 0: ilk tıklama (en geniş duvarlara), 1: ikinci tıklama (kalan duvarlara)
+    // --- PENCERE YERLEŞTIRME SONU ---
 };
 
 export function setState(newState) {
@@ -468,7 +472,10 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
         symmetryPreviewElements: {
             nodes: [], walls: [], doors: [], windows: [], vents: [],
             columns: [], beams: [], stairs: [], rooms: []
-        }
+        },
+
+        // Pencere modundan çıkıldığında stage'i sıfırla
+        windowPlacementStage: newMode === "drawWindow" ? state.windowPlacementStage : 0
     });
 
     // Butonların 'active' durumunu güncelle (geri kalanı aynı)
