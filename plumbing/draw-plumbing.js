@@ -844,12 +844,13 @@ export function drawPlumbingSnapIndicator() {
     let indicatorSize = 6 / zoom;
     let showCross = false;
 
-    if (snapType === 'PLUMBING_INTERSECTION' || snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION') {
-        // Kesişimler için daha büyük ve sarı indicator
-        indicatorColor = '#FFD700'; // Altın sarısı
-        indicatorSize = 8 / zoom;
-        showCross = true;
-    } else if (snapType === 'PLUMBING_BLOCK_CENTER') {
+    // if (snapType === 'PLUMBING_INTERSECTION' || snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION') {
+    //     // Kesişimler için daha büyük ve sarı indicator
+    //     indicatorColor = '#FFD700'; // Altın sarısı
+    //     indicatorSize = 8 / zoom;
+    //     showCross = true;
+    // } else 
+        if (snapType === 'PLUMBING_BLOCK_CENTER') {
         // Merkez için mavi indicator
         indicatorColor = '#2196F3';
         indicatorSize = 7 / zoom;

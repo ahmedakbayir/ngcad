@@ -1,13 +1,31 @@
 // snap-plumbing.js
-// ✅ KÖK ÇÖZÜM: Boru çizimi sırasında duvar snap'i KİLİTLENMEZ (smooth çizim)
+// ✅ KÖK ÇÖZÜM: Boru çizimi/taşıma sırasında duvar snap'i KİLİTLENMEZ (smooth çizim)
+// ✅ DÜZELTME: Duvar yüzey snap'i her zaman kilitsiz (isLockable: false)
+// ✅ YENİ: Boru çizerken çizim eksenine DİK snap hatlarına ÖNCELİK
 
 import { state } from '../general-files/main.js';
 import { worldToScreen, getLineIntersectionPoint, distToSegmentSquared } from '../draw/geometry.js';
 import { getConnectionPoints, getPlumbingBlockCorners, PLUMBING_BLOCK_TYPES } from '../plumbing/plumbing-blocks.js';
 
 /**
+ * İki vektör arasındaki açıyı hesaplar (derece cinsinden)
+ */
+function getAngleBetweenVectors(v1x, v1y, v2x, v2y) {
+    const dot = v1x * v2x + v1y * v2y;
+    const len1 = Math.hypot(v1x, v1y);
+    const len2 = Math.hypot(v2x, v2y);
+    
+    if (len1 < 0.001 || len2 < 0.001) return 0;
+    
+    const cosAngle = dot / (len1 * len2);
+    const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle))) * 180 / Math.PI;
+    return angle;
+}
+
+/**
  * TESİSAT ELEMANLARI İÇİN ÖZEL SNAP FONKSİYONU
- * ✅ KRİTİK: Boru çizimi sırasında duvar yüzey snap'i KİLİTLENMEZ
+ * ✅ KRİTİK: Boru çizimi/taşıma sırasında duvar yüzey snap'i KİLİTLENMEZ
+ * ✅ YENİ: Boru çizerken dik snap hatlarına öncelik
  */
 export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     const candidates = [];
@@ -22,9 +40,9 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         ? (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId)
         : (state.plumbingPipes || []);
 
-    const addCandidate = (point, type, distance, wall = null, lockable = true) => {
+    const addCandidate = (point, type, distance, wall = null, lockable = true, isPerpendicular = false) => {
         if (point && isFinite(point.x) && isFinite(point.y)) {
-            candidates.push({ point, type, distance, wall, lockable });
+            candidates.push({ point, type, distance, wall, lockable, isPerpendicular });
         }
     };
 
@@ -108,6 +126,25 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         }
     });
 
+    // ✅ KİLİTLEME MANTIĞI: Sadece ilk tıklamada kilitle, hareket sırasında ASLA kilitleme
+    const isDragging = state.isDragging;
+    const isDrawingInProgress = isPipeDrawing && state.startPoint;
+    
+    // Smooth kayma için: Çizim/taşıma sırasında HİÇBİR SNAP KİLİTLENMEZ
+    // Sadece kesişim/bağlantı noktaları ilk tıklamada kilitlenebilir
+    const allowLocking = !isDrawingInProgress && !isDragging;
+
+    // ✅ YENİ: Boru çizim ekseni vektörü (dikey snap kontrolü için)
+    let currentPipeVector = null;
+    if (isPipeDrawingActive && state.startPoint) {
+        const dx = wm.x - state.startPoint.x;
+        const dy = wm.y - state.startPoint.y;
+        const len = Math.hypot(dx, dy);
+        if (len > 1) { // Çok kısa vektörleri yoksay
+            currentPipeVector = { x: dx / len, y: dy / len };
+        }
+    }
+
     // ✅ Kesişimler (boru çizimi için ÖNCELİKLE aktif, blok modu için de)
     allSnapLines.forEach(snapLineItem => {
         const wallSnapLine = snapLineItem.line;
@@ -122,9 +159,8 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
                 const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
 
                 if (dist < INTERSECTION_SNAP_RADIUS) {
-                    // Boru çiziminde daha yüksek öncelik (dist * 0.05), blok modunda normal öncelik
                     const priorityMultiplier = isPipeDrawing ? 0.05 : 0.5;
-                    addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * priorityMultiplier, snapLineItem.wall, allowLocking);
+                    addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * priorityMultiplier, snapLineItem.wall, allowLocking, false);
                 }
             }
         });
@@ -142,27 +178,15 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
                 const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
 
                 if (dist < INTERSECTION_SNAP_RADIUS) {
-                    // Boru çiziminde en yüksek öncelik (dist * 0.01), blok modunda düşük öncelik
                     const priorityMultiplier = isPipeDrawing ? 0.01 : 0.1;
-                    addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * priorityMultiplier, allSnapLines[i].wall, allowLocking);
+                    addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * priorityMultiplier, allSnapLines[i].wall, allowLocking, false);
                 }
             }
         }
     }
     
-    // ✅ KRİTİK: KİLİTLEME MANTIĞI
-    // - İlk tıklama: Kilitle (başlangıç noktası)
-    // - Çizim devam ediyor: Kilitleme (smooth hareket)
-    // - Taşıma: Kilitleme (smooth hareket)
-    // - Blok yerleştirme: Kilitle
-    
-    const isDragging = state.isDragging;
-    const isDrawingInProgress = isPipeDrawing && state.startPoint;
-    
-    // Çizim veya taşıma devam ediyorsa HİÇBİR SNAP KİLİTLENMEZ
-    const allowLocking = !isDrawingInProgress && !isDragging;
-    
-    // ✅ Duvar yüzey snap
+    // ✅ KRİTİK: Duvar yüzey snap - HER ZAMAN KİLİTSİZ (smooth kayma için)
+    // ✅ YENİ: Boru çizerken DİK snap hatlarına öncelik
     allSnapLines.forEach(item => {
         const line = item.line;
         const wall = item.wall;
@@ -173,6 +197,9 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         let t = ((wm.x - line.p1.x) * (line.p2.x - line.p1.x) + 
                  (wm.y - line.p1.y) * (line.p2.y - line.p1.y)) / l2;
         
+        // ✅ KRİTİK: t değerini SINIRLANDIRMA - çizgi uzantısı yok
+        t = Math.max(0, Math.min(1, t));
+        
         const closest = { 
             x: line.p1.x + t * (line.p2.x - line.p1.x), 
             y: line.p1.y + t * (line.p2.y - line.p1.y) 
@@ -182,8 +209,37 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
         
         if (dist < effectiveSnapRadius) {
-            const priority = isPipeDrawingActive ? 100 : 1.0;
-            addCandidate(closest, 'PLUMBING_WALL_SURFACE', dist * priority, wall, allowLocking);
+            let priority = isPipeDrawingActive ? 100 : 1.0;
+            let isPerpendicular = false;
+
+            // ✅ YENİ: Boru çizerken DİKLİK KONTROLÜ
+            if (currentPipeVector) {
+                // Snap hattının yön vektörü
+                const snapLineVectorX = line.p2.x - line.p1.x;
+                const snapLineVectorY = line.p2.y - line.p1.y;
+                const snapLineLen = Math.hypot(snapLineVectorX, snapLineVectorY);
+                
+                if (snapLineLen > 0.001) {
+                    const snapLineNormX = snapLineVectorX / snapLineLen;
+                    const snapLineNormY = snapLineVectorY / snapLineLen;
+                    
+                    // Açıyı hesapla
+                    const angle = getAngleBetweenVectors(
+                        currentPipeVector.x, currentPipeVector.y,
+                        snapLineNormX, snapLineNormY
+                    );
+                    
+                    // 85-95 derece arası = DİK snap
+                    const PERPENDICULAR_TOLERANCE = 5; // ±5 derece tolerans
+                    if (Math.abs(angle - 90) < PERPENDICULAR_TOLERANCE) {
+                        isPerpendicular = true;
+                        priority = 0.001; // ✅ EN YÜKSEK ÖNCELİK (kesişimlerden bile önce)
+                    }
+                }
+            }
+
+            // ✅ SMOOTH KAYMA: Her zaman kilitsiz snap (isLockable: false)
+            addCandidate(closest, 'PLUMBING_WALL_SURFACE', dist * priority, wall, false, isPerpendicular);
         }
     });
 
@@ -196,18 +252,18 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
             const screenPt = worldToScreen(cp.x, cp.y);
             const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
             if (dist < effectiveSnapRadius) {
-                addCandidate({ x: cp.x, y: cp.y }, 'PLUMBING_CONNECTION', dist * 0.05, block, allowLocking);
+                addCandidate({ x: cp.x, y: cp.y }, 'PLUMBING_CONNECTION', dist * 0.05, block, allowLocking, false);
             }
         });
     });
 
-    // ✅ Boru Uç Noktaları (ARTIK BUNLAR DA KİLİTLENMİYOR - çizim/taşıma sırasında)
+    // ✅ Boru Uç Noktaları (çizim/taşıma sırasında kilitsiz)
     plumbingPipes.forEach(pipe => {
         [pipe.p1, pipe.p2].forEach(point => {
             const screenPt = worldToScreen(point.x, point.y);
             const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
             if (dist < effectiveSnapRadius) {
-                addCandidate({ x: point.x, y: point.y }, 'PLUMBING_PIPE_END', dist * 0.6, pipe, allowLocking);
+                addCandidate({ x: point.x, y: point.y }, 'PLUMBING_PIPE_END', dist * 0.6, pipe, false, false);
             }
         });
     });
@@ -227,7 +283,7 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
             const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
 
             if (dist < effectiveSnapRadius) {
-                addCandidate(closest, 'PLUMBING_BLOCK_EDGE', dist * 0.7, edge.block, allowLocking);
+                addCandidate(closest, 'PLUMBING_BLOCK_EDGE', dist * 0.7, edge.block, false, false);
             }
         });
 
@@ -245,7 +301,8 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
                     'PLUMBING_BLOCK_CENTER',
                     dist * 0.65,
                     block,
-                    allowLocking
+                    false,
+                    false
                 );
             }
         });
@@ -253,15 +310,16 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
 
     if (candidates.length === 0) return null;
 
-    // ✅ ÖNCELİK SIRASI: Boru çizerken snap çizgisi kesişimleri ÖNCELİKLİ
+    // ✅ ÖNCELİK SIRASI: DİK snap'ler EN ÖNCELİKLİ
     const priority = isPipeDrawing ? {
-        // Boru çizimi sırasında: Kesişimler en öncelikli
-        'PLUMBING_INTERSECTION': 0,  // Snap çizgisi kesişimleri
-        'PLUMBING_WALL_BLOCK_INTERSECTION': 1,  // Duvar-kutu kesişimleri
+        // Boru çizimi sırasında: DİK snap en öncelikli
+        'PLUMBING_WALL_SURFACE_PERPENDICULAR': -1, // ✅ YENİ: Dik snap en öncelikli
+        'PLUMBING_INTERSECTION': 0,
+        'PLUMBING_WALL_BLOCK_INTERSECTION': 1,
         'PLUMBING_CONNECTION': 2,
         'PLUMBING_PIPE_END': 3,
-        'PLUMBING_BLOCK_CENTER': 4,  // Kutu merkezi
-        'PLUMBING_BLOCK_EDGE': 5,  // Kutu kenarları
+        'PLUMBING_BLOCK_CENTER': 4,
+        'PLUMBING_BLOCK_EDGE': 5,
         'PLUMBING_WALL_SURFACE': 6
     } : {
         // Blok yerleştirme sırasında: Bağlantı noktaları öncelikli
@@ -275,6 +333,10 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     };
 
     candidates.sort((a, b) => {
+        // ✅ YENİ: Dik snap'lere öncelik
+        if (a.isPerpendicular && !b.isPerpendicular) return -1;
+        if (!a.isPerpendicular && b.isPerpendicular) return 1;
+        
         const pA = priority[a.type] ?? 99;
         const pB = priority[b.type] ?? 99;
         if (pA !== pB) return pA - pB;

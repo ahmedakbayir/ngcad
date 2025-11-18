@@ -1,7 +1,6 @@
 // ahmedakbayir/ngcad/architectural-objects/plumbing-blocks.js
-// ✅ DÜZELTME: Kutudan çıkan hatlar kopmaz, kesikli değil, smooth çizim
-// ✅ REPAIR_TOLERANCE 2cm -> 5cm (daha geniş yakalama)
-// ✅ Basitleştirilmiş taşıma mantığı
+// ✅ DÜZELTME: Servis kutusu SMOOTH taşıma (hysteresis kaldırıldı)
+// ✅ DÜZELTME: Sayaç boru ekseninde kalıyor
 
 import { state, setState } from '../general-files/main.js';
 import { cleanupVeryShortPipes } from './plumbing-pipes.js';
@@ -488,84 +487,28 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             }
         }
 
+        // ✅ SERVİS KUTUSU için SMOOTH duvar snap (hysteresis kaldırıldı)
         if (block.blockType === 'SERVIS_KUTUSU') {
-            // ✅ DÜZELTME: Hysteresis eşikleri düşürüldü (smooth taşıma)
-            const SNAP_ACTIVATE_THRESHOLD = 10; // 20 -> 10 (daha hızlı snap)
-            const SNAP_RELEASE_THRESHOLD = 15;  // 40 -> 15 (daha hızlı kopma)
-            
             if (snappedPos.isSnapped && 
                 (snappedPos.snapType === 'PLUMBING_WALL_SURFACE' || 
                  snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' ||
                  snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION' ||
                  snappedPos.snapType === 'PLUMBING_INTERSECTION')) {
                 
-                if (dragState.isSnapped && dragState.lastSnapPoint) {
-                    const distToLastSnap = Math.hypot(
-                        unsnappedPos.x - dragState.lastSnapPoint.x,
-                        unsnappedPos.y - dragState.lastSnapPoint.y
-                    );
-                    
-                    if (distToLastSnap < SNAP_RELEASE_THRESHOLD) {
-                        targetX = dragState.lastSnapPoint.x;
-                        targetY = dragState.lastSnapPoint.y;
-                        useSnap = true;
-                        
-                        if (dragState.lastSnapAngle !== undefined) {
-                            block.rotation = dragState.lastSnapAngle;
-                        }
-                    } else {
-                        dragState.isSnapped = false;
-                        dragState.lastSnapType = null;
-                        dragState.lastSnapPoint = null;
-                        dragState.lastSnapAngle = null;
-                    }
-                } else {
-                    const distToNewSnap = Math.hypot(
-                        unsnappedPos.x - snappedPos.x,
-                        unsnappedPos.y - snappedPos.y
-                    );
-                    
-                    if (distToNewSnap < SNAP_ACTIVATE_THRESHOLD) {
-                        targetX = snappedPos.x;
-                        targetY = snappedPos.y;
-                        useSnap = true;
-                        
-                        dragState.isSnapped = true;
-                        dragState.lastSnapType = snappedPos.snapType;
-                        dragState.lastSnapPoint = { x: snappedPos.x, y: snappedPos.y };
-                        dragState.lastSnapAngle = snappedPos.snapAngle;
-                        
-                        if (snappedPos.snapAngle !== undefined && 
-                            (snappedPos.snapType === 'PLUMBING_WALL_SURFACE' ||
-                             snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION' ||
-                             snappedPos.snapType === 'PLUMBING_INTERSECTION')) {
-                            block.rotation = snappedPos.snapAngle;
-                        }
-                    }
-                }
-            } else {
-                if (dragState.isSnapped && dragState.lastSnapPoint) {
-                    const distToLastSnap = Math.hypot(
-                        unsnappedPos.x - dragState.lastSnapPoint.x,
-                        unsnappedPos.y - dragState.lastSnapPoint.y
-                    );
-                    
-                    if (distToLastSnap < SNAP_RELEASE_THRESHOLD) {
-                        targetX = dragState.lastSnapPoint.x;
-                        targetY = dragState.lastSnapPoint.y;
-                        useSnap = true;
-                        
-                        if (dragState.lastSnapAngle !== undefined) {
-                            block.rotation = dragState.lastSnapAngle;
-                        }
-                    } else {
-                        dragState.isSnapped = false;
-                        dragState.lastSnapType = null;
-                        dragState.lastSnapPoint = null;
-                        dragState.lastSnapAngle = null;
-                    }
+                // ✅ Direkt snap pozisyonuna git (takılma yok, her frame yeniden hesaplama)
+                targetX = snappedPos.x;
+                targetY = snappedPos.y;
+                useSnap = true;
+                
+                // Duvar açısına göre dön (eğer varsa)
+                if (snappedPos.snapAngle !== undefined && 
+                    (snappedPos.snapType === 'PLUMBING_WALL_SURFACE' ||
+                     snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION' ||
+                     snappedPos.snapType === 'PLUMBING_INTERSECTION')) {
+                    block.rotation = snappedPos.snapAngle;
                 }
             }
+            // Snap yoksa mouse pozisyonunu kullan (smooth geçiş)
         }
 
         const newCenter = {
