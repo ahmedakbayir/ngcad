@@ -605,24 +605,41 @@ export function onPointerDown(e) {
         } else {
             // İkinci tıklama: Boruyu oluştur
             const p1 = state.startPoint;
-            
-            // GÜNCELLENDİ: Bitiş noktası için öncelik sırası
+
+            // GÜNCELLENDİ: Bitiş noktası için öncelik sırası + modifier tuş desteği
             let p2;
-            const blockEdgeSnap = (snappedPos.isSnapped && (snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' || snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION')) ? { x: snappedPos.x, y: snappedPos.y, ...snappedPos } : null;
-            const blockSnap = snapToConnectionPoint(pos, 10);
-            const pipeSnap = snapToPipeEndpoint(pos, 10);
-            
-            if (blockSnap) {
-                p2 = { x: blockSnap.x, y: blockSnap.y };
-                console.log('🔗 Pipe end snapped to BLOCK CONNECTION');
-            } else if (pipeSnap) {
-                p2 = { x: pipeSnap.x, y: pipeSnap.y };
-                console.log('🔗 Pipe end snapped to PIPE END');
-            } else if (blockEdgeSnap) {
-                p2 = { x: blockEdgeSnap.x, y: blockEdgeSnap.y };
-                console.log('🔗 Pipe end snapped to BLOCK EDGE');
-            } else {
-                p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+
+            // SHIFT tuşu: ORTHO modu açık + tüm snap'ları devre dışı bırak
+            if (currentModifierKeys.shift) {
+                // Snap'ları atla, sadece ORTHO (15 derece snap) kullan
+                const orthoPoint = snapTo15DegreeAngle(p1, pos);
+                p2 = { x: orthoPoint.x, y: orthoPoint.y };
+                console.log('🔗 Pipe end with SHIFT (ORTHO mode, no snaps)');
+            }
+            // ALT tuşu: Serbest çizim (snap ve ortho kapalı)
+            else if (currentModifierKeys.alt) {
+                // Ne snap ne ortho, tam serbest çizim
+                p2 = { x: pos.x, y: pos.y };
+                console.log('🔗 Pipe end with ALT (free mode, no snaps, no ortho)');
+            }
+            // Normal mod: Snap öncelikli, sonra ORTHO
+            else {
+                const blockEdgeSnap = (snappedPos.isSnapped && (snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' || snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION')) ? { x: snappedPos.x, y: snappedPos.y, ...snappedPos } : null;
+                const blockSnap = snapToConnectionPoint(pos, 10);
+                const pipeSnap = snapToPipeEndpoint(pos, 10);
+
+                if (blockSnap) {
+                    p2 = { x: blockSnap.x, y: blockSnap.y };
+                    console.log('🔗 Pipe end snapped to BLOCK CONNECTION');
+                } else if (pipeSnap) {
+                    p2 = { x: pipeSnap.x, y: pipeSnap.y };
+                    console.log('🔗 Pipe end snapped to PIPE END');
+                } else if (blockEdgeSnap) {
+                    p2 = { x: blockEdgeSnap.x, y: blockEdgeSnap.y };
+                    console.log('🔗 Pipe end snapped to BLOCK EDGE');
+                } else {
+                    p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+                }
             }
             // --- GÜNCELLEME SONU ---
             
