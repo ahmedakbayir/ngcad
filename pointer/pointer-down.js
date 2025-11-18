@@ -608,6 +608,7 @@ export function onPointerDown(e) {
 
             // GÜNCELLENDİ: Bitiş noktası için öncelik sırası + modifier tuş desteği
             let p2;
+            let blockEdgeSnap = null; // Dışarıda tanımla, her durumda erişilebilir olsun
 
             // SHIFT tuşu: ORTHO modu açık + tüm snap'ları devre dışı bırak
             if (currentModifierKeys.shift) {
@@ -624,7 +625,7 @@ export function onPointerDown(e) {
             }
             // Normal mod: Snap öncelikli, sonra ORTHO
             else {
-                const blockEdgeSnap = (snappedPos.isSnapped && (snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' || snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION')) ? { x: snappedPos.x, y: snappedPos.y, ...snappedPos } : null;
+                blockEdgeSnap = (snappedPos.isSnapped && (snappedPos.snapType === 'PLUMBING_BLOCK_EDGE' || snappedPos.snapType === 'PLUMBING_WALL_BLOCK_INTERSECTION')) ? { x: snappedPos.x, y: snappedPos.y, ...snappedPos } : null;
                 const blockSnap = snapToConnectionPoint(pos, 10);
                 const pipeSnap = snapToPipeEndpoint(pos, 10);
 
