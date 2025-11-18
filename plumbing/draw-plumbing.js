@@ -7,6 +7,7 @@ import { PLUMBING_PIPE_TYPES, snapToConnectionPoint, snapToPipeEndpoint, isSpace
 import { getObjectAtPoint } from '../general-files/actions.js';
 import { distToSegmentSquared } from '../draw/geometry.js';
 import { snapTo15DegreeAngle } from '../draw/geometry.js';
+import { currentModifierKeys } from '../general-files/input.js';
 
 /**
  * TESİSAT BLOKLARI 2D RENDERING
@@ -560,20 +561,35 @@ export function drawPlumbingPipePreview() {
     let endPoint = { x: state.mousePos.x, y: state.mousePos.y };
     let isSnapped = false;
 
-    const blockSnap = snapToConnectionPoint(endPoint, 15);
-    if (blockSnap) {
-        endPoint = { x: blockSnap.x, y: blockSnap.y };
-        isSnapped = true;
-    } else {
-        const pipeSnap = snapToPipeEndpoint(endPoint, 15);
-        if (pipeSnap) {
-            endPoint = { x: pipeSnap.x, y: pipeSnap.y };
-            isSnapped = true;
-        }
-    }
-    
-    if (!isSnapped) {
+    // SHIFT tuşu: ORTHO modu açık + tüm snap'ları devre dışı bırak
+    if (currentModifierKeys.shift) {
+        // Snap'ları atla, sadece ORTHO (15 derece snap) kullan
         endPoint = snapTo15DegreeAngle(state.startPoint, endPoint);
+        isSnapped = false; // Snap göstergesi gösterme
+    }
+    // ALT tuşu: Serbest çizim (snap ve ortho kapalı)
+    else if (currentModifierKeys.alt) {
+        // Ne snap ne ortho, hiçbir şey yapma - tam serbest çizim
+        // endPoint zaten mousePos olarak ayarlandı
+        isSnapped = false;
+    }
+    // Normal mod: Snap öncelikli, sonra ORTHO
+    else {
+        const blockSnap = snapToConnectionPoint(endPoint, 15);
+        if (blockSnap) {
+            endPoint = { x: blockSnap.x, y: blockSnap.y };
+            isSnapped = true;
+        } else {
+            const pipeSnap = snapToPipeEndpoint(endPoint, 15);
+            if (pipeSnap) {
+                endPoint = { x: pipeSnap.x, y: pipeSnap.y };
+                isSnapped = true;
+            }
+        }
+
+        if (!isSnapped) {
+            endPoint = snapTo15DegreeAngle(state.startPoint, endPoint);
+        }
     }
 
     ctx2d.save();
