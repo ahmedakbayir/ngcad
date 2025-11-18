@@ -233,23 +233,68 @@ export function onPointerDownDraw(pos, clickedObject) {
         return;
     }
 
-    // Boşluğa tıklandıysa, tüm uygun dış duvarlara ekle
+    // Boşluğa tıklandıysa, 2 kademeli pencere ekleme
     if (!clickedObject) {
         let windowAdded = false;
-        state.wallAdjacency.forEach((count, wall) => {
-            if (count === 1) { // Sadece dış duvarlar
-                const wallType = wall.wallType || 'normal';
-                if (wallType === 'normal') { // Sadece normal tipteki dış duvarlara ekle
-                   // Komşu odayı bul (Banyo kontrolü için)
-                   const adjacentRooms = getRoomsAdjacentToWall(wall);
-                   const room = adjacentRooms[0]; // Dış duvarın tek bir komşusu olmalı
-                   if (addWindowToWallMiddle(wall, room ? room.name : null)) { // Oda adını gönder
-                        windowAdded = true;
-                   }
+
+        // İLK TİKLAMA: Her odanın en geniş dış duvarına pencere ekle
+        if (state.windowPlacementStage === 0) {
+            // Odaları grupla ve her oda için en geniş dış duvarı bul
+            const roomToWidestWall = new Map(); // room -> en geniş duvar
+
+            state.wallAdjacency.forEach((count, wall) => {
+                if (count === 1) { // Sadece dış duvarlar
+                    const wallType = wall.wallType || 'normal';
+                    if (wallType === 'normal') {
+                        const adjacentRooms = getRoomsAdjacentToWall(wall);
+                        const room = adjacentRooms[0]; // Dış duvarın tek bir komşusu olmalı
+
+                        if (room) {
+                            const wallLength = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+
+                            // Bu odanın mevcut en geniş duvarını kontrol et
+                            const current = roomToWidestWall.get(room);
+                            if (!current || wallLength > current.length) {
+                                roomToWidestWall.set(room, { wall, length: wallLength });
+                            }
+                        }
+                    }
                 }
+            });
+
+            // Her odanın en geniş duvarına pencere ekle
+            roomToWidestWall.forEach(({ wall }, room) => {
+                if (addWindowToWallMiddle(wall, room ? room.name : null)) {
+                    windowAdded = true;
+                }
+            });
+
+            if (windowAdded) {
+                setState({ windowPlacementStage: 1 }); // İkinci aşamaya geç
+                saveState();
             }
-        });
-        if (windowAdded) saveState();
+        }
+        // İKİNCİ TİKLAMA: Kalan dış duvarlara pencere ekle
+        else if (state.windowPlacementStage === 1) {
+            state.wallAdjacency.forEach((count, wall) => {
+                if (count === 1) { // Sadece dış duvarlar
+                    const wallType = wall.wallType || 'normal';
+                    if (wallType === 'normal') {
+                        // Komşu odayı bul (Banyo kontrolü için)
+                        const adjacentRooms = getRoomsAdjacentToWall(wall);
+                        const room = adjacentRooms[0]; // Dış duvarın tek bir komşusu olmalı
+                        if (addWindowToWallMiddle(wall, room ? room.name : null)) {
+                            windowAdded = true;
+                        }
+                    }
+                }
+            });
+
+            if (windowAdded) {
+                setState({ windowPlacementStage: 0 }); // İlk aşamaya geri dön
+                saveState();
+            }
+        }
     }
 }
 
