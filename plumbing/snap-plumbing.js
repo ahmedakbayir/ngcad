@@ -310,6 +310,20 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
 
     if (candidates.length === 0) return null;
 
+    // ✅ SERVİS KUTUSU: SADECE DUVAR YÜZEYİNE SNAP YAP
+    const isServiceBox = (isBlockMode && state.currentPlumbingBlockType === 'SERVIS_KUTUSU') ||
+                         (isDraggingBlock && draggedBlock && draggedBlock.blockType === 'SERVIS_KUTUSU');
+
+    if (isServiceBox) {
+        // Sadece duvar yüzeyi snap türlerini tut (köşeler, kesişimler, blok kenarları hariç)
+        candidates = candidates.filter(c =>
+            c.type === 'PLUMBING_WALL_SURFACE' ||
+            c.type === 'PLUMBING_WALL_SURFACE_PERPENDICULAR'
+        );
+
+        if (candidates.length === 0) return null;
+    }
+
     // ✅ ÖNCELİK SIRASI: DİK snap'ler EN ÖNCELİKLİ
     const priority = isPipeDrawing ? {
         // Boru çizimi sırasında: DİK snap en öncelikli
