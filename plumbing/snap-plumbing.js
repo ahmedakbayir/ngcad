@@ -146,40 +146,46 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     }
 
     // ✅ Kesişimler (boru çizimi için ÖNCELİKLE aktif, blok modu için de)
-    allSnapLines.forEach(snapLineItem => {
-        const wallSnapLine = snapLineItem.line;
-        allPlumbingBlockEdges.forEach(blockEdge => {
-            const intersection = getLineIntersectionPoint(
-                wallSnapLine.p1, wallSnapLine.p2,
-                blockEdge.p1, blockEdge.p2
-            );
+    // ✅ SERVİS KUTUSU: Kesişimlere snap YAPMA (sadece düz duvar yüzeyine snap yap)
+    const isServiceBox = (isBlockMode && state.currentPlumbingBlockType === 'SERVIS_KUTUSU') ||
+                         (isDraggingBlock && draggedBlock && draggedBlock.blockType === 'SERVIS_KUTUSU');
 
-            if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
-                const screenPt = worldToScreen(intersection.x, intersection.y);
-                const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+    if (!isServiceBox) {
+        allSnapLines.forEach(snapLineItem => {
+            const wallSnapLine = snapLineItem.line;
+            allPlumbingBlockEdges.forEach(blockEdge => {
+                const intersection = getLineIntersectionPoint(
+                    wallSnapLine.p1, wallSnapLine.p2,
+                    blockEdge.p1, blockEdge.p2
+                );
 
-                if (dist < INTERSECTION_SNAP_RADIUS) {
-                    const priorityMultiplier = isPipeDrawing ? 0.05 : 0.5;
-                    addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * priorityMultiplier, snapLineItem.wall, allowLocking, false);
+                if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
+                    const screenPt = worldToScreen(intersection.x, intersection.y);
+                    const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+
+                    if (dist < INTERSECTION_SNAP_RADIUS) {
+                        const priorityMultiplier = isPipeDrawing ? 0.05 : 0.5;
+                        addCandidate(intersection, 'PLUMBING_WALL_BLOCK_INTERSECTION', dist * priorityMultiplier, snapLineItem.wall, allowLocking, false);
+                    }
                 }
-            }
+            });
         });
-    });
 
-    for (let i = 0; i < allSnapLines.length; i++) {
-        for (let j = i + 1; j < allSnapLines.length; j++) {
-            const line1 = allSnapLines[i].line;
-            const line2 = allSnapLines[j].line;
+        for (let i = 0; i < allSnapLines.length; i++) {
+            for (let j = i + 1; j < allSnapLines.length; j++) {
+                const line1 = allSnapLines[i].line;
+                const line2 = allSnapLines[j].line;
 
-            const intersection = getLineIntersectionPoint(line1.p1, line1.p2, line2.p1, line2.p2);
+                const intersection = getLineIntersectionPoint(line1.p1, line1.p2, line2.p1, line2.p2);
 
-            if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
-                const screenPt = worldToScreen(intersection.x, intersection.y);
-                const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+                if (intersection && isFinite(intersection.x) && isFinite(intersection.y)) {
+                    const screenPt = worldToScreen(intersection.x, intersection.y);
+                    const dist = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
 
-                if (dist < INTERSECTION_SNAP_RADIUS) {
-                    const priorityMultiplier = isPipeDrawing ? 0.01 : 0.1;
-                    addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * priorityMultiplier, allSnapLines[i].wall, allowLocking, false);
+                    if (dist < INTERSECTION_SNAP_RADIUS) {
+                        const priorityMultiplier = isPipeDrawing ? 0.01 : 0.1;
+                        addCandidate(intersection, 'PLUMBING_INTERSECTION', dist * priorityMultiplier, allSnapLines[i].wall, allowLocking, false);
+                    }
                 }
             }
         }
@@ -348,18 +354,24 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     // ✅ KRİTİK: lockable bilgisini bestCandidate'e ekle
     bestCandidate.isLockable = bestCandidate.lockable !== false;
 
-    if ((bestCandidate.type === 'PLUMBING_WALL_SURFACE' || 
+    if ((bestCandidate.type === 'PLUMBING_WALL_SURFACE' ||
          bestCandidate.type === 'PLUMBING_WALL_BLOCK_INTERSECTION' ||
-         bestCandidate.type === 'PLUMBING_INTERSECTION') && 
+         bestCandidate.type === 'PLUMBING_INTERSECTION') &&
         bestCandidate.wall) {
-        
+
         const wall = bestCandidate.wall;
         const wallAngle = Math.atan2(
             wall.p2.y - wall.p1.y,
             wall.p2.x - wall.p1.x
         ) * 180 / Math.PI;
-        
-        bestCandidate.snapAngle = Math.round((wallAngle + 90) / 15) * 15;
+
+        // ✅ SERVİS KUTUSU: Uzun kenarı duvara paralel dön (wallAngle)
+        // ✅ DİĞER BLOKLAR: Duvara dik dön (wallAngle + 90)
+        if (isServiceBox) {
+            bestCandidate.snapAngle = Math.round(wallAngle / 15) * 15;
+        } else {
+            bestCandidate.snapAngle = Math.round((wallAngle + 90) / 15) * 15;
+        }
     }
 
     return bestCandidate;
