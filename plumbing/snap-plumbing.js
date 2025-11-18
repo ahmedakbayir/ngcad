@@ -341,8 +341,7 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     if (candidates.length === 0) return null;
 
     // ✅ SERVİS KUTUSU: SADECE DUVAR YÜZEYİNE SNAP YAP
-    const isServiceBox = (isBlockMode && state.currentPlumbingBlockType === 'SERVIS_KUTUSU') ||
-                         (isDraggingBlock && draggedBlock && draggedBlock.blockType === 'SERVIS_KUTUSU');
+    // isServiceBox zaten fonksiyon başında tanımlandı (satır 67)
 
     if (isServiceBox) {
         // Sadece duvar yüzeyi snap türlerini tut (köşeler, kesişimler, blok kenarları hariç)
