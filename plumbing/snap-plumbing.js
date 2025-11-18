@@ -60,9 +60,13 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     
     const INTERSECTION_SNAP_RADIUS = effectiveSnapRadius * 1.5;
     
-    const PLUMBING_OFFSET = 5; 
-    const EXTENSION_LENGTH = 50; 
-    
+    const PLUMBING_OFFSET = 5;
+    const EXTENSION_LENGTH = 50;
+
+    // ✅ SERVİS KUTUSU kontrolü (snap çizgilerini oluşturmadan önce)
+    const isServiceBox = (isBlockMode && state.currentPlumbingBlockType === 'SERVIS_KUTUSU') ||
+                         (isDraggingBlock && draggedBlock && draggedBlock.blockType === 'SERVIS_KUTUSU');
+
     const allSnapLines = [];
     
     walls.forEach(wall => {
@@ -106,8 +110,26 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
             p1: { x: extendedP1.x - nx * offset, y: extendedP1.y - ny * offset },
             p2: { x: extendedP2.x - nx * offset, y: extendedP2.y - ny * offset }
         };
-        
-        allSnapLines.push({ line: line1, wall: wall }, { line: line2, wall: wall });
+
+        // ✅ SERVİS KUTUSU: Sadece fare konumuna göre TEK taraf snap (duvar içine girmesin)
+        if (isServiceBox) {
+            // Duvar merkez noktası
+            const wallCenterX = (wall.p1.x + wall.p2.x) / 2;
+            const wallCenterY = (wall.p1.y + wall.p2.y) / 2;
+            // Fare hangi tarafta?
+            const toMouseX = wm.x - wallCenterX;
+            const toMouseY = wm.y - wallCenterY;
+            const side = toMouseX * nx + toMouseY * ny; // dot product
+
+            // Sadece fare tarafındaki snap çizgisini ekle
+            if (side > 0) {
+                allSnapLines.push({ line: line1, wall: wall });
+            } else {
+                allSnapLines.push({ line: line2, wall: wall });
+            }
+        } else {
+            allSnapLines.push({ line: line1, wall: wall }, { line: line2, wall: wall });
+        }
     });
 
     const allPlumbingBlockEdges = [];
@@ -147,9 +169,6 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
 
     // ✅ Kesişimler (boru çizimi için ÖNCELİKLE aktif, blok modu için de)
     // ✅ SERVİS KUTUSU: Kesişimlere snap YAPMA (sadece düz duvar yüzeyine snap yap)
-    const isServiceBox = (isBlockMode && state.currentPlumbingBlockType === 'SERVIS_KUTUSU') ||
-                         (isDraggingBlock && draggedBlock && draggedBlock.blockType === 'SERVIS_KUTUSU');
-
     if (!isServiceBox) {
         allSnapLines.forEach(snapLineItem => {
             const wallSnapLine = snapLineItem.line;
@@ -200,11 +219,16 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
         const l2 = (line.p1.x - line.p2.x) ** 2 + (line.p1.y - line.p2.y) ** 2;
         if (l2 < 1e-6) return;
         
-        let t = ((wm.x - line.p1.x) * (line.p2.x - line.p1.x) + 
+        let t = ((wm.x - line.p1.x) * (line.p2.x - line.p1.x) +
                  (wm.y - line.p1.y) * (line.p2.y - line.p1.y)) / l2;
-        
+
         // ✅ KRİTİK: t değerini SINIRLANDIRMA - çizgi uzantısı yok
-        t = Math.max(0, Math.min(1, t));
+        // ✅ SERVİS KUTUSU: Köşelerden uzak tut (t=0 veya t=1 snap yapma)
+        if (isServiceBox) {
+            t = Math.max(0.15, Math.min(0.85, t));
+        } else {
+            t = Math.max(0, Math.min(1, t));
+        }
         
         const closest = { 
             x: line.p1.x + t * (line.p2.x - line.p1.x), 
