@@ -610,16 +610,49 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         const dy = Math.abs(wm.y - p.y) * state.zoom;
         if (dy < SNAP_RADIUS_PIXELS && dy < bestHSnap.dist) { bestHSnap = { y: p.y, dist: dy, origin: p }; }
     });
+
+    // YENİ: Kesişim noktası için akıllı snap mantığı
     if (bestVSnap.x !== null && bestHSnap.y !== null) {
         const intersectPt = { x: bestVSnap.x, y: bestHSnap.y };
         const screenIntersect = worldToScreen(intersectPt.x, intersectPt.y);
         const distToIntersection = Math.hypot(screenMouse.x - screenIntersect.x, screenMouse.y - screenIntersect.y);
-        if (distToIntersection < SNAP_RADIUS_PIXELS) {
-            candidates.push({ point: intersectPt, distance: distToIntersection, type: 'INTERSECTION' });
+
+        // Kesişim noktasına yakınlık threshold'u (daha büyük bir değer)
+        const INTERSECTION_THRESHOLD = SNAP_RADIUS_PIXELS * 0.6; // Kesişime yakınsa öncelik ver
+
+        if (distToIntersection < INTERSECTION_THRESHOLD) {
+            // Kesişim noktasına çok yakınız - kesişim noktasını yüksek öncelikle ekle
+            candidates.push({ point: intersectPt, distance: distToIntersection * 0.1, type: 'INTERSECTION' });
+        } else if (distToIntersection < SNAP_RADIUS_PIXELS) {
+            // Kesişim noktasından biraz uzaktayız - hangi snap doğrusuna daha yakınız?
+            const distToVLine = bestVSnap.dist;
+            const distToHLine = bestHSnap.dist;
+
+            // Daha yakın olan snap doğrusunu kullan, diğerini iptal et
+            if (distToVLine < distToHLine * 0.8) {
+                // Dikey snap daha baskın - sadece dikey snap'i ekle
+                if (bestVSnap.x !== null && isFinite(wm.y)) {
+                    candidates.push({ point: { x: bestVSnap.x, y: wm.y }, distance: bestVSnap.dist, type: 'PROJECTION' });
+                }
+            } else if (distToHLine < distToVLine * 0.8) {
+                // Yatay snap daha baskın - sadece yatay snap'i ekle
+                if (bestHSnap.y !== null && isFinite(wm.x)) {
+                    candidates.push({ point: { x: wm.x, y: bestHSnap.y }, distance: bestHSnap.dist, type: 'PROJECTION' });
+                }
+            } else {
+                // İkisi de eşit derecede yakın - her ikisini de ekle ama kesişimi normal öncelikle
+                candidates.push({ point: intersectPt, distance: distToIntersection, type: 'INTERSECTION' });
+            }
+        } else {
+            // Kesişim noktasından çok uzaktayız - normal snap davranışı
+            if (bestVSnap.x !== null && isFinite(wm.y)) candidates.push({ point: { x: bestVSnap.x, y: wm.y }, distance: bestVSnap.dist, type: 'PROJECTION' });
+            if (bestHSnap.y !== null && isFinite(wm.x)) candidates.push({ point: { x: wm.x, y: bestHSnap.y }, distance: bestHSnap.dist, type: 'PROJECTION' });
         }
+    } else {
+        // Sadece bir yönde snap var - normal davranış
+        if (bestVSnap.x !== null && isFinite(wm.y)) candidates.push({ point: { x: bestVSnap.x, y: wm.y }, distance: bestVSnap.dist, type: 'PROJECTION' });
+        if (bestHSnap.y !== null && isFinite(wm.x)) candidates.push({ point: { x: wm.x, y: bestHSnap.y }, distance: bestHSnap.dist, type: 'PROJECTION' });
     }
-    if (bestVSnap.x !== null && isFinite(wm.y)) candidates.push({ point: { x: bestVSnap.x, y: wm.y }, distance: bestVSnap.dist, type: 'PROJECTION' });
-    if (bestHSnap.y !== null && isFinite(wm.x)) candidates.push({ point: { x: wm.x, y: bestHSnap.y }, distance: bestHSnap.dist, type: 'PROJECTION' });
 
     // Kesişim Snap (Duvar-Duvar MERKEZ, Duvar-Merdiven KENAR)
     // DİKKAT: Bu blok merdiven çizerken çalışmaz (yukarıda return edildi).
@@ -685,8 +718,18 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         roundedX = x;
         roundedY = y;
         if ((bestSnap.type === 'INTERSECTION' || bestSnap.type === 'PROJECTION') ) {
-            if (bestVSnap.origin && Math.abs(x - (bestVSnap.x ?? x)) < 0.1) { snapLines.v_origins.push(bestVSnap.origin); }
-            if (bestHSnap.origin && Math.abs(y - (bestHSnap.y ?? y)) < 0.1) { snapLines.h_origins.push(bestHSnap.origin); }
+            // YENİ: Snap line'ları akıllıca ekle
+            // Eğer kesişim varsa ve kesişime yakınsak her iki line'ı da göster
+            // Eğer tek bir yöne meyletmişsek sadece o line'ı göster
+            if (bestSnap.type === 'INTERSECTION') {
+                // Kesişim noktasında - her iki line'ı da göster
+                if (bestVSnap.origin) { snapLines.v_origins.push(bestVSnap.origin); }
+                if (bestHSnap.origin) { snapLines.h_origins.push(bestHSnap.origin); }
+            } else if (bestSnap.type === 'PROJECTION') {
+                // Projection - sadece ilgili line'ı göster
+                if (bestVSnap.origin && Math.abs(x - (bestVSnap.x ?? x)) < 0.1) { snapLines.v_origins.push(bestVSnap.origin); }
+                if (bestHSnap.origin && Math.abs(y - (bestHSnap.y ?? y)) < 0.1) { snapLines.h_origins.push(bestHSnap.origin); }
+            }
         }
     } else if (applyGridSnapFallback) {
          const currentMode = state.currentMode || 'select';
