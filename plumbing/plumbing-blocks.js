@@ -16,6 +16,10 @@ export const PLUMBING_BLOCK_TYPES = {
         connectionPoints: [],
         mountType: 'wall',
         color: 0xA8A8A8,
+        // SNAP ÖZELLİKLERİ
+        snapType: 'wall',           // Duvar yüzeyine snap
+        snapToCenterEnabled: false,  // Merkez snap devre dışı (sadece edge snap)
+        snapToConnectionsEnabled: false // Bağlantı noktaları snap devre dışı
     },
     SAYAC: {
         id: 'sayac',
@@ -31,6 +35,10 @@ export const PLUMBING_BLOCK_TYPES = {
         connectionLineLength: 10,
         mountType: 'wall',
         color: 0xA8A8A8,
+        // SNAP ÖZELLİKLERİ
+        snapType: 'pipe',            // Boru üzerine snap
+        snapToCenterEnabled: false,
+        snapToConnectionsEnabled: true  // Bağlantı noktaları aktif
     },
     VANA: {
         id: 'vana',
@@ -45,7 +53,11 @@ export const PLUMBING_BLOCK_TYPES = {
         ],
         mountType: 'free',
         color: 0xA0A0A0,
-        shape: 'doubleConeFrustum'
+        shape: 'doubleConeFrustum',
+        // SNAP ÖZELLİKLERİ
+        snapType: 'pipe',            // Boru üzerine snap
+        snapToCenterEnabled: false,
+        snapToConnectionsEnabled: true
     },
     KOMBI: {
         id: 'kombi',
@@ -59,6 +71,10 @@ export const PLUMBING_BLOCK_TYPES = {
         ],
         mountType: 'wall',
         color: 0xC0C0C0,
+        // SNAP ÖZELLİKLERİ
+        snapType: 'wall',            // Duvar yüzeyine snap
+        snapToCenterEnabled: false,
+        snapToConnectionsEnabled: true  // Bağlantı noktası aktif (boru ucuna snap)
     },
     OCAK: {
         id: 'ocak',
@@ -72,6 +88,10 @@ export const PLUMBING_BLOCK_TYPES = {
         ],
         mountType: 'floor',
         color: 0x303030,
+        // SNAP ÖZELLİKLERİ
+        snapType: 'free',            // Serbest yerleştirme
+        snapToCenterEnabled: false,
+        snapToConnectionsEnabled: true  // Bağlantı noktası aktif (boru ucuna snap)
     }
 };
 

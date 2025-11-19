@@ -26,6 +26,8 @@ import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 // YENİ İMPORT: Silme işlemi için getConnectionPoints eklendi
 import { getConnectionPoints } from '../plumbing/plumbing-blocks.js';
+// YENİ İMPORT: Alt nesne ekleme için
+import { addSubObjectToPipe, PIPE_SUBOBJECT_TYPES, removeSubObjectFromPipe } from '../plumbing/plumbing-pipes.js';
 
 
 // ... (dosyanın üst kısmı değişmedi: currentModifierKeys, extendWallOnTabPress, handleCopy, handlePaste) ...
@@ -1031,6 +1033,7 @@ export function setupInputListeners() {
         hideRoomNamePopup();
         hideWallPanel();
         hideGuideContextMenu();
+        hidePipeContextMenu();
 
         if (object && (object.type === 'room' || object.type === 'roomName')) {
             showRoomNamePopup(object.object, e);
@@ -1038,6 +1041,8 @@ export function setupInputListeners() {
             showWallPanel(object.object, e.clientX, e.clientY);
         } else if (object && object.type === 'stairs') {
             showStairPopup(object.object, e); // Merdiven sağ tık
+        } else if (object && object.type === 'plumbingPipe') {
+            showPipeContextMenu(object.object, e.clientX, e.clientY, clickPos); // Boru sağ tık
         } else if (!object) {
             // Boş alana tıklandı
             showGuideContextMenu(e.clientX, e.clientY, clickPos);
@@ -1204,4 +1209,138 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     update3DScene();
 
     console.log("Duvar başarıyla bölündü"); // Debug için
+}
+
+/**
+ * Boru sağ tık menüsü - Alt nesne ekle/sil
+ */
+function showPipeContextMenu(pipe, clientX, clientY, worldPos) {
+    hidePipeContextMenu(); // Önce mevcut menüyü kapat
+
+    const menu = document.createElement('div');
+    menu.id = 'pipeContextMenu';
+    menu.style.position = 'absolute';
+    menu.style.left = `${clientX}px`;
+    menu.style.top = `${clientY}px`;
+    menu.style.backgroundColor = '#2a2a2a';
+    menu.style.border = '1px solid #555';
+    menu.style.borderRadius = '4px';
+    menu.style.padding = '8px 0';
+    menu.style.zIndex = '10000';
+    menu.style.minWidth = '180px';
+    menu.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+    menu.style.color = '#fff';
+    menu.style.fontFamily = 'Arial, sans-serif';
+    menu.style.fontSize = '13px';
+
+    // Boru uzunluğunu hesapla
+    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+
+    // Mouse pozisyonunun boru üzerindeki pozisyonunu hesapla
+    const dx = pipe.p2.x - pipe.p1.x;
+    const dy = pipe.p2.y - pipe.p1.y;
+    const lengthSq = dx * dx + dy * dy;
+    const t = Math.max(0, Math.min(1, ((worldPos.x - pipe.p1.x) * dx + (worldPos.y - pipe.p1.y) * dy) / lengthSq));
+    const posOnPipe = t * pipeLength;
+
+    // Alt nesne tiplerine göre menü oluştur
+    const subObjectTypes = [
+        { type: 'VALVE', label: '🔧 Vana Ekle' },
+        { type: 'METER', label: '📊 Sayaç Ekle' },
+        { type: 'SERVICE_BOX', label: '📦 Servis Kutusu Ekle' },
+        { type: 'BOILER', label: '🔥 Kombi Ekle' },
+        { type: 'STOVE', label: '🍳 Ocak Ekle' }
+    ];
+
+    subObjectTypes.forEach(({ type, label }) => {
+        const item = document.createElement('div');
+        item.textContent = label;
+        item.style.padding = '8px 16px';
+        item.style.cursor = 'pointer';
+        item.style.transition = 'background-color 0.2s';
+
+        item.addEventListener('mouseenter', () => {
+            item.style.backgroundColor = '#3a3a3a';
+        });
+
+        item.addEventListener('mouseleave', () => {
+            item.style.backgroundColor = 'transparent';
+        });
+
+        item.addEventListener('click', () => {
+            const added = addSubObjectToPipe(pipe, type, posOnPipe);
+            if (added) {
+                saveState();
+                update3DScene();
+            }
+            hidePipeContextMenu();
+        });
+
+        menu.appendChild(item);
+    });
+
+    // Ayırıcı çizgi
+    const divider = document.createElement('div');
+    divider.style.height = '1px';
+    divider.style.backgroundColor = '#555';
+    divider.style.margin = '4px 0';
+    menu.appendChild(divider);
+
+    // Mevcut alt nesneleri göster ve sil seçeneği ekle
+    if (pipe.subObjects && pipe.subObjects.length > 0) {
+        const subObjsNearClick = pipe.subObjects.filter(subObj => {
+            const dist = Math.abs(subObj.pos - posOnPipe);
+            return dist < 20; // 20 cm yakınlık
+        });
+
+        if (subObjsNearClick.length > 0) {
+            const deleteHeader = document.createElement('div');
+            deleteHeader.textContent = 'Sil:';
+            deleteHeader.style.padding = '4px 16px';
+            deleteHeader.style.fontSize = '11px';
+            deleteHeader.style.color = '#999';
+            menu.appendChild(deleteHeader);
+
+            subObjsNearClick.forEach(subObj => {
+                const deleteItem = document.createElement('div');
+                const typeName = PIPE_SUBOBJECT_TYPES[subObj.type]?.name || subObj.type;
+                deleteItem.textContent = `❌ ${typeName} (${subObj.pos.toFixed(1)} cm)`;
+                deleteItem.style.padding = '8px 16px';
+                deleteItem.style.cursor = 'pointer';
+                deleteItem.style.transition = 'background-color 0.2s';
+                deleteItem.style.color = '#ff6b6b';
+
+                deleteItem.addEventListener('mouseenter', () => {
+                    deleteItem.style.backgroundColor = '#3a3a3a';
+                });
+
+                deleteItem.addEventListener('mouseleave', () => {
+                    deleteItem.style.backgroundColor = 'transparent';
+                });
+
+                deleteItem.addEventListener('click', () => {
+                    removeSubObjectFromPipe(pipe, subObj);
+                    saveState();
+                    update3DScene();
+                    hidePipeContextMenu();
+                });
+
+                menu.appendChild(deleteItem);
+            });
+        }
+    }
+
+    document.body.appendChild(menu);
+
+    // Menü dışına tıklandığında kapat
+    setTimeout(() => {
+        document.addEventListener('click', hidePipeContextMenu, { once: true });
+    }, 100);
+}
+
+function hidePipeContextMenu() {
+    const menu = document.getElementById('pipeContextMenu');
+    if (menu) {
+        menu.remove();
+    }
 }
