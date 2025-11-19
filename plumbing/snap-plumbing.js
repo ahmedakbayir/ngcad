@@ -64,51 +64,57 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     const EXTENSION_LENGTH = 50; 
     
     const allSnapLines = [];
-    
-    walls.forEach(wall => {
-        if (!wall.p1 || !wall.p2) return;
-        
-        const wallThickness = wall.thickness || state.wallThickness;
-        const halfThickness = wallThickness / 2;
-        
-        const dx = wall.p2.x - wall.p1.x;
-        const dy = wall.p2.y - wall.p1.y;
-        const len = Math.hypot(dx, dy);
-        if (len < 0.1) return;
-        
-        const dirX = dx / len;
-        const dirY = dy / len;
-        const nx = -dy / len; 
-        const ny = dx / len;
-        
-        let offset;
-        if ((isBlockMode || isDraggingBlock) && (blockConfig || draggedBlock)) {
-            const activeConfig = blockConfig || (draggedBlock ? PLUMBING_BLOCK_TYPES[draggedBlock.blockType] : null);
-            offset = halfThickness + (activeConfig ? (activeConfig.height / 2) : PLUMBING_OFFSET);
-        } else {
-            offset = halfThickness + PLUMBING_OFFSET;
-        }
-        
-        const extendedP1 = {
-            x: wall.p1.x - dirX * EXTENSION_LENGTH,
-            y: wall.p1.y - dirY * EXTENSION_LENGTH
-        };
-        const extendedP2 = {
-            x: wall.p2.x + dirX * EXTENSION_LENGTH,
-            y: wall.p2.y + dirY * EXTENSION_LENGTH
-        };
-        
-        const line1 = {
-            p1: { x: extendedP1.x + nx * offset, y: extendedP1.y + ny * offset },
-            p2: { x: extendedP2.x + nx * offset, y: extendedP2.y + ny * offset }
-        };
-        const line2 = {
-            p1: { x: extendedP1.x - nx * offset, y: extendedP1.y - ny * offset },
-            p2: { x: extendedP2.x - nx * offset, y: extendedP2.y - ny * offset }
-        };
-        
-        allSnapLines.push({ line: line1, wall: wall }, { line: line2, wall: wall });
-    });
+
+    // ✅ SADECE SERVIS_KUTUSU modu için duvar yüzey snap çizgileri oluştur
+    const isServiceBoxMode = (isBlockMode && state.currentPlumbingBlockType === 'SERVIS_KUTUSU') ||
+                             (isDraggingBlock && draggedBlock?.blockType === 'SERVIS_KUTUSU');
+
+    if (isServiceBoxMode) {
+        walls.forEach(wall => {
+            if (!wall.p1 || !wall.p2) return;
+
+            const wallThickness = wall.thickness || state.wallThickness;
+            const halfThickness = wallThickness / 2;
+
+            const dx = wall.p2.x - wall.p1.x;
+            const dy = wall.p2.y - wall.p1.y;
+            const len = Math.hypot(dx, dy);
+            if (len < 0.1) return;
+
+            const dirX = dx / len;
+            const dirY = dy / len;
+            const nx = -dy / len;
+            const ny = dx / len;
+
+            let offset;
+            if ((isBlockMode || isDraggingBlock) && (blockConfig || draggedBlock)) {
+                const activeConfig = blockConfig || (draggedBlock ? PLUMBING_BLOCK_TYPES[draggedBlock.blockType] : null);
+                offset = halfThickness + (activeConfig ? (activeConfig.height / 2) : PLUMBING_OFFSET);
+            } else {
+                offset = halfThickness + PLUMBING_OFFSET;
+            }
+
+            const extendedP1 = {
+                x: wall.p1.x - dirX * EXTENSION_LENGTH,
+                y: wall.p1.y - dirY * EXTENSION_LENGTH
+            };
+            const extendedP2 = {
+                x: wall.p2.x + dirX * EXTENSION_LENGTH,
+                y: wall.p2.y + dirY * EXTENSION_LENGTH
+            };
+
+            const line1 = {
+                p1: { x: extendedP1.x + nx * offset, y: extendedP1.y + ny * offset },
+                p2: { x: extendedP2.x + nx * offset, y: extendedP2.y + ny * offset }
+            };
+            const line2 = {
+                p1: { x: extendedP1.x - nx * offset, y: extendedP1.y - ny * offset },
+                p2: { x: extendedP2.x - nx * offset, y: extendedP2.y - ny * offset }
+            };
+
+            allSnapLines.push({ line: line1, wall: wall }, { line: line2, wall: wall });
+        });
+    }
 
     const allPlumbingBlockEdges = [];
     plumbingBlocks.forEach(block => {
@@ -348,17 +354,15 @@ export function getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS) {
     // ✅ KRİTİK: lockable bilgisini bestCandidate'e ekle
     bestCandidate.isLockable = bestCandidate.lockable !== false;
 
-    if ((bestCandidate.type === 'PLUMBING_WALL_SURFACE' || 
-         bestCandidate.type === 'PLUMBING_WALL_BLOCK_INTERSECTION' ||
-         bestCandidate.type === 'PLUMBING_INTERSECTION') && 
-        bestCandidate.wall) {
-        
+    // ✅ SERVIS_KUTUSU için snapAngle hesapla (kutunun duvara göre otomatik yönlenmesi için)
+    if (isServiceBoxMode && bestCandidate.wall) {
         const wall = bestCandidate.wall;
         const wallAngle = Math.atan2(
             wall.p2.y - wall.p1.y,
             wall.p2.x - wall.p1.x
         ) * 180 / Math.PI;
-        
+
+        // Duvar açısına dik olacak şekilde (uzun kenar duvara temas etsin)
         bestCandidate.snapAngle = Math.round((wallAngle + 90) / 15) * 15;
     }
 
