@@ -408,7 +408,8 @@ function drawVana(block, isSelected) {
 }
 
 /**
- * Tüm vanaları boru üzerinde çizer
+ * Tüm alt nesneleri (vana, sayaç, servis kutusu, kombi, ocak) boru üzerinde çizer
+ * YENİ: subObjects dizisini kullanır, eski valves[] dizisini de destekler (backward compatibility)
  */
 export function drawValvesOnPipes() {
     const { ctx2d } = dom;
@@ -417,24 +418,77 @@ export function drawValvesOnPipes() {
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
     for (const pipe of pipes) {
-        if (!pipe.valves || pipe.valves.length === 0) continue;
-
         const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
         if (pipeLength < 0.1) continue;
 
         const dx = (pipe.p2.x - pipe.p1.x) / pipeLength;
         const dy = (pipe.p2.y - pipe.p1.y) / pipeLength;
+        const pipeAngle = Math.atan2(dy, dx) * 180 / Math.PI;
 
-        for (const valve of pipe.valves) {
-            const centerX = pipe.p1.x + dx * valve.pos;
-            const centerY = pipe.p1.y + dy * valve.pos;
-            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-            const isSelected = state.selectedObject?.type === 'valve' && state.selectedObject?.object === valve;
+        // YENİ: subObjects dizisini çiz
+        if (pipe.subObjects && pipe.subObjects.length > 0) {
+            for (const subObj of pipe.subObjects) {
+                const centerX = pipe.p1.x + dx * subObj.pos;
+                const centerY = pipe.p1.y + dy * subObj.pos;
 
-            drawVana({
-                center: { x: centerX, y: centerY },
-                rotation: angle
-            }, isSelected);
+                const isSelected = (state.selectedObject?.type === 'subObject' && state.selectedObject?.object === subObj) ||
+                                   (state.selectedObject?.type === 'valve' && state.selectedObject?.object === subObj);
+
+                // Alt nesne tipine göre çiz
+                switch (subObj.type) {
+                    case 'VALVE':
+                        drawVana({
+                            center: { x: centerX, y: centerY },
+                            rotation: pipeAngle + (subObj.rotation || 0)
+                        }, isSelected);
+                        break;
+
+                    case 'METER':
+                        drawSayac({
+                            center: { x: centerX, y: centerY },
+                            rotation: pipeAngle + (subObj.rotation || 0)
+                        }, isSelected);
+                        break;
+
+                    case 'SERVICE_BOX':
+                        drawServisKutusu({
+                            center: { x: centerX, y: centerY },
+                            rotation: pipeAngle + (subObj.rotation || 0)
+                        }, isSelected);
+                        break;
+
+                    case 'BOILER':
+                        drawKombi({
+                            center: { x: centerX, y: centerY },
+                            rotation: pipeAngle + (subObj.rotation || 0)
+                        }, isSelected);
+                        break;
+
+                    case 'STOVE':
+                        drawOcak({
+                            center: { x: centerX, y: centerY },
+                            rotation: pipeAngle + (subObj.rotation || 0)
+                        }, isSelected);
+                        break;
+
+                    default:
+                        console.warn(`Bilinmeyen alt nesne tipi: ${subObj.type}`);
+                }
+            }
+        }
+
+        // BACKWARD COMPATIBILITY: Eski valves[] dizisini de çiz
+        if (pipe.valves && pipe.valves.length > 0) {
+            for (const valve of pipe.valves) {
+                const centerX = pipe.p1.x + dx * valve.pos;
+                const centerY = pipe.p1.y + dy * valve.pos;
+                const isSelected = state.selectedObject?.type === 'valve' && state.selectedObject?.object === valve;
+
+                drawVana({
+                    center: { x: centerX, y: centerY },
+                    rotation: pipeAngle
+                }, isSelected);
+            }
         }
     }
 }

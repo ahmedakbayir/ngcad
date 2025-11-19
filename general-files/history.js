@@ -3,7 +3,7 @@
 // GÜNCELLENDİ: Boru bağlantı referansları (blockId) için indeksleme eklendi.
 import { state, setState } from './main.js';
 // YENİ İMPORT: Boru tiplerini geri yüklemek için eklendi
-import { PLUMBING_PIPE_TYPES } from '../plumbing/plumbing-pipes.js';
+import { PLUMBING_PIPE_TYPES, migrateAllPipesToSubObjects } from '../plumbing/plumbing-pipes.js';
 
 export function saveState() {
     // Mevcut state'in derin kopyasını oluşturmaya gerek yok, snapshot yeterli.
@@ -267,6 +267,10 @@ export function restoreState(snapshot) {
         floors: restoredFloors, // FLOOR ISOLATION: floors geri yükle
         currentFloor: restoredCurrentFloor // FLOOR ISOLATION: currentFloor geri yükle
     });
+
+    // YENİ: Eski vana sisteminden yeni alt nesne sistemine migration
+    // Eğer eski valves[] dizisi varsa, subObjects'e dönüştür
+    migrateAllPipesToSubObjects();
 }
 
 // undo ve redo fonksiyonlarında değişiklik yok

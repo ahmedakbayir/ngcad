@@ -295,6 +295,7 @@ export function onPointerMove(e) {
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
             case 'plumbingBlock': onPointerMovePlumbingBlock(snappedPos, unsnappedPos); break;
             case 'plumbingPipe': onPointerMovePlumbingPipe(snappedPos, unsnappedPos); break;
+            case 'subObject': // YENİ: Alt nesneler (vana, sayaç, vs.)
             case 'valve':
                 // Vana taşıma (boru üzerinde kaydırma ve başka boruya geçirme)
                 const valve = state.selectedObject.object;

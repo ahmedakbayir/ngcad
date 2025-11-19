@@ -7,7 +7,7 @@ import { getColumnAtPoint } from '../architectural-objects/columns.js';
 import { getBeamAtPoint } from '../architectural-objects/beams.js';
 import { getStairAtPoint } from '../architectural-objects/stairs.js';
 import { getPlumbingBlockAtPoint } from '../plumbing/plumbing-blocks.js';
-import { getPipeAtPoint, getValveAtPoint } from '../plumbing/plumbing-pipes.js';
+import { getPipeAtPoint, getValveAtPoint, getSubObjectAtPoint } from '../plumbing/plumbing-pipes.js';
 import { getDoorAtPoint } from '../architectural-objects/door-handler.js';
 import { getGuideAtPoint } from '../architectural-objects/guide-handler.js';
 import { getWindowAtPoint } from '../architectural-objects/window-handler.js';
@@ -215,7 +215,11 @@ export function getObjectAtPoint(pos) {
     // 2.5 Tesisat Bloğu Gövdesi
     if (plumbingBlockHit && plumbingBlockHit.handle === 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
 
-    // 2.5.3 Vana (Boru Üzerinde)
+    // 2.5.3 Alt Nesneler (Vana, Sayaç, vs. - Boru Üzerinde)
+    const subObjectHit = getSubObjectAtPoint(pos, tolerance);
+    if (subObjectHit) return validateFloorMatch(subObjectHit, currentFloorId);
+
+    // 2.5.4 Vana (Eski Sistem - Backward Compatibility)
     const valveHit = getValveAtPoint(pos, tolerance);
     if (valveHit) return validateFloorMatch(valveHit, currentFloorId);
 

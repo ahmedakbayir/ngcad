@@ -1,23 +1,27 @@
 // ahmedakbayir/ngcad/valve-pointer-handlers.js
-// Boru üzerindeki vana taşıma işlevselliği
+// Boru üzerindeki alt nesnelerin (vana, sayaç, vs.) taşıma işlevselliği
+// GÜNCELLENDİ: subObjects desteği eklendi
 
 import { state, setState } from '../general-files/main.js';
-import { getValveMovementLimits } from './plumbing-pipes.js';
+import { isSpaceForSubObject } from './plumbing-pipes.js';
 
 /**
- * Vana pointer down handler
+ * Alt nesne (vana, sayaç, vs.) pointer down handler
+ * YENİ: Tüm subObject tipleri için çalışır
  */
 export function onValvePointerDown(selectedObject, pos, snappedPos, e) {
-    const valve = selectedObject.object;
+    const subObj = selectedObject.object;
     const pipe = selectedObject.pipe;
 
-    // Vananın başlangıç pozisyonunu kaydet
+    // Alt nesnenin başlangıç pozisyonunu kaydet
     const dragState = {
-        type: 'valve',
-        valve: valve,
+        type: selectedObject.type || 'valve', // 'valve' veya 'subObject'
+        subType: selectedObject.subType, // VALVE, METER, SERVICE_BOX, vb.
+        valve: subObj, // Backward compatibility için 'valve' adını koru
+        object: subObj,
         pipe: pipe,
         startPos: { ...pos },
-        startValvePos: valve.pos
+        startObjectPos: subObj.pos
     };
 
     setState({ dragState });
@@ -30,14 +34,18 @@ export function onValvePointerDown(selectedObject, pos, snappedPos, e) {
 }
 
 /**
- * Vana pointer move handler
- * Vana boru boyunca taşınır, baştan ve sondan 1 cm mesafe kontrolü
+ * Alt nesne pointer move handler
+ * Alt nesne boru boyunca taşınır, baştan ve sondan 1 cm mesafe kontrolü
+ * YENİ: Tüm subObject tipleri için çalışır
  */
 export function onValvePointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
-    if (!dragState || dragState.type !== 'valve') return false;
+    if (!dragState || (dragState.type !== 'valve' && dragState.type !== 'subObject')) return false;
 
-    const { valve, pipe, startPos, startValvePos } = dragState;
+    const { object, pipe, startPos, startObjectPos } = dragState;
+    const subObj = object || dragState.valve; // Backward compatibility
+
+    if (!subObj || !pipe) return false;
 
     // Boru vektörü
     const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
@@ -53,37 +61,20 @@ export function onValvePointerMove(snappedPos, unsnappedPos) {
     // Dot product ile projeksiyon
     const projectionLength = mouseDx * pipeDx + mouseDy * pipeDy;
 
-    // Vananın yeni pozisyonu
+    // Alt nesnenin yeni pozisyonu
     let newPos = projectionLength;
 
-    // Hareket sınırlarını al (1 cm kenar boşluğu)
-    const limits = getValveMovementLimits(pipe, valve);
-    
-    // Sınırlar içinde tut
-    newPos = Math.max(limits.minPos, Math.min(limits.maxPos, newPos));
+    // Sınırlar içinde tut (1 cm kenar boşluğu)
+    const MIN_MARGIN = 1;
+    const objWidth = subObj.typeConfig?.width || subObj.width || 12;
+    const minPos = MIN_MARGIN + objWidth / 2;
+    const maxPos = pipeLength - MIN_MARGIN - objWidth / 2;
 
-    // Diğer vanalarla çakışma kontrolü
-    const valveWidth = valve.width || 12;
-    const valveStart = newPos - valveWidth / 2;
-    const valveEnd = newPos + valveWidth / 2;
+    newPos = Math.max(minPos, Math.min(maxPos, newPos));
 
-    let hasCollision = false;
-    for (const otherValve of pipe.valves) {
-        if (otherValve === valve) continue;
-
-        const otherStart = otherValve.pos - (otherValve.width || 12) / 2;
-        const otherEnd = otherValve.pos + (otherValve.width || 12) / 2;
-
-        // Çakışma var mı?
-        if (!(valveEnd <= otherStart || valveStart >= otherEnd)) {
-            hasCollision = true;
-            break;
-        }
-    }
-
-    // Çakışma yoksa pozisyonu güncelle
-    if (!hasCollision) {
-        valve.pos = newPos;
+    // Alan kontrolü - diğer alt nesnelerle çakışma var mı?
+    if (isSpaceForSubObject(pipe, newPos, objWidth, subObj)) {
+        subObj.pos = newPos;
         return true;
     }
 
