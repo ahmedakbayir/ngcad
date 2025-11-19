@@ -273,46 +273,38 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
 
     if (isPlumbingMode()) {
     const plumbingSnap = getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS);
-    
+
     if (plumbingSnap) {
         const shouldLock = plumbingSnap.isLockable !== false;
-        let snapAngle = 0;
-            // Eğer snap bir duvar yüzeyine yapıldıysa, duvarın açısını al
-            if (plumbingSnap.type === 'PLUMBING_WALL_SURFACE' && plumbingSnap.wall) {
-                const wall = plumbingSnap.wall;
-                if (wall.p1 && wall.p2) {
-                    const dx = wall.p2.x - wall.p1.x;
-                    const dy = wall.p2.y - wall.p1.y;
-                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-                    // Blok yerleşimi için 90 derece katlarına yuvarla
-                    snapAngle = Math.round(angle / 90) * 90;
-                }
-            }
+        // snapAngle doğrudan plumbingSnap'ten al (snap-plumbing.js'de hesaplanıyor)
+        const snapAngle = plumbingSnap.snapAngle || 0;
 
         if (shouldLock) {
-        setState({ 
-            isSnapLocked: true, 
-            lockedSnapPoint: { 
-                ...plumbingSnap.point, 
-                roundedX: plumbingSnap.point.x, 
-                roundedY: plumbingSnap.point.y 
-            } 
+        setState({
+            isSnapLocked: true,
+            lockedSnapPoint: {
+                ...plumbingSnap.point,
+                roundedX: plumbingSnap.point.x,
+                roundedY: plumbingSnap.point.y
+            }
         })
     };
-        
+
         return {
-            x: plumbingSnap.point.x, 
+            x: plumbingSnap.point.x,
             y: plumbingSnap.point.y,
-            isSnapped: true, 
-            snapLines: { h_origins: [], v_origins: [] }, 
+            isSnapped: true,
+            snapLines: { h_origins: [], v_origins: [] },
             isLockable: true,
-            point: plumbingSnap.point, 
+            point: plumbingSnap.point,
             snapType: plumbingSnap.type,
-            roundedX: plumbingSnap.point.x, 
-            roundedY: plumbingSnap.point.y
+            roundedX: plumbingSnap.point.x,
+            roundedY: plumbingSnap.point.y,
+            snapAngle: snapAngle,
+            wall: plumbingSnap.wall // Duvar bilgisini de ekle
         };
     }
-    // Tesisat snap bulamadıysa, normal snap'e devam et 
+    // Tesisat snap bulamadıysa, normal snap'e devam et
     }
 
     // Snap hesaplamaları başlangıcı (MERDİVEN DIŞINDAKİ MODLAR İÇİN)
