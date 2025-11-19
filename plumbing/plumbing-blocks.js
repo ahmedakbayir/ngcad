@@ -286,9 +286,11 @@ function checkPipeValveLengthBeforeRotation(block, newRotation) {
 
                 let minRequired = MIN_PIPE_LENGTH;
 
-                if (pipe.valves && pipe.valves.length > 0) {
-                    const totalValveLength = pipe.valves.reduce((sum, v) => sum + (v.width || 12), 0);
-                    minRequired = totalValveLength + 2;
+                if (pipe.subObjects && pipe.subObjects.length > 0) {
+                    const totalSubObjectLength = pipe.subObjects.reduce((sum, obj) => {
+                        return sum + (obj.typeConfig?.width || obj.width || 12);
+                    }, 0);
+                    minRequired = totalSubObjectLength + 2;
                 }
 
                 if (newLength < minRequired) {
@@ -334,13 +336,15 @@ function checkPipeValveLengthBeforeMove(block, newCenter) {
             }
 
             if (affectsP1 || affectsP2) {
-                if (pipe.valves && pipe.valves.length > 0) {
+                if (pipe.subObjects && pipe.subObjects.length > 0) {
                     const newP1 = affectsP1 ? newConn : pipe.p1;
                     const newP2 = affectsP2 ? newConn : pipe.p2;
                     const newLength = Math.hypot(newP2.x - newP1.x, newP2.y - newP1.y);
 
-                    const totalValveLength = pipe.valves.reduce((sum, v) => sum + (v.width || 12), 0);
-                    const minRequired = totalValveLength + 2;
+                    const totalSubObjectLength = pipe.subObjects.reduce((sum, obj) => {
+                        return sum + (obj.typeConfig?.width || obj.width || 12);
+                    }, 0);
+                    const minRequired = totalSubObjectLength + 2;
 
                     if (newLength < minRequired) {
                         console.warn(`Move blocked - pipe too short`);
@@ -705,28 +709,33 @@ function updateConnectedPipes(block, oldCenter, newCenter) {
             }
         }
 
-        if ((shouldUpdateStart || shouldUpdateEnd) && pipe.valves && pipe.valves.length > 0) {
+        if ((shouldUpdateStart || shouldUpdateEnd) && pipe.subObjects && pipe.subObjects.length > 0) {
             const newPipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-            updateValvePositionsOnResize(pipe, oldPipeLength, newPipeLength);
+            updateSubObjectPositionsOnResize(pipe, oldPipeLength, newPipeLength);
         }
     });
 }
 
-function updateValvePositionsOnResize(pipe, oldLength, newLength) {
-    if (!pipe.valves || pipe.valves.length === 0) return;
+function updateSubObjectPositionsOnResize(pipe, oldLength, newLength) {
+    if (!pipe.subObjects || pipe.subObjects.length === 0) return;
     if (oldLength < 1) oldLength = newLength;
 
     const ratio = newLength / oldLength;
-    pipe.valves.forEach(valve => {
-        valve.pos = valve.pos * ratio;
-        
-        const valveWidth = valve.width || 12;
+    pipe.subObjects.forEach(subObj => {
+        subObj.pos = subObj.pos * ratio;
+
+        const subObjWidth = subObj.typeConfig?.width || subObj.width || 12;
         const MIN_MARGIN = 1;
-        const minPos = MIN_MARGIN + valveWidth / 2;
-        const maxPos = newLength - MIN_MARGIN - valveWidth / 2;
-        
-        valve.pos = Math.max(minPos, Math.min(maxPos, valve.pos));
+        const minPos = MIN_MARGIN + subObjWidth / 2;
+        const maxPos = newLength - MIN_MARGIN - subObjWidth / 2;
+
+        subObj.pos = Math.max(minPos, Math.min(maxPos, subObj.pos));
     });
+}
+
+// Geriye dönük uyumluluk için eski fonksiyon adını koruyalım (deprecated)
+function updateValvePositionsOnResize(pipe, oldLength, newLength) {
+    updateSubObjectPositionsOnResize(pipe, oldLength, newLength);
 }
 
 function updateConnectedPipesAfterRotation(block, oldRotation, newRotation) {
@@ -1088,8 +1097,7 @@ function mergePipesAfterBlockDeletion(block) {
             pipe1.connections.end = (pipe2Info.end === 'p2') ? pipe2.connections.start : pipe2.connections.end;
         }
 
-        pipe1.valves = [...(pipe1.valves || []), ...(pipe2.valves || [])];
-        pipe1.isConnectedToValve = pipe1.isConnectedToValve || pipe2.isConnectedToValve;
+        pipe1.subObjects = [...(pipe1.subObjects || []), ...(pipe2.subObjects || [])];
 
         const idx2 = state.plumbingPipes.indexOf(pipe2);
         if (idx2 > -1) {

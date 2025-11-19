@@ -1,6 +1,7 @@
 // ahmedakbayir/ngcad/ngcad-25cb8b9daa7f201d20b7282862eee992cd9d77b2/architectural-objects/plumbing-pipes.js
 // GÜNCELLENDİ: Node-based hareket - REFERANS kontrolü ile (pozisyon değil)
 // GÜNCELLENDİ: Silme ve birleştirme fonksiyonları eklendi
+// GÜNCELLENDİ: Boru hiyerarşisi - Tüm nesneler borunun alt objesi olacak (subObjects)
 
 import { state, setState } from '../general-files/main.js';
 import { getPlumbingBlockAtPoint, getConnectionPoints } from './plumbing-blocks.js';
@@ -19,6 +20,81 @@ export const PLUMBING_PIPE_TYPES = {
         diameter: 4,
         color: 0x1b5e20,
         lineWidth: 10,
+    }
+};
+
+/**
+ * BORU ALT NESNELERİ (SUBOBJECTS)
+ * Tüm nesneler artık borunun bir parçası olarak saklanacak
+ */
+export const PIPE_SUBOBJECT_TYPES = {
+    VALVE: {
+        id: 'valve',
+        name: 'Vana',
+        width: 6,
+        height: 6,
+        depth: 6,
+        color: 0xA0A0A0,
+        shape: 'doubleConeFrustum',
+        // Vana boru üzerinde tam olarak oturur
+        offsetFromPipe: 0
+    },
+    METER: {
+        id: 'meter',
+        name: 'Sayaç',
+        width: 18,
+        height: 18,
+        depth: 40,
+        cornerRadius: 0.5,
+        color: 0xA8A8A8,
+        // Sayaç boru üzerinde tam olarak oturur
+        offsetFromPipe: 0,
+        // Bağlantı noktaları (boru üzerindeki giriş-çıkış)
+        connectionPoints: [
+            { x: -5, y: -9-10, z: 30, label: 'giriş' },
+            { x: 5, y: -9-10, z: 30, label: 'çıkış' }
+        ],
+        connectionLineLength: 10
+    },
+    SERVICE_BOX: {
+        id: 'serviceBox',
+        name: 'Servis Kutusu',
+        width: 40,
+        height: 20,
+        depth: 70,
+        cornerRadius: 1,
+        color: 0xA8A8A8,
+        // Servis kutusu duvara monte, boruya değmez
+        offsetFromPipe: 0,
+        mountType: 'wall'
+    },
+    BOILER: {
+        id: 'boiler',
+        name: 'Kombi',
+        width: 50,
+        height: 50,
+        depth: 29,
+        cornerRadius: 2,
+        color: 0xC0C0C0,
+        // Kombi duvara monte, borudan uzak
+        offsetFromPipe: 25,
+        mountType: 'wall',
+        // Bağlantı için sinüs dalgası kullanılır
+        connectionType: 'wavy'
+    },
+    STOVE: {
+        id: 'stove',
+        name: 'Ocak',
+        width: 50,
+        height: 50,
+        depth: 59,
+        cornerRadius: 2,
+        color: 0x303030,
+        // Ocak yere monte, borudan uzak
+        offsetFromPipe: 25,
+        mountType: 'floor',
+        // Bağlantı için sinüs dalgası kullanılır
+        connectionType: 'wavy'
     }
 };
 
@@ -66,8 +142,8 @@ export function createPlumbingPipe(x1, y1, x2, y2, pipeType = 'STANDARD') {
             start: null,
             end: null
         },
-        isConnectedToValve: false,
-        valves: []
+        // YENİ: Tüm alt nesneler burada (vana, sayaç, servis kutusu, kombi, ocak)
+        subObjects: []
     };
 }
 
@@ -359,12 +435,12 @@ export function deletePlumbingPipeAndMerge(pipeToDelete) {
                 p2: newP2Node,  // Node referansını paylaş
                 floorId: pipe1.floorId,
                 typeConfig: pipe1.typeConfig,
-                isConnectedToValve: pipe1.isConnectedToValve || pipe2.isConnectedToValve,
                 connections: {
                     start: pipe1Info.end === 'p1' ? pipe1.connections.end : pipe1.connections.start,
                     end: pipe2Info.end === 'p2' ? pipe2.connections.start : pipe2.connections.end
                 },
-                valves: [...(pipe1.valves || []), ...(pipe2.valves || [])] // Vanaları birleştir
+                // Alt nesneleri birleştir (vana, sayaç, vs.)
+                subObjects: [...(pipe1.subObjects || []), ...(pipe2.subObjects || [])]
             };
 
             // Eski boruları sil
@@ -650,9 +726,11 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         targetPoint.x = finalX;
         targetPoint.y = finalY;
 
-        // Kural 1 (Vana Limiti): Minimum uzunluk kontrolü
-        const totalValveWidth = (pipe.valves || []).reduce((sum, v) => sum + v.width, 0);
-        const minPipeLength = totalValveWidth + 20;
+        // Kural 1: Minimum uzunluk kontrolü (tüm alt nesneler sığmalı)
+        const totalSubObjectWidth = (pipe.subObjects || []).reduce((sum, obj) => {
+            return sum + (obj.typeConfig?.width || obj.width || 12);
+        }, 0);
+        const minPipeLength = totalSubObjectWidth + 20;
         const newPipeLength = Math.hypot(targetPoint.x - otherPoint.x, targetPoint.y - otherPoint.y);
 
         if (newPipeLength < minPipeLength) {
@@ -696,31 +774,33 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     return false;
 }
 
+/**
+ * DEPRECATED: Geriye dönük uyumluluk için
+ * Yeni kod için isSpaceForSubObject() kullanın
+ */
 export function isSpaceForValve(pipe, pos, valveWidth = 12, excludeValve = null) {
-    const MIN_MARGIN = 1;
-    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-
-    if (pos - valveWidth / 2 < MIN_MARGIN || pos + valveWidth / 2 > pipeLength - MIN_MARGIN) {
-        return false;
-    }
-
-    for (const valve of (pipe.valves || [])) {
-        if (valve === excludeValve) continue;
-
-        const otherStart = valve.pos - valve.width / 2;
-        const otherEnd = valve.pos + valve.width / 2;
-        const newStart = pos - valveWidth / 2;
-        const newEnd = pos + valveWidth / 2;
-
-        if (!(newEnd <= otherStart || newStart >= otherEnd)) {
-            return false;
-        }
-    }
-
-    return true;
+    return isSpaceForSubObject(pipe, pos, valveWidth, excludeValve);
 }
 
+/**
+ * DEPRECATED: Geriye dönük uyumluluk için
+ * Yeni kod için getSubObjectAtPoint() kullanın ve subType === 'VALVE' filtresi uygulayın
+ */
 export function getValveAtPoint(point, tolerance = 8) {
+    const result = getSubObjectAtPoint(point, tolerance);
+
+    // Sadece VALVE tipini döndür
+    if (result && result.subType === 'VALVE') {
+        // Eski format için uyumlu dönüş
+        return {
+            type: 'valve',
+            object: result.object,
+            pipe: result.pipe,
+            handle: result.handle
+        };
+    }
+
+    // Geriye dönük uyumluluk: Eski valves[] dizisini de kontrol et
     const currentFloorId = state.currentFloor?.id;
     const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
 
@@ -751,4 +831,214 @@ export function getValveAtPoint(point, tolerance = 8) {
     }
 
     return null;
+}
+
+/**
+ * ========================================
+ * ALT NESNE YÖNETİMİ (SUBOBJECTS)
+ * ========================================
+ */
+
+/**
+ * Boruya yeni bir alt nesne ekler
+ * @param {Object} pipe - Boru nesnesi
+ * @param {string} subObjectType - Alt nesne tipi (VALVE, METER, SERVICE_BOX, BOILER, STOVE)
+ * @param {number} pos - Boru üzerindeki pozisyon (cm)
+ * @param {Object} options - Ek özellikler (rotation, offsetFromPipe vb.)
+ * @returns {Object|null} - Eklenen alt nesne veya null
+ */
+export function addSubObjectToPipe(pipe, subObjectType, pos, options = {}) {
+    const typeConfig = PIPE_SUBOBJECT_TYPES[subObjectType];
+
+    if (!typeConfig) {
+        console.error(`Geçersiz alt nesne tipi: ${subObjectType}`);
+        return null;
+    }
+
+    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+
+    // Pozisyon kontrolü
+    if (pos < 0 || pos > pipeLength) {
+        console.error(`Geçersiz pozisyon: ${pos} (boru uzunluğu: ${pipeLength})`);
+        return null;
+    }
+
+    // Alan kontrolü (diğer alt nesnelerle çakışma)
+    const MIN_MARGIN = 1;
+    const objWidth = typeConfig.width || 12;
+
+    if (!isSpaceForSubObject(pipe, pos, objWidth)) {
+        console.error(`Bu pozisyonda yeterli alan yok`);
+        return null;
+    }
+
+    const subObject = {
+        id: `${typeConfig.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: subObjectType,
+        typeConfig: typeConfig,
+        pos: pos,
+        rotation: options.rotation || 0,
+        offsetFromPipe: options.offsetFromPipe !== undefined ? options.offsetFromPipe : typeConfig.offsetFromPipe,
+        ...options
+    };
+
+    if (!pipe.subObjects) pipe.subObjects = [];
+    pipe.subObjects.push(subObject);
+
+    console.log(`✅ ${typeConfig.name} boruya eklendi (pos: ${pos.toFixed(1)} cm)`);
+    return subObject;
+}
+
+/**
+ * Borudan alt nesne siler
+ * @param {Object} pipe - Boru nesnesi
+ * @param {Object} subObject - Silinecek alt nesne
+ * @returns {boolean} - Başarılı ise true
+ */
+export function removeSubObjectFromPipe(pipe, subObject) {
+    if (!pipe.subObjects) return false;
+
+    const index = pipe.subObjects.indexOf(subObject);
+    if (index > -1) {
+        pipe.subObjects.splice(index, 1);
+        console.log(`🗑️ Alt nesne silindi`);
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Verilen noktada bir alt nesne var mı kontrol eder
+ * @param {Object} point - Kontrol edilecek nokta {x, y}
+ * @param {number} tolerance - Yakınlık toleransı
+ * @returns {Object|null} - Bulunan alt nesne bilgisi veya null
+ */
+export function getSubObjectAtPoint(point, tolerance = 8) {
+    const currentFloorId = state.currentFloor?.id;
+    const pipes = (state.plumbingPipes || []).filter(p => p.floorId === currentFloorId);
+
+    for (const pipe of pipes) {
+        if (!pipe.subObjects || pipe.subObjects.length === 0) continue;
+
+        const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+        if (pipeLength < 0.1) continue;
+
+        const dx = (pipe.p2.x - pipe.p1.x) / pipeLength;
+        const dy = (pipe.p2.y - pipe.p1.y) / pipeLength;
+
+        for (const subObj of pipe.subObjects) {
+            const centerX = pipe.p1.x + dx * subObj.pos;
+            const centerY = pipe.p1.y + dy * subObj.pos;
+
+            const dist = Math.hypot(point.x - centerX, point.y - centerY);
+
+            if (dist < tolerance) {
+                return {
+                    type: 'subObject',
+                    subType: subObj.type,
+                    object: subObj,
+                    pipe: pipe,
+                    handle: 'body'
+                };
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Boru üzerinde belirli bir pozisyonda alt nesne için alan var mı kontrol eder
+ * @param {Object} pipe - Boru nesnesi
+ * @param {number} pos - Kontrol edilecek pozisyon
+ * @param {number} width - Alt nesnenin genişliği
+ * @param {Object} excludeSubObject - Hariç tutulacak alt nesne (kendi kontrolünde)
+ * @returns {boolean} - Alan varsa true
+ */
+export function isSpaceForSubObject(pipe, pos, width = 12, excludeSubObject = null) {
+    const MIN_MARGIN = 1;
+    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+
+    // Kenar kontrolü
+    if (pos - width / 2 < MIN_MARGIN || pos + width / 2 > pipeLength - MIN_MARGIN) {
+        return false;
+    }
+
+    // Diğer alt nesnelerle çakışma kontrolü
+    if (!pipe.subObjects) return true;
+
+    for (const subObj of pipe.subObjects) {
+        if (subObj === excludeSubObject) continue;
+
+        const otherWidth = subObj.typeConfig?.width || 12;
+        const otherStart = subObj.pos - otherWidth / 2;
+        const otherEnd = subObj.pos + otherWidth / 2;
+        const newStart = pos - width / 2;
+        const newEnd = pos + width / 2;
+
+        // Çakışma var mı?
+        if (!(newEnd <= otherStart || newStart >= otherEnd)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * ESKİ VANA SİSTEMİNDEN YENİ SİSTEME MİGRASYON
+ * pipe.valves[] -> pipe.subObjects[] (type: VALVE)
+ * Bu fonksiyon eski dosyaları açarken çalıştırılmalı
+ */
+export function migrateValvesToSubObjects(pipe) {
+    // Eski valves dizisi varsa ve henüz migrate edilmemişse
+    if (pipe.valves && pipe.valves.length > 0) {
+        if (!pipe.subObjects) pipe.subObjects = [];
+
+        // Her bir vanayı subObject'e dönüştür
+        for (const valve of pipe.valves) {
+            const subObject = {
+                id: `valve_migrated_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                type: 'VALVE',
+                typeConfig: PIPE_SUBOBJECT_TYPES.VALVE,
+                pos: valve.pos,
+                width: valve.width || 12,
+                rotation: 0,
+                offsetFromPipe: 0,
+                // Eski vana verilerini koru
+                ...valve
+            };
+
+            pipe.subObjects.push(subObject);
+        }
+
+        console.log(`✅ ${pipe.valves.length} vana migration yapıldı -> subObjects`);
+
+        // Eski valves dizisini temizle (opsiyonel - geriye dönük uyumluluk için silinmeyebilir)
+        // delete pipe.valves;
+    }
+
+    return pipe;
+}
+
+/**
+ * Tüm boruları migrate et
+ */
+export function migrateAllPipesToSubObjects() {
+    const pipes = state.plumbingPipes || [];
+    let migratedCount = 0;
+
+    for (const pipe of pipes) {
+        if (pipe.valves && pipe.valves.length > 0) {
+            migrateValvesToSubObjects(pipe);
+            migratedCount++;
+        }
+    }
+
+    if (migratedCount > 0) {
+        console.log(`✅ ${migratedCount} boru migration tamamlandı`);
+    }
+
+    return migratedCount;
 }
