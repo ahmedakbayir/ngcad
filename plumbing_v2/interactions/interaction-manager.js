@@ -1,177 +1,425 @@
 /**
  * Interaction Manager (v2)
- * Kullanıcı etkileşimlerini (Mouse/Klavye) yönetir.
+ * Kullanıcı etkileşimlerini yönetir - yeni bileşenlerle entegre
  */
 
-// import { plumbingManager } from '../plumbing-manager.js'; // Removed circular dependency
-import { SnapSystem } from './snap-system.js';
-import { createPlumbingPipe } from '../objects/pipe.js'; // Factory fonksiyonları eklenecek
-import { PLUMBING_COMPONENT_TYPES } from '../plumbing-types.js';
-import { screenToWorld } from '../../draw/geometry.js'; // Import screenToWorld
-import { dom, state } from '../../general-files/main.js'; // Import dom and state
+import { TesisatSnapSystem } from './tesisat-snap.js';
+import { ServisKutusu } from '../objects/service-box.js';
+import { Boru, createBoru, BAGLANTI_TIPLERI } from '../objects/pipe.js';
+import { Sayac, createSayac } from '../objects/meter.js';
+import { Vana, createVana } from '../objects/valve.js';
+import { Cihaz, createCihaz } from '../objects/device.js';
+import { screenToWorld } from '../../draw/geometry.js';
+import { dom, state } from '../../general-files/main.js';
+
+// Tool modları
+export const TESISAT_MODLARI = {
+    NONE: null,
+    SERVIS_KUTUSU: 'servis_kutusu',
+    BORU: 'boru',
+    SAYAC: 'sayac',
+    VANA: 'vana',
+    CIHAZ: 'cihaz'
+};
 
 export class InteractionManager {
     constructor(manager) {
         this.manager = manager;
-        this.snapSystem = new SnapSystem(manager);
+        this.snapSystem = new TesisatSnapSystem(manager);
         this.activeSnap = null;
+
+        // Boru çizim durumu
+        this.boruCizimAktif = false;
+        this.boruBaslangic = null;
+        this.geciciBoruBitis = null;
+
+        // Sürükleme durumu
         this.isDragging = false;
         this.dragStart = null;
         this.dragObject = null;
+
+        // Seçili nesne
+        this.selectedObject = null;
     }
 
     /**
-     * Mouse hareketini işler (Main loop'tan çağrılır)
-     * @param {PointerEvent} e
-     * @returns {boolean} - Olay işlendiyse true
+     * Mouse hareketi
      */
     handlePointerMove(e) {
-        if (!this.manager.activeTool && !this.isDragging) return false;
-
-        const rect = dom.c2d.getBoundingClientRect();
-        const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-        const walls = state.walls; // Duvarları state'den al
-
-        // 1. Snap Hesapla
-        this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
-        const targetPoint = this.activeSnap ? { x: this.activeSnap.x, y: this.activeSnap.y } : point;
-
-        // 2. Eğer bir eleman yerleştiriliyorsa (Ghost) onu güncelle
-        if (this.manager.activeTool && this.manager.tempComponent) {
-            this.updateGhostPosition(this.manager.tempComponent, targetPoint, this.activeSnap);
-            return true; // Olayı tükettik
-        }
-
-        // 3. Eğer sürükleme yapılıyorsa
-        if (this.isDragging && this.dragObject) {
-            this.handleDrag(targetPoint);
-            return true; // Olayı tükettik
-        }
-
-        return false;
-    }
-
-    /**
-     * Mouse tıklamasını işler
-     * @param {PointerEvent} e
-     * @returns {boolean} - Olay işlendiyse true
-     */
-    handlePointerDown(e) {
-        if (!this.manager.activeTool && !this.isDragging) {
-            // Eğer aktif tool yoksa, belki bir tesisat objesi seçilmek isteniyordur?
-            // Şimdilik sadece aktif tool varsa veya sürükleme varsa müdahale edelim.
-            // Ancak seçim mantığı da buraya eklenebilir.
-            const rect = dom.c2d.getBoundingClientRect();
-            const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-            const hitObject = this.findObjectAt(point);
-            if (hitObject) {
-                this.startDrag(hitObject, point);
-                return true;
-            }
+        if (!this.manager.activeTool && !this.isDragging && !this.boruCizimAktif) {
             return false;
         }
 
         const rect = dom.c2d.getBoundingClientRect();
         const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-        const targetPoint = this.activeSnap ? { x: this.activeSnap.x, y: this.activeSnap.y } : point;
+        const walls = state.walls;
 
-        // 1. Yerleştirme Modu
-        if (this.manager.activeTool) {
-            this.placeComponent(targetPoint);
+        // Snap hesapla
+        this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
+        const targetPoint = this.activeSnap
+            ? { x: this.activeSnap.x, y: this.activeSnap.y }
+            : point;
+
+        // 1. Boru çizim modunda
+        if (this.boruCizimAktif) {
+            this.geciciBoruBitis = targetPoint;
+            return true;
+        }
+
+        // 2. Ghost eleman yerleştirme
+        if (this.manager.activeTool && this.manager.tempComponent) {
+            this.updateGhostPosition(this.manager.tempComponent, targetPoint, this.activeSnap);
+            return true;
+        }
+
+        // 3. Sürükleme
+        if (this.isDragging && this.dragObject) {
+            this.handleDrag(targetPoint);
             return true;
         }
 
         return false;
     }
 
+    /**
+     * Mouse tıklama
+     */
+    handlePointerDown(e) {
+        const rect = dom.c2d.getBoundingClientRect();
+        const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const targetPoint = this.activeSnap
+            ? { x: this.activeSnap.x, y: this.activeSnap.y }
+            : point;
+
+        // 1. Boru çizim modunda tıklama
+        if (this.boruCizimAktif) {
+            this.handleBoruClick(targetPoint);
+            return true;
+        }
+
+        // 2. Yerleştirme modu
+        if (this.manager.activeTool && this.manager.tempComponent) {
+            this.placeComponent(targetPoint);
+            return true;
+        }
+
+        // 3. Nesne seçme/sürükleme
+        const hitObject = this.findObjectAt(point);
+        if (hitObject) {
+            this.selectObject(hitObject);
+            this.startDrag(hitObject, point);
+            return true;
+        }
+
+        // 4. Boş alana tıklama - seçimi kaldır
+        this.deselectObject();
+        return false;
+    }
+
+    /**
+     * Mouse bırakma
+     */
     handlePointerUp(e) {
         if (this.isDragging) {
-            this.isDragging = false;
-            this.dragObject = null;
-            this.dragStart = null;
+            this.endDrag();
             return true;
         }
         return false;
     }
 
     /**
-     * Ghost eleman pozisyonunu günceller
+     * Klavye
+     */
+    handleKeyDown(e) {
+        // ESC - iptal
+        if (e.key === 'Escape') {
+            this.cancelCurrentAction();
+            return true;
+        }
+
+        // Delete - seçili nesneyi sil
+        if (e.key === 'Delete' && this.selectedObject) {
+            this.deleteSelectedObject();
+            return true;
+        }
+
+        // Ok tuşları - seçili sayacı hareket ettir
+        if (this.selectedObject && this.selectedObject.type === 'sayac') {
+            const direction = {
+                'ArrowUp': 'up',
+                'ArrowDown': 'down',
+                'ArrowLeft': 'left',
+                'ArrowRight': 'right'
+            }[e.key];
+
+            if (direction) {
+                const result = this.selectedObject.moveByKey(direction);
+                this.updateConnectedPipe(result);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Ghost pozisyon güncelleme
      */
     updateGhostPosition(ghost, point, snap) {
         ghost.x = point.x;
         ghost.y = point.y;
 
-        // Özel durumlar:
-        // Servis Kutusu: Duvara snap olduysa açısını ayarla
-        if (ghost.type === 'service_box' && snap && snap.target && snap.target.angle !== undefined) {
-            ghost.rotation = snap.target.angle;
+        // Servis kutusu - duvara snap
+        if (ghost.type === 'servis_kutusu' && snap && snap.target) {
+            if (snap.target.wall) {
+                ghost.snapToWall(snap.target.wall, point);
+            } else {
+                ghost.placeFree(point);
+            }
         }
 
-        // Sayaç/Vana: Boruya snap olduysa açısını ayarla
-        if ((ghost.type === 'meter' || ghost.type === 'valve') && snap && snap.target && snap.target.type === 'pipe') {
-            // Boru açısını al
-            const pipe = snap.target;
-            const angle = Math.atan2(pipe.p2.y - pipe.p1.y, pipe.p2.x - pipe.p1.x) * 180 / Math.PI;
-            ghost.rotation = angle;
+        // Sayaç/Vana - boru açısına hizala
+        if ((ghost.type === 'sayac' || ghost.type === 'vana') && snap && snap.target) {
+            if (snap.target.isPipe) {
+                ghost.rotation = snap.target.aciDerece || 0;
+            }
         }
     }
 
     /**
-     * Bileşeni sahneye kalıcı olarak ekler
+     * Bileşeni yerleştir
      */
     placeComponent(point) {
         if (!this.manager.tempComponent) return;
 
         const component = this.manager.tempComponent;
 
-        // 1. Listeye ekle
+        // Listeye ekle
         this.manager.components.push(component);
 
-        // 2. Özel Mantıklar (Zincirleme Aksiyonlar)
-        if (component.type === 'service_box') {
-            // Otomatik Boru Moduna Geç
-            console.log('📦 Servis kutusu eklendi -> Boru moduna geçiliyor');
-            // this.manager.startPlacement('PIPE'); // TODO: Pipe modu eklenecek
-        }
-        else if (component.type === 'meter') {
-            // Otomatik Vana Kontrolü
-            this.checkAndAddAutoValve(component);
+        // Özel işlemler
+        switch (component.type) {
+            case 'servis_kutusu':
+                this.startBoruCizim(component.getCikisNoktasi(), component.id);
+                break;
+
+            case 'sayac':
+                this.handleSayacEkleme(component);
+                break;
+
+            case 'cihaz':
+                if (component.bacaGerekliMi()) {
+                    console.log('Baca modu başlatılabilir');
+                }
+                break;
         }
 
-        // 3. Geçici elemanı temizle
+        // Temizle
         this.manager.tempComponent = null;
         this.manager.activeTool = null;
     }
 
     /**
-     * Sayaç eklendiğinde gerekirse önüne vana ekler
+     * Boru çizim modunu başlat
      */
-    checkAndAddAutoValve(meter) {
-        // Eğer sayaç bir boru ucuna eklendiyse ve orada vana yoksa...
-        // Bu mantık daha detaylı implemente edilecek
-        console.log('🔍 Otomatik vana kontrolü yapılıyor...');
+    startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null) {
+        this.boruCizimAktif = true;
+        this.boruBaslangic = {
+            nokta: baslangicNoktasi,
+            kaynakId: kaynakId,
+            kaynakTip: kaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU
+        };
+        this.snapSystem.setStartPoint(baslangicNoktasi);
+    }
+
+    /**
+     * Boru çizimde tıklama
+     */
+    handleBoruClick(point) {
+        if (!this.boruBaslangic) return;
+
+        const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
+        boru.floorId = state.currentFloorId;
+
+        if (this.boruBaslangic.kaynakId) {
+            boru.setBaslangicBaglanti(
+                this.boruBaslangic.kaynakTip,
+                this.boruBaslangic.kaynakId
+            );
+        }
+
+        this.manager.pipes.push(boru);
+
+        // Devam et
+        this.boruBaslangic = {
+            nokta: point,
+            kaynakId: boru.id,
+            kaynakTip: BAGLANTI_TIPLERI.BORU
+        };
+        this.snapSystem.setStartPoint(point);
+    }
+
+    /**
+     * Sayaç ekleme işlemleri
+     */
+    handleSayacEkleme(sayac) {
+        const boruUcu = this.findBoruUcuAt(sayac.getGirisNoktasi());
+
+        if (boruUcu) {
+            const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
+
+            if (!vanaVar) {
+                const vana = createVana(boruUcu.nokta.x, boruUcu.nokta.y, 'SAYAC');
+                vana.rotation = sayac.rotation;
+                vana.floorId = sayac.floorId;
+                this.manager.components.push(vana);
+                sayac.vanaIliskilendir(vana.id);
+            }
+
+            sayac.baglaGiris(boruUcu.boruId, boruUcu.nokta);
+        }
+
+        this.startBoruCizim(sayac.getCikisNoktasi(), sayac.id, BAGLANTI_TIPLERI.SAYAC);
+    }
+
+    /**
+     * Mevcut işlemi iptal et
+     */
+    cancelCurrentAction() {
+        if (this.boruCizimAktif) {
+            this.boruCizimAktif = false;
+            this.boruBaslangic = null;
+            this.geciciBoruBitis = null;
+            this.snapSystem.clearStartPoint();
+        }
+
+        if (this.manager.tempComponent) {
+            this.manager.tempComponent = null;
+        }
+
+        this.manager.activeTool = null;
+    }
+
+    selectObject(obj) {
+        this.selectedObject = obj;
+        obj.isSelected = true;
+    }
+
+    deselectObject() {
+        if (this.selectedObject) {
+            this.selectedObject.isSelected = false;
+            this.selectedObject = null;
+        }
+    }
+
+    deleteSelectedObject() {
+        if (!this.selectedObject) return;
+
+        const obj = this.selectedObject;
+
+        if (obj.type === 'servis_kutusu') {
+            if (confirm(obj.getDeleteInfo().uyari)) {
+                this.removeObject(obj);
+            }
+        } else {
+            this.removeObject(obj);
+        }
+
+        this.deselectObject();
     }
 
     findObjectAt(point) {
-        // Basit hit test
-        // Tüm bileşenleri ve boruları tara
+        for (const comp of this.manager.components) {
+            if (comp.containsPoint && comp.containsPoint(point)) {
+                return comp;
+            }
+        }
+
+        for (const pipe of this.manager.pipes) {
+            if (pipe.containsPoint && pipe.containsPoint(point)) {
+                return pipe;
+            }
+        }
+
         return null;
     }
 
-    startDrag(object, point) {
+    findBoruUcuAt(point, tolerance = 5) {
+        for (const boru of this.manager.pipes) {
+            if (Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y) < tolerance) {
+                return { boruId: boru.id, nokta: boru.p1, uc: 'p1' };
+            }
+            if (Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y) < tolerance) {
+                return { boruId: boru.id, nokta: boru.p2, uc: 'p2' };
+            }
+        }
+        return null;
+    }
+
+    checkVanaAtPoint(point, tolerance = 5) {
+        for (const comp of this.manager.components) {
+            if (comp.type === 'vana') {
+                if (Math.hypot(point.x - comp.x, point.y - comp.y) < tolerance) {
+                    return comp;
+                }
+            }
+        }
+        return null;
+    }
+
+    startDrag(obj, point) {
         this.isDragging = true;
-        this.dragObject = object;
-        this.dragStart = point;
+        this.dragObject = obj;
+        this.dragStart = { ...point };
     }
 
     handleDrag(point) {
-        // Objeyi taşı
-        this.dragObject.x = point.x;
-        this.dragObject.y = point.y;
+        if (!this.dragObject) return;
+        const result = this.dragObject.move(point.x, point.y);
+        this.updateConnectedPipe(result);
+    }
 
-        // Bağlı boruları güncelle (Servis kutusu vb.)
-        if (this.dragObject.type === 'service_box') {
-            // Bağlı boruyu sürükle
+    endDrag() {
+        this.isDragging = false;
+        this.dragObject = null;
+        this.dragStart = null;
+    }
+
+    updateConnectedPipe(result) {
+        if (!result) return;
+
+        if (result.bagliBoruId && result.delta) {
+            const boru = this.manager.pipes.find(p => p.id === result.bagliBoruId);
+            if (boru) {
+                boru.moveP1({
+                    x: boru.p1.x + result.delta.x,
+                    y: boru.p1.y + result.delta.y
+                });
+            }
         }
+
+        if (result.cikisBagliBoruId && result.yeniCikis) {
+            const boru = this.manager.pipes.find(p => p.id === result.cikisBagliBoruId);
+            if (boru) {
+                boru.moveP1(result.yeniCikis);
+            }
+        }
+    }
+
+    removeObject(obj) {
+        if (obj.type === 'boru') {
+            const index = this.manager.pipes.findIndex(p => p.id === obj.id);
+            if (index !== -1) this.manager.pipes.splice(index, 1);
+        } else {
+            const index = this.manager.components.findIndex(c => c.id === obj.id);
+            if (index !== -1) this.manager.components.splice(index, 1);
+        }
+    }
+
+    getGeciciBoruCizgisi() {
+        if (!this.boruCizimAktif || !this.boruBaslangic || !this.geciciBoruBitis) {
+            return null;
+        }
+        return { p1: this.boruBaslangic.nokta, p2: this.geciciBoruBitis };
     }
 }
