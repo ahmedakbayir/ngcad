@@ -135,16 +135,33 @@ export class ServisKutusu {
      * Duvara snap ol
      */
     snapToWall(wall, point) {
-        this.x = point.x;
-        this.y = point.y;
         this.snapliDuvar = wall;
 
-        // Duvar açısına dön (uzun kenar duvara paralel)
-        // +180° ile çıkış yönü içeri bakacak şekilde
         if (wall.p1 && wall.p2) {
             const dx = wall.p2.x - wall.p1.x;
             const dy = wall.p2.y - wall.p1.y;
+            const len = Math.hypot(dx, dy);
+
+            // Duvar normal vektörü (sağ tarafa dik)
+            const nx = -dy / len;
+            const ny = dx / len;
+
+            // Duvar kalınlığı ve kutu derinliği
+            const wallThickness = wall.thickness || 20; // varsayılan 20cm
+            const boxDepth = this.config.height; // kutu derinliği (height = depth when rotated)
+
+            // Offset: duvar yüzeyine + kutunun yarı derinliği
+            const offset = wallThickness / 2 + boxDepth / 2;
+
+            // Pozisyonu offset ile ayarla
+            this.x = point.x + nx * offset;
+            this.y = point.y + ny * offset;
+
+            // Duvar açısına dön (+180° ile çıkış yönü içeri bakacak şekilde)
             this.rotation = (Math.atan2(dy, dx) * 180 / Math.PI) + 180;
+        } else {
+            this.x = point.x;
+            this.y = point.y;
         }
     }
 
