@@ -171,10 +171,9 @@ export class ServisKutusu {
             this.x = projX + nx * offset;
             this.y = projY + ny * offset;
 
-            // Duvar açısına dön - çıkış odaya bakacak şekilde
-            // side = 1 (sol) ise 90° ekle, side = -1 (sağ) ise -90° ekle
+            // Uzun kenar duvara paralel olacak şekilde döndür
             const wallAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-            this.rotation = wallAngle + (side > 0 ? 90 : -90);
+            this.rotation = wallAngle;
         } else {
             this.x = point.x;
             this.y = point.y;
