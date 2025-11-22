@@ -191,6 +191,14 @@ export function onPointerMove(e) {
     }
     // --- Silme Modu Kontrolü Sonu ---
 
+    // === BORU ÇİZİM MODU AKTİF İSE ÖNCELİKLİ İŞLE ===
+    if (plumbingManager.interactionManager?.boruCizimAktif) {
+        const handled = plumbingManager.interactionManager.handlePointerMove(e);
+        if (handled) {
+            return;
+        }
+    }
+
     // --- Yeni Tesisat Sistemi (v2) ---
     if (state.currentMode === "plumbingV2") {
         const handled = plumbingManager.interactionManager.handlePointerMove(e);
