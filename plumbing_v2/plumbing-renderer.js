@@ -124,12 +124,9 @@ export class PlumbingRenderer {
 
                 // Boyutlar (cm cinsinden)
                 const armLength = 3;      // 3 cm kol uzunluğu
-                const capLength = 2;      // 2 cm kapak uzunluğu
                 const armExtraWidth = 1;  // Sağdan soldan 1 cm fazla (toplam 2 cm)
-                const capExtraWidth = 1.2;  // Sağdan soldan 1.2 cm fazla (toplam 2.4 cm)
 
                 const armWidth = diameter + armExtraWidth * 2;
-                const capWidth = diameter + capExtraWidth * 2;
 
                 if (armWidth > maxArmWidth) maxArmWidth = armWidth;
 
@@ -137,27 +134,14 @@ export class PlumbingRenderer {
                 ctx.translate(bp.x, bp.y);
                 ctx.rotate(angle);
 
-                // 5 cm'lik ana kol (dikdörtgen)
+                // 3 cm'lik ana kol (dikdörtgen)
                 ctx.fillStyle = '#808080';
                 ctx.fillRect(0, -armWidth / 2, armLength, armWidth);
 
-                // 2 cm'lik kapak (yuvarlatılmış köşeli)
-                const capX = armLength;
-                const capY = -capWidth / 2;
-                const cornerRadius = 1; // Köşe yuvarlama yarıçapı
-
-                ctx.beginPath();
-                ctx.moveTo(capX, capY + cornerRadius);
-                ctx.lineTo(capX, capY + capWidth - cornerRadius);
-                ctx.quadraticCurveTo(capX, capY + capWidth, capX + cornerRadius, capY + capWidth);
-                ctx.lineTo(capX + capLength - cornerRadius, capY + capWidth);
-                ctx.quadraticCurveTo(capX + capLength, capY + capWidth, capX + capLength, capY + capWidth - cornerRadius);
-                ctx.lineTo(capX + capLength, capY + cornerRadius);
-                ctx.quadraticCurveTo(capX + capLength, capY, capX + capLength - cornerRadius, capY);
-                ctx.lineTo(capX + cornerRadius, capY);
-                ctx.quadraticCurveTo(capX, capY, capX, capY + cornerRadius);
-                ctx.closePath();
-                ctx.fill();
+                // Uçta kalın çizgi (sağdan soldan 0.2 cm taşan, 1.5x kalın)
+                const lineWidth = armWidth + 0.4; // 0.2 cm her taraftan
+                const lineThickness = 1.5;
+                ctx.fillRect(armLength, -lineWidth / 2, lineThickness, lineWidth);
 
                 ctx.restore();
             }
