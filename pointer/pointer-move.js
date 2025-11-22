@@ -6,6 +6,7 @@ import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } fro
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
 import { onPointerMove as onPointerMovePlumbingBlock } from '../plumbing/plumbing-blocks.js';
 import { onPointerMove as onPointerMovePlumbingPipe, isSpaceForValve } from '../plumbing/plumbing-pipes.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
 import { getObjectAtPoint } from '../general-files/actions.js'; // getObjectAtPoint eklendi
@@ -190,6 +191,14 @@ export function onPointerMove(e) {
     }
     // --- Silme Modu Kontrolü Sonu ---
 
+    // --- Yeni Tesisat Sistemi (v2) ---
+    if (state.currentMode === "plumbingV2") {
+        const handled = plumbingManager.interactionManager.handlePointerMove(e);
+        if (handled) {
+            return;
+        }
+    }
+    // --- Yeni Tesisat Sistemi Sonu ---
 
     // Oda ismi sürükleme
     if (state.isDraggingRoomName) {
@@ -548,6 +557,7 @@ function updateMouseCursor() {
         case 'drawGuideAngular':
         case 'drawGuideFree':
         // --- YENİ SONU ---
+        case 'plumbingV2':
             modeCursorStyle = 'crosshair';
             break;
         case 'select':

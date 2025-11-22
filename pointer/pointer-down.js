@@ -19,6 +19,7 @@ import { cancelLengthEdit } from '../general-files/ui.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { processWalls } from '../wall/wall-processor.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 /**
  * Vanadan/Sayaçtan sonraki tüm bağlı boruları düz çizgi yap
@@ -290,6 +291,16 @@ export function onPointerDown(e) {
                 objectJustCreated = true;
             }
             setState({ startPoint: null });
+        }
+
+        // ===================================================================
+        // === YENİ TESİSAT SİSTEMİ (v2) ===
+        // ===================================================================
+    } else if (state.currentMode === "plumbingV2") {
+        // Yeni tesisat sistemine yönlendir
+        const handled = plumbingManager.interactionManager.handlePointerDown(e);
+        if (handled) {
+            return;
         }
 
         // ===================================================================

@@ -17,6 +17,7 @@ import { init3D, renderer as renderer3d, camera as camera3d, controls as control
 import { createWallPanel } from '../wall/wall-panel.js';
 import { createFloorPanel, showFloorPanel, renderMiniPanel } from '../floor/floor-panel.js';
 import { initializeDefaultFloors } from '../floor/floor-handler.js';
+import { plumbingManager, TESISAT_MODLARI } from '../plumbing_v2/plumbing-manager.js';
 /*
 // --- RESİM ÇERÇEVESİ KODU ---
 // config.js'den (eğer varsa) API anahtarını güvenli bir şekilde okur
@@ -883,28 +884,30 @@ function initialize() {
     dom.bBeam.addEventListener("click", () => setMode("drawBeam", true));
     dom.bStairs.addEventListener("click", () => setMode("drawStairs", true)); // forceSet ekleyin
 
-    // Tesisat blokları
+    // Tesisat blokları (v2 sistemi)
     dom.bServisKutusu.addEventListener("click", () => {
-        setState({ currentPlumbingBlockType: 'SERVIS_KUTUSU' });
-        setMode("drawPlumbingBlock", true);
+        plumbingManager.startPlacement(TESISAT_MODLARI.SERVIS_KUTUSU);
+        setMode("plumbingV2", true);
     });
     dom.bSayac.addEventListener("click", () => {
-        setState({ currentPlumbingBlockType: 'SAYAC' });
-        setMode("drawPlumbingBlock", true);
+        plumbingManager.startPlacement(TESISAT_MODLARI.SAYAC);
+        setMode("plumbingV2", true);
     });
     dom.bVana.addEventListener("click", () => {
-        setMode("drawValve", true);
+        plumbingManager.startPlacement(TESISAT_MODLARI.VANA);
+        setMode("plumbingV2", true);
     });
     dom.bKombi.addEventListener("click", () => {
-        setState({ currentPlumbingBlockType: 'KOMBI' });
-        setMode("drawPlumbingBlock", true);
+        plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'KOMBI' });
+        setMode("plumbingV2", true);
     });
     dom.bOcak.addEventListener("click", () => {
-        setState({ currentPlumbingBlockType: 'OCAK' });
-        setMode("drawPlumbingBlock", true);
+        plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'OCAK' });
+        setMode("plumbingV2", true);
     });
     dom.bBoru.addEventListener("click", () => {
-        setMode("drawPlumbingPipe", true);
+        plumbingManager.startPipeMode();
+        setMode("plumbingV2", true);
     });
 
     dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
