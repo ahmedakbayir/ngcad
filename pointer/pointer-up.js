@@ -3,6 +3,7 @@ import { state, setState } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
@@ -10,6 +11,15 @@ export function onPointerUp(e) {
         saveState();
         return;
     }
+
+    // --- Yeni Tesisat Sistemi (v2) ---
+    if (state.currentMode === "plumbingV2") {
+        const handled = plumbingManager.interactionManager.handlePointerUp(e);
+        if (handled) {
+            return;
+        }
+    }
+    // --- Yeni Tesisat Sistemi Sonu ---
 
     if (state.isDraggingRoomName) {
         const room = state.isDraggingRoomName;

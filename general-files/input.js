@@ -26,6 +26,7 @@ import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 // YENİ İMPORT: Silme işlemi için getConnectionPoints eklendi
 import { getConnectionPoints } from '../plumbing/plumbing-blocks.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 
 // ... (dosyanın üst kısmı değişmedi: currentModifierKeys, extendWallOnTabPress, handleCopy, handlePaste) ...
@@ -599,6 +600,15 @@ function onKeyDown(e) {
     // Geri Alma / İleri Alma
     if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
+
+    // --- Yeni Tesisat Sistemi (v2) Klavye İşlemleri ---
+    if (state.currentMode === "plumbingV2") {
+        const handled = plumbingManager.interactionManager.handleKeyDown(e);
+        if (handled) {
+            return;
+        }
+    }
+    // --- Yeni Tesisat Sistemi Sonu ---
 
     // Escape veya Space ile iptal/seç moduna dönme
     if (e.key === "Escape" || e.code === "Space") {

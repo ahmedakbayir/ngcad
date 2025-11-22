@@ -5,7 +5,8 @@ import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
     drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
     drawBeam, drawStairs, drawGuides
     } from './renderer2d.js';
-import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview, drawValvesOnPipes, drawPlumbingSnapIndicator } from '../plumbing/draw-plumbing.js'; 
+import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview, drawValvesOnPipes, drawPlumbingSnapIndicator } from '../plumbing/draw-plumbing.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
         } from './draw-previews.js';
@@ -362,6 +363,9 @@ export function draw2D() {
 
     // 4.9.5. VANALAR (Boru Üzerinde)
     drawValvesOnPipes();
+
+    // 4.10. YENİ TESİSAT SİSTEMİ (v2)
+    plumbingManager.render(ctx);
 
     // 5. Atomik Semboller
     nodes.forEach(node => {
