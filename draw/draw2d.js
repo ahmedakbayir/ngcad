@@ -365,7 +365,7 @@ export function draw2D() {
     drawValvesOnPipes();
 
     // 4.10. YENİ TESİSAT SİSTEMİ (v2)
-    plumbingManager.render(ctx);
+    plumbingManager.render(ctx2d);
 
     // 5. Atomik Semboller
     nodes.forEach(node => {
