@@ -103,7 +103,21 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Nesne seçme/sürükleme
+        // 3. Boru ucu veya gövdesinden çizim başlat
+        const boruUcu = this.findBoruUcuAt(point, 8);
+        if (boruUcu) {
+            this.startBoruCizim(boruUcu.nokta, boruUcu.boruId, BAGLANTI_TIPLERI.BORU);
+            return true;
+        }
+
+        // 4. Boru gövdesinden çizim başlat
+        const boruGovde = this.findBoruGovdeAt(point);
+        if (boruGovde) {
+            this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
+            return true;
+        }
+
+        // 5. Nesne seçme/sürükleme
         const hitObject = this.findObjectAt(point);
         if (hitObject) {
             this.selectObject(hitObject);
@@ -380,6 +394,16 @@ export class InteractionManager {
         return null;
     }
 
+    findBoruGovdeAt(point, tolerance = 5) {
+        for (const boru of this.manager.pipes) {
+            const proj = boru.projectPoint(point);
+            if (proj && proj.onSegment && proj.distance < tolerance) {
+                return { boruId: boru.id, nokta: { x: proj.x, y: proj.y } };
+            }
+        }
+        return null;
+    }
+
     checkVanaAtPoint(point, tolerance = 5) {
         for (const comp of this.manager.components) {
             if (comp.type === 'vana') {
@@ -399,6 +423,29 @@ export class InteractionManager {
 
     handleDrag(point) {
         if (!this.dragObject) return;
+
+        // Servis kutusu için snap uygula (ilk yerleştirildiği gibi)
+        if (this.dragObject.type === 'servis_kutusu') {
+            const walls = state.walls;
+            const snap = this.snapSystem.getSnapPoint(point, walls);
+
+            if (snap && snap.target && snap.target.wall) {
+                this.dragObject.snapToWall(snap.target.wall, point);
+            } else {
+                this.dragObject.x = point.x;
+                this.dragObject.y = point.y;
+            }
+
+            // Bağlı boruyu güncelle
+            if (this.dragObject.bagliBoruId) {
+                const boru = this.manager.pipes.find(p => p.id === this.dragObject.bagliBoruId);
+                if (boru) {
+                    boru.moveP1(this.dragObject.getCikisNoktasi());
+                }
+            }
+            return;
+        }
+
         const result = this.dragObject.move(point.x, point.y);
         this.updateConnectedPipe(result);
     }
