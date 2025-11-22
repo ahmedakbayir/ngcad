@@ -114,19 +114,24 @@ export class PlumbingRenderer {
         ctx.fillStyle = '#808080'; // Gri renk
 
         breakPoints.forEach(bp => {
+            // En büyük genişliği bul (merkez daire için)
+            let maxArmWidth = 0;
+
             // Her yön için dirsek kolu çiz
             for (let i = 0; i < bp.directions.length; i++) {
                 const angle = bp.directions[i];
                 const diameter = bp.diameters[i];
 
                 // Boyutlar (cm cinsinden)
-                const armLength = 5;      // 5 cm kol uzunluğu
+                const armLength = 3;      // 3 cm kol uzunluğu
                 const capLength = 2;      // 2 cm kapak uzunluğu
                 const armExtraWidth = 1;  // Sağdan soldan 1 cm fazla (toplam 2 cm)
-                const capExtraWidth = 2;  // Sağdan soldan 2 cm fazla (toplam 4 cm)
+                const capExtraWidth = 1.2;  // Sağdan soldan 1.2 cm fazla (toplam 2.4 cm)
 
                 const armWidth = diameter + armExtraWidth * 2;
                 const capWidth = diameter + capExtraWidth * 2;
+
+                if (armWidth > maxArmWidth) maxArmWidth = armWidth;
 
                 ctx.save();
                 ctx.translate(bp.x, bp.y);
@@ -156,6 +161,12 @@ export class PlumbingRenderer {
 
                 ctx.restore();
             }
+
+            // Merkeze daire çiz (boşluğu kapat)
+            ctx.fillStyle = '#808080';
+            ctx.beginPath();
+            ctx.arc(bp.x, bp.y, maxArmWidth / 2, 0, Math.PI * 2);
+            ctx.fill();
         });
     }
 
