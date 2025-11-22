@@ -343,38 +343,22 @@ export class InteractionManager {
     }
 
     findObjectAt(point) {
-        // Önce boru uçlarını kontrol et (öncelikli)
-        const boruUcu = this.findBoruUcuAt(point, 8);
-        if (boruUcu) {
-            const boru = this.manager.pipes.find(p => p.id === boruUcu.boruId);
-            if (boru) {
-                return {
-                    type: 'boru_ucu',
-                    boru: boru,
-                    uc: boruUcu.uc, // 'p1' veya 'p2'
-                    // move metodu endpoint için
-                    move: (x, y) => {
-                        if (boruUcu.uc === 'p1') {
-                            boru.p1.x = x;
-                            boru.p1.y = y;
-                        } else {
-                            boru.p2.x = x;
-                            boru.p2.y = y;
-                        }
-                        return null;
-                    }
-                };
-            }
-        }
-
+        // Bileşenler (servis kutusu, sayaç, vana, cihaz)
         for (const comp of this.manager.components) {
             if (comp.containsPoint && comp.containsPoint(point)) {
                 return comp;
             }
         }
 
+        // Boru gövdesi (uçları hariç - uçlar çizim başlatır)
         for (const pipe of this.manager.pipes) {
             if (pipe.containsPoint && pipe.containsPoint(point)) {
+                // Uç noktaya yakınsa nesne olarak döndürme (çizim başlatacak)
+                const distP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
+                const distP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
+                if (distP1 < 8 || distP2 < 8) {
+                    continue; // Uç nokta - çizim başlatılacak
+                }
                 return pipe;
             }
         }
