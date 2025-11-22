@@ -1,73 +1,333 @@
 /**
- * Pipe Object (v2)
- * Boru mantığı.
+ * Boru Bileşeni
+ * Tesisat bağlantı elemanı - kullanıcı kurallarına göre tasarlanmış
+ *
+ * KURALLAR:
+ * - Tüm bağlantılar borularla sağlanır
+ * - Tesisat hattına snap olmalı
+ * - Duvardan uzakta düz çizilir
+ * - Süreklilik esastır (kesinti olmaz)
+ * - Grid snap yok, atlama yok
+ * - Gaz sadece boru ve sayaçtan geçer
  */
 
-import { PLUMBING_CONSTANTS, PLUMBING_PIPE_TYPES } from '../plumbing-types.js';
+import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
-export class Pipe {
-    constructor(p1, p2, type = 'STANDARD') {
-        this.id = `pipe_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        this.type = 'pipe';
-        this.pipeType = type;
-        this.p1 = p1; // {x, y, z}
-        this.p2 = p2; // {x, y, z}
-        this.floorId = null; // Atandığı kat
+// Boru Tipleri
+export const BORU_TIPLERI = {
+    STANDART: {
+        id: 'standart',
+        name: 'Standart Boru',
+        diameter: 2,        // cm
+        color: 0xFFFF00,    // Sarı (doğalgaz)
+        lineWidth: 4
+    },
+    KALIN: {
+        id: 'kalin',
+        name: 'Kalın Boru',
+        diameter: 4,
+        color: 0xFFCC00,    // Koyu sarı
+        lineWidth: 6
+    }
+};
 
-        // Bağlantılar
-        this.connections = {
-            start: null, // { object, pointIndex }
-            end: null
+// Bağlantı Tipleri
+export const BAGLANTI_TIPLERI = {
+    SERVIS_KUTUSU: 'servis_kutusu',
+    BRANSEMAN: 'branseman',
+    SAYAC: 'sayac',
+    BORU: 'boru',           // T-bağlantı
+    VANA: 'vana',
+    CIHAZ: 'cihaz'
+};
+
+export class Boru {
+    constructor(p1, p2, tip = 'STANDART') {
+        this.id = `boru_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        this.type = 'boru';
+        this.boruTipi = tip;
+
+        // Uç noktalar
+        this.p1 = { x: p1.x, y: p1.y, z: p1.z || 0 };
+        this.p2 = { x: p2.x, y: p2.y, z: p2.z || 0 };
+
+        // Kat bilgisi
+        this.floorId = null;
+
+        // Bağlantı bilgileri
+        this.baslangicBaglanti = {
+            tip: null,          // BAGLANTI_TIPLERI
+            hedefId: null,      // Bağlı objenin ID'si
+            noktaIndex: null    // Bağlantı noktası indeksi
         };
 
-        // Üzerindeki elemanlar (Vana, Sayaç vb.)
-        this.attachedComponents = [];
-    }
+        this.bitisBaglanti = {
+            tip: null,
+            hedefId: null,
+            noktaIndex: null
+        };
 
-    get length() {
-        return Math.hypot(this.p2.x - this.p1.x, this.p2.y - this.p1.y);
-    }
+        // Üzerine takılı elemanlar
+        this.uzerindekiElemanlar = []; // { id, tip, pozisyon (0-1) }
 
-    get angle() {
-        return Math.atan2(this.p2.y - this.p1.y, this.p2.x - this.p1.x);
+        // T-bağlantı noktaları
+        this.tBaglantilar = []; // { pozisyon, boruId }
     }
 
     /**
-     * Verilen nokta boru üzerinde mi?
+     * Boru uzunluğu
      */
-    containsPoint(point, tolerance = PLUMBING_CONSTANTS.SNAP_DISTANCE) {
-        // Basit nokta-doğru parçası uzaklık kontrolü
-        const { p1, p2 } = this;
-        const l2 = (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2;
-        if (l2 === 0) return Math.hypot(point.x - p1.x, point.y - p1.y) < tolerance;
-
-        let t = ((point.x - p1.x) * (p2.x - p1.x) + (point.y - p1.y) * (p2.y - p1.y)) / l2;
-        t = Math.max(0, Math.min(1, t));
-
-        const projX = p1.x + t * (p2.x - p1.x);
-        const projY = p1.y + t * (p2.y - p1.y);
-
-        return Math.hypot(point.x - projX, point.y - projY) < tolerance;
+    get uzunluk() {
+        return Math.hypot(
+            this.p2.x - this.p1.x,
+            this.p2.y - this.p1.y
+        );
     }
 
     /**
-     * Boruyu verilen noktadan böler ve iki yeni boru döndürür.
-     * (Araya eleman eklemek için kullanılır)
+     * Boru açısı (radyan)
+     */
+    get aci() {
+        return Math.atan2(
+            this.p2.y - this.p1.y,
+            this.p2.x - this.p1.x
+        );
+    }
+
+    /**
+     * Boru açısı (derece)
+     */
+    get aciDerece() {
+        return this.aci * 180 / Math.PI;
+    }
+
+    /**
+     * Boru konfigürasyonu
+     */
+    get config() {
+        return BORU_TIPLERI[this.boruTipi] || BORU_TIPLERI.STANDART;
+    }
+
+    /**
+     * Nokta boru üzerinde mi?
+     */
+    containsPoint(point, tolerance = TESISAT_CONSTANTS.SNAP_MESAFESI) {
+        const proj = this.projectPoint(point);
+        if (!proj || !proj.onSegment) return false;
+        return proj.distance < tolerance;
+    }
+
+    /**
+     * Noktanın boru üzerine izdüşümü
+     */
+    projectPoint(point) {
+        const { p1, p2 } = this;
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len2 = dx * dx + dy * dy;
+
+        if (len2 === 0) {
+            const dist = Math.hypot(point.x - p1.x, point.y - p1.y);
+            return { x: p1.x, y: p1.y, t: 0, onSegment: true, distance: dist };
+        }
+
+        const t = ((point.x - p1.x) * dx + (point.y - p1.y) * dy) / len2;
+        const clampedT = Math.max(0, Math.min(1, t));
+
+        const projX = p1.x + clampedT * dx;
+        const projY = p1.y + clampedT * dy;
+        const distance = Math.hypot(point.x - projX, point.y - projY);
+
+        return {
+            x: projX,
+            y: projY,
+            t: clampedT,
+            onSegment: t >= 0 && t <= 1,
+            distance: distance
+        };
+    }
+
+    /**
+     * Pozisyondaki noktayı al (t: 0-1)
+     */
+    getPointAt(t) {
+        return {
+            x: this.p1.x + (this.p2.x - this.p1.x) * t,
+            y: this.p1.y + (this.p2.y - this.p1.y) * t,
+            z: this.p1.z + (this.p2.z - this.p1.z) * t
+        };
+    }
+
+    /**
+     * Başlangıç noktasını taşı
+     */
+    moveP1(newPoint) {
+        this.p1.x = newPoint.x;
+        this.p1.y = newPoint.y;
+        if (newPoint.z !== undefined) this.p1.z = newPoint.z;
+    }
+
+    /**
+     * Bitiş noktasını taşı
+     */
+    moveP2(newPoint) {
+        this.p2.x = newPoint.x;
+        this.p2.y = newPoint.y;
+        if (newPoint.z !== undefined) this.p2.z = newPoint.z;
+    }
+
+    /**
+     * Boruyu belirli bir noktadan böl
      */
     splitAt(point) {
-        // Yeni node oluştur
-        const newNode = { x: point.x, y: point.y, z: this.p1.z }; // Z'yi koru
+        const proj = this.projectPoint(point);
+        if (!proj || !proj.onSegment) return null;
 
-        const pipe1 = new Pipe(this.p1, newNode, this.pipeType);
-        const pipe2 = new Pipe(newNode, this.p2, this.pipeType);
+        const splitPoint = { x: proj.x, y: proj.y, z: this.p1.z };
 
-        // Özellikleri kopyala (floorId vb.)
-        pipe1.floorId = this.floorId;
-        pipe2.floorId = this.floorId;
+        // İki yeni boru oluştur
+        const boru1 = new Boru(this.p1, splitPoint, this.boruTipi);
+        const boru2 = new Boru(splitPoint, this.p2, this.boruTipi);
 
-        return [pipe1, pipe2];
+        // Özellikleri kopyala
+        boru1.floorId = this.floorId;
+        boru2.floorId = this.floorId;
+
+        // Bağlantıları aktar
+        boru1.baslangicBaglanti = { ...this.baslangicBaglanti };
+        boru2.bitisBaglanti = { ...this.bitisBaglanti };
+
+        // Üzerindeki elemanları paylaştır
+        this.uzerindekiElemanlar.forEach(eleman => {
+            if (eleman.pozisyon <= proj.t) {
+                // Yeni pozisyonu hesapla
+                const yeniPoz = proj.t > 0 ? eleman.pozisyon / proj.t : 0;
+                boru1.uzerindekiElemanlar.push({
+                    ...eleman,
+                    pozisyon: yeniPoz
+                });
+            } else {
+                // Yeni pozisyonu hesapla
+                const yeniPoz = (eleman.pozisyon - proj.t) / (1 - proj.t);
+                boru2.uzerindekiElemanlar.push({
+                    ...eleman,
+                    pozisyon: yeniPoz
+                });
+            }
+        });
+
+        return { boru1, boru2, splitPoint };
+    }
+
+    /**
+     * Başlangıç bağlantısını ayarla
+     */
+    setBaslangicBaglanti(tip, hedefId, noktaIndex = null) {
+        this.baslangicBaglanti = { tip, hedefId, noktaIndex };
+    }
+
+    /**
+     * Bitiş bağlantısını ayarla
+     */
+    setBitisBaglanti(tip, hedefId, noktaIndex = null) {
+        this.bitisBaglanti = { tip, hedefId, noktaIndex };
+    }
+
+    /**
+     * Eleman ekle
+     */
+    elemanEkle(elemanId, tip, pozisyon) {
+        // Pozisyon sıralamasını koru
+        this.uzerindekiElemanlar.push({ id: elemanId, tip, pozisyon });
+        this.uzerindekiElemanlar.sort((a, b) => a.pozisyon - b.pozisyon);
+    }
+
+    /**
+     * Eleman kaldır
+     */
+    elemanKaldir(elemanId) {
+        const index = this.uzerindekiElemanlar.findIndex(e => e.id === elemanId);
+        if (index !== -1) {
+            this.uzerindekiElemanlar.splice(index, 1);
+        }
+    }
+
+    /**
+     * T-bağlantı ekle
+     */
+    tBaglantiEkle(pozisyon, boruId) {
+        this.tBaglantilar.push({ pozisyon, boruId });
+        this.tBaglantilar.sort((a, b) => a.pozisyon - b.pozisyon);
+    }
+
+    /**
+     * T-bağlantı kaldır
+     */
+    tBaglantiKaldir(boruId) {
+        const index = this.tBaglantilar.findIndex(t => t.boruId === boruId);
+        if (index !== -1) {
+            this.tBaglantilar.splice(index, 1);
+        }
+    }
+
+    /**
+     * Süreklilik kontrolü (başlangıç veya bitiş bağlı mı?)
+     */
+    isBagli(ucTipi = 'baslangic') {
+        if (ucTipi === 'baslangic') {
+            return this.baslangicBaglanti.hedefId !== null;
+        }
+        return this.bitisBaglanti.hedefId !== null;
+    }
+
+    /**
+     * Bounding box
+     */
+    getBoundingBox() {
+        return {
+            minX: Math.min(this.p1.x, this.p2.x),
+            maxX: Math.max(this.p1.x, this.p2.x),
+            minY: Math.min(this.p1.y, this.p2.y),
+            maxY: Math.max(this.p1.y, this.p2.y)
+        };
+    }
+
+    /**
+     * Serialize
+     */
+    toJSON() {
+        return {
+            id: this.id,
+            type: this.type,
+            boruTipi: this.boruTipi,
+            p1: { ...this.p1 },
+            p2: { ...this.p2 },
+            floorId: this.floorId,
+            baslangicBaglanti: { ...this.baslangicBaglanti },
+            bitisBaglanti: { ...this.bitisBaglanti },
+            uzerindekiElemanlar: [...this.uzerindekiElemanlar],
+            tBaglantilar: [...this.tBaglantilar]
+        };
+    }
+
+    /**
+     * Deserialize
+     */
+    static fromJSON(data) {
+        const boru = new Boru(data.p1, data.p2, data.boruTipi);
+        boru.id = data.id;
+        boru.floorId = data.floorId;
+        boru.baslangicBaglanti = data.baslangicBaglanti || { tip: null, hedefId: null, noktaIndex: null };
+        boru.bitisBaglanti = data.bitisBaglanti || { tip: null, hedefId: null, noktaIndex: null };
+        boru.uzerindekiElemanlar = data.uzerindekiElemanlar || [];
+        boru.tBaglantilar = data.tBaglantilar || [];
+        return boru;
     }
 }
-export function createPlumbingPipe(p1, p2, type) {
-    return new Pipe(p1, p2, type);
+
+/**
+ * Factory fonksiyon
+ */
+export function createBoru(p1, p2, tip = 'STANDART') {
+    return new Boru(p1, p2, tip);
 }
