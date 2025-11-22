@@ -142,26 +142,39 @@ export class ServisKutusu {
             const dy = wall.p2.y - wall.p1.y;
             const len = Math.hypot(dx, dy);
 
-            // Duvar normal vektörü (sağ tarafa dik)
-            const nx = -dy / len;
-            const ny = dx / len;
+            // Noktayı duvar merkez çizgisine projeksiyon yap
+            const t = ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len);
+            const projX = wall.p1.x + t * dx;
+            const projY = wall.p1.y + t * dy;
 
-            // Duvar kalınlığı ve kutu boyutları
+            // Noktanın duvarın hangi tarafında olduğunu bul (cross product)
+            const toPointX = point.x - wall.p1.x;
+            const toPointY = point.y - wall.p1.y;
+            const cross = dx * toPointY - dy * toPointX;
+            const side = cross > 0 ? 1 : -1; // 1 = sol taraf, -1 = sağ taraf
+
+            // Duvar normal vektörü (side'a göre yön)
+            const nx = (-dy / len) * side;
+            const ny = (dx / len) * side;
+
+            // Duvar kalınlığı
             const wallThickness = wall.thickness || 20; // varsayılan 20cm
 
-            // Kırmızı noktaya en yakın uzun kenar duvara yapışacak
-            // Bu kenar boru_açıklığı kadar içeride, yani height/2 - boru_açıklığı
-            // Offset: kenar duvar yüzeyinde olacak şekilde
-            // kenar = merkez - height/2, kenar = duvar_yüzeyi
-            // merkez = duvar_yüzeyi + height/2 = duvar_merkezi + duvar_kalınlığı/2 + height/2
+            // Kutu kenarı duvar yüzeyinde, çıkış noktası tesisat hattında olacak
+            // Tesisat hattı = duvar merkezi + (duvar_kalınlığı/2 + boru_açıklığı) * normal
+            // Kenar duvar yüzeyinde = duvar merkezi + (duvar_kalınlığı/2) * normal
+            // Çıkış noktası kenardan boru_açıklığı içeride
+            // Kutu merkezi = kenar + height/2 = duvar_merkezi + (duvar_kalınlığı/2 + height/2) * normal
             const offset = wallThickness / 2 + this.config.height / 2;
 
-            // Pozisyonu offset ile ayarla
-            this.x = point.x + nx * offset;
-            this.y = point.y + ny * offset;
+            // Pozisyonu ayarla (projeksiyon noktasından offset)
+            this.x = projX + nx * offset;
+            this.y = projY + ny * offset;
 
-            // Duvar açısına dön (+180° ile çıkış yönü içeri bakacak şekilde)
-            this.rotation = (Math.atan2(dy, dx) * 180 / Math.PI) + 180;
+            // Duvar açısına dön - çıkış odaya bakacak şekilde
+            // side = 1 (sol) ise 90° ekle, side = -1 (sağ) ise -90° ekle
+            const wallAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+            this.rotation = wallAngle + (side > 0 ? 90 : -90);
         } else {
             this.x = point.x;
             this.y = point.y;
