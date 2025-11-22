@@ -118,6 +118,27 @@ export class Boru {
     }
 
     /**
+     * Boruyu taşı (tüm boruyu)
+     */
+    move(newX, newY) {
+        // Boru merkezini hesapla
+        const centerX = (this.p1.x + this.p2.x) / 2;
+        const centerY = (this.p1.y + this.p2.y) / 2;
+
+        // Delta hesapla
+        const dx = newX - centerX;
+        const dy = newY - centerY;
+
+        // Her iki ucu da taşı
+        this.p1.x += dx;
+        this.p1.y += dy;
+        this.p2.x += dx;
+        this.p2.y += dy;
+
+        return null;
+    }
+
+    /**
      * Noktanın boru üzerine izdüşümü
      */
     projectPoint(point) {
