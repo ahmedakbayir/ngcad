@@ -146,12 +146,11 @@ export class ServisKutusu {
             const nx = -dy / len;
             const ny = dx / len;
 
-            // Duvar kalınlığı ve kutu derinliği
+            // Duvar kalınlığı
             const wallThickness = wall.thickness || 20; // varsayılan 20cm
-            const boxDepth = this.config.height; // kutu derinliği (height = depth when rotated)
 
-            // Offset: duvar yüzeyine + kutunun yarı derinliği
-            const offset = wallThickness / 2 + boxDepth / 2;
+            // Offset: sadece duvar yüzeyine kadar
+            const offset = wallThickness / 2;
 
             // Pozisyonu offset ile ayarla
             this.x = point.x + nx * offset;
