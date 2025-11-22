@@ -146,11 +146,14 @@ export class ServisKutusu {
             const nx = -dy / len;
             const ny = dx / len;
 
-            // Duvar kalınlığı
+            // Duvar kalınlığı ve kutu boyutları
             const wallThickness = wall.thickness || 20; // varsayılan 20cm
+            const boruAcikligi = TESISAT_CONSTANTS.BORU_ACIKLIGI;
 
-            // Offset: sadece duvar yüzeyine kadar
-            const offset = wallThickness / 2;
+            // Çıkış noktası tesisat hattı üzerinde olacak şekilde offset hesapla
+            // Tesisat hattı = duvar merkezi + (duvar kalınlığı/2 + boru açıklığı)
+            // Çıkış noktası kutu merkezinden width/2 uzaklıkta (180° rotasyon sonrası)
+            const offset = wallThickness / 2 + boruAcikligi + this.config.width / 2;
 
             // Pozisyonu offset ile ayarla
             this.x = point.x + nx * offset;
