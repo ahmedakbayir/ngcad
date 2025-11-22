@@ -103,21 +103,7 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Boru ucu veya gövdesinden çizim başlat
-        const boruUcu = this.findBoruUcuAt(point, 8);
-        if (boruUcu) {
-            this.startBoruCizim(boruUcu.nokta, boruUcu.boruId, BAGLANTI_TIPLERI.BORU);
-            return true;
-        }
-
-        // 4. Boru gövdesinden çizim başlat
-        const boruGovde = this.findBoruGovdeAt(point);
-        if (boruGovde) {
-            this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
-            return true;
-        }
-
-        // 5. Nesne seçme/sürükleme
+        // 3. Nesne seçme/sürükleme (öncelikli)
         const hitObject = this.findObjectAt(point);
         if (hitObject) {
             this.selectObject(hitObject);
@@ -125,7 +111,21 @@ export class InteractionManager {
             return true;
         }
 
-        // 4. Boş alana tıklama - seçimi kaldır
+        // 4. Boru ucu veya gövdesinden çizim başlat
+        const boruUcu = this.findBoruUcuAt(point, 8);
+        if (boruUcu) {
+            this.startBoruCizim(boruUcu.nokta, boruUcu.boruId, BAGLANTI_TIPLERI.BORU);
+            return true;
+        }
+
+        // 5. Boru gövdesinden çizim başlat
+        const boruGovde = this.findBoruGovdeAt(point);
+        if (boruGovde) {
+            this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
+            return true;
+        }
+
+        // 6. Boş alana tıklama - seçimi kaldır
         this.deselectObject();
         return false;
     }
