@@ -260,6 +260,16 @@ export class InteractionManager {
                 this.boruBaslangic.kaynakTip,
                 this.boruBaslangic.kaynakId
             );
+
+            // Servis kutusu bağlantısını kur
+            if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                const servisKutusu = this.manager.components.find(
+                    c => c.id === this.boruBaslangic.kaynakId && c.type === 'servis_kutusu'
+                );
+                if (servisKutusu) {
+                    servisKutusu.boruBagla(boru.id);
+                }
+            }
         }
 
         this.manager.pipes.push(boru);
@@ -352,7 +362,7 @@ export class InteractionManager {
 
         // Boru gövdesi (uçları hariç - uçlar çizim başlatır)
         for (const pipe of this.manager.pipes) {
-            if (pipe.containsPoint && pipe.containsPoint(point)) {
+            if (pipe.containsPoint && pipe.containsPoint(point, 10)) {
                 // Uç noktaya yakınsa nesne olarak döndürme (çizim başlatacak)
                 const distP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
                 const distP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
@@ -430,6 +440,12 @@ export class InteractionManager {
             return;
         }
 
+        // Boru taşınırken snap yapma, doğrudan taşı
+        if (this.dragObject.type === 'boru') {
+            this.dragObject.move(point.x, point.y);
+            return;
+        }
+
         const result = this.dragObject.move(point.x, point.y);
         this.updateConnectedPipe(result);
     }
@@ -463,6 +479,40 @@ export class InteractionManager {
 
     removeObject(obj) {
         if (obj.type === 'boru') {
+            // Bağlı boruları bul ve bağlantıyı güncelle
+            const deletedPipe = obj;
+
+            // p2'ye bağlı boruyu bul (silinecek borunun devamı)
+            const nextPipe = this.manager.pipes.find(p =>
+                p.id !== deletedPipe.id &&
+                Math.hypot(p.p1.x - deletedPipe.p2.x, p.p1.y - deletedPipe.p2.y) < 1
+            );
+
+            // Eğer devam eden boru varsa, başlangıcını silinecek borunun başlangıcına bağla
+            if (nextPipe) {
+                nextPipe.p1.x = deletedPipe.p1.x;
+                nextPipe.p1.y = deletedPipe.p1.y;
+
+                // Bağlantı bilgisini aktar
+                if (deletedPipe.baslangicBaglanti.hedefId) {
+                    nextPipe.setBaslangicBaglanti(
+                        deletedPipe.baslangicBaglanti.tip,
+                        deletedPipe.baslangicBaglanti.hedefId,
+                        deletedPipe.baslangicBaglanti.noktaIndex
+                    );
+
+                    // Servis kutusu bağlantısını güncelle
+                    if (deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                        const servisKutusu = this.manager.components.find(
+                            c => c.id === deletedPipe.baslangicBaglanti.hedefId
+                        );
+                        if (servisKutusu) {
+                            servisKutusu.boruBagla(nextPipe.id);
+                        }
+                    }
+                }
+            }
+
             const index = this.manager.pipes.findIndex(p => p.id === obj.id);
             if (index !== -1) this.manager.pipes.splice(index, 1);
         } else {
