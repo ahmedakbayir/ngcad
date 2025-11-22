@@ -141,7 +141,7 @@ export class PlumbingRenderer {
                 // Uçta kalın çizgi (sağdan soldan 0.2 cm taşan, 1.5x kalın)
                 const lineWidth = armWidth + 0.4; // 0.2 cm her taraftan
                 const lineThickness = 1.5;
-                ctx.fillRect(armLength, -lineWidth / 2, lineThickness, lineWidth);
+                ctx.fillRect(armLength - 0.2, -lineWidth / 2, lineThickness, lineWidth);
 
                 ctx.restore();
             }
