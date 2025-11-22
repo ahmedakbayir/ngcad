@@ -25,8 +25,8 @@ export const PLUMBING_BLOCK_TYPES = {
         depth: 40,
         cornerRadius: 0.5,
         connectionPoints: [
-            { x: -5, y: -9-10, z: 30, label: 'giriş' },
-            { x: 5, y: -9-10, z: 30, label: 'çıkış' }
+            { x: -5, y: -19, z: 30, label: 'giriş' },
+            { x: 5, y: -19, z: 30, label: 'çıkış' }
         ],
         connectionLineLength: 10,
         mountType: 'wall',

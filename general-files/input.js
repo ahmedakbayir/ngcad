@@ -6,7 +6,7 @@ import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom 
 import { getObjectAtPoint } from './actions.js';
 import { undo, redo, saveState, restoreState } from './history.js';
 import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen } from './ui.js';
-import { createStairs, recalculateStepCount, isPointInStair, getNextStairLetter} from '../architectural-objects/stairs.js'; // isPointInStair eklendi
+import { createStairs, recalculateStepCount, isPointInStair, getNextStairLetter } from '../architectural-objects/stairs.js'; // isPointInStair eklendi
 import { createColumn, isPointInColumn } from '../architectural-objects/columns.js'; // isPointInColumn eklendi
 import { createBeam, isPointInBeam } from '../architectural-objects/beams.js'; // isPointInBeam eklendi
 import { screenToWorld, worldToScreen, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from '../draw/geometry.js'; // distToSegmentSquared ekleyin
@@ -20,8 +20,8 @@ import { onPointerDown } from '../pointer/pointer-down.js';
 import { onPointerMove } from '../pointer/pointer-move.js';
 import { onPointerUp } from '../pointer/pointer-up.js';
 import { isFPSMode } from '../scene3d/scene3d-camera.js';
-import { update3DScene } from '../scene3d/scene3d-update.js'; 
-import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../scene3d/scene3d-core.js'; 
+import { update3DScene } from '../scene3d/scene3d-update.js';
+import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../scene3d/scene3d-core.js';
 import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 // YENİ İMPORT: Silme işlemi için getConnectionPoints eklendi
@@ -99,9 +99,9 @@ function handleCopy(e) {
         dataToCopy = { type: 'wallGroup', items: JSON.parse(JSON.stringify(state.selectedGroup)) };
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         state.selectedGroup.forEach(wall => {
-            if(wall.p1 && wall.p2){ minX = Math.min(minX, wall.p1.x, wall.p2.x); minY = Math.min(minY, wall.p1.y, wall.p2.y); maxX = Math.max(maxX, wall.p1.x, wall.p2.x); maxY = Math.max(maxY, wall.p1.y, wall.p2.y); }
+            if (wall.p1 && wall.p2) { minX = Math.min(minX, wall.p1.x, wall.p2.x); minY = Math.min(minY, wall.p1.y, wall.p2.y); maxX = Math.max(maxX, wall.p1.x, wall.p2.x); maxY = Math.max(maxY, wall.p1.y, wall.p2.y); }
         });
-         if (minX !== Infinity) referencePoint = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+        if (minX !== Infinity) referencePoint = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
     }
 
     if (dataToCopy && referencePoint) {
@@ -111,8 +111,8 @@ function handleCopy(e) {
         setState({ clipboard: { data: dataToCopy, ref: referencePoint } });
         console.log("Kopyalandı:", state.clipboard);
     } else {
-         setState({ clipboard: null });
-         console.log("Kopyalanamadı veya desteklenmiyor.");
+        setState({ clipboard: null });
+        console.log("Kopyalanamadı veya desteklenmiyor.");
     }
 }
 
@@ -163,26 +163,26 @@ function handlePaste(e) {
         const newWalls = [];
         const originalWalls = data.items;
         const uniqueOriginalNodeCoords = new Map();
-         originalWalls.forEach(wall => {
-             if(wall.p1?.x !== undefined) uniqueOriginalNodeCoords.set(JSON.stringify(wall.p1), wall.p1);
-             if(wall.p2?.x !== undefined) uniqueOriginalNodeCoords.set(JSON.stringify(wall.p2), wall.p2);
-         });
-         uniqueOriginalNodeCoords.forEach((originalNode, nodeStr) => {
-             const newNodeCoords = { x: originalNode.x + deltaX, y: originalNode.y + deltaY };
-             const newNode = getOrCreateNode(newNodeCoords.x, newNodeCoords.y);
-             newNodesMap.set(nodeStr, newNode);
-         });
+        originalWalls.forEach(wall => {
+            if (wall.p1?.x !== undefined) uniqueOriginalNodeCoords.set(JSON.stringify(wall.p1), wall.p1);
+            if (wall.p2?.x !== undefined) uniqueOriginalNodeCoords.set(JSON.stringify(wall.p2), wall.p2);
+        });
+        uniqueOriginalNodeCoords.forEach((originalNode, nodeStr) => {
+            const newNodeCoords = { x: originalNode.x + deltaX, y: originalNode.y + deltaY };
+            const newNode = getOrCreateNode(newNodeCoords.x, newNodeCoords.y);
+            newNodesMap.set(nodeStr, newNode);
+        });
         originalWalls.forEach(originalWall => {
             const originalP1Str = JSON.stringify(originalWall.p1);
             const originalP2Str = JSON.stringify(originalWall.p2);
             const newP1 = newNodesMap.get(originalP1Str);
             const newP2 = newNodesMap.get(originalP2Str);
             if (newP1 && newP2 && newP1 !== newP2 && !wallExists(newP1, newP2)) {
-                 const { p1, p2, windows, vents, ...wallProps } = originalWall;
-                 // Pencereleri ve menfezleri kopyala
-                 const newWindows = (windows || []).map(w => JSON.parse(JSON.stringify(w)));
-                 const newVents = (vents || []).map(v => JSON.parse(JSON.stringify(v)));
-                 // Kopyalanan duvarların tüm özelliklerini koru
+                const { p1, p2, windows, vents, ...wallProps } = originalWall;
+                // Pencereleri ve menfezleri kopyala
+                const newWindows = (windows || []).map(w => JSON.parse(JSON.stringify(w)));
+                const newVents = (vents || []).map(v => JSON.parse(JSON.stringify(v)));
+                // Kopyalanan duvarların tüm özelliklerini koru
                 const newWall = {
                     ...wallProps, // thickness, wallType, isArc, arcControl1, arcControl2, floorId vb.
                     type: 'wall',
@@ -190,16 +190,16 @@ function handlePaste(e) {
                     p2: newP2,
                     windows: newWindows, // Pencereleri kopyala
                     vents: newVents      // Menfezleri kopyala
-                 };
+                };
                 state.walls.push(newWall);
                 newWalls.push(newWall);
                 geometryChanged = true;
             }
         });
-         if (newWalls.length > 0) setState({ selectedObject: null, selectedGroup: newWalls });
-         else setState({ selectedObject: null, selectedGroup: [] });
+        if (newWalls.length > 0) setState({ selectedObject: null, selectedGroup: newWalls });
+        else setState({ selectedObject: null, selectedGroup: [] });
     }
-    if(geometryChanged){ processWalls(); saveState(); update3DScene(); }
+    if (geometryChanged) { processWalls(); saveState(); update3DScene(); }
 }
 
 
@@ -276,83 +276,6 @@ export function handleDelete() {
         else if (objType === 'beam') {
             state.beams = state.beams.filter(b => b !== selectedObjectSnapshot.object);
             deleted = true;
-        }
-        else if (objType === 'stairs') {
-            state.stairs = state.stairs.filter(s => s !== selectedObjectSnapshot.object);
-            deleted = true;
-        }
-        else if (objType === 'plumbingBlock') {
-            const blockToDelete = selectedObjectSnapshot.object;
-
-            // Bloğa bağlı boruları bul
-            const connectedPipes = (state.plumbingPipes || []).filter(pipe =>
-                (pipe.connections.start && pipe.connections.start.blockId === blockToDelete.id) ||
-                (pipe.connections.end && pipe.connections.end.blockId === blockToDelete.id)
-            );
-
-            console.log('🔍 Found', connectedPipes.length, 'pipes connected to block', blockToDelete.blockType);
-
-            // Eğer tam 2 boru varsa, bunları birleştir
-            if (connectedPipes.length === 2) {
-                const pipe1 = connectedPipes[0];
-                const pipe2 = connectedPipes[1];
-
-                // Pipe1'in hangi ucu bloğa bağlı?
-                const pipe1ConnectedAtStart = pipe1.connections.start && pipe1.connections.start.blockId === blockToDelete.id;
-                const pipe2ConnectedAtStart = pipe2.connections.start && pipe2.connections.start.blockId === blockToDelete.id;
-
-                console.log('🩹 Healing: Connecting two pipes after block deletion');
-
-                if (pipe1ConnectedAtStart && pipe2ConnectedAtStart) {
-                    // Her iki boru da start'tan bağlı
-                    // Pipe2'nin p1'ini Pipe1'in p1'ine bağla
-                    pipe2.p1.x = pipe1.p1.x;
-                    pipe2.p1.y = pipe1.p1.y;
-                    pipe2.connections.start = pipe1.connections.start;
-                } else if (!pipe1ConnectedAtStart && !pipe2ConnectedAtStart) {
-                    // Her iki boru da end'den bağlı
-                    // Pipe2'nin p2'sini Pipe1'in p2'sine bağla
-                    pipe2.p2.x = pipe1.p2.x;
-                    pipe2.p2.y = pipe1.p2.y;
-                    pipe2.connections.end = pipe1.connections.end;
-                } else if (pipe1ConnectedAtStart && !pipe2ConnectedAtStart) {
-                    // Pipe1 start'tan, Pipe2 end'den bağlı
-                    // Pipe2'nin p2'sini Pipe1'in p1'ine bağla
-                    pipe2.p2.x = pipe1.p1.x;
-                    pipe2.p2.y = pipe1.p1.y;
-                    pipe2.connections.end = pipe1.connections.start;
-                } else {
-                    // Pipe1 end'den, Pipe2 start'tan bağlı
-                    // Pipe2'nin p1'ini Pipe1'in p2'sine bağla
-                    pipe2.p1.x = pipe1.p2.x;
-                    pipe2.p1.y = pipe1.p2.y;
-                    pipe2.connections.start = pipe1.connections.end;
-                }
-
-                // Pipe1'i sil
-                state.plumbingPipes = state.plumbingPipes.filter(p => p !== pipe1);
-                console.log('✅ Pipes merged successfully');
-            } else if (connectedPipes.length > 0) {
-                // Boruları bloğa bağlı olmaktan çıkar
-                console.log('🔌 Disconnecting', connectedPipes.length, 'pipes from block');
-                connectedPipes.forEach(pipe => {
-                    if (pipe.connections.start && pipe.connections.start.blockId === blockToDelete.id) {
-                        pipe.connections.start = null;
-                    }
-                    if (pipe.connections.end && pipe.connections.end.blockId === blockToDelete.id) {
-                        pipe.connections.end = null;
-                    }
-                });
-            }
-
-            // Bloğu sil
-            state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== blockToDelete);
-            deleted = true;
-        }
-        // --- VANA SİLME (Boru üzerinden) ---
-        else if (objType === 'valve') {
-            const valve = selectedObjectSnapshot.object;
-            const pipe = selectedObjectSnapshot.pipe;
 
             if (pipe && pipe.valves) {
                 pipe.valves = pipe.valves.filter(v => v !== valve);
@@ -363,11 +286,11 @@ export function handleDelete() {
         // --- YENİ: BORU SİLME VE "HEAL" MANTIĞI ---
         else if (objType === 'plumbingPipe') {
             const pipeToDelete = selectedObjectSnapshot.object;
-            
+
             // Bağlantı "iyileştirme" (heal) mantığı
             const startConn = pipeToDelete.connections.start;
             const endConn = pipeToDelete.connections.end;
-            
+
             let connectedPipeAtStart = null;
             let connectedPipeAtEnd = null;
             let startPointToConnect = null; // A'nın p2'si veya BlockA'nın cp'si
@@ -421,7 +344,7 @@ export function handleDelete() {
             }
 
             // 3. Durumları Değerlendir ve İyileştir (Heal)
-            
+
             // Durum: PipeA -> pipeToDelete -> PipeC
             if (connectedPipeAtStart && connectedPipeAtEnd && startPointToConnect && pipeToModify) {
                 console.log('🩹 Healing pipe connection (A -> C)');
@@ -430,7 +353,7 @@ export function handleDelete() {
                 pipeToModify.p1.y = startPointToConnect.y;
                 // PipeC'nin 'start' bağlantısını PipeA'nın 'end' bağlantısına ayarla (eğer varsa)
                 if (pipeToModify.connections) {
-                     pipeToModify.connections.start = connectedPipeAtStart.connections.end;
+                    pipeToModify.connections.start = connectedPipeAtStart.connections.end;
                 }
             }
             // Durum: BlockA -> pipeToDelete -> PipeC
@@ -520,11 +443,11 @@ function onKeyDown(e) {
     const activeEl = document.activeElement;
     const isInputActive = activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT'; // SELECT eklendi
     const isSettingsPopupActive = activeEl.closest("#settings-popup");
-    
+
     // --- YENİ EKLENDİ: Rehber menüsü de input sayılır ---
     const isGuideMenuActive = activeEl.closest("#guide-context-menu");
     if (isInputActive || isSettingsPopupActive || isGuideMenuActive) {
-    // --- YENİ SONU ---
+        // --- YENİ SONU ---
 
         // Mahal ismi popup'ı için özel tuşlar (Enter, Escape, ArrowDown)
         if (activeEl === dom.roomNameInput || activeEl === dom.roomNameSelect) {
@@ -534,23 +457,23 @@ function onKeyDown(e) {
             if (!['Enter', 'Escape', 'ArrowDown', 'ArrowUp'].includes(e.key)) { // ArrowUp eklendi
                 // F tuşunu burada da engelle
                 if (e.key.toLowerCase() === 'f') {
-                        e.preventDefault(); // Tarayıcının varsayılan 'F' işlemini (Find) engelle
+                    e.preventDefault(); // Tarayıcının varsayılan 'F' işlemini (Find) engelle
 
-                        // 3D Ekran aktif mi kontrol et
-                        if (dom.mainContainer.classList.contains('show-3d')) {
-                            fit3DViewToScreen(); // 3D sığdırmayı çağır
-                        } else {
-                            fitDrawingToScreen(); // 2D sığdırmayı çağır
-                        }
-                        return; // Diğer kısayollarla çakışmasın
+                    // 3D Ekran aktif mi kontrol et
+                    if (dom.mainContainer.classList.contains('show-3d')) {
+                        fit3DViewToScreen(); // 3D sığdırmayı çağır
+                    } else {
+                        fitDrawingToScreen(); // 2D sığdırmayı çağır
                     }
+                    return; // Diğer kısayollarla çakışmasın
+                }
                 // Ctrl+C/V'yi engelleme (input içinde çalışsın)
                 if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
                     // Tarayıcının kendi kopyala/yapıştırına izin ver
                 }
                 // Diğer çoğu kısayolu engelle
                 else if (e.key.length === 1 || (e.ctrlKey && ['z', 'y'].includes(e.key.toLowerCase()))) {
-                     return;
+                    return;
                 }
             }
         }
@@ -564,15 +487,15 @@ function onKeyDown(e) {
                 dom.lengthInput.blur();
                 return;
             }
-             // F tuşunu burada da engelle
-             else if (e.key.toLowerCase() === 'f') {
-                 e.preventDefault();
-                 return;
-             }
-             // Ctrl+C/V'yi engelleme (input içinde çalışsın)
-             else if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
-                  // Tarayıcının kendi kopyala/yapıştırına izin ver
-             }
+            // F tuşunu burada da engelle
+            else if (e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                return;
+            }
+            // Ctrl+C/V'yi engelleme (input içinde çalışsın)
+            else if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
+                // Tarayıcının kendi kopyala/yapıştırına izin ver
+            }
             // Diğer harf/sayı olmayan kısayolları engelle
             else if (e.key.length > 1 && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.key)) {
                 return;
@@ -580,19 +503,19 @@ function onKeyDown(e) {
         }
         // Diğer input/settings alanları için (genel engelleme)
         else {
-             // F tuşunu engelle
-             if (e.key.toLowerCase() === 'f') {
-                 e.preventDefault();
-                 return;
-             }
-             // Ctrl+C/V'yi engelleme (input içinde çalışsın)
-             if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
-                 // Tarayıcının kendi kopyala/yapıştırına izin ver
-             }
-             // Diğer çoğu kısayolu engelle
-             else if (e.key.length === 1 || (e.ctrlKey && ['z', 'y'].includes(e.key.toLowerCase())) || ['Escape', 'Delete', 'Backspace', 'Tab', 'Space'].includes(e.key)) {
-                  return;
-             }
+            // F tuşunu engelle
+            if (e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                return;
+            }
+            // Ctrl+C/V'yi engelleme (input içinde çalışsın)
+            if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
+                // Tarayıcının kendi kopyala/yapıştırına izin ver
+            }
+            // Diğer çoğu kısayolu engelle
+            else if (e.key.length === 1 || (e.ctrlKey && ['z', 'y'].includes(e.key.toLowerCase())) || ['Escape', 'Delete', 'Backspace', 'Tab', 'Space'].includes(e.key)) {
+                return;
+            }
         }
     }
 
@@ -710,7 +633,7 @@ function onKeyDown(e) {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         // Tek nesne veya grup seçimi kontrolü
         const hasSelection = state.selectedGroup.length > 0 ||
-                           (state.selectedObject && ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(state.selectedObject.type));
+            (state.selectedObject && ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(state.selectedObject.type));
 
         if (!hasSelection) return; // Hiç seçili nesne yoksa çık
 
@@ -863,13 +786,13 @@ function onKeyDown(e) {
 
     if (e.key.toLowerCase() === "d" && !inFPSMode) { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
     if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");
-    if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawRoom");
-    if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawDoor");
-    if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawWindow");
-    if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawColumn");
-    if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawBeam");
-    if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawStairs");
-    if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey ) setMode("drawPlumbingPipe"); // Tesisat borusu
+    if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawRoom");
+    if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawDoor");
+    if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawWindow");
+    if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawColumn");
+    if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawBeam");
+    if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawStairs");
+    if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawPlumbingPipe"); // Tesisat borusu
     if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry"); // YENİ SATIR
 
 }
@@ -879,11 +802,11 @@ function onKeyUp(e) {
     if (e.key === 'Control') currentModifierKeys.ctrl = false;
     if (e.key === 'Alt') currentModifierKeys.alt = false;
     if (e.key === 'Shift') currentModifierKeys.shift = false;
-     // Alt bırakıldığında silme modunu bitir
-     if (e.key === 'Alt' && state.isCtrlDeleting) {
+    // Alt bırakıldığında silme modunu bitir
+    if (e.key === 'Alt' && state.isCtrlDeleting) {
         setState({ isCtrlDeleting: false });
         saveState();
-     }
+    }
 }
 
 // Fare tekerleği (zoom) - Artık zoom.js'den import ediliyor
@@ -906,7 +829,7 @@ const mouse = new THREE.Vector2();
 function on3DPointerDown(event) {
     // Sadece sol tıklama
     if (event.button !== 0) return;
-    
+
     // Gerekli 3D nesneleri kontrol et
     if (!renderer || !camera || !sceneObjects) return;
 
@@ -940,10 +863,10 @@ function on3DPointerDown(event) {
 
         if (clickedDoorGroup) {
             // console.log("Kapı tıklandı:", clickedDoorGroup.userData.doorObject);
-            
+
             // Orijinal rotasyonu (eğer ayarlanmadıysa) kaydet
             if (clickedDoorGroup.userData.originalRotation === undefined) {
-                 clickedDoorGroup.userData.originalRotation = clickedDoorGroup.rotation.y;
+                clickedDoorGroup.userData.originalRotation = clickedDoorGroup.rotation.y;
             }
 
             // Kapının zaten açık olup olmadığını veya animasyonda olup olmadığını kontrol et
@@ -963,7 +886,7 @@ function on3DPointerDown(event) {
                 // Not: Menteşe yönünü (pivot) scene3d.js'de ayarladığımızı varsayıyoruz
                 // (scene3d.js'de doorGeom.translate(door.width / 2, ...) yapılmalı)
                 const targetRotation = (clickedDoorGroup.userData.originalRotation || 0) + (Math.PI / 2 * 0.95); // 90 derece aç
-                
+
                 new TWEEN.Tween(clickedDoorGroup.rotation)
                     .to({ y: targetRotation }, 1000) // 1 saniye
                     .easing(TWEEN.Easing.Cubic.InOut)
@@ -986,7 +909,7 @@ export function setupInputListeners() {
     c2d.addEventListener("pointerdown", onPointerDown);
     p2d.addEventListener("pointermove", onPointerMove);
     p2d.addEventListener("pointerup", onPointerUp);
-    
+
     // --- YENİ EKLENEN LİSTENER ---
     if (c3d) { // c3d'nin varlığını kontrol et
         c3d.addEventListener("pointerdown", on3DPointerDown);
@@ -1053,12 +976,12 @@ export function setupInputListeners() {
             if (state.history[state.historyIndex]) restoreState(state.history[state.historyIndex]);
         }
         if (state.isPanning) {
-             setState({ isPanning: false });
-             dom.p2d.classList.remove('panning'); // Pan sınıfını kaldır
+            setState({ isPanning: false });
+            dom.p2d.classList.remove('panning'); // Pan sınıfını kaldır
         }
         if (state.isCtrlDeleting) {
-             setState({ isCtrlDeleting: false });
-             saveState();
+            setState({ isCtrlDeleting: false });
+            saveState();
         }
     });
 

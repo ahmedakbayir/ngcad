@@ -8,7 +8,7 @@ import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPo
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
 import { onPointerDownGuide } from '../architectural-objects/guide-handler.js';
 import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as onPointerDownSelectWindow } from '../architectural-objects/window-handler.js';
-import { hideGuideContextMenu } from '../menu/guide-menu.js'; 
+import { hideGuideContextMenu } from '../menu/guide-menu.js';
 import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from '../draw/geometry.js';
 import { applySymmetry, applyCopy } from '../draw/symmetry.js';
 import { state, dom, setState, setMode } from '../general-files/main.js';
@@ -87,7 +87,7 @@ export function onPointerDown(e) {
         if (currentModifierKeys.ctrl && !currentModifierKeys.alt && !currentModifierKeys.shift && clickedObject &&
             ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
             clickedObject.handle === 'body') {
-            
+
             let currentGroup = [...state.selectedGroup];
             if (currentGroup.length === 0 && state.selectedObject &&
                 ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(state.selectedObject.type)) {
@@ -108,7 +108,7 @@ export function onPointerDown(e) {
                     selectedObject: null
                 });
             }
-            return; 
+            return;
         }
 
         if (!currentModifierKeys.ctrl && clickedObject &&
@@ -122,7 +122,7 @@ export function onPointerDown(e) {
                 selectedObject: null, selectedGroup: [],
                 affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map(),
                 dragAxis: null, isSweeping: false, sweepWalls: [], dragOffset: { x: 0, y: 0 },
-                columnRotationOffset: null 
+                columnRotationOffset: null
             });
         }
 
@@ -149,152 +149,152 @@ export function onPointerDown(e) {
             if (clickedObject.type === 'room') {
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
-                 setState({
-                     isDraggingRoomName: clickedObject.object,
-                     roomDragStartPos: { x: pos.x, y: pos.y },
-                     roomOriginalCenter: [...clickedObject.object.center],
-                     selectedObject: null 
-                 });
-                 dom.p2d.classList.add('dragging');
+                setState({
+                    isDraggingRoomName: clickedObject.object,
+                    roomDragStartPos: { x: pos.x, y: pos.y },
+                    roomOriginalCenter: [...clickedObject.object.center],
+                    selectedObject: null
+                });
+                dom.p2d.classList.add('dragging');
             } else {
-                 setState({ selectedObject: clickedObject, selectedRoom: null, selectedGroup: [] });
+                setState({ selectedObject: clickedObject, selectedRoom: null, selectedGroup: [] });
 
-                 let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
-                 switch (clickedObject.type) {
-                     case 'camera':
-                         const camInfo = clickedObject.object;
-                         if (clickedObject.handle === 'position') {
-                             dragInfo = {
-                                 startPointForDragging: { x: camInfo.position.x, y: camInfo.position.z },
-                                 dragOffset: { x: camInfo.position.x - pos.x, y: camInfo.position.z - pos.y },
-                                 additionalState: { cameraHandle: 'position' }
-                             };
-                         } else if (clickedObject.handle === 'direction') {
-                             dragInfo = {
-                                 startPointForDragging: pos,
-                                 dragOffset: { x: 0, y: 0 },
-                                 additionalState: {
-                                     cameraHandle: 'direction',
-                                     initialYaw: camInfo.yaw,
-                                     cameraCenter: { x: camInfo.position.x, y: camInfo.position.z }
-                                 }
-                             };
-                         }
-                         break;
-                     case 'arcControl':
-                         dragInfo = {
-                             startPointForDragging: clickedObject.handle === 'control1' ?
-                                 { x: clickedObject.object.arcControl1.x, y: clickedObject.object.arcControl1.y } :
-                                 { x: clickedObject.object.arcControl2.x, y: clickedObject.object.arcControl2.y },
-                             dragOffset: { x: 0, y: 0 },
-                             additionalState: {}
-                         };
-                         break;
-                     case 'guide': dragInfo = onPointerDownGuide(clickedObject, pos, snappedPos, e); break; 
-                     case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
-                     case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
-                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break; 
-                     case 'plumbingBlock': dragInfo = onPointerDownPlumbingBlock(clickedObject, pos, snappedPos, e); break;
-                     case 'plumbingPipe': dragInfo = onPointerDownPlumbingPipe(clickedObject, pos, snappedPos, e); break;
-                     case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
-                     case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;
-                     case 'window': dragInfo = onPointerDownSelectWindow(clickedObject, pos); break;
-                     case 'vent':
-                         const vent = clickedObject.object; const wall = clickedObject.wall;
-                         if (wall && wall.p1 && wall.p2) { 
-                             const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                             if (wallLen > 0.1) { 
-                                 const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
-                                 const ventCenterX = wall.p1.x + dx * vent.pos; const ventCenterY = wall.p1.y + dy * vent.pos;
-                                 dragInfo.startPointForDragging = { x: ventCenterX, y: ventCenterY }; 
-                                 dragInfo.dragOffset = { x: ventCenterX - pos.x, y: ventCenterY - pos.y }; 
-                             }
-                         }
-                         break;
-                 }
-                 setState({
-                    isDragging: true, 
-                    dragStartPoint: dragInfo.startPointForDragging, 
-                    initialDragPoint: { x: pos.x, y: pos.y }, 
-                    dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId }, 
-                    dragOffset: dragInfo.dragOffset, 
-                    ...(dragInfo.additionalState || {}) 
-                 });
-                 dom.p2d.classList.add('dragging'); 
+                let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
+                switch (clickedObject.type) {
+                    case 'camera':
+                        const camInfo = clickedObject.object;
+                        if (clickedObject.handle === 'position') {
+                            dragInfo = {
+                                startPointForDragging: { x: camInfo.position.x, y: camInfo.position.z },
+                                dragOffset: { x: camInfo.position.x - pos.x, y: camInfo.position.z - pos.y },
+                                additionalState: { cameraHandle: 'position' }
+                            };
+                        } else if (clickedObject.handle === 'direction') {
+                            dragInfo = {
+                                startPointForDragging: pos,
+                                dragOffset: { x: 0, y: 0 },
+                                additionalState: {
+                                    cameraHandle: 'direction',
+                                    initialYaw: camInfo.yaw,
+                                    cameraCenter: { x: camInfo.position.x, y: camInfo.position.z }
+                                }
+                            };
+                        }
+                        break;
+                    case 'arcControl':
+                        dragInfo = {
+                            startPointForDragging: clickedObject.handle === 'control1' ?
+                                { x: clickedObject.object.arcControl1.x, y: clickedObject.object.arcControl1.y } :
+                                { x: clickedObject.object.arcControl2.x, y: clickedObject.object.arcControl2.y },
+                            dragOffset: { x: 0, y: 0 },
+                            additionalState: {}
+                        };
+                        break;
+                    case 'guide': dragInfo = onPointerDownGuide(clickedObject, pos, snappedPos, e); break;
+                    case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
+                    case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
+                    case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break;
+                    case 'plumbingBlock': dragInfo = onPointerDownPlumbingBlock(clickedObject, pos, snappedPos, e); break;
+                    case 'plumbingPipe': dragInfo = onPointerDownPlumbingPipe(clickedObject, pos, snappedPos, e); break;
+                    case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
+                    case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;
+                    case 'window': dragInfo = onPointerDownSelectWindow(clickedObject, pos); break;
+                    case 'vent':
+                        const vent = clickedObject.object; const wall = clickedObject.wall;
+                        if (wall && wall.p1 && wall.p2) {
+                            const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                            if (wallLen > 0.1) {
+                                const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
+                                const ventCenterX = wall.p1.x + dx * vent.pos; const ventCenterY = wall.p1.y + dy * vent.pos;
+                                dragInfo.startPointForDragging = { x: ventCenterX, y: ventCenterY };
+                                dragInfo.dragOffset = { x: ventCenterX - pos.x, y: ventCenterY - pos.y };
+                            }
+                        }
+                        break;
+                }
+                setState({
+                    isDragging: true,
+                    dragStartPoint: dragInfo.startPointForDragging,
+                    initialDragPoint: { x: pos.x, y: pos.y },
+                    dragStartScreen: { x: e.clientX, y: e.clientY, pointerId: e.pointerId },
+                    dragOffset: dragInfo.dragOffset,
+                    ...(dragInfo.additionalState || {})
+                });
+                dom.p2d.classList.add('dragging');
             }
         } else {
             setState({ selectedRoom: null });
         }
 
-    // --- Duvar veya Oda Çizim Modu ---
+        // --- Duvar veya Oda Çizim Modu ---
     } else if (state.currentMode === "drawWall" || state.currentMode === "drawRoom") {
-        onPointerDownDrawWall(snappedPos); 
-        needsUpdate3D = true; 
+        onPointerDownDrawWall(snappedPos);
+        needsUpdate3D = true;
         if (!state.startPoint) setState({ selectedObject: null });
 
-    // --- Kapı Çizim Modu ---
+        // --- Kapı Çizim Modu ---
     } else if (state.currentMode === "drawDoor") {
-        onPointerDownDrawDoor(pos, getObjectAtPoint(pos)); 
-        needsUpdate3D = true; 
-        objectJustCreated = true; 
-        setState({ selectedObject: null }); 
+        onPointerDownDrawDoor(pos, getObjectAtPoint(pos));
+        needsUpdate3D = true;
+        objectJustCreated = true;
+        setState({ selectedObject: null });
 
-    // --- Pencere Çizim Modu ---
+        // --- Pencere Çizim Modu ---
     } else if (state.currentMode === "drawWindow") {
-        onPointerDownDrawWindow(pos, getObjectAtPoint(pos)); 
-        needsUpdate3D = true; 
-        objectJustCreated = true; 
-        setState({ selectedObject: null }); 
+        onPointerDownDrawWindow(pos, getObjectAtPoint(pos));
+        needsUpdate3D = true;
+        objectJustCreated = true;
+        setState({ selectedObject: null });
 
-    // --- Kolon Çizim Modu ---
+        // --- Kolon Çizim Modu ---
     } else if (state.currentMode === "drawColumn") {
-         if (!state.startPoint) {
+        if (!state.startPoint) {
             setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
-         } else {
-             const p1 = state.startPoint;
-             const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-             if (Math.abs(p1.x - p2.x) > 1 && Math.abs(p1.y - p2.y) > 1) {
-                 const centerX = (p1.x + p2.x) / 2; const centerY = (p1.y + p2.y) / 2;
-                 const width = Math.abs(p1.x - p2.x); const height = Math.abs(p1.y - p2.y);
-                 const newColumn = createColumn(centerX, centerY, 0); 
-                 newColumn.width = width; newColumn.height = height; 
-                 newColumn.size = Math.max(width, height); 
-                 newColumn.rotation = 0; 
-                 if (!state.columns) state.columns = []; 
-                 state.columns.push(newColumn); 
-                 geometryChanged = true; 
-                 needsUpdate3D = true; 
-                 objectJustCreated = true; 
-             }
-             setState({ startPoint: null });
-         }
-    // --- Kiriş Çizim Modu ---
+        } else {
+            const p1 = state.startPoint;
+            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            if (Math.abs(p1.x - p2.x) > 1 && Math.abs(p1.y - p2.y) > 1) {
+                const centerX = (p1.x + p2.x) / 2; const centerY = (p1.y + p2.y) / 2;
+                const width = Math.abs(p1.x - p2.x); const height = Math.abs(p1.y - p2.y);
+                const newColumn = createColumn(centerX, centerY, 0);
+                newColumn.width = width; newColumn.height = height;
+                newColumn.size = Math.max(width, height);
+                newColumn.rotation = 0;
+                if (!state.columns) state.columns = [];
+                state.columns.push(newColumn);
+                geometryChanged = true;
+                needsUpdate3D = true;
+                objectJustCreated = true;
+            }
+            setState({ startPoint: null });
+        }
+        // --- Kiriş Çizim Modu ---
     } else if (state.currentMode === "drawBeam") {
-         if (!state.startPoint) {
-             setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
-         } else {
-             const p1 = state.startPoint;
-             const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-             const dx = p2.x - p1.x; const dy = p2.y - p1.y;
-             const length = Math.hypot(dx, dy); 
-             if (length > 1) { 
-                 const centerX = (p1.x + p2.x) / 2; const centerY = (p1.y + p2.y) / 2;
-                 const width = length; 
-                 const height = state.wallThickness; 
-                 const rotation = Math.atan2(dy, dx) * 180 / Math.PI; 
-                 const newBeam = createBeam(centerX, centerY, width, height, rotation);
-                 state.beams = state.beams || []; 
-                 state.beams.push(newBeam); 
-                 geometryChanged = true; 
-                 needsUpdate3D = true; 
-                 objectJustCreated = true; 
-             }
-             setState({ startPoint: null });
-         }
-    
-    // ===================================================================
-    // === BAŞLANGIÇ: Tesisat Bloğu Çizim Modu (GÜNCELLENMİŞ BLOK) ===
-    // ===================================================================
+        if (!state.startPoint) {
+            setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
+        } else {
+            const p1 = state.startPoint;
+            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+            const length = Math.hypot(dx, dy);
+            if (length > 1) {
+                const centerX = (p1.x + p2.x) / 2; const centerY = (p1.y + p2.y) / 2;
+                const width = length;
+                const height = state.wallThickness;
+                const rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                const newBeam = createBeam(centerX, centerY, width, height, rotation);
+                state.beams = state.beams || [];
+                state.beams.push(newBeam);
+                geometryChanged = true;
+                needsUpdate3D = true;
+                objectJustCreated = true;
+            }
+            setState({ startPoint: null });
+        }
+
+        // ===================================================================
+        // === BAŞLANGIÇ: Tesisat Bloğu Çizim Modu (GÜNCELLENMİŞ BLOK) ===
+        // ===================================================================
     } else if (state.currentMode === "drawPlumbingBlock") {
         const blockType = state.currentPlumbingBlockType || 'SERVIS_KUTUSU';
 
@@ -314,13 +314,13 @@ export function onPointerDown(e) {
                 const splitY = pipe.p1.y + t * dy;
                 let blockX = splitX;
                 let blockY = splitY;
-                let blockRotation = Math.round(angle / 15) * 15; 
+                let blockRotation = Math.round(angle / 15) * 15;
                 if (blockType === 'SAYAC') {
                     let normalizedAngle = angle;
                     while (normalizedAngle > 180) normalizedAngle -= 360;
                     while (normalizedAngle < -180) normalizedAngle += 360;
                     blockRotation = Math.round(normalizedAngle / 15) * 15;
-                    const connectionPointAvgOffset = 19; 
+                    const connectionPointAvgOffset = 19;
                     const rotRad = blockRotation * Math.PI / 180;
                     const offsetX = -connectionPointAvgOffset * Math.sin(rotRad);
                     const offsetY = connectionPointAvgOffset * Math.cos(rotRad);
@@ -342,13 +342,13 @@ export function onPointerDown(e) {
                 if (!pipe1.connections) pipe1.connections = { start: null, end: null };
                 pipe1.connections.end = {
                     blockId: newBlock.id || newBlock,
-                    connectionIndex: 0, 
+                    connectionIndex: 0,
                     blockType: newBlock.blockType
                 };
                 if (!pipe2.connections) pipe2.connections = { start: null, end: null };
                 pipe2.connections.start = {
                     blockId: newBlock.id || newBlock,
-                    connectionIndex: 1, 
+                    connectionIndex: 1,
                     blockType: newBlock.blockType
                 };
                 if (!state.plumbingPipes) state.plumbingPipes = [];
@@ -356,7 +356,7 @@ export function onPointerDown(e) {
                 markAllDownstreamPipesAsConnected(pipe2);
                 if (!state.plumbingBlocks) state.plumbingBlocks = [];
                 state.plumbingBlocks.push(newBlock);
-                geometryChanged = true; 
+                geometryChanged = true;
                 needsUpdate3D = true;
                 objectJustCreated = true;
                 console.log('✅ Block added to pipe, pipe split into 2 and connected to connection points');
@@ -370,7 +370,7 @@ export function onPointerDown(e) {
             const pipeSnap = snapToPipeEndpoint(pos, 15);
             // GÜNCELLENDİ: Servis kutusuna snap artık kenarlara (BLOCK_EDGE) yapılır
             // snapToConnectionPoint (blok merkezi) yerine snappedPos'u (kenar) kullanacağız
-            
+
             let snap = pipeSnap; // Önce boru ucunu dene
 
             if (!snap) {
@@ -379,10 +379,10 @@ export function onPointerDown(e) {
                     // Kenara snap yapıldı, buraya yerleştir
                     const newBlock = createPlumbingBlock(snappedPos.x, snappedPos.y, blockType);
                     newBlock.rotation = snappedPos.snapAngle || 0; // Duvar açısını al
-                    
+
                     if (!state.plumbingBlocks) state.plumbingBlocks = [];
                     state.plumbingBlocks.push(newBlock);
-                    
+
                     geometryChanged = true;
                     needsUpdate3D = true;
                     objectJustCreated = true;
@@ -390,11 +390,11 @@ export function onPointerDown(e) {
                     setMode("select");
                     return;
                 }
-                
+
                 console.warn('⚠️', blockType, 'can only be placed at pipe ends or block edges');
                 return;
             }
-            
+
             // (Boru ucuna snap yapıldıysa)
             const nearbyPipe = state.plumbingPipes?.find(p =>
                 Math.hypot(p.p1.x - snap.x, p.p1.y - snap.y) < 1 ||
@@ -417,27 +417,12 @@ export function onPointerDown(e) {
             setMode("select");
             return;
         }
-        
+
         // Diğer bloklar (SERVIS_KUTUSU)
         const newBlock = createPlumbingBlock(snappedPos.x, snappedPos.y, blockType);
 
-        if (newBlock) {
-            if (snappedPos.snapAngle) {
-                newBlock.rotation = snappedPos.snapAngle;
-            }
-            
-            if (!state.plumbingBlocks) state.plumbingBlocks = [];
-            state.plumbingBlocks.push(newBlock);
-            geometryChanged = true;
-            needsUpdate3D = true;
-            objectJustCreated = true;
-            setMode("select"); 
-        }
-    // ===================================================================
-    // === BİTİŞ: Tesisat Bloğu Çizim Modu (GÜNCELLENMİŞ BLOK) ===
-    // ===================================================================
 
-    // --- Vana Çizim Modu (Boru Üzerinde) ---
+        // --- Vana Çizim Modu (Boru Üzerinde) ---
     } else if (state.currentMode === "drawValve") {
         const clickedPipe = getObjectAtPoint(pos);
         if (!clickedPipe || clickedPipe.type !== 'plumbingPipe') {
@@ -453,8 +438,8 @@ export function onPointerDown(e) {
         const t = Math.max(0, Math.min(1,
             ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / (dx * dx + dy * dy)
         ));
-        const valvePos = t * pipeLength; 
-        const valveWidth = PLUMBING_BLOCK_TYPES.VANA.width; 
+        const valvePos = t * pipeLength;
+        const valveWidth = PLUMBING_BLOCK_TYPES.VANA.width;
         if (!isSpaceForValve(pipe, valvePos, valveWidth)) {
             console.warn('⚠️ Bu konumda vana için yeterli yer yok');
             return;
@@ -462,7 +447,7 @@ export function onPointerDown(e) {
         const newValve = {
             pos: valvePos,
             width: valveWidth,
-            rotation: angle 
+            rotation: angle
         };
         if (!pipe.valves) pipe.valves = [];
         pipe.valves.push(newValve);
@@ -470,43 +455,43 @@ export function onPointerDown(e) {
         needsUpdate3D = true;
         objectJustCreated = true;
         console.log('✅ Valve added to pipe at position', valvePos);
-    // --- Merdiven Çizim Modu ---
+        // --- Merdiven Çizim Modu ---
     } else if (state.currentMode === "drawStairs") {
-     if (!state.startPoint) {
-        setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
-     } else {
-         const p1 = state.startPoint;
-         const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-         const deltaX = p2.x - p1.x;
-         const deltaY = p2.y - p1.y;
-         const absWidth = Math.abs(deltaX);
-         const absHeight = Math.abs(deltaY);
-         if (absWidth > 10 && absHeight > 10) { 
-             const centerX = (p1.x + p2.x) / 2; 
-             const centerY = (p1.y + p2.y) / 2; 
-             let width, height, rotation; 
-             if (absWidth >= absHeight) { 
-                 width = absWidth;  
-                 height = absHeight; 
-                 rotation = (deltaX >= 0) ? 0 : 180; 
-             } else { 
-                 width = absHeight; 
-                 height = absWidth;  
-                 rotation = (deltaY >= 0) ? 90 : -90; 
-             }
-             const isLanding = currentModifierKeys.ctrl;
-             const newStairs = createStairs(centerX, centerY, width, height, rotation, isLanding);
-             if (!state.stairs) {
-                 state.stairs = [];
-             }
-             state.stairs.push(newStairs); 
-             needsUpdate3D = true;     
-             objectJustCreated = true; 
-             geometryChanged = true;   
-         }
-         setState({ startPoint: null, selectedObject: null });
-     }
-    // --- Tesisat Borusu Çizim Modu ---
+        if (!state.startPoint) {
+            setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
+        } else {
+            const p1 = state.startPoint;
+            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            const deltaX = p2.x - p1.x;
+            const deltaY = p2.y - p1.y;
+            const absWidth = Math.abs(deltaX);
+            const absHeight = Math.abs(deltaY);
+            if (absWidth > 10 && absHeight > 10) {
+                const centerX = (p1.x + p2.x) / 2;
+                const centerY = (p1.y + p2.y) / 2;
+                let width, height, rotation;
+                if (absWidth >= absHeight) {
+                    width = absWidth;
+                    height = absHeight;
+                    rotation = (deltaX >= 0) ? 0 : 180;
+                } else {
+                    width = absHeight;
+                    height = absWidth;
+                    rotation = (deltaY >= 0) ? 90 : -90;
+                }
+                const isLanding = currentModifierKeys.ctrl;
+                const newStairs = createStairs(centerX, centerY, width, height, rotation, isLanding);
+                if (!state.stairs) {
+                    state.stairs = [];
+                }
+                state.stairs.push(newStairs);
+                needsUpdate3D = true;
+                objectJustCreated = true;
+                geometryChanged = true;
+            }
+            setState({ startPoint: null, selectedObject: null });
+        }
+        // --- Tesisat Borusu Çizim Modu ---
     } else if (state.currentMode === "drawPlumbingPipe") {
         console.log('🚀 PIPE DRAWING MODE - Click registered:', { hasStartPoint: !!state.startPoint, pos });
 
@@ -518,7 +503,7 @@ export function onPointerDown(e) {
                 startPos = { x: snappedPos.x, y: snappedPos.y };
                 console.log('✅ Starting from Block Edge / Edge-Wall Intersection:', startPos);
             }
-            
+
             // ÖNCELİK 2: Boru ucuna snap (pipe endpoint)
             if (!startPos) {
                 const pipeEndSnap = snapToPipeEndpoint(pos, 10);
@@ -545,7 +530,7 @@ export function onPointerDown(e) {
                     const dx = pipe.p2.x - pipe.p1.x;
                     const dy = pipe.p2.y - pipe.p1.y;
                     const lengthSq = dx * dx + dy * dy;
-                    if (lengthSq > 0.1) { 
+                    if (lengthSq > 0.1) {
                         const t = Math.max(0, Math.min(1,
                             ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / lengthSq
                         ));
@@ -643,7 +628,7 @@ export function onPointerDown(e) {
                 }
             }
             // --- GÜNCELLEME SONU ---
-            
+
             const length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
             console.log('🔧 Creating pipe:', { p1, p2, length, minLength: 5 });
 
@@ -657,8 +642,8 @@ export function onPointerDown(e) {
                     if (startSnap && startSnap.block) {
                         if (startSnap.block.blockType !== 'SERVIS_KUTUSU') {
                             newPipe.connections.start = {
-                                blockId: startSnap.block.id || startSnap.block, 
-                                connectionIndex: startSnap.connectionIndex, 
+                                blockId: startSnap.block.id || startSnap.block,
+                                connectionIndex: startSnap.connectionIndex,
                                 blockType: startSnap.block.blockType
                             };
                             console.log('✅ P1 connected to', startSnap.block.blockType, 'connection', startSnap.connectionIndex);
@@ -669,7 +654,7 @@ export function onPointerDown(e) {
                     if (endSnap && endSnap.block) {
                         if (endSnap.block.blockType !== 'SERVIS_KUTUSU') {
                             newPipe.connections.end = {
-                                blockId: endSnap.block.id || endSnap.block, 
+                                blockId: endSnap.block.id || endSnap.block,
                                 connectionIndex: endSnap.connectionIndex,
                                 blockType: endSnap.block.blockType
                             };
@@ -681,8 +666,8 @@ export function onPointerDown(e) {
                     const startBlock = startSnap ? startSnap.block : null;
                     if (startBlock &&
                         (startBlock.blockType === 'SERVIS_KUTUSU' ||
-                         startBlock.blockType === 'VANA' ||
-                         startBlock.blockType === 'SAYAC')) {
+                            startBlock.blockType === 'VANA' ||
+                            startBlock.blockType === 'SAYAC')) {
                         newPipe.isConnectedToValve = true;
                     } else {
                         const prevPipe = state.plumbingPipes?.find(p =>
@@ -712,46 +697,46 @@ export function onPointerDown(e) {
             const nextStart = nextSnap ? { x: nextSnap.x, y: nextSnap.y } : p2;
             setState({ startPoint: nextStart });
         }
-    // --- Menfez Çizim Modu ---
+        // --- Menfez Çizim Modu ---
     } else if (state.currentMode === "drawVent") {
         let closestWall = null; let minDistSq = Infinity;
-        const bodyHitTolerance = (state.wallThickness * 1.5)**2; 
-         for (const w of [...state.walls].reverse()) {
-             if (!w.p1 || !w.p2) continue; 
-             const distSq = distToSegmentSquared(pos, w.p1, w.p2); 
-             if (distSq < bodyHitTolerance && distSq < minDistSq) { minDistSq = distSq; closestWall = w; }
-         }
-         if(closestWall) {
+        const bodyHitTolerance = (state.wallThickness * 1.5) ** 2;
+        for (const w of [...state.walls].reverse()) {
+            if (!w.p1 || !w.p2) continue;
+            const distSq = distToSegmentSquared(pos, w.p1, w.p2);
+            if (distSq < bodyHitTolerance && distSq < minDistSq) { minDistSq = distSq; closestWall = w; }
+        }
+        if (closestWall) {
             const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
-            const ventWidth = 25; 
-            const ventMargin = 10; 
+            const ventWidth = 25;
+            const ventMargin = 10;
             if (wallLen >= ventWidth + 2 * ventMargin) {
-                 const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y;
-                 const t = Math.max(0, Math.min(1, ((pos.x - closestWall.p1.x) * dx + (pos.y - closestWall.p1.y) * dy) / (dx*dx + dy*dy) ));
-                 const ventPos = t * wallLen; 
-                 if (ventPos >= ventWidth/2 + ventMargin && ventPos <= wallLen - ventWidth/2 - ventMargin) {
-                     if (!closestWall.vents) closestWall.vents = []; 
-                     let overlaps = false;
-                     const newVentStart = ventPos - ventWidth / 2;
-                     const newVentEnd = ventPos + ventWidth / 2;
-                     (closestWall.vents || []).forEach(existingVent => {
-                          const existingStart = existingVent.pos - existingVent.width / 2;
-                          const existingEnd = existingVent.pos + existingVent.width / 2;
-                          if (!(newVentEnd <= existingStart || newVentStart >= existingEnd)) { overlaps = true; }
-                     });
-                     if (!overlaps) {
-                         closestWall.vents.push({ pos: ventPos, width: ventWidth, type: 'vent' });
-                         geometryChanged = true; 
-                         objectJustCreated = true; 
-                         needsUpdate3D = true; 
-                     }
-                 }
-             }
-         }
-         setState({ selectedObject: null });
-    // --- Simetri Modu ---
+                const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y;
+                const t = Math.max(0, Math.min(1, ((pos.x - closestWall.p1.x) * dx + (pos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
+                const ventPos = t * wallLen;
+                if (ventPos >= ventWidth / 2 + ventMargin && ventPos <= wallLen - ventWidth / 2 - ventMargin) {
+                    if (!closestWall.vents) closestWall.vents = [];
+                    let overlaps = false;
+                    const newVentStart = ventPos - ventWidth / 2;
+                    const newVentEnd = ventPos + ventWidth / 2;
+                    (closestWall.vents || []).forEach(existingVent => {
+                        const existingStart = existingVent.pos - existingVent.width / 2;
+                        const existingEnd = existingVent.pos + existingVent.width / 2;
+                        if (!(newVentEnd <= existingStart || newVentStart >= existingEnd)) { overlaps = true; }
+                    });
+                    if (!overlaps) {
+                        closestWall.vents.push({ pos: ventPos, width: ventWidth, type: 'vent' });
+                        geometryChanged = true;
+                        objectJustCreated = true;
+                        needsUpdate3D = true;
+                    }
+                }
+            }
+        }
+        setState({ selectedObject: null });
+        // --- Simetri Modu ---
     } else if (state.currentMode === "drawSymmetry") {
-        
+
         if (state.symmetryPreviewTimer) {
             clearTimeout(state.symmetryPreviewTimer);
             setState({ symmetryPreviewTimer: null });
@@ -759,21 +744,21 @@ export function onPointerDown(e) {
 
         if (!state.symmetryAxisP1) {
             setState({
-                symmetryAxisP1: { x: snappedPos.roundedX, y: snappedPos.roundedY }, 
-                symmetryAxisP2: null 
+                symmetryAxisP1: { x: snappedPos.roundedX, y: snappedPos.roundedY },
+                symmetryAxisP2: null
             });
         } else {
-            let axisP1 = state.symmetryAxisP1; 
-            let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY }; 
+            let axisP1 = state.symmetryAxisP1;
+            let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
 
             if (currentModifierKeys.shift) {
                 const dx = axisP2.x - axisP1.x;
                 const dy = axisP2.y - axisP1.y;
-                const distance = Math.hypot(dx, dy); 
-                if (distance > 1) { 
-                    const angle = Math.atan2(dy, dx) * 180 / Math.PI; 
-                    const snappedAngle = Math.round(angle / 15) * 15; 
-                    const snappedAngleRad = snappedAngle * Math.PI / 180; 
+                const distance = Math.hypot(dx, dy);
+                if (distance > 1) {
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                    const snappedAngle = Math.round(angle / 15) * 15;
+                    const snappedAngleRad = snappedAngle * Math.PI / 180;
                     axisP2 = {
                         x: axisP1.x + distance * Math.cos(snappedAngleRad),
                         y: axisP1.y + distance * Math.sin(snappedAngleRad)
@@ -782,29 +767,29 @@ export function onPointerDown(e) {
             }
 
             const axisLength = Math.hypot(axisP2.x - axisP1.x, axisP2.y - axisP1.y);
-            if (axisLength > 10) { 
+            if (axisLength > 10) {
                 if (currentModifierKeys.ctrl) {
                     applyCopy(axisP1, axisP2);
                 } else {
                     applySymmetry(axisP1, axisP2);
                 }
-                geometryChanged = true; 
-                needsUpdate3D = true;   
+                geometryChanged = true;
+                needsUpdate3D = true;
             }
 
             setState({
                 symmetryAxisP1: null,
                 symmetryAxisP2: null,
-                symmetryPreviewElements: { 
+                symmetryPreviewElements: {
                     nodes: [], walls: [], doors: [], windows: [], vents: [],
                     columns: [], beams: [], stairs: [], rooms: []
                 }
             });
-            setMode("select"); 
+            setMode("select");
         }
-    // --- Rehber Çizim Modları ---
+        // --- Rehber Çizim Modları ---
     } else if (state.currentMode === "drawGuideAngular" || state.currentMode === "drawGuideFree") {
-        
+
         if (state.symmetryPreviewTimer) {
             clearTimeout(state.symmetryPreviewTimer);
             setState({ symmetryPreviewTimer: null });
@@ -812,24 +797,24 @@ export function onPointerDown(e) {
 
         if (state.startPoint) { // Bu ikinci tıklama
             const p1 = state.startPoint;
-            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY }; 
-            
-            if (Math.hypot(p1.x - p2.x, p1.y - p2.y) > 1) { 
+            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+
+            if (Math.hypot(p1.x - p2.x, p1.y - p2.y) > 1) {
                 const subType = state.currentMode === "drawGuideAngular" ? 'angular' : 'free';
-                
-                if (!state.guides) state.guides = []; 
+
+                if (!state.guides) state.guides = [];
                 state.guides.push({
                     type: 'guide',
                     subType: subType,
-                    p1: { x: p1.x, y: p1.y }, 
+                    p1: { x: p1.x, y: p1.y },
                     p2: { x: p2.x, y: p2.y }
                 });
-                
-                geometryChanged = true; 
+
+                geometryChanged = true;
             }
-            
+
             setState({ startPoint: null });
-            setMode("select"); 
+            setMode("select");
         }
     }
 
