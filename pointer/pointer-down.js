@@ -421,6 +421,19 @@ export function onPointerDown(e) {
         // Diğer bloklar (SERVIS_KUTUSU)
         const newBlock = createPlumbingBlock(snappedPos.x, snappedPos.y, blockType);
 
+        // Duvar snap kontrolü - eğer duvara snap yapıldıysa rotasyonu ayarla
+        if (snappedPos.isSnapped && snappedPos.snapType === 'WALL') {
+            newBlock.rotation = snappedPos.snapAngle || 0;
+        }
+
+        if (!state.plumbingBlocks) state.plumbingBlocks = [];
+        state.plumbingBlocks.push(newBlock);
+
+        geometryChanged = true;
+        needsUpdate3D = true;
+        objectJustCreated = true;
+
+        console.log('✅', blockType, 'placed at', snappedPos.x, snappedPos.y);
 
         // --- Vana Çizim Modu (Boru Üzerinde) ---
     } else if (state.currentMode === "drawValve") {
