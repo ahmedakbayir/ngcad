@@ -140,10 +140,11 @@ export class ServisKutusu {
         this.snapliDuvar = wall;
 
         // Duvar açısına dön (uzun kenar duvara paralel)
+        // +180° ile çıkış yönü içeri bakacak şekilde
         if (wall.p1 && wall.p2) {
             const dx = wall.p2.x - wall.p1.x;
             const dy = wall.p2.y - wall.p1.y;
-            this.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+            this.rotation = (Math.atan2(dy, dx) * 180 / Math.PI) + 180;
         }
     }
 
