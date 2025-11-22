@@ -329,6 +329,30 @@ export class InteractionManager {
     }
 
     findObjectAt(point) {
+        // Önce boru uçlarını kontrol et (öncelikli)
+        const boruUcu = this.findBoruUcuAt(point, 8);
+        if (boruUcu) {
+            const boru = this.manager.pipes.find(p => p.id === boruUcu.boruId);
+            if (boru) {
+                return {
+                    type: 'boru_ucu',
+                    boru: boru,
+                    uc: boruUcu.uc, // 'p1' veya 'p2'
+                    // move metodu endpoint için
+                    move: (x, y) => {
+                        if (boruUcu.uc === 'p1') {
+                            boru.p1.x = x;
+                            boru.p1.y = y;
+                        } else {
+                            boru.p2.x = x;
+                            boru.p2.y = y;
+                        }
+                        return null;
+                    }
+                };
+            }
+        }
+
         for (const comp of this.manager.components) {
             if (comp.containsPoint && comp.containsPoint(point)) {
                 return comp;
