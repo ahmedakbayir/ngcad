@@ -286,11 +286,20 @@ export function onPointerMove(e) {
             case 'plumbingPipe': {
                 // Boru gövdesi taşıma
                 const pipeObj = state.selectedObject?.object;
-                if (pipeObj && pipeObj.p1 && pipeObj.p2) {
-                    if (state.pipeInitialP1 && state.pipeInitialP2 && state.dragStartPoint) {
-                        // Delta hesapla
-                        const deltaX = snappedPos.x - state.dragStartPoint.x;
-                        const deltaY = snappedPos.y - state.dragStartPoint.y;
+                if (pipeObj && pipeObj.p1 && pipeObj.p2 && state.initialDragPoint) {
+                    // Delta hesapla
+                    const deltaX = snappedPos.x - state.initialDragPoint.x;
+                    const deltaY = snappedPos.y - state.initialDragPoint.y;
+
+                    // İlk taşımada başlangıç pozisyonlarını kaydet
+                    if (!state.pipeInitialP1) {
+                        setState({
+                            pipeInitialP1: { x: pipeObj.p1.x, y: pipeObj.p1.y },
+                            pipeInitialP2: { x: pipeObj.p2.x, y: pipeObj.p2.y }
+                        });
+                    }
+
+                    if (state.pipeInitialP1 && state.pipeInitialP2) {
                         // Her iki uç noktayı da taşı
                         pipeObj.p1.x = state.pipeInitialP1.x + deltaX;
                         pipeObj.p1.y = state.pipeInitialP1.y + deltaY;
