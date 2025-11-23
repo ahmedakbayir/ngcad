@@ -198,6 +198,91 @@ export class PlumbingManager {
     }
 
     /**
+     * Verilen noktadaki nesneyi bul
+     * @param {object} pos - {x, y} koordinatları
+     * @param {number} tolerance - Tolerans değeri
+     * @returns {object|null} - Bulunan nesne veya null
+     */
+    getObjectAtPoint(pos, tolerance = 10) {
+        const currentFloorId = state.currentFloor?.id;
+
+        // Önce uç noktaları kontrol et (handle'lar)
+        for (const pipe of this.pipes) {
+            if (pipe.floorId !== currentFloorId) continue;
+
+            // p1 uç noktası
+            const distP1 = Math.hypot(pos.x - pipe.p1.x, pos.y - pipe.p1.y);
+            if (distP1 < tolerance) {
+                return { type: 'pipe', object: pipe, handle: 'p1' };
+            }
+
+            // p2 uç noktası
+            const distP2 = Math.hypot(pos.x - pipe.p2.x, pos.y - pipe.p2.y);
+            if (distP2 < tolerance) {
+                return { type: 'pipe', object: pipe, handle: 'p2' };
+            }
+        }
+
+        // Bileşenleri kontrol et
+        for (const comp of this.components) {
+            if (comp.floorId !== currentFloorId) continue;
+
+            // Bileşen merkezine uzaklık
+            const cx = comp.x || comp.center?.x;
+            const cy = comp.y || comp.center?.y;
+            if (cx !== undefined && cy !== undefined) {
+                const dist = Math.hypot(pos.x - cx, pos.y - cy);
+                if (dist < tolerance * 2) {
+                    return { type: 'component', object: comp, handle: 'body' };
+                }
+            }
+        }
+
+        // Vanaları kontrol et
+        for (const pipe of this.pipes) {
+            if (pipe.floorId !== currentFloorId) continue;
+            if (!pipe.vanalar) continue;
+
+            for (const vana of pipe.vanalar) {
+                const vanaPos = pipe.getPointAtT(vana.t);
+                const dist = Math.hypot(pos.x - vanaPos.x, pos.y - vanaPos.y);
+                if (dist < tolerance) {
+                    return { type: 'valve', object: vana, pipe: pipe };
+                }
+            }
+        }
+
+        // Son olarak boru gövdesini kontrol et
+        for (const pipe of this.pipes) {
+            if (pipe.floorId !== currentFloorId) continue;
+
+            // Nokta-doğru mesafesi hesapla
+            const dx = pipe.p2.x - pipe.p1.x;
+            const dy = pipe.p2.y - pipe.p1.y;
+            const length = Math.hypot(dx, dy);
+            if (length < 0.1) continue;
+
+            // Noktanın doğru üzerindeki projeksiyonu
+            const t = ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / (length * length);
+
+            // t değeri 0-1 arasında olmalı (boru üzerinde)
+            if (t < 0 || t > 1) continue;
+
+            // Projeksiyon noktası
+            const projX = pipe.p1.x + t * dx;
+            const projY = pipe.p1.y + t * dy;
+
+            // Mesafe
+            const dist = Math.hypot(pos.x - projX, pos.y - projY);
+            if (dist < tolerance) {
+                return { type: 'pipe', object: pipe, handle: 'body' };
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * JSON'a dönüştür
      */
     toJSON() {
