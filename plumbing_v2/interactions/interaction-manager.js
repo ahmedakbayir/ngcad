@@ -167,9 +167,10 @@ export class InteractionManager {
      * Klavye
      */
     handleKeyDown(e) {
-        // ESC - iptal
+        // ESC - iptal ve seç moduna geç
         if (e.key === 'Escape') {
             this.cancelCurrentAction();
+            setMode("select");
             return true;
         }
 
@@ -242,12 +243,16 @@ export class InteractionManager {
                 this.startBoruCizim(component.getCikisNoktasi(), component.id);
                 // İkon güncellemesi için activeTool'u boru olarak ayarla
                 this.manager.activeTool = 'boru';
+                // İkonları güncelle
+                setMode("plumbingV2", true);
                 break;
 
             case 'sayac':
                 this.handleSayacEkleme(component);
                 // İkon güncellemesi için activeTool'u boru olarak ayarla
                 this.manager.activeTool = 'boru';
+                // İkonları güncelle
+                setMode("plumbingV2", true);
                 break;
 
             case 'cihaz':
