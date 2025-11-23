@@ -4,6 +4,7 @@
 import { state, setState } from './main.js';
 // YENİ İMPORT: Boru tiplerini geri yüklemek için eklendi
 import { PLUMBING_PIPE_TYPES } from '../plumbing/plumbing-pipes.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 export function saveState() {
     // Mevcut state'in derin kopyasını oluşturmaya gerek yok, snapshot yeterli.
@@ -274,6 +275,10 @@ export function undo() {
     if (state.historyIndex > 0) {
         state.historyIndex--;
         restoreState(state.history[state.historyIndex]);
+        // Plumbing v2 manager'ı state'den yeniden yükle
+        if (plumbingManager) {
+            plumbingManager.loadFromState();
+        }
     }
 }
 
@@ -281,5 +286,9 @@ export function redo() {
     if (state.historyIndex < state.history.length - 1) {
         state.historyIndex++;
         restoreState(state.history[state.historyIndex]);
+        // Plumbing v2 manager'ı state'den yeniden yükle
+        if (plumbingManager) {
+            plumbingManager.loadFromState();
+        }
     }
 }
