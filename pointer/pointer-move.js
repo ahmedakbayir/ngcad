@@ -269,13 +269,20 @@ export function onPointerMove(e) {
             case 'column': onPointerMoveColumn(snappedPos, unsnappedPos); break;
             case 'beam':   onPointerMoveBeam(snappedPos, unsnappedPos);   break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
-            case 'plumbingBlock':
+            case 'plumbingBlock': {
                 // v2'de plumbingManager üzerinden yönetiliyor
-                if (state.selectedObject?.object?.center) {
-                    state.selectedObject.object.center.x = snappedPos.x;
-                    state.selectedObject.object.center.y = snappedPos.y;
+                const block = state.selectedObject?.object;
+                if (block) {
+                    if (block.center) {
+                        block.center.x = snappedPos.x;
+                        block.center.y = snappedPos.y;
+                    } else if (block.x !== undefined) {
+                        block.x = snappedPos.x;
+                        block.y = snappedPos.y;
+                    }
                 }
                 break;
+            }
             case 'plumbingPipe':
                 // v2'de plumbingManager üzerinden yönetiliyor - boru gövdesi taşıma
                 if (state.selectedObject?.object?.p1 && state.selectedObject?.object?.p2 && state.pipeInitialP1 && state.pipeInitialP2) {

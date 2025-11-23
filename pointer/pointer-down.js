@@ -208,11 +208,17 @@ export function onPointerDown(e) {
                     case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                     case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break;
-                    case 'plumbingBlock':
+                    case 'plumbingBlock': {
                         // v2'de plumbingManager üzerinden yönetiliyor
-                        dragInfo.startPointForDragging = clickedObject.object.center;
-                        dragInfo.dragOffset = { x: clickedObject.object.center.x - pos.x, y: clickedObject.object.center.y - pos.y };
+                        const block = clickedObject.object;
+                        const blockX = block.x ?? block.center?.x;
+                        const blockY = block.y ?? block.center?.y;
+                        if (blockX !== undefined && blockY !== undefined) {
+                            dragInfo.startPointForDragging = { x: blockX, y: blockY };
+                            dragInfo.dragOffset = { x: blockX - pos.x, y: blockY - pos.y };
+                        }
                         break;
+                    }
                     case 'plumbingPipe': {
                         // v2'de plumbingManager üzerinden yönetiliyor - boru gövdesi taşıma
                         const pipeObj = clickedObject.object;
