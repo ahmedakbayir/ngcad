@@ -168,7 +168,10 @@ export function getObjectAtPoint(pos) {
 
     // 1.4 Tesisat Bloğu Handle - v2 üzerinden
     const plumbingBlockHit = pipeHandleHit?.type === 'component' ? pipeHandleHit : null;
-    if (plumbingBlockHit && plumbingBlockHit.handle !== 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
+    if (plumbingBlockHit && plumbingBlockHit.handle !== 'body') {
+        const result = { type: 'plumbingBlock', object: plumbingBlockHit.object, handle: plumbingBlockHit.handle };
+        return validateFloorMatch(result, currentFloorId);
+    }
 
     // 1.5 Duvar Ucu (Node)
     const wallNodeHit = getWallAtPoint(pos, tolerance);
@@ -211,7 +214,10 @@ export function getObjectAtPoint(pos) {
     if (stairHit && stairHit.handle === 'body') return stairHit; // ← Body ise döndür
 
     // 2.5 Tesisat Bloğu Gövdesi
-    if (plumbingBlockHit && plumbingBlockHit.handle === 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
+    if (plumbingBlockHit && plumbingBlockHit.handle === 'body') {
+        const result = { type: 'plumbingBlock', object: plumbingBlockHit.object, handle: plumbingBlockHit.handle };
+        return validateFloorMatch(result, currentFloorId);
+    }
 
     // 2.5.3 Vana (Boru Üzerinde) - v2 üzerinden
     const valveHit = plumbingManager.getObjectAtPoint?.(pos, tolerance);
