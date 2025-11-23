@@ -551,6 +551,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
     if (!dragState || dragState.type !== 'plumbingPipe') return false;
 
+    console.log('🔄 Pipe drag active, handle:', dragState.handle);
     const { pipe, handle, startPos, startP1, startP2 } = dragState;
     
     const dx = snappedPos.roundedX - startPos.x;
