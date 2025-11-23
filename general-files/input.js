@@ -277,12 +277,23 @@ export function handleDelete() {
         else if (objType === 'beam') {
             state.beams = state.beams.filter(b => b !== selectedObjectSnapshot.object);
             deleted = true;
-
+        }
+        else if (objType === 'stairs') {
+            state.stairs = state.stairs.filter(s => s !== selectedObjectSnapshot.object);
+            deleted = true;
+        }
+        else if (objType === 'valve') {
+            const pipe = selectedObjectSnapshot.pipe;
+            const valve = selectedObjectSnapshot.object;
             if (pipe && pipe.valves) {
                 pipe.valves = pipe.valves.filter(v => v !== valve);
                 deleted = true;
                 console.log('✅ Valve deleted from pipe');
             }
+        }
+        else if (objType === 'plumbingBlock') {
+            state.plumbingBlocks = state.plumbingBlocks.filter(pb => pb !== selectedObjectSnapshot.object);
+            deleted = true;
         }
         // --- YENİ: BORU SİLME VE "HEAL" MANTIĞI ---
         else if (objType === 'plumbingPipe') {
@@ -630,6 +641,12 @@ function onKeyDown(e) {
             setState({ selectedObject: null, selectedGroup: [] });
         }
         setState({ startPoint: null });
+
+        // v2 plumbing seçimini de temizle
+        if (plumbingManager.interactionManager) {
+            plumbingManager.interactionManager.cancelCurrentAction();
+        }
+
         setMode("select");
     }
 
