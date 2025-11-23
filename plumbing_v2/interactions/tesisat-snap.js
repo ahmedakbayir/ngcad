@@ -24,7 +24,7 @@ export const TESISAT_CONSTANTS = {
     BORU_ACIKLIGI: 5,           // cm - Duvar yüzeyinden boru mesafesi
     SNAP_MESAFESI: 10,          // cm - Snap yakalama mesafesi
     MIN_BORU_UZUNLUGU: 5,       // cm
-    ACI_TOLERANSI: 5,           // derece - 90° snap toleransı
+    ACI_TOLERANSI: 10,           // derece - 90° snap toleransı
 };
 
 // Snap Tipleri
