@@ -213,8 +213,16 @@ export function onPointerDown(e) {
                         dragInfo.dragOffset = { x: clickedObject.object.center.x - pos.x, y: clickedObject.object.center.y - pos.y };
                         break;
                     case 'plumbingPipe':
-                        // v2'de plumbingManager üzerinden yönetiliyor
-                        dragInfo.startPointForDragging = pos;
+                        // v2'de plumbingManager üzerinden yönetiliyor - boru gövdesi taşıma
+                        const pipe = clickedObject.object;
+                        // Borunun merkez noktasını hesapla
+                        const pipeCenterX = (pipe.p1.x + pipe.p2.x) / 2;
+                        const pipeCenterY = (pipe.p1.y + pipe.p2.y) / 2;
+                        dragInfo.startPointForDragging = { x: pipeCenterX, y: pipeCenterY };
+                        dragInfo.dragOffset = { x: pipeCenterX - pos.x, y: pipeCenterY - pos.y };
+                        // Başlangıç pozisyonlarını kaydet
+                        dragInfo.initialP1 = { x: pipe.p1.x, y: pipe.p1.y };
+                        dragInfo.initialP2 = { x: pipe.p2.x, y: pipe.p2.y };
                         break;
                     case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
                     case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;

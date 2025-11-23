@@ -276,7 +276,24 @@ export function onPointerMove(e) {
                 }
                 break;
             case 'plumbingPipe':
-                // v2'de plumbingManager üzerinden yönetiliyor
+                // v2'de plumbingManager üzerinden yönetiliyor - boru gövdesi taşıma
+                if (state.selectedObject?.object?.p1 && state.selectedObject?.object?.p2) {
+                    const pipeObj = state.selectedObject.object;
+                    // Yeni merkez pozisyonunu hesapla (offset ile)
+                    const newCenterX = snappedPos.x + (dragInfo.dragOffset?.x || 0);
+                    const newCenterY = snappedPos.y + (dragInfo.dragOffset?.y || 0);
+                    // Başlangıç merkezini hesapla
+                    const initialCenterX = (dragInfo.initialP1.x + dragInfo.initialP2.x) / 2;
+                    const initialCenterY = (dragInfo.initialP1.y + dragInfo.initialP2.y) / 2;
+                    // Delta hesapla
+                    const deltaX = newCenterX - initialCenterX;
+                    const deltaY = newCenterY - initialCenterY;
+                    // Her iki uç noktayı da taşı
+                    pipeObj.p1.x = dragInfo.initialP1.x + deltaX;
+                    pipeObj.p1.y = dragInfo.initialP1.y + deltaY;
+                    pipeObj.p2.x = dragInfo.initialP2.x + deltaX;
+                    pipeObj.p2.y = dragInfo.initialP2.y + deltaY;
+                }
                 break;
             case 'valve':
                 // Vana taşıma (boru üzerinde kaydırma ve başka boruya geçirme)
