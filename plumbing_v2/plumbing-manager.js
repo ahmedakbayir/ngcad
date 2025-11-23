@@ -206,8 +206,12 @@ export class PlumbingManager {
     getObjectAtPoint(pos, tolerance = 10) {
         const currentFloorId = state.currentFloor?.id;
 
+        // state'ten boruları al (senkronizasyon için)
+        const pipes = state.plumbingPipes || [];
+        const blocks = state.plumbingBlocks || [];
+
         // Önce uç noktaları kontrol et (handle'lar)
-        for (const pipe of this.pipes) {
+        for (const pipe of pipes) {
             if (pipe.floorId !== currentFloorId) continue;
 
             // p1 uç noktası
@@ -224,7 +228,7 @@ export class PlumbingManager {
         }
 
         // Bileşenleri kontrol et
-        for (const comp of this.components) {
+        for (const comp of blocks) {
             if (comp.floorId !== currentFloorId) continue;
 
             // Bileşen merkezine uzaklık
@@ -239,12 +243,15 @@ export class PlumbingManager {
         }
 
         // Vanaları kontrol et
-        for (const pipe of this.pipes) {
+        for (const pipe of pipes) {
             if (pipe.floorId !== currentFloorId) continue;
             if (!pipe.vanalar) continue;
 
             for (const vana of pipe.vanalar) {
-                const vanaPos = pipe.getPointAtT(vana.t);
+                const vanaPos = pipe.getPointAtT ? pipe.getPointAtT(vana.t) : {
+                    x: pipe.p1.x + (pipe.p2.x - pipe.p1.x) * vana.t,
+                    y: pipe.p1.y + (pipe.p2.y - pipe.p1.y) * vana.t
+                };
                 const dist = Math.hypot(pos.x - vanaPos.x, pos.y - vanaPos.y);
                 if (dist < tolerance) {
                     return { type: 'valve', object: vana, pipe: pipe };
@@ -253,7 +260,7 @@ export class PlumbingManager {
         }
 
         // Son olarak boru gövdesini kontrol et
-        for (const pipe of this.pipes) {
+        for (const pipe of pipes) {
             if (pipe.floorId !== currentFloorId) continue;
 
             // Nokta-doğru mesafesi hesapla
