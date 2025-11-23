@@ -150,7 +150,8 @@ export function onPointerMove(e) {
     // --- Silme Modu Kontrolü Sonu ---
 
     // === BORU ÇİZİM MODU AKTİF İSE ÖNCELİKLİ İŞLE ===
-    if (plumbingManager.interactionManager?.boruCizimAktif) {
+    // Seç modunda boru çizim aktif olsa bile seçim öncelikli
+    if (plumbingManager.interactionManager?.boruCizimAktif && state.currentMode !== 'select') {
         const handled = plumbingManager.interactionManager.handlePointerMove(e);
         if (handled) {
             return;
