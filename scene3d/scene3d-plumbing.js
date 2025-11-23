@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { PLUMBING_BLOCK_TYPES } from '../plumbing/plumbing-blocks.js';
-import { PLUMBING_PIPE_TYPES } from '../plumbing/plumbing-pipes.js';
+import { PLUMBING_PIPE_TYPES, PLUMBING_COMPONENT_TYPES } from '../plumbing_v2/plumbing-types.js';
+// PLUMBING_BLOCK_TYPES artık PLUMBING_COMPONENT_TYPES olarak v2'de
+const PLUMBING_BLOCK_TYPES = PLUMBING_COMPONENT_TYPES;
 
 /**
  * TESİSAT BLOKLARI 3D RENDERING

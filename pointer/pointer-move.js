@@ -4,8 +4,6 @@ import { onPointerMove as onPointerMoveWindow } from '../architectural-objects/w
 import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from '../architectural-objects/columns.js';
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from '../architectural-objects/beams.js';
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
-import { onPointerMove as onPointerMovePlumbingBlock } from '../plumbing/plumbing-blocks.js';
-import { onPointerMove as onPointerMovePlumbingPipe, isSpaceForValve } from '../plumbing/plumbing-pipes.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
@@ -18,8 +16,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
 import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls } from '../wall/wall-processor.js';
-import { isPointInPlumbingBlock, deletePlumbingBlock } from '../plumbing/plumbing-blocks.js';
-import { getPipeAtPoint, getValveAtPoint, deletePlumbingPipeAndMerge } from '../plumbing/plumbing-pipes.js';
+// Plumbing functions now handled by plumbingManager
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
 const SYMMETRY_PREVIEW_DEBOUNCE_MS = 50; // 50ms gecikme
@@ -135,47 +132,8 @@ export function onPointerMove(e) {
              needsProcessing = true;
         }
 
-        const plumbingBlocksToDelete = new Set();
-        for (const block of (state.plumbingBlocks || [])) {
-            if (block.floorId === currentFloorId_delete && isPointInPlumbingBlock(mousePos, block)) {
-                plumbingBlocksToDelete.add(block);
-            }
-        }
-        if (plumbingBlocksToDelete.size > 0) {
-            const blocksArray = Array.from(plumbingBlocksToDelete);
-            blocksArray.forEach(block => {
-                deletePlumbingBlock(block); // Bu fonksiyon zaten boru birleştirme yapar (sayaç/vana için)
-            });
-            needsProcessing = true;
-        }
-
-        // ⭐ TESİSAT BORULARI SİLME
-        const plumbingPipesToDelete = new Set();
-        const pipeHit = getPipeAtPoint(mousePos, 8 / state.zoom);
-        if (pipeHit && pipeHit.type === 'plumbingPipe') {
-            plumbingPipesToDelete.add(pipeHit.object);
-        }
-        if (plumbingPipesToDelete.size > 0) {
-            const pipesArray = Array.from(plumbingPipesToDelete);
-            pipesArray.forEach(pipe => {
-                deletePlumbingPipeAndMerge(pipe); // ⭐ Silme + komşu borularla birleştirme
-            });
-            needsProcessing = true;
-        }
-
-        // ⭐ VANA SİLME (boru üzerindeki)
-        const valvesToDelete = new Set();
-        const valveHit = getValveAtPoint(mousePos, 8 / state.zoom);
-        if (valveHit && valveHit.type === 'valve') {
-            // Vana, bağlı olduğu pipe'dan çıkarılır
-            const pipe = valveHit.pipe;
-            const valve = valveHit.object;
-            if (pipe.valves) {
-                pipe.valves = pipe.valves.filter(v => v !== valve);
-                needsProcessing = true;
-                console.log('✅ Valve deleted from pipe');
-            }
-        }
+        // v2'de plumbingManager üzerinden silme işlemleri yapılıyor
+        // Eski plumbing blok/boru/vana silme fonksiyonları kaldırıldı
 
 
         if (needsProcessing) {
@@ -310,8 +268,16 @@ export function onPointerMove(e) {
             case 'column': onPointerMoveColumn(snappedPos, unsnappedPos); break;
             case 'beam':   onPointerMoveBeam(snappedPos, unsnappedPos);   break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
-            case 'plumbingBlock': onPointerMovePlumbingBlock(snappedPos, unsnappedPos); break;
-            case 'plumbingPipe': onPointerMovePlumbingPipe(snappedPos, unsnappedPos); break;
+            case 'plumbingBlock':
+                // v2'de plumbingManager üzerinden yönetiliyor
+                if (state.selectedObject?.object?.center) {
+                    state.selectedObject.object.center.x = snappedPos.x;
+                    state.selectedObject.object.center.y = snappedPos.y;
+                }
+                break;
+            case 'plumbingPipe':
+                // v2'de plumbingManager üzerinden yönetiliyor
+                break;
             case 'valve':
                 // Vana taşıma (boru üzerinde kaydırma ve başka boruya geçirme)
                 const valve = state.selectedObject.object;
