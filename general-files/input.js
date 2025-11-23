@@ -1012,7 +1012,7 @@ export function setupInputListeners() {
 
     // ALT+TAB stuck state fix: Window focus kaybolduğunda state'i temizle
     window.addEventListener("blur", () => {
-        console.log('🔄 Window blur - Cleaning up stuck states');
+        // console.log('🔄 Window blur - Cleaning up stuck states');
 
         // Tüm modifier key'leri resetle
         currentModifierKeys.ctrl = false;
