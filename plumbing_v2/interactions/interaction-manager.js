@@ -111,21 +111,34 @@ export class InteractionManager {
             return true;
         }
 
-        // 4. Boru ucu veya gövdesinden çizim başlat
+        // 4. Bileşen çıkış noktasından çizim başlat (servis kutusu, sayaç vb.)
+        const bilesenCikis = this.findBilesenCikisAt(point);
+        if (bilesenCikis) {
+            // Bileşen tipine göre bağlantı tipi belirle
+            const baglantiTip = bilesenCikis.tip === 'servis_kutusu'
+                ? BAGLANTI_TIPLERI.SERVIS_KUTUSU
+                : bilesenCikis.tip === 'sayac'
+                    ? BAGLANTI_TIPLERI.SAYAC
+                    : BAGLANTI_TIPLERI.BORU;
+            this.startBoruCizim(bilesenCikis.nokta, bilesenCikis.bilesenId, baglantiTip);
+            return true;
+        }
+
+        // 5. Boru ucu veya gövdesinden çizim başlat
         const boruUcu = this.findBoruUcuAt(point, 8);
         if (boruUcu) {
             this.startBoruCizim(boruUcu.nokta, boruUcu.boruId, BAGLANTI_TIPLERI.BORU);
             return true;
         }
 
-        // 5. Boru gövdesinden çizim başlat
+        // 6. Boru gövdesinden çizim başlat
         const boruGovde = this.findBoruGovdeAt(point);
         if (boruGovde) {
             this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
             return true;
         }
 
-        // 6. Boş alana tıklama - seçimi kaldır
+        // 7. Boş alana tıklama - seçimi kaldır
         this.deselectObject();
         return false;
     }
@@ -267,7 +280,7 @@ export class InteractionManager {
                     c => c.id === this.boruBaslangic.kaynakId && c.type === 'servis_kutusu'
                 );
                 if (servisKutusu) {
-                    servisKutusu.boruBagla(boru.id);
+                    servisKutusu.baglaBoru(boru.id);
                 }
             }
         }
@@ -393,6 +406,29 @@ export class InteractionManager {
             const proj = boru.projectPoint(point);
             if (proj && proj.onSegment && proj.distance < tolerance) {
                 return { boruId: boru.id, nokta: { x: proj.x, y: proj.y } };
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Bileşen çıkış noktasını bul (servis kutusu, sayaç vb.)
+     */
+    findBilesenCikisAt(point, tolerance = 10) {
+        for (const comp of this.manager.components) {
+            // Servis kutusu - getCikisNoktasi metodu var ve çıkış kullanılmamışsa
+            if (comp.type === 'servis_kutusu' && comp.getCikisNoktasi && !comp.cikisKullanildi) {
+                const cikis = comp.getCikisNoktasi();
+                if (Math.hypot(point.x - cikis.x, point.y - cikis.y) < tolerance) {
+                    return { bilesenId: comp.id, nokta: cikis, tip: comp.type };
+                }
+            }
+            // Sayaç - çıkış noktası
+            if (comp.type === 'sayac' && comp.getCikisNoktasi) {
+                const cikis = comp.getCikisNoktasi();
+                if (Math.hypot(point.x - cikis.x, point.y - cikis.y) < tolerance) {
+                    return { bilesenId: comp.id, nokta: cikis, tip: comp.type };
+                }
             }
         }
         return null;
