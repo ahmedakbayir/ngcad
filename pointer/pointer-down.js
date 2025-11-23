@@ -69,6 +69,14 @@ export function onPointerDown(e) {
     let objectJustCreated = false; // Yeni bir nesne oluşturuldu mu?
     let geometryChanged = false; // Geometri değişti mi (saveState için)?
 
+    // === BORU ÇİZİM MODU AKTİF İSE ÖNCELİKLİ İŞLE ===
+    if (plumbingManager.interactionManager?.boruCizimAktif) {
+        const handled = plumbingManager.interactionManager.handlePointerDown(e);
+        if (handled) {
+            return;
+        }
+    }
+
     // --- Seçim Modu ---
     if (state.currentMode === "select") {
         // Uzunluk düzenleme modu aktifse iptal et
