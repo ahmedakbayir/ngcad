@@ -113,11 +113,26 @@ export class InteractionManager {
                 if (this.manager.activeTool && this.manager.tempComponent) {
                     // Ghost yerleştirme modu - seçim yapma
                 } else {
+                    // Boru için uç nokta kontrolü
+                    if (hitObject.type === 'boru') {
+                        const endpoint = this.findPipeEndpoint(hitObject, point);
+                        if (endpoint) {
+                            this.selectObject(hitObject);
+                            this.startEndpointDrag(hitObject, endpoint, point);
+                            return true;
+                        }
+                    }
                     this.selectObject(hitObject);
                     this.startDrag(hitObject, point);
                     return true;
                 }
             }
+        }
+
+        // Seç modunda çizim başlatma
+        if (state.currentMode === 'select') {
+            this.deselectObject();
+            return false;
         }
 
         // 4. Bileşen çıkış noktasından çizim başlat (servis kutusu, sayaç vb.)
@@ -484,14 +499,71 @@ export class InteractionManager {
         return null;
     }
 
+    /**
+     * Boru uç noktasını bul
+     */
+    findPipeEndpoint(pipe, point) {
+        const tolerance = 8; // cm
+        const distToP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
+        const distToP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
+
+        if (distToP1 <= tolerance && distToP1 <= distToP2) {
+            return 'p1';
+        }
+        if (distToP2 <= tolerance) {
+            return 'p2';
+        }
+        return null;
+    }
+
+    /**
+     * Uç nokta sürüklemeyi başlat
+     */
+    startEndpointDrag(pipe, endpoint, point) {
+        this.isDragging = true;
+        this.dragObject = pipe;
+        this.dragEndpoint = endpoint;
+        this.dragStart = { ...point };
+    }
+
     startDrag(obj, point) {
         this.isDragging = true;
         this.dragObject = obj;
+        this.dragEndpoint = null;
         this.dragStart = { ...point };
     }
 
     handleDrag(point) {
         if (!this.dragObject) return;
+
+        // Uç nokta sürükleme
+        if (this.dragEndpoint && this.dragObject.type === 'boru') {
+            const pipe = this.dragObject;
+            const oldPoint = this.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
+
+            if (this.dragEndpoint === 'p1') {
+                pipe.p1.x = point.x;
+                pipe.p1.y = point.y;
+            } else {
+                pipe.p2.x = point.x;
+                pipe.p2.y = point.y;
+            }
+
+            // Bağlı boruları güncelle
+            this.manager.pipes.forEach(otherPipe => {
+                if (otherPipe.id === pipe.id) return;
+
+                if (Math.abs(otherPipe.p1.x - oldPoint.x) < 0.1 && Math.abs(otherPipe.p1.y - oldPoint.y) < 0.1) {
+                    otherPipe.p1.x = point.x;
+                    otherPipe.p1.y = point.y;
+                }
+                if (Math.abs(otherPipe.p2.x - oldPoint.x) < 0.1 && Math.abs(otherPipe.p2.y - oldPoint.y) < 0.1) {
+                    otherPipe.p2.x = point.x;
+                    otherPipe.p2.y = point.y;
+                }
+            });
+            return;
+        }
 
         // Servis kutusu için snap uygula (ilk yerleştirildiği gibi)
         if (this.dragObject.type === 'servis_kutusu') {
@@ -561,6 +633,7 @@ export class InteractionManager {
     endDrag() {
         this.isDragging = false;
         this.dragObject = null;
+        this.dragEndpoint = null;
         this.dragStart = null;
     }
 
