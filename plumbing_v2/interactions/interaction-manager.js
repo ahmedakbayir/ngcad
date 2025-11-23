@@ -10,7 +10,7 @@ import { Sayac, createSayac } from '../objects/meter.js';
 import { Vana, createVana } from '../objects/valve.js';
 import { Cihaz, createCihaz } from '../objects/device.js';
 import { screenToWorld } from '../../draw/geometry.js';
-import { dom, state } from '../../general-files/main.js';
+import { dom, state, setMode } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
 
 // Tool modları
@@ -233,10 +233,14 @@ export class InteractionManager {
         switch (component.type) {
             case 'servis_kutusu':
                 this.startBoruCizim(component.getCikisNoktasi(), component.id);
+                // İkon güncellemesi için activeTool'u boru olarak ayarla
+                this.manager.activeTool = 'boru';
                 break;
 
             case 'sayac':
                 this.handleSayacEkleme(component);
+                // İkon güncellemesi için activeTool'u boru olarak ayarla
+                this.manager.activeTool = 'boru';
                 break;
 
             case 'cihaz':
@@ -251,7 +255,13 @@ export class InteractionManager {
 
         // Temizle
         this.manager.tempComponent = null;
-        this.manager.activeTool = null;
+        // activeTool'u sadece boru moduna geçmiyorsak temizle
+        if (!this.boruCizimAktif) {
+            this.manager.activeTool = null;
+        }
+
+        // İkon güncellemesi için setMode'u çağır
+        setMode("plumbingV2", true);
     }
 
     /**
