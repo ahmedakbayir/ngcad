@@ -172,6 +172,7 @@ export function onPointerDown(e) {
                 dom.p2d.classList.add('dragging');
             } else {
                 setState({ selectedObject: clickedObject, selectedRoom: null, selectedGroup: [] });
+                console.log('✅ Selection set:', clickedObject.type, clickedObject.handle);
 
                 let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
                 switch (clickedObject.type) {
@@ -260,6 +261,7 @@ export function onPointerDown(e) {
                     dragOffset: dragInfo.dragOffset,
                     ...(dragInfo.additionalState || {})
                 });
+                console.log('✅ Dragging started, additionalState:', dragInfo.additionalState);
                 dom.p2d.classList.add('dragging');
             }
         } else {
