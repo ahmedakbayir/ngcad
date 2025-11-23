@@ -210,9 +210,9 @@ export class PlumbingManager {
 
         const currentFloorId = state.currentFloor?.id;
 
-        // state'ten boruları al (senkronizasyon için)
-        const pipes = state.plumbingPipes || [];
-        const blocks = state.plumbingBlocks || [];
+        // Manager'ın kendi pipe/component dizilerini kullan (renderer bunları çiziyor)
+        const pipes = this.pipes || [];
+        const blocks = this.components || [];
 
         // Floor eşleşme kontrolü - floorId yoksa veya eşleşiyorsa true
         const floorMatches = (objFloorId) => {

@@ -171,7 +171,18 @@ export function onPointerDown(e) {
                 });
                 dom.p2d.classList.add('dragging');
             } else {
+                // Önceki seçili tesisat nesnesinin isSelected'ını temizle
+                if (state.selectedObject?.object?.isSelected !== undefined) {
+                    state.selectedObject.object.isSelected = false;
+                }
+
                 setState({ selectedObject: clickedObject, selectedRoom: null, selectedGroup: [] });
+
+                // Yeni seçili tesisat nesnesinin isSelected'ını ayarla (renderer için)
+                if (clickedObject.type === 'plumbingPipe' || clickedObject.type === 'plumbingBlock') {
+                    clickedObject.object.isSelected = true;
+                }
+
                 console.log('✅ Selection set:', clickedObject.type, clickedObject.handle);
 
                 let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
