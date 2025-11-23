@@ -427,10 +427,14 @@ export class InteractionManager {
             }
         }
 
-        // Boru gövdesi (uçları hariç - uçlar çizim başlatır)
+        // Boru gövdesi
         for (const pipe of this.manager.pipes) {
             if (pipe.containsPoint && pipe.containsPoint(point, 10)) {
-                // Uç noktaya yakınsa nesne olarak döndürme (çizim başlatacak)
+                // Seç modunda uç noktalar da seçilebilir (sürükleme için)
+                if (state.currentMode === 'select') {
+                    return pipe;
+                }
+                // Diğer modlarda uç noktaya yakınsa nesne olarak döndürme (çizim başlatacak)
                 const distP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
                 const distP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
                 if (distP1 < 8 || distP2 < 8) {
