@@ -118,15 +118,18 @@ export class InteractionManager {
                 }
             }
 
-            // Sonra bileşen seçimi (sadece bileşenler seçilebilir, borular değil)
+            // Sonra nesne seçimi
             const hitObject = this.findObjectAt(point);
-            if (hitObject && hitObject.type !== 'boru') {
+            if (hitObject) {
                 // Araç aktifken ghost varsa seçim yapma
                 if (this.manager.activeTool && this.manager.tempComponent) {
                     // Ghost yerleştirme modu - seçim yapma
                 } else {
                     this.selectObject(hitObject);
-                    this.startDrag(hitObject, point);
+                    // Boru gövdesi için sürükleme başlatma (sadece seçim)
+                    if (hitObject.type !== 'boru') {
+                        this.startDrag(hitObject, point);
+                    }
                     return true;
                 }
             }
@@ -212,6 +215,16 @@ export class InteractionManager {
                 this.updateConnectedPipe(result);
                 return true;
             }
+        }
+
+        // R tuşu - seçili servis kutusunu döndür (çıkış noktası etrafında)
+        if (this.selectedObject && this.selectedObject.type === 'servis_kutusu' && e.key === 'r') {
+            saveState();
+            const deltaDerece = e.shiftKey ? -15 : 15; // Shift ile ters yön
+            const result = this.selectedObject.rotate(deltaDerece);
+            this.updateConnectedPipe(result);
+            this.manager.saveToState();
+            return true;
         }
 
         return false;
@@ -423,11 +436,17 @@ export class InteractionManager {
     }
 
     findObjectAt(point) {
-        // Sadece bileşenler seçilebilir (servis kutusu, sayaç, vana, cihaz)
-        // Borular seçilemez - sadece uç noktalarından sürüklenebilir
+        // Bileşenler (servis kutusu, sayaç, vana, cihaz)
         for (const comp of this.manager.components) {
             if (comp.containsPoint && comp.containsPoint(point)) {
                 return comp;
+            }
+        }
+
+        // Borular da seçilebilir (ama gövdeden taşınamaz)
+        for (const pipe of this.manager.pipes) {
+            if (pipe.containsPoint && pipe.containsPoint(point, 10)) {
+                return pipe;
             }
         }
 
