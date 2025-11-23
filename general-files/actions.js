@@ -63,14 +63,14 @@ function validateFloorMatch(result, currentFloorId) {
         return null;
     }
 
-    // PlumbingBlock için kontrol
-    if (result.type === 'plumbingBlock' && obj.floorId !== currentFloorId) {
+    // PlumbingBlock için kontrol - floorId yoksa (null/undefined) geçir
+    if (result.type === 'plumbingBlock' && obj.floorId && obj.floorId !== currentFloorId) {
         console.warn('⚠️ PLUMBING BLOCK FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
         return null;
     }
 
-    // PlumbingPipe için kontrol
-    if (result.type === 'plumbingPipe' && obj.floorId !== currentFloorId) {
+    // PlumbingPipe için kontrol - floorId yoksa (null/undefined) geçir
+    if (result.type === 'plumbingPipe' && obj.floorId && obj.floorId !== currentFloorId) {
         console.warn('⚠️ PLUMBING PIPE FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
         return null;
     }
