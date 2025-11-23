@@ -30,7 +30,8 @@ function validateFloorMatch(result, currentFloorId) {
     if (result.type === 'camera' || result.type === 'guide') return result;
 
     // Objenin floorId'si varsa ve aktif kat ile eşleşmiyorsa, REDDET
-    if (obj.floorId !== undefined && obj.floorId !== currentFloorId) {
+    // null veya undefined ise geçir
+    if (obj.floorId != null && obj.floorId !== currentFloorId) {
         console.warn('⚠️ FLOOR MISMATCH BLOCKED!', {
             type: result.type,
             objectFloor: obj.floorId,
