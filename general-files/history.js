@@ -174,6 +174,11 @@ export function restoreState(snapshot) {
 
     // Sonra boruları geri yükle ve referansları bağla
     const restoredPlumbingPipes = (snapshot.plumbingPipes || []).map(p => {
+        // V2 format check - no connections property
+        if (!p.connections) {
+            return JSON.parse(JSON.stringify(p));
+        }
+
         // typeConfig'i geri yüklerken PLUMBING_PIPE_TYPES'ı kullan
         const pipeConfig = PLUMBING_PIPE_TYPES[p.pipeType] || PLUMBING_PIPE_TYPES['STANDARD'];
 

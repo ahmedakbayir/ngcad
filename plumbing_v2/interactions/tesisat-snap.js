@@ -168,11 +168,34 @@ export class TesisatSnapSystem {
             }
         }
 
+        // Kullanıcının gittiği yön
+        let userAngle = null;
+        if (this.currentStartPoint) {
+            userAngle = Math.atan2(
+                point.y - this.currentStartPoint.y,
+                point.x - this.currentStartPoint.x
+            ) * 180 / Math.PI;
+        }
+
         // En yakın kesişimi bul
         let closest = null;
         let minDist = tolerance;
 
         kesisimler.forEach(k => {
+            // Açı kontrolü
+            if (userAngle !== null && this.currentStartPoint) {
+                const kesisimAngle = Math.atan2(
+                    k.y - this.currentStartPoint.y,
+                    k.x - this.currentStartPoint.x
+                ) * 180 / Math.PI;
+
+                let angleDiff = Math.abs(userAngle - kesisimAngle);
+                if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+                // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
+                if (angleDiff > 45) return;
+            }
+
             const dist = Math.hypot(point.x - k.x, point.y - k.y);
             if (dist < minDist) {
                 minDist = dist;
@@ -197,6 +220,12 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Kullanıcının gittiği yön
+        const userAngle = Math.atan2(
+            point.y - this.currentStartPoint.y,
+            point.x - this.currentStartPoint.x
+        ) * 180 / Math.PI;
+
         // Mevcut çizim hattı
         const drawLine = {
             p1: this.currentStartPoint,
@@ -211,6 +240,18 @@ export class TesisatSnapSystem {
             );
 
             if (kesisim) {
+                // Açı kontrolü
+                const kesisimAngle = Math.atan2(
+                    kesisim.y - this.currentStartPoint.y,
+                    kesisim.x - this.currentStartPoint.x
+                ) * 180 / Math.PI;
+
+                let angleDiff = Math.abs(userAngle - kesisimAngle);
+                if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+                // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
+                if (angleDiff > 45) return;
+
                 const dist = Math.hypot(point.x - kesisim.x, point.y - kesisim.y);
                 if (dist < minDist) {
                     minDist = dist;
@@ -236,8 +277,31 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Kullanıcının gittiği yön
+        let userAngle = null;
+        if (this.currentStartPoint) {
+            userAngle = Math.atan2(
+                point.y - this.currentStartPoint.y,
+                point.x - this.currentStartPoint.x
+            ) * 180 / Math.PI;
+        }
+
         this.manager.pipes.forEach(pipe => {
             [pipe.p1, pipe.p2].forEach(node => {
+                // Açı kontrolü
+                if (userAngle !== null && this.currentStartPoint) {
+                    const nodeAngle = Math.atan2(
+                        node.y - this.currentStartPoint.y,
+                        node.x - this.currentStartPoint.x
+                    ) * 180 / Math.PI;
+
+                    let angleDiff = Math.abs(userAngle - nodeAngle);
+                    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+                    // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
+                    if (angleDiff > 45) return;
+                }
+
                 const dist = Math.hypot(point.x - node.x, point.y - node.y);
                 if (dist < minDist) {
                     minDist = dist;

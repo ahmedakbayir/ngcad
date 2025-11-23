@@ -73,9 +73,9 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Sürükleme
+        // 3. Sürükleme - raw point kullan (handleDrag içinde gerekli snap yapılır)
         if (this.isDragging && this.dragObject) {
-            this.handleDrag(targetPoint);
+            this.handleDrag(point);
             return true;
         }
 
@@ -104,14 +104,19 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Nesne seçme/sürükleme - SADECE seçim modunda
-        // Boru çizme modunda veya araç aktifken seçim yapılmaz
-        if (state.currentMode === 'select' || (!this.manager.activeTool && !this.boruCizimAktif)) {
+        // 3. Nesne seçme/sürükleme
+        // Seç modunda veya aktif çizim yokken seçim yapılabilir
+        if (state.currentMode === 'select' || !this.boruCizimAktif) {
             const hitObject = this.findObjectAt(point);
             if (hitObject) {
-                this.selectObject(hitObject);
-                this.startDrag(hitObject, point);
-                return true;
+                // Araç aktifken ghost varsa seçim yapma
+                if (this.manager.activeTool && this.manager.tempComponent) {
+                    // Ghost yerleştirme modu - seçim yapma
+                } else {
+                    this.selectObject(hitObject);
+                    this.startDrag(hitObject, point);
+                    return true;
+                }
             }
         }
 
