@@ -204,23 +204,33 @@ export class PlumbingManager {
      * @returns {object|null} - Bulunan nesne veya null
      */
     getObjectAtPoint(pos, tolerance = 10) {
+        if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') {
+            return null;
+        }
+
         const currentFloorId = state.currentFloor?.id;
 
         // state'ten boruları al (senkronizasyon için)
         const pipes = state.plumbingPipes || [];
         const blocks = state.plumbingBlocks || [];
 
+        // Floor eşleşme kontrolü - floorId yoksa veya eşleşiyorsa true
+        const floorMatches = (objFloorId) => {
+            if (!currentFloorId) return true;
+            if (!objFloorId) return true;
+            return objFloorId === currentFloorId;
+        };
+
         // Önce uç noktaları kontrol et (handle'lar)
         for (const pipe of pipes) {
-            if (pipe.floorId !== currentFloorId) continue;
+            if (!floorMatches(pipe.floorId)) continue;
+            if (!pipe.p1 || !pipe.p2) continue;
 
-            // p1 uç noktası
             const distP1 = Math.hypot(pos.x - pipe.p1.x, pos.y - pipe.p1.y);
             if (distP1 < tolerance) {
                 return { type: 'pipe', object: pipe, handle: 'p1' };
             }
 
-            // p2 uç noktası
             const distP2 = Math.hypot(pos.x - pipe.p2.x, pos.y - pipe.p2.y);
             if (distP2 < tolerance) {
                 return { type: 'pipe', object: pipe, handle: 'p2' };
@@ -229,11 +239,10 @@ export class PlumbingManager {
 
         // Bileşenleri kontrol et
         for (const comp of blocks) {
-            if (comp.floorId !== currentFloorId) continue;
+            if (!floorMatches(comp.floorId)) continue;
 
-            // Bileşen merkezine uzaklık
-            const cx = comp.x || comp.center?.x;
-            const cy = comp.y || comp.center?.y;
+            const cx = comp.x ?? comp.center?.x;
+            const cy = comp.y ?? comp.center?.y;
             if (cx !== undefined && cy !== undefined) {
                 const dist = Math.hypot(pos.x - cx, pos.y - cy);
                 if (dist < tolerance * 2) {
@@ -244,15 +253,14 @@ export class PlumbingManager {
 
         // Vanaları kontrol et
         for (const pipe of pipes) {
-            if (pipe.floorId !== currentFloorId) continue;
-            if (!pipe.vanalar) continue;
+            if (!floorMatches(pipe.floorId)) continue;
+            if (!pipe.vanalar || !pipe.p1 || !pipe.p2) continue;
 
             for (const vana of pipe.vanalar) {
-                const vanaPos = pipe.getPointAtT ? pipe.getPointAtT(vana.t) : {
-                    x: pipe.p1.x + (pipe.p2.x - pipe.p1.x) * vana.t,
-                    y: pipe.p1.y + (pipe.p2.y - pipe.p1.y) * vana.t
-                };
-                const dist = Math.hypot(pos.x - vanaPos.x, pos.y - vanaPos.y);
+                const t = vana.t || 0.5;
+                const vanaX = pipe.p1.x + (pipe.p2.x - pipe.p1.x) * t;
+                const vanaY = pipe.p1.y + (pipe.p2.y - pipe.p1.y) * t;
+                const dist = Math.hypot(pos.x - vanaX, pos.y - vanaY);
                 if (dist < tolerance) {
                     return { type: 'valve', object: vana, pipe: pipe };
                 }
@@ -261,25 +269,19 @@ export class PlumbingManager {
 
         // Son olarak boru gövdesini kontrol et
         for (const pipe of pipes) {
-            if (pipe.floorId !== currentFloorId) continue;
+            if (!floorMatches(pipe.floorId)) continue;
+            if (!pipe.p1 || !pipe.p2) continue;
 
-            // Nokta-doğru mesafesi hesapla
             const dx = pipe.p2.x - pipe.p1.x;
             const dy = pipe.p2.y - pipe.p1.y;
             const length = Math.hypot(dx, dy);
             if (length < 0.1) continue;
 
-            // Noktanın doğru üzerindeki projeksiyonu
             const t = ((pos.x - pipe.p1.x) * dx + (pos.y - pipe.p1.y) * dy) / (length * length);
-
-            // t değeri 0-1 arasında olmalı (boru üzerinde)
             if (t < 0 || t > 1) continue;
 
-            // Projeksiyon noktası
             const projX = pipe.p1.x + t * dx;
             const projY = pipe.p1.y + t * dy;
-
-            // Mesafe
             const dist = Math.hypot(pos.x - projX, pos.y - projY);
             if (dist < tolerance) {
                 return { type: 'pipe', object: pipe, handle: 'body' };
