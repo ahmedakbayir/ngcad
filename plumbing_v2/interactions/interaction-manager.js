@@ -11,6 +11,7 @@ import { Vana, createVana } from '../objects/valve.js';
 import { Cihaz, createCihaz } from '../objects/device.js';
 import { screenToWorld } from '../../draw/geometry.js';
 import { dom, state } from '../../general-files/main.js';
+import { saveState } from '../../general-files/history.js';
 
 // Tool modları
 export const TESISAT_MODLARI = {
@@ -219,6 +220,10 @@ export class InteractionManager {
     placeComponent(point) {
         if (!this.manager.tempComponent) return;
 
+        // Undo için state kaydet
+        saveState();
+        this.manager.saveToState();
+
         const component = this.manager.tempComponent;
 
         // Listeye ekle
@@ -240,6 +245,9 @@ export class InteractionManager {
                 }
                 break;
         }
+
+        // State'e sync et
+        this.manager.saveToState();
 
         // Temizle
         this.manager.tempComponent = null;
@@ -265,6 +273,10 @@ export class InteractionManager {
     handleBoruClick(point) {
         if (!this.boruBaslangic) return;
 
+        // Undo için state kaydet
+        saveState();
+        this.manager.saveToState();
+
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
 
@@ -286,6 +298,9 @@ export class InteractionManager {
         }
 
         this.manager.pipes.push(boru);
+
+        // State'e sync et
+        this.manager.saveToState();
 
         // Devam et
         this.boruBaslangic = {
@@ -352,14 +367,20 @@ export class InteractionManager {
     deleteSelectedObject() {
         if (!this.selectedObject) return;
 
+        // Undo için state kaydet
+        saveState();
+        this.manager.saveToState();
+
         const obj = this.selectedObject;
 
         if (obj.type === 'servis_kutusu') {
             if (confirm(obj.getDeleteInfo().uyari)) {
                 this.removeObject(obj);
+                this.manager.saveToState();
             }
         } else {
             this.removeObject(obj);
+            this.manager.saveToState();
         }
 
         this.deselectObject();
