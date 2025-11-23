@@ -510,9 +510,42 @@ export class InteractionManager {
             return;
         }
 
-        // Boru taşınırken snap yapma, doğrudan taşı
+        // Boru taşınırken bağlı boruları da güncelle
         if (this.dragObject.type === 'boru') {
-            this.dragObject.move(point.x, point.y);
+            const pipe = this.dragObject;
+            const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
+            const oldP2 = { x: pipe.p2.x, y: pipe.p2.y };
+
+            pipe.move(point.x, point.y);
+
+            // Delta hesapla
+            const dx = pipe.p1.x - oldP1.x;
+            const dy = pipe.p1.y - oldP1.y;
+
+            // Bağlı boruları bul ve güncelle
+            this.manager.pipes.forEach(otherPipe => {
+                if (otherPipe.id === pipe.id) return;
+
+                // p1 bağlantısı kontrol
+                if (Math.abs(otherPipe.p1.x - oldP1.x) < 0.1 && Math.abs(otherPipe.p1.y - oldP1.y) < 0.1) {
+                    otherPipe.p1.x += dx;
+                    otherPipe.p1.y += dy;
+                }
+                if (Math.abs(otherPipe.p1.x - oldP2.x) < 0.1 && Math.abs(otherPipe.p1.y - oldP2.y) < 0.1) {
+                    otherPipe.p1.x += dx;
+                    otherPipe.p1.y += dy;
+                }
+
+                // p2 bağlantısı kontrol
+                if (Math.abs(otherPipe.p2.x - oldP1.x) < 0.1 && Math.abs(otherPipe.p2.y - oldP1.y) < 0.1) {
+                    otherPipe.p2.x += dx;
+                    otherPipe.p2.y += dy;
+                }
+                if (Math.abs(otherPipe.p2.x - oldP2.x) < 0.1 && Math.abs(otherPipe.p2.y - oldP2.y) < 0.1) {
+                    otherPipe.p2.x += dx;
+                    otherPipe.p2.y += dy;
+                }
+            });
             return;
         }
 

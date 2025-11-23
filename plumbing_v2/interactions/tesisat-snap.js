@@ -89,6 +89,18 @@ export class TesisatSnapSystem {
             if (aci90Snap) return aci90Snap;
         }
 
+        // Debug: Kullanıcının gittiği açıyı logla
+        if (this.currentStartPoint) {
+            const userAngle = Math.atan2(
+                point.y - this.currentStartPoint.y,
+                point.x - this.currentStartPoint.x
+            ) * 180 / Math.PI;
+            // Sadece 90-180 arası (veya -90 ile -180 arası) için logla
+            if ((userAngle > 90 && userAngle < 180) || (userAngle < -90 && userAngle > -180)) {
+                console.log('🔧 Snap null - serbest çizim, açı:', userAngle.toFixed(1));
+            }
+        }
+
         // Hiçbir snap bulunamadı - serbest çizim
         return null;
     }
