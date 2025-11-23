@@ -59,6 +59,10 @@ export class TesisatSnapSystem {
         const kesisimSnap = this.findKesisimSnap(point, tesisatHatlari, snapMesafesi);
         if (kesisimSnap) return kesisimSnap;
 
+        // 1.5. BORU KESİŞİM NOKTALARI (Mevcut borularla kesişim)
+        const boruKesisimSnap = this.findBoruKesisimSnap(point, snapMesafesi);
+        if (boruKesisimSnap) return boruKesisimSnap;
+
         // 2. BORU UÇ NOKTALARI (Bağlantı noktaları)
         const boruUcSnap = this.findBoruUcSnap(point, snapMesafesi);
         if (boruUcSnap) return boruUcSnap;
@@ -185,6 +189,45 @@ export class TesisatSnapSystem {
     }
 
     /**
+     * 1.5. Mevcut borularla kesişim noktalarını bul
+     */
+    findBoruKesisimSnap(point, tolerance) {
+        if (!this.manager || !this.manager.pipes || !this.currentStartPoint) return null;
+
+        let closest = null;
+        let minDist = tolerance;
+
+        // Mevcut çizim hattı
+        const drawLine = {
+            p1: this.currentStartPoint,
+            p2: point
+        };
+
+        // Her mevcut boru ile kesişim kontrolü
+        this.manager.pipes.forEach(pipe => {
+            const kesisim = this.lineIntersection(
+                drawLine.p1, drawLine.p2,
+                pipe.p1, pipe.p2
+            );
+
+            if (kesisim) {
+                const dist = Math.hypot(point.x - kesisim.x, point.y - kesisim.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = {
+                        x: kesisim.x,
+                        y: kesisim.y,
+                        type: TESISAT_SNAP_TYPES.KESISIM,
+                        target: pipe
+                    };
+                }
+            }
+        });
+
+        return closest;
+    }
+
+    /**
      * 2. Boru uç noktalarını bul (bağlantı noktaları)
      */
     findBoruUcSnap(point, tolerance) {
@@ -220,6 +263,12 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Kullanıcının gittiği yön
+        const userAngle = Math.atan2(
+            point.y - this.currentStartPoint.y,
+            point.x - this.currentStartPoint.x
+        ) * 180 / Math.PI;
+
         hatlar.forEach(hat => {
             // Başlangıç noktasından hatta dik çizgi
             const dikNokta = this.perpendicularPoint(
@@ -229,6 +278,19 @@ export class TesisatSnapSystem {
             );
 
             if (!dikNokta || !dikNokta.onSegment) return;
+
+            // Diklik yönünü hesapla
+            const dikAngle = Math.atan2(
+                dikNokta.y - this.currentStartPoint.y,
+                dikNokta.x - this.currentStartPoint.x
+            ) * 180 / Math.PI;
+
+            // Kullanıcının yönü ile diklik yönü arasındaki fark
+            let angleDiff = Math.abs(userAngle - dikAngle);
+            if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+            // Sadece kullanıcı diklik yönüne yakın gidiyorsa snap uygula (30° tolerans)
+            if (angleDiff > 30) return;
 
             // Mouse bu dik noktaya yakın mı?
             const dist = Math.hypot(point.x - dikNokta.x, point.y - dikNokta.y);
@@ -257,6 +319,12 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Kullanıcının gittiği yön
+        const userAngle = Math.atan2(
+            point.y - this.currentStartPoint.y,
+            point.x - this.currentStartPoint.x
+        ) * 180 / Math.PI;
+
         this.manager.pipes.forEach(pipe => {
             const dikNokta = this.perpendicularPoint(
                 this.currentStartPoint,
@@ -265,6 +333,19 @@ export class TesisatSnapSystem {
             );
 
             if (!dikNokta || !dikNokta.onSegment) return;
+
+            // Diklik yönünü hesapla
+            const dikAngle = Math.atan2(
+                dikNokta.y - this.currentStartPoint.y,
+                dikNokta.x - this.currentStartPoint.x
+            ) * 180 / Math.PI;
+
+            // Kullanıcının yönü ile diklik yönü arasındaki fark
+            let angleDiff = Math.abs(userAngle - dikAngle);
+            if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+            // Sadece kullanıcı diklik yönüne yakın gidiyorsa snap uygula (30° tolerans)
+            if (angleDiff > 30) return;
 
             const dist = Math.hypot(point.x - dikNokta.x, point.y - dikNokta.y);
             if (dist < minDist) {
