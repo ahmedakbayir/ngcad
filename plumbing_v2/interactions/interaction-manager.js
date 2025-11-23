@@ -104,12 +104,15 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Nesne seçme/sürükleme (öncelikli)
-        const hitObject = this.findObjectAt(point);
-        if (hitObject) {
-            this.selectObject(hitObject);
-            this.startDrag(hitObject, point);
-            return true;
+        // 3. Nesne seçme/sürükleme - SADECE seçim modunda
+        // Boru çizme modunda veya araç aktifken seçim yapılmaz
+        if (state.currentMode === 'select' || (!this.manager.activeTool && !this.boruCizimAktif)) {
+            const hitObject = this.findObjectAt(point);
+            if (hitObject) {
+                this.selectObject(hitObject);
+                this.startDrag(hitObject, point);
+                return true;
+            }
         }
 
         // 4. Bileşen çıkış noktasından çizim başlat (servis kutusu, sayaç vb.)
@@ -220,6 +223,9 @@ export class InteractionManager {
     placeComponent(point) {
         if (!this.manager.tempComponent) return;
 
+        // Undo için state kaydet
+        saveState();
+
         const component = this.manager.tempComponent;
 
         // Listeye ekle
@@ -252,6 +258,9 @@ export class InteractionManager {
         if (!this.boruCizimAktif) {
             this.manager.activeTool = null;
         }
+
+        // State'i senkronize et
+        this.manager.saveToState();
     }
 
     /**
@@ -272,6 +281,9 @@ export class InteractionManager {
      */
     handleBoruClick(point) {
         if (!this.boruBaslangic) return;
+
+        // Undo için state kaydet
+        saveState();
 
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
@@ -294,6 +306,9 @@ export class InteractionManager {
         }
 
         this.manager.pipes.push(boru);
+
+        // State'i senkronize et
+        this.manager.saveToState();
 
         // Devam et
         this.boruBaslangic = {
