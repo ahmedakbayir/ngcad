@@ -104,24 +104,27 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Nesne seçme/sürükleme
-        // Seç modunda veya aktif çizim yokken seçim yapılabilir
+        // 3. Boru uç noktası sürükleme - seçim gerektirmez
+        // Herhangi bir modda boru uç noktalarından doğrudan tutulup sürüklenebilir
         if (state.currentMode === 'select' || !this.boruCizimAktif) {
+            // Önce boru uç noktası kontrolü yap
+            const boruUcu = this.findBoruUcuAt(point, 8);
+            if (boruUcu) {
+                const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
+                if (pipe) {
+                    // Seçim yapmadan doğrudan uç nokta sürüklemesi başlat
+                    this.startEndpointDrag(pipe, boruUcu.uc, point);
+                    return true;
+                }
+            }
+
+            // Sonra bileşen seçimi (sadece bileşenler seçilebilir, borular değil)
             const hitObject = this.findObjectAt(point);
-            if (hitObject) {
+            if (hitObject && hitObject.type !== 'boru') {
                 // Araç aktifken ghost varsa seçim yapma
                 if (this.manager.activeTool && this.manager.tempComponent) {
                     // Ghost yerleştirme modu - seçim yapma
                 } else {
-                    // Boru için uç nokta kontrolü
-                    if (hitObject.type === 'boru') {
-                        const endpoint = this.findPipeEndpoint(hitObject, point);
-                        if (endpoint) {
-                            this.selectObject(hitObject);
-                            this.startEndpointDrag(hitObject, endpoint, point);
-                            return true;
-                        }
-                    }
                     this.selectObject(hitObject);
                     this.startDrag(hitObject, point);
                     return true;
@@ -420,27 +423,11 @@ export class InteractionManager {
     }
 
     findObjectAt(point) {
-        // Bileşenler (servis kutusu, sayaç, vana, cihaz)
+        // Sadece bileşenler seçilebilir (servis kutusu, sayaç, vana, cihaz)
+        // Borular seçilemez - sadece uç noktalarından sürüklenebilir
         for (const comp of this.manager.components) {
             if (comp.containsPoint && comp.containsPoint(point)) {
                 return comp;
-            }
-        }
-
-        // Boru gövdesi
-        for (const pipe of this.manager.pipes) {
-            if (pipe.containsPoint && pipe.containsPoint(point, 10)) {
-                // Seç modunda uç noktalar da seçilebilir (sürükleme için)
-                if (state.currentMode === 'select') {
-                    return pipe;
-                }
-                // Diğer modlarda uç noktaya yakınsa nesne olarak döndürme (çizim başlatacak)
-                const distP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
-                const distP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
-                if (distP1 < 8 || distP2 < 8) {
-                    continue; // Uç nokta - çizim başlatılacak
-                }
-                return pipe;
             }
         }
 
@@ -591,42 +578,8 @@ export class InteractionManager {
             return;
         }
 
-        // Boru taşınırken bağlı boruları da güncelle
+        // Boru gövdesi olarak taşınmaz - sadece uç noktalar taşınır
         if (this.dragObject.type === 'boru') {
-            const pipe = this.dragObject;
-            const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
-            const oldP2 = { x: pipe.p2.x, y: pipe.p2.y };
-
-            pipe.move(point.x, point.y);
-
-            // Delta hesapla
-            const dx = pipe.p1.x - oldP1.x;
-            const dy = pipe.p1.y - oldP1.y;
-
-            // Bağlı boruları bul ve güncelle
-            this.manager.pipes.forEach(otherPipe => {
-                if (otherPipe.id === pipe.id) return;
-
-                // p1 bağlantısı kontrol
-                if (Math.abs(otherPipe.p1.x - oldP1.x) < 0.1 && Math.abs(otherPipe.p1.y - oldP1.y) < 0.1) {
-                    otherPipe.p1.x += dx;
-                    otherPipe.p1.y += dy;
-                }
-                if (Math.abs(otherPipe.p1.x - oldP2.x) < 0.1 && Math.abs(otherPipe.p1.y - oldP2.y) < 0.1) {
-                    otherPipe.p1.x += dx;
-                    otherPipe.p1.y += dy;
-                }
-
-                // p2 bağlantısı kontrol
-                if (Math.abs(otherPipe.p2.x - oldP1.x) < 0.1 && Math.abs(otherPipe.p2.y - oldP1.y) < 0.1) {
-                    otherPipe.p2.x += dx;
-                    otherPipe.p2.y += dy;
-                }
-                if (Math.abs(otherPipe.p2.x - oldP2.x) < 0.1 && Math.abs(otherPipe.p2.y - oldP2.y) < 0.1) {
-                    otherPipe.p2.x += dx;
-                    otherPipe.p2.y += dy;
-                }
-            });
             return;
         }
 
