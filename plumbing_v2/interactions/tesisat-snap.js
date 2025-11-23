@@ -579,14 +579,15 @@ export class TesisatSnapSystem {
         // Mevcut açı
         const currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
 
-        // En yakın 90° açıyı bul (0, 90, 180, 270, -90, -180)
-        const angles = [0, 90, 180, -90, -180, 270];
+        // En yakın 90° açıyı bul (sadece 4 ana yön)
+        const angles = [0, 90, 180, -90];
         let closestAngle = 0;
         let minAngleDiff = 360;
 
         angles.forEach(angle => {
             let diff = Math.abs(currentAngle - angle);
-            if (diff > 180) diff = 360 - diff;
+            // Açı farkını 0-180 aralığına normalize et
+            while (diff > 180) diff = Math.abs(360 - diff);
             if (diff < minAngleDiff) {
                 minAngleDiff = diff;
                 closestAngle = angle;
