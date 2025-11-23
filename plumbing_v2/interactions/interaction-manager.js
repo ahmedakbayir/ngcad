@@ -220,10 +220,6 @@ export class InteractionManager {
     placeComponent(point) {
         if (!this.manager.tempComponent) return;
 
-        // Undo için state kaydet
-        saveState();
-        this.manager.saveToState();
-
         const component = this.manager.tempComponent;
 
         // Listeye ekle
@@ -249,9 +245,6 @@ export class InteractionManager {
                 }
                 break;
         }
-
-        // State'e sync et
-        this.manager.saveToState();
 
         // Temizle
         this.manager.tempComponent = null;
@@ -280,10 +273,6 @@ export class InteractionManager {
     handleBoruClick(point) {
         if (!this.boruBaslangic) return;
 
-        // Undo için state kaydet
-        saveState();
-        this.manager.saveToState();
-
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
 
@@ -305,9 +294,6 @@ export class InteractionManager {
         }
 
         this.manager.pipes.push(boru);
-
-        // State'e sync et
-        this.manager.saveToState();
 
         // Devam et
         this.boruBaslangic = {
