@@ -70,39 +70,45 @@ export function saveState() {
         
         // --- YENİ EKLENEN TESİSAT KAYDI ---
         plumbingBlocks: JSON.parse(JSON.stringify(state.plumbingBlocks || [])), // Blokları kopyala
-        plumbingPipes: (state.plumbingPipes || []).map(p => ({
-            // Boru özelliklerini kopyala
-            pipeType: p.pipeType,
-            p1: { ...p.p1 },
-            p2: { ...p.p2 },
-            floorId: p.floorId,
-            isConnectedToValve: p.isConnectedToValve,
-            // Bağlantıları kaydet (ID veya index)
-            connections: {
-                start: (p.connections.start && p.connections.start.blockId) ? {
-                    // Eğer blockId string ise (ID), direkt kaydet
-                    blockId: typeof p.connections.start.blockId === 'string'
-                        ? p.connections.start.blockId
-                        : (p.connections.start.blockId.id || null), // Object ise ID'sini al
-                    blockIndex: typeof p.connections.start.blockId === 'object'
-                        ? state.plumbingBlocks.indexOf(p.connections.start.blockId)
-                        : -1, // Fallback için index
-                    connectionIndex: p.connections.start.connectionIndex,
-                    blockType: p.connections.start.blockType
-                } : null,
-                end: (p.connections.end && p.connections.end.blockId) ? {
-                    // Eğer blockId string ise (ID), direkt kaydet
-                    blockId: typeof p.connections.end.blockId === 'string'
-                        ? p.connections.end.blockId
-                        : (p.connections.end.blockId.id || null), // Object ise ID'sini al
-                    blockIndex: typeof p.connections.end.blockId === 'object'
-                        ? state.plumbingBlocks.indexOf(p.connections.end.blockId)
-                        : -1, // Fallback için index
-                    connectionIndex: p.connections.end.connectionIndex,
-                    blockType: p.connections.end.blockType
-                } : null
+        plumbingPipes: (state.plumbingPipes || []).map(p => {
+            // V2 pipe format check
+            if (!p.connections) {
+                // V2 format - just copy the object
+                return JSON.parse(JSON.stringify(p));
             }
-        })),
+
+            // Old format - Boru özelliklerini kopyala
+            return {
+                pipeType: p.pipeType,
+                p1: { ...p.p1 },
+                p2: { ...p.p2 },
+                floorId: p.floorId,
+                isConnectedToValve: p.isConnectedToValve,
+                // Bağlantıları kaydet (ID veya index)
+                connections: {
+                    start: (p.connections.start && p.connections.start.blockId) ? {
+                        blockId: typeof p.connections.start.blockId === 'string'
+                            ? p.connections.start.blockId
+                            : (p.connections.start.blockId.id || null),
+                        blockIndex: typeof p.connections.start.blockId === 'object'
+                            ? state.plumbingBlocks.indexOf(p.connections.start.blockId)
+                            : -1,
+                        connectionIndex: p.connections.start.connectionIndex,
+                        blockType: p.connections.start.blockType
+                    } : null,
+                    end: (p.connections.end && p.connections.end.blockId) ? {
+                        blockId: typeof p.connections.end.blockId === 'string'
+                            ? p.connections.end.blockId
+                            : (p.connections.end.blockId.id || null),
+                        blockIndex: typeof p.connections.end.blockId === 'object'
+                            ? state.plumbingBlocks.indexOf(p.connections.end.blockId)
+                            : -1,
+                        connectionIndex: p.connections.end.connectionIndex,
+                        blockType: p.connections.end.blockType
+                    } : null
+                }
+            };
+        }),
         // --- YENİ KAYIT SONU ---
 
         guides: JSON.parse(JSON.stringify(state.guides || [])), // <-- REFERANS ÇİZGİSİ EKLENDİ

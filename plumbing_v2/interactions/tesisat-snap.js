@@ -370,6 +370,15 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Kullanıcının gittiği yön (sadece başlangıç noktası varsa kontrol et)
+        let userAngle = null;
+        if (this.currentStartPoint) {
+            userAngle = Math.atan2(
+                point.y - this.currentStartPoint.y,
+                point.x - this.currentStartPoint.x
+            ) * 180 / Math.PI;
+        }
+
         hatlar.forEach(hat => {
             const proj = this.projectToLine(point, hat.p1, hat.p2);
 
@@ -378,6 +387,20 @@ export class TesisatSnapSystem {
             // Yasak bölge kontrolü: Duvar içi
             const duvarMerkez = hat.wall;
             if (this.isInsideWall(point, duvarMerkez)) return;
+
+            // Açı kontrolü: Kullanıcı bu yöne mi gidiyor?
+            if (userAngle !== null && this.currentStartPoint) {
+                const projAngle = Math.atan2(
+                    proj.y - this.currentStartPoint.y,
+                    proj.x - this.currentStartPoint.x
+                ) * 180 / Math.PI;
+
+                let angleDiff = Math.abs(userAngle - projAngle);
+                if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+                // Sadece kullanıcı bu yöne yakın gidiyorsa snap uygula (30° tolerans)
+                if (angleDiff > 30) return;
+            }
 
             const dist = Math.hypot(point.x - proj.x, point.y - proj.y);
             if (dist < minDist) {
@@ -404,9 +427,31 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Kullanıcının gittiği yön
+        let userAngle = null;
+        if (this.currentStartPoint) {
+            userAngle = Math.atan2(
+                point.y - this.currentStartPoint.y,
+                point.x - this.currentStartPoint.x
+            ) * 180 / Math.PI;
+        }
+
         this.manager.pipes.forEach(pipe => {
             const proj = this.projectToLine(point, pipe.p1, pipe.p2);
             if (!proj || !proj.onSegment) return;
+
+            // Açı kontrolü
+            if (userAngle !== null && this.currentStartPoint) {
+                const projAngle = Math.atan2(
+                    proj.y - this.currentStartPoint.y,
+                    proj.x - this.currentStartPoint.x
+                ) * 180 / Math.PI;
+
+                let angleDiff = Math.abs(userAngle - projAngle);
+                if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+                if (angleDiff > 30) return;
+            }
 
             const dist = Math.hypot(point.x - proj.x, point.y - proj.y);
             if (dist < minDist) {
