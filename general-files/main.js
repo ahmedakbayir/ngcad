@@ -488,13 +488,15 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bColumn.classList.toggle("active", newMode === "drawColumn");
     dom.bBeam.classList.toggle("active", newMode === "drawBeam");
     dom.bStairs.classList.toggle("active", newMode === "drawStairs");
-    // Tesisat blokları - hepsi aynı mode'u kullanıyor, hangisi aktifse onu göster
-    dom.bServisKutusu.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'SERVIS_KUTUSU');
-    dom.bSayac.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'SAYAC');
-    dom.bVana.classList.toggle("active", newMode === "drawValve");
-    dom.bKombi.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'KOMBI');
-    dom.bOcak.classList.toggle("active", newMode === "drawPlumbingBlock" && state.currentPlumbingBlockType === 'OCAK');
-    dom.bBoru.classList.toggle("active", newMode === "drawPlumbingPipe");
+    // Tesisat blokları - plumbingV2 modunda activeTool'a göre göster
+    const isPlumbingV2 = newMode === "plumbingV2";
+    const activeTool = plumbingManager?.activeTool;
+    dom.bServisKutusu.classList.toggle("active", isPlumbingV2 && activeTool === 'servis_kutusu');
+    dom.bSayac.classList.toggle("active", isPlumbingV2 && activeTool === 'sayac');
+    dom.bVana.classList.toggle("active", isPlumbingV2 && activeTool === 'vana');
+    dom.bKombi.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'KOMBI');
+    dom.bOcak.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'OCAK');
+    dom.bBoru.classList.toggle("active", isPlumbingV2 && activeTool === 'boru');
     dom.bSymmetry.classList.toggle("active", newMode === "drawSymmetry");
     dom.p2d.className = `panel ${newMode}-mode`;
 

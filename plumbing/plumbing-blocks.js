@@ -171,31 +171,76 @@ export function getPlumbingBlockAtPoint(point) {
     const blocks = (state.plumbingBlocks || []).filter(b => b.floorId === currentFloorId);
     const tolerance = 8 / zoom;
 
+    // Check for new plumbing v2 objects first (they have type like 'servis_kutusu' instead of blockType)
     for (const block of blocks) {
-        const rotationHandleDistance = 30;
-        const angle = (block.rotation || 0) * Math.PI / 180;
-        const handleX = block.center.x + Math.sin(angle) * rotationHandleDistance;
-        const handleY = block.center.y - Math.cos(angle) * rotationHandleDistance;
+        // v2 objects have 'type' field (servis_kutusu, sayac, vana, cihaz)
+        if (block.type && ['servis_kutusu', 'sayac', 'vana', 'cihaz', 'boru'].includes(block.type)) {
+            // v2 objects use x,y instead of center
+            const blockX = block.x !== undefined ? block.x : (block.center?.x || 0);
+            const blockY = block.y !== undefined ? block.y : (block.center?.y || 0);
 
-        const rotDist = Math.hypot(point.x - handleX, point.y - handleY);
-        if (rotDist < tolerance) {
-            return { type: 'plumbingBlock', object: block, handle: 'rotation' };
+            // Check rotation handle
+            const rotationHandleDistance = 30;
+            const angle = (block.rotation || 0) * Math.PI / 180;
+            const handleX = blockX + Math.sin(angle) * rotationHandleDistance;
+            const handleY = blockY - Math.cos(angle) * rotationHandleDistance;
+
+            const rotDist = Math.hypot(point.x - handleX, point.y - handleY);
+            if (rotDist < tolerance) {
+                return { type: 'plumbingBlock', object: block, handle: 'rotation' };
+            }
+
+            // Check body using bounding box
+            const width = block.config?.width || 40;
+            const height = block.config?.height || 20;
+            const halfW = width / 2;
+            const halfH = height / 2;
+
+            // Transform point to local coordinates
+            const dx = point.x - blockX;
+            const dy = point.y - blockY;
+            const cos = Math.cos(-angle);
+            const sin = Math.sin(-angle);
+            const localX = dx * cos - dy * sin;
+            const localY = dx * sin + dy * cos;
+
+            if (Math.abs(localX) <= halfW && Math.abs(localY) <= halfH) {
+                return { type: 'plumbingBlock', object: block, handle: 'body' };
+            }
+            continue;
         }
-    }
 
-    for (const block of blocks) {
-        const connectionPoints = getConnectionPoints(block);
-        for (let i = 0; i < connectionPoints.length; i++) {
-            const cp = connectionPoints[i];
-            const cpDist = Math.hypot(point.x - cp.x, point.y - cp.y);
-            if (cpDist < tolerance) {
-                return { type: 'plumbingBlock', object: block, handle: `connection${i}`, connectionPoint: cp };
+        // Old format - check rotation handle
+        if (block.center) {
+            const rotationHandleDistance = 30;
+            const angle = (block.rotation || 0) * Math.PI / 180;
+            const handleX = block.center.x + Math.sin(angle) * rotationHandleDistance;
+            const handleY = block.center.y - Math.cos(angle) * rotationHandleDistance;
+
+            const rotDist = Math.hypot(point.x - handleX, point.y - handleY);
+            if (rotDist < tolerance) {
+                return { type: 'plumbingBlock', object: block, handle: 'rotation' };
             }
         }
     }
 
+    // Old format - connection points
     for (const block of blocks) {
-        if (isPointInPlumbingBlock(point, block)) {
+        if (block.blockType) { // Old format only
+            const connectionPoints = getConnectionPoints(block);
+            for (let i = 0; i < connectionPoints.length; i++) {
+                const cp = connectionPoints[i];
+                const cpDist = Math.hypot(point.x - cp.x, point.y - cp.y);
+                if (cpDist < tolerance) {
+                    return { type: 'plumbingBlock', object: block, handle: `connection${i}`, connectionPoint: cp };
+                }
+            }
+        }
+    }
+
+    // Old format - body check
+    for (const block of blocks) {
+        if (block.blockType && isPointInPlumbingBlock(point, block)) {
             return { type: 'plumbingBlock', object: block, handle: 'body' };
         }
     }
