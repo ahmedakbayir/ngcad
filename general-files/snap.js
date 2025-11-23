@@ -9,7 +9,7 @@ import { getColumnCorners } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
 import { screenToWorld, worldToScreen, distToSegmentSquared, getLineIntersectionPoint } from '../draw/geometry.js';
-import { getPlumbingSnapPoint, isPlumbingMode } from '../plumbing/snap-plumbing.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 // --- MERDİVEN SNAP İÇİN YARDIMCI FONKSİYONLAR ---
 
@@ -271,41 +271,7 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     }
     // --- MERDİVEN MODU KONTROLÜ SONU ---
 
-    if (isPlumbingMode()) {
-    const plumbingSnap = getPlumbingSnapPoint(wm, screenMouse, SNAP_RADIUS_PIXELS);
-
-    if (plumbingSnap) {
-        const shouldLock = plumbingSnap.isLockable !== false;
-        // snapAngle doğrudan plumbingSnap'ten al (snap-plumbing.js'de hesaplanıyor)
-        const snapAngle = plumbingSnap.snapAngle || 0;
-
-        if (shouldLock) {
-        setState({
-            isSnapLocked: true,
-            lockedSnapPoint: {
-                ...plumbingSnap.point,
-                roundedX: plumbingSnap.point.x,
-                roundedY: plumbingSnap.point.y
-            }
-        })
-    };
-
-        return {
-            x: plumbingSnap.point.x,
-            y: plumbingSnap.point.y,
-            isSnapped: true,
-            snapLines: { h_origins: [], v_origins: [] },
-            isLockable: true,
-            point: plumbingSnap.point,
-            snapType: plumbingSnap.type,
-            roundedX: plumbingSnap.point.x,
-            roundedY: plumbingSnap.point.y,
-            snapAngle: snapAngle,
-            wall: plumbingSnap.wall // Duvar bilgisini de ekle
-        };
-    }
-    // Tesisat snap bulamadıysa, normal snap'e devam et
-    }
+    // Tesisat snap artık v2 tarafından yönetiliyor (plumbingManager.interactionManager)
 
     // Snap hesaplamaları başlangıcı (MERDİVEN DIŞINDAKİ MODLAR İÇİN)
     let x = wm.x, y = wm.y, isSnapped = false, isLockable = false;

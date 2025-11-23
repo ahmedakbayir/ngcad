@@ -6,8 +6,7 @@ import { state } from './main.js';
 import { getColumnAtPoint } from '../architectural-objects/columns.js';
 import { getBeamAtPoint } from '../architectural-objects/beams.js';
 import { getStairAtPoint } from '../architectural-objects/stairs.js';
-import { getPlumbingBlockAtPoint } from '../plumbing/plumbing-blocks.js';
-import { getPipeAtPoint, getValveAtPoint } from '../plumbing/plumbing-pipes.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { getDoorAtPoint } from '../architectural-objects/door-handler.js';
 import { getGuideAtPoint } from '../architectural-objects/guide-handler.js';
 import { getWindowAtPoint } from '../architectural-objects/window-handler.js';
@@ -160,23 +159,15 @@ export function getObjectAtPoint(pos) {
     const stairHit = getStairAtPoint(pos); // ← BURADA ÇAĞIR
     if (stairHit && stairHit.handle !== 'body') return stairHit; // ← Handle ise döndür
 
-    // 1.3.5 Tesisat Borusu Uç Noktası (p1/p2) - Blok handle'larından ÖNCE
-    // Kutuya bağlı borunun ucunu seçebilmek için boru uç noktası öncelikli olmalı
-    const pipeHandleHit = getPipeAtPoint(pos, tolerance);
-    if (pipeHandleHit) {
-        console.log('🔧 Pipe hit detected:', pipeHandleHit.handle, 'tolerance:', tolerance);
-    }
-    if (pipeHandleHit && (pipeHandleHit.handle === 'p1' || pipeHandleHit.handle === 'p2')) {
+    // 1.3.5 Tesisat Borusu Uç Noktası (p1/p2) - v2 üzerinden
+    const pipeHandleHit = plumbingManager.getObjectAtPoint?.(pos, tolerance);
+    if (pipeHandleHit && pipeHandleHit.type === 'pipe' && (pipeHandleHit.handle === 'p1' || pipeHandleHit.handle === 'p2')) {
         const result = { type: 'plumbingPipe', object: pipeHandleHit.object, handle: pipeHandleHit.handle };
-        console.log('✅ Returning pipe endpoint:', pipeHandleHit.handle);
         return validateFloorMatch(result, currentFloorId);
     }
 
-    // 1.4 Tesisat Bloğu Handle
-    const plumbingBlockHit = getPlumbingBlockAtPoint(pos);
-    if (plumbingBlockHit) {
-        console.log('🔧 PlumbingBlock hit detected:', plumbingBlockHit.handle);
-    }
+    // 1.4 Tesisat Bloğu Handle - v2 üzerinden
+    const plumbingBlockHit = pipeHandleHit?.type === 'component' ? pipeHandleHit : null;
     if (plumbingBlockHit && plumbingBlockHit.handle !== 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
 
     // 1.5 Duvar Ucu (Node)
@@ -222,9 +213,9 @@ export function getObjectAtPoint(pos) {
     // 2.5 Tesisat Bloğu Gövdesi
     if (plumbingBlockHit && plumbingBlockHit.handle === 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
 
-    // 2.5.3 Vana (Boru Üzerinde)
-    const valveHit = getValveAtPoint(pos, tolerance);
-    if (valveHit) return validateFloorMatch(valveHit, currentFloorId);
+    // 2.5.3 Vana (Boru Üzerinde) - v2 üzerinden
+    const valveHit = plumbingManager.getObjectAtPoint?.(pos, tolerance);
+    if (valveHit && valveHit.type === 'valve') return validateFloorMatch(valveHit, currentFloorId);
 
     // 2.5.5 Tesisat Borusu Gövdesi (p1/p2 zaten yukarıda handle'landı)
     if (pipeHandleHit && pipeHandleHit.handle === 'body') {

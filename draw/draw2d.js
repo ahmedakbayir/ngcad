@@ -5,7 +5,6 @@ import { drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
     drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
     drawBeam, drawStairs, drawGuides
     } from './renderer2d.js';
-import { drawPlumbingBlocks, drawPlumbingBlockHandles, drawPlumbingPipes, drawPlumbingPipePreview, drawPlumbingBlockPlacementPreview, drawValvesOnPipes, drawPlumbingSnapIndicator } from '../plumbing/draw-plumbing.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import {drawObjectPlacementPreviews,drawDragPreviews,drawSelectionFeedback,
         drawDrawingPreviews,drawSnapFeedback
@@ -22,7 +21,6 @@ import { getStairCorners } from '../architectural-objects/stairs.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 import { state, dom, BG } from '../general-files/main.js';
 import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; 
-import { drawPlumbingSnapLines } from '../plumbing/draw-plumbing-snap.js';
 
 
 
@@ -271,9 +269,6 @@ export function draw2D() {
     drawGrid();
 
 
-    // 1.5. TESİSAT SNAP HATLARI (Debug - Tesisat modunda görünür)
-    drawPlumbingSnapLines();
-
     // 2. Mahaller (Poligonlar)
     drawRoomPolygons(ctx2d, { ...state, rooms });
 
@@ -355,16 +350,7 @@ export function draw2D() {
         drawStairs(stair, isSelected);
     });
 
-    // 4.8. TESİSAT BLOKLARI
-    drawPlumbingBlocks();
-
-    // 4.9. TESİSAT BORULARI
-    drawPlumbingPipes();
-
-    // 4.9.5. VANALAR (Boru Üzerinde)
-    drawValvesOnPipes();
-
-    // 4.10. YENİ TESİSAT SİSTEMİ (v2)
+    // 4.8. TESİSAT SİSTEMİ (v2)
     plumbingManager.render(ctx2d);
 
     // 5. Atomik Semboller
@@ -512,15 +498,7 @@ export function draw2D() {
     drawDragPreviews(ctx2d, state, drawDimension);
     drawSelectionFeedback(ctx2d, state); // Bu fonksiyon seçili nesnenin ne olduğuna göre farklı şeyler çizebilir
 
-    // 11.5. Seçili tesisat bloğu handle'ları
-    if (selectedObject?.type === 'plumbingBlock') {
-        drawPlumbingBlockHandles(selectedObject.object);
-    }
-
     drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimension);
-    drawPlumbingPipePreview(); // Boru çizim önizlemesi
-    drawPlumbingBlockPlacementPreview(); // OCAK/KOMBI ekleme modu önizlemesi
-    drawPlumbingSnapIndicator(); // ✅ Tesisat snap yakalama işareti
     drawSnapFeedback(ctx2d, state, isMouseOverWall);
     drawSymmetryPreview(ctx2d, state);
  if (state.isStairPopupVisible && stairs && stairs.length > 0) {

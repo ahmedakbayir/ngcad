@@ -2,8 +2,8 @@
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
-import { createPlumbingBlock, onPointerDown as onPointerDownPlumbingBlock, getConnectionPoints, getActiveConnectionPoints, PLUMBING_BLOCK_TYPES } from '../plumbing/plumbing-blocks.js';
-import { createPlumbingPipe, snapToConnectionPoint, snapToPipeEndpoint, onPointerDown as onPointerDownPlumbingPipe, isSpaceForValve } from '../plumbing/plumbing-pipes.js';
+import { plumbingManager, TESISAT_MODLARI } from '../plumbing_v2/plumbing-manager.js';
+import { PLUMBING_PIPE_TYPES, PLUMBING_COMPONENT_TYPES } from '../plumbing_v2/plumbing-types.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
 import { onPointerDownGuide } from '../architectural-objects/guide-handler.js';
@@ -19,7 +19,7 @@ import { cancelLengthEdit } from '../general-files/ui.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { processWalls } from '../wall/wall-processor.js';
-import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+// plumbingManager zaten yukarıda import edildi
 
 /**
  * Vanadan/Sayaçtan sonraki tüm bağlı boruları düz çizgi yap
@@ -207,8 +207,15 @@ export function onPointerDown(e) {
                     case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                     case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break;
-                    case 'plumbingBlock': dragInfo = onPointerDownPlumbingBlock(clickedObject, pos, snappedPos, e); break;
-                    case 'plumbingPipe': dragInfo = onPointerDownPlumbingPipe(clickedObject, pos, snappedPos, e); break;
+                    case 'plumbingBlock':
+                        // v2'de plumbingManager üzerinden yönetiliyor
+                        dragInfo.startPointForDragging = clickedObject.object.center;
+                        dragInfo.dragOffset = { x: clickedObject.object.center.x - pos.x, y: clickedObject.object.center.y - pos.y };
+                        break;
+                    case 'plumbingPipe':
+                        // v2'de plumbingManager üzerinden yönetiliyor
+                        dragInfo.startPointForDragging = pos;
+                        break;
                     case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
                     case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;
                     case 'window': dragInfo = onPointerDownSelectWindow(clickedObject, pos); break;
@@ -316,9 +323,15 @@ export function onPointerDown(e) {
         }
 
         // ===================================================================
-        // === BAŞLANGIÇ: Tesisat Bloğu Çizim Modu (GÜNCELLENMİŞ BLOK) ===
+        // === ESKI TESİSAT MODLARI - v2'YE YÖNLENDİRİLDİ ===
         // ===================================================================
-    } else if (state.currentMode === "drawPlumbingBlock") {
+    } else if (state.currentMode === "drawPlumbingBlock" || state.currentMode === "drawValve" || state.currentMode === "drawPlumbingPipe") {
+        // Eski tesisat modları plumbing_v2'ye taşındı
+        console.warn('⚠️ Eski tesisat modu kullanılıyor. Lütfen plumbingV2 modunu kullanın.');
+        setMode("plumbingV2");
+        return;
+
+        /* ESKI KOD - KALDIRILDI
         const blockType = state.currentPlumbingBlockType || 'SERVIS_KUTUSU';
 
         // SAYAÇ için boru üzerine ekleme kontrolü
@@ -733,6 +746,7 @@ export function onPointerDown(e) {
             const nextStart = nextSnap ? { x: nextSnap.x, y: nextSnap.y } : p2;
             setState({ startPoint: nextStart });
         }
+        ESKI KOD SONU */
         // --- Menfez Çizim Modu ---
     } else if (state.currentMode === "drawVent") {
         let closestWall = null; let minDistSq = Infinity;

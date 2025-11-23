@@ -3,7 +3,7 @@
 // GÜNCELLENDİ: Boru bağlantı referansları (blockId) için indeksleme eklendi.
 import { state, setState } from './main.js';
 // YENİ İMPORT: Boru tiplerini geri yüklemek için eklendi
-import { PLUMBING_PIPE_TYPES } from '../plumbing/plumbing-pipes.js';
+import { PLUMBING_PIPE_TYPES } from '../plumbing_v2/plumbing-types.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 export function saveState() {

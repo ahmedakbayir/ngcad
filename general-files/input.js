@@ -24,8 +24,6 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../scene3d/scene3d-core.js';
 import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
-// YENİ İMPORT: Silme işlemi için getConnectionPoints eklendi
-import { getConnectionPoints } from '../plumbing/plumbing-blocks.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 
@@ -318,8 +316,8 @@ export function handleDelete() {
                 // Bir bloğa bağlı (BlockA)
                 const blockA = state.plumbingBlocks.find(b => b.id === startConn.blockId);
                 if (blockA) {
-                    const blockA_connections = getConnectionPoints(blockA);
-                    startPointToConnect = blockA_connections[startConn.connectionIndex];
+                    // v2'de connection points plumbingManager üzerinden alınmalı
+                    startPointToConnect = pipeToDelete.p1;
                     blockToModify = startConn.blockId; // A Bloğu ID'si
                 }
             } else {
@@ -339,8 +337,8 @@ export function handleDelete() {
                 // Bir bloğa bağlı (BlockC)
                 const blockC = state.plumbingBlocks.find(b => b.id === endConn.blockId);
                 if (blockC) {
-                    const blockC_connections = getConnectionPoints(blockC);
-                    endPointToConnect = blockC_connections[endConn.connectionIndex];
+                    // v2'de connection points plumbingManager üzerinden alınmalı
+                    endPointToConnect = pipeToDelete.p2;
                 }
                 // (Eğer A da bloksa, hiçbir şey yapma, sadece boruyu sil)
             } else {
