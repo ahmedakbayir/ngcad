@@ -285,11 +285,14 @@ export function onPointerMove(e) {
             }
             case 'plumbingPipe': {
                 // Boru gövdesi taşıma
+                console.log('🔧 plumbingPipe move case hit');
                 const pipeObj = state.selectedObject?.object;
+                console.log('🔧 pipeObj:', pipeObj, 'initialDragPoint:', state.initialDragPoint);
                 if (pipeObj && pipeObj.p1 && pipeObj.p2 && state.initialDragPoint) {
                     // Delta hesapla
                     const deltaX = snappedPos.x - state.initialDragPoint.x;
                     const deltaY = snappedPos.y - state.initialDragPoint.y;
+                    console.log('🔧 Moving pipe, delta:', deltaX, deltaY);
 
                     // İlk taşımada başlangıç pozisyonlarını kaydet
                     if (!state.pipeInitialP1) {
