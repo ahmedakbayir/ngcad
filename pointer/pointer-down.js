@@ -222,16 +222,18 @@ export function onPointerDown(e) {
                     case 'plumbingPipe': {
                         // v2'de plumbingManager üzerinden yönetiliyor - boru gövdesi taşıma
                         const pipeObj = clickedObject.object;
-                        // Borunun merkez noktasını hesapla
-                        const pipeCenterX = (pipeObj.p1.x + pipeObj.p2.x) / 2;
-                        const pipeCenterY = (pipeObj.p1.y + pipeObj.p2.y) / 2;
-                        dragInfo.startPointForDragging = { x: pipeCenterX, y: pipeCenterY };
-                        dragInfo.dragOffset = { x: pipeCenterX - pos.x, y: pipeCenterY - pos.y };
-                        // Başlangıç pozisyonlarını state'e kaydet
-                        dragInfo.additionalState = {
-                            pipeInitialP1: { x: pipeObj.p1.x, y: pipeObj.p1.y },
-                            pipeInitialP2: { x: pipeObj.p2.x, y: pipeObj.p2.y }
-                        };
+                        if (pipeObj && pipeObj.p1 && pipeObj.p2) {
+                            // Borunun merkez noktasını hesapla
+                            const pipeCenterX = (pipeObj.p1.x + pipeObj.p2.x) / 2;
+                            const pipeCenterY = (pipeObj.p1.y + pipeObj.p2.y) / 2;
+                            dragInfo.startPointForDragging = { x: pipeCenterX, y: pipeCenterY };
+                            dragInfo.dragOffset = { x: pipeCenterX - pos.x, y: pipeCenterY - pos.y };
+                            // Başlangıç pozisyonlarını state'e kaydet
+                            dragInfo.additionalState = {
+                                pipeInitialP1: { x: pipeObj.p1.x, y: pipeObj.p1.y },
+                                pipeInitialP2: { x: pipeObj.p2.x, y: pipeObj.p2.y }
+                            };
+                        }
                         break;
                     }
                     case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
