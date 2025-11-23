@@ -39,6 +39,10 @@ export class InteractionManager {
         this.dragStart = null;
         this.dragObject = null;
 
+        // Döndürme durumu
+        this.isRotating = false;
+        this.rotationOffset = 0;
+
         // Seçili nesne
         this.selectedObject = null;
     }
@@ -47,7 +51,7 @@ export class InteractionManager {
      * Mouse hareketi
      */
     handlePointerMove(e) {
-        if (!this.manager.activeTool && !this.isDragging && !this.boruCizimAktif) {
+        if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
             return false;
         }
 
@@ -73,7 +77,13 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Sürükleme - raw point kullan (handleDrag içinde gerekli snap yapılır)
+        // 3. Döndürme
+        if (this.isRotating && this.dragObject) {
+            this.handleRotation(point);
+            return true;
+        }
+
+        // 4. Sürükleme - raw point kullan (handleDrag içinde gerekli snap yapılır)
         if (this.isDragging && this.dragObject) {
             this.handleDrag(point);
             return true;
@@ -106,8 +116,17 @@ export class InteractionManager {
 
         // 3. Boru uç noktası sürükleme - seçim gerektirmez
         // Herhangi bir modda boru uç noktalarından doğrudan tutulup sürüklenebilir
-        if (state.currentMode === 'select' || !this.boruCizimAktif) {
-            // Önce boru uç noktası kontrolü yap
+        if (state.currentMode === 'select' || state.currentMode === 'plumbingV2' || !this.boruCizimAktif) {
+            // Önce seçili servis kutusunun köşelerini kontrol et (döndürme için)
+            if (this.selectedObject && this.selectedObject.type === 'servis_kutusu') {
+                const cornerIndex = this.findServiceBoxCornerAt(this.selectedObject, point, 10);
+                if (cornerIndex !== -1) {
+                    this.startRotation(this.selectedObject, point);
+                    return true;
+                }
+            }
+
+            // Sonra boru uç noktası kontrolü yap
             const boruUcu = this.findBoruUcuAt(point, 8);
             if (boruUcu) {
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
@@ -177,6 +196,10 @@ export class InteractionManager {
      * Mouse bırakma
      */
     handlePointerUp(e) {
+        if (this.isRotating) {
+            this.endRotation();
+            return true;
+        }
         if (this.isDragging) {
             this.endDrag();
             return true;
@@ -399,9 +422,16 @@ export class InteractionManager {
         }
 
         this.manager.activeTool = null;
+
+        // Seçimi temizle
+        this.deselectObject();
     }
 
     selectObject(obj) {
+        // Önceki seçimi temizle
+        if (this.selectedObject && this.selectedObject !== obj) {
+            this.selectedObject.isSelected = false;
+        }
         this.selectedObject = obj;
         obj.isSelected = true;
     }
@@ -611,6 +641,88 @@ export class InteractionManager {
         this.dragObject = null;
         this.dragEndpoint = null;
         this.dragStart = null;
+        this.manager.saveToState();
+    }
+
+    /**
+     * Servis kutusu köşesini bul
+     */
+    findServiceBoxCornerAt(obj, point, tolerance = 10) {
+        if (!obj || obj.type !== 'servis_kutusu' || !obj.getKoseler) return -1;
+
+        const corners = obj.getKoseler();
+        for (let i = 0; i < corners.length; i++) {
+            const dist = Math.hypot(point.x - corners[i].x, point.y - corners[i].y);
+            if (dist < tolerance) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Döndürme başlat
+     */
+    startRotation(obj, point) {
+        saveState();
+        this.isRotating = true;
+        this.dragObject = obj;
+
+        // Merkez noktası
+        const center = { x: obj.x, y: obj.y };
+
+        // Başlangıç açısını hesapla
+        const initialAngle = Math.atan2(point.y - center.y, point.x - center.x);
+        const initialRotationRad = (obj.rotation || 0) * Math.PI / 180;
+        this.rotationOffset = initialRotationRad - initialAngle;
+    }
+
+    /**
+     * Döndürme işle
+     */
+    handleRotation(point) {
+        if (!this.dragObject || this.dragObject.type !== 'servis_kutusu') return;
+
+        const obj = this.dragObject;
+        const center = { x: obj.x, y: obj.y };
+
+        // Yeni açıyı hesapla
+        const mouseAngle = Math.atan2(point.y - center.y, point.x - center.x);
+        let newRotationRad = mouseAngle + this.rotationOffset;
+
+        // 1 derecelik snap
+        const snapAngleRad = (1 * Math.PI / 180);
+        newRotationRad = Math.round(newRotationRad / snapAngleRad) * snapAngleRad;
+        let newRotationDeg = newRotationRad * 180 / Math.PI;
+
+        // 90 dereceye snap (5 derece threshold)
+        const remainder = newRotationDeg % 90;
+        const snapThreshold = 5;
+        if (Math.abs(remainder) <= snapThreshold || Math.abs(remainder) >= (90 - snapThreshold)) {
+            newRotationDeg = Math.round(newRotationDeg / 90) * 90;
+        }
+
+        // Eski rotation'ı kaydet
+        const oldRotation = obj.rotation;
+        obj.rotation = newRotationDeg;
+
+        // Bağlı boruyu güncelle
+        if (obj.bagliBoruId) {
+            const boru = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
+            if (boru) {
+                boru.moveP1(obj.getCikisNoktasi());
+            }
+        }
+    }
+
+    /**
+     * Döndürme bitir
+     */
+    endRotation() {
+        this.isRotating = false;
+        this.dragObject = null;
+        this.rotationOffset = 0;
+        this.manager.saveToState();
     }
 
     updateConnectedPipe(result) {
