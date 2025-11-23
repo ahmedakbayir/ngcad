@@ -79,11 +79,8 @@ export function onPointerDown(e) {
 
     // --- Seçim Modu ---
     if (state.currentMode === "select") {
-        // Önce v2 tesisat nesnesi var mı kontrol et
-        const plumbingHandled = plumbingManager.interactionManager?.handlePointerDown(e);
-        if (plumbingHandled) {
-            return;
-        }
+        // NOT: Select modunda v2 interactionManager kullanılmıyor
+        // getObjectAtPoint hem v1 (state.plumbingBlocks) hem v2 nesnelerini buluyor
 
         // Uzunluk düzenleme modu aktifse iptal et
         if (state.isEditingLength) { cancelLengthEdit(); return; }
