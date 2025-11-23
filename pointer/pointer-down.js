@@ -221,9 +221,11 @@ export function onPointerDown(e) {
                         const pipeCenterY = (pipeObj.p1.y + pipeObj.p2.y) / 2;
                         dragInfo.startPointForDragging = { x: pipeCenterX, y: pipeCenterY };
                         dragInfo.dragOffset = { x: pipeCenterX - pos.x, y: pipeCenterY - pos.y };
-                        // Başlangıç pozisyonlarını kaydet
-                        dragInfo.initialP1 = { x: pipeObj.p1.x, y: pipeObj.p1.y };
-                        dragInfo.initialP2 = { x: pipeObj.p2.x, y: pipeObj.p2.y };
+                        // Başlangıç pozisyonlarını state'e kaydet
+                        dragInfo.additionalState = {
+                            pipeInitialP1: { x: pipeObj.p1.x, y: pipeObj.p1.y },
+                            pipeInitialP2: { x: pipeObj.p2.x, y: pipeObj.p2.y }
+                        };
                         break;
                     }
                     case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
