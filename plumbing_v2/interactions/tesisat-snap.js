@@ -68,49 +68,49 @@ export class TesisatSnapSystem {
         // 1. KESIŞIM NOKTALARI (En yüksek öncelik)
         const kesisimSnap = this.findKesisimSnap(point, tesisatHatlari, snapMesafesi);
         if (kesisimSnap) {
-            if (isDebugAngle) console.log('🔴 Kesişim snap, açı:', userAngle.toFixed(1));
+            // if (isDebugAngle) console.log('🔴 Kesişim snap, açı:', userAngle.toFixed(1));
             return kesisimSnap;
         }
 
         // 1.5. BORU KESİŞİM NOKTALARI (Mevcut borularla kesişim)
         const boruKesisimSnap = this.findBoruKesisimSnap(point, snapMesafesi);
         if (boruKesisimSnap) {
-            if (isDebugAngle) console.log('🟠 Boru kesişim snap, açı:', userAngle.toFixed(1));
+            // if (isDebugAngle) console.log('🟠 Boru kesişim snap, açı:', userAngle.toFixed(1));
             return boruKesisimSnap;
         }
 
         // 2. BORU UÇ NOKTALARI (Bağlantı noktaları)
         const boruUcSnap = this.findBoruUcSnap(point, snapMesafesi);
         if (boruUcSnap) {
-            if (isDebugAngle) console.log('🟡 Boru uç snap, açı:', userAngle.toFixed(1));
+            // if (isDebugAngle) console.log('🟡 Boru uç snap, açı:', userAngle.toFixed(1));
             return boruUcSnap;
         }
 
         // 3. DİKLİK KONTROLÜ (Tesisat hattına dik)
         const diklikSnap = this.findDiklikSnap(point, tesisatHatlari, snapMesafesi);
         if (diklikSnap) {
-            if (isDebugAngle) console.log('🟢 Diklik snap, açı:', userAngle.toFixed(1));
+            // if (isDebugAngle) console.log('🟢 Diklik snap, açı:', userAngle.toFixed(1));
             return diklikSnap;
         }
 
         // 4. BORU ÜZERİNE DİK İNME
         const boruDikSnap = this.findBoruDikSnap(point, snapMesafesi);
         if (boruDikSnap) {
-            if (isDebugAngle) console.log('🔵 Boru dik snap, açı:', userAngle.toFixed(1));
+            // if (isDebugAngle) console.log('🔵 Boru dik snap, açı:', userAngle.toFixed(1));
             return boruDikSnap;
         }
 
         // 5. TESİSAT HATTI ÜZERİ (Serbest hareket)
         const hatSnap = this.findHatUzeriSnap(point, tesisatHatlari, snapMesafesi);
         if (hatSnap) {
-            if (isDebugAngle) console.log('🟣 Hat üzeri snap, açı:', userAngle.toFixed(1));
+            // if (isDebugAngle) console.log('🟣 Hat üzeri snap, açı:', userAngle.toFixed(1));
             return hatSnap;
         }
 
         // 6. BORU ÜZERİ SNAP
         const boruSnap = this.findBoruUzeriSnap(point, snapMesafesi);
         if (boruSnap) {
-            if (isDebugAngle) console.log('⚪ Boru üzeri snap, açı:', userAngle.toFixed(1));
+            // if (isDebugAngle) console.log('⚪ Boru üzeri snap, açı:', userAngle.toFixed(1));
             return boruSnap;
         }
 
@@ -118,14 +118,15 @@ export class TesisatSnapSystem {
         if (this.currentStartPoint) {
             const aci90Snap = this.find90DereceSnap(point, this.currentStartPoint);
             if (aci90Snap) {
-                if (isDebugAngle) console.log('⚫ 90° snap, açı:', userAngle.toFixed(1), '→', aci90Snap.angle);
+                // if (isDebugAngle) console.log('⚫ 90° snap, açı:', userAngle.toFixed(1), '→', aci90Snap.angle);
                 return aci90Snap;
             }
         }
 
         // Hiçbir snap bulunamadı - serbest çizim
-        if (isDebugAngle) console.log('✅ Serbest çizim, açı:', userAngle.toFixed(1));
-        return null;
+        // if (isDebugAngle) 
+        //     console.log('✅ Serbest çizim, açı:', userAngle.toFixed(1));
+        // return null;
     }
 
     /**
