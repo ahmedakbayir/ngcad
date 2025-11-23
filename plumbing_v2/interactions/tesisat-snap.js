@@ -193,7 +193,7 @@ export class TesisatSnapSystem {
                 if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
                 // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                if (angleDiff > 45) return;
+                if (angleDiff >= 40) return;
             }
 
             const dist = Math.hypot(point.x - k.x, point.y - k.y);
@@ -250,7 +250,7 @@ export class TesisatSnapSystem {
                 if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
                 // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                if (angleDiff > 45) return;
+                if (angleDiff >= 40) return;
 
                 const dist = Math.hypot(point.x - kesisim.x, point.y - kesisim.y);
                 if (dist < minDist) {
@@ -299,7 +299,7 @@ export class TesisatSnapSystem {
                     if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
                     // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                    if (angleDiff > 45) return;
+                    if (angleDiff >= 40) return;
                 }
 
                 const dist = Math.hypot(point.x - node.x, point.y - node.y);
