@@ -114,9 +114,9 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Boru uç noktası sürükleme - seçim gerektirmez
-        // Herhangi bir modda boru uç noktalarından doğrudan tutulup sürüklenebilir
-        if (state.currentMode === 'select' || state.currentMode === 'plumbingV2' || !this.boruCizimAktif) {
+        // 3. Nesne seçimi ve sürükleme - SADECE SEÇ MODUNDA
+        // plumbingV2 modunda seçim/sürükleme yapılmaz, sadece boru çizilir ve bileşen yerleştirilir
+        if (state.currentMode === 'select') {
             // Önce seçili servis kutusunun köşelerini kontrol et (döndürme için)
             if (this.selectedObject && this.selectedObject.type === 'servis_kutusu') {
                 const cornerIndex = this.findServiceBoxCornerAt(this.selectedObject, point, 10);
