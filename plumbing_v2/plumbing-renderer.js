@@ -37,6 +37,11 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
+        // Snap göstergesi
+        const activeSnap = manager.interactionManager?.activeSnap;
+        if (activeSnap) {
+            this.drawSnapIndicator(ctx, activeSnap);
+        }
     }
 
     drawPipes(ctx, pipes) {
@@ -228,12 +233,15 @@ export class PlumbingRenderer {
         ctx.textBaseline = 'middle';
         ctx.fillText('S.K.', 0, 0);
 
-        // Çıkış noktası göstergesi (boru rengi)
-        const cikisLocal = comp.getCikisLocalKoordinat();
-        ctx.fillStyle = '#FFFF00';
-        ctx.beginPath();
-        ctx.arc(cikisLocal.x, cikisLocal.y, 3, 0, Math.PI * 2);
-        ctx.fill();
+        // Çıkış noktası göstergesi - sadece boru bağlı değilse göster, boru çapında
+        if (!comp.cikisKullanildi) {
+            const cikisLocal = comp.getCikisLocalKoordinat();
+            ctx.fillStyle = '#FFFF00';
+            ctx.beginPath();
+            // Boru çapı 2cm, yarıçap 1cm
+            ctx.arc(cikisLocal.x, cikisLocal.y, 1, 0, Math.PI * 2);
+            ctx.fill();
+        }
     }
 
     drawSayac(ctx, comp) {

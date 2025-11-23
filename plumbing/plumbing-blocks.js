@@ -404,9 +404,15 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
     const handle = selectedObject.handle;
     let effectiveBlock = block;
 
+    // V2 uyumluluğu: center yerine x,y kullan
+    const blockX = block.center?.x ?? block.x ?? 0;
+    const blockY = block.center?.y ?? block.y ?? 0;
+    const isV2 = block.type && ['servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(block.type);
+
     const isCopying = e.ctrlKey || e.metaKey;
-    if (isCopying) {
-        const copy = createPlumbingBlock(block.center.x, block.center.y, block.blockType);
+    if (isCopying && !isV2) {
+        // Sadece eski format için kopyalama
+        const copy = createPlumbingBlock(blockX, blockY, block.blockType);
         copy.rotation = block.rotation;
         copy.typeConfig = block.typeConfig;
 
@@ -419,20 +425,25 @@ export function onPointerDown(selectedObject, pos, snappedPos, e) {
         });
     }
 
-    if (handle === 'body') {
+    if (handle === 'body' && !isV2) {
         repairMissingConnections(effectiveBlock);
     }
+
+    // V2 uyumluluğu: center objesini oluştur
+    const effectiveBlockX = effectiveBlock.center?.x ?? effectiveBlock.x ?? 0;
+    const effectiveBlockY = effectiveBlock.center?.y ?? effectiveBlock.y ?? 0;
 
     const dragState = {
         type: 'plumbingBlock',
         block: effectiveBlock,
         handle: handle,
         startPos: { ...pos },
-        startCenter: { ...effectiveBlock.center },
+        startCenter: { x: effectiveBlockX, y: effectiveBlockY },
         startRotation: effectiveBlock.rotation || 0,
         isSnapped: false,
         lastSnapType: null,
-        lastSnapPoint: null
+        lastSnapPoint: null,
+        isV2: isV2
     };
     setState({ dragState });
 
@@ -447,31 +458,37 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
     if (!dragState || dragState.type !== 'plumbingBlock') return false;
 
-    const { block, handle, startPos, startCenter, startRotation } = dragState;
-    
+    const { block, handle, startPos, startCenter, startRotation, isV2 } = dragState;
+
+    // V2 uyumluluğu: center yerine x,y kullan
+    const blockX = block.center?.x ?? block.x ?? 0;
+    const blockY = block.center?.y ?? block.y ?? 0;
+
     const dx = unsnappedPos.x - startPos.x;
     const dy = unsnappedPos.y - startPos.y;
 
     if (handle === 'rotation') {
         const angleToMouse = Math.atan2(
-            snappedPos.roundedX - block.center.x,
-            -(snappedPos.roundedY - block.center.y)
+            snappedPos.roundedX - blockX,
+            -(snappedPos.roundedY - blockY)
         ) * 180 / Math.PI;
 
         const oldRotation = block.rotation || 0;
         const newRotation = Math.round(angleToMouse / 15) * 15;
 
         if (oldRotation !== newRotation) {
-            if (!checkPipeValveLengthBeforeRotation(block, newRotation)) {
+            if (!isV2 && !checkPipeValveLengthBeforeRotation(block, newRotation)) {
                 return false;
             }
 
             block.rotation = newRotation;
-            updateConnectedPipesAfterRotation(block, oldRotation, block.rotation);
+            if (!isV2) {
+                updateConnectedPipesAfterRotation(block, oldRotation, block.rotation);
+            }
         }
 
         return true;
-        
+
     } else if (handle === 'body') {
         let targetX = startCenter.x + dx;
         let targetY = startCenter.y + dy;
@@ -561,17 +578,29 @@ export function onPointerMove(snappedPos, unsnappedPos) {
             y: targetY
         };
 
-        if (!checkPipeValveLengthBeforeMove(block, newCenter)) {
+        if (!isV2 && !checkPipeValveLengthBeforeMove(block, newCenter)) {
             return false;
         }
 
-        const oldCenter = { ...block.center };
-        
-        block.center.x = newCenter.x;
-        block.center.y = newCenter.y;
+        // V2 uyumluluğu: center veya x,y kullan
+        const oldCenterX = block.center?.x ?? block.x ?? 0;
+        const oldCenterY = block.center?.y ?? block.y ?? 0;
+        const oldCenter = { x: oldCenterX, y: oldCenterY };
 
-        updateConnectedPipes(block, oldCenter, block.center);
-        
+        if (isV2) {
+            // V2 objeler için x,y kullan
+            block.x = newCenter.x;
+            block.y = newCenter.y;
+        } else {
+            // Eski format için center kullan
+            block.center.x = newCenter.x;
+            block.center.y = newCenter.y;
+        }
+
+        if (!isV2) {
+            updateConnectedPipes(block, oldCenter, newCenter);
+        }
+
         return true;
     }
 
