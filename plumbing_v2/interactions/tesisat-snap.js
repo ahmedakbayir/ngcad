@@ -79,13 +79,14 @@ export class TesisatSnapSystem {
         const boruSnap = this.findBoruUzeriSnap(point, snapMesafesi);
         if (boruSnap) return boruSnap;
 
-        // 7. 10cm DIŞINDA - SADECE 90° AÇILARDA SNAP
-        if (this.currentStartPoint) {
-            const aci90Snap = this.find90DereceSnap(point, this.currentStartPoint);
-            if (aci90Snap) return aci90Snap;
-        }
+        // 7. 10cm DIŞINDA - SADECE 90° AÇILARDA SNAP (DEVREDİŞİ - serbest çizim için)
+        // Kullanıcı serbest açılarda çizebilsin
+        // if (this.currentStartPoint) {
+        //     const aci90Snap = this.find90DereceSnap(point, this.currentStartPoint);
+        //     if (aci90Snap) return aci90Snap;
+        // }
 
-        // Hiçbir snap bulunamadı
+        // Hiçbir snap bulunamadı - serbest çizim
         return null;
     }
 

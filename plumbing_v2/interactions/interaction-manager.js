@@ -259,9 +259,6 @@ export class InteractionManager {
         if (!this.boruCizimAktif) {
             this.manager.activeTool = null;
         }
-
-        // İkon güncellemesi için setMode'u çağır
-        setMode("plumbingV2", true);
     }
 
     /**
