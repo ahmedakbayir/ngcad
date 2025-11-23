@@ -163,13 +163,20 @@ export function getObjectAtPoint(pos) {
     // 1.3.5 Tesisat Borusu Uç Noktası (p1/p2) - Blok handle'larından ÖNCE
     // Kutuya bağlı borunun ucunu seçebilmek için boru uç noktası öncelikli olmalı
     const pipeHandleHit = getPipeAtPoint(pos, tolerance);
+    if (pipeHandleHit) {
+        console.log('🔧 Pipe hit detected:', pipeHandleHit.handle, 'tolerance:', tolerance);
+    }
     if (pipeHandleHit && (pipeHandleHit.handle === 'p1' || pipeHandleHit.handle === 'p2')) {
         const result = { type: 'plumbingPipe', object: pipeHandleHit.object, handle: pipeHandleHit.handle };
+        console.log('✅ Returning pipe endpoint:', pipeHandleHit.handle);
         return validateFloorMatch(result, currentFloorId);
     }
 
     // 1.4 Tesisat Bloğu Handle
     const plumbingBlockHit = getPlumbingBlockAtPoint(pos);
+    if (plumbingBlockHit) {
+        console.log('🔧 PlumbingBlock hit detected:', plumbingBlockHit.handle);
+    }
     if (plumbingBlockHit && plumbingBlockHit.handle !== 'body') return validateFloorMatch(plumbingBlockHit, currentFloorId);
 
     // 1.5 Duvar Ucu (Node)

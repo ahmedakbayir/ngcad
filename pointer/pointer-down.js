@@ -161,6 +161,7 @@ export function onPointerDown(e) {
 
         // Tıklanan nesne varsa seçili yap ve sürüklemeyi başlat
         if (clickedObject) {
+            console.log('🎯 Object clicked:', clickedObject.type, 'handle:', clickedObject.handle);
             if (clickedObject.type === 'room') {
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {

@@ -458,6 +458,7 @@ export function onPointerMove(snappedPos, unsnappedPos) {
     const { dragState } = state;
     if (!dragState || dragState.type !== 'plumbingBlock') return false;
 
+    console.log('🔄 PlumbingBlock drag active, handle:', dragState.handle);
     const { block, handle, startPos, startCenter, startRotation, isV2 } = dragState;
 
     // V2 uyumluluğu: center yerine x,y kullan
