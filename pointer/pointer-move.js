@@ -278,22 +278,22 @@ export function onPointerMove(e) {
                 break;
             case 'plumbingPipe':
                 // v2'de plumbingManager üzerinden yönetiliyor - boru gövdesi taşıma
-                if (state.selectedObject?.object?.p1 && state.selectedObject?.object?.p2) {
+                if (state.selectedObject?.object?.p1 && state.selectedObject?.object?.p2 && state.pipeInitialP1 && state.pipeInitialP2) {
                     const pipeObj = state.selectedObject.object;
                     // Yeni merkez pozisyonunu hesapla (offset ile)
-                    const newCenterX = snappedPos.x + (dragInfo.dragOffset?.x || 0);
-                    const newCenterY = snappedPos.y + (dragInfo.dragOffset?.y || 0);
+                    const newCenterX = snappedPos.x + (state.dragOffset?.x || 0);
+                    const newCenterY = snappedPos.y + (state.dragOffset?.y || 0);
                     // Başlangıç merkezini hesapla
-                    const initialCenterX = (dragInfo.initialP1.x + dragInfo.initialP2.x) / 2;
-                    const initialCenterY = (dragInfo.initialP1.y + dragInfo.initialP2.y) / 2;
+                    const initialCenterX = (state.pipeInitialP1.x + state.pipeInitialP2.x) / 2;
+                    const initialCenterY = (state.pipeInitialP1.y + state.pipeInitialP2.y) / 2;
                     // Delta hesapla
                     const deltaX = newCenterX - initialCenterX;
                     const deltaY = newCenterY - initialCenterY;
                     // Her iki uç noktayı da taşı
-                    pipeObj.p1.x = dragInfo.initialP1.x + deltaX;
-                    pipeObj.p1.y = dragInfo.initialP1.y + deltaY;
-                    pipeObj.p2.x = dragInfo.initialP2.x + deltaX;
-                    pipeObj.p2.y = dragInfo.initialP2.y + deltaY;
+                    pipeObj.p1.x = state.pipeInitialP1.x + deltaX;
+                    pipeObj.p1.y = state.pipeInitialP1.y + deltaY;
+                    pipeObj.p2.x = state.pipeInitialP2.x + deltaX;
+                    pipeObj.p2.y = state.pipeInitialP2.y + deltaY;
                 }
                 break;
             case 'valve':
