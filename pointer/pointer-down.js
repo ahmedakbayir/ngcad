@@ -290,6 +290,8 @@ export function onPointerDown(e) {
         } else {
             setState({ selectedRoom: null });
         }
+        // DEBUG: Select bloğunun sonu - buraya girmemeli
+        if (state.currentMode === "drawStairs") console.log('❌ SELECT BLOĞUNA GİRİLDİ - bu olmamalı!');
 
         // --- Duvar veya Oda Çizim Modu ---
     } else if (state.currentMode === "drawWall" || state.currentMode === "drawRoom") {
