@@ -453,6 +453,10 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     // Aksi halde (zorla ayarlama varsa VEYA modlar farklıysa VEYA istenen mod "select" ise), doğrudan istenen modu (mode) kullan.
     const newMode = (!forceSet && state.currentMode === mode && mode !== "select") ? "select" : mode;
 
+    if (mode === "drawStairs" || newMode === "drawStairs") {
+        console.log('🔷 MODE CHANGE:', { requestedMode: mode, currentMode: state.currentMode, newMode, forceSet });
+    }
+
     // --- DÜZELTME: Mod değiştiğinde simetri timer'ını iptal et ---
     if (newMode !== "drawSymmetry" && state.symmetryPreviewTimer) {
         clearTimeout(state.symmetryPreviewTimer);
