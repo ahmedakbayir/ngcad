@@ -58,6 +58,8 @@ export function onPointerDown(e) {
     }
     if (e.button === 2) return; // Sağ tuş (context menu için ayrılmış)
 
+    console.log('🎯 onPointerDown called - currentMode:', state.currentMode);
+
     // Tıklama konumunu dünya koordinatlarına çevir
     const rect = dom.c2d.getBoundingClientRect();
     const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
@@ -76,11 +78,20 @@ export function onPointerDown(e) {
                           state.currentMode === 'drawPlumbingPipe' ||
                           state.currentMode === 'drawPlumbingBlock';
 
-    if (plumbingManager.interactionManager?.boruCizimAktif && isPlumbingMode) {
+    const boruCizimAktif = plumbingManager.interactionManager?.boruCizimAktif;
+    console.log('🔍 Plumbing check:', { boruCizimAktif, isPlumbingMode, currentMode: state.currentMode });
+
+    if (boruCizimAktif && isPlumbingMode) {
+        console.log('⚡ Calling plumbing manager handler');
         const handled = plumbingManager.interactionManager.handlePointerDown(e);
+        console.log('⚡ Plumbing manager handled:', handled);
         if (handled) {
+            console.log('⚡ Plumbing manager consumed the click - returning early');
             return;
         }
+    } else if (boruCizimAktif && !isPlumbingMode) {
+        console.warn('⚠️ WARNING: boruCizimAktif is TRUE but we are NOT in plumbing mode!');
+        console.warn('⚠️ Current mode:', state.currentMode, '- This is the BUG! Plumbing manager should reset this flag.');
     }
 
     // --- Seçim Modu ---
