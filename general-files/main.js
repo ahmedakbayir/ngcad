@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { setupInputListeners, handleDelete } from './input.js';
+import { iconContainerManager } from './icon-container-manager.js';
 import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../menu/guide-menu.js';
@@ -852,6 +853,10 @@ function initialize() {
     initFloorOperationsMenu();
     initPanelDisplayMenu();
 
+    // GELİŞMİŞ İKON CONTAINER YÖNETİMİ
+    initializeDraggableGroups(); // Temel sürükleme
+    iconContainerManager.initialize(); // Resize, grid, reorder, 2x boyut
+
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
     dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
@@ -960,7 +965,7 @@ function initialize() {
     saveState();
 }
 
-// Sürüklenebilir grup fonksiyonu
+// Sürüklenebilir grup fonksiyonu (GELİŞMİŞ VERSİYON)
 function initializeDraggableGroups() {
     const groups = document.querySelectorAll('.draggable-group');
 
@@ -983,6 +988,9 @@ function initializeDraggableGroups() {
         }
 
         handle.addEventListener('mousedown', (e) => {
+            // Resize handle'a tıklanmışsa ignore et
+            if (e.target.closest('.resize-handle')) return;
+
             isDragging = true;
             group.classList.add('dragging');
 
