@@ -554,8 +554,10 @@ export function onPointerDown(e) {
         needsUpdate3D = true;
         objectJustCreated = true;
         console.log('✅ Valve added to pipe at position', valvePos);
+        ESKI TESISAT KODU SONU */
         // --- Merdiven Çizim Modu ---
     } else if (state.currentMode === "drawStairs") {
+        console.log('🟢 Merdiven else-if bloğuna girildi');
         console.log('🔵 MERDIVEN MODU - Tıklama:', { hasStartPoint: !!state.startPoint, snappedPos });
         if (!state.startPoint) {
             const startPt = { x: snappedPos.roundedX, y: snappedPos.roundedY };
@@ -606,6 +608,7 @@ export function onPointerDown(e) {
             }
             setState({ startPoint: null, selectedObject: null });
         }
+        /* ESKI BORU ÇİZİM KODU - KALDIRILDI
         // --- Tesisat Borusu Çizim Modu ---
     } else if (state.currentMode === "drawPlumbingPipe") {
         console.log('🚀 PIPE DRAWING MODE - Click registered:', { hasStartPoint: !!state.startPoint, pos });
