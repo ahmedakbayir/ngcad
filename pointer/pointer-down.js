@@ -70,8 +70,13 @@ export function onPointerDown(e) {
     let geometryChanged = false; // Geometri değişti mi (saveState için)?
 
     // === BORU ÇİZİM MODU AKTİF İSE ÖNCELİKLİ İŞLE ===
-    // Seç modunda boru çizim aktif olsa bile seçim öncelikli
-    if (plumbingManager.interactionManager?.boruCizimAktif && state.currentMode !== 'select') {
+    // SADECE plumbing modlarında boru çizim handler'ını çağır
+    // Diğer çizim modlarında (drawStairs, drawColumn, vb.) kesmemeli
+    const isPlumbingMode = state.currentMode === 'plumbingV2' ||
+                          state.currentMode === 'drawPlumbingPipe' ||
+                          state.currentMode === 'drawPlumbingBlock';
+
+    if (plumbingManager.interactionManager?.boruCizimAktif && isPlumbingMode) {
         const handled = plumbingManager.interactionManager.handlePointerDown(e);
         if (handled) {
             return;
