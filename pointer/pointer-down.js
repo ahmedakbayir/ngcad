@@ -64,6 +64,11 @@ export function onPointerDown(e) {
     // Tıklama konumunu snap noktalarına göre ayarla
     let snappedPos = getSmartSnapPoint(e);
 
+    // DEBUG: Mod kontrolü
+    if (state.currentMode === "drawStairs") {
+        console.log('🔷 onPointerDown - drawStairs modu aktif:', { pos, snappedPos, startPoint: state.startPoint });
+    }
+
     // Güncelleme bayrakları
     let needsUpdate3D = false; // 3D sahne güncellenmeli mi?
     let objectJustCreated = false; // Yeni bir nesne oluşturuldu mu?
@@ -539,8 +544,11 @@ export function onPointerDown(e) {
         console.log('✅ Valve added to pipe at position', valvePos);
         // --- Merdiven Çizim Modu ---
     } else if (state.currentMode === "drawStairs") {
+        console.log('🔵 MERDIVEN MODU - Tıklama:', { hasStartPoint: !!state.startPoint, snappedPos });
         if (!state.startPoint) {
-            setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
+            const startPt = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            console.log('🔵 MERDIVEN - İlk nokta ayarlandı:', startPt);
+            setState({ startPoint: startPt });
         } else {
             const p1 = state.startPoint;
             const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
@@ -548,6 +556,7 @@ export function onPointerDown(e) {
             const deltaY = p2.y - p1.y;
             const absWidth = Math.abs(deltaX);
             const absHeight = Math.abs(deltaY);
+            console.log('🔵 MERDIVEN - İkinci nokta:', { p1, p2, deltaX, deltaY, absWidth, absHeight });
             if (absWidth > 10 && absHeight > 10) {
                 const centerX = (p1.x + p2.x) / 2;
                 const centerY = (p1.y + p2.y) / 2;
@@ -580,6 +589,8 @@ export function onPointerDown(e) {
                 needsUpdate3D = true;
                 objectJustCreated = true;
                 geometryChanged = true;
+            } else {
+                console.warn('⚠️ MERDIVEN - Boyutlar çok küçük:', { absWidth, absHeight, minRequired: 10 });
             }
             setState({ startPoint: null, selectedObject: null });
         }
