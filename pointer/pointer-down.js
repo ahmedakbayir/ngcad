@@ -85,6 +85,11 @@ export function onPointerDown(e) {
         }
     }
 
+    // DEBUG: plumbingManager kontrolünden sonra
+    if (state.currentMode === "drawStairs") {
+        console.log('🔷 plumbingManager kontrolü geçildi');
+    }
+
     // --- Seçim Modu ---
     if (state.currentMode === "select") {
         // NOT: Select modunda v2 interactionManager kullanılmıyor
