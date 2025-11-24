@@ -539,7 +539,9 @@ export function onPointerDown(e) {
         console.log('✅ Valve added to pipe at position', valvePos);
         // --- Merdiven Çizim Modu ---
     } else if (state.currentMode === "drawStairs") {
+        console.log('🔷 STAIRCASE DRAWING MODE - Click registered');
         if (!state.startPoint) {
+            console.log('✅ First click - Setting start point:', { x: snappedPos.roundedX, y: snappedPos.roundedY });
             setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
         } else {
             const p1 = state.startPoint;
@@ -548,6 +550,7 @@ export function onPointerDown(e) {
             const deltaY = p2.y - p1.y;
             const absWidth = Math.abs(deltaX);
             const absHeight = Math.abs(deltaY);
+            console.log('🔷 Second click - Dimensions:', { absWidth, absHeight, p1, p2 });
             if (absWidth > 10 && absHeight > 10) {
                 const centerX = (p1.x + p2.x) / 2;
                 const centerY = (p1.y + p2.y) / 2;
@@ -562,14 +565,19 @@ export function onPointerDown(e) {
                     rotation = (deltaY >= 0) ? 90 : -90;
                 }
                 const isLanding = currentModifierKeys.ctrl;
+                console.log('✅ Creating staircase:', { centerX, centerY, width, height, rotation, isLanding });
                 const newStairs = createStairs(centerX, centerY, width, height, rotation, isLanding);
                 if (!state.stairs) {
                     state.stairs = [];
                 }
                 state.stairs.push(newStairs);
+                console.log('✅ Staircase created and added to state.stairs:', newStairs);
+                console.log('📊 Total stairs count:', state.stairs.length);
                 needsUpdate3D = true;
                 objectJustCreated = true;
                 geometryChanged = true;
+            } else {
+                console.warn('⚠️ Staircase too small - Minimum size is 10cm x 10cm:', { absWidth, absHeight });
             }
             setState({ startPoint: null, selectedObject: null });
         }
