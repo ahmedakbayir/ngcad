@@ -77,115 +77,114 @@ export class IconContainerManager {
         container.appendChild(handle);
 
         // Resize event listeners
-        let startX, startY, startWidth, startHeight;
-
         handle.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             e.preventDefault();
 
             this.resizing = container;
-            startX = e.clientX;
-            startY = e.clientY;
 
+            const startX = e.clientX;
+            const startY = e.clientY;
             const rect = container.getBoundingClientRect();
-            startWidth = rect.width;
-            startHeight = rect.height;
+            const startWidth = rect.width;
+            const startHeight = rect.height;
 
             container.classList.add('resizing');
-        });
 
-        document.addEventListener('mousemove', (e) => {
-            if (!this.resizing || this.resizing !== container) return;
+            // Move handler - defined inside mousedown to capture start values
+            const moveHandler = (moveEvent) => {
+                if (!this.resizing || this.resizing !== container) return;
 
-            e.preventDefault();
+                moveEvent.preventDefault();
 
-            const config = this.containers.get(container.id);
-            const buttons = container.querySelectorAll('.btn');
+                const config = this.containers.get(container.id);
+                const buttons = container.querySelectorAll('.btn');
 
-            // Minimum ve maksimum boyutları hesapla
-            let minWidth = config.minWidth || 120;
-            let minHeight = config.minHeight || 60;
-            let maxWidth = 800; // Maksimum genişlik
-            let maxHeight = 600; // Maksimum yükseklik
+                // Minimum ve maksimum boyutları hesapla
+                let minWidth = config.minWidth || 120;
+                let minHeight = config.minHeight || 60;
+                let maxWidth = 800; // Maksimum genişlik
+                let maxHeight = 600; // Maksimum yükseklik
 
-            if (buttons.length > 0) {
-                const firstBtn = buttons[0];
-                const btnRect = firstBtn.getBoundingClientRect();
-                const gap = 6; // CSS'teki gap değeri
-                const padding = 16; // Container padding (8px * 2)
-                const labelHeight = 30; // Label yüksekliği (yaklaşık)
+                if (buttons.length > 0) {
+                    const firstBtn = buttons[0];
+                    const btnRect = firstBtn.getBoundingClientRect();
+                    const gap = 6;
+                    const padding = 16;
+                    const labelHeight = 30;
 
-                if (config.layout === 'row') {
-                    // Yatay: minimum = tüm ikonlar yan yana sığmalı
-                    minWidth = (btnRect.width + gap) * buttons.length - gap + padding;
-                    minHeight = btnRect.height + labelHeight + padding;
-                    // Maksimum: tek satırda mantıklı genişlik
-                    maxWidth = minWidth + 200; // Biraz ekstra alan
-                    maxHeight = minHeight + 50;
-                } else if (config.layout === 'column') {
-                    // Dikey: minimum = en geniş ikon + padding
-                    minWidth = btnRect.width + padding;
-                    minHeight = (btnRect.height + gap) * buttons.length - gap + labelHeight + padding;
-                    // Maksimum: tek sütunda mantıklı yükseklik
-                    maxWidth = minWidth + 100;
-                    maxHeight = minHeight + 100;
-                } else if (config.layout === 'grid') {
-                    const cols = config.gridColumns || 2;
-                    const rows = Math.ceil(buttons.length / cols);
-                    // Grid: minimum = grid'e sığacak kadar
-                    minWidth = (btnRect.width + gap) * cols - gap + padding;
-                    minHeight = (btnRect.height + gap) * rows - gap + labelHeight + padding;
-                    // Maksimum: grid + biraz ekstra
-                    maxWidth = minWidth + 100;
-                    maxHeight = minHeight + 100;
+                    if (config.layout === 'row') {
+                        minWidth = (btnRect.width + gap) * buttons.length - gap + padding;
+                        minHeight = btnRect.height + labelHeight + padding;
+                        maxWidth = minWidth + 200;
+                        maxHeight = minHeight + 50;
+                    } else if (config.layout === 'column') {
+                        minWidth = btnRect.width + padding;
+                        minHeight = (btnRect.height + gap) * buttons.length - gap + labelHeight + padding;
+                        maxWidth = minWidth + 100;
+                        maxHeight = minHeight + 100;
+                    } else if (config.layout === 'grid') {
+                        const cols = config.gridColumns || 2;
+                        const rows = Math.ceil(buttons.length / cols);
+                        minWidth = (btnRect.width + gap) * cols - gap + padding;
+                        minHeight = (btnRect.height + gap) * rows - gap + labelHeight + padding;
+                        maxWidth = minWidth + 100;
+                        maxHeight = minHeight + 100;
+                    }
                 }
-            }
 
-            const deltaX = e.clientX - startX;
-            const deltaY = e.clientY - startY;
+                const deltaX = moveEvent.clientX - startX;
+                const deltaY = moveEvent.clientY - startY;
 
-            // Yeni boyutları hesapla
-            let newWidth = startWidth + deltaX;
-            let newHeight = startHeight + deltaY;
+                let newWidth = startWidth + deltaX;
+                let newHeight = startHeight + deltaY;
 
-            // SNAP TO GRID: İkon boyutlarına hizala (daha düzenli görünüm)
-            if (buttons.length > 0 && config.layout === 'grid') {
-                const firstBtn = buttons[0];
-                const btnRect = firstBtn.getBoundingClientRect();
-                const gap = 6;
-                const snapSize = btnRect.width + gap;
+                // SNAP TO GRID
+                if (buttons.length > 0 && config.layout === 'grid') {
+                    const firstBtn = buttons[0];
+                    const btnRect = firstBtn.getBoundingClientRect();
+                    const gap = 6;
+                    const snapSize = btnRect.width + gap;
+                    const cols = Math.max(1, Math.round((newWidth - 16) / snapSize));
+                    newWidth = cols * snapSize + 16 - gap;
+                }
 
-                // En yakın grid boyutuna yuvarla
-                const cols = Math.max(1, Math.round((newWidth - 16) / snapSize));
-                newWidth = cols * snapSize + 16 - gap;
-            }
+                // Min/max sınırları
+                newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+                newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
 
-            // Min/max sınırlarına uygula
-            newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
-            newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+                // Viewport kontrolü
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                const containerRect = container.getBoundingClientRect();
 
-            // Viewport sınırlarını kontrol et
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            const containerRect = container.getBoundingClientRect();
+                if (containerRect.left + newWidth > viewportWidth - 20) {
+                    newWidth = viewportWidth - containerRect.left - 20;
+                }
+                if (containerRect.top + newHeight > viewportHeight - 20) {
+                    newHeight = viewportHeight - containerRect.top - 20;
+                }
 
-            if (containerRect.left + newWidth > viewportWidth - 20) {
-                newWidth = viewportWidth - containerRect.left - 20;
-            }
-            if (containerRect.top + newHeight > viewportHeight - 20) {
-                newHeight = viewportHeight - containerRect.top - 20;
-            }
+                container.style.width = newWidth + 'px';
+                container.style.height = newHeight + 'px';
+            };
 
-            container.style.width = newWidth + 'px';
-            container.style.height = newHeight + 'px';
-        });
+            // Up handler - also defined inside to access moveHandler
+            const upHandler = () => {
+                if (this.resizing === container) {
+                    this.resizing = null;
+                    container.classList.remove('resizing');
+                    this.saveSize(container);
+                }
 
-        document.addEventListener('mouseup', () => {
-            if (this.resizing === container) {
-                this.resizing = null;
-                container.classList.remove('resizing');
-                this.saveSize(container);
-            }
+                // ÖNEMLI: Event listener'ları temizle
+                document.removeEventListener('mousemove', moveHandler);
+                document.removeEventListener('mouseup', upHandler);
+            };
+
+            // Add listeners
+            document.addEventListener('mousemove', moveHandler);
+            document.addEventListener('mouseup', upHandler);
         });
     }
 
