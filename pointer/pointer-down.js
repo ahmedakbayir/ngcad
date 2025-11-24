@@ -90,6 +90,9 @@ export function onPointerDown(e) {
         console.log('🔷 plumbingManager kontrolü geçildi');
     }
 
+    // DEBUG: Hangi moda giriliyor?
+    console.log('🔍 currentMode:', state.currentMode);
+
     // --- Seçim Modu ---
     if (state.currentMode === "select") {
         // NOT: Select modunda v2 interactionManager kullanılmıyor
