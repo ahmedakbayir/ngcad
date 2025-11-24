@@ -58,6 +58,8 @@ export function onPointerDown(e) {
     }
     if (e.button === 2) return; // Sağ tuş (context menu için ayrılmış)
 
+    console.log('🎯 onPointerDown called - currentMode:', state.currentMode);
+
     // Tıklama konumunu dünya koordinatlarına çevir
     const rect = dom.c2d.getBoundingClientRect();
     const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
@@ -76,11 +78,20 @@ export function onPointerDown(e) {
                           state.currentMode === 'drawPlumbingPipe' ||
                           state.currentMode === 'drawPlumbingBlock';
 
-    if (plumbingManager.interactionManager?.boruCizimAktif && isPlumbingMode) {
+    const boruCizimAktif = plumbingManager.interactionManager?.boruCizimAktif;
+    console.log('🔍 Plumbing check:', { boruCizimAktif, isPlumbingMode, currentMode: state.currentMode });
+
+    if (boruCizimAktif && isPlumbingMode) {
+        console.log('⚡ Calling plumbing manager handler');
         const handled = plumbingManager.interactionManager.handlePointerDown(e);
+        console.log('⚡ Plumbing manager handled:', handled);
         if (handled) {
+            console.log('⚡ Plumbing manager consumed the click - returning early');
             return;
         }
+    } else if (boruCizimAktif && !isPlumbingMode) {
+        console.warn('⚠️ WARNING: boruCizimAktif is TRUE but we are NOT in plumbing mode!');
+        console.warn('⚠️ Current mode:', state.currentMode, '- This is the BUG! Plumbing manager should reset this flag.');
     }
 
     // --- Seçim Modu ---
@@ -369,6 +380,51 @@ export function onPointerDown(e) {
         setMode("plumbingV2");
         return;
 
+    // --- Merdiven Çizim Modu (YORUM BLOĞUNDAN ÇIKARILDI) ---
+    } else if (state.currentMode === "drawStairs") {
+        console.log('🔷 STAIRCASE DRAWING MODE - Click registered');
+        if (!state.startPoint) {
+            console.log('✅ First click - Setting start point:', { x: snappedPos.roundedX, y: snappedPos.roundedY });
+            setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
+        } else {
+            const p1 = state.startPoint;
+            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
+            const deltaX = p2.x - p1.x;
+            const deltaY = p2.y - p1.y;
+            const absWidth = Math.abs(deltaX);
+            const absHeight = Math.abs(deltaY);
+            console.log('🔷 Second click - Dimensions:', { absWidth, absHeight, p1, p2 });
+            if (absWidth > 10 && absHeight > 10) {
+                const centerX = (p1.x + p2.x) / 2;
+                const centerY = (p1.y + p2.y) / 2;
+                let width, height, rotation;
+                if (absWidth >= absHeight) {
+                    width = absWidth;
+                    height = absHeight;
+                    rotation = (deltaX >= 0) ? 0 : 180;
+                } else {
+                    width = absHeight;
+                    height = absWidth;
+                    rotation = (deltaY >= 0) ? 90 : -90;
+                }
+                const isLanding = currentModifierKeys.ctrl;
+                console.log('✅ Creating staircase:', { centerX, centerY, width, height, rotation, isLanding });
+                const newStairs = createStairs(centerX, centerY, width, height, rotation, isLanding);
+                if (!state.stairs) {
+                    state.stairs = [];
+                }
+                state.stairs.push(newStairs);
+                console.log('✅ Staircase created and added to state.stairs:', newStairs);
+                console.log('📊 Total stairs count:', state.stairs.length);
+                needsUpdate3D = true;
+                objectJustCreated = true;
+                geometryChanged = true;
+            } else {
+                console.warn('⚠️ Staircase too small - Minimum size is 10cm x 10cm:', { absWidth, absHeight });
+            }
+            setState({ startPoint: null, selectedObject: null });
+        }
+
         /* ESKI KOD - KALDIRILDI
         const blockType = state.currentPlumbingBlockType || 'SERVIS_KUTUSU';
 
@@ -542,50 +598,8 @@ export function onPointerDown(e) {
         needsUpdate3D = true;
         objectJustCreated = true;
         console.log('✅ Valve added to pipe at position', valvePos);
-        // --- Merdiven Çizim Modu ---
-    } else if (state.currentMode === "drawStairs") {
-        console.log('🔷 STAIRCASE DRAWING MODE - Click registered');
-        if (!state.startPoint) {
-            console.log('✅ First click - Setting start point:', { x: snappedPos.roundedX, y: snappedPos.roundedY });
-            setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
-        } else {
-            const p1 = state.startPoint;
-            const p2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-            const deltaX = p2.x - p1.x;
-            const deltaY = p2.y - p1.y;
-            const absWidth = Math.abs(deltaX);
-            const absHeight = Math.abs(deltaY);
-            console.log('🔷 Second click - Dimensions:', { absWidth, absHeight, p1, p2 });
-            if (absWidth > 10 && absHeight > 10) {
-                const centerX = (p1.x + p2.x) / 2;
-                const centerY = (p1.y + p2.y) / 2;
-                let width, height, rotation;
-                if (absWidth >= absHeight) {
-                    width = absWidth;
-                    height = absHeight;
-                    rotation = (deltaX >= 0) ? 0 : 180;
-                } else {
-                    width = absHeight;
-                    height = absWidth;
-                    rotation = (deltaY >= 0) ? 90 : -90;
-                }
-                const isLanding = currentModifierKeys.ctrl;
-                console.log('✅ Creating staircase:', { centerX, centerY, width, height, rotation, isLanding });
-                const newStairs = createStairs(centerX, centerY, width, height, rotation, isLanding);
-                if (!state.stairs) {
-                    state.stairs = [];
-                }
-                state.stairs.push(newStairs);
-                console.log('✅ Staircase created and added to state.stairs:', newStairs);
-                console.log('📊 Total stairs count:', state.stairs.length);
-                needsUpdate3D = true;
-                objectJustCreated = true;
-                geometryChanged = true;
-            } else {
-                console.warn('⚠️ Staircase too small - Minimum size is 10cm x 10cm:', { absWidth, absHeight });
-            }
-            setState({ startPoint: null, selectedObject: null });
-        }
+        // --- Merdiven Çizim Modu (ÇIKARILDI - YORUM BLOĞUNUN DIŞINA TAŞINDI) ---
+        // (Kod satır 384'te)
         // --- Tesisat Borusu Çizim Modu ---
     } else if (state.currentMode === "drawPlumbingPipe") {
         console.log('🚀 PIPE DRAWING MODE - Click registered:', { hasStartPoint: !!state.startPoint, pos });
