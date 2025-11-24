@@ -76,7 +76,9 @@ export function onPointerDown(e) {
 
     // === BORU ÇİZİM MODU AKTİF İSE ÖNCELİKLİ İŞLE ===
     // Seç modunda boru çizim aktif olsa bile seçim öncelikli
-    if (plumbingManager.interactionManager?.boruCizimAktif && state.currentMode !== 'select') {
+    // DÜZELTME: Mimari çizim modlarında (merdiven, kolon, kiriş vb.) boru çizim kontrolünü atla
+    const architecturalModes = ['drawStairs', 'drawColumn', 'drawBeam', 'drawWall', 'drawRoom', 'drawDoor', 'drawWindow', 'drawVent', 'drawSymmetry', 'drawGuideAngular', 'drawGuideFree'];
+    if (plumbingManager.interactionManager?.boruCizimAktif && state.currentMode !== 'select' && !architecturalModes.includes(state.currentMode)) {
         const handled = plumbingManager.interactionManager.handlePointerDown(e);
         if (handled) {
             return;
