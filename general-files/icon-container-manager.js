@@ -102,34 +102,79 @@ export class IconContainerManager {
             const config = this.containers.get(container.id);
             const buttons = container.querySelectorAll('.btn');
 
-            // Minimum boyutları hesapla
-            let minWidth = config.minWidth;
-            let minHeight = config.minHeight;
+            // Minimum ve maksimum boyutları hesapla
+            let minWidth = config.minWidth || 120;
+            let minHeight = config.minHeight || 60;
+            let maxWidth = 800; // Maksimum genişlik
+            let maxHeight = 600; // Maksimum yükseklik
 
             if (buttons.length > 0) {
                 const firstBtn = buttons[0];
                 const btnRect = firstBtn.getBoundingClientRect();
                 const gap = 6; // CSS'teki gap değeri
+                const padding = 16; // Container padding (8px * 2)
+                const labelHeight = 30; // Label yüksekliği (yaklaşık)
 
                 if (config.layout === 'row') {
-                    minWidth = (btnRect.width + gap) * buttons.length + 16; // padding dahil
-                    minHeight = btnRect.height + 36; // label + padding
+                    // Yatay: minimum = tüm ikonlar yan yana sığmalı
+                    minWidth = (btnRect.width + gap) * buttons.length - gap + padding;
+                    minHeight = btnRect.height + labelHeight + padding;
+                    // Maksimum: tek satırda mantıklı genişlik
+                    maxWidth = minWidth + 200; // Biraz ekstra alan
+                    maxHeight = minHeight + 50;
                 } else if (config.layout === 'column') {
-                    minWidth = btnRect.width + 16;
-                    minHeight = (btnRect.height + gap) * buttons.length + 36;
+                    // Dikey: minimum = en geniş ikon + padding
+                    minWidth = btnRect.width + padding;
+                    minHeight = (btnRect.height + gap) * buttons.length - gap + labelHeight + padding;
+                    // Maksimum: tek sütunda mantıklı yükseklik
+                    maxWidth = minWidth + 100;
+                    maxHeight = minHeight + 100;
                 } else if (config.layout === 'grid') {
                     const cols = config.gridColumns || 2;
                     const rows = Math.ceil(buttons.length / cols);
-                    minWidth = (btnRect.width + gap) * cols + 16;
-                    minHeight = (btnRect.height + gap) * rows + 36;
+                    // Grid: minimum = grid'e sığacak kadar
+                    minWidth = (btnRect.width + gap) * cols - gap + padding;
+                    minHeight = (btnRect.height + gap) * rows - gap + labelHeight + padding;
+                    // Maksimum: grid + biraz ekstra
+                    maxWidth = minWidth + 100;
+                    maxHeight = minHeight + 100;
                 }
             }
 
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
 
-            const newWidth = Math.max(minWidth, startWidth + deltaX);
-            const newHeight = Math.max(minHeight, startHeight + deltaY);
+            // Yeni boyutları hesapla
+            let newWidth = startWidth + deltaX;
+            let newHeight = startHeight + deltaY;
+
+            // SNAP TO GRID: İkon boyutlarına hizala (daha düzenli görünüm)
+            if (buttons.length > 0 && config.layout === 'grid') {
+                const firstBtn = buttons[0];
+                const btnRect = firstBtn.getBoundingClientRect();
+                const gap = 6;
+                const snapSize = btnRect.width + gap;
+
+                // En yakın grid boyutuna yuvarla
+                const cols = Math.max(1, Math.round((newWidth - 16) / snapSize));
+                newWidth = cols * snapSize + 16 - gap;
+            }
+
+            // Min/max sınırlarına uygula
+            newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+            newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
+
+            // Viewport sınırlarını kontrol et
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const containerRect = container.getBoundingClientRect();
+
+            if (containerRect.left + newWidth > viewportWidth - 20) {
+                newWidth = viewportWidth - containerRect.left - 20;
+            }
+            if (containerRect.top + newHeight > viewportHeight - 20) {
+                newHeight = viewportHeight - containerRect.top - 20;
+            }
 
             container.style.width = newWidth + 'px';
             container.style.height = newHeight + 'px';
