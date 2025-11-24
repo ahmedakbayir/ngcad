@@ -567,6 +567,16 @@ export function onPointerDown(e) {
                     state.stairs = [];
                 }
                 state.stairs.push(newStairs);
+                console.log('✅ Merdiven eklendi:', {
+                    id: newStairs.id,
+                    name: newStairs.name,
+                    floorId: newStairs.floorId,
+                    currentFloorId: state.currentFloor?.id,
+                    center: newStairs.center,
+                    width: newStairs.width,
+                    height: newStairs.height,
+                    totalStairs: state.stairs.length
+                });
                 needsUpdate3D = true;
                 objectJustCreated = true;
                 geometryChanged = true;
