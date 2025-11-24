@@ -91,47 +91,48 @@ export class IconContainerManager {
 
             container.classList.add('resizing');
 
-            // Move handler - defined inside mousedown to capture start values
+            // ÖNEMLİ: Minimum/maksimum boyutları BAŞTA hesapla (her mousemove'da değil!)
+            const config = this.containers.get(container.id);
+            const buttons = container.querySelectorAll('.btn');
+
+            let minWidth = 120;
+            let minHeight = 60;
+            let maxWidth = 800;
+            let maxHeight = 600;
+
+            // İlk button boyutunu AL ve SAKLA (resize sırasında değişmesin!)
+            if (buttons.length > 0) {
+                const firstBtn = buttons[0];
+                const btnRect = firstBtn.getBoundingClientRect();
+                const gap = 6;
+                const padding = 16;
+                const labelHeight = 30;
+
+                if (config.layout === 'row') {
+                    minWidth = (btnRect.width + gap) * buttons.length - gap + padding;
+                    minHeight = btnRect.height + labelHeight + padding;
+                    maxWidth = minWidth + 200;
+                    maxHeight = minHeight + 50;
+                } else if (config.layout === 'column') {
+                    minWidth = btnRect.width + padding;
+                    minHeight = (btnRect.height + gap) * buttons.length - gap + labelHeight + padding;
+                    maxWidth = minWidth + 100;
+                    maxHeight = minHeight + 100;
+                } else if (config.layout === 'grid') {
+                    const cols = config.gridColumns || 2;
+                    const rows = Math.ceil(buttons.length / cols);
+                    minWidth = (btnRect.width + gap) * cols - gap + padding;
+                    minHeight = (btnRect.height + gap) * rows - gap + labelHeight + padding;
+                    maxWidth = minWidth + 100;
+                    maxHeight = minHeight + 100;
+                }
+            }
+
+            // Move handler - artık sadece delta hesaplıyor, boyut hesaplamıyor!
             const moveHandler = (moveEvent) => {
                 if (!this.resizing || this.resizing !== container) return;
 
                 moveEvent.preventDefault();
-
-                const config = this.containers.get(container.id);
-                const buttons = container.querySelectorAll('.btn');
-
-                // Minimum ve maksimum boyutları hesapla
-                let minWidth = config.minWidth || 120;
-                let minHeight = config.minHeight || 60;
-                let maxWidth = 800; // Maksimum genişlik
-                let maxHeight = 600; // Maksimum yükseklik
-
-                if (buttons.length > 0) {
-                    const firstBtn = buttons[0];
-                    const btnRect = firstBtn.getBoundingClientRect();
-                    const gap = 6;
-                    const padding = 16;
-                    const labelHeight = 30;
-
-                    if (config.layout === 'row') {
-                        minWidth = (btnRect.width + gap) * buttons.length - gap + padding;
-                        minHeight = btnRect.height + labelHeight + padding;
-                        maxWidth = minWidth + 200;
-                        maxHeight = minHeight + 50;
-                    } else if (config.layout === 'column') {
-                        minWidth = btnRect.width + padding;
-                        minHeight = (btnRect.height + gap) * buttons.length - gap + labelHeight + padding;
-                        maxWidth = minWidth + 100;
-                        maxHeight = minHeight + 100;
-                    } else if (config.layout === 'grid') {
-                        const cols = config.gridColumns || 2;
-                        const rows = Math.ceil(buttons.length / cols);
-                        minWidth = (btnRect.width + gap) * cols - gap + padding;
-                        minHeight = (btnRect.height + gap) * rows - gap + labelHeight + padding;
-                        maxWidth = minWidth + 100;
-                        maxHeight = minHeight + 100;
-                    }
-                }
 
                 const deltaX = moveEvent.clientX - startX;
                 const deltaY = moveEvent.clientY - startY;
@@ -139,8 +140,8 @@ export class IconContainerManager {
                 let newWidth = startWidth + deltaX;
                 let newHeight = startHeight + deltaY;
 
-                // SNAP TO GRID
-                if (buttons.length > 0 && config.layout === 'grid') {
+                // SNAP TO GRID (sadece grid modunda)
+                if (config.layout === 'grid' && buttons.length > 0) {
                     const firstBtn = buttons[0];
                     const btnRect = firstBtn.getBoundingClientRect();
                     const gap = 6;
@@ -149,7 +150,7 @@ export class IconContainerManager {
                     newWidth = cols * snapSize + 16 - gap;
                 }
 
-                // Min/max sınırları
+                // Min/max sınırları (mousedown'da hesaplanan değerler)
                 newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
                 newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
 
@@ -169,7 +170,7 @@ export class IconContainerManager {
                 container.style.height = newHeight + 'px';
             };
 
-            // Up handler - also defined inside to access moveHandler
+            // Up handler
             const upHandler = () => {
                 if (this.resizing === container) {
                     this.resizing = null;
@@ -177,7 +178,7 @@ export class IconContainerManager {
                     this.saveSize(container);
                 }
 
-                // ÖNEMLI: Event listener'ları temizle
+                // Event listener'ları temizle
                 document.removeEventListener('mousemove', moveHandler);
                 document.removeEventListener('mouseup', upHandler);
             };
