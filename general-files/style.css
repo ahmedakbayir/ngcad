@@ -155,6 +155,138 @@ canvas {
     box-shadow: 0 4px 16px rgba(0,0,0,0.5);
 }
 
+.draggable-group.resizing {
+    border-color: #8ab4f8;
+}
+
+/* Resize Handle (Sağ Alt Köşe) */
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9aa0a6;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.resize-handle:hover {
+    opacity: 1;
+    color: #8ab4f8;
+}
+
+.draggable-group:not(:hover) .resize-handle {
+    opacity: 0.2;
+}
+
+/* Container Context Menu */
+.container-context-menu {
+    position: fixed;
+    background: rgba(42, 43, 44, 0.98);
+    border: 1px solid #5f6368;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    z-index: 10001;
+    min-width: 180px;
+    padding: 4px;
+    backdrop-filter: blur(8px);
+}
+
+.container-context-menu .menu-section {
+    padding: 4px 0;
+}
+
+.container-context-menu .menu-section + .menu-section {
+    border-top: 1px solid rgba(95, 99, 104, 0.3);
+    margin-top: 4px;
+    padding-top: 8px;
+}
+
+.container-context-menu .menu-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9aa0a6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 12px;
+    margin-bottom: 2px;
+}
+
+.container-context-menu .menu-item {
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: #e8eaed;
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+    border-radius: 4px;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.container-context-menu .menu-item:hover {
+    background: rgba(95, 99, 104, 0.4);
+}
+
+.container-context-menu .menu-item.active {
+    background: rgba(138, 180, 248, 0.2);
+    color: #8ab4f8;
+}
+
+.container-context-menu .grid-columns-control {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 0 4px;
+}
+
+/* Icon Dragging States */
+.icon-drag-placeholder {
+    opacity: 0.3;
+    border-style: dashed !important;
+}
+
+.icon-dragging {
+    cursor: grabbing !important;
+}
+
+/* 2x Icon Size */
+.btn.icon-2x {
+    grid-column: span 2;
+    grid-row: span 2;
+    font-size: 16px;
+    min-width: calc((28px + 6px) * 2 - 6px); /* 2 ikon + 1 gap */
+    min-height: calc((28px + 6px) * 2 - 6px);
+}
+
+.btn.icon-2x svg {
+    width: 32px;
+    height: 32px;
+}
+
+/* Grid Layout Support */
+.draggable-group.layout-grid {
+    display: grid !important;
+}
+
+.draggable-group.layout-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.draggable-group.layout-column {
+    flex-direction: column;
+}
+
 .btn {
     padding: 8px 12px;
     border: 1px solid #5f6368;
