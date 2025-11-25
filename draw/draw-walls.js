@@ -1,4 +1,4 @@
-import { state, dom, BG, getObjectOpacity } from '../general-files/main.js';
+import { state, dom, BG, getAdjustedColor } from '../general-files/main.js';
 
 // --- YARDIMCI FONKSİYONLAR ---
 
@@ -571,10 +571,8 @@ export function drawWallGeometry(ctx2d, state, BG) {
     const { walls, doors, selectedObject, selectedGroup, wallBorderColor, lineThickness, nodes } = state;
     const wallPx = state.wallThickness;
 
-    // Çizim moduna göre opacity ayarla
-    const opacity = getObjectOpacity('wall');
-    ctx2d.save();
-    ctx2d.globalAlpha = opacity;
+    // Çizim moduna göre renk ayarla (opacity yerine)
+    const adjustedWallColor = getAdjustedColor(wallBorderColor, 'wall');
 
     // --- KÖŞE HESAPLAMALARI (Çizimden Önce) ---
     const nodeWallConnections = new Map();
@@ -677,48 +675,45 @@ export function drawWallGeometry(ctx2d, state, BG) {
         currentSegments.forEach((seg) => { let p1 = { x: w.p1.x + dx * seg.start, y: w.p1.y + dy * seg.start }; let p2 = { x: w.p1.x + dx * seg.end, y: w.p1.y + dy * seg.end }; const segmentData = { p1: {...p1}, p2: {...p2}, wall: w }; if (isSelected) { targetList.selected.push(segmentData); } else if (isOrthogonal) { targetList.ortho.push(segmentData); } else { targetList.nonOrtho.push(segmentData); } });
      });
 
-    // Gruplanmış segmentleri ilgili çizim fonksiyonlarıyla çiz
-    // (Artık hepsi önce stroke, sonra bg_fill çizecek)
-    drawNormalSegments(ctx2d, normalSegments.ortho, wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
-    drawNormalSegments(ctx2d, normalSegments.nonOrtho, wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
+    // Gruplanmış segmentleri ilgili çizim fonksiyonlarıyla çiz (renk ayarlı)
+    drawNormalSegments(ctx2d, normalSegments.ortho, adjustedWallColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
+    drawNormalSegments(ctx2d, normalSegments.nonOrtho, adjustedWallColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawNormalSegments(ctx2d, normalSegments.selected, "#8ab4f8", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
 
-    drawBalconySegments(ctx2d, balconySegments.ortho, wallBorderColor);
-    drawBalconySegments(ctx2d, balconySegments.nonOrtho, wallBorderColor);
+    drawBalconySegments(ctx2d, balconySegments.ortho, adjustedWallColor);
+    drawBalconySegments(ctx2d, balconySegments.nonOrtho, adjustedWallColor);
     drawBalconySegments(ctx2d, balconySegments.selected, "#8ab4f8");
 
-    drawGlassSegments(ctx2d, glassSegments.ortho, wallBorderColor, wallPx);
-    drawGlassSegments(ctx2d, glassSegments.nonOrtho, wallBorderColor, wallPx);
+    drawGlassSegments(ctx2d, glassSegments.ortho, adjustedWallColor, wallPx);
+    drawGlassSegments(ctx2d, glassSegments.nonOrtho, adjustedWallColor, wallPx);
     drawGlassSegments(ctx2d, glassSegments.selected, "#8ab4f8", wallPx);
 
     // Yarım duvarlar (stroke -> bg_fill -> half_fill)
-    drawHalfSegments(ctx2d, halfSegments.ortho, wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
-    drawHalfSegments(ctx2d, halfSegments.nonOrtho,wallBorderColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
+    drawHalfSegments(ctx2d, halfSegments.ortho, adjustedWallColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
+    drawHalfSegments(ctx2d, halfSegments.nonOrtho, adjustedWallColor, lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
     drawHalfSegments(ctx2d, halfSegments.selected, "#8ab4f8", lineThickness, wallPx, BG, nodeWallConnections, precalculatedCorners);
 
     // Arc normal duvarlar
-    drawArcSegments(ctx2d, arcNormalSegments.ortho, wallBorderColor, lineThickness, wallPx, BG);
-    drawArcSegments(ctx2d, arcNormalSegments.nonOrtho, wallBorderColor, lineThickness, wallPx, BG);
+    drawArcSegments(ctx2d, arcNormalSegments.ortho, adjustedWallColor, lineThickness, wallPx, BG);
+    drawArcSegments(ctx2d, arcNormalSegments.nonOrtho, adjustedWallColor, lineThickness, wallPx, BG);
     drawArcSegments(ctx2d, arcNormalSegments.selected, "#8ab4f8", lineThickness, wallPx, BG);
 
     // Arc balkon duvarlar
-    drawArcBalconySegments(ctx2d, arcBalconySegments.ortho, wallBorderColor);
-    drawArcBalconySegments(ctx2d, arcBalconySegments.nonOrtho, wallBorderColor);
+    drawArcBalconySegments(ctx2d, arcBalconySegments.ortho, adjustedWallColor);
+    drawArcBalconySegments(ctx2d, arcBalconySegments.nonOrtho, adjustedWallColor);
     drawArcBalconySegments(ctx2d, arcBalconySegments.selected, "#8ab4f8");
 
     // Arc camekan duvarlar
-    drawArcGlassSegments(ctx2d, arcGlassSegments.ortho, wallBorderColor);
-    drawArcGlassSegments(ctx2d, arcGlassSegments.nonOrtho, wallBorderColor);
+    drawArcGlassSegments(ctx2d, arcGlassSegments.ortho, adjustedWallColor);
+    drawArcGlassSegments(ctx2d, arcGlassSegments.nonOrtho, adjustedWallColor);
     drawArcGlassSegments(ctx2d, arcGlassSegments.selected, "#8ab4f8");
 
     // Arc yarım duvarlar
-    drawArcHalfSegments(ctx2d, arcHalfSegments.ortho, wallBorderColor, lineThickness, wallPx, BG);
-    drawArcHalfSegments(ctx2d, arcHalfSegments.nonOrtho, wallBorderColor, lineThickness, wallPx, BG);
+    drawArcHalfSegments(ctx2d, arcHalfSegments.ortho, adjustedWallColor, lineThickness, wallPx, BG);
+    drawArcHalfSegments(ctx2d, arcHalfSegments.nonOrtho, adjustedWallColor, lineThickness, wallPx, BG);
     drawArcHalfSegments(ctx2d, arcHalfSegments.selected, "#8ab4f8", lineThickness, wallPx, BG);
 
     // Varsayılan ayarlara dön
     ctx2d.lineCap = "butt";
     ctx2d.lineJoin = "miter";
-
-    ctx2d.restore(); // Opacity'yi geri al
 }

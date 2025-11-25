@@ -1,4 +1,4 @@
-import { state, dom, getObjectOpacity } from '../general-files/main.js';
+import { state, dom, getAdjustedColor } from '../general-files/main.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
@@ -32,10 +32,8 @@ export function drawRoomPolygons(ctx2d, state) {
         isDraggingRoomName // Sürüklenen mahal adı state'i
     } = state;
 
-    // Çizim moduna göre opacity ayarla
-    const opacity = getObjectOpacity('room');
-    ctx2d.save();
-    ctx2d.globalAlpha = opacity;
+    // Çizim moduna göre renk ayarla (opacity yerine)
+    const adjustedRoomColor = getAdjustedColor(roomFillColor, 'room');
 
     // Fare sürüklenmiyorsa ve seçim modundaysa, üzerine gelinen nesneyi bul
     const hoveredObject = (!isDragging && currentMode === 'select') ? getObjectAtPoint(mousePos) : null;
@@ -48,7 +46,7 @@ export function drawRoomPolygons(ctx2d, state) {
             if (tempPolygon?.geometry?.coordinates && tempPolygon.geometry.coordinates[0]) {
                 const coords = tempPolygon.geometry.coordinates[0];
                 if (coords.length >= 3) {
-                    ctx2d.fillStyle = darkenColor(roomFillColor, 20);
+                    ctx2d.fillStyle = darkenColor(adjustedRoomColor, 20);
                     ctx2d.strokeStyle = "rgba(138, 180, 248, 0.5)";
                     ctx2d.lineWidth = 2 / zoom;
                     ctx2d.beginPath();
@@ -92,9 +90,9 @@ export function drawRoomPolygons(ctx2d, state) {
             // DOLGU RENGİNİ AYARLAMA
             // Eğer bu oda, adı sürüklenen oda ise VEYA fare bu odanın adının üzerindeyse VEYA bu oda seçili ise vurgu rengini kullan
             if (room === isDraggingRoomName || room === hoveredRoom || room === selectedRoom) {
-                ctx2d.fillStyle = darkenColor(roomFillColor, 20); // Vurgu rengi
+                ctx2d.fillStyle = darkenColor(adjustedRoomColor, 20); // Vurgu rengi
             } else {
-                ctx2d.fillStyle = roomFillColor; // Normal renk
+                ctx2d.fillStyle = adjustedRoomColor; // Normal renk (mod'a göre ayarlanmış)
             }
 
             ctx2d.beginPath();
@@ -111,8 +109,6 @@ export function drawRoomPolygons(ctx2d, state) {
             }
         });
     }
-
-    ctx2d.restore(); // Opacity'yi geri al
 }
 // --- drawRoomPolygons FONKSİYONU SONU ---
 
