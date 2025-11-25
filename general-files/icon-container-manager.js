@@ -128,7 +128,7 @@ export class IconContainerManager {
                 }
             }
 
-            // Move handler - artık sadece delta hesaplıyor, boyut hesaplamıyor!
+            // Move handler - çift yönlü resize (büyütme VE küçültme)
             const moveHandler = (moveEvent) => {
                 if (!this.resizing || this.resizing !== container) return;
 
@@ -151,6 +151,7 @@ export class IconContainerManager {
                 }
 
                 // Min/max sınırları (mousedown'da hesaplanan değerler)
+                // ÖNEMLİ: Hem büyütme hem küçültme için çalışır
                 newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
                 newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
 
@@ -159,6 +160,7 @@ export class IconContainerManager {
                 const viewportHeight = window.innerHeight;
                 const containerRect = container.getBoundingClientRect();
 
+                // Sadece viewport sınırlarını kontrol et, daraltmayı engelleme
                 if (containerRect.left + newWidth > viewportWidth - 20) {
                     newWidth = viewportWidth - containerRect.left - 20;
                 }
@@ -166,6 +168,7 @@ export class IconContainerManager {
                     newHeight = viewportHeight - containerRect.top - 20;
                 }
 
+                // Her iki yönde de boyutlandırmayı uygula
                 container.style.width = newWidth + 'px';
                 container.style.height = newHeight + 'px';
             };
@@ -201,12 +204,12 @@ export class IconContainerManager {
 
         if (config.layout === 'row') {
             buttonsContainer.style.flexDirection = 'row';
-            buttonsContainer.style.flexWrap = 'wrap';
+            buttonsContainer.style.flexWrap = 'wrap'; // Alta geç
             buttonsContainer.style.display = 'flex';
             buttonsContainer.style.gridTemplateColumns = '';
         } else if (config.layout === 'column') {
             buttonsContainer.style.flexDirection = 'column';
-            buttonsContainer.style.flexWrap = 'nowrap';
+            buttonsContainer.style.flexWrap = 'nowrap'; // Column'da wrap yok
             buttonsContainer.style.display = 'flex';
             buttonsContainer.style.gridTemplateColumns = '';
         } else if (config.layout === 'grid') {
@@ -217,8 +220,11 @@ export class IconContainerManager {
             buttonsContainer.style.gap = '6px'; // Ensure gap is set
         }
 
-        // Layout değiştiğinde container boyutunu otomatik ayarla
-        this.autoResizeContainer(container, config);
+        // Sadece container'ın boyutu ayarlanmamışsa otomatik ayarla
+        // (İlk yükleme veya reset size sonrası için)
+        if (!container.style.width || container.style.width === 'auto' || container.style.width === '') {
+            this.autoResizeContainer(container, config);
+        }
     }
 
     /**
@@ -237,9 +243,13 @@ export class IconContainerManager {
         let autoWidth, autoHeight;
 
         if (config.layout === 'row') {
-            // Yatay: tüm butonları yan yana sığdır
-            autoWidth = (btnRect.width + gap) * buttons.length - gap + padding;
-            autoHeight = btnRect.height + labelHeight + padding;
+            // Yatay: makul bir genişlik, wrap ile alta geçebilir
+            // 3-4 ikon genişliğinde başlat
+            const iconsPerRow = Math.min(4, buttons.length);
+            autoWidth = (btnRect.width + gap) * iconsPerRow - gap + padding;
+            // Satır sayısını hesapla
+            const rows = Math.ceil(buttons.length / iconsPerRow);
+            autoHeight = (btnRect.height + gap) * rows - gap + labelHeight + padding;
         } else if (config.layout === 'column') {
             // Dikey: tüm butonları alt alta sığdır
             autoWidth = btnRect.width + padding;
@@ -252,13 +262,9 @@ export class IconContainerManager {
             autoHeight = (btnRect.height + gap) * rows - gap + labelHeight + padding;
         }
 
-        // Sadece otomatik genişlik/yükseklik yoksa ayarla
-        if (!container.style.width || container.style.width === 'auto') {
-            container.style.width = autoWidth + 'px';
-        }
-        if (!container.style.height || container.style.height === 'auto') {
-            container.style.height = autoHeight + 'px';
-        }
+        // Boyutları ayarla
+        container.style.width = autoWidth + 'px';
+        container.style.height = autoHeight + 'px';
     }
 
     /**
@@ -363,8 +369,10 @@ export class IconContainerManager {
             this.applyLayout(container, config);
             this.saveConfig(container);
         } else if (action === 'reset-size') {
+            // Boyutları sıfırla ve otomatik boyutlandır
             container.style.width = '';
             container.style.height = '';
+            this.autoResizeContainer(container, config);
             this.saveSize(container);
         }
     }

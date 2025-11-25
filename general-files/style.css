@@ -104,6 +104,7 @@ canvas {
     position: absolute;
     display: flex;
     flex-direction: column;
+    flex-wrap: wrap; /* İçerik taştığında alta geç */
     gap: 6px;
     padding: 8px;
     background: rgba(42, 43, 44, 0.95);
@@ -113,6 +114,7 @@ canvas {
     backdrop-filter: blur(4px);
     pointer-events: auto; /* Gruplara tıklanabilsin */
     cursor: default;
+    overflow: visible; /* İçeriğin görünmesini sağla */
 }
 
 /* Varsayılan pozisyonlar - yan yana */
@@ -303,13 +305,17 @@ canvas {
     display: flex;
     align-items: center;
     gap: 8px;
+    /* Sabit boyut için flex ayarları */
+    flex-grow: 0;
+    flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 /* YENİ KURAL: UI içindeki butonları sadece ikon göster (küçük ikon modu) */
 #ui.display-small-icon .btn {
-    width: auto; /* Otomatik genişlik */
-    min-width: 28px; /* Minimum genişlik - kat çubuğu ile uyumlu */
-    height: 28px; /* Sabit yükseklik - kat çubuğu ile uyumlu */
+    width: 28px; /* Sabit genişlik - kare format */
+    min-width: 28px;
+    height: 28px; /* Sabit yükseklik - kare format */
     box-sizing: border-box;
     justify-content: center; /* İkonu ortala */
     align-items: center; /* İkonu ortala */
@@ -341,7 +347,8 @@ canvas {
 
 /* Display Mode: Büyük İkon */
 #ui.display-big-icon .btn {
-    min-width: 42px; /* 28 * 1.5 */
+    width: 42px; /* Sabit genişlik - kare format */
+    min-width: 42px;
     height: 42px;
     padding: 9px; /* 6 * 1.5 */
     font-size: 0; /* Metni gizle */
