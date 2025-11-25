@@ -1,4 +1,4 @@
-import { state, dom } from '../general-files/main.js';
+import { state, dom, getObjectOpacity } from '../general-files/main.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
@@ -31,6 +31,11 @@ export function drawRoomPolygons(ctx2d, state) {
         currentMode, mousePos,
         isDraggingRoomName // Sürüklenen mahal adı state'i
     } = state;
+
+    // Çizim moduna göre opacity ayarla
+    const opacity = getObjectOpacity('room');
+    ctx2d.save();
+    ctx2d.globalAlpha = opacity;
 
     // Fare sürüklenmiyorsa ve seçim modundaysa, üzerine gelinen nesneyi bul
     const hoveredObject = (!isDragging && currentMode === 'select') ? getObjectAtPoint(mousePos) : null;
@@ -106,6 +111,8 @@ export function drawRoomPolygons(ctx2d, state) {
             }
         });
     }
+
+    ctx2d.restore(); // Opacity'yi geri al
 }
 // --- drawRoomPolygons FONKSİYONU SONU ---
 

@@ -971,14 +971,42 @@ function initialize() {
         return false;
     });
 
-    // Mimari butonlar - otomatik MİMARİ moduna geç
-    dom.bWall.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawWall", true); });
-    dom.bRoom.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawRoom", true); });
-    dom.bDoor.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawDoor", true); });
-    dom.bWindow.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawWindow", true); });
-    dom.bColumn.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawColumn", true); });
-    dom.bBeam.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawBeam", true); });
-    dom.bStairs.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawStairs", true); });
+    // Mimari butonlar - otomatik MİMARİ moduna geç ve boru modundan çık
+    dom.bWall.addEventListener("click", () => {
+        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+        setDrawingMode("MİMARİ");
+        setMode("drawWall", true);
+    });
+    dom.bRoom.addEventListener("click", () => {
+        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+        setDrawingMode("MİMARİ");
+        setMode("drawRoom", true);
+    });
+    dom.bDoor.addEventListener("click", () => {
+        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+        setDrawingMode("MİMARİ");
+        setMode("drawDoor", true);
+    });
+    dom.bWindow.addEventListener("click", () => {
+        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+        setDrawingMode("MİMARİ");
+        setMode("drawWindow", true);
+    });
+    dom.bColumn.addEventListener("click", () => {
+        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+        setDrawingMode("MİMARİ");
+        setMode("drawColumn", true);
+    });
+    dom.bBeam.addEventListener("click", () => {
+        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+        setDrawingMode("MİMARİ");
+        setMode("drawBeam", true);
+    });
+    dom.bStairs.addEventListener("click", () => {
+        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+        setDrawingMode("MİMARİ");
+        setMode("drawStairs", true);
+    });
 
     // Tesisat butonları - otomatik TESİSAT moduna geç (v2 sistemi)
     dom.bServisKutusu.addEventListener("click", () => {

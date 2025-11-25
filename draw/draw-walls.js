@@ -1,4 +1,4 @@
-import { state, dom, BG } from '../general-files/main.js';
+import { state, dom, BG, getObjectOpacity } from '../general-files/main.js';
 
 // --- YARDIMCI FONKSİYONLAR ---
 
@@ -571,6 +571,11 @@ export function drawWallGeometry(ctx2d, state, BG) {
     const { walls, doors, selectedObject, selectedGroup, wallBorderColor, lineThickness, nodes } = state;
     const wallPx = state.wallThickness;
 
+    // Çizim moduna göre opacity ayarla
+    const opacity = getObjectOpacity('wall');
+    ctx2d.save();
+    ctx2d.globalAlpha = opacity;
+
     // --- KÖŞE HESAPLAMALARI (Çizimden Önce) ---
     const nodeWallConnections = new Map();
     nodes.forEach(node => nodeWallConnections.set(node, []));
@@ -714,4 +719,6 @@ export function drawWallGeometry(ctx2d, state, BG) {
     // Varsayılan ayarlara dön
     ctx2d.lineCap = "butt";
     ctx2d.lineJoin = "miter";
+
+    ctx2d.restore(); // Opacity'yi geri al
 }
