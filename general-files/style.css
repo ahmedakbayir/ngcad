@@ -103,8 +103,8 @@ canvas {
 .draggable-group {
     position: absolute;
     display: flex;
-    flex-direction: column;
-    flex-wrap: wrap; /* İçerik taştığında alta geç */
+    flex-direction: row; /* Varsayılan: yan yana */
+    flex-wrap: wrap; /* Sığmayınca alta geç */
     gap: 6px;
     padding: 8px;
     background: rgba(42, 43, 44, 0.95);
@@ -115,6 +115,7 @@ canvas {
     pointer-events: auto; /* Gruplara tıklanabilsin */
     cursor: default;
     overflow: visible; /* İçeriğin görünmesini sağla */
+    align-content: flex-start; /* Yukarıdan başlat */
 }
 
 /* Varsayılan pozisyonlar - yan yana */
@@ -334,7 +335,7 @@ canvas {
 #ui.display-small-icon-text .btn {
     font-size: 14px; /* Metni göster */
     gap: 8px; /* İkon ve metin arası boşluk */
-    width: auto;
+    width: 100%; /* Tam genişlik - alt alta sığdır */
     min-width: auto;
     padding: 6px 12px;
     justify-content: flex-start; /* Sola dayalı */
@@ -343,6 +344,14 @@ canvas {
 #ui.display-small-icon-text .btn svg {
     width: 16px;
     height: 16px;
+}
+
+/* Metin modunda containerlar column layout */
+#ui.display-small-icon-text .draggable-group,
+#ui.display-big-icon-text .draggable-group {
+    flex-direction: column; /* Alt alta */
+    flex-wrap: nowrap;
+    align-items: stretch; /* Tam genişlik */
 }
 
 /* Display Mode: Büyük İkon */
@@ -365,7 +374,7 @@ canvas {
 #ui.display-big-icon-text .btn {
     font-size: 14px; /* Küçük ikonla aynı font boyutu */
     gap: 8px; /* İkon ve metin arası boşluk */
-    width: auto;
+    width: 100%; /* Tam genişlik - alt alta sığdır */
     min-width: auto;
     padding: 9px 12px; /* Büyük padding ama mantıklı */
     justify-content: flex-start; /* Sola dayalı */
@@ -374,6 +383,12 @@ canvas {
 #ui.display-big-icon-text .btn svg {
     width: 24px; /* 16 * 1.5 */
     height: 24px;
+}
+
+/* Group label her zaman tam genişlik - yeni satırda başla */
+.draggable-group .group-label {
+    width: 100%;
+    flex-basis: 100%;
 }
 
 .btn svg {
