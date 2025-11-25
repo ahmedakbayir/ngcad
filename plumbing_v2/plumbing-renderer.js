@@ -8,6 +8,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
+import { getObjectOpacity } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
@@ -47,6 +48,11 @@ export class PlumbingRenderer {
     drawPipes(ctx, pipes) {
         if (!pipes) return;
 
+        // Çizim moduna göre opacity ayarla
+        const opacity = getObjectOpacity('plumbing');
+        ctx.save();
+        ctx.globalAlpha = opacity;
+
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -69,6 +75,8 @@ export class PlumbingRenderer {
 
         // Dirsek görüntülerini çiz
         this.drawElbows(ctx, pipes, breakPoints);
+
+        ctx.restore(); // Opacity'yi geri al
     }
 
     findBreakPoints(pipes) {
@@ -187,6 +195,11 @@ export class PlumbingRenderer {
 
     drawComponent(ctx, comp) {
         ctx.save();
+
+        // Çizim moduna göre opacity ayarla
+        const opacity = getObjectOpacity('plumbing');
+        ctx.globalAlpha = opacity;
+
         ctx.translate(comp.x, comp.y);
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 

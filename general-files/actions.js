@@ -2,7 +2,7 @@
 // GÜNCELLENMİŞ: Bu dosya artık sadece bir "hit testing" yönlendiricisi
 // ve birkaç genel yardımcı fonksiyon içeriyor.
 
-import { state } from './main.js';
+import { state, isObjectInteractable } from './main.js';
 import { getColumnAtPoint } from '../architectural-objects/columns.js';
 import { getBeamAtPoint } from '../architectural-objects/beams.js';
 import { getStairAtPoint } from '../architectural-objects/stairs.js';
@@ -368,4 +368,19 @@ export function getMinWallLength(wall) {
     // Gerekli minimum uzunluk, sadece marjlar için gerekenden veya öğelerle birlikte gerekenden büyük olanıdır.
     // Ayrıca en az 10 gibi mutlak bir minimum da olabilir.
     return Math.max(10, minLengthFromMargins, requiredByItems);
+}
+
+/**
+ * getObjectAtPoint'in filtrelenmiş versiyonu - sadece mevcut çizim modunda interaktif nesneleri döndürür
+ * @param {object} pos - Dünya koordinatlarında nokta {x, y}
+ * @returns {object|null} - Eğer nesne mevcut modda interaktif ise nesne, değilse null
+ */
+export function getInteractableObjectAtPoint(pos) {
+    const result = getObjectAtPoint(pos);
+
+    if (!result) return null;
+
+    // Nesne tipine göre interaktiflik kontrolü
+    const interactable = isObjectInteractable(result.type);
+    return interactable ? result : null;
 }
