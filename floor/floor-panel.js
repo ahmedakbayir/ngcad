@@ -1,6 +1,7 @@
 // floor-panel.js
-import { state, setState } from '../general-files/main.js';
+import { state, setState, setDrawingMode, setMode } from '../general-files/main.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 let miniPanel = null; // Sağda sabit dar panel
 let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
@@ -50,6 +51,13 @@ export function createFloorPanel() {
     `;
 
     miniPanel.innerHTML = `
+        <!-- Proje Modları (MİMARİ / TESİSAT / KARMA) -->
+        <div id="drawing-mode-selector" style="display: flex; gap: 4px; margin-right: 8px; padding-right: 8px; border-right: 1px solid #5f6368;">
+            <button class="mode-btn" id="mode-mimari" title="Mimari Mod" style="padding: 6px 12px; font-size: 12px; font-weight: 600; background: rgba(60, 64, 67, 0.8); border: 1px solid #5f6368; color: #e8eaed; border-radius: 4px; cursor: pointer; transition: all 0.2s; white-space: nowrap;">MİMARİ</button>
+            <button class="mode-btn" id="mode-tesisat" title="Tesisat Mod" style="padding: 6px 12px; font-size: 12px; font-weight: 600; background: rgba(60, 64, 67, 0.8); border: 1px solid #5f6368; color: #e8eaed; border-radius: 4px; cursor: pointer; transition: all 0.2s; white-space: nowrap;">TESİSAT</button>
+            <button class="mode-btn active" id="mode-karma" title="Karma Mod" style="padding: 6px 12px; font-size: 12px; font-weight: 600; background: rgba(100, 149, 237, 0.4); border: 1px solid #87CEEB; color: #87CEEB; border-radius: 4px; cursor: pointer; transition: all 0.2s; white-space: nowrap; box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);">KARMA</button>
+        </div>
+
         <div id="floor-expand-btn" style="cursor: pointer; padding: 4px 8px; background: transparent; border: 1px solid #5f6368; border-radius: 4px; transition: all 0.2s;" title="Katlar Panelini Aç">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8ab4f8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <!-- Bina temeli -->
@@ -105,6 +113,9 @@ export function createFloorPanel() {
     // Kaydırma okları
     setupScrollButtons();
 
+    // Mod butonları
+    setupModeButtons();
+
     // Detaylı panel oluştur
     createDetailPanel();
 
@@ -117,6 +128,79 @@ export function createFloorPanel() {
             adjustFloorPanelPosition();
         }
     });
+}
+
+/**
+ * Mod butonlarını kurar (MİMARİ, TESİSAT, KARMA)
+ */
+function setupModeButtons() {
+    const modeMimari = miniPanel.querySelector('#mode-mimari');
+    const modeTesisat = miniPanel.querySelector('#mode-tesisat');
+    const modeKarma = miniPanel.querySelector('#mode-karma');
+
+    if (!modeMimari || !modeTesisat || !modeKarma) return;
+
+    // Buton hover efektleri
+    [modeMimari, modeTesisat, modeKarma].forEach(btn => {
+        btn.addEventListener('mouseenter', () => {
+            if (!btn.classList.contains('active')) {
+                btn.style.background = 'rgba(80, 84, 87, 0.9)';
+                btn.style.borderColor = '#87CEEB';
+                btn.style.transform = 'scale(1.05)';
+                btn.style.boxShadow = '0 2px 4px rgba(135, 206, 235, 0.3)';
+            }
+        });
+        btn.addEventListener('mouseleave', () => {
+            if (!btn.classList.contains('active')) {
+                btn.style.background = 'rgba(60, 64, 67, 0.8)';
+                btn.style.borderColor = '#5f6368';
+                btn.style.transform = 'scale(1)';
+                btn.style.boxShadow = 'none';
+            }
+        });
+    });
+
+    // Aktif buton stilini güncelle
+    function updateActiveButton(activeMode) {
+        [modeMimari, modeTesisat, modeKarma].forEach(btn => {
+            btn.classList.remove('active');
+            btn.style.background = 'rgba(60, 64, 67, 0.8)';
+            btn.style.borderColor = '#5f6368';
+            btn.style.color = '#e8eaed';
+            btn.style.boxShadow = 'none';
+        });
+
+        const activeBtn = activeMode === 'MİMARİ' ? modeMimari :
+                         activeMode === 'TESİSAT' ? modeTesisat : modeKarma;
+        activeBtn.classList.add('active');
+        activeBtn.style.background = 'rgba(100, 149, 237, 0.4)';
+        activeBtn.style.borderColor = '#87CEEB';
+        activeBtn.style.color = '#87CEEB';
+        activeBtn.style.boxShadow = '0 0 8px rgba(135, 206, 235, 0.5)';
+    }
+
+    // Buton click event'leri
+    modeMimari.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setDrawingMode('MİMARİ');
+        updateActiveButton('MİMARİ');
+    });
+
+    modeTesisat.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setDrawingMode('TESİSAT');
+        updateActiveButton('TESİSAT');
+    });
+
+    modeKarma.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setDrawingMode('KARMA');
+        setMode('select', true); // KARMA modunda otomatik SEÇ moduna geç
+        updateActiveButton('KARMA');
+    });
+
+    // İlk yüklemede aktif modu ayarla
+    updateActiveButton(state.currentDrawingMode);
 }
 
 /**

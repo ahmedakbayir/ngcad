@@ -2,7 +2,7 @@
 // GÜNCELLENDİ: handleDelete, boru silindiğinde bağlantıyı "iyileştirecek" (heal) şekilde güncellendi.
 
 import * as THREE from "three"; // YENİ
-import { state, setState, setMode, dom, EXTEND_RANGE } from './main.js'; // dom import edildiğinden emin olun
+import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable } from './main.js'; // dom import edildiğinden emin olun
 import { getObjectAtPoint } from './actions.js';
 import { undo, redo, saveState, restoreState } from './history.js';
 import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen } from './ui.js';
@@ -946,6 +946,12 @@ export function setupInputListeners() {
         const rect = dom.c2d.getBoundingClientRect();
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const object = getObjectAtPoint(clickPos);
+
+        // Nesneye çift tıklama için interaktif olup olmadığını kontrol et
+        if (object && !isObjectInteractable(object.type)) {
+            // TESİSAT modunda mimari nesnelere çift tıklanamaz
+            return;
+        }
 
         if (object && (object.type === 'room' || object.type === 'roomName' || object.type === 'roomArea')) {
             showRoomNamePopup(object.object, e);
