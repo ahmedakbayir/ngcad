@@ -425,14 +425,14 @@ const drawNormalSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG
     }).filter(data => data !== null);
 
 
-    // --- 1. AŞAMA: Tüm Kenarlıkları Çiz ---
+    // --- 1. AŞAMA: Tüm Kenarlıkları Tek Path'te Çiz (overlap önleme) ---
+    ctx2d.beginPath(); // Tek path başlat
+
     segmentCornerData.forEach(data => {
         const { seg, wall, node1, node2, startLeft, startRight, endLeft, endRight, simpleStartLeft, simpleStartRight, simpleEndLeft, simpleEndRight, corner1, corner2 } = data;
         const seg_p1 = seg.p1; const seg_p2 = seg.p2;
 
-        ctx2d.beginPath();
-
-        // Ayarlanmış çizgileri çiz
+        // Ayarlanmış çizgileri path'e ekle
         ctx2d.moveTo(startLeft.x, startLeft.y);
         ctx2d.lineTo(endLeft.x, endLeft.y);
         ctx2d.moveTo(startRight.x, startRight.y);
@@ -453,9 +453,9 @@ const drawNormalSegments = (ctx2d, segmentList, color, lineThickness, wallPx, BG
              ctx2d.moveTo(capEndLeft.x, capEndLeft.y);
              ctx2d.lineTo(capEndRight.x, capEndRight.y);
         }
-
-        ctx2d.stroke(); // Bu segmentin çizgilerini çiz
     });
+
+    ctx2d.stroke(); // Tüm path'leri tek seferde çiz (overlap önlendi)
 
 
     // --- 2. AŞAMA: Tüm Dolguları Çiz ---
