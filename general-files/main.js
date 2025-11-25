@@ -200,6 +200,7 @@ export const VECTORDRAW_AREA_TYPES = {
 export let state = {
     currentMode: "drawRoom", // Başlangıç modu "Oda Çiz"
     lastUsedMode: "drawRoom", // Son kullanılan da "Oda Çiz"
+    currentDrawingMode: "KARMA", // MİMARİ, TESİSAT, KARMA - Hangi tip nesnelerle çalışılabilir
     currentPlumbingBlockType: 'SERVIS_KUTUSU', // Aktif tesisat bloğu tipi
     startPoint: null,
     nodes: [],
@@ -440,7 +441,95 @@ export const dom = {
     confirmStairPopupButton: document.getElementById("confirm-stair-popup"),
     cancelStairPopupButton: document.getElementById("cancel-stair-popup"),
     b3d: document.getElementById("b3d"), // 3D Göster butonu
+    modeMimari: document.getElementById("mode-mimari"), // Mimari mod butonu
+    modeTesisat: document.getElementById("mode-tesisat"), // Tesisat mod butonu
+    modeKarma: document.getElementById("mode-karma"), // Karma mod butonu
 };
+
+// Çizim modu değiştirme fonksiyonu (MİMARİ, TESİSAT, KARMA)
+export function setDrawingMode(mode) {
+    setState({ currentDrawingMode: mode });
+
+    // Butonların active durumunu güncelle
+    dom.modeMimari.classList.toggle("active", mode === "MİMARİ");
+    dom.modeTesisat.classList.toggle("active", mode === "TESİSAT");
+    dom.modeKarma.classList.toggle("active", mode === "KARMA");
+}
+
+// Nesne tipine göre aktif modda opacity değerini döndürür
+export function getObjectOpacity(objectType) {
+    const mode = state.currentDrawingMode;
+
+    // KARMA modunda her şey normal görünür
+    if (mode === "KARMA") {
+        return 1.0;
+    }
+
+    // Mimari nesneler listesi
+    const architecturalObjects = [
+        'wall', 'door', 'window', 'room', 'column', 'beam', 'stair'
+    ];
+
+    // Tesisat nesneleri listesi
+    const plumbingObjects = [
+        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'
+    ];
+
+    const isArchitectural = architecturalObjects.includes(objectType);
+    const isPlumbing = plumbingObjects.includes(objectType);
+
+    // MİMARİ modunda
+    if (mode === "MİMARİ") {
+        if (isArchitectural) return 1.0; // Mimari nesneler normal
+        if (isPlumbing) return 0.3; // Tesisat nesneleri soluk
+    }
+
+    // TESİSAT modunda
+    if (mode === "TESİSAT") {
+        if (isPlumbing) return 1.0; // Tesisat nesneleri normal
+        if (isArchitectural) return 0.3; // Mimari nesneler soluk
+    }
+
+    // Varsayılan: normal görünüm
+    return 1.0;
+}
+
+// Nesne tipine göre aktif modda dokunulabilir mi kontrol eder
+export function isObjectInteractable(objectType) {
+    const mode = state.currentDrawingMode;
+
+    // KARMA modunda her şeye dokunulabilir
+    if (mode === "KARMA") {
+        return true;
+    }
+
+    // Mimari nesneler listesi
+    const architecturalObjects = [
+        'wall', 'door', 'window', 'room', 'column', 'beam', 'stair', 'arcControl'
+    ];
+
+    // Tesisat nesneleri listesi
+    const plumbingObjects = [
+        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz', 'plumbingPipe', 'plumbingComponent'
+    ];
+
+    const isArchitectural = architecturalObjects.includes(objectType);
+    const isPlumbing = plumbingObjects.includes(objectType);
+
+    // MİMARİ modunda sadece mimari nesnelere dokunulabilir
+    if (mode === "MİMARİ") {
+        return isArchitectural;
+    }
+
+    // TESİSAT modunda sadece tesisat nesnelerine dokunulabilir
+    if (mode === "TESİSAT") {
+        return isPlumbing;
+    }
+
+    // Varsayılan: dokunulabilir
+    return true;
+}
+
 
 // GÜNCELLENMİŞ setMode fonksiyonu
 export function setMode(mode, forceSet = false) { // forceSet parametresi eklendi
@@ -919,6 +1008,11 @@ function initialize() {
     dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
 
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
+
+    // Çizim modu butonları (MİMARİ, TESİSAT, KARMA)
+    dom.modeMimari.addEventListener("click", () => setDrawingMode("MİMARİ"));
+    dom.modeTesisat.addEventListener("click", () => setDrawingMode("TESİSAT"));
+    dom.modeKarma.addEventListener("click", () => setDrawingMode("KARMA"));
 
     window.addEventListener("resize", resize);
 

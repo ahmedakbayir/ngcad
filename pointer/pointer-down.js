@@ -16,7 +16,7 @@ import { getSmartSnapPoint } from '../general-files/snap.js';
 import { currentModifierKeys } from '../general-files/input.js';
 import { saveState } from '../general-files/history.js';
 import { cancelLengthEdit } from '../general-files/ui.js';
-import { getObjectAtPoint } from '../general-files/actions.js';
+import { getObjectAtPoint, getInteractableObjectAtPoint } from '../general-files/actions.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { processWalls } from '../wall/wall-processor.js';
 // plumbingManager zaten yukarıda import edildi
@@ -102,8 +102,8 @@ export function onPointerDown(e) {
         // Uzunluk düzenleme modu aktifse iptal et
         if (state.isEditingLength) { cancelLengthEdit(); return; }
 
-        // Tıklanan nesneyi bul
-        const clickedObject = getObjectAtPoint(pos);
+        // Tıklanan nesneyi bul (mevcut çizim modunda interaktif olanları)
+        const clickedObject = getInteractableObjectAtPoint(pos);
 
         // Silme modu (Sadece Alt tuşu basılıysa)
         if (currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
@@ -303,14 +303,14 @@ export function onPointerDown(e) {
 
         // --- Kapı Çizim Modu ---
     } else if (state.currentMode === "drawDoor") {
-        onPointerDownDrawDoor(pos, getObjectAtPoint(pos));
+        onPointerDownDrawDoor(pos, getInteractableObjectAtPoint(pos));
         needsUpdate3D = true;
         objectJustCreated = true;
         setState({ selectedObject: null });
 
         // --- Pencere Çizim Modu ---
     } else if (state.currentMode === "drawWindow") {
-        onPointerDownDrawWindow(pos, getObjectAtPoint(pos));
+        onPointerDownDrawWindow(pos, getInteractableObjectAtPoint(pos));
         needsUpdate3D = true;
         objectJustCreated = true;
         setState({ selectedObject: null });

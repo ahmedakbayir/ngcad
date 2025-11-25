@@ -4,7 +4,7 @@ import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from '.
 import { getColumnCorners, isPointInColumn } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
-import { state, dom, BG, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT } from '../general-files/main.js'; // Sabitleri import et
+import { state, dom, BG, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getObjectOpacity } from '../general-files/main.js'; // Sabitleri ve yeni fonksiyonu import et
 
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
 export function drawNodeWallCount(node) {
@@ -20,8 +20,17 @@ export function drawNodeWallCount(node) {
 export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     const { ctx2d } = dom;
     const { wallBorderColor, lineThickness } = state;
+
+    // Çizim moduna göre opacity ayarla
+    const opacity = getObjectOpacity('door');
+    ctx2d.save();
+    ctx2d.globalAlpha = opacity;
+
     const wall = door.wall;
-    if (!wall || !wall.p1 || !wall.p2) return; // Geçersiz kapı/duvar ise çık
+    if (!wall || !wall.p1 || !wall.p2) {
+        ctx2d.restore();
+        return; // Geçersiz kapı/duvar ise çık
+    }
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     if (wallLen < 1) return; // Çok kısa duvar ise çık
     // Duvar yön vektörleri
@@ -95,13 +104,24 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     ctx2d.moveTo(jamb2_start.x, jamb2_start.y);
     ctx2d.lineTo(jamb2_end.x, jamb2_end.y);
     ctx2d.stroke(); // Çizgileri çiz
+
+    ctx2d.restore(); // Opacity'yi geri al
 }
 
 // --- GÜNCELLENMİŞ Pencere Sembolü Çizimi ---
 export function drawWindowSymbol(wall, window, isPreview = false, isSelected = false) {
     const { ctx2d } = dom;
     const { selectedObject, wallBorderColor, lineThickness, zoom } = state; // zoom eklendi
-    if (!wall || !wall.p1 || !wall.p2) return;
+
+    // Çizim moduna göre opacity ayarla
+    const opacity = getObjectOpacity('window');
+    ctx2d.save();
+    ctx2d.globalAlpha = opacity;
+
+    if (!wall || !wall.p1 || !wall.p2) {
+        ctx2d.restore();
+        return;
+    }
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     if (wallLen < 0.1) return;
     const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; const nx = -dy, ny = dx;
@@ -222,6 +242,8 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
 
     ctx2d.stroke(); // Kayıt çizgilerini çiz
     // --- YENİ KAYIT ÇİZİMİ SONU ---
+
+    ctx2d.restore(); // Opacity'yi geri al
 }
 // --- GÜNCELLENMİŞ Pencere Sembolü Çizimi SONU ---
 
@@ -269,6 +291,11 @@ export function drawColumnSymbol(node) {
 export function drawColumn(column, isSelected = false) {
     const { ctx2d } = dom;
     const { zoom, wallBorderColor, lineThickness, currentFloor } = state;
+
+    // Çizim moduna göre opacity ayarla
+    const opacity = getObjectOpacity('column');
+    ctx2d.save();
+    ctx2d.globalAlpha = opacity;
 
     // FLOOR ISOLATION: Sadece aktif kattaki duvarlar ve kolonlarla kesişim kontrolü yap
     const currentFloorId = currentFloor?.id;
@@ -463,6 +490,8 @@ export function drawColumn(column, isSelected = false) {
         ctx2d.fillStyle = state.roomFillColor; ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor; ctx2d.lineWidth = lineThickness / zoom;
         ctx2d.beginPath(); ctx2d.moveTo(hollowCorners[0].x, hollowCorners[0].y); for (let i = 1; i < hollowCorners.length; i++) { ctx2d.lineTo(hollowCorners[i].x, hollowCorners[i].y); } ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke();
     }
+
+    ctx2d.restore(); // Opacity'yi geri al
 }
 // --- drawColumn Sonu ---
 
@@ -470,6 +499,11 @@ export function drawColumn(column, isSelected = false) {
 export function drawBeam(beam, isSelected = false) {
     const { ctx2d } = dom;
     const { zoom, lineThickness } = state;
+
+    // Çizim moduna göre opacity ayarla
+    const opacity = getObjectOpacity('beam');
+    ctx2d.save();
+    ctx2d.globalAlpha = opacity;
 
     const corners = getBeamCorners(beam); // Kiriş köşe noktaları
     const beamColor = isSelected ? '#8ab4f8' : state.wallBorderColor;
@@ -518,12 +552,19 @@ export function drawBeam(beam, isSelected = false) {
     ctx2d.textBaseline = "middle";
     ctx2d.fillText("Kiriş", 0, 0);
     ctx2d.restore();
+
+    ctx2d.restore(); // Opacity'yi geri al
 }
 
 // GÜNCELLENMİŞ Merdiven Çizimi (Tek çizgi, ok mantığı düzeltilmiş)
 export function drawStairs(stair, isSelected = false) {
     const { ctx2d } = dom;
     const { zoom, lineThickness, wallBorderColor, roomFillColor } = state;
+
+    // Çizim moduna göre opacity ayarla
+    const opacity = getObjectOpacity('stair');
+    ctx2d.save();
+    ctx2d.globalAlpha = opacity;
 
     const corners = getStairCorners(stair); // Köşe noktalarını al
     const stairColor = isSelected ? '#8ab4f8' : wallBorderColor;
@@ -626,6 +667,8 @@ export function drawStairs(stair, isSelected = false) {
         // --- OK ÇİZİMİ SONU ---
     }
     // SAHANLIK İSE, BURADA OK ÇİZİLMEZ (sadece kenarlık/dolgu çizildi)
+
+    ctx2d.restore(); // Opacity'yi geri al
 }
 export function drawGuides(ctx2d, state) {
     const { guides, zoom, selectedObject } = state;
