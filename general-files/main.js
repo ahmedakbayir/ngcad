@@ -971,48 +971,58 @@ function initialize() {
         return false;
     });
 
-    dom.bWall.addEventListener("click", () => setMode("drawWall", true));
-    dom.bRoom.addEventListener("click", () => setMode("drawRoom", true));
-    dom.bDoor.addEventListener("click", () => setMode("drawDoor", true));
-    dom.bWindow.addEventListener("click", () => setMode("drawWindow", true));
-    dom.bColumn.addEventListener("click", () => setMode("drawColumn", true));
-    dom.bBeam.addEventListener("click", () => setMode("drawBeam", true));
-    dom.bStairs.addEventListener("click", () => setMode("drawStairs", true)); // forceSet ekleyin
+    // Mimari butonlar - otomatik MİMARİ moduna geç
+    dom.bWall.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawWall", true); });
+    dom.bRoom.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawRoom", true); });
+    dom.bDoor.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawDoor", true); });
+    dom.bWindow.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawWindow", true); });
+    dom.bColumn.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawColumn", true); });
+    dom.bBeam.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawBeam", true); });
+    dom.bStairs.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawStairs", true); });
 
-    // Tesisat blokları (v2 sistemi)
+    // Tesisat butonları - otomatik TESİSAT moduna geç (v2 sistemi)
     dom.bServisKutusu.addEventListener("click", () => {
+        setDrawingMode("TESİSAT");
         plumbingManager.startPlacement(TESISAT_MODLARI.SERVIS_KUTUSU);
         setMode("plumbingV2", true);
     });
     dom.bSayac.addEventListener("click", () => {
+        setDrawingMode("TESİSAT");
         plumbingManager.startPlacement(TESISAT_MODLARI.SAYAC);
         setMode("plumbingV2", true);
     });
     dom.bVana.addEventListener("click", () => {
+        setDrawingMode("TESİSAT");
         plumbingManager.startPlacement(TESISAT_MODLARI.VANA);
         setMode("plumbingV2", true);
     });
     dom.bKombi.addEventListener("click", () => {
+        setDrawingMode("TESİSAT");
         plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'KOMBI' });
         setMode("plumbingV2", true);
     });
     dom.bOcak.addEventListener("click", () => {
+        setDrawingMode("TESİSAT");
         plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'OCAK' });
         setMode("plumbingV2", true);
     });
     dom.bBoru.addEventListener("click", () => {
+        setDrawingMode("TESİSAT");
         plumbingManager.startPipeMode();
         setMode("plumbingV2", true);
     });
 
-    dom.bSymmetry.addEventListener("click", () => setMode("drawSymmetry", true)); // forceSet ekleyin
+    dom.bSymmetry.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawSymmetry", true); });
 
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
 
     // Çizim modu butonları (MİMARİ, TESİSAT, KARMA)
     dom.modeMimari.addEventListener("click", () => setDrawingMode("MİMARİ"));
     dom.modeTesisat.addEventListener("click", () => setDrawingMode("TESİSAT"));
-    dom.modeKarma.addEventListener("click", () => setDrawingMode("KARMA"));
+    dom.modeKarma.addEventListener("click", () => {
+        setDrawingMode("KARMA");
+        setMode("select", true); // KARMA modunda otomatik SEÇ moduna geç
+    });
 
     window.addEventListener("resize", resize);
 
