@@ -441,19 +441,36 @@ export const dom = {
     confirmStairPopupButton: document.getElementById("confirm-stair-popup"),
     cancelStairPopupButton: document.getElementById("cancel-stair-popup"),
     b3d: document.getElementById("b3d"), // 3D Göster butonu
-    modeMimari: document.getElementById("mode-mimari"), // Mimari mod butonu
-    modeTesisat: document.getElementById("mode-tesisat"), // Tesisat mod butonu
-    modeKarma: document.getElementById("mode-karma"), // Karma mod butonu
 };
 
 // Çizim modu değiştirme fonksiyonu (MİMARİ, TESİSAT, KARMA)
 export function setDrawingMode(mode) {
     setState({ currentDrawingMode: mode });
 
-    // Butonların active durumunu güncelle
-    dom.modeMimari.classList.toggle("active", mode === "MİMARİ");
-    dom.modeTesisat.classList.toggle("active", mode === "TESİSAT");
-    dom.modeKarma.classList.toggle("active", mode === "KARMA");
+    // Butonların active durumunu güncelle (dinamik olarak query)
+    const modeMimari = document.getElementById("mode-mimari");
+    const modeTesisat = document.getElementById("mode-tesisat");
+    const modeKarma = document.getElementById("mode-karma");
+
+    if (modeMimari && modeTesisat && modeKarma) {
+        // Tüm butonları pasif yap
+        [modeMimari, modeTesisat, modeKarma].forEach(btn => {
+            btn.classList.remove('active');
+            btn.style.background = 'rgba(60, 64, 67, 0.8)';
+            btn.style.borderColor = '#5f6368';
+            btn.style.color = '#e8eaed';
+            btn.style.boxShadow = 'none';
+        });
+
+        // Aktif butonu ayarla
+        const activeBtn = mode === 'MİMARİ' ? modeMimari :
+                         mode === 'TESİSAT' ? modeTesisat : modeKarma;
+        activeBtn.classList.add('active');
+        activeBtn.style.background = 'rgba(100, 149, 237, 0.4)';
+        activeBtn.style.borderColor = '#87CEEB';
+        activeBtn.style.color = '#87CEEB';
+        activeBtn.style.boxShadow = '0 0 8px rgba(135, 206, 235, 0.5)';
+    }
 }
 
 // Nesne tipine göre aktif modda opacity değerini döndürür
@@ -1043,14 +1060,6 @@ function initialize() {
     dom.bSymmetry.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawSymmetry", true); });
 
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
-
-    // Çizim modu butonları (MİMARİ, TESİSAT, KARMA)
-    dom.modeMimari.addEventListener("click", () => setDrawingMode("MİMARİ"));
-    dom.modeTesisat.addEventListener("click", () => setDrawingMode("TESİSAT"));
-    dom.modeKarma.addEventListener("click", () => {
-        setDrawingMode("KARMA");
-        setMode("select", true); // KARMA modunda otomatik SEÇ moduna geç
-    });
 
     window.addEventListener("resize", resize);
 
