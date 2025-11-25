@@ -249,29 +249,34 @@ canvas {
     padding: 0 4px;
 }
 
-/* Icon Dragging States */
+/* Icon Dragging States - İyileştirilmiş */
 .icon-drag-placeholder {
-    opacity: 0.3;
-    border-style: dashed !important;
+    opacity: 0.5;
+    border: 2px dashed #8ab4f8 !important;
+    background: rgba(138, 180, 248, 0.1) !important;
+    box-shadow: 0 0 10px rgba(138, 180, 248, 0.3);
+    transition: all 0.15s ease;
 }
 
 .icon-dragging {
     cursor: grabbing !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    transform: scale(1.05);
 }
 
-/* 2x Icon Size */
-.btn.icon-2x {
+/* 2x Icon Size - DEVRE DIŞI BIRAKILDI */
+/* .btn.icon-2x {
     grid-column: span 2;
     grid-row: span 2;
     font-size: 16px;
-    min-width: calc((28px + 6px) * 2 - 6px); /* 2 ikon + 1 gap */
+    min-width: calc((28px + 6px) * 2 - 6px);
     min-height: calc((28px + 6px) * 2 - 6px);
 }
 
 .btn.icon-2x svg {
     width: 32px;
     height: 32px;
-}
+} */
 
 /* Grid Layout Support */
 .draggable-group.layout-grid {

@@ -195,6 +195,10 @@ export class IconContainerManager {
     applyLayout(container, config) {
         const buttonsContainer = container.querySelector('.buttons-container') || container;
 
+        // Container'a layout class'ı ekle (debugging için)
+        container.classList.remove('layout-row', 'layout-column', 'layout-grid');
+        container.classList.add(`layout-${config.layout}`);
+
         if (config.layout === 'row') {
             buttonsContainer.style.flexDirection = 'row';
             buttonsContainer.style.flexWrap = 'wrap';
@@ -210,6 +214,50 @@ export class IconContainerManager {
             buttonsContainer.style.gridTemplateColumns = `repeat(${config.gridColumns || 2}, 1fr)`;
             buttonsContainer.style.flexDirection = '';
             buttonsContainer.style.flexWrap = '';
+            buttonsContainer.style.gap = '6px'; // Ensure gap is set
+        }
+
+        // Layout değiştiğinde container boyutunu otomatik ayarla
+        this.autoResizeContainer(container, config);
+    }
+
+    /**
+     * Container boyutunu içeriğe göre otomatik ayarla
+     */
+    autoResizeContainer(container, config) {
+        const buttons = container.querySelectorAll('.btn');
+        if (buttons.length === 0) return;
+
+        const firstBtn = buttons[0];
+        const btnRect = firstBtn.getBoundingClientRect();
+        const gap = 6;
+        const padding = 16;
+        const labelHeight = 30;
+
+        let autoWidth, autoHeight;
+
+        if (config.layout === 'row') {
+            // Yatay: tüm butonları yan yana sığdır
+            autoWidth = (btnRect.width + gap) * buttons.length - gap + padding;
+            autoHeight = btnRect.height + labelHeight + padding;
+        } else if (config.layout === 'column') {
+            // Dikey: tüm butonları alt alta sığdır
+            autoWidth = btnRect.width + padding;
+            autoHeight = (btnRect.height + gap) * buttons.length - gap + labelHeight + padding;
+        } else if (config.layout === 'grid') {
+            // Grid: sütun sayısına göre hesapla
+            const cols = config.gridColumns || 2;
+            const rows = Math.ceil(buttons.length / cols);
+            autoWidth = (btnRect.width + gap) * cols - gap + padding;
+            autoHeight = (btnRect.height + gap) * rows - gap + labelHeight + padding;
+        }
+
+        // Sadece otomatik genişlik/yükseklik yoksa ayarla
+        if (!container.style.width || container.style.width === 'auto') {
+            container.style.width = autoWidth + 'px';
+        }
+        if (!container.style.height || container.style.height === 'auto') {
+            container.style.height = autoHeight + 'px';
         }
     }
 
@@ -328,12 +376,8 @@ export class IconContainerManager {
         const buttons = container.querySelectorAll('.btn');
 
         buttons.forEach((button, index) => {
-            // 2x boyut toggle için double-click
-            button.addEventListener('dblclick', (e) => {
-                if (e.target.closest('.drag-handle')) return;
-                e.stopPropagation();
-                this.toggleIconSize(button, container);
-            });
+            // Double-click devre dışı bırakıldı (2x boyut özelliği kaldırıldı)
+            // button.addEventListener('dblclick', ...) kaldırıldı
 
             // Sürükleme için icon area (SVG ve text hariç handle)
             button.setAttribute('draggable', 'false'); // HTML5 drag'i devre dışı
@@ -480,18 +524,17 @@ export class IconContainerManager {
 
     /**
      * İkon boyutunu toggle et (normal <-> 2x)
+     * DEVRE DIŞI BIRAKILDI - 2x icon özelliği kaldırıldı
      */
-    toggleIconSize(button, container) {
-        const is2x = button.classList.contains('icon-2x');
-
-        if (is2x) {
-            button.classList.remove('icon-2x');
-        } else {
-            button.classList.add('icon-2x');
-        }
-
-        this.saveIconSizes(container);
-    }
+    // toggleIconSize(button, container) {
+    //     const is2x = button.classList.contains('icon-2x');
+    //     if (is2x) {
+    //         button.classList.remove('icon-2x');
+    //     } else {
+    //         button.classList.add('icon-2x');
+    //     }
+    //     this.saveIconSizes(container);
+    // }
 
     /**
      * Config kaydet
@@ -535,15 +578,16 @@ export class IconContainerManager {
 
     /**
      * İkon boyutlarını kaydet
+     * DEVRE DIŞI BIRAKILDI - 2x icon özelliği kaldırıldı
      */
-    saveIconSizes(container) {
-        const buttons = Array.from(container.querySelectorAll('.btn'));
-        const sizes = buttons.map(btn => ({
-            id: btn.id,
-            is2x: btn.classList.contains('icon-2x')
-        }));
-        localStorage.setItem(`container-icon-sizes-${container.id}`, JSON.stringify(sizes));
-    }
+    // saveIconSizes(container) {
+    //     const buttons = Array.from(container.querySelectorAll('.btn'));
+    //     const sizes = buttons.map(btn => ({
+    //         id: btn.id,
+    //         is2x: btn.classList.contains('icon-2x')
+    //     }));
+    //     localStorage.setItem(`container-icon-sizes-${container.id}`, JSON.stringify(sizes));
+    // }
 
     /**
      * İkon sırasını yükle
@@ -578,19 +622,19 @@ export class IconContainerManager {
 
     /**
      * İkon boyutlarını yükle
+     * DEVRE DIŞI BIRAKILDI - 2x icon özelliği kaldırıldı
      */
-    loadIconSizes(container) {
-        const saved = localStorage.getItem(`container-icon-sizes-${container.id}`);
-        if (!saved) return;
-
-        const sizes = JSON.parse(saved);
-        sizes.forEach(({ id, is2x }) => {
-            const btn = container.querySelector(`#${id}`);
-            if (btn && is2x) {
-                btn.classList.add('icon-2x');
-            }
-        });
-    }
+    // loadIconSizes(container) {
+    //     const saved = localStorage.getItem(`container-icon-sizes-${container.id}`);
+    //     if (!saved) return;
+    //     const sizes = JSON.parse(saved);
+    //     sizes.forEach(({ id, is2x }) => {
+    //         const btn = container.querySelector(`#${id}`);
+    //         if (btn && is2x) {
+    //             btn.classList.add('icon-2x');
+    //         }
+    //     });
+    // }
 }
 
 // Export singleton instance
