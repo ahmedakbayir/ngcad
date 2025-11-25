@@ -504,8 +504,106 @@ export function setDrawingMode(mode) {
     }
 }
 
-// Nesne tipine göre aktif modda opacity değerini döndürür
+// Renk açıklaştırma fonksiyonu - rengi background'a yaklaştırır
+function blendColorWithBackground(color, blendAmount) {
+    // blendAmount: 0 = orijinal renk, 1 = tamamen background
+    const bgColor = state.backgroundColor || '#1e1f20';
+
+    // Hex renkleri parse et
+    const parseHex = (hex) => {
+        const clean = hex.replace('#', '');
+        return {
+            r: parseInt(clean.substring(0, 2), 16),
+            g: parseInt(clean.substring(2, 4), 16),
+            b: parseInt(clean.substring(4, 6), 16)
+        };
+    };
+
+    // Rengi string'den parse et
+    let sourceColor;
+    if (typeof color === 'string' && color.startsWith('#')) {
+        sourceColor = parseHex(color);
+    } else if (typeof color === 'string' && color.startsWith('rgb')) {
+        // rgb(r, g, b) veya rgba(r, g, b, a) parse et
+        const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (match) {
+            sourceColor = { r: parseInt(match[1]), g: parseInt(match[2]), b: parseInt(match[3]) };
+        } else {
+            return color; // Parse edilemezse orijinali döndür
+        }
+    } else {
+        return color; // Desteklenmeyen format
+    }
+
+    const bg = parseHex(bgColor);
+
+    // Renkleri blend et
+    const blended = {
+        r: Math.round(sourceColor.r * (1 - blendAmount) + bg.r * blendAmount),
+        g: Math.round(sourceColor.g * (1 - blendAmount) + bg.g * blendAmount),
+        b: Math.round(sourceColor.b * (1 - blendAmount) + bg.b * blendAmount)
+    };
+
+    // Hex'e geri çevir
+    const toHex = (n) => {
+        const hex = n.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    };
+
+    return `#${toHex(blended.r)}${toHex(blended.g)}${toHex(blended.b)}`;
+}
+
+// Nesne tipine göre rengi ayarlar (tesisat modunda mimari soluk olur)
+export function getAdjustedColor(originalColor, objectType) {
+    const mode = state.currentDrawingMode;
+
+    // KARMA modunda her şey normal renkte
+    if (mode === "KARMA") {
+        return originalColor;
+    }
+
+    // Mimari nesneler listesi
+    const architecturalObjects = [
+        'wall', 'door', 'window', 'room', 'column', 'beam', 'stair'
+    ];
+
+    // Tesisat nesneleri listesi
+    const plumbingObjects = [
+        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'
+    ];
+
+    const isArchitectural = architecturalObjects.includes(objectType);
+    const isPlumbing = plumbingObjects.includes(objectType);
+
+    // MİMARİ modunda
+    if (mode === "MİMARİ") {
+        if (isPlumbing) {
+            // Tesisat nesneleri soluk (85% background'a blend)
+            return blendColorWithBackground(originalColor, 0.85);
+        }
+        return originalColor; // Mimari nesneler normal
+    }
+
+    // TESİSAT modunda
+    if (mode === "TESİSAT") {
+        if (isArchitectural) {
+            // Mimari nesneler çok soluk (85% background'a blend)
+            return blendColorWithBackground(originalColor, 0.85);
+        }
+        return originalColor; // Tesisat nesneleri normal
+    }
+
+    return originalColor;
+}
+
+// DEPRECATED: Artık kullanılmıyor, geriye uyumluluk için bırakıldı
 export function getObjectOpacity(objectType) {
+    // Artık her zaman 1.0 döndür, renk ayarlamasını getAdjustedColor kullan
+    return 1.0;
+}
+
+// Nesne tipine göre aktif modda opacity değerini döndürür
+export function getObjectOpacity_OLD(objectType) {
     const mode = state.currentDrawingMode;
 
     // KARMA modunda her şey normal görünür
