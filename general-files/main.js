@@ -443,6 +443,37 @@ export const dom = {
     b3d: document.getElementById("b3d"), // 3D Göster butonu
 };
 
+// Proje modu butonlarını kurar (MİMARİ, TESİSAT, KARMA)
+function setupModeButtons() {
+    const modeMimari = document.getElementById("mode-mimari");
+    const modeTesisat = document.getElementById("mode-tesisat");
+    const modeKarma = document.getElementById("mode-karma");
+
+    if (!modeMimari || !modeTesisat || !modeKarma) {
+        console.warn('Mode buttons not found in DOM');
+        return;
+    }
+
+    // Mimari mod butonu
+    modeMimari.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setDrawingMode('MİMARİ');
+    });
+
+    // Tesisat mod butonu
+    modeTesisat.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setDrawingMode('TESİSAT');
+    });
+
+    // Karma mod butonu
+    modeKarma.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setDrawingMode('KARMA');
+        setMode('select', true); // KARMA modunda otomatik SEÇ moduna geç
+    });
+}
+
 // Çizim modu değiştirme fonksiyonu (MİMARİ, TESİSAT, KARMA)
 export function setDrawingMode(mode) {
     setState({ currentDrawingMode: mode });
@@ -1060,6 +1091,9 @@ function initialize() {
     dom.bSymmetry.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawSymmetry", true); });
 
     dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
+
+    // Proje modu butonları (MİMARİ, TESİSAT, KARMA)
+    setupModeButtons();
 
     window.addEventListener("resize", resize);
 

@@ -1059,7 +1059,24 @@ cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" wid
     color: #87CEEB;
 }
 
+/* Proje Modları - En sol üst köşe */
+#drawing-mode-selector {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(42, 43, 44, 0.95);
+    border-bottom: 1px solid #5f6368;
+    border-right: 1px solid #5f6368;
+    border-bottom-right-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
 /* 3D açıkken de göster */
-.main.show-3d .drawing-mode-selector {
+.main.show-3d #drawing-mode-selector {
     display: flex;
 }
