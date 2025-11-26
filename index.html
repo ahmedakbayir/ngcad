@@ -96,10 +96,10 @@
           </button>
           <button id="bColumn" class="btn" title="Kolon">
             <svg viewBox="0 0 24 24">
-              <rect x="8" y="4" width="8" height="2" stroke-width="1.5" fill="currentColor" />
-              <line x1="10" y1="6" x2="10" y2="18" stroke-width="3" />
-              <line x1="14" y1="6" x2="14" y2="18" stroke-width="3" />
-              <rect x="8" y="18" width="8" height="2" stroke-width="1.5" fill="currentColor" />
+              <rect x="8" y="4" width="8" height="1" stroke-width="1.5" fill="currentColor" />
+              <line x1="12" y1="6" x2="12" y2="17" stroke-width="6" />
+              <!-- <line x1="14" y1="6" x2="14" y2="18" stroke-width="3" /> -->
+              <rect x="8" y="18" width="8" height="1" stroke-width="1.5" fill="currentColor" />
             </svg>
             Kolon
           </button>
@@ -161,50 +161,14 @@
           <div class="group-label drag-handle">TESİSAT</div>
           <button id="bServisKutusu" class="btn" title="Servis Kutusu">
             <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
-              <rect x="6" y="4" width="12" height="16" rx="1" stroke-width="1.5" />
-              <circle cx="19.5" cy="14" r="1.5" fill="currentColor" />
+              <rect x="4" y="2" width="16" height="20" rx="1" stroke-width="1.5" />
+              <path d="M 17 19 h6v-4" stroke-width="2" />
+              <text x="12" y="14" text-anchor="middle" font-size="10" font-weight="bold" stroke="none"
+                fill="currentColor">SK</text>
             </svg>
             Servis Kutusu
           </button>
-          <button id="bSayac" class="btn" title="Sayaç">
-            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
-              <rect x="5" y="8" width="14" height="10" rx="1" stroke-width="2" />
-              <circle cx="9" cy="8" r="1.5" fill="#0F0" />
-              <circle cx="15" cy="8" r="1.5" fill="#F00" />
-              <!-- Sol kol (sola döner) -->
-              <path d="M 9 8 L 9 4 M 9 4 L 7 5.5" stroke-width="2" stroke-linecap="round" />
-              <!-- Sağ kol (sağa döner) -->
-              <path d="M 15 8 L 15 4 M 15 4 L 17 5.5" stroke-width="2" stroke-linecap="round" />
-            </svg>
-            Sayaç
-          </button>
-          <button id="bVana" class="btn" title="Vana">
-            <svg viewBox="0 0 24 24" stroke="currentColor" fill="currentColor">
-              <path d="M 11 12 L 6 8 L 6 16 Z" />
-              <path d="M 13 12 L 18 8 L 18 16 Z" />
-            </svg>
-            Vana
-          </button>
-          <button id="bKombi" class="btn" title="Kombi">
-            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
-              <circle cx="12" cy="12" r="7" stroke-width="1.5" />
-              <circle cx="12" cy="12" r="4" stroke-width="1.5" />
-              <text x="12" y="15" text-anchor="middle" font-size="10" font-weight="bold" stroke="none"
-                fill="currentColor">G</text>
-            </svg>
-            Kombi
-          </button>
-          <button id="bOcak" class="btn" title="Ocak">
-            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
-              <rect x="5" y="5" width="14" height="14" rx="2" stroke-width="1.5" />
-              <circle cx="9" cy="9" r="1.5" stroke-width="1" />
-              <circle cx="15" cy="9" r="1.5" stroke-width="1" />
-              <circle cx="9" cy="15" r="1.5" stroke-width="1" />
-              <circle cx="15" cy="15" r="1.5" stroke-width="1" />
-            </svg>
-            Ocak
-          </button>
-          <button id="bBoru" class="btn" title="Boru (T)">
+                    <button id="bBoru" class="btn" title="Boru (T)">
             <svg viewBox="0 0 24 24" stroke="#4885e8" fill="none">
               <line x1="4" y1="12" x2="20" y2="12" stroke-width="3" stroke-linecap="round" />
               <line x1="20" y1="12" x2="20" y2="18" stroke-width="3" stroke-linecap="round" />
@@ -213,6 +177,47 @@
             </svg>
             Boru
           </button>
+          <button id="bSayac" class="btn" title="Sayaç">
+            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+              <rect x="4" y="8" width="16" height="14" rx="2" stroke-width="1.6" />
+              <text x="12" y="18" text-anchor="middle" font-size="10" font-weight="bold" stroke="none"
+                fill="currentColor">G4</text>
+              <!-- <circle cx="9" cy="8" r="1.5" fill="#0F0" /> -->
+              <!-- <circle cx="15" cy="8" r="1.5" fill="#F00" /> -->
+              <!-- Sol kol (sola döner) -->
+              <path d="M 9 7 L 9 4 M 9 4 L 6 4" stroke-width="2" stroke-linecap="round" />
+              <!-- Sağ kol (sağa döner) -->
+              <path d="M 15 7 L 15 4 M 15 4 L 18 4" stroke-width="2" stroke-linecap="round" />
+            </svg>
+            Sayaç
+          </button>
+          <button id="bVana" class="btn" title="Vana">
+            <svg viewBox="0 0 24 24" stroke="currentColor" fill="currentColor">
+              <path d="M 12 12 l-5-4 v8 l5 -4" />
+              <path d="M 12 12 l5-4 v8 l-5 -4" />
+            </svg>
+            Vana
+          </button>
+          <button id="bKombi" class="btn" title="Kombi">
+            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+              <circle cx="12" cy="12" r="11" stroke-width="1.5" />
+              <circle cx="12" cy="12" r="8" stroke-width="1.5" />
+              <text x="12" y="15" text-anchor="middle" font-size="10" font-weight="bold" stroke="none"
+                fill="currentColor">G</text>
+            </svg>
+            Kombi
+          </button>
+          <button id="bOcak" class="btn" title="Ocak">
+            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+              <rect x="4" y="4" width="16" height="16" rx="2" stroke-width="1.5" />
+              <circle cx="9" cy="9" r="2" stroke-width="1" />
+              <circle cx="15" cy="9" r="2" stroke-width="1" />
+              <circle cx="9" cy="15" r="2" stroke-width="1" />
+              <circle cx="15" cy="15" r="2" stroke-width="1" />
+            </svg>
+            Ocak
+          </button>
+
         </div>
         <input type="file" id="file-input" accept=".json, .pdf, .xml" style="display: none" />
       </div>
