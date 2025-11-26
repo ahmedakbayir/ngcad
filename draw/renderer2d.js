@@ -531,6 +531,7 @@ export function drawBeam(beam, isSelected = false) {
     ctx2d.fillText("Kiriş", 0, 0);
     ctx2d.restore();
 
+    ctx2d.restore(); // İlk save() için restore() eklendi
 }
 
 // GÜNCELLENMİŞ Merdiven Çizimi (Tek çizgi, ok mantığı düzeltilmiş)
@@ -643,6 +644,7 @@ export function drawStairs(stair, isSelected = false) {
     }
     // SAHANLIK İSE, BURADA OK ÇİZİLMEZ (sadece kenarlık/dolgu çizildi)
 
+    ctx2d.restore(); // save() için restore() eklendi
 }
 export function drawGuides(ctx2d, state) {
     const { guides, zoom, selectedObject } = state;
