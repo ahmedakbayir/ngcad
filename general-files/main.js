@@ -198,8 +198,8 @@ export const VECTORDRAW_AREA_TYPES = {
 
 
 export let state = {
-    currentMode: "drawRoom", // Başlangıç modu "Oda Çiz"
-    lastUsedMode: "drawRoom", // Son kullanılan da "Oda Çiz"
+    currentMode: "select", // Başlangıç modu "SEÇ"
+    lastUsedMode: "select", // Son kullanılan da "SEÇ"
     currentDrawingMode: "KARMA", // MİMARİ, TESİSAT, KARMA - Hangi tip nesnelerle çalışılabilir
     currentPlumbingBlockType: 'SERVIS_KUTUSU', // Aktif tesisat bloğu tipi
     startPoint: null,
