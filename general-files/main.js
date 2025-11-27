@@ -1089,106 +1089,140 @@ function initialize() {
 
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
-    dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
+    if (dom.bSel) {
+        dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
+    }
 
     // DELETE butonu - mousedown'da HEMEN handleDelete çağır (blur öncesi)
     let deleteButtonPressed = false;
-    dom.bDelete.addEventListener("mousedown", (e) => {
-        e.preventDefault(); // Blur event'ini engelle
-        e.stopPropagation();
+    if (dom.bDelete) {
+        dom.bDelete.addEventListener("mousedown", (e) => {
+            e.preventDefault(); // Blur event'ini engelle
+            e.stopPropagation();
 
-        // Seçim kaybolmadan HEMEN handleDelete çağır
-        console.log('🗑️ DELETE button mousedown, calling handleDelete immediately');
-        deleteButtonPressed = true;
-        handleDelete();
-        deleteButtonPressed = false;
+            // Seçim kaybolmadan HEMEN handleDelete çağır
+            console.log('🗑️ DELETE button mousedown, calling handleDelete immediately');
+            deleteButtonPressed = true;
+            handleDelete();
+            deleteButtonPressed = false;
 
-        // Focus'u canvas'a geri ver
-        setTimeout(() => {
-            dom.c2d.focus();
-        }, 0);
+            // Focus'u canvas'a geri ver
+            setTimeout(() => {
+                dom.c2d.focus();
+            }, 0);
 
-        return false;
-    });
-    dom.bDelete.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        // mousedown'da zaten handleDelete çağrıldı, tekrar çağırma
-        return false;
-    });
+            return false;
+        });
+        dom.bDelete.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            // mousedown'da zaten handleDelete çağrıldı, tekrar çağırma
+            return false;
+        });
+    }
 
     // Mimari butonlar - otomatik MİMARİ moduna geç ve boru modundan çık
-    dom.bWall.addEventListener("click", () => {
-        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-        setDrawingMode("MİMARİ");
-        setMode("drawWall", true);
-    });
-    dom.bRoom.addEventListener("click", () => {
-        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-        setDrawingMode("MİMARİ");
-        setMode("drawRoom", true);
-    });
-    dom.bDoor.addEventListener("click", () => {
-        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-        setDrawingMode("MİMARİ");
-        setMode("drawDoor", true);
-    });
-    dom.bWindow.addEventListener("click", () => {
-        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-        setDrawingMode("MİMARİ");
-        setMode("drawWindow", true);
-    });
-    dom.bColumn.addEventListener("click", () => {
-        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-        setDrawingMode("MİMARİ");
-        setMode("drawColumn", true);
-    });
-    dom.bBeam.addEventListener("click", () => {
-        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-        setDrawingMode("MİMARİ");
-        setMode("drawBeam", true);
-    });
-    dom.bStairs.addEventListener("click", () => {
-        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-        setDrawingMode("MİMARİ");
-        setMode("drawStairs", true);
-    });
+    if (dom.bWall) {
+        dom.bWall.addEventListener("click", () => {
+            if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+            setDrawingMode("MİMARİ");
+            setMode("drawWall", true);
+        });
+    }
+    if (dom.bRoom) {
+        dom.bRoom.addEventListener("click", () => {
+            if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+            setDrawingMode("MİMARİ");
+            setMode("drawRoom", true);
+        });
+    }
+    if (dom.bDoor) {
+        dom.bDoor.addEventListener("click", () => {
+            if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+            setDrawingMode("MİMARİ");
+            setMode("drawDoor", true);
+        });
+    }
+    if (dom.bWindow) {
+        dom.bWindow.addEventListener("click", () => {
+            if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+            setDrawingMode("MİMARİ");
+            setMode("drawWindow", true);
+        });
+    }
+    if (dom.bColumn) {
+        dom.bColumn.addEventListener("click", () => {
+            if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+            setDrawingMode("MİMARİ");
+            setMode("drawColumn", true);
+        });
+    }
+    if (dom.bBeam) {
+        dom.bBeam.addEventListener("click", () => {
+            if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+            setDrawingMode("MİMARİ");
+            setMode("drawBeam", true);
+        });
+    }
+    if (dom.bStairs) {
+        dom.bStairs.addEventListener("click", () => {
+            if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+            setDrawingMode("MİMARİ");
+            setMode("drawStairs", true);
+        });
+    }
 
     // Tesisat butonları - otomatik TESİSAT moduna geç (v2 sistemi)
-    dom.bServisKutusu.addEventListener("click", () => {
-        setDrawingMode("TESİSAT");
-        plumbingManager.startPlacement(TESISAT_MODLARI.SERVIS_KUTUSU);
-        setMode("plumbingV2", true);
-    });
-    dom.bSayac.addEventListener("click", () => {
-        setDrawingMode("TESİSAT");
-        plumbingManager.startPlacement(TESISAT_MODLARI.SAYAC);
-        setMode("plumbingV2", true);
-    });
-    dom.bVana.addEventListener("click", () => {
-        setDrawingMode("TESİSAT");
-        plumbingManager.startPlacement(TESISAT_MODLARI.VANA);
-        setMode("plumbingV2", true);
-    });
-    dom.bKombi.addEventListener("click", () => {
-        setDrawingMode("TESİSAT");
-        plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'KOMBI' });
-        setMode("plumbingV2", true);
-    });
-    dom.bOcak.addEventListener("click", () => {
-        setDrawingMode("TESİSAT");
-        plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'OCAK' });
-        setMode("plumbingV2", true);
-    });
-    dom.bBoru.addEventListener("click", () => {
-        setDrawingMode("TESİSAT");
-        plumbingManager.startPipeMode();
-        setMode("plumbingV2", true);
-    });
+    if (dom.bServisKutusu) {
+        dom.bServisKutusu.addEventListener("click", () => {
+            setDrawingMode("TESİSAT");
+            plumbingManager.startPlacement(TESISAT_MODLARI.SERVIS_KUTUSU);
+            setMode("plumbingV2", true);
+        });
+    }
+    if (dom.bSayac) {
+        dom.bSayac.addEventListener("click", () => {
+            setDrawingMode("TESİSAT");
+            plumbingManager.startPlacement(TESISAT_MODLARI.SAYAC);
+            setMode("plumbingV2", true);
+        });
+    }
+    if (dom.bVana) {
+        dom.bVana.addEventListener("click", () => {
+            setDrawingMode("TESİSAT");
+            plumbingManager.startPlacement(TESISAT_MODLARI.VANA);
+            setMode("plumbingV2", true);
+        });
+    }
+    if (dom.bKombi) {
+        dom.bKombi.addEventListener("click", () => {
+            setDrawingMode("TESİSAT");
+            plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'KOMBI' });
+            setMode("plumbingV2", true);
+        });
+    }
+    if (dom.bOcak) {
+        dom.bOcak.addEventListener("click", () => {
+            setDrawingMode("TESİSAT");
+            plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'OCAK' });
+            setMode("plumbingV2", true);
+        });
+    }
+    if (dom.bBoru) {
+        dom.bBoru.addEventListener("click", () => {
+            setDrawingMode("TESİSAT");
+            plumbingManager.startPipeMode();
+            setMode("plumbingV2", true);
+        });
+    }
 
-    dom.bSymmetry.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawSymmetry", true); });
+    if (dom.bSymmetry) {
+        dom.bSymmetry.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawSymmetry", true); });
+    }
 
-    dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
+    if (dom.bAssignNames) {
+        dom.bAssignNames.addEventListener("click", assignRoomNames); // Artık güncellenmiş fonksiyonu çağıracak
+    }
 
     // Proje modu butonları (MİMARİ, TESİSAT, KARMA)
     setupModeButtons();
@@ -1196,30 +1230,32 @@ function initialize() {
     window.addEventListener("resize", resize);
 
     // 3D Canvas Mouse Tracking
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // Y=0 plane (zemin)
+    if (dom.c3d) {
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // Y=0 plane (zemin)
 
-    dom.c3d.addEventListener('mousemove', (event) => {
-        if (!dom.mainContainer.classList.contains('show-3d')) return;
+        dom.c3d.addEventListener('mousemove', (event) => {
+            if (!dom.mainContainer.classList.contains('show-3d')) return;
 
-        const rect = dom.c3d.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            const rect = dom.c3d.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-        raycaster.setFromCamera(mouse, camera3d);
+            raycaster.setFromCamera(mouse, camera3d);
 
-        // Zemin düzlemi ile kesişim noktasını bul
-        const intersectPoint = new THREE.Vector3();
-        raycaster.ray.intersectPlane(floorPlane, intersectPoint);
+            // Zemin düzlemi ile kesişim noktasını bul
+            const intersectPoint = new THREE.Vector3();
+            raycaster.ray.intersectPlane(floorPlane, intersectPoint);
 
-        if (intersectPoint) {
-            // Koordinatları cm cinsinden sakla (Three.js cm birimiyle çalışıyor)
-            mouse3DCoords.x = intersectPoint.x;
-            mouse3DCoords.y = intersectPoint.y;
-            mouse3DCoords.z = intersectPoint.z;
-        }
-    });
+            if (intersectPoint) {
+                // Koordinatları cm cinsinden sakla (Three.js cm birimiyle çalışıyor)
+                mouse3DCoords.x = intersectPoint.x;
+                mouse3DCoords.y = intersectPoint.y;
+                mouse3DCoords.z = intersectPoint.z;
+            }
+        });
+    }
 
     // Başlangıç modunu zorla ayarla
     setMode(state.currentMode, true);
