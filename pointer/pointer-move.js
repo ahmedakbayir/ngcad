@@ -154,6 +154,7 @@ export function onPointerMove(e) {
     if (plumbingManager.interactionManager?.boruCizimAktif && state.currentMode !== 'select') {
         const handled = plumbingManager.interactionManager.handlePointerMove(e);
         if (handled) {
+            updateMouseCursor(); // Cursor'ı güncelle
             return;
         }
     }
@@ -162,6 +163,7 @@ export function onPointerMove(e) {
     if (state.currentMode === "plumbingV2") {
         const handled = plumbingManager.interactionManager.handlePointerMove(e);
         if (handled) {
+            updateMouseCursor(); // Cursor'ı güncelle
             return;
         }
     }
