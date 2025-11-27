@@ -565,8 +565,15 @@ function updateMouseCursor() {
         case 'drawGuideAngular':
         case 'drawGuideFree':
         // --- YENİ SONU ---
-        case 'plumbingV2':
             modeCursorStyle = 'crosshair';
+            break;
+        case 'plumbingV2':
+            // Boru çizim modu aktifse özel cursor göster
+            if (plumbingManager.interactionManager?.boruCizimAktif) {
+                modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><g transform=\"translate(21, 5) scale(0.45)\"><line x1=\"4\" y1=\"12\" x2=\"20\" y2=\"12\" stroke=\"%234885e8\" stroke-width=\"3\" stroke-linecap=\"round\"/><line x1=\"20\" y1=\"12\" x2=\"20\" y2=\"18\" stroke=\"%234885e8\" stroke-width=\"3\" stroke-linecap=\"round\"/><circle cx=\"4\" cy=\"12\" r=\"1.5\" fill=\"%234885e8\"/><circle cx=\"20\" cy=\"12\" r=\"1.5\" fill=\"%234885e8\"/></g></svg>') 16 16, crosshair";
+            } else {
+                modeCursorStyle = 'crosshair';
+            }
             break;
         case 'select':
              // Select modu aşağıda ele alınacak
