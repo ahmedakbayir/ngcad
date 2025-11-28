@@ -512,6 +512,9 @@ function blendColorWithBackground(color, blendAmount) {
     // blendAmount: 0 = orijinal renk, 1 = tamamen background
     const bgColor = state.backgroundColor || '#1e1f20';
 
+    // Debug için
+    // console.log('Blending:', color, 'with bg:', bgColor, 'amount:', blendAmount);
+
     // Hex renkleri parse et
     const parseHex = (hex) => {
         const clean = hex.replace('#', '');
@@ -561,7 +564,9 @@ function blendColorWithBackground(color, blendAmount) {
         return hex.length === 1 ? '0' + hex : hex;
     };
 
-    return `#${toHex(blended.r)}${toHex(blended.g)}${toHex(blended.b)}`;
+    const result = `#${toHex(blended.r)}${toHex(blended.g)}${toHex(blended.b)}`;
+    // console.log('Result:', result);
+    return result;
 }
 
 // Nesne tipine göre rengi ayarlar (tesisat modunda mimari soluk olur)
@@ -671,7 +676,7 @@ export function isObjectInteractable(objectType) {
 
     // Mimari nesneler listesi
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'column', 'beam', 'stair', 'arcControl'
+        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'column', 'beam', 'stair', 'arcControl'
     ];
 
     // Tesisat nesneleri listesi
