@@ -790,6 +790,12 @@ function animate() {
         if (fpsDisplay) {
             fpsDisplay.textContent = `FPS: ${currentFPS}`;
         }
+
+        // Mod Display güncelleme
+        const modeDisplay = document.getElementById('mode-display');
+        if (modeDisplay) {
+            modeDisplay.textContent = `Mod: ${state.currentDrawingMode}`;
+        }
     }
 
     // Camera Coordinates Display güncelleme (her zaman göster)
