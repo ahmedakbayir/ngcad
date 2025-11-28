@@ -294,9 +294,13 @@ export function drawColumn(column, isSelected = false) {
 
     const corners = getColumnCorners(column); // Kolonun köşe noktaları
 
+    // Çizim moduna göre renk ayarla
+    const adjustedBorderColor = getAdjustedColor(wallBorderColor, 'column');
+    const adjustedFillColor = getAdjustedColor(BG, 'column');
+
     // Çizim stilleri
-    ctx2d.fillStyle = BG; // İçini arka plan rengiyle doldur
-    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor; // Kenarlık rengi (seçiliyse mavi)
+    ctx2d.fillStyle = adjustedFillColor; // İçini arka plan rengiyle doldur
+    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : adjustedBorderColor; // Kenarlık rengi (seçiliyse mavi)
     ctx2d.lineWidth = lineThickness / zoom; // Çizgi kalınlığı (zoom'a göre ayarlı)
 
     // Dış kareyi çiz (Önce dolgu, sonra kenarlık)
@@ -477,7 +481,8 @@ export function drawColumn(column, isSelected = false) {
     if (column.hollowWidth && column.hollowHeight) {
         const halfHollowW = column.hollowWidth / 2; const halfHollowH = column.hollowHeight / 2; const cx = column.center.x; const cy = column.center.y; const rot = (column.rotation || 0) * Math.PI / 180; const offsetX = column.hollowOffsetX || 0; const offsetY = column.hollowOffsetY || 0;
         const hollowCorners = [ { x: offsetX - halfHollowW, y: offsetY - halfHollowH }, { x: offsetX + halfHollowW, y: offsetY - halfHollowH }, { x: offsetX + halfHollowW, y: offsetY + halfHollowH }, { x: offsetX - halfHollowW, y: offsetY + halfHollowH } ].map(corner => { const rotatedX = corner.x * Math.cos(rot) - corner.y * Math.sin(rot); const rotatedY = corner.x * Math.sin(rot) + corner.y * Math.cos(rot); return { x: cx + rotatedX, y: cy + rotatedY }; });
-        ctx2d.fillStyle = state.roomFillColor; ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor; ctx2d.lineWidth = lineThickness / zoom;
+        const adjustedRoomFillColor = getAdjustedColor(state.roomFillColor, 'column');
+        ctx2d.fillStyle = adjustedRoomFillColor; ctx2d.strokeStyle = isSelected ? '#8ab4f8' : adjustedBorderColor; ctx2d.lineWidth = lineThickness / zoom;
         ctx2d.beginPath(); ctx2d.moveTo(hollowCorners[0].x, hollowCorners[0].y); for (let i = 1; i < hollowCorners.length; i++) { ctx2d.lineTo(hollowCorners[i].x, hollowCorners[i].y); } ctx2d.closePath(); ctx2d.fill(); ctx2d.stroke();
     }
 
@@ -493,7 +498,9 @@ export function drawBeam(beam, isSelected = false) {
     ctx2d.save();
 
     const corners = getBeamCorners(beam); // Kiriş köşe noktaları
-    const beamColor = isSelected ? '#8ab4f8' : state.wallBorderColor;
+    // Çizim moduna göre renk ayarla
+    const adjustedWallBorderColor = getAdjustedColor(state.wallBorderColor, 'beam');
+    const beamColor = isSelected ? '#8ab4f8' : adjustedWallBorderColor;
     let fillColor;
     if (beamColor.startsWith('#')) {
         const hex = beamColor.slice(1);
@@ -552,8 +559,11 @@ export function drawStairs(stair, isSelected = false) {
     ctx2d.save();
 
     const corners = getStairCorners(stair); // Köşe noktalarını al
-    const stairColor = isSelected ? '#8ab4f8' : wallBorderColor;
-    const backgroundColor = roomFillColor || '#1e1f20';
+    // Çizim moduna göre renk ayarla
+    const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'stair');
+    const adjustedRoomFillColor = getAdjustedColor(roomFillColor || '#1e1f20', 'stair');
+    const stairColor = isSelected ? '#8ab4f8' : adjustedWallBorderColor;
+    const backgroundColor = adjustedRoomFillColor;
     const rotRad = (stair.rotation || 0) * Math.PI / 180;
     const dirX = Math.cos(rotRad); // Ok için yön vektörleri
     const dirY = Math.sin(rotRad);

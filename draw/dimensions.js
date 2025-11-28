@@ -1,5 +1,5 @@
 import { screenToWorld } from './geometry.js';
-import { state, dom } from '../general-files/main.js';
+import { state, dom, getAdjustedColor } from '../general-files/main.js';
 
 // Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.7 yaklaşık olarak 10x zoomda yarı boyutu verir)
 const ZOOM_EXPONENT = -0.65;
@@ -65,12 +65,15 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
 
     // ---- RENK AYARLAMASI ----
-    // Kolon/Kiriş/Merdiven modu için her zaman dimensionOptions.color kullan
+    // Çizim moduna göre renk ayarla
+    let baseColor;
     if (mode === 'columnBeam') {
-        ctx2d.fillStyle = dimensionOptions.color;
+        baseColor = dimensionOptions.color;
     } else {
-        ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
+        baseColor = isPreview ? "#8ab4f8" : dimensionOptions.color;
     }
+    const adjustedColor = getAdjustedColor(baseColor, 'dimension');
+    ctx2d.fillStyle = adjustedColor;
     // ---- AYARLAMA SONU ----
 
     ctx2d.textAlign = "center";
@@ -94,7 +97,9 @@ export function drawTotalDimensions(filteredWalls = null, filteredRooms = null) 
     const minWorldFontSize = 10; // Özet görünüm için biraz daha büyük minimum
 
     ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-    ctx2d.fillStyle = dimensionOptions.color;
+    // Çizim moduna göre renk ayarla
+    const adjustedDimensionColor = getAdjustedColor(dimensionOptions.color, 'dimension');
+    ctx2d.fillStyle = adjustedDimensionColor;
 
     const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
     const TOLERANCE = 1;
@@ -229,8 +234,10 @@ export function drawOuterDimensions(filteredWalls = null) {
         const extensionOvershoot = 8;
         const extensionLineLength = dimLineOffset + extensionOvershoot;
 
-        ctx2d.strokeStyle = dimensionOptions.color;
-        ctx2d.fillStyle = dimensionOptions.color;
+        // Çizim moduna göre renk ayarla
+        const adjustedOuterDimensionColor = getAdjustedColor(dimensionOptions.color, 'dimension');
+        ctx2d.strokeStyle = adjustedOuterDimensionColor;
+        ctx2d.fillStyle = adjustedOuterDimensionColor;
         ctx2d.lineWidth = 1 / zoom;
 
         const baseFontSize = dimensionOptions.fontSize;
@@ -279,8 +286,9 @@ export function drawOuterDimensions(filteredWalls = null) {
 
         const leftDimX = minX - dimLineOffset;
 
-        ctx2d.strokeStyle = dimensionOptions.color;
-        ctx2d.fillStyle = dimensionOptions.color;
+        // Çizim moduna göre renk ayarla
+        ctx2d.strokeStyle = adjustedOuterDimensionColor;
+        ctx2d.fillStyle = adjustedOuterDimensionColor;
         ctx2d.lineWidth = 1 / zoom;
 
         ctx2d.beginPath();
