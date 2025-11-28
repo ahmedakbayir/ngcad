@@ -286,8 +286,9 @@ export function drawColumn(column, isSelected = false) {
     const corners = getColumnCorners(column); // Kolonun köşe noktaları
 
     // Çizim stilleri
+    const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'column');
     ctx2d.fillStyle = BG; // İçini arka plan rengiyle doldur
-    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor; // Kenarlık rengi (seçiliyse mavi)
+    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : adjustedWallBorderColor; // Kenarlık rengi (seçiliyse mavi)
     ctx2d.lineWidth = lineThickness / zoom; // Çizgi kalınlığı (zoom'a göre ayarlı)
 
     // Dış kareyi çiz (Önce dolgu, sonra kenarlık)
@@ -484,7 +485,8 @@ export function drawBeam(beam, isSelected = false) {
     ctx2d.save();
 
     const corners = getBeamCorners(beam); // Kiriş köşe noktaları
-    const beamColor = isSelected ? '#8ab4f8' : state.wallBorderColor;
+    const adjustedWallBorderColor = getAdjustedColor(state.wallBorderColor, 'beam');
+    const beamColor = isSelected ? '#8ab4f8' : adjustedWallBorderColor;
     let fillColor;
     if (beamColor.startsWith('#')) {
         const hex = beamColor.slice(1);
@@ -543,7 +545,8 @@ export function drawStairs(stair, isSelected = false) {
     ctx2d.save();
 
     const corners = getStairCorners(stair); // Köşe noktalarını al
-    const stairColor = isSelected ? '#8ab4f8' : wallBorderColor;
+    const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'stair');
+    const stairColor = isSelected ? '#8ab4f8' : adjustedWallBorderColor;
     const backgroundColor = roomFillColor || '#1e1f20';
     const rotRad = (stair.rotation || 0) * Math.PI / 180;
     const dirX = Math.cos(rotRad); // Ok için yön vektörleri

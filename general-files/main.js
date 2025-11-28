@@ -564,7 +564,7 @@ export function getAdjustedColor(originalColor, objectType) {
 
     // Mimari nesneler listesi
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'column', 'beam', 'stair'
+        'wall', 'door', 'window', 'room', 'column', 'beam', 'stair', 'dimension'
     ];
 
     // Tesisat nesneleri listesi

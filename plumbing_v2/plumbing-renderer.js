@@ -8,7 +8,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getObjectOpacity } from '../general-files/main.js';
+import { getAdjustedColor } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
@@ -48,11 +48,7 @@ export class PlumbingRenderer {
     drawPipes(ctx, pipes) {
         if (!pipes) return;
 
-        // Çizim moduna göre opacity ayarla
-        const opacity = getObjectOpacity('plumbing');
         ctx.save();
-        ctx.globalAlpha = opacity;
-
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
@@ -67,16 +63,18 @@ export class PlumbingRenderer {
             ctx.lineTo(pipe.p2.x, pipe.p2.y);
 
             ctx.lineWidth = config.lineWidth;
+            // Çizim moduna göre renk ayarla
+            const adjustedColor = getAdjustedColor(config.color, 'boru');
             ctx.strokeStyle = pipe.isSelected
                 ? this.secilenRenk
-                : this.hexToRgba(config.color, 1);
+                : adjustedColor;
             ctx.stroke();
         });
 
         // Dirsek görüntülerini çiz
         this.drawElbows(ctx, pipes, breakPoints);
 
-        ctx.restore(); // Opacity'yi geri al
+        ctx.restore();
     }
 
     findBreakPoints(pipes) {
@@ -119,7 +117,9 @@ export class PlumbingRenderer {
     }
 
     drawElbows(ctx, pipes, breakPoints) {
-        ctx.fillStyle = '#808080'; // Gri renk
+        // Çizim moduna göre renk ayarla
+        const adjustedGray = getAdjustedColor('#808080', 'boru');
+        ctx.fillStyle = adjustedGray;
 
         breakPoints.forEach(bp => {
             // En büyük genişliği bul (merkez daire için)
@@ -143,7 +143,7 @@ export class PlumbingRenderer {
                 ctx.rotate(angle);
 
                 // 3 cm'lik ana kol (dikdörtgen)
-                ctx.fillStyle = '#808080';
+                ctx.fillStyle = adjustedGray;
                 ctx.fillRect(0, -armWidth / 2, armLength, armWidth);
 
                 // Uçta kalın çizgi (sağdan soldan 0.2 cm taşan, 1.5x kalın)
@@ -155,7 +155,7 @@ export class PlumbingRenderer {
             }
 
             // Merkeze daire çiz (boşluğu kapat)
-            ctx.fillStyle = '#808080';
+            ctx.fillStyle = adjustedGray;
             ctx.beginPath();
             ctx.arc(bp.x, bp.y, maxArmWidth / 2, 0, Math.PI * 2);
             ctx.fill();
@@ -196,10 +196,6 @@ export class PlumbingRenderer {
     drawComponent(ctx, comp) {
         ctx.save();
 
-        // Çizim moduna göre opacity ayarla
-        const opacity = getObjectOpacity('plumbing');
-        ctx.globalAlpha = opacity;
-
         ctx.translate(comp.x, comp.y);
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
@@ -230,8 +226,10 @@ export class PlumbingRenderer {
         const { width, height, color } = SERVIS_KUTUSU_CONFIG;
 
         // Kutu
-        ctx.fillStyle = this.hexToRgba(color, 1);
-        ctx.strokeStyle = comp.isSelected ? this.secilenRenk : '#333';
+        const adjustedColor = getAdjustedColor(color, 'servis_kutusu');
+        const adjustedStroke = getAdjustedColor('#333', 'servis_kutusu');
+        ctx.fillStyle = adjustedColor;
+        ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
         ctx.lineWidth = 2;
 
         ctx.beginPath();
@@ -240,7 +238,8 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         // "S.K." yazısı
-        ctx.fillStyle = '#000';
+        const adjustedText = getAdjustedColor('#000', 'servis_kutusu');
+        ctx.fillStyle = adjustedText;
         ctx.font = '10px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -249,7 +248,8 @@ export class PlumbingRenderer {
         // Çıkış noktası göstergesi - sadece boru bağlı değilse göster, boru çapında
         if (!comp.cikisKullanildi) {
             const cikisLocal = comp.getCikisLocalKoordinat();
-            ctx.fillStyle = '#FFFF00';
+            const adjustedYellow = getAdjustedColor('#FFFF00', 'servis_kutusu');
+            ctx.fillStyle = adjustedYellow;
             ctx.beginPath();
             // Boru çapı 2cm, yarıçap 1cm
             ctx.arc(cikisLocal.x, cikisLocal.y, 1, 0, Math.PI * 2);
@@ -262,7 +262,8 @@ export class PlumbingRenderer {
 
         // Giriş kolu çiz
         const girisKol = comp.girisKolUzunlugu || 10;
-        ctx.strokeStyle = '#666';
+        const adjustedGray = getAdjustedColor('#666', 'sayac');
+        ctx.strokeStyle = adjustedGray;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(-width / 2, 0);
@@ -270,8 +271,10 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         // Sayaç gövdesi
-        ctx.fillStyle = this.hexToRgba(color, 1);
-        ctx.strokeStyle = comp.isSelected ? this.secilenRenk : '#333';
+        const adjustedColor = getAdjustedColor(color, 'sayac');
+        const adjustedStroke = getAdjustedColor('#333', 'sayac');
+        ctx.fillStyle = adjustedColor;
+        ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
         ctx.lineWidth = 1;
 
         ctx.beginPath();
@@ -280,13 +283,15 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         // İç gösterge
-        ctx.fillStyle = '#fff';
+        const adjustedWhite = getAdjustedColor('#fff', 'sayac');
+        ctx.fillStyle = adjustedWhite;
         ctx.beginPath();
         ctx.arc(0, 0, width / 3, 0, Math.PI * 2);
         ctx.fill();
 
         // Sayaç ikonu
-        ctx.fillStyle = '#333';
+        const adjustedText = getAdjustedColor('#333', 'sayac');
+        ctx.fillStyle = adjustedText;
         ctx.font = '6px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -297,7 +302,8 @@ export class PlumbingRenderer {
         const { width, height, color } = VANA_CONFIG;
         const tipBilgisi = VANA_TIPLERI[comp.vanaTipi] || VANA_TIPLERI.AKV;
 
-        ctx.fillStyle = this.hexToRgba(color, 1);
+        const adjustedColor = getAdjustedColor(color, 'vana');
+        ctx.fillStyle = adjustedColor;
 
         // Kelebek vana şekli
         ctx.beginPath();
@@ -312,7 +318,8 @@ export class PlumbingRenderer {
 
         // Sonlanma vanası - kapama sembolü
         if (tipBilgisi.sembol === 'kapama') {
-            ctx.strokeStyle = '#FF0000';
+            const adjustedRed = getAdjustedColor('#FF0000', 'vana');
+            ctx.strokeStyle = adjustedRed;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(width + 2, -height);
@@ -322,7 +329,8 @@ export class PlumbingRenderer {
 
         // Selenoid vana - elektrik sembolü
         if (tipBilgisi.sembol === 'elektrik') {
-            ctx.strokeStyle = '#0000FF';
+            const adjustedBlue = getAdjustedColor('#0000FF', 'vana');
+            ctx.strokeStyle = adjustedBlue;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(0, -height - 2);
@@ -330,7 +338,7 @@ export class PlumbingRenderer {
             ctx.stroke();
 
             // Şimşek
-            ctx.fillStyle = '#0000FF';
+            ctx.fillStyle = adjustedBlue;
             ctx.font = '6px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('⚡', 0, -height - 8);
@@ -348,7 +356,8 @@ export class PlumbingRenderer {
 
         const fleks = comp.getFleksCizgi();
         if (fleks) {
-            ctx.strokeStyle = this.hexToRgba(FLEKS_CONFIG.renk, 1);
+            const adjustedFleksRenk = getAdjustedColor(FLEKS_CONFIG.renk, 'cihaz');
+            ctx.strokeStyle = adjustedFleksRenk;
             ctx.lineWidth = FLEKS_CONFIG.kalinlik;
             ctx.setLineDash([3, 2]);
             ctx.beginPath();
@@ -362,8 +371,10 @@ export class PlumbingRenderer {
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
         // Cihaz gövdesi
-        ctx.fillStyle = this.hexToRgba(color, 1);
-        ctx.strokeStyle = comp.isSelected ? this.secilenRenk : '#333';
+        const adjustedColor = getAdjustedColor(color, 'cihaz');
+        const adjustedStroke = getAdjustedColor('#333', 'cihaz');
+        ctx.fillStyle = adjustedColor;
+        ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
         ctx.lineWidth = 2;
 
         ctx.beginPath();
@@ -372,7 +383,8 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         // Cihaz adı
-        ctx.fillStyle = '#000';
+        const adjustedText = getAdjustedColor('#000', 'cihaz');
+        ctx.fillStyle = adjustedText;
         ctx.font = '8px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -380,7 +392,8 @@ export class PlumbingRenderer {
 
         // Baca göstergesi
         if (config.bacaGerekli) {
-            ctx.fillStyle = '#666';
+            const adjustedBaca = getAdjustedColor('#666', 'cihaz');
+            ctx.fillStyle = adjustedBaca;
             ctx.beginPath();
             ctx.rect(-5, -height / 2 - 10, 10, 10);
             ctx.fill();
