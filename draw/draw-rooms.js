@@ -165,7 +165,10 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
             ctx2d.shadowBlur = 8 / zoom; // Gölgeyi zoom'a göre ayarla
         }
 
-        ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
+        // Çizim moduna göre renk ayarla
+        const baseNameColor = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
+        const adjustedNameColor = getAdjustedColor(baseNameColor, 'roomName');
+        ctx2d.fillStyle = adjustedNameColor;
 
         ctx2d.font = `500 ${Math.max(minWorldNameFontSize, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
 
@@ -183,7 +186,9 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
         }
 
         if (showArea) {
-            ctx2d.fillStyle = '#e57373';
+            // Çizim moduna göre alan metni rengi ayarla
+            const adjustedAreaColor = getAdjustedColor('#e57373', 'roomName');
+            ctx2d.fillStyle = adjustedAreaColor;
             ctx2d.font = `400 ${Math.max(minWorldAreaFontSize, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
             ctx2d.textBaseline = "middle";
             const text = (typeof room.area === 'number') ? `${room.area.toFixed(2)} m²` : '? m²';
@@ -208,7 +213,10 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
          // room.center geçerli mi kontrol et
         if (room.center && Array.isArray(room.center) && room.center.length >= 2 && typeof room.center[0] === 'number') {
             ctx2d.textAlign = "center";
-            ctx2d.fillStyle = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
+            // Çizim moduna göre renk ayarla
+            const baseNameColor = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
+            const adjustedNameColor = getAdjustedColor(baseNameColor, 'roomName');
+            ctx2d.fillStyle = adjustedNameColor;
             const baseNameFontSize = 18;
             let nameFontSize = baseNameFontSize * Math.pow(zoom, ZOOM_EXPONENT); // ZOOM_EXPONENT burada tanımlı olmalı
             const minWorldNameFontSize = 3;
@@ -241,7 +249,9 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
 
              // Alanı da çiz
              if (showArea && typeof room.area === 'number') {
-                 ctx2d.fillStyle = '#e57373';
+                 // Çizim moduna göre alan metni rengi ayarla
+                 const adjustedAreaColor = getAdjustedColor('#e57373', 'roomName');
+                 ctx2d.fillStyle = adjustedAreaColor;
                  const baseAreaFontSize = 14;
                  let areaFontSize = baseAreaFontSize * Math.pow(zoom, ZOOM_EXPONENT); // ZOOM_EXPONENT burada tanımlı olmalı
                  const minWorldAreaFontSize = 2;

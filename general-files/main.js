@@ -478,6 +478,9 @@ function setupModeButtons() {
 export function setDrawingMode(mode) {
     setState({ currentDrawingMode: mode });
 
+    // Mod değiştiğinde otomatik olarak seç moduna geç
+    setMode('select', true);
+
     // Butonların active durumunu güncelle (dinamik olarak query)
     const modeMimari = document.getElementById("mode-mimari");
     const modeTesisat = document.getElementById("mode-tesisat");
@@ -564,7 +567,7 @@ export function getAdjustedColor(originalColor, objectType) {
 
     // Mimari nesneler listesi (TESİSAT modunda soluk olacaklar)
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room'
+        'wall', 'door', 'window', 'room', 'column', 'beam', 'stair', 'dimension', 'roomName'
     ];
 
     // Tesisat nesneleri listesi
