@@ -1,4 +1,4 @@
-import { state, dom, getAdjustedColor } from '../general-files/main.js';
+import { state, dom, getAdjustedColor, isObjectInteractable } from '../general-files/main.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
@@ -37,7 +37,11 @@ export function drawRoomPolygons(ctx2d, state) {
 
     // Fare sürüklenmiyorsa ve seçim modundaysa, üzerine gelinen nesneyi bul
     const hoveredObject = (!isDragging && currentMode === 'select') ? getObjectAtPoint(mousePos) : null;
-    const hoveredRoom = (hoveredObject?.type === 'roomName' || hoveredObject?.type === 'roomArea') ? hoveredObject.object : null;
+    // Sadece interaktif nesneler için hover göster (roomName modda interaktif olmalı)
+    const hoveredRoom = (hoveredObject?.type === 'roomName' || hoveredObject?.type === 'roomArea')
+        && isObjectInteractable('roomName')
+        ? hoveredObject.object
+        : null;
 
     // Sürüklenen geçici mahal poligonlarını çiz (duvar sürükleme için)
     if (isDragging && draggedRoomInfo && draggedRoomInfo.length > 0) {
@@ -126,7 +130,11 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
 
     // Fare sürüklenmiyorsa ve seçim modundaysa üzerine gelinen nesneyi bul
     const hoveredObject = (!isDragging && currentMode === 'select' && mousePos) ? getObjectAtPoint(mousePos) : null;
-    const hoveredRoom = (hoveredObject?.type === 'roomName' || hoveredObject?.type === 'roomArea') ? hoveredObject.object : null;
+    // Sadece interaktif nesneler için hover göster (roomName modda interaktif olmalı)
+    const hoveredRoom = (hoveredObject?.type === 'roomName' || hoveredObject?.type === 'roomArea')
+        && isObjectInteractable('roomName')
+        ? hoveredObject.object
+        : null;
 
     // Sürüklenen odaların kümesini oluştur (duvar sürükleme için)
     const draggedRooms = (isDragging && draggedRoomInfo && draggedRoomInfo.length > 0)

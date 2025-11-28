@@ -8,7 +8,7 @@ import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { calculateSymmetryPreview, calculateCopyPreview } from '../draw/symmetry.js'; // <-- DÜZELTME: Bu import eklendi
 import { screenToWorld, distToSegmentSquared, findNodeAt } from '../draw/geometry.js';
 import { getObjectAtPoint } from '../general-files/actions.js'; // getObjectAtPoint eklendi
-import { state, dom, setState } from '../general-files/main.js';
+import { state, dom, setState, isObjectInteractable } from '../general-files/main.js';
 import { getSmartSnapPoint } from '../general-files/snap.js';
 import { positionLengthInput } from '../general-files/ui.js';
 import { currentModifierKeys } from '../general-files/input.js';
@@ -598,6 +598,15 @@ function updateMouseCursor() {
         const hoveredObject = getObjectAtPoint(mousePos);
 
         if (hoveredObject) {
+            // İlk olarak nesnenin interaktif olup olmadığını kontrol et
+            const objectType = hoveredObject.type;
+            const isInteractive = isObjectInteractable(objectType);
+
+            // Eğer nesne interaktif değilse, cursor değiştirme
+            if (!isInteractive) {
+                c2d.style.cursor = 'default';
+                return;
+            }
 
            // --- YENİ ÖNCELİKLİ KONTROL ---
            // 1. Mahal Adı/Alanı Hover (Handle'dan bağımsız)
