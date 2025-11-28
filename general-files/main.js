@@ -77,8 +77,8 @@ export const METER_SCALE = 1;
 // export const WALL_THICKNESS = 20; // SABİT KALDIRILDI
 export const WALL_HEIGHT = 270;
 export const DOOR_HEIGHT = 220; // <-- DEĞİŞTİRİLDİ (220 -> 200)
-export const WINDOW_BOTTOM_HEIGHT = 80; 
-export const WINDOW_TOP_HEIGHT = 220; 
+export const WINDOW_BOTTOM_HEIGHT = 80;
+export const WINDOW_TOP_HEIGHT = 220;
 export const BATHROOM_WINDOW_BOTTOM_HEIGHT = 170;
 export const BATHROOM_WINDOW_TOP_HEIGHT = 220; // 170 + 50
 export const BATHROOM_WINDOW_DEFAULT_WIDTH = 50;
@@ -86,109 +86,109 @@ export const DRAG_HANDLE_RADIUS = 8;
 export const EXTEND_RANGE = 500;
 export const SNAP_UNLOCK_DISTANCE_CM = 10;
 export const MAHAL_LISTESI = [
-    'MAHAL','SAHANLIK','ODA','MUTFAK','SALON','YATAK ODASI','OTURMA ODASI','BANYO',
-    'AÇIK BALKON','KAPALI BALKON','AÇIK SAHANLIK','ASANSÖR','KORİDOR','ANTRE','AÇIK MUTFAK',
-    'ÇOCUK ODASI','YEMEK ODASI','ÇALIŞMA ODASI','DUBLEKS ANTRE','HOL','WC','LAVABO','OFİS',
-    'DAİRE','KAZAN DAİRESİ','DÜKKAN','YAN BİNA','KİLER','DEPO','BAHÇE','AYDINLIK','GARAJ',
-    'TERAS','BODRUM','AÇIK OTOPARK','KAPALI OTOPARK','BACA','AÇIK AYDINLIK','ÇATI ARASI',
-    'YANGIN MERDİVENİ','TESİSAT ŞAFTI','SAYAÇ ODASI','SAYAÇ ŞAFTI','KURANGLEZ','SIĞINAK',
-    'CİHAZ ODASI','HAVALANDIRMA','TOPRAK DOLGU','ÇAY OCAĞİ','LOKANTA','KANTİN','YEMEKHANE',
-    'KAHVEHANE','BAKKAL','MARKET','SINIF','REVİR','SPOR SALONU','MESCİD','CAMİ','OKUL',
-    'SAĞLIK OCAĞI','MUAYENEHANE','İMALATHANE','FIRIN','KAFE','SHOWROOM','BEKLEME ODASI',
-    'TOPLANTI ODASI','MAĞAZA','ENDÜSTRİYEL MUTFAK','BACA ŞAFTI','KÖMÜRLÜK','ARŞİV',
-    'ISI MERKEZİ','FABRİKA','LABARATUVAR','TEKNİK HACİM','DANIŞMA','ATÖLYE', 'BÜFE', 
+    'MAHAL', 'SAHANLIK', 'ODA', 'MUTFAK', 'SALON', 'YATAK ODASI', 'OTURMA ODASI', 'BANYO',
+    'AÇIK BALKON', 'KAPALI BALKON', 'AÇIK SAHANLIK', 'ASANSÖR', 'KORİDOR', 'ANTRE', 'AÇIK MUTFAK',
+    'ÇOCUK ODASI', 'YEMEK ODASI', 'ÇALIŞMA ODASI', 'DUBLEKS ANTRE', 'HOL', 'WC', 'LAVABO', 'OFİS',
+    'DAİRE', 'KAZAN DAİRESİ', 'DÜKKAN', 'YAN BİNA', 'KİLER', 'DEPO', 'BAHÇE', 'AYDINLIK', 'GARAJ',
+    'TERAS', 'BODRUM', 'AÇIK OTOPARK', 'KAPALI OTOPARK', 'BACA', 'AÇIK AYDINLIK', 'ÇATI ARASI',
+    'YANGIN MERDİVENİ', 'TESİSAT ŞAFTI', 'SAYAÇ ODASI', 'SAYAÇ ŞAFTI', 'KURANGLEZ', 'SIĞINAK',
+    'CİHAZ ODASI', 'HAVALANDIRMA', 'TOPRAK DOLGU', 'ÇAY OCAĞİ', 'LOKANTA', 'KANTİN', 'YEMEKHANE',
+    'KAHVEHANE', 'BAKKAL', 'MARKET', 'SINIF', 'REVİR', 'SPOR SALONU', 'MESCİD', 'CAMİ', 'OKUL',
+    'SAĞLIK OCAĞI', 'MUAYENEHANE', 'İMALATHANE', 'FIRIN', 'KAFE', 'SHOWROOM', 'BEKLEME ODASI',
+    'TOPLANTI ODASI', 'MAĞAZA', 'ENDÜSTRİYEL MUTFAK', 'BACA ŞAFTI', 'KÖMÜRLÜK', 'ARŞİV',
+    'ISI MERKEZİ', 'FABRİKA', 'LABARATUVAR', 'TEKNİK HACİM', 'DANIŞMA', 'ATÖLYE', 'BÜFE',
     'SOSYAL TESİS', 'HAMAM', 'ORTAK ALAN'];
 
 // VectorDraw XML'den gelen AreaType enum değerlerinin MAHAL_LISTESI'ndeki karşılıkları
 // NOT: Bu değerler MAHAL_LISTESI'ndeki isimlerle TAM AYNI olmak zorunda
 export const VECTORDRAW_AREA_TYPES = {
- 0: 'MAHAL', 
- 1: 'ASANSÖR', 
- 3: 'BACA ŞAFTI', 
- 4: 'BAHÇE', 
- 5: 'AÇIK BALKON', 
- 6: 'KAPALI BALKON', 
- 8: 'CİHAZ ODASI', 
- 9: 'DAİRE', 
- 10: 'DUBLEKS ANTRE', 
- 11: 'DÜKKAN', 
- 12: 'MAHAL', 
- 13: 'KAZAN DAİRESİ', 
- 14: 'KORİDOR', 
- 15: 'SAHANLIK', 
- 16: 'MUTFAK', 
- 18: 'SALON', 
- 19: 'TERAS', 
- 20: 'TESİSAT ŞAFTI',
- 22: 'YAN BİNA', 
- 23: 'YATAK ODASI', 
- 24: 'DEPO', 
- 25: 'KİLER', 
- 26: 'TOPRAK DOLGU', 
- 27: 'AÇIK AYDINLIK', 
- 28: 'KÖMÜRLÜK', 
- 29: 'DEPO', 
- 30: 'AÇIK OTOPARK', 
- 31: 'KAPALI OTOPARK', 
- 32: 'OTURMA ODASI', 
- 35: 'HAVALANDIRMA', 
- 36: 'YANGIN MERDİVENİ', 
- 37: 'WC', 
- 38: 'BANYO', 
- 39: 'AÇIK MUTFAK', 
- 40: 'SIĞINAK', 
- 41: 'ÇATI ARASI', 
- 42: 'OFİS', 
- 43: 'LAVABO', 
- 45: 'SINIF', 
- 46: 'TESİSAT ŞAFTI',
- 50: 'LOKANTA', 
- 51: 'BÜFE', 
- 52: 'KANTİN', 
- 54: 'SPOR SALONU', 
- 56: 'CAMİ', 
- 59: 'SOSYAL TESİS', 
- 60: 'HAMAM', 
- 61: 'TOPLANTI ODASI', 
- 62: 'SHOWROOM', 
- 63: 'SAYAÇ ODASI', 
- 64: 'KURANGLEZ', 
- 65: 'ORTAK ALAN', 
- 66: 'BACA ŞAFTI',
- 67: 'İMALATHANE', 
- 68: 'FABRİKA', 
- 69: 'LABARATUVAR', 
- 70: 'MESCİD', 
- 71: 'DANIŞMA', 
- 72: 'AÇIK MUTFAK', 
- 73: 'ANTRE', 
- 74: 'AÇIK SAHANLIK', 
- 75: 'ODA',
- 76: 'ODA',
- 77: 'ODA',
- 78: 'ODA',
- 79: 'ODA',
- 80: 'ODA',
- 81: 'ODA',
- 82: 'ODA',
- 83: 'ODA',
- 84: 'ODA',
- 85: 'ODA',
- 86: 'ODA',
- 87: 'ODA',
- 88: 'ODA',
- 89: 'ODA',
- 90: 'ODA',
- 91: 'ODA',
- 92: 'ODA',
- 93: 'ODA',
- 94: 'ODA',
- 95: 'ODA',
- 96: 'ODA',
- 97: 'ODA',
- 98: 'ODA',
- 99: 'ODA',
- 100:'ODA',
+    0: 'MAHAL',
+    1: 'ASANSÖR',
+    3: 'BACA ŞAFTI',
+    4: 'BAHÇE',
+    5: 'AÇIK BALKON',
+    6: 'KAPALI BALKON',
+    8: 'CİHAZ ODASI',
+    9: 'DAİRE',
+    10: 'DUBLEKS ANTRE',
+    11: 'DÜKKAN',
+    12: 'MAHAL',
+    13: 'KAZAN DAİRESİ',
+    14: 'KORİDOR',
+    15: 'SAHANLIK',
+    16: 'MUTFAK',
+    18: 'SALON',
+    19: 'TERAS',
+    20: 'TESİSAT ŞAFTI',
+    22: 'YAN BİNA',
+    23: 'YATAK ODASI',
+    24: 'DEPO',
+    25: 'KİLER',
+    26: 'TOPRAK DOLGU',
+    27: 'AÇIK AYDINLIK',
+    28: 'KÖMÜRLÜK',
+    29: 'DEPO',
+    30: 'AÇIK OTOPARK',
+    31: 'KAPALI OTOPARK',
+    32: 'OTURMA ODASI',
+    35: 'HAVALANDIRMA',
+    36: 'YANGIN MERDİVENİ',
+    37: 'WC',
+    38: 'BANYO',
+    39: 'AÇIK MUTFAK',
+    40: 'SIĞINAK',
+    41: 'ÇATI ARASI',
+    42: 'OFİS',
+    43: 'LAVABO',
+    45: 'SINIF',
+    46: 'TESİSAT ŞAFTI',
+    50: 'LOKANTA',
+    51: 'BÜFE',
+    52: 'KANTİN',
+    54: 'SPOR SALONU',
+    56: 'CAMİ',
+    59: 'SOSYAL TESİS',
+    60: 'HAMAM',
+    61: 'TOPLANTI ODASI',
+    62: 'SHOWROOM',
+    63: 'SAYAÇ ODASI',
+    64: 'KURANGLEZ',
+    65: 'ORTAK ALAN',
+    66: 'BACA ŞAFTI',
+    67: 'İMALATHANE',
+    68: 'FABRİKA',
+    69: 'LABARATUVAR',
+    70: 'MESCİD',
+    71: 'DANIŞMA',
+    72: 'AÇIK MUTFAK',
+    73: 'ANTRE',
+    74: 'AÇIK SAHANLIK',
+    75: 'ODA',
+    76: 'ODA',
+    77: 'ODA',
+    78: 'ODA',
+    79: 'ODA',
+    80: 'ODA',
+    81: 'ODA',
+    82: 'ODA',
+    83: 'ODA',
+    84: 'ODA',
+    85: 'ODA',
+    86: 'ODA',
+    87: 'ODA',
+    88: 'ODA',
+    89: 'ODA',
+    90: 'ODA',
+    91: 'ODA',
+    92: 'ODA',
+    93: 'ODA',
+    94: 'ODA',
+    95: 'ODA',
+    96: 'ODA',
+    97: 'ODA',
+    98: 'ODA',
+    99: 'ODA',
+    100: 'ODA',
 };
 
 
@@ -498,7 +498,7 @@ export function setDrawingMode(mode) {
 
         // Aktif butonu ayarla
         const activeBtn = mode === 'MİMARİ' ? modeMimari :
-                         mode === 'TESİSAT' ? modeTesisat : modeKarma;
+            mode === 'TESİSAT' ? modeTesisat : modeKarma;
         activeBtn.classList.add('active');
         activeBtn.style.background = 'rgba(100, 149, 237, 0.4)';
         activeBtn.style.borderColor = '#87CEEB';
@@ -764,6 +764,11 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bSymmetry.classList.toggle("active", newMode === "drawSymmetry");
     dom.p2d.className = `panel ${newMode}-mode`;
 
+    // Tesisat modunda aktif araca göre cursor sınıfı ekle
+    if (newMode === "plumbingV2" && plumbingManager?.activeTool) {
+        dom.p2d.classList.add(`tool-${plumbingManager.activeTool}`);
+    }
+
 }
 
 export function resize() {
@@ -838,7 +843,7 @@ function animate() {
 
     draw2D();
 
-    if(dom.mainContainer.classList.contains('show-3d')) {
+    if (dom.mainContainer.classList.contains('show-3d')) {
 
         // First-person kamera güncellemesi (HER ZAMAN ÇAĞRILIR)
         // (Bu fonksiyon kendi içinde 'cameraMode'u kontrol edip FPS değilse hemen çıkacak)
@@ -938,7 +943,7 @@ function assignRoomNames() {
             room.name = name;
             assignedRooms.add(room);
             assignedNames.add(name); // İsmi de kaydet
-            
+
             const index = roomsToAssign.indexOf(room);
             if (index > -1) {
                 roomsToAssign.splice(index, 1);
@@ -950,7 +955,7 @@ function assignRoomNames() {
 
     // --- Kuralları Sırayla Uygula (Yeni Sıralama) ---
 
-    
+
     // Kural 1: BALKONLAR (Duvar tipine göre, kaç tane varsa)
     // (SAHANLIK'tan sonra, SALON'dan önce)
     const balkonRooms = [];
@@ -990,7 +995,7 @@ function assignRoomNames() {
     });
 
 
-    
+
     // Kural 3: DAİRE (Alanı >= 50 m², kaç tane varsa)
     // (Iterate over a copy, 'assignName' modifies 'roomsToAssign')
     const daireRooms = [...roomsToAssign].filter(room => room.area >= 50);
@@ -1033,12 +1038,12 @@ function assignRoomNames() {
 
     // Kural 7: MUTFAK (Salona komşu en büyük, yoksa 2. büyük, 1 defa)
     if (roomsToAssign.length > 0 && !assignedNames.has('MUTFAK')) {
-        const salonRoom = allRooms.find(r => r.name === 'SALON'); 
+        const salonRoom = allRooms.find(r => r.name === 'SALON');
         let mutfakRoom = null;
         if (salonRoom) {
             const salonNeighbors = neighborMap.get(salonRoom) || [];
             // Kalan (atanmamış) komşuları bul
-            const unassignedNeighbors = salonNeighbors.filter(neighbor => roomsToAssign.includes(neighbor)); 
+            const unassignedNeighbors = salonNeighbors.filter(neighbor => roomsToAssign.includes(neighbor));
             if (unassignedNeighbors.length > 0) {
                 unassignedNeighbors.sort((a, b) => b.area - a.area); // Komşuların en büyüğü
                 mutfakRoom = unassignedNeighbors[0];
@@ -1053,42 +1058,42 @@ function assignRoomNames() {
             assignName(mutfakRoom, 'MUTFAK');
         }
     }
-    
+
     // Kural 8: Kalanlar (Dönüşümlü Liste)
     // (HATA DÜZELTMESİ)
     roomsToAssign.sort((a, b) => b.area - a.area); // Kalanları alana göre sırala
-    
+
     const sequentialNamesList = ['YATAK ODASI', 'OTURMA ODASI', 'ÇOCUK ODASI', 'YEMEK ODASI', 'ÇALIŞMA ODASI', 'KORİDOR', 'KİLER', 'DEPO'];
     let nameIndex = 0;
-    
+
     // 'roomsToAssign' listesi 'assignName' tarafından küçültüleceği için,
     // 'while' döngüsü kullanmak artık GÜVENLİDİR.
-    
+
     while (roomsToAssign.length > 0) {
         // Döngünün başında en büyüğü al (sıralama zaten yapıldı)
         const room = roomsToAssign[0]; // (shift() değil, sadece [0]'ı al)
-        
+
         const baseName = sequentialNamesList[nameIndex % sequentialNamesList.length];
         let finalName = baseName;
 
         // Bu isim (örn: YATAK ODASI) zaten kullanılmış mı?
-        if (assignedNames.has(baseName)) { 
+        if (assignedNames.has(baseName)) {
             let counter = 2;
             finalName = `${baseName} ${counter}`;
             // 'YATAK ODASI 2' de varsa, 'YATAK ODASI 3'ü dene...
-            while(assignedNames.has(finalName)) {
+            while (assignedNames.has(finalName)) {
                 counter++;
                 finalName = `${baseName} ${counter}`;
             }
         }
-        
+
         // assignName(room, finalName) -> 'room'u roomsToAssign'den çıkaracak
         // ve 'finalName'i 'assignedNames'e ekleyecek
-        assignName(room, finalName); 
-        
+        assignName(room, finalName);
+
         nameIndex++; // Sıradaki isme (OTURMA ODASI vb.) geç
     }
-    
+
     // Değişiklikleri kaydet
     saveState();
     if (dom.mainContainer.classList.contains('show-3d')) {

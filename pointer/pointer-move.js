@@ -14,7 +14,7 @@ import { positionLengthInput } from '../general-files/ui.js';
 import { currentModifierKeys } from '../general-files/input.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
-import { onPointerMove as onPointerMoveWall ,getWallAtPoint } from '../wall/wall-handler.js';
+import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls } from '../wall/wall-processor.js';
 // Plumbing functions now handled by plumbingManager
 
@@ -59,13 +59,13 @@ export function onPointerMove(e) {
         // Duvar silme
         const wallsToDelete = new Set();
         for (const wall of walls_delete) {
-             if (!wall.p1 || !wall.p2) continue;
-             const wallPx = wall.thickness || state.wallThickness;
-             const currentToleranceSq = (wallPx / 2 + 3 / state.zoom)**2;
-             const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);
-             if (distSq < currentToleranceSq) {
+            if (!wall.p1 || !wall.p2) continue;
+            const wallPx = wall.thickness || state.wallThickness;
+            const currentToleranceSq = (wallPx / 2 + 3 / state.zoom) ** 2;
+            const distSq = distToSegmentSquared(mousePos, wall.p1, wall.p2);
+            if (distSq < currentToleranceSq) {
                 wallsToDelete.add(wall);
-             }
+            }
         }
         if (wallsToDelete.size > 0) {
             const wallsToDeleteArray = Array.from(wallsToDelete);
@@ -74,7 +74,7 @@ export function onPointerMove(e) {
             setState({ walls: newWalls, doors: newDoors });
             needsProcessing = true;
         }
-        
+
         // --- YENİ EKLENDİ: Rehber Silme ---
         const guidesToDelete = new Set();
         const tolerance = 8 / state.zoom;
@@ -101,7 +101,7 @@ export function onPointerMove(e) {
             const columnsToDeleteArray = Array.from(columnsToDelete);
             const newColumns = state.columns.filter(c => !columnsToDeleteArray.includes(c));
             setState({ columns: newColumns });
-             needsProcessing = true;
+            needsProcessing = true;
         }
 
         // Kiriş silme
@@ -129,7 +129,7 @@ export function onPointerMove(e) {
             const stairsToDeleteArray = Array.from(stairsToDelete);
             const newStairs = state.stairs.filter(s => !stairsToDeleteArray.includes(s));
             setState({ stairs: newStairs });
-             needsProcessing = true;
+            needsProcessing = true;
         }
 
         // v2'de plumbingManager üzerinden silme işlemleri yapılıyor
@@ -143,9 +143,9 @@ export function onPointerMove(e) {
         return;
     } else if (state.isCtrlDeleting && (!e.altKey || e.ctrlKey || e.shiftKey)) {
         // Silme modunu bitir
-         setState({ isCtrlDeleting: false });
-         updateMouseCursor(); // İmleci normale döndür
-         return;
+        setState({ isCtrlDeleting: false });
+        updateMouseCursor(); // İmleci normale döndür
+        return;
     }
     // --- Silme Modu Kontrolü Sonu ---
 
@@ -269,7 +269,7 @@ export function onPointerMove(e) {
                 break;
             case 'guide': onPointerMoveGuide(snappedPos, unsnappedPos); break;
             case 'column': onPointerMoveColumn(snappedPos, unsnappedPos); break;
-            case 'beam':   onPointerMoveBeam(snappedPos, unsnappedPos);   break;
+            case 'beam': onPointerMoveBeam(snappedPos, unsnappedPos); break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
             case 'plumbingBlock': {
                 // v2'de plumbingManager üzerinden yönetiliyor
@@ -378,9 +378,9 @@ export function onPointerMove(e) {
                     }
                 }
                 break;
-            case 'wall':   onPointerMoveWall(snappedPos, unsnappedPos);   break;
-            case 'door':   onPointerMoveDoor(unsnappedPos);               break;
-            case 'window': onPointerMoveWindow(unsnappedPos);             break;
+            case 'wall': onPointerMoveWall(snappedPos, unsnappedPos); break;
+            case 'door': onPointerMoveDoor(unsnappedPos); break;
+            case 'window': onPointerMoveWindow(unsnappedPos); break;
             case 'vent':
                 const currentFloorId_vent = state.currentFloor?.id;
                 const walls_vent = (state.walls || []).filter(w => !currentFloorId_vent || !w.floorId || w.floorId === currentFloorId_vent);
@@ -413,33 +413,33 @@ export function onPointerMove(e) {
         }
         // update3DScene(); // <-- SİLİNDİ (Sürükleme sonrası 3D'yi güncelle)
     }
-    
+
     // --- DÜZELTME: Simetri önizlemesi debounce (gecikmeli) mantığı ile değiştirildi ---
     if (state.currentMode === "drawSymmetry" && state.symmetryAxisP1) {
         // İkinci nokta mouse pozisyonu
         let axisP2 = { x: snappedPos.roundedX, y: snappedPos.roundedY };
-        
+
         // SHIFT basılıysa DİK eksen yap
         if (currentModifierKeys.shift) {
             const dx = axisP2.x - state.symmetryAxisP1.x;
             const dy = axisP2.y - state.symmetryAxisP1.y;
             const distance = Math.hypot(dx, dy);
-            
+
             if (distance > 1) {
                 const angle = Math.atan2(dy, dx) * 180 / Math.PI;
                 const snappedAngle = Math.round(angle / 15) * 15;
                 const snappedAngleRad = snappedAngle * Math.PI / 180;
-                
+
                 axisP2 = {
                     x: state.symmetryAxisP1.x + distance * Math.cos(snappedAngleRad),
                     y: state.symmetryAxisP1.y + distance * Math.sin(snappedAngleRad)
                 };
             }
         }
-        
+
         // Eksenin ikinci noktasını state'e hemen ata (eksen çizgisi çizimi için)
         setState({ symmetryAxisP2: axisP2 });
-        
+
         // --- DEBOUNCE LOGIC (state.symmetryPreviewTimer kullanarak) ---
         // Önceki zamanlayıcıyı temizle
         if (state.symmetryPreviewTimer) {
@@ -454,31 +454,31 @@ export function onPointerMove(e) {
         // Yeni bir zamanlayıcı ayarla
         const newTimer = setTimeout(() => {
             // Zamanlayıcı çalıştığında, hala simetri modunda mıyız ve ilk nokta değişti mi diye bak
-            if (state.currentMode === "drawSymmetry" && state.symmetryAxisP1 === p1) { 
+            if (state.currentMode === "drawSymmetry" && state.symmetryAxisP1 === p1) {
                 // Ağır hesaplama fonksiyonlarını *şimdi* çağır
                 if (isCtrl) {
-                    calculateCopyPreview(p1, p2); 
+                    calculateCopyPreview(p1, p2);
                 } else {
-                    calculateSymmetryPreview(p1, p2); 
+                    calculateSymmetryPreview(p1, p2);
                 }
             }
             // Zamanlayıcıyı state'ten temizle
             setState({ symmetryPreviewTimer: null });
         }, SYMMETRY_PREVIEW_DEBOUNCE_MS);
-        
+
         // Yeni zamanlayıcıyı state'e kaydet
         setState({ symmetryPreviewTimer: newTimer });
         // --- END DEBOUNCE LOGIC ---
 
     } else if (state.currentMode !== "drawSymmetry") {
-         // Eğer simetri modundan çıktıysak, bekleyen bir zamanlayıcı varsa iptal et
-         if (state.symmetryPreviewTimer) {
+        // Eğer simetri modundan çıktıysak, bekleyen bir zamanlayıcı varsa iptal et
+        if (state.symmetryPreviewTimer) {
             clearTimeout(state.symmetryPreviewTimer);
             setState({ symmetryPreviewTimer: null });
-         }
+        }
     }
     // --- DÜZELTME SONU ---
-    
+
     // Her fare hareketinde imleci güncelle
     updateMouseCursor();
 }
@@ -494,7 +494,7 @@ function updateMouseCursor() {
         'dragging-body', 'dragging-node', 'rotate-handle-hover', /* resize sınıflarını buradan kaldırın */
         'hover-node', 'hover-object-body', 'hover-wall-body',
         'panning', 'delete-mode', 'hover-room-label',
-        'hover-guide' 
+        'hover-guide'
     ];
     cursorClasses.forEach(cls => c2d.classList.remove(cls));
     c2d.style.cursor = ''; // Stili her seferinde sıfırla
@@ -535,10 +535,10 @@ function updateMouseCursor() {
                 c2d.style.cursor = cursorStyle; // Stili doğrudan ata
                 // --- YENİ SONU ---
             } else {
-                 c2d.style.cursor = 'grabbing'; // Bilinmeyen handle
+                c2d.style.cursor = 'grabbing'; // Bilinmeyen handle
             }
         } else {
-             c2d.style.cursor = 'grabbing'; // handle string değilse
+            c2d.style.cursor = 'grabbing'; // handle string değilse
         }
         return;
     }
@@ -551,7 +551,7 @@ function updateMouseCursor() {
         case 'drawRoom':
             modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><path fill=\"white\" transform=\"translate(20 20) scale(0.5)\" d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z\"/></svg>') 16 16, crosshair"; // Örnek duvar ikonu + fallback
             if (currentMode === 'drawRoom') {
-                 modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><rect x=\"20\" y=\"20\" width=\"10\" height=\"8\" fill=\"none\" stroke=\"white\" stroke-width=\"1.5\" rx=\"1\"/></svg>') 16 16, crosshair"; // Oda ikonu + fallback
+                modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><rect x=\"20\" y=\"20\" width=\"10\" height=\"8\" fill=\"none\" stroke=\"white\" stroke-width=\"1.5\" rx=\"1\"/></svg>') 16 16, crosshair"; // Oda ikonu + fallback
             }
             break;
         case 'drawColumn':
@@ -563,28 +563,24 @@ function updateMouseCursor() {
         case 'drawWindow':
         case 'drawVent':
         case 'drawSymmetry':
-        // --- YENİ EKLENDİ ---
         case 'drawGuideAngular':
         case 'drawGuideFree':
-        // --- YENİ SONU ---
             modeCursorStyle = 'crosshair';
             break;
         case 'plumbingV2':
             // Boru çizim modu aktifse özel cursor göster
             if (plumbingManager.interactionManager?.boruCizimAktif) {
-                // Sadece büyük kalem ikonu - noktanın sağ üst köşesinde
-                // Hot spot: (5, 5) - çizim noktası
-                // Kalem: çok büyük (scale 1.0), daha sağ üstte
-                modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><path fill=\"white\" transform=\"translate(12 -10.5) scale(1.0)\" d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z\"/></svg>') 5 5, crosshair";
+                // Custom SVG cursor for pipe drawing
+                modeCursorStyle = "url('general-files/pipe-cursor.svg') 4 20, crosshair";
             } else {
                 modeCursorStyle = 'crosshair';
             }
             break;
         case 'select':
-             // Select modu aşağıda ele alınacak
-             break;
+            // Select modu aşağıda ele alınacak
+            break;
         default:
-             modeCursorStyle = 'default';
+            modeCursorStyle = 'default';
     }
 
     if (modeCursorStyle) {
@@ -608,14 +604,14 @@ function updateMouseCursor() {
                 return;
             }
 
-           // --- YENİ ÖNCELİKLİ KONTROL ---
-           // 1. Mahal Adı/Alanı Hover (Handle'dan bağımsız)
-           if (hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
+            // --- YENİ ÖNCELİKLİ KONTROL ---
+            // 1. Mahal Adı/Alanı Hover (Handle'dan bağımsız)
+            if (hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
                 c2d.style.cursor = 'grab'; // Oda ismi/alanı (İstediğiniz sarı "hand" ikonu)
                 // c2d.classList.add('hover-room-label'); // (Opsiyonel sınıf)
                 return; // Öncelikli olarak çık
-           }
-           // --- YENİ KONTROL SONU ---
+            }
+            // --- YENİ KONTROL SONU ---
             // 2. Mahal Alanı (Etiket hariç)
             if (hoveredObject.type === 'room') {
                 c2d.style.cursor = 'default'; // Alanın üzeri 'default' (beyaz ok)
@@ -634,12 +630,12 @@ function updateMouseCursor() {
                     const angleDeg = ((rotation % 360) + 360) % 360;
                     let cursorStyle = 'ew-resize';
                     const isNearVertical = (angleDeg > 45 && angleDeg < 135) || (angleDeg > 225 && angleDeg < 315);
-                     if (handle === 'edge_top' || handle === 'edge_bottom') {
+                    if (handle === 'edge_top' || handle === 'edge_bottom') {
                         cursorStyle = isNearVertical ? 'ew-resize' : 'ns-resize';
-                     } else {
+                    } else {
                         cursorStyle = isNearVertical ? 'ns-resize' : 'ew-resize';
-                     }
-                     c2d.style.cursor = cursorStyle; // Stili doğrudan ata
+                    }
+                    c2d.style.cursor = cursorStyle; // Stili doğrudan ata
                     // --- YENİ SONU ---
                     return;
                 } else if (handle === 'p1' || handle === 'p2') {
@@ -657,9 +653,9 @@ function updateMouseCursor() {
                     if (hoveredObject.type === 'wall') {
                         c2d.style.cursor = 'default'; // Duvar gövdesi
                         // c2d.classList.add('hover-wall-body');
-                    // } else if (hoveredObject.type === 'room' || hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
-                    //      c2d.style.cursor = 'grab'; // Oda ismi/alanı
-                    //      // c2d.classList.add('hover-room-label');
+                        // } else if (hoveredObject.type === 'room' || hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
+                        //      c2d.style.cursor = 'grab'; // Oda ismi/alanı
+                        //      // c2d.classList.add('hover-room-label');
                     }
                     // --- YENİ EKLENDİ ---
                     else if (hoveredObject.type === 'guide') {
@@ -668,13 +664,13 @@ function updateMouseCursor() {
                     }
                     // --- YENİ SONU ---
                     else {
-                         c2d.style.cursor = 'grab'; // Diğer nesne gövdeleri (kolon, kiriş, merdiven, kapı, pencere)
+                        c2d.style.cursor = 'grab'; // Diğer nesne gövdeleri (kolon, kiriş, merdiven, kapı, pencere)
                         // c2d.classList.add('hover-object-body');
                     }
                     return;
                 }
             }
-             // handle string değilse veya bilinmeyen handle ise varsayılana düş
+            // handle string değilse veya bilinmeyen handle ise varsayılana düş
         }
 
         // 3. Node Hover (getObjectAtPoint bulamadıysa, ek kontrol)
