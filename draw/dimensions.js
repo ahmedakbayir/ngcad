@@ -1,5 +1,5 @@
 import { screenToWorld } from './geometry.js';
-import { state, dom, getAdjustedColor } from '../general-files/main.js';
+import { state, dom } from '../general-files/main.js';
 
 // Yazı boyutunun zoom ile nasıl değişeceğini belirleyen üs (-0.7 yaklaşık olarak 10x zoomda yarı boyutu verir)
 const ZOOM_EXPONENT = -0.65;
@@ -65,13 +65,11 @@ export function drawDimension(p1, p2, isPreview = false, mode = 'single') {
     ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
 
     // ---- RENK AYARLAMASI ----
-    // Çizim moduna göre renk ayarla
-    const adjustedColor = getAdjustedColor(dimensionOptions.color, 'dimension');
-    // Kolon/Kiriş/Merdiven modu için her zaman adjustedColor kullan
+    // Kolon/Kiriş/Merdiven modu için her zaman dimensionOptions.color kullan
     if (mode === 'columnBeam') {
-        ctx2d.fillStyle = adjustedColor;
+        ctx2d.fillStyle = dimensionOptions.color;
     } else {
-        ctx2d.fillStyle = isPreview ? "#8ab4f8" : adjustedColor;
+        ctx2d.fillStyle = isPreview ? "#8ab4f8" : dimensionOptions.color;
     }
     // ---- AYARLAMA SONU ----
 
@@ -96,8 +94,7 @@ export function drawTotalDimensions(filteredWalls = null, filteredRooms = null) 
     const minWorldFontSize = 10; // Özet görünüm için biraz daha büyük minimum
 
     ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-    const adjustedColor = getAdjustedColor(dimensionOptions.color, 'dimension');
-    ctx2d.fillStyle = adjustedColor;
+    ctx2d.fillStyle = dimensionOptions.color;
 
     const gridSpacing = gridOptions.visible ? gridOptions.spacing : 1;
     const TOLERANCE = 1;
