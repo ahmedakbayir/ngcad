@@ -37,6 +37,10 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     const doorP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
     const wallPx = wall.thickness || state.wallThickness; // Duvar kalınlığı
     const halfWall = wallPx / 2; // Yarı kalınlık
+
+    // Çizim moduna göre renk ayarla
+    const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'door');
+
     // Renk belirleme
     let color;
     if (isPreview) {
@@ -45,7 +49,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
         color = "#8ab4f8"; // Seçili rengi
     } else {
         // Normal renk (duvar rengi %80 opaklıkta)
-        const hex = wallBorderColor.startsWith('#') ? wallBorderColor.slice(1) : wallBorderColor;
+        const hex = adjustedWallBorderColor.startsWith('#') ? adjustedWallBorderColor.slice(1) : adjustedWallBorderColor;
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
         const b = parseInt(hex.substring(4, 6), 16);
@@ -116,9 +120,14 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const windowP1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos }; const windowP2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
     const wallPx = wall.thickness || state.wallThickness; const halfWall = wallPx / 2;
     const isSelectedCalc = isSelected || (selectedObject?.type === "window" && selectedObject.object === window);
+
+    // Çizim moduna göre renk ayarla
+    const baseWindowColor = "rgba(230, 234, 255, 0.26)";
+    const adjustedWindowColor = getAdjustedColor(baseWindowColor, 'window');
+
     let color;
     if (isPreview) { color = "#8ab4f8"; } else if (isSelectedCalc) { color = "#8ab4f8"; } else {
-        color = "rgba(230, 234, 255, 0.26)"; // Mevcut renk
+        color = adjustedWindowColor;
     }
     ctx2d.strokeStyle = color;
     ctx2d.lineWidth = lineThickness / 2 / zoom; // zoom'a böl
@@ -286,9 +295,8 @@ export function drawColumn(column, isSelected = false) {
     const corners = getColumnCorners(column); // Kolonun köşe noktaları
 
     // Çizim stilleri
-    const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'column');
     ctx2d.fillStyle = BG; // İçini arka plan rengiyle doldur
-    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : adjustedWallBorderColor; // Kenarlık rengi (seçiliyse mavi)
+    ctx2d.strokeStyle = isSelected ? '#8ab4f8' : wallBorderColor; // Kenarlık rengi (seçiliyse mavi)
     ctx2d.lineWidth = lineThickness / zoom; // Çizgi kalınlığı (zoom'a göre ayarlı)
 
     // Dış kareyi çiz (Önce dolgu, sonra kenarlık)
@@ -485,8 +493,7 @@ export function drawBeam(beam, isSelected = false) {
     ctx2d.save();
 
     const corners = getBeamCorners(beam); // Kiriş köşe noktaları
-    const adjustedWallBorderColor = getAdjustedColor(state.wallBorderColor, 'beam');
-    const beamColor = isSelected ? '#8ab4f8' : adjustedWallBorderColor;
+    const beamColor = isSelected ? '#8ab4f8' : state.wallBorderColor;
     let fillColor;
     if (beamColor.startsWith('#')) {
         const hex = beamColor.slice(1);
@@ -545,8 +552,7 @@ export function drawStairs(stair, isSelected = false) {
     ctx2d.save();
 
     const corners = getStairCorners(stair); // Köşe noktalarını al
-    const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'stair');
-    const stairColor = isSelected ? '#8ab4f8' : adjustedWallBorderColor;
+    const stairColor = isSelected ? '#8ab4f8' : wallBorderColor;
     const backgroundColor = roomFillColor || '#1e1f20';
     const rotRad = (stair.rotation || 0) * Math.PI / 180;
     const dirX = Math.cos(rotRad); // Ok için yön vektörleri
