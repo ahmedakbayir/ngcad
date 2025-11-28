@@ -524,7 +524,15 @@ function blendColorWithBackground(color, blendAmount) {
 
     // Rengi string'den parse et
     let sourceColor;
-    if (typeof color === 'string' && color.startsWith('#')) {
+    if (typeof color === 'number') {
+        // Hex number formatı (0xFFFF00)
+        const hex = color.toString(16).padStart(6, '0');
+        sourceColor = {
+            r: parseInt(hex.substring(0, 2), 16),
+            g: parseInt(hex.substring(2, 4), 16),
+            b: parseInt(hex.substring(4, 6), 16)
+        };
+    } else if (typeof color === 'string' && color.startsWith('#')) {
         sourceColor = parseHex(color);
     } else if (typeof color === 'string' && color.startsWith('rgb')) {
         // rgb(r, g, b) veya rgba(r, g, b, a) parse et
@@ -560,9 +568,18 @@ function blendColorWithBackground(color, blendAmount) {
 export function getAdjustedColor(originalColor, objectType) {
     const mode = state.currentDrawingMode;
 
+    // Rengi normalize et (sayıyı string'e çevir)
+    const normalizeColor = (color) => {
+        if (typeof color === 'number') {
+            // Hex number formatını string'e çevir (0xFFFF00 -> '#FFFF00')
+            return '#' + color.toString(16).padStart(6, '0').toUpperCase();
+        }
+        return color;
+    };
+
     // KARMA modunda her şey normal renkte
     if (mode === "KARMA") {
-        return originalColor;
+        return normalizeColor(originalColor);
     }
 
     // Mimari nesneler listesi (TESİSAT modunda soluk olacaklar)
@@ -584,7 +601,7 @@ export function getAdjustedColor(originalColor, objectType) {
             // Tesisat nesneleri soluk (85% background'a blend)
             return blendColorWithBackground(originalColor, 0.85);
         }
-        return originalColor; // Mimari nesneler normal
+        return normalizeColor(originalColor); // Mimari nesneler normal
     }
 
     // TESİSAT modunda
@@ -593,10 +610,10 @@ export function getAdjustedColor(originalColor, objectType) {
             // Mimari nesneler çok soluk (85% background'a blend)
             return blendColorWithBackground(originalColor, 0.85);
         }
-        return originalColor; // Tesisat nesneleri normal
+        return normalizeColor(originalColor); // Tesisat nesneleri normal
     }
 
-    return originalColor;
+    return normalizeColor(originalColor);
 }
 
 // DEPRECATED: Artık kullanılmıyor, geriye uyumluluk için bırakıldı
