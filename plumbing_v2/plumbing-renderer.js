@@ -403,21 +403,17 @@ export class PlumbingRenderer {
     }
 
     drawSnapIndicator(ctx, snap) {
-        ctx.save();
-
-        // Snap noktası
-        ctx.fillStyle = '#00FF00';
-        ctx.beginPath();
-        ctx.arc(snap.x, snap.y, 5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Snap tipi yazısı
-        ctx.fillStyle = '#00FF00';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'left';
-        ctx.fillText(snap.type.name, snap.x + 8, snap.y - 8);
-
-        ctx.restore();
+        // Snap göstergesi kaldırıldı - kullanıcı istemiyor
+        // ctx.save();
+        // ctx.fillStyle = '#00FF00';
+        // ctx.beginPath();
+        // ctx.arc(snap.x, snap.y, 5, 0, Math.PI * 2);
+        // ctx.fill();
+        // ctx.fillStyle = '#00FF00';
+        // ctx.font = '10px Arial';
+        // ctx.textAlign = 'left';
+        // ctx.fillText(snap.type.name, snap.x + 8, snap.y - 8);
+        // ctx.restore();
     }
 
     hexToRgba(hex, alpha) {
