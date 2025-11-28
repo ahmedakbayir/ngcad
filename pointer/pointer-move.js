@@ -572,7 +572,13 @@ function updateMouseCursor() {
         case 'plumbingV2':
             // Boru çizim modu aktifse özel cursor göster
             if (plumbingManager.interactionManager?.boruCizimAktif) {
-                modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><polygon fill=\"white\" points=\"2,2 8,2 5,8\"/><rect fill=\"white\" x=\"4\" y=\"8\" width=\"2\" height=\"10\"/><g transform=\"translate(7, 3) scale(0.5)\"><line x1=\"4\" y1=\"12\" x2=\"20\" y2=\"12\" stroke=\"%234885e8\" stroke-width=\"3\" stroke-linecap=\"round\"/><line x1=\"20\" y1=\"12\" x2=\"20\" y2=\"18\" stroke=\"%234885e8\" stroke-width=\"3\" stroke-linecap=\"round\"/><circle cx=\"4\" cy=\"12\" r=\"1.5\" fill=\"%234885e8\"/><circle cx=\"20\" cy=\"12\" r=\"1.5\" fill=\"%234885e8\"/></g></svg>') 5 5, crosshair";
+                // Kalem ikonu: İcondaki AYNI Material Design edit ikonu
+                // Kalemin ucu çizim noktasından 2 sağda 2 yukarıda
+                // Hot spot: (5, 5)
+                // Kalem ucu pozisyonu: (7, 3)
+                // Kalem path'i scale(0.5) ile ucu yaklaşık (1.5, 10.5)'te
+                // translate(5.5, -7.5) ile kalemin ucu (7, 3)'e gelir
+                modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><path fill=\"white\" transform=\"translate(5.5 -7.5) scale(0.5)\" d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z\"/><g transform=\"translate(7, 3) scale(0.5)\"><line x1=\"4\" y1=\"12\" x2=\"20\" y2=\"12\" stroke=\"%234885e8\" stroke-width=\"3\" stroke-linecap=\"round\"/><line x1=\"20\" y1=\"12\" x2=\"20\" y2=\"18\" stroke=\"%234885e8\" stroke-width=\"3\" stroke-linecap=\"round\"/><circle cx=\"4\" cy=\"12\" r=\"1.5\" fill=\"%234885e8\"/><circle cx=\"20\" cy=\"12\" r=\"1.5\" fill=\"%234885e8\"/></g></svg>') 5 5, crosshair";
             } else {
                 modeCursorStyle = 'crosshair';
             }
