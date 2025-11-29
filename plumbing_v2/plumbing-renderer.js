@@ -8,7 +8,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getAdjustedColor } from '../general-files/main.js';
+import { getAdjustedColor, state } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
@@ -17,6 +17,14 @@ export class PlumbingRenderer {
 
     render(ctx, manager) {
         if (!manager) return;
+
+        // MİMARİ modunda tesisat nesneleri soluk görünmeli
+        const shouldBeFaded = state.currentDrawingMode === 'MİMARİ';
+
+        if (shouldBeFaded) {
+            ctx.save();
+            ctx.globalAlpha = 0.15; // Çok soluk (85% blend'e karşılık gelir)
+        }
 
         // Borular
         this.drawPipes(ctx, manager.pipes);
@@ -30,7 +38,11 @@ export class PlumbingRenderer {
             this.drawGeciciBoru(ctx, geciciBoru);
         }
 
-        // Ghost eleman
+        if (shouldBeFaded) {
+            ctx.restore();
+        }
+
+        // Ghost eleman (her zaman yarı saydam)
         if (manager.tempComponent) {
             ctx.save();
             ctx.globalAlpha = 0.6;
@@ -38,7 +50,7 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
-        // Snap göstergesi
+        // Snap göstergesi (her zaman normal)
         const activeSnap = manager.interactionManager?.activeSnap;
         if (activeSnap) {
             this.drawSnapIndicator(ctx, activeSnap);
