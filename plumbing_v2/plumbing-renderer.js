@@ -23,7 +23,7 @@ export class PlumbingRenderer {
 
         if (shouldBeFaded) {
             ctx.save();
-            ctx.globalAlpha = 0.15; // Çok soluk (85% blend'e karşılık gelir)
+            ctx.globalAlpha = 0.35; // Biraz daha görünür (önceden 0.15)
         }
 
         // Borular

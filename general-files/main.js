@@ -628,8 +628,9 @@ export function getAdjustedColor(originalColor, objectType) {
     // MİMARİ modunda
     if (mode === "MİMARİ") {
         if (isPlumbing) {
-            // Tesisat nesneleri soluk (85% background'a blend)
-            return blendColorWithBackground(originalColor, 0.85);
+            // Tesisat nesneleri - renk blend YAPMA, sadece globalAlpha ile soluklaştır
+            // (plumbing-renderer.js'de globalAlpha kullanılıyor)
+            return normalizeColor(originalColor);
         }
         return normalizeColor(originalColor); // Mimari nesneler normal
     }
