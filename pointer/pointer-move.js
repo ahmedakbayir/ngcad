@@ -570,8 +570,8 @@ function updateMouseCursor() {
         case 'plumbingV2':
             // Boru aracı seçiliyse veya boru çizim modu aktifse özel cursor göster
             if (plumbingManager.activeTool === 'boru' || plumbingManager.interactionManager?.boruCizimAktif) {
-                // Custom SVG cursor for pipe drawing
-                modeCursorStyle = "url('general-files/pipe-cursor.svg') 4 20, crosshair";
+                // Custom SVG cursor for pipe drawing - hot spot kalemin ucunda (4, 22)
+                modeCursorStyle = "url('general-files/pipe-cursor.svg') 4 22, crosshair";
             } else {
                 modeCursorStyle = 'crosshair';
             }
