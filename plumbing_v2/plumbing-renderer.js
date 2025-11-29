@@ -130,7 +130,7 @@ export class PlumbingRenderer {
 
     drawElbows(ctx, pipes, breakPoints) {
         // Çizim moduna göre renk ayarla
-        const adjustedGray = getAdjustedColor('#ffae00ff', 'boru');
+        const adjustedGray = getAdjustedColor('#f8f8c6', 'boru');
         ctx.fillStyle = adjustedGray;
 
         breakPoints.forEach(bp => {
