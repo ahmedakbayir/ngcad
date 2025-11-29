@@ -682,10 +682,14 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
             [pipe.p1, pipe.p2].forEach(endpoint => {
                 // 4 yönde snap noktası (yukarı, aşağı, sol, sağ)
                 [
-                    { x: endpoint.x + offset, y: endpoint.y },
-                    { x: endpoint.x - offset, y: endpoint.y },
-                    { x: endpoint.x, y: endpoint.y + offset },
-                    { x: endpoint.x, y: endpoint.y - offset }
+                    { x: endpoint.x + offset, y: endpoint.y + offset},
+                    { x: endpoint.x - offset, y: endpoint.y - offset},
+                    { x: endpoint.x - offset, y: endpoint.y + offset},
+                    { x: endpoint.x + offset, y: endpoint.y - offset},
+                    // { x: endpoint.x, y: endpoint.y + offset },
+                    // { x: endpoint.x, y: endpoint.y - offset },
+                    // { x: endpoint.x + offset, y: endpoint.y + offset },
+                    // { x: endpoint.x - offset, y: endpoint.y - offset }
                 ].forEach(snapPoint => {
                     const screenPt = worldToScreen(snapPoint.x, snapPoint.y);
                     const distance = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
