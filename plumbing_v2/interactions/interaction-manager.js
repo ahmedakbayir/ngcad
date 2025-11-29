@@ -260,10 +260,41 @@ export class InteractionManager {
         ghost.x = point.x;
         ghost.y = point.y;
 
-        // Servis kutusu - duvara snap
-        if (ghost.type === 'servis_kutusu' && snap && snap.target) {
-            if (snap.target.wall) {
-                ghost.snapToWall(snap.target.wall, point);
+        // Servis kutusu - duvara snap (taşıma ile aynı mantık)
+        if (ghost.type === 'servis_kutusu') {
+            const walls = state.walls;
+            const snapDistance = 30; // 30cm içinde snap yap
+
+            // En yakın duvarı bul
+            let closestWall = null;
+            let minDist = Infinity;
+
+            walls.forEach(wall => {
+                if (!wall.p1 || !wall.p2) return;
+
+                const dx = wall.p2.x - wall.p1.x;
+                const dy = wall.p2.y - wall.p1.y;
+                const len = Math.hypot(dx, dy);
+                if (len === 0) return;
+
+                // Noktayı duvara projeksiyon yap
+                const t = Math.max(0, Math.min(1,
+                    ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len)
+                ));
+                const projX = wall.p1.x + t * dx;
+                const projY = wall.p1.y + t * dy;
+
+                const dist = Math.hypot(point.x - projX, point.y - projY);
+
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestWall = wall;
+                }
+            });
+
+            // Yakın duvara snap yap, yoksa serbest yerleştir
+            if (closestWall && minDist < snapDistance) {
+                ghost.snapToWall(closestWall, point);
             } else {
                 ghost.placeFree(point);
             }
@@ -605,16 +636,43 @@ export class InteractionManager {
             return;
         }
 
-        // Servis kutusu için snap uygula (ilk yerleştirildiği gibi)
+        // Servis kutusu için duvara snap
         if (this.dragObject.type === 'servis_kutusu') {
             const walls = state.walls;
-            const snap = this.snapSystem.getSnapPoint(point, walls);
+            const snapDistance = 30; // 30cm içinde snap yap
 
-            if (snap && snap.target && snap.target.wall) {
-                this.dragObject.snapToWall(snap.target.wall, point);
+            // En yakın duvarı bul
+            let closestWall = null;
+            let minDist = Infinity;
+
+            walls.forEach(wall => {
+                if (!wall.p1 || !wall.p2) return;
+
+                const dx = wall.p2.x - wall.p1.x;
+                const dy = wall.p2.y - wall.p1.y;
+                const len = Math.hypot(dx, dy);
+                if (len === 0) return;
+
+                // Noktayı duvara projeksiyon yap
+                const t = Math.max(0, Math.min(1,
+                    ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len)
+                ));
+                const projX = wall.p1.x + t * dx;
+                const projY = wall.p1.y + t * dy;
+
+                const dist = Math.hypot(point.x - projX, point.y - projY);
+
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestWall = wall;
+                }
+            });
+
+            // Yakın duvara snap yap, yoksa serbest yerleştir
+            if (closestWall && minDist < snapDistance) {
+                this.dragObject.snapToWall(closestWall, point);
             } else {
-                this.dragObject.x = point.x;
-                this.dragObject.y = point.y;
+                this.dragObject.placeFree(point);
             }
 
             // Bağlı boruyu güncelle
