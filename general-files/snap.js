@@ -619,13 +619,102 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         }
     }
 
+    // --- TESİSAT SNAP: Mimari duvar/oda çiziminde borulara snap ---
+    // Sadece mimari çizim modlarında (drawWall, drawRoom) ve aktif tesisat varsa
+    if ((state.currentMode === 'drawWall' || state.currentMode === 'drawRoom' || state.isDragging) && plumbingManager) {
+        const pipes = plumbingManager.pipes || [];
+        const BORU_ACIKLIGI = 5; // cm - Tesisat snap sistemindeki değer
+        const wallThickness = state.wallThickness || 20;
+
+        // Her boru için paralel snap hatları hesapla
+        pipes.forEach(pipe => {
+            if (!pipe.p1 || !pipe.p2) return;
+
+            const dx = pipe.p2.x - pipe.p1.x;
+            const dy = pipe.p2.y - pipe.p1.y;
+            const len = Math.hypot(dx, dy);
+            if (len < 0.1) return;
+
+            // Normal vektör (boruya dik)
+            const nx = -dy / len;
+            const ny = dx / len;
+
+            // Offset: Tesisat hatlarında nasıl hesaplanıyorsa aynı
+            // Duvar kalınlığı/2 + boru açıklığı
+            const offset = (wallThickness / 2) + BORU_ACIKLIGI;
+
+            // İki taraftaki mimari snap hatları (duvarın snap olacağı yerler)
+            [-1, 1].forEach(side => {
+                const hatOffset = offset * side;
+                const snapLine = {
+                    p1: {
+                        x: pipe.p1.x + nx * hatOffset,
+                        y: pipe.p1.y + ny * hatOffset
+                    },
+                    p2: {
+                        x: pipe.p2.x + nx * hatOffset,
+                        y: pipe.p2.y + ny * hatOffset
+                    }
+                };
+
+                // Farenin bu hatta en yakın noktasını bul
+                const l2 = (snapLine.p2.x - snapLine.p1.x) ** 2 + (snapLine.p2.y - snapLine.p1.y) ** 2;
+                if (l2 < 0.1) return;
+
+                let t = ((wm.x - snapLine.p1.x) * (snapLine.p2.x - snapLine.p1.x) +
+                         (wm.y - snapLine.p1.y) * (snapLine.p2.y - snapLine.p1.y)) / l2;
+                t = Math.max(0, Math.min(1, t)); // Segment içinde sınırla
+
+                const closest = {
+                    x: snapLine.p1.x + t * (snapLine.p2.x - snapLine.p1.x),
+                    y: snapLine.p1.y + t * (snapLine.p2.y - snapLine.p1.y)
+                };
+
+                const screenPt = worldToScreen(closest.x, closest.y);
+                const distance = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+
+                if (distance < SNAP_RADIUS_PIXELS) {
+                    candidates.push({ point: closest, distance: distance, type: 'PIPE_OFFSET' });
+                }
+            });
+
+            // Boru uç noktalarından offset'li snap noktaları
+            [pipe.p1, pipe.p2].forEach(endpoint => {
+                // 4 yönde snap noktası (yukarı, aşağı, sol, sağ)
+                [
+                    { x: endpoint.x + offset, y: endpoint.y },
+                    { x: endpoint.x - offset, y: endpoint.y },
+                    { x: endpoint.x, y: endpoint.y + offset },
+                    { x: endpoint.x, y: endpoint.y - offset }
+                ].forEach(snapPoint => {
+                    const screenPt = worldToScreen(snapPoint.x, snapPoint.y);
+                    const distance = Math.hypot(screenMouse.x - screenPt.x, screenMouse.y - screenPt.y);
+
+                    if (distance < SNAP_RADIUS_PIXELS) {
+                        candidates.push({ point: snapPoint, distance: distance, type: 'PIPE_ENDPOINT_OFFSET' });
+                    }
+                });
+            });
+        });
+    }
+    // --- TESİSAT SNAP SONU ---
+
     // En iyi snap adayını seç
     let bestSnap = null;
     if (candidates.length > 0) {
          const validCandidates = candidates.filter(c => c.point && typeof c.point.x === 'number' && typeof c.point.y === 'number');
          if (validCandidates.length > 0) {
              validCandidates.sort((a, b) => {
-                 const priority = { 'INTERSECTION': 0, 'ENDPOINT': 1, 'MIDPOINT': 2, 'EDGE': 3, 'PROJECTION': 4, 'WALL_EDGE': 5 };
+                 const priority = {
+                     'INTERSECTION': 0,
+                     'PIPE_ENDPOINT_OFFSET': 1, // Boru uç noktası yüksek öncelikli
+                     'ENDPOINT': 2,
+                     'PIPE_OFFSET': 3, // Boru hattı snap
+                     'MIDPOINT': 4,
+                     'EDGE': 5,
+                     'PROJECTION': 6,
+                     'WALL_EDGE': 7
+                 };
                  const pA = priority[a.type] ?? 99; const pB = priority[b.type] ?? 99;
                  if (pA !== pB) return pA - pB;
                  return a.distance - b.distance;
