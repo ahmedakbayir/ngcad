@@ -258,17 +258,17 @@ export function draw2D() {
     });
     const nodes = Array.from(nodesSet);
 
-    // Get device pixel ratio for crisp rendering
+    // Apply DPR scaling to use all physical pixels
     const dpr = window.devicePixelRatio || 1;
 
     ctx2d.fillStyle = BG;
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
     ctx2d.save();
 
-    // Apply DPR scaling first for crisp rendering
+    // Scale context to device pixel ratio first
     ctx2d.scale(dpr, dpr);
 
-    // Then apply pan and zoom transforms
+    // Then apply pan and zoom (these work in CSS pixels)
     ctx2d.translate(panOffset.x, panOffset.y);
     ctx2d.scale(zoom, zoom);
     ctx2d.lineWidth = 1 / zoom;
