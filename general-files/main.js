@@ -773,8 +773,19 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
 
 export function resize() {
     const r2d = dom.p2d.getBoundingClientRect();
-    dom.c2d.width = r2d.width;
-    dom.c2d.height = r2d.height;
+    const dpr = window.devicePixelRatio || 1;
+
+    // Set canvas size with device pixel ratio for crisp rendering
+    dom.c2d.width = r2d.width * dpr;
+    dom.c2d.height = r2d.height * dpr;
+    dom.c2d.style.width = r2d.width + 'px';
+    dom.c2d.style.height = r2d.height + 'px';
+
+    // Disable image smoothing for crisp vector lines
+    dom.ctx2d.imageSmoothingEnabled = false;
+    dom.ctx2d.webkitImageSmoothingEnabled = false;
+    dom.ctx2d.mozImageSmoothingEnabled = false;
+    dom.ctx2d.msImageSmoothingEnabled = false;
 
     const r3d = dom.p3d.getBoundingClientRect();
     if (r3d.width > 0 && r3d.height > 0 && camera3d && renderer3d) {

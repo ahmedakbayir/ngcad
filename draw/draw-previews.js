@@ -173,8 +173,9 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
                 const dy = previewPos.y - startPoint.y;
                 const len = Math.hypot(dx, dy);
                 if (len > 0.1) {
+                    const dpr = window.devicePixelRatio || 1;
                     const { x: worldLeft, y: worldTop } = screenToWorld(0, 0);
-                    const { x: worldRight, y: worldBottom } = screenToWorld(dom.c2d.width, dom.c2d.height);
+                    const { x: worldRight, y: worldBottom } = screenToWorld(dom.c2d.width / dpr, dom.c2d.height / dpr);
                     const extend = Math.max(worldRight - worldLeft, worldBottom - worldTop) * 2;
                     
                     const p0 = { x: startPoint.x - (dx/len) * extend, y: startPoint.y - (dy/len) * extend };

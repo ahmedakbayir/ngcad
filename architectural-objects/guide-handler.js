@@ -26,8 +26,9 @@ export function getGuideAtPoint(pos, tolerance) {
             case 'horizontal': {
                 const dist = Math.abs(pos.y - guide.y);
                 // Ekran sınırları içinde mi diye kontrol et (sonsuz çizgiler için)
+                const dpr = window.devicePixelRatio || 1;
                 const { x: worldLeft } = screenToWorld(0, 0);
-                const { x: worldRight } = screenToWorld(dom.c2d.width, 0);
+                const { x: worldRight } = screenToWorld(dom.c2d.width / dpr, 0);
                 if (dist < tolerance && pos.x >= worldLeft && pos.x <= worldRight) {
                     return { type: 'guide', object: guide, handle: 'body' };
                 }
@@ -35,8 +36,9 @@ export function getGuideAtPoint(pos, tolerance) {
             }
             case 'vertical': {
                 const dist = Math.abs(pos.x - guide.x);
+                const dpr = window.devicePixelRatio || 1;
                 const { y: worldTop } = screenToWorld(0, 0);
-                const { y: worldBottom } = screenToWorld(0, dom.c2d.height);
+                const { y: worldBottom } = screenToWorld(0, dom.c2d.height / dpr);
                 if (dist < tolerance && pos.y >= worldTop && pos.y <= worldBottom) {
                     return { type: 'guide', object: guide, handle: 'body' };
                 }
