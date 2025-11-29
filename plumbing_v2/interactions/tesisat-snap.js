@@ -189,6 +189,10 @@ export class TesisatSnapSystem {
         // Her hat çifti için kesişim kontrolü
         for (let i = 0; i < hatlar.length; i++) {
             for (let j = i + 1; j < hatlar.length; j++) {
+                // Sadece farklı duvarların hatları için kesişim ara
+                if (hatlar[i].wall === hatlar[j].wall) continue;
+
+                // İç köşeler için: segment içi kesişim
                 const kesisim = this.lineIntersection(
                     hatlar[i].p1, hatlar[i].p2,
                     hatlar[j].p1, hatlar[j].p2
@@ -198,8 +202,41 @@ export class TesisatSnapSystem {
                     kesisimler.push({
                         x: kesisim.x,
                         y: kesisim.y,
-                        hatlar: [hatlar[i], hatlar[j]]
+                        hatlar: [hatlar[i], hatlar[j]],
+                        type: 'inner' // İç köşe
                     });
+                }
+
+                // Dış köşeler için: genişletilmiş çizgi kesişimi
+                // (Aynı tarafta olan hatlar - outer corners)
+                if (hatlar[i].side === hatlar[j].side) {
+                    const outerKesisim = this.lineIntersectionExtended(
+                        hatlar[i].p1, hatlar[i].p2,
+                        hatlar[j].p1, hatlar[j].p2
+                    );
+
+                    if (outerKesisim) {
+                        // Kesişim noktası duvar uçlarına yakın mı kontrol et
+                        const maxExtension = 100; // cm - maksimum uzatma mesafesi
+                        const dist1 = Math.min(
+                            Math.hypot(outerKesisim.x - hatlar[i].p1.x, outerKesisim.y - hatlar[i].p1.y),
+                            Math.hypot(outerKesisim.x - hatlar[i].p2.x, outerKesisim.y - hatlar[i].p2.y)
+                        );
+                        const dist2 = Math.min(
+                            Math.hypot(outerKesisim.x - hatlar[j].p1.x, outerKesisim.y - hatlar[j].p1.y),
+                            Math.hypot(outerKesisim.x - hatlar[j].p2.x, outerKesisim.y - hatlar[j].p2.y)
+                        );
+
+                        // Kesişim noktası her iki hattın uçlarına da makul mesafede ise ekle
+                        if (dist1 < maxExtension && dist2 < maxExtension) {
+                            kesisimler.push({
+                                x: outerKesisim.x,
+                                y: outerKesisim.y,
+                                hatlar: [hatlar[i], hatlar[j]],
+                                type: 'outer' // Dış köşe
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -641,7 +678,7 @@ export class TesisatSnapSystem {
     }
 
     /**
-     * İki çizginin kesişim noktası
+     * İki çizginin kesişim noktası (segment içinde)
      */
     lineIntersection(p1, p2, p3, p4) {
         const x1 = p1.x, y1 = p1.y;
@@ -664,6 +701,28 @@ export class TesisatSnapSystem {
         }
 
         return null;
+    }
+
+    /**
+     * İki çizginin kesişim noktası (genişletilmiş - dış köşeler için)
+     * Segment sınırlarını kontrol etmeden kesişim hesaplar
+     */
+    lineIntersectionExtended(p1, p2, p3, p4) {
+        const x1 = p1.x, y1 = p1.y;
+        const x2 = p2.x, y2 = p2.y;
+        const x3 = p3.x, y3 = p3.y;
+        const x4 = p4.x, y4 = p4.y;
+
+        const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (Math.abs(denom) < 0.001) return null; // Paralel
+
+        const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+
+        // Segment sınırı kontrolü yok - çizgileri uzatarak kesişim hesapla
+        return {
+            x: x1 + t * (x2 - x1),
+            y: y1 + t * (y2 - y1)
+        };
     }
 
     /**
