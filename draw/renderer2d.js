@@ -246,7 +246,8 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
 // Grid'i çizer
 export function drawGrid() {
     const { ctx2d, c2d } = dom; const { zoom, gridOptions } = state; if (!gridOptions.visible) return;
-    const { x: worldLeft, y: worldTop } = screenToWorld(0, 0); const { x: worldRight, y: worldBottom } = screenToWorld(c2d.width, c2d.height);
+    const dpr = window.devicePixelRatio || 1;
+    const { x: worldLeft, y: worldTop } = screenToWorld(0, 0); const { x: worldRight, y: worldBottom } = screenToWorld(c2d.width / dpr, c2d.height / dpr);
     const baseSpacing = gridOptions.spacing; const MIN_PIXEL_SPACING = 20; const multipliers = [1, 5, 10, 50, 100]; const visibleMultipliers = [];
     for (const mult of multipliers) { const spacing = baseSpacing * mult; const pixelSpacing = spacing * zoom; if (pixelSpacing >= MIN_PIXEL_SPACING) { visibleMultipliers.push({ multiplier: mult, spacing: spacing }); } }
     if (visibleMultipliers.length === 0) { visibleMultipliers.push({ multiplier: multipliers[multipliers.length -1], spacing: baseSpacing * multipliers[multipliers.length -1] }); if(multipliers.length > 1) { visibleMultipliers.push({ multiplier: multipliers[multipliers.length - 2], spacing: baseSpacing * multipliers[multipliers.length - 2] }); } } else if (visibleMultipliers.length === 1 && multipliers.indexOf(visibleMultipliers[0].multiplier) < multipliers.length - 1) { const currentMultIndex = multipliers.indexOf(visibleMultipliers[0].multiplier); const nextMult = multipliers[currentMultIndex + 1]; visibleMultipliers.push({ multiplier: nextMult, spacing: baseSpacing * nextMult }); }
@@ -670,8 +671,9 @@ export function drawGuides(ctx2d, state) {
     if (!guides || guides.length === 0) return;
 
     // Görünür alanı dünya koordinatlarında al
+    const dpr = window.devicePixelRatio || 1;
     const { x: worldLeft, y: worldTop } = screenToWorld(0, 0);
-    const { x: worldRight, y: worldBottom } = screenToWorld(dom.c2d.width, dom.c2d.height);
+    const { x: worldRight, y: worldBottom } = screenToWorld(dom.c2d.width / dpr, dom.c2d.height / dpr);
     
     // İsteğiniz üzerine stil tanımlamaları
     const guideColor = "rgba(255, 100, 100, 0.5)"; // Soluk kırmızı
