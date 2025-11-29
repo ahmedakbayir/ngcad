@@ -1345,6 +1345,18 @@ function initialize() {
     // Sürüklenebilir gruplar için drag & drop
     initializeDraggableGroups();
 
+    // Custom Pipe Cursor - Mouse tracking
+    const customCursor = document.getElementById('custom-pipe-cursor');
+    document.addEventListener('mousemove', (e) => {
+        if (state.currentMode === 'plumbingV2' && plumbingManager?.activeTool === 'boru') {
+            customCursor.style.display = 'block';
+            customCursor.style.left = e.clientX + 'px';
+            customCursor.style.top = e.clientY + 'px';
+        } else {
+            customCursor.style.display = 'none';
+        }
+    });
+
     resize();
     animate();
     setTimeout(fitDrawingToScreen, 100); // 100ms sonra fitDrawingToScreen'i çağır
