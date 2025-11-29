@@ -470,7 +470,7 @@ function setupModeButtons() {
     modeKarma.addEventListener('click', (e) => {
         e.stopPropagation();
         setDrawingMode('KARMA');
-        setMode('select', true); // KARMA modunda otomatik SEÇ moduna geç
+        // KARMA modunda mevcut ikon korunur (setDrawingMode içinde kontrol ediliyor)
     });
 }
 
@@ -478,8 +478,12 @@ function setupModeButtons() {
 export function setDrawingMode(mode) {
     setState({ currentDrawingMode: mode });
 
-    // Mod değiştiğinde otomatik olarak seç moduna geç
-    setMode('select', true);
+    // KARMA moduna geçildiğinde mevcut ikon korunmalı (hiç setMode çağrılmaz)
+    // MİMARİ ve TESİSAT modlarında otomatik olarak seç moduna geç
+    if (mode !== 'KARMA') {
+        setMode('select', true);
+    }
+    // KARMA modunda: mevcut mod (drawWall, select, vb.) korunur
 
     // Butonların active durumunu güncelle (dinamik olarak query)
     const modeMimari = document.getElementById("mode-mimari");
