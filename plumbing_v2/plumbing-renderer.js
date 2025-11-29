@@ -8,7 +8,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getAdjustedColor } from '../general-files/main.js';
+import { getAdjustedColor, state } from '../general-files/main.js'; // state eklendi
 
 export class PlumbingRenderer {
     constructor() {
@@ -62,13 +62,19 @@ export class PlumbingRenderer {
             ctx.moveTo(pipe.p1.x, pipe.p1.y);
             ctx.lineTo(pipe.p2.x, pipe.p2.y);
 
-            ctx.lineWidth = config.lineWidth;
+            ctx.lineWidth = config.lineWidth / state.zoom; // Zoom'a göre kalınlık ayarı (opsiyonel)
             // Çizim moduna göre renk ayarla
             const adjustedColor = getAdjustedColor(config.color, 'boru');
             ctx.strokeStyle = pipe.isSelected
                 ? this.secilenRenk
                 : adjustedColor;
             ctx.stroke();
+
+            // --- YENİ: Boru Uzunluğunu Yazdır ---
+            const length = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+            if (length > 10) { // Çok kısa borularda yazma
+                this.drawDimensionText(ctx, pipe.p1, pipe.p2, Math.round(length).toString());
+            }
         });
 
         // Dirsek görüntülerini çiz
@@ -178,12 +184,49 @@ export class PlumbingRenderer {
     drawGeciciBoru(ctx, geciciBoru) {
         ctx.save();
         ctx.strokeStyle = '#FFFF00';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 4 / state.zoom; // Zoom ile ölçekle
 
         ctx.beginPath();
         ctx.moveTo(geciciBoru.p1.x, geciciBoru.p1.y);
         ctx.lineTo(geciciBoru.p2.x, geciciBoru.p2.y);
         ctx.stroke();
+
+        // --- YENİ: Anlık Uzunluk Gösterimi ---
+        const length = Math.hypot(geciciBoru.p2.x - geciciBoru.p1.x, geciciBoru.p2.y - geciciBoru.p1.y);
+        if (length > 0) {
+            this.drawDimensionText(ctx, geciciBoru.p1, geciciBoru.p2, Math.round(length).toString(), true);
+        }
+
+        ctx.restore();
+    }
+
+    // --- YENİ: Ölçü Metni Çizdirme Yardımcısı ---
+    drawDimensionText(ctx, p1, p2, text, isTemporary = false) {
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        let angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+
+        // Metnin her zaman okunabilir olması için açıyı ayarla
+        if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+            angle += Math.PI;
+        }
+
+        ctx.save();
+        ctx.translate(midX, midY);
+        ctx.rotate(angle);
+
+        // Zoom'a göre font boyutunu ayarla (biraz küçültüldü)
+        const fontSize = Math.max(8, 10 / state.zoom); 
+        ctx.font = `${fontSize}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+
+        // Metnin çizgiye uzaklığı
+        const boxY = -2 / state.zoom; 
+
+        // Metin rengi (Açık Renkler)
+        ctx.fillStyle = isTemporary ? '#FFFFE0' : '#E0E0E0'; // Açık Sarı (Geçici), Açık Gri (Kalıcı)
+        ctx.fillText(text, 0, boxY);
 
         ctx.restore();
     }
@@ -230,28 +273,27 @@ export class PlumbingRenderer {
         const adjustedStroke = getAdjustedColor('#333', 'servis_kutusu');
         ctx.fillStyle = adjustedColor;
         ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 / state.zoom;
 
         ctx.beginPath();
         ctx.rect(-width / 2, -height / 2, width, height);
         ctx.fill();
         ctx.stroke();
 
-        // "S.K." yazısı
+        // "S.K." yazısı - BÜYÜTÜLDÜ (10 -> 14)
         const adjustedText = getAdjustedColor('#000', 'servis_kutusu');
         ctx.fillStyle = adjustedText;
-        ctx.font = '10px Arial';
+        ctx.font = `${14 / state.zoom}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('S.K.', 0, 0);
 
-        // Çıkış noktası göstergesi - sadece boru bağlı değilse göster, boru çapında
+        // Çıkış noktası göstergesi
         if (!comp.cikisKullanildi) {
             const cikisLocal = comp.getCikisLocalKoordinat();
             const adjustedYellow = getAdjustedColor('#FFFF00', 'servis_kutusu');
             ctx.fillStyle = adjustedYellow;
             ctx.beginPath();
-            // Boru çapı 2cm, yarıçap 1cm
             ctx.arc(cikisLocal.x, cikisLocal.y, 1, 0, Math.PI * 2);
             ctx.fill();
         }
@@ -264,7 +306,7 @@ export class PlumbingRenderer {
         const girisKol = comp.girisKolUzunlugu || 10;
         const adjustedGray = getAdjustedColor('#666', 'sayac');
         ctx.strokeStyle = adjustedGray;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 / state.zoom;
         ctx.beginPath();
         ctx.moveTo(-width / 2, 0);
         ctx.lineTo(-width / 2 - girisKol, 0);
@@ -275,7 +317,7 @@ export class PlumbingRenderer {
         const adjustedStroke = getAdjustedColor('#333', 'sayac');
         ctx.fillStyle = adjustedColor;
         ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1 / state.zoom;
 
         ctx.beginPath();
         ctx.arc(0, 0, width / 2, 0, Math.PI * 2);
@@ -289,10 +331,10 @@ export class PlumbingRenderer {
         ctx.arc(0, 0, width / 3, 0, Math.PI * 2);
         ctx.fill();
 
-        // Sayaç ikonu
+        // Sayaç ikonu - BÜYÜTÜLDÜ (6 -> 10)
         const adjustedText = getAdjustedColor('#333', 'sayac');
         ctx.fillStyle = adjustedText;
-        ctx.font = '6px Arial';
+        ctx.font = `${10 / state.zoom}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('m³', 0, 0);
@@ -320,7 +362,7 @@ export class PlumbingRenderer {
         if (tipBilgisi.sembol === 'kapama') {
             const adjustedRed = getAdjustedColor('#FF0000', 'vana');
             ctx.strokeStyle = adjustedRed;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 2 / state.zoom;
             ctx.beginPath();
             ctx.moveTo(width + 2, -height);
             ctx.lineTo(width + 2, height);
@@ -331,15 +373,15 @@ export class PlumbingRenderer {
         if (tipBilgisi.sembol === 'elektrik') {
             const adjustedBlue = getAdjustedColor('#0000FF', 'vana');
             ctx.strokeStyle = adjustedBlue;
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 1 / state.zoom;
             ctx.beginPath();
             ctx.moveTo(0, -height - 2);
             ctx.lineTo(0, -height - 6);
             ctx.stroke();
 
-            // Şimşek
+            // Şimşek - BÜYÜTÜLDÜ (6 -> 10)
             ctx.fillStyle = adjustedBlue;
-            ctx.font = '6px Arial';
+            ctx.font = `${10 / state.zoom}px Arial`;
             ctx.textAlign = 'center';
             ctx.fillText('⚡', 0, -height - 8);
         }
@@ -358,8 +400,8 @@ export class PlumbingRenderer {
         if (fleks) {
             const adjustedFleksRenk = getAdjustedColor(FLEKS_CONFIG.renk, 'cihaz');
             ctx.strokeStyle = adjustedFleksRenk;
-            ctx.lineWidth = FLEKS_CONFIG.kalinlik;
-            ctx.setLineDash([3, 2]);
+            ctx.lineWidth = FLEKS_CONFIG.kalinlik / state.zoom;
+            ctx.setLineDash([3 / state.zoom, 2 / state.zoom]);
             ctx.beginPath();
             ctx.moveTo(fleks.baslangic.x - comp.x, fleks.baslangic.y - comp.y);
             ctx.lineTo(fleks.bitis.x - comp.x, fleks.bitis.y - comp.y);
@@ -375,17 +417,17 @@ export class PlumbingRenderer {
         const adjustedStroke = getAdjustedColor('#333', 'cihaz');
         ctx.fillStyle = adjustedColor;
         ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2 / state.zoom;
 
         ctx.beginPath();
         ctx.rect(-width / 2, -height / 2, width, height);
         ctx.fill();
         ctx.stroke();
 
-        // Cihaz adı
+        // Cihaz adı - BÜYÜTÜLDÜ (8 -> 12)
         const adjustedText = getAdjustedColor('#000', 'cihaz');
         ctx.fillStyle = adjustedText;
-        ctx.font = '8px Arial';
+        ctx.font = `${12 / state.zoom}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(config.name, 0, 0);
@@ -409,24 +451,14 @@ export class PlumbingRenderer {
         const h = bbox.maxY - bbox.minY;
 
         ctx.strokeStyle = this.secilenRenk;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 3]);
+        ctx.lineWidth = 1 / state.zoom;
+        ctx.setLineDash([3 / state.zoom, 3 / state.zoom]);
         ctx.strokeRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6);
         ctx.setLineDash([]);
     }
 
     drawSnapIndicator(ctx, snap) {
-        // Snap göstergesi kaldırıldı - kullanıcı istemiyor
-        // ctx.save();
-        // ctx.fillStyle = '#00FF00';
-        // ctx.beginPath();
-        // ctx.arc(snap.x, snap.y, 5, 0, Math.PI * 2);
-        // ctx.fill();
-        // ctx.fillStyle = '#00FF00';
-        // ctx.font = '10px Arial';
-        // ctx.textAlign = 'left';
-        // ctx.fillText(snap.type.name, snap.x + 8, snap.y - 8);
-        // ctx.restore();
+        // Snap göstergesi
     }
 
     hexToRgba(hex, alpha) {
