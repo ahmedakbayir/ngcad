@@ -333,7 +333,7 @@ canvas {
 }
 
 .panel.tool-boru {
-    cursor: url('cursors/pipe_cursor.svg') 0 48, auto !important;
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 512 512"><g transform="scale(8) rotate(225, 256, 256)"><rect fill="%231b579e" height="66.36" rx="12" ry="12" width="70" x="221" y="419.64"/><polygon fill="%23333" points="256.04 26 221.04 135.29 291.04 135.29 256.04 26"/><polygon fill="%23c7b299" points="291.04 135.29 221.04 135.29 241.61 71.05 270.46 71.05 291.04 135.29"/><polygon fill="%231a1a1a" points="251.59 210.68 251.74 210.68 251.59 211.12 251.59 210.68"/><polygon fill="%231a1a1a" points="274.92 210.68 274.92 211.12 274.77 210.68 274.92 210.68"/><polygon fill="%231a1a1a" points="267.63 135.72 267.63 417.53 244.29 417.53 244.29 135.72 244.45 135.24 255.96 99.28 267.48 135.24 267.63 135.72"/><polygon fill="%23fbb03b" points="290.96 135.24 290.96 417.63 267.63 417.63 267.63 135.82 267.78 135.34 279.33 98.96 290.96 135.24"/><polygon fill="%23faa028" points="290.96 135.24 290.96 417.53 280.75 417.53 279.33 98.96 290.96 135.24"/><polygon fill="%23fbb03b" points="244.29 135.82 244.29 417.63 220.96 417.63 220.96 135.82 221.11 135.34 232.67 98.96 244.14 135.34 244.29 135.82"/><polygon fill="%23faa028" points="232.67 98.96 231.17 417.53 220.96 417.53 220.96 135.82 221.11 135.34 232.67 98.96"/><rect fill="%23b3b3b3" height="20.17" width="70" x="221" y="410.61"/></g></svg>') 48 48, crosshair !important;
 }
 
 #length-input {
