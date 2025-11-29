@@ -568,8 +568,8 @@ function updateMouseCursor() {
             modeCursorStyle = 'crosshair';
             break;
         case 'plumbingV2':
-            // Boru çizim modu aktifse özel cursor göster
-            if (plumbingManager.interactionManager?.boruCizimAktif) {
+            // Boru aracı seçiliyse veya boru çizim modu aktifse özel cursor göster
+            if (plumbingManager.activeTool === 'boru' || plumbingManager.interactionManager?.boruCizimAktif) {
                 // Custom SVG cursor for pipe drawing
                 modeCursorStyle = "url('general-files/pipe-cursor.svg') 4 20, crosshair";
             } else {
