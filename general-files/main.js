@@ -474,32 +474,37 @@ function setupModeButtons() {
     });
 }
 
-// KARMA modundan ayrılırken çizim modunu kaydetmek için
-let karmaLastDrawingMode = null;
-
 // Çizim modu değiştirme fonksiyonu (MİMARİ, TESİSAT, KARMA)
 export function setDrawingMode(mode) {
-    // KARMA modundan ayrılırken, mevcut çizim modunu kaydet (eğer select değilse)
-    if (state.currentDrawingMode === 'KARMA' && mode !== 'KARMA') {
-        if (state.currentMode !== 'select') {
-            karmaLastDrawingMode = state.currentMode;
-        }
-    }
+    const previousMode = state.currentDrawingMode;
+    const currentDrawMode = state.currentMode;
 
     setState({ currentDrawingMode: mode });
 
-    // KARMA moduna geçildiğinde önceki çizim modu geri yüklenir
-    // MİMARİ ve TESİSAT modlarında otomatik olarak seç moduna geç
-    if (mode !== 'KARMA') {
-        setMode('select', true);
-    } else {
-        // KARMA moduna geçildiğinde, kaydedilmiş çizim modunu geri yükle
-        if (karmaLastDrawingMode) {
-            setMode(karmaLastDrawingMode, true);
-            karmaLastDrawingMode = null; // Geri yüklendikten sonra temizle
-        }
+    // Hangi modların hangi kategoriye ait olduğunu belirle
+    const architecturalModes = ['drawWall', 'drawRoom', 'drawDoor', 'drawWindow', 'drawColumn', 'drawBeam', 'drawStairs', 'drawSymmetry'];
+    const plumbingModes = ['plumbingV2'];
+
+    // KARMA moduna geçiş - mevcut çizim modunu koru
+    if (mode === 'KARMA') {
+        // Hiçbir şey yapma, mevcut ikon korunur
     }
-    // KARMA modunda: önceki çizim modu korunur veya geri yüklenir
+    // KARMA modundan MİMARİ veya TESİSAT'a geçiş
+    else if (previousMode === 'KARMA') {
+        const isArchitecturalMode = architecturalModes.includes(currentDrawMode);
+        const isPlumbingMode = plumbingModes.includes(currentDrawMode);
+
+        // Eğer aktif ikon ile gidilen mod uyumsuzsa SEÇ moduna geç
+        if ((mode === 'MİMARİ' && !isArchitecturalMode) ||
+            (mode === 'TESİSAT' && !isPlumbingMode)) {
+            setMode('select', true);
+        }
+        // Uyumluysa ikon korunur (hiçbir şey yapma)
+    }
+    // MİMARİ veya TESİSAT modlarından diğerine geçiş
+    else {
+        setMode('select', true);
+    }
 
     // Butonların active durumunu güncelle (dinamik olarak query)
     const modeMimari = document.getElementById("mode-mimari");
