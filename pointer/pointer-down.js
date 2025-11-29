@@ -11,7 +11,7 @@ import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as on
 import { hideGuideContextMenu } from '../menu/guide-menu.js';
 import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from '../draw/geometry.js';
 import { applySymmetry, applyCopy } from '../draw/symmetry.js';
-import { state, dom, setState, setMode, setDrawingMode } from '../general-files/main.js';
+import { state, dom, setState, setMode } from '../general-files/main.js';
 import { getSmartSnapPoint } from '../general-files/snap.js';
 import { currentModifierKeys } from '../general-files/input.js';
 import { saveState } from '../general-files/history.js';
@@ -176,25 +176,6 @@ export function onPointerDown(e) {
         // Tıklanan nesne varsa seçili yap ve sürüklemeyi başlat
         if (clickedObject) {
             console.log('🎯 Object clicked:', clickedObject.type, 'handle:', clickedObject.handle);
-
-            // OTOMATIK MOD DEĞİŞTİRME (KARMA modda çalışmaz)
-            if (state.currentDrawingMode !== "KARMA") {
-                // Mimari nesneler
-                const architecturalTypes = ['column', 'beam', 'stairs', 'door', 'window', 'wall', 'room', 'roomName', 'roomArea', 'arcControl'];
-                // Tesisat nesneleri
-                const plumbingTypes = ['plumbingBlock', 'plumbingPipe'];
-
-                if (architecturalTypes.includes(clickedObject.type) && state.currentDrawingMode === "TESİSAT") {
-                    // Tesisat modundayken mimari nesne seçildi -> Mimari moda geç
-                    console.log('🔄 Auto-switching to MİMARİ mode (architectural object selected)');
-                    setDrawingMode('MİMARİ');
-                } else if (plumbingTypes.includes(clickedObject.type) && state.currentDrawingMode === "MİMARİ") {
-                    // Mimari moddayken tesisat nesnesi seçildi -> Tesisat moduna geç
-                    console.log('🔄 Auto-switching to TESİSAT mode (plumbing object selected)');
-                    setDrawingMode('TESİSAT');
-                }
-            }
-
             if (clickedObject.type === 'room') {
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
