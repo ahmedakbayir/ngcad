@@ -21,7 +21,7 @@ export const SERVIS_KUTUSU_CONFIG = {
     width: 40,          // cm - uzun kenar
     height: 20,         // cm - kısa kenar
     depth: 70,          // cm - derinlik (3D için)
-    color: 0xA8A8A8,
+    color: '#ccc',
     mountType: 'wall',
 };
 

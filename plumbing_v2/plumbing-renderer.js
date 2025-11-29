@@ -118,7 +118,7 @@ export class PlumbingRenderer {
 
     drawElbows(ctx, pipes, breakPoints) {
         // Çizim moduna göre renk ayarla
-        const adjustedGray = getAdjustedColor('#808080', 'boru');
+        const adjustedGray = getAdjustedColor('#ffae00ff', 'boru');
         ctx.fillStyle = adjustedGray;
 
         breakPoints.forEach(bp => {
@@ -179,7 +179,8 @@ export class PlumbingRenderer {
         ctx.save();
         ctx.strokeStyle = '#FFFF00';
         ctx.lineWidth = 4;
-
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.beginPath();
         ctx.moveTo(geciciBoru.p1.x, geciciBoru.p1.y);
         ctx.lineTo(geciciBoru.p2.x, geciciBoru.p2.y);
@@ -227,7 +228,7 @@ export class PlumbingRenderer {
 
         // Kutu
         const adjustedColor = getAdjustedColor(color, 'servis_kutusu');
-        const adjustedStroke = getAdjustedColor('#333', 'servis_kutusu');
+        const adjustedStroke = getAdjustedColor('#fff', 'servis_kutusu');
         ctx.fillStyle = adjustedColor;
         ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
         ctx.lineWidth = 2;
