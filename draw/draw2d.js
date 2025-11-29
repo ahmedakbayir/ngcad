@@ -361,9 +361,6 @@ export function draw2D() {
         drawStairs(stair, isSelected);
     });
 
-    // 4.8. TESİSAT SİSTEMİ (v2)
-    plumbingManager.render(ctx2d);
-
     // 5. Atomik Semboller
     nodes.forEach(node => {
         drawNodeWallCount(node);
@@ -382,8 +379,10 @@ export function draw2D() {
     // Açı çizim mantığı buraya gelebilir (şu an yorumlu veya eksik)
 
 
-    // 7. Mahal Etiketleri
-    drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
+    // 7. Mahal Etiketleri (TESİSAT modunda gizli)
+    if (state.currentDrawingMode !== 'TESİSAT') {
+        drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
+    }
 
     // 8. Kapılar, Pencereler, Menfezler
     doors.forEach((door) => {
@@ -419,91 +418,93 @@ export function draw2D() {
     // 9. Obj. Yerleştirme Önizlemeleri
     drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol);
 
-    // 10. Ölçülendirmeler
-    if (dimensionMode === 1) {
-        drawTotalDimensions(walls, rooms);
-    } else if (dimensionMode === 2) {
-        walls.forEach((w) => {
-            if (w.p1 && w.p2) drawDimension(w.p1, w.p2, false, 'single'); // Check added
-        });
-    }
+    // 10. Ölçülendirmeler (TESİSAT modunda gizli)
+    if (state.currentDrawingMode !== 'TESİSAT') {
+        if (dimensionMode === 1) {
+            drawTotalDimensions(walls, rooms);
+        } else if (dimensionMode === 2) {
+            walls.forEach((w) => {
+                if (w.p1 && w.p2) drawDimension(w.p1, w.p2, false, 'single'); // Check added
+            });
+        }
 
-    drawOuterDimensions(walls); // Dış ölçüler
+        drawOuterDimensions(walls); // Dış ölçüler
 
-    // Seçili nesne veya sürüklenen duvarlar için geçici ölçüler
-    if (isDragging && affectedWalls.length > 0 && (dimensionMode === 0 || dimensionMode === 1) && selectedObject?.type === 'wall') {
-        affectedWalls.forEach((wall) => {
-             if (wall.p1 && wall.p2) drawDimension(wall.p1, wall.p2, true, 'single'); // Check added
-        });
-    } else if (!isDragging && selectedObject) { // Sürükleme yokken seçili nesne varsa
-        if (selectedObject.type === "wall") {
-            const selectedWall = selectedObject.object;
-            const adjacency = wallAdjacency.get(selectedWall);
-            const isInteriorWall = adjacency > 1;
+        // Seçili nesne veya sürüklenen duvarlar için geçici ölçüler
+        if (isDragging && affectedWalls.length > 0 && (dimensionMode === 0 || dimensionMode === 1) && selectedObject?.type === 'wall') {
+            affectedWalls.forEach((wall) => {
+                 if (wall.p1 && wall.p2) drawDimension(wall.p1, wall.p2, true, 'single'); // Check added
+            });
+        } else if (!isDragging && selectedObject) { // Sürükleme yokken seçili nesne varsa
+            if (selectedObject.type === "wall") {
+                const selectedWall = selectedObject.object;
+                const adjacency = wallAdjacency.get(selectedWall);
+                const isInteriorWall = adjacency > 1;
 
-            const node1 = selectedWall.p1;
-            const node2 = selectedWall.p2;
+                const node1 = selectedWall.p1;
+                const node2 = selectedWall.p2;
 
-            walls.forEach(wall => {
-                if (wall === selectedWall || !wall.p1 || !wall.p2) return; // Kendisini ve geçersizleri atla
-                if (wall.p1 === node1 || wall.p2 === node1 || wall.p1 === node2 || wall.p2 === node2) {
-                    drawDimension(wall.p1, wall.p2, true, 'single');
+                walls.forEach(wall => {
+                    if (wall === selectedWall || !wall.p1 || !wall.p2) return; // Kendisini ve geçersizleri atla
+                    if (wall.p1 === node1 || wall.p2 === node1 || wall.p1 === node2 || wall.p2 === node2) {
+                        drawDimension(wall.p1, wall.p2, true, 'single');
+                    }
+                });
+
+                if (dimensionMode === 0 || (dimensionMode === 1 && isInteriorWall)) {
+                     if (selectedWall.p1 && selectedWall.p2) drawDimension(selectedWall.p1, selectedWall.p2, true, 'single'); // Check added
+                }
+            } else if (selectedObject.type === "door" || selectedObject.type === "window") {
+                const item = selectedObject.object;
+                const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall;
+                if (wall && wall.p1 && wall.p2) {
+                    const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+                    if (wallLen > 0.1) {
+                        const dx = (wall.p2.x - wall.p1.x) / wallLen;
+                        const dy = (wall.p2.y - wall.p1.y) / wallLen;
+                        const startPos = item.pos - item.width / 2;
+                        const endPos = item.pos + item.width / 2;
+                        const p1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
+                        const p2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
+                        drawDimension(p1, p2, true, 'single');
+                    }
+                }
+            } else if (selectedObject.type === "column") {
+                const column = selectedObject.object;
+                const corners = getColumnCorners(column);
+                if (corners && corners.length === 4) { // Köşeler hesaplandıysa
+                     drawDimension(corners[0], corners[1], false, 'columnBeam');
+                     drawDimension(corners[1], corners[2], false, 'columnBeam');
+                }
+            } else if (selectedObject.type === "beam") {
+                const beam = selectedObject.object;
+                const corners = getBeamCorners(beam);
+                 if (corners && corners.length === 4) { // Köşeler hesaplandıysa
+                     drawDimension(corners[0], corners[1], false, 'columnBeam');
+                     drawDimension(corners[1], corners[2], false, 'columnBeam');
+                 }
+            } else if (selectedObject.type === "stairs") {
+                const stair = selectedObject.object;
+                const corners = getStairCorners(stair);
+                 if (corners && corners.length === 4) { // Köşeler hesaplandıysa
+                     drawDimension(corners[0], corners[1], false, 'columnBeam'); // Kiriş/Kolon ile aynı ölçü stilini kullan
+                     drawDimension(corners[1], corners[2], false, 'columnBeam');
+                 }
+            }
+        }
+
+        // --- YENİ: Duvar sürüklerken komşu duvar ölçüleri ---
+        if (state.isDragging && state.tempNeighborWallsToDimension?.size > 0 && (state.selectedObject?.type === 'wall')) {
+            ctx2d.globalAlpha = 0.7; // Ölçüleri biraz soluk göster
+            state.tempNeighborWallsToDimension.forEach(neighborWall => {
+                if (neighborWall && neighborWall.p1 && neighborWall.p2) { // Duvarın hala geçerli olup olmadığını kontrol et
+                    drawDimension(neighborWall.p1, neighborWall.p2, true, 'single'); // Önizleme olarak çiz
                 }
             });
-
-            if (dimensionMode === 0 || (dimensionMode === 1 && isInteriorWall)) {
-                 if (selectedWall.p1 && selectedWall.p2) drawDimension(selectedWall.p1, selectedWall.p2, true, 'single'); // Check added
-            }
-        } else if (selectedObject.type === "door" || selectedObject.type === "window") {
-            const item = selectedObject.object;
-            const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall;
-            if (wall && wall.p1 && wall.p2) {
-                const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                if (wallLen > 0.1) {
-                    const dx = (wall.p2.x - wall.p1.x) / wallLen;
-                    const dy = (wall.p2.y - wall.p1.y) / wallLen;
-                    const startPos = item.pos - item.width / 2;
-                    const endPos = item.pos + item.width / 2;
-                    const p1 = { x: wall.p1.x + dx * startPos, y: wall.p1.y + dy * startPos };
-                    const p2 = { x: wall.p1.x + dx * endPos, y: wall.p1.y + dy * endPos };
-                    drawDimension(p1, p2, true, 'single');
-                }
-            }
-        } else if (selectedObject.type === "column") {
-            const column = selectedObject.object;
-            const corners = getColumnCorners(column);
-            if (corners && corners.length === 4) { // Köşeler hesaplandıysa
-                 drawDimension(corners[0], corners[1], false, 'columnBeam');
-                 drawDimension(corners[1], corners[2], false, 'columnBeam');
-            }
-        } else if (selectedObject.type === "beam") {
-            const beam = selectedObject.object;
-            const corners = getBeamCorners(beam);
-             if (corners && corners.length === 4) { // Köşeler hesaplandıysa
-                 drawDimension(corners[0], corners[1], false, 'columnBeam');
-                 drawDimension(corners[1], corners[2], false, 'columnBeam');
-             }
-        } else if (selectedObject.type === "stairs") { 
-            const stair = selectedObject.object;
-            const corners = getStairCorners(stair);
-             if (corners && corners.length === 4) { // Köşeler hesaplandıysa
-                 drawDimension(corners[0], corners[1], false, 'columnBeam'); // Kiriş/Kolon ile aynı ölçü stilini kullan
-                 drawDimension(corners[1], corners[2], false, 'columnBeam');
-             }
+            ctx2d.globalAlpha = 1.0; // Alpha değerini sıfırla
         }
+        // --- YENİ KOD SONU ---
     }
-
-    // --- YENİ: Duvar sürüklerken komşu duvar ölçüleri ---
-    if (state.isDragging && state.tempNeighborWallsToDimension?.size > 0 && (state.selectedObject?.type === 'wall')) {
-        ctx2d.globalAlpha = 0.7; // Ölçüleri biraz soluk göster
-        state.tempNeighborWallsToDimension.forEach(neighborWall => {
-            if (neighborWall && neighborWall.p1 && neighborWall.p2) { // Duvarın hala geçerli olup olmadığını kontrol et
-                drawDimension(neighborWall.p1, neighborWall.p2, true, 'single'); // Önizleme olarak çiz
-            }
-        });
-        ctx2d.globalAlpha = 1.0; // Alpha değerini sıfırla
-    }
-    // --- YENİ KOD SONU ---
 
     // 11. Sürükleme/Çizim Geri Bildirimleri
     drawDragPreviews(ctx2d, state, drawDimension);
@@ -532,7 +533,11 @@ export function draw2D() {
 
     // 12. Kamera Görünüm Göstergesi (FPS modunda)
     drawCameraViewIndicator(ctx2d, zoom);
-    // 1.5. Referans Çizgileri (Rehberler)
+
+    // 13. TESİSAT SİSTEMİ (v2) - En üstte render edilir
+    plumbingManager.render(ctx2d);
+
+    // 14. Referans Çizgileri (Rehberler)
     drawGuides(ctx2d, state); 
     
     ctx2d.restore();
