@@ -1172,103 +1172,134 @@ function initialize() {
         });
     }
 
-    // Mimari butonlar - otomatik MİMARİ moduna geç ve boru modundan çık
+    // Mimari butonlar - KARMA modunda değilse MİMARİ moduna geç
     if (dom.bWall) {
         dom.bWall.addEventListener("click", () => {
             if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-            setDrawingMode("MİMARİ");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("MİMARİ");
+            }
             setMode("drawWall", true);
         });
     }
     if (dom.bRoom) {
         dom.bRoom.addEventListener("click", () => {
             if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-            setDrawingMode("MİMARİ");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("MİMARİ");
+            }
             setMode("drawRoom", true);
         });
     }
     if (dom.bDoor) {
         dom.bDoor.addEventListener("click", () => {
             if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-            setDrawingMode("MİMARİ");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("MİMARİ");
+            }
             setMode("drawDoor", true);
         });
     }
     if (dom.bWindow) {
         dom.bWindow.addEventListener("click", () => {
             if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-            setDrawingMode("MİMARİ");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("MİMARİ");
+            }
             setMode("drawWindow", true);
         });
     }
     if (dom.bColumn) {
         dom.bColumn.addEventListener("click", () => {
             if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-            setDrawingMode("MİMARİ");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("MİMARİ");
+            }
             setMode("drawColumn", true);
         });
     }
     if (dom.bBeam) {
         dom.bBeam.addEventListener("click", () => {
             if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-            setDrawingMode("MİMARİ");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("MİMARİ");
+            }
             setMode("drawBeam", true);
         });
     }
     if (dom.bStairs) {
         dom.bStairs.addEventListener("click", () => {
             if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
-            setDrawingMode("MİMARİ");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("MİMARİ");
+            }
             setMode("drawStairs", true);
         });
     }
 
-    // Tesisat butonları - otomatik TESİSAT moduna geç (v2 sistemi)
+    // Tesisat butonları - KARMA modunda değilse TESİSAT moduna geç
     if (dom.bServisKutusu) {
         dom.bServisKutusu.addEventListener("click", () => {
-            setDrawingMode("TESİSAT");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
             plumbingManager.startPlacement(TESISAT_MODLARI.SERVIS_KUTUSU);
             setMode("plumbingV2", true);
         });
     }
     if (dom.bSayac) {
         dom.bSayac.addEventListener("click", () => {
-            setDrawingMode("TESİSAT");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
             plumbingManager.startPlacement(TESISAT_MODLARI.SAYAC);
             setMode("plumbingV2", true);
         });
     }
     if (dom.bVana) {
         dom.bVana.addEventListener("click", () => {
-            setDrawingMode("TESİSAT");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
             plumbingManager.startPlacement(TESISAT_MODLARI.VANA);
             setMode("plumbingV2", true);
         });
     }
     if (dom.bKombi) {
         dom.bKombi.addEventListener("click", () => {
-            setDrawingMode("TESİSAT");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
             plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'KOMBI' });
             setMode("plumbingV2", true);
         });
     }
     if (dom.bOcak) {
         dom.bOcak.addEventListener("click", () => {
-            setDrawingMode("TESİSAT");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
             plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'OCAK' });
             setMode("plumbingV2", true);
         });
     }
     if (dom.bBoru) {
         dom.bBoru.addEventListener("click", () => {
-            setDrawingMode("TESİSAT");
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
             plumbingManager.startPipeMode();
             setMode("plumbingV2", true);
         });
     }
 
     if (dom.bSymmetry) {
-        dom.bSymmetry.addEventListener("click", () => { setDrawingMode("MİMARİ"); setMode("drawSymmetry", true); });
+        dom.bSymmetry.addEventListener("click", () => {
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("MİMARİ");
+            }
+            setMode("drawSymmetry", true);
+        });
     }
 
     if (dom.bAssignNames) {
