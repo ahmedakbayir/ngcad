@@ -676,7 +676,7 @@ export function isObjectInteractable(objectType) {
 
     // Mimari nesneler listesi
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'column', 'beam', 'stair', 'arcControl'
+        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'column', 'beam', 'stair', 'stairs', 'arcControl'
     ];
 
     // Tesisat nesneleri listesi
