@@ -1,11 +1,20 @@
-<svg width="24px" height="24px" viewBox="0 0 512 512" data-name="Camada 1" id="Camada_1" xmlns="http://www.w3.org/2000/svg" fill="#000000">
-<g id="SVGRepo_bgCarrier" stroke-width="0"/>
-<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"/>
+<svg width="44px" height="44px" viewBox="0 0 512 512" data-name="Camada 1" id="Camada_1" xmlns="http://www.w3.org/2000/svg" fill="#000000">
 <g id="SVGRepo_iconCarrier" transform="rotate(225, 256, 256)">
 <defs>
-<style>.cls-1{fill:#1b579e;}.cls-2{fill:#333;}.cls-3{fill:#c7b299;}.cls-4{fill:#1a1a1a;}.cls-5{fill:#fbb03b;}.cls-6{fill:#faa028;}.cls-7{fill:#b3b3b3;}</style>
+
+<style>
+.cls-1{fill:#1b579e;}
+.cls-2{fill:#fff;}
+.cls-3{fill:#c7b299;}
+.cls-4{fill:#1a1a1a;}
+.cls-5{fill:#fbb03b;}
+.cls-6{fill:#faa028;}
+.cls-7{fill:#b3b3b3;}
+</style>
+
 </defs>
-<title/>
+
+
 <rect class="cls-1" height="66.36" rx="12" ry="12" width="70" x="221" y="419.64"/>
 <polygon class="cls-2" points="256.04 26 221.04 135.29 291.04 135.29 256.04 26"/>
 <polygon class="cls-3" points="291.04 135.29 221.04 135.29 241.61 71.05 270.46 71.05 291.04 135.29"/>
@@ -17,4 +26,6 @@
 <polygon class="cls-5" points="244.29 135.82 244.29 417.63 220.96 417.63 220.96 135.82 221.11 135.34 232.67 98.96 244.14 135.34 244.29 135.82"/>
 <polygon class="cls-6" points="232.67 98.96 231.17 417.53 220.96 417.53 220.96 135.82 221.11 135.34 232.67 98.96"/>
 <rect class="cls-7" height="20.17" width="70" x="221" y="410.61"/>
-</g></svg>
+</g>
+
+</svg>

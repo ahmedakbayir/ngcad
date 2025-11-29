@@ -333,7 +333,7 @@ canvas {
 }
 
 .panel.tool-boru {
-    cursor: url('cursors/pipe_cursor.svg') 0 24, auto !important;
+    cursor: url('pipe_cursor.svg') 0 48, auto !important;
 }
 
 #length-input {
