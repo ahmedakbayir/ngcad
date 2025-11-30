@@ -138,15 +138,18 @@ export class InteractionManager {
             return true;
         }
 
-        // 2. Yerleştirme modu
+        // 2. Yerleştirme modu (ghost var ve araç aktif)
         if (this.manager.activeTool && this.manager.tempComponent) {
             this.placeComponent(targetPoint);
             return true;
         }
 
-        // 3. Nesne seçimi ve sürükleme - SADECE SEÇ MODUNDA
-        // plumbingV2 modunda seçim/sürükleme yapılmaz, sadece boru çizilir ve bileşen yerleştirilir
-        if (state.currentMode === 'select') {
+        // 3. Nesne seçimi ve sürükleme - SEÇ, TESİSAT VE KARMA MODLARINDA
+        const isSelectionMode = state.currentMode === 'select' ||
+                                state.currentMode === 'plumbingV2' ||
+                                state.currentMode === 'MİMARİ-TESİSAT';
+
+        if (isSelectionMode) {
             // Önce seçili servis kutusunun döndürme tutamacını kontrol et
             if (this.selectedObject && this.selectedObject.type === 'servis_kutusu') {
                 if (this.findRotationHandleAt(this.selectedObject, point, 12)) {
@@ -171,24 +174,19 @@ export class InteractionManager {
             // Sonra nesne seçimi
             const hitObject = this.findObjectAt(point);
             if (hitObject) {
-                // Araç aktifken ghost varsa seçim yapma
-                if (this.manager.activeTool && this.manager.tempComponent) {
-                    // Ghost yerleştirme modu - seçim yapma
+                this.selectObject(hitObject);
+                // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
+                if (hitObject.type === 'boru') {
+                    this.startBodyDrag(hitObject, point);
                 } else {
-                    this.selectObject(hitObject);
-                    // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
-                    if (hitObject.type === 'boru') {
-                        this.startBodyDrag(hitObject, point);
-                    } else {
-                        this.startDrag(hitObject, point);
-                    }
-                    return true;
+                    this.startDrag(hitObject, point);
                 }
+                return true;
             }
         }
 
-        // Seç modunda çizim başlatma
-        if (state.currentMode === 'select') {
+        // Seç modunda çizim başlatma - boş alana tıklandı
+        if (isSelectionMode) {
             this.deselectObject();
             return false;
         }
