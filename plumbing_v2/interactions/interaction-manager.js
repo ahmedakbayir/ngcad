@@ -498,7 +498,7 @@ export class InteractionManager {
      * Ölçüyü uygula (Enter tuşuna basıldığında)
      */
     applyMeasurement() {
-        if (!this.boruBaslangic || !this.geciciBoruBitis) return;
+        if (!this.boruBaslangic) return;
 
         const measurement = parseFloat(this.measurementInput);
         if (isNaN(measurement) || measurement <= 0) {
@@ -508,8 +508,41 @@ export class InteractionManager {
             return;
         }
 
+        // Eğer geciciBoruBitis yoksa veya geçersizse, yönü hesapla
+        let targetPoint = this.geciciBoruBitis;
+
+        if (!targetPoint) {
+            // Varsayılan yön: sağa doğru (pozitif X ekseni)
+            targetPoint = {
+                x: this.boruBaslangic.nokta.x + measurement,
+                y: this.boruBaslangic.nokta.y
+            };
+        } else {
+            // Mevcut yönü kullanarak ölçüyü uygula
+            const dx = targetPoint.x - this.boruBaslangic.nokta.x;
+            const dy = targetPoint.y - this.boruBaslangic.nokta.y;
+            const currentLength = Math.hypot(dx, dy);
+
+            if (currentLength > 0.1) {
+                // Yönü normalize et ve ölçü kadar uzat
+                const dirX = dx / currentLength;
+                const dirY = dy / currentLength;
+
+                targetPoint = {
+                    x: this.boruBaslangic.nokta.x + dirX * measurement,
+                    y: this.boruBaslangic.nokta.y + dirY * measurement
+                };
+            } else {
+                // Çok kısa mesafe, varsayılan yön kullan
+                targetPoint = {
+                    x: this.boruBaslangic.nokta.x + measurement,
+                    y: this.boruBaslangic.nokta.y
+                };
+            }
+        }
+
         // Boruyu oluştur
-        this.handleBoruClick(this.geciciBoruBitis);
+        this.handleBoruClick(targetPoint);
 
         // Ölçü girişini sıfırla
         this.measurementInput = '';
