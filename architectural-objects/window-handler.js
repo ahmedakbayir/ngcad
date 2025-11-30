@@ -93,6 +93,11 @@ function addWindowToWallMiddle(wall, roomName = null) { // Oda adı parametresi 
         return false;
     }
 
+    // Duvarda kapı varsa ekleme
+    if (wall.doors && wall.doors.length > 0) {
+        return false;
+    }
+
     const largestSegment = findLargestAvailableSegment(wall);
     if (!largestSegment) {
         return false;

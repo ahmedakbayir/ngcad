@@ -48,12 +48,8 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     } else if (isSelected) {
         color = "#8ab4f8"; // Seçili rengi
     } else {
-        // Normal renk (duvar rengi %80 opaklıkta)
-        const hex = adjustedWallBorderColor.startsWith('#') ? adjustedWallBorderColor.slice(1) : adjustedWallBorderColor;
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
-        color = `rgba(${r}, ${g}, ${b}, 0.6`;
+        // Normal renk - gri ton
+        color = "rgba(128, 128, 128, 0.6)"; // Gri ton
     }
     // Çizim ayarları
     ctx2d.strokeStyle = color;
