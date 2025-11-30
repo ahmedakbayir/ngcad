@@ -278,6 +278,10 @@ export class PlumbingRenderer {
         // Seçim göstergesi
         if (comp.isSelected) {
             this.drawSelectionBox(ctx, comp);
+            // Servis kutusu için döndürme tutamacı
+            if (comp.type === 'servis_kutusu') {
+                this.drawRotationHandles(ctx, comp);
+            }
         }
 
         ctx.restore();
@@ -552,6 +556,40 @@ export class PlumbingRenderer {
         ctx.setLineDash([3, 3]);
         ctx.strokeRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6);
         ctx.setLineDash([]);
+    }
+
+    /**
+     * Döndürme tutamacları (servis kutusu için)
+     */
+    drawRotationHandles(ctx, comp) {
+        if (!comp.getKoseler) return;
+
+        const corners = comp.getKoseler();
+
+        // Köşeleri local koordinatlara çevir
+        const centerX = comp.x;
+        const centerY = comp.y;
+
+        const rad = -comp.rotation * Math.PI / 180; // Rotate işlemini tersine çevir
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        corners.forEach((corner, i) => {
+            // World koordinatlardan local'e çevir
+            const dx = corner.x - centerX;
+            const dy = corner.y - centerY;
+            const localX = dx * cos - dy * sin;
+            const localY = dx * sin + dy * cos;
+
+            // Döndürme tutamacı çiz (daire)
+            ctx.fillStyle = this.secilenRenk;
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(localX, localY, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
     }
 
     drawSnapIndicator(ctx, snap) {

@@ -175,8 +175,10 @@ export class InteractionManager {
                     // Ghost yerleştirme modu - seçim yapma
                 } else {
                     this.selectObject(hitObject);
-                    // Boru gövdesi için sürükleme başlatma (sadece seçim)
-                    if (hitObject.type !== 'boru') {
+                    // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
+                    if (hitObject.type === 'boru') {
+                        this.startBodyDrag(hitObject, point);
+                    } else {
                         this.startDrag(hitObject, point);
                     }
                     return true;
@@ -317,7 +319,7 @@ export class InteractionManager {
         ghost.x = point.x;
         ghost.y = point.y;
 
-        // Servis kutusu - duvara snap (taşıma ile aynı mantık)
+        // Servis kutusu - duvara snap (yerleştirme için useBoxPosition=false)
         if (ghost.type === 'servis_kutusu') {
             const walls = state.walls;
             const snapDistance = 30; // 30cm içinde snap yap
@@ -349,9 +351,9 @@ export class InteractionManager {
                 }
             });
 
-            // Yakın duvara snap yap, yoksa serbest yerleştir
+            // Yakın duvara snap yap (yerleştirme - useBoxPosition=false, mouse pozisyonuna göre taraf belirlenir)
             if (closestWall && minDist < snapDistance) {
-                ghost.snapToWall(closestWall, point);
+                ghost.snapToWall(closestWall, point, false);
             } else {
                 ghost.placeFree(point);
             }
@@ -720,6 +722,20 @@ export class InteractionManager {
         this.dragStart = { ...point };
     }
 
+    /**
+     * Boru body sürüklemeyi başlat (sadece x veya y yönünde)
+     */
+    startBodyDrag(pipe, point) {
+        this.isDragging = true;
+        this.dragObject = pipe;
+        this.dragEndpoint = null;
+        this.dragStart = { ...point };
+        this.isBodyDrag = true; // Body drag flag
+        // Başlangıç noktalarını kaydet
+        this.bodyDragInitialP1 = { ...pipe.p1 };
+        this.bodyDragInitialP2 = { ...pipe.p2 };
+    }
+
     handleDrag(point) {
         if (!this.dragObject) return;
 
@@ -736,19 +752,8 @@ export class InteractionManager {
                 pipe.p2.y = point.y;
             }
 
-            // Bağlı boruları güncelle
-            this.manager.pipes.forEach(otherPipe => {
-                if (otherPipe.id === pipe.id) return;
-
-                if (Math.abs(otherPipe.p1.x - oldPoint.x) < 0.1 && Math.abs(otherPipe.p1.y - oldPoint.y) < 0.1) {
-                    otherPipe.p1.x = point.x;
-                    otherPipe.p1.y = point.y;
-                }
-                if (Math.abs(otherPipe.p2.x - oldPoint.x) < 0.1 && Math.abs(otherPipe.p2.y - oldPoint.y) < 0.1) {
-                    otherPipe.p2.x = point.x;
-                    otherPipe.p2.y = point.y;
-                }
-            });
+            // Bağlı boruları güncelle (tüm zinciri)
+            this.updateConnectedPipesChain(oldPoint, point);
             return;
         }
 
@@ -792,23 +797,94 @@ export class InteractionManager {
                 this.dragObject.placeFree(point);
             }
 
-            // Bağlı boruyu güncelle
+            // Bağlı boru zincirini güncelle
             if (this.dragObject.bagliBoruId) {
                 const boru = this.manager.pipes.find(p => p.id === this.dragObject.bagliBoruId);
                 if (boru) {
-                    boru.moveP1(this.dragObject.getCikisNoktasi());
+                    const oldP1 = { ...boru.p1 };
+                    const newCikis = this.dragObject.getCikisNoktasi();
+                    boru.moveP1(newCikis);
+                    // Boru zincirini güncelle
+                    this.updateConnectedPipesChain(oldP1, newCikis);
                 }
             }
             return;
         }
 
-        // Boru gövdesi olarak taşınmaz - sadece uç noktalar taşınır
-        if (this.dragObject.type === 'boru') {
+        // Boru gövdesi taşıma - sadece x veya y yönünde
+        if (this.dragObject.type === 'boru' && this.isBodyDrag) {
+            const pipe = this.dragObject;
+            const dx = point.x - this.dragStart.x;
+            const dy = point.y - this.dragStart.y;
+
+            // Hangi yönde daha fazla hareket var?
+            let offsetX = 0;
+            let offsetY = 0;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                // X yönünde taşı
+                offsetX = dx;
+            } else {
+                // Y yönünde taşı
+                offsetY = dy;
+            }
+
+            // Her iki ucu da taşı
+            const oldP1 = { ...this.bodyDragInitialP1 };
+            const oldP2 = { ...this.bodyDragInitialP2 };
+
+            pipe.p1.x = this.bodyDragInitialP1.x + offsetX;
+            pipe.p1.y = this.bodyDragInitialP1.y + offsetY;
+            pipe.p2.x = this.bodyDragInitialP2.x + offsetX;
+            pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
+
+            // Bağlı boruları güncelle (her iki uç için)
+            this.updateConnectedPipesChain(oldP1, pipe.p1);
+            this.updateConnectedPipesChain(oldP2, pipe.p2);
             return;
         }
 
-        const result = this.dragObject.move(point.x, point.y);
-        this.updateConnectedPipe(result);
+        // Diğer objeler için normal taşıma
+        if (this.dragObject.type !== 'boru') {
+            const result = this.dragObject.move(point.x, point.y);
+            this.updateConnectedPipe(result);
+        }
+    }
+
+    /**
+     * Bağlı boru zincirini günceller (recursive)
+     */
+    updateConnectedPipesChain(oldPoint, newPoint) {
+        const tolerance = 0.5; // cm
+        const visited = new Set(); // Zaten güncellenmiş boruları takip et
+
+        const updateChain = (oldPos, newPos) => {
+            this.manager.pipes.forEach(pipe => {
+                if (visited.has(pipe.id)) return;
+
+                // p1'i güncelle
+                if (Math.hypot(pipe.p1.x - oldPos.x, pipe.p1.y - oldPos.y) < tolerance) {
+                    visited.add(pipe.id);
+                    const oldP2 = { ...pipe.p2 };
+                    pipe.p1.x = newPos.x;
+                    pipe.p1.y = newPos.y;
+                    // Devam eden boruları da güncelle
+                    updateChain(oldP2, pipe.p2);
+                }
+
+                // p2'yi güncelle
+                if (Math.hypot(pipe.p2.x - oldPos.x, pipe.p2.y - oldPos.y) < tolerance) {
+                    visited.add(pipe.id);
+                    const oldP1 = { ...pipe.p1 };
+                    pipe.p2.x = newPos.x;
+                    pipe.p2.y = newPos.y;
+                    // Devam eden boruları da güncelle
+                    updateChain(oldP1, pipe.p1);
+                }
+            });
+        };
+
+        updateChain(oldPoint, newPoint);
     }
 
     endDrag() {
@@ -816,6 +892,9 @@ export class InteractionManager {
         this.dragObject = null;
         this.dragEndpoint = null;
         this.dragStart = null;
+        this.isBodyDrag = false;
+        this.bodyDragInitialP1 = null;
+        this.bodyDragInitialP2 = null;
         this.manager.saveToState();
     }
 
