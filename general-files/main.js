@@ -252,7 +252,7 @@ export let state = {
     dragOriginalNodes: null,
     roomToEdit: null,
     clickOutsideRoomPopupListener: null,
-    wallBorderColor: "#ffffff",
+    wallBorderColor: "rgba(180, 180, 180, 1)",
     roomFillColor: "#232425",
     lineThickness: 2,
     wallThickness: 20, // YENİ: Duvar kalınlığı state'e taşındı
