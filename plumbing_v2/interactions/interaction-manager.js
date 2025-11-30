@@ -669,8 +669,9 @@ export class InteractionManager {
             });
 
             // Yakın duvara snap yap, yoksa serbest yerleştir
+            // useBoxPosition=true ile kutu kendi tarafında kalır, ters tarafa geçmez
             if (closestWall && minDist < snapDistance) {
-                this.dragObject.snapToWall(closestWall, point);
+                this.dragObject.snapToWall(closestWall, point, true);
             } else {
                 this.dragObject.placeFree(point);
             }

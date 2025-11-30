@@ -133,8 +133,11 @@ export class ServisKutusu {
 
     /**
      * Duvara snap ol
+     * @param {Object} wall - Duvar objesi
+     * @param {Object} point - Referans nokta (yerleştirmede mouse, taşımada mevcut konum)
+     * @param {boolean} useBoxPosition - true ise kutu pozisyonunu kullan (taşıma için)
      */
-    snapToWall(wall, point) {
+    snapToWall(wall, point, useBoxPosition = false) {
         this.snapliDuvar = wall;
 
         if (wall.p1 && wall.p2) {
@@ -142,14 +145,18 @@ export class ServisKutusu {
             const dy = wall.p2.y - wall.p1.y;
             const len = Math.hypot(dx, dy);
 
+            // Taşıma sırasında mevcut kutu pozisyonunu kullan, yoksa mouse pozisyonunu
+            const referencePoint = useBoxPosition ? { x: this.x, y: this.y } : point;
+
             // Noktayı duvar merkez çizgisine projeksiyon yap
             const t = ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len);
             const projX = wall.p1.x + t * dx;
             const projY = wall.p1.y + t * dy;
 
-            // Noktanın duvarın hangi tarafında olduğunu bul (cross product)
-            const toPointX = point.x - wall.p1.x;
-            const toPointY = point.y - wall.p1.y;
+            // Referans noktanın duvarın hangi tarafında olduğunu bul (cross product)
+            // Taşıma sırasında kutu pozisyonuna göre taraf belirlenir, böylece taraf değişmez
+            const toPointX = referencePoint.x - wall.p1.x;
+            const toPointY = referencePoint.y - wall.p1.y;
             const cross = dx * toPointY - dy * toPointX;
             const side = cross > 0 ? 1 : -1; // 1 = sol taraf, -1 = sağ taraf
 
