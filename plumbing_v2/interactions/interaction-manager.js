@@ -109,6 +109,7 @@ export class InteractionManager {
 
         // 3. Döndürme
         if (this.isRotating && this.dragObject) {
+            console.log('Döndürme modunda, handleRotation çağrılıyor');
             this.handleRotation(point);
             return true;
         }
@@ -905,6 +906,7 @@ export class InteractionManager {
      * Döndürme başlat
      */
     startRotation(obj, point) {
+        console.log('startRotation çağrıldı', obj.id);
         saveState();
         this.isRotating = true;
         this.dragObject = obj;
@@ -916,13 +918,18 @@ export class InteractionManager {
         const initialAngle = Math.atan2(point.y - center.y, point.x - center.x);
         const initialRotationRad = (obj.rotation || 0) * Math.PI / 180;
         this.rotationOffset = initialRotationRad - initialAngle;
+
+        console.log('Döndürme başlatıldı, isRotating:', this.isRotating);
     }
 
     /**
      * Döndürme işle
      */
     handleRotation(point) {
-        if (!this.dragObject || this.dragObject.type !== 'servis_kutusu') return;
+        if (!this.dragObject || this.dragObject.type !== 'servis_kutusu') {
+            console.log('handleRotation çağrıldı ama dragObject yok veya tip yanlış');
+            return;
+        }
 
         const obj = this.dragObject;
         const center = { x: obj.x, y: obj.y };
@@ -942,6 +949,8 @@ export class InteractionManager {
         if (Math.abs(remainder) <= snapThreshold || Math.abs(remainder) >= (90 - snapThreshold)) {
             newRotationDeg = Math.round(newRotationDeg / 90) * 90;
         }
+
+        console.log('Döndürülüyor, yeni açı:', newRotationDeg);
 
         // ÖNEMLI: Çıkış noktası sabit kalmalı, kutu merkezi hareket etmeli
         // Eski çıkış noktasını kaydet
