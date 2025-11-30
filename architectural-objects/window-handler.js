@@ -184,6 +184,10 @@ export function onPointerDownDraw(pos, clickedObject) {
                 if (previewWall.windows && previewWall.windows.length > 0) {
                      return;
                 }
+                // Duvarda kapı varsa ekleme
+                if (previewWall.doors && previewWall.doors.length > 0) {
+                    return;
+                }
                 if (!previewWall.windows) previewWall.windows = [];
                 previewWall.windows.push({
                     pos: previewWindowData.pos,
