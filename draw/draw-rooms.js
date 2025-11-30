@@ -150,7 +150,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
         // room.center geçerli mi kontrol et
         if (!room.center || !Array.isArray(room.center) || room.center.length < 2 || typeof room.center[0] !== 'number' || typeof room.center[1] !== 'number') return;
 
-        const baseNameFontSize = 18, baseAreaFontSize = 14;
+        const baseNameFontSize = 12, baseAreaFontSize = 9;
 
         const showAreaOption = dimensionOptions.showArea;
         const showArea = (showAreaOption === 1 && (dimensionMode === 1 || dimensionMode === 2)) ||

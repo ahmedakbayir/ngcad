@@ -1,8 +1,3 @@
-/**
- * PlumbingRenderer (v2)
- * Tesisat elemanlarını ekrana çizer - yeni bileşenlerle entegre
- */
-
 import { BORU_TIPLERI } from './objects/pipe.js';
 import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
@@ -60,33 +55,54 @@ export class PlumbingRenderer {
     drawPipes(ctx, pipes) {
         if (!pipes) return;
 
-        ctx.save();
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
         // Önce kırılım noktalarını bul (birden fazla borunun birleştiği noktalar)
         const breakPoints = this.findBreakPoints(pipes);
 
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
-
-            ctx.beginPath();
-            ctx.moveTo(pipe.p1.x, pipe.p1.y);
-            ctx.lineTo(pipe.p2.x, pipe.p2.y);
-
-            ctx.lineWidth = config.lineWidth;
+            
             // Çizim moduna göre renk ayarla
             const adjustedColor = getAdjustedColor(config.color, 'boru');
-            ctx.strokeStyle = pipe.isSelected
-                ? this.secilenRenk
-                : adjustedColor;
-            ctx.stroke();
+            
+            // Boru geometrisi
+            const dx = pipe.p2.x - pipe.p1.x;
+            const dy = pipe.p2.y - pipe.p1.y;
+            const length = Math.hypot(dx, dy);
+            const angle = Math.atan2(dy, dx);
+            const width = config.lineWidth;
+
+            ctx.save();
+            
+            // Koordinat sistemini borunun başlangıcına taşı ve döndür
+            ctx.translate(pipe.p1.x, pipe.p1.y);
+            ctx.rotate(angle);
+
+            if (pipe.isSelected) {
+                // Seçiliyse basit düz renk (mavi) çiz
+                ctx.fillStyle = this.secilenRenk;
+                ctx.fillRect(0, -width / 2, length, width);
+            } else {
+                // Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
+                const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
+                
+                // Kenarlarda hafif karartma, ortası boru rengi
+                // Geçişler yumuşak tutuldu
+                // gradient.addColorStop(0.0, 'rgba(255, 255,0,  0.3)'); 
+                // gradient.addColorStop(0.5,  'rgba(255, 255,0,  1)');  
+                // gradient.addColorStop(1, 'rgba( 255, 255,0,  0.3)');  
+                gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)'); 
+                gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');  
+                gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');  
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, -width / 2, length, width);
+            }
+
+            ctx.restore();
         });
 
         // Dirsek görüntülerini çiz
         this.drawElbows(ctx, pipes, breakPoints);
-
-        ctx.restore();
     }
 
     findBreakPoints(pipes) {
@@ -129,6 +145,12 @@ export class PlumbingRenderer {
     }
 
     drawElbows(ctx, pipes, breakPoints) {
+        // Çizim moduna göre renk ayarla (Orijinal düz renk yapısı korundu)
+        const adjustedGray = getAdjustedColor('rgba(0, 133, 133, 1)', 'boru');
+
+        
+        ctx.fillStyle = adjustedGray;
+
         breakPoints.forEach(bp => {
             // En büyük genişliği bul (merkez daire için)
             let maxArmWidth = 0;
@@ -185,14 +207,25 @@ export class PlumbingRenderer {
 
     drawGeciciBoru(ctx, geciciBoru) {
         ctx.save();
-        ctx.strokeStyle = '#FFFF00';
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(geciciBoru.p1.x, geciciBoru.p1.y);
-        ctx.lineTo(geciciBoru.p2.x, geciciBoru.p2.y);
-        ctx.stroke();
+        
+        // Geçici boru için de aynı stil
+        const width = 4;
+        const dx = geciciBoru.p2.x - geciciBoru.p1.x;
+        const dy = geciciBoru.p2.y - geciciBoru.p1.y;
+        const length = Math.hypot(dx, dy);
+        const angle = Math.atan2(dy, dx);
+
+        ctx.translate(geciciBoru.p1.x, geciciBoru.p1.y);
+        ctx.rotate(angle);
+
+        // Aynı yumuşak gradient
+        const gradient = ctx.createLinearGradient(0, -width/2, 0, width/2);
+                gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)'); 
+                gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');  
+                gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');  
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, -width/2, length, width);
 
         ctx.restore();
     }
@@ -426,16 +459,6 @@ export class PlumbingRenderer {
 
     drawSnapIndicator(ctx, snap) {
         // Snap göstergesi kaldırıldı - kullanıcı istemiyor
-        // ctx.save();
-        // ctx.fillStyle = '#00FF00';
-        // ctx.beginPath();
-        // ctx.arc(snap.x, snap.y, 5, 0, Math.PI * 2);
-        // ctx.fill();
-        // ctx.fillStyle = '#00FF00';
-        // ctx.font = '10px Arial';
-        // ctx.textAlign = 'left';
-        // ctx.fillText(snap.type.name, snap.x + 8, snap.y - 8);
-        // ctx.restore();
     }
 
     hexToRgba(hex, alpha) {
