@@ -87,12 +87,12 @@ export class PlumbingRenderer {
                 
                 // Kenarlarda hafif karartma, ortası boru rengi
                 // Geçişler yumuşak tutuldu
-                // gradient.addColorStop(0.0, 'rgba(255, 255,0,  0.3)'); 
-                // gradient.addColorStop(0.5,  'rgba(255, 255,0,  1)');  
-                // gradient.addColorStop(1, 'rgba( 255, 255,0,  0.3)');  
-                gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)'); 
-                gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');  
-                gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');  
+                gradient.addColorStop(0.0, 'rgba(255, 255,0,  0.3)'); 
+                gradient.addColorStop(0.5,  'rgba(255, 255,0,  1)');  
+                gradient.addColorStop(1, 'rgba( 255, 255,0,  0.3)');  
+                // gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)'); 
+                // gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');  
+                // gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');  
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -146,7 +146,8 @@ export class PlumbingRenderer {
 
     drawElbows(ctx, pipes, breakPoints) {
         // Çizim moduna göre renk ayarla (Orijinal düz renk yapısı korundu)
-        const adjustedGray = getAdjustedColor('rgba(0, 133, 133, 1)', 'boru');
+        // const adjustedGray = getAdjustedColor('rgba(0, 133, 133, 1)', 'boru');
+        const adjustedGray = getAdjustedColor('rgba(155, 155, 0, 1)', 'boru');
 
         
         ctx.fillStyle = adjustedGray;
@@ -220,10 +221,12 @@ export class PlumbingRenderer {
 
         // Aynı yumuşak gradient
         const gradient = ctx.createLinearGradient(0, -width/2, 0, width/2);
-                gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)'); 
-                gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');  
-                gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');  
-
+                // gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)'); 
+                // gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');  
+                // gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');  
+                gradient.addColorStop(0.0, 'rgba(255, 255, 0, 0.3)'); 
+                gradient.addColorStop(0.5,  'rgba(255, 255, 0, 1)');  
+                gradient.addColorStop(1, 'rgba(255, 255, 0, 0.3)');  
         ctx.fillStyle = gradient;
         ctx.fillRect(0, -width/2, length, width);
 
@@ -266,18 +269,26 @@ export class PlumbingRenderer {
 
     drawServisKutusu(ctx, comp) {
         const { width, height, color } = SERVIS_KUTUSU_CONFIG;
+        
+        ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
 
         // Ana kutu
-        const adjustedColor = getAdjustedColor(color, 'servis_kutusu');
+        const adjustedColor = getAdjustedColor("rgba(206, 206, 206, 1)", 'servis_kutusu');
+        //const adjustedColor = getAdjustedColor("#0390a3", 'servis_kutusu');
         const adjustedStroke = getAdjustedColor('#fff', 'servis_kutusu');
+       
         ctx.fillStyle = adjustedColor;
         ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
         ctx.lineWidth = 2;
+ 
 
         ctx.beginPath();
         ctx.rect(-width / 2, -height / 2, width, height);
         ctx.fill();
-        ctx.stroke();
+        //ctx.stroke();
 
         // Orta kısım - kabartmalı efekt için shadow ile
         const innerMargin = 4; // Kenarlardan boşluk
@@ -286,13 +297,13 @@ export class PlumbingRenderer {
 
         // Shadow ayarları
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 1)';
         ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 2;
+        ctx.shadowOffsetY = 0;
 
         // İç dikdörtgen (biraz daha açık renk)
-        const innerColor = this.lightenColor(adjustedColor, 0.15);
+        const innerColor = this.lightenColor(adjustedColor, 0.3);
         ctx.fillStyle = innerColor;
         ctx.beginPath();
         ctx.rect(-innerWidth / 2, -innerHeight / 2, innerWidth, innerHeight);
@@ -305,12 +316,13 @@ export class PlumbingRenderer {
         ctx.font = '10px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('S.K.', 0, 0);
+        ctx.fillText('S.K', 0, 0);
 
         // Çıkış noktası göstergesi - sadece boru bağlı değilse göster, boru çapında
         if (!comp.cikisKullanildi) {
             const cikisLocal = comp.getCikisLocalKoordinat();
-            const adjustedYellow = getAdjustedColor('#FFFF00', 'servis_kutusu');
+           // const adjustedYellow = getAdjustedColor('#0390a3', 'servis_kutusu');
+            const adjustedYellow = getAdjustedColor('rgba(255, 251, 0, 1)', 'servis_kutusu');
             ctx.fillStyle = adjustedYellow;
             ctx.beginPath();
             // Boru çapı 2cm, yarıçap 1cm

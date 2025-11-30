@@ -515,10 +515,10 @@ export function drawBeam(beam, isSelected = false) {
 
     ctx2d.fillStyle = fillColor;
     ctx2d.strokeStyle = beamColor;
-    ctx2d.lineWidth = lineThickness / zoom;
+    ctx2d.lineWidth = lineThickness/4 / zoom;
 
     ctx2d.save();
-    ctx2d.setLineDash([8 / zoom, 4 / zoom]);
+    ctx2d.setLineDash([20 / zoom, 4 / zoom]);
 
     ctx2d.beginPath();
     ctx2d.moveTo(corners[0].x, corners[0].y);
@@ -538,10 +538,10 @@ export function drawBeam(beam, isSelected = false) {
     ctx2d.translate(center.x, center.y);
     ctx2d.rotate(rotationRad);
     const ZOOM_EXPONENT = -0.65;
-    const baseFontSize = 16;
+    const baseFontSize = 10;
     let fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
     const minWorldFontSize = 5;
-    ctx2d.font = `400 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+    ctx2d.font = `300 ${Math.max(minWorldFontSize, fontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
     ctx2d.fillStyle = beamColor;
     ctx2d.textAlign = "center";
     ctx2d.textBaseline = "middle";
