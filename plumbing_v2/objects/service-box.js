@@ -149,7 +149,10 @@ export class ServisKutusu {
             const referencePoint = useBoxPosition ? { x: this.x, y: this.y } : point;
 
             // Noktayı duvar merkez çizgisine projeksiyon yap
-            const t = ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len);
+            // t değerini 0-1 arası sınırla (duvar segmenti içinde kalsın)
+            const t = Math.max(0, Math.min(1,
+                ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len)
+            ));
             const projX = wall.p1.x + t * dx;
             const projY = wall.p1.y + t * dy;
 
