@@ -178,7 +178,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y + ny * (halfWall - inset) };
 
     // İçteki iki paralel çizgi (ortadaki camı temsil eder gibi)
-    const offsetInner = halfWall * 0.8; // Cam çizgileri için daha küçük offset
+    const offsetInner = halfWall * 0.67; // Cam çizgileri için daha küçük offset
     const line2_start = { x: windowP1.x - nx * offsetInner, y: windowP1.y - ny * offsetInner };
     const line2_end = { x: windowP2.x - nx * offsetInner, y: windowP2.y - ny * offsetInner };
     const line3_start = { x: windowP1.x + nx * offsetInner, y: windowP1.y + ny * offsetInner };
