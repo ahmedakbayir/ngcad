@@ -562,7 +562,7 @@ export class PlumbingRenderer {
         if (!pipes) return;
 
         const zoom = state.zoom || 1;
-        const baseFontSize = 12;
+        const baseFontSize = 10;
         const ZOOM_EXPONENT = -0.65;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
@@ -587,7 +587,7 @@ export class PlumbingRenderer {
             const width = config.lineWidth;
 
             // Ölçü offset (boruya temas etmeden, en yakınına)
-            const offset = width / 2 + 1; // 1cm yukarı
+            const offset = width / 2 - 8; // 1cm yukarı
 
             // Normal vektör (boruya dik)
             const normalX = -Math.sin(angle);
@@ -615,7 +615,7 @@ export class PlumbingRenderer {
             const displayText = roundedLength.toString();
 
             // Yazıyı çiz (arka plan yok)
-            const adjustedTextColor = getAdjustedColor('#000', 'boru');
+            const adjustedTextColor = getAdjustedColor('#ffffff', 'boru');
             ctx.fillStyle = adjustedTextColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -632,7 +632,7 @@ export class PlumbingRenderer {
         if (!geciciBoru) return;
 
         const zoom = state.zoom || 1;
-        const baseFontSize = 12;
+        const baseFontSize = 10;
         const ZOOM_EXPONENT = -0.65;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
@@ -652,7 +652,7 @@ export class PlumbingRenderer {
 
         // Ölçü offset
         const width = 4; // geçici boru genişliği
-        const offset = width / 2 + 1;
+        const offset = width / 2 -8;
 
         // Normal vektör
         const normalX = -Math.sin(angle);
@@ -680,7 +680,8 @@ export class PlumbingRenderer {
         const displayText = roundedLength.toString();
 
         // Yazıyı çiz (geçici için farklı renk, arka plan yok)
-        const adjustedTextColor = getAdjustedColor('#FF6600', 'boru');
+        const adjustedTextColor = getAdjustedColor('rgba(255, 255, 0, 1)', 'boru');
+
         ctx.fillStyle = adjustedTextColor;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
