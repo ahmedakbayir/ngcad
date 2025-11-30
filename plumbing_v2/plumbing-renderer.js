@@ -129,10 +129,6 @@ export class PlumbingRenderer {
     }
 
     drawElbows(ctx, pipes, breakPoints) {
-        // Çizim moduna göre renk ayarla
-        const adjustedGray = getAdjustedColor('#f8f8c6', 'boru');
-        ctx.fillStyle = adjustedGray;
-
         breakPoints.forEach(bp => {
             // En büyük genişliği bul (merkez daire için)
             let maxArmWidth = 0;
