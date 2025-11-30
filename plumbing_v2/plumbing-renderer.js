@@ -37,6 +37,14 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
+        // Boru ölçüleri (fade olmadan göster)
+        this.drawPipeMeasurements(ctx, manager.pipes);
+
+        // Geçici boru ölçüsü
+        if (geciciBoru) {
+            this.drawTempPipeMeasurement(ctx, geciciBoru);
+        }
+
         // Ghost eleman (her zaman yarı saydam)
         if (manager.tempComponent) {
             ctx.save();
@@ -49,6 +57,11 @@ export class PlumbingRenderer {
         const activeSnap = manager.interactionManager?.activeSnap;
         if (activeSnap) {
             this.drawSnapIndicator(ctx, activeSnap);
+        }
+
+        // Ölçü girişi göstergesi
+        if (manager.interactionManager?.measurementActive) {
+            this.drawMeasurementInput(ctx, manager.interactionManager);
         }
     }
 
@@ -540,6 +553,226 @@ export class PlumbingRenderer {
 
     drawSnapIndicator(ctx, snap) {
         // Snap göstergesi kaldırıldı - kullanıcı istemiyor
+    }
+
+    /**
+     * Boru üzerinde ölçü gösterimi
+     */
+    drawPipeMeasurements(ctx, pipes) {
+        if (!pipes) return;
+
+        const zoom = state.zoom || 1;
+        const baseFontSize = 12;
+        const ZOOM_EXPONENT = -0.65;
+        const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+        const minWorldFontSize = 5;
+
+        pipes.forEach(pipe => {
+            const dx = pipe.p2.x - pipe.p1.x;
+            const dy = pipe.p2.y - pipe.p1.y;
+            const length = Math.hypot(dx, dy);
+
+            // Çok kısa borularda ölçü gösterme
+            if (length < 10) return;
+
+            // Borunun ortası
+            const midX = (pipe.p1.x + pipe.p2.x) / 2;
+            const midY = (pipe.p1.y + pipe.p2.y) / 2;
+
+            // Boru açısı
+            const angle = Math.atan2(dy, dx);
+
+            // Boru genişliği
+            const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
+            const width = config.lineWidth;
+
+            // Ölçü offset (boruya temas etmeden, biraz yukarıda)
+            const offset = width / 2 + 3; // 3cm yukarı
+
+            // Normal vektör (boruya dik)
+            const normalX = -Math.sin(angle);
+            const normalY = Math.cos(angle);
+
+            // Yazı pozisyonu (borunun üstünde)
+            const textX = midX + normalX * offset;
+            const textY = midY + normalY * offset;
+
+            ctx.save();
+            ctx.translate(textX, textY);
+            ctx.rotate(angle);
+
+            // Açıyı düzelt (ters yazmasın)
+            if (Math.abs(angle) > Math.PI / 2) {
+                ctx.rotate(Math.PI);
+            }
+
+            // Font ayarla
+            const actualFontSize = Math.max(minWorldFontSize, fontSize);
+            ctx.font = `400 ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+
+            // Rounded length
+            const roundedLength = Math.round(length);
+            const displayText = roundedLength.toString();
+
+            // Yazı genişliğini ölç
+            const metrics = ctx.measureText(displayText);
+            const textWidth = metrics.width;
+            const padding = 2;
+
+            // Transparent arka plan
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fillRect(
+                -textWidth / 2 - padding,
+                -actualFontSize / 2 - padding,
+                textWidth + padding * 2,
+                actualFontSize + padding * 2
+            );
+
+            // Yazıyı çiz
+            const adjustedTextColor = getAdjustedColor('#000', 'boru');
+            ctx.fillStyle = adjustedTextColor;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(displayText, 0, 0);
+
+            ctx.restore();
+        });
+    }
+
+    /**
+     * Geçici boru ölçüsü (çizim sırasında)
+     */
+    drawTempPipeMeasurement(ctx, geciciBoru) {
+        if (!geciciBoru) return;
+
+        const zoom = state.zoom || 1;
+        const baseFontSize = 12;
+        const ZOOM_EXPONENT = -0.65;
+        const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+        const minWorldFontSize = 5;
+
+        const dx = geciciBoru.p2.x - geciciBoru.p1.x;
+        const dy = geciciBoru.p2.y - geciciBoru.p1.y;
+        const length = Math.hypot(dx, dy);
+
+        if (length < 1) return;
+
+        // Borunun ortası
+        const midX = (geciciBoru.p1.x + geciciBoru.p2.x) / 2;
+        const midY = (geciciBoru.p1.y + geciciBoru.p2.y) / 2;
+
+        // Boru açısı
+        const angle = Math.atan2(dy, dx);
+
+        // Ölçü offset
+        const width = 4; // geçici boru genişliği
+        const offset = width / 2 + 3;
+
+        // Normal vektör
+        const normalX = -Math.sin(angle);
+        const normalY = Math.cos(angle);
+
+        // Yazı pozisyonu
+        const textX = midX + normalX * offset;
+        const textY = midY + normalY * offset;
+
+        ctx.save();
+        ctx.translate(textX, textY);
+        ctx.rotate(angle);
+
+        // Açıyı düzelt
+        if (Math.abs(angle) > Math.PI / 2) {
+            ctx.rotate(Math.PI);
+        }
+
+        // Font ayarla
+        const actualFontSize = Math.max(minWorldFontSize, fontSize);
+        ctx.font = `400 ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+
+        // Rounded length
+        const roundedLength = Math.round(length);
+        const displayText = roundedLength.toString();
+
+        // Yazı genişliğini ölç
+        const metrics = ctx.measureText(displayText);
+        const textWidth = metrics.width;
+        const padding = 2;
+
+        // Transparent arka plan (geçici için biraz daha açık)
+        ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
+        ctx.fillRect(
+            -textWidth / 2 - padding,
+            -actualFontSize / 2 - padding,
+            textWidth + padding * 2,
+            actualFontSize + padding * 2
+        );
+
+        // Yazıyı çiz (geçici için farklı renk)
+        const adjustedTextColor = getAdjustedColor('#FF6600', 'boru');
+        ctx.fillStyle = adjustedTextColor;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(displayText, 0, 0);
+
+        ctx.restore();
+    }
+
+    /**
+     * Ölçü girişi göstergesi (klavyeden girilen ölçü)
+     */
+    drawMeasurementInput(ctx, interactionManager) {
+        if (!interactionManager.measurementInput || !interactionManager.boruBaslangic) return;
+
+        const zoom = state.zoom || 1;
+        const baseFontSize = 16;
+        const ZOOM_EXPONENT = -0.65;
+        const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+        const minWorldFontSize = 8;
+
+        // Başlangıç noktasının yanında göster
+        const x = interactionManager.boruBaslangic.nokta.x;
+        const y = interactionManager.boruBaslangic.nokta.y - 15; // 15cm yukarıda
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        // Font ayarla
+        const actualFontSize = Math.max(minWorldFontSize, fontSize);
+        ctx.font = `bold ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+
+        const displayText = interactionManager.measurementInput + ' cm';
+
+        // Yazı genişliğini ölç
+        const metrics = ctx.measureText(displayText);
+        const textWidth = metrics.width;
+        const padding = 4;
+
+        // Arka plan (sarı transparan)
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.9)';
+        ctx.fillRect(
+            -textWidth / 2 - padding,
+            -actualFontSize / 2 - padding,
+            textWidth + padding * 2,
+            actualFontSize + padding * 2
+        );
+
+        // Kenarlık
+        ctx.strokeStyle = '#FF6600';
+        ctx.lineWidth = 1 / zoom;
+        ctx.strokeRect(
+            -textWidth / 2 - padding,
+            -actualFontSize / 2 - padding,
+            textWidth + padding * 2,
+            actualFontSize + padding * 2
+        );
+
+        // Yazıyı çiz
+        ctx.fillStyle = '#000';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(displayText, 0, 0);
+
+        ctx.restore();
     }
 
     hexToRgba(hex, alpha) {
