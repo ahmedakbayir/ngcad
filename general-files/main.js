@@ -273,7 +273,7 @@ export let state = {
         weight: 0.5,
     },
     dimensionOptions: {
-        fontSize: 16,
+        fontSize: 12,
         color: "#24ffda",
         defaultView: 1,
         showArea: 1,
