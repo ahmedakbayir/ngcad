@@ -267,7 +267,7 @@ export class PlumbingRenderer {
     drawServisKutusu(ctx, comp) {
         const { width, height, color } = SERVIS_KUTUSU_CONFIG;
 
-        // Kutu
+        // Ana kutu
         const adjustedColor = getAdjustedColor(color, 'servis_kutusu');
         const adjustedStroke = getAdjustedColor('#fff', 'servis_kutusu');
         ctx.fillStyle = adjustedColor;
@@ -278,6 +278,26 @@ export class PlumbingRenderer {
         ctx.rect(-width / 2, -height / 2, width, height);
         ctx.fill();
         ctx.stroke();
+
+        // Orta kısım - kabartmalı efekt için shadow ile
+        const innerMargin = 4; // Kenarlardan boşluk
+        const innerWidth = width - (innerMargin * 2);
+        const innerHeight = height - (innerMargin * 2);
+
+        // Shadow ayarları
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
+
+        // İç dikdörtgen (biraz daha açık renk)
+        const innerColor = this.lightenColor(adjustedColor, 0.15);
+        ctx.fillStyle = innerColor;
+        ctx.beginPath();
+        ctx.rect(-innerWidth / 2, -innerHeight / 2, innerWidth, innerHeight);
+        ctx.fill();
+        ctx.restore();
 
         // "S.K." yazısı
         const adjustedText = getAdjustedColor('#000', 'servis_kutusu');
@@ -297,6 +317,55 @@ export class PlumbingRenderer {
             ctx.arc(cikisLocal.x, cikisLocal.y, 1, 0, Math.PI * 2);
             ctx.fill();
         }
+    }
+
+    lightenColor(color, amount) {
+        // Rengi aydınlatma helper fonksiyonu
+        // rgba formatı için
+        if (color.startsWith('rgba')) {
+            const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+            if (match) {
+                let r = parseInt(match[1]);
+                let g = parseInt(match[2]);
+                let b = parseInt(match[3]);
+                const a = match[4] ? parseFloat(match[4]) : 1;
+
+                r = Math.min(255, Math.floor(r + (255 - r) * amount));
+                g = Math.min(255, Math.floor(g + (255 - g) * amount));
+                b = Math.min(255, Math.floor(b + (255 - b) * amount));
+
+                return `rgba(${r}, ${g}, ${b}, ${a})`;
+            }
+        }
+        // rgb formatı için
+        if (color.startsWith('rgb')) {
+            const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            if (match) {
+                let r = parseInt(match[1]);
+                let g = parseInt(match[2]);
+                let b = parseInt(match[3]);
+
+                r = Math.min(255, Math.floor(r + (255 - r) * amount));
+                g = Math.min(255, Math.floor(g + (255 - g) * amount));
+                b = Math.min(255, Math.floor(b + (255 - b) * amount));
+
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+        }
+        // hex formatı için
+        if (color.startsWith('#')) {
+            const hex = color.substring(1);
+            let r = parseInt(hex.substring(0, 2), 16);
+            let g = parseInt(hex.substring(2, 4), 16);
+            let b = parseInt(hex.substring(4, 6), 16);
+
+            r = Math.min(255, Math.floor(r + (255 - r) * amount));
+            g = Math.min(255, Math.floor(g + (255 - g) * amount));
+            b = Math.min(255, Math.floor(b + (255 - b) * amount));
+
+            return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        }
+        return color;
     }
 
     drawSayac(ctx, comp) {
