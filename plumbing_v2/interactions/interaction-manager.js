@@ -149,7 +149,8 @@ export class InteractionManager {
         if (state.currentMode === 'select') {
             // Önce seçili servis kutusunun döndürme tutamacını kontrol et
             if (this.selectedObject && this.selectedObject.type === 'servis_kutusu') {
-                if (this.findRotationHandleAt(this.selectedObject, point, 8)) {
+                if (this.findRotationHandleAt(this.selectedObject, point, 12)) {
+                    console.log('Döndürme tutamacı yakalandı');
                     this.startRotation(this.selectedObject, point);
                     return true;
                 }
@@ -944,11 +945,22 @@ export class InteractionManager {
             newRotationDeg = Math.round(newRotationDeg / 90) * 90;
         }
 
-        // Eski rotation'ı kaydet
-        const oldRotation = obj.rotation;
+        // ÖNEMLI: Çıkış noktası sabit kalmalı, kutu merkezi hareket etmeli
+        // Eski çıkış noktasını kaydet
+        const eskiCikis = obj.getCikisNoktasi();
+
+        // Rotasyonu değiştir
         obj.rotation = newRotationDeg;
 
-        // Bağlı boruyu güncelle
+        // Yeni çıkış noktasını hesapla
+        const yeniCikis = obj.getCikisNoktasi();
+
+        // Kutu merkezini ayarla (çıkış noktası sabit kalsın)
+        obj.x += eskiCikis.x - yeniCikis.x;
+        obj.y += eskiCikis.y - yeniCikis.y;
+
+        // Bağlı boruyu güncelle (çıkış noktası değişmedi, güncellemeye gerek yok)
+        // Ama yine de çağıralım, emin olmak için
         if (obj.bagliBoruId) {
             const boru = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
             if (boru) {
