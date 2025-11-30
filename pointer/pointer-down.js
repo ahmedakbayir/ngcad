@@ -76,12 +76,15 @@ export function onPointerDown(e) {
     // Diğer çizim modlarında (drawStairs, drawColumn, vb.) kesmemeli
     const isPlumbingMode = state.currentMode === 'plumbingV2' ||
                           state.currentMode === 'drawPlumbingPipe' ||
-                          state.currentMode === 'drawPlumbingBlock';
+                          state.currentMode === 'drawPlumbingBlock' ||
+                          state.currentMode === 'select' ||
+                          state.currentMode === 'MİMARİ-TESİSAT';
 
     const boruCizimAktif = plumbingManager.interactionManager?.boruCizimAktif;
     console.log('🔍 Plumbing check:', { boruCizimAktif, isPlumbingMode, currentMode: state.currentMode });
 
-    if (boruCizimAktif && isPlumbingMode) {
+    // Plumbing manager'a önce sor (boru çizim veya seçim için)
+    if (isPlumbingMode && plumbingManager.interactionManager) {
         console.log('⚡ Calling plumbing manager handler');
         const handled = plumbingManager.interactionManager.handlePointerDown(e);
         console.log('⚡ Plumbing manager handled:', handled);
@@ -89,7 +92,10 @@ export function onPointerDown(e) {
             console.log('⚡ Plumbing manager consumed the click - returning early');
             return;
         }
-    } else if (boruCizimAktif && !isPlumbingMode) {
+    }
+
+    // Eğer boruCizimAktif ama plumbing modunda değilsek uyarı
+    if (boruCizimAktif && !isPlumbingMode) {
         console.warn('⚠️ WARNING: boruCizimAktif is TRUE but we are NOT in plumbing mode!');
         console.warn('⚠️ Current mode:', state.currentMode, '- This is the BUG! Plumbing manager should reset this flag.');
     }
