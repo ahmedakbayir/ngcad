@@ -148,10 +148,10 @@ export class ServisKutusu {
             // Taşıma sırasında mevcut kutu pozisyonunu kullan, yoksa mouse pozisyonunu
             const referencePoint = useBoxPosition ? { x: this.x, y: this.y } : point;
 
-            // Noktayı duvar merkez çizgisine projeksiyon yap
+            // Noktayı duvar merkez çizgisine projeksiyon yap (referencePoint kullan)
             // t değerini 0-1 arası sınırla (duvar segmenti içinde kalsın)
             const t = Math.max(0, Math.min(1,
-                ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len)
+                ((referencePoint.x - wall.p1.x) * dx + (referencePoint.y - wall.p1.y) * dy) / (len * len)
             ));
             const projX = wall.p1.x + t * dx;
             const projY = wall.p1.y + t * dy;

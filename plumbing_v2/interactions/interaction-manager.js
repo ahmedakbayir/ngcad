@@ -147,21 +147,21 @@ export class InteractionManager {
         // 3. Nesne seçimi ve sürükleme - SADECE SEÇ MODUNDA
         // plumbingV2 modunda seçim/sürükleme yapılmaz, sadece boru çizilir ve bileşen yerleştirilir
         if (state.currentMode === 'select') {
-            // Önce seçili servis kutusunun köşelerini kontrol et (döndürme için)
+            // Önce seçili servis kutusunun döndürme tutamacını kontrol et
             if (this.selectedObject && this.selectedObject.type === 'servis_kutusu') {
-                const cornerIndex = this.findServiceBoxCornerAt(this.selectedObject, point, 10);
-                if (cornerIndex !== -1) {
+                if (this.findRotationHandleAt(this.selectedObject, point, 8)) {
                     this.startRotation(this.selectedObject, point);
                     return true;
                 }
             }
 
-            // Sonra boru uç noktası kontrolü yap
-            const boruUcu = this.findBoruUcuAt(point, 8);
+            // Sonra boru uç noktası kontrolü yap (öncelik verilir)
+            const boruUcu = this.findBoruUcuAt(point, 12); // Mesafeyi artırdık
             if (boruUcu) {
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
-                    // Seçim yapmadan doğrudan uç nokta sürüklemesi başlat
+                    // Boruyu seç ve uç nokta sürüklemesi başlat
+                    this.selectObject(pipe);
                     this.startEndpointDrag(pipe, boruUcu.uc, point);
                     return true;
                 }
@@ -852,39 +852,25 @@ export class InteractionManager {
     }
 
     /**
-     * Bağlı boru zincirini günceller (recursive)
+     * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
      */
     updateConnectedPipesChain(oldPoint, newPoint) {
         const tolerance = 0.5; // cm
-        const visited = new Set(); // Zaten güncellenmiş boruları takip et
 
-        const updateChain = (oldPos, newPos) => {
-            this.manager.pipes.forEach(pipe => {
-                if (visited.has(pipe.id)) return;
+        // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
+        this.manager.pipes.forEach(pipe => {
+            // p1'i güncelle
+            if (Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y) < tolerance) {
+                pipe.p1.x = newPoint.x;
+                pipe.p1.y = newPoint.y;
+            }
 
-                // p1'i güncelle
-                if (Math.hypot(pipe.p1.x - oldPos.x, pipe.p1.y - oldPos.y) < tolerance) {
-                    visited.add(pipe.id);
-                    const oldP2 = { ...pipe.p2 };
-                    pipe.p1.x = newPos.x;
-                    pipe.p1.y = newPos.y;
-                    // Devam eden boruları da güncelle
-                    updateChain(oldP2, pipe.p2);
-                }
-
-                // p2'yi güncelle
-                if (Math.hypot(pipe.p2.x - oldPos.x, pipe.p2.y - oldPos.y) < tolerance) {
-                    visited.add(pipe.id);
-                    const oldP1 = { ...pipe.p1 };
-                    pipe.p2.x = newPos.x;
-                    pipe.p2.y = newPos.y;
-                    // Devam eden boruları da güncelle
-                    updateChain(oldP1, pipe.p1);
-                }
-            });
-        };
-
-        updateChain(oldPoint, newPoint);
+            // p2'yi güncelle
+            if (Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y) < tolerance) {
+                pipe.p2.x = newPoint.x;
+                pipe.p2.y = newPoint.y;
+            }
+        });
     }
 
     endDrag() {
@@ -899,19 +885,21 @@ export class InteractionManager {
     }
 
     /**
-     * Servis kutusu köşesini bul
+     * Döndürme tutamacını bul (çubuğun ucundaki daire)
      */
-    findServiceBoxCornerAt(obj, point, tolerance = 10) {
-        if (!obj || obj.type !== 'servis_kutusu' || !obj.getKoseler) return -1;
+    findRotationHandleAt(obj, point, tolerance = 8) {
+        if (!obj || obj.type !== 'servis_kutusu') return false;
 
-        const corners = obj.getKoseler();
-        for (let i = 0; i < corners.length; i++) {
-            const dist = Math.hypot(point.x - corners[i].x, point.y - corners[i].y);
-            if (dist < tolerance) {
-                return i;
-            }
-        }
-        return -1;
+        const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
+        const handleLength = SERVIS_KUTUSU_CONFIG.width / 2 + 15;
+
+        // Tutamacın world pozisyonunu hesapla (rotation dikkate alınarak)
+        const rad = obj.rotation * Math.PI / 180;
+        const handleX = obj.x + Math.cos(rad) * handleLength;
+        const handleY = obj.y + Math.sin(rad) * handleLength;
+
+        const dist = Math.hypot(point.x - handleX, point.y - handleY);
+        return dist < tolerance;
     }
 
     /**

@@ -76,10 +76,10 @@ export class PlumbingRenderer {
 
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
-            
+
             // Çizim moduna göre renk ayarla
             const adjustedColor = getAdjustedColor(config.color, 'boru');
-            
+
             // Boru geometrisi
             const dx = pipe.p2.x - pipe.p1.x;
             const dy = pipe.p2.y - pipe.p1.y;
@@ -88,7 +88,7 @@ export class PlumbingRenderer {
             const width = config.lineWidth;
 
             ctx.save();
-            
+
             // Koordinat sistemini borunun başlangıcına taşı ve döndür
             ctx.translate(pipe.p1.x, pipe.p1.y);
             ctx.rotate(angle);
@@ -100,21 +100,26 @@ export class PlumbingRenderer {
             } else {
                 // Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-                
+
                 // Kenarlarda hafif karartma, ortası boru rengi
                 // Geçişler yumuşak tutuldu
-                gradient.addColorStop(0.0, 'rgba(255, 255,0,  0.3)'); 
-                gradient.addColorStop(0.5,  'rgba(255, 255,0,  1)');  
-                gradient.addColorStop(1, 'rgba( 255, 255,0,  0.3)');  
-                // gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)'); 
-                // gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');  
-                // gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');  
+                gradient.addColorStop(0.0, 'rgba(255, 255,0,  0.3)');
+                gradient.addColorStop(0.5,  'rgba(255, 255,0,  1)');
+                gradient.addColorStop(1, 'rgba( 255, 255,0,  0.3)');
+                // gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)');
+                // gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');
+                // gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
             }
 
             ctx.restore();
+
+            // Seçili borular için uç noktaları göster
+            if (pipe.isSelected) {
+                this.drawPipeEndpoints(ctx, pipe);
+            }
         });
 
         // Dirsek görüntülerini çiz
@@ -210,16 +215,23 @@ export class PlumbingRenderer {
     }
 
     drawPipeEndpoints(ctx, pipe) {
-        ctx.fillStyle = '#333';
-        const r = 2;
+        // Uç noktaları daha belirgin çiz (seçili borular için)
+        const r = 4; // Daha büyük
 
+        // p1 noktası
+        ctx.fillStyle = this.secilenRenk;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
 
+        // p2 noktası
         ctx.beginPath();
         ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
     }
 
     drawGeciciBoru(ctx, geciciBoru) {
@@ -559,37 +571,31 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Döndürme tutamacları (servis kutusu için)
+     * Döndürme tutamacı (servis kutusu için) - Merkezden çubuk çıkar
      */
     drawRotationHandles(ctx, comp) {
-        if (!comp.getKoseler) return;
+        const { width } = SERVIS_KUTUSU_CONFIG;
 
-        const corners = comp.getKoseler();
+        // Döndürme çubuğu uzunluğu (kutu genişliğinden biraz daha uzun)
+        const handleLength = width / 2 + 15; // 15cm dışarıda
 
-        // Köşeleri local koordinatlara çevir
-        const centerX = comp.x;
-        const centerY = comp.y;
+        // Çubuğu çiz (merkezden sağa doğru, local koordinatlarda)
+        ctx.strokeStyle = this.secilenRenk;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(0, 0); // Merkezden başla
+        ctx.lineTo(handleLength, 0); // Sağa doğru
+        ctx.stroke();
 
-        const rad = -comp.rotation * Math.PI / 180; // Rotate işlemini tersine çevir
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-
-        corners.forEach((corner, i) => {
-            // World koordinatlardan local'e çevir
-            const dx = corner.x - centerX;
-            const dy = corner.y - centerY;
-            const localX = dx * cos - dy * sin;
-            const localY = dx * sin + dy * cos;
-
-            // Döndürme tutamacı çiz (daire)
-            ctx.fillStyle = this.secilenRenk;
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(localX, localY, 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        });
+        // Ucunda tutamaç (daire)
+        ctx.fillStyle = this.secilenRenk;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(handleLength, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
     }
 
     drawSnapIndicator(ctx, snap) {
