@@ -586,8 +586,8 @@ export class PlumbingRenderer {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
             const width = config.lineWidth;
 
-            // Ölçü offset (boruya temas etmeden, biraz yukarıda)
-            const offset = width / 2 + 3; // 3cm yukarı
+            // Ölçü offset (boruya temas etmeden, en yakınına)
+            const offset = width / 2 + 1; // 1cm yukarı
 
             // Normal vektör (boruya dik)
             const normalX = -Math.sin(angle);
@@ -614,21 +614,7 @@ export class PlumbingRenderer {
             const roundedLength = Math.round(length);
             const displayText = roundedLength.toString();
 
-            // Yazı genişliğini ölç
-            const metrics = ctx.measureText(displayText);
-            const textWidth = metrics.width;
-            const padding = 2;
-
-            // Transparent arka plan
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.fillRect(
-                -textWidth / 2 - padding,
-                -actualFontSize / 2 - padding,
-                textWidth + padding * 2,
-                actualFontSize + padding * 2
-            );
-
-            // Yazıyı çiz
+            // Yazıyı çiz (arka plan yok)
             const adjustedTextColor = getAdjustedColor('#000', 'boru');
             ctx.fillStyle = adjustedTextColor;
             ctx.textAlign = "center";
@@ -666,7 +652,7 @@ export class PlumbingRenderer {
 
         // Ölçü offset
         const width = 4; // geçici boru genişliği
-        const offset = width / 2 + 3;
+        const offset = width / 2 + 1;
 
         // Normal vektör
         const normalX = -Math.sin(angle);
@@ -693,21 +679,7 @@ export class PlumbingRenderer {
         const roundedLength = Math.round(length);
         const displayText = roundedLength.toString();
 
-        // Yazı genişliğini ölç
-        const metrics = ctx.measureText(displayText);
-        const textWidth = metrics.width;
-        const padding = 2;
-
-        // Transparent arka plan (geçici için biraz daha açık)
-        ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
-        ctx.fillRect(
-            -textWidth / 2 - padding,
-            -actualFontSize / 2 - padding,
-            textWidth + padding * 2,
-            actualFontSize + padding * 2
-        );
-
-        // Yazıyı çiz (geçici için farklı renk)
+        // Yazıyı çiz (geçici için farklı renk, arka plan yok)
         const adjustedTextColor = getAdjustedColor('#FF6600', 'boru');
         ctx.fillStyle = adjustedTextColor;
         ctx.textAlign = "center";
