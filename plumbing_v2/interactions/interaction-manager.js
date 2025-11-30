@@ -34,6 +34,10 @@ export class InteractionManager {
         this.boruBaslangic = null;
         this.geciciBoruBitis = null;
 
+        // Ölçü girişi
+        this.measurementInput = '';
+        this.measurementActive = false;
+
         // Sürükleme durumu
         this.isDragging = false;
         this.dragStart = null;
@@ -67,7 +71,33 @@ export class InteractionManager {
 
         // 1. Boru çizim modunda
         if (this.boruCizimAktif) {
-            this.geciciBoruBitis = targetPoint;
+            // Eğer ölçü girişi aktifse, o ölçüye göre hedef noktayı ayarla
+            if (this.measurementActive && this.measurementInput.length > 0) {
+                const measurement = parseFloat(this.measurementInput);
+                if (!isNaN(measurement) && measurement > 0) {
+                    // Yönü hesapla (başlangıçtan mouse'a doğru)
+                    const dx = targetPoint.x - this.boruBaslangic.nokta.x;
+                    const dy = targetPoint.y - this.boruBaslangic.nokta.y;
+                    const currentLength = Math.hypot(dx, dy);
+
+                    if (currentLength > 0) {
+                        // Normalize et ve ölçü kadar uzat
+                        const dirX = dx / currentLength;
+                        const dirY = dy / currentLength;
+
+                        this.geciciBoruBitis = {
+                            x: this.boruBaslangic.nokta.x + dirX * measurement,
+                            y: this.boruBaslangic.nokta.y + dirY * measurement
+                        };
+                    } else {
+                        this.geciciBoruBitis = targetPoint;
+                    }
+                } else {
+                    this.geciciBoruBitis = targetPoint;
+                }
+            } else {
+                this.geciciBoruBitis = targetPoint;
+            }
             return true;
         }
 
@@ -211,6 +241,33 @@ export class InteractionManager {
      * Klavye
      */
     handleKeyDown(e) {
+        // Boru çizim modunda ölçü girişi
+        if (this.boruCizimAktif && this.boruBaslangic) {
+            // Rakam girişi (0-9)
+            if (/^[0-9]$/.test(e.key)) {
+                this.measurementInput += e.key;
+                this.measurementActive = true;
+                console.log('Ölçü girişi:', this.measurementInput);
+                return true;
+            }
+
+            // Backspace - son rakamı sil
+            if (e.key === 'Backspace' && this.measurementInput.length > 0) {
+                this.measurementInput = this.measurementInput.slice(0, -1);
+                if (this.measurementInput.length === 0) {
+                    this.measurementActive = false;
+                }
+                console.log('Ölçü girişi:', this.measurementInput);
+                return true;
+            }
+
+            // Enter - ölçüyü uygula
+            if (e.key === 'Enter' && this.measurementInput.length > 0) {
+                this.applyMeasurement();
+                return true;
+            }
+        }
+
         // ESC - iptal ve seç moduna geç
         if (e.key === 'Escape') {
             this.cancelCurrentAction();
@@ -438,6 +495,28 @@ export class InteractionManager {
     }
 
     /**
+     * Ölçüyü uygula (Enter tuşuna basıldığında)
+     */
+    applyMeasurement() {
+        if (!this.boruBaslangic || !this.geciciBoruBitis) return;
+
+        const measurement = parseFloat(this.measurementInput);
+        if (isNaN(measurement) || measurement <= 0) {
+            console.warn('Geçersiz ölçü:', this.measurementInput);
+            this.measurementInput = '';
+            this.measurementActive = false;
+            return;
+        }
+
+        // Boruyu oluştur
+        this.handleBoruClick(this.geciciBoruBitis);
+
+        // Ölçü girişini sıfırla
+        this.measurementInput = '';
+        this.measurementActive = false;
+    }
+
+    /**
      * Mevcut işlemi iptal et
      */
     cancelCurrentAction() {
@@ -447,6 +526,10 @@ export class InteractionManager {
             this.geciciBoruBitis = null;
             this.snapSystem.clearStartPoint();
         }
+
+        // Ölçü girişini sıfırla
+        this.measurementInput = '';
+        this.measurementActive = false;
 
         if (this.manager.tempComponent) {
             this.manager.tempComponent = null;
