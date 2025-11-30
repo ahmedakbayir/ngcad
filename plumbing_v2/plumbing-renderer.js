@@ -37,12 +37,14 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
-        // Boru ölçüleri (fade olmadan göster)
-        this.drawPipeMeasurements(ctx, manager.pipes);
+        // Boru ölçüleri (MİMARİ modunda gizle)
+        if (!shouldBeFaded) {
+            this.drawPipeMeasurements(ctx, manager.pipes);
 
-        // Geçici boru ölçüsü
-        if (geciciBoru) {
-            this.drawTempPipeMeasurement(ctx, geciciBoru);
+            // Geçici boru ölçüsü
+            if (geciciBoru) {
+                this.drawTempPipeMeasurement(ctx, geciciBoru);
+            }
         }
 
         // Ghost eleman (her zaman yarı saydam)
