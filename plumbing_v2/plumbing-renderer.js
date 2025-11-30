@@ -37,8 +37,9 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
-        // Boru ölçüleri (MİMARİ modunda gizle)
-        if (!shouldBeFaded) {
+        // Boru ölçüleri (MİMARİ modunda veya dimensionMode=0 ise gizle)
+        const showMeasurements = !shouldBeFaded && state.dimensionMode !== 0;
+        if (showMeasurements) {
             this.drawPipeMeasurements(ctx, manager.pipes);
 
             // Geçici boru ölçüsü
