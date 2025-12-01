@@ -172,6 +172,14 @@ export class InteractionManager {
                         return true;
                     }
 
+                    // Servis kutusuna bağlı boru ucunun taşınmasını engelle
+                    const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
+                    if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                        // Sadece seç, taşıma başlatma
+                        this.selectObject(pipe);
+                        return true;
+                    }
+
                     // Yoksa boruyu seç ve uç nokta sürüklemesi başlat
                     this.selectObject(pipe);
                     this.startEndpointDrag(pipe, boruUcu.uc, point);
@@ -759,6 +767,13 @@ export class InteractionManager {
         // Uç nokta sürükleme
         if (this.dragEndpoint && this.dragObject.type === 'boru') {
             const pipe = this.dragObject;
+
+            // Servis kutusuna bağlı uç taşınamaz - ekstra güvenlik kontrolü
+            const ucBaglanti = this.dragEndpoint === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
+            if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                return; // Taşıma işlemini engelle
+            }
+
             const oldPoint = this.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
 
             if (this.dragEndpoint === 'p1') {
@@ -777,11 +792,17 @@ export class InteractionManager {
         // Servis kutusu için duvara snap
         if (this.dragObject.type === 'servis_kutusu') {
             const walls = state.walls;
-            const snapDistance = 30; // 30cm içinde snap yap
 
-            // En yakın duvarı bul
+            // Sticky snap: Eğer kutu zaten snaplıysa, daha geniş threshold kullan
+            const isCurrentlySnapped = this.dragObject.snapliDuvar !== null;
+            const snapDistance = isCurrentlySnapped ? 100 : 50; // Snaplıysa 100cm, değilse 50cm
+
+            // En yakın duvarı bul - KUTU POZİSYONUNA GÖRE (mouse değil!)
             let closestWall = null;
             let minDist = Infinity;
+
+            // Kutu merkezini kullan (mouse pozisyonu yerine)
+            const boxCenter = { x: this.dragObject.x, y: this.dragObject.y };
 
             walls.forEach(wall => {
                 if (!wall.p1 || !wall.p2) return;
@@ -791,14 +812,14 @@ export class InteractionManager {
                 const len = Math.hypot(dx, dy);
                 if (len === 0) return;
 
-                // Noktayı duvara projeksiyon yap
+                // Kutu merkezini duvara projeksiyon yap
                 const t = Math.max(0, Math.min(1,
-                    ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len)
+                    ((boxCenter.x - wall.p1.x) * dx + (boxCenter.y - wall.p1.y) * dy) / (len * len)
                 ));
                 const projX = wall.p1.x + t * dx;
                 const projY = wall.p1.y + t * dy;
 
-                const dist = Math.hypot(point.x - projX, point.y - projY);
+                const dist = Math.hypot(boxCenter.x - projX, boxCenter.y - projY);
 
                 if (dist < minDist) {
                     minDist = dist;
