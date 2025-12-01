@@ -145,19 +145,19 @@ export class ServisKutusu {
             const dy = wall.p2.y - wall.p1.y;
             const len = Math.hypot(dx, dy);
 
-            // Taşıma sırasında mevcut kutu pozisyonunu kullan, yoksa mouse pozisyonunu
-            const referencePoint = useBoxPosition ? { x: this.x, y: this.y } : point;
+            // PROJEKSİYON için her zaman MOUSE pozisyonunu kullan (duvar boyunca hareket için)
+            const projectionPoint = point;
 
-            // Noktayı duvar merkez çizgisine projeksiyon yap (referencePoint kullan)
+            // Noktayı duvar merkez çizgisine projeksiyon yap
             // t değerini 0-1 arası sınırla (duvar segmenti içinde kalsın)
             const t = Math.max(0, Math.min(1,
-                ((referencePoint.x - wall.p1.x) * dx + (referencePoint.y - wall.p1.y) * dy) / (len * len)
+                ((projectionPoint.x - wall.p1.x) * dx + (projectionPoint.y - wall.p1.y) * dy) / (len * len)
             ));
             const projX = wall.p1.x + t * dx;
             const projY = wall.p1.y + t * dy;
 
-            // Referans noktanın duvarın hangi tarafında olduğunu bul (cross product)
-            // Taşıma sırasında kutu pozisyonuna göre taraf belirlenir, böylece taraf değişmez
+            // TARAF BELİRLEME için: Taşıma sırasında kutu pozisyonunu, ilk yerleştirmede mouse kullan
+            const referencePoint = useBoxPosition ? { x: this.x, y: this.y } : point;
             const toPointX = referencePoint.x - wall.p1.x;
             const toPointY = referencePoint.y - wall.p1.y;
             const cross = dx * toPointY - dy * toPointX;

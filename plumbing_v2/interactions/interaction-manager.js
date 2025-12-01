@@ -347,7 +347,7 @@ export class InteractionManager {
         // Servis kutusu - duvara snap (yerleştirme için useBoxPosition=false)
         if (ghost.type === 'servis_kutusu') {
             const walls = state.walls;
-            const snapDistance = 30; // 30cm içinde snap yap
+            const snapDistance = 15; // 15cm içinde snap yap
 
             // En yakın duvarı bul
             let closestWall = null;
@@ -795,7 +795,7 @@ export class InteractionManager {
 
             // Sticky snap: Eğer kutu zaten snaplıysa, daha geniş threshold kullan
             const isCurrentlySnapped = this.dragObject.snapliDuvar !== null;
-            const snapDistance = isCurrentlySnapped ? 80 : 40; // Snaplıysa 80cm, değilse 40cm
+            const snapDistance = isCurrentlySnapped ? 30 : 15; // Snaplıysa 30cm, değilse 15cm
 
             // En yakın duvarı bul
             let closestWall = null;
