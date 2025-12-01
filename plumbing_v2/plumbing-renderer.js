@@ -289,7 +289,10 @@ export class PlumbingRenderer {
 
         // Seçim göstergesi
         if (comp.isSelected) {
-            this.drawSelectionBox(ctx, comp);
+            // Servis kutusu için kesikli çizgi gösterme, renk değişimi yeterli
+            if (comp.type !== 'servis_kutusu') {
+                this.drawSelectionBox(ctx, comp);
+            }
             // Servis kutusu için döndürme tutamacı
             if (comp.type === 'servis_kutusu') {
                 this.drawRotationHandles(ctx, comp);
@@ -308,11 +311,12 @@ export class PlumbingRenderer {
         ctx.shadowOffsetY = 0;
 
         // Ana kutu
-        const adjustedColor = getAdjustedColor("rgba(206, 206, 206, 1)", 'servis_kutusu');
-        //const adjustedColor = getAdjustedColor("#0390a3", 'servis_kutusu');
+        const baseColor = "rgba(206, 206, 206, 1)";
+        const adjustedColor = getAdjustedColor(baseColor, 'servis_kutusu');
         const adjustedStroke = getAdjustedColor('#fff', 'servis_kutusu');
-       
-        ctx.fillStyle = adjustedColor;
+
+        // Seçiliyse renk değişsin
+        ctx.fillStyle = comp.isSelected ? this.secilenRenk : adjustedColor;
         ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
         ctx.lineWidth = 2;
  

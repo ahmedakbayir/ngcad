@@ -829,16 +829,18 @@ export class InteractionManager {
                 offsetY = dy;
             }
 
-            // Her iki ucu da taşı
-            const oldP1 = { ...this.bodyDragInitialP1 };
-            const oldP2 = { ...this.bodyDragInitialP2 };
+            // ŞU ANKİ pozisyonları kaydet (henüz güncellenmeden önce)
+            const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
+            const oldP2 = { x: pipe.p2.x, y: pipe.p2.y };
 
+            // Her iki ucu da yeni pozisyona taşı
             pipe.p1.x = this.bodyDragInitialP1.x + offsetX;
             pipe.p1.y = this.bodyDragInitialP1.y + offsetY;
             pipe.p2.x = this.bodyDragInitialP2.x + offsetX;
             pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
 
             // Bağlı boruları güncelle (her iki uç için)
+            // oldPoint = şu anki pozisyon, newPoint = yeni pozisyon
             this.updateConnectedPipesChain(oldP1, pipe.p1);
             this.updateConnectedPipesChain(oldP2, pipe.p2);
             return;
