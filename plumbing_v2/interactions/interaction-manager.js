@@ -165,7 +165,14 @@ export class InteractionManager {
             if (boruUcu) {
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
-                    // Boruyu seç ve uç nokta sürüklemesi başlat
+                    // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
+                    if (this.manager.activeTool === 'boru') {
+                        const ucNokta = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
+                        this.startBoruCizim(ucNokta, pipe.id, BAGLANTI_TIPLERI.BORU);
+                        return true;
+                    }
+
+                    // Yoksa boruyu seç ve uç nokta sürüklemesi başlat
                     this.selectObject(pipe);
                     this.startEndpointDrag(pipe, boruUcu.uc, point);
                     return true;
@@ -178,6 +185,16 @@ export class InteractionManager {
                 this.selectObject(hitObject);
                 // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
                 if (hitObject.type === 'boru') {
+                    // Kutuya bağlı boruların gövdesi taşınmasın
+                    const bagliKutu = this.manager.components.find(c =>
+                        c.type === 'servis_kutusu' && c.bagliBoruId === hitObject.id
+                    );
+
+                    if (bagliKutu) {
+                        // Kutuya bağlı boru, gövde sürükleme yapma (ama seçimi koru)
+                        return true;
+                    }
+
                     this.startBodyDrag(hitObject, point);
                 } else {
                     this.startDrag(hitObject, point);
@@ -887,18 +904,19 @@ export class InteractionManager {
     }
 
     /**
-     * Döndürme tutamacını bul (çubuğun ucundaki daire)
+     * Döndürme tutamacını bul (çubuğun ucundaki daire) - yukarı yönde
      */
     findRotationHandleAt(obj, point, tolerance = 8) {
         if (!obj || obj.type !== 'servis_kutusu') return false;
 
         const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
-        const handleLength = SERVIS_KUTUSU_CONFIG.width / 2 + 15;
+        const handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 10;
 
-        // Tutamacın world pozisyonunu hesapla (rotation dikkate alınarak)
+        // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)
+        // Local: (0, -handleLength) → World: dönüşüm matrisi uygula
         const rad = obj.rotation * Math.PI / 180;
-        const handleX = obj.x + Math.cos(rad) * handleLength;
-        const handleY = obj.y + Math.sin(rad) * handleLength;
+        const handleX = obj.x + handleLength * Math.sin(rad);
+        const handleY = obj.y - handleLength * Math.cos(rad);
 
         const dist = Math.hypot(point.x - handleX, point.y - handleY);
         return dist < tolerance;

@@ -193,12 +193,12 @@ export class ServisKutusu {
     }
 
     /**
-     * Serbest yerleştir (duvar dışı - yatay)
+     * Serbest yerleştir (duvar dışı - mevcut rotation korunur)
      */
     placeFree(point) {
         this.x = point.x;
         this.y = point.y;
-        this.rotation = 0; // Yatay
+        // Rotation'ı koru (kullanıcı manuel döndürdüyse kaybolmasın)
         this.snapliDuvar = null;
     }
 

@@ -575,29 +575,29 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Döndürme tutamacı (servis kutusu için) - Merkezden çubuk çıkar
+     * Döndürme tutamacı (servis kutusu için) - Merkezden yukarı çubuk çıkar
      */
     drawRotationHandles(ctx, comp) {
-        const { width } = SERVIS_KUTUSU_CONFIG;
+        const { height } = SERVIS_KUTUSU_CONFIG;
 
-        // Döndürme çubuğu uzunluğu (kutu genişliğinden biraz daha uzun)
-        const handleLength = width / 2 + 15; // 15cm dışarıda
+        // Döndürme çubuğu uzunluğu (daha küçük - 10cm)
+        const handleLength = height / 2 + 10; // 10cm dışarıda
 
-        // Çubuğu çiz (merkezden sağa doğru, local koordinatlarda)
+        // Çubuğu çiz (merkezden yukarı doğru, local koordinatlarda)
         ctx.strokeStyle = this.secilenRenk;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
         ctx.beginPath();
         ctx.moveTo(0, 0); // Merkezden başla
-        ctx.lineTo(handleLength, 0); // Sağa doğru
+        ctx.lineTo(0, -handleLength); // Yukarı doğru (negatif Y)
         ctx.stroke();
 
-        // Ucunda tutamaç (daire)
+        // Ucunda tutamaç (daire) - biraz daha küçük
         ctx.fillStyle = this.secilenRenk;
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(handleLength, 0, 5, 0, Math.PI * 2);
+        ctx.arc(0, -handleLength, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
     }
