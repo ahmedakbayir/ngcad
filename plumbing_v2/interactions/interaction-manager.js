@@ -795,7 +795,7 @@ export class InteractionManager {
 
             // Sticky snap: Eğer kutu zaten snaplıysa, daha geniş threshold kullan
             const isCurrentlySnapped = this.dragObject.snapliDuvar !== null;
-            const snapDistance = isCurrentlySnapped ? 100 : 50; // Snaplıysa 100cm, değilse 50cm
+            const snapDistance = isCurrentlySnapped ? 80 : 40; // Snaplıysa 80cm, değilse 40cm
 
             // En yakın duvarı bul - KUTU POZİSYONUNA GÖRE (mouse değil!)
             let closestWall = null;
