@@ -797,12 +797,9 @@ export class InteractionManager {
             const isCurrentlySnapped = this.dragObject.snapliDuvar !== null;
             const snapDistance = isCurrentlySnapped ? 80 : 40; // Snaplıysa 80cm, değilse 40cm
 
-            // En yakın duvarı bul - KUTU POZİSYONUNA GÖRE (mouse değil!)
+            // En yakın duvarı bul
             let closestWall = null;
-            let minDist = Infinity;
-
-            // Kutu merkezini kullan (mouse pozisyonu yerine)
-            const boxCenter = { x: this.dragObject.x, y: this.dragObject.y };
+            let minDistToMouse = Infinity;
 
             walls.forEach(wall => {
                 if (!wall.p1 || !wall.p2) return;
@@ -812,24 +809,24 @@ export class InteractionManager {
                 const len = Math.hypot(dx, dy);
                 if (len === 0) return;
 
-                // Kutu merkezini duvara projeksiyon yap
+                // MOUSE pozisyonunu duvara projeksiyon yap
                 const t = Math.max(0, Math.min(1,
-                    ((boxCenter.x - wall.p1.x) * dx + (boxCenter.y - wall.p1.y) * dy) / (len * len)
+                    ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len)
                 ));
                 const projX = wall.p1.x + t * dx;
                 const projY = wall.p1.y + t * dy;
 
-                const dist = Math.hypot(boxCenter.x - projX, boxCenter.y - projY);
+                const dist = Math.hypot(point.x - projX, point.y - projY);
 
-                if (dist < minDist) {
-                    minDist = dist;
+                if (dist < minDistToMouse) {
+                    minDistToMouse = dist;
                     closestWall = wall;
                 }
             });
 
             // Yakın duvara snap yap, yoksa serbest yerleştir
             // useBoxPosition=true ile kutu kendi tarafında kalır, ters tarafa geçmez
-            if (closestWall && minDist < snapDistance) {
+            if (closestWall && minDistToMouse < snapDistance) {
                 this.dragObject.snapToWall(closestWall, point, true);
             } else {
                 this.dragObject.placeFree(point);
