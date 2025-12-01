@@ -160,7 +160,14 @@ export function onPointerMove(e) {
     }
 
     // --- Yeni Tesisat Sistemi (v2) ---
-    if (state.currentMode === "plumbingV2") {
+    // Tesisat nesneleri tüm modlarda interaktif olmalı (select, plumbingV2, karma)
+    const isPlumbingMode = state.currentMode === 'plumbingV2' ||
+                          state.currentMode === 'drawPlumbingPipe' ||
+                          state.currentMode === 'drawPlumbingBlock' ||
+                          state.currentMode === 'select' ||
+                          state.currentMode === 'MİMARİ-TESİSAT';
+
+    if (isPlumbingMode && plumbingManager.interactionManager) {
         const handled = plumbingManager.interactionManager.handlePointerMove(e);
         if (handled) {
             updateMouseCursor(); // Cursor'ı güncelle
