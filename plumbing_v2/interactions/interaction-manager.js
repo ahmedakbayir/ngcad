@@ -793,16 +793,15 @@ export class InteractionManager {
         if (this.dragObject.type === 'servis_kutusu') {
             const walls = state.walls;
 
-            // Sticky snap: Eğer kutu zaten snaplıysa, daha geniş threshold kullan
-            const isCurrentlySnapped = this.dragObject.snapliDuvar !== null;
-            const snapDistance = isCurrentlySnapped ? 100 : 50; // Snaplıysa 100cm, değilse 50cm
+            // Snap mesafesi - sabit
+            const snapDistance = 30; // 30cm
 
-            // En yakın duvarı bul - KUTU POZİSYONUNA GÖRE (mouse değil!)
+            // En yakın duvarı bul - MOUSE POZİSYONUNA GÖRE
             let closestWall = null;
             let minDist = Infinity;
 
-            // Kutu merkezini kullan (mouse pozisyonu yerine)
-            const boxCenter = { x: this.dragObject.x, y: this.dragObject.y };
+            // Mouse pozisyonunu kullan (kutu pozisyonu değil!)
+            const mousePos = point;
 
             walls.forEach(wall => {
                 if (!wall.p1 || !wall.p2) return;
@@ -812,14 +811,14 @@ export class InteractionManager {
                 const len = Math.hypot(dx, dy);
                 if (len === 0) return;
 
-                // Kutu merkezini duvara projeksiyon yap
+                // Mouse'u duvara projeksiyon yap
                 const t = Math.max(0, Math.min(1,
-                    ((boxCenter.x - wall.p1.x) * dx + (boxCenter.y - wall.p1.y) * dy) / (len * len)
+                    ((mousePos.x - wall.p1.x) * dx + (mousePos.y - wall.p1.y) * dy) / (len * len)
                 ));
                 const projX = wall.p1.x + t * dx;
                 const projY = wall.p1.y + t * dy;
 
-                const dist = Math.hypot(boxCenter.x - projX, boxCenter.y - projY);
+                const dist = Math.hypot(mousePos.x - projX, mousePos.y - projY);
 
                 if (dist < minDist) {
                     minDist = dist;
@@ -828,9 +827,9 @@ export class InteractionManager {
             });
 
             // Yakın duvara snap yap, yoksa serbest yerleştir
-            // useBoxPosition=true ile kutu kendi tarafında kalır, ters tarafa geçmez
+            // useBoxPosition=false ile mouse pozisyonuna göre snap yap (sürüklerken)
             if (closestWall && minDist < snapDistance) {
-                this.dragObject.snapToWall(closestWall, point, true);
+                this.dragObject.snapToWall(closestWall, point, false);
             } else {
                 this.dragObject.placeFree(point);
             }
