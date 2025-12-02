@@ -114,9 +114,9 @@ export class InteractionManager {
             return true;
         }
 
-        // 4. Sürükleme - raw point kullan (handleDrag içinde gerekli snap yapılır)
+        // 4. Sürükleme - event objesini ve snap bilgisini ilet
         if (this.isDragging && this.dragObject) {
-            this.handleDrag(point);
+            this.handleDrag(point, e, this.activeSnap);
             return true;
         }
 
@@ -759,10 +759,15 @@ export class InteractionManager {
         // Başlangıç noktalarını kaydet
         this.bodyDragInitialP1 = { ...pipe.p1 };
         this.bodyDragInitialP2 = { ...pipe.p2 };
+        // Yön henüz belirlenmedi
+        this.bodyDragDirection = null; // 'x' veya 'y'
     }
 
-    handleDrag(point) {
+    handleDrag(point, event, snapInfo) {
         if (!this.dragObject) return;
+
+        // Snap desteği - varsa kullan
+        const targetPoint = snapInfo ? { x: snapInfo.x, y: snapInfo.y } : point;
 
         // Uç nokta sürükleme
         if (this.dragEndpoint && this.dragObject.type === 'boru') {
@@ -777,15 +782,15 @@ export class InteractionManager {
             const oldPoint = this.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
 
             if (this.dragEndpoint === 'p1') {
-                pipe.p1.x = point.x;
-                pipe.p1.y = point.y;
+                pipe.p1.x = targetPoint.x;
+                pipe.p1.y = targetPoint.y;
             } else {
-                pipe.p2.x = point.x;
-                pipe.p2.y = point.y;
+                pipe.p2.x = targetPoint.x;
+                pipe.p2.y = targetPoint.y;
             }
 
             // Bağlı boruları güncelle (tüm zinciri)
-            this.updateConnectedPipesChain(oldPoint, point);
+            this.updateConnectedPipesChain(oldPoint, targetPoint);
             return;
         }
 
@@ -848,23 +853,34 @@ export class InteractionManager {
             return;
         }
 
-        // Boru gövdesi taşıma - sadece x veya y yönünde
+        // Boru gövdesi taşıma - sadece x veya y yönünde, SHIFT ile tüm hat
         if (this.dragObject.type === 'boru' && this.isBodyDrag) {
             const pipe = this.dragObject;
-            const dx = point.x - this.dragStart.x;
-            const dy = point.y - this.dragStart.y;
 
-            // Hangi yönde daha fazla hareket var?
+            // Snap ile delta hesapla
+            const dx = targetPoint.x - this.dragStart.x;
+            const dy = targetPoint.y - this.dragStart.y;
+
+            // İlk harekette yönü belirle ve lock et
+            if (this.bodyDragDirection === null && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
+                this.bodyDragDirection = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+            }
+
+            // Lock edilmiş yöne göre hareket et
             let offsetX = 0;
             let offsetY = 0;
 
-            if (Math.abs(dx) > Math.abs(dy)) {
-                // X yönünde taşı
+            if (this.bodyDragDirection === 'x') {
                 offsetX = dx;
-            } else {
-                // Y yönünde taşı
+            } else if (this.bodyDragDirection === 'y') {
                 offsetY = dy;
+            } else {
+                // Henüz yön belirlenmedi, hareketsiz kal
+                return;
             }
+
+            // SHIFT basılı mı kontrol et
+            const isShiftPressed = event && event.shiftKey;
 
             // ŞU ANKİ pozisyonları kaydet (henüz güncellenmeden önce)
             const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
@@ -876,10 +892,15 @@ export class InteractionManager {
             pipe.p2.x = this.bodyDragInitialP2.x + offsetX;
             pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
 
-            // Bağlı boruları güncelle (her iki uç için)
-            // oldPoint = şu anki pozisyon, newPoint = yeni pozisyon
-            this.updateConnectedPipesChain(oldP1, pipe.p1);
-            this.updateConnectedPipesChain(oldP2, pipe.p2);
+            if (isShiftPressed) {
+                // SHIFT basılıysa tüm bağlı hattı taşı (recursive)
+                this.updateConnectedPipesChainRecursive(oldP1, pipe.p1, offsetX, offsetY, new Set([pipe.id]));
+                this.updateConnectedPipesChainRecursive(oldP2, pipe.p2, offsetX, offsetY, new Set([pipe.id]));
+            } else {
+                // Sadece bu borunun uçlarını güncelle
+                this.updateConnectedPipesChain(oldP1, pipe.p1);
+                this.updateConnectedPipesChain(oldP2, pipe.p2);
+            }
             return;
         }
 
@@ -912,6 +933,51 @@ export class InteractionManager {
         });
     }
 
+    /**
+     * SHIFT ile tüm bağlı hattı taşı (recursive)
+     */
+    updateConnectedPipesChainRecursive(oldPoint, newPoint, offsetX, offsetY, processedIds) {
+        const tolerance = 0.5; // cm
+
+        // Eski noktaya bağlı tüm boruları bul
+        this.manager.pipes.forEach(pipe => {
+            // Zaten işlendiyse atla
+            if (processedIds.has(pipe.id)) return;
+
+            let updated = false;
+            let otherEnd = null;
+
+            // p1'e bağlıysa
+            if (Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y) < tolerance) {
+                pipe.p1.x = newPoint.x;
+                pipe.p1.y = newPoint.y;
+                // p2'yi de taşı
+                pipe.p2.x += offsetX;
+                pipe.p2.y += offsetY;
+                otherEnd = { old: { x: pipe.p2.x - offsetX, y: pipe.p2.y - offsetY }, new: { ...pipe.p2 } };
+                updated = true;
+            }
+            // p2'ye bağlıysa
+            else if (Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y) < tolerance) {
+                pipe.p2.x = newPoint.x;
+                pipe.p2.y = newPoint.y;
+                // p1'i de taşı
+                pipe.p1.x += offsetX;
+                pipe.p1.y += offsetY;
+                otherEnd = { old: { x: pipe.p1.x - offsetX, y: pipe.p1.y - offsetY }, new: { ...pipe.p1 } };
+                updated = true;
+            }
+
+            if (updated) {
+                processedIds.add(pipe.id);
+                // Diğer ucu da recursive güncelle
+                if (otherEnd) {
+                    this.updateConnectedPipesChainRecursive(otherEnd.old, otherEnd.new, offsetX, offsetY, processedIds);
+                }
+            }
+        });
+    }
+
     endDrag() {
         this.isDragging = false;
         this.dragObject = null;
@@ -920,6 +986,7 @@ export class InteractionManager {
         this.isBodyDrag = false;
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
+        this.bodyDragDirection = null; // Yön lock'unu temizle
         this.manager.saveToState();
     }
 

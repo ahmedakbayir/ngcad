@@ -343,6 +343,7 @@ export class TesisatSnapSystem {
 
     /**
      * 2. Boru uç noktalarını bul (bağlantı noktaları)
+     * Duvar dışında 4 offset nokta ile snap
      */
     findBoruUcSnap(point, tolerance) {
         if (!this.manager || !this.manager.pipes) return null;
@@ -360,31 +361,43 @@ export class TesisatSnapSystem {
         }
 
         this.manager.pipes.forEach(pipe => {
-            [pipe.p1, pipe.p2].forEach(node => {
-                // Açı kontrolü
-                if (userAngle !== null && this.currentStartPoint) {
-                    const nodeAngle = Math.atan2(
-                        node.y - this.currentStartPoint.y,
-                        node.x - this.currentStartPoint.x
-                    ) * 180 / Math.PI;
+            [pipe.p1, pipe.p2].forEach(endpoint => {
+                // 4 offset noktası oluştur (duvar dışında snap için)
+                const offset = 5; // 5cm offset
+                const snapPoints = [
+                    { x: endpoint.x, y: endpoint.y }, // Ana nokta
+                    { x: endpoint.x + offset, y: endpoint.y + offset },
+                    { x: endpoint.x - offset, y: endpoint.y - offset },
+                    { x: endpoint.x - offset, y: endpoint.y + offset },
+                    { x: endpoint.x + offset, y: endpoint.y - offset }
+                ];
 
-                    let angleDiff = Math.abs(userAngle - nodeAngle);
-                    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+                snapPoints.forEach(snapPoint => {
+                    // Açı kontrolü
+                    if (userAngle !== null && this.currentStartPoint) {
+                        const nodeAngle = Math.atan2(
+                            snapPoint.y - this.currentStartPoint.y,
+                            snapPoint.x - this.currentStartPoint.x
+                        ) * 180 / Math.PI;
 
-                    // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                    if (angleDiff >= 40) return;
-                }
+                        let angleDiff = Math.abs(userAngle - nodeAngle);
+                        if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
-                const dist = Math.hypot(point.x - node.x, point.y - node.y);
-                if (dist < minDist) {
-                    minDist = dist;
-                    closest = {
-                        x: node.x,
-                        y: node.y,
-                        type: TESISAT_SNAP_TYPES.KESISIM,
-                        target: pipe
-                    };
-                }
+                        // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
+                        if (angleDiff >= 40) return;
+                    }
+
+                    const dist = Math.hypot(point.x - snapPoint.x, point.y - snapPoint.y);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closest = {
+                            x: snapPoint.x,
+                            y: snapPoint.y,
+                            type: TESISAT_SNAP_TYPES.KESISIM,
+                            target: pipe
+                        };
+                    }
+                });
             });
         });
 
