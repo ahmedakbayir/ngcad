@@ -511,10 +511,10 @@ export function drawBeam(beam, isSelected = false) {
 
     ctx2d.fillStyle = fillColor;
     ctx2d.strokeStyle = beamColor;
-    ctx2d.lineWidth = lineThickness/4 / zoom;
+    ctx2d.lineWidth = lineThickness/3/ zoom;
 
     ctx2d.save();
-    ctx2d.setLineDash([20 / zoom, 4 / zoom]);
+    ctx2d.setLineDash([4 / zoom, 2  / zoom]);
 
     ctx2d.beginPath();
     ctx2d.moveTo(corners[0].x, corners[0].y);
