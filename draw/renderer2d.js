@@ -522,7 +522,7 @@ export function drawBeam(beam, isSelected = false) {
         ctx2d.lineTo(corners[i].x, corners[i].y);
     }
     ctx2d.closePath();
-    ctx2d.fill();
+    // ctx2d.fill(); // Kiriş içi dolgulu çizilmesin
     ctx2d.stroke();
 
     ctx2d.restore();
