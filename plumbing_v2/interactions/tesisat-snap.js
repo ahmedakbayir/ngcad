@@ -343,7 +343,7 @@ export class TesisatSnapSystem {
 
     /**
      * 2. Boru uç noktalarını bul (bağlantı noktaları)
-     * Duvar dışında 4 offset nokta ile snap
+     * DUVAR UÇLARINA göre offset nokta ile snap
      */
     findBoruUcSnap(point, tolerance) {
         if (!this.manager || !this.manager.pipes) return null;
@@ -360,44 +360,92 @@ export class TesisatSnapSystem {
             ) * 180 / Math.PI;
         }
 
-        this.manager.pipes.forEach(pipe => {
-            [pipe.p1, pipe.p2].forEach(endpoint => {
-                // 4 offset noktası oluştur (duvar dışında snap için)
-                const offset = 5; // 5cm offset
+        // Önce duvar uç noktalarını bul ve snap noktaları oluştur
+        const walls = state.walls || [];
+        const wallEndpointSnaps = [];
+
+        walls.forEach(wall => {
+            if (!wall.p1 || !wall.p2) return;
+
+            const wallThickness = wall.thickness || state.wallThickness || 20;
+            const boruAcikligi = 5; // BORU_ACIKLIGI
+            const offset = wallThickness / 2 + boruAcikligi;
+
+            // Her iki duvar ucu için snap noktaları
+            [wall.p1, wall.p2].forEach(endpoint => {
+                // 4 yönde offset noktası (X ve Y yönlerinde)
                 const snapPoints = [
                     { x: endpoint.x, y: endpoint.y }, // Ana nokta
-                    { x: endpoint.x + offset, y: endpoint.y + offset },
-                    { x: endpoint.x - offset, y: endpoint.y - offset },
-                    { x: endpoint.x - offset, y: endpoint.y + offset },
-                    { x: endpoint.x + offset, y: endpoint.y - offset }
+                    { x: endpoint.x + offset, y: endpoint.y },
+                    { x: endpoint.x - offset, y: endpoint.y },
+                    { x: endpoint.x, y: endpoint.y + offset },
+                    { x: endpoint.x, y: endpoint.y - offset }
                 ];
 
                 snapPoints.forEach(snapPoint => {
-                    // Açı kontrolü
-                    if (userAngle !== null && this.currentStartPoint) {
-                        const nodeAngle = Math.atan2(
-                            snapPoint.y - this.currentStartPoint.y,
-                            snapPoint.x - this.currentStartPoint.x
-                        ) * 180 / Math.PI;
-
-                        let angleDiff = Math.abs(userAngle - nodeAngle);
-                        if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-                        // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                        if (angleDiff >= 40) return;
-                    }
-
-                    const dist = Math.hypot(point.x - snapPoint.x, point.y - snapPoint.y);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closest = {
-                            x: snapPoint.x,
-                            y: snapPoint.y,
-                            type: TESISAT_SNAP_TYPES.KESISIM,
-                            target: pipe
-                        };
-                    }
+                    wallEndpointSnaps.push({
+                        x: snapPoint.x,
+                        y: snapPoint.y,
+                        wall: wall
+                    });
                 });
+            });
+        });
+
+        // Duvar uç snap noktalarını kontrol et
+        wallEndpointSnaps.forEach(snap => {
+            // Açı kontrolü
+            if (userAngle !== null && this.currentStartPoint) {
+                const nodeAngle = Math.atan2(
+                    snap.y - this.currentStartPoint.y,
+                    snap.x - this.currentStartPoint.x
+                ) * 180 / Math.PI;
+
+                let angleDiff = Math.abs(userAngle - nodeAngle);
+                if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+                // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
+                if (angleDiff >= 40) return;
+            }
+
+            const dist = Math.hypot(point.x - snap.x, point.y - snap.y);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = {
+                    x: snap.x,
+                    y: snap.y,
+                    type: TESISAT_SNAP_TYPES.KESISIM,
+                    target: snap.wall
+                };
+            }
+        });
+
+        // Boru uç noktalarını da kontrol et (mevcut borular)
+        this.manager.pipes.forEach(pipe => {
+            [pipe.p1, pipe.p2].forEach(endpoint => {
+                // Açı kontrolü
+                if (userAngle !== null && this.currentStartPoint) {
+                    const nodeAngle = Math.atan2(
+                        endpoint.y - this.currentStartPoint.y,
+                        endpoint.x - this.currentStartPoint.x
+                    ) * 180 / Math.PI;
+
+                    let angleDiff = Math.abs(userAngle - nodeAngle);
+                    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+                    if (angleDiff >= 40) return;
+                }
+
+                const dist = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = {
+                        x: endpoint.x,
+                        y: endpoint.y,
+                        type: TESISAT_SNAP_TYPES.KESISIM,
+                        target: pipe
+                    };
+                }
             });
         });
 

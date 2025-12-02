@@ -857,9 +857,9 @@ export class InteractionManager {
         if (this.dragObject.type === 'boru' && this.isBodyDrag) {
             const pipe = this.dragObject;
 
-            // Snap ile delta hesapla
-            const dx = targetPoint.x - this.dragStart.x;
-            const dy = targetPoint.y - this.dragStart.y;
+            // Snap KULLANMA - raw point kullan
+            const dx = point.x - this.dragStart.x;
+            const dy = point.y - this.dragStart.y;
 
             // İlk harekette yönü belirle ve lock et
             if (this.bodyDragDirection === null && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
@@ -893,9 +893,16 @@ export class InteractionManager {
             pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
 
             if (isShiftPressed) {
-                // SHIFT basılıysa tüm bağlı hattı taşı (recursive)
-                this.updateConnectedPipesChainRecursive(oldP1, pipe.p1, offsetX, offsetY, new Set([pipe.id]));
-                this.updateConnectedPipesChainRecursive(oldP2, pipe.p2, offsetX, offsetY, new Set([pipe.id]));
+                // SHIFT basılıysa tüm bağlı hattı taşı
+                // Tüm bağlı boruları bul ve taşı
+                const connectedPipes = this.findAllConnectedPipes(pipe);
+                connectedPipes.forEach(connectedPipe => {
+                    if (connectedPipe.id === pipe.id) return; // Ana boruyu atla (zaten taşındı)
+                    connectedPipe.p1.x += offsetX;
+                    connectedPipe.p1.y += offsetY;
+                    connectedPipe.p2.x += offsetX;
+                    connectedPipe.p2.y += offsetY;
+                });
             } else {
                 // Sadece bu borunun uçlarını güncelle
                 this.updateConnectedPipesChain(oldP1, pipe.p1);
@@ -934,48 +941,36 @@ export class InteractionManager {
     }
 
     /**
-     * SHIFT ile tüm bağlı hattı taşı (recursive)
+     * Bir boruya bağlı tüm boruları bul (BFS ile)
      */
-    updateConnectedPipesChainRecursive(oldPoint, newPoint, offsetX, offsetY, processedIds) {
+    findAllConnectedPipes(startPipe) {
         const tolerance = 0.5; // cm
+        const connected = new Set();
+        const queue = [startPipe];
+        const visited = new Set([startPipe.id]);
 
-        // Eski noktaya bağlı tüm boruları bul
-        this.manager.pipes.forEach(pipe => {
-            // Zaten işlendiyse atla
-            if (processedIds.has(pipe.id)) return;
+        while (queue.length > 0) {
+            const currentPipe = queue.shift();
+            connected.add(currentPipe);
 
-            let updated = false;
-            let otherEnd = null;
+            // Bu borunun uçlarına bağlı diğer boruları bul
+            [currentPipe.p1, currentPipe.p2].forEach(endpoint => {
+                this.manager.pipes.forEach(pipe => {
+                    if (visited.has(pipe.id)) return;
 
-            // p1'e bağlıysa
-            if (Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y) < tolerance) {
-                pipe.p1.x = newPoint.x;
-                pipe.p1.y = newPoint.y;
-                // p2'yi de taşı
-                pipe.p2.x += offsetX;
-                pipe.p2.y += offsetY;
-                otherEnd = { old: { x: pipe.p2.x - offsetX, y: pipe.p2.y - offsetY }, new: { ...pipe.p2 } };
-                updated = true;
-            }
-            // p2'ye bağlıysa
-            else if (Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y) < tolerance) {
-                pipe.p2.x = newPoint.x;
-                pipe.p2.y = newPoint.y;
-                // p1'i de taşı
-                pipe.p1.x += offsetX;
-                pipe.p1.y += offsetY;
-                otherEnd = { old: { x: pipe.p1.x - offsetX, y: pipe.p1.y - offsetY }, new: { ...pipe.p1 } };
-                updated = true;
-            }
+                    // p1 veya p2'si endpoint'e bağlı mı?
+                    const p1Connected = Math.hypot(pipe.p1.x - endpoint.x, pipe.p1.y - endpoint.y) < tolerance;
+                    const p2Connected = Math.hypot(pipe.p2.x - endpoint.x, pipe.p2.y - endpoint.y) < tolerance;
 
-            if (updated) {
-                processedIds.add(pipe.id);
-                // Diğer ucu da recursive güncelle
-                if (otherEnd) {
-                    this.updateConnectedPipesChainRecursive(otherEnd.old, otherEnd.new, offsetX, offsetY, processedIds);
-                }
-            }
-        });
+                    if (p1Connected || p2Connected) {
+                        visited.add(pipe.id);
+                        queue.push(pipe);
+                    }
+                });
+            });
+        }
+
+        return Array.from(connected);
     }
 
     endDrag() {
