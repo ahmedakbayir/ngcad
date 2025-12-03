@@ -1043,6 +1043,7 @@ export class InteractionManager {
         this.pipeEndpointSnapLock = null; // Snap lock'u temizle
         this.pipeSnapMouseStart = null; // Mouse start pozisyonunu temizle
         this.manager.saveToState();
+        saveState(); // Save to undo history
     }
 
     /**
@@ -1146,6 +1147,7 @@ export class InteractionManager {
         this.dragObject = null;
         this.rotationOffset = 0;
         this.manager.saveToState();
+        saveState(); // Save to undo history
     }
 
     updateConnectedPipe(result) {
