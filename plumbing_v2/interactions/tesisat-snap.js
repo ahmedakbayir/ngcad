@@ -208,34 +208,36 @@ export class TesisatSnapSystem {
                 }
 
                 // Dış köşeler için: genişletilmiş çizgi kesişimi
-                // (Aynı tarafta olan hatlar - outer corners)
-                if (hatlar[i].side === hatlar[j].side) {
-                    const outerKesisim = this.lineIntersectionExtended(
-                        hatlar[i].p1, hatlar[i].p2,
-                        hatlar[j].p1, hatlar[j].p2
+                // Side kontrolü KALDIRILDI - tüm genişletilmiş kesişimleri kontrol et
+                const outerKesisim = this.lineIntersectionExtended(
+                    hatlar[i].p1, hatlar[i].p2,
+                    hatlar[j].p1, hatlar[j].p2
+                );
+
+                if (outerKesisim) {
+                    // Her iki hattın segment uçlarına olan uzaklıkları
+                    const dist1 = Math.min(
+                        Math.hypot(outerKesisim.x - hatlar[i].p1.x, outerKesisim.y - hatlar[i].p1.y),
+                        Math.hypot(outerKesisim.x - hatlar[i].p2.x, outerKesisim.y - hatlar[i].p2.y)
+                    );
+                    const dist2 = Math.min(
+                        Math.hypot(outerKesisim.x - hatlar[j].p1.x, outerKesisim.y - hatlar[j].p1.y),
+                        Math.hypot(outerKesisim.x - hatlar[j].p2.x, outerKesisim.y - hatlar[j].p2.y)
                     );
 
-                    if (outerKesisim) {
-                        // Kesişim noktası duvar uçlarına yakın mı kontrol et
-                        const maxExtension = 500; // cm - maksimum uzatma mesafesi (200'den 500'e artırıldı)
-                        const dist1 = Math.min(
-                            Math.hypot(outerKesisim.x - hatlar[i].p1.x, outerKesisim.y - hatlar[i].p1.y),
-                            Math.hypot(outerKesisim.x - hatlar[i].p2.x, outerKesisim.y - hatlar[i].p2.y)
-                        );
-                        const dist2 = Math.min(
-                            Math.hypot(outerKesisim.x - hatlar[j].p1.x, outerKesisim.y - hatlar[j].p1.y),
-                            Math.hypot(outerKesisim.x - hatlar[j].p2.x, outerKesisim.y - hatlar[j].p2.y)
-                        );
+                    // Kesişim noktası segment dışında mı? (outer corner için gerekli)
+                    const onSegment1 = this.isPointOnSegment(outerKesisim, hatlar[i].p1, hatlar[i].p2, 1);
+                    const onSegment2 = this.isPointOnSegment(outerKesisim, hatlar[j].p1, hatlar[j].p2, 1);
 
-                        // Kesişim noktası her iki hattın uçlarına da makul mesafede ise ekle
-                        if (dist1 < maxExtension && dist2 < maxExtension) {
-                            kesisimler.push({
-                                x: outerKesisim.x,
-                                y: outerKesisim.y,
-                                hatlar: [hatlar[i], hatlar[j]],
-                                type: 'outer' // Dış köşe
-                            });
-                        }
+                    // Dış köşe: kesişim segment dışında VE makul uzaklıkta
+                    const maxExtension = 500; // cm
+                    if (!onSegment1 && !onSegment2 && dist1 < maxExtension && dist2 < maxExtension) {
+                        kesisimler.push({
+                            x: outerKesisim.x,
+                            y: outerKesisim.y,
+                            hatlar: [hatlar[i], hatlar[j]],
+                            type: 'outer' // Dış köşe
+                        });
                     }
                 }
             }
@@ -741,6 +743,22 @@ export class TesisatSnapSystem {
      */
     perpendicularPoint(point, lineStart, lineEnd) {
         return this.projectToLine(point, lineStart, lineEnd);
+    }
+
+    /**
+     * Nokta segment üzerinde mi kontrol et
+     */
+    isPointOnSegment(point, segStart, segEnd, tolerance = 1) {
+        const ax = point.x - segStart.x;
+        const ay = point.y - segStart.y;
+        const bx = segEnd.x - segStart.x;
+        const by = segEnd.y - segStart.y;
+        const len2 = bx * bx + by * by;
+
+        if (len2 === 0) return false;
+
+        const t = (ax * bx + ay * by) / len2;
+        return t >= -tolerance && t <= 1 + tolerance;
     }
 
     /**
