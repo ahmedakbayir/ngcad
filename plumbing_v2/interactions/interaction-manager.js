@@ -759,6 +759,15 @@ export class InteractionManager {
         // Başlangıç noktalarını kaydet
         this.bodyDragInitialP1 = { ...pipe.p1 };
         this.bodyDragInitialP2 = { ...pipe.p2 };
+
+        // Borunun açısına göre dragAxis belirle
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+        // Açı < 45° ise yatay boru → sadece Y'de hareket et (dragAxis='y')
+        // Açı >= 45° ise dikey boru → sadece X'de hareket et (dragAxis='x')
+        this.dragAxis = (angle < 45) ? 'y' : 'x';
+        console.log('🎯 BORU BODY DRAG START - angle:', angle, '→ dragAxis:', this.dragAxis);
     }
 
     handleDrag(point) {
@@ -851,30 +860,29 @@ export class InteractionManager {
         // Boru gövdesi taşıma - sadece x veya y yönünde
         if (this.dragObject.type === 'boru' && this.isBodyDrag) {
             const pipe = this.dragObject;
-            const dx = point.x - this.dragStart.x;
-            const dy = point.y - this.dragStart.y;
+            let dx = point.x - this.dragStart.x;
+            let dy = point.y - this.dragStart.y;
 
-            // Hangi yönde daha fazla hareket var?
-            let offsetX = 0;
-            let offsetY = 0;
-
-            if (Math.abs(dx) > Math.abs(dy)) {
-                // X yönünde taşı
-                offsetX = dx;
-            } else {
-                // Y yönünde taşı
-                offsetY = dy;
+            // dragAxis'e göre hareketi sınırla
+            if (this.dragAxis === 'x') {
+                dy = 0; // Sadece X yönünde hareket
+                console.log('  → X ekseninde hareket, dy=0');
+            } else if (this.dragAxis === 'y') {
+                dx = 0; // Sadece Y yönünde hareket
+                console.log('  → Y ekseninde hareket, dx=0');
             }
+
+            console.log('🔧 BORU BODY MOVE - dragAxis:', this.dragAxis, 'dx:', dx.toFixed(2), 'dy:', dy.toFixed(2));
 
             // ŞU ANKİ pozisyonları kaydet (henüz güncellenmeden önce)
             const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
             const oldP2 = { x: pipe.p2.x, y: pipe.p2.y };
 
             // Her iki ucu da yeni pozisyona taşı
-            pipe.p1.x = this.bodyDragInitialP1.x + offsetX;
-            pipe.p1.y = this.bodyDragInitialP1.y + offsetY;
-            pipe.p2.x = this.bodyDragInitialP2.x + offsetX;
-            pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
+            pipe.p1.x = this.bodyDragInitialP1.x + dx;
+            pipe.p1.y = this.bodyDragInitialP1.y + dy;
+            pipe.p2.x = this.bodyDragInitialP2.x + dx;
+            pipe.p2.y = this.bodyDragInitialP2.y + dy;
 
             // Bağlı boruları güncelle (her iki uç için)
             // oldPoint = şu anki pozisyon, newPoint = yeni pozisyon
@@ -920,6 +928,7 @@ export class InteractionManager {
         this.isBodyDrag = false;
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
+        this.dragAxis = null;
         this.manager.saveToState();
     }
 
