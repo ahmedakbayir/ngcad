@@ -66,6 +66,11 @@ export class PlumbingRenderer {
         if (manager.interactionManager?.measurementActive) {
             this.drawMeasurementInput(ctx, manager.interactionManager);
         }
+
+        // Boru uç noktası snap guide çizgileri
+        if (manager.interactionManager?.pipeEndpointSnapLock) {
+            this.drawPipeEndpointSnapGuides(ctx, manager.interactionManager);
+        }
     }
 
     drawPipes(ctx, pipes) {
@@ -811,5 +816,67 @@ export class PlumbingRenderer {
         const g = parseInt(hexStr.substring(2, 4), 16);
         const b = parseInt(hexStr.substring(4, 6), 16);
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    /**
+     * Boru uç noktası snap guide çizgileri
+     */
+    drawPipeEndpointSnapGuides(ctx, interactionManager) {
+        const snapLock = interactionManager.pipeEndpointSnapLock;
+        if (!snapLock) return;
+
+        const zoom = state.zoom || 1;
+        const dragObject = interactionManager.dragObject;
+        if (!dragObject || dragObject.type !== 'boru') return;
+
+        const endpoint = interactionManager.dragEndpoint;
+        if (!endpoint) return;
+
+        const point = endpoint === 'p1' ? dragObject.p1 : dragObject.p2;
+
+        ctx.save();
+        ctx.strokeStyle = '#00FF00'; // Yeşil snap guide
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.setLineDash([5 / zoom, 5 / zoom]);
+
+        // Canvas boyutlarını al (görünür alan)
+        const canvas = ctx.canvas;
+        const rect = canvas.getBoundingClientRect();
+        const panX = state.panX || 0;
+        const panY = state.panY || 0;
+
+        // Görünür dünya koordinatları
+        const minX = -panX / zoom - 500;
+        const maxX = -panX / zoom + canvas.width / zoom + 500;
+        const minY = -panY / zoom - 500;
+        const maxY = -panY / zoom + canvas.height / zoom + 500;
+
+        // X ekseni snap'i varsa dikey çizgi çiz
+        if (snapLock.x !== null) {
+            ctx.beginPath();
+            ctx.moveTo(snapLock.x, minY);
+            ctx.lineTo(snapLock.x, maxY);
+            ctx.stroke();
+        }
+
+        // Y ekseni snap'i varsa yatay çizgi çiz
+        if (snapLock.y !== null) {
+            ctx.beginPath();
+            ctx.moveTo(minX, snapLock.y);
+            ctx.lineTo(maxX, snapLock.y);
+            ctx.stroke();
+        }
+
+        // Snap noktasında daire çiz
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#00FF00';
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 4 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1 / zoom;
+        ctx.stroke();
+
+        ctx.restore();
     }
 }

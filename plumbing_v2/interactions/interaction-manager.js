@@ -880,12 +880,20 @@ export class InteractionManager {
 
                 // Yeni snap bulunduysa uygula ve kilitle
                 if (bestSnapX.value !== null || bestSnapY.value !== null) {
+                    console.log('🎯 Boru uç snap bulundu!', {
+                        snapX: bestSnapX.value,
+                        snapY: bestSnapY.value,
+                        diffX: bestSnapX.diff,
+                        diffY: bestSnapY.diff
+                    });
                     this.pipeEndpointSnapLock = {
                         x: bestSnapX.value,
                         y: bestSnapY.value
                     };
                     if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
                     if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
+                } else {
+                    console.log('❌ Snap bulunamadı, mevcut pos:', finalPos);
                 }
             }
 
