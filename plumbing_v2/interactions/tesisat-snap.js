@@ -255,21 +255,12 @@ export class TesisatSnapSystem {
         let minDist = tolerance;
 
         kesisimler.forEach(k => {
-            // Açı kontrolü
-            if (userAngle !== null && this.currentStartPoint) {
-                const kesisimAngle = Math.atan2(
-                    k.y - this.currentStartPoint.y,
-                    k.x - this.currentStartPoint.x
-                ) * 180 / Math.PI;
-
-                let angleDiff = Math.abs(userAngle - kesisimAngle);
-                if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-                // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                if (angleDiff >= 40) return;
-            }
-
             const dist = Math.hypot(point.x - k.x, point.y - k.y);
+
+            // Kesişim noktaları için açı kontrolü KALDIRDIK
+            // Çünkü kesişim noktaları en yüksek öncelikli ve her zaman yakalanmalı
+            // Özellikle dış köşeler (outer corners) için bu önemli
+
             if (dist < minDist) {
                 minDist = dist;
                 closest = {
@@ -313,19 +304,11 @@ export class TesisatSnapSystem {
             );
 
             if (kesisim) {
-                // Açı kontrolü
-                const kesisimAngle = Math.atan2(
-                    kesisim.y - this.currentStartPoint.y,
-                    kesisim.x - this.currentStartPoint.x
-                ) * 180 / Math.PI;
-
-                let angleDiff = Math.abs(userAngle - kesisimAngle);
-                if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-                // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                if (angleDiff >= 40) return;
-
                 const dist = Math.hypot(point.x - kesisim.x, point.y - kesisim.y);
+
+                // Boru kesişimleri için açı kontrolü KALDIRDIK
+                // Kesişim noktaları her zaman yakalanmalı
+
                 if (dist < minDist) {
                     minDist = dist;
                     closest = {
@@ -361,21 +344,11 @@ export class TesisatSnapSystem {
 
         this.manager.pipes.forEach(pipe => {
             [pipe.p1, pipe.p2].forEach(node => {
-                // Açı kontrolü
-                if (userAngle !== null && this.currentStartPoint) {
-                    const nodeAngle = Math.atan2(
-                        node.y - this.currentStartPoint.y,
-                        node.x - this.currentStartPoint.x
-                    ) * 180 / Math.PI;
-
-                    let angleDiff = Math.abs(userAngle - nodeAngle);
-                    if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-                    // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                    if (angleDiff >= 40) return;
-                }
-
                 const dist = Math.hypot(point.x - node.x, point.y - node.y);
+
+                // Boru uç noktaları için açı kontrolü KALDIRDIK
+                // Uç noktalar önemli bağlantı noktaları ve her zaman yakalanmalı
+
                 if (dist < minDist) {
                     minDist = dist;
                     closest = {
