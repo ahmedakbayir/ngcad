@@ -89,7 +89,7 @@ export class PlumbingRenderer {
             // Zoom kompenzasyonu - uzaklaştıkça çok hızlı incelmesin
             const zoom = state.zoom || 1;
             const zoomCompensation = Math.pow(zoom, 0.6); // 0.6: incelme oranı (küçültülürse daha yavaş incelir)
-            const width = config.lineWidth / zoomCompensation;
+            const width = config.lineWidth ;
 
             ctx.save();
 
@@ -244,7 +244,7 @@ export class PlumbingRenderer {
         // Geçici boru için de aynı stil ve zoom kompenzasyonu
         const zoom = state.zoom || 1;
         const zoomCompensation = Math.pow(zoom, 0.6);
-        const width = 4 / zoomCompensation;
+        const width = 4 
         const dx = geciciBoru.p2.x - geciciBoru.p1.x;
         const dy = geciciBoru.p2.y - geciciBoru.p1.y;
         const length = Math.hypot(dx, dy);
@@ -619,8 +619,8 @@ export class PlumbingRenderer {
         if (!pipes) return;
 
         const zoom = state.zoom || 1;
-        const baseFontSize = 10;
-        const ZOOM_EXPONENT = -0.65;
+        const baseFontSize = 8;
+        const ZOOM_EXPONENT = -0.1;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
 
@@ -630,7 +630,7 @@ export class PlumbingRenderer {
             const length = Math.hypot(dx, dy);
 
             // Çok kısa borularda ölçü gösterme
-            if (length < 10) return;
+            if (length < 15) return;
 
             // Borunun ortası
             const midX = (pipe.p1.x + pipe.p2.x) / 2;
@@ -644,7 +644,7 @@ export class PlumbingRenderer {
             const width = config.lineWidth;
 
             // Ölçü offset (boruya temas etmeden, en yakınına)
-            const offset = width / 2 - 8; // 1cm yukarı
+            const offset = width / 2 - 10; // 1cm yukarı
 
             // Normal vektör (boruya dik)
             const normalX = -Math.sin(angle);
@@ -672,7 +672,7 @@ export class PlumbingRenderer {
             const displayText = roundedLength.toString();
 
             // Yazıyı çiz (arka plan yok)
-            const adjustedTextColor = getAdjustedColor('#ffffff', 'boru');
+            const adjustedTextColor = getAdjustedColor('rgba(214, 214, 214, 1)', 'boru');
             ctx.fillStyle = adjustedTextColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -689,8 +689,8 @@ export class PlumbingRenderer {
         if (!geciciBoru) return;
 
         const zoom = state.zoom || 1;
-        const baseFontSize = 10;
-        const ZOOM_EXPONENT = -0.65;
+        const baseFontSize = 8;
+        const ZOOM_EXPONENT = -0.1;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
 
@@ -709,7 +709,7 @@ export class PlumbingRenderer {
 
         // Ölçü offset
         const width = 4; // geçici boru genişliği
-        const offset = width / 2 -8;
+        const offset = width / 2 -10;
 
         // Normal vektör
         const normalX = -Math.sin(angle);
@@ -737,7 +737,7 @@ export class PlumbingRenderer {
         const displayText = roundedLength.toString();
 
         // Yazıyı çiz (geçici için farklı renk, arka plan yok)
-        const adjustedTextColor = getAdjustedColor('rgba(255, 255, 0, 1)', 'boru');
+        const adjustedTextColor = getAdjustedColor('rgba(214, 214, 214, 1)', 'boru');
 
         ctx.fillStyle = adjustedTextColor;
         ctx.textAlign = "center";
