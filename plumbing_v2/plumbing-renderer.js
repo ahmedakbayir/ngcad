@@ -91,10 +91,21 @@ export class PlumbingRenderer {
             const length = Math.hypot(dx, dy);
             const angle = Math.atan2(dy, dx);
 
-            // Zoom kompenzasyonu - uzaklaştıkça çok hızlı incelmesin
+            // Zoom kompenzasyonu - 5x zoom'a kadar sabit, sonra incelmeye başla
             const zoom = state.zoom || 1;
-            const zoomCompensation = Math.pow(zoom, 0.6); // 0.6: incelme oranı (küçültülürse daha yavaş incelir)
-            const width = config.lineWidth ;
+            const ZOOM_THRESHOLD = 5.0; // 5x zoom'a kadar sabit kalınlık
+            let effectiveZoom = zoom;
+
+            if (zoom < ZOOM_THRESHOLD) {
+                // 5x'e kadar zoom faktörü 1 (sabit kalınlık)
+                effectiveZoom = 1;
+            } else {
+                // 5x'ten sonra zoom faktörünü normalize et (5x = 1 olacak şekilde)
+                effectiveZoom = zoom / ZOOM_THRESHOLD;
+            }
+
+            const zoomCompensation = Math.pow(effectiveZoom, 0.4); // 0.4: incelme oranı
+            const width = config.lineWidth / zoomCompensation;
 
             ctx.save();
 
