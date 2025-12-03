@@ -149,10 +149,15 @@ export class InteractionManager {
             return true;
         }
 
-        // 3. Nesne seçimi ve sürükleme - SEÇ, TESİSAT VE KARMA MODLARINDA
-        const isSelectionMode = state.currentMode === 'select' ||
-                                state.currentMode === 'plumbingV2' ||
-                                state.currentMode === 'MİMARİ-TESİSAT';
+        // 3. Nesne seçimi ve sürükleme
+        // Tesisat nesneleri sadece TESİSAT veya KARMA modunda seçilebilir
+        const isPlumbingAllowed = state.currentDrawingMode === 'TESİSAT' ||
+                                   state.currentDrawingMode === 'KARMA';
+
+        const isSelectionMode = (state.currentMode === 'select' ||
+                                 state.currentMode === 'plumbingV2' ||
+                                 state.currentMode === 'MİMARİ-TESİSAT') &&
+                                isPlumbingAllowed;
 
         if (isSelectionMode) {
             // Önce seçili servis kutusunun döndürme tutamacını kontrol et
