@@ -402,15 +402,6 @@ export class InteractionManager {
     placeComponent(point) {
         if (!this.manager.tempComponent) return;
 
-        // Eğer boru çizimi aktifse, önce bitir (state kaydet)
-        if (this.boruCizimAktif) {
-            this.manager.saveToState();
-            this.boruCizimAktif = false;
-            this.boruBaslangic = null;
-            this.geciciBoruBitis = null;
-            this.snapSystem.clearStartPoint();
-        }
-
         // Undo için state kaydet
         saveState();
 
@@ -459,11 +450,6 @@ export class InteractionManager {
      * Boru çizim modunu başlat
      */
     startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null) {
-        // Yeni bir çizim başlatılıyorsa (çizim aktif değilse) undo için state kaydet
-        if (!this.boruCizimAktif) {
-            saveState();
-        }
-
         this.boruCizimAktif = true;
         this.boruBaslangic = {
             nokta: baslangicNoktasi,
@@ -479,8 +465,8 @@ export class InteractionManager {
     handleBoruClick(point) {
         if (!this.boruBaslangic) return;
 
-        // NOT: saveState artık startBoruCizim'de çağrılıyor (ilk boru için)
-        // Her boru için saveState çağırmıyoruz, böylece undo tek seferde tüm boru zincirini geri alır
+        // Undo için state kaydet (her boru için ayrı undo entry)
+        saveState();
 
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
@@ -599,10 +585,6 @@ export class InteractionManager {
      */
     cancelCurrentAction() {
         if (this.boruCizimAktif) {
-            // Boru çizimi iptal edildiğinde state'i kaydet (undo için)
-            // Böylece kullanıcı undo ile iptal etmeden önceki duruma dönebilir
-            this.manager.saveToState();
-
             this.boruCizimAktif = false;
             this.boruBaslangic = null;
             this.geciciBoruBitis = null;
@@ -644,7 +626,6 @@ export class InteractionManager {
 
         // Undo için state kaydet
         saveState();
-        this.manager.saveToState();
 
         const obj = this.selectedObject;
 
@@ -652,6 +633,9 @@ export class InteractionManager {
             if (confirm(obj.getDeleteInfo().uyari)) {
                 this.removeObject(obj);
                 this.manager.saveToState();
+            } else {
+                // İptal edildi, return
+                return;
             }
         } else {
             this.removeObject(obj);
