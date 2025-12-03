@@ -759,6 +759,20 @@ export class InteractionManager {
         // Başlangıç noktalarını kaydet
         this.bodyDragInitialP1 = { ...pipe.p1 };
         this.bodyDragInitialP2 = { ...pipe.p2 };
+
+        // Borunun açısını hesapla ve drag axis'i belirle (duvar mantığı)
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+        let dragAxis = null;
+        if (Math.abs(angle - 45) < 1) {
+            dragAxis = null; // 45 derece ise serbest
+        } else if (angle < 45) {
+            dragAxis = 'y'; // Yatay boru, sadece Y yönünde taşı
+        } else {
+            dragAxis = 'x'; // Dikey boru, sadece X yönünde taşı
+        }
+        this.dragAxis = dragAxis;
     }
 
     handleDrag(point) {
@@ -848,23 +862,22 @@ export class InteractionManager {
             return;
         }
 
-        // Boru gövdesi taşıma - sadece x veya y yönünde
+        // Boru gövdesi taşıma - sadece x veya y yönünde (duvar mantığı)
         if (this.dragObject.type === 'boru' && this.isBodyDrag) {
             const pipe = this.dragObject;
             const dx = point.x - this.dragStart.x;
             const dy = point.y - this.dragStart.y;
 
-            // Hangi yönde daha fazla hareket var?
-            let offsetX = 0;
-            let offsetY = 0;
+            // Drag axis'e göre hareketi kısıtla (duvar gibi)
+            let offsetX = dx;
+            let offsetY = dy;
 
-            if (Math.abs(dx) > Math.abs(dy)) {
-                // X yönünde taşı
-                offsetX = dx;
-            } else {
-                // Y yönünde taşı
-                offsetY = dy;
+            if (this.dragAxis === 'x') {
+                offsetY = 0; // Sadece X yönünde taşı
+            } else if (this.dragAxis === 'y') {
+                offsetX = 0; // Sadece Y yönünde taşı
             }
+            // dragAxis === null ise her iki yönde de taşınabilir
 
             // ŞU ANKİ pozisyonları kaydet (henüz güncellenmeden önce)
             const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
