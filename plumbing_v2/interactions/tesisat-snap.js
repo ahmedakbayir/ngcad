@@ -217,7 +217,7 @@ export class TesisatSnapSystem {
 
                     if (outerKesisim) {
                         // Kesişim noktası duvar uçlarına yakın mı kontrol et
-                        const maxExtension = 100; // cm - maksimum uzatma mesafesi
+                        const maxExtension = 500; // cm - maksimum uzatma mesafesi (200'den 500'e artırıldı)
                         const dist1 = Math.min(
                             Math.hypot(outerKesisim.x - hatlar[i].p1.x, outerKesisim.y - hatlar[i].p1.y),
                             Math.hypot(outerKesisim.x - hatlar[i].p2.x, outerKesisim.y - hatlar[i].p2.y)
@@ -255,21 +255,10 @@ export class TesisatSnapSystem {
         let minDist = tolerance;
 
         kesisimler.forEach(k => {
-            // Açı kontrolü
-            if (userAngle !== null && this.currentStartPoint) {
-                const kesisimAngle = Math.atan2(
-                    k.y - this.currentStartPoint.y,
-                    k.x - this.currentStartPoint.x
-                ) * 180 / Math.PI;
-
-                let angleDiff = Math.abs(userAngle - kesisimAngle);
-                if (angleDiff > 180) angleDiff = 360 - angleDiff;
-
-                // Kullanıcı bu yöne gitmiyorsa snap yapma (45° tolerans)
-                if (angleDiff >= 40) return;
-            }
-
             const dist = Math.hypot(point.x - k.x, point.y - k.y);
+
+            // Kesişim noktaları öncelikli - açı kontrolü yok!
+            // Kullanıcı tüm köşe noktalarına snap olabilmeli
             if (dist < minDist) {
                 minDist = dist;
                 closest = {

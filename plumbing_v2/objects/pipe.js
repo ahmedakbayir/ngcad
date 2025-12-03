@@ -20,14 +20,14 @@ export const BORU_TIPLERI = {
         name: 'Standart Boru',
         diameter: 2,        // cm
         color: 0xFFFF00,    // Sarı (doğalgaz)
-        lineWidth: 4
+        lineWidth: 12       // 4'ten 12'ye artırıldı - yakın zoom'da daha kalın
     },
     KALIN: {
         id: 'kalin',
         name: 'Kalın Boru',
         diameter: 4,
         color: 0xFFCC00,    // Koyu sarı
-        lineWidth: 6
+        lineWidth: 18       // 6'dan 18'e artırıldı
     }
 };
 
