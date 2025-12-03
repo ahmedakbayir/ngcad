@@ -49,6 +49,9 @@ export class InteractionManager {
 
         // Seçili nesne
         this.selectedObject = null;
+
+        // Boru uç noktası snap lock (duvar node snap gibi)
+        this.pipeEndpointSnapLock = null;
     }
 
     /**
@@ -790,16 +793,113 @@ export class InteractionManager {
 
             const oldPoint = this.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
 
-            if (this.dragEndpoint === 'p1') {
-                pipe.p1.x = point.x;
-                pipe.p1.y = point.y;
+            // DUVAR SNAP SİSTEMİ (wall-handler.js mantığı)
+            const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
+            const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm)
+            const walls = state.walls || [];
+            let finalPos;
+
+            // Eğer zaten snap'lenmişse, LOCK POZİSYONUNU kullan
+            if (this.pipeEndpointSnapLock) {
+                const lockX = this.pipeEndpointSnapLock.x;
+                const lockY = this.pipeEndpointSnapLock.y;
+
+                // Lock pozisyonundan başla
+                finalPos = {
+                    x: lockX !== null ? lockX : point.x,
+                    y: lockY !== null ? lockY : point.y
+                };
+
+                // Snap'lenmiş pozisyondan ne kadar uzak?
+                const distFromLockX = lockX !== null ? Math.abs(point.x - lockX) : Infinity;
+                const distFromLockY = lockY !== null ? Math.abs(point.y - lockY) : Infinity;
+
+                // Mouse snap mesafesinden çıktı mı kontrol et
+                if ((lockX !== null && distFromLockX >= SNAP_RELEASE_DISTANCE) &&
+                    (lockY !== null && distFromLockY >= SNAP_RELEASE_DISTANCE)) {
+                    // Her iki eksende de snap'ten çıktı, lock'u temizle
+                    this.pipeEndpointSnapLock = null;
+                    finalPos = { x: point.x, y: point.y };
+                }
+                // Sadece bir eksende snap'ten çıktıysa, o ekseni serbest bırak
+                else {
+                    if (lockX !== null && distFromLockX >= SNAP_RELEASE_DISTANCE) {
+                        finalPos.x = point.x;
+                        this.pipeEndpointSnapLock = {
+                            x: null,
+                            y: this.pipeEndpointSnapLock.y
+                        };
+                    }
+                    if (lockY !== null && distFromLockY >= SNAP_RELEASE_DISTANCE) {
+                        finalPos.y = point.y;
+                        this.pipeEndpointSnapLock = {
+                            x: this.pipeEndpointSnapLock.x,
+                            y: null
+                        };
+                    }
+                }
             } else {
-                pipe.p2.x = point.x;
-                pipe.p2.y = point.y;
+                // Lock yok, normal pozisyondan başla
+                finalPos = { x: point.x, y: point.y };
+
+                // Yeni snap ara
+                let bestSnapX = { diff: SNAP_DISTANCE, value: null };
+                let bestSnapY = { diff: SNAP_DISTANCE, value: null };
+
+                // Tüm duvar yüzeylerine snap kontrolü
+                walls.forEach(wall => {
+                    if (!wall.p1 || !wall.p2) return;
+
+                    const wallThickness = wall.thickness || state.wallThickness || 20;
+                    const halfThickness = wallThickness / 2;
+                    const dxW = wall.p2.x - wall.p1.x;
+                    const dyW = wall.p2.y - wall.p1.y;
+                    const isVertical = Math.abs(dxW) < 0.1;
+                    const isHorizontal = Math.abs(dyW) < 0.1;
+
+                    if (isVertical) {
+                        const wallX = wall.p1.x;
+                        const snapXPositions = [wallX - halfThickness, wallX + halfThickness, wallX];
+                        for (const snapX of snapXPositions) {
+                            const diff = Math.abs(finalPos.x - snapX);
+                            if (diff < bestSnapX.diff) {
+                                bestSnapX = { diff, value: snapX };
+                            }
+                        }
+                    } else if (isHorizontal) {
+                        const wallY = wall.p1.y;
+                        const snapYPositions = [wallY - halfThickness, wallY + halfThickness, wallY];
+                        for (const snapY of snapYPositions) {
+                            const diff = Math.abs(finalPos.y - snapY);
+                            if (diff < bestSnapY.diff) {
+                                bestSnapY = { diff, value: snapY };
+                            }
+                        }
+                    }
+                });
+
+                // Yeni snap bulunduysa uygula ve kilitle
+                if (bestSnapX.value !== null || bestSnapY.value !== null) {
+                    this.pipeEndpointSnapLock = {
+                        x: bestSnapX.value,
+                        y: bestSnapY.value
+                    };
+                    if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
+                    if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
+                }
+            }
+
+            // Pozisyonu uygula
+            if (this.dragEndpoint === 'p1') {
+                pipe.p1.x = finalPos.x;
+                pipe.p1.y = finalPos.y;
+            } else {
+                pipe.p2.x = finalPos.x;
+                pipe.p2.y = finalPos.y;
             }
 
             // Bağlı boruları güncelle (tüm zinciri)
-            this.updateConnectedPipesChain(oldPoint, point);
+            this.updateConnectedPipesChain(oldPoint, finalPos);
             return;
         }
 
@@ -933,6 +1033,8 @@ export class InteractionManager {
         this.isBodyDrag = false;
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
+        this.dragAxis = null;
+        this.pipeEndpointSnapLock = null; // Snap lock'u temizle
         this.manager.saveToState();
     }
 
