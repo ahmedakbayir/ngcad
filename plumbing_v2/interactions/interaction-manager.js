@@ -402,6 +402,15 @@ export class InteractionManager {
     placeComponent(point) {
         if (!this.manager.tempComponent) return;
 
+        // Eğer boru çizimi aktifse, önce bitir (state kaydet)
+        if (this.boruCizimAktif) {
+            this.manager.saveToState();
+            this.boruCizimAktif = false;
+            this.boruBaslangic = null;
+            this.geciciBoruBitis = null;
+            this.snapSystem.clearStartPoint();
+        }
+
         // Undo için state kaydet
         saveState();
 
@@ -450,6 +459,11 @@ export class InteractionManager {
      * Boru çizim modunu başlat
      */
     startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null) {
+        // Yeni bir çizim başlatılıyorsa (çizim aktif değilse) undo için state kaydet
+        if (!this.boruCizimAktif) {
+            saveState();
+        }
+
         this.boruCizimAktif = true;
         this.boruBaslangic = {
             nokta: baslangicNoktasi,
@@ -465,8 +479,8 @@ export class InteractionManager {
     handleBoruClick(point) {
         if (!this.boruBaslangic) return;
 
-        // Undo için state kaydet
-        saveState();
+        // NOT: saveState artık startBoruCizim'de çağrılıyor (ilk boru için)
+        // Her boru için saveState çağırmıyoruz, böylece undo tek seferde tüm boru zincirini geri alır
 
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
@@ -585,6 +599,10 @@ export class InteractionManager {
      */
     cancelCurrentAction() {
         if (this.boruCizimAktif) {
+            // Boru çizimi iptal edildiğinde state'i kaydet (undo için)
+            // Böylece kullanıcı undo ile iptal etmeden önceki duruma dönebilir
+            this.manager.saveToState();
+
             this.boruCizimAktif = false;
             this.boruBaslangic = null;
             this.geciciBoruBitis = null;
@@ -1215,8 +1233,12 @@ export class InteractionManager {
 
             // Eğer devam eden boru varsa, başlangıcını silinecek borunun başlangıcına bağla
             if (nextPipe) {
-                nextPipe.p1.x = deletedPipe.p1.x;
-                nextPipe.p1.y = deletedPipe.p1.y;
+                const oldP1 = { x: nextPipe.p1.x, y: nextPipe.p1.y };
+                const newP1 = { x: deletedPipe.p1.x, y: deletedPipe.p1.y };
+
+                // İlerdeki noktayı gerideki noktaya taşı
+                nextPipe.p1.x = newP1.x;
+                nextPipe.p1.y = newP1.y;
 
                 // Bağlantı bilgisini aktar
                 if (deletedPipe.baslangicBaglanti.hedefId) {
@@ -1232,10 +1254,13 @@ export class InteractionManager {
                             c => c.id === deletedPipe.baslangicBaglanti.hedefId
                         );
                         if (servisKutusu) {
-                            servisKutusu.boruBagla(nextPipe.id);
+                            servisKutusu.baglaBoru(nextPipe.id);
                         }
                     }
                 }
+
+                // Bağlı boru zincirini güncelle (ilerdeki tüm borular)
+                this.updateConnectedPipesChain(oldP1, newP1);
             }
 
             const index = this.manager.pipes.findIndex(p => p.id === obj.id);
