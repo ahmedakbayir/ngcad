@@ -691,36 +691,55 @@ export function getObjectOpacity_OLD(objectType) {
     return 1.0;
 }
 
+// Tesisat modunda mı kontrol eder
+export function isInPlumbingMode() {
+    const mode = state.currentMode;
+    return mode === 'plumbingV2' ||
+           mode === 'drawPlumbingPipe' ||
+           mode === 'drawPlumbingBlock';
+}
+
+// Mimari modunda mı kontrol eder
+export function isInArchitecturalMode() {
+    const mode = state.currentMode;
+    // Tesisat modları dışında kalan tüm modlar mimari modlarıdır
+    return !isInPlumbingMode() && mode !== 'MİMARİ-TESİSAT';
+}
+
+// Karma modda mı kontrol eder (hem tesisat hem mimari)
+export function isInMixedMode() {
+    return state.currentMode === 'MİMARİ-TESİSAT';
+}
+
 // Nesne tipine göre aktif modda dokunulabilir mi kontrol eder
 export function isObjectInteractable(objectType) {
-    const mode = state.currentDrawingMode;
-
-    // KARMA modunda her şeye dokunulabilir
-    if (mode === "KARMA") {
+    // Karma modunda her şeye dokunulabilir
+    if (isInMixedMode()) {
         return true;
     }
 
     // Mimari nesneler listesi
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'column', 'beam', 'stair', 'stairs', 'arcControl'
+        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'column', 'beam', 'stair', 'stairs', 'arcControl', 'vent'
     ];
 
     // Tesisat nesneleri listesi
     const plumbingObjects = [
-        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz', 'plumbingPipe', 'plumbingComponent'
+        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz',
+        'plumbingPipe', 'plumbingComponent', 'plumbingBlock'
     ];
 
-    const isArchitectural = architecturalObjects.includes(objectType);
-    const isPlumbing = plumbingObjects.includes(objectType);
+    const isArchitecturalObject = architecturalObjects.includes(objectType);
+    const isPlumbingObject = plumbingObjects.includes(objectType);
 
-    // MİMARİ modunda sadece mimari nesnelere dokunulabilir
-    if (mode === "MİMARİ") {
-        return isArchitectural;
+    // Tesisat modunda sadece tesisat nesnelerine dokunulabilir
+    if (isInPlumbingMode()) {
+        return isPlumbingObject;
     }
 
-    // TESİSAT modunda sadece tesisat nesnelerine dokunulabilir
-    if (mode === "TESİSAT") {
-        return isPlumbing;
+    // Mimari modunda sadece mimari nesnelere dokunulabilir
+    if (isInArchitecturalMode()) {
+        return isArchitecturalObject;
     }
 
     // Varsayılan: dokunulabilir
