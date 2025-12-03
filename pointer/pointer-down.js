@@ -262,10 +262,20 @@ export function onPointerDown(e) {
                             const pipeCenterY = (pipeObj.p1.y + pipeObj.p2.y) / 2;
                             dragInfo.startPointForDragging = { x: pipeCenterX, y: pipeCenterY };
                             dragInfo.dragOffset = { x: pipeCenterX - pos.x, y: pipeCenterY - pos.y };
+
+                            // Borunun açısına göre dragAxis belirle - HER ZAMAN x veya y
+                            const dx = pipeObj.p2.x - pipeObj.p1.x;
+                            const dy = pipeObj.p2.y - pipeObj.p1.y;
+                            const angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+                            // Açı < 45° ise yatay boru → sadece Y'de hareket et (dragAxis='y')
+                            // Açı >= 45° ise dikey boru → sadece X'de hareket et (dragAxis='x')
+                            const dragAxis = (angle < 45) ? 'y' : 'x';
+
                             // Başlangıç pozisyonlarını state'e kaydet
                             dragInfo.additionalState = {
                                 pipeInitialP1: { x: pipeObj.p1.x, y: pipeObj.p1.y },
-                                pipeInitialP2: { x: pipeObj.p2.x, y: pipeObj.p2.y }
+                                pipeInitialP2: { x: pipeObj.p2.x, y: pipeObj.p2.y },
+                                dragAxis: dragAxis
                             };
                         }
                         break;
