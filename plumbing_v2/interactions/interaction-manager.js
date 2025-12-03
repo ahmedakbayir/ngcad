@@ -793,9 +793,10 @@ export class InteractionManager {
 
             const oldPoint = this.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
 
-            // DUVAR SNAP SİSTEMİ (wall-handler.js mantığı)
+            // DUVAR SNAP SİSTEMİ - Boru açıklığı ile
             const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
             const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm)
+            const BORU_CLEARANCE = 8; // Boru-duvar arası minimum mesafe (cm)
             const walls = state.walls || [];
             let finalPos;
 
@@ -846,7 +847,7 @@ export class InteractionManager {
                 let bestSnapX = { diff: SNAP_DISTANCE, value: null };
                 let bestSnapY = { diff: SNAP_DISTANCE, value: null };
 
-                // Tüm duvar yüzeylerine snap kontrolü
+                // Tüm duvar yüzeylerine snap kontrolü - Boru clearance ekleyerek
                 walls.forEach(wall => {
                     if (!wall.p1 || !wall.p2) return;
 
@@ -859,7 +860,11 @@ export class InteractionManager {
 
                     if (isVertical) {
                         const wallX = wall.p1.x;
-                        const snapXPositions = [wallX - halfThickness, wallX + halfThickness, wallX];
+                        // Boru duvar yüzeyinden CLEARANCE kadar uzakta olmalı
+                        const snapXPositions = [
+                            wallX - halfThickness - BORU_CLEARANCE,  // Sol yüzeyden clearance kadar uzak
+                            wallX + halfThickness + BORU_CLEARANCE   // Sağ yüzeyden clearance kadar uzak
+                        ];
                         for (const snapX of snapXPositions) {
                             const diff = Math.abs(finalPos.x - snapX);
                             if (diff < bestSnapX.diff) {
@@ -868,7 +873,11 @@ export class InteractionManager {
                         }
                     } else if (isHorizontal) {
                         const wallY = wall.p1.y;
-                        const snapYPositions = [wallY - halfThickness, wallY + halfThickness, wallY];
+                        // Boru duvar yüzeyinden CLEARANCE kadar uzakta olmalı
+                        const snapYPositions = [
+                            wallY - halfThickness - BORU_CLEARANCE,  // Üst yüzeyden clearance kadar uzak
+                            wallY + halfThickness + BORU_CLEARANCE   // Alt yüzeyden clearance kadar uzak
+                        ];
                         for (const snapY of snapYPositions) {
                             const diff = Math.abs(finalPos.y - snapY);
                             if (diff < bestSnapY.diff) {
@@ -880,11 +889,12 @@ export class InteractionManager {
 
                 // Yeni snap bulunduysa uygula ve kilitle
                 if (bestSnapX.value !== null || bestSnapY.value !== null) {
-                    console.log('🎯 Boru uç snap bulundu!', {
+                    console.log('🎯 Boru uç snap bulundu! (clearance uygulanmış)', {
                         snapX: bestSnapX.value,
                         snapY: bestSnapY.value,
                         diffX: bestSnapX.diff,
-                        diffY: bestSnapY.diff
+                        diffY: bestSnapY.diff,
+                        clearance: BORU_CLEARANCE
                     });
                     this.pipeEndpointSnapLock = {
                         x: bestSnapX.value,
