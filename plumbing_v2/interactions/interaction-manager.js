@@ -52,6 +52,7 @@ export class InteractionManager {
 
         // Boru uç noktası snap lock (duvar node snap gibi)
         this.pipeEndpointSnapLock = null;
+        this.pipeSnapMouseStart = null; // Snap başladığı andaki mouse pozisyonu
     }
 
     /**
@@ -801,7 +802,7 @@ export class InteractionManager {
             let finalPos;
 
             // Eğer zaten snap'lenmişse, LOCK POZİSYONUNU kullan
-            if (this.pipeEndpointSnapLock) {
+            if (this.pipeEndpointSnapLock && this.pipeSnapMouseStart) {
                 const lockX = this.pipeEndpointSnapLock.x;
                 const lockY = this.pipeEndpointSnapLock.y;
 
@@ -811,32 +812,49 @@ export class InteractionManager {
                     y: lockY !== null ? lockY : point.y
                 };
 
-                // Snap'lenmiş pozisyondan ne kadar uzak?
-                const distFromLockX = lockX !== null ? Math.abs(point.x - lockX) : Infinity;
-                const distFromLockY = lockY !== null ? Math.abs(point.y - lockY) : Infinity;
+                // Mouse'un BAŞLANGIÇ pozisyonundan ne kadar uzaklaştı? (lock pozisyonundan değil!)
+                const distFromStartX = lockX !== null ? Math.abs(point.x - this.pipeSnapMouseStart.x) : Infinity;
+                const distFromStartY = lockY !== null ? Math.abs(point.y - this.pipeSnapMouseStart.y) : Infinity;
 
-                // Mouse snap mesafesinden çıktı mı kontrol et
-                if ((lockX !== null && distFromLockX >= SNAP_RELEASE_DISTANCE) &&
-                    (lockY !== null && distFromLockY >= SNAP_RELEASE_DISTANCE)) {
+                console.log('📍 Snap lock aktif:', {
+                    lockPos: { x: lockX, y: lockY },
+                    mouseStartPos: this.pipeSnapMouseStart,
+                    currentMousePos: { x: point.x, y: point.y },
+                    distFromStartX,
+                    distFromStartY,
+                    releaseDistance: SNAP_RELEASE_DISTANCE
+                });
+
+                // Mouse snap başlangıç noktasından çok uzaklaştı mı?
+                if ((lockX !== null && distFromStartX >= SNAP_RELEASE_DISTANCE) &&
+                    (lockY !== null && distFromStartY >= SNAP_RELEASE_DISTANCE)) {
                     // Her iki eksende de snap'ten çıktı, lock'u temizle
+                    console.log('🔓 Snap lock temizlendi (her iki eksen)');
                     this.pipeEndpointSnapLock = null;
+                    this.pipeSnapMouseStart = null;
                     finalPos = { x: point.x, y: point.y };
                 }
                 // Sadece bir eksende snap'ten çıktıysa, o ekseni serbest bırak
                 else {
-                    if (lockX !== null && distFromLockX >= SNAP_RELEASE_DISTANCE) {
+                    if (lockX !== null && distFromStartX >= SNAP_RELEASE_DISTANCE) {
+                        console.log('🔓 X ekseni snap serbest bırakıldı');
                         finalPos.x = point.x;
                         this.pipeEndpointSnapLock = {
                             x: null,
                             y: this.pipeEndpointSnapLock.y
                         };
+                        // X serbest bırakıldı, mouse start X'i güncelle
+                        this.pipeSnapMouseStart.x = point.x;
                     }
-                    if (lockY !== null && distFromLockY >= SNAP_RELEASE_DISTANCE) {
+                    if (lockY !== null && distFromStartY >= SNAP_RELEASE_DISTANCE) {
+                        console.log('🔓 Y ekseni snap serbest bırakıldı');
                         finalPos.y = point.y;
                         this.pipeEndpointSnapLock = {
                             x: this.pipeEndpointSnapLock.x,
                             y: null
                         };
+                        // Y serbest bırakıldı, mouse start Y'yi güncelle
+                        this.pipeSnapMouseStart.y = point.y;
                     }
                 }
             } else {
@@ -894,12 +912,15 @@ export class InteractionManager {
                         snapY: bestSnapY.value,
                         diffX: bestSnapX.diff,
                         diffY: bestSnapY.diff,
-                        clearance: BORU_CLEARANCE
+                        clearance: BORU_CLEARANCE,
+                        mousePos: { x: point.x, y: point.y }
                     });
                     this.pipeEndpointSnapLock = {
                         x: bestSnapX.value,
                         y: bestSnapY.value
                     };
+                    // Snap başladığı andaki mouse pozisyonunu kaydet
+                    this.pipeSnapMouseStart = { x: point.x, y: point.y };
                     if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
                     if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
                 } else {
@@ -1053,6 +1074,7 @@ export class InteractionManager {
         this.bodyDragInitialP2 = null;
         this.dragAxis = null;
         this.pipeEndpointSnapLock = null; // Snap lock'u temizle
+        this.pipeSnapMouseStart = null; // Mouse start pozisyonunu temizle
         this.manager.saveToState();
     }
 
