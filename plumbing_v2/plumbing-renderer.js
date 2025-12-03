@@ -86,10 +86,10 @@ export class PlumbingRenderer {
             const length = Math.hypot(dx, dy);
             const angle = Math.atan2(dy, dx);
 
-            // Zoom kompenzasyonu - uzaklaştıkça çok hızlı incelmesin
+            // Genişlik: Sadece zoom out yapınca kalınlaştır, zoom in yapınca NORMAL kal
             const zoom = state.zoom || 1;
-            const zoomCompensation = Math.pow(zoom, 0.6); // 0.6: incelme oranı (küçültülürse daha yavaş incelir)
-            const width = config.lineWidth / zoomCompensation;
+            const baseWidth = config.lineWidth;
+            const width = zoom < 1 ? baseWidth / Math.pow(zoom, 0.6) : baseWidth;
 
             ctx.save();
 
@@ -241,10 +241,10 @@ export class PlumbingRenderer {
     drawGeciciBoru(ctx, geciciBoru) {
         ctx.save();
 
-        // Geçici boru için de aynı stil ve zoom kompenzasyonu
+        // Geçici boru için de aynı stil
         const zoom = state.zoom || 1;
-        const zoomCompensation = Math.pow(zoom, 0.6);
-        const width = 4 / zoomCompensation;
+        const baseWidth = 4;
+        const width = zoom < 1 ? baseWidth / Math.pow(zoom, 0.6) : baseWidth;
         const dx = geciciBoru.p2.x - geciciBoru.p1.x;
         const dy = geciciBoru.p2.y - geciciBoru.p1.y;
         const length = Math.hypot(dx, dy);

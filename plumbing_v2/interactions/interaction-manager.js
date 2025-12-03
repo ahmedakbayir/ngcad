@@ -761,6 +761,8 @@ export class InteractionManager {
         this.bodyDragInitialP2 = { ...pipe.p2 };
         // Yön henüz belirlenmedi
         this.bodyDragDirection = null; // 'x' veya 'y'
+        // SHIFT için tüm boruların initial pozisyonlarını kaydet
+        this.allPipesInitialPositions = new Map();
     }
 
     handleDrag(point, event, snapInfo) {
@@ -894,14 +896,27 @@ export class InteractionManager {
 
             if (isShiftPressed) {
                 // SHIFT basılıysa tüm bağlı hattı taşı
-                // Tüm bağlı boruları bul ve taşı
-                const connectedPipes = this.findAllConnectedPipes(pipe);
-                connectedPipes.forEach(connectedPipe => {
-                    if (connectedPipe.id === pipe.id) return; // Ana boruyu atla (zaten taşındı)
-                    connectedPipe.p1.x += offsetX;
-                    connectedPipe.p1.y += offsetY;
-                    connectedPipe.p2.x += offsetX;
-                    connectedPipe.p2.y += offsetY;
+                // İlk seferde bağlı boruları bul ve initial pozisyonları kaydet
+                if (this.allPipesInitialPositions.size === 0) {
+                    const connectedPipes = this.findAllConnectedPipes(pipe);
+                    connectedPipes.forEach(connectedPipe => {
+                        if (connectedPipe.id === pipe.id) return; // Ana boruyu atla
+                        this.allPipesInitialPositions.set(connectedPipe.id, {
+                            p1: { ...connectedPipe.p1 },
+                            p2: { ...connectedPipe.p2 }
+                        });
+                    });
+                }
+
+                // Her frame'de initial pozisyonlardan offset ekleyerek güncelle
+                this.allPipesInitialPositions.forEach((initial, pipeId) => {
+                    const connectedPipe = this.manager.pipes.find(p => p.id === pipeId);
+                    if (connectedPipe) {
+                        connectedPipe.p1.x = initial.p1.x + offsetX;
+                        connectedPipe.p1.y = initial.p1.y + offsetY;
+                        connectedPipe.p2.x = initial.p2.x + offsetX;
+                        connectedPipe.p2.y = initial.p2.y + offsetY;
+                    }
                 });
             } else {
                 // Sadece bu borunun uçlarını güncelle
@@ -982,6 +997,7 @@ export class InteractionManager {
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
         this.bodyDragDirection = null; // Yön lock'unu temizle
+        this.allPipesInitialPositions = null; // Initial pozisyonları temizle
         this.manager.saveToState();
     }
 
