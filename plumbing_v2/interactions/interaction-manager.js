@@ -10,7 +10,7 @@ import { Sayac, createSayac } from '../objects/meter.js';
 import { Vana, createVana } from '../objects/valve.js';
 import { Cihaz, createCihaz } from '../objects/device.js';
 import { screenToWorld } from '../../draw/geometry.js';
-import { dom, state, setMode } from '../../general-files/main.js';
+import { dom, state, setMode, setState } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
 
 // Tool modları
@@ -612,6 +612,15 @@ export class InteractionManager {
         }
         this.selectedObject = obj;
         obj.isSelected = true;
+
+        // state.selectedObject'i de set et (DELETE tuşu için)
+        setState({
+            selectedObject: {
+                type: obj.type === 'boru' ? 'pipe' : obj.type,
+                object: obj,
+                handle: 'body'
+            }
+        });
     }
 
     deselectObject() {
@@ -619,6 +628,9 @@ export class InteractionManager {
             this.selectedObject.isSelected = false;
             this.selectedObject = null;
         }
+
+        // state.selectedObject'i de temizle
+        setState({ selectedObject: null });
     }
 
     deleteSelectedObject() {
