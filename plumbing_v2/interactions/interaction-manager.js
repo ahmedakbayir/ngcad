@@ -203,7 +203,7 @@ export class InteractionManager {
                         return true;
                     }
 
-                    this.startBodyDrag(hitObject, point);
+                    this.startBodyDrag(hitObject, point, e);
                 } else {
                     this.startDrag(hitObject, point);
                 }
@@ -750,7 +750,7 @@ export class InteractionManager {
     /**
      * Boru body sürüklemeyi başlat (sadece x veya y yönünde)
      */
-    startBodyDrag(pipe, point) {
+    startBodyDrag(pipe, point, e) {
         this.isDragging = true;
         this.dragObject = pipe;
         this.dragEndpoint = null;
@@ -759,6 +759,9 @@ export class InteractionManager {
         // Başlangıç noktalarını kaydet
         this.bodyDragInitialP1 = { ...pipe.p1 };
         this.bodyDragInitialP2 = { ...pipe.p2 };
+
+        // SHIFT tuşu kontrolü - sonraki hatları da taşı
+        this.moveChainWithShift = e && e.shiftKey;
 
         // Borunun yönüne göre drag axis'i belirle (duvar gibi)
         const dx = pipe.p2.x - pipe.p1.x;
@@ -884,10 +887,15 @@ export class InteractionManager {
             pipe.p2.x = this.bodyDragInitialP2.x + offsetX;
             pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
 
-            // Bağlı boruları güncelle (her iki uç için)
-            // oldPoint = şu anki pozisyon, newPoint = yeni pozisyon
-            this.updateConnectedPipesChain(oldP1, pipe.p1);
-            this.updateConnectedPipesChain(oldP2, pipe.p2);
+            // SHIFT basılıysa tüm chain'i taşı, değilse sadece bağlı noktaları güncelle
+            if (this.moveChainWithShift) {
+                this.moveEntireChain(pipe, oldP1, oldP2, offsetX, offsetY);
+            } else {
+                // Bağlı boruları güncelle (her iki uç için)
+                // oldPoint = şu anki pozisyon, newPoint = yeni pozisyon
+                this.updateConnectedPipesChain(oldP1, pipe.p1);
+                this.updateConnectedPipesChain(oldP2, pipe.p2);
+            }
             return;
         }
 
@@ -896,6 +904,51 @@ export class InteractionManager {
             const result = this.dragObject.move(point.x, point.y);
             this.updateConnectedPipe(result);
         }
+    }
+
+    /**
+     * SHIFT ile tüm boru zincirini taşı - bağlı tüm borular aynı miktarda ötelenir
+     */
+    moveEntireChain(draggedPipe, oldP1, oldP2, offsetX, offsetY) {
+        const tolerance = 0.5; // cm
+        const movedPipes = new Set([draggedPipe.id]); // Zaten taşınan borular
+
+        // p1 ve p2'den devam eden zincirleri taşı
+        this.moveChainFromPoint(oldP1, { x: oldP1.x + offsetX, y: oldP1.y + offsetY }, offsetX, offsetY, movedPipes, tolerance);
+        this.moveChainFromPoint(oldP2, { x: oldP2.x + offsetX, y: oldP2.y + offsetY }, offsetX, offsetY, movedPipes, tolerance);
+    }
+
+    /**
+     * Belirli bir noktadan başlayarak zinciri recursive taşı
+     */
+    moveChainFromPoint(oldPoint, newPoint, offsetX, offsetY, movedPipes, tolerance) {
+        // Bu noktaya bağlı tüm boruları bul
+        this.manager.pipes.forEach(pipe => {
+            if (movedPipes.has(pipe.id)) return; // Zaten taşınmış
+
+            let connectedAtP1 = Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y) < tolerance;
+            let connectedAtP2 = Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y) < tolerance;
+
+            if (connectedAtP1 || connectedAtP2) {
+                // Bu boruyu taşı
+                const oldPipeP1 = { ...pipe.p1 };
+                const oldPipeP2 = { ...pipe.p2 };
+
+                pipe.p1.x += offsetX;
+                pipe.p1.y += offsetY;
+                pipe.p2.x += offsetX;
+                pipe.p2.y += offsetY;
+
+                movedPipes.add(pipe.id);
+
+                // Bu borunun diğer ucundan devam et
+                if (connectedAtP1) {
+                    this.moveChainFromPoint(oldPipeP2, { x: oldPipeP2.x + offsetX, y: oldPipeP2.y + offsetY }, offsetX, offsetY, movedPipes, tolerance);
+                } else {
+                    this.moveChainFromPoint(oldPipeP1, { x: oldPipeP1.x + offsetX, y: oldPipeP1.y + offsetY }, offsetX, offsetY, movedPipes, tolerance);
+                }
+            }
+        });
     }
 
     /**
@@ -929,6 +982,7 @@ export class InteractionManager {
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
         this.bodyDragAxis = null;
+        this.moveChainWithShift = false;
         this.manager.saveToState();
     }
 
