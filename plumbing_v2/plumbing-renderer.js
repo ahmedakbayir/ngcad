@@ -91,20 +91,20 @@ export class PlumbingRenderer {
             const length = Math.hypot(dx, dy);
             const angle = Math.atan2(dy, dx);
 
-            // Zoom kompenzasyonu - 5x zoom'a kadar sabit, sonra incelmeye başla
+            // Zoom kompenzasyonu - 10x zoom'a kadar sabit, sonra çok yavaş incelmeye başla
             const zoom = state.zoom || 1;
-            const ZOOM_THRESHOLD = 5.0; // 5x zoom'a kadar sabit kalınlık
+            const ZOOM_THRESHOLD = 10.0; // 10x zoom'a kadar sabit kalınlık (önceden 5x)
             let effectiveZoom = zoom;
 
             if (zoom < ZOOM_THRESHOLD) {
-                // 5x'e kadar zoom faktörü 1 (sabit kalınlık)
+                // 10x'e kadar zoom faktörü 1 (sabit kalınlık)
                 effectiveZoom = 1;
             } else {
-                // 5x'ten sonra zoom faktörünü normalize et (5x = 1 olacak şekilde)
+                // 10x'ten sonra zoom faktörünü normalize et (10x = 1 olacak şekilde)
                 effectiveZoom = zoom / ZOOM_THRESHOLD;
             }
 
-            const zoomCompensation = Math.pow(effectiveZoom, 0.4); // 0.4: incelme oranı
+            const zoomCompensation = Math.pow(effectiveZoom, 0.3); // 0.3: çok yavaş incelme (önceden 0.4)
             const width = config.lineWidth / zoomCompensation;
 
             ctx.save();
@@ -190,7 +190,17 @@ export class PlumbingRenderer {
         // const adjustedGray = getAdjustedColor('rgba(0, 133, 133, 1)', 'boru');
         const adjustedGray = getAdjustedColor('rgba(155, 155, 0, 1)', 'boru');
 
-        
+        // Zoom kompenzasyonu - borularla aynı (10x'e kadar sabit)
+        const zoom = state.zoom || 1;
+        const ZOOM_THRESHOLD = 10.0;
+        let effectiveZoom = zoom;
+        if (zoom < ZOOM_THRESHOLD) {
+            effectiveZoom = 1;
+        } else {
+            effectiveZoom = zoom / ZOOM_THRESHOLD;
+        }
+        const zoomCompensation = Math.pow(effectiveZoom, 0.3);
+
         ctx.fillStyle = adjustedGray;
 
         breakPoints.forEach(bp => {
@@ -206,7 +216,9 @@ export class PlumbingRenderer {
                 const armLength = 3;      // 3 cm kol uzunluğu
                 const armExtraWidth = 1;  // Sağdan soldan 1 cm fazla (toplam 2 cm)
 
-                const armWidth = diameter + armExtraWidth * 2;
+                // Zoom kompenzasyonu uygula (boruyla aynı kalınlıkta kalsın)
+                const adjustedDiameter = diameter / zoomCompensation;
+                const armWidth = adjustedDiameter + armExtraWidth * 2;
 
                 if (armWidth > maxArmWidth) maxArmWidth = armWidth;
 
