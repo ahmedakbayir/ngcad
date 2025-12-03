@@ -268,7 +268,16 @@ export function handleDelete() {
         const objType = selectedObjectSnapshot.type;
         console.log('🔍 Deleting single object, type:', objType);
 
-        if (objType === 'column') {
+        // Plumbing v2 nesneleri için (boru, servis kutusu, sayaç, vana, cihaz)
+        if (objType === 'pipe' || objType === 'boru' || objType === 'servis_kutusu' || objType === 'sayac' || objType === 'vana' || objType === 'cihaz') {
+            // plumbingManager v2'nin kendi silme mekanizmasını kullan
+            const plumbingManager = window.plumbingManager;
+            if (plumbingManager && plumbingManager.interactionManager) {
+                plumbingManager.interactionManager.deleteSelectedObject();
+                deleted = true;
+            }
+        }
+        else if (objType === 'column') {
             state.columns = state.columns.filter(c => c !== selectedObjectSnapshot.object);
             deleted = true;
         }
