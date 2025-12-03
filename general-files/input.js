@@ -2,7 +2,7 @@
 // GÜNCELLENDİ: handleDelete, boru silindiğinde bağlantıyı "iyileştirecek" (heal) şekilde güncellendi.
 
 import * as THREE from "three"; // YENİ
-import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable } from './main.js'; // dom import edildiğinden emin olun
+import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable, isInPlumbingMode, isInArchitecturalMode } from './main.js'; // dom import edildiğinden emin olun
 import { getObjectAtPoint } from './actions.js';
 import { undo, redo, saveState, restoreState } from './history.js';
 import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen } from './ui.js';
@@ -825,8 +825,8 @@ function onKeyDown(e) {
 
     if (e.key.toLowerCase() === "d" && !inFPSMode) { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
 
-    // Mimari kısayollar - TESİSAT modunda çalışmaz
-    if (state.currentDrawingMode !== 'TESİSAT') {
+    // Mimari kısayollar - tesisat modunda çalışmaz
+    if (!isInPlumbingMode()) {
         if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");
         if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawRoom");
         if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawDoor");
@@ -837,8 +837,8 @@ function onKeyDown(e) {
         if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry");
     }
 
-    // Tesisat kısayolları - MİMARİ modunda çalışmaz
-    if (state.currentDrawingMode !== 'MİMARİ') {
+    // Tesisat kısayolları - mimari modunda çalışmaz
+    if (!isInArchitecturalMode()) {
         if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawPlumbingPipe");
     }
 
@@ -1021,8 +1021,8 @@ export function setupInputListeners() {
         } else if (object && object.type === 'stairs') {
             showStairPopup(object.object, e); // Merdiven sağ tık
         } else if (!object) {
-            // Boş alana tıklandı - TESİSAT modunda rehber menüsü gösterme
-            if (state.currentDrawingMode !== 'TESİSAT') {
+            // Boş alana tıklandı - tesisat modunda rehber menüsü gösterme
+            if (!isInPlumbingMode()) {
                 showGuideContextMenu(e.clientX, e.clientY, clickPos);
             }
         } else {

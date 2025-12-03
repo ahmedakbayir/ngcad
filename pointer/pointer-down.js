@@ -183,6 +183,12 @@ export function onPointerDown(e) {
 
         // Tıklanan nesne varsa seçili yap ve sürüklemeyi başlat
         if (clickedObject) {
+            // Mod izolasyonu: nesne aktif modda dokunulabilir mi kontrol et
+            if (!isObjectInteractable(clickedObject.type)) {
+                console.log('🚫 Object not interactable in current mode:', clickedObject.type);
+                return;
+            }
+
             console.log('🎯 Object clicked:', clickedObject.type, 'handle:', clickedObject.handle);
 
             // Mod izolasyonu: nesne aktif çizim modunda etkileşime açık mı kontrol et
