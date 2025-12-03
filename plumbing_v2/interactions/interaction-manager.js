@@ -759,6 +759,19 @@ export class InteractionManager {
         // Başlangıç noktalarını kaydet
         this.bodyDragInitialP1 = { ...pipe.p1 };
         this.bodyDragInitialP2 = { ...pipe.p2 };
+
+        // Borunun yönüne göre drag axis'i belirle (duvar gibi)
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+
+        if (Math.abs(angle - 45) < 1) {
+            this.bodyDragAxis = null; // 45 derece ise serbest
+        } else if (angle < 45) {
+            this.bodyDragAxis = 'y'; // Yatay boru, dikey taşı
+        } else {
+            this.bodyDragAxis = 'x'; // Dikey boru, yatay taşı
+        }
     }
 
     handleDrag(point) {
@@ -851,19 +864,14 @@ export class InteractionManager {
         // Boru gövdesi taşıma - sadece x veya y yönünde
         if (this.dragObject.type === 'boru' && this.isBodyDrag) {
             const pipe = this.dragObject;
-            const dx = point.x - this.dragStart.x;
-            const dy = point.y - this.dragStart.y;
+            let offsetX = point.x - this.dragStart.x;
+            let offsetY = point.y - this.dragStart.y;
 
-            // Hangi yönde daha fazla hareket var?
-            let offsetX = 0;
-            let offsetY = 0;
-
-            if (Math.abs(dx) > Math.abs(dy)) {
-                // X yönünde taşı
-                offsetX = dx;
-            } else {
-                // Y yönünde taşı
-                offsetY = dy;
+            // Belirlenen axis'e göre hareket kısıtla (duvar gibi)
+            if (this.bodyDragAxis === 'x') {
+                offsetY = 0; // Sadece X'te hareket et
+            } else if (this.bodyDragAxis === 'y') {
+                offsetX = 0; // Sadece Y'de hareket et
             }
 
             // ŞU ANKİ pozisyonları kaydet (henüz güncellenmeden önce)
@@ -920,6 +928,7 @@ export class InteractionManager {
         this.isBodyDrag = false;
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
+        this.bodyDragAxis = null;
         this.manager.saveToState();
     }
 
