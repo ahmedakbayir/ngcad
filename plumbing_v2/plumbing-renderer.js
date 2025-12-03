@@ -91,14 +91,11 @@ export class PlumbingRenderer {
             const length = Math.hypot(dx, dy);
             const angle = Math.atan2(dy, dx);
 
-            // Zoom kompenzasyonu - basitleştirilmiş ve düzeltilmiş
-            // Düşük zoom (uzaktan bakınca) = borular dünya koordinatında daha kalın (ekranda görünür kalır)
-            // Yüksek zoom (yakından bakınca) = borular dünya koordinatında daha ince (ekranda normal görünür)
-            const zoom = Math.max(0.1, state.zoom || 1); // Minimum 0.1 zoom
-
-            // Zoom kompenzasyonu: zoom azaldıkça width artar (uzaktan daha kalın görünür)
-            const zoomCompensation = Math.pow(zoom, 0.5); // 0.5: orta hızda kompenzasyon
-            const width = config.lineWidth / zoomCompensation;
+            const zoom = state.zoom || 1;
+            let width = config.lineWidth;    
+            if(zoom<1){
+                width = 4 /zoom;
+                }
 
             ctx.save();
 
@@ -258,11 +255,16 @@ export class PlumbingRenderer {
         // Geçici boru için de aynı stil ve zoom kompenzasyonu
         const zoom = state.zoom || 1;
         const zoomCompensation = Math.pow(zoom, 0.6);
-        const width = 4 
+        let width = 4;    
+        if(zoom<1){
+            width = 4 /zoom;
+            }
         const dx = geciciBoru.p2.x - geciciBoru.p1.x;
         const dy = geciciBoru.p2.y - geciciBoru.p1.y;
         const length = Math.hypot(dx, dy);
         const angle = Math.atan2(dy, dx);
+
+
 
         ctx.translate(geciciBoru.p1.x, geciciBoru.p1.y);
         ctx.rotate(angle);

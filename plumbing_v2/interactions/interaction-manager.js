@@ -821,7 +821,7 @@ export class InteractionManager {
             // DUVAR SNAP SİSTEMİ - Boru açıklığı ile
             const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
             const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm)
-            const BORU_CLEARANCE = 8; // Boru-duvar arası minimum mesafe (cm)
+            const BORU_CLEARANCE = 5; // Boru-duvar arası minimum mesafe (cm)
             const walls = state.walls || [];
             let finalPos = { x: point.x, y: point.y };
 
