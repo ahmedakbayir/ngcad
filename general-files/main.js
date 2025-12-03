@@ -707,7 +707,8 @@ export function isObjectInteractable(objectType) {
 
     // Tesisat nesneleri listesi
     const plumbingObjects = [
-        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz', 'plumbingPipe', 'plumbingComponent'
+        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz',
+        'plumbingPipe', 'plumbingComponent', 'plumbingBlock'
     ];
 
     const isArchitectural = architecturalObjects.includes(objectType);

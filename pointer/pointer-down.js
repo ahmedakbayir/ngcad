@@ -11,7 +11,7 @@ import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as on
 import { hideGuideContextMenu } from '../menu/guide-menu.js';
 import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from '../draw/geometry.js';
 import { applySymmetry, applyCopy } from '../draw/symmetry.js';
-import { state, dom, setState, setMode } from '../general-files/main.js';
+import { state, dom, setState, setMode, isObjectInteractable } from '../general-files/main.js';
 import { getSmartSnapPoint } from '../general-files/snap.js';
 import { currentModifierKeys } from '../general-files/input.js';
 import { saveState } from '../general-files/history.js';
@@ -121,7 +121,8 @@ export function onPointerDown(e) {
         // CTRL ile multi-select modu (sadece CTRL basılıyken, body'ye tıklandığında)
         if (currentModifierKeys.ctrl && !currentModifierKeys.alt && !currentModifierKeys.shift && clickedObject &&
             ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
-            clickedObject.handle === 'body') {
+            clickedObject.handle === 'body' &&
+            isObjectInteractable(clickedObject.type)) {
 
             let currentGroup = [...state.selectedGroup];
             if (currentGroup.length === 0 && state.selectedObject &&
@@ -148,6 +149,7 @@ export function onPointerDown(e) {
 
         if (!currentModifierKeys.ctrl && clickedObject &&
             ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
+            isObjectInteractable(clickedObject.type) &&
             state.selectedGroup.length > 0) {
             // (selectedGroup'u temizle - aşağıda yapılıyor)
         }
@@ -182,6 +184,13 @@ export function onPointerDown(e) {
         // Tıklanan nesne varsa seçili yap ve sürüklemeyi başlat
         if (clickedObject) {
             console.log('🎯 Object clicked:', clickedObject.type, 'handle:', clickedObject.handle);
+
+            // Mod izolasyonu: nesne aktif çizim modunda etkileşime açık mı kontrol et
+            if (!isObjectInteractable(clickedObject.type)) {
+                console.log('🚫 Object not interactable in current drawing mode:', clickedObject.type);
+                return;
+            }
+
             if (clickedObject.type === 'room') {
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
