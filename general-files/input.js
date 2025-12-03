@@ -224,6 +224,7 @@ export function handleDelete() {
 
     let deleted = false;
     let isGuideDeleted = false;
+    let isPlumbingV2Deleted = false; // Flag for v2 plumbing objects
 
     // Önce selectedGroup'u kontrol et (toplu silme)
     if (selectedGroupSnapshot.length > 0) {
@@ -275,6 +276,7 @@ export function handleDelete() {
             if (plumbingManager && plumbingManager.interactionManager) {
                 plumbingManager.interactionManager.deleteSelectedObject();
                 deleted = true;
+                isPlumbingV2Deleted = true; // v2 already called saveState()
             }
         }
         else if (objType === 'column') {
@@ -443,7 +445,10 @@ export function handleDelete() {
         if (!isGuideDeleted) {
             processWalls();
         }
-        saveState();
+        // V2 plumbing objects already called saveState() in their delete handler
+        if (!isPlumbingV2Deleted) {
+            saveState();
+        }
         update3DScene();
     } else {
         console.warn('❌ Delete failed - nothing was deleted');
