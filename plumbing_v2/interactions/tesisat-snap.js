@@ -215,7 +215,8 @@ export class TesisatSnapSystem {
                 );
 
                 if (outerKesisim) {
-                    // Her iki hattın segment uçlarına olan uzaklıkları
+                    // Kesişim noktası duvar uçlarına yakın mı kontrol et
+                    const maxExtension = 500; // cm
                     const dist1 = Math.min(
                         Math.hypot(outerKesisim.x - hatlar[i].p1.x, outerKesisim.y - hatlar[i].p1.y),
                         Math.hypot(outerKesisim.x - hatlar[i].p2.x, outerKesisim.y - hatlar[i].p2.y)
@@ -225,13 +226,8 @@ export class TesisatSnapSystem {
                         Math.hypot(outerKesisim.x - hatlar[j].p2.x, outerKesisim.y - hatlar[j].p2.y)
                     );
 
-                    // Kesişim noktası segment dışında mı? (outer corner için gerekli)
-                    const onSegment1 = this.isPointOnSegment(outerKesisim, hatlar[i].p1, hatlar[i].p2, 1);
-                    const onSegment2 = this.isPointOnSegment(outerKesisim, hatlar[j].p1, hatlar[j].p2, 1);
-
-                    // Dış köşe: kesişim segment dışında VE makul uzaklıkta
-                    const maxExtension = 500; // cm
-                    if (!onSegment1 && !onSegment2 && dist1 < maxExtension && dist2 < maxExtension) {
+                    // Kesişim noktası her iki hattın uçlarına da makul mesafede ise ekle
+                    if (dist1 < maxExtension && dist2 < maxExtension) {
                         kesisimler.push({
                             x: outerKesisim.x,
                             y: outerKesisim.y,
