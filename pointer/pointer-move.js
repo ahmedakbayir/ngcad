@@ -299,12 +299,17 @@ export function onPointerMove(e) {
                     // Delta hesapla (unsnappedPos kullan - duvar gibi)
                     let deltaX = unsnappedPos.x - state.initialDragPoint.x;
                     let deltaY = unsnappedPos.y - state.initialDragPoint.y;
+                    console.log('🔧 BORU MOVE - dragAxis:', state.dragAxis, 'deltaX:', deltaX.toFixed(2), 'deltaY:', deltaY.toFixed(2));
 
                     // dragAxis'e göre hareketi sınırla - duvar gibi
                     if (state.dragAxis === 'x') {
                         deltaY = 0; // Sadece X yönünde hareket
+                        console.log('  → X ekseninde hareket, deltaY=0');
                     } else if (state.dragAxis === 'y') {
                         deltaX = 0; // Sadece Y yönünde hareket
+                        console.log('  → Y ekseninde hareket, deltaX=0');
+                    } else {
+                        console.warn('  ⚠️ dragAxis tanımsız!');
                     }
 
                     // İlk taşımada başlangıç pozisyonlarını kaydet

@@ -270,6 +270,7 @@ export function onPointerDown(e) {
                             // Açı < 45° ise yatay boru → sadece Y'de hareket et (dragAxis='y')
                             // Açı >= 45° ise dikey boru → sadece X'de hareket et (dragAxis='x')
                             const dragAxis = (angle < 45) ? 'y' : 'x';
+                            console.log('🎯 BORU DRAG START - dx:', dx, 'dy:', dy, 'angle:', angle, '→ dragAxis:', dragAxis);
 
                             // Başlangıç pozisyonlarını state'e kaydet
                             dragInfo.additionalState = {
