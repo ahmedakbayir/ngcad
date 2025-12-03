@@ -2,7 +2,7 @@
 // GÜNCELLENDİ: handleDelete, boru silindiğinde bağlantıyı "iyileştirecek" (heal) şekilde güncellendi.
 
 import * as THREE from "three"; // YENİ
-import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable } from './main.js'; // dom import edildiğinden emin olun
+import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable, isInPlumbingMode, isInArchitecturalMode } from './main.js'; // dom import edildiğinden emin olun
 import { getObjectAtPoint } from './actions.js';
 import { undo, redo, saveState, restoreState } from './history.js';
 import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen } from './ui.js';
@@ -824,15 +824,23 @@ function onKeyDown(e) {
     }
 
     if (e.key.toLowerCase() === "d" && !inFPSMode) { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
-    if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");
-    if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawRoom");
-    if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawDoor");
-    if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawWindow");
-    if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawColumn");
-    if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawBeam");
-    if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawStairs");
-    if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawPlumbingPipe"); // Tesisat borusu
-    if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry"); // YENİ SATIR
+
+    // Mimari kısayollar - tesisat modunda çalışmaz
+    if (!isInPlumbingMode()) {
+        if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");
+        if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawRoom");
+        if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawDoor");
+        if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawWindow");
+        if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawColumn");
+        if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawBeam");
+        if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawStairs");
+        if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry");
+    }
+
+    // Tesisat kısayolları - mimari modunda çalışmaz
+    if (!isInArchitecturalMode()) {
+        if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawPlumbingPipe");
+    }
 
 }
 
@@ -1000,6 +1008,12 @@ export function setupInputListeners() {
         hideWallPanel();
         hideGuideContextMenu();
 
+        // Mod izolasyonu: mimari nesnelere tesisat modunda sağ tıklanamaz
+        if (object && object.type && !isObjectInteractable(object.type)) {
+            console.log('🚫 Right-click blocked on', object.type, 'in current mode');
+            return;
+        }
+
         if (object && (object.type === 'room' || object.type === 'roomName')) {
             showRoomNamePopup(object.object, e);
         } else if (object && object.type === 'wall') {
@@ -1007,8 +1021,10 @@ export function setupInputListeners() {
         } else if (object && object.type === 'stairs') {
             showStairPopup(object.object, e); // Merdiven sağ tık
         } else if (!object) {
-            // Boş alana tıklandı
-            showGuideContextMenu(e.clientX, e.clientY, clickPos);
+            // Boş alana tıklandı - tesisat modunda rehber menüsü gösterme
+            if (!isInPlumbingMode()) {
+                showGuideContextMenu(e.clientX, e.clientY, clickPos);
+            }
         } else {
             // Diğer nesneler (kolon, kiriş, rehber vb.)
             setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null, selectedObject: null, selectedGroup: [] });
