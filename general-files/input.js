@@ -1198,7 +1198,7 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos) {
 
     console.log("Boru bölünüyor:", clickPos);
 
-    // Boru.splitAt metodunu kullan
+    // Boru.splitAt metodunu kullanarak bölme noktasını hesapla
     const splitResult = pipeToSplit.splitAt(clickPos);
 
     if (!splitResult) {
@@ -1206,22 +1206,33 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos) {
         return;
     }
 
-    const { boru1, boru2 } = splitResult;
+    const { boru1, boru2, splitPoint } = splitResult;
 
-    // Eski boruyu state'den sil
-    if (!state.plumbingPipes) state.plumbingPipes = [];
-    const pipeIndex = state.plumbingPipes.indexOf(pipeToSplit);
-    if (pipeIndex > -1) {
-        state.plumbingPipes.splice(pipeIndex, 1);
-    }
+    // Eski borunun bitiş bağlantısını kaydet
+    const originalBitisBaglanti = { ...pipeToSplit.bitisBaglanti };
 
-    // Yeni boruları state'e ekle
-    state.plumbingPipes.push(boru1);
-    state.plumbingPipes.push(boru2);
+    // Gerideki parça: Eski boruyu güncelle (p1'den splitPoint'e kadar)
+    pipeToSplit.p2.x = splitPoint.x;
+    pipeToSplit.p2.y = splitPoint.y;
+    pipeToSplit.p2.z = splitPoint.z;
 
-    // PlumbingManager'ı güncelle
+    // Eski borunun bitiş bağlantısını temizle
+    pipeToSplit.bitisBaglanti = { tip: null, hedefId: null, noktaIndex: null };
+
+    // T-bağlantıları ve elemanları boru1'e göre güncelle
+    pipeToSplit.tBaglantilar = boru1.tBaglantilar;
+    pipeToSplit.uzerindekiElemanlar = boru1.uzerindekiElemanlar;
+
+    // İlerideki parça: Yeni boru oluştur (splitPoint'ten originalP2'ye kadar)
+    // Yeni borunun bağlantısını orijinal bitiş bağlantısına ayarla
+    boru2.bitisBaglanti = originalBitisBaglanti;
+
+    // PlumbingManager'a yeni boruyu ekle
     if (window.plumbingManager) {
-        window.plumbingManager.loadFromState();
+        window.plumbingManager.pipes.push(boru2);
+
+        // Tüm instance'ları state'e kaydet
+        window.plumbingManager.saveToState();
     }
 
     // Seçimi kaldır
@@ -1233,5 +1244,5 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos) {
     // 3D sahneyi güncelle
     update3DScene();
 
-    console.log("Boru başarıyla bölündü");
+    console.log("Boru başarıyla bölündü - Gerideki parça ana boru, ilerideki parça yeni boru");
 }
