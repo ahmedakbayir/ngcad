@@ -1061,7 +1061,7 @@ export class InteractionManager {
 
             // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
             const MIN_BRIDGE_LENGTH = 15; // 15 cm minimum
-            const TOLERANCE = 15; // Bağlantı algılama toleransı
+            const TOLERANCE = 100; // Bağlantı algılama toleransı (1 metre)
 
             console.log(`🔎 Bağlantı arıyor... Toplam boru sayısı: ${this.manager.pipes.length}`);
 
