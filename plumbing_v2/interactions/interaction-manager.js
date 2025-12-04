@@ -1032,6 +1032,61 @@ export class InteractionManager {
     }
 
     endDrag() {
+        // Body drag bittiğinde ara borular oluştur
+        if (this.isBodyDrag && this.dragObject && this.dragObject.type === 'boru') {
+            const draggedPipe = this.dragObject;
+            const oldP1 = this.bodyDragInitialP1;
+            const oldP2 = this.bodyDragInitialP2;
+            const newP1 = draggedPipe.p1;
+            const newP2 = draggedPipe.p2;
+
+            // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
+            const MIN_BRIDGE_LENGTH = 15; // 15 cm minimum
+            const TOLERANCE = 15; // Bağlantı algılama toleransı
+
+            // p1 tarafındaki bağlı boruları bul (oldP1 yakınında)
+            const connectedAtP1 = this.manager.pipes.find(p =>
+                p !== draggedPipe &&
+                (Math.hypot(p.p2.x - oldP1.x, p.p2.y - oldP1.y) < TOLERANCE)
+            );
+
+            // p2 tarafındaki bağlı boruları bul (oldP2 yakınında)
+            const connectedAtP2 = this.manager.pipes.find(p =>
+                p !== draggedPipe &&
+                (Math.hypot(p.p1.x - oldP2.x, p.p1.y - oldP2.y) < TOLERANCE)
+            );
+
+            // p1 tarafına ara boru ekle
+            if (connectedAtP1) {
+                const distP1 = Math.hypot(newP1.x - oldP1.x, newP1.y - oldP1.y);
+                if (distP1 >= MIN_BRIDGE_LENGTH) {
+                    console.log('🔗 p1 tarafına ara boru ekleniyor:', { oldP1, newP1 });
+                    const bridgePipe1 = new Boru(
+                        { x: oldP1.x, y: oldP1.y, z: oldP1.z || 0 },
+                        { x: newP1.x, y: newP1.y, z: newP1.z || 0 },
+                        draggedPipe.boruTipi
+                    );
+                    bridgePipe1.floorId = draggedPipe.floorId;
+                    this.manager.pipes.push(bridgePipe1);
+                }
+            }
+
+            // p2 tarafına ara boru ekle
+            if (connectedAtP2) {
+                const distP2 = Math.hypot(newP2.x - oldP2.x, newP2.y - oldP2.y);
+                if (distP2 >= MIN_BRIDGE_LENGTH) {
+                    console.log('🔗 p2 tarafına ara boru ekleniyor:', { oldP2, newP2 });
+                    const bridgePipe2 = new Boru(
+                        { x: newP2.x, y: newP2.y, z: newP2.z || 0 },
+                        { x: oldP2.x, y: oldP2.y, z: oldP2.z || 0 },
+                        draggedPipe.boruTipi
+                    );
+                    bridgePipe2.floorId = draggedPipe.floorId;
+                    this.manager.pipes.push(bridgePipe2);
+                }
+            }
+        }
+
         this.isDragging = false;
         this.dragObject = null;
         this.dragEndpoint = null;
