@@ -974,6 +974,9 @@ export function setupInputListeners() {
             splitWallAtClickPosition(clickPos); // <-- Pozisyonu parametre olarak gönder
         } else if (object && object.type === 'stairs') { // YENİ: Merdiven çift tıklama
             showStairPopup(object.object, e); // Merdiven popup'ını göster
+        } else if (object && object.type === 'plumbingPipe' && object.handle === 'body') {
+            // Boru gövdesine çift tıklanırsa bölme işlemi yap
+            splitPipeAtClickPosition(object.object, clickPos);
         }
     });
     c2d.addEventListener("wheel", onWheel, { passive: false }); // onWheel'i zoom.js'den kullan
@@ -1172,4 +1175,63 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     update3DScene();
 
     console.log("Duvar başarıyla bölündü"); // Debug için
+}
+
+// Boru bölme
+function splitPipeAtClickPosition(pipeToSplit, clickPos) {
+    if (!pipeToSplit || !pipeToSplit.p1 || !pipeToSplit.p2) {
+        console.log("Geçersiz boru");
+        return;
+    }
+
+    // Minimum bölme mesafesi (10 cm)
+    const MIN_SPLIT_DIST = 10;
+
+    // Tıklanan noktanın boru uçlarına olan mesafesini kontrol et
+    const distToP1 = Math.hypot(clickPos.x - pipeToSplit.p1.x, clickPos.y - pipeToSplit.p1.y);
+    const distToP2 = Math.hypot(clickPos.x - pipeToSplit.p2.x, clickPos.y - pipeToSplit.p2.y);
+
+    if (distToP1 < MIN_SPLIT_DIST || distToP2 < MIN_SPLIT_DIST) {
+        console.log("Bölme noktası boru ucuna çok yakın");
+        return;
+    }
+
+    console.log("Boru bölünüyor:", clickPos);
+
+    // Boru.splitAt metodunu kullan
+    const splitResult = pipeToSplit.splitAt(clickPos);
+
+    if (!splitResult) {
+        console.log("Boru bölme başarısız");
+        return;
+    }
+
+    const { boru1, boru2 } = splitResult;
+
+    // Eski boruyu state'den sil
+    if (!state.plumbingPipes) state.plumbingPipes = [];
+    const pipeIndex = state.plumbingPipes.indexOf(pipeToSplit);
+    if (pipeIndex > -1) {
+        state.plumbingPipes.splice(pipeIndex, 1);
+    }
+
+    // Yeni boruları state'e ekle
+    state.plumbingPipes.push(boru1);
+    state.plumbingPipes.push(boru2);
+
+    // PlumbingManager'ı güncelle
+    if (window.plumbingManager) {
+        window.plumbingManager.loadFromState();
+    }
+
+    // Seçimi kaldır
+    setState({ selectedObject: null });
+
+    // History'ye kaydet
+    saveState();
+
+    // 3D sahneyi güncelle
+    update3DScene();
+
+    console.log("Boru başarıyla bölündü");
 }
