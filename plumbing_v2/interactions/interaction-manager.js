@@ -796,6 +796,34 @@ export class InteractionManager {
         this.bodyDragInitialP1 = { ...pipe.p1 };
         this.bodyDragInitialP2 = { ...pipe.p2 };
 
+        // Bağlı boruları ŞİMDİ tespit et (sürükleme başlamadan önce!)
+        const TOLERANCE = 100; // 1 metre
+        const oldP1 = pipe.p1;
+        const oldP2 = pipe.p2;
+
+        console.log('🎬 startBodyDrag - Bağlantı tespiti başlıyor...');
+
+        // p1 tarafındaki bağlı boruyu bul
+        this.connectedPipeAtP1 = this.manager.pipes.find(p => {
+            if (p === pipe) return false;
+            const dist = Math.hypot(p.p2.x - oldP1.x, p.p2.y - oldP1.y);
+            console.log(`  p1 kontrol: Boru ${p.id} p2 mesafesi: ${dist.toFixed(2)} cm`);
+            return dist < TOLERANCE;
+        });
+
+        // p2 tarafındaki bağlı boruyu bul
+        this.connectedPipeAtP2 = this.manager.pipes.find(p => {
+            if (p === pipe) return false;
+            const dist = Math.hypot(p.p1.x - oldP2.x, p.p1.y - oldP2.y);
+            console.log(`  p2 kontrol: Boru ${p.id} p1 mesafesi: ${dist.toFixed(2)} cm`);
+            return dist < TOLERANCE;
+        });
+
+        console.log('🔗 Başlangıçta bağlı borular:', {
+            connectedAtP1: this.connectedPipeAtP1?.id,
+            connectedAtP2: this.connectedPipeAtP2?.id
+        });
+
         // Borunun açısını hesapla ve drag axis'i belirle (duvar mantığı)
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
@@ -1061,27 +1089,12 @@ export class InteractionManager {
 
             // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
             const MIN_BRIDGE_LENGTH = 15; // 15 cm minimum
-            const TOLERANCE = 100; // Bağlantı algılama toleransı (1 metre)
 
-            console.log(`🔎 Bağlantı arıyor... Toplam boru sayısı: ${this.manager.pipes.length}`);
+            // Başlangıçta tespit edilen bağlantıları kullan
+            const connectedAtP1 = this.connectedPipeAtP1;
+            const connectedAtP2 = this.connectedPipeAtP2;
 
-            // p1 tarafındaki bağlı boruları bul (oldP1 yakınında)
-            const connectedAtP1 = this.manager.pipes.find(p => {
-                if (p === draggedPipe) return false;
-                const dist = Math.hypot(p.p2.x - oldP1.x, p.p2.y - oldP1.y);
-                console.log(`  Boru ${p.id} p2 mesafesi: ${dist.toFixed(2)} cm`);
-                return dist < TOLERANCE;
-            });
-
-            // p2 tarafındaki bağlı boruları bul (oldP2 yakınında)
-            const connectedAtP2 = this.manager.pipes.find(p => {
-                if (p === draggedPipe) return false;
-                const dist = Math.hypot(p.p1.x - oldP2.x, p.p1.y - oldP2.y);
-                console.log(`  Boru ${p.id} p1 mesafesi: ${dist.toFixed(2)} cm`);
-                return dist < TOLERANCE;
-            });
-
-            console.log('🔗 Bağlantı sonuçları:', {
+            console.log('🔗 Kaydedilmiş bağlantılar kullanılıyor:', {
                 connectedAtP1: connectedAtP1?.id,
                 connectedAtP2: connectedAtP2?.id
             });
@@ -1135,6 +1148,8 @@ export class InteractionManager {
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
         this.dragAxis = null;
+        this.connectedPipeAtP1 = null; // Bağlantı referanslarını temizle
+        this.connectedPipeAtP2 = null; // Bağlantı referanslarını temizle
         this.pipeEndpointSnapLock = null; // Snap lock'u temizle
         this.pipeSnapMouseStart = null; // Mouse start pozisyonunu temizle
         this.manager.saveToState();
