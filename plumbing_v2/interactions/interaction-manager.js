@@ -797,7 +797,7 @@ export class InteractionManager {
         this.bodyDragInitialP2 = { ...pipe.p2 };
 
         // Bağlı boruları ŞİMDİ tespit et (sürükleme başlamadan önce!)
-        const TOLERANCE = 100; // 1 metre
+        const TOLERANCE = 10; // 10 cm (çift tıklayarak bölünen borular için)
         const oldP1 = pipe.p1;
         const oldP2 = pipe.p2;
 
