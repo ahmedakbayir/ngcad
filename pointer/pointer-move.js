@@ -15,7 +15,7 @@ import { currentModifierKeys } from '../general-files/input.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
 import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall-handler.js';
-import { processWalls } from '../wall/wall-processor.js';
+import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 // Plumbing functions now handled by plumbingManager
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
@@ -382,7 +382,10 @@ export function onPointerMove(e) {
                     }
                 }
                 break;
-            case 'wall': onPointerMoveWall(snappedPos, unsnappedPos); break;
+            case 'wall':
+                onPointerMoveWall(snappedPos, unsnappedPos);
+                cleanupNodeHoverTimers(); // Timer'ları temizle
+                break;
             case 'door': onPointerMoveDoor(unsnappedPos); break;
             case 'window': onPointerMoveWindow(unsnappedPos); break;
             case 'vent':

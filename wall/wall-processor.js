@@ -6,6 +6,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 export function mergeNode(node) {
     const md = 14 / state.zoom;
     const currentFloorId = state.currentFloor?.id;
+    const MIN_HOVER_TIME = 1000; // 1 saniye minimum hover süresi (ms)
 
     // Bu node'u kullanan duvarları bul ve onların floorId'sini al
     const nodeFloorIds = new Set();
@@ -18,7 +19,54 @@ export function mergeNode(node) {
     // Sadece aynı katlardaki node'larla merge et
     for (const t of state.nodes) {
         if (t === node) continue;
-        if (Math.hypot(node.x - t.x, node.y - t.y) < md) {
+        const distance = Math.hypot(node.x - t.x, node.y - t.y);
+
+        if (distance < md) {
+            // Hover timer kontrolü - İç içe Map kullan: Map<node, Map<otherNode, timestamp>>
+            if (!state.nodeHoverTimers) {
+                state.nodeHoverTimers = new Map();
+            }
+
+            // Her iki yönden de kontrol et (node->t ve t->node)
+            let hoverStart = null;
+            if (state.nodeHoverTimers.has(node)) {
+                hoverStart = state.nodeHoverTimers.get(node).get(t);
+            }
+            if (!hoverStart && state.nodeHoverTimers.has(t)) {
+                hoverStart = state.nodeHoverTimers.get(t).get(node);
+            }
+
+            if (!hoverStart) {
+                // İlk kez yaklaştı, timer başlat
+                if (!state.nodeHoverTimers.has(node)) {
+                    state.nodeHoverTimers.set(node, new Map());
+                }
+                state.nodeHoverTimers.get(node).set(t, Date.now());
+                return null; // Henüz birleştirme
+            }
+
+            const hoverDuration = Date.now() - hoverStart;
+
+            if (hoverDuration < MIN_HOVER_TIME) {
+                // Henüz yeterli süre geçmedi
+                return null;
+            }
+
+            // Yeterli süre geçti, birleştir
+            // Timer'ları temizle
+            if (state.nodeHoverTimers.has(node)) {
+                state.nodeHoverTimers.get(node).delete(t);
+                if (state.nodeHoverTimers.get(node).size === 0) {
+                    state.nodeHoverTimers.delete(node);
+                }
+            }
+            if (state.nodeHoverTimers.has(t)) {
+                state.nodeHoverTimers.get(t).delete(node);
+                if (state.nodeHoverTimers.get(t).size === 0) {
+                    state.nodeHoverTimers.delete(t);
+                }
+            }
+
             // t node'unun floorId'lerini bul
             const tFloorIds = new Set();
             state.walls.forEach(w => {
@@ -67,6 +115,38 @@ export function mergeNode(node) {
         }
     }
     return null;
+}
+
+// Timer'ları temizle - artık yakın olmayan node'lar için
+export function cleanupNodeHoverTimers() {
+    if (!state.nodeHoverTimers) return;
+
+    const md = 14 / state.zoom;
+    const nodesToClean = [];
+
+    state.nodeHoverTimers.forEach((otherNodesMap, node) => {
+        const pairsToDelete = [];
+
+        otherNodesMap.forEach((timestamp, otherNode) => {
+            // Node'lardan biri state.nodes'da yoksa veya artık yakın değillerse sil
+            if (!state.nodes.includes(node) || !state.nodes.includes(otherNode)) {
+                pairsToDelete.push(otherNode);
+            } else {
+                const distance = Math.hypot(node.x - otherNode.x, node.y - otherNode.y);
+                if (distance >= md) {
+                    pairsToDelete.push(otherNode);
+                }
+            }
+        });
+
+        pairsToDelete.forEach(otherNode => otherNodesMap.delete(otherNode));
+
+        if (otherNodesMap.size === 0) {
+            nodesToClean.push(node);
+        }
+    });
+
+    nodesToClean.forEach(node => state.nodeHoverTimers.delete(node));
 }
 
 function unifyNearbyNodes(tolerance, processAllFloors = false) {
