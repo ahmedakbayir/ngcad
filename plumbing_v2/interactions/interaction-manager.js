@@ -1035,6 +1035,35 @@ export class InteractionManager {
             // Bağlı borular sabit kalmalı, endDrag'de ara borular eklenecek
             // this.updateConnectedPipesChain(oldP1, pipe.p1); // KAPALI
             // this.updateConnectedPipesChain(oldP2, pipe.p2); // KAPALI
+
+            // ✨ Ghost ara boruları oluştur (preview için)
+            this.ghostBridgePipes = [];
+            const MIN_BRIDGE_LENGTH = 15;
+
+            // p1 tarafı için ghost boru
+            if (this.connectedPipeAtP1) {
+                const dist = Math.hypot(pipe.p1.x - this.bodyDragInitialP1.x, pipe.p1.y - this.bodyDragInitialP1.y);
+                if (dist >= MIN_BRIDGE_LENGTH) {
+                    this.ghostBridgePipes.push({
+                        p1: { ...this.bodyDragInitialP1 },
+                        p2: { ...pipe.p1 },
+                        type: 'ghost_bridge'
+                    });
+                }
+            }
+
+            // p2 tarafı için ghost boru
+            if (this.connectedPipeAtP2) {
+                const dist = Math.hypot(pipe.p2.x - this.bodyDragInitialP2.x, pipe.p2.y - this.bodyDragInitialP2.y);
+                if (dist >= MIN_BRIDGE_LENGTH) {
+                    this.ghostBridgePipes.push({
+                        p1: { ...pipe.p2 },
+                        p2: { ...this.bodyDragInitialP2 },
+                        type: 'ghost_bridge'
+                    });
+                }
+            }
+
             return;
         }
 
@@ -1150,6 +1179,7 @@ export class InteractionManager {
         this.dragAxis = null;
         this.connectedPipeAtP1 = null; // Bağlantı referanslarını temizle
         this.connectedPipeAtP2 = null; // Bağlantı referanslarını temizle
+        this.ghostBridgePipes = []; // Ghost boruları temizle
         this.pipeEndpointSnapLock = null; // Snap lock'u temizle
         this.pipeSnapMouseStart = null; // Mouse start pozisyonunu temizle
         this.manager.saveToState();

@@ -62,6 +62,12 @@ export class PlumbingRenderer {
             this.drawSnapIndicator(ctx, activeSnap);
         }
 
+        // ✨ Ghost ara borular (sürükleme preview)
+        const ghostBridgePipes = manager.interactionManager?.ghostBridgePipes;
+        if (ghostBridgePipes && ghostBridgePipes.length > 0) {
+            this.drawGhostBridgePipes(ctx, ghostBridgePipes);
+        }
+
         // Ölçü girişi göstergesi
         if (manager.interactionManager?.measurementActive) {
             this.drawMeasurementInput(ctx, manager.interactionManager);
@@ -883,6 +889,33 @@ export class PlumbingRenderer {
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
 
+        ctx.restore();
+    }
+
+    /**
+     * Ghost ara boruları çiz (kesikli çizgi ile preview)
+     */
+    drawGhostBridgePipes(ctx, ghostPipes) {
+        ctx.save();
+
+        // Yarı saydam
+        ctx.globalAlpha = 0.6;
+
+        ghostPipes.forEach(ghost => {
+            // Kesikli çizgi stili
+            ctx.setLineDash([10, 5]); // 10px çizgi, 5px boşluk
+            ctx.strokeStyle = '#FFA500'; // Turuncu renk
+            ctx.lineWidth = 3;
+
+            // Çizgiyi çiz
+            ctx.beginPath();
+            ctx.moveTo(ghost.p1.x, ghost.p1.y);
+            ctx.lineTo(ghost.p2.x, ghost.p2.y);
+            ctx.stroke();
+        });
+
+        // Kesikli çizgiyi sıfırla
+        ctx.setLineDash([]);
         ctx.restore();
     }
 }
