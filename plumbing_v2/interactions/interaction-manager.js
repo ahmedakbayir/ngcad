@@ -1031,10 +1031,10 @@ export class InteractionManager {
             pipe.p2.x = this.bodyDragInitialP2.x + offsetX;
             pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
 
-            // Bağlı boruları güncelle (her iki uç için)
-            // oldPoint = şu anki pozisyon, newPoint = yeni pozisyon
-            this.updateConnectedPipesChain(oldP1, pipe.p1);
-            this.updateConnectedPipesChain(oldP2, pipe.p2);
+            // ❌ Body drag'de bağlı boruları TAŞIMA - sadece ara borular oluşturulacak!
+            // Bağlı borular sabit kalmalı, endDrag'de ara borular eklenecek
+            // this.updateConnectedPipesChain(oldP1, pipe.p1); // KAPALI
+            // this.updateConnectedPipesChain(oldP2, pipe.p2); // KAPALI
             return;
         }
 
