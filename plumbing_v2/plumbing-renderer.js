@@ -893,7 +893,7 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Ghost ara boruları çiz (kesikli çizgi ile preview)
+     * Ghost ara boruları çiz (geçici boru stili)
      */
     drawGhostBridgePipes(ctx, ghostPipes) {
         ctx.save();
@@ -902,8 +902,7 @@ export class PlumbingRenderer {
         ctx.globalAlpha = 0.6;
 
         ghostPipes.forEach(ghost => {
-            // Kesikli çizgi stili
-            ctx.setLineDash([10, 5]); // 10px çizgi, 5px boşluk
+            // Düz çizgi (geçici boru stili)
             ctx.strokeStyle = '#FFA500'; // Turuncu renk
             ctx.lineWidth = 3;
 
@@ -914,8 +913,6 @@ export class PlumbingRenderer {
             ctx.stroke();
         });
 
-        // Kesikli çizgiyi sıfırla
-        ctx.setLineDash([]);
         ctx.restore();
     }
 }

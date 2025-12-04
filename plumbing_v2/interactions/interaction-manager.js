@@ -824,6 +824,57 @@ export class InteractionManager {
             connectedAtP2: this.connectedPipeAtP2?.id
         });
 
+        // ⚠️ DOĞRUSALLIK KONTROLÜ: Sadece 3 boru aynı doğrultudaysa ara boru modu
+        this.useBridgeMode = false; // Varsayılan: normal mod
+
+        if (this.connectedPipeAtP1 && this.connectedPipeAtP2) {
+            // 3 boru var: A - B - C
+            // A.p1 - A.p2(=B.p1) - B.p2(=C.p1) - C.p2 (4 nokta)
+            const p1 = this.connectedPipeAtP1.p1;
+            const p2 = this.connectedPipeAtP1.p2; // = pipe.p1
+            const p3 = pipe.p2; // = this.connectedPipeAtP2.p1
+            const p4 = this.connectedPipeAtP2.p2;
+
+            // İlk ve son vektörleri hesapla
+            const v1 = { x: p2.x - p1.x, y: p2.y - p1.y }; // A borusu
+            const v2 = { x: p3.x - p2.x, y: p3.y - p2.y }; // B borusu (sürüklenen)
+            const v3 = { x: p4.x - p3.x, y: p4.y - p3.y }; // C borusu
+
+            // Normalize edilmiş yönler
+            const len1 = Math.hypot(v1.x, v1.y);
+            const len2 = Math.hypot(v2.x, v2.y);
+            const len3 = Math.hypot(v3.x, v3.y);
+
+            if (len1 > 0.1 && len2 > 0.1 && len3 > 0.1) {
+                const dir1 = { x: v1.x / len1, y: v1.y / len1 };
+                const dir2 = { x: v2.x / len2, y: v2.y / len2 };
+                const dir3 = { x: v3.x / len3, y: v3.y / len3 };
+
+                // Dot product kontrolü (paralel mi?)
+                const dot12 = dir1.x * dir2.x + dir1.y * dir2.y;
+                const dot23 = dir2.x * dir3.x + dir2.y * dir3.y;
+
+                // Aynı yönde mi? (dot product ~1)
+                const ANGLE_TOLERANCE = 0.98; // ~11 derece tolerans
+                const isColinear = Math.abs(dot12) > ANGLE_TOLERANCE &&
+                                  Math.abs(dot23) > ANGLE_TOLERANCE &&
+                                  Math.sign(dot12) === Math.sign(dot23);
+
+                console.log('📐 Doğrusallık kontrolü:', {
+                    dot12: dot12.toFixed(3),
+                    dot23: dot23.toFixed(3),
+                    isColinear
+                });
+
+                this.useBridgeMode = isColinear;
+            }
+        }
+
+        console.log(this.useBridgeMode
+            ? '✅ ARA BORU MODU AKTIF - Borular aynı doğrultuda'
+            : '⚠️ NORMAL MOD - Borular aynı doğrultuda değil veya 3 boru yok'
+        );
+
         // Borunun açısını hesapla ve drag axis'i belirle (duvar mantığı)
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
@@ -1031,37 +1082,44 @@ export class InteractionManager {
             pipe.p2.x = this.bodyDragInitialP2.x + offsetX;
             pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
 
-            // ❌ Body drag'de bağlı boruları TAŞIMA - sadece ara borular oluşturulacak!
-            // Bağlı borular sabit kalmalı, endDrag'de ara borular eklenecek
-            // this.updateConnectedPipesChain(oldP1, pipe.p1); // KAPALI
-            // this.updateConnectedPipesChain(oldP2, pipe.p2); // KAPALI
+            // Mod kontrolü: ARA BORU modu mu NORMAL mod mu?
+            if (this.useBridgeMode) {
+                // ✅ ARA BORU MODU: Bağlı boruları TAŞIMA, ara borular oluştur
+                console.log('🌉 Ara boru modu aktif - bağlı borular sabit');
 
-            // ✨ Ghost ara boruları oluştur (preview için)
-            this.ghostBridgePipes = [];
-            const MIN_BRIDGE_LENGTH = 15;
+                // Ghost ara boruları oluştur (preview için)
+                this.ghostBridgePipes = [];
+                const MIN_BRIDGE_LENGTH = 15;
 
-            // p1 tarafı için ghost boru
-            if (this.connectedPipeAtP1) {
-                const dist = Math.hypot(pipe.p1.x - this.bodyDragInitialP1.x, pipe.p1.y - this.bodyDragInitialP1.y);
-                if (dist >= MIN_BRIDGE_LENGTH) {
-                    this.ghostBridgePipes.push({
-                        p1: { ...this.bodyDragInitialP1 },
-                        p2: { ...pipe.p1 },
-                        type: 'ghost_bridge'
-                    });
+                // p1 tarafı için ghost boru
+                if (this.connectedPipeAtP1) {
+                    const dist = Math.hypot(pipe.p1.x - this.bodyDragInitialP1.x, pipe.p1.y - this.bodyDragInitialP1.y);
+                    if (dist >= MIN_BRIDGE_LENGTH) {
+                        this.ghostBridgePipes.push({
+                            p1: { ...this.bodyDragInitialP1 },
+                            p2: { ...pipe.p1 },
+                            type: 'ghost_bridge'
+                        });
+                    }
                 }
-            }
 
-            // p2 tarafı için ghost boru
-            if (this.connectedPipeAtP2) {
-                const dist = Math.hypot(pipe.p2.x - this.bodyDragInitialP2.x, pipe.p2.y - this.bodyDragInitialP2.y);
-                if (dist >= MIN_BRIDGE_LENGTH) {
-                    this.ghostBridgePipes.push({
-                        p1: { ...pipe.p2 },
-                        p2: { ...this.bodyDragInitialP2 },
-                        type: 'ghost_bridge'
-                    });
+                // p2 tarafı için ghost boru
+                if (this.connectedPipeAtP2) {
+                    const dist = Math.hypot(pipe.p2.x - this.bodyDragInitialP2.x, pipe.p2.y - this.bodyDragInitialP2.y);
+                    if (dist >= MIN_BRIDGE_LENGTH) {
+                        this.ghostBridgePipes.push({
+                            p1: { ...pipe.p2 },
+                            p2: { ...this.bodyDragInitialP2 },
+                            type: 'ghost_bridge'
+                        });
+                    }
                 }
+            } else {
+                // ⚠️ NORMAL MOD: Bağlı boruları da taşı
+                console.log('🔗 Normal mod - bağlı boruları da taşıyor');
+                this.ghostBridgePipes = []; // Ghost yok
+                this.updateConnectedPipesChain(oldP1, pipe.p1);
+                this.updateConnectedPipesChain(oldP2, pipe.p2);
             }
 
             return;
@@ -1116,17 +1174,25 @@ export class InteractionManager {
                 oldP1, oldP2, newP1, newP2
             });
 
-            // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
-            const MIN_BRIDGE_LENGTH = 15; // 15 cm minimum
+            // ⚠️ Sadece BRIDGE MODE ise ara borular oluştur
+            if (!this.useBridgeMode) {
+                console.log('⚠️ Normal mod - ara boru oluşturulmayacak');
+                // Normal modda zaten updateConnectedPipesChain çağrıldı
+                // Hiçbir şey yapma
+            } else {
+                console.log('✅ Ara boru modu - ara borular oluşturuluyor');
 
-            // Başlangıçta tespit edilen bağlantıları kullan
-            const connectedAtP1 = this.connectedPipeAtP1;
-            const connectedAtP2 = this.connectedPipeAtP2;
+                // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
+                const MIN_BRIDGE_LENGTH = 15; // 15 cm minimum
 
-            console.log('🔗 Kaydedilmiş bağlantılar kullanılıyor:', {
-                connectedAtP1: connectedAtP1?.id,
-                connectedAtP2: connectedAtP2?.id
-            });
+                // Başlangıçta tespit edilen bağlantıları kullan
+                const connectedAtP1 = this.connectedPipeAtP1;
+                const connectedAtP2 = this.connectedPipeAtP2;
+
+                console.log('🔗 Kaydedilmiş bağlantılar kullanılıyor:', {
+                    connectedAtP1: connectedAtP1?.id,
+                    connectedAtP2: connectedAtP2?.id
+                });
 
             // p1 tarafına ara boru ekle
             if (connectedAtP1) {
@@ -1167,6 +1233,7 @@ export class InteractionManager {
             } else {
                 console.log('❌ p2 tarafında bağlantı bulunamadı');
             }
+            } // useBridgeMode if bloğu kapanışı
         }
 
         this.isDragging = false;
