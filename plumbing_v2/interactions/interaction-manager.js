@@ -855,7 +855,7 @@ export class InteractionManager {
                 const dot23 = dir2.x * dir3.x + dir2.y * dir3.y;
 
                 // Aynı yönde mi? (dot product ~1)
-                const ANGLE_TOLERANCE = 0.98; // ~11 derece tolerans
+                const ANGLE_TOLERANCE = 0.94; // ~20 derece tolerans (daha esnek)
                 const isColinear = Math.abs(dot12) > ANGLE_TOLERANCE &&
                                   Math.abs(dot23) > ANGLE_TOLERANCE &&
                                   Math.sign(dot12) === Math.sign(dot23);
@@ -982,11 +982,33 @@ export class InteractionManager {
                 this.pipeSnapMouseStart = null;
             }
 
-            // BAĞLI BORULARIN DİĞER UÇLARINA SNAP
+            // BAĞLI BORULARIN DİĞER UÇLARINA VE AYNI BORUNUN DİĞER UCUNA SNAP
             const PIPE_ENDPOINT_SNAP_DISTANCE = 25; // cm
             const connectionTolerance = 1; // Bağlantı tespit toleransı
 
-            // Taşınan uç noktaya bağlı olan boruları bul
+            let pipeSnapX = null;
+            let pipeSnapY = null;
+            let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
+            let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
+
+            // 1) ÖNCELİKLE: Aynı borunun DİĞER ucunun X ve Y koordinatlarına snap
+            const ownOtherEndpoint = this.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
+
+            // X hizasına snap
+            const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
+            if (ownXDiff < minPipeSnapDistX) {
+                minPipeSnapDistX = ownXDiff;
+                pipeSnapX = ownOtherEndpoint.x;
+            }
+
+            // Y hizasına snap
+            const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
+            if (ownYDiff < minPipeSnapDistY) {
+                minPipeSnapDistY = ownYDiff;
+                pipeSnapY = ownOtherEndpoint.y;
+            }
+
+            // 2) Taşınan uç noktaya bağlı olan boruları bul
             const connectedPipes = this.manager.pipes.filter(p => {
                 if (p === pipe) return false;
                 // p1'e bağlı mı kontrol et
@@ -996,11 +1018,6 @@ export class InteractionManager {
             });
 
             // Her bağlı borunun DİĞER ucunu bul ve snap kontrolü yap
-            let pipeSnapX = null;
-            let pipeSnapY = null;
-            let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
-            let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
-
             connectedPipes.forEach(connectedPipe => {
                 // Bağlı borunun DİĞER ucunu bul
                 const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
@@ -1144,7 +1161,7 @@ export class InteractionManager {
 
                 // Ghost ara boruları oluştur (preview için)
                 this.ghostBridgePipes = [];
-                const MIN_BRIDGE_LENGTH = 15;
+                const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
 
                 // p1 tarafı için ghost boru
                 if (this.connectedPipeAtP1) {
@@ -1238,7 +1255,7 @@ export class InteractionManager {
                 console.log('✅ Ara boru modu - ara borular oluşturuluyor');
 
                 // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
-                const MIN_BRIDGE_LENGTH = 15; // 15 cm minimum
+                const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
 
                 // Başlangıçta tespit edilen bağlantıları kullan
                 const connectedAtP1 = this.connectedPipeAtP1;
