@@ -257,11 +257,19 @@ export class InteractionManager {
      * Mouse bırakma
      */
     handlePointerUp(e) {
+        console.log('🖱️ handlePointerUp çağrıldı', {
+            isRotating: this.isRotating,
+            isDragging: this.isDragging,
+            isBodyDrag: this.isBodyDrag,
+            dragObject: this.dragObject?.type
+        });
+
         if (this.isRotating) {
             this.endRotation();
             return true;
         }
         if (this.isDragging) {
+            console.log('📤 endDrag çağrılacak...');
             this.endDrag();
             return true;
         }
