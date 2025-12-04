@@ -45,8 +45,6 @@ function markAllDownstreamPipesAsConnected(startPipe) {
 
         queue.push(...connectedPipes);
     }
-
-    console.log('✅ Marked', visited.size, 'pipes as connected to valve');
 }
 
 export function onPointerDown(e) {
@@ -57,8 +55,6 @@ export function onPointerDown(e) {
         return;
     }
     if (e.button === 2) return; // Sağ tuş (context menu için ayrılmış)
-
-    console.log('🎯 onPointerDown called - currentMode:', state.currentMode);
 
     // Tıklama konumunu dünya koordinatlarına çevir
     const rect = dom.c2d.getBoundingClientRect();
@@ -81,23 +77,13 @@ export function onPointerDown(e) {
                           state.currentMode === 'MİMARİ-TESİSAT';
 
     const boruCizimAktif = plumbingManager.interactionManager?.boruCizimAktif;
-    console.log('🔍 Plumbing check:', { boruCizimAktif, isPlumbingMode, currentMode: state.currentMode });
 
     // Plumbing manager'a önce sor (boru çizim veya seçim için)
     if (isPlumbingMode && plumbingManager.interactionManager) {
-        console.log('⚡ Calling plumbing manager handler');
         const handled = plumbingManager.interactionManager.handlePointerDown(e);
-        console.log('⚡ Plumbing manager handled:', handled);
         if (handled) {
-            console.log('⚡ Plumbing manager consumed the click - returning early');
             return;
         }
-    }
-
-    // Eğer boruCizimAktif ama plumbing modunda değilsek uyarı
-    if (boruCizimAktif && !isPlumbingMode) {
-        console.warn('⚠️ WARNING: boruCizimAktif is TRUE but we are NOT in plumbing mode!');
-        console.warn('⚠️ Current mode:', state.currentMode, '- This is the BUG! Plumbing manager should reset this flag.');
     }
 
     // --- Seçim Modu ---
@@ -181,7 +167,6 @@ export function onPointerDown(e) {
 
         // Tıklanan nesne varsa seçili yap ve sürüklemeyi başlat
         if (clickedObject) {
-            console.log('🎯 Object clicked:', clickedObject.type, 'handle:', clickedObject.handle);
             if (clickedObject.type === 'room') {
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
@@ -204,8 +189,6 @@ export function onPointerDown(e) {
                 if (clickedObject.type === 'plumbingPipe' || clickedObject.type === 'plumbingBlock') {
                     clickedObject.object.isSelected = true;
                 }
-
-                console.log('✅ Selection set:', clickedObject.type, clickedObject.handle);
 
                 let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
                 switch (clickedObject.type) {
@@ -294,7 +277,6 @@ export function onPointerDown(e) {
                     dragOffset: dragInfo.dragOffset,
                     ...(dragInfo.additionalState || {})
                 });
-                console.log('✅ Dragging started, additionalState:', dragInfo.additionalState);
                 dom.p2d.classList.add('dragging');
             }
         } else {
@@ -382,15 +364,12 @@ export function onPointerDown(e) {
         // ===================================================================
     } else if (state.currentMode === "drawPlumbingBlock" || state.currentMode === "drawValve" || state.currentMode === "drawPlumbingPipe") {
         // Eski tesisat modları plumbing_v2'ye taşındı
-        console.warn('⚠️ Eski tesisat modu kullanılıyor. Lütfen plumbingV2 modunu kullanın.');
         setMode("plumbingV2");
         return;
 
     // --- Merdiven Çizim Modu (YORUM BLOĞUNDAN ÇIKARILDI) ---
     } else if (state.currentMode === "drawStairs") {
-        console.log('🔷 STAIRCASE DRAWING MODE - Click registered');
         if (!state.startPoint) {
-            console.log('✅ First click - Setting start point:', { x: snappedPos.roundedX, y: snappedPos.roundedY });
             setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
         } else {
             const p1 = state.startPoint;
@@ -399,7 +378,6 @@ export function onPointerDown(e) {
             const deltaY = p2.y - p1.y;
             const absWidth = Math.abs(deltaX);
             const absHeight = Math.abs(deltaY);
-            console.log('🔷 Second click - Dimensions:', { absWidth, absHeight, p1, p2 });
             if (absWidth > 10 && absHeight > 10) {
                 const centerX = (p1.x + p2.x) / 2;
                 const centerY = (p1.y + p2.y) / 2;
@@ -414,19 +392,14 @@ export function onPointerDown(e) {
                     rotation = (deltaY >= 0) ? 90 : -90;
                 }
                 const isLanding = currentModifierKeys.ctrl;
-                console.log('✅ Creating staircase:', { centerX, centerY, width, height, rotation, isLanding });
                 const newStairs = createStairs(centerX, centerY, width, height, rotation, isLanding);
                 if (!state.stairs) {
                     state.stairs = [];
                 }
                 state.stairs.push(newStairs);
-                console.log('✅ Staircase created and added to state.stairs:', newStairs);
-                console.log('📊 Total stairs count:', state.stairs.length);
                 needsUpdate3D = true;
                 objectJustCreated = true;
                 geometryChanged = true;
-            } else {
-                console.warn('⚠️ Staircase too small - Minimum size is 10cm x 10cm:', { absWidth, absHeight });
             }
             setState({ startPoint: null, selectedObject: null });
         }
