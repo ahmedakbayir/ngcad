@@ -113,7 +113,6 @@ export class InteractionManager {
 
         // 3. Döndürme
         if (this.isRotating && this.dragObject) {
-            console.log('Döndürme modunda, handleRotation çağrılıyor');
             this.handleRotation(point);
             return true;
         }
@@ -158,7 +157,6 @@ export class InteractionManager {
             // Önce seçili servis kutusunun döndürme tutamacını kontrol et
             if (this.selectedObject && this.selectedObject.type === 'servis_kutusu') {
                 if (this.findRotationHandleAt(this.selectedObject, point, 12)) {
-                    console.log('Döndürme tutamacı yakalandı');
                     this.startRotation(this.selectedObject, point);
                     return true;
                 }
@@ -257,19 +255,13 @@ export class InteractionManager {
      * Mouse bırakma
      */
     handlePointerUp(e) {
-        console.log('🖱️ handlePointerUp çağrıldı', {
-            isRotating: this.isRotating,
-            isDragging: this.isDragging,
-            isBodyDrag: this.isBodyDrag,
-            dragObject: this.dragObject?.type
-        });
+
 
         if (this.isRotating) {
             this.endRotation();
             return true;
         }
         if (this.isDragging) {
-            console.log('📤 endDrag çağrılacak...');
             this.endDrag();
             return true;
         }
@@ -286,7 +278,6 @@ export class InteractionManager {
             if (/^[0-9]$/.test(e.key)) {
                 this.measurementInput += e.key;
                 this.measurementActive = true;
-                console.log('Ölçü girişi:', this.measurementInput);
                 return true;
             }
 
@@ -296,7 +287,6 @@ export class InteractionManager {
                 if (this.measurementInput.length === 0) {
                     this.measurementActive = false;
                 }
-                console.log('Ölçü girişi:', this.measurementInput);
                 return true;
             }
 
@@ -437,9 +427,7 @@ export class InteractionManager {
                 break;
 
             case 'cihaz':
-                if (component.bacaGerekliMi()) {
-                    console.log('Baca modu başlatılabilir');
-                }
+                
                 break;
         }
 
@@ -541,7 +529,6 @@ export class InteractionManager {
 
         const measurement = parseFloat(this.measurementInput);
         if (isNaN(measurement) || measurement <= 0) {
-            console.warn('Geçersiz ölçü:', this.measurementInput);
             this.measurementInput = '';
             this.measurementActive = false;
             return;
@@ -1278,7 +1265,6 @@ export class InteractionManager {
      * Döndürme başlat
      */
     startRotation(obj, point) {
-        console.log('startRotation çağrıldı', obj.id);
         saveState();
         this.isRotating = true;
         this.dragObject = obj;
@@ -1291,7 +1277,6 @@ export class InteractionManager {
         const initialRotationRad = (obj.rotation || 0) * Math.PI / 180;
         this.rotationOffset = initialRotationRad - initialAngle;
 
-        console.log('Döndürme başlatıldı, isRotating:', this.isRotating);
     }
 
     /**
@@ -1299,7 +1284,6 @@ export class InteractionManager {
      */
     handleRotation(point) {
         if (!this.dragObject || this.dragObject.type !== 'servis_kutusu') {
-            console.log('handleRotation çağrıldı ama dragObject yok veya tip yanlış');
             return;
         }
 
@@ -1322,7 +1306,6 @@ export class InteractionManager {
             newRotationDeg = Math.round(newRotationDeg / 90) * 90;
         }
 
-        console.log('Döndürülüyor, yeni açı:', newRotationDeg);
 
         // ÖNEMLI: Çıkış noktası sabit kalmalı, kutu merkezi hareket etmeli
         // Eski çıkış noktasını kaydet

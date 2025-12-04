@@ -116,7 +116,6 @@ function migrateOldDrawingsToFloor(targetFloorId) {
     });
 
     if (migrated) {
-        console.log(`✅ Eski çizimler "${targetFloorId}" katına aktarıldı`);
     }
 }
 

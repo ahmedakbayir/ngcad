@@ -34,7 +34,6 @@ export class PlumbingManager {
     }
 
     init() {
-        console.log('🔧 PlumbingManager v2 başlatıldı.');
     }
 
     /**
@@ -71,11 +70,9 @@ export class PlumbingManager {
                 break;
 
             default:
-                console.warn(`Bilinmeyen bileşen tipi: ${type}`);
                 return;
         }
 
-        console.log(`Yerleştirme modu: ${type}`);
     }
 
     /**
@@ -190,7 +187,6 @@ export class PlumbingManager {
                     case 'cihaz':
                         return Cihaz.fromJSON(data);
                     default:
-                        console.warn(`Bilinmeyen bileşen tipi: ${data.type}`);
                         return null;
                 }
             }).filter(c => c !== null);

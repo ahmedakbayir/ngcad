@@ -108,10 +108,8 @@ function handleCopy(e) {
             dataToCopy.items.forEach(wall => { /* Koordinat kontrolü (opsiyonel) */ });
         }
         setState({ clipboard: { data: dataToCopy, ref: referencePoint } });
-        console.log("Kopyalandı:", state.clipboard);
     } else {
         setState({ clipboard: null });
-        console.log("Kopyalanamadı veya desteklenmiyor.");
     }
 }
 
@@ -209,16 +207,8 @@ export function handleDelete() {
     const selectedObjectSnapshot = state.selectedObject;
     const selectedGroupSnapshot = [...(state.selectedGroup || [])];
 
-    console.log('🗑️ handleDelete called', {
-        selectedObject: selectedObjectSnapshot,
-        selectedGroupLength: selectedGroupSnapshot.length,
-        stairs: state.stairs?.length || 0,
-        columns: state.columns?.length || 0,
-        beams: state.beams?.length || 0
-    });
-
+    
     if (!selectedObjectSnapshot && selectedGroupSnapshot.length === 0) {
-        console.warn('⚠️ Nothing selected to delete');
         return;
     }
 
@@ -267,7 +257,6 @@ export function handleDelete() {
     // Tek nesne seçimi varsa
     else if (selectedObjectSnapshot) {
         const objType = selectedObjectSnapshot.type;
-        console.log('🔍 Deleting single object, type:', objType);
 
         // Plumbing v2 nesneleri için (boru, servis kutusu, sayaç, vana, cihaz)
         if (objType === 'pipe' || objType === 'boru' || objType === 'servis_kutusu' || objType === 'sayac' || objType === 'vana' || objType === 'cihaz') {
@@ -297,7 +286,6 @@ export function handleDelete() {
             if (pipe && pipe.valves) {
                 pipe.valves = pipe.valves.filter(v => v !== valve);
                 deleted = true;
-                console.log('✅ Valve deleted from pipe');
             }
         }
         else if (objType === 'plumbingBlock') {
@@ -368,7 +356,6 @@ export function handleDelete() {
 
             // Durum: PipeA -> pipeToDelete -> PipeC
             if (connectedPipeAtStart && connectedPipeAtEnd && startPointToConnect && pipeToModify) {
-                console.log('🩹 Healing pipe connection (A -> C)');
                 // PipeC'nin p1'ini (endPointToConnect), PipeA'nın p2'sine (startPointToConnect) taşı
                 pipeToModify.p1.x = startPointToConnect.x;
                 pipeToModify.p1.y = startPointToConnect.y;
@@ -379,7 +366,6 @@ export function handleDelete() {
             }
             // Durum: BlockA -> pipeToDelete -> PipeC
             else if (blockToModify && connectedPipeAtEnd && startPointToConnect && pipeToModify) {
-                console.log('🩹 Healing block connection (BlockA -> C)');
                 // PipeC'nin p1'ini (endPointToConnect), BlockA'nın cp'sine (startPointToConnect) taşı
                 pipeToModify.p1.x = startPointToConnect.x;
                 pipeToModify.p1.y = startPointToConnect.y;
@@ -390,7 +376,6 @@ export function handleDelete() {
             }
             // Durum: PipeA -> pipeToDelete -> BlockC
             else if (connectedPipeAtStart && endConn && startPointToConnect && endPointToConnect) {
-                console.log('🩹 Healing block connection (A -> BlockC)');
                 // PipeA'nın p2'sini (startPointToConnect), BlockC'nin cp'sine (endPointToConnect) taşı
                 pipeToModifyHandle.p2.x = endPointToConnect.x;
                 pipeToModifyHandle.p2.y = endPointToConnect.y;
@@ -438,7 +423,6 @@ export function handleDelete() {
     }
 
     if (deleted) {
-        console.log('✅ Delete successful');
         state.selectedObject = null;
         state.selectedGroup = [];
         // processWalls() sadece rehber silindiyse çağrılmaz
@@ -451,7 +435,6 @@ export function handleDelete() {
         }
         update3DScene();
     } else {
-        console.warn('❌ Delete failed - nothing was deleted');
     }
 }
 
@@ -819,7 +802,6 @@ function onKeyDown(e) {
         if (dom.mainContainer.classList.contains('show-3d')) {
             e.preventDefault();
             toggle3DFullscreen();
-            console.log('🖥️ 3D Fullscreen toggled:', dom.mainContainer.classList.contains('fullscreen-3d'));
         }
     }
 
@@ -901,7 +883,6 @@ function on3DPointerDown(event) {
         }
 
         if (clickedDoorGroup) {
-            // console.log("Kapı tıklandı:", clickedDoorGroup.userData.doorObject);
 
             // Orijinal rotasyonu (eğer ayarlanmadıysa) kaydet
             if (clickedDoorGroup.userData.originalRotation === undefined) {
@@ -1035,7 +1016,6 @@ export function setupInputListeners() {
 
     // ALT+TAB stuck state fix: Window focus kaybolduğunda state'i temizle
     window.addEventListener("blur", () => {
-        // console.log('🔄 Window blur - Cleaning up stuck states');
 
         // Tüm modifier key'leri resetle
         currentModifierKeys.ctrl = false;
@@ -1098,7 +1078,6 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     }
 
     if (!wallToSplit) {
-        console.log("Bölünecek duvar bulunamadı"); // Debug için
         return;
     }
 
@@ -1114,11 +1093,9 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     const MIN_SPLIT_DIST = 10;
     if (Math.hypot(splitPoint.x - p1.x, splitPoint.y - p1.y) < MIN_SPLIT_DIST ||
         Math.hypot(splitPoint.x - p2.x, splitPoint.y - p2.y) < MIN_SPLIT_DIST) {
-        console.log("Bölme noktası duvar ucuna çok yakın"); // Debug için
         return;
     }
 
-    console.log("Duvar bölünüyor:", splitPoint); // Debug için
 
     const splitNode = getOrCreateNode(splitPoint.x, splitPoint.y);
     const wallIndex = walls.indexOf(wallToSplit);
@@ -1174,13 +1151,11 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
     saveState();
     update3DScene();
 
-    console.log("Duvar başarıyla bölündü"); // Debug için
 }
 
 // Boru bölme
 function splitPipeAtClickPosition(pipeToSplit, clickPos) {
     if (!pipeToSplit || !pipeToSplit.p1 || !pipeToSplit.p2) {
-        console.log("Geçersiz boru");
         return;
     }
 
@@ -1192,17 +1167,14 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos) {
     const distToP2 = Math.hypot(clickPos.x - pipeToSplit.p2.x, clickPos.y - pipeToSplit.p2.y);
 
     if (distToP1 < MIN_SPLIT_DIST || distToP2 < MIN_SPLIT_DIST) {
-        console.log("Bölme noktası boru ucuna çok yakın");
         return;
     }
 
-    console.log("Boru bölünüyor:", clickPos);
 
     // Boru.splitAt metodunu kullanarak bölme noktasını hesapla
     const splitResult = pipeToSplit.splitAt(clickPos);
 
     if (!splitResult) {
-        console.log("Boru bölme başarısız");
         return;
     }
 
@@ -1244,5 +1216,4 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos) {
     // 3D sahneyi güncelle
     update3DScene();
 
-    console.log("Boru başarıyla bölündü - Gerideki parça ana boru, ilerideki parça yeni boru");
 }

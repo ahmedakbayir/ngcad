@@ -49,7 +49,6 @@ export function updateConnectedStairElevations(changedStairId, visited = new Set
     stairsBelow.forEach(stairBelow => {
         // Alttaki merdivenin ALT kotu, değişen (üstteki) merdivenin ÜST kotuna eşitlenmeli.
         if (stairBelow.bottomElevation !== changedStair.topElevation) {
-            console.log(`Alttaki güncelleniyor (${stairBelow.id}): altKot ${stairBelow.bottomElevation} -> ${changedStair.topElevation}`);
             stairBelow.bottomElevation = changedStair.topElevation;
 
             // Alttaki merdivenin üst kotunu da güncelle

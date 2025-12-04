@@ -740,7 +740,6 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     const newMode = (!forceSet && state.currentMode === mode && mode !== "select") ? "select" : mode;
 
     if (mode === "drawStairs" || newMode === "drawStairs") {
-        console.log('🔷 MODE CHANGE:', { requestedMode: mode, currentMode: state.currentMode, newMode, forceSet });
     }
 
     // --- DÜZELTME: Mod değiştiğinde simetri timer'ını iptal et ---
@@ -1174,7 +1173,6 @@ function initialize() {
             e.stopPropagation();
 
             // Seçim kaybolmadan HEMEN handleDelete çağır
-            console.log('🗑️ DELETE button mousedown, calling handleDelete immediately');
             deleteButtonPressed = true;
             handleDelete();
             deleteButtonPressed = false;

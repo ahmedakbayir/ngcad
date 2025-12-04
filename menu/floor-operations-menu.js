@@ -252,7 +252,6 @@ function pasteToAllFloors() {
     console.log('pasteToAllFloors başladı');
     // Eğer clipboard boşsa, önce mevcut katı kopyala
     if (!floorClipboard) {
-        console.log('Clipboard boş, kopyalama yapılıyor...');
         copyFloorArchitecture();
         // Eğer hala boşsa (kopyalama başarısızsa), çık
         if (!floorClipboard) {
@@ -422,7 +421,6 @@ function pasteToAllFloors() {
         });
 
         pastedFloorCount++;
-        console.log(`${floor.name} katına yapıştırıldı: ${newWalls.length} duvar`);
     });
 
     console.log(`Toplam ${pastedFloorCount} kata yapıştırıldı`);

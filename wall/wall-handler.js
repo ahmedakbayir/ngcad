@@ -305,8 +305,6 @@ export function onPointerMove(snappedPos, unsnappedPos) {
                 y: lockY !== null ? lockY : snappedPos.y
             };
 
-            console.log('🔒 Using LOCKED position:', finalPos, '(ignoring mouse)');
-
             // Snap'lenmiş pozisyondan ne kadar uzak? (mouse'un GERÇEK pozisyonuyla karşılaştır)
             const distFromLockX = lockX !== null ? Math.abs(snappedPos.x - lockX) : Infinity;
             const distFromLockY = lockY !== null ? Math.abs(snappedPos.y - lockY) : Infinity;
