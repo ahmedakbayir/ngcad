@@ -983,7 +983,7 @@ export class InteractionManager {
             }
 
             // BAĞLI BORULARIN DİĞER UÇLARINA VE AYNI BORUNUN DİĞER UCUNA SNAP
-            const PIPE_ENDPOINT_SNAP_DISTANCE = 25; // cm
+            const PIPE_ENDPOINT_SNAP_DISTANCE = 10; // cm
             const connectionTolerance = 1; // Bağlantı tespit toleransı
 
             let pipeSnapX = null;
