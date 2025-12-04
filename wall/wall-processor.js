@@ -4,6 +4,10 @@ import { saveState } from '../general-files/history.js';
 import { update3DScene } from '../scene3d/scene3d-update.js'; 
 
 export function mergeNode(node) {
+    // Node birleşmesi devre dışı bırakıldı
+    return null;
+
+    /* DEVRE DIŞI BIRAKILDI
     const md = 14 / state.zoom;
     const currentFloorId = state.currentFloor?.id;
     const MIN_HOVER_TIME = 1000; // 1 saniye minimum hover süresi (ms)
@@ -115,6 +119,7 @@ export function mergeNode(node) {
         }
     }
     return null;
+    */ // DEVRE DIŞI BIRAKILDI - SON
 }
 
 // Timer'ları temizle - artık yakın olmayan node'lar için
