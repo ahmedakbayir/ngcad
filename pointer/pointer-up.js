@@ -1,7 +1,7 @@
 import { getOrCreateNode } from '../draw/geometry.js';
 import { state, setState } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
-import { processWalls } from '../wall/wall-processor.js';
+import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
@@ -209,6 +209,11 @@ export function onPointerUp(e) {
     }
 
 
+    // Drag bittiğinde node hover timer'ları temizle
+    if (state.nodeHoverTimers) {
+        state.nodeHoverTimers.clear();
+    }
+
     setState({
         isPanning: false,
         isDragging: false,
@@ -226,6 +231,7 @@ export function onPointerUp(e) {
         sweepWalls: [],
         columnRotationOffset: null,
         tempNeighborWallsToDimension: null, // Komşu duvar Set'ini temizle
-        wallNodeSnapLock: null // Snap lock'u temizle
+        wallNodeSnapLock: null, // Snap lock'u temizle
+        nodeHoverTimers: new Map() // Node hover timer'larını temizle
     });
 }
