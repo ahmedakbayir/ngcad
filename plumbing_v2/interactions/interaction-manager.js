@@ -1617,30 +1617,40 @@ export class InteractionManager {
     }
 
     /**
-     * Bağlı boru zincirini bul (ileri yönde)
+     * Bağlı boru ağını bul (BFS - tüm dalları takip eder, T-bağlantıları dahil)
      */
     findConnectedPipesChain(startPipe) {
-        const chain = [startPipe];
-        const visited = new Set([startPipe.id]);
-
-        let currentPipe = startPipe;
+        const allConnected = [];
+        const visited = new Set();
+        const queue = [startPipe];
         const tolerance = 1; // 1 cm
 
-        // İleri yönde zinciri takip et
-        while (true) {
-            const nextPipe = this.manager.pipes.find(p =>
-                !visited.has(p.id) &&
-                Math.hypot(p.p1.x - currentPipe.p2.x, p.p1.y - currentPipe.p2.y) < tolerance
-            );
+        visited.add(startPipe.id);
 
-            if (!nextPipe) break;
+        while (queue.length > 0) {
+            const currentPipe = queue.shift();
+            allConnected.push(currentPipe);
 
-            chain.push(nextPipe);
-            visited.add(nextPipe.id);
-            currentPipe = nextPipe;
+            // currentPipe'ın her iki ucuna bağlı boruları bul
+            this.manager.pipes.forEach(otherPipe => {
+                if (visited.has(otherPipe.id)) return;
+
+                // p1'e bağlı mı?
+                const p1ToCurrentP1 = Math.hypot(otherPipe.p1.x - currentPipe.p1.x, otherPipe.p1.y - currentPipe.p1.y);
+                const p1ToCurrentP2 = Math.hypot(otherPipe.p1.x - currentPipe.p2.x, otherPipe.p1.y - currentPipe.p2.y);
+                const p2ToCurrentP1 = Math.hypot(otherPipe.p2.x - currentPipe.p1.x, otherPipe.p2.y - currentPipe.p1.y);
+                const p2ToCurrentP2 = Math.hypot(otherPipe.p2.x - currentPipe.p2.x, otherPipe.p2.y - currentPipe.p2.y);
+
+                // Herhangi bir ucu bağlı mı kontrol et
+                if (p1ToCurrentP1 < tolerance || p1ToCurrentP2 < tolerance ||
+                    p2ToCurrentP1 < tolerance || p2ToCurrentP2 < tolerance) {
+                    visited.add(otherPipe.id);
+                    queue.push(otherPipe);
+                }
+            });
         }
 
-        return chain;
+        return allConnected;
     }
 
     getGeciciBoruCizgisi() {
