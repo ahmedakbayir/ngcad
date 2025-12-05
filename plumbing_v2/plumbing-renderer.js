@@ -344,7 +344,7 @@ export class PlumbingRenderer {
         const adjustedStroke = getAdjustedColor('#fff', 'servis_kutusu');
 
         // Seçiliyse renk değişsin
-        ctx.fillStyle = comp.isSelected ? this.secilenRenk : adjustedColor;
+        ctx.fillStyle = comp.isSelected ? this.secilenRenk : '#00bffa';
         ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
         ctx.lineWidth = 2;
  
