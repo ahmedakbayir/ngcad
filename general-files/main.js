@@ -639,7 +639,7 @@ export function getAdjustedColor(originalColor, objectType) {
     if (mode === "TESİSAT") {
         if (isArchitectural) {
             // Mimari nesneler çok soluk (85% background'a blend)
-            return blendColorWithBackground(originalColor, 0.85);
+            return blendColorWithBackground(originalColor, 0.6);
         }
         return normalizeColor(originalColor); // Tesisat nesneleri normal
     }
@@ -654,6 +654,7 @@ export function getObjectOpacity(objectType) {
 }
 
 // Nesne tipine göre aktif modda opacity değerini döndürür
+/*
 export function getObjectOpacity_OLD(objectType) {
     const mode = state.currentDrawingMode;
 
@@ -690,7 +691,7 @@ export function getObjectOpacity_OLD(objectType) {
     // Varsayılan: normal görünüm
     return 1.0;
 }
-
+*/
 // Nesne tipine göre aktif modda dokunulabilir mi kontrol eder
 export function isObjectInteractable(objectType) {
     const mode = state.currentDrawingMode;

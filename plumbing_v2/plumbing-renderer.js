@@ -604,7 +604,7 @@ export class PlumbingRenderer {
         const { height } = SERVIS_KUTUSU_CONFIG;
 
         // Döndürme çubuğu uzunluğu (daha küçük - 10cm)
-        const handleLength = height / 2 + 10; // 10cm dışarıda
+        const handleLength = height / 2 + 30; // 10cm dışarıda
 
         // Çubuğu çiz (merkezden yukarı doğru, local koordinatlarda)
         ctx.strokeStyle = this.secilenRenk;
@@ -903,8 +903,8 @@ export class PlumbingRenderer {
 
         ghostPipes.forEach(ghost => {
             // Düz çizgi (geçici boru stili)
-            ctx.strokeStyle = '#FFA500'; // Turuncu renk
-            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(255, 255, 0, 1)'; // Turuncu renk
+            ctx.lineWidth = 4;
 
             // Çizgiyi çiz
             ctx.beginPath();
