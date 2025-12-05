@@ -563,9 +563,20 @@ export class InteractionManager {
 
         // Boruyu böl
         const result = pipe.splitAt(splitPoint);
-        if (!result) return; // Split başarısız
+        if (!result) return; // Split başarısış
 
         const { boru1, boru2 } = result;
+
+        // Servis kutusuna bağlı mı kontrol et (referansı güncellemek için)
+        if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+            const servisKutusu = this.manager.components.find(
+                c => c.id === pipe.baslangicBaglanti.hedefId && c.type === 'servis_kutusu'
+            );
+            if (servisKutusu && servisKutusu.bagliBoruId === pipe.id) {
+                // Servis kutusunun bağlantısını yeni boru1'e güncelle
+                servisKutusu.baglaBoru(boru1.id);
+            }
+        }
 
         // Eski boruyu kaldır
         const index = this.manager.pipes.findIndex(p => p.id === pipe.id);
