@@ -282,119 +282,9 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         // Duvar Ucu (Node) Sürükleme
         const nodeToMove = state.selectedObject.object[state.selectedObject.handle];
 
-        // UZAK DUVAR YÜZEY SNAP (Sticky snap ile)
-        const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
-        const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm) - daha büyük
-
-        let finalPos;
-
-        // console.log('🔍 Snap state:', {
-        //     hasLock: !!state.wallNodeSnapLock,
-        //     lock: state.wallNodeSnapLock,
-        //     mousePos: { x: snappedPos.x, y: snappedPos.y }
-        // });
-
-        // Eğer zaten snap'lenmişse, LOCK POZİSYONUNU kullan (mouse pozisyonunu ignore et!)
-        if (state.wallNodeSnapLock) {
-            const lockX = state.wallNodeSnapLock.x;
-            const lockY = state.wallNodeSnapLock.y;
-
-            // Lock pozisyonundan başla
-            finalPos = {
-                x: lockX !== null ? lockX : snappedPos.x,
-                y: lockY !== null ? lockY : snappedPos.y
-            };
-
-            // Snap'lenmiş pozisyondan ne kadar uzak? (mouse'un GERÇEK pozisyonuyla karşılaştır)
-            const distFromLockX = lockX !== null ? Math.abs(snappedPos.x - lockX) : Infinity;
-            const distFromLockY = lockY !== null ? Math.abs(snappedPos.y - lockY) : Infinity;
-
-            // Mouse snap mesafesinden çıktı mı kontrol et
-            if ((lockX !== null && distFromLockX >= SNAP_RELEASE_DISTANCE) &&
-                (lockY !== null && distFromLockY >= SNAP_RELEASE_DISTANCE)) {
-                // Her iki eksende de snap'ten çıktı, lock'u temizle
-                setState({ wallNodeSnapLock: null });
-                finalPos = { x: snappedPos.x, y: snappedPos.y }; // Normal pozisyona dön
-            }
-            // Sadece bir eksende snap'ten çıktıysa, o ekseni serbest bırak
-            else {
-                if (lockX !== null && distFromLockX >= SNAP_RELEASE_DISTANCE) {
-                    finalPos.x = snappedPos.x; // X ekseninde serbest
-                    setState({
-                        wallNodeSnapLock: {
-                            x: null,
-                            y: state.wallNodeSnapLock.y
-                        }
-                    });
-                }
-                if (lockY !== null && distFromLockY >= SNAP_RELEASE_DISTANCE) {
-                    finalPos.y = snappedPos.y; // Y ekseninde serbest
-                    setState({
-                        wallNodeSnapLock: {
-                            x: state.wallNodeSnapLock.x,
-                            y: null
-                        }
-                    });
-                }
-            }
-        } else {
-            // Lock yok, normal pozisyondan başla
-            finalPos = { x: snappedPos.x, y: snappedPos.y };
-
-            // Yeni snap ara
-            let bestSnapX = { diff: SNAP_DISTANCE, value: null };
-            let bestSnapY = { diff: SNAP_DISTANCE, value: null };
-
-            // Tüm duvar yüzeylerine snap kontrolü
-            walls.forEach(wall => {
-                // Sürüklenen node'un bağlı olduğu duvarları atla
-                if (state.affectedWalls.includes(wall)) return;
-                if (!wall.p1 || !wall.p2) return;
-
-                const wallThickness = wall.thickness || state.wallThickness;
-                const halfThickness = wallThickness / 2;
-                const dxW = wall.p2.x - wall.p1.x;
-                const dyW = wall.p2.y - wall.p1.y;
-                const isVertical = Math.abs(dxW) < 0.1;
-                const isHorizontal = Math.abs(dyW) < 0.1;
-
-                if (isVertical) {
-                    const wallX = wall.p1.x;
-                    const snapXPositions = [wallX - halfThickness, wallX + halfThickness, wallX];
-                    for (const snapX of snapXPositions) {
-                        const diff = Math.abs(finalPos.x - snapX);
-                        if (diff < bestSnapX.diff) {
-                            bestSnapX = { diff, value: snapX };
-                        }
-                    }
-                } else if (isHorizontal) {
-                    const wallY = wall.p1.y;
-                    const snapYPositions = [wallY - halfThickness, wallY + halfThickness, wallY];
-                    for (const snapY of snapYPositions) {
-                        const diff = Math.abs(finalPos.y - snapY);
-                        if (diff < bestSnapY.diff) {
-                            bestSnapY = { diff, value: snapY };
-                        }
-                    }
-                }
-            });
-
-            // Yeni snap bulunduysa uygula ve kilitle
-            if (bestSnapX.value !== null || bestSnapY.value !== null) {
-                //console.log('✅ NEW SNAP FOUND! Locking at:', { x: bestSnapX.value, y: bestSnapY.value });
-                setState({
-                    wallNodeSnapLock: {
-                        x: bestSnapX.value,
-                        y: bestSnapY.value
-                    }
-                });
-                if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
-                if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
-                //console.log('🎯 Final position after snap:', finalPos);
-            } else {
-                //console.log('❌ No snap found');
-            }
-        }
+        // DUVAR YÜZEY SNAP DEVRE DIŞI - Taşıma esnasında birleşme önlendi
+        // Doğrudan mouse pozisyonunu kullan, snap yok
+        let finalPos = { x: snappedPos.x, y: snappedPos.y };
 
         const moveIsValid = state.affectedWalls.every((wall) => {
             const otherNode = wall.p1 === nodeToMove ? wall.p2 : wall.p1;
@@ -454,48 +344,8 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         if (state.dragAxis === 'x') totalDelta.y = 0;
         else if (state.dragAxis === 'y') totalDelta.x = 0;
 
-        // Manyetik snap
-        const MAGNETIC_SNAP_DISTANCE = 20;
-        const ANGLE_TOLERANCE = 2;
-        let bestMagneticSnap = null;
-        let minMagneticDist = Infinity;
-
-        wallsToMove.forEach(movingWall => {
-             const dx1 = movingWall.p2.x - movingWall.p1.x, dy1 = movingWall.p2.y - movingWall.p1.y;
-             const len1 = Math.hypot(dx1, dy1); if (len1 < 0.1) return;
-             const dir1 = { x: dx1 / len1, y: dy1 / len1 };
-
-             walls.forEach(staticWall => {
-                 if (wallsToMove.includes(staticWall)) return;
-                 const dx2 = staticWall.p2.x - staticWall.p1.x, dy2 = staticWall.p2.y - staticWall.p1.y;
-                 const len2 = Math.hypot(dx2, dy2); if (len2 < 0.1) return;
-                 const dir2 = { x: dx2 / len2, y: dy2 / len2 };
-                 const dotProduct = Math.abs(dir1.x * dir2.x + dir1.y * dir2.y);
-                 if (dotProduct < Math.cos(ANGLE_TOLERANCE * Math.PI / 180)) return;
-
-                 const nodePairs = [
-                     { moving: movingWall.p1, static: staticWall.p1 }, { moving: movingWall.p1, static: staticWall.p2 },
-                     { moving: movingWall.p2, static: staticWall.p1 }, { moving: movingWall.p2, static: staticWall.p2 }
-                 ];
-
-                 nodePairs.forEach(pair => {
-                      const originalMovingPos = state.preDragNodeStates.get(pair.moving);
-                      if (!originalMovingPos) return;
-                      const tempMovingX = originalMovingPos.x + totalDelta.x;
-                      const tempMovingY = originalMovingPos.y + totalDelta.y;
-                     const dist = Math.hypot(tempMovingX - pair.static.x, tempMovingY - pair.static.y);
-                     if (dist < MAGNETIC_SNAP_DISTANCE && dist > 0.1 && dist < minMagneticDist) {
-                         minMagneticDist = dist;
-                         bestMagneticSnap = { dx: pair.static.x - tempMovingX, dy: pair.static.y - tempMovingY };
-                     }
-                 });
-             });
-         });
-
-        if (bestMagneticSnap) {
-            totalDelta.x += bestMagneticSnap.dx;
-            totalDelta.y += bestMagneticSnap.dy;
-        }
+        // MANYETİK SNAP DEVRE DIŞI - Taşıma esnasında birleşme önlendi
+        // Manyetik snap mekanizması kaldırıldı
 
         // Nodeları taşı
         nodesToMove.forEach((node) => {
