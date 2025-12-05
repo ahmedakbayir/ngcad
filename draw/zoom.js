@@ -90,7 +90,7 @@ export function fitDrawingToScreen() {
 
     // Eğer hiç çizim yoksa veya sınırlar geçersizse varsayılan zoom ve pan ayarına dön
     if (!hasContent || !isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
-        setState({ zoom: 0.75, panOffset: { x: c2d.width / 2, y: c2d.height / 2 } });
+        setState({ zoom: 1.2, panOffset: { x: c2d.width / 2, y: c2d.height / 2 } });
         return;
     }
 

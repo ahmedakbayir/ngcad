@@ -380,7 +380,7 @@ export class PlumbingRenderer {
         ctx.font = '10px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('S.K', 0, 0);
+        ctx.fillText('S.K.', 0, 1);
 
         // Çıkış noktası göstergesi - sadece boru bağlı değilse göster, boru çapında
         if (!comp.cikisKullanildi) {
