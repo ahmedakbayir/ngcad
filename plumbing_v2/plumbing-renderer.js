@@ -641,7 +641,7 @@ export class PlumbingRenderer {
         if (!pipes) return;
 
         const zoom = state.zoom || 1;
-        const baseFontSize = 8;
+        const baseFontSize = 10;
         const ZOOM_EXPONENT = -0.1;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
@@ -711,7 +711,7 @@ export class PlumbingRenderer {
         if (!geciciBoru) return;
 
         const zoom = state.zoom || 1;
-        const baseFontSize = 8;
+        const baseFontSize = 10;
         const ZOOM_EXPONENT = -0.1;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
