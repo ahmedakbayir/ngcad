@@ -1109,26 +1109,53 @@ export class InteractionManager {
                 return distToP1 < connectionTolerance || distToP2 < connectionTolerance;
             });
 
-            // SNAP SİSTEMİ: Sadece aynı borunun kendi DİĞER ucuna snap yap
-            // Bağlı boruların uçlarına snap YAPMA (TE oluşmasını önlemek için)
+            // SNAP SİSTEMİ: X-Y hizalaması için snap (üst üste bindirmek değil!)
             const PIPE_ENDPOINT_SNAP_DISTANCE = 10; // cm
             let pipeSnapX = null;
             let pipeSnapY = null;
+            let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
+            let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
 
-            // Aynı borunun DİĞER ucunun X ve Y koordinatlarına snap
+            // 1) Aynı borunun DİĞER ucunun X ve Y koordinatlarına snap
             const ownOtherEndpoint = this.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
 
             // X hizasına snap
             const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
-            if (ownXDiff < PIPE_ENDPOINT_SNAP_DISTANCE) {
+            if (ownXDiff < minPipeSnapDistX) {
+                minPipeSnapDistX = ownXDiff;
                 pipeSnapX = ownOtherEndpoint.x;
             }
 
             // Y hizasına snap
             const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
-            if (ownYDiff < PIPE_ENDPOINT_SNAP_DISTANCE) {
+            if (ownYDiff < minPipeSnapDistY) {
+                minPipeSnapDistY = ownYDiff;
                 pipeSnapY = ownOtherEndpoint.y;
             }
+
+            // 2) Bağlı boruların DİĞER uçlarına snap (X-Y hizalaması için)
+            connectedPipes.forEach(connectedPipe => {
+                // Bağlı borunun DİĞER ucunu bul
+                const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
+                const distToP2 = Math.hypot(connectedPipe.p2.x - oldPoint.x, connectedPipe.p2.y - oldPoint.y);
+
+                // Hangi uç bağlı değilse o ucu al
+                const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
+
+                // X hizasına snap kontrolü
+                const xDiff = Math.abs(finalPos.x - otherEndpoint.x);
+                if (xDiff < minPipeSnapDistX) {
+                    minPipeSnapDistX = xDiff;
+                    pipeSnapX = otherEndpoint.x;
+                }
+
+                // Y hizasına snap kontrolü
+                const yDiff = Math.abs(finalPos.y - otherEndpoint.y);
+                if (yDiff < minPipeSnapDistY) {
+                    minPipeSnapDistY = yDiff;
+                    pipeSnapY = otherEndpoint.y;
+                }
+            });
 
             // Boru uç snap'i uygula (duvar snap'inden sonra)
             if (pipeSnapX !== null || pipeSnapY !== null) {
