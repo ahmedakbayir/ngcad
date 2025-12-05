@@ -861,6 +861,75 @@ export class InteractionManager {
     }
 
     /**
+     * İki borunun çakışıp çakışmadığını kontrol et
+     * @param {Boru} pipe1 - İlk boru
+     * @param {Boru} pipe2 - İkinci boru
+     * @param {number} minOverlapLength - Minimum çakışma uzunluğu (cm)
+     * @param {number} maxDistance - İki boru arasındaki maximum mesafe (cm)
+     * @returns {boolean} - Çakışma varsa true
+     */
+    checkPipeOverlap(pipe1, pipe2, minOverlapLength = 10, maxDistance = 10) {
+        // Vektörleri hesapla
+        const v1 = { x: pipe1.p2.x - pipe1.p1.x, y: pipe1.p2.y - pipe1.p1.y };
+        const v2 = { x: pipe2.p2.x - pipe2.p1.x, y: pipe2.p2.y - pipe2.p1.y };
+
+        const len1 = Math.hypot(v1.x, v1.y);
+        const len2 = Math.hypot(v2.x, v2.y);
+
+        if (len1 < 0.1 || len2 < 0.1) return false; // Çok kısa borular
+
+        // Normalize edilmiş yönler
+        const dir1 = { x: v1.x / len1, y: v1.y / len1 };
+        const dir2 = { x: v2.x / len2, y: v2.y / len2 };
+
+        // Dot product - paralel mi?
+        const dotProduct = Math.abs(dir1.x * dir2.x + dir1.y * dir2.y);
+        const PARALLEL_THRESHOLD = 0.98; // ~11.5 derece tolerans
+
+        if (dotProduct < PARALLEL_THRESHOLD) {
+            return false; // Paralel değiller, çakışma yok
+        }
+
+        // Paraleller - aralarındaki mesafeyi kontrol et
+        // pipe2.p1'in pipe1'e olan mesafesini hesapla
+        const proj1 = pipe1.projectPoint(pipe2.p1);
+        const proj2 = pipe1.projectPoint(pipe2.p2);
+
+        const dist1 = proj1 ? proj1.distance : Infinity;
+        const dist2 = proj2 ? proj2.distance : Infinity;
+        const minDist = Math.min(dist1, dist2);
+
+        if (minDist > maxDistance) {
+            return false; // Çok uzaklar, çakışma yok
+        }
+
+        // Overlap uzunluğunu hesapla
+        // Her iki boruyu da aynı doğru üzerine project edelim
+        const refDir = dir1;
+
+        // pipe1'in parametreleri (0 ile len1 arasında)
+        const pipe1Start = 0;
+        const pipe1End = len1;
+
+        // pipe2'yi pipe1'in doğrusu üzerine project et
+        const toP2P1 = { x: pipe2.p1.x - pipe1.p1.x, y: pipe2.p1.y - pipe1.p1.y };
+        const toP2P2 = { x: pipe2.p2.x - pipe1.p1.x, y: pipe2.p2.y - pipe1.p1.y };
+
+        const pipe2P1Proj = toP2P1.x * refDir.x + toP2P1.y * refDir.y;
+        const pipe2P2Proj = toP2P2.x * refDir.x + toP2P2.y * refDir.y;
+
+        const pipe2Start = Math.min(pipe2P1Proj, pipe2P2Proj);
+        const pipe2End = Math.max(pipe2P1Proj, pipe2P2Proj);
+
+        // Overlap hesapla
+        const overlapStart = Math.max(pipe1Start, pipe2Start);
+        const overlapEnd = Math.min(pipe1End, pipe2End);
+        const overlapLength = Math.max(0, overlapEnd - overlapStart);
+
+        return overlapLength >= minOverlapLength;
+    }
+
+    /**
      * Bileşen çıkış noktasını bul (servis kutusu, sayaç vb.)
      */
     findBilesenCikisAt(point, tolerance = 10) {
@@ -1184,6 +1253,32 @@ export class InteractionManager {
 
             // Eğer nokta dolu değilse pozisyonu uygula
             if (!occupiedByOtherPipe) {
+                // BORU ÇAKIŞMA KONTROLÜ: Yeni pozisyonda boru çakışması var mı?
+                // Geçici olarak pozisyonu uygula ve kontrol et
+                const tempP1 = this.dragEndpoint === 'p1' ? finalPos : pipe.p1;
+                const tempP2 = this.dragEndpoint === 'p2' ? finalPos : pipe.p2;
+
+                // Geçici boru oluştur (kontrol için)
+                const tempPipe = {
+                    p1: tempP1,
+                    p2: tempP2,
+                    projectPoint: pipe.projectPoint.bind(pipe)
+                };
+
+                // Diğer borularla çakışma kontrolü
+                const hasOverlap = this.manager.pipes.some(otherPipe => {
+                    if (otherPipe === pipe) return false;
+                    if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
+
+                    return this.checkPipeOverlap(tempPipe, otherPipe, 10, 10);
+                });
+
+                if (hasOverlap) {
+                    // Çakışma var, taşımayı engelle
+                    return;
+                }
+
+                // Nokta da boş, çakışma da yok - pozisyonu uygula
                 if (this.dragEndpoint === 'p1') {
                     pipe.p1.x = finalPos.x;
                     pipe.p1.y = finalPos.y;
@@ -1327,7 +1422,28 @@ export class InteractionManager {
                 return;
             }
 
-            // Nokta boşsa pozisyonları uygula
+            // BORU ÇAKIŞMA KONTROLÜ: Yeni pozisyonda boru çakışması var mı?
+            // Geçici boru oluştur (kontrol için)
+            const tempPipe = {
+                p1: newP1,
+                p2: newP2,
+                projectPoint: pipe.projectPoint.bind(pipe)
+            };
+
+            // Diğer borularla çakışma kontrolü
+            const hasOverlap = this.manager.pipes.some(otherPipe => {
+                if (otherPipe === pipe) return false;
+                if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
+
+                return this.checkPipeOverlap(tempPipe, otherPipe, 10, 10);
+            });
+
+            if (hasOverlap) {
+                // Çakışma var, taşımayı engelle
+                return;
+            }
+
+            // Nokta da boş, çakışma da yok - pozisyonları uygula
             pipe.p1.x = newP1.x;
             pipe.p1.y = newP1.y;
             pipe.p2.x = newP2.x;
