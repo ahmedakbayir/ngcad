@@ -310,6 +310,36 @@ export class InteractionManager {
             return true;
         }
 
+        // Ok tuşları - seçili boru navigasyonu
+        if (this.selectedObject && this.selectedObject.type === 'boru') {
+            const tolerance = 1;
+            const selectedPipe = this.selectedObject;
+
+            // ArrowRight veya ArrowUp: sonraki boru (p2'ye bağlı boru)
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                const nextPipe = this.manager.pipes.find(p =>
+                    p.id !== selectedPipe.id &&
+                    Math.hypot(p.p1.x - selectedPipe.p2.x, p.p1.y - selectedPipe.p2.y) < tolerance
+                );
+                if (nextPipe) {
+                    this.selectObject(nextPipe);
+                    return true;
+                }
+            }
+
+            // ArrowLeft veya ArrowDown: önceki boru (p1'e bağlı boru)
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                const prevPipe = this.manager.pipes.find(p =>
+                    p.id !== selectedPipe.id &&
+                    Math.hypot(p.p2.x - selectedPipe.p1.x, p.p2.y - selectedPipe.p1.y) < tolerance
+                );
+                if (prevPipe) {
+                    this.selectObject(prevPipe);
+                    return true;
+                }
+            }
+        }
+
         // Ok tuşları - seçili sayacı hareket ettir
         if (this.selectedObject && this.selectedObject.type === 'sayac') {
             const direction = {
@@ -1005,17 +1035,48 @@ export class InteractionManager {
                 if (pipeSnapY !== null) finalPos.y = pipeSnapY;
             }
 
-            // Pozisyonu uygula
-            if (this.dragEndpoint === 'p1') {
-                pipe.p1.x = finalPos.x;
-                pipe.p1.y = finalPos.y;
-            } else {
-                pipe.p2.x = finalPos.x;
-                pipe.p2.y = finalPos.y;
-            }
+            // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
+            // Bağlı borular hariç (zaten bağlı oldukları için aynı noktada olabilirler)
+            const POINT_OCCUPATION_TOLERANCE = 2; // 2 cm - çok yakın sayılır
+            const connectionTolerance = 1; // Bağlantı tespit toleransı
 
-            // Bağlı boruları güncelle (tüm zinciri)
-            this.updateConnectedPipesChain(oldPoint, finalPos);
+            // Taşınan uç noktaya bağlı olan boruları bul
+            const connectedPipes = this.manager.pipes.filter(p => {
+                if (p === pipe) return false;
+                const distToP1 = Math.hypot(p.p1.x - oldPoint.x, p.p1.y - oldPoint.y);
+                const distToP2 = Math.hypot(p.p2.x - oldPoint.x, p.p2.y - oldPoint.y);
+                return distToP1 < connectionTolerance || distToP2 < connectionTolerance;
+            });
+
+            // Hedef noktada başka bir boru ucu var mı kontrol et (bağlı borular hariç)
+            const occupiedByOtherPipe = this.manager.pipes.some(otherPipe => {
+                if (otherPipe === pipe) return false;
+
+                // Bu boru bağlı borulardan biri mi? O zaman sorun yok
+                if (connectedPipes.includes(otherPipe)) return false;
+
+                // p1 veya p2'si hedef noktaya çok yakın mı?
+                const distToP1 = Math.hypot(otherPipe.p1.x - finalPos.x, otherPipe.p1.y - finalPos.y);
+                const distToP2 = Math.hypot(otherPipe.p2.x - finalPos.x, otherPipe.p2.y - finalPos.y);
+
+                return distToP1 < POINT_OCCUPATION_TOLERANCE || distToP2 < POINT_OCCUPATION_TOLERANCE;
+            });
+
+            // Eğer nokta dolu değilse pozisyonu uygula
+            if (!occupiedByOtherPipe) {
+                if (this.dragEndpoint === 'p1') {
+                    pipe.p1.x = finalPos.x;
+                    pipe.p1.y = finalPos.y;
+                } else {
+                    pipe.p2.x = finalPos.x;
+                    pipe.p2.y = finalPos.y;
+                }
+                // Bağlı boruları güncelle (tüm zinciri)
+                this.updateConnectedPipesChain(oldPoint, finalPos);
+            } else {
+                // Nokta doluysa eski pozisyonda kalır (hiçbir şey yapma)
+                // Bağlı boruları güncellemeye gerek yok çünkü pozisyon değişmedi
+            }
             return;
         }
 
@@ -1368,6 +1429,30 @@ export class InteractionManager {
             // Bağlı boruları bul ve bağlantıyı güncelle
             const deletedPipe = obj;
 
+            // Silme sonrası seçilecek boruyu belirle
+            let pipeToSelect = null;
+
+            // p2'ye bağlı boruyu/boruları bul (silinecek borunun devamı)
+            const tolerance = 1;
+            const nextPipes = this.manager.pipes.filter(p =>
+                p.id !== deletedPipe.id &&
+                Math.hypot(p.p1.x - deletedPipe.p2.x, p.p1.y - deletedPipe.p2.y) < tolerance
+            );
+
+            // Eğer tek bir sonraki boru varsa onu seç
+            if (nextPipes.length === 1) {
+                pipeToSelect = nextPipes[0];
+            } else {
+                // Sonraki boru yoksa veya birden fazla varsa, önceki boruyu seç
+                const prevPipe = this.manager.pipes.find(p =>
+                    p.id !== deletedPipe.id &&
+                    Math.hypot(p.p2.x - deletedPipe.p1.x, p.p2.y - deletedPipe.p1.y) < tolerance
+                );
+                if (prevPipe) {
+                    pipeToSelect = prevPipe;
+                }
+            }
+
             // p2'ye bağlı boruyu bul (silinecek borunun devamı)
             const nextPipe = this.manager.pipes.find(p =>
                 p.id !== deletedPipe.id &&
@@ -1408,6 +1493,11 @@ export class InteractionManager {
 
             const index = this.manager.pipes.findIndex(p => p.id === obj.id);
             if (index !== -1) this.manager.pipes.splice(index, 1);
+
+            // Boru silindikten sonra seçilecek boruyu seç
+            if (pipeToSelect) {
+                this.selectObject(pipeToSelect);
+            }
         } else if (obj.type === 'servis_kutusu') {
             // Servis kutusu silinirken bağlı tüm boruları da sil
             const bagliBoruId = obj.bagliBoruId;
