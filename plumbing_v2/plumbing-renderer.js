@@ -77,6 +77,11 @@ export class PlumbingRenderer {
         if (manager.interactionManager?.pipeEndpointSnapLock) {
             this.drawPipeEndpointSnapGuides(ctx, manager.interactionManager);
         }
+
+        // Pipe splitting preview (boru tool aktif, hover)
+        if (manager.interactionManager?.pipeSplitPreview) {
+            this.drawPipeSplitPreview(ctx, manager.interactionManager.pipeSplitPreview);
+        }
     }
 
     drawPipes(ctx, pipes) {
@@ -912,6 +917,42 @@ export class PlumbingRenderer {
             ctx.lineTo(ghost.p2.x, ghost.p2.y);
             ctx.stroke();
         });
+
+        ctx.restore();
+    }
+
+    /**
+     * Pipe splitting preview noktası çiz
+     */
+    drawPipeSplitPreview(ctx, preview) {
+        if (!preview || !preview.point) return;
+
+        const { point } = preview;
+        const zoom = state.zoom || 1;
+
+        ctx.save();
+
+        // Dış daire (mavi, parlak)
+        ctx.fillStyle = 'rgba(0, 150, 255, 0.8)';
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2 / zoom;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 6 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // İç daire (beyaz nokta)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 2 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Animasyon için pulse efekti (isteğe bağlı - statik de kalabilir)
+        ctx.strokeStyle = 'rgba(0, 150, 255, 0.4)';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 10 / zoom, 0, Math.PI * 2);
+        ctx.stroke();
 
         ctx.restore();
     }
