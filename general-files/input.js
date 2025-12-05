@@ -608,7 +608,9 @@ function onKeyDown(e) {
     if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
 
     // --- Yeni Tesisat Sistemi (v2) Klavye İşlemleri ---
-    if (state.currentMode === "plumbingV2") {
+    // PlumbingV2 modunda VEYA tesisat nesnesi seçiliyse
+    if (state.currentMode === "plumbingV2" || state.currentMode === "MİMARİ-TESİSAT" ||
+        (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type))) {
         const handled = plumbingManager.interactionManager.handleKeyDown(e);
         if (handled) {
             return;

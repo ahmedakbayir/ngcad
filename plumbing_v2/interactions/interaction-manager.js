@@ -680,6 +680,7 @@ export class InteractionManager {
             if (confirm(obj.getDeleteInfo().uyari)) {
                 this.removeObject(obj);
                 this.manager.saveToState();
+                this.deselectObject(); // Servis kutusu için seçimi kaldır
             } else {
                 // İptal edildi, return
                 return;
@@ -687,9 +688,11 @@ export class InteractionManager {
         } else {
             this.removeObject(obj);
             this.manager.saveToState();
+            // Boru için deselectObject çağırma - removeObject içinde zaten akıllı seçim yapılıyor
+            if (obj.type !== 'boru') {
+                this.deselectObject();
+            }
         }
-
-        this.deselectObject();
     }
 
     findObjectAt(point) {
