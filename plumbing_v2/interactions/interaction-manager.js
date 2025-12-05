@@ -930,6 +930,74 @@ export class InteractionManager {
     }
 
     /**
+     * Aynı noktayı paylaşan borular arasındaki açıyı kontrol et
+     * @param {object} tempPipe - Kontrol edilecek boru {p1, p2}
+     * @param {number} minAngleDegrees - Minimum açı (derece)
+     * @returns {boolean} - Çok küçük açı varsa true (çakışma)
+     */
+    checkSharedPointAngle(tempPipe, minAngleDegrees = 3) {
+        const POINT_MATCH_TOLERANCE = 1; // 1 cm - aynı nokta sayılır
+        const MIN_ANGLE_RADIANS = minAngleDegrees * Math.PI / 180;
+
+        // tempPipe'ın vektörünü hesapla
+        const v1 = {
+            x: tempPipe.p2.x - tempPipe.p1.x,
+            y: tempPipe.p2.y - tempPipe.p1.y
+        };
+        const len1 = Math.hypot(v1.x, v1.y);
+        if (len1 < 0.1) return false; // Çok kısa boru
+
+        const dir1 = { x: v1.x / len1, y: v1.y / len1 };
+
+        // Diğer tüm borularla karşılaştır
+        for (const otherPipe of this.manager.pipes) {
+            // Aynı noktayı paylaşıyorlar mı kontrol et
+            let sharedPoint = null;
+            let otherVector = null;
+
+            // tempPipe.p1 = otherPipe.p1
+            if (Math.hypot(tempPipe.p1.x - otherPipe.p1.x, tempPipe.p1.y - otherPipe.p1.y) < POINT_MATCH_TOLERANCE) {
+                sharedPoint = tempPipe.p1;
+                otherVector = { x: otherPipe.p2.x - otherPipe.p1.x, y: otherPipe.p2.y - otherPipe.p1.y };
+            }
+            // tempPipe.p1 = otherPipe.p2
+            else if (Math.hypot(tempPipe.p1.x - otherPipe.p2.x, tempPipe.p1.y - otherPipe.p2.y) < POINT_MATCH_TOLERANCE) {
+                sharedPoint = tempPipe.p1;
+                otherVector = { x: otherPipe.p1.x - otherPipe.p2.x, y: otherPipe.p1.y - otherPipe.p2.y };
+            }
+            // tempPipe.p2 = otherPipe.p1
+            else if (Math.hypot(tempPipe.p2.x - otherPipe.p1.x, tempPipe.p2.y - otherPipe.p1.y) < POINT_MATCH_TOLERANCE) {
+                sharedPoint = tempPipe.p2;
+                otherVector = { x: otherPipe.p2.x - otherPipe.p1.x, y: otherPipe.p2.y - otherPipe.p1.y };
+            }
+            // tempPipe.p2 = otherPipe.p2
+            else if (Math.hypot(tempPipe.p2.x - otherPipe.p2.x, tempPipe.p2.y - otherPipe.p2.y) < POINT_MATCH_TOLERANCE) {
+                sharedPoint = tempPipe.p2;
+                otherVector = { x: otherPipe.p1.x - otherPipe.p2.x, y: otherPipe.p1.y - otherPipe.p2.y };
+            }
+
+            if (sharedPoint && otherVector) {
+                // Diğer borunun yönünü normalize et
+                const len2 = Math.hypot(otherVector.x, otherVector.y);
+                if (len2 < 0.1) continue; // Çok kısa boru
+
+                const dir2 = { x: otherVector.x / len2, y: otherVector.y / len2 };
+
+                // Açıyı hesapla (dot product kullanarak)
+                const dotProduct = dir1.x * dir2.x + dir1.y * dir2.y;
+                const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct))); // Clamp [-1, 1]
+
+                // Açı çok küçükse (neredeyse paralel), çakışma var
+                if (angle < MIN_ANGLE_RADIANS || angle > (Math.PI - MIN_ANGLE_RADIANS)) {
+                    return true; // Çakışma tespit edildi
+                }
+            }
+        }
+
+        return false; // Çakışma yok
+    }
+
+    /**
      * Bileşen çıkış noktasını bul (servis kutusu, sayaç vb.)
      */
     findBilesenCikisAt(point, tolerance = 10) {
@@ -1253,32 +1321,23 @@ export class InteractionManager {
 
             // Eğer nokta dolu değilse pozisyonu uygula
             if (!occupiedByOtherPipe) {
-                // BORU ÇAKIŞMA KONTROLÜ: Yeni pozisyonda boru çakışması var mı?
-                // Geçici olarak pozisyonu uygula ve kontrol et
+                // AÇI KONTROLÜ: Aynı noktayı paylaşan borular arasında minimum 3° açı olmalı
                 const tempP1 = this.dragEndpoint === 'p1' ? finalPos : pipe.p1;
                 const tempP2 = this.dragEndpoint === 'p2' ? finalPos : pipe.p2;
 
                 // Geçici boru oluştur (kontrol için)
                 const tempPipe = {
                     p1: tempP1,
-                    p2: tempP2,
-                    projectPoint: pipe.projectPoint.bind(pipe)
+                    p2: tempP2
                 };
 
-                // Diğer borularla çakışma kontrolü
-                const hasOverlap = this.manager.pipes.some(otherPipe => {
-                    if (otherPipe === pipe) return false;
-                    if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
-
-                    return this.checkPipeOverlap(tempPipe, otherPipe, 10, 10);
-                });
-
-                if (hasOverlap) {
-                    // Çakışma var, taşımayı engelle
+                // Açı kontrolü
+                if (this.checkSharedPointAngle(tempPipe, 3)) {
+                    // Çok küçük açı var, taşımayı engelle
                     return;
                 }
 
-                // Nokta da boş, çakışma da yok - pozisyonu uygula
+                // Nokta da boş, açı da yeterli - pozisyonu uygula
                 if (this.dragEndpoint === 'p1') {
                     pipe.p1.x = finalPos.x;
                     pipe.p1.y = finalPos.y;
@@ -1422,28 +1481,19 @@ export class InteractionManager {
                 return;
             }
 
-            // BORU ÇAKIŞMA KONTROLÜ: Yeni pozisyonda boru çakışması var mı?
-            // Geçici boru oluştur (kontrol için)
+            // AÇI KONTROLÜ: Aynı noktayı paylaşan borular arasında minimum 3° açı olmalı
             const tempPipe = {
                 p1: newP1,
-                p2: newP2,
-                projectPoint: pipe.projectPoint.bind(pipe)
+                p2: newP2
             };
 
-            // Diğer borularla çakışma kontrolü
-            const hasOverlap = this.manager.pipes.some(otherPipe => {
-                if (otherPipe === pipe) return false;
-                if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
-
-                return this.checkPipeOverlap(tempPipe, otherPipe, 10, 10);
-            });
-
-            if (hasOverlap) {
-                // Çakışma var, taşımayı engelle
+            // Açı kontrolü
+            if (this.checkSharedPointAngle(tempPipe, 3)) {
+                // Çok küçük açı var, taşımayı engelle
                 return;
             }
 
-            // Nokta da boş, çakışma da yok - pozisyonları uygula
+            // Nokta da boş, açı da yeterli - pozisyonları uygula
             pipe.p1.x = newP1.x;
             pipe.p1.y = newP1.y;
             pipe.p2.x = newP2.x;
