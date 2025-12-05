@@ -221,7 +221,7 @@ export let state = {
     roomOriginalCenter: null,
     dimensionMode: 1,
     viewMode3D: 'floor', // 3D görünüm modu: 'floor' (sadece aktif kat) veya 'building' (tüm bina)
-    zoom: 0.75,
+    zoom: 1.5,
     panOffset: { x: 0, y: 0 },
     isPanning: false,
     panStart: { x: 0, y: 0 },
