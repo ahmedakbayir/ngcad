@@ -1038,15 +1038,7 @@ export class InteractionManager {
             // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
             // Bağlı borular hariç (zaten bağlı oldukları için aynı noktada olabilirler)
             const POINT_OCCUPATION_TOLERANCE = 2; // 2 cm - çok yakın sayılır
-            const connectionTolerance = 1; // Bağlantı tespit toleransı
-
-            // Taşınan uç noktaya bağlı olan boruları bul
-            const connectedPipes = this.manager.pipes.filter(p => {
-                if (p === pipe) return false;
-                const distToP1 = Math.hypot(p.p1.x - oldPoint.x, p.p1.y - oldPoint.y);
-                const distToP2 = Math.hypot(p.p2.x - oldPoint.x, p.p2.y - oldPoint.y);
-                return distToP1 < connectionTolerance || distToP2 < connectionTolerance;
-            });
+            // connectionTolerance zaten yukarıda tanımlı (satır 975)
 
             // Hedef noktada başka bir boru ucu var mı kontrol et (bağlı borular hariç)
             const occupiedByOtherPipe = this.manager.pipes.some(otherPipe => {
