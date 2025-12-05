@@ -219,63 +219,66 @@ export class InteractionManager {
             return false;
         }
 
-        // 4. Bileşen çıkış noktasından çizim başlat (servis kutusu, sayaç vb.)
-        const bilesenCikis = this.findBilesenCikisAt(point);
-        if (bilesenCikis) {
-            // Bileşen tipine göre bağlantı tipi belirle
-            const baglantiTip = bilesenCikis.tip === 'servis_kutusu'
-                ? BAGLANTI_TIPLERI.SERVIS_KUTUSU
-                : bilesenCikis.tip === 'sayac'
-                    ? BAGLANTI_TIPLERI.SAYAC
-                    : BAGLANTI_TIPLERI.BORU;
-            this.startBoruCizim(bilesenCikis.nokta, bilesenCikis.bilesenId, baglantiTip);
-            return true;
-        }
+        // Boru çizim modu kontrolleri (activeTool === 'boru' veya plumbingV2 modunda)
+        const isDrawingMode = this.manager.activeTool === 'boru' ||
+                              state.currentMode === 'plumbingV2' ||
+                              state.currentMode === 'MİMARİ-TESİSAT';
 
-        // 5. Boru ucu veya gövdesinden çizim başlat
-        const boruUcu = this.findBoruUcuAt(point, 8);
-        if (boruUcu) {
-            this.startBoruCizim(boruUcu.nokta, boruUcu.boruId, BAGLANTI_TIPLERI.BORU);
-            return true;
-        }
-
-        // 6. Boru gövdesinden çizim başlat (split)
-        const boruGovde = this.findBoruGovdeAt(point);
-        if (boruGovde) {
-            // Boruyu split et
-            const originalBoru = this.manager.pipes.find(p => p.id === boruGovde.boruId);
-            if (originalBoru) {
-                const splitResult = originalBoru.splitAt(boruGovde.nokta);
-                if (splitResult) {
-                    // Undo için state kaydet
-                    saveState();
-
-                    const { boru1, boru2, splitPoint } = splitResult;
-
-                    // Orijinal boruyu sil
-                    const index = this.manager.pipes.findIndex(p => p.id === originalBoru.id);
-                    if (index !== -1) {
-                        this.manager.pipes.splice(index, 1);
-                    }
-
-                    // Yeni boruları ekle
-                    this.manager.pipes.push(boru1, boru2);
-
-                    // İlk borunun bitişinden ve ikinci borunun başlangıcından çizime başla
-                    // İkisi de aynı noktada olduğu için herhangi birini kullanabiliriz
-                    // Boru1'in bitiş noktası = Boru2'nin başlangıç noktası = splitPoint
-
-                    // Boru1 ve Boru2 birbirlerine bağlı değil, split noktasından ayrılacaklar
-                    this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
-
-                    // State'i kaydet
-                    this.manager.saveToState();
-                    return true;
-                }
+        if (isDrawingMode) {
+            // 4. Bileşen çıkış noktasından çizim başlat (servis kutusu, sayaç vb.)
+            const bilesenCikis = this.findBilesenCikisAt(point);
+            if (bilesenCikis) {
+                // Bileşen tipine göre bağlantı tipi belirle
+                const baglantiTip = bilesenCikis.tip === 'servis_kutusu'
+                    ? BAGLANTI_TIPLERI.SERVIS_KUTUSU
+                    : bilesenCikis.tip === 'sayac'
+                        ? BAGLANTI_TIPLERI.SAYAC
+                        : BAGLANTI_TIPLERI.BORU;
+                this.startBoruCizim(bilesenCikis.nokta, bilesenCikis.bilesenId, baglantiTip);
+                return true;
             }
-            // Split başarısız olduysa normal çizime başla
-            this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
-            return true;
+
+            // 5. Boru ucu veya gövdesinden çizim başlat
+            const boruUcu2 = this.findBoruUcuAt(point, 8);
+            if (boruUcu2) {
+                this.startBoruCizim(boruUcu2.nokta, boruUcu2.boruId, BAGLANTI_TIPLERI.BORU);
+                return true;
+            }
+
+            // 6. Boru gövdesinden çizim başlat (split)
+            const boruGovde = this.findBoruGovdeAt(point);
+            if (boruGovde) {
+                // Boruyu split et
+                const originalBoru = this.manager.pipes.find(p => p.id === boruGovde.boruId);
+                if (originalBoru) {
+                    const splitResult = originalBoru.splitAt(boruGovde.nokta);
+                    if (splitResult) {
+                        // Undo için state kaydet
+                        saveState();
+
+                        const { boru1, boru2, splitPoint } = splitResult;
+
+                        // Orijinal boruyu sil
+                        const index = this.manager.pipes.findIndex(p => p.id === originalBoru.id);
+                        if (index !== -1) {
+                            this.manager.pipes.splice(index, 1);
+                        }
+
+                        // Yeni boruları ekle
+                        this.manager.pipes.push(boru1, boru2);
+
+                        // Split noktasından çizime başla
+                        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+
+                        // State'i kaydet
+                        this.manager.saveToState();
+                        return true;
+                    }
+                }
+                // Split başarısız olduysa normal çizime başla
+                this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
+                return true;
+            }
         }
 
         // 7. Boş alana tıklama - seçimi kaldır
@@ -1253,6 +1256,30 @@ export class InteractionManager {
      */
     updateConnectedPipesChain(oldPoint, newPoint) {
         const tolerance = 0.5; // cm
+        const POINT_OCCUPATION_TOLERANCE = 2; // 2 cm - çok yakın sayılır
+
+        // Hedef noktada başka bir boru ucu var mı kontrol et (nokta taşıma kısıtlaması)
+        const oldPointPipes = this.manager.pipes.filter(p => {
+            const distToP1 = Math.hypot(p.p1.x - oldPoint.x, p.p1.y - oldPoint.y);
+            const distToP2 = Math.hypot(p.p2.x - oldPoint.x, p.p2.y - oldPoint.y);
+            return distToP1 < tolerance || distToP2 < tolerance;
+        });
+
+        const occupiedByOtherPipe = this.manager.pipes.some(otherPipe => {
+            // Eski noktadaki borulardan biri mi? O zaman sorun yok (bağlı borular)
+            if (oldPointPipes.includes(otherPipe)) return false;
+
+            // p1 veya p2'si hedef noktaya çok yakın mı?
+            const distToP1 = Math.hypot(otherPipe.p1.x - newPoint.x, otherPipe.p1.y - newPoint.y);
+            const distToP2 = Math.hypot(otherPipe.p2.x - newPoint.x, otherPipe.p2.y - newPoint.y);
+
+            return distToP1 < POINT_OCCUPATION_TOLERANCE || distToP2 < POINT_OCCUPATION_TOLERANCE;
+        });
+
+        // Eğer hedef nokta doluysa güncelleme yapma
+        if (occupiedByOtherPipe) {
+            return; // Nokta doluysa işlemi iptal et
+        }
 
         // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
         this.manager.pipes.forEach(pipe => {
