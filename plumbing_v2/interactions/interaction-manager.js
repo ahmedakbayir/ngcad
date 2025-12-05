@@ -239,9 +239,41 @@ export class InteractionManager {
             return true;
         }
 
-        // 6. Boru gövdesinden çizim başlat
+        // 6. Boru gövdesinden çizim başlat (split)
         const boruGovde = this.findBoruGovdeAt(point);
         if (boruGovde) {
+            // Boruyu split et
+            const originalBoru = this.manager.pipes.find(p => p.id === boruGovde.boruId);
+            if (originalBoru) {
+                const splitResult = originalBoru.splitAt(boruGovde.nokta);
+                if (splitResult) {
+                    // Undo için state kaydet
+                    saveState();
+
+                    const { boru1, boru2, splitPoint } = splitResult;
+
+                    // Orijinal boruyu sil
+                    const index = this.manager.pipes.findIndex(p => p.id === originalBoru.id);
+                    if (index !== -1) {
+                        this.manager.pipes.splice(index, 1);
+                    }
+
+                    // Yeni boruları ekle
+                    this.manager.pipes.push(boru1, boru2);
+
+                    // İlk borunun bitişinden ve ikinci borunun başlangıcından çizime başla
+                    // İkisi de aynı noktada olduğu için herhangi birini kullanabiliriz
+                    // Boru1'in bitiş noktası = Boru2'nin başlangıç noktası = splitPoint
+
+                    // Boru1 ve Boru2 birbirlerine bağlı değil, split noktasından ayrılacaklar
+                    this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+
+                    // State'i kaydet
+                    this.manager.saveToState();
+                    return true;
+                }
+            }
+            // Split başarısız olduysa normal çizime başla
             this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
             return true;
         }
@@ -503,7 +535,7 @@ export class InteractionManager {
                 this.boruBaslangic.kaynakId
             );
 
-            // Servis kutusu bağlantısını kur
+            // Kaynak tipine göre bağlantıyı kur
             if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
                 const servisKutusu = this.manager.components.find(
                     c => c.id === this.boruBaslangic.kaynakId && c.type === 'servis_kutusu'
@@ -511,6 +543,14 @@ export class InteractionManager {
                 if (servisKutusu) {
                     servisKutusu.baglaBoru(boru.id);
                 }
+            } else if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.BORU) {
+                // Önceki borunun bitiş bağlantısını yeni boruya ayarla
+                const prevBoru = this.manager.pipes.find(p => p.id === this.boruBaslangic.kaynakId);
+                if (prevBoru) {
+                    prevBoru.setBitisBaglanti(BAGLANTI_TIPLERI.BORU, boru.id);
+                }
+            } else if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
+                // Sayaç çıkış bağlantısı (gerekirse ileride eklenebilir)
             }
         }
 
