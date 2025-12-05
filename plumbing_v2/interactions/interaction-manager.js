@@ -53,6 +53,9 @@ export class InteractionManager {
         // Boru uç noktası snap lock (duvar node snap gibi)
         this.pipeEndpointSnapLock = null;
         this.pipeSnapMouseStart = null; // Snap başladığı andaki mouse pozisyonu
+
+        // Pipe splitting preview (boru tool aktif, boruCizimAktif değil)
+        this.pipeSplitPreview = null; // { pipe, point }
     }
 
     /**
@@ -105,6 +108,30 @@ export class InteractionManager {
             return true;
         }
 
+        // 1.5 Boru tool aktif ama çizim modu değil - Pipe splitting preview
+        if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
+            // Mouse altında boru var mı kontrol et
+            const hoveredPipe = this.findPipeAt(point, 10);
+            if (hoveredPipe) {
+                // Split noktasını hesapla
+                const proj = hoveredPipe.projectPoint(point);
+                if (proj && proj.onSegment) {
+                    this.pipeSplitPreview = {
+                        pipe: hoveredPipe,
+                        point: { x: proj.x, y: proj.y }
+                    };
+                } else {
+                    this.pipeSplitPreview = null;
+                }
+            } else {
+                this.pipeSplitPreview = null;
+            }
+            return true;
+        } else {
+            // Boru tool aktif değilse preview'ı temizle
+            this.pipeSplitPreview = null;
+        }
+
         // 2. Ghost eleman yerleştirme
         if (this.manager.activeTool && this.manager.tempComponent) {
             this.updateGhostPosition(this.manager.tempComponent, targetPoint, this.activeSnap);
@@ -135,6 +162,12 @@ export class InteractionManager {
         const targetPoint = this.activeSnap
             ? { x: this.activeSnap.x, y: this.activeSnap.y }
             : point;
+
+        // 0.5 Pipe splitting - Boru tool aktif ama çizim modu değil
+        if (this.manager.activeTool === 'boru' && !this.boruCizimAktif && this.pipeSplitPreview) {
+            this.handlePipeSplit(this.pipeSplitPreview.pipe, this.pipeSplitPreview.point);
+            return true;
+        }
 
         // 1. Boru çizim modunda tıklama
         if (this.boruCizimAktif) {
@@ -486,6 +519,39 @@ export class InteractionManager {
     }
 
     /**
+     * Boruyu belirtilen noktadan böl ve çizime devam et
+     */
+    handlePipeSplit(pipe, splitPoint) {
+        // Undo için state kaydet
+        saveState();
+
+        // Boruyu böl
+        const result = pipe.splitAt(splitPoint);
+        if (!result) return; // Split başarısız
+
+        const { boru1, boru2 } = result;
+
+        // Eski boruyu kaldır
+        const index = this.manager.pipes.findIndex(p => p.id === pipe.id);
+        if (index !== -1) {
+            this.manager.pipes.splice(index, 1);
+        }
+
+        // Yeni boruları ekle
+        this.manager.pipes.push(boru1);
+        this.manager.pipes.push(boru2);
+
+        // State'i senkronize et
+        this.manager.saveToState();
+
+        // Split noktasından boru çizimi başlat (ikinci boruya bağlı)
+        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+
+        // Preview'ı temizle
+        this.pipeSplitPreview = null;
+    }
+
+    /**
      * Boru çizimde tıklama
      */
     handleBoruClick(point) {
@@ -730,6 +796,18 @@ export class InteractionManager {
             const proj = boru.projectPoint(point);
             if (proj && proj.onSegment && proj.distance < tolerance) {
                 return { boruId: boru.id, nokta: { x: proj.x, y: proj.y } };
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Mouse altındaki boruyu bul (pipe splitting için)
+     */
+    findPipeAt(point, tolerance = 10) {
+        for (const pipe of this.manager.pipes) {
+            if (pipe.containsPoint && pipe.containsPoint(point, tolerance)) {
+                return pipe;
             }
         }
         return null;
