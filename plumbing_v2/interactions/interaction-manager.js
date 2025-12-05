@@ -537,6 +537,27 @@ export class InteractionManager {
      * Boruyu belirtilen noktadan böl ve çizime devam et
      */
     handlePipeSplit(pipe, splitPoint) {
+        // Köşe kontrolü - eğer split noktası tam köşedeyse (p1 veya p2), split YAPMA
+        // Bunun yerine direkt o uçtan çizim başlat
+        const CORNER_THRESHOLD = 0.1; // 0.1 cm tolerance
+        const distToP1 = Math.hypot(splitPoint.x - pipe.p1.x, splitPoint.y - pipe.p1.y);
+        const distToP2 = Math.hypot(splitPoint.x - pipe.p2.x, splitPoint.y - pipe.p2.y);
+
+        if (distToP1 < CORNER_THRESHOLD) {
+            // p1 köşesinden çizim başlat (split yapma)
+            this.startBoruCizim(pipe.p1, pipe.id, BAGLANTI_TIPLERI.BORU);
+            this.pipeSplitPreview = null;
+            return;
+        }
+
+        if (distToP2 < CORNER_THRESHOLD) {
+            // p2 köşesinden çizim başlat (split yapma)
+            this.startBoruCizim(pipe.p2, pipe.id, BAGLANTI_TIPLERI.BORU);
+            this.pipeSplitPreview = null;
+            return;
+        }
+
+        // Köşe değil, normal split yap
         // Undo için state kaydet
         saveState();
 
