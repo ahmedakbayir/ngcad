@@ -1280,11 +1280,58 @@ export class InteractionManager {
             const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
             const oldP2 = { x: pipe.p2.x, y: pipe.p2.y };
 
-            // Her iki ucu da yeni pozisyona taşı
-            pipe.p1.x = this.bodyDragInitialP1.x + offsetX;
-            pipe.p1.y = this.bodyDragInitialP1.y + offsetY;
-            pipe.p2.x = this.bodyDragInitialP2.x + offsetX;
-            pipe.p2.y = this.bodyDragInitialP2.y + offsetY;
+            // Yeni pozisyonları hesapla (henüz uygulamadan)
+            const newP1 = {
+                x: this.bodyDragInitialP1.x + offsetX,
+                y: this.bodyDragInitialP1.y + offsetY
+            };
+            const newP2 = {
+                x: this.bodyDragInitialP2.x + offsetX,
+                y: this.bodyDragInitialP2.y + offsetY
+            };
+
+            // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
+            const POINT_OCCUPATION_TOLERANCE = 11; // 11 cm
+            const connectionTolerance = 1; // Bağlantı tespit toleransı
+
+            // Bağlı borular listesi (bridge mode için zaten var)
+            const connectedPipes = [];
+            if (this.connectedPipeAtP1) connectedPipes.push(this.connectedPipeAtP1);
+            if (this.connectedPipeAtP2) connectedPipes.push(this.connectedPipeAtP2);
+
+            // p1 için doluluk kontrolü
+            const p1Occupied = this.manager.pipes.some(otherPipe => {
+                if (otherPipe === pipe) return false;
+                if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
+
+                const distToOtherP1 = Math.hypot(otherPipe.p1.x - newP1.x, otherPipe.p1.y - newP1.y);
+                const distToOtherP2 = Math.hypot(otherPipe.p2.x - newP1.x, otherPipe.p2.y - newP1.y);
+
+                return distToOtherP1 < POINT_OCCUPATION_TOLERANCE || distToOtherP2 < POINT_OCCUPATION_TOLERANCE;
+            });
+
+            // p2 için doluluk kontrolü
+            const p2Occupied = this.manager.pipes.some(otherPipe => {
+                if (otherPipe === pipe) return false;
+                if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
+
+                const distToOtherP1 = Math.hypot(otherPipe.p1.x - newP2.x, otherPipe.p1.y - newP2.y);
+                const distToOtherP2 = Math.hypot(otherPipe.p2.x - newP2.x, otherPipe.p2.y - newP2.y);
+
+                return distToOtherP1 < POINT_OCCUPATION_TOLERANCE || distToOtherP2 < POINT_OCCUPATION_TOLERANCE;
+            });
+
+            // Eğer nokta doluysa taşımayı engelle (eski pozisyonda kal)
+            if (p1Occupied || p2Occupied) {
+                // Hiçbir şey yapma - boru eski pozisyonunda kalır
+                return;
+            }
+
+            // Nokta boşsa pozisyonları uygula
+            pipe.p1.x = newP1.x;
+            pipe.p1.y = newP1.y;
+            pipe.p2.x = newP2.x;
+            pipe.p2.y = newP2.y;
 
             // Mod kontrolü: ARA BORU modu mu NORMAL mod mu?
             if (this.useBridgeMode) {
