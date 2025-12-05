@@ -116,9 +116,24 @@ export class InteractionManager {
                 // Split noktasını hesapla
                 const proj = hoveredPipe.projectPoint(point);
                 if (proj && proj.onSegment) {
+                    let splitPoint = { x: proj.x, y: proj.y };
+
+                    // Köşelere snap - boru uçlarına yakınsa
+                    const CORNER_SNAP_DISTANCE = 10; // 10 cm
+                    const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
+                    const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
+
+                    if (distToP1 < CORNER_SNAP_DISTANCE) {
+                        // p1'e snap
+                        splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
+                    } else if (distToP2 < CORNER_SNAP_DISTANCE) {
+                        // p2'ye snap
+                        splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
+                    }
+
                     this.pipeSplitPreview = {
                         pipe: hoveredPipe,
-                        point: { x: proj.x, y: proj.y }
+                        point: splitPoint
                     };
                 } else {
                     this.pipeSplitPreview = null;
