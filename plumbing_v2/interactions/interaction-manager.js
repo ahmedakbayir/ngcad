@@ -56,6 +56,9 @@ export class InteractionManager {
 
         // Pipe splitting preview (boru tool aktif, boruCizimAktif değil)
         this.pipeSplitPreview = null; // { pipe, point }
+
+        // Vana preview (vana tool aktif)
+        this.vanaPreview = null; // { pipe, point, t, snapToEnd }
     }
 
     /**
@@ -147,6 +150,58 @@ export class InteractionManager {
             this.pipeSplitPreview = null;
         }
 
+        // 1.6 Vana tool aktif - Vana preview
+        if (this.manager.activeTool === 'vana' && !this.boruCizimAktif) {
+            // Mouse altında boru var mı kontrol et
+            const hoveredPipe = this.findPipeAt(point, 10);
+            if (hoveredPipe) {
+                // Boruda zaten vana var mı?
+                if (hoveredPipe.vana) {
+                    this.vanaPreview = null; // Zaten vana var, preview gösterme
+                } else {
+                    // Boru üzerindeki pozisyonu hesapla
+                    const proj = hoveredPipe.projectPoint(point);
+                    if (proj && proj.onSegment) {
+                        let vanaPoint = { x: proj.x, y: proj.y };
+                        let vanaT = proj.t;
+                        let snapToEnd = false;
+
+                        // Boru uçlarına snap - 10 cm tolerance
+                        const END_SNAP_DISTANCE = 10;
+                        const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
+                        const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
+
+                        if (distToP1 < END_SNAP_DISTANCE) {
+                            // p1'e snap
+                            vanaPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
+                            vanaT = 0;
+                            snapToEnd = true;
+                        } else if (distToP2 < END_SNAP_DISTANCE) {
+                            // p2'ye snap
+                            vanaPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
+                            vanaT = 1;
+                            snapToEnd = true;
+                        }
+
+                        this.vanaPreview = {
+                            pipe: hoveredPipe,
+                            point: vanaPoint,
+                            t: vanaT,
+                            snapToEnd: snapToEnd
+                        };
+                    } else {
+                        this.vanaPreview = null;
+                    }
+                }
+            } else {
+                this.vanaPreview = null;
+            }
+            return true;
+        } else {
+            // Vana tool aktif değilse preview'ı temizle
+            this.vanaPreview = null;
+        }
+
         // 2. Ghost eleman yerleştirme
         if (this.manager.activeTool && this.manager.tempComponent) {
             this.updateGhostPosition(this.manager.tempComponent, targetPoint, this.activeSnap);
@@ -177,6 +232,12 @@ export class InteractionManager {
         const targetPoint = this.activeSnap
             ? { x: this.activeSnap.x, y: this.activeSnap.y }
             : point;
+
+        // 0.4 Vana ekleme - Vana tool aktif ve preview var
+        if (this.manager.activeTool === 'vana' && !this.boruCizimAktif && this.vanaPreview) {
+            this.handleVanaPlacement(this.vanaPreview);
+            return true;
+        }
 
         // 0.5 Pipe splitting - Boru tool aktif ama çizim modu değil
         if (this.manager.activeTool === 'boru' && !this.boruCizimAktif && this.pipeSplitPreview) {
@@ -531,6 +592,82 @@ export class InteractionManager {
             kaynakTip: kaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU
         };
         this.snapSystem.setStartPoint(baslangicNoktasi);
+    }
+
+    /**
+     * Vana yerleştir
+     */
+    handleVanaPlacement(vanaPreview) {
+        const { pipe, point, t, snapToEnd } = vanaPreview;
+
+        // Boruda zaten vana var mı kontrol et
+        if (pipe.vana) {
+            alert('Bu boruda zaten bir vana var!');
+            return;
+        }
+
+        // Undo için state kaydet
+        saveState();
+
+        // Eğer uç noktaya snap olduysa direkt ekle
+        if (snapToEnd) {
+            // Uç noktaya direkt vana ekle
+            pipe.vanaEkle(t, 'AKV');
+            this.manager.saveToState();
+            this.vanaPreview = null;
+            return;
+        }
+
+        // Orta bir noktadaysa boru böl
+        const CORNER_THRESHOLD = 0.1;
+        const distToP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
+        const distToP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
+
+        if (distToP1 < CORNER_THRESHOLD || distToP2 < CORNER_THRESHOLD) {
+            // Çok köşeye yakın, direkt ekle
+            pipe.vanaEkle(t, 'AKV');
+            this.manager.saveToState();
+            this.vanaPreview = null;
+            return;
+        }
+
+        // Orta noktada - boruyu böl
+        const result = pipe.splitAt(point);
+        if (!result) {
+            alert('Boru bölünemedi!');
+            return;
+        }
+
+        const { boru1, boru2 } = result;
+
+        // Servis kutusuna bağlı mı kontrol et
+        if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+            const servisKutusu = this.manager.components.find(
+                c => c.id === pipe.baslangicBaglanti.hedefId && c.type === 'servis_kutusu'
+            );
+            if (servisKutusu && servisKutusu.bagliBoruId === pipe.id) {
+                servisKutusu.baglaBoru(boru1.id);
+            }
+        }
+
+        // Eski boruyu kaldır
+        const index = this.manager.pipes.findIndex(p => p.id === pipe.id);
+        if (index !== -1) {
+            this.manager.pipes.splice(index, 1);
+        }
+
+        // Yeni boruları ekle
+        this.manager.pipes.push(boru1);
+        this.manager.pipes.push(boru2);
+
+        // İkinci borunun başına (p1) vana ekle (t=0)
+        boru2.vanaEkle(0, 'AKV');
+
+        // State'i senkronize et
+        this.manager.saveToState();
+
+        // Preview'ı temizle
+        this.vanaPreview = null;
     }
 
     /**
