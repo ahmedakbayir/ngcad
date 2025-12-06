@@ -272,9 +272,13 @@ export class PlumbingRenderer {
         pipes.forEach(pipe => {
             if (!pipe.vana) return;
 
-            // Vana pozisyonu
+            // Vana pozisyonu (ekleme noktası)
             const vanaPos = pipe.getVanaPozisyon();
             if (!vanaPos) return;
+
+            // Vana boyutu
+            const size = 8;
+            const halfSize = size / 2;
 
             // Vana yönünü belirle
             let angle = pipe.aci;
@@ -291,13 +295,14 @@ export class PlumbingRenderer {
                 }
             }
 
-            ctx.save();
-            ctx.translate(vanaPos.x, vanaPos.y);
-            ctx.rotate(angle);
+            // Vananın sağ kenarı ekleme noktasında olsun
+            // Borunun yönüne göre halfSize kadar geri git
+            const adjustedX = vanaPos.x - Math.cos(angle) * halfSize;
+            const adjustedY = vanaPos.y - Math.sin(angle) * halfSize;
 
-            // Vana çiz (iki üçgen karşı karşıya)
-            const size = 8;
-            const halfSize = size / 2;
+            ctx.save();
+            ctx.translate(adjustedX, adjustedY);
+            ctx.rotate(angle);
 
             // Mavi renk (kutu mavisi)
             const vanaColor = '#00bffa';
@@ -1030,13 +1035,17 @@ export class PlumbingRenderer {
         const { pipe, point } = vanaPreview;
         const angle = pipe.aci;
 
-        ctx.save();
-        ctx.translate(point.x, point.y);
-        ctx.rotate(angle);
-
-        // Yarı saydam vana (iki üçgen)
+        // Vana boyutu
         const size = 8;
         const halfSize = size / 2;
+
+        // Vananın sağ kenarı ekleme noktasında olsun
+        const adjustedX = point.x - Math.cos(angle) * halfSize;
+        const adjustedY = point.y - Math.sin(angle) * halfSize;
+
+        ctx.save();
+        ctx.translate(adjustedX, adjustedY);
+        ctx.rotate(angle);
 
         // Yarı saydam
         ctx.globalAlpha = 0.7;
