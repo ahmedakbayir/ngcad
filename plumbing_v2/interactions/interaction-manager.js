@@ -709,12 +709,14 @@ export class InteractionManager {
         // Boru2'nin başlangıç bağlantısını boru1'e ayarla
         boru2.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, boru1.id);
 
-        // İkinci borunun başına (p1) vana ekle - sabit mesafe ile
+        // İLK BORUNUN SONUNA (p2) vana ekle - sabit mesafe ile
         const DIRSEK_KOL_UZUNLUGU = 3; // cm
         const VANA_GENISLIGI = 8; // cm
         const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
-        boru2.vanaEkle(0, 'AKV', {
-            fromEnd: 'p1',
+
+        // Boru1'in sonuna ekle (p2'den içeri doğru)
+        boru1.vanaEkle(1, 'AKV', {
+            fromEnd: 'p2',
             fixedDistance: vanaMesafesi
         });
 
