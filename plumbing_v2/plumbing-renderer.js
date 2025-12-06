@@ -276,14 +276,26 @@ export class PlumbingRenderer {
             const vanaPos = pipe.getVanaPozisyon();
             if (!vanaPos) return;
 
-            // Boru açısı (önceki hattın yönü)
-            const angle = pipe.aci;
+            // Vana yönünü belirle
+            let angle = pipe.aci;
+
+            // Eğer vana borunun başındaysa (t=0) ve boru başka bir boruya bağlıysa,
+            // önceki borunun yönünü kullan
+            if (pipe.vana.t === 0 && pipe.baslangicBaglanti && pipe.baslangicBaglanti.hedefId) {
+                if (pipe.baslangicBaglanti.tip === 'boru') {
+                    // Önceki boruyu bul
+                    const oncekiBoru = pipes.find(p => p.id === pipe.baslangicBaglanti.hedefId);
+                    if (oncekiBoru) {
+                        angle = oncekiBoru.aci;
+                    }
+                }
+            }
 
             ctx.save();
             ctx.translate(vanaPos.x, vanaPos.y);
             ctx.rotate(angle);
 
-            // Vana çiz (kare içinde sadece çapraz çizgiler)
+            // Vana çiz (iki üçgen karşı karşıya)
             const size = 8;
             const halfSize = size / 2;
 
@@ -296,21 +308,24 @@ export class PlumbingRenderer {
             ctx.lineWidth = 1;
             ctx.strokeRect(-halfSize, -halfSize, size, size);
 
-            // Çapraz çizgiler (içi doldurulmadan, sadece stroke)
-            ctx.strokeStyle = adjustedColor;
-            ctx.lineWidth = 1.5;
+            // İki üçgen çiz (karşı karşıya bakan)
+            ctx.fillStyle = adjustedColor;
 
-            // Sol üstten sağ alta çapraz
+            // Sol üçgen (sağa bakan)
             ctx.beginPath();
-            ctx.moveTo(-halfSize, -halfSize);
-            ctx.lineTo(halfSize, halfSize);
-            ctx.stroke();
+            ctx.moveTo(-halfSize, -halfSize);  // Sol üst
+            ctx.lineTo(-halfSize, halfSize);   // Sol alt
+            ctx.lineTo(0, 0);                  // Orta
+            ctx.closePath();
+            ctx.fill();
 
-            // Sağ üstten sol alta çapraz
+            // Sağ üçgen (sola bakan)
             ctx.beginPath();
-            ctx.moveTo(halfSize, -halfSize);
-            ctx.lineTo(-halfSize, halfSize);
-            ctx.stroke();
+            ctx.moveTo(halfSize, -halfSize);   // Sağ üst
+            ctx.lineTo(halfSize, halfSize);    // Sağ alt
+            ctx.lineTo(0, 0);                  // Orta
+            ctx.closePath();
+            ctx.fill();
 
             ctx.restore();
         });
@@ -561,21 +576,24 @@ export class PlumbingRenderer {
         ctx.lineWidth = 1;
         ctx.strokeRect(-halfSize, -halfSize, size, size);
 
-        // Çapraz çizgiler (içi doldurulmadan, sadece stroke)
-        ctx.strokeStyle = adjustedColor;
-        ctx.lineWidth = 1.5;
+        // İki üçgen çiz (karşı karşıya bakan)
+        ctx.fillStyle = adjustedColor;
 
-        // Sol üstten sağ alta çapraz
+        // Sol üçgen (sağa bakan)
         ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize);
-        ctx.lineTo(halfSize, halfSize);
-        ctx.stroke();
+        ctx.moveTo(-halfSize, -halfSize);  // Sol üst
+        ctx.lineTo(-halfSize, halfSize);   // Sol alt
+        ctx.lineTo(0, 0);                  // Orta
+        ctx.closePath();
+        ctx.fill();
 
-        // Sağ üstten sol alta çapraz
+        // Sağ üçgen (sola bakan)
         ctx.beginPath();
-        ctx.moveTo(halfSize, -halfSize);
-        ctx.lineTo(-halfSize, halfSize);
-        ctx.stroke();
+        ctx.moveTo(halfSize, -halfSize);   // Sağ üst
+        ctx.lineTo(halfSize, halfSize);    // Sağ alt
+        ctx.lineTo(0, 0);                  // Orta
+        ctx.closePath();
+        ctx.fill();
     }
 
     drawCihaz(ctx, comp) {
@@ -1016,7 +1034,7 @@ export class PlumbingRenderer {
         ctx.translate(point.x, point.y);
         ctx.rotate(angle);
 
-        // Yarı saydam vana (çapraz çizgiler)
+        // Yarı saydam vana (iki üçgen)
         const size = 8;
         const halfSize = size / 2;
 
@@ -1028,22 +1046,25 @@ export class PlumbingRenderer {
         ctx.lineWidth = 1;
         ctx.strokeRect(-halfSize, -halfSize, size, size);
 
-        // Çapraz çizgiler (mavi)
+        // İki üçgen çiz (mavi)
         const vanaColor = '#00bffa';
-        ctx.strokeStyle = vanaColor;
-        ctx.lineWidth = 1.5;
+        ctx.fillStyle = vanaColor;
 
-        // Sol üstten sağ alta çapraz
+        // Sol üçgen (sağa bakan)
         ctx.beginPath();
         ctx.moveTo(-halfSize, -halfSize);
-        ctx.lineTo(halfSize, halfSize);
-        ctx.stroke();
+        ctx.lineTo(-halfSize, halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
 
-        // Sağ üstten sol alta çapraz
+        // Sağ üçgen (sola bakan)
         ctx.beginPath();
         ctx.moveTo(halfSize, -halfSize);
-        ctx.lineTo(-halfSize, halfSize);
-        ctx.stroke();
+        ctx.lineTo(halfSize, halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
 
         ctx.restore();
     }

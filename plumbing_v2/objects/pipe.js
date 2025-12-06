@@ -221,6 +221,13 @@ export class Boru {
         boru1.baslangicBaglanti = { ...this.baslangicBaglanti };
         boru2.bitisBaglanti = { ...this.bitisBaglanti };
 
+        // Boru2'nin başlangıç bağlantısını boru1'e ayarla
+        boru2.baslangicBaglanti = {
+            tip: 'boru',
+            hedefId: boru1.id,
+            noktaIndex: null
+        };
+
         // Üzerindeki elemanları paylaştır
         this.uzerindekiElemanlar.forEach(eleman => {
             if (eleman.pozisyon <= proj.t) {
