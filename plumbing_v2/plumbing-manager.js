@@ -217,8 +217,8 @@ export class PlumbingManager {
             return objFloorId === currentFloorId;
         };
 
-        // Önce uç noktaları kontrol et (handle'lar) - DAR MESAFE (sadece uçlara yakın)
-        const endpointTolerance = 6; // Nokta seçimi için dar mesafe
+        // Önce uç noktaları kontrol et (handle'lar) - ÖNCE NOKTA
+        const endpointTolerance = 8; // Nokta seçimi için 8 cm
         for (const pipe of pipes) {
             if (!floorMatches(pipe.floorId)) continue;
             if (!pipe.p1 || !pipe.p2) continue;

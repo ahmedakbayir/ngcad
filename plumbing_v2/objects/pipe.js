@@ -318,9 +318,10 @@ export class Boru {
      * Vana ekle
      * @param {number} t - Boru üzerinde pozisyon (0-1)
      * @param {string} vanaTipi - Vana tipi (AKV, KKV, vb.)
+     * @param {object} options - Opsiyonel ayarlar { fromEnd: 'p1'|'p2', fixedDistance: number }
      * @returns {boolean} - Başarılı mı?
      */
-    vanaEkle(t, vanaTipi = 'AKV') {
+    vanaEkle(t, vanaTipi = 'AKV', options = {}) {
         // Her boruda sadece 1 vana olabilir
         if (this.vana !== null) {
             return false;
@@ -331,7 +332,12 @@ export class Boru {
             return false;
         }
 
-        this.vana = { t, vanaTipi };
+        this.vana = {
+            t,
+            vanaTipi,
+            fromEnd: options.fromEnd || null,  // Hangi uçtan (p1 veya p2)
+            fixedDistance: options.fixedDistance || null  // Uçtan sabit mesafe (cm)
+        };
         return true;
     }
 
@@ -347,6 +353,24 @@ export class Boru {
      */
     getVanaPozisyon() {
         if (!this.vana) return null;
+
+        // Eğer fixedDistance varsa, uçtan sabit mesafe olarak hesapla
+        if (this.vana.fixedDistance !== undefined && this.vana.fixedDistance !== null && this.vana.fromEnd) {
+            const length = this.uzunluk;
+            let t;
+
+            if (this.vana.fromEnd === 'p1') {
+                // p1'den fixedDistance kadar içerde
+                t = Math.min(this.vana.fixedDistance / length, 0.95);
+            } else {
+                // p2'den fixedDistance kadar içerde
+                t = Math.max(1 - (this.vana.fixedDistance / length), 0.05);
+            }
+
+            return this.getPointAt(t);
+        }
+
+        // Geriye dönük uyumluluk: eski t modunda
         return this.getPointAt(this.vana.t);
     }
 
