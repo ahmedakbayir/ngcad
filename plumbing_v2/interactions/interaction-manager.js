@@ -287,6 +287,7 @@ export class InteractionManager {
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
             const boruUcu = this.findBoruUcuAt(point, 8); // Nokta seçimi için 8 cm
             if (boruUcu) {
+                console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
                     // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
@@ -314,6 +315,7 @@ export class InteractionManager {
             // Sonra nesne seçimi
             const hitObject = this.findObjectAt(point);
             if (hitObject) {
+                console.log('📦 NESNE BULUNDU:', hitObject.type, hitObject.id);
                 this.selectObject(hitObject);
                 // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
                 if (hitObject.type === 'boru') {
