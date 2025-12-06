@@ -276,14 +276,14 @@ export class PlumbingRenderer {
             const vanaPos = pipe.getVanaPozisyon();
             if (!vanaPos) return;
 
-            // Boru açısı
+            // Boru açısı (önceki hattın yönü)
             const angle = pipe.aci;
 
             ctx.save();
             ctx.translate(vanaPos.x, vanaPos.y);
             ctx.rotate(angle);
 
-            // Vana çiz (kare içinde çapraz çizgiler)
+            // Vana çiz (kare içinde sadece çapraz çizgiler)
             const size = 8;
             const halfSize = size / 2;
 
@@ -291,44 +291,26 @@ export class PlumbingRenderer {
             const vanaColor = '#00bffa';
             const adjustedColor = getAdjustedColor(vanaColor, 'vana');
 
-            // Çapraz çizgilerle oluşan 4 üçgeni doldur
-            ctx.fillStyle = adjustedColor;
-            ctx.beginPath();
-            // Sol üçgen
-            ctx.moveTo(-halfSize, -halfSize);
-            ctx.lineTo(-halfSize, halfSize);
-            ctx.lineTo(0, 0);
-            ctx.closePath();
-            ctx.fill();
-
-            // Üst üçgen
-            ctx.beginPath();
-            ctx.moveTo(-halfSize, -halfSize);
-            ctx.lineTo(halfSize, -halfSize);
-            ctx.lineTo(0, 0);
-            ctx.closePath();
-            ctx.fill();
-
-            // Sağ üçgen
-            ctx.beginPath();
-            ctx.moveTo(halfSize, -halfSize);
-            ctx.lineTo(halfSize, halfSize);
-            ctx.lineTo(0, 0);
-            ctx.closePath();
-            ctx.fill();
-
-            // Alt üçgen
-            ctx.beginPath();
-            ctx.moveTo(-halfSize, halfSize);
-            ctx.lineTo(halfSize, halfSize);
-            ctx.lineTo(0, 0);
-            ctx.closePath();
-            ctx.fill();
-
-            // Kare sınırları (ince stroke)
+            // Kare sınırları
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
             ctx.strokeRect(-halfSize, -halfSize, size, size);
+
+            // Çapraz çizgiler (içi doldurulmadan, sadece stroke)
+            ctx.strokeStyle = adjustedColor;
+            ctx.lineWidth = 1.5;
+
+            // Sol üstten sağ alta çapraz
+            ctx.beginPath();
+            ctx.moveTo(-halfSize, -halfSize);
+            ctx.lineTo(halfSize, halfSize);
+            ctx.stroke();
+
+            // Sağ üstten sol alta çapraz
+            ctx.beginPath();
+            ctx.moveTo(halfSize, -halfSize);
+            ctx.lineTo(-halfSize, halfSize);
+            ctx.stroke();
 
             ctx.restore();
         });
@@ -574,45 +556,26 @@ export class PlumbingRenderer {
         const vanaColor = '#00bffa';
         const adjustedColor = getAdjustedColor(vanaColor, 'vana');
 
-        // Çapraz çizgilerle oluşan 4 üçgeni doldur
-        ctx.fillStyle = adjustedColor;
-
-        // Sol üçgen
-        ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize);
-        ctx.lineTo(-halfSize, halfSize);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Üst üçgen
-        ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize);
-        ctx.lineTo(halfSize, -halfSize);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Sağ üçgen
-        ctx.beginPath();
-        ctx.moveTo(halfSize, -halfSize);
-        ctx.lineTo(halfSize, halfSize);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Alt üçgen
-        ctx.beginPath();
-        ctx.moveTo(-halfSize, halfSize);
-        ctx.lineTo(halfSize, halfSize);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Kare sınırları (ince stroke)
+        // Kare sınırları
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 1;
         ctx.strokeRect(-halfSize, -halfSize, size, size);
+
+        // Çapraz çizgiler (içi doldurulmadan, sadece stroke)
+        ctx.strokeStyle = adjustedColor;
+        ctx.lineWidth = 1.5;
+
+        // Sol üstten sağ alta çapraz
+        ctx.beginPath();
+        ctx.moveTo(-halfSize, -halfSize);
+        ctx.lineTo(halfSize, halfSize);
+        ctx.stroke();
+
+        // Sağ üstten sol alta çapraz
+        ctx.beginPath();
+        ctx.moveTo(halfSize, -halfSize);
+        ctx.lineTo(-halfSize, halfSize);
+        ctx.stroke();
     }
 
     drawCihaz(ctx, comp) {
@@ -1057,46 +1020,30 @@ export class PlumbingRenderer {
         const size = 8;
         const halfSize = size / 2;
 
-        // Mavi renk, yarı saydam
+        // Yarı saydam
         ctx.globalAlpha = 0.7;
-        ctx.fillStyle = '#00bffa';
 
-        // Sol üçgen
-        ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize);
-        ctx.lineTo(-halfSize, halfSize);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Üst üçgen
-        ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize);
-        ctx.lineTo(halfSize, -halfSize);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Sağ üçgen
-        ctx.beginPath();
-        ctx.moveTo(halfSize, -halfSize);
-        ctx.lineTo(halfSize, halfSize);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Alt üçgen
-        ctx.beginPath();
-        ctx.moveTo(-halfSize, halfSize);
-        ctx.lineTo(halfSize, halfSize);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Kare sınırları (ince stroke)
+        // Kare sınırları
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 1;
         ctx.strokeRect(-halfSize, -halfSize, size, size);
+
+        // Çapraz çizgiler (mavi)
+        const vanaColor = '#00bffa';
+        ctx.strokeStyle = vanaColor;
+        ctx.lineWidth = 1.5;
+
+        // Sol üstten sağ alta çapraz
+        ctx.beginPath();
+        ctx.moveTo(-halfSize, -halfSize);
+        ctx.lineTo(halfSize, halfSize);
+        ctx.stroke();
+
+        // Sağ üstten sol alta çapraz
+        ctx.beginPath();
+        ctx.moveTo(halfSize, -halfSize);
+        ctx.lineTo(-halfSize, halfSize);
+        ctx.stroke();
 
         ctx.restore();
     }
