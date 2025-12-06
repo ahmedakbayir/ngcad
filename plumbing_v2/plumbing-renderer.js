@@ -82,6 +82,11 @@ export class PlumbingRenderer {
         if (manager.interactionManager?.pipeSplitPreview) {
             this.drawPipeSplitPreview(ctx, manager.interactionManager.pipeSplitPreview);
         }
+
+        // Vana preview (vana tool aktif, hover)
+        if (manager.interactionManager?.vanaPreview) {
+            this.drawVanaPreview(ctx, manager.interactionManager.vanaPreview);
+        }
     }
 
     drawPipes(ctx, pipes) {
@@ -145,6 +150,9 @@ export class PlumbingRenderer {
 
         // Dirsek görüntülerini çiz
         this.drawElbows(ctx, pipes, breakPoints);
+
+        // Boru üzerindeki vanaları çiz
+        this.drawPipeValves(ctx, pipes);
     }
 
     findBreakPoints(pipes) {
@@ -253,6 +261,47 @@ export class PlumbingRenderer {
         ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+    }
+
+    /**
+     * Boru üzerindeki vanaları çiz
+     */
+    drawPipeValves(ctx, pipes) {
+        if (!pipes) return;
+
+        pipes.forEach(pipe => {
+            if (!pipe.vana) return;
+
+            // Vana pozisyonu
+            const vanaPos = pipe.getVanaPozisyon();
+            if (!vanaPos) return;
+
+            // Boru açısı
+            const angle = pipe.aci;
+
+            ctx.save();
+            ctx.translate(vanaPos.x, vanaPos.y);
+            ctx.rotate(angle);
+
+            // Vana çiz (mavi kare)
+            const size = 8;
+            const halfSize = size / 2;
+
+            // Mavi renk (kutu mavisi)
+            const vanaColor = '#00bffa';
+            const adjustedColor = getAdjustedColor(vanaColor, 'vana');
+
+            // Kare şeklinde, içi dolu
+            ctx.fillStyle = adjustedColor;
+            ctx.fillRect(-halfSize, -halfSize, size, size);
+
+            // İnce stroke
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-halfSize, -halfSize, size, size);
+
+            ctx.restore();
+        });
     }
 
     drawGeciciBoru(ctx, geciciBoru) {
@@ -485,51 +534,24 @@ export class PlumbingRenderer {
         ctx.fillText('m³', 0, 0);
     }
 
-    drawVana(ctx, comp) {
-        const { width, height, color } = VANA_CONFIG;
-        const tipBilgisi = VANA_TIPLERI[comp.vanaTipi] || VANA_TIPLERI.AKV;
+    drawVana(ctx, comp, vanaData = null) {
+        // vanaData yoksa eski component tipinde vana (eski vana çizimi için)
+        // vanaData varsa boru üzerindeki vana
+        const size = 8; // Kare boyutu (8x8 cm)
+        const halfSize = size / 2;
 
-        const adjustedColor = getAdjustedColor(color, 'vana');
+        // Mavi renk (kutu mavisi)
+        const vanaColor = '#00bffa';
+        const adjustedColor = getAdjustedColor(vanaColor, 'vana');
+
+        // Kare şeklinde, içi dolu
         ctx.fillStyle = adjustedColor;
+        ctx.fillRect(-halfSize, -halfSize, size, size);
 
-        // Kelebek vana şekli
-        ctx.beginPath();
-        ctx.moveTo(-width, -height / 2);
-        ctx.lineTo(-width, height / 2);
-        ctx.lineTo(0, 0);
-        ctx.lineTo(width, height / 2);
-        ctx.lineTo(width, -height / 2);
-        ctx.lineTo(0, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Sonlanma vanası - kapama sembolü
-        if (tipBilgisi.sembol === 'kapama') {
-            const adjustedRed = getAdjustedColor('#FF0000', 'vana');
-            ctx.strokeStyle = adjustedRed;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(width + 2, -height);
-            ctx.lineTo(width + 2, height);
-            ctx.stroke();
-        }
-
-        // Selenoid vana - elektrik sembolü
-        if (tipBilgisi.sembol === 'elektrik') {
-            const adjustedBlue = getAdjustedColor('#0000FF', 'vana');
-            ctx.strokeStyle = adjustedBlue;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(0, -height - 2);
-            ctx.lineTo(0, -height - 6);
-            ctx.stroke();
-
-            // Şimşek
-            ctx.fillStyle = adjustedBlue;
-            ctx.font = '6px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('⚡', 0, -height - 8);
-        }
+        // İnce stroke
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-halfSize, -halfSize, size, size);
     }
 
     drawCihaz(ctx, comp) {
@@ -953,6 +975,36 @@ export class PlumbingRenderer {
         ctx.beginPath();
         ctx.arc(point.x, point.y, 10 / zoom, 0, Math.PI * 2);
         ctx.stroke();
+
+        ctx.restore();
+    }
+
+    /**
+     * Vana preview çiz
+     */
+    drawVanaPreview(ctx, vanaPreview) {
+        if (!vanaPreview || !vanaPreview.pipe || !vanaPreview.point) return;
+
+        const { pipe, point } = vanaPreview;
+        const angle = pipe.aci;
+
+        ctx.save();
+        ctx.translate(point.x, point.y);
+        ctx.rotate(angle);
+
+        // Yarı saydam vana (mavi kare)
+        const size = 8;
+        const halfSize = size / 2;
+
+        // Mavi renk, yarı saydam
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = '#00bffa';
+        ctx.fillRect(-halfSize, -halfSize, size, size);
+
+        // İnce stroke
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-halfSize, -halfSize, size, size);
 
         ctx.restore();
     }

@@ -72,6 +72,9 @@ export class Boru {
 
         // T-bağlantı noktaları
         this.tBaglantilar = []; // { pozisyon, boruId }
+
+        // Vana (sadece 1 adet olabilir)
+        this.vana = null; // { t: 0-1, vanaTipi: 'AKV'|'KKV'|... }
     }
 
     /**
@@ -237,6 +240,19 @@ export class Boru {
             }
         });
 
+        // Vana'yı paylaştır
+        if (this.vana) {
+            if (this.vana.t <= proj.t) {
+                // Vana boru1'de kalır
+                const yeniT = proj.t > 0 ? this.vana.t / proj.t : 0;
+                boru1.vana = { ...this.vana, t: yeniT };
+            } else {
+                // Vana boru2'ye geçer
+                const yeniT = (this.vana.t - proj.t) / (1 - proj.t);
+                boru2.vana = { ...this.vana, t: yeniT };
+            }
+        }
+
         return { boru1, boru2, splitPoint };
     }
 
@@ -292,6 +308,42 @@ export class Boru {
     }
 
     /**
+     * Vana ekle
+     * @param {number} t - Boru üzerinde pozisyon (0-1)
+     * @param {string} vanaTipi - Vana tipi (AKV, KKV, vb.)
+     * @returns {boolean} - Başarılı mı?
+     */
+    vanaEkle(t, vanaTipi = 'AKV') {
+        // Her boruda sadece 1 vana olabilir
+        if (this.vana !== null) {
+            return false;
+        }
+
+        // t değeri 0-1 arasında olmalı
+        if (t < 0 || t > 1) {
+            return false;
+        }
+
+        this.vana = { t, vanaTipi };
+        return true;
+    }
+
+    /**
+     * Vana kaldır
+     */
+    vanaKaldir() {
+        this.vana = null;
+    }
+
+    /**
+     * Vana pozisyonunu hesapla (world koordinatlarında)
+     */
+    getVanaPozisyon() {
+        if (!this.vana) return null;
+        return this.getPointAt(this.vana.t);
+    }
+
+    /**
      * Süreklilik kontrolü (başlangıç veya bitiş bağlı mı?)
      */
     isBagli(ucTipi = 'baslangic') {
@@ -327,7 +379,8 @@ export class Boru {
             baslangicBaglanti: { ...this.baslangicBaglanti },
             bitisBaglanti: { ...this.bitisBaglanti },
             uzerindekiElemanlar: [...this.uzerindekiElemanlar],
-            tBaglantilar: [...this.tBaglantilar]
+            tBaglantilar: [...this.tBaglantilar],
+            vana: this.vana ? { ...this.vana } : null
         };
     }
 
@@ -342,6 +395,7 @@ export class Boru {
         boru.bitisBaglanti = data.bitisBaglanti || { tip: null, hedefId: null, noktaIndex: null };
         boru.uzerindekiElemanlar = data.uzerindekiElemanlar || [];
         boru.tBaglantilar = data.tBaglantilar || [];
+        boru.vana = data.vana || null;
         return boru;
     }
 }
