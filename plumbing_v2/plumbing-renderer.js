@@ -283,7 +283,7 @@ export class PlumbingRenderer {
             ctx.translate(vanaPos.x, vanaPos.y);
             ctx.rotate(angle);
 
-            // Vana çiz (mavi kare)
+            // Vana çiz (kare içinde çapraz çizgiler)
             const size = 8;
             const halfSize = size / 2;
 
@@ -291,11 +291,41 @@ export class PlumbingRenderer {
             const vanaColor = '#00bffa';
             const adjustedColor = getAdjustedColor(vanaColor, 'vana');
 
-            // Kare şeklinde, içi dolu
+            // Çapraz çizgilerle oluşan 4 üçgeni doldur
             ctx.fillStyle = adjustedColor;
-            ctx.fillRect(-halfSize, -halfSize, size, size);
+            ctx.beginPath();
+            // Sol üçgen
+            ctx.moveTo(-halfSize, -halfSize);
+            ctx.lineTo(-halfSize, halfSize);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.fill();
 
-            // İnce stroke
+            // Üst üçgen
+            ctx.beginPath();
+            ctx.moveTo(-halfSize, -halfSize);
+            ctx.lineTo(halfSize, -halfSize);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            // Sağ üçgen
+            ctx.beginPath();
+            ctx.moveTo(halfSize, -halfSize);
+            ctx.lineTo(halfSize, halfSize);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            // Alt üçgen
+            ctx.beginPath();
+            ctx.moveTo(-halfSize, halfSize);
+            ctx.lineTo(halfSize, halfSize);
+            ctx.lineTo(0, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            // Kare sınırları (ince stroke)
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
             ctx.strokeRect(-halfSize, -halfSize, size, size);
@@ -544,11 +574,42 @@ export class PlumbingRenderer {
         const vanaColor = '#00bffa';
         const adjustedColor = getAdjustedColor(vanaColor, 'vana');
 
-        // Kare şeklinde, içi dolu
+        // Çapraz çizgilerle oluşan 4 üçgeni doldur
         ctx.fillStyle = adjustedColor;
-        ctx.fillRect(-halfSize, -halfSize, size, size);
 
-        // İnce stroke
+        // Sol üçgen
+        ctx.beginPath();
+        ctx.moveTo(-halfSize, -halfSize);
+        ctx.lineTo(-halfSize, halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Üst üçgen
+        ctx.beginPath();
+        ctx.moveTo(-halfSize, -halfSize);
+        ctx.lineTo(halfSize, -halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Sağ üçgen
+        ctx.beginPath();
+        ctx.moveTo(halfSize, -halfSize);
+        ctx.lineTo(halfSize, halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Alt üçgen
+        ctx.beginPath();
+        ctx.moveTo(-halfSize, halfSize);
+        ctx.lineTo(halfSize, halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Kare sınırları (ince stroke)
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 1;
         ctx.strokeRect(-halfSize, -halfSize, size, size);
@@ -992,16 +1053,47 @@ export class PlumbingRenderer {
         ctx.translate(point.x, point.y);
         ctx.rotate(angle);
 
-        // Yarı saydam vana (mavi kare)
+        // Yarı saydam vana (çapraz çizgiler)
         const size = 8;
         const halfSize = size / 2;
 
         // Mavi renk, yarı saydam
         ctx.globalAlpha = 0.7;
         ctx.fillStyle = '#00bffa';
-        ctx.fillRect(-halfSize, -halfSize, size, size);
 
-        // İnce stroke
+        // Sol üçgen
+        ctx.beginPath();
+        ctx.moveTo(-halfSize, -halfSize);
+        ctx.lineTo(-halfSize, halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Üst üçgen
+        ctx.beginPath();
+        ctx.moveTo(-halfSize, -halfSize);
+        ctx.lineTo(halfSize, -halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Sağ üçgen
+        ctx.beginPath();
+        ctx.moveTo(halfSize, -halfSize);
+        ctx.lineTo(halfSize, halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Alt üçgen
+        ctx.beginPath();
+        ctx.moveTo(-halfSize, halfSize);
+        ctx.lineTo(halfSize, halfSize);
+        ctx.lineTo(0, 0);
+        ctx.closePath();
+        ctx.fill();
+
+        // Kare sınırları (ince stroke)
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 1;
         ctx.strokeRect(-halfSize, -halfSize, size, size);
