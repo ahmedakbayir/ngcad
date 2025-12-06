@@ -49,6 +49,7 @@ export class InteractionManager {
 
         // Seçili nesne
         this.selectedObject = null;
+        this.selectedValve = null; // { pipe, vana }
 
         // Boru uç noktası snap lock (duvar node snap gibi)
         this.pipeEndpointSnapLock = null;
@@ -155,10 +156,8 @@ export class InteractionManager {
             // Mouse altında boru var mı kontrol et
             const hoveredPipe = this.findPipeAt(point, 10);
             if (hoveredPipe) {
-                // Boruda zaten vana var mı?
-                if (hoveredPipe.vana) {
-                    this.vanaPreview = null; // Zaten vana var, preview gösterme
-                } else {
+                // Boruda vana varsa da preview göster (boru bölünecek)
+                {
                     // Boru üzerindeki pozisyonu hesapla
                     const proj = hoveredPipe.projectPoint(point);
                     if (proj && proj.onSegment) {
@@ -192,7 +191,6 @@ export class InteractionManager {
                     } else {
                         this.vanaPreview = null;
                     }
-                }
             } else {
                 this.vanaPreview = null;
             }
@@ -296,6 +294,14 @@ export class InteractionManager {
                     this.startEndpointDrag(pipe, boruUcu.uc, point);
                     return true;
                 }
+            }
+
+            // Vana kontrolü (öncelik ver)
+            const hitResult = this.manager.getObjectAtPoint(point, 10);
+            if (hitResult && hitResult.type === 'valve') {
+                // Vana seçildi
+                this.selectValve(hitResult.pipe, hitResult.object);
+                return true;
             }
 
             // Sonra nesne seçimi
@@ -600,19 +606,28 @@ export class InteractionManager {
     handleVanaPlacement(vanaPreview) {
         const { pipe, point, t, snapToEnd } = vanaPreview;
 
-        // Boruda zaten vana var mı kontrol et
-        if (pipe.vana) {
-            alert('Bu boruda zaten bir vana var!');
-            return;
-        }
-
         // Undo için state kaydet
         saveState();
 
         // Eğer uç noktaya snap olduysa direkt ekle
         if (snapToEnd) {
-            // Uç noktaya direkt vana ekle
-            pipe.vanaEkle(t, 'AKV');
+            // Dirsek mesafesi (3 cm) kadar içeri al
+            const DIRSEK_KOL_UZUNLUGU = 3; // cm
+            const pipeLength = pipe.uzunluk;
+
+            if (t === 0) {
+                // Başlangıç ucuna snap - içeri al
+                const adjustedT = Math.min(DIRSEK_KOL_UZUNLUGU / pipeLength, 0.95);
+                pipe.vanaEkle(adjustedT, 'AKV');
+            } else if (t === 1) {
+                // Bitiş ucuna snap - içeri al
+                const adjustedT = Math.max(1 - (DIRSEK_KOL_UZUNLUGU / pipeLength), 0.05);
+                pipe.vanaEkle(adjustedT, 'AKV');
+            } else {
+                // Orta nokta (olmamalı ama yine de)
+                pipe.vanaEkle(t, 'AKV');
+            }
+
             this.manager.saveToState();
             this.vanaPreview = null;
             return;
@@ -888,6 +903,11 @@ export class InteractionManager {
         if (this.selectedObject && this.selectedObject !== obj) {
             this.selectedObject.isSelected = false;
         }
+        // Vana seçimi temizle
+        if (this.selectedValve) {
+            this.selectedValve.pipe.vana.isSelected = false;
+            this.selectedValve = null;
+        }
         this.selectedObject = obj;
         obj.isSelected = true;
 
@@ -901,10 +921,39 @@ export class InteractionManager {
         });
     }
 
+    selectValve(pipe, vana) {
+        // Önceki seçimi temizle
+        if (this.selectedObject) {
+            this.selectedObject.isSelected = false;
+            this.selectedObject = null;
+        }
+        // Önceki vana seçimini temizle
+        if (this.selectedValve) {
+            this.selectedValve.pipe.vana.isSelected = false;
+        }
+
+        this.selectedValve = { pipe, vana };
+        vana.isSelected = true;
+
+        // state.selectedObject'i de set et (DELETE tuşu için)
+        setState({
+            selectedObject: {
+                type: 'valve',
+                object: vana,
+                pipe: pipe,
+                handle: 'body'
+            }
+        });
+    }
+
     deselectObject() {
         if (this.selectedObject) {
             this.selectedObject.isSelected = false;
             this.selectedObject = null;
+        }
+        if (this.selectedValve) {
+            this.selectedValve.pipe.vana.isSelected = false;
+            this.selectedValve = null;
         }
 
         // state.selectedObject'i de temizle
@@ -912,6 +961,15 @@ export class InteractionManager {
     }
 
     deleteSelectedObject() {
+        // Vana silinmesi
+        if (this.selectedValve) {
+            saveState();
+            this.selectedValve.pipe.vanaKaldir();
+            this.manager.saveToState();
+            this.deselectObject();
+            return;
+        }
+
         if (!this.selectedObject) return;
 
         const obj = this.selectedObject;
