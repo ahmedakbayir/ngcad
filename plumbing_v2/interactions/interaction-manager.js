@@ -169,10 +169,10 @@ export class InteractionManager {
                     const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
                     const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
 
-                    // Vana mesafesi hesapla (armLength + çap/2)
+                    // Vana mesafesi hesapla (armLength + vana genişliği/2)
                     const DIRSEK_KOL_UZUNLUGU = 3; // cm
-                    const boruCapi = hoveredPipe.config.diameter; // Boru çapı
-                    const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + boruCapi / 2;
+                    const VANA_GENISLIGI = 8; // cm (vana kare boyutu)
+                    const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
                     const pipeLength = hoveredPipe.uzunluk;
 
                     if (distToP1 < END_SNAP_DISTANCE) {
@@ -287,6 +287,7 @@ export class InteractionManager {
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
             const boruUcu = this.findBoruUcuAt(point, 8); // Nokta seçimi için 8 cm
             if (boruUcu) {
+                console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
                     // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
@@ -314,6 +315,7 @@ export class InteractionManager {
             // Sonra nesne seçimi
             const hitObject = this.findObjectAt(point);
             if (hitObject) {
+                console.log('📦 NESNE BULUNDU:', hitObject.type, hitObject.id);
                 this.selectObject(hitObject);
                 // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
                 if (hitObject.type === 'boru') {
@@ -618,10 +620,10 @@ export class InteractionManager {
 
         // Eğer uç noktaya snap olduysa direkt ekle
         if (snapToEnd) {
-            // Vana mesafesi = dirsek kol uzunluğu + boru çapının yarısı
+            // Vana mesafesi = dirsek kol uzunluğu + vana genişliği/2
             const DIRSEK_KOL_UZUNLUGU = 3; // cm
-            const boruCapi = pipe.config.diameter; // Boru çapı (cm)
-            const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + boruCapi / 2;
+            const VANA_GENISLIGI = 8; // cm (vana kare boyutu)
+            const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
             const pipeLength = pipe.uzunluk;
 
             if (t === 0) {
@@ -709,8 +711,8 @@ export class InteractionManager {
 
         // İkinci borunun başına (p1) vana ekle - sabit mesafe ile
         const DIRSEK_KOL_UZUNLUGU = 3; // cm
-        const boruCapi = boru2.config.diameter;
-        const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + boruCapi / 2;
+        const VANA_GENISLIGI = 8; // cm
+        const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
         boru2.vanaEkle(0, 'AKV', {
             fromEnd: 'p1',
             fixedDistance: vanaMesafesi
@@ -1423,11 +1425,11 @@ export class InteractionManager {
             // Minimum uzunluk kontrolü (vanayı dikkate al)
             let minLength = 10; // Varsayılan minimum uzunluk (cm)
             if (pipe.vana) {
-                // Eğer boruda vana varsa minimum uzunluk = (armLength + çap/2) * 2
+                // Eğer boruda vana varsa minimum uzunluk = (armLength + vana genişliği/2) * 2
                 const DIRSEK_KOL_UZUNLUGU = 3; // cm
-                const boruCapi = pipe.config.diameter; // Boru çapı
-                const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + boruCapi / 2;
-                minLength = vanaMesafesi * 2 + 5; // İki uç + 5 cm tolerans
+                const VANA_GENISLIGI = 8; // cm
+                const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
+                minLength = vanaMesafesi * 2 + 5; // İki uç + 5 cm tolerans = 19 cm
             }
 
             // Yeni uzunluğu hesapla
