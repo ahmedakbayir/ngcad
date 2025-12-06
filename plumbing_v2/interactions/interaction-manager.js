@@ -169,15 +169,23 @@ export class InteractionManager {
                     const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
                     const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
 
+                    // Vana mesafesi hesapla (armLength + çap/2)
+                    const DIRSEK_KOL_UZUNLUGU = 3; // cm
+                    const boruCapi = hoveredPipe.config.diameter; // Boru çapı
+                    const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + boruCapi / 2;
+                    const pipeLength = hoveredPipe.uzunluk;
+
                     if (distToP1 < END_SNAP_DISTANCE) {
-                        // p1'e snap
-                        vanaPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
-                        vanaT = 0;
+                        // p1'e snap - vana içeri alınmış pozisyonda göster
+                        const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
+                        vanaPoint = hoveredPipe.getPointAt(adjustedT);
+                        vanaT = 0; // Snap için t=0 (uç nokta)
                         snapToEnd = true;
                     } else if (distToP2 < END_SNAP_DISTANCE) {
-                        // p2'ye snap
-                        vanaPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
-                        vanaT = 1;
+                        // p2'ye snap - vana içeri alınmış pozisyonda göster
+                        const adjustedT = Math.max(1 - (vanaMesafesi / pipeLength), 0.05);
+                        vanaPoint = hoveredPipe.getPointAt(adjustedT);
+                        vanaT = 1; // Snap için t=1 (uç nokta)
                         snapToEnd = true;
                     }
 
@@ -276,8 +284,8 @@ export class InteractionManager {
                 return true;
             }
 
-            // Sonra boru uç noktası kontrolü yap
-            const boruUcu = this.findBoruUcuAt(point, 12); // Mesafeyi artırdık
+            // Sonra boru uç noktası kontrolü yap (DARALTILMIŞ MESAFE - sadece uçlara yakın)
+            const boruUcu = this.findBoruUcuAt(point, 6); // Nokta seçimi için dar mesafe
             if (boruUcu) {
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
@@ -610,17 +618,19 @@ export class InteractionManager {
 
         // Eğer uç noktaya snap olduysa direkt ekle
         if (snapToEnd) {
-            // Dirsek mesafesi (3 cm) kadar içeri al
+            // Vana mesafesi = dirsek kol uzunluğu + boru çapının yarısı
             const DIRSEK_KOL_UZUNLUGU = 3; // cm
+            const boruCapi = pipe.config.diameter; // Boru çapı (cm)
+            const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + boruCapi / 2;
             const pipeLength = pipe.uzunluk;
 
             if (t === 0) {
                 // Başlangıç ucuna snap - içeri al
-                const adjustedT = Math.min(DIRSEK_KOL_UZUNLUGU / pipeLength, 0.95);
+                const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
                 pipe.vanaEkle(adjustedT, 'AKV');
             } else if (t === 1) {
                 // Bitiş ucuna snap - içeri al
-                const adjustedT = Math.max(1 - (DIRSEK_KOL_UZUNLUGU / pipeLength), 0.05);
+                const adjustedT = Math.max(1 - (vanaMesafesi / pipeLength), 0.05);
                 pipe.vanaEkle(adjustedT, 'AKV');
             } else {
                 // Orta nokta (olmamalı ama yine de)
@@ -629,6 +639,10 @@ export class InteractionManager {
 
             this.manager.saveToState();
             this.vanaPreview = null;
+
+            // Vana eklendikten sonra komuttan çık
+            this.manager.activeTool = null;
+            this.cancelCurrentAction();
             return;
         }
 
@@ -642,6 +656,10 @@ export class InteractionManager {
             pipe.vanaEkle(t, 'AKV');
             this.manager.saveToState();
             this.vanaPreview = null;
+
+            // Vana eklendikten sonra komuttan çık
+            this.manager.activeTool = null;
+            this.cancelCurrentAction();
             return;
         }
 
@@ -654,12 +672,13 @@ export class InteractionManager {
 
         const { boru1, boru2 } = result;
 
-        // Servis kutusuna bağlı mı kontrol et
+        // Servis kutusuna bağlı mı kontrol et ve bağlantıyı KORU
         if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
             const servisKutusu = this.manager.components.find(
                 c => c.id === pipe.baslangicBaglanti.hedefId && c.type === 'servis_kutusu'
             );
             if (servisKutusu && servisKutusu.bagliBoruId === pipe.id) {
+                // Servis kutusunun bağlantısını yeni boru1'e güncelle
                 servisKutusu.baglaBoru(boru1.id);
             }
         }
@@ -685,6 +704,10 @@ export class InteractionManager {
 
         // Preview'ı temizle
         this.vanaPreview = null;
+
+        // Vana eklendikten sonra komuttan çık
+        this.manager.activeTool = null;
+        this.cancelCurrentAction();
     }
 
     /**
@@ -1379,8 +1402,26 @@ export class InteractionManager {
                 return distToP1 < POINT_OCCUPATION_TOLERANCE || distToP2 < POINT_OCCUPATION_TOLERANCE;
             });
 
-            // Eğer nokta dolu değilse pozisyonu uygula
-            if (!occupiedByOtherPipe) {
+            // Minimum uzunluk kontrolü (vanayı dikkate al)
+            let minLength = 10; // Varsayılan minimum uzunluk (cm)
+            if (pipe.vana) {
+                // Eğer boruda vana varsa minimum uzunluk = (armLength + çap/2) * 2
+                const DIRSEK_KOL_UZUNLUGU = 3; // cm
+                const boruCapi = pipe.config.diameter; // Boru çapı
+                const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + boruCapi / 2;
+                minLength = vanaMesafesi * 2 + 5; // İki uç + 5 cm tolerans
+            }
+
+            // Yeni uzunluğu hesapla
+            let newLength;
+            if (this.dragEndpoint === 'p1') {
+                newLength = Math.hypot(finalPos.x - pipe.p2.x, finalPos.y - pipe.p2.y);
+            } else {
+                newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
+            }
+
+            // Eğer nokta dolu değilse VE minimum uzunluk sağlanıyorsa pozisyonu uygula
+            if (!occupiedByOtherPipe && newLength >= minLength) {
                 if (this.dragEndpoint === 'p1') {
                     pipe.p1.x = finalPos.x;
                     pipe.p1.y = finalPos.y;
@@ -1391,7 +1432,7 @@ export class InteractionManager {
                 // Bağlı boruları güncelle (tüm zinciri)
                 this.updateConnectedPipesChain(oldPoint, finalPos);
             } else {
-                // Nokta doluysa eski pozisyonda kalır (hiçbir şey yapma)
+                // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır
                 // Bağlı boruları güncellemeye gerek yok çünkü pozisyon değişmedi
             }
             return;

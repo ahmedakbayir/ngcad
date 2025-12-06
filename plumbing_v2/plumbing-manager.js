@@ -217,18 +217,19 @@ export class PlumbingManager {
             return objFloorId === currentFloorId;
         };
 
-        // Önce uç noktaları kontrol et (handle'lar)
+        // Önce uç noktaları kontrol et (handle'lar) - DAR MESAFE (sadece uçlara yakın)
+        const endpointTolerance = 6; // Nokta seçimi için dar mesafe
         for (const pipe of pipes) {
             if (!floorMatches(pipe.floorId)) continue;
             if (!pipe.p1 || !pipe.p2) continue;
 
             const distP1 = Math.hypot(pos.x - pipe.p1.x, pos.y - pipe.p1.y);
-            if (distP1 < tolerance) {
+            if (distP1 < endpointTolerance) {
                 return { type: 'pipe', object: pipe, handle: 'p1' };
             }
 
             const distP2 = Math.hypot(pos.x - pipe.p2.x, pos.y - pipe.p2.y);
-            if (distP2 < tolerance) {
+            if (distP2 < endpointTolerance) {
                 return { type: 'pipe', object: pipe, handle: 'p2' };
             }
         }
