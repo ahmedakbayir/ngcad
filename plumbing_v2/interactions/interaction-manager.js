@@ -1070,6 +1070,7 @@ export class InteractionManager {
 
     findBoruUcuAt(point, tolerance = 5) {
         const currentFloorId = state.currentFloor?.id;
+        const candidates = [];
 
         for (const boru of this.manager.pipes) {
             // Sadece aktif kattaki boruları kontrol et
@@ -1083,13 +1084,42 @@ export class InteractionManager {
             console.log(`📏 Boru ${boru.id}: p1=${distP1.toFixed(1)}cm, p2=${distP2.toFixed(1)}cm`);
 
             if (distP1 < tolerance) {
-                return { boruId: boru.id, nokta: boru.p1, uc: 'p1' };
+                candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
             }
             if (distP2 < tolerance) {
-                return { boruId: boru.id, nokta: boru.p2, uc: 'p2' };
+                candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
             }
         }
-        return null;
+
+        // Hiç aday yoksa null dön
+        if (candidates.length === 0) {
+            return null;
+        }
+
+        // Tek aday varsa direkt dön
+        if (candidates.length === 1) {
+            const c = candidates[0];
+            return { boruId: c.boruId, nokta: c.nokta, uc: c.uc };
+        }
+
+        // Birden fazla aday varsa, tıklama noktasına en yakın BORU GÖVDESİNİ seç
+        // Bu sayede aynı noktayı paylaşan iki borudan tıkladığınız boru seçilir
+        let closest = candidates[0];
+        let minBodyDist = Infinity;
+
+        for (const candidate of candidates) {
+            const proj = candidate.boru.projectPoint(point);
+            if (proj && proj.onSegment) {
+                const bodyDist = proj.distance;
+                if (bodyDist < minBodyDist) {
+                    minBodyDist = bodyDist;
+                    closest = candidate;
+                }
+            }
+        }
+
+        console.log(`✅ ${candidates.length} aday arasından en yakın gövde: ${closest.boruId} (${minBodyDist.toFixed(1)}cm)`);
+        return { boruId: closest.boruId, nokta: closest.nokta, uc: closest.uc };
     }
 
     findBoruGovdeAt(point, tolerance = 5) {
