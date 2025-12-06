@@ -141,11 +141,6 @@ export class PlumbingRenderer {
             }
 
             ctx.restore();
-
-            // Seçili borular için uç noktaları göster
-            if (pipe.isSelected) {
-                this.drawPipeEndpoints(ctx, pipe);
-            }
         });
 
         // Dirsek görüntülerini çiz
@@ -153,6 +148,13 @@ export class PlumbingRenderer {
 
         // Boru üzerindeki vanaları çiz
         this.drawPipeValves(ctx, pipes);
+
+        // Seçili borular için uç noktaları göster (dirseklerin üstünde görünsün)
+        pipes.forEach(pipe => {
+            if (pipe.isSelected) {
+                this.drawPipeEndpoints(ctx, pipe);
+            }
+        });
     }
 
     findBreakPoints(pipes) {
@@ -295,10 +297,9 @@ export class PlumbingRenderer {
                 }
             }
 
-            // Vananın sağ kenarı ekleme noktasında olsun
-            // Borunun yönüne göre halfSize kadar geri git
-            const adjustedX = vanaPos.x - Math.cos(angle) * halfSize;
-            const adjustedY = vanaPos.y - Math.sin(angle) * halfSize;
+            // Vananın merkezi ekleme noktasında olsun (ekleme noktası zaten dirsek için 3cm içeride)
+            const adjustedX = vanaPos.x;
+            const adjustedY = vanaPos.y;
 
             ctx.save();
             ctx.translate(adjustedX, adjustedY);

@@ -157,40 +157,39 @@ export class InteractionManager {
             const hoveredPipe = this.findPipeAt(point, 10);
             if (hoveredPipe) {
                 // Boruda vana varsa da preview göster (boru bölünecek)
-                {
-                    // Boru üzerindeki pozisyonu hesapla
-                    const proj = hoveredPipe.projectPoint(point);
-                    if (proj && proj.onSegment) {
-                        let vanaPoint = { x: proj.x, y: proj.y };
-                        let vanaT = proj.t;
-                        let snapToEnd = false;
+                // Boru üzerindeki pozisyonu hesapla
+                const proj = hoveredPipe.projectPoint(point);
+                if (proj && proj.onSegment) {
+                    let vanaPoint = { x: proj.x, y: proj.y };
+                    let vanaT = proj.t;
+                    let snapToEnd = false;
 
-                        // Boru uçlarına snap - 10 cm tolerance
-                        const END_SNAP_DISTANCE = 10;
-                        const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
-                        const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
+                    // Boru uçlarına snap - 10 cm tolerance
+                    const END_SNAP_DISTANCE = 10;
+                    const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
+                    const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
 
-                        if (distToP1 < END_SNAP_DISTANCE) {
-                            // p1'e snap
-                            vanaPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
-                            vanaT = 0;
-                            snapToEnd = true;
-                        } else if (distToP2 < END_SNAP_DISTANCE) {
-                            // p2'ye snap
-                            vanaPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
-                            vanaT = 1;
-                            snapToEnd = true;
-                        }
-
-                        this.vanaPreview = {
-                            pipe: hoveredPipe,
-                            point: vanaPoint,
-                            t: vanaT,
-                            snapToEnd: snapToEnd
-                        };
-                    } else {
-                        this.vanaPreview = null;
+                    if (distToP1 < END_SNAP_DISTANCE) {
+                        // p1'e snap
+                        vanaPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
+                        vanaT = 0;
+                        snapToEnd = true;
+                    } else if (distToP2 < END_SNAP_DISTANCE) {
+                        // p2'ye snap
+                        vanaPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
+                        vanaT = 1;
+                        snapToEnd = true;
                     }
+
+                    this.vanaPreview = {
+                        pipe: hoveredPipe,
+                        point: vanaPoint,
+                        t: vanaT,
+                        snapToEnd: snapToEnd
+                    };
+                } else {
+                    this.vanaPreview = null;
+                }
             } else {
                 this.vanaPreview = null;
             }
@@ -269,7 +268,15 @@ export class InteractionManager {
                 }
             }
 
-            // Sonra boru uç noktası kontrolü yap (öncelik verilir)
+            // Vana kontrolü (en yüksek öncelik - boru uçlarından önce)
+            const hitResult = this.manager.getObjectAtPoint(point, 10);
+            if (hitResult && hitResult.type === 'valve') {
+                // Vana seçildi
+                this.selectValve(hitResult.pipe, hitResult.object);
+                return true;
+            }
+
+            // Sonra boru uç noktası kontrolü yap
             const boruUcu = this.findBoruUcuAt(point, 12); // Mesafeyi artırdık
             if (boruUcu) {
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
@@ -294,14 +301,6 @@ export class InteractionManager {
                     this.startEndpointDrag(pipe, boruUcu.uc, point);
                     return true;
                 }
-            }
-
-            // Vana kontrolü (öncelik ver)
-            const hitResult = this.manager.getObjectAtPoint(point, 10);
-            if (hitResult && hitResult.type === 'valve') {
-                // Vana seçildi
-                this.selectValve(hitResult.pipe, hitResult.object);
-                return true;
             }
 
             // Sonra nesne seçimi
@@ -1832,6 +1831,12 @@ export class InteractionManager {
                 // İlerdeki noktayı gerideki noktaya taşı
                 nextPipe.p1.x = newP1.x;
                 nextPipe.p1.y = newP1.y;
+
+                // ÖNEMLI: Silinen borunun vanası varsa ve nextPipe'ın başında (t=0) vanası varsa,
+                // nextPipe'ın vanasını da sil (çünkü aynı noktada iki vana olamaz)
+                if (deletedPipe.vana && nextPipe.vana && nextPipe.vana.t === 0) {
+                    nextPipe.vanaKaldir();
+                }
 
                 // Bağlantı bilgisini aktar
                 if (deletedPipe.baslangicBaglanti.hedefId) {
