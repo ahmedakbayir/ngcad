@@ -250,15 +250,13 @@ export class PlumbingManager {
         // Vanaları kontrol et
         for (const pipe of pipes) {
             if (!floorMatches(pipe.floorId)) continue;
-            if (!pipe.vanalar || !pipe.p1 || !pipe.p2) continue;
+            if (!pipe.vana || !pipe.p1 || !pipe.p2) continue;
 
-            for (const vana of pipe.vanalar) {
-                const t = vana.t || 0.5;
-                const vanaX = pipe.p1.x + (pipe.p2.x - pipe.p1.x) * t;
-                const vanaY = pipe.p1.y + (pipe.p2.y - pipe.p1.y) * t;
-                const dist = Math.hypot(pos.x - vanaX, pos.y - vanaY);
+            const vanaPos = pipe.getVanaPozisyon();
+            if (vanaPos) {
+                const dist = Math.hypot(pos.x - vanaPos.x, pos.y - vanaPos.y);
                 if (dist < tolerance) {
-                    return { type: 'valve', object: vana, pipe: pipe };
+                    return { type: 'valve', object: pipe.vana, pipe: pipe };
                 }
             }
         }

@@ -120,8 +120,8 @@ export class PlumbingRenderer {
             ctx.rotate(angle);
 
             if (pipe.isSelected) {
-                // Seçiliyse basit düz renk (mavi) çiz
-                ctx.fillStyle = this.secilenRenk;
+                // Seçiliyse turuncu renk çiz
+                ctx.fillStyle = '#FF8C00'; // Turuncu
                 ctx.fillRect(0, -width / 2, length, width);
             } else {
                 // Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
@@ -244,13 +244,13 @@ export class PlumbingRenderer {
     }
 
     drawPipeEndpoints(ctx, pipe) {
-        // Uç noktaları daha belirgin çiz (seçili borular için)
-        const r = 4; // Daha büyük
+        // Uç noktaları küçük belirgin noktalar (seçili borular için)
+        const r = 2; // Küçük
 
         // p1 noktası
-        ctx.fillStyle = this.secilenRenk;
+        ctx.fillStyle = '#FF8C00'; // Turuncu
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
         ctx.fill();
@@ -314,7 +314,8 @@ export class PlumbingRenderer {
             ctx.strokeRect(-halfSize, -halfSize, size, size);
 
             // İki üçgen çiz (karşı karşıya bakan)
-            ctx.fillStyle = adjustedColor;
+            const fillColor = pipe.vana.isSelected ? '#FF8C00' : adjustedColor; // Seçiliyse turuncu
+            ctx.fillStyle = fillColor;
 
             // Sol üçgen (sağa bakan)
             ctx.beginPath();
@@ -331,6 +332,13 @@ export class PlumbingRenderer {
             ctx.lineTo(0, 0);                  // Orta
             ctx.closePath();
             ctx.fill();
+
+            // Seçili vana için dış çerçeve
+            if (pipe.vana.isSelected) {
+                ctx.strokeStyle = '#FF8C00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-halfSize - 1, -halfSize - 1, size + 2, size + 2);
+            }
 
             ctx.restore();
         });
