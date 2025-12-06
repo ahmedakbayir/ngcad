@@ -306,7 +306,7 @@ export class PlumbingRenderer {
             // Kare sınırları
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 1;
-            ctx.strokeRect(-halfSize, -halfSize, size, size);
+            //ctx.strokeRect(-halfSize, -halfSize, size, size);
 
             // İki üçgen çiz (karşı karşıya bakan)
             ctx.fillStyle = adjustedColor;
@@ -315,7 +315,7 @@ export class PlumbingRenderer {
             ctx.beginPath();
             ctx.moveTo(-halfSize, -halfSize);  // Sol üst
             ctx.lineTo(-halfSize, halfSize);   // Sol alt
-            ctx.lineTo(0, 0);                  // Orta
+            ctx.lineTo(1,0);                  // Orta
             ctx.closePath();
             ctx.fill();
 
@@ -323,7 +323,7 @@ export class PlumbingRenderer {
             ctx.beginPath();
             ctx.moveTo(halfSize, -halfSize);   // Sağ üst
             ctx.lineTo(halfSize, halfSize);    // Sağ alt
-            ctx.lineTo(0, 0);                  // Orta
+            ctx.lineTo(-1,0);                  // Orta
             ctx.closePath();
             ctx.fill();
 
