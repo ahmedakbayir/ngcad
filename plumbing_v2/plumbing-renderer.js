@@ -1036,7 +1036,7 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Vana preview çiz
+     * Vana preview çiz - gerçekteki gibi (stroke olmasın)
      */
     drawVanaPreview(ctx, vanaPreview) {
         if (!vanaPreview || !vanaPreview.pipe || !vanaPreview.point) return;
@@ -1048,9 +1048,9 @@ export class PlumbingRenderer {
         const size = 8;
         const halfSize = size / 2;
 
-        // Vananın sağ kenarı ekleme noktasında olsun
-        const adjustedX = point.x - Math.cos(angle) * halfSize;
-        const adjustedY = point.y - Math.sin(angle) * halfSize;
+        // Vana merkezi ekleme noktasında
+        const adjustedX = point.x;
+        const adjustedY = point.y;
 
         ctx.save();
         ctx.translate(adjustedX, adjustedY);
@@ -1059,20 +1059,16 @@ export class PlumbingRenderer {
         // Yarı saydam
         ctx.globalAlpha = 0.7;
 
-        // Kare sınırları
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(-halfSize, -halfSize, size, size);
-
-        // İki üçgen çiz (mavi)
+        // İki üçgen çiz (mavi) - STROKE YOK, sadece fill
         const vanaColor = '#00bffa';
-        ctx.fillStyle = vanaColor;
+        const adjustedColor = getAdjustedColor(vanaColor, 'vana');
+        ctx.fillStyle = adjustedColor;
 
         // Sol üçgen (sağa bakan)
         ctx.beginPath();
         ctx.moveTo(-halfSize, -halfSize);
         ctx.lineTo(-halfSize, halfSize);
-        ctx.lineTo(0, 0);
+        ctx.lineTo(1, 0);
         ctx.closePath();
         ctx.fill();
 
@@ -1080,7 +1076,7 @@ export class PlumbingRenderer {
         ctx.beginPath();
         ctx.moveTo(halfSize, -halfSize);
         ctx.lineTo(halfSize, halfSize);
-        ctx.lineTo(0, 0);
+        ctx.lineTo(-1, 0);
         ctx.closePath();
         ctx.fill();
 

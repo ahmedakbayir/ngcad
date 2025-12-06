@@ -284,8 +284,8 @@ export class InteractionManager {
                 return true;
             }
 
-            // Sonra boru uç noktası kontrolü yap (DARALTILMIŞ MESAFE - sadece uçlara yakın)
-            const boruUcu = this.findBoruUcuAt(point, 6); // Nokta seçimi için dar mesafe
+            // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
+            const boruUcu = this.findBoruUcuAt(point, 8); // Nokta seçimi için 8 cm
             if (boruUcu) {
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
@@ -625,13 +625,19 @@ export class InteractionManager {
             const pipeLength = pipe.uzunluk;
 
             if (t === 0) {
-                // Başlangıç ucuna snap - içeri al
+                // Başlangıç ucuna snap - p1'den sabit mesafe
                 const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
-                pipe.vanaEkle(adjustedT, 'AKV');
+                pipe.vanaEkle(adjustedT, 'AKV', {
+                    fromEnd: 'p1',
+                    fixedDistance: vanaMesafesi
+                });
             } else if (t === 1) {
-                // Bitiş ucuna snap - içeri al
+                // Bitiş ucuna snap - p2'den sabit mesafe
                 const adjustedT = Math.max(1 - (vanaMesafesi / pipeLength), 0.05);
-                pipe.vanaEkle(adjustedT, 'AKV');
+                pipe.vanaEkle(adjustedT, 'AKV', {
+                    fromEnd: 'p2',
+                    fixedDistance: vanaMesafesi
+                });
             } else {
                 // Orta nokta (olmamalı ama yine de)
                 pipe.vanaEkle(t, 'AKV');
@@ -640,9 +646,10 @@ export class InteractionManager {
             this.manager.saveToState();
             this.vanaPreview = null;
 
-            // Vana eklendikten sonra komuttan çık
+            // Vana eklendikten sonra SEÇ moduna geç
             this.manager.activeTool = null;
             this.cancelCurrentAction();
+            setMode("select");
             return;
         }
 
@@ -657,9 +664,10 @@ export class InteractionManager {
             this.manager.saveToState();
             this.vanaPreview = null;
 
-            // Vana eklendikten sonra komuttan çık
+            // Vana eklendikten sonra SEÇ moduna geç
             this.manager.activeTool = null;
             this.cancelCurrentAction();
+            setMode("select");
             return;
         }
 
@@ -680,6 +688,9 @@ export class InteractionManager {
             if (servisKutusu && servisKutusu.bagliBoruId === pipe.id) {
                 // Servis kutusunun bağlantısını yeni boru1'e güncelle
                 servisKutusu.baglaBoru(boru1.id);
+                // Boru1'in p1'ini servis kutusu çıkış noktasına güncelle (kopma önleme)
+                const cikisNoktasi = servisKutusu.getCikisNoktasi();
+                boru1.moveP1(cikisNoktasi);
             }
         }
 
@@ -696,8 +707,14 @@ export class InteractionManager {
         // Boru2'nin başlangıç bağlantısını boru1'e ayarla
         boru2.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, boru1.id);
 
-        // İkinci borunun başına (p1) vana ekle (t=0)
-        boru2.vanaEkle(0, 'AKV');
+        // İkinci borunun başına (p1) vana ekle - sabit mesafe ile
+        const DIRSEK_KOL_UZUNLUGU = 3; // cm
+        const boruCapi = boru2.config.diameter;
+        const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + boruCapi / 2;
+        boru2.vanaEkle(0, 'AKV', {
+            fromEnd: 'p1',
+            fixedDistance: vanaMesafesi
+        });
 
         // State'i senkronize et
         this.manager.saveToState();
@@ -705,9 +722,10 @@ export class InteractionManager {
         // Preview'ı temizle
         this.vanaPreview = null;
 
-        // Vana eklendikten sonra komuttan çık
+        // Vana eklendikten sonra SEÇ moduna geç
         this.manager.activeTool = null;
         this.cancelCurrentAction();
+        setMode("select");
     }
 
     /**
