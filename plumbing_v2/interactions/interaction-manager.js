@@ -285,7 +285,7 @@ export class InteractionManager {
             }
 
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-            const boruUcu = this.findBoruUcuAt(point, 8); // Nokta seçimi için 8 cm
+            const boruUcu = this.findBoruUcuAt(point, 12); // Nokta seçimi için 12 cm
             if (boruUcu) {
                 console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
@@ -1069,11 +1069,23 @@ export class InteractionManager {
     }
 
     findBoruUcuAt(point, tolerance = 5) {
+        const currentFloorId = state.currentFloor?.id;
+
         for (const boru of this.manager.pipes) {
-            if (Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y) < tolerance) {
+            // Sadece aktif kattaki boruları kontrol et
+            if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
+                continue;
+            }
+
+            const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
+            const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
+
+            console.log(`📏 Boru ${boru.id}: p1=${distP1.toFixed(1)}cm, p2=${distP2.toFixed(1)}cm`);
+
+            if (distP1 < tolerance) {
                 return { boruId: boru.id, nokta: boru.p1, uc: 'p1' };
             }
-            if (Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y) < tolerance) {
+            if (distP2 < tolerance) {
                 return { boruId: boru.id, nokta: boru.p2, uc: 'p2' };
             }
         }
