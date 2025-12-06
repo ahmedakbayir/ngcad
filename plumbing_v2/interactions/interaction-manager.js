@@ -660,6 +660,9 @@ export class InteractionManager {
         this.manager.pipes.push(boru1);
         this.manager.pipes.push(boru2);
 
+        // Boru2'nin başlangıç bağlantısını boru1'e ayarla
+        boru2.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, boru1.id);
+
         // İkinci borunun başına (p1) vana ekle (t=0)
         boru2.vanaEkle(0, 'AKV');
 
