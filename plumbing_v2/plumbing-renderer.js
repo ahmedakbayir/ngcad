@@ -126,9 +126,11 @@ export class PlumbingRenderer {
                 gradient.addColorStop(0.5,  'rgba(255, 125,0,  1)');
                 gradient.addColorStop(1, 'rgba( 255, 125,0,  0.3)');
                 ctx.fillStyle = gradient
+                ctx.shadowColor = 'rgba(255, 255, 255, 1)';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
                 ctx.fillRect(0, -width / 2, length, width);
-
-
 
             } else {
                 // Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
@@ -142,7 +144,6 @@ export class PlumbingRenderer {
                 // gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)');
                 // gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');
                 // gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');
-
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -280,22 +281,22 @@ export class PlumbingRenderer {
 
     drawPipeEndpoints(ctx, pipe) {
         // Uç noktaları küçük belirgin noktalar (seçili borular için)
-        const r = 2; // Küçük
+        const r = 3; // Küçük
 
         // p1 noktası
         ctx.fillStyle = '#FF8C00'; // Turuncu
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
+        //ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
+        //ctx.stroke();
 
         // p2 noktası
         ctx.beginPath();
-        ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
+        //ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
+        //ctx.stroke();
     }
 
     /**
@@ -337,9 +338,19 @@ export class PlumbingRenderer {
             ctx.save();
             ctx.translate(adjustedX, adjustedY);
             ctx.rotate(angle);
+            const gradient = ctx.createConicGradient(0, 0, 0);
+            //const gradient = ctx.createLinearGradient(0, -halfSize, 0,halfSize);
+            // İç kısımda hafif parlaklık efekti
+            
+            
+            gradient.addColorStop(0,  'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(.25,  'rgba(7, 48, 66, 1)');
+            gradient.addColorStop(0.5,  'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(.75,  'rgba(7, 48, 66,  1)');
+            gradient.addColorStop(1,  'rgba(255, 255, 255, 1)');
 
             // Mavi renk (kutu mavisi)
-            const vanaColor = '#00bffa';
+            const vanaColor = gradient
             const adjustedColor = getAdjustedColor(vanaColor, 'vana');
 
             // Kare sınırları
@@ -348,29 +359,27 @@ export class PlumbingRenderer {
             //ctx.strokeRect(-halfSize, -halfSize, size, size);
 
             // İki üçgen çiz (karşı karşıya bakan)
-            const fillColor = pipe.vana.isSelected ? '#FF8C00' : adjustedColor; // Seçiliyse turuncu
+            const fillColor = pipe.vana.isSelected ? '#FF8C00' : gradient; // Seçiliyse turuncu
             ctx.fillStyle = fillColor;
-
+            ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
             // Sol üçgen (sağa bakan)
             ctx.beginPath();
             ctx.moveTo(-halfSize, -halfSize);  // Sol üst
             ctx.lineTo(-halfSize, halfSize);   // Sol alt
-            ctx.lineTo(1,0);                  // Orta
-            ctx.closePath();
-            ctx.fill();
-
-            // Sağ üçgen (sola bakan)
-            ctx.beginPath();
-            ctx.moveTo(halfSize, -halfSize);   // Sağ üst
+            ctx.lineTo(0,1);  
             ctx.lineTo(halfSize, halfSize);    // Sağ alt
-            ctx.lineTo(-1,0);                  // Orta
+            ctx.lineTo(halfSize, -halfSize);    // Sağ alt
+            ctx.lineTo(0,-1);                  // Orta
             ctx.closePath();
             ctx.fill();
 
             // Seçili vana için dış çerçeve
             if (pipe.vana.isSelected) {
                 ctx.strokeStyle = '#FF8C00';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 1;
                 ctx.strokeRect(-halfSize - 1, -halfSize - 1, size + 2, size + 2);
             }
 
@@ -1099,17 +1108,17 @@ export class PlumbingRenderer {
 
         // Sol üçgen (sağa bakan)
         ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize);
-        ctx.lineTo(-halfSize, halfSize);
-        ctx.lineTo(1, 0);
+        ctx.moveTo(-halfSize, -halfSize-1);
+        ctx.lineTo(-halfSize, halfSize+1);
+        ctx.lineTo(2, 0);
         ctx.closePath();
         ctx.fill();
 
         // Sağ üçgen (sola bakan)
         ctx.beginPath();
-        ctx.moveTo(halfSize, -halfSize);
-        ctx.lineTo(halfSize, halfSize);
-        ctx.lineTo(-1, 0);
+        ctx.moveTo(halfSize, -halfSize-1);
+        ctx.lineTo(halfSize, halfSize+1);
+        ctx.lineTo(-2, 0);
         ctx.closePath();
         ctx.fill();
 
