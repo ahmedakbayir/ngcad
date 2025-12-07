@@ -121,20 +121,28 @@ export class PlumbingRenderer {
 
             if (pipe.isSelected) {
                 // Seçiliyse turuncu renk çiz
-                ctx.fillStyle = '#FF8C00'; // Turuncu
+                const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
+                gradient.addColorStop(0.0, 'rgba(255, 125,0,  0.3)');
+                gradient.addColorStop(0.5,  'rgba(255, 125,0,  1)');
+                gradient.addColorStop(1, 'rgba( 255, 125,0,  0.3)');
+                ctx.fillStyle = gradient
                 ctx.fillRect(0, -width / 2, length, width);
+
+
+
             } else {
                 // Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
 
                 // Kenarlarda hafif karartma, ortası boru rengi
                 // Geçişler yumuşak tutuldu
-                gradient.addColorStop(0.0, 'rgba(255, 255,0,  0.3)');
+                gradient.addColorStop(0.0, 'rgba(255, 255,0,  0.5)');
                 gradient.addColorStop(0.5,  'rgba(255, 255,0,  1)');
-                gradient.addColorStop(1, 'rgba( 255, 255,0,  0.3)');
+                gradient.addColorStop(1, 'rgba( 255, 255,0,  0.5)');
                 // gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)');
                 // gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');
                 // gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');
+
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -199,7 +207,7 @@ export class PlumbingRenderer {
     drawElbows(ctx, pipes, breakPoints) {
         // Çizim moduna göre renk ayarla (Orijinal düz renk yapısı korundu)
         // const adjustedGray = getAdjustedColor('rgba(0, 133, 133, 1)', 'boru');
-        const adjustedGray = getAdjustedColor('rgba(155, 155, 0, 1)', 'boru');
+        const adjustedGray = getAdjustedColor('rgba( 219, 219,0,  1)', 'boru');
 
         
         ctx.fillStyle = adjustedGray;
@@ -207,6 +215,18 @@ export class PlumbingRenderer {
         breakPoints.forEach(bp => {
             // En büyük genişliği bul (merkez daire için)
             let maxArmWidth = 0;
+            const armLength = 3;      // 3 cm kol uzunluğu
+            const armExtraWidth = 1;  // Sağdan soldan 1 cm fazla (toplam 2 cm)
+            
+            const dm= bp.diameters[1]+armExtraWidth*2
+            const adjustedGrayx = ctx.createRadialGradient(bp.x, bp.y,dm/4,bp.x, bp.y,dm/2);
+                adjustedGrayx.addColorStop(0, 'rgba(255, 255, 0, 1)');
+                adjustedGrayx.addColorStop(0.2, 'rgba(255, 255, 0, 1)');
+                adjustedGrayx.addColorStop(1, 'rgba(255, 255, 0, .8)');
+            ctx.fillStyle = adjustedGrayx;
+            ctx.beginPath();
+            ctx.arc(bp.x, bp.y, dm/2, 0, Math.PI * 2);
+            ctx.fill();
 
             // Her yön için dirsek kolu çiz
             for (let i = 0; i < bp.directions.length; i++) {
@@ -214,8 +234,6 @@ export class PlumbingRenderer {
                 const diameter = bp.diameters[i];
 
                 // Boyutlar (cm cinsinden)
-                const armLength = 3;      // 3 cm kol uzunluğu
-                const armExtraWidth = 1;  // Sağdan soldan 1 cm fazla (toplam 2 cm)
 
                 const armWidth = diameter + armExtraWidth * 2;
 
@@ -225,23 +243,38 @@ export class PlumbingRenderer {
                 ctx.translate(bp.x, bp.y);
                 ctx.rotate(angle);
 
+
+                const gradientdar = ctx.createLinearGradient(0, -armWidth / 2, 0, armWidth / 2);
+
+                // Kenarlarda hafif karartma, ortası boru rengi
+                // Geçişler yumuşak tutuldu
+                gradientdar.addColorStop(0.0, 'rgba(255, 255,0,  0.6)');
+                gradientdar.addColorStop(0.2,  'rgba(255, 255,0,  1)');
+                gradientdar.addColorStop(0.6,  'rgba(255, 255,0, 1)');
+                gradientdar.addColorStop(1, 'rgba( 255, 255,0,  0.6)');
+
+
                 // 3 cm'lik ana kol (dikdörtgen)
-                ctx.fillStyle = adjustedGray;
+                ctx.fillStyle = gradientdar;
                 ctx.fillRect(0, -armWidth / 2, armLength, armWidth);
 
+                const gradientgenis = ctx.createLinearGradient(0, -armWidth / 2, 0, armWidth / 2);
+                // İç kısımda hafif parlaklık efekti
+                gradientgenis.addColorStop(0.0, 'rgba(255, 255,0,  0.8)');
+                gradientgenis.addColorStop(0.5,  'rgba(255, 255,0,  1)');
+                gradientgenis.addColorStop(1, 'rgba( 255, 255,0,  0.8)');
+
+
                 // Uçta kalın çizgi (sağdan soldan 0.2 cm taşan, 1.5x kalın)
+                ctx.fillStyle = gradientgenis;
                 const lineWidth = armWidth + 0.4; // 0.2 cm her taraftan
                 const lineThickness = 1.5;
                 ctx.fillRect(armLength - 0.2, -lineWidth / 2, lineThickness, lineWidth);
 
                 ctx.restore();
+
             }
 
-            // Merkeze daire çiz (boşluğu kapat)
-            ctx.fillStyle = adjustedGray;
-            ctx.beginPath();
-            ctx.arc(bp.x, bp.y, maxArmWidth / 2, 0, Math.PI * 2);
-            ctx.fill();
         });
     }
 

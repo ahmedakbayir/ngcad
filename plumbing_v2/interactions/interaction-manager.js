@@ -170,7 +170,7 @@ export class InteractionManager {
                     const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
 
                     // Vana mesafesi hesapla (armLength + vana genişliği/2)
-                    const DIRSEK_KOL_UZUNLUGU = 3; // cm
+                    const DIRSEK_KOL_UZUNLUGU = 4; // cm
                     const VANA_GENISLIGI = 8; // cm (vana kare boyutu)
                     const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
                     const pipeLength = hoveredPipe.uzunluk;
@@ -285,7 +285,7 @@ export class InteractionManager {
             }
 
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-            const boruUcu = this.findBoruUcuAt(point, 12); // Nokta seçimi için 12 cm
+            const boruUcu = this.findBoruUcuAt(point, 3); // Nokta seçimi için 12 cm
             if (boruUcu) {
                 console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
@@ -621,7 +621,7 @@ export class InteractionManager {
         // Eğer uç noktaya snap olduysa direkt ekle
         if (snapToEnd) {
             // Vana mesafesi = dirsek kol uzunluğu + vana genişliği/2
-            const DIRSEK_KOL_UZUNLUGU = 3; // cm
+            const DIRSEK_KOL_UZUNLUGU = 4; // cm
             const VANA_GENISLIGI = 8; // cm (vana kare boyutu)
             const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
             const pipeLength = pipe.uzunluk;
@@ -710,7 +710,7 @@ export class InteractionManager {
         boru2.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, boru1.id);
 
         // İLK BORUNUN SONUNA (p2) vana ekle - sabit mesafe ile
-        const DIRSEK_KOL_UZUNLUGU = 3; // cm
+        const DIRSEK_KOL_UZUNLUGU = 4; // cm
         const VANA_GENISLIGI = 8; // cm
         const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
 
@@ -1449,7 +1449,7 @@ export class InteractionManager {
 
             // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
             // Bağlı borular hariç (zaten bağlı oldukları için aynı noktada olabilirler)
-            const POINT_OCCUPATION_TOLERANCE = 11; // 11 cm - boru uçları birbirine bu mesafeden daha yakın olamaz
+            const POINT_OCCUPATION_TOLERANCE = 8; // 11 cm - boru uçları birbirine bu mesafeden daha yakın olamaz
             // connectionTolerance zaten yukarıda tanımlı (satır 975)
 
             // Hedef noktada başka bir boru ucu var mı kontrol et (bağlı borular hariç)
@@ -1470,7 +1470,7 @@ export class InteractionManager {
             let minLength = 10; // Varsayılan minimum uzunluk (cm)
             if (pipe.vana) {
                 // Eğer boruda vana varsa minimum uzunluk = (armLength + vana genişliği/2) * 2
-                const DIRSEK_KOL_UZUNLUGU = 3; // cm
+                const DIRSEK_KOL_UZUNLUGU = 4; // cm
                 const VANA_GENISLIGI = 8; // cm
                 const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
                 minLength = vanaMesafesi * 2 + 5; // İki uç + 5 cm tolerans = 19 cm
@@ -1593,7 +1593,7 @@ export class InteractionManager {
             };
 
             // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
-            const POINT_OCCUPATION_TOLERANCE = 11; // 11 cm
+            const POINT_OCCUPATION_TOLERANCE = 8; // 11 cm
             const connectionTolerance = 1; // Bağlantı tespit toleransı
 
             // Bağlı borular listesi (bridge mode için zaten var)
@@ -1779,7 +1779,7 @@ export class InteractionManager {
         if (!obj || obj.type !== 'servis_kutusu') return false;
 
         const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
-        const handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 10;
+        const handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 20;
 
         // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)
         // Local: (0, -handleLength) → World: dönüşüm matrisi uygula
