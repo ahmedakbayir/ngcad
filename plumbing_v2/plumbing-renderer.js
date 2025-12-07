@@ -13,6 +13,9 @@ export class PlumbingRenderer {
     render(ctx, manager) {
         if (!manager) return;
 
+        // Vanaların pozisyonlarını güncelle (boru uzunluğu değiştiğinde)
+        manager.updateAllValvePositions();
+
         // MİMARİ modunda tesisat nesneleri soluk görünmeli
         const shouldBeFaded = state.currentDrawingMode === 'MİMARİ';
 
@@ -155,7 +158,7 @@ export class PlumbingRenderer {
         // Dirsek görüntülerini çiz
         this.drawElbows(ctx, pipes, breakPoints);
 
-        // Boru üzerindeki vanaları çiz
+        // Boru üzerindeki vanaları çiz (ESKİ - deprecated, geriye dönük uyumluluk için)
         this.drawPipeValves(ctx, pipes);
 
         // Seçili borular için uç noktaları göster (dirseklerin üstünde görünsün)
@@ -618,38 +621,47 @@ export class PlumbingRenderer {
     }
 
     drawVana(ctx, comp, vanaData = null) {
-        // vanaData yoksa eski component tipinde vana (eski vana çizimi için)
-        // vanaData varsa boru üzerindeki vana
+        // Bağımsız vana çizimi (components dizisindeki vana)
         const size = 8; // Kare boyutu (8x8 cm)
         const halfSize = size / 2;
 
-        // Mavi renk (kutu mavisi)
-        const vanaColor = '#00bffa';
-        const adjustedColor = getAdjustedColor(vanaColor, 'vana');
+        // Gradient efekti ile parlaklık
+        const gradient = ctx.createConicGradient(0, 0, 0);
+        gradient.addColorStop(0,  'rgba(255, 255, 255, 1)');
+        gradient.addColorStop(.25,  'rgba(7, 48, 66, 1)');
+        gradient.addColorStop(0.5,  'rgba(255, 255, 255, 1)');
+        gradient.addColorStop(.75,  'rgba(7, 48, 66,  1)');
+        gradient.addColorStop(1,  'rgba(255, 255, 255, 1)');
 
-        // Kare sınırları
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(-halfSize, -halfSize, size, size);
+        // Seçiliyse turuncu renk
+        const fillColor = comp.isSelected ? '#FF8C00' : gradient;
+        ctx.fillStyle = fillColor;
 
-        // İki üçgen çiz (karşı karşıya bakan)
-        ctx.fillStyle = adjustedColor;
+        // Gölge efekti
+        ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
 
-        // Sol üçgen (sağa bakan)
+        // İki üçgen çiz (karşı karşıya bakan, kelebek vana görünümü)
         ctx.beginPath();
         ctx.moveTo(-halfSize, -halfSize);  // Sol üst
         ctx.lineTo(-halfSize, halfSize);   // Sol alt
-        ctx.lineTo(0, 0);                  // Orta
+        ctx.lineTo(0, 1);                  // Orta
+        ctx.lineTo(halfSize, halfSize);    // Sağ alt
+        ctx.lineTo(halfSize, -halfSize);   // Sağ üst
+        ctx.lineTo(0, -1);                 // Orta
         ctx.closePath();
         ctx.fill();
 
-        // Sağ üçgen (sola bakan)
-        ctx.beginPath();
-        ctx.moveTo(halfSize, -halfSize);   // Sağ üst
-        ctx.lineTo(halfSize, halfSize);    // Sağ alt
-        ctx.lineTo(0, 0);                  // Orta
-        ctx.closePath();
-        ctx.fill();
+        // Seçili vana için dış çerçeve
+        if (comp.isSelected) {
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#FF8C00';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-halfSize - 1, -halfSize - 1, size + 2, size + 2);
+        }
     }
 
     drawCihaz(ctx, comp) {
