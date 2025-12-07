@@ -101,13 +101,23 @@ export class Vana {
         this.config = { ...VANA_CONFIG };
         this.floorId = options.floorId || null;
 
-        // Bağlantılar
+        // Bağlantılar (deprecated - artık kullanılmıyor)
         this.girisBagliBoruId = null;
         this.cikisBagliBoruId = null;
 
-        // Boru üzerindeki pozisyon (0-1)
-        this.boruPozisyonu = options.boruPozisyonu || null;
+        // *** YENİ YAPI: Boru üzerinde serbest kayabilir vana ***
+        // Boru üzerindeki pozisyon (0-1 arası normalized değer)
+        this.boruPozisyonu = options.boruPozisyonu !== undefined ? options.boruPozisyonu : null;
+
+        // Bağlı olduğu boru
         this.bagliBoruId = options.bagliBoruId || null;
+
+        // Uçtan sabit mesafe (cm) - borunun uzunluğu değişse bile bu mesafe korunur
+        this.fromEnd = options.fromEnd || null; // 'p1' veya 'p2'
+        this.fixedDistance = options.fixedDistance || null; // cm cinsinden mesafe
+
+        // Seçim durumu
+        this.isSelected = false;
     }
 
     /**
@@ -255,7 +265,7 @@ export class Vana {
     }
 
     /**
-     * Taşı
+     * Taşı (serbest taşıma)
      */
     move(newX, newY) {
         this.x = newX;
@@ -264,6 +274,103 @@ export class Vana {
             girisBagliBoruId: this.girisBagliBoruId,
             cikisBagliBoruId: this.cikisBagliBoruId
         };
+    }
+
+    /**
+     * Boru referansı ile pozisyonu güncelle
+     * @param {Boru} pipe - Bağlı olduğu boru
+     * @returns {object} - Hesaplanan pozisyon {x, y}
+     */
+    updatePositionFromPipe(pipe) {
+        if (!pipe || !this.bagliBoruId || pipe.id !== this.bagliBoruId) {
+            return null;
+        }
+
+        let t = this.boruPozisyonu;
+
+        // Eğer fixedDistance varsa, uçtan sabit mesafe olarak hesapla
+        if (this.fixedDistance !== null && this.fromEnd) {
+            const length = pipe.uzunluk;
+            if (this.fromEnd === 'p1') {
+                t = Math.min(this.fixedDistance / length, 0.95);
+            } else if (this.fromEnd === 'p2') {
+                t = Math.max(1 - (this.fixedDistance / length), 0.05);
+            }
+            // boruPozisyonu'nu da güncelle
+            this.boruPozisyonu = t;
+        }
+
+        // Pozisyonu hesapla
+        const pos = pipe.getPointAt(t);
+        this.x = pos.x;
+        this.y = pos.y;
+
+        // Rotasyonu boru açısına göre ayarla
+        this.rotation = pipe.aciDerece;
+
+        return { x: this.x, y: this.y };
+    }
+
+    /**
+     * Boru üzerinde pozisyonu değiştir (sürüklenirken)
+     * @param {Boru} pipe - Bağlı olduğu boru
+     * @param {object} point - Hedef nokta {x, y}
+     * @returns {boolean} - Başarılı mı?
+     */
+    moveAlongPipe(pipe, point) {
+        if (!pipe || !this.bagliBoruId || pipe.id !== this.bagliBoruId) {
+            return false;
+        }
+
+        // Noktayı boru üzerine projeksiyonla
+        const proj = pipe.projectPoint(point);
+        if (!proj || !proj.onSegment) {
+            return false;
+        }
+
+        // Mesafe kontrolü: uçlardan 4cm, nesneler arası 2cm
+        const MIN_EDGE_DISTANCE = 4; // cm
+        const pipeLength = pipe.uzunluk;
+        const minT = MIN_EDGE_DISTANCE / pipeLength;
+        const maxT = 1 - (MIN_EDGE_DISTANCE / pipeLength);
+
+        // t değerini sınırla
+        let newT = Math.max(minT, Math.min(maxT, proj.t));
+
+        // Pozisyonu güncelle
+        this.boruPozisyonu = newT;
+        this.x = proj.x;
+        this.y = proj.y;
+        this.rotation = pipe.aciDerece;
+
+        // fixedDistance'ı temizle (artık serbest hareket ediyor)
+        this.fixedDistance = null;
+        this.fromEnd = null;
+
+        return true;
+    }
+
+    /**
+     * Vana'yı bir boruya bağla
+     * @param {string} pipeId - Boru ID
+     * @param {number} t - Boru üzerindeki pozisyon (0-1)
+     * @param {object} options - {fromEnd, fixedDistance}
+     */
+    attachToPipe(pipeId, t, options = {}) {
+        this.bagliBoruId = pipeId;
+        this.boruPozisyonu = t;
+        this.fromEnd = options.fromEnd || null;
+        this.fixedDistance = options.fixedDistance || null;
+    }
+
+    /**
+     * Vana'yı borudan ayır
+     */
+    detachFromPipe() {
+        this.bagliBoruId = null;
+        this.boruPozisyonu = null;
+        this.fromEnd = null;
+        this.fixedDistance = null;
     }
 
     /**
@@ -310,6 +417,8 @@ export class Vana {
             cikisBagliBoruId: this.cikisBagliBoruId,
             boruPozisyonu: this.boruPozisyonu,
             bagliBoruId: this.bagliBoruId,
+            fromEnd: this.fromEnd,
+            fixedDistance: this.fixedDistance,
             floorId: this.floorId
         };
     }
@@ -321,7 +430,9 @@ export class Vana {
         const vana = new Vana(data.x, data.y, data.vanaTipi, {
             floorId: data.floorId,
             boruPozisyonu: data.boruPozisyonu,
-            bagliBoruId: data.bagliBoruId
+            bagliBoruId: data.bagliBoruId,
+            fromEnd: data.fromEnd,
+            fixedDistance: data.fixedDistance
         });
 
         vana.id = data.id;

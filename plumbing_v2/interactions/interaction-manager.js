@@ -12,6 +12,7 @@ import { Cihaz, createCihaz } from '../objects/device.js';
 import { screenToWorld } from '../../draw/geometry.js';
 import { dom, state, setMode, setState } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
+import { canPlaceValveOnPipe, getObjectsOnPipe } from '../utils/placement-utils.js';
 
 // Tool modları
 export const TESISAT_MODLARI = {
@@ -610,115 +611,47 @@ export class InteractionManager {
     }
 
     /**
-     * Vana yerleştir
+     * Vana yerleştir - YENİ STRATEJI
+     * Vana boruyu bölmez, boru üzerinde serbest kayabilir bir nesne olarak eklenir
      */
     handleVanaPlacement(vanaPreview) {
-        const { pipe, point, t, snapToEnd } = vanaPreview;
+        const { pipe, point } = vanaPreview;
 
         // Undo için state kaydet
         saveState();
 
-        // Eğer uç noktaya snap olduysa direkt ekle
-        if (snapToEnd) {
-            // Vana mesafesi = dirsek kol uzunluğu + vana genişliği/2
-            const DIRSEK_KOL_UZUNLUGU = 4; // cm
-            const VANA_GENISLIGI = 8; // cm (vana kare boyutu)
-            const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
-            const pipeLength = pipe.uzunluk;
+        // Boru üzerindeki mevcut nesneleri al
+        const existingObjects = getObjectsOnPipe(this.manager.components, pipe.id);
 
-            if (t === 0) {
-                // Başlangıç ucuna snap - p1'den sabit mesafe
-                const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
-                pipe.vanaEkle(adjustedT, 'AKV', {
-                    fromEnd: 'p1',
-                    fixedDistance: vanaMesafesi
-                });
-            } else if (t === 1) {
-                // Bitiş ucuna snap - p2'den sabit mesafe
-                const adjustedT = Math.max(1 - (vanaMesafesi / pipeLength), 0.05);
-                pipe.vanaEkle(adjustedT, 'AKV', {
-                    fromEnd: 'p2',
-                    fixedDistance: vanaMesafesi
-                });
-            } else {
-                // Orta nokta (olmamalı ama yine de)
-                pipe.vanaEkle(t, 'AKV');
-            }
+        // Yerleştirme kontrolü yap
+        const placementResult = canPlaceValveOnPipe(pipe, point, existingObjects);
 
-            this.manager.saveToState();
+        if (!placementResult || placementResult.error) {
+            // Hata durumu - mesaj göster
+            alert(placementResult?.message || 'Vana eklenemedi!');
             this.vanaPreview = null;
-
-            // Vana eklendikten sonra SEÇ moduna geç
-            this.manager.activeTool = null;
-            this.cancelCurrentAction();
-            setMode("select");
             return;
         }
 
-        // Orta bir noktadaysa boru böl
-        const CORNER_THRESHOLD = 0.1;
-        const distToP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
-        const distToP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
+        const { t, x, y, adjusted } = placementResult;
 
-        if (distToP1 < CORNER_THRESHOLD || distToP2 < CORNER_THRESHOLD) {
-            // Çok köşeye yakın, direkt ekle
-            pipe.vanaEkle(t, 'AKV');
-            this.manager.saveToState();
-            this.vanaPreview = null;
-
-            // Vana eklendikten sonra SEÇ moduna geç
-            this.manager.activeTool = null;
-            this.cancelCurrentAction();
-            setMode("select");
-            return;
+        // Kullanıcıya bilgi ver (kaydırma yapıldıysa)
+        if (adjusted) {
+            console.log('Vana pozisyonu mesafe kurallarına göre ayarlandı.');
         }
 
-        // Orta noktada - boruyu böl
-        const result = pipe.splitAt(point);
-        if (!result) {
-            alert('Boru bölünemedi!');
-            return;
-        }
-
-        const { boru1, boru2 } = result;
-
-        // Servis kutusuna bağlı mı kontrol et ve bağlantıyı KORU
-        if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-            const servisKutusu = this.manager.components.find(
-                c => c.id === pipe.baslangicBaglanti.hedefId && c.type === 'servis_kutusu'
-            );
-            if (servisKutusu && servisKutusu.bagliBoruId === pipe.id) {
-                // Servis kutusunun bağlantısını yeni boru1'e güncelle
-                servisKutusu.baglaBoru(boru1.id);
-                // Boru1'in p1'ini servis kutusu çıkış noktasına güncelle (kopma önleme)
-                const cikisNoktasi = servisKutusu.getCikisNoktasi();
-                boru1.moveP1(cikisNoktasi);
-            }
-        }
-
-        // Eski boruyu kaldır
-        const index = this.manager.pipes.findIndex(p => p.id === pipe.id);
-        if (index !== -1) {
-            this.manager.pipes.splice(index, 1);
-        }
-
-        // Yeni boruları ekle
-        this.manager.pipes.push(boru1);
-        this.manager.pipes.push(boru2);
-
-        // Boru2'nin başlangıç bağlantısını boru1'e ayarla
-        boru2.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, boru1.id);
-
-        // İLK BORUNUN SONUNA (p2) vana ekle - sabit mesafe ile
-        const DIRSEK_KOL_UZUNLUGU = 4; // cm
-        const VANA_GENISLIGI = 8; // cm
-        const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
-
-        // Boru1'in sonuna ekle (p2'den içeri doğru)
-        boru1.vanaEkle(1, 'AKV', {
-            fromEnd: 'p2',
-            fixedDistance: vanaMesafesi
+        // Bağımsız Vana nesnesi oluştur
+        const vana = createVana(x, y, 'AKV', {
+            floorId: state.currentFloorId,
+            bagliBoruId: pipe.id,
+            boruPozisyonu: t
         });
+
+        // Rotasyonu boru açısına göre ayarla
+        vana.rotation = pipe.aciDerece;
+
+        // Manager'ın components dizisine ekle
+        this.manager.components.push(vana);
 
         // State'i senkronize et
         this.manager.saveToState();
@@ -1499,6 +1432,34 @@ export class InteractionManager {
                 // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır
                 // Bağlı boruları güncellemeye gerek yok çünkü pozisyon değişmedi
             }
+            return;
+        }
+
+        // Vana için boru üzerinde kayma
+        if (this.dragObject.type === 'vana') {
+            const vana = this.dragObject;
+
+            // Bağlı olduğu boruyu bul
+            if (!vana.bagliBoruId) {
+                // Bağlı boru yoksa serbest taşı
+                vana.move(point.x, point.y);
+                return;
+            }
+
+            const pipe = this.manager.pipes.find(p => p.id === vana.bagliBoruId);
+            if (!pipe) {
+                // Boru bulunamadıysa serbest taşı
+                vana.move(point.x, point.y);
+                return;
+            }
+
+            // Vana'yı boru üzerinde kaydır
+            const success = vana.moveAlongPipe(pipe, point);
+
+            if (!success) {
+                console.log('Vana boru üzerinde kaydırılamadı');
+            }
+
             return;
         }
 

@@ -194,6 +194,41 @@ export class PlumbingManager {
     }
 
     /**
+     * Belirli bir boruya bağlı vanaların pozisyonlarını güncelle
+     * @param {string} pipeId - Boru ID
+     */
+    updateValvePositionsForPipe(pipeId) {
+        const pipe = this.findPipeById(pipeId);
+        if (!pipe) return;
+
+        // Boruda bağlı vanaları bul
+        const valves = this.components.filter(
+            c => c.type === 'vana' && c.bagliBoruId === pipeId
+        );
+
+        // Her vananın pozisyonunu güncelle
+        valves.forEach(vana => {
+            vana.updatePositionFromPipe(pipe);
+        });
+    }
+
+    /**
+     * Tüm vanaların pozisyonlarını güncelle
+     */
+    updateAllValvePositions() {
+        const valves = this.components.filter(c => c.type === 'vana');
+
+        valves.forEach(vana => {
+            if (vana.bagliBoruId) {
+                const pipe = this.findPipeById(vana.bagliBoruId);
+                if (pipe) {
+                    vana.updatePositionFromPipe(pipe);
+                }
+            }
+        });
+    }
+
+    /**
      * Verilen noktadaki nesneyi bul
      * @param {object} pos - {x, y} koordinatları
      * @param {number} tolerance - Tolerans değeri
@@ -234,7 +269,7 @@ export class PlumbingManager {
             }
         }
 
-        // Bileşenleri kontrol et
+        // Bileşenleri kontrol et (vana, servis kutusu, sayaç, cihaz)
         for (const comp of blocks) {
             if (!floorMatches(comp.floorId)) continue;
 
@@ -242,13 +277,18 @@ export class PlumbingManager {
             const cy = comp.y ?? comp.center?.y;
             if (cx !== undefined && cy !== undefined) {
                 const dist = Math.hypot(pos.x - cx, pos.y - cy);
-                if (dist < tolerance * 2) {
+
+                // Vana için daha hassas seçim (6x6 cm kare)
+                const selectTolerance = comp.type === 'vana' ? 6 : tolerance * 2;
+
+                if (dist < selectTolerance) {
                     return { type: 'component', object: comp, handle: 'body' };
                 }
             }
         }
 
-        // Vanaları kontrol et
+        // ESKİ VANA SİSTEMİ (Geriye dönük uyumluluk için - deprecated)
+        // Boru üzerindeki vanaları kontrol et (eski pipe.vana yapısı)
         for (const pipe of pipes) {
             if (!floorMatches(pipe.floorId)) continue;
             if (!pipe.vana || !pipe.p1 || !pipe.p2) continue;

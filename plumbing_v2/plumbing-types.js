@@ -7,6 +7,10 @@ export const PLUMBING_CONSTANTS = {
     PIPE_OFFSET: 5,     // Boru açıklığı (cm) - Kullanıcı değiştirebilir
     SNAP_DISTANCE: 10,  // Snap yakalama mesafesi (cm)
     MIN_PIPE_LENGTH: 5, // Minimum boru uzunluğu
+
+    // *** VANA VE NESNE MESAFE KURALLARI ***
+    MIN_EDGE_DISTANCE: 4,   // Boru uçlarından minimum mesafe (cm)
+    OBJECT_MARGIN: 2,       // Her nesnenin sağında ve solunda bırakılacak margin (cm)
 };
 
 export const PLUMBING_PIPE_TYPES = {
