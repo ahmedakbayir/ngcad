@@ -315,9 +315,10 @@ export class Vana {
      * Boru üzerinde pozisyonu değiştir (sürüklenirken)
      * @param {Boru} pipe - Bağlı olduğu boru
      * @param {object} point - Hedef nokta {x, y}
+     * @param {Array} otherObjects - Boru üzerindeki diğer nesneler [{t, width}, ...]
      * @returns {boolean} - Başarılı mı?
      */
-    moveAlongPipe(pipe, point) {
+    moveAlongPipe(pipe, point, otherObjects = []) {
         if (!pipe || !this.bagliBoruId || pipe.id !== this.bagliBoruId) {
             return false;
         }
@@ -330,6 +331,7 @@ export class Vana {
 
         // Mesafe kontrolü: uçlardan 4cm, nesneler arası 2cm
         const MIN_EDGE_DISTANCE = 4; // cm
+        const OBJECT_MARGIN = 2; // cm - Her nesnenin sağında ve solunda
         const pipeLength = pipe.uzunluk;
         const minT = MIN_EDGE_DISTANCE / pipeLength;
         const maxT = 1 - (MIN_EDGE_DISTANCE / pipeLength);
@@ -337,10 +339,49 @@ export class Vana {
         // t değerini sınırla
         let newT = Math.max(minT, Math.min(maxT, proj.t));
 
-        // Pozisyonu güncelle
+        // Vana genişliği
+        const vanaWidth = this.config.width || 6; // cm
+        const halfWidth = vanaWidth / 2;
+
+        // Diğer nesnelerle çakışma kontrolü
+        // Kendini filtrele (kendi id'si hariç)
+        const others = otherObjects.filter(obj => obj.id !== this.id);
+
+        for (const obj of others) {
+            const objLeftT = obj.t - (OBJECT_MARGIN + obj.width / 2) / pipeLength;
+            const objRightT = obj.t + (obj.width / 2 + OBJECT_MARGIN) / pipeLength;
+
+            const newLeftT = newT - (OBJECT_MARGIN + halfWidth) / pipeLength;
+            const newRightT = newT + (halfWidth + OBJECT_MARGIN) / pipeLength;
+
+            // Çakışma var mı kontrol et
+            if (!(newRightT < objLeftT || newLeftT > objRightT)) {
+                // Çakışma var! En yakın uygun pozisyonu bul
+                // Sol tarafına mı yoksa sağ tarafına mı daha yakınız?
+                const distToLeft = Math.abs(newT - objLeftT);
+                const distToRight = Math.abs(newT - objRightT);
+
+                if (distToLeft < distToRight) {
+                    // Sol tarafa kaydır
+                    newT = objLeftT - (halfWidth + OBJECT_MARGIN) / pipeLength;
+                } else {
+                    // Sağ tarafa kaydır
+                    newT = objRightT + (OBJECT_MARGIN + halfWidth) / pipeLength;
+                }
+
+                // Sınırları kontrol et
+                if (newT < minT || newT > maxT) {
+                    // Uygun yer yok, hareket etme
+                    return false;
+                }
+            }
+        }
+
+        // Pozisyonu hesapla ve güncelle
+        const newPos = pipe.getPointAt(newT);
         this.boruPozisyonu = newT;
-        this.x = proj.x;
-        this.y = proj.y;
+        this.x = newPos.x;
+        this.y = newPos.y;
         this.rotation = pipe.aciDerece;
 
         // fixedDistance'ı temizle (artık serbest hareket ediyor)

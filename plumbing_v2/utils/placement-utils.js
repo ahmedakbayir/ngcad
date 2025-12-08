@@ -77,21 +77,64 @@ export function canPlaceObjectOnPipe(pipe, clickPoint, objectWidth, existingObje
         }
     }
 
-    // Mevcut nesnelerle çakışma kontrolü
-    for (const obj of existingObjects) {
-        const objLeftT = obj.t - (OBJECT_MARGIN + obj.width / 2) / pipeLength;
-        const objRightT = obj.t + (obj.width / 2 + OBJECT_MARGIN) / pipeLength;
+    // Mevcut nesnelerle çakışma kontrolü ve otomatik kaydırma
+    let attempts = 0;
+    const MAX_ATTEMPTS = 10; // Sonsuz döngüyü önlemek için
 
-        const newLeftT = idealT - (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
-        const newRightT = idealT + (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
+    while (attempts < MAX_ATTEMPTS) {
+        let hasCollision = false;
 
-        // Çakışma var mı?
-        if (!(newRightT < objLeftT || newLeftT > objRightT)) {
-            return {
-                error: true,
-                message: 'Bu bölgede başka bir nesne var. Lütfen başka bir konum seçin.'
-            };
+        for (const obj of existingObjects) {
+            const objLeftT = obj.t - (OBJECT_MARGIN + obj.width / 2) / pipeLength;
+            const objRightT = obj.t + (obj.width / 2 + OBJECT_MARGIN) / pipeLength;
+
+            const newLeftT = idealT - (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
+            const newRightT = idealT + (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
+
+            // Çakışma var mı?
+            if (!(newRightT < objLeftT || newLeftT > objRightT)) {
+                // Çakışma var! En yakın uygun pozisyona kaydır
+                hasCollision = true;
+
+                // Sol tarafına mı yoksa sağ tarafına mı daha yakınız?
+                const distToLeft = Math.abs(idealT - objLeftT);
+                const distToRight = Math.abs(idealT - objRightT);
+
+                if (distToLeft < distToRight) {
+                    // Sol tarafa kaydır
+                    idealT = objLeftT - (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
+                } else {
+                    // Sağ tarafa kaydır
+                    idealT = objRightT + (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
+                }
+
+                // Sınırları kontrol et
+                if (idealT < minT || idealT > maxT) {
+                    return {
+                        error: true,
+                        message: 'Bu bölgede başka bir nesne var ve yeterli boş alan yok.'
+                    };
+                }
+
+                // Bu nesneyle çakışma çözüldü, ama başka nesnelerle çakışma olabilir
+                break;
+            }
         }
+
+        // Hiç çakışma yoksa döngüden çık
+        if (!hasCollision) {
+            break;
+        }
+
+        attempts++;
+    }
+
+    // Maksimum deneme sayısına ulaşıldıysa hata ver
+    if (attempts >= MAX_ATTEMPTS) {
+        return {
+            error: true,
+            message: 'Uygun pozisyon bulunamadı. Lütfen daha geniş bir boru seçin veya başka bir konum deneyin.'
+        };
     }
 
     // Pozisyonu hesapla
