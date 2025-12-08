@@ -343,6 +343,30 @@ export class Vana {
         const vanaWidth = this.config.width || 6; // cm
         const halfWidth = vanaWidth / 2;
 
+        // Nesnenin sol ve sağ uçlarını hesapla (margin dahil)
+        let newLeftT = newT - (OBJECT_MARGIN + halfWidth) / pipeLength;
+        let newRightT = newT + (halfWidth + OBJECT_MARGIN) / pipeLength;
+
+        // Önce boru sınırlarını kontrol et - sınır dışındaysa içeri kaydır
+        if (newLeftT < minT) {
+            // Sol tarafa taşıyor, sağa kaydır
+            newT = minT + (OBJECT_MARGIN + halfWidth) / pipeLength;
+            newLeftT = minT;
+            newRightT = newT + (halfWidth + OBJECT_MARGIN) / pipeLength;
+        }
+        if (newRightT > maxT) {
+            // Sağ tarafa taşıyor, sola kaydır
+            newT = maxT - (halfWidth + OBJECT_MARGIN) / pipeLength;
+            newLeftT = newT - (OBJECT_MARGIN + halfWidth) / pipeLength;
+            newRightT = maxT;
+        }
+
+        // Tekrar sınır kontrolü - kaydırma sonrası hala sınır dışındaysa hareket etme
+        if (newLeftT < minT || newRightT > maxT) {
+            console.log('Vana boru sınırları içine sığmıyor');
+            return false;
+        }
+
         // Diğer nesnelerle çakışma kontrolü
         // Kendini filtrele (kendi id'si hariç)
         const others = otherObjects.filter(obj => obj.id !== this.id);
@@ -350,9 +374,6 @@ export class Vana {
         for (const obj of others) {
             const objLeftT = obj.t - (OBJECT_MARGIN + obj.width / 2) / pipeLength;
             const objRightT = obj.t + (obj.width / 2 + OBJECT_MARGIN) / pipeLength;
-
-            const newLeftT = newT - (OBJECT_MARGIN + halfWidth) / pipeLength;
-            const newRightT = newT + (halfWidth + OBJECT_MARGIN) / pipeLength;
 
             // Çakışma var mı kontrol et
             if (!(newRightT < objLeftT || newLeftT > objRightT)) {
@@ -369,11 +390,17 @@ export class Vana {
                     newT = objRightT + (OBJECT_MARGIN + halfWidth) / pipeLength;
                 }
 
-                // Sınırları kontrol et
-                if (newT < minT || newT > maxT) {
+                // Kaydırma sonrası sınırları kontrol et
+                newLeftT = newT - (OBJECT_MARGIN + halfWidth) / pipeLength;
+                newRightT = newT + (halfWidth + OBJECT_MARGIN) / pipeLength;
+
+                if (newLeftT < minT || newRightT > maxT) {
                     // Uygun yer yok, hareket etme
                     return false;
                 }
+
+                // Bu nesneyle çakışma çözüldü
+                // Başka nesnelerle de çakışma olabilir, devam et
             }
         }
 
