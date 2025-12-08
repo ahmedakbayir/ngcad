@@ -84,16 +84,40 @@ export function canPlaceObjectOnPipe(pipe, clickPoint, objectWidth, existingObje
     while (attempts < MAX_ATTEMPTS) {
         let hasCollision = false;
 
+        // Nesnenin sol ve sağ uçlarını hesapla (margin dahil)
+        let newLeftT = idealT - (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
+        let newRightT = idealT + (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
+
+        // Önce boru sınırlarını kontrol et - sınır dışındaysa içeri kaydır
+        if (newLeftT < minT) {
+            // Sol tarafa taşıyor, sağa kaydır
+            idealT = minT + (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
+            newLeftT = minT;
+            newRightT = idealT + (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
+        }
+        if (newRightT > maxT) {
+            // Sağ tarafa taşıyor, sola kaydır
+            idealT = maxT - (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
+            newLeftT = idealT - (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
+            newRightT = maxT;
+        }
+
+        // Tekrar sınır kontrolü - kaydırma sonrası hala sınır dışındaysa hata ver
+        if (newLeftT < minT || newRightT > maxT) {
+            return {
+                error: true,
+                message: 'Nesne boru sınırları içine sığmıyor. Gerekli mesafe: ' + requiredSpace.toFixed(1) + ' cm'
+            };
+        }
+
+        // Mevcut nesnelerle çakışma kontrolü
         for (const obj of existingObjects) {
             const objLeftT = obj.t - (OBJECT_MARGIN + obj.width / 2) / pipeLength;
             const objRightT = obj.t + (obj.width / 2 + OBJECT_MARGIN) / pipeLength;
 
-            const newLeftT = idealT - (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
-            const newRightT = idealT + (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
-
             // Çakışma var mı?
             if (!(newRightT < objLeftT || newLeftT > objRightT)) {
-                // Çakışma var! En yakın uygun pozisyona kaydır
+                // Çakışma var! En yakın uygun pozisyonu bul
                 hasCollision = true;
 
                 // Sol tarafına mı yoksa sağ tarafına mı daha yakınız?
@@ -101,22 +125,15 @@ export function canPlaceObjectOnPipe(pipe, clickPoint, objectWidth, existingObje
                 const distToRight = Math.abs(idealT - objRightT);
 
                 if (distToLeft < distToRight) {
-                    // Sol tarafa kaydır
+                    // Sol tarafa kaydır (nesnenin soluna)
                     idealT = objLeftT - (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
                 } else {
-                    // Sağ tarafa kaydır
+                    // Sağ tarafa kaydır (nesnenin sağına)
                     idealT = objRightT + (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
                 }
 
-                // Sınırları kontrol et
-                if (idealT < minT || idealT > maxT) {
-                    return {
-                        error: true,
-                        message: 'Bu bölgede başka bir nesne var ve yeterli boş alan yok.'
-                    };
-                }
-
                 // Bu nesneyle çakışma çözüldü, ama başka nesnelerle çakışma olabilir
+                // Döngüyü tekrarla
                 break;
             }
         }
@@ -134,6 +151,17 @@ export function canPlaceObjectOnPipe(pipe, clickPoint, objectWidth, existingObje
         return {
             error: true,
             message: 'Uygun pozisyon bulunamadı. Lütfen daha geniş bir boru seçin veya başka bir konum deneyin.'
+        };
+    }
+
+    // Son kontrol: idealT hala sınırlar içinde mi?
+    const finalLeftT = idealT - (OBJECT_MARGIN + halfObjectWidth) / pipeLength;
+    const finalRightT = idealT + (halfObjectWidth + OBJECT_MARGIN) / pipeLength;
+
+    if (finalLeftT < minT || finalRightT > maxT) {
+        return {
+            error: true,
+            message: 'Nesne boru sınırları içine yerleştirilemedi.'
         };
     }
 
