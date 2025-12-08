@@ -1503,8 +1503,33 @@ export class InteractionManager {
                 return; // Hareketi engelle
             }
 
-            // Boru değişiyorsa yeni boruya bağla
+            // Boru değişiyorsa köşe kontrolü yap
             if (vana.bagliBoruId !== closestPipe.id) {
+                // Eski boruyu bul
+                const oldPipe = this.manager.pipes.find(p => p.id === vana.bagliBoruId);
+
+                if (oldPipe) {
+                    // KÖŞE KONTROLÜ: İki borunun birleştiği köşe noktalarına vana yerleştirilemez
+                    // Çünkü vana boru uçlarından 4 cm uzakta olmalı, köşede iki uç birleşiyor
+                    const CORNER_TOLERANCE = 2; // cm - iki noktanın "aynı" sayılması için mesafe
+
+                    const oldP1 = oldPipe.p1;
+                    const oldP2 = oldPipe.p2;
+                    const newP1 = closestPipe.p1;
+                    const newP2 = closestPipe.p2;
+
+                    const isCorner =
+                        Math.hypot(oldP1.x - newP1.x, oldP1.y - newP1.y) < CORNER_TOLERANCE ||
+                        Math.hypot(oldP1.x - newP2.x, oldP1.y - newP2.y) < CORNER_TOLERANCE ||
+                        Math.hypot(oldP2.x - newP1.x, oldP2.y - newP1.y) < CORNER_TOLERANCE ||
+                        Math.hypot(oldP2.x - newP2.x, oldP2.y - newP2.y) < CORNER_TOLERANCE;
+
+                    if (isCorner) {
+                        console.log('Vana köşe noktasına taşınamaz - iki boru birleşiyor');
+                        return; // Hareketi engelle
+                    }
+                }
+
                 console.log(`Vana boru değiştiriyor: ${vana.bagliBoruId} -> ${closestPipe.id}`);
                 vana.bagliBoruId = closestPipe.id;
                 vana.boruPozisyonu = closestProj.t;
