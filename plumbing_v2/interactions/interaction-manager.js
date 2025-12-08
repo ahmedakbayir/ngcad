@@ -1143,6 +1143,16 @@ export class InteractionManager {
         this.dragObject = obj;
         this.dragEndpoint = null;
         this.dragStart = { ...point };
+
+        // Vana için bağlı boruyu önceden kaydet (performans optimizasyonu)
+        if (obj.type === 'vana' && obj.bagliBoruId) {
+            this.dragObjectPipe = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
+            this.dragObjectsOnPipe = getObjectsOnPipe(this.manager.components, obj.bagliBoruId);
+            console.log('Vana sürükleme başladı - Bağlı boru:', this.dragObjectPipe?.id);
+        } else {
+            this.dragObjectPipe = null;
+            this.dragObjectsOnPipe = null;
+        }
     }
 
     /**
@@ -1474,72 +1484,22 @@ export class InteractionManager {
             return;
         }
 
-        // Vana için boru üzerinde kayma ve boru değiştirme
+        // Vana için boru üzerinde kayma (PERFORMANS OPTİMİZASYONU)
         if (this.dragObject.type === 'vana') {
             const vana = this.dragObject;
 
-            // Mouse pozisyonuna en yakın boruyu bul (5 cm yakalama mesafesi)
-            const PIPE_SNAP_DISTANCE = 5; // cm
-            let closestPipe = null;
-            let closestProj = null;
-            let minDistance = PIPE_SNAP_DISTANCE;
+            // Başlangıçta kaydedilmiş boruyu kullan (her frame tüm boruları taramak yerine)
+            let targetPipe = this.dragObjectPipe;
+            let objectsOnPipe = this.dragObjectsOnPipe;
 
-            for (const pipe of this.manager.pipes) {
-                const proj = pipe.projectPoint(point);
-                if (proj && proj.onSegment) {
-                    const dist = Math.hypot(point.x - proj.x, point.y - proj.y);
-                    if (dist < minDistance) {
-                        minDistance = dist;
-                        closestPipe = pipe;
-                        closestProj = proj;
-                    }
-                }
+            // Boru yoksa veya geçersizse hareket etme
+            if (!targetPipe) {
+                console.log('Vana sürüklerken boru bulunamadı - hareket engellendi');
+                return;
             }
-
-            // En yakın boru bulunamadıysa vana pozisyonunu değiştirme
-            // (Boru özelliği olan nesne boru dışına çıkmamalı)
-            if (!closestPipe) {
-                console.log('Vana sürüklerken yakın boru bulunamadı - hareket engellendi');
-                return; // Hareketi engelle
-            }
-
-            // Boru değişiyorsa köşe kontrolü yap
-            if (vana.bagliBoruId !== closestPipe.id) {
-                // Eski boruyu bul
-                const oldPipe = this.manager.pipes.find(p => p.id === vana.bagliBoruId);
-
-                if (oldPipe) {
-                    // KÖŞE KONTROLÜ: İki borunun birleştiği köşe noktalarına vana yerleştirilemez
-                    // Çünkü vana boru uçlarından 4 cm uzakta olmalı, köşede iki uç birleşiyor
-                    const CORNER_TOLERANCE = 2; // cm - iki noktanın "aynı" sayılması için mesafe
-
-                    const oldP1 = oldPipe.p1;
-                    const oldP2 = oldPipe.p2;
-                    const newP1 = closestPipe.p1;
-                    const newP2 = closestPipe.p2;
-
-                    const isCorner =
-                        Math.hypot(oldP1.x - newP1.x, oldP1.y - newP1.y) < CORNER_TOLERANCE ||
-                        Math.hypot(oldP1.x - newP2.x, oldP1.y - newP2.y) < CORNER_TOLERANCE ||
-                        Math.hypot(oldP2.x - newP1.x, oldP2.y - newP1.y) < CORNER_TOLERANCE ||
-                        Math.hypot(oldP2.x - newP2.x, oldP2.y - newP2.y) < CORNER_TOLERANCE;
-
-                    if (isCorner) {
-                        console.log('Vana köşe noktasına taşınamaz - iki boru birleşiyor');
-                        return; // Hareketi engelle
-                    }
-                }
-
-                console.log(`Vana boru değiştiriyor: ${vana.bagliBoruId} -> ${closestPipe.id}`);
-                vana.bagliBoruId = closestPipe.id;
-                vana.boruPozisyonu = closestProj.t;
-            }
-
-            // Boru üzerindeki diğer nesneleri al
-            const objectsOnPipe = getObjectsOnPipe(this.manager.components, closestPipe.id);
 
             // Vana'yı boru üzerinde kaydır (margin kontrolü ile)
-            const success = vana.moveAlongPipe(closestPipe, point, objectsOnPipe);
+            const success = vana.moveAlongPipe(targetPipe, point, objectsOnPipe);
 
             if (!success) {
                 console.log('Vana boru üzerinde kaydırılamadı - yetersiz mesafe veya sınır dışı');
