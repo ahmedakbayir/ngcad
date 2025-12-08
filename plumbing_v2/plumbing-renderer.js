@@ -644,15 +644,15 @@ export class PlumbingRenderer {
         ctx.shadowOffsetY = 0;
 
         // İki üçgen çiz (karşı karşıya bakan, kelebek vana görünümü)
-        ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize);  // Sol üst
-        ctx.lineTo(-halfSize, halfSize);   // Sol alt
-        ctx.lineTo(0, 1);                  // Orta
-        ctx.lineTo(halfSize, halfSize);    // Sağ alt
-        ctx.lineTo(halfSize, -halfSize);   // Sağ üst
-        ctx.lineTo(0, -1);                 // Orta
-        ctx.closePath();
-        ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(-halfSize, -halfSize);  // Sol üst
+            ctx.lineTo(-halfSize, halfSize);   // Sol alt
+            ctx.lineTo(0,1);  
+            ctx.lineTo(halfSize, halfSize);    // Sağ alt
+            ctx.lineTo(halfSize, -halfSize);    // Sağ alt
+            ctx.lineTo(0,-1);                  // Orta
+            ctx.closePath();
+            ctx.fill();
 
         // Seçili vana için dış çerçeve
         if (comp.isSelected) {
@@ -1118,22 +1118,16 @@ export class PlumbingRenderer {
         const adjustedColor = getAdjustedColor(vanaColor, 'vana');
         ctx.fillStyle = adjustedColor;
 
-        // Sol üçgen (sağa bakan)
-        ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize-1);
-        ctx.lineTo(-halfSize, halfSize+1);
-        ctx.lineTo(2, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Sağ üçgen (sola bakan)
-        ctx.beginPath();
-        ctx.moveTo(halfSize, -halfSize-1);
-        ctx.lineTo(halfSize, halfSize+1);
-        ctx.lineTo(-2, 0);
-        ctx.closePath();
-        ctx.fill();
-
+            ctx.beginPath();
+            ctx.moveTo(-halfSize, -halfSize);  // Sol üst
+            ctx.lineTo(-halfSize, halfSize);   // Sol alt
+            ctx.lineTo(0,1);  
+            ctx.lineTo(halfSize, halfSize);    // Sağ alt
+            ctx.lineTo(halfSize, -halfSize);    // Sağ alt
+            ctx.lineTo(0,-1);                  // Orta
+            ctx.closePath();
+            ctx.fill();
+            
         ctx.restore();
     }
 }
