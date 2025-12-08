@@ -9,7 +9,7 @@ export const PLUMBING_CONSTANTS = {
     MIN_PIPE_LENGTH: 5, // Minimum boru uzunluğu
 
     // *** VANA VE NESNE MESAFE KURALLARI ***
-    MIN_EDGE_DISTANCE: 4,   // Boru uçlarından minimum mesafe (cm)
+    MIN_EDGE_DISTANCE: 2,   // Boru uçlarından minimum mesafe (cm)
     OBJECT_MARGIN: 2,       // Her nesnenin sağında ve solunda bırakılacak margin (cm)
 };
 

@@ -1068,7 +1068,7 @@ export class InteractionManager {
     /**
      * Mouse altındaki boruyu bul (pipe splitting için)
      */
-    findPipeAt(point, tolerance = 10) {
+    findPipeAt(point, tolerance = 2) {
         for (const pipe of this.manager.pipes) {
             if (pipe.containsPoint && pipe.containsPoint(point, tolerance)) {
                 return pipe;
@@ -1080,7 +1080,7 @@ export class InteractionManager {
     /**
      * Bileşen çıkış noktasını bul (servis kutusu, sayaç vb.)
      */
-    findBilesenCikisAt(point, tolerance = 10) {
+    findBilesenCikisAt(point, tolerance = 2) {
         for (const comp of this.manager.components) {
             // Servis kutusu - getCikisNoktasi metodu var ve çıkış kullanılmamışsa
             if (comp.type === 'servis_kutusu' && comp.getCikisNoktasi && !comp.cikisKullanildi) {
@@ -1100,7 +1100,7 @@ export class InteractionManager {
         return null;
     }
 
-    checkVanaAtPoint(point, tolerance = 5) {
+    checkVanaAtPoint(point, tolerance = 2) {
         for (const comp of this.manager.components) {
             if (comp.type === 'vana') {
                 if (Math.hypot(point.x - comp.x, point.y - comp.y) < tolerance) {
@@ -1115,7 +1115,7 @@ export class InteractionManager {
      * Boru uç noktasını bul
      */
     findPipeEndpoint(pipe, point) {
-        const tolerance = 8; // cm
+        const tolerance = 2; // cm
         const distToP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
         const distToP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
 

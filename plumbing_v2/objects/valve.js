@@ -16,8 +16,8 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
 // Vana Sabitleri
 export const VANA_CONFIG = {
-    width: 6,           // cm
-    height: 6,          // cm
+    width: 8,           // cm
+    height: 8,          // cm
     color: 0xA0A0A0,
 };
 
@@ -330,7 +330,7 @@ export class Vana {
         }
 
         // Mesafe kontrolü: uçlardan 4cm, nesneler arası 2cm
-        const MIN_EDGE_DISTANCE = 4; // cm
+        const MIN_EDGE_DISTANCE = 2; // cm
         const OBJECT_MARGIN = 2; // cm - Her nesnenin sağında ve solunda
         const pipeLength = pipe.uzunluk;
         const minT = MIN_EDGE_DISTANCE / pipeLength;
@@ -340,7 +340,7 @@ export class Vana {
         let newT = Math.max(minT, Math.min(maxT, proj.t));
 
         // Vana genişliği
-        const vanaWidth = this.config.width || 6; // cm
+        const vanaWidth = this.config.width || 8; // cm
         const halfWidth = vanaWidth / 2;
 
         // Nesnenin sol ve sağ uçlarını hesapla (margin dahil)
