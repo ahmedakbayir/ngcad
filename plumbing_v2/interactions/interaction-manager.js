@@ -154,8 +154,8 @@ export class InteractionManager {
 
         // 1.6 Vana tool aktif - Vana preview
         if (this.manager.activeTool === 'vana' && !this.boruCizimAktif) {
-            // Mouse altında boru var mı kontrol et
-            const hoveredPipe = this.findPipeAt(point, 10);
+            // Mouse altında boru var mı kontrol et (5 cm yakalama mesafesi)
+            const hoveredPipe = this.findPipeAt(point, 5);
             if (hoveredPipe) {
                 // Boruda vana varsa da preview göster (boru bölünecek)
                 // Boru üzerindeki pozisyonu hesapla
@@ -1399,15 +1399,24 @@ export class InteractionManager {
                 return distToP1 < POINT_OCCUPATION_TOLERANCE || distToP2 < POINT_OCCUPATION_TOLERANCE;
             });
 
-            // Minimum uzunluk kontrolü (vanayı dikkate al)
-            let minLength = 10; // Varsayılan minimum uzunluk (cm)
-            if (pipe.vana) {
-                // Eğer boruda vana varsa minimum uzunluk = (armLength + vana genişliği/2) * 2
-                const DIRSEK_KOL_UZUNLUGU = 4; // cm
-                const VANA_GENISLIGI = 8; // cm
-                const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
-                minLength = vanaMesafesi * 2 + 5; // İki uç + 5 cm tolerans = 19 cm
-            }
+            // Boru üzerindeki vanaları bul
+            const valvesOnPipe = this.manager.components.filter(comp =>
+                comp.type === 'vana' && comp.bagliBoruId === pipe.id
+            );
+
+            // Minimum uzunluk kontrolü (vanaları dikkate al)
+            const MIN_EDGE_DISTANCE = 4; // cm - boru uçlarından minimum mesafe
+            const OBJECT_MARGIN = 2; // cm - nesne marginleri
+            const VALVE_WIDTH = 6; // cm
+
+            // Her vana için gereken minimum mesafe
+            const spacePerValve = OBJECT_MARGIN + VALVE_WIDTH + OBJECT_MARGIN; // 10 cm
+            const totalValveSpace = valvesOnPipe.length * spacePerValve;
+
+            // Minimum boru uzunluğu = 2 * uç mesafesi + tüm vanaların gerektirdiği alan
+            const minLength = (2 * MIN_EDGE_DISTANCE) + totalValveSpace;
+
+            console.log(`Boru kısaltma kontrolü: ${valvesOnPipe.length} vana, min uzunluk: ${minLength.toFixed(1)} cm`);
 
             // Yeni uzunluğu hesapla
             let newLength;
@@ -1417,8 +1426,12 @@ export class InteractionManager {
                 newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
             }
 
+            console.log(`Yeni uzunluk: ${newLength.toFixed(1)} cm`);
+
             // Eğer nokta dolu değilse VE minimum uzunluk sağlanıyorsa pozisyonu uygula
             if (!occupiedByOtherPipe && newLength >= minLength) {
+                const oldLength = pipe.uzunluk;
+
                 if (this.dragEndpoint === 'p1') {
                     pipe.p1.x = finalPos.x;
                     pipe.p1.y = finalPos.y;
@@ -1426,11 +1439,37 @@ export class InteractionManager {
                     pipe.p2.x = finalPos.x;
                     pipe.p2.y = finalPos.y;
                 }
+
+                // Boru uzunluğu değişti - vana pozisyonlarını güncelle
+                // Vanalar sabit konumda kalmalı (ileri uca göre)
+                const draggedEndpoint = this.dragEndpoint; // 'p1' veya 'p2'
+                valvesOnPipe.forEach(valve => {
+                    // Sürüklenen uca göre sabit mesafe hesapla
+                    if (draggedEndpoint === 'p1') {
+                        // p1 sürükleniyor - p2'ye göre sabit mesafe
+                        const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
+                        valve.boruPozisyonu = 1 - (distanceFromP2 / pipe.uzunluk);
+                        valve.fromEnd = 'p2';
+                        valve.fixedDistance = distanceFromP2;
+                    } else {
+                        // p2 sürükleniyor - p1'e göre sabit mesafe
+                        const distanceFromP1 = valve.boruPozisyonu * oldLength;
+                        valve.boruPozisyonu = distanceFromP1 / pipe.uzunluk;
+                        valve.fromEnd = 'p1';
+                        valve.fixedDistance = distanceFromP1;
+                    }
+
+                    // Pozisyonu güncelle
+                    valve.updatePositionFromPipe(pipe);
+                });
+
                 // Bağlı boruları güncelle (tüm zinciri)
                 this.updateConnectedPipesChain(oldPoint, finalPos);
             } else {
                 // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır
-                // Bağlı boruları güncellemeye gerek yok çünkü pozisyon değişmedi
+                if (newLength < minLength) {
+                    console.log(`Boru kısaltılamaz: ${valvesOnPipe.length} vana var, minimum ${minLength.toFixed(1)} cm gerekli`);
+                }
             }
             return;
         }
@@ -1439,10 +1478,11 @@ export class InteractionManager {
         if (this.dragObject.type === 'vana') {
             const vana = this.dragObject;
 
-            // Mouse pozisyonuna en yakın boruyu bul
-            const SNAP_DISTANCE = 15; // cm - Boru yakalama mesafesi
+            // Mouse pozisyonuna en yakın boruyu bul (5 cm yakalama mesafesi)
+            const PIPE_SNAP_DISTANCE = 5; // cm
             let closestPipe = null;
-            let minDistance = SNAP_DISTANCE;
+            let closestProj = null;
+            let minDistance = PIPE_SNAP_DISTANCE;
 
             for (const pipe of this.manager.pipes) {
                 const proj = pipe.projectPoint(point);
@@ -1451,38 +1491,33 @@ export class InteractionManager {
                     if (dist < minDistance) {
                         minDistance = dist;
                         closestPipe = pipe;
+                        closestProj = proj;
                     }
                 }
             }
 
-            // En yakın boru bulunamadıysa serbest taşı
+            // En yakın boru bulunamadıysa vana pozisyonunu değiştirme
+            // (Boru özelliği olan nesne boru dışına çıkmamalı)
             if (!closestPipe) {
-                vana.move(point.x, point.y);
-                // Borudan ayır
-                vana.detachFromPipe();
-                return;
+                console.log('Vana sürüklerken yakın boru bulunamadı - hareket engellendi');
+                return; // Hareketi engelle
             }
 
-            // Boru üzerindeki diğer nesneleri al (2 cm margin kontrolü için)
+            // Boru değişiyorsa yeni boruya bağla
+            if (vana.bagliBoruId !== closestPipe.id) {
+                console.log(`Vana boru değiştiriyor: ${vana.bagliBoruId} -> ${closestPipe.id}`);
+                vana.bagliBoruId = closestPipe.id;
+                vana.boruPozisyonu = closestProj.t;
+            }
+
+            // Boru üzerindeki diğer nesneleri al
             const objectsOnPipe = getObjectsOnPipe(this.manager.components, closestPipe.id);
 
             // Vana'yı boru üzerinde kaydır (margin kontrolü ile)
-            // Eğer boru değiştiyse, attachToPipe otomatik yapılacak
-            if (vana.bagliBoruId !== closestPipe.id) {
-                // Boru değişiyor - önce yeni boruya bağla
-                const proj = closestPipe.projectPoint(point);
-                if (proj && proj.onSegment) {
-                    // Geçici olarak yeni boruya bağla
-                    vana.bagliBoruId = closestPipe.id;
-                    vana.boruPozisyonu = proj.t;
-                }
-            }
-
             const success = vana.moveAlongPipe(closestPipe, point, objectsOnPipe);
 
             if (!success) {
-                console.log('Vana boru üzerinde kaydırılamadı - yetersiz mesafe');
-                // Başarısız olursa eski konumda bırak
+                console.log('Vana boru üzerinde kaydırılamadı - yetersiz mesafe veya sınır dışı');
             }
 
             return;
