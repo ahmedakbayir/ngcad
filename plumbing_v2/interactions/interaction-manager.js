@@ -1453,11 +1453,14 @@ export class InteractionManager {
                 return;
             }
 
-            // Vana'yı boru üzerinde kaydır
-            const success = vana.moveAlongPipe(pipe, point);
+            // Boru üzerindeki diğer nesneleri al (2 cm margin kontrolü için)
+            const objectsOnPipe = getObjectsOnPipe(this.manager.components, pipe.id);
+
+            // Vana'yı boru üzerinde kaydır (margin kontrolü ile)
+            const success = vana.moveAlongPipe(pipe, point, objectsOnPipe);
 
             if (!success) {
-                console.log('Vana boru üzerinde kaydırılamadı');
+                console.log('Vana boru üzerinde kaydırılamadı - yetersiz mesafe');
             }
 
             return;
