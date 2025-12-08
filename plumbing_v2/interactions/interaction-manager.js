@@ -1399,15 +1399,24 @@ export class InteractionManager {
                 return distToP1 < POINT_OCCUPATION_TOLERANCE || distToP2 < POINT_OCCUPATION_TOLERANCE;
             });
 
-            // Minimum uzunluk kontrolü (vanayı dikkate al)
-            let minLength = 10; // Varsayılan minimum uzunluk (cm)
-            if (pipe.vana) {
-                // Eğer boruda vana varsa minimum uzunluk = (armLength + vana genişliği/2) * 2
-                const DIRSEK_KOL_UZUNLUGU = 4; // cm
-                const VANA_GENISLIGI = 8; // cm
-                const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
-                minLength = vanaMesafesi * 2 + 5; // İki uç + 5 cm tolerans = 19 cm
-            }
+            // Boru üzerindeki vanaları bul
+            const valvesOnPipe = this.manager.components.filter(comp =>
+                comp.type === 'vana' && comp.bagliBoruId === pipe.id
+            );
+
+            // Minimum uzunluk kontrolü (vanaları dikkate al)
+            const MIN_EDGE_DISTANCE = 4; // cm - boru uçlarından minimum mesafe
+            const OBJECT_MARGIN = 2; // cm - nesne marginleri
+            const VALVE_WIDTH = 6; // cm
+
+            // Her vana için gereken minimum mesafe
+            const spacePerValve = OBJECT_MARGIN + VALVE_WIDTH + OBJECT_MARGIN; // 10 cm
+            const totalValveSpace = valvesOnPipe.length * spacePerValve;
+
+            // Minimum boru uzunluğu = 2 * uç mesafesi + tüm vanaların gerektirdiği alan
+            const minLength = (2 * MIN_EDGE_DISTANCE) + totalValveSpace;
+
+            console.log(`Boru kısaltma kontrolü: ${valvesOnPipe.length} vana, min uzunluk: ${minLength.toFixed(1)} cm`);
 
             // Yeni uzunluğu hesapla
             let newLength;
@@ -1417,8 +1426,12 @@ export class InteractionManager {
                 newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
             }
 
+            console.log(`Yeni uzunluk: ${newLength.toFixed(1)} cm`);
+
             // Eğer nokta dolu değilse VE minimum uzunluk sağlanıyorsa pozisyonu uygula
             if (!occupiedByOtherPipe && newLength >= minLength) {
+                const oldLength = pipe.uzunluk;
+
                 if (this.dragEndpoint === 'p1') {
                     pipe.p1.x = finalPos.x;
                     pipe.p1.y = finalPos.y;
@@ -1426,11 +1439,37 @@ export class InteractionManager {
                     pipe.p2.x = finalPos.x;
                     pipe.p2.y = finalPos.y;
                 }
+
+                // Boru uzunluğu değişti - vana pozisyonlarını güncelle
+                // Vanalar sabit konumda kalmalı (ileri uca göre)
+                const draggedEndpoint = this.dragEndpoint; // 'p1' veya 'p2'
+                valvesOnPipe.forEach(valve => {
+                    // Sürüklenen uca göre sabit mesafe hesapla
+                    if (draggedEndpoint === 'p1') {
+                        // p1 sürükleniyor - p2'ye göre sabit mesafe
+                        const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
+                        valve.boruPozisyonu = 1 - (distanceFromP2 / pipe.uzunluk);
+                        valve.fromEnd = 'p2';
+                        valve.fixedDistance = distanceFromP2;
+                    } else {
+                        // p2 sürükleniyor - p1'e göre sabit mesafe
+                        const distanceFromP1 = valve.boruPozisyonu * oldLength;
+                        valve.boruPozisyonu = distanceFromP1 / pipe.uzunluk;
+                        valve.fromEnd = 'p1';
+                        valve.fixedDistance = distanceFromP1;
+                    }
+
+                    // Pozisyonu güncelle
+                    valve.updatePositionFromPipe(pipe);
+                });
+
                 // Bağlı boruları güncelle (tüm zinciri)
                 this.updateConnectedPipesChain(oldPoint, finalPos);
             } else {
                 // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır
-                // Bağlı boruları güncellemeye gerek yok çünkü pozisyon değişmedi
+                if (newLength < minLength) {
+                    console.log(`Boru kısaltılamaz: ${valvesOnPipe.length} vana var, minimum ${minLength.toFixed(1)} cm gerekli`);
+                }
             }
             return;
         }
