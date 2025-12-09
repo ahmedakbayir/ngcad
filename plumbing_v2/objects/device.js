@@ -19,8 +19,8 @@ export const CIHAZ_TIPLERI = {
     KOMBI: {
         id: 'KOMBI',
         name: 'Kombi',
-        width: 40,
-        height: 40,
+        width: 30,  // %75 küçültüldü (40 → 30)
+        height: 30, // %75 küçültüldü (40 → 30)
         depth: 29,
         mountType: 'wall',
         bacaGerekli: true,
@@ -29,8 +29,8 @@ export const CIHAZ_TIPLERI = {
     OCAK: {
         id: 'OCAK',
         name: 'Ocak',
-        width: 40,
-        height: 40,
+        width: 30,  // %75 küçültüldü (40 → 30)
+        height: 30, // %75 küçültüldü (40 → 30)
         depth: 59,
         mountType: 'floor',
         bacaGerekli: false,
@@ -39,8 +39,8 @@ export const CIHAZ_TIPLERI = {
     SOBA: {
         id: 'SOBA',
         name: 'Soba',
-        width: 40,
-        height: 40,
+        width: 30,  // %75 küçültüldü (40 → 30)
+        height: 30, // %75 küçültüldü (40 → 30)
         depth: 60,
         mountType: 'floor',
         bacaGerekli: true,
