@@ -525,19 +525,40 @@ export class InteractionManager {
             this._debugCount++;
         }
 
-        // Cihaz için: giriş noktası cursor'da olmalı, cihaz merkezi offset edilmeli
+        // Cihaz için: boru ucuna snap yap, boru ekseninde 20 cm ileri yerleştir
         if (ghost.type === 'cihaz') {
             const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
-            // Connection point point'te olacak şekilde cihaz merkezini ayarla
-            ghost.x = point.x - girisOffset.x;
-            ghost.y = point.y - girisOffset.y;
 
-            if (this._debugCount <= 3) {
-                console.log('📍 GİRİŞ OFFSET FIX:', {
-                    'girisOffset': `(${girisOffset.x}, ${girisOffset.y})`,
-                    'cursor pos': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
-                    'device center': `(${ghost.x.toFixed(1)}, ${ghost.y.toFixed(1)})`
-                });
+            // En yakın boru ucunu bul
+            const boruUcu = this.findBoruUcuAt(point, 50); // 50 cm tolerance
+
+            if (boruUcu && boruUcu.boru) {
+                // Boru yönünü hesapla (boru ucundan dışarı doğru)
+                const boru = boruUcu.boru;
+                const dx = boru.p2.x - boru.p1.x;
+                const dy = boru.p2.y - boru.p1.y;
+                const length = Math.hypot(dx, dy);
+
+                const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
+
+                let girisX, girisY;
+                if (boruUcu.uc === 'p1') {
+                    // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
+                    girisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
+                    girisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
+                } else {
+                    // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
+                    girisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
+                    girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
+                }
+
+                // Cihaz merkezini hesapla (giriş noktası girisX, girisY'de olmalı)
+                ghost.x = girisX - girisOffset.x;
+                ghost.y = girisY - girisOffset.y;
+            } else {
+                // Boru ucu bulunamadı, normal cursor pozisyonu
+                ghost.x = point.x - girisOffset.x;
+                ghost.y = point.y - girisOffset.y;
             }
         } else {
             ghost.x = point.x;
@@ -882,9 +903,11 @@ export class InteractionManager {
 
         // Vana yoksa otomatik ekle
         if (!vanaVar) {
-            // Vana pozisyonunu hesapla - boru ucundan 4 cm içeride
+            // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
             const boru = boruUcu.boru;
-            const margin = 4; // cm
+            const edgeMargin = 4;      // cm - kenar için margin
+            const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
+            const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
 
             // Boru yönünü hesapla (boru ucundan içeriye doğru)
             const dx = boru.p2.x - boru.p1.x;
@@ -893,13 +916,13 @@ export class InteractionManager {
 
             let vanaX, vanaY;
             if (boruUcu.uc === 'p1') {
-                // p1 ucundayız, p2'ye doğru margin kadar ilerle
-                vanaX = boruUcu.nokta.x + (dx / length) * margin;
-                vanaY = boruUcu.nokta.y + (dy / length) * margin;
+                // p1 ucundayız, p2'ye doğru centerMargin kadar ilerle
+                vanaX = boruUcu.nokta.x + (dx / length) * centerMargin;
+                vanaY = boruUcu.nokta.y + (dy / length) * centerMargin;
             } else {
-                // p2 ucundayız, p1'e doğru margin kadar ilerle
-                vanaX = boruUcu.nokta.x - (dx / length) * margin;
-                vanaY = boruUcu.nokta.y - (dy / length) * margin;
+                // p2 ucundayız, p1'e doğru centerMargin kadar ilerle
+                vanaX = boruUcu.nokta.x - (dx / length) * centerMargin;
+                vanaY = boruUcu.nokta.y - (dy / length) * centerMargin;
             }
 
             const vana = createVana(vanaX, vanaY, 'AKV');
@@ -1123,8 +1146,9 @@ export class InteractionManager {
         }
 
         // Borular da seçilebilir (ama gövdeden taşınamaz)
+        // Tolerance 5 cm - köşelere yakın tıklamalar köşeyi seçmeli (4 cm)
         for (const pipe of this.manager.pipes) {
-            if (pipe.containsPoint && pipe.containsPoint(point, 10)) {
+            if (pipe.containsPoint && pipe.containsPoint(point, 5)) {
                 return pipe;
             }
         }

@@ -857,17 +857,22 @@ export class PlumbingRenderer {
     drawOcak(ctx, comp, manager) {
         const zoom = state.zoom || 1;
 
-        // ÖNCE fleks çizgisini global context'te çiz
+        // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
         if (manager) {
+            ctx.save();
+            ctx.translate(-comp.x, -comp.y); // Component offset'ini geri al
+
             const connectionPoint = comp.getGirisNoktasi();
             // Yerleştirilmiş cihaz için stored connection point kullan
             const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
+
+            ctx.restore();
         }
 
-        // Sonra cihazı çiz (local context)
-        ctx.save();
-        ctx.translate(comp.x, comp.y);
+        // Sonra cihazı çiz (local context - zaten translate edilmiş)
+        // NOT: drawComponent zaten ctx.translate(comp.x, comp.y) yapmış durumda
+        ctx.save(); // Rotation için save
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
         const boxSize = 20; // 40x40 kare için
