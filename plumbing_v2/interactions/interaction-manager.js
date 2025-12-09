@@ -501,11 +501,6 @@ export class InteractionManager {
         ghost.x = point.x;
         ghost.y = point.y;
 
-        // Debug: Cihaz ghost pozisyonu
-        if (ghost.type === 'cihaz') {
-            console.log(`👻 Cihaz ghost: (${ghost.x.toFixed(1)}, ${ghost.y.toFixed(1)})`);
-        }
-
         // Servis kutusu - duvara snap (yerleştirme için useBoxPosition=false)
         if (ghost.type === 'servis_kutusu') {
             const walls = state.walls;
