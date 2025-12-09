@@ -767,17 +767,17 @@ export class PlumbingRenderer {
         }
 
         // Cihazı çiz - translate KULLANMADAN direkt pozisyonda
-        const outerRadius = 20; // 40 çap için
+        const outerRadius = 20; // 40 çap için (world coordinates)
 
-        // Shadow efekti
+        // Shadow efekti (world coordinates)
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8 / zoom;
-        ctx.shadowOffsetX = 2 / zoom;
-        ctx.shadowOffsetY = 2 / zoom;
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
 
-        // Ana gövde - Radial gradient ile 3D metalik efekt (x, y merkezli)
-        const gradient = ctx.createRadialGradient(x-5/zoom, y-5/zoom, 0, x, y, outerRadius);
+        // Ana gövde - Radial gradient ile 3D metalik efekt (world coordinates)
+        const gradient = ctx.createRadialGradient(x-5, y-5, 0, x, y, outerRadius);
         if (comp.isSelected) {
             gradient.addColorStop(0, '#FFFFFF');
             gradient.addColorStop(0.3, '#8ab4f8');
@@ -807,7 +807,7 @@ export class PlumbingRenderer {
 
         // İç panel (ekran alanı)
         const innerRadius = 14;
-        const innerGradient = ctx.createRadialGradient(x-3/zoom, y-3/zoom, 0, x, y, innerRadius);
+        const innerGradient = ctx.createRadialGradient(x-3, y-3, 0, x, y, innerRadius);
         if (comp.isSelected) {
             innerGradient.addColorStop(0, '#6aa4f8');
             innerGradient.addColorStop(1, '#4a84d8');
