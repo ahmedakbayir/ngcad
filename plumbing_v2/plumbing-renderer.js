@@ -760,16 +760,18 @@ export class PlumbingRenderer {
     drawKombi(ctx, comp, manager) {
         const zoom = state.zoom || 1;
 
-        // ÖNCE fleks çizgisini çiz (global coordinates)
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+        // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
         if (manager) {
+            ctx.save();
+            ctx.translate(-comp.x, -comp.y); // Component offset'ini geri al
+
             const connectionPoint = comp.getGirisNoktasi();
             // Yerleştirilmiş cihaz için stored connection point kullan
             const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
+
+            ctx.restore();
         }
-        ctx.restore();
 
         // Cihazı çiz - local coordinates (0,0)
         const outerRadius = 20; // 40 çap için
@@ -832,21 +834,19 @@ export class PlumbingRenderer {
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
 
-        // "G" harfi (Gaz) - BÜYÜK ve SABİT boyutta
-        if (zoom > 0.15) {
-            // Beyaz glow efekti
-            ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.8)';
-            ctx.shadowBlur = 5 / zoom;
+        // "G" harfi (Gaz) - SABİT boyut (zoom'dan bağımsız)
+        // Beyaz glow efekti
+        ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+        ctx.shadowBlur = 5;
 
-            ctx.fillStyle = comp.isSelected ? '#FFFFFF' : '#00FFFF';
-            ctx.font = `bold ${20/zoom}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('G', 0, 0);
+        ctx.fillStyle = comp.isSelected ? '#FFFFFF' : '#00FFFF';
+        ctx.font = `bold 20px Arial`; // Sabit boyut
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('G', 0, 0);
 
-            // Shadow sıfırla
-            ctx.shadowBlur = 0;
-        }
+        // Shadow sıfırla
+        ctx.shadowBlur = 0;
 
         ctx.restore();
     }
