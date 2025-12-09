@@ -313,13 +313,13 @@ export class PlumbingRenderer {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        //ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
+        ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
         ctx.fill();
         //ctx.stroke();
 
         // p2 noktası
         ctx.beginPath();
-        //ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
+        ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
         ctx.fill();
         //ctx.stroke();
     }
