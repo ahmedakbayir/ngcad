@@ -284,8 +284,8 @@ export class InteractionManager {
                                 state.currentMode === 'MİMARİ-TESİSAT';
 
         if (isSelectionMode) {
-            // Önce seçili servis kutusunun döndürme tutamacını kontrol et
-            if (this.selectedObject && this.selectedObject.type === 'servis_kutusu') {
+            // Önce seçili nesnenin döndürme tutamacını kontrol et (servis kutusu ve cihaz)
+            if (this.selectedObject && (this.selectedObject.type === 'servis_kutusu' || this.selectedObject.type === 'cihaz')) {
                 if (this.findRotationHandleAt(this.selectedObject, point, 12)) {
                     this.startRotation(this.selectedObject, point);
                     return true;
@@ -496,12 +496,20 @@ export class InteractionManager {
             }
         }
 
-        // R tuşu - seçili servis kutusunu döndür (çıkış noktası etrafında)
-        if (this.selectedObject && this.selectedObject.type === 'servis_kutusu' && e.key === 'r') {
+        // R tuşu - seçili nesneyi döndür (servis kutusu: çıkış noktası, cihaz: merkez etrafında)
+        if (this.selectedObject && (this.selectedObject.type === 'servis_kutusu' || this.selectedObject.type === 'cihaz') && e.key === 'r') {
             saveState();
             const deltaDerece = e.shiftKey ? -15 : 15; // Shift ile ters yön
-            const result = this.selectedObject.rotate(deltaDerece);
-            this.updateConnectedPipe(result);
+            if (this.selectedObject.type === 'cihaz') {
+                // Cihaz merkezinde döndür
+                this.selectedObject.rotation = (this.selectedObject.rotation || 0) + deltaDerece;
+                // Fleks bağlantısını güncelle
+                this.selectedObject.fleksGuncelle();
+            } else {
+                // Servis kutusu - çıkış noktası etrafında
+                const result = this.selectedObject.rotate(deltaDerece);
+                this.updateConnectedPipe(result);
+            }
             this.manager.saveToState();
             return true;
         }
@@ -1942,14 +1950,21 @@ export class InteractionManager {
      * Döndürme tutamacını bul (çubuğun ucundaki daire) - yukarı yönde
      */
     findRotationHandleAt(obj, point, tolerance = 8) {
-        if (!obj || obj.type !== 'servis_kutusu') return false;
+        if (!obj) return false;
+        if (obj.type !== 'servis_kutusu' && obj.type !== 'cihaz') return false;
 
-        const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
-        const handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 20;
+        let handleLength;
+        if (obj.type === 'servis_kutusu') {
+            const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
+            handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 20;
+        } else if (obj.type === 'cihaz') {
+            // Cihaz için: 40 cm çapında, handle 30 cm yukarıda
+            handleLength = 20 + 30; // radius + 30cm
+        }
 
         // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)
         // Local: (0, -handleLength) → World: dönüşüm matrisi uygula
-        const rad = obj.rotation * Math.PI / 180;
+        const rad = (obj.rotation || 0) * Math.PI / 180;
         const handleX = obj.x + handleLength * Math.sin(rad);
         const handleY = obj.y - handleLength * Math.cos(rad);
 
