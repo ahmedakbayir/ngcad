@@ -753,7 +753,7 @@ export class PlumbingRenderer {
 
         // Shadow efekti
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 1;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
@@ -769,7 +769,7 @@ export class PlumbingRenderer {
             gradient.addColorStop(0.3, '#E8E8E8');    // Parlak gri
             gradient.addColorStop(0.6, '#C0C0C0');    // Orta gri (metalik)
             gradient.addColorStop(0.85, '#A0A0A0');   // Koyu gri
-            gradient.addColorStop(1, '#808080');      // En koyu kenar
+            gradient.addColorStop(1, '#E8E8E8');    // Parlak gri
         }
 
         ctx.fillStyle = gradient;
@@ -812,13 +812,13 @@ export class PlumbingRenderer {
         if (zoom > 0.15) {
             // Beyaz glow efekti
             ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.8)';
-            ctx.shadowBlur = 5;
+            ctx.shadowBlur = 3;
 
             ctx.fillStyle = comp.isSelected ? '#FFFFFF' : '#00FFFF';
             ctx.font = `bold 20px Arial`; // SABİT boyut
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('G', 0, 0);
+            ctx.fillText('G', 0, 1);
 
             // Shadow sıfırla
             ctx.shadowBlur = 0;
