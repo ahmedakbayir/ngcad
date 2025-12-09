@@ -1013,13 +1013,20 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Döndürme tutamacı (servis kutusu için) - Merkezden yukarı çubuk çıkar
+     * Döndürme tutamacı (servis kutusu ve cihaz için) - Merkezden yukarı çubuk çıkar
      */
     drawRotationHandles(ctx, comp) {
-        const { height } = SERVIS_KUTUSU_CONFIG;
+        let handleLength;
 
-        // Döndürme çubuğu uzunluğu (daha küçük - 10cm)
-        const handleLength = height / 2 + 30; // 10cm dışarıda
+        if (comp.type === 'servis_kutusu') {
+            const { height } = SERVIS_KUTUSU_CONFIG;
+            handleLength = height / 2 + 30; // 10cm dışarıda
+        } else if (comp.type === 'cihaz') {
+            // Cihaz için: 40 cm çapında, handle 50 cm yukarıda (daha görünür)
+            handleLength = 20 + 50; // radius + 50cm
+        } else {
+            return; // Diğer tipler için handle çizme
+        }
 
         // Çubuğu çiz (merkezden yukarı doğru, local koordinatlarda)
         ctx.strokeStyle = this.secilenRenk;
