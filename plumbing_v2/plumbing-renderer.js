@@ -58,6 +58,11 @@ export class PlumbingRenderer {
 
             // Cihaz ghost için özel rendering (drawComponent translate'ini bypass et)
             if (manager.tempComponent.type === 'cihaz') {
+                // Vana ve fleks preview çiz (bağlantı varsa)
+                if (manager.tempComponent.ghostConnectionInfo) {
+                    this.drawCihazGhostConnection(ctx, manager.tempComponent, manager);
+                }
+
                 // Manuel translate + draw
                 ctx.save();
                 ctx.translate(manager.tempComponent.x, manager.tempComponent.y);
@@ -1516,7 +1521,87 @@ export class PlumbingRenderer {
             ctx.lineTo(0,-1);                  // Orta
             ctx.closePath();
             ctx.fill();
-            
+
+        ctx.restore();
+    }
+
+    /**
+     * Cihaz ghost için vana ve fleks preview çiz
+     */
+    drawCihazGhostConnection(ctx, ghost, manager) {
+        const connInfo = ghost.ghostConnectionInfo;
+        if (!connInfo || !connInfo.boruUcu || !connInfo.girisNoktasi) return;
+
+        const { boruUcu, girisNoktasi } = connInfo;
+        const boru = boruUcu.boru;
+
+        // Boru ucunda vana var mı kontrol et
+        const vanaVarMi = manager.components.some(comp =>
+            comp.type === 'vana' &&
+            comp.bagliBoruId === boru.id &&
+            Math.hypot(comp.x - boruUcu.nokta.x, comp.y - boruUcu.nokta.y) < 10
+        );
+
+        ctx.save();
+
+        // 1. Vana preview (yoksa çiz)
+        if (!vanaVarMi) {
+            // Vana pozisyonu hesapla - boru ucundan 4cm içeride (kenar margin)
+            const VANA_EDGE_MARGIN = 4; // cm
+            const VANA_SIZE = 8; // cm
+            const VANA_CENTER_MARGIN = VANA_EDGE_MARGIN + (VANA_SIZE / 2); // 8 cm
+
+            const dx = boru.p2.x - boru.p1.x;
+            const dy = boru.p2.y - boru.p1.y;
+            const length = Math.hypot(dx, dy);
+
+            let vanaX, vanaY;
+            if (boruUcu.uc === 'p1') {
+                // p1 ucundayız, vana p1'den içeri
+                vanaX = boruUcu.nokta.x + (dx / length) * VANA_CENTER_MARGIN;
+                vanaY = boruUcu.nokta.y + (dy / length) * VANA_CENTER_MARGIN;
+            } else {
+                // p2 ucundayız, vana p2'den içeri
+                vanaX = boruUcu.nokta.x - (dx / length) * VANA_CENTER_MARGIN;
+                vanaY = boruUcu.nokta.y - (dy / length) * VANA_CENTER_MARGIN;
+            }
+
+            // Vana çiz
+            ctx.save();
+            ctx.translate(vanaX, vanaY);
+            ctx.rotate(boru.aci);
+            ctx.globalAlpha = 0.6;
+
+            const vanaColor = '#00bffa';
+            const adjustedColor = getAdjustedColor(vanaColor, 'vana');
+            ctx.fillStyle = adjustedColor;
+
+            const halfSize = VANA_SIZE / 2;
+            ctx.beginPath();
+            ctx.moveTo(-halfSize, -halfSize);
+            ctx.lineTo(-halfSize, halfSize);
+            ctx.lineTo(0, 1);
+            ctx.lineTo(halfSize, halfSize);
+            ctx.lineTo(halfSize, -halfSize);
+            ctx.lineTo(0, -1);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // 2. Fleks çizgisi (boru ucundan cihaz giriş noktasına)
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = '#FFD700'; // Sarı
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]); // Kesikli çizgi
+
+        ctx.beginPath();
+        ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y);
+        ctx.lineTo(girisNoktasi.x, girisNoktasi.y);
+        ctx.stroke();
+
+        ctx.setLineDash([]); // Reset dash
         ctx.restore();
     }
 }
