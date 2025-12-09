@@ -454,9 +454,10 @@ export class InteractionManager {
                 this.cancelCurrentAction();
             }
 
-            setMode("plumbingV2", true);
+            // ÖNCE activeTool ve selectedCihazTipi ayarla, SONRA setMode çağır
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'KOMBI';
+            setMode("plumbingV2", true);
             return true;
         }
 
@@ -470,16 +471,18 @@ export class InteractionManager {
                 this.cancelCurrentAction();
             }
 
-            setMode("plumbingV2", true);
+            // ÖNCE activeTool ve selectedCihazTipi ayarla, SONRA setMode çağır
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'OCAK';
+            setMode("plumbingV2", true);
             return true;
         }
 
         // T - BORU çizme modu (boru icon'unu aktif et)
         if (e.key === 't' || e.key === 'T') {
-            setMode("plumbingV2", true);
+            // ÖNCE activeTool ayarla, SONRA setMode çağır (çünkü setMode icon'ları activeTool'a göre günceller)
             this.manager.activeTool = 'boru';
+            setMode("plumbingV2", true);
             return true;
         }
 
@@ -848,8 +851,14 @@ export class InteractionManager {
             comp.bagliBoruId === pipe.id
         );
 
+        console.log('[SPLIT DEBUG] pipe.id:', pipe.id, 'splitT:', splitT, 'objects found:', objectsOnPipe.length);
+
         objectsOnPipe.forEach(obj => {
+            console.log('[SPLIT DEBUG] Object:', obj.type || obj.constructor.name, 'boruPozisyonu:', obj.boruPozisyonu);
             if (obj.boruPozisyonu !== undefined) {
+                const eskiPoz = obj.boruPozisyonu;
+                const eskiBoru = obj.bagliBoruId;
+
                 if (obj.boruPozisyonu <= splitT) {
                     // Nesne ilk segmentte (boru1)
                     obj.bagliBoruId = boru1.id;
@@ -861,10 +870,14 @@ export class InteractionManager {
                     // Pozisyonu yeniden hesapla (splitT - 1 aralığını 0 - 1'e normalize et)
                     obj.boruPozisyonu = (obj.boruPozisyonu - splitT) / (1 - splitT);
                 }
+
+                console.log('[SPLIT DEBUG] Updated:', eskiBoru, '→', obj.bagliBoruId, 'poz:', eskiPoz, '→', obj.boruPozisyonu);
+
                 // Pozisyonu güncelle
                 if (obj.updatePositionFromPipe) {
                     const newPipe = obj.bagliBoruId === boru1.id ? boru1 : boru2;
                     obj.updatePositionFromPipe(newPipe);
+                    console.log('[SPLIT DEBUG] Position updated to:', obj.x, obj.y);
                 }
             }
         });
@@ -996,6 +1009,9 @@ export class InteractionManager {
         // Boru ucunda vana var mı kontrol et
         const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
 
+        // Vana referansı (yeni veya mevcut)
+        let vana;
+
         // Vana yoksa otomatik ekle
         if (!vanaVar) {
             // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
@@ -1020,7 +1036,7 @@ export class InteractionManager {
                 vanaY = boruUcu.nokta.y - (dy / length) * centerMargin;
             }
 
-            const vana = createVana(vanaX, vanaY, 'AKV');
+            vana = createVana(vanaX, vanaY, 'AKV');
             vana.rotation = boruUcu.boru.aciDerece;
             vana.floorId = cihaz.floorId;
 
@@ -1033,6 +1049,7 @@ export class InteractionManager {
             this.manager.components.push(vana);
             cihaz.vanaIliskilendir(vana.id);
         } else {
+            vana = vanaVar;
             cihaz.vanaIliskilendir(vanaVar.id);
         }
 
@@ -1070,7 +1087,8 @@ export class InteractionManager {
         cihaz.y += (hedefGirisY - actualGiris.y);
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
-        cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
+        // KRİTİK: Fleks VANAYA bağlanmalı, boru ucuna değil!
+        cihaz.fleksBagla(boruUcu.boruId, { x: vana.x, y: vana.y });
 
         // State'i senkronize et
         this.manager.saveToState();
