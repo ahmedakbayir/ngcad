@@ -741,7 +741,9 @@ export class PlumbingRenderer {
         // ÖNCE fleks çizgisini global context'te çiz
         if (manager) {
             const connectionPoint = comp.getGirisNoktasi();
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager);
+            // Yerleştirilmiş cihaz için stored connection point kullan
+            const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
         }
 
         // Sonra cihazı çiz (local context)
@@ -836,7 +838,9 @@ export class PlumbingRenderer {
         // ÖNCE fleks çizgisini global context'te çiz
         if (manager) {
             const connectionPoint = comp.getGirisNoktasi();
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager);
+            // Yerleştirilmiş cihaz için stored connection point kullan
+            const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
         }
 
         // Sonra cihazı çiz (local context)
@@ -1203,46 +1207,54 @@ export class PlumbingRenderer {
 
     /**
      * Sinüs dalgalı bağlantı çizgisi çizer (Ocak/Kombi için fleks bağlantısı)
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} connectionPoint - Cihazın giriş noktası
+     * @param {number} zoom - Zoom seviyesi
+     * @param {Object} manager - Plumbing manager
+     * @param {Object} targetPoint - Hedef nokta (opsiyonel, yerleştirilmiş cihazlar için)
      */
-    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager) {
-        const currentFloorId = state.currentFloor?.id;
-        const pipes = (manager.pipes || []).filter(p => p.floorId === currentFloorId);
-
-        let closestPipeEnd = null;
+    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null) {
+        let closestPipeEnd = targetPoint;
         let pipeDirection = null;
-        let minDist = Infinity;
 
-        // En yakın boru ucunu bul
-        for (const pipe of pipes) {
-            const dist1 = Math.hypot(pipe.p1.x - connectionPoint.x, pipe.p1.y - connectionPoint.y);
-            if (dist1 < minDist) {
-                minDist = dist1;
-                closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
-                const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-                if (pipeLength > 0) {
-                    pipeDirection = {
-                        x: (pipe.p2.x - pipe.p1.x) / pipeLength,
-                        y: (pipe.p2.y - pipe.p1.y) / pipeLength
-                    };
+        // Eğer targetPoint verilmemişse (ghost preview), en yakın boru ucunu bul
+        if (!targetPoint) {
+            const currentFloorId = state.currentFloor?.id;
+            const pipes = (manager.pipes || []).filter(p => p.floorId === currentFloorId);
+            let minDist = Infinity;
+
+            // En yakın boru ucunu bul
+            for (const pipe of pipes) {
+                const dist1 = Math.hypot(pipe.p1.x - connectionPoint.x, pipe.p1.y - connectionPoint.y);
+                if (dist1 < minDist) {
+                    minDist = dist1;
+                    closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
+                    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+                    if (pipeLength > 0) {
+                        pipeDirection = {
+                            x: (pipe.p2.x - pipe.p1.x) / pipeLength,
+                            y: (pipe.p2.y - pipe.p1.y) / pipeLength
+                        };
+                    }
                 }
-            }
 
-            const dist2 = Math.hypot(pipe.p2.x - connectionPoint.x, pipe.p2.y - connectionPoint.y);
-            if (dist2 < minDist) {
-                minDist = dist2;
-                closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
-                const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-                if (pipeLength > 0) {
-                    pipeDirection = {
-                        x: (pipe.p1.x - pipe.p2.x) / pipeLength,
-                        y: (pipe.p1.y - pipe.p2.y) / pipeLength
-                    };
+                const dist2 = Math.hypot(pipe.p2.x - connectionPoint.x, pipe.p2.y - connectionPoint.y);
+                if (dist2 < minDist) {
+                    minDist = dist2;
+                    closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
+                    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+                    if (pipeLength > 0) {
+                        pipeDirection = {
+                            x: (pipe.p1.x - pipe.p2.x) / pipeLength,
+                            y: (pipe.p1.y - pipe.p2.y) / pipeLength
+                        };
+                    }
                 }
             }
         }
 
         // Fleks çizgisini ÇİZ
-        if (closestPipeEnd && pipeDirection) {
+        if (closestPipeEnd) {
             const dx = closestPipeEnd.x - connectionPoint.x;
             const dy = closestPipeEnd.y - connectionPoint.y;
             const distance = Math.hypot(dx, dy);
