@@ -733,7 +733,7 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Kombi çizer (40x40 boyutunda)
+     * Kombi çizer (40x40 boyutunda) - Gerçekçi tasarım
      */
     drawKombi(ctx, comp, manager) {
         const zoom = state.zoom || 1;
@@ -754,39 +754,130 @@ export class PlumbingRenderer {
         // Rotasyonu uygula
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
-        // Kombi gövdesi (daire)
         const outerRadius = 20; // 40 çap için
-        const wallBorderColor = getAdjustedColor('#999', 'cihaz');
 
-        ctx.strokeStyle = comp.isSelected ? '#8ab4f8' : wallBorderColor;
-        ctx.lineWidth = (comp.isSelected ? 3 : 2) / zoom;
-        ctx.fillStyle = comp.isSelected ? 'rgba(138, 180, 248, 0.1)' : 'rgba(30, 31, 32, 0.8)';
+        // Shadow efekti
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
 
+        // Ana gövde - Radial gradient ile 3D metalik efekt
+        const gradient = ctx.createRadialGradient(-5, -5, 0, 0, 0, outerRadius);
+        if (comp.isSelected) {
+            gradient.addColorStop(0, '#FFFFFF');
+            gradient.addColorStop(0.3, '#8ab4f8');
+            gradient.addColorStop(0.7, '#5a94f0');
+            gradient.addColorStop(1, '#2a74d0');
+        } else {
+            gradient.addColorStop(0, '#FFFFFF');      // Işık noktası
+            gradient.addColorStop(0.3, '#E8E8E8');    // Parlak gri
+            gradient.addColorStop(0.6, '#C0C0C0');    // Orta gri (metalik)
+            gradient.addColorStop(0.85, '#A0A0A0');   // Koyu gri
+            gradient.addColorStop(1, '#808080');      // En koyu kenar
+        }
+
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
         ctx.fill();
+
+        // Dış çerçeve
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        const adjustedStroke = getAdjustedColor(comp.isSelected ? '#5a94f0' : '#666', 'cihaz');
+        ctx.strokeStyle = adjustedStroke;
+        ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
         ctx.stroke();
 
-        // İç daire
-        const innerRadius = 14.4; // 40 çap için orantılı (18/25 * 20)
+        // İç panel (ekran alanı)
+        const innerRadius = 14;
+        const innerGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, innerRadius);
+        if (comp.isSelected) {
+            innerGradient.addColorStop(0, '#6aa4f8');
+            innerGradient.addColorStop(1, '#4a84d8');
+        } else {
+            innerGradient.addColorStop(0, '#404040');  // Koyu merkez (ekran)
+            innerGradient.addColorStop(0.6, '#303030');
+            innerGradient.addColorStop(1, '#202020');
+        }
+
+        ctx.fillStyle = innerGradient;
         ctx.beginPath();
         ctx.arc(0, 0, innerRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // İç panel çerçevesi
+        ctx.strokeStyle = comp.isSelected ? '#8ab4f8' : '#555';
+        ctx.lineWidth = 1 / zoom;
         ctx.stroke();
 
-        // "G" harfi (zoom > 0.15 ise)
+        // Kontrol paneli detayları (küçük göstergeler)
+        if (zoom > 0.2 && !comp.isSelected) {
+            // LED göstergeler (üstte)
+            ctx.fillStyle = '#00FF00'; // Yeşil LED
+            ctx.beginPath();
+            ctx.arc(-4, -8, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#FF4444'; // Kırmızı LED
+            ctx.beginPath();
+            ctx.arc(4, -8, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Dijital gösterge çizgileri (ekran simulasyonu)
+            ctx.strokeStyle = '#00FFFF';
+            ctx.lineWidth = 0.8 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(-6, -2);
+            ctx.lineTo(6, -2);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(-6, 2);
+            ctx.lineTo(6, 2);
+            ctx.stroke();
+        }
+
+        // "G" harfi (Gaz) - ortada
         if (zoom > 0.15) {
-            ctx.fillStyle = '#FFFFFF';
-            ctx.lineWidth = 1;
-            ctx.lineJoin = 'round';
-            ctx.font = `16px Arial`;
+            // Beyaz glow efekti
+            ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.5)';
+            ctx.shadowBlur = 3;
+
+            ctx.fillStyle = comp.isSelected ? '#FFFFFF' : '#00FFFF';
+            ctx.font = `bold ${14 / zoom}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('G', 0, 0);
+            ctx.fillText('G', 0, 8);
+
+            // Shadow sıfırla
+            ctx.shadowBlur = 0;
+        }
+
+        // Bağlantı portları (alt kısımda küçük noktalar)
+        if (zoom > 0.25 && !comp.isSelected) {
+            ctx.fillStyle = '#FFD700'; // Altın rengi pirinç
+            ctx.strokeStyle = '#B8860B';
+            ctx.lineWidth = 0.5 / zoom;
+
+            // Sol port
+            ctx.beginPath();
+            ctx.arc(-8, 14, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Sağ port
+            ctx.beginPath();
+            ctx.arc(8, 14, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
         }
     }
 
     /**
-     * Ocak çizer (40x40 boyutunda)
+     * Ocak çizer (40x40 boyutunda) - Gerçekçi cam seramik tasarım
      */
     drawOcak(ctx, comp, manager) {
         const zoom = state.zoom || 1;
@@ -807,15 +898,30 @@ export class PlumbingRenderer {
         // Rotasyonu uygula
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
-        // Ocak gövdesi (yuvarlatılmış köşeli kare)
         const boxSize = 20; // 40x40 kare için
-        const cornerRadius = 4; // 40 çap için orantılı (5/25 * 20)
-        const wallBorderColor = getAdjustedColor('#999', 'cihaz');
+        const cornerRadius = 4;
 
-        ctx.strokeStyle = comp.isSelected ? '#8ab4f8' : wallBorderColor;
-        ctx.lineWidth = (comp.isSelected ? 3 : 2) / zoom;
-        ctx.fillStyle = comp.isSelected ? 'rgba(138, 180, 248, 0.1)' : 'rgba(30, 31, 32, 0.8)';
+        // Shadow efekti
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
 
+        // Ana yüzey - Cam seramik görünümü (Linear gradient)
+        const gradient = ctx.createLinearGradient(-boxSize, -boxSize, boxSize, boxSize);
+        if (comp.isSelected) {
+            gradient.addColorStop(0, '#9ab9f8');
+            gradient.addColorStop(0.5, '#7a99d8');
+            gradient.addColorStop(1, '#5a79b8');
+        } else {
+            gradient.addColorStop(0, '#303030');    // Koyu gri (cam seramik)
+            gradient.addColorStop(0.3, '#282828');
+            gradient.addColorStop(0.5, '#202020');  // En koyu orta
+            gradient.addColorStop(0.7, '#282828');
+            gradient.addColorStop(1, '#303030');
+        }
+
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.moveTo(-boxSize + cornerRadius, -boxSize);
         ctx.lineTo(boxSize - cornerRadius, -boxSize);
@@ -828,34 +934,136 @@ export class PlumbingRenderer {
         ctx.arcTo(-boxSize, -boxSize, -boxSize + cornerRadius, -boxSize, cornerRadius);
         ctx.closePath();
         ctx.fill();
+
+        // Dış çerçeve (metalik kenar)
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        const adjustedStroke = getAdjustedColor(comp.isSelected ? '#8ab4f8' : '#4A4A4A', 'cihaz');
+        ctx.strokeStyle = adjustedStroke;
+        ctx.lineWidth = (comp.isSelected ? 2.5 : 1.8) / zoom;
         ctx.stroke();
 
-        // 4 gözlü ocak dizaynı
-        const burnerRadius = 5.6; // 40 çap için orantılı (7/25 * 20)
-        const offset = 8; // 40 çap için orantılı (10/25 * 20)
+        // İç dekoratif çerçeve
+        if (!comp.isSelected) {
+            ctx.strokeStyle = '#3A3A3A';
+            ctx.lineWidth = 1 / zoom;
+            const innerBox = boxSize - 2;
+            const innerCorner = 3;
+            ctx.beginPath();
+            ctx.moveTo(-innerBox + innerCorner, -innerBox);
+            ctx.lineTo(innerBox - innerCorner, -innerBox);
+            ctx.arcTo(innerBox, -innerBox, innerBox, -innerBox + innerCorner, innerCorner);
+            ctx.lineTo(innerBox, innerBox - innerCorner);
+            ctx.arcTo(innerBox, innerBox, innerBox - innerCorner, innerBox, innerCorner);
+            ctx.lineTo(-innerBox + innerCorner, innerBox);
+            ctx.arcTo(-innerBox, innerBox, -innerBox, innerBox - innerCorner, innerCorner);
+            ctx.lineTo(-innerBox, -innerBox + innerCorner);
+            ctx.arcTo(-innerBox, -innerBox, -innerBox + innerCorner, -innerBox, innerCorner);
+            ctx.closePath();
+            ctx.stroke();
+        }
 
-        ctx.strokeStyle = '#404040';
-        ctx.lineWidth = 1 / zoom;
+        // 4 gözlü ocak - gerçekçi brûlör tasarımı
+        const burnerRadius = 5.5;
+        const offset = 8;
+        const burnerPositions = [
+            { x: -offset, y: -offset }, // Sol üst
+            { x: offset, y: -offset },  // Sağ üst
+            { x: -offset, y: offset },  // Sol alt
+            { x: offset, y: offset }    // Sağ alt
+        ];
 
-        // Sol üst göz
-        ctx.beginPath();
-        ctx.arc(-offset, -offset, burnerRadius, 0, Math.PI * 2);
-        ctx.stroke();
+        burnerPositions.forEach(pos => {
+            // Brûlör gölge
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 3;
 
-        // Sağ üst göz
-        ctx.beginPath();
-        ctx.arc(offset, -offset, burnerRadius, 0, Math.PI * 2);
-        ctx.stroke();
+            // Brûlör tabanı (koyu)
+            const burnerGradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, burnerRadius);
+            if (comp.isSelected) {
+                burnerGradient.addColorStop(0, '#5a79b8');
+                burnerGradient.addColorStop(0.6, '#4a69a8');
+                burnerGradient.addColorStop(1, '#3a5998');
+            } else {
+                burnerGradient.addColorStop(0, '#1a1a1a');    // Çok koyu merkez
+                burnerGradient.addColorStop(0.5, '#0a0a0a');  // Siyah
+                burnerGradient.addColorStop(1, '#1a1a1a');    // Koyu kenar
+            }
 
-        // Sol alt göz
-        ctx.beginPath();
-        ctx.arc(-offset, offset, burnerRadius, 0, Math.PI * 2);
-        ctx.stroke();
+            ctx.fillStyle = burnerGradient;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, burnerRadius, 0, Math.PI * 2);
+            ctx.fill();
 
-        // Sağ alt göz
-        ctx.beginPath();
-        ctx.arc(offset, offset, burnerRadius, 0, Math.PI * 2);
-        ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Brûlör dış halkası (metalik)
+            ctx.strokeStyle = comp.isSelected ? '#6a89c8' : '#505050';
+            ctx.lineWidth = 1.2 / zoom;
+            ctx.stroke();
+
+            // İç brûlör halkası
+            ctx.strokeStyle = comp.isSelected ? '#5a79b8' : '#404040';
+            ctx.lineWidth = 0.8 / zoom;
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, burnerRadius * 0.65, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Brûlör delikleri (ateş çıkış noktaları)
+            if (zoom > 0.3 && !comp.isSelected) {
+                ctx.fillStyle = '#000000';
+                const holeCount = 6;
+                const holeRadius = burnerRadius * 0.5;
+                for (let i = 0; i < holeCount; i++) {
+                    const angle = (i / holeCount) * Math.PI * 2;
+                    const hx = pos.x + Math.cos(angle) * holeRadius;
+                    const hy = pos.y + Math.sin(angle) * holeRadius;
+                    ctx.beginPath();
+                    ctx.arc(hx, hy, 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Merkez delik
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
+        // Kontrol düğmeleri göstergesi (sağ tarafta)
+        if (zoom > 0.25 && !comp.isSelected) {
+            const knobY = -12;
+            const knobX = 16;
+
+            // 4 küçük kontrol düğmesi göstergesi
+            for (let i = 0; i < 4; i++) {
+                const ky = knobY + (i * 8);
+
+                // Düğme gövdesi
+                const knobGrad = ctx.createRadialGradient(knobX - 0.5, ky - 0.5, 0, knobX, ky, 1.8);
+                knobGrad.addColorStop(0, '#666666');
+                knobGrad.addColorStop(1, '#333333');
+
+                ctx.fillStyle = knobGrad;
+                ctx.beginPath();
+                ctx.arc(knobX, ky, 1.8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Düğme çerçevesi
+                ctx.strokeStyle = '#444444';
+                ctx.lineWidth = 0.4 / zoom;
+                ctx.stroke();
+
+                // Gösterge çizgisi
+                ctx.strokeStyle = '#CCCCCC';
+                ctx.lineWidth = 0.6 / zoom;
+                ctx.beginPath();
+                ctx.moveTo(knobX, ky - 1.2);
+                ctx.lineTo(knobX, ky - 0.5);
+                ctx.stroke();
+            }
+        }
     }
 
     drawSelectionBox(ctx, comp) {
