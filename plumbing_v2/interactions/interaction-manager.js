@@ -560,12 +560,11 @@ export class InteractionManager {
 
         const component = this.manager.tempComponent;
 
-        // Listeye ekle
-        this.manager.components.push(component);
-
         // Özel işlemler
         switch (component.type) {
             case 'servis_kutusu':
+                // Listeye ekle
+                this.manager.components.push(component);
                 this.startBoruCizim(component.getCikisNoktasi(), component.id);
                 // İkon güncellemesi için activeTool'u boru olarak ayarla
                 this.manager.activeTool = 'boru';
@@ -574,6 +573,8 @@ export class InteractionManager {
                 break;
 
             case 'sayac':
+                // Listeye ekle
+                this.manager.components.push(component);
                 this.handleSayacEkleme(component);
                 // İkon güncellemesi için activeTool'u boru olarak ayarla
                 this.manager.activeTool = 'boru';
@@ -582,9 +583,23 @@ export class InteractionManager {
                 break;
 
             case 'cihaz':
-                this.handleCihazEkleme(component);
-                // Cihaz eklemeden sonra select moduna geç
-                setMode("select");
+                // Cihaz için özel kontrol - handleCihazEkleme başarılı olursa ekle
+                const success = this.handleCihazEkleme(component);
+                if (success) {
+                    // Listeye ekle
+                    this.manager.components.push(component);
+                    // Cihaz eklemeden sonra select moduna geç
+                    setMode("select");
+                } else {
+                    // Başarısız, ekleme iptal edildi
+                    // tempComponent'i temizleme, kullanıcı tekrar deneyebilsin
+                    return;
+                }
+                break;
+
+            default:
+                // Diğer bileşenler için doğrudan ekle
+                this.manager.components.push(component);
                 break;
         }
 
@@ -806,32 +821,24 @@ export class InteractionManager {
      * - Boru ucunda vana yoksa otomatik vana eklenir
      */
     handleCihazEkleme(cihaz) {
-        console.log('🔧 CİHAZ EKLEME başladı:', cihaz.cihazTipi, 'Pozisyon:', `(${cihaz.x}, ${cihaz.y})`);
-
         // En yakın boru ucunu bul (geniş tolerance - 50 cm)
         const girisNoktasi = cihaz.getGirisNoktasi();
-        console.log('🔧 Giriş noktası:', `(${girisNoktasi.x.toFixed(1)}, ${girisNoktasi.y.toFixed(1)})`);
-
         const boruUcu = this.findBoruUcuAt(girisNoktasi, 50);
 
         if (!boruUcu) {
-            console.log('❌ CİHAZ EKLEME iptal - Boru ucu bulunamadı (50cm içinde)');
             alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
-            return;
+            // Cihazı components'a ekleme, sadece iptal et
+            return false;
         }
-
-        console.log(`✅ Boru ucu bulundu: ${boruUcu.boruId} (${boruUcu.uc})`);
 
         // Undo için state kaydet
         saveState();
 
         // Boru ucunda vana var mı kontrol et
         const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
-        console.log('🔍 Vana kontrolü:', vanaVar ? 'VAR' : 'YOK');
 
         // Vana yoksa otomatik ekle
         if (!vanaVar) {
-            console.log('➕ Otomatik vana ekleniyor...');
             const vana = createVana(boruUcu.nokta.x, boruUcu.nokta.y, 'AKV');
             vana.rotation = boruUcu.boru.aciDerece;
             vana.floorId = cihaz.floorId;
@@ -842,26 +849,17 @@ export class InteractionManager {
 
             this.manager.components.push(vana);
             cihaz.vanaIliskilendir(vana.id);
-
-            console.log(`✅ Otomatik vana eklendi: ${vana.id}`);
         } else {
             cihaz.vanaIliskilendir(vanaVar.id);
-            console.log(`✅ Mevcut vanaya bağlandı: ${vanaVar.id}`);
         }
 
         // Fleks bağlantısını kur
         cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
 
-        console.log(`✅ Fleks bağlandı: Boru=${boruUcu.boruId}, Uç=${boruUcu.uc}`);
-        console.log(`   Fleks uzunluğu: ${cihaz.fleksBaglanti.uzunluk.toFixed(1)} cm`);
-
-        // Cihazı components dizisine ekle
-        this.manager.components.push(cihaz);
-
         // State'i senkronize et
         this.manager.saveToState();
 
-        console.log('✅ CİHAZ EKLEME tamamlandı!');
+        return true;
     }
 
     /**
