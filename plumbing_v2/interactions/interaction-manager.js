@@ -444,6 +444,29 @@ export class InteractionManager {
             return true;
         }
 
+        // K - Kombi ekle
+        if (e.key === 'k' || e.key === 'K') {
+            this.manager.activeTool = 'cihaz';
+            this.manager.selectedCihazTipi = 'KOMBI';
+            setMode("plumbingV2", true);
+            return true;
+        }
+
+        // O - Ocak ekle
+        if (e.key === 'o' || e.key === 'O') {
+            this.manager.activeTool = 'cihaz';
+            this.manager.selectedCihazTipi = 'OCAK';
+            setMode("plumbingV2", true);
+            return true;
+        }
+
+        // T - Boru çizme modu (icon click simüle et)
+        if (e.key === 't' || e.key === 'T') {
+            this.manager.activeTool = 'boru';
+            setMode("plumbingV2", true);
+            return true;
+        }
+
         // Delete - seçili nesneyi sil
         if (e.key === 'Delete' && this.selectedObject) {
             this.deleteSelectedObject();
@@ -947,6 +970,18 @@ export class InteractionManager {
             cihaz.vanaIliskilendir(vana.id);
         } else {
             cihaz.vanaIliskilendir(vanaVar.id);
+        }
+
+        // Cihaz rotation'unu boru açısına göre ayarla
+        // Boru ucu p1 ise: boru p2'den p1'e geliyor, cihaz ters yönde (180°)
+        // Boru ucu p2 ise: boru p1'den p2'ye geliyor, cihaz aynı yönde (0°)
+        const boruAci = boruUcu.boru.aciDerece;
+        if (boruUcu.uc === 'p1') {
+            // Boru p2'den p1'e geliyor, cihaz ters yönde
+            cihaz.rotation = (boruAci + 180) % 360;
+        } else {
+            // Boru p1'den p2'ye geliyor, cihaz aynı yönde
+            cihaz.rotation = boruAci;
         }
 
         // Fleks bağlantısını kur
