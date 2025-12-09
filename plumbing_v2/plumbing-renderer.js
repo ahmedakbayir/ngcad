@@ -56,24 +56,28 @@ export class PlumbingRenderer {
             ctx.save();
             ctx.globalAlpha = 0.6;
 
-            // DEBUG: Ghost'un gerçek pozisyonunu göster
+            // Cihaz ghost için özel rendering (drawComponent translate'ini bypass et)
             if (manager.tempComponent.type === 'cihaz') {
-                const zoom = state.zoom || 1;
-                // Kocaman kırmızı daire çiz (ghost'un merkezinde)
-                ctx.fillStyle = 'red';
-                ctx.beginPath();
-                ctx.arc(manager.tempComponent.x, manager.tempComponent.y, 50 / zoom, 0, Math.PI * 2);
-                ctx.fill();
+                // Manuel translate + draw
+                ctx.save();
+                ctx.translate(manager.tempComponent.x, manager.tempComponent.y);
+                if (manager.tempComponent.rotation) {
+                    ctx.rotate(manager.tempComponent.rotation * Math.PI / 180);
+                }
 
-                // Koordinatları yaz
-                ctx.fillStyle = 'white';
-                ctx.font = `${16 / zoom}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.fillText(`GHOST (${manager.tempComponent.x.toFixed(0)}, ${manager.tempComponent.y.toFixed(0)})`,
-                            manager.tempComponent.x, manager.tempComponent.y - 60 / zoom);
+                // Cihaz tipine göre çiz
+                if (manager.tempComponent.cihazTipi === 'KOMBI') {
+                    this.drawKombi(ctx, manager.tempComponent, manager);
+                } else if (manager.tempComponent.cihazTipi === 'OCAK') {
+                    this.drawOcak(ctx, manager.tempComponent, manager);
+                }
+
+                ctx.restore();
+            } else {
+                // Diğer tip ghostlar için normal drawComponent
+                this.drawComponent(ctx, manager.tempComponent, manager);
             }
 
-            this.drawComponent(ctx, manager.tempComponent, manager);
             ctx.restore();
         }
 
@@ -755,29 +759,30 @@ export class PlumbingRenderer {
      */
     drawKombi(ctx, comp, manager) {
         const zoom = state.zoom || 1;
-        const x = comp.x;
-        const y = comp.y;
 
-        // ÖNCE fleks çizgisini çiz
+        // ÖNCE fleks çizgisini çiz (global coordinates)
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
         if (manager) {
             const connectionPoint = comp.getGirisNoktasi();
             // Yerleştirilmiş cihaz için stored connection point kullan
             const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
         }
+        ctx.restore();
 
-        // Cihazı çiz - translate KULLANMADAN direkt pozisyonda
-        const outerRadius = 20; // 40 çap için (world coordinates)
+        // Cihazı çiz - local coordinates (0,0)
+        const outerRadius = 20; // 40 çap için
 
-        // Shadow efekti (world coordinates)
+        // Shadow efekti
         ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
-        // Ana gövde - Radial gradient ile 3D metalik efekt (world coordinates)
-        const gradient = ctx.createRadialGradient(x-5, y-5, 0, x, y, outerRadius);
+        // Ana gövde - Radial gradient ile 3D metalik efekt
+        const gradient = ctx.createRadialGradient(-5, -5, 0, 0, 0, outerRadius);
         if (comp.isSelected) {
             gradient.addColorStop(0, '#FFFFFF');
             gradient.addColorStop(0.3, '#8ab4f8');
@@ -793,7 +798,7 @@ export class PlumbingRenderer {
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(x, y, outerRadius, 0, Math.PI * 2);
+        ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
         ctx.fill();
 
         // Dış çerçeve
@@ -807,7 +812,7 @@ export class PlumbingRenderer {
 
         // İç panel (ekran alanı)
         const innerRadius = 14;
-        const innerGradient = ctx.createRadialGradient(x-3, y-3, 0, x, y, innerRadius);
+        const innerGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, innerRadius);
         if (comp.isSelected) {
             innerGradient.addColorStop(0, '#6aa4f8');
             innerGradient.addColorStop(1, '#4a84d8');
@@ -819,7 +824,7 @@ export class PlumbingRenderer {
 
         ctx.fillStyle = innerGradient;
         ctx.beginPath();
-        ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
+        ctx.arc(0, 0, innerRadius, 0, Math.PI * 2);
         ctx.fill();
 
         // İç panel çerçevesi
@@ -837,7 +842,7 @@ export class PlumbingRenderer {
             ctx.font = `bold ${20/zoom}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('G', x, y);
+            ctx.fillText('G', 0, 0);
 
             // Shadow sıfırla
             ctx.shadowBlur = 0;
