@@ -738,20 +738,15 @@ export class PlumbingRenderer {
     drawKombi(ctx, comp, manager) {
         const zoom = state.zoom || 1;
 
-        // Fleks çizgisi (önce çiz, cihazın altında kalsın)
-        ctx.restore();
-        ctx.save();
-        ctx.translate(comp.x, comp.y);
-
-        // Bağlantı noktası (sol kenar ortası)
-        const connectionPoint = comp.getGirisNoktasi();
-
-        // Sinüs dalgalı fleks çizgisi
+        // ÖNCE fleks çizgisini global context'te çiz
         if (manager) {
+            const connectionPoint = comp.getGirisNoktasi();
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager);
         }
 
-        // Rotasyonu uygula
+        // Sonra cihazı çiz (local context)
+        ctx.save();
+        ctx.translate(comp.x, comp.y);
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
         const outerRadius = 20; // 40 çap için
@@ -813,112 +808,63 @@ export class PlumbingRenderer {
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
 
-        // Kontrol paneli detayları (küçük göstergeler)
-        if (zoom > 0.2 && !comp.isSelected) {
-            // LED göstergeler (üstte)
-            ctx.fillStyle = '#00FF00'; // Yeşil LED
-            ctx.beginPath();
-            ctx.arc(-4, -8, 1.2, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = '#FF4444'; // Kırmızı LED
-            ctx.beginPath();
-            ctx.arc(4, -8, 1.2, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Dijital gösterge çizgileri (ekran simulasyonu)
-            ctx.strokeStyle = '#00FFFF';
-            ctx.lineWidth = 0.8 / zoom;
-            ctx.beginPath();
-            ctx.moveTo(-6, -2);
-            ctx.lineTo(6, -2);
-            ctx.stroke();
-
-            ctx.beginPath();
-            ctx.moveTo(-6, 2);
-            ctx.lineTo(6, 2);
-            ctx.stroke();
-        }
-
-        // "G" harfi (Gaz) - ortada
+        // "G" harfi (Gaz) - BÜYÜK ve ortada
         if (zoom > 0.15) {
             // Beyaz glow efekti
-            ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.5)';
-            ctx.shadowBlur = 3;
+            ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+            ctx.shadowBlur = 5;
 
             ctx.fillStyle = comp.isSelected ? '#FFFFFF' : '#00FFFF';
-            ctx.font = `bold ${14 / zoom}px Arial`;
+            ctx.font = `bold ${20 / zoom}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('G', 0, 8);
+            ctx.fillText('G', 0, 0);
 
             // Shadow sıfırla
             ctx.shadowBlur = 0;
         }
 
-        // Bağlantı portları (alt kısımda küçük noktalar)
-        if (zoom > 0.25 && !comp.isSelected) {
-            ctx.fillStyle = '#FFD700'; // Altın rengi pirinç
-            ctx.strokeStyle = '#B8860B';
-            ctx.lineWidth = 0.5 / zoom;
-
-            // Sol port
-            ctx.beginPath();
-            ctx.arc(-8, 14, 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-
-            // Sağ port
-            ctx.beginPath();
-            ctx.arc(8, 14, 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        }
+        ctx.restore();
     }
 
     /**
-     * Ocak çizer (40x40 boyutunda) - Gerçekçi cam seramik tasarım
+     * Ocak çizer (40x40 boyutunda) - Metalik tasarım
      */
     drawOcak(ctx, comp, manager) {
         const zoom = state.zoom || 1;
 
-        // Fleks çizgisi (önce çiz, cihazın altında kalsın)
-        ctx.restore();
-        ctx.save();
-        ctx.translate(comp.x, comp.y);
-
-        // Bağlantı noktası (sol kenar ortası)
-        const connectionPoint = comp.getGirisNoktasi();
-
-        // Sinüs dalgalı fleks çizgisi
+        // ÖNCE fleks çizgisini global context'te çiz
         if (manager) {
+            const connectionPoint = comp.getGirisNoktasi();
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager);
         }
 
-        // Rotasyonu uygula
+        // Sonra cihazı çiz (local context)
+        ctx.save();
+        ctx.translate(comp.x, comp.y);
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
         const boxSize = 20; // 40x40 kare için
         const cornerRadius = 4;
 
         // Shadow efekti
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-        ctx.shadowBlur = 6;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
-        // Ana yüzey - Cam seramik görünümü (Linear gradient)
-        const gradient = ctx.createLinearGradient(-boxSize, -boxSize, boxSize, boxSize);
+        // Ana yüzey - Metalik görünümü (Radial gradient)
+        const gradient = ctx.createRadialGradient(-6, -6, 0, 0, 0, boxSize * 1.5);
         if (comp.isSelected) {
-            gradient.addColorStop(0, '#9ab9f8');
-            gradient.addColorStop(0.5, '#7a99d8');
+            gradient.addColorStop(0, '#FFFFFF');
+            gradient.addColorStop(0.3, '#9ab9f8');
+            gradient.addColorStop(0.6, '#7a99d8');
             gradient.addColorStop(1, '#5a79b8');
         } else {
-            gradient.addColorStop(0, '#303030');    // Koyu gri (cam seramik)
-            gradient.addColorStop(0.3, '#282828');
-            gradient.addColorStop(0.5, '#202020');  // En koyu orta
-            gradient.addColorStop(0.7, '#282828');
-            gradient.addColorStop(1, '#303030');
+            gradient.addColorStop(0, '#B0B0B0');    // Parlak gri (metalik)
+            gradient.addColorStop(0.3, '#909090');  // Orta gri
+            gradient.addColorStop(0.6, '#707070');  // Koyu gri
+            gradient.addColorStop(1, '#505050');    // En koyu kenar
         }
 
         ctx.fillStyle = gradient;
@@ -939,14 +885,14 @@ export class PlumbingRenderer {
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
-        const adjustedStroke = getAdjustedColor(comp.isSelected ? '#8ab4f8' : '#4A4A4A', 'cihaz');
+        const adjustedStroke = getAdjustedColor(comp.isSelected ? '#8ab4f8' : '#606060', 'cihaz');
         ctx.strokeStyle = adjustedStroke;
-        ctx.lineWidth = (comp.isSelected ? 2.5 : 1.8) / zoom;
+        ctx.lineWidth = (comp.isSelected ? 2.5 : 2) / zoom;
         ctx.stroke();
 
-        // İç dekoratif çerçeve
+        // İç dekoratif çerçeve (metalik parlaklık)
         if (!comp.isSelected) {
-            ctx.strokeStyle = '#3A3A3A';
+            ctx.strokeStyle = '#858585';
             ctx.lineWidth = 1 / zoom;
             const innerBox = boxSize - 2;
             const innerCorner = 3;
@@ -964,7 +910,7 @@ export class PlumbingRenderer {
             ctx.stroke();
         }
 
-        // 4 gözlü ocak - gerçekçi brûlör tasarımı
+        // 4 gözlü ocak - metalik brûlör tasarımı
         const burnerRadius = 5.5;
         const offset = 8;
         const burnerPositions = [
@@ -976,18 +922,18 @@ export class PlumbingRenderer {
 
         burnerPositions.forEach(pos => {
             // Brûlör gölge
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-            ctx.shadowBlur = 3;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            ctx.shadowBlur = 4;
 
-            // Brûlör tabanı (koyu)
-            const burnerGradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, burnerRadius);
+            // Brûlör tabanı (metalik)
+            const burnerGradient = ctx.createRadialGradient(pos.x - 2, pos.y - 2, 0, pos.x, pos.y, burnerRadius);
             if (comp.isSelected) {
-                burnerGradient.addColorStop(0, '#5a79b8');
-                burnerGradient.addColorStop(0.6, '#4a69a8');
+                burnerGradient.addColorStop(0, '#7a99d8');
+                burnerGradient.addColorStop(0.5, '#5a79b8');
                 burnerGradient.addColorStop(1, '#3a5998');
             } else {
-                burnerGradient.addColorStop(0, '#1a1a1a');    // Çok koyu merkez
-                burnerGradient.addColorStop(0.5, '#0a0a0a');  // Siyah
+                burnerGradient.addColorStop(0, '#404040');    // Parlak merkez
+                burnerGradient.addColorStop(0.5, '#2a2a2a');  // Orta
                 burnerGradient.addColorStop(1, '#1a1a1a');    // Koyu kenar
             }
 
@@ -999,12 +945,12 @@ export class PlumbingRenderer {
             ctx.shadowBlur = 0;
 
             // Brûlör dış halkası (metalik)
-            ctx.strokeStyle = comp.isSelected ? '#6a89c8' : '#505050';
+            ctx.strokeStyle = comp.isSelected ? '#6a89c8' : '#606060';
             ctx.lineWidth = 1.2 / zoom;
             ctx.stroke();
 
             // İç brûlör halkası
-            ctx.strokeStyle = comp.isSelected ? '#5a79b8' : '#404040';
+            ctx.strokeStyle = comp.isSelected ? '#5a79b8' : '#505050';
             ctx.lineWidth = 0.8 / zoom;
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, burnerRadius * 0.65, 0, Math.PI * 2);
@@ -1031,39 +977,7 @@ export class PlumbingRenderer {
             }
         });
 
-        // Kontrol düğmeleri göstergesi (sağ tarafta)
-        if (zoom > 0.25 && !comp.isSelected) {
-            const knobY = -12;
-            const knobX = 16;
-
-            // 4 küçük kontrol düğmesi göstergesi
-            for (let i = 0; i < 4; i++) {
-                const ky = knobY + (i * 8);
-
-                // Düğme gövdesi
-                const knobGrad = ctx.createRadialGradient(knobX - 0.5, ky - 0.5, 0, knobX, ky, 1.8);
-                knobGrad.addColorStop(0, '#666666');
-                knobGrad.addColorStop(1, '#333333');
-
-                ctx.fillStyle = knobGrad;
-                ctx.beginPath();
-                ctx.arc(knobX, ky, 1.8, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Düğme çerçevesi
-                ctx.strokeStyle = '#444444';
-                ctx.lineWidth = 0.4 / zoom;
-                ctx.stroke();
-
-                // Gösterge çizgisi
-                ctx.strokeStyle = '#CCCCCC';
-                ctx.lineWidth = 0.6 / zoom;
-                ctx.beginPath();
-                ctx.moveTo(knobX, ky - 1.2);
-                ctx.lineTo(knobX, ky - 0.5);
-                ctx.stroke();
-            }
-        }
+        ctx.restore();
     }
 
     drawSelectionBox(ctx, comp) {
@@ -1324,8 +1238,8 @@ export class PlumbingRenderer {
         let closestPipeEnd = null;
         let pipeDirection = null;
         let minDist = Infinity;
-        const DIRECT_CONNECTION_TOLERANCE = 2;
 
+        // En yakın boru ucunu bul
         for (const pipe of pipes) {
             const dist1 = Math.hypot(pipe.p1.x - connectionPoint.x, pipe.p1.y - connectionPoint.y);
             if (dist1 < minDist) {
@@ -1354,21 +1268,30 @@ export class PlumbingRenderer {
             }
         }
 
-        if (closestPipeEnd && pipeDirection && minDist > DIRECT_CONNECTION_TOLERANCE) {
+        // Fleks çizgisini ÇİZ (her zaman çiz, mesafe kontrolü yok)
+        if (closestPipeEnd && pipeDirection) {
             const dx = closestPipeEnd.x - connectionPoint.x;
             const dy = closestPipeEnd.y - connectionPoint.y;
             const distance = Math.hypot(dx, dy);
 
-            if (distance < 0.1) return;
+            if (distance < 0.5) return; // Çok yakınsa çizme
 
-            const amplitude = 3;
-            const frequency = 3;
-            const segments = 50;
+            const amplitude = 3;      // Dalga genliği
+            const frequency = 3;      // Dalga frekansı
+            const segments = 50;      // Segment sayısı
 
             ctx.save();
-            ctx.strokeStyle = '#2196F3';
-            ctx.lineWidth = 2 / zoom;
+
+            // Fleks rengini ayarla (sarı-altın rengi)
+            const adjustedColor = getAdjustedColor('#FFD700', 'cihaz');
+            ctx.strokeStyle = adjustedColor;
+            ctx.lineWidth = 3 / zoom;  // Daha kalın
             ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Gölge efekti
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 4;
 
             ctx.beginPath();
             ctx.moveTo(connectionPoint.x, connectionPoint.y);
