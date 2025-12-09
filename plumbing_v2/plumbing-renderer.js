@@ -478,8 +478,8 @@ export class PlumbingRenderer {
             if (comp.type !== 'servis_kutusu') {
                 this.drawSelectionBox(ctx, comp);
             }
-            // Servis kutusu için döndürme tutamacı
-            if (comp.type === 'servis_kutusu') {
+            // Servis kutusu ve cihaz için döndürme tutamacı
+            if (comp.type === 'servis_kutusu' || comp.type === 'cihaz') {
                 this.drawRotationHandles(ctx, comp);
             }
         }
@@ -834,16 +834,29 @@ export class PlumbingRenderer {
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
 
-        // "G" harfi (Gaz) - SABİT boyut (zoom'dan bağımsız)
-        // Beyaz glow efekti
-        ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.8)';
+        // "G" harfi (Gaz) - SABİT boyut, metalik görünüm
+        // Metalik gradient
+        const textGradient = ctx.createLinearGradient(0, -10, 0, 10);
+        if (comp.isSelected) {
+            textGradient.addColorStop(0, '#FFFFFF');
+            textGradient.addColorStop(0.5, '#9ab9f8');
+            textGradient.addColorStop(1, '#5a79b8');
+        } else {
+            textGradient.addColorStop(0, '#E8E8E8');   // Parlak üst
+            textGradient.addColorStop(0.3, '#C0C0C0'); // Orta metalik
+            textGradient.addColorStop(0.6, '#A0A0A0'); // Koyu orta
+            textGradient.addColorStop(1, '#D0D0D0');   // Parlak alt
+        }
+
+        // Gölge efekti
+        ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(0, 0, 0, 0.5)';
         ctx.shadowBlur = 5;
 
-        ctx.fillStyle = comp.isSelected ? '#FFFFFF' : '#00FFFF';
+        ctx.fillStyle = textGradient;
         ctx.font = `bold 20px Arial`; // Sabit boyut
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('G', 0, 0);
+        ctx.fillText('G', 0, 1); // 1 cm (+y) aşağı kaydırıldı
 
         // Shadow sıfırla
         ctx.shadowBlur = 0;
