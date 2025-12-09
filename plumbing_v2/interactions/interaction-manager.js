@@ -1080,8 +1080,6 @@ export class InteractionManager {
             const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
             const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
 
-            console.log(`📏 Boru ${boru.id}: p1=${distP1.toFixed(1)}cm, p2=${distP2.toFixed(1)}cm`);
-
             if (distP1 < tolerance) {
                 candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
             }
@@ -1098,7 +1096,7 @@ export class InteractionManager {
         // Tek aday varsa direkt dön
         if (candidates.length === 1) {
             const c = candidates[0];
-            return { boruId: c.boruId, nokta: c.nokta, uc: c.uc };
+            return { boruId: c.boruId, nokta: c.nokta, uc: c.uc, boru: c.boru };
         }
 
         // Birden fazla aday varsa, tıklama noktasına en yakın BORU GÖVDESİNİ seç
@@ -1117,8 +1115,7 @@ export class InteractionManager {
             }
         }
 
-        console.log(`✅ ${candidates.length} aday arasından en yakın gövde: ${closest.boruId} (${minBodyDist.toFixed(1)}cm)`);
-        return { boruId: closest.boruId, nokta: closest.nokta, uc: closest.uc };
+        return { boruId: closest.boruId, nokta: closest.nokta, uc: closest.uc, boru: closest.boru };
     }
 
     findBoruGovdeAt(point, tolerance = 5) {
