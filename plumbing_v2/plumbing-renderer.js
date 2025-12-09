@@ -755,8 +755,10 @@ export class PlumbingRenderer {
      */
     drawKombi(ctx, comp, manager) {
         const zoom = state.zoom || 1;
+        const x = comp.x;
+        const y = comp.y;
 
-        // ÖNCE fleks çizgisini global context'te çiz
+        // ÖNCE fleks çizgisini çiz
         if (manager) {
             const connectionPoint = comp.getGirisNoktasi();
             // Yerleştirilmiş cihaz için stored connection point kullan
@@ -764,21 +766,18 @@ export class PlumbingRenderer {
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
         }
 
-        // Sonra cihazı çiz (local context)
-        ctx.save();
-        ctx.translate(comp.x, comp.y);
-        if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
-
+        // Cihazı çiz - translate KULLANMADAN direkt pozisyonda
         const outerRadius = 20; // 40 çap için
 
         // Shadow efekti
+        ctx.save();
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 1;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
+        ctx.shadowBlur = 8 / zoom;
+        ctx.shadowOffsetX = 2 / zoom;
+        ctx.shadowOffsetY = 2 / zoom;
 
-        // Ana gövde - Radial gradient ile 3D metalik efekt
-        const gradient = ctx.createRadialGradient(-5, -5, 0, 0, 0, outerRadius);
+        // Ana gövde - Radial gradient ile 3D metalik efekt (x, y merkezli)
+        const gradient = ctx.createRadialGradient(x-5/zoom, y-5/zoom, 0, x, y, outerRadius);
         if (comp.isSelected) {
             gradient.addColorStop(0, '#FFFFFF');
             gradient.addColorStop(0.3, '#8ab4f8');
@@ -794,7 +793,7 @@ export class PlumbingRenderer {
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
+        ctx.arc(x, y, outerRadius, 0, Math.PI * 2);
         ctx.fill();
 
         // Dış çerçeve
@@ -808,7 +807,7 @@ export class PlumbingRenderer {
 
         // İç panel (ekran alanı)
         const innerRadius = 14;
-        const innerGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, innerRadius);
+        const innerGradient = ctx.createRadialGradient(x-3/zoom, y-3/zoom, 0, x, y, innerRadius);
         if (comp.isSelected) {
             innerGradient.addColorStop(0, '#6aa4f8');
             innerGradient.addColorStop(1, '#4a84d8');
@@ -820,7 +819,7 @@ export class PlumbingRenderer {
 
         ctx.fillStyle = innerGradient;
         ctx.beginPath();
-        ctx.arc(0, 0, innerRadius, 0, Math.PI * 2);
+        ctx.arc(x, y, innerRadius, 0, Math.PI * 2);
         ctx.fill();
 
         // İç panel çerçevesi
@@ -832,13 +831,13 @@ export class PlumbingRenderer {
         if (zoom > 0.15) {
             // Beyaz glow efekti
             ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.8)';
-            ctx.shadowBlur = 3;
+            ctx.shadowBlur = 5 / zoom;
 
             ctx.fillStyle = comp.isSelected ? '#FFFFFF' : '#00FFFF';
-            ctx.font = `bold 20px Arial`; // SABİT boyut
+            ctx.font = `bold ${20/zoom}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('G', 0, 1);
+            ctx.fillText('G', x, y);
 
             // Shadow sıfırla
             ctx.shadowBlur = 0;
