@@ -446,6 +446,14 @@ export class InteractionManager {
 
         // K - Kombi ekle
         if (e.key === 'k' || e.key === 'K') {
+            // Eğer boru çiziyorsak, aktif noktaya cihaz ekle
+            if (this.boruCizimAktif && this.geciciBoruBitis) {
+                // Önce mevcut boruyu tamamla
+                this.handleBoruClick(this.geciciBoruBitis);
+                // Boru çizimini sonlandır
+                this.cancelCurrentAction();
+            }
+
             setMode("plumbingV2", true);
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'KOMBI';
@@ -454,6 +462,14 @@ export class InteractionManager {
 
         // O - Ocak ekle
         if (e.key === 'o' || e.key === 'O') {
+            // Eğer boru çiziyorsak, aktif noktaya cihaz ekle
+            if (this.boruCizimAktif && this.geciciBoruBitis) {
+                // Önce mevcut boruyu tamamla
+                this.handleBoruClick(this.geciciBoruBitis);
+                // Boru çizimini sonlandır
+                this.cancelCurrentAction();
+            }
+
             setMode("plumbingV2", true);
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'OCAK';
@@ -562,6 +578,14 @@ export class InteractionManager {
                 const dy = boru.p2.y - boru.p1.y;
                 const length = Math.hypot(dx, dy);
 
+                // KRITIK: Ghost rotation'ı boru yönüne göre ayarla
+                const boruAci = boruUcu.boru.aciDerece;
+                if (boruUcu.uc === 'p1') {
+                    ghost.rotation = (boruAci + 180) % 360;
+                } else {
+                    ghost.rotation = boruAci;
+                }
+
                 const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
 
                 let girisX, girisY;
@@ -575,9 +599,12 @@ export class InteractionManager {
                     girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
                 }
 
-                // Cihaz merkezini hesapla (giriş noktası girisX, girisY'de olmalı)
-                ghost.x = girisX - girisOffset.x;
-                ghost.y = girisY - girisOffset.y;
+                // Cihaz merkezini hesapla - rotation ayarlandı, şimdi doğru girisOffset kullanılacak
+                // girisOffset'i yeniden hesapla (rotation değişti)
+                ghost.girisOffset = ghost.hesaplaGirisOffset();
+
+                ghost.x = girisX - ghost.girisOffset.x;
+                ghost.y = girisY - ghost.girisOffset.y;
 
                 // Ghost rendering için bağlantı bilgisini sakla
                 ghost.ghostConnectionInfo = {
@@ -719,6 +746,9 @@ export class InteractionManager {
             kaynakTip: kaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU
         };
         this.snapSystem.setStartPoint(baslangicNoktasi);
+
+        // Icon güncellemesi için activeTool'u ayarla
+        this.manager.activeTool = 'boru';
     }
 
     /**
@@ -808,7 +838,33 @@ export class InteractionManager {
         const result = pipe.splitAt(splitPoint);
         if (!result) return; // Split başarısış
 
-        const { boru1, boru2 } = result;
+        const { boru1, boru2, splitT } = result;
+
+        // BONUS: Vanalar ve diğer boru üzerindeki nesneleri doğru segmente ata
+        const objectsOnPipe = this.manager.components.filter(comp =>
+            comp.bagliBoruId === pipe.id
+        );
+
+        objectsOnPipe.forEach(obj => {
+            if (obj.boruPozisyonu !== undefined) {
+                if (obj.boruPozisyonu <= splitT) {
+                    // Nesne ilk segmentte (boru1)
+                    obj.bagliBoruId = boru1.id;
+                    // Pozisyonu yeniden hesapla (0 - splitT aralığını 0 - 1'e normalize et)
+                    obj.boruPozisyonu = obj.boruPozisyonu / splitT;
+                } else {
+                    // Nesne ikinci segmentte (boru2)
+                    obj.bagliBoruId = boru2.id;
+                    // Pozisyonu yeniden hesapla (splitT - 1 aralığını 0 - 1'e normalize et)
+                    obj.boruPozisyonu = (obj.boruPozisyonu - splitT) / (1 - splitT);
+                }
+                // Pozisyonu güncelle
+                if (obj.updatePositionFromPipe) {
+                    const newPipe = obj.bagliBoruId === boru1.id ? boru1 : boru2;
+                    obj.updatePositionFromPipe(newPipe);
+                }
+            }
+        });
 
         // Servis kutusuna bağlı mı kontrol et (referansı güncellemek için)
         if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
