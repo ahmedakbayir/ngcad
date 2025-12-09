@@ -1048,12 +1048,7 @@ export class InteractionManager {
             cihaz.rotation = boruAci;
         }
 
-        // Fleks bağlantısını kur
-        cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
-
-        // KRITIK FIX: Rotation değiştikten ve girisOffset yeniden hesaplandıktan sonra,
-        // cihaz pozisyonunu düzelt ki getGirisNoktasi() doğru noktayı döndürsün
-        // Hedef: Cihazın giriş noktası, boru ucundan 20 cm ileri olmalı
+        // Cihaz pozisyonunu ayarla - hedef giriş noktası boru ucundan 20 cm ileri
         const boru = boruUcu.boru;
         const dx = boru.p2.x - boru.p1.x;
         const dy = boru.p2.y - boru.p1.y;
@@ -1069,14 +1064,13 @@ export class InteractionManager {
             hedefGirisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
         }
 
-        // Cihaz pozisyonunu ayarla (girisNoktasi = hedefGiris olacak şekilde)
+        // Pozisyonu ayarla (getGirisNoktasi() = hedefGiris olacak şekilde)
         const actualGiris = cihaz.getGirisNoktasi();
         cihaz.x += (hedefGirisX - actualGiris.x);
         cihaz.y += (hedefGirisY - actualGiris.y);
 
-        // KRITIK: Pozisyon değiştikten sonra girisOffset ve fleks bağlantısını güncelle
-        cihaz.yenidenHesaplaGirisOffset();
-        cihaz.fleksGuncelle();
+        // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
+        cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
 
         // State'i senkronize et
         this.manager.saveToState();
