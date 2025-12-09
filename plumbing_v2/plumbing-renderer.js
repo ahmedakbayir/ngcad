@@ -28,7 +28,7 @@ export class PlumbingRenderer {
         this.drawPipes(ctx, manager.pipes);
 
         // Bileşenler
-        this.drawComponents(ctx, manager.components);
+        this.drawComponents(ctx, manager.components, manager);
 
         // Geçici boru çizgisi (boru çizim modunda)
         const geciciBoru = manager.interactionManager?.getGeciciBoruCizgisi();
@@ -55,7 +55,7 @@ export class PlumbingRenderer {
         if (manager.tempComponent) {
             ctx.save();
             ctx.globalAlpha = 0.6;
-            this.drawComponent(ctx, manager.tempComponent);
+            this.drawComponent(ctx, manager.tempComponent, manager);
             ctx.restore();
         }
 
@@ -424,12 +424,12 @@ export class PlumbingRenderer {
         ctx.restore();
     }
 
-    drawComponents(ctx, components) {
+    drawComponents(ctx, components, manager) {
         if (!components) return;
-        components.forEach(comp => this.drawComponent(ctx, comp));
+        components.forEach(comp => this.drawComponent(ctx, comp, manager));
     }
 
-    drawComponent(ctx, comp) {
+    drawComponent(ctx, comp, manager) {
         ctx.save();
 
         ctx.translate(comp.x, comp.y);
@@ -446,7 +446,7 @@ export class PlumbingRenderer {
                 this.drawVana(ctx, comp);
                 break;
             case 'cihaz':
-                this.drawCihaz(ctx, comp);
+                this.drawCihaz(ctx, comp, manager);
                 break;
         }
 
@@ -664,8 +664,21 @@ export class PlumbingRenderer {
         }
     }
 
-    drawCihaz(ctx, comp) {
+    drawCihaz(ctx, comp, manager) {
         const config = CIHAZ_TIPLERI[comp.cihazTipi] || CIHAZ_TIPLERI.KOMBI;
+
+        // Kombi veya Ocak için özel çizim
+        if (comp.cihazTipi === 'KOMBI') {
+            this.drawKombi(ctx, comp, manager);
+            return;
+        }
+
+        if (comp.cihazTipi === 'OCAK') {
+            this.drawOcak(ctx, comp, manager);
+            return;
+        }
+
+        // Diğer cihazlar için eski stil çizim
         const { width, height, color } = config;
 
         // Fleks çizgisi
@@ -717,6 +730,132 @@ export class PlumbingRenderer {
             ctx.rect(-5, -height / 2 - 10, 10, 10);
             ctx.fill();
         }
+    }
+
+    /**
+     * Kombi çizer (40x40 boyutunda)
+     */
+    drawKombi(ctx, comp, manager) {
+        const zoom = state.zoom || 1;
+
+        // Fleks çizgisi (önce çiz, cihazın altında kalsın)
+        ctx.restore();
+        ctx.save();
+        ctx.translate(comp.x, comp.y);
+
+        // Bağlantı noktası (sol kenar ortası)
+        const connectionPoint = comp.getGirisNoktasi();
+
+        // Sinüs dalgalı fleks çizgisi
+        if (manager) {
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager);
+        }
+
+        // Rotasyonu uygula
+        if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
+
+        // Kombi gövdesi (daire)
+        const outerRadius = 20; // 40 çap için
+        const wallBorderColor = getAdjustedColor('#999', 'cihaz');
+
+        ctx.strokeStyle = comp.isSelected ? '#8ab4f8' : wallBorderColor;
+        ctx.lineWidth = (comp.isSelected ? 3 : 2) / zoom;
+        ctx.fillStyle = comp.isSelected ? 'rgba(138, 180, 248, 0.1)' : 'rgba(30, 31, 32, 0.8)';
+
+        ctx.beginPath();
+        ctx.arc(0, 0, outerRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // İç daire
+        const innerRadius = 14.4; // 40 çap için orantılı (18/25 * 20)
+        ctx.beginPath();
+        ctx.arc(0, 0, innerRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // "G" harfi (zoom > 0.15 ise)
+        if (zoom > 0.15) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.lineWidth = 1;
+            ctx.lineJoin = 'round';
+            ctx.font = `16px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('G', 0, 0);
+        }
+    }
+
+    /**
+     * Ocak çizer (40x40 boyutunda)
+     */
+    drawOcak(ctx, comp, manager) {
+        const zoom = state.zoom || 1;
+
+        // Fleks çizgisi (önce çiz, cihazın altında kalsın)
+        ctx.restore();
+        ctx.save();
+        ctx.translate(comp.x, comp.y);
+
+        // Bağlantı noktası (sol kenar ortası)
+        const connectionPoint = comp.getGirisNoktasi();
+
+        // Sinüs dalgalı fleks çizgisi
+        if (manager) {
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager);
+        }
+
+        // Rotasyonu uygula
+        if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
+
+        // Ocak gövdesi (yuvarlatılmış köşeli kare)
+        const boxSize = 20; // 40x40 kare için
+        const cornerRadius = 4; // 40 çap için orantılı (5/25 * 20)
+        const wallBorderColor = getAdjustedColor('#999', 'cihaz');
+
+        ctx.strokeStyle = comp.isSelected ? '#8ab4f8' : wallBorderColor;
+        ctx.lineWidth = (comp.isSelected ? 3 : 2) / zoom;
+        ctx.fillStyle = comp.isSelected ? 'rgba(138, 180, 248, 0.1)' : 'rgba(30, 31, 32, 0.8)';
+
+        ctx.beginPath();
+        ctx.moveTo(-boxSize + cornerRadius, -boxSize);
+        ctx.lineTo(boxSize - cornerRadius, -boxSize);
+        ctx.arcTo(boxSize, -boxSize, boxSize, -boxSize + cornerRadius, cornerRadius);
+        ctx.lineTo(boxSize, boxSize - cornerRadius);
+        ctx.arcTo(boxSize, boxSize, boxSize - cornerRadius, boxSize, cornerRadius);
+        ctx.lineTo(-boxSize + cornerRadius, boxSize);
+        ctx.arcTo(-boxSize, boxSize, -boxSize, boxSize - cornerRadius, cornerRadius);
+        ctx.lineTo(-boxSize, -boxSize + cornerRadius);
+        ctx.arcTo(-boxSize, -boxSize, -boxSize + cornerRadius, -boxSize, cornerRadius);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 4 gözlü ocak dizaynı
+        const burnerRadius = 5.6; // 40 çap için orantılı (7/25 * 20)
+        const offset = 8; // 40 çap için orantılı (10/25 * 20)
+
+        ctx.strokeStyle = '#404040';
+        ctx.lineWidth = 1 / zoom;
+
+        // Sol üst göz
+        ctx.beginPath();
+        ctx.arc(-offset, -offset, burnerRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Sağ üst göz
+        ctx.beginPath();
+        ctx.arc(offset, -offset, burnerRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Sol alt göz
+        ctx.beginPath();
+        ctx.arc(-offset, offset, burnerRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Sağ alt göz
+        ctx.beginPath();
+        ctx.arc(offset, offset, burnerRadius, 0, Math.PI * 2);
+        ctx.stroke();
     }
 
     drawSelectionBox(ctx, comp) {
@@ -965,6 +1104,91 @@ export class PlumbingRenderer {
         const g = parseInt(hexStr.substring(2, 4), 16);
         const b = parseInt(hexStr.substring(4, 6), 16);
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    /**
+     * Sinüs dalgalı bağlantı çizgisi çizer (Ocak/Kombi için fleks bağlantısı)
+     */
+    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager) {
+        const currentFloorId = state.currentFloor?.id;
+        const pipes = (manager.pipes || []).filter(p => p.floorId === currentFloorId);
+
+        let closestPipeEnd = null;
+        let pipeDirection = null;
+        let minDist = Infinity;
+        const DIRECT_CONNECTION_TOLERANCE = 2;
+
+        for (const pipe of pipes) {
+            const dist1 = Math.hypot(pipe.p1.x - connectionPoint.x, pipe.p1.y - connectionPoint.y);
+            if (dist1 < minDist) {
+                minDist = dist1;
+                closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
+                const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+                if (pipeLength > 0) {
+                    pipeDirection = {
+                        x: (pipe.p2.x - pipe.p1.x) / pipeLength,
+                        y: (pipe.p2.y - pipe.p1.y) / pipeLength
+                    };
+                }
+            }
+
+            const dist2 = Math.hypot(pipe.p2.x - connectionPoint.x, pipe.p2.y - connectionPoint.y);
+            if (dist2 < minDist) {
+                minDist = dist2;
+                closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
+                const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+                if (pipeLength > 0) {
+                    pipeDirection = {
+                        x: (pipe.p1.x - pipe.p2.x) / pipeLength,
+                        y: (pipe.p1.y - pipe.p2.y) / pipeLength
+                    };
+                }
+            }
+        }
+
+        if (closestPipeEnd && pipeDirection && minDist > DIRECT_CONNECTION_TOLERANCE) {
+            const dx = closestPipeEnd.x - connectionPoint.x;
+            const dy = closestPipeEnd.y - connectionPoint.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance < 0.1) return;
+
+            const amplitude = 3;
+            const frequency = 3;
+            const segments = 50;
+
+            ctx.save();
+            ctx.strokeStyle = '#2196F3';
+            ctx.lineWidth = 2 / zoom;
+            ctx.lineCap = 'round';
+
+            ctx.beginPath();
+            ctx.moveTo(connectionPoint.x, connectionPoint.y);
+
+            for (let i = 1; i <= segments; i++) {
+                const t = i / segments;
+
+                const baseX = connectionPoint.x + dx * t;
+                const baseY = connectionPoint.y + dy * t;
+
+                const perpX = -dy / distance;
+                const perpY = dx / distance;
+
+                const smoothEnvelope = t * t * (3 - 2 * t);
+
+                const wave = Math.sin(smoothEnvelope * frequency * Math.PI * 2);
+
+                const sineOffset = smoothEnvelope * (1 - smoothEnvelope) * 4 * amplitude * wave;
+
+                const finalX = baseX + perpX * sineOffset;
+                const finalY = baseY + perpY * sineOffset;
+
+                ctx.lineTo(finalX, finalY);
+            }
+
+            ctx.stroke();
+            ctx.restore();
+        }
     }
 
     /**
