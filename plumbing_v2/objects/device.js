@@ -149,6 +149,25 @@ export class Cihaz {
     }
 
     /**
+     * World to local (inverse transformation)
+     */
+    worldToLocal(world) {
+        const rad = this.rotation * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        // Translate to origin
+        const dx = world.x - this.x;
+        const dy = world.y - this.y;
+
+        // Rotate back
+        return {
+            x: dx * cos + dy * sin,
+            y: -dx * sin + dy * cos
+        };
+    }
+
+    /**
      * Giriş noktası (world)
      */
     getGirisNoktasi() {
@@ -211,11 +230,30 @@ export class Cihaz {
     }
 
     /**
+     * Giriş offset'ini bağlantı noktasına göre yeniden hesapla
+     * KRITIK: Fleks daima cihazın en yakın noktasından bağlanmalı
+     */
+    yenidenHesaplaGirisOffset() {
+        if (!this.fleksBaglanti.baglantiNoktasi) return;
+
+        // En yakın kenar noktasını bul (world coordinates)
+        const enYakinWorld = this.getEnYakinKenar(this.fleksBaglanti.baglantiNoktasi);
+
+        if (enYakinWorld) {
+            // World'den local'e çevir
+            this.girisOffset = this.worldToLocal(enYakinWorld);
+        }
+    }
+
+    /**
      * Fleks bağlantısı yap
      */
     fleksBagla(boruId, baglantiNoktasi) {
         this.fleksBaglanti.boruId = boruId;
         this.fleksBaglanti.baglantiNoktasi = { ...baglantiNoktasi };
+
+        // KRITIK: En yakın noktadan bağlan
+        this.yenidenHesaplaGirisOffset();
         this.fleksGuncelle();
     }
 
@@ -258,6 +296,9 @@ export class Cihaz {
     move(newX, newY) {
         this.x = newX;
         this.y = newY;
+
+        // KRITIK: En yakın noktadan bağlantıyı yeniden hesapla
+        this.yenidenHesaplaGirisOffset();
         this.fleksGuncelle();
 
         return {
@@ -270,6 +311,9 @@ export class Cihaz {
      */
     rotate(deltaDerece) {
         this.rotation = (this.rotation + deltaDerece) % 360;
+
+        // KRITIK: Döndürünce en yakın noktadan bağlantıyı yeniden hesapla
+        this.yenidenHesaplaGirisOffset();
         this.fleksGuncelle();
 
         return {

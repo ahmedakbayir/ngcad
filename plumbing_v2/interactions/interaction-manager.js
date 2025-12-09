@@ -444,25 +444,26 @@ export class InteractionManager {
             return true;
         }
 
-        // K - Kombi ekle (her zaman - kullanıcı duvar modunda kullanır)
+        // K - Kombi ekle
         if (e.key === 'k' || e.key === 'K') {
+            setMode("plumbingV2", true);
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'KOMBI';
-            setMode("plumbingV2", true);
             return true;
         }
 
-        // O - Ocak ekle (her zaman - kullanıcı duvar modunda kullanır)
+        // O - Ocak ekle
         if (e.key === 'o' || e.key === 'O') {
+            setMode("plumbingV2", true);
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'OCAK';
-            setMode("plumbingV2", true);
             return true;
         }
 
-        // T - Duvar çizme modu (duvar icon'unu aktif et)
+        // T - BORU çizme modu (boru icon'unu aktif et)
         if (e.key === 't' || e.key === 'T') {
-            setMode("drawWall", true); // Icon click ile aynı
+            setMode("plumbingV2", true);
+            this.manager.activeTool = 'boru';
             return true;
         }
 
@@ -555,32 +556,49 @@ export class InteractionManager {
             const boruUcu = this.findBoruUcuAt(point, 50); // 50 cm tolerance
 
             if (boruUcu && boruUcu.boru) {
-                // Boru yönünü hesapla (boru ucundan dışarı doğru)
-                const boru = boruUcu.boru;
-                const dx = boru.p2.x - boru.p1.x;
-                const dy = boru.p2.y - boru.p1.y;
-                const length = Math.hypot(dx, dy);
+                // KRITIK: Sadece serbest uçlarda ghost göster (T-junction'da değil)
+                const isFree = this.isFreeEndpoint(boruUcu.nokta, 1);
 
-                const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
+                if (isFree) {
+                    // Boru yönünü hesapla (boru ucundan dışarı doğru)
+                    const boru = boruUcu.boru;
+                    const dx = boru.p2.x - boru.p1.x;
+                    const dy = boru.p2.y - boru.p1.y;
+                    const length = Math.hypot(dx, dy);
 
-                let girisX, girisY;
-                if (boruUcu.uc === 'p1') {
-                    // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
-                    girisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
-                    girisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
+                    const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
+
+                    let girisX, girisY;
+                    if (boruUcu.uc === 'p1') {
+                        // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
+                        girisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
+                        girisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
+                    } else {
+                        // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
+                        girisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
+                        girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
+                    }
+
+                    // Cihaz merkezini hesapla (giriş noktası girisX, girisY'de olmalı)
+                    ghost.x = girisX - girisOffset.x;
+                    ghost.y = girisY - girisOffset.y;
+
+                    // Ghost rendering için bağlantı bilgisini sakla
+                    ghost.ghostConnectionInfo = {
+                        boruUcu: boruUcu,
+                        girisNoktasi: { x: girisX, y: girisY }
+                    };
                 } else {
-                    // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
-                    girisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
-                    girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
+                    // T-junction, ghost gösterme - cursor pozisyonunda göster (bağlanamaz)
+                    ghost.x = point.x - girisOffset.x;
+                    ghost.y = point.y - girisOffset.y;
+                    ghost.ghostConnectionInfo = null;
                 }
-
-                // Cihaz merkezini hesapla (giriş noktası girisX, girisY'de olmalı)
-                ghost.x = girisX - girisOffset.x;
-                ghost.y = girisY - girisOffset.y;
             } else {
                 // Boru ucu bulunamadı, normal cursor pozisyonu
                 ghost.x = point.x - girisOffset.x;
                 ghost.y = point.y - girisOffset.y;
+                ghost.ghostConnectionInfo = null;
             }
         } else {
             ghost.x = point.x;
@@ -918,15 +936,8 @@ export class InteractionManager {
         }
 
         // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
-        const tolerance = 1; // cm
-        const pipesAtPoint = this.manager.pipes.filter(p => {
-            const distP1 = Math.hypot(p.p1.x - boruUcu.nokta.x, p.p1.y - boruUcu.nokta.y);
-            const distP2 = Math.hypot(p.p2.x - boruUcu.nokta.x, p.p2.y - boruUcu.nokta.y);
-            return distP1 < tolerance || distP2 < tolerance;
-        });
-
-        if (pipesAtPoint.length > 2) {
-            alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen bir hat ucuna yerleştirin (2 veya daha az borunun olduğu nokta).');
+        if (!this.isFreeEndpoint(boruUcu.nokta, 1)) {
+            alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
             return false;
         }
 
@@ -1201,6 +1212,39 @@ export class InteractionManager {
         }
 
         return null;
+    }
+
+    /**
+     * Bir noktanın serbest uç olup olmadığını kontrol et (T-junction değil)
+     * KRITIK: Cihazlar sadece serbest uçlara bağlanmalı
+     */
+    isFreeEndpoint(point, tolerance = 1) {
+        const currentFloorId = state.currentFloor?.id;
+        let pipeCount = 0;
+
+        for (const boru of this.manager.pipes) {
+            // Sadece aktif kattaki boruları kontrol et
+            if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
+                continue;
+            }
+
+            const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
+            const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
+
+            if (distP1 < tolerance || distP2 < tolerance) {
+                pipeCount++;
+            }
+
+            // T-junction veya daha karmaşık (3+ boru)
+            if (pipeCount > 2) {
+                return false;
+            }
+        }
+
+        // Serbest uç: 1-2 boru (1 boru = tam serbest, 2 boru = birleşim noktası)
+        // Kullanıcı sadece 1 borulu uçları istiyorsa, return pipeCount === 1 yapabiliriz
+        // Şimdilik 2'ye kadar izin verelim ama T-junction'ları (3+) engelleyelim
+        return pipeCount > 0 && pipeCount <= 2;
     }
 
     findBoruUcuAt(point, tolerance = 5) {
@@ -1625,8 +1669,6 @@ export class InteractionManager {
             // Minimum boru uzunluğu = 2 * uç mesafesi + tüm vanaların gerektirdiği alan
             const minLength = (2 * MIN_EDGE_DISTANCE) + totalValveSpace;
 
-            console.log(`Boru kısaltma kontrolü: ${valvesOnPipe.length} vana, min uzunluk: ${minLength.toFixed(1)} cm`);
-
             // Yeni uzunluğu hesapla
             let newLength;
             if (this.dragEndpoint === 'p1') {
@@ -1634,8 +1676,6 @@ export class InteractionManager {
             } else {
                 newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
             }
-
-            console.log(`Yeni uzunluk: ${newLength.toFixed(1)} cm`);
 
             // Eğer nokta dolu değilse VE minimum uzunluk sağlanıyorsa pozisyonu uygula
             if (!occupiedByOtherPipe && newLength >= minLength) {
@@ -1678,6 +1718,8 @@ export class InteractionManager {
                     if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
                         // Cihazın fleksi bu boruya bağlı, bağlantı noktasını güncelle
                         comp.fleksBaglanti.baglantiNoktasi = { x: movedEndpoint.x, y: movedEndpoint.y };
+                        // KRITIK: En yakın noktadan bağlantıyı yeniden hesapla
+                        comp.yenidenHesaplaGirisOffset();
                         comp.fleksGuncelle();
                     }
                 });
@@ -1685,10 +1727,7 @@ export class InteractionManager {
                 // Bağlı boruları güncelle (tüm zinciri)
                 this.updateConnectedPipesChain(oldPoint, finalPos);
             } else {
-                // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır
-                if (newLength < minLength) {
-                    console.log(`Boru kısaltılamaz: ${valvesOnPipe.length} vana var, minimum ${minLength.toFixed(1)} cm gerekli`);
-                }
+                // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır (sessizce engelle)
             }
             return;
         }
@@ -1933,6 +1972,8 @@ export class InteractionManager {
                 // Eğer bağlantı noktası oldPoint'e çok yakınsa, newPoint'e güncelle
                 if (Math.hypot(baglanti.x - oldPoint.x, baglanti.y - oldPoint.y) < tolerance) {
                     comp.fleksBaglanti.baglantiNoktasi = { x: newPoint.x, y: newPoint.y };
+                    // KRITIK: En yakın noktadan bağlantıyı yeniden hesapla
+                    comp.yenidenHesaplaGirisOffset();
                     comp.fleksGuncelle();
                 }
             }
