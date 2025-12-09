@@ -301,7 +301,7 @@ export class InteractionManager {
             }
 
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-            const boruUcu = this.findBoruUcuAt(point, 3); // Nokta seçimi için 12 cm
+            const boruUcu = this.findBoruUcuAt(point, 4); // Nokta seçimi için 4 cm tolerance
             if (boruUcu) {
                 console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
@@ -882,13 +882,35 @@ export class InteractionManager {
 
         // Vana yoksa otomatik ekle
         if (!vanaVar) {
-            const vana = createVana(boruUcu.nokta.x, boruUcu.nokta.y, 'AKV');
+            // Vana pozisyonunu hesapla - boru ucundan 4 cm içeride
+            const boru = boruUcu.boru;
+            const margin = 4; // cm
+
+            // Boru yönünü hesapla (boru ucundan içeriye doğru)
+            const dx = boru.p2.x - boru.p1.x;
+            const dy = boru.p2.y - boru.p1.y;
+            const length = Math.hypot(dx, dy);
+
+            let vanaX, vanaY;
+            if (boruUcu.uc === 'p1') {
+                // p1 ucundayız, p2'ye doğru margin kadar ilerle
+                vanaX = boruUcu.nokta.x + (dx / length) * margin;
+                vanaY = boruUcu.nokta.y + (dy / length) * margin;
+            } else {
+                // p2 ucundayız, p1'e doğru margin kadar ilerle
+                vanaX = boruUcu.nokta.x - (dx / length) * margin;
+                vanaY = boruUcu.nokta.y - (dy / length) * margin;
+            }
+
+            const vana = createVana(vanaX, vanaY, 'AKV');
             vana.rotation = boruUcu.boru.aciDerece;
             vana.floorId = cihaz.floorId;
 
             // Vana'yı boru üzerindeki pozisyona bağla
             vana.bagliBoruId = boruUcu.boruId;
-            vana.boruPozisyonu = boruUcu.uc === 'p1' ? 0 : 1;
+            // Pozisyonu hesapla (0.0 - 1.0 arası)
+            const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
+            vana.boruPozisyonu = vanaToP1Dist / length;
 
             this.manager.components.push(vana);
             cihaz.vanaIliskilendir(vana.id);
