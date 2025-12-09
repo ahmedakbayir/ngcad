@@ -552,48 +552,38 @@ export class InteractionManager {
         if (ghost.type === 'cihaz') {
             const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
 
-            // En yakın boru ucunu bul
-            const boruUcu = this.findBoruUcuAt(point, 50); // 50 cm tolerance
+            // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
+            const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
 
             if (boruUcu && boruUcu.boru) {
-                // KRITIK: Sadece serbest uçlarda ghost göster (T-junction'da değil)
-                const isFree = this.isFreeEndpoint(boruUcu.nokta, 1);
+                // Boru yönünü hesapla (boru ucundan dışarı doğru)
+                const boru = boruUcu.boru;
+                const dx = boru.p2.x - boru.p1.x;
+                const dy = boru.p2.y - boru.p1.y;
+                const length = Math.hypot(dx, dy);
 
-                if (isFree) {
-                    // Boru yönünü hesapla (boru ucundan dışarı doğru)
-                    const boru = boruUcu.boru;
-                    const dx = boru.p2.x - boru.p1.x;
-                    const dy = boru.p2.y - boru.p1.y;
-                    const length = Math.hypot(dx, dy);
+                const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
 
-                    const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
-
-                    let girisX, girisY;
-                    if (boruUcu.uc === 'p1') {
-                        // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
-                        girisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
-                        girisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
-                    } else {
-                        // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
-                        girisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
-                        girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
-                    }
-
-                    // Cihaz merkezini hesapla (giriş noktası girisX, girisY'de olmalı)
-                    ghost.x = girisX - girisOffset.x;
-                    ghost.y = girisY - girisOffset.y;
-
-                    // Ghost rendering için bağlantı bilgisini sakla
-                    ghost.ghostConnectionInfo = {
-                        boruUcu: boruUcu,
-                        girisNoktasi: { x: girisX, y: girisY }
-                    };
+                let girisX, girisY;
+                if (boruUcu.uc === 'p1') {
+                    // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
+                    girisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
+                    girisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
                 } else {
-                    // T-junction, ghost gösterme - cursor pozisyonunda göster (bağlanamaz)
-                    ghost.x = point.x - girisOffset.x;
-                    ghost.y = point.y - girisOffset.y;
-                    ghost.ghostConnectionInfo = null;
+                    // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
+                    girisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
+                    girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
                 }
+
+                // Cihaz merkezini hesapla (giriş noktası girisX, girisY'de olmalı)
+                ghost.x = girisX - girisOffset.x;
+                ghost.y = girisY - girisOffset.y;
+
+                // Ghost rendering için bağlantı bilgisini sakla
+                ghost.ghostConnectionInfo = {
+                    boruUcu: boruUcu,
+                    girisNoktasi: { x: girisX, y: girisY }
+                };
             } else {
                 // Boru ucu bulunamadı, normal cursor pozisyonu
                 ghost.x = point.x - girisOffset.x;
@@ -1002,6 +992,29 @@ export class InteractionManager {
         // Fleks bağlantısını kur
         cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
 
+        // KRITIK FIX: Rotation değiştikten ve girisOffset yeniden hesaplandıktan sonra,
+        // cihaz pozisyonunu düzelt ki getGirisNoktasi() doğru noktayı döndürsün
+        // Hedef: Cihazın giriş noktası, boru ucundan 20 cm ileri olmalı
+        const boru = boruUcu.boru;
+        const dx = boru.p2.x - boru.p1.x;
+        const dy = boru.p2.y - boru.p1.y;
+        const length = Math.hypot(dx, dy);
+        const deviceDistance = 20; // cm
+
+        let hedefGirisX, hedefGirisY;
+        if (boruUcu.uc === 'p1') {
+            hedefGirisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
+            hedefGirisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
+        } else {
+            hedefGirisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
+            hedefGirisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
+        }
+
+        // Cihaz pozisyonunu ayarla (girisNoktasi = hedefGiris olacak şekilde)
+        const actualGiris = cihaz.getGirisNoktasi();
+        cihaz.x += (hedefGirisX - actualGiris.x);
+        cihaz.y += (hedefGirisY - actualGiris.y);
+
         // State'i senkronize et
         this.manager.saveToState();
 
@@ -1247,7 +1260,7 @@ export class InteractionManager {
         return pipeCount > 0 && pipeCount <= 2;
     }
 
-    findBoruUcuAt(point, tolerance = 5) {
+    findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
         const currentFloorId = state.currentFloor?.id;
         const candidates = [];
 
@@ -1261,10 +1274,16 @@ export class InteractionManager {
             const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
 
             if (distP1 < tolerance) {
-                candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
+                // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
+                if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p1, 1)) {
+                    candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
+                }
             }
             if (distP2 < tolerance) {
-                candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
+                // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
+                if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p2, 1)) {
+                    candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
+                }
             }
         }
 
