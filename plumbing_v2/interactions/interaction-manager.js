@@ -525,8 +525,24 @@ export class InteractionManager {
             this._debugCount++;
         }
 
-        ghost.x = point.x;
-        ghost.y = point.y;
+        // Cihaz için: giriş noktası cursor'da olmalı, cihaz merkezi offset edilmeli
+        if (ghost.type === 'cihaz') {
+            const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
+            // Connection point point'te olacak şekilde cihaz merkezini ayarla
+            ghost.x = point.x - girisOffset.x;
+            ghost.y = point.y - girisOffset.y;
+
+            if (this._debugCount <= 3) {
+                console.log('📍 GİRİŞ OFFSET FIX:', {
+                    'girisOffset': `(${girisOffset.x}, ${girisOffset.y})`,
+                    'cursor pos': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
+                    'device center': `(${ghost.x.toFixed(1)}, ${ghost.y.toFixed(1)})`
+                });
+            }
+        } else {
+            ghost.x = point.x;
+            ghost.y = point.y;
+        }
 
         // Servis kutusu - duvara snap (yerleştirme için useBoxPosition=false)
         if (ghost.type === 'servis_kutusu') {
