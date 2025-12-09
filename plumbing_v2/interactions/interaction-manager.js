@@ -72,8 +72,23 @@ export class InteractionManager {
         }
 
         const rect = dom.c2d.getBoundingClientRect();
-        const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const mouseScreenX = e.clientX - rect.left;
+        const mouseScreenY = e.clientY - rect.top;
+        const point = screenToWorld(mouseScreenX, mouseScreenY);
         const walls = state.walls;
+
+        // Debug: Mouse koordinatları (sadece cihaz ghost için, ilk 3 kez)
+        if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && !this._mouseDebugCount) {
+            this._mouseDebugCount = 0;
+        }
+        if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && this._mouseDebugCount < 3) {
+            console.log('🖱️ MOUSE DEBUG:', {
+                'screen (CSS px)': `(${mouseScreenX.toFixed(1)}, ${mouseScreenY.toFixed(1)})`,
+                'world': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
+                'canvas size': `${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`
+            });
+            this._mouseDebugCount++;
+        }
 
         // Snap hesapla
         this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
