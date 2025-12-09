@@ -444,26 +444,25 @@ export class InteractionManager {
             return true;
         }
 
-        // K - Kombi ekle
-        if (e.key === 'k' || e.key === 'K') {
+        // K - Kombi ekle (sadece duvar çizme modunda)
+        if ((e.key === 'k' || e.key === 'K') && state.currentMode === 'MİMARİ') {
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'KOMBI';
             setMode("plumbingV2", true);
             return true;
         }
 
-        // O - Ocak ekle
-        if (e.key === 'o' || e.key === 'O') {
+        // O - Ocak ekle (sadece duvar çizme modunda)
+        if ((e.key === 'o' || e.key === 'O') && state.currentMode === 'MİMARİ') {
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'OCAK';
             setMode("plumbingV2", true);
             return true;
         }
 
-        // T - Boru çizme modu (icon click simüle et)
+        // T - Duvar çizme modu (duvar icon'unu aktif et)
         if (e.key === 't' || e.key === 'T') {
-            this.manager.activeTool = 'boru';
-            setMode("plumbingV2", true);
+            setMode("MİMARİ", true); // Duvar çizme moduna geç
             return true;
         }
 
@@ -519,20 +518,12 @@ export class InteractionManager {
             }
         }
 
-        // R tuşu - seçili nesneyi döndür (servis kutusu: çıkış noktası, cihaz: merkez etrafında)
-        if (this.selectedObject && (this.selectedObject.type === 'servis_kutusu' || this.selectedObject.type === 'cihaz') && e.key === 'r') {
+        // R tuşu - seçili servis kutusunu döndür (çıkış noktası etrafında)
+        if (this.selectedObject && this.selectedObject.type === 'servis_kutusu' && e.key === 'r') {
             saveState();
             const deltaDerece = e.shiftKey ? -15 : 15; // Shift ile ters yön
-            if (this.selectedObject.type === 'cihaz') {
-                // Cihaz merkezinde döndür
-                this.selectedObject.rotation = (this.selectedObject.rotation || 0) + deltaDerece;
-                // Fleks bağlantısını güncelle
-                this.selectedObject.fleksGuncelle();
-            } else {
-                // Servis kutusu - çıkış noktası etrafında
-                const result = this.selectedObject.rotate(deltaDerece);
-                this.updateConnectedPipe(result);
-            }
+            const result = this.selectedObject.rotate(deltaDerece);
+            this.updateConnectedPipe(result);
             this.manager.saveToState();
             return true;
         }
@@ -1666,6 +1657,16 @@ export class InteractionManager {
 
                     // Pozisyonu güncelle
                     valve.updatePositionFromPipe(pipe);
+                });
+
+                // CRITICAL FIX: Boru ucuna bağlı cihazların fleksini güncelle
+                const movedEndpoint = this.dragEndpoint === 'p1' ? pipe.p1 : pipe.p2;
+                this.manager.components.forEach(comp => {
+                    if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
+                        // Cihazın fleksi bu boruya bağlı, bağlantı noktasını güncelle
+                        comp.fleksBaglanti.baglantiNoktasi = { x: movedEndpoint.x, y: movedEndpoint.y };
+                        comp.fleksGuncelle();
+                    }
                 });
 
                 // Bağlı boruları güncelle (tüm zinciri)
