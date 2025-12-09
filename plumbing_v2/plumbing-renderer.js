@@ -808,14 +808,14 @@ export class PlumbingRenderer {
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
 
-        // "G" harfi (Gaz) - BÜYÜK ve ortada
+        // "G" harfi (Gaz) - BÜYÜK ve SABİT boyutta
         if (zoom > 0.15) {
             // Beyaz glow efekti
             ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(255, 255, 255, 0.8)';
             ctx.shadowBlur = 5;
 
             ctx.fillStyle = comp.isSelected ? '#FFFFFF' : '#00FFFF';
-            ctx.font = `bold ${20 / zoom}px Arial`;
+            ctx.font = `bold 20px Arial`; // SABİT boyut
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('G', 0, 0);
@@ -910,7 +910,7 @@ export class PlumbingRenderer {
             ctx.stroke();
         }
 
-        // 4 gözlü ocak - metalik brûlör tasarımı
+        // 4 gözlü ocak - basit düz kapak tasarımı
         const burnerRadius = 5.5;
         const offset = 8;
         const burnerPositions = [
@@ -921,11 +921,11 @@ export class PlumbingRenderer {
         ];
 
         burnerPositions.forEach(pos => {
-            // Brûlör gölge
+            // Gölge efekti
             ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
             ctx.shadowBlur = 4;
 
-            // Brûlör tabanı (metalik)
+            // Düz kapak (basit daire)
             const burnerGradient = ctx.createRadialGradient(pos.x - 2, pos.y - 2, 0, pos.x, pos.y, burnerRadius);
             if (comp.isSelected) {
                 burnerGradient.addColorStop(0, '#7a99d8');
@@ -944,37 +944,10 @@ export class PlumbingRenderer {
 
             ctx.shadowBlur = 0;
 
-            // Brûlör dış halkası (metalik)
+            // Dış çerçeve
             ctx.strokeStyle = comp.isSelected ? '#6a89c8' : '#606060';
             ctx.lineWidth = 1.2 / zoom;
             ctx.stroke();
-
-            // İç brûlör halkası
-            ctx.strokeStyle = comp.isSelected ? '#5a79b8' : '#505050';
-            ctx.lineWidth = 0.8 / zoom;
-            ctx.beginPath();
-            ctx.arc(pos.x, pos.y, burnerRadius * 0.65, 0, Math.PI * 2);
-            ctx.stroke();
-
-            // Brûlör delikleri (ateş çıkış noktaları)
-            if (zoom > 0.3 && !comp.isSelected) {
-                ctx.fillStyle = '#000000';
-                const holeCount = 6;
-                const holeRadius = burnerRadius * 0.5;
-                for (let i = 0; i < holeCount; i++) {
-                    const angle = (i / holeCount) * Math.PI * 2;
-                    const hx = pos.x + Math.cos(angle) * holeRadius;
-                    const hy = pos.y + Math.sin(angle) * holeRadius;
-                    ctx.beginPath();
-                    ctx.arc(hx, hy, 0.6, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                // Merkez delik
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, 1, 0, Math.PI * 2);
-                ctx.fill();
-            }
         });
 
         ctx.restore();
