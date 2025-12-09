@@ -788,7 +788,7 @@ export class PlumbingRenderer {
             gradient.addColorStop(0.3, '#E8E8E8');    // Parlak gri
             gradient.addColorStop(0.6, '#C0C0C0');    // Orta gri (metalik)
             gradient.addColorStop(0.85, '#A0A0A0');   // Koyu gri
-            gradient.addColorStop(1, '#808080');      // En koyu kenar
+            gradient.addColorStop(1, '#E8E8E8');    // Parlak gri
         }
 
         ctx.fillStyle = gradient;
