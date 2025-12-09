@@ -599,12 +599,15 @@ export class InteractionManager {
                     girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
                 }
 
-                // Cihaz merkezini hesapla - rotation ayarlandı, şimdi doğru girisOffset kullanılacak
-                // girisOffset'i yeniden hesapla (rotation değişti)
-                ghost.girisOffset = ghost.hesaplaGirisOffset();
+                // Cihaz merkezini hesapla - rotation ayarlandı
+                // İlk tahmini pozisyon
+                ghost.x = girisX;
+                ghost.y = girisY;
 
-                ghost.x = girisX - ghost.girisOffset.x;
-                ghost.y = girisY - ghost.girisOffset.y;
+                // Şimdi getGirisNoktasi() = (girisX, girisY) olacak şekilde pozisyonu düzelt
+                const actualGiris = ghost.getGirisNoktasi();
+                ghost.x -= (actualGiris.x - girisX);
+                ghost.y -= (actualGiris.y - girisY);
 
                 // Ghost rendering için bağlantı bilgisini sakla
                 ghost.ghostConnectionInfo = {
