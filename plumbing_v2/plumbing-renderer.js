@@ -1027,8 +1027,8 @@ export class PlumbingRenderer {
             const { height } = SERVIS_KUTUSU_CONFIG;
             handleLength = height / 2 + 30; // 10cm dışarıda
         } else if (comp.type === 'cihaz') {
-            // Cihaz için: 40 cm çapında, handle 50 cm yukarıda (daha görünür)
-            handleLength = 20 + 50; // radius + 50cm
+            // Cihaz için: 30 cm çapında, handle 20 cm yukarıda (yarıya düşürüldü)
+            handleLength = 15 + 20; // radius + 20cm = 35cm
         } else {
             return; // Diğer tipler için handle çizme
         }

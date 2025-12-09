@@ -1015,6 +1015,10 @@ export class InteractionManager {
         cihaz.x += (hedefGirisX - actualGiris.x);
         cihaz.y += (hedefGirisY - actualGiris.y);
 
+        // KRITIK: Pozisyon değiştikten sonra girisOffset ve fleks bağlantısını güncelle
+        cihaz.yenidenHesaplaGirisOffset();
+        cihaz.fleksGuncelle();
+
         // State'i senkronize et
         this.manager.saveToState();
 
@@ -2079,8 +2083,8 @@ export class InteractionManager {
             const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
             handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 20;
         } else if (obj.type === 'cihaz') {
-            // Cihaz için: 40 cm çapında, handle 50 cm yukarıda (drawRotationHandles ile aynı)
-            handleLength = 20 + 50; // radius + 50cm
+            // Cihaz için: 30 cm çapında, handle 20 cm yukarıda (yarıya düşürüldü)
+            handleLength = 15 + 20; // radius + 20cm = 35cm
         }
 
         // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)
