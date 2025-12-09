@@ -806,23 +806,32 @@ export class InteractionManager {
      * - Boru ucunda vana yoksa otomatik vana eklenir
      */
     handleCihazEkleme(cihaz) {
+        console.log('🔧 CİHAZ EKLEME başladı:', cihaz.cihazTipi, 'Pozisyon:', `(${cihaz.x}, ${cihaz.y})`);
+
         // En yakın boru ucunu bul (geniş tolerance - 50 cm)
         const girisNoktasi = cihaz.getGirisNoktasi();
+        console.log('🔧 Giriş noktası:', `(${girisNoktasi.x.toFixed(1)}, ${girisNoktasi.y.toFixed(1)})`);
+
         const boruUcu = this.findBoruUcuAt(girisNoktasi, 50);
 
         if (!boruUcu) {
+            console.log('❌ CİHAZ EKLEME iptal - Boru ucu bulunamadı (50cm içinde)');
             alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
             return;
         }
+
+        console.log(`✅ Boru ucu bulundu: ${boruUcu.boruId} (${boruUcu.uc})`);
 
         // Undo için state kaydet
         saveState();
 
         // Boru ucunda vana var mı kontrol et
         const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
+        console.log('🔍 Vana kontrolü:', vanaVar ? 'VAR' : 'YOK');
 
         // Vana yoksa otomatik ekle
         if (!vanaVar) {
+            console.log('➕ Otomatik vana ekleniyor...');
             const vana = createVana(boruUcu.nokta.x, boruUcu.nokta.y, 'AKV');
             vana.rotation = boruUcu.boru.aciDerece;
             vana.floorId = cihaz.floorId;
@@ -834,16 +843,16 @@ export class InteractionManager {
             this.manager.components.push(vana);
             cihaz.vanaIliskilendir(vana.id);
 
-            console.log(`✅ Cihaz için otomatik vana eklendi: ${vana.id}`);
+            console.log(`✅ Otomatik vana eklendi: ${vana.id}`);
         } else {
             cihaz.vanaIliskilendir(vanaVar.id);
-            console.log(`✅ Cihaz mevcut vanaya bağlandı: ${vanaVar.id}`);
+            console.log(`✅ Mevcut vanaya bağlandı: ${vanaVar.id}`);
         }
 
         // Fleks bağlantısını kur
         cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
 
-        console.log(`✅ Cihaz boru ucuna fleks ile bağlandı: Boru=${boruUcu.boruId}, Uç=${boruUcu.uc}`);
+        console.log(`✅ Fleks bağlandı: Boru=${boruUcu.boruId}, Uç=${boruUcu.uc}`);
         console.log(`   Fleks uzunluğu: ${cihaz.fleksBaglanti.uzunluk.toFixed(1)} cm`);
 
         // Cihazı components dizisine ekle
@@ -851,6 +860,8 @@ export class InteractionManager {
 
         // State'i senkronize et
         this.manager.saveToState();
+
+        console.log('✅ CİHAZ EKLEME tamamlandı!');
     }
 
     /**
