@@ -1205,8 +1205,12 @@ export class PlumbingRenderer {
      * Sinüs dalgalı bağlantı çizgisi çizer (Ocak/Kombi için fleks bağlantısı)
      */
     drawWavyConnectionLine(ctx, connectionPoint, zoom, manager) {
+        console.log('🔌 FLEKS ÇİZİMİ - connectionPoint:', connectionPoint);
+
         const currentFloorId = state.currentFloor?.id;
         const pipes = (manager.pipes || []).filter(p => p.floorId === currentFloorId);
+
+        console.log(`🔌 FLEKS - Borular: ${pipes.length} adet`);
 
         let closestPipeEnd = null;
         let pipeDirection = null;
@@ -1247,7 +1251,14 @@ export class PlumbingRenderer {
             const dy = closestPipeEnd.y - connectionPoint.y;
             const distance = Math.hypot(dx, dy);
 
-            if (distance < 0.5) return; // Çok yakınsa çizme
+            console.log(`🔌 FLEKS - En yakın boru ucu: (${closestPipeEnd.x.toFixed(1)}, ${closestPipeEnd.y.toFixed(1)}), mesafe: ${distance.toFixed(1)}cm`);
+
+            if (distance < 0.5) {
+                console.log('⚠️ FLEKS - Çok yakın, çizilmiyor');
+                return; // Çok yakınsa çizme
+            }
+
+            console.log('✅ FLEKS ÇİZİLİYOR!');
 
             const amplitude = 3;      // Dalga genliği
             const frequency = 3;      // Dalga frekansı
@@ -1292,6 +1303,8 @@ export class PlumbingRenderer {
 
             ctx.stroke();
             ctx.restore();
+        } else {
+            console.log('❌ FLEKS - Boru ucu bulunamadı veya yön hesaplanamadı');
         }
     }
 
