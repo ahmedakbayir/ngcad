@@ -444,16 +444,16 @@ export class InteractionManager {
             return true;
         }
 
-        // K - Kombi ekle (sadece duvar çizme modunda)
-        if ((e.key === 'k' || e.key === 'K') && state.currentMode === 'MİMARİ') {
+        // K - Kombi ekle (her zaman - kullanıcı duvar modunda kullanır)
+        if (e.key === 'k' || e.key === 'K') {
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'KOMBI';
             setMode("plumbingV2", true);
             return true;
         }
 
-        // O - Ocak ekle (sadece duvar çizme modunda)
-        if ((e.key === 'o' || e.key === 'O') && state.currentMode === 'MİMARİ') {
+        // O - Ocak ekle (her zaman - kullanıcı duvar modunda kullanır)
+        if (e.key === 'o' || e.key === 'O') {
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'OCAK';
             setMode("plumbingV2", true);
@@ -1910,6 +1910,18 @@ export class InteractionManager {
             if (Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y) < tolerance) {
                 pipe.p2.x = newPoint.x;
                 pipe.p2.y = newPoint.y;
+            }
+        });
+
+        // CRITICAL FIX: Taşınan noktaya bağlı cihazların fleksini güncelle
+        this.manager.components.forEach(comp => {
+            if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.baglantiNoktasi) {
+                const baglanti = comp.fleksBaglanti.baglantiNoktasi;
+                // Eğer bağlantı noktası oldPoint'e çok yakınsa, newPoint'e güncelle
+                if (Math.hypot(baglanti.x - oldPoint.x, baglanti.y - oldPoint.y) < tolerance) {
+                    comp.fleksBaglanti.baglantiNoktasi = { x: newPoint.x, y: newPoint.y };
+                    comp.fleksGuncelle();
+                }
             }
         });
     }
