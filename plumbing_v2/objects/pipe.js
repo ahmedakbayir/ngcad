@@ -260,7 +260,7 @@ export class Boru {
             }
         }
 
-        return { boru1, boru2, splitPoint };
+        return { boru1, boru2, splitPoint, splitT: proj.t };
     }
 
     /**
