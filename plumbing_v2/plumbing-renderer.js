@@ -55,6 +55,24 @@ export class PlumbingRenderer {
         if (manager.tempComponent) {
             ctx.save();
             ctx.globalAlpha = 0.6;
+
+            // DEBUG: Ghost'un gerçek pozisyonunu göster
+            if (manager.tempComponent.type === 'cihaz') {
+                const zoom = state.zoom || 1;
+                // Kocaman kırmızı daire çiz (ghost'un merkezinde)
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(manager.tempComponent.x, manager.tempComponent.y, 50 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Koordinatları yaz
+                ctx.fillStyle = 'white';
+                ctx.font = `${16 / zoom}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.fillText(`GHOST (${manager.tempComponent.x.toFixed(0)}, ${manager.tempComponent.y.toFixed(0)})`,
+                            manager.tempComponent.x, manager.tempComponent.y - 60 / zoom);
+            }
+
             this.drawComponent(ctx, manager.tempComponent, manager);
             ctx.restore();
         }
