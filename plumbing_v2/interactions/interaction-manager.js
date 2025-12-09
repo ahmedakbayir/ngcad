@@ -444,16 +444,16 @@ export class InteractionManager {
             return true;
         }
 
-        // K - Kombi ekle (sadece duvar çizme modunda)
-        if ((e.key === 'k' || e.key === 'K') && state.currentMode === 'MİMARİ') {
+        // K - Kombi ekle (her zaman - kullanıcı duvar modunda kullanır)
+        if (e.key === 'k' || e.key === 'K') {
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'KOMBI';
             setMode("plumbingV2", true);
             return true;
         }
 
-        // O - Ocak ekle (sadece duvar çizme modunda)
-        if ((e.key === 'o' || e.key === 'O') && state.currentMode === 'MİMARİ') {
+        // O - Ocak ekle (her zaman - kullanıcı duvar modunda kullanır)
+        if (e.key === 'o' || e.key === 'O') {
             this.manager.activeTool = 'cihaz';
             this.manager.selectedCihazTipi = 'OCAK';
             setMode("plumbingV2", true);
@@ -462,7 +462,7 @@ export class InteractionManager {
 
         // T - Duvar çizme modu (duvar icon'unu aktif et)
         if (e.key === 't' || e.key === 'T') {
-            setMode("MİMARİ", true); // Duvar çizme moduna geç
+            setMode("drawWall", true); // Icon click ile aynı
             return true;
         }
 
@@ -914,6 +914,19 @@ export class InteractionManager {
         if (!boruUcu) {
             alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
             // Cihazı components'a ekleme, sadece iptal et
+            return false;
+        }
+
+        // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
+        const tolerance = 1; // cm
+        const pipesAtPoint = this.manager.pipes.filter(p => {
+            const distP1 = Math.hypot(p.p1.x - boruUcu.nokta.x, p.p1.y - boruUcu.nokta.y);
+            const distP2 = Math.hypot(p.p2.x - boruUcu.nokta.x, p.p2.y - boruUcu.nokta.y);
+            return distP1 < tolerance || distP2 < tolerance;
+        });
+
+        if (pipesAtPoint.length > 2) {
+            alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen bir hat ucuna yerleştirin (2 veya daha az borunun olduğu nokta).');
             return false;
         }
 
@@ -1912,6 +1925,18 @@ export class InteractionManager {
                 pipe.p2.y = newPoint.y;
             }
         });
+
+        // CRITICAL FIX: Taşınan noktaya bağlı cihazların fleksini güncelle
+        this.manager.components.forEach(comp => {
+            if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.baglantiNoktasi) {
+                const baglanti = comp.fleksBaglanti.baglantiNoktasi;
+                // Eğer bağlantı noktası oldPoint'e çok yakınsa, newPoint'e güncelle
+                if (Math.hypot(baglanti.x - oldPoint.x, baglanti.y - oldPoint.y) < tolerance) {
+                    comp.fleksBaglanti.baglantiNoktasi = { x: newPoint.x, y: newPoint.y };
+                    comp.fleksGuncelle();
+                }
+            }
+        });
     }
 
     endDrag() {
@@ -1994,8 +2019,8 @@ export class InteractionManager {
             const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
             handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 20;
         } else if (obj.type === 'cihaz') {
-            // Cihaz için: 40 cm çapında, handle 30 cm yukarıda
-            handleLength = 20 + 30; // radius + 30cm
+            // Cihaz için: 40 cm çapında, handle 50 cm yukarıda (drawRotationHandles ile aynı)
+            handleLength = 20 + 50; // radius + 50cm
         }
 
         // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)
@@ -2030,9 +2055,7 @@ export class InteractionManager {
      * Döndürme işle
      */
     handleRotation(point) {
-        if (!this.dragObject || this.dragObject.type !== 'servis_kutusu') {
-            return;
-        }
+        if (!this.dragObject) return;
 
         const obj = this.dragObject;
         const center = { x: obj.x, y: obj.y };
@@ -2053,27 +2076,35 @@ export class InteractionManager {
             newRotationDeg = Math.round(newRotationDeg / 90) * 90;
         }
 
+        if (obj.type === 'servis_kutusu') {
+            // ÖNEMLI: Çıkış noktası sabit kalmalı, kutu merkezi hareket etmeli
+            // Eski çıkış noktasını kaydet
+            const eskiCikis = obj.getCikisNoktasi();
 
-        // ÖNEMLI: Çıkış noktası sabit kalmalı, kutu merkezi hareket etmeli
-        // Eski çıkış noktasını kaydet
-        const eskiCikis = obj.getCikisNoktasi();
+            // Rotasyonu değiştir
+            obj.rotation = newRotationDeg;
 
-        // Rotasyonu değiştir
-        obj.rotation = newRotationDeg;
+            // Yeni çıkış noktasını hesapla
+            const yeniCikis = obj.getCikisNoktasi();
 
-        // Yeni çıkış noktasını hesapla
-        const yeniCikis = obj.getCikisNoktasi();
+            // Kutu merkezini ayarla (çıkış noktası sabit kalsın)
+            obj.x += eskiCikis.x - yeniCikis.x;
+            obj.y += eskiCikis.y - yeniCikis.y;
 
-        // Kutu merkezini ayarla (çıkış noktası sabit kalsın)
-        obj.x += eskiCikis.x - yeniCikis.x;
-        obj.y += eskiCikis.y - yeniCikis.y;
-
-        // Bağlı boruyu güncelle (çıkış noktası değişmedi, güncellemeye gerek yok)
-        // Ama yine de çağıralım, emin olmak için
-        if (obj.bagliBoruId) {
-            const boru = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
-            if (boru) {
-                boru.moveP1(obj.getCikisNoktasi());
+            // Bağlı boruyu güncelle (çıkış noktası değişmedi, güncellemeye gerek yok)
+            // Ama yine de çağıralım, emin olmak için
+            if (obj.bagliBoruId) {
+                const boru = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
+                if (boru) {
+                    boru.moveP1(obj.getCikisNoktasi());
+                }
+            }
+        } else if (obj.type === 'cihaz') {
+            // Cihaz: Merkez sabit, sadece rotation değişir
+            obj.rotation = newRotationDeg;
+            // Fleks bağlantısını güncelle
+            if (obj.fleksGuncelle) {
+                obj.fleksGuncelle();
             }
         }
     }
