@@ -19,8 +19,8 @@ export const CIHAZ_TIPLERI = {
     KOMBI: {
         id: 'KOMBI',
         name: 'Kombi',
-        width: 50,
-        height: 50,
+        width: 40,
+        height: 40,
         depth: 29,
         mountType: 'wall',
         bacaGerekli: true,
@@ -29,8 +29,8 @@ export const CIHAZ_TIPLERI = {
     OCAK: {
         id: 'OCAK',
         name: 'Ocak',
-        width: 50,
-        height: 50,
+        width: 40,
+        height: 40,
         depth: 59,
         mountType: 'floor',
         bacaGerekli: false,
