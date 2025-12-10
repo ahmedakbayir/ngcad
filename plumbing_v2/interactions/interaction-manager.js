@@ -578,13 +578,45 @@ export class InteractionManager {
                 const dy = boru.p2.y - boru.p1.y;
                 const length = Math.hypot(dx, dy);
 
-                // KRITIK: Ghost rotation'ı boru yönüne göre ayarla
+                // KRITIK: Ghost rotation'ı her zaman 0 (tutamaç kuzeye bakar)
+                ghost.rotation = 0;
+
+                // Borunun geldiği yönü hesapla ve girisOffset'i ona göre ayarla
                 const boruAci = boruUcu.boru.aciDerece;
+                let boruGelisAcisi;
+
                 if (boruUcu.uc === 'p1') {
-                    ghost.rotation = (boruAci + 180) % 360;
+                    // p1 ucundayız, boru p2'den p1'e geliyor
+                    boruGelisAcisi = boruAci;
                 } else {
-                    ghost.rotation = boruAci;
+                    // p2 ucundayız, boru p1'den p2'ye geliyor (ters yön)
+                    boruGelisAcisi = (boruAci + 180) % 360;
                 }
+
+                // girisOffset'i boru geliş yönüne göre ayarla (rotation = 0 için)
+                const config = ghost.config || { width: 30, height: 30 };
+                const halfW = config.width / 2;
+                const halfH = config.height / 2;
+
+                // Borunun geldiği yöne göre giriş noktasını belirle
+                boruGelisAcisi = (boruGelisAcisi + 360) % 360;
+
+                let ghostGirisOffset;
+                if (boruGelisAcisi >= 315 || boruGelisAcisi < 45) {
+                    // Doğudan geliyor → sağ kenar
+                    ghostGirisOffset = { x: halfW, y: 0 };
+                } else if (boruGelisAcisi >= 45 && boruGelisAcisi < 135) {
+                    // Güneyden geliyor → alt kenar
+                    ghostGirisOffset = { x: 0, y: halfH };
+                } else if (boruGelisAcisi >= 135 && boruGelisAcisi < 225) {
+                    // Batıdan geliyor → sol kenar
+                    ghostGirisOffset = { x: -halfW, y: 0 };
+                } else {
+                    // Kuzeyden geliyor → üst kenar
+                    ghostGirisOffset = { x: 0, y: -halfH };
+                }
+
+                ghost.girisOffset = ghostGirisOffset;
 
                 const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
 
@@ -1038,11 +1070,47 @@ export class InteractionManager {
 
         // Cihazın tutamacı her zaman kuzeye (yukarı) bakacak şekilde ayarla
         // rotation = 0 → tutamaç kuzeye bakar
-        // Bu sayede fleks bağlantıları her zaman doğru hizalanır
         cihaz.rotation = 0;
 
-        // Cihaz pozisyonunu ayarla - hedef giriş noktası boru ucundan 20 cm ileri
+        // Borunun geldiği yönü hesapla ve girisOffset'i ona göre ayarla
         const boru = boruUcu.boru;
+        const boruAci = boru.aciDerece;
+        let boruGelisAcisi;
+
+        if (boruUcu.uc === 'p1') {
+            // p1 ucundayız, boru p2'den p1'e geliyor
+            boruGelisAcisi = boruAci;
+        } else {
+            // p2 ucundayız, boru p1'den p2'ye geliyor (ters yön)
+            boruGelisAcisi = (boruAci + 180) % 360;
+        }
+
+        // girisOffset'i boru geliş yönüne göre ayarla (rotation = 0 için)
+        const { width, height } = cihaz.config;
+        const halfW = width / 2;
+        const halfH = height / 2;
+
+        // Borunun geldiği yöne göre giriş noktasını belirle
+        boruGelisAcisi = (boruGelisAcisi + 360) % 360;
+
+        let girisOffset;
+        if (boruGelisAcisi >= 315 || boruGelisAcisi < 45) {
+            // Doğudan geliyor → sağ kenar
+            girisOffset = { x: halfW, y: 0 };
+        } else if (boruGelisAcisi >= 45 && boruGelisAcisi < 135) {
+            // Güneyden geliyor → alt kenar
+            girisOffset = { x: 0, y: halfH };
+        } else if (boruGelisAcisi >= 135 && boruGelisAcisi < 225) {
+            // Batıdan geliyor → sol kenar
+            girisOffset = { x: -halfW, y: 0 };
+        } else {
+            // Kuzeyden geliyor → üst kenar
+            girisOffset = { x: 0, y: -halfH };
+        }
+
+        cihaz.girisOffset = girisOffset;
+
+        // Cihaz pozisyonunu ayarla - giriş noktası boru ucunda olacak şekilde
         const dx = boru.p2.x - boru.p1.x;
         const dy = boru.p2.y - boru.p1.y;
         const length = Math.hypot(dx, dy);
@@ -1062,8 +1130,12 @@ export class InteractionManager {
         cihaz.x += (hedefGirisX - actualGiris.x);
         cihaz.y += (hedefGirisY - actualGiris.y);
 
-        // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
-        cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
+        // SON OLARAK: Fleks bağlantısını manuel yap (girisOffset'i korumak için)
+        // fleksBagla() kullanmıyoruz çünkü yenidenHesaplaGirisOffset() bizim ayarımızı bozar
+        cihaz.fleksBaglanti.boruId = boruUcu.boruId;
+        cihaz.fleksBaglanti.baglantiNoktasi = { ...boruUcu.nokta };
+        // girisOffset'i koruyarak sadece fleks uzunluğunu güncelle
+        cihaz.fleksGuncelle();
 
         // State'i senkronize et
         this.manager.saveToState();
@@ -2122,7 +2194,8 @@ export class InteractionManager {
      */
     findRotationHandleAt(obj, point, tolerance = 8) {
         if (!obj) return false;
-        if (obj.type !== 'servis_kutusu' && obj.type !== 'cihaz') return false;
+        // Cihaz için rotation handle gösterme (tutamaç her zaman kuzeye bakar)
+        if (obj.type !== 'servis_kutusu') return false;
 
         let handleLength;
         if (obj.type === 'servis_kutusu') {

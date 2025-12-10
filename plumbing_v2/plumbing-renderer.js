@@ -483,8 +483,8 @@ export class PlumbingRenderer {
             if (comp.type !== 'servis_kutusu') {
                 this.drawSelectionBox(ctx, comp);
             }
-            // Servis kutusu ve cihaz için döndürme tutamacı
-            if (comp.type === 'servis_kutusu' || comp.type === 'cihaz') {
+            // Servis kutusu için döndürme tutamacı (cihaz her zaman kuzeye bakar)
+            if (comp.type === 'servis_kutusu') {
                 this.drawRotationHandles(ctx, comp);
             }
         }
