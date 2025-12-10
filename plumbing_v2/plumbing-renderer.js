@@ -764,7 +764,9 @@ export class PlumbingRenderer {
      */
     drawKombi(ctx, comp, manager) {
         const zoom = state.zoom || 1;
-
+        
+        const config = CIHAZ_TIPLERI[comp.cihazTipi];
+        const { width, height, color } = config;
         // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
         if (manager) {
             ctx.save();
@@ -779,7 +781,7 @@ export class PlumbingRenderer {
         }
 
         // Cihazı çiz - local coordinates (0,0)
-        const outerRadius = 20; // 40 çap için
+        const outerRadius = width/2; // 40 çap için
 
         // Shadow efekti
         ctx.save();
@@ -818,7 +820,7 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         // İç panel (ekran alanı)
-        const innerRadius = 14;
+        const innerRadius = width/3;
         const innerGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, innerRadius);
         if (comp.isSelected) {
             innerGradient.addColorStop(0, '#6aa4f8');
@@ -858,7 +860,7 @@ export class PlumbingRenderer {
         ctx.shadowBlur = 5;
 
         ctx.fillStyle = textGradient;
-        ctx.font = `bold 20px Arial`; // Sabit boyut
+        ctx.font = `bold 16px Arial`; // Sabit boyut
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('G', 0, 1); // 1 cm (+y) aşağı kaydırıldı
@@ -874,7 +876,8 @@ export class PlumbingRenderer {
      */
     drawOcak(ctx, comp, manager) {
         const zoom = state.zoom || 1;
-
+        const config = CIHAZ_TIPLERI[comp.cihazTipi];
+        const { width, height, color } = config;
         // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
         if (manager) {
             ctx.save();
@@ -893,8 +896,8 @@ export class PlumbingRenderer {
         ctx.save(); // Rotation için save
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
-        const boxSize = 20; // 40x40 kare için
-        const cornerRadius = 4;
+        const boxSize = width/2; // 40x40 kare için
+        const cornerRadius = width/10;
 
         // Shadow efekti
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
@@ -944,7 +947,7 @@ export class PlumbingRenderer {
             ctx.strokeStyle = '#858585';
             ctx.lineWidth = 1 / zoom;
             const innerBox = boxSize - 2;
-            const innerCorner = 3;
+            const innerCorner = width/15;
             ctx.beginPath();
             ctx.moveTo(-innerBox + innerCorner, -innerBox);
             ctx.lineTo(innerBox - innerCorner, -innerBox);
@@ -960,8 +963,8 @@ export class PlumbingRenderer {
         }
 
         // 4 gözlü ocak - basit düz kapak tasarımı
-        const burnerRadius = 5.5;
-        const offset = 8;
+        const burnerRadius = width/8;
+        const offset = width/4.5;
         const burnerPositions = [
             { x: -offset, y: -offset }, // Sol üst
             { x: offset, y: -offset },  // Sağ üst

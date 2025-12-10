@@ -1234,7 +1234,7 @@ export class InteractionManager {
         const obj = this.selectedObject;
 
         // Servis kutusuna bağlı ilk boru silinemesin
-        if (obj.type === 'boru') {
+       /* if (obj.type === 'boru') {
             const pipe = obj;
             // Başlangıcı servis kutusuna bağlı mı kontrol et
             if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
@@ -1242,7 +1242,7 @@ export class InteractionManager {
                 return;
             }
         }
-
+*/
         // Undo için state kaydet
         saveState();
 
