@@ -589,33 +589,21 @@ export class InteractionManager {
                     ghost.rotation = boruAci;
                 }
 
-                const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
+                const deviceDistance = 20; // cm - cihaz merkezi boru ucundan 20 cm ileri
 
-                let girisX, girisY;
+                // Cihaz merkezini direkt hesapla (tüm yönlerde aynı mantık)
                 if (boruUcu.uc === 'p1') {
-                    // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
-                    girisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
-                    girisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
+                    ghost.x = boruUcu.nokta.x - (dx / length) * deviceDistance;
+                    ghost.y = boruUcu.nokta.y - (dy / length) * deviceDistance;
                 } else {
-                    // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
-                    girisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
-                    girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
+                    ghost.x = boruUcu.nokta.x + (dx / length) * deviceDistance;
+                    ghost.y = boruUcu.nokta.y + (dy / length) * deviceDistance;
                 }
-
-                // Cihaz merkezini hesapla - rotation ayarlandı
-                // İlk tahmini pozisyon
-                ghost.x = girisX;
-                ghost.y = girisY;
-
-                // Şimdi getGirisNoktasi() = (girisX, girisY) olacak şekilde pozisyonu düzelt
-                const actualGiris = ghost.getGirisNoktasi();
-                ghost.x -= (actualGiris.x - girisX);
-                ghost.y -= (actualGiris.y - girisY);
 
                 // Ghost rendering için bağlantı bilgisini sakla
                 ghost.ghostConnectionInfo = {
                     boruUcu: boruUcu,
-                    girisNoktasi: { x: girisX, y: girisY }
+                    merkezNoktasi: { x: ghost.x, y: ghost.y }
                 };
             } else {
                 // Boru ucu bulunamadı, normal cursor pozisyonu
@@ -1065,26 +1053,23 @@ export class InteractionManager {
             cihaz.rotation = boruAci;
         }
 
-        // Cihaz pozisyonunu ayarla - hedef giriş noktası boru ucundan 20 cm ileri
+        // Cihaz merkezini boru doğrultusuna yerleştir (tüm yönlerde aynı mantık)
         const boru = boruUcu.boru;
         const dx = boru.p2.x - boru.p1.x;
         const dy = boru.p2.y - boru.p1.y;
         const length = Math.hypot(dx, dy);
-        const deviceDistance = 20; // cm
+        const deviceDistance = 20; // cm - vana ile cihaz merkezi arası mesafe
 
-        let hedefGirisX, hedefGirisY;
+        // Hedef merkez noktası: boru ucundan deviceDistance kadar borunun uzantısında
         if (boruUcu.uc === 'p1') {
-            hedefGirisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
-            hedefGirisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
+            // p1 ucundan dışarı doğru (p2'nin tersi yönde)
+            cihaz.x = boruUcu.nokta.x - (dx / length) * deviceDistance;
+            cihaz.y = boruUcu.nokta.y - (dy / length) * deviceDistance;
         } else {
-            hedefGirisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
-            hedefGirisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
+            // p2 ucundan dışarı doğru (p1'in tersi yönde)
+            cihaz.x = boruUcu.nokta.x + (dx / length) * deviceDistance;
+            cihaz.y = boruUcu.nokta.y + (dy / length) * deviceDistance;
         }
-
-        // Pozisyonu ayarla (getGirisNoktasi() = hedefGiris olacak şekilde)
-        const actualGiris = cihaz.getGirisNoktasi();
-        cihaz.x += (hedefGirisX - actualGiris.x);
-        cihaz.y += (hedefGirisY - actualGiris.y);
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
         // KRİTİK: Fleks VANAYA bağlanmalı, boru ucuna değil!
