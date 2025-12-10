@@ -1036,17 +1036,10 @@ export class InteractionManager {
             cihaz.vanaIliskilendir(vanaVar.id);
         }
 
-        // Cihaz rotation'unu boru açısına göre ayarla
-        // Boru ucu p1 ise: boru p2'den p1'e geliyor, cihaz ters yönde (180°)
-        // Boru ucu p2 ise: boru p1'den p2'ye geliyor, cihaz aynı yönde (0°)
-        const boruAci = boruUcu.boru.aciDerece;
-        if (boruUcu.uc === 'p1') {
-            // Boru p2'den p1'e geliyor, cihaz ters yönde
-            cihaz.rotation = (boruAci + 180) % 360;
-        } else {
-            // Boru p1'den p2'ye geliyor, cihaz aynı yönde
-            cihaz.rotation = boruAci;
-        }
+        // Cihazın tutamacı her zaman kuzeye (yukarı) bakacak şekilde ayarla
+        // rotation = 0 → tutamaç kuzeye bakar
+        // Bu sayede fleks bağlantıları her zaman doğru hizalanır
+        cihaz.rotation = 0;
 
         // Cihaz pozisyonunu ayarla - hedef giriş noktası boru ucundan 20 cm ileri
         const boru = boruUcu.boru;
