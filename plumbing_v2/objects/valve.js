@@ -62,8 +62,8 @@ export const VANA_TIPLERI = {
     },
 
     // Sonlanma Vanaları
-    BRANSEMAN: {
-        id: 'BRANSEMAN',
+    BRANSMAN: {
+        id: 'BRANSMAN',
         name: 'Branşman Vanası',
         kategori: 'sonlanma',
         sembol: 'kapama'
@@ -84,7 +84,7 @@ export const VANA_TIPLERI = {
 
 // Kategori listesi
 export const ARA_VANALAR = ['AKV', 'KKV', 'EMNIYET', 'CIHAZ', 'SELENOID', 'SAYAC'];
-export const SONLANMA_VANALARI = ['BRANSEMAN', 'YAN_BINA', 'DOMESTIK'];
+export const SONLANMA_VANALARI = ['BRANSMAN', 'YAN_BINA', 'DOMESTIK'];
 
 export class Vana {
     constructor(x, y, tip = 'AKV', options = {}) {
@@ -234,8 +234,8 @@ export class Vana {
     /**
      * Branşman vanasını sayaç vanasına dönüştür
      */
-    bransemandanSayacVanasiyaDonustur() {
-        if (this.vanaTipi === 'BRANSEMAN') {
+    bransmandanSayacVanasiyaDonustur() {
+        if (this.vanaTipi === 'BRANSMAN') {
             this.vanaTipi = 'SAYAC';
             return true;
         }

@@ -34,7 +34,7 @@ export const BORU_TIPLERI = {
 // Bağlantı Tipleri
 export const BAGLANTI_TIPLERI = {
     SERVIS_KUTUSU: 'servis_kutusu',
-    BRANSEMAN: 'branseman',
+    BRANSMAN: 'bransman',
     SAYAC: 'sayac',
     BORU: 'boru',           // T-bağlantı
     VANA: 'vana',
