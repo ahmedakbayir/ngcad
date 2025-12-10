@@ -1045,7 +1045,7 @@ export class InteractionManager {
             cihaz.rotation = (boruAci + 180) % 360;
         } else {
             // Boru p1'den p2'ye geliyor, cihaz aynı yönde
-            cihaz.rotation = boruAci;
+            cihaz.rotation = 0;
         }
 
         // Cihaz pozisyonunu ayarla - hedef giriş noktası boru ucundan 20 cm ileri

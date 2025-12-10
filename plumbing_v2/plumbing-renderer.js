@@ -1324,7 +1324,7 @@ export class PlumbingRenderer {
             // Fleks rengini ayarla (sarı-altın rengi)
             const adjustedColor = getAdjustedColor('#FFD700', 'cihaz');
             ctx.strokeStyle = adjustedColor;
-            ctx.lineWidth = 3 / zoom;  // Daha kalın
+            ctx.lineWidth = 1;  // Daha kalın
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 

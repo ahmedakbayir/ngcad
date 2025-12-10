@@ -219,7 +219,7 @@ export let state = {
     isDraggingRoomName: null,
     roomDragStartPos: null,
     roomOriginalCenter: null,
-    dimensionMode: 1,
+    dimensionMode: 0,
     viewMode3D: 'floor', // 3D görünüm modu: 'floor' (sadece aktif kat) veya 'building' (tüm bina)
     zoom: 1.5,
     panOffset: { x: 0, y: 0 },
@@ -275,7 +275,7 @@ export let state = {
     dimensionOptions: {
         fontSize: 12,
         color: "#24ffda",
-        defaultView: 1,
+        defaultView: 0,
         showArea: 1,
         showOuter: 0,
     },
