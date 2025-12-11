@@ -2043,7 +2043,7 @@ export class InteractionManager {
      * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
      */
     updateConnectedPipesChain(oldPoint, newPoint) {
-        const tolerance = 2; // cm - bağlantı tespit toleransı (snap hataları için)
+        const tolerance = 10; // cm - bağlantı tespit toleransı (startBodyDrag ile aynı olmalı)
 
         // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
         this.manager.pipes.forEach(pipe => {
@@ -2237,7 +2237,10 @@ export class InteractionManager {
             }
         } else if (obj.type === 'cihaz') {
             // Cihaz: Merkez sabit, sadece rotation değişir
-            obj.rotation = newRotationDeg;
+            // Açıyı 0-360 aralığına normalize et
+            let normalizedRotation = newRotationDeg % 360;
+            if (normalizedRotation < 0) normalizedRotation += 360;
+            obj.rotation = normalizedRotation;
 
             // KRITIK: En yakın kenarı yeniden hesapla (fleks kopmaması için)
             if (obj.yenidenHesaplaGirisOffset) {
@@ -2354,7 +2357,34 @@ export class InteractionManager {
 
                 // Bağlı boru zincirini güncelle (ilerdeki tüm borular)
                 this.updateConnectedPipesChain(oldP1, newP1);
+            } else {
+                // nextPipe yok - servis kutusu bağlantısını temizle
+                if (deletedPipe.baslangicBaglanti && deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                    const servisKutusu = this.manager.components.find(
+                        c => c.id === deletedPipe.baslangicBaglanti.hedefId
+                    );
+                    if (servisKutusu) {
+                        servisKutusu.bagliBoruId = null;
+                    }
+                }
             }
+
+            // Boru silindiğinde, bu boruya fleks ile bağlı cihazların bağlantısını temizle
+            this.manager.components.forEach(comp => {
+                if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === deletedPipe.id) {
+                    comp.fleksBaglanti.boruId = null;
+                    comp.fleksBaglanti.baglantiNoktasi = null;
+                }
+            });
+
+            // Bu boruda bağlı vanaları da sil (bağımsız vana nesneleri)
+            const valvesToRemove = this.manager.components.filter(comp =>
+                comp.type === 'vana' && comp.bagliBoruId === deletedPipe.id
+            );
+            valvesToRemove.forEach(vana => {
+                const idx = this.manager.components.findIndex(c => c.id === vana.id);
+                if (idx !== -1) this.manager.components.splice(idx, 1);
+            });
 
             const index = this.manager.pipes.findIndex(p => p.id === obj.id);
             if (index !== -1) this.manager.pipes.splice(index, 1);
