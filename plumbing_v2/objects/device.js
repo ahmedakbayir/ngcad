@@ -294,7 +294,8 @@ export class Cihaz {
         const uzunluk = Math.hypot(dx, dy);
 
         // İçeri margin - fleks bitiş noktası cihazın içine doğru uzansın
-        const iceriMargin = 10; // cm
+        // 15 cm - rotate ederken kopmaması için daha fazla içeri uzatıldı
+        const iceriMargin = 15; // cm
 
         let bitis;
         if (uzunluk > iceriMargin) {

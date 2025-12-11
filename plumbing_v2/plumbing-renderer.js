@@ -1590,7 +1590,31 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
-        // 2. Fleks çizgisi (boru ucundan cihaz giriş noktasına)
+        // 2. Fleks çizgisi (boru ucundan cihazın içine doğru)
+        // Cihazın en yakın kenarını ve merkeze doğru bitiş noktasını hesapla
+        const girisNoktasi_cihaz = ghost.getGirisNoktasi();
+        const merkez = { x: ghost.x, y: ghost.y };
+
+        // Girişten merkeze doğru vektör
+        const dx_flex = merkez.x - girisNoktasi_cihaz.x;
+        const dy_flex = merkez.y - girisNoktasi_cihaz.y;
+        const uzunluk_flex = Math.hypot(dx_flex, dy_flex);
+
+        // İçeri margin - fleks bitiş noktası cihazın içine doğru uzansın
+        const iceriMargin = 15; // cm - ghost için daha belirgin olsun
+
+        let fleksBitis;
+        if (uzunluk_flex > iceriMargin) {
+            // Girişten merkeze doğru iceriMargin kadar git
+            fleksBitis = {
+                x: girisNoktasi_cihaz.x + (dx_flex / uzunluk_flex) * iceriMargin,
+                y: girisNoktasi_cihaz.y + (dy_flex / uzunluk_flex) * iceriMargin
+            };
+        } else {
+            // Eğer giriş zaten merkeze çok yakınsa, merkezi kullan
+            fleksBitis = merkez;
+        }
+
         ctx.globalAlpha = 0.6;
         ctx.strokeStyle = '#FFD700'; // Sarı
         ctx.lineWidth = 2;
@@ -1598,7 +1622,7 @@ export class PlumbingRenderer {
 
         ctx.beginPath();
         ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y);
-        ctx.lineTo(girisNoktasi.x, girisNoktasi.y);
+        ctx.lineTo(fleksBitis.x, fleksBitis.y);
         ctx.stroke();
 
         ctx.setLineDash([]); // Reset dash
