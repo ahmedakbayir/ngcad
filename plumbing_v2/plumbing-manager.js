@@ -229,6 +229,54 @@ export class PlumbingManager {
     }
 
     /**
+     * Boş bir boru ucuna "Kombi" veya "Ocak" gibi bir cihaz yerleştirir.
+     * @param {string} deviceType - Yerleştirilecek cihazın tipi ('KOMBI', 'OCAK', vb.)
+     */
+    placeDeviceAtOpenEnd(deviceType) {
+        // Sadece 'KOMBI' ve 'OCAK' tiplerine izin ver
+        if (deviceType !== 'KOMBI' && deviceType !== 'OCAK') {
+            console.warn(`Unsupported device type for automatic placement: ${deviceType}`);
+            return false;
+        }
+
+        const openPipes = this.getBosBitisBorular();
+        if (openPipes.length === 0) {
+            console.log("Otomatik yerleştirme için boşta boru ucu bulunamadı.");
+            return false; // Boşta boru ucu yoksa bir şey yapma
+        }
+
+        // İlk boş boruyu seç
+        const pipeToConnect = openPipes[0];
+        const connectionPoint = pipeToConnect.p2;
+        const floorId = pipeToConnect.floorId || state.currentFloor?.id;
+
+        // Yeni cihazı oluştur
+        const newDevice = createCihaz(connectionPoint.x, connectionPoint.y, deviceType, { floorId });
+
+        if (!newDevice) {
+            console.error("Cihaz oluşturulamadı.");
+            return false;
+        }
+
+        // Cihazı component listesine ekle
+        this.components.push(newDevice);
+
+        // Borunun bitiş bağlantısını yeni cihaza güncelle
+        pipeToConnect.bitisBaglanti = {
+            tip: 'cihaz',
+            hedefId: newDevice.id,
+            noktaIndex: 0 // Cihazların genelde tek bağlantı noktası olur (index 0)
+        };
+
+        // Değişiklikleri state'e kaydet
+        this.saveToState();
+
+        console.log(`${deviceType} başarıyla boş boru ucuna eklendi.`);
+        return true; // Başarılı olduğunu belirt
+    }
+
+
+    /**
      * Verilen noktadaki nesneyi bul
      * @param {object} pos - {x, y} koordinatları
      * @param {number} tolerance - Tolerans değeri
