@@ -336,6 +336,28 @@ export class Cihaz {
     }
 
     /**
+     * Fleks bağlantısını belirli bir boru ucuna yeniden bağla
+     * @param {string} boruId - Boru ID'si
+     * @param {Object} endpoint - Bağlanacak uç nokta {x, y}
+     */
+    fleksYenidenBagla(boruId, endpoint) {
+        this.fleksBaglanti.boruId = boruId;
+        this.fleksBaglanti.baglantiNoktasi = { x: endpoint.x, y: endpoint.y };
+        this.yenidenHesaplaGirisOffset();
+        this.fleksGuncelle();
+    }
+
+    /**
+     * Fleks bağlantısı geçerli mi kontrol et
+     */
+    fleksBaglantiGecerliMi() {
+        return this.fleksBaglanti.boruId !== null &&
+               this.fleksBaglanti.baglantiNoktasi !== null &&
+               !isNaN(this.fleksBaglanti.baglantiNoktasi.x) &&
+               !isNaN(this.fleksBaglanti.baglantiNoktasi.y);
+    }
+
+    /**
      * Taşı (fleks uzar/kısalır)
      */
     move(newX, newY) {

@@ -882,6 +882,29 @@ export class InteractionManager {
             }
         });
 
+        // Cihaz fleks bağlantılarını güncelle (p2'ye bağlı cihazlar boru2'ye geçmeli)
+        this.manager.components.forEach(comp => {
+            if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
+                // Cihaz bu boruya fleks ile bağlı
+                // Bağlantı noktası p2'ye yakınsa boru2'ye, değilse boru1'e bağla
+                const baglanti = comp.fleksBaglanti.baglantiNoktasi;
+                if (baglanti) {
+                    const distToP2 = Math.hypot(baglanti.x - pipe.p2.x, baglanti.y - pipe.p2.y);
+                    if (distToP2 < 5) {
+                        // p2'ye bağlıydı, boru2'ye aktar
+                        comp.fleksBaglanti.boruId = boru2.id;
+                        comp.fleksBaglanti.baglantiNoktasi = { x: boru2.p2.x, y: boru2.p2.y };
+                    } else {
+                        // p1'e bağlıydı, boru1'e aktar
+                        comp.fleksBaglanti.boruId = boru1.id;
+                        comp.fleksBaglanti.baglantiNoktasi = { x: boru1.p1.x, y: boru1.p1.y };
+                    }
+                    comp.yenidenHesaplaGirisOffset();
+                    comp.fleksGuncelle();
+                }
+            }
+        });
+
         // Servis kutusuna bağlı mı kontrol et (referansı güncellemek için)
         if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
             const servisKutusu = this.manager.components.find(
@@ -2369,11 +2392,52 @@ export class InteractionManager {
                 }
             }
 
-            // Boru silindiğinde, bu boruya fleks ile bağlı cihazların bağlantısını temizle
+            // Boru silindiğinde, bu boruya fleks ile bağlı cihazların bağlantısını güncelle
             this.manager.components.forEach(comp => {
                 if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === deletedPipe.id) {
-                    comp.fleksBaglanti.boruId = null;
-                    comp.fleksBaglanti.baglantiNoktasi = null;
+                    // Eğer nextPipe varsa, fleks bağlantısını nextPipe'a aktar
+                    if (nextPipe) {
+                        // Silinen borunun p2'sine bağlıydı, şimdi nextPipe'ın p2'sine bağla
+                        comp.fleksBaglanti.boruId = nextPipe.id;
+                        comp.fleksBaglanti.baglantiNoktasi = { x: nextPipe.p2.x, y: nextPipe.p2.y };
+                        comp.yenidenHesaplaGirisOffset();
+                        comp.fleksGuncelle();
+                    } else {
+                        // nextPipe yoksa, en yakın boru ucunu bul ve bağla
+                        const cihazPos = { x: comp.x, y: comp.y };
+                        let minDist = Infinity;
+                        let closestPipe = null;
+                        let closestEndpoint = null;
+
+                        this.manager.pipes.forEach(pipe => {
+                            if (pipe.id === deletedPipe.id) return;
+
+                            const dist1 = Math.hypot(pipe.p1.x - cihazPos.x, pipe.p1.y - cihazPos.y);
+                            const dist2 = Math.hypot(pipe.p2.x - cihazPos.x, pipe.p2.y - cihazPos.y);
+
+                            if (dist2 < minDist) {
+                                minDist = dist2;
+                                closestPipe = pipe;
+                                closestEndpoint = { x: pipe.p2.x, y: pipe.p2.y };
+                            }
+                            if (dist1 < minDist) {
+                                minDist = dist1;
+                                closestPipe = pipe;
+                                closestEndpoint = { x: pipe.p1.x, y: pipe.p1.y };
+                            }
+                        });
+
+                        if (closestPipe && minDist < 200) {
+                            comp.fleksBaglanti.boruId = closestPipe.id;
+                            comp.fleksBaglanti.baglantiNoktasi = closestEndpoint;
+                            comp.yenidenHesaplaGirisOffset();
+                            comp.fleksGuncelle();
+                        } else {
+                            // Yakın boru yoksa bağlantıyı temizle
+                            comp.fleksBaglanti.boruId = null;
+                            comp.fleksBaglanti.baglantiNoktasi = null;
+                        }
+                    }
                 }
             });
 
