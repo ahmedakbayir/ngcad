@@ -1315,7 +1315,7 @@ export class PlumbingRenderer {
                 return; // Çok yakınsa çizme
             }
 
-            const amplitude = 3;      // Dalga genliği
+            const amplitude = 1;      // Dalga genliği
             const frequency = 3;      // Dalga frekansı
             const segments = 50;      // Segment sayısı
 
