@@ -768,7 +768,9 @@ export class PlumbingRenderer {
         // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
         if (manager) {
             ctx.save();
-            ctx.translate(-comp.x, -comp.y); // Component offset'ini geri al
+            // --- DÜZELTME: Rotasyonu ve çeviriyi geri al ---
+            if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
+            ctx.translate(-comp.x, -comp.y); 
 
             // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
             let targetPoint = null;
@@ -898,7 +900,9 @@ export class PlumbingRenderer {
         // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
         if (manager) {
             ctx.save();
-            ctx.translate(-comp.x, -comp.y); // Component offset'ini geri al
+            // --- DÜZELTME: Rotasyonu ve çeviriyi geri al ---
+            if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
+            ctx.translate(-comp.x, -comp.y);
 
             // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
             let targetPoint = null;
