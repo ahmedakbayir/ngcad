@@ -2218,7 +2218,13 @@ export class InteractionManager {
         } else if (obj.type === 'cihaz') {
             // Cihaz: Merkez sabit, sadece rotation değişir
             obj.rotation = newRotationDeg;
-            // Fleks bağlantısını güncelle
+
+            // KRITIK: En yakın kenarı yeniden hesapla (fleks kopmaması için)
+            if (obj.yenidenHesaplaGirisOffset) {
+                obj.yenidenHesaplaGirisOffset();
+            }
+
+            // Fleks uzunluğunu güncelle
             if (obj.fleksGuncelle) {
                 obj.fleksGuncelle();
             }
