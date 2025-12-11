@@ -807,34 +807,6 @@ function onKeyDown(e) {
         }
     }
 
-    // YENİ: Kombi/Ocak hızlı ekleme kısayolu
-    if ((e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'o') && !inFPSMode && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-        e.preventDefault();
-
-        // 1. Mevcut eylemleri doğrudan iptal et (Escape tuşu gibi)
-        if (state.isEditingLength) cancelLengthEdit();
-        setState({ selectedObject: null, selectedGroup: [] });
-        setState({ startPoint: null });
-        if (plumbingManager.interactionManager) {
-            // Bu fonksiyon hayalet boru gibi önizlemeleri iptal eder.
-            plumbingManager.interactionManager.cancelCurrentAction();
-        }
-        setMode("select");
-
-        // 2. Cihaz tipini belirle
-        const deviceType = e.key.toLowerCase() === 'k' ? 'KOMBI' : 'OCAK';
-
-        // 3. Cihazı yerleştir. State güncellemelerinin tamamlanması için kısa bir gecikme ekleyelim.
-        setTimeout(() => {
-            if (plumbingManager.placeDeviceAtOpenEnd(deviceType)) {
-                saveState();
-                update3DScene();
-            }
-        }, 0); // 0ms timeout, işlemi bir sonraki event loop'a erteler.
-
-        return; // Diğer kısayollarla çakışmaması için
-    }
-
     if (e.key.toLowerCase() === "d" && !inFPSMode) { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
     if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");
     if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawRoom");
