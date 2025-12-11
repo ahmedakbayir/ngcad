@@ -811,20 +811,26 @@ function onKeyDown(e) {
     if ((e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'o') && !inFPSMode && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault();
 
-        // 1. "Escape" tuşu işlevini tetikle (mevcut durumu temizler)
-        const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true });
-        window.dispatchEvent(escapeEvent);
+        // 1. Mevcut eylemleri doğrudan iptal et (Escape tuşu gibi)
+        if (state.isEditingLength) cancelLengthEdit();
+        setState({ selectedObject: null, selectedGroup: [] });
+        setState({ startPoint: null });
+        if (plumbingManager.interactionManager) {
+            // Bu fonksiyon hayalet boru gibi önizlemeleri iptal eder.
+            plumbingManager.interactionManager.cancelCurrentAction();
+        }
+        setMode("select");
 
         // 2. Cihaz tipini belirle
         const deviceType = e.key.toLowerCase() === 'k' ? 'KOMBI' : 'OCAK';
 
-        // 3. Cihazı yerleştir (Escape'in state'i temizlemesi için kısa bir gecikmeyle)
+        // 3. Cihazı yerleştir. State güncellemelerinin tamamlanması için kısa bir gecikme ekleyelim.
         setTimeout(() => {
             if (plumbingManager.placeDeviceAtOpenEnd(deviceType)) {
                 saveState();
                 update3DScene();
             }
-        }, 50);
+        }, 0); // 0ms timeout, işlemi bir sonraki event loop'a erteler.
 
         return; // Diğer kısayollarla çakışmaması için
     }
