@@ -2024,7 +2024,7 @@ export class InteractionManager {
      * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
      */
     updateConnectedPipesChain(oldPoint, newPoint) {
-        const tolerance = 0.5; // cm
+        const tolerance = 2; // cm - bağlantı tespit toleransı (snap hataları için)
 
         // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
         this.manager.pipes.forEach(pipe => {
