@@ -311,22 +311,22 @@ export class PlumbingRenderer {
 
     drawPipeEndpoints(ctx, pipe) {
         // Uç noktaları küçük belirgin noktalar (seçili borular için)
-        const r = 3; // Küçük
+        const r = 2; // Küçük
 
         // p1 noktası
         ctx.fillStyle = '#FF8C00'; // Turuncu
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        //ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
+        ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
         ctx.fill();
-        //ctx.stroke();
+        ctx.stroke();
 
         // p2 noktası
         ctx.beginPath();
-        //ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
+        ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
         ctx.fill();
-        //ctx.stroke();
+        ctx.stroke();
     }
 
     /**
@@ -1336,7 +1336,7 @@ export class PlumbingRenderer {
             }
 
             const amplitude = 1;      // Dalga genliği
-            const frequency = 3;      // Dalga frekansı
+            const frequency = 4;      // Dalga frekansı
             const segments = 50;      // Segment sayısı
 
             ctx.save();
@@ -1364,7 +1364,7 @@ export class PlumbingRenderer {
                 const perpX = -dy / distance;
                 const perpY = dx / distance;
 
-                const smoothEnvelope = t * t * (3 - 2 * t);
+                const smoothEnvelope = t * t/2 * (4 - 2 * t);
 
                 const wave = Math.sin(smoothEnvelope * frequency * Math.PI * 2);
 

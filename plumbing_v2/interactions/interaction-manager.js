@@ -1231,7 +1231,7 @@ export class InteractionManager {
         if (!this.selectedObject) return;
 
         const obj = this.selectedObject;
-
+/*
         // Servis kutusuna bağlı ilk boru silinemesin
         if (obj.type === 'boru') {
             const pipe = obj;
@@ -1241,7 +1241,7 @@ export class InteractionManager {
                 return;
             }
         }
-
+*/
         // Undo için state kaydet
         saveState();
 
