@@ -484,9 +484,28 @@ export class InteractionManager {
         }
 
         // Delete - seçili nesneyi sil
-        if (e.key === 'Delete' && this.selectedObject) {
-            this.deleteSelectedObject();
-            return true;
+        if (e.key === 'Delete') {
+            // Hem this.selectedObject hem de state.selectedObject'i kontrol et
+            if (this.selectedObject) {
+                this.deleteSelectedObject();
+                return true;
+            }
+            // Eğer this.selectedObject null ama state.selectedObject varsa, önce seç sonra sil
+            if (!this.selectedObject && state.selectedObject) {
+                const stateObj = state.selectedObject;
+                // V2 plumbing nesnesi mi kontrol et
+                if (stateObj && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(stateObj.type)) {
+                    // Nesneyi bul ve seç
+                    const obj = stateObj.object;
+                    if (obj) {
+                        // this.selectedObject'i senkronize et
+                        this.selectedObject = obj;
+                        // Şimdi sil
+                        this.deleteSelectedObject();
+                        return true;
+                    }
+                }
+            }
         }
 
         // Ok tuşları - seçili boru navigasyonu
