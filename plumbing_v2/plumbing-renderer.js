@@ -770,9 +770,16 @@ export class PlumbingRenderer {
             ctx.save();
             ctx.translate(-comp.x, -comp.y); // Component offset'ini geri al
 
+            // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
+            let targetPoint = null;
+            if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
+                const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+                if (pipe) {
+                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
+                }
+            }
+
             const connectionPoint = comp.getGirisNoktasi();
-            // Yerleştirilmiş cihaz için stored connection point kullan
-            const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
             const deviceCenter = { x: comp.x, y: comp.y };
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
 
@@ -881,9 +888,16 @@ export class PlumbingRenderer {
             ctx.save();
             ctx.translate(-comp.x, -comp.y); // Component offset'ini geri al
 
+            // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
+            let targetPoint = null;
+            if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
+                const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+                if (pipe) {
+                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
+                }
+            }
+
             const connectionPoint = comp.getGirisNoktasi();
-            // Yerleştirilmiş cihaz için stored connection point kullan
-            const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
             const deviceCenter = { x: comp.x, y: comp.y };
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
 
