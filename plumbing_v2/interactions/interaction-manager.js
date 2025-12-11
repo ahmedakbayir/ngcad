@@ -886,21 +886,15 @@ export class InteractionManager {
         this.manager.components.forEach(comp => {
             if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
                 // Cihaz bu boruya fleks ile bağlı
-                // Bağlantı noktası p2'ye yakınsa boru2'ye, değilse boru1'e bağla
-                const baglanti = comp.fleksBaglanti.baglantiNoktasi;
-                if (baglanti) {
-                    const distToP2 = Math.hypot(baglanti.x - pipe.p2.x, baglanti.y - pipe.p2.y);
-                    if (distToP2 < 5) {
-                        // p2'ye bağlıydı, boru2'ye aktar
-                        comp.fleksBaglanti.boruId = boru2.id;
-                        comp.fleksBaglanti.baglantiNoktasi = { x: boru2.p2.x, y: boru2.p2.y };
-                    } else {
-                        // p1'e bağlıydı, boru1'e aktar
-                        comp.fleksBaglanti.boruId = boru1.id;
-                        comp.fleksBaglanti.baglantiNoktasi = { x: boru1.p1.x, y: boru1.p1.y };
-                    }
-                    comp.yenidenHesaplaGirisOffset();
-                    comp.fleksGuncelle();
+                const endpoint = comp.fleksBaglanti.endpoint;
+                if (endpoint === 'p2') {
+                    // p2'ye bağlıydı, boru2'ye aktar
+                    comp.fleksBaglanti.boruId = boru2.id;
+                    comp.fleksBaglanti.endpoint = 'p2';
+                } else {
+                    // p1'e bağlıydı, boru1'e aktar
+                    comp.fleksBaglanti.boruId = boru1.id;
+                    comp.fleksBaglanti.endpoint = 'p1';
                 }
             }
         });
@@ -1111,7 +1105,8 @@ export class InteractionManager {
         cihaz.y = merkezY;
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
-        cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
+        // boruUcu.uc = 'p1' veya 'p2'
+        cihaz.fleksBagla(boruUcu.boruId, boruUcu.uc);
 
         // State'i senkronize et
         this.manager.saveToState();
@@ -1830,17 +1825,8 @@ export class InteractionManager {
                     valve.updatePositionFromPipe(pipe);
                 });
 
-                // CRITICAL FIX: Boru ucuna bağlı cihazların fleksini güncelle
-                const movedEndpoint = this.dragEndpoint === 'p1' ? pipe.p1 : pipe.p2;
-                this.manager.components.forEach(comp => {
-                    if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
-                        // Cihazın fleksi bu boruya bağlı, bağlantı noktasını güncelle
-                        comp.fleksBaglanti.baglantiNoktasi = { x: movedEndpoint.x, y: movedEndpoint.y };
-                        // KRITIK: En yakın noktadan bağlantıyı yeniden hesapla
-                        comp.yenidenHesaplaGirisOffset();
-                        comp.fleksGuncelle();
-                    }
-                });
+                // Fleks artık otomatik olarak boru ucundan koordinat alıyor
+                // Ekstra güncelleme gerekmiyor
 
                 // Bağlı boruları güncelle (tüm zinciri)
                 this.updateConnectedPipesChain(oldPoint, finalPos);
@@ -2083,19 +2069,8 @@ export class InteractionManager {
             }
         });
 
-        // CRITICAL FIX: Taşınan noktaya bağlı cihazların fleksini güncelle
-        this.manager.components.forEach(comp => {
-            if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.baglantiNoktasi) {
-                const baglanti = comp.fleksBaglanti.baglantiNoktasi;
-                // Eğer bağlantı noktası oldPoint'e çok yakınsa, newPoint'e güncelle
-                if (Math.hypot(baglanti.x - oldPoint.x, baglanti.y - oldPoint.y) < tolerance) {
-                    comp.fleksBaglanti.baglantiNoktasi = { x: newPoint.x, y: newPoint.y };
-                    // KRITIK: En yakın noktadan bağlantıyı yeniden hesapla
-                    comp.yenidenHesaplaGirisOffset();
-                    comp.fleksGuncelle();
-                }
-            }
-        });
+        // Fleks artık boruId ve endpoint ('p1'/'p2') saklıyor
+        // Koordinatlar her zaman borudan okunuyor, ekstra güncelleme gerekmiyor
     }
 
     endDrag() {
@@ -2265,15 +2240,8 @@ export class InteractionManager {
             if (normalizedRotation < 0) normalizedRotation += 360;
             obj.rotation = normalizedRotation;
 
-            // KRITIK: En yakın kenarı yeniden hesapla (fleks kopmaması için)
-            if (obj.yenidenHesaplaGirisOffset) {
-                obj.yenidenHesaplaGirisOffset();
-            }
-
-            // Fleks uzunluğunu güncelle
-            if (obj.fleksGuncelle) {
-                obj.fleksGuncelle();
-            }
+            // Fleks artık her render'da borudan koordinat okuyor
+            // Döndürme sonrası ekstra güncelleme gerekmiyor
         }
     }
 
@@ -2399,15 +2367,13 @@ export class InteractionManager {
                     if (nextPipe) {
                         // Silinen borunun p2'sine bağlıydı, şimdi nextPipe'ın p2'sine bağla
                         comp.fleksBaglanti.boruId = nextPipe.id;
-                        comp.fleksBaglanti.baglantiNoktasi = { x: nextPipe.p2.x, y: nextPipe.p2.y };
-                        comp.yenidenHesaplaGirisOffset();
-                        comp.fleksGuncelle();
+                        comp.fleksBaglanti.endpoint = 'p2';
                     } else {
                         // nextPipe yoksa, en yakın boru ucunu bul ve bağla
                         const cihazPos = { x: comp.x, y: comp.y };
                         let minDist = Infinity;
                         let closestPipe = null;
-                        let closestEndpoint = null;
+                        let closestEndpointName = null;
 
                         this.manager.pipes.forEach(pipe => {
                             if (pipe.id === deletedPipe.id) return;
@@ -2418,24 +2384,22 @@ export class InteractionManager {
                             if (dist2 < minDist) {
                                 minDist = dist2;
                                 closestPipe = pipe;
-                                closestEndpoint = { x: pipe.p2.x, y: pipe.p2.y };
+                                closestEndpointName = 'p2';
                             }
                             if (dist1 < minDist) {
                                 minDist = dist1;
                                 closestPipe = pipe;
-                                closestEndpoint = { x: pipe.p1.x, y: pipe.p1.y };
+                                closestEndpointName = 'p1';
                             }
                         });
 
                         if (closestPipe && minDist < 200) {
                             comp.fleksBaglanti.boruId = closestPipe.id;
-                            comp.fleksBaglanti.baglantiNoktasi = closestEndpoint;
-                            comp.yenidenHesaplaGirisOffset();
-                            comp.fleksGuncelle();
+                            comp.fleksBaglanti.endpoint = closestEndpointName;
                         } else {
                             // Yakın boru yoksa bağlantıyı temizle
                             comp.fleksBaglanti.boruId = null;
-                            comp.fleksBaglanti.baglantiNoktasi = null;
+                            comp.fleksBaglanti.endpoint = null;
                         }
                     }
                 }

@@ -105,7 +105,7 @@ export class Cihaz {
         // Fleks bağlantısı
         this.fleksBaglanti = {
             boruId: null,
-            baglantiNoktasi: null, // Boru ucundaki nokta
+            endpoint: null, // 'p1' veya 'p2' - hangi uç
             uzunluk: FLEKS_CONFIG.defaultUzunluk
         };
 
@@ -232,12 +232,13 @@ export class Cihaz {
     /**
      * Giriş offset'ini bağlantı noktasına göre yeniden hesapla
      * KRITIK: Fleks daima cihazın en yakın noktasından bağlanmalı
+     * @param {Object} baglantiNoktasi - Boru uç noktası {x, y}
      */
-    yenidenHesaplaGirisOffset() {
-        if (!this.fleksBaglanti.baglantiNoktasi) return;
+    yenidenHesaplaGirisOffset(baglantiNoktasi) {
+        if (!baglantiNoktasi) return;
 
         // En yakın kenar noktasını bul (world coordinates)
-        const enYakinWorld = this.getEnYakinKenar(this.fleksBaglanti.baglantiNoktasi);
+        const enYakinWorld = this.getEnYakinKenar(baglantiNoktasi);
 
         if (enYakinWorld) {
             // World'den local'e çevir
@@ -249,7 +250,6 @@ export class Cihaz {
                 this.girisOffset = newOffset;
             } else {
                 // Hatalı hesaplama - varsayılan offset kullan
-                console.warn('Fleks giriş offset hesaplama hatası, varsayılan kullanılıyor');
                 this.girisOffset = this.hesaplaGirisOffset();
             }
         }
@@ -257,28 +257,42 @@ export class Cihaz {
 
     /**
      * Fleks bağlantısı yap
+     * @param {string} boruId - Boru ID'si
+     * @param {string} endpoint - 'p1' veya 'p2'
      */
-    fleksBagla(boruId, baglantiNoktasi) {
+    fleksBagla(boruId, endpoint) {
         this.fleksBaglanti.boruId = boruId;
-        this.fleksBaglanti.baglantiNoktasi = { ...baglantiNoktasi };
+        this.fleksBaglanti.endpoint = endpoint; // 'p1' veya 'p2'
+    }
 
-        // KRITIK: En yakın noktadan bağlan
-        this.yenidenHesaplaGirisOffset();
-        this.fleksGuncelle();
+    /**
+     * Fleks bağlantı noktasını borudan al
+     * @param {Object} pipe - Boru nesnesi
+     * @returns {Object|null} - {x, y} koordinatları
+     */
+    getFleksBaglantiNoktasi(pipe) {
+        if (!pipe || !this.fleksBaglanti.endpoint) return null;
+
+        if (this.fleksBaglanti.endpoint === 'p1') {
+            return { x: pipe.p1.x, y: pipe.p1.y };
+        } else if (this.fleksBaglanti.endpoint === 'p2') {
+            return { x: pipe.p2.x, y: pipe.p2.y };
+        }
+        return null;
     }
 
     /**
      * Fleks uzunluğunu güncelle
+     * @param {Object} baglantiNoktasi - Boru uç noktası {x, y}
      */
-    fleksGuncelle() {
-        if (!this.fleksBaglanti.baglantiNoktasi) return;
+    fleksGuncelle(baglantiNoktasi) {
+        if (!baglantiNoktasi) return;
 
         const giris = this.getGirisNoktasi();
-        const baglanti = this.fleksBaglanti.baglantiNoktasi;
 
         this.fleksBaglanti.uzunluk = Math.hypot(
-            giris.x - baglanti.x,
-            giris.y - baglanti.y
+            giris.x - baglantiNoktasi.x,
+            giris.y - baglantiNoktasi.y
         );
 
         // Sınırla
@@ -291,9 +305,10 @@ export class Cihaz {
     /**
      * Fleks çizgi noktaları
      * KRITIK: Fleks bitiş noktası cihazın en yakın kenarından MERKEZINE doğru uzanır
+     * @param {Object} baglantiNoktasi - Boru uç noktası {x, y}
      */
-    getFleksCizgi() {
-        if (!this.fleksBaglanti.baglantiNoktasi) return null;
+    getFleksCizgi(baglantiNoktasi) {
+        if (!baglantiNoktasi) return null;
 
         const girisNoktasi = this.getGirisNoktasi();
 
@@ -301,7 +316,7 @@ export class Cihaz {
         if (!girisNoktasi || isNaN(girisNoktasi.x) || isNaN(girisNoktasi.y)) {
             // Fallback: bağlantı noktasından cihaza doğru basit çizgi
             return {
-                baslangic: this.fleksBaglanti.baglantiNoktasi,
+                baslangic: baglantiNoktasi,
                 bitis: { x: this.x, y: this.y }
             };
         }
@@ -330,7 +345,7 @@ export class Cihaz {
         }
 
         return {
-            baslangic: this.fleksBaglanti.baglantiNoktasi,
+            baslangic: baglantiNoktasi,
             bitis: bitis
         };
     }
@@ -338,13 +353,11 @@ export class Cihaz {
     /**
      * Fleks bağlantısını belirli bir boru ucuna yeniden bağla
      * @param {string} boruId - Boru ID'si
-     * @param {Object} endpoint - Bağlanacak uç nokta {x, y}
+     * @param {string} endpoint - 'p1' veya 'p2'
      */
     fleksYenidenBagla(boruId, endpoint) {
         this.fleksBaglanti.boruId = boruId;
-        this.fleksBaglanti.baglantiNoktasi = { x: endpoint.x, y: endpoint.y };
-        this.yenidenHesaplaGirisOffset();
-        this.fleksGuncelle();
+        this.fleksBaglanti.endpoint = endpoint;
     }
 
     /**
@@ -352,25 +365,15 @@ export class Cihaz {
      */
     fleksBaglantiGecerliMi() {
         return this.fleksBaglanti.boruId !== null &&
-               this.fleksBaglanti.baglantiNoktasi !== null &&
-               !isNaN(this.fleksBaglanti.baglantiNoktasi.x) &&
-               !isNaN(this.fleksBaglanti.baglantiNoktasi.y);
+               this.fleksBaglanti.endpoint !== null;
     }
 
     /**
-     * Taşı (fleks uzar/kısalır)
+     * Taşı
      */
     move(newX, newY) {
         this.x = newX;
         this.y = newY;
-
-        // KRITIK: En yakın noktadan bağlantıyı yeniden hesapla
-        this.yenidenHesaplaGirisOffset();
-        this.fleksGuncelle();
-
-        return {
-            fleksBaglanti: this.fleksBaglanti
-        };
     }
 
     /**
@@ -378,15 +381,7 @@ export class Cihaz {
      */
     rotate(deltaDerece) {
         this.rotation = (this.rotation + deltaDerece) % 360;
-
-        // KRITIK: Döndürünce en yakın noktadan bağlantıyı yeniden hesapla
-        this.yenidenHesaplaGirisOffset();
-        this.fleksGuncelle();
-
-        return {
-            yeniGiris: this.getGirisNoktasi(),
-            fleksBaglanti: this.fleksBaglanti
-        };
+        if (this.rotation < 0) this.rotation += 360;
     }
 
     /**
@@ -476,11 +471,14 @@ export class Cihaz {
 
         cihaz.id = data.id;
         cihaz.rotation = data.rotation;
-        cihaz.fleksBaglanti = data.fleksBaglanti || {
-            boruId: null,
-            baglantiNoktasi: null,
-            uzunluk: FLEKS_CONFIG.defaultUzunluk
-        };
+
+        // Fleks bağlantısını yükle
+        if (data.fleksBaglanti) {
+            cihaz.fleksBaglanti.boruId = data.fleksBaglanti.boruId || null;
+            cihaz.fleksBaglanti.endpoint = data.fleksBaglanti.endpoint || null;
+            cihaz.fleksBaglanti.uzunluk = data.fleksBaglanti.uzunluk || FLEKS_CONFIG.defaultUzunluk;
+        }
+
         cihaz.iliskiliVanaId = data.iliskiliVanaId;
 
         return cihaz;
