@@ -580,8 +580,8 @@ export class InteractionManager {
                 ghost.rotation = 0;
 
                 // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
-                // Fleks 5 cm - rotate olunca borudan kopmaması ve cihaz içine daha fazla uzanması için
-                const fleksUzunluk = 5; // cm
+                // Fleks bitiş noktası artık cihazın içine doğru uzandığı için 20 cm yeterli
+                const fleksUzunluk = 20; // cm
                 const cihazYariGenislik = ghost.config.width / 2;
                 const toplamMesafe = fleksUzunluk + cihazYariGenislik;
 
@@ -1048,8 +1048,8 @@ export class InteractionManager {
         const length = Math.hypot(dx, dy);
 
         // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
-        // Fleks 5 cm - rotate olunca borudan kopmaması ve cihaz içine daha fazla uzanması için
-        const fleksUzunluk = 5; // cm
+        // Fleks bitiş noktası artık cihazın içine doğru uzandığı için 20 cm yeterli
+        const fleksUzunluk = 20; // cm
         const cihazYariGenislik = cihaz.config.width / 2;
         const toplamMesafe = fleksUzunluk + cihazYariGenislik;
 
