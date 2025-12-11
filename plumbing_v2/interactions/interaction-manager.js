@@ -564,10 +564,8 @@ export class InteractionManager {
             this._debugCount++;
         }
 
-        // Cihaz için: boru ucuna snap yap, boru ekseninde 20 cm ileri yerleştir
+        // Cihaz için: boru ucuna snap yap, boru ekseninde yerleştir
         if (ghost.type === 'cihaz') {
-            const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
-
             // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
             const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
 
@@ -581,36 +579,36 @@ export class InteractionManager {
                 // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
                 ghost.rotation = 0;
 
-                const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
+                // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
+                const fleksUzunluk = 20; // cm
+                const cihazYariGenislik = ghost.config.width / 2;
+                const toplamMesafe = fleksUzunluk + cihazYariGenislik;
 
-                let girisX, girisY;
+                // Cihaz merkezini hesapla (boru yönünde)
+                let merkezX, merkezY;
                 if (boruUcu.uc === 'p1') {
                     // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
-                    girisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
-                    girisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
+                    merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
+                    merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
                 } else {
                     // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
-                    girisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
-                    girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
+                    merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
+                    merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
                 }
 
-                // Cihaz merkezini hesapla - rotation ayarlandı
-                // İlk tahmini pozisyon
-                ghost.x = girisX;
-                ghost.y = girisY;
-
-                // Şimdi getGirisNoktasi() = (girisX, girisY) olacak şekilde pozisyonu düzelt
-                const actualGiris = ghost.getGirisNoktasi();
-                ghost.x -= (actualGiris.x - girisX);
-                ghost.y -= (actualGiris.y - girisY);
+                // Cihaz merkezini ayarla
+                ghost.x = merkezX;
+                ghost.y = merkezY;
 
                 // Ghost rendering için bağlantı bilgisini sakla
+                // fleksBagla için boru ucunu kullan, en yakın kenar otomatik bulunacak
                 ghost.ghostConnectionInfo = {
                     boruUcu: boruUcu,
-                    girisNoktasi: { x: girisX, y: girisY }
+                    girisNoktasi: boruUcu.nokta // Fleks boru ucundan başlayacak
                 };
             } else {
                 // Boru ucu bulunamadı, normal cursor pozisyonu
+                const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
                 ghost.x = point.x - girisOffset.x;
                 ghost.y = point.y - girisOffset.y;
                 ghost.ghostConnectionInfo = null;
@@ -1042,34 +1040,31 @@ export class InteractionManager {
         // Fleks bağlantısı cihazın en yakın noktasından otomatik ayarlanacak
         cihaz.rotation = 0;
 
-        // Ghost'tan pozisyon bilgisi varsa aynen kullan, yoksa hesapla
-        if (cihaz.ghostConnectionInfo && cihaz.ghostConnectionInfo.girisNoktasi) {
-            // Ghost'taki pozisyon zaten doğru - aynen kullan
-            const hedefGiris = cihaz.ghostConnectionInfo.girisNoktasi;
-            const actualGiris = cihaz.getGirisNoktasi();
-            cihaz.x += (hedefGiris.x - actualGiris.x);
-            cihaz.y += (hedefGiris.y - actualGiris.y);
+        // Cihaz merkezini hesapla (boru yönünde)
+        const boru = boruUcu.boru;
+        const dx = boru.p2.x - boru.p1.x;
+        const dy = boru.p2.y - boru.p1.y;
+        const length = Math.hypot(dx, dy);
+
+        // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
+        const fleksUzunluk = 20; // cm
+        const cihazYariGenislik = cihaz.config.width / 2;
+        const toplamMesafe = fleksUzunluk + cihazYariGenislik;
+
+        let merkezX, merkezY;
+        if (boruUcu.uc === 'p1') {
+            // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
+            merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
+            merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
         } else {
-            // Fallback: Pozisyonu hesapla - hedef giriş noktası boru ucundan 20 cm ileri
-            const boru = boruUcu.boru;
-            const dx = boru.p2.x - boru.p1.x;
-            const dy = boru.p2.y - boru.p1.y;
-            const length = Math.hypot(dx, dy);
-            const deviceDistance = 20; // cm
-
-            let hedefGirisX, hedefGirisY;
-            if (boruUcu.uc === 'p1') {
-                hedefGirisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
-                hedefGirisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
-            } else {
-                hedefGirisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
-                hedefGirisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
-            }
-
-            const actualGiris = cihaz.getGirisNoktasi();
-            cihaz.x += (hedefGirisX - actualGiris.x);
-            cihaz.y += (hedefGirisY - actualGiris.y);
+            // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
+            merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
+            merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
         }
+
+        // Cihaz merkezini ayarla
+        cihaz.x = merkezX;
+        cihaz.y = merkezY;
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
         cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
