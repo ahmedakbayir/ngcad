@@ -233,12 +233,19 @@ export class PlumbingManager {
      * @param {string} deviceType - Yerleştirilecek cihazın tipi ('KOMBI', 'OCAK', vb.)
      */
     placeDeviceAtOpenEnd(deviceType) {
+        // Aktif bir araç varsa veya çizim yapılıyorsa bu işlevi çalıştırma.
+        if (this.activeTool || this.interactionManager.boruCizimAktif) {
+            console.log("Mevcut işlem devam ederken otomatik yerleştirme yapılamaz.");
+            return false;
+        }
+
         // Sadece 'KOMBI' ve 'OCAK' tiplerine izin ver
         if (deviceType !== 'KOMBI' && deviceType !== 'OCAK') {
             console.warn(`Unsupported device type for automatic placement: ${deviceType}`);
             return false;
         }
 
+        // Boş boru uçlarını al. `getBosBitisBorular` zaten sadece boş uçları döndürmeli.
         const openPipes = this.getBosBitisBorular();
         if (openPipes.length === 0) {
             console.log("Otomatik yerleştirme için boşta boru ucu bulunamadı.");
@@ -268,7 +275,7 @@ export class PlumbingManager {
             noktaIndex: 0 // Cihazların genelde tek bağlantı noktası olur (index 0)
         };
 
-        // Değişiklikleri state'e kaydet
+        // Değişiklikleri hemen state'e kaydet
         this.saveToState();
 
         console.log(`${deviceType} başarıyla boş boru ucuna eklendi.`);
