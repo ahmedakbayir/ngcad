@@ -807,10 +807,31 @@ function onKeyDown(e) {
         }
     }
 
+    // YENİ: Kombi/Ocak hızlı ekleme kısayolu
+    if ((e.key.toLowerCase() === 'k' || e.key.toLowerCase() === 'o') && !inFPSMode && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+
+        // 1. "Escape" tuşu işlevini tetikle (mevcut durumu temizler)
+        const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true });
+        window.dispatchEvent(escapeEvent);
+
+        // 2. Cihaz tipini belirle
+        const deviceType = e.key.toLowerCase() === 'k' ? 'KOMBI' : 'OCAK';
+
+        // 3. Cihazı yerleştir (Escape'in state'i temizlemesi için kısa bir gecikmeyle)
+        setTimeout(() => {
+            if (plumbingManager.placeDeviceAtOpenEnd(deviceType)) {
+                saveState();
+                update3DScene();
+            }
+        }, 50);
+
+        return; // Diğer kısayollarla çakışmaması için
+    }
+
     if (e.key.toLowerCase() === "d" && !inFPSMode) { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
     if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");
     if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawRoom");
-    if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawDoor");
     if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawWindow");
     if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawColumn");
     if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawBeam");
