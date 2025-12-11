@@ -1108,8 +1108,8 @@ export class InteractionManager {
         // boruUcu.uc = 'p1' veya 'p2'
         cihaz.fleksBagla(boruUcu.boruId, boruUcu.uc);
 
-        // State'i senkronize et
-        this.manager.saveToState();
+        // NOT: saveToState() burada çağırma! placeComponent() içinde çağrılacak
+        // Aksi halde cihaz henüz components listesine eklenmeden state kaydedilir
 
         return true;
     }
@@ -1303,15 +1303,23 @@ export class InteractionManager {
     }
 
     findObjectAt(point) {
-        // Bileşenler (servis kutusu, sayaç, vana, cihaz)
+        // ÖNCELİK 1: Boruları ÖNCE kontrol et (2cm tolerance - kesin tıklama)
+        // Bu sayede servis kutusu bounding box'ı içinde olsa bile boru seçilebilir
+        for (const pipe of this.manager.pipes) {
+            if (pipe.containsPoint && pipe.containsPoint(point, 2)) {
+                return pipe;
+            }
+        }
+
+        // ÖNCELİK 2: Bileşenler (servis kutusu, sayaç, vana, cihaz)
         for (const comp of this.manager.components) {
             if (comp.containsPoint && comp.containsPoint(point)) {
                 return comp;
             }
         }
 
-        // Borular da seçilebilir (ama gövdeden taşınamaz)
-        // Tolerance 5 cm - köşelere yakın tıklamalar köşeyi seçmeli (4 cm)
+        // ÖNCELİK 3: Borular (daha geniş tolerance - 5cm)
+        // Yukarıda 2cm ile bulunamadıysa, 5cm ile tekrar dene
         for (const pipe of this.manager.pipes) {
             if (pipe.containsPoint && pipe.containsPoint(point, 5)) {
                 return pipe;
@@ -2057,13 +2065,15 @@ export class InteractionManager {
         // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
         this.manager.pipes.forEach(pipe => {
             // p1'i güncelle
-            if (Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y) < tolerance) {
+            const distP1 = Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y);
+            if (distP1 < tolerance) {
                 pipe.p1.x = newPoint.x;
                 pipe.p1.y = newPoint.y;
             }
 
             // p2'yi güncelle
-            if (Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y) < tolerance) {
+            const distP2 = Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y);
+            if (distP2 < tolerance) {
                 pipe.p2.x = newPoint.x;
                 pipe.p2.y = newPoint.y;
             }
