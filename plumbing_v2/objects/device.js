@@ -280,13 +280,37 @@ export class Cihaz {
 
     /**
      * Fleks çizgi noktaları
+     * KRITIK: Fleks bitiş noktası cihazın en yakın kenarından MERKEZINE doğru uzanır
      */
     getFleksCizgi() {
         if (!this.fleksBaglanti.baglantiNoktasi) return null;
 
+        const girisNoktasi = this.getGirisNoktasi();
+        const merkez = { x: this.x, y: this.y };
+
+        // Girişten merkeze doğru vektör
+        const dx = merkez.x - girisNoktasi.x;
+        const dy = merkez.y - girisNoktasi.y;
+        const uzunluk = Math.hypot(dx, dy);
+
+        // İçeri margin - fleks bitiş noktası cihazın içine doğru uzansın
+        const iceriMargin = 10; // cm
+
+        let bitis;
+        if (uzunluk > iceriMargin) {
+            // Girişten merkeze doğru iceriMargin kadar git
+            bitis = {
+                x: girisNoktasi.x + (dx / uzunluk) * iceriMargin,
+                y: girisNoktasi.y + (dy / uzunluk) * iceriMargin
+            };
+        } else {
+            // Eğer giriş zaten merkeze çok yakınsa, merkezi kullan
+            bitis = merkez;
+        }
+
         return {
             baslangic: this.fleksBaglanti.baglantiNoktasi,
-            bitis: this.getGirisNoktasi()
+            bitis: bitis
         };
     }
 
