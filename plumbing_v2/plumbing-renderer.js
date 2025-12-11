@@ -773,7 +773,8 @@ export class PlumbingRenderer {
             const connectionPoint = comp.getGirisNoktasi();
             // Yerleştirilmiş cihaz için stored connection point kullan
             const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
+            const deviceCenter = { x: comp.x, y: comp.y };
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
 
             ctx.restore();
         }
@@ -883,7 +884,8 @@ export class PlumbingRenderer {
             const connectionPoint = comp.getGirisNoktasi();
             // Yerleştirilmiş cihaz için stored connection point kullan
             const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
+            const deviceCenter = { x: comp.x, y: comp.y };
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
 
             ctx.restore();
         }
@@ -1265,9 +1267,27 @@ export class PlumbingRenderer {
      * @param {Object} manager - Plumbing manager
      * @param {Object} targetPoint - Hedef nokta (opsiyonel, yerleştirilmiş cihazlar için)
      */
-    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null) {
+    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null, deviceCenter = null) {
         let closestPipeEnd = targetPoint;
         let pipeDirection = null;
+
+        // KRITIK: connectionPoint'i cihazın içine doğru uzat (15 cm)
+        let adjustedConnectionPoint = connectionPoint;
+        if (deviceCenter) {
+            const dx_center = deviceCenter.x - connectionPoint.x;
+            const dy_center = deviceCenter.y - connectionPoint.y;
+            const dist_center = Math.hypot(dx_center, dy_center);
+            const iceriMargin = 15; // cm
+
+            if (dist_center > iceriMargin) {
+                adjustedConnectionPoint = {
+                    x: connectionPoint.x + (dx_center / dist_center) * iceriMargin,
+                    y: connectionPoint.y + (dy_center / dist_center) * iceriMargin
+                };
+            } else {
+                adjustedConnectionPoint = deviceCenter;
+            }
+        }
 
         // Eğer targetPoint verilmemişse (ghost preview), en yakın boru ucunu bul
         if (!targetPoint) {
@@ -1305,10 +1325,10 @@ export class PlumbingRenderer {
             }
         }
 
-        // Fleks çizgisini ÇİZ
+        // Fleks çizgisini ÇİZ (adjustedConnectionPoint kullan - cihazın içine uzanıyor)
         if (closestPipeEnd) {
-            const dx = closestPipeEnd.x - connectionPoint.x;
-            const dy = closestPipeEnd.y - connectionPoint.y;
+            const dx = closestPipeEnd.x - adjustedConnectionPoint.x;
+            const dy = closestPipeEnd.y - adjustedConnectionPoint.y;
             const distance = Math.hypot(dx, dy);
 
             if (distance < 0.5) {
@@ -1333,13 +1353,13 @@ export class PlumbingRenderer {
             ctx.shadowBlur = 4;
 
             ctx.beginPath();
-            ctx.moveTo(connectionPoint.x, connectionPoint.y);
+            ctx.moveTo(adjustedConnectionPoint.x, adjustedConnectionPoint.y);
 
             for (let i = 1; i <= segments; i++) {
                 const t = i / segments;
 
-                const baseX = connectionPoint.x + dx * t;
-                const baseY = connectionPoint.y + dy * t;
+                const baseX = adjustedConnectionPoint.x + dx * t;
+                const baseY = adjustedConnectionPoint.y + dy * t;
 
                 const perpX = -dy / distance;
                 const perpY = dx / distance;
