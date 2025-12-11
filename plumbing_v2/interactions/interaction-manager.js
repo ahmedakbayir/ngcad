@@ -1038,14 +1038,14 @@ export class InteractionManager {
 
         // Cihaz rotation'unu boru açısına göre ayarla
         // Boru ucu p1 ise: boru p2'den p1'e geliyor, cihaz ters yönde (180°)
-        // Boru ucu p2 ise: boru p1'den p2'ye geliyor, cihaz aynı yönde (0°)
+        // Boru ucu p2 ise: boru p1'den p2'ye geliyor, cihaz aynı yönde
         const boruAci = boruUcu.boru.aciDerece;
         if (boruUcu.uc === 'p1') {
             // Boru p2'den p1'e geliyor, cihaz ters yönde
             cihaz.rotation = (boruAci + 180) % 360;
         } else {
             // Boru p1'den p2'ye geliyor, cihaz aynı yönde
-            cihaz.rotation = 0;
+            cihaz.rotation = boruAci;
         }
 
         // Cihaz pozisyonunu ayarla - hedef giriş noktası boru ucundan 20 cm ileri
