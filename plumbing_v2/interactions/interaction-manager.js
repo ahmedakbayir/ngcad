@@ -1231,17 +1231,18 @@ export class InteractionManager {
         if (!this.selectedObject) return;
 
         const obj = this.selectedObject;
-/*
+
         // Servis kutusuna bağlı ilk boru silinemesin
         if (obj.type === 'boru') {
             const pipe = obj;
             // Başlangıcı servis kutusuna bağlı mı kontrol et
-            if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+ /*           if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
                 alert('⚠️ Servis kutusuna bağlı ilk boru silinemez!\n\nÖnce servis kutusunu silin veya başka bir boru ekleyin.');
                 return;
             }
-        }
-*/
+ */       
+}
+
         // Undo için state kaydet
         saveState();
 
