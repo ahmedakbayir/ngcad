@@ -241,7 +241,17 @@ export class Cihaz {
 
         if (enYakinWorld) {
             // World'den local'e çevir
-            this.girisOffset = this.worldToLocal(enYakinWorld);
+            const newOffset = this.worldToLocal(enYakinWorld);
+
+            // Geçerlilik kontrolü - NaN veya aşırı değerleri önle
+            if (!isNaN(newOffset.x) && !isNaN(newOffset.y) &&
+                Math.abs(newOffset.x) < 200 && Math.abs(newOffset.y) < 200) {
+                this.girisOffset = newOffset;
+            } else {
+                // Hatalı hesaplama - varsayılan offset kullan
+                console.warn('Fleks giriş offset hesaplama hatası, varsayılan kullanılıyor');
+                this.girisOffset = this.hesaplaGirisOffset();
+            }
         }
     }
 
@@ -286,6 +296,16 @@ export class Cihaz {
         if (!this.fleksBaglanti.baglantiNoktasi) return null;
 
         const girisNoktasi = this.getGirisNoktasi();
+
+        // Geçerlilik kontrolü - giriş noktası geçerli olmalı
+        if (!girisNoktasi || isNaN(girisNoktasi.x) || isNaN(girisNoktasi.y)) {
+            // Fallback: bağlantı noktasından cihaza doğru basit çizgi
+            return {
+                baslangic: this.fleksBaglanti.baglantiNoktasi,
+                bitis: { x: this.x, y: this.y }
+            };
+        }
+
         const merkez = { x: this.x, y: this.y };
 
         // Girişten merkeze doğru vektör
