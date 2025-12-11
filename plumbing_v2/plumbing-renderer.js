@@ -893,8 +893,8 @@ export class PlumbingRenderer {
         ctx.save(); // Rotation için save
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
-        const boxSize = 20; // 40x40 kare için
-        const cornerRadius = 4;
+        const boxSize = 15; // 40x40 kare için
+        const cornerRadius = 3;
 
         // Shadow efekti
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
@@ -944,7 +944,7 @@ export class PlumbingRenderer {
             ctx.strokeStyle = '#858585';
             ctx.lineWidth = 1 / zoom;
             const innerBox = boxSize - 2;
-            const innerCorner = 3;
+            const innerCorner = 2;
             ctx.beginPath();
             ctx.moveTo(-innerBox + innerCorner, -innerBox);
             ctx.lineTo(innerBox - innerCorner, -innerBox);
@@ -960,8 +960,8 @@ export class PlumbingRenderer {
         }
 
         // 4 gözlü ocak - basit düz kapak tasarımı
-        const burnerRadius = 5.5;
-        const offset = 8;
+        const burnerRadius = 4;
+        const offset = 7;
         const burnerPositions = [
             { x: -offset, y: -offset }, // Sol üst
             { x: offset, y: -offset },  // Sağ üst
