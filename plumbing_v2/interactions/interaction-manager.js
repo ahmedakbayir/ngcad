@@ -578,13 +578,8 @@ export class InteractionManager {
                 const dy = boru.p2.y - boru.p1.y;
                 const length = Math.hypot(dx, dy);
 
-                // KRITIK: Ghost rotation'ı boru yönüne göre ayarla
-                const boruAci = boruUcu.boru.aciDerece;
-                if (boruUcu.uc === 'p1') {
-                    ghost.rotation = (boruAci + 180) % 360;
-                } else {
-                    ghost.rotation = boruAci;
-                }
+                // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
+                ghost.rotation = 0;
 
                 const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
 
@@ -1036,17 +1031,9 @@ export class InteractionManager {
             cihaz.vanaIliskilendir(vanaVar.id);
         }
 
-        // Cihaz rotation'unu boru açısına göre ayarla
-        // Boru ucu p1 ise: boru p2'den p1'e geliyor, cihaz ters yönde (180°)
-        // Boru ucu p2 ise: boru p1'den p2'ye geliyor, cihaz aynı yönde
-        const boruAci = boruUcu.boru.aciDerece;
-        if (boruUcu.uc === 'p1') {
-            // Boru p2'den p1'e geliyor, cihaz ters yönde
-            cihaz.rotation = (boruAci + 180) % 360;
-        } else {
-            // Boru p1'den p2'ye geliyor, cihaz aynı yönde
-            cihaz.rotation = boruAci;
-        }
+        // Cihaz rotation'unu sabit tut - tutamacı her zaman kuzeyde
+        // Fleks bağlantısı cihazın en yakın noktasından otomatik ayarlanacak
+        cihaz.rotation = 0;
 
         // Cihaz pozisyonunu ayarla - hedef giriş noktası boru ucundan 20 cm ileri
         const boru = boruUcu.boru;
