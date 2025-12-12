@@ -314,10 +314,11 @@ handlePointerDown(e) {
                     return true;
                 }
 
-                // Servis kutusuna bağlı boru ucunun taşınmasını engelle
+                // Bağlı boru ucunun taşınmasını engelle (servis kutusu, başka boru, vb.)
                 const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-                if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-                    // Sadece seç, taşıma başlatma
+                if (ucBaglanti && ucBaglanti.tip !== null) {
+                    // Bu uç başka bir şeye bağlı - taşımasına izin verme
+                    console.log('🔒 Bağlı uç taşınamaz:', ucBaglanti.tip, ucBaglanti.hedefId);
                     this.selectObject(pipe);
                     return true;
                 }
@@ -341,7 +342,11 @@ handlePointerDown(e) {
                     c.type === 'servis_kutusu' && c.bagliBoruId === hitObject.id
                 );
 
-                if (bagliKutu) {
+                // Ayrıca borunun kendi bağlantı bilgilerini de kontrol et
+                const servisKutusunaBagli = hitObject.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
+                                             hitObject.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU;
+
+                if (bagliKutu || servisKutusunaBagli) {
                     // Kutuya bağlı boru, gövde sürükleme yapma (ama seçimi koru)
                     return true;
                 }
@@ -1694,9 +1699,10 @@ handleDrag(point) {
     if (this.dragEndpoint && this.dragObject.type === 'boru') {
         const pipe = this.dragObject;
 
-        // Servis kutusuna bağlı uç taşınamaz - ekstra güvenlik kontrolü
+        // Bağlı uç taşınamaz - ekstra güvenlik kontrolü
         const ucBaglanti = this.dragEndpoint === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-        if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+        if (ucBaglanti && ucBaglanti.tip !== null) {
+            console.log('🔒 Bağlı uç taşıma engellendi:', ucBaglanti.tip);
             return; // Taşıma işlemini engelle
         }
 
