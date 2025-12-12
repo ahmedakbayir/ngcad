@@ -1261,6 +1261,8 @@ function initialize() {
     // Tesisat butonları - KARMA modunda değilse TESİSAT moduna geç
     if (dom.bServisKutusu) {
         dom.bServisKutusu.addEventListener("click", () => {
+            // Aktif boru çizimini iptal et
+            plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
@@ -1270,6 +1272,8 @@ function initialize() {
     }
     if (dom.bSayac) {
         dom.bSayac.addEventListener("click", () => {
+            // Aktif boru çizimini iptal et
+            plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
@@ -1279,6 +1283,8 @@ function initialize() {
     }
     if (dom.bVana) {
         dom.bVana.addEventListener("click", () => {
+            // Aktif boru çizimini iptal et
+            plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
@@ -1288,6 +1294,8 @@ function initialize() {
     }
     if (dom.bKombi) {
         dom.bKombi.addEventListener("click", () => {
+            // Aktif boru çizimini iptal et
+            plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
@@ -1297,6 +1305,8 @@ function initialize() {
     }
     if (dom.bOcak) {
         dom.bOcak.addEventListener("click", () => {
+            // Aktif boru çizimini iptal et
+            plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
@@ -1306,6 +1316,8 @@ function initialize() {
     }
     if (dom.bBoru) {
         dom.bBoru.addEventListener("click", () => {
+            // Aktif boru çizimini iptal et
+            plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }

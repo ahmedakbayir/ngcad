@@ -1071,18 +1071,23 @@ handleSayacEkleme(sayac) {
  * - Boru ucunda vana yoksa otomatik vana eklenir
  */
 handleCihazEkleme(cihaz) {
+    console.log('[handleCihazEkleme] Başlıyor. Cihaz tipi:', cihaz.cihazTipi);
+
     // Ghost'tan boru ucu bilgisini al (ghost gösterimde doğru pozisyon belirlendi)
     // Eğer ghost bilgisi yoksa, mevcut pozisyondan bul
     let boruUcu;
     if (cihaz.ghostConnectionInfo && cihaz.ghostConnectionInfo.boruUcu) {
         boruUcu = cihaz.ghostConnectionInfo.boruUcu;
+        console.log('[handleCihazEkleme] Ghost connection info bulundu:', boruUcu);
     } else {
         // Fallback: mevcut pozisyondan bul
         const girisNoktasi = cihaz.getGirisNoktasi();
         boruUcu = this.findBoruUcuAt(girisNoktasi, 50);
+        console.log('[handleCihazEkleme] Fallback ile boru ucu bulundu:', boruUcu);
     }
 
     if (!boruUcu) {
+        console.error('[handleCihazEkleme] ✗ Boru ucu bulunamadı!');
         alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
         // Cihazı components'a ekleme, sadece iptal et
         return false;
@@ -1090,9 +1095,12 @@ handleCihazEkleme(cihaz) {
 
     // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
     if (!this.isFreeEndpoint(boruUcu.nokta, 1)) {
+        console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
         alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
         return false;
     }
+
+    console.log('[handleCihazEkleme] ✓ Kontroller geçti, vana ve cihaz ekleniyor...');
 
     // Undo için state kaydet
     saveState();
@@ -1175,9 +1183,18 @@ handleCihazEkleme(cihaz) {
     // boruUcu.uc = 'p1' veya 'p2'
     cihaz.fleksBagla(boruUcu.boruId, boruUcu.uc);
 
-    // NOT: saveToState() burada çağırma! placeComponent() içinde çağrılacak
-    // Aksi halde cihaz henüz components listesine eklenmeden state kaydedilir
+    // Cihazı components'a ekle (eğer henüz eklenmemişse)
+    // Normal icon click workflow'unda placeComponent() ekler,
+    // ama K/O shortcuts gibi direkt çağrılarda burada eklemeliyiz
+    if (!this.manager.components.includes(cihaz)) {
+        console.log('[handleCihazEkleme] Cihaz components\'a ekleniyor:', cihaz.cihazTipi);
+        this.manager.components.push(cihaz);
+    }
 
+    // State'e kaydet
+    this.manager.saveToState();
+
+    console.log('[handleCihazEkleme] ✓ Cihaz başarıyla eklendi. Toplam components:', this.manager.components.length);
     return true;
 }
 
