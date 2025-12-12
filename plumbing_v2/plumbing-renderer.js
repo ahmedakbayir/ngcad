@@ -78,7 +78,16 @@ export class PlumbingRenderer {
                 }
 
                 ctx.restore();
-            } else {
+            }
+            
+            else if (manager.tempComponent.type === 'sayac') {
+                // Sayaç Ghost Bağlantılarını Çiz (Vana + Fleks)
+                if (manager.tempComponent.ghostConnectionInfo) {
+                     this.drawSayacGhostConnection(ctx, manager.tempComponent, manager);
+                }
+                this.drawComponent(ctx, manager.tempComponent, manager);
+            }            
+            else {
                 // Diğer tip ghostlar için normal drawComponent
                 this.drawComponent(ctx, manager.tempComponent, manager);
             }
@@ -467,7 +476,7 @@ export class PlumbingRenderer {
                 this.drawServisKutusu(ctx, comp);
                 break;
             case 'sayac':
-                this.drawSayac(ctx, comp);
+                this.drawSayac(ctx, comp, manager);
                 break;
             case 'vana':
                 this.drawVana(ctx, comp);
@@ -616,7 +625,6 @@ export class PlumbingRenderer {
         const { width, height, connectionOffset, rijitUzunluk } = comp.config;
         const zoom = state.zoom || 1;
 
-        // --- 0. Fleks Bağlantısını Çiz ---
         if (manager && comp.fleksBaglanti?.boruId) {
             const boru = manager.findPipeById(comp.fleksBaglanti.boruId);
             if (boru) {
@@ -624,6 +632,7 @@ export class PlumbingRenderer {
                 const girisNoktasi = comp.getGirisNoktasi();
 
                 if (targetPoint && girisNoktasi) {
+                    // Sayacın merkezi deviceCenter olarak geçilebilir
                     this.drawWavyConnectionLine(ctx, girisNoktasi, zoom, manager, targetPoint, {x: comp.x, y: comp.y});
                 }
             }
@@ -1815,4 +1824,84 @@ export class PlumbingRenderer {
         ctx.setLineDash([]); // Reset dash
         ctx.restore();
     }
+/**
+     * SAYAÇ GHOST ÖNİZLEME (YENİ)
+     * Henüz yerleştirilmemiş sayacın vana ve fleks bağlantısını gösterir
+     */
+    drawSayacGhostConnection(ctx, ghost, manager) {
+        const connInfo = ghost.ghostConnectionInfo;
+        if (!connInfo || !connInfo.boruUcu) return;
+
+        const { boruUcu } = connInfo;
+        const boru = boruUcu.boru;
+
+        // 1. Boru ucunda vana var mı? (Ghost aşamasında yoksa hayalet vana çiz)
+        const vanaVarMi = manager.components.some(comp =>
+            comp.type === 'vana' &&
+            comp.bagliBoruId === boru.id &&
+            Math.hypot(comp.x - boruUcu.nokta.x, comp.y - boruUcu.nokta.y) < 10
+        );
+
+        ctx.save();
+
+        if (!vanaVarMi) {
+            // Vana Önizlemesi (Boru ucundan 4cm içeride)
+            const VANA_CENTER_MARGIN = 8; // 4cm edge + 4cm radius
+            const dx = boru.p2.x - boru.p1.x;
+            const dy = boru.p2.y - boru.p1.y;
+            const length = Math.hypot(dx, dy);
+
+            let vanaX, vanaY;
+            if (boruUcu.uc === 'p1') {
+                vanaX = boruUcu.nokta.x + (dx / length) * VANA_CENTER_MARGIN;
+                vanaY = boruUcu.nokta.y + (dy / length) * VANA_CENTER_MARGIN;
+            } else {
+                vanaX = boruUcu.nokta.x - (dx / length) * VANA_CENTER_MARGIN;
+                vanaY = boruUcu.nokta.y - (dy / length) * VANA_CENTER_MARGIN;
+            }
+
+            ctx.translate(vanaX, vanaY);
+            ctx.rotate(boru.aci);
+            ctx.globalAlpha = 0.6;
+            
+            // Vana rengi
+            const adjustedColor = getAdjustedColor('#00bffa', 'vana');
+            ctx.fillStyle = adjustedColor;
+            
+            // Basit vana şekli (Kelebek)
+            const hs = 4; 
+            ctx.beginPath();
+            ctx.moveTo(-hs, -hs); 
+            ctx.lineTo(-hs, hs); 
+            ctx.lineTo(0, 1);
+            ctx.lineTo(hs, hs); 
+            ctx.lineTo(hs, -hs); 
+            ctx.lineTo(0, -1);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.rotate(-boru.aci); // Rotasyonu geri al
+            ctx.translate(-vanaX, -vanaY); // Translate'i geri al
+        }
+
+        // 2. Fleks Çizgisi (Basit kesikli çizgi)
+        const giris = ghost.getGirisNoktasi();
+        
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = '#FFD700'; // Sarı
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+
+        ctx.beginPath();
+        // Boru ucundan (veya vana hizasından)
+        ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y); 
+        // Sayacın girişine
+        ctx.lineTo(giris.x, giris.y); 
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.restore();
+    }
+
+
 }

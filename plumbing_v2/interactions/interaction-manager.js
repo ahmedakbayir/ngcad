@@ -750,7 +750,73 @@ updateGhostPosition(ghost, point, snap) {
             ghost.y = point.y - girisOffset.y;
             ghost.ghostConnectionInfo = null;
         }
-    } else {
+    }
+     else if (ghost.type === 'sayac') {
+        // SAYAÇ İÇİN ÖZEL GHOST MANTIĞI:
+        // Boruya yaklaşınca hizalanır, vana ve fleks önizlemesi için bilgi hazırlar.
+
+        // 1. Boru ucu kontrolü (En yüksek öncelik)
+        const boruUcu = this.findBoruUcuAt(point, 15);
+        
+        if (boruUcu) {
+             // Boru ucuna hizala (fleks payı bırakarak)
+             const boru = boruUcu.boru;
+             const dx = boru.p2.x - boru.p1.x;
+             const dy = boru.p2.y - boru.p1.y;
+             const len = Math.hypot(dx, dy);
+             
+             ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+             
+             // Fleks payı kadar uzaklaştır (20 cm)
+             const FLEKS_DIST = 20; 
+             
+             // Sayacın giriş noktası sol tarafta (-x) olduğu için, boru yönüne göre hesapla
+             let targetX, targetY;
+             
+             if (boruUcu.uc === 'p1') {
+                 // p1 ucundayız, p1'den geriye (p2->p1 yönünde devam)
+                 targetX = boruUcu.nokta.x - (dx/len) * FLEKS_DIST;
+                 targetY = boruUcu.nokta.y - (dy/len) * FLEKS_DIST;
+             } else {
+                 // p2 ucundayız, p2'den ileriye (p1->p2 yönünde devam)
+                 targetX = boruUcu.nokta.x + (dx/len) * FLEKS_DIST;
+                 targetY = boruUcu.nokta.y + (dy/len) * FLEKS_DIST;
+             }
+             
+             ghost.x = targetX;
+             ghost.y = targetY;
+             
+             // Renderer'ın hayalet vana ve fleks çizebilmesi için bilgi
+             ghost.ghostConnectionInfo = {
+                 boruUcu: boruUcu,
+                 girisNoktasi: ghost.getGirisNoktasi()
+             };
+        } 
+        // 2. Boru üzeri kontrolü (Split modu)
+        else {
+            const hoveredPipe = this.findPipeAt(point, 10);
+            if (hoveredPipe) {
+                // Boru üzerine izdüşür
+                const proj = hoveredPipe.projectPoint(point);
+                if (proj.onSegment) {
+                    ghost.x = proj.x;
+                    ghost.y = proj.y;
+                    
+                    const dx = hoveredPipe.p2.x - hoveredPipe.p1.x;
+                    const dy = hoveredPipe.p2.y - hoveredPipe.p1.y;
+                    ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                    
+                    // Split durumunda (boru bölme) özel bir connection info'ya gerek yok
+                    ghost.ghostConnectionInfo = null; 
+                }
+            } else {
+                // Boşta
+                ghost.x = point.x;
+                ghost.y = point.y;
+                ghost.ghostConnectionInfo = null;
+            }
+        }
+    }  else {
         ghost.x = point.x;
         ghost.y = point.y;
     }
@@ -820,18 +886,16 @@ placeComponent(point) {
             setMode("plumbingV2", true);
             break;
 
-        case 'sayac':
-            // 1. Boru Ucu Kontrolü (Öncelikli)
-            // "bir borunun ucuna sayaç ekle" senaryosu
-            const pipeEnd = this.findBoruUcuAt(point, 10);
+    case 'sayac':
+                // 1. Boru Ucu Kontrolü (Öncelikli)
+            const pipeEnd = this.findBoruUcuAt(point, 15);
             if (pipeEnd) {
                 this.handleSayacEndPlacement(pipeEnd, component);
                 return;
             }
 
-            // 2. Boru Üzeri Kontrolü (Split)
-            // "borunun üzerine ekle" senaryosu
-            const hoveredPipe = this.findPipeAt(point, 5);
+            // 2. Boru Üzeri Kontrolü (Split - Araya Ekleme)
+            const hoveredPipe = this.findPipeAt(point, 10);
             if (hoveredPipe) {
                 this.splitPipeAndInsertMeter(hoveredPipe, point, component);
                 return;
@@ -2877,4 +2941,163 @@ getGeciciBoruCizgisi() {
     }
     return { p1: this.boruBaslangic.nokta, p2: this.geciciBoruBitis };
 }
+
+
+
+/**
+     * Boru ucuna sayaç ekleme (Vana + Fleks Dahil)
+     */
+    handleSayacEndPlacement(pipeEnd, meter) {
+        saveState();
+
+        const pipe = pipeEnd.boru;
+        const endPoint = pipeEnd.nokta;
+
+        // 1. Boru ucunda vana var mı? Yoksa ekle.
+        const vanaVar = this.checkVanaAtPoint(endPoint);
+        if (!vanaVar) {
+            // Vana oluştur
+            const vana = createVana(endPoint.x, endPoint.y, 'SAYAC');
+            vana.floorId = meter.floorId;
+            vana.rotation = pipe.aciDerece;
+            
+            // Vanayı boruya bağla
+            vana.bagliBoruId = pipe.id;
+            vana.fixedDistance = 4; // Uçtan 4cm içeride
+            vana.fromEnd = pipeEnd.uc; 
+            vana.updatePositionFromPipe(pipe); // Pozisyonu netleştir
+
+            this.manager.components.push(vana);
+            meter.iliskiliVanaId = vana.id;
+        } else {
+            meter.iliskiliVanaId = vanaVar.id;
+        }
+
+        // 2. Sayacı konumlandır (Ghost ile aynı mantık)
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const len = Math.hypot(dx, dy);
+        meter.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        const FLEKS_DIST = 20; // 20 cm mesafe
+        let targetX, targetY;
+        
+        if (pipeEnd.uc === 'p1') {
+            targetX = endPoint.x - (dx/len) * FLEKS_DIST;
+            targetY = endPoint.y - (dy/len) * FLEKS_DIST;
+        } else {
+            targetX = endPoint.x + (dx/len) * FLEKS_DIST;
+            targetY = endPoint.y + (dy/len) * FLEKS_DIST;
+        }
+        
+        meter.x = targetX;
+        meter.y = targetY;
+
+        // 3. Bağlantıyı Kur (Fleks)
+        meter.baglaGiris(pipe.id, pipeEnd.uc);
+
+        // 4. Kaydet ve Çizimi Başlat (Çıkıştan rijit boru)
+        this.manager.components.push(meter);
+        this.startBoruCizim(meter.getCikisNoktasi(), meter.id, BAGLANTI_TIPLERI.SAYAC);
+        
+        this.manager.activeTool = 'boru';
+        setMode("plumbingV2", true);
+        
+        this.manager.saveToState();
+        update3DScene();
+    }
+
+    /**
+     * Boruyu böl ve araya sayaç ekle (TAM OTOMATİK: VANA + FLEKS + SAYAÇ + RİJİT)
+     */
+    splitPipeAndInsertMeter(pipe, clickPoint, meter) {
+        saveState();
+
+        // 1. Tıklama noktasını boru üzerine izdüşür -> Sayacın konumu
+        const proj = pipe.projectPoint(clickPoint);
+        const centerPoint = { x: proj.x, y: proj.y };
+
+        // 2. Boru açısı
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const pipeAngleRad = Math.atan2(dy, dx);
+        meter.rotation = pipeAngleRad * 180 / Math.PI;
+
+        // 3. Sayacı konumlandır
+        meter.x = centerPoint.x;
+        meter.y = centerPoint.y;
+
+        // 4. Boru 1'in Yeni Bitiş Noktasını Hesapla (Vana ve Fleks için yer aç)
+        // Sayacın giriş noktası (meterInPos) zaten connectionOffset kadar soldadır.
+        // Ancak fleks ve vana için daha da geriye gitmemiz gerek.
+        const meterOutPos = meter.getCikisNoktasi();
+        
+        const FLEKS_VE_VANA_PAYI = 25; // 20cm fleks + 5cm vana payı
+        const len = Math.hypot(dx, dy);
+        const uX = dx / len;
+        const uY = dy / len;
+        
+        // Yeni p2 noktası (pipe1End): Sayacın merkezinden geriye doğru
+        const pipe1End = {
+            x: centerPoint.x - uX * FLEKS_VE_VANA_PAYI,
+            y: centerPoint.y - uY * FLEKS_VE_VANA_PAYI
+        };
+        
+        // Güvenlik: Boru çok kısalıyor mu?
+        const distFromStart = Math.hypot(pipe1End.x - pipe.p1.x, pipe1End.y - pipe.p1.y);
+        if (distFromStart < 5) {
+            alert("Boru başlangıcına çok yakın, sığmaz!");
+            return;
+        }
+
+        // 5. Boruyu Böl ve Güncelle
+        const originalP2 = { ...pipe.p2 };
+        const originalEndConn = { ...pipe.bitisBaglanti };
+
+        // Pipe 1 (Mevcut boru) bitiş noktasını geri çek
+        pipe.p2 = pipe1End;
+        pipe.bitisBaglanti = { tip: null, hedefId: null };
+
+        // 6. OTOMATİK VANA EKLE (Pipe 1'in sonuna)
+        const vana = createVana(pipe1End.x, pipe1End.y, 'SAYAC');
+        vana.floorId = meter.floorId;
+        vana.rotation = meter.rotation;
+        vana.bagliBoruId = pipe.id;
+        vana.fromEnd = 'p2';    // Sondan
+        vana.fixedDistance = 4; // 4cm içeride
+        vana.updatePositionFromPipe(pipe); 
+        
+        this.manager.components.push(vana);
+        meter.iliskiliVanaId = vana.id;
+
+        // 7. Yeni Boru Oluştur (Pipe 2) - Sayacın Çıkışından Başlar
+        const newPipe = createBoru(
+            { x: meterOutPos.x, y: meterOutPos.y }, // Başlangıç: Sayaç Çıkışı
+            originalP2,                             // Bitiş: Eski P2
+            pipe.boruTipi
+        );
+        newPipe.floorId = pipe.floorId;
+        newPipe.bitisBaglanti = originalEndConn;
+        
+        // 8. Bağlantıları Kur
+        // Sayaç Girişi -> Pipe 1 (p2 ucu)
+        meter.baglaGiris(pipe.id, 'p2');
+        
+        // Sayaç Çıkışı -> Pipe 2
+        meter.baglaCikis(newPipe.id);
+        
+        // Pipe 2 Başlangıcı -> Sayaç
+        newPipe.setBaslangicBaglanti(TESISAT_MODLARI.SAYAC, meter.id);
+
+        // 9. Nesneleri Kaydet
+        this.manager.components.push(meter);
+        this.manager.pipes.push(newPipe);
+        
+        this.manager.tempComponent = null;
+        this.manager.activeTool = null;
+        setMode("select");
+
+        this.manager.saveToState();
+        update3DScene();
+    }
 }
