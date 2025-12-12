@@ -15,7 +15,7 @@ export const SAYAC_CONFIG = {
     height: 26,         // cm - Gövde yüksekliği
     depth: 16,          // cm - 3D Derinlik
     color: 0xA8A8A8,    // Metalik gri
-    rijitUzunluk: 25,   // Çıkış borusu uzunluğu (Sayacın üstünden boru hattına kadar)
+    rijitUzunluk: 10,   // Çıkış borusu uzunluğu (Sayacın üstünden boru hattına kadar)
     connectionOffset: 5 // Merkezden sağa/sola sapma miktarı (giriş/çıkış arası 10cm)
 };
 
