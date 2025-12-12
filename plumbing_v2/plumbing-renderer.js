@@ -613,46 +613,47 @@ export class PlumbingRenderer {
      * - Çıkış (Sağ): Buradan yukarı doğru sarı rijit boru çıkar
      */
     drawSayac(ctx, comp, manager) {
-        const { width, height, connectionOffset, rijitUzunluk } = comp.config; // Config'den al
+        const { width, height, connectionOffset, rijitUzunluk } = comp.config;
         const zoom = state.zoom || 1;
 
         // --- 0. Fleks Bağlantısını Çiz ---
-        // Fleks, sayacın giriş noktasına (üst sol) bağlanır
         if (manager && comp.fleksBaglanti?.boruId) {
             const boru = manager.findPipeById(comp.fleksBaglanti.boruId);
             if (boru) {
-                const targetPoint = comp.getFleksBaglantiNoktasi(boru); // Borudaki nokta (Vana)
-                const girisNoktasi = comp.getGirisNoktasi(); // Sayacın giriş noktası (Dünya koord.)
-                
-                // Fleks çizimi (Sayacın üst solundan, vanaya doğru)
-                this.drawWavyConnectionLine(ctx, girisNoktasi, zoom, manager, targetPoint, {x: comp.x, y: comp.y});
+                const targetPoint = comp.getFleksBaglantiNoktasi(boru);
+                const girisNoktasi = comp.getGirisNoktasi();
+
+                if (targetPoint && girisNoktasi) {
+                    this.drawWavyConnectionLine(ctx, girisNoktasi, zoom, manager, targetPoint, {x: comp.x, y: comp.y});
+                }
             }
         }
 
         ctx.save();
-        //ctx.translate(comp.x, comp.y);
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
-        // --- 1. Gövde (Metalik Gri Kutu) ---
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8;
+        // --- 1. Gövde (Gradient Metalik Görünüm) ---
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+        ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
-        // Metalik gradient
-        const gradient = ctx.createLinearGradient(-width / 2, -height / 2, width / 2, height / 2);
+        // Daha güzel gradient
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(width, height) / 1.5);
         if (comp.isSelected) {
             gradient.addColorStop(0, '#FFFFFF');
-            gradient.addColorStop(0.5, '#8ab4f8');
+            gradient.addColorStop(0.4, '#B8D4FF');
+            gradient.addColorStop(0.7, '#8ab4f8');
             gradient.addColorStop(1, '#2a74d0');
         } else {
-            gradient.addColorStop(0, '#E8E8E8');
-            gradient.addColorStop(0.5, '#A0A0A0');
-            gradient.addColorStop(1, '#606060');
+            gradient.addColorStop(0, '#F5F5F5');
+            gradient.addColorStop(0.3, '#D0D0D0');
+            gradient.addColorStop(0.7, '#A0A0A0');
+            gradient.addColorStop(1, '#707070');
         }
 
         ctx.fillStyle = gradient;
-        const radius = 3;
+        const radius = 4;
         ctx.beginPath();
         if (ctx.roundRect) {
             ctx.roundRect(-width / 2, -height / 2, width, height, radius);
@@ -662,54 +663,110 @@ export class PlumbingRenderer {
         ctx.fill();
 
         // Çerçeve
-        ctx.lineWidth = 1 / zoom;
-        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1.2 / zoom;
+        ctx.strokeStyle = comp.isSelected ? '#2a74d0' : '#444';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         ctx.stroke();
 
+        // İç gölge efekti
+        ctx.save();
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.lineWidth = 1 / zoom;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(-width / 2 + 1, -height / 2 + 1, width - 2, height - 2, radius - 1);
+        } else {
+            ctx.rect(-width / 2 + 1, -height / 2 + 1, width - 2, height - 2);
+        }
+        ctx.stroke();
+        ctx.restore();
+
         // --- 2. Etiket (G4) ---
-        ctx.fillStyle = '#222';
-        ctx.font = `bold 10px Arial`;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 2;
+        ctx.fillStyle = comp.isSelected ? '#1a54a0' : '#2a2a2a';
+        ctx.font = `bold ${12}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('G4', 0, 5); 
+        ctx.fillText('G4', 0, 2);
+        ctx.restore();
 
-        // --- 3. Üst Bağlantı Rekorları (Somunlar) ---
-        // Gövdenin üst kenarında
+        // --- 3. Üst Bağlantı Rekorları (Detaylı) ---
         const connY = -height / 2;
-        const nutWidth = 6;
-        const nutHeight = 4;
-        
-        ctx.fillStyle = '#DCDCDC'; // Açık gri metalik (Rekor rengi)
+        const nutWidth = 7;
+        const nutHeight = 5;
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+
+        // Rekor gradient
+        const rekorGradient = ctx.createLinearGradient(0, connY - nutHeight, 0, connY);
+        rekorGradient.addColorStop(0, '#E8E8E8');
+        rekorGradient.addColorStop(0.5, '#BCBCBC');
+        rekorGradient.addColorStop(1, '#999999');
+
+        ctx.lineWidth = 0.8 / zoom;
         ctx.strokeStyle = '#555';
-        ctx.lineWidth = 0.5;
 
         // Sol Rekor (Giriş)
-        ctx.fillRect(-connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
-        ctx.strokeRect(-connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
+        ctx.fillStyle = rekorGradient;
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(-connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight, 1);
+        } else {
+            ctx.rect(-connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
+        }
+        ctx.fill();
+        ctx.stroke();
 
         // Sağ Rekor (Çıkış)
-        ctx.fillRect(connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
-        ctx.strokeRect(connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight, 1);
+        } else {
+            ctx.rect(connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
 
         // --- 4. Rijit Çıkış Kolu (Sarı Boru) ---
-        // Sağ rekordan yukarı doğru çıkan boru
         const armStartX = connectionOffset;
-        const armStartY = connY - nutHeight; // Rekorun üstünden başlar
-        const armWidth = 4; // Boru kalınlığı
+        const armStartY = connY - nutHeight;
+        const armWidth = 4.5;
 
-        ctx.fillStyle = '#FFD700'; // Sarı
-        // Canvas Y negatifi yukarıdır. rijitUzunluk kadar yukarı çiz.
+        // Boru gradient (sarı metalik)
+        const pipeGradient = ctx.createLinearGradient(armStartX - armWidth/2, 0, armStartX + armWidth/2, 0);
+        pipeGradient.addColorStop(0, '#CC9900');
+        pipeGradient.addColorStop(0.5, '#FFD700');
+        pipeGradient.addColorStop(1, '#CC9900');
+
+        ctx.fillStyle = pipeGradient;
         ctx.fillRect(armStartX - armWidth/2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
-        
-        // Çıkış ucuna nokta (debug/referans için)
+
+        // Boru kenarlık
+        ctx.strokeStyle = '#B8860B';
+        ctx.lineWidth = 0.6 / zoom;
+        ctx.strokeRect(armStartX - armWidth/2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
+
+        // Çıkış ucu
         if (!comp.cikisKullanildi) {
-             ctx.fillStyle = '#FFA500';
-             ctx.beginPath();
-             ctx.arc(armStartX, armStartY - rijitUzunluk, 2, 0, Math.PI * 2);
-             ctx.fill();
+            ctx.fillStyle = '#FF8C00';
+            ctx.strokeStyle = '#CC7000';
+            ctx.lineWidth = 1 / zoom;
+            ctx.beginPath();
+            ctx.arc(armStartX, armStartY - rijitUzunluk, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
         }
 
         ctx.restore();

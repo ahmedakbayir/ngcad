@@ -915,26 +915,26 @@ handleSayacEndPlacement(pipeEnd, meter) {
         meter.iliskiliVanaId = vanaVar.id;
     }
 
-    // 2. Sayacın Konumunu Hesapla (90° Dik)
-    // Boru vektörü
+    // 2. Sayacın Konumunu ve Rotasyonunu Hesapla
+    // Boru açısını hesapla
     const dx = pipe.p2.x - pipe.p1.x;
     const dy = pipe.p2.y - pipe.p1.y;
-    const len = Math.hypot(dx, dy);
-    
-    // Dik vektör (-dy, dx) veya (dy, -dx)
-    // Varsayılan olarak "aşağı" veya "sağa" doğru dik alalım
-    // Boru yönüne göre sağ taraf kuralı uygulayabiliriz
-    let perpX = -dy / len;
-    let perpY = dx / len;
+    const pipeAngleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
 
-    // Eğer borunun ucuna geldiysek, boru akış yönüne göre 90 dereceyi belirle
-    // Basitlik için: Y ekseninde negatif (yukarı) değilse pozitif alalım veya sabit bir mesafe koyalım.
-    const distance = 25; // Sayaç boru ucundan ne kadar uzakta dursun?
+    // Sayacı boru açısında döndür
+    meter.rotation = pipeAngleDeg;
 
-    // Sayacı konumlandır
-    meter.x = endPoint.x + perpX * distance;
-    meter.y = endPoint.y + perpY * distance;
-    meter.rotation = 0; // Sayaç düz dursun
+    // Sayacın çıkış noktası boru ucuna denk gelecek şekilde merkezi hesapla
+    // Önce sayacı endPoint'e koy (geçici)
+    meter.x = endPoint.x;
+    meter.y = endPoint.y;
+
+    // Şimdi sayacın çıkış noktasını hesapla
+    const tempCikis = meter.getCikisNoktasi();
+
+    // Merkezi düzelt: çıkış noktası endPoint'e denk gelsin
+    meter.x = endPoint.x - (tempCikis.x - endPoint.x);
+    meter.y = endPoint.y - (tempCikis.y - endPoint.y);
 
     // 3. Bağlantıyı Kur (Fleks)
     // Sayacın giriş noktası otomatik olarak sol tarafıdır.
@@ -957,27 +957,30 @@ handleSayacEndPlacement(pipeEnd, meter) {
 splitPipeAndInsertMeter(pipe, clickPoint, meter) {
         saveState();
 
-        // 1. Sayacın toplam kapladığı genişliği hesapla
-        // (Giriş ucu ile Çıkış ucu arasındaki mesafe)
-        const girisLocal = meter.getGirisLocalKoordinat();
-        const cikisLocal = meter.getCikisLocalKoordinat();
-        const meterTotalLength = Math.abs(cikisLocal.x - girisLocal.x); 
-
-        // 2. Tıklama noktasını boru üzerine izdüşür (Sayacın merkezi burası olacak)
+        // 1. Tıklama noktasını boru üzerine izdüşür (Bu nokta boru hattı üzerinde kalacak)
         const proj = pipe.projectPoint(clickPoint);
-        const centerOnPipe = { x: proj.x, y: proj.y };
+        const pointOnPipe = { x: proj.x, y: proj.y };
 
-        // 3. Boru vektörünü hesapla
+        // 2. Boru açısını hesapla
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
         const pipeLen = Math.hypot(dx, dy);
-        const dir = { x: dx/pipeLen, y: dy/pipeLen };
-
-        // 4. Sayacı boru açısına döndür
         const pipeAngleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        // 3. Sayacı boru açısında döndür ve konumlandır
+        // Sayacın çıkış noktası boru hattı üzerinde kalmalı
         meter.rotation = pipeAngleDeg;
-        meter.x = centerOnPipe.x;
-        meter.y = centerOnPipe.y;
+
+        // Önce geçici olarak sayacı pointOnPipe'a koy
+        meter.x = pointOnPipe.x;
+        meter.y = pointOnPipe.y;
+
+        // Sayacın çıkış noktasını hesapla
+        const tempCikis = meter.getCikisNoktasi();
+
+        // Merkezi düzelt: çıkış noktası pointOnPipe'a denk gelsin
+        meter.x = pointOnPipe.x - (tempCikis.x - pointOnPipe.x);
+        meter.y = pointOnPipe.y - (tempCikis.y - pointOnPipe.y);
 
         // 5. Kesim noktalarını hesapla (Merkezden sola ve sağa git)
         // Sayacın "Giriş Noktası"nın denk geleceği yer:
