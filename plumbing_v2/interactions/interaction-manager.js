@@ -924,17 +924,17 @@ handleSayacEndPlacement(pipeEnd, meter) {
     // Sayacı boru açısında döndür
     meter.rotation = pipeAngleDeg;
 
-    // Sayacın çıkış noktası boru ucuna denk gelecek şekilde merkezi hesapla
+    // Sayacın rijit başlangıç noktası (rekor) boru ucuna denk gelecek şekilde merkezi hesapla
     // Önce sayacı endPoint'e koy (geçici)
     meter.x = endPoint.x;
     meter.y = endPoint.y;
 
-    // Şimdi sayacın çıkış noktasını hesapla
-    const tempCikis = meter.getCikisNoktasi();
+    // Şimdi sayacın rijit başlangıç noktasını hesapla (boru hattı hizası)
+    const tempRijitBaslangic = meter.localToWorld(meter.getRijitBaslangicLocal());
 
-    // Merkezi düzelt: çıkış noktası endPoint'e denk gelsin
-    meter.x = endPoint.x - (tempCikis.x - endPoint.x);
-    meter.y = endPoint.y - (tempCikis.y - endPoint.y);
+    // Merkezi düzelt: rijit başlangıç noktası endPoint'e denk gelsin
+    meter.x = endPoint.x - (tempRijitBaslangic.x - endPoint.x);
+    meter.y = endPoint.y - (tempRijitBaslangic.y - endPoint.y);
 
     // 3. Bağlantıyı Kur (Fleks)
     // Sayacın giriş noktası otomatik olarak sol tarafıdır.
@@ -968,19 +968,19 @@ splitPipeAndInsertMeter(pipe, clickPoint, meter) {
         const pipeAngleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
 
         // 3. Sayacı boru açısında döndür ve konumlandır
-        // Sayacın çıkış noktası boru hattı üzerinde kalmalı
+        // Sayacın rijit başlangıç noktası (rekor) boru hattı üzerinde kalmalı
         meter.rotation = pipeAngleDeg;
 
         // Önce geçici olarak sayacı pointOnPipe'a koy
         meter.x = pointOnPipe.x;
         meter.y = pointOnPipe.y;
 
-        // Sayacın çıkış noktasını hesapla
-        const tempCikis = meter.getCikisNoktasi();
+        // Sayacın rijit başlangıç noktasını hesapla
+        const tempRijitBaslangic = meter.localToWorld(meter.getRijitBaslangicLocal());
 
-        // Merkezi düzelt: çıkış noktası pointOnPipe'a denk gelsin
-        meter.x = pointOnPipe.x - (tempCikis.x - pointOnPipe.x);
-        meter.y = pointOnPipe.y - (tempCikis.y - pointOnPipe.y);
+        // Merkezi düzelt: rijit başlangıç noktası pointOnPipe'a denk gelsin
+        meter.x = pointOnPipe.x - (tempRijitBaslangic.x - pointOnPipe.x);
+        meter.y = pointOnPipe.y - (tempRijitBaslangic.y - pointOnPipe.y);
 
         // 5. Kesim noktalarını hesapla (Merkezden sola ve sağa git)
         // Sayacın "Giriş Noktası"nın denk geleceği yer:
@@ -2795,19 +2795,19 @@ removeObject(obj) {
              // 1. Bağlı boruları bul
              const girisBoruId = obj.fleksBaglanti?.boruId;
              const cikisBoruId = obj.cikisBagliBoruId;
-             
+
              // 2. Hem giriş hem çıkış borusu varsa birleştir
              if (girisBoruId && cikisBoruId) {
                  const girisBoru = this.manager.pipes.find(p => p.id === girisBoruId);
                  const cikisBoru = this.manager.pipes.find(p => p.id === cikisBoruId);
-                 
+
                  if (girisBoru && cikisBoru) {
                      // Giriş borusunun ucu (vananın olduğu yer)
                      const targetPoint = obj.fleksBaglanti.endpoint === 'p1' ? girisBoru.p1 : girisBoru.p2;
 
                      // Çıkış borusunun başlangıcını (p1) giriş borusunun ucuna taşı
                      cikisBoru.moveP1(targetPoint);
-                     
+
                      // Bağlantı tiplerini güncelle (Artık birbirlerine bağlılar)
                      cikisBoru.setBaslangicBaglanti('boru', girisBoru.id);
                      // Giris borusunun bitiş bağlantısını güncelle
@@ -2818,7 +2818,12 @@ removeObject(obj) {
                      }
                  }
              }
+
              // Vanayı (iliskiliVanaId) silmiyoruz, kullanıcı isterse manuel silsin.
+
+             // 3. Sayacı components dizisinden sil
+             const idx = this.manager.components.findIndex(c => c.id === obj.id);
+             if (idx !== -1) this.manager.components.splice(idx, 1);
         }
     else {
         const idx = this.manager.components.findIndex(c => c.id === obj.id);
