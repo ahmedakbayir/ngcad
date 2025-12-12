@@ -605,87 +605,112 @@ export class PlumbingRenderer {
         }
         return color;
     }
-
-drawSayac(ctx, comp, manager) {
-        const { width, height, rijitUzunluk } = SAYAC_CONFIG;
+/**
+     * SAYAÇ ÇİZİMİ (GÜNCELLENMİŞ)
+     * - Gövde Metalik Gri
+     * - Üstte iki rekor (Giriş/Çıkış)
+     * - Giriş (Sol): Fleks bağlantısı buraya gelir
+     * - Çıkış (Sağ): Buradan yukarı doğru sarı rijit boru çıkar
+     */
+    drawSayac(ctx, comp, manager) {
+        const { width, height, connectionOffset, rijitUzunluk } = comp.config; // Config'den al
         const zoom = state.zoom || 1;
 
-        // --- 0. Fleks Bağlantısını Çiz (Eğer bağlıysa) ---
-        // Sayacın içine gömülü değil, harici bir çizim fonksiyonuyla çiziyoruz
+        // --- 0. Fleks Bağlantısını Çiz ---
+        // Fleks, sayacın giriş noktasına (üst sol) bağlanır
         if (manager && comp.fleksBaglanti?.boruId) {
             const boru = manager.findPipeById(comp.fleksBaglanti.boruId);
             if (boru) {
-                const targetPoint = comp.getFleksBaglantiNoktasi(boru);
-                const girisNoktasi = comp.getGirisNoktasi();
-                // Dalgalı fleks çizgisi
+                const targetPoint = comp.getFleksBaglantiNoktasi(boru); // Borudaki nokta (Vana)
+                const girisNoktasi = comp.getGirisNoktasi(); // Sayacın giriş noktası (Dünya koord.)
+                
+                // Fleks çizimi (Sayacın üst solundan, vanaya doğru)
                 this.drawWavyConnectionLine(ctx, girisNoktasi, zoom, manager, targetPoint, {x: comp.x, y: comp.y});
             }
         }
 
-        // Koordinat sistemini sayacın merkezine taşı ve döndür
         ctx.save();
-        ctx.translate(comp.x, comp.y);
+        //ctx.translate(comp.x, comp.y);
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
-        // --- 1. Gövde (Gradient Metalik Kutu) ---
+        // --- 1. Gövde (Metalik Gri Kutu) ---
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
+        // Metalik gradient
         const gradient = ctx.createLinearGradient(-width / 2, -height / 2, width / 2, height / 2);
         if (comp.isSelected) {
             gradient.addColorStop(0, '#FFFFFF');
             gradient.addColorStop(0.5, '#8ab4f8');
             gradient.addColorStop(1, '#2a74d0');
         } else {
-            gradient.addColorStop(0, '#E0E0E0');
-            gradient.addColorStop(0.5, '#808080');
-            gradient.addColorStop(1, '#404040');
+            gradient.addColorStop(0, '#E8E8E8');
+            gradient.addColorStop(0.5, '#A0A0A0');
+            gradient.addColorStop(1, '#606060');
         }
 
         ctx.fillStyle = gradient;
-        
-        // Yuvarlatılmış dikdörtgen
-        const radius = 4;
+        const radius = 3;
         ctx.beginPath();
         if (ctx.roundRect) {
             ctx.roundRect(-width / 2, -height / 2, width, height, radius);
         } else {
-            ctx.rect(-width / 2, -height / 2, width, height); // Fallback
+            ctx.rect(-width / 2, -height / 2, width, height);
         }
         ctx.fill();
 
         // Çerçeve
-        ctx.lineWidth = 1.5 / zoom;
-        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1 / zoom;
+        ctx.strokeStyle = '#444';
         ctx.shadowBlur = 0;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         ctx.stroke();
 
         // --- 2. Etiket (G4) ---
-        // ⚠️ İstenen Font
-        ctx.fillStyle = '#111';
-        ctx.font = `bold 12px Arial`; 
+        ctx.fillStyle = '#222';
+        ctx.font = `bold 10px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('G4', 0, 1);
+        ctx.fillText('G4', 0, 5); 
 
-        // --- 3. Çıkış Kolu (Sağ Taraf - Rijit) ---
-        // Sayacın gövdesinden sağa doğru uzanan parça
-        ctx.fillStyle = '#FFD700'; // Sarı
-        // Sağ kenardan başla
-        ctx.fillRect(width / 2, -2, rijitUzunluk, 4); 
+        // --- 3. Üst Bağlantı Rekorları (Somunlar) ---
+        // Gövdenin üst kenarında
+        const connY = -height / 2;
+        const nutWidth = 6;
+        const nutHeight = 4;
         
-        // Çıkış ucuna küçük bir nokta (bağlantı belli olsun)
-        ctx.fillStyle = '#FFA500';
-        ctx.beginPath();
-        ctx.arc(width / 2 + rijitUzunluk, 0, 2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = '#DCDCDC'; // Açık gri metalik (Rekor rengi)
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 0.5;
 
-        // Not: Giriş tarafında vana veya fleks ÇİZMİYORUZ. 
-        // Vana ayrı bir obje olacak, fleks ise yukarıda drawWavyConnectionLine ile çizildi.
+        // Sol Rekor (Giriş)
+        ctx.fillRect(-connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
+        ctx.strokeRect(-connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
+
+        // Sağ Rekor (Çıkış)
+        ctx.fillRect(connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
+        ctx.strokeRect(connectionOffset - nutWidth/2, connY - nutHeight, nutWidth, nutHeight);
+
+        // --- 4. Rijit Çıkış Kolu (Sarı Boru) ---
+        // Sağ rekordan yukarı doğru çıkan boru
+        const armStartX = connectionOffset;
+        const armStartY = connY - nutHeight; // Rekorun üstünden başlar
+        const armWidth = 4; // Boru kalınlığı
+
+        ctx.fillStyle = '#FFD700'; // Sarı
+        // Canvas Y negatifi yukarıdır. rijitUzunluk kadar yukarı çiz.
+        ctx.fillRect(armStartX - armWidth/2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
+        
+        // Çıkış ucuna nokta (debug/referans için)
+        if (!comp.cikisKullanildi) {
+             ctx.fillStyle = '#FFA500';
+             ctx.beginPath();
+             ctx.arc(armStartX, armStartY - rijitUzunluk, 2, 0, Math.PI * 2);
+             ctx.fill();
+        }
 
         ctx.restore();
     }

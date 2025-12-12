@@ -2788,9 +2788,41 @@ removeObject(obj) {
         // Servis kutusunu sil
         const index = this.manager.components.findIndex(c => c.id === obj.id);
         if (index !== -1) this.manager.components.splice(index, 1);
-    } else {
-        const index = this.manager.components.findIndex(c => c.id === obj.id);
-        if (index !== -1) this.manager.components.splice(index, 1);
+    } else if (obj.type === 'sayac') {
+             // 1. Bağlı boruları bul
+             const girisBoruId = obj.fleksBaglanti?.boruId;
+             const cikisBoruId = obj.cikisBagliBoruId;
+             
+             // 2. Hem giriş hem çıkış borusu varsa birleştir
+             if (girisBoruId && cikisBoruId) {
+                 const girisBoru = this.manager.pipes.find(p => p.id === girisBoruId);
+                 const cikisBoru = this.manager.pipes.find(p => p.id === cikisBoruId);
+                 
+                 if (girisBoru && cikisBoru) {
+                     // Giriş borusunun ucu (vananın olduğu yer)
+                     const targetPoint = obj.fleksBaglanti.endpoint === 'p1' ? girisBoru.p1 : girisBoru.p2;
+
+                     // Çıkış borusunun başlangıcını (p1) giriş borusunun ucuna taşı
+                     cikisBoru.moveP1(targetPoint);
+                     
+                     // Bağlantı tiplerini güncelle (Artık birbirlerine bağlılar)
+                     cikisBoru.setBaslangicBaglanti('boru', girisBoru.id);
+                     // Giris borusunun bitiş bağlantısını güncelle
+                     if (obj.fleksBaglanti.endpoint === 'p2') {
+                         girisBoru.setBitisBaglanti('boru', cikisBoru.id);
+                     } else {
+                         girisBoru.setBaslangicBaglanti('boru', cikisBoru.id);
+                     }
+                 }
+             }
+             // Vanayı (iliskiliVanaId) silmiyoruz, kullanıcı isterse manuel silsin.
+        }
+    else {
+        const idx = this.manager.components.findIndex(c => c.id === obj.id);
+        if (idx !== -1) this.manager.components.splice(idx, 1);
+        
+        const pIdx = this.manager.pipes.findIndex(p => p.id === obj.id);
+        if (pIdx !== -1) this.manager.pipes.splice(pIdx, 1);
     }
 }
 
