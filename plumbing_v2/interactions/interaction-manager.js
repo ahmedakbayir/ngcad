@@ -302,7 +302,7 @@ handlePointerDown(e) {
         }
 
         // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-        const boruUcu = this.findBoruUcuAt(point, 2.5); // Nokta seçimi için 2.5 cm tolerance (daha hassas)
+        const boruUcu = this.findBoruUcuAt(point, 15); // Nokta seçimi için 15 cm tolerance - bağlantı noktası çevresini kapsar
         if (boruUcu) {
             console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
             const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
