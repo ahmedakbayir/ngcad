@@ -10,8 +10,9 @@ import { Sayac, createSayac } from '../objects/meter.js';
 import { Vana, createVana } from '../objects/valve.js';
 import { Cihaz, createCihaz } from '../objects/device.js';
 import { screenToWorld } from '../../draw/geometry.js';
-import { dom, state, setMode, setState } from '../../general-files/main.js';
+import { dom, state, setMode, setState, setDrawingMode } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
+import { update3DScene } from '../../scene3d/scene3d-update.js';
 import { canPlaceValveOnPipe, getObjectsOnPipe } from '../utils/placement-utils.js';
 
 // Tool modları
@@ -446,47 +447,41 @@ handleKeyDown(e) {
 
     // K - Kombi ekle
     if (e.key === 'k' || e.key === 'K') {
-        // Eğer boru çiziyorsak, aktif noktaya cihaz ekle
-        if (this.boruCizimAktif && this.geciciBoruBitis) {
-            // Önce mevcut boruyu tamamla
-            this.handleBoruClick(this.geciciBoruBitis);
-            // Boru çizimini sonlandır
-            this.cancelCurrentAction();
-        }
+        // Mevcut eylemleri iptal et (ghost boruyu iptal et, onaylama)
+        this.cancelCurrentAction();
+        setMode("select");
 
         // TESİSAT moduna geç
         if (state.currentDrawingMode !== "KARMA") {
             setDrawingMode("TESİSAT");
         }
-        
-        // Kombi yerleştirme modunu başlat
-        this.manager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'KOMBI' });
-        
-        // UI ikonunu güncelle
-        setMode("plumbingV2", true);
+
+        // Boş uca direkt kombi ekle
+        if (this.manager.placeDeviceAtOpenEnd('KOMBI')) {
+            saveState();
+            update3DScene();
+        }
+
         return true;
     }
 
     // O - Ocak ekle
     if (e.key === 'o' || e.key === 'O') {
-        // Eğer boru çiziyorsak, aktif noktaya cihaz ekle
-        if (this.boruCizimAktif && this.geciciBoruBitis) {
-            // Önce mevcut boruyu tamamla
-            this.handleBoruClick(this.geciciBoruBitis);
-            // Boru çizimini sonlandır
-            this.cancelCurrentAction();
-        }
+        // Mevcut eylemleri iptal et (ghost boruyu iptal et, onaylama)
+        this.cancelCurrentAction();
+        setMode("select");
 
-        // TESİSAT modunda olduğumuzdan emin ol
+        // TESİSAT moduna geç
         if (state.currentDrawingMode !== "KARMA") {
             setDrawingMode("TESİSAT");
         }
 
-        // Ocak yerleştirme modunu başlat
-        this.manager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'OCAK' });
-        
-        // UI ikonunu güncelle
-        setMode("plumbingV2", true);
+        // Boş uca direkt ocak ekle
+        if (this.manager.placeDeviceAtOpenEnd('OCAK')) {
+            saveState();
+            update3DScene();
+        }
+
         return true;
     }
 

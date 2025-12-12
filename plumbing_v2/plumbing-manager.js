@@ -144,10 +144,24 @@ export class PlumbingManager {
     }
 
     /**
-     * Boş boru uçlarını bul
+     * Boş boru uçlarını bul (başlangıç veya bitiş ucu boş olan borular)
+     * @returns {Array} Her boru için {pipe, end: 'p1' veya 'p2'} döndürür
      */
     getBosBitisBorular() {
-        return this.pipes.filter(p => !p.bitisBaglanti.hedefId);
+        const bosUclar = [];
+
+        for (const pipe of this.pipes) {
+            // p1 ucu boş mu? (baslangicBaglanti hedefId yoksa)
+            if (!pipe.baslangicBaglanti.hedefId) {
+                bosUclar.push({ pipe, end: 'p1' });
+            }
+            // p2 ucu boş mu? (bitisBaglanti hedefId yoksa)
+            if (!pipe.bitisBaglanti.hedefId) {
+                bosUclar.push({ pipe, end: 'p2' });
+            }
+        }
+
+        return bosUclar;
     }
 
     /**
@@ -233,29 +247,23 @@ export class PlumbingManager {
      * @param {string} deviceType - Yerleştirilecek cihazın tipi ('KOMBI', 'OCAK', vb.)
      */
     placeDeviceAtOpenEnd(deviceType) {
-        // Aktif bir araç varsa veya çizim yapılıyorsa bu işlevi çalıştırma.
-        if (this.activeTool || this.interactionManager.boruCizimAktif) {
-            console.log("Mevcut işlem devam ederken otomatik yerleştirme yapılamaz.");
-            return false;
-        }
-
         // Sadece 'KOMBI' ve 'OCAK' tiplerine izin ver
         if (deviceType !== 'KOMBI' && deviceType !== 'OCAK') {
             console.warn(`Unsupported device type for automatic placement: ${deviceType}`);
             return false;
         }
 
-        // Boş boru uçlarını al. `getBosBitisBorular` zaten sadece boş uçları döndürmeli.
-        const openPipes = this.getBosBitisBorular();
-        if (openPipes.length === 0) {
+        // Boş boru uçlarını al
+        const openEnds = this.getBosBitisBorular();
+        if (openEnds.length === 0) {
             console.log("Otomatik yerleştirme için boşta boru ucu bulunamadı.");
             return false; // Boşta boru ucu yoksa bir şey yapma
         }
 
-        // İlk boş boruyu seç
-        const pipeToConnect = openPipes[0];
-        const connectionPoint = pipeToConnect.p2;
-        const floorId = pipeToConnect.floorId || state.currentFloor?.id;
+        // İlk boş ucu seç
+        const { pipe, end } = openEnds[0];
+        const connectionPoint = pipe[end]; // pipe.p1 veya pipe.p2
+        const floorId = pipe.floorId || state.currentFloor?.id;
 
         // Yeni cihazı oluştur
         const newDevice = createCihaz(connectionPoint.x, connectionPoint.y, deviceType, { floorId });
@@ -268,17 +276,25 @@ export class PlumbingManager {
         // Cihazı component listesine ekle
         this.components.push(newDevice);
 
-        // Borunun bitiş bağlantısını yeni cihaza güncelle
-        pipeToConnect.bitisBaglanti = {
-            tip: 'cihaz',
-            hedefId: newDevice.id,
-            noktaIndex: 0 // Cihazların genelde tek bağlantı noktası olur (index 0)
-        };
+        // Borunun bağlantısını yeni cihaza güncelle (hangi uçsa o)
+        if (end === 'p1') {
+            pipe.baslangicBaglanti = {
+                tip: 'cihaz',
+                hedefId: newDevice.id,
+                noktaIndex: 0 // Cihazların genelde tek bağlantı noktası olur (index 0)
+            };
+        } else {
+            pipe.bitisBaglanti = {
+                tip: 'cihaz',
+                hedefId: newDevice.id,
+                noktaIndex: 0
+            };
+        }
 
         // Değişiklikleri hemen state'e kaydet
         this.saveToState();
 
-        console.log(`${deviceType} başarıyla boş boru ucuna eklendi.`);
+        console.log(`${deviceType} başarıyla boş boru ucuna eklendi (${end}).`);
         return true; // Başarılı olduğunu belirt
     }
 
