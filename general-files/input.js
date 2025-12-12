@@ -810,12 +810,14 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === "d" && !inFPSMode) { const newMode = (state.dimensionMode + 1) % 3; setState({ dimensionMode: newMode }); state.dimensionOptions.defaultView = newMode; dom.dimensionDefaultViewSelect.value = newMode; }
     if (e.key.toLowerCase() === "w" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawWall");
     if (e.key.toLowerCase() === "r" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawRoom");
-    if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawDoor");
     if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawWindow");
     if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawColumn");
     if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawBeam");
     if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawStairs");
-    if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawPlumbingPipe"); // Tesisat borusu
+    if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        plumbingManager.startPipeMode(); // Boru çizim aracını başlat
+        setMode("plumbingV2", true); // UI'yı güncelle (ikonu aktif et)
+    }
     if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry"); // YENİ SATIR
 
 }
