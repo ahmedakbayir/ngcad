@@ -1163,7 +1163,40 @@ function initialize() {
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 
     if (dom.bSel) {
-        dom.bSel.addEventListener("click", () => setMode("select", true)); // forceSet ekleyin
+        dom.bSel.addEventListener("click", () => {
+            // ESC tuşu ile TAM OLARAK aynı davranış
+            // Settings popup açıksa zaten kapatmaya gerek yok (buton tıklaması)
+
+            // Length input açıksa kapat
+            if (state.isEditingLength) cancelLengthEdit();
+
+            // Sürükleme aktifse iptal et ve state'i restore et
+            if (state.isDragging) {
+                setState({
+                    isDragging: false,
+                    isStretchDragging: false,
+                    selectedGroup: [],
+                    affectedWalls: [],
+                    preDragWallStates: new Map(),
+                    preDragNodeStates: new Map()
+                });
+                restoreState(state.history[state.historyIndex]);
+            } else {
+                // Sürükleme yoksa sadece seçimleri temizle
+                setState({ selectedObject: null, selectedGroup: [] });
+            }
+
+            // startPoint'i temizle
+            setState({ startPoint: null });
+
+            // v2 plumbing seçimini de temizle ve aktif eylemleri iptal et
+            if (plumbingManager.interactionManager) {
+                plumbingManager.interactionManager.cancelCurrentAction();
+            }
+
+            // Seç moduna geç
+            setMode("select", true);
+        });
     }
 
     // DELETE butonu - mousedown'da HEMEN handleDelete çağır (blur öncesi)
