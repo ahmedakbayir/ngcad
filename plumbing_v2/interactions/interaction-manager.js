@@ -808,68 +808,231 @@ updateGhostPosition(ghost, point, snap) {
  */
 placeComponent(point) {
     if (!this.manager.tempComponent) return;
-
-    // Undo için state kaydet
-    saveState();
-
     const component = this.manager.tempComponent;
 
-    // Özel işlemler
     switch (component.type) {
         case 'servis_kutusu':
-            // Listeye ekle
+            // ... (Mevcut kod) ...
+            saveState();
             this.manager.components.push(component);
             this.startBoruCizim(component.getCikisNoktasi(), component.id);
-            // İkon güncellemesi için activeTool'u boru olarak ayarla
             this.manager.activeTool = 'boru';
-            // İkonları güncelle
             setMode("plumbingV2", true);
             break;
 
         case 'sayac':
-            // Listeye ekle
+            // 1. Boru Ucu Kontrolü (Öncelikli)
+            // "bir borunun ucuna sayaç ekle" senaryosu
+            const pipeEnd = this.findBoruUcuAt(point, 10);
+            if (pipeEnd) {
+                this.handleSayacEndPlacement(pipeEnd, component);
+                return;
+            }
+
+            // 2. Boru Üzeri Kontrolü (Split)
+            // "borunun üzerine ekle" senaryosu
+            const hoveredPipe = this.findPipeAt(point, 5);
+            if (hoveredPipe) {
+                this.splitPipeAndInsertMeter(hoveredPipe, point, component);
+                return;
+            }
+
+            // 3. Boşluğa Ekleme (Fallback)
+            saveState();
             this.manager.components.push(component);
-            this.handleSayacEkleme(component);
-            // İkon güncellemesi için activeTool'u boru olarak ayarla
+            this.startBoruCizim(component.getCikisNoktasi(), component.id, BAGLANTI_TIPLERI.SAYAC);
             this.manager.activeTool = 'boru';
-            // İkonları güncelle
             setMode("plumbingV2", true);
             break;
 
+        case 'vana':
+            // ... (Mevcut kod) ...
+            if (this.vanaPreview) {
+                    this.handleVanaPlacement(this.vanaPreview);
+                    return;
+            }
+            saveState();
+            this.manager.components.push(component);
+            break;
+
         case 'cihaz':
-            // Cihaz için özel kontrol - handleCihazEkleme başarılı olursa ekle
+            // ... (Mevcut kod) ...
             const success = this.handleCihazEkleme(component);
             if (success) {
-                // Listeye ekle
-                this.manager.components.push(component);
-
-                // Cihaz eklendikten sonra boru çizme moduna geç
-                // (icon aktif olsun ama çizim başlamasın - kullanıcı istediği yere tıklasın)
-                this.manager.activeTool = 'boru';
-                setMode("plumbingV2", true);
-            } else {
-                // Başarısız, ekleme iptal edildi
-                // tempComponent'i temizleme, kullanıcı tekrar deneyebilsin
-                return;
+                if (component.fleksBaglanti && component.fleksBaglanti.boruId) {
+                    const boru = this.manager.findPipeById(component.fleksBaglanti.boruId);
+                    if (boru) {
+                        const ucNokta = component.fleksBaglanti.endpoint === 'p1' ? boru.p1 : boru.p2;
+                        this.startBoruCizim(ucNokta, boru.id, BAGLANTI_TIPLERI.BORU);
+                        this.manager.activeTool = 'boru';
+                        setMode("plumbingV2", true);
+                    } else { setMode("select"); }
+                } else { setMode("select"); }
             }
             break;
 
         default:
-            // Diğer bileşenler için doğrudan ekle
+            saveState();
             this.manager.components.push(component);
             break;
     }
 
-    // Temizle
     this.manager.tempComponent = null;
-    // activeTool'u sadece boru moduna geçmiyorsak temizle
-    if (!this.boruCizimAktif) {
-        this.manager.activeTool = null;
-    }
-
-    // State'i senkronize et
+    if (!this.boruCizimAktif) this.manager.activeTool = null;
     this.manager.saveToState();
 }
+
+/**
+ * YENİ: Boru ucuna sayaç ekleme mantığı
+ * - Vana kontrolü/ekleme
+ * - 90 derece dik konumlama
+ * - Fleks bağlantısı
+ */
+handleSayacEndPlacement(pipeEnd, meter) {
+    saveState();
+
+    const pipe = pipeEnd.boru;
+    const endPoint = pipeEnd.nokta;
+    
+    // 1. Boru ucunda vana var mı?
+    const vanaVar = this.checkVanaAtPoint(endPoint);
+    if (!vanaVar) {
+        // Vana yoksa ekle (Boru ucundan biraz içeriye)
+        const vana = createVana(endPoint.x, endPoint.y, 'SAYAC');
+        vana.floorId = meter.floorId;
+        vana.rotation = pipe.aciDerece; // Boru açısında
+        
+        // Vanayı boruya bağla (sabit mesafe ile)
+        vana.bagliBoruId = pipe.id;
+        // Uçtan 4cm içeride olsun
+        vana.fixedDistance = 4;
+        vana.fromEnd = pipeEnd.uc; // 'p1' veya 'p2'
+        vana.updatePositionFromPipe(pipe); // Pozisyonu uygula
+
+        this.manager.components.push(vana);
+        meter.iliskiliVanaId = vana.id;
+    } else {
+        meter.iliskiliVanaId = vanaVar.id;
+    }
+
+    // 2. Sayacın Konumunu Hesapla (90° Dik)
+    // Boru vektörü
+    const dx = pipe.p2.x - pipe.p1.x;
+    const dy = pipe.p2.y - pipe.p1.y;
+    const len = Math.hypot(dx, dy);
+    
+    // Dik vektör (-dy, dx) veya (dy, -dx)
+    // Varsayılan olarak "aşağı" veya "sağa" doğru dik alalım
+    // Boru yönüne göre sağ taraf kuralı uygulayabiliriz
+    let perpX = -dy / len;
+    let perpY = dx / len;
+
+    // Eğer borunun ucuna geldiysek, boru akış yönüne göre 90 dereceyi belirle
+    // Basitlik için: Y ekseninde negatif (yukarı) değilse pozitif alalım veya sabit bir mesafe koyalım.
+    const distance = 25; // Sayaç boru ucundan ne kadar uzakta dursun?
+
+    // Sayacı konumlandır
+    meter.x = endPoint.x + perpX * distance;
+    meter.y = endPoint.y + perpY * distance;
+    meter.rotation = 0; // Sayaç düz dursun
+
+    // 3. Bağlantıyı Kur (Fleks)
+    // Sayacın giriş noktası otomatik olarak sol tarafıdır.
+    // Biz sadece hangi boru ucuna bağlanacağını söylüyoruz.
+    meter.baglaGiris(pipe.id, pipeEnd.uc);
+
+    // 4. Kaydet ve Çizimi Başlat
+    this.manager.components.push(meter);
+    
+    // Çıkıştan yeni tesisat başlat
+    this.startBoruCizim(meter.getCikisNoktasi(), meter.id, BAGLANTI_TIPLERI.SAYAC);
+    
+    this.manager.activeTool = 'boru';
+    setMode("plumbingV2", true);
+    
+    this.manager.saveToState();
+    update3DScene();
+}
+
+splitPipeAndInsertMeter(pipe, clickPoint, meter) {
+        saveState();
+
+        // 1. Sayacın toplam kapladığı genişliği hesapla
+        // (Giriş ucu ile Çıkış ucu arasındaki mesafe)
+        const girisLocal = meter.getGirisLocalKoordinat();
+        const cikisLocal = meter.getCikisLocalKoordinat();
+        const meterTotalLength = Math.abs(cikisLocal.x - girisLocal.x); 
+
+        // 2. Tıklama noktasını boru üzerine izdüşür (Sayacın merkezi burası olacak)
+        const proj = pipe.projectPoint(clickPoint);
+        const centerOnPipe = { x: proj.x, y: proj.y };
+
+        // 3. Boru vektörünü hesapla
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const pipeLen = Math.hypot(dx, dy);
+        const dir = { x: dx/pipeLen, y: dy/pipeLen };
+
+        // 4. Sayacı boru açısına döndür
+        const pipeAngleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+        meter.rotation = pipeAngleDeg;
+        meter.x = centerOnPipe.x;
+        meter.y = centerOnPipe.y;
+
+        // 5. Kesim noktalarını hesapla (Merkezden sola ve sağa git)
+        // Sayacın "Giriş Noktası"nın denk geleceği yer:
+        // Sayacın yerleşimi: Giriş(Sol) --- Merkez --- Çıkış(Sağ)
+        // Boru P1 -------- [KesimA] (Sayaç) [KesimB] -------- P2
+        
+        // Sayacın giriş noktası (dünya koord)
+        const meterInPos = meter.getGirisNoktasi();
+        // Sayacın çıkış noktası (dünya koord)
+        const meterOutPos = meter.getCikisNoktasi();
+
+        // 6. Boruyu bölme işlemi
+        // P1'den MeterInPos'a kadar olan kısım -> Boru 1
+        // MeterOutPos'tan P2'ye kadar olan kısım -> Boru 2
+        
+        // Mevcut boruyu güncelle (Boru 1 yap)
+        const originalP2 = { ...pipe.p2 }; // Eski bitişi sakla
+        const originalEndConn = { ...pipe.bitisBaglanti }; // Eski bağlantıyı sakla
+
+        pipe.p2 = { x: meterInPos.x, y: meterInPos.y }; // P2'yi geri çek
+        pipe.bitisBaglanti = { tip: null, hedefId: null }; // Bağlantıyı kopar
+
+        // Yeni boru oluştur (Boru 2)
+        const newPipe = createBoru(
+            { x: meterOutPos.x, y: meterOutPos.y }, // Yeni başlangıç
+            originalP2,                             // Eski bitiş
+            pipe.boruTipi
+        );
+        newPipe.floorId = pipe.floorId;
+        newPipe.bitisBaglanti = originalEndConn; // Eski bitiş bağlantısını buna ver
+
+        // 7. Bağlantıları Kur
+        // Sayaç Girişi -> Boru 1 (pipe)
+        meter.baglaGiris(pipe.id, pipe.p2);
+        
+        // Sayaç Çıkışı -> Boru 2 (newPipe)
+        meter.baglaCikis(newPipe.id);
+        
+        // Boru 2 Başlangıcı -> Sayaç (Bu bağlantı tipi 'BORU' değil 'SAYAC' olmalı ki takip edilebilsin)
+        newPipe.setBaslangicBaglanti(BAGLANTI_TIPLERI.SAYAC, meter.id);
+
+        // 8. Nesneleri Kaydet
+        this.manager.components.push(meter);
+        this.manager.pipes.push(newPipe);
+        
+        // Ghost elemanı temizle
+        this.manager.tempComponent = null;
+        this.manager.activeTool = null;
+        setMode("select"); // İşlem bitince seç moduna dön
+
+        this.manager.saveToState();
+        update3DScene();
+        
+        console.log("Sayaç boru üzerine başarıyla eklendi ve hat bölündü.");
+    }
 
 /**
  * Boru çizim modunu başlat

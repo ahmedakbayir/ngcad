@@ -606,45 +606,88 @@ export class PlumbingRenderer {
         return color;
     }
 
-    drawSayac(ctx, comp) {
-        const { width, height, color } = SAYAC_CONFIG;
+drawSayac(ctx, comp, manager) {
+        const { width, height, rijitUzunluk } = SAYAC_CONFIG;
+        const zoom = state.zoom || 1;
 
-        // Giriş kolu çiz
-        const girisKol = comp.girisKolUzunlugu || 10;
-        const adjustedGray = getAdjustedColor('#666', 'sayac');
-        ctx.strokeStyle = adjustedGray;
-        ctx.lineWidth = 2;
+        // --- 0. Fleks Bağlantısını Çiz (Eğer bağlıysa) ---
+        // Sayacın içine gömülü değil, harici bir çizim fonksiyonuyla çiziyoruz
+        if (manager && comp.fleksBaglanti?.boruId) {
+            const boru = manager.findPipeById(comp.fleksBaglanti.boruId);
+            if (boru) {
+                const targetPoint = comp.getFleksBaglantiNoktasi(boru);
+                const girisNoktasi = comp.getGirisNoktasi();
+                // Dalgalı fleks çizgisi
+                this.drawWavyConnectionLine(ctx, girisNoktasi, zoom, manager, targetPoint, {x: comp.x, y: comp.y});
+            }
+        }
+
+        // Koordinat sistemini sayacın merkezine taşı ve döndür
+        ctx.save();
+        ctx.translate(comp.x, comp.y);
+        if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
+
+        // --- 1. Gövde (Gradient Metalik Kutu) ---
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+
+        const gradient = ctx.createLinearGradient(-width / 2, -height / 2, width / 2, height / 2);
+        if (comp.isSelected) {
+            gradient.addColorStop(0, '#FFFFFF');
+            gradient.addColorStop(0.5, '#8ab4f8');
+            gradient.addColorStop(1, '#2a74d0');
+        } else {
+            gradient.addColorStop(0, '#E0E0E0');
+            gradient.addColorStop(0.5, '#808080');
+            gradient.addColorStop(1, '#404040');
+        }
+
+        ctx.fillStyle = gradient;
+        
+        // Yuvarlatılmış dikdörtgen
+        const radius = 4;
         ctx.beginPath();
-        ctx.moveTo(-width / 2, 0);
-        ctx.lineTo(-width / 2 - girisKol, 0);
+        if (ctx.roundRect) {
+            ctx.roundRect(-width / 2, -height / 2, width, height, radius);
+        } else {
+            ctx.rect(-width / 2, -height / 2, width, height); // Fallback
+        }
+        ctx.fill();
+
+        // Çerçeve
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.strokeStyle = '#333';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
         ctx.stroke();
 
-        // Sayaç gövdesi
-        const adjustedColor = getAdjustedColor(color, 'sayac');
-        const adjustedStroke = getAdjustedColor('#333', 'sayac');
-        ctx.fillStyle = adjustedColor;
-        ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
-        ctx.lineWidth = 1;
-
-        ctx.beginPath();
-        ctx.arc(0, 0, width / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        // İç gösterge
-        const adjustedWhite = getAdjustedColor('#fff', 'sayac');
-        ctx.fillStyle = adjustedWhite;
-        ctx.beginPath();
-        ctx.arc(0, 0, width / 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Sayaç ikonu
-        const adjustedText = getAdjustedColor('#333', 'sayac');
-        ctx.fillStyle = adjustedText;
-        ctx.font = '6px Arial';
+        // --- 2. Etiket (G4) ---
+        // ⚠️ İstenen Font
+        ctx.fillStyle = '#111';
+        ctx.font = `bold 12px Arial`; 
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('m³', 0, 0);
+        ctx.fillText('G4', 0, 1);
+
+        // --- 3. Çıkış Kolu (Sağ Taraf - Rijit) ---
+        // Sayacın gövdesinden sağa doğru uzanan parça
+        ctx.fillStyle = '#FFD700'; // Sarı
+        // Sağ kenardan başla
+        ctx.fillRect(width / 2, -2, rijitUzunluk, 4); 
+        
+        // Çıkış ucuna küçük bir nokta (bağlantı belli olsun)
+        ctx.fillStyle = '#FFA500';
+        ctx.beginPath();
+        ctx.arc(width / 2 + rijitUzunluk, 0, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Not: Giriş tarafında vana veya fleks ÇİZMİYORUZ. 
+        // Vana ayrı bir obje olacak, fleks ise yukarıda drawWavyConnectionLine ile çizildi.
+
+        ctx.restore();
     }
 
     drawVana(ctx, comp, vanaData = null) {

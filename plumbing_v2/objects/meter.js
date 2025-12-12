@@ -3,29 +3,24 @@
  * Gaz sayacı - kullanıcı kurallarına göre tasarlanmış
  *
  * KURALLAR:
- * - Giriş ucu esnek (kol uzar), çıkış ucu rijit
- * - Daima hat ucunda, boşta olamaz
- * - Vana yoksa sayaç vanası otomatik eklenir
- * - Branşman vanası → sayaç vanasına dönüşür
+ * - Giriş ucu esnek (fleks), çıkış ucu rijit
+ * - Daima hat ucunda veya boru üzerinde (split)
+ * - Vana yoksa sayaç vanası otomatik eklenir (Manager tarafından)
  * - Eklenince BORU moduna geçer
  * - Giriş noktası etrafında döner
- * - Taşınırken giriş sabit, kol uzar
- * - Sayaç sonrası tekrar sayaç eklenemez
- * - Boru üzerine eklenebilir
- * - Silinince çıkış girişe taşınır
+ * - Taşınırken giriş noktasına olan fleks bağlantısı görsel olarak güncellenir
+ * - Silinince ilişkili vana ve borular yönetilir
  */
 
 import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
 // Sayaç Sabitleri
 export const SAYAC_CONFIG = {
-    width: 18,          // cm
-    height: 18,         // cm
-    depth: 40,          // cm
+    width: 25,          // cm - Gövde genişliği
+    height: 30,         // cm - Gövde yüksekliği
+    depth: 20,          // cm - 3D Derinlik
     color: 0xA8A8A8,
-    minKolUzunlugu: 5,  // cm - minimum bağlantı kolu
-    maxKolUzunlugu: 50, // cm - maximum bağlantı kolu
-    defaultKolUzunlugu: 10, // cm
+    rijitUzunluk: 10,   // Sağ çıkış kolu uzunluğu (sabit)
 };
 
 export class Sayac {
@@ -42,34 +37,40 @@ export class Sayac {
         this.config = { ...SAYAC_CONFIG };
         this.floorId = options.floorId || null;
 
-        // Giriş bağlantısı (esnek kol)
-        this.girisKolUzunlugu = options.kolUzunlugu || SAYAC_CONFIG.defaultKolUzunlugu;
-        this.girisBagliBoruId = null;
-        this.girisNoktasi = null; // Boruya bağlandığı nokta
+        // Giriş bağlantısı (Esnek/Fleks)
+        // Cihazlarda olduğu gibi boru ID'si ve uç noktası ('p1'/'p2') tutulur
+        this.fleksBaglanti = {
+            boruId: null,
+            endpoint: null // 'p1' veya 'p2'
+        };
 
-        // Çıkış bağlantısı (rijit)
+        // Çıkış bağlantısı (Rijit)
+        // Buraya bağlanan borunun ID'si
         this.cikisBagliBoruId = null;
 
-        // İlişkili vana (sayaç vanası)
+        // İlişkili vana (sayaç vanası) ID'si
         this.iliskiliVanaId = null;
     }
 
     /**
-     * Giriş noktasının local koordinatı (esnek kol ucu)
+     * Giriş noktasının local koordinatı (Sol kenar)
+     * Fleks buradan bağlanır.
      */
     getGirisLocalKoordinat() {
         return {
-            x: -this.config.width / 2 - this.girisKolUzunlugu,
+            x: -this.config.width / 2,
             y: 0
         };
     }
 
     /**
-     * Çıkış noktasının local koordinatı (rijit)
+     * Çıkış noktasının local koordinatı (Sağ kenar + Rijit Uzunluk)
+     * Yeni tesisat buradan başlar.
      */
     getCikisLocalKoordinat() {
+        const totalRightOffset = (this.config.width / 2) + this.config.rijitUzunluk;
         return {
-            x: this.config.width / 2,
+            x: totalRightOffset,
             y: 0
         };
     }
@@ -110,7 +111,7 @@ export class Sayac {
     }
 
     /**
-     * Sayaç köşeleri
+     * Sayaç köşeleri (Bounding Box hesaplaması için)
      */
     getKoseler() {
         const { width, height } = this.config;
@@ -129,6 +130,7 @@ export class Sayac {
 
     /**
      * Giriş noktası etrafında döndür
+     * (Eski versiyondaki gibi giriş sabit kalır, gövde döner)
      */
     rotate(deltaDerece) {
         const girisNoktasi = this.getGirisNoktasi();
@@ -136,7 +138,7 @@ export class Sayac {
         // Rotasyonu uygula
         this.rotation = (this.rotation + deltaDerece) % 360;
 
-        // Merkezi giriş noktasına göre yeniden hesapla
+        // Merkezi giriş noktasına göre yeniden hesapla (giriş sabit kalsın diye)
         const yeniGiris = this.getGirisNoktasi();
         this.x += girisNoktasi.x - yeniGiris.x;
         this.y += girisNoktasi.y - yeniGiris.y;
@@ -148,38 +150,13 @@ export class Sayac {
     }
 
     /**
-     * Sayacı taşı (giriş noktası sabit, kol uzar)
+     * Sayacı taşı
+     * Artık kol uzatmıyor, tüm gövdeyi taşıyor.
+     * Fleks bağlantısı renderer tarafından dinamik çizilir.
      */
     move(newX, newY) {
-        if (!this.girisNoktasi) {
-            // Giriş noktası yoksa normal taşı
-            this.x = newX;
-            this.y = newY;
-            return { cikisBagliBoruId: this.cikisBagliBoruId };
-        }
-
-        // Giriş noktası sabit, kol uzunluğunu hesapla
-        const rad = this.rotation * Math.PI / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-
-        // Kol yönündeki bileşen
-        const dx = newX - this.girisNoktasi.x;
-        const dy = newY - this.girisNoktasi.y;
-        const yeniKolUzunlugu = dx * cos + dy * sin - this.config.width / 2;
-
-        // Kol uzunluğunu sınırla
-        this.girisKolUzunlugu = Math.max(
-            SAYAC_CONFIG.minKolUzunlugu,
-            Math.min(SAYAC_CONFIG.maxKolUzunlugu, yeniKolUzunlugu)
-        );
-
-        // Yeni pozisyonu hesapla (giriş noktası sabit kalacak şekilde)
-        const hesaplananX = this.girisNoktasi.x + (this.config.width / 2 + this.girisKolUzunlugu) * cos;
-        const hesaplananY = this.girisNoktasi.y + (this.config.width / 2 + this.girisKolUzunlugu) * sin;
-
-        this.x = hesaplananX;
-        this.y = hesaplananY;
+        this.x = newX;
+        this.y = newY;
 
         return {
             cikisBagliBoruId: this.cikisBagliBoruId,
@@ -205,15 +182,25 @@ export class Sayac {
     }
 
     /**
-     * Boruya bağlan (giriş tarafı)
+     * Giriş bağlantısını kur (Fleks)
+     * @param {string} boruId - Bağlanılacak borunun ID'si
+     * @param {string} endpoint - 'p1' veya 'p2'
      */
-    baglaGiris(boruId, nokta) {
-        this.girisBagliBoruId = boruId;
-        this.girisNoktasi = { x: nokta.x, y: nokta.y };
+    baglaGiris(boruId, endpoint) {
+        this.fleksBaglanti.boruId = boruId;
+        this.fleksBaglanti.endpoint = endpoint;
     }
 
     /**
-     * Çıkışa boru bağla
+     * Fleks bağlantı noktasını borudan al (Renderer için gerekli)
+     */
+    getFleksBaglantiNoktasi(pipe) {
+        if (!pipe || !this.fleksBaglanti.endpoint) return null;
+        return this.fleksBaglanti.endpoint === 'p1' ? pipe.p1 : pipe.p2;
+    }
+
+    /**
+     * Çıkışa boru bağla (Rijit)
      */
     baglaCikis(boruId) {
         this.cikisBagliBoruId = boruId;
@@ -227,7 +214,7 @@ export class Sayac {
     }
 
     /**
-     * Tesisat hattı üzerinde mi kontrolü
+     * Tesisat hattı üzerinde mi kontrolü (Snap için)
      */
     isTesisatHattiUzerinde(tesisatHatlari) {
         const merkez = this.getGovdeMerkezi();
@@ -250,31 +237,32 @@ export class Sayac {
                 return { hat, t, projX, projY };
             }
         }
-
         return null;
     }
 
     /**
-     * Silindiğinde yapılacaklar
+     * Silindiğinde yapılacaklar (Bilgi döndürür)
      */
     getDeleteInfo() {
         return {
-            girisBagliBoruId: this.girisBagliBoruId,
+            girisBagliBoruId: this.fleksBaglanti.boruId, // Artık fleksBaglanti üzerinden
             cikisBagliBoruId: this.cikisBagliBoruId,
             iliskiliVanaId: this.iliskiliVanaId,
-            girisNoktasi: this.girisNoktasi,
+            girisNoktasi: this.getGirisNoktasi(),
             cikisNoktasi: this.getCikisNoktasi()
         };
     }
 
     /**
-     * Bounding box
+     * Bounding box (Seçim kutusu için)
      */
     getBoundingBox() {
         const koseler = this.getKoseler();
-        const giris = this.getGirisNoktasi();
+        // Giriş noktasını bounding box'a dahil etmeye gerek yok, gövde yeterli
+        // Ancak rijit çıkış ucunu dahil etmek iyi olabilir
+        const cikisUcu = this.getCikisNoktasi();
 
-        const allPoints = [...koseler, giris];
+        const allPoints = [...koseler, cikisUcu];
         const xs = allPoints.map(p => p.x);
         const ys = allPoints.map(p => p.y);
 
@@ -287,7 +275,7 @@ export class Sayac {
     }
 
     /**
-     * Hit test
+     * Hit test (Tıklama kontrolü)
      */
     containsPoint(point) {
         const bbox = this.getBoundingBox();
@@ -300,7 +288,7 @@ export class Sayac {
     }
 
     /**
-     * Serialize
+     * Serialize (Kaydetme)
      */
     toJSON() {
         return {
@@ -309,9 +297,7 @@ export class Sayac {
             x: this.x,
             y: this.y,
             rotation: this.rotation,
-            girisKolUzunlugu: this.girisKolUzunlugu,
-            girisBagliBoruId: this.girisBagliBoruId,
-            girisNoktasi: this.girisNoktasi,
+            fleksBaglanti: { ...this.fleksBaglanti }, // Fleks bilgisini kaydet
             cikisBagliBoruId: this.cikisBagliBoruId,
             iliskiliVanaId: this.iliskiliVanaId,
             floorId: this.floorId
@@ -319,18 +305,25 @@ export class Sayac {
     }
 
     /**
-     * Deserialize
+     * Deserialize (Yükleme)
      */
     static fromJSON(data) {
         const sayac = new Sayac(data.x, data.y, {
-            kolUzunlugu: data.girisKolUzunlugu,
             floorId: data.floorId
         });
 
         sayac.id = data.id;
         sayac.rotation = data.rotation;
-        sayac.girisBagliBoruId = data.girisBagliBoruId;
-        sayac.girisNoktasi = data.girisNoktasi;
+        
+        // Fleks bağlantısını yükle
+        if (data.fleksBaglanti) {
+            sayac.fleksBaglanti = { ...data.fleksBaglanti };
+        } else if (data.girisBagliBoruId) { 
+            // Eski format desteği (girisBagliBoruId varsa)
+            sayac.fleksBaglanti.boruId = data.girisBagliBoruId;
+            // endpoint'i tahmin etmek zor olabilir, null bırakıyoruz
+        }
+
         sayac.cikisBagliBoruId = data.cikisBagliBoruId;
         sayac.iliskiliVanaId = data.iliskiliVanaId;
 
