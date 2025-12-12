@@ -652,7 +652,7 @@ updateGhostPosition(ghost, point, snap) {
 
     // Cihaz için: boru ucuna snap yap, boru ekseninde yerleştir
     if (ghost.type === 'cihaz') {
-        // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
+        // En yakın GERÇEK BOŞ boru ucunu bul (dirsek ve T-junction hariç)
         const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
 
         if (boruUcu && boruUcu.boru) {
@@ -1093,10 +1093,11 @@ handleCihazEkleme(cihaz) {
         return false;
     }
 
-    // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
-    if (!this.isFreeEndpoint(boruUcu.nokta, 1)) {
-        console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
-        alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
+    // GERÇEK BOŞ UÇ KONTROLÜ: Cihaz SADECE gerçek boş uçlara yerleştirilebilir
+    // Dirsek (2 boru) ve T-junction (3+ boru) engellenmiştir
+    if (!this.manager.isTrulyFreeEndpoint(boruUcu.nokta, 1)) {
+        console.error('[handleCihazEkleme] ✗ Sadece boş uçlara cihaz yerleştirilebilir!');
+        alert('⚠️ Cihaz sadece borunun boş ucuna yerleştirilebilir!\n\nDirsek ve T-bağlantılarına cihaz eklenemez.\nLütfen boş bir boru ucuna yerleştirin.');
         return false;
     }
 
@@ -1457,14 +1458,14 @@ findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
         const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
 
         if (distP1 < tolerance) {
-            // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
-            if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p1, 1)) {
+            // SADECE gerçek boş uçlar (dirsek ve T-junction hariç)
+            if (!onlyFreeEndpoints || this.manager.isTrulyFreeEndpoint(boru.p1, 1)) {
                 candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
             }
         }
         if (distP2 < tolerance) {
-            // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
-            if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p2, 1)) {
+            // SADECE gerçek boş uçlar (dirsek ve T-junction hariç)
+            if (!onlyFreeEndpoints || this.manager.isTrulyFreeEndpoint(boru.p2, 1)) {
                 candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
             }
         }
