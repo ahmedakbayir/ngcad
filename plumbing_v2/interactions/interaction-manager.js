@@ -302,7 +302,7 @@ handlePointerDown(e) {
         }
 
         // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-        const boruUcu = this.findBoruUcuAt(point, 2.5); // Nokta seçimi için 2.5 cm tolerance (daha hassas)
+        const boruUcu = this.findBoruUcuAt(point, 10); // Nokta seçimi için 2.5 cm tolerance (daha hassas)
         if (boruUcu) {
             console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
             const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
@@ -1112,7 +1112,7 @@ handleCihazEkleme(cihaz) {
     if (!vanaVar) {
         // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
         const boru = boruUcu.boru;
-        const edgeMargin = 4;      // cm - kenar için margin
+        const edgeMargin = 1;      // cm - kenar için margin
         const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
         const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
 
