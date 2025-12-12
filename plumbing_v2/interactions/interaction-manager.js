@@ -485,6 +485,22 @@ handleKeyDown(e) {
         if (this.manager.placeDeviceAtOpenEnd('KOMBI', boruUcuInfo)) {
             saveState();
             update3DScene();
+
+            // Cihaz eklendikten sonra boru çizimine devam et
+            // En son eklenen cihazı bul (KOMBI)
+            const yeniCihaz = this.manager.components[this.manager.components.length - 1];
+            if (yeniCihaz && yeniCihaz.type === 'cihaz' && yeniCihaz.fleksBaglanti && yeniCihaz.fleksBaglanti.boruId) {
+                const boru = this.manager.findPipeById(yeniCihaz.fleksBaglanti.boruId);
+                if (boru) {
+                    const ucNokta = yeniCihaz.fleksBaglanti.endpoint === 'p1' ? boru.p1 : boru.p2;
+                    // Boru ucundan çizime devam et
+                    this.startBoruCizim(ucNokta, boru.id, BAGLANTI_TIPLERI.BORU);
+                    // İkon güncellemesi için activeTool'u boru olarak ayarla
+                    this.manager.activeTool = 'boru';
+                    // İkonları güncelle
+                    setMode("plumbingV2", true);
+                }
+            }
         }
 
         return true;
@@ -530,6 +546,22 @@ handleKeyDown(e) {
         if (this.manager.placeDeviceAtOpenEnd('OCAK', boruUcuInfo)) {
             saveState();
             update3DScene();
+
+            // Cihaz eklendikten sonra boru çizimine devam et
+            // En son eklenen cihazı bul (OCAK)
+            const yeniCihaz = this.manager.components[this.manager.components.length - 1];
+            if (yeniCihaz && yeniCihaz.type === 'cihaz' && yeniCihaz.fleksBaglanti && yeniCihaz.fleksBaglanti.boruId) {
+                const boru = this.manager.findPipeById(yeniCihaz.fleksBaglanti.boruId);
+                if (boru) {
+                    const ucNokta = yeniCihaz.fleksBaglanti.endpoint === 'p1' ? boru.p1 : boru.p2;
+                    // Boru ucundan çizime devam et
+                    this.startBoruCizim(ucNokta, boru.id, BAGLANTI_TIPLERI.BORU);
+                    // İkon güncellemesi için activeTool'u boru olarak ayarla
+                    this.manager.activeTool = 'boru';
+                    // İkonları güncelle
+                    setMode("plumbingV2", true);
+                }
+            }
         }
 
         return true;
@@ -792,8 +824,27 @@ placeComponent(point) {
             if (success) {
                 // Listeye ekle
                 this.manager.components.push(component);
-                // Cihaz eklemeden sonra select moduna geç
-                setMode("select");
+
+                // Cihaz eklendikten sonra boru çizimine devam et
+                // Cihazın bağlı olduğu boru ucunu bul
+                if (component.fleksBaglanti && component.fleksBaglanti.boruId) {
+                    const boru = this.manager.findPipeById(component.fleksBaglanti.boruId);
+                    if (boru) {
+                        const ucNokta = component.fleksBaglanti.endpoint === 'p1' ? boru.p1 : boru.p2;
+                        // Boru ucundan çizime devam et
+                        this.startBoruCizim(ucNokta, boru.id, BAGLANTI_TIPLERI.BORU);
+                        // İkon güncellemesi için activeTool'u boru olarak ayarla
+                        this.manager.activeTool = 'boru';
+                        // İkonları güncelle
+                        setMode("plumbingV2", true);
+                    } else {
+                        // Boru bulunamadıysa seç moduna geç
+                        setMode("select");
+                    }
+                } else {
+                    // Fleks bağlantısı yoksa seç moduna geç
+                    setMode("select");
+                }
             } else {
                 // Başarısız, ekleme iptal edildi
                 // tempComponent'i temizleme, kullanıcı tekrar deneyebilsin
