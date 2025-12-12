@@ -343,14 +343,20 @@ export class PlumbingManager {
 
         // interactionManager'ın handleCihazEkleme metodunu kullan
         // Bu vana, fleks, pozisyon hesaplama gibi her şeyi otomatik yapar
+        console.log(`[placeDeviceAtOpenEnd] Cihaz oluşturuldu: ${deviceType}, boruUcu:`, {
+            boruId: targetPipe.id,
+            end: targetEnd,
+            nokta: targetPoint
+        });
+
         const success = this.interactionManager.handleCihazEkleme(newDevice);
 
         if (success) {
             // handleCihazEkleme cihazı components'a ekledi
-            console.log(`${deviceType} başarıyla boş boru ucuna eklendi (${targetEnd}) - vana ve fleks ile.`);
+            console.log(`✓ ${deviceType} başarıyla boş boru ucuna eklendi (${targetEnd}) - vana ve fleks ile.`);
             return true;
         } else {
-            console.error("Cihaz ekleme başarısız oldu.");
+            console.error(`✗ Cihaz ekleme başarısız oldu. handleCihazEkleme false döndü.`);
             return false;
         }
     }
