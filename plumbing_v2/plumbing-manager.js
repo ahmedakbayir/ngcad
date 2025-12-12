@@ -144,10 +144,69 @@ export class PlumbingManager {
     }
 
     /**
-     * Boş boru uçlarını bul
+     * Boş boru uçlarını bul (başlangıç veya bitiş ucu boş olan borular)
+     * @returns {Array} Her boru için {pipe, end: 'p1' veya 'p2'} döndürür
      */
     getBosBitisBorular() {
-        return this.pipes.filter(p => !p.bitisBaglanti.hedefId);
+        const bosUclar = [];
+        const currentFloorId = state.currentFloor?.id;
+
+        for (const pipe of this.pipes) {
+            // Sadece aktif kattaki boruları kontrol et
+            if (currentFloorId && pipe.floorId && pipe.floorId !== currentFloorId) {
+                continue;
+            }
+
+            // p1 ucu kontrol et
+            if (!pipe.baslangicBaglanti.hedefId) {
+                // Gerçekten boş mu? (T-junction veya başka bir boru bağlı değil mi?)
+                if (this.isTrulyFreeEndpoint(pipe.p1)) {
+                    bosUclar.push({ pipe, end: 'p1' });
+                }
+            }
+
+            // p2 ucu kontrol et
+            if (!pipe.bitisBaglanti.hedefId) {
+                // Gerçekten boş mu? (T-junction veya başka bir boru bağlı değil mi?)
+                if (this.isTrulyFreeEndpoint(pipe.p2)) {
+                    bosUclar.push({ pipe, end: 'p2' });
+                }
+            }
+        }
+
+        return bosUclar;
+    }
+
+    /**
+     * Bir noktanın gerçekten boş uç olup olmadığını kontrol eder
+     * (T-junction, başka boru bağlantısı yok)
+     */
+    isTrulyFreeEndpoint(point, tolerance = 1) {
+        let pipeCount = 0;
+        const currentFloorId = state.currentFloor?.id;
+
+        for (const boru of this.pipes) {
+            // Sadece aktif kattaki boruları kontrol et
+            if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
+                continue;
+            }
+
+            const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
+            const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
+
+            if (distP1 < tolerance || distP2 < tolerance) {
+                pipeCount++;
+            }
+
+            // T-junction veya daha karmaşık (3+ boru) - DOLU UÇ
+            if (pipeCount > 2) {
+                return false;
+            }
+        }
+
+        // Sadece 1 boru varsa gerçek boş uç
+        // 2 boru varsa birleşim noktası - DOLU sayılır
+        return pipeCount === 1;
     }
 
     /**
@@ -227,6 +286,81 @@ export class PlumbingManager {
             }
         });
     }
+
+    /**
+     * Boş bir boru ucuna "Kombi" veya "Ocak" gibi bir cihaz yerleştirir.
+     * handleCihazEkleme ile tam entegre - vana, fleks otomatik eklenir
+     * @param {string} deviceType - Yerleştirilecek cihazın tipi ('KOMBI', 'OCAK', vb.)
+     * @param {object} boruUcuInfo - Opsiyonel boru ucu bilgisi {pipe, end, point}
+     */
+    placeDeviceAtOpenEnd(deviceType, boruUcuInfo = null) {
+        // Sadece 'KOMBI' ve 'OCAK' tiplerine izin ver
+        if (deviceType !== 'KOMBI' && deviceType !== 'OCAK') {
+            console.warn(`Unsupported device type for automatic placement: ${deviceType}`);
+            return false;
+        }
+
+        let targetPipe, targetEnd, targetPoint;
+
+        // Eğer özel boru ucu bilgisi verilmişse onu kullan
+        if (boruUcuInfo) {
+            targetPipe = boruUcuInfo.pipe;
+            targetEnd = boruUcuInfo.end;
+            targetPoint = boruUcuInfo.point;
+        } else {
+            // Yoksa, boş boru uçlarını bul
+            const openEnds = this.getBosBitisBorular();
+            if (openEnds.length === 0) {
+                console.log("Otomatik yerleştirme için boşta boru ucu bulunamadı.");
+                return false;
+            }
+
+            const { pipe, end } = openEnds[0];
+            targetPipe = pipe;
+            targetEnd = end;
+            targetPoint = pipe[end];
+        }
+
+        const floorId = targetPipe.floorId || state.currentFloor?.id;
+
+        // Cihazı oluştur (geçici pozisyon, handleCihazEkleme ayarlayacak)
+        const newDevice = createCihaz(targetPoint.x, targetPoint.y, deviceType, { floorId });
+
+        if (!newDevice) {
+            console.error("Cihaz oluşturulamadı.");
+            return false;
+        }
+
+        // Ghost connection info ekle (handleCihazEkleme kullanır)
+        newDevice.ghostConnectionInfo = {
+            boruUcu: {
+                boruId: targetPipe.id,
+                nokta: targetPoint,
+                uc: targetEnd,
+                boru: targetPipe
+            }
+        };
+
+        // interactionManager'ın handleCihazEkleme metodunu kullan
+        // Bu vana, fleks, pozisyon hesaplama gibi her şeyi otomatik yapar
+        console.log(`[placeDeviceAtOpenEnd] Cihaz oluşturuldu: ${deviceType}, boruUcu:`, {
+            boruId: targetPipe.id,
+            end: targetEnd,
+            nokta: targetPoint
+        });
+
+        const success = this.interactionManager.handleCihazEkleme(newDevice);
+
+        if (success) {
+            // handleCihazEkleme cihazı components'a ekledi
+            console.log(`✓ ${deviceType} başarıyla boş boru ucuna eklendi (${targetEnd}) - vana ve fleks ile.`);
+            return true;
+        } else {
+            console.error(`✗ Cihaz ekleme başarısız oldu. handleCihazEkleme false döndü.`);
+            return false;
+        }
+    }
+
 
     /**
      * Verilen noktadaki nesneyi bul

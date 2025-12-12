@@ -311,22 +311,22 @@ export class PlumbingRenderer {
 
     drawPipeEndpoints(ctx, pipe) {
         // Uç noktaları küçük belirgin noktalar (seçili borular için)
-        const r = 3; // Küçük
+        const r = 2; // Küçük
 
         // p1 noktası
         ctx.fillStyle = '#FF8C00'; // Turuncu
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        //ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
+        ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
         ctx.fill();
-        //ctx.stroke();
+        ctx.stroke();
 
         // p2 noktası
         ctx.beginPath();
-        //ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
+        ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
         ctx.fill();
-        //ctx.stroke();
+        ctx.stroke();
     }
 
     /**
@@ -768,12 +768,34 @@ export class PlumbingRenderer {
         // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
         if (manager) {
             ctx.save();
-            ctx.translate(-comp.x, -comp.y); // Component offset'ini geri al
+            // --- DÜZELTME: Rotasyonu ve çeviriyi geri al ---
+            if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
+            ctx.translate(-comp.x, -comp.y); 
+
+            // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
+            let targetPoint = null;
+            if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
+                const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+                if (pipe) {
+                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
+                } else {
+                    // Sadece bir kere logla (her frame değil)
+                    if (!comp._fleksWarningLogged) {
+                        console.warn('⚠️ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
+                        comp._fleksWarningLogged = true;
+                    }
+                }
+            } else {
+                // Sadece bir kere logla
+                if (!comp._fleksWarningLogged2) {
+                    console.warn('⚠️ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
+                    comp._fleksWarningLogged2 = true;
+                }
+            }
 
             const connectionPoint = comp.getGirisNoktasi();
-            // Yerleştirilmiş cihaz için stored connection point kullan
-            const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
+            const deviceCenter = { x: comp.x, y: comp.y };
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
 
             ctx.restore();
         }
@@ -878,12 +900,34 @@ export class PlumbingRenderer {
         // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
         if (manager) {
             ctx.save();
-            ctx.translate(-comp.x, -comp.y); // Component offset'ini geri al
+            // --- DÜZELTME: Rotasyonu ve çeviriyi geri al ---
+            if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
+            ctx.translate(-comp.x, -comp.y);
+
+            // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
+            let targetPoint = null;
+            if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
+                const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+                if (pipe) {
+                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
+                } else {
+                    // Sadece bir kere logla (her frame değil)
+                    if (!comp._fleksWarningLogged) {
+                        console.warn('⚠️ OCAK FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
+                        comp._fleksWarningLogged = true;
+                    }
+                }
+            } else {
+                // Sadece bir kere logla
+                if (!comp._fleksWarningLogged2) {
+                    console.warn('⚠️ OCAK FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
+                    comp._fleksWarningLogged2 = true;
+                }
+            }
 
             const connectionPoint = comp.getGirisNoktasi();
-            // Yerleştirilmiş cihaz için stored connection point kullan
-            const targetPoint = comp.fleksBaglanti?.baglantiNoktasi || null;
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint);
+            const deviceCenter = { x: comp.x, y: comp.y };
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
 
             ctx.restore();
         }
@@ -893,8 +937,8 @@ export class PlumbingRenderer {
         ctx.save(); // Rotation için save
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
-        const boxSize = 20; // 40x40 kare için
-        const cornerRadius = 4;
+        const boxSize = 15; // 40x40 kare için
+        const cornerRadius = 3;
 
         // Shadow efekti
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
@@ -944,7 +988,7 @@ export class PlumbingRenderer {
             ctx.strokeStyle = '#858585';
             ctx.lineWidth = 1 / zoom;
             const innerBox = boxSize - 2;
-            const innerCorner = 3;
+            const innerCorner = 2;
             ctx.beginPath();
             ctx.moveTo(-innerBox + innerCorner, -innerBox);
             ctx.lineTo(innerBox - innerCorner, -innerBox);
@@ -960,8 +1004,8 @@ export class PlumbingRenderer {
         }
 
         // 4 gözlü ocak - basit düz kapak tasarımı
-        const burnerRadius = 5.5;
-        const offset = 8;
+        const burnerRadius = 4;
+        const offset = 7;
         const burnerPositions = [
             { x: -offset, y: -offset }, // Sol üst
             { x: offset, y: -offset },  // Sağ üst
@@ -1265,9 +1309,27 @@ export class PlumbingRenderer {
      * @param {Object} manager - Plumbing manager
      * @param {Object} targetPoint - Hedef nokta (opsiyonel, yerleştirilmiş cihazlar için)
      */
-    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null) {
+    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null, deviceCenter = null) {
         let closestPipeEnd = targetPoint;
         let pipeDirection = null;
+
+        // KRITIK: connectionPoint'i cihazın içine doğru uzat (15 cm)
+        let adjustedConnectionPoint = connectionPoint;
+        if (deviceCenter) {
+            const dx_center = deviceCenter.x - connectionPoint.x;
+            const dy_center = deviceCenter.y - connectionPoint.y;
+            const dist_center = Math.hypot(dx_center, dy_center);
+            const iceriMargin = 15; // cm
+
+            if (dist_center > iceriMargin) {
+                adjustedConnectionPoint = {
+                    x: connectionPoint.x + (dx_center / dist_center) * iceriMargin,
+                    y: connectionPoint.y + (dy_center / dist_center) * iceriMargin
+                };
+            } else {
+                adjustedConnectionPoint = deviceCenter;
+            }
+        }
 
         // Eğer targetPoint verilmemişse (ghost preview), en yakın boru ucunu bul
         if (!targetPoint) {
@@ -1305,18 +1367,18 @@ export class PlumbingRenderer {
             }
         }
 
-        // Fleks çizgisini ÇİZ
+        // Fleks çizgisini ÇİZ (adjustedConnectionPoint kullan - cihazın içine uzanıyor)
         if (closestPipeEnd) {
-            const dx = closestPipeEnd.x - connectionPoint.x;
-            const dy = closestPipeEnd.y - connectionPoint.y;
+            const dx = closestPipeEnd.x - adjustedConnectionPoint.x;
+            const dy = closestPipeEnd.y - adjustedConnectionPoint.y;
             const distance = Math.hypot(dx, dy);
 
             if (distance < 0.5) {
                 return; // Çok yakınsa çizme
             }
 
-            const amplitude = 3;      // Dalga genliği
-            const frequency = 3;      // Dalga frekansı
+            const amplitude = 1;      // Dalga genliği
+            const frequency = 4;      // Dalga frekansı
             const segments = 50;      // Segment sayısı
 
             ctx.save();
@@ -1333,18 +1395,18 @@ export class PlumbingRenderer {
             ctx.shadowBlur = 4;
 
             ctx.beginPath();
-            ctx.moveTo(connectionPoint.x, connectionPoint.y);
+            ctx.moveTo(adjustedConnectionPoint.x, adjustedConnectionPoint.y);
 
             for (let i = 1; i <= segments; i++) {
                 const t = i / segments;
 
-                const baseX = connectionPoint.x + dx * t;
-                const baseY = connectionPoint.y + dy * t;
+                const baseX = adjustedConnectionPoint.x + dx * t;
+                const baseY = adjustedConnectionPoint.y + dy * t;
 
                 const perpX = -dy / distance;
                 const perpY = dx / distance;
 
-                const smoothEnvelope = t * t * (3 - 2 * t);
+                const smoothEnvelope = t * t/2 * (4 - 2 * t);
 
                 const wave = Math.sin(smoothEnvelope * frequency * Math.PI * 2);
 
@@ -1590,7 +1652,31 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
-        // 2. Fleks çizgisi (boru ucundan cihaz giriş noktasına)
+        // 2. Fleks çizgisi (boru ucundan cihazın içine doğru)
+        // Cihazın en yakın kenarını ve merkeze doğru bitiş noktasını hesapla
+        const girisNoktasi_cihaz = ghost.getGirisNoktasi();
+        const merkez = { x: ghost.x, y: ghost.y };
+
+        // Girişten merkeze doğru vektör
+        const dx_flex = merkez.x - girisNoktasi_cihaz.x;
+        const dy_flex = merkez.y - girisNoktasi_cihaz.y;
+        const uzunluk_flex = Math.hypot(dx_flex, dy_flex);
+
+        // İçeri margin - fleks bitiş noktası cihazın içine doğru uzansın
+        const iceriMargin = 15; // cm - ghost için daha belirgin olsun
+
+        let fleksBitis;
+        if (uzunluk_flex > iceriMargin) {
+            // Girişten merkeze doğru iceriMargin kadar git
+            fleksBitis = {
+                x: girisNoktasi_cihaz.x + (dx_flex / uzunluk_flex) * iceriMargin,
+                y: girisNoktasi_cihaz.y + (dy_flex / uzunluk_flex) * iceriMargin
+            };
+        } else {
+            // Eğer giriş zaten merkeze çok yakınsa, merkezi kullan
+            fleksBitis = merkez;
+        }
+
         ctx.globalAlpha = 0.6;
         ctx.strokeStyle = '#FFD700'; // Sarı
         ctx.lineWidth = 2;
@@ -1598,7 +1684,7 @@ export class PlumbingRenderer {
 
         ctx.beginPath();
         ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y);
-        ctx.lineTo(girisNoktasi.x, girisNoktasi.y);
+        ctx.lineTo(fleksBitis.x, fleksBitis.y);
         ctx.stroke();
 
         ctx.setLineDash([]); // Reset dash
