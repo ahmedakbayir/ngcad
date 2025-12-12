@@ -10,8 +10,9 @@ import { Sayac, createSayac } from '../objects/meter.js';
 import { Vana, createVana } from '../objects/valve.js';
 import { Cihaz, createCihaz } from '../objects/device.js';
 import { screenToWorld } from '../../draw/geometry.js';
-import { dom, state, setMode, setState } from '../../general-files/main.js';
+import { dom, state, setMode, setState, setDrawingMode } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
+import { update3DScene } from '../../scene3d/scene3d-update.js';
 import { canPlaceValveOnPipe, getObjectsOnPipe } from '../utils/placement-utils.js';
 
 // Tool modları
@@ -30,2380 +31,2553 @@ export class InteractionManager {
         this.snapSystem = new TesisatSnapSystem(manager);
         this.activeSnap = null;
 
-        // Boru çizim durumu
-        this.boruCizimAktif = false;
-        this.boruBaslangic = null;
-        this.geciciBoruBitis = null;
+    // Boru çizim durumu
+    this.boruCizimAktif = false;
+    this.boruBaslangic = null;
+    this.geciciBoruBitis = null;
 
-        // Ölçü girişi
-        this.measurementInput = '';
-        this.measurementActive = false;
+    // Ölçü girişi
+    this.measurementInput = '';
+    this.measurementActive = false;
 
-        // Sürükleme durumu
-        this.isDragging = false;
-        this.dragStart = null;
-        this.dragObject = null;
+    // Sürükleme durumu
+    this.isDragging = false;
+    this.dragStart = null;
+    this.dragObject = null;
 
-        // Döndürme durumu
-        this.isRotating = false;
-        this.rotationOffset = 0;
+    // Döndürme durumu
+    this.isRotating = false;
+    this.rotationOffset = 0;
 
-        // Seçili nesne
-        this.selectedObject = null;
-        this.selectedValve = null; // { pipe, vana }
+    // Seçili nesne
+    this.selectedObject = null;
+    this.selectedValve = null; // { pipe, vana }
 
-        // Boru uç noktası snap lock (duvar node snap gibi)
-        this.pipeEndpointSnapLock = null;
-        this.pipeSnapMouseStart = null; // Snap başladığı andaki mouse pozisyonu
+    // Boru uç noktası snap lock (duvar node snap gibi)
+    this.pipeEndpointSnapLock = null;
+    this.pipeSnapMouseStart = null; // Snap başladığı andaki mouse pozisyonu
 
-        // Pipe splitting preview (boru tool aktif, boruCizimAktif değil)
-        this.pipeSplitPreview = null; // { pipe, point }
+    // Pipe splitting preview (boru tool aktif, boruCizimAktif değil)
+    this.pipeSplitPreview = null; // { pipe, point }
 
-        // Vana preview (vana tool aktif)
-        this.vanaPreview = null; // { pipe, point, t, snapToEnd }
+    // Vana preview (vana tool aktif)
+    this.vanaPreview = null; // { pipe, point, t, snapToEnd }
+}
+
+/**
+ * Mouse hareketi
+ */
+handlePointerMove(e) {
+    if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
+        return false;
     }
 
-    /**
-     * Mouse hareketi
-     */
-    handlePointerMove(e) {
-        if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
-            return false;
-        }
+    const rect = dom.c2d.getBoundingClientRect();
+    const mouseScreenX = e.clientX - rect.left;
+    const mouseScreenY = e.clientY - rect.top;
+    const point = screenToWorld(mouseScreenX, mouseScreenY);
+    const walls = state.walls;
 
-        const rect = dom.c2d.getBoundingClientRect();
-        const mouseScreenX = e.clientX - rect.left;
-        const mouseScreenY = e.clientY - rect.top;
-        const point = screenToWorld(mouseScreenX, mouseScreenY);
-        const walls = state.walls;
+    // Debug: Mouse koordinatları (sadece cihaz ghost için, ilk 3 kez)
+    if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && !this._mouseDebugCount) {
+        this._mouseDebugCount = 0;
+    }
+    if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && this._mouseDebugCount < 3) {
+        console.log('🖱️ MOUSE DEBUG:', {
+            'screen (CSS px)': `(${mouseScreenX.toFixed(1)}, ${mouseScreenY.toFixed(1)})`,
+            'world': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
+            'canvas size': `${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`
+        });
+        this._mouseDebugCount++;
+    }
 
-        // Debug: Mouse koordinatları (sadece cihaz ghost için, ilk 3 kez)
-        if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && !this._mouseDebugCount) {
-            this._mouseDebugCount = 0;
-        }
-        if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && this._mouseDebugCount < 3) {
-            console.log('🖱️ MOUSE DEBUG:', {
-                'screen (CSS px)': `(${mouseScreenX.toFixed(1)}, ${mouseScreenY.toFixed(1)})`,
-                'world': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
-                'canvas size': `${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`
-            });
-            this._mouseDebugCount++;
-        }
+    // Snap hesapla
+    this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
+    const targetPoint = this.activeSnap
+        ? { x: this.activeSnap.x, y: this.activeSnap.y }
+        : point;
 
-        // Snap hesapla
-        this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
-        const targetPoint = this.activeSnap
-            ? { x: this.activeSnap.x, y: this.activeSnap.y }
-            : point;
+    // 1. Boru çizim modunda
+    if (this.boruCizimAktif) {
+        // Eğer ölçü girişi aktifse, o ölçüye göre hedef noktayı ayarla
+        if (this.measurementActive && this.measurementInput.length > 0) {
+            const measurement = parseFloat(this.measurementInput);
+            if (!isNaN(measurement) && measurement > 0) {
+                // Yönü hesapla (başlangıçtan mouse'a doğru)
+                const dx = targetPoint.x - this.boruBaslangic.nokta.x;
+                const dy = targetPoint.y - this.boruBaslangic.nokta.y;
+                const currentLength = Math.hypot(dx, dy);
 
-        // 1. Boru çizim modunda
-        if (this.boruCizimAktif) {
-            // Eğer ölçü girişi aktifse, o ölçüye göre hedef noktayı ayarla
-            if (this.measurementActive && this.measurementInput.length > 0) {
-                const measurement = parseFloat(this.measurementInput);
-                if (!isNaN(measurement) && measurement > 0) {
-                    // Yönü hesapla (başlangıçtan mouse'a doğru)
-                    const dx = targetPoint.x - this.boruBaslangic.nokta.x;
-                    const dy = targetPoint.y - this.boruBaslangic.nokta.y;
-                    const currentLength = Math.hypot(dx, dy);
+                if (currentLength > 0) {
+                    // Normalize et ve ölçü kadar uzat
+                    const dirX = dx / currentLength;
+                    const dirY = dy / currentLength;
 
-                    if (currentLength > 0) {
-                        // Normalize et ve ölçü kadar uzat
-                        const dirX = dx / currentLength;
-                        const dirY = dy / currentLength;
-
-                        this.geciciBoruBitis = {
-                            x: this.boruBaslangic.nokta.x + dirX * measurement,
-                            y: this.boruBaslangic.nokta.y + dirY * measurement
-                        };
-                    } else {
-                        this.geciciBoruBitis = targetPoint;
-                    }
+                    this.geciciBoruBitis = {
+                        x: this.boruBaslangic.nokta.x + dirX * measurement,
+                        y: this.boruBaslangic.nokta.y + dirY * measurement
+                    };
                 } else {
                     this.geciciBoruBitis = targetPoint;
                 }
             } else {
                 this.geciciBoruBitis = targetPoint;
             }
-            return true;
+        } else {
+            this.geciciBoruBitis = targetPoint;
         }
+        return true;
+    }
 
-        // 1.5 Boru tool aktif ama çizim modu değil - Pipe splitting preview
-        if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
-            // Mouse altında boru var mı kontrol et
-            const hoveredPipe = this.findPipeAt(point, 10);
-            if (hoveredPipe) {
-                // Split noktasını hesapla
-                const proj = hoveredPipe.projectPoint(point);
-                if (proj && proj.onSegment) {
-                    let splitPoint = { x: proj.x, y: proj.y };
+    // 1.5 Boru tool aktif ama çizim modu değil - Pipe splitting preview
+    if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
+        // Mouse altında boru var mı kontrol et
+        const hoveredPipe = this.findPipeAt(point, 10);
+        if (hoveredPipe) {
+            // Split noktasını hesapla
+            const proj = hoveredPipe.projectPoint(point);
+            if (proj && proj.onSegment) {
+                let splitPoint = { x: proj.x, y: proj.y };
 
-                    // Köşelere snap - boru uçlarına yakınsa
-                    const CORNER_SNAP_DISTANCE = 10; // 10 cm
-                    const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
-                    const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
+                // Köşelere snap - boru uçlarına yakınsa
+                const CORNER_SNAP_DISTANCE = 10; // 10 cm
+                const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
+                const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
 
-                    if (distToP1 < CORNER_SNAP_DISTANCE) {
-                        // p1'e snap
-                        splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
-                    } else if (distToP2 < CORNER_SNAP_DISTANCE) {
-                        // p2'ye snap
-                        splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
-                    }
-
-                    this.pipeSplitPreview = {
-                        pipe: hoveredPipe,
-                        point: splitPoint
-                    };
-                } else {
-                    this.pipeSplitPreview = null;
+                if (distToP1 < CORNER_SNAP_DISTANCE) {
+                    // p1'e snap
+                    splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
+                } else if (distToP2 < CORNER_SNAP_DISTANCE) {
+                    // p2'ye snap
+                    splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
                 }
+
+                this.pipeSplitPreview = {
+                    pipe: hoveredPipe,
+                    point: splitPoint
+                };
             } else {
                 this.pipeSplitPreview = null;
             }
-            return true;
         } else {
-            // Boru tool aktif değilse preview'ı temizle
             this.pipeSplitPreview = null;
         }
+        return true;
+    } else {
+        // Boru tool aktif değilse preview'ı temizle
+        this.pipeSplitPreview = null;
+    }
 
-        // 1.6 Vana tool aktif - Vana preview
-        if (this.manager.activeTool === 'vana' && !this.boruCizimAktif) {
-            // Mouse altında boru var mı kontrol et (5 cm yakalama mesafesi)
-            const hoveredPipe = this.findPipeAt(point, 5);
-            if (hoveredPipe) {
-                // Boruda vana varsa da preview göster (boru bölünecek)
-                // Boru üzerindeki pozisyonu hesapla
-                const proj = hoveredPipe.projectPoint(point);
-                if (proj && proj.onSegment) {
-                    let vanaPoint = { x: proj.x, y: proj.y };
-                    let vanaT = proj.t;
-                    let snapToEnd = false;
+    // 1.6 Vana tool aktif - Vana preview
+    if (this.manager.activeTool === 'vana' && !this.boruCizimAktif) {
+        // Mouse altında boru var mı kontrol et (5 cm yakalama mesafesi)
+        const hoveredPipe = this.findPipeAt(point, 5);
+        if (hoveredPipe) {
+            // Boruda vana varsa da preview göster (boru bölünecek)
+            // Boru üzerindeki pozisyonu hesapla
+            const proj = hoveredPipe.projectPoint(point);
+            if (proj && proj.onSegment) {
+                let vanaPoint = { x: proj.x, y: proj.y };
+                let vanaT = proj.t;
+                let snapToEnd = false;
 
-                    // Boru uçlarına snap - 10 cm tolerance
-                    const END_SNAP_DISTANCE = 10;
-                    const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
-                    const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
+                // Boru uçlarına snap - 10 cm tolerance
+                const END_SNAP_DISTANCE = 10;
+                const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
+                const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
 
-                    // Vana mesafesi hesapla (armLength + vana genişliği/2)
-                    const DIRSEK_KOL_UZUNLUGU = 4; // cm
-                    const VANA_GENISLIGI = 8; // cm (vana kare boyutu)
-                    const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
-                    const pipeLength = hoveredPipe.uzunluk;
+                // Vana mesafesi hesapla (armLength + vana genişliği/2)
+                const DIRSEK_KOL_UZUNLUGU = 4; // cm
+                const VANA_GENISLIGI = 8; // cm (vana kare boyutu)
+                const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2; // 7 cm
+                const pipeLength = hoveredPipe.uzunluk;
 
-                    if (distToP1 < END_SNAP_DISTANCE) {
-                        // p1'e snap - vana içeri alınmış pozisyonda göster
-                        const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
-                        vanaPoint = hoveredPipe.getPointAt(adjustedT);
-                        vanaT = 0; // Snap için t=0 (uç nokta)
-                        snapToEnd = true;
-                    } else if (distToP2 < END_SNAP_DISTANCE) {
-                        // p2'ye snap - vana içeri alınmış pozisyonda göster
-                        const adjustedT = Math.max(1 - (vanaMesafesi / pipeLength), 0.05);
-                        vanaPoint = hoveredPipe.getPointAt(adjustedT);
-                        vanaT = 1; // Snap için t=1 (uç nokta)
-                        snapToEnd = true;
-                    }
-
-                    this.vanaPreview = {
-                        pipe: hoveredPipe,
-                        point: vanaPoint,
-                        t: vanaT,
-                        snapToEnd: snapToEnd
-                    };
-                } else {
-                    this.vanaPreview = null;
+                if (distToP1 < END_SNAP_DISTANCE) {
+                    // p1'e snap - vana içeri alınmış pozisyonda göster
+                    const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
+                    vanaPoint = hoveredPipe.getPointAt(adjustedT);
+                    vanaT = 0; // Snap için t=0 (uç nokta)
+                    snapToEnd = true;
+                } else if (distToP2 < END_SNAP_DISTANCE) {
+                    // p2'ye snap - vana içeri alınmış pozisyonda göster
+                    const adjustedT = Math.max(1 - (vanaMesafesi / pipeLength), 0.05);
+                    vanaPoint = hoveredPipe.getPointAt(adjustedT);
+                    vanaT = 1; // Snap için t=1 (uç nokta)
+                    snapToEnd = true;
                 }
+
+                this.vanaPreview = {
+                    pipe: hoveredPipe,
+                    point: vanaPoint,
+                    t: vanaT,
+                    snapToEnd: snapToEnd
+                };
             } else {
                 this.vanaPreview = null;
             }
-            return true;
         } else {
-            // Vana tool aktif değilse preview'ı temizle
             this.vanaPreview = null;
         }
-
-        // 2. Ghost eleman yerleştirme
-        if (this.manager.activeTool && this.manager.tempComponent) {
-            this.updateGhostPosition(this.manager.tempComponent, targetPoint, this.activeSnap);
-            return true;
-        }
-
-        // 3. Döndürme
-        if (this.isRotating && this.dragObject) {
-            this.handleRotation(point);
-            return true;
-        }
-
-        // 4. Sürükleme - raw point kullan (handleDrag içinde gerekli snap yapılır)
-        if (this.isDragging && this.dragObject) {
-            this.handleDrag(point);
-            return true;
-        }
-
-        return false;
+        return true;
+    } else {
+        // Vana tool aktif değilse preview'ı temizle
+        this.vanaPreview = null;
     }
 
-    /**
-     * Mouse tıklama
-     */
-    handlePointerDown(e) {
-        const rect = dom.c2d.getBoundingClientRect();
-        const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-        const targetPoint = this.activeSnap
-            ? { x: this.activeSnap.x, y: this.activeSnap.y }
-            : point;
+    // 2. Ghost eleman yerleştirme
+    if (this.manager.activeTool && this.manager.tempComponent) {
+        this.updateGhostPosition(this.manager.tempComponent, targetPoint, this.activeSnap);
+        return true;
+    }
 
-        // 0.4 Vana ekleme - Vana tool aktif ve preview var
-        if (this.manager.activeTool === 'vana' && !this.boruCizimAktif && this.vanaPreview) {
-            this.handleVanaPlacement(this.vanaPreview);
-            return true;
-        }
+    // 3. Döndürme
+    if (this.isRotating && this.dragObject) {
+        this.handleRotation(point);
+        return true;
+    }
 
-        // 0.5 Pipe splitting - Boru tool aktif ama çizim modu değil
-        if (this.manager.activeTool === 'boru' && !this.boruCizimAktif && this.pipeSplitPreview) {
-            this.handlePipeSplit(this.pipeSplitPreview.pipe, this.pipeSplitPreview.point);
-            return true;
-        }
+    // 4. Sürükleme - raw point kullan (handleDrag içinde gerekli snap yapılır)
+    if (this.isDragging && this.dragObject) {
+        this.handleDrag(point);
+        return true;
+    }
 
-        // 1. Boru çizim modunda tıklama
-        if (this.boruCizimAktif) {
-            this.handleBoruClick(targetPoint);
-            return true;
-        }
+    return false;
+}
 
-        // 2. Yerleştirme modu (ghost var ve araç aktif)
-        if (this.manager.activeTool && this.manager.tempComponent) {
-            this.placeComponent(targetPoint);
-            return true;
-        }
+/**
+ * Mouse tıklama
+ */
+handlePointerDown(e) {
+    const rect = dom.c2d.getBoundingClientRect();
+    const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const targetPoint = this.activeSnap
+        ? { x: this.activeSnap.x, y: this.activeSnap.y }
+        : point;
 
-        // 3. Nesne seçimi ve sürükleme - SEÇ, TESİSAT VE KARMA MODLARINDA
-        const isSelectionMode = state.currentMode === 'select' ||
-                                state.currentMode === 'plumbingV2' ||
-                                state.currentMode === 'MİMARİ-TESİSAT';
+    // 0.4 Vana ekleme - Vana tool aktif ve preview var
+    if (this.manager.activeTool === 'vana' && !this.boruCizimAktif && this.vanaPreview) {
+        this.handleVanaPlacement(this.vanaPreview);
+        return true;
+    }
 
-        if (isSelectionMode) {
-            // Önce seçili nesnenin döndürme tutamacını kontrol et (servis kutusu ve cihaz)
-            if (this.selectedObject && (this.selectedObject.type === 'servis_kutusu' || this.selectedObject.type === 'cihaz')) {
-                if (this.findRotationHandleAt(this.selectedObject, point, 12)) {
-                    this.startRotation(this.selectedObject, point);
-                    return true;
-                }
-            }
+    // 0.5 Pipe splitting - Boru tool aktif ama çizim modu değil
+    if (this.manager.activeTool === 'boru' && !this.boruCizimAktif && this.pipeSplitPreview) {
+        this.handlePipeSplit(this.pipeSplitPreview.pipe, this.pipeSplitPreview.point);
+        return true;
+    }
 
-            // Vana kontrolü (en yüksek öncelik - boru uçlarından önce)
-            const hitResult = this.manager.getObjectAtPoint(point, 10);
-            if (hitResult && hitResult.type === 'valve') {
-                // Vana seçildi
-                this.selectValve(hitResult.pipe, hitResult.object);
-                return true;
-            }
+    // 1. Boru çizim modunda tıklama
+    if (this.boruCizimAktif) {
+        this.handleBoruClick(targetPoint);
+        return true;
+    }
 
-            // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-            const boruUcu = this.findBoruUcuAt(point, 4); // Nokta seçimi için 4 cm tolerance
-            if (boruUcu) {
-                console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
-                const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
-                if (pipe) {
-                    // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
-                    if (this.manager.activeTool === 'boru') {
-                        const ucNokta = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
-                        this.startBoruCizim(ucNokta, pipe.id, BAGLANTI_TIPLERI.BORU);
-                        return true;
-                    }
+    // 2. Yerleştirme modu (ghost var ve araç aktif)
+    if (this.manager.activeTool && this.manager.tempComponent) {
+        this.placeComponent(targetPoint);
+        return true;
+    }
 
-                    // Servis kutusuna bağlı boru ucunun taşınmasını engelle
-                    const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-                    if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-                        // Sadece seç, taşıma başlatma
-                        this.selectObject(pipe);
-                        return true;
-                    }
+    // 3. Nesne seçimi ve sürükleme - SEÇ, TESİSAT VE KARMA MODLARINDA
+    const isSelectionMode = state.currentMode === 'select' ||
+                            state.currentMode === 'plumbingV2' ||
+                            state.currentMode === 'MİMARİ-TESİSAT';
 
-                    // Yoksa boruyu seç ve uç nokta sürüklemesi başlat
-                    this.selectObject(pipe);
-                    this.startEndpointDrag(pipe, boruUcu.uc, point);
-                    return true;
-                }
-            }
-
-            // Sonra nesne seçimi
-            const hitObject = this.findObjectAt(point);
-            if (hitObject) {
-                console.log('📦 NESNE BULUNDU:', hitObject.type, hitObject.id);
-                this.selectObject(hitObject);
-                // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
-                if (hitObject.type === 'boru') {
-                    // Kutuya bağlı boruların gövdesi taşınmasın
-                    const bagliKutu = this.manager.components.find(c =>
-                        c.type === 'servis_kutusu' && c.bagliBoruId === hitObject.id
-                    );
-
-                    if (bagliKutu) {
-                        // Kutuya bağlı boru, gövde sürükleme yapma (ama seçimi koru)
-                        return true;
-                    }
-
-                    this.startBodyDrag(hitObject, point);
-                } else {
-                    this.startDrag(hitObject, point);
-                }
+    if (isSelectionMode) {
+        // Önce seçili nesnenin döndürme tutamacını kontrol et (servis kutusu ve cihaz)
+        if (this.selectedObject && (this.selectedObject.type === 'servis_kutusu' || this.selectedObject.type === 'cihaz')) {
+            if (this.findRotationHandleAt(this.selectedObject, point, 12)) {
+                this.startRotation(this.selectedObject, point);
                 return true;
             }
         }
 
-        // Seç modunda çizim başlatma - boş alana tıklandı
-        if (isSelectionMode) {
-            this.deselectObject();
-            return false;
-        }
-
-        // 4. Bileşen çıkış noktasından çizim başlat (servis kutusu, sayaç vb.)
-        const bilesenCikis = this.findBilesenCikisAt(point);
-        if (bilesenCikis) {
-            // Bileşen tipine göre bağlantı tipi belirle
-            const baglantiTip = bilesenCikis.tip === 'servis_kutusu'
-                ? BAGLANTI_TIPLERI.SERVIS_KUTUSU
-                : bilesenCikis.tip === 'sayac'
-                    ? BAGLANTI_TIPLERI.SAYAC
-                    : BAGLANTI_TIPLERI.BORU;
-            this.startBoruCizim(bilesenCikis.nokta, bilesenCikis.bilesenId, baglantiTip);
+        // Vana kontrolü (en yüksek öncelik - boru uçlarından önce)
+        const hitResult = this.manager.getObjectAtPoint(point, 10);
+        if (hitResult && hitResult.type === 'valve') {
+            // Vana seçildi
+            this.selectValve(hitResult.pipe, hitResult.object);
             return true;
         }
 
-        // 5. Boru ucu veya gövdesinden çizim başlat
-        const boruUcu = this.findBoruUcuAt(point, 8);
+        // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
+        const boruUcu = this.findBoruUcuAt(point, 2.5); // Nokta seçimi için 2.5 cm tolerance (daha hassas)
         if (boruUcu) {
-            this.startBoruCizim(boruUcu.nokta, boruUcu.boruId, BAGLANTI_TIPLERI.BORU);
-            return true;
+            console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
+            const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
+            if (pipe) {
+                // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
+                if (this.manager.activeTool === 'boru') {
+                    const ucNokta = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
+                    this.startBoruCizim(ucNokta, pipe.id, BAGLANTI_TIPLERI.BORU);
+                    return true;
+                }
+
+                // Servis kutusuna bağlı boru ucunun taşınmasını engelle
+                const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
+                if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                    // Sadece seç, taşıma başlatma
+                    this.selectObject(pipe);
+                    return true;
+                }
+
+                // Yoksa boruyu seç ve uç nokta sürüklemesi başlat
+                this.selectObject(pipe);
+                this.startEndpointDrag(pipe, boruUcu.uc, point);
+                return true;
+            }
         }
 
-        // 6. Boru gövdesinden çizim başlat
-        const boruGovde = this.findBoruGovdeAt(point);
-        if (boruGovde) {
-            this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
+        // Sonra nesne seçimi
+        const hitObject = this.findObjectAt(point);
+        if (hitObject) {
+            console.log('📦 NESNE BULUNDU:', hitObject.type, hitObject.id);
+            this.selectObject(hitObject);
+            // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
+            if (hitObject.type === 'boru') {
+                // Kutuya bağlı boruların gövdesi taşınmasın
+                const bagliKutu = this.manager.components.find(c =>
+                    c.type === 'servis_kutusu' && c.bagliBoruId === hitObject.id
+                );
+
+                if (bagliKutu) {
+                    // Kutuya bağlı boru, gövde sürükleme yapma (ama seçimi koru)
+                    return true;
+                }
+
+                this.startBodyDrag(hitObject, point);
+            } else {
+                this.startDrag(hitObject, point);
+            }
             return true;
         }
+    }
 
-        // 7. Boş alana tıklama - seçimi kaldır
+    // Seç modunda çizim başlatma - boş alana tıklandı
+    if (isSelectionMode) {
         this.deselectObject();
         return false;
     }
 
-    /**
-     * Mouse bırakma
-     */
-    handlePointerUp(e) {
-
-
-        if (this.isRotating) {
-            this.endRotation();
-            return true;
-        }
-        if (this.isDragging) {
-            this.endDrag();
-            return true;
-        }
-        return false;
+    // 4. Bileşen çıkış noktasından çizim başlat (servis kutusu, sayaç vb.)
+    const bilesenCikis = this.findBilesenCikisAt(point);
+    if (bilesenCikis) {
+        // Bileşen tipine göre bağlantı tipi belirle
+        const baglantiTip = bilesenCikis.tip === 'servis_kutusu'
+            ? BAGLANTI_TIPLERI.SERVIS_KUTUSU
+            : bilesenCikis.tip === 'sayac'
+                ? BAGLANTI_TIPLERI.SAYAC
+                : BAGLANTI_TIPLERI.BORU;
+        this.startBoruCizim(bilesenCikis.nokta, bilesenCikis.bilesenId, baglantiTip);
+        return true;
     }
 
-    /**
-     * Klavye
-     */
-    handleKeyDown(e) {
-        // Boru çizim modunda ölçü girişi
-        if (this.boruCizimAktif && this.boruBaslangic) {
-            // Rakam girişi (0-9)
-            if (/^[0-9]$/.test(e.key)) {
-                this.measurementInput += e.key;
-                this.measurementActive = true;
-                return true;
-            }
-
-            // Backspace - son rakamı sil
-            if (e.key === 'Backspace' && this.measurementInput.length > 0) {
-                this.measurementInput = this.measurementInput.slice(0, -1);
-                if (this.measurementInput.length === 0) {
-                    this.measurementActive = false;
-                }
-                return true;
-            }
-
-            // Enter - ölçüyü uygula
-            if (e.key === 'Enter' && this.measurementInput.length > 0) {
-                this.applyMeasurement();
-                return true;
-            }
-        }
-
-        // ESC - iptal ve seç moduna geç
-        if (e.key === 'Escape') {
-            this.cancelCurrentAction();
-            setMode("select");
-            return true;
-        }
-
-        // K - Kombi ekle
-        if (e.key === 'k' || e.key === 'K') {
-            // Eğer boru çiziyorsak, aktif noktaya cihaz ekle
-            if (this.boruCizimAktif && this.geciciBoruBitis) {
-                // Önce mevcut boruyu tamamla
-                this.handleBoruClick(this.geciciBoruBitis);
-                // Boru çizimini sonlandır
-                this.cancelCurrentAction();
-            }
-
-            setMode("plumbingV2", true);
-            this.manager.activeTool = 'cihaz';
-            this.manager.selectedCihazTipi = 'KOMBI';
-            return true;
-        }
-
-        // O - Ocak ekle
-        if (e.key === 'o' || e.key === 'O') {
-            // Eğer boru çiziyorsak, aktif noktaya cihaz ekle
-            if (this.boruCizimAktif && this.geciciBoruBitis) {
-                // Önce mevcut boruyu tamamla
-                this.handleBoruClick(this.geciciBoruBitis);
-                // Boru çizimini sonlandır
-                this.cancelCurrentAction();
-            }
-
-            setMode("plumbingV2", true);
-            this.manager.activeTool = 'cihaz';
-            this.manager.selectedCihazTipi = 'OCAK';
-            return true;
-        }
-
-        // T - BORU çizme modu (boru icon'unu aktif et)
-        if (e.key === 't' || e.key === 'T') {
-            setMode("plumbingV2", true);
-            this.manager.activeTool = 'boru';
-            return true;
-        }
-
-        // Delete - seçili nesneyi sil
-        if (e.key === 'Delete' && this.selectedObject) {
-            this.deleteSelectedObject();
-            return true;
-        }
-
-        // Ok tuşları - seçili boru navigasyonu
-        if (this.selectedObject && this.selectedObject.type === 'boru') {
-            const tolerance = 1;
-            const selectedPipe = this.selectedObject;
-
-            // ArrowRight veya ArrowUp: sonraki boru (p2'ye bağlı boru)
-            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-                const nextPipe = this.manager.pipes.find(p =>
-                    p.id !== selectedPipe.id &&
-                    Math.hypot(p.p1.x - selectedPipe.p2.x, p.p1.y - selectedPipe.p2.y) < tolerance
-                );
-                if (nextPipe) {
-                    this.selectObject(nextPipe);
-                    return true;
-                }
-            }
-
-            // ArrowLeft veya ArrowDown: önceki boru (p1'e bağlı boru)
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-                const prevPipe = this.manager.pipes.find(p =>
-                    p.id !== selectedPipe.id &&
-                    Math.hypot(p.p2.x - selectedPipe.p1.x, p.p2.y - selectedPipe.p1.y) < tolerance
-                );
-                if (prevPipe) {
-                    this.selectObject(prevPipe);
-                    return true;
-                }
-            }
-        }
-
-        // Ok tuşları - seçili sayacı hareket ettir
-        if (this.selectedObject && this.selectedObject.type === 'sayac') {
-            const direction = {
-                'ArrowUp': 'up',
-                'ArrowDown': 'down',
-                'ArrowLeft': 'left',
-                'ArrowRight': 'right'
-            }[e.key];
-
-            if (direction) {
-                const result = this.selectedObject.moveByKey(direction);
-                this.updateConnectedPipe(result);
-                return true;
-            }
-        }
-
-        // R tuşu - seçili servis kutusunu döndür (çıkış noktası etrafında)
-        if (this.selectedObject && this.selectedObject.type === 'servis_kutusu' && e.key === 'r') {
-            saveState();
-            const deltaDerece = e.shiftKey ? -15 : 15; // Shift ile ters yön
-            const result = this.selectedObject.rotate(deltaDerece);
-            this.updateConnectedPipe(result);
-            this.manager.saveToState();
-            return true;
-        }
-
-        return false;
+    // 5. Boru ucu veya gövdesinden çizim başlat
+    const boruUcu = this.findBoruUcuAt(point, 8);
+    if (boruUcu) {
+        this.startBoruCizim(boruUcu.nokta, boruUcu.boruId, BAGLANTI_TIPLERI.BORU);
+        return true;
     }
 
-    /**
-     * Ghost pozisyon güncelleme
-     */
-    updateGhostPosition(ghost, point, snap) {
-        // Debug: İlk 3 güncellemede koordinat sistemi kontrolü
-        if (ghost.type === 'cihaz' && !this._debugCount) this._debugCount = 0;
-        if (ghost.type === 'cihaz' && this._debugCount < 3) {
-            console.log('🐛 CIHAZ GHOST DEBUG:', {
-                'zoom': state.zoom,
-                'panOffset': `(${state.panOffset.x}, ${state.panOffset.y})`,
-                'point (world)': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
-                'DPR': window.devicePixelRatio
-            });
-            this._debugCount++;
+    // 6. Boru gövdesinden çizim başlat
+    const boruGovde = this.findBoruGovdeAt(point);
+    if (boruGovde) {
+        this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
+        return true;
+    }
+
+    // 7. Boş alana tıklama - seçimi kaldır
+    this.deselectObject();
+    return false;
+}
+
+/**
+ * Mouse bırakma
+ */
+handlePointerUp(e) {
+
+
+    if (this.isRotating) {
+        this.endRotation();
+        return true;
+    }
+    if (this.isDragging) {
+        this.endDrag();
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Klavye
+ */
+handleKeyDown(e) {
+    // Boru çizim modunda ölçü girişi
+    if (this.boruCizimAktif && this.boruBaslangic) {
+        // Rakam girişi (0-9)
+        if (/^[0-9]$/.test(e.key)) {
+            this.measurementInput += e.key;
+            this.measurementActive = true;
+            return true;
         }
 
-        // Cihaz için: boru ucuna snap yap, boru ekseninde 20 cm ileri yerleştir
-        if (ghost.type === 'cihaz') {
-            const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
-
-            // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-            const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
-
-            if (boruUcu && boruUcu.boru) {
-                // Boru yönünü hesapla (boru ucundan dışarı doğru)
-                const boru = boruUcu.boru;
-                const dx = boru.p2.x - boru.p1.x;
-                const dy = boru.p2.y - boru.p1.y;
-                const length = Math.hypot(dx, dy);
-
-                // KRITIK: Ghost rotation'ı boru yönüne göre ayarla
-                const boruAci = boruUcu.boru.aciDerece;
-                if (boruUcu.uc === 'p1') {
-                    ghost.rotation = (boruAci + 180) % 360;
-                } else {
-                    ghost.rotation = boruAci;
-                }
-
-                const deviceDistance = 20; // cm - cihaz boru ucundan 20 cm ileri
-
-                let girisX, girisY;
-                if (boruUcu.uc === 'p1') {
-                    // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
-                    girisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
-                    girisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
-                } else {
-                    // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
-                    girisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
-                    girisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
-                }
-
-                // Cihaz merkezini hesapla - rotation ayarlandı
-                // İlk tahmini pozisyon
-                ghost.x = girisX;
-                ghost.y = girisY;
-
-                // Şimdi getGirisNoktasi() = (girisX, girisY) olacak şekilde pozisyonu düzelt
-                const actualGiris = ghost.getGirisNoktasi();
-                ghost.x -= (actualGiris.x - girisX);
-                ghost.y -= (actualGiris.y - girisY);
-
-                // Ghost rendering için bağlantı bilgisini sakla
-                ghost.ghostConnectionInfo = {
-                    boruUcu: boruUcu,
-                    girisNoktasi: { x: girisX, y: girisY }
-                };
-            } else {
-                // Boru ucu bulunamadı, normal cursor pozisyonu
-                ghost.x = point.x - girisOffset.x;
-                ghost.y = point.y - girisOffset.y;
-                ghost.ghostConnectionInfo = null;
+        // Backspace - son rakamı sil
+        if (e.key === 'Backspace' && this.measurementInput.length > 0) {
+            this.measurementInput = this.measurementInput.slice(0, -1);
+            if (this.measurementInput.length === 0) {
+                this.measurementActive = false;
             }
-        } else {
-            ghost.x = point.x;
-            ghost.y = point.y;
+            return true;
         }
 
-        // Servis kutusu - duvara snap (yerleştirme için useBoxPosition=false)
-        if (ghost.type === 'servis_kutusu') {
-            const walls = state.walls;
-            const snapDistance = 30; // 30cm içinde snap yap
-
-            // En yakın duvarı bul
-            let closestWall = null;
-            let minDist = Infinity;
-
-            walls.forEach(wall => {
-                if (!wall.p1 || !wall.p2) return;
-
-                const dx = wall.p2.x - wall.p1.x;
-                const dy = wall.p2.y - wall.p1.y;
-                const len = Math.hypot(dx, dy);
-                if (len === 0) return;
-
-                // Noktayı duvara projeksiyon yap
-                const t = Math.max(0, Math.min(1,
-                    ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len)
-                ));
-                const projX = wall.p1.x + t * dx;
-                const projY = wall.p1.y + t * dy;
-
-                const dist = Math.hypot(point.x - projX, point.y - projY);
-
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestWall = wall;
-                }
-            });
-
-            // Yakın duvara snap yap (yerleştirme - useBoxPosition=false, mouse pozisyonuna göre taraf belirlenir)
-            if (closestWall && minDist < snapDistance) {
-                ghost.snapToWall(closestWall, point, false);
-            } else {
-                ghost.placeFree(point);
-            }
-        }
-
-        // Sayaç/Vana - boru açısına hizala
-        if ((ghost.type === 'sayac' || ghost.type === 'vana') && snap && snap.target) {
-            if (snap.target.isPipe) {
-                ghost.rotation = snap.target.aciDerece || 0;
-            }
+        // Enter - ölçüyü uygula
+        if (e.key === 'Enter' && this.measurementInput.length > 0) {
+            this.applyMeasurement();
+            return true;
         }
     }
 
-    /**
-     * Bileşeni yerleştir
-     */
-    placeComponent(point) {
-        if (!this.manager.tempComponent) return;
-
-        // Undo için state kaydet
-        saveState();
-
-        const component = this.manager.tempComponent;
-
-        // Özel işlemler
-        switch (component.type) {
-            case 'servis_kutusu':
-                // Listeye ekle
-                this.manager.components.push(component);
-                this.startBoruCizim(component.getCikisNoktasi(), component.id);
-                // İkon güncellemesi için activeTool'u boru olarak ayarla
-                this.manager.activeTool = 'boru';
-                // İkonları güncelle
-                setMode("plumbingV2", true);
-                break;
-
-            case 'sayac':
-                // Listeye ekle
-                this.manager.components.push(component);
-                this.handleSayacEkleme(component);
-                // İkon güncellemesi için activeTool'u boru olarak ayarla
-                this.manager.activeTool = 'boru';
-                // İkonları güncelle
-                setMode("plumbingV2", true);
-                break;
-
-            case 'cihaz':
-                // Cihaz için özel kontrol - handleCihazEkleme başarılı olursa ekle
-                const success = this.handleCihazEkleme(component);
-                if (success) {
-                    // Listeye ekle
-                    this.manager.components.push(component);
-                    // Cihaz eklemeden sonra select moduna geç
-                    setMode("select");
-                } else {
-                    // Başarısız, ekleme iptal edildi
-                    // tempComponent'i temizleme, kullanıcı tekrar deneyebilsin
-                    return;
-                }
-                break;
-
-            default:
-                // Diğer bileşenler için doğrudan ekle
-                this.manager.components.push(component);
-                break;
-        }
-
-        // Temizle
-        this.manager.tempComponent = null;
-        // activeTool'u sadece boru moduna geçmiyorsak temizle
-        if (!this.boruCizimAktif) {
-            this.manager.activeTool = null;
-        }
-
-        // State'i senkronize et
-        this.manager.saveToState();
-    }
-
-    /**
-     * Boru çizim modunu başlat
-     */
-    startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null) {
-        this.boruCizimAktif = true;
-        this.boruBaslangic = {
-            nokta: baslangicNoktasi,
-            kaynakId: kaynakId,
-            kaynakTip: kaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU
-        };
-        this.snapSystem.setStartPoint(baslangicNoktasi);
-
-        // Icon güncellemesi için activeTool'u ayarla
-        this.manager.activeTool = 'boru';
-    }
-
-    /**
-     * Vana yerleştir - YENİ STRATEJI
-     * Vana boruyu bölmez, boru üzerinde serbest kayabilir bir nesne olarak eklenir
-     */
-    handleVanaPlacement(vanaPreview) {
-        const { pipe, point } = vanaPreview;
-
-        // Undo için state kaydet
-        saveState();
-
-        // Boru üzerindeki mevcut nesneleri al
-        const existingObjects = getObjectsOnPipe(this.manager.components, pipe.id);
-
-        // Yerleştirme kontrolü yap
-        const placementResult = canPlaceValveOnPipe(pipe, point, existingObjects);
-
-        if (!placementResult || placementResult.error) {
-            // Hata durumu - mesaj göster
-            alert(placementResult?.message || 'Vana eklenemedi!');
-            this.vanaPreview = null;
-            return;
-        }
-
-        const { t, x, y, adjusted } = placementResult;
-
-        // Kullanıcıya bilgi ver (kaydırma yapıldıysa)
-        if (adjusted) {
-            console.log('Vana pozisyonu mesafe kurallarına göre ayarlandı.');
-        }
-
-        // Bağımsız Vana nesnesi oluştur
-        const vana = createVana(x, y, 'AKV', {
-            floorId: state.currentFloorId,
-            bagliBoruId: pipe.id,
-            boruPozisyonu: t
-        });
-
-        // Rotasyonu boru açısına göre ayarla
-        vana.rotation = pipe.aciDerece;
-
-        // Manager'ın components dizisine ekle
-        this.manager.components.push(vana);
-
-        // State'i senkronize et
-        this.manager.saveToState();
-
-        // Preview'ı temizle
-        this.vanaPreview = null;
-
-        // Vana eklendikten sonra SEÇ moduna geç
-        this.manager.activeTool = null;
+    // ESC - iptal ve seç moduna geç
+    if (e.key === 'Escape') {
         this.cancelCurrentAction();
         setMode("select");
+        return true;
     }
 
-    /**
-     * Boruyu belirtilen noktadan böl ve çizime devam et
-     */
-    handlePipeSplit(pipe, splitPoint) {
-        // Köşe kontrolü - eğer split noktası tam köşedeyse (p1 veya p2), split YAPMA
-        // Bunun yerine direkt o uçtan çizim başlat
-        const CORNER_THRESHOLD = 0.1; // 0.1 cm tolerance
-        const distToP1 = Math.hypot(splitPoint.x - pipe.p1.x, splitPoint.y - pipe.p1.y);
-        const distToP2 = Math.hypot(splitPoint.x - pipe.p2.x, splitPoint.y - pipe.p2.y);
+    // K - Kombi ekle
+    if (e.key === 'k' || e.key === 'K') {
+        // Aktif boru çizimi varsa, son çizim noktasını kaydet
+        const activeDrawPoint = this.boruCizimAktif && this.boruBaslangic
+            ? { ...this.boruBaslangic }
+            : null;
 
-        if (distToP1 < CORNER_THRESHOLD) {
-            // p1 köşesinden çizim başlat (split yapma)
-            this.startBoruCizim(pipe.p1, pipe.id, BAGLANTI_TIPLERI.BORU);
-            this.pipeSplitPreview = null;
-            return;
+        // Mevcut eylemleri iptal et (ghost boruyu iptal et)
+        this.cancelCurrentAction();
+        setMode("select");
+
+        // TESİSAT moduna geç
+        if (state.currentDrawingMode !== "KARMA") {
+            setDrawingMode("TESİSAT");
         }
 
-        if (distToP2 < CORNER_THRESHOLD) {
-            // p2 köşesinden çizim başlat (split yapma)
-            this.startBoruCizim(pipe.p2, pipe.id, BAGLANTI_TIPLERI.BORU);
-            this.pipeSplitPreview = null;
-            return;
-        }
+        let boruUcuInfo = null;
 
-        // Köşe değil, normal split yap
-        // Undo için state kaydet
-        saveState();
+        // Eğer aktif çizim noktası varsa, o boruyu kullan
+        if (activeDrawPoint && activeDrawPoint.kaynakId) {
+            const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
+            if (sourcePipe) {
+                // Hangi uçtan çizim başlatılmıştı?
+                const point = activeDrawPoint.nokta;
+                const distToP1 = Math.hypot(point.x - sourcePipe.p1.x, point.y - sourcePipe.p1.y);
+                const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
+                const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
 
-        // Boruyu böl
-        const result = pipe.splitAt(splitPoint);
-        if (!result) return; // Split başarısış
-
-        const { boru1, boru2, splitT } = result;
-
-        // BONUS: Vanalar ve diğer boru üzerindeki nesneleri doğru segmente ata
-        const objectsOnPipe = this.manager.components.filter(comp =>
-            comp.bagliBoruId === pipe.id
-        );
-
-        objectsOnPipe.forEach(obj => {
-            if (obj.boruPozisyonu !== undefined) {
-                if (obj.boruPozisyonu <= splitT) {
-                    // Nesne ilk segmentte (boru1)
-                    obj.bagliBoruId = boru1.id;
-                    // Pozisyonu yeniden hesapla (0 - splitT aralığını 0 - 1'e normalize et)
-                    obj.boruPozisyonu = obj.boruPozisyonu / splitT;
-                } else {
-                    // Nesne ikinci segmentte (boru2)
-                    obj.bagliBoruId = boru2.id;
-                    // Pozisyonu yeniden hesapla (splitT - 1 aralığını 0 - 1'e normalize et)
-                    obj.boruPozisyonu = (obj.boruPozisyonu - splitT) / (1 - splitT);
-                }
-                // Pozisyonu güncelle
-                if (obj.updatePositionFromPipe) {
-                    const newPipe = obj.bagliBoruId === boru1.id ? boru1 : boru2;
-                    obj.updatePositionFromPipe(newPipe);
-                }
-            }
-        });
-
-        // Servis kutusuna bağlı mı kontrol et (referansı güncellemek için)
-        if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-            const servisKutusu = this.manager.components.find(
-                c => c.id === pipe.baslangicBaglanti.hedefId && c.type === 'servis_kutusu'
-            );
-            if (servisKutusu && servisKutusu.bagliBoruId === pipe.id) {
-                // Servis kutusunun bağlantısını yeni boru1'e güncelle
-                servisKutusu.baglaBoru(boru1.id);
+                boruUcuInfo = {
+                    pipe: sourcePipe,
+                    end: endPoint,
+                    point: sourcePipe[endPoint]
+                };
             }
         }
 
-        // Eski boruyu kaldır
-        const index = this.manager.pipes.findIndex(p => p.id === pipe.id);
-        if (index !== -1) {
-            this.manager.pipes.splice(index, 1);
+        // placeDeviceAtOpenEnd handleCihazEkleme kullanır - vana, fleks otomatik eklenir
+        if (this.manager.placeDeviceAtOpenEnd('KOMBI', boruUcuInfo)) {
+            saveState();
+            update3DScene();
         }
-
-        // Yeni boruları ekle
-        this.manager.pipes.push(boru1);
-        this.manager.pipes.push(boru2);
-
-        // State'i senkronize et
-        this.manager.saveToState();
-
-        // Split noktasından boru çizimi başlat (ikinci boruya bağlı)
-        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
-
-        // Preview'ı temizle
-        this.pipeSplitPreview = null;
-    }
-
-    /**
-     * Boru çizimde tıklama
-     */
-    handleBoruClick(point) {
-        if (!this.boruBaslangic) return;
-
-        // Undo için state kaydet (her boru için ayrı undo entry)
-        saveState();
-
-        const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
-        boru.floorId = state.currentFloorId;
-
-        if (this.boruBaslangic.kaynakId) {
-            boru.setBaslangicBaglanti(
-                this.boruBaslangic.kaynakTip,
-                this.boruBaslangic.kaynakId
-            );
-
-            // Servis kutusu bağlantısını kur
-            if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-                const servisKutusu = this.manager.components.find(
-                    c => c.id === this.boruBaslangic.kaynakId && c.type === 'servis_kutusu'
-                );
-                if (servisKutusu) {
-                    servisKutusu.baglaBoru(boru.id);
-                }
-            }
-        }
-
-        this.manager.pipes.push(boru);
-
-        // State'i senkronize et
-        this.manager.saveToState();
-
-        // Devam et
-        this.boruBaslangic = {
-            nokta: point,
-            kaynakId: boru.id,
-            kaynakTip: BAGLANTI_TIPLERI.BORU
-        };
-        this.snapSystem.setStartPoint(point);
-    }
-
-    /**
-     * Sayaç ekleme işlemleri
-     */
-    handleSayacEkleme(sayac) {
-        const boruUcu = this.findBoruUcuAt(sayac.getGirisNoktasi());
-
-        if (boruUcu) {
-            const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
-
-            if (!vanaVar) {
-                const vana = createVana(boruUcu.nokta.x, boruUcu.nokta.y, 'SAYAC');
-                vana.rotation = sayac.rotation;
-                vana.floorId = sayac.floorId;
-                this.manager.components.push(vana);
-                sayac.vanaIliskilendir(vana.id);
-            }
-
-            sayac.baglaGiris(boruUcu.boruId, boruUcu.nokta);
-        }
-
-        this.startBoruCizim(sayac.getCikisNoktasi(), sayac.id, BAGLANTI_TIPLERI.SAYAC);
-    }
-
-    /**
-     * Cihaz ekleme (Kombi, Ocak, vb.)
-     * KURALLAR:
-     * - Cihaz SADECE boru uç noktasına eklenebilir
-     * - Fleks ile bağlanır
-     * - Boru ucunda vana yoksa otomatik vana eklenir
-     */
-    handleCihazEkleme(cihaz) {
-        // En yakın boru ucunu bul (geniş tolerance - 50 cm)
-        const girisNoktasi = cihaz.getGirisNoktasi();
-        const boruUcu = this.findBoruUcuAt(girisNoktasi, 50);
-
-        if (!boruUcu) {
-            alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
-            // Cihazı components'a ekleme, sadece iptal et
-            return false;
-        }
-
-        // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
-        if (!this.isFreeEndpoint(boruUcu.nokta, 1)) {
-            alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
-            return false;
-        }
-
-        // Undo için state kaydet
-        saveState();
-
-        // Boru ucunda vana var mı kontrol et
-        const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
-
-        // Vana yoksa otomatik ekle
-        if (!vanaVar) {
-            // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
-            const boru = boruUcu.boru;
-            const edgeMargin = 4;      // cm - kenar için margin
-            const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
-            const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
-
-            // Boru yönünü hesapla (boru ucundan içeriye doğru)
-            const dx = boru.p2.x - boru.p1.x;
-            const dy = boru.p2.y - boru.p1.y;
-            const length = Math.hypot(dx, dy);
-
-            let vanaX, vanaY;
-            if (boruUcu.uc === 'p1') {
-                // p1 ucundayız, p2'ye doğru centerMargin kadar ilerle
-                vanaX = boruUcu.nokta.x + (dx / length) * centerMargin;
-                vanaY = boruUcu.nokta.y + (dy / length) * centerMargin;
-            } else {
-                // p2 ucundayız, p1'e doğru centerMargin kadar ilerle
-                vanaX = boruUcu.nokta.x - (dx / length) * centerMargin;
-                vanaY = boruUcu.nokta.y - (dy / length) * centerMargin;
-            }
-
-            const vana = createVana(vanaX, vanaY, 'AKV');
-            vana.rotation = boruUcu.boru.aciDerece;
-            vana.floorId = cihaz.floorId;
-
-            // Vana'yı boru üzerindeki pozisyona bağla
-            vana.bagliBoruId = boruUcu.boruId;
-            // Pozisyonu hesapla (0.0 - 1.0 arası)
-            const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
-            vana.boruPozisyonu = vanaToP1Dist / length;
-
-            this.manager.components.push(vana);
-            cihaz.vanaIliskilendir(vana.id);
-        } else {
-            cihaz.vanaIliskilendir(vanaVar.id);
-        }
-
-        // Cihaz rotation'unu boru açısına göre ayarla
-        // Boru ucu p1 ise: boru p2'den p1'e geliyor, cihaz ters yönde (180°)
-        // Boru ucu p2 ise: boru p1'den p2'ye geliyor, cihaz aynı yönde (0°)
-        const boruAci = boruUcu.boru.aciDerece;
-        if (boruUcu.uc === 'p1') {
-            // Boru p2'den p1'e geliyor, cihaz ters yönde
-            cihaz.rotation = (boruAci + 180) % 360;
-        } else {
-            // Boru p1'den p2'ye geliyor, cihaz aynı yönde
-            cihaz.rotation = 0;
-        }
-
-        // Cihaz pozisyonunu ayarla - hedef giriş noktası boru ucundan 20 cm ileri
-        const boru = boruUcu.boru;
-        const dx = boru.p2.x - boru.p1.x;
-        const dy = boru.p2.y - boru.p1.y;
-        const length = Math.hypot(dx, dy);
-        const deviceDistance = 20; // cm
-
-        let hedefGirisX, hedefGirisY;
-        if (boruUcu.uc === 'p1') {
-            hedefGirisX = boruUcu.nokta.x - (dx / length) * deviceDistance;
-            hedefGirisY = boruUcu.nokta.y - (dy / length) * deviceDistance;
-        } else {
-            hedefGirisX = boruUcu.nokta.x + (dx / length) * deviceDistance;
-            hedefGirisY = boruUcu.nokta.y + (dy / length) * deviceDistance;
-        }
-
-        // Pozisyonu ayarla (getGirisNoktasi() = hedefGiris olacak şekilde)
-        const actualGiris = cihaz.getGirisNoktasi();
-        cihaz.x += (hedefGirisX - actualGiris.x);
-        cihaz.y += (hedefGirisY - actualGiris.y);
-
-        // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
-        cihaz.fleksBagla(boruUcu.boruId, boruUcu.nokta);
-
-        // State'i senkronize et
-        this.manager.saveToState();
 
         return true;
     }
 
-    /**
-     * Ölçüyü uygula (Enter tuşuna basıldığında)
-     */
-    applyMeasurement() {
-        if (!this.boruBaslangic) return;
+    // O - Ocak ekle
+    if (e.key === 'o' || e.key === 'O') {
+        // Aktif boru çizimi varsa, son çizim noktasını kaydet
+        const activeDrawPoint = this.boruCizimAktif && this.boruBaslangic
+            ? { ...this.boruBaslangic }
+            : null;
 
-        const measurement = parseFloat(this.measurementInput);
-        if (isNaN(measurement) || measurement <= 0) {
-            this.measurementInput = '';
-            this.measurementActive = false;
-            return;
+        // Mevcut eylemleri iptal et (ghost boruyu iptal et)
+        this.cancelCurrentAction();
+        setMode("select");
+
+        // TESİSAT moduna geç
+        if (state.currentDrawingMode !== "KARMA") {
+            setDrawingMode("TESİSAT");
         }
 
-        // Eğer geciciBoruBitis yoksa veya geçersizse, yönü hesapla
-        let targetPoint = this.geciciBoruBitis;
+        let boruUcuInfo = null;
 
-        if (!targetPoint) {
-            // Varsayılan yön: sağa doğru (pozitif X ekseni)
+        // Eğer aktif çizim noktası varsa, o boruyu kullan
+        if (activeDrawPoint && activeDrawPoint.kaynakId) {
+            const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
+            if (sourcePipe) {
+                // Hangi uçtan çizim başlatılmıştı?
+                const point = activeDrawPoint.nokta;
+                const distToP1 = Math.hypot(point.x - sourcePipe.p1.x, point.y - sourcePipe.p1.y);
+                const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
+                const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
+
+                boruUcuInfo = {
+                    pipe: sourcePipe,
+                    end: endPoint,
+                    point: sourcePipe[endPoint]
+                };
+            }
+        }
+
+        // placeDeviceAtOpenEnd handleCihazEkleme kullanır - vana, fleks otomatik eklenir
+        if (this.manager.placeDeviceAtOpenEnd('OCAK', boruUcuInfo)) {
+            saveState();
+            update3DScene();
+        }
+
+        return true;
+    }
+
+    // T - BORU çizme modu (boru icon'unu aktif et)
+    if (e.key === 't' || e.key === 'T') {
+        // TESİSAT modunda olduğumuzdan emin ol
+        if (state.currentDrawingMode !== "KARMA") {
+            setDrawingMode("TESİSAT");
+        }
+        
+        // Boru modunu başlat
+        this.manager.startPipeMode();
+        
+        // UI ikonunu güncelle
+        setMode("plumbingV2", true);
+        return true;
+    }
+
+    // Delete - seçili nesneyi sil
+    if (e.key === 'Delete') {
+        // Hem this.selectedObject hem de state.selectedObject'i kontrol et
+        if (this.selectedObject) {
+            this.deleteSelectedObject();
+            return true;
+        }
+        // Eğer this.selectedObject null ama state.selectedObject varsa, önce seç sonra sil
+        if (!this.selectedObject && state.selectedObject) {
+            const stateObj = state.selectedObject;
+            // V2 plumbing nesnesi mi kontrol et
+            if (stateObj && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(stateObj.type)) {
+                // Nesneyi bul ve seç
+                const obj = stateObj.object;
+                if (obj) {
+                    // this.selectedObject'i senkronize et
+                    this.selectedObject = obj;
+                    // Şimdi sil
+                    this.deleteSelectedObject();
+                    return true;
+                }
+            }
+        }
+    }
+
+    // Ok tuşları - seçili boru navigasyonu
+    if (this.selectedObject && this.selectedObject.type === 'boru') {
+        const tolerance = 1;
+        const selectedPipe = this.selectedObject;
+
+        // ArrowRight veya ArrowUp: sonraki boru (p2'ye bağlı boru)
+        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+            const nextPipe = this.manager.pipes.find(p =>
+                p.id !== selectedPipe.id &&
+                Math.hypot(p.p1.x - selectedPipe.p2.x, p.p1.y - selectedPipe.p2.y) < tolerance
+            );
+            if (nextPipe) {
+                this.selectObject(nextPipe);
+                return true;
+            }
+        }
+
+        // ArrowLeft veya ArrowDown: önceki boru (p1'e bağlı boru)
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+            const prevPipe = this.manager.pipes.find(p =>
+                p.id !== selectedPipe.id &&
+                Math.hypot(p.p2.x - selectedPipe.p1.x, p.p2.y - selectedPipe.p1.y) < tolerance
+            );
+            if (prevPipe) {
+                this.selectObject(prevPipe);
+                return true;
+            }
+        }
+    }
+
+    // Ok tuşları - seçili sayacı hareket ettir
+    if (this.selectedObject && this.selectedObject.type === 'sayac') {
+        const direction = {
+            'ArrowUp': 'up',
+            'ArrowDown': 'down',
+            'ArrowLeft': 'left',
+            'ArrowRight': 'right'
+        }[e.key];
+
+        if (direction) {
+            const result = this.selectedObject.moveByKey(direction);
+            this.updateConnectedPipe(result);
+            return true;
+        }
+    }
+
+    // R tuşu - seçili servis kutusunu döndür (çıkış noktası etrafında)
+    if (this.selectedObject && this.selectedObject.type === 'servis_kutusu' && e.key === 'r') {
+        saveState();
+        const deltaDerece = e.shiftKey ? -15 : 15; // Shift ile ters yön
+        const result = this.selectedObject.rotate(deltaDerece);
+        this.updateConnectedPipe(result);
+        this.manager.saveToState();
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Ghost pozisyon güncelleme
+ */
+updateGhostPosition(ghost, point, snap) {
+    // Debug: İlk 3 güncellemede koordinat sistemi kontrolü
+    if (ghost.type === 'cihaz' && !this._debugCount) this._debugCount = 0;
+    if (ghost.type === 'cihaz' && this._debugCount < 3) {
+        console.log('🐛 CIHAZ GHOST DEBUG:', {
+            'zoom': state.zoom,
+            'panOffset': `(${state.panOffset.x}, ${state.panOffset.y})`,
+            'point (world)': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
+            'DPR': window.devicePixelRatio
+        });
+        this._debugCount++;
+    }
+
+    // Cihaz için: boru ucuna snap yap, boru ekseninde yerleştir
+    if (ghost.type === 'cihaz') {
+        // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
+        const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
+
+        if (boruUcu && boruUcu.boru) {
+            // Boru yönünü hesapla (boru ucundan dışarı doğru)
+            const boru = boruUcu.boru;
+            const dx = boru.p2.x - boru.p1.x;
+            const dy = boru.p2.y - boru.p1.y;
+            const length = Math.hypot(dx, dy);
+
+            // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
+            ghost.rotation = 0;
+
+            // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
+            // Fleks bitiş noktası artık cihazın içine doğru uzandığı için 20 cm yeterli
+            const fleksUzunluk = 20; // cm
+            const cihazYariGenislik = ghost.config.width / 2;
+            const toplamMesafe = fleksUzunluk + cihazYariGenislik;
+
+            // Cihaz merkezini hesapla (boru yönünde)
+            let merkezX, merkezY;
+            if (boruUcu.uc === 'p1') {
+                // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
+                merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
+                merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
+            } else {
+                // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
+                merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
+                merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
+            }
+
+            // Cihaz merkezini ayarla
+            ghost.x = merkezX;
+            ghost.y = merkezY;
+
+            // Ghost rendering için bağlantı bilgisini sakla
+            // fleksBagla için boru ucunu kullan, en yakın kenar otomatik bulunacak
+            ghost.ghostConnectionInfo = {
+                boruUcu: boruUcu,
+                girisNoktasi: boruUcu.nokta // Fleks boru ucundan başlayacak
+            };
+        } else {
+            // Boru ucu bulunamadı, normal cursor pozisyonu
+            const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
+            ghost.x = point.x - girisOffset.x;
+            ghost.y = point.y - girisOffset.y;
+            ghost.ghostConnectionInfo = null;
+        }
+    } else {
+        ghost.x = point.x;
+        ghost.y = point.y;
+    }
+
+    // Servis kutusu - duvara snap (yerleştirme için useBoxPosition=false)
+    if (ghost.type === 'servis_kutusu') {
+        const walls = state.walls;
+        const snapDistance = 30; // 30cm içinde snap yap
+
+        // En yakın duvarı bul
+        let closestWall = null;
+        let minDist = Infinity;
+
+        walls.forEach(wall => {
+            if (!wall.p1 || !wall.p2) return;
+
+            const dx = wall.p2.x - wall.p1.x;
+            const dy = wall.p2.y - wall.p1.y;
+            const len = Math.hypot(dx, dy);
+            if (len === 0) return;
+
+            // Noktayı duvara projeksiyon yap
+            const t = Math.max(0, Math.min(1,
+                ((point.x - wall.p1.x) * dx + (point.y - wall.p1.y) * dy) / (len * len)
+            ));
+            const projX = wall.p1.x + t * dx;
+            const projY = wall.p1.y + t * dy;
+
+            const dist = Math.hypot(point.x - projX, point.y - projY);
+
+            if (dist < minDist) {
+                minDist = dist;
+                closestWall = wall;
+            }
+        });
+
+        // Yakın duvara snap yap (yerleştirme - useBoxPosition=false, mouse pozisyonuna göre taraf belirlenir)
+        if (closestWall && minDist < snapDistance) {
+            ghost.snapToWall(closestWall, point, false);
+        } else {
+            ghost.placeFree(point);
+        }
+    }
+
+    // Sayaç/Vana - boru açısına hizala
+    if ((ghost.type === 'sayac' || ghost.type === 'vana') && snap && snap.target) {
+        if (snap.target.isPipe) {
+            ghost.rotation = snap.target.aciDerece || 0;
+        }
+    }
+}
+
+/**
+ * Bileşeni yerleştir
+ */
+placeComponent(point) {
+    if (!this.manager.tempComponent) return;
+
+    // Undo için state kaydet
+    saveState();
+
+    const component = this.manager.tempComponent;
+
+    // Özel işlemler
+    switch (component.type) {
+        case 'servis_kutusu':
+            // Listeye ekle
+            this.manager.components.push(component);
+            this.startBoruCizim(component.getCikisNoktasi(), component.id);
+            // İkon güncellemesi için activeTool'u boru olarak ayarla
+            this.manager.activeTool = 'boru';
+            // İkonları güncelle
+            setMode("plumbingV2", true);
+            break;
+
+        case 'sayac':
+            // Listeye ekle
+            this.manager.components.push(component);
+            this.handleSayacEkleme(component);
+            // İkon güncellemesi için activeTool'u boru olarak ayarla
+            this.manager.activeTool = 'boru';
+            // İkonları güncelle
+            setMode("plumbingV2", true);
+            break;
+
+        case 'cihaz':
+            // Cihaz için özel kontrol - handleCihazEkleme başarılı olursa ekle
+            const success = this.handleCihazEkleme(component);
+            if (success) {
+                // Listeye ekle
+                this.manager.components.push(component);
+                // Cihaz eklemeden sonra select moduna geç
+                setMode("select");
+            } else {
+                // Başarısız, ekleme iptal edildi
+                // tempComponent'i temizleme, kullanıcı tekrar deneyebilsin
+                return;
+            }
+            break;
+
+        default:
+            // Diğer bileşenler için doğrudan ekle
+            this.manager.components.push(component);
+            break;
+    }
+
+    // Temizle
+    this.manager.tempComponent = null;
+    // activeTool'u sadece boru moduna geçmiyorsak temizle
+    if (!this.boruCizimAktif) {
+        this.manager.activeTool = null;
+    }
+
+    // State'i senkronize et
+    this.manager.saveToState();
+}
+
+/**
+ * Boru çizim modunu başlat
+ */
+startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null) {
+    this.boruCizimAktif = true;
+    this.boruBaslangic = {
+        nokta: baslangicNoktasi,
+        kaynakId: kaynakId,
+        kaynakTip: kaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU
+    };
+    this.snapSystem.setStartPoint(baslangicNoktasi);
+
+    // Icon güncellemesi için activeTool'u ayarla
+    this.manager.activeTool = 'boru';
+}
+
+/**
+ * Vana yerleştir - YENİ STRATEJI
+ * Vana boruyu bölmez, boru üzerinde serbest kayabilir bir nesne olarak eklenir
+ */
+handleVanaPlacement(vanaPreview) {
+    const { pipe, point } = vanaPreview;
+
+    // Undo için state kaydet
+    saveState();
+
+    // Boru üzerindeki mevcut nesneleri al
+    const existingObjects = getObjectsOnPipe(this.manager.components, pipe.id);
+
+    // Yerleştirme kontrolü yap
+    const placementResult = canPlaceValveOnPipe(pipe, point, existingObjects);
+
+    if (!placementResult || placementResult.error) {
+        // Hata durumu - mesaj göster
+        alert(placementResult?.message || 'Vana eklenemedi!');
+        this.vanaPreview = null;
+        return;
+    }
+
+    const { t, x, y, adjusted } = placementResult;
+
+    // Kullanıcıya bilgi ver (kaydırma yapıldıysa)
+    if (adjusted) {
+        console.log('Vana pozisyonu mesafe kurallarına göre ayarlandı.');
+    }
+
+    // Bağımsız Vana nesnesi oluştur
+    const vana = createVana(x, y, 'AKV', {
+        floorId: state.currentFloorId,
+        bagliBoruId: pipe.id,
+        boruPozisyonu: t
+    });
+
+    // Rotasyonu boru açısına göre ayarla
+    vana.rotation = pipe.aciDerece;
+
+    // Manager'ın components dizisine ekle
+    this.manager.components.push(vana);
+
+    // State'i senkronize et
+    this.manager.saveToState();
+
+    // Preview'ı temizle
+    this.vanaPreview = null;
+
+    // Vana eklendikten sonra SEÇ moduna geç
+    this.manager.activeTool = null;
+    this.cancelCurrentAction();
+    setMode("select");
+}
+
+/**
+ * Boruyu belirtilen noktadan böl ve çizime devam et
+ */
+handlePipeSplit(pipe, splitPoint) {
+    // Köşe kontrolü - eğer split noktası tam köşedeyse (p1 veya p2), split YAPMA
+    // Bunun yerine direkt o uçtan çizim başlat
+    const CORNER_THRESHOLD = 0.1; // 0.1 cm tolerance
+    const distToP1 = Math.hypot(splitPoint.x - pipe.p1.x, splitPoint.y - pipe.p1.y);
+    const distToP2 = Math.hypot(splitPoint.x - pipe.p2.x, splitPoint.y - pipe.p2.y);
+
+    if (distToP1 < CORNER_THRESHOLD) {
+        // p1 köşesinden çizim başlat (split yapma)
+        this.startBoruCizim(pipe.p1, pipe.id, BAGLANTI_TIPLERI.BORU);
+        this.pipeSplitPreview = null;
+        return;
+    }
+
+    if (distToP2 < CORNER_THRESHOLD) {
+        // p2 köşesinden çizim başlat (split yapma)
+        this.startBoruCizim(pipe.p2, pipe.id, BAGLANTI_TIPLERI.BORU);
+        this.pipeSplitPreview = null;
+        return;
+    }
+
+    // Köşe değil, normal split yap
+    // Undo için state kaydet
+    saveState();
+
+    // Boruyu böl
+    const result = pipe.splitAt(splitPoint);
+    if (!result) return; // Split başarısış
+
+    const { boru1, boru2, splitT } = result;
+
+    // BONUS: Vanalar ve diğer boru üzerindeki nesneleri doğru segmente ata
+    const objectsOnPipe = this.manager.components.filter(comp =>
+        comp.bagliBoruId === pipe.id
+    );
+
+    objectsOnPipe.forEach(obj => {
+        if (obj.boruPozisyonu !== undefined) {
+            if (obj.boruPozisyonu <= splitT) {
+                // Nesne ilk segmentte (boru1)
+                obj.bagliBoruId = boru1.id;
+                // Pozisyonu yeniden hesapla (0 - splitT aralığını 0 - 1'e normalize et)
+                obj.boruPozisyonu = obj.boruPozisyonu / splitT;
+            } else {
+                // Nesne ikinci segmentte (boru2)
+                obj.bagliBoruId = boru2.id;
+                // Pozisyonu yeniden hesapla (splitT - 1 aralığını 0 - 1'e normalize et)
+                obj.boruPozisyonu = (obj.boruPozisyonu - splitT) / (1 - splitT);
+            }
+            // Pozisyonu güncelle
+            if (obj.updatePositionFromPipe) {
+                const newPipe = obj.bagliBoruId === boru1.id ? boru1 : boru2;
+                obj.updatePositionFromPipe(newPipe);
+            }
+        }
+    });
+
+    // Cihaz fleks bağlantılarını güncelle (p2'ye bağlı cihazlar boru2'ye geçmeli)
+    this.manager.components.forEach(comp => {
+        if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
+            // Cihaz bu boruya fleks ile bağlı
+            const endpoint = comp.fleksBaglanti.endpoint;
+            if (endpoint === 'p2') {
+                // p2'ye bağlıydı, boru2'ye aktar
+                comp.fleksBaglanti.boruId = boru2.id;
+                comp.fleksBaglanti.endpoint = 'p2';
+            } else {
+                // p1'e bağlıydı, boru1'e aktar
+                comp.fleksBaglanti.boruId = boru1.id;
+                comp.fleksBaglanti.endpoint = 'p1';
+            }
+        }
+    });
+
+    // Servis kutusuna bağlı mı kontrol et (referansı güncellemek için)
+    if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+        const servisKutusu = this.manager.components.find(
+            c => c.id === pipe.baslangicBaglanti.hedefId && c.type === 'servis_kutusu'
+        );
+        if (servisKutusu && servisKutusu.bagliBoruId === pipe.id) {
+            // Servis kutusunun bağlantısını yeni boru1'e güncelle
+            servisKutusu.baglaBoru(boru1.id);
+        }
+    }
+
+    // Eski boruyu kaldır
+    const index = this.manager.pipes.findIndex(p => p.id === pipe.id);
+    if (index !== -1) {
+        this.manager.pipes.splice(index, 1);
+    }
+
+    // Yeni boruları ekle
+    this.manager.pipes.push(boru1);
+    this.manager.pipes.push(boru2);
+
+    // State'i senkronize et
+    this.manager.saveToState();
+
+    // Split noktasından boru çizimi başlat (ikinci boruya bağlı)
+    this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+
+    // Preview'ı temizle
+    this.pipeSplitPreview = null;
+}
+
+/**
+ * Boru çizimde tıklama
+ */
+handleBoruClick(point) {
+    if (!this.boruBaslangic) return;
+
+    // Undo için state kaydet (her boru için ayrı undo entry)
+    saveState();
+
+    const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
+    boru.floorId = state.currentFloorId;
+
+    if (this.boruBaslangic.kaynakId) {
+        boru.setBaslangicBaglanti(
+            this.boruBaslangic.kaynakTip,
+            this.boruBaslangic.kaynakId
+        );
+
+        // Servis kutusu bağlantısını kur
+        if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+            const servisKutusu = this.manager.components.find(
+                c => c.id === this.boruBaslangic.kaynakId && c.type === 'servis_kutusu'
+            );
+            if (servisKutusu) {
+                servisKutusu.baglaBoru(boru.id);
+            }
+        }
+    }
+
+    this.manager.pipes.push(boru);
+
+    // State'i senkronize et
+    this.manager.saveToState();
+
+    // Devam et
+    this.boruBaslangic = {
+        nokta: point,
+        kaynakId: boru.id,
+        kaynakTip: BAGLANTI_TIPLERI.BORU
+    };
+    this.snapSystem.setStartPoint(point);
+}
+
+/**
+ * Sayaç ekleme işlemleri
+ */
+handleSayacEkleme(sayac) {
+    const boruUcu = this.findBoruUcuAt(sayac.getGirisNoktasi());
+
+    if (boruUcu) {
+        const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
+
+        if (!vanaVar) {
+            const vana = createVana(boruUcu.nokta.x, boruUcu.nokta.y, 'SAYAC');
+            vana.rotation = sayac.rotation;
+            vana.floorId = sayac.floorId;
+            this.manager.components.push(vana);
+            sayac.vanaIliskilendir(vana.id);
+        }
+
+        sayac.baglaGiris(boruUcu.boruId, boruUcu.nokta);
+    }
+
+    this.startBoruCizim(sayac.getCikisNoktasi(), sayac.id, BAGLANTI_TIPLERI.SAYAC);
+}
+
+/**
+ * Cihaz ekleme (Kombi, Ocak, vb.)
+ * KURALLAR:
+ * - Cihaz SADECE boru uç noktasına eklenebilir
+ * - Fleks ile bağlanır
+ * - Boru ucunda vana yoksa otomatik vana eklenir
+ */
+handleCihazEkleme(cihaz) {
+    console.log('[handleCihazEkleme] Başlıyor. Cihaz tipi:', cihaz.cihazTipi);
+
+    // Ghost'tan boru ucu bilgisini al (ghost gösterimde doğru pozisyon belirlendi)
+    // Eğer ghost bilgisi yoksa, mevcut pozisyondan bul
+    let boruUcu;
+    if (cihaz.ghostConnectionInfo && cihaz.ghostConnectionInfo.boruUcu) {
+        boruUcu = cihaz.ghostConnectionInfo.boruUcu;
+        console.log('[handleCihazEkleme] Ghost connection info bulundu:', boruUcu);
+    } else {
+        // Fallback: mevcut pozisyondan bul
+        const girisNoktasi = cihaz.getGirisNoktasi();
+        boruUcu = this.findBoruUcuAt(girisNoktasi, 50);
+        console.log('[handleCihazEkleme] Fallback ile boru ucu bulundu:', boruUcu);
+    }
+
+    if (!boruUcu) {
+        console.error('[handleCihazEkleme] ✗ Boru ucu bulunamadı!');
+        alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
+        // Cihazı components'a ekleme, sadece iptal et
+        return false;
+    }
+
+    // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
+    if (!this.isFreeEndpoint(boruUcu.nokta, 1)) {
+        console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
+        alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
+        return false;
+    }
+
+    console.log('[handleCihazEkleme] ✓ Kontroller geçti, vana ve cihaz ekleniyor...');
+
+    // Undo için state kaydet
+    saveState();
+
+    // Boru ucunda vana var mı kontrol et
+    const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
+
+    // Vana yoksa otomatik ekle
+    if (!vanaVar) {
+        // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
+        const boru = boruUcu.boru;
+        const edgeMargin = 4;      // cm - kenar için margin
+        const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
+        const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
+
+        // Boru yönünü hesapla (boru ucundan içeriye doğru)
+        const dx = boru.p2.x - boru.p1.x;
+        const dy = boru.p2.y - boru.p1.y;
+        const length = Math.hypot(dx, dy);
+
+        let vanaX, vanaY;
+        if (boruUcu.uc === 'p1') {
+            // p1 ucundayız, p2'ye doğru centerMargin kadar ilerle
+            vanaX = boruUcu.nokta.x + (dx / length) * centerMargin;
+            vanaY = boruUcu.nokta.y + (dy / length) * centerMargin;
+        } else {
+            // p2 ucundayız, p1'e doğru centerMargin kadar ilerle
+            vanaX = boruUcu.nokta.x - (dx / length) * centerMargin;
+            vanaY = boruUcu.nokta.y - (dy / length) * centerMargin;
+        }
+
+        const vana = createVana(vanaX, vanaY, 'AKV');
+        vana.rotation = boruUcu.boru.aciDerece;
+        vana.floorId = cihaz.floorId;
+
+        // Vana'yı boru üzerindeki pozisyona bağla
+        vana.bagliBoruId = boruUcu.boruId;
+        // Pozisyonu hesapla (0.0 - 1.0 arası)
+        const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
+        vana.boruPozisyonu = vanaToP1Dist / length;
+
+        this.manager.components.push(vana);
+        cihaz.vanaIliskilendir(vana.id);
+    } else {
+        cihaz.vanaIliskilendir(vanaVar.id);
+    }
+
+    // Cihaz rotation'unu sabit tut - tutamacı her zaman kuzeyde
+    // Fleks bağlantısı cihazın en yakın noktasından otomatik ayarlanacak
+    cihaz.rotation = 0;
+
+    // Cihaz merkezini hesapla (boru yönünde)
+    const boru = boruUcu.boru;
+    const dx = boru.p2.x - boru.p1.x;
+    const dy = boru.p2.y - boru.p1.y;
+    const length = Math.hypot(dx, dy);
+
+    // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
+    // Fleks bitiş noktası artık cihazın içine doğru uzandığı için 20 cm yeterli
+    const fleksUzunluk = 20; // cm
+    const cihazYariGenislik = cihaz.config.width / 2;
+    const toplamMesafe = fleksUzunluk + cihazYariGenislik;
+
+    let merkezX, merkezY;
+    if (boruUcu.uc === 'p1') {
+        // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
+        merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
+        merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
+    } else {
+        // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
+        merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
+        merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
+    }
+
+    // Cihaz merkezini ayarla
+    cihaz.x = merkezX;
+    cihaz.y = merkezY;
+
+    // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
+    // boruUcu.uc = 'p1' veya 'p2'
+    cihaz.fleksBagla(boruUcu.boruId, boruUcu.uc);
+
+    // Cihazı components'a ekle (eğer henüz eklenmemişse)
+    // Normal icon click workflow'unda placeComponent() ekler,
+    // ama K/O shortcuts gibi direkt çağrılarda burada eklemeliyiz
+    if (!this.manager.components.includes(cihaz)) {
+        console.log('[handleCihazEkleme] Cihaz components\'a ekleniyor:', cihaz.cihazTipi);
+        this.manager.components.push(cihaz);
+    }
+
+    // State'e kaydet
+    this.manager.saveToState();
+
+    console.log('[handleCihazEkleme] ✓ Cihaz başarıyla eklendi. Toplam components:', this.manager.components.length);
+    return true;
+}
+
+/**
+ * Ölçüyü uygula (Enter tuşuna basıldığında)
+ */
+applyMeasurement() {
+    if (!this.boruBaslangic) return;
+
+    const measurement = parseFloat(this.measurementInput);
+    if (isNaN(measurement) || measurement <= 0) {
+        this.measurementInput = '';
+        this.measurementActive = false;
+        return;
+    }
+
+    // Eğer geciciBoruBitis yoksa veya geçersizse, yönü hesapla
+    let targetPoint = this.geciciBoruBitis;
+
+    if (!targetPoint) {
+        // Varsayılan yön: sağa doğru (pozitif X ekseni)
+        targetPoint = {
+            x: this.boruBaslangic.nokta.x + measurement,
+            y: this.boruBaslangic.nokta.y
+        };
+    } else {
+        // Mevcut yönü kullanarak ölçüyü uygula
+        const dx = targetPoint.x - this.boruBaslangic.nokta.x;
+        const dy = targetPoint.y - this.boruBaslangic.nokta.y;
+        const currentLength = Math.hypot(dx, dy);
+
+        if (currentLength > 0.1) {
+            // Yönü normalize et ve ölçü kadar uzat
+            const dirX = dx / currentLength;
+            const dirY = dy / currentLength;
+
+            targetPoint = {
+                x: this.boruBaslangic.nokta.x + dirX * measurement,
+                y: this.boruBaslangic.nokta.y + dirY * measurement
+            };
+        } else {
+            // Çok kısa mesafe, varsayılan yön kullan
             targetPoint = {
                 x: this.boruBaslangic.nokta.x + measurement,
                 y: this.boruBaslangic.nokta.y
             };
-        } else {
-            // Mevcut yönü kullanarak ölçüyü uygula
-            const dx = targetPoint.x - this.boruBaslangic.nokta.x;
-            const dy = targetPoint.y - this.boruBaslangic.nokta.y;
-            const currentLength = Math.hypot(dx, dy);
-
-            if (currentLength > 0.1) {
-                // Yönü normalize et ve ölçü kadar uzat
-                const dirX = dx / currentLength;
-                const dirY = dy / currentLength;
-
-                targetPoint = {
-                    x: this.boruBaslangic.nokta.x + dirX * measurement,
-                    y: this.boruBaslangic.nokta.y + dirY * measurement
-                };
-            } else {
-                // Çok kısa mesafe, varsayılan yön kullan
-                targetPoint = {
-                    x: this.boruBaslangic.nokta.x + measurement,
-                    y: this.boruBaslangic.nokta.y
-                };
-            }
         }
-
-        // Boruyu oluştur
-        this.handleBoruClick(targetPoint);
-
-        // Ölçü girişini sıfırla
-        this.measurementInput = '';
-        this.measurementActive = false;
     }
 
-    /**
-     * Mevcut işlemi iptal et
-     */
-    cancelCurrentAction() {
-        if (this.boruCizimAktif) {
-            this.boruCizimAktif = false;
-            this.boruBaslangic = null;
-            this.geciciBoruBitis = null;
-            this.snapSystem.clearStartPoint();
-        }
+    // Boruyu oluştur
+    this.handleBoruClick(targetPoint);
 
-        // Ölçü girişini sıfırla
-        this.measurementInput = '';
-        this.measurementActive = false;
+    // Ölçü girişini sıfırla
+    this.measurementInput = '';
+    this.measurementActive = false;
+}
 
-        if (this.manager.tempComponent) {
-            this.manager.tempComponent = null;
-        }
-
-        this.manager.activeTool = null;
-
-        // Seçimi temizle
-        this.deselectObject();
+/**
+ * Mevcut işlemi iptal et
+ */
+cancelCurrentAction() {
+    if (this.boruCizimAktif) {
+        this.boruCizimAktif = false;
+        this.boruBaslangic = null;
+        this.geciciBoruBitis = null;
+        this.snapSystem.clearStartPoint();
     }
 
-    selectObject(obj) {
-        // Önceki seçimi temizle
-        if (this.selectedObject && this.selectedObject !== obj) {
-            this.selectedObject.isSelected = false;
-        }
-        // Vana seçimi temizle
-        if (this.selectedValve) {
-            this.selectedValve.pipe.vana.isSelected = false;
-            this.selectedValve = null;
-        }
-        this.selectedObject = obj;
-        obj.isSelected = true;
+    // Ölçü girişini sıfırla
+    this.measurementInput = '';
+    this.measurementActive = false;
 
-        // state.selectedObject'i de set et (DELETE tuşu için)
-        setState({
-            selectedObject: {
-                type: obj.type === 'boru' ? 'pipe' : obj.type,
-                object: obj,
-                handle: 'body'
-            }
-        });
+    if (this.manager.tempComponent) {
+        this.manager.tempComponent = null;
     }
 
-    selectValve(pipe, vana) {
-        // Önceki seçimi temizle
-        if (this.selectedObject) {
-            this.selectedObject.isSelected = false;
-            this.selectedObject = null;
-        }
-        // Önceki vana seçimini temizle
-        if (this.selectedValve) {
-            this.selectedValve.pipe.vana.isSelected = false;
-        }
+    this.manager.activeTool = null;
 
-        this.selectedValve = { pipe, vana };
-        vana.isSelected = true;
+    // Seçimi temizle
+    this.deselectObject();
+}
 
-        // state.selectedObject'i de set et (DELETE tuşu için)
-        setState({
-            selectedObject: {
-                type: 'valve',
-                object: vana,
-                pipe: pipe,
-                handle: 'body'
-            }
-        });
+selectObject(obj) {
+    // Önceki seçimi temizle
+    if (this.selectedObject && this.selectedObject !== obj) {
+        this.selectedObject.isSelected = false;
+    }
+    // Vana seçimi temizle
+    if (this.selectedValve) {
+        this.selectedValve.pipe.vana.isSelected = false;
+        this.selectedValve = null;
+    }
+    this.selectedObject = obj;
+    obj.isSelected = true;
+
+    // state.selectedObject'i de set et (DELETE tuşu için)
+    setState({
+        selectedObject: {
+            type: obj.type === 'boru' ? 'pipe' : obj.type,
+            object: obj,
+            handle: 'body'
+        }
+    });
+}
+
+selectValve(pipe, vana) {
+    // Önceki seçimi temizle
+    if (this.selectedObject) {
+        this.selectedObject.isSelected = false;
+        this.selectedObject = null;
+    }
+    // Önceki vana seçimini temizle
+    if (this.selectedValve) {
+        this.selectedValve.pipe.vana.isSelected = false;
     }
 
-    deselectObject() {
-        if (this.selectedObject) {
-            this.selectedObject.isSelected = false;
-            this.selectedObject = null;
-        }
-        if (this.selectedValve) {
-            this.selectedValve.pipe.vana.isSelected = false;
-            this.selectedValve = null;
-        }
+    this.selectedValve = { pipe, vana };
+    vana.isSelected = true;
 
-        // state.selectedObject'i de temizle
-        setState({ selectedObject: null });
+    // state.selectedObject'i de set et (DELETE tuşu için)
+    setState({
+        selectedObject: {
+            type: 'valve',
+            object: vana,
+            pipe: pipe,
+            handle: 'body'
+        }
+    });
+}
+
+deselectObject() {
+    if (this.selectedObject) {
+        this.selectedObject.isSelected = false;
+        this.selectedObject = null;
+    }
+    if (this.selectedValve) {
+        this.selectedValve.pipe.vana.isSelected = false;
+        this.selectedValve = null;
     }
 
-    deleteSelectedObject() {
-        // Vana silinmesi
-        if (this.selectedValve) {
-            saveState();
-            this.selectedValve.pipe.vanaKaldir();
-            this.manager.saveToState();
-            this.deselectObject();
-            return;
-        }
+    // state.selectedObject'i de temizle
+    setState({ selectedObject: null });
+}
 
-        if (!this.selectedObject) return;
-
-        const obj = this.selectedObject;
-
-        // Servis kutusuna bağlı ilk boru silinemesin
-        if (obj.type === 'boru') {
-            const pipe = obj;
-            // Başlangıcı servis kutusuna bağlı mı kontrol et
-            if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-                alert('⚠️ Servis kutusuna bağlı ilk boru silinemez!\n\nÖnce servis kutusunu silin veya başka bir boru ekleyin.');
-                return;
-            }
-        }
-
-        // Undo için state kaydet
+deleteSelectedObject() {
+    // Vana silinmesi
+    if (this.selectedValve) {
         saveState();
+        this.selectedValve.pipe.vanaKaldir();
+        this.manager.saveToState();
+        this.deselectObject();
+        return;
+    }
 
-        if (obj.type === 'servis_kutusu') {
-            if (confirm(obj.getDeleteInfo().uyari)) {
-                this.removeObject(obj);
-                this.manager.saveToState();
-                this.deselectObject(); // Servis kutusu için seçimi kaldır
-            } else {
-                // İptal edildi, return
-                return;
-            }
-        } else {
+    if (!this.selectedObject) return;
+
+    const obj = this.selectedObject;
+
+    // Servis kutusuna bağlı ilk boru silinemesin
+    if (obj.type === 'boru') {
+        const pipe = obj;
+        // Başlangıcı servis kutusuna bağlı mı kontrol et
+/* if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) { alert('⚠️ Servis kutusuna bağlı ilk boru silinemez!\n\nÖnce servis kutusunu silin veya başka bir boru ekleyin.'); return; } */
+
+}
+
+    // Undo için state kaydet
+    saveState();
+
+    if (obj.type === 'servis_kutusu') {
+        if (confirm(obj.getDeleteInfo().uyari)) {
             this.removeObject(obj);
             this.manager.saveToState();
-            // Boru için deselectObject çağırma - removeObject içinde zaten akıllı seçim yapılıyor
-            if (obj.type !== 'boru') {
-                this.deselectObject();
+            this.deselectObject(); // Servis kutusu için seçimi kaldır
+        } else {
+            // İptal edildi, return
+            return;
+        }
+    } else {
+        this.removeObject(obj);
+        this.manager.saveToState();
+        // Boru için deselectObject çağırma - removeObject içinde zaten akıllı seçim yapılıyor
+        if (obj.type !== 'boru') {
+            this.deselectObject();
+        }
+    }
+}
+
+findObjectAt(point) {
+    // ÖNCELİK 1: Boruları ÖNCE kontrol et (2cm tolerance - kesin tıklama)
+    // Bu sayede servis kutusu bounding box'ı içinde olsa bile boru seçilebilir
+    for (const pipe of this.manager.pipes) {
+        if (pipe.containsPoint && pipe.containsPoint(point, 2)) {
+            return pipe;
+        }
+    }
+
+    // ÖNCELİK 2: Bileşenler (servis kutusu, sayaç, vana, cihaz)
+    for (const comp of this.manager.components) {
+        if (comp.containsPoint && comp.containsPoint(point)) {
+            return comp;
+        }
+    }
+
+    // ÖNCELİK 3: Borular (daha geniş tolerance - 5cm)
+    // Yukarıda 2cm ile bulunamadıysa, 5cm ile tekrar dene
+    for (const pipe of this.manager.pipes) {
+        if (pipe.containsPoint && pipe.containsPoint(point, 5)) {
+            return pipe;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Bir noktanın serbest uç olup olmadığını kontrol et (T-junction değil)
+ * KRITIK: Cihazlar sadece serbest uçlara bağlanmalı
+ */
+isFreeEndpoint(point, tolerance = 1) {
+    const currentFloorId = state.currentFloor?.id;
+    let pipeCount = 0;
+
+    for (const boru of this.manager.pipes) {
+        // Sadece aktif kattaki boruları kontrol et
+        if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
+            continue;
+        }
+
+        const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
+        const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
+
+        if (distP1 < tolerance || distP2 < tolerance) {
+            pipeCount++;
+        }
+
+        // T-junction veya daha karmaşık (3+ boru)
+        if (pipeCount > 2) {
+            return false;
+        }
+    }
+
+    // Serbest uç: 1-2 boru (1 boru = tam serbest, 2 boru = birleşim noktası)
+    // Kullanıcı sadece 1 borulu uçları istiyorsa, return pipeCount === 1 yapabiliriz
+    // Şimdilik 2'ye kadar izin verelim ama T-junction'ları (3+) engelleyelim
+    return pipeCount > 0 && pipeCount <= 2;
+}
+
+findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
+    const currentFloorId = state.currentFloor?.id;
+    const candidates = [];
+
+    for (const boru of this.manager.pipes) {
+        // Sadece aktif kattaki boruları kontrol et
+        if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
+            continue;
+        }
+
+        const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
+        const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
+
+        if (distP1 < tolerance) {
+            // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
+            if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p1, 1)) {
+                candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
+            }
+        }
+        if (distP2 < tolerance) {
+            // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
+            if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p2, 1)) {
+                candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
             }
         }
     }
 
-    findObjectAt(point) {
-        // Bileşenler (servis kutusu, sayaç, vana, cihaz)
-        for (const comp of this.manager.components) {
-            if (comp.containsPoint && comp.containsPoint(point)) {
+    // Hiç aday yoksa null dön
+    if (candidates.length === 0) {
+        return null;
+    }
+
+    // Tek aday varsa direkt dön
+    if (candidates.length === 1) {
+        const c = candidates[0];
+        return { boruId: c.boruId, nokta: c.nokta, uc: c.uc, boru: c.boru };
+    }
+
+    // Birden fazla aday varsa, tıklama noktasına en yakın BORU GÖVDESİNİ seç
+    // Bu sayede aynı noktayı paylaşan iki borudan tıkladığınız boru seçilir
+    let closest = candidates[0];
+    let minBodyDist = Infinity;
+
+    for (const candidate of candidates) {
+        const proj = candidate.boru.projectPoint(point);
+        if (proj && proj.onSegment) {
+            const bodyDist = proj.distance;
+            if (bodyDist < minBodyDist) {
+                minBodyDist = bodyDist;
+                closest = candidate;
+            }
+        }
+    }
+
+    return { boruId: closest.boruId, nokta: closest.nokta, uc: closest.uc, boru: closest.boru };
+}
+
+findBoruGovdeAt(point, tolerance = 5) {
+    for (const boru of this.manager.pipes) {
+        const proj = boru.projectPoint(point);
+        if (proj && proj.onSegment && proj.distance < tolerance) {
+            return { boruId: boru.id, nokta: { x: proj.x, y: proj.y } };
+        }
+    }
+    return null;
+}
+
+/**
+ * Mouse altındaki boruyu bul (pipe splitting için)
+ */
+findPipeAt(point, tolerance = 2) {
+    for (const pipe of this.manager.pipes) {
+        if (pipe.containsPoint && pipe.containsPoint(point, tolerance)) {
+            return pipe;
+        }
+    }
+    return null;
+}
+
+/**
+ * Bileşen çıkış noktasını bul (servis kutusu, sayaç vb.)
+ */
+findBilesenCikisAt(point, tolerance = 2) {
+    for (const comp of this.manager.components) {
+        // Servis kutusu - getCikisNoktasi metodu var ve çıkış kullanılmamışsa
+        if (comp.type === 'servis_kutusu' && comp.getCikisNoktasi && !comp.cikisKullanildi) {
+            const cikis = comp.getCikisNoktasi();
+            if (Math.hypot(point.x - cikis.x, point.y - cikis.y) < tolerance) {
+                return { bilesenId: comp.id, nokta: cikis, tip: comp.type };
+            }
+        }
+        // Sayaç - çıkış noktası
+        if (comp.type === 'sayac' && comp.getCikisNoktasi) {
+            const cikis = comp.getCikisNoktasi();
+            if (Math.hypot(point.x - cikis.x, point.y - cikis.y) < tolerance) {
+                return { bilesenId: comp.id, nokta: cikis, tip: comp.type };
+            }
+        }
+    }
+    return null;
+}
+
+checkVanaAtPoint(point, tolerance = 2) {
+    for (const comp of this.manager.components) {
+        if (comp.type === 'vana') {
+            if (Math.hypot(point.x - comp.x, point.y - comp.y) < tolerance) {
                 return comp;
             }
         }
-
-        // Borular da seçilebilir (ama gövdeden taşınamaz)
-        // Tolerance 5 cm - köşelere yakın tıklamalar köşeyi seçmeli (4 cm)
-        for (const pipe of this.manager.pipes) {
-            if (pipe.containsPoint && pipe.containsPoint(point, 5)) {
-                return pipe;
-            }
-        }
-
-        return null;
     }
+    return null;
+}
 
-    /**
-     * Bir noktanın serbest uç olup olmadığını kontrol et (T-junction değil)
-     * KRITIK: Cihazlar sadece serbest uçlara bağlanmalı
-     */
-    isFreeEndpoint(point, tolerance = 1) {
-        const currentFloorId = state.currentFloor?.id;
-        let pipeCount = 0;
+/**
+ * Boru uç noktasını bul
+ */
+findPipeEndpoint(pipe, point) {
+    const tolerance = 2; // cm
+    const distToP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
+    const distToP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
 
-        for (const boru of this.manager.pipes) {
-            // Sadece aktif kattaki boruları kontrol et
-            if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
-                continue;
-            }
-
-            const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
-            const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
-
-            if (distP1 < tolerance || distP2 < tolerance) {
-                pipeCount++;
-            }
-
-            // T-junction veya daha karmaşık (3+ boru)
-            if (pipeCount > 2) {
-                return false;
-            }
-        }
-
-        // Serbest uç: 1-2 boru (1 boru = tam serbest, 2 boru = birleşim noktası)
-        // Kullanıcı sadece 1 borulu uçları istiyorsa, return pipeCount === 1 yapabiliriz
-        // Şimdilik 2'ye kadar izin verelim ama T-junction'ları (3+) engelleyelim
-        return pipeCount > 0 && pipeCount <= 2;
+    if (distToP1 <= tolerance && distToP1 <= distToP2) {
+        return 'p1';
     }
-
-    findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
-        const currentFloorId = state.currentFloor?.id;
-        const candidates = [];
-
-        for (const boru of this.manager.pipes) {
-            // Sadece aktif kattaki boruları kontrol et
-            if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
-                continue;
-            }
-
-            const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
-            const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
-
-            if (distP1 < tolerance) {
-                // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
-                if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p1, 1)) {
-                    candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
-                }
-            }
-            if (distP2 < tolerance) {
-                // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
-                if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p2, 1)) {
-                    candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
-                }
-            }
-        }
-
-        // Hiç aday yoksa null dön
-        if (candidates.length === 0) {
-            return null;
-        }
-
-        // Tek aday varsa direkt dön
-        if (candidates.length === 1) {
-            const c = candidates[0];
-            return { boruId: c.boruId, nokta: c.nokta, uc: c.uc, boru: c.boru };
-        }
-
-        // Birden fazla aday varsa, tıklama noktasına en yakın BORU GÖVDESİNİ seç
-        // Bu sayede aynı noktayı paylaşan iki borudan tıkladığınız boru seçilir
-        let closest = candidates[0];
-        let minBodyDist = Infinity;
-
-        for (const candidate of candidates) {
-            const proj = candidate.boru.projectPoint(point);
-            if (proj && proj.onSegment) {
-                const bodyDist = proj.distance;
-                if (bodyDist < minBodyDist) {
-                    minBodyDist = bodyDist;
-                    closest = candidate;
-                }
-            }
-        }
-
-        return { boruId: closest.boruId, nokta: closest.nokta, uc: closest.uc, boru: closest.boru };
+    if (distToP2 <= tolerance) {
+        return 'p2';
     }
+    return null;
+}
 
-    findBoruGovdeAt(point, tolerance = 5) {
-        for (const boru of this.manager.pipes) {
-            const proj = boru.projectPoint(point);
-            if (proj && proj.onSegment && proj.distance < tolerance) {
-                return { boruId: boru.id, nokta: { x: proj.x, y: proj.y } };
-            }
-        }
-        return null;
+/**
+ * Uç nokta sürüklemeyi başlat
+ */
+startEndpointDrag(pipe, endpoint, point) {
+    this.isDragging = true;
+    this.dragObject = pipe;
+    this.dragEndpoint = endpoint;
+    this.dragStart = { ...point };
+}
+
+startDrag(obj, point) {
+    this.isDragging = true;
+    this.dragObject = obj;
+    this.dragEndpoint = null;
+    this.dragStart = { ...point };
+
+    // Vana için bağlı boruyu önceden kaydet (performans optimizasyonu)
+    if (obj.type === 'vana' && obj.bagliBoruId) {
+        this.dragObjectPipe = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
+        this.dragObjectsOnPipe = getObjectsOnPipe(this.manager.components, obj.bagliBoruId);
+        console.log('Vana sürükleme başladı - Bağlı boru:', this.dragObjectPipe?.id);
+    } else {
+        this.dragObjectPipe = null;
+        this.dragObjectsOnPipe = null;
     }
+}
 
-    /**
-     * Mouse altındaki boruyu bul (pipe splitting için)
-     */
-    findPipeAt(point, tolerance = 2) {
-        for (const pipe of this.manager.pipes) {
-            if (pipe.containsPoint && pipe.containsPoint(point, tolerance)) {
-                return pipe;
-            }
-        }
-        return null;
-    }
+/**
+ * Boru body sürüklemeyi başlat (sadece x veya y yönünde)
+ */
+startBodyDrag(pipe, point) {
+    this.isDragging = true;
+    this.dragObject = pipe;
+    this.dragEndpoint = null;
+    this.dragStart = { ...point };
+    this.isBodyDrag = true; // Body drag flag
+    // Başlangıç noktalarını kaydet
+    this.bodyDragInitialP1 = { ...pipe.p1 };
+    this.bodyDragInitialP2 = { ...pipe.p2 };
 
-    /**
-     * Bileşen çıkış noktasını bul (servis kutusu, sayaç vb.)
-     */
-    findBilesenCikisAt(point, tolerance = 2) {
-        for (const comp of this.manager.components) {
-            // Servis kutusu - getCikisNoktasi metodu var ve çıkış kullanılmamışsa
-            if (comp.type === 'servis_kutusu' && comp.getCikisNoktasi && !comp.cikisKullanildi) {
-                const cikis = comp.getCikisNoktasi();
-                if (Math.hypot(point.x - cikis.x, point.y - cikis.y) < tolerance) {
-                    return { bilesenId: comp.id, nokta: cikis, tip: comp.type };
-                }
-            }
-            // Sayaç - çıkış noktası
-            if (comp.type === 'sayac' && comp.getCikisNoktasi) {
-                const cikis = comp.getCikisNoktasi();
-                if (Math.hypot(point.x - cikis.x, point.y - cikis.y) < tolerance) {
-                    return { bilesenId: comp.id, nokta: cikis, tip: comp.type };
-                }
-            }
-        }
-        return null;
-    }
+    // Bağlı boruları ŞİMDİ tespit et (sürükleme başlamadan önce!)
+    const TOLERANCE = 10; // 10 cm (çift tıklayarak bölünen borular için)
+    const oldP1 = pipe.p1;
+    const oldP2 = pipe.p2;
 
-    checkVanaAtPoint(point, tolerance = 2) {
-        for (const comp of this.manager.components) {
-            if (comp.type === 'vana') {
-                if (Math.hypot(point.x - comp.x, point.y - comp.y) < tolerance) {
-                    return comp;
-                }
-            }
-        }
-        return null;
-    }
+    // p1 tarafındaki bağlı boruyu bul
+    this.connectedPipeAtP1 = this.manager.pipes.find(p => {
+        if (p === pipe) return false;
+        const dist = Math.hypot(p.p2.x - oldP1.x, p.p2.y - oldP1.y);
+        return dist < TOLERANCE;
+    });
 
-    /**
-     * Boru uç noktasını bul
-     */
-    findPipeEndpoint(pipe, point) {
-        const tolerance = 2; // cm
-        const distToP1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
-        const distToP2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
+    // p2 tarafındaki bağlı boruyu bul
+    this.connectedPipeAtP2 = this.manager.pipes.find(p => {
+        if (p === pipe) return false;
+        const dist = Math.hypot(p.p1.x - oldP2.x, p.p1.y - oldP2.y);
+        return dist < TOLERANCE;
+    });
 
-        if (distToP1 <= tolerance && distToP1 <= distToP2) {
-            return 'p1';
-        }
-        if (distToP2 <= tolerance) {
-            return 'p2';
-        }
-        return null;
-    }
+    // ⚠️ DOĞRUSALLIK KONTROLÜ: Sadece 3 boru aynı doğrultudaysa ara boru modu
+    this.useBridgeMode = false; // Varsayılan: normal mod
 
-    /**
-     * Uç nokta sürüklemeyi başlat
-     */
-    startEndpointDrag(pipe, endpoint, point) {
-        this.isDragging = true;
-        this.dragObject = pipe;
-        this.dragEndpoint = endpoint;
-        this.dragStart = { ...point };
-    }
+    if (this.connectedPipeAtP1 && this.connectedPipeAtP2) {
+        // 3 boru var: A - B - C
+        // A.p1 - A.p2(=B.p1) - B.p2(=C.p1) - C.p2 (4 nokta)
+        const p1 = this.connectedPipeAtP1.p1;
+        const p2 = this.connectedPipeAtP1.p2; // = pipe.p1
+        const p3 = pipe.p2; // = this.connectedPipeAtP2.p1
+        const p4 = this.connectedPipeAtP2.p2;
 
-    startDrag(obj, point) {
-        this.isDragging = true;
-        this.dragObject = obj;
-        this.dragEndpoint = null;
-        this.dragStart = { ...point };
+        // İlk ve son vektörleri hesapla
+        const v1 = { x: p2.x - p1.x, y: p2.y - p1.y }; // A borusu
+        const v2 = { x: p3.x - p2.x, y: p3.y - p2.y }; // B borusu (sürüklenen)
+        const v3 = { x: p4.x - p3.x, y: p4.y - p3.y }; // C borusu
 
-        // Vana için bağlı boruyu önceden kaydet (performans optimizasyonu)
-        if (obj.type === 'vana' && obj.bagliBoruId) {
-            this.dragObjectPipe = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
-            this.dragObjectsOnPipe = getObjectsOnPipe(this.manager.components, obj.bagliBoruId);
-            console.log('Vana sürükleme başladı - Bağlı boru:', this.dragObjectPipe?.id);
-        } else {
-            this.dragObjectPipe = null;
-            this.dragObjectsOnPipe = null;
+        // Normalize edilmiş yönler
+        const len1 = Math.hypot(v1.x, v1.y);
+        const len2 = Math.hypot(v2.x, v2.y);
+        const len3 = Math.hypot(v3.x, v3.y);
+
+        if (len1 > 0.1 && len2 > 0.1 && len3 > 0.1) {
+            const dir1 = { x: v1.x / len1, y: v1.y / len1 };
+            const dir2 = { x: v2.x / len2, y: v2.y / len2 };
+            const dir3 = { x: v3.x / len3, y: v3.y / len3 };
+
+            // Dot product kontrolü (paralel mi?)
+            const dot12 = dir1.x * dir2.x + dir1.y * dir2.y;
+            const dot23 = dir2.x * dir3.x + dir2.y * dir3.y;
+
+            // Aynı yönde mi? (dot product ~1)
+            const ANGLE_TOLERANCE = 0.94; // ~20 derece tolerans (daha esnek)
+            const isColinear = Math.abs(dot12) > ANGLE_TOLERANCE &&
+                              Math.abs(dot23) > ANGLE_TOLERANCE &&
+                              Math.sign(dot12) === Math.sign(dot23);
+
+            this.useBridgeMode = isColinear;
         }
     }
 
-    /**
-     * Boru body sürüklemeyi başlat (sadece x veya y yönünde)
-     */
-    startBodyDrag(pipe, point) {
-        this.isDragging = true;
-        this.dragObject = pipe;
-        this.dragEndpoint = null;
-        this.dragStart = { ...point };
-        this.isBodyDrag = true; // Body drag flag
-        // Başlangıç noktalarını kaydet
-        this.bodyDragInitialP1 = { ...pipe.p1 };
-        this.bodyDragInitialP2 = { ...pipe.p2 };
-
-        // Bağlı boruları ŞİMDİ tespit et (sürükleme başlamadan önce!)
-        const TOLERANCE = 10; // 10 cm (çift tıklayarak bölünen borular için)
-        const oldP1 = pipe.p1;
-        const oldP2 = pipe.p2;
-
-        // p1 tarafındaki bağlı boruyu bul
-        this.connectedPipeAtP1 = this.manager.pipes.find(p => {
-            if (p === pipe) return false;
-            const dist = Math.hypot(p.p2.x - oldP1.x, p.p2.y - oldP1.y);
-            return dist < TOLERANCE;
-        });
-
-        // p2 tarafındaki bağlı boruyu bul
-        this.connectedPipeAtP2 = this.manager.pipes.find(p => {
-            if (p === pipe) return false;
-            const dist = Math.hypot(p.p1.x - oldP2.x, p.p1.y - oldP2.y);
-            return dist < TOLERANCE;
-        });
-
-        // ⚠️ DOĞRUSALLIK KONTROLÜ: Sadece 3 boru aynı doğrultudaysa ara boru modu
-        this.useBridgeMode = false; // Varsayılan: normal mod
-
-        if (this.connectedPipeAtP1 && this.connectedPipeAtP2) {
-            // 3 boru var: A - B - C
-            // A.p1 - A.p2(=B.p1) - B.p2(=C.p1) - C.p2 (4 nokta)
-            const p1 = this.connectedPipeAtP1.p1;
-            const p2 = this.connectedPipeAtP1.p2; // = pipe.p1
-            const p3 = pipe.p2; // = this.connectedPipeAtP2.p1
-            const p4 = this.connectedPipeAtP2.p2;
-
-            // İlk ve son vektörleri hesapla
-            const v1 = { x: p2.x - p1.x, y: p2.y - p1.y }; // A borusu
-            const v2 = { x: p3.x - p2.x, y: p3.y - p2.y }; // B borusu (sürüklenen)
-            const v3 = { x: p4.x - p3.x, y: p4.y - p3.y }; // C borusu
-
-            // Normalize edilmiş yönler
-            const len1 = Math.hypot(v1.x, v1.y);
-            const len2 = Math.hypot(v2.x, v2.y);
-            const len3 = Math.hypot(v3.x, v3.y);
-
-            if (len1 > 0.1 && len2 > 0.1 && len3 > 0.1) {
-                const dir1 = { x: v1.x / len1, y: v1.y / len1 };
-                const dir2 = { x: v2.x / len2, y: v2.y / len2 };
-                const dir3 = { x: v3.x / len3, y: v3.y / len3 };
-
-                // Dot product kontrolü (paralel mi?)
-                const dot12 = dir1.x * dir2.x + dir1.y * dir2.y;
-                const dot23 = dir2.x * dir3.x + dir2.y * dir3.y;
-
-                // Aynı yönde mi? (dot product ~1)
-                const ANGLE_TOLERANCE = 0.94; // ~20 derece tolerans (daha esnek)
-                const isColinear = Math.abs(dot12) > ANGLE_TOLERANCE &&
-                                  Math.abs(dot23) > ANGLE_TOLERANCE &&
-                                  Math.sign(dot12) === Math.sign(dot23);
-
-                this.useBridgeMode = isColinear;
-            }
-        }
-
-        // Borunun açısını hesapla ve drag axis'i belirle (duvar mantığı)
-        const dx = pipe.p2.x - pipe.p1.x;
-        const dy = pipe.p2.y - pipe.p1.y;
-        let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
-        let dragAxis = null;
-        if (Math.abs(angle - 45) < 1) {
-            dragAxis = null; // 45 derece ise serbest
-        } else if (angle < 45) {
-            dragAxis = 'y'; // Yatay boru, sadece Y yönünde taşı
-        } else {
-            dragAxis = 'x'; // Dikey boru, sadece X yönünde taşı
-        }
-        this.dragAxis = dragAxis;
+    // Borunun açısını hesapla ve drag axis'i belirle (duvar mantığı)
+    const dx = pipe.p2.x - pipe.p1.x;
+    const dy = pipe.p2.y - pipe.p1.y;
+    let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+    let dragAxis = null;
+    if (Math.abs(angle - 45) < 1) {
+        dragAxis = null; // 45 derece ise serbest
+    } else if (angle < 45) {
+        dragAxis = 'y'; // Yatay boru, sadece Y yönünde taşı
+    } else {
+        dragAxis = 'x'; // Dikey boru, sadece X yönünde taşı
     }
+    this.dragAxis = dragAxis;
+}
 
-    handleDrag(point) {
-        if (!this.dragObject) return;
+handleDrag(point) {
+    if (!this.dragObject) return;
 
-        // Uç nokta sürükleme
-        if (this.dragEndpoint && this.dragObject.type === 'boru') {
-            const pipe = this.dragObject;
+    // Uç nokta sürükleme
+    if (this.dragEndpoint && this.dragObject.type === 'boru') {
+        const pipe = this.dragObject;
 
-            // Servis kutusuna bağlı uç taşınamaz - ekstra güvenlik kontrolü
-            const ucBaglanti = this.dragEndpoint === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-            if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-                return; // Taşıma işlemini engelle
-            }
+        // Servis kutusuna bağlı uç taşınamaz - ekstra güvenlik kontrolü
+        const ucBaglanti = this.dragEndpoint === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
+        if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+            return; // Taşıma işlemini engelle
+        }
 
-            const oldPoint = this.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
+        const oldPoint = this.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
 
-            // DUVAR SNAP SİSTEMİ - Boru açıklığı ile
-            const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
-            const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm)
-            const BORU_CLEARANCE = 5; // Boru-duvar arası minimum mesafe (cm)
-            const walls = state.walls || [];
-            let finalPos = { x: point.x, y: point.y };
+        // DUVAR SNAP SİSTEMİ - Boru açıklığı ile
+        const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
+        const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm)
+        const BORU_CLEARANCE = 5; // Boru-duvar arası minimum mesafe (cm)
+        const walls = state.walls || [];
+        let finalPos = { x: point.x, y: point.y };
 
-            // Her zaman yeni snap ara (sürekli snap)
-            let bestSnapX = { diff: SNAP_DISTANCE, value: null };
-            let bestSnapY = { diff: SNAP_DISTANCE, value: null };
+        // Her zaman yeni snap ara (sürekli snap)
+        let bestSnapX = { diff: SNAP_DISTANCE, value: null };
+        let bestSnapY = { diff: SNAP_DISTANCE, value: null };
 
-            // Tüm duvar yüzeylerine snap kontrolü - Boru clearance ekleyerek
-            walls.forEach(wall => {
-                if (!wall.p1 || !wall.p2) return;
+        // Tüm duvar yüzeylerine snap kontrolü - Boru clearance ekleyerek
+        walls.forEach(wall => {
+            if (!wall.p1 || !wall.p2) return;
 
-                const wallThickness = wall.thickness || state.wallThickness || 20;
-                const halfThickness = wallThickness / 2;
-                const dxW = wall.p2.x - wall.p1.x;
-                const dyW = wall.p2.y - wall.p1.y;
-                const isVertical = Math.abs(dxW) < 0.1;
-                const isHorizontal = Math.abs(dyW) < 0.1;
+            const wallThickness = wall.thickness || state.wallThickness || 20;
+            const halfThickness = wallThickness / 2;
+            const dxW = wall.p2.x - wall.p1.x;
+            const dyW = wall.p2.y - wall.p1.y;
+            const isVertical = Math.abs(dxW) < 0.1;
+            const isHorizontal = Math.abs(dyW) < 0.1;
 
-                if (isVertical) {
-                    const wallX = wall.p1.x;
-                    // Boru duvar yüzeyinden CLEARANCE kadar uzakta olmalı
-                    const snapXPositions = [
-                        wallX - halfThickness - BORU_CLEARANCE,  // Sol yüzeyden clearance kadar uzak
-                        wallX + halfThickness + BORU_CLEARANCE   // Sağ yüzeyden clearance kadar uzak
-                    ];
-                    for (const snapX of snapXPositions) {
-                        const diff = Math.abs(finalPos.x - snapX);
-                        if (diff < bestSnapX.diff) {
-                            bestSnapX = { diff, value: snapX };
-                        }
-                    }
-                } else if (isHorizontal) {
-                    const wallY = wall.p1.y;
-                    // Boru duvar yüzeyinden CLEARANCE kadar uzakta olmalı
-                    const snapYPositions = [
-                        wallY - halfThickness - BORU_CLEARANCE,  // Üst yüzeyden clearance kadar uzak
-                        wallY + halfThickness + BORU_CLEARANCE   // Alt yüzeyden clearance kadar uzak
-                    ];
-                    for (const snapY of snapYPositions) {
-                        const diff = Math.abs(finalPos.y - snapY);
-                        if (diff < bestSnapY.diff) {
-                            bestSnapY = { diff, value: snapY };
-                        }
+            if (isVertical) {
+                const wallX = wall.p1.x;
+                // Boru duvar yüzeyinden CLEARANCE kadar uzakta olmalı
+                const snapXPositions = [
+                    wallX - halfThickness - BORU_CLEARANCE,  // Sol yüzeyden clearance kadar uzak
+                    wallX + halfThickness + BORU_CLEARANCE   // Sağ yüzeyden clearance kadar uzak
+                ];
+                for (const snapX of snapXPositions) {
+                    const diff = Math.abs(finalPos.x - snapX);
+                    if (diff < bestSnapX.diff) {
+                        bestSnapX = { diff, value: snapX };
                     }
                 }
-            });
-
-            // Snap bulunduysa uygula
-            if (bestSnapX.value !== null || bestSnapY.value !== null) {
-                // Snap lock'u güncelle
-                this.pipeEndpointSnapLock = {
-                    x: bestSnapX.value,
-                    y: bestSnapY.value
-                };
-                this.pipeSnapMouseStart = { x: point.x, y: point.y };
-
-                if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
-                if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
-            } else {
-                // Snap bulunamadıysa lock'u temizle
-                this.pipeEndpointSnapLock = null;
-                this.pipeSnapMouseStart = null;
-            }
-
-            // BAĞLI BORULARIN DİĞER UÇLARINA VE AYNI BORUNUN DİĞER UCUNA SNAP
-            // ÖNCELİKLE: Bağlı boruları tespit et (occupation check için de kullanılacak)
-            const connectionTolerance = 1; // Bağlantı tespit toleransı
-            const connectedPipes = this.manager.pipes.filter(p => {
-                if (p === pipe) return false;
-                // p1'e veya p2'ye bağlı mı kontrol et
-                const distToP1 = Math.hypot(p.p1.x - oldPoint.x, p.p1.y - oldPoint.y);
-                const distToP2 = Math.hypot(p.p2.x - oldPoint.x, p.p2.y - oldPoint.y);
-                return distToP1 < connectionTolerance || distToP2 < connectionTolerance;
-            });
-
-            // SNAP SİSTEMİ: X-Y hizalaması için snap (üst üste bindirmek değil!)
-            const PIPE_ENDPOINT_SNAP_DISTANCE = 10; // cm
-            let pipeSnapX = null;
-            let pipeSnapY = null;
-            let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
-            let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
-
-            // 1) Aynı borunun DİĞER ucunun X ve Y koordinatlarına snap
-            const ownOtherEndpoint = this.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
-
-            // X hizasına snap
-            const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
-            if (ownXDiff < minPipeSnapDistX) {
-                minPipeSnapDistX = ownXDiff;
-                pipeSnapX = ownOtherEndpoint.x;
-            }
-
-            // Y hizasına snap
-            const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
-            if (ownYDiff < minPipeSnapDistY) {
-                minPipeSnapDistY = ownYDiff;
-                pipeSnapY = ownOtherEndpoint.y;
-            }
-
-            // 2) Bağlı boruların DİĞER uçlarına snap (X-Y hizalaması için)
-            connectedPipes.forEach(connectedPipe => {
-                // Bağlı borunun DİĞER ucunu bul
-                const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
-                const distToP2 = Math.hypot(connectedPipe.p2.x - oldPoint.x, connectedPipe.p2.y - oldPoint.y);
-
-                // Hangi uç bağlı değilse o ucu al
-                const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
-
-                // X hizasına snap kontrolü
-                const xDiff = Math.abs(finalPos.x - otherEndpoint.x);
-                if (xDiff < minPipeSnapDistX) {
-                    minPipeSnapDistX = xDiff;
-                    pipeSnapX = otherEndpoint.x;
+            } else if (isHorizontal) {
+                const wallY = wall.p1.y;
+                // Boru duvar yüzeyinden CLEARANCE kadar uzakta olmalı
+                const snapYPositions = [
+                    wallY - halfThickness - BORU_CLEARANCE,  // Üst yüzeyden clearance kadar uzak
+                    wallY + halfThickness + BORU_CLEARANCE   // Alt yüzeyden clearance kadar uzak
+                ];
+                for (const snapY of snapYPositions) {
+                    const diff = Math.abs(finalPos.y - snapY);
+                    if (diff < bestSnapY.diff) {
+                        bestSnapY = { diff, value: snapY };
+                    }
                 }
+            }
+        });
 
-                // Y hizasına snap kontrolü
-                const yDiff = Math.abs(finalPos.y - otherEndpoint.y);
-                if (yDiff < minPipeSnapDistY) {
-                    minPipeSnapDistY = yDiff;
-                    pipeSnapY = otherEndpoint.y;
-                }
-            });
+        // Snap bulunduysa uygula
+        if (bestSnapX.value !== null || bestSnapY.value !== null) {
+            // Snap lock'u güncelle
+            this.pipeEndpointSnapLock = {
+                x: bestSnapX.value,
+                y: bestSnapY.value
+            };
+            this.pipeSnapMouseStart = { x: point.x, y: point.y };
 
-            // Boru uç snap'i uygula (duvar snap'inden sonra)
-            if (pipeSnapX !== null || pipeSnapY !== null) {
-                if (pipeSnapX !== null) finalPos.x = pipeSnapX;
-                if (pipeSnapY !== null) finalPos.y = pipeSnapY;
+            if (bestSnapX.value !== null) finalPos.x = bestSnapX.value;
+            if (bestSnapY.value !== null) finalPos.y = bestSnapY.value;
+        } else {
+            // Snap bulunamadıysa lock'u temizle
+            this.pipeEndpointSnapLock = null;
+            this.pipeSnapMouseStart = null;
+        }
+
+        // BAĞLI BORULARIN DİĞER UÇLARINA VE AYNI BORUNUN DİĞER UCUNA SNAP
+        // ÖNCELİKLE: Bağlı boruları tespit et (occupation check için de kullanılacak)
+        const connectionTolerance = 1; // Bağlantı tespit toleransı
+        const connectedPipes = this.manager.pipes.filter(p => {
+            if (p === pipe) return false;
+            // p1'e veya p2'ye bağlı mı kontrol et
+            const distToP1 = Math.hypot(p.p1.x - oldPoint.x, p.p1.y - oldPoint.y);
+            const distToP2 = Math.hypot(p.p2.x - oldPoint.x, p.p2.y - oldPoint.y);
+            return distToP1 < connectionTolerance || distToP2 < connectionTolerance;
+        });
+
+        // SNAP SİSTEMİ: X-Y hizalaması için snap (üst üste bindirmek değil!)
+        const PIPE_ENDPOINT_SNAP_DISTANCE = 10; // cm
+        let pipeSnapX = null;
+        let pipeSnapY = null;
+        let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
+        let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
+
+        // 1) Aynı borunun DİĞER ucunun X ve Y koordinatlarına snap
+        const ownOtherEndpoint = this.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
+
+        // X hizasına snap
+        const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
+        if (ownXDiff < minPipeSnapDistX) {
+            minPipeSnapDistX = ownXDiff;
+            pipeSnapX = ownOtherEndpoint.x;
+        }
+
+        // Y hizasına snap
+        const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
+        if (ownYDiff < minPipeSnapDistY) {
+            minPipeSnapDistY = ownYDiff;
+            pipeSnapY = ownOtherEndpoint.y;
+        }
+
+        // 2) Bağlı boruların DİĞER uçlarına snap (X-Y hizalaması için)
+        connectedPipes.forEach(connectedPipe => {
+            // Bağlı borunun DİĞER ucunu bul
+            const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
+            const distToP2 = Math.hypot(connectedPipe.p2.x - oldPoint.x, connectedPipe.p2.y - oldPoint.y);
+
+            // Hangi uç bağlı değilse o ucu al
+            const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
+
+            // X hizasına snap kontrolü
+            const xDiff = Math.abs(finalPos.x - otherEndpoint.x);
+            if (xDiff < minPipeSnapDistX) {
+                minPipeSnapDistX = xDiff;
+                pipeSnapX = otherEndpoint.x;
             }
 
-            // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
-            // Bağlı borular hariç (zaten bağlı oldukları için aynı noktada olabilirler)
-            const POINT_OCCUPATION_TOLERANCE = 8; // 11 cm - boru uçları birbirine bu mesafeden daha yakın olamaz
-            // connectionTolerance zaten yukarıda tanımlı (satır 975)
+            // Y hizasına snap kontrolü
+            const yDiff = Math.abs(finalPos.y - otherEndpoint.y);
+            if (yDiff < minPipeSnapDistY) {
+                minPipeSnapDistY = yDiff;
+                pipeSnapY = otherEndpoint.y;
+            }
+        });
 
-            // Hedef noktada başka bir boru ucu var mı kontrol et (bağlı borular hariç)
-            const occupiedByOtherPipe = this.manager.pipes.some(otherPipe => {
-                if (otherPipe === pipe) return false;
+        // Boru uç snap'i uygula (duvar snap'inden sonra)
+        if (pipeSnapX !== null || pipeSnapY !== null) {
+            if (pipeSnapX !== null) finalPos.x = pipeSnapX;
+            if (pipeSnapY !== null) finalPos.y = pipeSnapY;
+        }
 
-                // Bu boru bağlı borulardan biri mi? O zaman sorun yok
-                if (connectedPipes.includes(otherPipe)) return false;
+        // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
+        // Bağlı borular hariç (zaten bağlı oldukları için aynı noktada olabilirler)
+        const POINT_OCCUPATION_TOLERANCE = 8; // 11 cm - boru uçları birbirine bu mesafeden daha yakın olamaz
+        // connectionTolerance zaten yukarıda tanımlı (satır 975)
 
-                // p1 veya p2'si hedef noktaya çok yakın mı?
-                const distToP1 = Math.hypot(otherPipe.p1.x - finalPos.x, otherPipe.p1.y - finalPos.y);
-                const distToP2 = Math.hypot(otherPipe.p2.x - finalPos.x, otherPipe.p2.y - finalPos.y);
+        // Hedef noktada başka bir boru ucu var mı kontrol et (bağlı borular hariç)
+        const occupiedByOtherPipe = this.manager.pipes.some(otherPipe => {
+            if (otherPipe === pipe) return false;
 
-                return distToP1 < POINT_OCCUPATION_TOLERANCE || distToP2 < POINT_OCCUPATION_TOLERANCE;
-            });
+            // Bu boru bağlı borulardan biri mi? O zaman sorun yok
+            if (connectedPipes.includes(otherPipe)) return false;
 
-            // Boru üzerindeki vanaları bul
-            const valvesOnPipe = this.manager.components.filter(comp =>
-                comp.type === 'vana' && comp.bagliBoruId === pipe.id
-            );
+            // p1 veya p2'si hedef noktaya çok yakın mı?
+            const distToP1 = Math.hypot(otherPipe.p1.x - finalPos.x, otherPipe.p1.y - finalPos.y);
+            const distToP2 = Math.hypot(otherPipe.p2.x - finalPos.x, otherPipe.p2.y - finalPos.y);
 
-            // Minimum uzunluk kontrolü (vanaları dikkate al)
-            const MIN_EDGE_DISTANCE = 4; // cm - boru uçlarından minimum mesafe
-            const OBJECT_MARGIN = 2; // cm - nesne marginleri
-            const VALVE_WIDTH = 6; // cm
+            return distToP1 < POINT_OCCUPATION_TOLERANCE || distToP2 < POINT_OCCUPATION_TOLERANCE;
+        });
 
-            // Her vana için gereken minimum mesafe
-            const spacePerValve = OBJECT_MARGIN + VALVE_WIDTH + OBJECT_MARGIN; // 10 cm
-            const totalValveSpace = valvesOnPipe.length * spacePerValve;
+        // Boru üzerindeki vanaları bul
+        const valvesOnPipe = this.manager.components.filter(comp =>
+            comp.type === 'vana' && comp.bagliBoruId === pipe.id
+        );
 
-            // Minimum boru uzunluğu = 2 * uç mesafesi + tüm vanaların gerektirdiği alan
-            const minLength = (2 * MIN_EDGE_DISTANCE) + totalValveSpace;
+        // Minimum uzunluk kontrolü (vanaları dikkate al)
+        const MIN_EDGE_DISTANCE = 4; // cm - boru uçlarından minimum mesafe
+        const OBJECT_MARGIN = 2; // cm - nesne marginleri
+        const VALVE_WIDTH = 6; // cm
 
-            // Yeni uzunluğu hesapla
-            let newLength;
+        // Her vana için gereken minimum mesafe
+        const spacePerValve = OBJECT_MARGIN + VALVE_WIDTH + OBJECT_MARGIN; // 10 cm
+        const totalValveSpace = valvesOnPipe.length * spacePerValve;
+
+        // Minimum boru uzunluğu = 2 * uç mesafesi + tüm vanaların gerektirdiği alan
+        const minLength = (2 * MIN_EDGE_DISTANCE) + totalValveSpace;
+
+        // Yeni uzunluğu hesapla
+        let newLength;
+        if (this.dragEndpoint === 'p1') {
+            newLength = Math.hypot(finalPos.x - pipe.p2.x, finalPos.y - pipe.p2.y);
+        } else {
+            newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
+        }
+
+        // Eğer nokta dolu değilse VE minimum uzunluk sağlanıyorsa pozisyonu uygula
+        if (!occupiedByOtherPipe && newLength >= minLength) {
+            const oldLength = pipe.uzunluk;
+
             if (this.dragEndpoint === 'p1') {
-                newLength = Math.hypot(finalPos.x - pipe.p2.x, finalPos.y - pipe.p2.y);
+                pipe.p1.x = finalPos.x;
+                pipe.p1.y = finalPos.y;
             } else {
-                newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
+                pipe.p2.x = finalPos.x;
+                pipe.p2.y = finalPos.y;
             }
 
-            // Eğer nokta dolu değilse VE minimum uzunluk sağlanıyorsa pozisyonu uygula
-            if (!occupiedByOtherPipe && newLength >= minLength) {
-                const oldLength = pipe.uzunluk;
-
-                if (this.dragEndpoint === 'p1') {
-                    pipe.p1.x = finalPos.x;
-                    pipe.p1.y = finalPos.y;
+            // Boru uzunluğu değişti - vana pozisyonlarını güncelle
+            // Vanalar sabit konumda kalmalı (ileri uca göre)
+            const draggedEndpoint = this.dragEndpoint; // 'p1' veya 'p2'
+            valvesOnPipe.forEach(valve => {
+                // Sürüklenen uca göre sabit mesafe hesapla
+                if (draggedEndpoint === 'p1') {
+                    // p1 sürükleniyor - p2'ye göre sabit mesafe
+                    const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
+                    valve.boruPozisyonu = 1 - (distanceFromP2 / pipe.uzunluk);
+                    valve.fromEnd = 'p2';
+                    valve.fixedDistance = distanceFromP2;
                 } else {
-                    pipe.p2.x = finalPos.x;
-                    pipe.p2.y = finalPos.y;
+                    // p2 sürükleniyor - p1'e göre sabit mesafe
+                    const distanceFromP1 = valve.boruPozisyonu * oldLength;
+                    valve.boruPozisyonu = distanceFromP1 / pipe.uzunluk;
+                    valve.fromEnd = 'p1';
+                    valve.fixedDistance = distanceFromP1;
                 }
 
-                // Boru uzunluğu değişti - vana pozisyonlarını güncelle
-                // Vanalar sabit konumda kalmalı (ileri uca göre)
-                const draggedEndpoint = this.dragEndpoint; // 'p1' veya 'p2'
-                valvesOnPipe.forEach(valve => {
-                    // Sürüklenen uca göre sabit mesafe hesapla
-                    if (draggedEndpoint === 'p1') {
-                        // p1 sürükleniyor - p2'ye göre sabit mesafe
-                        const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
-                        valve.boruPozisyonu = 1 - (distanceFromP2 / pipe.uzunluk);
-                        valve.fromEnd = 'p2';
-                        valve.fixedDistance = distanceFromP2;
-                    } else {
-                        // p2 sürükleniyor - p1'e göre sabit mesafe
-                        const distanceFromP1 = valve.boruPozisyonu * oldLength;
-                        valve.boruPozisyonu = distanceFromP1 / pipe.uzunluk;
-                        valve.fromEnd = 'p1';
-                        valve.fixedDistance = distanceFromP1;
-                    }
-
-                    // Pozisyonu güncelle
-                    valve.updatePositionFromPipe(pipe);
-                });
-
-                // CRITICAL FIX: Boru ucuna bağlı cihazların fleksini güncelle
-                const movedEndpoint = this.dragEndpoint === 'p1' ? pipe.p1 : pipe.p2;
-                this.manager.components.forEach(comp => {
-                    if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
-                        // Cihazın fleksi bu boruya bağlı, bağlantı noktasını güncelle
-                        comp.fleksBaglanti.baglantiNoktasi = { x: movedEndpoint.x, y: movedEndpoint.y };
-                        // KRITIK: En yakın noktadan bağlantıyı yeniden hesapla
-                        comp.yenidenHesaplaGirisOffset();
-                        comp.fleksGuncelle();
-                    }
-                });
-
-                // Bağlı boruları güncelle (tüm zinciri)
-                this.updateConnectedPipesChain(oldPoint, finalPos);
-            } else {
-                // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır (sessizce engelle)
-            }
-            return;
-        }
-
-        // Vana için boru üzerinde kayma (PERFORMANS OPTİMİZASYONU)
-        if (this.dragObject.type === 'vana') {
-            const vana = this.dragObject;
-
-            // Başlangıçta kaydedilmiş boruyu kullan (her frame tüm boruları taramak yerine)
-            let targetPipe = this.dragObjectPipe;
-            let objectsOnPipe = this.dragObjectsOnPipe;
-
-            // Boru yoksa veya geçersizse hareket etme
-            if (!targetPipe) {
-                console.log('Vana sürüklerken boru bulunamadı - hareket engellendi');
-                return;
-            }
-
-            // Vana'yı boru üzerinde kaydır (margin kontrolü ile)
-            const success = vana.moveAlongPipe(targetPipe, point, objectsOnPipe);
-
-            if (!success) {
-                console.log('Vana boru üzerinde kaydırılamadı - yetersiz mesafe veya sınır dışı');
-            }
-
-            return;
-        }
-
-        // Servis kutusu için duvara snap
-        if (this.dragObject.type === 'servis_kutusu') {
-            const walls = state.walls;
-
-            // Snap mesafesi - sabit
-            const snapDistance = 30; // 30cm
-
-            // En yakın duvarı bul - MOUSE POZİSYONUNA GÖRE
-            let closestWall = null;
-            let minDist = Infinity;
-
-            // Mouse pozisyonunu kullan (kutu pozisyonu değil!)
-            const mousePos = point;
-
-            walls.forEach(wall => {
-                if (!wall.p1 || !wall.p2) return;
-
-                const dx = wall.p2.x - wall.p1.x;
-                const dy = wall.p2.y - wall.p1.y;
-                const len = Math.hypot(dx, dy);
-                if (len === 0) return;
-
-                // Mouse'u duvara projeksiyon yap
-                const t = Math.max(0, Math.min(1,
-                    ((mousePos.x - wall.p1.x) * dx + (mousePos.y - wall.p1.y) * dy) / (len * len)
-                ));
-                const projX = wall.p1.x + t * dx;
-                const projY = wall.p1.y + t * dy;
-
-                const dist = Math.hypot(mousePos.x - projX, mousePos.y - projY);
-
-                if (dist < minDist) {
-                    minDist = dist;
-                    closestWall = wall;
-                }
+                // Pozisyonu güncelle
+                valve.updatePositionFromPipe(pipe);
             });
 
-            // Yakın duvara snap yap, yoksa serbest yerleştir
-            // useBoxPosition=false ile mouse pozisyonuna göre snap yap (sürüklerken)
-            if (closestWall && minDist < snapDistance) {
-                this.dragObject.snapToWall(closestWall, point, false);
-            } else {
-                this.dragObject.placeFree(point);
-            }
+            // Fleks artık otomatik olarak boru ucundan koordinat alıyor
+            // Ekstra güncelleme gerekmiyor
 
-            // Bağlı boru zincirini güncelle
-            if (this.dragObject.bagliBoruId) {
-                const boru = this.manager.pipes.find(p => p.id === this.dragObject.bagliBoruId);
-                if (boru) {
-                    const oldP1 = { ...boru.p1 };
-                    const newCikis = this.dragObject.getCikisNoktasi();
-                    boru.moveP1(newCikis);
-                    // Boru zincirini güncelle
-                    this.updateConnectedPipesChain(oldP1, newCikis);
-                }
-            }
-            return;
+            // Bağlı boruları güncelle (tüm zinciri)
+            this.updateConnectedPipesChain(oldPoint, finalPos);
+        } else {
+            // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır (sessizce engelle)
         }
-
-        // Cihaz taşıma (KOMBI, OCAK, vb.)
-        if (this.dragObject.type === 'cihaz') {
-            // Cihazı yeni pozisyona taşı
-            this.dragObject.move(point.x, point.y);
-            // Fleks otomatik güncellenir (move metodu içinde)
-            return;
-        }
-
-        // Boru gövdesi taşıma - sadece x veya y yönünde (duvar mantığı)
-        if (this.dragObject.type === 'boru' && this.isBodyDrag) {
-            const pipe = this.dragObject;
-            const dx = point.x - this.dragStart.x;
-            const dy = point.y - this.dragStart.y;
-
-            // Drag axis'e göre hareketi kısıtla (duvar gibi)
-            let offsetX = dx;
-            let offsetY = dy;
-
-            if (this.dragAxis === 'x') {
-                offsetY = 0; // Sadece X yönünde taşı
-            } else if (this.dragAxis === 'y') {
-                offsetX = 0; // Sadece Y yönünde taşı
-            }
-            // dragAxis === null ise her iki yönde de taşınabilir
-
-            // ŞU ANKİ pozisyonları kaydet (henüz güncellenmeden önce)
-            const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
-            const oldP2 = { x: pipe.p2.x, y: pipe.p2.y };
-
-            // Yeni pozisyonları hesapla (henüz uygulamadan)
-            const newP1 = {
-                x: this.bodyDragInitialP1.x + offsetX,
-                y: this.bodyDragInitialP1.y + offsetY
-            };
-            const newP2 = {
-                x: this.bodyDragInitialP2.x + offsetX,
-                y: this.bodyDragInitialP2.y + offsetY
-            };
-
-            // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
-            const POINT_OCCUPATION_TOLERANCE = 8; // 11 cm
-            const connectionTolerance = 1; // Bağlantı tespit toleransı
-
-            // Bağlı borular listesi (bridge mode için zaten var)
-            const connectedPipes = [];
-            if (this.connectedPipeAtP1) connectedPipes.push(this.connectedPipeAtP1);
-            if (this.connectedPipeAtP2) connectedPipes.push(this.connectedPipeAtP2);
-
-            // p1 için doluluk kontrolü
-            const p1Occupied = this.manager.pipes.some(otherPipe => {
-                if (otherPipe === pipe) return false;
-                if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
-
-                const distToOtherP1 = Math.hypot(otherPipe.p1.x - newP1.x, otherPipe.p1.y - newP1.y);
-                const distToOtherP2 = Math.hypot(otherPipe.p2.x - newP1.x, otherPipe.p2.y - newP1.y);
-
-                return distToOtherP1 < POINT_OCCUPATION_TOLERANCE || distToOtherP2 < POINT_OCCUPATION_TOLERANCE;
-            });
-
-            // p2 için doluluk kontrolü
-            const p2Occupied = this.manager.pipes.some(otherPipe => {
-                if (otherPipe === pipe) return false;
-                if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
-
-                const distToOtherP1 = Math.hypot(otherPipe.p1.x - newP2.x, otherPipe.p1.y - newP2.y);
-                const distToOtherP2 = Math.hypot(otherPipe.p2.x - newP2.x, otherPipe.p2.y - newP2.y);
-
-                return distToOtherP1 < POINT_OCCUPATION_TOLERANCE || distToOtherP2 < POINT_OCCUPATION_TOLERANCE;
-            });
-
-            // Eğer nokta doluysa taşımayı engelle (eski pozisyonda kal)
-            if (p1Occupied || p2Occupied) {
-                // Hiçbir şey yapma - boru eski pozisyonunda kalır
-                return;
-            }
-
-            // Nokta boşsa pozisyonları uygula
-            pipe.p1.x = newP1.x;
-            pipe.p1.y = newP1.y;
-            pipe.p2.x = newP2.x;
-            pipe.p2.y = newP2.y;
-
-            // Mod kontrolü: ARA BORU modu mu NORMAL mod mu?
-            if (this.useBridgeMode) {
-                // ✅ ARA BORU MODU: Bağlı boruları TAŞIMA, ara borular oluştur
-                // Ghost ara boruları oluştur (preview için)
-                this.ghostBridgePipes = [];
-                const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
-
-                // p1 tarafı için ghost boru
-                if (this.connectedPipeAtP1) {
-                    const dist = Math.hypot(pipe.p1.x - this.bodyDragInitialP1.x, pipe.p1.y - this.bodyDragInitialP1.y);
-                    if (dist >= MIN_BRIDGE_LENGTH) {
-                        this.ghostBridgePipes.push({
-                            p1: { ...this.bodyDragInitialP1 },
-                            p2: { ...pipe.p1 },
-                            type: 'ghost_bridge'
-                        });
-                    }
-                }
-
-                // p2 tarafı için ghost boru
-                if (this.connectedPipeAtP2) {
-                    const dist = Math.hypot(pipe.p2.x - this.bodyDragInitialP2.x, pipe.p2.y - this.bodyDragInitialP2.y);
-                    if (dist >= MIN_BRIDGE_LENGTH) {
-                        this.ghostBridgePipes.push({
-                            p1: { ...pipe.p2 },
-                            p2: { ...this.bodyDragInitialP2 },
-                            type: 'ghost_bridge'
-                        });
-                    }
-                }
-            } else {
-                // ⚠️ NORMAL MOD: Bağlı boruları da taşı
-                this.ghostBridgePipes = []; // Ghost yok
-                this.updateConnectedPipesChain(oldP1, pipe.p1);
-                this.updateConnectedPipesChain(oldP2, pipe.p2);
-            }
-
-            return;
-        }
-
-        // Diğer objeler için normal taşıma
-        if (this.dragObject.type !== 'boru') {
-            const result = this.dragObject.move(point.x, point.y);
-            this.updateConnectedPipe(result);
-        }
+        return;
     }
 
-    /**
-     * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
-     */
-    updateConnectedPipesChain(oldPoint, newPoint) {
-        const tolerance = 0.5; // cm
+    // Vana için boru üzerinde kayma (PERFORMANS OPTİMİZASYONU)
+    if (this.dragObject.type === 'vana') {
+        const vana = this.dragObject;
 
-        // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
-        this.manager.pipes.forEach(pipe => {
-            // p1'i güncelle
-            if (Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y) < tolerance) {
-                pipe.p1.x = newPoint.x;
-                pipe.p1.y = newPoint.y;
-            }
+        // Başlangıçta kaydedilmiş boruyu kullan (her frame tüm boruları taramak yerine)
+        let targetPipe = this.dragObjectPipe;
+        let objectsOnPipe = this.dragObjectsOnPipe;
 
-            // p2'yi güncelle
-            if (Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y) < tolerance) {
-                pipe.p2.x = newPoint.x;
-                pipe.p2.y = newPoint.y;
+        // Boru yoksa veya geçersizse hareket etme
+        if (!targetPipe) {
+            console.log('Vana sürüklerken boru bulunamadı - hareket engellendi');
+            return;
+        }
+
+        // Vana'yı boru üzerinde kaydır (margin kontrolü ile)
+        const success = vana.moveAlongPipe(targetPipe, point, objectsOnPipe);
+
+        if (!success) {
+            console.log('Vana boru üzerinde kaydırılamadı - yetersiz mesafe veya sınır dışı');
+        }
+
+        return;
+    }
+
+    // Servis kutusu için duvara snap
+    if (this.dragObject.type === 'servis_kutusu') {
+        const walls = state.walls;
+
+        // Snap mesafesi - sabit
+        const snapDistance = 30; // 30cm
+
+        // En yakın duvarı bul - MOUSE POZİSYONUNA GÖRE
+        let closestWall = null;
+        let minDist = Infinity;
+
+        // Mouse pozisyonunu kullan (kutu pozisyonu değil!)
+        const mousePos = point;
+
+        walls.forEach(wall => {
+            if (!wall.p1 || !wall.p2) return;
+
+            const dx = wall.p2.x - wall.p1.x;
+            const dy = wall.p2.y - wall.p1.y;
+            const len = Math.hypot(dx, dy);
+            if (len === 0) return;
+
+            // Mouse'u duvara projeksiyon yap
+            const t = Math.max(0, Math.min(1,
+                ((mousePos.x - wall.p1.x) * dx + (mousePos.y - wall.p1.y) * dy) / (len * len)
+            ));
+            const projX = wall.p1.x + t * dx;
+            const projY = wall.p1.y + t * dy;
+
+            const dist = Math.hypot(mousePos.x - projX, mousePos.y - projY);
+
+            if (dist < minDist) {
+                minDist = dist;
+                closestWall = wall;
             }
         });
 
-        // CRITICAL FIX: Taşınan noktaya bağlı cihazların fleksini güncelle
-        this.manager.components.forEach(comp => {
-            if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.baglantiNoktasi) {
-                const baglanti = comp.fleksBaglanti.baglantiNoktasi;
-                // Eğer bağlantı noktası oldPoint'e çok yakınsa, newPoint'e güncelle
-                if (Math.hypot(baglanti.x - oldPoint.x, baglanti.y - oldPoint.y) < tolerance) {
-                    comp.fleksBaglanti.baglantiNoktasi = { x: newPoint.x, y: newPoint.y };
-                    // KRITIK: En yakın noktadan bağlantıyı yeniden hesapla
-                    comp.yenidenHesaplaGirisOffset();
-                    comp.fleksGuncelle();
-                }
+        // Yakın duvara snap yap, yoksa serbest yerleştir
+        // useBoxPosition=false ile mouse pozisyonuna göre snap yap (sürüklerken)
+        if (closestWall && minDist < snapDistance) {
+            this.dragObject.snapToWall(closestWall, point, false);
+        } else {
+            this.dragObject.placeFree(point);
+        }
+
+        // Bağlı boru zincirini güncelle
+        if (this.dragObject.bagliBoruId) {
+            const boru = this.manager.pipes.find(p => p.id === this.dragObject.bagliBoruId);
+            if (boru) {
+                const oldP1 = { ...boru.p1 };
+                const newCikis = this.dragObject.getCikisNoktasi();
+                boru.moveP1(newCikis);
+                // Boru zincirini güncelle
+                this.updateConnectedPipesChain(oldP1, newCikis);
             }
+        }
+        return;
+    }
+
+    // Cihaz taşıma (KOMBI, OCAK, vb.)
+    if (this.dragObject.type === 'cihaz') {
+        // Cihazı yeni pozisyona taşı
+        this.dragObject.move(point.x, point.y);
+        // Fleks otomatik güncellenir (move metodu içinde)
+        return;
+    }
+
+    // Boru gövdesi taşıma - sadece x veya y yönünde (duvar mantığı)
+    if (this.dragObject.type === 'boru' && this.isBodyDrag) {
+        const pipe = this.dragObject;
+        const dx = point.x - this.dragStart.x;
+        const dy = point.y - this.dragStart.y;
+
+        // Drag axis'e göre hareketi kısıtla (duvar gibi)
+        let offsetX = dx;
+        let offsetY = dy;
+
+        if (this.dragAxis === 'x') {
+            offsetY = 0; // Sadece X yönünde taşı
+        } else if (this.dragAxis === 'y') {
+            offsetX = 0; // Sadece Y yönünde taşı
+        }
+        // dragAxis === null ise her iki yönde de taşınabilir
+
+        // ŞU ANKİ pozisyonları kaydet (henüz güncellenmeden önce)
+        const oldP1 = { x: pipe.p1.x, y: pipe.p1.y };
+        const oldP2 = { x: pipe.p2.x, y: pipe.p2.y };
+
+        // Yeni pozisyonları hesapla (henüz uygulamadan)
+        const newP1 = {
+            x: this.bodyDragInitialP1.x + offsetX,
+            y: this.bodyDragInitialP1.y + offsetY
+        };
+        const newP2 = {
+            x: this.bodyDragInitialP2.x + offsetX,
+            y: this.bodyDragInitialP2.y + offsetY
+        };
+
+        // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
+        const POINT_OCCUPATION_TOLERANCE = 8; // 11 cm
+        const connectionTolerance = 1; // Bağlantı tespit toleransı
+
+        // Bağlı borular listesi (bridge mode için zaten var)
+        const connectedPipes = [];
+        if (this.connectedPipeAtP1) connectedPipes.push(this.connectedPipeAtP1);
+        if (this.connectedPipeAtP2) connectedPipes.push(this.connectedPipeAtP2);
+
+        // p1 için doluluk kontrolü
+        const p1Occupied = this.manager.pipes.some(otherPipe => {
+            if (otherPipe === pipe) return false;
+            if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
+
+            const distToOtherP1 = Math.hypot(otherPipe.p1.x - newP1.x, otherPipe.p1.y - newP1.y);
+            const distToOtherP2 = Math.hypot(otherPipe.p2.x - newP1.x, otherPipe.p2.y - newP1.y);
+
+            return distToOtherP1 < POINT_OCCUPATION_TOLERANCE || distToOtherP2 < POINT_OCCUPATION_TOLERANCE;
         });
-    }
 
-    endDrag() {
-        // Body drag bittiğinde ara borular oluştur
-        if (this.isBodyDrag && this.dragObject && this.dragObject.type === 'boru') {
-            const draggedPipe = this.dragObject;
-            const oldP1 = this.bodyDragInitialP1;
-            const oldP2 = this.bodyDragInitialP2;
-            const newP1 = draggedPipe.p1;
-            const newP2 = draggedPipe.p2;
+        // p2 için doluluk kontrolü
+        const p2Occupied = this.manager.pipes.some(otherPipe => {
+            if (otherPipe === pipe) return false;
+            if (connectedPipes.includes(otherPipe)) return false; // Bağlı borular hariç
 
-            // ⚠️ Sadece BRIDGE MODE ise ara borular oluştur
-            if (!this.useBridgeMode) {
-                // Normal modda zaten updateConnectedPipesChain çağrıldı
-                // Hiçbir şey yapma
-            } else {
-                // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
-                const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
+            const distToOtherP1 = Math.hypot(otherPipe.p1.x - newP2.x, otherPipe.p1.y - newP2.y);
+            const distToOtherP2 = Math.hypot(otherPipe.p2.x - newP2.x, otherPipe.p2.y - newP2.y);
 
-                // Başlangıçta tespit edilen bağlantıları kullan
-                const connectedAtP1 = this.connectedPipeAtP1;
-                const connectedAtP2 = this.connectedPipeAtP2;
+            return distToOtherP1 < POINT_OCCUPATION_TOLERANCE || distToOtherP2 < POINT_OCCUPATION_TOLERANCE;
+        });
 
-            // p1 tarafına ara boru ekle
-            if (connectedAtP1) {
-                const distP1 = Math.hypot(newP1.x - oldP1.x, newP1.y - oldP1.y);
-                if (distP1 >= MIN_BRIDGE_LENGTH) {
-                    const bridgePipe1 = new Boru(
-                        { x: oldP1.x, y: oldP1.y, z: oldP1.z || 0 },
-                        { x: newP1.x, y: newP1.y, z: newP1.z || 0 },
-                        draggedPipe.boruTipi
-                    );
-                    bridgePipe1.floorId = draggedPipe.floorId;
-                    this.manager.pipes.push(bridgePipe1);
-                }
-            }
-
-            // p2 tarafına ara boru ekle
-            if (connectedAtP2) {
-                const distP2 = Math.hypot(newP2.x - oldP2.x, newP2.y - oldP2.y);
-                if (distP2 >= MIN_BRIDGE_LENGTH) {
-                    const bridgePipe2 = new Boru(
-                        { x: newP2.x, y: newP2.y, z: newP2.z || 0 },
-                        { x: oldP2.x, y: oldP2.y, z: oldP2.z || 0 },
-                        draggedPipe.boruTipi
-                    );
-                    bridgePipe2.floorId = draggedPipe.floorId;
-                    this.manager.pipes.push(bridgePipe2);
-                }
-            }
-            } // useBridgeMode if bloğu kapanışı
+        // Eğer nokta doluysa taşımayı engelle (eski pozisyonda kal)
+        if (p1Occupied || p2Occupied) {
+            // Hiçbir şey yapma - boru eski pozisyonunda kalır
+            return;
         }
 
-        this.isDragging = false;
-        this.dragObject = null;
-        this.dragEndpoint = null;
-        this.dragStart = null;
-        this.isBodyDrag = false;
-        this.bodyDragInitialP1 = null;
-        this.bodyDragInitialP2 = null;
-        this.dragAxis = null;
-        this.connectedPipeAtP1 = null; // Bağlantı referanslarını temizle
-        this.connectedPipeAtP2 = null; // Bağlantı referanslarını temizle
-        this.ghostBridgePipes = []; // Ghost boruları temizle
-        this.pipeEndpointSnapLock = null; // Snap lock'u temizle
-        this.pipeSnapMouseStart = null; // Mouse start pozisyonunu temizle
-        this.manager.saveToState();
-        saveState(); // Save to undo history
-    }
+        // Nokta boşsa pozisyonları uygula
+        pipe.p1.x = newP1.x;
+        pipe.p1.y = newP1.y;
+        pipe.p2.x = newP2.x;
+        pipe.p2.y = newP2.y;
 
-    /**
-     * Döndürme tutamacını bul (çubuğun ucundaki daire) - yukarı yönde
-     */
-    findRotationHandleAt(obj, point, tolerance = 8) {
-        if (!obj) return false;
-        if (obj.type !== 'servis_kutusu' && obj.type !== 'cihaz') return false;
+        // Mod kontrolü: ARA BORU modu mu NORMAL mod mu?
+        if (this.useBridgeMode) {
+            // ✅ ARA BORU MODU: Bağlı boruları TAŞIMA, ara borular oluştur
+            // Ghost ara boruları oluştur (preview için)
+            this.ghostBridgePipes = [];
+            const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
 
-        let handleLength;
-        if (obj.type === 'servis_kutusu') {
-            const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
-            handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 20;
-        } else if (obj.type === 'cihaz') {
-            // Cihaz için: 30 cm çapında, handle 20 cm yukarıda (yarıya düşürüldü)
-            handleLength = 15 + 20; // radius + 20cm = 35cm
-        }
-
-        // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)
-        // Local: (0, -handleLength) → World: dönüşüm matrisi uygula
-        const rad = (obj.rotation || 0) * Math.PI / 180;
-        const handleX = obj.x + handleLength * Math.sin(rad);
-        const handleY = obj.y - handleLength * Math.cos(rad);
-
-        const dist = Math.hypot(point.x - handleX, point.y - handleY);
-        return dist < tolerance;
-    }
-
-    /**
-     * Döndürme başlat
-     */
-    startRotation(obj, point) {
-        saveState();
-        this.isRotating = true;
-        this.dragObject = obj;
-
-        // Merkez noktası
-        const center = { x: obj.x, y: obj.y };
-
-        // Başlangıç açısını hesapla
-        const initialAngle = Math.atan2(point.y - center.y, point.x - center.x);
-        const initialRotationRad = (obj.rotation || 0) * Math.PI / 180;
-        this.rotationOffset = initialRotationRad - initialAngle;
-
-    }
-
-    /**
-     * Döndürme işle
-     */
-    handleRotation(point) {
-        if (!this.dragObject) return;
-
-        const obj = this.dragObject;
-        const center = { x: obj.x, y: obj.y };
-
-        // Yeni açıyı hesapla
-        const mouseAngle = Math.atan2(point.y - center.y, point.x - center.x);
-        let newRotationRad = mouseAngle + this.rotationOffset;
-
-        // 1 derecelik snap
-        const snapAngleRad = (1 * Math.PI / 180);
-        newRotationRad = Math.round(newRotationRad / snapAngleRad) * snapAngleRad;
-        let newRotationDeg = newRotationRad * 180 / Math.PI;
-
-        // 90 dereceye snap (5 derece threshold)
-        const remainder = newRotationDeg % 90;
-        const snapThreshold = 5;
-        if (Math.abs(remainder) <= snapThreshold || Math.abs(remainder) >= (90 - snapThreshold)) {
-            newRotationDeg = Math.round(newRotationDeg / 90) * 90;
-        }
-
-        if (obj.type === 'servis_kutusu') {
-            // ÖNEMLI: Çıkış noktası sabit kalmalı, kutu merkezi hareket etmeli
-            // Eski çıkış noktasını kaydet
-            const eskiCikis = obj.getCikisNoktasi();
-
-            // Rotasyonu değiştir
-            obj.rotation = newRotationDeg;
-
-            // Yeni çıkış noktasını hesapla
-            const yeniCikis = obj.getCikisNoktasi();
-
-            // Kutu merkezini ayarla (çıkış noktası sabit kalsın)
-            obj.x += eskiCikis.x - yeniCikis.x;
-            obj.y += eskiCikis.y - yeniCikis.y;
-
-            // Bağlı boruyu güncelle (çıkış noktası değişmedi, güncellemeye gerek yok)
-            // Ama yine de çağıralım, emin olmak için
-            if (obj.bagliBoruId) {
-                const boru = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
-                if (boru) {
-                    boru.moveP1(obj.getCikisNoktasi());
-                }
-            }
-        } else if (obj.type === 'cihaz') {
-            // Cihaz: Merkez sabit, sadece rotation değişir
-            obj.rotation = newRotationDeg;
-            // Fleks bağlantısını güncelle
-            if (obj.fleksGuncelle) {
-                obj.fleksGuncelle();
-            }
-        }
-    }
-
-    /**
-     * Döndürme bitir
-     */
-    endRotation() {
-        this.isRotating = false;
-        this.dragObject = null;
-        this.rotationOffset = 0;
-        this.manager.saveToState();
-        saveState(); // Save to undo history
-    }
-
-    updateConnectedPipe(result) {
-        if (!result) return;
-
-        if (result.bagliBoruId && result.delta) {
-            const boru = this.manager.pipes.find(p => p.id === result.bagliBoruId);
-            if (boru) {
-                boru.moveP1({
-                    x: boru.p1.x + result.delta.x,
-                    y: boru.p1.y + result.delta.y
-                });
-            }
-        }
-
-        if (result.cikisBagliBoruId && result.yeniCikis) {
-            const boru = this.manager.pipes.find(p => p.id === result.cikisBagliBoruId);
-            if (boru) {
-                boru.moveP1(result.yeniCikis);
-            }
-        }
-    }
-
-    removeObject(obj) {
-        if (obj.type === 'boru') {
-            // Bağlı boruları bul ve bağlantıyı güncelle
-            const deletedPipe = obj;
-
-            // Silme sonrası seçilecek boruyu belirle
-            let pipeToSelect = null;
-
-            // p2'ye bağlı boruyu/boruları bul (silinecek borunun devamı)
-            const tolerance = 1;
-            const nextPipes = this.manager.pipes.filter(p =>
-                p.id !== deletedPipe.id &&
-                Math.hypot(p.p1.x - deletedPipe.p2.x, p.p1.y - deletedPipe.p2.y) < tolerance
-            );
-
-            // Eğer tek bir sonraki boru varsa onu seç
-            if (nextPipes.length === 1) {
-                pipeToSelect = nextPipes[0];
-            } else {
-                // Sonraki boru yoksa veya birden fazla varsa, önceki boruyu seç
-                const prevPipe = this.manager.pipes.find(p =>
-                    p.id !== deletedPipe.id &&
-                    Math.hypot(p.p2.x - deletedPipe.p1.x, p.p2.y - deletedPipe.p1.y) < tolerance
-                );
-                if (prevPipe) {
-                    pipeToSelect = prevPipe;
-                }
-            }
-
-            // p2'ye bağlı boruyu bul (silinecek borunun devamı)
-            const nextPipe = this.manager.pipes.find(p =>
-                p.id !== deletedPipe.id &&
-                Math.hypot(p.p1.x - deletedPipe.p2.x, p.p1.y - deletedPipe.p2.y) < 1
-            );
-
-            // Eğer devam eden boru varsa, başlangıcını silinecek borunun başlangıcına bağla
-            if (nextPipe) {
-                const oldP1 = { x: nextPipe.p1.x, y: nextPipe.p1.y };
-                const newP1 = { x: deletedPipe.p1.x, y: deletedPipe.p1.y };
-
-                // İlerdeki noktayı gerideki noktaya taşı
-                nextPipe.p1.x = newP1.x;
-                nextPipe.p1.y = newP1.y;
-
-                // ÖNEMLI: Silinen borunun vanası varsa ve nextPipe'ın başında (t=0) vanası varsa,
-                // nextPipe'ın vanasını da sil (çünkü aynı noktada iki vana olamaz)
-                if (deletedPipe.vana && nextPipe.vana && nextPipe.vana.t === 0) {
-                    nextPipe.vanaKaldir();
-                }
-
-                // Bağlantı bilgisini aktar
-                if (deletedPipe.baslangicBaglanti.hedefId) {
-                    nextPipe.setBaslangicBaglanti(
-                        deletedPipe.baslangicBaglanti.tip,
-                        deletedPipe.baslangicBaglanti.hedefId,
-                        deletedPipe.baslangicBaglanti.noktaIndex
-                    );
-
-                    // Servis kutusu bağlantısını güncelle
-                    if (deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-                        const servisKutusu = this.manager.components.find(
-                            c => c.id === deletedPipe.baslangicBaglanti.hedefId
-                        );
-                        if (servisKutusu) {
-                            servisKutusu.baglaBoru(nextPipe.id);
-                        }
-                    }
-                }
-
-                // Bağlı boru zincirini güncelle (ilerdeki tüm borular)
-                this.updateConnectedPipesChain(oldP1, newP1);
-            }
-
-            const index = this.manager.pipes.findIndex(p => p.id === obj.id);
-            if (index !== -1) this.manager.pipes.splice(index, 1);
-
-            // Boru silindikten sonra seçilecek boruyu seç
-            if (pipeToSelect) {
-                this.selectObject(pipeToSelect);
-            }
-        } else if (obj.type === 'servis_kutusu') {
-            // Servis kutusu silinirken bağlı tüm boruları da sil
-            const bagliBoruId = obj.bagliBoruId;
-            if (bagliBoruId) {
-                // Bağlı boruyu bul
-                const bagliBoruIndex = this.manager.pipes.findIndex(p => p.id === bagliBoruId);
-                if (bagliBoruIndex !== -1) {
-                    const bagliBoruZinciri = this.findConnectedPipesChain(this.manager.pipes[bagliBoruIndex]);
-                    // Tüm zinciri sil
-                    bagliBoruZinciri.forEach(pipe => {
-                        const idx = this.manager.pipes.findIndex(p => p.id === pipe.id);
-                        if (idx !== -1) this.manager.pipes.splice(idx, 1);
+            // p1 tarafı için ghost boru
+            if (this.connectedPipeAtP1) {
+                const dist = Math.hypot(pipe.p1.x - this.bodyDragInitialP1.x, pipe.p1.y - this.bodyDragInitialP1.y);
+                if (dist >= MIN_BRIDGE_LENGTH) {
+                    this.ghostBridgePipes.push({
+                        p1: { ...this.bodyDragInitialP1 },
+                        p2: { ...pipe.p1 },
+                        type: 'ghost_bridge'
                     });
                 }
             }
 
-            // Servis kutusunu sil
-            const index = this.manager.components.findIndex(c => c.id === obj.id);
-            if (index !== -1) this.manager.components.splice(index, 1);
+            // p2 tarafı için ghost boru
+            if (this.connectedPipeAtP2) {
+                const dist = Math.hypot(pipe.p2.x - this.bodyDragInitialP2.x, pipe.p2.y - this.bodyDragInitialP2.y);
+                if (dist >= MIN_BRIDGE_LENGTH) {
+                    this.ghostBridgePipes.push({
+                        p1: { ...pipe.p2 },
+                        p2: { ...this.bodyDragInitialP2 },
+                        type: 'ghost_bridge'
+                    });
+                }
+            }
         } else {
-            const index = this.manager.components.findIndex(c => c.id === obj.id);
-            if (index !== -1) this.manager.components.splice(index, 1);
+            // ⚠️ NORMAL MOD: Bağlı boruları da taşı
+            this.ghostBridgePipes = []; // Ghost yok
+            this.updateConnectedPipesChain(oldP1, pipe.p1);
+            this.updateConnectedPipesChain(oldP2, pipe.p2);
         }
+
+        return;
     }
 
-    /**
-     * Bağlı boru ağını bul (BFS - tüm dalları takip eder, T-bağlantıları dahil)
-     */
-    findConnectedPipesChain(startPipe) {
-        const allConnected = [];
-        const visited = new Set();
-        const queue = [startPipe];
-        const tolerance = 1; // 1 cm
+    // Diğer objeler için normal taşıma
+    if (this.dragObject.type !== 'boru') {
+        const result = this.dragObject.move(point.x, point.y);
+        this.updateConnectedPipe(result);
+    }
+}
 
-        visited.add(startPipe.id);
+/**
+ * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
+ */
+updateConnectedPipesChain(oldPoint, newPoint) {
+        const tolerance = 5; // cm
 
-        while (queue.length > 0) {
-            const currentPipe = queue.shift();
-            allConnected.push(currentPipe);
+    // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
+    this.manager.pipes.forEach(pipe => {
+        // p1'i güncelle
+        const distP1 = Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y);
+        if (distP1 < tolerance) {
+            pipe.p1.x = newPoint.x;
+            pipe.p1.y = newPoint.y;
+        }
 
-            // currentPipe'ın her iki ucuna bağlı boruları bul
-            this.manager.pipes.forEach(otherPipe => {
-                if (visited.has(otherPipe.id)) return;
+        // p2'yi güncelle
+        const distP2 = Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y);
+        if (distP2 < tolerance) {
+            pipe.p2.x = newPoint.x;
+            pipe.p2.y = newPoint.y;
+        }
+    });
 
-                // p1'e bağlı mı?
-                const p1ToCurrentP1 = Math.hypot(otherPipe.p1.x - currentPipe.p1.x, otherPipe.p1.y - currentPipe.p1.y);
-                const p1ToCurrentP2 = Math.hypot(otherPipe.p1.x - currentPipe.p2.x, otherPipe.p1.y - currentPipe.p2.y);
-                const p2ToCurrentP1 = Math.hypot(otherPipe.p2.x - currentPipe.p1.x, otherPipe.p2.y - currentPipe.p1.y);
-                const p2ToCurrentP2 = Math.hypot(otherPipe.p2.x - currentPipe.p2.x, otherPipe.p2.y - currentPipe.p2.y);
+    // Fleks artık boruId ve endpoint ('p1'/'p2') saklıyor
+    // Koordinatlar her zaman borudan okunuyor, ekstra güncelleme gerekmiyor
+}
 
-                // Herhangi bir ucu bağlı mı kontrol et
-                if (p1ToCurrentP1 < tolerance || p1ToCurrentP2 < tolerance ||
-                    p2ToCurrentP1 < tolerance || p2ToCurrentP2 < tolerance) {
-                    visited.add(otherPipe.id);
-                    queue.push(otherPipe);
-                }
+endDrag() {
+    // Body drag bittiğinde ara borular oluştur
+    if (this.isBodyDrag && this.dragObject && this.dragObject.type === 'boru') {
+        const draggedPipe = this.dragObject;
+        const oldP1 = this.bodyDragInitialP1;
+        const oldP2 = this.bodyDragInitialP2;
+        const newP1 = draggedPipe.p1;
+        const newP2 = draggedPipe.p2;
+
+        // ⚠️ Sadece BRIDGE MODE ise ara borular oluştur
+        if (!this.useBridgeMode) {
+            // Normal modda zaten updateConnectedPipesChain çağrıldı
+            // Hiçbir şey yapma
+        } else {
+            // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
+            const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
+
+            // Başlangıçta tespit edilen bağlantıları kullan
+            const connectedAtP1 = this.connectedPipeAtP1;
+            const connectedAtP2 = this.connectedPipeAtP2;
+
+        // p1 tarafına ara boru ekle
+        if (connectedAtP1) {
+            const distP1 = Math.hypot(newP1.x - oldP1.x, newP1.y - oldP1.y);
+            if (distP1 >= MIN_BRIDGE_LENGTH) {
+                const bridgePipe1 = new Boru(
+                    { x: oldP1.x, y: oldP1.y, z: oldP1.z || 0 },
+                    { x: newP1.x, y: newP1.y, z: newP1.z || 0 },
+                    draggedPipe.boruTipi
+                );
+                bridgePipe1.floorId = draggedPipe.floorId;
+                this.manager.pipes.push(bridgePipe1);
+            }
+        }
+
+        // p2 tarafına ara boru ekle
+        if (connectedAtP2) {
+            const distP2 = Math.hypot(newP2.x - oldP2.x, newP2.y - oldP2.y);
+            if (distP2 >= MIN_BRIDGE_LENGTH) {
+                const bridgePipe2 = new Boru(
+                    { x: newP2.x, y: newP2.y, z: newP2.z || 0 },
+                    { x: oldP2.x, y: oldP2.y, z: oldP2.z || 0 },
+                    draggedPipe.boruTipi
+                );
+                bridgePipe2.floorId = draggedPipe.floorId;
+                this.manager.pipes.push(bridgePipe2);
+            }
+        }
+        } // useBridgeMode if bloğu kapanışı
+    }
+
+    this.isDragging = false;
+    this.dragObject = null;
+    this.dragEndpoint = null;
+    this.dragStart = null;
+    this.isBodyDrag = false;
+    this.bodyDragInitialP1 = null;
+    this.bodyDragInitialP2 = null;
+    this.dragAxis = null;
+    this.connectedPipeAtP1 = null; // Bağlantı referanslarını temizle
+    this.connectedPipeAtP2 = null; // Bağlantı referanslarını temizle
+    this.ghostBridgePipes = []; // Ghost boruları temizle
+    this.pipeEndpointSnapLock = null; // Snap lock'u temizle
+    this.pipeSnapMouseStart = null; // Mouse start pozisyonunu temizle
+    this.manager.saveToState();
+    saveState(); // Save to undo history
+}
+
+/**
+ * Döndürme tutamacını bul (çubuğun ucundaki daire) - yukarı yönde
+ */
+findRotationHandleAt(obj, point, tolerance = 8) {
+    if (!obj) return false;
+    if (obj.type !== 'servis_kutusu' && obj.type !== 'cihaz') return false;
+
+    let handleLength;
+    if (obj.type === 'servis_kutusu') {
+        const SERVIS_KUTUSU_CONFIG = { width: 40, height: 20 };
+        handleLength = SERVIS_KUTUSU_CONFIG.height / 2 + 20;
+    } else if (obj.type === 'cihaz') {
+        // Cihaz için: 30 cm çapında, handle 20 cm yukarıda (yarıya düşürüldü)
+        handleLength = 15 + 20; // radius + 20cm = 35cm
+    }
+
+    // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)
+    // Local: (0, -handleLength) → World: dönüşüm matrisi uygula
+    const rad = (obj.rotation || 0) * Math.PI / 180;
+    const handleX = obj.x + handleLength * Math.sin(rad);
+    const handleY = obj.y - handleLength * Math.cos(rad);
+
+    const dist = Math.hypot(point.x - handleX, point.y - handleY);
+    return dist < tolerance;
+}
+
+/**
+ * Döndürme başlat
+ */
+startRotation(obj, point) {
+    saveState();
+    this.isRotating = true;
+    this.dragObject = obj;
+
+    // Merkez noktası
+    const center = { x: obj.x, y: obj.y };
+
+    // Başlangıç açısını hesapla
+    const initialAngle = Math.atan2(point.y - center.y, point.x - center.x);
+    const initialRotationRad = (obj.rotation || 0) * Math.PI / 180;
+    this.rotationOffset = initialRotationRad - initialAngle;
+
+}
+
+/**
+ * Döndürme işle
+ */
+handleRotation(point) {
+    if (!this.dragObject) return;
+
+    const obj = this.dragObject;
+    const center = { x: obj.x, y: obj.y };
+
+    // Yeni açıyı hesapla
+    const mouseAngle = Math.atan2(point.y - center.y, point.x - center.x);
+    let newRotationRad = mouseAngle + this.rotationOffset;
+
+    // 1 derecelik snap
+    const snapAngleRad = (1 * Math.PI / 180);
+    newRotationRad = Math.round(newRotationRad / snapAngleRad) * snapAngleRad;
+    let newRotationDeg = newRotationRad * 180 / Math.PI;
+
+    // 90 dereceye snap (5 derece threshold)
+    const remainder = newRotationDeg % 90;
+    const snapThreshold = 5;
+    if (Math.abs(remainder) <= snapThreshold || Math.abs(remainder) >= (90 - snapThreshold)) {
+        newRotationDeg = Math.round(newRotationDeg / 90) * 90;
+    }
+
+    if (obj.type === 'servis_kutusu') {
+        // ÖNEMLI: Çıkış noktası sabit kalmalı, kutu merkezi hareket etmeli
+        // Eski çıkış noktasını kaydet
+        const eskiCikis = obj.getCikisNoktasi();
+
+        // Rotasyonu değiştir
+        obj.rotation = newRotationDeg;
+
+        // Yeni çıkış noktasını hesapla
+        const yeniCikis = obj.getCikisNoktasi();
+
+        // Kutu merkezini ayarla (çıkış noktası sabit kalsın)
+        obj.x += eskiCikis.x - yeniCikis.x;
+        obj.y += eskiCikis.y - yeniCikis.y;
+
+        // Bağlı boruyu güncelle (çıkış noktası değişmedi, güncellemeye gerek yok)
+        // Ama yine de çağıralım, emin olmak için
+        if (obj.bagliBoruId) {
+            const boru = this.manager.pipes.find(p => p.id === obj.bagliBoruId);
+            if (boru) {
+                boru.moveP1(obj.getCikisNoktasi());
+            }
+        }
+    } else if (obj.type === 'cihaz') {
+        // Cihaz: Merkez sabit, sadece rotation değişir
+        // Açıyı 0-360 aralığına normalize et
+        let normalizedRotation = newRotationDeg % 360;
+        if (normalizedRotation < 0) normalizedRotation += 360;
+        obj.rotation = normalizedRotation;
+
+        // Fleks artık her render'da borudan koordinat okuyor
+        // Döndürme sonrası ekstra güncelleme gerekmiyor
+    }
+}
+
+/**
+ * Döndürme bitir
+ */
+endRotation() {
+    this.isRotating = false;
+    this.dragObject = null;
+    this.rotationOffset = 0;
+    this.manager.saveToState();
+    saveState(); // Save to undo history
+}
+
+updateConnectedPipe(result) {
+    if (!result) return;
+
+    if (result.bagliBoruId && result.delta) {
+        const boru = this.manager.pipes.find(p => p.id === result.bagliBoruId);
+        if (boru) {
+            boru.moveP1({
+                x: boru.p1.x + result.delta.x,
+                y: boru.p1.y + result.delta.y
             });
         }
-
-        return allConnected;
     }
 
-    getGeciciBoruCizgisi() {
-        if (!this.boruCizimAktif || !this.boruBaslangic || !this.geciciBoruBitis) {
-            return null;
+    if (result.cikisBagliBoruId && result.yeniCikis) {
+        const boru = this.manager.pipes.find(p => p.id === result.cikisBagliBoruId);
+        if (boru) {
+            boru.moveP1(result.yeniCikis);
         }
-        return { p1: this.boruBaslangic.nokta, p2: this.geciciBoruBitis };
     }
+}
+
+removeObject(obj) {
+    if (obj.type === 'boru') {
+        // Bağlı boruları bul ve bağlantıyı güncelle
+        const deletedPipe = obj;
+
+        // Silme sonrası seçilecek boruyu belirle
+        let pipeToSelect = null;
+
+        // p2'ye bağlı boruyu/boruları bul (silinecek borunun devamı)
+        const tolerance = 1;
+        const nextPipes = this.manager.pipes.filter(p =>
+            p.id !== deletedPipe.id &&
+            Math.hypot(p.p1.x - deletedPipe.p2.x, p.p1.y - deletedPipe.p2.y) < tolerance
+        );
+
+        // Eğer tek bir sonraki boru varsa onu seç
+        if (nextPipes.length === 1) {
+            pipeToSelect = nextPipes[0];
+        } else {
+            // Sonraki boru yoksa veya birden fazla varsa, önceki boruyu seç
+            const prevPipe = this.manager.pipes.find(p =>
+                p.id !== deletedPipe.id &&
+                Math.hypot(p.p2.x - deletedPipe.p1.x, p.p2.y - deletedPipe.p1.y) < tolerance
+            );
+            if (prevPipe) {
+                pipeToSelect = prevPipe;
+            }
+        }
+
+        // p2'ye bağlı boruyu bul (silinecek borunun devamı)
+        const nextPipe = this.manager.pipes.find(p =>
+            p.id !== deletedPipe.id &&
+            Math.hypot(p.p1.x - deletedPipe.p2.x, p.p1.y - deletedPipe.p2.y) < 1
+        );
+
+        // Eğer devam eden boru varsa, başlangıcını silinecek borunun başlangıcına bağla
+        if (nextPipe) {
+            const oldP1 = { x: nextPipe.p1.x, y: nextPipe.p1.y };
+            const newP1 = { x: deletedPipe.p1.x, y: deletedPipe.p1.y };
+
+            // İlerdeki noktayı gerideki noktaya taşı
+            nextPipe.p1.x = newP1.x;
+            nextPipe.p1.y = newP1.y;
+
+            // ÖNEMLI: Silinen borunun vanası varsa ve nextPipe'ın başında (t=0) vanası varsa,
+            // nextPipe'ın vanasını da sil (çünkü aynı noktada iki vana olamaz)
+            if (deletedPipe.vana && nextPipe.vana && nextPipe.vana.t === 0) {
+                nextPipe.vanaKaldir();
+            }
+
+            // Bağlantı bilgisini aktar
+            if (deletedPipe.baslangicBaglanti.hedefId) {
+                nextPipe.setBaslangicBaglanti(
+                    deletedPipe.baslangicBaglanti.tip,
+                    deletedPipe.baslangicBaglanti.hedefId,
+                    deletedPipe.baslangicBaglanti.noktaIndex
+                );
+
+                // Servis kutusu bağlantısını güncelle
+                if (deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                    const servisKutusu = this.manager.components.find(
+                        c => c.id === deletedPipe.baslangicBaglanti.hedefId
+                    );
+                    if (servisKutusu) {
+                        servisKutusu.baglaBoru(nextPipe.id);
+                    }
+                }
+            }
+
+            // Bağlı boru zincirini güncelle (ilerdeki tüm borular)
+            this.updateConnectedPipesChain(oldP1, newP1);
+        } else {
+            // nextPipe yok - servis kutusu bağlantısını temizle
+            if (deletedPipe.baslangicBaglanti && deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                const servisKutusu = this.manager.components.find(
+                    c => c.id === deletedPipe.baslangicBaglanti.hedefId
+                );
+                if (servisKutusu) {
+                    servisKutusu.bagliBoruId = null;
+                }
+            }
+        }
+
+        // Boru silindiğinde, bu boruya fleks ile bağlı cihazların bağlantısını güncelle
+        this.manager.components.forEach(comp => {
+            if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === deletedPipe.id) {
+                // Eğer nextPipe varsa, fleks bağlantısını nextPipe'a aktar
+                if (nextPipe) {
+                    // Silinen borunun p2'sine bağlıydı, şimdi nextPipe'ın p2'sine bağla
+                    comp.fleksBaglanti.boruId = nextPipe.id;
+                    comp.fleksBaglanti.endpoint = 'p2';
+                } else {
+                    // nextPipe yoksa, en yakın boru ucunu bul ve bağla
+                    const cihazPos = { x: comp.x, y: comp.y };
+                    let minDist = Infinity;
+                    let closestPipe = null;
+                    let closestEndpointName = null;
+
+                    this.manager.pipes.forEach(pipe => {
+                        if (pipe.id === deletedPipe.id) return;
+
+                        const dist1 = Math.hypot(pipe.p1.x - cihazPos.x, pipe.p1.y - cihazPos.y);
+                        const dist2 = Math.hypot(pipe.p2.x - cihazPos.x, pipe.p2.y - cihazPos.y);
+
+                        if (dist2 < minDist) {
+                            minDist = dist2;
+                            closestPipe = pipe;
+                            closestEndpointName = 'p2';
+                        }
+                        if (dist1 < minDist) {
+                            minDist = dist1;
+                            closestPipe = pipe;
+                            closestEndpointName = 'p1';
+                        }
+                    });
+
+                    if (closestPipe && minDist < 200) {
+                        comp.fleksBaglanti.boruId = closestPipe.id;
+                        comp.fleksBaglanti.endpoint = closestEndpointName;
+                    } else {
+                        // Yakın boru yoksa bağlantıyı temizle
+                        comp.fleksBaglanti.boruId = null;
+                        comp.fleksBaglanti.endpoint = null;
+                    }
+                }
+            }
+        });
+
+        // Bu boruda bağlı vanaları da sil (bağımsız vana nesneleri)
+        const valvesToRemove = this.manager.components.filter(comp =>
+            comp.type === 'vana' && comp.bagliBoruId === deletedPipe.id
+        );
+        valvesToRemove.forEach(vana => {
+            const idx = this.manager.components.findIndex(c => c.id === vana.id);
+            if (idx !== -1) this.manager.components.splice(idx, 1);
+        });
+
+        const index = this.manager.pipes.findIndex(p => p.id === obj.id);
+        if (index !== -1) this.manager.pipes.splice(index, 1);
+
+        // Boru silindikten sonra seçilecek boruyu seç
+        if (pipeToSelect) {
+            this.selectObject(pipeToSelect);
+        }
+    } else if (obj.type === 'servis_kutusu') {
+        // Servis kutusu silinirken bağlı tüm boruları da sil
+        const bagliBoruId = obj.bagliBoruId;
+        if (bagliBoruId) {
+            // Bağlı boruyu bul
+            const bagliBoruIndex = this.manager.pipes.findIndex(p => p.id === bagliBoruId);
+            if (bagliBoruIndex !== -1) {
+                const bagliBoruZinciri = this.findConnectedPipesChain(this.manager.pipes[bagliBoruIndex]);
+                // Tüm zinciri sil
+                bagliBoruZinciri.forEach(pipe => {
+                    const idx = this.manager.pipes.findIndex(p => p.id === pipe.id);
+                    if (idx !== -1) this.manager.pipes.splice(idx, 1);
+                });
+            }
+        }
+
+        // Servis kutusunu sil
+        const index = this.manager.components.findIndex(c => c.id === obj.id);
+        if (index !== -1) this.manager.components.splice(index, 1);
+    } else {
+        const index = this.manager.components.findIndex(c => c.id === obj.id);
+        if (index !== -1) this.manager.components.splice(index, 1);
+    }
+}
+
+/**
+ * Bağlı boru ağını bul (BFS - tüm dalları takip eder, T-bağlantıları dahil)
+ */
+findConnectedPipesChain(startPipe) {
+    const allConnected = [];
+    const visited = new Set();
+    const queue = [startPipe];
+    const tolerance = 1; // 1 cm
+
+    visited.add(startPipe.id);
+
+    while (queue.length > 0) {
+        const currentPipe = queue.shift();
+        allConnected.push(currentPipe);
+
+        // currentPipe'ın her iki ucuna bağlı boruları bul
+        this.manager.pipes.forEach(otherPipe => {
+            if (visited.has(otherPipe.id)) return;
+
+            // p1'e bağlı mı?
+            const p1ToCurrentP1 = Math.hypot(otherPipe.p1.x - currentPipe.p1.x, otherPipe.p1.y - currentPipe.p1.y);
+            const p1ToCurrentP2 = Math.hypot(otherPipe.p1.x - currentPipe.p2.x, otherPipe.p1.y - currentPipe.p2.y);
+            const p2ToCurrentP1 = Math.hypot(otherPipe.p2.x - currentPipe.p1.x, otherPipe.p2.y - currentPipe.p1.y);
+            const p2ToCurrentP2 = Math.hypot(otherPipe.p2.x - currentPipe.p2.x, otherPipe.p2.y - currentPipe.p2.y);
+
+            // Herhangi bir ucu bağlı mı kontrol et
+            if (p1ToCurrentP1 < tolerance || p1ToCurrentP2 < tolerance ||
+                p2ToCurrentP1 < tolerance || p2ToCurrentP2 < tolerance) {
+                visited.add(otherPipe.id);
+                queue.push(otherPipe);
+            }
+        });
+    }
+
+    return allConnected;
+}
+
+getGeciciBoruCizgisi() {
+    if (!this.boruCizimAktif || !this.boruBaslangic || !this.geciciBoruBitis) {
+        return null;
+    }
+    return { p1: this.boruBaslangic.nokta, p2: this.geciciBoruBitis };
+}
 }
