@@ -461,11 +461,10 @@ handleKeyDown(e) {
             setDrawingMode("TESİSAT");
         }
 
-        let devicePlaced = false;
+        let boruUcuInfo = null;
 
-        // Eğer aktif çizim noktası varsa, o boruya ekle
+        // Eğer aktif çizim noktası varsa, o boruyu kullan
         if (activeDrawPoint && activeDrawPoint.kaynakId) {
-            // Kaynak boruyu bul
             const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
             if (sourcePipe) {
                 // Hangi uçtan çizim başlatılmıştı?
@@ -474,39 +473,16 @@ handleKeyDown(e) {
                 const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
                 const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
 
-                // O uca direkt kombi ekle
-                const connectionPoint = sourcePipe[endPoint];
-                const floorId = sourcePipe.floorId || state.currentFloor?.id;
-                const newDevice = createCihaz(connectionPoint.x, connectionPoint.y, 'KOMBI', { floorId });
-
-                if (newDevice) {
-                    this.manager.components.push(newDevice);
-
-                    // Borunun bağlantısını güncelle
-                    if (endPoint === 'p1') {
-                        sourcePipe.baslangicBaglanti = {
-                            tip: 'cihaz',
-                            hedefId: newDevice.id,
-                            noktaIndex: 0
-                        };
-                    } else {
-                        sourcePipe.bitisBaglanti = {
-                            tip: 'cihaz',
-                            hedefId: newDevice.id,
-                            noktaIndex: 0
-                        };
-                    }
-
-                    this.manager.saveToState();
-                    saveState();
-                    update3DScene();
-                    devicePlaced = true;
-                }
+                boruUcuInfo = {
+                    pipe: sourcePipe,
+                    end: endPoint,
+                    point: sourcePipe[endPoint]
+                };
             }
         }
 
-        // Aktif çizim noktası yoksa veya ekleme başarısız olduysa, boş uca ekle
-        if (!devicePlaced && this.manager.placeDeviceAtOpenEnd('KOMBI')) {
+        // placeDeviceAtOpenEnd handleCihazEkleme kullanır - vana, fleks otomatik eklenir
+        if (this.manager.placeDeviceAtOpenEnd('KOMBI', boruUcuInfo)) {
             saveState();
             update3DScene();
         }
@@ -530,11 +506,10 @@ handleKeyDown(e) {
             setDrawingMode("TESİSAT");
         }
 
-        let devicePlaced = false;
+        let boruUcuInfo = null;
 
-        // Eğer aktif çizim noktası varsa, o boruya ekle
+        // Eğer aktif çizim noktası varsa, o boruyu kullan
         if (activeDrawPoint && activeDrawPoint.kaynakId) {
-            // Kaynak boruyu bul
             const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
             if (sourcePipe) {
                 // Hangi uçtan çizim başlatılmıştı?
@@ -543,39 +518,16 @@ handleKeyDown(e) {
                 const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
                 const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
 
-                // O uca direkt ocak ekle
-                const connectionPoint = sourcePipe[endPoint];
-                const floorId = sourcePipe.floorId || state.currentFloor?.id;
-                const newDevice = createCihaz(connectionPoint.x, connectionPoint.y, 'OCAK', { floorId });
-
-                if (newDevice) {
-                    this.manager.components.push(newDevice);
-
-                    // Borunun bağlantısını güncelle
-                    if (endPoint === 'p1') {
-                        sourcePipe.baslangicBaglanti = {
-                            tip: 'cihaz',
-                            hedefId: newDevice.id,
-                            noktaIndex: 0
-                        };
-                    } else {
-                        sourcePipe.bitisBaglanti = {
-                            tip: 'cihaz',
-                            hedefId: newDevice.id,
-                            noktaIndex: 0
-                        };
-                    }
-
-                    this.manager.saveToState();
-                    saveState();
-                    update3DScene();
-                    devicePlaced = true;
-                }
+                boruUcuInfo = {
+                    pipe: sourcePipe,
+                    end: endPoint,
+                    point: sourcePipe[endPoint]
+                };
             }
         }
 
-        // Aktif çizim noktası yoksa veya ekleme başarısız olduysa, boş uca ekle
-        if (!devicePlaced && this.manager.placeDeviceAtOpenEnd('OCAK')) {
+        // placeDeviceAtOpenEnd handleCihazEkleme kullanır - vana, fleks otomatik eklenir
+        if (this.manager.placeDeviceAtOpenEnd('OCAK', boruUcuInfo)) {
             saveState();
             update3DScene();
         }
