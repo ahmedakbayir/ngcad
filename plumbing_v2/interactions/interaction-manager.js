@@ -447,7 +447,12 @@ handleKeyDown(e) {
 
     // K - Kombi ekle
     if (e.key === 'k' || e.key === 'K') {
-        // Mevcut eylemleri iptal et (ghost boruyu iptal et, onaylama)
+        // Aktif boru çizimi varsa, son çizim noktasını kaydet
+        const activeDrawPoint = this.boruCizimAktif && this.boruBaslangic
+            ? { ...this.boruBaslangic }
+            : null;
+
+        // Mevcut eylemleri iptal et (ghost boruyu iptal et)
         this.cancelCurrentAction();
         setMode("select");
 
@@ -456,8 +461,52 @@ handleKeyDown(e) {
             setDrawingMode("TESİSAT");
         }
 
-        // Boş uca direkt kombi ekle
-        if (this.manager.placeDeviceAtOpenEnd('KOMBI')) {
+        let devicePlaced = false;
+
+        // Eğer aktif çizim noktası varsa, o boruya ekle
+        if (activeDrawPoint && activeDrawPoint.kaynakId) {
+            // Kaynak boruyu bul
+            const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
+            if (sourcePipe) {
+                // Hangi uçtan çizim başlatılmıştı?
+                const point = activeDrawPoint.nokta;
+                const distToP1 = Math.hypot(point.x - sourcePipe.p1.x, point.y - sourcePipe.p1.y);
+                const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
+                const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
+
+                // O uca direkt kombi ekle
+                const connectionPoint = sourcePipe[endPoint];
+                const floorId = sourcePipe.floorId || state.currentFloor?.id;
+                const newDevice = createCihaz(connectionPoint.x, connectionPoint.y, 'KOMBI', { floorId });
+
+                if (newDevice) {
+                    this.manager.components.push(newDevice);
+
+                    // Borunun bağlantısını güncelle
+                    if (endPoint === 'p1') {
+                        sourcePipe.baslangicBaglanti = {
+                            tip: 'cihaz',
+                            hedefId: newDevice.id,
+                            noktaIndex: 0
+                        };
+                    } else {
+                        sourcePipe.bitisBaglanti = {
+                            tip: 'cihaz',
+                            hedefId: newDevice.id,
+                            noktaIndex: 0
+                        };
+                    }
+
+                    this.manager.saveToState();
+                    saveState();
+                    update3DScene();
+                    devicePlaced = true;
+                }
+            }
+        }
+
+        // Aktif çizim noktası yoksa veya ekleme başarısız olduysa, boş uca ekle
+        if (!devicePlaced && this.manager.placeDeviceAtOpenEnd('KOMBI')) {
             saveState();
             update3DScene();
         }
@@ -467,7 +516,12 @@ handleKeyDown(e) {
 
     // O - Ocak ekle
     if (e.key === 'o' || e.key === 'O') {
-        // Mevcut eylemleri iptal et (ghost boruyu iptal et, onaylama)
+        // Aktif boru çizimi varsa, son çizim noktasını kaydet
+        const activeDrawPoint = this.boruCizimAktif && this.boruBaslangic
+            ? { ...this.boruBaslangic }
+            : null;
+
+        // Mevcut eylemleri iptal et (ghost boruyu iptal et)
         this.cancelCurrentAction();
         setMode("select");
 
@@ -476,8 +530,52 @@ handleKeyDown(e) {
             setDrawingMode("TESİSAT");
         }
 
-        // Boş uca direkt ocak ekle
-        if (this.manager.placeDeviceAtOpenEnd('OCAK')) {
+        let devicePlaced = false;
+
+        // Eğer aktif çizim noktası varsa, o boruya ekle
+        if (activeDrawPoint && activeDrawPoint.kaynakId) {
+            // Kaynak boruyu bul
+            const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
+            if (sourcePipe) {
+                // Hangi uçtan çizim başlatılmıştı?
+                const point = activeDrawPoint.nokta;
+                const distToP1 = Math.hypot(point.x - sourcePipe.p1.x, point.y - sourcePipe.p1.y);
+                const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
+                const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
+
+                // O uca direkt ocak ekle
+                const connectionPoint = sourcePipe[endPoint];
+                const floorId = sourcePipe.floorId || state.currentFloor?.id;
+                const newDevice = createCihaz(connectionPoint.x, connectionPoint.y, 'OCAK', { floorId });
+
+                if (newDevice) {
+                    this.manager.components.push(newDevice);
+
+                    // Borunun bağlantısını güncelle
+                    if (endPoint === 'p1') {
+                        sourcePipe.baslangicBaglanti = {
+                            tip: 'cihaz',
+                            hedefId: newDevice.id,
+                            noktaIndex: 0
+                        };
+                    } else {
+                        sourcePipe.bitisBaglanti = {
+                            tip: 'cihaz',
+                            hedefId: newDevice.id,
+                            noktaIndex: 0
+                        };
+                    }
+
+                    this.manager.saveToState();
+                    saveState();
+                    update3DScene();
+                    devicePlaced = true;
+                }
+            }
+        }
+
+        // Aktif çizim noktası yoksa veya ekleme başarısız olduysa, boş uca ekle
+        if (!devicePlaced && this.manager.placeDeviceAtOpenEnd('OCAK')) {
             saveState();
             update3DScene();
         }
