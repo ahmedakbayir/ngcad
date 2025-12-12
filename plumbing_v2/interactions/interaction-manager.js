@@ -343,11 +343,12 @@ handlePointerDown(e) {
                 );
 
                 // Ayrıca borunun kendi bağlantı bilgilerini de kontrol et
-                const servisKutusunaBagli = hitObject.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
-                                             hitObject.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU;
+                const p1Bagli = hitObject.baslangicBaglanti?.tip !== null;
+                const p2Bagli = hitObject.bitisBaglanti?.tip !== null;
 
-                if (bagliKutu || servisKutusunaBagli) {
-                    // Kutuya bağlı boru, gövde sürükleme yapma (ama seçimi koru)
+                // Her iki uç da bağlıysa veya servis kutusuna bağlıysa body drag yapma
+                if (bagliKutu || (p1Bagli && p2Bagli)) {
+                    // Kutuya bağlı veya her iki ucu bağlı boru, gövde sürükleme yapma (ama seçimi koru)
                     return true;
                 }
 
@@ -1609,6 +1610,20 @@ startDrag(obj, point) {
  * Boru body sürüklemeyi başlat (sadece x veya y yönünde)
  */
 startBodyDrag(pipe, point) {
+    // KORUMA: Her iki uç da bağlıysa body drag tamamen engellenir
+    const p1Bagli = pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip !== null;
+    const p2Bagli = pipe.bitisBaglanti && pipe.bitisBaglanti.tip !== null;
+
+    if (p1Bagli && p2Bagli) {
+        console.log('🔒 Body drag engellendi - her iki uç da bağlı:', {
+            p1: pipe.baslangicBaglanti?.tip,
+            p2: pipe.bitisBaglanti?.tip
+        });
+        // Sadece seç, taşıma başlatma
+        return;
+    }
+    // EĞER SADECE BİR UÇ BAĞLIYSA: Body drag başlar, ama handleDrag içinde bağlı uç sabit kalır
+
     this.isDragging = true;
     this.dragObject = pipe;
     this.dragEndpoint = null;
@@ -2091,10 +2106,18 @@ handleDrag(point) {
         }
 
         // Nokta boşsa pozisyonları uygula
-        pipe.p1.x = newP1.x;
-        pipe.p1.y = newP1.y;
-        pipe.p2.x = newP2.x;
-        pipe.p2.y = newP2.y;
+        // AMAN DİKKAT: Bağlantılı uçları hareket ettirme!
+        const p1Bagli = pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip !== null;
+        const p2Bagli = pipe.bitisBaglanti && pipe.bitisBaglanti.tip !== null;
+
+        if (!p1Bagli) {
+            pipe.p1.x = newP1.x;
+            pipe.p1.y = newP1.y;
+        }
+        if (!p2Bagli) {
+            pipe.p2.x = newP2.x;
+            pipe.p2.y = newP2.y;
+        }
 
         // Mod kontrolü: ARA BORU modu mu NORMAL mod mu?
         if (this.useBridgeMode) {
