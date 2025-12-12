@@ -1100,6 +1100,14 @@ handleCihazEkleme(cihaz) {
         return false;
     }
 
+    // CİHAZ VAR MI KONTROLÜ: Bir boru ucunda zaten cihaz varsa başka cihaz eklenemez
+    const mevcutCihaz = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
+    if (mevcutCihaz) {
+        console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
+        alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
+        return false;
+    }
+
     console.log('[handleCihazEkleme] ✓ Kontroller geçti, vana ve cihaz ekleniyor...');
 
     // Undo için state kaydet
@@ -1443,6 +1451,36 @@ isFreeEndpoint(point, tolerance = 1) {
     return pipeCount > 0 && pipeCount <= 2;
 }
 
+
+/**
+ * Bir boru ucunda cihaz olup olmadığını kontrol et
+ * @param {string} boruId - Boru ID'si
+ * @param {string} endpoint - 'p1' veya 'p2'
+ * @returns {object|null} - Varsa cihaz, yoksa null
+ */
+hasDeviceAtEndpoint(boruId, endpoint) {
+    const currentFloorId = state.currentFloor?.id;
+
+    for (const comp of this.manager.components) {
+        // Sadece cihazları kontrol et
+        if (comp.type !== 'cihaz') continue;
+
+        // Sadece aktif kattaki cihazları kontrol et
+        if (currentFloorId && comp.floorId && comp.floorId !== currentFloorId) {
+            continue;
+        }
+
+        // Fleks bağlantısı bu boru ucuna mı?
+        if (comp.fleksBaglanti &&
+            comp.fleksBaglanti.boruId === boruId &&
+            comp.fleksBaglanti.endpoint === endpoint) {
+            return comp;
+        }
+    }
+
+    return null;
+}
+
 findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
     const currentFloorId = state.currentFloor?.id;
     const candidates = [];
@@ -1457,14 +1495,17 @@ findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
         const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
 
         if (distP1 < tolerance) {
-            // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
-            if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p1, 1)) {
+           // SADECE gerçek boş uçlar (dirsek, T-junction ve cihaz olan uçlar hariç)
+            if (!onlyFreeEndpoints ||
+                (this.manager.isTrulyFreeEndpoint(boru.p1, 1) && !this.hasDeviceAtEndpoint(boru.id, 'p1'))) {
+  
                 candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
             }
         }
         if (distP2 < tolerance) {
-            // T-junction kontrolü (eğer sadece serbest uçlar isteniyorsa)
-            if (!onlyFreeEndpoints || this.isFreeEndpoint(boru.p2, 1)) {
+            // SADECE gerçek boş uçlar (dirsek, T-junction ve cihaz olan uçlar hariç)
+            if (!onlyFreeEndpoints ||
+                (this.manager.isTrulyFreeEndpoint(boru.p2, 1) && !this.hasDeviceAtEndpoint(boru.id, 'p2'))) {
                 candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
             }
         }
