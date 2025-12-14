@@ -787,12 +787,12 @@ updateGhostPosition(ghost, point, snap) {
              ghost.x = targetX;
              ghost.y = targetY;
 
-             // Rijit başlangıç noktasını hesapla (sayacın giriş noktası)
-             const tempRijitBaslangic = ghost.localToWorld(ghost.getRijitBaslangicLocal());
+             // Giriş noktasını hesapla (fleks buraya bağlanacak)
+             const tempGirisNoktasi = ghost.localToWorld(ghost.getGirisLocalKoordinat());
 
-             // Merkezi düzelt: rijit başlangıç hedef noktaya denk gelsin
-             ghost.x = targetX - (tempRijitBaslangic.x - targetX);
-             ghost.y = targetY - (tempRijitBaslangic.y - targetY);
+             // Merkezi düzelt: giriş noktası hedef noktaya denk gelsin
+             ghost.x = targetX - (tempGirisNoktasi.x - targetX);
+             ghost.y = targetY - (tempGirisNoktasi.y - targetY);
              
              // Renderer'ın hayalet vana ve fleks çizebilmesi için bilgi
              ghost.ghostConnectionInfo = {
@@ -3002,12 +3002,12 @@ getGeciciBoruCizgisi() {
         meter.x = targetX;
         meter.y = targetY;
 
-        // Rijit başlangıç noktasını hesapla (sayacın giriş noktası)
-        const tempRijitBaslangic = meter.localToWorld(meter.getRijitBaslangicLocal());
+        // Giriş noktasını hesapla (fleks buraya bağlanacak)
+        const tempGirisNoktasi = meter.localToWorld(meter.getGirisLocalKoordinat());
 
-        // Merkezi düzelt: rijit başlangıç hedef noktaya denk gelsin
-        meter.x = targetX - (tempRijitBaslangic.x - targetX);
-        meter.y = targetY - (tempRijitBaslangic.y - targetY);
+        // Merkezi düzelt: giriş noktası hedef noktaya denk gelsin
+        meter.x = targetX - (tempGirisNoktasi.x - targetX);
+        meter.y = targetY - (tempGirisNoktasi.y - targetY);
 
         // 3. Bağlantıyı Kur (Fleks)
         meter.baglaGiris(pipe.id, pipeEnd.uc);
