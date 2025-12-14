@@ -782,9 +782,17 @@ updateGhostPosition(ghost, point, snap) {
                  targetX = boruUcu.nokta.x + (dx/len) * FLEKS_DIST;
                  targetY = boruUcu.nokta.y + (dy/len) * FLEKS_DIST;
              }
-             
+
+             // Geçici olarak merkezi hedef noktaya koy
              ghost.x = targetX;
              ghost.y = targetY;
+
+             // Rijit başlangıç noktasını hesapla (sayacın giriş noktası)
+             const tempRijitBaslangic = ghost.localToWorld(ghost.getRijitBaslangicLocal());
+
+             // Merkezi düzelt: rijit başlangıç hedef noktaya denk gelsin
+             ghost.x = targetX - (tempRijitBaslangic.x - targetX);
+             ghost.y = targetY - (tempRijitBaslangic.y - targetY);
              
              // Renderer'ın hayalet vana ve fleks çizebilmesi için bilgi
              ghost.ghostConnectionInfo = {
@@ -2981,7 +2989,7 @@ getGeciciBoruCizgisi() {
 
         const FLEKS_DIST = 20; // 20 cm mesafe
         let targetX, targetY;
-        
+
         if (pipeEnd.uc === 'p1') {
             targetX = endPoint.x - (dx/len) * FLEKS_DIST;
             targetY = endPoint.y - (dy/len) * FLEKS_DIST;
@@ -2989,9 +2997,17 @@ getGeciciBoruCizgisi() {
             targetX = endPoint.x + (dx/len) * FLEKS_DIST;
             targetY = endPoint.y + (dy/len) * FLEKS_DIST;
         }
-        
+
+        // Geçici olarak merkezi hedef noktaya koy
         meter.x = targetX;
         meter.y = targetY;
+
+        // Rijit başlangıç noktasını hesapla (sayacın giriş noktası)
+        const tempRijitBaslangic = meter.localToWorld(meter.getRijitBaslangicLocal());
+
+        // Merkezi düzelt: rijit başlangıç hedef noktaya denk gelsin
+        meter.x = targetX - (tempRijitBaslangic.x - targetX);
+        meter.y = targetY - (tempRijitBaslangic.y - targetY);
 
         // 3. Bağlantıyı Kur (Fleks)
         meter.baglaGiris(pipe.id, pipeEnd.uc);

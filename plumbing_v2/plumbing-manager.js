@@ -534,20 +534,33 @@ export class PlumbingManager {
         // 2. Sayacın Konumunu ve Rotasyonunu Hesapla
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
+        const len = Math.hypot(dx, dy);
         const pipeAngleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
 
         meter.rotation = pipeAngleDeg;
 
-        // Önce geçici olarak sayacı endPoint'e koy
-        meter.x = endPoint.x;
-        meter.y = endPoint.y;
+        // Fleks payı kadar uzaklaştır (20 cm)
+        const FLEKS_DIST = 20;
+        let targetX, targetY;
+
+        if (pipeEnd.uc === 'p1') {
+            targetX = endPoint.x - (dx/len) * FLEKS_DIST;
+            targetY = endPoint.y - (dy/len) * FLEKS_DIST;
+        } else {
+            targetX = endPoint.x + (dx/len) * FLEKS_DIST;
+            targetY = endPoint.y + (dy/len) * FLEKS_DIST;
+        }
+
+        // Geçici olarak merkezi hedef noktaya koy
+        meter.x = targetX;
+        meter.y = targetY;
 
         // Sayacın rijit başlangıç noktasını hesapla
         const tempRijitBaslangic = meter.localToWorld(meter.getRijitBaslangicLocal());
 
-        // Merkezi düzelt: rijit başlangıç noktası endPoint'e denk gelsin
-        meter.x = endPoint.x - (tempRijitBaslangic.x - endPoint.x);
-        meter.y = endPoint.y - (tempRijitBaslangic.y - endPoint.y);
+        // Merkezi düzelt: rijit başlangıç hedef noktaya denk gelsin
+        meter.x = targetX - (tempRijitBaslangic.x - targetX);
+        meter.y = targetY - (tempRijitBaslangic.y - targetY);
 
         // 3. Bağlantıyı Kur (Fleks)
         meter.baglaGiris(pipe.id, pipeEnd.uc);
