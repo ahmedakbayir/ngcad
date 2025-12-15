@@ -3009,6 +3009,13 @@ getGeciciBoruCizgisi() {
         meter.x = targetX - (tempGirisNoktasi.x - targetX);
         meter.y = targetY - (tempGirisNoktasi.y - targetY);
 
+        // DEBUG: Yerleştirme sonrası kontrol
+        const finalGiris = meter.getGirisNoktasi();
+        const mesafe = Math.hypot(finalGiris.x - endPoint.x, finalGiris.y - endPoint.y);
+        console.log(`[SAYAÇ YERLEŞTİRME] Boru ucu: (${endPoint.x.toFixed(1)}, ${endPoint.y.toFixed(1)})`);
+        console.log(`[SAYAÇ YERLEŞTİRME] Giriş: (${finalGiris.x.toFixed(1)}, ${finalGiris.y.toFixed(1)})`);
+        console.log(`[SAYAÇ YERLEŞTİRME] Mesafe: ${mesafe.toFixed(1)} cm (Hedef: ${FLEKS_DIST} cm)`);
+
         // 3. Bağlantıyı Kur (Fleks)
         meter.baglaGiris(pipe.id, pipeEnd.uc);
 
