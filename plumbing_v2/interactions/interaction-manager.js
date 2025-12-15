@@ -768,33 +768,25 @@ updateGhostPosition(ghost, point, snap) {
              const len = Math.hypot(dx, dy);
              
              ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
-             
-             // Fleks payı kadar uzaklaştır (20 cm)
-             const FLEKS_DIST = 20; 
-             
-             // Sayacın giriş noktası sol tarafta (-x) olduğu için, boru yönüne göre hesapla
-             let targetX, targetY;
-             
+
+             // Kombi/Ocak mantığı: fleks uzunluğu + sayaç yarı genişliği
+             const fleksUzunluk = 20; // cm
+             const sayacYariGenislik = ghost.config.width / 2; // 10 cm
+             const toplamMesafe = fleksUzunluk + sayacYariGenislik; // 30 cm
+
+             let merkezX, merkezY;
              if (boruUcu.uc === 'p1') {
-                 // p1 ucundayız, p1'den geriye (p2->p1 yönünde devam)
-                 targetX = boruUcu.nokta.x - (dx/len) * FLEKS_DIST;
-                 targetY = boruUcu.nokta.y - (dy/len) * FLEKS_DIST;
+                 // p1 ucundayız, p1'den dışarı git
+                 merkezX = boruUcu.nokta.x - (dx/len) * toplamMesafe;
+                 merkezY = boruUcu.nokta.y - (dy/len) * toplamMesafe;
              } else {
-                 // p2 ucundayız, p2'den ileriye (p1->p2 yönünde devam)
-                 targetX = boruUcu.nokta.x + (dx/len) * FLEKS_DIST;
-                 targetY = boruUcu.nokta.y + (dy/len) * FLEKS_DIST;
+                 // p2 ucundayız, p2'den dışarı git
+                 merkezX = boruUcu.nokta.x + (dx/len) * toplamMesafe;
+                 merkezY = boruUcu.nokta.y + (dy/len) * toplamMesafe;
              }
 
-             // Geçici olarak merkezi hedef noktaya koy
-             ghost.x = targetX;
-             ghost.y = targetY;
-
-             // Giriş noktasını hesapla (fleks buraya bağlanacak)
-             const tempGirisNoktasi = ghost.localToWorld(ghost.getGirisLocalKoordinat());
-
-             // Merkezi düzelt: giriş noktası hedef noktaya denk gelsin
-             ghost.x = targetX - (tempGirisNoktasi.x - targetX);
-             ghost.y = targetY - (tempGirisNoktasi.y - targetY);
+             ghost.x = merkezX;
+             ghost.y = merkezY;
              
              // Renderer'ın hayalet vana ve fleks çizebilmesi için bilgi
              ghost.ghostConnectionInfo = {
@@ -2915,33 +2907,30 @@ getGeciciBoruCizgisi() {
             meter.iliskiliVanaId = vanaVar.id;
         }
 
-        // 2. Sayacı konumlandır (Ghost ile aynı mantık)
+        // 2. Sayacı konumlandır (Kombi/Ocak ile AYNI mantık)
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
         const len = Math.hypot(dx, dy);
         meter.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
 
-        const FLEKS_DIST = 20; // 20 cm mesafe
-        let targetX, targetY;
+        // Kombi/Ocak mantığı: fleks uzunluğu + sayaç yarı genişliği
+        const fleksUzunluk = 20; // cm
+        const sayacYariGenislik = meter.config.width / 2; // 10 cm
+        const toplamMesafe = fleksUzunluk + sayacYariGenislik; // 30 cm
 
+        let merkezX, merkezY;
         if (pipeEnd.uc === 'p1') {
-            targetX = endPoint.x - (dx/len) * FLEKS_DIST;
-            targetY = endPoint.y - (dy/len) * FLEKS_DIST;
+            // p1 ucundayız, p1'den dışarı git
+            merkezX = endPoint.x - (dx/len) * toplamMesafe;
+            merkezY = endPoint.y - (dy/len) * toplamMesafe;
         } else {
-            targetX = endPoint.x + (dx/len) * FLEKS_DIST;
-            targetY = endPoint.y + (dy/len) * FLEKS_DIST;
+            // p2 ucundayız, p2'den dışarı git
+            merkezX = endPoint.x + (dx/len) * toplamMesafe;
+            merkezY = endPoint.y + (dy/len) * toplamMesafe;
         }
 
-        // Geçici olarak merkezi hedef noktaya koy
-        meter.x = targetX;
-        meter.y = targetY;
-
-        // Giriş noktasını hesapla (fleks buraya bağlanacak)
-        const tempGirisNoktasi = meter.localToWorld(meter.getGirisLocalKoordinat());
-
-        // Merkezi düzelt: giriş noktası hedef noktaya denk gelsin
-        meter.x = targetX - (tempGirisNoktasi.x - targetX);
-        meter.y = targetY - (tempGirisNoktasi.y - targetY);
+        meter.x = merkezX;
+        meter.y = merkezY;
 
         // DEBUG: Yerleştirme sonrası kontrol
         const finalGiris = meter.getGirisNoktasi();
