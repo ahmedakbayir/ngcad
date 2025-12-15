@@ -255,6 +255,8 @@ handlePointerDown(e) {
         ? { x: this.activeSnap.x, y: this.activeSnap.y }
         : point;
 
+    console.log('[POINTER DOWN] activeTool:', this.manager.activeTool, 'tempComponent:', this.manager.tempComponent?.type);
+
     // 0.4 Vana ekleme - Vana tool aktif ve preview var
     if (this.manager.activeTool === 'vana' && !this.boruCizimAktif && this.vanaPreview) {
         this.handleVanaPlacement(this.vanaPreview);
@@ -895,9 +897,12 @@ placeComponent(point) {
             break;
 
     case 'sayac':
+                console.log('[SAYAÇ CASE] placeComponent sayac case çalıştı');
                 // 1. Boru Ucu Kontrolü (Öncelikli)
             const pipeEnd = this.findBoruUcuAt(point, 15);
+            console.log('[SAYAÇ CASE] pipeEnd:', pipeEnd);
             if (pipeEnd) {
+                console.log('[SAYAÇ CASE] handleSayacEndPlacement çağrılacak');
                 this.handleSayacEndPlacement(pipeEnd, component);
                 return;
             }
