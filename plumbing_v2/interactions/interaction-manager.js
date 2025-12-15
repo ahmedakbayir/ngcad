@@ -954,78 +954,6 @@ placeComponent(point) {
     this.manager.saveToState();
 }
 
-/**
- * YENİ: Boru ucuna sayaç ekleme mantığı
- * - Vana kontrolü/ekleme
- * - 90 derece dik konumlama
- * - Fleks bağlantısı
- */
-handleSayacEndPlacement(pipeEnd, meter) {
-    saveState();
-
-    const pipe = pipeEnd.boru;
-    const endPoint = pipeEnd.nokta;
-    
-    // 1. Boru ucunda vana var mı?
-    const vanaVar = this.checkVanaAtPoint(endPoint);
-    if (!vanaVar) {
-        // Vana yoksa ekle (Boru ucundan biraz içeriye)
-        const vana = createVana(endPoint.x, endPoint.y, 'SAYAC');
-        vana.floorId = meter.floorId;
-        vana.rotation = pipe.aciDerece; // Boru açısında
-        
-        // Vanayı boruya bağla (sabit mesafe ile)
-        vana.bagliBoruId = pipe.id;
-        // Uçtan 4cm içeride olsun
-        vana.fixedDistance = 4;
-        vana.fromEnd = pipeEnd.uc; // 'p1' veya 'p2'
-        vana.updatePositionFromPipe(pipe); // Pozisyonu uygula
-
-        this.manager.components.push(vana);
-        meter.iliskiliVanaId = vana.id;
-    } else {
-        meter.iliskiliVanaId = vanaVar.id;
-    }
-
-    // 2. Sayacın Konumunu ve Rotasyonunu Hesapla
-    // Boru açısını hesapla
-    const dx = pipe.p2.x - pipe.p1.x;
-    const dy = pipe.p2.y - pipe.p1.y;
-    const pipeAngleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
-
-    // Sayacı boru açısında döndür
-    meter.rotation = pipeAngleDeg;
-
-    // Sayacın rijit başlangıç noktası (rekor) boru ucuna denk gelecek şekilde merkezi hesapla
-    // Önce sayacı endPoint'e koy (geçici)
-    meter.x = endPoint.x;
-    meter.y = endPoint.y;
-
-    // Şimdi sayacın rijit başlangıç noktasını hesapla (boru hattı hizası)
-    const tempRijitBaslangic = meter.localToWorld(meter.getRijitBaslangicLocal());
-
-    // Merkezi düzelt: rijit başlangıç noktası endPoint'e denk gelsin
-    meter.x = endPoint.x - (tempRijitBaslangic.x - endPoint.x);
-    meter.y = endPoint.y - (tempRijitBaslangic.y - endPoint.y);
-
-    // 3. Bağlantıyı Kur (Fleks)
-    // Sayacın giriş noktası otomatik olarak sol tarafıdır.
-    // Biz sadece hangi boru ucuna bağlanacağını söylüyoruz.
-    meter.baglaGiris(pipe.id, pipeEnd.uc);
-
-    // 4. Kaydet ve Çizimi Başlat
-    this.manager.components.push(meter);
-    
-    // Çıkıştan yeni tesisat başlat
-    this.startBoruCizim(meter.getCikisNoktasi(), meter.id, BAGLANTI_TIPLERI.SAYAC);
-    
-    this.manager.activeTool = 'boru';
-    setMode("plumbingV2", true);
-    
-    this.manager.saveToState();
-    update3DScene();
-}
-
 splitPipeAndInsertMeter(pipe, clickPoint, meter) {
         saveState();
 
@@ -2956,6 +2884,7 @@ getGeciciBoruCizgisi() {
      * Boru ucuna sayaç ekleme (Vana + Fleks Dahil)
      */
     handleSayacEndPlacement(pipeEnd, meter) {
+        console.log('[SAYAÇ] handleSayacEndPlacement ÇAĞRILDI');
         saveState();
 
         const pipe = pipeEnd.boru;
