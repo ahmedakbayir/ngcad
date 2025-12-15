@@ -793,30 +793,11 @@ updateGhostPosition(ghost, point, snap) {
                  boruUcu: boruUcu,
                  girisNoktasi: ghost.getGirisNoktasi()
              };
-        } 
-        // 2. Boru üzeri kontrolü (Split modu)
-        else {
-            const hoveredPipe = this.findPipeAt(point, 10);
-            if (hoveredPipe) {
-                // Boru üzerine izdüşür
-                const proj = hoveredPipe.projectPoint(point);
-                if (proj.onSegment) {
-                    ghost.x = proj.x;
-                    ghost.y = proj.y;
-                    
-                    const dx = hoveredPipe.p2.x - hoveredPipe.p1.x;
-                    const dy = hoveredPipe.p2.y - hoveredPipe.p1.y;
-                    ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
-                    
-                    // Split durumunda (boru bölme) özel bir connection info'ya gerek yok
-                    ghost.ghostConnectionInfo = null; 
-                }
-            } else {
-                // Boşta
-                ghost.x = point.x;
-                ghost.y = point.y;
-                ghost.ghostConnectionInfo = null;
-            }
+        } else {
+            // Boşta (boru ucuna snap olmadı)
+            ghost.x = point.x;
+            ghost.y = point.y;
+            ghost.ghostConnectionInfo = null;
         }
     }  else {
         ghost.x = point.x;
@@ -899,14 +880,7 @@ placeComponent(point) {
                 return;
             }
 
-            // 2. Boru Üzeri Kontrolü (Split - Araya Ekleme)
-            const hoveredPipe = this.findPipeAt(point, 10);
-            if (hoveredPipe) {
-                this.splitPipeAndInsertMeter(hoveredPipe, point, component);
-                return;
-            }
-
-            // 3. Boşluğa Ekleme (Fallback)
+            // 2. Boşluğa Ekleme (Fallback)
             saveState();
             this.manager.components.push(component);
             this.startBoruCizim(component.getCikisNoktasi(), component.id, BAGLANTI_TIPLERI.SAYAC);
@@ -2937,7 +2911,7 @@ getGeciciBoruCizgisi() {
         const mesafe = Math.hypot(finalGiris.x - endPoint.x, finalGiris.y - endPoint.y);
         console.log(`[SAYAÇ YERLEŞTİRME] Boru ucu: (${endPoint.x.toFixed(1)}, ${endPoint.y.toFixed(1)})`);
         console.log(`[SAYAÇ YERLEŞTİRME] Giriş: (${finalGiris.x.toFixed(1)}, ${finalGiris.y.toFixed(1)})`);
-        console.log(`[SAYAÇ YERLEŞTİRME] Mesafe: ${mesafe.toFixed(1)} cm (Hedef: ${FLEKS_DIST} cm)`);
+        console.log(`[SAYAÇ YERLEŞTİRME] Mesafe: ${mesafe.toFixed(1)} cm (Hedef: ~${fleksUzunluk} cm)`);
 
         // 3. Bağlantıyı Kur (Fleks)
         meter.baglaGiris(pipe.id, pipeEnd.uc);
@@ -2949,100 +2923,6 @@ getGeciciBoruCizgisi() {
         this.manager.activeTool = 'boru';
         setMode("plumbingV2", true);
         
-        this.manager.saveToState();
-        update3DScene();
-    }
-
-    /**
-     * Boruyu böl ve araya sayaç ekle (TAM OTOMATİK: VANA + FLEKS + SAYAÇ + RİJİT)
-     */
-    splitPipeAndInsertMeter(pipe, clickPoint, meter) {
-        saveState();
-
-        // 1. Tıklama noktasını boru üzerine izdüşür -> Sayacın konumu
-        const proj = pipe.projectPoint(clickPoint);
-        const centerPoint = { x: proj.x, y: proj.y };
-
-        // 2. Boru açısı
-        const dx = pipe.p2.x - pipe.p1.x;
-        const dy = pipe.p2.y - pipe.p1.y;
-        const pipeAngleRad = Math.atan2(dy, dx);
-        meter.rotation = pipeAngleRad * 180 / Math.PI;
-
-        // 3. Sayacı konumlandır
-        meter.x = centerPoint.x;
-        meter.y = centerPoint.y;
-
-        // 4. Boru 1'in Yeni Bitiş Noktasını Hesapla (Vana ve Fleks için yer aç)
-        // Sayacın giriş noktası (meterInPos) zaten connectionOffset kadar soldadır.
-        // Ancak fleks ve vana için daha da geriye gitmemiz gerek.
-        const meterOutPos = meter.getCikisNoktasi();
-        
-        const FLEKS_VE_VANA_PAYI = 25; // 20cm fleks + 5cm vana payı
-        const len = Math.hypot(dx, dy);
-        const uX = dx / len;
-        const uY = dy / len;
-        
-        // Yeni p2 noktası (pipe1End): Sayacın merkezinden geriye doğru
-        const pipe1End = {
-            x: centerPoint.x - uX * FLEKS_VE_VANA_PAYI,
-            y: centerPoint.y - uY * FLEKS_VE_VANA_PAYI
-        };
-        
-        // Güvenlik: Boru çok kısalıyor mu?
-        const distFromStart = Math.hypot(pipe1End.x - pipe.p1.x, pipe1End.y - pipe.p1.y);
-        if (distFromStart < 5) {
-            alert("Boru başlangıcına çok yakın, sığmaz!");
-            return;
-        }
-
-        // 5. Boruyu Böl ve Güncelle
-        const originalP2 = { ...pipe.p2 };
-        const originalEndConn = { ...pipe.bitisBaglanti };
-
-        // Pipe 1 (Mevcut boru) bitiş noktasını geri çek
-        pipe.p2 = pipe1End;
-        pipe.bitisBaglanti = { tip: null, hedefId: null };
-
-        // 6. OTOMATİK VANA EKLE (Pipe 1'in sonuna)
-        const vana = createVana(pipe1End.x, pipe1End.y, 'SAYAC');
-        vana.floorId = meter.floorId;
-        vana.rotation = meter.rotation;
-        vana.bagliBoruId = pipe.id;
-        vana.fromEnd = 'p2';    // Sondan
-        vana.fixedDistance = 4; // 4cm içeride
-        vana.updatePositionFromPipe(pipe); 
-        
-        this.manager.components.push(vana);
-        meter.iliskiliVanaId = vana.id;
-
-        // 7. Yeni Boru Oluştur (Pipe 2) - Sayacın Çıkışından Başlar
-        const newPipe = createBoru(
-            { x: meterOutPos.x, y: meterOutPos.y }, // Başlangıç: Sayaç Çıkışı
-            originalP2,                             // Bitiş: Eski P2
-            pipe.boruTipi
-        );
-        newPipe.floorId = pipe.floorId;
-        newPipe.bitisBaglanti = originalEndConn;
-        
-        // 8. Bağlantıları Kur
-        // Sayaç Girişi -> Pipe 1 (p2 ucu)
-        meter.baglaGiris(pipe.id, 'p2');
-        
-        // Sayaç Çıkışı -> Pipe 2
-        meter.baglaCikis(newPipe.id);
-        
-        // Pipe 2 Başlangıcı -> Sayaç
-        newPipe.setBaslangicBaglanti(TESISAT_MODLARI.SAYAC, meter.id);
-
-        // 9. Nesneleri Kaydet
-        this.manager.components.push(meter);
-        this.manager.pipes.push(newPipe);
-        
-        this.manager.tempComponent = null;
-        this.manager.activeTool = null;
-        setMode("select");
-
         this.manager.saveToState();
         update3DScene();
     }
