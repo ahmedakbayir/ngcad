@@ -8,6 +8,7 @@
  */
 
 import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
+import { FLEKS_CONFIG } from './device.js';
 
 // Sayaç Sabitleri
 export const SAYAC_CONFIG = {
@@ -37,7 +38,8 @@ export class Sayac {
         // Giriş tarafı bir boruya veya vanaya esnek olarak bağlıdır
         this.fleksBaglanti = {
             boruId: null,
-            endpoint: null // 'p1' veya 'p2'
+            endpoint: null, // 'p1' veya 'p2'
+            uzunluk: FLEKS_CONFIG.defaultUzunluk // 30 cm
         };
 
         // Çıkış bağlantısı (Rijit)
