@@ -758,40 +758,50 @@ export class InteractionManager {
             const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
 
             if (boruUcu && boruUcu.boru) {
-                // Boru yönünü hesapla (boru ucundan dışarı doğru)
+                // Sayaç pozisyonlandırma: Boru eksenine DİK (perpendicular)
                 const boru = boruUcu.boru;
                 const dx = boru.p2.x - boru.p1.x;
                 const dy = boru.p2.y - boru.p1.y;
                 const length = Math.hypot(dx, dy);
 
-                // Sayaç rotation'u boru yönüne göre ayarla
-                ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                // Fleks uzunluğu
+                const fleksUzunluk = 30;
 
-                // Fleks uzunluğu + sayaç yarı genişliği = toplam mesafe
-                const fleksUzunluk = 50; // cm
-                const sayacYariGenislik = ghost.config.width / 2;
-                const toplamMesafe = fleksUzunluk + sayacYariGenislik;
+                // Boru yönüne DİK (perpendicular) vektör hesapla
+                let perpX = dy / length;
+                let perpY = -dx / length;
 
-                // Sayaç merkezini hesapla (boru yönünde)
-                let merkezX, merkezY;
-                if (boruUcu.uc === 'p1') {
-                    // p1 ucundayız, boru p2'den p1'e geliyor, sayaç p1'den dışarı gitmeli
-                    merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
-                    merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
-                } else {
-                    // p2 ucundayız, boru p1'den p2'ye geliyor, sayaç p2'den dışarı gitmeli
-                    merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
-                    merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
+                // Her zaman "aşağı" yönünde asılsın
+                if (perpY < 0) {
+                    perpX = -perpX;
+                    perpY = -perpY;
                 }
 
-                // Sayaç merkezini ayarla
-                ghost.x = merkezX;
-                ghost.y = merkezY;
+                // Sayaç rotation'u: Boru yönü
+                ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                // Giriş rakorunun lokal koordinatı
+                const girisLokal = ghost.getGirisLocalKoordinat();
+
+                // Giriş rakorunun dünya koordinatı (istenen)
+                const girisHedefX = boruUcu.nokta.x + perpX * fleksUzunluk;
+                const girisHedefY = boruUcu.nokta.y + perpY * fleksUzunluk;
+
+                // Sayaç merkezini hesapla
+                const rad = ghost.rotation * Math.PI / 180;
+                const cos = Math.cos(rad);
+                const sin = Math.sin(rad);
+
+                const girisRotatedX = girisLokal.x * cos - girisLokal.y * sin;
+                const girisRotatedY = girisLokal.x * sin + girisLokal.y * cos;
+
+                ghost.x = girisHedefX - girisRotatedX;
+                ghost.y = girisHedefY - girisRotatedY;
 
                 // Ghost rendering için bağlantı bilgisini sakla
                 ghost.ghostConnectionInfo = {
                     boruUcu: boruUcu,
-                    girisNoktasi: boruUcu.nokta // Fleks boru ucundan başlayacak
+                    girisNoktasi: boruUcu.nokta
                 };
             } else {
                 // Boru ucu bulunamadı, normal cursor pozisyonu
@@ -1235,32 +1245,53 @@ export class InteractionManager {
             meter.iliskiliVanaId = vanaVar.id;
         }
 
-        // Sayaç rotation'unu boru yönüne göre ayarla
+        // Sayaç pozisyonlandırma: Boru eksenine DİK (perpendicular)
         const boru = boruUcu.boru;
         const dx = boru.p2.x - boru.p1.x;
         const dy = boru.p2.y - boru.p1.y;
         const length = Math.hypot(dx, dy);
-        meter.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
 
-        // Fleks uzunluğu + sayaç yarı genişliği = toplam mesafe
-        const fleksUzunluk = 50; // cm
-        const sayacYariGenislik = meter.config.width / 2;
-        const toplamMesafe = fleksUzunluk + sayacYariGenislik;
+        // Fleks uzunluğu (FLEKS_CONFIG.defaultUzunluk = 30 cm)
+        const fleksUzunluk = 30;
 
-        let merkezX, merkezY;
-        if (boruUcu.uc === 'p1') {
-            // p1 ucundayız, boru p2'den p1'e geliyor, sayaç p1'den dışarı gitmeli
-            merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
-            merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
-        } else {
-            // p2 ucundayız, boru p1'den p2'ye geliyor, sayaç p2'den dışarı gitmeli
-            merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
-            merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
+        // Boru yönüne DİK (perpendicular) vektör hesapla
+        // Right perpendicular: (dy, -dx) normalize edilmiş
+        let perpX = dy / length;
+        let perpY = -dx / length;
+
+        // Her zaman "aşağı" yönünde asılsın (Y pozitif aşağı)
+        // Eğer perpendicular yukarı doğruysa (perpY < 0), ters çevir
+        if (perpY < 0) {
+            perpX = -perpX;
+            perpY = -perpY;
         }
 
-        // Sayaç merkezini ayarla
-        meter.x = merkezX;
-        meter.y = merkezY;
+        // Sayaç rotation'u: Boru yönü (giriş rakoru boru yönünde olmalı)
+        meter.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        // Giriş rakorunun lokal koordinatı
+        const girisLokal = meter.getGirisLocalKoordinat(); // {x: -5, y: -13}
+
+        // Giriş rakorunun dünya koordinatı (istenen): boru ucu + perpendicular * fleksUzunluk
+        const girisHedefX = boruUcu.nokta.x + perpX * fleksUzunluk;
+        const girisHedefY = boruUcu.nokta.y + perpY * fleksUzunluk;
+
+        // Sayaç merkezini hesapla (rotation uygulanmış lokal koordinattan)
+        const rad = meter.rotation * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        // Giriş lokal noktasını döndür
+        const girisRotatedX = girisLokal.x * cos - girisLokal.y * sin;
+        const girisRotatedY = girisLokal.x * sin + girisLokal.y * cos;
+
+        // Merkez = Hedef giriş - rotated giriş lokal
+        meter.x = girisHedefX - girisRotatedX;
+        meter.y = girisHedefY - girisRotatedY;
+
+        // Çıkış rijit borusu uzunluğunu ayarla (giriş borusu hizasına kadar)
+        // Rijit boru, sayacın üstünden yukarı çıkıp ana boru hizasına gelene kadar uzanır
+        meter.config.rijitUzunluk = fleksUzunluk; // 30 cm
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
         meter.fleksBagla(boruUcu.boruId, boruUcu.uc);
