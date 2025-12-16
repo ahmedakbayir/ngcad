@@ -191,7 +191,7 @@ export class Sayac {
     /**
      * Giriş bağlantısını kur (Fleks)
      */
-    fleksbagla(boruId, endpoint) {
+    fleksBagla(boruId, endpoint) {
         this.fleksBaglanti.boruId = boruId;
         this.fleksBaglanti.endpoint = endpoint;
     }
