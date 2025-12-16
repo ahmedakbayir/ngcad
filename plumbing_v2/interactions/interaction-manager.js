@@ -925,89 +925,6 @@ placeComponent(point) {
     this.manager.saveToState();
 }
 
-splitPipeAndInsertMeter(pipe, clickPoint, meter) {
-        saveState();
-
-        // 1. Tıklama noktasını boru üzerine izdüşür (Bu nokta boru hattı üzerinde kalacak)
-        const proj = pipe.projectPoint(clickPoint);
-        const pointOnPipe = { x: proj.x, y: proj.y };
-
-        // 2. Boru açısını hesapla
-        const dx = pipe.p2.x - pipe.p1.x;
-        const dy = pipe.p2.y - pipe.p1.y;
-        const pipeLen = Math.hypot(dx, dy);
-        const pipeAngleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
-
-        // 3. Sayacı boru açısında döndür ve konumlandır
-        // Sayacın rijit başlangıç noktası (rekor) boru hattı üzerinde kalmalı
-        meter.rotation = pipeAngleDeg;
-
-        // Önce geçici olarak sayacı pointOnPipe'a koy
-        meter.x = pointOnPipe.x;
-        meter.y = pointOnPipe.y;
-
-        // Sayacın rijit başlangıç noktasını hesapla
-        const tempRijitBaslangic = meter.localToWorld(meter.getRijitBaslangicLocal());
-
-        // Merkezi düzelt: rijit başlangıç noktası pointOnPipe'a denk gelsin
-        meter.x = pointOnPipe.x - (tempRijitBaslangic.x - pointOnPipe.x);
-        meter.y = pointOnPipe.y - (tempRijitBaslangic.y - pointOnPipe.y);
-
-        // 5. Kesim noktalarını hesapla (Merkezden sola ve sağa git)
-        // Sayacın "Giriş Noktası"nın denk geleceği yer:
-        // Sayacın yerleşimi: Giriş(Sol) --- Merkez --- Çıkış(Sağ)
-        // Boru P1 -------- [KesimA] (Sayaç) [KesimB] -------- P2
-        
-        // Sayacın giriş noktası (dünya koord)
-        const meterInPos = meter.getGirisNoktasi();
-        // Sayacın çıkış noktası (dünya koord)
-        const meterOutPos = meter.getCikisNoktasi();
-
-        // 6. Boruyu bölme işlemi
-        // P1'den MeterInPos'a kadar olan kısım -> Boru 1
-        // MeterOutPos'tan P2'ye kadar olan kısım -> Boru 2
-        
-        // Mevcut boruyu güncelle (Boru 1 yap)
-        const originalP2 = { ...pipe.p2 }; // Eski bitişi sakla
-        const originalEndConn = { ...pipe.bitisBaglanti }; // Eski bağlantıyı sakla
-
-        pipe.p2 = { x: meterInPos.x, y: meterInPos.y }; // P2'yi geri çek
-        pipe.bitisBaglanti = { tip: null, hedefId: null }; // Bağlantıyı kopar
-
-        // Yeni boru oluştur (Boru 2)
-        const newPipe = createBoru(
-            { x: meterOutPos.x, y: meterOutPos.y }, // Yeni başlangıç
-            originalP2,                             // Eski bitiş
-            pipe.boruTipi
-        );
-        newPipe.floorId = pipe.floorId;
-        newPipe.bitisBaglanti = originalEndConn; // Eski bitiş bağlantısını buna ver
-
-        // 7. Bağlantıları Kur
-        // Sayaç Girişi -> Boru 1 (pipe)
-        meter.baglaGiris(pipe.id, pipe.p2);
-        
-        // Sayaç Çıkışı -> Boru 2 (newPipe)
-        meter.baglaCikis(newPipe.id);
-        
-        // Boru 2 Başlangıcı -> Sayaç (Bu bağlantı tipi 'BORU' değil 'SAYAC' olmalı ki takip edilebilsin)
-        newPipe.setBaslangicBaglanti(BAGLANTI_TIPLERI.SAYAC, meter.id);
-
-        // 8. Nesneleri Kaydet
-        this.manager.components.push(meter);
-        this.manager.pipes.push(newPipe);
-        
-        // Ghost elemanı temizle
-        this.manager.tempComponent = null;
-        this.manager.activeTool = null;
-        setMode("select"); // İşlem bitince seç moduna dön
-
-        this.manager.saveToState();
-        update3DScene();
-        
-        console.log("Sayaç boru üzerine başarıyla eklendi ve hat bölündü.");
-    }
-
 /**
  * Boru çizim modunu başlat
  */
@@ -1228,29 +1145,6 @@ handleBoruClick(point) {
         kaynakTip: BAGLANTI_TIPLERI.BORU
     };
     this.snapSystem.setStartPoint(point);
-}
-
-/**
- * Sayaç ekleme işlemleri
- */
-handleSayacEkleme(sayac) {
-    const boruUcu = this.findBoruUcuAt(sayac.getGirisNoktasi());
-
-    if (boruUcu) {
-        const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
-
-        if (!vanaVar) {
-            const vana = createVana(boruUcu.nokta.x, boruUcu.nokta.y, 'SAYAC');
-            vana.rotation = sayac.rotation;
-            vana.floorId = sayac.floorId;
-            this.manager.components.push(vana);
-            sayac.vanaIliskilendir(vana.id);
-        }
-
-        sayac.baglaGiris(boruUcu.boruId, boruUcu.nokta);
-    }
-
-    this.startBoruCizim(sayac.getCikisNoktasi(), sayac.id, BAGLANTI_TIPLERI.SAYAC);
 }
 
 /**
@@ -2914,7 +2808,7 @@ getGeciciBoruCizgisi() {
         console.log(`[SAYAÇ YERLEŞTİRME] Mesafe: ${mesafe.toFixed(1)} cm (Hedef: ~${fleksUzunluk} cm)`);
 
         // 3. Bağlantıyı Kur (Fleks)
-        meter.baglaGiris(pipe.id, pipeEnd.uc);
+        meter.fleksBagla(pipe.id, pipeEnd.uc);
 
         // 4. Kaydet ve Çizimi Başlat (Çıkıştan rijit boru)
         this.manager.components.push(meter);
