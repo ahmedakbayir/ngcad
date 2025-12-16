@@ -632,8 +632,8 @@ export class PlumbingRenderer {
                 const girisNoktasi = comp.getGirisNoktasi();
 
                 if (targetPoint && girisNoktasi) {
-                    // Sayacın merkezi deviceCenter olarak geçilebilir
-                    this.drawWavyConnectionLine(ctx, girisNoktasi, zoom, manager, targetPoint, {x: comp.x, y: comp.y});
+                    // Sayaç için fleks direkt RAKORA bağlanır (deviceCenter = null)
+                    this.drawWavyConnectionLine(ctx, girisNoktasi, zoom, manager, targetPoint, null);
                 }
             }
         }
