@@ -1289,6 +1289,10 @@ export class InteractionManager {
         meter.x = girisHedefX - girisRotatedX;
         meter.y = girisHedefY - girisRotatedY;
 
+        // Çıkış rijit borusu uzunluğunu ayarla (giriş borusu hizasına kadar)
+        // Rijit boru, sayacın üstünden yukarı çıkıp ana boru hizasına gelene kadar uzanır
+        meter.config.rijitUzunluk = fleksUzunluk; // 30 cm
+
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
         meter.fleksBagla(boruUcu.boruId, boruUcu.uc);
 
