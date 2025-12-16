@@ -754,47 +754,47 @@ export class InteractionManager {
             }
         }
         else if (ghost.type === 'sayac') {
-            // SAYAÇ İÇİN ÖZEL GHOST MANTIĞI:
-            // Boruya yaklaşınca hizalanır, vana ve fleks önizlemesi için bilgi hazırlar.
+            // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
+            const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
 
-            // 1. Boru ucu kontrolü (En yüksek öncelik)
-            const boruUcu = this.findBoruUcuAt(point, 15);
-
-            if (boruUcu) {
-                // Boru ucuna hizala (fleks payı bırakarak)
+            if (boruUcu && boruUcu.boru) {
+                // Boru yönünü hesapla (boru ucundan dışarı doğru)
                 const boru = boruUcu.boru;
                 const dx = boru.p2.x - boru.p1.x;
                 const dy = boru.p2.y - boru.p1.y;
-                const len = Math.hypot(dx, dy);
+                const length = Math.hypot(dx, dy);
 
+                // Sayaç rotation'u boru yönüne göre ayarla
                 ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
 
-                // Kombi/Ocak mantığı: fleks uzunluğu + sayaç yarı genişliği
-                const fleksUzunluk = 20; // cm
-                const sayacYariGenislik = ghost.config.width / 2; // 10 cm
-                const toplamMesafe = fleksUzunluk + sayacYariGenislik; // 30 cm
+                // Fleks uzunluğu + sayaç yarı genişliği = toplam mesafe
+                const fleksUzunluk = 50; // cm
+                const sayacYariGenislik = ghost.config.width / 2;
+                const toplamMesafe = fleksUzunluk + sayacYariGenislik;
 
+                // Sayaç merkezini hesapla (boru yönünde)
                 let merkezX, merkezY;
                 if (boruUcu.uc === 'p1') {
-                    // p1 ucundayız, p1'den dışarı git
-                    merkezX = boruUcu.nokta.x - (dx / len) * toplamMesafe;
-                    merkezY = boruUcu.nokta.y - (dy / len) * toplamMesafe;
+                    // p1 ucundayız, boru p2'den p1'e geliyor, sayaç p1'den dışarı gitmeli
+                    merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
+                    merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
                 } else {
-                    // p2 ucundayız, p2'den dışarı git
-                    merkezX = boruUcu.nokta.x + (dx / len) * toplamMesafe;
-                    merkezY = boruUcu.nokta.y + (dy / len) * toplamMesafe;
+                    // p2 ucundayız, boru p1'den p2'ye geliyor, sayaç p2'den dışarı gitmeli
+                    merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
+                    merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
                 }
 
+                // Sayaç merkezini ayarla
                 ghost.x = merkezX;
                 ghost.y = merkezY;
 
-                // Renderer'ın hayalet vana ve fleks çizebilmesi için bilgi
+                // Ghost rendering için bağlantı bilgisini sakla
                 ghost.ghostConnectionInfo = {
                     boruUcu: boruUcu,
-                    girisNoktasi: ghost.getGirisNoktasi()
+                    girisNoktasi: boruUcu.nokta // Fleks boru ucundan başlayacak
                 };
             } else {
-                // Boşta (boru ucuna snap olmadı)
+                // Boru ucu bulunamadı, normal cursor pozisyonu
                 ghost.x = point.x;
                 ghost.y = point.y;
                 ghost.ghostConnectionInfo = null;
@@ -870,16 +870,18 @@ export class InteractionManager {
                 break;
 
             case 'sayac':
-                const pipeEnd = this.findBoruUcuAt(point, 15);
-                if (pipeEnd) {
-                    this.handleSayacEndPlacement(pipeEnd, component);
-                    return;
+                const success = this.handleSayacEndPlacement(component);
+                if (success) {
+                    if (component.fleksBaglanti && component.fleksBaglanti.boruId) {
+                        const boru = this.manager.findPipeById(component.fleksBaglanti.boruId);
+                        if (boru) {
+                            const ucNokta = component.fleksBaglanti.endpoint === 'p1' ? boru.p1 : boru.p2;
+                            this.startBoruCizim(ucNokta, boru.id, BAGLANTI_TIPLERI.BORU);
+                            this.manager.activeTool = 'boru';
+                            setMode("plumbingV2", true);
+                        } else { setMode("select"); }
+                    } else { setMode("select"); }
                 }
-                saveState();
-                this.manager.components.push(component);
-                this.startBoruCizim(component.getCikisNoktasi(), component.id, BAGLANTI_TIPLERI.SAYAC);
-                this.manager.activeTool = 'boru';
-                setMode("plumbingV2", true);
                 break;
 
             case 'vana':
@@ -1143,28 +1145,89 @@ export class InteractionManager {
 
     /**
      * Sayaç ekleme işlemleri
-        Boru ucuna sayaç ekleme (Vana + Fleks Dahil)
-         */
-    handleSayacEndPlacement(pipeEnd, meter) {
-        console.log('[SAYAÇ] handleSayacEndPlacement ÇAĞRILDI');
+     * KURALLAR:
+     * - Sayaç SADECE boru uç noktasına eklenebilir
+     * - Fleks ile bağlanır
+     * - Boru ucunda vana yoksa otomatik vana eklenir
+     */
+    handleSayacEndPlacement(meter) {
+        console.log('[handleSayacEndPlacement] Başlıyor');
+
+        // Ghost'tan boru ucu bilgisini al (ghost gösterimde doğru pozisyon belirlendi)
+        // Eğer ghost bilgisi yoksa, mevcut pozisyondan bul
+        let boruUcu;
+        if (meter.ghostConnectionInfo && meter.ghostConnectionInfo.boruUcu) {
+            boruUcu = meter.ghostConnectionInfo.boruUcu;
+            console.log('[handleSayacEndPlacement] Ghost connection info bulundu:', boruUcu);
+        } else {
+            // Fallback: mevcut pozisyondan bul
+            const girisNoktasi = meter.getGirisNoktasi();
+            boruUcu = this.findBoruUcuAt(girisNoktasi, 50);
+            console.log('[handleSayacEndPlacement] Fallback ile boru ucu bulundu:', boruUcu);
+        }
+
+        if (!boruUcu) {
+            console.error('[handleSayacEndPlacement] ✗ Boru ucu bulunamadı!');
+            alert('Sayaç bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
+            return false;
+        }
+
+        // T JUNCTION KONTROLÜ: Sayaç sadece gerçek uçlara bağlanabilir, T noktasına değil
+        if (!this.isFreeEndpoint(boruUcu.nokta, 1)) {
+            console.error('[handleSayacEndPlacement] ✗ T-junction kontrolü başarısız!');
+            alert('⚠️ Sayaç T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
+            return false;
+        }
+
+        // SAYAÇ VAR MI KONTROLÜ: Bir boru ucunda zaten sayaç varsa başka sayaç eklenemez
+        const mevcutSayac = this.hasMeterAtEndpoint(boruUcu.boruId, boruUcu.uc);
+        if (mevcutSayac) {
+            console.error('[handleSayacEndPlacement] ✗ Bu boru ucunda zaten sayaç var!');
+            alert('⚠️ Bu boru ucunda zaten bir sayaç var!\n\nBir boru ucuna sadece bir sayaç eklenebilir.');
+            return false;
+        }
+
+        console.log('[handleSayacEndPlacement] ✓ Kontroller geçti, vana ve sayaç ekleniyor...');
+
+        // Undo için state kaydet
         saveState();
 
-        const pipe = pipeEnd.boru;
-        const endPoint = pipeEnd.nokta;
+        // Boru ucunda vana var mı kontrol et
+        const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
 
-        // 1. Boru ucunda vana var mı? Yoksa ekle.
-        const vanaVar = this.checkVanaAtPoint(endPoint);
+        // Vana yoksa otomatik ekle
         if (!vanaVar) {
-            // Vana oluştur
-            const vana = createVana(endPoint.x, endPoint.y, 'SAYAC');
-            vana.floorId = meter.floorId;
-            vana.rotation = pipe.aciDerece;
+            // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
+            const boru = boruUcu.boru;
+            const edgeMargin = 1;      // cm - kenar için margin
+            const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
+            const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
 
-            // Vanayı boruya bağla
-            vana.bagliBoruId = pipe.id;
-            vana.fixedDistance = 4; // Uçtan 4cm içeride
-            vana.fromEnd = pipeEnd.uc;
-            vana.updatePositionFromPipe(pipe); // Pozisyonu netleştir
+            // Boru yönünü hesapla (boru ucundan içeriye doğru)
+            const dx = boru.p2.x - boru.p1.x;
+            const dy = boru.p2.y - boru.p1.y;
+            const length = Math.hypot(dx, dy);
+
+            let vanaX, vanaY;
+            if (boruUcu.uc === 'p1') {
+                // p1 ucundayız, p2'ye doğru centerMargin kadar ilerle
+                vanaX = boruUcu.nokta.x + (dx / length) * centerMargin;
+                vanaY = boruUcu.nokta.y + (dy / length) * centerMargin;
+            } else {
+                // p2 ucundayız, p1'e doğru centerMargin kadar ilerle
+                vanaX = boruUcu.nokta.x - (dx / length) * centerMargin;
+                vanaY = boruUcu.nokta.y - (dy / length) * centerMargin;
+            }
+
+            const vana = createVana(vanaX, vanaY, 'SAYAC');
+            vana.rotation = boruUcu.boru.aciDerece;
+            vana.floorId = meter.floorId;
+
+            // Vana'yı boru üzerindeki pozisyona bağla
+            vana.bagliBoruId = boruUcu.boruId;
+            // Pozisyonu hesapla (0.0 - 1.0 arası)
+            const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
+            vana.boruPozisyonu = vanaToP1Dist / length;
 
             this.manager.components.push(vana);
             meter.iliskiliVanaId = vana.id;
@@ -1172,50 +1235,47 @@ export class InteractionManager {
             meter.iliskiliVanaId = vanaVar.id;
         }
 
-        // 2. Sayacı konumlandır (Kombi/Ocak ile AYNI mantık)
-        const dx = pipe.p2.x - pipe.p1.x;
-        const dy = pipe.p2.y - pipe.p1.y;
-        const len = Math.hypot(dx, dy);
+        // Sayaç rotation'unu boru yönüne göre ayarla
+        const boru = boruUcu.boru;
+        const dx = boru.p2.x - boru.p1.x;
+        const dy = boru.p2.y - boru.p1.y;
+        const length = Math.hypot(dx, dy);
         meter.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
 
-        // Kombi/Ocak mantığı: fleks uzunluğu + sayaç yarı genişliği
-        const fleksUzunluk = 20; // cm
-        const sayacYariGenislik = meter.config.width / 2; // 10 cm
-        const toplamMesafe = fleksUzunluk + sayacYariGenislik; // 30 cm
+        // Fleks uzunluğu + sayaç yarı genişliği = toplam mesafe
+        const fleksUzunluk = 50; // cm
+        const sayacYariGenislik = meter.config.width / 2;
+        const toplamMesafe = fleksUzunluk + sayacYariGenislik;
 
         let merkezX, merkezY;
-        if (pipeEnd.uc === 'p1') {
-            // p1 ucundayız, p1'den dışarı git
-            merkezX = endPoint.x - (dx / len) * toplamMesafe;
-            merkezY = endPoint.y - (dy / len) * toplamMesafe;
+        if (boruUcu.uc === 'p1') {
+            // p1 ucundayız, boru p2'den p1'e geliyor, sayaç p1'den dışarı gitmeli
+            merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
+            merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
         } else {
-            // p2 ucundayız, p2'den dışarı git
-            merkezX = endPoint.x + (dx / len) * toplamMesafe;
-            merkezY = endPoint.y + (dy / len) * toplamMesafe;
+            // p2 ucundayız, boru p1'den p2'ye geliyor, sayaç p2'den dışarı gitmeli
+            merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
+            merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
         }
 
+        // Sayaç merkezini ayarla
         meter.x = merkezX;
         meter.y = merkezY;
 
-        // DEBUG: Yerleştirme sonrası kontrol
-        const finalGiris = meter.getGirisNoktasi();
-        const mesafe = Math.hypot(finalGiris.x - endPoint.x, finalGiris.y - endPoint.y);
-        console.log(`[SAYAÇ YERLEŞTİRME] Boru ucu: (${endPoint.x.toFixed(1)}, ${endPoint.y.toFixed(1)})`);
-        console.log(`[SAYAÇ YERLEŞTİRME] Giriş: (${finalGiris.x.toFixed(1)}, ${finalGiris.y.toFixed(1)})`);
-        console.log(`[SAYAÇ YERLEŞTİRME] Mesafe: ${mesafe.toFixed(1)} cm (Hedef: ~${fleksUzunluk} cm)`);
+        // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
+        meter.fleksBagla(boruUcu.boruId, boruUcu.uc);
 
-        // 3. Bağlantıyı Kur (Fleks)
-        meter.fleksBagla(pipe.id, pipeEnd.uc);
+        // Sayacı components'a ekle (eğer henüz eklenmemişse)
+        if (!this.manager.components.includes(meter)) {
+            console.log('[handleSayacEndPlacement] Sayaç components\'a ekleniyor');
+            this.manager.components.push(meter);
+        }
 
-        // 4. Kaydet ve Çizimi Başlat (Çıkıştan rijit boru)
-        this.manager.components.push(meter);
-        this.startBoruCizim(meter.getCikisNoktasi(), meter.id, BAGLANTI_TIPLERI.SAYAC);
-
-        this.manager.activeTool = 'boru';
-        setMode("plumbingV2", true);
-
+        // State'e kaydet
         this.manager.saveToState();
-        update3DScene();
+
+        console.log('[handleSayacEndPlacement] ✓ Sayaç başarıyla eklendi. Toplam components:', this.manager.components.length);
+        return true;
     }
 
 
@@ -1624,6 +1684,29 @@ export class InteractionManager {
             if (comp.type !== 'cihaz') continue;
 
             // Sadece aktif kattaki cihazları kontrol et
+            if (currentFloorId && comp.floorId && comp.floorId !== currentFloorId) {
+                continue;
+            }
+
+            // Fleks bağlantısı bu boru ucuna mı?
+            if (comp.fleksBaglanti &&
+                comp.fleksBaglanti.boruId === boruId &&
+                comp.fleksBaglanti.endpoint === endpoint) {
+                return comp;
+            }
+        }
+
+        return null;
+    }
+
+    hasMeterAtEndpoint(boruId, endpoint) {
+        const currentFloorId = state.currentFloor?.id;
+
+        for (const comp of this.manager.components) {
+            // Sadece sayaçları kontrol et
+            if (comp.type !== 'sayac') continue;
+
+            // Sadece aktif kattaki sayaçları kontrol et
             if (currentFloorId && comp.floorId && comp.floorId !== currentFloorId) {
                 continue;
             }
