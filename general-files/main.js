@@ -833,6 +833,7 @@ let currentFPS = 60;
 let mouse3DCoords = { x: 0, y: 0, z: 0 };
 
 // --- GÜNCELLENMİŞ ANIMATE FONKSİYONU ---
+window.IS_DEBUG_MODE = false;
 function animate() {
     requestAnimationFrame(animate);
 
@@ -873,11 +874,11 @@ function animate() {
     }
 
     // YENİ: TWEEN animasyonlarını güncelle
-    if (typeof TWEEN !== 'undefined') {
-        TWEEN.update();
+    if (!window.IS_DEBUG_MODE) {
+        if (typeof TWEEN !== 'undefined') {
+            TWEEN.update();
+        }
     }
-    // YENİ SONU
-
     draw2D();
 
     if (dom.mainContainer.classList.contains('show-3d')) {

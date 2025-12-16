@@ -853,6 +853,7 @@ const mouse = new THREE.Vector2();
  */
 function on3DPointerDown(event) {
     // Sadece sol tıklama
+    if (window.IS_DEBUG_MODE) return;
     if (event.button !== 0) return;
 
     // Gerekli 3D nesneleri kontrol et
