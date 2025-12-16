@@ -587,6 +587,22 @@ export class InteractionManager {
             return true;
         }
 
+        // S - Sayaç ekle
+        if (e.key === 's' || e.key === 'S') {
+            // Aktif boru çizimini iptal et
+            this.cancelCurrentAction();
+
+            // TESİSAT moduna geç
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
+
+            // Sayaç yerleştirme modunu başlat
+            this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
+            setMode("plumbingV2", true);
+            return true;
+        }
+
         // T - BORU çizme modu (boru icon'unu aktif et)
         if (e.key === 't' || e.key === 'T') {
             // TESİSAT modunda olduğumuzdan emin ol
@@ -882,15 +898,11 @@ export class InteractionManager {
             case 'sayac':
                 const success1 = this.handleSayacEndPlacement(component);
                 if (success1) {
-                    if (component.fleksBaglanti && component.fleksBaglanti.boruId) {
-                        const boru = this.manager.findPipeById(component.fleksBaglanti.boruId);
-                        if (boru) {
-                            const ucNokta = component.fleksBaglanti.endpoint === 'p1' ? boru.p1 : boru.p2;
-                            this.startBoruCizim(ucNokta, boru.id, BAGLANTI_TIPLERI.BORU);
-                            this.manager.activeTool = 'boru';
-                            setMode("plumbingV2", true);
-                        } else { setMode("select"); }
-                    } else { setMode("select"); }
+                    // Sayacın çıkış noktasından çizim başlat
+                    const cikisNoktasi = component.getCikisNoktasi();
+                    this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
+                    this.manager.activeTool = 'boru';
+                    setMode("plumbingV2", true);
                 }
                 break;
 
@@ -904,18 +916,12 @@ export class InteractionManager {
                 break;
 
             case 'cihaz':
-                // ... (Mevcut kod) ...
+                // Cihaz ekleme - K/O kısayolu gibi boru çizme moduna geç ama çizim başlatma
                 const success = this.handleCihazEkleme(component);
                 if (success) {
-                    if (component.fleksBaglanti && component.fleksBaglanti.boruId) {
-                        const boru = this.manager.findPipeById(component.fleksBaglanti.boruId);
-                        if (boru) {
-                            const ucNokta = component.fleksBaglanti.endpoint === 'p1' ? boru.p1 : boru.p2;
-                            this.startBoruCizim(ucNokta, boru.id, BAGLANTI_TIPLERI.BORU);
-                            this.manager.activeTool = 'boru';
-                            setMode("plumbingV2", true);
-                        } else { setMode("select"); }
-                    } else { setMode("select"); }
+                    // Boru çizme moduna geç (icon aktif olsun ama çizim başlamasın)
+                    this.manager.activeTool = 'boru';
+                    setMode("plumbingV2", true);
                 }
                 break;
 
@@ -1062,19 +1068,26 @@ export class InteractionManager {
             }
         });
 
-        // Cihaz ve sayaç fleks bağlantılarını güncelle (p2'ye bağlı olanlar boru2'ye geçmeli)
+        // Cihaz ve sayaç fleks bağlantılarını güncelle (POZİSYONA GÖRE doğru segmente ata)
         this.manager.components.forEach(comp => {
             if ((comp.type === 'cihaz' || comp.type === 'sayac') && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
                 // Cihaz/sayaç bu boruya fleks ile bağlı
                 const endpoint = comp.fleksBaglanti.endpoint;
-                if (endpoint === 'p2') {
-                    // p2'ye bağlıydı, boru2'ye aktar
-                    comp.fleksBaglanti.boruId = boru2.id;
-                    comp.fleksBaglanti.endpoint = 'p2';
-                } else {
-                    // p1'e bağlıydı, boru1'e aktar
+
+                // Fleks bağlantı noktasının pozisyonunu bul (orijinal boru üzerinde)
+                const baglantiNoktasi = endpoint === 'p1' ? pipe.p1 : pipe.p2;
+                const proj = pipe.projectPoint(baglantiNoktasi);
+                const baglantiT = proj ? proj.t : (endpoint === 'p1' ? 0 : 1);
+
+                // Split noktası ile karşılaştır
+                if (baglantiT <= splitT) {
+                    // Bağlantı noktası split noktasından önce veya eşit -> boru1'de kal
                     comp.fleksBaglanti.boruId = boru1.id;
                     comp.fleksBaglanti.endpoint = 'p1';
+                } else {
+                    // Bağlantı noktası split noktasından sonra -> boru2'ye geç
+                    comp.fleksBaglanti.boruId = boru2.id;
+                    comp.fleksBaglanti.endpoint = 'p2';
                 }
             }
         });

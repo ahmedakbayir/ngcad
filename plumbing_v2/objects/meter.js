@@ -16,7 +16,7 @@ export const SAYAC_CONFIG = {
     height: 24,         // cm - Gövde yüksekliği
     depth: 16,          // cm - 3D Derinlik
     color: 0xA8A8A8,    // Metalik gri
-    rijitUzunluk: 10,   // Çıkış borusu uzunluğu (Sayacın üstünden boru hattına kadar)
+    rijitUzunluk: 2,    // Çıkış borusu uzunluğu (Giriş kolu hizasına denk gelir)
     connectionOffset: 5 // Merkezden sağa/sola sapma miktarı (giriş/çıkış arası 10cm)
 
 };
@@ -159,18 +159,11 @@ export class Sayac {
     }
 
     /**
-     * Giriş noktası etrafında döndür
+     * Merkez etrafında döndür
      */
     rotate(deltaDerece) {
-        const girisNoktasi = this.getGirisNoktasi();
-
-        // Rotasyonu uygula
+        // Rotasyonu uygula (merkez sabit kalır)
         this.rotation = (this.rotation + deltaDerece) % 360;
-
-        // Merkezi giriş noktasına göre yeniden hesapla (giriş sabit kalsın)
-        const yeniGiris = this.getGirisNoktasi();
-        this.x += girisNoktasi.x - yeniGiris.x;
-        this.y += girisNoktasi.y - yeniGiris.y;
 
         return {
             cikisBagliBoruId: this.cikisBagliBoruId,

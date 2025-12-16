@@ -608,8 +608,8 @@ function onKeyDown(e) {
     if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
 
     // --- Yeni Tesisat Sistemi (v2) Klavye İşlemleri ---
-    // PlumbingV2 modunda VEYA tesisat nesnesi seçiliyse
-    if (state.currentMode === "plumbingV2" || state.currentMode === "MİMARİ-TESİSAT" ||
+    // PlumbingV2, Select, MİMARİ-TESİSAT modlarında VEYA tesisat nesnesi seçiliyse
+    if (state.currentMode === "plumbingV2" || state.currentMode === "select" || state.currentMode === "MİMARİ-TESİSAT" ||
         (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type))) {
         const handled = plumbingManager.interactionManager.handleKeyDown(e);
         if (handled) {
@@ -818,7 +818,8 @@ function onKeyDown(e) {
         plumbingManager.startPipeMode(); // Boru çizim aracını başlat
         setMode("plumbingV2", true); // UI'yı güncelle (ikonu aktif et)
     }
-    if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry"); // YENİ SATIR
+    // S tuşu artık sayaç eklemek için kullanılıyor (interaction-manager.js'de)
+    // if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry");
 
 }
 
