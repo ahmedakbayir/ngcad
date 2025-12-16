@@ -801,7 +801,7 @@ export class InteractionManager {
 
                 // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
                 // Fleks bitiş noktası artık cihazın içine doğru uzandığı için 20 cm yeterli
-                const fleksUzunluk = 20; // cm
+                const fleksUzunluk = 15; // cm
                 const cihazYariGenislik = ghost.config.width / 2;
                 const toplamMesafe = fleksUzunluk + cihazYariGenislik;
 
@@ -847,7 +847,7 @@ export class InteractionManager {
                 const length = Math.hypot(dx, dy);
 
                 // Fleks görünen boy
-                const fleksUzunluk = 20; // cm
+                const fleksUzunluk = 15; // cm
 
                 // Boru yönüne DİK (perpendicular) vektör hesapla
                 let perpX = dy / length;
@@ -1335,7 +1335,7 @@ export class InteractionManager {
         const length = Math.hypot(dx, dy);
 
         // Fleks görünen boy (rakora bağlanır)
-        const fleksUzunluk = 20; // cm
+        const fleksUzunluk = 15; // cm
 
         // Boru yönüne DİK (perpendicular) vektör hesapla
         // Right perpendicular: (dy, -dx) normalize edilmiş
@@ -1500,7 +1500,7 @@ export class InteractionManager {
 
         // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
         // Fleks bitiş noktası artık cihazın içine doğru uzandığı için 20 cm yeterli
-        const fleksUzunluk = 50; // cm
+        const fleksUzunluk = 15; // cm
         const cihazYariGenislik = cihaz.config.width / 2;
         const toplamMesafe = fleksUzunluk + cihazYariGenislik;
 
