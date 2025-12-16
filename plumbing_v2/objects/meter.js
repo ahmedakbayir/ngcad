@@ -17,11 +17,8 @@ export const SAYAC_CONFIG = {
     depth: 16,          // cm - 3D Derinlik
     color: 0xA8A8A8,    // Metalik gri
     rijitUzunluk: 10,   // Çıkış borusu uzunluğu (Sayacın üstünden boru hattına kadar)
-    connectionOffset: 5, // Merkezden sağa/sola sapma miktarı (giriş/çıkış arası 10cm)
-    fleksBaglantiNoktasi: {
-        offsetX: -5,    // cm - Gövde merkezinden sola
-        offsetY: -20    // cm - Gövde üstünden yukarı
-    }
+    connectionOffset: 5 // Merkezden sağa/sola sapma miktarı (giriş/çıkış arası 10cm)
+
 };
 
 export class Sayac {
@@ -72,7 +69,7 @@ export class Sayac {
     getSolRakorLocalKoordinat() {
         return {
             x: -this.config.connectionOffset,
-            y: -this.config.height / 2
+            y: -this.config.height / 2 - 2
         };
     }
 
