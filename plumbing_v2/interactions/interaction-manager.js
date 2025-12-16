@@ -1205,7 +1205,7 @@ export class InteractionManager {
         console.log(`[SAYAÇ YERLEŞTİRME] Mesafe: ${mesafe.toFixed(1)} cm (Hedef: ~${fleksUzunluk} cm)`);
 
         // 3. Bağlantıyı Kur (Fleks)
-        meter.baglaGiris(pipe.id, pipeEnd.uc);
+        meter.fleksBagla(pipe.id, pipeEnd.uc);
 
         // 4. Kaydet ve Çizimi Başlat (Çıkıştan rijit boru)
         this.manager.components.push(meter);
