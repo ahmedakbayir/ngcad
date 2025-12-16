@@ -1036,10 +1036,10 @@ export class PlumbingRenderer {
                 }
             }
 
-            // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil)
+            // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil, direkt rakora)
             const connectionPoint = comp.getSolRakorNoktasi();
-            const deviceCenter = { x: comp.x, y: comp.y };
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
+            // deviceCenter null -> fleks içeri uzamaz, direkt rakora bağlanır
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, null);
 
             ctx.restore();
         }
