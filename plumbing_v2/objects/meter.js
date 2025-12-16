@@ -60,7 +60,18 @@ export class Sayac {
      */
     getGirisLocalKoordinat() {
         return {
-            x: -this.config.connectionOffset, 
+            x: -this.config.connectionOffset,
+            y: -this.config.height / 2
+        };
+    }
+
+    /**
+     * Sol rakorun local koordinatı
+     * KURAL: FLEKS BU NOKTAYA BAĞLANIR (Gövde değil, sadece rakor)
+     */
+    getSolRakorLocalKoordinat() {
+        return {
+            x: -this.config.connectionOffset,
             y: -this.config.height / 2
         };
     }
@@ -73,8 +84,8 @@ export class Sayac {
      */
     getCikisLocalKoordinat() {
         return {
-            x: this.config.connectionOffset, 
-            y: -this.config.height / 2 - this.config.rijitUzunluk 
+            x: this.config.connectionOffset,
+            y: -this.config.height / 2 - this.config.rijitUzunluk
         };
     }
     
@@ -108,6 +119,14 @@ export class Sayac {
      */
     getGirisNoktasi() {
         return this.localToWorld(this.getGirisLocalKoordinat());
+    }
+
+    /**
+     * Sol rakorun dünya koordinatları
+     * KURAL: FLEKS BU NOKTAYA BAĞLANIR
+     */
+    getSolRakorNoktasi() {
+        return this.localToWorld(this.getSolRakorLocalKoordinat());
     }
 
     /**

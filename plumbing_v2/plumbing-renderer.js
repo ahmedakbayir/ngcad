@@ -1036,7 +1036,8 @@ export class PlumbingRenderer {
                 }
             }
 
-            const connectionPoint = comp.getGirisNoktasi();
+            // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil)
+            const connectionPoint = comp.getSolRakorNoktasi();
             const deviceCenter = { x: comp.x, y: comp.y };
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
 
@@ -1854,7 +1855,8 @@ export class PlumbingRenderer {
         }
 
         // 2. Fleks Çizgisi (Basit kesikli çizgi)
-        const giris = ghost.getGirisNoktasi();
+        // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil)
+        const solRakor = ghost.getSolRakorNoktasi();
 
         ctx.globalAlpha = 0.6;
         ctx.strokeStyle = '#FFD700'; // Sarı
@@ -1864,8 +1866,8 @@ export class PlumbingRenderer {
         ctx.beginPath();
         // Boru ucundan (veya vana hizasından)
         ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y);
-        // Sayacın girişine
-        ctx.lineTo(giris.x, giris.y);
+        // Sayacın sol rakoruna
+        ctx.lineTo(solRakor.x, solRakor.y);
         ctx.stroke();
 
         ctx.setLineDash([]);
