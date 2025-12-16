@@ -764,8 +764,8 @@ export class InteractionManager {
                 const dy = boru.p2.y - boru.p1.y;
                 const length = Math.hypot(dx, dy);
 
-                // Fleks uzunluğu
-                const fleksUzunluk = 30;
+                // Fleks görünen boy
+                const fleksUzunluk = 20; // cm
 
                 // Boru yönüne DİK (perpendicular) vektör hesapla
                 let perpX = dy / length;
@@ -1251,8 +1251,8 @@ export class InteractionManager {
         const dy = boru.p2.y - boru.p1.y;
         const length = Math.hypot(dx, dy);
 
-        // Fleks uzunluğu (FLEKS_CONFIG.defaultUzunluk = 30 cm)
-        const fleksUzunluk = 30;
+        // Fleks görünen boy (rakora bağlanır)
+        const fleksUzunluk = 20; // cm
 
         // Boru yönüne DİK (perpendicular) vektör hesapla
         // Right perpendicular: (dy, -dx) normalize edilmiş
