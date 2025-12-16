@@ -880,8 +880,8 @@ export class InteractionManager {
                 break;
 
             case 'sayac':
-                const success = this.handleSayacEndPlacement(component);
-                if (success) {
+                const success1 = this.handleSayacEndPlacement(component);
+                if (success1) {
                     if (component.fleksBaglanti && component.fleksBaglanti.boruId) {
                         const boru = this.manager.findPipeById(component.fleksBaglanti.boruId);
                         if (boru) {
