@@ -1062,10 +1062,10 @@ export class InteractionManager {
             }
         });
 
-        // Cihaz fleks bağlantılarını güncelle (p2'ye bağlı cihazlar boru2'ye geçmeli)
+        // Cihaz ve sayaç fleks bağlantılarını güncelle (p2'ye bağlı olanlar boru2'ye geçmeli)
         this.manager.components.forEach(comp => {
-            if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
-                // Cihaz bu boruya fleks ile bağlı
+            if ((comp.type === 'cihaz' || comp.type === 'sayac') && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
+                // Cihaz/sayaç bu boruya fleks ile bağlı
                 const endpoint = comp.fleksBaglanti.endpoint;
                 if (endpoint === 'p2') {
                     // p2'ye bağlıydı, boru2'ye aktar
