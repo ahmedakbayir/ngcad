@@ -295,11 +295,21 @@ export class InteractionManager {
                 }
             }
 
-            // Vana kontrolü (en yüksek öncelik - boru uçlarından önce)
-            const hitResult = this.manager.getObjectAtPoint(point, 10);
-            if (hitResult && hitResult.type === 'valve') {
+            // --- VANA KONTROLÜ (EN YÜKSEK ÖNCELİK VE HASSASİYET) ---
+            // Doğrudan bileşen listesinden, 0 tolerans ile (containsPoint varsayılanı)
+            const clickedValve = this.manager.components.find(c => c.type === 'vana' && c.containsPoint(point));
+
+            if (clickedValve) {
                 // Vana seçildi
-                this.selectValve(hitResult.pipe, hitResult.object);
+                // Bağlı olduğu boruyu bul
+                const pipe = clickedValve.bagliBoruId ? this.manager.pipes.find(p => p.id === clickedValve.bagliBoruId) : null;
+
+                // Vanayı seç
+                this.selectValve(pipe, clickedValve);
+
+                // Sürükleme işlemini başlat (Bunu eklemezsek "kilitlendi" gibi hissedilir)
+                this.startDrag(clickedValve, point);
+
                 return true;
             }
 
@@ -331,7 +341,7 @@ export class InteractionManager {
                 }
             }
 
-            // Sonra nesne seçimi
+            // Sonra nesne seçimi (Boru vs)
             const hitObject = this.findObjectAt(point);
             if (hitObject) {
                 console.log('📦 NESNE BULUNDU:', hitObject.type, hitObject.id);
@@ -398,8 +408,6 @@ export class InteractionManager {
      * Mouse bırakma
      */
     handlePointerUp(e) {
-
-
         if (this.isRotating) {
             this.endRotation();
             return true;
@@ -447,7 +455,7 @@ export class InteractionManager {
             return true;
         }
 
-// K - Kombi ekle (Ghost mod)
+        // K - Kombi ekle (Ghost mod)
         if (e.key === 'k' || e.key === 'K') {
             // Önceki modu kaydet
             this.previousMode = state.currentMode;
@@ -462,7 +470,7 @@ export class InteractionManager {
             this.cancelCurrentAction();
 
             // DÜZELTİLDİ: Parametre nesne olarak gönderilmeli
-            this.manager.startPlacement('cihaz', { cihazTipi: 'KOMBI' }); 
+            this.manager.startPlacement('cihaz', { cihazTipi: 'KOMBI' });
             setMode("plumbingV2", true);
 
             return true;
@@ -809,7 +817,7 @@ export class InteractionManager {
                     // Sayacın çıkış noktasından çizim başlat
                     const cikisNoktasi = component.getCikisNoktasi();
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
- // Önceki moda dön (S tuşu ile eklenmişse)
+                    // Önceki moda dön (S tuşu ile eklenmişse)
                     if (this.previousMode) {
                         console.log(`[MODE] Sayaç eklendi, önceki moda dönülüyor: ${this.previousMode}`);
                         setTimeout(() => {
@@ -1023,14 +1031,14 @@ export class InteractionManager {
         // Cihaz ve sayaç fleks bağlantılarını güncelle
         // Boru split sonrası: boru1.p1=eski.p1, boru1.p2=split, boru2.p1=split, boru2.p2=eski.p2
         console.log(`[SPLIT] Split position t=${splitT.toFixed(3)}`);
-        console.log(`[SPLIT] boru1: ${boru1.id.substr(0,8)} (p1=${boru1.p1.x.toFixed(1)},${boru1.p1.y.toFixed(1)} -> p2=${boru1.p2.x.toFixed(1)},${boru1.p2.y.toFixed(1)})`);
-        console.log(`[SPLIT] boru2: ${boru2.id.substr(0,8)} (p1=${boru2.p1.x.toFixed(1)},${boru2.p1.y.toFixed(1)} -> p2=${boru2.p2.x.toFixed(1)},${boru2.p2.y.toFixed(1)})`);
+        console.log(`[SPLIT] boru1: ${boru1.id.substr(0, 8)} (p1=${boru1.p1.x.toFixed(1)},${boru1.p1.y.toFixed(1)} -> p2=${boru1.p2.x.toFixed(1)},${boru1.p2.y.toFixed(1)})`);
+        console.log(`[SPLIT] boru2: ${boru2.id.substr(0, 8)} (p1=${boru2.p1.x.toFixed(1)},${boru2.p1.y.toFixed(1)} -> p2=${boru2.p2.x.toFixed(1)},${boru2.p2.y.toFixed(1)})`);
 
         this.manager.components.forEach(comp => {
             if ((comp.type === 'cihaz' || comp.type === 'sayac') && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
                 const endpoint = comp.fleksBaglanti.endpoint;
                 const fleksPos = endpoint === 'p1' ? pipe.p1 : pipe.p2;
-                console.log(`[SPLIT] ${comp.type} ${comp.id.substr(0,8)} - Fleks bağlantı: ${endpoint} at (${fleksPos.x.toFixed(1)},${fleksPos.y.toFixed(1)})`);
+                console.log(`[SPLIT] ${comp.type} ${comp.id.substr(0, 8)} - Fleks bağlantı: ${endpoint} at (${fleksPos.x.toFixed(1)},${fleksPos.y.toFixed(1)})`);
 
                 if (endpoint === 'p1') {
                     // Eski p1'e bağlıydı -> Yeni boru1.p1'e bağlan
@@ -1518,7 +1526,10 @@ export class InteractionManager {
         }
         // Vana seçimi temizle
         if (this.selectedValve) {
-            this.selectedValve.pipe.vana.isSelected = false;
+            // DÜZELTME: pipe.vana yerine doğrudan vana bileşenini hedefle
+            if (this.selectedValve.vana) {
+                this.selectedValve.vana.isSelected = false;
+            }
             this.selectedValve = null;
         }
         this.selectedObject = obj;
@@ -1542,11 +1553,14 @@ export class InteractionManager {
         }
         // Önceki vana seçimini temizle
         if (this.selectedValve) {
-            this.selectedValve.pipe.vana.isSelected = false;
+            // DÜZELTME: pipe.vana.isSelected yerine vana.isSelected
+            if (this.selectedValve.vana) {
+                this.selectedValve.vana.isSelected = false;
+            }
         }
 
         this.selectedValve = { pipe, vana };
-        vana.isSelected = true;
+        if (vana) vana.isSelected = true;
 
         // state.selectedObject'i de set et (DELETE tuşu için)
         setState({
@@ -1558,26 +1572,40 @@ export class InteractionManager {
             }
         });
     }
-
     deselectObject() {
         if (this.selectedObject) {
             this.selectedObject.isSelected = false;
             this.selectedObject = null;
         }
         if (this.selectedValve) {
-            this.selectedValve.pipe.vana.isSelected = false;
+            // DÜZELTME: Kilitlenmeye neden olan hatalı referans düzeltildi
+            if (this.selectedValve.vana) {
+                this.selectedValve.vana.isSelected = false;
+            }
             this.selectedValve = null;
         }
 
         // state.selectedObject'i de temizle
         setState({ selectedObject: null });
     }
-
     deleteSelectedObject() {
         // Vana silinmesi
         if (this.selectedValve) {
             saveState();
-            this.selectedValve.pipe.vanaKaldir();
+            // Güvenli silme işlemi
+            const { pipe, vana } = this.selectedValve;
+
+            // Legacy uyumluluğu için pipe üzerindeki referansı temizle
+            if (pipe) {
+                pipe.vanaKaldir();
+            }
+
+            // Bileşen listesinden vanayı sil (görünümden kalkması için şart)
+            if (vana) {
+                const idx = this.manager.components.indexOf(vana);
+                if (idx !== -1) this.manager.components.splice(idx, 1);
+            }
+
             this.manager.saveToState();
             this.deselectObject();
             return;
@@ -1618,23 +1646,24 @@ export class InteractionManager {
     }
 
     findObjectAt(point) {
-        // ÖNCELİK 1: Boruları ÖNCE kontrol et (2cm tolerance - kesin tıklama)
-        // Bu sayede servis kutusu bounding box'ı içinde olsa bile boru seçilebilir
-        for (const pipe of this.manager.pipes) {
-            if (pipe.containsPoint && pipe.containsPoint(point, 2)) {
-                return pipe;
-            }
-        }
-
-        // ÖNCELİK 2: Bileşenler (servis kutusu, sayaç, vana, cihaz)
+        // ÖNCELİK 1: Bileşenler (Vana, servis kutusu, sayaç, cihaz)
+        // Vana tam boyutunda (tolerance 0) burada kontrol edilir.
+        // Eğer fare tam vana üzerindeyse bu döngü onu bulur ve döndürür.
         for (const comp of this.manager.components) {
             if (comp.containsPoint && comp.containsPoint(point)) {
                 return comp;
             }
         }
 
+        // ÖNCELİK 2: Borular (2cm tolerance - kesin tıklama)
+        // Vana bulunamadıysa (yani 1mm bile dışındaysa), buraya düşer ve boruyu arar.
+        for (const pipe of this.manager.pipes) {
+            if (pipe.containsPoint && pipe.containsPoint(point, 2)) {
+                return pipe;
+            }
+        }
+
         // ÖNCELİK 3: Borular (daha geniş tolerance - 5cm)
-        // Yukarıda 2cm ile bulunamadıysa, 5cm ile tekrar dene
         for (const pipe of this.manager.pipes) {
             if (pipe.containsPoint && pipe.containsPoint(point, 5)) {
                 return pipe;
@@ -1643,7 +1672,6 @@ export class InteractionManager {
 
         return null;
     }
-
     /**
      * Bir noktanın serbest uç olup olmadığını kontrol et (T-junction, dirsek değil)
      * KRITIK: Cihazlar SADECE gerçek boş uçlara (1 borulu) bağlanabilir
@@ -1747,8 +1775,8 @@ export class InteractionManager {
                 // SADECE gerçek boş uçlar (dirsek, T-junction, cihaz ve sayaç olan uçlar hariç)
                 if (!onlyFreeEndpoints ||
                     (this.manager.isTrulyFreeEndpoint(boru.p1, 1) &&
-                     !this.hasDeviceAtEndpoint(boru.id, 'p1') &&
-                     !this.hasMeterAtEndpoint(boru.id, 'p1'))) {
+                        !this.hasDeviceAtEndpoint(boru.id, 'p1') &&
+                        !this.hasMeterAtEndpoint(boru.id, 'p1'))) {
 
                     candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
                 }
@@ -1757,8 +1785,8 @@ export class InteractionManager {
                 // SADECE gerçek boş uçlar (dirsek, T-junction, cihaz ve sayaç olan uçlar hariç)
                 if (!onlyFreeEndpoints ||
                     (this.manager.isTrulyFreeEndpoint(boru.p2, 1) &&
-                     !this.hasDeviceAtEndpoint(boru.id, 'p2') &&
-                     !this.hasMeterAtEndpoint(boru.id, 'p2'))) {
+                        !this.hasDeviceAtEndpoint(boru.id, 'p2') &&
+                        !this.hasMeterAtEndpoint(boru.id, 'p2'))) {
                     candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
                 }
             }
