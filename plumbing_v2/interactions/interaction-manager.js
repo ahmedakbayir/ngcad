@@ -700,14 +700,9 @@ export class InteractionManager {
                 const fleksUzunluk = 15; // cm
 
                 // Boru yönüne DİK (perpendicular) vektör hesapla
-                let perpX = dy / length;
-                let perpY = -dx / length;
-
-                // Her zaman "aşağı" yönünde asılsın
-                if (perpY < 0) {
-                    perpX = -perpX;
-                    perpY = -perpY;
-                }
+                // 90° saat yönünde (clockwise) döndürülmüş vektör: (-dy, dx)
+                let perpX = -dy / length;
+                let perpY = dx / length;
 
                 // Sayaç rotation'u: Boru yönü
                 ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
@@ -1240,16 +1235,9 @@ export class InteractionManager {
         const fleksUzunluk = 15; // cm
 
         // Boru yönüne DİK (perpendicular) vektör hesapla
-        // Right perpendicular: (dy, -dx) normalize edilmiş
-        let perpX = dy / length;
-        let perpY = -dx / length;
-
-        // Her zaman "aşağı" yönünde asılsın (Y pozitif aşağı)
-        // Eğer perpendicular yukarı doğruysa (perpY < 0), ters çevir
-        if (perpY < 0) {
-            perpX = -perpX;
-            perpY = -perpY;
-        }
+        // 90° saat yönünde (clockwise) döndürülmüş vektör: (-dy, dx)
+        let perpX = -dy / length;
+        let perpY = dx / length;
 
         // Sayaç rotation'u: Boru yönü (giriş rakoru boru yönünde olmalı)
         meter.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
