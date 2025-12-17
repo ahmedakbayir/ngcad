@@ -447,7 +447,7 @@ export class InteractionManager {
             return true;
         }
 
-        // K - Kombi ekle (Ghost mod)
+// K - Kombi ekle (Ghost mod)
         if (e.key === 'k' || e.key === 'K') {
             // Önceki modu kaydet
             this.previousMode = state.currentMode;
@@ -461,8 +461,8 @@ export class InteractionManager {
             // Mevcut eylemleri iptal et
             this.cancelCurrentAction();
 
-            // Cihaz ghost modunu başlat
-            this.manager.startPlacement('cihaz', 'KOMBI');
+            // DÜZELTİLDİ: Parametre nesne olarak gönderilmeli
+            this.manager.startPlacement('cihaz', { cihazTipi: 'KOMBI' }); 
             setMode("plumbingV2", true);
 
             return true;
@@ -482,8 +482,9 @@ export class InteractionManager {
             // Mevcut eylemleri iptal et
             this.cancelCurrentAction();
 
-            // Cihaz ghost modunu başlat
-            this.manager.startPlacement('cihaz', 'OCAK');
+            // DÜZELTİLDİ: Parametre nesne olarak gönderilmeli
+            // Eskiden sadece 'OCAK' stringi gönderildiği için varsayılan (KOMBI) seçiliyordu.
+            this.manager.startPlacement('cihaz', { cihazTipi: 'OCAK' });
             setMode("plumbingV2", true);
 
             return true;
@@ -808,19 +809,24 @@ export class InteractionManager {
                     // Sayacın çıkış noktasından çizim başlat
                     const cikisNoktasi = component.getCikisNoktasi();
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
-                    this.manager.activeTool = 'boru';
-                    setMode("plumbingV2", true);
-
-                    // Önceki moda dön (S tuşu ile eklenmişse)
+ // Önceki moda dön (S tuşu ile eklenmişse)
                     if (this.previousMode) {
+                        console.log(`[MODE] Sayaç eklendi, önceki moda dönülüyor: ${this.previousMode}`);
                         setTimeout(() => {
                             if (this.previousDrawingMode) {
+                                console.log(`[MODE] Drawing mode restore: ${this.previousDrawingMode}`);
                                 setDrawingMode(this.previousDrawingMode);
                             }
+                            console.log(`[MODE] Mode restore: ${this.previousMode}`);
                             setMode(this.previousMode);
+                            this.manager.activeTool = 'boru';
                             this.previousMode = null;
                             this.previousDrawingMode = null;
                         }, 10);
+                    } else {
+                        // Önceki mod yoksa, normal boru çizme moduna geç
+                        this.manager.activeTool = 'boru';
+                        setMode("plumbingV2", true);
                     }
                 }
                 break;
@@ -838,20 +844,24 @@ export class InteractionManager {
                 // Cihaz ekleme - K/O kısayolu gibi boru çizme moduna geç ama çizim başlatma
                 const success = this.handleCihazEkleme(component);
                 if (success) {
-                    // Boru çizme moduna geç (icon aktif olsun ama çizim başlamasın)
-                    this.manager.activeTool = 'boru';
-                    setMode("plumbingV2", true);
-
                     // Önceki moda dön (K/O tuşu ile eklenmişse)
                     if (this.previousMode) {
+                        console.log(`[MODE] Cihaz eklendi, önceki moda dönülüyor: ${this.previousMode}`);
                         setTimeout(() => {
                             if (this.previousDrawingMode) {
+                                console.log(`[MODE] Drawing mode restore: ${this.previousDrawingMode}`);
                                 setDrawingMode(this.previousDrawingMode);
                             }
+                            console.log(`[MODE] Mode restore: ${this.previousMode}`);
                             setMode(this.previousMode);
+                            this.manager.activeTool = 'boru';
                             this.previousMode = null;
                             this.previousDrawingMode = null;
                         }, 10);
+                    } else {
+                        // Önceki mod yoksa, normal boru çizme moduna geç
+                        this.manager.activeTool = 'boru';
+                        setMode("plumbingV2", true);
                     }
                 }
                 break;
@@ -2620,6 +2630,19 @@ export class InteractionManager {
 
             // Fleks artık her render'da borudan koordinat okuyor
             // Döndürme sonrası ekstra güncelleme gerekmiyor
+        } else if (obj.type === 'sayac') {
+            // Sayaç: Merkez sabit, rotation değişir
+            let normalizedRotation = newRotationDeg % 360;
+            if (normalizedRotation < 0) normalizedRotation += 360;
+            obj.rotation = normalizedRotation;
+            // Çıkış borusunu güncelle (çıkış noktası döndükçe değişir)
+            if (obj.cikisBagliBoruId) {
+                const cikisBoru = this.manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
+                if (cikisBoru) {
+                    // Sayaç çıkışı boru p1'e bağlı
+                    cikisBoru.moveP1(obj.getCikisNoktasi());
+                }
+            }
         }
     }
 

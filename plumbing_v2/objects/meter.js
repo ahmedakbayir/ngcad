@@ -54,23 +54,23 @@ export class Sayac {
 
     /**
      * Giriş noktasının local koordinatı
-     * KURAL: ÜST SOL (Gövdenin üst kenarı, sol taraf)
+     * KURAL: ÜST SOL + NUT (çıkış ile aynı hizada)
      */
     getGirisLocalKoordinat() {
         return {
             x: -this.config.connectionOffset,
-            y: -this.config.height / 2
+            y: -this.config.height / 2 - this.config.nutHeight
         };
     }
 
     /**
      * Sol rakorun local koordinatı
-     * KURAL: FLEKS BU NOKTAYA BAĞLANIR (Gövde değil, sadece rakor)
+     * KURAL: FLEKS BU NOKTAYA BAĞLANIR (Gövde değil, sadece rakor - çıkış ile aynı hizada)
      */
     getSolRakorLocalKoordinat() {
         return {
             x: -this.config.connectionOffset,
-            y: -this.config.height / 2 - 2
+            y: -this.config.height / 2 - this.config.nutHeight
         };
     }
 

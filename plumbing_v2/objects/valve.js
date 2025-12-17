@@ -462,11 +462,14 @@ export class Vana {
      */
     containsPoint(point) {
         const bbox = this.getBoundingBox();
+        // Seçim kolaylığı için 5 cm tolerans payı ekliyoruz
+        const tolerance = 5;
+
         return (
-            point.x >= bbox.minX &&
-            point.x <= bbox.maxX &&
-            point.y >= bbox.minY &&
-            point.y <= bbox.maxY
+            point.x >= bbox.minX - tolerance &&
+            point.x <= bbox.maxX + tolerance &&
+            point.y >= bbox.minY - tolerance &&
+            point.y <= bbox.maxY + tolerance
         );
     }
 

@@ -72,7 +72,7 @@ async function loadPictureFrameImages() {
 }
 */
 
-export const BG = "#1e1f20";
+export const BG = "#222325ff";
 export const METER_SCALE = 1;
 // export const WALL_THICKNESS = 20; // SABİT KALDIRILDI
 export const WALL_HEIGHT = 270;
