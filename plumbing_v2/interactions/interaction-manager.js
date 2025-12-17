@@ -313,6 +313,19 @@ export class InteractionManager {
                 return true;
             }
 
+            // --- SAYAÇ KONTROLÜ (Boru modunda sayaca tıklanırsa rijit uçtan başla) ---
+            if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
+                const clickedMeter = this.manager.components.find(c =>
+                    c.type === 'sayac' && c.containsPoint && c.containsPoint(point)
+                );
+                if (clickedMeter) {
+                    console.log('🎯 SAYAÇ BULUNDU, rijit uçtan boru başlatılıyor:', clickedMeter.id);
+                    const cikisNoktasi = clickedMeter.getCikisNoktasi();
+                    this.startBoruCizim(cikisNoktasi, clickedMeter.id, BAGLANTI_TIPLERI.SAYAC);
+                    return true;
+                }
+            }
+
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
             const boruUcu = this.findBoruUcuAt(point, 10); // Nokta seçimi için 2.5 cm tolerance (daha hassas)
             if (boruUcu) {
