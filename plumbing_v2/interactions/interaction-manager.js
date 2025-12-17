@@ -447,224 +447,65 @@ export class InteractionManager {
             return true;
         }
 
-        // K - Kombi ekle
+        // K - Kombi ekle (Ghost mod)
         if (e.key === 'k' || e.key === 'K') {
+            // Önceki modu kaydet
+            this.previousMode = state.currentMode;
+            this.previousDrawingMode = state.currentDrawingMode;
+
             // TESİSAT moduna geç
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
 
-            let boruUcuInfo = null;
-
-            // 1. Öncelik: Aktif boru çizimi varsa, son çizim noktasını kullan
-            const activeDrawPoint = this.boruCizimAktif && this.boruBaslangic
-                ? { ...this.boruBaslangic }
-                : null;
-
-            if (activeDrawPoint && activeDrawPoint.kaynakId) {
-                const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
-                if (sourcePipe) {
-                    const point = activeDrawPoint.nokta;
-                    const distToP1 = Math.hypot(point.x - sourcePipe.p1.x, point.y - sourcePipe.p1.y);
-                    const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
-                    const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
-
-                    boruUcuInfo = {
-                        pipe: sourcePipe,
-                        end: endPoint,
-                        point: sourcePipe[endPoint]
-                    };
-                }
-            }
-            // 2. İkinci öncelik: Seçili boru varsa, onun boş ucunu kullan
-            else if (this.selectedObject && this.selectedObject.type === 'boru') {
-                const selectedPipe = this.selectedObject;
-                // p1 veya p2 boş mu kontrol et (cihaz VE sayaç kontrolü)
-                const p1Free = this.manager.isTrulyFreeEndpoint(selectedPipe.p1, 1) &&
-                    !this.hasDeviceAtEndpoint(selectedPipe.id, 'p1') &&
-                    !this.hasMeterAtEndpoint(selectedPipe.id, 'p1');
-                const p2Free = this.manager.isTrulyFreeEndpoint(selectedPipe.p2, 1) &&
-                    !this.hasDeviceAtEndpoint(selectedPipe.id, 'p2') &&
-                    !this.hasMeterAtEndpoint(selectedPipe.id, 'p2');
-
-                if (p1Free) {
-                    boruUcuInfo = {
-                        pipe: selectedPipe,
-                        end: 'p1',
-                        point: selectedPipe.p1
-                    };
-                } else if (p2Free) {
-                    boruUcuInfo = {
-                        pipe: selectedPipe,
-                        end: 'p2',
-                        point: selectedPipe.p2
-                    };
-                }
-            }
-
             // Mevcut eylemleri iptal et
             this.cancelCurrentAction();
-            setMode("select");
 
-            // placeDeviceAtOpenEnd handleCihazEkleme kullanır - vana, fleks otomatik eklenir
-            if (this.manager.placeDeviceAtOpenEnd('KOMBI', boruUcuInfo)) {
-                saveState();
-                update3DScene();
-
-                // Boru çizme moduna geç (icon aktif olsun ama çizim başlamasın)
-                this.manager.activeTool = 'boru';
-                setMode("plumbingV2", true);
-            }
+            // Cihaz ghost modunu başlat
+            this.manager.startPlacement('cihaz', 'KOMBI');
+            setMode("plumbingV2", true);
 
             return true;
         }
 
-        // O - Ocak ekle
+        // O - Ocak ekle (Ghost mod)
         if (e.key === 'o' || e.key === 'O') {
+            // Önceki modu kaydet
+            this.previousMode = state.currentMode;
+            this.previousDrawingMode = state.currentDrawingMode;
+
             // TESİSAT moduna geç
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
 
-            let boruUcuInfo = null;
-
-            // 1. Öncelik: Aktif boru çizimi varsa, son çizim noktasını kullan
-            const activeDrawPoint = this.boruCizimAktif && this.boruBaslangic
-                ? { ...this.boruBaslangic }
-                : null;
-
-            if (activeDrawPoint && activeDrawPoint.kaynakId) {
-                const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
-                if (sourcePipe) {
-                    const point = activeDrawPoint.nokta;
-                    const distToP1 = Math.hypot(point.x - sourcePipe.p1.x, point.y - sourcePipe.p1.y);
-                    const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
-                    const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
-
-                    boruUcuInfo = {
-                        pipe: sourcePipe,
-                        end: endPoint,
-                        point: sourcePipe[endPoint]
-                    };
-                }
-            }
-            // 2. İkinci öncelik: Seçili boru varsa, onun boş ucunu kullan
-            else if (this.selectedObject && this.selectedObject.type === 'boru') {
-                const selectedPipe = this.selectedObject;
-                // p1 veya p2 boş mu kontrol et (cihaz VE sayaç kontrolü)
-                const p1Free = this.manager.isTrulyFreeEndpoint(selectedPipe.p1, 1) &&
-                    !this.hasDeviceAtEndpoint(selectedPipe.id, 'p1') &&
-                    !this.hasMeterAtEndpoint(selectedPipe.id, 'p1');
-                const p2Free = this.manager.isTrulyFreeEndpoint(selectedPipe.p2, 1) &&
-                    !this.hasDeviceAtEndpoint(selectedPipe.id, 'p2') &&
-                    !this.hasMeterAtEndpoint(selectedPipe.id, 'p2');
-
-                if (p1Free) {
-                    boruUcuInfo = {
-                        pipe: selectedPipe,
-                        end: 'p1',
-                        point: selectedPipe.p1
-                    };
-                } else if (p2Free) {
-                    boruUcuInfo = {
-                        pipe: selectedPipe,
-                        end: 'p2',
-                        point: selectedPipe.p2
-                    };
-                }
-            }
-
             // Mevcut eylemleri iptal et
             this.cancelCurrentAction();
-            setMode("select");
 
-            // placeDeviceAtOpenEnd handleCihazEkleme kullanır - vana, fleks otomatik eklenir
-            if (this.manager.placeDeviceAtOpenEnd('OCAK', boruUcuInfo)) {
-                saveState();
-                update3DScene();
-
-                // Boru çizme moduna geç (icon aktif olsun ama çizim başlamasın)
-                this.manager.activeTool = 'boru';
-                setMode("plumbingV2", true);
-            }
+            // Cihaz ghost modunu başlat
+            this.manager.startPlacement('cihaz', 'OCAK');
+            setMode("plumbingV2", true);
 
             return true;
         }
 
-        // S - Sayaç ekle
+        // S - Sayaç ekle (Ghost mod)
         if (e.key === 's' || e.key === 'S') {
+            // Önceki modu kaydet
+            this.previousMode = state.currentMode;
+            this.previousDrawingMode = state.currentDrawingMode;
+
             // TESİSAT moduna geç
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
 
-            let boruUcuInfo = null;
-
-            // 1. Öncelik: Aktif boru çizimi varsa, son çizim noktasını kullan
-            const activeDrawPoint = this.boruCizimAktif && this.boruBaslangic
-                ? { ...this.boruBaslangic }
-                : null;
-
-            if (activeDrawPoint && activeDrawPoint.kaynakId) {
-                const sourcePipe = this.manager.findPipeById(activeDrawPoint.kaynakId);
-                if (sourcePipe) {
-                    const point = activeDrawPoint.nokta;
-                    const distToP1 = Math.hypot(point.x - sourcePipe.p1.x, point.y - sourcePipe.p1.y);
-                    const distToP2 = Math.hypot(point.x - sourcePipe.p2.x, point.y - sourcePipe.p2.y);
-                    const endPoint = distToP1 < distToP2 ? 'p1' : 'p2';
-
-                    boruUcuInfo = {
-                        pipe: sourcePipe,
-                        end: endPoint,
-                        point: sourcePipe[endPoint]
-                    };
-                }
-            }
-            // 2. İkinci öncelik: Seçili boru varsa, onun boş ucunu kullan
-            else if (this.selectedObject && this.selectedObject.type === 'boru') {
-                const selectedPipe = this.selectedObject;
-                // p1 veya p2 boş mu kontrol et (cihaz/sayaç kontrolü dahil)
-                const p1Free = this.manager.isTrulyFreeEndpoint(selectedPipe.p1, 1) &&
-                    !this.hasDeviceAtEndpoint(selectedPipe.id, 'p1') &&
-                    !this.hasMeterAtEndpoint(selectedPipe.id, 'p1');
-                const p2Free = this.manager.isTrulyFreeEndpoint(selectedPipe.p2, 1) &&
-                    !this.hasDeviceAtEndpoint(selectedPipe.id, 'p2') &&
-                    !this.hasMeterAtEndpoint(selectedPipe.id, 'p2');
-
-                if (p1Free) {
-                    boruUcuInfo = {
-                        pipe: selectedPipe,
-                        end: 'p1',
-                        point: selectedPipe.p1
-                    };
-                } else if (p2Free) {
-                    boruUcuInfo = {
-                        pipe: selectedPipe,
-                        end: 'p2',
-                        point: selectedPipe.p2
-                    };
-                }
-            }
-
             // Mevcut eylemleri iptal et
             this.cancelCurrentAction();
-            setMode("select");
 
-            // Eğer boş uç varsa, sayacı oraya ekle
-            if (boruUcuInfo && this.manager.placeMeterAtOpenEnd) {
-                if (this.manager.placeMeterAtOpenEnd(boruUcuInfo)) {
-                    saveState();
-                    update3DScene();
-
-                    // Boru çizme moduna geç
-                    this.manager.activeTool = 'boru';
-                    setMode("plumbingV2", true);
-                }
-            } else {
-                // Boş uç yoksa, sayaç yerleştirme modunu başlat (ghost ile)
-                this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
-                setMode("plumbingV2", true);
-            }
+            // Sayaç ghost modunu başlat
+            this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
+            setMode("plumbingV2", true);
 
             return true;
         }
@@ -969,6 +810,18 @@ export class InteractionManager {
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
                     this.manager.activeTool = 'boru';
                     setMode("plumbingV2", true);
+
+                    // Önceki moda dön (S tuşu ile eklenmişse)
+                    if (this.previousMode) {
+                        setTimeout(() => {
+                            if (this.previousDrawingMode) {
+                                setDrawingMode(this.previousDrawingMode);
+                            }
+                            setMode(this.previousMode);
+                            this.previousMode = null;
+                            this.previousDrawingMode = null;
+                        }, 10);
+                    }
                 }
                 break;
 
@@ -988,6 +841,18 @@ export class InteractionManager {
                     // Boru çizme moduna geç (icon aktif olsun ama çizim başlamasın)
                     this.manager.activeTool = 'boru';
                     setMode("plumbingV2", true);
+
+                    // Önceki moda dön (K/O tuşu ile eklenmişse)
+                    if (this.previousMode) {
+                        setTimeout(() => {
+                            if (this.previousDrawingMode) {
+                                setDrawingMode(this.previousDrawingMode);
+                            }
+                            setMode(this.previousMode);
+                            this.previousMode = null;
+                            this.previousDrawingMode = null;
+                        }, 10);
+                    }
                 }
                 break;
 
@@ -1108,6 +973,17 @@ export class InteractionManager {
 
         const { boru1, boru2, splitT } = result;
 
+        // Debug: Vana dağılımını kontrol et
+        if (pipe.vana) {
+            console.log(`[SPLIT] Eski boru vana pozisyonu: t=${pipe.vana.t.toFixed(3)}`);
+        }
+        if (boru1.vana) {
+            console.log(`[SPLIT] ✓ Vana boru1'de kaldı (t=${boru1.vana.t.toFixed(3)})`);
+        }
+        if (boru2.vana) {
+            console.log(`[SPLIT] ✓ Vana boru2'ye geçti (t=${boru2.vana.t.toFixed(3)})`);
+        }
+
         // BONUS: Vanalar ve diğer boru üzerindeki nesneleri doğru segmente ata
         const objectsOnPipe = this.manager.components.filter(comp =>
             comp.bagliBoruId === pipe.id
@@ -1136,18 +1012,26 @@ export class InteractionManager {
 
         // Cihaz ve sayaç fleks bağlantılarını güncelle
         // Boru split sonrası: boru1.p1=eski.p1, boru1.p2=split, boru2.p1=split, boru2.p2=eski.p2
+        console.log(`[SPLIT] Split position t=${splitT.toFixed(3)}`);
+        console.log(`[SPLIT] boru1: ${boru1.id.substr(0,8)} (p1=${boru1.p1.x.toFixed(1)},${boru1.p1.y.toFixed(1)} -> p2=${boru1.p2.x.toFixed(1)},${boru1.p2.y.toFixed(1)})`);
+        console.log(`[SPLIT] boru2: ${boru2.id.substr(0,8)} (p1=${boru2.p1.x.toFixed(1)},${boru2.p1.y.toFixed(1)} -> p2=${boru2.p2.x.toFixed(1)},${boru2.p2.y.toFixed(1)})`);
+
         this.manager.components.forEach(comp => {
             if ((comp.type === 'cihaz' || comp.type === 'sayac') && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
                 const endpoint = comp.fleksBaglanti.endpoint;
+                const fleksPos = endpoint === 'p1' ? pipe.p1 : pipe.p2;
+                console.log(`[SPLIT] ${comp.type} ${comp.id.substr(0,8)} - Fleks bağlantı: ${endpoint} at (${fleksPos.x.toFixed(1)},${fleksPos.y.toFixed(1)})`);
 
                 if (endpoint === 'p1') {
                     // Eski p1'e bağlıydı -> Yeni boru1.p1'e bağlan
                     comp.fleksBaglanti.boruId = boru1.id;
                     comp.fleksBaglanti.endpoint = 'p1';
+                    console.log(`[SPLIT] ✓ ${comp.type} -> boru1.p1 (ilk segment)`);
                 } else if (endpoint === 'p2') {
                     // Eski p2'ye bağlıydı -> Yeni boru2.p2'ye bağlan
                     comp.fleksBaglanti.boruId = boru2.id;
                     comp.fleksBaglanti.endpoint = 'p2';
+                    console.log(`[SPLIT] ✓ ${comp.type} -> boru2.p2 (ikinci segment)`);
                 }
             }
         });
@@ -1850,17 +1734,21 @@ export class InteractionManager {
             const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
 
             if (distP1 < tolerance) {
-                // SADECE gerçek boş uçlar (dirsek, T-junction ve cihaz olan uçlar hariç)
+                // SADECE gerçek boş uçlar (dirsek, T-junction, cihaz ve sayaç olan uçlar hariç)
                 if (!onlyFreeEndpoints ||
-                    (this.manager.isTrulyFreeEndpoint(boru.p1, 1) && !this.hasDeviceAtEndpoint(boru.id, 'p1'))) {
+                    (this.manager.isTrulyFreeEndpoint(boru.p1, 1) &&
+                     !this.hasDeviceAtEndpoint(boru.id, 'p1') &&
+                     !this.hasMeterAtEndpoint(boru.id, 'p1'))) {
 
                     candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
                 }
             }
             if (distP2 < tolerance) {
-                // SADECE gerçek boş uçlar (dirsek, T-junction ve cihaz olan uçlar hariç)
+                // SADECE gerçek boş uçlar (dirsek, T-junction, cihaz ve sayaç olan uçlar hariç)
                 if (!onlyFreeEndpoints ||
-                    (this.manager.isTrulyFreeEndpoint(boru.p2, 1) && !this.hasDeviceAtEndpoint(boru.id, 'p2'))) {
+                    (this.manager.isTrulyFreeEndpoint(boru.p2, 1) &&
+                     !this.hasDeviceAtEndpoint(boru.id, 'p2') &&
+                     !this.hasMeterAtEndpoint(boru.id, 'p2'))) {
                     candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
                 }
             }

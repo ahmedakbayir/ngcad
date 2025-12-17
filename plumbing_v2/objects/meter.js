@@ -17,7 +17,8 @@ export const SAYAC_CONFIG = {
     depth: 16,          // cm - 3D Derinlik
     color: 0xA8A8A8,    // Metalik gri
     rijitUzunluk: 0,    // Çıkış borusu uzunluğu (Giriş noktası hizasında)
-    connectionOffset: 5 // Merkezden sağa/sola sapma miktarı (giriş/çıkış arası 10cm)
+    connectionOffset: 5, // Merkezden sağa/sola sapma miktarı (giriş/çıkış arası 10cm)
+    nutHeight: 4        // Bağlantı nut yüksekliği
 
 };
 
@@ -75,25 +76,25 @@ export class Sayac {
 
     /**
      * Çıkış noktasının local koordinatı
-     * KURAL: ÜST SAĞ + RİJİT UZUNLUK
+     * KURAL: ÜST SAĞ + NUT + RİJİT UZUNLUK
      * Burası rijit borunun bittiği ve tesisatın devam ettiği yerdir.
      * Genelde sayacın asıldığı kotun (boru hattının) hizasına denk gelir.
      */
     getCikisLocalKoordinat() {
         return {
             x: this.config.connectionOffset,
-            y: -this.config.height / 2 - this.config.rijitUzunluk
+            y: -this.config.height / 2 - this.config.nutHeight - this.config.rijitUzunluk
         };
     }
     
     /**
      * Rijit borunun sayaç üzerindeki başlangıç noktası
-     * (Çizim için kullanılır)
+     * (Çizim için kullanılır - rakor altından başlar)
      */
     getRijitBaslangicLocal() {
         return {
             x: this.config.connectionOffset,
-            y: -this.config.height / 2
+            y: -this.config.height / 2 - this.config.nutHeight
         };
     }
 

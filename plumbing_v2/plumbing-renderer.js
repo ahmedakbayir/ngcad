@@ -489,8 +489,8 @@ export class PlumbingRenderer {
             if (comp.type !== 'servis_kutusu') {
                 this.drawSelectionBox(ctx, comp);
             }
-            // Servis kutusu ve cihaz için döndürme tutamacı
-            if (comp.type === 'servis_kutusu' || comp.type === 'cihaz') {
+            // Servis kutusu, cihaz ve sayaç için döndürme tutamacı
+            if (comp.type === 'servis_kutusu' || comp.type === 'cihaz' || comp.type === 'sayac') {
                 this.drawRotationHandles(ctx, comp);
             }
         }
@@ -1045,10 +1045,8 @@ export class PlumbingRenderer {
         }
 
         ctx.save();
-        if (comp.rotation) {
-            ctx.rotate(comp.rotation * Math.PI / 180);
-        }
         // --- 1. Gövde (Gradient Metalik Görünüm) ---
+        // NOT: Rotation is already applied in drawComponent, don't apply again
         ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
         ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 2;
@@ -1212,6 +1210,9 @@ export class PlumbingRenderer {
         } else if (comp.type === 'cihaz') {
             // Cihaz için: 30 cm çapında, handle 20 cm yukarıda (yarıya düşürüldü)
             handleLength = 15 + 20; // radius + 20cm = 35cm
+        } else if (comp.type === 'sayac') {
+            // Sayaç için: handle merkezden yukarıda
+            handleLength = comp.config.height / 2 + 20; // 12 + 20 = 32cm
         } else {
             return; // Diğer tipler için handle çizme
         }
