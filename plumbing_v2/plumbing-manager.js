@@ -42,6 +42,10 @@ export class PlumbingManager {
     startPlacement(type, options = {}) {
         this.activeTool = type;
 
+        // Yeni placement başladığında eski mouse pozisyonunu sıfırla
+        // Böylece ghost görüntü önceki cihazın konumunda başlamaz
+        this.interactionManager.lastMousePoint = null;
+
         // Ghost bileşen oluştur
         switch (type) {
             case TESISAT_MODLARI.SERVIS_KUTUSU:
@@ -71,12 +75,6 @@ export class PlumbingManager {
 
             default:
                 return;
-        }
-
-        // Son bilinen mouse pozisyonunu kullanarak başlangıç pozisyonunu ayarla
-        if (this.interactionManager.lastMousePoint) {
-            this.tempComponent.x = this.interactionManager.lastMousePoint.x;
-            this.tempComponent.y = this.interactionManager.lastMousePoint.y;
         }
 
     }
