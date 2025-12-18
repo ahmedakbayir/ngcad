@@ -51,8 +51,8 @@ export class PlumbingRenderer {
             }
         }
 
-        // Ghost eleman (her zaman yarı saydam)
-        if (manager.tempComponent) {
+        // Ghost eleman (her zaman yarı saydam) - sadece mouse hareket ettikten sonra görünsün
+        if (manager.tempComponent && manager.interactionManager.lastMousePoint) {
             ctx.save();
             ctx.globalAlpha = 0.6;
 
