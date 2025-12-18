@@ -1306,6 +1306,11 @@ function initialize() {
     }
     if (dom.bSayac) {
         dom.bSayac.addEventListener("click", () => {
+            // Önceki modu kaydet (icon ile eklenmeden önceki durumu restore için)
+            if (plumbingManager.interactionManager) {
+                plumbingManager.interactionManager.previousMode = state.currentMode;
+                plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
+            }
             // Aktif boru çizimini iptal et
             plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
@@ -1328,6 +1333,11 @@ function initialize() {
     }
     if (dom.bKombi) {
         dom.bKombi.addEventListener("click", () => {
+            // Önceki modu kaydet (icon ile eklenmeden önceki durumu restore için)
+            if (plumbingManager.interactionManager) {
+                plumbingManager.interactionManager.previousMode = state.currentMode;
+                plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
+            }
             // Aktif boru çizimini iptal et
             plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
@@ -1339,6 +1349,11 @@ function initialize() {
     }
     if (dom.bOcak) {
         dom.bOcak.addEventListener("click", () => {
+            // Önceki modu kaydet (icon ile eklenmeden önceki durumu restore için)
+            if (plumbingManager.interactionManager) {
+                plumbingManager.interactionManager.previousMode = state.currentMode;
+                plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
+            }
             // Aktif boru çizimini iptal et
             plumbingManager.interactionManager?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {

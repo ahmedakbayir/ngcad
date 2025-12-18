@@ -831,7 +831,7 @@ export class InteractionManager {
                     // Sayacın çıkış noktasından çizim başlat
                     const cikisNoktasi = component.getCikisNoktasi();
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
-                    // Önceki moda dön (S tuşu ile eklenmişse)
+                    // Önceki moda dön (S tuşu ile eklenmişse veya icon ile eklenmişse)
                     if (this.previousMode) {
                         console.log(`[MODE] Sayaç eklendi, önceki moda dönülüyor: ${this.previousMode}`);
                         setTimeout(() => {
@@ -841,7 +841,16 @@ export class InteractionManager {
                             }
                             console.log(`[MODE] Mode restore: ${this.previousMode}`);
                             setMode(this.previousMode);
-                            this.manager.activeTool = 'boru';
+
+                            // activeTool'u önceki moda göre ayarla
+                            // Eğer önceki mod boru çizim moduysa ('plumbingV2'), activeTool = 'boru'
+                            // Aksi halde activeTool = null (select modu)
+                            if (this.previousMode === 'plumbingV2') {
+                                this.manager.activeTool = 'boru';
+                            } else {
+                                this.manager.activeTool = null;
+                            }
+
                             this.previousMode = null;
                             this.previousDrawingMode = null;
                         }, 10);
@@ -866,7 +875,7 @@ export class InteractionManager {
                 // Cihaz ekleme - K/O kısayolu gibi boru çizme moduna geç ama çizim başlatma
                 const success = this.handleCihazEkleme(component);
                 if (success) {
-                    // Önceki moda dön (K/O tuşu ile eklenmişse)
+                    // Önceki moda dön (K/O tuşu ile eklenmişse veya icon ile eklenmişse)
                     if (this.previousMode) {
                         console.log(`[MODE] Cihaz eklendi, önceki moda dönülüyor: ${this.previousMode}`);
                         setTimeout(() => {
@@ -876,7 +885,16 @@ export class InteractionManager {
                             }
                             console.log(`[MODE] Mode restore: ${this.previousMode}`);
                             setMode(this.previousMode);
-                            this.manager.activeTool = 'boru';
+
+                            // activeTool'u önceki moda göre ayarla
+                            // Eğer önceki mod boru çizim moduysa ('plumbingV2'), activeTool = 'boru'
+                            // Aksi halde activeTool = null (select modu)
+                            if (this.previousMode === 'plumbingV2') {
+                                this.manager.activeTool = 'boru';
+                            } else {
+                                this.manager.activeTool = null;
+                            }
+
                             this.previousMode = null;
                             this.previousDrawingMode = null;
                         }, 10);
