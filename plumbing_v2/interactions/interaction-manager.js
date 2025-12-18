@@ -871,6 +871,9 @@ export class InteractionManager {
                     this.handleVanaPlacement(this.vanaPreview);
                     return;
                 }
+                // Vana pozisyonunu tıklanan noktaya ayarla (tempComponent başta 0,0'da oluşturuluyor)
+                component.x = point.x;
+                component.y = point.y;
                 saveState();
                 this.manager.components.push(component);
                 break;
@@ -1625,7 +1628,7 @@ export class InteractionManager {
         // state.selectedObject'i de set et (DELETE tuşu için)
         setState({
             selectedObject: {
-                type: 'valve',
+                type: 'vana',
                 object: vana,
                 pipe: pipe,
                 handle: 'body'
