@@ -52,18 +52,6 @@ export const PLUMBING_COMPONENT_TYPES = {
         mountType: 'pipe', // Boru üzeri/ucu
         connectionLength: 10 // Giriş kolu esnekliği için ref
     },
-    VALVE: {
-        id: 'valve',
-        name: 'Vana',
-        width: 6,
-        height: 6,
-        color: 0xA0A0A0,
-        mountType: 'pipe',
-        subTypes: {
-            INTERMEDIATE: ['AKV', 'KKV', 'EMNIYET', 'CIHAZ', 'SELENOID', 'SAYAC'],
-            TERMINATION: ['BRANSMAN', 'YAN_BINA', 'DOMESTIK']
-        }
-    },
     DEVICE: {
         id: 'device',
         name: 'Cihaz',
