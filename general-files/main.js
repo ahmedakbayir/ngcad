@@ -1310,6 +1310,7 @@ function initialize() {
             if (plumbingManager.interactionManager) {
                 plumbingManager.interactionManager.previousMode = state.currentMode;
                 plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
+                plumbingManager.interactionManager.previousActiveTool = plumbingManager.activeTool;
             }
             // Aktif boru çizimini iptal et
             plumbingManager.interactionManager?.cancelCurrentAction();
@@ -1337,6 +1338,7 @@ function initialize() {
             if (plumbingManager.interactionManager) {
                 plumbingManager.interactionManager.previousMode = state.currentMode;
                 plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
+                plumbingManager.interactionManager.previousActiveTool = plumbingManager.activeTool;
             }
             // Aktif boru çizimini iptal et
             plumbingManager.interactionManager?.cancelCurrentAction();
@@ -1353,6 +1355,7 @@ function initialize() {
             if (plumbingManager.interactionManager) {
                 plumbingManager.interactionManager.previousMode = state.currentMode;
                 plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
+                plumbingManager.interactionManager.previousActiveTool = plumbingManager.activeTool;
             }
             // Aktif boru çizimini iptal et
             plumbingManager.interactionManager?.cancelCurrentAction();
