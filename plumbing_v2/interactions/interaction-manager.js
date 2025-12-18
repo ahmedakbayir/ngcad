@@ -502,6 +502,7 @@ export class InteractionManager {
             this.previousMode = state.currentMode;
             this.previousDrawingMode = state.currentDrawingMode;
             this.previousActiveTool = this.manager.activeTool;
+            this.cancelCurrentAction();
 
             // TESİSAT moduna geç
             if (state.currentDrawingMode !== "KARMA") {
@@ -817,6 +818,9 @@ export class InteractionManager {
     placeComponent(point) {
         if (!this.manager.tempComponent) return;
         const component = this.manager.tempComponent;
+        const prevMode = this.previousMode;
+        const prevDrawMode = this.previousDrawingMode;
+        const prevTool = this.previousActiveTool;
 
         switch (component.type) {
             case 'servis_kutusu':
@@ -829,9 +833,10 @@ export class InteractionManager {
                 break;
 
             case 'sayac':
-                const success1 = this.handleSayacEndPlacement(component);
-                if (success1) {
+                const successSayac = this.handleSayacEndPlacement(component);
+                if (successSayac) {
                     // Sayacın çıkış noktasından çizim başlat
+                    //this.restorePreviousMode(prevMode, prevDrawMode, prevTool);
                     const cikisNoktasi = component.getCikisNoktasi();
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
                     // Önceki moda dön (S tuşu ile eklenmişse veya icon ile eklenmişse)
@@ -872,32 +877,32 @@ export class InteractionManager {
 
             case 'cihaz':
                 // Cihaz ekleme - K/O kısayolu gibi boru çizme moduna geç ama çizim başlatma
-                const success = this.handleCihazEkleme(component);
-                if (success) {
-                    // Önceki moda dön (K/O tuşu ile eklenmişse veya icon ile eklenmişse)
-                    if (this.previousMode) {
-                        console.log(`[MODE] Cihaz eklendi, önceki moda dönülüyor: ${this.previousMode}`);
-                        setTimeout(() => {
-                            if (this.previousDrawingMode) {
-                                console.log(`[MODE] Drawing mode restore: ${this.previousDrawingMode}`);
-                                setDrawingMode(this.previousDrawingMode);
-                            }
-                            console.log(`[MODE] Mode restore: ${this.previousMode}`);
-                            setMode(this.previousMode);
+                const successCihaz = this.handleCihazEkleme(component);
+                if (successCihaz) {
+                    this.restorePreviousMode(prevMode, prevDrawMode, prevTool);
+                    // if (this.previousMode) {
+                    //     console.log(`[MODE] Cihaz eklendi, önceki moda dönülüyor: ${this.previousMode}`);
+                    //     setTimeout(() => {
+                    //         if (this.previousDrawingMode) {
+                    //             console.log(`[MODE] Drawing mode restore: ${this.previousDrawingMode}`);
+                    //             setDrawingMode(this.previousDrawingMode);
+                    //         }
+                    //         console.log(`[MODE] Mode restore: ${this.previousMode}`);
+                    //         setMode(this.previousMode);
 
-                            // activeTool'u kaydettiğimiz önceki değere geri yükle
-                            console.log(`[MODE] ActiveTool restore: ${this.previousActiveTool}`);
-                            this.manager.activeTool = this.previousActiveTool;
+                    //         // activeTool'u kaydettiğimiz önceki değere geri yükle
+                    //         console.log(`[MODE] ActiveTool restore: ${this.previousActiveTool}`);
+                    //         this.manager.activeTool = this.previousActiveTool;
 
-                            this.previousMode = null;
-                            this.previousDrawingMode = null;
-                            this.previousActiveTool = null;
-                        }, 10);
-                    } else {
-                        // Önceki mod yoksa, normal boru çizme moduna geç
-                        this.manager.activeTool = 'boru';
-                        setMode("plumbingV2", true);
-                    }
+                    //         this.previousMode = null;
+                    //         this.previousDrawingMode = null;
+                    //         this.previousActiveTool = null;
+                    //     }, 10);
+                    // } else {
+                    //     // Önceki mod yoksa, normal boru çizme moduna geç
+                    //     this.manager.activeTool = 'boru';
+                    //     setMode("plumbingV2", true);
+                    // }
                 }
                 break;
 
@@ -908,11 +913,46 @@ export class InteractionManager {
         }
 
         this.manager.tempComponent = null;
-        if (!this.boruCizimAktif) this.manager.activeTool = null;
+        //if (!this.boruCizimAktif) this.manager.activeTool = null;
         this.manager.saveToState();
     }
 
+    /**
+     * İşlem tamamlandıktan sonra önceki modu geri yükleyen yardımcı fonksiyon
+     */
+    restorePreviousMode(prevMode, prevDrawMode, prevTool) {
+        const targetMode = prevMode || "select";
+        const targetDrawMode = prevDrawMode || "KARMA";
+        const targetTool = prevTool;
 
+        setTimeout(() => {
+            // 1. Çizim modunu (MİMARİ/TESİSAT) geri yükle
+            setDrawingMode(targetDrawMode);
+
+            // 2. Ana etkileşim modunu (select/plumbingV2) zorlayarak geri yükle
+            setMode(targetMode, true);
+
+            // 3. Tesisat aracını ikon seviyesinde aktif et
+            this.manager.activeTool = targetTool;
+
+            // 4. Eğer boru moduna dönüldüyse, çizimi sıfırla ama modu koru
+            if (targetTool === 'boru') {
+                this.boruCizimAktif = false;
+                this.boruBaslangic = null;
+            }
+
+            // 5. UI ikonunun mavi yanması için setMode içindeki mantığı manuel tetikle
+            if (targetMode === "plumbingV2") {
+                const activeTool = targetTool;
+                dom.bBoru.classList.toggle("active", activeTool === 'boru');
+                // Diğer tesisat butonlarını da burada senkronize edebilirsiniz
+            }
+
+            this.previousMode = null;
+            this.previousDrawingMode = null;
+            this.previousActiveTool = null;
+        }, 50); // Zamanlamayı biraz artırmak UI çakışmalarını önler
+    }
     /**
      * Boru çizim modunu başlat
      */
