@@ -73,6 +73,12 @@ export class PlumbingManager {
                 return;
         }
 
+        // Son bilinen mouse pozisyonunu kullanarak başlangıç pozisyonunu ayarla
+        if (this.interactionManager.lastMousePoint) {
+            this.tempComponent.x = this.interactionManager.lastMousePoint.x;
+            this.tempComponent.y = this.interactionManager.lastMousePoint.y;
+        }
+
     }
 
     /**

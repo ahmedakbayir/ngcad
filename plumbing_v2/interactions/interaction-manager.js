@@ -31,6 +31,9 @@ export class InteractionManager {
         this.snapSystem = new TesisatSnapSystem(manager);
         this.activeSnap = null;
 
+        // Son bilinen mouse pozisyonu (world koordinatlarında)
+        this.lastMousePoint = null;
+
         // Boru çizim durumu
         this.boruCizimAktif = false;
         this.boruBaslangic = null;
@@ -77,6 +80,9 @@ export class InteractionManager {
         const mouseScreenY = e.clientY - rect.top;
         const point = screenToWorld(mouseScreenX, mouseScreenY);
         const walls = state.walls;
+
+        // Son mouse pozisyonunu kaydet
+        this.lastMousePoint = point;
 
         // Debug: Mouse koordinatları (sadece cihaz ghost için, ilk 3 kez)
         if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && !this._mouseDebugCount) {
