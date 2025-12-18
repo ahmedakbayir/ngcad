@@ -176,6 +176,12 @@ export class InteractionManager {
 
         // 1.6 Vana tool aktif - Vana preview
         if (this.manager.activeTool === 'vana' && !this.boruCizimAktif) {
+            // Ghost pozisyonunu güncelle (tempComponent mouse'u takip etmeli)
+            if (this.manager.tempComponent) {
+                this.manager.tempComponent.x = point.x;
+                this.manager.tempComponent.y = point.y;
+            }
+
             // Mouse altında boru var mı kontrol et (5 cm yakalama mesafesi)
             const hoveredPipe = this.findPipeAt(point, 5);
             if (hoveredPipe) {
