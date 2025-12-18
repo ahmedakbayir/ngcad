@@ -479,6 +479,7 @@ export class InteractionManager {
             // Önceki modu kaydet
             this.previousMode = state.currentMode;
             this.previousDrawingMode = state.currentDrawingMode;
+            this.previousActiveTool = this.manager.activeTool;
 
             // TESİSAT moduna geç
             if (state.currentDrawingMode !== "KARMA") {
@@ -500,6 +501,7 @@ export class InteractionManager {
             // Önceki modu kaydet
             this.previousMode = state.currentMode;
             this.previousDrawingMode = state.currentDrawingMode;
+            this.previousActiveTool = this.manager.activeTool;
 
             // TESİSAT moduna geç
             if (state.currentDrawingMode !== "KARMA") {
@@ -522,6 +524,7 @@ export class InteractionManager {
             // Önceki modu kaydet
             this.previousMode = state.currentMode;
             this.previousDrawingMode = state.currentDrawingMode;
+            this.previousActiveTool = this.manager.activeTool;
 
             // TESİSAT moduna geç
             if (state.currentDrawingMode !== "KARMA") {
@@ -842,17 +845,13 @@ export class InteractionManager {
                             console.log(`[MODE] Mode restore: ${this.previousMode}`);
                             setMode(this.previousMode);
 
-                            // activeTool'u önceki moda göre ayarla
-                            // Eğer önceki mod boru çizim moduysa ('plumbingV2'), activeTool = 'boru'
-                            // Aksi halde activeTool = null (select modu)
-                            if (this.previousMode === 'plumbingV2') {
-                                this.manager.activeTool = 'boru';
-                            } else {
-                                this.manager.activeTool = null;
-                            }
+                            // activeTool'u kaydettiğimiz önceki değere geri yükle
+                            console.log(`[MODE] ActiveTool restore: ${this.previousActiveTool}`);
+                            this.manager.activeTool = this.previousActiveTool;
 
                             this.previousMode = null;
                             this.previousDrawingMode = null;
+                            this.previousActiveTool = null;
                         }, 10);
                     } else {
                         // Önceki mod yoksa, normal boru çizme moduna geç
@@ -886,17 +885,13 @@ export class InteractionManager {
                             console.log(`[MODE] Mode restore: ${this.previousMode}`);
                             setMode(this.previousMode);
 
-                            // activeTool'u önceki moda göre ayarla
-                            // Eğer önceki mod boru çizim moduysa ('plumbingV2'), activeTool = 'boru'
-                            // Aksi halde activeTool = null (select modu)
-                            if (this.previousMode === 'plumbingV2') {
-                                this.manager.activeTool = 'boru';
-                            } else {
-                                this.manager.activeTool = null;
-                            }
+                            // activeTool'u kaydettiğimiz önceki değere geri yükle
+                            console.log(`[MODE] ActiveTool restore: ${this.previousActiveTool}`);
+                            this.manager.activeTool = this.previousActiveTool;
 
                             this.previousMode = null;
                             this.previousDrawingMode = null;
+                            this.previousActiveTool = null;
                         }, 10);
                     } else {
                         // Önceki mod yoksa, normal boru çizme moduna geç
