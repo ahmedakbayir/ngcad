@@ -26,9 +26,13 @@ function applyTheme(isDarkMode) {
     if (isDarkMode) {
         document.body.classList.remove('light-mode');
         localStorage.setItem('darkMode', 'true');
+        // Dark mode renkleri
+        setState({ roomFillColor: '#232425' });
     } else {
         document.body.classList.add('light-mode');
         localStorage.setItem('darkMode', 'false');
+        // Light mode renkleri
+        setState({ roomFillColor: '#f8f9fa' });
     }
 }
 
