@@ -254,6 +254,14 @@ export class PlumbingManager {
                 }
             }).filter(c => c !== null);
         }
+
+        // Tüm sayaçlar için renk güncellemesi yap
+        const sayaclar = this.components.filter(c => c.type === 'sayac');
+        sayaclar.forEach(sayac => {
+            if (sayac.cikisBagliBoruId) {
+                this.updatePipeColorsAfterMeter(sayac.id);
+            }
+        });
     }
 
     /**
@@ -501,6 +509,58 @@ export class PlumbingManager {
     }
 
     // --- ÖZEL EYLEMLER ---
+
+    /**
+     * Sayaç çıkışındaki boruları ve sonrasını TURQUAZ yap
+     * @param {string} sayacId - Sayaç ID
+     */
+    updatePipeColorsAfterMeter(sayacId) {
+        const sayac = this.findComponentById(sayacId);
+        if (!sayac || sayac.type !== 'sayac') return;
+
+        // Sayaç çıkışına bağlı boruyu bul
+        if (!sayac.cikisBagliBoruId) return;
+
+        const cikisBoru = this.findPipeById(sayac.cikisBagliBoruId);
+        if (!cikisBoru) return;
+
+        // Çıkış borusundan başlayarak tüm boruları TURQUAZ yap (recursive)
+        this.setPipeColorRecursive(cikisBoru, 'TURQUAZ');
+
+        console.log(`[updatePipeColorsAfterMeter] Sayaç ${sayacId} sonrası borular TURQUAZ yapıldı`);
+    }
+
+    /**
+     * Bir boruyu ve ondan sonraki tüm boruları belirli renge boyar (recursive)
+     * @param {Boru} pipe - Başlangıç borusu
+     * @param {string} colorGroup - Renk grubu ('YELLOW' veya 'TURQUAZ')
+     * @param {Set} visited - Ziyaret edilen borular (sonsuz döngü önleme)
+     */
+    setPipeColorRecursive(pipe, colorGroup, visited = new Set()) {
+        if (!pipe || visited.has(pipe.id)) return;
+
+        // Bu boruyu işaretle
+        visited.add(pipe.id);
+
+        // Rengi değiştir
+        pipe.colorGroup = colorGroup;
+
+        // Bitiş bağlantısına göre sonraki boruyu bul
+        if (pipe.bitisBaglanti.hedefId && pipe.bitisBaglanti.tip === 'boru') {
+            const nextPipe = this.findPipeById(pipe.bitisBaglanti.hedefId);
+            if (nextPipe) {
+                this.setPipeColorRecursive(nextPipe, colorGroup, visited);
+            }
+        }
+
+        // T-bağlantıları da kontrol et
+        pipe.tBaglantilar.forEach(tBaglanti => {
+            const branchPipe = this.findPipeById(tBaglanti.boruId);
+            if (branchPipe) {
+                this.setPipeColorRecursive(branchPipe, colorGroup, visited);
+            }
+        });
+    }
 }
 
 export const plumbingManager = PlumbingManager.getInstance();

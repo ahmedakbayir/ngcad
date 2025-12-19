@@ -1196,6 +1196,11 @@ export class InteractionManager {
                 );
                 if (sayac) {
                     sayac.baglaCikis(boru.id);
+
+                    // ✨ Sayaç sonrası boruları TURQUAZ yap
+                    setTimeout(() => {
+                        this.manager.updatePipeColorsAfterMeter(sayac.id);
+                    }, 0);
                 }
             }
         }
