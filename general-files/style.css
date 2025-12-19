@@ -26,6 +26,7 @@
 /* TEMA DEĞİŞKENLERİ - LIGHT MODE */
 /* ═══════════════════════════════════════════════════════════════ */
 body.light-mode {
+    --bg-body: #f5f6f7;
     --color-text: #202124;
     --bg-panel: #f8f9fa;
     --border-panel: #dde1e6;
@@ -648,6 +649,7 @@ body.light-mode .btn.active svg {
     color: #ffa500;
     opacity: 0.3;
     stroke-width: 2;
+    fill: none;
 }
 
 .moon-icon {
@@ -1368,4 +1370,44 @@ body.light-mode .btn.active svg {
 /* 3D açıkken de göster */
 .main.show-3d #drawing-mode-selector {
     display: flex;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* FLOOR PANEL (Katlar Paneli) - LIGHT MODE */
+/* ═══════════════════════════════════════════════════════════════ */
+#floor-mini-panel {
+    background: var(--bg-group) !important;
+    border-color: var(--border-group) !important;
+}
+
+#floor-detail-panel {
+    background: var(--bg-popup) !important;
+    border-color: var(--border-button) !important;
+}
+
+/* Floor panel butonları */
+body.light-mode #floor-mini-panel button,
+body.light-mode #floor-detail-panel button {
+    background: var(--bg-button) !important;
+    border-color: var(--border-button) !important;
+    color: var(--color-text) !important;
+}
+
+body.light-mode #floor-mini-panel button.active,
+body.light-mode #floor-detail-panel button.active {
+    background: var(--bg-button-active) !important;
+    border-color: var(--bg-button-active) !important;
+    color: var(--color-button-active) !important;
+}
+
+/* Floor panel kat butonları */
+body.light-mode .floor-btn {
+    background: var(--bg-button) !important;
+    border-color: var(--border-button) !important;
+    color: var(--color-text) !important;
+}
+
+body.light-mode .floor-btn.selected {
+    background: var(--bg-button-active) !important;
+    color: var(--color-button-active) !important;
 }
