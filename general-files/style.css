@@ -1411,3 +1411,42 @@ body.light-mode .floor-btn.selected {
     background: var(--bg-button-active) !important;
     color: var(--color-button-active) !important;
 }
+
+/* Floor panel table ve text renkleri */
+body.light-mode #floor-detail-panel table {
+    color: var(--color-text) !important;
+}
+
+body.light-mode #floor-detail-panel table tr {
+    border-color: var(--border-button) !important;
+}
+
+body.light-mode #floor-detail-panel table th {
+    color: var(--bg-button-active) !important;
+}
+
+body.light-mode #floor-detail-panel table td {
+    color: var(--color-text) !important;
+}
+
+/* Floor panel scroll butonları */
+body.light-mode #floor-scroll-left,
+body.light-mode #floor-scroll-right {
+    color: var(--bg-button-active) !important;
+}
+
+/* Floor expand button */
+body.light-mode #floor-expand-btn {
+    border-color: var(--border-button) !important;
+}
+
+body.light-mode #floor-expand-btn svg {
+    stroke: var(--bg-button-active) !important;
+}
+
+/* Mini floor list butonları */
+body.light-mode #floor-mini-list > div {
+    background: var(--bg-button) !important;
+    color: var(--color-text) !important;
+    border-color: var(--border-button) !important;
+}

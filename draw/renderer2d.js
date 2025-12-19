@@ -4,7 +4,7 @@ import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from '.
 import { getColumnCorners, isPointInColumn } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
-import { state, dom, BG, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
+import { state, dom, BG, getBG, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
 
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
 export function drawNodeWallCount(node) {
@@ -296,7 +296,7 @@ export function drawColumn(column, isSelected = false) {
 
     // Çizim moduna göre renk ayarla
     const adjustedBorderColor = getAdjustedColor(wallBorderColor, 'column');
-    const adjustedFillColor = getAdjustedColor(BG, 'column');
+    const adjustedFillColor = getAdjustedColor(getBG(), 'column'); // Temaya göre dinamik
 
     // Çizim stilleri
     ctx2d.fillStyle = adjustedFillColor; // İçini arka plan rengiyle doldur

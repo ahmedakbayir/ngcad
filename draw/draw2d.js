@@ -19,7 +19,7 @@ import { getColumnCorners } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js'; 
 import { getStairCorners } from '../architectural-objects/stairs.js'; 
 import { getObjectAtPoint } from '../general-files/actions.js';
-import { state, dom, BG } from '../general-files/main.js';
+import { state, dom, BG, getBG } from '../general-files/main.js';
 import { getCameraViewInfo } from '../scene3d/scene3d-camera.js'; 
 
 
@@ -261,7 +261,7 @@ export function draw2D() {
     // Get device pixel ratio for crisp rendering
     const dpr = window.devicePixelRatio || 1;
 
-    ctx2d.fillStyle = BG;
+    ctx2d.fillStyle = getBG(); // Temaya göre dinamik arkaplan
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
     ctx2d.save();
 
@@ -284,7 +284,7 @@ export function draw2D() {
     drawRoomPolygons(ctx2d, { ...state, rooms });
 
     // 3. Duvar Geometrisi - Filtrelenmiş duvarları kullan
-    drawWallGeometry(ctx2d, { ...state, walls, doors }, BG);
+    drawWallGeometry(ctx2d, { ...state, walls, doors }, getBG()); // Temaya göre dinamik
 
     // 3.5. Arc Duvar Kontrol Noktaları
     walls.forEach(wall => {

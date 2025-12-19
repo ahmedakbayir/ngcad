@@ -72,7 +72,17 @@ async function loadPictureFrameImages() {
 }
 */
 
-export const BG = "#222325ff";
+export const BG = "#222325ff"; // Dark mode varsayılan
+
+/**
+ * Mevcut temaya göre arkaplan rengini döndürür
+ * @returns {string} Arkaplan rengi
+ */
+export function getBG() {
+    const isLightMode = document.body.classList.contains('light-mode');
+    return isLightMode ? '#f5f6f7' : '#222325ff';
+}
+
 export const METER_SCALE = 1;
 // export const WALL_THICKNESS = 20; // SABİT KALDIRILDI
 export const WALL_HEIGHT = 270;
