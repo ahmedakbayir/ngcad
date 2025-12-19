@@ -631,7 +631,7 @@ export class PlumbingRenderer {
         gradient.addColorStop(1, 'rgba(255, 255, 255, 1)');
 
         // Seçiliyse turuncu renk
-        const fillColor = comp.isSelected ? '#FF8C00' : gradient;
+        const fillColor = comp.isSelected ? this.secilenRenk : gradient;
         ctx.fillStyle = fillColor;
 
         // Gölge efekti
@@ -655,7 +655,7 @@ export class PlumbingRenderer {
         if (comp.isSelected) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
-            ctx.strokeStyle = '#FF8C00';
+            ctx.strokeStyle = this.secilenRenk
             ctx.lineWidth = 1;
             ctx.strokeRect(-halfSize - 1, -halfSize - 1, size + 2, size + 2);
         }
