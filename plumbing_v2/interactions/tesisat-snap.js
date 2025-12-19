@@ -133,11 +133,15 @@ export class TesisatSnapSystem {
      * Duvarlardan tesisat hatlarını hesapla
      */
     calculateTesisatHatlari(walls) {
+        const currentFloorId = state.currentFloor?.id; // Aktif kat ID'si
         if (!walls || walls.length === 0) return [];
 
         const hatlar = [];
 
         walls.forEach(wall => {
+            if (currentFloorId && wall.floorId && wall.floorId !== currentFloorId) {
+                return;
+            }
             if (!wall.p1 || !wall.p2) return;
 
             const duvarKalinligi = wall.thickness || state.wallThickness || 20;

@@ -2116,13 +2116,14 @@ export class InteractionManager {
             const oldPoint = this.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
 
             // DUVAR SNAP SİSTEMİ - Boru açıklığı ile
-            const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
+            const SNAP_DISTANCE = 15; // İlk yakalama mesafesi (cm)
             const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm)
             const BORU_CLEARANCE = 5; // Boru-duvar arası minimum mesafe (cm)
-            const MAX_WALL_DISTANCE = 100; // 1 metre - bu mesafeden uzak snap noktalarını göz ardı et
+            const MAX_WALL_DISTANCE = 20; // 1 metre - bu mesafeden uzak snap noktalarını göz ardı et
             const walls = state.walls || [];
             let finalPos = { x: point.x, y: point.y };
 
+            
             // Her zaman yeni snap ara (sürekli snap)
             // Maksimum snap mesafesi 1 metre (100 cm)
             let bestSnapX = { diff: MAX_WALL_DISTANCE, value: null };
@@ -2157,12 +2158,14 @@ export class InteractionManager {
                     wallDistance = Math.hypot(finalPos.x - projX, finalPos.y - projY);
                 }
 
+                
                 const wallThickness = wall.thickness || state.wallThickness || 20;
                 const halfThickness = wallThickness / 2;
-
+                
                 // Snap noktası duvar yüzeyinden offset olduğu için tolerans ekle
                 const maxOffset = halfThickness + BORU_CLEARANCE;
                 if (wallDistance > MAX_WALL_DISTANCE + maxOffset) return;
+                
                 const dxW = wall.p2.x - wall.p1.x;
                 const dyW = wall.p2.y - wall.p1.y;
                 const isVertical = Math.abs(dxW) < 0.1;
