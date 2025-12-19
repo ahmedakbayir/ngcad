@@ -2127,8 +2127,31 @@ export class InteractionManager {
             let bestSnapY = { diff: SNAP_DISTANCE, value: null };
 
             // Tüm duvar yüzeylerine snap kontrolü - Boru clearance ekleyerek
+            // ÖNCE: Sadece yakındaki duvarları filtrele (1 metreden yakın)
+            const MAX_WALL_DISTANCE = 100; // 1 metre - bu mesafeden uzak duvarları göz ardı et
+
             walls.forEach(wall => {
                 if (!wall.p1 || !wall.p2) return;
+
+                // Duvara olan minimum mesafeyi hesapla (nokta-çizgi mesafesi)
+                const dx = wall.p2.x - wall.p1.x;
+                const dy = wall.p2.y - wall.p1.y;
+                const lengthSq = dx * dx + dy * dy;
+                let wallDistance;
+
+                if (lengthSq === 0) {
+                    // Duvar bir nokta (dejenere durum)
+                    wallDistance = Math.hypot(finalPos.x - wall.p1.x, finalPos.y - wall.p1.y);
+                } else {
+                    // Nokta-çizgi mesafesi hesabı
+                    const t = Math.max(0, Math.min(1, ((finalPos.x - wall.p1.x) * dx + (finalPos.y - wall.p1.y) * dy) / lengthSq));
+                    const projX = wall.p1.x + t * dx;
+                    const projY = wall.p1.y + t * dy;
+                    wallDistance = Math.hypot(finalPos.x - projX, finalPos.y - projY);
+                }
+
+                // 1 metreden uzak duvarları atla
+                if (wallDistance > MAX_WALL_DISTANCE) return;
 
                 const wallThickness = wall.thickness || state.wallThickness || 20;
                 const halfThickness = wallThickness / 2;
