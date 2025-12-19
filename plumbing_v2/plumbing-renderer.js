@@ -549,68 +549,48 @@ export class PlumbingRenderer {
     }
 
     drawServisKutusu(ctx, comp) {
-        const { width, height, color } = SERVIS_KUTUSU_CONFIG;
+        const { width, height, colors } = SERVIS_KUTUSU_CONFIG; // colors'ı buradan alıyoruz
 
-        ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+        // 1. Gölge Efekti (Diğer cihazlardaki gibi)
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
         ctx.shadowBlur = 6;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
 
-        // Ana kutu
-        const baseColor = "rgba(206, 206, 206, 1)";
-        const adjustedColor = getAdjustedColor(baseColor, 'servis_kutusu');
-        const adjustedStroke = getAdjustedColor('#fff', 'servis_kutusu');
+        // 2. Gradient Oluşturma (Üstten alta dikey geçiş)
+        // Kutunun üst kenarı (y - height/2) ile alt kenarı (y + height/2) arası
+        const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
+        grad.addColorStop(0, colors.top);    // #E8E8E8
+        grad.addColorStop(0.5, colors.middle); // #A8A8A8 (Sayaç ile aynı)
+        grad.addColorStop(1, colors.bottom); // #707070
 
-        // Seçiliyse renk değişsin
-        ctx.fillStyle = comp.isSelected ? this.secilenRenk : '#00bffa';
-        ctx.strokeStyle = comp.isSelected ? this.secilenRenk : adjustedStroke;
-        ctx.lineWidth = 2;
-
-
+        // 3. Gövdeyi Çiz
+        ctx.fillStyle = comp.isSelected ? this.secilenRenk : grad;
         ctx.beginPath();
         ctx.rect(-width / 2, -height / 2, width, height);
         ctx.fill();
-        //ctx.stroke();
 
-        // Orta kısım - kabartmalı efekt için shadow ile
-        const innerMargin = 4; // Kenarlardan boşluk
-        const innerWidth = width - (innerMargin * 2);
-        const innerHeight = height - (innerMargin * 2);
+        // 4. Kenar Çizgisi
+        ctx.shadowBlur = 0; // Stroke için gölgeyi kapat
+        ctx.strokeStyle = colors.stroke;
+        ctx.lineWidth = 1.2 / (state.zoom || 1);
+        ctx.stroke();
 
-        // Shadow ayarları
-        ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 1)';
+        // 5. İç Kapak Detayı (Bütünlük için ince bir çerçeve)
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
+
+        // 6. Yazı (S.K.)
+
         ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
-        // İç dikdörtgen (biraz daha açık renk)
-        const innerColor = this.lightenColor(adjustedColor, 0.3);
-        ctx.fillStyle = innerColor;
-        ctx.beginPath();
-        ctx.rect(-innerWidth / 2, -innerHeight / 2, innerWidth, innerHeight);
-        ctx.fill();
-        ctx.restore();
-
-        // "S.K." yazısı
-        const adjustedText = getAdjustedColor('#000', 'servis_kutusu');
-        ctx.fillStyle = adjustedText;
-        ctx.font = '10px Arial';
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 10px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('S.K.', 0, 1);
-
-        // Çıkış noktası göstergesi - sadece boru bağlı değilse göster, boru çapında
-        if (!comp.cikisKullanildi) {
-            const cikisLocal = comp.getCikisLocalKoordinat();
-            // const adjustedYellow = getAdjustedColor('#0390a3', 'servis_kutusu');
-            const adjustedYellow = getAdjustedColor('rgba(255, 251, 0, 1)', 'servis_kutusu');
-            ctx.fillStyle = adjustedYellow;
-            ctx.beginPath();
-            // Boru çapı 2cm, yarıçap 1cm
-            ctx.arc(cikisLocal.x, cikisLocal.y, 1, 0, Math.PI * 2);
-            ctx.fill();
-        }
     }
 
     lightenColor(color, amount) {
