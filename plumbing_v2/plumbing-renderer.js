@@ -7,7 +7,8 @@ import { BG, getAdjustedColor, state } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
-        this.secilenRenk = '#00BFFF'; // Seçili nesne rengi
+        this.secilenRenk = '#00BFFF'; // Seçili nesne rengi (varsayılan - YELLOW için)
+        this.secilenRenkTurquaz = '#0B4F6C'; // Seçili nesne rengi (TURQUAZ için - koyu laci-mavi)
     }
 
     /**
@@ -21,6 +22,25 @@ export class PlumbingRenderer {
             return template.replace('{opacity}', opacity);
         }
         return template;
+    }
+
+    /**
+     * Seçili nesne rengini colorGroup'a göre al
+     */
+    getSecilenRenk(colorGroup) {
+        return colorGroup === 'TURQUAZ' ? this.secilenRenkTurquaz : this.secilenRenk;
+    }
+
+    /**
+     * Hex rengi RGB'ye çevir
+     */
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : { r: 0, g: 191, b: 255 }; // Varsayılan
     }
 
     render(ctx, manager) {
@@ -191,12 +211,17 @@ export class PlumbingRenderer {
             ctx.rotate(angle);
 
             if (pipe.isSelected) {
-                // Seçiliyse turuncu renk çiz
+                // Seçili borunun rengi colorGroup'a göre ayarlanır
+                const secilenRenk = this.getSecilenRenk(pipe.colorGroup);
+
+                // Seçili rengi RGB'ye çevir
+                const rgb = this.hexToRgb(secilenRenk);
+
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-                gradient.addColorStop(0.0, 'rgba(255, 125,0,  0.3)');
-                gradient.addColorStop(0.5, 'rgba(255, 125,0,  1)');
-                gradient.addColorStop(1, 'rgba( 255, 125,0,  0.3)');
-                ctx.fillStyle = gradient
+                gradient.addColorStop(0.0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`);
+                gradient.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`);
+                gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`);
+                ctx.fillStyle = gradient;
                 ctx.shadowColor = 'rgba(255, 255, 255, 1)';
                 ctx.shadowBlur = 0;
                 ctx.shadowOffsetX = 0;
@@ -501,7 +526,7 @@ export class PlumbingRenderer {
                 this.drawSayac(ctx, comp, manager);
                 break;
             case 'vana':
-                this.drawVana(ctx, comp);
+                this.drawVana(ctx, comp, manager);
                 break;
             case 'cihaz':
                 this.drawCihaz(ctx, comp, manager);
@@ -617,7 +642,7 @@ export class PlumbingRenderer {
         return color;
     }
 
-    drawVana(ctx, comp, vanaData = null) {
+    drawVana(ctx, comp, manager = null) {
         // Bağımsız vana çizimi (components dizisindeki vana)
         const size = 8; // Kare boyutu (8x8 cm)
         const halfSize = size / 2;
@@ -630,8 +655,18 @@ export class PlumbingRenderer {
         gradient.addColorStop(.75, 'rgba(7, 48, 66,  1)');
         gradient.addColorStop(1, 'rgba(255, 255, 255, 1)');
 
-        // Seçiliyse turuncu renk
-        const fillColor = comp.isSelected ? this.secilenRenk : gradient;
+        // Vananın bağlı olduğu borunun renk grubunu al
+        let vanaColorGroup = 'YELLOW';
+        if (comp.bagliBoruId && manager) {
+            const bagliBoru = manager.findPipeById(comp.bagliBoruId);
+            if (bagliBoru) {
+                vanaColorGroup = bagliBoru.colorGroup || 'YELLOW';
+            }
+        }
+
+        // Seçiliyse renk grubuna göre renk
+        const secilenRenk = this.getSecilenRenk(vanaColorGroup);
+        const fillColor = comp.isSelected ? secilenRenk : gradient;
         ctx.fillStyle = fillColor;
 
         // Gölge efekti
@@ -655,7 +690,7 @@ export class PlumbingRenderer {
         if (comp.isSelected) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
-            ctx.strokeStyle = this.secilenRenk
+            ctx.strokeStyle = secilenRenk;
             ctx.lineWidth = 1;
             ctx.strokeRect(-halfSize - 1, -halfSize - 1, size + 2, size + 2);
         }
@@ -1166,11 +1201,13 @@ export class PlumbingRenderer {
         const armWidth = 1;
 
         // Çıkış borusunun renk grubunu al
-        let rijitColorGroup = 'YELLOW'; // Varsayılan
+        // Sayaç eklendikten sonra çıkış borusu TURQUAZ olacak,
+        // bu yüzden ghost preview'da ve ilk ekleme sırasında da TURQUAZ göster
+        let rijitColorGroup = 'TURQUAZ'; // Varsayılan: Sayaç sonrası TURQUAZ
         if (comp.cikisBagliBoruId && manager) {
             const cikisBoru = manager.findPipeById(comp.cikisBagliBoruId);
             if (cikisBoru) {
-                rijitColorGroup = cikisBoru.colorGroup || 'YELLOW';
+                rijitColorGroup = cikisBoru.colorGroup || 'TURQUAZ';
             }
         }
 
