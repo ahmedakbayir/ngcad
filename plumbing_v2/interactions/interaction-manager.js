@@ -2119,19 +2119,26 @@ export class InteractionManager {
             const SNAP_DISTANCE = 25; // İlk yakalama mesafesi (cm)
             const SNAP_RELEASE_DISTANCE = 40; // Snap'ten çıkma mesafesi (cm)
             const BORU_CLEARANCE = 5; // Boru-duvar arası minimum mesafe (cm)
+            const MAX_WALL_DISTANCE = 100; // 1 metre - bu mesafeden uzak snap noktalarını göz ardı et
             const walls = state.walls || [];
             let finalPos = { x: point.x, y: point.y };
 
             // Her zaman yeni snap ara (sürekli snap)
-            let bestSnapX = { diff: SNAP_DISTANCE, value: null };
-            let bestSnapY = { diff: SNAP_DISTANCE, value: null };
+            // Maksimum snap mesafesi 1 metre (100 cm)
+            let bestSnapX = { diff: MAX_WALL_DISTANCE, value: null };
+            let bestSnapY = { diff: MAX_WALL_DISTANCE, value: null };
 
             // Tüm duvar yüzeylerine snap kontrolü - Boru clearance ekleyerek
-            // ÖNCE: Sadece yakındaki duvarları filtrele (1 metreden yakın)
-            const MAX_WALL_DISTANCE = 100; // 1 metre - bu mesafeden uzak duvarları göz ardı et
+            // ÖNCE: Sadece yakındaki ve aynı kattaki duvarları filtrele
+            const pipeFloorId = pipe.floorId; // Borunun bulunduğu kat
 
             walls.forEach(wall => {
                 if (!wall.p1 || !wall.p2) return;
+
+                // Sadece aynı kattaki duvarları kontrol et
+                if (pipeFloorId && wall.floorId && wall.floorId !== pipeFloorId) {
+                    return; // Farklı kattaki duvarı atla
+                }
 
                 // Duvara olan minimum mesafeyi hesapla (nokta-çizgi mesafesi)
                 const dx = wall.p2.x - wall.p1.x;
@@ -2150,11 +2157,12 @@ export class InteractionManager {
                     wallDistance = Math.hypot(finalPos.x - projX, finalPos.y - projY);
                 }
 
-                // 1 metreden uzak duvarları atla
-                if (wallDistance > MAX_WALL_DISTANCE) return;
-
                 const wallThickness = wall.thickness || state.wallThickness || 20;
                 const halfThickness = wallThickness / 2;
+
+                // Snap noktası duvar yüzeyinden offset olduğu için tolerans ekle
+                const maxOffset = halfThickness + BORU_CLEARANCE;
+                if (wallDistance > MAX_WALL_DISTANCE + maxOffset) return;
                 const dxW = wall.p2.x - wall.p1.x;
                 const dyW = wall.p2.y - wall.p1.y;
                 const isVertical = Math.abs(dxW) < 0.1;
