@@ -13,20 +13,38 @@
 
 import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
+// Renk Grupları (Sayaç Öncesi/Sonrası)
+export const RENK_GRUPLARI = {
+    YELLOW: {
+        id: 'yellow',
+        name: 'Sarı (Sayaç Öncesi)',
+        boru: 'rgba(255, 255, 0, {opacity})',      // Sarı
+        dirsek: 'rgba(255, 255, 0, {opacity})',    // Sarı
+        fleks: '#FFD700'                            // Altın sarısı
+    },
+    TURQUAZ: {
+        id: 'turquaz',
+        name: 'Turquaz (Sayaç Sonrası)',
+        boru: 'rgba(64, 224, 208, {opacity})',     // Turquaz
+        dirsek: 'rgba(64, 224, 208, {opacity})',   // Turquaz
+        fleks: '#40E0D0'                            // Turquaz
+    }
+};
+
 // Boru Tipleri
 export const BORU_TIPLERI = {
     STANDART: {
         id: 'standart',
         name: 'Standart Boru',
         diameter: 2,        // cm
-        color: 0xFFFF00,    // Sarı (doğalgaz)
+        color: 0xFFFF00,    // Sarı (doğalgaz) - deprecated, colorGroup kullan
         lineWidth: 4
     },
     KALIN: {
         id: 'kalin',
         name: 'Kalın Boru',
         diameter: 4,
-        color: 0xFFCC00,    // Koyu sarı
+        color: 0xFFCC00,    // Koyu sarı - deprecated, colorGroup kullan
         lineWidth: 6
     }
 };
@@ -50,6 +68,9 @@ export class Boru {
         // Uç noktalar
         this.p1 = { x: p1.x, y: p1.y, z: p1.z || 0 };
         this.p2 = { x: p2.x, y: p2.y, z: p2.z || 0 };
+
+        // Renk Grubu (Sayaç Öncesi/Sonrası)
+        this.colorGroup = 'YELLOW'; // Varsayılan: Sarı (Sayaç Öncesi)
 
         // Kat bilgisi
         this.floorId = null;
@@ -404,6 +425,7 @@ export class Boru {
             id: this.id,
             type: this.type,
             boruTipi: this.boruTipi,
+            colorGroup: this.colorGroup,
             p1: { ...this.p1 },
             p2: { ...this.p2 },
             floorId: this.floorId,
@@ -421,6 +443,7 @@ export class Boru {
     static fromJSON(data) {
         const boru = new Boru(data.p1, data.p2, data.boruTipi);
         boru.id = data.id;
+        boru.colorGroup = data.colorGroup || 'YELLOW'; // Varsayılan: Sarı (geriye dönük uyumluluk)
         boru.floorId = data.floorId;
         boru.baslangicBaglanti = data.baslangicBaglanti || { tip: null, hedefId: null, noktaIndex: null };
         boru.bitisBaglanti = data.bitisBaglanti || { tip: null, hedefId: null, noktaIndex: null };
