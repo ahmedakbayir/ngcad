@@ -403,6 +403,7 @@ export const dom = {
         dimension: document.getElementById("tab-pane-dimension"),
         stairs: document.getElementById("tab-pane-stairs"),
     },
+    darkModeToggle: document.getElementById("dark-mode-toggle"), // DARK MODE TOGGLE
     borderPicker: document.getElementById("borderPicker"),
     roomPicker: document.getElementById("roomPicker"),
     lineThicknessInput: document.getElementById("line-thickness"),
