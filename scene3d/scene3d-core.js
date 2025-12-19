@@ -38,6 +38,16 @@ export function setCameraMode(mode) {
 export function setActiveControls(activeControls) {
     controls = activeControls;
 }
+
+/**
+ * 3D sahne arkaplan rengini mevcut temaya göre günceller
+ */
+export function updateSceneBackground() {
+    if (!scene) return;
+    const isLightMode = document.body.classList.contains('light-mode');
+    const bgColor = isLightMode ? 0xf5f6f7 : 0x1e1f20;
+    scene.background = new THREE.Color(bgColor);
+}
 // YENİ SETTER FONKSİYONLARI SONU
 
 /**
@@ -45,7 +55,7 @@ export function setActiveControls(activeControls) {
  */
 export function init3D(canvasElement) {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1e1f20);
+    updateSceneBackground(); // Temaya göre arkaplan ayarla
 
     camera = new THREE.PerspectiveCamera(75, 1, 0.1, 10000);
     camera.position.set(1500, 1800, 1500);

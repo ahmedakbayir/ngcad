@@ -10,6 +10,7 @@ import { worldToScreen } from '../draw/geometry.js';
 import { applyStretchModification } from '../draw/geometry.js';
 import { toggleCameraMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
+import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
@@ -34,6 +35,9 @@ function applyTheme(isDarkMode) {
         // Light mode renkleri
         setState({ roomFillColor: '#f8f9fa' });
     }
+
+    // 3D sahne arkaplan rengini güncelle
+    updateSceneBackground();
 }
 
 /**
