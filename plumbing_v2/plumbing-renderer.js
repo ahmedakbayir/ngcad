@@ -46,7 +46,26 @@ export class PlumbingRenderer {
         // Geçici boru çizgisi (boru çizim modunda)
         const geciciBoru = manager.interactionManager?.getGeciciBoruCizgisi();
         if (geciciBoru) {
-            this.drawGeciciBoru(ctx, geciciBoru);
+            // Geçici borunun renk grubunu belirle
+            let geciciColorGroup = 'YELLOW'; // Varsayılan
+
+            // Başlangıç noktasının kaynağına göre renk belirle
+            const boruBaslangic = manager.interactionManager?.boruBaslangic;
+            if (boruBaslangic) {
+                // Sayaç çıkışından başlıyorsa TURQUAZ
+                if (boruBaslangic.kaynakTip === 'sayac') {
+                    geciciColorGroup = 'TURQUAZ';
+                }
+                // Boru ucundan başlıyorsa o borunun rengini al
+                else if (boruBaslangic.kaynakTip === 'boru' && boruBaslangic.kaynakId) {
+                    const baslangicBoru = manager.findPipeById(boruBaslangic.kaynakId);
+                    if (baslangicBoru) {
+                        geciciColorGroup = baslangicBoru.colorGroup || 'YELLOW';
+                    }
+                }
+            }
+
+            this.drawGeciciBoru(ctx, geciciBoru, geciciColorGroup);
         }
 
         if (shouldBeFaded) {
@@ -432,7 +451,7 @@ export class PlumbingRenderer {
         });
     }
 
-    drawGeciciBoru(ctx, geciciBoru) {
+    drawGeciciBoru(ctx, geciciBoru, colorGroup = 'YELLOW') {
         ctx.save();
 
         // Geçici boru için de aynı stil ve zoom kompenzasyonu
@@ -452,9 +471,8 @@ export class PlumbingRenderer {
         ctx.translate(geciciBoru.p1.x, geciciBoru.p1.y);
         ctx.rotate(angle);
 
-        // Aynı yumuşak gradient - varsayılan YELLOW renk grubu
+        // Renk grubuna göre gradient oluştur
         const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-        const colorGroup = 'YELLOW'; // Geçici boru için varsayılan
         gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.3));
         gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
         gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.3));

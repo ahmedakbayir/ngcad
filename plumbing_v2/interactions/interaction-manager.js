@@ -1196,16 +1196,21 @@ export class InteractionManager {
                 );
                 if (sayac) {
                     sayac.baglaCikis(boru.id);
-
-                    // ✨ Sayaç sonrası boruları TURQUAZ yap
-                    setTimeout(() => {
-                        this.manager.updatePipeColorsAfterMeter(sayac.id);
-                    }, 0);
                 }
             }
         }
 
         this.manager.pipes.push(boru);
+
+        // ✨ Sayaç sonrası boruları TURQUAZ yap (boru eklendikten SONRA)
+        if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
+            const sayac = this.manager.components.find(
+                c => c.id === this.boruBaslangic.kaynakId && c.type === 'sayac'
+            );
+            if (sayac) {
+                this.manager.updatePipeColorsAfterMeter(sayac.id);
+            }
+        }
 
         // State'i senkronize et
         this.manager.saveToState();
