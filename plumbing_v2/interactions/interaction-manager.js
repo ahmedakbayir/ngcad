@@ -1173,6 +1173,18 @@ export class InteractionManager {
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
 
+        // ✨ Başlangıç kaynağının rengini devral
+        if (this.boruBaslangic.kaynakTip === 'sayac') {
+            // Sayaç çıkışından başlıyorsa TURQUAZ
+            boru.colorGroup = 'TURQUAZ';
+        } else if (this.boruBaslangic.kaynakTip === 'boru' && this.boruBaslangic.kaynakId) {
+            // Boru ucundan başlıyorsa o borunun rengini al
+            const baslangicBoru = this.manager.findPipeById(this.boruBaslangic.kaynakId);
+            if (baslangicBoru) {
+                boru.colorGroup = baslangicBoru.colorGroup || 'YELLOW';
+            }
+        }
+
         if (this.boruBaslangic.kaynakId) {
             boru.setBaslangicBaglanti(
                 this.boruBaslangic.kaynakTip,
