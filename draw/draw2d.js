@@ -380,9 +380,9 @@ export function draw2D() {
 
 
     // 7. Mahal Etiketleri (TESİSAT modunda gizli)
-    if (state.currentDrawingMode !== 'TESİSAT') {
+   // if (state.currentDrawingMode !== 'TESİSAT') {
         drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
-    }
+    //}
 
     // 8. Kapılar, Pencereler, Menfezler
     doors.forEach((door) => {

@@ -532,17 +532,20 @@ export function setDrawingMode(mode) {
     }
 }
 
-// Renk açıklaştırma fonksiyonu - rengi background'a yaklaştırır
+
 function blendColorWithBackground(color, blendAmount) {
-    // blendAmount: 0 = orijinal renk, 1 = tamamen background
-    const bgColor = state.backgroundColor || '#1e1f20';
+    // BG rengini tam olarak al (#222325ff formatından #222325'e)
+    const bgColor = BG.substring(0, 7); 
 
-    // Debug için
-    // console.log('Blending:', color, 'with bg:', bgColor, 'amount:', blendAmount);
-
-    // Hex renkleri parse et
     const parseHex = (hex) => {
         const clean = hex.replace('#', '');
+        if (clean.length === 3) {
+            return {
+                r: parseInt(clean[0] + clean[0], 16),
+                g: parseInt(clean[1] + clean[1], 16),
+                b: parseInt(clean[2] + clean[2], 16)
+            };
+        }
         return {
             r: parseInt(clean.substring(0, 2), 16),
             g: parseInt(clean.substring(2, 4), 16),
@@ -550,101 +553,40 @@ function blendColorWithBackground(color, blendAmount) {
         };
     };
 
-    // Rengi string'den parse et
-    let sourceColor;
-    if (typeof color === 'number') {
-        // Hex number formatı (0xFFFF00)
-        const hex = color.toString(16).padStart(6, '0');
-        sourceColor = {
-            r: parseInt(hex.substring(0, 2), 16),
-            g: parseInt(hex.substring(2, 4), 16),
-            b: parseInt(hex.substring(4, 6), 16)
-        };
-    } else if (typeof color === 'string' && color.startsWith('#')) {
-        sourceColor = parseHex(color);
-    } else if (typeof color === 'string' && color.startsWith('rgb')) {
-        // rgb(r, g, b) veya rgba(r, g, b, a) parse et
-        const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-        if (match) {
-            sourceColor = { r: parseInt(match[1]), g: parseInt(match[2]), b: parseInt(match[3]) };
-        } else {
-            return color; // Parse edilemezse orijinali döndür
-        }
+    let src;
+    if (typeof color === 'string' && color.startsWith('rgba')) {
+        const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        src = m ? { r: parseInt(m[1]), g: parseInt(m[2]), b: parseInt(m[3]) } : parseHex('#808080');
     } else {
-        return color; // Desteklenmeyen format
+        src = parseHex(typeof color === 'number' ? '#' + color.toString(16).padStart(6, '0') : color);
     }
 
     const bg = parseHex(bgColor);
 
-    // Renkleri blend et
-    const blended = {
-        r: Math.round(sourceColor.r * (1 - blendAmount) + bg.r * blendAmount),
-        g: Math.round(sourceColor.g * (1 - blendAmount) + bg.g * blendAmount),
-        b: Math.round(sourceColor.b * (1 - blendAmount) + bg.b * blendAmount)
-    };
+    // %89 arka plan, %11 orijinal renk
+    const r = Math.round(src.r * (1 - blendAmount) + bg.r * blendAmount);
+    const g = Math.round(src.g * (1 - blendAmount) + bg.g * blendAmount);
+    const b = Math.round(src.b * (1 - blendAmount) + bg.b * blendAmount);
 
-    // Hex'e geri çevir
-    const toHex = (n) => {
-        const hex = n.toString(16);
-        return hex.length === 1 ? '0' + hex : hex;
-    };
-
-    const result = `#${toHex(blended.r)}${toHex(blended.g)}${toHex(blended.b)}`;
-    // console.log('Result:', result);
-    return result;
+    return `rgb(${r}, ${g}, ${b})`;
 }
 
-// Nesne tipine göre rengi ayarlar (tesisat modunda mimari soluk olur)
 export function getAdjustedColor(originalColor, objectType) {
     const mode = state.currentDrawingMode;
 
-    // Rengi normalize et (sayıyı string'e çevir)
-    const normalizeColor = (color) => {
-        if (typeof color === 'number') {
-            // Hex number formatını string'e çevir (0xFFFF00 -> '#FFFF00')
-            return '#' + color.toString(16).padStart(6, '0').toUpperCase();
-        }
-        return color;
-    };
+    // Mimari öğeler listesi
+    const archTags = ['wall', 'door', 'window', 'room', 'roomName', 'column', 'beam', 'stair', 'stairs', 'dimension', 'vent'];
 
-    // KARMA modunda her şey normal renkte
-    if (mode === "KARMA") {
-        return normalizeColor(originalColor);
+    if (mode === "TESİSAT" && archTags.includes(objectType)) {
+        // %89 Arka planla karıştır (İstediğiniz %11 açıklık/belirginlik oranı)
+        return blendColorWithBackground(originalColor, 0.89);
     }
 
-    // Mimari nesneler listesi (TESİSAT modunda soluk olacaklar)
-    const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'column', 'beam', 'stair', 'dimension', 'roomName'
-    ];
-
-    // Tesisat nesneleri listesi
-    const plumbingObjects = [
-        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'
-    ];
-
-    const isArchitectural = architecturalObjects.includes(objectType);
-    const isPlumbing = plumbingObjects.includes(objectType);
-
-    // MİMARİ modunda
-    if (mode === "MİMARİ") {
-        if (isPlumbing) {
-            // Tesisat nesneleri - renk blend YAPMA, sadece globalAlpha ile soluklaştır
-            // (plumbing-renderer.js'de globalAlpha kullanılıyor)
-            return normalizeColor(originalColor);
-        }
-        return normalizeColor(originalColor); // Mimari nesneler normal
+    // Normal durumda (KARMA veya MİMARİ) rengi döndür
+    if (typeof originalColor === 'number') {
+        return '#' + originalColor.toString(16).padStart(6, '0');
     }
-
-    // TESİSAT modunda
-    if (mode === "TESİSAT") {
-        if (isArchitectural) {
-            // Mimari nesneler çok soluk (85% background'a blend)
-            return blendColorWithBackground(originalColor, 0.6);
-        }
-        return normalizeColor(originalColor); // Tesisat nesneleri normal
-    }
-
-    return normalizeColor(originalColor);
+    return originalColor;
 }
 
 // DEPRECATED: Artık kullanılmıyor, geriye uyumluluk için bırakıldı
