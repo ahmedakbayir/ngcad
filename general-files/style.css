@@ -1,10 +1,60 @@
 /* ahmedakbayir/ngcad/ngcad-97f573de1173b8495d9e23d8519ed352962bab63/style.css */
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* TEMA DEĞİŞKENLERİ - DARK MODE (Varsayılan) */
+/* ═══════════════════════════════════════════════════════════════ */
+:root {
+    --bg-body: #131314;
+    --color-text: #e8eaed;
+    --bg-panel: #1e1f20;
+    --border-panel: #3c4043;
+    --bg-button: #3c4043;
+    --border-button: #5f6368;
+    --bg-button-hover: #5f6368;
+    --bg-button-active: #8ab4f8;
+    --color-button-active: #202124;
+    --bg-popup: #2a2b2c;
+    --bg-input: #1e1f20;
+    --color-secondary: #9aa0a6;
+    --bg-group: rgba(42, 43, 44, 0.95);
+    --border-group: #5f6368;
+    --bg-menu: rgba(30, 31, 32, 0.85);
+    --border-menu: rgba(100, 149, 237, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* TEMA DEĞİŞKENLERİ - LIGHT MODE */
+/* ═══════════════════════════════════════════════════════════════ */
+body.light-mode {
+    --bg-body: radial-gradient(ellipse at center, #ffffff 0%, #f8f9fa 50%, #e8f0f8 100%);
+    --color-text: #202124;
+    --bg-panel: #ffffff;
+    --border-panel: #dadce0;
+    --bg-button: #f1f3f4;
+    --border-button: #dadce0;
+    --bg-button-hover: #e8eaed;
+    --bg-button-active: #1a73e8;
+    --color-button-active: #ffffff;
+    --bg-popup: #ffffff;
+    --bg-input: #f8f9fa;
+    --color-secondary: #5f6368;
+    --bg-group: rgba(255, 255, 255, 0.95);
+    --border-group: #dadce0;
+    --bg-menu: rgba(255, 255, 255, 0.95);
+    --border-menu: rgba(26, 115, 232, 0.3);
+}
+
 body {
     margin: 0;
-    background: #131314;
-    color: #e8eaed;
+    background: var(--bg-body);
+    color: var(--color-text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     user-select: none;
+}
+
+/* Light mode için gradient arka plan */
+body.light-mode {
+    background: radial-gradient(ellipse at center, #ffffff 0%, #f8f9fa 50%, #e8f0f8 100%);
 }
 
 .main {
@@ -19,8 +69,8 @@ body {
 .panel {
     position: relative;
     flex: 1;
-    background: #1e1f20;
-    border: 1px solid #3c4043;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-panel);
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -112,8 +162,8 @@ canvas {
     flex-direction: column;
     gap: 6px;
     padding: 8px;
-    background: rgba(42, 43, 44, 0.95);
-    border: 1px solid #5f6368;
+    background: var(--bg-group);
+    border: 1px solid var(--border-group);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(4px);
@@ -164,9 +214,9 @@ canvas {
 
 .btn {
     padding: 8px 12px;
-    border: 1px solid #5f6368;
-    background: #3c4043;
-    color: #e8eaed;
+    border: 1px solid var(--border-button);
+    background: var(--bg-button);
+    color: var(--color-text);
     border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
@@ -271,19 +321,19 @@ canvas {
 }
 
 .btn.active {
-    background: #8ab4f8;
-    color: #202124;
-    border-color: #8ab4f8;
+    background: var(--bg-button-active);
+    color: var(--color-button-active);
+    border-color: var(--bg-button-active);
     font-weight: 600;
 }
 
 .btn:hover:not(.active) {
-    background: #5f6368;
+    background: var(--bg-button-hover);
 }
 
 /* UI içindeki butonlar için gelişmiş hover efekti */
 #ui .btn:hover:not(.active) {
-    background: #5f6368;
+    background: var(--bg-button-hover);
     border-color: #87CEEB;
     box-shadow: 0 2px 8px rgba(135, 206, 235, 0.3);
 }
@@ -337,8 +387,8 @@ canvas {
 #length-input {
     position: absolute;
     display: none;
-    background-color: #131314;
-    color: #e8eaed;
+    background-color: var(--bg-input);
+    color: var(--color-text);
     border: 1px solid #8ab4f8;
     border-radius: 4px;
     padding: 4px 6px;
@@ -380,8 +430,8 @@ canvas {
     position: absolute;
     bottom: 55px;
     left: 10px;
-    background-color: #2a2b2c;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button);
     border-radius: 8px;
     padding: 12px;
     z-index: 100;
@@ -403,7 +453,7 @@ canvas {
 .settings-title {
     font-size: 15px;
     font-weight: 600;
-    color: #e8eaed;
+    color: var(--color-text);
 }
 
 .settings-body {
@@ -429,7 +479,7 @@ canvas {
     cursor: pointer;
     border: none;
     background-color: transparent;
-    color: #9aa0a6;
+    color: var(--color-secondary);
     border-left: 3px solid transparent;
     font-size: 12px;
     /* Arttırıldı: 11px -> 12px */
@@ -501,9 +551,9 @@ canvas {
 .setting-control input[type="number"],
 .setting-control input[type="color"],
 .setting-control select {
-    background-color: #1e1f20;
-    color: #e8eaed;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-input);
+    color: var(--color-text);
+    border: 1px solid var(--border-button);
     border-radius: 4px;
     padding: 4px 6px;
     font-size: 11px;
@@ -562,8 +612,8 @@ canvas {
 #room-name-popup {
     display: none;
     position: absolute;
-    background-color: #2a2b2c;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button);
     border-radius: 8px;
     z-index: 200;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
@@ -574,15 +624,15 @@ canvas {
     width: calc(100% - 10px);
     margin-bottom: 5px;
     padding: 5px;
-    background-color: #1e1f20;
-    color: #e8eaed;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-input);
+    color: var(--color-text);
+    border: 1px solid var(--border-button);
     border-radius: 4px;
 }
 
 #room-name-select {
-    background-color: #1e1f20;
-    color: #e8eaed;
+    background-color: var(--bg-input);
+    color: var(--color-text);
     border: none;
     padding: 5px;
     font-size: 14px;
@@ -648,8 +698,8 @@ canvas {
 #stair-popup {
     display: none;
     position: absolute;
-    background-color: #2a2b2c;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button);
     border-radius: 8px;
     z-index: 200;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
@@ -685,9 +735,9 @@ canvas {
 #stair-popup input[type="text"],
 #stair-popup input[type="number"],
 #stair-popup select {
-    background-color: #1e1f20;
-    color: #e8eaed;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-input);
+    color: var(--color-text);
+    border: 1px solid var(--border-button);
     border-radius: 4px;
     padding: 5px;
     width: 120px;
@@ -707,8 +757,8 @@ canvas {
 #panel-display-menu {
     display: none;
     position: absolute;
-    background-color: #2a2b2c;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button);
     border-radius: 6px;
     z-index: 200;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
@@ -719,8 +769,8 @@ canvas {
 #guide-context-menu {
     display: none;
     position: absolute;
-    background-color: #2a2b2c;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button);
     border-radius: 6px;
     z-index: 200;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
@@ -769,8 +819,8 @@ canvas {
     position: absolute;
     left: calc(100% - 4px);
     top: -5px;
-    background-color: #2a2b2c;
-    border: 1px solid #5f6368;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button);
     border-radius: 6px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     padding: 5px;
@@ -1139,9 +1189,9 @@ canvas {
     padding: 8px 16px;
     font-size: 13px;
     font-weight: 600;
-    background: rgba(60, 64, 67, 0.8);
-    border: 1px solid #5f6368;
-    color: #e8eaed;
+    background: var(--bg-button);
+    border: 1px solid var(--border-button);
+    color: var(--color-text);
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1151,17 +1201,17 @@ canvas {
 }
 
 .mode-btn:hover {
-    background: rgba(80, 84, 87, 0.9);
+    background: var(--bg-button-hover);
     border-color: #87CEEB;
     transform: scale(1.05);
     box-shadow: 0 2px 4px rgba(135, 206, 235, 0.3);
 }
 
 .mode-btn.active {
-    background: rgba(100, 149, 237, 0.4);
-    border-color: #87CEEB;
+    background: var(--bg-button-active);
+    border-color: var(--bg-button-active);
     box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
-    color: #87CEEB;
+    color: var(--color-button-active);
 }
 
 /* Proje Modları - En sol üst köşe */
@@ -1172,9 +1222,9 @@ canvas {
     display: flex;
     gap: 4px;
     padding: 6px;
-    background: rgba(42, 43, 44, 0.95);
-    border-bottom: 1px solid #5f6368;
-    border-right: 1px solid #5f6368;
+    background: var(--bg-group);
+    border-bottom: 1px solid var(--border-group);
+    border-right: 1px solid var(--border-group);
     border-bottom-right-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     z-index: 10000;

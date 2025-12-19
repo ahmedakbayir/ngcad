@@ -14,7 +14,38 @@ import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
 
+// ═══════════════════════════════════════════════════════════════
+// DARK MODE / LIGHT MODE FONKSİYONLARI
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Tema uygular (dark/light mode)
+ * @param {boolean} isDarkMode - true ise dark mode, false ise light mode
+ */
+function applyTheme(isDarkMode) {
+    if (isDarkMode) {
+        document.body.classList.remove('light-mode');
+        localStorage.setItem('darkMode', 'true');
+    } else {
+        document.body.classList.add('light-mode');
+        localStorage.setItem('darkMode', 'false');
+    }
+}
+
+/**
+ * Dark mode toggle handler
+ */
+function toggleDarkMode() {
+    const isDarkMode = dom.darkModeToggle.checked;
+    applyTheme(isDarkMode);
+}
+
 export function initializeSettings() {
+    // Dark Mode ayarını localStorage'dan yükle
+    const isDarkMode = localStorage.getItem('darkMode') !== 'false'; // Varsayılan: true (dark mode)
+    dom.darkModeToggle.checked = isDarkMode;
+    applyTheme(isDarkMode);
+
     dom.borderPicker.value = state.wallBorderColor;
     dom.roomPicker.value = state.roomFillColor;
     dom.lineThicknessInput.value = state.lineThickness;
@@ -655,6 +686,9 @@ export function setupUIListeners() {
             dom.tabButtons[key].addEventListener('click', () => openTab(key));
         });
     }
+
+    // DARK MODE TOGGLE
+    dom.darkModeToggle.addEventListener("change", toggleDarkMode);
 
     dom.borderPicker.addEventListener("input", (e) => setState({ wallBorderColor: e.target.value }));
     dom.roomPicker.addEventListener("input", (e) => setState({ roomFillColor: e.target.value }));
