@@ -3,7 +3,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getAdjustedColor, state } from '../general-files/main.js';
+import { BG, getAdjustedColor, state } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
@@ -320,7 +320,7 @@ export class PlumbingRenderer {
 
     drawPipeEndpoints(ctx, pipe) {
         // Uç noktaları küçük belirgin noktalar (seçili borular için)
-        const r = 2; // Küçük
+        const r = 1.6; // Küçük
 
         // p1 noktası
         ctx.fillStyle = '#FF8C00'; // Turuncu
@@ -1006,7 +1006,9 @@ export class PlumbingRenderer {
     }
 
     drawSayac(ctx, comp, manager) {
-        const { width, height, connectionOffset, rijitUzunluk } = comp.config;
+        const { width, height, connectionOffset, nutHeight } = comp.config;
+        const rijitUzunluk = comp.config.rijitUzunluk || (comp.ghostConnectionInfo ? 15 : 0);
+        //rijitUzunluk = rijitUzunluk + 2
         const zoom = state.zoom || 1;
 
         if (manager) {
@@ -1112,7 +1114,7 @@ export class PlumbingRenderer {
         // --- 3. Üst Bağlantı Rekorları (Detaylı) ---
         const connY = -height / 2;
         const nutWidth = 7;
-        const nutHeight = 4;
+        //const nutHeight = 4;
 
         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
         ctx.shadowBlur = 3;
@@ -1156,22 +1158,26 @@ export class PlumbingRenderer {
         // --- 4. Rijit Çıkış Kolu (Sarı Boru) ---
         const armStartX = connectionOffset;
         const armStartY = connY - nutHeight;
-        const armWidth = 2;
+        const armWidth = 1;
 
         // Boru gradient (sarı metalik)
         const pipeGradient = ctx.createLinearGradient(armStartX - armWidth / 2, 0, armStartX + armWidth / 2, 0);
-        pipeGradient.addColorStop(0, '#CC9900');
+        pipeGradient.addColorStop(0, '#FFD700');
         pipeGradient.addColorStop(0.5, '#FFD700');
-        pipeGradient.addColorStop(1, '#CC9900');
+        pipeGradient.addColorStop(1, '#FFD700');
 
         ctx.fillStyle = pipeGradient;
         ctx.fillRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
 
         // Boru kenarlık
-        ctx.strokeStyle = '#B8860B';
+        //ctx.strokeStyle = '#B8860B';
         ctx.lineWidth = 0.6 / zoom;
         ctx.strokeRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
-
+        ctx.beginPath();
+        ctx.arc(armStartX, armStartY - rijitUzunluk, armWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+        //ctx.stroke();
+        /*
         // Çıkış ucu
         if (!comp.cikisKullanildi) {
             ctx.fillStyle = '#FF8C00';
@@ -1182,23 +1188,23 @@ export class PlumbingRenderer {
             ctx.fill();
             ctx.stroke();
         }
-
+*/
         ctx.restore();
     }
 
     drawSelectionBox(ctx, comp) {
-        const bbox = comp.getBoundingBox ? comp.getBoundingBox() : null;
-        if (!bbox) return;
+        // const bbox = comp.getBoundingBox ? comp.getBoundingBox() : null;
+        // if (!bbox) return;
 
-        // Koordinatları local'e çevir
-        const w = bbox.maxX - bbox.minX;
-        const h = bbox.maxY - bbox.minY;
+        // // Koordinatları local'e çevir
+        // const w = bbox.maxX - bbox.minX;
+        // const h = bbox.maxY - bbox.minY;
 
-        ctx.strokeStyle = this.secilenRenk;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 3]);
-        ctx.strokeRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6);
-        ctx.setLineDash([]);
+        // ctx.strokeStyle = this.secilenRenk;
+        // ctx.lineWidth = 1;
+        // ctx.setLineDash([3, 3]);
+        // ctx.strokeRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6);
+        // ctx.setLineDash([]);
     }
 
     drawRotationHandles(ctx, comp) {
@@ -1206,13 +1212,13 @@ export class PlumbingRenderer {
 
         if (comp.type === 'servis_kutusu') {
             const { height } = SERVIS_KUTUSU_CONFIG;
-            handleLength = height / 2 + 30; // 10cm dışarıda
+            handleLength = height / 2 + 10; // 10cm dışarıda
         } else if (comp.type === 'cihaz') {
             // Cihaz için: 30 cm çapında, handle 20 cm yukarıda (yarıya düşürüldü)
             handleLength = 15 + 20; // radius + 20cm = 35cm
         } else if (comp.type === 'sayac') {
             // Sayaç için: handle merkezden yukarıda
-            handleLength = comp.config.height / 2 + 20; // 12 + 20 = 32cm
+            handleLength = comp.config.height / 2 + 10; // 12 + 20 = 32cm
         } else {
             return; // Diğer tipler için handle çizme
         }
