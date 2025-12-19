@@ -1,4 +1,4 @@
-import { BORU_TIPLERI } from './objects/pipe.js';
+import { BORU_TIPLERI, RENK_GRUPLARI } from './objects/pipe.js';
 import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
@@ -8,6 +8,19 @@ import { BG, getAdjustedColor, state } from '../general-files/main.js';
 export class PlumbingRenderer {
     constructor() {
         this.secilenRenk = '#00BFFF'; // Seçili nesne rengi
+    }
+
+    /**
+     * Renk grubundan opacity ile renk al
+     */
+    getRenkByGroup(colorGroup, tip, opacity) {
+        const group = RENK_GRUPLARI[colorGroup] || RENK_GRUPLARI.YELLOW;
+        const template = group[tip];
+
+        if (template.includes('{opacity}')) {
+            return template.replace('{opacity}', opacity);
+        }
+        return template;
     }
 
     render(ctx, manager) {
@@ -175,14 +188,14 @@ export class PlumbingRenderer {
                 // Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
 
+                // Renk grubuna göre renk seç
+                const colorGroup = pipe.colorGroup || 'YELLOW';
+
                 // Kenarlarda hafif karartma, ortası boru rengi
                 // Geçişler yumuşak tutuldu
-                gradient.addColorStop(0.0, 'rgba(255, 255,0,  0.5)');
-                gradient.addColorStop(0.5, 'rgba(255, 255,0,  1)');
-                gradient.addColorStop(1, 'rgba( 255, 255,0,  0.5)');
-                // gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)');
-                // gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');
-                // gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');
+                gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
+                gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -245,14 +258,10 @@ export class PlumbingRenderer {
     }
 
     drawElbows(ctx, pipes, breakPoints) {
-        // Çizim moduna göre renk ayarla (Orijinal düz renk yapısı korundu)
-        // const adjustedGray = getAdjustedColor('rgba(0, 133, 133, 1)', 'boru');
-        const adjustedGray = getAdjustedColor('rgba( 219, 219,0,  1)', 'boru');
-
-
-        ctx.fillStyle = adjustedGray;
-
         breakPoints.forEach(bp => {
+            // Dirsek rengini ilk borunun colorGroup'una göre belirle
+            const firstPipe = bp.pipes[0];
+            const colorGroup = firstPipe?.colorGroup || 'YELLOW';
             // En büyük genişliği bul (merkez daire için)
             let maxArmWidth = 0;
             const armLength = 3;      // 3 cm kol uzunluğu
@@ -260,9 +269,9 @@ export class PlumbingRenderer {
 
             const dm = bp.diameters[1] + armExtraWidth * 2
             const adjustedGrayx = ctx.createRadialGradient(bp.x, bp.y, dm / 4, bp.x, bp.y, dm / 2);
-            adjustedGrayx.addColorStop(0, 'rgba(255, 255, 0, 1)');
-            adjustedGrayx.addColorStop(0.2, 'rgba(255, 255, 0, 1)');
-            adjustedGrayx.addColorStop(1, 'rgba(255, 255, 0, .8)');
+            adjustedGrayx.addColorStop(0, this.getRenkByGroup(colorGroup, 'dirsek', 1));
+            adjustedGrayx.addColorStop(0.2, this.getRenkByGroup(colorGroup, 'dirsek', 1));
+            adjustedGrayx.addColorStop(1, this.getRenkByGroup(colorGroup, 'dirsek', 0.8));
             ctx.fillStyle = adjustedGrayx;
             ctx.beginPath();
             ctx.arc(bp.x, bp.y, dm / 2, 0, Math.PI * 2);
@@ -288,10 +297,10 @@ export class PlumbingRenderer {
 
                 // Kenarlarda hafif karartma, ortası boru rengi
                 // Geçişler yumuşak tutuldu
-                gradientdar.addColorStop(0.0, 'rgba(255, 255,0,  0.6)');
-                gradientdar.addColorStop(0.2, 'rgba(255, 255,0,  1)');
-                gradientdar.addColorStop(0.6, 'rgba(255, 255,0, 1)');
-                gradientdar.addColorStop(1, 'rgba( 255, 255,0,  0.6)');
+                gradientdar.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'dirsek', 0.6));
+                gradientdar.addColorStop(0.2, this.getRenkByGroup(colorGroup, 'dirsek', 1));
+                gradientdar.addColorStop(0.6, this.getRenkByGroup(colorGroup, 'dirsek', 1));
+                gradientdar.addColorStop(1, this.getRenkByGroup(colorGroup, 'dirsek', 0.6));
 
 
                 // 3 cm'lik ana kol (dikdörtgen)
@@ -300,9 +309,9 @@ export class PlumbingRenderer {
 
                 const gradientgenis = ctx.createLinearGradient(0, -armWidth / 2, 0, armWidth / 2);
                 // İç kısımda hafif parlaklık efekti
-                gradientgenis.addColorStop(0.0, 'rgba(255, 255,0,  0.8)');
-                gradientgenis.addColorStop(0.5, 'rgba(255, 255,0,  1)');
-                gradientgenis.addColorStop(1, 'rgba( 255, 255,0,  0.8)');
+                gradientgenis.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'dirsek', 0.8));
+                gradientgenis.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'dirsek', 1));
+                gradientgenis.addColorStop(1, this.getRenkByGroup(colorGroup, 'dirsek', 0.8));
 
 
                 // Uçta kalın çizgi (sağdan soldan 0.2 cm taşan, 1.5x kalın)
@@ -443,14 +452,12 @@ export class PlumbingRenderer {
         ctx.translate(geciciBoru.p1.x, geciciBoru.p1.y);
         ctx.rotate(angle);
 
-        // Aynı yumuşak gradient
+        // Aynı yumuşak gradient - varsayılan YELLOW renk grubu
         const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-        // gradient.addColorStop(0.0, 'rgba(0,255, 255,  0.3)'); 
-        // gradient.addColorStop(0.5,  'rgba(0, 255, 255, 1)');  
-        // gradient.addColorStop(1, 'rgba( 0, 255, 255, 0.3)');  
-        gradient.addColorStop(0.0, 'rgba(255, 255, 0, 0.3)');
-        gradient.addColorStop(0.5, 'rgba(255, 255, 0, 1)');
-        gradient.addColorStop(1, 'rgba(255, 255, 0, 0.3)');
+        const colorGroup = 'YELLOW'; // Geçici boru için varsayılan
+        gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.3));
+        gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
+        gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.3));
         ctx.fillStyle = gradient;
         ctx.fillRect(0, -width / 2, length, width);
 
@@ -1441,6 +1448,7 @@ export class PlumbingRenderer {
     drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null, deviceCenter = null) {
         let closestPipeEnd = targetPoint;
         let pipeDirection = null;
+        let colorGroup = 'YELLOW'; // Varsayılan renk grubu
 
         // KRITIK: connectionPoint'i cihazın içine doğru uzat (15 cm)
         let adjustedConnectionPoint = connectionPoint;
@@ -1465,6 +1473,7 @@ export class PlumbingRenderer {
             const currentFloorId = state.currentFloor?.id;
             const pipes = (manager.pipes || []).filter(p => p.floorId === currentFloorId);
             let minDist = Infinity;
+            let closestPipe = null;
 
             // En yakın boru ucunu bul
             for (const pipe of pipes) {
@@ -1472,6 +1481,7 @@ export class PlumbingRenderer {
                 if (dist1 < minDist) {
                     minDist = dist1;
                     closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
+                    closestPipe = pipe;
                     const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
                     if (pipeLength > 0) {
                         pipeDirection = {
@@ -1485,6 +1495,7 @@ export class PlumbingRenderer {
                 if (dist2 < minDist) {
                     minDist = dist2;
                     closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
+                    closestPipe = pipe;
                     const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
                     if (pipeLength > 0) {
                         pipeDirection = {
@@ -1493,6 +1504,11 @@ export class PlumbingRenderer {
                         };
                     }
                 }
+            }
+
+            // En yakın borunun renk grubunu al
+            if (closestPipe) {
+                colorGroup = closestPipe.colorGroup || 'YELLOW';
             }
         }
 
@@ -1512,8 +1528,9 @@ export class PlumbingRenderer {
 
             ctx.save();
 
-            // Fleks rengini ayarla (sarı-altın rengi)
-            const adjustedColor = getAdjustedColor('#FFD700', 'cihaz');
+            // Fleks rengini renk grubuna göre ayarla
+            const fleksRenk = this.getRenkByGroup(colorGroup, 'fleks', 1);
+            const adjustedColor = getAdjustedColor(fleksRenk, 'cihaz');
             ctx.strokeStyle = adjustedColor;
             ctx.lineWidth = 1;  // Daha kalın
             ctx.lineCap = 'round';
@@ -1791,8 +1808,12 @@ export class PlumbingRenderer {
             fleksBitis = merkez;
         }
 
+        // Fleks rengini borunun colorGroup'una göre ayarla
+        const colorGroup = boru?.colorGroup || 'YELLOW';
+        const fleksRenk = this.getRenkByGroup(colorGroup, 'fleks', 1);
+
         ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = '#FFD700'; // Sarı
+        ctx.strokeStyle = fleksRenk;
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]); // Kesikli çizgi
 
@@ -1865,8 +1886,12 @@ export class PlumbingRenderer {
         // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil)
         const solRakor = ghost.getSolRakorNoktasi();
 
+        // Fleks rengini borunun colorGroup'una göre ayarla
+        const colorGroup = boru?.colorGroup || 'YELLOW';
+        const fleksRenk = this.getRenkByGroup(colorGroup, 'fleks', 1);
+
         ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = '#FFD700'; // Sarı
+        ctx.strokeStyle = fleksRenk;
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
 
