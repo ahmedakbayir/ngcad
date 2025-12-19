@@ -1142,16 +1142,26 @@ export class PlumbingRenderer {
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
-        // --- 4. Rijit Çıkış Kolu (Sarı Boru) ---
+        // --- 4. Rijit Çıkış Kolu ---
         const armStartX = connectionOffset;
         const armStartY = connY - nutHeight;
         const armWidth = 1;
 
-        // Boru gradient (sarı metalik)
+        // Çıkış borusunun renk grubunu al
+        let rijitColorGroup = 'YELLOW'; // Varsayılan
+        if (comp.cikisBagliBoruId && manager) {
+            const cikisBoru = manager.findPipeById(comp.cikisBagliBoruId);
+            if (cikisBoru) {
+                rijitColorGroup = cikisBoru.colorGroup || 'YELLOW';
+            }
+        }
+
+        // Boru rengini renk grubuna göre ayarla
+        const rijitRenk = this.getRenkByGroup(rijitColorGroup, 'fleks', 1);
         const pipeGradient = ctx.createLinearGradient(armStartX - armWidth / 2, 0, armStartX + armWidth / 2, 0);
-        pipeGradient.addColorStop(0, '#FFD700');
-        pipeGradient.addColorStop(0.5, '#FFD700');
-        pipeGradient.addColorStop(1, '#FFD700');
+        pipeGradient.addColorStop(0, rijitRenk);
+        pipeGradient.addColorStop(0.5, rijitRenk);
+        pipeGradient.addColorStop(1, rijitRenk);
 
         ctx.fillStyle = pipeGradient;
         ctx.fillRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
