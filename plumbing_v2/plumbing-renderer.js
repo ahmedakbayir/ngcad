@@ -3,7 +3,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getAdjustedColor, state, getDimensionPlumbingColor } from '../general-files/main.js';
+import { getAdjustedColor, state, getDimensionPlumbingColor, getShadow } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
@@ -223,10 +223,7 @@ export class PlumbingRenderer {
                 gradient.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`);
                 gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`);
                 ctx.fillStyle = gradient;
-                ctx.shadowColor = 'rgba(255, 255, 255, 1)';
-                ctx.shadowBlur = 0;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 0;
+                getShadow(ctx);
                 ctx.fillRect(0, -width / 2, length, width);
 
             } else {
@@ -239,8 +236,10 @@ export class PlumbingRenderer {
                 // Kenarlarda hafif karartma, ortası boru rengi
                 // Geçişler yumuşak tutuldu
                 gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
+                gradient.addColorStop(0.33, this.getRenkByGroup(colorGroup, 'boru', 1));
+                gradient.addColorStop(0.67, this.getRenkByGroup(colorGroup, 'boru', 1));
                 gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                getShadow(ctx);
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -1899,31 +1898,7 @@ export class PlumbingRenderer {
         ctx.lineTo(solRakor.x, solRakor.y);
         ctx.stroke();
 
-        ctx.setLineDash([]);
 
-        // 3. Çıkış Borusu Preview (Giriş fleksinin yerine geçen boru)
-        const cikisNoktasi = ghost.getCikisNoktasi();
-        const boruUzunluk = 15; // cm
-
-        // Sayacın rotation'una göre boru bitiş noktasını hesapla
-        const rad = ghost.rotation * Math.PI / 180;
-        const boruBitisX = cikisNoktasi.x + Math.cos(rad) * boruUzunluk;
-        const boruBitisY = cikisNoktasi.y + Math.sin(rad) * boruUzunluk;
-
-        // Çıkış borusu TURQUAZ (sayaç sonrası)
-        const cikisRenk = this.getRenkByGroup('TURQUAZ', 'boru', 1);
-
-        ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = cikisRenk;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-
-        ctx.beginPath();
-        ctx.moveTo(cikisNoktasi.x, cikisNoktasi.y);
-        ctx.lineTo(boruBitisX, boruBitisY);
-        ctx.stroke();
-
-        ctx.setLineDash([]);
         ctx.restore();
     }
 

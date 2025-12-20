@@ -147,6 +147,21 @@ export function getCursorWallDrawColor() {
     return isLightMode() ? THEME_COLORS.light.cursorWallDraw : THEME_COLORS.dark.cursorWallDraw;
 }
 
+export function getShadow(ctx, shadowColor=null, shadowBlur=5, shadowOffsetX=1, shadowOffsetY=1) {
+    if (isLightMode()) {
+        ctx.shadowColor = 'rgba(139, 139, 139, 1)';
+        ctx.shadowBlur =3;
+        ctx.shadowOffsetX = 0.5;
+        ctx.shadowOffsetY =  0.5;
+    } else {
+        ctx.shadowColor = 'rgba(139, 139, 139, 1)';
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetX =  0.5;
+        ctx.shadowOffsetY =  0.5;
+    }
+
+}
+
 export function applyBG(element = document.body) {
     if (isLightMode()) {
         element.style.background = 'none';
