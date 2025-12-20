@@ -296,7 +296,7 @@ export function drawColumn(column, isSelected = false) {
 
     // Çizim moduna göre renk ayarla
     const adjustedBorderColor = getAdjustedColor(wallBorderColor, 'column');
-    const adjustedFillColor = getAdjustedColor(getWallFillColor, 'column'); // Temaya göre dinamik
+    const adjustedFillColor = getAdjustedColor(getWallFillColor(), 'column'); // Fonksiyon çağrısı düzeltildi
 
     // Çizim stilleri
     ctx2d.fillStyle = adjustedFillColor; // İçini arka plan rengiyle doldur
