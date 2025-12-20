@@ -1358,6 +1358,40 @@ export class InteractionManager {
             this.manager.components.push(meter);
         }
 
+        // Sayacın çıkışından otomatik boru ekle (rijit boru yerine)
+        const cikisNoktasi = meter.getCikisNoktasi();
+        const boruUzunluk = 15; // cm - otomatik eklenen boru uzunluğu
+
+        // Sayacın rotation'una göre boru bitiş noktasını hesapla
+        const rad = meter.rotation * Math.PI / 180;
+        const boruBitisX = cikisNoktasi.x + Math.cos(rad) * boruUzunluk;
+        const boruBitisY = cikisNoktasi.y + Math.sin(rad) * boruUzunluk;
+
+        // Boru oluştur
+        const yeniBoru = createBoru(
+            cikisNoktasi.x,
+            cikisNoktasi.y,
+            boruBitisX,
+            boruBitisY,
+            { floorId: meter.floorId }
+        );
+
+        // Boruyu sayaca bağla
+        yeniBoru.baslangicKaynakId = meter.id;
+        yeniBoru.baslangicKaynakTip = BAGLANTI_TIPLERI.SAYAC;
+
+        // Boru rengini giriş borusuna göre ayarla (sayaç sonrası TURQUAZ)
+        if (boruUcu && boruUcu.boru) {
+            yeniBoru.colorGroup = 'TURQUAZ'; // Sayaç sonrası her zaman TURQUAZ
+        }
+
+        this.manager.components.push(yeniBoru);
+
+        // Sayacı çıkış borusuna bağla
+        meter.baglaCikis(yeniBoru.id);
+
+        // Not: saveState() zaten başta çağrıldı (satır 1300), tekrar çağırmaya gerek yok
+        // Tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
         // State'e kaydet
         this.manager.saveToState();
 
