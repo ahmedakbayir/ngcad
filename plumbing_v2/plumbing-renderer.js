@@ -3,7 +3,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { BG, getAdjustedColor, state } from '../general-files/main.js';
+import { getAdjustedColor, state } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {

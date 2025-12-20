@@ -1,4 +1,3 @@
-export const BG = "rgba(33, 33, 33, 1)";
 
 export const CL ={
  

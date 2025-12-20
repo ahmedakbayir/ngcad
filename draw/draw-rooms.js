@@ -1,4 +1,4 @@
-import { state, dom, getAdjustedColor, isObjectInteractable } from '../general-files/main.js';
+import { getRoomSelectedColor, getRoomFillColor, getAdjustedColor} from '../general-files/main.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
@@ -94,7 +94,7 @@ export function drawRoomPolygons(ctx2d, state) {
             // DOLGU RENGİNİ AYARLAMA
             // Eğer bu oda, adı sürüklenen oda ise VEYA fare bu odanın adının üzerindeyse VEYA bu oda seçili ise vurgu rengini kullan
             if (room === isDraggingRoomName || room === hoveredRoom || room === selectedRoom) {
-                ctx2d.fillStyle = darkenColor(adjustedRoomColor, 20); // Vurgu rengi
+                ctx2d.fillStyle = getRoomSelectedColor(); // Vurgu rengi
             } else {
                 ctx2d.fillStyle = adjustedRoomColor; // Normal renk (mod'a göre ayarlanmış)
             }

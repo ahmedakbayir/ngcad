@@ -20,7 +20,7 @@ import { initializeDefaultFloors } from '../floor/floor-handler.js';
 import { plumbingManager, TESISAT_MODLARI } from '../plumbing_v2/plumbing-manager.js';
 
 
-export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
+//export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
 
 // ═══════════════════════════════════════════════════════════════
 // MERKEZİ RENK SİSTEMİ - TÜM RENKLER BURADA
@@ -121,6 +121,7 @@ export function getWallStrokeColor() {
 export function getWallFillColor() {
     return isLightMode() ? THEME_COLORS.light.wallFill : THEME_COLORS.dark.wallFill;
 }
+
 
 export function getRoomFillColor() {
     return isLightMode() ? THEME_COLORS.light.roomFill : THEME_COLORS.dark.roomFill;
@@ -629,7 +630,7 @@ export function setDrawingMode(mode) {
 
 function blendColorWithBackground(color, blendAmount) {
     // BG rengini tam olarak al (#222325ff formatından #222325'e)
-    const bgColor = BG.substring(0, 7); 
+    const bgColor = getBG().substring(0, 7);
 
     const parseHex = (hex) => {
         const clean = hex.replace('#', '');
