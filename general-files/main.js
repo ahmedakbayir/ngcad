@@ -33,25 +33,26 @@ export const THEME_COLORS = {
         backgroundGradient: null, // Koyu modda gradient yok
         canvas: '#30302e', // Canvas temizleme rengi
         canvasGradient: {
-            center: '#2A2A2A',  // Merkez - koyu gri
-            mid: '#232323',     // Orta
+            center: '#363636ff',  // Merkez - koyu gri
+            mid: '#252525ff',     // Orta
             edge: '#1A1A1A'     // Kenar - daha koyu
         },
 
-        // Grid
-        grid: '#2e2e2e',
-
         // Duvarlar
-        wallStroke: 'rgba(180, 180, 180, 1)', // Duvar çizgisi
-        wallFill: '#30302e', // Duvar dolgusu (BG ile aynı)
+        wallStroke: 'rgba(233, 233, 233, 1)', // Duvar çizgisi
+        wallFill: '#333333ff', // Duvar dolgusu (BG ile aynı)
+
+
 
         // Mahaller
-        roomFill: '#30302e', // Mahal dolgusu (BG'ye yakın)
+        roomFill: 'rgba(22, 22, 22, 0.35)', // Mahal dolgusu (BG'ye yakın)
         roomHover: 'rgba(138, 180, 248, 0.2)', // Mahal hover
-        roomSelected: 'rgba(138, 180, 248, 0.35)', // Mahal seçili
+        roomSelected: '#443d3dff', // Mahal seçili
 
+        // Grid
+        grid: '#2b2a2aff',
         // Ölçülendirme
-        dimensionArchitecture: '#ffffffff', // Mimari ölçülendirme
+        dimensionArchitecture: '#b8b7b7ff', // Mimari ölçülendirme
         dimensionPlumbing: '#4dfff6ff', // Tesisat ölçülendirme
 
         // Boru renkleri (Tesisat)
@@ -71,25 +72,25 @@ export const THEME_COLORS = {
         backgroundGradient: 'radial-gradient(ellipse at center, #fdffff 0%, #e7fafa 100%)',
         canvas: '#e6e7e7', // Canvas temizleme rengi
         canvasGradient: {
-            center: '#FFFFFF',  // Merkez - saf beyaz
-            mid: '#F8F8F8',     // Orta
-            edge: '#E8E8E8'     // Kenar - açık gri
+            center: 'rgba(250, 255, 255, 1)',  // Merkez - saf beyaz
+            mid: 'rgba(255, 255, 250, 1)',     // Orta
+            edge: 'rgba(255, 250, 255, 1)'     // Kenar - açık gri
         },
 
         // Grid
-        grid: '#dfdddd',
+        grid: '#fffffa',
 
         // Duvarlar
         wallStroke: 'rgba(80, 80, 80, 1)', // Duvar çizgisi (koyu)
-        wallFill: '#f8f9fa', // Duvar dolgusu (açık)
+        wallFill: 'rgba(245, 245, 245, 1)', // Duvar dolgusu (açık)
 
         // Mahaller
-        roomFill: '#e6e7e7', // Mahal dolgusu (BG'ye yakın)
-        roomHover: 'rgba(26, 115, 232, 0.15)', // Mahal hover
-        roomSelected: 'rgba(26, 115, 232, 0.3)', // Mahal seçili
+        roomFill: 'rgba(253, 253, 253, 1)', // Mahal dolgusu (BG'ye yakın)
+        roomHover: 'rgba(255, 241, 241, 1)', // Mahal hover
+        roomSelected: 'rgba(255, 241, 241, 1)', // Mahal seçili
 
         // Ölçülendirme
-        dimensionArchitecture: '#000000', // Mimari ölçülendirme (koyu mavi)
+        dimensionArchitecture: '#3a3a3aff', // Mimari ölçülendirme (koyu mavi)
         dimensionPlumbing: '#fc0000ff', // Tesisat ölçülendirme (koyu teal)
 
         // Boru renkleri (Beyaz zeminde görünebilir)
@@ -107,7 +108,7 @@ export const THEME_COLORS = {
 // GETTER FONKSİYONLARI - Temaya göre renk döndürür
 // ═══════════════════════════════════════════════════════════════
 
-function isLightMode() {
+export function isLightMode() {
     return document.body.classList.contains('light-mode');
 }
 

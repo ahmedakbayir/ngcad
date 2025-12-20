@@ -28,7 +28,7 @@
 body.light-mode {
     --bg-body: #f5f6f7;
     --color-text: #202124;
-    --bg-panel: #d9d9da;
+    --bg-panel: #f3f3ff;
     --border-panel: #dde1e6;
     --bg-button: #e8eaed;
     --border-button: #c1c7cd;
@@ -71,7 +71,7 @@ body.light-mode {
     flex: 1;
     background: var(--bg-panel);
     border: 1px solid var(--border-panel);
-    border-radius: 8px;
+    border-radius: 2px;
     overflow: hidden;
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
