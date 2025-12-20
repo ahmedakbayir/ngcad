@@ -3,7 +3,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getAdjustedColor, state } from '../general-files/main.js';
+import { getAdjustedColor, state, getDimensionPlumbingColor } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
@@ -1355,9 +1355,9 @@ export class PlumbingRenderer {
             const roundedLength = Math.round(length);
             const displayText = roundedLength.toString();
 
-            // Yazıyı çiz (arka plan yok)
-            const adjustedTextColor = getAdjustedColor('rgba(214, 214, 214, 1)', 'boru');
-            ctx.fillStyle = adjustedTextColor;
+            // Yazıyı çiz (arka plan yok) - THEME_COLORS'dan al
+            const plumbingDimensionColor = getDimensionPlumbingColor();
+            ctx.fillStyle = plumbingDimensionColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText(displayText, 0, 0);
@@ -1417,10 +1417,9 @@ export class PlumbingRenderer {
         const roundedLength = Math.round(length);
         const displayText = roundedLength.toString();
 
-        // Yazıyı çiz (geçici için farklı renk, arka plan yok)
-        const adjustedTextColor = getAdjustedColor('rgba(214, 214, 214, 1)', 'boru');
-
-        ctx.fillStyle = adjustedTextColor;
+        // Yazıyı çiz (geçici için farklı renk, arka plan yok) - THEME_COLORS'dan al
+        const plumbingDimensionColor = getDimensionPlumbingColor();
+        ctx.fillStyle = plumbingDimensionColor;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(displayText, 0, 0);
