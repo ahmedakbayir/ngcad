@@ -20,7 +20,7 @@ import { initializeDefaultFloors } from '../floor/floor-handler.js';
 import { plumbingManager, TESISAT_MODLARI } from '../plumbing_v2/plumbing-manager.js';
 
 
-//export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
+export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
 
 // ═══════════════════════════════════════════════════════════════
 // MERKEZİ RENK SİSTEMİ - TÜM RENKLER BURADA
