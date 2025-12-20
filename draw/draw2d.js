@@ -263,7 +263,26 @@ export function draw2D() {
     // Get device pixel ratio for crisp rendering
     const dpr = window.devicePixelRatio || 1;
 
-    ctx2d.fillStyle = getCanvasClearColor(); // Temaya göre dinamik canvas clear
+    // Canvas background - radial gradient
+    const centerX = c2d.width / 2;
+    const centerY = c2d.height / 2;
+    const radius = Math.max(c2d.width, c2d.height) * 0.7;
+
+    const gradient = ctx2d.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+
+    if (isLightMode()) {
+        // Aydınlık mod: Merkez beyaz, kenarlar gri
+        gradient.addColorStop(0, '#FFFFFF');    // Merkez - saf beyaz
+        gradient.addColorStop(0.5, '#F8F8F8');  // Orta
+        gradient.addColorStop(1, '#E8E8E8');    // Kenar - açık gri
+    } else {
+        // Karanlık mod: Merkez koyu gri, kenarlar daha koyu
+        gradient.addColorStop(0, '#2A2A2A');    // Merkez
+        gradient.addColorStop(0.5, '#232323');  // Orta
+        gradient.addColorStop(1, '#1A1A1A');    // Kenar - daha koyu
+    }
+
+    ctx2d.fillStyle = gradient;
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
     ctx2d.save();
 
