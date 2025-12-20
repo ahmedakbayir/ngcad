@@ -45,7 +45,8 @@ export function setActiveControls(activeControls) {
 export function updateSceneBackground() {
     if (!scene) return;
     const isLightMode = document.body.classList.contains('light-mode');
-    const bgColor = isLightMode ? 0xf5f6f7 : 0x1e1f20;
+    // Kullanıcının istediği renkler: Koyu #30302e, Açık #e6e7e7
+    const bgColor = isLightMode ? 0xe6e7e7 : 0x30302e;
     scene.background = new THREE.Color(bgColor);
 }
 // YENİ SETTER FONKSİYONLARI SONU

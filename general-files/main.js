@@ -72,7 +72,56 @@ async function loadPictureFrameImages() {
 }
 */
 
-export const BG = "#222325ff"; // Dark mode varsayılan
+export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
+
+// ═══════════════════════════════════════════════════════════════
+// MERKEZİ RENK SİSTEMİ - TÜM RENKLER BURADA
+// ═══════════════════════════════════════════════════════════════
+export const THEME_COLORS = {
+    // KOYU MOD RENKLERİ
+    dark: {
+        // Arkaplan
+        background: '#30302e',
+        backgroundGradient: null, // Koyu modda gradient yok
+
+        // Grid
+        grid: '#2e2e2e',
+
+        // Mahal içleri (BG'ye yakın)
+        roomFill: '#30302e',
+
+        // Ölçülendirme
+        dimension: '#02153b',
+
+        // Boru renkleri (Tesisat)
+        pipeCold: '#00CED1',      // Turquaz (soğuk su)
+        pipeHot: '#FFD700',       // Sarı (sıcak su)
+        pipeDrain: '#808080',     // Gri (atık)
+        pipeVent: '#90EE90',      // Açık yeşil (havalandırma)
+    },
+
+    // AÇIK MOD RENKLERİ
+    light: {
+        // Arkaplan
+        background: '#e6e7e7',
+        backgroundGradient: 'radial-gradient(ellipse at center, #e6e7e7 0%, #effdfd 100%)',
+
+        // Grid
+        grid: '#dfdddd',
+
+        // Mahal içleri (BG'ye yakın)
+        roomFill: '#e6e7e7',
+
+        // Ölçülendirme (koyu renk - beyaz zeminde görünür)
+        dimension: '#1a5490',
+
+        // Boru renkleri (Beyaz zeminde görünebilir)
+        pipeCold: '#0066CC',      // Koyu mavi (soğuk su)
+        pipeHot: '#CC6600',       // Koyu turuncu (sıcak su)
+        pipeDrain: '#505050',     // Koyu gri (atık)
+        pipeVent: '#2d7a2d',      // Koyu yeşil (havalandırma)
+    }
+};
 
 /**
  * Mevcut temaya göre arkaplan rengini döndürür
@@ -80,7 +129,18 @@ export const BG = "#222325ff"; // Dark mode varsayılan
  */
 export function getBG() {
     const isLightMode = document.body.classList.contains('light-mode');
-    return isLightMode ? '#f5f6f7' : '#222325ff';
+    return isLightMode ? THEME_COLORS.light.background : THEME_COLORS.dark.background;
+}
+
+/**
+ * Mevcut temaya göre renk döndürür
+ * @param {string} colorKey - Renk anahtarı (örn: 'grid', 'roomFill', 'pipeCold')
+ * @returns {string} Renk değeri
+ */
+export function getThemeColor(colorKey) {
+    const isLightMode = document.body.classList.contains('light-mode');
+    const theme = isLightMode ? THEME_COLORS.light : THEME_COLORS.dark;
+    return theme[colorKey] || '#000000';
 }
 
 export const METER_SCALE = 1;
@@ -263,7 +323,7 @@ export let state = {
     roomToEdit: null,
     clickOutsideRoomPopupListener: null,
     wallBorderColor: "rgba(180, 180, 180, 1)",
-    roomFillColor: "#232425",
+    roomFillColor: THEME_COLORS.dark.roomFill, // Merkezi renk sisteminden
     lineThickness: 2,
     wallThickness: 20, // YENİ: Duvar kalınlığı state'e taşındı
     drawingAngle: 0, // YENİ: Çizim açısı eklendi
@@ -279,12 +339,12 @@ export let state = {
     gridOptions: {
         visible: true,
         spacing: 1,
-        color: "#27292a",
+        color: THEME_COLORS.dark.grid, // Merkezi renk sisteminden
         weight: 0.5,
     },
     dimensionOptions: {
         fontSize: 12,
-        color: "#24ffda",
+        color: THEME_COLORS.dark.dimension, // Merkezi renk sisteminden
         defaultView: 0,
         showArea: 1,
         showOuter: 0,

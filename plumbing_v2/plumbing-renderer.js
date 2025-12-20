@@ -1,4 +1,4 @@
-import { BORU_TIPLERI, RENK_GRUPLARI } from './objects/pipe.js';
+import { BORU_TIPLERI, RENK_GRUPLARI, getRenkGruplari } from './objects/pipe.js';
 import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
@@ -12,10 +12,11 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Renk grubundan opacity ile renk al
+     * Renk grubundan opacity ile renk al (TEMAya göre dinamik)
      */
     getRenkByGroup(colorGroup, tip, opacity) {
-        const group = RENK_GRUPLARI[colorGroup] || RENK_GRUPLARI.YELLOW;
+        const renkGruplari = getRenkGruplari(); // Dinamik olarak temaya göre al
+        const group = renkGruplari[colorGroup] || renkGruplari.YELLOW;
         const template = group[tip];
 
         if (template.includes('{opacity}')) {
