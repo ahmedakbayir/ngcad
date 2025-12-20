@@ -13,23 +13,51 @@
 
 import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
-// Renk Grupları (Sayaç Öncesi/Sonrası)
-export const RENK_GRUPLARI = {
-    YELLOW: {
-        id: 'yellow',
-        name: 'Sarı (Sayaç Öncesi)',
-        boru: 'rgba(255, 255, 0, {opacity})',      // Sarı
-        dirsek: 'rgba(255, 255, 0, {opacity})',    // Sarı
-        fleks: '#FFD700'                            // Altın sarısı
-    },
-    TURQUAZ: {
-        id: 'turquaz',
-        name: 'Turquaz (Sayaç Sonrası)',
-        boru: 'rgba(64, 224, 208, {opacity})',     // Turquaz
-        dirsek: 'rgba(64, 224, 208, {opacity})',   // Turquaz
-        fleks: '#40E0D0'                            // Turquaz
+// Renk Grupları (Sayaç Öncesi/Sonrası) - TEMAya GÖRE DİNAMİK
+export function getRenkGruplari() {
+    const isLightMode = document.body.classList.contains('light-mode');
+
+    if (isLightMode) {
+        // AÇIK MOD - Koyu turuncu ve koyu mavi (beyaz zeminde görünür)
+        return {
+            YELLOW: {
+                id: 'yellow',
+                name: 'Turuncu (Sayaç Öncesi)',
+                boru: 'rgba(204, 102, 0, {opacity})',      // Koyu turuncu
+                dirsek: 'rgba(204, 102, 0, {opacity})',    // Koyu turuncu
+                fleks: '#CC6600'                            // Koyu turuncu
+            },
+            TURQUAZ: {
+                id: 'turquaz',
+                name: 'Mavi (Sayaç Sonrası)',
+                boru: 'rgba(0, 102, 204, {opacity})',      // Koyu mavi
+                dirsek: 'rgba(0, 102, 204, {opacity})',    // Koyu mavi
+                fleks: '#0066CC'                            // Koyu mavi
+            }
+        };
+    } else {
+        // KOYU MOD - Sarı ve turquaz (orijinal)
+        return {
+            YELLOW: {
+                id: 'yellow',
+                name: 'Sarı (Sayaç Öncesi)',
+                boru: 'rgba(255, 255, 0, {opacity})',      // Sarı
+                dirsek: 'rgba(255, 255, 0, {opacity})',    // Sarı
+                fleks: '#FFD700'                            // Altın sarısı
+            },
+            TURQUAZ: {
+                id: 'turquaz',
+                name: 'Turquaz (Sayaç Sonrası)',
+                boru: 'rgba(64, 224, 208, {opacity})',     // Turquaz
+                dirsek: 'rgba(64, 224, 208, {opacity})',   // Turquaz
+                fleks: '#40E0D0'                            // Turquaz
+            }
+        };
     }
-};
+}
+
+// Geriye uyumluluk için export (deprecated - getRenkGruplari() kullanın)
+export const RENK_GRUPLARI = getRenkGruplari();
 
 // Boru Tipleri
 export const BORU_TIPLERI = {

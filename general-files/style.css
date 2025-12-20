@@ -46,15 +46,15 @@ body.light-mode {
 
 body {
     margin: 0;
-    background: var(--bg-body);
+    background: #30302e; /* Koyu mod - düz renk */
     color: var(--color-text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     user-select: none;
 }
 
-/* Light mode için yumuşak gradient arka plan */
+/* Light mode için radial gradient arka plan */
 body.light-mode {
-    background: radial-gradient(ellipse at center, #f5f6f7 0%, #e8eaed 50%, #dde1e6 100%);
+    background: radial-gradient(ellipse at center, #e6e7e7 0%, #effdfd 100%);
 }
 
 .main {
@@ -1449,4 +1449,34 @@ body.light-mode #floor-mini-list > div {
     background: var(--bg-button) !important;
     color: var(--color-text) !important;
     border-color: var(--border-button) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* ÜST KONTROLLER - LIGHT MODE (Mimari/Tesisat/Karma, 3D Göster)*/
+/* ═══════════════════════════════════════════════════════════════ */
+
+/* Mimari/Tesisat/Karma butonları */
+body.light-mode #drawing-mode-selector button {
+    background: var(--bg-button) !important;
+    border-color: var(--border-button) !important;
+    color: var(--color-text) !important;
+}
+
+body.light-mode #drawing-mode-selector button.active {
+    background: var(--bg-button-active) !important;
+    border-color: var(--bg-button-active) !important;
+    color: var(--color-button-active) !important;
+}
+
+/* 3D Göster butonu */
+body.light-mode #bToggle3D {
+    background: var(--bg-button) !important;
+    border-color: var(--border-button) !important;
+    color: var(--color-text) !important;
+}
+
+body.light-mode #bToggle3D.active {
+    background: var(--bg-button-active) !important;
+    border-color: var(--bg-button-active) !important;
+    color: var(--color-button-active) !important;
 }

@@ -1,7 +1,7 @@
 // ui.js
 // Son Güncelleme: Sahanlık kotu (125-135) mantığı confirmStairChange ve ilgili listener'larda düzeltildi.
 import { getMinWallLength } from './actions.js';
-import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT, setMode } from './main.js'; // setMode import edildi
+import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT, setMode, THEME_COLORS } from './main.js'; // THEME_COLORS eklendi
 import { saveState } from './history.js';
 import { isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { isSpaceForWindow } from '../architectural-objects/window-handler.js';
@@ -24,17 +24,28 @@ import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
  * @param {boolean} isDarkMode - true ise dark mode, false ise light mode
  */
 function applyTheme(isDarkMode) {
+    const theme = isDarkMode ? THEME_COLORS.dark : THEME_COLORS.light;
+
     if (isDarkMode) {
         document.body.classList.remove('light-mode');
         localStorage.setItem('darkMode', 'true');
-        // Dark mode renkleri
-        setState({ roomFillColor: '#232425' });
     } else {
         document.body.classList.add('light-mode');
         localStorage.setItem('darkMode', 'false');
-        // Light mode renkleri
-        setState({ roomFillColor: '#f8f9fa' });
     }
+
+    // Tüm tema renklerini güncelle
+    setState({
+        roomFillColor: theme.roomFill,
+        gridOptions: {
+            ...state.gridOptions,
+            color: theme.grid
+        },
+        dimensionOptions: {
+            ...state.dimensionOptions,
+            color: theme.dimension
+        }
+    });
 
     // 3D sahne arkaplan rengini güncelle
     updateSceneBackground();
