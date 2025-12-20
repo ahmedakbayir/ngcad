@@ -1387,8 +1387,8 @@ export class InteractionManager {
         // Sayacı çıkış borusuna bağla
         meter.baglaCikis(yeniBoru.id);
 
-        // State'e kaydet
-        this.manager.saveToState();
+        // Not: saveState() zaten başta çağrıldı (satır 1300), tekrar çağırmaya gerek yok
+        // Tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
 
         //console.log('[handleSayacEndPlacement] ✓ Sayaç başarıyla eklendi. Toplam components:', this.manager.components.length);
         return true;
