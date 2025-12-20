@@ -1342,46 +1342,13 @@ export class InteractionManager {
             meter.iliskiliVanaId = vanaVar.id;
         }
 
-        // Sayaç pozisyonlandırma: Boru eksenine DİK (perpendicular)
-        const boru = boruUcu.boru;
-        const dx = boru.p2.x - boru.p1.x;
-        const dy = boru.p2.y - boru.p1.y;
-        const length = Math.hypot(dx, dy);
+        // Sayaç pozisyonu ve rotation ghost'tan geliyor (mouse konumuna göre ayarlanmış)
+        // Ghost'ta zaten doğru pozisyon ve yön belirlendi, burada yeniden hesaplamaya gerek yok
+        // meter.x, meter.y ve meter.rotation zaten ghost positioning'den doğru değerlerde
 
-        // Fleks görünen boy (rakora bağlanır)
+        // Çıkış rijit borusu uzunluğunu ayarla
         const fleksUzunluk = 15; // cm
-
-        // Boru yönüne DİK (perpendicular) vektör hesapla
-        // 90° saat yönünde (clockwise) döndürülmüş vektör: (-dy, dx)
-        let perpX = -dy / length;
-        let perpY = dx / length;
-
-        // Sayaç rotation'u: Boru yönü (giriş rakoru boru yönünde olmalı)
-        meter.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
-
-        // Giriş rakorunun lokal koordinatı
-        const girisLokal = meter.getGirisLocalKoordinat(); // {x: -5, y: -13}
-
-        // Giriş rakorunun dünya koordinatı (istenen): boru ucu + perpendicular * fleksUzunluk
-        const girisHedefX = boruUcu.nokta.x + perpX * fleksUzunluk;
-        const girisHedefY = boruUcu.nokta.y + perpY * fleksUzunluk;
-
-        // Sayaç merkezini hesapla (rotation uygulanmış lokal koordinattan)
-        const rad = meter.rotation * Math.PI / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-
-        // Giriş lokal noktasını döndür
-        const girisRotatedX = girisLokal.x * cos - girisLokal.y * sin;
-        const girisRotatedY = girisLokal.x * sin + girisLokal.y * cos;
-
-        // Merkez = Hedef giriş - rotated giriş lokal
-        meter.x = girisHedefX - girisRotatedX;
-        meter.y = girisHedefY - girisRotatedY;
-
-        // Çıkış rijit borusu uzunluğunu ayarla (giriş borusu hizasına kadar)
-        // Rijit boru, sayacın üstünden yukarı çıkıp ana boru hizasına gelene kadar uzanır
-        meter.config.rijitUzunluk = fleksUzunluk; // 30 cm
+        meter.config.rijitUzunluk = fleksUzunluk;
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
         meter.fleksBagla(boruUcu.boruId, boruUcu.uc);
@@ -1499,32 +1466,9 @@ export class InteractionManager {
         // Fleks bağlantısı cihazın en yakın noktasından otomatik ayarlanacak
         cihaz.rotation = 0;
 
-        // Cihaz merkezini hesapla (boru yönünde)
-        const boru = boruUcu.boru;
-        const dx = boru.p2.x - boru.p1.x;
-        const dy = boru.p2.y - boru.p1.y;
-        const length = Math.hypot(dx, dy);
-
-        // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
-        // Fleks bitiş noktası artık cihazın içine doğru uzandığı için 20 cm yeterli
-        const fleksUzunluk = 15; // cm
-        const cihazYariGenislik = cihaz.config.width / 2;
-        const toplamMesafe = fleksUzunluk + cihazYariGenislik;
-
-        let merkezX, merkezY;
-        if (boruUcu.uc === 'p1') {
-            // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
-            merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
-            merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
-        } else {
-            // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
-            merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
-            merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
-        }
-
-        // Cihaz merkezini ayarla
-        cihaz.x = merkezX;
-        cihaz.y = merkezY;
+        // Cihaz pozisyonu ghost'tan geliyor (mouse konumuna göre ayarlanmış)
+        // Ghost'ta zaten doğru pozisyon belirlendi, burada yeniden hesaplamaya gerek yok
+        // cihaz.x ve cihaz.y zaten ghost positioning'den doğru değerlerde
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
         // boruUcu.uc = 'p1' veya 'p2'
