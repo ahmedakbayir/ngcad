@@ -4,7 +4,7 @@ import { distToSegmentSquared, snapTo15DegreeAngle, screenToWorld } from './geom
 import { drawDimension } from './dimensions.js';
 import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js';
-import { state, dom } from '../general-files/main.js';
+import { state, dom, getCursorWallDrawColor } from '../general-files/main.js';
 
 export function drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol) {
     const { currentMode, isPanning, isDragging, unsnappedMousePos } = state;
@@ -131,7 +131,7 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
 
     // Çizim modu önizlemeleri
     if (startPoint) {
-        ctx2d.strokeStyle = "#8ab4f8";
+        ctx2d.strokeStyle = getCursorWallDrawColor(); // Temaya göre dinamik
         ctx2d.lineWidth = 2 / zoom;
         ctx2d.setLineDash([6 / zoom, 3 / zoom]);
 
