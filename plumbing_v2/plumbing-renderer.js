@@ -3,7 +3,7 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getAdjustedColor, state, getDimensionPlumbingColor } from '../general-files/main.js';
+import { getAdjustedColor, state, getDimensionPlumbingColor, getShadow } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
@@ -223,10 +223,7 @@ export class PlumbingRenderer {
                 gradient.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`);
                 gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`);
                 ctx.fillStyle = gradient;
-                ctx.shadowColor = 'rgba(255, 255, 255, 1)';
-                ctx.shadowBlur = 0;
-                ctx.shadowOffsetX = 0;
-                ctx.shadowOffsetY = 0;
+                getShadow(ctx);
                 ctx.fillRect(0, -width / 2, length, width);
 
             } else {
@@ -239,8 +236,10 @@ export class PlumbingRenderer {
                 // Kenarlarda hafif karartma, ortası boru rengi
                 // Geçişler yumuşak tutuldu
                 gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
+                gradient.addColorStop(0.33, this.getRenkByGroup(colorGroup, 'boru', 1));
+                gradient.addColorStop(0.67, this.getRenkByGroup(colorGroup, 'boru', 1));
                 gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                getShadow(ctx);
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -451,10 +450,7 @@ export class PlumbingRenderer {
             // İki üçgen çiz (karşı karşıya bakan)
             const fillColor = pipe.vana.isSelected ? '#FF8C00' : gradient; // Seçiliyse turuncu
             ctx.fillStyle = fillColor;
-            ctx.shadowColor = 'rgba(0, 0, 0, 1)';
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
+            getShadow(ctx)
             // Sol üçgen (sağa bakan)
             ctx.beginPath();
             ctx.moveTo(-halfSize, -halfSize);  // Sol üst
@@ -553,17 +549,14 @@ export class PlumbingRenderer {
         const { width, height, colors } = SERVIS_KUTUSU_CONFIG; // colors'ı buradan alıyoruz
 
         // 1. Gölge Efekti (Diğer cihazlardaki gibi)
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
+        getShadow(ctx)
 
         // 2. Gradient Oluşturma (Üstten alta dikey geçiş)
         // Kutunun üst kenarı (y - height/2) ile alt kenarı (y + height/2) arası
         const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
         grad.addColorStop(0, colors.top);    // #E8E8E8
         grad.addColorStop(0.5, colors.middle); // #A8A8A8 (Sayaç ile aynı)
-        grad.addColorStop(1, colors.bottom); // #707070
+        grad.addColorStop(1, colors.bottom); // #979797ff
 
         // 3. Gövdeyi Çiz
         ctx.fillStyle = comp.isSelected ? this.secilenRenk : grad;
@@ -583,9 +576,7 @@ export class PlumbingRenderer {
 
         // 6. Yazı (S.K.)
 
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
+        ;
 
         ctx.fillStyle = '#333';
         ctx.font = 'bold 10px Arial';
@@ -671,10 +662,7 @@ export class PlumbingRenderer {
         ctx.fillStyle = fillColor;
 
         // Gölge efekti
-        ctx.shadowColor = 'rgba(0, 0, 0, 1)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
+        getShadow(ctx)
 
         // İki üçgen çiz (karşı karşıya bakan, kelebek vana görünümü)
         ctx.beginPath();
@@ -808,10 +796,7 @@ export class PlumbingRenderer {
 
         // Shadow efekti
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
+        getShadow(ctx)
 
         // Ana gövde - Radial gradient ile 3D metalik efekt
         const gradient = ctx.createRadialGradient(-5, -5, 0, 0, 0, outerRadius);
@@ -849,9 +834,9 @@ export class PlumbingRenderer {
             innerGradient.addColorStop(0, '#6aa4f8');
             innerGradient.addColorStop(1, '#4a84d8');
         } else {
-            innerGradient.addColorStop(0, '#404040');  // Koyu merkez (ekran)
-            innerGradient.addColorStop(0.6, '#303030');
-            innerGradient.addColorStop(1, '#202020');
+            innerGradient.addColorStop(0, '#383838ff');  // Koyu merkez (ekran)
+            innerGradient.addColorStop(0.9, '#757575ff');
+            innerGradient.addColorStop(1, '#616161ff');
         }
 
         ctx.fillStyle = innerGradient;
@@ -880,7 +865,7 @@ export class PlumbingRenderer {
 
         // Gölge efekti
         ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 5;
+        ctx.shadowBlur = 0;
 
         ctx.fillStyle = textGradient;
         ctx.font = `bold 20px Arial`; // Sabit boyut
@@ -954,10 +939,10 @@ export class PlumbingRenderer {
             gradient.addColorStop(0.6, '#7a99d8');
             gradient.addColorStop(1, '#5a79b8');
         } else {
-            gradient.addColorStop(0, '#B0B0B0');    // Parlak gri (metalik)
-            gradient.addColorStop(0.3, '#909090');  // Orta gri
-            gradient.addColorStop(0.6, '#707070');  // Koyu gri
-            gradient.addColorStop(1, '#505050');    // En koyu kenar
+            gradient.addColorStop(0, '#e7e6e6ff');    // Parlak gri (metalik)
+            gradient.addColorStop(0.3, '#b4b4b4ff');  // Orta gri
+            gradient.addColorStop(0.6, '#949393ff');  // Koyu gri
+            gradient.addColorStop(1, '#818080ff');    // En koyu kenar
         }
 
         ctx.fillStyle = gradient;
@@ -1025,9 +1010,9 @@ export class PlumbingRenderer {
                 burnerGradient.addColorStop(0.5, '#5a79b8');
                 burnerGradient.addColorStop(1, '#3a5998');
             } else {
-                burnerGradient.addColorStop(0, '#404040');    // Parlak merkez
-                burnerGradient.addColorStop(0.5, '#2a2a2a');  // Orta
-                burnerGradient.addColorStop(1, '#1a1a1a');    // Koyu kenar
+                burnerGradient.addColorStop(0, '#c2bfbfff');    // Parlak merkez
+                burnerGradient.addColorStop(0.5, '#807d7dff');  // Orta
+                burnerGradient.addColorStop(1, '#5c5b5bff');    // Koyu kenar
             }
 
             ctx.fillStyle = burnerGradient;
@@ -1049,6 +1034,7 @@ export class PlumbingRenderer {
     drawSayac(ctx, comp, manager) {
         const { width, height, connectionOffset, nutHeight } = comp.config;
         const zoom = state.zoom || 1;
+        const rijitUzunluk = comp.config.rijitUzunluk || (comp.ghostConnectionInfo ? 15 : 0);
 
         if (manager) {
             ctx.save();
@@ -1088,10 +1074,7 @@ export class PlumbingRenderer {
         ctx.save();
         // --- 1. Gövde (Gradient Metalik Görünüm) ---
         // NOT: Rotation is already applied in drawComponent, don't apply again
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-        ctx.shadowBlur = 6;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
+        getShadow(ctx);
 
         // Daha güzel gradient
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(width, height) / 1.5);
@@ -1141,8 +1124,7 @@ export class PlumbingRenderer {
 
         // --- 2. Etiket (G4) ---
         ctx.save();
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-        ctx.shadowBlur = 2;
+        getShadow(ctx)
         ctx.fillStyle = comp.isSelected ? '#1a54a0' : '#2a2a2a';
         ctx.font = `bold ${12}px Arial`;
         ctx.textAlign = 'center';
@@ -1155,10 +1137,7 @@ export class PlumbingRenderer {
         const nutWidth = 7;
         //const nutHeight = 4;
 
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-        ctx.shadowBlur = 3;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
+        getShadow(ctx)
 
         // Rekor gradient
         const rekorGradient = ctx.createLinearGradient(0, connY - nutHeight, 0, connY);
@@ -1194,6 +1173,54 @@ export class PlumbingRenderer {
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
+        // --- 4. Rijit Çıkış Kolu ---
+        const armStartX = connectionOffset;
+        const armStartY = connY - nutHeight;
+        const armWidth = 1;
+
+        // Çıkış borusunun renk grubunu al
+        // Sayaç eklendikten sonra çıkış borusu TURQUAZ olacak,
+        // bu yüzden ghost preview'da ve ilk ekleme sırasında da TURQUAZ göster
+        let rijitColorGroup = 'TURQUAZ'; // Varsayılan: Sayaç sonrası TURQUAZ
+        if (comp.cikisBagliBoruId && manager) {
+            const cikisBoru = manager.findPipeById(comp.cikisBagliBoruId);
+            if (cikisBoru) {
+                rijitColorGroup = cikisBoru.colorGroup || 'TURQUAZ';
+            }
+        }
+
+        // Boru rengini renk grubuna göre ayarla
+        const rijitRenk = this.getRenkByGroup(rijitColorGroup, 'fleks', 1);
+        const pipeGradient = ctx.createLinearGradient(armStartX - armWidth / 2, 0, armStartX + armWidth / 2, 0);
+        pipeGradient.addColorStop(0, rijitRenk);
+        pipeGradient.addColorStop(0.5, rijitRenk);
+        pipeGradient.addColorStop(1, rijitRenk);
+
+        ctx.fillStyle = pipeGradient;
+        ctx.fillRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
+
+        // Boru kenarlık
+        //ctx.strokeStyle = '#B8860B';
+        ctx.lineWidth = 0.6 / zoom;
+        ctx.strokeRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
+        ctx.beginPath();
+        ctx.arc(armStartX, armStartY - rijitUzunluk, armWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+        //ctx.stroke();
+        /*
+        // Çıkış ucu
+        if (!comp.cikisKullanildi) {
+            ctx.fillStyle = '#FF8C00';
+            ctx.strokeStyle = '#CC7000';
+            ctx.lineWidth = 1 / zoom;
+            ctx.beginPath();
+            ctx.arc(armStartX, armStartY - rijitUzunluk, 1, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+*/
+
+
         ctx.restore();
     }
 
@@ -1223,7 +1250,7 @@ export class PlumbingRenderer {
             handleLength = 15 + 20; // radius + 20cm = 35cm
         } else if (comp.type === 'sayac') {
             // Sayaç için: handle merkezden yukarıda
-            handleLength = comp.config.height / 2 + 10; // 12 + 20 = 32cm
+            handleLength = -20; // 12 + 20 = 32cm
         } else {
             return; // Diğer tipler için handle çizme
         }
@@ -1899,31 +1926,7 @@ export class PlumbingRenderer {
         ctx.lineTo(solRakor.x, solRakor.y);
         ctx.stroke();
 
-        ctx.setLineDash([]);
 
-        // 3. Çıkış Borusu Preview (Giriş fleksinin yerine geçen boru)
-        const cikisNoktasi = ghost.getCikisNoktasi();
-        const boruUzunluk = 15; // cm
-
-        // Sayacın rotation'una göre boru bitiş noktasını hesapla
-        const rad = ghost.rotation * Math.PI / 180;
-        const boruBitisX = cikisNoktasi.x + Math.cos(rad) * boruUzunluk;
-        const boruBitisY = cikisNoktasi.y + Math.sin(rad) * boruUzunluk;
-
-        // Çıkış borusu TURQUAZ (sayaç sonrası)
-        const cikisRenk = this.getRenkByGroup('TURQUAZ', 'boru', 1);
-
-        ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = cikisRenk;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-
-        ctx.beginPath();
-        ctx.moveTo(cikisNoktasi.x, cikisNoktasi.y);
-        ctx.lineTo(boruBitisX, boruBitisY);
-        ctx.stroke();
-
-        ctx.setLineDash([]);
         ctx.restore();
     }
 

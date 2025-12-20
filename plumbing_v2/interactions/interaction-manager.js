@@ -673,7 +673,7 @@ export class InteractionManager {
                 ghost.rotation = 0;
 
                 // Fleks uzunluğu (maksimum mesafe)
-                const maxFleksUzunluk = 30; // cm - cihazın boru ucundan maksimum uzaklığı
+                const maxFleksUzunluk = 50; // cm - cihazın boru ucundan maksimum uzaklığı
 
                 // Mouse'un boru ucundan mesafesini hesapla
                 const mouseUcMesafe = Math.hypot(
@@ -737,7 +737,7 @@ export class InteractionManager {
                 let perpX = -dy / length;
                 let perpY = dx / length;
 
-                // Cross product pozitifse, diğer tarafa dön (180° döndür)
+                // Cross product negatifse, diğer tarafa dön (180° döndür)
                 if (crossProduct > 0) {
                     perpX = -perpX;
                     perpY = -perpY;
@@ -1345,6 +1345,9 @@ export class InteractionManager {
         // Sayaç pozisyonu ve rotation ghost'tan geliyor (mouse konumuna göre ayarlanmış)
         // Ghost'ta zaten doğru pozisyon ve yön belirlendi, burada yeniden hesaplamaya gerek yok
         // meter.x, meter.y ve meter.rotation zaten ghost positioning'den doğru değerlerde
+        
+        const fleksUzunluk = 15; // cm
+        meter.config.rijitUzunluk = fleksUzunluk;
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
         meter.fleksBagla(boruUcu.boruId, boruUcu.uc);
@@ -1389,6 +1392,8 @@ export class InteractionManager {
 
         // Not: saveState() zaten başta çağrıldı (satır 1300), tekrar çağırmaya gerek yok
         // Tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
+        // State'e kaydet
+        this.manager.saveToState();
 
         //console.log('[handleSayacEndPlacement] ✓ Sayaç başarıyla eklendi. Toplam components:', this.manager.components.length);
         return true;
@@ -2681,7 +2686,7 @@ export class InteractionManager {
             handleLength = 15 + 20; // radius + 20cm = 35cm
         } else if (obj.type === 'sayac') {
             // Sayaç için: handle merkezden yukarıda
-            handleLength = obj.config.height / 2 + 20; // 12 + 20 = 32cm
+            handleLength = - 20; // 12 + 20 = 32cm
         }
 
         // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)
