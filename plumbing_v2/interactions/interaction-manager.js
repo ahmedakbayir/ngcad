@@ -673,7 +673,7 @@ export class InteractionManager {
                 ghost.rotation = 0;
 
                 // Fleks uzunluğu (maksimum mesafe)
-                const maxFleksUzunluk = 30; // cm - cihazın boru ucundan maksimum uzaklığı
+                const maxFleksUzunluk = 50; // cm - cihazın boru ucundan maksimum uzaklığı
 
                 // Mouse'un boru ucundan mesafesini hesapla
                 const mouseUcMesafe = Math.hypot(
@@ -738,14 +738,14 @@ export class InteractionManager {
                 let perpY = dx / length;
 
                 // Cross product negatifse, diğer tarafa dön (180° döndür)
-                if (crossProduct < 0) {
+                if (crossProduct > 0) {
                     perpX = -perpX;
                     perpY = -perpY;
                 }
 
                 // Sayaç rotation'u: Boru yönü veya ters yön (mouse konumuna göre)
                 let baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
-                if (crossProduct < 0) {
+                if (crossProduct > 0) {
                     baseRotation += 180;
                 }
                 ghost.rotation = baseRotation;
@@ -2653,7 +2653,7 @@ export class InteractionManager {
             handleLength = 15 + 20; // radius + 20cm = 35cm
         } else if (obj.type === 'sayac') {
             // Sayaç için: handle merkezden yukarıda
-            handleLength = obj.config.height / 2 + 20; // 12 + 20 = 32cm
+            handleLength = - 20; // 12 + 20 = 32cm
         }
 
         // Tutamacın world pozisyonunu hesapla (yukarı yönde, rotation dikkate alınarak)

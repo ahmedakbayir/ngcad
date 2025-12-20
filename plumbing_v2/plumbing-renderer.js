@@ -1271,7 +1271,7 @@ export class PlumbingRenderer {
             handleLength = 15 + 20; // radius + 20cm = 35cm
         } else if (comp.type === 'sayac') {
             // Sayaç için: handle merkezden yukarıda
-            handleLength = comp.config.height / 2 + 10; // 12 + 20 = 32cm
+            handleLength = -20; // 12 + 20 = 32cm
         } else {
             return; // Diğer tipler için handle çizme
         }
