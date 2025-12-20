@@ -3,7 +3,7 @@
  *
  * KURALLAR:
  * - Giriş: ÜST SOL (Fleks buraya bağlanır)
- * - Çıkış: ÜST SAĞ (Rijit boru buradan çıkar)
+ * - Çıkış: ÜST SAĞ (Buradan boru başlar)
  * - Sayaç gövdesi boru hattının altında durur.
  */
 
@@ -16,10 +16,8 @@ export const SAYAC_CONFIG = {
     height: 24,         // cm - Gövde yüksekliği
     depth: 16,          // cm - 3D Derinlik
     color: 0xA8A8A8,    // Metalik gri
-    rijitUzunluk: 0,    // Çıkış borusu uzunluğu (Giriş noktası hizasında)
     connectionOffset: 5, // Merkezden sağa/sola sapma miktarı (giriş/çıkış arası 10cm)
     nutHeight: 4        // Bağlantı nut yüksekliği
-
 };
 
 export class Sayac {
@@ -44,7 +42,7 @@ export class Sayac {
             uzunluk: FLEKS_CONFIG.defaultUzunluk // 30 cm
         };
 
-        // Çıkış bağlantısı (Rijit)
+        // Çıkış bağlantısı
         // Çıkış tarafı yeni bir boru hattının başlangıcıdır
         this.cikisBagliBoruId = null;
 
@@ -76,22 +74,10 @@ export class Sayac {
 
     /**
      * Çıkış noktasının local koordinatı
-     * KURAL: ÜST SAĞ + NUT + RİJİT UZUNLUK
-     * Burası rijit borunun bittiği ve tesisatın devam ettiği yerdir.
-     * Genelde sayacın asıldığı kotun (boru hattının) hizasına denk gelir.
+     * KURAL: ÜST SAĞ + NUT
+     * Buradan boru başlar.
      */
     getCikisLocalKoordinat() {
-        return {
-            x: this.config.connectionOffset,
-            y: -this.config.height / 2 - this.config.nutHeight - this.config.rijitUzunluk
-        };
-    }
-    
-    /**
-     * Rijit borunun sayaç üzerindeki başlangıç noktası
-     * (Çizim için kullanılır - rakor altından başlar)
-     */
-    getRijitBaslangicLocal() {
         return {
             x: this.config.connectionOffset,
             y: -this.config.height / 2 - this.config.nutHeight
@@ -128,7 +114,7 @@ export class Sayac {
     }
 
     /**
-     * Çıkış noktasının dünya koordinatları (Rijit borunun ucu)
+     * Çıkış noktasının dünya koordinatları (Boru başlangıcı)
      */
     getCikisNoktasi() {
         return this.localToWorld(this.getCikisLocalKoordinat());
@@ -219,7 +205,7 @@ export class Sayac {
     }
 
     /**
-     * Çıkışa boru bağla (Rijit)
+     * Çıkışa boru bağla
      */
     baglaCikis(boruId) {
         this.cikisBagliBoruId = boruId;

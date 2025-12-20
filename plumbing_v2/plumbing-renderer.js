@@ -1048,8 +1048,6 @@ export class PlumbingRenderer {
 
     drawSayac(ctx, comp, manager) {
         const { width, height, connectionOffset, nutHeight } = comp.config;
-        const rijitUzunluk = comp.config.rijitUzunluk || (comp.ghostConnectionInfo ? 15 : 0);
-        //rijitUzunluk = rijitUzunluk + 2
         const zoom = state.zoom || 1;
 
         if (manager) {
@@ -1196,52 +1194,6 @@ export class PlumbingRenderer {
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
 
-        // --- 4. Rijit Çıkış Kolu ---
-        const armStartX = connectionOffset;
-        const armStartY = connY - nutHeight;
-        const armWidth = 1;
-
-        // Çıkış borusunun renk grubunu al
-        // Sayaç eklendikten sonra çıkış borusu TURQUAZ olacak,
-        // bu yüzden ghost preview'da ve ilk ekleme sırasında da TURQUAZ göster
-        let rijitColorGroup = 'TURQUAZ'; // Varsayılan: Sayaç sonrası TURQUAZ
-        if (comp.cikisBagliBoruId && manager) {
-            const cikisBoru = manager.findPipeById(comp.cikisBagliBoruId);
-            if (cikisBoru) {
-                rijitColorGroup = cikisBoru.colorGroup || 'TURQUAZ';
-            }
-        }
-
-        // Boru rengini renk grubuna göre ayarla
-        const rijitRenk = this.getRenkByGroup(rijitColorGroup, 'fleks', 1);
-        const pipeGradient = ctx.createLinearGradient(armStartX - armWidth / 2, 0, armStartX + armWidth / 2, 0);
-        pipeGradient.addColorStop(0, rijitRenk);
-        pipeGradient.addColorStop(0.5, rijitRenk);
-        pipeGradient.addColorStop(1, rijitRenk);
-
-        ctx.fillStyle = pipeGradient;
-        ctx.fillRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
-
-        // Boru kenarlık
-        //ctx.strokeStyle = '#B8860B';
-        ctx.lineWidth = 0.6 / zoom;
-        ctx.strokeRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
-        ctx.beginPath();
-        ctx.arc(armStartX, armStartY - rijitUzunluk, armWidth / 2, 0, Math.PI * 2);
-        ctx.fill();
-        //ctx.stroke();
-        /*
-        // Çıkış ucu
-        if (!comp.cikisKullanildi) {
-            ctx.fillStyle = '#FF8C00';
-            ctx.strokeStyle = '#CC7000';
-            ctx.lineWidth = 1 / zoom;
-            ctx.beginPath();
-            ctx.arc(armStartX, armStartY - rijitUzunluk, 1, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        }
-*/
         ctx.restore();
     }
 
