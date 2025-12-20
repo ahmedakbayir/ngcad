@@ -1900,6 +1900,30 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         ctx.setLineDash([]);
+
+        // 3. Çıkış Borusu Preview (Giriş fleksinin yerine geçen boru)
+        const cikisNoktasi = ghost.getCikisNoktasi();
+        const boruUzunluk = 15; // cm
+
+        // Sayacın rotation'una göre boru bitiş noktasını hesapla
+        const rad = ghost.rotation * Math.PI / 180;
+        const boruBitisX = cikisNoktasi.x + Math.cos(rad) * boruUzunluk;
+        const boruBitisY = cikisNoktasi.y + Math.sin(rad) * boruUzunluk;
+
+        // Çıkış borusu TURQUAZ (sayaç sonrası)
+        const cikisRenk = this.getRenkByGroup('TURQUAZ', 'boru', 1);
+
+        ctx.globalAlpha = 0.6;
+        ctx.strokeStyle = cikisRenk;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+
+        ctx.beginPath();
+        ctx.moveTo(cikisNoktasi.x, cikisNoktasi.y);
+        ctx.lineTo(boruBitisX, boruBitisY);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
         ctx.restore();
     }
 
