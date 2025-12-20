@@ -1,4 +1,4 @@
-import { getRoomSelectedColor, getRoomFillColor, getAdjustedColor} from '../general-files/main.js';
+import { getRoomSelectedColor, getRoomFillColor, getAdjustedColor, isObjectInteractable} from '../general-files/main.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
