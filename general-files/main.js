@@ -115,7 +115,7 @@ export const THEME_COLORS = {
     light: {
         // Arkaplan
         background: '#e6e7e7',
-        backgroundGradient: 'radial-gradient(ellipse at center, #e6e7e7 0%, #effdfd 100%)',
+        backgroundGradient: 'radial-gradient(ellipse at center, #fdffff 0%, #e7fafa 100%)',
         canvas: '#e6e7e7', // Canvas temizleme rengi
 
         // Grid
@@ -154,7 +154,8 @@ function isLightMode() {
 }
 
 export function getBG() {
-    return isLightMode() ? THEME_COLORS.light.background : THEME_COLORS.dark.background;
+    // Light mode için gradient döndür (CSS ile kullanılacak)
+    return isLightMode() ? THEME_COLORS.light.backgroundGradient : THEME_COLORS.dark.background;
 }
 
 export function getCanvasClearColor() {

@@ -54,7 +54,7 @@ body {
 
 /* Light mode için radial gradient arka plan */
 body.light-mode {
-    background: radial-gradient(ellipse at center, #e6e7e7 0%, #effdfd 100%);
+    background: radial-gradient(ellipse at center, #fdffff 0%, #e7fafa 100%);
 }
 
 .main {
