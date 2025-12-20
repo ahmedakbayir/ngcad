@@ -46,8 +46,8 @@ export const THEME_COLORS = {
         roomSelected: 'rgba(138, 180, 248, 0.35)', // Mahal seçili
 
         // Ölçülendirme
-        dimensionArchitecture: '#02153b', // Mimari ölçülendirme
-        dimensionPlumbing: '#24ffda', // Tesisat ölçülendirme
+        dimensionArchitecture: '#ffffffff', // Mimari ölçülendirme
+        dimensionPlumbing: '#4dfff6ff', // Tesisat ölçülendirme
 
         // Boru renkleri (Tesisat)
         pipeCold: '#00CED1',      // Turquaz (soğuk su)
@@ -79,8 +79,8 @@ export const THEME_COLORS = {
         roomSelected: 'rgba(26, 115, 232, 0.3)', // Mahal seçili
 
         // Ölçülendirme
-        dimensionArchitecture: '#1a5490', // Mimari ölçülendirme (koyu mavi)
-        dimensionPlumbing: '#0d7377', // Tesisat ölçülendirme (koyu teal)
+        dimensionArchitecture: '#000000', // Mimari ölçülendirme (koyu mavi)
+        dimensionPlumbing: '#fc0000ff', // Tesisat ölçülendirme (koyu teal)
 
         // Boru renkleri (Beyaz zeminde görünebilir)
         pipeCold: '#0066CC',      // Koyu mavi (soğuk su)
