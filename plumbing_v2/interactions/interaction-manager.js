@@ -1393,7 +1393,7 @@ export class InteractionManager {
         // Not: saveState() zaten başta çağrıldı (satır 1300), tekrar çağırmaya gerek yok
         // Tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
         // State'e kaydet
-        this.manager.saveToState();
+        //this.manager.saveToState();
 
         //console.log('[handleSayacEndPlacement] ✓ Sayaç başarıyla eklendi. Toplam components:', this.manager.components.length);
         return true;
