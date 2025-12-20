@@ -692,7 +692,7 @@ body.light-mode .btn.active svg {
 }
 
 .theme-toggle input:not(:checked) + .theme-toggle-slider:before {
-    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    background: linear-gradient(135deg, #fbbf24 0%, #f59f0b00 100%);
     transform: translateX(0);
 }
 
@@ -1497,4 +1497,10 @@ body.light-mode #bToggle3D.active {
     background: var(--bg-button-active) !important;
     border-color: var(--bg-button-active) !important;
     color: var(--color-button-active) !important;
+}
+
+
+body.light-mode .btn-show-3d {
+    color: #3c4043;
+    background: #e8eaed;
 }
