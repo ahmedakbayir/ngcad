@@ -1369,14 +1369,15 @@ export class InteractionManager {
         const boruBitisX = cikisNoktasi.x + Math.cos(rad) * boruUzunluk;
         const boruBitisY = cikisNoktasi.y + Math.sin(rad) * boruUzunluk;
 
-        // Boru oluştur
+        // Boru oluştur (p1, p2 objeler olmalı!)
         const yeniBoru = createBoru(
-            cikisNoktasi.x,
-            cikisNoktasi.y,
-            boruBitisX,
-            boruBitisY,
-            { floorId: meter.floorId }
+            { x: cikisNoktasi.x, y: cikisNoktasi.y },
+            { x: boruBitisX, y: boruBitisY },
+            'STANDART'
         );
+
+        // Boru özelliklerini ayarla
+        yeniBoru.floorId = meter.floorId;
 
         // Boruyu sayaca bağla
         yeniBoru.baslangicKaynakId = meter.id;
@@ -1387,7 +1388,7 @@ export class InteractionManager {
             yeniBoru.colorGroup = 'TURQUAZ'; // Sayaç sonrası her zaman TURQUAZ
         }
 
-        this.manager.components.push(yeniBoru);
+        this.manager.pipes.push(yeniBoru);
 
         // Sayacı çıkış borusuna bağla
         meter.baglaCikis(yeniBoru.id);
