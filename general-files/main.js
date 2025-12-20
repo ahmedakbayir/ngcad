@@ -32,6 +32,11 @@ export const THEME_COLORS = {
         background: '#30302e',
         backgroundGradient: null, // Koyu modda gradient yok
         canvas: '#30302e', // Canvas temizleme rengi
+        canvasGradient: {
+            center: '#2A2A2A',  // Merkez - koyu gri
+            mid: '#232323',     // Orta
+            edge: '#1A1A1A'     // Kenar - daha koyu
+        },
 
         // Grid
         grid: '#2e2e2e',
@@ -65,6 +70,11 @@ export const THEME_COLORS = {
         background: '#e6e7e7',
         backgroundGradient: 'radial-gradient(ellipse at center, #fdffff 0%, #e7fafa 100%)',
         canvas: '#e6e7e7', // Canvas temizleme rengi
+        canvasGradient: {
+            center: '#FFFFFF',  // Merkez - saf beyaz
+            mid: '#F8F8F8',     // Orta
+            edge: '#E8E8E8'     // Kenar - açık gri
+        },
 
         // Grid
         grid: '#dfdddd',
