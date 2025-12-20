@@ -36,6 +36,7 @@ function applyTheme(isDarkMode) {
 
     // Tüm tema renklerini güncelle
     setState({
+        wallBorderColor: theme.wallStroke,
         roomFillColor: theme.roomFill,
         gridOptions: {
             ...state.gridOptions,
@@ -43,7 +44,7 @@ function applyTheme(isDarkMode) {
         },
         dimensionOptions: {
             ...state.dimensionOptions,
-            color: theme.dimension
+            color: theme.dimensionArchitecture // Varsayılan mimari
         }
     });
 
