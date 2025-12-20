@@ -1345,6 +1345,9 @@ export class InteractionManager {
         // Sayaç pozisyonu ve rotation ghost'tan geliyor (mouse konumuna göre ayarlanmış)
         // Ghost'ta zaten doğru pozisyon ve yön belirlendi, burada yeniden hesaplamaya gerek yok
         // meter.x, meter.y ve meter.rotation zaten ghost positioning'den doğru değerlerde
+        
+        const fleksUzunluk = 15; // cm
+        meter.config.rijitUzunluk = fleksUzunluk;
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
         meter.fleksBagla(boruUcu.boruId, boruUcu.uc);
@@ -1354,38 +1357,6 @@ export class InteractionManager {
             //console.log('[handleSayacEndPlacement] Sayaç components\'a ekleniyor');
             this.manager.components.push(meter);
         }
-
-        // Sayacın çıkışından otomatik boru ekle (rijit boru yerine)
-        const cikisNoktasi = meter.getCikisNoktasi();
-        const boruUzunluk = 15; // cm - otomatik eklenen boru uzunluğu
-
-        // Sayacın rotation'una göre boru bitiş noktasını hesapla
-        const rad = meter.rotation * Math.PI / 180;
-        const boruBitisX = cikisNoktasi.x + Math.cos(rad) * boruUzunluk;
-        const boruBitisY = cikisNoktasi.y + Math.sin(rad) * boruUzunluk;
-
-        // Boru oluştur
-        const yeniBoru = createBoru(
-            cikisNoktasi.x,
-            cikisNoktasi.y,
-            boruBitisX,
-            boruBitisY,
-            { floorId: meter.floorId }
-        );
-
-        // Boruyu sayaca bağla
-        yeniBoru.baslangicKaynakId = meter.id;
-        yeniBoru.baslangicKaynakTip = BAGLANTI_TIPLERI.SAYAC;
-
-        // Boru rengini giriş borusuna göre ayarla (sayaç sonrası TURQUAZ)
-        if (boruUcu && boruUcu.boru) {
-            yeniBoru.colorGroup = 'TURQUAZ'; // Sayaç sonrası her zaman TURQUAZ
-        }
-
-        this.manager.components.push(yeniBoru);
-
-        // Sayacı çıkış borusuna bağla
-        meter.baglaCikis(yeniBoru.id);
 
         // State'e kaydet
         this.manager.saveToState();

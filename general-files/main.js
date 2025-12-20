@@ -45,9 +45,9 @@ export const THEME_COLORS = {
 
 
         // Mahaller
-        roomFill: 'rgba(22, 22, 22, 0.35)', // Mahal dolgusu (BG'ye yakın)
+        roomFill: 'rgba(36, 36, 36, 0.35)', // Mahal dolgusu (BG'ye yakın)
         roomHover: 'rgba(138, 180, 248, 0.2)', // Mahal hover
-        roomSelected: '#443d3dff', // Mahal seçili
+        roomSelected: '#363636ff', // Mahal seçili
 
         // Grid
         grid: '#2b2a2aff',
@@ -158,7 +158,7 @@ export function getCursorWallDrawColor() {
     return isLightMode() ? THEME_COLORS.light.cursorWallDraw : THEME_COLORS.dark.cursorWallDraw;
 }
 
-export function getShadow(ctx, shadowColor=null, shadowBlur=5, shadowOffsetX=1, shadowOffsetY=1) {
+export function getShadow(ctx, shadowColor=null, shadowBlur=3, shadowOffsetX=0.5, shadowOffsetY=0.5) {
     if (isLightMode()) {
         ctx.shadowColor = 'rgba(139, 139, 139, 1)';
         ctx.shadowBlur =3;
