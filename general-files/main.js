@@ -18,61 +18,9 @@ import { createWallPanel } from '../wall/wall-panel.js';
 import { createFloorPanel, showFloorPanel, renderMiniPanel } from '../floor/floor-panel.js';
 import { initializeDefaultFloors } from '../floor/floor-handler.js';
 import { plumbingManager, TESISAT_MODLARI } from '../plumbing_v2/plumbing-manager.js';
-/*
-// --- RESİM ÇERÇEVESİ KODU ---
-// config.js'den (eğer varsa) API anahtarını güvenli bir şekilde okur
-const UNSPLASH_API_KEY = (window.NG_CONFIG && window.NG_CONFIG.UNSPLASH_API_KEY) ? window.NG_CONFIG.UNSPLASH_API_KEY : null;
-const IMAGE_COUNT_TO_CACHE = 50; // Başlangıçta 50 resim çek
 
 
-async function loadPictureFrameImages() {
-    //bu kodu silmeyin. ilerde kullanılabilir.
-    console.log("Resim çerçevesi resimleri yükleniyor...");
-    if (!UNSPLASH_API_KEY || UNSPLASH_API_KEY === 'BURAYA_UNSPLASH_API_KEY_GİRİN') {
-        console.warn("Unsplash API Anahtarı (config.js) bulunamadı. Placeholder resimler kullanılıyor.");
-        // Placeholder URL'lerini (imgur) kullan
-        const placeholderImages = [
-            'https://i.imgur.com/S6RjY6A.jpeg', // Doğa
-            'https://i.imgur.com/GzQvjQy.jpeg', // Soyut
-            'https://i.imgur.com/PqN3pE0.jpeg', // Mimari
-            'https://i.imgur.com/yF9EMs8.jpeg'  // Teknoloji
-        ];
-        const fullCache = [];
-        for(let i=0; i<IMAGE_COUNT_TO_CACHE; i++) {
-            fullCache.push(placeholderImages[i % placeholderImages.length]);
-        }
-        setState({ pictureFrameCache: fullCache });
-        console.log(`${fullCache.length} adet placeholder resim cache'lendi.`);
-        return;
-    }
-    
-    // API Anahtarı varsa Unsplash'ten çek:
-    try {
-        // --- GÜNCELLEME: Sorguyu "canlı" resimler için değiştir ---
-        const url = `https://api.unsplash.com/photos/random?client_id=${UNSPLASH_API_KEY}&count=${IMAGE_COUNT_TO_CACHE}&query=business-strategy,desktop,office,town,artificial-intelligence,code,construction,building,city,city-at-night,urban,street,road,nature,architecture&content_filter=high&orientation=landscape`;
-        // --- GÜNCELLEME SONU ---
-
-        const response = await fetch(url);
-        if (!response.ok) { 
-             throw new Error(`API Hatası: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-        const urls = data.map(item => item.urls.regular);
-        setState({ pictureFrameCache: urls });
-        console.log(`${urls.length} adet Unsplash resmi cache'lendi.`);
-    } catch (error) {
-        console.error("Unsplash resimleri çekilemedi, placeholder resimler kullanılıyor:", error);
-        // Hata durumunda da placeholder'ları yükle
-        // API anahtarını null olarak ayarlayıp (geçici) tekrar çağırarak placeholder'a zorla
-        const originalKey = UNSPLASH_API_KEY; // Orijinal anahtarı sakla
-        window.NG_CONFIG.UNSPLASH_API_KEY = null; // Geçici olarak null yap
-        await loadPictureFrameImages(); // Placeholder'ları yükle
-        window.NG_CONFIG.UNSPLASH_API_KEY = originalKey; // Anahtarı geri yükle
-    }
-}
-*/
-
-export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
+//export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
 
 // ═══════════════════════════════════════════════════════════════
 // MERKEZİ RENK SİSTEMİ - TÜM RENKLER BURADA
@@ -1590,3 +1538,58 @@ function initializeDraggableGroups() {
 }
 
 initialize(); // Bu satır zaten dosyanın sonunda olmalı
+
+
+/*
+// --- RESİM ÇERÇEVESİ KODU ---
+// config.js'den (eğer varsa) API anahtarını güvenli bir şekilde okur
+const UNSPLASH_API_KEY = (window.NG_CONFIG && window.NG_CONFIG.UNSPLASH_API_KEY) ? window.NG_CONFIG.UNSPLASH_API_KEY : null;
+const IMAGE_COUNT_TO_CACHE = 50; // Başlangıçta 50 resim çek
+
+
+async function loadPictureFrameImages() {
+    //bu kodu silmeyin. ilerde kullanılabilir.
+    console.log("Resim çerçevesi resimleri yükleniyor...");
+    if (!UNSPLASH_API_KEY || UNSPLASH_API_KEY === 'BURAYA_UNSPLASH_API_KEY_GİRİN') {
+        console.warn("Unsplash API Anahtarı (config.js) bulunamadı. Placeholder resimler kullanılıyor.");
+        // Placeholder URL'lerini (imgur) kullan
+        const placeholderImages = [
+            'https://i.imgur.com/S6RjY6A.jpeg', // Doğa
+            'https://i.imgur.com/GzQvjQy.jpeg', // Soyut
+            'https://i.imgur.com/PqN3pE0.jpeg', // Mimari
+            'https://i.imgur.com/yF9EMs8.jpeg'  // Teknoloji
+        ];
+        const fullCache = [];
+        for(let i=0; i<IMAGE_COUNT_TO_CACHE; i++) {
+            fullCache.push(placeholderImages[i % placeholderImages.length]);
+        }
+        setState({ pictureFrameCache: fullCache });
+        console.log(`${fullCache.length} adet placeholder resim cache'lendi.`);
+        return;
+    }
+    
+    // API Anahtarı varsa Unsplash'ten çek:
+    try {
+        // --- GÜNCELLEME: Sorguyu "canlı" resimler için değiştir ---
+        const url = `https://api.unsplash.com/photos/random?client_id=${UNSPLASH_API_KEY}&count=${IMAGE_COUNT_TO_CACHE}&query=business-strategy,desktop,office,town,artificial-intelligence,code,construction,building,city,city-at-night,urban,street,road,nature,architecture&content_filter=high&orientation=landscape`;
+        // --- GÜNCELLEME SONU ---
+
+        const response = await fetch(url);
+        if (!response.ok) { 
+             throw new Error(`API Hatası: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        const urls = data.map(item => item.urls.regular);
+        setState({ pictureFrameCache: urls });
+        console.log(`${urls.length} adet Unsplash resmi cache'lendi.`);
+    } catch (error) {
+        console.error("Unsplash resimleri çekilemedi, placeholder resimler kullanılıyor:", error);
+        // Hata durumunda da placeholder'ları yükle
+        // API anahtarını null olarak ayarlayıp (geçici) tekrar çağırarak placeholder'a zorla
+        const originalKey = UNSPLASH_API_KEY; // Orijinal anahtarı sakla
+        window.NG_CONFIG.UNSPLASH_API_KEY = null; // Geçici olarak null yap
+        await loadPictureFrameImages(); // Placeholder'ları yükle
+        window.NG_CONFIG.UNSPLASH_API_KEY = originalKey; // Anahtarı geri yükle
+    }
+}
+*/
