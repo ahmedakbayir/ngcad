@@ -663,37 +663,36 @@ export class InteractionManager {
             this._debugCount++;
         }
 
-        // Cihaz için: boru ucuna snap yap, boru ekseninde yerleştir
+        // Cihaz için: boru ucuna snap yap, fleks etrafında mouse ile hareket et
         if (ghost.type === 'cihaz') {
             // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
             const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
 
             if (boruUcu && boruUcu.boru) {
-                // Boru yönünü hesapla (boru ucundan dışarı doğru)
-                const boru = boruUcu.boru;
-                const dx = boru.p2.x - boru.p1.x;
-                const dy = boru.p2.y - boru.p1.y;
-                const length = Math.hypot(dx, dy);
-
                 // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
                 ghost.rotation = 0;
 
-                // Fleks uzunluğu + cihaz yarı genişliği = toplam mesafe
-                // Fleks bitiş noktası artık cihazın içine doğru uzandığı için 20 cm yeterli
-                const fleksUzunluk = 15; // cm
-                const cihazYariGenislik = ghost.config.width / 2;
-                const toplamMesafe = fleksUzunluk + cihazYariGenislik;
+                // Fleks uzunluğu (maksimum mesafe)
+                const maxFleksUzunluk = 30; // cm - cihazın boru ucundan maksimum uzaklığı
 
-                // Cihaz merkezini hesapla (boru yönünde)
+                // Mouse'un boru ucundan mesafesini hesapla
+                const mouseUcMesafe = Math.hypot(
+                    point.x - boruUcu.nokta.x,
+                    point.y - boruUcu.nokta.y
+                );
+
+                // Cihaz merkezini hesapla
                 let merkezX, merkezY;
-                if (boruUcu.uc === 'p1') {
-                    // p1 ucundayız, boru p2'den p1'e geliyor, cihaz p1'den dışarı gitmeli
-                    merkezX = boruUcu.nokta.x - (dx / length) * toplamMesafe;
-                    merkezY = boruUcu.nokta.y - (dy / length) * toplamMesafe;
+
+                if (mouseUcMesafe <= maxFleksUzunluk) {
+                    // Mouse fleks uzunluğu içinde, mouse pozisyonuna yerleştir
+                    merkezX = point.x;
+                    merkezY = point.y;
                 } else {
-                    // p2 ucundayız, boru p1'den p2'ye geliyor, cihaz p2'den dışarı gitmeli
-                    merkezX = boruUcu.nokta.x + (dx / length) * toplamMesafe;
-                    merkezY = boruUcu.nokta.y + (dy / length) * toplamMesafe;
+                    // Mouse fleks uzunluğundan dışarıda, fleks sınırı üzerinde mouse yönünde yerleştir
+                    const oran = maxFleksUzunluk / mouseUcMesafe;
+                    merkezX = boruUcu.nokta.x + (point.x - boruUcu.nokta.x) * oran;
+                    merkezY = boruUcu.nokta.y + (point.y - boruUcu.nokta.y) * oran;
                 }
 
                 // Cihaz merkezini ayarla
@@ -701,7 +700,6 @@ export class InteractionManager {
                 ghost.y = merkezY;
 
                 // Ghost rendering için bağlantı bilgisini sakla
-                // fleksBagla için boru ucunu kullan, en yakın kenar otomatik bulunacak
                 ghost.ghostConnectionInfo = {
                     boruUcu: boruUcu,
                     girisNoktasi: boruUcu.nokta // Fleks boru ucundan başlayacak
@@ -719,7 +717,7 @@ export class InteractionManager {
             const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
 
             if (boruUcu && boruUcu.boru) {
-                // Sayaç pozisyonlandırma: Boru eksenine DİK (perpendicular)
+                // Sayaç pozisyonlandırma: Mouse konumuna göre yön belirleme
                 const boru = boruUcu.boru;
                 const dx = boru.p2.x - boru.p1.x;
                 const dy = boru.p2.y - boru.p1.y;
@@ -728,13 +726,29 @@ export class InteractionManager {
                 // Fleks görünen boy
                 const fleksUzunluk = 15; // cm
 
+                // Mouse'un boru ekseninin hangi tarafında olduğunu bul
+                // Cross product: (mouse - boruUcu) x (boru yönü)
+                const mouseVecX = point.x - boruUcu.nokta.x;
+                const mouseVecY = point.y - boruUcu.nokta.y;
+                const crossProduct = mouseVecX * dy - mouseVecY * dx;
+
                 // Boru yönüne DİK (perpendicular) vektör hesapla
                 // 90° saat yönünde (clockwise) döndürülmüş vektör: (-dy, dx)
                 let perpX = -dy / length;
                 let perpY = dx / length;
 
-                // Sayaç rotation'u: Boru yönü
-                ghost.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                // Cross product negatifse, diğer tarafa dön (180° döndür)
+                if (crossProduct < 0) {
+                    perpX = -perpX;
+                    perpY = -perpY;
+                }
+
+                // Sayaç rotation'u: Boru yönü veya ters yön (mouse konumuna göre)
+                let baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                if (crossProduct < 0) {
+                    baseRotation += 180;
+                }
+                ghost.rotation = baseRotation;
 
                 // Giriş rakorunun lokal koordinatı
                 const girisLokal = ghost.getGirisLocalKoordinat();
