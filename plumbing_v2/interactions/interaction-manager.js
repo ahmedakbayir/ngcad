@@ -1388,7 +1388,7 @@ export class InteractionManager {
             yeniBoru.colorGroup = 'TURQUAZ'; // Sayaç sonrası her zaman TURQUAZ
         }
 
-        this.manager.components.push(yeniBoru);
+        this.manager.pipes.push(yeniBoru);
 
         // Sayacı çıkış borusuna bağla
         meter.baglaCikis(yeniBoru.id);
