@@ -853,6 +853,9 @@ export class InteractionManager {
                 break;
 
             case 'sayac':
+                // Undo için state kaydet (tüm işlemlerden ÖNCE)
+                saveState();
+
                 const successSayac = this.handleSayacEndPlacement(component);
                 if (successSayac) {
                     // Sayacın çıkış noktasından çizim başlat
@@ -1296,8 +1299,7 @@ export class InteractionManager {
 
         //console.log('[handleSayacEndPlacement] ✓ Kontroller geçti, vana ve sayaç ekleniyor...');
 
-        // Undo için state kaydet
-        saveState();
+        // Not: saveState() artık placeComponent'ta çağrılıyor (tüm işlemlerden önce)
 
         // Boru ucunda vana var mı kontrol et
         const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
