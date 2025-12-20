@@ -1409,7 +1409,25 @@ body.light-mode .floor-btn {
 
 body.light-mode .floor-btn.selected {
     background: var(--bg-button-active) !important;
+    border-color: var(--bg-button-active) !important;
     color: var(--color-button-active) !important;
+    font-weight: 600 !important;
+    box-shadow: 0 0 8px rgba(26, 115, 232, 0.4) !important;
+}
+
+/* Mini panel içindeki seçili kat */
+body.light-mode #floor-mini-list > div[style*="background"] {
+    background: var(--bg-button) !important;
+    border: 2px solid var(--border-button) !important;
+}
+
+body.light-mode #floor-mini-list > div.selected,
+body.light-mode #floor-mini-list > div[data-selected="true"] {
+    background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%) !important;
+    color: #ffffff !important;
+    border: 2px solid #1a73e8 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(26, 115, 232, 0.5) !important;
 }
 
 /* Floor panel table ve text renkleri */
