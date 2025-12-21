@@ -331,7 +331,7 @@ export class InteractionManager {
                     c.type === 'sayac' && c.containsPoint && c.containsPoint(point)
                 );
                 if (clickedMeter) {
-                  //  console.log('🎯 SAYAÇ BULUNDU, çıkış ucundan boru başlatılıyor:', clickedMeter.id);
+                    //  console.log('🎯 SAYAÇ BULUNDU, çıkış ucundan boru başlatılıyor:', clickedMeter.id);
                     const cikisNoktasi = clickedMeter.getCikisNoktasi();
                     this.startBoruCizim(cikisNoktasi, clickedMeter.id, BAGLANTI_TIPLERI.SAYAC);
                     return true;
@@ -341,11 +341,18 @@ export class InteractionManager {
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
             const boruUcu = this.findBoruUcuAt(point, 10); // Nokta seçimi için 2.5 cm tolerance (daha hassas)
             if (boruUcu) {
-               // console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
+                // console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
                     // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
                     if (this.manager.activeTool === 'boru') {
+                        const deviceVar = this.hasDeviceAtEndpoint(pipe.id, boruUcu.uc);
+                        const meterVar = this.hasMeterAtEndpoint(pipe.id, boruUcu.uc);
+
+                        if (deviceVar || meterVar) {
+                            console.warn("🚫 Bu uçta Cihaz/Sayaç fleksi var! Tesisat devam ettirilemez.");
+                            return true; // Çizimi başlatmadan fonksiyondan çık
+                        }
                         const ucNokta = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
                         this.startBoruCizim(ucNokta, pipe.id, BAGLANTI_TIPLERI.BORU);
                         return true;
@@ -369,7 +376,7 @@ export class InteractionManager {
             // Sonra nesne seçimi (Boru vs)
             const hitObject = this.findObjectAt(point);
             if (hitObject) {
-              //  console.log('📦 NESNE BULUNDU:', hitObject.type, hitObject.id);
+                //  console.log('📦 NESNE BULUNDU:', hitObject.type, hitObject.id);
                 this.selectObject(hitObject);
                 // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
                 if (hitObject.type === 'boru') {
@@ -413,6 +420,14 @@ export class InteractionManager {
         // 5. Boru ucu veya gövdesinden çizim başlat
         const boruUcu = this.findBoruUcuAt(point, 8);
         if (boruUcu) {
+            const deviceVar = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
+            const meterVar = this.hasMeterAtEndpoint(boruUcu.boruId, boruUcu.uc);
+
+            if (deviceVar || meterVar) {
+                console.warn("🚫 Bu uçta Cihaz/Sayaç fleksi var! Tesisat devam ettirilemez.");
+                return true; // Çizimi başlatmadan fonksiyondan çık
+            }
+
             this.startBoruCizim(boruUcu.nokta, boruUcu.boruId, BAGLANTI_TIPLERI.BORU);
             return true;
         }
@@ -863,10 +878,10 @@ export class InteractionManager {
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
                     // Önceki moda dön (S tuşu ile eklenmişse veya icon ile eklenmişse)
                     if (this.previousMode) {
-                      //  console.log(`[MODE] Sayaç eklendi, önceki moda dönülüyor: ${this.previousMode}`);
+                        //  console.log(`[MODE] Sayaç eklendi, önceki moda dönülüyor: ${this.previousMode}`);
                         setTimeout(() => {
                             if (this.previousDrawingMode) {
-                            //    console.log(`[MODE] Drawing mode restore: ${this.previousDrawingMode}`);
+                                //    console.log(`[MODE] Drawing mode restore: ${this.previousDrawingMode}`);
                                 setDrawingMode(this.previousDrawingMode);
                             }
                             //console.log(`[MODE] Mode restore: ${this.previousMode}`);
@@ -982,6 +997,35 @@ export class InteractionManager {
      * Boru çizim modunu başlat
      */
     startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null) {
+
+        if (kaynakTip === BAGLANTI_TIPLERI.BORU && kaynakId) {
+            // Kaynak boruyu bul (manager.pipes içinde ara)
+            const kaynakBoru = this.manager.pipes.find(p => p.id === kaynakId);
+
+            if (kaynakBoru) {
+                // Tıklanan noktanın hangi uç (p1 mi p2 mi) olduğunu anla
+                // Gelen nokta zaten borunun ucu olduğu için mesafe neredeyse 0'dır.
+                let hedefUc = null;
+                if (Math.hypot(baslangicNoktasi.x - kaynakBoru.p1.x, baslangicNoktasi.y - kaynakBoru.p1.y) < 1) {
+                    hedefUc = 'p1';
+                } else if (Math.hypot(baslangicNoktasi.x - kaynakBoru.p2.x, baslangicNoktasi.y - kaynakBoru.p2.y) < 1) {
+                    hedefUc = 'p2';
+                }
+
+                if (hedefUc) {
+                    // Cihaz veya Sayaç kontrolü yap
+                    const cihazVar = this.hasDeviceAtEndpoint(kaynakId, hedefUc);
+                    const sayacVar = this.hasMeterAtEndpoint(kaynakId, hedefUc);
+
+                    if (cihazVar || sayacVar) {
+                        console.warn("🚫 ENGEL: Bu uçta Cihaz veya Sayaç fleksi var! Tesisat buradan başlatılamaz.");
+                        // İşlemi burada sessizce bitir, çizim modu açılmayacak.
+                        return;
+                    }
+                }
+            }
+        }
+
         this.boruCizimAktif = true;
         this.boruBaslangic = {
             nokta: baslangicNoktasi,
@@ -1021,7 +1065,7 @@ export class InteractionManager {
 
         // Kullanıcıya bilgi ver (kaydırma yapıldıysa)
         if (adjusted) {
-           // console.log('Vana pozisyonu mesafe kurallarına göre ayarlandı.');
+            // console.log('Vana pozisyonu mesafe kurallarına göre ayarlandı.');
         }
 
         // Bağımsız Vana nesnesi oluştur
@@ -1277,14 +1321,14 @@ export class InteractionManager {
 
         if (!boruUcu) {
             //console.error('[handleSayacEndPlacement] ✗ Boru ucu bulunamadı!');
-           // alert('Sayaç bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
+            // alert('Sayaç bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
             return false;
         }
 
         // T JUNCTION KONTROLÜ: Sayaç sadece gerçek uçlara bağlanabilir, T noktasına değil
         if (!this.isFreeEndpoint(boruUcu.nokta, 1)) {
-           // console.error('[handleSayacEndPlacement] ✗ T-junction kontrolü başarısız!');
-           // alert('⚠️ Sayaç T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
+            // console.error('[handleSayacEndPlacement] ✗ T-junction kontrolü başarısız!');
+            // alert('⚠️ Sayaç T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
             return false;
         }
 
@@ -1292,7 +1336,7 @@ export class InteractionManager {
         const mevcutSayac = this.hasMeterAtEndpoint(boruUcu.boruId, boruUcu.uc);
         if (mevcutSayac) {
             //console.error('[handleSayacEndPlacement] ✗ Bu boru ucunda zaten sayaç var!');
-           // alert('⚠️ Bu boru ucunda zaten bir sayaç var!\n\nBir boru ucuna sadece bir sayaç eklenebilir.');
+            // alert('⚠️ Bu boru ucunda zaten bir sayaç var!\n\nBir boru ucuna sadece bir sayaç eklenebilir.');
             return false;
         }
 
@@ -1346,7 +1390,7 @@ export class InteractionManager {
         // Sayaç pozisyonu ve rotation ghost'tan geliyor (mouse konumuna göre ayarlanmış)
         // Ghost'ta zaten doğru pozisyon ve yön belirlendi, burada yeniden hesaplamaya gerek yok
         // meter.x, meter.y ve meter.rotation zaten ghost positioning'den doğru değerlerde
-        
+
         const fleksUzunluk = 15; // cm
         meter.config.rijitUzunluk = fleksUzunluk;
 
@@ -1388,7 +1432,7 @@ export class InteractionManager {
         }
 
         if (!boruUcu) {
-           // console.error('[handleCihazEkleme] ✗ Boru ucu bulunamadı!');
+            // console.error('[handleCihazEkleme] ✗ Boru ucu bulunamadı!');
             //alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
             // Cihazı components'a ekleme, sadece iptal et
             return false;
@@ -1396,20 +1440,20 @@ export class InteractionManager {
 
         // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
         if (!this.isFreeEndpoint(boruUcu.nokta, 1)) {
-           // console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
-           // alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
+            // console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
+            // alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
             return false;
         }
 
         // CİHAZ VAR MI KONTROLÜ: Bir boru ucunda zaten cihaz varsa başka cihaz eklenemez
         const mevcutCihaz = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
         if (mevcutCihaz) {
-           // console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
-           // alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
+            // console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
+            // alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
             return false;
         }
 
-       // console.log('[handleCihazEkleme] ✓ Kontroller geçti, vana ve cihaz ekleniyor...');
+        // console.log('[handleCihazEkleme] ✓ Kontroller geçti, vana ve cihaz ekleniyor...');
 
         // Undo için state kaydet
         saveState();
@@ -1473,14 +1517,14 @@ export class InteractionManager {
         // Normal icon click workflow'unda placeComponent() ekler,
         // ama K/O shortcuts gibi direkt çağrılarda burada eklemeliyiz
         if (!this.manager.components.includes(cihaz)) {
-         //   console.log('[handleCihazEkleme] Cihaz components\'a ekleniyor:', cihaz.cihazTipi);
+            //   console.log('[handleCihazEkleme] Cihaz components\'a ekleniyor:', cihaz.cihazTipi);
             this.manager.components.push(cihaz);
         }
 
         // State'e kaydet
         this.manager.saveToState();
 
-       // console.log('[handleCihazEkleme] ✓ Cihaz başarıyla eklendi. Toplam components:', this.manager.components.length);
+        // console.log('[handleCihazEkleme] ✓ Cihaz başarıyla eklendi. Toplam components:', this.manager.components.length);
         return true;
     }
 
@@ -2076,7 +2120,7 @@ export class InteractionManager {
             const walls = state.walls || [];
             let finalPos = { x: point.x, y: point.y };
 
-            
+
             // Her zaman yeni snap ara (sürekli snap)
             // Maksimum snap mesafesi 1 metre (100 cm)
             let bestSnapX = { diff: MAX_WALL_DISTANCE, value: null };
@@ -2111,14 +2155,14 @@ export class InteractionManager {
                     wallDistance = Math.hypot(finalPos.x - projX, finalPos.y - projY);
                 }
 
-                
+
                 const wallThickness = wall.thickness || state.wallThickness || 20;
                 const halfThickness = wallThickness / 2;
-                
+
                 // Snap noktası duvar yüzeyinden offset olduğu için tolerans ekle
                 const maxOffset = halfThickness + BORU_CLEARANCE;
                 if (wallDistance > MAX_WALL_DISTANCE + maxOffset) return;
-                
+
                 const dxW = wall.p2.x - wall.p1.x;
                 const dyW = wall.p2.y - wall.p1.y;
                 const isVertical = Math.abs(dxW) < 0.1;
@@ -2335,7 +2379,7 @@ export class InteractionManager {
 
             // Boru yoksa veya geçersizse hareket etme
             if (!targetPipe) {
-               // console.log('Vana sürüklerken boru bulunamadı - hareket engellendi');
+                // console.log('Vana sürüklerken boru bulunamadı - hareket engellendi');
                 return;
             }
 
