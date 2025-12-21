@@ -60,6 +60,15 @@ function toggleDarkMode() {
     applyTheme(isDarkMode);
 }
 
+/**
+ * Tema değiştir (L kısayolu için)
+ */
+export function toggleTheme() {
+    const isDarkMode = !document.body.classList.contains('light-mode');
+    dom.darkModeToggle.checked = !isDarkMode;
+    applyTheme(!isDarkMode);
+}
+
 export function initializeSettings() {
     // Dark Mode ayarını localStorage'dan yükle
     const isDarkMode = localStorage.getItem('darkMode') !== 'false'; // Varsayılan: true (dark mode)
