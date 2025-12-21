@@ -691,6 +691,20 @@ export class InteractionManager {
                 const minFleksUzunluk = 21; // cm - cihazın boru ucundan minimum uzaklığı (vana + fleks görünürlüğü için)
                 const maxFleksUzunluk = 50; // cm - cihazın boru ucundan maksimum uzaklığı
 
+                // Boru yönünü hesapla (boru ucundan dışarı doğru)
+                const boru = boruUcu.boru;
+                const boruUcNokta = boruUcu.uc === 'p1' ? boru.p1 : boru.p2;
+                const digerUc = boruUcu.uc === 'p1' ? boru.p2 : boru.p1;
+
+                // Boru yönü: diğer uçtan bu uca doğru (dışarı)
+                const boruYonX = boruUcNokta.x - digerUc.x;
+                const boruYonY = boruUcNokta.y - digerUc.y;
+                const boruYonUzunluk = Math.hypot(boruYonX, boruYonY);
+
+                // Normalize edilmiş boru yönü
+                const normBoruYonX = boruYonX / boruYonUzunluk;
+                const normBoruYonY = boruYonY / boruYonUzunluk;
+
                 // Mouse'un boru ucundan mesafesini hesapla
                 const mouseUcMesafe = Math.hypot(
                     point.x - boruUcu.nokta.x,
@@ -701,10 +715,9 @@ export class InteractionManager {
                 let merkezX, merkezY;
 
                 if (mouseUcMesafe < minFleksUzunluk) {
-                    // Mouse minimum fleks uzunluğundan daha yakın, minimum mesafeye yerleştir
-                    const oran = minFleksUzunluk / mouseUcMesafe;
-                    merkezX = boruUcu.nokta.x + (point.x - boruUcu.nokta.x) * oran;
-                    merkezY = boruUcu.nokta.y + (point.y - boruUcu.nokta.y) * oran;
+                    // Mouse minimum fleks uzunluğundan daha yakın, boru yönünde minimum mesafeye yerleştir
+                    merkezX = boruUcu.nokta.x + normBoruYonX * minFleksUzunluk;
+                    merkezY = boruUcu.nokta.y + normBoruYonY * minFleksUzunluk;
                 } else if (mouseUcMesafe <= maxFleksUzunluk) {
                     // Mouse fleks uzunluğu içinde, mouse pozisyonuna yerleştir
                     merkezX = point.x;
