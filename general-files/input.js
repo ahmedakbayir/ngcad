@@ -5,7 +5,7 @@ import * as THREE from "three"; // YENİ
 import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable } from './main.js'; // dom import edildiğinden emin olun
 import { getObjectAtPoint } from './actions.js';
 import { undo, redo, saveState, restoreState } from './history.js';
-import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen } from './ui.js';
+import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen, toggleTheme } from './ui.js';
 import { createStairs, recalculateStepCount, isPointInStair, getNextStairLetter } from '../architectural-objects/stairs.js'; // isPointInStair eklendi
 import { createColumn, isPointInColumn } from '../architectural-objects/columns.js'; // isPointInColumn eklendi
 import { createBeam, isPointInBeam } from '../architectural-objects/beams.js'; // isPointInBeam eklendi
@@ -474,6 +474,12 @@ function onKeyDown(e) {
                     }
                     return; // Diğer kısayollarla çakışmasın
                 }
+                // L tuşu - Tema değiştir (input içindeyken de çalışsın)
+                if (e.key.toLowerCase() === 'l') {
+                    e.preventDefault();
+                    toggleTheme();
+                    return;
+                }
                 // Ctrl+C/V'yi engelleme (input içinde çalışsın)
                 if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
                     // Tarayıcının kendi kopyala/yapıştırına izin ver
@@ -499,6 +505,12 @@ function onKeyDown(e) {
                 e.preventDefault();
                 return;
             }
+            // L tuşu - Tema değiştir
+            else if (e.key.toLowerCase() === 'l') {
+                e.preventDefault();
+                toggleTheme();
+                return;
+            }
             // Ctrl+C/V'yi engelleme (input içinde çalışsın)
             else if (e.ctrlKey && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'v')) {
                 // Tarayıcının kendi kopyala/yapıştırına izin ver
@@ -513,6 +525,12 @@ function onKeyDown(e) {
             // F tuşunu engelle
             if (e.key.toLowerCase() === 'f') {
                 e.preventDefault();
+                return;
+            }
+            // L tuşu - Tema değiştir
+            if (e.key.toLowerCase() === 'l') {
+                e.preventDefault();
+                toggleTheme();
                 return;
             }
             // Ctrl+C/V'yi engelleme (input içinde çalışsın)
@@ -534,6 +552,13 @@ function onKeyDown(e) {
         e.preventDefault(); // Tarayıcının varsayılan 'F' işlemini (Find) engelle
         fitDrawingToScreen();
         return; // Diğer kısayollarla çakışmasın
+    }
+
+    // Dark/Light Mode Toggle ('L' tuşu)
+    if (e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        toggleTheme();
+        return;
     }
 
     // TAB ile duvar uzatma veya kat değiştirme
