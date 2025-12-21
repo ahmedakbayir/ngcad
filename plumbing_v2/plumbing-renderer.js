@@ -12,20 +12,20 @@ export class PlumbingRenderer {
         this.THEME_COLORS = {
             dark: {
                 pipeSelected: {
-                    SARI: '#FFB84D',
-                    TURKUAZ: '#1E3A8A',
-                    TURUNCU: '#8B4513',
-                    MAVI: '#1E3A8A',
+                    SARI: '#ff0000ff',
+                    TURKUAZ: '#ff0000ff',
+                    TURUNCU: '#ff0000ff',
+                    MAVI: '#ff0000ff',
                 },
                 pipeEndpoint: '#FF8C00',
                 pipeEndpointStroke: '#fff',
             },
             light: {
                 pipeSelected: {
-                    SARI: '#FF8C42',
-                    TURKUAZ: '#003D82',
-                    TURUNCU: '#D2691E',
-                    MAVI: '#003D82',
+                    SARI: '#ff0000ff',
+                    TURKUAZ: '#ff0000ff',
+                    TURUNCU: '#ff0000ff',
+                    MAVI: '#ff0000ff',
                 },
                 pipeEndpoint: '#0066CC',
                 pipeEndpointStroke: '#333',
@@ -56,7 +56,7 @@ export class PlumbingRenderer {
 
 
     getSecilenRenk(colorGroup) {
-        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark;
+        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark; // ✅ Artık çalışıyor
 
         const selectedColors = themeColors.pipeSelected;
 
