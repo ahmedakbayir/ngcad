@@ -15,7 +15,7 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
 // Renk Grupları (Sayaç Öncesi/Sonrası) - TEMAya GÖRE DİNAMİK
 export function getRenkGruplari() {
-    const isLightMode = document.body.classList.contains('light-mode');
+    const isLightMode = document.body.classList.contains('light-mode'); // ✅ Dinamik kontrol
 
     if (isLightMode) {
         // AÇIK MOD - Koyu turuncu ve koyu mavi (beyaz zeminde görünür)

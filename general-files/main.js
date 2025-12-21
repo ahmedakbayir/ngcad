@@ -56,17 +56,17 @@ export const THEME_COLORS = {
         dimensionPlumbing: '#4dfff6ff', // Tesisat ölçülendirme
 
         // Boru renkleri (Tesisat)
-        pipeCold: '#00CED1',      // Turquaz (soğuk su)
-        pipeHot: '#FFD700',       // Sarı (sıcak su)
-        pipeDrain: '#808080',     // Gri (atık)
-        pipeVent: '#90EE90',      // Açık yeşil (havalandırma)
+        pipeCold: '#ff0000ff',      // Turquaz (soğuk su)
+        pipeHot: '#ff0000ff',       // Sarı (sıcak su)
+        pipeDrain: '#ff0000ff',     // Gri (atık)
+        pipeVent: '#ff0000ff',      // Açık yeşil (havalandırma)
 
         // Boru seçili renkleri (selected state)
         pipeSelected: {
-            SARI: '#FFB84D',      // Sarı seçilince koyu turuncu → Açık temada görünsün
-            TURKUAZ: '#1E3A8A',   // Turkuaz seçilince lacivert → Açık temada görünsün
-            TURUNCU: '#8B4513',   // Turuncu seçilince koyu kahve
-            MAVI: '#1E3A8A',      // Mavi seçilince koyu lacivert
+            SARI: '#ff0000ff',
+            TURKUAZ: '#ff0000ff',
+            TURUNCU: '#ff0000ff',
+            MAVI: '#ff0000ff',
         },
 
         // Boru uç noktası rengi
@@ -106,17 +106,17 @@ export const THEME_COLORS = {
         dimensionPlumbing: '#fc0000ff', // Tesisat ölçülendirme (koyu teal)
 
         // Boru renkleri (Beyaz zeminde görünebilir)
-        pipeCold: '#0066CC',      // Koyu mavi (soğuk su)
-        pipeHot: '#CC6600',       // Koyu turuncu (sıcak su)
-        pipeDrain: '#505050',     // Koyu gri (atık)
-        pipeVent: '#2d7a2d',      // Koyu yeşil (havalandırma)
+        pipeCold: '#ff0000ff',      // Koyu mavi (soğuk su)
+        pipeHot: '#ff0000ff',       // Koyu turuncu (sıcak su)
+        pipeDrain: '#ff0000ff',     // Koyu gri (atık)
+        pipeVent: '#ff0000ff',      // Koyu yeşil (havalandırma)
 
         // Boru seçili renkleri (selected state)
         pipeSelected: {
-            SARI: '#FF8C42',      // Sarı seçilince turuncuya yakın
-            TURKUAZ: '#003D82',   // Turkuaz seçilince laciverte yakın
-            TURUNCU: '#D2691E',   // Turuncu seçilince daha parlak turuncu
-            MAVI: '#003D82',      // Mavi seçilince lacivert
+            SARI: '#ff0000ff',
+            TURKUAZ: '#ff0000ff',
+            TURUNCU: '#ff0000ff',
+            MAVI: '#fa1818ff',
         },
 
         // Boru uç noktası rengi
