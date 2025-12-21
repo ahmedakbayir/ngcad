@@ -33,40 +33,40 @@ export const THEME_COLORS = {
         backgroundGradient: null, // Koyu modda gradient yok
         canvas: '#30302e', // Canvas temizleme rengi
         canvasGradient: {
-            center: '#363636ff',  // Merkez - koyu gri
-            mid: '#252525ff',     // Orta
-            edge: '#1A1A1A'     // Kenar - daha koyu
+            center: '#363636',  // Merkez - koyu gri
+            mid: '#252525',     // Orta
+            edge: '#1a1a1a'     // Kenar - daha koyu
         },
 
         // Duvarlar
-        wallStroke: 'rgba(233, 233, 233, 1)', // Duvar çizgisi
-        wallFill: '#333333ff', // Duvar dolgusu (BG ile aynı)
+        wallStroke: '#e9e9e9', // Duvar çizgisi
+        wallFill: '#333333', // Duvar dolgusu (BG ile aynı)
 
 
 
         // Mahaller
-        roomFill: 'rgba(36, 36, 36, 0.35)', // Mahal dolgusu (BG'ye yakın)
-        roomHover: 'rgba(138, 180, 248, 0.2)', // Mahal hover
-        roomSelected: '#363636ff', // Mahal seçili
+        roomFill: '#2e2d2dff', // Mahal dolgusu (BG'ye yakın)
+        roomHover: '#8ab4f8', // Mahal hover
+        roomSelected: '#363636', // Mahal seçili
 
         // Grid
-        grid: '#2b2a2aff',
+        grid: '#141414',
         // Ölçülendirme
-        dimensionArchitecture: '#b8b7b7ff', // Mimari ölçülendirme
-        dimensionPlumbing: '#4dfff6ff', // Tesisat ölçülendirme
+        dimensionArchitecture: '#b8b7b7', // Mimari ölçülendirme
+        dimensionPlumbing: '#4dfff6', // Tesisat ölçülendirme
 
         // Boru renkleri (Tesisat)
-        pipeCold: '#ff0000ff',      // Turquaz (soğuk su)
-        pipeHot: '#ff0000ff',       // Sarı (sıcak su)
-        pipeDrain: '#ff0000ff',     // Gri (atık)
-        pipeVent: '#ff0000ff',      // Açık yeşil (havalandırma)
+        pipeCold: '#ff0000',      // Turquaz (soğuk su)
+        pipeHot: '#ff0000',       // Sarı (sıcak su)
+        pipeDrain: '#ff0000',     // Gri (atık)
+        pipeVent: '#ff0000',      // Açık yeşil (havalandırma)
 
         // Boru seçili renkleri (selected state)
         pipeSelected: {
-            SARI: '#ff0000ff',
-            TURKUAZ: '#ff0000ff',
-            TURUNCU: '#ff0000ff',
-            MAVI: '#ff0000ff',
+            SARI: '#ff0000',
+            TURKUAZ: '#ff0000',
+            TURUNCU: '#ff0000',
+            MAVI: '#ff0000',
         },
 
         // Boru uç noktası rengi
@@ -84,39 +84,39 @@ export const THEME_COLORS = {
         backgroundGradient: 'radial-gradient(ellipse at center, #fdffff 0%, #e7fafa 100%)',
         canvas: '#e6e7e7', // Canvas temizleme rengi
         canvasGradient: {
-            center: 'rgba(250, 255, 255, 1)',  // Merkez - saf beyaz
-            mid: 'rgba(255, 255, 250, 1)',     // Orta
-            edge: 'rgba(255, 250, 255, 1)'     // Kenar - açık gri
+            center: '#fdfdff',  // Merkez - koyu gri
+            mid: '#f3f3ff',     // Orta
+            edge: '#efeffd'     // Kenar - daha koyu
         },
 
         // Grid
-        grid: '#fffffa',
+        grid: '#b6b6b6',
 
         // Duvarlar
-        wallStroke: 'rgba(80, 80, 80, 1)', // Duvar çizgisi (koyu)
-        wallFill: 'rgba(245, 245, 245, 1)', // Duvar dolgusu (açık)
+        wallStroke: '#505050', // Duvar çizgisi (koyu)
+        wallFill: '#dddddd', // Duvar dolgusu (açık)
 
         // Mahaller
-        roomFill: 'rgba(253, 253, 253, 1)', // Mahal dolgusu (BG'ye yakın)
-        roomHover: 'rgba(255, 241, 241, 1)', // Mahal hover
-        roomSelected: 'rgba(255, 241, 241, 1)', // Mahal seçili
+        roomFill: '#fdfdfdff', // Mahal dolgusu (BG'ye yakın)
+        roomHover: '#fff1f1', // Mahal hover
+        roomSelected: '#fff1f1', // Mahal seçili
 
         // Ölçülendirme
-        dimensionArchitecture: '#3a3a3aff', // Mimari ölçülendirme (koyu mavi)
-        dimensionPlumbing: '#fc0000ff', // Tesisat ölçülendirme (koyu teal)
+        dimensionArchitecture: '#3a3a3a', // Mimari ölçülendirme (koyu mavi)
+        dimensionPlumbing: '#fc0000', // Tesisat ölçülendirme (koyu teal)
 
         // Boru renkleri (Beyaz zeminde görünebilir)
-        pipeCold: '#ff0000ff',      // Koyu mavi (soğuk su)
-        pipeHot: '#ff0000ff',       // Koyu turuncu (sıcak su)
-        pipeDrain: '#ff0000ff',     // Koyu gri (atık)
-        pipeVent: '#ff0000ff',      // Koyu yeşil (havalandırma)
+        pipeCold: '#ff0000',      // Koyu mavi (soğuk su)
+        pipeHot: '#ff0000',       // Koyu turuncu (sıcak su)
+        pipeDrain: '#ff0000',     // Koyu gri (atık)
+        pipeVent: '#ff0000',      // Koyu yeşil (havalandırma)
 
         // Boru seçili renkleri (selected state)
         pipeSelected: {
-            SARI: '#ff0000ff',
-            TURKUAZ: '#ff0000ff',
-            TURUNCU: '#ff0000ff',
-            MAVI: '#fa1818ff',
+            SARI: '#ff0000',
+            TURKUAZ: '#ff0000',
+            TURUNCU: '#ff0000',
+            MAVI: '#ff0000',
         },
 
         // Boru uç noktası rengi
