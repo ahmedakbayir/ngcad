@@ -3,12 +3,11 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getAdjustedColor, state, getDimensionPlumbingColor, getShadow } from '../general-files/main.js';
+import { getAdjustedColor, state, getDimensionPlumbingColor, getShadow, THEME_COLORS } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
-        this.secilenRenk = '#00BFFF'; // Seçili nesne rengi (varsayılan - YELLOW için)
-        this.secilenRenkTurquaz = '#0B4F6C'; // Seçili nesne rengi (TURQUAZ için - koyu laci-mavi)
+        this.THEME_COLORS = THEME_COLORS; // Tema renklerini sakla
     }
 
     /**
@@ -26,10 +25,36 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Seçili nesne rengini colorGroup'a göre al
+     * Light mode kontrolü
+     */
+    isLightMode() {
+        return state.isLightMode === true;
+    }
+
+    /**
+     * Seçili nesne rengini colorGroup'a göre al (tema bazlı)
      */
     getSecilenRenk(colorGroup) {
-        return colorGroup === 'TURQUAZ' ? this.secilenRenkTurquaz : this.secilenRenk;
+        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark;
+        const selectedColors = themeColors.pipeSelected;
+
+        // colorGroup'a göre renk seç
+        switch(colorGroup) {
+            case 'SARI':
+            case 'YELLOW':
+                return selectedColors.SARI;
+            case 'TURKUAZ':
+            case 'TURQUAZ':
+                return selectedColors.TURKUAZ;
+            case 'TURUNCU':
+            case 'ORANGE':
+                return selectedColors.TURUNCU;
+            case 'MAVI':
+            case 'BLUE':
+                return selectedColors.MAVI;
+            default:
+                return selectedColors.SARI; // Varsayılan
+        }
     }
 
     /**
@@ -375,9 +400,12 @@ export class PlumbingRenderer {
         // Uç noktaları küçük belirgin noktalar (seçili borular için)
         const r = 1.6; // Küçük
 
+        // Tema renklerini kullan
+        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark;
+
         // p1 noktası
-        ctx.fillStyle = '#FF8C00'; // Turuncu
-        ctx.strokeStyle = '#fff';
+        ctx.fillStyle = themeColors.pipeEndpoint;
+        ctx.strokeStyle = themeColors.pipeEndpointStroke;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);

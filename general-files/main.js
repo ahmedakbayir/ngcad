@@ -61,6 +61,18 @@ export const THEME_COLORS = {
         pipeDrain: '#808080',     // Gri (atık)
         pipeVent: '#90EE90',      // Açık yeşil (havalandırma)
 
+        // Boru seçili renkleri (selected state)
+        pipeSelected: {
+            SARI: '#FFB84D',      // Sarı seçilince koyu turuncu → Açık temada görünsün
+            TURKUAZ: '#1E3A8A',   // Turkuaz seçilince lacivert → Açık temada görünsün
+            TURUNCU: '#8B4513',   // Turuncu seçilince koyu kahve
+            MAVI: '#1E3A8A',      // Mavi seçilince koyu lacivert
+        },
+
+        // Boru uç noktası rengi
+        pipeEndpoint: '#FF8C00',  // Turuncu
+        pipeEndpointStroke: '#fff', // Beyaz
+
         // Cursor
         cursorWallDraw: '#8ab4f8', // Duvar çizme cursor rengi
     },
@@ -98,6 +110,18 @@ export const THEME_COLORS = {
         pipeHot: '#CC6600',       // Koyu turuncu (sıcak su)
         pipeDrain: '#505050',     // Koyu gri (atık)
         pipeVent: '#2d7a2d',      // Koyu yeşil (havalandırma)
+
+        // Boru seçili renkleri (selected state)
+        pipeSelected: {
+            SARI: '#FF8C42',      // Sarı seçilince turuncuya yakın
+            TURKUAZ: '#003D82',   // Turkuaz seçilince laciverte yakın
+            TURUNCU: '#D2691E',   // Turuncu seçilince daha parlak turuncu
+            MAVI: '#003D82',      // Mavi seçilince lacivert
+        },
+
+        // Boru uç noktası rengi
+        pipeEndpoint: '#0066CC',  // Koyu mavi
+        pipeEndpointStroke: '#333', // Koyu gri
 
         // Cursor
         cursorWallDraw: '#1a5490', // Duvar çizme cursor rengi (koyu mavi)
