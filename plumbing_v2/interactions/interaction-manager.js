@@ -2479,6 +2479,97 @@ export class InteractionManager {
             return;
         }
 
+        // Sayaç taşıma - vana + fleks bağlantı noktası + sayaç birlikte taşınır
+        if (this.dragObject.type === 'sayac') {
+            const sayac = this.dragObject;
+
+            // Eski pozisyonu kaydet
+            const oldX = sayac.x;
+            const oldY = sayac.y;
+
+            // Delta hesapla
+            const dx = point.x - oldX;
+            const dy = point.y - oldY;
+
+            // Sayacı yeni pozisyona taşı
+            sayac.move(point.x, point.y);
+
+            // İlişkili vanayı taşı
+            if (sayac.iliskiliVanaId) {
+                const vana = this.manager.components.find(c => c.id === sayac.iliskiliVanaId && c.type === 'vana');
+                if (vana) {
+                    // Vana bir boruya bağlıysa, önce borudan ayır
+                    const vanaBagliBoruId = vana.bagliBoruId;
+                    const vanaBoruPozisyonu = vana.boruPozisyonu;
+
+                    if (vanaBagliBoruId) {
+                        vana.detachFromPipe();
+                    }
+
+                    // Vanayı delta kadar taşı
+                    vana.move(vana.x + dx, vana.y + dy);
+
+                    // Eğer vana bir boruya bağlıysa, boruyu da taşı
+                    if (vanaBagliBoruId) {
+                        const vanaBoru = this.manager.pipes.find(p => p.id === vanaBagliBoruId);
+                        if (vanaBoru) {
+                            const oldVanaBoruP1 = { x: vanaBoru.p1.x, y: vanaBoru.p1.y };
+                            const oldVanaBoruP2 = { x: vanaBoru.p2.x, y: vanaBoru.p2.y };
+
+                            vanaBoru.p1.x += dx;
+                            vanaBoru.p1.y += dy;
+                            vanaBoru.p2.x += dx;
+                            vanaBoru.p2.y += dy;
+
+                            // Boru uçlarını güncelle (bağlı diğer boruları da taşı)
+                            this.updateConnectedPipesChain(oldVanaBoruP1, vanaBoru.p1);
+                            this.updateConnectedPipesChain(oldVanaBoruP2, vanaBoru.p2);
+
+                            // Vanayı tekrar boruya bağla
+                            vana.attachToPipe(vanaBagliBoruId, vanaBoruPozisyonu);
+                            vana.updatePositionFromPipe(vanaBoru);
+                        }
+                    }
+                }
+            }
+
+            // Fleks bağlantı noktasını taşı (fleksin bağlı olduğu boru ucu)
+            if (sayac.fleksBaglanti && sayac.fleksBaglanti.boruId) {
+                const fleksBoru = this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
+                if (fleksBoru) {
+                    const endpoint = sayac.fleksBaglanti.endpoint; // 'p1' veya 'p2'
+                    if (endpoint === 'p1') {
+                        const oldP1 = { x: fleksBoru.p1.x, y: fleksBoru.p1.y };
+                        fleksBoru.p1.x += dx;
+                        fleksBoru.p1.y += dy;
+                        // Bağlı boruları güncelle
+                        this.updateConnectedPipesChain(oldP1, fleksBoru.p1);
+                    } else if (endpoint === 'p2') {
+                        const oldP2 = { x: fleksBoru.p2.x, y: fleksBoru.p2.y };
+                        fleksBoru.p2.x += dx;
+                        fleksBoru.p2.y += dy;
+                        // Bağlı boruları güncelle
+                        this.updateConnectedPipesChain(oldP2, fleksBoru.p2);
+                    }
+                }
+            }
+
+            // Çıkış borusunu güncelle
+            if (sayac.cikisBagliBoruId) {
+                const cikisBoru = this.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
+                if (cikisBoru) {
+                    const oldP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+                    const yeniCikis = sayac.getCikisNoktasi();
+                    cikisBoru.p1.x = yeniCikis.x;
+                    cikisBoru.p1.y = yeniCikis.y;
+                    // Bağlı boruları güncelle
+                    this.updateConnectedPipesChain(oldP1, cikisBoru.p1);
+                }
+            }
+
+            return;
+        }
+
         // Boru gövdesi taşıma - sadece x veya y yönünde (duvar mantığı)
         if (this.dragObject.type === 'boru' && this.isBodyDrag) {
             const pipe = this.dragObject;
