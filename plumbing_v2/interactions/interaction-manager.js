@@ -2060,9 +2060,9 @@ export class InteractionManager {
         if (this.dragEndpoint && this.dragObject.type === 'boru') {
             const pipe = this.dragObject;
 
-            // Servis kutusuna bağlı uç taşınamaz - ekstra güvenlik kontrolü
+            // Servis kutusu veya sayaca bağlı uç taşınamaz
             const ucBaglanti = this.dragEndpoint === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-            if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+            if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU || ucBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
                 return; // Taşıma işlemini engelle
             }
 
