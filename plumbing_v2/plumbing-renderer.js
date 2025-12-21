@@ -15,25 +15,61 @@ const CUSTOM_COLORS = {
         dark: { 0: '#E8F5E9', 0.3: '#81C784', 0.7: '#43A047', 1: '#1B5E20' }
     },
     BOX_ORANGE: { // Servis Kutusu - Turuncu Yoğunluklu
-        top: '#FFF3E0',
-        middle: '#FFB74D',
-        bottom: '#F57C00',
-        stroke: '#E65100'
+        top: '#f1dbf5',
+        middle: '#ca74da',
+        bottom: '#972caa',
+        stroke: '#43054e'
     },
     DEVICE_BLUE: { // Ocak/Kombi - Mavi Yoğunluklu
         light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
         dark: { 0: '#E3F2FD', 0.3: '#64B5F6', 0.6: '#1E88E5', 1: '#0D47A1' }
     },
-    VALVE_MAGENTA: { // Vana - Magenta Yoğunluklu
-        stops: [
+VALVE_PALETTES: {
+  /*      // Sarı Boru -> Gold
+        YELLOW: [ 
+            { pos: 0, color: 'rgba(248, 232, 0, 1)' },
+            { pos: 0.25, color: 'rgba(255, 162, 0, 1)' }, 
+            { pos: 0.5, color: 'rgba(248, 232, 0, 1)' },
+            { pos: 0.75, color: 'rgba(255, 162, 0, 1)' }, 
+            { pos: 1, color: 'rgba(248, 232, 0, 1)' }
+        ],
+        // Turuncu Boru -> Koyu Turuncu
+        ORANGE: [ 
+            { pos: 0, color: 'rgba(255, 165, 0, 1)' }, // Turuncu
+            { pos: 0.25, color: 'rgba(200, 80, 0, 1)' }, // Koyu Kızıl-Turuncu
+            { pos: 0.5, color: 'rgba(255, 165, 0, 1)' },
+            { pos: 0.75, color: 'rgba(200, 80, 0, 1)' },
+            { pos: 1, color: 'rgba(255, 165, 0, 1)' }
+        ],
+        // Turkuaz Boru -> Mavi
+        TURQUAZ: [ 
+            { pos: 0, color: 'rgba(0, 191, 255, 1)' }, // Açık Mavi (DeepSkyBlue)
+            { pos: 0.25, color: 'rgba(0, 0, 255, 1)' }, // Saf Mavi
+            { pos: 0.5, color: 'rgba(0, 191, 255, 1)' },
+            { pos: 0.75, color: 'rgba(0, 0, 255, 1)' },
+            { pos: 1, color: 'rgba(0, 191, 255, 1)' }
+        ],
+        // Mavi Boru -> Lacivert
+        BLUE: [ 
+            { pos: 0, color: 'rgba(65, 105, 225, 1)' }, // Royal Blue
+            { pos: 0.25, color: 'rgba(0, 0, 128, 1)' }, // Navy (Lacivert)
+            { pos: 0.5, color: 'rgba(65, 105, 225, 1)' },
+            { pos: 0.75, color: 'rgba(0, 0, 128, 1)' },
+            { pos: 1, color: 'rgba(65, 105, 225, 1)' }
+        ],
+ */       // Varsayılan (Tanımsızsa)
+        DEFAULT: [
             { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(156, 39, 176, 1)' }, // Magenta
+            { pos: 0.25, color: 'rgba(63, 63, 63, 1)' },
             { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(156, 39, 176, 1)' }, // Magenta
+            { pos: 0.75, color: 'rgba(63, 63, 63, 1)' },
             { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ]
     }
 };
+
+         //   { pos: 0.75, color: '#ff' }, // Magenta
+
 
 export class PlumbingRenderer {
     constructor() {
@@ -677,13 +713,29 @@ export class PlumbingRenderer {
         return color;
     }
 
-    drawVana(ctx, comp, manager = null) {
+drawVana(ctx, comp, manager = null) {
         const size = 8;
         const halfSize = size / 2;
+        
+        // 1. Boru Rengini Tespit Et
+        let colorGroup = 'YELLOW'; // Varsayılan
+        if (comp.bagliBoruId && manager) {
+            const bagliBoru = manager.findPipeById(comp.bagliBoruId);
+            if (bagliBoru) {
+                // Borunun renk grubunu al (SARI, TURUNCU, TURQUAZ, MAVI vb.)
+                colorGroup = bagliBoru.colorGroup || 'YELLOW';
+            }
+        }
+        
+        // Renk grubu adlarını standartlaştır (Türkçe/İngilizce uyumu için)
+        if (colorGroup === 'SARI') colorGroup = 'YELLOW';
+        if (colorGroup === 'TURKUAZ') colorGroup = 'TURQUAZ';
+        if (colorGroup === 'MAVI') colorGroup = 'BLUE';
+        if (colorGroup === 'TURUNCU') colorGroup = 'ORANGE';
 
-        // Gradient efekti
+        // 2. Gradient Oluştur
         const gradient = ctx.createConicGradient(0, 0, 0);
-
+        
         if (comp.isSelected) {
             // Seçili: Gri/Beyaz
             gradient.addColorStop(0, '#FFFFFF');
@@ -692,15 +744,15 @@ export class PlumbingRenderer {
             gradient.addColorStop(0.75, '#808080');
             gradient.addColorStop(1, '#FFFFFF');
         } else {
-            // Normal: Magenta/Beyaz
-            const stops = CUSTOM_COLORS.VALVE_MAGENTA.stops;
-            stops.forEach(s => gradient.addColorStop(s.pos, s.color));
+            // Normal: Boru rengine uygun paleti seç
+            const palette = CUSTOM_COLORS.VALVE_PALETTES[colorGroup] || CUSTOM_COLORS.VALVE_PALETTES.DEFAULT;
+            palette.forEach(s => gradient.addColorStop(s.pos, s.color));
         }
 
         ctx.fillStyle = gradient;
         getShadow(ctx);
 
-        // İki üçgen çiz (karşı karşıya bakan)
+        // 3. Vanayı Çiz (Kelebek Görünümü)
         ctx.beginPath();
         ctx.moveTo(-halfSize, -halfSize);
         ctx.lineTo(-halfSize, halfSize);

@@ -55,20 +55,6 @@ export const THEME_COLORS = {
         dimensionArchitecture: '#b8b7b7', // Mimari ölçülendirme
         dimensionPlumbing: '#4dfff6', // Tesisat ölçülendirme
 
-        // Boru renkleri (Tesisat)
-        pipeCold: '#ff0000',      // Turquaz (soğuk su)
-        pipeHot: '#ff0000',       // Sarı (sıcak su)
-        pipeDrain: '#ff0000',     // Gri (atık)
-        pipeVent: '#ff0000',      // Açık yeşil (havalandırma)
-
-        // Boru seçili renkleri (selected state)
-        pipeSelected: {
-            SARI: '#ff0000',
-            TURKUAZ: '#ff0000',
-            TURUNCU: '#ff0000',
-            MAVI: '#ff0000',
-        },
-
         // Boru uç noktası rengi
         pipeEndpoint: '#FF8C00',  // Turuncu
         pipeEndpointStroke: '#fff', // Beyaz
@@ -104,20 +90,6 @@ export const THEME_COLORS = {
         // Ölçülendirme
         dimensionArchitecture: '#3a3a3a', // Mimari ölçülendirme (koyu mavi)
         dimensionPlumbing: '#fc0000', // Tesisat ölçülendirme (koyu teal)
-
-        // Boru renkleri (Beyaz zeminde görünebilir)
-        pipeCold: '#ff0000',      // Koyu mavi (soğuk su)
-        pipeHot: '#ff0000',       // Koyu turuncu (sıcak su)
-        pipeDrain: '#ff0000',     // Koyu gri (atık)
-        pipeVent: '#ff0000',      // Koyu yeşil (havalandırma)
-
-        // Boru seçili renkleri (selected state)
-        pipeSelected: {
-            SARI: '#ff0000',
-            TURKUAZ: '#ff0000',
-            TURUNCU: '#ff0000',
-            MAVI: '#ff0000',
-        },
 
         // Boru uç noktası rengi
         pipeEndpoint: '#0066CC',  // Koyu mavi
