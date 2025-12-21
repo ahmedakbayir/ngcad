@@ -7,16 +7,29 @@ import { getAdjustedColor, state, getDimensionPlumbingColor, getShadow } from '.
 
 export class PlumbingRenderer {
     constructor() {
-        // THEME_COLORS'ı import etmek yerine runtime'da al (circular dependency önleme)
-    }
-
-    /**
-     * Tema renklerini al (lazy load)
-     */
-    getThemeColors() {
-        // Runtime'da import et
-        const { THEME_COLORS } = require('../general-files/main.js');
-        return THEME_COLORS;
+        // Tema renkleri direkt tanımla (circular dependency önleme)
+        this.THEME_COLORS = {
+            dark: {
+                pipeSelected: {
+                    SARI: '#FFB84D',
+                    TURKUAZ: '#1E3A8A',
+                    TURUNCU: '#8B4513',
+                    MAVI: '#1E3A8A',
+                },
+                pipeEndpoint: '#FF8C00',
+                pipeEndpointStroke: '#fff',
+            },
+            light: {
+                pipeSelected: {
+                    SARI: '#FF8C42',
+                    TURKUAZ: '#003D82',
+                    TURUNCU: '#D2691E',
+                    MAVI: '#003D82',
+                },
+                pipeEndpoint: '#0066CC',
+                pipeEndpointStroke: '#333',
+            }
+        };
     }
 
     /**
@@ -44,8 +57,7 @@ export class PlumbingRenderer {
      * Seçili nesne rengini colorGroup'a göre al (tema bazlı)
      */
     getSecilenRenk(colorGroup) {
-        const THEME_COLORS = this.getThemeColors();
-        const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
+        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark;
         const selectedColors = themeColors.pipeSelected;
 
         // colorGroup'a göre renk seç
@@ -411,8 +423,7 @@ export class PlumbingRenderer {
         const r = 1.6; // Küçük
 
         // Tema renklerini kullan
-        const THEME_COLORS = this.getThemeColors();
-        const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
+        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark;
 
         // p1 noktası
         ctx.fillStyle = themeColors.pipeEndpoint;
