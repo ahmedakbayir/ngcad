@@ -290,7 +290,9 @@ export class Sayac {
             fleksBaglanti: { ...this.fleksBaglanti },
             cikisBagliBoruId: this.cikisBagliBoruId,
             iliskiliVanaId: this.iliskiliVanaId,
-            floorId: this.floorId
+            floorId: this.floorId,
+            // GÜNCELLEME: rijitUzunluk değerini kaydet
+            rijitUzunluk: this.config.rijitUzunluk 
         };
     }
 
@@ -313,6 +315,11 @@ export class Sayac {
 
         sayac.cikisBagliBoruId = data.cikisBagliBoruId;
         sayac.iliskiliVanaId = data.iliskiliVanaId;
+
+        // GÜNCELLEME: rijitUzunluk değerini geri yükle
+        if (data.rijitUzunluk !== undefined) {
+            sayac.config.rijitUzunluk = data.rijitUzunluk;
+        }
 
         return sayac;
     }
