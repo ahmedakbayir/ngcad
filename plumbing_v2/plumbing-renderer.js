@@ -3,11 +3,20 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getAdjustedColor, state, getDimensionPlumbingColor, getShadow, THEME_COLORS } from '../general-files/main.js';
+import { getAdjustedColor, state, getDimensionPlumbingColor, getShadow } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
-        this.THEME_COLORS = THEME_COLORS; // Tema renklerini sakla
+        // THEME_COLORS'ı import etmek yerine runtime'da al (circular dependency önleme)
+    }
+
+    /**
+     * Tema renklerini al (lazy load)
+     */
+    getThemeColors() {
+        // Runtime'da import et
+        const { THEME_COLORS } = require('../general-files/main.js');
+        return THEME_COLORS;
     }
 
     /**
@@ -35,7 +44,8 @@ export class PlumbingRenderer {
      * Seçili nesne rengini colorGroup'a göre al (tema bazlı)
      */
     getSecilenRenk(colorGroup) {
-        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark;
+        const THEME_COLORS = this.getThemeColors();
+        const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
         const selectedColors = themeColors.pipeSelected;
 
         // colorGroup'a göre renk seç
@@ -401,7 +411,8 @@ export class PlumbingRenderer {
         const r = 1.6; // Küçük
 
         // Tema renklerini kullan
-        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark;
+        const THEME_COLORS = this.getThemeColors();
+        const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
 
         // p1 noktası
         ctx.fillStyle = themeColors.pipeEndpoint;
