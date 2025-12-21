@@ -856,11 +856,11 @@ export class InteractionManager {
                 // Undo için state kaydet (tüm işlemlerden ÖNCE)
                 saveState();
 
-                const resultSayac = this.handleSayacEndPlacement(component);
-                if (resultSayac && resultSayac.success) {
-                    // Otomatik eklenen 15cm borunun BİTİŞ noktasından çizim başlat
-                    // (Artık sayacın çıkışından değil, otomatik borunun ucundan başlıyoruz)
-                    this.startBoruCizim(resultSayac.boruBitisNoktasi, resultSayac.otomatikBoruId, BAGLANTI_TIPLERI.BORU);
+                const successSayac = this.handleSayacEndPlacement(component);
+                if (successSayac) {
+                    // Sayacın çıkış noktasından boru çizimi başlat
+                    const cikisNoktasi = component.getCikisNoktasi();
+                    this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
                     // Önceki moda dön (S tuşu ile eklenmişse veya icon ile eklenmişse)
                     if (this.previousMode) {
                       //  console.log(`[MODE] Sayaç eklendi, önceki moda dönülüyor: ${this.previousMode}`);
@@ -1355,58 +1355,10 @@ export class InteractionManager {
 
         // Sayacı components'a ekle (eğer henüz eklenmemişse)
         if (!this.manager.components.includes(meter)) {
-            //console.log('[handleSayacEndPlacement] Sayaç components\'a ekleniyor');
             this.manager.components.push(meter);
         }
 
-        // Sayacın çıkışından otomatik boru ekle (rijit boru yerine)
-        const cikisNoktasi = meter.getCikisNoktasi();
-        const boruUzunluk = 15; // cm - otomatik eklenen boru uzunluğu
-
-        // Sayacın rotation'una göre boru bitiş noktasını hesapla
-        const rad = meter.rotation * Math.PI / 180;
-        const boruBitisX = cikisNoktasi.x + Math.cos(rad) * boruUzunluk;
-        const boruBitisY = cikisNoktasi.y + Math.sin(rad) * boruUzunluk;
-
-        // Boru oluştur (p1, p2 objeler olmalı!)
-        const yeniBoru = createBoru(
-            { x: cikisNoktasi.x, y: cikisNoktasi.y },
-            { x: boruBitisX, y: boruBitisY },
-            'STANDART'
-        );
-
-        // Boru özelliklerini ayarla
-        yeniBoru.floorId = meter.floorId;
-
-        // Boruyu sayaca bağla
-        yeniBoru.baslangicKaynakId = meter.id;
-        yeniBoru.baslangicKaynakTip = BAGLANTI_TIPLERI.SAYAC;
-
-        // Boru rengini giriş borusuna göre ayarla (sayaç sonrası TURQUAZ)
-        if (boruUcu && boruUcu.boru) {
-            yeniBoru.colorGroup = 'TURQUAZ'; // Sayaç sonrası her zaman TURQUAZ
-        }
-
-        this.manager.pipes.push(yeniBoru);
-
-        // Sayacı çıkış borusuna bağla
-        meter.baglaCikis(yeniBoru.id);
-
-        // Not: saveState() placeComponent'ta çağrılıyor (satır 857)
-        // Burada tekrar çağırmaya gerek yok - tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
-        // Not: saveState() zaten başta çağrıldı (satır 1300), tekrar çağırmaya gerek yok
-        // Tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
-        // State'e kaydet
-        //this.manager.saveToState();
-
-        //console.log('[handleSayacEndPlacement] ✓ Sayaç başarıyla eklendi. Toplam components:', this.manager.components.length);
-
-        // Otomatik borunun bitiş noktasını ve ID'sini döndür (startBoruCizim buradan devam etsin)
-        return {
-            success: true,
-            boruBitisNoktasi: { x: boruBitisX, y: boruBitisY },
-            otomatikBoruId: yeniBoru.id
-        };
+        return true;
     }
 
 
