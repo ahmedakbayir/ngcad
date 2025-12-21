@@ -3,34 +3,12 @@ import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
 import { VANA_CONFIG, VANA_TIPLERI } from './objects/valve.js';
 import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-// YENİ: isLightMode import edildi
-import { getAdjustedColor, state, getDimensionPlumbingColor, isLightMode, getShadow } from '../general-files/main.js';
+// YENİ: isLightMode ve THEME_COLORS import edildi
+import { getAdjustedColor, state, getDimensionPlumbingColor, isLightMode, getShadow, THEME_COLORS } from '../general-files/main.js';
 
 export class PlumbingRenderer {
     constructor() {
-        // Tema renkleri direkt tanımla (circular dependency önleme)
-        this.THEME_COLORS = {
-            dark: {
-                pipeSelected: {
-                    SARI: '#ff0000ff',
-                    TURKUAZ: '#ff0000ff',
-                    TURUNCU: '#ff0000ff',
-                    MAVI: '#ff0000ff',
-                },
-                pipeEndpoint: '#FF8C00',
-                pipeEndpointStroke: '#fff',
-            },
-            light: {
-                pipeSelected: {
-                    SARI: '#ff0000ff',
-                    TURKUAZ: '#ff0000ff',
-                    TURUNCU: '#ff0000ff',
-                    MAVI: '#ff0000ff',
-                },
-                pipeEndpoint: '#0066CC',
-                pipeEndpointStroke: '#333',
-            }
-        };
+        // Tema renkleri main.js'ten import ediliyor (THEME_COLORS)
     }
 
 
@@ -56,7 +34,7 @@ export class PlumbingRenderer {
 
 
     getSecilenRenk(colorGroup) {
-        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark; // ✅ Artık çalışıyor
+        const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
 
         const selectedColors = themeColors.pipeSelected;
 
@@ -423,7 +401,7 @@ export class PlumbingRenderer {
     drawPipeEndpoints(ctx, pipe) {
         // Uç noktaları küçük belirgin noktalar (seçili borular için)
         const r = 1.6; // Küçük
-        const themeColors = this.isLightMode() ? this.THEME_COLORS.light : this.THEME_COLORS.dark;
+        const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
         // p1 noktası
         ctx.fillStyle = themeColors.pipeEndpoint;
         ctx.strokeStyle = themeColors.pipeEndpointStroke;
