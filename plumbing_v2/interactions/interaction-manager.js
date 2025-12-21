@@ -1119,13 +1119,13 @@ export class InteractionManager {
 
         objectsOnPipe.forEach(obj => {
             if (obj.boruPozisyonu !== undefined) {
-                if (obj.boruPozisyonu <= splitT) {
+                if (obj.boruPozisyonu < splitT) {
                     // Nesne ilk segmentte (boru1)
                     obj.bagliBoruId = boru1.id;
                     // Pozisyonu yeniden hesapla (0 - splitT aralığını 0 - 1'e normalize et)
                     obj.boruPozisyonu = obj.boruPozisyonu / splitT;
                 } else {
-                    // Nesne ikinci segmentte (boru2)
+                    // Nesne ikinci segmentte (boru2) veya tam split noktasında
                     obj.bagliBoruId = boru2.id;
                     // Pozisyonu yeniden hesapla (splitT - 1 aralığını 0 - 1'e normalize et)
                     obj.boruPozisyonu = (obj.boruPozisyonu - splitT) / (1 - splitT);
