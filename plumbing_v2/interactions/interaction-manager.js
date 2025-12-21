@@ -684,7 +684,8 @@ export class InteractionManager {
                 // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
                 ghost.rotation = 0;
 
-                // Fleks uzunluğu (maksimum mesafe)
+                // Fleks uzunluğu (minimum ve maksimum mesafe)
+                const minFleksUzunluk = 15; // cm - cihazın boru ucundan minimum uzaklığı
                 const maxFleksUzunluk = 50; // cm - cihazın boru ucundan maksimum uzaklığı
 
                 // Mouse'un boru ucundan mesafesini hesapla
@@ -696,12 +697,17 @@ export class InteractionManager {
                 // Cihaz merkezini hesapla
                 let merkezX, merkezY;
 
-                if (mouseUcMesafe <= maxFleksUzunluk) {
+                if (mouseUcMesafe < minFleksUzunluk) {
+                    // Mouse minimum fleks uzunluğundan yakın, minimum mesafede yerleştir
+                    const oran = minFleksUzunluk / mouseUcMesafe;
+                    merkezX = boruUcu.nokta.x + (point.x - boruUcu.nokta.x) * oran;
+                    merkezY = boruUcu.nokta.y + (point.y - boruUcu.nokta.y) * oran;
+                } else if (mouseUcMesafe <= maxFleksUzunluk) {
                     // Mouse fleks uzunluğu içinde, mouse pozisyonuna yerleştir
                     merkezX = point.x;
                     merkezY = point.y;
                 } else {
-                    // Mouse fleks uzunluğundan dışarıda, fleks sınırı üzerinde mouse yönünde yerleştir
+                    // Mouse fleks uzunluğundan dışarıda, maksimum fleks sınırı üzerinde yerleştir
                     const oran = maxFleksUzunluk / mouseUcMesafe;
                     merkezX = boruUcu.nokta.x + (point.x - boruUcu.nokta.x) * oran;
                     merkezY = boruUcu.nokta.y + (point.y - boruUcu.nokta.y) * oran;
