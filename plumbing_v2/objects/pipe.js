@@ -265,6 +265,8 @@ export class Boru {
         // Özellikleri kopyala
         boru1.floorId = this.floorId;
         boru2.floorId = this.floorId;
+        boru1.colorGroup = this.colorGroup;
+        boru2.colorGroup = this.colorGroup;
 
         // Bağlantıları aktar
         boru1.baslangicBaglanti = { ...this.baslangicBaglanti };
