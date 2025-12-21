@@ -6,6 +6,35 @@ import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
 // YENİ: isLightMode ve THEME_COLORS import edildi
 import { getAdjustedColor, state, getDimensionPlumbingColor, isLightMode, getShadow, THEME_COLORS } from '../general-files/main.js';
 
+// Dosyanın en üstüne, importların altına ekleyin:
+const CUSTOM_COLORS = {
+    SELECTED: '#808080', // 0.5 Derece Gri (Tüm seçili elemanlar için)
+
+    METER_GREEN: { // Sayaç - Yeşil Yoğunluklu
+        light: { 0: '#E8F5E9', 0.3: '#A5D6A7', 0.7: '#66BB6A', 1: '#2E7D32' },
+        dark: { 0: '#E8F5E9', 0.3: '#81C784', 0.7: '#43A047', 1: '#1B5E20' }
+    },
+    BOX_ORANGE: { // Servis Kutusu - Turuncu Yoğunluklu
+        top: '#FFF3E0',
+        middle: '#FFB74D',
+        bottom: '#F57C00',
+        stroke: '#E65100'
+    },
+    DEVICE_BLUE: { // Ocak/Kombi - Mavi Yoğunluklu
+        light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
+        dark: { 0: '#E3F2FD', 0.3: '#64B5F6', 0.6: '#1E88E5', 1: '#0D47A1' }
+    },
+    VALVE_MAGENTA: { // Vana - Magenta Yoğunluklu
+        stops: [
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.25, color: 'rgba(156, 39, 176, 1)' }, // Magenta
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.75, color: 'rgba(156, 39, 176, 1)' }, // Magenta
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+        ]
+    }
+};
+
 export class PlumbingRenderer {
     constructor() {
         // Tema renkleri main.js'ten import ediliyor (THEME_COLORS)
@@ -34,29 +63,8 @@ export class PlumbingRenderer {
 
 
     getSecilenRenk(colorGroup) {
-        const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
-
-        const selectedColors = themeColors.pipeSelected;
-
-        // colorGroup'a göre renk seç
-        switch (colorGroup) {
-            case 'SARI':
-            case 'YELLOW':
-                return selectedColors.SARI;
-            case 'TURKUAZ':
-            case 'TURQUAZ':
-                return selectedColors.TURKUAZ;
-            case 'TURUNCU':
-            case 'ORANGE':
-                return selectedColors.TURUNCU;
-            case 'MAVI':
-            case 'BLUE':
-                return selectedColors.MAVI;
-            default:
-                return selectedColors.SARI; // Varsayılan
-        }
-
-
+        // İsteğiniz üzerine tüm seçili durumlar için standart gri
+        return CUSTOM_COLORS.SELECTED;
     }
 
     /**
@@ -575,42 +583,41 @@ export class PlumbingRenderer {
 
     drawServisKutusu(ctx, comp) {
         const { width, height } = SERVIS_KUTUSU_CONFIG;
-        let { colors } = SERVIS_KUTUSU_CONFIG; // Normal renkleri al
+        const colors = CUSTOM_COLORS.BOX_ORANGE;
 
-        // Light mode için renkleri aç
-        if (isLightMode()) {
-            colors = {
-                top: '#F7F7F7',      // Daha açık
-                middle: '#D0D0D0',   // Daha açık
-                bottom: '#A0A0A0',   // Daha açık
-                stroke: '#888888'    // Daha açık çerçeve
-            };
+        // 1. Gölge Efekti
+        getShadow(ctx);
+
+        // 2. Gradient Oluşturma
+        const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
+
+        if (comp.isSelected) {
+            // Seçili Durum: Gri Gradyan
+            grad.addColorStop(0, '#A0A0A0');
+            grad.addColorStop(0.5, '#808080');
+            grad.addColorStop(1, '#606060');
+            ctx.strokeStyle = '#505050';
+        } else {
+            // Normal Durum: Turuncu Gradyan
+            grad.addColorStop(0, colors.top);
+            grad.addColorStop(0.5, colors.middle);
+            grad.addColorStop(1, colors.bottom);
+            ctx.strokeStyle = colors.stroke;
         }
 
-        // 1. Gölge Efekti (Diğer cihazlardaki gibi)
-        getShadow(ctx)
-
-        // 2. Gradient Oluşturma (Üstten alta dikey geçiş)
-        // Kutunun üst kenarı (y - height/2) ile alt kenarı (y + height/2) arası
-        const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
-        grad.addColorStop(0, colors.top);
-        grad.addColorStop(0.5, colors.middle);
-        grad.addColorStop(1, colors.bottom);
-
         // 3. Gövdeyi Çiz
-        ctx.fillStyle = comp.isSelected ? this.secilenRenk : grad;
+        ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.rect(-width / 2, -height / 2, width, height);
         ctx.fill();
 
         // 4. Kenar Çizgisi
-        ctx.shadowBlur = 0; // Stroke için gölgeyi kapat
-        ctx.strokeStyle = colors.stroke;
+        ctx.shadowBlur = 0;
         ctx.lineWidth = 1.2 / (state.zoom || 1);
         ctx.stroke();
 
-        // 5. İç Kapak Detayı (Bütünlük için ince bir çerçeve)
-        ctx.strokeStyle = isLightMode() ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.2)';
+        // 5. İç Kapak Detayı
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
         ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
 
         // 6. Yazı (S.K.)
@@ -671,54 +678,36 @@ export class PlumbingRenderer {
     }
 
     drawVana(ctx, comp, manager = null) {
-        // Bağımsız vana çizimi (components dizisindeki vana)
-        const size = 8; // Kare boyutu (8x8 cm)
+        const size = 8;
         const halfSize = size / 2;
 
-        // Gradient efekti ile parlaklık
+        // Gradient efekti
         const gradient = ctx.createConicGradient(0, 0, 0);
 
-        if (isLightMode()) {
-            // Açık zemin için daha yumuşak renkler
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-            gradient.addColorStop(.25, 'rgba(70, 100, 120, 1)'); // Daha açık mavi
-            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 1)');
-            gradient.addColorStop(.75, 'rgba(70, 100, 120, 1)');
-            gradient.addColorStop(1, 'rgba(255, 255, 255, 1)');
+        if (comp.isSelected) {
+            // Seçili: Gri/Beyaz
+            gradient.addColorStop(0, '#FFFFFF');
+            gradient.addColorStop(0.25, '#808080');
+            gradient.addColorStop(0.5, '#FFFFFF');
+            gradient.addColorStop(0.75, '#808080');
+            gradient.addColorStop(1, '#FFFFFF');
         } else {
-            // Koyu zemin için
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-            gradient.addColorStop(.25, 'rgba(7, 48, 66, 1)');
-            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 1)');
-            gradient.addColorStop(.75, 'rgba(7, 48, 66,  1)');
-            gradient.addColorStop(1, 'rgba(255, 255, 255, 1)');
+            // Normal: Magenta/Beyaz
+            const stops = CUSTOM_COLORS.VALVE_MAGENTA.stops;
+            stops.forEach(s => gradient.addColorStop(s.pos, s.color));
         }
 
-        // Vananın bağlı olduğu borunun renk grubunu al
-        let vanaColorGroup = 'YELLOW';
-        if (comp.bagliBoruId && manager) {
-            const bagliBoru = manager.findPipeById(comp.bagliBoruId);
-            if (bagliBoru) {
-                vanaColorGroup = bagliBoru.colorGroup || 'YELLOW';
-            }
-        }
+        ctx.fillStyle = gradient;
+        getShadow(ctx);
 
-        // Seçiliyse renk grubuna göre renk
-        const secilenRenk = this.getSecilenRenk(vanaColorGroup);
-        const fillColor = comp.isSelected ? secilenRenk : gradient;
-        ctx.fillStyle = fillColor;
-
-        // Gölge efekti
-        getShadow(ctx)
-
-        // İki üçgen çiz (karşı karşıya bakan, kelebek vana görünümü)
+        // İki üçgen çiz (karşı karşıya bakan)
         ctx.beginPath();
-        ctx.moveTo(-halfSize, -halfSize);  // Sol üst
-        ctx.lineTo(-halfSize, halfSize);   // Sol alt
+        ctx.moveTo(-halfSize, -halfSize);
+        ctx.lineTo(-halfSize, halfSize);
         ctx.lineTo(0, 1);
-        ctx.lineTo(halfSize, halfSize);    // Sağ alt
-        ctx.lineTo(halfSize, -halfSize);    // Sağ alt
-        ctx.lineTo(0, -1);                  // Orta
+        ctx.lineTo(halfSize, halfSize);
+        ctx.lineTo(halfSize, -halfSize);
+        ctx.lineTo(0, -1);
         ctx.closePath();
         ctx.fill();
 
@@ -726,7 +715,7 @@ export class PlumbingRenderer {
         if (comp.isSelected) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
-            ctx.strokeStyle = secilenRenk;
+            ctx.strokeStyle = CUSTOM_COLORS.SELECTED;
             ctx.lineWidth = 1;
             ctx.strokeRect(-halfSize - 1, -halfSize - 1, size + 2, size + 2);
         }
@@ -803,28 +792,24 @@ export class PlumbingRenderer {
     drawKombi(ctx, comp, manager) {
         const zoom = state.zoom || 1;
 
-        // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
+        // ÖNCE fleks çizgisini çiz (component translate'ini geri al)
         if (manager) {
             ctx.save();
-            // --- DÜZELTME: Rotasyonu ve çeviriyi geri al ---
             if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
             ctx.translate(-comp.x, -comp.y);
 
-            // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
             let targetPoint = null;
             if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
                 const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
                 if (pipe) {
                     targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
-                    // Sadece bir kere logla (her frame değil)
                     if (!comp._fleksWarningLogged) {
                         console.warn('⚠️ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
                         comp._fleksWarningLogged = true;
                     }
                 }
             } else {
-                // Sadece bir kere logla
                 if (!comp._fleksWarningLogged2) {
                     console.warn('⚠️ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
                     comp._fleksWarningLogged2 = true;
@@ -838,36 +823,26 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
-        // Cihazı çiz - local coordinates (0,0)
-        const outerRadius = 20; // 40 çap için
-
-        // Shadow efekti
+        const outerRadius = 20;
         ctx.save();
-        getShadow(ctx)
+        getShadow(ctx);
 
-        // Ana gövde - Radial gradient ile 3D metalik efekt
+        // Ana gövde - Radial gradient
         const gradient = ctx.createRadialGradient(-5, -5, 0, 0, 0, outerRadius);
+        const colors = isLightMode() ? CUSTOM_COLORS.DEVICE_BLUE.light : CUSTOM_COLORS.DEVICE_BLUE.dark;
+
         if (comp.isSelected) {
+            // Seçili: Gri Tonlama
             gradient.addColorStop(0, '#FFFFFF');
-            gradient.addColorStop(0.3, '#8ab4f8');
-            gradient.addColorStop(0.7, '#5a94f0');
-            gradient.addColorStop(1, '#2a74d0');
+            gradient.addColorStop(0.3, '#E0E0E0');
+            gradient.addColorStop(0.7, '#A0A0A0');
+            gradient.addColorStop(1, '#606060');
         } else {
-            if (isLightMode()) {
-                // Açık zemin için daha açık renkler
-                gradient.addColorStop(0, '#FFFFFF');
-                gradient.addColorStop(0.3, '#F5F5F5');
-                gradient.addColorStop(0.6, '#DCDCDC');
-                gradient.addColorStop(0.85, '#C0C0C0');
-                gradient.addColorStop(1, '#F5F5F5');
-            } else {
-                // Koyu zemin (eski)
-                gradient.addColorStop(0, '#FFFFFF');      // Işık noktası
-                gradient.addColorStop(0.3, '#E8E8E8');    // Parlak gri
-                gradient.addColorStop(0.6, '#C0C0C0');    // Orta gri (metalik)
-                gradient.addColorStop(0.85, '#A0A0A0');   // Koyu gri
-                gradient.addColorStop(1, '#E8E8E8');    // Parlak gri
-            }
+            // Normal: Mavi Tonlama
+            gradient.addColorStop(0, colors[0]);
+            gradient.addColorStop(0.3, colors[0.3]);
+            gradient.addColorStop(0.7, colors[0.6]);
+            gradient.addColorStop(1, colors[1]);
         }
 
         ctx.fillStyle = gradient;
@@ -877,103 +852,54 @@ export class PlumbingRenderer {
 
         // Dış çerçeve
         ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-
-        let strokeColor = '#666';
-        if (isLightMode()) strokeColor = '#888';
-        if (comp.isSelected) strokeColor = '#5a94f0';
-
-        const adjustedStroke = getAdjustedColor(strokeColor, 'cihaz');
-        ctx.strokeStyle = adjustedStroke;
+        ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : colors[1];
         ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
         ctx.stroke();
 
-        // İç panel (ekran alanı)
+        // İç panel
         const innerRadius = 14;
         const innerGradient = ctx.createRadialGradient(-3, -3, 0, 0, 0, innerRadius);
-        if (comp.isSelected) {
-            innerGradient.addColorStop(0, '#6aa4f8');
-            innerGradient.addColorStop(1, '#4a84d8');
-        } else {
-            innerGradient.addColorStop(0, '#383838ff');  // Koyu merkez (ekran)
-            innerGradient.addColorStop(0.9, '#757575ff');
-            innerGradient.addColorStop(1, '#616161ff');
-        }
-
+        innerGradient.addColorStop(0, '#383838');
+        innerGradient.addColorStop(1, '#616161');
         ctx.fillStyle = innerGradient;
         ctx.beginPath();
         ctx.arc(0, 0, innerRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // İç panel çerçevesi
-        const innerStroke = isLightMode() && !comp.isSelected ? '#888' : (comp.isSelected ? '#8ab4f8' : '#555');
-        ctx.strokeStyle = innerStroke;
+        ctx.strokeStyle = '#555';
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
 
-        // "G" harfi (Gaz) - SABİT boyut, metalik görünüm
-        // Metalik gradient
-        const textGradient = ctx.createLinearGradient(0, -10, 0, 10);
-        if (comp.isSelected) {
-            textGradient.addColorStop(0, '#FFFFFF');
-            textGradient.addColorStop(0.5, '#9ab9f8');
-            textGradient.addColorStop(1, '#5a79b8');
-        } else {
-            if (isLightMode()) {
-                textGradient.addColorStop(0, '#F5F5F5');
-                textGradient.addColorStop(0.3, '#E0E0E0');
-                textGradient.addColorStop(0.6, '#C0C0C0');
-                textGradient.addColorStop(1, '#E8E8E8');
-            } else {
-                textGradient.addColorStop(0, '#E8E8E8');   // Parlak üst
-                textGradient.addColorStop(0.3, '#C0C0C0'); // Orta metalik
-                textGradient.addColorStop(0.6, '#A0A0A0'); // Koyu orta
-                textGradient.addColorStop(1, '#D0D0D0');   // Parlak alt
-            }
-        }
-
-        // Gölge efekti
-        ctx.shadowColor = comp.isSelected ? 'rgba(138, 180, 248, 0.8)' : 'rgba(0, 0, 0, 0.5)';
-        ctx.shadowBlur = 0;
-
-        ctx.fillStyle = textGradient;
-        ctx.font = `bold 20px Arial`; // Sabit boyut
+        // "K" Harfi
+        ctx.fillStyle = '#FFF';
+        ctx.font = `bold 20px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('G', 0, 1); // 1 cm (+y) aşağı kaydırıldı
-
-        // Shadow sıfırla
-        ctx.shadowBlur = 0;
+        ctx.fillText('G', 0, 1);
 
         ctx.restore();
     }
-
     drawOcak(ctx, comp, manager) {
         const zoom = state.zoom || 1;
 
-        // ÖNCE fleks çizgisini çiz (component translate'ini geri al, pan/zoom'u koru)
+        // ÖNCE fleks çizgisini çiz
         if (manager) {
             ctx.save();
-            // --- DÜZELTME: Rotasyonu ve çeviriyi geri al ---
             if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
             ctx.translate(-comp.x, -comp.y);
 
-            // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
             let targetPoint = null;
             if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
                 const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
                 if (pipe) {
                     targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
-                    // Sadece bir kere logla (her frame değil)
                     if (!comp._fleksWarningLogged) {
                         console.warn('⚠️ OCAK FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
                         comp._fleksWarningLogged = true;
                     }
                 }
             } else {
-                // Sadece bir kere logla
                 if (!comp._fleksWarningLogged2) {
                     console.warn('⚠️ OCAK FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
                     comp._fleksWarningLogged2 = true;
@@ -987,39 +913,30 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
-        // Sonra cihazı çiz (local context - zaten translate edilmiş)
-        // NOT: drawComponent zaten ctx.translate(comp.x, comp.y) yapmış durumda
-        ctx.save(); // Rotation için save
+        ctx.save();
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
-        const boxSize = 15; // 40x40 kare için
+        const boxSize = 15;
         const cornerRadius = 3;
 
-        // Shadow efekti
         ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
 
-        // Ana yüzey - Metalik görünümü (Radial gradient)
         const gradient = ctx.createRadialGradient(-6, -6, 0, 0, 0, boxSize * 1.5);
+        const colors = isLightMode() ? CUSTOM_COLORS.DEVICE_BLUE.light : CUSTOM_COLORS.DEVICE_BLUE.dark;
+
         if (comp.isSelected) {
+            // Seçili: Gri
             gradient.addColorStop(0, '#FFFFFF');
-            gradient.addColorStop(0.3, '#9ab9f8');
-            gradient.addColorStop(0.6, '#7a99d8');
-            gradient.addColorStop(1, '#5a79b8');
+            gradient.addColorStop(0.5, '#A0A0A0');
+            gradient.addColorStop(1, '#606060');
         } else {
-            if (isLightMode()) {
-                gradient.addColorStop(0, '#F9F9F9');
-                gradient.addColorStop(0.3, '#DCDCDC');
-                gradient.addColorStop(0.6, '#BEBEBE');
-                gradient.addColorStop(1, '#A0A0A0');
-            } else {
-                gradient.addColorStop(0, '#e7e6e6ff');    // Parlak gri (metalik)
-                gradient.addColorStop(0.3, '#b4b4b4ff');  // Orta gri
-                gradient.addColorStop(0.6, '#949393ff');  // Koyu gri
-                gradient.addColorStop(1, '#818080ff');    // En koyu kenar
-            }
+            // Normal: Mavi
+            gradient.addColorStop(0, colors[0]);
+            gradient.addColorStop(0.5, colors[0.6]);
+            gradient.addColorStop(1, colors[1]);
         }
 
         ctx.fillStyle = gradient;
@@ -1036,79 +953,29 @@ export class PlumbingRenderer {
         ctx.closePath();
         ctx.fill();
 
-        // Dış çerçeve (metalik kenar)
         ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        const adjustedStroke = getAdjustedColor(comp.isSelected ? '#8ab4f8' : (isLightMode() ? '#999' : '#606060'), 'cihaz');
-        ctx.strokeStyle = adjustedStroke;
+        ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : colors[1];
         ctx.lineWidth = (comp.isSelected ? 2.5 : 2) / zoom;
         ctx.stroke();
 
-        // İç dekoratif çerçeve (metalik parlaklık)
-        if (!comp.isSelected) {
-            ctx.strokeStyle = isLightMode() ? '#A0A0A0' : '#858585';
-            ctx.lineWidth = 1 / zoom;
-            const innerBox = boxSize - 2;
-            const innerCorner = 2;
-            ctx.beginPath();
-            ctx.moveTo(-innerBox + innerCorner, -innerBox);
-            ctx.lineTo(innerBox - innerCorner, -innerBox);
-            ctx.arcTo(innerBox, -innerBox, innerBox, -innerBox + innerCorner, innerCorner);
-            ctx.lineTo(innerBox, innerBox - innerCorner);
-            ctx.arcTo(innerBox, innerBox, innerBox - innerCorner, innerBox, innerCorner);
-            ctx.lineTo(-innerBox + innerCorner, innerBox);
-            ctx.arcTo(-innerBox, innerBox, -innerBox, innerBox - innerCorner, innerCorner);
-            ctx.lineTo(-innerBox, -innerBox + innerCorner);
-            ctx.arcTo(-innerBox, -innerBox, -innerBox + innerCorner, -innerBox, innerCorner);
-            ctx.closePath();
-            ctx.stroke();
-        }
-
-        // 4 gözlü ocak - basit düz kapak tasarımı
+        // Ocak Gözleri
         const burnerRadius = 4;
         const offset = 7;
         const burnerPositions = [
-            { x: -offset, y: -offset }, // Sol üst
-            { x: offset, y: -offset },  // Sağ üst
-            { x: -offset, y: offset },  // Sol alt
-            { x: offset, y: offset }    // Sağ alt
+            { x: -offset, y: -offset },
+            { x: offset, y: -offset },
+            { x: -offset, y: offset },
+            { x: offset, y: offset }
         ];
 
         burnerPositions.forEach(pos => {
-            // Gölge efekti
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-            ctx.shadowBlur = 4;
-
-            // Düz kapak (basit daire)
             const burnerGradient = ctx.createRadialGradient(pos.x - 2, pos.y - 2, 0, pos.x, pos.y, burnerRadius);
-            if (comp.isSelected) {
-                burnerGradient.addColorStop(0, '#7a99d8');
-                burnerGradient.addColorStop(0.5, '#5a79b8');
-                burnerGradient.addColorStop(1, '#3a5998');
-            } else {
-                if (isLightMode()) {
-                    burnerGradient.addColorStop(0, '#DCDCDC');
-                    burnerGradient.addColorStop(0.5, '#A0A0A0');
-                    burnerGradient.addColorStop(1, '#808080');
-                } else {
-                    burnerGradient.addColorStop(0, '#c2bfbfff');    // Parlak merkez
-                    burnerGradient.addColorStop(0.5, '#807d7dff');  // Orta
-                    burnerGradient.addColorStop(1, '#5c5b5bff');    // Koyu kenar
-                }
-            }
-
+            burnerGradient.addColorStop(0, '#555');
+            burnerGradient.addColorStop(1, '#111');
             ctx.fillStyle = burnerGradient;
             ctx.beginPath();
             ctx.arc(pos.x, pos.y, burnerRadius, 0, Math.PI * 2);
             ctx.fill();
-
-            ctx.shadowBlur = 0;
-
-            // Dış çerçeve
-            ctx.strokeStyle = comp.isSelected ? '#6a89c8' : (isLightMode() ? '#999' : '#606060');
-            ctx.lineWidth = 1.2 / zoom;
-            ctx.stroke();
         });
 
         ctx.restore();
@@ -1121,202 +988,109 @@ export class PlumbingRenderer {
 
         if (manager) {
             ctx.save();
-            // --- DÜZELTME: Rotasyonu ve çeviriyi geri al ---
             if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
             ctx.translate(-comp.x, -comp.y);
 
-            // BORU UCU KOORDİNATINI DOĞRUDAN BORUDAN AL
             let targetPoint = null;
             if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
                 const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
                 if (pipe) {
                     targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
-                    // Sadece bir kere logla (her frame değil)
                     if (!comp._fleksWarningLogged) {
                         console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
                         comp._fleksWarningLogged = true;
                     }
                 }
             } else {
-                // Sadece bir kere logla
                 if (!comp._fleksWarningLogged2) {
                     console.warn('⚠️ SAYAÇ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
                     comp._fleksWarningLogged2 = true;
                 }
             }
 
-            // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil, direkt rakora)
             const connectionPoint = comp.getSolRakorNoktasi();
-            // deviceCenter null -> fleks içeri uzamaz, direkt rakora bağlanır
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, null);
-
             ctx.restore();
         }
 
         ctx.save();
-        // --- 1. Gövde (Gradient Metalik Görünüm) ---
-        // NOT: Rotation is already applied in drawComponent, don't apply again
         getShadow(ctx);
 
-        // Daha güzel gradient
+        // Yeşil Gradient
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(width, height) / 1.5);
+        const colors = isLightMode() ? CUSTOM_COLORS.METER_GREEN.light : CUSTOM_COLORS.METER_GREEN.dark;
+
         if (comp.isSelected) {
+            // Seçili: Gri
             gradient.addColorStop(0, '#FFFFFF');
-            gradient.addColorStop(0.4, '#B8D4FF');
-            gradient.addColorStop(0.7, '#8ab4f8');
-            gradient.addColorStop(1, '#2a74d0');
+            gradient.addColorStop(0.4, '#C0C0C0');
+            gradient.addColorStop(0.7, '#A0A0A0');
+            gradient.addColorStop(1, '#606060');
         } else {
-            if (isLightMode()) {
-                gradient.addColorStop(0, '#FFFFFF');
-                gradient.addColorStop(0.3, '#E8E8E8');
-                gradient.addColorStop(0.7, '#C0C0C0');
-                gradient.addColorStop(1, '#909090');
-            } else {
-                gradient.addColorStop(0, '#F5F5F5');
-                gradient.addColorStop(0.3, '#D0D0D0');
-                gradient.addColorStop(0.7, '#A0A0A0');
-                gradient.addColorStop(1, '#707070');
-            }
+            // Normal: Yeşil
+            gradient.addColorStop(0, colors[0]);
+            gradient.addColorStop(0.3, colors[0.3]);
+            gradient.addColorStop(0.7, colors[0.7]);
+            gradient.addColorStop(1, colors[1]);
         }
 
         ctx.fillStyle = gradient;
         const radius = 4;
         ctx.beginPath();
-        if (ctx.roundRect) {
-            ctx.roundRect(-width / 2, -height / 2, width, height, radius);
-        } else {
-            ctx.rect(-width / 2, -height / 2, width, height);
-        }
+        if (ctx.roundRect) ctx.roundRect(-width / 2, -height / 2, width, height, radius);
+        else ctx.rect(-width / 2, -height / 2, width, height);
         ctx.fill();
 
-        // Çerçeve
         ctx.lineWidth = 1.2 / zoom;
-        const strokeColor = comp.isSelected ? '#2a74d0' : (isLightMode() ? '#888' : '#444');
-        ctx.strokeStyle = strokeColor;
+        ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : colors[1];
+        ctx.stroke();
+
+        // G4 Yazısı
         ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.stroke();
-
-        // İç gölge efekti
-        ctx.save();
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
-        ctx.lineWidth = 1 / zoom;
-        ctx.beginPath();
-        if (ctx.roundRect) {
-            ctx.roundRect(-width / 2 + 1, -height / 2 + 1, width - 2, height - 2, radius - 1);
-        } else {
-            ctx.rect(-width / 2 + 1, -height / 2 + 1, width - 2, height - 2);
-        }
-        ctx.stroke();
-        ctx.restore();
-
-        // --- 2. Etiket (G4) ---
-        ctx.save();
-        getShadow(ctx)
-        ctx.fillStyle = comp.isSelected ? '#1a54a0' : '#2a2a2a';
-        ctx.font = `bold ${12}px Arial`;
+        ctx.fillStyle = '#222';
+        ctx.font = `bold 12px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('G4', 0, 2);
-        ctx.restore();
 
-        // --- 3. Üst Bağlantı Rekorları (Detaylı) ---
+        // Rekorlar ve Çıkış Borusu
         const connY = -height / 2;
         const nutWidth = 7;
-        //const nutHeight = 4;
-
-        getShadow(ctx)
-
-        // Rekor gradient
         const rekorGradient = ctx.createLinearGradient(0, connY - nutHeight, 0, connY);
-        if (isLightMode()) {
-            rekorGradient.addColorStop(0, '#F5F5F5');
-            rekorGradient.addColorStop(0.5, '#DCDCDC');
-            rekorGradient.addColorStop(1, '#B0B0B0');
-        } else {
-            rekorGradient.addColorStop(0, '#E8E8E8');
-            rekorGradient.addColorStop(0.5, '#BCBCBC');
-            rekorGradient.addColorStop(1, '#999999');
-        }
-
-        ctx.lineWidth = 0.8 / zoom;
-        ctx.strokeStyle = isLightMode() ? '#777' : '#555';
-
-        // Sol Rekor (Giriş)
+        rekorGradient.addColorStop(0, '#E8E8E8');
+        rekorGradient.addColorStop(1, '#999999');
         ctx.fillStyle = rekorGradient;
+        ctx.strokeStyle = '#555';
+
         ctx.beginPath();
-        if (ctx.roundRect) {
-            ctx.roundRect(-connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight, 1);
-        } else {
-            ctx.rect(-connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
-        }
-        ctx.fill();
-        ctx.stroke();
+        if (ctx.roundRect) ctx.roundRect(-connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight, 1);
+        else ctx.rect(-connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
+        ctx.fill(); ctx.stroke();
 
-        // Sağ Rekor (Çıkış)
         ctx.beginPath();
-        if (ctx.roundRect) {
-            ctx.roundRect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight, 1);
-        } else {
-            ctx.rect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
-        }
-        ctx.fill();
-        ctx.stroke();
+        if (ctx.roundRect) ctx.roundRect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight, 1);
+        else ctx.rect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
+        ctx.fill(); ctx.stroke();
 
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-
-        // --- 4. Rijit Çıkış Kolu ---
+        // Rijit Çıkış Rengi
         const armStartX = connectionOffset;
         const armStartY = connY - nutHeight;
-        const armWidth = 1;
-
-        // Çıkış borusunun renk grubunu al
-        // Sayaç eklendikten sonra çıkış borusu TURQUAZ olacak,
-        // bu yüzden ghost preview'da ve ilk ekleme sırasında da TURQUAZ göster
-        let rijitColorGroup = 'TURQUAZ'; // Varsayılan: Sayaç sonrası TURQUAZ
+        let rijitColorGroup = 'TURQUAZ';
         if (comp.cikisBagliBoruId && manager) {
             const cikisBoru = manager.findPipeById(comp.cikisBagliBoruId);
-            if (cikisBoru) {
-                rijitColorGroup = cikisBoru.colorGroup || 'TURQUAZ';
-            }
+            if (cikisBoru) rijitColorGroup = cikisBoru.colorGroup || 'TURQUAZ';
         }
-
-        // Boru rengini renk grubuna göre ayarla
         const rijitRenk = this.getRenkByGroup(rijitColorGroup, 'fleks', 1);
-        const pipeGradient = ctx.createLinearGradient(armStartX - armWidth / 2, 0, armStartX + armWidth / 2, 0);
+
+        // Rijit boru gradienti (hafif metalik)
+        const pipeGradient = ctx.createLinearGradient(armStartX - 0.5, 0, armStartX + 0.5, 0);
         pipeGradient.addColorStop(0, rijitRenk);
         pipeGradient.addColorStop(0.5, rijitRenk);
         pipeGradient.addColorStop(1, rijitRenk);
 
         ctx.fillStyle = pipeGradient;
-        ctx.fillRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
-
-        // Boru kenarlık
-        //ctx.strokeStyle = '#B8860B';
-        ctx.lineWidth = 0.6 / zoom;
-        ctx.strokeRect(armStartX - armWidth / 2, armStartY - rijitUzunluk, armWidth, rijitUzunluk);
-        ctx.beginPath();
-        ctx.arc(armStartX, armStartY - rijitUzunluk, armWidth / 2, 0, Math.PI * 2);
-        ctx.fill();
-        //ctx.stroke();
-        /*
-        // Çıkış ucu
-        if (!comp.cikisKullanildi) {
-            ctx.fillStyle = '#FF8C00';
-            ctx.strokeStyle = '#CC7000';
-            ctx.lineWidth = 1 / zoom;
-            ctx.beginPath();
-            ctx.arc(armStartX, armStartY - rijitUzunluk, 1, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        }
-*/
-
+        ctx.fillRect(armStartX - 0.5, armStartY - rijitUzunluk, 1, rijitUzunluk);
 
         ctx.restore();
     }
