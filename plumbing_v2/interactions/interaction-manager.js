@@ -344,15 +344,27 @@ export class InteractionManager {
                // console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
+                    // Uç bağlantısını kontrol et
+                    const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
+
                     // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
+                    // AMA: Fleks bağlantılı uçlardan (cihaz, sayaç) tesisat başlatılamaz
                     if (this.manager.activeTool === 'boru') {
+                        // Fleks uçlarından (cihaz, sayaç, servis kutusu) tesisat başlatma
+                        if (ucBaglanti.tip === BAGLANTI_TIPLERI.CIHAZ ||
+                            ucBaglanti.tip === BAGLANTI_TIPLERI.SAYAC ||
+                            ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                            // Sadece seç, tesisat başlatma
+                            this.selectObject(pipe);
+                            return true;
+                        }
+
                         const ucNokta = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
                         this.startBoruCizim(ucNokta, pipe.id, BAGLANTI_TIPLERI.BORU);
                         return true;
                     }
 
                     // Servis kutusuna bağlı boru ucunun taşınmasını engelle
-                    const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
                     if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
                         // Sadece seç, taşıma başlatma
                         this.selectObject(pipe);
