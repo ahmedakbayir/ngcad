@@ -1394,6 +1394,10 @@ export class InteractionManager {
 
         // Not: saveState() placeComponent'ta çağrılıyor (satır 857)
         // Burada tekrar çağırmaya gerek yok - tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
+        // Not: saveState() zaten başta çağrıldı (satır 1300), tekrar çağırmaya gerek yok
+        // Tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
+        // State'e kaydet
+        //this.manager.saveToState();
 
         //console.log('[handleSayacEndPlacement] ✓ Sayaç başarıyla eklendi. Toplam components:', this.manager.components.length);
 
