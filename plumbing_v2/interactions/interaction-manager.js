@@ -856,12 +856,11 @@ export class InteractionManager {
                 // Undo için state kaydet (tüm işlemlerden ÖNCE)
                 saveState();
 
-                const successSayac = this.handleSayacEndPlacement(component);
-                if (successSayac) {
-                    // Sayacın çıkış noktasından çizim başlat
-                    //this.restorePreviousMode(prevMode, prevDrawMode, prevTool);
-                    const cikisNoktasi = component.getCikisNoktasi();
-                    this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
+                const resultSayac = this.handleSayacEndPlacement(component);
+                if (resultSayac && resultSayac.success) {
+                    // Otomatik eklenen 15cm borunun BİTİŞ noktasından çizim başlat
+                    // (Artık sayacın çıkışından değil, otomatik borunun ucundan başlıyoruz)
+                    this.startBoruCizim(resultSayac.boruBitisNoktasi, resultSayac.otomatikBoruId, BAGLANTI_TIPLERI.BORU);
                     // Önceki moda dön (S tuşu ile eklenmişse veya icon ile eklenmişse)
                     if (this.previousMode) {
                       //  console.log(`[MODE] Sayaç eklendi, önceki moda dönülüyor: ${this.previousMode}`);
@@ -1393,13 +1392,21 @@ export class InteractionManager {
         // Sayacı çıkış borusuna bağla
         meter.baglaCikis(yeniBoru.id);
 
+        // Not: saveState() placeComponent'ta çağrılıyor (satır 857)
+        // Burada tekrar çağırmaya gerek yok - tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
         // Not: saveState() zaten başta çağrıldı (satır 1300), tekrar çağırmaya gerek yok
         // Tüm işlemler (vana + sayaç + otomatik boru) tek bir undo step'i
         // State'e kaydet
         //this.manager.saveToState();
 
         //console.log('[handleSayacEndPlacement] ✓ Sayaç başarıyla eklendi. Toplam components:', this.manager.components.length);
-        return true;
+
+        // Otomatik borunun bitiş noktasını ve ID'sini döndür (startBoruCizim buradan devam etsin)
+        return {
+            success: true,
+            boruBitisNoktasi: { x: boruBitisX, y: boruBitisY },
+            otomatikBoruId: yeniBoru.id
+        };
     }
 
 
