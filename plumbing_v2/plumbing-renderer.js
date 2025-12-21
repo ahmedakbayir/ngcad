@@ -49,7 +49,8 @@ export class PlumbingRenderer {
     }
 
     isLightMode() {
-        return state.isLightMode === true;
+        // main.js'ten import edilen fonksiyonu kullan
+        return isLightMode();
     }
 
 
