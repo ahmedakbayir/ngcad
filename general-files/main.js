@@ -97,7 +97,7 @@ export const THEME_COLORS = {
         wallFill: '#dddddd', // Duvar dolgusu (açık)
 
         // Mahaller
-        roomFill: '#fdfdfdff', // Mahal dolgusu (BG'ye yakın)
+        roomFill: '#fefefe', // Mahal dolgusu (BG'ye yakın)
         roomHover: '#fff1f1', // Mahal hover
         roomSelected: '#fff1f1', // Mahal seçili
 

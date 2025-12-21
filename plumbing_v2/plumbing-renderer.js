@@ -250,7 +250,7 @@ export class PlumbingRenderer {
                 gradient.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`);
                 gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`);
                 ctx.fillStyle = gradient;
-                getShadow(ctx);
+                //getShadow(ctx);
                 ctx.fillRect(0, -width / 2, length, width);
 
             } else {
@@ -266,7 +266,7 @@ export class PlumbingRenderer {
                 gradient.addColorStop(0.33, this.getRenkByGroup(colorGroup, 'boru', 1));
                 gradient.addColorStop(0.67, this.getRenkByGroup(colorGroup, 'boru', 1));
                 gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                getShadow(ctx);
+                //getShadow(ctx);
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
