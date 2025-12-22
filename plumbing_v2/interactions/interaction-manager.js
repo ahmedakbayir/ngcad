@@ -2524,14 +2524,14 @@ export class InteractionManager {
                 }
             }
 
-            // Çıkış borusunu güncelle
+            // Çıkış borusunu güncelle (GİRİŞ GİBİ DELTA KADAR TAŞI!)
             // Sadece çıkış borusunun p1 ucunu güncelle, p2 ve bağlı borular sabit
             if (sayac.cikisBagliBoruId) {
                 const cikisBoru = this.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
                 if (cikisBoru) {
-                    const yeniCikis = sayac.getCikisNoktasi();
-                    cikisBoru.p1.x = yeniCikis.x;
-                    cikisBoru.p1.y = yeniCikis.y;
+                    // Çıkış boru ucunu DELTA kadar taşı (giriş ile aynı mantık)
+                    cikisBoru.p1.x += dx;
+                    cikisBoru.p1.y += dy;
                 }
             }
 
