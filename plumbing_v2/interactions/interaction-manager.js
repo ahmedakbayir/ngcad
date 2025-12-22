@@ -2578,12 +2578,17 @@ export class InteractionManager {
             const oldX = sayac.x;
             const oldY = sayac.y;
 
-            // Delta hesapla
-            const dx = point.x - oldX;
-            const dy = point.y - oldY;
+            // ✨ GRID SNAP - X ve Y eksenlerine 10cm aralıklarla snap
+            const GRID_SIZE = 10; // cm
+            const snappedX = Math.round(point.x / GRID_SIZE) * GRID_SIZE;
+            const snappedY = Math.round(point.y / GRID_SIZE) * GRID_SIZE;
 
-            // Sayacı yeni pozisyona taşı
-            sayac.move(point.x, point.y);
+            // Delta hesapla (snapped pozisyonla)
+            const dx = snappedX - oldX;
+            const dy = snappedY - oldY;
+
+            // Sayacı grid-snapped pozisyona taşı
+            sayac.move(snappedX, snappedY);
 
             // İlişkili vanayı taşı (SADECE VANAYI, BORUYU DEĞİL!)
             if (sayac.iliskiliVanaId) {
