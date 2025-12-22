@@ -6,6 +6,62 @@ import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
 // YENİ: isLightMode ve THEME_COLORS import edildi
 import { getAdjustedColor, state, getDimensionPlumbingColor, isLightMode, getShadow, THEME_COLORS } from '../general-files/main.js';
 
+
+// --- VANA RENK PALETLERİ (Light/Dark Mod Destekli) ---
+const VALVE_THEMES = {
+    // SARI BORU -> GOLD/SARI VANA
+    YELLOW: {
+        light: [ // Aydınlık Mod (Daha canlı, parlak)
+            { pos: 0, color: 'rgba(255, 165, 0, 1)' },
+            { pos: 0.25, color: 'rgba(160, 82, 45, 1)' }, // Sienna
+            { pos: 0.5, color: 'rgba(255, 165, 0, 1)' },
+            { pos: 0.75, color: 'rgba(160, 82, 45, 1)' },
+            { pos: 1, color: 'rgba(255, 165, 0, 1)' }
+        ],
+        dark: [ // Karanlık Mod (Daha metalik, doygun)
+            { pos: 0, color: 'rgba(255, 232, 100, 1)' },
+            { pos: 0.25, color: 'rgba(184, 134, 11, 1)' }, // Dark Goldenrod
+            { pos: 0.5, color: 'rgba(255, 232, 100, 1)' },
+            { pos: 0.75, color: 'rgba(184, 134, 11, 1)' },
+            { pos: 1, color: 'rgba(255, 232, 100, 1)' }
+        ]
+    },
+    // TURKUAZ BORU -> MAVİ VANA
+    TURQUAZ: {
+        light: [
+            { pos: 0, color: 'rgba(101, 174, 253, 1)' },
+            { pos: 0.25, color: 'rgba(0, 100, 204, 1)' }, // Dark Blue
+            { pos: 0.5, color: 'rgba(101, 174, 253, 1)' },
+            { pos: 0.75, color: 'rgba(0, 100, 204, 1)' },
+            { pos: 1, color: 'rgba(101, 174, 253, 1)' }
+        ],
+        dark: [
+            { pos: 0, color: 'rgba(135, 242, 250, 1)' },
+            { pos: 0.25, color: 'rgba(21, 154, 172, 1)' }, // Dodger Blue
+            { pos: 0.5, color: 'rgba(135, 242, 250, 1)' },
+            { pos: 0.75, color: 'rgba(21, 154, 172, 1)' }, 
+            { pos: 1, color: 'rgba(135, 242, 250, 1)' }
+        ]
+    },
+    // VARSAYILAN (Gri/Beyaz)
+    DEFAULT: {
+        light: [
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.25, color: 'rgba(128, 128, 128, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.75, color: 'rgba(128, 128, 128, 1)' },
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+        ],
+        dark: [
+            { pos: 0, color: 'rgba(200, 200, 200, 1)' },
+            { pos: 0.25, color: 'rgba(80, 80, 80, 1)' },
+            { pos: 0.5, color: 'rgba(200, 200, 200, 1)' },
+            { pos: 0.75, color: 'rgba(80, 80, 80, 1)' },
+            { pos: 1, color: 'rgba(200, 200, 200, 1)' }
+        ]
+    }
+};
+
 // Dosyanın en üstüne, importların altına ekleyin:
 const CUSTOM_COLORS = {
     SELECTED: '#808080', // 0.5 Derece Gri (Tüm seçili elemanlar için)
@@ -23,52 +79,10 @@ const CUSTOM_COLORS = {
     DEVICE_BLUE: { // Ocak/Kombi - Mavi Yoğunluklu
         light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
         dark: { 0: '#E3F2FD', 0.3: '#64B5F6', 0.6: '#1E88E5', 1: '#0D47A1' }
-    },
-VALVE_PALETTES: {
-  /*      // Sarı Boru -> Gold
-        YELLOW: [ 
-            { pos: 0, color: 'rgba(248, 232, 0, 1)' },
-            { pos: 0.25, color: 'rgba(255, 162, 0, 1)' }, 
-            { pos: 0.5, color: 'rgba(248, 232, 0, 1)' },
-            { pos: 0.75, color: 'rgba(255, 162, 0, 1)' }, 
-            { pos: 1, color: 'rgba(248, 232, 0, 1)' }
-        ],
-        // Turuncu Boru -> Koyu Turuncu
-        ORANGE: [ 
-            { pos: 0, color: 'rgba(255, 165, 0, 1)' }, // Turuncu
-            { pos: 0.25, color: 'rgba(200, 80, 0, 1)' }, // Koyu Kızıl-Turuncu
-            { pos: 0.5, color: 'rgba(255, 165, 0, 1)' },
-            { pos: 0.75, color: 'rgba(200, 80, 0, 1)' },
-            { pos: 1, color: 'rgba(255, 165, 0, 1)' }
-        ],
-        // Turkuaz Boru -> Mavi
-        TURQUAZ: [ 
-            { pos: 0, color: 'rgba(0, 191, 255, 1)' }, // Açık Mavi (DeepSkyBlue)
-            { pos: 0.25, color: 'rgba(0, 0, 255, 1)' }, // Saf Mavi
-            { pos: 0.5, color: 'rgba(0, 191, 255, 1)' },
-            { pos: 0.75, color: 'rgba(0, 0, 255, 1)' },
-            { pos: 1, color: 'rgba(0, 191, 255, 1)' }
-        ],
-        // Mavi Boru -> Lacivert
-        BLUE: [ 
-            { pos: 0, color: 'rgba(65, 105, 225, 1)' }, // Royal Blue
-            { pos: 0.25, color: 'rgba(0, 0, 128, 1)' }, // Navy (Lacivert)
-            { pos: 0.5, color: 'rgba(65, 105, 225, 1)' },
-            { pos: 0.75, color: 'rgba(0, 0, 128, 1)' },
-            { pos: 1, color: 'rgba(65, 105, 225, 1)' }
-        ],
- */       // Varsayılan (Tanımsızsa)
-        DEFAULT: [
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(63, 63, 63, 1)' },
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(63, 63, 63, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
-        ]
     }
 };
 
-         //   { pos: 0.75, color: '#ff' }, // Magenta
+//   { pos: 0.75, color: '#ff' }, // Magenta
 
 
 export class PlumbingRenderer {
@@ -713,46 +727,50 @@ export class PlumbingRenderer {
         return color;
     }
 
-drawVana(ctx, comp, manager = null) {
+    drawVana(ctx, comp, manager = null) {
         const size = 8;
         const halfSize = size / 2;
-        
+
         // 1. Boru Rengini Tespit Et
-        let colorGroup = 'YELLOW'; // Varsayılan
+        let colorGroup = 'YELLOW';
         if (comp.bagliBoruId && manager) {
             const bagliBoru = manager.findPipeById(comp.bagliBoruId);
             if (bagliBoru) {
-                // Borunun renk grubunu al (SARI, TURUNCU, TURQUAZ, MAVI vb.)
                 colorGroup = bagliBoru.colorGroup || 'YELLOW';
             }
         }
-        
-        // Renk grubu adlarını standartlaştır (Türkçe/İngilizce uyumu için)
+
+        // Renk isimlerini standartlaştır
         if (colorGroup === 'SARI') colorGroup = 'YELLOW';
         if (colorGroup === 'TURKUAZ') colorGroup = 'TURQUAZ';
         if (colorGroup === 'MAVI') colorGroup = 'BLUE';
         if (colorGroup === 'TURUNCU') colorGroup = 'ORANGE';
 
-        // 2. Gradient Oluştur
+        // 2. Modu Tespit Et (Light/Dark)
+        const mode = isLightMode() ? 'light' : 'dark';
+
+        // 3. Uygun Temayı Seç
+        const theme = VALVE_THEMES[colorGroup] || VALVE_THEMES.DEFAULT;
+        const palette = theme[mode];
+
+        // 4. Gradient Oluştur
         const gradient = ctx.createConicGradient(0, 0, 0);
-        
+
         if (comp.isSelected) {
-            // Seçili: Gri/Beyaz
-            gradient.addColorStop(0, '#FFFFFF');
-            gradient.addColorStop(0.25, '#808080');
-            gradient.addColorStop(0.5, '#FFFFFF');
-            gradient.addColorStop(0.75, '#808080');
-            gradient.addColorStop(1, '#FFFFFF');
+            // Seçiliyse GRİ tonlama (veya seçili renk)
+            const secilenRenk = this.getSecilenRenk(colorGroup);
+            // Seçili durumda düz renk veya özel bir gradient kullanabilirsiniz
+            // Burada basitçe seçilen rengi kullanıyoruz, ama gradient istenirse buraya eklenebilir.
+            ctx.fillStyle = secilenRenk;
         } else {
-            // Normal: Boru rengine uygun paleti seç
-            const palette = CUSTOM_COLORS.VALVE_PALETTES[colorGroup] || CUSTOM_COLORS.VALVE_PALETTES.DEFAULT;
+            // Normal durumda paleti uygula
             palette.forEach(s => gradient.addColorStop(s.pos, s.color));
+            ctx.fillStyle = gradient;
         }
 
-        ctx.fillStyle = gradient;
         getShadow(ctx);
 
-        // 3. Vanayı Çiz (Kelebek Görünümü)
+        // Şekli Çiz
         ctx.beginPath();
         ctx.moveTo(-halfSize, -halfSize);
         ctx.lineTo(-halfSize, halfSize);
@@ -763,11 +781,12 @@ drawVana(ctx, comp, manager = null) {
         ctx.closePath();
         ctx.fill();
 
-        // Seçili vana için dış çerçeve
+        // Seçili çerçeve
         if (comp.isSelected) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
-            ctx.strokeStyle = CUSTOM_COLORS.SELECTED;
+            const secilenRenk = this.getSecilenRenk(colorGroup);
+            ctx.strokeStyle = secilenRenk;
             ctx.lineWidth = 1;
             ctx.strokeRect(-halfSize - 1, -halfSize - 1, size + 2, size + 2);
         }
