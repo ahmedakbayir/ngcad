@@ -782,15 +782,6 @@ export class PlumbingRenderer {
         ctx.closePath();
         ctx.fill();
 
-        // V harfi ekle
-        ctx.shadowColor = 'transparent';
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = mode === 'light' ? '#000000' : '#FFFFFF';
-        ctx.font = 'bold 6px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('V', 0, 0);
-
         // Seçili çerçeve
         if (comp.isSelected) {
             ctx.shadowColor = 'transparent';
