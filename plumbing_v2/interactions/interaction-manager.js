@@ -2599,17 +2599,28 @@ export class InteractionManager {
             const oldX = sayac.x;
             const oldY = sayac.y;
 
-            // ✨ GRID SNAP - X ve Y eksenlerine 10cm aralıklarla snap
-            const GRID_SIZE = 10; // cm
-            const snappedX = Math.round(point.x / GRID_SIZE) * GRID_SIZE;
-            const snappedY = Math.round(point.y / GRID_SIZE) * GRID_SIZE;
+            // ✨ AXIS-LOCK: Hangi yönde daha fazla hareket varsa o eksende smooth kaydırma
+            // Drag başlangıcından bu ana kadarki toplam hareket
+            const totalDx = Math.abs(point.x - this.dragStart.x);
+            const totalDy = Math.abs(point.y - this.dragStart.y);
 
-            // Delta hesapla (snapped pozisyonla)
-            const dx = snappedX - oldX;
-            const dy = snappedY - oldY;
+            let newX, newY;
+            if (totalDx > totalDy) {
+                // Yatay hareket daha fazla → X ekseninde kaydır, Y sabit
+                newX = point.x;
+                newY = oldY;
+            } else {
+                // Dikey hareket daha fazla → Y ekseninde kaydır, X sabit
+                newX = oldX;
+                newY = point.y;
+            }
 
-            // Sayacı grid-snapped pozisyona taşı
-            sayac.move(snappedX, snappedY);
+            // Delta hesapla
+            const dx = newX - oldX;
+            const dy = newY - oldY;
+
+            // Sayacı axis-locked pozisyona taşı (SMOOTH!)
+            sayac.move(newX, newY);
 
             // İlişkili vanayı taşı (SADECE VANAYI, BORUYU DEĞİL!)
             if (sayac.iliskiliVanaId) {
