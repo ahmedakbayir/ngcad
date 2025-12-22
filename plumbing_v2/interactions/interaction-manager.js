@@ -2528,20 +2528,22 @@ export class InteractionManager {
                 }
             }
 
-            // Fleks bağlantı noktasını taşı (fleksin bağlı olduğu boru ucu)
-            // SADECE o ucu taşı, diğer uç sabit kalmalı
+            // Fleks bağlantı noktasını güncelle (sayacın giriş noktasına eşitle)
+            // SADECE o ucu güncelle, diğer uç sabit kalmalı
             if (sayac.fleksBaglanti && sayac.fleksBaglanti.boruId) {
                 const fleksBoru = this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
                 if (fleksBoru) {
+                    // Fleks boru ucunu sayacın giriş noktasına eşitle (delta değil!)
+                    const yeniGiris = sayac.getSolRakorNoktasi(); // veya getGirisNoktasi()
                     const endpoint = sayac.fleksBaglanti.endpoint; // 'p1' veya 'p2'
                     if (endpoint === 'p1') {
-                        // Sadece p1'i taşı, p2 sabit kalır
-                        fleksBoru.p1.x += dx;
-                        fleksBoru.p1.y += dy;
+                        // Sadece p1'i sayacın giriş noktasına eşitle, p2 sabit kalır
+                        fleksBoru.p1.x = yeniGiris.x;
+                        fleksBoru.p1.y = yeniGiris.y;
                     } else if (endpoint === 'p2') {
-                        // Sadece p2'yi taşı, p1 sabit kalır
-                        fleksBoru.p2.x += dx;
-                        fleksBoru.p2.y += dy;
+                        // Sadece p2'yi sayacın giriş noktasına eşitle, p1 sabit kalır
+                        fleksBoru.p2.x = yeniGiris.x;
+                        fleksBoru.p2.y = yeniGiris.y;
                     }
                 }
             }
