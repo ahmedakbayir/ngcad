@@ -818,7 +818,7 @@ export class PlumbingRenderer {
 
             const connectionPoint = comp.getGirisNoktasi();
             const deviceCenter = { x: comp.x, y: comp.y };
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter, comp);
 
             ctx.restore();
         }
@@ -908,7 +908,7 @@ export class PlumbingRenderer {
 
             const connectionPoint = comp.getGirisNoktasi();
             const deviceCenter = { x: comp.x, y: comp.y };
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter);
+            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter, comp);
 
             ctx.restore();
         }
@@ -1340,10 +1340,18 @@ export class PlumbingRenderer {
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
-    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null, deviceCenter = null) {
+    drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null, deviceCenter = null, comp = null) {
         let closestPipeEnd = targetPoint;
         let pipeDirection = null;
         let colorGroup = 'YELLOW'; // Varsayılan renk grubu
+
+        // ÖNCE: Eğer cihaz ve fleks bağlantısı varsa, O borunun rengini kullan!
+        if (comp && comp.fleksBaglanti?.boruId) {
+            const fleksBoru = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+            if (fleksBoru) {
+                colorGroup = fleksBoru.colorGroup || 'YELLOW';
+            }
+        }
 
         // KRITIK: connectionPoint'i cihazın içine doğru uzat (15 cm)
         let adjustedConnectionPoint = connectionPoint;
