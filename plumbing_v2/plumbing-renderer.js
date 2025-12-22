@@ -71,10 +71,10 @@ const CUSTOM_COLORS = {
         dark: { 0: '#E8F5E9', 0.3: '#81C784', 0.7: '#43A047', 1: '#1B5E20' }
     },
     BOX_ORANGE: { // Servis Kutusu - Turuncu Yoğunluklu
-        top: '#fdc200ff',
-        middle: '#dbb300ff',
-        bottom: '#b69b00ff',
-        stroke: '#7c6600ff'
+        top: '#c5c5c5',
+        middle: '#a1a1a1',
+        bottom: '#727272',
+        stroke: '#808080'
     },
     DEVICE_BLUE: { // Ocak/Kombi - Mavi Yoğunluklu
         light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
