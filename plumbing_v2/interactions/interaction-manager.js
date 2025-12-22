@@ -688,7 +688,7 @@ export class InteractionManager {
                 ghost.rotation = 0;
 
                 // Fleks uzunluğu (minimum ve maksimum mesafe)
-                const minFleksUzunluk = 21; // cm - cihazın boru ucundan minimum uzaklığı (vana + fleks görünürlüğü için)
+                const minFleksUzunluk = 25; // cm - cihazın boru ucundan minimum uzaklığı (vana + fleks görünürlüğü için)
                 const maxFleksUzunluk = 50; // cm - cihazın boru ucundan maksimum uzaklığı
 
                 // Boru yönünü hesapla (boru ucundan dışarı doğru)
