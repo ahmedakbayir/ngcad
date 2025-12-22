@@ -1016,12 +1016,17 @@ export class InteractionManager {
      * Boru çizim modunu başlat
      */
     startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null) {
+        // Kaynak borunun renk grubunu sakla (split sonrası renk devam etsin)
+        let kaynakColorGroup = 'YELLOW'; // Varsayılan
 
         if (kaynakTip === BAGLANTI_TIPLERI.BORU && kaynakId) {
             // Kaynak boruyu bul (manager.pipes içinde ara)
             const kaynakBoru = this.manager.pipes.find(p => p.id === kaynakId);
 
             if (kaynakBoru) {
+                // Kaynak borunun renk grubunu al
+                kaynakColorGroup = kaynakBoru.colorGroup || 'YELLOW';
+
                 // Tıklanan noktanın hangi uç (p1 mi p2 mi) olduğunu anla
                 // Gelen nokta zaten borunun ucu olduğu için mesafe neredeyse 0'dır.
                 let hedefUc = null;
@@ -1049,7 +1054,8 @@ export class InteractionManager {
         this.boruBaslangic = {
             nokta: baslangicNoktasi,
             kaynakId: kaynakId,
-            kaynakTip: kaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU
+            kaynakTip: kaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU,
+            kaynakColorGroup: kaynakColorGroup // Kaynak borunun renk grubunu sakla
         };
         this.snapSystem.setStartPoint(baslangicNoktasi);
 
@@ -1256,12 +1262,9 @@ export class InteractionManager {
         if (this.boruBaslangic.kaynakTip === 'sayac') {
             // Sayaç çıkışından başlıyorsa TURQUAZ
             boru.colorGroup = 'TURQUAZ';
-        } else if (this.boruBaslangic.kaynakTip === 'boru' && this.boruBaslangic.kaynakId) {
-            // Boru ucundan başlıyorsa o borunun rengini al
-            const baslangicBoru = this.manager.findPipeById(this.boruBaslangic.kaynakId);
-            if (baslangicBoru) {
-                boru.colorGroup = baslangicBoru.colorGroup || 'YELLOW';
-            }
+        } else if (this.boruBaslangic.kaynakColorGroup) {
+            // Kaynak boru rengini kullan (split sonrası renk devam etsin)
+            boru.colorGroup = this.boruBaslangic.kaynakColorGroup;
         }
 
         if (this.boruBaslangic.kaynakId) {
