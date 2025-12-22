@@ -1365,7 +1365,9 @@ export class InteractionManager {
         this.boruBaslangic = {
             nokta: point,
             kaynakId: boru.id,
-            kaynakTip: BAGLANTI_TIPLERI.BORU
+            kaynakTip: BAGLANTI_TIPLERI.BORU,
+            kaynakColorGroup: boru.colorGroup // ✨ Rengi devret!
+
         };
         this.snapSystem.setStartPoint(point);
     }
