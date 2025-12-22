@@ -1931,6 +1931,11 @@ export class InteractionManager {
                 return false;
             }
 
+            // Eğer cihaza ulaştıysak, terminal nokta - kolon tesisat (sayaç yok)
+            if (currentType === BAGLANTI_TIPLERI.CIHAZ || currentType === 'cihaz') {
+                return false;
+            }
+
             // Boru ise, başlangıç bağlantısını takip et
             if (currentType === BAGLANTI_TIPLERI.BORU || currentType === 'boru') {
                 const pipe = this.manager.pipes.find(p => p.id === currentId);
