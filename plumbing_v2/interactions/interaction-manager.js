@@ -1041,6 +1041,11 @@ export class InteractionManager {
         // Kaynak borunun renk grubunu sakla (split sonrası renk devam etsin)
         let kaynakColorGroup = colorGroup || 'YELLOW'; // Parametre öncelikli
 
+        // Sayaç sonrası borular MAVİ (TURQUAZ) olmalı
+        if (kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
+            kaynakColorGroup = 'TURQUAZ';
+        }
+
         // Kaynak boru varsa kontrol et
         if (kaynakTip === BAGLANTI_TIPLERI.BORU && kaynakId) {
             // Kaynak boruyu bul (manager.pipes içinde ara)
