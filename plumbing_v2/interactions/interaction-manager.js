@@ -2595,29 +2595,34 @@ export class InteractionManager {
         if (this.dragObject.type === 'sayac') {
             const sayac = this.dragObject;
 
-            // Eski pozisyonu kaydet
-            const oldX = sayac.x;
-            const oldY = sayac.y;
+            // İlk drag frame'inde sayacın başlangıç pozisyonunu kaydet
+            if (!this.dragStartObjectPos) {
+                this.dragStartObjectPos = { x: sayac.x, y: sayac.y };
+            }
 
-            // ✨ AXIS-LOCK: Hangi yönde daha fazla hareket varsa o eksende smooth kaydırma
-            // Drag başlangıcından bu ana kadarki toplam hareket
-            const totalDx = Math.abs(point.x - this.dragStart.x);
-            const totalDy = Math.abs(point.y - this.dragStart.y);
+            // Sayacın BAŞLANGIÇ pozisyonu (mouse ile tuttuğum andaki)
+            const startX = this.dragStartObjectPos.x;
+            const startY = this.dragStartObjectPos.y;
+
+            // ✨ AXIS-LOCK: Mouse hangi yönde daha fazla hareket ettiyse o eksen
+            // Sayacın başlangıç pozisyonundan mouse'un şu anki pozisyonuna kadar
+            const totalDx = Math.abs(point.x - startX);
+            const totalDy = Math.abs(point.y - startY);
 
             let newX, newY;
             if (totalDx > totalDy) {
-                // Yatay hareket daha fazla → X ekseninde kaydır, Y sabit
+                // Yatay hareket → X ekseninde kaydır, Y başlangıçta sabit
                 newX = point.x;
-                newY = oldY;
+                newY = startY; // ✨ Başlangıç Y'si sabit!
             } else {
-                // Dikey hareket daha fazla → Y ekseninde kaydır, X sabit
-                newX = oldX;
+                // Dikey hareket → Y ekseninde kaydır, X başlangıçta sabit
+                newX = startX; // ✨ Başlangıç X'i sabit!
                 newY = point.y;
             }
 
             // Delta hesapla
-            const dx = newX - oldX;
-            const dy = newY - oldY;
+            const dx = newX - sayac.x;
+            const dy = newY - sayac.y;
 
             // Sayacı axis-locked pozisyona taşı (SMOOTH!)
             sayac.move(newX, newY);
@@ -2869,6 +2874,7 @@ export class InteractionManager {
         this.dragObject = null;
         this.dragEndpoint = null;
         this.dragStart = null;
+        this.dragStartObjectPos = null; // ✨ Sayaç başlangıç pozisyonunu temizle
         this.isBodyDrag = false;
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
