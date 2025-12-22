@@ -1126,11 +1126,17 @@ export class InteractionManager {
             // console.log('Vana pozisyonu mesafe kurallarına göre ayarlandı.');
         }
 
+        // ✨ P2 (ileri uç) ucundan sabit mesafe hesapla
+        const pipeLength = pipe.uzunluk;
+        const distanceFromP2 = pipeLength * (1 - t); // cm cinsinden
+
         // Bağımsız Vana nesnesi oluştur
         const vana = createVana(x, y, 'AKV', {
             floorId: state.currentFloorId,
             bagliBoruId: pipe.id,
-            boruPozisyonu: t
+            boruPozisyonu: t,
+            fromEnd: 'p2',              // İleri uçtan (p2)
+            fixedDistance: distanceFromP2 // Sabit cm mesafe
         });
 
         // Rotasyonu boru açısına göre ayarla
@@ -2467,23 +2473,13 @@ export class InteractionManager {
                 }
 
                 // Boru uzunluğu değişti - vana pozisyonlarını güncelle
-                // Vanalar sabit konumda kalmalı (ileri uca göre)
-                const draggedEndpoint = this.dragEndpoint; // 'p1' veya 'p2'
+                // ✨ Vanalar HER ZAMAN p2 (ileri uç) ucundan sabit mesafede kalmalı
                 valvesOnPipe.forEach(valve => {
-                    // Sürüklenen uca göre sabit mesafe hesapla
-                    if (draggedEndpoint === 'p1') {
-                        // p1 sürükleniyor - p2'ye göre sabit mesafe
-                        const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
-                        valve.boruPozisyonu = 1 - (distanceFromP2 / pipe.uzunluk);
-                        valve.fromEnd = 'p2';
-                        valve.fixedDistance = distanceFromP2;
-                    } else {
-                        // p2 sürükleniyor - p1'e göre sabit mesafe
-                        const distanceFromP1 = valve.boruPozisyonu * oldLength;
-                        valve.boruPozisyonu = distanceFromP1 / pipe.uzunluk;
-                        valve.fromEnd = 'p1';
-                        valve.fixedDistance = distanceFromP1;
-                    }
+                    // P2'den sabit mesafe hesapla
+                    const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
+                    valve.boruPozisyonu = 1 - (distanceFromP2 / pipe.uzunluk);
+                    valve.fromEnd = 'p2';
+                    valve.fixedDistance = distanceFromP2;
 
                     // Pozisyonu güncelle
                     valve.updatePositionFromPipe(pipe);
