@@ -12,18 +12,18 @@ const VALVE_THEMES = {
     // SARI BORU -> GOLD/SARI VANA
     YELLOW: {
         light: [ // Aydınlık Mod (Daha canlı, parlak)
-            { pos: 0, color: 'rgba(255, 165, 0, 1)' },
+            { pos: 0, color: 'rgba(255, 229, 182, 1)' },
             { pos: 0.25, color: 'rgba(160, 82, 45, 1)' }, // Sienna
-            { pos: 0.5, color: 'rgba(255, 165, 0, 1)' },
+            { pos: 0.5, color: 'rgba(255, 229, 182, 1)' },
             { pos: 0.75, color: 'rgba(160, 82, 45, 1)' },
-            { pos: 1, color: 'rgba(255, 165, 0, 1)' }
+            { pos: 1, color: 'rgba(255, 229, 182, 1)' }
         ],
         dark: [ // Karanlık Mod (Daha metalik, doygun)
-            { pos: 0, color: 'rgba(255, 232, 100, 1)' },
+            { pos: 0, color: 'rgba(253, 242, 181, 1)' },
             { pos: 0.25, color: 'rgba(184, 134, 11, 1)' }, // Dark Goldenrod
-            { pos: 0.5, color: 'rgba(255, 232, 100, 1)' },
+            { pos: 0.5, color: 'rgba(253, 242, 181, 1)' },
             { pos: 0.75, color: 'rgba(184, 134, 11, 1)' },
-            { pos: 1, color: 'rgba(255, 232, 100, 1)' }
+            { pos: 1, color: 'rgba(253, 242, 181, 1)' }
         ]
     },
     // TURKUAZ BORU -> MAVİ VANA
@@ -39,7 +39,7 @@ const VALVE_THEMES = {
             { pos: 0, color: 'rgba(135, 242, 250, 1)' },
             { pos: 0.25, color: 'rgba(21, 154, 172, 1)' }, // Dodger Blue
             { pos: 0.5, color: 'rgba(135, 242, 250, 1)' },
-            { pos: 0.75, color: 'rgba(21, 154, 172, 1)' }, 
+            { pos: 0.75, color: 'rgba(21, 154, 172, 1)' },
             { pos: 1, color: 'rgba(135, 242, 250, 1)' }
         ]
     },
@@ -500,55 +500,50 @@ export class PlumbingRenderer {
                 if (pipe.baslangicBaglanti.tip === 'boru') {
                     // Önceki boruyu bul
                     const oncekiBoru = pipes.find(p => p.id === pipe.baslangicBaglanti.hedefId);
-                    if (oncekiBoru) {
-                        angle = oncekiBoru.aci;
-                    }
+                    if (oncekiBoru) angle = oncekiBoru.aci;
                 }
             }
 
-            // Vananın merkezi ekleme noktasında olsun (ekleme noktası zaten dirsek için 3cm içeride)
-            const adjustedX = vanaPos.x;
-            const adjustedY = vanaPos.y;
-
             ctx.save();
-            ctx.translate(adjustedX, adjustedY);
+            ctx.translate(vanaPos.x, vanaPos.y);
             ctx.rotate(angle);
+
+            // 1. Boru Rengi
+            let colorGroup = pipe.colorGroup || 'YELLOW';
+            if (colorGroup === 'SARI') colorGroup = 'YELLOW';
+            if (colorGroup === 'TURKUAZ') colorGroup = 'TURQUAZ';
+            if (colorGroup === 'MAVI') colorGroup = 'BLUE';
+            if (colorGroup === 'TURUNCU') colorGroup = 'ORANGE';
+
+            // 2. Mod ve Tema Seçimi
+            const mode = isLightMode() ? 'light' : 'dark';
+            const theme = VALVE_THEMES[colorGroup] || VALVE_THEMES.DEFAULT;
+            const palette = theme[mode];
+
+            // 3. Gradient
             const gradient = ctx.createConicGradient(0, 0, 0);
-            //const gradient = ctx.createLinearGradient(0, -halfSize, 0,halfSize);
-            // İç kısımda hafif parlaklık efekti
 
+            if (pipe.vana.isSelected) {
+                // Seçiliyse düz turuncu veya gri (eski kodunuzda turuncu vardı)
+                ctx.fillStyle = '#FF8C00';
+            } else {
+                palette.forEach(s => gradient.addColorStop(s.pos, s.color));
+                ctx.fillStyle = gradient;
+            }
 
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-            gradient.addColorStop(.25, 'rgba(7, 48, 66, 1)');
-            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 1)');
-            gradient.addColorStop(.75, 'rgba(7, 48, 66,  1)');
-            gradient.addColorStop(1, 'rgba(255, 255, 255, 1)');
+            getShadow(ctx);
 
-            // Mavi renk (kutu mavisi)
-            const vanaColor = gradient
-            const adjustedColor = getAdjustedColor(vanaColor, 'vana');
-
-            // Kare sınırları
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 1;
-            //ctx.strokeRect(-halfSize, -halfSize, size, size);
-
-            // İki üçgen çiz (karşı karşıya bakan)
-            const fillColor = pipe.vana.isSelected ? '#FF8C00' : gradient; // Seçiliyse turuncu
-            ctx.fillStyle = fillColor;
-            getShadow(ctx)
-            // Sol üçgen (sağa bakan)
+            // Çizim
             ctx.beginPath();
-            ctx.moveTo(-halfSize, -halfSize);  // Sol üst
-            ctx.lineTo(-halfSize, halfSize);   // Sol alt
+            ctx.moveTo(-halfSize, -halfSize);
+            ctx.lineTo(-halfSize, halfSize);
             ctx.lineTo(0, 1);
-            ctx.lineTo(halfSize, halfSize);    // Sağ alt
-            ctx.lineTo(halfSize, -halfSize);    // Sağ alt
-            ctx.lineTo(0, -1);                  // Orta
+            ctx.lineTo(halfSize, halfSize);
+            ctx.lineTo(halfSize, -halfSize);
+            ctx.lineTo(0, -1);
             ctx.closePath();
             ctx.fill();
 
-            // Seçili vana için dış çerçeve
             if (pipe.vana.isSelected) {
                 ctx.strokeStyle = '#FF8C00';
                 ctx.lineWidth = 1;
@@ -739,7 +734,6 @@ export class PlumbingRenderer {
                 colorGroup = bagliBoru.colorGroup || 'YELLOW';
             }
         }
-
         // Renk isimlerini standartlaştır
         if (colorGroup === 'SARI') colorGroup = 'YELLOW';
         if (colorGroup === 'TURKUAZ') colorGroup = 'TURQUAZ';
@@ -766,6 +760,7 @@ export class PlumbingRenderer {
             // Normal durumda paleti uygula
             palette.forEach(s => gradient.addColorStop(s.pos, s.color));
             ctx.fillStyle = gradient;
+
         }
 
         getShadow(ctx);
