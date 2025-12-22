@@ -71,10 +71,10 @@ const CUSTOM_COLORS = {
         dark: { 0: '#E8F5E9', 0.3: '#81C784', 0.7: '#43A047', 1: '#1B5E20' }
     },
     BOX_ORANGE: { // Servis Kutusu - Turuncu Yoğunluklu
-        top: '#c5c5c5',
-        middle: '#a1a1a1',
-        bottom: '#727272',
-        stroke: '#808080'
+        top: '#a8a8a8ff',
+        middle: '#858585ff',
+        bottom: '#5a5a5aff',
+        stroke: '#d4d4d4ff'
     },
     DEVICE_BLUE: { // Ocak/Kombi - Mavi Yoğunluklu
         light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
@@ -672,7 +672,7 @@ export class PlumbingRenderer {
         ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
 
         // 6. Yazı (S.K.)
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = '#dadada';
         ctx.font = 'bold 10px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
