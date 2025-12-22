@@ -1019,13 +1019,16 @@ export class InteractionManager {
         // Kaynak borunun renk grubunu sakla (split sonrası renk devam etsin)
         let kaynakColorGroup = colorGroup || 'YELLOW'; // Parametre öncelikli
 
+        // Kaynak boru varsa kontrol et
         if (kaynakTip === BAGLANTI_TIPLERI.BORU && kaynakId) {
             // Kaynak boruyu bul (manager.pipes içinde ara)
             const kaynakBoru = this.manager.pipes.find(p => p.id === kaynakId);
 
             if (kaynakBoru) {
-                // Kaynak borunun renk grubunu al
-                kaynakColorGroup = kaynakBoru.colorGroup || 'YELLOW';
+                // Renk grubunu al (SADECE parametre yoksa!)
+                if (!colorGroup) {
+                    kaynakColorGroup = kaynakBoru.colorGroup || 'YELLOW';
+                }
 
                 // Tıklanan noktanın hangi uç (p1 mi p2 mi) olduğunu anla
                 // Gelen nokta zaten borunun ucu olduğu için mesafe neredeyse 0'dır.
