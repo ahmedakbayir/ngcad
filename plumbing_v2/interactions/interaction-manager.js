@@ -1015,9 +1015,9 @@ export class InteractionManager {
     /**
      * Boru çizim modunu başlat
      */
-    startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null) {
+    startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null, colorGroup = null) {
         // Kaynak borunun renk grubunu sakla (split sonrası renk devam etsin)
-        let kaynakColorGroup = 'YELLOW'; // Varsayılan
+        let kaynakColorGroup = colorGroup || 'YELLOW'; // Parametre öncelikli
 
         if (kaynakTip === BAGLANTI_TIPLERI.BORU && kaynakId) {
             // Kaynak boruyu bul (manager.pipes içinde ara)
@@ -1239,8 +1239,8 @@ export class InteractionManager {
         // State'i senkronize et
         this.manager.saveToState();
 
-        // Split noktasından boru çizimi başlat (ikinci boruya bağlı)
-        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+        // Split noktasından boru çizimi başlat (ikinci boruya bağlı, rengi devral)
+        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU, boru2.colorGroup);
 
         // Preview'ı temizle
         this.pipeSplitPreview = null;
