@@ -12,35 +12,35 @@ const VALVE_THEMES = {
     // SARI BORU -> GOLD/SARI VANA
     YELLOW: {
         light: [ // Aydınlık Mod (Daha canlı, parlak)
-            { pos: 0, color: 'rgba(255, 229, 182, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(160, 82, 45, 1)' }, // Sienna
-            { pos: 0.5, color: 'rgba(255, 229, 182, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(160, 82, 45, 1)' },
-            { pos: 1, color: 'rgba(255, 229, 182, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ],
         dark: [ // Karanlık Mod (Daha metalik, doygun)
-            { pos: 0, color: 'rgba(253, 242, 181, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(184, 134, 11, 1)' }, // Dark Goldenrod
-            { pos: 0.5, color: 'rgba(253, 242, 181, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(184, 134, 11, 1)' },
-            { pos: 1, color: 'rgba(253, 242, 181, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ]
     },
     // TURKUAZ BORU -> MAVİ VANA
     TURQUAZ: {
         light: [
-            { pos: 0, color: 'rgba(101, 174, 253, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(0, 100, 204, 1)' }, // Dark Blue
-            { pos: 0.5, color: 'rgba(101, 174, 253, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(0, 100, 204, 1)' },
-            { pos: 1, color: 'rgba(101, 174, 253, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ],
         dark: [
-            { pos: 0, color: 'rgba(135, 242, 250, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(21, 154, 172, 1)' }, // Dodger Blue
-            { pos: 0.5, color: 'rgba(135, 242, 250, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(21, 154, 172, 1)' },
-            { pos: 1, color: 'rgba(135, 242, 250, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ]
     },
     // VARSAYILAN (Gri/Beyaz)
@@ -71,10 +71,10 @@ const CUSTOM_COLORS = {
         dark: { 0: '#E8F5E9', 0.3: '#81C784', 0.7: '#43A047', 1: '#1B5E20' }
     },
     BOX_ORANGE: { // Servis Kutusu - Turuncu Yoğunluklu
-        top: '#f1dbf5',
-        middle: '#ca74da',
-        bottom: '#972caa',
-        stroke: '#43054e'
+        top: '#f97316',
+        middle: '#fa9c59',
+        bottom: '#fa964fff',
+        stroke: '#97724c'
     },
     DEVICE_BLUE: { // Ocak/Kombi - Mavi Yoğunluklu
         light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
@@ -304,9 +304,9 @@ export class PlumbingRenderer {
                 const rgb = this.hexToRgb(secilenRenk);
 
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-                gradient.addColorStop(0.0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`);
+                gradient.addColorStop(0.0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`);
                 gradient.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`);
-                gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`);
+                gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`);
                 ctx.fillStyle = gradient;
                 //getShadow(ctx);
                 ctx.fillRect(0, -width / 2, length, width);
@@ -320,12 +320,18 @@ export class PlumbingRenderer {
 
                 // Kenarlarda hafif karartma, ortası boru rengi
                 // Geçişler yumuşak tutuldu
-                gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                gradient.addColorStop(0.33, this.getRenkByGroup(colorGroup, 'boru', 1));
-                gradient.addColorStop(0.67, this.getRenkByGroup(colorGroup, 'boru', 1));
-                gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                //getShadow(ctx);
-
+                if (isLightMode) {
+                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                    gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
+                    gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                    //getShadow(ctx);
+                }
+                else {
+                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 1));
+                    gradient.addColorStop(0.1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                    gradient.addColorStop(0.9, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                    gradient.addColorStop(1,   this.getRenkByGroup(colorGroup, 'boru', 1));
+                }
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
             }
@@ -666,7 +672,7 @@ export class PlumbingRenderer {
         ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
 
         // 6. Yazı (S.K.)
-        ctx.fillStyle = '#333';
+        ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 10px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
