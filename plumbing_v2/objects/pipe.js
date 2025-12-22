@@ -266,9 +266,20 @@ export class Boru {
         boru1.floorId = this.floorId;
         boru2.floorId = this.floorId;
 
+        // ✨ RENGİ KOPYALA (Sayaç sonrası renkler korunsun!)
+        boru1.colorGroup = this.colorGroup;
+        boru2.colorGroup = this.colorGroup;
+
         // Bağlantıları aktar
         boru1.baslangicBaglanti = { ...this.baslangicBaglanti };
         boru2.bitisBaglanti = { ...this.bitisBaglanti };
+
+        // Boru1'in bitiş bağlantısını boru2'ye ayarla
+        boru1.bitisBaglanti = {
+            tip: 'boru',
+            hedefId: boru2.id,
+            noktaIndex: null
+        };
 
         // Boru2'nin başlangıç bağlantısını boru1'e ayarla
         boru2.baslangicBaglanti = {
