@@ -15,7 +15,7 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
 // Renk Grupları (Sayaç Öncesi/Sonrası) - TEMAya GÖRE DİNAMİK
 export function getRenkGruplari() {
-    const isLightMode = document.body.classList.contains('light-mode'); // ✅ Dinamik kontrol
+    const isLightMode = document.body.classList.contains('light-mode');
 
     if (isLightMode) {
         // AÇIK MOD - Koyu turuncu ve koyu mavi (beyaz zeminde görünür)
@@ -23,9 +23,9 @@ export function getRenkGruplari() {
             YELLOW: {
                 id: 'yellow',
                 name: 'Turuncu (Sayaç Öncesi)',
-                boru: 'rgba(204, 102, 0, {opacity})',      // Koyu turuncu
-                dirsek: 'rgba(204, 102, 0, {opacity})',    // Koyu turuncu
-                fleks: '#CC6600'                            // Koyu turuncu
+                boru: 'rgba(255, 128, 0, {opacity})',      // Koyu turuncu
+                dirsek: 'rgba(255, 128, 0, {opacity})',    // Koyu turuncu
+                fleks: '#ff8000'                            // Koyu turuncu
             },
             TURQUAZ: {
                 id: 'turquaz',
@@ -48,9 +48,9 @@ export function getRenkGruplari() {
             TURQUAZ: {
                 id: 'turquaz',
                 name: 'Turquaz (Sayaç Sonrası)',
-                boru: 'rgba(64, 224, 208, {opacity})',     // Turquaz
-                dirsek: 'rgba(64, 224, 208, {opacity})',   // Turquaz
-                fleks: '#40E0D0'                            // Turquaz
+                boru: 'rgba(39, 210, 240, {opacity})',     // Turquaz
+                dirsek: 'rgba(39, 210, 240, {opacity})',   // Turquaz
+                fleks: '#27d2f0'                            // Turquaz
             }
         };
     }
