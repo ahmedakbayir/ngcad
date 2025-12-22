@@ -1038,25 +1038,28 @@ export class InteractionManager {
      * Boru çizim modunu başlat
      */
     startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null, colorGroup = null) {
-        // Kaynak borunun renk grubunu sakla (split sonrası renk devam etsin)
-        let kaynakColorGroup = colorGroup || 'YELLOW'; // Parametre öncelikli
+        // Kaynak borunun renk grubunu belirle
+        let kaynakColorGroup = 'YELLOW'; // Varsayılan: Kolon tesisat
 
-        // Sayaç sonrası borular MAVİ (TURQUAZ) olmalı
-        if (kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
-            kaynakColorGroup = 'TURQUAZ';
+        // Eğer colorGroup parametresi verilmişse onu kullan (split gibi durumlarda)
+        if (colorGroup) {
+            kaynakColorGroup = colorGroup;
+        } else if (kaynakId && kaynakTip) {
+            // Parametre yoksa, ataları kontrol et
+            // Metafor: K→D→B→A takibi, en başta sayaç var mı?
+            if (this.hasAncestorMeter(kaynakId, kaynakTip)) {
+                kaynakColorGroup = 'TURQUAZ'; // İç tesisat (sayaç sonrası)
+            } else {
+                kaynakColorGroup = 'YELLOW'; // Kolon tesisat (sayaç öncesi)
+            }
         }
 
-        // Kaynak boru varsa kontrol et
+        // Kaynak boru varsa kontrol et (cihaz/sayaç engelleme için)
         if (kaynakTip === BAGLANTI_TIPLERI.BORU && kaynakId) {
             // Kaynak boruyu bul (manager.pipes içinde ara)
             const kaynakBoru = this.manager.pipes.find(p => p.id === kaynakId);
 
             if (kaynakBoru) {
-                // Renk grubunu al (SADECE parametre yoksa!)
-                if (!colorGroup) {
-                    kaynakColorGroup = kaynakBoru.colorGroup || 'YELLOW';
-                }
-
                 // Tıklanan noktanın hangi uç (p1 mi p2 mi) olduğunu anla
                 // Gelen nokta zaten borunun ucu olduğu için mesafe neredeyse 0'dır.
                 let hedefUc = null;
@@ -1921,6 +1924,61 @@ export class InteractionManager {
         }
 
         return null;
+    }
+
+    /**
+     * Bir borunun atalarını takip ederek en başta sayaç var mı kontrol et
+     * Metafor: K→D→B→A şeklinde ataları takip et, A sayaç mı kontrol et
+     * @param {string} componentId - Boru veya bileşen ID'si
+     * @param {string} componentType - 'boru', 'servis_kutusu', 'sayac' vb.
+     * @returns {boolean} - Atalarda sayaç varsa true (İç Tesisat = TURQUAZ)
+     */
+    hasAncestorMeter(componentId, componentType) {
+        // Ziyaret edilen ID'leri takip et (sonsuz döngü önleme)
+        const visited = new Set();
+        const MAX_DEPTH = 100; // Maksimum derinlik
+        let depth = 0;
+
+        let currentId = componentId;
+        let currentType = componentType;
+
+        while (currentId && !visited.has(currentId) && depth < MAX_DEPTH) {
+            visited.add(currentId);
+            depth++;
+
+            // Eğer sayaca ulaştıysak, iç tesisat!
+            if (currentType === BAGLANTI_TIPLERI.SAYAC || currentType === 'sayac') {
+                return true;
+            }
+
+            // Eğer servis kutusuna ulaştıysak, kolon tesisat (sayaç yok)
+            if (currentType === BAGLANTI_TIPLERI.SERVIS_KUTUSU || currentType === 'servis_kutusu') {
+                return false;
+            }
+
+            // Boru ise, başlangıç bağlantısını takip et
+            if (currentType === BAGLANTI_TIPLERI.BORU || currentType === 'boru') {
+                const pipe = this.manager.pipes.find(p => p.id === currentId);
+                if (!pipe) break;
+
+                // Başlangıç bağlantısını kontrol et (borunun nereden geldiği)
+                const baglanti = pipe.baslangicBaglanti;
+                if (!baglanti || !baglanti.hedefId || !baglanti.tip) {
+                    // Bağlantı bilgisi yok, dur
+                    break;
+                }
+
+                // Bir üst seviyeye çık (baba)
+                currentId = baglanti.hedefId;
+                currentType = baglanti.tip;
+            } else {
+                // Bilinmeyen tip, dur
+                break;
+            }
+        }
+
+        // Sayaç bulunamadı, kolon tesisat
+        return false;
     }
 
     findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
