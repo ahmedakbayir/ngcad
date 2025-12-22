@@ -1291,14 +1291,9 @@ export class InteractionManager {
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
 
-        // ✨ Başlangıç kaynağının rengini devral
-        if (this.boruBaslangic.kaynakTip === 'sayac') {
-            // Sayaç çıkışından başlıyorsa TURQUAZ
-            boru.colorGroup = 'TURQUAZ';
-        } else if (this.boruBaslangic.kaynakColorGroup) {
-            // Kaynak boru rengini kullan (split sonrası renk devam etsin)
-            boru.colorGroup = this.boruBaslangic.kaynakColorGroup;
-        }
+        // ✨ Rengi kaynaktan devral (startBoruCizim zaten ataları kontrol etti)
+        // Varsayılan YELLOW, ama kaynakColorGroup varsa onu kullan
+        boru.colorGroup = this.boruBaslangic.kaynakColorGroup || 'YELLOW';
 
         if (this.boruBaslangic.kaynakId) {
             boru.setBaslangicBaglanti(
