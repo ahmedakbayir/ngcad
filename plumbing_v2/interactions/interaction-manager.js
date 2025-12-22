@@ -1016,8 +1016,9 @@ export class InteractionManager {
      * Boru çizim modunu başlat
      */
     startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null, colorGroup = null) {
-        // Kaynak borunun renk grubunu sakla (split sonrası renk devam etsin)
+        // Kaynak borunun renk grubunu ve sayacSonrasi durumunu sakla
         let kaynakColorGroup = colorGroup || 'YELLOW'; // Parametre öncelikli
+        let kaynakSayacSonrasi = false; // Varsayılan
 
         // Kaynak boru varsa kontrol et
         if (kaynakTip === BAGLANTI_TIPLERI.BORU && kaynakId) {
@@ -1025,6 +1026,9 @@ export class InteractionManager {
             const kaynakBoru = this.manager.pipes.find(p => p.id === kaynakId);
 
             if (kaynakBoru) {
+                // Sayaç sonrası durumunu al
+                kaynakSayacSonrasi = kaynakBoru.sayacSonrasi || false;
+
                 // Renk grubunu al (SADECE parametre yoksa!)
                 if (!colorGroup) {
                     kaynakColorGroup = kaynakBoru.colorGroup || 'YELLOW';
@@ -1058,7 +1062,8 @@ export class InteractionManager {
             nokta: baslangicNoktasi,
             kaynakId: kaynakId,
             kaynakTip: kaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU,
-            kaynakColorGroup: kaynakColorGroup // Kaynak borunun renk grubunu sakla
+            kaynakColorGroup: kaynakColorGroup, // Kaynak borunun renk grubunu sakla
+            kaynakSayacSonrasi: kaynakSayacSonrasi // Kaynak borunun sayacSonrasi durumunu sakla
         };
         this.snapSystem.setStartPoint(baslangicNoktasi);
 
@@ -1261,12 +1266,17 @@ export class InteractionManager {
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
 
-        // ✨ Başlangıç kaynağının rengini devral
+        // ✨ Başlangıç kaynağının rengini ve sayacSonrasi durumunu devral
         if (this.boruBaslangic.kaynakTip === 'sayac') {
-            // Sayaç çıkışından başlıyorsa TURQUAZ
-            boru.colorGroup = 'TURQUAZ';
+            // Sayaç çıkışından başlıyorsa SAYAÇ SONRASI
+            boru.sayacSonrasi = true;
+            boru.updateColorGroup(); // Rengi otomatik ayarla (TURQUAZ)
+        } else if (this.boruBaslangic.kaynakSayacSonrasi !== undefined) {
+            // Kaynak borudan devral (split sonrası veya devam ederken)
+            boru.sayacSonrasi = this.boruBaslangic.kaynakSayacSonrasi;
+            boru.updateColorGroup(); // Rengi otomatik ayarla
         } else if (this.boruBaslangic.kaynakColorGroup) {
-            // Kaynak boru rengini kullan (split sonrası renk devam etsin)
+            // Geriye dönük uyumluluk: Kaynak boru rengini kullan
             boru.colorGroup = this.boruBaslangic.kaynakColorGroup;
         }
 

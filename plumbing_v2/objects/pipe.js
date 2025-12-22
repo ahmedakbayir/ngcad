@@ -97,8 +97,11 @@ export class Boru {
         this.p1 = { x: p1.x, y: p1.y, z: p1.z || 0 };
         this.p2 = { x: p2.x, y: p2.y, z: p2.z || 0 };
 
-        // Renk Grubu (Sayaç Öncesi/Sonrası)
-        this.colorGroup = 'YELLOW'; // Varsayılan: Sarı (Sayaç Öncesi)
+        // Sayaç Sonrası mı? (Boolean - NET ve AÇIK)
+        this.sayacSonrasi = false; // Varsayılan: Sayaç öncesi
+
+        // Renk Grubu (sayacSonrasi'na göre otomatik belirlenir)
+        this.colorGroup = 'YELLOW'; // Varsayılan: Sarı
 
         // Kat bilgisi
         this.floorId = null;
@@ -151,6 +154,13 @@ export class Boru {
      */
     get aciDerece() {
         return this.aci * 180 / Math.PI;
+    }
+
+    /**
+     * Renk grubunu sayacSonrasi parametresine göre güncelle
+     */
+    updateColorGroup() {
+        this.colorGroup = this.sayacSonrasi ? 'TURQUAZ' : 'YELLOW';
     }
 
     /**
@@ -265,6 +275,8 @@ export class Boru {
         // Özellikleri kopyala
         boru1.floorId = this.floorId;
         boru2.floorId = this.floorId;
+        boru1.sayacSonrasi = this.sayacSonrasi; // Boolean kopyala
+        boru2.sayacSonrasi = this.sayacSonrasi; // Boolean kopyala
         boru1.colorGroup = this.colorGroup;
         boru2.colorGroup = this.colorGroup;
 
@@ -455,6 +467,7 @@ export class Boru {
             id: this.id,
             type: this.type,
             boruTipi: this.boruTipi,
+            sayacSonrasi: this.sayacSonrasi, // Boolean: Sayaç sonrası mı?
             colorGroup: this.colorGroup,
             p1: { ...this.p1 },
             p2: { ...this.p2 },
@@ -473,7 +486,18 @@ export class Boru {
     static fromJSON(data) {
         const boru = new Boru(data.p1, data.p2, data.boruTipi);
         boru.id = data.id;
-        boru.colorGroup = data.colorGroup || 'YELLOW'; // Varsayılan: Sarı (geriye dönük uyumluluk)
+
+        // Sayaç sonrası durumunu geri yükle
+        boru.sayacSonrasi = data.sayacSonrasi || false; // Varsayılan: false (geriye dönük uyumluluk)
+
+        // Renk grubunu geri yükle (ya direkt ya da sayacSonrasi'ndan türet)
+        if (data.colorGroup) {
+            boru.colorGroup = data.colorGroup;
+        } else {
+            // Eski dosyalarda colorGroup yoksa, sayacSonrasi'ndan türet
+            boru.updateColorGroup();
+        }
+
         boru.floorId = data.floorId;
         boru.baslangicBaglanti = data.baslangicBaglanti || { tip: null, hedefId: null, noktaIndex: null };
         boru.bitisBaglanti = data.bitisBaglanti || { tip: null, hedefId: null, noktaIndex: null };
