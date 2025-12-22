@@ -563,6 +563,28 @@ export class InteractionManager {
             return true;
         }
 
+        // V - Vana ekle (Ghost mod)
+        if (e.key === 'v' || e.key === 'V') {
+            // Önceki modu kaydet
+            this.previousMode = state.currentMode;
+            this.previousDrawingMode = state.currentDrawingMode;
+            this.previousActiveTool = this.manager.activeTool;
+
+            // TESİSAT moduna geç
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
+
+            // Mevcut eylemleri iptal et
+            this.cancelCurrentAction();
+
+            // Vana ghost modunu başlat
+            this.manager.startPlacement(TESISAT_MODLARI.VANA);
+            setMode("plumbingV2", true);
+
+            return true;
+        }
+
         // T - BORU çizme modu (boru icon'unu aktif et)
         if (e.key === 't' || e.key === 'T') {
             // TESİSAT modunda olduğumuzdan emin ol
