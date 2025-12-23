@@ -977,10 +977,11 @@ export class InteractionManager {
                 break;
 
             case 'cihaz':
-                // Cihaz ekleme - K/O kısayolu gibi boru çizme moduna geç ama çizim başlatma
+                // Cihaz ekleme - Seç moduna geç
                 const successCihaz = this.handleCihazEkleme(component);
                 if (successCihaz) {
-                    this.restorePreviousMode(prevMode, prevDrawMode, prevTool);
+                    // Cihaz eklendikten sonra seç moduna geç
+                    setMode("select", true);
                     // if (this.previousMode) {
                     //     console.log(`[MODE] Cihaz eklendi, önceki moda dönülüyor: ${this.previousMode}`);
                     //     setTimeout(() => {
