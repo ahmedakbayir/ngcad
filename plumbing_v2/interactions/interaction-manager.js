@@ -2151,7 +2151,10 @@ export class InteractionManager {
         this.dragEndpoint = endpoint;
         this.dragStart = { ...point };
         this.dragStartCtrl = this.ctrlPressed; // CTRL basılı mı kaydet
-        this.dragLastPoint = { ...point }; // Son pozisyonu takip et
+
+        // Sürüklenen ucun başlangıç pozisyonunu kaydet
+        this.draggedEndpointStart = endpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
+        this.draggedEndpointLast = { ...this.draggedEndpointStart }; // Son frame'deki pozisyon
 
         // CTRL basılıysa downstream ağını bul ve cache'le
         if (this.dragStartCtrl) {
@@ -2288,6 +2291,11 @@ export class InteractionManager {
                 this.dragStartCtrl = true;
                 const downstreamPoint = this.dragEndpoint === 'p1' ? { ...pipe.p2 } : { ...pipe.p1 };
                 this.downstreamNetwork = this.getDownstreamNetwork(downstreamPoint, pipe, this.dragEndpoint);
+
+                // Şu anki pozisyonu kaydet (incremental delta için)
+                const currentEndpoint = this.dragEndpoint === 'p1' ? pipe.p1 : pipe.p2;
+                this.draggedEndpointLast = { ...currentEndpoint };
+
                 console.log('🔵 CTRL pressed during drag: Downstream network created:', {
                     pipes: this.downstreamNetwork.pipes.length,
                     components: this.downstreamNetwork.components.length
@@ -2569,16 +2577,21 @@ export class InteractionManager {
 
                 // CTRL basılıysa downstream network'ü kaydır
                 if (this.dragStartCtrl && this.downstreamNetwork) {
-                    // Incremental delta - sadece son frame'den bu yana olan değişim
+                    // Incremental delta - SADECE son frame'den bu yana olan değişim
                     const incrementalDelta = {
-                        x: finalPos.x - oldPoint.x,
-                        y: finalPos.y - oldPoint.y
+                        x: finalPos.x - this.draggedEndpointLast.x,
+                        y: finalPos.y - this.draggedEndpointLast.y
                     };
 
-                    // Downstream network'ü kaydır
-                    this.shiftDownstreamNetwork(this.downstreamNetwork, incrementalDelta);
+                    // Sadece değişim varsa kaydır
+                    if (Math.abs(incrementalDelta.x) > 0.001 || Math.abs(incrementalDelta.y) > 0.001) {
+                        this.shiftDownstreamNetwork(this.downstreamNetwork, incrementalDelta);
+                        console.log('🔵 CTRL: Shifted by', incrementalDelta);
+                    }
 
-                    console.log('🔵 CTRL: Shifting downstream network by', incrementalDelta);
+                    // Bu frame'deki pozisyonu kaydet
+                    this.draggedEndpointLast.x = finalPos.x;
+                    this.draggedEndpointLast.y = finalPos.y;
                 } else {
                     // Normal mod: Sadece bağlı boruları güncelle
                     this.updateConnectedPipesChain(oldPoint, finalPos);
@@ -3145,7 +3158,8 @@ export class InteractionManager {
         this.dragStartObjectPos = null; // ✨ Sayaç başlangıç pozisyonunu temizle
         this.dragStartCtrl = false; // CTRL flag'ini temizle
         this.downstreamNetwork = null; // Downstream network'ü temizle
-        this.dragLastPoint = null; // Son pozisyonu temizle
+        this.draggedEndpointStart = null; // Sürüklenen ucun başlangıç pozisyonu
+        this.draggedEndpointLast = null; // Sürüklenen ucun son pozisyonu
         this.isBodyDrag = false;
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
