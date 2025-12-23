@@ -2939,25 +2939,14 @@ export class InteractionManager {
             points: new Set()
         };
 
-        // BFS ile tüm bağlı ağı tara
+        // BFS ile downstream ağı tara
         const queue = [];
         const visitedPoints = new Set();
 
-        // Başlangıç noktalarını ekle - hem startPoint hem de excludePipe'ın diğer ucu
+        // SADECE sürüklenMEyen uçtan başla (downstream = bu noktadan SONRAKİ)
         const startKey = `${startPoint.x.toFixed(2)},${startPoint.y.toFixed(2)}`;
         queue.push(startPoint);
         visitedPoints.add(startKey);
-
-        // Sürüklenen borunun sürüklenen ucunu da başlangıca ekle (tüm network'ü kapsasın)
-        if (excludePipe) {
-            // Sürüklenen uç (otherEnd), sürüklenmeyen uç startPoint'ten farklı
-            const draggedEnd = excludeEndpoint === 'p1' ? excludePipe.p1 : excludePipe.p2;
-            const draggedKey = `${draggedEnd.x.toFixed(2)},${draggedEnd.y.toFixed(2)}`;
-            if (draggedKey !== startKey) {
-                queue.push({ x: draggedEnd.x, y: draggedEnd.y });
-                visitedPoints.add(draggedKey);
-            }
-        }
 
         while (queue.length > 0) {
             const currentPoint = queue.shift();
