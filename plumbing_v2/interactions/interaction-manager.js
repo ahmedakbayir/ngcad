@@ -1317,13 +1317,11 @@ export class InteractionManager {
         // State'i senkronize et
         this.manager.saveToState();
 
-        if (continueDrawing) {
-            // Split noktasından boru çizimi başlat (akış yönünde devam et -> boru2.id)
-            this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
-        } else {
-            // Çizim başlatma, sadece preview'ı temizle
-            this.pipeSplitPreview = null;
-        }
+        // Split noktasından boru çizimi başlat (akış yönünde devam et -> boru2.id)
+        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+
+        // Preview'ı temizle
+        this.pipeSplitPreview = null;
     }
     /**
      * Boru çizimde tıklama
