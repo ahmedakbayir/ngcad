@@ -2983,13 +2983,13 @@ export class InteractionManager {
                         }
                     }
                 } else if (comp.type === 'sayac') {
-                    // Sayacın inlet veya outlet noktası
-                    const inlet = comp.getInletPosition();
-                    const outlet = comp.getOutletPosition();
-                    const distInlet = Math.hypot(inlet.x - currentPoint.x, inlet.y - currentPoint.y);
-                    const distOutlet = Math.hypot(outlet.x - currentPoint.x, outlet.y - currentPoint.y);
+                    // Sayacın giriş veya çıkış noktası
+                    const giris = comp.getGirisNoktasi();
+                    const cikis = comp.getCikisNoktasi();
+                    const distGiris = Math.hypot(giris.x - currentPoint.x, giris.y - currentPoint.y);
+                    const distCikis = Math.hypot(cikis.x - currentPoint.x, cikis.y - currentPoint.y);
 
-                    if (distInlet < tolerance || distOutlet < tolerance) {
+                    if (distGiris < tolerance || distCikis < tolerance) {
                         result.components.add(comp);
                     }
                 } else if (comp.type === 'cihaz') {
