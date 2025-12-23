@@ -1431,7 +1431,7 @@ export class InteractionManager {
         if (!vanaVar) {
             // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
             const boru = boruUcu.boru;
-            const edgeMargin = 1;      // cm - kenar için margin
+            const edgeMargin = 4;      // cm - kenar için margin
             const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
             const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
 
@@ -1545,7 +1545,7 @@ export class InteractionManager {
         if (!vanaVar) {
             // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
             const boru = boruUcu.boru;
-            const edgeMargin = 1;      // cm - kenar için margin
+            const edgeMargin = 4;      // cm - kenar için margin
             const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
             const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
 

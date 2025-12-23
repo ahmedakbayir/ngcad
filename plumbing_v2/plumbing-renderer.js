@@ -1071,13 +1071,13 @@ export class PlumbingRenderer {
                     targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
                     if (!comp._fleksWarningLogged) {
-                        console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
+                       // console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
                         comp._fleksWarningLogged = true;
                     }
                 }
             } else {
                 if (!comp._fleksWarningLogged2) {
-                    console.warn('⚠️ SAYAÇ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
+                    //console.warn('⚠️ SAYAÇ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
                     comp._fleksWarningLogged2 = true;
                 }
             }
