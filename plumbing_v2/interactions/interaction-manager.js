@@ -937,30 +937,9 @@ export class InteractionManager {
                     // Sayacın çıkış noktasından boru çizimi başlat
                     const cikisNoktasi = component.getCikisNoktasi();
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
-                    // Önceki moda dön (S tuşu ile eklenmişse veya icon ile eklenmişse)
-                    if (this.previousMode) {
-                        //  console.log(`[MODE] Sayaç eklendi, önceki moda dönülüyor: ${this.previousMode}`);
-                        setTimeout(() => {
-                            if (this.previousDrawingMode) {
-                                //    console.log(`[MODE] Drawing mode restore: ${this.previousDrawingMode}`);
-                                setDrawingMode(this.previousDrawingMode);
-                            }
-                            //console.log(`[MODE] Mode restore: ${this.previousMode}`);
-                            setMode(this.previousMode);
-
-                            // activeTool'u kaydettiğimiz önceki değere geri yükle
-                            //console.log(`[MODE] ActiveTool restore: ${this.previousActiveTool}`);
-                            this.manager.activeTool = this.previousActiveTool;
-
-                            this.previousMode = null;
-                            this.previousDrawingMode = null;
-                            this.previousActiveTool = null;
-                        }, 10);
-                    } else {
-                        // Önceki mod yoksa, normal boru çizme moduna geç
-                        this.manager.activeTool = 'boru';
-                        setMode("plumbingV2", true);
-                    }
+                    // Sayaç eklendikten sonra boru çizme modunda kal (icon doğru görünsün)
+                    this.manager.activeTool = 'boru';
+                    setMode("plumbingV2", true);
                 }
                 break;
 
@@ -1182,19 +1161,23 @@ export class InteractionManager {
          * Boruyu belirtilen noktadan böl ve çizime devam et
          * YÖNTEM: Geometrik Snapshot (Bileşenleri fiziksel konumlarına göre en yakın parçaya dağıtır)
          */
-    handlePipeSplit(pipe, splitPoint) {
+    handlePipeSplit(pipe, splitPoint, startDrawing = true) {
         // 1. Köşe kontrolü (Çok yakınsa bölme yapma, direkt uçtan başla)
         const CORNER_THRESHOLD = 0.1;
         const distToP1 = Math.hypot(splitPoint.x - pipe.p1.x, splitPoint.y - pipe.p1.y);
         const distToP2 = Math.hypot(splitPoint.x - pipe.p2.x, splitPoint.y - pipe.p2.y);
 
         if (distToP1 < CORNER_THRESHOLD) {
-            this.startBoruCizim(pipe.p1, pipe.id, BAGLANTI_TIPLERI.BORU);
+            if (startDrawing) {
+                this.startBoruCizim(pipe.p1, pipe.id, BAGLANTI_TIPLERI.BORU);
+            }
             this.pipeSplitPreview = null;
             return;
         }
         if (distToP2 < CORNER_THRESHOLD) {
-            this.startBoruCizim(pipe.p2, pipe.id, BAGLANTI_TIPLERI.BORU);
+            if (startDrawing) {
+                this.startBoruCizim(pipe.p2, pipe.id, BAGLANTI_TIPLERI.BORU);
+            }
             this.pipeSplitPreview = null;
             return;
         }
@@ -1326,7 +1309,9 @@ export class InteractionManager {
         this.manager.saveToState();
 
         // Split noktasından boru çizimi başlat (akış yönünde devam et -> boru2.id)
-        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+        if (startDrawing) {
+            this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+        }
 
         // Preview'ı temizle
         this.pipeSplitPreview = null;
