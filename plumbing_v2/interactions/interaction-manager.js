@@ -2439,7 +2439,7 @@ export class InteractionManager {
             // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
             // Bağlı borular hariç (zaten bağlı oldukları için aynı noktada olabilirler)
             const POINT_OCCUPATION_TOLERANCE = 1.5; // cm - sadece gerçek çakışmaları engelle
-            const ELBOW_TOLERANCE = 4; // cm - dirsekler (köşe noktaları) arası minimum mesafe
+            const ELBOW_TOLERANCE = 8; // cm - dirsekler merkez arası minimum mesafe (4+4)
             const elbowConnectionTolerance = 1;
 
             // Eski pozisyonu al (sürüklenen ucun şu anki pozisyonu)
@@ -2745,7 +2745,7 @@ export class InteractionManager {
 
             // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
             const POINT_OCCUPATION_TOLERANCE = 1.5; // cm - sadece gerçek çakışmaları engelle
-            const ELBOW_TOLERANCE = 4; // cm - dirsekler (köşe noktaları) arası minimum mesafe
+            const ELBOW_TOLERANCE = 8; // cm - dirsekler merkez arası minimum mesafe (4+4)
             const connectionTolerance = 1; // Bağlantı tespit toleransı
 
             // Bağlı borular listesi (bridge mode için zaten var)
