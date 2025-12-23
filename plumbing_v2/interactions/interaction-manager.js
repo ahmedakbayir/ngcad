@@ -2436,7 +2436,7 @@ export class InteractionManager {
 
             // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
             // Bağlı borular hariç (zaten bağlı oldukları için aynı noktada olabilirler)
-            const POINT_OCCUPATION_TOLERANCE = 8; // 11 cm - boru uçları birbirine bu mesafeden daha yakın olamaz
+            const POINT_OCCUPATION_TOLERANCE = 1.5; // cm - sadece gerçek çakışmaları engelle
             // connectionTolerance zaten yukarıda tanımlı (satır 975)
 
             // Hedef noktada başka bir boru ucu var mı kontrol et (bağlı borular hariç)
@@ -2730,7 +2730,7 @@ export class InteractionManager {
             };
 
             // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
-            const POINT_OCCUPATION_TOLERANCE = 8; // 11 cm
+            const POINT_OCCUPATION_TOLERANCE = 1.5; // cm - sadece gerçek çakışmaları engelle
             const connectionTolerance = 1; // Bağlantı tespit toleransı
 
             // Bağlı borular listesi (bridge mode için zaten var)
