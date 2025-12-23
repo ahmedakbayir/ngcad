@@ -2439,7 +2439,40 @@ export class InteractionManager {
             // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
             // Bağlı borular hariç (zaten bağlı oldukları için aynı noktada olabilirler)
             const POINT_OCCUPATION_TOLERANCE = 1.5; // cm - sadece gerçek çakışmaları engelle
+            const ELBOW_TOLERANCE = 4; // cm - dirsekler (köşe noktaları) arası minimum mesafe
             // connectionTolerance zaten yukarıda tanımlı (satır 975)
+
+            // DİRSEK KONTROLÜ: Dirsekleri (bağlantı noktalarını) tespit et
+            const elbowConnectionTolerance = 1;
+            const isElbow = (pipeEndpoint, pipeObj) => {
+                const connectedCount = this.manager.pipes.filter(p => {
+                    if (p === pipeObj) return false;
+                    const distP1 = Math.hypot(p.p1.x - pipeEndpoint.x, p.p1.y - pipeEndpoint.y);
+                    const distP2 = Math.hypot(p.p2.x - pipeEndpoint.x, p.p2.y - pipeEndpoint.y);
+                    return distP1 < elbowConnectionTolerance || distP2 < elbowConnectionTolerance;
+                }).length;
+                return connectedCount > 0;
+            };
+
+            // Tüm dirsekleri topla
+            const elbows = [];
+            this.manager.pipes.forEach(p => {
+                if (isElbow(p.p1, p)) elbows.push({ x: p.p1.x, y: p.p1.y });
+                if (isElbow(p.p2, p)) elbows.push({ x: p.p2.x, y: p.p2.y });
+            });
+
+            // finalPos'un dirseklere olan mesafesini kontrol et
+            const tooCloseToElbow = elbows.some(elbow => {
+                const dist = Math.hypot(elbow.x - finalPos.x, elbow.y - finalPos.y);
+                // Eğer sürüklenen uç zaten bir dirsekse, aynı dirsek olabilir - 0.5cm toleransla atla
+                if (dist < 0.5) return false;
+                return dist < ELBOW_TOLERANCE;
+            });
+
+            if (tooCloseToElbow) {
+                // Dirseklere çok yakın - hareketi iptal et
+                return;
+            }
 
             // Hedef noktada başka bir boru ucu var mı kontrol et (bağlı borular hariç)
             const occupiedByOtherPipe = this.manager.pipes.some(otherPipe => {
@@ -2724,12 +2757,52 @@ export class InteractionManager {
 
             // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
             const POINT_OCCUPATION_TOLERANCE = 1.5; // cm - sadece gerçek çakışmaları engelle
+            const ELBOW_TOLERANCE = 4; // cm - dirsekler (köşe noktaları) arası minimum mesafe
             const connectionTolerance = 1; // Bağlantı tespit toleransı
 
             // Bağlı borular listesi (bridge mode için zaten var)
             const connectedPipes = [];
             if (this.connectedPipeAtP1) connectedPipes.push(this.connectedPipeAtP1);
             if (this.connectedPipeAtP2) connectedPipes.push(this.connectedPipeAtP2);
+
+            // DİRSEK KONTROLÜ: Dirsekleri (bağlantı noktalarını) tespit et
+            const isElbow = (pipeEndpoint, pipeObj) => {
+                // Bir noktada 2 veya daha fazla boru birleşiyorsa bu bir dirsek
+                const connectedCount = this.manager.pipes.filter(p => {
+                    if (p === pipeObj) return false;
+                    const distP1 = Math.hypot(p.p1.x - pipeEndpoint.x, p.p1.y - pipeEndpoint.y);
+                    const distP2 = Math.hypot(p.p2.x - pipeEndpoint.x, p.p2.y - pipeEndpoint.y);
+                    return distP1 < connectionTolerance || distP2 < connectionTolerance;
+                }).length;
+                return connectedCount > 0;
+            };
+
+            // Tüm dirsekleri topla
+            const elbows = [];
+            this.manager.pipes.forEach(p => {
+                if (isElbow(p.p1, p)) elbows.push({ x: p.p1.x, y: p.p1.y });
+                if (isElbow(p.p2, p)) elbows.push({ x: p.p2.x, y: p.p2.y });
+            });
+
+            // p1 ve p2'nin dirseklere olan mesafesini kontrol et
+            const p1TooCloseToElbow = elbows.some(elbow => {
+                const dist = Math.hypot(elbow.x - newP1.x, elbow.y - newP1.y);
+                // Eğer p1 zaten bir dirsekse, aynı dirsek olabilir - 0.5cm toleransla atla
+                if (dist < 0.5) return false;
+                return dist < ELBOW_TOLERANCE;
+            });
+
+            const p2TooCloseToElbow = elbows.some(elbow => {
+                const dist = Math.hypot(elbow.x - newP2.x, elbow.y - newP2.y);
+                // Eğer p2 zaten bir dirsekse, aynı dirsek olabilir - 0.5cm toleransla atla
+                if (dist < 0.5) return false;
+                return dist < ELBOW_TOLERANCE;
+            });
+
+            // Dirseklere çok yakınsa taşımayı engelle
+            if (p1TooCloseToElbow || p2TooCloseToElbow) {
+                return;
+            }
 
             // p1 için doluluk kontrolü
             const p1Occupied = this.manager.pipes.some(otherPipe => {
