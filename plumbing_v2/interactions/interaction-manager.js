@@ -2158,12 +2158,15 @@ export class InteractionManager {
             // Sürüklenen ucun diğer tarafından başla (downstream)
             const downstreamPoint = endpoint === 'p1' ? { ...pipe.p2 } : { ...pipe.p1 };
             this.downstreamNetwork = this.getDownstreamNetwork(downstreamPoint, pipe, endpoint);
-            console.log('🔵 CTRL mode: Downstream network found:', {
+            console.log('🔵 CTRL mode ACTIVE: Downstream network found:', {
+                endpoint: endpoint,
+                downstreamPoint: downstreamPoint,
                 pipes: this.downstreamNetwork.pipes.length,
                 components: this.downstreamNetwork.components.length
             });
         } else {
             this.downstreamNetwork = null;
+            console.log('⚪ Normal drag mode (CTRL not pressed)');
         }
     }
 
@@ -2278,6 +2281,23 @@ export class InteractionManager {
         // Uç nokta sürükleme
         if (this.dragEndpoint && this.dragObject.type === 'boru') {
             const pipe = this.dragObject;
+
+            // CTRL durumu değişti mi kontrol et (sürükleme sırasında basılmış olabilir)
+            if (this.ctrlPressed && !this.dragStartCtrl && !this.downstreamNetwork) {
+                // CTRL sürükleme sırasında basıldı - downstream network'ü şimdi oluştur
+                this.dragStartCtrl = true;
+                const downstreamPoint = this.dragEndpoint === 'p1' ? { ...pipe.p2 } : { ...pipe.p1 };
+                this.downstreamNetwork = this.getDownstreamNetwork(downstreamPoint, pipe, this.dragEndpoint);
+                console.log('🔵 CTRL pressed during drag: Downstream network created:', {
+                    pipes: this.downstreamNetwork.pipes.length,
+                    components: this.downstreamNetwork.components.length
+                });
+            } else if (!this.ctrlPressed && this.dragStartCtrl && this.downstreamNetwork) {
+                // CTRL bırakıldı - downstream mode'dan çık
+                this.dragStartCtrl = false;
+                this.downstreamNetwork = null;
+                console.log('🔵 CTRL released: Normal drag mode');
+            }
 
             // Servis kutusuna veya sayaca bağlı uç taşınamaz - ekstra güvenlik kontrolü
             const ucBaglanti = this.dragEndpoint === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
@@ -2549,11 +2569,16 @@ export class InteractionManager {
 
                 // CTRL basılıysa downstream network'ü kaydır
                 if (this.dragStartCtrl && this.downstreamNetwork) {
-                    const delta = {
+                    // Incremental delta - sadece son frame'den bu yana olan değişim
+                    const incrementalDelta = {
                         x: finalPos.x - oldPoint.x,
                         y: finalPos.y - oldPoint.y
                     };
-                    this.shiftDownstreamNetwork(this.downstreamNetwork, delta);
+
+                    // Downstream network'ü kaydır
+                    this.shiftDownstreamNetwork(this.downstreamNetwork, incrementalDelta);
+
+                    console.log('🔵 CTRL: Shifting downstream network by', incrementalDelta);
                 } else {
                     // Normal mod: Sadece bağlı boruları güncelle
                     this.updateConnectedPipesChain(oldPoint, finalPos);
