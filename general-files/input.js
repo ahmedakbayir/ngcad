@@ -474,8 +474,8 @@ function onKeyDown(e) {
                     }
                     return; // Diğer kısayollarla çakışmasın
                 }
-                // L tuşu - Tema değiştir (input içindeyken de çalışsın)
-                if (e.key.toLowerCase() === 'l') {
+                // Ctrl+L - Tema değiştir (input içindeyken de çalışsın)
+                if (e.ctrlKey && e.key.toLowerCase() === 'l') {
                     e.preventDefault();
                     toggleTheme();
                     return;
@@ -505,8 +505,8 @@ function onKeyDown(e) {
                 e.preventDefault();
                 return;
             }
-            // L tuşu - Tema değiştir
-            else if (e.key.toLowerCase() === 'l') {
+            // Ctrl+L - Tema değiştir
+            else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
                 e.preventDefault();
                 toggleTheme();
                 return;
@@ -527,8 +527,8 @@ function onKeyDown(e) {
                 e.preventDefault();
                 return;
             }
-            // L tuşu - Tema değiştir
-            if (e.key.toLowerCase() === 'l') {
+            // Ctrl+L - Tema değiştir
+            if (e.ctrlKey && e.key.toLowerCase() === 'l') {
                 e.preventDefault();
                 toggleTheme();
                 return;
@@ -554,8 +554,8 @@ function onKeyDown(e) {
         return; // Diğer kısayollarla çakışmasın
     }
 
-    // Dark/Light Mode Toggle ('L' tuşu)
-    if (e.key.toLowerCase() === 'l') {
+    // Dark/Light Mode Toggle (Ctrl+L)
+    if (e.ctrlKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         toggleTheme();
         return;
@@ -839,7 +839,7 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawColumn");
     if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawBeam");
     if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawStairs");
-    if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    if (e.key.toLowerCase() === "l" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         plumbingManager.startPipeMode(); // Boru çizim aracını başlat
         setMode("plumbingV2", true); // UI'yı güncelle (ikonu aktif et)
     }
