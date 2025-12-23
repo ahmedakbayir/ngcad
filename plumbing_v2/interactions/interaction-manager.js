@@ -463,6 +463,19 @@ export class InteractionManager {
      * Klavye
      */
     handleKeyDown(e) {
+        // Input alanlarında yazarken klavye kısayollarını tetikleme
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (
+            activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.contentEditable === 'true'
+        );
+
+        // Eğer kullanıcı bir input alanında yazıyorsa, ESC ve Delete dışındaki kısayolları devre dışı bırak
+        if (isTyping && e.key !== 'Escape' && e.key !== 'Delete') {
+            return false;
+        }
+
         // Boru çizim modunda ölçü girişi
         if (this.boruCizimAktif && this.boruBaslangic) {
             // Rakam girişi (0-9)
