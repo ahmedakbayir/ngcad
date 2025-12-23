@@ -2675,9 +2675,18 @@ export class InteractionManager {
             if (sayac.cikisBagliBoruId) {
                 const cikisBoru = this.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
                 if (cikisBoru) {
+                    // Eski p1 pozisyonunu kaydet
+                    const oldP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+
                     // Çıkış boru ucunu DELTA kadar taşı (giriş ile aynı mantık)
                     cikisBoru.p1.x += dx;
                     cikisBoru.p1.y += dy;
+
+                    // Yeni p1 pozisyonu
+                    const newP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+
+                    // Bağlı boru zincirini güncelle (cihazların fleks bağlantıları için kritik!)
+                    this.updateConnectedPipesChain(oldP1, newP1);
                 }
             }
 
@@ -2809,7 +2818,7 @@ export class InteractionManager {
      * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
      */
     updateConnectedPipesChain(oldPoint, newPoint) {
-        const tolerance = 0.1; // cm
+        const tolerance = 1.0; // cm - floating point hataları için yeterince büyük
 
         // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
         this.manager.pipes.forEach(pipe => {
@@ -3022,8 +3031,15 @@ export class InteractionManager {
             if (obj.cikisBagliBoruId) {
                 const cikisBoru = this.manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
                 if (cikisBoru) {
+                    // Eski p1 pozisyonunu kaydet
+                    const oldP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+
                     // Sayaç çıkışı boru p1'e bağlı
-                    cikisBoru.moveP1(obj.getCikisNoktasi());
+                    const yeniCikis = obj.getCikisNoktasi();
+                    cikisBoru.moveP1(yeniCikis);
+
+                    // Bağlı boru zincirini güncelle
+                    this.updateConnectedPipesChain(oldP1, yeniCikis);
                 }
             }
         }
@@ -3046,17 +3062,32 @@ export class InteractionManager {
         if (result.bagliBoruId && result.delta) {
             const boru = this.manager.pipes.find(p => p.id === result.bagliBoruId);
             if (boru) {
+                // Eski p1 pozisyonunu kaydet
+                const oldP1 = { x: boru.p1.x, y: boru.p1.y };
+
                 boru.moveP1({
                     x: boru.p1.x + result.delta.x,
                     y: boru.p1.y + result.delta.y
                 });
+
+                // Yeni p1 pozisyonu
+                const newP1 = { x: boru.p1.x, y: boru.p1.y };
+
+                // Bağlı boru zincirini güncelle
+                this.updateConnectedPipesChain(oldP1, newP1);
             }
         }
 
         if (result.cikisBagliBoruId && result.yeniCikis) {
             const boru = this.manager.pipes.find(p => p.id === result.cikisBagliBoruId);
             if (boru) {
+                // Eski p1 pozisyonunu kaydet
+                const oldP1 = { x: boru.p1.x, y: boru.p1.y };
+
                 boru.moveP1(result.yeniCikis);
+
+                // Bağlı boru zincirini güncelle
+                this.updateConnectedPipesChain(oldP1, result.yeniCikis);
             }
         }
     }
