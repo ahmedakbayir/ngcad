@@ -358,9 +358,9 @@ export class InteractionManager {
                         return true;
                     }
 
-                    // Servis kutusuna bağlı boru ucunun taşınmasını engelle
+                    // Servis kutusuna veya sayaca bağlı boru ucunun taşınmasını engelle
                     const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-                    if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                    if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU || ucBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
                         // Sadece seç, taşıma başlatma
                         this.selectObject(pipe);
                         return true;
@@ -387,6 +387,13 @@ export class InteractionManager {
 
                     if (bagliKutu) {
                         // Kutuya bağlı boru, gövde sürükleme yapma (ama seçimi koru)
+                        return true;
+                    }
+
+                    // Sayaca bağlı boruların gövdesi de taşınmasın
+                    if (hitObject.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC ||
+                        hitObject.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
+                        // Sayaca bağlı boru, gövde sürükleme yapma (ama seçimi koru)
                         return true;
                     }
 
@@ -2254,9 +2261,9 @@ export class InteractionManager {
         if (this.dragEndpoint && this.dragObject.type === 'boru') {
             const pipe = this.dragObject;
 
-            // Servis kutusuna bağlı uç taşınamaz - ekstra güvenlik kontrolü
+            // Servis kutusuna veya sayaca bağlı uç taşınamaz - ekstra güvenlik kontrolü
             const ucBaglanti = this.dragEndpoint === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-            if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+            if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU || ucBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
                 return; // Taşıma işlemini engelle
             }
 
