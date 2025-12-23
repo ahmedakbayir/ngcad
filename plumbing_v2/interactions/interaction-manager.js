@@ -463,6 +463,19 @@ export class InteractionManager {
      * Klavye
      */
     handleKeyDown(e) {
+        // Input alanlarında yazarken klavye kısayollarını tetikleme
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (
+            activeElement.tagName === 'INPUT' ||
+            activeElement.tagName === 'TEXTAREA' ||
+            activeElement.contentEditable === 'true'
+        );
+
+        // Eğer kullanıcı bir input alanında yazıyorsa, ESC ve Delete dışındaki kısayolları devre dışı bırak
+        if (isTyping && e.key !== 'Escape' && e.key !== 'Delete') {
+            return false;
+        }
+
         // Boru çizim modunda ölçü girişi
         if (this.boruCizimAktif && this.boruBaslangic) {
             // Rakam girişi (0-9)
@@ -2579,19 +2592,24 @@ export class InteractionManager {
             const startX = this.dragStartObjectPos.x;
             const startY = this.dragStartObjectPos.y;
 
-            // ✨ AXIS-LOCK: Mouse hangi yönde daha fazla hareket ettiyse o eksen
-            // Sayacın başlangıç pozisyonundan mouse'un şu anki pozisyonuna kadar
+            // ✨ AXIS-LOCK with THRESHOLD: 10cm'den fazla sapma olursa serbest bırak
+            const AXIS_LOCK_THRESHOLD = 10; // cm
             const totalDx = Math.abs(point.x - startX);
             const totalDy = Math.abs(point.y - startY);
 
             let newX, newY;
-            if (totalDx > totalDy) {
+
+            // Her iki eksenden de 10cm'den fazla sapmışsa → SERBEST HAREKET
+            if (totalDx > AXIS_LOCK_THRESHOLD && totalDy > AXIS_LOCK_THRESHOLD) {
+                newX = point.x;
+                newY = point.y;
+            } else if (totalDx > totalDy) {
                 // Yatay hareket → X ekseninde kaydır, Y başlangıçta sabit
                 newX = point.x;
-                newY = startY; // ✨ Başlangıç Y'si sabit!
+                newY = startY;
             } else {
                 // Dikey hareket → Y ekseninde kaydır, X başlangıçta sabit
-                newX = startX; // ✨ Başlangıç X'i sabit!
+                newX = startX;
                 newY = point.y;
             }
 
