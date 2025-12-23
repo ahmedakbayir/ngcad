@@ -1185,15 +1185,13 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
 }
 
 // Boru bölme
+// Boru bölme fonksiyonunu güncelleyin
 function splitPipeAtClickPosition(pipeToSplit, clickPos) {
     if (!pipeToSplit || !pipeToSplit.p1 || !pipeToSplit.p2) {
         return;
     }
 
-    // Minimum bölme mesafesi (10 cm)
     const MIN_SPLIT_DIST = 10;
-
-    // Tıklanan noktanın boru uçlarına olan mesafesini kontrol et
     const distToP1 = Math.hypot(clickPos.x - pipeToSplit.p1.x, clickPos.y - pipeToSplit.p1.y);
     const distToP2 = Math.hypot(clickPos.x - pipeToSplit.p2.x, clickPos.y - pipeToSplit.p2.y);
 
@@ -1201,50 +1199,10 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos) {
         return;
     }
 
-
-    // Boru.splitAt metodunu kullanarak bölme noktasını hesapla
-    const splitResult = pipeToSplit.splitAt(clickPos);
-
-    if (!splitResult) {
-        return;
+    if (window.plumbingManager && window.plumbingManager.interactionManager) {
+        // ✨ BURASI DEĞİŞTİ: false parametresi ile çizim modunu engelliyoruz
+        window.plumbingManager.interactionManager.handlePipeSplit(pipeToSplit, clickPos, false);
+        
+        setState({ selectedObject: null });
     }
-
-    const { boru1, boru2, splitPoint } = splitResult;
-
-    // Eski borunun bitiş bağlantısını kaydet
-    const originalBitisBaglanti = { ...pipeToSplit.bitisBaglanti };
-
-    // Gerideki parça: Eski boruyu güncelle (p1'den splitPoint'e kadar)
-    pipeToSplit.p2.x = splitPoint.x;
-    pipeToSplit.p2.y = splitPoint.y;
-    pipeToSplit.p2.z = splitPoint.z;
-
-    // Eski borunun bitiş bağlantısını temizle
-    pipeToSplit.bitisBaglanti = { tip: null, hedefId: null, noktaIndex: null };
-
-    // T-bağlantıları ve elemanları boru1'e göre güncelle
-    pipeToSplit.tBaglantilar = boru1.tBaglantilar;
-    pipeToSplit.uzerindekiElemanlar = boru1.uzerindekiElemanlar;
-
-    // İlerideki parça: Yeni boru oluştur (splitPoint'ten originalP2'ye kadar)
-    // Yeni borunun bağlantısını orijinal bitiş bağlantısına ayarla
-    boru2.bitisBaglanti = originalBitisBaglanti;
-
-    // PlumbingManager'a yeni boruyu ekle
-    if (window.plumbingManager) {
-        window.plumbingManager.pipes.push(boru2);
-
-        // Tüm instance'ları state'e kaydet
-        window.plumbingManager.saveToState();
-    }
-
-    // Seçimi kaldır
-    setState({ selectedObject: null });
-
-    // History'ye kaydet
-    saveState();
-
-    // 3D sahneyi güncelle
-    update3DScene();
-
 }

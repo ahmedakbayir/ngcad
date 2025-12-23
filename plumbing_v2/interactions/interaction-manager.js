@@ -1304,11 +1304,13 @@ export class InteractionManager {
         // State'i senkronize et
         this.manager.saveToState();
 
-        // Split noktasından boru çizimi başlat (akış yönünde devam et -> boru2.id)
-        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
-
-        // Preview'ı temizle
-        this.pipeSplitPreview = null;
+        if (continueDrawing) {
+            // Split noktasından boru çizimi başlat (akış yönünde devam et -> boru2.id)
+            this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+        } else {
+            // Çizim başlatma, sadece preview'ı temizle
+            this.pipeSplitPreview = null;
+        }
     }
     /**
      * Boru çizimde tıklama
@@ -2848,6 +2850,10 @@ export class InteractionManager {
                             draggedPipe.boruTipi
                         );
                         bridgePipe1.floorId = draggedPipe.floorId;
+
+                        // ✨ DÜZELTME: Rengi kopyala (TURQUAZ ise TURQUAZ kalsın)
+                        bridgePipe1.colorGroup = draggedPipe.colorGroup;
+
                         this.manager.pipes.push(bridgePipe1);
                     }
                 }
@@ -2862,6 +2868,10 @@ export class InteractionManager {
                             draggedPipe.boruTipi
                         );
                         bridgePipe2.floorId = draggedPipe.floorId;
+
+                        // ✨ DÜZELTME: Rengi kopyala (TURQUAZ ise TURQUAZ kalsın)
+                        bridgePipe2.colorGroup = draggedPipe.colorGroup;
+
                         this.manager.pipes.push(bridgePipe2);
                     }
                 }
