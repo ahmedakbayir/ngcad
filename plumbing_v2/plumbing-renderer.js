@@ -71,10 +71,10 @@ const CUSTOM_COLORS = {
         dark: { 0: '#E8F5E9', 0.3: '#81C784', 0.7: '#43A047', 1: '#1B5E20' }
     },
     BOX_ORANGE: { // Servis Kutusu - Turuncu Yoğunluklu
-        top: '#c5c5c5',
-        middle: '#a1a1a1',
-        bottom: '#727272',
-        stroke: '#808080'
+        top: '#9c66bbff',
+        middle: '#daa2ffff',
+        bottom: '#9c66bbff',
+        stroke: '#2f203aff'
     },
     DEVICE_BLUE: { // Ocak/Kombi - Mavi Yoğunluklu
         light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
@@ -672,11 +672,12 @@ export class PlumbingRenderer {
         ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
 
         // 6. Yazı (S.K.)
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 10px Arial';
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('S.K.', 0, 1);
+
     }
 
     lightenColor(color, amount) {
@@ -1070,13 +1071,13 @@ export class PlumbingRenderer {
                     targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
                     if (!comp._fleksWarningLogged) {
-                        console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
+                       // console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
                         comp._fleksWarningLogged = true;
                     }
                 }
             } else {
                 if (!comp._fleksWarningLogged2) {
-                    console.warn('⚠️ SAYAÇ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
+                    //console.warn('⚠️ SAYAÇ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
                     comp._fleksWarningLogged2 = true;
                 }
             }

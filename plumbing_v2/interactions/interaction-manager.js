@@ -716,7 +716,7 @@ export class InteractionManager {
         // Cihaz için: boru ucuna snap yap, fleks etrafında mouse ile hareket et
         if (ghost.type === 'cihaz') {
             // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-            const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
+            const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
 
             if (boruUcu && boruUcu.boru) {
                 // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
@@ -724,7 +724,7 @@ export class InteractionManager {
 
                 // Fleks uzunluğu (minimum ve maksimum mesafe)
                 const minFleksUzunluk = 25; // cm - cihazın boru ucundan minimum uzaklığı (vana + fleks görünürlüğü için)
-                const maxFleksUzunluk = 50; // cm - cihazın boru ucundan maksimum uzaklığı
+                const maxFleksUzunluk = 72; // cm - cihazın boru ucundan maksimum uzaklığı
 
                 // Boru yönünü hesapla (boru ucundan dışarı doğru)
                 const boru = boruUcu.boru;
@@ -783,7 +783,7 @@ export class InteractionManager {
         }
         else if (ghost.type === 'sayac') {
             // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-            const boruUcu = this.findBoruUcuAt(point, 50, true); // onlyFreeEndpoints = true
+            const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
 
             if (boruUcu && boruUcu.boru) {
                 // Sayaç pozisyonlandırma: Mouse konumuna göre yön belirleme
@@ -1171,133 +1171,160 @@ export class InteractionManager {
     }
 
     /**
-     * Boruyu belirtilen noktadan böl ve çizime devam et
-     */
+         * Boruyu belirtilen noktadan böl ve çizime devam et
+         * YÖNTEM: Geometrik Snapshot (Bileşenleri fiziksel konumlarına göre en yakın parçaya dağıtır)
+         */
     handlePipeSplit(pipe, splitPoint) {
-        // Köşe kontrolü - eğer split noktası tam köşedeyse (p1 veya p2), split YAPMA
-        // Bunun yerine direkt o uçtan çizim başlat
-        const CORNER_THRESHOLD = 0.1; // 0.1 cm tolerance
+        // 1. Köşe kontrolü (Çok yakınsa bölme yapma, direkt uçtan başla)
+        const CORNER_THRESHOLD = 0.1;
         const distToP1 = Math.hypot(splitPoint.x - pipe.p1.x, splitPoint.y - pipe.p1.y);
         const distToP2 = Math.hypot(splitPoint.x - pipe.p2.x, splitPoint.y - pipe.p2.y);
 
         if (distToP1 < CORNER_THRESHOLD) {
-            // p1 köşesinden çizim başlat (split yapma)
             this.startBoruCizim(pipe.p1, pipe.id, BAGLANTI_TIPLERI.BORU);
             this.pipeSplitPreview = null;
             return;
         }
-
         if (distToP2 < CORNER_THRESHOLD) {
-            // p2 köşesinden çizim başlat (split yapma)
             this.startBoruCizim(pipe.p2, pipe.id, BAGLANTI_TIPLERI.BORU);
             this.pipeSplitPreview = null;
             return;
         }
 
-        // Köşe değil, normal split yap
+        // --- ADIM 1: GEÇİCİ KONUM BELİRLEME (SNAPSHOT) ---
+        // Bölünme öncesi, boru üzerindeki tüm bileşenlerin dünya üzerindeki tam konumlarını kaydet.
+        // Bu sayede "miras" mantığı yerine "gerçek konum" mantığı kullanılır.
+        const itemsToReattach = [];
+
+        // A) Vanaları Kaydet
+        const valves = this.manager.components.filter(c =>
+            c.type === 'vana' && c.bagliBoruId === pipe.id
+        );
+        valves.forEach(v => {
+            // Vananın o anki fiziksel konumunu al
+            // (getVanaPozisyon yoksa boru üzerindeki orandan hesapla)
+            const pos = (pipe.getVanaPozisyon && pipe.getVanaPozisyon()) || pipe.getPointAt(v.boruPozisyonu !== undefined ? v.boruPozisyonu : 0.5);
+            itemsToReattach.push({
+                comp: v,
+                type: 'vana',
+                worldPos: { x: pos.x, y: pos.y }
+            });
+        });
+
+        // B) Cihaz ve Sayaç Flekslerini Kaydet
+        const flexComponents = this.manager.components.filter(c =>
+            (c.type === 'cihaz' || c.type === 'sayac') &&
+            c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id
+        );
+        flexComponents.forEach(c => {
+            // Fleksin boruya temas ettiği tam noktayı bul
+            let pos;
+            if (c.fleksBaglanti.endpoint === 'p1') pos = pipe.p1;
+            else if (c.fleksBaglanti.endpoint === 'p2') pos = pipe.p2;
+            else {
+                // Endpoint verisi bozuksa, cihazın merkezine en yakın boru ucunu al
+                const d1 = Math.hypot(c.x - pipe.p1.x, c.y - pipe.p1.y);
+                const d2 = Math.hypot(c.x - pipe.p2.x, c.y - pipe.p2.y);
+                pos = d1 < d2 ? pipe.p1 : pipe.p2;
+            }
+
+            itemsToReattach.push({
+                comp: c,
+                type: 'fleks',
+                worldPos: { x: pos.x, y: pos.y }
+            });
+        });
+
         // Undo için state kaydet
         saveState();
 
-        // Boruyu böl
+        // --- ADIM 2: BÖLME İŞLEMİ ---
         const result = pipe.splitAt(splitPoint);
-        if (!result) return; // Split başarısış
-
+        if (!result) return;
         const { boru1, boru2, splitT } = result;
 
-        // Debug: Vana dağılımını kontrol et
-        if (pipe.vana) {
-            console.log(`[SPLIT] Eski boru vana pozisyonu: t=${pipe.vana.t.toFixed(3)}`);
-        }
-        if (boru1.vana) {
-            console.log(`[SPLIT] ✓ Vana boru1'de kaldı (t=${boru1.vana.t.toFixed(3)})`);
-        }
-        if (boru2.vana) {
-            console.log(`[SPLIT] ✓ Vana boru2'ye geçti (t=${boru2.vana.t.toFixed(3)})`);
+        console.log(`[SPLIT] Boru bölündü. SplitT: ${splitT.toFixed(2)}`);
+
+        // Zinciri bağla: boru1 sonu -> boru2 başı
+        boru1.setBitisBaglanti('boru', boru2.id);
+        boru2.setBaslangicBaglanti('boru', boru1.id);
+
+        // Servis kutusu bağlantısını güncelle (Her zaman başlangıca bağlıdır)
+        if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+            const sk = this.manager.components.find(c => c.id === pipe.baslangicBaglanti.hedefId);
+            if (sk && sk.bagliBoruId === pipe.id) {
+                sk.baglaBoru(boru1.id);
+            }
         }
 
-        // BONUS: Vanalar ve diğer boru üzerindeki nesneleri doğru segmente ata
-        const objectsOnPipe = this.manager.components.filter(comp =>
-            comp.bagliBoruId === pipe.id
-        );
+        // Eski boruyu sil, yenileri ekle
+        const idx = this.manager.pipes.findIndex(p => p.id === pipe.id);
+        if (idx !== -1) this.manager.pipes.splice(idx, 1);
+        this.manager.pipes.push(boru1, boru2);
 
-        objectsOnPipe.forEach(obj => {
-            if (obj.boruPozisyonu !== undefined) {
-                if (obj.boruPozisyonu <= splitT) {
-                    // Nesne ilk segmentte (boru1)
-                    obj.bagliBoruId = boru1.id;
-                    // Pozisyonu yeniden hesapla (0 - splitT aralığını 0 - 1'e normalize et)
-                    obj.boruPozisyonu = obj.boruPozisyonu / splitT;
-                } else {
-                    // Nesne ikinci segmentte (boru2)
-                    obj.bagliBoruId = boru2.id;
-                    // Pozisyonu yeniden hesapla (splitT - 1 aralığını 0 - 1'e normalize et)
-                    obj.boruPozisyonu = (obj.boruPozisyonu - splitT) / (1 - splitT);
+        // --- ADIM 3: YENİDEN DAĞITIM (Mesafe Bazlı) ---
+        // Her bileşeni, kaydettiğimiz konumuna en yakın olan yeni boruya bağla
+        itemsToReattach.forEach(item => {
+            const { comp, type, worldPos } = item;
+
+            // worldPos noktasının boru1 ve boru2 üzerindeki izdüşümlerini bul
+            // projectPoint metodu, noktaya en yakın segment üzerindeki noktayı verir
+            const proj1 = boru1.projectPoint(worldPos);
+            const proj2 = boru2.projectPoint(worldPos);
+
+            const dist1 = proj1.distance;
+            const dist2 = proj2.distance;
+
+            // Hangi boruya daha yakın?
+            // Epsilon (0.001) toleransı ile karşılaştır.
+            // Eşitlik durumunda (tam kesim noktasında) `boru2` (akış yönündeki sonraki parça) tercih edilir.
+            let targetPipe, targetProj;
+
+            if (dist1 < dist2 - 0.001) {
+                targetPipe = boru1;
+                targetProj = proj1;
+            } else {
+                targetPipe = boru2;
+                targetProj = proj2;
+            }
+
+            if (type === 'vana') {
+                // Vanayı hedef boruya bağla
+                comp.bagliBoruId = targetPipe.id;
+                // Yeni boru üzerindeki konumunu (t) güncelle
+                comp.boruPozisyonu = targetProj.t;
+
+                // Görsel konumu güncelle (emin olmak için)
+                if (comp.updatePositionFromPipe) {
+                    comp.updatePositionFromPipe(targetPipe);
                 }
-                // Pozisyonu güncelle
-                if (obj.updatePositionFromPipe) {
-                    const newPipe = obj.bagliBoruId === boru1.id ? boru1 : boru2;
-                    obj.updatePositionFromPipe(newPipe);
-                }
+                console.log(`[SPLIT-REMAP] Vana -> ${targetPipe === boru1 ? 'Parça 1' : 'Parça 2'}`);
+            }
+            else if (type === 'fleks') {
+                // Cihaz/Sayaç fleks bağlantısı
+                comp.fleksBaglanti.boruId = targetPipe.id;
+
+                // Hedef borunun HANGİ UCUNA daha yakın? (p1 mi p2 mi?)
+                const dP1 = Math.hypot(worldPos.x - targetPipe.p1.x, worldPos.y - targetPipe.p1.y);
+                const dP2 = Math.hypot(worldPos.x - targetPipe.p2.x, worldPos.y - targetPipe.p2.y);
+
+                comp.fleksBaglanti.endpoint = dP1 < dP2 ? 'p1' : 'p2';
+
+                console.log(`[SPLIT-REMAP] ${comp.type} -> ${targetPipe === boru1 ? 'Parça 1' : 'Parça 2'} (${comp.fleksBaglanti.endpoint})`);
             }
         });
-
-        // Cihaz ve sayaç fleks bağlantılarını güncelle
-        // Boru split sonrası: boru1.p1=eski.p1, boru1.p2=split, boru2.p1=split, boru2.p2=eski.p2
-        console.log(`[SPLIT] Split position t=${splitT.toFixed(3)}`);
-        console.log(`[SPLIT] boru1: ${boru1.id.substr(0, 8)} (p1=${boru1.p1.x.toFixed(1)},${boru1.p1.y.toFixed(1)} -> p2=${boru1.p2.x.toFixed(1)},${boru1.p2.y.toFixed(1)})`);
-        console.log(`[SPLIT] boru2: ${boru2.id.substr(0, 8)} (p1=${boru2.p1.x.toFixed(1)},${boru2.p1.y.toFixed(1)} -> p2=${boru2.p2.x.toFixed(1)},${boru2.p2.y.toFixed(1)})`);
-
-        this.manager.components.forEach(comp => {
-            if ((comp.type === 'cihaz' || comp.type === 'sayac') && comp.fleksBaglanti && comp.fleksBaglanti.boruId === pipe.id) {
-                const endpoint = comp.fleksBaglanti.endpoint;
-                const fleksPos = endpoint === 'p1' ? pipe.p1 : pipe.p2;
-                console.log(`[SPLIT] ${comp.type} ${comp.id.substr(0, 8)} - Fleks bağlantı: ${endpoint} at (${fleksPos.x.toFixed(1)},${fleksPos.y.toFixed(1)})`);
-
-                if (endpoint === 'p1') {
-                    // Eski p1'e bağlıydı -> Yeni boru1.p1'e bağlan
-                    comp.fleksBaglanti.boruId = boru1.id;
-                    comp.fleksBaglanti.endpoint = 'p1';
-                    console.log(`[SPLIT] ✓ ${comp.type} -> boru1.p1 (ilk segment)`);
-                } else if (endpoint === 'p2') {
-                    // Eski p2'ye bağlıydı -> Yeni boru2.p2'ye bağlan
-                    comp.fleksBaglanti.boruId = boru2.id;
-                    comp.fleksBaglanti.endpoint = 'p2';
-                    console.log(`[SPLIT] ✓ ${comp.type} -> boru2.p2 (ikinci segment)`);
-                }
-            }
-        });
-
-        // Servis kutusuna bağlı mı kontrol et (referansı güncellemek için)
-        if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-            const servisKutusu = this.manager.components.find(
-                c => c.id === pipe.baslangicBaglanti.hedefId && c.type === 'servis_kutusu'
-            );
-            if (servisKutusu && servisKutusu.bagliBoruId === pipe.id) {
-                // Servis kutusunun bağlantısını yeni boru1'e güncelle
-                servisKutusu.baglaBoru(boru1.id);
-            }
-        }
-
-        // Eski boruyu kaldır
-        const index = this.manager.pipes.findIndex(p => p.id === pipe.id);
-        if (index !== -1) {
-            this.manager.pipes.splice(index, 1);
-        }
-
-        // Yeni boruları ekle
-        this.manager.pipes.push(boru1);
-        this.manager.pipes.push(boru2);
 
         // State'i senkronize et
         this.manager.saveToState();
 
-        // Split noktasından boru çizimi başlat (ikinci boruya bağlı, rengi devral)
-        this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU, boru2.colorGroup);
-
-        // Preview'ı temizle
-        this.pipeSplitPreview = null;
+        if (continueDrawing) {
+            // Split noktasından boru çizimi başlat (akış yönünde devam et -> boru2.id)
+            this.startBoruCizim(splitPoint, boru2.id, BAGLANTI_TIPLERI.BORU);
+        } else {
+            // Çizim başlatma, sadece preview'ı temizle
+            this.pipeSplitPreview = null;
+        }
     }
-
     /**
      * Boru çizimde tıklama
      */
@@ -1310,14 +1337,8 @@ export class InteractionManager {
         const boru = createBoru(this.boruBaslangic.nokta, point, 'STANDART');
         boru.floorId = state.currentFloorId;
 
-        // ✨ Başlangıç kaynağının rengini devral
-        if (this.boruBaslangic.kaynakTip === 'sayac') {
-            // Sayaç çıkışından başlıyorsa TURQUAZ
-            boru.colorGroup = 'TURQUAZ';
-        } else if (this.boruBaslangic.kaynakColorGroup) {
-            // Kaynak boru rengini kullan (split sonrası renk devam etsin)
-            boru.colorGroup = this.boruBaslangic.kaynakColorGroup;
-        }
+        boru.colorGroup = this.boruBaslangic.kaynakColorGroup || 'YELLOW';
+
 
         if (this.boruBaslangic.kaynakId) {
             boru.setBaslangicBaglanti(
@@ -1361,11 +1382,11 @@ export class InteractionManager {
         // State'i senkronize et
         this.manager.saveToState();
 
-        // Devam et
         this.boruBaslangic = {
             nokta: point,
             kaynakId: boru.id,
-            kaynakTip: BAGLANTI_TIPLERI.BORU
+            kaynakTip: BAGLANTI_TIPLERI.BORU,
+            kaynakColorGroup: boru.colorGroup // ✨ Rengi devret!
         };
         this.snapSystem.setStartPoint(point);
     }
@@ -1425,7 +1446,7 @@ export class InteractionManager {
         if (!vanaVar) {
             // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
             const boru = boruUcu.boru;
-            const edgeMargin = 1;      // cm - kenar için margin
+            const edgeMargin = 4;      // cm - kenar için margin
             const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
             const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
 
@@ -1539,7 +1560,7 @@ export class InteractionManager {
         if (!vanaVar) {
             // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
             const boru = boruUcu.boru;
-            const edgeMargin = 1;      // cm - kenar için margin
+            const edgeMargin = 4;      // cm - kenar için margin
             const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
             const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
 
@@ -2593,12 +2614,11 @@ export class InteractionManager {
             const startY = this.dragStartObjectPos.y;
 
             // ✨ AXIS-LOCK with THRESHOLD: 10cm'den fazla sapma olursa serbest bırak
-            const AXIS_LOCK_THRESHOLD = 10; // cm
+
+            const AXIS_LOCK_THRESHOLD = 0; // cm
             const totalDx = Math.abs(point.x - startX);
             const totalDy = Math.abs(point.y - startY);
-
             let newX, newY;
-
             // Her iki eksenden de 10cm'den fazla sapmışsa → SERBEST HAREKET
             if (totalDx > AXIS_LOCK_THRESHOLD && totalDy > AXIS_LOCK_THRESHOLD) {
                 newX = point.x;
@@ -2619,37 +2639,37 @@ export class InteractionManager {
 
             // Sayacı axis-locked pozisyona taşı (SMOOTH!)
             sayac.move(newX, newY);
-
-            // İlişkili vanayı taşı (SADECE VANAYI, BORUYU DEĞİL!)
-            if (sayac.iliskiliVanaId) {
-                const vana = this.manager.components.find(c => c.id === sayac.iliskiliVanaId && c.type === 'vana');
-                if (vana) {
-                    // Vanayı delta kadar taşı
-                    vana.move(vana.x + dx, vana.y + dy);
-
-                    // NOT: Vana bir boruya bağlı olsa bile, boruyu TAŞIMA!
-                    // Vana boru üzerinde kayacak, boru sabit kalacak
-                }
-            }
-
-            // Fleks bağlantı noktasını taşı (DELTA kadar, sayacın giriş noktasına DEĞİL!)
-            // SADECE o ucu taşı, diğer uç sabit kalmalı
-            if (sayac.fleksBaglanti && sayac.fleksBaglanti.boruId) {
-                const fleksBoru = this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
-                if (fleksBoru) {
-                    const endpoint = sayac.fleksBaglanti.endpoint; // 'p1' veya 'p2'
-                    if (endpoint === 'p1') {
-                        // Sadece p1'i delta kadar taşı, p2 sabit kalır
-                        fleksBoru.p1.x += dx;
-                        fleksBoru.p1.y += dy;
-                    } else if (endpoint === 'p2') {
-                        // Sadece p2'yi delta kadar taşı, p1 sabit kalır
-                        fleksBoru.p2.x += dx;
-                        fleksBoru.p2.y += dy;
-                    }
-                }
-            }
-
+            /*
+                        // İlişkili vanayı taşı (SADECE VANAYI, BORUYU DEĞİL!)
+                        if (sayac.iliskiliVanaId) {
+                            const vana = this.manager.components.find(c => c.id === sayac.iliskiliVanaId && c.type === 'vana');
+                            if (vana) {
+                                // Vanayı delta kadar taşı
+                                vana.move(vana.x + dx, vana.y + dy);
+            
+                                // NOT: Vana bir boruya bağlı olsa bile, boruyu TAŞIMA!
+                                // Vana boru üzerinde kayacak, boru sabit kalacak
+                            }
+                        }
+            
+                        // Fleks bağlantı noktasını taşı (DELTA kadar, sayacın giriş noktasına DEĞİL!)
+                        // SADECE o ucu taşı, diğer uç sabit kalmalı
+                        if (sayac.fleksBaglanti && sayac.fleksBaglanti.boruId) {
+                            const fleksBoru = this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
+                            if (fleksBoru) {
+                                const endpoint = sayac.fleksBaglanti.endpoint; // 'p1' veya 'p2'
+                                if (endpoint === 'p1') {
+                                    // Sadece p1'i delta kadar taşı, p2 sabit kalır
+                                    fleksBoru.p1.x += dx;
+                                    fleksBoru.p1.y += dy;
+                                } else if (endpoint === 'p2') {
+                                    // Sadece p2'yi delta kadar taşı, p1 sabit kalır
+                                    fleksBoru.p2.x += dx;
+                                    fleksBoru.p2.y += dy;
+                                }
+                            }
+                        }
+            */
             // Çıkış borusunu güncelle (GİRİŞ GİBİ DELTA KADAR TAŞI!)
             // Sadece çıkış borusunun p1 ucunu güncelle, p2 ve bağlı borular sabit
             if (sayac.cikisBagliBoruId) {
@@ -2843,6 +2863,10 @@ export class InteractionManager {
                             draggedPipe.boruTipi
                         );
                         bridgePipe1.floorId = draggedPipe.floorId;
+
+                        // ✨ DÜZELTME: Rengi kopyala (TURQUAZ ise TURQUAZ kalsın)
+                        bridgePipe1.colorGroup = draggedPipe.colorGroup;
+
                         this.manager.pipes.push(bridgePipe1);
                     }
                 }
@@ -2857,6 +2881,10 @@ export class InteractionManager {
                             draggedPipe.boruTipi
                         );
                         bridgePipe2.floorId = draggedPipe.floorId;
+
+                        // ✨ DÜZELTME: Rengi kopyala (TURQUAZ ise TURQUAZ kalsın)
+                        bridgePipe2.colorGroup = draggedPipe.colorGroup;
+
                         this.manager.pipes.push(bridgePipe2);
                     }
                 }
