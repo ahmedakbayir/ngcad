@@ -47,6 +47,7 @@ export class InteractionManager {
         this.isDragging = false;
         this.dragStart = null;
         this.dragObject = null;
+        this.ctrlPressed = false; // CTRL tuşu basılı mı?
 
         // Döndürme durumu
         this.isRotating = false;
@@ -80,6 +81,9 @@ export class InteractionManager {
         const mouseScreenY = e.clientY - rect.top;
         const point = screenToWorld(mouseScreenX, mouseScreenY);
         const walls = state.walls;
+
+        // CTRL tuşu durumunu güncelle
+        this.ctrlPressed = e.ctrlKey || false;
 
         // Son mouse pozisyonunu kaydet
         this.lastMousePoint = point;
@@ -2146,6 +2150,21 @@ export class InteractionManager {
         this.dragObject = pipe;
         this.dragEndpoint = endpoint;
         this.dragStart = { ...point };
+        this.dragStartCtrl = this.ctrlPressed; // CTRL basılı mı kaydet
+        this.dragLastPoint = { ...point }; // Son pozisyonu takip et
+
+        // CTRL basılıysa downstream ağını bul ve cache'le
+        if (this.dragStartCtrl) {
+            // Sürüklenen ucun diğer tarafından başla (downstream)
+            const downstreamPoint = endpoint === 'p1' ? { ...pipe.p2 } : { ...pipe.p1 };
+            this.downstreamNetwork = this.getDownstreamNetwork(downstreamPoint, pipe, endpoint);
+            console.log('🔵 CTRL mode: Downstream network found:', {
+                pipes: this.downstreamNetwork.pipes.length,
+                components: this.downstreamNetwork.components.length
+            });
+        } else {
+            this.downstreamNetwork = null;
+        }
     }
 
     startDrag(obj, point) {
@@ -2153,6 +2172,7 @@ export class InteractionManager {
         this.dragObject = obj;
         this.dragEndpoint = null;
         this.dragStart = { ...point };
+        this.dragStartCtrl = this.ctrlPressed; // CTRL basılı mı kaydet
 
         // Vana için bağlı boruyu önceden kaydet (performans optimizasyonu)
         if (obj.type === 'vana' && obj.bagliBoruId) {
@@ -2527,8 +2547,17 @@ export class InteractionManager {
                 // Fleks artık otomatik olarak boru ucundan koordinat alıyor
                 // Ekstra güncelleme gerekmiyor
 
-                // Bağlı boruları güncelle (tüm zinciri)
-                this.updateConnectedPipesChain(oldPoint, finalPos);
+                // CTRL basılıysa downstream network'ü kaydır
+                if (this.dragStartCtrl && this.downstreamNetwork) {
+                    const delta = {
+                        x: finalPos.x - oldPoint.x,
+                        y: finalPos.y - oldPoint.y
+                    };
+                    this.shiftDownstreamNetwork(this.downstreamNetwork, delta);
+                } else {
+                    // Normal mod: Sadece bağlı boruları güncelle
+                    this.updateConnectedPipesChain(oldPoint, finalPos);
+                }
             } else {
                 // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır (sessizce engelle)
             }
@@ -2852,6 +2881,153 @@ export class InteractionManager {
     }
 
     /**
+     * Bir noktadan sonraki tüm tesisat ağını bulur (CTRL ile sürüklemek için)
+     * @param {Object} startPoint - Başlangıç noktası {x, y}
+     * @param {Object} excludePipe - Bu boruyu hariç tut (sürüklenen boru)
+     * @param {String} excludeEndpoint - Sürüklenen uç ('p1' veya 'p2')
+     * @returns {Object} { pipes: [], components: [], points: [] }
+     */
+    getDownstreamNetwork(startPoint, excludePipe = null, excludeEndpoint = null) {
+        const tolerance = 1.0;
+        const result = {
+            pipes: new Set(),
+            components: new Set(),
+            points: new Set()
+        };
+
+        // BFS ile tüm bağlı ağı tara
+        const queue = [];
+        const visitedPoints = new Set();
+
+        // Başlangıç noktasını ekle
+        const startKey = `${startPoint.x.toFixed(2)},${startPoint.y.toFixed(2)}`;
+        queue.push(startPoint);
+        visitedPoints.add(startKey);
+
+        while (queue.length > 0) {
+            const currentPoint = queue.shift();
+            result.points.add(currentPoint);
+
+            // Bu noktaya bağlı tüm boruları bul
+            this.manager.pipes.forEach(pipe => {
+                // Exclude edilen boruyu atla
+                if (excludePipe && pipe === excludePipe) return;
+
+                // p1 bu noktaya bağlı mı?
+                const distP1 = Math.hypot(pipe.p1.x - currentPoint.x, pipe.p1.y - currentPoint.y);
+                const distP2 = Math.hypot(pipe.p2.x - currentPoint.x, pipe.p2.y - currentPoint.y);
+
+                if (distP1 < tolerance) {
+                    // p1 bağlı - bu boruyu ekle ve p2'yi queue'ya ekle
+                    result.pipes.add(pipe);
+
+                    const p2Key = `${pipe.p2.x.toFixed(2)},${pipe.p2.y.toFixed(2)}`;
+                    if (!visitedPoints.has(p2Key)) {
+                        visitedPoints.add(p2Key);
+                        queue.push({ x: pipe.p2.x, y: pipe.p2.y });
+                    }
+                }
+
+                if (distP2 < tolerance) {
+                    // p2 bağlı - bu boruyu ekle ve p1'i queue'ya ekle
+                    result.pipes.add(pipe);
+
+                    const p1Key = `${pipe.p1.x.toFixed(2)},${pipe.p1.y.toFixed(2)}`;
+                    if (!visitedPoints.has(p1Key)) {
+                        visitedPoints.add(p1Key);
+                        queue.push({ x: pipe.p1.x, y: pipe.p1.y });
+                    }
+                }
+            });
+
+            // Bu noktaya bağlı component'leri bul (vana, cihaz, sayaç, servis kutusu)
+            this.manager.components.forEach(comp => {
+                if (comp.type === 'vana' && comp.bagliBoruId) {
+                    // Vana bir boru üzerinde - boruyu downstream'e eklediysek vanayı da ekle
+                    const vanaPipe = this.manager.pipes.find(p => p.id === comp.bagliBoruId);
+                    if (vanaPipe && result.pipes.has(vanaPipe)) {
+                        result.components.add(comp);
+                    }
+                } else if (comp.type === 'servis_kutusu') {
+                    // Servis kutusunun çıkış noktası
+                    if (comp.bagliBoruId) {
+                        const cikis = comp.getCikisNoktasi();
+                        const distCikis = Math.hypot(cikis.x - currentPoint.x, cikis.y - currentPoint.y);
+                        if (distCikis < tolerance) {
+                            result.components.add(comp);
+                        }
+                    }
+                } else if (comp.type === 'sayac') {
+                    // Sayacın inlet veya outlet noktası
+                    const inlet = comp.getInletPosition();
+                    const outlet = comp.getOutletPosition();
+                    const distInlet = Math.hypot(inlet.x - currentPoint.x, inlet.y - currentPoint.y);
+                    const distOutlet = Math.hypot(outlet.x - currentPoint.x, outlet.y - currentPoint.y);
+
+                    if (distInlet < tolerance || distOutlet < tolerance) {
+                        result.components.add(comp);
+                    }
+                } else if (comp.type === 'cihaz') {
+                    // Cihaz fleks bağlantısı
+                    if (comp.fleksBaglanti && comp.fleksBaglanti.boruId) {
+                        const fleksPipe = this.manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+                        if (fleksPipe && result.pipes.has(fleksPipe)) {
+                            result.components.add(comp);
+                        }
+                    }
+                }
+            });
+        }
+
+        return {
+            pipes: Array.from(result.pipes),
+            components: Array.from(result.components),
+            points: Array.from(result.points)
+        };
+    }
+
+    /**
+     * Downstream ağını belirtilen delta ile kaydırır (CTRL ile sürükleme)
+     * @param {Object} network - getDownstreamNetwork'ten dönen network
+     * @param {Object} delta - Kaydırma miktarı {x, y}
+     */
+    shiftDownstreamNetwork(network, delta) {
+        // Tüm boru uçlarını kaydır
+        network.pipes.forEach(pipe => {
+            pipe.p1.x += delta.x;
+            pipe.p1.y += delta.y;
+            pipe.p2.x += delta.x;
+            pipe.p2.y += delta.y;
+        });
+
+        // Tüm component'leri kaydır
+        network.components.forEach(comp => {
+            if (comp.type === 'servis_kutusu') {
+                // Servis kutusunu kaydır
+                comp.x += delta.x;
+                comp.y += delta.y;
+                // Bağlı boru zaten kaydırıldı
+            } else if (comp.type === 'sayac') {
+                // Sayacı kaydır
+                comp.x += delta.x;
+                comp.y += delta.y;
+            } else if (comp.type === 'cihaz') {
+                // Cihazı kaydır
+                comp.x += delta.x;
+                comp.y += delta.y;
+                // Fleks boru da otomatik güncellenecek
+            } else if (comp.type === 'vana') {
+                // Vana boruya bağlı - boru hareket edince otomatik güncellenir
+                // Pozisyonu yeniden hesapla
+                const vanaPipe = this.manager.pipes.find(p => p.id === comp.bagliBoruId);
+                if (vanaPipe) {
+                    comp.updatePositionFromPipe(vanaPipe);
+                }
+            }
+        });
+    }
+
+    /**
      * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
      */
     updateConnectedPipesChain(oldPoint, newPoint) {
@@ -2942,6 +3118,9 @@ export class InteractionManager {
         this.dragEndpoint = null;
         this.dragStart = null;
         this.dragStartObjectPos = null; // ✨ Sayaç başlangıç pozisyonunu temizle
+        this.dragStartCtrl = false; // CTRL flag'ini temizle
+        this.downstreamNetwork = null; // Downstream network'ü temizle
+        this.dragLastPoint = null; // Son pozisyonu temizle
         this.isBodyDrag = false;
         this.bodyDragInitialP1 = null;
         this.bodyDragInitialP2 = null;
