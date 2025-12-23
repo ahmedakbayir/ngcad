@@ -2288,8 +2288,14 @@ export class InteractionManager {
             // CTRL durumu değişti mi kontrol et (sürükleme sırasında basılmış olabilir)
             if (this.ctrlPressed && !this.dragStartCtrl && !this.downstreamNetwork) {
                 // CTRL sürükleme sırasında basıldı - downstream network'ü şimdi oluştur
+                // NOT: Başlangıç pozisyonlarını kullan (güncel değil), çünkü pipe zaten hareket etmiş olabilir
                 this.dragStartCtrl = true;
-                const downstreamPoint = this.dragEndpoint === 'p1' ? { ...pipe.p2 } : { ...pipe.p1 };
+
+                // Sürüklenmeyen ucun başlangıç pozisyonu
+                const downstreamPoint = this.dragEndpoint === 'p1' ?
+                    { x: pipe.p2.x, y: pipe.p2.y } :
+                    { x: pipe.p1.x, y: pipe.p1.y };
+
                 this.downstreamNetwork = this.getDownstreamNetwork(downstreamPoint, pipe, this.dragEndpoint);
 
                 // Şu anki pozisyonu kaydet (incremental delta için)
@@ -2937,10 +2943,21 @@ export class InteractionManager {
         const queue = [];
         const visitedPoints = new Set();
 
-        // Başlangıç noktasını ekle
+        // Başlangıç noktalarını ekle - hem startPoint hem de excludePipe'ın diğer ucu
         const startKey = `${startPoint.x.toFixed(2)},${startPoint.y.toFixed(2)}`;
         queue.push(startPoint);
         visitedPoints.add(startKey);
+
+        // Sürüklenen borunun sürüklenen ucunu da başlangıca ekle (tüm network'ü kapsasın)
+        if (excludePipe) {
+            // Sürüklenen uç (otherEnd), sürüklenmeyen uç startPoint'ten farklı
+            const draggedEnd = excludeEndpoint === 'p1' ? excludePipe.p1 : excludePipe.p2;
+            const draggedKey = `${draggedEnd.x.toFixed(2)},${draggedEnd.y.toFixed(2)}`;
+            if (draggedKey !== startKey) {
+                queue.push({ x: draggedEnd.x, y: draggedEnd.y });
+                visitedPoints.add(draggedKey);
+            }
+        }
 
         while (queue.length > 0) {
             const currentPoint = queue.shift();
@@ -2948,7 +2965,7 @@ export class InteractionManager {
 
             // Bu noktaya bağlı tüm boruları bul
             this.manager.pipes.forEach(pipe => {
-                // Exclude edilen boruyu atla
+                // Sürüklenen boruyu atla
                 if (excludePipe && pipe === excludePipe) return;
 
                 // p1 bu noktaya bağlı mı?
