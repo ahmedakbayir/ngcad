@@ -2954,17 +2954,19 @@ export class InteractionManager {
 
             // Bu noktaya bağlı tüm boruları bul
             this.manager.pipes.forEach(pipe => {
-                // Sürüklenen boruyu atla
-                if (excludePipe && pipe === excludePipe) return;
-
                 // p1 bu noktaya bağlı mı?
                 const distP1 = Math.hypot(pipe.p1.x - currentPoint.x, pipe.p1.y - currentPoint.y);
                 const distP2 = Math.hypot(pipe.p2.x - currentPoint.x, pipe.p2.y - currentPoint.y);
 
-                if (distP1 < tolerance) {
-                    // p1 bağlı - bu boruyu ekle ve p2'yi queue'ya ekle
-                    result.pipes.add(pipe);
+                const isDraggedPipe = (excludePipe && pipe === excludePipe);
 
+                if (distP1 < tolerance) {
+                    // Sürüklenen boru DEĞİLSE result'a ekle
+                    if (!isDraggedPipe) {
+                        result.pipes.add(pipe);
+                    }
+
+                    // Her durumda p2'yi queue'ya ekle (sürüklenen borunun diğer ucundan devam et)
                     const p2Key = `${pipe.p2.x.toFixed(2)},${pipe.p2.y.toFixed(2)}`;
                     if (!visitedPoints.has(p2Key)) {
                         visitedPoints.add(p2Key);
@@ -2973,9 +2975,12 @@ export class InteractionManager {
                 }
 
                 if (distP2 < tolerance) {
-                    // p2 bağlı - bu boruyu ekle ve p1'i queue'ya ekle
-                    result.pipes.add(pipe);
+                    // Sürüklenen boru DEĞİLSE result'a ekle
+                    if (!isDraggedPipe) {
+                        result.pipes.add(pipe);
+                    }
 
+                    // Her durumda p1'i queue'ya ekle (sürüklenen borunun diğer ucundan devam et)
                     const p1Key = `${pipe.p1.x.toFixed(2)},${pipe.p1.y.toFixed(2)}`;
                     if (!visitedPoints.has(p1Key)) {
                         visitedPoints.add(p1Key);
