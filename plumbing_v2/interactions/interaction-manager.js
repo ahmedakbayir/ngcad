@@ -3004,23 +3004,39 @@ export class InteractionManager {
                         result.components.add(comp);
                     }
                 } else if (comp.type === 'servis_kutusu') {
-                    // Servis kutusunun çıkış noktası
+                    // Servis kutusunun çıkış noktası - eğer bu noktaya bağlıysa, girişi de queue'ya ekle
                     if (comp.bagliBoruId) {
                         const cikis = comp.getCikisNoktasi();
                         const distCikis = Math.hypot(cikis.x - currentPoint.x, cikis.y - currentPoint.y);
                         if (distCikis < tolerance) {
                             result.components.add(comp);
+                            // Servis kutusunun giriş noktasını queue'ya ekle (eğer varsa)
+                            // NOT: Servis kutusu genelde bir duvara bağlı, giriş yok
                         }
                     }
                 } else if (comp.type === 'sayac') {
-                    // Sayacın giriş veya çıkış noktası
+                    // Sayacın giriş veya çıkış noktası - eğer birine bağlıysa, diğerini queue'ya ekle
                     const giris = comp.getGirisNoktasi();
                     const cikis = comp.getCikisNoktasi();
                     const distGiris = Math.hypot(giris.x - currentPoint.x, giris.y - currentPoint.y);
                     const distCikis = Math.hypot(cikis.x - currentPoint.x, cikis.y - currentPoint.y);
 
-                    if (distGiris < tolerance || distCikis < tolerance) {
+                    if (distGiris < tolerance) {
+                        // Giriş noktasına bağlı - sayacı ekle ve çıkış noktasını queue'ya ekle
                         result.components.add(comp);
+                        const cikisKey = `${cikis.x.toFixed(2)},${cikis.y.toFixed(2)}`;
+                        if (!visitedPoints.has(cikisKey)) {
+                            visitedPoints.add(cikisKey);
+                            queue.push({ x: cikis.x, y: cikis.y });
+                        }
+                    } else if (distCikis < tolerance) {
+                        // Çıkış noktasına bağlı - sayacı ekle ve giriş noktasını queue'ya ekle
+                        result.components.add(comp);
+                        const girisKey = `${giris.x.toFixed(2)},${giris.y.toFixed(2)}`;
+                        if (!visitedPoints.has(girisKey)) {
+                            visitedPoints.add(girisKey);
+                            queue.push({ x: giris.x, y: giris.y });
+                        }
                     }
                 } else if (comp.type === 'cihaz') {
                     // Cihaz fleks bağlantısı
