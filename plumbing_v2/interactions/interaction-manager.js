@@ -2590,15 +2590,18 @@ export class InteractionManager {
                 this.dragObject.placeFree(point);
             }
 
-            // Bağlı boru zincirini güncelle
+            // ✨ DÜZELTME: Bağlı boruyu MUTLAK koordinatlara senkronize et (kopmaları önler)
+            // Delta yerine syncComponentConnections kullanıyoruz
+            this.syncComponentConnections();
+
+            // Bağlı boru zincirini de güncelle (zincir boyunca yayılma için)
             if (this.dragObject.bagliBoruId) {
                 const boru = this.manager.pipes.find(p => p.id === this.dragObject.bagliBoruId);
                 if (boru) {
-                    const oldP1 = { ...boru.p1 };
+                    // Sync işleminden sonra zincir güncelleme
+                    // (syncComponentConnections zaten p1'i doğru konuma koydu)
                     const newCikis = this.dragObject.getCikisNoktasi();
-                    boru.moveP1(newCikis);
-                    // Boru zincirini güncelle
-                    this.updateConnectedPipesChain(oldP1, newCikis);
+                    this.updateConnectedPipesChain(boru.p1, newCikis);
                 }
             }
             return;
@@ -2645,60 +2648,21 @@ export class InteractionManager {
                 newY = point.y;
             }
 
-            // Delta hesapla
-            const dx = newX - sayac.x;
-            const dy = newY - sayac.y;
-
             // Sayacı axis-locked pozisyona taşı (SMOOTH!)
             sayac.move(newX, newY);
-            /*
-                        // İlişkili vanayı taşı (SADECE VANAYI, BORUYU DEĞİL!)
-                        if (sayac.iliskiliVanaId) {
-                            const vana = this.manager.components.find(c => c.id === sayac.iliskiliVanaId && c.type === 'vana');
-                            if (vana) {
-                                // Vanayı delta kadar taşı
-                                vana.move(vana.x + dx, vana.y + dy);
-            
-                                // NOT: Vana bir boruya bağlı olsa bile, boruyu TAŞIMA!
-                                // Vana boru üzerinde kayacak, boru sabit kalacak
-                            }
-                        }
-            
-                        // Fleks bağlantı noktasını taşı (DELTA kadar, sayacın giriş noktasına DEĞİL!)
-                        // SADECE o ucu taşı, diğer uç sabit kalmalı
-                        if (sayac.fleksBaglanti && sayac.fleksBaglanti.boruId) {
-                            const fleksBoru = this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
-                            if (fleksBoru) {
-                                const endpoint = sayac.fleksBaglanti.endpoint; // 'p1' veya 'p2'
-                                if (endpoint === 'p1') {
-                                    // Sadece p1'i delta kadar taşı, p2 sabit kalır
-                                    fleksBoru.p1.x += dx;
-                                    fleksBoru.p1.y += dy;
-                                } else if (endpoint === 'p2') {
-                                    // Sadece p2'yi delta kadar taşı, p1 sabit kalır
-                                    fleksBoru.p2.x += dx;
-                                    fleksBoru.p2.y += dy;
-                                }
-                            }
-                        }
-            */
-            // Çıkış borusunu güncelle (GİRİŞ GİBİ DELTA KADAR TAŞI!)
-            // Sadece çıkış borusunun p1 ucunu güncelle, p2 ve bağlı borular sabit
+
+            // ✨ DÜZELTME: Tüm bağlantıları MUTLAK koordinatlara senkronize et
+            // Delta yerine syncComponentConnections kullanıyoruz - offset hatalarını önler
+            this.syncComponentConnections();
+
+            // Bağlı boru zincirini de güncelle (zincir boyunca yayılma için)
             if (sayac.cikisBagliBoruId) {
                 const cikisBoru = this.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
                 if (cikisBoru) {
-                    // Eski p1 pozisyonunu kaydet
-                    const oldP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
-
-                    // Çıkış boru ucunu DELTA kadar taşı (giriş ile aynı mantık)
-                    cikisBoru.p1.x += dx;
-                    cikisBoru.p1.y += dy;
-
-                    // Yeni p1 pozisyonu
-                    const newP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
-
-                    // Bağlı boru zincirini güncelle (cihazların fleks bağlantıları için kritik!)
-                    this.updateConnectedPipesChain(oldP1, newP1);
+                    // Sync işleminden sonra zincir güncelleme
+                    // (syncComponentConnections zaten p1'i doğru konuma koydu)
+                    const newCikis = sayac.getCikisNoktasi();
+                    this.updateConnectedPipesChain(cikisBoru.p1, newCikis);
                 }
             }
 
@@ -2841,7 +2805,8 @@ export class InteractionManager {
      * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
      */
     updateConnectedPipesChain(oldPoint, newPoint) {
-        const tolerance = 1.0; // cm - floating point hataları için yeterince büyük
+        // ✨ DÜZELTME: Toleransı artırdık (1.0 → 5.0 cm) - hızlı sürüklemelerde kopmaları önler
+        const tolerance = 5.0; // cm - hızlı mouse hareketleri için artırıldı
 
         // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
         this.manager.pipes.forEach(pipe => {
@@ -2862,6 +2827,73 @@ export class InteractionManager {
 
         // Fleks artık boruId ve endpoint ('p1'/'p2') saklıyor
         // Koordinatlar her zaman borudan okunuyor, ekstra güncelleme gerekmiyor
+    }
+
+    /**
+     * ✨ YENİ: Tüm bileşen bağlantılarını senkronize et (KOPMA ÖNLEYİCİ)
+     * Her frame'de veya kritik işlemlerden sonra çağrılır
+     * Boru uçlarını bileşenlerin çıkış noktalarına MUTLAK olarak eşitler
+     */
+    syncComponentConnections() {
+        // 1. Servis Kutuları - çıkış noktasını bağlı borunun p1'ine eşitle
+        this.manager.components.filter(c => c.type === 'servis_kutusu').forEach(kutu => {
+            if (kutu.bagliBoruId) {
+                const boru = this.manager.pipes.find(p => p.id === kutu.bagliBoruId);
+                if (boru) {
+                    const cikisNoktasi = kutu.getCikisNoktasi();
+                    boru.p1.x = cikisNoktasi.x;
+                    boru.p1.y = cikisNoktasi.y;
+                }
+            }
+        });
+
+        // 2. Sayaçlar - çıkış noktasını bağlı borunun p1'ine eşitle
+        this.manager.components.filter(c => c.type === 'sayac').forEach(sayac => {
+            if (sayac.cikisBagliBoruId) {
+                const boru = this.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
+                if (boru) {
+                    const cikisNoktasi = sayac.getCikisNoktasi();
+                    boru.p1.x = cikisNoktasi.x;
+                    boru.p1.y = cikisNoktasi.y;
+                }
+            }
+        });
+
+        // 3. Cihazlar (KOMBI, OCAK) - giriş noktasını bağlı fleks borusunun ucuna eşitle
+        this.manager.components.filter(c => c.type === 'cihaz').forEach(cihaz => {
+            if (cihaz.girisFleks && cihaz.girisFleks.boruId) {
+                const fleksBoru = this.manager.pipes.find(p => p.id === cihaz.girisFleks.boruId);
+                if (fleksBoru && cihaz.girisFleks.endpoint) {
+                    const girisNoktasi = cihaz.getGirisNoktasi();
+                    const endpoint = cihaz.girisFleks.endpoint;
+                    if (endpoint === 'p1') {
+                        fleksBoru.p1.x = girisNoktasi.x;
+                        fleksBoru.p1.y = girisNoktasi.y;
+                    } else if (endpoint === 'p2') {
+                        fleksBoru.p2.x = girisNoktasi.x;
+                        fleksBoru.p2.y = girisNoktasi.y;
+                    }
+                }
+            }
+        });
+
+        // 4. Sayaç giriş fleks bağlantısı - sol rakora eşitle
+        this.manager.components.filter(c => c.type === 'sayac').forEach(sayac => {
+            if (sayac.fleksBaglanti && sayac.fleksBaglanti.boruId) {
+                const fleksBoru = this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
+                if (fleksBoru && sayac.fleksBaglanti.endpoint) {
+                    const solRakor = sayac.getSolRakorNoktasi();
+                    const endpoint = sayac.fleksBaglanti.endpoint;
+                    if (endpoint === 'p1') {
+                        fleksBoru.p1.x = solRakor.x;
+                        fleksBoru.p1.y = solRakor.y;
+                    } else if (endpoint === 'p2') {
+                        fleksBoru.p2.x = solRakor.x;
+                        fleksBoru.p2.y = solRakor.y;
+                    }
+                }
+            }
+        });
     }
 
     endDrag() {
@@ -2922,6 +2954,10 @@ export class InteractionManager {
                 }
             } // useBridgeMode if bloğu kapanışı
         }
+
+        // ✨ DÜZELTME: Sürükleme bittiğinde tüm bağlantıları senkronize et
+        // Bu son bir "heal" işlemi - olası tüm kopmaları giderir
+        this.syncComponentConnections();
 
         this.isDragging = false;
         this.dragObject = null;
@@ -3082,35 +3118,26 @@ export class InteractionManager {
     updateConnectedPipe(result) {
         if (!result) return;
 
-        if (result.bagliBoruId && result.delta) {
+        // ✨ DÜZELTME: Önce mutlak senkronizasyon yap (delta yerine)
+        this.syncComponentConnections();
+
+        if (result.bagliBoruId) {
             const boru = this.manager.pipes.find(p => p.id === result.bagliBoruId);
             if (boru) {
-                // Eski p1 pozisyonunu kaydet
-                const oldP1 = { x: boru.p1.x, y: boru.p1.y };
-
-                boru.moveP1({
-                    x: boru.p1.x + result.delta.x,
-                    y: boru.p1.y + result.delta.y
-                });
-
-                // Yeni p1 pozisyonu
+                // Sync zaten boru.p1'i doğru konuma koydu
+                // Şimdi zinciri güncelle
                 const newP1 = { x: boru.p1.x, y: boru.p1.y };
-
-                // Bağlı boru zincirini güncelle
-                this.updateConnectedPipesChain(oldP1, newP1);
+                this.updateConnectedPipesChain(boru.p1, newP1);
             }
         }
 
-        if (result.cikisBagliBoruId && result.yeniCikis) {
+        if (result.cikisBagliBoruId) {
             const boru = this.manager.pipes.find(p => p.id === result.cikisBagliBoruId);
             if (boru) {
-                // Eski p1 pozisyonunu kaydet
-                const oldP1 = { x: boru.p1.x, y: boru.p1.y };
-
-                boru.moveP1(result.yeniCikis);
-
-                // Bağlı boru zincirini güncelle
-                this.updateConnectedPipesChain(oldP1, result.yeniCikis);
+                // Sync zaten boru.p1'i doğru konuma koydu
+                // Şimdi zinciri güncelle
+                const newP1 = { x: boru.p1.x, y: boru.p1.y };
+                this.updateConnectedPipesChain(boru.p1, newP1);
             }
         }
     }
