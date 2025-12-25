@@ -2651,37 +2651,38 @@ export class InteractionManager {
 
             // Sayacı axis-locked pozisyona taşı (SMOOTH!)
             sayac.move(newX, newY);
-            /*
-                        // İlişkili vanayı taşı (SADECE VANAYI, BORUYU DEĞİL!)
-                        if (sayac.iliskiliVanaId) {
-                            const vana = this.manager.components.find(c => c.id === sayac.iliskiliVanaId && c.type === 'vana');
-                            if (vana) {
-                                // Vanayı delta kadar taşı
-                                vana.move(vana.x + dx, vana.y + dy);
-            
-                                // NOT: Vana bir boruya bağlı olsa bile, boruyu TAŞIMA!
-                                // Vana boru üzerinde kayacak, boru sabit kalacak
-                            }
-                        }
-            
-                        // Fleks bağlantı noktasını taşı (DELTA kadar, sayacın giriş noktasına DEĞİL!)
-                        // SADECE o ucu taşı, diğer uç sabit kalmalı
-                        if (sayac.fleksBaglanti && sayac.fleksBaglanti.boruId) {
-                            const fleksBoru = this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
-                            if (fleksBoru) {
-                                const endpoint = sayac.fleksBaglanti.endpoint; // 'p1' veya 'p2'
-                                if (endpoint === 'p1') {
-                                    // Sadece p1'i delta kadar taşı, p2 sabit kalır
-                                    fleksBoru.p1.x += dx;
-                                    fleksBoru.p1.y += dy;
-                                } else if (endpoint === 'p2') {
-                                    // Sadece p2'yi delta kadar taşı, p1 sabit kalır
-                                    fleksBoru.p2.x += dx;
-                                    fleksBoru.p2.y += dy;
-                                }
-                            }
-                        }
-            */
+
+            // Fleks bağlantı noktasını taşı (DELTA kadar, sayacın giriş noktasına DEĞİL!)
+            // SADECE o ucu taşı, diğer uç sabit kalmalı
+            if (sayac.fleksBaglanti && sayac.fleksBaglanti.boruId) {
+                const fleksBoru = this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
+                if (fleksBoru) {
+                    const endpoint = sayac.fleksBaglanti.endpoint; // 'p1' veya 'p2'
+
+                    // Eski pozisyonu kaydet
+                    const oldEndpoint = endpoint === 'p1'
+                        ? { x: fleksBoru.p1.x, y: fleksBoru.p1.y }
+                        : { x: fleksBoru.p2.x, y: fleksBoru.p2.y };
+
+                    if (endpoint === 'p1') {
+                        // Sadece p1'i delta kadar taşı, p2 sabit kalır
+                        fleksBoru.p1.x += dx;
+                        fleksBoru.p1.y += dy;
+                    } else if (endpoint === 'p2') {
+                        // Sadece p2'yi delta kadar taşı, p1 sabit kalır
+                        fleksBoru.p2.x += dx;
+                        fleksBoru.p2.y += dy;
+                    }
+
+                    // Yeni pozisyon
+                    const newEndpoint = endpoint === 'p1'
+                        ? { x: fleksBoru.p1.x, y: fleksBoru.p1.y }
+                        : { x: fleksBoru.p2.x, y: fleksBoru.p2.y };
+
+                    // Bağlı boru zincirini güncelle
+                    this.updateConnectedPipesChain(oldEndpoint, newEndpoint);
+                }
+            }
             // Çıkış borusunu güncelle (GİRİŞ GİBİ DELTA KADAR TAŞI!)
             // Sadece çıkış borusunun p1 ucunu güncelle, p2 ve bağlı borular sabit
             if (sayac.cikisBagliBoruId) {
@@ -3050,6 +3051,38 @@ export class InteractionManager {
             let normalizedRotation = newRotationDeg % 360;
             if (normalizedRotation < 0) normalizedRotation += 360;
             obj.rotation = normalizedRotation;
+
+            // Giriş flex bağlantısını güncelle (giriş noktası döndükçe değişir)
+            if (obj.fleksBaglanti && obj.fleksBaglanti.boruId) {
+                const fleksBoru = this.manager.pipes.find(p => p.id === obj.fleksBaglanti.boruId);
+                if (fleksBoru) {
+                    const endpoint = obj.fleksBaglanti.endpoint; // 'p1' veya 'p2'
+
+                    // Eski pozisyonu kaydet
+                    const oldEndpoint = endpoint === 'p1'
+                        ? { x: fleksBoru.p1.x, y: fleksBoru.p1.y }
+                        : { x: fleksBoru.p2.x, y: fleksBoru.p2.y };
+
+                    // Yeni giriş noktasını al
+                    const yeniGiris = obj.getGirisNoktasi();
+
+                    // Flex borunun bağlı ucunu yeni giriş noktasına taşı
+                    if (endpoint === 'p1') {
+                        fleksBoru.p1.x = yeniGiris.x;
+                        fleksBoru.p1.y = yeniGiris.y;
+                    } else if (endpoint === 'p2') {
+                        fleksBoru.p2.x = yeniGiris.x;
+                        fleksBoru.p2.y = yeniGiris.y;
+                    }
+
+                    // Yeni pozisyon
+                    const newEndpoint = { x: yeniGiris.x, y: yeniGiris.y };
+
+                    // Bağlı boru zincirini güncelle
+                    this.updateConnectedPipesChain(oldEndpoint, newEndpoint);
+                }
+            }
+
             // Çıkış borusunu güncelle (çıkış noktası döndükçe değişir)
             if (obj.cikisBagliBoruId) {
                 const cikisBoru = this.manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
