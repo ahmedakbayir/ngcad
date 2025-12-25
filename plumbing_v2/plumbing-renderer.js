@@ -264,6 +264,13 @@ export class PlumbingRenderer {
         if (manager.interactionManager?.vanaPreview) {
             this.drawVanaPreview(ctx, manager.interactionManager.vanaPreview);
         }
+
+        // Canlı hat preview (başlangıç noktası seçildi, mouse hareket ediyor)
+        if (manager.interactionManager?.canliHatModu &&
+            manager.interactionManager?.canliHatBaslangic &&
+            manager.interactionManager?.lastMousePoint) {
+            this.drawCanliHatPreview(ctx, manager.interactionManager);
+        }
     }
 
     drawPipes(ctx, pipes) {
@@ -312,28 +319,51 @@ export class PlumbingRenderer {
                 ctx.fillRect(0, -width / 2, length, width);
 
             } else {
-                // Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
-                const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-
                 // Renk grubuna göre renk seç
                 const colorGroup = pipe.colorGroup || 'YELLOW';
 
-                // Kenarlarda hafif karartma, ortası boru rengi
-                // Geçişler yumuşak tutuldu
-                if (isLightMode) {
-                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
-                    gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    //getShadow(ctx);
+                // Canlı Hat (Hayali Boru) - Kesikli sarı çizgi
+                if (colorGroup === 'CANLI_HAT') {
+                    // Sarı renk
+                    const isLightMode = document.body.classList.contains('light-mode');
+                    const dashColor = isLightMode ? '#FFA500' : '#FFFF00'; // Turuncu (açık mod) veya Sarı (koyu mod)
+
+                    ctx.strokeStyle = dashColor;
+                    ctx.lineWidth = width;
+                    ctx.lineCap = 'round';
+
+                    // Kesikli çizgi ayarı (10 cm çizgi, 10 cm boşluk)
+                    ctx.setLineDash([10, 10]);
+
+                    // Çizgiyi çiz
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(length, 0);
+                    ctx.stroke();
+
+                    // Kesikli çizgi ayarını sıfırla
+                    ctx.setLineDash([]);
+                } else {
+                    // Normal boru - Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
+                    const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
+
+                    // Kenarlarda hafif karartma, ortası boru rengi
+                    // Geçişler yumuşak tutuldu
+                    if (isLightMode) {
+                        gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                        gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
+                        gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                        //getShadow(ctx);
+                    }
+                    else {
+                        gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 1));
+                        gradient.addColorStop(0.1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                        gradient.addColorStop(0.9, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                        gradient.addColorStop(1,   this.getRenkByGroup(colorGroup, 'boru', 1));
+                    }
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, -width / 2, length, width);
                 }
-                else {
-                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 1));
-                    gradient.addColorStop(0.1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    gradient.addColorStop(0.9, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    gradient.addColorStop(1,   this.getRenkByGroup(colorGroup, 'boru', 1));
-                }
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, -width / 2, length, width);
             }
 
             ctx.restore();
@@ -1878,6 +1908,55 @@ export class PlumbingRenderer {
         ctx.lineTo(solRakor.x, solRakor.y);
         ctx.stroke();
 
+
+        ctx.restore();
+    }
+
+    /**
+     * Canlı Hat Preview - Başlangıç noktasından mouse'a kesikli çizgi
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {InteractionManager} interactionManager
+     */
+    drawCanliHatPreview(ctx, interactionManager) {
+        const baslangic = interactionManager.canliHatBaslangic;
+        const mouse = interactionManager.lastMousePoint;
+
+        if (!baslangic || !mouse) return;
+
+        ctx.save();
+
+        // Sarı renk (light/dark mode)
+        const isLightMode = document.body.classList.contains('light-mode');
+        const dashColor = isLightMode ? '#FFA500' : '#FFFF00'; // Turuncu (açık mod) veya Sarı (koyu mod)
+
+        // 1. Başlangıç noktasını işaretle (daire)
+        ctx.fillStyle = dashColor;
+        ctx.strokeStyle = dashColor;
+        ctx.lineWidth = 2;
+
+        // Dış daire (5 cm yarıçap)
+        ctx.beginPath();
+        ctx.arc(baslangic.x, baslangic.y, 5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // İç dolu daire (2 cm yarıçap)
+        ctx.beginPath();
+        ctx.arc(baslangic.x, baslangic.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2. Kesikli çizgi (başlangıç → mouse)
+        ctx.strokeStyle = dashColor;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.setLineDash([10, 10]); // 10 cm çizgi, 10 cm boşluk
+
+        ctx.beginPath();
+        ctx.moveTo(baslangic.x, baslangic.y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.stroke();
+
+        // Kesikli çizgi ayarını sıfırla
+        ctx.setLineDash([]);
 
         ctx.restore();
     }
