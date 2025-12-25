@@ -65,6 +65,10 @@ export class InteractionManager {
 
         // Vana preview (vana tool aktif)
         this.vanaPreview = null; // { pipe, point, t, snapToEnd }
+
+        // Canlı hat modu (servis kutusu olmadan sayaç ekleme)
+        this.canliHatModu = false;
+        this.canliHatBaslangic = null; // İlk tıklama noktası
     }
 
     /**
@@ -268,6 +272,30 @@ export class InteractionManager {
             : point;
 
         //console.log('[POINTER DOWN] activeTool:', this.manager.activeTool, 'tempComponent:', this.manager.tempComponent?.type);
+
+        // 0.1 Canlı Hat Modu - Servis kutusu olmadan sayaç ekleme
+        if (this.canliHatModu) {
+            if (!this.canliHatBaslangic) {
+                // İlk tıklama - Başlangıç noktası
+                this.canliHatBaslangic = { x: targetPoint.x, y: targetPoint.y };
+                console.log('[CANLI HAT] Başlangıç noktası kaydedildi:', this.canliHatBaslangic);
+                console.log('[CANLI HAT] Şimdi sayaç konumuna tıklayın');
+                return true;
+            } else {
+                // İkinci tıklama - Sayaç konumu
+                const sayacKonumu = { x: targetPoint.x, y: targetPoint.y };
+                console.log('[CANLI HAT] Sayaç konumu:', sayacKonumu);
+
+                // Hayali boru + sayaç ekle
+                const success = this.handleCanliHatSayacEkleme(this.canliHatBaslangic, sayacKonumu);
+
+                // Canlı hat modundan çık
+                this.canliHatModu = false;
+                this.canliHatBaslangic = null;
+
+                return true;
+            }
+        }
 
         // 0.4 Vana ekleme - Vana tool aktif ve preview var
         if (this.manager.activeTool === 'vana' && !this.boruCizimAktif && this.vanaPreview) {
@@ -576,7 +604,22 @@ export class InteractionManager {
             // Mevcut eylemleri iptal et
             this.cancelCurrentAction();
 
-            // Sayaç ghost modunu başlat
+            // Servis kutusu kontrolü - Canlı Hat tespiti
+            const servisKutusuVar = this.manager.components.some(c => c.type === 'servis_kutusu');
+
+            if (!servisKutusuVar) {
+                // Servis kutusu yok - CANLI HAT moduna geç
+                console.log('[CANLI HAT] Servis kutusu bulunamadı, canlı hat modu başlatılıyor');
+                this.canliHatModu = true;
+                this.canliHatBaslangic = null;
+                setMode("plumbingV2", true);
+
+                // Kullanıcıya bilgi ver
+                console.log('[CANLI HAT] İlk tıklama: Canlı hat giriş noktası, İkinci tıklama: Sayaç konumu');
+                return true;
+            }
+
+            // Normal sayaç ekleme (servis kutusu var)
             this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
             setMode("plumbingV2", true);
 
@@ -3332,6 +3375,90 @@ export class InteractionManager {
             return null;
         }
         return { p1: this.boruBaslangic.nokta, p2: this.geciciBoruBitis };
+    }
+
+    /**
+     * Canlı Hat Sayaç Ekleme
+     * Servis kutusu olmadan sayaç ekleme senaryosu
+     *
+     * @param {Object} baslangic - Canlı hat giriş noktası {x, y}
+     * @param {Object} sayacKonumu - Sayaç yerleştirme noktası {x, y}
+     * @returns {boolean} - Başarı durumu
+     */
+    handleCanliHatSayacEkleme(baslangic, sayacKonumu) {
+        console.log('[CANLI HAT] Sayaç ekleme başlıyor...', { baslangic, sayacKonumu });
+
+        // State kaydet (undo için)
+        saveState();
+
+        // 1. Hayali boru oluştur (başlangıç → sayaç konumu)
+        // Borunun açısını hesapla (başlangıçtan sayaç konumuna)
+        const dx = sayacKonumu.x - baslangic.x;
+        const dy = sayacKonumu.y - baslangic.y;
+        const boruAcisi = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        // Sayaç oluştur
+        const sayac = createSayac(sayacKonumu.x, sayacKonumu.y, {
+            floorId: state.currentFloor?.id
+        });
+
+        // Sayaç rotasyonunu boru açısına göre ayarla
+        sayac.rotation = boruAcisi;
+
+        // Sayaç giriş noktasını hesapla (world coordinates)
+        const sayacGirisNoktasi = sayac.getGirisNoktasi();
+
+        // Hayali boru oluştur: başlangıç → sayaç giriş noktası
+        const hayaliBoru = createBoru(
+            { x: baslangic.x, y: baslangic.y },
+            { x: sayacGirisNoktasi.x, y: sayacGirisNoktasi.y }
+        );
+
+        // Hayali boruyu işaretle (özel renk grubu)
+        hayaliBoru.colorGroup = 'CANLI_HAT'; // Sarı kesikli çizgi olarak çizilecek
+        hayaliBoru.floorId = state.currentFloor?.id;
+
+        // Hayali borunun p2 ucunu sayaca bağla
+        hayaliBoru.bitisBaglanti = {
+            tip: BAGLANTI_TIPLERI.SAYAC,
+            hedefId: sayac.id,
+            noktaIndex: null
+        };
+
+        // Rijit uzunluğu hesapla (hayali boru uzunluğu kadar)
+        const fleksUzunluk = Math.hypot(
+            sayacGirisNoktasi.x - baslangic.x,
+            sayacGirisNoktasi.y - baslangic.y
+        );
+        sayac.config.rijitUzunluk = fleksUzunluk;
+
+        // Sayaca hayali boruyu fleks olarak bağla
+        sayac.fleksBagla(hayaliBoru.id, 'p2');
+
+        // Bileşenleri manager'a ekle
+        this.manager.pipes.push(hayaliBoru);
+        this.manager.components.push(sayac);
+
+        console.log('[CANLI HAT] Hayali boru ve sayaç eklendi', {
+            hayaliBoruId: hayaliBoru.id,
+            sayacId: sayac.id,
+            fleksUzunluk
+        });
+
+        // 2. Sayaç çıkışından boru çizimi başlat
+        const cikisNoktasi = sayac.getCikisNoktasi();
+        this.startBoruCizim(cikisNoktasi, sayac.id, BAGLANTI_TIPLERI.SAYAC);
+
+        // Boru moduna geç
+        this.manager.activeTool = 'boru';
+        setMode("plumbingV2", true);
+
+        // State'i güncelle
+        this.manager.saveToState();
+
+        console.log('[CANLI HAT] Sayaç ekleme tamamlandı, boru çizimi başlatıldı');
+
+        return true;
     }
 
 }
