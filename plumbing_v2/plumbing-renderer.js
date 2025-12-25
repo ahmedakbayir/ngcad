@@ -889,15 +889,7 @@ export class PlumbingRenderer {
                 }
             }
 
-            // ✨ DÜZELTME: getGirisNoktasi metod kontrolü
-            let connectionPoint;
-            if (typeof comp.getGirisNoktasi === 'function') {
-                connectionPoint = comp.getGirisNoktasi();
-            } else {
-                // Fallback: Cihaz alt merkezi
-                connectionPoint = { x: comp.x, y: comp.y + 10 };
-            }
-
+            const connectionPoint = comp.getGirisNoktasi();
             const deviceCenter = { x: comp.x, y: comp.y };
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter, comp);
 
@@ -987,15 +979,7 @@ export class PlumbingRenderer {
                 }
             }
 
-            // ✨ DÜZELTME: getGirisNoktasi metod kontrolü
-            let connectionPoint;
-            if (typeof comp.getGirisNoktasi === 'function') {
-                connectionPoint = comp.getGirisNoktasi();
-            } else {
-                // Fallback: Cihaz alt merkezi
-                connectionPoint = { x: comp.x, y: comp.y + 10 };
-            }
-
+            const connectionPoint = comp.getGirisNoktasi();
             const deviceCenter = { x: comp.x, y: comp.y };
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter, comp);
 
@@ -1071,20 +1055,6 @@ export class PlumbingRenderer {
     }
 
     drawSayac(ctx, comp, manager) {
-        // ✨ DÜZELTME: Config yoksa default değerleri kullan (eski veri uyumluluğu için)
-        if (!comp.config) {
-            console.warn('⚠️ Sayaç config eksik, default değerler kullanılıyor:', comp.id);
-            comp.config = {
-                width: 22,
-                height: 24,
-                depth: 16,
-                color: 0xA8A8A8,
-                rijitUzunluk: 0,
-                connectionOffset: 5,
-                nutHeight: 4
-            };
-        }
-
         const { width, height, connectionOffset, nutHeight } = comp.config;
         const zoom = state.zoom || 1;
         const rijitUzunluk = comp.config.rijitUzunluk || (comp.ghostConnectionInfo ? 15 : 0);
@@ -1098,13 +1068,7 @@ export class PlumbingRenderer {
             if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
                 const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
                 if (pipe) {
-                    // ✨ DÜZELTME: Metod yoksa (düz obje) fallback kullan
-                    if (typeof comp.getFleksBaglantiNoktasi === 'function') {
-                        targetPoint = comp.getFleksBaglantiNoktasi(pipe);
-                    } else {
-                        // Fallback: Manuel hesaplama
-                        targetPoint = comp.fleksBaglanti.endpoint === 'p1' ? pipe.p1 : pipe.p2;
-                    }
+                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
                     if (!comp._fleksWarningLogged) {
                        // console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
@@ -1118,23 +1082,7 @@ export class PlumbingRenderer {
                 }
             }
 
-            // ✨ DÜZELTME: getSolRakorNoktasi metod kontrolü
-            let connectionPoint;
-            if (typeof comp.getSolRakorNoktasi === 'function') {
-                connectionPoint = comp.getSolRakorNoktasi();
-            } else {
-                // Fallback: Manuel hesaplama
-                const rad = (comp.rotation || 0) * Math.PI / 180;
-                const cos = Math.cos(rad);
-                const sin = Math.sin(rad);
-                const localX = -connectionOffset;
-                const localY = -height / 2 - nutHeight;
-                connectionPoint = {
-                    x: comp.x + localX * cos - localY * sin,
-                    y: comp.y + localX * sin + localY * cos
-                };
-            }
-
+            const connectionPoint = comp.getSolRakorNoktasi();
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, null);
             ctx.restore();
         }

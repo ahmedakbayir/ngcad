@@ -316,11 +316,6 @@ export class Sayac {
         sayac.cikisBagliBoruId = data.cikisBagliBoruId;
         sayac.iliskiliVanaId = data.iliskiliVanaId;
 
-        // ✨ DÜZELTME: Config varlığını garantile (constructor'da oluşturulmalı ama yine de kontrol et)
-        if (!sayac.config) {
-            sayac.config = { ...SAYAC_CONFIG };
-        }
-
         // GÜNCELLEME: rijitUzunluk değerini geri yükle
         if (data.rijitUzunluk !== undefined) {
             sayac.config.rijitUzunluk = data.rijitUzunluk;

@@ -477,6 +477,10 @@ export class Cihaz {
             cihaz.fleksBaglanti.boruId = data.fleksBaglanti.boruId || null;
             cihaz.fleksBaglanti.endpoint = data.fleksBaglanti.endpoint || null;
             cihaz.fleksBaglanti.uzunluk = data.fleksBaglanti.uzunluk || FLEKS_CONFIG.defaultUzunluk;
+        } else if (data.girisFleks) {
+            // Eski veri formatı tespit edildi!
+            console.error('❌ ESKİ VERİ FORMATI! localStorage.clear() ile temizleyin ve sayfayı yenileyin!');
+            throw new Error('Eski veri formatı desteklenmiyor. localStorage temizlenmeli!');
         }
 
         cihaz.iliskiliVanaId = data.iliskiliVanaId;
