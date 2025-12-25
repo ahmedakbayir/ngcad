@@ -3381,6 +3381,8 @@ export class InteractionManager {
      * Canlı Hat Sayaç Ekleme
      * Servis kutusu olmadan sayaç ekleme senaryosu
      *
+     * SADECE hayali boru ekler, sayaç ekleme MEVCUt sistem ile aynı!
+     *
      * @param {Object} baslangic - Canlı hat giriş noktası {x, y}
      * @param {Object} sayacKonumu - Sayaç yerleştirme noktası {x, y}
      * @returns {boolean} - Başarı durumu
@@ -3391,74 +3393,70 @@ export class InteractionManager {
         // State kaydet (undo için)
         saveState();
 
-        // 1. Hayali boru oluştur (başlangıç → sayaç konumu)
-        // Borunun açısını hesapla (başlangıçtan sayaç konumuna)
-        const dx = sayacKonumu.x - baslangic.x;
-        const dy = sayacKonumu.y - baslangic.y;
-        const boruAcisi = Math.atan2(dy, dx) * 180 / Math.PI;
-
-        // Sayaç oluştur
-        const sayac = createSayac(sayacKonumu.x, sayacKonumu.y, {
-            floorId: state.currentFloor?.id
-        });
-
-        // Sayaç rotasyonunu boru açısına göre ayarla
-        sayac.rotation = boruAcisi;
-
-        // Sayaç giriş noktasını hesapla (world coordinates)
-        const sayacGirisNoktasi = sayac.getGirisNoktasi();
-
-        // Hayali boru oluştur: başlangıç → sayaç giriş noktası
+        // 1. Hayali boru oluştur (başlangıç → sayaç konumu yakını)
+        // Mouse konumuna yakın bir nokta belirle (sayaç oraya yerleşecek)
         const hayaliBoru = createBoru(
             { x: baslangic.x, y: baslangic.y },
-            { x: sayacGirisNoktasi.x, y: sayacGirisNoktasi.y }
+            { x: sayacKonumu.x, y: sayacKonumu.y }
         );
 
         // Hayali boruyu işaretle (özel renk grubu)
         hayaliBoru.colorGroup = 'CANLI_HAT'; // Sarı kesikli çizgi olarak çizilecek
         hayaliBoru.floorId = state.currentFloor?.id;
 
-        // Hayali borunun p2 ucunu sayaca bağla
-        hayaliBoru.bitisBaglanti = {
-            tip: BAGLANTI_TIPLERI.SAYAC,
-            hedefId: sayac.id,
-            noktaIndex: null
-        };
-
-        // Rijit uzunluğu hesapla (hayali boru uzunluğu kadar)
-        const fleksUzunluk = Math.hypot(
-            sayacGirisNoktasi.x - baslangic.x,
-            sayacGirisNoktasi.y - baslangic.y
-        );
-        sayac.config.rijitUzunluk = fleksUzunluk;
-
-        // Sayaca hayali boruyu fleks olarak bağla
-        sayac.fleksBagla(hayaliBoru.id, 'p2');
-
-        // Bileşenleri manager'a ekle
+        // Hayali boruyu manager'a ekle
         this.manager.pipes.push(hayaliBoru);
-        this.manager.components.push(sayac);
 
-        console.log('[CANLI HAT] Hayali boru ve sayaç eklendi', {
-            hayaliBoruId: hayaliBoru.id,
-            sayacId: sayac.id,
-            fleksUzunluk
+        console.log('[CANLI HAT] Hayali boru eklendi:', hayaliBoru.id);
+
+        // 2. Normal sayaç ekleme ghost'unu oluştur (MEVCUt sistem)
+        const sayac = createSayac(sayacKonumu.x, sayacKonumu.y, {
+            floorId: state.currentFloor?.id
         });
 
-        // 2. Sayaç çıkışından boru çizimi başlat
-        const cikisNoktasi = sayac.getCikisNoktasi();
-        this.startBoruCizim(cikisNoktasi, sayac.id, BAGLANTI_TIPLERI.SAYAC);
+        // Sayaç rotasyonunu boru açısına göre ayarla
+        const dx = sayacKonumu.x - baslangic.x;
+        const dy = sayacKonumu.y - baslangic.y;
+        sayac.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
 
-        // Boru moduna geç
-        this.manager.activeTool = 'boru';
-        setMode("plumbingV2", true);
+        // Ghost connection info - hayali borunun p2 ucuna bağlanacak
+        sayac.ghostConnectionInfo = {
+            boruUcu: {
+                boruId: hayaliBoru.id,
+                nokta: { x: hayaliBoru.p2.x, y: hayaliBoru.p2.y },
+                uc: 'p2',
+                boru: hayaliBoru
+            }
+        };
 
-        // State'i güncelle
-        this.manager.saveToState();
+        // 3. MEVCUt handleSayacEndPlacement fonksiyonunu kullan
+        // Bu otomatik olarak vana, fleks, rijit uzunluk vs. ekler
+        const success = this.handleSayacEndPlacement(sayac);
 
-        console.log('[CANLI HAT] Sayaç ekleme tamamlandı, boru çizimi başlatıldı');
+        if (success) {
+            console.log('[CANLI HAT] Sayaç başarıyla eklendi (mevcut sistem ile)');
 
-        return true;
+            // Sayaç çıkışından boru çizimi başlat
+            const cikisNoktasi = sayac.getCikisNoktasi();
+            this.startBoruCizim(cikisNoktasi, sayac.id, BAGLANTI_TIPLERI.SAYAC);
+
+            // Boru moduna geç
+            this.manager.activeTool = 'boru';
+            setMode("plumbingV2", true);
+
+            // State'i güncelle
+            this.manager.saveToState();
+
+            return true;
+        } else {
+            console.error('[CANLI HAT] Sayaç ekleme başarısız oldu!');
+            // Hayali boruyu da kaldır
+            const index = this.manager.pipes.findIndex(p => p.id === hayaliBoru.id);
+            if (index !== -1) {
+                this.manager.pipes.splice(index, 1);
+            }
+            return false;
+        }
     }
 
 }
