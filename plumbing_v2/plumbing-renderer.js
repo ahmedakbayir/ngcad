@@ -1958,6 +1958,31 @@ export class PlumbingRenderer {
         // Kesikli çizgi ayarını sıfırla
         ctx.setLineDash([]);
 
+        // 3. Sayaç preview (mouse pozisyonunda, yarı saydam)
+        // Borunun açısını hesapla
+        const dx = mouse.x - baslangic.x;
+        const dy = mouse.y - baslangic.y;
+        const angle = Math.atan2(dy, dx);
+
+        // Sayaç preview çiz
+        ctx.globalAlpha = 0.6;
+        ctx.translate(mouse.x, mouse.y);
+        ctx.rotate(angle);
+
+        // Sayaç gövdesi (basit dikdörtgen)
+        const sayacWidth = 22;
+        const sayacHeight = 24;
+
+        ctx.fillStyle = '#A8A8A8'; // Metalik gri
+        ctx.fillRect(-sayacWidth / 2, -sayacHeight / 2, sayacWidth, sayacHeight);
+
+        // G4 yazısı
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('G4', 0, 0);
+
         ctx.restore();
     }
 
