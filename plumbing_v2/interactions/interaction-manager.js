@@ -3393,8 +3393,7 @@ export class InteractionManager {
         // State kaydet (undo için)
         saveState();
 
-        // 1. Hayali boru oluştur (başlangıç → sayaç konumu yakını)
-        // Mouse konumuna yakın bir nokta belirle (sayaç oraya yerleşecek)
+        // 1. Hayali boru oluştur (başlangıç → mouse noktası)
         const hayaliBoru = createBoru(
             { x: baslangic.x, y: baslangic.y },
             { x: sayacKonumu.x, y: sayacKonumu.y }
@@ -3409,24 +3408,68 @@ export class InteractionManager {
 
         console.log('[CANLI HAT] Hayali boru eklendi:', hayaliBoru.id);
 
-        // 2. Normal sayaç ekleme ghost'unu oluştur (MEVCUt sistem)
-        const sayac = createSayac(sayacKonumu.x, sayacKonumu.y, {
+        // 2. Sayaç ghost oluştur - AYNI POZISYONLAMA MANTIĞI
+        // Hayali borunun p2 ucunu boru ucu gibi kullan
+        const boruUcu = {
+            boruId: hayaliBoru.id,
+            nokta: { x: hayaliBoru.p2.x, y: hayaliBoru.p2.y },
+            uc: 'p2',
+            boru: hayaliBoru
+        };
+
+        // Boru yönünü hesapla
+        const dx = hayaliBoru.p2.x - hayaliBoru.p1.x;
+        const dy = hayaliBoru.p2.y - hayaliBoru.p1.y;
+        const length = Math.hypot(dx, dy);
+
+        // Fleks görünen boy (mevcut sistemle aynı)
+        const fleksUzunluk = 15; // cm
+
+        // Mouse'un boru ekseninin hangi tarafında olduğunu bul (mevcut sistemle aynı)
+        const mouseVecX = sayacKonumu.x - boruUcu.nokta.x;
+        const mouseVecY = sayacKonumu.y - boruUcu.nokta.y;
+        const crossProduct = mouseVecX * dy - mouseVecY * dx;
+
+        // Boru yönüne DİK (perpendicular) vektör hesapla
+        let perpX = -dy / length;
+        let perpY = dx / length;
+
+        // Cross product negatifse, diğer tarafa dön
+        if (crossProduct > 0) {
+            perpX = -perpX;
+            perpY = -perpY;
+        }
+
+        // Sayaç rotation'u: Boru yönü (mevcut sistemle aynı)
+        let baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
+        if (crossProduct > 0) {
+            baseRotation += 180;
+        }
+
+        // Sayaç oluştur
+        const sayac = createSayac(0, 0, {
             floorId: state.currentFloor?.id
         });
+        sayac.rotation = baseRotation;
 
-        // Sayaç rotasyonunu boru açısına göre ayarla
-        const dx = sayacKonumu.x - baslangic.x;
-        const dy = sayacKonumu.y - baslangic.y;
-        sayac.rotation = Math.atan2(dy, dx) * 180 / Math.PI;
+        // Giriş rakorunun lokal koordinatı
+        const girisLokal = sayac.getGirisLocalKoordinat();
 
-        // Ghost connection info - hayali borunun p2 ucuna bağlanacak
+        // Giriş rakorunun dünya koordinatı (istenen) - fleks uzunluğu kadar dik yönde
+        const girisHedefX = boruUcu.nokta.x + perpX * fleksUzunluk;
+        const girisHedefY = boruUcu.nokta.y + perpY * fleksUzunluk;
+
+        // Sayaç merkezini hesapla (mevcut sistemle aynı)
+        const rad = sayac.rotation * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        sayac.x = girisHedefX - (girisLokal.x * cos - girisLokal.y * sin);
+        sayac.y = girisHedefY - (girisLokal.x * sin + girisLokal.y * cos);
+
+        // Ghost connection info - MEVCUt sistem için
         sayac.ghostConnectionInfo = {
-            boruUcu: {
-                boruId: hayaliBoru.id,
-                nokta: { x: hayaliBoru.p2.x, y: hayaliBoru.p2.y },
-                uc: 'p2',
-                boru: hayaliBoru
-            }
+            boruUcu: boruUcu
         };
 
         // 3. MEVCUt handleSayacEndPlacement fonksiyonunu kullan
