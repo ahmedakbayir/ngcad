@@ -1366,13 +1366,31 @@ function initialize() {
                 plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
                 plumbingManager.interactionManager.previousActiveTool = plumbingManager.activeTool;
             }
+
             // Aktif boru çizimini iptal et
             plumbingManager.interactionManager?.cancelCurrentAction();
+
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
-            plumbingManager.startPlacement(TESISAT_MODLARI.SAYAC);
-            setMode("plumbingV2", true);
+
+            // Servis kutusu kontrolü - Canlı Hat tespiti
+            const servisKutusuVar = plumbingManager.components.some(c => c.type === 'servis_kutusu');
+
+            if (!servisKutusuVar) {
+                // Servis kutusu yok - CANLI HAT moduna geç
+                console.log('[CANLI HAT] Servis kutusu bulunamadı, canlı hat modu başlatılıyor');
+                plumbingManager.interactionManager.canliHatModu = true;
+                plumbingManager.interactionManager.canliHatBaslangic = null;
+                setMode("plumbingV2", true);
+
+                // Kullanıcıya bilgi ver
+                console.log('[CANLI HAT] İlk tıklama: Canlı hat giriş noktası, İkinci tıklama: Sayaç konumu');
+            } else {
+                // Normal sayaç ekleme (servis kutusu var)
+                plumbingManager.startPlacement(TESISAT_MODLARI.SAYAC);
+                setMode("plumbingV2", true);
+            }
         });
     }
     if (dom.bVana) {
