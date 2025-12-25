@@ -300,6 +300,12 @@ export class Sayac {
      * Deserialize
      */
     static fromJSON(data) {
+        // Eski veri formatı kontrolü - config property eksikse eski veri!
+        if (!data.cikisBagliBoruId && data.girisBagliBoruId && !data.fleksBaglanti) {
+            console.error('❌ ESKİ SAYAÇ VERİSİ! localStorage.clear() ile temizleyin ve sayfayı yenileyin!');
+            throw new Error('Eski sayaç verisi desteklenmiyor. localStorage temizlenmeli!');
+        }
+
         const sayac = new Sayac(data.x, data.y, {
             floorId: data.floorId
         });

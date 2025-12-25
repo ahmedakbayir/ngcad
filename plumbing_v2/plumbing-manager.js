@@ -34,6 +34,8 @@ export class PlumbingManager {
     }
 
     init() {
+        // State'den veri yükle (sayfa yüklendiğinde)
+        this.loadFromState();
     }
 
     /**
