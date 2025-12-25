@@ -1055,6 +1055,20 @@ export class PlumbingRenderer {
     }
 
     drawSayac(ctx, comp, manager) {
+        // ✨ DÜZELTME: Config yoksa default değerleri kullan (eski veri uyumluluğu için)
+        if (!comp.config) {
+            console.warn('⚠️ Sayaç config eksik, default değerler kullanılıyor:', comp.id);
+            comp.config = {
+                width: 22,
+                height: 24,
+                depth: 16,
+                color: 0xA8A8A8,
+                rijitUzunluk: 0,
+                connectionOffset: 5,
+                nutHeight: 4
+            };
+        }
+
         const { width, height, connectionOffset, nutHeight } = comp.config;
         const zoom = state.zoom || 1;
         const rijitUzunluk = comp.config.rijitUzunluk || (comp.ghostConnectionInfo ? 15 : 0);

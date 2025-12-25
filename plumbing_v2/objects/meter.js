@@ -306,15 +306,20 @@ export class Sayac {
 
         sayac.id = data.id;
         sayac.rotation = data.rotation;
-        
+
         if (data.fleksBaglanti) {
             sayac.fleksBaglanti = { ...data.fleksBaglanti };
-        } else if (data.girisBagliBoruId) { 
+        } else if (data.girisBagliBoruId) {
             sayac.fleksBaglanti.boruId = data.girisBagliBoruId;
         }
 
         sayac.cikisBagliBoruId = data.cikisBagliBoruId;
         sayac.iliskiliVanaId = data.iliskiliVanaId;
+
+        // ✨ DÜZELTME: Config varlığını garantile (constructor'da oluşturulmalı ama yine de kontrol et)
+        if (!sayac.config) {
+            sayac.config = { ...SAYAC_CONFIG };
+        }
 
         // GÜNCELLEME: rijitUzunluk değerini geri yükle
         if (data.rijitUzunluk !== undefined) {
