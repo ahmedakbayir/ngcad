@@ -889,7 +889,15 @@ export class PlumbingRenderer {
                 }
             }
 
-            const connectionPoint = comp.getGirisNoktasi();
+            // ✨ DÜZELTME: getGirisNoktasi metod kontrolü
+            let connectionPoint;
+            if (typeof comp.getGirisNoktasi === 'function') {
+                connectionPoint = comp.getGirisNoktasi();
+            } else {
+                // Fallback: Cihaz alt merkezi
+                connectionPoint = { x: comp.x, y: comp.y + 10 };
+            }
+
             const deviceCenter = { x: comp.x, y: comp.y };
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter, comp);
 
@@ -979,7 +987,15 @@ export class PlumbingRenderer {
                 }
             }
 
-            const connectionPoint = comp.getGirisNoktasi();
+            // ✨ DÜZELTME: getGirisNoktasi metod kontrolü
+            let connectionPoint;
+            if (typeof comp.getGirisNoktasi === 'function') {
+                connectionPoint = comp.getGirisNoktasi();
+            } else {
+                // Fallback: Cihaz alt merkezi
+                connectionPoint = { x: comp.x, y: comp.y + 10 };
+            }
+
             const deviceCenter = { x: comp.x, y: comp.y };
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter, comp);
 
@@ -1082,7 +1098,13 @@ export class PlumbingRenderer {
             if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
                 const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
                 if (pipe) {
-                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
+                    // ✨ DÜZELTME: Metod yoksa (düz obje) fallback kullan
+                    if (typeof comp.getFleksBaglantiNoktasi === 'function') {
+                        targetPoint = comp.getFleksBaglantiNoktasi(pipe);
+                    } else {
+                        // Fallback: Manuel hesaplama
+                        targetPoint = comp.fleksBaglanti.endpoint === 'p1' ? pipe.p1 : pipe.p2;
+                    }
                 } else {
                     if (!comp._fleksWarningLogged) {
                        // console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
@@ -1096,7 +1118,23 @@ export class PlumbingRenderer {
                 }
             }
 
-            const connectionPoint = comp.getSolRakorNoktasi();
+            // ✨ DÜZELTME: getSolRakorNoktasi metod kontrolü
+            let connectionPoint;
+            if (typeof comp.getSolRakorNoktasi === 'function') {
+                connectionPoint = comp.getSolRakorNoktasi();
+            } else {
+                // Fallback: Manuel hesaplama
+                const rad = (comp.rotation || 0) * Math.PI / 180;
+                const cos = Math.cos(rad);
+                const sin = Math.sin(rad);
+                const localX = -connectionOffset;
+                const localY = -height / 2 - nutHeight;
+                connectionPoint = {
+                    x: comp.x + localX * cos - localY * sin,
+                    y: comp.y + localX * sin + localY * cos
+                };
+            }
+
             this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, null);
             ctx.restore();
         }
