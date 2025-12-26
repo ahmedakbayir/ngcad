@@ -1124,6 +1124,24 @@ export class InteractionManager {
             }
         }
 
+        // Servis kutusu kontrolü - sadece 1 hat ayrılabilir
+        if (kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU && kaynakId) {
+            const servisKutusu = this.manager.components.find(c => c.id === kaynakId && c.type === 'servis_kutusu');
+            if (servisKutusu && servisKutusu.cikisKullanildi) {
+                console.warn("🚫 ENGEL: Servis kutusu çıkışından sadece 1 hat ayrılabilir!");
+                return;
+            }
+        }
+
+        // Sayaç çıkış kontrolü - sadece 1 hat ayrılabilir
+        if (kaynakTip === BAGLANTI_TIPLERI.SAYAC && kaynakId) {
+            const sayac = this.manager.components.find(c => c.id === kaynakId && c.type === 'sayac');
+            if (sayac && sayac.cikisBagliBoruId) {
+                console.warn("🚫 ENGEL: Sayaç çıkışından sadece 1 hat ayrılabilir!");
+                return;
+            }
+        }
+
         // Kaynak boru varsa kontrol et (cihaz/sayaç engelleme için)
         if (kaynakTip === BAGLANTI_TIPLERI.BORU && kaynakId) {
             // Kaynak boruyu bul (manager.pipes içinde ara)
@@ -1599,6 +1617,39 @@ export class InteractionManager {
             // console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
             // alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
             return false;
+        }
+
+        // SERVİS KUTUSU/SAYAÇ KONTROLÜ: Cihaz servis kutusu çıkışına veya sayaç giriş/çıkışına eklenemez
+        const boru = boruUcu.boru;
+
+        // Servis kutusu çıkışı kontrolü
+        if (boru.baslangicBaglanti && boru.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+            if (boruUcu.uc === 'p1') {
+                console.warn("🚫 ENGEL: Servis kutusu çıkışına cihaz eklenemez!");
+                return false;
+            }
+        }
+
+        // Sayaç giriş/çıkış kontrolü
+        // Sayaç girişini kontrol et (borunun ucunda sayaç mı var?)
+        const sayacAtEndpoint = this.manager.components.find(c =>
+            c.type === 'sayac' &&
+            c.fleksBaglanti &&
+            c.fleksBaglanti.boruId === boruUcu.boruId &&
+            c.fleksBaglanti.endpoint === boruUcu.uc
+        );
+
+        if (sayacAtEndpoint) {
+            console.warn("🚫 ENGEL: Sayaç girişine cihaz eklenemez!");
+            return false;
+        }
+
+        // Sayaç çıkışını kontrol et (borunun başlangıcı sayaç çıkışına mı bağlı?)
+        if (boru.baslangicBaglanti && boru.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
+            if (boruUcu.uc === 'p1') {
+                console.warn("🚫 ENGEL: Sayaç çıkışına cihaz eklenemez!");
+                return false;
+            }
         }
 
         // CİHAZ VAR MI KONTROLÜ: Bir boru ucunda zaten cihaz varsa başka cihaz eklenemez
@@ -3359,48 +3410,18 @@ export class InteractionManager {
                 }
             }
 
-            // Boru silindiğinde, bu boruya fleks ile bağlı cihazların bağlantısını güncelle
-            this.manager.components.forEach(comp => {
-                if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === deletedPipe.id) {
-                    // Eğer nextPipe varsa, fleks bağlantısını nextPipe'a aktar
-                    if (nextPipe) {
-                        // Silinen borunun p2'sine bağlıydı, şimdi nextPipe'ın p2'sine bağla
-                        comp.fleksBaglanti.boruId = nextPipe.id;
-                        comp.fleksBaglanti.endpoint = 'p2';
-                    } else {
-                        // nextPipe yoksa, en yakın boru ucunu bul ve bağla
-                        const cihazPos = { x: comp.x, y: comp.y };
-                        let minDist = Infinity;
-                        let closestPipe = null;
-                        let closestEndpointName = null;
+            // Boru silindiğinde, bu boruya fleks ile bağlı cihazları da sil
+            const devicesToRemove = this.manager.components.filter(comp =>
+                comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === deletedPipe.id
+            );
+            devicesToRemove.forEach(device => {
+                const idx = this.manager.components.findIndex(c => c.id === device.id);
+                if (idx !== -1) this.manager.components.splice(idx, 1);
 
-                        this.manager.pipes.forEach(pipe => {
-                            if (pipe.id === deletedPipe.id) return;
-
-                            const dist1 = Math.hypot(pipe.p1.x - cihazPos.x, pipe.p1.y - cihazPos.y);
-                            const dist2 = Math.hypot(pipe.p2.x - cihazPos.x, pipe.p2.y - cihazPos.y);
-
-                            if (dist2 < minDist) {
-                                minDist = dist2;
-                                closestPipe = pipe;
-                                closestEndpointName = 'p2';
-                            }
-                            if (dist1 < minDist) {
-                                minDist = dist1;
-                                closestPipe = pipe;
-                                closestEndpointName = 'p1';
-                            }
-                        });
-
-                        if (closestPipe && minDist < 200) {
-                            comp.fleksBaglanti.boruId = closestPipe.id;
-                            comp.fleksBaglanti.endpoint = closestEndpointName;
-                        } else {
-                            // Yakın boru yoksa bağlantıyı temizle
-                            comp.fleksBaglanti.boruId = null;
-                            comp.fleksBaglanti.endpoint = null;
-                        }
-                    }
+                // İlişkili vanayı da sil
+                if (device.iliskiliVanaId) {
+                    const vanaIdx = this.manager.components.findIndex(c => c.id === device.iliskiliVanaId);
+                    if (vanaIdx !== -1) this.manager.components.splice(vanaIdx, 1);
                 }
             });
 
