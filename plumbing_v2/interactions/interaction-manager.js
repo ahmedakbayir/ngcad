@@ -329,23 +329,31 @@ export class InteractionManager {
         // 1. Boru çizim modunda tıklama
         if (this.boruCizimAktif) {
             // KULLANILMIŞ servis kutusu/sayaç çıkışına tıklanıp tıklanmadığını kontrol et
-            const tolerance = 80; // 80 cm tolerance (kullanıcı biraz uzağa tıklıyor)
+            const tolerance = 10; // 10 cm tolerance
 
             // Servis kutusu kontrolü - ÇIKIŞ KULLANILDIYSA engelle
             const clickedUsedServisKutusu = this.manager.components.find(c => {
-                if (c.type !== 'servis_kutusu' || !c.cikisKullanildi) return false;
-                const cikisNoktasi = c.getCikisNoktasi();
-                if (!cikisNoktasi) return false;
-                const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
+                if (c.type !== 'servis_kutusu' || !c.cikisKullanildi || !c.bagliBoruId) return false;
+
+                // Bağlı boruyu bul
+                const bagliBoru = this.manager.pipes.find(p => p.id === c.bagliBoruId);
+                if (!bagliBoru) return false;
+
+                // Tıklama noktası ile borunun p1'i (kutu-boru birleşme noktası) arasındaki mesafe
+                const dist = Math.hypot(point.x - bagliBoru.p1.x, point.y - bagliBoru.p1.y);
                 return dist < tolerance;
             });
 
             // Sayaç kontrolü - ÇIKIŞ KULLANILDIYSA engelle
             const clickedUsedSayac = this.manager.components.find(c => {
                 if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
-                const cikisNoktasi = c.getCikisNoktasi();
-                if (!cikisNoktasi) return false;
-                const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
+
+                // Bağlı boruyu bul
+                const bagliBoru = this.manager.pipes.find(p => p.id === c.cikisBagliBoruId);
+                if (!bagliBoru) return false;
+
+                // Tıklama noktası ile borunun p1'i (sayaç-boru birleşme noktası) arasındaki mesafe
+                const dist = Math.hypot(point.x - bagliBoru.p1.x, point.y - bagliBoru.p1.y);
                 return dist < tolerance;
             });
 
