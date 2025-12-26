@@ -486,7 +486,8 @@ export class InteractionManager {
             const meterVar = this.hasMeterAtEndpoint(boruUcu.boruId, boruUcu.uc);
 
             if (deviceVar || meterVar) {
-                console.warn("🚫 Bu uçta Cihaz/Sayaç fleksi var! Tesisat devam ettirilemez.");
+                console.error("🚫 ASLA OLMAMALI! Bu uçta Cihaz/Sayaç fleksi var!");
+                alert("⚠️ ASLA OLMAMALI!\n\nBu boru ucunda bir sayaç/cihaz var!\nBir sayacın/cihazın bağlı olduğu uca hiçbir şey eklenemez.");
                 return true; // Çizimi başlatmadan fonksiyondan çık
             }
 
@@ -866,6 +867,10 @@ export class InteractionManager {
                     const length = Math.hypot(dx, dy);
 
                     if (length > 1) {
+                        // Snap uygulanmış mouse pozisyonu (sayacın yerleştirileceği yer)
+                        const snappedMouseX = baslangic.x + dx;
+                        const snappedMouseY = baslangic.y + dy;
+
                         // Fleks görünen boy
                         const fleksUzunluk = 15; // cm
 
@@ -880,9 +885,9 @@ export class InteractionManager {
                         // Giriş rakorunun lokal koordinatı
                         const girisLokal = ghost.getGirisLocalKoordinat();
 
-                        // Giriş rakorunun dünya koordinatı (mouse + fleks uzunluğu dik yönde)
-                        const girisHedefX = point.x + perpX * fleksUzunluk;
-                        const girisHedefY = point.y + perpY * fleksUzunluk;
+                        // Giriş rakorunun dünya koordinatı (snapped mouse + fleks uzunluğu dik yönde)
+                        const girisHedefX = snappedMouseX + perpX * fleksUzunluk;
+                        const girisHedefY = snappedMouseY + perpY * fleksUzunluk;
 
                         // Sayaç merkezini hesapla
                         const rad = ghost.rotation * Math.PI / 180;
@@ -892,10 +897,7 @@ export class InteractionManager {
                         ghost.x = girisHedefX - (girisLokal.x * cos - girisLokal.y * sin);
                         ghost.y = girisHedefY - (girisLokal.x * sin + girisLokal.y * cos);
 
-                        // Ghost connection info (preview için) - Snap uygulanmış mouse pozisyonu
-                        const snappedMouseX = baslangic.x + dx;
-                        const snappedMouseY = baslangic.y + dy;
-
+                        // Ghost connection info (preview için)
                         ghost.ghostConnectionInfo = {
                             boruUcu: { nokta: { x: snappedMouseX, y: snappedMouseY } }
                         };
@@ -1558,8 +1560,16 @@ export class InteractionManager {
         // SAYAÇ VAR MI KONTROLÜ: Bir boru ucunda zaten sayaç varsa başka sayaç eklenemez
         const mevcutSayac = this.hasMeterAtEndpoint(boruUcu.boruId, boruUcu.uc);
         if (mevcutSayac) {
-            //console.error('[handleSayacEndPlacement] ✗ Bu boru ucunda zaten sayaç var!');
-            // alert('⚠️ Bu boru ucunda zaten bir sayaç var!\n\nBir boru ucuna sadece bir sayaç eklenebilir.');
+            console.error('[handleSayacEndPlacement] ✗ Bu boru ucunda zaten sayaç var!');
+            alert('⚠️ ASLA OLMAMALI!\n\nBu boru ucunda zaten bir sayaç var!\nBir sayacın bağlı olduğu uca hiçbir şey eklenemez.');
+            return false;
+        }
+
+        // CİHAZ VAR MI KONTROLÜ: Bir boru ucunda zaten cihaz varsa sayaç eklenemez
+        const mevcutCihaz = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
+        if (mevcutCihaz) {
+            console.error('[handleSayacEndPlacement] ✗ Bu boru ucunda zaten cihaz var!');
+            alert('⚠️ ASLA OLMAMALI!\n\nBu boru ucunda zaten bir cihaz var!\nBir cihazın bağlı olduğu uca hiçbir şey eklenemez.');
             return false;
         }
 
@@ -1671,8 +1681,16 @@ export class InteractionManager {
         // CİHAZ VAR MI KONTROLÜ: Bir boru ucunda zaten cihaz varsa başka cihaz eklenemez
         const mevcutCihaz = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
         if (mevcutCihaz) {
-            // console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
-            // alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
+            console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
+            alert('⚠️ ASLA OLMAMALI!\n\nBu boru ucunda zaten bir cihaz var!\nBir cihazın bağlı olduğu uca hiçbir şey eklenemez.');
+            return false;
+        }
+
+        // SAYAÇ VAR MI KONTROLÜ: Bir boru ucunda zaten sayaç varsa cihaz eklenemez
+        const mevcutSayac = this.hasMeterAtEndpoint(boruUcu.boruId, boruUcu.uc);
+        if (mevcutSayac) {
+            console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten sayaç var!');
+            alert('⚠️ ASLA OLMAMALI!\n\nBu boru ucunda zaten bir sayaç var!\nBir sayacın bağlı olduğu uca hiçbir şey eklenemez.');
             return false;
         }
 
