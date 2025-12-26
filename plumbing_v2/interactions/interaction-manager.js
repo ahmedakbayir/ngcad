@@ -280,6 +280,10 @@ export class InteractionManager {
                 this.canliHatBaslangic = { x: targetPoint.x, y: targetPoint.y };
                 console.log('[CANLI HAT] Başlangıç noktası kaydedildi:', this.canliHatBaslangic);
                 console.log('[CANLI HAT] Şimdi sayaç konumuna tıklayın');
+
+                // Sayaç ghost'u oluştur (preview için)
+                this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
+
                 return true;
             } else {
                 // İkinci tıklama - Sayaç konumu
@@ -2036,6 +2040,11 @@ export class InteractionManager {
         const candidates = [];
 
         for (const boru of this.manager.pipes) {
+            // CANLI HAT borularını yoksay - bunlar hayali borular
+            if (boru.colorGroup === 'CANLI_HAT') {
+                continue;
+            }
+
             // Sadece aktif kattaki boruları kontrol et
             if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
                 continue;
