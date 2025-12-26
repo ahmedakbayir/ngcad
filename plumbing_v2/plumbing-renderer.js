@@ -332,14 +332,51 @@ export class PlumbingRenderer {
                     ctx.lineWidth = width/2;
                     ctx.lineCap = 'miter';
 
-                    // Kesikli çizgi ayarı (10 cm çizgi, 10 cm boşluk)
-                    ctx.setLineDash([10, 3]);
+                    // Vana kontrolü - vana varsa etrafı düz çizilmeli (±10cm)
+                    const vana = manager.components.find(c =>
+                        c.type === 'vana' && c.bagliBoruId === pipe.id
+                    );
 
-                    // Çizgiyi çiz
-                    ctx.beginPath();
-                    ctx.moveTo(0, 0);
-                    ctx.lineTo(length, 0);
-                    ctx.stroke();
+                    if (vana && vana.boruPozisyonu !== undefined) {
+                        // Vana var - üç parça çiz: kesikli + düz (vana etrafı) + kesikli
+                        const vanaT = vana.boruPozisyonu; // 0-1 arası pozisyon
+                        const vanaPos = vanaT * length; // Piksel cinsinden pozisyon
+                        const duzKisim = 20; // ±10cm = 20cm toplam düz çizgi
+                        const duzBaslangic = Math.max(0, vanaPos - duzKisim / 2);
+                        const duzBitis = Math.min(length, vanaPos + duzKisim / 2);
+
+                        // 1. Kesikli kısım (başlangıçtan vana öncesine)
+                        if (duzBaslangic > 0) {
+                            ctx.setLineDash([10, 10]);
+                            ctx.beginPath();
+                            ctx.moveTo(0, 0);
+                            ctx.lineTo(duzBaslangic, 0);
+                            ctx.stroke();
+                        }
+
+                        // 2. Düz kısım (vana etrafı)
+                        ctx.setLineDash([]);
+                        ctx.beginPath();
+                        ctx.moveTo(duzBaslangic, 0);
+                        ctx.lineTo(duzBitis, 0);
+                        ctx.stroke();
+
+                        // 3. Kesikli kısım (vana sonrasından sona)
+                        if (duzBitis < length) {
+                            ctx.setLineDash([10, 10]);
+                            ctx.beginPath();
+                            ctx.moveTo(duzBitis, 0);
+                            ctx.lineTo(length, 0);
+                            ctx.stroke();
+                        }
+                    } else {
+                        // Vana yok - tamamı kesikli
+                        ctx.setLineDash([10, 10]);
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(length, 0);
+                        ctx.stroke();
+                    }
 
                     // Kesikli çizgi ayarını sıfırla
                     ctx.setLineDash([]);
@@ -1248,8 +1285,9 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         // Ucunda tutamaç (daire) - biraz daha küçük
+        const isLight = document.body.classList.contains('light-mode');
         ctx.fillStyle = this.secilenRenk;
-        ctx.strokeStyle = '#fff';
+        ctx.strokeStyle = isLight ? '#333' : '#fff'; // Light modda koyu çerçeve
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(0, -handleLength, 4, 0, Math.PI * 2);
@@ -1973,8 +2011,18 @@ export class PlumbingRenderer {
         this.drawElektrikSimgesi(ctx, baslangic.x, baslangic.y, dashColor);
 
         // 2. Çizgi ghost - Son 20cm düz (vana kısmı), geri kalanı kesikli
-        const dx = mouse.x - baslangic.x;
-        const dy = mouse.y - baslangic.y;
+        let dx = mouse.x - baslangic.x;
+        let dy = mouse.y - baslangic.y;
+
+        // X-Y yönüne snap (90 derece)
+        if (Math.abs(dx) > Math.abs(dy)) {
+            // Yatay yön baskın
+            dy = 0;
+        } else {
+            // Dikey yön baskın
+            dx = 0;
+        }
+
         const totalLength = Math.hypot(dx, dy);
 
         if (totalLength < 1) {

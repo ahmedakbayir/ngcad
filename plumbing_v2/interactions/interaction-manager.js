@@ -276,22 +276,29 @@ export class InteractionManager {
         // 0.1 Canlı Hat Modu - Servis kutusu olmadan sayaç ekleme
         if (this.canliHatModu) {
             if (!this.canliHatBaslangic) {
-                // İlk tıklama - Başlangıç noktası kaydet ve direkt boru çizimi başlat
+                // İlk tıklama - Başlangıç noktası
                 this.canliHatBaslangic = { x: targetPoint.x, y: targetPoint.y };
                 console.log('[CANLI HAT] Başlangıç noktası kaydedildi:', this.canliHatBaslangic);
-                console.log('[CANLI HAT] Boru çizimi başladı - S tuşuna basarak sayaç ekleyebilirsiniz');
+                console.log('[CANLI HAT] Şimdi sayaç konumuna tıklayın');
 
-                // Boru çizimi başlat (canlı hat borusu olarak)
-                this.startBoruCizim(this.canliHatBaslangic, null, null, 'CANLI_HAT');
+                // Sayaç ghost'u oluştur (preview için)
+                this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
 
                 return true;
             } else {
-                // İkinci ve sonraki tıklamalar - Normal boru çizimi gibi devam et
-                // (S tuşu ile sayaç eklenebilir)
-                if (this.boruCizimAktif) {
-                    this.handleBoruClick(targetPoint);
-                    return true;
-                }
+                // İkinci tıklama - Sayaç konumu
+                const sayacKonumu = { x: targetPoint.x, y: targetPoint.y };
+                console.log('[CANLI HAT] Sayaç konumu:', sayacKonumu);
+
+                // Hayali boru + sayaç ekle
+                const success = this.handleCanliHatSayacEkleme(this.canliHatBaslangic, sayacKonumu);
+
+                // Canlı hat modundan çık - TAMAMEN SIFIRLA
+                this.canliHatModu = false;
+                this.canliHatBaslangic = null;
+                this.manager.tempComponent = null; // Ghost'u temizle
+
+                return true;
             }
         }
 
@@ -595,34 +602,6 @@ export class InteractionManager {
 
         // S - Sayaç ekle (Ghost mod)
         if (e.key === 's' || e.key === 'S') {
-            // ÖZEL DURUM: Canlı hat modunda boru çizimi aktifse direkt sayaç ekle
-            if (this.canliHatModu && this.boruCizimAktif && this.boruBaslangic && this.geciciBoruBitis) {
-                // O anki mouse pozisyonunu sayaç konumu olarak kullan
-                const sayacKonumu = { ...this.geciciBoruBitis };
-
-                // Başlangıç noktasını kaydet
-                const baslangic = this.boruBaslangic.nokta;
-
-                // Boru çizimini durdur
-                this.boruCizimAktif = false;
-                this.boruBaslangic = null;
-                this.geciciBoruBitis = null;
-                this.measurementInput = '';
-                this.measurementActive = false;
-
-                // Sayaç ekle
-                const success = this.handleCanliHatSayacEkleme(baslangic, sayacKonumu);
-
-                if (success) {
-                    console.log('[CANLI HAT] S tuşu ile sayaç eklendi');
-                    // Canlı hat modundan çık - artık normal boru çizimi
-                    this.canliHatModu = false;
-                    this.canliHatBaslangic = null;
-                }
-
-                return true;
-            }
-
             // Önceki modu kaydet
             this.previousMode = state.currentMode;
             this.previousDrawingMode = state.currentDrawingMode;
@@ -636,22 +615,7 @@ export class InteractionManager {
             // Mevcut eylemleri iptal et
             this.cancelCurrentAction();
 
-            // Servis kutusu kontrolü - Canlı Hat tespiti
-            const servisKutusuVar = this.manager.components.some(c => c.type === 'servis_kutusu');
-
-            if (!servisKutusuVar) {
-                // Servis kutusu yok - CANLI HAT moduna geç
-                console.log('[CANLI HAT] Servis kutusu bulunamadı, canlı hat modu başlatılıyor');
-                this.canliHatModu = true;
-                this.canliHatBaslangic = null;
-                setMode("plumbingV2", true);
-
-                // Kullanıcıya bilgi ver
-                console.log('[CANLI HAT] İlk tıklama: Canlı hat giriş noktası, İkinci tıklama: Sayaç konumu');
-                return true;
-            }
-
-            // Normal sayaç ekleme (servis kutusu var)
+            // Normal sayaç ekleme (boşta uç varsa oraya ekler)
             this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
             setMode("plumbingV2", true);
 
@@ -870,8 +834,18 @@ export class InteractionManager {
                 if (this.canliHatBaslangic) {
                     // İkinci tıklama - mouse konumunu hayali boru ucu gibi kullan
                     const baslangic = this.canliHatBaslangic;
-                    const dx = point.x - baslangic.x;
-                    const dy = point.y - baslangic.y;
+                    let dx = point.x - baslangic.x;
+                    let dy = point.y - baslangic.y;
+
+                    // X-Y yönüne snap (90 derece)
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        // Yatay yön baskın
+                        dy = 0;
+                    } else {
+                        // Dikey yön baskın
+                        dx = 0;
+                    }
+
                     const length = Math.hypot(dx, dy);
 
                     if (length > 1) {
@@ -901,9 +875,12 @@ export class InteractionManager {
                         ghost.x = girisHedefX - (girisLokal.x * cos - girisLokal.y * sin);
                         ghost.y = girisHedefY - (girisLokal.x * sin + girisLokal.y * cos);
 
-                        // Ghost connection info (preview için)
+                        // Ghost connection info (preview için) - Snap uygulanmış mouse pozisyonu
+                        const snappedMouseX = baslangic.x + dx;
+                        const snappedMouseY = baslangic.y + dy;
+
                         ghost.ghostConnectionInfo = {
-                            boruUcu: { nokta: point }
+                            boruUcu: { nokta: { x: snappedMouseX, y: snappedMouseY } }
                         };
                     } else {
                         ghost.x = point.x;
@@ -3399,9 +3376,36 @@ export class InteractionManager {
             const girisBoruId = obj.fleksBaglanti?.boruId;
             const cikisBoruId = obj.cikisBagliBoruId;
 
-            // 2. Hem giriş hem çıkış borusu varsa birleştir
+            // ÖZEL DURUM: Giriş borusu CANLI_HAT ise tüm iç tesisatı sil
+            const girisBoru = girisBoruId ? this.manager.pipes.find(p => p.id === girisBoruId) : null;
+            if (girisBoru && girisBoru.colorGroup === 'CANLI_HAT') {
+                console.log('[SAYAÇ SİL] Canlı hata bağlı sayaç siliniyor - tüm iç tesisat silinecek');
+
+                // Sayaç çıkışından başlayan tüm boru zincirini sil
+                if (cikisBoruId) {
+                    const cikisBoru = this.manager.pipes.find(p => p.id === cikisBoruId);
+                    if (cikisBoru) {
+                        const icTesisatZinciri = this.findConnectedPipesChain(cikisBoru);
+                        console.log('[SAYAÇ SİL] İç tesisat zinciri bulundu:', icTesisatZinciri.length, 'boru');
+
+                        // Tüm iç tesisatı sil
+                        icTesisatZinciri.forEach(pipe => {
+                            const idx = this.manager.pipes.findIndex(p => p.id === pipe.id);
+                            if (idx !== -1) this.manager.pipes.splice(idx, 1);
+                        });
+                    }
+                }
+
+                // Sayacı sil
+                const idx = this.manager.components.findIndex(c => c.id === obj.id);
+                if (idx !== -1) this.manager.components.splice(idx, 1);
+
+                console.log('[SAYAÇ SİL] Sayaç ve iç tesisat silindi');
+                return;
+            }
+
+            // NORMAL DURUM: 2. Hem giriş hem çıkış borusu varsa birleştir
             if (girisBoruId && cikisBoruId) {
-                const girisBoru = this.manager.pipes.find(p => p.id === girisBoruId);
                 const cikisBoru = this.manager.pipes.find(p => p.id === cikisBoruId);
 
                 if (girisBoru && cikisBoru) {
