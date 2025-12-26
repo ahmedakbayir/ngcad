@@ -1127,7 +1127,13 @@ export class InteractionManager {
         // Servis kutusu kontrolü - sadece 1 hat ayrılabilir
         if (kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU && kaynakId) {
             const servisKutusu = this.manager.components.find(c => c.id === kaynakId && c.type === 'servis_kutusu');
+            console.log('[DEBUG] Servis kutusu kontrolü:', {
+                bulundu: !!servisKutusu,
+                cikisKullanildi: servisKutusu?.cikisKullanildi,
+                bagliBoruId: servisKutusu?.bagliBoruId
+            });
             if (servisKutusu && servisKutusu.cikisKullanildi) {
+                alert('⚠️ Servis kutusu çıkışından sadece 1 hat ayrılabilir!');
                 console.warn("🚫 ENGEL: Servis kutusu çıkışından sadece 1 hat ayrılabilir!");
                 return;
             }
@@ -1136,7 +1142,12 @@ export class InteractionManager {
         // Sayaç çıkış kontrolü - sadece 1 hat ayrılabilir
         if (kaynakTip === BAGLANTI_TIPLERI.SAYAC && kaynakId) {
             const sayac = this.manager.components.find(c => c.id === kaynakId && c.type === 'sayac');
+            console.log('[DEBUG] Sayaç kontrolü:', {
+                bulundu: !!sayac,
+                cikisBagliBoruId: sayac?.cikisBagliBoruId
+            });
             if (sayac && sayac.cikisBagliBoruId) {
+                alert('⚠️ Sayaç çıkışından sadece 1 hat ayrılabilir!');
                 console.warn("🚫 ENGEL: Sayaç çıkışından sadece 1 hat ayrılabilir!");
                 return;
             }
