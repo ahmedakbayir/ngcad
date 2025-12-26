@@ -361,7 +361,28 @@ export class TesisatSnapSystem {
                 return;
             }
 
-            [pipe.p1, pipe.p2].forEach(node => {
+            [pipe.p1, pipe.p2].forEach((node, idx) => {
+                const endpoint = idx === 0 ? 'p1' : 'p2';
+
+                // Bu uçta sayaç veya cihaz fleksi varsa snap yapma
+                const hasMeter = this.manager.components.some(comp =>
+                    comp.type === 'sayac' &&
+                    comp.fleksBaglanti &&
+                    comp.fleksBaglanti.boruId === pipe.id &&
+                    comp.fleksBaglanti.endpoint === endpoint
+                );
+
+                const hasDevice = this.manager.components.some(comp =>
+                    comp.type === 'cihaz' &&
+                    comp.fleksBaglanti &&
+                    comp.fleksBaglanti.boruId === pipe.id &&
+                    comp.fleksBaglanti.endpoint === endpoint
+                );
+
+                if (hasMeter || hasDevice) {
+                    return; // Bu uca snap yapma
+                }
+
                 // Açı kontrolü
                 if (userAngle !== null && this.currentStartPoint) {
                     const nodeAngle = Math.atan2(
