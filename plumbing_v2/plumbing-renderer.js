@@ -1934,41 +1934,25 @@ export class PlumbingRenderer {
 
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'butt';
+        ctx.lineJoin = 'miter';
 
-        // Yıldırım şekli (basit, iki çizgili)
-        // İki çizgi: sol-sağ ve yukarı-aşağı
-        const size = 8;
+        // İki paralel dikey çizgi (elektrik simgesi)
+        const spacing = 3;
+        const height = 10;
 
-        // Yatay çizgi
+        // Sol çizgi
         ctx.beginPath();
-        ctx.moveTo(-size, 0);
-        ctx.lineTo(size, 0);
+        ctx.moveTo(-spacing, -height);
+        ctx.lineTo(-spacing, height);
         ctx.stroke();
 
-        // Dikey çizgi
+        // Sağ çizgi
         ctx.beginPath();
-        ctx.moveTo(0, -size);
-        ctx.lineTo(0, size);
+        ctx.moveTo(spacing, -height);
+        ctx.lineTo(spacing, height);
         ctx.stroke();
-
-        // Çapraz çizgiler (X şeklinde ek)
-        ctx.beginPath();
-        ctx.moveTo(-size * 0.7, -size * 0.7);
-        ctx.lineTo(size * 0.7, size * 0.7);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(size * 0.7, -size * 0.7);
-        ctx.lineTo(-size * 0.7, size * 0.7);
-        ctx.stroke();
-
-        // Merkez daire
-        ctx.beginPath();
-        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
-        ctx.fill();
 
         ctx.restore();
     }

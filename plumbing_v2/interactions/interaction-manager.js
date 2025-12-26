@@ -844,47 +844,55 @@ export class InteractionManager {
         }
         else if (ghost.type === 'sayac') {
             // CANLI HAT MODU KONTROLÜ
-            if (this.canliHatModu && this.canliHatBaslangic) {
-                // Canlı hat modunda - mouse konumunu hayali boru ucu gibi kullan
-                const baslangic = this.canliHatBaslangic;
-                const dx = point.x - baslangic.x;
-                const dy = point.y - baslangic.y;
-                const length = Math.hypot(dx, dy);
+            if (this.canliHatModu) {
+                // Canlı hat modunda - snap sistemini kullanma
+                if (this.canliHatBaslangic) {
+                    // İkinci tıklama - mouse konumunu hayali boru ucu gibi kullan
+                    const baslangic = this.canliHatBaslangic;
+                    const dx = point.x - baslangic.x;
+                    const dy = point.y - baslangic.y;
+                    const length = Math.hypot(dx, dy);
 
-                if (length > 1) {
-                    // Fleks görünen boy
-                    const fleksUzunluk = 15; // cm
+                    if (length > 1) {
+                        // Fleks görünen boy
+                        const fleksUzunluk = 15; // cm
 
-                    // Boru yönüne DİK vektör (varsayılan olarak üst taraf)
-                    let perpX = -dy / length;
-                    let perpY = dx / length;
+                        // Boru yönüne DİK vektör (varsayılan olarak üst taraf)
+                        let perpX = -dy / length;
+                        let perpY = dx / length;
 
-                    // Sayaç rotation'u: Hayali boru yönü
-                    const baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
-                    ghost.rotation = baseRotation;
+                        // Sayaç rotation'u: Hayali boru yönü
+                        const baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                        ghost.rotation = baseRotation;
 
-                    // Giriş rakorunun lokal koordinatı
-                    const girisLokal = ghost.getGirisLocalKoordinat();
+                        // Giriş rakorunun lokal koordinatı
+                        const girisLokal = ghost.getGirisLocalKoordinat();
 
-                    // Giriş rakorunun dünya koordinatı (mouse + fleks uzunluğu dik yönde)
-                    const girisHedefX = point.x + perpX * fleksUzunluk;
-                    const girisHedefY = point.y + perpY * fleksUzunluk;
+                        // Giriş rakorunun dünya koordinatı (mouse + fleks uzunluğu dik yönde)
+                        const girisHedefX = point.x + perpX * fleksUzunluk;
+                        const girisHedefY = point.y + perpY * fleksUzunluk;
 
-                    // Sayaç merkezini hesapla
-                    const rad = ghost.rotation * Math.PI / 180;
-                    const cos = Math.cos(rad);
-                    const sin = Math.sin(rad);
+                        // Sayaç merkezini hesapla
+                        const rad = ghost.rotation * Math.PI / 180;
+                        const cos = Math.cos(rad);
+                        const sin = Math.sin(rad);
 
-                    ghost.x = girisHedefX - (girisLokal.x * cos - girisLokal.y * sin);
-                    ghost.y = girisHedefY - (girisLokal.x * sin + girisLokal.y * cos);
+                        ghost.x = girisHedefX - (girisLokal.x * cos - girisLokal.y * sin);
+                        ghost.y = girisHedefY - (girisLokal.x * sin + girisLokal.y * cos);
 
-                    // Ghost connection info (preview için)
-                    ghost.ghostConnectionInfo = {
-                        boruUcu: { nokta: point }
-                    };
+                        // Ghost connection info (preview için)
+                        ghost.ghostConnectionInfo = {
+                            boruUcu: { nokta: point }
+                        };
+                    } else {
+                        ghost.x = point.x;
+                        ghost.y = point.y;
+                    }
                 } else {
+                    // İlk tıklama bekleniiyor - sadece mouse pozisyonuna yerleştir, snap yok
                     ghost.x = point.x;
                     ghost.y = point.y;
+                    ghost.rotation = 0;
                 }
             }
             // NORMAL MOD - En yakın SERBEST boru ucunu bul
