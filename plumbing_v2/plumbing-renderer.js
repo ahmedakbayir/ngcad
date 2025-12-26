@@ -1953,13 +1953,15 @@ export class PlumbingRenderer {
         }
 
         const duzKisimUzunlugu = 20; // cm - vana için düz kısım
+        const width = 4;
 
         ctx.strokeStyle = dashColor;
-        ctx.lineWidth = 4;
-        ctx.lineCap = 'round';
+        ctx.lineWidth = width / 2; // width/2
+        ctx.lineCap = 'butt'; // Kesikli çizgi için butt daha iyi
 
         if (totalLength <= duzKisimUzunlugu) {
             // Tüm çizgi düz (çok kısa)
+            ctx.setLineDash([]);
             ctx.beginPath();
             ctx.moveTo(baslangic.x, baslangic.y);
             ctx.lineTo(mouse.x, mouse.y);
@@ -1970,18 +1972,18 @@ export class PlumbingRenderer {
             const normalizedDx = dx / totalLength;
             const normalizedDy = dy / totalLength;
 
-            // Kesikli kısmın bitiş noktası
+            // Kesikli kısmın bitiş noktası (son 20cm hariç)
             const kesikliBitisX = baslangic.x + normalizedDx * kesikliUzunluk;
             const kesikliBitisY = baslangic.y + normalizedDy * kesikliUzunluk;
 
             // Kesikli kısım
-            ctx.setLineDash([10, 10]);
+            ctx.setLineDash([10, 3]); // [10, 3]
             ctx.beginPath();
             ctx.moveTo(baslangic.x, baslangic.y);
             ctx.lineTo(kesikliBitisX, kesikliBitisY);
             ctx.stroke();
 
-            // Düz kısım (vana için)
+            // Düz kısım (son 20cm - vana için)
             ctx.setLineDash([]);
             ctx.beginPath();
             ctx.moveTo(kesikliBitisX, kesikliBitisY);
