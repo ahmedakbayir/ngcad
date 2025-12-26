@@ -1913,7 +1913,7 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Canlı Hat Preview - Başlangıç noktasından mouse'a kesikli çizgi
+     * Canlı Hat Preview - Hayali boru + Sayaç ghost
      * @param {CanvasRenderingContext2D} ctx
      * @param {InteractionManager} interactionManager
      */
@@ -1944,7 +1944,7 @@ export class PlumbingRenderer {
         ctx.arc(baslangic.x, baslangic.y, 2, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Kesikli çizgi (başlangıç → mouse)
+        // 2. Kesikli çizgi (başlangıç → mouse) - Hayali boru
         ctx.strokeStyle = dashColor;
         ctx.lineWidth = 4;
         ctx.lineCap = 'round';
@@ -1958,20 +1958,67 @@ export class PlumbingRenderer {
         // Kesikli çizgi ayarını sıfırla
         ctx.setLineDash([]);
 
-        // 3. Sayaç preview (mouse pozisyonunda, yarı saydam)
-        // Borunun açısını hesapla
+        // 3. Sayaç preview - MEVCUt sistem ile aynı pozisyonlama
+        // Boru yönü ve uzunluğu
         const dx = mouse.x - baslangic.x;
         const dy = mouse.y - baslangic.y;
-        const angle = Math.atan2(dy, dx);
+        const length = Math.hypot(dx, dy);
 
-        // Sayaç preview çiz
-        ctx.globalAlpha = 0.6;
-        ctx.translate(mouse.x, mouse.y);
-        ctx.rotate(angle);
+        if (length < 1) {
+            ctx.restore();
+            return; // Çok kısa, sayaç çizme
+        }
 
-        // Sayaç gövdesi (basit dikdörtgen)
+        // Fleks görünen boy (mevcut sistemle aynı)
+        const fleksUzunluk = 15; // cm
+
+        // Mouse'un boru ekseninin hangi tarafında olduğunu varsay (üst taraf)
+        // Cross product hesabı için mouse vektörü = 0 (boru ucu = mouse)
+        // Varsayılan olarak saat yönünün tersine (CCW) yerleştir
+        let perpX = -dy / length;
+        let perpY = dx / length;
+
+        // Sayaç rotation'u: Boru yönü
+        const baseRotation = Math.atan2(dy, dx);
+
+        // Sayaç sabitleri (SAYAC_CONFIG'den)
         const sayacWidth = 22;
         const sayacHeight = 24;
+        const connectionOffset = 5; // Merkezden sağa/sola sapma
+        const nutHeight = 4; // Bağlantı nut yüksekliği
+
+        // Giriş rakorunun lokal koordinatı (sayaç sınıfından)
+        const girisLokalX = -connectionOffset;
+        const girisLokalY = -sayacHeight / 2 - nutHeight;
+
+        // Giriş rakorunun dünya koordinatı (istenen) - fleks uzunluğu kadar dik yönde
+        const girisHedefX = mouse.x + perpX * fleksUzunluk;
+        const girisHedefY = mouse.y + perpY * fleksUzunluk;
+
+        // Sayaç merkezini hesapla (rotation dikkate alınarak)
+        const cos = Math.cos(baseRotation);
+        const sin = Math.sin(baseRotation);
+
+        const sayacX = girisHedefX - (girisLokalX * cos - girisLokalY * sin);
+        const sayacY = girisHedefY - (girisLokalX * sin + girisLokalY * cos);
+
+        // 4. Fleks preview (kesikli çizgi) - boru ucundan sayaç giriş rakoruna
+        ctx.strokeStyle = dashColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.globalAlpha = 0.5;
+
+        ctx.beginPath();
+        ctx.moveTo(mouse.x, mouse.y);
+        ctx.lineTo(girisHedefX, girisHedefY);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+
+        // 5. Sayaç gövdesi preview (yarı saydam)
+        ctx.globalAlpha = 0.6;
+        ctx.translate(sayacX, sayacY);
+        ctx.rotate(baseRotation);
 
         ctx.fillStyle = '#A8A8A8'; // Metalik gri
         ctx.fillRect(-sayacWidth / 2, -sayacHeight / 2, sayacWidth, sayacHeight);
