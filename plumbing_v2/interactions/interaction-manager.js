@@ -289,9 +289,10 @@ export class InteractionManager {
                 // Hayali boru + sayaç ekle
                 const success = this.handleCanliHatSayacEkleme(this.canliHatBaslangic, sayacKonumu);
 
-                // Canlı hat modundan çık
+                // Canlı hat modundan çık - TAMAMEN SIFIRLA
                 this.canliHatModu = false;
                 this.canliHatBaslangic = null;
+                this.manager.tempComponent = null; // Ghost'u temizle
 
                 return true;
             }
