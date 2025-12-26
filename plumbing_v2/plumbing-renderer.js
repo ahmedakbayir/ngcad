@@ -1886,19 +1886,18 @@ export class PlumbingRenderer {
         const { boruUcu } = connInfo;
         const boru = boruUcu.boru;
 
-        // Canlı hat modunda boru yok, sadece nokta var (preview zaten çiziliyor)
-        if (!boru) return;
-
-        // 1. Boru ucunda vana var mı? (Ghost aşamasında yoksa hayalet vana çiz)
-        const vanaVarMi = manager.components.some(comp =>
-            comp.type === 'vana' &&
-            comp.bagliBoruId === boru.id &&
-            Math.hypot(comp.x - boruUcu.nokta.x, comp.y - boruUcu.nokta.y) < 10
-        );
-
         ctx.save();
 
-        if (!vanaVarMi) {
+        // 1. Boru ucunda vana var mı? (Ghost aşamasında yoksa hayalet vana çiz)
+        // Sadece boru varsa vana preview çiz (canlı hat modunda boru yok)
+        if (boru) {
+            const vanaVarMi = manager.components.some(comp =>
+                comp.type === 'vana' &&
+                comp.bagliBoruId === boru.id &&
+                Math.hypot(comp.x - boruUcu.nokta.x, comp.y - boruUcu.nokta.y) < 10
+            );
+
+            if (!vanaVarMi) {
             // Vana Önizlemesi (Boru ucundan 4cm içeride)
             const VANA_CENTER_MARGIN = 8; // 4cm edge + 4cm radius
             const dx = boru.p2.x - boru.p1.x;
@@ -1936,7 +1935,8 @@ export class PlumbingRenderer {
 
             ctx.rotate(-boru.aci); // Rotasyonu geri al
             ctx.translate(-vanaX, -vanaY); // Translate'i geri al
-        }
+            }
+        } // boru kontrolü kapanışı
 
         // 2. Fleks Çizgisi (Basit kesikli çizgi)
         // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil)

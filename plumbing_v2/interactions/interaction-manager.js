@@ -286,9 +286,25 @@ export class InteractionManager {
 
                 return true;
             } else {
-                // İkinci tıklama - Sayaç konumu
-                const sayacKonumu = { x: targetPoint.x, y: targetPoint.y };
-                console.log('[CANLI HAT] Sayaç konumu:', sayacKonumu);
+                // İkinci tıklama - Sayaç konumu (X-Y snap uygula)
+                const baslangic = this.canliHatBaslangic;
+                let dx = targetPoint.x - baslangic.x;
+                let dy = targetPoint.y - baslangic.y;
+
+                // X-Y yönüne snap (90 derece)
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    // Yatay yön baskın
+                    dy = 0;
+                } else {
+                    // Dikey yön baskın
+                    dx = 0;
+                }
+
+                const sayacKonumu = {
+                    x: baslangic.x + dx,
+                    y: baslangic.y + dy
+                };
+                console.log('[CANLI HAT] Sayaç konumu (snap uygulandı):', sayacKonumu);
 
                 // Hayali boru + sayaç ekle
                 const success = this.handleCanliHatSayacEkleme(this.canliHatBaslangic, sayacKonumu);
@@ -762,7 +778,8 @@ export class InteractionManager {
         // Cihaz için: boru ucuna snap yap, fleks etrafında mouse ile hareket et
         if (ghost.type === 'cihaz') {
             // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-            const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
+            // CANLI_HAT borularını da dahil et - canlı hattan çekilen boruların uçlarına cihaz eklenebilsin
+            const boruUcu = this.findBoruUcuAt(point, 72, true, true); // onlyFreeEndpoints=true, includeCanliHat=true
 
             if (boruUcu && boruUcu.boru) {
                 // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
@@ -895,7 +912,8 @@ export class InteractionManager {
             }
             // NORMAL MOD - En yakın SERBEST boru ucunu bul
             else {
-                const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
+                // CANLI_HAT borularını da dahil et - canlı hattan çekilen boruların uçlarına sayaç eklenebilsin
+                const boruUcu = this.findBoruUcuAt(point, 72, true, true); // onlyFreeEndpoints=true, includeCanliHat=true
 
                 if (boruUcu && boruUcu.boru) {
                 // Sayaç pozisyonlandırma: Mouse konumuna göre yön belirleme
@@ -2125,21 +2143,26 @@ export class InteractionManager {
             const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
 
             if (distP1 < tolerance) {
-                // SADECE gerçek boş uçlar (dirsek, T-junction, cihaz ve sayaç olan uçlar hariç)
-                if (!onlyFreeEndpoints ||
+                // CANLI_HAT borularındaki sayaç flekslerini snap'e dahil etme
+                const p1HasMeter = this.hasMeterAtEndpoint(boru.id, 'p1');
+                if (boru.colorGroup === 'CANLI_HAT' && p1HasMeter) {
+                    // Bu CANLI_HAT borusunun p1 ucunda sayaç var - skip
+                } else if (!onlyFreeEndpoints ||
                     (this.manager.isTrulyFreeEndpoint(boru.p1, 1) &&
                         !this.hasDeviceAtEndpoint(boru.id, 'p1') &&
-                        !this.hasMeterAtEndpoint(boru.id, 'p1'))) {
-
+                        !p1HasMeter)) {
                     candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
                 }
             }
             if (distP2 < tolerance) {
-                // SADECE gerçek boş uçlar (dirsek, T-junction, cihaz ve sayaç olan uçlar hariç)
-                if (!onlyFreeEndpoints ||
+                // CANLI_HAT borularındaki sayaç flekslerini snap'e dahil etme
+                const p2HasMeter = this.hasMeterAtEndpoint(boru.id, 'p2');
+                if (boru.colorGroup === 'CANLI_HAT' && p2HasMeter) {
+                    // Bu CANLI_HAT borusunun p2 ucunda sayaç var - skip
+                } else if (!onlyFreeEndpoints ||
                     (this.manager.isTrulyFreeEndpoint(boru.p2, 1) &&
                         !this.hasDeviceAtEndpoint(boru.id, 'p2') &&
-                        !this.hasMeterAtEndpoint(boru.id, 'p2'))) {
+                        !p2HasMeter)) {
                     candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
                 }
             }
@@ -3212,6 +3235,32 @@ export class InteractionManager {
         if (obj.type === 'boru') {
             // Bağlı boruları bul ve bağlantıyı güncelle
             const deletedPipe = obj;
+
+            // ÖZEL DURUM: CANLI_HAT borusu siliniyorsa, bağlı sayacı ve iç tesisatı da sil
+            if (deletedPipe.colorGroup === 'CANLI_HAT') {
+                console.log('[BORU SİL] Canlı hat borusu siliniyor');
+
+                // Bu borunun uçlarında sayaç var mı kontrol et
+                const sayacP1 = this.hasMeterAtEndpoint(deletedPipe.id, 'p1');
+                const sayacP2 = this.hasMeterAtEndpoint(deletedPipe.id, 'p2');
+
+                // Sayaç varsa sil (sayaç silme kodu iç tesisatı da siler)
+                if (sayacP1) {
+                    console.log('[BORU SİL] p1 ucunda sayaç bulundu, siliniyor');
+                    this.deleteObject(sayacP1);
+                }
+                if (sayacP2) {
+                    console.log('[BORU SİL] p2 ucunda sayaç bulundu, siliniyor');
+                    this.deleteObject(sayacP2);
+                }
+
+                // CANLI_HAT borusunu sil
+                const index = this.manager.pipes.findIndex(p => p.id === deletedPipe.id);
+                if (index !== -1) this.manager.pipes.splice(index, 1);
+
+                console.log('[BORU SİL] Canlı hat borusu silindi');
+                return;
+            }
 
             // Silme sonrası seçilecek boruyu belirle
             let pipeToSelect = null;
