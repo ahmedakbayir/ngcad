@@ -328,13 +328,29 @@ export class InteractionManager {
 
         // 1. Boru çizim modunda tıklama
         if (this.boruCizimAktif) {
+            console.log('[DEBUG ÇOK ÖNEMLİ] Boru çizimi aktif, tıklanan nokta:', point);
+
             // Servis kutusuna veya sayaca tıklanırsa mevcut çizimi iptal et
-            const clickedServisKutusu = this.manager.components.find(c =>
-                c.type === 'servis_kutusu' && c.containsPoint && c.containsPoint(point)
-            );
-            const clickedSayac = this.manager.components.find(c =>
-                c.type === 'sayac' && c.containsPoint && c.containsPoint(point)
-            );
+            const clickedServisKutusu = this.manager.components.find(c => {
+                const isServis = c.type === 'servis_kutusu';
+                const hasMethod = c.containsPoint;
+                const contains = hasMethod ? c.containsPoint(point) : false;
+                console.log('[DEBUG] Servis kutusu kontrolü:', { id: c.id, isServis, hasMethod, contains });
+                return isServis && hasMethod && contains;
+            });
+
+            const clickedSayac = this.manager.components.find(c => {
+                const isSayac = c.type === 'sayac';
+                const hasMethod = c.containsPoint;
+                const contains = hasMethod ? c.containsPoint(point) : false;
+                console.log('[DEBUG] Sayaç kontrolü:', { id: c.id, isSayac, hasMethod, contains });
+                return isSayac && hasMethod && contains;
+            });
+
+            console.log('[DEBUG] Sonuç:', {
+                clickedServisKutusu: !!clickedServisKutusu,
+                clickedSayac: !!clickedSayac
+            });
 
             if (clickedServisKutusu || clickedSayac) {
                 // Mevcut çizimi iptal et ve yeni çizim başlatmak için devam et
