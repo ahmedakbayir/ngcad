@@ -344,11 +344,14 @@ export class PlumbingRenderer {
                     // Kesikli çizgi ayarını sıfırla
                     ctx.setLineDash([]);
 
-                    // Başlangıç noktasında elektrik simgesi (p1)
-                    ctx.save();
-                    ctx.rotate(-angle); // Rotasyonu geri al (simge düz durmalı)
-                    this.drawElektrikSimgesi(ctx, 0, 0, dashColor);
-                    ctx.restore();
+                    // Başlangıç noktasında elektrik simgesi (p1) - SADECE gerçek başlangıç noktasında
+                    // isCanliHatOrigin flag'i ile kontrol et (boru split edildiğinde gösterme)
+                    if (pipe.isCanliHatOrigin) {
+                        ctx.save();
+                        ctx.rotate(-angle); // Rotasyonu geri al (simge düz durmalı)
+                        this.drawElektrikSimgesi(ctx, 0, 0, dashColor);
+                        ctx.restore();
+                    }
                 } else {
                     // Normal boru - Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
                     const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
@@ -1952,6 +1955,12 @@ export class PlumbingRenderer {
         ctx.beginPath();
         ctx.moveTo(spacing, -height);
         ctx.lineTo(spacing, height);
+        ctx.stroke();
+
+        // Küçük boş yuvarlak (merkez)
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
         ctx.restore();

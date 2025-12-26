@@ -1153,12 +1153,25 @@ export class InteractionManager {
         if (colorGroup) {
             kaynakColorGroup = colorGroup;
         } else if (kaynakId && kaynakTip) {
-            // Parametre yoksa, ataları kontrol et
-            // Metafor: K→D→B→A takibi, en başta sayaç var mı?
-            if (this.hasAncestorMeter(kaynakId, kaynakTip)) {
-                kaynakColorGroup = 'TURQUAZ'; // İç tesisat (sayaç sonrası)
+            // Önce kaynak boru CANLI_HAT mi kontrol et
+            if (kaynakTip === BAGLANTI_TIPLERI.BORU) {
+                const kaynakBoru = this.manager.pipes.find(p => p.id === kaynakId);
+                if (kaynakBoru && kaynakBoru.colorGroup === 'CANLI_HAT') {
+                    // KURAL: Canlı hattan çizilen borular da canlı hat olmalı
+                    kaynakColorGroup = 'CANLI_HAT';
+                } else if (this.hasAncestorMeter(kaynakId, kaynakTip)) {
+                    kaynakColorGroup = 'TURQUAZ'; // İç tesisat (sayaç sonrası)
+                } else {
+                    kaynakColorGroup = 'YELLOW'; // Kolon tesisat (sayaç öncesi)
+                }
             } else {
-                kaynakColorGroup = 'YELLOW'; // Kolon tesisat (sayaç öncesi)
+                // Parametre yoksa, ataları kontrol et
+                // Metafor: K→D→B→A takibi, en başta sayaç var mı?
+                if (this.hasAncestorMeter(kaynakId, kaynakTip)) {
+                    kaynakColorGroup = 'TURQUAZ'; // İç tesisat (sayaç sonrası)
+                } else {
+                    kaynakColorGroup = 'YELLOW'; // Kolon tesisat (sayaç öncesi)
+                }
             }
         }
 
@@ -3472,6 +3485,7 @@ export class InteractionManager {
         // Hayali boruyu işaretle (özel renk grubu)
         hayaliBoru.colorGroup = 'CANLI_HAT'; // Sarı kesikli çizgi olarak çizilecek
         hayaliBoru.floorId = state.currentFloor?.id;
+        hayaliBoru.isCanliHatOrigin = true; // Bu gerçek başlangıç noktası (elektrik simgesi göster)
 
         // Hayali boruyu manager'a ekle
         this.manager.pipes.push(hayaliBoru);
