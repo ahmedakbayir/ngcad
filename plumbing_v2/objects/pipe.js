@@ -270,6 +270,12 @@ export class Boru {
         boru1.colorGroup = this.colorGroup;
         boru2.colorGroup = this.colorGroup;
 
+        // ✨ CANLI HAT ORİJİN FLAG'İNİ KOPYALA - SADECE boru1'e (başlangıç parçası)
+        if (this.isCanliHatOrigin) {
+            boru1.isCanliHatOrigin = true; // Başlangıç simgesi sadece ilk parçada
+            boru2.isCanliHatOrigin = false; // Split edilmiş parça değil
+        }
+
         // Bağlantıları aktar
         boru1.baslangicBaglanti = { ...this.baslangicBaglanti };
         boru2.bitisBaglanti = { ...this.bitisBaglanti };
