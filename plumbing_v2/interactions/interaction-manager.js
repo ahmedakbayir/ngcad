@@ -763,8 +763,8 @@ export class InteractionManager {
         // Cihaz için: boru ucuna snap yap, fleks etrafında mouse ile hareket et
         if (ghost.type === 'cihaz') {
             // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-            // CANLI_HAT borularını da dahil et - canlı hattan çekilen boruların uçlarına cihaz eklenebilsin
-            const boruUcu = this.findBoruUcuAt(point, 72, true, true); // onlyFreeEndpoints=true, includeCanliHat=true
+            // CANLI_HAT borularını HARIÇ tut - hayali borulara snap yapma
+            const boruUcu = this.findBoruUcuAt(point, 72, true, false); // onlyFreeEndpoints=true, includeCanliHat=FALSE
 
             if (boruUcu && boruUcu.boru) {
                 // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
@@ -898,8 +898,8 @@ export class InteractionManager {
             }
             // NORMAL MOD - En yakın SERBEST boru ucunu bul
             else {
-                // CANLI_HAT borularını da dahil et - canlı hattan çekilen boruların uçlarına sayaç eklenebilsin
-                const boruUcu = this.findBoruUcuAt(point, 72, true, true); // onlyFreeEndpoints=true, includeCanliHat=true
+                // CANLI_HAT borularını HARIÇ tut - hayali borulara snap yapma
+                const boruUcu = this.findBoruUcuAt(point, 72, true, false); // onlyFreeEndpoints=true, includeCanliHat=FALSE
 
                 if (boruUcu && boruUcu.boru) {
                 // Sayaç pozisyonlandırma: Mouse konumuna göre yön belirleme
