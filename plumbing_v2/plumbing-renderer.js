@@ -144,7 +144,7 @@ export class PlumbingRenderer {
         }
 
         // Borular
-        this.drawPipes(ctx, manager.pipes);
+        this.drawPipes(ctx, manager.pipes, manager);
 
         // Bileşenler
         this.drawComponents(ctx, manager.components, manager);
@@ -273,7 +273,7 @@ export class PlumbingRenderer {
         }
     }
 
-    drawPipes(ctx, pipes) {
+    drawPipes(ctx, pipes, manager) {
         if (!pipes) return;
 
         // Önce kırılım noktalarını bul (birden fazla borunun birleştiği noktalar)
