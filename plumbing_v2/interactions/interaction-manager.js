@@ -1375,7 +1375,18 @@ export class InteractionManager {
         if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
             const sk = this.manager.components.find(c => c.id === pipe.baslangicBaglanti.hedefId);
             if (sk && sk.bagliBoruId === pipe.id) {
-                sk.baglaBoru(boru1.id);
+                // Split durumunda direkt güncelle (baglaBoru çağırma - zaten kullanımda hatası verir)
+                sk.bagliBoruId = boru1.id;
+                // cikisKullanildi zaten true, değiştirmeye gerek yok
+            }
+        }
+
+        // Sayaç çıkış bağlantısını güncelle
+        if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
+            const sayac = this.manager.components.find(c => c.id === pipe.baslangicBaglanti.hedefId);
+            if (sayac && sayac.cikisBagliBoruId === pipe.id) {
+                // Split durumunda direkt güncelle
+                sayac.cikisBagliBoruId = boru1.id;
             }
         }
 
