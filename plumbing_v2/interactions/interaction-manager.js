@@ -328,8 +328,24 @@ export class InteractionManager {
 
         // 1. Boru çizim modunda tıklama
         if (this.boruCizimAktif) {
-            this.handleBoruClick(targetPoint);
-            return true;
+            // Servis kutusuna veya sayaca tıklanırsa mevcut çizimi iptal et
+            const clickedServisKutusu = this.manager.components.find(c =>
+                c.type === 'servis_kutusu' && c.containsPoint && c.containsPoint(point)
+            );
+            const clickedSayac = this.manager.components.find(c =>
+                c.type === 'sayac' && c.containsPoint && c.containsPoint(point)
+            );
+
+            if (clickedServisKutusu || clickedSayac) {
+                // Mevcut çizimi iptal et ve yeni çizim başlatmak için devam et
+                console.log('[DEBUG] Boru çizimi aktifken servis kutusu/sayaca tıklandı, çizim iptal ediliyor...');
+                this.cancelCurrentAction();
+                // Aşağıdaki kodlar yeni çizimi başlatacak
+            } else {
+                // Normal boru tıklaması - çizime devam et
+                this.handleBoruClick(targetPoint);
+                return true;
+            }
         }
 
         // 1.5. İç tesisat sayaç yerleştirme - ikinci nokta tıklaması
