@@ -329,11 +329,11 @@ export class PlumbingRenderer {
                     const dashColor = isLightMode ? '#FFA500' : '#FFFF00'; // Turuncu (açık mod) veya Sarı (koyu mod)
 
                     ctx.strokeStyle = dashColor;
-                    ctx.lineWidth = width;
-                    ctx.lineCap = 'round';
+                    ctx.lineWidth = width/2;
+                    ctx.lineCap = 'miter';
 
                     // Kesikli çizgi ayarı (10 cm çizgi, 10 cm boşluk)
-                    ctx.setLineDash([10, 10]);
+                    ctx.setLineDash([10, 3]);
 
                     // Çizgiyi çiz
                     ctx.beginPath();
