@@ -286,9 +286,31 @@ export class InteractionManager {
 
                 return true;
             } else {
-                // İkinci tıklama - Sayaç konumu (mouse'un tıkladığı yer)
-                const sayacKonumu = { x: targetPoint.x, y: targetPoint.y };
-                console.log('[CANLI HAT] Sayaç konumu:', sayacKonumu);
+                // İkinci tıklama - X-Y snap uygulanmış pozisyonu kullan (ghost'tan)
+                // Ghost component zaten X-Y snap'li pozisyonda (updateGhostPreview'da hesaplandı)
+                let sayacKonumu;
+                if (this.manager.tempComponent) {
+                    // Ghost'un X-Y snap'li pozisyonunu kullan
+                    const baslangic = this.canliHatBaslangic;
+                    let dx = point.x - baslangic.x;
+                    let dy = point.y - baslangic.y;
+
+                    // X-Y yönüne snap (90 derece) - ghost preview ile aynı mantık
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        dy = 0; // Yatay
+                    } else {
+                        dx = 0; // Dikey
+                    }
+
+                    sayacKonumu = {
+                        x: baslangic.x + dx,
+                        y: baslangic.y + dy
+                    };
+                } else {
+                    sayacKonumu = { x: targetPoint.x, y: targetPoint.y };
+                }
+
+                console.log('[CANLI HAT] Sayaç konumu (X-Y snap):', sayacKonumu);
 
                 // Hayali boru + sayaç ekle
                 const success = this.handleCanliHatSayacEkleme(this.canliHatBaslangic, sayacKonumu);

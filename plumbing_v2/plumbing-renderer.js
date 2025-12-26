@@ -1781,6 +1781,36 @@ export class PlumbingRenderer {
         const { boruUcu, girisNoktasi } = connInfo;
         const boru = boruUcu.boru;
 
+        // CANLI_HAT borularına fleks çizme - gerçek borulara çiz
+        if (boru.colorGroup === 'CANLI_HAT') {
+            return;
+        }
+
+        // Fleks başlangıç noktasını belirle
+        // Eğer boru ucu bir sayaca/servis kutusuna bağlıysa, onların çıkış noktasını kullan
+        let fleksBaslangic = boruUcu.nokta;
+
+        // Boru ucundaki bağlantıyı kontrol et
+        const ucBaglanti = boruUcu.uc === 'p1' ? boru.baslangicBaglanti : boru.bitisBaglanti;
+
+        if (ucBaglanti && ucBaglanti.hedefId) {
+            // Sayaca mı bağlı?
+            const sayac = manager.components.find(c =>
+                c.type === 'sayac' && c.id === ucBaglanti.hedefId
+            );
+            if (sayac && sayac.getCikisNoktasi) {
+                fleksBaslangic = sayac.getCikisNoktasi();
+            }
+
+            // Servis kutusuna mı bağlı?
+            const servisKutusu = manager.components.find(c =>
+                c.type === 'servis_kutusu' && c.id === ucBaglanti.hedefId
+            );
+            if (servisKutusu && servisKutusu.getCikisNoktasi) {
+                fleksBaslangic = servisKutusu.getCikisNoktasi();
+            }
+        }
+
         // Boru ucunda vana var mı kontrol et
         const vanaVarMi = manager.components.some(comp =>
             comp.type === 'vana' &&
@@ -1871,7 +1901,7 @@ export class PlumbingRenderer {
         ctx.setLineDash([5, 5]); // Kesikli çizgi
 
         ctx.beginPath();
-        ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y);
+        ctx.moveTo(fleksBaslangic.x, fleksBaslangic.y);
         ctx.lineTo(fleksBitis.x, fleksBitis.y);
         ctx.stroke();
 
@@ -1887,6 +1917,31 @@ export class PlumbingRenderer {
         const boru = boruUcu.boru;
 
         ctx.save();
+
+        // CANLI_HAT borularına fleks çizme - gerçek borulara çiz
+        if (boru && boru.colorGroup === 'CANLI_HAT') {
+            ctx.restore();
+            return;
+        }
+
+        // Fleks başlangıç noktasını belirle
+        // Eğer boru ucu bir servis kutusuna bağlıysa, kutunun çıkış noktasını kullan
+        let fleksBaslangic = boruUcu.nokta;
+
+        if (boru) {
+            // Boru ucundaki bağlantıyı kontrol et
+            const ucBaglanti = boruUcu.uc === 'p1' ? boru.baslangicBaglanti : boru.bitisBaglanti;
+
+            if (ucBaglanti && ucBaglanti.hedefId) {
+                // Servis kutusuna mı bağlı?
+                const servisKutusu = manager.components.find(c =>
+                    c.type === 'servis_kutusu' && c.id === ucBaglanti.hedefId
+                );
+                if (servisKutusu && servisKutusu.getCikisNoktasi) {
+                    fleksBaslangic = servisKutusu.getCikisNoktasi();
+                }
+            }
+        }
 
         // 1. Boru ucunda vana var mı? (Ghost aşamasında yoksa hayalet vana çiz)
         // Sadece boru varsa vana preview çiz (canlı hat modunda boru yok)
@@ -1952,8 +2007,8 @@ export class PlumbingRenderer {
         ctx.setLineDash([5, 5]);
 
         ctx.beginPath();
-        // Boru ucundan (veya vana hizasından)
-        ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y);
+        // Fleks başlangıç noktasından (servis kutusu çıkışı veya boru ucu)
+        ctx.moveTo(fleksBaslangic.x, fleksBaslangic.y);
         // Sayacın sol rakoruna
         ctx.lineTo(solRakor.x, solRakor.y);
         ctx.stroke();
