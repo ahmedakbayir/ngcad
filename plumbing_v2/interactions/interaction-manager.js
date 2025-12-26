@@ -837,10 +837,55 @@ export class InteractionManager {
             }
         }
         else if (ghost.type === 'sayac') {
-            // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-            const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
+            // CANLI HAT MODU KONTROLÜ
+            if (this.canliHatModu && this.canliHatBaslangic) {
+                // Canlı hat modunda - mouse konumunu hayali boru ucu gibi kullan
+                const baslangic = this.canliHatBaslangic;
+                const dx = point.x - baslangic.x;
+                const dy = point.y - baslangic.y;
+                const length = Math.hypot(dx, dy);
 
-            if (boruUcu && boruUcu.boru) {
+                if (length > 1) {
+                    // Fleks görünen boy
+                    const fleksUzunluk = 15; // cm
+
+                    // Boru yönüne DİK vektör (varsayılan olarak üst taraf)
+                    let perpX = -dy / length;
+                    let perpY = dx / length;
+
+                    // Sayaç rotation'u: Hayali boru yönü
+                    const baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                    ghost.rotation = baseRotation;
+
+                    // Giriş rakorunun lokal koordinatı
+                    const girisLokal = ghost.getGirisLocalKoordinat();
+
+                    // Giriş rakorunun dünya koordinatı (mouse + fleks uzunluğu dik yönde)
+                    const girisHedefX = point.x + perpX * fleksUzunluk;
+                    const girisHedefY = point.y + perpY * fleksUzunluk;
+
+                    // Sayaç merkezini hesapla
+                    const rad = ghost.rotation * Math.PI / 180;
+                    const cos = Math.cos(rad);
+                    const sin = Math.sin(rad);
+
+                    ghost.x = girisHedefX - (girisLokal.x * cos - girisLokal.y * sin);
+                    ghost.y = girisHedefY - (girisLokal.x * sin + girisLokal.y * cos);
+
+                    // Ghost connection info (preview için)
+                    ghost.ghostConnectionInfo = {
+                        boruUcu: { nokta: point }
+                    };
+                } else {
+                    ghost.x = point.x;
+                    ghost.y = point.y;
+                }
+            }
+            // NORMAL MOD - En yakın SERBEST boru ucunu bul
+            else {
+                const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
+
+                if (boruUcu && boruUcu.boru) {
                 // Sayaç pozisyonlandırma: Mouse konumuna göre yön belirleme
                 const boru = boruUcu.boru;
                 const dx = boru.p2.x - boru.p1.x;
@@ -897,12 +942,13 @@ export class InteractionManager {
                     boruUcu: boruUcu,
                     girisNoktasi: boruUcu.nokta
                 };
-            } else {
-                // Boru ucu bulunamadı, normal cursor pozisyonu
-                ghost.x = point.x;
-                ghost.y = point.y;
-                ghost.ghostConnectionInfo = null;
-            }
+                } else {
+                    // Boru ucu bulunamadı, normal cursor pozisyonu
+                    ghost.x = point.x;
+                    ghost.y = point.y;
+                    ghost.ghostConnectionInfo = null;
+                }
+            } // Normal mod sonu
         } else {
             ghost.x = point.x;
             ghost.y = point.y;
