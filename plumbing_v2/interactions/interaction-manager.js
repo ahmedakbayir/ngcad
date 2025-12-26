@@ -286,25 +286,9 @@ export class InteractionManager {
 
                 return true;
             } else {
-                // İkinci tıklama - Sayaç konumu (X-Y snap uygula)
-                const baslangic = this.canliHatBaslangic;
-                let dx = targetPoint.x - baslangic.x;
-                let dy = targetPoint.y - baslangic.y;
-
-                // X-Y yönüne snap (90 derece)
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    // Yatay yön baskın
-                    dy = 0;
-                } else {
-                    // Dikey yön baskın
-                    dx = 0;
-                }
-
-                const sayacKonumu = {
-                    x: baslangic.x + dx,
-                    y: baslangic.y + dy
-                };
-                console.log('[CANLI HAT] Sayaç konumu (snap uygulandı):', sayacKonumu);
+                // İkinci tıklama - Sayaç konumu (mouse'un tıkladığı yer)
+                const sayacKonumu = { x: targetPoint.x, y: targetPoint.y };
+                console.log('[CANLI HAT] Sayaç konumu:', sayacKonumu);
 
                 // Hayali boru + sayaç ekle
                 const success = this.handleCanliHatSayacEkleme(this.canliHatBaslangic, sayacKonumu);
@@ -1060,6 +1044,11 @@ export class InteractionManager {
 
                 const successSayac = this.handleSayacEndPlacement(component);
                 if (successSayac) {
+                    // TÜM REFERANSLARI TEMİZLE
+                    this.activeSnap = null;
+                    this.lastMousePoint = null;
+                    this.manager.tempComponent = null;
+
                     // Sayacın çıkış noktasından boru çizimi başlat
                     const cikisNoktasi = component.getCikisNoktasi();
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
@@ -1085,6 +1074,11 @@ export class InteractionManager {
                 // Cihaz ekleme - Seç moduna geç
                 const successCihaz = this.handleCihazEkleme(component);
                 if (successCihaz) {
+                    // TÜM REFERANSLARI TEMİZLE
+                    this.activeSnap = null;
+                    this.lastMousePoint = null;
+                    this.manager.tempComponent = null;
+
                     // Cihaz eklendikten sonra seç moduna geç
                     setMode("select", true);
                     // if (this.previousMode) {
