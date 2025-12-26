@@ -328,40 +328,35 @@ export class InteractionManager {
 
         // 1. Boru çizim modunda tıklama
         if (this.boruCizimAktif) {
-            // Servis kutusu veya sayaç ÇIKIŞ NOKTASINA tıklanırsa mevcut çizimi iptal et
-            const tolerance = 15; // 15 cm tolerance
+            // KULLANILMIŞ servis kutusu/sayaç çıkışına tıklanıp tıklanmadığını kontrol et
+            const tolerance = 80; // 80 cm tolerance (kullanıcı biraz uzağa tıklıyor)
 
-            // Servis kutusu çıkış noktası kontrolü
-            const clickedServisKutusu = this.manager.components.find(c => {
-                if (c.type !== 'servis_kutusu') return false;
+            // Servis kutusu kontrolü - ÇIKIŞ KULLANILDIYSA engelle
+            const clickedUsedServisKutusu = this.manager.components.find(c => {
+                if (c.type !== 'servis_kutusu' || !c.cikisKullanildi) return false;
                 const cikisNoktasi = c.getCikisNoktasi();
                 if (!cikisNoktasi) return false;
                 const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
-                console.log('[DEBUG] Servis kutusu çıkış mesafesi:', { id: c.id, dist, cikisNoktasi });
+                console.log('[DEBUG] Kullanılmış SK çıkış mesafesi:', { id: c.id, dist, cikisKullanildi: c.cikisKullanildi });
                 return dist < tolerance;
             });
 
-            // Sayaç çıkış noktası kontrolü
-            const clickedSayac = this.manager.components.find(c => {
-                if (c.type !== 'sayac') return false;
+            // Sayaç kontrolü - ÇIKIŞ KULLANILDIYSA engelle
+            const clickedUsedSayac = this.manager.components.find(c => {
+                if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
                 const cikisNoktasi = c.getCikisNoktasi();
                 if (!cikisNoktasi) return false;
                 const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
-                console.log('[DEBUG] Sayaç çıkış mesafesi:', { id: c.id, dist, cikisNoktasi });
+                console.log('[DEBUG] Kullanılmış sayaç çıkış mesafesi:', { id: c.id, dist, cikisBagliBoruId: c.cikisBagliBoruId });
                 return dist < tolerance;
             });
 
-            console.log('[DEBUG] Çıkış noktası kontrolü sonuç:', {
-                clickedServisKutusu: !!clickedServisKutusu,
-                clickedSayac: !!clickedSayac
-            });
-
-            if (clickedServisKutusu || clickedSayac) {
-                // Mevcut çizimi iptal et ve yeni çizim başlatmak için devam et
-                alert('⚠️ ' + (clickedServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
-                console.log('[DEBUG] Servis kutusu/sayaç ÇIKIŞ NOKTASINA tıklandı, çizim iptal ediliyor...');
+            if (clickedUsedServisKutusu || clickedUsedSayac) {
+                // ZATEN KULLANILMIŞ çıkışa tıklandı - engelle!
+                alert('⚠️ ' + (clickedUsedServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
+                console.log('[DEBUG] KULLANILMIŞ çıkış noktasına tıklandı, engelleniyor!');
                 this.cancelCurrentAction();
-                return true; // İşlemi bitir
+                return true;
             } else {
                 // Normal boru tıklaması - çizime devam et
                 this.handleBoruClick(targetPoint);
