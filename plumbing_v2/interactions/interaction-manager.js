@@ -337,7 +337,6 @@ export class InteractionManager {
                 const cikisNoktasi = c.getCikisNoktasi();
                 if (!cikisNoktasi) return false;
                 const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
-                console.log('[DEBUG] Kullanılmış SK çıkış mesafesi:', { id: c.id, dist, cikisKullanildi: c.cikisKullanildi });
                 return dist < tolerance;
             });
 
@@ -347,14 +346,12 @@ export class InteractionManager {
                 const cikisNoktasi = c.getCikisNoktasi();
                 if (!cikisNoktasi) return false;
                 const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
-                console.log('[DEBUG] Kullanılmış sayaç çıkış mesafesi:', { id: c.id, dist, cikisBagliBoruId: c.cikisBagliBoruId });
                 return dist < tolerance;
             });
 
             if (clickedUsedServisKutusu || clickedUsedSayac) {
                 // ZATEN KULLANILMIŞ çıkışa tıklandı - engelle!
                 alert('⚠️ ' + (clickedUsedServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
-                console.log('[DEBUG] KULLANILMIŞ çıkış noktasına tıklandı, engelleniyor!');
                 this.cancelCurrentAction();
                 return true;
             } else {
@@ -1159,11 +1156,6 @@ export class InteractionManager {
         // Servis kutusu kontrolü - sadece 1 hat ayrılabilir
         if (kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU && kaynakId) {
             const servisKutusu = this.manager.components.find(c => c.id === kaynakId && c.type === 'servis_kutusu');
-            console.log('[DEBUG] Servis kutusu kontrolü:', {
-                bulundu: !!servisKutusu,
-                cikisKullanildi: servisKutusu?.cikisKullanildi,
-                bagliBoruId: servisKutusu?.bagliBoruId
-            });
             if (servisKutusu && servisKutusu.cikisKullanildi) {
                 alert('⚠️ Servis kutusu çıkışından sadece 1 hat ayrılabilir!');
                 console.warn("🚫 ENGEL: Servis kutusu çıkışından sadece 1 hat ayrılabilir!");
@@ -1174,10 +1166,6 @@ export class InteractionManager {
         // Sayaç çıkış kontrolü - sadece 1 hat ayrılabilir
         if (kaynakTip === BAGLANTI_TIPLERI.SAYAC && kaynakId) {
             const sayac = this.manager.components.find(c => c.id === kaynakId && c.type === 'sayac');
-            console.log('[DEBUG] Sayaç kontrolü:', {
-                bulundu: !!sayac,
-                cikisBagliBoruId: sayac?.cikisBagliBoruId
-            });
             if (sayac && sayac.cikisBagliBoruId) {
                 alert('⚠️ Sayaç çıkışından sadece 1 hat ayrılabilir!');
                 console.warn("🚫 ENGEL: Sayaç çıkışından sadece 1 hat ayrılabilir!");
@@ -1472,22 +1460,13 @@ export class InteractionManager {
 
 
         if (this.boruBaslangic.kaynakId) {
-            console.log('[DEBUG] kaynakId var, kontrol ediliyor...');
             // Servis kutusu bağlantısını kontrol et ve kur
             if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-                console.log('[DEBUG] Servis kutusu bağlantısı kuruluyor...');
                 const servisKutusu = this.manager.components.find(
                     c => c.id === this.boruBaslangic.kaynakId && c.type === 'servis_kutusu'
                 );
-                console.log('[DEBUG] Servis kutusu bulundu:', !!servisKutusu);
                 if (servisKutusu) {
-                    console.log('[DEBUG] baglaBoru ÇAĞRILIYOR, boru.id:', boru.id);
                     const baglantiBasarili = servisKutusu.baglaBoru(boru.id);
-                    console.log('[DEBUG] baglaBoru SONUÇ:', baglantiBasarili);
-                    console.log('[DEBUG] Servis kutusu SONRASI durum:', {
-                        cikisKullanildi: servisKutusu.cikisKullanildi,
-                        bagliBoruId: servisKutusu.bagliBoruId
-                    });
                     if (!baglantiBasarili) {
                         console.warn("🚫 Servis kutusu çıkışına bağlantı başarısız - zaten kullanımda!");
                         return; // Boru eklenmez
