@@ -276,29 +276,22 @@ export class InteractionManager {
         // 0.1 Canlı Hat Modu - Servis kutusu olmadan sayaç ekleme
         if (this.canliHatModu) {
             if (!this.canliHatBaslangic) {
-                // İlk tıklama - Başlangıç noktası
+                // İlk tıklama - Başlangıç noktası kaydet ve direkt boru çizimi başlat
                 this.canliHatBaslangic = { x: targetPoint.x, y: targetPoint.y };
                 console.log('[CANLI HAT] Başlangıç noktası kaydedildi:', this.canliHatBaslangic);
-                console.log('[CANLI HAT] Şimdi sayaç konumuna tıklayın');
+                console.log('[CANLI HAT] Boru çizimi başladı - S tuşuna basarak sayaç ekleyebilirsiniz');
 
-                // Sayaç ghost'u oluştur (preview için)
-                this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
+                // Boru çizimi başlat (canlı hat borusu olarak)
+                this.startBoruCizim(this.canliHatBaslangic, null, null, 'CANLI_HAT');
 
                 return true;
             } else {
-                // İkinci tıklama - Sayaç konumu
-                const sayacKonumu = { x: targetPoint.x, y: targetPoint.y };
-                console.log('[CANLI HAT] Sayaç konumu:', sayacKonumu);
-
-                // Hayali boru + sayaç ekle
-                const success = this.handleCanliHatSayacEkleme(this.canliHatBaslangic, sayacKonumu);
-
-                // Canlı hat modundan çık - TAMAMEN SIFIRLA
-                this.canliHatModu = false;
-                this.canliHatBaslangic = null;
-                this.manager.tempComponent = null; // Ghost'u temizle
-
-                return true;
+                // İkinci ve sonraki tıklamalar - Normal boru çizimi gibi devam et
+                // (S tuşu ile sayaç eklenebilir)
+                if (this.boruCizimAktif) {
+                    this.handleBoruClick(targetPoint);
+                    return true;
+                }
             }
         }
 
@@ -602,6 +595,34 @@ export class InteractionManager {
 
         // S - Sayaç ekle (Ghost mod)
         if (e.key === 's' || e.key === 'S') {
+            // ÖZEL DURUM: Canlı hat modunda boru çizimi aktifse direkt sayaç ekle
+            if (this.canliHatModu && this.boruCizimAktif && this.boruBaslangic && this.geciciBoruBitis) {
+                // O anki mouse pozisyonunu sayaç konumu olarak kullan
+                const sayacKonumu = { ...this.geciciBoruBitis };
+
+                // Başlangıç noktasını kaydet
+                const baslangic = this.boruBaslangic.nokta;
+
+                // Boru çizimini durdur
+                this.boruCizimAktif = false;
+                this.boruBaslangic = null;
+                this.geciciBoruBitis = null;
+                this.measurementInput = '';
+                this.measurementActive = false;
+
+                // Sayaç ekle
+                const success = this.handleCanliHatSayacEkleme(baslangic, sayacKonumu);
+
+                if (success) {
+                    console.log('[CANLI HAT] S tuşu ile sayaç eklendi');
+                    // Canlı hat modundan çık - artık normal boru çizimi
+                    this.canliHatModu = false;
+                    this.canliHatBaslangic = null;
+                }
+
+                return true;
+            }
+
             // Önceki modu kaydet
             this.previousMode = state.currentMode;
             this.previousDrawingMode = state.currentDrawingMode;
