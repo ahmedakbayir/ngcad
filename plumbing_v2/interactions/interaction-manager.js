@@ -1421,6 +1421,15 @@ export class InteractionManager {
     handleBoruClick(point) {
         if (!this.boruBaslangic) return;
 
+        console.log('[DEBUG handleBoruClick] Başlangıç:', {
+            kaynakId: this.boruBaslangic.kaynakId,
+            kaynakTip: this.boruBaslangic.kaynakTip,
+            SERVIS_KUTUSU_TIP: BAGLANTI_TIPLERI.SERVIS_KUTUSU,
+            SAYAC_TIP: BAGLANTI_TIPLERI.SAYAC,
+            esitMi_SK: this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU,
+            esitMi_Sayac: this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC
+        });
+
         // Undo için state kaydet (her boru için ayrı undo entry)
         saveState();
 
@@ -1431,13 +1440,22 @@ export class InteractionManager {
 
 
         if (this.boruBaslangic.kaynakId) {
+            console.log('[DEBUG] kaynakId var, kontrol ediliyor...');
             // Servis kutusu bağlantısını kontrol et ve kur
             if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                console.log('[DEBUG] Servis kutusu bağlantısı kuruluyor...');
                 const servisKutusu = this.manager.components.find(
                     c => c.id === this.boruBaslangic.kaynakId && c.type === 'servis_kutusu'
                 );
+                console.log('[DEBUG] Servis kutusu bulundu:', !!servisKutusu);
                 if (servisKutusu) {
+                    console.log('[DEBUG] baglaBoru ÇAĞRILIYOR, boru.id:', boru.id);
                     const baglantiBasarili = servisKutusu.baglaBoru(boru.id);
+                    console.log('[DEBUG] baglaBoru SONUÇ:', baglantiBasarili);
+                    console.log('[DEBUG] Servis kutusu SONRASI durum:', {
+                        cikisKullanildi: servisKutusu.cikisKullanildi,
+                        bagliBoruId: servisKutusu.bagliBoruId
+                    });
                     if (!baglantiBasarili) {
                         console.warn("🚫 Servis kutusu çıkışına bağlantı başarısız - zaten kullanımda!");
                         return; // Boru eklenmez
