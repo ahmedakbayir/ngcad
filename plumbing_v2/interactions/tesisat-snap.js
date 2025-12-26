@@ -298,6 +298,11 @@ export class TesisatSnapSystem {
 
         // Her mevcut boru ile kesişim kontrolü
         this.manager.pipes.forEach(pipe => {
+            // CANLI HAT borularını yoksay - hayali borulara snap olunmaz
+            if (pipe.colorGroup === 'CANLI_HAT') {
+                return;
+            }
+
             const kesisim = this.lineIntersection(
                 drawLine.p1, drawLine.p2,
                 pipe.p1, pipe.p2
@@ -351,6 +356,11 @@ export class TesisatSnapSystem {
         }
 
         this.manager.pipes.forEach(pipe => {
+            // CANLI HAT borularını yoksay - hayali borulara snap olunmaz
+            if (pipe.colorGroup === 'CANLI_HAT') {
+                return;
+            }
+
             [pipe.p1, pipe.p2].forEach(node => {
                 // Açı kontrolü
                 if (userAngle !== null && this.currentStartPoint) {
@@ -454,6 +464,11 @@ export class TesisatSnapSystem {
         ) * 180 / Math.PI;
 
         this.manager.pipes.forEach(pipe => {
+            // CANLI HAT borularını yoksay - hayali borulara snap olunmaz
+            if (pipe.colorGroup === 'CANLI_HAT') {
+                return;
+            }
+
             const dikNokta = this.perpendicularPoint(
                 this.currentStartPoint,
                 pipe.p1,
@@ -565,6 +580,11 @@ export class TesisatSnapSystem {
         }
 
         this.manager.pipes.forEach(pipe => {
+            // CANLI HAT borularını yoksay - hayali borulara snap olunmaz
+            if (pipe.colorGroup === 'CANLI_HAT') {
+                return;
+            }
+
             const proj = this.projectToLine(point, pipe.p1, pipe.p2);
             if (!proj || !proj.onSegment) return;
 

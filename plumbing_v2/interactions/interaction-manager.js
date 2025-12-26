@@ -372,13 +372,19 @@ export class InteractionManager {
             }
 
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-            const boruUcu = this.findBoruUcuAt(point, 10); // Nokta seçimi için 2.5 cm tolerance (daha hassas)
+            const boruUcu = this.findBoruUcuAt(point, 10, false, true); // includeCanliHat=true - hayali borular da seçilebilir
             if (boruUcu) {
                 // console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
                     // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
                     if (this.manager.activeTool === 'boru') {
+                        // Hayali borulardan boru çizimi başlatılamaz
+                        if (pipe.colorGroup === 'CANLI_HAT') {
+                            console.warn("🚫 Hayali borulardan tesisat çizilemez!");
+                            return true;
+                        }
+
                         const deviceVar = this.hasDeviceAtEndpoint(pipe.id, boruUcu.uc);
                         const meterVar = this.hasMeterAtEndpoint(pipe.id, boruUcu.uc);
 
@@ -837,10 +843,55 @@ export class InteractionManager {
             }
         }
         else if (ghost.type === 'sayac') {
-            // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-            const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
+            // CANLI HAT MODU KONTROLÜ
+            if (this.canliHatModu && this.canliHatBaslangic) {
+                // Canlı hat modunda - mouse konumunu hayali boru ucu gibi kullan
+                const baslangic = this.canliHatBaslangic;
+                const dx = point.x - baslangic.x;
+                const dy = point.y - baslangic.y;
+                const length = Math.hypot(dx, dy);
 
-            if (boruUcu && boruUcu.boru) {
+                if (length > 1) {
+                    // Fleks görünen boy
+                    const fleksUzunluk = 15; // cm
+
+                    // Boru yönüne DİK vektör (varsayılan olarak üst taraf)
+                    let perpX = -dy / length;
+                    let perpY = dx / length;
+
+                    // Sayaç rotation'u: Hayali boru yönü
+                    const baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                    ghost.rotation = baseRotation;
+
+                    // Giriş rakorunun lokal koordinatı
+                    const girisLokal = ghost.getGirisLocalKoordinat();
+
+                    // Giriş rakorunun dünya koordinatı (mouse + fleks uzunluğu dik yönde)
+                    const girisHedefX = point.x + perpX * fleksUzunluk;
+                    const girisHedefY = point.y + perpY * fleksUzunluk;
+
+                    // Sayaç merkezini hesapla
+                    const rad = ghost.rotation * Math.PI / 180;
+                    const cos = Math.cos(rad);
+                    const sin = Math.sin(rad);
+
+                    ghost.x = girisHedefX - (girisLokal.x * cos - girisLokal.y * sin);
+                    ghost.y = girisHedefY - (girisLokal.x * sin + girisLokal.y * cos);
+
+                    // Ghost connection info (preview için)
+                    ghost.ghostConnectionInfo = {
+                        boruUcu: { nokta: point }
+                    };
+                } else {
+                    ghost.x = point.x;
+                    ghost.y = point.y;
+                }
+            }
+            // NORMAL MOD - En yakın SERBEST boru ucunu bul
+            else {
+                const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
+
+                if (boruUcu && boruUcu.boru) {
                 // Sayaç pozisyonlandırma: Mouse konumuna göre yön belirleme
                 const boru = boruUcu.boru;
                 const dx = boru.p2.x - boru.p1.x;
@@ -897,12 +948,13 @@ export class InteractionManager {
                     boruUcu: boruUcu,
                     girisNoktasi: boruUcu.nokta
                 };
-            } else {
-                // Boru ucu bulunamadı, normal cursor pozisyonu
-                ghost.x = point.x;
-                ghost.y = point.y;
-                ghost.ghostConnectionInfo = null;
-            }
+                } else {
+                    // Boru ucu bulunamadı, normal cursor pozisyonu
+                    ghost.x = point.x;
+                    ghost.y = point.y;
+                    ghost.ghostConnectionInfo = null;
+                }
+            } // Normal mod sonu
         } else {
             ghost.x = point.x;
             ghost.y = point.y;
@@ -2035,13 +2087,13 @@ export class InteractionManager {
         return false;
     }
 
-    findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
+    findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false, includeCanliHat = false) {
         const currentFloorId = state.currentFloor?.id;
         const candidates = [];
 
         for (const boru of this.manager.pipes) {
-            // CANLI HAT borularını yoksay - bunlar hayali borular
-            if (boru.colorGroup === 'CANLI_HAT') {
+            // CANLI HAT borularını yoksay - ANCAK seçim/taşıma için dahil et
+            if (boru.colorGroup === 'CANLI_HAT' && !includeCanliHat) {
                 continue;
             }
 
@@ -3489,14 +3541,18 @@ export class InteractionManager {
         if (success) {
             console.log('[CANLI HAT] Sayaç başarıyla eklendi (mevcut sistem ile)');
 
-            // HER SAYAÇ BAĞIMSIZ - Boru çizimi başlatma, seç moduna geç
-            this.manager.activeTool = null;
-            setMode("select", true);
+            // Sayaç çıkışından boru çizimi başlat
+            const cikisNoktasi = sayac.getCikisNoktasi();
+            this.startBoruCizim(cikisNoktasi, sayac.id, BAGLANTI_TIPLERI.SAYAC);
+
+            // Boru moduna geç
+            this.manager.activeTool = 'boru';
+            setMode("plumbingV2", true);
 
             // State'i güncelle
             this.manager.saveToState();
 
-            console.log('[CANLI HAT] Başka sayaç eklemek için tekrar sayaç butonuna basın');
+            console.log('[CANLI HAT] Sayaç çıkışından boru çizimi başlatıldı');
 
             return true;
         } else {
