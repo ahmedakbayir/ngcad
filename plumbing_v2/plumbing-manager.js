@@ -195,6 +195,11 @@ export class PlumbingManager {
         const currentFloorId = state.currentFloor?.id;
 
         for (const boru of this.pipes) {
+            // CANLI_HAT (hayali) borularını yoksay - gerçek tesisat kontrolü için
+            if (boru.colorGroup === 'CANLI_HAT') {
+                continue;
+            }
+
             // Sadece aktif kattaki boruları kontrol et
             if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
                 continue;
