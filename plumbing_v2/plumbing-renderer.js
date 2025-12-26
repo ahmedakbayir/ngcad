@@ -359,6 +359,19 @@ export class PlumbingRenderer {
             }
 
             ctx.restore();
+
+            // İç tesisat temsili boru: Başlangıç noktasına yuvarlak ekle
+            if (pipe.isTemsiliBoru && pipe.lineStyle === 'dashed') {
+                ctx.save();
+                const colorGroup = pipe.colorGroup || 'YELLOW';
+                const yuvarlatRenk = this.getRenkByGroup(colorGroup, 'boru', 1);
+
+                ctx.fillStyle = yuvarlatRenk;
+                ctx.beginPath();
+                ctx.arc(pipe.p1.x, pipe.p1.y, width / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
         });
 
         // Dirsek görüntülerini çiz
@@ -1931,6 +1944,12 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         ctx.setLineDash([]); // Reset
+
+        // Başlangıç noktasına yuvarlak
+        ctx.fillStyle = boruRenk;
+        ctx.beginPath();
+        ctx.arc(p1.x, p1.y, 2, 0, Math.PI * 2);
+        ctx.fill();
 
         // Mesafe etiketi
         const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
