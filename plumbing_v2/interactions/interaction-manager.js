@@ -1130,12 +1130,6 @@ export class InteractionManager {
         const problematicServisKutusu = this.manager.components.find(c => {
             if (c.type !== 'servis_kutusu' || !c.cikisKullanildi) return false;
 
-            // İSTİSNA: Eğer kaynak aynı servis kutusuysa, kontrolü atla
-            // (mevcut boru hareket ettiriliyor/düzenleniyor olabilir)
-            if (kaynakId === c.id && kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-                return false;
-            }
-
             const cikisNoktasi = c.getCikisNoktasi();
             if (!cikisNoktasi) return false;
             const dist = Math.hypot(baslangicNoktasi.x - cikisNoktasi.x, baslangicNoktasi.y - cikisNoktasi.y);
@@ -1145,12 +1139,6 @@ export class InteractionManager {
 
         const problematicSayac = this.manager.components.find(c => {
             if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
-
-            // İSTİSNA: Eğer kaynak aynı sayaçsa, kontrolü atla
-            // (mevcut boru hareket ettiriliyor/düzenleniyor olabilir)
-            if (kaynakId === c.id && kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
-                return false;
-            }
 
             const cikisNoktasi = c.getCikisNoktasi();
             if (!cikisNoktasi) return false;
