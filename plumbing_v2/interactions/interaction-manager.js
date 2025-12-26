@@ -2766,8 +2766,9 @@ export class InteractionManager {
                 comp.type === 'vana' && comp.bagliBoruId === pipe.id
             );
 
-            // Minimum uzunluk kontrolü (vanaları dikkate al)
-            const MIN_EDGE_DISTANCE = 4; // cm - boru uçlarından minimum mesafe
+            // Minimum uzunluk kontrolü
+            const ABSOLUTE_MIN_LENGTH = 10; // cm - Mutlak minimum (servis kutusu çıkış koruması için)
+            const MIN_EDGE_DISTANCE = 4; // cm - boru uçlarından minimum mesafe (vanalar için)
             const OBJECT_MARGIN = 2; // cm - nesne marginleri
             const VALVE_WIDTH = 6; // cm
 
@@ -2775,8 +2776,8 @@ export class InteractionManager {
             const spacePerValve = OBJECT_MARGIN + VALVE_WIDTH + OBJECT_MARGIN; // 10 cm
             const totalValveSpace = valvesOnPipe.length * spacePerValve;
 
-            // Minimum boru uzunluğu = 2 * uç mesafesi + tüm vanaların gerektirdiği alan
-            const minLength = (2 * MIN_EDGE_DISTANCE) + totalValveSpace;
+            // Minimum boru uzunluğu = max(10cm, 2 * uç mesafesi + tüm vanaların gerektirdiği alan)
+            const minLength = Math.max(ABSOLUTE_MIN_LENGTH, (2 * MIN_EDGE_DISTANCE) + totalValveSpace);
 
             // Yeni uzunluğu hesapla
             let newLength;
