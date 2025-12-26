@@ -1767,10 +1767,44 @@ export class InteractionManager {
 
         this.manager.pipes.push(temsiliBoru);
 
-        // Geçici sayaç oluştur (boru ucuna eklemek için)
-        const tempMeter = createSayac(0, 0, {
+        // Sayaç pozisyon ve rotation hesapla (updateGhostPosition mantığını kullan)
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const length = Math.hypot(dx, dy);
+
+        // Sayaç her zaman p2 ucunda, p1'e dik konumda
+        const fleksUzunluk = 15; // cm
+
+        // Boru açısı
+        const boruAci = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        // Sayaç rotasyonu: Boru yönü (p2'den p1'e bakan yön + 90 derece)
+        // Sayaç boru hattına dik olacak
+        const sayacRotation = boruAci;
+
+        // Geçici sayaç oluştur - POZİSYON ve ROTATION AYARLI
+        const tempMeter = createSayac(p2.x, p2.y, {
             floorId: state.currentFloorId
         });
+        tempMeter.rotation = sayacRotation;
+
+        // Sayacın giriş noktasını hesapla (rotation uygulanmış)
+        const girisLocal = tempMeter.getGirisLocalKoordinat();
+        const rad = tempMeter.rotation * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        // Giriş noktası boru ucuna (p2) denk gelecek şekilde sayaç merkezini ayarla
+        const girisRotatedX = girisLocal.x * cos - girisLocal.y * sin;
+        const girisRotatedY = girisLocal.x * sin + girisLocal.y * cos;
+
+        // Sayaç merkezi = p2 - giriş_offset - fleks_uzunluk (dik yönde)
+        // Perpendicular yön: (-dy/length, dx/length)
+        const perpX = -dy / length;
+        const perpY = dx / length;
+
+        tempMeter.x = p2.x - girisRotatedX + perpX * fleksUzunluk;
+        tempMeter.y = p2.y - girisRotatedY + perpY * fleksUzunluk;
 
         // Boru p2 ucuna sayaç eklemek için ghost connection bilgisi oluştur
         tempMeter.ghostConnectionInfo = {
