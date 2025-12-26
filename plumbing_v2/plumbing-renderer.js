@@ -1839,6 +1839,9 @@ export class PlumbingRenderer {
         const { boruUcu } = connInfo;
         const boru = boruUcu.boru;
 
+        // Canlı hat modunda boru yok, sadece nokta var (preview zaten çiziliyor)
+        if (!boru) return;
+
         // 1. Boru ucunda vana var mı? (Ghost aşamasında yoksa hayalet vana çiz)
         const vanaVarMi = manager.components.some(comp =>
             comp.type === 'vana' &&
