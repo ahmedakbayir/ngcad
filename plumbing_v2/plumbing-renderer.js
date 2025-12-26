@@ -1913,7 +1913,7 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Canlı Hat Preview - Sadece kesikli çizgi ghost
+     * Canlı Hat Preview - Kesikli çizgi ghost (son 20cm düz - vana kısmı)
      * @param {CanvasRenderingContext2D} ctx
      * @param {InteractionManager} interactionManager
      */
@@ -1942,18 +1942,52 @@ export class PlumbingRenderer {
         ctx.arc(baslangic.x, baslangic.y, 2, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Kesikli çizgi ghost (başlangıç → mouse)
+        // 2. Çizgi ghost - Son 20cm düz (vana kısmı), geri kalanı kesikli
+        const dx = mouse.x - baslangic.x;
+        const dy = mouse.y - baslangic.y;
+        const totalLength = Math.hypot(dx, dy);
+
+        if (totalLength < 1) {
+            ctx.restore();
+            return; // Çok kısa
+        }
+
+        const duzKisimUzunlugu = 20; // cm - vana için düz kısım
+
         ctx.strokeStyle = dashColor;
         ctx.lineWidth = 4;
         ctx.lineCap = 'round';
-        ctx.setLineDash([10, 10]);
 
-        ctx.beginPath();
-        ctx.moveTo(baslangic.x, baslangic.y);
-        ctx.lineTo(mouse.x, mouse.y);
-        ctx.stroke();
+        if (totalLength <= duzKisimUzunlugu) {
+            // Tüm çizgi düz (çok kısa)
+            ctx.beginPath();
+            ctx.moveTo(baslangic.x, baslangic.y);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.stroke();
+        } else {
+            // İki parça: kesikli + düz
+            const kesikliUzunluk = totalLength - duzKisimUzunlugu;
+            const normalizedDx = dx / totalLength;
+            const normalizedDy = dy / totalLength;
 
-        ctx.setLineDash([]);
+            // Kesikli kısmın bitiş noktası
+            const kesikliBitisX = baslangic.x + normalizedDx * kesikliUzunluk;
+            const kesikliBitisY = baslangic.y + normalizedDy * kesikliUzunluk;
+
+            // Kesikli kısım
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(baslangic.x, baslangic.y);
+            ctx.lineTo(kesikliBitisX, kesikliBitisY);
+            ctx.stroke();
+
+            // Düz kısım (vana için)
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(kesikliBitisX, kesikliBitisY);
+            ctx.lineTo(mouse.x, mouse.y);
+            ctx.stroke();
+        }
 
         ctx.restore();
     }
