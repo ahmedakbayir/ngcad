@@ -834,8 +834,18 @@ export class InteractionManager {
                 if (this.canliHatBaslangic) {
                     // İkinci tıklama - mouse konumunu hayali boru ucu gibi kullan
                     const baslangic = this.canliHatBaslangic;
-                    const dx = point.x - baslangic.x;
-                    const dy = point.y - baslangic.y;
+                    let dx = point.x - baslangic.x;
+                    let dy = point.y - baslangic.y;
+
+                    // X-Y yönüne snap (90 derece)
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        // Yatay yön baskın
+                        dy = 0;
+                    } else {
+                        // Dikey yön baskın
+                        dx = 0;
+                    }
+
                     const length = Math.hypot(dx, dy);
 
                     if (length > 1) {
@@ -865,9 +875,12 @@ export class InteractionManager {
                         ghost.x = girisHedefX - (girisLokal.x * cos - girisLokal.y * sin);
                         ghost.y = girisHedefY - (girisLokal.x * sin + girisLokal.y * cos);
 
-                        // Ghost connection info (preview için)
+                        // Ghost connection info (preview için) - Snap uygulanmış mouse pozisyonu
+                        const snappedMouseX = baslangic.x + dx;
+                        const snappedMouseY = baslangic.y + dy;
+
                         ghost.ghostConnectionInfo = {
-                            boruUcu: { nokta: point }
+                            boruUcu: { nokta: { x: snappedMouseX, y: snappedMouseY } }
                         };
                     } else {
                         ghost.x = point.x;
