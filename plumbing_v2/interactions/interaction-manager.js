@@ -1845,49 +1845,28 @@ export class InteractionManager {
         tempMeter.x = p2.x - girisRotatedX + perpX * fleksUzunluk;
         tempMeter.y = p2.y - girisRotatedY + perpY * fleksUzunluk;
 
-        // Boru p2 ucuna sayaç eklemek için ghost connection bilgisi oluştur
-        tempMeter.ghostConnectionInfo = {
-            boruUcu: {
-                boruId: temsiliBoru.id,
-                boru: temsiliBoru,
-                uc: 'p2',
-                nokta: { x: p2.x, y: p2.y }
-            }
-        };
+        // İÇ TESİSAT: Sayacı temsili boruya BAĞLAMA
+        // Sadece ekle, hiçbir bağlantı yapma (VANA yok, FLEKS bağlantısı yok)
+        tempMeter.config.rijitUzunluk = fleksUzunluk;
+        tempMeter.floorId = state.currentFloorId;
 
-        // Sayacı boru ucuna ekle (mevcut handleSayacEndPlacement kullan)
-        // Bu fonksiyon VANA + FLEKS + SAYAÇ + ÇIKIŞ RİJİT otomatik ekleyecek
-        const success = this.handleSayacEndPlacement(tempMeter);
+        // Sayacı components'a ekle
+        this.manager.components.push(tempMeter);
 
-        if (success) {
-            // Sayacın çıkış noktasından boru çizimi başlat
-            const cikisNoktasi = tempMeter.getCikisNoktasi();
-            this.startBoruCizim(cikisNoktasi, tempMeter.id, BAGLANTI_TIPLERI.SAYAC);
+        // Sayacın çıkış noktasından boru çizimi başlat
+        const cikisNoktasi = tempMeter.getCikisNoktasi();
+        this.startBoruCizim(cikisNoktasi, tempMeter.id, BAGLANTI_TIPLERI.SAYAC);
 
-            // Durumu sıfırla
-            this.meterPlacementState = null;
-            this.meterStartPoint = null;
-            this.meterPreviewEndPoint = null;
+        // Durumu sıfırla
+        this.meterPlacementState = null;
+        this.meterStartPoint = null;
+        this.meterPreviewEndPoint = null;
 
-            // Boru modunda kal
-            this.manager.activeTool = 'boru';
-            setMode("plumbingV2", true);
+        // Boru modunda kal
+        this.manager.activeTool = 'boru';
+        setMode("plumbingV2", true);
 
-            console.log('✅ İÇ TESİSAT: Kesikli boru + sayaç başarıyla eklendi.');
-        } else {
-            // Başarısız olursa temsili boruyu sil
-            const index = this.manager.pipes.indexOf(temsiliBoru);
-            if (index > -1) {
-                this.manager.pipes.splice(index, 1);
-            }
-
-            // Durumu sıfırla
-            this.meterPlacementState = null;
-            this.meterStartPoint = null;
-            this.meterPreviewEndPoint = null;
-
-            console.error('❌ Sayaç eklenemedi!');
-        }
+        console.log('✅ İÇ TESİSAT: Kesikli boru + sayaç başarıyla eklendi (bağlantısız).');
     }
 
     selectObject(obj) {
