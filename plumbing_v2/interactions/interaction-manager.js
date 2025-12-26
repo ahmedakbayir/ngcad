@@ -1635,6 +1635,9 @@ export class InteractionManager {
             this.manager.components.push(meter);
         }
 
+        // Ghost connection info'yu temizle (bir sonraki ekleme için)
+        meter.ghostConnectionInfo = null;
+
         return true;
     }
 
@@ -1762,6 +1765,9 @@ export class InteractionManager {
             this.manager.components.push(cihaz);
         }
 
+        // Ghost connection info'yu temizle (bir sonraki ekleme için)
+        cihaz.ghostConnectionInfo = null;
+
         // State'e kaydet
         this.manager.saveToState();
 
@@ -1834,11 +1840,21 @@ export class InteractionManager {
             this.snapSystem.clearStartPoint();
         }
 
+        // Canlı hat modunu sıfırla
+        if (this.canliHatModu) {
+            this.canliHatModu = false;
+            this.canliHatBaslangic = null;
+        }
+
         // Ölçü girişini sıfırla
         this.measurementInput = '';
         this.measurementActive = false;
 
+        // Ghost component ve connection info'yu tamamen temizle
         if (this.manager.tempComponent) {
+            if (this.manager.tempComponent.ghostConnectionInfo) {
+                this.manager.tempComponent.ghostConnectionInfo = null;
+            }
             this.manager.tempComponent = null;
         }
 

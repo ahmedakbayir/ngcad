@@ -46,6 +46,11 @@ export class PlumbingManager {
         // Böylece ghost görüntü önceki cihazın konumunda başlamaz
         this.interactionManager.lastMousePoint = null;
 
+        // Eski ghost component'in referanslarını temizle
+        if (this.tempComponent && this.tempComponent.ghostConnectionInfo) {
+            this.tempComponent.ghostConnectionInfo = null;
+        }
+
         // Ghost bileşen oluştur
         switch (type) {
             case TESISAT_MODLARI.SERVIS_KUTUSU:
