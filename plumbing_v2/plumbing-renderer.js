@@ -1913,7 +1913,7 @@ export class PlumbingRenderer {
     }
 
     /**
-     * Canlı Hat Preview - Hayali boru + Sayaç ghost
+     * Canlı Hat Preview - Sadece kesikli çizgi ghost
      * @param {CanvasRenderingContext2D} ctx
      * @param {InteractionManager} interactionManager
      */
@@ -1927,108 +1927,33 @@ export class PlumbingRenderer {
 
         // Sarı renk (light/dark mode)
         const isLightMode = document.body.classList.contains('light-mode');
-        const dashColor = isLightMode ? '#FFA500' : '#FFFF00'; // Turuncu (açık mod) veya Sarı (koyu mod)
+        const dashColor = isLightMode ? '#FFA500' : '#FFFF00';
 
-        // 1. Başlangıç noktasını işaretle (daire)
+        // 1. Başlangıç noktası dairesi
         ctx.fillStyle = dashColor;
         ctx.strokeStyle = dashColor;
         ctx.lineWidth = 2;
 
-        // Dış daire (5 cm yarıçap)
         ctx.beginPath();
         ctx.arc(baslangic.x, baslangic.y, 5, 0, Math.PI * 2);
         ctx.stroke();
 
-        // İç dolu daire (2 cm yarıçap)
         ctx.beginPath();
         ctx.arc(baslangic.x, baslangic.y, 2, 0, Math.PI * 2);
         ctx.fill();
 
-        // 2. Kesikli çizgi (başlangıç → mouse) - Hayali boru
+        // 2. Kesikli çizgi ghost (başlangıç → mouse)
         ctx.strokeStyle = dashColor;
         ctx.lineWidth = 4;
         ctx.lineCap = 'round';
-        ctx.setLineDash([10, 10]); // 10 cm çizgi, 10 cm boşluk
+        ctx.setLineDash([10, 10]);
 
         ctx.beginPath();
         ctx.moveTo(baslangic.x, baslangic.y);
         ctx.lineTo(mouse.x, mouse.y);
         ctx.stroke();
 
-        // Kesikli çizgi ayarını sıfırla
         ctx.setLineDash([]);
-
-        // 3. Sayaç preview - MEVCUt sistem ile aynı pozisyonlama
-        // Boru yönü ve uzunluğu
-        const dx = mouse.x - baslangic.x;
-        const dy = mouse.y - baslangic.y;
-        const length = Math.hypot(dx, dy);
-
-        if (length < 1) {
-            ctx.restore();
-            return; // Çok kısa, sayaç çizme
-        }
-
-        // Fleks görünen boy (mevcut sistemle aynı)
-        const fleksUzunluk = 15; // cm
-
-        // Mouse'un boru ekseninin hangi tarafında olduğunu varsay (üst taraf)
-        // Cross product hesabı için mouse vektörü = 0 (boru ucu = mouse)
-        // Varsayılan olarak saat yönünün tersine (CCW) yerleştir
-        let perpX = -dy / length;
-        let perpY = dx / length;
-
-        // Sayaç rotation'u: Boru yönü
-        const baseRotation = Math.atan2(dy, dx);
-
-        // Sayaç sabitleri (SAYAC_CONFIG'den)
-        const sayacWidth = 22;
-        const sayacHeight = 24;
-        const connectionOffset = 5; // Merkezden sağa/sola sapma
-        const nutHeight = 4; // Bağlantı nut yüksekliği
-
-        // Giriş rakorunun lokal koordinatı (sayaç sınıfından)
-        const girisLokalX = -connectionOffset;
-        const girisLokalY = -sayacHeight / 2 - nutHeight;
-
-        // Giriş rakorunun dünya koordinatı (istenen) - fleks uzunluğu kadar dik yönde
-        const girisHedefX = mouse.x + perpX * fleksUzunluk;
-        const girisHedefY = mouse.y + perpY * fleksUzunluk;
-
-        // Sayaç merkezini hesapla (rotation dikkate alınarak)
-        const cos = Math.cos(baseRotation);
-        const sin = Math.sin(baseRotation);
-
-        const sayacX = girisHedefX - (girisLokalX * cos - girisLokalY * sin);
-        const sayacY = girisHedefY - (girisLokalX * sin + girisLokalY * cos);
-
-        // 4. Fleks preview (kesikli çizgi) - boru ucundan sayaç giriş rakoruna
-        ctx.strokeStyle = dashColor;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.globalAlpha = 0.5;
-
-        ctx.beginPath();
-        ctx.moveTo(mouse.x, mouse.y);
-        ctx.lineTo(girisHedefX, girisHedefY);
-        ctx.stroke();
-
-        ctx.setLineDash([]);
-
-        // 5. Sayaç gövdesi preview (yarı saydam)
-        ctx.globalAlpha = 0.6;
-        ctx.translate(sayacX, sayacY);
-        ctx.rotate(baseRotation);
-
-        ctx.fillStyle = '#A8A8A8'; // Metalik gri
-        ctx.fillRect(-sayacWidth / 2, -sayacHeight / 2, sayacWidth, sayacHeight);
-
-        // G4 yazısı
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('G4', 0, 0);
 
         ctx.restore();
     }

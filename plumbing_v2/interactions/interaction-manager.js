@@ -3479,16 +3479,14 @@ export class InteractionManager {
         if (success) {
             console.log('[CANLI HAT] Sayaç başarıyla eklendi (mevcut sistem ile)');
 
-            // Sayaç çıkışından boru çizimi başlat
-            const cikisNoktasi = sayac.getCikisNoktasi();
-            this.startBoruCizim(cikisNoktasi, sayac.id, BAGLANTI_TIPLERI.SAYAC);
-
-            // Boru moduna geç
-            this.manager.activeTool = 'boru';
-            setMode("plumbingV2", true);
+            // HER SAYAÇ BAĞIMSIZ - Boru çizimi başlatma, seç moduna geç
+            this.manager.activeTool = null;
+            setMode("select", true);
 
             // State'i güncelle
             this.manager.saveToState();
+
+            console.log('[CANLI HAT] Başka sayaç eklemek için tekrar sayaç butonuna basın');
 
             return true;
         } else {
