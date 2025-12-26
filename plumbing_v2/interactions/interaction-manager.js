@@ -372,13 +372,19 @@ export class InteractionManager {
             }
 
             // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-            const boruUcu = this.findBoruUcuAt(point, 10); // Nokta seçimi için 2.5 cm tolerance (daha hassas)
+            const boruUcu = this.findBoruUcuAt(point, 10, false, true); // includeCanliHat=true - hayali borular da seçilebilir
             if (boruUcu) {
                 // console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
                 const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
                 if (pipe) {
                     // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
                     if (this.manager.activeTool === 'boru') {
+                        // Hayali borulardan boru çizimi başlatılamaz
+                        if (pipe.colorGroup === 'CANLI_HAT') {
+                            console.warn("🚫 Hayali borulardan tesisat çizilemez!");
+                            return true;
+                        }
+
                         const deviceVar = this.hasDeviceAtEndpoint(pipe.id, boruUcu.uc);
                         const meterVar = this.hasMeterAtEndpoint(pipe.id, boruUcu.uc);
 
@@ -2081,13 +2087,13 @@ export class InteractionManager {
         return false;
     }
 
-    findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
+    findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false, includeCanliHat = false) {
         const currentFloorId = state.currentFloor?.id;
         const candidates = [];
 
         for (const boru of this.manager.pipes) {
-            // CANLI HAT borularını yoksay - bunlar hayali borular
-            if (boru.colorGroup === 'CANLI_HAT') {
+            // CANLI HAT borularını yoksay - ANCAK seçim/taşıma için dahil et
+            if (boru.colorGroup === 'CANLI_HAT' && !includeCanliHat) {
                 continue;
             }
 
