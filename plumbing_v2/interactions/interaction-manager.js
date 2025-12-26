@@ -328,35 +328,40 @@ export class InteractionManager {
 
         // 1. Boru çizim modunda tıklama
         if (this.boruCizimAktif) {
-            console.log('[DEBUG ÇOK ÖNEMLİ] Boru çizimi aktif, tıklanan nokta:', point);
+            // Servis kutusu veya sayaç ÇIKIŞ NOKTASINA tıklanırsa mevcut çizimi iptal et
+            const tolerance = 15; // 15 cm tolerance
 
-            // Servis kutusuna veya sayaca tıklanırsa mevcut çizimi iptal et
+            // Servis kutusu çıkış noktası kontrolü
             const clickedServisKutusu = this.manager.components.find(c => {
-                const isServis = c.type === 'servis_kutusu';
-                const hasMethod = c.containsPoint;
-                const contains = hasMethod ? c.containsPoint(point) : false;
-                console.log('[DEBUG] Servis kutusu kontrolü:', { id: c.id, isServis, hasMethod, contains });
-                return isServis && hasMethod && contains;
+                if (c.type !== 'servis_kutusu') return false;
+                const cikisNoktasi = c.getCikisNoktasi();
+                if (!cikisNoktasi) return false;
+                const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
+                console.log('[DEBUG] Servis kutusu çıkış mesafesi:', { id: c.id, dist, cikisNoktasi });
+                return dist < tolerance;
             });
 
+            // Sayaç çıkış noktası kontrolü
             const clickedSayac = this.manager.components.find(c => {
-                const isSayac = c.type === 'sayac';
-                const hasMethod = c.containsPoint;
-                const contains = hasMethod ? c.containsPoint(point) : false;
-                console.log('[DEBUG] Sayaç kontrolü:', { id: c.id, isSayac, hasMethod, contains });
-                return isSayac && hasMethod && contains;
+                if (c.type !== 'sayac') return false;
+                const cikisNoktasi = c.getCikisNoktasi();
+                if (!cikisNoktasi) return false;
+                const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
+                console.log('[DEBUG] Sayaç çıkış mesafesi:', { id: c.id, dist, cikisNoktasi });
+                return dist < tolerance;
             });
 
-            console.log('[DEBUG] Sonuç:', {
+            console.log('[DEBUG] Çıkış noktası kontrolü sonuç:', {
                 clickedServisKutusu: !!clickedServisKutusu,
                 clickedSayac: !!clickedSayac
             });
 
             if (clickedServisKutusu || clickedSayac) {
                 // Mevcut çizimi iptal et ve yeni çizim başlatmak için devam et
-                console.log('[DEBUG] Boru çizimi aktifken servis kutusu/sayaca tıklandı, çizim iptal ediliyor...');
+                alert('⚠️ ' + (clickedServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
+                console.log('[DEBUG] Servis kutusu/sayaç ÇIKIŞ NOKTASINA tıklandı, çizim iptal ediliyor...');
                 this.cancelCurrentAction();
-                // Aşağıdaki kodlar yeni çizimi başlatacak
+                return true; // İşlemi bitir
             } else {
                 // Normal boru tıklaması - çizime devam et
                 this.handleBoruClick(targetPoint);
