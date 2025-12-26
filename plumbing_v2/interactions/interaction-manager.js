@@ -1551,7 +1551,12 @@ export class InteractionManager {
         meter.config.rijitUzunluk = fleksUzunluk;
 
         // SON OLARAK: Tüm pozisyon/rotation ayarları bittikten sonra fleks bağla
-        meter.fleksBagla(boruUcu.boruId, boruUcu.uc);
+        // ANCAK: Temsili (decorative) boruya BAĞLANMA - sadece görsel
+        const isDecorative = boruUcu.boru && boruUcu.boru.isDecorative;
+        if (!isDecorative) {
+            meter.fleksBagla(boruUcu.boruId, boruUcu.uc);
+        }
+        // İç tesisat (decorative boru) durumunda sayaç bağlantısız başlar
 
         // Sayacı components'a ekle (eğer henüz eklenmemişse)
         if (!this.manager.components.includes(meter)) {
@@ -1792,11 +1797,12 @@ export class InteractionManager {
             return;
         }
 
-        // Kesikli temsili boru oluştur
+        // Kesikli temsili boru oluştur (sadece görsel, bağlantı yapmaz)
         const temsiliBoru = createBoru(p1, p2);
         temsiliBoru.dagitimTuru = 'KOLON'; // Kolon rengi
         temsiliBoru.lineStyle = 'dashed'; // Kesikli çizim
         temsiliBoru.isTemsiliBoru = true; // Temsili boru işareti
+        temsiliBoru.isDecorative = true; // Bağlantı yapılmaz, sadece görsel
 
         this.manager.pipes.push(temsiliBoru);
 
@@ -2188,6 +2194,11 @@ export class InteractionManager {
                 continue;
             }
 
+            // Temsili/decorative boruları atla (bağlantı yapılamazlar)
+            if (boru.isDecorative || boru.isTemsiliBoru) {
+                continue;
+            }
+
             const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
             const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
 
@@ -2244,6 +2255,11 @@ export class InteractionManager {
 
     findBoruGovdeAt(point, tolerance = 5) {
         for (const boru of this.manager.pipes) {
+            // Temsili/decorative boruları atla (bağlantı yapılamazlar)
+            if (boru.isDecorative || boru.isTemsiliBoru) {
+                continue;
+            }
+
             const proj = boru.projectPoint(point);
             if (proj && proj.onSegment && proj.distance < tolerance) {
                 return { boruId: boru.id, nokta: { x: proj.x, y: proj.y } };

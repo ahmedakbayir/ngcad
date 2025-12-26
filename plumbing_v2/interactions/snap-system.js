@@ -50,6 +50,11 @@ export class SnapSystem {
         let minDist = tolerance;
 
         this.manager.pipes.forEach(pipe => {
+            // Temsili/decorative boruları atla (snap yapılamazlar)
+            if (pipe.isDecorative || pipe.isTemsiliBoru) {
+                return;
+            }
+
             [pipe.p1, pipe.p2].forEach(node => {
                 const dist = Math.hypot(point.x - node.x, point.y - node.y);
                 if (dist < minDist) {
@@ -73,6 +78,11 @@ export class SnapSystem {
         let minDist = tolerance;
 
         this.manager.pipes.forEach(pipe => {
+            // Temsili/decorative boruları atla (snap yapılamazlar)
+            if (pipe.isDecorative || pipe.isTemsiliBoru) {
+                return;
+            }
+
             // Boru üzerine dik izdüşüm
             const proj = this.getProjection(point, pipe.p1, pipe.p2);
             if (proj && proj.onSegment) {
@@ -98,6 +108,11 @@ export class SnapSystem {
         let minDist = tolerance;
 
         this.manager.pipes.forEach(pipe => {
+            // Temsili/decorative boruları atla (snap yapılamazlar)
+            if (pipe.isDecorative || pipe.isTemsiliBoru) {
+                return;
+            }
+
             const proj = this.getProjection(point, pipe.p1, pipe.p2);
             if (proj && proj.onSegment) {
                 const dist = Math.hypot(point.x - proj.x, point.y - proj.y);
