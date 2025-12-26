@@ -174,6 +174,13 @@ export class PlumbingRenderer {
             this.drawGeciciBoru(ctx, geciciBoru, geciciColorGroup);
         }
 
+        // İç tesisat sayaç ekleme - kesikli boru preview
+        if (manager.interactionManager?.meterPlacementState === 'drawing_start_pipe' &&
+            manager.interactionManager.meterStartPoint &&
+            manager.interactionManager.meterPreviewEndPoint) {
+            this.drawMeterStartPipePreview(ctx, manager.interactionManager);
+        }
+
         if (shouldBeFaded) {
             ctx.restore();
         }
@@ -1885,6 +1892,64 @@ export class PlumbingRenderer {
         ctx.lineTo(solRakor.x, solRakor.y);
         ctx.stroke();
 
+
+        ctx.restore();
+    }
+
+    /**
+     * İç tesisat sayaç ekleme - kesikli boru + sayaç preview
+     */
+    drawMeterStartPipePreview(ctx, interactionManager) {
+        const p1 = interactionManager.meterStartPoint;
+        const p2 = interactionManager.meterPreviewEndPoint;
+
+        if (!p1 || !p2) return;
+
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+
+        // 1. Kesikli boru preview
+        const colorGroup = 'YELLOW'; // Kolon rengi olacak ama preview için sarı
+        const boruRenk = this.getRenkByGroup(colorGroup, 'boru', 1);
+
+        ctx.strokeStyle = boruRenk;
+        ctx.lineWidth = 4;
+        ctx.setLineDash([10, 5]); // Kesikli
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        ctx.setLineDash([]); // Reset
+
+        // 2. Başlangıç noktası işareti (küçük daire)
+        ctx.fillStyle = '#00FF00';
+        ctx.beginPath();
+        ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 3. Bitiş noktası işareti (sayaç eklenecek yer)
+        ctx.fillStyle = '#FF0000';
+        ctx.beginPath();
+        ctx.arc(p2.x, p2.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 4. Mesafe etiketi
+        const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const text = `${distance.toFixed(0)} cm`;
+        ctx.strokeText(text, midX, midY - 10);
+        ctx.fillText(text, midX, midY - 10);
 
         ctx.restore();
     }
