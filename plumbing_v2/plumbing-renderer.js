@@ -1941,26 +1941,12 @@ export class PlumbingRenderer {
         ctx.lineCap = 'butt';
         ctx.lineJoin = 'miter';
 
-        // İki paralel dikey çizgi (elektrik simgesi)
-        const spacing = 3;
-        const height = 10;
-
-        // Sol çizgi
-        ctx.beginPath();
-        ctx.moveTo(-spacing, -height);
-        ctx.lineTo(-spacing, height);
-        ctx.stroke();
-
-        // Sağ çizgi
-        ctx.beginPath();
-        ctx.moveTo(spacing, -height);
-        ctx.lineTo(spacing, height);
-        ctx.stroke();
-
         // Küçük boş yuvarlak (merkez)
         ctx.beginPath();
-        ctx.arc(0, 0, 4, 0, Math.PI * 2);
-        ctx.lineWidth = 1.5;
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.lineWidth = 1;
+        //ctx.fillStyle = '#000'
+        ctx.fill();
         ctx.stroke();
 
         ctx.restore();
