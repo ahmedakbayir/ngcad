@@ -1124,6 +1124,33 @@ export class InteractionManager {
             }
         }
 
+        // ÖNEMLİ: Başlangıç noktası kullanılmış bir servis kutusu/sayaç çıkışına yakın mı?
+        // (kaynakTip ne olursa olsun - çünkü ikinci tıklamada kaynakTip 'boru' olabilir)
+        const tolerance = 10;
+        const problematicServisKutusu = this.manager.components.find(c => {
+            if (c.type !== 'servis_kutusu' || !c.cikisKullanildi) return false;
+            const cikisNoktasi = c.getCikisNoktasi();
+            if (!cikisNoktasi) return false;
+            const dist = Math.hypot(baslangicNoktasi.x - cikisNoktasi.x, baslangicNoktasi.y - cikisNoktasi.y);
+            console.log('[DEBUG startBoruCizim - SK]', { dist, tolerance, baslangicNoktasi, cikisNoktasi });
+            return dist < tolerance;
+        });
+
+        const problematicSayac = this.manager.components.find(c => {
+            if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
+            const cikisNoktasi = c.getCikisNoktasi();
+            if (!cikisNoktasi) return false;
+            const dist = Math.hypot(baslangicNoktasi.x - cikisNoktasi.x, baslangicNoktasi.y - cikisNoktasi.y);
+            console.log('[DEBUG startBoruCizim - SAYAÇ]', { dist, tolerance, baslangicNoktasi, cikisNoktasi });
+            return dist < tolerance;
+        });
+
+        if (problematicServisKutusu || problematicSayac) {
+            alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
+            console.warn('🚫 ENGEL: Başlangıç noktası zaten kullanılmış çıkışa çok yakın!');
+            return; // Boru çizimi başlatma
+        }
+
         // Servis kutusu kontrolü - sadece 1 hat ayrılabilir
         if (kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU && kaynakId) {
             const servisKutusu = this.manager.components.find(c => c.id === kaynakId && c.type === 'servis_kutusu');
@@ -1428,32 +1455,6 @@ export class InteractionManager {
         boru.floorId = state.currentFloorId;
 
         boru.colorGroup = this.boruBaslangic.kaynakColorGroup || 'YELLOW';
-
-        // ÖNEMLİ: Borunun P1'i (başlangıç noktası) kullanılmış bir servis kutusu/sayaç çıkışına yakın mı kontrol et
-        const tolerance = 10;
-        const problematicServisKutusu = this.manager.components.find(c => {
-            if (c.type !== 'servis_kutusu' || !c.cikisKullanildi) return false;
-            const cikisNoktasi = c.getCikisNoktasi();
-            if (!cikisNoktasi) return false;
-            const dist = Math.hypot(boru.p1.x - cikisNoktasi.x, boru.p1.y - cikisNoktasi.y);
-            console.log('[DEBUG YENİ BORU P1 - SK]', { dist, tolerance, boruP1: boru.p1, cikisNoktasi });
-            return dist < tolerance;
-        });
-
-        const problematicSayac = this.manager.components.find(c => {
-            if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
-            const cikisNoktasi = c.getCikisNoktasi();
-            if (!cikisNoktasi) return false;
-            const dist = Math.hypot(boru.p1.x - cikisNoktasi.x, boru.p1.y - cikisNoktasi.y);
-            console.log('[DEBUG YENİ BORU P1 - SAYAÇ]', { dist, tolerance, boruP1: boru.p1, cikisNoktasi });
-            return dist < tolerance;
-        });
-
-        if (problematicServisKutusu || problematicSayac) {
-            alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
-            console.warn('🚫 ENGEL: Yeni borunun P1 noktası zaten kullanılmış çıkışa çok yakın!');
-            return; // Boruyu ekleme
-        }
 
         if (this.boruBaslangic.kaynakId) {
             // Servis kutusu bağlantısını kontrol et ve kur
