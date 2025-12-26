@@ -347,7 +347,7 @@ export class PlumbingRenderer {
 
                         // 1. Kesikli kısım (başlangıçtan vana öncesine)
                         if (duzBaslangic > 0) {
-                            ctx.setLineDash([10, 10]);
+                            ctx.setLineDash([7, 3]);
                             ctx.beginPath();
                             ctx.moveTo(0, 0);
                             ctx.lineTo(duzBaslangic, 0);
@@ -363,7 +363,7 @@ export class PlumbingRenderer {
 
                         // 3. Kesikli kısım (vana sonrasından sona)
                         if (duzBitis < length) {
-                            ctx.setLineDash([10, 10]);
+                            ctx.setLineDash([7, 2]);
                             ctx.beginPath();
                             ctx.moveTo(duzBitis, 0);
                             ctx.lineTo(length, 0);
@@ -371,7 +371,7 @@ export class PlumbingRenderer {
                         }
                     } else {
                         // Vana yok - tamamı kesikli
-                        ctx.setLineDash([10, 10]);
+                        ctx.setLineDash([7, 3]);
                         ctx.beginPath();
                         ctx.moveTo(0, 0);
                         ctx.lineTo(length, 0);
