@@ -222,7 +222,12 @@ export class Sayac {
      * Çıkışa boru bağla (Rijit)
      */
     baglaCikis(boruId) {
+        if (this.cikisBagliBoruId) {
+            console.warn('Sayaç çıkışı zaten kullanımda');
+            return false;
+        }
         this.cikisBagliBoruId = boruId;
+        return true;
     }
 
     /**

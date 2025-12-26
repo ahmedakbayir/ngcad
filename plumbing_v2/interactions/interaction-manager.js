@@ -975,7 +975,7 @@ export class InteractionManager {
                 // ... (Mevcut kod) ...
                 saveState();
                 this.manager.components.push(component);
-                this.startBoruCizim(component.getCikisNoktasi(), component.id);
+                this.startBoruCizim(component.getCikisNoktasi(), component.id, BAGLANTI_TIPLERI.SERVIS_KUTUSU);
                 this.manager.activeTool = 'boru';
                 setMode("plumbingV2", true);
                 break;
@@ -1420,30 +1420,38 @@ export class InteractionManager {
 
 
         if (this.boruBaslangic.kaynakId) {
-            boru.setBaslangicBaglanti(
-                this.boruBaslangic.kaynakTip,
-                this.boruBaslangic.kaynakId
-            );
-
-            // Servis kutusu bağlantısını kur
+            // Servis kutusu bağlantısını kontrol et ve kur
             if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
                 const servisKutusu = this.manager.components.find(
                     c => c.id === this.boruBaslangic.kaynakId && c.type === 'servis_kutusu'
                 );
                 if (servisKutusu) {
-                    servisKutusu.baglaBoru(boru.id);
+                    const baglantiBasarili = servisKutusu.baglaBoru(boru.id);
+                    if (!baglantiBasarili) {
+                        console.warn("🚫 Servis kutusu çıkışına bağlantı başarısız - zaten kullanımda!");
+                        return; // Boru eklenmez
+                    }
                 }
             }
 
-            // Sayaç bağlantısını kur
+            // Sayaç bağlantısını kontrol et ve kur
             if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
                 const sayac = this.manager.components.find(
                     c => c.id === this.boruBaslangic.kaynakId && c.type === 'sayac'
                 );
                 if (sayac) {
-                    sayac.baglaCikis(boru.id);
+                    const baglantiBasarili = sayac.baglaCikis(boru.id);
+                    if (!baglantiBasarili) {
+                        console.warn("🚫 Sayaç çıkışına bağlantı başarısız - zaten kullanımda!");
+                        return; // Boru eklenmez
+                    }
                 }
             }
+
+            boru.setBaslangicBaglanti(
+                this.boruBaslangic.kaynakTip,
+                this.boruBaslangic.kaynakId
+            );
         }
 
         this.manager.pipes.push(boru);
@@ -3399,13 +3407,22 @@ export class InteractionManager {
                 // Bağlı boru zincirini güncelle (ilerdeki tüm borular)
                 this.updateConnectedPipesChain(oldP1, newP1);
             } else {
-                // nextPipe yok - servis kutusu bağlantısını temizle
+                // nextPipe yok - servis kutusu/sayaç bağlantısını temizle
                 if (deletedPipe.baslangicBaglanti && deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
                     const servisKutusu = this.manager.components.find(
                         c => c.id === deletedPipe.baslangicBaglanti.hedefId
                     );
                     if (servisKutusu) {
-                        servisKutusu.bagliBoruId = null;
+                        servisKutusu.boruBaglantisinKaldir();
+                    }
+                }
+                // Sayaç bağlantısını temizle
+                if (deletedPipe.baslangicBaglanti && deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
+                    const sayac = this.manager.components.find(
+                        c => c.id === deletedPipe.baslangicBaglanti.hedefId
+                    );
+                    if (sayac) {
+                        sayac.cikisBagliBoruId = null;
                     }
                 }
             }
