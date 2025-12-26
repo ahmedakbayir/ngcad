@@ -328,62 +328,8 @@ export class InteractionManager {
 
         // 1. Boru çizim modunda tıklama
         if (this.boruCizimAktif) {
-            // KULLANILMIŞ servis kutusu/sayaç çıkışına tıklanıp tıklanmadığını kontrol et
-            const tolerance = 10; // 10 cm tolerance
-
-            console.log('[DEBUG POINTER] boruCizimAktif:', this.boruCizimAktif, 'point:', point);
-
-            // Servis kutusu kontrolü - ÇIKIŞ KULLANILDIYSA engelle
-            const clickedUsedServisKutusu = this.manager.components.find(c => {
-                if (c.type !== 'servis_kutusu') {
-                    return false;
-                }
-                console.log('[DEBUG SK]', { id: c.id, cikisKullanildi: c.cikisKullanildi, bagliBoruId: c.bagliBoruId });
-
-                if (!c.cikisKullanildi || !c.bagliBoruId) return false;
-
-                // ZATEN bağlı boruyu bul
-                const bagliBoru = this.manager.pipes.find(p => p.id === c.bagliBoruId);
-                if (!bagliBoru) return false;
-
-                // Tıklama noktası ile BAĞLI BORUNUN P1'i (kutu-boru birleşme noktası) arasındaki mesafe
-                const dist = Math.hypot(point.x - bagliBoru.p1.x, point.y - bagliBoru.p1.y);
-                console.log('[DEBUG SK MESAFE]',
-                    'dist:', dist,
-                    'tolerance:', tolerance,
-                    'boruP1:', bagliBoru.p1.x.toFixed(2), bagliBoru.p1.y.toFixed(2),
-                    'point:', point.x.toFixed(2), point.y.toFixed(2),
-                    'boruId:', bagliBoru.id
-                );
-                return dist < tolerance;
-            });
-
-            // Sayaç kontrolü - ÇIKIŞ KULLANILDIYSA engelle
-            const clickedUsedSayac = this.manager.components.find(c => {
-                if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
-
-                // ZATEN bağlı boruyu bul
-                const bagliBoru = this.manager.pipes.find(p => p.id === c.cikisBagliBoruId);
-                if (!bagliBoru) return false;
-
-                // Tıklama noktası ile BAĞLI BORUNUN P1'i (sayaç-boru birleşme noktası) arasındaki mesafe
-                const dist = Math.hypot(point.x - bagliBoru.p1.x, point.y - bagliBoru.p1.y);
-                console.log('[DEBUG SAYAÇ MESAFE]', { dist, tolerance, boruP1: bagliBoru.p1, point });
-                return dist < tolerance;
-            });
-
-            console.log('[DEBUG SONUÇ]', { clickedUsedServisKutusu: !!clickedUsedServisKutusu, clickedUsedSayac: !!clickedUsedSayac });
-
-            if (clickedUsedServisKutusu || clickedUsedSayac) {
-                // ZATEN KULLANILMIŞ çıkışa tıklandı - engelle!
-                alert('⚠️ ' + (clickedUsedServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
-                this.cancelCurrentAction();
-                return true;
-            } else {
-                // Normal boru tıklaması - çizime devam et
-                this.handleBoruClick(targetPoint);
-                return true;
-            }
+            this.handleBoruClick(targetPoint);
+            return true;
         }
 
         // 1.5. İç tesisat sayaç yerleştirme - ikinci nokta tıklaması
@@ -1483,6 +1429,31 @@ export class InteractionManager {
 
         boru.colorGroup = this.boruBaslangic.kaynakColorGroup || 'YELLOW';
 
+        // ÖNEMLİ: Borunun P1'i (başlangıç noktası) kullanılmış bir servis kutusu/sayaç çıkışına yakın mı kontrol et
+        const tolerance = 10;
+        const problematicServisKutusu = this.manager.components.find(c => {
+            if (c.type !== 'servis_kutusu' || !c.cikisKullanildi) return false;
+            const cikisNoktasi = c.getCikisNoktasi();
+            if (!cikisNoktasi) return false;
+            const dist = Math.hypot(boru.p1.x - cikisNoktasi.x, boru.p1.y - cikisNoktasi.y);
+            console.log('[DEBUG YENİ BORU P1 - SK]', { dist, tolerance, boruP1: boru.p1, cikisNoktasi });
+            return dist < tolerance;
+        });
+
+        const problematicSayac = this.manager.components.find(c => {
+            if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
+            const cikisNoktasi = c.getCikisNoktasi();
+            if (!cikisNoktasi) return false;
+            const dist = Math.hypot(boru.p1.x - cikisNoktasi.x, boru.p1.y - cikisNoktasi.y);
+            console.log('[DEBUG YENİ BORU P1 - SAYAÇ]', { dist, tolerance, boruP1: boru.p1, cikisNoktasi });
+            return dist < tolerance;
+        });
+
+        if (problematicServisKutusu || problematicSayac) {
+            alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
+            console.warn('🚫 ENGEL: Yeni borunun P1 noktası zaten kullanılmış çıkışa çok yakın!');
+            return; // Boruyu ekleme
+        }
 
         if (this.boruBaslangic.kaynakId) {
             // Servis kutusu bağlantısını kontrol et ve kur
