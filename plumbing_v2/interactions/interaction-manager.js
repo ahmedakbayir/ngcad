@@ -112,6 +112,39 @@ export class InteractionManager {
         if (this.meterPlacementState === 'drawing_start_pipe' && this.meterStartPoint) {
             // Preview için bitiş noktasını güncelle
             this.meterPreviewEndPoint = targetPoint;
+
+            // Sayaç ghost'unu güncelle (mevcut ghost sistemi)
+            if (this.manager.tempComponent && this.manager.tempComponent.type === 'sayac') {
+                const p1 = this.meterStartPoint;
+                const p2 = targetPoint;
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const length = Math.hypot(dx, dy);
+
+                // Boru açısı
+                const boruAci = Math.atan2(dy, dx) * 180 / Math.PI;
+                const fleksUzunluk = 15; // cm
+
+                // Perpendicular yön
+                const perpX = -dy / length;
+                const perpY = dx / length;
+
+                // Sayaç rotation
+                this.manager.tempComponent.rotation = boruAci;
+
+                // Sayaç pozisyon (giriş noktası p2'de olacak)
+                const girisLocal = this.manager.tempComponent.getGirisLocalKoordinat();
+                const rad = this.manager.tempComponent.rotation * Math.PI / 180;
+                const cos = Math.cos(rad);
+                const sin = Math.sin(rad);
+                const girisRotatedX = girisLocal.x * cos - girisLocal.y * sin;
+                const girisRotatedY = girisLocal.x * sin + girisLocal.y * cos;
+
+                // Mouse pozisyonu = fleks ucu (giriş noktası)
+                this.manager.tempComponent.x = p2.x - girisRotatedX;
+                this.manager.tempComponent.y = p2.y - girisRotatedY;
+            }
+
             return true;
         }
 
@@ -969,7 +1002,7 @@ export class InteractionManager {
 
                     this.meterPlacementState = 'drawing_start_pipe';
                     this.meterStartPoint = { x: point.x, y: point.y };
-                    this.manager.tempComponent = null; // Ghost'u temizle
+                    // tempComponent'i TUTUYORUZ - mevcut ghost sistemi kullanacak
 
                     console.log('✅ İÇ TESİSAT: Kesikli boru başlangıç noktası belirlendi. İkinci nokta için tıklayın.');
                 }
