@@ -343,6 +343,12 @@ export class PlumbingRenderer {
 
                     // Kesikli çizgi ayarını sıfırla
                     ctx.setLineDash([]);
+
+                    // Başlangıç noktasında elektrik simgesi (p1)
+                    ctx.save();
+                    ctx.rotate(-angle); // Rotasyonu geri al (simge düz durmalı)
+                    this.drawElektrikSimgesi(ctx, 0, 0, dashColor);
+                    ctx.restore();
                 } else {
                     // Normal boru - Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
                     const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
@@ -1916,6 +1922,58 @@ export class PlumbingRenderer {
     }
 
     /**
+     * Elektrik simgesi çiz (canlı hat başlangıcı için)
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} x - X koordinatı
+     * @param {number} y - Y koordinatı
+     * @param {string} color - Renk
+     */
+    drawElektrikSimgesi(ctx, x, y, color) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Yıldırım şekli (basit, iki çizgili)
+        // İki çizgi: sol-sağ ve yukarı-aşağı
+        const size = 8;
+
+        // Yatay çizgi
+        ctx.beginPath();
+        ctx.moveTo(-size, 0);
+        ctx.lineTo(size, 0);
+        ctx.stroke();
+
+        // Dikey çizgi
+        ctx.beginPath();
+        ctx.moveTo(0, -size);
+        ctx.lineTo(0, size);
+        ctx.stroke();
+
+        // Çapraz çizgiler (X şeklinde ek)
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.7, -size * 0.7);
+        ctx.lineTo(size * 0.7, size * 0.7);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(size * 0.7, -size * 0.7);
+        ctx.lineTo(-size * 0.7, size * 0.7);
+        ctx.stroke();
+
+        // Merkez daire
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    /**
      * Canlı Hat Preview - Kesikli çizgi ghost (son 20cm düz - vana kısmı)
      * @param {CanvasRenderingContext2D} ctx
      * @param {InteractionManager} interactionManager
@@ -1932,18 +1990,8 @@ export class PlumbingRenderer {
         const isLightMode = document.body.classList.contains('light-mode');
         const dashColor = isLightMode ? '#FFA500' : '#FFFF00';
 
-        // 1. Başlangıç noktası dairesi
-        ctx.fillStyle = dashColor;
-        ctx.strokeStyle = dashColor;
-        ctx.lineWidth = 2;
-
-        ctx.beginPath();
-        ctx.arc(baslangic.x, baslangic.y, 5, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(baslangic.x, baslangic.y, 2, 0, Math.PI * 2);
-        ctx.fill();
+        // 1. Başlangıç noktası - Elektrik simgesi (yıldırım)
+        this.drawElektrikSimgesi(ctx, baslangic.x, baslangic.y, dashColor);
 
         // 2. Çizgi ghost - Son 20cm düz (vana kısmı), geri kalanı kesikli
         const dx = mouse.x - baslangic.x;
