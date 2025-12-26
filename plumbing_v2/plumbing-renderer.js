@@ -292,6 +292,13 @@ export class PlumbingRenderer {
 
             ctx.save();
 
+            // Kesikli çizgi desteği (İÇ TESİSAT için temsili boru)
+            if (pipe.lineStyle === 'dashed') {
+                ctx.setLineDash([5, 5]);
+            } else {
+                ctx.setLineDash([]);
+            }
+
             // Koordinat sistemini borunun başlangıcına taşı ve döndür
             ctx.translate(pipe.p1.x, pipe.p1.y);
             ctx.rotate(angle);

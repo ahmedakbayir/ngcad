@@ -65,6 +65,11 @@ export class InteractionManager {
 
         // Vana preview (vana tool aktif)
         this.vanaPreview = null; // { pipe, point, t, snapToEnd }
+
+        // İç tesisat (servis kutusu olmadan) sayaç yerleştirme durumu
+        this.meterPlacementState = null; // null, 'placing', 'rotating'
+        this.placedMeterForRotation = null; // Rotate edilecek sayaç
+        this.meterStartPipe = null; // Sayaçla birlikte eklenen 50cm temsili boru
     }
 
     /**
@@ -284,6 +289,26 @@ export class InteractionManager {
         // 1. Boru çizim modunda tıklama
         if (this.boruCizimAktif) {
             this.handleBoruClick(targetPoint);
+            return true;
+        }
+
+        // 1.5. İç tesisat sayaç yerleştirme - rotate modunda ise ikinci tıklama
+        if (this.meterPlacementState === 'rotating' && this.placedMeterForRotation) {
+            // İkinci tıklama: Rotate'i bitir
+            this.endRotation();
+
+            // Sayacın çıkış noktasından boru çizimi başlat
+            const cikisNoktasi = this.placedMeterForRotation.getCikisNoktasi();
+            this.startBoruCizim(cikisNoktasi, this.placedMeterForRotation.id, BAGLANTI_TIPLERI.SAYAC);
+
+            // Durumu sıfırla
+            this.meterPlacementState = null;
+            this.placedMeterForRotation = null;
+
+            // Boru modunda kal
+            this.manager.activeTool = 'boru';
+            setMode("plumbingV2", true);
+
             return true;
         }
 
@@ -932,14 +957,84 @@ export class InteractionManager {
                 // Undo için state kaydet (tüm işlemlerden ÖNCE)
                 saveState();
 
-                const successSayac = this.handleSayacEndPlacement(component);
-                if (successSayac) {
-                    // Sayacın çıkış noktasından boru çizimi başlat
-                    const cikisNoktasi = component.getCikisNoktasi();
-                    this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
-                    // Sayaç eklendikten sonra boru çizme modunda kal (icon doğru görünsün)
-                    this.manager.activeTool = 'boru';
-                    setMode("plumbingV2", true);
+                // Eğer ghost bağlantısı varsa (boru ucuna snap olmuşsa), normal sayaç ekleme
+                if (component.ghostConnectionInfo && component.ghostConnectionInfo.boruUcu) {
+                    const successSayac = this.handleSayacEndPlacement(component);
+                    if (successSayac) {
+                        // Sayacın çıkış noktasından boru çizimi başlat
+                        const cikisNoktasi = component.getCikisNoktasi();
+                        this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
+                        // Sayaç eklendikten sonra boru çizme modunda kal (icon doğru görünsün)
+                        this.manager.activeTool = 'boru';
+                        setMode("plumbingV2", true);
+                    }
+                }
+                // Eğer ghost bağlantısı yoksa VE servis kutusu yoksa (İÇ TESİSAT modu)
+                else if (!this.hasServisKutusu()) {
+                    // İÇ TESİSAT MODU: 50cm kesikli boru + sayaç + vana + fleks ekle
+                    // 1. tıklama: yerleştir ve rotate moduna geç
+
+                    const TEMSILI_BORU_UZUNLUK = 50; // cm
+
+                    // Sayaç pozisyonunu ayarla
+                    component.x = point.x;
+                    component.y = point.y;
+                    component.rotation = 0; // Başlangıç rotasyonu
+
+                    // 50cm'lik temsili boru oluştur (sayacın SOL tarafında - giriş yönünde)
+                    // Sayacın giriş noktasından başlayıp sola doğru 50cm uzanan boru
+                    const girisNoktasi = component.getGirisNoktasi();
+
+                    // Boru başlangıç noktası: giriş noktasından sola 50cm
+                    const boruBaslangicX = girisNoktasi.x - TEMSILI_BORU_UZUNLUK;
+                    const boruBaslangicY = girisNoktasi.y;
+
+                    const temsiliBoru = createBoru(
+                        { x: boruBaslangicX, y: boruBaslangicY },
+                        { x: girisNoktasi.x, y: girisNoktasi.y }
+                    );
+                    temsiliBoru.dagitimTuru = 'KOLON'; // Kolon rengi
+                    temsiliBoru.lineStyle = 'dashed'; // Kesikli çizim
+                    temsiliBoru.isTemsiliBoru = true; // Temsili boru işareti
+
+                    this.manager.pipes.push(temsiliBoru);
+                    this.meterStartPipe = temsiliBoru; // Referansı sakla
+
+                    // Sayacı components'a ekle
+                    this.manager.components.push(component);
+
+                    // Vana oluştur (temsili borunun ortasında)
+                    const vanaPozisyonX = boruBaslangicX + TEMSILI_BORU_UZUNLUK / 2;
+                    const vanaPozisyonY = boruBaslangicY;
+
+                    const vana = createVana(vanaPozisyonX, vanaPozisyonY, 'AKV');
+                    vana.bagliBoruId = temsiliBoru.id;
+
+                    // Vanayı boruya yerleştir (t parametresi 0.5 - ortada)
+                    vana.t = 0.5;
+
+                    this.manager.components.push(vana);
+                    component.iliskiliVanaId = vana.id;
+
+                    // Fleks bağlantısını kur (sayaç -> temsili boru)
+                    component.fleksBagla(temsiliBoru.id, 'p2'); // p2: temsili borunun sağ ucu (giriş noktasında)
+
+                    // Rotate moduna geç (İKİNCİ TIKLAMA için hazır)
+                    this.meterPlacementState = 'rotating';
+                    this.placedMeterForRotation = component;
+
+                    // Rotate işlemini başlat
+                    this.startRotation(component, point);
+
+                    // Tool'u sayaç olarak tut, tempComponent'i temizle
+                    this.manager.tempComponent = null;
+
+                    console.log('✅ İÇ TESİSAT: Sayaç + 50cm temsili boru + vana eklendi. Rotate modu aktif.');
+                }
+                // Eğer ghost bağlantısı yoksa VE servis kutusu varsa, uyarı ver
+                else {
+                    console.warn('⚠️ Sayaç sadece boru ucuna eklenebilir!');
+                    alert('⚠️ Sayaç sadece boru ucuna eklenebilir!\n\nLütfen sayacı bir boru ucuna yerleştirin.');
                 }
                 break;
 
@@ -1689,8 +1784,20 @@ export class InteractionManager {
 
         this.manager.activeTool = null;
 
+        // Sayaç yerleştirme durumunu sıfırla
+        this.meterPlacementState = null;
+        this.placedMeterForRotation = null;
+        this.meterStartPipe = null;
+
         // Seçimi temizle
         this.deselectObject();
+    }
+
+    /**
+     * Projede servis kutusu var mı kontrol et
+     */
+    hasServisKutusu() {
+        return this.manager.components.some(c => c.type === 'servis_kutusu');
     }
 
     selectObject(obj) {
@@ -3019,7 +3126,18 @@ export class InteractionManager {
             let normalizedRotation = newRotationDeg % 360;
             if (normalizedRotation < 0) normalizedRotation += 360;
             obj.rotation = normalizedRotation;
-            // Çıkış borusunu güncelle (çıkış noktası döndükçe değişir)
+
+            // GİRİŞ: Temsili boru varsa (İÇ TESİSAT modu), p2 ucunu güncelle
+            if (obj.fleksBaglanti && obj.fleksBaglanti.boruId) {
+                const girisBoru = this.manager.pipes.find(p => p.id === obj.fleksBaglanti.boruId);
+                if (girisBoru && girisBoru.isTemsiliBoru) {
+                    // Temsili borunun p2 ucunu sayacın yeni giriş noktasına taşı
+                    const yeniGiris = obj.getGirisNoktasi();
+                    girisBoru.moveP2(yeniGiris);
+                }
+            }
+
+            // ÇIKIŞ: Çıkış borusunu güncelle (çıkış noktası döndükçe değişir)
             if (obj.cikisBagliBoruId) {
                 const cikisBoru = this.manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
                 if (cikisBoru) {
