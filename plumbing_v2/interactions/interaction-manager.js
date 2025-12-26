@@ -348,7 +348,13 @@ export class InteractionManager {
 
                 // Tıklama noktası ile BAĞLI BORUNUN P1'i (kutu-boru birleşme noktası) arasındaki mesafe
                 const dist = Math.hypot(point.x - bagliBoru.p1.x, point.y - bagliBoru.p1.y);
-                console.log('[DEBUG SK MESAFE]', { dist, tolerance, boruP1: bagliBoru.p1, point });
+                console.log('[DEBUG SK MESAFE]',
+                    'dist:', dist,
+                    'tolerance:', tolerance,
+                    'boruP1:', bagliBoru.p1.x.toFixed(2), bagliBoru.p1.y.toFixed(2),
+                    'point:', point.x.toFixed(2), point.y.toFixed(2),
+                    'boruId:', bagliBoru.id
+                );
                 return dist < tolerance;
             });
 
