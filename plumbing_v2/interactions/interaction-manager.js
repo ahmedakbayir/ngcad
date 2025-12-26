@@ -338,17 +338,17 @@ export class InteractionManager {
                 if (c.type !== 'servis_kutusu') {
                     return false;
                 }
-                console.log('[DEBUG SK]', { id: c.id, cikisKullanildi: c.cikisKullanildi });
+                console.log('[DEBUG SK]', { id: c.id, cikisKullanildi: c.cikisKullanildi, bagliBoruId: c.bagliBoruId });
 
-                if (!c.cikisKullanildi) return false;
+                if (!c.cikisKullanildi || !c.bagliBoruId) return false;
 
-                // Servis kutusu çıkış noktasını al
-                const cikisNoktasi = c.getCikisNoktasi();
-                if (!cikisNoktasi) return false;
+                // ZATEN bağlı boruyu bul
+                const bagliBoru = this.manager.pipes.find(p => p.id === c.bagliBoruId);
+                if (!bagliBoru) return false;
 
-                // Tıklama noktası (yeni borunun p1'i olacak) ile servis kutusu çıkış noktası arasındaki mesafe
-                const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
-                console.log('[DEBUG SK MESAFE]', { dist, tolerance, cikisNoktasi, point });
+                // Tıklama noktası ile BAĞLI BORUNUN P1'i (kutu-boru birleşme noktası) arasındaki mesafe
+                const dist = Math.hypot(point.x - bagliBoru.p1.x, point.y - bagliBoru.p1.y);
+                console.log('[DEBUG SK MESAFE]', { dist, tolerance, boruP1: bagliBoru.p1, point });
                 return dist < tolerance;
             });
 
@@ -356,13 +356,13 @@ export class InteractionManager {
             const clickedUsedSayac = this.manager.components.find(c => {
                 if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
 
-                // Sayaç çıkış noktasını al
-                const cikisNoktasi = c.getCikisNoktasi();
-                if (!cikisNoktasi) return false;
+                // ZATEN bağlı boruyu bul
+                const bagliBoru = this.manager.pipes.find(p => p.id === c.cikisBagliBoruId);
+                if (!bagliBoru) return false;
 
-                // Tıklama noktası (yeni borunun p1'i olacak) ile sayaç çıkış noktası arasındaki mesafe
-                const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
-                console.log('[DEBUG SAYAÇ MESAFE]', { dist, tolerance });
+                // Tıklama noktası ile BAĞLI BORUNUN P1'i (sayaç-boru birleşme noktası) arasındaki mesafe
+                const dist = Math.hypot(point.x - bagliBoru.p1.x, point.y - bagliBoru.p1.y);
+                console.log('[DEBUG SAYAÇ MESAFE]', { dist, tolerance, boruP1: bagliBoru.p1, point });
                 return dist < tolerance;
             });
 
