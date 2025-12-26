@@ -198,8 +198,15 @@ export class PlumbingRenderer {
 
         // Ghost eleman (her zaman yarı saydam) - sadece mouse hareket ettikten sonra görünsün
         if (manager.tempComponent && manager.interactionManager.lastMousePoint) {
-            ctx.save();
-            ctx.globalAlpha = 0.6;
+            // İÇ TESİSAT: İlk tıklama öncesi sayaç ghost gösterme
+            const isSayacBeforeFirstClick =
+                manager.tempComponent.type === 'sayac' &&
+                manager.interactionManager.meterPlacementState === null &&
+                !manager.interactionManager.hasServisKutusu();
+
+            if (!isSayacBeforeFirstClick) {
+                ctx.save();
+                ctx.globalAlpha = 0.6;
 
             // Cihaz ghost için özel rendering (drawComponent translate'ini bypass et)
             if (manager.tempComponent.type === 'cihaz') {
@@ -238,6 +245,7 @@ export class PlumbingRenderer {
             }
 
             ctx.restore();
+            } // isSayacBeforeFirstClick kapatma
         }
 
         // Snap göstergesi (her zaman normal)
