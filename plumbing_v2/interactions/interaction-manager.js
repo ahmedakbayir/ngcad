@@ -331,9 +331,16 @@ export class InteractionManager {
             // KULLANILMIŞ servis kutusu/sayaç çıkışına tıklanıp tıklanmadığını kontrol et
             const tolerance = 10; // 10 cm tolerance
 
+            console.log('[DEBUG POINTER] boruCizimAktif:', this.boruCizimAktif, 'point:', point);
+
             // Servis kutusu kontrolü - ÇIKIŞ KULLANILDIYSA engelle
             const clickedUsedServisKutusu = this.manager.components.find(c => {
-                if (c.type !== 'servis_kutusu' || !c.cikisKullanildi) return false;
+                if (c.type !== 'servis_kutusu') {
+                    return false;
+                }
+                console.log('[DEBUG SK]', { id: c.id, cikisKullanildi: c.cikisKullanildi });
+
+                if (!c.cikisKullanildi) return false;
 
                 // Servis kutusu çıkış noktasını al
                 const cikisNoktasi = c.getCikisNoktasi();
@@ -341,6 +348,7 @@ export class InteractionManager {
 
                 // Tıklama noktası (yeni borunun p1'i olacak) ile servis kutusu çıkış noktası arasındaki mesafe
                 const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
+                console.log('[DEBUG SK MESAFE]', { dist, tolerance, cikisNoktasi, point });
                 return dist < tolerance;
             });
 
@@ -354,8 +362,11 @@ export class InteractionManager {
 
                 // Tıklama noktası (yeni borunun p1'i olacak) ile sayaç çıkış noktası arasındaki mesafe
                 const dist = Math.hypot(point.x - cikisNoktasi.x, point.y - cikisNoktasi.y);
+                console.log('[DEBUG SAYAÇ MESAFE]', { dist, tolerance });
                 return dist < tolerance;
             });
+
+            console.log('[DEBUG SONUÇ]', { clickedUsedServisKutusu: !!clickedUsedServisKutusu, clickedUsedSayac: !!clickedUsedSayac });
 
             if (clickedUsedServisKutusu || clickedUsedSayac) {
                 // ZATEN KULLANILMIŞ çıkışa tıklandı - engelle!
