@@ -301,7 +301,7 @@ export class PlumbingRenderer {
 
             // Kesikli çizgi desteği (İÇ TESİSAT için temsili boru)
             if (pipe.lineStyle === 'dashed') {
-                ctx.setLineDash([5, 5]);
+                ctx.setLineDash([10, 2]); // 10 dolu, 2 boş
             } else {
                 ctx.setLineDash([]);
             }
@@ -1914,7 +1914,7 @@ export class PlumbingRenderer {
 
         ctx.strokeStyle = boruRenk;
         ctx.lineWidth = 4;
-        ctx.setLineDash([10, 5]); // Kesikli
+        ctx.setLineDash([10, 2]); // 10 dolu, 2 boş
 
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
@@ -1923,19 +1923,128 @@ export class PlumbingRenderer {
 
         ctx.setLineDash([]); // Reset
 
-        // 2. Başlangıç noktası işareti (küçük daire)
-        ctx.fillStyle = '#00FF00';
-        ctx.beginPath();
-        ctx.arc(p1.x, p1.y, 3, 0, Math.PI * 2);
-        ctx.fill();
+        // 2. Sayaç ghost (vana + fleks + sayaç + çıkış) preview
+        // Sayaç pozisyon ve rotation hesapla
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const length = Math.hypot(dx, dy);
+        const fleksUzunluk = 15; // cm
 
-        // 3. Bitiş noktası işareti (sayaç eklenecek yer)
-        ctx.fillStyle = '#FF0000';
-        ctx.beginPath();
-        ctx.arc(p2.x, p2.y, 4, 0, Math.PI * 2);
-        ctx.fill();
+        // Boru açısı
+        const boruAci = Math.atan2(dy, dx);
+        const boruAciDerece = boruAci * 180 / Math.PI;
 
-        // 4. Mesafe etiketi
+        // Perpendicular yön
+        const perpX = -dy / length;
+        const perpY = dx / length;
+
+        // Geçici sayaç objesi oluştur (sadece preview için)
+        const tempSayac = {
+            x: p2.x,
+            y: p2.y,
+            rotation: boruAciDerece,
+            config: {
+                width: 22,
+                height: 24,
+                connectionOffset: 5,
+                nutHeight: 4,
+                rijitUzunluk: 0
+            },
+            getGirisLocalKoordinat() {
+                return {
+                    x: -this.config.connectionOffset,
+                    y: -this.config.height / 2 - this.config.nutHeight
+                };
+            },
+            getSolRakorLocalKoordinat() {
+                return this.getGirisLocalKoordinat();
+            },
+            getCikisLocalKoordinat() {
+                return {
+                    x: this.config.connectionOffset,
+                    y: -this.config.height / 2 - this.config.nutHeight - this.config.rijitUzunluk
+                };
+            },
+            getRijitBaslangicLocal() {
+                return {
+                    x: this.config.connectionOffset,
+                    y: -this.config.height / 2 - this.config.nutHeight
+                };
+            },
+            localToWorld(local) {
+                const rad = this.rotation * Math.PI / 180;
+                const cos = Math.cos(rad);
+                const sin = Math.sin(rad);
+                return {
+                    x: this.x + local.x * cos - local.y * sin,
+                    y: this.y + local.x * sin + local.y * cos
+                };
+            },
+            getGirisNoktasi() {
+                return this.localToWorld(this.getGirisLocalKoordinat());
+            },
+            getSolRakorNoktasi() {
+                return this.localToWorld(this.getSolRakorLocalKoordinat());
+            },
+            getCikisNoktasi() {
+                return this.localToWorld(this.getCikisLocalKoordinat());
+            },
+            getGovdeMerkezi() {
+                return { x: this.x, y: this.y };
+            }
+        };
+
+        // Sayaç giriş noktasını p2'ye hizala
+        const girisLocal = tempSayac.getGirisLocalKoordinat();
+        const rad = tempSayac.rotation * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        const girisRotatedX = girisLocal.x * cos - girisLocal.y * sin;
+        const girisRotatedY = girisLocal.x * sin + girisLocal.y * cos;
+
+        tempSayac.x = p2.x - girisRotatedX + perpX * fleksUzunluk;
+        tempSayac.y = p2.y - girisRotatedY + perpY * fleksUzunluk;
+
+        // 2a. Vana preview (boru ucundan 8cm içeride)
+        const vanaMargin = 8; // cm
+        const vanaX = p2.x - (dx / length) * vanaMargin;
+        const vanaY = p2.y - (dy / length) * vanaMargin;
+
+        ctx.save();
+        ctx.translate(vanaX, vanaY);
+        ctx.rotate(boruAci);
+        ctx.fillStyle = '#888888';
+        ctx.beginPath();
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 2b. Fleks preview (vana ucundan sayaç sol rakoruna)
+        const solRakor = tempSayac.getSolRakorNoktasi();
+        ctx.strokeStyle = this.getRenkByGroup(colorGroup, 'fleks', 1);
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(p2.x, p2.y);
+        ctx.lineTo(solRakor.x, solRakor.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 2c. Sayaç gövdesi preview
+        ctx.save();
+        ctx.translate(tempSayac.x, tempSayac.y);
+        ctx.rotate(tempSayac.rotation * Math.PI / 180);
+
+        const { width, height } = tempSayac.config;
+        ctx.fillStyle = '#A8A8A8';
+        ctx.strokeStyle = '#666666';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(-width / 2, -height / 2, width, height);
+        ctx.strokeRect(-width / 2, -height / 2, width, height);
+
+        ctx.restore();
+
+        // 3. Mesafe etiketi
         const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
         const midX = (p1.x + p2.x) / 2;
         const midY = (p1.y + p2.y) / 2;
