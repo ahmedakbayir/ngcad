@@ -21,6 +21,17 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.dragObject = pipe;
     interactionManager.dragEndpoint = endpoint;
     interactionManager.dragStart = { ...point };
+
+    // Sürüklenen uç noktasındaki bağlı boruları ŞİMDİ tespit et (snapshot)
+    const TOLERANCE = 1.0;
+    const draggedPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
+
+    interactionManager.endpointConnections = interactionManager.manager.pipes.filter(p => {
+        if (p === pipe) return false;
+        const distToP1 = Math.hypot(p.p1.x - draggedPoint.x, p.p1.y - draggedPoint.y);
+        const distToP2 = Math.hypot(p.p2.x - draggedPoint.x, p.p2.y - draggedPoint.y);
+        return distToP1 < TOLERANCE || distToP2 < TOLERANCE;
+    });
 }
 
 /**
@@ -416,8 +427,25 @@ export function handleDrag(interactionManager, point) {
             // Fleks artık otomatik olarak boru ucundan koordinat alıyor
             // Ekstra güncelleme gerekmiyor
 
-            // Bağlı boruları güncelle (tüm zinciri)
-            updateConnectedPipesChain(interactionManager, oldPoint, finalPos);
+            // Bağlı boruları güncelle - SNAPSHOT kullan (boru uzunluğu sıfıra düşse bile doğru uçlar hareket etsin)
+            if (interactionManager.endpointConnections && interactionManager.endpointConnections.length > 0) {
+                interactionManager.endpointConnections.forEach(connectedPipe => {
+                    const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
+                    const distToP2 = Math.hypot(connectedPipe.p2.x - oldPoint.x, connectedPipe.p2.y - oldPoint.y);
+
+                    if (distToP1 < 1.0) {
+                        connectedPipe.p1.x = finalPos.x;
+                        connectedPipe.p1.y = finalPos.y;
+                    }
+                    if (distToP2 < 1.0) {
+                        connectedPipe.p2.x = finalPos.x;
+                        connectedPipe.p2.y = finalPos.y;
+                    }
+                });
+            } else {
+                // Fallback: eski mantık (snapshot yoksa)
+                updateConnectedPipesChain(interactionManager, oldPoint, finalPos);
+            }
         } else {
             // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır (sessizce engelle)
         }
@@ -693,10 +721,32 @@ export function handleDrag(interactionManager, point) {
                 }
             }
         } else {
-            // ⚠️ NORMAL MOD: Bağlı boruları da taşı
+            // ⚠️ NORMAL MOD: Bağlı boruları da taşı - SNAPSHOT kullan
             interactionManager.ghostBridgePipes = []; // Ghost yok
-            updateConnectedPipesChain(interactionManager, oldP1, pipe.p1);
-            updateConnectedPipesChain(interactionManager, oldP2, pipe.p2);
+
+            // p1 tarafındaki bağlı boruyu güncelle (snapshot kullanarak)
+            if (interactionManager.connectedPipeAtP1) {
+                const distToP2 = Math.hypot(
+                    interactionManager.connectedPipeAtP1.p2.x - oldP1.x,
+                    interactionManager.connectedPipeAtP1.p2.y - oldP1.y
+                );
+                if (distToP2 < 1.0) {
+                    interactionManager.connectedPipeAtP1.p2.x = pipe.p1.x;
+                    interactionManager.connectedPipeAtP1.p2.y = pipe.p1.y;
+                }
+            }
+
+            // p2 tarafındaki bağlı boruyu güncelle (snapshot kullanarak)
+            if (interactionManager.connectedPipeAtP2) {
+                const distToP1 = Math.hypot(
+                    interactionManager.connectedPipeAtP2.p1.x - oldP2.x,
+                    interactionManager.connectedPipeAtP2.p1.y - oldP2.y
+                );
+                if (distToP1 < 1.0) {
+                    interactionManager.connectedPipeAtP2.p1.x = pipe.p2.x;
+                    interactionManager.connectedPipeAtP2.p1.y = pipe.p2.y;
+                }
+            }
         }
 
         return;
@@ -813,6 +863,7 @@ export function endDrag(interactionManager) {
     interactionManager.dragAxis = null;
     interactionManager.connectedPipeAtP1 = null; // Bağlantı referanslarını temizle
     interactionManager.connectedPipeAtP2 = null; // Bağlantı referanslarını temizle
+    interactionManager.endpointConnections = null; // Endpoint bağlantı snapshot'ini temizle
     interactionManager.ghostBridgePipes = []; // Ghost boruları temizle
     interactionManager.pipeEndpointSnapLock = null; // Snap lock'u temizle
     interactionManager.pipeSnapMouseStart = null; // Mouse start pozisyonunu temizle
