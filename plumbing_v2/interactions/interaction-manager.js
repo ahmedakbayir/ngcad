@@ -149,6 +149,7 @@ export class InteractionManager {
         this.dragAxisPoint = null;
         this.connectedPipeAtP1 = null;
         this.connectedPipeAtP2 = null;
+        this.endpointConnections = null; // Endpoint sürükleme için bağlı borular snapshot'i
         this.useBridgeMode = false;
         this.dragStartObjectPos = null;
         this.axisLockDetermined = false;
