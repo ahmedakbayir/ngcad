@@ -10,6 +10,41 @@ import { Boru } from '../../objects/pipe.js';
 import { state } from '../../../general-files/main.js';
 
 /**
+ * Bir noktaya bağlı parent ve children borularını bulur
+ * PARENT: O noktaya p2 ile bağlanan boru (1 tane)
+ * CHILDREN: O noktadan p1 ile çıkan borular (N tane)
+ *
+ * @param {Array} pipes - Tüm borular
+ * @param {Object} point - Nokta {x, y}
+ * @param {Object} excludePipe - Hariç tutulacak boru (opsiyonel)
+ * @returns {Object} { parent: {pipe, endpoint}, children: [{pipe, endpoint}, ...] }
+ */
+function getNodeConnections(pipes, point, excludePipe = null) {
+    const TOLERANCE = 1.0;
+    let parent = null;
+    const children = [];
+
+    pipes.forEach(pipe => {
+        if (pipe === excludePipe) return;
+
+        const distToP1 = Math.hypot(pipe.p1.x - point.x, pipe.p1.y - point.y);
+        const distToP2 = Math.hypot(pipe.p2.x - point.x, pipe.p2.y - point.y);
+
+        // Parent: Bu boru bu noktaya p2 ile bağlanıyor
+        if (distToP2 < TOLERANCE && !parent) {
+            parent = { pipe, endpoint: 'p2' };
+        }
+
+        // Children: Bu boru bu noktadan p1 ile çıkıyor
+        if (distToP1 < TOLERANCE) {
+            children.push({ pipe, endpoint: 'p1' });
+        }
+    });
+
+    return { parent, children };
+}
+
+/**
  * Uç nokta sürüklemeyi başlat
  * @param {Object} interactionManager - InteractionManager instance
  * @param {Object} pipe - Boru nesnesi
@@ -22,32 +57,11 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.dragEndpoint = endpoint;
     interactionManager.dragStart = { ...point };
 
-    // Sürüklenen uç noktasındaki bağlı boruları BAĞLANTI İLİŞKİLERİNE GÖRE tespit et
-    interactionManager.endpointConnections = [];
-
-    // Hangi ucu sürüklüyoruz?
-    const connectionInfo = endpoint === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-
-    // Bu uca bağlı boru var mı?
-    if (connectionInfo?.tip === BAGLANTI_TIPLERI.BORU) {
-        const connectedPipe = interactionManager.manager.pipes.find(p => p.id === connectionInfo.hedefId);
-        if (connectedPipe) {
-            // Bu borunun hangi ucu bizim uca bağlı?
-            let connEndpoint = null;
-            if (connectedPipe.baslangicBaglanti?.hedefId === pipe.id) {
-                connEndpoint = 'p1';
-            } else if (connectedPipe.bitisBaglanti?.hedefId === pipe.id) {
-                connEndpoint = 'p2';
-            }
-
-            if (connEndpoint) {
-                interactionManager.endpointConnections.push({
-                    pipe: connectedPipe,
-                    endpoint: connEndpoint
-                });
-            }
-        }
-    }
+    // Sürüklenen uç nokta için parent ve children'ları bul
+    const draggedPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
+    const connections = getNodeConnections(interactionManager.manager.pipes, draggedPoint, pipe);
+    interactionManager.endpointParent = connections.parent;
+    interactionManager.endpointChildren = connections.children;
 }
 
 /**
@@ -89,49 +103,24 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.bodyDragInitialP1 = { ...pipe.p1 };
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
 
-    // Bağlı boruları BAĞLANTI İLİŞKİLERİNE GÖRE tespit et (geometrik yakınlık DEĞİL!)
-    // Bu sayede boru uzunluğu sıfıra düşse bile doğru uçlar hareket eder
+    // P1 noktası için parent ve children'ları bul
+    const p1Connections = getNodeConnections(interactionManager.manager.pipes, pipe.p1, pipe);
+    interactionManager.p1Parent = p1Connections.parent;
+    interactionManager.p1Children = p1Connections.children;
 
-    // p1 tarafındaki bağlı boruyu bul (baslangicBaglanti kullanarak)
-    interactionManager.connectedPipeAtP1 = null;
-    if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.BORU) {
-        const connectedPipe = interactionManager.manager.pipes.find(p => p.id === pipe.baslangicBaglanti.hedefId);
-        if (connectedPipe) {
-            // Bu borunun hangi ucu bizim p1'e bağlı?
-            if (connectedPipe.bitisBaglanti?.hedefId === pipe.id) {
-                // connectedPipe'ın p2'si bizim p1'e bağlı
-                interactionManager.connectedPipeAtP1 = { pipe: connectedPipe, endpoint: 'p2' };
-            } else if (connectedPipe.baslangicBaglanti?.hedefId === pipe.id) {
-                // connectedPipe'ın p1'i bizim p1'e bağlı
-                interactionManager.connectedPipeAtP1 = { pipe: connectedPipe, endpoint: 'p1' };
-            }
-        }
-    }
-
-    // p2 tarafındaki bağlı boruyu bul (bitisBaglanti kullanarak)
-    interactionManager.connectedPipeAtP2 = null;
-    if (pipe.bitisBaglanti?.tip === BAGLANTI_TIPLERI.BORU) {
-        const connectedPipe = interactionManager.manager.pipes.find(p => p.id === pipe.bitisBaglanti.hedefId);
-        if (connectedPipe) {
-            // Bu borunun hangi ucu bizim p2'ye bağlı?
-            if (connectedPipe.baslangicBaglanti?.hedefId === pipe.id) {
-                // connectedPipe'ın p1'i bizim p2'ye bağlı
-                interactionManager.connectedPipeAtP2 = { pipe: connectedPipe, endpoint: 'p1' };
-            } else if (connectedPipe.bitisBaglanti?.hedefId === pipe.id) {
-                // connectedPipe'ın p2'si bizim p2'ye bağlı
-                interactionManager.connectedPipeAtP2 = { pipe: connectedPipe, endpoint: 'p2' };
-            }
-        }
-    }
+    // P2 noktası için parent ve children'ları bul
+    const p2Connections = getNodeConnections(interactionManager.manager.pipes, pipe.p2, pipe);
+    interactionManager.p2Parent = p2Connections.parent;
+    interactionManager.p2Children = p2Connections.children;
 
     // ⚠️ DOĞRUSALLIK KONTROLÜ: Sadece 3 boru aynı doğrultudaysa ara boru modu
     interactionManager.useBridgeMode = false; // Varsayılan: normal mod
 
-    if (interactionManager.connectedPipeAtP1 && interactionManager.connectedPipeAtP2) {
+    if (interactionManager.p1Parent && interactionManager.p2Children.length === 1) {
         // 3 boru var: A - B - C
         // A.p1 - A.p2(=B.p1) - B.p2(=C.p1) - C.p2 (4 nokta)
-        const pipeA = interactionManager.connectedPipeAtP1.pipe;
-        const pipeC = interactionManager.connectedPipeAtP2.pipe;
+        const pipeA = interactionManager.p1Parent.pipe;
+        const pipeC = interactionManager.p2Children[0].pipe;
 
         const p1 = pipeA.p1;
         const p2 = pipeA.p2; // = pipe.p1
@@ -462,20 +451,17 @@ export function handleDrag(interactionManager, point) {
             // Fleks artık otomatik olarak boru ucundan koordinat alıyor
             // Ekstra güncelleme gerekmiyor
 
-            // Bağlı boruları güncelle - BAĞLANTI İLİŞKİSİNİ kullan (boru uzunluğu sıfıra düşse bile doğru uçlar hareket etsin)
-            if (interactionManager.endpointConnections && interactionManager.endpointConnections.length > 0) {
-                interactionManager.endpointConnections.forEach(conn => {
-                    const connPipe = conn.pipe;
-                    const connEndpoint = conn.endpoint;
-
-                    // Bağlı borunun ilgili ucunu yeni pozisyona taşı
-                    connPipe[connEndpoint].x = finalPos.x;
-                    connPipe[connEndpoint].y = finalPos.y;
-                });
-            } else {
-                // Fallback: eski mantık (bağlantı yoksa)
-                updateConnectedPipesChain(interactionManager, oldPoint, finalPos);
+            // Bağlı boruları güncelle - Parent ve Children'ları güncelle
+            if (interactionManager.endpointParent) {
+                const parentPipe = interactionManager.endpointParent.pipe;
+                const parentEndpoint = interactionManager.endpointParent.endpoint;
+                parentPipe[parentEndpoint].x = finalPos.x;
+                parentPipe[parentEndpoint].y = finalPos.y;
             }
+            interactionManager.endpointChildren.forEach(child => {
+                child.pipe[child.endpoint].x = finalPos.x;
+                child.pipe[child.endpoint].y = finalPos.y;
+            });
         } else {
             // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır (sessizce engelle)
         }
@@ -671,10 +657,12 @@ export function handleDrag(interactionManager, point) {
         const ELBOW_TOLERANCE = 8; // cm - dirsekler (köşe noktaları) arası minimum mesafe
         const connectionTolerance = 1; // Bağlantı tespit toleransı
 
-        // Bağlı borular listesi (bridge mode için zaten var)
+        // Bağlı borular listesi (bridge mode için)
         const connectedPipes = [];
-        if (interactionManager.connectedPipeAtP1) connectedPipes.push(interactionManager.connectedPipeAtP1.pipe);
-        if (interactionManager.connectedPipeAtP2) connectedPipes.push(interactionManager.connectedPipeAtP2.pipe);
+        if (interactionManager.p1Parent) connectedPipes.push(interactionManager.p1Parent.pipe);
+        interactionManager.p1Children.forEach(child => connectedPipes.push(child.pipe));
+        if (interactionManager.p2Parent) connectedPipes.push(interactionManager.p2Parent.pipe);
+        interactionManager.p2Children.forEach(child => connectedPipes.push(child.pipe));
 
         // Basit yaklaşım: Her boru ucunu kontrol et, eğer o uç bir dirsekse 4cm, değilse 1.5cm tolerans
         const checkEndpointDistance = (newPos, checkAgainstOldPos = null) => {
@@ -728,7 +716,7 @@ export function handleDrag(interactionManager, point) {
             const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
 
             // p1 tarafı için ghost boru
-            if (interactionManager.connectedPipeAtP1) {
+            if (interactionManager.p1Parent) {
                 const dist = Math.hypot(pipe.p1.x - interactionManager.bodyDragInitialP1.x, pipe.p1.y - interactionManager.bodyDragInitialP1.y);
                 if (dist >= MIN_BRIDGE_LENGTH) {
                     interactionManager.ghostBridgePipes.push({
@@ -740,7 +728,7 @@ export function handleDrag(interactionManager, point) {
             }
 
             // p2 tarafı için ghost boru
-            if (interactionManager.connectedPipeAtP2) {
+            if (interactionManager.p2Children.length > 0) {
                 const dist = Math.hypot(pipe.p2.x - interactionManager.bodyDragInitialP2.x, pipe.p2.y - interactionManager.bodyDragInitialP2.y);
                 if (dist >= MIN_BRIDGE_LENGTH) {
                     interactionManager.ghostBridgePipes.push({
@@ -751,28 +739,32 @@ export function handleDrag(interactionManager, point) {
                 }
             }
         } else {
-            // ⚠️ NORMAL MOD: Bağlı boruları da taşı - BAĞLANTI İLİŞKİSİNİ kullan
+            // ⚠️ NORMAL MOD: Parent ve Children'ları güncelle
             interactionManager.ghostBridgePipes = []; // Ghost yok
 
-            // p1 tarafındaki bağlı boruyu güncelle (bağlantı ilişkisine göre)
-            if (interactionManager.connectedPipeAtP1) {
-                const connPipe = interactionManager.connectedPipeAtP1.pipe;
-                const connEndpoint = interactionManager.connectedPipeAtP1.endpoint;
-
-                // Bağlı borunun ilgili ucunu bizim p1'e taşı
-                connPipe[connEndpoint].x = pipe.p1.x;
-                connPipe[connEndpoint].y = pipe.p1.y;
+            // P1 noktası hareket etti → Parent ve Children'ları güncelle
+            if (interactionManager.p1Parent) {
+                const parentPipe = interactionManager.p1Parent.pipe;
+                const parentEndpoint = interactionManager.p1Parent.endpoint;
+                parentPipe[parentEndpoint].x = pipe.p1.x;
+                parentPipe[parentEndpoint].y = pipe.p1.y;
             }
+            interactionManager.p1Children.forEach(child => {
+                child.pipe[child.endpoint].x = pipe.p1.x;
+                child.pipe[child.endpoint].y = pipe.p1.y;
+            });
 
-            // p2 tarafındaki bağlı boruyu güncelle (bağlantı ilişkisine göre)
-            if (interactionManager.connectedPipeAtP2) {
-                const connPipe = interactionManager.connectedPipeAtP2.pipe;
-                const connEndpoint = interactionManager.connectedPipeAtP2.endpoint;
-
-                // Bağlı borunun ilgili ucunu bizim p2'ye taşı
-                connPipe[connEndpoint].x = pipe.p2.x;
-                connPipe[connEndpoint].y = pipe.p2.y;
+            // P2 noktası hareket etti → Parent ve Children'ları güncelle
+            if (interactionManager.p2Parent) {
+                const parentPipe = interactionManager.p2Parent.pipe;
+                const parentEndpoint = interactionManager.p2Parent.endpoint;
+                parentPipe[parentEndpoint].x = pipe.p2.x;
+                parentPipe[parentEndpoint].y = pipe.p2.y;
             }
+            interactionManager.p2Children.forEach(child => {
+                child.pipe[child.endpoint].x = pipe.p2.x;
+                child.pipe[child.endpoint].y = pipe.p2.y;
+            });
         }
 
         return;
@@ -837,8 +829,8 @@ export function endDrag(interactionManager) {
             const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
 
             // Başlangıçta tespit edilen bağlantıları kullan
-            const connectedAtP1 = interactionManager.connectedPipeAtP1;
-            const connectedAtP2 = interactionManager.connectedPipeAtP2;
+            const connectedAtP1 = interactionManager.p1Parent;
+            const connectedAtP2 = interactionManager.p2Children.length > 0 ? interactionManager.p2Children[0] : null;
 
             // p1 tarafına ara boru ekle
             if (connectedAtP1) {
@@ -882,17 +874,23 @@ export function endDrag(interactionManager) {
     interactionManager.dragObject = null;
     interactionManager.dragEndpoint = null;
     interactionManager.dragStart = null;
-    interactionManager.dragStartObjectPos = null; // ✨ Sayaç başlangıç pozisyonunu temizle
+    interactionManager.dragStartObjectPos = null;
     interactionManager.isBodyDrag = false;
     interactionManager.bodyDragInitialP1 = null;
     interactionManager.bodyDragInitialP2 = null;
     interactionManager.dragAxis = null;
-    interactionManager.connectedPipeAtP1 = null; // Bağlantı referanslarını temizle
-    interactionManager.connectedPipeAtP2 = null; // Bağlantı referanslarını temizle
-    interactionManager.endpointConnections = null; // Endpoint bağlantı snapshot'ini temizle
-    interactionManager.ghostBridgePipes = []; // Ghost boruları temizle
-    interactionManager.pipeEndpointSnapLock = null; // Snap lock'u temizle
-    interactionManager.pipeSnapMouseStart = null; // Mouse start pozisyonunu temizle
+
+    // Parent-children referanslarını temizle
+    interactionManager.p1Parent = null;
+    interactionManager.p1Children = [];
+    interactionManager.p2Parent = null;
+    interactionManager.p2Children = [];
+    interactionManager.endpointParent = null;
+    interactionManager.endpointChildren = [];
+
+    interactionManager.ghostBridgePipes = [];
+    interactionManager.pipeEndpointSnapLock = null;
+    interactionManager.pipeSnapMouseStart = null;
     interactionManager.manager.saveToState();
     saveState(); // Save to undo history
 }
