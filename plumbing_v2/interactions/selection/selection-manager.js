@@ -1,0 +1,154 @@
+/**
+ * Selection Manager
+ * Seçim işlemlerini yönetir
+ */
+
+import { setState } from '../../../general-files/main.js';
+import { saveState } from '../../../general-files/history.js';
+
+/**
+ * Belirtilen nesneyi seç
+ * @param {Object} interactionManager - InteractionManager instance
+ * @param {Object} obj - Seçilecek nesne
+ */
+export function selectObject(interactionManager, obj) {
+    // Önceki seçimi temizle
+    if (interactionManager.selectedObject && interactionManager.selectedObject !== obj) {
+        interactionManager.selectedObject.isSelected = false;
+    }
+    // Vana seçimi temizle
+    if (interactionManager.selectedValve) {
+        // DÜZELTME: pipe.vana yerine doğrudan vana bileşenini hedefle
+        if (interactionManager.selectedValve.vana) {
+            interactionManager.selectedValve.vana.isSelected = false;
+        }
+        interactionManager.selectedValve = null;
+    }
+    interactionManager.selectedObject = obj;
+    obj.isSelected = true;
+
+    // state.selectedObject'i de set et (DELETE tuşu için)
+    setState({
+        selectedObject: {
+            type: obj.type === 'boru' ? 'pipe' : obj.type,
+            object: obj,
+            handle: 'body'
+        }
+    });
+}
+
+/**
+ * Boru üzerindeki vanayı seç
+ * @param {Object} interactionManager - InteractionManager instance
+ * @param {Object} pipe - Boru nesnesi
+ * @param {Object} vana - Vana nesnesi
+ */
+export function selectValve(interactionManager, pipe, vana) {
+    // Önceki seçimi temizle
+    if (interactionManager.selectedObject) {
+        interactionManager.selectedObject.isSelected = false;
+        interactionManager.selectedObject = null;
+    }
+    // Önceki vana seçimini temizle
+    if (interactionManager.selectedValve) {
+        // DÜZELTME: pipe.vana.isSelected yerine vana.isSelected
+        if (interactionManager.selectedValve.vana) {
+            interactionManager.selectedValve.vana.isSelected = false;
+        }
+    }
+
+    interactionManager.selectedValve = { pipe, vana };
+    if (vana) vana.isSelected = true;
+
+    // state.selectedObject'i de set et (DELETE tuşu için)
+    setState({
+        selectedObject: {
+            type: 'vana',
+            object: vana,
+            pipe: pipe,
+            handle: 'body'
+        }
+    });
+}
+
+/**
+ * Seçili nesneyi kaldır
+ * @param {Object} interactionManager - InteractionManager instance
+ */
+export function deselectObject(interactionManager) {
+    if (interactionManager.selectedObject) {
+        interactionManager.selectedObject.isSelected = false;
+        interactionManager.selectedObject = null;
+    }
+    if (interactionManager.selectedValve) {
+        // DÜZELTME: Kilitlenmeye neden olan hatalı referans düzeltildi
+        if (interactionManager.selectedValve.vana) {
+            interactionManager.selectedValve.vana.isSelected = false;
+        }
+        interactionManager.selectedValve = null;
+    }
+
+    // state.selectedObject'i de temizle
+    setState({ selectedObject: null });
+}
+
+/**
+ * Seçili nesneyi sil
+ * @param {Object} interactionManager - InteractionManager instance
+ */
+export function deleteSelectedObject(interactionManager) {
+    // Vana silinmesi
+    if (interactionManager.selectedValve) {
+        saveState();
+        // Güvenli silme işlemi
+        const { pipe, vana } = interactionManager.selectedValve;
+
+        // Legacy uyumluluğu için pipe üzerindeki referansı temizle
+        if (pipe) {
+            pipe.vanaKaldir();
+        }
+
+        // Bileşen listesinden vanayı sil (görünümden kalkması için şart)
+        if (vana) {
+            const idx = interactionManager.manager.components.indexOf(vana);
+            if (idx !== -1) interactionManager.manager.components.splice(idx, 1);
+        }
+
+        interactionManager.manager.saveToState();
+        deselectObject(interactionManager);
+        return;
+    }
+
+    if (!interactionManager.selectedObject) return;
+
+    const obj = interactionManager.selectedObject;
+
+    // Servis kutusuna bağlı ilk boru silinemesin
+    if (obj.type === 'boru') {
+        const pipe = obj;
+        // Başlangıcı servis kutusuna bağlı mı kontrol et
+        /* if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) { alert('⚠️ Servis kutusuna bağlı ilk boru silinemez!\n\nÖnce servis kutusunu silin veya başka bir boru ekleyin.'); return; } */
+
+    }
+
+    // Undo için state kaydet
+    saveState();
+
+    if (obj.type === 'servis_kutusu') {
+        if (confirm(obj.getDeleteInfo().uyari)) {
+            interactionManager.removeObject(obj);
+            interactionManager.manager.saveToState();
+            deselectObject(interactionManager); // Servis kutusu için seçimi kaldır
+        } else {
+            // İptal edildi, return
+            return;
+        }
+    } else {
+        interactionManager.removeObject(obj);
+        interactionManager.manager.saveToState();
+        // Boru için deselectObject çağırma - removeObject içinde zaten akıllı seçim yapılıyor
+        if (obj.type !== 'boru') {
+            deselectObject(interactionManager);
+        }
+    }
+}
