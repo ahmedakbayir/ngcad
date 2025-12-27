@@ -4,6 +4,7 @@
  */
 
 import { saveState } from '../../../general-files/history.js';
+import { updateNodeConnections } from '../drag/drag-handler.js';
 
 /**
  * Döndürme tutamacını bul (çubuğun ucundaki daire) - yukarı yönde
@@ -54,7 +55,7 @@ export function startRotation(context, obj, point) {
 /**
  * Döndürme işle
  */
-export function handleRotation(context, point, manager, updateConnectedPipesChain) {
+export function handleRotation(context, point, manager) {
     if (!context.dragObject) return;
 
     const obj = context.dragObject;
@@ -125,8 +126,8 @@ export function handleRotation(context, point, manager, updateConnectedPipesChai
                 const yeniCikis = obj.getCikisNoktasi();
                 cikisBoru.moveP1(yeniCikis);
 
-                // Bağlı boru zincirini güncelle
-                updateConnectedPipesChain(oldP1, yeniCikis);
+                // Parent ve children'ları güncelle
+                updateNodeConnections(manager.pipes, oldP1, yeniCikis);
             }
         }
     }
@@ -146,7 +147,7 @@ export function endRotation(context, manager) {
 /**
  * Bağlı boruyu güncelle
  */
-export function updateConnectedPipe(result, manager, updateConnectedPipesChain) {
+export function updateConnectedPipe(result, manager) {
     if (!result) return;
 
     if (result.bagliBoruId && result.delta) {
@@ -163,8 +164,8 @@ export function updateConnectedPipe(result, manager, updateConnectedPipesChain) 
             // Yeni p1 pozisyonu
             const newP1 = { x: boru.p1.x, y: boru.p1.y };
 
-            // Bağlı boru zincirini güncelle
-            updateConnectedPipesChain(oldP1, newP1);
+            // Parent ve children'ları güncelle
+            updateNodeConnections(manager.pipes, oldP1, newP1);
         }
     }
 
@@ -176,8 +177,8 @@ export function updateConnectedPipe(result, manager, updateConnectedPipesChain) 
 
             boru.moveP1(result.yeniCikis);
 
-            // Bağlı boru zincirini güncelle
-            updateConnectedPipesChain(oldP1, result.yeniCikis);
+            // Parent ve children'ları güncelle
+            updateNodeConnections(manager.pipes, oldP1, result.yeniCikis);
         }
     }
 }
