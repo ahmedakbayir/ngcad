@@ -10,6 +10,121 @@ import { Boru } from '../../objects/pipe.js';
 import { state } from '../../../general-files/main.js';
 
 /**
+ * Bir noktanın korumalı (taşınamaz) olup olmadığını kontrol eder
+ * Korumalı noktalar:
+ * - Servis kutusu çıkışı
+ * - Sayaç giriş/çıkış noktası
+ * - Cihaz fleks bağlantısı
+ * - Dirsek (2+ boru bağlı)
+ * - Boşta boru ucu (başka bir borunun ucu)
+ *
+ * @param {Object} point - Kontrol edilecek nokta {x, y}
+ * @param {Object} manager - PlumbingManager instance
+ * @param {Object} currentPipe - Şu an sürüklenen boru (hariç tutulacak)
+ * @param {Object} oldPoint - Sürüklenen ucun eski pozisyonu (hariç tutulacak)
+ * @returns {boolean} - Nokta korumalı mı?
+ */
+function isProtectedPoint(point, manager, currentPipe, oldPoint) {
+    const TOLERANCE = 10; // 10 cm içinde korumalı nokta varsa engelle
+
+    // 1. Servis kutusu çıkışı kontrolü
+    const servisKutusuCikisi = manager.components.some(c => {
+        if (c.type !== 'servis_kutusu') return false;
+        const cikis = c.getCikisNoktasi();
+        if (!cikis) return false;
+        const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
+        return dist < TOLERANCE;
+    });
+    if (servisKutusuCikisi) return true;
+
+    // 2. Sayaç giriş kontrolü (fleks bağlantısı)
+    const sayacGirisi = manager.components.some(c => {
+        if (c.type !== 'sayac' || !c.fleksBaglanti) return false;
+        const giris = c.getGirisNoktasi();
+        if (!giris) return false;
+        const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
+        return dist < TOLERANCE;
+    });
+    if (sayacGirisi) return true;
+
+    // 3. Sayaç çıkışı kontrolü
+    const sayacCikisi = manager.components.some(c => {
+        if (c.type !== 'sayac') return false;
+        const cikis = c.getCikisNoktasi();
+        if (!cikis) return false;
+        const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
+        return dist < TOLERANCE;
+    });
+    if (sayacCikisi) return true;
+
+    // 4. Cihaz fleks bağlantısı kontrolü
+    const cihazFleksi = manager.components.some(c => {
+        if (c.type !== 'cihaz' || !c.fleksBaglanti) return false;
+        // Cihazın fleks bağlantı noktasını al
+        // fleksBaglanti.boruId varsa, o borunun endpoint'ine bağlı
+        if (!c.fleksBaglanti.boruId) return false;
+        const fleksBoru = manager.pipes.find(p => p.id === c.fleksBaglanti.boruId);
+        if (!fleksBoru) return false;
+        const fleksPoint = c.fleksBaglanti.endpoint === 'p1' ? fleksBoru.p1 : fleksBoru.p2;
+        const dist = Math.hypot(point.x - fleksPoint.x, point.y - fleksPoint.y);
+        return dist < TOLERANCE;
+    });
+    if (cihazFleksi) return true;
+
+    // 5. Dirsek kontrolü (2+ boru bağlı nokta) - daha sıkı tolerance
+    const DIRSEK_TOLERANCE = 10; // 10 cm
+    const elbowConnectionTol = 1;
+    const isDirsek = manager.pipes.some(otherPipe => {
+        if (otherPipe === currentPipe) return false;
+
+        for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+            // Eski pozisyonumuzsa atla
+            if (oldPoint) {
+                const distToOld = Math.hypot(endpoint.x - oldPoint.x, endpoint.y - oldPoint.y);
+                if (distToOld < elbowConnectionTol) continue;
+            }
+
+            // Bu endpoint'e çok yakın mıyız?
+            const distToEndpoint = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
+            if (distToEndpoint >= DIRSEK_TOLERANCE) continue;
+
+            // Bu endpoint bir dirsek mi? (2+ boru bağlı)
+            const bagliBoruSayisi = manager.pipes.filter(p => {
+                if (p === otherPipe) return false;
+                const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
+                const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
+                return d1 < elbowConnectionTol || d2 < elbowConnectionTol;
+            }).length;
+
+            if (bagliBoruSayisi >= 1) return true; // 2+ boru (otherPipe + en az 1 tane daha)
+        }
+        return false;
+    });
+    if (isDirsek) return true;
+
+    // 6. Boşta boru ucu kontrolü - daha sıkı tolerance
+    const BOSTA_UC_TOLERANCE = 10; // 10 cm
+    const bostaUc = manager.pipes.some(otherPipe => {
+        if (otherPipe === currentPipe) return false;
+
+        for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+            // Eski pozisyonumuzsa atla
+            if (oldPoint) {
+                const distToOld = Math.hypot(endpoint.x - oldPoint.x, endpoint.y - oldPoint.y);
+                if (distToOld < 1) continue;
+            }
+
+            const dist = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
+            if (dist < BOSTA_UC_TOLERANCE) return true;
+        }
+        return false;
+    });
+    if (bostaUc) return true;
+
+    return false;
+}
+
+/**
  * Bir noktaya bağlı parent ve children borularını bulur
  * PARENT: O noktaya p2 ile bağlanan boru (1 tane)
  * CHILDREN: O noktadan p1 ile çıkan borular (N tane)
@@ -440,6 +555,12 @@ export function handleDrag(interactionManager, point) {
         if (pipeSnapX !== null || pipeSnapY !== null) {
             if (pipeSnapX !== null) finalPos.x = pipeSnapX;
             if (pipeSnapY !== null) finalPos.y = pipeSnapY;
+        }
+
+        // ⚠️ KRİTİK: Korumalı noktalara taşımayı engelle
+        // (Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek, boşta boru ucu)
+        if (isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint)) {
+            return; // Taşımayı engelle - sessizce geri dön
         }
 
         // NOKTA TAŞIMA KISITLAMASI: Hedef noktada başka bir boru ucu var mı kontrol et
