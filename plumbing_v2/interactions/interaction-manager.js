@@ -2786,6 +2786,15 @@ export class InteractionManager {
                 newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
             }
 
+            console.log('[DEBUG YUTULMA KONTROLÜ]', {
+                dragEndpoint: this.dragEndpoint,
+                newLength: newLength.toFixed(2),
+                minLength: minLength.toFixed(2),
+                occupiedByOtherPipe,
+                kontrolBasarili: newLength >= minLength,
+                uygulanacakMi: !occupiedByOtherPipe && newLength >= minLength
+            });
+
             // Eğer nokta dolu değilse VE minimum uzunluk sağlanıyorsa pozisyonu uygula
             if (!occupiedByOtherPipe && newLength >= minLength) {
                 const oldLength = pipe.uzunluk;
