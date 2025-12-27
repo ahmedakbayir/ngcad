@@ -4,7 +4,7 @@
  */
 
 import { screenToWorld } from '../../../draw/geometry.js';
-import { dom } from '../../../general-files/main.js';
+import { dom, state } from '../../../general-files/main.js';
 
 export function handlePointerMove(e) {
     if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
@@ -15,7 +15,7 @@ export function handlePointerMove(e) {
     const mouseScreenX = e.clientX - rect.left;
     const mouseScreenY = e.clientY - rect.top;
     const point = screenToWorld(mouseScreenX, mouseScreenY);
-    const walls = this.manager.state.walls || [];
+    const walls = state.walls || [];
 
     // Son mouse pozisyonunu kaydet
     this.lastMousePoint = point;
