@@ -15,23 +15,7 @@ import { isProtectedPoint } from '../drag/drag-handler.js';
  * Boru çizim modunu başlat
  */
 export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = null, kaynakTip = null, colorGroup = null) {
-    // Eğer kaynak bir servis kutusu, sayaç veya cihaz ise, o component'in kendi çıkışını hariç tut
-    let excludeComponentId = null;
-    if (kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
-        kaynakTip === BAGLANTI_TIPLERI.SAYAC ||
-        kaynakTip === BAGLANTI_TIPLERI.CIHAZ) {
-        excludeComponentId = kaynakId;
-    }
-
-    // ⚠️ KRİTİK: Korumalı noktalara boru başlatmayı engelle
-    // NOT: skipBostaUcCheck=true çünkü boru çizerken boşta uçlara bağlanabilmeli
-    if (isProtectedPoint(baslangicNoktasi, interactionManager.manager, null, null, excludeComponentId, true)) {
-        alert('⚠️ Bu noktadan boru başlatılamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi veya dirsek)');
-        console.warn('🚫 ENGEL: Başlangıç noktası korumalı!', baslangicNoktasi);
-        return;
-    }
-
-    // ⚠️ ÖNEMLİ: Başlangıç noktası kullanılmış bir servis kutusu/sayaç çıkışına yakın mı?
+    // ⚠️ SADECE 1 HAT KURALI: Başlangıç noktası kullanılmış bir servis kutusu/sayaç çıkışına yakın mı?
     // (kaynakTip ne olursa olsun - çünkü ikinci tıklamada kaynakTip 'boru' olabilir)
     const tolerance = 10;
     const problematicServisKutusu = interactionManager.manager.components.find(c => {
@@ -344,23 +328,8 @@ export function handleBoruClick(interactionManager, point) {
     // Undo için state kaydet (her boru için ayrı undo entry)
     saveState();
 
-    // Eğer kaynak bir servis kutusu, sayaç veya cihaz ise, o component'in kendi çıkışını hariç tut
-    let excludeComponentId = null;
-    if (interactionManager.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
-        interactionManager.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC ||
-        interactionManager.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.CIHAZ) {
-        excludeComponentId = interactionManager.boruBaslangic.kaynakId;
-    }
-
-    // ⚠️ KRİTİK: Başlangıç noktası korumalı mı kontrol et
-    // NOT: skipBostaUcCheck=true çünkü boru çizerken boşta uçlara bağlanabilmeli
-    if (isProtectedPoint(interactionManager.boruBaslangic.nokta, interactionManager.manager, null, null, excludeComponentId, true)) {
-        alert('⚠️ Başlangıç noktası korumalı! Boru oluşturulamaz.');
-        console.warn('🚫 ENGEL: Başlangıç noktası korumalı!', interactionManager.boruBaslangic.nokta);
-        return;
-    }
-
     // ⚠️ KRİTİK: Bitiş noktası korumalı mı kontrol et
+    // DOĞRU MANTIK: Korumalı noktalara DIŞARDAN boru GELİP BAĞLANAMAZ (bitiş noktası kontrolü)
     // NOT: skipBostaUcCheck=true çünkü boru çizerken boşta uçlara bağlanabilmeli
     if (isProtectedPoint(point, interactionManager.manager, null, null, null, true)) {
         alert('⚠️ Bu noktaya boru bağlanamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi veya dirsek)');
