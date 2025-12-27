@@ -9,11 +9,19 @@ import { saveState } from '../../../general-files/history.js';
 import { setMode } from '../../../general-files/main.js';
 import { getObjectsOnPipe, canPlaceValveOnPipe } from '../../utils/placement-utils.js';
 import { state } from '../../../general-files/main.js';
+import { isProtectedPoint } from '../drag/drag-handler.js';
 
 /**
  * Boru çizim modunu başlat
  */
 export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = null, kaynakTip = null, colorGroup = null) {
+    // ⚠️ KRİTİK: Korumalı noktalara boru başlatmayı engelle
+    if (isProtectedPoint(baslangicNoktasi, interactionManager.manager, null, null)) {
+        alert('⚠️ Bu noktadan boru başlatılamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek veya boşta boru ucu)');
+        console.warn('🚫 ENGEL: Başlangıç noktası korumalı!', baslangicNoktasi);
+        return;
+    }
+
     // ⚠️ ÖNEMLİ: Başlangıç noktası kullanılmış bir servis kutusu/sayaç çıkışına yakın mı?
     // (kaynakTip ne olursa olsun - çünkü ikinci tıklamada kaynakTip 'boru' olabilir)
     const tolerance = 10;
@@ -326,6 +334,20 @@ export function handleBoruClick(interactionManager, point) {
 
     // Undo için state kaydet (her boru için ayrı undo entry)
     saveState();
+
+    // ⚠️ KRİTİK: Başlangıç noktası korumalı mı kontrol et
+    if (isProtectedPoint(interactionManager.boruBaslangic.nokta, interactionManager.manager, null, null)) {
+        alert('⚠️ Başlangıç noktası korumalı! Boru oluşturulamaz.');
+        console.warn('🚫 ENGEL: Başlangıç noktası korumalı!', interactionManager.boruBaslangic.nokta);
+        return;
+    }
+
+    // ⚠️ KRİTİK: Bitiş noktası korumalı mı kontrol et
+    if (isProtectedPoint(point, interactionManager.manager, null, null)) {
+        alert('⚠️ Bu noktaya boru bağlanamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek veya boşta boru ucu)');
+        console.warn('🚫 ENGEL: Bitiş noktası korumalı!', point);
+        return;
+    }
 
     // ⚠️ ÖNEMLİ: Borunun P1'i (başlangıç noktası) kullanılmış bir servis kutusu/sayaç çıkışına yakın mı kontrol et
     const tolerance = 10;

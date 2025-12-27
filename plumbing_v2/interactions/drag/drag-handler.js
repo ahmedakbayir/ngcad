@@ -24,7 +24,7 @@ import { state } from '../../../general-files/main.js';
  * @param {Object} oldPoint - Sürüklenen ucun eski pozisyonu (hariç tutulacak)
  * @returns {boolean} - Nokta korumalı mı?
  */
-function isProtectedPoint(point, manager, currentPipe, oldPoint) {
+export function isProtectedPoint(point, manager, currentPipe, oldPoint) {
     const TOLERANCE = 10; // 10 cm içinde korumalı nokta varsa engelle
 
     // 1. Servis kutusu çıkışı kontrolü
