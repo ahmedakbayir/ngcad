@@ -165,7 +165,10 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
         const sk = interactionManager.manager.components.find(c => c.id === pipe.baslangicBaglanti.hedefId);
         if (sk && sk.bagliBoruId === pipe.id) {
             const oldP1 = { ...boru1.p1 }; // Eski koordinat
-            sk.baglaBoru(boru1.id);
+            
+            // DÜZELTME: sk.baglaBoru() fonksiyonu çıkış zaten doluysa false döner.
+            // Bu yüzden doğrudan ID'yi atıyoruz (replacement işlemi).
+            sk.bagliBoruId = boru1.id; 
 
             // Kutu çıkışını boru1.p1'e zorla eşitle (bağlantıyı koru)
             const cikis = sk.getCikisNoktasi();

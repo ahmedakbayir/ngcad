@@ -871,7 +871,7 @@ export function handleDrag(interactionManager, point) {
  * @param {Object} newPoint - Yeni nokta pozisyonu {x, y}
  */
 export function updateConnectedPipesChain(interactionManager, oldPoint, newPoint) {
-    const tolerance = 1.0; // cm - floating point hataları için yeterince büyük
+    const tolerance = 0.5; // cm - floating point hataları için yeterince büyük
 
     // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
     interactionManager.manager.pipes.forEach(pipe => {
