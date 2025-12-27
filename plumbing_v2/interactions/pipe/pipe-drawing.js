@@ -330,9 +330,9 @@ export function handleBoruClick(interactionManager, point) {
 
     // ⚠️ KRİTİK: Bitiş noktası korumalı mı kontrol et
     // DOĞRU MANTIK: Korumalı noktalara DIŞARDAN boru GELİP BAĞLANAMAZ (bitiş noktası kontrolü)
-    // NOT: skipBostaUcCheck=true çünkü boru çizerken boşta uçlara bağlanabilmeli
-    if (isProtectedPoint(point, interactionManager.manager, null, null, null, true)) {
-        alert('⚠️ Bu noktaya boru bağlanamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi veya dirsek)');
+    // NOT: skipBostaUcCheck=false - boştaki boru uçlarına da bağlanmamalı (kapalı devre önleme)
+    if (isProtectedPoint(point, interactionManager.manager, null, null, null, false)) {
+        alert('⚠️ Bu noktaya boru bağlanamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek veya boşta boru ucu)');
         console.warn('🚫 ENGEL: Bitiş noktası korumalı!', point);
         return;
     }
