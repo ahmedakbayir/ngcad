@@ -27,6 +27,7 @@ import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.j
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 
+
 // ... (dosyanın üst kısmı değişmedi: currentModifierKeys, extendWallOnTabPress, handleCopy, handlePaste) ...
 export let currentModifierKeys = {
     ctrl: false,

@@ -7,7 +7,7 @@ import { createBoru, BAGLANTI_TIPLERI } from '../../objects/pipe.js';
 import { createVana } from '../../objects/valve.js';
 import { saveState } from '../../../general-files/history.js';
 import { setMode } from '../../../general-files/main.js';
-import { getObjectsOnPipe, canPlaceValveOnPipe } from '../../utils/placement-utils.js';
+import { getObjectsOnPipe, canPlaceValveOnPipe } from '../utils/placement-utils.js';
 import { state } from '../../../general-files/main.js';
 
 /**
