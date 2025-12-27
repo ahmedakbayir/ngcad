@@ -16,9 +16,9 @@ import { showWallPanel, hideWallPanel } from '../wall/wall-panel.js'; // <-- HID
 import { copyFloorArchitecture, pasteFloorArchitecture } from '../menu/floor-operations-menu.js'; // <-- KAT MİMARİSİ KOPYALA/YAPIŞTIR
 import { onPointerDownDraw as doorPointerDownDraw } from '../architectural-objects/door-handler.js'; // SAĞTIK İÇİN
 import { onPointerDownDraw as windowPointerDownDraw } from '../architectural-objects/window-handler.js'; // SAĞTIK İÇİN
-import { onPointerDown } from '../pointer/pointer-down.js';
-import { onPointerMove } from '../pointer/pointer-move.js';
-import { onPointerUp } from '../pointer/pointer-up.js';
+import { onPointerDown } from '../pointer/handle-pointer-down.js';
+import { onPointerMove } from '../pointer/handle-pointer-move.js';
+import { onPointerUp } from '../pointer/handle-pointer-up.js';
 import { isFPSMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../scene3d/scene3d-core.js';

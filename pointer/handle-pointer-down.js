@@ -3,9 +3,9 @@
  * Mouse tıklama işlemlerini yönetir
  */
 
-import { screenToWorld } from '../../../draw/geometry.js';
-import { dom, state } from '../../../general-files/main.js';
-import { BAGLANTI_TIPLERI } from '../../objects/pipe.js';
+import { screenToWorld } from '../draw/geometry.js';
+import { dom, state } from '../general-files/main.js';
+import { BAGLANTI_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 
 export function handlePointerDown(e) {
     const rect = dom.c2d.getBoundingClientRect();

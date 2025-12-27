@@ -3,8 +3,8 @@
  * Mouse hareket işlemlerini yönetir
  */
 
-import { screenToWorld } from '../../../draw/geometry.js';
-import { dom, state } from '../../../general-files/main.js';
+import { screenToWorld } from '../draw/geometry.js';
+import { dom, state } from '../general-files/main.js';
 
 export function handlePointerMove(e) {
     if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
@@ -34,7 +34,14 @@ export function handlePointerMove(e) {
     }
 
     // Snap hesapla
-    this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
+    // ✨ FIX: Servis kutusu taşınırken snap sistemini devre dışı bırak
+    // Böylece dirseklerin veya uçların üzerinden geçerken "yutma" (yapışma) yapmaz
+    if (this.isDragging && this.dragObject && this.dragObject.type === 'servis_kutusu') {
+        this.activeSnap = null;
+    } else {
+        this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
+    }
+
     const targetPoint = this.activeSnap
         ? { x: this.activeSnap.x, y: this.activeSnap.y }
         : point;

@@ -6,9 +6,9 @@
 import { TesisatSnapSystem } from './tesisat-snap.js';
 
 // Pointer handlers
-import { handlePointerMove } from './pointer/pointer-move.js';
-import { handlePointerDown } from './pointer/pointer-down.js';
-import { handlePointerUp } from './pointer/pointer-up.js';
+import { handlePointerMove } from '../../pointer/handle-pointer-move.js';
+import { handlePointerDown } from '../../pointer/handle-pointer-down.js';
+import { handlePointerUp } from '../../pointer/handle-pointer-up.js';
 
 // Keyboard handler
 import { handleKeyDown } from './keyboard/keyboard-handler.js';
