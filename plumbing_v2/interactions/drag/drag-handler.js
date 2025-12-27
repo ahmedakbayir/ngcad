@@ -35,7 +35,10 @@ function isProtectedPoint(point, manager, currentPipe, oldPoint) {
         const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
         return dist < TOLERANCE;
     });
-    if (servisKutusuCikisi) return true;
+    if (servisKutusuCikisi) {
+        console.log('[PROTECTED] Servis kutusu çıkışı');
+        return true;
+    }
 
     // 2. Sayaç giriş kontrolü (fleks bağlantısı)
     const sayacGirisi = manager.components.some(c => {
@@ -45,7 +48,10 @@ function isProtectedPoint(point, manager, currentPipe, oldPoint) {
         const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
         return dist < TOLERANCE;
     });
-    if (sayacGirisi) return true;
+    if (sayacGirisi) {
+        console.log('[PROTECTED] Sayaç girişi');
+        return true;
+    }
 
     // 3. Sayaç çıkışı kontrolü
     const sayacCikisi = manager.components.some(c => {
@@ -55,7 +61,10 @@ function isProtectedPoint(point, manager, currentPipe, oldPoint) {
         const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
         return dist < TOLERANCE;
     });
-    if (sayacCikisi) return true;
+    if (sayacCikisi) {
+        console.log('[PROTECTED] Sayaç çıkışı');
+        return true;
+    }
 
     // 4. Cihaz fleks bağlantısı kontrolü
     const cihazFleksi = manager.components.some(c => {
@@ -69,7 +78,10 @@ function isProtectedPoint(point, manager, currentPipe, oldPoint) {
         const dist = Math.hypot(point.x - fleksPoint.x, point.y - fleksPoint.y);
         return dist < TOLERANCE;
     });
-    if (cihazFleksi) return true;
+    if (cihazFleksi) {
+        console.log('[PROTECTED] Cihaz fleks bağlantısı');
+        return true;
+    }
 
     // 5. Dirsek kontrolü (2+ boru bağlı nokta) - daha sıkı tolerance
     const DIRSEK_TOLERANCE = 10; // 10 cm
@@ -100,26 +112,44 @@ function isProtectedPoint(point, manager, currentPipe, oldPoint) {
         }
         return false;
     });
-    if (isDirsek) return true;
+    if (isDirsek) {
+        console.log('[PROTECTED] Dirsek (2+ boru bağlı nokta)');
+        return true;
+    }
 
-    // 6. Boşta boru ucu kontrolü - daha sıkı tolerance
+    // 6. Boşta boru ucu kontrolü - başka hiçbir boruya bağlı olmayan serbest uçlar
     const BOSTA_UC_TOLERANCE = 10; // 10 cm
     const bostaUc = manager.pipes.some(otherPipe => {
         if (otherPipe === currentPipe) return false;
 
         for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
-            // Eski pozisyonumuzsa atla
+            // Eski bağlantımızsa atla
             if (oldPoint) {
                 const distToOld = Math.hypot(endpoint.x - oldPoint.x, endpoint.y - oldPoint.y);
                 if (distToOld < 1) continue;
             }
 
+            // Bu endpoint'e yakın mıyız?
             const dist = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
-            if (dist < BOSTA_UC_TOLERANCE) return true;
+            if (dist >= BOSTA_UC_TOLERANCE) continue;
+
+            // Bu endpoint başka bir boruya bağlı mı kontrol et
+            const connectedPipeCount = manager.pipes.filter(p => {
+                if (p === otherPipe || p === currentPipe) return false;
+                const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
+                const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
+                return d1 < 1 || d2 < 1;
+            }).length;
+
+            // Bağlı boru sayısı 0 ise (boştaysa), engelle
+            if (connectedPipeCount === 0) return true;
         }
         return false;
     });
-    if (bostaUc) return true;
+    if (bostaUc) {
+        console.log('[PROTECTED] Boşta boru ucu (bağlantısı olmayan serbest uç)');
+        return true;
+    }
 
     return false;
 }
@@ -559,7 +589,9 @@ export function handleDrag(interactionManager, point) {
 
         // ⚠️ KRİTİK: Korumalı noktalara taşımayı engelle
         // (Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek, boşta boru ucu)
-        if (isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint)) {
+        const isProtected = isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint);
+        if (isProtected) {
+            console.warn('🚫 ENGEL: Boru ucu korumalı noktaya taşınamaz!', finalPos);
             return; // Taşımayı engelle - sessizce geri dön
         }
 
