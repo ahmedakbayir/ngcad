@@ -47,13 +47,25 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
     const sayacGirisi = manager.components.some(c => {
         if (c.type !== 'sayac' || !c.fleksBaglanti) return false;
         if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen sayacı atla
+
+        // Fleks bağlantı varsa, BORUNUN UCUNU koru
+        if (c.fleksBaglanti.boruId && c.fleksBaglanti.endpoint) {
+            const boru = manager.pipes.find(p => p.id === c.fleksBaglanti.boruId);
+            if (boru) {
+                const boruUcu = boru[c.fleksBaglanti.endpoint]; // p1 veya p2
+                const dist = Math.hypot(point.x - boruUcu.x, point.y - boruUcu.y);
+                return dist < TOLERANCE;
+            }
+        }
+
+        // Fleks bağlantı henüz yapılmamışsa, giriş noktasını koru
         const giris = c.getGirisNoktasi();
         if (!giris) return false;
         const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
         return dist < TOLERANCE;
     });
     if (sayacGirisi) {
-        console.log('[PROTECTED] Sayaç girişi');
+        console.log('[PROTECTED] Sayaç girişi (fleks bağlantı)');
         return true;
     }
 
@@ -75,7 +87,18 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
     const cihazFleksi = manager.components.some(c => {
         if (c.type !== 'cihaz') return false;
         if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen cihazı atla
-        // Cihazın giriş noktasını al (boruya bağlı olsun olmasın)
+
+        // Fleks bağlantı varsa, BORUNUN UCUNU koru
+        if (c.fleksBaglanti && c.fleksBaglanti.boruId && c.fleksBaglanti.endpoint) {
+            const boru = manager.pipes.find(p => p.id === c.fleksBaglanti.boruId);
+            if (boru) {
+                const boruUcu = boru[c.fleksBaglanti.endpoint]; // p1 veya p2
+                const dist = Math.hypot(point.x - boruUcu.x, point.y - boruUcu.y);
+                return dist < TOLERANCE;
+            }
+        }
+
+        // Fleks bağlantı henüz yapılmamışsa, giriş noktasını koru
         const giris = c.getGirisNoktasi();
         if (!giris) return false;
         const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
