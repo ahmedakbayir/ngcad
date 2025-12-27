@@ -16,16 +16,17 @@ import { state } from '../../../general-files/main.js';
  * - Sayaç giriş/çıkış noktası
  * - Cihaz fleks bağlantısı
  * - Dirsek (2+ boru bağlı)
- * - Boşta boru ucu (başka bir borunun ucu)
+ * - Boşta boru ucu (başka bir borunun ucu) - SADECE endpoint drag için
  *
  * @param {Object} point - Kontrol edilecek nokta {x, y}
  * @param {Object} manager - PlumbingManager instance
  * @param {Object} currentPipe - Şu an sürüklenen boru (hariç tutulacak)
  * @param {Object} oldPoint - Sürüklenen ucun eski pozisyonu (hariç tutulacak)
  * @param {string} excludeComponentId - Hariç tutulacak component ID (yeni eklenen component için)
+ * @param {boolean} skipBostaUcCheck - Boşta boru ucu kontrolünü atla (boru çizerken true)
  * @returns {boolean} - Nokta korumalı mı?
  */
-export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null) {
+export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null, skipBostaUcCheck = false) {
     const TOLERANCE = 10; // 10 cm içinde korumalı nokta varsa engelle
 
     // 1. Servis kutusu çıkışı kontrolü
@@ -120,37 +121,40 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
     }
 
     // 6. Boşta boru ucu kontrolü - başka hiçbir boruya bağlı olmayan serbest uçlar
-    const BOSTA_UC_TOLERANCE = 10; // 10 cm
-    const bostaUc = manager.pipes.some(otherPipe => {
-        if (otherPipe === currentPipe) return false;
+    // NOT: Bu kontrol SADECE endpoint drag için geçerli (boru çizerken atlanır)
+    if (!skipBostaUcCheck) {
+        const BOSTA_UC_TOLERANCE = 10; // 10 cm
+        const bostaUc = manager.pipes.some(otherPipe => {
+            if (otherPipe === currentPipe) return false;
 
-        for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
-            // Eski bağlantımızsa atla
-            if (oldPoint) {
-                const distToOld = Math.hypot(endpoint.x - oldPoint.x, endpoint.y - oldPoint.y);
-                if (distToOld < 1) continue;
+            for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+                // Eski bağlantımızsa atla
+                if (oldPoint) {
+                    const distToOld = Math.hypot(endpoint.x - oldPoint.x, endpoint.y - oldPoint.y);
+                    if (distToOld < 1) continue;
+                }
+
+                // Bu endpoint'e yakın mıyız?
+                const dist = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
+                if (dist >= BOSTA_UC_TOLERANCE) continue;
+
+                // Bu endpoint başka bir boruya bağlı mı kontrol et
+                const connectedPipeCount = manager.pipes.filter(p => {
+                    if (p === otherPipe || p === currentPipe) return false;
+                    const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
+                    const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
+                    return d1 < 1 || d2 < 1;
+                }).length;
+
+                // Bağlı boru sayısı 0 ise (boştaysa), engelle
+                if (connectedPipeCount === 0) return true;
             }
-
-            // Bu endpoint'e yakın mıyız?
-            const dist = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
-            if (dist >= BOSTA_UC_TOLERANCE) continue;
-
-            // Bu endpoint başka bir boruya bağlı mı kontrol et
-            const connectedPipeCount = manager.pipes.filter(p => {
-                if (p === otherPipe || p === currentPipe) return false;
-                const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
-                const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
-                return d1 < 1 || d2 < 1;
-            }).length;
-
-            // Bağlı boru sayısı 0 ise (boştaysa), engelle
-            if (connectedPipeCount === 0) return true;
+            return false;
+        });
+        if (bostaUc) {
+            console.log('[PROTECTED] Boşta boru ucu (bağlantısı olmayan serbest uç)');
+            return true;
         }
-        return false;
-    });
-    if (bostaUc) {
-        console.log('[PROTECTED] Boşta boru ucu (bağlantısı olmayan serbest uç)');
-        return true;
     }
 
     return false;

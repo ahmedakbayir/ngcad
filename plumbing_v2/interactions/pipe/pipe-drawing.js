@@ -24,8 +24,9 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
     }
 
     // ⚠️ KRİTİK: Korumalı noktalara boru başlatmayı engelle
-    if (isProtectedPoint(baslangicNoktasi, interactionManager.manager, null, null, excludeComponentId)) {
-        alert('⚠️ Bu noktadan boru başlatılamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek veya boşta boru ucu)');
+    // NOT: skipBostaUcCheck=true çünkü boru çizerken boşta uçlara bağlanabilmeli
+    if (isProtectedPoint(baslangicNoktasi, interactionManager.manager, null, null, excludeComponentId, true)) {
+        alert('⚠️ Bu noktadan boru başlatılamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi veya dirsek)');
         console.warn('🚫 ENGEL: Başlangıç noktası korumalı!', baslangicNoktasi);
         return;
     }
@@ -352,15 +353,17 @@ export function handleBoruClick(interactionManager, point) {
     }
 
     // ⚠️ KRİTİK: Başlangıç noktası korumalı mı kontrol et
-    if (isProtectedPoint(interactionManager.boruBaslangic.nokta, interactionManager.manager, null, null, excludeComponentId)) {
+    // NOT: skipBostaUcCheck=true çünkü boru çizerken boşta uçlara bağlanabilmeli
+    if (isProtectedPoint(interactionManager.boruBaslangic.nokta, interactionManager.manager, null, null, excludeComponentId, true)) {
         alert('⚠️ Başlangıç noktası korumalı! Boru oluşturulamaz.');
         console.warn('🚫 ENGEL: Başlangıç noktası korumalı!', interactionManager.boruBaslangic.nokta);
         return;
     }
 
-    // ⚠️ KRİTİK: Bitiş noktası korumalı mı kontrol et (excludeComponentId yok, bitiş noktası için)
-    if (isProtectedPoint(point, interactionManager.manager, null, null)) {
-        alert('⚠️ Bu noktaya boru bağlanamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek veya boşta boru ucu)');
+    // ⚠️ KRİTİK: Bitiş noktası korumalı mı kontrol et
+    // NOT: skipBostaUcCheck=true çünkü boru çizerken boşta uçlara bağlanabilmeli
+    if (isProtectedPoint(point, interactionManager.manager, null, null, null, true)) {
+        alert('⚠️ Bu noktaya boru bağlanamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi veya dirsek)');
         console.warn('🚫 ENGEL: Bitiş noktası korumalı!', point);
         return;
     }
