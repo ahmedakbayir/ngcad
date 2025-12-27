@@ -3,6 +3,8 @@
  * Ghost bileşenlerin pozisyon güncellemelerini yönetir
  */
 
+import { state } from '../../../general-files/main.js';
+
 export function updateGhostPosition(ghost, point, snap) {
     // Debug: İlk 3 güncellemede koordinat sistemi kontrolü
     if (ghost.type === 'cihaz' && !this._debugCount) this._debugCount = 0;
