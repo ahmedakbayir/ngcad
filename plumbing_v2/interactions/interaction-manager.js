@@ -1472,6 +1472,28 @@ export class InteractionManager {
             esitMi_Sayac: this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC
         });
 
+        // ÖNEMLİ: Servis kutusu/sayaç çıkışından başlayan hat, AYNI çıkışa bağlı borunun gövdesine bağlanamaz!
+        // (Split tetikler ve ikinci bağlantı oluşur - bu yasak!)
+        if (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
+            this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
+            // Tıklama noktasında boru gövdesi var mı kontrol et
+            const boruGovde = this.findBoruGovdeAt(point, 5);
+            if (boruGovde) {
+                // Bu borunun servis kutusu/sayaç çıkışına bağlı olup olmadığını kontrol et
+                const targetPipe = this.manager.pipes.find(p => p.id === boruGovde.boruId);
+                if (targetPipe &&
+                    (targetPipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
+                     targetPipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC)) {
+                    // Aynı servis kutusu/sayaç mı kontrol et
+                    if (targetPipe.baslangicBaglanti.hedefId === this.boruBaslangic.kaynakId) {
+                        console.warn('🚫 ENGEL: Aynı servis kutusu/sayaç çıkışından ikinci hat ayrılamaz! (Split engellendi)');
+                        alert('⚠️ Bu boru zaten aynı ' + (this.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ? 'servis kutusu' : 'sayaç') + ' çıkışına bağlı!\n\nAynı çıkıştan iki hat ayrılamaz.');
+                        return; // Boru çizimini iptal et
+                    }
+                }
+            }
+        }
+
         // Undo için state kaydet (her boru için ayrı undo entry)
         saveState();
 
