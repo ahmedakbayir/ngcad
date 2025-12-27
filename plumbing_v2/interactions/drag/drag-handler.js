@@ -625,10 +625,13 @@ export function handleDrag(interactionManager, point) {
         if (interactionManager.dragObject.bagliBoruId) {
             const boru = interactionManager.manager.pipes.find(p => p.id === interactionManager.dragObject.bagliBoruId);
             if (boru) {
+                // Kutu hareket etmeden ÖNCEKİ çıkış noktası
                 const oldP1 = { ...boru.p1 };
+
+                // Kutu hareket ettikten SONRAKİ çıkış noktası
                 const newCikis = interactionManager.dragObject.getCikisNoktasi();
-                boru.moveP1(newCikis);
-                // Parent ve children'ları güncelle
+
+                // Tüm zinciri güncelle - updateNodeConnections boru.p1'i de güncelleyecek
                 updateNodeConnections(interactionManager.manager.pipes, oldP1, newCikis);
             }
         }
