@@ -22,14 +22,16 @@ import { state } from '../../../general-files/main.js';
  * @param {Object} manager - PlumbingManager instance
  * @param {Object} currentPipe - Şu an sürüklenen boru (hariç tutulacak)
  * @param {Object} oldPoint - Sürüklenen ucun eski pozisyonu (hariç tutulacak)
+ * @param {string} excludeComponentId - Hariç tutulacak component ID (yeni eklenen component için)
  * @returns {boolean} - Nokta korumalı mı?
  */
-export function isProtectedPoint(point, manager, currentPipe, oldPoint) {
+export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null) {
     const TOLERANCE = 10; // 10 cm içinde korumalı nokta varsa engelle
 
     // 1. Servis kutusu çıkışı kontrolü
     const servisKutusuCikisi = manager.components.some(c => {
         if (c.type !== 'servis_kutusu') return false;
+        if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen kutuyu atla
         const cikis = c.getCikisNoktasi();
         if (!cikis) return false;
         const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
@@ -43,6 +45,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint) {
     // 2. Sayaç giriş kontrolü (fleks bağlantısı)
     const sayacGirisi = manager.components.some(c => {
         if (c.type !== 'sayac' || !c.fleksBaglanti) return false;
+        if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen sayacı atla
         const giris = c.getGirisNoktasi();
         if (!giris) return false;
         const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
@@ -56,6 +59,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint) {
     // 3. Sayaç çıkışı kontrolü
     const sayacCikisi = manager.components.some(c => {
         if (c.type !== 'sayac') return false;
+        if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen sayacı atla
         const cikis = c.getCikisNoktasi();
         if (!cikis) return false;
         const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
@@ -69,6 +73,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint) {
     // 4. Cihaz fleks bağlantısı kontrolü
     const cihazFleksi = manager.components.some(c => {
         if (c.type !== 'cihaz') return false;
+        if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen cihazı atla
         // Cihazın giriş noktasını al (boruya bağlı olsun olmasın)
         const giris = c.getGirisNoktasi();
         if (!giris) return false;
