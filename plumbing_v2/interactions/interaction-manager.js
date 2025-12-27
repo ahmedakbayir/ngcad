@@ -494,6 +494,17 @@ export class InteractionManager {
         // 6. Boru gövdesinden çizim başlat
         const boruGovde = this.findBoruGovdeAt(point);
         if (boruGovde) {
+            // ÖNEMLİ: Servis kutusu/sayaç çıkışına bağlı borunun gövdesinden çizim başlatma!
+            // (Split olursa p1 noktası kayabilir - yutulma sorunu)
+            const targetPipe = this.manager.pipes.find(p => p.id === boruGovde.boruId);
+            if (targetPipe) {
+                if (targetPipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
+                    targetPipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
+                    console.warn('🚫 ENGEL: Servis kutusu/sayaç çıkışına bağlı borunun gövdesinden çizim başlatılamaz! (Yutulma koruması)');
+                    alert('⚠️ Bu boru servis kutusu/sayaç çıkışına bağlı. Gövdesinden yeni hat başlatılamaz!');
+                    return true;
+                }
+            }
             this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
             return true;
         }
