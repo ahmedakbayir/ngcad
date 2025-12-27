@@ -43,7 +43,6 @@ import {
     startDrag,
     startBodyDrag,
     handleDrag,
-    updateConnectedPipesChain,
     endDrag
 } from './drag/drag-handler.js';
 
@@ -262,10 +261,6 @@ export class InteractionManager {
         return handleDrag(this, point);
     }
 
-    updateConnectedPipesChain(oldPoint, newPoint) {
-        return updateConnectedPipesChain(this, oldPoint, newPoint);
-    }
-
     endDrag() {
         return endDrag(this);
     }
@@ -282,7 +277,7 @@ export class InteractionManager {
     }
 
     handleRotation(point) {
-        return handleRotation(this, point, this.manager, updateConnectedPipesChain);
+        return handleRotation(this, point, this.manager);
     }
 
     endRotation() {
@@ -290,7 +285,7 @@ export class InteractionManager {
     }
 
     updateConnectedPipe(result) {
-        return updateConnectedPipe(result, this.manager, updateConnectedPipesChain);
+        return updateConnectedPipe(result, this.manager);
     }
 
     /**

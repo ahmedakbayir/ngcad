@@ -164,11 +164,33 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
     if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
         const sk = interactionManager.manager.components.find(c => c.id === pipe.baslangicBaglanti.hedefId);
         if (sk && sk.bagliBoruId === pipe.id) {
+            const oldP1 = { ...boru1.p1 }; // Eski koordinat
             sk.baglaBoru(boru1.id);
+
             // Kutu çıkışını boru1.p1'e zorla eşitle (bağlantıyı koru)
             const cikis = sk.getCikisNoktasi();
             boru1.p1.x = cikis.x;
             boru1.p1.y = cikis.y;
+
+            // Parent-children'ları güncelle (diğer bağlı boruları da taşı)
+            const TOLERANCE = 1.0;
+            interactionManager.manager.pipes.forEach(p => {
+                if (p === boru1 || p === boru2) return;
+
+                // p1'i güncelle
+                const distToP1 = Math.hypot(p.p1.x - oldP1.x, p.p1.y - oldP1.y);
+                if (distToP1 < TOLERANCE) {
+                    p.p1.x = cikis.x;
+                    p.p1.y = cikis.y;
+                }
+
+                // p2'yi güncelle
+                const distToP2 = Math.hypot(p.p2.x - oldP1.x, p.p2.y - oldP1.y);
+                if (distToP2 < TOLERANCE) {
+                    p.p2.x = cikis.x;
+                    p.p2.y = cikis.y;
+                }
+            });
         }
     }
 
@@ -176,11 +198,31 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
     if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
         const meter = interactionManager.manager.components.find(c => c.id === pipe.baslangicBaglanti.hedefId);
         if (meter && meter.cikisBagliBoruId === pipe.id) {
+            const oldP1 = { ...boru1.p1 }; // Eski koordinat
             meter.cikisBagliBoruId = boru1.id;
+
             // Sayaç çıkışını boru1.p1'e zorla eşitle
             const cikis = meter.getCikisNoktasi();
             boru1.p1.x = cikis.x;
             boru1.p1.y = cikis.y;
+
+            // Parent-children'ları güncelle
+            const TOLERANCE = 1.0;
+            interactionManager.manager.pipes.forEach(p => {
+                if (p === boru1 || p === boru2) return;
+
+                const distToP1 = Math.hypot(p.p1.x - oldP1.x, p.p1.y - oldP1.y);
+                if (distToP1 < TOLERANCE) {
+                    p.p1.x = cikis.x;
+                    p.p1.y = cikis.y;
+                }
+
+                const distToP2 = Math.hypot(p.p2.x - oldP1.x, p.p2.y - oldP1.y);
+                if (distToP2 < TOLERANCE) {
+                    p.p2.x = cikis.x;
+                    p.p2.y = cikis.y;
+                }
+            });
         }
     }
 

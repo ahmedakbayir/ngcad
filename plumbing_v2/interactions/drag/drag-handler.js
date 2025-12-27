@@ -52,7 +52,7 @@ function getNodeConnections(pipes, point, excludePipe = null) {
  * @param {Object} oldPoint - Eski nokta {x, y}
  * @param {Object} newPoint - Yeni nokta {x, y}
  */
-function updateNodeConnections(pipes, oldPoint, newPoint) {
+export function updateNodeConnections(pipes, oldPoint, newPoint) {
     const connections = getNodeConnections(pipes, oldPoint);
 
     // Parent'ı güncelle
