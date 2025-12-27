@@ -45,6 +45,32 @@ function getNodeConnections(pipes, point, excludePipe = null) {
 }
 
 /**
+ * Bir noktanın parent ve children'larını yeni pozisyona güncelle
+ * Kutu/Sayaç sürüklerken kullanılır
+ *
+ * @param {Array} pipes - Tüm borular
+ * @param {Object} oldPoint - Eski nokta {x, y}
+ * @param {Object} newPoint - Yeni nokta {x, y}
+ */
+function updateNodeConnections(pipes, oldPoint, newPoint) {
+    const connections = getNodeConnections(pipes, oldPoint);
+
+    // Parent'ı güncelle
+    if (connections.parent) {
+        const parentPipe = connections.parent.pipe;
+        const parentEndpoint = connections.parent.endpoint;
+        parentPipe[parentEndpoint].x = newPoint.x;
+        parentPipe[parentEndpoint].y = newPoint.y;
+    }
+
+    // Tüm children'ları güncelle
+    connections.children.forEach(child => {
+        child.pipe[child.endpoint].x = newPoint.x;
+        child.pipe[child.endpoint].y = newPoint.y;
+    });
+}
+
+/**
  * Uç nokta sürüklemeyi başlat
  * @param {Object} interactionManager - InteractionManager instance
  * @param {Object} pipe - Boru nesnesi
@@ -544,8 +570,8 @@ export function handleDrag(interactionManager, point) {
                 const oldP1 = { ...boru.p1 };
                 const newCikis = interactionManager.dragObject.getCikisNoktasi();
                 boru.moveP1(newCikis);
-                // Boru zincirini güncelle
-                updateConnectedPipesChain(interactionManager, oldP1, newCikis);
+                // Parent ve children'ları güncelle
+                updateNodeConnections(interactionManager.manager.pipes, oldP1, newCikis);
             }
         }
         return;
@@ -613,8 +639,8 @@ export function handleDrag(interactionManager, point) {
                 // Yeni p1 pozisyonu
                 const newP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
 
-                // Bağlı boru zincirini güncelle (cihazların fleks bağlantıları için kritik!)
-                updateConnectedPipesChain(interactionManager, oldP1, newP1);
+                // Parent ve children'ları güncelle (cihazların fleks bağlantıları için kritik!)
+                updateNodeConnections(interactionManager.manager.pipes, oldP1, newP1);
             }
         }
 
