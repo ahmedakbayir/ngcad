@@ -14,6 +14,31 @@ import { state } from '../../../general-files/main.js';
  * Boru çizim modunu başlat
  */
 export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = null, kaynakTip = null, colorGroup = null) {
+    // ⚠️ ÖNEMLİ: Başlangıç noktası kullanılmış bir servis kutusu/sayaç çıkışına yakın mı?
+    // (kaynakTip ne olursa olsun - çünkü ikinci tıklamada kaynakTip 'boru' olabilir)
+    const tolerance = 10;
+    const problematicServisKutusu = interactionManager.manager.components.find(c => {
+        if (c.type !== 'servis_kutusu' || !c.bagliBoruId) return false;
+        const cikisNoktasi = c.getCikisNoktasi();
+        if (!cikisNoktasi) return false;
+        const dist = Math.hypot(baslangicNoktasi.x - cikisNoktasi.x, baslangicNoktasi.y - cikisNoktasi.y);
+        return dist < tolerance;
+    });
+
+    const problematicSayac = interactionManager.manager.components.find(c => {
+        if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
+        const cikisNoktasi = c.getCikisNoktasi();
+        if (!cikisNoktasi) return false;
+        const dist = Math.hypot(baslangicNoktasi.x - cikisNoktasi.x, baslangicNoktasi.y - cikisNoktasi.y);
+        return dist < tolerance;
+    });
+
+    if (problematicServisKutusu || problematicSayac) {
+        alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
+        console.warn('🚫 ENGEL: Başlangıç noktası zaten kullanılmış çıkışa çok yakın!');
+        return; // Boru çizimi başlatma
+    }
+
     // Kaynak borunun renk grubunu belirle
     let kaynakColorGroup = 'YELLOW'; // Varsayılan: Kolon tesisat
 
@@ -301,6 +326,32 @@ export function handleBoruClick(interactionManager, point) {
 
     // Undo için state kaydet (her boru için ayrı undo entry)
     saveState();
+
+    // ⚠️ ÖNEMLİ: Borunun P1'i (başlangıç noktası) kullanılmış bir servis kutusu/sayaç çıkışına yakın mı kontrol et
+    const tolerance = 10;
+    const problematicServisKutusu = interactionManager.manager.components.find(c => {
+        if (c.type !== 'servis_kutusu' || !c.bagliBoruId) return false;
+        const cikisNoktasi = c.getCikisNoktasi();
+        if (!cikisNoktasi) return false;
+        const dist = Math.hypot(interactionManager.boruBaslangic.nokta.x - cikisNoktasi.x,
+                                interactionManager.boruBaslangic.nokta.y - cikisNoktasi.y);
+        return dist < tolerance;
+    });
+
+    const problematicSayac = interactionManager.manager.components.find(c => {
+        if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
+        const cikisNoktasi = c.getCikisNoktasi();
+        if (!cikisNoktasi) return false;
+        const dist = Math.hypot(interactionManager.boruBaslangic.nokta.x - cikisNoktasi.x,
+                                interactionManager.boruBaslangic.nokta.y - cikisNoktasi.y);
+        return dist < tolerance;
+    });
+
+    if (problematicServisKutusu || problematicSayac) {
+        alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
+        console.warn('🚫 ENGEL: Yeni borunun P1 noktası zaten kullanılmış çıkışa çok yakın!');
+        return; // Boruyu ekleme
+    }
 
     const boru = createBoru(interactionManager.boruBaslangic.nokta, point, 'STANDART');
     boru.floorId = state.currentFloorId;
