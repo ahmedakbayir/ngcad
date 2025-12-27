@@ -2799,17 +2799,30 @@ export class InteractionManager {
             );
 
             // Minimum uzunluk kontrolü
-            const ABSOLUTE_MIN_LENGTH = 10; // cm - Mutlak minimum (servis kutusu çıkış koruması için)
+            const ABSOLUTE_MIN_LENGTH_SERVICE_BOX = 10; // cm - Servis kutusu/sayaç çıkış koruması için
             const MIN_EDGE_DISTANCE = 4; // cm - boru uçlarından minimum mesafe (vanalar için)
             const OBJECT_MARGIN = 2; // cm - nesne marginleri
             const VALVE_WIDTH = 6; // cm
+            const MIN_PIPE_LENGTH = 2; // cm - Normal boru-boru bağlantıları için minimum
 
             // Her vana için gereken minimum mesafe
             const spacePerValve = OBJECT_MARGIN + VALVE_WIDTH + OBJECT_MARGIN; // 10 cm
             const totalValveSpace = valvesOnPipe.length * spacePerValve;
 
-            // Minimum boru uzunluğu = max(10cm, 2 * uç mesafesi + tüm vanaların gerektirdiği alan)
-            const minLength = Math.max(ABSOLUTE_MIN_LENGTH, (2 * MIN_EDGE_DISTANCE) + totalValveSpace);
+            // Servis kutusu/sayaç bağlantısı var mı kontrol et
+            const hasServiceBoxOrMeterConnection =
+                pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
+                pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC;
+
+            // Minimum boru uzunluğu hesapla
+            let minLength;
+            if (hasServiceBoxOrMeterConnection && this.dragEndpoint === 'p2') {
+                // Servis kutusu/sayaç çıkışındaki borunun p2'sini çekiyoruz - 10cm minimum
+                minLength = Math.max(ABSOLUTE_MIN_LENGTH_SERVICE_BOX, (2 * MIN_EDGE_DISTANCE) + totalValveSpace);
+            } else {
+                // Normal boru veya p1 çekme - esnek minimum
+                minLength = Math.max(MIN_PIPE_LENGTH, (2 * MIN_EDGE_DISTANCE) + totalValveSpace);
+            }
 
             // Yeni uzunluğu hesapla
             let newLength;
@@ -2819,10 +2832,12 @@ export class InteractionManager {
                 newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
             }
 
-            console.log('[DEBUG YUTULMA KONTROLÜ]', {
+            console.log('[DEBUG ENDPOINT DRAG]', {
                 dragEndpoint: this.dragEndpoint,
                 newLength: newLength.toFixed(2),
                 minLength: minLength.toFixed(2),
+                hasServiceBoxOrMeterConnection,
+                connectedPipesCount: connectedPipes.length,
                 occupiedByOtherPipe,
                 kontrolBasarili: newLength >= minLength,
                 uygulanacakMi: !occupiedByOtherPipe && newLength >= minLength
@@ -3170,6 +3185,7 @@ export class InteractionManager {
     updateConnectedPipesChain(oldPoint, newPoint) {
         const tolerance = 1.0; // cm - floating point hataları için yeterince büyük
 
+        let updatedCount = 0;
         // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
         this.manager.pipes.forEach(pipe => {
             // p1'i güncelle
@@ -3177,6 +3193,7 @@ export class InteractionManager {
             if (distP1 < tolerance) {
                 pipe.p1.x = newPoint.x;
                 pipe.p1.y = newPoint.y;
+                updatedCount++;
             }
 
             // p2'yi güncelle
@@ -3184,8 +3201,17 @@ export class InteractionManager {
             if (distP2 < tolerance) {
                 pipe.p2.x = newPoint.x;
                 pipe.p2.y = newPoint.y;
+                updatedCount++;
             }
         });
+
+        if (updatedCount > 0) {
+            console.log('[DEBUG updateConnectedPipesChain]', {
+                updatedEndpoints: updatedCount,
+                oldPoint: { x: oldPoint.x.toFixed(1), y: oldPoint.y.toFixed(1) },
+                newPoint: { x: newPoint.x.toFixed(1), y: newPoint.y.toFixed(1) }
+            });
+        }
 
         // Fleks artık boruId ve endpoint ('p1'/'p2') saklıyor
         // Koordinatlar her zaman borudan okunuyor, ekstra güncelleme gerekmiyor
