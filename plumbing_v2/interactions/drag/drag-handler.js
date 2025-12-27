@@ -24,7 +24,7 @@ import { state } from '../../../general-files/main.js';
  * @param {Object} oldPoint - Sürüklenen ucun eski pozisyonu (hariç tutulacak)
  * @returns {boolean} - Nokta korumalı mı?
  */
-function isProtectedPoint(point, manager, currentPipe, oldPoint) {
+export function isProtectedPoint(point, manager, currentPipe, oldPoint) {
     const TOLERANCE = 10; // 10 cm içinde korumalı nokta varsa engelle
 
     // 1. Servis kutusu çıkışı kontrolü
@@ -68,14 +68,11 @@ function isProtectedPoint(point, manager, currentPipe, oldPoint) {
 
     // 4. Cihaz fleks bağlantısı kontrolü
     const cihazFleksi = manager.components.some(c => {
-        if (c.type !== 'cihaz' || !c.fleksBaglanti) return false;
-        // Cihazın fleks bağlantı noktasını al
-        // fleksBaglanti.boruId varsa, o borunun endpoint'ine bağlı
-        if (!c.fleksBaglanti.boruId) return false;
-        const fleksBoru = manager.pipes.find(p => p.id === c.fleksBaglanti.boruId);
-        if (!fleksBoru) return false;
-        const fleksPoint = c.fleksBaglanti.endpoint === 'p1' ? fleksBoru.p1 : fleksBoru.p2;
-        const dist = Math.hypot(point.x - fleksPoint.x, point.y - fleksPoint.y);
+        if (c.type !== 'cihaz') return false;
+        // Cihazın giriş noktasını al (boruya bağlı olsun olmasın)
+        const giris = c.getGirisNoktasi();
+        if (!giris) return false;
+        const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
         return dist < TOLERANCE;
     });
     if (cihazFleksi) {
