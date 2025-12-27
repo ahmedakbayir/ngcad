@@ -158,7 +158,7 @@ export function handleKeyDown(e) {
         if (state.currentDrawingMode !== "KARMA") {
             setDrawingMode("TESİSAT");
         }
-
+        this.cancelCurrentAction();
         // Boru modunu başlat
         this.manager.startPipeMode();
 
