@@ -187,6 +187,41 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.bodyDragInitialP1 = { ...pipe.p1 };
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
 
+    // ✨ BAĞLANTI İYİLEŞTİRME: Hızlı ardışık drag sırasında floating-point hatalarını düzelt
+    // Sürüklenen borunun endpoint'lerine yakın olan diğer boru uçlarını tam olarak aynı noktaya çek
+    const SNAP_TOLERANCE = 2.0; // 2cm içindeki bağlantıları düzelt
+    const pipes = interactionManager.manager.pipes;
+
+    // P1 için snap
+    pipes.forEach(otherPipe => {
+        if (otherPipe === pipe) return;
+        const distToP1 = Math.hypot(otherPipe.p1.x - pipe.p1.x, otherPipe.p1.y - pipe.p1.y);
+        if (distToP1 > 0 && distToP1 < SNAP_TOLERANCE) {
+            otherPipe.p1.x = pipe.p1.x;
+            otherPipe.p1.y = pipe.p1.y;
+        }
+        const distToP2 = Math.hypot(otherPipe.p2.x - pipe.p1.x, otherPipe.p2.y - pipe.p1.y);
+        if (distToP2 > 0 && distToP2 < SNAP_TOLERANCE) {
+            otherPipe.p2.x = pipe.p1.x;
+            otherPipe.p2.y = pipe.p1.y;
+        }
+    });
+
+    // P2 için snap
+    pipes.forEach(otherPipe => {
+        if (otherPipe === pipe) return;
+        const distToP1 = Math.hypot(otherPipe.p1.x - pipe.p2.x, otherPipe.p1.y - pipe.p2.y);
+        if (distToP1 > 0 && distToP1 < SNAP_TOLERANCE) {
+            otherPipe.p1.x = pipe.p2.x;
+            otherPipe.p1.y = pipe.p2.y;
+        }
+        const distToP2 = Math.hypot(otherPipe.p2.x - pipe.p2.x, otherPipe.p2.y - pipe.p2.y);
+        if (distToP2 > 0 && distToP2 < SNAP_TOLERANCE) {
+            otherPipe.p2.x = pipe.p2.x;
+            otherPipe.p2.y = pipe.p2.y;
+        }
+    });
+
     // P1 noktası için parent ve children'ları bul
     const p1Connections = getNodeConnections(interactionManager.manager.pipes, pipe.p1, pipe);
     interactionManager.p1Parent = p1Connections.parent;
