@@ -3183,12 +3183,12 @@ export class InteractionManager {
      * Bağlı boru zincirini günceller - sadece taşınan noktaları güncelle
      */
     updateConnectedPipesChain(oldPoint, newPoint) {
-        const tolerance = 1.0; // cm - floating point hataları için yeterince büyük
+        const tolerance = 2.0; // cm - Daha geniş tolerans (bağlantı kopmaması için)
 
         let updatedCount = 0;
         // Basit iterative güncelleme - tüm boruları tek geçişte güncelle
         this.manager.pipes.forEach(pipe => {
-            // p1'i güncelle
+            // p1'i güncelle (mesafe ile)
             const distP1 = Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y);
             if (distP1 < tolerance) {
                 pipe.p1.x = newPoint.x;
@@ -3196,12 +3196,56 @@ export class InteractionManager {
                 updatedCount++;
             }
 
-            // p2'yi güncelle
+            // p2'yi güncelle (mesafe ile)
             const distP2 = Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y);
             if (distP2 < tolerance) {
                 pipe.p2.x = newPoint.x;
                 pipe.p2.y = newPoint.y;
                 updatedCount++;
+            }
+        });
+
+        // ÖNEMLİ: baslangicBaglanti/bitisBaglanti ile bağlı boruları da kontrol et ve düzelt
+        // (Mesafe toleransı dışında kalmış bağlantıları yakala)
+        this.manager.pipes.forEach(pipe => {
+            // baslangicBaglanti ile bağlı başka bir boru var mı?
+            if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.BORU) {
+                const connectedPipe = this.manager.pipes.find(p => p.id === pipe.baslangicBaglanti.hedefId);
+                if (connectedPipe) {
+                    // Bağlı borunun p2'si bizim p1'imize eşit olmalı
+                    const dist = Math.hypot(connectedPipe.p2.x - pipe.p1.x, connectedPipe.p2.y - pipe.p1.y);
+                    if (dist > 0.1) {
+                        // Bağlantı kopmuş! Düzelt
+                        connectedPipe.p2.x = pipe.p1.x;
+                        connectedPipe.p2.y = pipe.p1.y;
+                        updatedCount++;
+                        console.warn('[FIX] Bağlantı kopmuş - baslangicBaglanti düzeltildi:', {
+                            pipeId: pipe.id,
+                            connectedPipeId: connectedPipe.id,
+                            distance: dist.toFixed(2)
+                        });
+                    }
+                }
+            }
+
+            // bitisBaglanti ile bağlı başka bir boru var mı?
+            if (pipe.bitisBaglanti?.tip === BAGLANTI_TIPLERI.BORU) {
+                const connectedPipe = this.manager.pipes.find(p => p.id === pipe.bitisBaglanti.hedefId);
+                if (connectedPipe) {
+                    // Bağlı borunun p1'i bizim p2'mize eşit olmalı
+                    const dist = Math.hypot(connectedPipe.p1.x - pipe.p2.x, connectedPipe.p1.y - pipe.p2.y);
+                    if (dist > 0.1) {
+                        // Bağlantı kopmuş! Düzelt
+                        connectedPipe.p1.x = pipe.p2.x;
+                        connectedPipe.p1.y = pipe.p2.y;
+                        updatedCount++;
+                        console.warn('[FIX] Bağlantı kopmuş - bitisBaglanti düzeltildi:', {
+                            pipeId: pipe.id,
+                            connectedPipeId: connectedPipe.id,
+                            distance: dist.toFixed(2)
+                        });
+                    }
+                }
             }
         });
 
