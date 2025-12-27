@@ -5,7 +5,7 @@
 
 import { BAGLANTI_TIPLERI } from '../../objects/pipe.js';
 import { saveState } from '../../../general-files/history.js';
-import { getObjectsOnPipe } from '../../utils/placement-utils.js';
+import { getObjectsOnPipe } from '../utils/placement-utils.js';
 import { Boru } from '../../objects/pipe.js';
 import { state } from '../../../general-files/main.js';
 

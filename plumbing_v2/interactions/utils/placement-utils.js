@@ -3,7 +3,7 @@
  * Vana ve diğer nesnelerin boru üzerine eklenmesi için mesafe kontrolü
  */
 
-import { PLUMBING_CONSTANTS } from '../plumbing-types.js';
+import { PLUMBING_CONSTANTS } from '../../plumbing-types.js';
 
 /**
  * Boru üzerine nesne yerleştirme kontrolü
