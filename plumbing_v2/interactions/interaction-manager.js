@@ -215,154 +215,154 @@ export class InteractionManager {
      * Pipe drawing handlers
      */
     startBoruCizim(baslangicNoktasi, kaynakId = null, kaynakTip = null, colorGroup = null) {
-        return startBoruCizim.call(this, baslangicNoktasi, kaynakId, kaynakTip, colorGroup);
+        return startBoruCizim(this, baslangicNoktasi, kaynakId, kaynakTip, colorGroup);
     }
 
     handlePipeSplit(pipe, splitPoint, startDrawing = true) {
-        return handlePipeSplit.call(this, pipe, splitPoint, startDrawing);
+        return handlePipeSplit(this, pipe, splitPoint, startDrawing);
     }
 
     handleBoruClick(point) {
-        return handleBoruClick.call(this, point);
+        return handleBoruClick(this, point);
     }
 
     applyMeasurement() {
-        return applyMeasurement.call(this);
+        return applyMeasurement(this);
     }
 
     cancelCurrentAction() {
-        return cancelCurrentAction.call(this);
+        return cancelCurrentAction(this);
     }
 
     hasServisKutusu() {
-        return hasServisKutusu.call(this);
+        return hasServisKutusu(this);
     }
 
     getGeciciBoruCizgisi() {
-        return getGeciciBoruCizgisi.call(this);
+        return getGeciciBoruCizgisi(this);
     }
 
     /**
      * Drag handlers
      */
     startEndpointDrag(pipe, endpoint, point) {
-        return startEndpointDrag.call(this, pipe, endpoint, point);
+        return startEndpointDrag(this, pipe, endpoint, point);
     }
 
     startDrag(obj, point) {
-        return startDrag.call(this, obj, point);
+        return startDrag(this, obj, point);
     }
 
     startBodyDrag(pipe, point) {
-        return startBodyDrag.call(this, pipe, point);
+        return startBodyDrag(this, pipe, point);
     }
 
     handleDrag(point) {
-        return handleDrag.call(this, point);
+        return handleDrag(this, point);
     }
 
     updateConnectedPipesChain(oldPoint, newPoint) {
-        return updateConnectedPipesChain.call(this, oldPoint, newPoint);
+        return updateConnectedPipesChain(this, oldPoint, newPoint);
     }
 
     endDrag() {
-        return endDrag.call(this);
+        return endDrag(this);
     }
 
     /**
      * Rotation handlers
      */
     findRotationHandleAt(obj, point, tolerance = 8) {
-        return findRotationHandleAt.call(this, obj, point, tolerance);
+        return findRotationHandleAt(obj, point, tolerance);
     }
 
     startRotation(obj, point) {
-        return startRotation.call(this, obj, point);
+        return startRotation(this, obj, point);
     }
 
     handleRotation(point) {
-        return handleRotation.call(this, point);
+        return handleRotation(this, point, this.manager, updateConnectedPipesChain);
     }
 
     endRotation() {
-        return endRotation.call(this);
+        return endRotation(this, this.manager);
     }
 
     updateConnectedPipe(result) {
-        return updateConnectedPipe.call(this, result);
+        return updateConnectedPipe(result, this.manager, updateConnectedPipesChain);
     }
 
     /**
      * Selection handlers
      */
     selectObject(obj) {
-        return selectObject.call(this, obj);
+        return selectObject(this, obj);
     }
 
     selectValve(pipe, vana) {
-        return selectValve.call(this, pipe, vana);
+        return selectValve(this, pipe, vana);
     }
 
     deselectObject() {
-        return deselectObject.call(this);
+        return deselectObject(this);
     }
 
     deleteSelectedObject() {
-        return deleteSelectedObject.call(this);
+        return deleteSelectedObject(this);
     }
 
     /**
      * Finder/helper methods
      */
     findObjectAt(point) {
-        return findObjectAt.call(this, point);
+        return findObjectAt(this.manager, point);
     }
 
     isFreeEndpoint(point, tolerance = 1) {
-        return isFreeEndpoint.call(this, point, tolerance);
+        return isFreeEndpoint(this.manager, point, tolerance);
     }
 
     hasDeviceAtEndpoint(boruId, endpoint) {
-        return hasDeviceAtEndpoint.call(this, boruId, endpoint);
+        return hasDeviceAtEndpoint(this.manager, boruId, endpoint);
     }
 
     hasMeterAtEndpoint(boruId, endpoint) {
-        return hasMeterAtEndpoint.call(this, boruId, endpoint);
+        return hasMeterAtEndpoint(this.manager, boruId, endpoint);
     }
 
     hasAncestorMeter(componentId, componentType) {
-        return hasAncestorMeter.call(this, componentId, componentType);
+        return hasAncestorMeter(this.manager, componentId, componentType);
     }
 
     findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
-        return findBoruUcuAt.call(this, point, tolerance, onlyFreeEndpoints);
+        return findBoruUcuAt(this.manager, point, tolerance, onlyFreeEndpoints);
     }
 
     findBoruGovdeAt(point, tolerance = 5) {
-        return findBoruGovdeAt.call(this, point, tolerance);
+        return findBoruGovdeAt(this.manager, point, tolerance);
     }
 
     findPipeAt(point, tolerance = 2) {
-        return findPipeAt.call(this, point, tolerance);
+        return findPipeAt(this.manager, point, tolerance);
     }
 
     findBilesenCikisAt(point, tolerance = 2) {
-        return findBilesenCikisAt.call(this, point, tolerance);
+        return findBilesenCikisAt(this.manager, point, tolerance);
     }
 
     checkVanaAtPoint(point, tolerance = 2) {
-        return checkVanaAtPoint.call(this, point, tolerance);
+        return checkVanaAtPoint(this.manager, point, tolerance);
     }
 
     findPipeEndpoint(pipe, point) {
-        return findPipeEndpoint.call(this, pipe, point);
+        return findPipeEndpoint(pipe, point);
     }
 
     removeObject(obj) {
-        return removeObject.call(this, obj);
+        return removeObject(this.manager, obj);
     }
 
     findConnectedPipesChain(startPipe) {
-        return findConnectedPipesChain.call(this, startPipe);
+        return findConnectedPipesChain(this.manager, startPipe);
     }
 }
