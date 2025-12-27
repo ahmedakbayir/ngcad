@@ -3006,14 +3006,29 @@ export class InteractionManager {
             const oldP2 = { x: pipe.p2.x, y: pipe.p2.y };
 
             // Yeni pozisyonları hesapla (henüz uygulamadan)
-            const newP1 = {
-                x: this.bodyDragInitialP1.x + offsetX,
-                y: this.bodyDragInitialP1.y + offsetY
-            };
-            const newP2 = {
-                x: this.bodyDragInitialP2.x + offsetX,
-                y: this.bodyDragInitialP2.y + offsetY
-            };
+            let newP1, newP2;
+
+            // KORUMA: Servis kutusu/sayaç çıkışındaki borunun p1'i SABİT kalmalı
+            if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU ||
+                pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
+                // p1 SABİT - hareket ettirme
+                newP1 = { x: oldP1.x, y: oldP1.y };
+                // Sadece p2 hareket edebilir
+                newP2 = {
+                    x: this.bodyDragInitialP2.x + offsetX,
+                    y: this.bodyDragInitialP2.y + offsetY
+                };
+            } else {
+                // Normal durum - her iki uç da hareket edebilir
+                newP1 = {
+                    x: this.bodyDragInitialP1.x + offsetX,
+                    y: this.bodyDragInitialP1.y + offsetY
+                };
+                newP2 = {
+                    x: this.bodyDragInitialP2.x + offsetX,
+                    y: this.bodyDragInitialP2.y + offsetY
+                };
+            }
 
             // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
             const POINT_OCCUPATION_TOLERANCE = 1.5; // cm - sadece gerçek çakışmaları engelle
