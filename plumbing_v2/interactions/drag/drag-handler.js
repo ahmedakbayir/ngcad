@@ -613,6 +613,11 @@ export function handleDrag(interactionManager, point) {
             }
         });
 
+        // Kutu hareket etmeden ÖNCEKİ pozisyonunu kaydet
+        const oldBoxX = interactionManager.dragObject.x;
+        const oldBoxY = interactionManager.dragObject.y;
+        const oldBoxRotation = interactionManager.dragObject.rotation;
+
         // Yakın duvara snap yap, yoksa serbest yerleştir
         // useBoxPosition=false ile mouse pozisyonuna göre snap yap (sürüklerken)
         if (closestWall && minDist < snapDistance) {
@@ -621,15 +626,57 @@ export function handleDrag(interactionManager, point) {
             interactionManager.dragObject.placeFree(point);
         }
 
+        // YENİ çıkış noktasını hesapla
+        const newCikis = interactionManager.dragObject.getCikisNoktasi();
+
+        // DİRSEK KORUMA: Yeni çıkış noktasının dirseklere olan mesafesini kontrol et
+        const ELBOW_TOLERANCE = 8; // cm - dirsekler arası minimum mesafe
+        const elbowConnectionTolerance = 1;
+        let tooCloseToElbow = false;
+
+        // Bağlı boruyu bul
+        const bagliBoruId = interactionManager.dragObject.bagliBoruId;
+
+        // Tüm boru uçlarını kontrol et
+        for (const otherPipe of interactionManager.manager.pipes) {
+            // Kendi bağlı borusunu atla
+            if (bagliBoruId && otherPipe.id === bagliBoruId) continue;
+
+            // Her iki ucunu kontrol et
+            for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+                const dist = Math.hypot(endpoint.x - newCikis.x, endpoint.y - newCikis.y);
+
+                // Bu uç bir dirsek mi? (başka borulara bağlı mı?)
+                const isElbow = interactionManager.manager.pipes.some(p => {
+                    if (p === otherPipe) return false;
+                    const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
+                    const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
+                    return d1 < elbowConnectionTolerance || d2 < elbowConnectionTolerance;
+                });
+
+                // Eğer dirsekse ve çok yakınsa, hareketi engelle
+                if (isElbow && dist < ELBOW_TOLERANCE) {
+                    tooCloseToElbow = true;
+                    break;
+                }
+            }
+            if (tooCloseToElbow) break;
+        }
+
+        // Eğer dirseğe çok yakınsa, kutuyu eski pozisyonuna geri al
+        if (tooCloseToElbow) {
+            interactionManager.dragObject.x = oldBoxX;
+            interactionManager.dragObject.y = oldBoxY;
+            interactionManager.dragObject.rotation = oldBoxRotation;
+            return; // Hareketi engelle
+        }
+
         // Bağlı boru zincirini güncelle
         if (interactionManager.dragObject.bagliBoruId) {
             const boru = interactionManager.manager.pipes.find(p => p.id === interactionManager.dragObject.bagliBoruId);
             if (boru) {
                 // Kutu hareket etmeden ÖNCEKİ çıkış noktası
                 const oldP1 = { ...boru.p1 };
-
-                // Kutu hareket ettikten SONRAKİ çıkış noktası
-                const newCikis = interactionManager.dragObject.getCikisNoktasi();
 
                 // Tüm zinciri güncelle - updateNodeConnections boru.p1'i de güncelleyecek
                 updateNodeConnections(interactionManager.manager.pipes, oldP1, newCikis);
