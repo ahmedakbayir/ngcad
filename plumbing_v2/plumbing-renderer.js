@@ -629,6 +629,9 @@ export class PlumbingRenderer {
     drawComponents(ctx, components, manager) {
         if (!components) return;
         components.forEach(comp => this.drawComponent(ctx, comp, manager));
+
+        // Servis kutusu çıkış bağlantı noktalarını göster (debug için)
+        this.drawBoxConnectionPoints(ctx, components, manager);
     }
 
     drawComponent(ctx, comp, manager) {
@@ -713,6 +716,71 @@ export class PlumbingRenderer {
         ctx.textBaseline = 'middle';
         ctx.fillText('S.K.', 0, 1);
 
+    }
+
+    drawBoxConnectionPoints(ctx, components, manager) {
+        if (!components || !manager) return;
+
+        const boxes = components.filter(c => c.type === 'servis_kutusu');
+
+        boxes.forEach(box => {
+            // Kutu çıkış noktasını al
+            const cikis = box.getCikisNoktasi();
+
+            // Bağlı boruyu bul
+            if (box.bagliBoruId) {
+                const bagliBoru = manager.pipes.find(p => p.id === box.bagliBoruId);
+
+                if (bagliBoru) {
+                    ctx.save();
+
+                    // Büyük kırmızı daire - çıkış noktası
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(cikis.x, cikis.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Borunun p1 noktasını yeşil göster
+                    ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+                    ctx.strokeStyle = '#FFFFFF';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(bagliBoru.p1.x, bagliBoru.p1.y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // İki nokta arasındaki mesafeyi göster
+                    const dist = Math.hypot(bagliBoru.p1.x - cikis.x, bagliBoru.p1.y - cikis.y);
+
+                    // Eğer mesafe 0'dan büyükse sarı çizgi çiz
+                    if (dist > 0.1) {
+                        ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([5, 5]);
+                        ctx.beginPath();
+                        ctx.moveTo(cikis.x, cikis.y);
+                        ctx.lineTo(bagliBoru.p1.x, bagliBoru.p1.y);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+
+                        // Mesafe yazısı
+                        const midX = (cikis.x + bagliBoru.p1.x) / 2;
+                        const midY = (cikis.y + bagliBoru.p1.y) / 2;
+
+                        ctx.fillStyle = '#FF0000';
+                        ctx.font = 'bold 12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`${dist.toFixed(2)} cm`, midX, midY - 10);
+                    }
+
+                    ctx.restore();
+                }
+            }
+        });
     }
 
     lightenColor(color, amount) {
