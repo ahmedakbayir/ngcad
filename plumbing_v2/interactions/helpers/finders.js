@@ -428,7 +428,29 @@ export function removeObject(manager, obj) {
                         c => c.id === deletedPipe.baslangicBaglanti.hedefId
                     );
                     if (servisKutusu) {
-                        servisKutusu.baglaBoru(nextPipe.id);
+                        // DÜZELTME: baglaBoru() çıkış dolu ise false döner, doğrudan ID ata
+                        servisKutusu.bagliBoruId = nextPipe.id;
+
+                        // Kutu çıkışını nextPipe.p1'e eşitle (bağlantıyı koru)
+                        const cikis = servisKutusu.getCikisNoktasi();
+                        nextPipe.p1.x = cikis.x;
+                        nextPipe.p1.y = cikis.y;
+                    }
+                }
+
+                // Sayaç bağlantısını güncelle
+                if (deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
+                    const sayac = manager.components.find(
+                        c => c.id === deletedPipe.baslangicBaglanti.hedefId
+                    );
+                    if (sayac) {
+                        // DÜZELTME: baglaCikis() çıkış dolu ise false döner, doğrudan ID ata
+                        sayac.cikisBagliBoruId = nextPipe.id;
+
+                        // Sayaç çıkışını nextPipe.p1'e eşitle (bağlantıyı koru)
+                        const cikis = sayac.getCikisNoktasi();
+                        nextPipe.p1.x = cikis.x;
+                        nextPipe.p1.y = cikis.y;
                     }
                 }
             }
@@ -437,13 +459,22 @@ export function removeObject(manager, obj) {
             // Note: updateConnectedPipesChain needs to be called externally
             // or imported if moved to a separate helper
         } else {
-            // nextPipe yok - servis kutusu bağlantısını temizle
+            // nextPipe yok - servis kutusu/sayaç bağlantısını temizle
             if (deletedPipe.baslangicBaglanti && deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
                 const servisKutusu = manager.components.find(
                     c => c.id === deletedPipe.baslangicBaglanti.hedefId
                 );
                 if (servisKutusu) {
                     servisKutusu.bagliBoruId = null;
+                }
+            }
+
+            if (deletedPipe.baslangicBaglanti && deletedPipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
+                const sayac = manager.components.find(
+                    c => c.id === deletedPipe.baslangicBaglanti.hedefId
+                );
+                if (sayac) {
+                    sayac.cikisBagliBoruId = null;
                 }
             }
         }
