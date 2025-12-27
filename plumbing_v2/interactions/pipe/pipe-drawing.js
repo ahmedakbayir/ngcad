@@ -155,18 +155,34 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
     boru1.setBitisBaglanti('boru', boru2.id);
     boru2.setBaslangicBaglanti('boru', boru1.id);
 
+    // Eski boruyu sil, yenileri ekle
+    const idx = interactionManager.manager.pipes.findIndex(p => p.id === pipe.id);
+    if (idx !== -1) interactionManager.manager.pipes.splice(idx, 1);
+    interactionManager.manager.pipes.push(boru1, boru2);
+
     // Servis kutusu bağlantısını güncelle (Her zaman başlangıca bağlıdır)
     if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
         const sk = interactionManager.manager.components.find(c => c.id === pipe.baslangicBaglanti.hedefId);
         if (sk && sk.bagliBoruId === pipe.id) {
             sk.baglaBoru(boru1.id);
+            // Kutu çıkışını boru1.p1'e zorla eşitle (bağlantıyı koru)
+            const cikis = sk.getCikisNoktasi();
+            boru1.p1.x = cikis.x;
+            boru1.p1.y = cikis.y;
         }
     }
 
-    // Eski boruyu sil, yenileri ekle
-    const idx = interactionManager.manager.pipes.findIndex(p => p.id === pipe.id);
-    if (idx !== -1) interactionManager.manager.pipes.splice(idx, 1);
-    interactionManager.manager.pipes.push(boru1, boru2);
+    // Sayaç bağlantısını güncelle
+    if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
+        const meter = interactionManager.manager.components.find(c => c.id === pipe.baslangicBaglanti.hedefId);
+        if (meter && meter.cikisBagliBoruId === pipe.id) {
+            meter.cikisBagliBoruId = boru1.id;
+            // Sayaç çıkışını boru1.p1'e zorla eşitle
+            const cikis = meter.getCikisNoktasi();
+            boru1.p1.x = cikis.x;
+            boru1.p1.y = cikis.y;
+        }
+    }
 
     // --- ADIM 3: YENİDEN DAĞITIM (Mesafe Bazlı) ---
     // Her bileşeni, kaydettiğimiz konumuna en yakın olan yeni boruya bağla
