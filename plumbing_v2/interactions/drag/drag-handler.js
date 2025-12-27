@@ -46,7 +46,7 @@ function getNodeConnections(pipes, point, excludePipe = null) {
 
 /**
  * Bir noktanın parent ve children'larını yeni pozisyona güncelle
- * Kutu/Sayaç sürüklerken kullanılır
+ * RECURSIVE: Tüm zincir boyunca günceller
  *
  * @param {Array} pipes - Tüm borular
  * @param {Object} oldPoint - Eski nokta {x, y}
@@ -54,19 +54,77 @@ function getNodeConnections(pipes, point, excludePipe = null) {
  */
 export function updateNodeConnections(pipes, oldPoint, newPoint) {
     const connections = getNodeConnections(pipes, oldPoint);
+    const updatedPipes = new Set(); // Güncellenen boruları takip et (sonsuz loop önleme)
 
     // Parent'ı güncelle
     if (connections.parent) {
         const parentPipe = connections.parent.pipe;
         const parentEndpoint = connections.parent.endpoint;
+        const oldParentPos = { ...parentPipe[parentEndpoint] };
+
         parentPipe[parentEndpoint].x = newPoint.x;
         parentPipe[parentEndpoint].y = newPoint.y;
+        updatedPipes.add(parentPipe.id);
+
+        // Parent'ın diğer ucundaki bağlantıları da güncelle (recursive)
+        const otherEndpoint = parentEndpoint === 'p1' ? 'p2' : 'p1';
+        const otherPos = parentPipe[otherEndpoint];
+        updateNodeConnectionsRecursive(pipes, otherPos, otherPos, updatedPipes);
     }
 
     // Tüm children'ları güncelle
     connections.children.forEach(child => {
-        child.pipe[child.endpoint].x = newPoint.x;
-        child.pipe[child.endpoint].y = newPoint.y;
+        const childPipe = child.pipe;
+        const childEndpoint = child.endpoint;
+        const oldChildPos = { ...childPipe[childEndpoint] };
+
+        childPipe[childEndpoint].x = newPoint.x;
+        childPipe[childEndpoint].y = newPoint.y;
+        updatedPipes.add(childPipe.id);
+
+        // Child'ın diğer ucundaki bağlantıları da güncelle (recursive)
+        const otherEndpoint = childEndpoint === 'p1' ? 'p2' : 'p1';
+        const otherPos = childPipe[otherEndpoint];
+        updateNodeConnectionsRecursive(pipes, otherPos, otherPos, updatedPipes);
+    });
+}
+
+/**
+ * Recursive helper - zincir boyunca tüm bağlantıları güncelle
+ */
+function updateNodeConnectionsRecursive(pipes, oldPoint, newPoint, updatedPipes) {
+    const connections = getNodeConnections(pipes, oldPoint);
+
+    // Parent'ı güncelle
+    if (connections.parent && !updatedPipes.has(connections.parent.pipe.id)) {
+        const parentPipe = connections.parent.pipe;
+        const parentEndpoint = connections.parent.endpoint;
+
+        parentPipe[parentEndpoint].x = newPoint.x;
+        parentPipe[parentEndpoint].y = newPoint.y;
+        updatedPipes.add(parentPipe.id);
+
+        // Devam et
+        const otherEndpoint = parentEndpoint === 'p1' ? 'p2' : 'p1';
+        const otherPos = parentPipe[otherEndpoint];
+        updateNodeConnectionsRecursive(pipes, otherPos, otherPos, updatedPipes);
+    }
+
+    // Children'ları güncelle
+    connections.children.forEach(child => {
+        if (!updatedPipes.has(child.pipe.id)) {
+            const childPipe = child.pipe;
+            const childEndpoint = child.endpoint;
+
+            childPipe[childEndpoint].x = newPoint.x;
+            childPipe[childEndpoint].y = newPoint.y;
+            updatedPipes.add(childPipe.id);
+
+            // Devam et
+            const otherEndpoint = childEndpoint === 'p1' ? 'p2' : 'p1';
+            const otherPos = childPipe[otherEndpoint];
+            updateNodeConnectionsRecursive(pipes, otherPos, otherPos, updatedPipes);
+        }
     });
 }
 
