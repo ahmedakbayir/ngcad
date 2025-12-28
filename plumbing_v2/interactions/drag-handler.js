@@ -851,8 +851,32 @@ export function handleDrag(interactionManager, point) {
                 valve.updatePositionFromPipe(pipe);
             });
 
-            // Fleks artık otomatik olarak boru ucundan koordinat alıyor
-            // Ekstra güncelleme gerekmiyor
+            // 🚨 KRİTİK: Bu boru bir sayacın giriş hattıysa, SAYACI hareket ettir!
+            // Aksi halde sayaç yerinde kalır ve çıkış borusu kopmuş gibi görünür
+            const connectedMeter = interactionManager.manager.components.find(c =>
+                c.type === 'sayac' &&
+                c.fleksBaglanti &&
+                c.fleksBaglanti.boruId === pipe.id &&
+                c.fleksBaglanti.endpoint === interactionManager.dragEndpoint
+            );
+
+            if (connectedMeter) {
+                // Boru ucu hareket etti - sayacı da aynı miktarda hareket ettir
+                const dx = finalPos.x - oldPoint.x;
+                const dy = finalPos.y - oldPoint.y;
+
+                connectedMeter.x += dx;
+                connectedMeter.y += dy;
+
+                // Sayaç hareket etti - çıkış borusunu da hareket ettir
+                if (connectedMeter.cikisBagliBoruId) {
+                    const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
+                    if (cikisBoru) {
+                        cikisBoru.p1.x += dx;
+                        cikisBoru.p1.y += dy;
+                    }
+                }
+            }
 
             // SHARED VERTEX GÜNCELLEME - CACHED SİSTEM (KOPMA SORUNU ÇÖZÜLDÜ!)
             // startEndpointDrag içinde kaydettiğimiz listeyi kullanıyoruz.
@@ -1252,6 +1276,7 @@ export function handleDrag(interactionManager, point) {
                 console.log(`  [BODY DRAG] P2: Bağlı boru yok veya cache boş!`);
             }
 
+            // 🚨 KRİTİK: Bu boru sayaç giriş hattıysa, SAYACI VE ÇIKIŞ hattını hareket ettir!
             // 🔧 FIX: Bu boru sayaç giriş hattıysa, SAYACI ve ÇIKIŞ hattını da güncelle
             if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
                 // Sayacı bul
@@ -1262,14 +1287,13 @@ export function handleDrag(interactionManager, point) {
                 );
 
                 if (connectedMeter) {
-                    console.log(`  [SAYAÇ] Sayaç giriş hattı sürükleniyor, sayaç ve çıkış hattı güncelleniyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
+                    console.log(`  [SAYAÇ] Sayaç giriş hattı hareket ediyor - sayaç ve çıkış hattı taşınıyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
 
-                    // 🚨 KRİTİK: Önce sayacı hareket ettir!
-                    // Sayaç giriş borusuyla birlikte hareket etmeli, aksi halde çıkış borusu kopacak
+                    // ÖNCE SAYACI hareket ettir
                     connectedMeter.x += offsetX;
                     connectedMeter.y += offsetY;
 
-                    // Çıkış borusunu güncelle (sayaç hareket ettiği için çıkış noktası da değişti)
+                    // Sayaç hareket etti - çıkış borusunu da hareket ettir
                     if (connectedMeter.cikisBagliBoruId) {
                         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
                         if (cikisBoru) {
