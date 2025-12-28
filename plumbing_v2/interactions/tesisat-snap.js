@@ -25,8 +25,8 @@ export const TESISAT_CONSTANTS = {
     SNAP_MESAFESI: 20,          // cm - Snap yakalama mesafesi
     MIN_BORU_UZUNLUGU: 5,       // cm
     ACI_TOLERANSI: 20,           // derece - 90° snap toleransı
-    SELECTION_TOLERANCE: 15,     // cm - Seçim ve bağlı boru bulma için ortak tolerance (SENKRON)
-    CONNECTED_PIPES_TOLERANCE: 15, // cm - Bağlı boruları bulmak için tolerance (SENKRON)
+    SELECTION_TOLERANCE: 20,     // cm - Seçim için tolerance (uzaktan seçim için yeterli)
+    CONNECTED_PIPES_TOLERANCE: 20, // cm - Bağlı boruları bulmak için tolerance (SENKRON - seçim ile aynı)
 };
 
 // Snap Tipleri
