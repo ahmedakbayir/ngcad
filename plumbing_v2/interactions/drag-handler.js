@@ -385,6 +385,30 @@ export function startBodyDrag(interactionManager, pipe, point) {
 
     console.log(`  P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
 
+    // 🔧 FIX: Bu boruya bağlı sayaç varsa, sayacın ÇIKIŞ hattındaki bağlı boruları da cache'le
+    // Sorun: Sayaç GİRİŞ hattı hareket edince, sayaç hareket ediyor ama ÇIKIŞ hattı güncellenmiyor
+    interactionManager.meterConnectedPipesAtOutput = null;
+
+    // Bu boru bir sayacın giriş fleks bağlantısı mı kontrol et
+    const connectedMeter = interactionManager.manager.components.find(c =>
+        c.type === 'sayac' &&
+        c.fleksBaglanti &&
+        c.fleksBaglanti.boruId === pipe.id
+    );
+
+    if (connectedMeter && connectedMeter.cikisBagliBoruId) {
+        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
+        if (cikisBoru) {
+            interactionManager.meterConnectedPipesAtOutput = findPipesAtPoint(
+                interactionManager.manager.pipes,
+                cikisBoru.p1,  // Çıkış borusunun başlangıç noktası
+                cikisBoru,
+                TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE
+            );
+            console.log(`  [SAYAÇ ÇIKIŞ] ${interactionManager.meterConnectedPipesAtOutput.length} bağlı boru tespit edildi (sayaç ID: ${connectedMeter.id.substring(0,12)}...)`);
+        }
+    }
+
     // DEBUG: Bağlı boruların mesafelerini yazdır
     if (interactionManager.connectedPipesAtP1.length > 0) {
         interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint }) => {
@@ -1149,6 +1173,38 @@ export function handleDrag(interactionManager, point) {
             } else {
                 console.log(`  [BODY DRAG] P2: Bağlı boru yok veya cache boş!`);
             }
+
+            // 🔧 FIX: Bu boru sayaç giriş hattıysa, sayacın ÇIKIŞ hattını da güncelle
+            if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
+                // Sayacı bul
+                const connectedMeter = interactionManager.manager.components.find(c =>
+                    c.type === 'sayac' &&
+                    c.fleksBaglanti &&
+                    c.fleksBaglanti.boruId === pipe.id
+                );
+
+                if (connectedMeter && connectedMeter.cikisBagliBoruId) {
+                    const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
+                    if (cikisBoru) {
+                        console.log(`  [SAYAÇ ÇIKIŞ] Sayaç çıkış hattı güncelleniyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
+
+                        // Çıkış borusunun p1'ini delta kadar taşı
+                        cikisBoru.p1.x += offsetX;
+                        cikisBoru.p1.y += offsetY;
+
+                        const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+
+                        // O noktaya bağlı DİĞER boruları taşı (startBodyDrag'da kaydettiklerimiz)
+                        interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                            const oldX = connectedPipe[connectedEndpoint].x;
+                            const oldY = connectedPipe[connectedEndpoint].y;
+                            connectedPipe[connectedEndpoint].x = newOutputP1.x;
+                            connectedPipe[connectedEndpoint].y = newOutputP1.y;
+                            console.log(`    [ÇIKIŞ] Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newOutputP1.x.toFixed(1)}, ${newOutputP1.y.toFixed(1)})`);
+                        });
+                    }
+                }
+            }
         }
 
         return;
@@ -1299,6 +1355,7 @@ export function endDrag(interactionManager) {
     interactionManager.connectedPipesAtP2 = null;
     interactionManager.servisKutusuConnectedPipes = null;
     interactionManager.sayacConnectedPipes = null;
+    interactionManager.meterConnectedPipesAtOutput = null; // Sayaç çıkış hattı cache'i
 
     // Ghost borular ve snap verilerini temizle
     interactionManager.ghostBridgePipes = [];
