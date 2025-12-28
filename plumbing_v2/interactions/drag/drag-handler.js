@@ -193,7 +193,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
  * @param {number} tolerance - Mesafe toleransı (cm)
  * @returns {Array} [{pipe, endpoint}, ...] - Bu noktada ucu olan tüm borular
  */
-function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = 1.0) {
+export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = 1.0) {
     const pipesAtPoint = [];
 
     pipes.forEach(pipe => {
