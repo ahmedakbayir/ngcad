@@ -88,13 +88,50 @@ export function handlePointerMove(e) {
 
     // 1. Boru çizim modunda
     if (this.boruCizimAktif) {
+        // Sayaç öncesi (YELLOW) hatlar için açı snap'i (3° tolerans)
+        let finalTargetPoint = targetPoint;
+        if (this.boruBaslangic && this.boruBaslangic.kaynakColorGroup === 'YELLOW') {
+            const dx = targetPoint.x - this.boruBaslangic.nokta.x;
+            const dy = targetPoint.y - this.boruBaslangic.nokta.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance > 0) {
+                // Mevcut açıyı hesapla
+                const currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                // En yakın dik açıyı bul (0°, 90°, 180°, -90°)
+                const angles = [0, 90, 180, -90];
+                let closestAngle = 0;
+                let minAngleDiff = 360;
+
+                angles.forEach(angle => {
+                    let diff = Math.abs(currentAngle - angle);
+                    // Açı farkını 0-180 aralığına normalize et
+                    while (diff > 180) diff = Math.abs(360 - diff);
+                    if (diff < minAngleDiff) {
+                        minAngleDiff = diff;
+                        closestAngle = angle;
+                    }
+                });
+
+                // 3° tolerans içinde mi?
+                if (minAngleDiff <= 3) {
+                    const rad = closestAngle * Math.PI / 180;
+                    finalTargetPoint = {
+                        x: this.boruBaslangic.nokta.x + Math.cos(rad) * distance,
+                        y: this.boruBaslangic.nokta.y + Math.sin(rad) * distance
+                    };
+                }
+            }
+        }
+
         // Eğer ölçü girişi aktifse, o ölçüye göre hedef noktayı ayarla
         if (this.measurementActive && this.measurementInput.length > 0) {
             const measurement = parseFloat(this.measurementInput);
             if (!isNaN(measurement) && measurement > 0) {
-                // Yönü hesapla (başlangıçtan mouse'a doğru)
-                const dx = targetPoint.x - this.boruBaslangic.nokta.x;
-                const dy = targetPoint.y - this.boruBaslangic.nokta.y;
+                // Yönü hesapla (başlangıçtan finalTargetPoint'e doğru)
+                const dx = finalTargetPoint.x - this.boruBaslangic.nokta.x;
+                const dy = finalTargetPoint.y - this.boruBaslangic.nokta.y;
                 const currentLength = Math.hypot(dx, dy);
 
                 if (currentLength > 0) {
@@ -107,13 +144,13 @@ export function handlePointerMove(e) {
                         y: this.boruBaslangic.nokta.y + dirY * measurement
                     };
                 } else {
-                    this.geciciBoruBitis = targetPoint;
+                    this.geciciBoruBitis = finalTargetPoint;
                 }
             } else {
-                this.geciciBoruBitis = targetPoint;
+                this.geciciBoruBitis = finalTargetPoint;
             }
         } else {
-            this.geciciBoruBitis = targetPoint;
+            this.geciciBoruBitis = finalTargetPoint;
         }
         return true;
     }
