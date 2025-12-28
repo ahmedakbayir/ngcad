@@ -39,7 +39,9 @@ export function handlePointerDown(e) {
     // 1.5. İç tesisat sayaç yerleştirme - ikinci nokta tıklaması
     if (this.meterPlacementState === 'drawing_start_pipe' && this.meterStartPoint) {
         // İkinci tıklama: Kesikli boru oluştur + sayaç ekle
-        this.handleMeterStartPipeSecondClick(targetPoint);
+        // meterPreviewEndPoint kullan (açı snap uygulanmış nokta)
+        const endPoint = this.meterPreviewEndPoint || targetPoint;
+        this.handleMeterStartPipeSecondClick(endPoint);
         return true;
     }
 
