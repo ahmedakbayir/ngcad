@@ -184,19 +184,17 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
 }
 
 /**
- * Bir noktaya bağlı parent ve children borularını bulur
- * PARENT: O noktaya p2 ile bağlanan boru (1 tane)
- * CHILDREN: O noktadan p1 ile çıkan borular (N tane)
+ * SHARED VERTEX (ORTAK KÖŞE) MANTIĞI
+ * Bir noktada ucu bulunan TÜM boruları bulur (parent/child ayrımı yok!)
  *
  * @param {Array} pipes - Tüm borular
  * @param {Object} point - Nokta {x, y}
  * @param {Object} excludePipe - Hariç tutulacak boru (opsiyonel)
- * @returns {Object} { parent: {pipe, endpoint}, children: [{pipe, endpoint}, ...] }
+ * @param {number} tolerance - Mesafe toleransı (cm)
+ * @returns {Array} [{pipe, endpoint}, ...] - Bu noktada ucu olan tüm borular
  */
-function getNodeConnections(pipes, point, excludePipe = null) {
-    const TOLERANCE = 1.0;
-    let parent = null;
-    const children = [];
+function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = 1.0) {
+    const pipesAtPoint = [];
 
     pipes.forEach(pipe => {
         if (pipe === excludePipe) return;
@@ -204,102 +202,45 @@ function getNodeConnections(pipes, point, excludePipe = null) {
         const distToP1 = Math.hypot(pipe.p1.x - point.x, pipe.p1.y - point.y);
         const distToP2 = Math.hypot(pipe.p2.x - point.x, pipe.p2.y - point.y);
 
-        // Parent: Bu boru bu noktaya p2 ile bağlanıyor
-        if (distToP2 < TOLERANCE && !parent) {
-            parent = { pipe, endpoint: 'p2' };
+        // P1 bu noktada mı?
+        if (distToP1 < tolerance) {
+            pipesAtPoint.push({ pipe, endpoint: 'p1' });
         }
 
-        // Children: Bu boru bu noktadan p1 ile çıkıyor
-        if (distToP1 < TOLERANCE) {
-            children.push({ pipe, endpoint: 'p1' });
+        // P2 bu noktada mı?
+        if (distToP2 < tolerance) {
+            pipesAtPoint.push({ pipe, endpoint: 'p2' });
         }
     });
 
-    return { parent, children };
+    return pipesAtPoint;
 }
 
 /**
- * Bir noktanın parent ve children'larını yeni pozisyona güncelle
- * RECURSIVE: Tüm zincir boyunca günceller
+ * SHARED VERTEX (ORTAK KÖŞE) GÜNCELLEME
+ * Eski noktadaki TÜM boru uçlarını yeni noktaya taşır
+ *
+ * ÖNEMLİ:
+ * - SADECE eski noktadaki uçları taşır (recursive değil!)
+ * - Bağlı boruların DİĞER uçları sabit kalır
+ * - Böylece zincirleme bozulma olmaz
  *
  * @param {Array} pipes - Tüm borular
  * @param {Object} oldPoint - Eski nokta {x, y}
  * @param {Object} newPoint - Yeni nokta {x, y}
+ * @param {Object} excludePipe - Hariç tutulacak boru (opsiyonel)
  */
-export function updateNodeConnections(pipes, oldPoint, newPoint) {
-    const connections = getNodeConnections(pipes, oldPoint);
-    const updatedPipes = new Set(); // Güncellenen boruları takip et (sonsuz loop önleme)
+export function updateSharedVertex(pipes, oldPoint, newPoint, excludePipe = null) {
+    // Eski noktada ucu olan tüm boruları bul
+    const pipesAtPoint = findPipesAtPoint(pipes, oldPoint, excludePipe, 1.0);
 
-    // Parent'ı güncelle
-    if (connections.parent) {
-        const parentPipe = connections.parent.pipe;
-        const parentEndpoint = connections.parent.endpoint;
-        const oldParentPos = { ...parentPipe[parentEndpoint] };
-
-        parentPipe[parentEndpoint].x = newPoint.x;
-        parentPipe[parentEndpoint].y = newPoint.y;
-        updatedPipes.add(parentPipe.id);
-
-        // Parent'ın diğer ucundaki bağlantıları da güncelle (recursive)
-        const otherEndpoint = parentEndpoint === 'p1' ? 'p2' : 'p1';
-        const otherPos = parentPipe[otherEndpoint];
-        updateNodeConnectionsRecursive(pipes, otherPos, otherPos, updatedPipes);
-    }
-
-    // Tüm children'ları güncelle
-    connections.children.forEach(child => {
-        const childPipe = child.pipe;
-        const childEndpoint = child.endpoint;
-        const oldChildPos = { ...childPipe[childEndpoint] };
-
-        childPipe[childEndpoint].x = newPoint.x;
-        childPipe[childEndpoint].y = newPoint.y;
-        updatedPipes.add(childPipe.id);
-
-        // Child'ın diğer ucundaki bağlantıları da güncelle (recursive)
-        const otherEndpoint = childEndpoint === 'p1' ? 'p2' : 'p1';
-        const otherPos = childPipe[otherEndpoint];
-        updateNodeConnectionsRecursive(pipes, otherPos, otherPos, updatedPipes);
+    // Her borunun sadece o ucunu yeni noktaya taşı
+    pipesAtPoint.forEach(({ pipe, endpoint }) => {
+        pipe[endpoint].x = newPoint.x;
+        pipe[endpoint].y = newPoint.y;
     });
-}
 
-/**
- * Recursive helper - zincir boyunca tüm bağlantıları güncelle
- */
-function updateNodeConnectionsRecursive(pipes, oldPoint, newPoint, updatedPipes) {
-    const connections = getNodeConnections(pipes, oldPoint);
-
-    // Parent'ı güncelle
-    if (connections.parent && !updatedPipes.has(connections.parent.pipe.id)) {
-        const parentPipe = connections.parent.pipe;
-        const parentEndpoint = connections.parent.endpoint;
-
-        parentPipe[parentEndpoint].x = newPoint.x;
-        parentPipe[parentEndpoint].y = newPoint.y;
-        updatedPipes.add(parentPipe.id);
-
-        // Devam et
-        const otherEndpoint = parentEndpoint === 'p1' ? 'p2' : 'p1';
-        const otherPos = parentPipe[otherEndpoint];
-        updateNodeConnectionsRecursive(pipes, otherPos, otherPos, updatedPipes);
-    }
-
-    // Children'ları güncelle
-    connections.children.forEach(child => {
-        if (!updatedPipes.has(child.pipe.id)) {
-            const childPipe = child.pipe;
-            const childEndpoint = child.endpoint;
-
-            childPipe[childEndpoint].x = newPoint.x;
-            childPipe[childEndpoint].y = newPoint.y;
-            updatedPipes.add(childPipe.id);
-
-            // Devam et
-            const otherEndpoint = childEndpoint === 'p1' ? 'p2' : 'p1';
-            const otherPos = childPipe[otherEndpoint];
-            updateNodeConnectionsRecursive(pipes, otherPos, otherPos, updatedPipes);
-        }
-    });
+    console.log(`[SHARED VERTEX] ${pipesAtPoint.length} boru ucu güncellendi: (${oldPoint.x},${oldPoint.y}) -> (${newPoint.x},${newPoint.y})`);
 }
 
 /**
@@ -315,11 +256,8 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.dragEndpoint = endpoint;
     interactionManager.dragStart = { ...point };
 
-    // Sürüklenen uç nokta için parent ve children'ları bul
-    const draggedPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
-    const connections = getNodeConnections(interactionManager.manager.pipes, draggedPoint, pipe);
-    interactionManager.endpointParent = connections.parent;
-    interactionManager.endpointChildren = connections.children;
+    // SHARED VERTEX: Parent/child bulmaya gerek yok
+    // handleDrag içinde her frame'de ortak köşeleri güncelleyeceğiz
 }
 
 /**
@@ -361,29 +299,28 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.bodyDragInitialP1 = { ...pipe.p1 };
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
 
-    // P1 noktası için parent ve children'ları bul
-    const p1Connections = getNodeConnections(interactionManager.manager.pipes, pipe.p1, pipe);
-    interactionManager.p1Parent = p1Connections.parent;
-    interactionManager.p1Children = p1Connections.children;
-
-    // P2 noktası için parent ve children'ları bul
-    const p2Connections = getNodeConnections(interactionManager.manager.pipes, pipe.p2, pipe);
-    interactionManager.p2Parent = p2Connections.parent;
-    interactionManager.p2Children = p2Connections.children;
+    // SHARED VERTEX: P1 ve P2 noktalarındaki tüm boruları bul
+    const p1Pipes = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe);
+    const p2Pipes = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe);
 
     // ⚠️ DOĞRUSALLIK KONTROLÜ: Sadece 3 boru aynı doğrultudaysa ara boru modu
     interactionManager.useBridgeMode = false; // Varsayılan: normal mod
 
-    if (interactionManager.p1Parent && interactionManager.p2Children.length === 1) {
-        // 3 boru var: A - B - C
-        // A.p1 - A.p2(=B.p1) - B.p2(=C.p1) - C.p2 (4 nokta)
-        const pipeA = interactionManager.p1Parent.pipe;
-        const pipeC = interactionManager.p2Children[0].pipe;
+    if (p1Pipes.length === 1 && p2Pipes.length === 1) {
+        // 3 boru var: A - B - C (B = sürüklenen boru)
+        const pipeA = p1Pipes[0].pipe;
+        const pipeC = p2Pipes[0].pipe;
 
-        const p1 = pipeA.p1;
-        const p2 = pipeA.p2; // = pipe.p1
-        const p3 = pipe.p2; // = pipeC.p1
-        const p4 = pipeC.p2;
+        // pipeA'nın DİĞER ucunu bul (pipe.p1'e bağlı olmayan uç)
+        const p1OfA = (Math.hypot(pipeA.p1.x - pipe.p1.x, pipeA.p1.y - pipe.p1.y) < 1) ? pipeA.p2 : pipeA.p1;
+
+        // pipeC'nin DİĞER ucunu bul (pipe.p2'ye bağlı olmayan uç)
+        const p2OfC = (Math.hypot(pipeC.p1.x - pipe.p2.x, pipeC.p1.y - pipe.p2.y) < 1) ? pipeC.p2 : pipeC.p1;
+
+        const p1 = p1OfA;        // A'nın uzak ucu
+        const p2 = pipe.p1;      // A-B bağlantı noktası
+        const p3 = pipe.p2;      // B-C bağlantı noktası
+        const p4 = p2OfC;        // C'nin uzak ucu
 
         // İlk ve son vektörleri hesapla
         const v1 = { x: p2.x - p1.x, y: p2.y - p1.y }; // A borusu
@@ -693,6 +630,9 @@ export function handleDrag(interactionManager, point) {
         if (!occupiedByOtherPipe && newLength >= minLength) {
             const oldLength = pipe.uzunluk;
 
+            // Eski noktayı kaydet (güncelleme öncesi)
+            const oldEndpointPos = { ...pipe[interactionManager.dragEndpoint] };
+
             if (interactionManager.dragEndpoint === 'p1') {
                 pipe.p1.x = finalPos.x;
                 pipe.p1.y = finalPos.y;
@@ -717,17 +657,8 @@ export function handleDrag(interactionManager, point) {
             // Fleks artık otomatik olarak boru ucundan koordinat alıyor
             // Ekstra güncelleme gerekmiyor
 
-            // Bağlı boruları güncelle - Parent ve Children'ları güncelle
-            if (interactionManager.endpointParent) {
-                const parentPipe = interactionManager.endpointParent.pipe;
-                const parentEndpoint = interactionManager.endpointParent.endpoint;
-                parentPipe[parentEndpoint].x = finalPos.x;
-                parentPipe[parentEndpoint].y = finalPos.y;
-            }
-            interactionManager.endpointChildren.forEach(child => {
-                child.pipe[child.endpoint].x = finalPos.x;
-                child.pipe[child.endpoint].y = finalPos.y;
-            });
+            // SHARED VERTEX: Eski noktadaki TÜM boru uçlarını yeni noktaya taşı
+            updateSharedVertex(interactionManager.manager.pipes, oldEndpointPos, finalPos, pipe);
         } else {
             // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır (sessizce engelle)
         }
@@ -853,15 +784,19 @@ export function handleDrag(interactionManager, point) {
             return; // Hareketi engelle
         }
 
-        // Bağlı boru zincirini güncelle
+        // Bağlı boru zincirini güncelle (SHARED VERTEX)
         if (interactionManager.dragObject.bagliBoruId) {
             const boru = interactionManager.manager.pipes.find(p => p.id === interactionManager.dragObject.bagliBoruId);
             if (boru) {
                 // Kutu hareket etmeden ÖNCEKİ çıkış noktası
                 const oldP1 = { ...boru.p1 };
 
-                // Tüm zinciri güncelle - updateNodeConnections boru.p1'i de güncelleyecek
-                updateNodeConnections(interactionManager.manager.pipes, oldP1, newCikis);
+                // Boru.p1'i yeni çıkış noktasına taşı
+                boru.p1.x = newCikis.x;
+                boru.p1.y = newCikis.y;
+
+                // SHARED VERTEX: Eski çıkış noktasındaki TÜM boru uçlarını yeni noktaya taşı
+                updateSharedVertex(interactionManager.manager.pipes, oldP1, newCikis, boru);
             }
         }
         return;
@@ -929,8 +864,8 @@ export function handleDrag(interactionManager, point) {
                 // Yeni p1 pozisyonu
                 const newP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
 
-                // Parent ve children'ları güncelle (cihazların fleks bağlantıları için kritik!)
-                updateNodeConnections(interactionManager.manager.pipes, oldP1, newP1);
+                // SHARED VERTEX: Eski noktadaki TÜM boru uçlarını yeni noktaya taşı
+                updateSharedVertex(interactionManager.manager.pipes, oldP1, newP1, cikisBoru);
             }
         }
 
@@ -973,12 +908,10 @@ export function handleDrag(interactionManager, point) {
         const ELBOW_TOLERANCE = 8; // cm - dirsekler (köşe noktaları) arası minimum mesafe
         const connectionTolerance = 1; // Bağlantı tespit toleransı
 
-        // Bağlı borular listesi (bridge mode için)
-        const connectedPipes = [];
-        if (interactionManager.p1Parent) connectedPipes.push(interactionManager.p1Parent.pipe);
-        interactionManager.p1Children.forEach(child => connectedPipes.push(child.pipe));
-        if (interactionManager.p2Parent) connectedPipes.push(interactionManager.p2Parent.pipe);
-        interactionManager.p2Children.forEach(child => connectedPipes.push(child.pipe));
+        // SHARED VERTEX: Bağlı borular listesi (collision check için)
+        const p1ConnectedPipes = findPipesAtPoint(interactionManager.manager.pipes, oldP1, pipe);
+        const p2ConnectedPipes = findPipesAtPoint(interactionManager.manager.pipes, oldP2, pipe);
+        const connectedPipes = [...p1ConnectedPipes.map(c => c.pipe), ...p2ConnectedPipes.map(c => c.pipe)];
 
         // Basit yaklaşım: Her boru ucunu kontrol et, eğer o uç bir dirsekse 4cm, değilse 1.5cm tolerans
         const checkEndpointDistance = (newPos, checkAgainstOldPos = null) => {
@@ -1032,7 +965,7 @@ export function handleDrag(interactionManager, point) {
             const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
 
             // p1 tarafı için ghost boru
-            if (interactionManager.p1Parent) {
+            if (p1ConnectedPipes.length > 0) {
                 const dist = Math.hypot(pipe.p1.x - interactionManager.bodyDragInitialP1.x, pipe.p1.y - interactionManager.bodyDragInitialP1.y);
                 if (dist >= MIN_BRIDGE_LENGTH) {
                     interactionManager.ghostBridgePipes.push({
@@ -1044,7 +977,7 @@ export function handleDrag(interactionManager, point) {
             }
 
             // p2 tarafı için ghost boru
-            if (interactionManager.p2Children.length > 0) {
+            if (p2ConnectedPipes.length > 0) {
                 const dist = Math.hypot(pipe.p2.x - interactionManager.bodyDragInitialP2.x, pipe.p2.y - interactionManager.bodyDragInitialP2.y);
                 if (dist >= MIN_BRIDGE_LENGTH) {
                     interactionManager.ghostBridgePipes.push({
@@ -1055,32 +988,14 @@ export function handleDrag(interactionManager, point) {
                 }
             }
         } else {
-            // ⚠️ NORMAL MOD: Parent ve Children'ları güncelle
+            // ⚠️ NORMAL MOD: SHARED VERTEX mantığı ile güncelle
             interactionManager.ghostBridgePipes = []; // Ghost yok
 
-            // P1 noktası hareket etti → Parent ve Children'ları güncelle
-            if (interactionManager.p1Parent) {
-                const parentPipe = interactionManager.p1Parent.pipe;
-                const parentEndpoint = interactionManager.p1Parent.endpoint;
-                parentPipe[parentEndpoint].x = pipe.p1.x;
-                parentPipe[parentEndpoint].y = pipe.p1.y;
-            }
-            interactionManager.p1Children.forEach(child => {
-                child.pipe[child.endpoint].x = pipe.p1.x;
-                child.pipe[child.endpoint].y = pipe.p1.y;
-            });
+            // P1 noktası hareket etti → Eski P1'deki TÜM uçları yeni P1'e taşı
+            updateSharedVertex(interactionManager.manager.pipes, oldP1, newP1, pipe);
 
-            // P2 noktası hareket etti → Parent ve Children'ları güncelle
-            if (interactionManager.p2Parent) {
-                const parentPipe = interactionManager.p2Parent.pipe;
-                const parentEndpoint = interactionManager.p2Parent.endpoint;
-                parentPipe[parentEndpoint].x = pipe.p2.x;
-                parentPipe[parentEndpoint].y = pipe.p2.y;
-            }
-            interactionManager.p2Children.forEach(child => {
-                child.pipe[child.endpoint].x = pipe.p2.x;
-                child.pipe[child.endpoint].y = pipe.p2.y;
-            });
+            // P2 noktası hareket etti → Eski P2'deki TÜM uçları yeni P2'ye taşı
+            updateSharedVertex(interactionManager.manager.pipes, oldP2, newP2, pipe);
         }
 
         return;
@@ -1138,18 +1053,18 @@ export function endDrag(interactionManager) {
 
         // ⚠️ Sadece BRIDGE MODE ise ara borular oluştur
         if (!interactionManager.useBridgeMode) {
-            // Normal modda zaten updateConnectedPipesChain çağrıldı
+            // Normal modda zaten updateSharedVertex çağrıldı
             // Hiçbir şey yapma
         } else {
             // Minimum mesafe kontrolü (ara boru oluşturmaya değer mi?)
             const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
 
-            // Başlangıçta tespit edilen bağlantıları kullan
-            const connectedAtP1 = interactionManager.p1Parent;
-            const connectedAtP2 = interactionManager.p2Children.length > 0 ? interactionManager.p2Children[0] : null;
+            // SHARED VERTEX: Eski pozisyonlardaki bağlantıları kontrol et
+            const p1Connections = findPipesAtPoint(interactionManager.manager.pipes, oldP1, draggedPipe);
+            const p2Connections = findPipesAtPoint(interactionManager.manager.pipes, oldP2, draggedPipe);
 
             // p1 tarafına ara boru ekle
-            if (connectedAtP1) {
+            if (p1Connections.length > 0) {
                 const distP1 = Math.hypot(newP1.x - oldP1.x, newP1.y - oldP1.y);
                 if (distP1 >= MIN_BRIDGE_LENGTH) {
                     const bridgePipe1 = new Boru(
@@ -1167,7 +1082,7 @@ export function endDrag(interactionManager) {
             }
 
             // p2 tarafına ara boru ekle
-            if (connectedAtP2) {
+            if (p2Connections.length > 0) {
                 const distP2 = Math.hypot(newP2.x - oldP2.x, newP2.y - oldP2.y);
                 if (distP2 >= MIN_BRIDGE_LENGTH) {
                     const bridgePipe2 = new Boru(
@@ -1196,14 +1111,7 @@ export function endDrag(interactionManager) {
     interactionManager.bodyDragInitialP2 = null;
     interactionManager.dragAxis = null;
 
-    // Parent-children referanslarını temizle
-    interactionManager.p1Parent = null;
-    interactionManager.p1Children = [];
-    interactionManager.p2Parent = null;
-    interactionManager.p2Children = [];
-    interactionManager.endpointParent = null;
-    interactionManager.endpointChildren = [];
-
+    // Ghost borular ve snap verilerini temizle
     interactionManager.ghostBridgePipes = [];
     interactionManager.pipeEndpointSnapLock = null;
     interactionManager.pipeSnapMouseStart = null;
