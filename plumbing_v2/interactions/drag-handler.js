@@ -1168,6 +1168,13 @@ export function updateConnectedPipesChain(interactionManager, oldPoint, newPoint
  * @param {Object} interactionManager - InteractionManager instance
  */
 export function endDrag(interactionManager) {
+    // CRITICAL DEBUG: Track pipe positions throughout endDrag
+    const isBodyDragPipe = interactionManager.isBodyDrag && interactionManager.dragObject && interactionManager.dragObject.type === 'boru';
+    if (isBodyDragPipe) {
+        const pipe = interactionManager.dragObject;
+        console.log(`[END DRAG] START - Boru ${pipe.id.substring(0,12)}...`);
+        console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)}), P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    }
 
     // Body drag bittiğinde ara borular oluştur
     if (interactionManager.isBodyDrag && interactionManager.dragObject && interactionManager.dragObject.type === 'boru') {
@@ -1176,6 +1183,13 @@ export function endDrag(interactionManager) {
         const oldP2 = interactionManager.bodyDragInitialP2;
         const newP1 = draggedPipe.p1;
         const newP2 = draggedPipe.p2;
+
+        // DEBUG: Before bridge mode logic
+        if (isBodyDragPipe) {
+            console.log(`[END DRAG] BEFORE BRIDGE MODE - Boru ${draggedPipe.id.substring(0,12)}...`);
+            console.log(`  P1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}), P2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)})`);
+            console.log(`  Bridge Mode: ${interactionManager.useBridgeMode ? 'ENABLED' : 'DISABLED'}`);
+        }
 
         // ⚠️ Sadece BRIDGE MODE ise ara borular oluştur
         if (!interactionManager.useBridgeMode) {
@@ -1225,6 +1239,20 @@ export function endDrag(interactionManager) {
                 }
             }
         } // useBridgeMode if bloğu kapanışı
+
+        // DEBUG: After bridge mode logic
+        if (isBodyDragPipe) {
+            console.log(`[END DRAG] AFTER BRIDGE MODE - Boru ${draggedPipe.id.substring(0,12)}...`);
+            console.log(`  P1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}), P2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)})`);
+        }
+    }
+
+    // DEBUG: Before state cleanup (save pipe reference for later logging)
+    let debugPipe = null;
+    if (isBodyDragPipe) {
+        debugPipe = interactionManager.dragObject;
+        console.log(`[END DRAG] BEFORE STATE CLEANUP - Boru ${debugPipe.id.substring(0,12)}...`);
+        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
     }
 
     interactionManager.isDragging = false;
@@ -1248,6 +1276,33 @@ export function endDrag(interactionManager) {
     interactionManager.ghostBridgePipes = [];
     interactionManager.pipeEndpointSnapLock = null;
     interactionManager.pipeSnapMouseStart = null;
+
+    // DEBUG: Before saveToState()
+    if (debugPipe) {
+        console.log(`[END DRAG] BEFORE saveToState() - Boru ${debugPipe.id.substring(0,12)}...`);
+        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+    }
+
     interactionManager.manager.saveToState();
+
+    // DEBUG: After saveToState()
+    if (debugPipe) {
+        console.log(`[END DRAG] AFTER saveToState() - Boru ${debugPipe.id.substring(0,12)}...`);
+        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+    }
+
+    // DEBUG: Before saveState() (undo history)
+    if (debugPipe) {
+        console.log(`[END DRAG] BEFORE saveState() - Boru ${debugPipe.id.substring(0,12)}...`);
+        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+    }
+
     saveState(); // Save to undo history
+
+    // DEBUG: Function exit
+    if (debugPipe) {
+        console.log(`[END DRAG] EXIT - Boru ${debugPipe.id.substring(0,12)}...`);
+        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+        console.log('─'.repeat(80));
+    }
 }
