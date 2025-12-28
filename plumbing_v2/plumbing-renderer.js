@@ -982,13 +982,13 @@ export class PlumbingRenderer {
                     targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
                     if (!comp._fleksWarningLogged) {
-                        console.warn('⚠️ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
+                        // console.warn('⚠️ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
                         comp._fleksWarningLogged = true;
                     }
                 }
             } else {
                 if (!comp._fleksWarningLogged2) {
-                    console.warn('⚠️ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
+                    // console.warn('⚠️ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
                     comp._fleksWarningLogged2 = true;
                 }
             }
@@ -1072,13 +1072,13 @@ export class PlumbingRenderer {
                     targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
                     if (!comp._fleksWarningLogged) {
-                        console.warn('⚠️ OCAK FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
+                        // console.warn('⚠️ OCAK FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
                         comp._fleksWarningLogged = true;
                     }
                 }
             } else {
                 if (!comp._fleksWarningLogged2) {
-                    console.warn('⚠️ OCAK FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
+                    // console.warn('⚠️ OCAK FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
                     comp._fleksWarningLogged2 = true;
                 }
             }

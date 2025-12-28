@@ -25,11 +25,11 @@ export function handlePointerMove(e) {
         this._mouseDebugCount = 0;
     }
     if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && this._mouseDebugCount < 3) {
-        console.log('🖱️ MOUSE DEBUG:', {
-            'screen (CSS px)': `(${mouseScreenX.toFixed(1)}, ${mouseScreenY.toFixed(1)})`,
-            'world': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
-            'canvas size': `${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`
-        });
+        // console.log('🖱️ MOUSE DEBUG:', {
+        //     'screen (CSS px)': `(${mouseScreenX.toFixed(1)}, ${mouseScreenY.toFixed(1)})`,
+        //     'world': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
+        //     'canvas size': `${rect.width.toFixed(0)}x${rect.height.toFixed(0)}`
+        // });
         this._mouseDebugCount++;
     }
 
@@ -80,7 +80,7 @@ export function handlePointerMove(e) {
                     x: this.meterStartPoint.x + Math.cos(rad) * distance,
                     y: this.meterStartPoint.y + Math.sin(rad) * distance
                 };
-                console.log('✅ KESİKLİ HAT SNAP - Açı:', currentAngle.toFixed(1), '→', closestAngle);
+                // console.log('✅ KESİKLİ HAT SNAP - Açı:', currentAngle.toFixed(1), '→', closestAngle);
             }
         }
 
@@ -126,9 +126,9 @@ export function handlePointerMove(e) {
     if (this.boruCizimAktif) {
         // Sayaç öncesi (YELLOW) hatlar için açı snap'i (3° tolerans)
         let finalTargetPoint = targetPoint;
-        console.log('🔍 DEBUG - kaynakColorGroup:', this.boruBaslangic?.kaynakColorGroup);
+        //console.log('🔍 DEBUG - kaynakColorGroup:', this.boruBaslangic?.kaynakColorGroup);
         if (this.boruBaslangic && this.boruBaslangic.kaynakColorGroup === 'YELLOW') {
-            console.log('✅ YELLOW hat tespit edildi - açı snap aktif');
+            // console.log('✅ YELLOW hat tespit edildi - açı snap aktif');
             const dx = targetPoint.x - this.boruBaslangic.nokta.x;
             const dy = targetPoint.y - this.boruBaslangic.nokta.y;
             const distance = Math.hypot(dx, dy);

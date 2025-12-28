@@ -35,8 +35,8 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
     });
 
     if (problematicServisKutusu || problematicSayac) {
-        alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
-        console.warn('🚫 ENGEL: Başlangıç noktası zaten kullanılmış çıkışa çok yakın!');
+        // alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
+        // console.warn('🚫 ENGEL: Başlangıç noktası zaten kullanılmış çıkışa çok yakın!');
         return; // Boru çizimi başlatma
     }
 
@@ -77,7 +77,7 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
                 const sayacVar = interactionManager.hasMeterAtEndpoint(kaynakId, hedefUc);
 
                 if (cihazVar || sayacVar) {
-                    console.warn("🚫 ENGEL: Bu uçta Cihaz veya Sayaç fleksi var! Tesisat buradan başlatılamaz.");
+                    // console.warn("🚫 ENGEL: Bu uçta Cihaz veya Sayaç fleksi var! Tesisat buradan başlatılamaz.");
                     // İşlemi burada sessizce bitir, çizim modu açılmayacak.
                     return;
                 }
@@ -175,7 +175,7 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
     if (!result) return;
     const { boru1, boru2, splitT } = result;
 
-    console.log(`[SPLIT] Boru bölündü. SplitT: ${splitT.toFixed(2)}`);
+    // console.log(`[SPLIT] Boru bölündü. SplitT: ${splitT.toFixed(2)}`);
 
     // Zinciri bağla: boru1 sonu -> boru2 başı
     boru1.setBitisBaglanti('boru', boru2.id);
@@ -291,7 +291,7 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
             if (comp.updatePositionFromPipe) {
                 comp.updatePositionFromPipe(targetPipe);
             }
-            console.log(`[SPLIT-REMAP] Vana -> ${targetPipe === boru1 ? 'Parça 1' : 'Parça 2'}`);
+            // console.log(`[SPLIT-REMAP] Vana -> ${targetPipe === boru1 ? 'Parça 1' : 'Parça 2'}`);
         }
         else if (type === 'fleks') {
             // Cihaz/Sayaç fleks bağlantısı
@@ -303,7 +303,7 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
 
             comp.fleksBaglanti.endpoint = dP1 < dP2 ? 'p1' : 'p2';
 
-            console.log(`[SPLIT-REMAP] ${comp.type} -> ${targetPipe === boru1 ? 'Parça 1' : 'Parça 2'} (${comp.fleksBaglanti.endpoint})`);
+            // console.log(`[SPLIT-REMAP] ${comp.type} -> ${targetPipe === boru1 ? 'Parça 1' : 'Parça 2'} (${comp.fleksBaglanti.endpoint})`);
         }
     });
 
@@ -333,7 +333,7 @@ export function handleBoruClick(interactionManager, point) {
     // NOT: skipBostaUcCheck=false - boştaki boru uçlarına da bağlanmamalı (kapalı devre önleme)
     if (isProtectedPoint(point, interactionManager.manager, null, null, null, false)) {
 //        alert('⚠️ Bu noktaya boru bağlanamaz! (Korumalı nokta: Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek veya boşta boru ucu)');
-        console.warn('🚫 ENGEL: Bitiş noktası korumalı!', point);
+        // console.warn('🚫 ENGEL: Bitiş noktası korumalı!', point);
         return;
     }
 
@@ -358,8 +358,8 @@ export function handleBoruClick(interactionManager, point) {
     });
 
     if (problematicServisKutusu || problematicSayac) {
-        alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
-        console.warn('🚫 ENGEL: Yeni borunun P1 noktası zaten kullanılmış çıkışa çok yakın!');
+        // alert('⚠️ ' + (problematicServisKutusu ? 'Servis kutusu' : 'Sayaç') + ' çıkışından sadece 1 hat ayrılabilir!');
+        // console.warn('🚫 ENGEL: Yeni borunun P1 noktası zaten kullanılmış çıkışa çok yakın!');
         return; // Boruyu ekleme
     }
 

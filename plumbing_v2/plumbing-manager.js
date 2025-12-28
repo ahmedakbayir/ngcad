@@ -233,10 +233,10 @@ export class PlumbingManager {
      */
     loadFromState() {
         // DEBUG: Track when state is loaded (this might be corrupting positions!)
-        console.log('═'.repeat(80));
-        console.log('[CRITICAL] loadFromState() CALLED - Pipes being reloaded from state!');
-        console.log('  Stack trace:', new Error().stack);
-        console.log('═'.repeat(80));
+        // console.log('═'.repeat(80));
+        // console.log('[CRITICAL] loadFromState() CALLED - Pipes being reloaded from state!');
+        // console.log('  Stack trace:', new Error().stack);
+        // console.log('═'.repeat(80));
 
         // Boruları yükle
         if (state.plumbingPipes) {
@@ -314,7 +314,7 @@ export class PlumbingManager {
     placeDeviceAtOpenEnd(deviceType, boruUcuInfo = null) {
         // Sadece 'KOMBI' ve 'OCAK' tiplerine izin ver
         if (deviceType !== 'KOMBI' && deviceType !== 'OCAK') {
-            console.warn(`Unsupported device type for automatic placement: ${deviceType}`);
+            // console.warn(`Unsupported device type for automatic placement: ${deviceType}`);
             return false;
         }
 
@@ -329,7 +329,7 @@ export class PlumbingManager {
             // Yoksa, boş boru uçlarını bul
             const openEnds = this.getBosBitisBorular();
             if (openEnds.length === 0) {
-                console.log("Otomatik yerleştirme için boşta boru ucu bulunamadı.");
+                // console.log("Otomatik yerleştirme için boşta boru ucu bulunamadı.");
                 return false;
             }
 
@@ -345,7 +345,7 @@ export class PlumbingManager {
         const newDevice = createCihaz(targetPoint.x, targetPoint.y, deviceType, { floorId });
 
         if (!newDevice) {
-            console.error("Cihaz oluşturulamadı.");
+            // console.error("Cihaz oluşturulamadı.");
             return false;
         }
 
@@ -361,20 +361,20 @@ export class PlumbingManager {
 
         // interactionManager'ın handleCihazEkleme metodunu kullan
         // Bu vana, fleks, pozisyon hesaplama gibi her şeyi otomatik yapar
-        console.log(`[placeDeviceAtOpenEnd] Cihaz oluşturuldu: ${deviceType}, boruUcu:`, {
-            boruId: targetPipe.id,
-            end: targetEnd,
-            nokta: targetPoint
-        });
+        // console.log(`[placeDeviceAtOpenEnd] Cihaz oluşturuldu: ${deviceType}, boruUcu:`, {
+        //     boruId: targetPipe.id,
+        //     end: targetEnd,
+        //     nokta: targetPoint
+        // });
 
         const success = this.interactionManager.handleCihazEkleme(newDevice);
 
         if (success) {
             // handleCihazEkleme cihazı components'a ekledi
-            console.log(`✓ ${deviceType} başarıyla boş boru ucuna eklendi (${targetEnd}) - vana ve fleks ile.`);
+            // console.log(`✓ ${deviceType} başarıyla boş boru ucuna eklendi (${targetEnd}) - vana ve fleks ile.`);
             return true;
         } else {
-            console.error(`✗ Cihaz ekleme başarısız oldu. handleCihazEkleme false döndü.`);
+            // console.error(`✗ Cihaz ekleme başarısız oldu. handleCihazEkleme false döndü.`);
             return false;
         }
     }
@@ -533,7 +533,7 @@ export class PlumbingManager {
         // Çıkış borusundan başlayarak tüm boruları TURQUAZ yap (recursive)
         this.setPipeColorRecursive(cikisBoru, 'TURQUAZ');
 
-        console.log(`[updatePipeColorsAfterMeter] Sayaç ${sayacId} sonrası borular TURQUAZ yapıldı`);
+       // console.log(`[updatePipeColorsAfterMeter] Sayaç ${sayacId} sonrası borular TURQUAZ yapıldı`);
     }
 
     /**

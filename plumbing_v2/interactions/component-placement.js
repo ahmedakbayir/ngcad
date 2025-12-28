@@ -54,12 +54,12 @@ export function placeComponent(point) {
                 this.meterStartPoint = { x: point.x, y: point.y };
                 // tempComponent'i TUTUYORUZ - mevcut ghost sistemi kullanacak
 
-                console.log('✅ İÇ TESİSAT: Kesikli boru başlangıç noktası belirlendi. İkinci nokta için tıklayın.');
+                // console.log('✅ İÇ TESİSAT: Kesikli boru başlangıç noktası belirlendi. İkinci nokta için tıklayın.');
             }
             // Eğer ghost bağlantısı yoksa VE servis kutusu varsa, uyarı ver
             else {
-                console.warn('⚠️ Sayaç sadece boru ucuna eklenebilir!');
-                alert('⚠️ Sayaç sadece boru ucuna eklenebilir!\n\nLütfen sayacı bir boru ucuna yerleştirin.');
+                // console.warn('⚠️ Sayaç sadece boru ucuna eklenebilir!');
+                // alert('⚠️ Sayaç sadece boru ucuna eklenebilir!\n\nLütfen sayacı bir boru ucuna yerleştirin.');
             }
             break;
 
@@ -458,7 +458,7 @@ export function handleMeterStartPipeSecondClick(endPoint) {
     // Minimum mesafe kontrolü (çok kısa borular olmasın)
     const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
     if (distance < 10) {
-        console.warn('⚠️ Boru çok kısa! En az 10cm olmalı.');
+        // console.warn('⚠️ Boru çok kısa! En az 10cm olmalı.');
         return;
     }
 
@@ -537,7 +537,7 @@ export function handleMeterStartPipeSecondClick(endPoint) {
         this.manager.activeTool = 'boru';
         setMode("plumbingV2", true);
 
-        console.log('✅ İÇ TESİSAT: Kesikli boru + sayaç başarıyla eklendi.');
+        // console.log('✅ İÇ TESİSAT: Kesikli boru + sayaç başarıyla eklendi.');
     } else {
         // Başarısız olursa temsili boruyu sil
         const index = this.manager.pipes.indexOf(temsiliBoru);
@@ -550,6 +550,6 @@ export function handleMeterStartPipeSecondClick(endPoint) {
         this.meterStartPoint = null;
         this.meterPreviewEndPoint = null;
 
-        console.error('❌ Sayaç eklenemedi!');
+        // console.error('❌ Sayaç eklenemedi!');
     }
 }

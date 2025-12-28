@@ -32,47 +32,47 @@ function validateFloorMatch(result, currentFloorId) {
     // Objenin floorId'si varsa ve aktif kat ile eşleşmiyorsa, REDDET
     // null veya undefined ise geçir
     if (obj.floorId != null && obj.floorId !== currentFloorId) {
-        console.warn('⚠️ FLOOR MISMATCH BLOCKED!', {
-            type: result.type,
-            objectFloor: obj.floorId,
-            currentFloor: currentFloorId
-        });
+         // console.warn('⚠️ FLOOR MISMATCH BLOCKED!', {
+        //     type: result.type,
+        //     objectFloor: obj.floorId,
+        //     currentFloor: currentFloorId
+        // });
         return null;
     }
 
     // Wall için extra kontrol (wall objesinin kendisi result.object'te)
     if (result.type === 'wall' && obj.floorId !== currentFloorId) {
-        console.warn('⚠️ WALL FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
+         // console.warn('⚠️ WALL FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
         return null;
     }
 
     // Door için wall üzerinden kontrol
     if (result.type === 'door' && result.wall && result.wall.floorId !== currentFloorId) {
-        console.warn('⚠️ DOOR WALL FLOOR MISMATCH BLOCKED!');
+         // console.warn('⚠️ DOOR WALL FLOOR MISMATCH BLOCKED!');
         return null;
     }
 
     // Window için wall üzerinden kontrol
     if (result.type === 'window' && result.wall && result.wall.floorId !== currentFloorId) {
-        console.warn('⚠️ WINDOW WALL FLOOR MISMATCH BLOCKED!');
+         // console.warn('⚠️ WINDOW WALL FLOOR MISMATCH BLOCKED!');
         return null;
     }
 
     // Vent için wall üzerinden kontrol
     if (result.type === 'vent' && result.wall && result.wall.floorId !== currentFloorId) {
-        console.warn('⚠️ VENT WALL FLOOR MISMATCH BLOCKED!');
+         // console.warn('⚠️ VENT WALL FLOOR MISMATCH BLOCKED!');
         return null;
     }
 
     // PlumbingBlock için kontrol - floorId yoksa (null/undefined) geçir
     if (result.type === 'plumbingBlock' && obj.floorId && obj.floorId !== currentFloorId) {
-        console.warn('⚠️ PLUMBING BLOCK FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
+         // console.warn('⚠️ PLUMBING BLOCK FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
         return null;
     }
 
     // PlumbingPipe için kontrol - floorId yoksa (null/undefined) geçir
     if (result.type === 'plumbingPipe' && obj.floorId && obj.floorId !== currentFloorId) {
-        console.warn('⚠️ PLUMBING PIPE FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
+         // console.warn('⚠️ PLUMBING PIPE FLOOR MISMATCH BLOCKED!', obj.floorId, '!==', currentFloorId);
         return null;
     }
 
@@ -268,12 +268,12 @@ export function getObjectAtPoint(pos) {
     for (const room of [...rooms].reverse()) {
         // Poligonun ve koordinatlarının geçerli olup olmadığını kontrol et
         if (!room.polygon?.geometry?.coordinates || !Array.isArray(room.polygon.geometry.coordinates[0]) || room.polygon.geometry.coordinates[0].length < 3) {
-            // console.warn("getObjectAtPoint: Invalid room polygon skipped:", room); // Opsiyonel: Hata ayıklama için
+            //  // console.warn("getObjectAtPoint: Invalid room polygon skipped:", room); // Opsiyonel: Hata ayıklama için
             continue; // Geçersiz poligonu atla
         }
         // pos koordinatlarının geçerli (sayı) olup olmadığını kontrol et
         if (typeof pos?.x !== 'number' || typeof pos?.y !== 'number' || !isFinite(pos.x) || !isFinite(pos.y)) {
-             console.error("getObjectAtPoint: Invalid mouse position received:", pos); // Hata ayıklama
+              // console.error("getObjectAtPoint: Invalid mouse position received:", pos); // Hata ayıklama
              continue; // Geçersiz pozisyonu atla (aslında yukarıda yapıldı ama tekrar kontrol edelim)
         }
         // Mahal merkezi koordinatlarının geçerli olup olmadığını kontrol et (isim/alan kontrolü için)
@@ -303,7 +303,7 @@ export function getObjectAtPoint(pos) {
             }
         } catch (e) {
             // Turf fonksiyonlarında hala bir hata olursa logla ve devam et
-            console.error("Error in turf.booleanPointInPolygon:", e, "Position:", pos, "Polygon structure (simplified):", room.polygon?.geometry?.type);
+             // console.error("Error in turf.booleanPointInPolygon:", e, "Position:", pos, "Polygon structure (simplified):", room.polygon?.geometry?.type);
             continue; // Hata durumunda bu odayı atla
         }
     }
