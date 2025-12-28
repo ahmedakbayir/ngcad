@@ -734,12 +734,13 @@ export class PlumbingRenderer {
                 if (bagliBoru) {
                     ctx.save();
 
-                    // Büyük kırmızı daire - çıkış noktası
+ /* 
+                   // Büyük kırmızı daire - çıkış noktası
                     ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
                     ctx.strokeStyle = '#FFFFFF';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.arc(cikis.x, cikis.y, 5, 0, Math.PI * 2);
+                    ctx.arc(cikis.x, cikis.y, 2, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.stroke();
 
@@ -751,7 +752,7 @@ export class PlumbingRenderer {
                     ctx.arc(bagliBoru.p1.x, bagliBoru.p1.y, 5, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.stroke();
-
+*/
                     // İki nokta arasındaki mesafeyi göster
                     const dist = Math.hypot(bagliBoru.p1.x - cikis.x, bagliBoru.p1.y - cikis.y);
 
