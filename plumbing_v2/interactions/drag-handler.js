@@ -336,23 +336,46 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.bodyDragInitialP1 = { ...pipe.p1 };
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
 
+    // DEBUG: Sürüklenen borunun detaylarını yazdır
+    console.log(`[BODY DRAG START] Boru ID: ${pipe.id}`);
+    console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
+    console.log(`  P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    console.log(`  Toplam boru sayısı: ${interactionManager.manager.pipes.length}`);
+
     // SHARED VERTEX: P1 ve P2 noktalarındaki tüm boruları ÖNCEDENtespit et ve kaydet (hızlı drag için)
     interactionManager.connectedPipesAtP1 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe, 10.0);
     interactionManager.connectedPipesAtP2 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe, 10.0);
 
-    console.log(`[BODY DRAG START] P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru`);
+    console.log(`  P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru`);
 
     // DEBUG: Bağlı boruların mesafelerini yazdır
     if (interactionManager.connectedPipesAtP1.length > 0) {
         interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint }) => {
             const dist = Math.hypot(pipe.p1.x - connectedPipe[endpoint].x, pipe.p1.y - connectedPipe[endpoint].y);
-            console.log(`  [P1 DEBUG] Bağlı boru mesafesi: ${dist.toFixed(2)} cm`);
+            console.log(`    [P1] Bağlı boru ${connectedPipe.id.substring(0,12)}... mesafe: ${dist.toFixed(2)} cm`);
         });
     }
     if (interactionManager.connectedPipesAtP2.length > 0) {
         interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint }) => {
             const dist = Math.hypot(pipe.p2.x - connectedPipe[endpoint].x, pipe.p2.y - connectedPipe[endpoint].y);
-            console.log(`  [P2 DEBUG] Bağlı boru mesafesi: ${dist.toFixed(2)} cm`);
+            console.log(`    [P2] Bağlı boru ${connectedPipe.id.substring(0,12)}... mesafe: ${dist.toFixed(2)} cm`);
+        });
+    }
+
+    // DEBUG: Eğer bağlı boru bulunamadıysa, tüm boruları kontrol et
+    if (interactionManager.connectedPipesAtP1.length === 0 && interactionManager.connectedPipesAtP2.length === 0) {
+        console.log(`  [WARNING] Hiç bağlı boru bulunamadı! P1/P2 yakınındaki tüm boruları kontrol ediyorum:`);
+        interactionManager.manager.pipes.forEach(otherPipe => {
+            if (otherPipe === pipe) return;
+            const distP1toP1 = Math.hypot(pipe.p1.x - otherPipe.p1.x, pipe.p1.y - otherPipe.p1.y);
+            const distP1toP2 = Math.hypot(pipe.p1.x - otherPipe.p2.x, pipe.p1.y - otherPipe.p2.y);
+            const distP2toP1 = Math.hypot(pipe.p2.x - otherPipe.p1.x, pipe.p2.y - otherPipe.p1.y);
+            const distP2toP2 = Math.hypot(pipe.p2.x - otherPipe.p2.x, pipe.p2.y - otherPipe.p2.y);
+
+            const minDist = Math.min(distP1toP1, distP1toP2, distP2toP1, distP2toP2);
+            if (minDist < 50) { // 50 cm içindeki boruları göster
+                console.log(`    Boru ${otherPipe.id.substring(0,12)}... en yakın mesafe: ${minDist.toFixed(2)} cm`);
+            }
         });
     }
 
