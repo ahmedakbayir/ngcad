@@ -1027,6 +1027,22 @@ export function handleDrag(interactionManager, point) {
 
         // Sayacı axis-locked pozisyona taşı (SMOOTH!)
         sayac.move(newX, newY);
+
+        // 🚨 KRİTİK: Hem GİRİŞ hem de ÇIKIŞ borularını güncelle
+        // Giriş borusunu güncelle (fleks bağlantı)
+        if (sayac.fleksBaglanti?.boruId) {
+            const girisBoru = interactionManager.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
+            if (girisBoru) {
+                // Giriş borusunun hangi ucu sayaca bağlı?
+                const endpoint = sayac.fleksBaglanti.endpoint;
+                if (endpoint) {
+                    // O ucu DELTA kadar taşı
+                    girisBoru[endpoint].x += dx;
+                    girisBoru[endpoint].y += dy;
+                }
+            }
+        }
+
         // Çıkış borusunu güncelle - CACHED SİSTEM (KOPMA SORUNU ÇÖZÜLDÜ!)
         // Sadece çıkış borusunun p1 ucunu güncelle, p2 ve bağlı borular sabit
         if (sayac.cikisBagliBoruId) {
