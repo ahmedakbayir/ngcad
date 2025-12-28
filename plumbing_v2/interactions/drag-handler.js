@@ -263,7 +263,7 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
         interactionManager.manager.pipes,
         draggedPoint,
         pipe,
-        2.5 // Floating point hataları + pozisyon kaymalarına karşı güvenli tolerance
+        10.0 // Geçici debug: Çok yüksek tolerance (floating point drift testi)
     );
 
     console.log(`[ENDPOINT DRAG START] ${interactionManager.connectedPipesAtEndpoint.length} bağlı boru tespit edildi`);
@@ -299,7 +299,7 @@ export function startDrag(interactionManager, obj, point) {
                 interactionManager.manager.pipes,
                 boru.p1,  // ŞU ANKİ pozisyon (henüz hareket etmedi)
                 boru,
-                2.5  // Floating point hataları + pozisyon kaymalarına karşı güvenli tolerance
+                10.0  // Geçici debug: Çok yüksek tolerance (floating point drift testi)
             );
             console.log(`[SERVIS KUTUSU START] ${interactionManager.servisKutusuConnectedPipes.length} bağlı boru tespit edildi`);
         }
@@ -313,7 +313,7 @@ export function startDrag(interactionManager, obj, point) {
                 interactionManager.manager.pipes,
                 cikisBoru.p1,  // ŞU ANKİ pozisyon (henüz hareket etmedi)
                 cikisBoru,
-                2.5  // Floating point hataları + pozisyon kaymalarına karşı güvenli tolerance
+                10.0  // Geçici debug: Çok yüksek tolerance (floating point drift testi)
             );
             console.log(`[SAYAC START] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi`);
         }
@@ -337,10 +337,24 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
 
     // SHARED VERTEX: P1 ve P2 noktalarındaki tüm boruları ÖNCEDENtespit et ve kaydet (hızlı drag için)
-    interactionManager.connectedPipesAtP1 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe, 2.5);
-    interactionManager.connectedPipesAtP2 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe, 2.5);
+    interactionManager.connectedPipesAtP1 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe, 10.0);
+    interactionManager.connectedPipesAtP2 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe, 10.0);
 
     console.log(`[BODY DRAG START] P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru`);
+
+    // DEBUG: Bağlı boruların mesafelerini yazdır
+    if (interactionManager.connectedPipesAtP1.length > 0) {
+        interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint }) => {
+            const dist = Math.hypot(pipe.p1.x - connectedPipe[endpoint].x, pipe.p1.y - connectedPipe[endpoint].y);
+            console.log(`  [P1 DEBUG] Bağlı boru mesafesi: ${dist.toFixed(2)} cm`);
+        });
+    }
+    if (interactionManager.connectedPipesAtP2.length > 0) {
+        interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint }) => {
+            const dist = Math.hypot(pipe.p2.x - connectedPipe[endpoint].x, pipe.p2.y - connectedPipe[endpoint].y);
+            console.log(`  [P2 DEBUG] Bağlı boru mesafesi: ${dist.toFixed(2)} cm`);
+        });
+    }
 
     // ⚠️ DOĞRUSALLIK KONTROLÜ: Sadece 3 boru aynı doğrultudaysa ara boru modu
     interactionManager.useBridgeMode = false; // Varsayılan: normal mod
