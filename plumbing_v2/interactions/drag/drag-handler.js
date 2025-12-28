@@ -842,10 +842,12 @@ export function handleDrag(interactionManager, point) {
                 boru.p1.y = newCikis.y;
 
                 // Kaydedilmiş bağlı boruları güncelle (her frame search yok!)
-                interactionManager.servisKutusuConnectedPipes.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = newCikis.x;
-                    connectedPipe[connectedEndpoint].y = newCikis.y;
-                });
+                if (interactionManager.servisKutusuConnectedPipes) {
+                    interactionManager.servisKutusuConnectedPipes.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                        connectedPipe[connectedEndpoint].x = newCikis.x;
+                        connectedPipe[connectedEndpoint].y = newCikis.y;
+                    });
+                }
             }
         }
         return;
@@ -911,10 +913,12 @@ export function handleDrag(interactionManager, point) {
                 const newP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
 
                 // Kaydedilmiş bağlı boruları güncelle (her frame search yok!)
-                interactionManager.sayacConnectedPipes.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = newP1.x;
-                    connectedPipe[connectedEndpoint].y = newP1.y;
-                });
+                if (interactionManager.sayacConnectedPipes) {
+                    interactionManager.sayacConnectedPipes.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                        connectedPipe[connectedEndpoint].x = newP1.x;
+                        connectedPipe[connectedEndpoint].y = newP1.y;
+                    });
+                }
             }
         }
 
