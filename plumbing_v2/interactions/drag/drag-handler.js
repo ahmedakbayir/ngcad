@@ -290,6 +290,34 @@ export function startDrag(interactionManager, obj, point) {
         interactionManager.dragObjectPipe = null;
         interactionManager.dragObjectsOnPipe = null;
     }
+
+    // SHARED VERTEX: Servis kutusu için bağlı boruları ÖNCEDEN tespit et (lazy değil!)
+    if (obj.type === 'servis_kutusu' && obj.bagliBoruId) {
+        const boru = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
+        if (boru) {
+            interactionManager.servisKutusuConnectedPipes = findPipesAtPoint(
+                interactionManager.manager.pipes,
+                boru.p1,  // ŞU ANKİ pozisyon (henüz hareket etmedi)
+                boru,
+                1.0
+            );
+            console.log(`[SERVIS KUTUSU START] ${interactionManager.servisKutusuConnectedPipes.length} bağlı boru tespit edildi`);
+        }
+    }
+
+    // SHARED VERTEX: Sayaç için bağlı boruları ÖNCEDEN tespit et (lazy değil!)
+    if (obj.type === 'sayac' && obj.cikisBagliBoruId) {
+        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
+        if (cikisBoru) {
+            interactionManager.sayacConnectedPipes = findPipesAtPoint(
+                interactionManager.manager.pipes,
+                cikisBoru.p1,  // ŞU ANKİ pozisyon (henüz hareket etmedi)
+                cikisBoru,
+                1.0
+            );
+            console.log(`[SAYAC START] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi`);
+        }
+    }
 }
 
 /**
@@ -809,20 +837,6 @@ export function handleDrag(interactionManager, point) {
         if (interactionManager.dragObject.bagliBoruId) {
             const boru = interactionManager.manager.pipes.find(p => p.id === interactionManager.dragObject.bagliBoruId);
             if (boru) {
-                // Kutu hareket etmeden ÖNCEKİ çıkış noktası
-                const oldP1 = { ...boru.p1 };
-
-                // İlk frame: Bağlı boruları tespit et ve kaydet (lazy initialization)
-                if (!interactionManager.servisKutusuConnectedPipes) {
-                    interactionManager.servisKutusuConnectedPipes = findPipesAtPoint(
-                        interactionManager.manager.pipes,
-                        oldP1,
-                        boru,
-                        1.0
-                    );
-                    console.log(`[SERVIS KUTUSU] ${interactionManager.servisKutusuConnectedPipes.length} bağlı boru tespit edildi`);
-                }
-
                 // Boru.p1'i yeni çıkış noktasına taşı
                 boru.p1.x = newCikis.x;
                 boru.p1.y = newCikis.y;
@@ -889,20 +903,6 @@ export function handleDrag(interactionManager, point) {
         if (sayac.cikisBagliBoruId) {
             const cikisBoru = interactionManager.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
             if (cikisBoru) {
-                // Eski p1 pozisyonunu kaydet
-                const oldP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
-
-                // İlk frame: Bağlı boruları tespit et ve kaydet (lazy initialization)
-                if (!interactionManager.sayacConnectedPipes) {
-                    interactionManager.sayacConnectedPipes = findPipesAtPoint(
-                        interactionManager.manager.pipes,
-                        oldP1,
-                        cikisBoru,
-                        1.0
-                    );
-                    console.log(`[SAYAC] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi`);
-                }
-
                 // Çıkış boru ucunu DELTA kadar taşı (giriş ile aynı mantık)
                 cikisBoru.p1.x += dx;
                 cikisBoru.p1.y += dy;
