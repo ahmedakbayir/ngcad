@@ -57,8 +57,33 @@ export function startRotation(context, obj, point, manager) {
     if (obj.type === 'sayac' && obj.cikisBagliBoruId) {
         const cikisBoru = manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
         if (cikisBoru) {
-            context.rotationConnectedPipes = findPipesAtPoint(manager.pipes, cikisBoru.p1, cikisBoru, TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE);
-            console.log(`[ROTATION START] ${context.rotationConnectedPipes.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
+            // 🚨 KRİTİK: Giriş borusunu EXCLUDE et, aksi halde döndürme sırasında
+            // giriş ve çıkış boruları birbirine yapışır (sadece 10cm aralık var, tolerance 20cm!)
+            const girisBoru = obj.fleksBaglanti?.boruId
+                ? manager.pipes.find(p => p.id === obj.fleksBaglanti.boruId)
+                : null;
+
+            const excludePipes = [cikisBoru];
+            if (girisBoru) excludePipes.push(girisBoru);
+
+            // Çıkış noktasındaki bağlı boruları bul (giriş ve çıkış boruları hariç)
+            const outputConnectedPipes = [];
+            manager.pipes.forEach(p => {
+                if (excludePipes.includes(p)) return;
+
+                const distToP1 = Math.hypot(p.p1.x - cikisBoru.p1.x, p.p1.y - cikisBoru.p1.y);
+                const distToP2 = Math.hypot(p.p2.x - cikisBoru.p1.x, p.p2.y - cikisBoru.p1.y);
+
+                if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
+                    outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
+                }
+                if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
+                    outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
+                }
+            });
+
+            context.rotationConnectedPipes = outputConnectedPipes;
+            console.log(`[ROTATION START] ${context.rotationConnectedPipes.length} bağlı boru tespit edildi (giriş hattı exclude edildi, tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
         }
     }
 }

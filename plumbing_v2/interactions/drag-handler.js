@@ -44,40 +44,59 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return true;
     }
 
-    // 2. Sayaç giriş kontrolü (fleks bağlantısı)
+    // 2. Sayaç giriş kontrolü (MANTIKSAL - başka boru bağlanamaz!)
     const sayacGirisi = manager.components.some(c => {
-        if (c.type !== 'sayac' || !c.fleksBaglanti) return false;
-        if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen sayacı atla
+        if (c.type !== 'sayac') return false;
+        if (excludeComponentId && c.id === excludeComponentId) return false;
 
-        // Fleks bağlantı varsa, BORUNUN UCUNU koru
-        if (c.fleksBaglanti.boruId && c.fleksBaglanti.endpoint) {
-            const boru = manager.pipes.find(p => p.id === c.fleksBaglanti.boruId);
-            if (boru) {
-                const boruUcu = boru[c.fleksBaglanti.endpoint]; // p1 veya p2
-                const dist = Math.hypot(point.x - boruUcu.x, point.y - boruUcu.y);
-                return dist < TOLERANCE;
+        // 🚨 MANTIKSAL KONTROL: Sayaç girişinde zaten bir boru varsa, başka boru bağlanamaz!
+        if (c.fleksBaglanti?.boruId) {
+            const girisBoru = manager.pipes.find(p => p.id === c.fleksBaglanti.boruId);
+
+            // Eğer sürüklenen boru GİRİŞ borusunun KENDİSİ ise izin ver
+            if (currentPipe && girisBoru && currentPipe.id === girisBoru.id) {
+                return false; // Kendi borusu - izin ver
+            }
+
+            // Başka bir boru sayaç girişine yaklaşmaya çalışıyor
+            const girisPoint = girisBoru[c.fleksBaglanti.endpoint];
+            const dist = Math.hypot(point.x - girisPoint.x, point.y - girisPoint.y);
+            if (dist < TOLERANCE) {
+                console.log('[PROTECTED] Sayaç girişi - başka boru bağlanamaz!');
+                return true;
             }
         }
 
-        // Fleks bağlantı henüz yapılmamışsa, giriş noktasını koru
-        const giris = c.getGirisNoktasi();
-        if (!giris) return false;
-        const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
-        return dist < TOLERANCE;
+        return false;
     });
     if (sayacGirisi) {
-        console.log('[PROTECTED] Sayaç girişi (fleks bağlantı)');
         return true;
     }
 
-    // 3. Sayaç çıkışı kontrolü
+    // 3. Sayaç çıkışı kontrolü (MANTIKSAL - başka boru bağlanamaz!)
     const sayacCikisi = manager.components.some(c => {
         if (c.type !== 'sayac') return false;
-        if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen sayacı atla
-        const cikis = c.getCikisNoktasi();
-        if (!cikis) return false;
-        const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
-        return dist < TOLERANCE;
+        if (excludeComponentId && c.id === excludeComponentId) return false;
+
+        // 🚨 MANTIKSAL KONTROL: Sayaç çıkışında zaten bir boru varsa, başka boru bağlanamaz!
+        if (c.cikisBagliBoruId) {
+            const cikisBoru = manager.pipes.find(p => p.id === c.cikisBagliBoruId);
+
+            // Eğer sürüklenen boru ÇIKIŞ borusunun KENDİSİ ise izin ver
+            if (currentPipe && cikisBoru && currentPipe.id === cikisBoru.id) {
+                return false; // Kendi borusu - izin ver
+            }
+
+            // Başka bir boru sayaç çıkışına yaklaşmaya çalışıyor
+            const cikisPoint = c.getCikisNoktasi();
+            const dist = Math.hypot(point.x - cikisPoint.x, point.y - cikisPoint.y);
+            if (dist < TOLERANCE) {
+                console.log('[PROTECTED] Sayaç çıkışı - başka boru bağlanamaz!');
+                return true;
+            }
+        }
+
+        return false;
     });
     if (sayacCikisi) {
         console.log('[PROTECTED] Sayaç çıkışı');
@@ -895,8 +914,32 @@ export function handleDrag(interactionManager, point) {
                 valve.updatePositionFromPipe(pipe);
             });
 
-            // Fleks artık otomatik olarak boru ucundan koordinat alıyor
-            // Ekstra güncelleme gerekmiyor
+            // 🚨 KRİTİK: Bu boru bir sayacın giriş hattıysa, SAYACI hareket ettir!
+            // Aksi halde sayaç yerinde kalır ve çıkış borusu kopmuş gibi görünür
+            const connectedMeter = interactionManager.manager.components.find(c =>
+                c.type === 'sayac' &&
+                c.fleksBaglanti &&
+                c.fleksBaglanti.boruId === pipe.id &&
+                c.fleksBaglanti.endpoint === interactionManager.dragEndpoint
+            );
+
+            if (connectedMeter) {
+                // Boru ucu hareket etti - sayacı da aynı miktarda hareket ettir
+                const dx = finalPos.x - oldPoint.x;
+                const dy = finalPos.y - oldPoint.y;
+
+                connectedMeter.x += dx;
+                connectedMeter.y += dy;
+
+                // Sayaç hareket etti - çıkış borusunu da hareket ettir
+                if (connectedMeter.cikisBagliBoruId) {
+                    const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
+                    if (cikisBoru) {
+                        cikisBoru.p1.x += dx;
+                        cikisBoru.p1.y += dy;
+                    }
+                }
+            }
 
             // SHARED VERTEX GÜNCELLEME - CACHED SİSTEM (KOPMA SORUNU ÇÖZÜLDÜ!)
             // startEndpointDrag içinde kaydettiğimiz listeyi kullanıyoruz.
@@ -1305,7 +1348,8 @@ export function handleDrag(interactionManager, point) {
                 console.log(`  [BODY DRAG] P2: Bağlı boru yok veya cache boş!`);
             }
 
-            // 🔧 FIX: Bu boru sayaç giriş hattıysa, sayacın ÇIKIŞ hattını da güncelle
+            // 🚨 KRİTİK: Bu boru sayaç giriş hattıysa, SAYACI VE ÇIKIŞ hattını hareket ettir!
+            // 🔧 FIX: Bu boru sayaç giriş hattıysa, SAYACI ve ÇIKIŞ hattını da güncelle
             if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
                 // Sayacı bul
                 const connectedMeter = interactionManager.manager.components.find(c =>
@@ -1314,25 +1358,32 @@ export function handleDrag(interactionManager, point) {
                     c.fleksBaglanti.boruId === pipe.id
                 );
 
-                if (connectedMeter && connectedMeter.cikisBagliBoruId) {
-                    const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
-                    if (cikisBoru) {
-                        console.log(`  [SAYAÇ ÇIKIŞ] Sayaç çıkış hattı güncelleniyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
+                if (connectedMeter) {
+                    console.log(`  [SAYAÇ] Sayaç giriş hattı hareket ediyor - sayaç ve çıkış hattı taşınıyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
 
-                        // Çıkış borusunun p1'ini delta kadar taşı
-                        cikisBoru.p1.x += offsetX;
-                        cikisBoru.p1.y += offsetY;
+                    // ÖNCE SAYACI hareket ettir
+                    connectedMeter.x += offsetX;
+                    connectedMeter.y += offsetY;
 
-                        const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+                    // Sayaç hareket etti - çıkış borusunu da hareket ettir
+                    if (connectedMeter.cikisBagliBoruId) {
+                        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
+                        if (cikisBoru) {
+                            // Çıkış borusunun p1'ini delta kadar taşı (sayaçla birlikte)
+                            cikisBoru.p1.x += offsetX;
+                            cikisBoru.p1.y += offsetY;
 
-                        // O noktaya bağlı DİĞER boruları taşı (startBodyDrag'da kaydettiklerimiz)
-                        interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                            const oldX = connectedPipe[connectedEndpoint].x;
-                            const oldY = connectedPipe[connectedEndpoint].y;
-                            connectedPipe[connectedEndpoint].x = newOutputP1.x;
-                            connectedPipe[connectedEndpoint].y = newOutputP1.y;
-                            console.log(`    [ÇIKIŞ] Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newOutputP1.x.toFixed(1)}, ${newOutputP1.y.toFixed(1)})`);
-                        });
+                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+
+                            // O noktaya bağlı DİĞER boruları taşı (startBodyDrag'da kaydettiklerimiz)
+                            interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                                const oldX = connectedPipe[connectedEndpoint].x;
+                                const oldY = connectedPipe[connectedEndpoint].y;
+                                connectedPipe[connectedEndpoint].x = newOutputP1.x;
+                                connectedPipe[connectedEndpoint].y = newOutputP1.y;
+                                console.log(`    [ÇIKIŞ] Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newOutputP1.x.toFixed(1)}, ${newOutputP1.y.toFixed(1)})`);
+                            });
+                        }
                     }
                 }
             }
