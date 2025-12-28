@@ -40,7 +40,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return dist < TOLERANCE;
     });
     if (servisKutusuCikisi) {
-        console.log('[PROTECTED] Servis kutusu çıkışı');
+      //  console.log('[PROTECTED] Servis kutusu çıkışı');
         return true;
     }
 
@@ -62,7 +62,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
             const girisPoint = girisBoru[c.fleksBaglanti.endpoint];
             const dist = Math.hypot(point.x - girisPoint.x, point.y - girisPoint.y);
             if (dist < TOLERANCE) {
-                console.log('[PROTECTED] Sayaç girişi - başka boru bağlanamaz!');
+                // console.log('[PROTECTED] Sayaç girişi - başka boru bağlanamaz!');
                 return true;
             }
         }
@@ -91,7 +91,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
             const cikisPoint = c.getCikisNoktasi();
             const dist = Math.hypot(point.x - cikisPoint.x, point.y - cikisPoint.y);
             if (dist < TOLERANCE) {
-                console.log('[PROTECTED] Sayaç çıkışı - başka boru bağlanamaz!');
+             //   // console.log('[PROTECTED] Sayaç çıkışı - başka boru bağlanamaz!');
                 return true;
             }
         }
@@ -99,7 +99,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return false;
     });
     if (sayacCikisi) {
-        console.log('[PROTECTED] Sayaç çıkışı');
+     //   // console.log('[PROTECTED] Sayaç çıkışı');
         return true;
     }
 
@@ -125,7 +125,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return dist < TOLERANCE;
     });
     if (cihazFleksi) {
-        console.log('[PROTECTED] Cihaz fleks bağlantısı');
+       // // console.log('[PROTECTED] Cihaz fleks bağlantısı');
         return true;
     }
 
@@ -159,7 +159,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return false;
     });
     if (isDirsek) {
-        console.log('[PROTECTED] Dirsek (2+ boru bağlı nokta)');
+       // // console.log('[PROTECTED] Dirsek (2+ boru bağlı nokta)');
         return true;
     }
 
@@ -195,7 +195,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
             return false;
         });
         if (bostaUc) {
-            console.log('[PROTECTED] Boşta boru ucu (bağlantısı olmayan serbest uç)');
+          //  // console.log('[PROTECTED] Boşta boru ucu (bağlantısı olmayan serbest uç)');
             return true;
         }
     }
@@ -260,7 +260,7 @@ export function updateSharedVertex(pipes, oldPoint, newPoint, excludePipe = null
         pipe[endpoint].y = newPoint.y;
     });
 
-    console.log(`[SHARED VERTEX] ${pipesAtPoint.length} boru ucu güncellendi: (${oldPoint.x},${oldPoint.y}) -> (${newPoint.x},${newPoint.y})`);
+   // // console.log(`[SHARED VERTEX] ${pipesAtPoint.length} boru ucu güncellendi: (${oldPoint.x},${oldPoint.y}) -> (${newPoint.x},${newPoint.y})`);
 }
 
 /**
@@ -293,7 +293,7 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
         if (cikisBoru) {
             excludePipes.push(cikisBoru);
-            console.log('[ENDPOINT DRAG] Sayaç giriş borusu - çıkış borusu exclude edildi');
+            // // console.log('[ENDPOINT DRAG] Sayaç giriş borusu - çıkış borusu exclude edildi');
         }
     }
 
@@ -315,7 +315,7 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
 
     interactionManager.connectedPipesAtEndpoint = connectedPipes;
 
-    console.log(`[ENDPOINT DRAG START] ${interactionManager.connectedPipesAtEndpoint.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
+    // // console.log(`[ENDPOINT DRAG START] ${interactionManager.connectedPipesAtEndpoint.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
 }
 
 /**
@@ -334,7 +334,7 @@ export function startDrag(interactionManager, obj, point) {
     if (obj.type === 'vana' && obj.bagliBoruId) {
         interactionManager.dragObjectPipe = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
         interactionManager.dragObjectsOnPipe = getObjectsOnPipe(interactionManager.manager.components, obj.bagliBoruId);
-        console.log('Vana sürükleme başladı - Bağlı boru:', interactionManager.dragObjectPipe?.id);
+        // // console.log('Vana sürükleme başladı - Bağlı boru:', interactionManager.dragObjectPipe?.id);
     } else {
         interactionManager.dragObjectPipe = null;
         interactionManager.dragObjectsOnPipe = null;
@@ -350,7 +350,7 @@ export function startDrag(interactionManager, obj, point) {
                 boru,
                 TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE  // SENKRON tolerance
             );
-            console.log(`[SERVIS KUTUSU START] ${interactionManager.servisKutusuConnectedPipes.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
+            // console.log(`[SERVIS KUTUSU START] ${interactionManager.servisKutusuConnectedPipes.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
         }
     }
 
@@ -383,7 +383,7 @@ export function startDrag(interactionManager, obj, point) {
             });
 
             interactionManager.sayacConnectedPipes = outputConnectedPipes;
-            console.log(`[SAYAC START] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi (giriş hattı exclude edildi)`);
+            // console.log(`[SAYAC START] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi (giriş hattı exclude edildi)`);
         }
     }
 }
@@ -411,38 +411,38 @@ export function startBodyDrag(interactionManager, pipe, point) {
     );
 
     // DEBUG: Sürüklenen borunun detaylarını yazdır
-    console.log(`[BODY DRAG START] Boru ID: ${pipe.id}`);
-    console.log(`  BORU P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
-    console.log(`  BORU P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
-    console.log(`  FARE POS: (${point.x.toFixed(1)}, ${point.y.toFixed(1)})`);
-    console.log(`  🎯 FARE ↔ BORU MESAFE: ${mouseDistanceFromPipe.toFixed(1)} cm`);
+    // console.log(`[BODY DRAG START] Boru ID: ${pipe.id}`);
+    // console.log(`  BORU P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
+    // console.log(`  BORU P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    // console.log(`  FARE POS: (${point.x.toFixed(1)}, ${point.y.toFixed(1)})`);
+    // console.log(`  🎯 FARE ↔ BORU MESAFE: ${mouseDistanceFromPipe.toFixed(1)} cm`);
     if (mouseDistanceFromPipe > 5) {
-        console.log(`  ⚠️⚠️⚠️  UYARI: Fare borudan ${mouseDistanceFromPipe.toFixed(1)} cm uzakta! (>5cm)`);
+        // console.log(`  ⚠️⚠️⚠️  UYARI: Fare borudan ${mouseDistanceFromPipe.toFixed(1)} cm uzakta! (>5cm)`);
     }
-    console.log(`  Toplam boru sayısı: ${interactionManager.manager.pipes.length}`);
+    // console.log(`  Toplam boru sayısı: ${interactionManager.manager.pipes.length}`);
 
     // CRITICAL DEBUG: Track if pipe object is being replaced between drags
     if (!window.__lastDraggedPipe) {
         window.__lastDraggedPipe = { pipe: null, positions: null };
     }
     if (window.__lastDraggedPipe.pipe === pipe) {
-        console.log(`  ✓ Same pipe object as last drag`);
+        // console.log(`  ✓ Same pipe object as last drag`);
     } else if (window.__lastDraggedPipe.pipe && window.__lastDraggedPipe.pipe.id === pipe.id) {
-        console.log(`  ⚠️ DIFFERENT pipe object with same ID! (OBJECT WAS REPLACED!)`);
+        // console.log(`  ⚠️ DIFFERENT pipe object with same ID! (OBJECT WAS REPLACED!)`);
         if (window.__lastDraggedPipe.positions) {
             const lastP1 = window.__lastDraggedPipe.positions.p1;
             const jumpX = Math.abs(pipe.p1.x - lastP1.x);
             const jumpY = Math.abs(pipe.p1.y - lastP1.y);
-            console.log(`  ⚠️ Position jump from last exit: X=${jumpX.toFixed(1)} cm, Y=${jumpY.toFixed(1)} cm`);
+            // console.log(`  ⚠️ Position jump from last exit: X=${jumpX.toFixed(1)} cm, Y=${jumpY.toFixed(1)} cm`);
         }
     }
 
     // DEBUG: Check for duplicate pipes with same ID
     const duplicates = interactionManager.manager.pipes.filter(p => p.id === pipe.id);
     if (duplicates.length > 1) {
-        console.log(`  ⚠️ UYARI: ${duplicates.length} adet aynı ID'li boru bulundu!`);
+        // console.log(`  ⚠️ UYARI: ${duplicates.length} adet aynı ID'li boru bulundu!`);
         duplicates.forEach((dup, idx) => {
-            console.log(`    [${idx}] P1: (${dup.p1.x.toFixed(1)}, ${dup.p1.y.toFixed(1)}), P2: (${dup.p2.x.toFixed(1)}, ${dup.p2.y.toFixed(1)})`);
+            // console.log(`    [${idx}] P1: (${dup.p1.x.toFixed(1)}, ${dup.p1.y.toFixed(1)}), P2: (${dup.p2.x.toFixed(1)}, ${dup.p2.y.toFixed(1)})`);
         });
     }
 
@@ -459,7 +459,7 @@ export function startBodyDrag(interactionManager, pipe, point) {
         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeterForBody.cikisBagliBoruId);
         if (cikisBoru) {
             excludePipesForBody.push(cikisBoru);
-            console.log('[BODY DRAG] Sayaç giriş borusu - çıkış borusu exclude edildi');
+            // console.log('[BODY DRAG] Sayaç giriş borusu - çıkış borusu exclude edildi');
         }
     }
 
@@ -494,7 +494,7 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.connectedPipesAtP1 = connectedPipesAtP1;
     interactionManager.connectedPipesAtP2 = connectedPipesAtP2;
 
-    console.log(`  P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
+    // console.log(`  P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
 
     // 🔧 FIX: Bu boruya bağlı sayaç varsa, sayacın ÇIKIŞ hattındaki bağlı boruları da cache'le
     // Sorun: Sayaç GİRİŞ hattı hareket edince, sayaç hareket ediyor ama ÇIKIŞ hattı güncellenmiyor
@@ -530,7 +530,7 @@ export function startBodyDrag(interactionManager, pipe, point) {
             });
 
             interactionManager.meterConnectedPipesAtOutput = outputConnectedPipes;
-            console.log(`  [SAYAÇ ÇIKIŞ] ${interactionManager.meterConnectedPipesAtOutput.length} bağlı boru tespit edildi (giriş hattı exclude edildi)`);
+            // console.log(`  [SAYAÇ ÇIKIŞ] ${interactionManager.meterConnectedPipesAtOutput.length} bağlı boru tespit edildi (giriş hattı exclude edildi)`);
         }
     }
 
@@ -538,19 +538,19 @@ export function startBodyDrag(interactionManager, pipe, point) {
     if (interactionManager.connectedPipesAtP1.length > 0) {
         interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint }) => {
             const dist = Math.hypot(pipe.p1.x - connectedPipe[endpoint].x, pipe.p1.y - connectedPipe[endpoint].y);
-            console.log(`    [P1] Bağlı boru ${connectedPipe.id.substring(0,12)}... mesafe: ${dist.toFixed(2)} cm`);
+            // console.log(`    [P1] Bağlı boru ${connectedPipe.id.substring(0,12)}... mesafe: ${dist.toFixed(2)} cm`);
         });
     }
     if (interactionManager.connectedPipesAtP2.length > 0) {
         interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint }) => {
             const dist = Math.hypot(pipe.p2.x - connectedPipe[endpoint].x, pipe.p2.y - connectedPipe[endpoint].y);
-            console.log(`    [P2] Bağlı boru ${connectedPipe.id.substring(0,12)}... mesafe: ${dist.toFixed(2)} cm`);
+            // console.log(`    [P2] Bağlı boru ${connectedPipe.id.substring(0,12)}... mesafe: ${dist.toFixed(2)} cm`);
         });
     }
 
     // DEBUG: Eğer bağlı boru bulunamadıysa, tüm boruları kontrol et
     if (interactionManager.connectedPipesAtP1.length === 0 && interactionManager.connectedPipesAtP2.length === 0) {
-        console.log(`  [WARNING] Hiç bağlı boru bulunamadı! P1/P2 yakınındaki tüm boruları kontrol ediyorum:`);
+        // console.log(`  [WARNING] Hiç bağlı boru bulunamadı! P1/P2 yakınındaki tüm boruları kontrol ediyorum:`);
         interactionManager.manager.pipes.forEach(otherPipe => {
             if (otherPipe === pipe) return;
             const distP1toP1 = Math.hypot(pipe.p1.x - otherPipe.p1.x, pipe.p1.y - otherPipe.p1.y);
@@ -560,7 +560,7 @@ export function startBodyDrag(interactionManager, pipe, point) {
 
             const minDist = Math.min(distP1toP1, distP1toP2, distP2toP1, distP2toP2);
             if (minDist < 50) { // 50 cm içindeki boruları göster
-                console.log(`    Boru ${otherPipe.id.substring(0,12)}... en yakın mesafe: ${minDist.toFixed(2)} cm`);
+                // console.log(`    Boru ${otherPipe.id.substring(0,12)}... en yakın mesafe: ${minDist.toFixed(2)} cm`);
             }
         });
     }
@@ -966,7 +966,7 @@ export function handleDrag(interactionManager, point) {
 
         // Boru yoksa veya geçersizse hareket etme
         if (!targetPipe) {
-            // console.log('Vana sürüklerken boru bulunamadı - hareket engellendi');
+            // // console.log('Vana sürüklerken boru bulunamadı - hareket engellendi');
             return;
         }
 
@@ -1270,11 +1270,11 @@ export function handleDrag(interactionManager, point) {
         const p2Blocked = checkEndpointDistance(newP2, interactionManager.bodyDragInitialP2);
 
         if (p1Blocked || p2Blocked) {
-            console.log(`  [BODY DRAG] Hareket engellendi! P1: ${p1Blocked}, P2: ${p2Blocked}`);
+            // console.log(`  [BODY DRAG] Hareket engellendi! P1: ${p1Blocked}, P2: ${p2Blocked}`);
             return; // Taşımayı engelle
         }
 
-        console.log(`  [BODY DRAG] Pozisyon güncelleniyor...`);
+        // console.log(`  [BODY DRAG] Pozisyon güncelleniyor...`);
 
         // Nokta boşsa pozisyonları uygula
         pipe.p1.x = newP1.x;
@@ -1283,10 +1283,10 @@ export function handleDrag(interactionManager, point) {
         pipe.p2.y = newP2.y;
 
         // Mod kontrolü: ARA BORU modu mu NORMAL mod mu?
-        console.log(`  [BODY DRAG] Bridge Mode: ${interactionManager.useBridgeMode}`);
+        // console.log(`  [BODY DRAG] Bridge Mode: ${interactionManager.useBridgeMode}`);
 
         if (interactionManager.useBridgeMode) {
-            console.log(`  [BODY DRAG] ARA BORU MODU aktif - bağlı borular taşınmayacak`);
+            // console.log(`  [BODY DRAG] ARA BORU MODU aktif - bağlı borular taşınmayacak`);
             // ✅ ARA BORU MODU: Bağlı boruları TAŞIMA, ara borular oluştur
             // Ghost ara boruları oluştur (preview için)
             interactionManager.ghostBridgePipes = [];
@@ -1316,36 +1316,36 @@ export function handleDrag(interactionManager, point) {
                 }
             }
         } else {
-            console.log(`  [BODY DRAG] NORMAL MOD aktif - bağlı borular cache'den taşınacak`);
+            // console.log(`  [BODY DRAG] NORMAL MOD aktif - bağlı borular cache'den taşınacak`);
             // ✅ NORMAL MOD: SHARED VERTEX mantığı ile güncelle - CACHED SİSTEM (KOPMA SORUNU ÇÖZÜLDÜ!)
             interactionManager.ghostBridgePipes = []; // Ghost yok
 
             // P1: startBodyDrag'da bulduğumuz bağlı boruları güncelle (cached yaklaşım!)
             if (interactionManager.connectedPipesAtP1 && interactionManager.connectedPipesAtP1.length > 0) {
-                console.log(`  [BODY DRAG] P1: ${interactionManager.connectedPipesAtP1.length} bağlı boru güncelleniyor...`);
+                // console.log(`  [BODY DRAG] P1: ${interactionManager.connectedPipesAtP1.length} bağlı boru güncelleniyor...`);
                 interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     const oldX = connectedPipe[connectedEndpoint].x;
                     const oldY = connectedPipe[connectedEndpoint].y;
                     connectedPipe[connectedEndpoint].x = newP1.x;
                     connectedPipe[connectedEndpoint].y = newP1.y;
-                    console.log(`    Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newP1.x.toFixed(1)}, ${newP1.y.toFixed(1)})`);
+                    // console.log(`    Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newP1.x.toFixed(1)}, ${newP1.y.toFixed(1)})`);
                 });
             } else {
-                console.log(`  [BODY DRAG] P1: Bağlı boru yok veya cache boş!`);
+                // console.log(`  [BODY DRAG] P1: Bağlı boru yok veya cache boş!`);
             }
 
             // P2: startBodyDrag'da bulduğumuz bağlı boruları güncelle (cached yaklaşım!)
             if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
-                console.log(`  [BODY DRAG] P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru güncelleniyor...`);
+                // console.log(`  [BODY DRAG] P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru güncelleniyor...`);
                 interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     const oldX = connectedPipe[connectedEndpoint].x;
                     const oldY = connectedPipe[connectedEndpoint].y;
                     connectedPipe[connectedEndpoint].x = newP2.x;
                     connectedPipe[connectedEndpoint].y = newP2.y;
-                    console.log(`    Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newP2.x.toFixed(1)}, ${newP2.y.toFixed(1)})`);
+                    // console.log(`    Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newP2.x.toFixed(1)}, ${newP2.y.toFixed(1)})`);
                 });
             } else {
-                console.log(`  [BODY DRAG] P2: Bağlı boru yok veya cache boş!`);
+                // console.log(`  [BODY DRAG] P2: Bağlı boru yok veya cache boş!`);
             }
 
             // 🚨 KRİTİK: Bu boru sayaç giriş hattıysa, SAYACI VE ÇIKIŞ hattını hareket ettir!
@@ -1359,7 +1359,7 @@ export function handleDrag(interactionManager, point) {
                 );
 
                 if (connectedMeter) {
-                    console.log(`  [SAYAÇ] Sayaç giriş hattı hareket ediyor - sayaç ve çıkış hattı taşınıyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
+                    // console.log(`  [SAYAÇ] Sayaç giriş hattı hareket ediyor - sayaç ve çıkış hattı taşınıyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
 
                     // ÖNCE SAYACI hareket ettir
                     connectedMeter.x += offsetX;
@@ -1381,7 +1381,7 @@ export function handleDrag(interactionManager, point) {
                                 const oldY = connectedPipe[connectedEndpoint].y;
                                 connectedPipe[connectedEndpoint].x = newOutputP1.x;
                                 connectedPipe[connectedEndpoint].y = newOutputP1.y;
-                                console.log(`    [ÇIKIŞ] Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newOutputP1.x.toFixed(1)}, ${newOutputP1.y.toFixed(1)})`);
+                                // console.log(`    [ÇIKIŞ] Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newOutputP1.x.toFixed(1)}, ${newOutputP1.y.toFixed(1)})`);
                             });
                         }
                     }
@@ -1438,8 +1438,8 @@ export function endDrag(interactionManager) {
     const isBodyDragPipe = interactionManager.isBodyDrag && interactionManager.dragObject && interactionManager.dragObject.type === 'boru';
     if (isBodyDragPipe) {
         const pipe = interactionManager.dragObject;
-        console.log(`[END DRAG] START - Boru ${pipe.id.substring(0,12)}...`);
-        console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)}), P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+        // console.log(`[END DRAG] START - Boru ${pipe.id.substring(0,12)}...`);
+        // console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)}), P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
     }
 
     // Body drag bittiğinde ara borular oluştur
@@ -1452,9 +1452,9 @@ export function endDrag(interactionManager) {
 
         // DEBUG: Before bridge mode logic
         if (isBodyDragPipe) {
-            console.log(`[END DRAG] BEFORE BRIDGE MODE - Boru ${draggedPipe.id.substring(0,12)}...`);
-            console.log(`  P1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}), P2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)})`);
-            console.log(`  Bridge Mode: ${interactionManager.useBridgeMode ? 'ENABLED' : 'DISABLED'}`);
+            // console.log(`[END DRAG] BEFORE BRIDGE MODE - Boru ${draggedPipe.id.substring(0,12)}...`);
+            // console.log(`  P1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}), P2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)})`);
+            // console.log(`  Bridge Mode: ${interactionManager.useBridgeMode ? 'ENABLED' : 'DISABLED'}`);
         }
 
         // ⚠️ Sadece BRIDGE MODE ise ara borular oluştur
@@ -1508,8 +1508,8 @@ export function endDrag(interactionManager) {
 
         // DEBUG: After bridge mode logic
         if (isBodyDragPipe) {
-            console.log(`[END DRAG] AFTER BRIDGE MODE - Boru ${draggedPipe.id.substring(0,12)}...`);
-            console.log(`  P1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}), P2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)})`);
+            // console.log(`[END DRAG] AFTER BRIDGE MODE - Boru ${draggedPipe.id.substring(0,12)}...`);
+            // console.log(`  P1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}), P2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)})`);
         }
     }
 
@@ -1517,8 +1517,8 @@ export function endDrag(interactionManager) {
     let debugPipe = null;
     if (isBodyDragPipe) {
         debugPipe = interactionManager.dragObject;
-        console.log(`[END DRAG] BEFORE STATE CLEANUP - Boru ${debugPipe.id.substring(0,12)}...`);
-        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+        // // console.log(`[END DRAG] BEFORE STATE CLEANUP - Boru ${debugPipe.id.substring(0,12)}...`);
+        // // console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
     }
 
     interactionManager.isDragging = false;
@@ -1546,31 +1546,31 @@ export function endDrag(interactionManager) {
 
     // DEBUG: Before saveToState()
     if (debugPipe) {
-        console.log(`[END DRAG] BEFORE saveToState() - Boru ${debugPipe.id.substring(0,12)}...`);
-        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+        // console.log(`[END DRAG] BEFORE saveToState() - Boru ${debugPipe.id.substring(0,12)}...`);
+        // console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
     }
 
     interactionManager.manager.saveToState();
 
     // DEBUG: After saveToState()
     if (debugPipe) {
-        console.log(`[END DRAG] AFTER saveToState() - Boru ${debugPipe.id.substring(0,12)}...`);
-        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+        // console.log(`[END DRAG] AFTER saveToState() - Boru ${debugPipe.id.substring(0,12)}...`);
+        // console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
     }
 
     // DEBUG: Before saveState() (undo history)
     if (debugPipe) {
-        console.log(`[END DRAG] BEFORE saveState() - Boru ${debugPipe.id.substring(0,12)}...`);
-        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+        // console.log(`[END DRAG] BEFORE saveState() - Boru ${debugPipe.id.substring(0,12)}...`);
+        // console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
     }
 
     saveState(); // Save to undo history
 
     // DEBUG: Function exit
     if (debugPipe) {
-        console.log(`[END DRAG] EXIT - Boru ${debugPipe.id.substring(0,12)}...`);
-        console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
-        console.log('─'.repeat(80));
+        // console.log(`[END DRAG] EXIT - Boru ${debugPipe.id.substring(0,12)}...`);
+        // console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
+        // console.log('─'.repeat(80));
 
         // CRITICAL: Save pipe reference and positions for next drag comparison
         if (!window.__lastDraggedPipe) {
