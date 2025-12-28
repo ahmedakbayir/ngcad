@@ -8,6 +8,7 @@ import { saveState } from '../../general-files/history.js';
 import { getObjectsOnPipe } from './placement-utils.js';
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
+import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 
 /**
  * Bir noktanın korumalı (taşınamaz) olup olmadığını kontrol eder
@@ -263,10 +264,10 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
         interactionManager.manager.pipes,
         draggedPoint,
         pipe,
-        3.0 // 3 cm tolerance - optimal değer (cache sistemi ile kopma sorunu çözüldü ✅)
+        TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE // SENKRON tolerance - seçim ile aynı
     );
 
-    console.log(`[ENDPOINT DRAG START] ${interactionManager.connectedPipesAtEndpoint.length} bağlı boru tespit edildi`);
+    console.log(`[ENDPOINT DRAG START] ${interactionManager.connectedPipesAtEndpoint.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
 }
 
 /**
@@ -299,9 +300,9 @@ export function startDrag(interactionManager, obj, point) {
                 interactionManager.manager.pipes,
                 boru.p1,  // ŞU ANKİ pozisyon (henüz hareket etmedi)
                 boru,
-                3.0  // 3 cm tolerance
+                TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE  // SENKRON tolerance
             );
-            console.log(`[SERVIS KUTUSU START] ${interactionManager.servisKutusuConnectedPipes.length} bağlı boru tespit edildi`);
+            console.log(`[SERVIS KUTUSU START] ${interactionManager.servisKutusuConnectedPipes.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
         }
     }
 
@@ -313,9 +314,9 @@ export function startDrag(interactionManager, obj, point) {
                 interactionManager.manager.pipes,
                 cikisBoru.p1,  // ŞU ANKİ pozisyon (henüz hareket etmedi)
                 cikisBoru,
-                3.0  // 3 cm tolerance
+                TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE  // SENKRON tolerance
             );
-            console.log(`[SAYAC START] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi`);
+            console.log(`[SAYAC START] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
         }
     }
 }
@@ -379,10 +380,10 @@ export function startBodyDrag(interactionManager, pipe, point) {
     }
 
     // SHARED VERTEX: P1 ve P2 noktalarındaki tüm boruları ÖNCEDENtespit et ve kaydet (hızlı drag için)
-    interactionManager.connectedPipesAtP1 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe, 8.0);
-    interactionManager.connectedPipesAtP2 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe, 8.0);
+    interactionManager.connectedPipesAtP1 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe, TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE);
+    interactionManager.connectedPipesAtP2 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe, TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE);
 
-    console.log(`  P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru`);
+    console.log(`  P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
 
     // DEBUG: Bağlı boruların mesafelerini yazdır
     if (interactionManager.connectedPipesAtP1.length > 0) {

@@ -6,6 +6,7 @@
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
 import { saveState } from '../../../general-files/history.js';
 import { setState, state } from '../../../general-files/main.js';
+import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 
 /**
  * Bir noktada nesne bul (bileşen veya boru)
@@ -29,9 +30,9 @@ export function findObjectAt(manager, point) {
     //     }
     // }
 
-    // ÖNCELİK 3: Borular (daha geniş tolerance - 5cm)
+    // ÖNCELİK 3: Borular (SENKRON tolerance - seçim ve sürükleme için aynı)
     for (const pipe of manager.pipes) {
-        if (pipe.containsPoint && pipe.containsPoint(point, 8)) {
+        if (pipe.containsPoint && pipe.containsPoint(point, TESISAT_CONSTANTS.SELECTION_TOLERANCE)) {
             return pipe;
         }
     }
