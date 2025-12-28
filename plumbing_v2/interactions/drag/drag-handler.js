@@ -963,8 +963,8 @@ export function handleDrag(interactionManager, point) {
 
         // SHARED VERTEX: Başlangıçta kaydedilmiş bağlı borular (collision check için)
         const connectedPipes = [
-            ...interactionManager.connectedPipesAtP1.map(c => c.pipe),
-            ...interactionManager.connectedPipesAtP2.map(c => c.pipe)
+            ...(interactionManager.connectedPipesAtP1 || []).map(c => c.pipe),
+            ...(interactionManager.connectedPipesAtP2 || []).map(c => c.pipe)
         ];
 
         // Basit yaklaşım: Her boru ucunu kontrol et, eğer o uç bir dirsekse 4cm, değilse 1.5cm tolerans
@@ -1046,16 +1046,20 @@ export function handleDrag(interactionManager, point) {
             interactionManager.ghostBridgePipes = []; // Ghost yok
 
             // P1: Başlangıçta tespit edilen bağlı boruları güncelle (search yok!)
-            interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                connectedPipe[connectedEndpoint].x = newP1.x;
-                connectedPipe[connectedEndpoint].y = newP1.y;
-            });
+            if (interactionManager.connectedPipesAtP1) {
+                interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                    connectedPipe[connectedEndpoint].x = newP1.x;
+                    connectedPipe[connectedEndpoint].y = newP1.y;
+                });
+            }
 
             // P2: Başlangıçta tespit edilen bağlı boruları güncelle (search yok!)
-            interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                connectedPipe[connectedEndpoint].x = newP2.x;
-                connectedPipe[connectedEndpoint].y = newP2.y;
-            });
+            if (interactionManager.connectedPipesAtP2) {
+                interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                    connectedPipe[connectedEndpoint].x = newP2.x;
+                    connectedPipe[connectedEndpoint].y = newP2.y;
+                });
+            }
         }
 
         return;
