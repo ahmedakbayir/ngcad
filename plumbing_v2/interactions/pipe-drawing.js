@@ -9,7 +9,7 @@ import { saveState } from '../../general-files/history.js';
 import { setMode } from '../../general-files/main.js';
 import { getObjectsOnPipe, canPlaceValveOnPipe } from './placement-utils.js';
 import { state } from '../../general-files/main.js';
-import { isProtectedPoint } from './drag/drag-handler.js';
+import { isProtectedPoint } from './drag-handler.js';
 
 /**
  * Boru çizim modunu başlat

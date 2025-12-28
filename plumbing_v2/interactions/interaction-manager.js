@@ -44,7 +44,7 @@ import {
     startBodyDrag,
     handleDrag,
     endDrag
-} from './drag/drag-handler.js';
+} from './drag-handler.js';
 
 // Rotation handlers
 import {
