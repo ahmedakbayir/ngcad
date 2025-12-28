@@ -44,40 +44,59 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return true;
     }
 
-    // 2. Sayaç giriş kontrolü (fleks bağlantısı)
+    // 2. Sayaç giriş kontrolü (MANTIKSAL - başka boru bağlanamaz!)
     const sayacGirisi = manager.components.some(c => {
-        if (c.type !== 'sayac' || !c.fleksBaglanti) return false;
-        if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen sayacı atla
+        if (c.type !== 'sayac') return false;
+        if (excludeComponentId && c.id === excludeComponentId) return false;
 
-        // Fleks bağlantı varsa, BORUNUN UCUNU koru
-        if (c.fleksBaglanti.boruId && c.fleksBaglanti.endpoint) {
-            const boru = manager.pipes.find(p => p.id === c.fleksBaglanti.boruId);
-            if (boru) {
-                const boruUcu = boru[c.fleksBaglanti.endpoint]; // p1 veya p2
-                const dist = Math.hypot(point.x - boruUcu.x, point.y - boruUcu.y);
-                return dist < TOLERANCE;
+        // 🚨 MANTIKSAL KONTROL: Sayaç girişinde zaten bir boru varsa, başka boru bağlanamaz!
+        if (c.fleksBaglanti?.boruId) {
+            const girisBoru = manager.pipes.find(p => p.id === c.fleksBaglanti.boruId);
+
+            // Eğer sürüklenen boru GİRİŞ borusunun KENDİSİ ise izin ver
+            if (currentPipe && girisBoru && currentPipe.id === girisBoru.id) {
+                return false; // Kendi borusu - izin ver
+            }
+
+            // Başka bir boru sayaç girişine yaklaşmaya çalışıyor
+            const girisPoint = girisBoru[c.fleksBaglanti.endpoint];
+            const dist = Math.hypot(point.x - girisPoint.x, point.y - girisPoint.y);
+            if (dist < TOLERANCE) {
+                console.log('[PROTECTED] Sayaç girişi - başka boru bağlanamaz!');
+                return true;
             }
         }
 
-        // Fleks bağlantı henüz yapılmamışsa, giriş noktasını koru
-        const giris = c.getGirisNoktasi();
-        if (!giris) return false;
-        const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
-        return dist < TOLERANCE;
+        return false;
     });
     if (sayacGirisi) {
-        console.log('[PROTECTED] Sayaç girişi (fleks bağlantı)');
         return true;
     }
 
-    // 3. Sayaç çıkışı kontrolü
+    // 3. Sayaç çıkışı kontrolü (MANTIKSAL - başka boru bağlanamaz!)
     const sayacCikisi = manager.components.some(c => {
         if (c.type !== 'sayac') return false;
-        if (excludeComponentId && c.id === excludeComponentId) return false; // Yeni eklenen sayacı atla
-        const cikis = c.getCikisNoktasi();
-        if (!cikis) return false;
-        const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
-        return dist < TOLERANCE;
+        if (excludeComponentId && c.id === excludeComponentId) return false;
+
+        // 🚨 MANTIKSAL KONTROL: Sayaç çıkışında zaten bir boru varsa, başka boru bağlanamaz!
+        if (c.cikisBagliBoruId) {
+            const cikisBoru = manager.pipes.find(p => p.id === c.cikisBagliBoruId);
+
+            // Eğer sürüklenen boru ÇIKIŞ borusunun KENDİSİ ise izin ver
+            if (currentPipe && cikisBoru && currentPipe.id === cikisBoru.id) {
+                return false; // Kendi borusu - izin ver
+            }
+
+            // Başka bir boru sayaç çıkışına yaklaşmaya çalışıyor
+            const cikisPoint = c.getCikisNoktasi();
+            const dist = Math.hypot(point.x - cikisPoint.x, point.y - cikisPoint.y);
+            if (dist < TOLERANCE) {
+                console.log('[PROTECTED] Sayaç çıkışı - başka boru bağlanamaz!');
+                return true;
+            }
+        }
+
+        return false;
     });
     if (sayacCikisi) {
         console.log('[PROTECTED] Sayaç çıkışı');
