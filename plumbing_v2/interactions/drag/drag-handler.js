@@ -3,11 +3,11 @@
  * Sürükleme işlemlerini yönetir
  */
 
-import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
-import { saveState } from '../../general-files/history.js';
-import { getObjectsOnPipe } from './placement-utils.js';
-import { Boru } from '../objects/pipe.js';
-import { state } from '../../general-files/main.js';
+import { BAGLANTI_TIPLERI } from '../../objects/pipe.js';
+import { saveState } from '../../../general-files/history.js';
+import { getObjectsOnPipe } from '../placement-utils.js';
+import { Boru } from '../../objects/pipe.js';
+import { state } from '../../../general-files/main.js';
 
 /**
  * Bir noktanın korumalı (taşınamaz) olup olmadığını kontrol eder
