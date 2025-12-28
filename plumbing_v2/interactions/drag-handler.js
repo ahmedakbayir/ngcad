@@ -1223,7 +1223,7 @@ export function handleDrag(interactionManager, point) {
                 console.log(`  [BODY DRAG] P2: Bağlı boru yok veya cache boş!`);
             }
 
-            // 🔧 FIX: Bu boru sayaç giriş hattıysa, sayacın ÇIKIŞ hattını da güncelle
+            // 🔧 FIX: Bu boru sayaç giriş hattıysa, SAYACI ve ÇIKIŞ hattını da güncelle
             if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
                 // Sayacı bul
                 const connectedMeter = interactionManager.manager.components.find(c =>
@@ -1232,25 +1232,33 @@ export function handleDrag(interactionManager, point) {
                     c.fleksBaglanti.boruId === pipe.id
                 );
 
-                if (connectedMeter && connectedMeter.cikisBagliBoruId) {
-                    const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
-                    if (cikisBoru) {
-                        console.log(`  [SAYAÇ ÇIKIŞ] Sayaç çıkış hattı güncelleniyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
+                if (connectedMeter) {
+                    console.log(`  [SAYAÇ] Sayaç giriş hattı sürükleniyor, sayaç ve çıkış hattı güncelleniyor (delta: ${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})...`);
 
-                        // Çıkış borusunun p1'ini delta kadar taşı
-                        cikisBoru.p1.x += offsetX;
-                        cikisBoru.p1.y += offsetY;
+                    // 🚨 KRİTİK: Önce sayacı hareket ettir!
+                    // Sayaç giriş borusuyla birlikte hareket etmeli, aksi halde çıkış borusu kopacak
+                    connectedMeter.x += offsetX;
+                    connectedMeter.y += offsetY;
 
-                        const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+                    // Çıkış borusunu güncelle (sayaç hareket ettiği için çıkış noktası da değişti)
+                    if (connectedMeter.cikisBagliBoruId) {
+                        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
+                        if (cikisBoru) {
+                            // Çıkış borusunun p1'ini delta kadar taşı (sayaçla birlikte)
+                            cikisBoru.p1.x += offsetX;
+                            cikisBoru.p1.y += offsetY;
 
-                        // O noktaya bağlı DİĞER boruları taşı (startBodyDrag'da kaydettiklerimiz)
-                        interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                            const oldX = connectedPipe[connectedEndpoint].x;
-                            const oldY = connectedPipe[connectedEndpoint].y;
-                            connectedPipe[connectedEndpoint].x = newOutputP1.x;
-                            connectedPipe[connectedEndpoint].y = newOutputP1.y;
-                            console.log(`    [ÇIKIŞ] Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newOutputP1.x.toFixed(1)}, ${newOutputP1.y.toFixed(1)})`);
-                        });
+                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+
+                            // O noktaya bağlı DİĞER boruları taşı (startBodyDrag'da kaydettiklerimiz)
+                            interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                                const oldX = connectedPipe[connectedEndpoint].x;
+                                const oldY = connectedPipe[connectedEndpoint].y;
+                                connectedPipe[connectedEndpoint].x = newOutputP1.x;
+                                connectedPipe[connectedEndpoint].y = newOutputP1.y;
+                                console.log(`    [ÇIKIŞ] Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newOutputP1.x.toFixed(1)}, ${newOutputP1.y.toFixed(1)})`);
+                            });
+                        }
                     }
                 }
             }
