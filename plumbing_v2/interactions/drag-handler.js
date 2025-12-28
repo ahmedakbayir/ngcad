@@ -342,6 +342,15 @@ export function startBodyDrag(interactionManager, pipe, point) {
     console.log(`  P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
     console.log(`  Toplam boru sayısı: ${interactionManager.manager.pipes.length}`);
 
+    // DEBUG: Check for duplicate pipes with same ID
+    const duplicates = interactionManager.manager.pipes.filter(p => p.id === pipe.id);
+    if (duplicates.length > 1) {
+        console.log(`  ⚠️ UYARI: ${duplicates.length} adet aynı ID'li boru bulundu!`);
+        duplicates.forEach((dup, idx) => {
+            console.log(`    [${idx}] P1: (${dup.p1.x.toFixed(1)}, ${dup.p1.y.toFixed(1)}), P2: (${dup.p2.x.toFixed(1)}, ${dup.p2.y.toFixed(1)})`);
+        });
+    }
+
     // SHARED VERTEX: P1 ve P2 noktalarındaki tüm boruları ÖNCEDENtespit et ve kaydet (hızlı drag için)
     interactionManager.connectedPipesAtP1 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe, 10.0);
     interactionManager.connectedPipesAtP2 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe, 10.0);
@@ -1159,6 +1168,14 @@ export function updateConnectedPipesChain(interactionManager, oldPoint, newPoint
  * @param {Object} interactionManager - InteractionManager instance
  */
 export function endDrag(interactionManager) {
+    // DEBUG: Track pipe positions at endDrag start
+    if (interactionManager.dragObject && interactionManager.dragObject.type === 'boru') {
+        const pipe = interactionManager.dragObject;
+        console.log(`[END DRAG START] Boru ${pipe.id.substring(0,12)}...`);
+        console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
+        console.log(`  P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    }
+
     // Body drag bittiğinde ara borular oluştur
     if (interactionManager.isBodyDrag && interactionManager.dragObject && interactionManager.dragObject.type === 'boru') {
         const draggedPipe = interactionManager.dragObject;
@@ -1238,6 +1255,32 @@ export function endDrag(interactionManager) {
     interactionManager.ghostBridgePipes = [];
     interactionManager.pipeEndpointSnapLock = null;
     interactionManager.pipeSnapMouseStart = null;
+
+    // DEBUG: Track pipe position before saveToState
+    if (interactionManager.dragObject && interactionManager.dragObject.type === 'boru') {
+        const pipe = interactionManager.dragObject;
+        console.log(`[END DRAG] Before saveToState:`);
+        console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
+        console.log(`  P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    }
+
     interactionManager.manager.saveToState();
+
+    // DEBUG: Track pipe position after saveToState
+    if (interactionManager.dragObject && interactionManager.dragObject.type === 'boru') {
+        const pipe = interactionManager.dragObject;
+        console.log(`[END DRAG] After saveToState:`);
+        console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
+        console.log(`  P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    }
+
     saveState(); // Save to undo history
+
+    // DEBUG: Track pipe position after saveState (undo history)
+    if (interactionManager.dragObject && interactionManager.dragObject.type === 'boru') {
+        const pipe = interactionManager.dragObject;
+        console.log(`[END DRAG COMPLETE] After saveState:`);
+        console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
+        console.log(`  P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    }
 }
