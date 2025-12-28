@@ -224,7 +224,6 @@ export class PlumbingManager {
      * State'e kaydet
      */
     saveToState() {
-        console.log(`[SAVE TO STATE] Saving ${this.pipes.length} pipes to state`);
         state.plumbingPipes = this.pipes.map(p => p.toJSON());
         state.plumbingBlocks = this.components.map(c => c.toJSON());
     }
@@ -233,11 +232,8 @@ export class PlumbingManager {
      * State'den yükle
      */
     loadFromState() {
-        console.log(`[LOAD FROM STATE] ⚠️ LOADING STATE! This creates NEW pipe objects!`);
-        console.log(`  Stack trace:`, new Error().stack);
         // Boruları yükle
         if (state.plumbingPipes) {
-            console.log(`  Loading ${state.plumbingPipes.length} pipes from state`);
             this.pipes = state.plumbingPipes.map(data => Boru.fromJSON(data));
         }
 
