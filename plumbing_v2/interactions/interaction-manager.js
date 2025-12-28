@@ -273,7 +273,7 @@ export class InteractionManager {
     }
 
     startRotation(obj, point) {
-        return startRotation(this, obj, point);
+        return startRotation(this, obj, point, this.manager);
     }
 
     handleRotation(point) {
