@@ -310,13 +310,32 @@ export function startDrag(interactionManager, obj, point) {
     if (obj.type === 'sayac' && obj.cikisBagliBoruId) {
         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
         if (cikisBoru) {
-            interactionManager.sayacConnectedPipes = findPipesAtPoint(
-                interactionManager.manager.pipes,
-                cikisBoru.p1,  // ŞU ANKİ pozisyon (henüz hareket etmedi)
-                cikisBoru,
-                TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE  // SENKRON tolerance
-            );
-            console.log(`[SAYAC START] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
+            // 🚨 KRİTİK: Çıkış hattını cache'lerken GİRİŞ hattını EXCLUDE et
+            // Aksi halde sayaç hareket edince giriş ve çıkış hatları birbirine yapışır!
+            const girisBoru = obj.fleksBaglanti?.boruId
+                ? interactionManager.manager.pipes.find(p => p.id === obj.fleksBaglanti.boruId)
+                : null;
+
+            const excludePipes = [cikisBoru];
+            if (girisBoru) excludePipes.push(girisBoru);
+
+            const outputConnectedPipes = [];
+            interactionManager.manager.pipes.forEach(p => {
+                if (excludePipes.includes(p)) return;
+
+                const distToP1 = Math.hypot(p.p1.x - cikisBoru.p1.x, p.p1.y - cikisBoru.p1.y);
+                const distToP2 = Math.hypot(p.p2.x - cikisBoru.p1.x, p.p2.y - cikisBoru.p1.y);
+
+                if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
+                    outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
+                }
+                if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
+                    outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
+                }
+            });
+
+            interactionManager.sayacConnectedPipes = outputConnectedPipes;
+            console.log(`[SAYAC START] ${interactionManager.sayacConnectedPipes.length} bağlı boru tespit edildi (giriş hattı exclude edildi)`);
         }
     }
 }
@@ -399,13 +418,27 @@ export function startBodyDrag(interactionManager, pipe, point) {
     if (connectedMeter && connectedMeter.cikisBagliBoruId) {
         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
         if (cikisBoru) {
-            interactionManager.meterConnectedPipesAtOutput = findPipesAtPoint(
-                interactionManager.manager.pipes,
-                cikisBoru.p1,  // Çıkış borusunun başlangıç noktası
-                cikisBoru,
-                TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE
-            );
-            console.log(`  [SAYAÇ ÇIKIŞ] ${interactionManager.meterConnectedPipesAtOutput.length} bağlı boru tespit edildi (sayaç ID: ${connectedMeter.id.substring(0,12)}...)`);
+            // 🚨 KRİTİK: Çıkış hattını cache'lerken GİRİŞ hattını (şu an sürüklenen boru) EXCLUDE et
+            // Aksi halde giriş ve çıkış hatları birbirine yapışır (aralarında sadece 10 cm var!)
+            const excludePipes = [cikisBoru, pipe]; // Hem çıkış borusu hem giriş borusu exclude
+
+            const outputConnectedPipes = [];
+            interactionManager.manager.pipes.forEach(p => {
+                if (excludePipes.includes(p)) return;
+
+                const distToP1 = Math.hypot(p.p1.x - cikisBoru.p1.x, p.p1.y - cikisBoru.p1.y);
+                const distToP2 = Math.hypot(p.p2.x - cikisBoru.p1.x, p.p2.y - cikisBoru.p1.y);
+
+                if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
+                    outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
+                }
+                if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
+                    outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
+                }
+            });
+
+            interactionManager.meterConnectedPipesAtOutput = outputConnectedPipes;
+            console.log(`  [SAYAÇ ÇIKIŞ] ${interactionManager.meterConnectedPipesAtOutput.length} bağlı boru tespit edildi (giriş hattı exclude edildi)`);
         }
     }
 
