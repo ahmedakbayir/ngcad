@@ -48,13 +48,49 @@ export function handlePointerMove(e) {
 
     // 0. İç tesisat sayaç ekleme - kesikli boru çizim modu
     if (this.meterPlacementState === 'drawing_start_pipe' && this.meterStartPoint) {
-        // Preview için bitiş noktasını güncelle
-        this.meterPreviewEndPoint = targetPoint;
+        // KESİKLİ HAT için açı snap (3° tolerans - X ve Y yönlerine)
+        let snappedPoint = targetPoint;
+        const dx = targetPoint.x - this.meterStartPoint.x;
+        const dy = targetPoint.y - this.meterStartPoint.y;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > 0) {
+            // Mevcut açıyı hesapla
+            const currentAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+            // En yakın dik açıyı bul (0°, 90°, 180°, -90°)
+            const angles = [0, 90, 180, -90];
+            let closestAngle = 0;
+            let minAngleDiff = 360;
+
+            angles.forEach(angle => {
+                let diff = Math.abs(currentAngle - angle);
+                // Açı farkını 0-180 aralığına normalize et
+                while (diff > 180) diff = Math.abs(360 - diff);
+                if (diff < minAngleDiff) {
+                    minAngleDiff = diff;
+                    closestAngle = angle;
+                }
+            });
+
+            // 3° tolerans içinde mi?
+            if (minAngleDiff <= 3) {
+                const rad = closestAngle * Math.PI / 180;
+                snappedPoint = {
+                    x: this.meterStartPoint.x + Math.cos(rad) * distance,
+                    y: this.meterStartPoint.y + Math.sin(rad) * distance
+                };
+                console.log('✅ KESİKLİ HAT SNAP - Açı:', currentAngle.toFixed(1), '→', closestAngle);
+            }
+        }
+
+        // Preview için bitiş noktasını güncelle (snapped)
+        this.meterPreviewEndPoint = snappedPoint;
 
         // Sayaç ghost'unu güncelle (mevcut ghost sistemi)
         if (this.manager.tempComponent && this.manager.tempComponent.type === 'sayac') {
             const p1 = this.meterStartPoint;
-            const p2 = targetPoint;
+            const p2 = snappedPoint;
             const dx = p2.x - p1.x;
             const dy = p2.y - p1.y;
             const length = Math.hypot(dx, dy);
