@@ -336,10 +336,21 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.bodyDragInitialP1 = { ...pipe.p1 };
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
 
+    // CRITICAL DEBUG: Check if mouse position matches pipe position
+    const mouseDistanceFromPipe = Math.min(
+        Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y),
+        Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y)
+    );
+
     // DEBUG: Sürüklenen borunun detaylarını yazdır
     console.log(`[BODY DRAG START] Boru ID: ${pipe.id}`);
-    console.log(`  P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
-    console.log(`  P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    console.log(`  BORU P1: (${pipe.p1.x.toFixed(1)}, ${pipe.p1.y.toFixed(1)})`);
+    console.log(`  BORU P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
+    console.log(`  FARE POS: (${point.x.toFixed(1)}, ${point.y.toFixed(1)})`);
+    console.log(`  🎯 FARE ↔ BORU MESAFE: ${mouseDistanceFromPipe.toFixed(1)} cm`);
+    if (mouseDistanceFromPipe > 5) {
+        console.log(`  ⚠️⚠️⚠️  UYARI: Fare borudan ${mouseDistanceFromPipe.toFixed(1)} cm uzakta! (>5cm)`);
+    }
     console.log(`  Toplam boru sayısı: ${interactionManager.manager.pipes.length}`);
 
     // CRITICAL DEBUG: Track if pipe object is being replaced between drags
