@@ -90,7 +90,9 @@ export function handlePointerMove(e) {
     if (this.boruCizimAktif) {
         // Sayaç öncesi (YELLOW) hatlar için açı snap'i (3° tolerans)
         let finalTargetPoint = targetPoint;
+        console.log('🔍 DEBUG - kaynakColorGroup:', this.boruBaslangic?.kaynakColorGroup);
         if (this.boruBaslangic && this.boruBaslangic.kaynakColorGroup === 'YELLOW') {
+            console.log('✅ YELLOW hat tespit edildi - açı snap aktif');
             const dx = targetPoint.x - this.boruBaslangic.nokta.x;
             const dy = targetPoint.y - this.boruBaslangic.nokta.y;
             const distance = Math.hypot(dx, dy);
