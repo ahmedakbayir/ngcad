@@ -7,6 +7,7 @@ import { screenToWorld } from '../draw/geometry.js';
 import { dom, state } from '../general-files/main.js';
 import { BAGLANTI_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 import { TESISAT_CONSTANTS } from '../plumbing_v2/interactions/tesisat-snap.js';
+import { pixelsToWorld } from '../plumbing_v2/interactions/finders.js';
 
 export function handlePointerDown(e) {
     const rect = dom.c2d.getBoundingClientRect();
@@ -94,7 +95,9 @@ export function handlePointerDown(e) {
         }
 
         // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-        const boruUcu = this.findBoruUcuAt(point, TESISAT_CONSTANTS.SELECTION_TOLERANCE); // SENKRON tolerance
+        // Piksel bazlı tolerance - zoom bağımsız
+        const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
+        const boruUcu = this.findBoruUcuAt(point, worldTolerance);
         if (boruUcu) {
             // console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
             const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
@@ -180,7 +183,9 @@ export function handlePointerDown(e) {
     }
 
     // 5. Boru ucu veya gövdesinden çizim başlat
-    const boruUcu2 = this.findBoruUcuAt(point, TESISAT_CONSTANTS.SELECTION_TOLERANCE);
+    // Piksel bazlı tolerance - zoom bağımsız
+    const worldTolerance2 = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
+    const boruUcu2 = this.findBoruUcuAt(point, worldTolerance2);
     if (boruUcu2) {
         const deviceVar = this.hasDeviceAtEndpoint(boruUcu2.boruId, boruUcu2.uc);
         const meterVar = this.hasMeterAtEndpoint(boruUcu2.boruId, boruUcu2.uc);
@@ -195,7 +200,9 @@ export function handlePointerDown(e) {
     }
 
     // 6. Boru gövdesinden çizim başlat
-    const boruGovde = this.findBoruGovdeAt(point, TESISAT_CONSTANTS.SELECTION_TOLERANCE);
+    // Piksel bazlı tolerance - zoom bağımsız
+    const worldTolerance3 = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
+    const boruGovde = this.findBoruGovdeAt(point, worldTolerance3);
     if (boruGovde) {
         this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
         return true;

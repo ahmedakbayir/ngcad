@@ -9,6 +9,16 @@ import { setState, state } from '../../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 
 /**
+ * Piksel toleransını world coordinates'e çevirir (zoom-aware)
+ * @param {number} pixelTolerance - Piksel cinsinden tolerance
+ * @returns {number} - World coordinates cinsinden tolerance (cm)
+ */
+export function pixelsToWorld(pixelTolerance) {
+    const zoom = state.zoom || 1.0;
+    return pixelTolerance / zoom;
+}
+
+/**
  * Bir noktada nesne bul (bileşen veya boru)
  * Öncelik sırası: 1) Bileşenler, 2) Borular (2cm), 3) Borular (5cm)
  */
@@ -30,9 +40,10 @@ export function findObjectAt(manager, point) {
     //     }
     // }
 
-    // ÖNCELİK 3: Borular (SENKRON tolerance - seçim ve sürükleme için aynı)
+    // ÖNCELİK 3: Borular (Piksel bazlı tolerance - zoom bağımsız)
+    const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
     for (const pipe of manager.pipes) {
-        if (pipe.containsPoint && pipe.containsPoint(point, TESISAT_CONSTANTS.SELECTION_TOLERANCE)) {
+        if (pipe.containsPoint && pipe.containsPoint(point, worldTolerance)) {
             return pipe;
         }
     }
