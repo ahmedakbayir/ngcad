@@ -342,6 +342,22 @@ export function startBodyDrag(interactionManager, pipe, point) {
     console.log(`  P2: (${pipe.p2.x.toFixed(1)}, ${pipe.p2.y.toFixed(1)})`);
     console.log(`  Toplam boru sayısı: ${interactionManager.manager.pipes.length}`);
 
+    // CRITICAL DEBUG: Track if pipe object is being replaced between drags
+    if (!window.__lastDraggedPipe) {
+        window.__lastDraggedPipe = { pipe: null, positions: null };
+    }
+    if (window.__lastDraggedPipe.pipe === pipe) {
+        console.log(`  ✓ Same pipe object as last drag`);
+    } else if (window.__lastDraggedPipe.pipe && window.__lastDraggedPipe.pipe.id === pipe.id) {
+        console.log(`  ⚠️ DIFFERENT pipe object with same ID! (OBJECT WAS REPLACED!)`);
+        if (window.__lastDraggedPipe.positions) {
+            const lastP1 = window.__lastDraggedPipe.positions.p1;
+            const jumpX = Math.abs(pipe.p1.x - lastP1.x);
+            const jumpY = Math.abs(pipe.p1.y - lastP1.y);
+            console.log(`  ⚠️ Position jump from last exit: X=${jumpX.toFixed(1)} cm, Y=${jumpY.toFixed(1)} cm`);
+        }
+    }
+
     // DEBUG: Check for duplicate pipes with same ID
     const duplicates = interactionManager.manager.pipes.filter(p => p.id === pipe.id);
     if (duplicates.length > 1) {
@@ -1304,5 +1320,15 @@ export function endDrag(interactionManager) {
         console.log(`[END DRAG] EXIT - Boru ${debugPipe.id.substring(0,12)}...`);
         console.log(`  P1: (${debugPipe.p1.x.toFixed(1)}, ${debugPipe.p1.y.toFixed(1)}), P2: (${debugPipe.p2.x.toFixed(1)}, ${debugPipe.p2.y.toFixed(1)})`);
         console.log('─'.repeat(80));
+
+        // CRITICAL: Save pipe reference and positions for next drag comparison
+        if (!window.__lastDraggedPipe) {
+            window.__lastDraggedPipe = {};
+        }
+        window.__lastDraggedPipe.pipe = debugPipe;
+        window.__lastDraggedPipe.positions = {
+            p1: { x: debugPipe.p1.x, y: debugPipe.p1.y },
+            p2: { x: debugPipe.p2.x, y: debugPipe.p2.y }
+        };
     }
 }
