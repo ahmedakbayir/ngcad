@@ -4,7 +4,7 @@
  */
 
 import { saveState } from '../../../general-files/history.js';
-import { updateNodeConnections } from '../drag/drag-handler.js';
+import { updateSharedVertex } from '../drag/drag-handler.js';
 
 /**
  * Döndürme tutamacını bul (çubuğun ucundaki daire) - yukarı yönde
@@ -126,8 +126,8 @@ export function handleRotation(context, point, manager) {
                 const yeniCikis = obj.getCikisNoktasi();
                 cikisBoru.moveP1(yeniCikis);
 
-                // Parent ve children'ları güncelle
-                updateNodeConnections(manager.pipes, oldP1, yeniCikis);
+                // SHARED VERTEX: Eski noktadaki TÜM boru uçlarını yeni noktaya taşı
+                updateSharedVertex(manager.pipes, oldP1, yeniCikis, cikisBoru);
             }
         }
     }
@@ -164,8 +164,8 @@ export function updateConnectedPipe(result, manager) {
             // Yeni p1 pozisyonu
             const newP1 = { x: boru.p1.x, y: boru.p1.y };
 
-            // Parent ve children'ları güncelle
-            updateNodeConnections(manager.pipes, oldP1, newP1);
+            // SHARED VERTEX: Eski noktadaki TÜM boru uçlarını yeni noktaya taşı
+            updateSharedVertex(manager.pipes, oldP1, newP1, boru);
         }
     }
 
@@ -177,8 +177,8 @@ export function updateConnectedPipe(result, manager) {
 
             boru.moveP1(result.yeniCikis);
 
-            // Parent ve children'ları güncelle
-            updateNodeConnections(manager.pipes, oldP1, result.yeniCikis);
+            // SHARED VERTEX: Eski noktadaki TÜM boru uçlarını yeni noktaya taşı
+            updateSharedVertex(manager.pipes, oldP1, result.yeniCikis, boru);
         }
     }
 }
