@@ -21,17 +21,17 @@ export function findObjectAt(manager, point) {
         }
     }
 
-    // ÖNCELİK 2: Borular (2cm tolerance - kesin tıklama)
-    // Vana bulunamadıysa (yani 1mm bile dışındaysa), buraya düşer ve boruyu arar.
-    for (const pipe of manager.pipes) {
-        if (pipe.containsPoint && pipe.containsPoint(point, 2)) {
-            return pipe;
-        }
-    }
+    // // ÖNCELİK 2: Borular (2cm tolerance - kesin tıklama)
+    // // Vana bulunamadıysa (yani 1mm bile dışındaysa), buraya düşer ve boruyu arar.
+    // for (const pipe of manager.pipes) {
+    //     if (pipe.containsPoint && pipe.containsPoint(point, 2)) {
+    //         return pipe;
+    //     }
+    // }
 
     // ÖNCELİK 3: Borular (daha geniş tolerance - 5cm)
     for (const pipe of manager.pipes) {
-        if (pipe.containsPoint && pipe.containsPoint(point, 5)) {
+        if (pipe.containsPoint && pipe.containsPoint(point, 8)) {
             return pipe;
         }
     }

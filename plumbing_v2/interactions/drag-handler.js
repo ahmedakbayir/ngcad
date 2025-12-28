@@ -379,8 +379,8 @@ export function startBodyDrag(interactionManager, pipe, point) {
     }
 
     // SHARED VERTEX: P1 ve P2 noktalarındaki tüm boruları ÖNCEDENtespit et ve kaydet (hızlı drag için)
-    interactionManager.connectedPipesAtP1 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe, 3.0);
-    interactionManager.connectedPipesAtP2 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe, 3.0);
+    interactionManager.connectedPipesAtP1 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p1, pipe, 8.0);
+    interactionManager.connectedPipesAtP2 = findPipesAtPoint(interactionManager.manager.pipes, pipe.p2, pipe, 8.0);
 
     console.log(`  P1: ${interactionManager.connectedPipesAtP1.length} bağlı, P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru`);
 
