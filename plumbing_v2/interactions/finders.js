@@ -3,7 +3,7 @@
  * Boru ve bileşen bulma yardımcı fonksiyonları
  */
 
-import { BAGLANTI_TIPLERI } from '../../objects/pipe.js';
+import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
 import { saveState } from '../../../general-files/history.js';
 import { setState, state } from '../../../general-files/main.js';
 
