@@ -1031,9 +1031,15 @@ export function handleDrag(interactionManager, point) {
         };
 
         // p1 ve p2 kontrolü
-        if (checkEndpointDistance(newP1, interactionManager.bodyDragInitialP1) || checkEndpointDistance(newP2, interactionManager.bodyDragInitialP2)) {
+        const p1Blocked = checkEndpointDistance(newP1, interactionManager.bodyDragInitialP1);
+        const p2Blocked = checkEndpointDistance(newP2, interactionManager.bodyDragInitialP2);
+
+        if (p1Blocked || p2Blocked) {
+            console.log(`  [BODY DRAG] Hareket engellendi! P1: ${p1Blocked}, P2: ${p2Blocked}`);
             return; // Taşımayı engelle
         }
+
+        console.log(`  [BODY DRAG] Pozisyon güncelleniyor...`);
 
         // Nokta boşsa pozisyonları uygula
         pipe.p1.x = newP1.x;
@@ -1042,7 +1048,10 @@ export function handleDrag(interactionManager, point) {
         pipe.p2.y = newP2.y;
 
         // Mod kontrolü: ARA BORU modu mu NORMAL mod mu?
+        console.log(`  [BODY DRAG] Bridge Mode: ${interactionManager.useBridgeMode}`);
+
         if (interactionManager.useBridgeMode) {
+            console.log(`  [BODY DRAG] ARA BORU MODU aktif - bağlı borular taşınmayacak`);
             // ✅ ARA BORU MODU: Bağlı boruları TAŞIMA, ara borular oluştur
             // Ghost ara boruları oluştur (preview için)
             interactionManager.ghostBridgePipes = [];
@@ -1072,23 +1081,36 @@ export function handleDrag(interactionManager, point) {
                 }
             }
         } else {
+            console.log(`  [BODY DRAG] NORMAL MOD aktif - bağlı borular cache'den taşınacak`);
             // ✅ NORMAL MOD: SHARED VERTEX mantığı ile güncelle - CACHED SİSTEM (KOPMA SORUNU ÇÖZÜLDÜ!)
             interactionManager.ghostBridgePipes = []; // Ghost yok
 
             // P1: startBodyDrag'da bulduğumuz bağlı boruları güncelle (cached yaklaşım!)
             if (interactionManager.connectedPipesAtP1 && interactionManager.connectedPipesAtP1.length > 0) {
+                console.log(`  [BODY DRAG] P1: ${interactionManager.connectedPipesAtP1.length} bağlı boru güncelleniyor...`);
                 interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                    const oldX = connectedPipe[connectedEndpoint].x;
+                    const oldY = connectedPipe[connectedEndpoint].y;
                     connectedPipe[connectedEndpoint].x = newP1.x;
                     connectedPipe[connectedEndpoint].y = newP1.y;
+                    console.log(`    Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newP1.x.toFixed(1)}, ${newP1.y.toFixed(1)})`);
                 });
+            } else {
+                console.log(`  [BODY DRAG] P1: Bağlı boru yok veya cache boş!`);
             }
 
             // P2: startBodyDrag'da bulduğumuz bağlı boruları güncelle (cached yaklaşım!)
             if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
+                console.log(`  [BODY DRAG] P2: ${interactionManager.connectedPipesAtP2.length} bağlı boru güncelleniyor...`);
                 interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                    const oldX = connectedPipe[connectedEndpoint].x;
+                    const oldY = connectedPipe[connectedEndpoint].y;
                     connectedPipe[connectedEndpoint].x = newP2.x;
                     connectedPipe[connectedEndpoint].y = newP2.y;
+                    console.log(`    Boru ${connectedPipe.id.substring(0,12)}... ${connectedEndpoint}: (${oldX.toFixed(1)}, ${oldY.toFixed(1)}) → (${newP2.x.toFixed(1)}, ${newP2.y.toFixed(1)})`);
                 });
+            } else {
+                console.log(`  [BODY DRAG] P2: Bağlı boru yok veya cache boş!`);
             }
         }
 
