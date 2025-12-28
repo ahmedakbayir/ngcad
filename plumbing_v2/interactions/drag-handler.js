@@ -1098,8 +1098,33 @@ export function handleDrag(interactionManager, point) {
         const dx = newX - sayac.x;
         const dy = newY - sayac.y;
 
+        // 🚨 GİRİŞ BORUSUNUN ESKİ POZİSYONUNU KAYDET
+        // Sayaç hareket edince giriş borusu SABİT kalmalı (fleks uzasın/kısalsın)
+        let inputPipeOldEndpoint = null;
+        if (sayac.fleksBaglanti?.boruId && sayac.fleksBaglanti?.endpoint) {
+            const girisBoru = interactionManager.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
+            if (girisBoru) {
+                const endpoint = sayac.fleksBaglanti.endpoint;
+                // Eski pozisyonu kaydet
+                inputPipeOldEndpoint = {
+                    pipe: girisBoru,
+                    endpoint: endpoint,
+                    x: girisBoru[endpoint].x,
+                    y: girisBoru[endpoint].y
+                };
+            }
+        }
+
         // Sayacı axis-locked pozisyona taşı (SMOOTH!)
         sayac.move(newX, newY);
+
+        // 🚨 GİRİŞ BORUSUNU ESKİ POZİSYONUNA GERİ DÖNDÜR
+        // Sayaç hareket etti ama giriş borusu sabit kalmalı
+        if (inputPipeOldEndpoint) {
+            inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].x = inputPipeOldEndpoint.x;
+            inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].y = inputPipeOldEndpoint.y;
+        }
+
         // Çıkış borusunu güncelle - CACHED SİSTEM (KOPMA SORUNU ÇÖZÜLDÜ!)
         // Sadece çıkış borusunun p1 ucunu güncelle, p2 ve bağlı borular sabit
         if (sayac.cikisBagliBoruId) {
