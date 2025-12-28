@@ -232,6 +232,12 @@ export class PlumbingManager {
      * State'den yükle
      */
     loadFromState() {
+        // DEBUG: Track when state is loaded (this might be corrupting positions!)
+        console.log('═'.repeat(80));
+        console.log('[CRITICAL] loadFromState() CALLED - Pipes being reloaded from state!');
+        console.log('  Stack trace:', new Error().stack);
+        console.log('═'.repeat(80));
+
         // Boruları yükle
         if (state.plumbingPipes) {
             this.pipes = state.plumbingPipes.map(data => Boru.fromJSON(data));
