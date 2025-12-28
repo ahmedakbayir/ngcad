@@ -4,7 +4,7 @@
  */
 
 import { saveState } from '../../../general-files/history.js';
-import { updateSharedVertex } from '../drag/drag-handler.js';
+import { findPipesAtPoint } from '../drag/drag-handler.js';
 
 /**
  * Döndürme tutamacını bul (çubuğun ucundaki daire) - yukarı yönde
@@ -38,7 +38,7 @@ export function findRotationHandleAt(obj, point, tolerance = 8) {
 /**
  * Döndürme başlat
  */
-export function startRotation(context, obj, point) {
+export function startRotation(context, obj, point, manager) {
     saveState();
     context.isRotating = true;
     context.dragObject = obj;
@@ -50,6 +50,16 @@ export function startRotation(context, obj, point) {
     const initialAngle = Math.atan2(point.y - center.y, point.x - center.x);
     const initialRotationRad = (obj.rotation || 0) * Math.PI / 180;
     context.rotationOffset = initialRotationRad - initialAngle;
+
+    // SHARED VERTEX: Bağlı boruları ÖNCEDENtespit et ve kaydet (hızlı rotation için)
+    context.rotationConnectedPipes = null;
+    if (obj.type === 'sayac' && obj.cikisBagliBoruId) {
+        const cikisBoru = manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
+        if (cikisBoru) {
+            context.rotationConnectedPipes = findPipesAtPoint(manager.pipes, cikisBoru.p1, cikisBoru, 1.0);
+            console.log(`[ROTATION START] ${context.rotationConnectedPipes.length} bağlı boru tespit edildi`);
+        }
+    }
 }
 
 /**
@@ -119,15 +129,17 @@ export function handleRotation(context, point, manager) {
         if (obj.cikisBagliBoruId) {
             const cikisBoru = manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
             if (cikisBoru) {
-                // Eski p1 pozisyonunu kaydet
-                const oldP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
-
                 // Sayaç çıkışı boru p1'e bağlı
                 const yeniCikis = obj.getCikisNoktasi();
                 cikisBoru.moveP1(yeniCikis);
 
-                // SHARED VERTEX: Eski noktadaki TÜM boru uçlarını yeni noktaya taşı
-                updateSharedVertex(manager.pipes, oldP1, yeniCikis, cikisBoru);
+                // SHARED VERTEX: Başlangıçta tespit edilen bağlı boruları güncelle (HIZLI ROTATION!)
+                if (context.rotationConnectedPipes) {
+                    context.rotationConnectedPipes.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                        connectedPipe[connectedEndpoint].x = yeniCikis.x;
+                        connectedPipe[connectedEndpoint].y = yeniCikis.y;
+                    });
+                }
             }
         }
     }
@@ -140,45 +152,19 @@ export function endRotation(context, manager) {
     context.isRotating = false;
     context.dragObject = null;
     context.rotationOffset = 0;
+    context.rotationConnectedPipes = null; // Bağlantı referanslarını temizle
     manager.saveToState();
     saveState(); // Save to undo history
 }
 
 /**
  * Bağlı boruyu güncelle
+ * NOT: Bu fonksiyon artık kullanılmıyor, rotation-handler içinde direkt yapılıyor
  */
 export function updateConnectedPipe(result, manager) {
     if (!result) return;
 
-    if (result.bagliBoruId && result.delta) {
-        const boru = manager.pipes.find(p => p.id === result.bagliBoruId);
-        if (boru) {
-            // Eski p1 pozisyonunu kaydet
-            const oldP1 = { x: boru.p1.x, y: boru.p1.y };
-
-            boru.moveP1({
-                x: boru.p1.x + result.delta.x,
-                y: boru.p1.y + result.delta.y
-            });
-
-            // Yeni p1 pozisyonu
-            const newP1 = { x: boru.p1.x, y: boru.p1.y };
-
-            // SHARED VERTEX: Eski noktadaki TÜM boru uçlarını yeni noktaya taşı
-            updateSharedVertex(manager.pipes, oldP1, newP1, boru);
-        }
-    }
-
-    if (result.cikisBagliBoruId && result.yeniCikis) {
-        const boru = manager.pipes.find(p => p.id === result.cikisBagliBoruId);
-        if (boru) {
-            // Eski p1 pozisyonunu kaydet
-            const oldP1 = { x: boru.p1.x, y: boru.p1.y };
-
-            boru.moveP1(result.yeniCikis);
-
-            // SHARED VERTEX: Eski noktadaki TÜM boru uçlarını yeni noktaya taşı
-            updateSharedVertex(manager.pipes, oldP1, result.yeniCikis, boru);
-        }
-    }
+    // Bu fonksiyon eski implementasyondan kaldı
+    // Şimdilik boş bırakıyoruz, gerekirse silinebilir
+    console.warn('[DEPRECATED] updateConnectedPipe kullanılıyor, yeni implementasyonu kullanın');
 }
