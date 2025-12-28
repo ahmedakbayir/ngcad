@@ -29,10 +29,10 @@ export function findObjectAt(manager, point) {
         }
     }
 
-    // ÖNCELİK 3: Borular (daha geniş tolerance - 15cm)
-    // ZOOM OUT FIX: 5cm → 15cm artırıldı, zoom out olunca da seçim kolay olsun
+    // ÖNCELİK 3: Borular (daha geniş tolerance - 8cm)
+    // ZOOM OUT FIX: 5cm → 8cm artırıldı, zoom out olunca seçilebilir ama çok uzaktan değil
     for (const pipe of manager.pipes) {
-        if (pipe.containsPoint && pipe.containsPoint(point, 15)) {
+        if (pipe.containsPoint && pipe.containsPoint(point, 8)) {
             return pipe;
         }
     }
