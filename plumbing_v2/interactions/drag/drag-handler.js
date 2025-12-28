@@ -970,15 +970,30 @@ export function handleDrag(interactionManager, point) {
             y: interactionManager.bodyDragInitialP2.y + offsetY
         };
 
+        // ✨ KRİTİK: ÖNCE bağlı boruları bul (boru henüz taşınmadan!)
+        // oldP1 ve oldP2 ESKİ pozisyonlar, henüz hareket etmedi!
+        const connectionsAtP1 = findPipesAtPoint(
+            interactionManager.manager.pipes,
+            oldP1,  // ESKİ P1 pozisyonu (henüz taşınmadan)
+            pipe,
+            1.5  // Milimetrik hataları tolere et
+        );
+        const connectionsAtP2 = findPipesAtPoint(
+            interactionManager.manager.pipes,
+            oldP2,  // ESKİ P2 pozisyonu (henüz taşınmadan)
+            pipe,
+            1.5  // Milimetrik hataları tolere et
+        );
+
         // NOKTA DOLULUK KONTROLÜ: Yeni pozisyonlarda başka boru uçları var mı?
         const POINT_OCCUPATION_TOLERANCE = 1.5; // cm - sadece gerçek çakışmaları engelle
         const ELBOW_TOLERANCE = 8; // cm - dirsekler (köşe noktaları) arası minimum mesafe
         const connectionTolerance = 1; // Bağlantı tespit toleransı
 
-        // SHARED VERTEX: Başlangıçta kaydedilmiş bağlı borular (collision check için)
+        // SHARED VERTEX: Bağlı borular (collision check için)
         const connectedPipes = [
-            ...(interactionManager.connectedPipesAtP1 || []).map(c => c.pipe),
-            ...(interactionManager.connectedPipesAtP2 || []).map(c => c.pipe)
+            ...connectionsAtP1.map(c => c.pipe),
+            ...connectionsAtP2.map(c => c.pipe)
         ];
 
         // Basit yaklaşım: Her boru ucunu kontrol et, eğer o uç bir dirsekse 4cm, değilse 1.5cm tolerans
@@ -1033,7 +1048,7 @@ export function handleDrag(interactionManager, point) {
             const MIN_BRIDGE_LENGTH = 5; // 5 cm minimum (kısa hatlar için daha esnek)
 
             // p1 tarafı için ghost boru
-            if (interactionManager.connectedPipesAtP1.length > 0) {
+            if (connectionsAtP1.length > 0) {
                 const dist = Math.hypot(pipe.p1.x - interactionManager.bodyDragInitialP1.x, pipe.p1.y - interactionManager.bodyDragInitialP1.y);
                 if (dist >= MIN_BRIDGE_LENGTH) {
                     interactionManager.ghostBridgePipes.push({
@@ -1045,7 +1060,7 @@ export function handleDrag(interactionManager, point) {
             }
 
             // p2 tarafı için ghost boru
-            if (interactionManager.connectedPipesAtP2.length > 0) {
+            if (connectionsAtP2.length > 0) {
                 const dist = Math.hypot(pipe.p2.x - interactionManager.bodyDragInitialP2.x, pipe.p2.y - interactionManager.bodyDragInitialP2.y);
                 if (dist >= MIN_BRIDGE_LENGTH) {
                     interactionManager.ghostBridgePipes.push({
@@ -1056,24 +1071,20 @@ export function handleDrag(interactionManager, point) {
                 }
             }
         } else {
-            // ⚠️ NORMAL MOD: SHARED VERTEX mantığı ile güncelle (HIZLI DRAG İÇİN!)
+            // ✅ NORMAL MOD: SHARED VERTEX mantığı ile güncelle (ROBUST!)
             interactionManager.ghostBridgePipes = []; // Ghost yok
 
-            // P1: Başlangıçta tespit edilen bağlı boruları güncelle (search yok!)
-            if (interactionManager.connectedPipesAtP1) {
-                interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = newP1.x;
-                    connectedPipe[connectedEndpoint].y = newP1.y;
-                });
-            }
+            // P1: Her frame bulduğumuz bağlı boruları güncelle (robust yaklaşım!)
+            connectionsAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                connectedPipe[connectedEndpoint].x = newP1.x;
+                connectedPipe[connectedEndpoint].y = newP1.y;
+            });
 
-            // P2: Başlangıçta tespit edilen bağlı boruları güncelle (search yok!)
-            if (interactionManager.connectedPipesAtP2) {
-                interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = newP2.x;
-                    connectedPipe[connectedEndpoint].y = newP2.y;
-                });
-            }
+            // P2: Her frame bulduğumuz bağlı boruları güncelle (robust yaklaşım!)
+            connectionsAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                connectedPipe[connectedEndpoint].x = newP2.x;
+                connectedPipe[connectedEndpoint].y = newP2.y;
+            });
         }
 
         return;
