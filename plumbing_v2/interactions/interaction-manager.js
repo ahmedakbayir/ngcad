@@ -11,10 +11,10 @@ import { handlePointerDown } from '../../pointer/handle-pointer-down.js';
 import { handlePointerUp } from '../../pointer/handle-pointer-up.js';
 
 // Keyboard handler
-import { handleKeyDown } from './keyboard/keyboard-handler.js';
+import { handleKeyDown } from './keyboard-handler.js';
 
 // Ghost updater
-import { updateGhostPosition } from './ghost/ghost-updater.js';
+import { updateGhostPosition } from './ghost-updater.js';
 
 // Placement handlers
 import {
@@ -24,7 +24,7 @@ import {
     handleSayacEndPlacement,
     handleCihazEkleme,
     handleMeterStartPipeSecondClick
-} from './placement/component-placement.js';
+} from './component-placement.js';
 
 // Pipe drawing handlers
 import {
@@ -35,7 +35,7 @@ import {
     cancelCurrentAction,
     hasServisKutusu,
     getGeciciBoruCizgisi
-} from './pipe/pipe-drawing.js';
+} from './pipe-drawing.js';
 
 // Drag handlers
 import {
@@ -44,7 +44,7 @@ import {
     startBodyDrag,
     handleDrag,
     endDrag
-} from './drag/drag-handler.js';
+} from './drag-handler.js';
 
 // Rotation handlers
 import {
@@ -53,7 +53,7 @@ import {
     handleRotation,
     endRotation,
     updateConnectedPipe
-} from './rotation/rotation-handler.js';
+} from './rotation-handler.js';
 
 // Selection handlers
 import {
@@ -61,7 +61,7 @@ import {
     selectValve,
     deselectObject,
     deleteSelectedObject
-} from './selection/selection-manager.js';
+} from './selection-manager.js';
 
 // Finder/helper methods
 import {
@@ -78,7 +78,7 @@ import {
     findPipeEndpoint,
     removeObject,
     findConnectedPipesChain
-} from './helpers/finders.js';
+} from './finders.js';
 
 // Tool modları
 export const TESISAT_MODLARI = {

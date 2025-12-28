@@ -3,12 +3,12 @@
  * Bileşen yerleştirme işlemlerini yönetir
  */
 
-import { setMode, setDrawingMode, dom, state, setState } from '../../../general-files/main.js';
-import { saveState } from '../../../general-files/history.js';
-import { BAGLANTI_TIPLERI, createBoru } from '../../objects/pipe.js';
-import { createSayac } from '../../objects/meter.js';
-import { createVana } from '../../objects/valve.js';
-import { canPlaceValveOnPipe, getObjectsOnPipe } from '../utils/placement-utils.js';
+import { setMode, setDrawingMode, dom, state, setState } from '../../general-files/main.js';
+import { saveState } from '../../general-files/history.js';
+import { BAGLANTI_TIPLERI, createBoru } from '../objects/pipe.js';
+import { createSayac } from '../objects/meter.js';
+import { createVana } from '../objects/valve.js';
+import { canPlaceValveOnPipe, getObjectsOnPipe } from './placement-utils.js';
 
 /**
  * Bileşeni yerleştir
