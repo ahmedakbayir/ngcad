@@ -672,6 +672,14 @@ export function handleDrag(interactionManager, point) {
             // Eski noktayı kaydet (güncelleme öncesi)
             const oldEndpointPos = { ...pipe[interactionManager.dragEndpoint] };
 
+            // ✨ KRİTİK: ÖNCE bağlı boruları bul (endpoint henüz taşınmadan!)
+            const connectionsAtEndpoint = findPipesAtPoint(
+                interactionManager.manager.pipes,
+                oldEndpointPos,  // ESKİ pozisyon (henüz taşınmadan)
+                pipe,
+                1.5  // Milimetrik hataları tolere et
+            );
+
             if (interactionManager.dragEndpoint === 'p1') {
                 pipe.p1.x = finalPos.x;
                 pipe.p1.y = finalPos.y;
@@ -696,17 +704,14 @@ export function handleDrag(interactionManager, point) {
             // Fleks artık otomatik olarak boru ucundan koordinat alıyor
             // Ekstra güncelleme gerekmiyor
 
-            // SHARED VERTEX: Başlangıçta tespit edilen bağlı boruları güncelle (HIZLI DRAG İÇİN!)
-            // Her frame'de search yapmıyoruz, önceden kaydedilmiş referansları kullanıyoruz
-            if (interactionManager.connectedPipesAtEndpoint) {
-                interactionManager.connectedPipesAtEndpoint.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = finalPos.x;
-                    connectedPipe[connectedEndpoint].y = finalPos.y;
-                });
+            // SHARED VERTEX: Her frame bulduğumuz bağlı boruları güncelle (ROBUST!)
+            connectionsAtEndpoint.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                connectedPipe[connectedEndpoint].x = finalPos.x;
+                connectedPipe[connectedEndpoint].y = finalPos.y;
+            });
 
-                if (interactionManager.connectedPipesAtEndpoint.length > 0) {
-                    console.log(`[SHARED VERTEX] ${interactionManager.connectedPipesAtEndpoint.length} bağlı boru güncellendi`);
-                }
+            if (connectionsAtEndpoint.length > 0) {
+                console.log(`[ENDPOINT DRAG] ${connectionsAtEndpoint.length} bağlı boru güncellendi`);
             }
         } else {
             // Nokta doluysa veya minimum uzunluk sağlanmıyorsa eski pozisyonda kalır (sessizce engelle)
