@@ -191,10 +191,10 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
  * @param {Array} pipes - Tüm borular
  * @param {Object} point - Nokta {x, y}
  * @param {Object} excludePipe - Hariç tutulacak boru (opsiyonel)
- * @param {number} tolerance - Mesafe toleransı (cm)
+ * @param {number} tolerance - Mesafe toleransı (cm) - varsayılan olarak CONNECTED_PIPES_TOLERANCE kullanılır
  * @returns {Array} [{pipe, endpoint}, ...] - Bu noktada ucu olan tüm borular
  */
-export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = 1.5) {
+export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
     const pipesAtPoint = [];
 
     pipes.forEach(pipe => {
@@ -232,8 +232,8 @@ export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = 1
  * @param {Object} excludePipe - Hariç tutulacak boru (opsiyonel)
  */
 export function updateSharedVertex(pipes, oldPoint, newPoint, excludePipe = null) {
-    // Eski noktada ucu olan tüm boruları bul
-    const pipesAtPoint = findPipesAtPoint(pipes, oldPoint, excludePipe, 1.0);
+    // Eski noktada ucu olan tüm boruları bul - SENKRON tolerance kullan
+    const pipesAtPoint = findPipesAtPoint(pipes, oldPoint, excludePipe, TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE);
 
     // Her borunun sadece o ucunu yeni noktaya taşı
     pipesAtPoint.forEach(({ pipe, endpoint }) => {

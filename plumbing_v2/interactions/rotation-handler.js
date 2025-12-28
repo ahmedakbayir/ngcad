@@ -5,6 +5,7 @@
 
 import { saveState } from '../../../general-files/history.js';
 import { findPipesAtPoint } from './drag-handler.js';
+import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 
 /**
  * Döndürme tutamacını bul (çubuğun ucundaki daire) - yukarı yönde
@@ -56,8 +57,8 @@ export function startRotation(context, obj, point, manager) {
     if (obj.type === 'sayac' && obj.cikisBagliBoruId) {
         const cikisBoru = manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
         if (cikisBoru) {
-            context.rotationConnectedPipes = findPipesAtPoint(manager.pipes, cikisBoru.p1, cikisBoru, 1.0);
-            console.log(`[ROTATION START] ${context.rotationConnectedPipes.length} bağlı boru tespit edildi`);
+            context.rotationConnectedPipes = findPipesAtPoint(manager.pipes, cikisBoru.p1, cikisBoru, TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE);
+            console.log(`[ROTATION START] ${context.rotationConnectedPipes.length} bağlı boru tespit edildi (tolerance: ${TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE} cm)`);
         }
     }
 }
