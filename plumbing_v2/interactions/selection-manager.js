@@ -15,6 +15,16 @@ export function selectObject(interactionManager, obj) {
     // Önceki seçimi temizle
     if (interactionManager.selectedObject && interactionManager.selectedObject !== obj) {
         interactionManager.selectedObject.isSelected = false;
+
+        // Eğer önceki seçim cihaz ise, onun bacasının seçimini de temizle
+        if (interactionManager.selectedObject.type === 'cihaz') {
+            const prevBaca = interactionManager.manager.components.find(c =>
+                c.type === 'baca' && c.parentCihazId === interactionManager.selectedObject.id
+            );
+            if (prevBaca) {
+                prevBaca.isSelected = false;
+            }
+        }
     }
     // Vana seçimi temizle
     if (interactionManager.selectedValve) {
@@ -26,6 +36,25 @@ export function selectObject(interactionManager, obj) {
     }
     interactionManager.selectedObject = obj;
     obj.isSelected = true;
+
+    // Eğer seçilen nesne cihaz ise, bağlı bacayı da seç
+    if (obj.type === 'cihaz') {
+        const baca = interactionManager.manager.components.find(c =>
+            c.type === 'baca' && c.parentCihazId === obj.id
+        );
+        if (baca) {
+            baca.isSelected = true;
+        }
+    }
+    // Eğer seçilen nesne baca ise, bağlı cihazı da seç
+    else if (obj.type === 'baca' && obj.parentCihazId) {
+        const cihaz = interactionManager.manager.components.find(c =>
+            c.type === 'cihaz' && c.id === obj.parentCihazId
+        );
+        if (cihaz) {
+            cihaz.isSelected = true;
+        }
+    }
 
     // state.selectedObject'i de set et (DELETE tuşu için)
     setState({
@@ -78,6 +107,26 @@ export function selectValve(interactionManager, pipe, vana) {
 export function deselectObject(interactionManager) {
     if (interactionManager.selectedObject) {
         interactionManager.selectedObject.isSelected = false;
+
+        // Eğer seçim cihaz ise, bağlı bacayı da seçimden çıkar
+        if (interactionManager.selectedObject.type === 'cihaz') {
+            const baca = interactionManager.manager.components.find(c =>
+                c.type === 'baca' && c.parentCihazId === interactionManager.selectedObject.id
+            );
+            if (baca) {
+                baca.isSelected = false;
+            }
+        }
+        // Eğer seçim baca ise, bağlı cihazı da seçimden çıkar
+        else if (interactionManager.selectedObject.type === 'baca' && interactionManager.selectedObject.parentCihazId) {
+            const cihaz = interactionManager.manager.components.find(c =>
+                c.type === 'cihaz' && c.id === interactionManager.selectedObject.parentCihazId
+            );
+            if (cihaz) {
+                cihaz.isSelected = false;
+            }
+        }
+
         interactionManager.selectedObject = null;
     }
     if (interactionManager.selectedValve) {
