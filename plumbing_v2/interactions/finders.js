@@ -549,14 +549,53 @@ export function removeObject(manager, obj) {
         if (index !== -1) manager.pipes.splice(index, 1);
 
     } else if (obj.type === 'servis_kutusu') {
-        // Servis kutusu silinirken bağlı tüm boruları da sil
+        // Servis kutusu silinirken TÜM TESİSATI sil (borular, sayaç, cihazlar, vanalar)
         const bagliBoruId = obj.bagliBoruId;
         if (bagliBoruId) {
             // Bağlı boruyu bul
             const bagliBoruIndex = manager.pipes.findIndex(p => p.id === bagliBoruId);
             if (bagliBoruIndex !== -1) {
                 const bagliBoruZinciri = findConnectedPipesChain(manager, manager.pipes[bagliBoruIndex]);
-                // Tüm zinciri sil
+
+                // Her boru için bağlı elemanları topla
+                const componentsToDelete = new Set();
+
+                bagliBoruZinciri.forEach(pipe => {
+                    // 1. Bu borudaki vanaları bul
+                    manager.components.forEach(comp => {
+                        if (comp.type === 'vana' && comp.bagliBoruId === pipe.id) {
+                            componentsToDelete.add(comp.id);
+                        }
+                    });
+
+                    // 2. Bu boruya bağlı sayaçları bul
+                    manager.components.forEach(comp => {
+                        if (comp.type === 'sayac') {
+                            if (comp.fleksBaglanti?.boruId === pipe.id || comp.cikisBagliBoruId === pipe.id) {
+                                componentsToDelete.add(comp.id);
+                            }
+                        }
+                    });
+
+                    // 3. Bu boruya bağlı cihazları bul
+                    manager.components.forEach(comp => {
+                        if (comp.type === 'cihaz' && comp.fleksBaglanti?.boruId === pipe.id) {
+                            componentsToDelete.add(comp.id);
+                            // Cihazın vanasını da sil
+                            if (comp.vanaId) {
+                                componentsToDelete.add(comp.vanaId);
+                            }
+                        }
+                    });
+                });
+
+                // Bağlı elemanları sil
+                componentsToDelete.forEach(compId => {
+                    const idx = manager.components.findIndex(c => c.id === compId);
+                    if (idx !== -1) manager.components.splice(idx, 1);
+                });
+
+                // Tüm boru zincirini sil
                 bagliBoruZinciri.forEach(pipe => {
                     const idx = manager.pipes.findIndex(p => p.id === pipe.id);
                     if (idx !== -1) manager.pipes.splice(idx, 1);
