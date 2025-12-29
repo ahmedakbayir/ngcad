@@ -176,15 +176,12 @@ export function updateGhostPosition(ghost, point, snap) {
         }
 
         if (snapCihaz) {
-            // Cihazın üstüne snap yap
-            const cihazConfig = snapCihaz.config;
-            const ustOffset = cihazConfig.height / 2 + 10; // Cihazın üstünden 10cm yukarıda başla
-
+            // Baca cihazın MERKEZİNDEN başlamalı (clipping renderer'da yapılacak)
             ghost.startX = snapCihaz.x;
-            ghost.startY = snapCihaz.y - ustOffset;
+            ghost.startY = snapCihaz.y;
             ghost.currentSegmentStart = {
                 x: snapCihaz.x,
-                y: snapCihaz.y - ustOffset
+                y: snapCihaz.y
             };
 
             // Bağlı cihaz bilgisini sakla

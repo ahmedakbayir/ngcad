@@ -1173,18 +1173,21 @@ export class PlumbingRenderer {
     drawBaca(ctx, baca, manager) {
         const zoom = state.zoom || 1;
         const BACA_CONFIG = {
-            genislik: 20,
-            havalandirmaGenislik: 30,
-            havalandirmaUzunluk: 10,
+            genislik: 16,  // 16cm genişlik
+            havalandirmaGenislik: 10,  // İnce kenar
+            havalandirmaUzunluk: 30,   // Geniş kenar
             izgaraSayisi: 5,
-            strokeColor: '#666666',
-            fillColor: '#999999'
+            strokeColor: '#555555',  // Daha koyu kenar
+            fillColor: state.darkMode ? '#E8F4F8' : '#D0E8F0'  // Buz beyazı (light modda daha koyu)
         };
 
         ctx.save();
 
+        // Bağlı cihazı bul (clipping için)
+        const parentCihaz = manager.components.find(c => c.id === baca.parentCihazId && c.type === 'cihaz');
+
         // Segment'leri çiz
-        baca.segments.forEach(segment => {
+        baca.segments.forEach((segment, index) => {
             const dx = segment.x2 - segment.x1;
             const dy = segment.y2 - segment.y1;
             const length = Math.hypot(dx, dy);
@@ -1194,13 +1197,30 @@ export class PlumbingRenderer {
             ctx.translate(segment.x1, segment.y1);
             ctx.rotate(angle);
 
-            // Baca dikdörtgeni (silindir - üstten görünüm)
-            ctx.fillStyle = BACA_CONFIG.fillColor;
-            ctx.strokeStyle = BACA_CONFIG.strokeColor;
-            ctx.lineWidth = 1.5 / zoom;
+            // Clipping: Cihazın altında kalan kısımları çizme
+            if (parentCihaz && index === 0) {
+                // İlk segment için cihaz clipping
+                const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
+                const clipStart = cihazRadius;
 
-            ctx.fillRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
-            ctx.strokeRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
+                if (length > clipStart) {
+                    // Baca dikdörtgeni (silindir - üstten görünüm)
+                    ctx.fillStyle = BACA_CONFIG.fillColor;
+                    ctx.strokeStyle = BACA_CONFIG.strokeColor;
+                    ctx.lineWidth = 0.8 / zoom;  // Daha ince stroke
+
+                    ctx.fillRect(clipStart, -BACA_CONFIG.genislik / 2, length - clipStart, BACA_CONFIG.genislik);
+                    ctx.strokeRect(clipStart, -BACA_CONFIG.genislik / 2, length - clipStart, BACA_CONFIG.genislik);
+                }
+            } else {
+                // Normal segment çizimi
+                ctx.fillStyle = BACA_CONFIG.fillColor;
+                ctx.strokeStyle = BACA_CONFIG.strokeColor;
+                ctx.lineWidth = 0.8 / zoom;  // Daha ince stroke
+
+                ctx.fillRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
+                ctx.strokeRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
+            }
 
             ctx.restore();
         });
@@ -1216,7 +1236,7 @@ export class PlumbingRenderer {
             // Havalandırma dikdörtgeni
             ctx.fillStyle = '#CCCCCC';
             ctx.strokeStyle = BACA_CONFIG.strokeColor;
-            ctx.lineWidth = 2 / zoom;
+            ctx.lineWidth = 0.8 / zoom;  // Daha ince stroke
 
             const hvX = -hv.width / 2;
             const hvY = -hv.height / 2;
@@ -1224,16 +1244,16 @@ export class PlumbingRenderer {
             ctx.fillRect(hvX, hvY, hv.width, hv.height);
             ctx.strokeRect(hvX, hvY, hv.width, hv.height);
 
-            // Izgaralar (5 çubuk)
+            // Izgaralar (5 çubuk - geniş kenar boyunca)
             ctx.strokeStyle = '#666666';
-            ctx.lineWidth = 1 / zoom;
-            const izgaraAralik = hv.width / (BACA_CONFIG.izgaraSayisi + 1);
+            ctx.lineWidth = 0.6 / zoom;
+            const izgaraAralik = hv.height / (BACA_CONFIG.izgaraSayisi + 1);
 
             for (let i = 1; i <= BACA_CONFIG.izgaraSayisi; i++) {
-                const x = hvX + i * izgaraAralik;
+                const y = hvY + i * izgaraAralik;
                 ctx.beginPath();
-                ctx.moveTo(x, hvY);
-                ctx.lineTo(x, hvY + hv.height);
+                ctx.moveTo(hvX, y);
+                ctx.lineTo(hvX + hv.width, y);
                 ctx.stroke();
             }
 
@@ -1278,21 +1298,21 @@ export class PlumbingRenderer {
                 ctx.globalAlpha = 0.5;
                 ctx.fillStyle = '#CCCCCC';
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;
-                ctx.lineWidth = 2 / zoom;
+                ctx.lineWidth = 0.8 / zoom;  // Daha ince stroke
 
                 ctx.fillRect(-hvWidth / 2, -hvHeight / 2, hvWidth, hvHeight);
                 ctx.strokeRect(-hvWidth / 2, -hvHeight / 2, hvWidth, hvHeight);
 
-                // Izgaralar
+                // Izgaralar (genişlik boyunca - geniş kenar)
                 ctx.strokeStyle = '#666666';
-                ctx.lineWidth = 1 / zoom;
-                const izgaraAralik = hvWidth / (BACA_CONFIG.izgaraSayisi + 1);
+                ctx.lineWidth = 0.6 / zoom;
+                const izgaraAralik = hvHeight / (BACA_CONFIG.izgaraSayisi + 1);
 
                 for (let i = 1; i <= BACA_CONFIG.izgaraSayisi; i++) {
-                    const x = -hvWidth / 2 + i * izgaraAralik;
+                    const y = -hvHeight / 2 + i * izgaraAralik;
                     ctx.beginPath();
-                    ctx.moveTo(x, -hvHeight / 2);
-                    ctx.lineTo(x, hvHeight / 2);
+                    ctx.moveTo(-hvWidth / 2, y);
+                    ctx.lineTo(hvWidth / 2, y);
                     ctx.stroke();
                 }
 
