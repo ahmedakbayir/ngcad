@@ -999,6 +999,9 @@ export function setupInputListeners() {
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const object = getObjectAtPoint(clickPos);
 
+        if (object && !isObjectInteractable(object.type)) {
+            return;
+        }
         // drawDoor modundayken sağ tıklanırsa kapı ekle (sadece duvara)
         if (state.currentMode === 'drawDoor') {
             doorPointerDownDraw(clickPos, object);
@@ -1023,6 +1026,9 @@ export function setupInputListeners() {
         } else if (object && object.type === 'stairs') {
             showStairPopup(object.object, e); // Merdiven sağ tık
         } else if (!object) {
+            if (state.currentDrawingMode === 'TESİSAT') {
+                return;
+            }
             // Boş alana tıklandı
             showGuideContextMenu(e.clientX, e.clientY, clickPos);
         } else {

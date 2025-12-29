@@ -1,3 +1,4 @@
+// pointer/pointer-move.js
 import { onPointerMoveGuide, getGuideAtPoint } from '../architectural-objects/guide-handler.js';
 import { onPointerMove as onPointerMoveDoor } from '../architectural-objects/door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from '../architectural-objects/window-handler.js';
@@ -168,11 +169,18 @@ export function onPointerMove(e) {
                           state.currentMode === 'MİMARİ-TESİSAT';
 
     if (isPlumbingMode && plumbingManager.interactionManager) {
-        const handled = plumbingManager.interactionManager.handlePointerMove(e);
-        if (handled) {
-            updateMouseCursor(); // Cursor'ı güncelle
-            return;
+        // --- DEĞİŞİKLİK BURADA: MİMARİ MOD KONTROLÜ ---
+        // Mimari modda tesisat manager'ı hover olaylarını yutmamalı
+        const skipPlumbingInteraction = state.currentDrawingMode === 'MİMARİ' && !plumbingManager.interactionManager.boruCizimAktif;
+
+        if (!skipPlumbingInteraction) {
+            const handled = plumbingManager.interactionManager.handlePointerMove(e);
+            if (handled) {
+                updateMouseCursor(); // Cursor'ı güncelle
+                return;
+            }
         }
+        // --- DEĞİŞİKLİK SONU ---
     }
     // --- Yeni Tesisat Sistemi Sonu ---
 

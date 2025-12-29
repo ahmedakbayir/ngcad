@@ -1,4 +1,4 @@
-// pointer-down.js
+// pointer/pointer-down.js
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
@@ -79,10 +79,19 @@ export function onPointerDown(e) {
 
     // Plumbing manager'a önce sor (boru çizim veya seçim için)
     if (isPlumbingMode && plumbingManager.interactionManager) {
-        const handled = plumbingManager.interactionManager.handlePointerDown(e);
-        if (handled) {
-            return;
+        // --- DEĞİŞİKLİK BURADA: MİMARİ MOD KONTROLÜ ---
+        // Eğer MİMARİ moddaysak ve aktif bir boru çizimi yoksa,
+        // plumbing manager'ın tıklamayı yakalamasına izin verme.
+        // Böylece olay aşağıya (select kısmına) düşer ve orada isObjectInteractable kontrolüne takılır.
+        const skipPlumbingInteraction = state.currentDrawingMode === 'MİMARİ' && !boruCizimAktif;
+
+        if (!skipPlumbingInteraction) {
+            const handled = plumbingManager.interactionManager.handlePointerDown(e);
+            if (handled) {
+                return;
+            }
         }
+        // --- DEĞİŞİKLİK SONU ---
     }
 
     // --- Seçim Modu ---

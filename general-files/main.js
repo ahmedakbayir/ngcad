@@ -754,19 +754,20 @@ export function getObjectOpacity_OLD(objectType) {
 export function isObjectInteractable(objectType) {
     const mode = state.currentDrawingMode;
 
-    // KARMA modunda her şeye dokunulabilir
+// KARMA modunda her şeye dokunulabilir
     if (mode === "KARMA") {
         return true;
     }
 
     // Mimari nesneler listesi
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'column', 'beam', 'stair', 'stairs', 'arcControl'
+        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'column', 'beam', 'stair', 'stairs', 'arcControl', 'guide' // guide eklendi
     ];
 
-    // Tesisat nesneleri listesi
+    // Tesisat nesneleri listesi - GÜNCELLENDİ
     const plumbingObjects = [
-        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz', 'plumbingPipe', 'plumbingComponent'
+        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz', 
+        'plumbingPipe', 'plumbingComponent', 'plumbingBlock', 'valve' // <-- 'plumbingBlock' ve 'valve' EKLENDİ
     ];
 
     const isArchitectural = architecturalObjects.includes(objectType);
