@@ -57,6 +57,18 @@ export function handleKeyDown(e) {
 
     // ESC - iptal ve seç moduna geç
     if (e.key === 'Escape') {
+        // Baca çizim modundaysa, çizimi bitir
+        if (this.manager.tempComponent && this.manager.tempComponent.type === 'baca' &&
+            this.manager.tempComponent.isDrawing && this.manager.tempComponent.parentCihazId) {
+            saveState();
+            this.manager.tempComponent.finishDrawing();
+            this.manager.saveToState();
+            this.manager.tempComponent = null;
+            this.manager.activeTool = null;
+            setMode("select");
+            return true;
+        }
+
         this.cancelCurrentAction();
         setMode("select");
         return true;

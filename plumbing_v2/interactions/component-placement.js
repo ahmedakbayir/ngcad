@@ -9,6 +9,7 @@ import { BAGLANTI_TIPLERI, createBoru } from '../objects/pipe.js';
 import { createSayac } from '../objects/meter.js';
 import { createVana } from '../objects/valve.js';
 import { canPlaceValveOnPipe, getObjectsOnPipe } from './placement-utils.js';
+import { TESISAT_MODLARI } from './interaction-manager.js';
 
 /**
  * Bileşeni yerleştir
@@ -104,6 +105,33 @@ export function placeComponent(point) {
                 //     this.manager.activeTool = 'boru';
                 //     setMode("plumbingV2", true);
                 // }
+            }
+            break;
+
+        case 'baca':
+            // Baca ekleme - sadece cihaz üzerinde
+            if (component.ghostSnapCihaz) {
+                // İlk tıklama: Baca yerleştir ve çizim moduna geç
+                if (!component.parentCihazId) {
+                    saveState();
+                    component.parentCihazId = component.ghostSnapCihazId;
+                    this.manager.components.push(component);
+                    // tempComponent'i tutuyoruz - çizim devam edecek
+                    this.manager.saveToState();
+                    return; // tempComponent'i silme
+                }
+                // Sonraki tıklamalar: Segment ekle
+                else if (component.isDrawing) {
+                    const success = component.addSegment(point.x, point.y);
+                    if (success) {
+                        saveState();
+                        this.manager.saveToState();
+                        return; // tempComponent'i tutuyoruz
+                    }
+                }
+            } else {
+                // Cihaz yoksa uyarı ver veya hiçbir şey yapma
+                console.warn('⚠️ Baca sadece cihaz üzerine eklenebilir!');
             }
             break;
 
@@ -440,6 +468,15 @@ export function handleCihazEkleme(cihaz) {
 
     // State'e kaydet
     this.manager.saveToState();
+
+    // KOMBI eklendiğinde otomatik baca modunu başlat
+    if (cihaz.cihazTipi === 'KOMBI') {
+        // Yeni baca ghost oluştur
+        setTimeout(() => {
+            this.manager.startPlacement(TESISAT_MODLARI.BACA);
+            setMode("plumbingV2", true);
+        }, 50);
+    }
 
     // console.log('[handleCihazEkleme] ✓ Cihaz başarıyla eklendi. Toplam components:', this.manager.components.length);
     return true;

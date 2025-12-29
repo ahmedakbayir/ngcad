@@ -493,6 +493,7 @@ export const dom = {
     bVana: document.getElementById("bVana"),
     bKombi: document.getElementById("bKombi"),
     bOcak: document.getElementById("bOcak"),
+    bBaca: document.getElementById("bBaca"),
     bBoru: document.getElementById("bBoru"),
     lengthInput: document.getElementById("length-input"),
     bSave: document.getElementById("bSave"),
@@ -845,6 +846,7 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bVana.classList.toggle("active", isPlumbingV2 && activeTool === 'vana');
     dom.bKombi.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'KOMBI');
     dom.bOcak.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'OCAK');
+    dom.bBaca.classList.toggle("active", isPlumbingV2 && activeTool === 'baca');
     dom.bBoru.classList.toggle("active", isPlumbingV2 && activeTool === 'boru');
     dom.bSymmetry.classList.toggle("active", newMode === "drawSymmetry");
     dom.p2d.className = `panel ${newMode}-mode`;
@@ -1418,6 +1420,23 @@ function initialize() {
                 setDrawingMode("TESİSAT");
             }
             plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: 'OCAK' });
+            setMode("plumbingV2", true);
+        });
+    }
+    if (dom.bBaca) {
+        dom.bBaca.addEventListener("click", () => {
+            // Önceki modu kaydet
+            if (plumbingManager.interactionManager) {
+                plumbingManager.interactionManager.previousMode = state.currentMode;
+                plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
+                plumbingManager.interactionManager.previousActiveTool = plumbingManager.activeTool;
+            }
+            // Aktif boru çizimini iptal et
+            plumbingManager.interactionManager?.cancelCurrentAction();
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
+            plumbingManager.startPlacement(TESISAT_MODLARI.BACA);
             setMode("plumbingV2", true);
         });
     }
