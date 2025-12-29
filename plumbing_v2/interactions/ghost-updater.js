@@ -165,13 +165,14 @@ export function updateGhostPosition(ghost, point, snap) {
 
         let snapCihaz = null;
         const snapTolerance = 50; // 50cm içinde snap yap
+        let minDist = Infinity;
 
-        // En yakın cihazı bul
+        // En yakın cihazı bul (sadece ilki değil, en yakın olanı)
         for (const cihaz of cihazlar) {
             const dist = Math.hypot(point.x - cihaz.x, point.y - cihaz.y);
-            if (dist < snapTolerance) {
+            if (dist < snapTolerance && dist < minDist) {
+                minDist = dist;
                 snapCihaz = cihaz;
-                break;
             }
         }
 
