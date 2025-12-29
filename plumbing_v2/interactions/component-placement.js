@@ -116,21 +116,27 @@ export function placeComponent(point) {
                     saveState();
                     component.parentCihazId = component.ghostSnapCihazId;
                     this.manager.components.push(component);
-                    // tempComponent'i tutuyoruz - çizim devam edecek
                     this.manager.saveToState();
-                    return; // tempComponent'i silme
+                    // tempComponent'i tutuyoruz - çizim devam edecek
+                    // Fonksiyon sonundaki tempComponent = null'u atlamak için return
+                    return;
                 }
                 // Sonraki tıklamalar: Segment ekle
                 else if (component.isDrawing) {
+                    saveState();
                     const success = component.addSegment(point.x, point.y);
                     if (success) {
-                        saveState();
                         this.manager.saveToState();
-                        return; // tempComponent'i tutuyoruz
+                        // tempComponent'i tutuyoruz - çizim devam edecek
+                        return;
+                    } else {
+                        // Minimum uzunluk yok, uyarı ver
+                        console.warn('⚠️ Segment çok kısa! En az 10cm olmalı.');
+                        return;
                     }
                 }
             } else {
-                // Cihaz yoksa uyarı ver veya hiçbir şey yapma
+                // Cihaz yoksa - ghost görünmez olduğu için buraya gelmemeli
                 console.warn('⚠️ Baca sadece cihaz üzerine eklenebilir!');
             }
             break;

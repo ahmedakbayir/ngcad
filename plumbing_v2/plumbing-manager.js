@@ -431,9 +431,17 @@ export class PlumbingManager {
             }
         }
 
-        // Bileşenleri kontrol et (vana, servis kutusu, sayaç, cihaz)
+        // Bileşenleri kontrol et (vana, servis kutusu, sayaç, cihaz, baca)
         for (const comp of blocks) {
             if (!floorMatches(comp.floorId)) continue;
+
+            // Baca için özel containsPoint kontrolü
+            if (comp.type === 'baca') {
+                if (comp.containsPoint(pos, tolerance)) {
+                    return { type: 'component', object: comp, handle: 'body' };
+                }
+                continue;
+            }
 
             const cx = comp.x ?? comp.center?.x;
             const cy = comp.y ?? comp.center?.y;

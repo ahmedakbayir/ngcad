@@ -1173,7 +1173,7 @@ export class PlumbingRenderer {
     drawBaca(ctx, baca, manager) {
         const zoom = state.zoom || 1;
         const BACA_CONFIG = {
-            genislik: 16,  // 16cm genişlik
+            genislik: 12,  // 12cm genişlik
             havalandirmaGenislik: 10,  // İnce kenar
             havalandirmaUzunluk: 30,   // Geniş kenar
             izgaraSayisi: 5,
@@ -1197,29 +1197,33 @@ export class PlumbingRenderer {
             ctx.translate(segment.x1, segment.y1);
             ctx.rotate(angle);
 
-            // Clipping: Cihazın altında kalan kısımları çizme
+            // Clipping: İlk segment için cihazın içindeki kısmı çizme
+            let startOffset = 0;
             if (parentCihaz && index === 0) {
-                // İlk segment için cihaz clipping
+                // İlk segment cihazın merkezinden başlıyor
+                // Cihazın dışına çıkana kadar kısmı clip et
                 const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                const clipStart = cihazRadius;
 
-                if (length > clipStart) {
-                    // Baca dikdörtgeni (silindir - üstten görünüm)
-                    ctx.fillStyle = BACA_CONFIG.fillColor;
-                    ctx.strokeStyle = BACA_CONFIG.strokeColor;
-                    ctx.lineWidth = 0.8 / zoom;  // Daha ince stroke
+                // Segment başlangıcı cihaz merkezinde mi kontrol et
+                const distFromCenter = Math.hypot(
+                    segment.x1 - parentCihaz.x,
+                    segment.y1 - parentCihaz.y
+                );
 
-                    ctx.fillRect(clipStart, -BACA_CONFIG.genislik / 2, length - clipStart, BACA_CONFIG.genislik);
-                    ctx.strokeRect(clipStart, -BACA_CONFIG.genislik / 2, length - clipStart, BACA_CONFIG.genislik);
+                // Eğer segment cihazın merkezinden veya içinden başlıyorsa
+                if (distFromCenter < cihazRadius) {
+                    startOffset = cihazRadius - distFromCenter;
                 }
-            } else {
-                // Normal segment çizimi
+            }
+
+            if (length > startOffset) {
+                // Baca dikdörtgeni (silindir - üstten görünüm)
                 ctx.fillStyle = BACA_CONFIG.fillColor;
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;
                 ctx.lineWidth = 0.8 / zoom;  // Daha ince stroke
 
-                ctx.fillRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
-                ctx.strokeRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
+                ctx.fillRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
+                ctx.strokeRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
             }
 
             ctx.restore();
