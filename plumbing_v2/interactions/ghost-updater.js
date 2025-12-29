@@ -156,7 +156,15 @@ export function updateGhostPosition(ghost, point, snap) {
     }
     // Baca için: sadece cihaz üzerine snap yap
     else if (ghost.type === 'baca') {
-        // Cihazları bul (currentFloor'da olan)
+        // KRITIK: Baca zaten yerleştirilmiş ve çizim modundaysa, cihaz snap yapma!
+        // Sadece ilk yerleştirme için cihaz bulmalıyız
+        if (ghost.parentCihazId && ghost.isDrawing) {
+            // Baca çizim modunda - hiçbir şey yapma
+            // Ghost segment renderer tarafından otomatik çizilecek (currentSegmentStart -> mouse)
+            return;
+        }
+
+        // Cihazları bul (currentFloor'da olan) - SADECE İLK YERLEŞTIRME İÇİN
         const currentFloorId = state.currentFloor?.id;
         const cihazlar = this.manager.components.filter(c =>
             c.type === 'cihaz' &&
