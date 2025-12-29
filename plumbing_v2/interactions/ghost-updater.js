@@ -153,6 +153,48 @@ export function updateGhostPosition(ghost, point, snap) {
             ghost.y = point.y;
             ghost.ghostConnectionInfo = null;
         }
+    }
+    // Baca için: sadece cihaz üzerine snap yap
+    else if (ghost.type === 'baca') {
+        // Cihazları bul (currentFloor'da olan)
+        const currentFloorId = state.currentFloor?.id;
+        const cihazlar = this.manager.components.filter(c =>
+            c.type === 'cihaz' &&
+            (!currentFloorId || !c.floorId || c.floorId === currentFloorId)
+        );
+
+        let snapCihaz = null;
+        const snapTolerance = 50; // 50cm içinde snap yap
+
+        // En yakın cihazı bul
+        for (const cihaz of cihazlar) {
+            const dist = Math.hypot(point.x - cihaz.x, point.y - cihaz.y);
+            if (dist < snapTolerance) {
+                snapCihaz = cihaz;
+                break;
+            }
+        }
+
+        if (snapCihaz) {
+            // Cihazın üstüne snap yap
+            const cihazConfig = snapCihaz.config;
+            const ustOffset = cihazConfig.height / 2 + 10; // Cihazın üstünden 10cm yukarıda başla
+
+            ghost.startX = snapCihaz.x;
+            ghost.startY = snapCihaz.y - ustOffset;
+            ghost.currentSegmentStart = {
+                x: snapCihaz.x,
+                y: snapCihaz.y - ustOffset
+            };
+
+            // Bağlı cihaz bilgisini sakla
+            ghost.ghostSnapCihazId = snapCihaz.id;
+            ghost.ghostSnapCihaz = snapCihaz;
+        } else {
+            // Cihaz bulunamadı - ghost görünmez (istekten dolayı)
+            ghost.ghostSnapCihazId = null;
+            ghost.ghostSnapCihaz = null;
+        }
     } else {
         ghost.x = point.x;
         ghost.y = point.y;

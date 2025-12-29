@@ -608,6 +608,17 @@ export function removeObject(manager, obj) {
         if (idx !== -1) manager.components.splice(idx, 1);
     }
     else {
+        // Cihaz siliniyorsa, bağlı bacayı da sil
+        if (obj.type === 'cihaz') {
+            const bacalar = manager.components.filter(c =>
+                c.type === 'baca' && c.parentCihazId === obj.id
+            );
+            bacalar.forEach(baca => {
+                const bacaIdx = manager.components.findIndex(c => c.id === baca.id);
+                if (bacaIdx !== -1) manager.components.splice(bacaIdx, 1);
+            });
+        }
+
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);
 

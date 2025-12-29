@@ -87,7 +87,8 @@ export const TESISAT_MODLARI = {
     BORU: 'boru',
     SAYAC: 'sayac',
     VANA: 'vana',
-    CIHAZ: 'cihaz'
+    CIHAZ: 'cihaz',
+    BACA: 'baca'
 };
 
 export class InteractionManager {

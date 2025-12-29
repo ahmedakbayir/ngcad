@@ -1098,8 +1098,39 @@ export function handleDrag(interactionManager, point) {
 
     // Cihaz taşıma (KOMBI, OCAK, vb.)
     if (interactionManager.dragObject.type === 'cihaz') {
+        const oldPos = { x: interactionManager.dragObject.x, y: interactionManager.dragObject.y };
+
         // Cihazı yeni pozisyona taşı
         interactionManager.dragObject.move(point.x, point.y);
+
+        // Bağlı bacayı da taşı
+        const deltaX = point.x - oldPos.x;
+        const deltaY = point.y - oldPos.y;
+        const bacalar = interactionManager.manager.components.filter(c =>
+            c.type === 'baca' && c.parentCihazId === interactionManager.dragObject.id
+        );
+        bacalar.forEach(baca => {
+            // Başlangıç noktasını güncelle
+            baca.startX += deltaX;
+            baca.startY += deltaY;
+            baca.currentSegmentStart.x += deltaX;
+            baca.currentSegmentStart.y += deltaY;
+
+            // Tüm segment'leri güncelle
+            baca.segments.forEach(seg => {
+                seg.x1 += deltaX;
+                seg.y1 += deltaY;
+                seg.x2 += deltaX;
+                seg.y2 += deltaY;
+            });
+
+            // Havalandırma varsa onu da güncelle
+            if (baca.havalandirma) {
+                baca.havalandirma.x += deltaX;
+                baca.havalandirma.y += deltaY;
+            }
+        });
+
         // Fleks otomatik güncellenir (move metodu içinde)
         return;
     }

@@ -11,6 +11,7 @@ import { Boru, createBoru } from './objects/pipe.js';
 import { Sayac, createSayac } from './objects/meter.js';
 import { Vana, createVana } from './objects/valve.js';
 import { Cihaz, createCihaz } from './objects/device.js';
+import { Baca, createBaca } from './objects/chimney.js';
 
 export class PlumbingManager {
     constructor() {
@@ -69,6 +70,13 @@ export class PlumbingManager {
 
             case TESISAT_MODLARI.CIHAZ:
                 this.tempComponent = createCihaz(0, 0, options.cihazTipi || 'KOMBI', {
+                    floorId: state.currentFloorId
+                });
+                break;
+
+            case TESISAT_MODLARI.BACA:
+                // Baca için geçici nesne - henüz cihaza bağlı değil
+                this.tempComponent = createBaca(0, 0, null, {
                     floorId: state.currentFloorId
                 });
                 break;
@@ -255,6 +263,8 @@ export class PlumbingManager {
                         return Vana.fromJSON(data);
                     case 'cihaz':
                         return Cihaz.fromJSON(data);
+                    case 'baca':
+                        return Baca.fromJSON(data);
                     default:
                         return null;
                 }
@@ -507,6 +517,8 @@ export class PlumbingManager {
                         return Vana.fromJSON(c);
                     case 'cihaz':
                         return Cihaz.fromJSON(c);
+                    case 'baca':
+                        return Baca.fromJSON(c);
                     default:
                         return null;
                 }

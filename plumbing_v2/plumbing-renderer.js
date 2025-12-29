@@ -239,6 +239,12 @@ export class PlumbingRenderer {
                 }
                 this.drawComponent(ctx, manager.tempComponent, manager);
             }
+            else if (manager.tempComponent.type === 'baca') {
+                // Baca ghost - sadece cihaz üzerinde görünsün
+                if (manager.tempComponent.ghostSnapCihaz) {
+                    this.drawBaca(ctx, manager.tempComponent, manager);
+                }
+            }
             else {
                 // Diğer tip ghostlar için normal drawComponent
                 this.drawComponent(ctx, manager.tempComponent, manager);
@@ -652,6 +658,9 @@ export class PlumbingRenderer {
                 break;
             case 'cihaz':
                 this.drawCihaz(ctx, comp, manager);
+                break;
+            case 'baca':
+                this.drawBaca(ctx, comp, manager);
                 break;
         }
 
@@ -1154,6 +1163,143 @@ export class PlumbingRenderer {
             ctx.arc(pos.x, pos.y, burnerRadius, 0, Math.PI * 2);
             ctx.fill();
         });
+
+        ctx.restore();
+    }
+
+    /**
+     * Baca çizimi
+     */
+    drawBaca(ctx, baca, manager) {
+        const zoom = state.zoom || 1;
+        const BACA_CONFIG = {
+            genislik: 20,
+            havalandirmaGenislik: 30,
+            havalandirmaUzunluk: 10,
+            izgaraSayisi: 5,
+            strokeColor: '#666666',
+            fillColor: '#999999'
+        };
+
+        ctx.save();
+
+        // Segment'leri çiz
+        baca.segments.forEach(segment => {
+            const dx = segment.x2 - segment.x1;
+            const dy = segment.y2 - segment.y1;
+            const length = Math.hypot(dx, dy);
+            const angle = Math.atan2(dy, dx);
+
+            ctx.save();
+            ctx.translate(segment.x1, segment.y1);
+            ctx.rotate(angle);
+
+            // Baca dikdörtgeni (silindir - üstten görünüm)
+            ctx.fillStyle = BACA_CONFIG.fillColor;
+            ctx.strokeStyle = BACA_CONFIG.strokeColor;
+            ctx.lineWidth = 1.5 / zoom;
+
+            ctx.fillRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
+            ctx.strokeRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
+
+            ctx.restore();
+        });
+
+        // Havalandırma ızgarası (ESC basılınca)
+        if (baca.havalandirma) {
+            const hv = baca.havalandirma;
+
+            ctx.save();
+            ctx.translate(hv.x, hv.y);
+            ctx.rotate(hv.angle);
+
+            // Havalandırma dikdörtgeni
+            ctx.fillStyle = '#CCCCCC';
+            ctx.strokeStyle = BACA_CONFIG.strokeColor;
+            ctx.lineWidth = 2 / zoom;
+
+            const hvX = -hv.width / 2;
+            const hvY = -hv.height / 2;
+
+            ctx.fillRect(hvX, hvY, hv.width, hv.height);
+            ctx.strokeRect(hvX, hvY, hv.width, hv.height);
+
+            // Izgaralar (5 çubuk)
+            ctx.strokeStyle = '#666666';
+            ctx.lineWidth = 1 / zoom;
+            const izgaraAralik = hv.width / (BACA_CONFIG.izgaraSayisi + 1);
+
+            for (let i = 1; i <= BACA_CONFIG.izgaraSayisi; i++) {
+                const x = hvX + i * izgaraAralik;
+                ctx.beginPath();
+                ctx.moveTo(x, hvY);
+                ctx.lineTo(x, hvY + hv.height);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // Ghost segment (çizim sırasında)
+        if (baca.isDrawing && manager?.interactionManager?.lastMousePoint) {
+            const ghostSeg = baca.getGhostSegment(
+                manager.interactionManager.lastMousePoint.x,
+                manager.interactionManager.lastMousePoint.y
+            );
+
+            if (ghostSeg) {
+                const dx = ghostSeg.x2 - ghostSeg.x1;
+                const dy = ghostSeg.y2 - ghostSeg.y1;
+                const length = Math.hypot(dx, dy);
+                const angle = Math.atan2(dy, dx);
+
+                ctx.save();
+                ctx.translate(ghostSeg.x1, ghostSeg.y1);
+                ctx.rotate(angle);
+
+                // Ghost segment (yarı saydam)
+                ctx.globalAlpha = 0.5;
+                ctx.fillStyle = BACA_CONFIG.fillColor;
+                ctx.strokeStyle = BACA_CONFIG.strokeColor;
+                ctx.lineWidth = 1.5 / zoom;
+                ctx.setLineDash([5 / zoom, 5 / zoom]);
+
+                ctx.fillRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
+                ctx.strokeRect(0, -BACA_CONFIG.genislik / 2, length, BACA_CONFIG.genislik);
+
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+
+                // Ghost havalandırma (segment sonunda)
+                ctx.translate(length, 0);
+                const hvWidth = BACA_CONFIG.havalandirmaGenislik;
+                const hvHeight = BACA_CONFIG.havalandirmaUzunluk;
+
+                ctx.globalAlpha = 0.5;
+                ctx.fillStyle = '#CCCCCC';
+                ctx.strokeStyle = BACA_CONFIG.strokeColor;
+                ctx.lineWidth = 2 / zoom;
+
+                ctx.fillRect(-hvWidth / 2, -hvHeight / 2, hvWidth, hvHeight);
+                ctx.strokeRect(-hvWidth / 2, -hvHeight / 2, hvWidth, hvHeight);
+
+                // Izgaralar
+                ctx.strokeStyle = '#666666';
+                ctx.lineWidth = 1 / zoom;
+                const izgaraAralik = hvWidth / (BACA_CONFIG.izgaraSayisi + 1);
+
+                for (let i = 1; i <= BACA_CONFIG.izgaraSayisi; i++) {
+                    const x = -hvWidth / 2 + i * izgaraAralik;
+                    ctx.beginPath();
+                    ctx.moveTo(x, -hvHeight / 2);
+                    ctx.lineTo(x, hvHeight / 2);
+                    ctx.stroke();
+                }
+
+                ctx.globalAlpha = 1;
+                ctx.restore();
+            }
+        }
 
         ctx.restore();
     }
