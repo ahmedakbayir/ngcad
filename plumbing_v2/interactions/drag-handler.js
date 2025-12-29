@@ -819,7 +819,7 @@ export function handleDrag(interactionManager, point) {
         // (Servis kutusu çıkışı, sayaç giriş/çıkışı, cihaz fleksi, dirsek, boşta boru ucu)
         const isProtected = isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint);
         if (isProtected) {
-            console.warn('🚫 ENGEL: Boru ucu korumalı noktaya taşınamaz!', finalPos);
+            //console.warn('🚫 ENGEL: Boru ucu korumalı noktaya taşınamaz!', finalPos);
             return; // Taşımayı engelle - sessizce geri dön
         }
 

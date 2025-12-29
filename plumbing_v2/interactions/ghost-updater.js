@@ -9,12 +9,12 @@ export function updateGhostPosition(ghost, point, snap) {
     // Debug: İlk 3 güncellemede koordinat sistemi kontrolü
     if (ghost.type === 'cihaz' && !this._debugCount) this._debugCount = 0;
     if (ghost.type === 'cihaz' && this._debugCount < 3) {
-        console.log('🐛 CIHAZ GHOST DEBUG:', {
-            'zoom': state.zoom,
-            'panOffset': `(${state.panOffset.x}, ${state.panOffset.y})`,
-            'point (world)': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
-            'DPR': window.devicePixelRatio
-        });
+        // console.log('🐛 CIHAZ GHOST DEBUG:', {
+        //     'zoom': state.zoom,
+        //     'panOffset': `(${state.panOffset.x}, ${state.panOffset.y})`,
+        //     'point (world)': `(${point.x.toFixed(1)}, ${point.y.toFixed(1)})`,
+        //     'DPR': window.devicePixelRatio
+        // });
         this._debugCount++;
     }
 
