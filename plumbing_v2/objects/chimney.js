@@ -13,10 +13,10 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
 // Baca sabitleri
 export const BACA_CONFIG = {
-    genislik: 20,           // cm - baca genişliği
+    genislik: 16,           // cm - baca genişliği (16cm)
     minSegmentUzunluk: 10,  // cm - minimum segment uzunluğu
-    havalandirmaGenislik: 30, // cm
-    havalandirmaUzunluk: 10,  // cm
+    havalandirmaGenislik: 10, // cm - havalandırma genişliği (ince kenar)
+    havalandirmaUzunluk: 30,  // cm - havalandırma uzunluğu (geniş kenar)
     izgaraSayisi: 5,          // ızgara çubuk sayısı
     renk: 0x808080,           // Gri
     strokeColor: '#666666'
