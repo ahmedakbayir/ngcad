@@ -1109,6 +1109,17 @@ export function handleDrag(interactionManager, point) {
         const bacalar = interactionManager.manager.components.filter(c =>
             c.type === 'baca' && c.parentCihazId === interactionManager.dragObject.id
         );
+
+        // Debug: İlk taşımada log
+        if (bacalar.length > 0 && !interactionManager._bacaDragLogged) {
+            console.log('🔥 Baca ile cihaz birlikte taşınıyor:', {
+                cihazId: interactionManager.dragObject.id,
+                bacaSayisi: bacalar.length,
+                delta: `(${deltaX.toFixed(1)}, ${deltaY.toFixed(1)})`
+            });
+            interactionManager._bacaDragLogged = true;
+        }
+
         bacalar.forEach(baca => {
             // Başlangıç noktasını güncelle
             baca.startX += deltaX;
@@ -1556,6 +1567,7 @@ export function endDrag(interactionManager) {
     interactionManager.dragObject = null;
     interactionManager.dragEndpoint = null;
     interactionManager.dragStart = null;
+    interactionManager._bacaDragLogged = false; // Reset baca drag log flag
     interactionManager.dragStartObjectPos = null;
     interactionManager.isBodyDrag = false;
     interactionManager.bodyDragInitialP1 = null;
