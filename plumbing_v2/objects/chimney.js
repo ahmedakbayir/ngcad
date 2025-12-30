@@ -356,8 +356,9 @@ export class Baca {
     }
 
     /**
-     * Segment endpoint'i rigid transform ile taşı
+     * Segment endpoint'i rigid transform ile taşı (translation + rotation)
      * Taşınan endpoint'ten SONRAKİ tüm segment'ler rigid body gibi birlikte hareket eder
+     * Açı değişirse, sonraki segment'ler pivot nokta etrafında döner
      * @param {number} segmentIndex - Segment indexi
      * @param {string} endpoint - 'start' veya 'end'
      * @param {number} newX - Yeni X koordinatı
@@ -372,9 +373,26 @@ export class Baca {
         const oldX = endpoint === 'start' ? segment.x1 : segment.x2;
         const oldY = endpoint === 'start' ? segment.y1 : segment.y2;
 
-        // Delta hesapla
-        const deltaX = newX - oldX;
-        const deltaY = newY - oldY;
+        // Pivot nokta (sabit nokta) - taşınan endpoint'in bağlı olduğu nokta
+        const pivotX = endpoint === 'start' ? (segmentIndex > 0 ? this.segments[segmentIndex - 1].x1 : segment.x1) : segment.x1;
+        const pivotY = endpoint === 'start' ? (segmentIndex > 0 ? this.segments[segmentIndex - 1].y1 : segment.y1) : segment.y1;
+
+        // Eski ve yeni açıları hesapla
+        const oldAngle = Math.atan2(oldY - pivotY, oldX - pivotX);
+        const newAngle = Math.atan2(newY - pivotY, newX - pivotX);
+        const deltaAngle = newAngle - oldAngle;
+
+        // Rotasyon matrisi helper
+        const rotatePoint = (px, py, pivotX, pivotY, angle) => {
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const dx = px - pivotX;
+            const dy = py - pivotY;
+            return {
+                x: pivotX + dx * cos - dy * sin,
+                y: pivotY + dx * sin + dy * cos
+            };
+        };
 
         if (endpoint === 'start') {
             // Başlangıç taşındı
@@ -393,20 +411,19 @@ export class Baca {
                 this.currentSegmentStart.y = newY;
             }
 
-            // SONRAKI segment'lerin BAŞLANGIÇ noktalarını rigid transform ile taşı
-            // ÖNCEKİ segment'ler (0 to segmentIndex-1) SABİT KALIR
-            for (let i = segmentIndex; i < this.segments.length; i++) {
-                if (i === segmentIndex) {
-                    // Şu anki segment - sadece end point'i taşı
-                    this.segments[i].x2 += deltaX;
-                    this.segments[i].y2 += deltaY;
-                } else {
-                    // Sonraki segment'ler - hem start hem end taşı (rigid)
-                    this.segments[i].x1 += deltaX;
-                    this.segments[i].y1 += deltaY;
-                    this.segments[i].x2 += deltaX;
-                    this.segments[i].y2 += deltaY;
-                }
+            // Şu anki segment'in end point'ini pivot etrafında döndür
+            const rotatedEnd = rotatePoint(segment.x2, segment.y2, pivotX, pivotY, deltaAngle);
+            segment.x2 = rotatedEnd.x;
+            segment.y2 = rotatedEnd.y;
+
+            // Sonraki segment'leri pivot etrafında döndür
+            for (let i = segmentIndex + 1; i < this.segments.length; i++) {
+                const rotatedStart = rotatePoint(this.segments[i].x1, this.segments[i].y1, pivotX, pivotY, deltaAngle);
+                const rotatedEnd = rotatePoint(this.segments[i].x2, this.segments[i].y2, pivotX, pivotY, deltaAngle);
+                this.segments[i].x1 = rotatedStart.x;
+                this.segments[i].y1 = rotatedStart.y;
+                this.segments[i].x2 = rotatedEnd.x;
+                this.segments[i].y2 = rotatedEnd.y;
             }
 
         } else if (endpoint === 'end') {
@@ -414,12 +431,14 @@ export class Baca {
             segment.x2 = newX;
             segment.y2 = newY;
 
-            // Sonraki segment'leri rigid transform ile taşı
+            // Sonraki segment'leri pivot (segment.x1, segment.y1) etrafında döndür
             for (let i = segmentIndex + 1; i < this.segments.length; i++) {
-                this.segments[i].x1 += deltaX;
-                this.segments[i].y1 += deltaY;
-                this.segments[i].x2 += deltaX;
-                this.segments[i].y2 += deltaY;
+                const rotatedStart = rotatePoint(this.segments[i].x1, this.segments[i].y1, pivotX, pivotY, deltaAngle);
+                const rotatedEnd = rotatePoint(this.segments[i].x2, this.segments[i].y2, pivotX, pivotY, deltaAngle);
+                this.segments[i].x1 = rotatedStart.x;
+                this.segments[i].y1 = rotatedStart.y;
+                this.segments[i].x2 = rotatedEnd.x;
+                this.segments[i].y2 = rotatedEnd.y;
             }
 
             // Son segment bitişi - currentSegmentStart'ı güncelle
@@ -428,15 +447,14 @@ export class Baca {
                 this.currentSegmentStart.y = newY;
             }
 
-            // Havalandırma varsa ve son segmentteyse, pozisyonunu güncelle
+            // Havalandırma varsa ve son segmentteyse, pozisyonunu döndür
             if (this.havalandirma && segmentIndex === this.segments.length - 1) {
-                this.havalandirma.x = newX;
-                this.havalandirma.y = newY;
+                const rotatedHavalandirma = rotatePoint(this.havalandirma.x, this.havalandirma.y, pivotX, pivotY, deltaAngle);
+                this.havalandirma.x = rotatedHavalandirma.x;
+                this.havalandirma.y = rotatedHavalandirma.y;
 
                 // Açıyı da güncelle
-                const dx = newX - segment.x1;
-                const dy = newY - segment.y1;
-                this.havalandirma.angle = Math.atan2(dy, dx);
+                this.havalandirma.angle += deltaAngle;
             }
         }
     }
