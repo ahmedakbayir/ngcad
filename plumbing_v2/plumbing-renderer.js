@@ -1267,18 +1267,17 @@ export class PlumbingRenderer {
             ctx.lineTo(segment.x2, segment.y2);
         });
 
-        // 1. Ana dolgu - gradient (tek segment) veya düz renk (çoklu)
-        if (baca.segments.length === 1) {
-            // Tek segment - gradient (clipping hesabı dahil)
-            const seg = baca.segments[0];
+        // Gradient helper function (tek segment için)
+        const createSegmentGradient = () => {
+            if (baca.segments.length !== 1) return null;
 
-            // Gerçek başlangıç noktası (clipping varsa ayarlanmış)
+            const seg = baca.segments[0];
             let startX = seg.x1;
             let startY = seg.y1;
 
             if (parentCihaz) {
                 const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                const distFromCenter = Math.hypot(seg.x1 - parentCihaz.x, seg.x1 - parentCihaz.y);
+                const distFromCenter = Math.hypot(seg.x1 - parentCihaz.x, seg.y1 - parentCihaz.y);
                 if (distFromCenter < cihazRadius) {
                     const dx = seg.x2 - seg.x1;
                     const dy = seg.y2 - seg.y1;
@@ -1309,11 +1308,12 @@ export class PlumbingRenderer {
             gradient.addColorStop(0, BACA_CONFIG.fillColorLight);
             gradient.addColorStop(0.5, BACA_CONFIG.fillColorMid);
             gradient.addColorStop(1, BACA_CONFIG.fillColorLight);
+            return gradient;
+        };
 
-            ctx.strokeStyle = gradient;
-        } else {
-            ctx.strokeStyle = BACA_CONFIG.fillColorMid;
-        }
+        // 1. Ana dolgu - gradient (tek segment) veya düz renk (çoklu)
+        const baseGradient = createSegmentGradient();
+        ctx.strokeStyle = baseGradient || BACA_CONFIG.fillColorMid;
         ctx.stroke();
 
         // 2. Outline (dış çerçeve)
@@ -1378,9 +1378,12 @@ export class PlumbingRenderer {
             ctx.lineTo(segment.x2, segment.y2);
         });
 
-        ctx.strokeStyle = BACA_CONFIG.fillColorLight;
-        ctx.lineWidth = BACA_CONFIG.genislik - (2 / zoom);
-        ctx.stroke();
+        // Tek segment ise highlight'ı atla (gradient zaten highlight içeriyor)
+        if (!baseGradient) {
+            ctx.strokeStyle = BACA_CONFIG.fillColorLight;
+            ctx.lineWidth = BACA_CONFIG.genislik - (2 / zoom);
+            ctx.stroke();
+        }
 
         // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
         if (baca.havalandirma && baca.segments.length > 0) {
