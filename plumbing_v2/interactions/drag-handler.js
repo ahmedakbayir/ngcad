@@ -641,12 +641,57 @@ export function handleDrag(interactionManager, point) {
         const baca = interactionManager.dragObject;
         const endpoint = interactionManager.dragBacaEndpoint;
 
-        // Endpoint'i yeni pozisyona taşı
-        baca.moveEndpoint(endpoint.segmentIndex, endpoint.endpoint, point.x, point.y);
+        // 15° snap - önceki noktaya göre eksen snap
+        const segment = baca.segments[endpoint.segmentIndex];
+        let snappedX = point.x;
+        let snappedY = point.y;
+
+        if (segment) {
+            // Önceki nokta: sürüklediğimiz endpoint'in bağlı olduğu nokta
+            const prevX = endpoint.endpoint === 'end' ? segment.x1 : segment.x2;
+            const prevY = endpoint.endpoint === 'end' ? segment.y1 : segment.y2;
+
+            const dx = point.x - prevX;
+            const dy = point.y - prevY;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance >= 10) {
+                let angleRad = Math.atan2(dy, dx);
+                let angleDeg = angleRad * 180 / Math.PI;
+                const SNAP_TOLERANCE = 15;
+                let snappedAngle = null;
+
+                // 0° (sağ - X pozitif)
+                if (Math.abs(angleDeg) <= SNAP_TOLERANCE) {
+                    snappedAngle = 0;
+                }
+                // 90° (yukarı - Y negatif)
+                else if (Math.abs(angleDeg - 90) <= SNAP_TOLERANCE) {
+                    snappedAngle = 90;
+                }
+                // 180° veya -180° (sol - X negatif)
+                else if (Math.abs(Math.abs(angleDeg) - 180) <= SNAP_TOLERANCE) {
+                    snappedAngle = 180;
+                }
+                // -90° (aşağı - Y pozitif)
+                else if (Math.abs(angleDeg + 90) <= SNAP_TOLERANCE) {
+                    snappedAngle = -90;
+                }
+
+                if (snappedAngle !== null) {
+                    const snappedAngleRad = snappedAngle * Math.PI / 180;
+                    snappedX = prevX + distance * Math.cos(snappedAngleRad);
+                    snappedY = prevY + distance * Math.sin(snappedAngleRad);
+                }
+            }
+        }
+
+        // Endpoint'i snapped pozisyona taşı
+        baca.moveEndpoint(endpoint.segmentIndex, endpoint.endpoint, snappedX, snappedY);
 
         // Endpoint referansını güncelle (mouse pozisyonu için)
-        endpoint.x = point.x;
-        endpoint.y = point.y;
+        endpoint.x = snappedX;
+        endpoint.y = snappedY;
 
         return;
     }

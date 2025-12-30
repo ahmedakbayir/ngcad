@@ -1275,22 +1275,22 @@ export class PlumbingRenderer {
             ctx.restore();
         });
 
-        // ADIM 2: Tüm segmentlerin outline'ını tek bir path olarak çiz (TEMİZ MİTER İÇİN)
+        // ADIM 2: Tüm outline'ı tek path olarak çiz (world coordinates)
         if (baca.segments.length > 0) {
             const halfWidth = BACA_CONFIG.genislik / 2;
-
-            // Üst ve alt kenarları oluştur
-            const topEdge = [];
-            const bottomEdge = [];
+            const topPath = [];
+            const bottomPath = [];
 
             baca.segments.forEach((segment, index) => {
                 const dx = segment.x2 - segment.x1;
                 const dy = segment.y2 - segment.y1;
                 const length = Math.hypot(dx, dy);
+                if (length < 0.1) return;
+
                 const angle = Math.atan2(dy, dx);
                 const perpAngle = angle + Math.PI / 2;
 
-                // Clipping offset
+                // Clipping için offset hesapla
                 let startOffset = 0;
                 if (parentCihaz && index === 0) {
                     const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
@@ -1303,61 +1303,62 @@ export class PlumbingRenderer {
                     }
                 }
 
-                // Başlangıç noktası (startOffset ile)
-                const startX = segment.x1 + Math.cos(angle) * startOffset;
-                const startY = segment.y1 + Math.sin(angle) * startOffset;
+                // Gerçek başlangıç noktası (offset ile)
+                const realStartX = segment.x1 + Math.cos(angle) * startOffset;
+                const realStartY = segment.y1 + Math.sin(angle) * startOffset;
 
-                // Üst ve alt köşe noktaları
-                const topStart = {
-                    x: startX + Math.cos(perpAngle) * halfWidth,
-                    y: startY + Math.sin(perpAngle) * halfWidth
-                };
-                const bottomStart = {
-                    x: startX - Math.cos(perpAngle) * halfWidth,
-                    y: startY - Math.sin(perpAngle) * halfWidth
-                };
-                const topEnd = {
+                // İlk segment için başlangıç noktalarını ekle
+                if (index === 0) {
+                    topPath.push({
+                        x: realStartX + Math.cos(perpAngle) * halfWidth,
+                        y: realStartY + Math.sin(perpAngle) * halfWidth
+                    });
+                    bottomPath.push({
+                        x: realStartX - Math.cos(perpAngle) * halfWidth,
+                        y: realStartY - Math.sin(perpAngle) * halfWidth
+                    });
+                }
+
+                // Segment bitiş noktalarını ekle
+                topPath.push({
                     x: segment.x2 + Math.cos(perpAngle) * halfWidth,
                     y: segment.y2 + Math.sin(perpAngle) * halfWidth
-                };
-                const bottomEnd = {
+                });
+                bottomPath.push({
                     x: segment.x2 - Math.cos(perpAngle) * halfWidth,
                     y: segment.y2 - Math.sin(perpAngle) * halfWidth
-                };
+                });
+            });
 
-                if (index === 0) {
-                    topEdge.push(topStart);
-                    bottomEdge.push(bottomStart);
+            // Tek bir kapalı path çiz
+            if (topPath.length > 0 && bottomPath.length > 0) {
+                ctx.beginPath();
+
+                // Üst kenar (soldan sağa)
+                ctx.moveTo(topPath[0].x, topPath[0].y);
+                for (let i = 1; i < topPath.length; i++) {
+                    ctx.lineTo(topPath[i].x, topPath[i].y);
                 }
-                topEdge.push(topEnd);
-                bottomEdge.push(bottomEnd);
-            });
 
-            // Outline path'ini çiz
-            ctx.beginPath();
-            // Üst kenar
-            topEdge.forEach((pt, i) => {
-                if (i === 0) ctx.moveTo(pt.x, pt.y);
-                else ctx.lineTo(pt.x, pt.y);
-            });
-            // Sağ uç
-            if (bottomEdge.length > 0) {
-                ctx.lineTo(bottomEdge[bottomEdge.length - 1].x, bottomEdge[bottomEdge.length - 1].y);
-            }
-            // Alt kenar (ters sırada)
-            for (let i = bottomEdge.length - 2; i >= 0; i--) {
-                ctx.lineTo(bottomEdge[i].x, bottomEdge[i].y);
-            }
-            // Sol uç
-            ctx.closePath();
+                // Sağ uç (üstten alta)
+                ctx.lineTo(bottomPath[bottomPath.length - 1].x, bottomPath[bottomPath.length - 1].y);
 
-            // Miter outline - TEMİZ KÖŞELER
-            ctx.strokeStyle = BACA_CONFIG.strokeColor;
-            ctx.lineWidth = 1.2 / zoom;
-            ctx.lineJoin = 'miter';
-            ctx.lineCap = 'square';
-            ctx.miterLimit = 10;
-            ctx.stroke();
+                // Alt kenar (sağdan sola)
+                for (let i = bottomPath.length - 2; i >= 0; i--) {
+                    ctx.lineTo(bottomPath[i].x, bottomPath[i].y);
+                }
+
+                // Sol uç (alttan üste)
+                ctx.closePath();
+
+                // Stroke ile outline çiz - miter join
+                ctx.strokeStyle = BACA_CONFIG.strokeColor;
+                ctx.lineWidth = 1.2 / zoom;
+                ctx.lineJoin = 'miter';
+                ctx.lineCap = 'square';
+                ctx.miterLimit = 10;
+                ctx.stroke();
+            }
         }
 
         // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA

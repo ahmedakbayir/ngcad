@@ -437,7 +437,14 @@ export class PlumbingManager {
 
             // Baca için özel containsPoint kontrolü
             if (comp.type === 'baca') {
+                console.log('🔍 Checking chimney:', {
+                    id: comp.id,
+                    segments: comp.segments?.length,
+                    clickPos: pos,
+                    containsResult: comp.containsPoint(pos, tolerance)
+                });
                 if (comp.containsPoint(pos, tolerance)) {
+                    console.log('✅ Chimney detected!', comp);
                     return { type: 'baca', object: comp, handle: 'body' };
                 }
                 continue;
