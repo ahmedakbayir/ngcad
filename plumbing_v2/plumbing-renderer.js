@@ -208,49 +208,49 @@ export class PlumbingRenderer {
                 ctx.save();
                 ctx.globalAlpha = 0.6;
 
-            // Cihaz ghost için özel rendering (drawComponent translate'ini bypass et)
-            if (manager.tempComponent.type === 'cihaz') {
-                // Vana ve fleks preview çiz (bağlantı varsa)
-                if (manager.tempComponent.ghostConnectionInfo) {
-                    this.drawCihazGhostConnection(ctx, manager.tempComponent, manager);
+                // Cihaz ghost için özel rendering (drawComponent translate'ini bypass et)
+                if (manager.tempComponent.type === 'cihaz') {
+                    // Vana ve fleks preview çiz (bağlantı varsa)
+                    if (manager.tempComponent.ghostConnectionInfo) {
+                        this.drawCihazGhostConnection(ctx, manager.tempComponent, manager);
+                    }
+
+                    // Manuel translate + draw
+                    ctx.save();
+                    ctx.translate(manager.tempComponent.x, manager.tempComponent.y);
+                    if (manager.tempComponent.rotation) {
+                        ctx.rotate(manager.tempComponent.rotation * Math.PI / 180);
+                    }
+
+                    // Cihaz tipine göre çiz
+                    if (manager.tempComponent.cihazTipi === 'KOMBI') {
+                        this.drawKombi(ctx, manager.tempComponent, manager);
+                    } else if (manager.tempComponent.cihazTipi === 'OCAK') {
+                        this.drawOcak(ctx, manager.tempComponent, manager);
+                    }
+
+                    ctx.restore();
                 }
 
-                // Manuel translate + draw
-                ctx.save();
-                ctx.translate(manager.tempComponent.x, manager.tempComponent.y);
-                if (manager.tempComponent.rotation) {
-                    ctx.rotate(manager.tempComponent.rotation * Math.PI / 180);
+                else if (manager.tempComponent.type === 'sayac') {
+                    // Sayaç Ghost Bağlantılarını Çiz (Vana + Fleks)
+                    if (manager.tempComponent.ghostConnectionInfo) {
+                        this.drawSayacGhostConnection(ctx, manager.tempComponent, manager);
+                    }
+                    this.drawComponent(ctx, manager.tempComponent, manager);
                 }
-
-                // Cihaz tipine göre çiz
-                if (manager.tempComponent.cihazTipi === 'KOMBI') {
-                    this.drawKombi(ctx, manager.tempComponent, manager);
-                } else if (manager.tempComponent.cihazTipi === 'OCAK') {
-                    this.drawOcak(ctx, manager.tempComponent, manager);
+                else if (manager.tempComponent.type === 'baca') {
+                    // Baca ghost - sadece cihaz üzerinde görünsün
+                    if (manager.tempComponent.ghostSnapCihaz) {
+                        this.drawBaca(ctx, manager.tempComponent, manager);
+                    }
+                }
+                else {
+                    // Diğer tip ghostlar için normal drawComponent
+                    this.drawComponent(ctx, manager.tempComponent, manager);
                 }
 
                 ctx.restore();
-            }
-
-            else if (manager.tempComponent.type === 'sayac') {
-                // Sayaç Ghost Bağlantılarını Çiz (Vana + Fleks)
-                if (manager.tempComponent.ghostConnectionInfo) {
-                    this.drawSayacGhostConnection(ctx, manager.tempComponent, manager);
-                }
-                this.drawComponent(ctx, manager.tempComponent, manager);
-            }
-            else if (manager.tempComponent.type === 'baca') {
-                // Baca ghost - sadece cihaz üzerinde görünsün
-                if (manager.tempComponent.ghostSnapCihaz) {
-                    this.drawBaca(ctx, manager.tempComponent, manager);
-                }
-            }
-            else {
-                // Diğer tip ghostlar için normal drawComponent
-                this.drawComponent(ctx, manager.tempComponent, manager);
-            }
-
-            ctx.restore();
             } // isSayacBeforeFirstClick kapatma
         }
 
@@ -358,7 +358,7 @@ export class PlumbingRenderer {
                     gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 1));
                     gradient.addColorStop(0.1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
                     gradient.addColorStop(0.9, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    gradient.addColorStop(1,   this.getRenkByGroup(colorGroup, 'boru', 1));
+                    gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 1));
                 }
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -752,25 +752,25 @@ export class PlumbingRenderer {
                 if (bagliBoru) {
                     ctx.save();
 
- /* 
-                   // Büyük kırmızı daire - çıkış noktası
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
-                    ctx.strokeStyle = '#FFFFFF';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(cikis.x, cikis.y, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-
-                    // Borunun p1 noktasını yeşil göster
-                    ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
-                    ctx.strokeStyle = '#FFFFFF';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.arc(bagliBoru.p1.x, bagliBoru.p1.y, 5, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-*/
+                    /* 
+                                      // Büyük kırmızı daire - çıkış noktası
+                                       ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+                                       ctx.strokeStyle = '#FFFFFF';
+                                       ctx.lineWidth = 2;
+                                       ctx.beginPath();
+                                       ctx.arc(cikis.x, cikis.y, 2, 0, Math.PI * 2);
+                                       ctx.fill();
+                                       ctx.stroke();
+                   
+                                       // Borunun p1 noktasını yeşil göster
+                                       ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+                                       ctx.strokeStyle = '#FFFFFF';
+                                       ctx.lineWidth = 2;
+                                       ctx.beginPath();
+                                       ctx.arc(bagliBoru.p1.x, bagliBoru.p1.y, 5, 0, Math.PI * 2);
+                                       ctx.fill();
+                                       ctx.stroke();
+                   */
                     // İki nokta arasındaki mesafeyi göster
                     const dist = Math.hypot(bagliBoru.p1.x - cikis.x, bagliBoru.p1.y - cikis.y);
 
@@ -1185,12 +1185,12 @@ export class PlumbingRenderer {
             genislik: 12,  // 12cm genişlik
             havalandirmaGenislik: 10,  // İnce kenar
             havalandirmaUzunluk: 30,   // Geniş kenar
-            havalandirmaOffset: 5,  // Baca ucundan ne kadar uzakta (5cm)
-            izgaraSayisi: 4,  // 4 çubuk
+            havalandirmaOffset: 0,  // Baca ucundan ne kadar uzakta (5cm)
+            izgaraSayisi: 6,  // 4 çubuk
             // Gri tonlar - pastel
-            fillColorLight: '#E8E8E8',  // Açık gri
-            fillColorMid: '#D0D0D0',    // Orta gri
-            strokeColor: '#C8C8C8'      // Stroke (fill'e yakın)
+            fillColorLight: '#787c7cff',  // Açık gri
+            fillColorMid: '#e4e7e7ff',    // Orta gri
+            strokeColor: '#787c7cff'      // Stroke (fill'e yakın)
         };
 
         ctx.save();
@@ -1240,25 +1240,18 @@ export class PlumbingRenderer {
                 ctx.lineWidth = 0.8 / zoom;
 
                 ctx.fillRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
-                ctx.strokeRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
-
+               // ctx.strokeRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
+              
                 // Dirsek kapakları (her segment başında ve sonunda)
                 ctx.fillStyle = BACA_CONFIG.fillColorMid;
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;
 
-                // Başlangıç kapağı (ilk segment değilse)
-                if (index > 0 || startOffset > 0) {
-                    ctx.beginPath();
-                    ctx.arc(startOffset, 0, BACA_CONFIG.genislik / 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.stroke();
-                }
-
                 // Bitiş kapağı (son segment değilse)
                 if (index < baca.segments.length - 1) {
                     ctx.beginPath();
-                    ctx.arc(length, 0, BACA_CONFIG.genislik / 2, 0, Math.PI * 2);
+                    //ctx.arc(length, 0, BACA_CONFIG.genislik / 2, 0, Math.PI * 2);
                     ctx.fill();
+                    //ctx.lineCap("round");
                     ctx.stroke();
                 }
             }
@@ -1288,7 +1281,7 @@ export class PlumbingRenderer {
             const hvUzunluk = BACA_CONFIG.havalandirmaUzunluk - 2 * izgaraGenislik;  // 30 - 20 = 10cm
 
             // Simetrik gradient (gri tonlar): açık → orta → açık
-            const gradient = ctx.createLinearGradient(0, -hvUzunluk / 2, 0, hvUzunluk / 2);
+            const gradient = ctx.createLinearGradient(0, -2 * hvUzunluk, 0, hvUzunluk);
             gradient.addColorStop(0, '#D8D8D8');    // Açık
             gradient.addColorStop(0.5, '#B8B8B8');  // Orta
             gradient.addColorStop(1, '#D8D8D8');    // Açık (simetrik)
@@ -1297,16 +1290,16 @@ export class PlumbingRenderer {
             ctx.strokeStyle = BACA_CONFIG.strokeColor;
             ctx.lineWidth = 0.8 / zoom;
 
-            const hvX = -hvGenislik / 2;
-            const hvY = -hvUzunluk / 2;
+            const hvX = -hvGenislik;
+            const hvY = -hvUzunluk;
 
-            ctx.fillRect(hvX, hvY, hvGenislik, hvUzunluk);
-            ctx.strokeRect(hvX, hvY, hvGenislik, hvUzunluk);
+            ctx.fillRect(hvX, hvY, hvGenislik, 2 * hvUzunluk);
+            ctx.strokeRect(hvX, hvY, hvGenislik, 2 * hvUzunluk);
 
             // Izgaralar (4 çubuk - geniş kenar boyunca)
             ctx.strokeStyle = '#A0A0A0';  // Daha koyu gri
             ctx.lineWidth = 0.6 / zoom;
-            const izgaraAralik = hvUzunluk / (BACA_CONFIG.izgaraSayisi + 1);
+            const izgaraAralik = 2 * hvUzunluk / (BACA_CONFIG.izgaraSayisi + 1);
 
             for (let i = 1; i <= BACA_CONFIG.izgaraSayisi; i++) {
                 const y = hvY + i * izgaraAralik;
@@ -1368,9 +1361,9 @@ export class PlumbingRenderer {
 
                 // Simetrik gradient (gri tonlar)
                 const ghostGradient = ctx.createLinearGradient(0, -hvUzunluk / 2, 0, hvUzunluk / 2);
-                ghostGradient.addColorStop(0, '#D8D8D8');
-                ghostGradient.addColorStop(0.5, '#B8B8B8');
-                ghostGradient.addColorStop(1, '#D8D8D8');
+                ghostGradient.addColorStop(0, '#606263ff');
+                ghostGradient.addColorStop(0.5, '#e9f4f7ff');
+                ghostGradient.addColorStop(1, '#606263ff');
 
                 ctx.fillStyle = ghostGradient;
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;
@@ -1417,7 +1410,7 @@ export class PlumbingRenderer {
                     targetPoint = comp.getFleksBaglantiNoktasi(pipe);
                 } else {
                     if (!comp._fleksWarningLogged) {
-                       // console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
+                        // console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
                         comp._fleksWarningLogged = true;
                     }
                 }
