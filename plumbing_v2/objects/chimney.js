@@ -356,6 +356,92 @@ export class Baca {
     }
 
     /**
+     * Segment endpoint'i rigid transform ile taşı
+     * Taşınan endpoint'ten SONRAKİ tüm segment'ler rigid body gibi birlikte hareket eder
+     * @param {number} segmentIndex - Segment indexi
+     * @param {string} endpoint - 'start' veya 'end'
+     * @param {number} newX - Yeni X koordinatı
+     * @param {number} newY - Yeni Y koordinatı
+     */
+    moveEndpointRigid(segmentIndex, endpoint, newX, newY) {
+        if (segmentIndex < 0 || segmentIndex >= this.segments.length) return;
+
+        const segment = this.segments[segmentIndex];
+
+        // Eski pozisyonu kaydet
+        const oldX = endpoint === 'start' ? segment.x1 : segment.x2;
+        const oldY = endpoint === 'start' ? segment.y1 : segment.y2;
+
+        // Delta hesapla
+        const deltaX = newX - oldX;
+        const deltaY = newY - oldY;
+
+        if (endpoint === 'start') {
+            // Başlangıç taşındı
+            segment.x1 = newX;
+            segment.y1 = newY;
+
+            // Önceki segmentin bitiş noktasını güncelle
+            if (segmentIndex > 0) {
+                this.segments[segmentIndex - 1].x2 = newX;
+                this.segments[segmentIndex - 1].y2 = newY;
+            }
+
+            // İlk segment başlangıcı değiştiyse, currentSegmentStart'ı güncelle
+            if (segmentIndex === 0) {
+                this.currentSegmentStart.x = newX;
+                this.currentSegmentStart.y = newY;
+            }
+
+            // SONRAKI segment'lerin BAŞLANGIÇ noktalarını rigid transform ile taşı
+            // ÖNCEKİ segment'ler (0 to segmentIndex-1) SABİT KALIR
+            for (let i = segmentIndex; i < this.segments.length; i++) {
+                if (i === segmentIndex) {
+                    // Şu anki segment - sadece end point'i taşı
+                    this.segments[i].x2 += deltaX;
+                    this.segments[i].y2 += deltaY;
+                } else {
+                    // Sonraki segment'ler - hem start hem end taşı (rigid)
+                    this.segments[i].x1 += deltaX;
+                    this.segments[i].y1 += deltaY;
+                    this.segments[i].x2 += deltaX;
+                    this.segments[i].y2 += deltaY;
+                }
+            }
+
+        } else if (endpoint === 'end') {
+            // Bitiş taşındı
+            segment.x2 = newX;
+            segment.y2 = newY;
+
+            // Sonraki segment'leri rigid transform ile taşı
+            for (let i = segmentIndex + 1; i < this.segments.length; i++) {
+                this.segments[i].x1 += deltaX;
+                this.segments[i].y1 += deltaY;
+                this.segments[i].x2 += deltaX;
+                this.segments[i].y2 += deltaY;
+            }
+
+            // Son segment bitişi - currentSegmentStart'ı güncelle
+            if (segmentIndex === this.segments.length - 1) {
+                this.currentSegmentStart.x = newX;
+                this.currentSegmentStart.y = newY;
+            }
+
+            // Havalandırma varsa ve son segmentteyse, pozisyonunu güncelle
+            if (this.havalandirma && segmentIndex === this.segments.length - 1) {
+                this.havalandirma.x = newX;
+                this.havalandirma.y = newY;
+
+                // Açıyı da güncelle
+                const dx = newX - segment.x1;
+                const dy = newY - segment.y1;
+                this.havalandirma.angle = Math.atan2(dy, dx);
+            }
+        }
+    }
+
+    /**
      * Bacayı verilen noktada böl (çift tıklama için)
      * @param {object} point - {x, y} bölme noktası
      * @returns {object|null} - {segmentIndex, splitPoint} veya null (bölme yapılamadıysa)
