@@ -1232,10 +1232,10 @@ export class PlumbingRenderer {
         // Bağlı cihazı bul (clipping için)
         const parentCihaz = manager.components.find(c => c.id === baca.parentCihazId && c.type === 'cihaz');
 
-        // Basit lineWidth yöntemi - bevel join
+        // Round join ile yumuşak köşeler
         ctx.lineWidth = BACA_CONFIG.genislik;
-        ctx.lineJoin = 'bevel';
-        ctx.lineCap = 'butt';
+        ctx.lineJoin = 'round';  // Yuvarlatılmış köşeler
+        ctx.lineCap = 'round';   // Yuvarlatılmış uçlar
 
         // Gradient helper - her segment için perpendicular gradient
         const createSegmentGradient = (seg, startX, startY) => {
