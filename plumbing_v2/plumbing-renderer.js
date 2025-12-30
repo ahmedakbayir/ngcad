@@ -1292,6 +1292,27 @@ export class PlumbingRenderer {
             ctx.stroke();
         });
 
+        // 2. Köşeleri arc ile doldur - radial gradient
+        const cornerRadius = BACA_CONFIG.genislik / 2;
+        for (let i = 0; i < baca.segments.length - 1; i++) {
+            const seg1 = baca.segments[i];
+            const seg2 = baca.segments[i + 1];
+
+            // Köşe noktası (segmentlerin birleştiği nokta)
+            const cornerX = seg1.x2;
+            const cornerY = seg1.y2;
+
+            // Radial gradient: merkezden kenarlara
+            const radialGrad = ctx.createRadialGradient(cornerX, cornerY, 0, cornerX, cornerY, cornerRadius);
+            radialGrad.addColorStop(0, BACA_CONFIG.fillColorMid);
+            radialGrad.addColorStop(1, BACA_CONFIG.fillColorLight);
+
+            ctx.beginPath();
+            ctx.arc(cornerX, cornerY, cornerRadius, 0, Math.PI * 2);
+            ctx.fillStyle = radialGrad;
+            ctx.fill();
+        }
+
         // Outline ve highlight kaldırıldı - sadece gradient yeterli
 
         // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
