@@ -106,7 +106,7 @@ export class Baca {
     getGhostSegment(mouseX, mouseY) {
         if (!this.isDrawing) return null;
 
-        // 15° açı snapping - HER ZAMAN AKTİF
+        // Eksen snap - Sadece X/Y eksenlerine 15° içindeyse snap
         let endX = mouseX;
         let endY = mouseY;
 
@@ -115,16 +115,36 @@ export class Baca {
             const dy = mouseY - this.currentSegmentStart.y;
             const distance = Math.hypot(dx, dy);
 
-            if (distance >= 10) { // Minimum mesafe kontrolü
+            if (distance >= 10) {
                 let angleRad = Math.atan2(dy, dx);
                 let angleDeg = angleRad * 180 / Math.PI;
 
-                const SNAP_ANGLE = 15; // Her zaman 15 derece
-                const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
-                const snappedAngleRad = snappedAngleDeg * Math.PI / 180;
+                // Eksenlere snap (0°, 90°, 180°, -90° = 270°)
+                const SNAP_TOLERANCE = 15; // ±15 derece tolerans
+                let snappedAngle = null;
 
-                endX = this.currentSegmentStart.x + distance * Math.cos(snappedAngleRad);
-                endY = this.currentSegmentStart.y + distance * Math.sin(snappedAngleRad);
+                // 0° (sağ - X pozitif)
+                if (Math.abs(angleDeg) <= SNAP_TOLERANCE) {
+                    snappedAngle = 0;
+                }
+                // 90° (yukarı - Y negatif)
+                else if (Math.abs(angleDeg - 90) <= SNAP_TOLERANCE) {
+                    snappedAngle = 90;
+                }
+                // 180° veya -180° (sol - X negatif)
+                else if (Math.abs(Math.abs(angleDeg) - 180) <= SNAP_TOLERANCE) {
+                    snappedAngle = 180;
+                }
+                // -90° (aşağı - Y pozitif)
+                else if (Math.abs(angleDeg + 90) <= SNAP_TOLERANCE) {
+                    snappedAngle = -90;
+                }
+
+                if (snappedAngle !== null) {
+                    const snappedAngleRad = snappedAngle * Math.PI / 180;
+                    endX = this.currentSegmentStart.x + distance * Math.cos(snappedAngleRad);
+                    endY = this.currentSegmentStart.y + distance * Math.sin(snappedAngleRad);
+                }
             }
         }
 

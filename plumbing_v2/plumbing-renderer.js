@@ -1232,7 +1232,7 @@ export class PlumbingRenderer {
         // Bağlı cihazı bul (clipping için)
         const parentCihaz = manager.components.find(c => c.id === baca.parentCihazId && c.type === 'cihaz');
 
-        // Segment'leri çiz - GRADIENT İLE
+        // Segment'leri çiz - GRADIENT İLE + MITER
         baca.segments.forEach((segment, index) => {
             const dx = segment.x2 - segment.x1;
             const dy = segment.y2 - segment.y1;
@@ -1270,14 +1270,20 @@ export class PlumbingRenderer {
                 gradient.addColorStop(1, BACA_CONFIG.fillColorLight);
 
                 ctx.fillStyle = gradient;
-                ctx.strokeStyle = BACA_CONFIG.strokeColor;
-                ctx.lineWidth = 0.8 / zoom;
 
                 // Köşe overlap ile çiz
                 const drawStart = startOffset - startExtension;
                 const drawLength = length - startOffset + startExtension + endExtension;
 
                 ctx.fillRect(drawStart, -BACA_CONFIG.genislik / 2, drawLength, BACA_CONFIG.genislik);
+
+                // Miter outline ekle (köşeleri düzgün göstermek için)
+                ctx.strokeStyle = BACA_CONFIG.strokeColor;
+                ctx.lineWidth = 0.8 / zoom;
+                ctx.lineJoin = 'miter';
+                ctx.lineCap = 'square';
+                ctx.miterLimit = 10;
+                ctx.strokeRect(drawStart, -BACA_CONFIG.genislik / 2, drawLength, BACA_CONFIG.genislik);
             }
 
             ctx.restore();
