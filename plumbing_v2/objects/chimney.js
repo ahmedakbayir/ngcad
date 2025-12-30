@@ -10,6 +10,7 @@
  */
 
 import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
+import { state } from '../../general-files/main.js';
 
 // Baca sabitleri
 export const BACA_CONFIG = {
@@ -105,11 +106,33 @@ export class Baca {
     getGhostSegment(mouseX, mouseY) {
         if (!this.isDrawing) return null;
 
+        // 15° açı snapping uygula (state.drawingAngle set ise)
+        let endX = mouseX;
+        let endY = mouseY;
+
+        if (state.drawingAngle && this.currentSegmentStart) {
+            const dx = mouseX - this.currentSegmentStart.x;
+            const dy = mouseY - this.currentSegmentStart.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance >= 10) { // Minimum mesafe kontrolü
+                let angleRad = Math.atan2(dy, dx);
+                let angleDeg = angleRad * 180 / Math.PI;
+
+                const SNAP_ANGLE = state.drawingAngle || 15;
+                const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
+                const snappedAngleRad = snappedAngleDeg * Math.PI / 180;
+
+                endX = this.currentSegmentStart.x + distance * Math.cos(snappedAngleRad);
+                endY = this.currentSegmentStart.y + distance * Math.sin(snappedAngleRad);
+            }
+        }
+
         return {
             x1: this.currentSegmentStart.x,
             y1: this.currentSegmentStart.y,
-            x2: mouseX,
-            y2: mouseY
+            x2: endX,
+            y2: endY
         };
     }
 

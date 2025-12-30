@@ -11,6 +11,7 @@ import { createVana } from '../objects/valve.js';
 import { createBaca } from '../objects/chimney.js';
 import { canPlaceValveOnPipe, getObjectsOnPipe } from './placement-utils.js';
 import { TESISAT_MODLARI } from './interaction-manager.js';
+import { snapTo15DegreeAngle } from '../../draw/geometry.js';
 
 /**
  * Bileşeni yerleştir
@@ -137,7 +138,17 @@ export function placeComponent(point) {
                 // Sonraki tıklamalar: Segment ekle
                 else if (component.isDrawing) {
                     saveState();
-                    const success = component.addSegment(point.x, point.y);
+
+                    // 15° açı snapping uygula (Shift tuşu basılıysa veya state.drawingAngle set ise)
+                    let snappedPoint = point;
+                    if (state.drawingAngle && component.currentSegmentStart) {
+                        snappedPoint = snapTo15DegreeAngle(
+                            component.currentSegmentStart,
+                            point
+                        );
+                    }
+
+                    const success = component.addSegment(snappedPoint.x, snappedPoint.y);
                     if (success) {
                         this.manager.saveToState();
                         // tempComponent'i tutuyoruz - çizim devam edecek

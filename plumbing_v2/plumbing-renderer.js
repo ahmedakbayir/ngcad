@@ -1232,72 +1232,49 @@ export class PlumbingRenderer {
         // Bağlı cihazı bul (clipping için)
         const parentCihaz = manager.components.find(c => c.id === baca.parentCihazId && c.type === 'cihaz');
 
-        // Segment'leri çiz
-        baca.segments.forEach((segment, index) => {
-            const dx = segment.x2 - segment.x1;
-            const dy = segment.y2 - segment.y1;
-            const length = Math.hypot(dx, dy);
-            const angle = Math.atan2(dy, dx);
+        // Bacayı tek bir path olarak çiz (miter joint için)
+        ctx.lineJoin = 'miter';
+        ctx.miterLimit = 10;
+        ctx.lineWidth = BACA_CONFIG.genislik;
+        ctx.lineCap = 'square';
 
-            ctx.save();
-            ctx.translate(segment.x1, segment.y1);
-            ctx.rotate(angle);
+        // Gradient (orta gri)
+        ctx.strokeStyle = BACA_CONFIG.fillColorMid;
 
-            // Clipping: İlk segment için cihazın içindeki kısmı çizme
-            let startOffset = 0;
-            if (parentCihaz && index === 0) {
-                // İlk segment cihazın merkezinden başlıyor
-                // Cihazın dışına çıkana kadar kısmı clip et
+        // Path oluştur
+        ctx.beginPath();
+
+        // İlk segment
+        if (baca.segments.length > 0) {
+            let startSeg = baca.segments[0];
+            let startX = startSeg.x1;
+            let startY = startSeg.y1;
+
+            // Cihaz clipping kontrolü
+            if (parentCihaz) {
+                const dx = startSeg.x2 - startSeg.x1;
+                const dy = startSeg.y2 - startSeg.y1;
+                const length = Math.hypot(dx, dy);
                 const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
+                const distFromCenter = Math.hypot(startSeg.x1 - parentCihaz.x, startSeg.y1 - parentCihaz.y);
 
-                // Segment başlangıcı cihaz merkezinde mi kontrol et
-                const distFromCenter = Math.hypot(
-                    segment.x1 - parentCihaz.x,
-                    segment.y1 - parentCihaz.y
-                );
-
-                // Eğer segment cihazın merkezinden veya içinden başlıyorsa
-                if (distFromCenter < cihazRadius) {
-                    startOffset = cihazRadius - distFromCenter;
+                if (distFromCenter < cihazRadius && length > 0) {
+                    const startOffset = cihazRadius - distFromCenter;
+                    const t = startOffset / length;
+                    startX = startSeg.x1 + dx * t;
+                    startY = startSeg.y1 + dy * t;
                 }
             }
 
-            // Köşe overlap için uzatma miktarı (baca genişliğinin yarısı)
-            const overlapExtension = BACA_CONFIG.genislik / 2;
+            ctx.moveTo(startX, startY);
 
-            // Başlangıç uzatması (ilk segment veya cihaza bağlı değilse)
-            let startExtension = 0;
-            if (index > 0) {
-                startExtension = overlapExtension;
-            }
+            // Tüm segment uçlarını çiz
+            baca.segments.forEach((seg) => {
+                ctx.lineTo(seg.x2, seg.y2);
+            });
+        }
 
-            // Bitiş uzatması (son segment değilse)
-            let endExtension = 0;
-            if (index < baca.segments.length - 1) {
-                endExtension = overlapExtension;
-            }
-
-            if (length > startOffset) {
-                // Simetrik gradient: açık → orta → açık (#xxx → 0, #yyy → 0.5, #xxx → 1)
-                const gradient = ctx.createLinearGradient(0, -BACA_CONFIG.genislik / 2, 0, BACA_CONFIG.genislik / 2);
-                gradient.addColorStop(0, BACA_CONFIG.fillColorLight);    // Açık
-                gradient.addColorStop(0.5, BACA_CONFIG.fillColorMid);    // Orta
-                gradient.addColorStop(1, BACA_CONFIG.fillColorLight);    // Açık (simetrik)
-
-                ctx.fillStyle = gradient;
-                ctx.strokeStyle = BACA_CONFIG.strokeColor;  // Fill'e yakın renk
-                ctx.lineWidth = 0.8 / zoom;
-
-                // Köşe overlap için segment uzatılmış halde çiziliyor
-                const drawStart = startOffset - startExtension;
-                const drawLength = length - startOffset + startExtension + endExtension;
-
-                ctx.fillRect(drawStart, -BACA_CONFIG.genislik / 2, drawLength, BACA_CONFIG.genislik);
-               // ctx.strokeRect(drawStart, -BACA_CONFIG.genislik / 2, drawLength, BACA_CONFIG.genislik);
-            }
-
-            ctx.restore();
-        });
+        ctx.stroke();
 
         // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
         if (baca.havalandirma && baca.segments.length > 0) {
