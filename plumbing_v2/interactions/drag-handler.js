@@ -686,8 +686,8 @@ export function handleDrag(interactionManager, point) {
             }
         }
 
-        // Endpoint'i snapped pozisyona taşı
-        baca.moveEndpoint(endpoint.segmentIndex, endpoint.endpoint, snappedX, snappedY);
+        // Endpoint'i snapped pozisyona taşı - rigid transform ile (sonraki segment'ler de taşınır)
+        baca.moveEndpointRigid(endpoint.segmentIndex, endpoint.endpoint, snappedX, snappedY);
 
         // Endpoint referansını güncelle (mouse pozisyonu için)
         endpoint.x = snappedX;

@@ -1269,12 +1269,30 @@ export class PlumbingRenderer {
 
         // 1. Ana dolgu - gradient (tek segment) veya düz renk (çoklu)
         if (baca.segments.length === 1) {
-            // Tek segment - gradient
+            // Tek segment - gradient (clipping hesabı dahil)
             const seg = baca.segments[0];
-            const dx = seg.x2 - seg.x1;
-            const dy = seg.y2 - seg.y1;
-            const midX = (seg.x1 + seg.x2) / 2;
-            const midY = (seg.y1 + seg.y2) / 2;
+
+            // Gerçek başlangıç noktası (clipping varsa ayarlanmış)
+            let startX = seg.x1;
+            let startY = seg.y1;
+
+            if (parentCihaz) {
+                const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
+                const distFromCenter = Math.hypot(seg.x1 - parentCihaz.x, seg.x1 - parentCihaz.y);
+                if (distFromCenter < cihazRadius) {
+                    const dx = seg.x2 - seg.x1;
+                    const dy = seg.y2 - seg.y1;
+                    const angle = Math.atan2(dy, dx);
+                    const startOffset = cihazRadius - distFromCenter;
+                    startX = seg.x1 + Math.cos(angle) * startOffset;
+                    startY = seg.y1 + Math.sin(angle) * startOffset;
+                }
+            }
+
+            const dx = seg.x2 - startX;
+            const dy = seg.y2 - startY;
+            const midX = (startX + seg.x2) / 2;
+            const midY = (startY + seg.y2) / 2;
             const angle = Math.atan2(dy, dx);
             const perpAngle = angle + Math.PI / 2;
 
