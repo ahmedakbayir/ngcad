@@ -524,6 +524,33 @@ export class PlumbingRenderer {
         ctx.stroke();
     }
 
+    drawBacaEndpoints(ctx, baca) {
+        // Baca segment uç noktalarını küçük noktalarla göster (seçili bacalar için)
+        const r = 1.6; // Küçük nokta
+        const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
+
+        ctx.fillStyle = themeColors.pipeEndpoint;
+        ctx.strokeStyle = themeColors.pipeEndpointStroke;
+        ctx.lineWidth = 1;
+
+        // Her segment için uç noktaları çiz
+        baca.segments.forEach((segment, index) => {
+            // Segment başlangıcı (ilk segment hariç - cihaza bağlı)
+            if (index > 0) {
+                ctx.beginPath();
+                ctx.arc(segment.x1, segment.y1, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            // Segment sonu (her zaman göster)
+            ctx.beginPath();
+            ctx.arc(segment.x2, segment.y2, r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        });
+    }
+
     drawPipeValves(ctx, pipes) {
         if (!pipes) return;
 
@@ -647,6 +674,13 @@ export class PlumbingRenderer {
 
         // Servis kutusu çıkış bağlantı noktalarını göster (debug için)
         this.drawBoxConnectionPoints(ctx, components, manager);
+
+        // Seçili bacalar için uç noktaları göster
+        bacalar.forEach(baca => {
+            if (baca.isSelected) {
+                this.drawBacaEndpoints(ctx, baca);
+            }
+        });
     }
 
     drawComponent(ctx, comp, manager) {
@@ -1228,6 +1262,21 @@ export class PlumbingRenderer {
                 }
             }
 
+            // Köşe overlap için uzatma miktarı (baca genişliğinin yarısı)
+            const overlapExtension = BACA_CONFIG.genislik / 2;
+
+            // Başlangıç uzatması (ilk segment veya cihaza bağlı değilse)
+            let startExtension = 0;
+            if (index > 0) {
+                startExtension = overlapExtension;
+            }
+
+            // Bitiş uzatması (son segment değilse)
+            let endExtension = 0;
+            if (index < baca.segments.length - 1) {
+                endExtension = overlapExtension;
+            }
+
             if (length > startOffset) {
                 // Simetrik gradient: açık → orta → açık (#xxx → 0, #yyy → 0.5, #xxx → 1)
                 const gradient = ctx.createLinearGradient(0, -BACA_CONFIG.genislik / 2, 0, BACA_CONFIG.genislik / 2);
@@ -1239,21 +1288,12 @@ export class PlumbingRenderer {
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;  // Fill'e yakın renk
                 ctx.lineWidth = 0.8 / zoom;
 
-                ctx.fillRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
-               // ctx.strokeRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
-              
-                // Dirsek kapakları (her segment başında ve sonunda)
-                ctx.fillStyle = BACA_CONFIG.fillColorMid;
-                ctx.strokeStyle = BACA_CONFIG.strokeColor;
+                // Köşe overlap için segment uzatılmış halde çiziliyor
+                const drawStart = startOffset - startExtension;
+                const drawLength = length - startOffset + startExtension + endExtension;
 
-                // Bitiş kapağı (son segment değilse)
-                if (index < baca.segments.length - 1) {
-                    ctx.beginPath();
-                    //ctx.arc(length, 0, BACA_CONFIG.genislik / 2, 0, Math.PI * 2);
-                    ctx.fill();
-                    //ctx.lineCap("round");
-                    ctx.stroke();
-                }
+                ctx.fillRect(drawStart, -BACA_CONFIG.genislik / 2, drawLength, BACA_CONFIG.genislik);
+               // ctx.strokeRect(drawStart, -BACA_CONFIG.genislik / 2, drawLength, BACA_CONFIG.genislik);
             }
 
             ctx.restore();
