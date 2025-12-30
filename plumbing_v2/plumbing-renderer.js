@@ -1237,28 +1237,13 @@ export class PlumbingRenderer {
         ctx.lineJoin = 'round';  // Yuvarlatılmış köşeler
         ctx.lineCap = 'round';   // Yuvarlatılmış uçlar
 
-        // Gradient helper - her segment için perpendicular gradient
+        // Gradient helper - uzunlamasına gradient (segment boyunca)
         const createSegmentGradient = (seg, startX, startY) => {
-            const dx = seg.x2 - startX;
-            const dy = seg.y2 - startY;
-            const midX = (startX + seg.x2) / 2;
-            const midY = (startY + seg.y2) / 2;
-            const angle = Math.atan2(dy, dx);
-            const perpAngle = angle + Math.PI / 2;
-
-            const gradStart = {
-                x: midX + Math.cos(perpAngle) * BACA_CONFIG.genislik / 2,
-                y: midY + Math.sin(perpAngle) * BACA_CONFIG.genislik / 2
-            };
-            const gradEnd = {
-                x: midX - Math.cos(perpAngle) * BACA_CONFIG.genislik / 2,
-                y: midY - Math.sin(perpAngle) * BACA_CONFIG.genislik / 2
-            };
-
-            const gradient = ctx.createLinearGradient(gradStart.x, gradStart.y, gradEnd.x, gradEnd.y);
-            gradient.addColorStop(0, BACA_CONFIG.fillColorLight);
-            gradient.addColorStop(0.5, BACA_CONFIG.fillColorMid);
-            gradient.addColorStop(1, BACA_CONFIG.fillColorLight);
+            // Uzunlamasına gradient: başlangıçtan bitişe
+            const gradient = ctx.createLinearGradient(startX, startY, seg.x2, seg.y2);
+            gradient.addColorStop(0, BACA_CONFIG.fillColorLight);     // Başlangıç: açık
+            gradient.addColorStop(0.5, BACA_CONFIG.fillColorMid);     // Orta: koyu
+            gradient.addColorStop(1, BACA_CONFIG.fillColorLight);     // Bitiş: açık
             return gradient;
         };
 
