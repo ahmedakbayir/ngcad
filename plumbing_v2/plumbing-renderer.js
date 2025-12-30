@@ -1217,6 +1217,7 @@ export class PlumbingRenderer {
         const zoom = state.zoom || 1;
         const BACA_CONFIG = {
             genislik: 12,  // 12cm genişlik
+            cornerRadius: 2,  // 2cm köşe yuvarlaklığı
             havalandirmaGenislik: 10,  // İnce kenar
             havalandirmaUzunluk: 30,   // Geniş kenar
             havalandirmaOffset: 0,  // Baca ucundan ne kadar uzakta (5cm)
@@ -1232,113 +1233,140 @@ export class PlumbingRenderer {
         // Bağlı cihazı bul (clipping için)
         const parentCihaz = manager.components.find(c => c.id === baca.parentCihazId && c.type === 'cihaz');
 
-        // YÖNTEM: Kalın çizgi olarak çiz (lineWidth) - Otomatik miter join
-        // 1. Önce dolgu (gradient) için çizgiler
-        ctx.lineWidth = BACA_CONFIG.genislik;
-        ctx.lineJoin = 'miter';
-        ctx.lineCap = 'butt';
-        ctx.miterLimit = 10;
+        // Helper: Manuel path çizimi - yuvarlatılmış köşelerle
+        const createRoundedChimneyPath = (segments, width, cornerRadius, clipFirst) => {
+            if (segments.length === 0) return;
 
-        // Gradient dolgu için path
-        ctx.beginPath();
-        baca.segments.forEach((segment, index) => {
-            if (index === 0) {
-                // İlk segment - clipping hesapla
-                let startOffset = 0;
-                if (parentCihaz) {
-                    const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                    const distFromCenter = Math.hypot(
-                        segment.x1 - parentCihaz.x,
-                        segment.y1 - parentCihaz.y
-                    );
-                    if (distFromCenter < cihazRadius) {
-                        const dx = segment.x2 - segment.x1;
-                        const dy = segment.y2 - segment.y1;
-                        const angle = Math.atan2(dy, dx);
-                        startOffset = cihazRadius - distFromCenter;
-                        const startX = segment.x1 + Math.cos(angle) * startOffset;
-                        const startY = segment.y1 + Math.sin(angle) * startOffset;
-                        ctx.moveTo(startX, startY);
-                    } else {
-                        ctx.moveTo(segment.x1, segment.y1);
-                    }
-                } else {
-                    ctx.moveTo(segment.x1, segment.y1);
+            // İlk segment için clipping hesapla
+            let startClipOffset = 0;
+            let firstSegment = segments[0];
+            let adjustedFirstSegment = firstSegment;
+
+            if (clipFirst && parentCihaz) {
+                const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
+                const distFromCenter = Math.hypot(
+                    firstSegment.x1 - parentCihaz.x,
+                    firstSegment.y1 - parentCihaz.y
+                );
+                if (distFromCenter < cihazRadius) {
+                    const dx = firstSegment.x2 - firstSegment.x1;
+                    const dy = firstSegment.y2 - firstSegment.y1;
+                    const angle = Math.atan2(dy, dx);
+                    startClipOffset = cihazRadius - distFromCenter;
+                    const startX = firstSegment.x1 + Math.cos(angle) * startClipOffset;
+                    const startY = firstSegment.y1 + Math.sin(angle) * startClipOffset;
+                    adjustedFirstSegment = {
+                        ...firstSegment,
+                        x1: startX,
+                        y1: startY
+                    };
                 }
             }
-            ctx.lineTo(segment.x2, segment.y2);
-        });
 
-        // Gradient stroke (gri tonlar)
-        ctx.strokeStyle = BACA_CONFIG.fillColorMid;
-        ctx.stroke();
+            // Adjusted segments
+            const adjustedSegments = [adjustedFirstSegment, ...segments.slice(1)];
 
-        // 2. Outline (ince çizgi)
-        ctx.beginPath();
-        baca.segments.forEach((segment, index) => {
-            if (index === 0) {
-                let startOffset = 0;
-                if (parentCihaz) {
-                    const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                    const distFromCenter = Math.hypot(
-                        segment.x1 - parentCihaz.x,
-                        segment.y1 - parentCihaz.y
+            // Her segment için perpendicular offset hesapla
+            const edgePoints = adjustedSegments.map(seg => {
+                const dx = seg.x2 - seg.x1;
+                const dy = seg.y2 - seg.y1;
+                const len = Math.hypot(dx, dy);
+                const nx = -dy / len;  // perpendicular normal x
+                const ny = dx / len;   // perpendicular normal y
+
+                return {
+                    topStart: { x: seg.x1 + nx * width / 2, y: seg.y1 + ny * width / 2 },
+                    topEnd: { x: seg.x2 + nx * width / 2, y: seg.y2 + ny * width / 2 },
+                    bottomStart: { x: seg.x1 - nx * width / 2, y: seg.y1 - ny * width / 2 },
+                    bottomEnd: { x: seg.x2 - nx * width / 2, y: seg.y2 - ny * width / 2 }
+                };
+            });
+
+            ctx.beginPath();
+
+            // Üst kenar (top edge) - soldan sağa
+            ctx.moveTo(edgePoints[0].topStart.x, edgePoints[0].topStart.y);
+            for (let i = 0; i < edgePoints.length; i++) {
+                if (i > 0) {
+                    // Köşeyi yuvarla
+                    ctx.arcTo(
+                        edgePoints[i].topStart.x,
+                        edgePoints[i].topStart.y,
+                        edgePoints[i].topEnd.x,
+                        edgePoints[i].topEnd.y,
+                        cornerRadius
                     );
-                    if (distFromCenter < cihazRadius) {
-                        const dx = segment.x2 - segment.x1;
-                        const dy = segment.y2 - segment.y1;
-                        const angle = Math.atan2(dy, dx);
-                        startOffset = cihazRadius - distFromCenter;
-                        const startX = segment.x1 + Math.cos(angle) * startOffset;
-                        const startY = segment.y1 + Math.sin(angle) * startOffset;
-                        ctx.moveTo(startX, startY);
-                    } else {
-                        ctx.moveTo(segment.x1, segment.y1);
-                    }
-                } else {
-                    ctx.moveTo(segment.x1, segment.y1);
                 }
+                ctx.lineTo(edgePoints[i].topEnd.x, edgePoints[i].topEnd.y);
             }
-            ctx.lineTo(segment.x2, segment.y2);
-        });
 
-        // Outline stroke
+            // Sağ uç köşe (top-end -> bottom-end)
+            const lastIdx = edgePoints.length - 1;
+            ctx.lineTo(edgePoints[lastIdx].bottomEnd.x, edgePoints[lastIdx].bottomEnd.y);
+
+            // Alt kenar (bottom edge) - sağdan sola (reverse)
+            for (let i = edgePoints.length - 1; i >= 0; i--) {
+                if (i < edgePoints.length - 1) {
+                    // Köşeyi yuvarla
+                    ctx.arcTo(
+                        edgePoints[i].bottomEnd.x,
+                        edgePoints[i].bottomEnd.y,
+                        edgePoints[i].bottomStart.x,
+                        edgePoints[i].bottomStart.y,
+                        cornerRadius
+                    );
+                }
+                ctx.lineTo(edgePoints[i].bottomStart.x, edgePoints[i].bottomStart.y);
+            }
+
+            // Sol uç köşe (bottom-start -> top-start) - close path
+            ctx.closePath();
+        };
+
+        // 1. Ana dolgu (tek segment ise gradient, çoklu ise düz renk)
+        createRoundedChimneyPath(baca.segments, BACA_CONFIG.genislik, BACA_CONFIG.cornerRadius, true);
+
+        if (baca.segments.length === 1) {
+            // Tek segment - gradient (3D silindir efekti)
+            const seg = baca.segments[0];
+            const dx = seg.x2 - seg.x1;
+            const dy = seg.y2 - seg.y1;
+            const midX = (seg.x1 + seg.x2) / 2;
+            const midY = (seg.y1 + seg.y2) / 2;
+            const angle = Math.atan2(dy, dx);
+            const perpAngle = angle + Math.PI / 2;
+
+            const gradStart = {
+                x: midX + Math.cos(perpAngle) * BACA_CONFIG.genislik / 2,
+                y: midY + Math.sin(perpAngle) * BACA_CONFIG.genislik / 2
+            };
+            const gradEnd = {
+                x: midX - Math.cos(perpAngle) * BACA_CONFIG.genislik / 2,
+                y: midY - Math.sin(perpAngle) * BACA_CONFIG.genislik / 2
+            };
+
+            const gradient = ctx.createLinearGradient(gradStart.x, gradStart.y, gradEnd.x, gradEnd.y);
+            gradient.addColorStop(0, BACA_CONFIG.fillColorLight);
+            gradient.addColorStop(0.5, BACA_CONFIG.fillColorMid);
+            gradient.addColorStop(1, BACA_CONFIG.fillColorLight);
+
+            ctx.fillStyle = gradient;
+        } else {
+            // Çoklu segment - düz renk
+            ctx.fillStyle = BACA_CONFIG.fillColorMid;
+        }
+        ctx.fill();
+
+        // 2. Outline (dış çerçeve)
+        createRoundedChimneyPath(baca.segments, BACA_CONFIG.genislik + (2.4 / zoom), BACA_CONFIG.cornerRadius, true);
         ctx.strokeStyle = BACA_CONFIG.strokeColor;
-        ctx.lineWidth = BACA_CONFIG.genislik + (2.4 / zoom); // Biraz daha kalın ki kenarları görsün
+        ctx.lineWidth = 1.2 / zoom;
         ctx.stroke();
 
-        // İçteki beyaz alan (gradient efekti için)
-        ctx.beginPath();
-        baca.segments.forEach((segment, index) => {
-            if (index === 0) {
-                let startOffset = 0;
-                if (parentCihaz) {
-                    const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                    const distFromCenter = Math.hypot(
-                        segment.x1 - parentCihaz.x,
-                        segment.y1 - parentCihaz.y
-                    );
-                    if (distFromCenter < cihazRadius) {
-                        const dx = segment.x2 - segment.x1;
-                        const dy = segment.y2 - segment.y1;
-                        const angle = Math.atan2(dy, dx);
-                        startOffset = cihazRadius - distFromCenter;
-                        const startX = segment.x1 + Math.cos(angle) * startOffset;
-                        const startY = segment.y1 + Math.sin(angle) * startOffset;
-                        ctx.moveTo(startX, startY);
-                    } else {
-                        ctx.moveTo(segment.x1, segment.y1);
-                    }
-                } else {
-                    ctx.moveTo(segment.x1, segment.y1);
-                }
-            }
-            ctx.lineTo(segment.x2, segment.y2);
-        });
-
-        ctx.strokeStyle = BACA_CONFIG.fillColorLight;
-        ctx.lineWidth = BACA_CONFIG.genislik - (2 / zoom);
-        ctx.stroke();
+        // 3. İç highlight (gradient efekti)
+        createRoundedChimneyPath(baca.segments, BACA_CONFIG.genislik - (2 / zoom), BACA_CONFIG.cornerRadius, true);
+        ctx.fillStyle = BACA_CONFIG.fillColorLight;
+        ctx.fill();
 
         // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
         if (baca.havalandirma && baca.segments.length > 0) {
