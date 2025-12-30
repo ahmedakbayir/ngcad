@@ -992,6 +992,7 @@ export function setupInputListeners() {
             splitPipeAtClickPosition(object.object, clickPos);
         } else if (object && object.type === 'baca' && object.handle === 'body') {
             // Baca gövdesine çift tıklanırsa bölme işlemi yap
+            console.log('🔥 BACA DOUBLE-CLICK DETECTED!', object);
             splitChimneyAtClickPosition(object.object, clickPos);
         }
     });
@@ -1219,14 +1220,23 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos) {
 
 // Baca bölme fonksiyonu
 function splitChimneyAtClickPosition(chimneyToSplit, clickPos) {
+    console.log('🔥 splitChimneyAtClickPosition called', {
+        chimney: chimneyToSplit,
+        clickPos,
+        segments: chimneyToSplit?.segments?.length
+    });
+
     if (!chimneyToSplit || !chimneyToSplit.segments || chimneyToSplit.segments.length === 0) {
+        console.warn('⚠️ Baca bölme iptal - geçersiz baca veya segment yok');
         return;
     }
 
     // Bacayı böl
     const result = chimneyToSplit.splitAt(clickPos);
+    console.log('🔥 splitAt result:', result);
 
     if (result) {
+        console.log('✅ Baca başarıyla bölündü:', result);
         // Başarılı bölme - render'ı güncelle
         requestRender();
         setState({ selectedObject: null });
@@ -1235,5 +1245,7 @@ function splitChimneyAtClickPosition(chimneyToSplit, clickPos) {
         if (window.undoRedoManager) {
             window.undoRedoManager.recordState();
         }
+    } else {
+        console.warn('❌ Baca bölme başarısız - splitAt null döndü');
     }
 }

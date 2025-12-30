@@ -139,7 +139,7 @@ export function placeComponent(point) {
                 else if (component.isDrawing) {
                     saveState();
 
-                    // 15° açı snapping - HER ZAMAN AKTİF
+                    // Eksen snap - Sadece X/Y eksenlerine 15° içindeyse snap
                     let snappedPoint = point;
                     if (component.currentSegmentStart) {
                         const dx = point.x - component.currentSegmentStart.x;
@@ -150,14 +150,27 @@ export function placeComponent(point) {
                             let angleRad = Math.atan2(dy, dx);
                             let angleDeg = angleRad * 180 / Math.PI;
 
-                            const SNAP_ANGLE = 15;
-                            const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
-                            const snappedAngleRad = snappedAngleDeg * Math.PI / 180;
+                            // Eksenlere snap (0°, 90°, 180°, -90°)
+                            const SNAP_TOLERANCE = 15;
+                            let snappedAngle = null;
 
-                            snappedPoint = {
-                                x: component.currentSegmentStart.x + distance * Math.cos(snappedAngleRad),
-                                y: component.currentSegmentStart.y + distance * Math.sin(snappedAngleRad)
-                            };
+                            if (Math.abs(angleDeg) <= SNAP_TOLERANCE) {
+                                snappedAngle = 0;
+                            } else if (Math.abs(angleDeg - 90) <= SNAP_TOLERANCE) {
+                                snappedAngle = 90;
+                            } else if (Math.abs(Math.abs(angleDeg) - 180) <= SNAP_TOLERANCE) {
+                                snappedAngle = 180;
+                            } else if (Math.abs(angleDeg + 90) <= SNAP_TOLERANCE) {
+                                snappedAngle = -90;
+                            }
+
+                            if (snappedAngle !== null) {
+                                const snappedAngleRad = snappedAngle * Math.PI / 180;
+                                snappedPoint = {
+                                    x: component.currentSegmentStart.x + distance * Math.cos(snappedAngleRad),
+                                    y: component.currentSegmentStart.y + distance * Math.sin(snappedAngleRad)
+                                };
+                            }
                         }
                     }
 
