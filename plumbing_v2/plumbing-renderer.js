@@ -1287,8 +1287,26 @@ export class PlumbingRenderer {
             const cornerX = seg1.x2;
             const cornerY = seg1.y2;
 
-            // Radial gradient: merkezden kenarlara
-            const radialGrad = ctx.createRadialGradient(cornerX, cornerY, 0, cornerX, cornerY, cornerRadius);
+            // Segment açılarını hesapla
+            const angle1 = Math.atan2(seg1.y2 - seg1.y1, seg1.x2 - seg1.x1); // Gelen segment
+            const angle2 = Math.atan2(seg2.y2 - seg2.y1, seg2.x2 - seg2.x1); // Giden segment
+
+            // Açı farkını hesapla (dar açı tarafını bul)
+            let angleDiff = angle2 - angle1;
+            // Normalize to [-π, π]
+            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+            // Bisector açısı (dar açının ortası)
+            const bisectorAngle = angle1 + angleDiff / 2;
+
+            // Arc merkezini dar açı tarafına offset et
+            const offsetDistance = cornerRadius * 0.4; // Yarıçapın %40'ı kadar içeri
+            const arcCenterX = cornerX + Math.cos(bisectorAngle) * offsetDistance;
+            const arcCenterY = cornerY + Math.sin(bisectorAngle) * offsetDistance;
+
+            // Radial gradient: offset edilmiş merkezden kenarlara
+            const radialGrad = ctx.createRadialGradient(arcCenterX, arcCenterY, 0, arcCenterX, arcCenterY, cornerRadius);
             radialGrad.addColorStop(0, BACA_CONFIG.fillColorMid);
             radialGrad.addColorStop(1, BACA_CONFIG.fillColorLight);
 
