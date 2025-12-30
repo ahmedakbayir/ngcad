@@ -990,6 +990,9 @@ export function setupInputListeners() {
         } else if (object && object.type === 'plumbingPipe' && object.handle === 'body') {
             // Boru gövdesine çift tıklanırsa bölme işlemi yap
             splitPipeAtClickPosition(object.object, clickPos);
+        } else if (object && object.type === 'baca' && object.handle === 'body') {
+            // Baca gövdesine çift tıklanırsa bölme işlemi yap
+            splitChimneyAtClickPosition(object.object, clickPos);
         }
     });
     c2d.addEventListener("wheel", onWheel, { passive: false }); // onWheel'i zoom.js'den kullan
@@ -1209,7 +1212,28 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos) {
     if (window.plumbingManager && window.plumbingManager.interactionManager) {
         // ✨ BURASI DEĞİŞTİ: false parametresi ile çizim modunu engelliyoruz
         window.plumbingManager.interactionManager.handlePipeSplit(pipeToSplit, clickPos, false);
-        
+
         setState({ selectedObject: null });
+    }
+}
+
+// Baca bölme fonksiyonu
+function splitChimneyAtClickPosition(chimneyToSplit, clickPos) {
+    if (!chimneyToSplit || !chimneyToSplit.segments || chimneyToSplit.segments.length === 0) {
+        return;
+    }
+
+    // Bacayı böl
+    const result = chimneyToSplit.splitAt(clickPos);
+
+    if (result) {
+        // Başarılı bölme - render'ı güncelle
+        requestRender();
+        setState({ selectedObject: null });
+
+        // Undo/redo için kaydet
+        if (window.undoRedoManager) {
+            window.undoRedoManager.recordState();
+        }
     }
 }

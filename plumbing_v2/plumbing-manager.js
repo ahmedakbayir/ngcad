@@ -438,7 +438,7 @@ export class PlumbingManager {
             // Baca için özel containsPoint kontrolü
             if (comp.type === 'baca') {
                 if (comp.containsPoint(pos, tolerance)) {
-                    return { type: 'component', object: comp, handle: 'body' };
+                    return { type: 'baca', object: comp, handle: 'body' };
                 }
                 continue;
             }
