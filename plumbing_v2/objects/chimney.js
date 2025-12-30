@@ -411,15 +411,29 @@ export class Baca {
                 this.currentSegmentStart.y = newY;
             }
 
-            // Şu anki segment'in end point'ini pivot etrafında döndür
-            const rotatedEnd = rotatePoint(segment.x2, segment.y2, pivotX, pivotY, deltaAngle);
+            // Translation: dragged endpoint'in hareket vektörü
+            const deltaX = newX - oldX;
+            const deltaY = newY - oldY;
+
+            // Şu anki segment'in end point'ini translate + rotate et
+            const translatedEndX = segment.x2 + deltaX;
+            const translatedEndY = segment.y2 + deltaY;
+            const rotatedEnd = rotatePoint(translatedEndX, translatedEndY, newX, newY, deltaAngle);
             segment.x2 = rotatedEnd.x;
             segment.y2 = rotatedEnd.y;
 
-            // Sonraki segment'leri pivot etrafında döndür
+            // Sonraki segment'leri RIGID BODY olarak taşı (translate + rotate)
             for (let i = segmentIndex + 1; i < this.segments.length; i++) {
-                const rotatedStart = rotatePoint(this.segments[i].x1, this.segments[i].y1, pivotX, pivotY, deltaAngle);
-                const rotatedEnd = rotatePoint(this.segments[i].x2, this.segments[i].y2, pivotX, pivotY, deltaAngle);
+                // Önce translate
+                const translatedStartX = this.segments[i].x1 + deltaX;
+                const translatedStartY = this.segments[i].y1 + deltaY;
+                const translatedEndX = this.segments[i].x2 + deltaX;
+                const translatedEndY = this.segments[i].y2 + deltaY;
+
+                // Sonra rotate (yeni dragged endpoint etrafında)
+                const rotatedStart = rotatePoint(translatedStartX, translatedStartY, newX, newY, deltaAngle);
+                const rotatedEnd = rotatePoint(translatedEndX, translatedEndY, newX, newY, deltaAngle);
+
                 this.segments[i].x1 = rotatedStart.x;
                 this.segments[i].y1 = rotatedStart.y;
                 this.segments[i].x2 = rotatedEnd.x;
@@ -431,10 +445,24 @@ export class Baca {
             segment.x2 = newX;
             segment.y2 = newY;
 
-            // Sonraki segment'leri pivot (segment.x1, segment.y1) etrafında döndür
+            // Translation: dragged endpoint'in hareket vektörü
+            const deltaX = newX - oldX;
+            const deltaY = newY - oldY;
+
+            // Sonraki segment'leri RIGID BODY olarak taşı:
+            // 1. Önce translation (dragged endpoint ile birlikte hareket)
+            // 2. Sonra rotation (dragged endpoint etrafında dön)
             for (let i = segmentIndex + 1; i < this.segments.length; i++) {
-                const rotatedStart = rotatePoint(this.segments[i].x1, this.segments[i].y1, pivotX, pivotY, deltaAngle);
-                const rotatedEnd = rotatePoint(this.segments[i].x2, this.segments[i].y2, pivotX, pivotY, deltaAngle);
+                // Önce translate et (eski pozisyondan)
+                const translatedStartX = this.segments[i].x1 + deltaX;
+                const translatedStartY = this.segments[i].y1 + deltaY;
+                const translatedEndX = this.segments[i].x2 + deltaX;
+                const translatedEndY = this.segments[i].y2 + deltaY;
+
+                // Sonra rotate et (yeni dragged endpoint etrafında)
+                const rotatedStart = rotatePoint(translatedStartX, translatedStartY, newX, newY, deltaAngle);
+                const rotatedEnd = rotatePoint(translatedEndX, translatedEndY, newX, newY, deltaAngle);
+
                 this.segments[i].x1 = rotatedStart.x;
                 this.segments[i].y1 = rotatedStart.y;
                 this.segments[i].x2 = rotatedEnd.x;
@@ -447,9 +475,14 @@ export class Baca {
                 this.currentSegmentStart.y = newY;
             }
 
-            // Havalandırma varsa ve son segmentteyse, pozisyonunu döndür
+            // Havalandırma varsa ve son segmentteyse, pozisyonunu taşı ve döndür
             if (this.havalandirma && segmentIndex === this.segments.length - 1) {
-                const rotatedHavalandirma = rotatePoint(this.havalandirma.x, this.havalandirma.y, pivotX, pivotY, deltaAngle);
+                // Önce translate
+                const translatedHvX = this.havalandirma.x + deltaX;
+                const translatedHvY = this.havalandirma.y + deltaY;
+
+                // Sonra rotate (yeni endpoint etrafında)
+                const rotatedHavalandirma = rotatePoint(translatedHvX, translatedHvY, newX, newY, deltaAngle);
                 this.havalandirma.x = rotatedHavalandirma.x;
                 this.havalandirma.y = rotatedHavalandirma.y;
 

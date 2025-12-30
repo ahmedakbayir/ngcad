@@ -83,6 +83,7 @@ export function placeComponent(point) {
             const successCihaz = this.handleCihazEkleme(component);
             if (successCihaz) {
                 // Cihaz eklendikten sonra seç moduna geç
+                this.manager.activeTool = null; // activeTool'u temizle - double-click için gerekli
                 setMode("select", true);
                 // if (this.previousMode) {
                 //     console.log(`[MODE] Cihaz eklendi, önceki moda dönülüyor: ${this.previousMode}`);
