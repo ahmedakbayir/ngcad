@@ -106,11 +106,11 @@ export class Baca {
     getGhostSegment(mouseX, mouseY) {
         if (!this.isDrawing) return null;
 
-        // 15° açı snapping uygula (state.drawingAngle set ise)
+        // 15° açı snapping - HER ZAMAN AKTİF
         let endX = mouseX;
         let endY = mouseY;
 
-        if (state.drawingAngle && this.currentSegmentStart) {
+        if (this.currentSegmentStart) {
             const dx = mouseX - this.currentSegmentStart.x;
             const dy = mouseY - this.currentSegmentStart.y;
             const distance = Math.hypot(dx, dy);
@@ -119,7 +119,7 @@ export class Baca {
                 let angleRad = Math.atan2(dy, dx);
                 let angleDeg = angleRad * 180 / Math.PI;
 
-                const SNAP_ANGLE = state.drawingAngle || 15;
+                const SNAP_ANGLE = 15; // Her zaman 15 derece
                 const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
                 const snappedAngleRad = snappedAngleDeg * Math.PI / 180;
 
