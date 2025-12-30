@@ -1232,134 +1232,113 @@ export class PlumbingRenderer {
         // Bağlı cihazı bul (clipping için)
         const parentCihaz = manager.components.find(c => c.id === baca.parentCihazId && c.type === 'cihaz');
 
-        // ADIM 1: Önce tüm segmentlerin gradient dolgusunu çiz
+        // YÖNTEM: Kalın çizgi olarak çiz (lineWidth) - Otomatik miter join
+        // 1. Önce dolgu (gradient) için çizgiler
+        ctx.lineWidth = BACA_CONFIG.genislik;
+        ctx.lineJoin = 'miter';
+        ctx.lineCap = 'butt';
+        ctx.miterLimit = 10;
+
+        // Gradient dolgu için path
+        ctx.beginPath();
         baca.segments.forEach((segment, index) => {
-            const dx = segment.x2 - segment.x1;
-            const dy = segment.y2 - segment.y1;
-            const length = Math.hypot(dx, dy);
-            const angle = Math.atan2(dy, dx);
-
-            ctx.save();
-            ctx.translate(segment.x1, segment.y1);
-            ctx.rotate(angle);
-
-            // Clipping: İlk segment için cihazın içindeki kısmı çizme
-            let startOffset = 0;
-            if (parentCihaz && index === 0) {
-                const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                const distFromCenter = Math.hypot(
-                    segment.x1 - parentCihaz.x,
-                    segment.y1 - parentCihaz.y
-                );
-
-                if (distFromCenter < cihazRadius) {
-                    startOffset = cihazRadius - distFromCenter;
-                }
-            }
-
-            if (length > startOffset) {
-                // Gradient - açık → orta → açık
-                const gradient = ctx.createLinearGradient(0, -BACA_CONFIG.genislik / 2, 0, BACA_CONFIG.genislik / 2);
-                gradient.addColorStop(0, BACA_CONFIG.fillColorLight);
-                gradient.addColorStop(0.5, BACA_CONFIG.fillColorMid);
-                gradient.addColorStop(1, BACA_CONFIG.fillColorLight);
-
-                ctx.fillStyle = gradient;
-
-                // Sadece dolgu çiz
-                const drawStart = startOffset;
-                const drawLength = length - startOffset;
-                ctx.fillRect(drawStart, -BACA_CONFIG.genislik / 2, drawLength, BACA_CONFIG.genislik);
-            }
-
-            ctx.restore();
-        });
-
-        // ADIM 2: Tüm outline'ı tek path olarak çiz (world coordinates)
-        if (baca.segments.length > 0) {
-            const halfWidth = BACA_CONFIG.genislik / 2;
-            const topPath = [];
-            const bottomPath = [];
-
-            baca.segments.forEach((segment, index) => {
-                const dx = segment.x2 - segment.x1;
-                const dy = segment.y2 - segment.y1;
-                const length = Math.hypot(dx, dy);
-                if (length < 0.1) return;
-
-                const angle = Math.atan2(dy, dx);
-                const perpAngle = angle + Math.PI / 2;
-
-                // Clipping için offset hesapla
+            if (index === 0) {
+                // İlk segment - clipping hesapla
                 let startOffset = 0;
-                if (parentCihaz && index === 0) {
+                if (parentCihaz) {
                     const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
                     const distFromCenter = Math.hypot(
                         segment.x1 - parentCihaz.x,
                         segment.y1 - parentCihaz.y
                     );
                     if (distFromCenter < cihazRadius) {
+                        const dx = segment.x2 - segment.x1;
+                        const dy = segment.y2 - segment.y1;
+                        const angle = Math.atan2(dy, dx);
                         startOffset = cihazRadius - distFromCenter;
+                        const startX = segment.x1 + Math.cos(angle) * startOffset;
+                        const startY = segment.y1 + Math.sin(angle) * startOffset;
+                        ctx.moveTo(startX, startY);
+                    } else {
+                        ctx.moveTo(segment.x1, segment.y1);
                     }
+                } else {
+                    ctx.moveTo(segment.x1, segment.y1);
                 }
-
-                // Gerçek başlangıç noktası (offset ile)
-                const realStartX = segment.x1 + Math.cos(angle) * startOffset;
-                const realStartY = segment.y1 + Math.sin(angle) * startOffset;
-
-                // İlk segment için başlangıç noktalarını ekle
-                if (index === 0) {
-                    topPath.push({
-                        x: realStartX + Math.cos(perpAngle) * halfWidth,
-                        y: realStartY + Math.sin(perpAngle) * halfWidth
-                    });
-                    bottomPath.push({
-                        x: realStartX - Math.cos(perpAngle) * halfWidth,
-                        y: realStartY - Math.sin(perpAngle) * halfWidth
-                    });
-                }
-
-                // Segment bitiş noktalarını ekle
-                topPath.push({
-                    x: segment.x2 + Math.cos(perpAngle) * halfWidth,
-                    y: segment.y2 + Math.sin(perpAngle) * halfWidth
-                });
-                bottomPath.push({
-                    x: segment.x2 - Math.cos(perpAngle) * halfWidth,
-                    y: segment.y2 - Math.sin(perpAngle) * halfWidth
-                });
-            });
-
-            // Tek bir kapalı path çiz
-            if (topPath.length > 0 && bottomPath.length > 0) {
-                ctx.beginPath();
-
-                // Üst kenar (soldan sağa)
-                ctx.moveTo(topPath[0].x, topPath[0].y);
-                for (let i = 1; i < topPath.length; i++) {
-                    ctx.lineTo(topPath[i].x, topPath[i].y);
-                }
-
-                // Sağ uç (üstten alta)
-                ctx.lineTo(bottomPath[bottomPath.length - 1].x, bottomPath[bottomPath.length - 1].y);
-
-                // Alt kenar (sağdan sola)
-                for (let i = bottomPath.length - 2; i >= 0; i--) {
-                    ctx.lineTo(bottomPath[i].x, bottomPath[i].y);
-                }
-
-                // Sol uç (alttan üste)
-                ctx.closePath();
-
-                // Stroke ile outline çiz - miter join
-                ctx.strokeStyle = BACA_CONFIG.strokeColor;
-                ctx.lineWidth = 1.2 / zoom;
-                ctx.lineJoin = 'miter';
-                ctx.lineCap = 'square';
-                ctx.miterLimit = 10;
-                ctx.stroke();
             }
-        }
+            ctx.lineTo(segment.x2, segment.y2);
+        });
+
+        // Gradient stroke (gri tonlar)
+        ctx.strokeStyle = BACA_CONFIG.fillColorMid;
+        ctx.stroke();
+
+        // 2. Outline (ince çizgi)
+        ctx.beginPath();
+        baca.segments.forEach((segment, index) => {
+            if (index === 0) {
+                let startOffset = 0;
+                if (parentCihaz) {
+                    const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
+                    const distFromCenter = Math.hypot(
+                        segment.x1 - parentCihaz.x,
+                        segment.y1 - parentCihaz.y
+                    );
+                    if (distFromCenter < cihazRadius) {
+                        const dx = segment.x2 - segment.x1;
+                        const dy = segment.y2 - segment.y1;
+                        const angle = Math.atan2(dy, dx);
+                        startOffset = cihazRadius - distFromCenter;
+                        const startX = segment.x1 + Math.cos(angle) * startOffset;
+                        const startY = segment.y1 + Math.sin(angle) * startOffset;
+                        ctx.moveTo(startX, startY);
+                    } else {
+                        ctx.moveTo(segment.x1, segment.y1);
+                    }
+                } else {
+                    ctx.moveTo(segment.x1, segment.y1);
+                }
+            }
+            ctx.lineTo(segment.x2, segment.y2);
+        });
+
+        // Outline stroke
+        ctx.strokeStyle = BACA_CONFIG.strokeColor;
+        ctx.lineWidth = BACA_CONFIG.genislik + (2.4 / zoom); // Biraz daha kalın ki kenarları görsün
+        ctx.stroke();
+
+        // İçteki beyaz alan (gradient efekti için)
+        ctx.beginPath();
+        baca.segments.forEach((segment, index) => {
+            if (index === 0) {
+                let startOffset = 0;
+                if (parentCihaz) {
+                    const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
+                    const distFromCenter = Math.hypot(
+                        segment.x1 - parentCihaz.x,
+                        segment.y1 - parentCihaz.y
+                    );
+                    if (distFromCenter < cihazRadius) {
+                        const dx = segment.x2 - segment.x1;
+                        const dy = segment.y2 - segment.y1;
+                        const angle = Math.atan2(dy, dx);
+                        startOffset = cihazRadius - distFromCenter;
+                        const startX = segment.x1 + Math.cos(angle) * startOffset;
+                        const startY = segment.y1 + Math.sin(angle) * startOffset;
+                        ctx.moveTo(startX, startY);
+                    } else {
+                        ctx.moveTo(segment.x1, segment.y1);
+                    }
+                } else {
+                    ctx.moveTo(segment.x1, segment.y1);
+                }
+            }
+            ctx.lineTo(segment.x2, segment.y2);
+        });
+
+        ctx.strokeStyle = BACA_CONFIG.fillColorLight;
+        ctx.lineWidth = BACA_CONFIG.genislik - (2 / zoom);
+        ctx.stroke();
 
         // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
         if (baca.havalandirma && baca.segments.length > 0) {
