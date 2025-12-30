@@ -1237,57 +1237,8 @@ export class PlumbingRenderer {
         ctx.lineJoin = 'bevel';
         ctx.lineCap = 'butt';
 
-        // Path oluştur
-        ctx.beginPath();
-        baca.segments.forEach((segment, index) => {
-            if (index === 0) {
-                // İlk segment - clipping hesapla
-                let startOffset = 0;
-                if (parentCihaz) {
-                    const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                    const distFromCenter = Math.hypot(
-                        segment.x1 - parentCihaz.x,
-                        segment.y1 - parentCihaz.y
-                    );
-                    if (distFromCenter < cihazRadius) {
-                        const dx = segment.x2 - segment.x1;
-                        const dy = segment.y2 - segment.y1;
-                        const angle = Math.atan2(dy, dx);
-                        startOffset = cihazRadius - distFromCenter;
-                        const startX = segment.x1 + Math.cos(angle) * startOffset;
-                        const startY = segment.y1 + Math.sin(angle) * startOffset;
-                        ctx.moveTo(startX, startY);
-                    } else {
-                        ctx.moveTo(segment.x1, segment.y1);
-                    }
-                } else {
-                    ctx.moveTo(segment.x1, segment.y1);
-                }
-            }
-            ctx.lineTo(segment.x2, segment.y2);
-        });
-
-        // Gradient helper function (tek segment için)
-        const createSegmentGradient = () => {
-            if (baca.segments.length !== 1) return null;
-
-            const seg = baca.segments[0];
-            let startX = seg.x1;
-            let startY = seg.y1;
-
-            if (parentCihaz) {
-                const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                const distFromCenter = Math.hypot(seg.x1 - parentCihaz.x, seg.y1 - parentCihaz.y);
-                if (distFromCenter < cihazRadius) {
-                    const dx = seg.x2 - seg.x1;
-                    const dy = seg.y2 - seg.y1;
-                    const angle = Math.atan2(dy, dx);
-                    const startOffset = cihazRadius - distFromCenter;
-                    startX = seg.x1 + Math.cos(angle) * startOffset;
-                    startY = seg.y1 + Math.sin(angle) * startOffset;
-                }
-            }
-
+        // Gradient helper - her segment için perpendicular gradient
+        const createSegmentGradient = (seg, startX, startY) => {
             const dx = seg.x2 - startX;
             const dy = seg.y2 - startY;
             const midX = (startX + seg.x2) / 2;
@@ -1311,10 +1262,35 @@ export class PlumbingRenderer {
             return gradient;
         };
 
-        // 1. Ana dolgu - gradient (tek segment) veya düz renk (çoklu)
-        const baseGradient = createSegmentGradient();
-        ctx.strokeStyle = baseGradient || BACA_CONFIG.fillColorMid;
-        ctx.stroke();
+        // 1. Her segment için ayrı gradient ile çiz (köşelerde düzgün görünür)
+        baca.segments.forEach((segment, index) => {
+            ctx.beginPath();
+
+            // Başlangıç noktası (clipping hesabı ile)
+            let startX = segment.x1;
+            let startY = segment.y1;
+
+            if (index === 0 && parentCihaz) {
+                const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
+                const distFromCenter = Math.hypot(segment.x1 - parentCihaz.x, segment.y1 - parentCihaz.y);
+                if (distFromCenter < cihazRadius) {
+                    const dx = segment.x2 - segment.x1;
+                    const dy = segment.y2 - segment.y1;
+                    const angle = Math.atan2(dy, dx);
+                    const startOffset = cihazRadius - distFromCenter;
+                    startX = segment.x1 + Math.cos(angle) * startOffset;
+                    startY = segment.y1 + Math.sin(angle) * startOffset;
+                }
+            }
+
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(segment.x2, segment.y2);
+
+            // Gradient uygula
+            const gradient = createSegmentGradient(segment, startX, startY);
+            ctx.strokeStyle = gradient;
+            ctx.stroke();
+        });
 
         // 2. Outline (dış çerçeve)
         ctx.beginPath();
@@ -1378,12 +1354,7 @@ export class PlumbingRenderer {
             ctx.lineTo(segment.x2, segment.y2);
         });
 
-        // Tek segment ise highlight'ı atla (gradient zaten highlight içeriyor)
-        if (!baseGradient) {
-            ctx.strokeStyle = BACA_CONFIG.fillColorLight;
-            ctx.lineWidth = BACA_CONFIG.genislik - (2 / zoom);
-            ctx.stroke();
-        }
+        // 3. Highlight pass kaldırıldı - her segment zaten gradient içeriyor
 
         // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
         if (baca.havalandirma && baca.segments.length > 0) {
