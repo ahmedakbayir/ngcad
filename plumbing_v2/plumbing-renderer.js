@@ -1185,9 +1185,12 @@ export class PlumbingRenderer {
             genislik: 12,  // 12cm genişlik
             havalandirmaGenislik: 10,  // İnce kenar
             havalandirmaUzunluk: 30,   // Geniş kenar
-            izgaraSayisi: 4,  // 6'dan 4'e düşürüldü
-            strokeColor: state.darkMode ? '#999999' : '#AAAAAA',  // Daha pastel kenar
-            fillColor: state.darkMode ? '#F0F8FA' : '#E8F4F8'  // Daha pastel buz mavisi
+            havalandirmaOffset: 5,  // Baca ucundan ne kadar uzakta (5cm)
+            izgaraSayisi: 4,  // 4 çubuk
+            // Gri tonlar - pastel
+            fillColorLight: '#E8E8E8',  // Açık gri
+            fillColorMid: '#D0D0D0',    // Orta gri
+            strokeColor: '#C8C8C8'      // Stroke (fill'e yakın)
         };
 
         ctx.save();
@@ -1226,21 +1229,21 @@ export class PlumbingRenderer {
             }
 
             if (length > startOffset) {
-                // Pastel gradient (yukarıdan aşağıya)
+                // Simetrik gradient: açık → orta → açık (#xxx → 0, #yyy → 0.5, #xxx → 1)
                 const gradient = ctx.createLinearGradient(0, -BACA_CONFIG.genislik / 2, 0, BACA_CONFIG.genislik / 2);
-                gradient.addColorStop(0, state.darkMode ? '#F5FBFC' : '#EDF7FA');  // Açık pastel
-                gradient.addColorStop(0.5, BACA_CONFIG.fillColor);  // Orta ton
-                gradient.addColorStop(1, state.darkMode ? '#E3F0F3' : '#D8EDF3');  // Koyu pastel
+                gradient.addColorStop(0, BACA_CONFIG.fillColorLight);    // Açık
+                gradient.addColorStop(0.5, BACA_CONFIG.fillColorMid);    // Orta
+                gradient.addColorStop(1, BACA_CONFIG.fillColorLight);    // Açık (simetrik)
 
                 ctx.fillStyle = gradient;
-                ctx.strokeStyle = BACA_CONFIG.strokeColor;
-                ctx.lineWidth = 0.8 / zoom;  // Daha ince stroke
+                ctx.strokeStyle = BACA_CONFIG.strokeColor;  // Fill'e yakın renk
+                ctx.lineWidth = 0.8 / zoom;
 
                 ctx.fillRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
                 ctx.strokeRect(startOffset, -BACA_CONFIG.genislik / 2, length - startOffset, BACA_CONFIG.genislik);
 
                 // Dirsek kapakları (her segment başında ve sonunda)
-                ctx.fillStyle = BACA_CONFIG.fillColor;
+                ctx.fillStyle = BACA_CONFIG.fillColorMid;
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;
 
                 // Başlangıç kapağı (ilk segment değilse)
@@ -1263,24 +1266,32 @@ export class PlumbingRenderer {
             ctx.restore();
         });
 
-        // Havalandırma ızgarası (ESC basılınca)
-        if (baca.havalandirma) {
-            const hv = baca.havalandirma;
+        // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
+        if (baca.havalandirma && baca.segments.length > 0) {
+            const lastSegment = baca.segments[baca.segments.length - 1];
+            const dx = lastSegment.x2 - lastSegment.x1;
+            const dy = lastSegment.y2 - lastSegment.y1;
+            const segmentAngle = Math.atan2(dy, dx);
+
+            // Izgara pozisyonu: son segment ucundan offset kadar ötede
+            const offsetDistance = BACA_CONFIG.genislik / 2 + BACA_CONFIG.havalandirmaOffset;
+            const izgaraX = lastSegment.x2 + Math.cos(segmentAngle) * offsetDistance;
+            const izgaraY = lastSegment.y2 + Math.sin(segmentAngle) * offsetDistance;
 
             ctx.save();
-            ctx.translate(hv.x, hv.y);
-            ctx.rotate(hv.angle);
+            ctx.translate(izgaraX, izgaraY);
+            ctx.rotate(segmentAngle);
 
             // Havalandırma dikdörtgeni - sağdan ve soldan birer ızgara genişliği kaldırılmış
             const izgaraGenislik = BACA_CONFIG.havalandirmaGenislik;  // 10cm
-            const hvGenislik = hv.width;  // Orijinal genişlik
-            const hvUzunluk = hv.height - 2 * izgaraGenislik;  // Sağdan ve soldan birer genişlik kaldırıldı
+            const hvGenislik = BACA_CONFIG.havalandirmaGenislik;  // 10cm
+            const hvUzunluk = BACA_CONFIG.havalandirmaUzunluk - 2 * izgaraGenislik;  // 30 - 20 = 10cm
 
-            // Pastel gradient
+            // Simetrik gradient (gri tonlar): açık → orta → açık
             const gradient = ctx.createLinearGradient(0, -hvUzunluk / 2, 0, hvUzunluk / 2);
-            gradient.addColorStop(0, state.darkMode ? '#E0E0E0' : '#D8D8D8');
-            gradient.addColorStop(0.5, state.darkMode ? '#CCCCCC' : '#C0C0C0');
-            gradient.addColorStop(1, state.darkMode ? '#B8B8B8' : '#AAAAAA');
+            gradient.addColorStop(0, '#D8D8D8');    // Açık
+            gradient.addColorStop(0.5, '#B8B8B8');  // Orta
+            gradient.addColorStop(1, '#D8D8D8');    // Açık (simetrik)
 
             ctx.fillStyle = gradient;
             ctx.strokeStyle = BACA_CONFIG.strokeColor;
@@ -1293,7 +1304,7 @@ export class PlumbingRenderer {
             ctx.strokeRect(hvX, hvY, hvGenislik, hvUzunluk);
 
             // Izgaralar (4 çubuk - geniş kenar boyunca)
-            ctx.strokeStyle = state.darkMode ? '#888888' : '#777777';
+            ctx.strokeStyle = '#A0A0A0';  // Daha koyu gri
             ctx.lineWidth = 0.6 / zoom;
             const izgaraAralik = hvUzunluk / (BACA_CONFIG.izgaraSayisi + 1);
 
@@ -1325,9 +1336,16 @@ export class PlumbingRenderer {
                 ctx.translate(ghostSeg.x1, ghostSeg.y1);
                 ctx.rotate(angle);
 
-                // Ghost segment (yarı saydam)
+                // Ghost segment (yarı saydam) - Gri tonlar
                 ctx.globalAlpha = 0.5;
-                ctx.fillStyle = BACA_CONFIG.fillColor;
+
+                // Simetrik gradient
+                const ghostSegmentGradient = ctx.createLinearGradient(0, -BACA_CONFIG.genislik / 2, 0, BACA_CONFIG.genislik / 2);
+                ghostSegmentGradient.addColorStop(0, BACA_CONFIG.fillColorLight);
+                ghostSegmentGradient.addColorStop(0.5, BACA_CONFIG.fillColorMid);
+                ghostSegmentGradient.addColorStop(1, BACA_CONFIG.fillColorLight);
+
+                ctx.fillStyle = ghostSegmentGradient;
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;
                 ctx.lineWidth = 1.5 / zoom;
                 ctx.setLineDash([5 / zoom, 5 / zoom]);
@@ -1338,20 +1356,21 @@ export class PlumbingRenderer {
                 ctx.setLineDash([]);
                 ctx.globalAlpha = 1;
 
-                // Ghost havalandırma (segment sonunda)
-                ctx.translate(length, 0);
+                // Ghost havalandırma (segment sonunda + offset)
+                const offsetDistance = BACA_CONFIG.genislik / 2 + BACA_CONFIG.havalandirmaOffset;
+                ctx.translate(length + offsetDistance, 0);
                 const hvWidth = BACA_CONFIG.havalandirmaGenislik;
                 const hvHeight = BACA_CONFIG.havalandirmaUzunluk;
                 const izgaraGenislik = BACA_CONFIG.havalandirmaGenislik;
-                const hvUzunluk = hvHeight - 2 * izgaraGenislik;  // Sağdan ve soldan birer genişlik kaldırıldı
+                const hvUzunluk = hvHeight - 2 * izgaraGenislik;  // 30 - 20 = 10cm
 
                 ctx.globalAlpha = 0.5;
 
-                // Pastel gradient
+                // Simetrik gradient (gri tonlar)
                 const ghostGradient = ctx.createLinearGradient(0, -hvUzunluk / 2, 0, hvUzunluk / 2);
-                ghostGradient.addColorStop(0, state.darkMode ? '#E0E0E0' : '#D8D8D8');
-                ghostGradient.addColorStop(0.5, state.darkMode ? '#CCCCCC' : '#C0C0C0');
-                ghostGradient.addColorStop(1, state.darkMode ? '#B8B8B8' : '#AAAAAA');
+                ghostGradient.addColorStop(0, '#D8D8D8');
+                ghostGradient.addColorStop(0.5, '#B8B8B8');
+                ghostGradient.addColorStop(1, '#D8D8D8');
 
                 ctx.fillStyle = ghostGradient;
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;
@@ -1361,7 +1380,7 @@ export class PlumbingRenderer {
                 ctx.strokeRect(-hvWidth / 2, -hvUzunluk / 2, hvWidth, hvUzunluk);
 
                 // Izgaralar (4 çubuk - geniş kenar boyunca)
-                ctx.strokeStyle = state.darkMode ? '#888888' : '#777777';
+                ctx.strokeStyle = '#A0A0A0';
                 ctx.lineWidth = 0.6 / zoom;
                 const izgaraAralik = hvUzunluk / (BACA_CONFIG.izgaraSayisi + 1);
 
