@@ -230,6 +230,12 @@ export function getObjectAtPoint(pos) {
         return validateFloorMatch(result, currentFloorId);
     }
 
+    // 2.5.6 Baca (Chimney) Gövdesi
+    if (pipeHandleHit && pipeHandleHit.type === 'baca' && pipeHandleHit.handle === 'body') {
+        const result = { type: 'baca', object: pipeHandleHit.object, handle: pipeHandleHit.handle };
+        return validateFloorMatch(result, currentFloorId);
+    }
+
     // 2.6 Kiriş Gövdesi
     if (beamHandleHit && beamHandleHit.handle === 'body') return beamHandleHit;
 

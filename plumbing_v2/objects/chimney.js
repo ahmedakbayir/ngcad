@@ -280,6 +280,72 @@ export class Baca {
     }
 
     /**
+     * Bacayı verilen noktada böl (çift tıklama için)
+     * @param {object} point - {x, y} bölme noktası
+     * @returns {object|null} - {segmentIndex, splitPoint} veya null (bölme yapılamadıysa)
+     */
+    splitAt(point) {
+        // Hangi segment üzerindeyiz?
+        const MIN_SPLIT_DIST = 10; // Segment uçlarından en az 10cm uzakta olmalı
+
+        for (let i = 0; i < this.segments.length; i++) {
+            const seg = this.segments[i];
+            const dx = seg.x2 - seg.x1;
+            const dy = seg.y2 - seg.y1;
+            const length = Math.hypot(dx, dy);
+
+            if (length < 0.1) continue;
+
+            // Noktayı segment üzerine projekte et
+            const t = ((point.x - seg.x1) * dx + (point.y - seg.y1) * dy) / (length * length);
+
+            // Segment dışındaysa devam et
+            if (t < 0 || t > 1) continue;
+
+            const projX = seg.x1 + t * dx;
+            const projY = seg.y1 + t * dy;
+            const dist = Math.hypot(point.x - projX, point.y - projY);
+
+            // Segment genişliği içinde mi?
+            if (dist < BACA_CONFIG.genislik / 2 + 10) {
+                // Uç noktalara çok yakınsa bölme
+                const distToStart = Math.hypot(projX - seg.x1, projY - seg.y1);
+                const distToEnd = Math.hypot(projX - seg.x2, projY - seg.y2);
+
+                if (distToStart < MIN_SPLIT_DIST || distToEnd < MIN_SPLIT_DIST) {
+                    return null; // Segment uçlarına çok yakın
+                }
+
+                // Segmenti böl
+                const splitPoint = { x: projX, y: projY };
+
+                // Yeni segment: bölme noktasından eski bitiş noktasına
+                const newSegment = {
+                    x1: splitPoint.x,
+                    y1: splitPoint.y,
+                    x2: seg.x2,
+                    y2: seg.y2
+                };
+
+                // Eski segment: eski başlangıçtan bölme noktasına
+                seg.x2 = splitPoint.x;
+                seg.y2 = splitPoint.y;
+
+                // Yeni segmenti listeye ekle
+                this.segments.splice(i + 1, 0, newSegment);
+
+                return {
+                    segmentIndex: i,
+                    splitPoint: splitPoint,
+                    newSegmentIndex: i + 1
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Serialize
      */
     toJSON() {
