@@ -974,9 +974,18 @@ export function setupInputListeners() {
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
         const object = getObjectAtPoint(clickPos);
 
+        console.log('🔍 DOUBLE-CLICK EVENT:', {
+            clickPos,
+            object,
+            type: object?.type,
+            handle: object?.handle,
+            interactable: object ? isObjectInteractable(object.type) : null
+        });
+
         // Nesneye çift tıklama için interaktif olup olmadığını kontrol et
         if (object && !isObjectInteractable(object.type)) {
             // TESİSAT modunda mimari nesnelere çift tıklanamaz
+            console.warn('⚠️ Object not interactable:', object.type);
             return;
         }
 

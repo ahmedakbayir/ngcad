@@ -1449,6 +1449,13 @@ export function handleDrag(interactionManager, point) {
         return;
     }
 
+    // Baca body taşıma engellendi - sadece endpoint'lerden taşınabilir
+    if (interactionManager.dragObject.type === 'baca') {
+        // Baca body drag yapılamaz, sadece endpoint drag
+        console.warn('⚠️ Baca body taşınamaz - lütfen uç noktalardan taşıyın');
+        return;
+    }
+
     // Diğer objeler için normal taşıma
     if (interactionManager.dragObject.type !== 'boru') {
         const result = interactionManager.dragObject.move(point.x, point.y);
