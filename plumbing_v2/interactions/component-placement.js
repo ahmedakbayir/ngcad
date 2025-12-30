@@ -8,6 +8,7 @@ import { saveState } from '../../general-files/history.js';
 import { BAGLANTI_TIPLERI, createBoru } from '../objects/pipe.js';
 import { createSayac } from '../objects/meter.js';
 import { createVana } from '../objects/valve.js';
+import { createBaca } from '../objects/chimney.js';
 import { canPlaceValveOnPipe, getObjectsOnPipe } from './placement-utils.js';
 import { TESISAT_MODLARI } from './interaction-manager.js';
 
@@ -487,13 +488,25 @@ export function handleCihazEkleme(cihaz) {
     // State'e kaydet
     this.manager.saveToState();
 
-    // KOMBI eklendiğinde otomatik baca modunu başlat
-    if (cihaz.cihazTipi === 'KOMBI') {
-        // Yeni baca ghost oluştur
-        setTimeout(() => {
-            this.manager.startPlacement(TESISAT_MODLARI.BACA);
-            setMode("plumbingV2", true);
-        }, 50);
+    // Baca gerektiren cihazlar için otomatik baca oluştur
+    if (cihaz.bacaGerekliMi()) {
+        // Baca oluştur - cihaz merkezinden başlayarak sağa doğru 100cm
+        const baca = createBaca(cihaz.x, cihaz.y, cihaz.id, {
+            floorId: cihaz.floorId
+        });
+
+        // İlk segment: Sağa doğru 100cm (1m)
+        const ilkSegmentBitis = {
+            x: cihaz.x + 100, // 1m = 100cm
+            y: cihaz.y
+        };
+        baca.addSegment(ilkSegmentBitis.x, ilkSegmentBitis.y);
+
+        // Çizimi bitir - böylece baca seçilebilir ve düzenlenebilir olur
+        baca.finishDrawing();
+
+        // Bileşenlere ekle
+        this.manager.components.push(baca);
     }
 
     // console.log('[handleCihazEkleme] ✓ Cihaz başarıyla eklendi. Toplam components:', this.manager.components.length);

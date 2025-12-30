@@ -96,6 +96,9 @@ export function handlePointerDown(e) {
             }
         }
 
+        // Piksel bazlı tolerance - zoom bağımsız
+        const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
+
         // Baca segment endpoint kontrolü (boru noktası kontrolünden önce - daha yüksek öncelik)
         const bacalar = this.manager.components.filter(c => c.type === 'baca' && c.isSelected);
         for (const baca of bacalar) {
@@ -111,8 +114,6 @@ export function handlePointerDown(e) {
         }
 
         // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
-        // Piksel bazlı tolerance - zoom bağımsız
-        const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
         const boruUcu = this.findBoruUcuAt(point, worldTolerance);
         if (boruUcu) {
             // console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
