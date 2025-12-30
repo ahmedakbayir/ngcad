@@ -96,6 +96,20 @@ export function handlePointerDown(e) {
             }
         }
 
+        // Baca segment endpoint kontrolü (boru noktası kontrolünden önce - daha yüksek öncelik)
+        const bacalar = this.manager.components.filter(c => c.type === 'baca' && c.isSelected);
+        for (const baca of bacalar) {
+            const endpoint = baca.findNearestEndpoint(point, worldTolerance);
+            if (endpoint) {
+                // Baca endpoint sürüklemesi başlat
+                this.isDragging = true;
+                this.dragObject = baca;
+                this.dragStart = { ...point };
+                this.dragBacaEndpoint = endpoint; // {segmentIndex, endpoint: 'start'|'end'}
+                return true;
+            }
+        }
+
         // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
         // Piksel bazlı tolerance - zoom bağımsız
         const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);

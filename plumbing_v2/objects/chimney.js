@@ -185,6 +185,101 @@ export class Baca {
     }
 
     /**
+     * Noktaya en yakın segment endpoint'i bul (sürükleme için)
+     * @param {object} point - {x, y} noktası
+     * @param {number} tolerance - Tolerans (cm)
+     * @returns {object|null} - {segmentIndex, endpoint: 'start'|'end', x, y} veya null
+     */
+    findNearestEndpoint(point, tolerance = 8) {
+        let minDist = tolerance;
+        let nearest = null;
+
+        this.segments.forEach((seg, index) => {
+            // Segment başlangıcı (x1, y1) - İlk segment başlangıcı cihaza bağlı, sürüklenemez
+            if (index > 0) {
+                const dist1 = Math.hypot(point.x - seg.x1, point.y - seg.y1);
+                if (dist1 < minDist) {
+                    minDist = dist1;
+                    nearest = {
+                        segmentIndex: index,
+                        endpoint: 'start',
+                        x: seg.x1,
+                        y: seg.y1
+                    };
+                }
+            }
+
+            // Segment bitişi (x2, y2)
+            const dist2 = Math.hypot(point.x - seg.x2, point.y - seg.y2);
+            if (dist2 < minDist) {
+                minDist = dist2;
+                nearest = {
+                    segmentIndex: index,
+                    endpoint: 'end',
+                    x: seg.x2,
+                    y: seg.y2
+                };
+            }
+        });
+
+        return nearest;
+    }
+
+    /**
+     * Segment endpoint'i taşı
+     * @param {number} segmentIndex - Segment indexi
+     * @param {string} endpoint - 'start' veya 'end'
+     * @param {number} newX - Yeni X koordinatı
+     * @param {number} newY - Yeni Y koordinatı
+     */
+    moveEndpoint(segmentIndex, endpoint, newX, newY) {
+        if (segmentIndex < 0 || segmentIndex >= this.segments.length) return;
+
+        const segment = this.segments[segmentIndex];
+
+        if (endpoint === 'start') {
+            // Başlangıç taşındı - önceki segmentin bitiş noktasını da güncelle
+            segment.x1 = newX;
+            segment.y1 = newY;
+
+            if (segmentIndex > 0) {
+                this.segments[segmentIndex - 1].x2 = newX;
+                this.segments[segmentIndex - 1].y2 = newY;
+            }
+
+            // İlk segment başlangıcı değiştiyse, currentSegmentStart'ı güncelle
+            if (segmentIndex === 0) {
+                this.currentSegmentStart.x = newX;
+                this.currentSegmentStart.y = newY;
+            }
+        } else if (endpoint === 'end') {
+            // Bitiş taşındı - sonraki segmentin başlangıç noktasını da güncelle
+            segment.x2 = newX;
+            segment.y2 = newY;
+
+            if (segmentIndex < this.segments.length - 1) {
+                this.segments[segmentIndex + 1].x1 = newX;
+                this.segments[segmentIndex + 1].y1 = newY;
+            } else {
+                // Son segment bitişi - currentSegmentStart'ı güncelle
+                this.currentSegmentStart.x = newX;
+                this.currentSegmentStart.y = newY;
+            }
+
+            // Havalandırma varsa ve son segmentteyse, pozisyonunu güncelle
+            if (this.havalandirma && segmentIndex === this.segments.length - 1) {
+                this.havalandirma.x = newX;
+                this.havalandirma.y = newY;
+
+                // Açıyı da güncelle
+                const dx = newX - segment.x1;
+                const dy = newY - segment.y1;
+                this.havalandirma.angle = Math.atan2(dy, dx);
+            }
+        }
+    }
+
+    /**
      * Serialize
      */
     toJSON() {
