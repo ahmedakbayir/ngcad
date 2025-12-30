@@ -1292,69 +1292,7 @@ export class PlumbingRenderer {
             ctx.stroke();
         });
 
-        // 2. Outline (dış çerçeve)
-        ctx.beginPath();
-        baca.segments.forEach((segment, index) => {
-            if (index === 0) {
-                let startOffset = 0;
-                if (parentCihaz) {
-                    const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                    const distFromCenter = Math.hypot(
-                        segment.x1 - parentCihaz.x,
-                        segment.y1 - parentCihaz.y
-                    );
-                    if (distFromCenter < cihazRadius) {
-                        const dx = segment.x2 - segment.x1;
-                        const dy = segment.y2 - segment.y1;
-                        const angle = Math.atan2(dy, dx);
-                        startOffset = cihazRadius - distFromCenter;
-                        const startX = segment.x1 + Math.cos(angle) * startOffset;
-                        const startY = segment.y1 + Math.sin(angle) * startOffset;
-                        ctx.moveTo(startX, startY);
-                    } else {
-                        ctx.moveTo(segment.x1, segment.y1);
-                    }
-                } else {
-                    ctx.moveTo(segment.x1, segment.y1);
-                }
-            }
-            ctx.lineTo(segment.x2, segment.y2);
-        });
-
-        ctx.strokeStyle = BACA_CONFIG.strokeColor;
-        ctx.lineWidth = BACA_CONFIG.genislik + (2.4 / zoom);
-        ctx.stroke();
-
-        // 3. İç highlight
-        ctx.beginPath();
-        baca.segments.forEach((segment, index) => {
-            if (index === 0) {
-                let startOffset = 0;
-                if (parentCihaz) {
-                    const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                    const distFromCenter = Math.hypot(
-                        segment.x1 - parentCihaz.x,
-                        segment.y1 - parentCihaz.y
-                    );
-                    if (distFromCenter < cihazRadius) {
-                        const dx = segment.x2 - segment.x1;
-                        const dy = segment.y2 - segment.y1;
-                        const angle = Math.atan2(dy, dx);
-                        startOffset = cihazRadius - distFromCenter;
-                        const startX = segment.x1 + Math.cos(angle) * startOffset;
-                        const startY = segment.y1 + Math.sin(angle) * startOffset;
-                        ctx.moveTo(startX, startY);
-                    } else {
-                        ctx.moveTo(segment.x1, segment.y1);
-                    }
-                } else {
-                    ctx.moveTo(segment.x1, segment.y1);
-                }
-            }
-            ctx.lineTo(segment.x2, segment.y2);
-        });
-
-        // 3. Highlight pass kaldırıldı - her segment zaten gradient içeriyor
+        // Outline ve highlight kaldırıldı - sadece gradient yeterli
 
         // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
         if (baca.havalandirma && baca.segments.length > 0) {
