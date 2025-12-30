@@ -636,6 +636,21 @@ export function startBodyDrag(interactionManager, pipe, point) {
 export function handleDrag(interactionManager, point) {
     if (!interactionManager.dragObject) return;
 
+    // Baca segment endpoint sürükleme
+    if (interactionManager.dragBacaEndpoint && interactionManager.dragObject.type === 'baca') {
+        const baca = interactionManager.dragObject;
+        const endpoint = interactionManager.dragBacaEndpoint;
+
+        // Endpoint'i yeni pozisyona taşı
+        baca.moveEndpoint(endpoint.segmentIndex, endpoint.endpoint, point.x, point.y);
+
+        // Endpoint referansını güncelle (mouse pozisyonu için)
+        endpoint.x = point.x;
+        endpoint.y = point.y;
+
+        return;
+    }
+
     // Uç nokta sürükleme
     if (interactionManager.dragEndpoint && interactionManager.dragObject.type === 'boru') {
         const pipe = interactionManager.dragObject;
@@ -1566,6 +1581,7 @@ export function endDrag(interactionManager) {
     interactionManager.isDragging = false;
     interactionManager.dragObject = null;
     interactionManager.dragEndpoint = null;
+    interactionManager.dragBacaEndpoint = null; // Baca endpoint cleanup
     interactionManager.dragStart = null;
     interactionManager._bacaDragLogged = false; // Reset baca drag log flag
     interactionManager.dragStartObjectPos = null;

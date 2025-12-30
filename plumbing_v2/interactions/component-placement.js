@@ -113,6 +113,18 @@ export function placeComponent(point) {
             if (component.ghostSnapCihaz) {
                 // İlk tıklama: Baca yerleştir ve çizim moduna geç
                 if (!component.parentCihazId) {
+                    // VALIDASYON: Bir cihaza max 1 baca
+                    const existingBaca = this.manager.components.find(c =>
+                        c.type === 'baca' && c.parentCihazId === component.ghostSnapCihazId
+                    );
+                    if (existingBaca) {
+                        console.warn('⚠️ Bu cihaza zaten baca eklenmiş! Bir cihaza maksimum 1 baca eklenebilir.');
+                        // Ghost'ı temizle ve moddan çık
+                        this.manager.tempComponent = null;
+                        this.manager.activeTool = null;
+                        return;
+                    }
+
                     saveState();
                     component.parentCihazId = component.ghostSnapCihazId;
                     this.manager.components.push(component);
