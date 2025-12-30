@@ -767,8 +767,8 @@ export function isObjectInteractable(objectType) {
 
     // Tesisat nesneleri listesi - GÜNCELLENDİ
     const plumbingObjects = [
-        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz', 
-        'plumbingPipe', 'plumbingComponent', 'plumbingBlock', 'valve' // <-- 'plumbingBlock' ve 'valve' EKLENDİ
+        'plumbing', 'pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz',
+        'plumbingPipe', 'plumbingComponent', 'plumbingBlock', 'valve', 'baca' // <-- 'baca' EKLENDİ
     ];
 
     const isArchitectural = architecturalObjects.includes(objectType);
