@@ -1218,13 +1218,13 @@ export class PlumbingRenderer {
         const BACA_CONFIG = {
             genislik: 12,  // 12cm genişlik
             havalandirmaGenislik: 10,  // İnce kenar
-            havalandirmaUzunluk: 30,   // Geniş kenar
+            havalandirmaUzunluk: 29,   // Geniş kenar
             havalandirmaOffset: 0,  // Baca ucundan ne kadar uzakta
             izgaraSayisi: 6,
             // Gri tonlar - pastel
-            fillColorLight: '#787c7cff',  // Açık gri
-            fillColorMid: '#e4e7e7ff',    // Orta gri
-            strokeColor: '#787c7cff'      // Stroke (fill'e yakın)
+            fillColorLight: 'rgba(111, 112, 112, 0.8)',  // Açık gri
+            fillColorMid: 'rgba(221, 235, 235, 0.8)',    // Orta gri
+            strokeColor: '#babbbbff'      // Stroke (fill'e yakın)
         };
 
         ctx.save();
@@ -1310,7 +1310,7 @@ export class PlumbingRenderer {
             ctx.beginPath();
             ctx.arc(cornerX, cornerY, cornerRadius, 0, Math.PI * 2);
             ctx.fillStyle = radialGrad;
-            ctx.fill();
+            //ctx.fill();
         }
 
         // Outline ve highlight kaldırıldı - sadece gradient yeterli
