@@ -269,6 +269,39 @@ export class Baca {
     }
 
     /**
+     * Tüm bacayı taşı (delta ile)
+     * @param {number} newX - Yeni başlangıç X koordinatı
+     * @param {number} newY - Yeni başlangıç Y koordinatı
+     */
+    move(newX, newY) {
+        // Delta hesapla (startX, startY referans noktası)
+        const deltaX = newX - this.startX;
+        const deltaY = newY - this.startY;
+
+        // Başlangıç noktasını güncelle
+        this.startX = newX;
+        this.startY = newY;
+
+        // Tüm segmentleri taşı
+        this.segments.forEach(seg => {
+            seg.x1 += deltaX;
+            seg.y1 += deltaY;
+            seg.x2 += deltaX;
+            seg.y2 += deltaY;
+        });
+
+        // Current segment start'ı taşı
+        this.currentSegmentStart.x += deltaX;
+        this.currentSegmentStart.y += deltaY;
+
+        // Havalandırma varsa onu da taşı
+        if (this.havalandirma) {
+            this.havalandirma.x += deltaX;
+            this.havalandirma.y += deltaY;
+        }
+    }
+
+    /**
      * Segment endpoint'i taşı
      * @param {number} segmentIndex - Segment indexi
      * @param {string} endpoint - 'start' veya 'end'

@@ -1257,11 +1257,6 @@ export class PlumbingRenderer {
                 }
             }
 
-            // Köşe overlap için uzatma - baca genişliğinin yarısı
-            const overlapExtension = BACA_CONFIG.genislik / 2;
-            let startExtension = (index > 0) ? overlapExtension : 0;
-            let endExtension = (index < baca.segments.length - 1) ? overlapExtension : 0;
-
             if (length > startOffset) {
                 // Gradient - açık → orta → açık
                 const gradient = ctx.createLinearGradient(0, -BACA_CONFIG.genislik / 2, 0, BACA_CONFIG.genislik / 2);
@@ -1271,15 +1266,15 @@ export class PlumbingRenderer {
 
                 ctx.fillStyle = gradient;
 
-                // Köşe overlap ile çiz
-                const drawStart = startOffset - startExtension;
-                const drawLength = length - startOffset + startExtension + endExtension;
+                // Normal çizim - overlap YOK
+                const drawStart = startOffset;
+                const drawLength = length - startOffset;
 
                 ctx.fillRect(drawStart, -BACA_CONFIG.genislik / 2, drawLength, BACA_CONFIG.genislik);
 
-                // Miter outline ekle (köşeleri düzgün göstermek için)
+                // Miter outline - köşeleri temiz gösterir
                 ctx.strokeStyle = BACA_CONFIG.strokeColor;
-                ctx.lineWidth = 0.8 / zoom;
+                ctx.lineWidth = 1.2 / zoom;
                 ctx.lineJoin = 'miter';
                 ctx.lineCap = 'square';
                 ctx.miterLimit = 10;
