@@ -18,6 +18,41 @@ export function handlePointerDown(e) {
 
     //console.log('[POINTER DOWN] activeTool:', this.manager.activeTool, 'tempComponent:', this.manager.tempComponent?.type);
 
+    // Double-click detection
+    const currentTime = Date.now();
+    const timeSinceLastClick = currentTime - this.lastClickTime;
+    const isDoubleClick = timeSinceLastClick < this.DOUBLE_CLICK_THRESHOLD &&
+        this.lastClickPoint &&
+        Math.hypot(point.x - this.lastClickPoint.x, point.y - this.lastClickPoint.y) < this.DOUBLE_CLICK_DISTANCE;
+
+    // Baca çift tıklama - split işlemi
+    if (isDoubleClick && !this.boruCizimAktif && !this.manager.activeTool) {
+        // Bacaları kontrol et
+        const bacalar = this.manager.components.filter(c => c.type === 'baca' && !c.isDrawing);
+        for (const baca of bacalar) {
+            if (baca.containsPoint(point)) {
+                const splitResult = baca.splitAt(point);
+                if (splitResult) {
+                    console.log('✂️ Baca bölündü:', splitResult);
+                    // Bölünen noktayı seç (drag için hazır)
+                    this.isDragging = true;
+                    this.dragObject = baca;
+                    this.dragStart = { ...splitResult.splitPoint };
+                    this.dragBacaEndpoint = {
+                        segmentIndex: splitResult.newSegmentIndex,
+                        endpoint: 'start'
+                    };
+                    this.lastClickTime = 0; // Reset double-click
+                    return true;
+                }
+            }
+        }
+    }
+
+    // Click time ve point'i kaydet
+    this.lastClickTime = currentTime;
+    this.lastClickPoint = { ...point };
+
     // 0.4 Vana ekleme - Vana tool aktif ve preview var
     if (this.manager.activeTool === 'vana' && !this.boruCizimAktif && this.vanaPreview) {
         this.handleVanaPlacement(this.vanaPreview);

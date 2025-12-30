@@ -154,6 +154,12 @@ export class InteractionManager {
         this.dragStartObjectPos = null;
         this.axisLockDetermined = false;
         this.lockedAxis = null;
+
+        // Double-click detection
+        this.lastClickTime = 0;
+        this.lastClickPoint = null;
+        this.DOUBLE_CLICK_THRESHOLD = 300; // ms
+        this.DOUBLE_CLICK_DISTANCE = 10; // world units
     }
 
     /**
