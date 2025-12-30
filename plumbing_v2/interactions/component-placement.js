@@ -139,13 +139,26 @@ export function placeComponent(point) {
                 else if (component.isDrawing) {
                     saveState();
 
-                    // 15° açı snapping uygula (Shift tuşu basılıysa veya state.drawingAngle set ise)
+                    // 15° açı snapping - HER ZAMAN AKTİF
                     let snappedPoint = point;
-                    if (state.drawingAngle && component.currentSegmentStart) {
-                        snappedPoint = snapTo15DegreeAngle(
-                            component.currentSegmentStart,
-                            point
-                        );
+                    if (component.currentSegmentStart) {
+                        const dx = point.x - component.currentSegmentStart.x;
+                        const dy = point.y - component.currentSegmentStart.y;
+                        const distance = Math.hypot(dx, dy);
+
+                        if (distance >= 10) {
+                            let angleRad = Math.atan2(dy, dx);
+                            let angleDeg = angleRad * 180 / Math.PI;
+
+                            const SNAP_ANGLE = 15;
+                            const snappedAngleDeg = Math.round(angleDeg / SNAP_ANGLE) * SNAP_ANGLE;
+                            const snappedAngleRad = snappedAngleDeg * Math.PI / 180;
+
+                            snappedPoint = {
+                                x: component.currentSegmentStart.x + distance * Math.cos(snappedAngleRad),
+                                y: component.currentSegmentStart.y + distance * Math.sin(snappedAngleRad)
+                            };
+                        }
                     }
 
                     const success = component.addSegment(snappedPoint.x, snappedPoint.y);
