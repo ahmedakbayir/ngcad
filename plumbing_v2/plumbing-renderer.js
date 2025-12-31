@@ -392,6 +392,19 @@ export class PlumbingRenderer {
                 this.drawPipeEndpoints(ctx, pipe);
             }
         });
+
+        // Kapalı boru uçlarını çiz (vana var, FLEKS yok)
+        pipes.forEach(pipe => {
+            // p1 ucu kapalı mı kontrol et
+            if (pipe.ucKapaliMi('p1', this.manager)) {
+                this.drawClosedPipeEnd(ctx, pipe, 'p1');
+            }
+
+            // p2 ucu kapalı mı kontrol et
+            if (pipe.ucKapaliMi('p2', this.manager)) {
+                this.drawClosedPipeEnd(ctx, pipe, 'p2');
+            }
+        });
     }
 
     findBreakPoints(pipes) {
@@ -522,6 +535,83 @@ export class PlumbingRenderer {
         ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+    }
+
+    /**
+     * Kapalı boru ucu çiz (bow-tie/kelebek şekli)
+     * Kullanım: Boru ucunda vana varsa ve FLEKS yoksa
+     */
+    drawClosedPipeEnd(ctx, pipe, endpoint) {
+        const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
+
+        // Boru geometrisi
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const angle = Math.atan2(dy, dx);
+
+        // Uç nokta pozisyonu
+        const endPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
+
+        // Açıyı endpoint'e göre ayarla
+        const endAngle = endpoint === 'p1' ? angle + Math.PI : angle;
+
+        // Boru genişliği
+        const zoom = state.zoom || 1;
+        let width = config.lineWidth;
+        if (zoom < 1) {
+            width = 4 / zoom;
+        }
+
+        // Renk grubunu al
+        const colorGroup = pipe.colorGroup || 'YELLOW';
+        const isLightMode = this.isLightMode();
+
+        ctx.save();
+        ctx.translate(endPoint.x, endPoint.y);
+        ctx.rotate(endAngle);
+
+        // Bow-tie (kelebek) şekli parametreleri
+        const capWidth = width * 1.5;  // Kapağın genişliği (boru genişliğinden biraz daha geniş)
+        const capLength = width * 0.8; // Kapağın uzunluğu
+
+        // Gradient oluştur (3D efekti için)
+        const gradient = ctx.createLinearGradient(0, -capWidth / 2, 0, capWidth / 2);
+
+        if (isLightMode) {
+            gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.6));
+            gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
+            gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.6));
+        } else {
+            gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 1));
+            gradient.addColorStop(0.2, this.getRenkByGroup(colorGroup, 'boru', 0.6));
+            gradient.addColorStop(0.8, this.getRenkByGroup(colorGroup, 'boru', 0.6));
+            gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 1));
+        }
+
+        ctx.fillStyle = gradient;
+
+        // Bow-tie şekli çiz (kelebek papyon)
+        ctx.beginPath();
+        // Sol üst
+        ctx.moveTo(0, -width / 2);
+        // Sağ üst
+        ctx.lineTo(capLength, -capWidth / 2);
+        // Sağ alt
+        ctx.lineTo(capLength, capWidth / 2);
+        // Sol alt
+        ctx.lineTo(0, width / 2);
+        // Kapat
+        ctx.closePath();
+        ctx.fill();
+
+        // Kenar çizgisi (ince kontur)
+        ctx.strokeStyle = isLightMode
+            ? this.getRenkByGroup(colorGroup, 'boru', 0.4)
+            : this.getRenkByGroup(colorGroup, 'boru', 0.8);
+        ctx.lineWidth = 0.3;
+        ctx.stroke();
+
+        ctx.restore();
     }
 
     drawBacaEndpoints(ctx, baca) {
