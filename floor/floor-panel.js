@@ -14,15 +14,18 @@ function getThemeColors() {
     const isLight = document.body.classList.contains('light-mode');
     return isLight ? {
         // Light mode renkleri
-        headerText: '#ffffff',
-        headerBg: '#3a3a3a',
-        activeBg: '#1a5490',
+        headerText: '#3a3a3a',
+        headerBg: 'transparent',
+        activeBg: '#4a90e2',  // Daha parlak mavi
         activeText: '#ffffff',
         activeBorder: '#0d2f5a',
         inactiveBg: '#e0e0e0',
         inactiveText: '#505050',
         panelBg: 'rgba(255, 255, 255, 0.95)',
-        panelBorder: '#b0b0b0'
+        panelBorder: '#b0b0b0',
+        inputBg: '#ffffff',
+        inputBorder: '#cccccc',
+        inputText: '#333333'
     } : {
         // Dark mode renkleri
         headerText: '#8ab4f8',
@@ -33,7 +36,10 @@ function getThemeColors() {
         inactiveBg: '#4a4b4c',
         inactiveText: '#e7e6d0',
         panelBg: 'rgba(42, 43, 44, 0.9)',
-        panelBorder: '#5f6368'
+        panelBorder: '#5f6368',
+        inputBg: '#3a3b3c',
+        inputBorder: '#5f6368',
+        inputText: '#e7e6d0'
     };
 }
 
@@ -629,7 +635,7 @@ function renderDetailPanel() {
                 <td style="padding: 4px; text-align: center;">
                     ${floor.isPlaceholder ? '' : renderVisibilityToggle(floor)}
                 </td>
-                <td style="padding: 4px; color: ${floor.isPlaceholder ? '#5f6368' : (isActive ? '#8ab4f8' : '#e7e6d0')}; font-size: 12px; font-weight: ${floor.isPlaceholder ? 'bold' : 'normal'};">
+                <td style="padding: 4px; color: ${floor.isPlaceholder ? '#5f6368' : (isActive ? themeColors.activeBg : themeColors.inputText)}; font-size: 12px; font-weight: ${floor.isPlaceholder ? 'bold' : 'normal'};">
                     ${floorNameDisplay}
                     ${isActive && !floor.isPlaceholder ? '<span style="color: #24ffda; font-size: 10px;"> (AKTİF)</span>' : ''}
                 </td>
@@ -639,13 +645,13 @@ function renderDetailPanel() {
                                class="floor-height-input"
                                data-floor-id="${floor.id}"
                                value="${floorHeight}"
-                               style="width: 60px; padding: 6px 4px; background: #3a3b3c; color: #e7e6d0; border: 1px solid #5f6368; border-radius: 3px; text-align: center; font-size: 11px; height: 30px;"
+                               style="width: 60px; padding: 6px 4px; background: ${themeColors.inputBg}; color: ${themeColors.inputText}; border: 1px solid ${themeColors.inputBorder}; border-radius: 3px; text-align: center; font-size: 11px; height: 30px;"
                                min="100"
                                max="1000"
                                step="10" />
                     `}
                 </td>
-                <td style="padding: 4px; text-align: center; color: #e7e6d0; font-size: 11px;">
+                <td style="padding: 4px; text-align: center; color: ${themeColors.inputText}; font-size: 11px;">
                     ${totalY}
                 </td>
                 <td style="padding: 4px; text-align: center;">
