@@ -289,6 +289,12 @@ export function handleVanaPlacement(vanaPreview) {
     // Manager'ın components dizisine ekle
     this.manager.components.push(vana);
 
+    // ✨ Boru nesnesinin vana özelliğini güncelle (kapalı uç gösterimi için)
+    pipe.vanaEkle(t, this.manager.activeVanaTipi || 'AKV', {
+        fromEnd: 'p2',
+        fixedDistance: distanceFromP2
+    });
+
     // State'i senkronize et
     this.manager.saveToState();
 
@@ -386,7 +392,18 @@ export function handleSayacEndPlacement(meter) {
         const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
         vana.boruPozisyonu = vanaToP1Dist / length;
 
+        // Uçtan sabit mesafe hesapla
+        vana.fromEnd = boruUcu.uc;
+        vana.fixedDistance = centerMargin;
+
         this.manager.components.push(vana);
+
+        // ✨ Boru nesnesinin vana özelliğini güncelle (kapalı uç gösterimi için)
+        boru.vanaEkle(vana.boruPozisyonu, 'SAYAC', {
+            fromEnd: boruUcu.uc,
+            fixedDistance: centerMargin
+        });
+
         meter.iliskiliVanaId = vana.id;
     } else {
         meter.iliskiliVanaId = vanaVar.id;
@@ -497,7 +514,18 @@ export function handleCihazEkleme(cihaz) {
         const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
         vana.boruPozisyonu = vanaToP1Dist / length;
 
+        // Uçtan sabit mesafe hesapla
+        vana.fromEnd = boruUcu.uc;
+        vana.fixedDistance = centerMargin;
+
         this.manager.components.push(vana);
+
+        // ✨ Boru nesnesinin vana özelliğini güncelle (kapalı uç gösterimi için)
+        boru.vanaEkle(vana.boruPozisyonu, 'AKV', {
+            fromEnd: boruUcu.uc,
+            fixedDistance: centerMargin
+        });
+
         cihaz.vanaIliskilendir(vana.id);
     } else {
         cihaz.vanaIliskilendir(vanaVar.id);

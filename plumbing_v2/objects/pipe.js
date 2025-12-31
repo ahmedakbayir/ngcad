@@ -495,8 +495,42 @@ export class Boru {
             return false;
         }
 
-        // 2. Uçta vana var mı? (51 cm içinde)
-        const vanaVar = this.ucundaVanaVarMi(endpoint, 51);
+        // 2. Manager'dan bu boruya bağlı vanaları kontrol et (DYNAMIC - anlık kontrol)
+        let vanaVar = false;
+        if (manager && manager.components) {
+            // Bu boruya bağlı vanaları filtrele
+            const boruVanalari = manager.components.filter(comp =>
+                comp.type === 'vana' && comp.bagliBoruId === this.id
+            );
+
+            // Bu vanalardan herhangi biri uçtan 51 cm içinde mi?
+            const pipeLength = this.uzunluk;
+            const MESAFE_LIMIT = 51; // cm
+
+            vanaVar = boruVanalari.some(vana => {
+                // Vana pozisyonunu hesapla
+                let vanaT = vana.boruPozisyonu;
+
+                // fixedDistance varsa hesapla
+                if (vana.fixedDistance !== null && vana.fromEnd) {
+                    if (vana.fromEnd === 'p1') {
+                        vanaT = Math.min(vana.fixedDistance / pipeLength, 0.95);
+                    } else if (vana.fromEnd === 'p2') {
+                        vanaT = Math.max(1 - (vana.fixedDistance / pipeLength), 0.05);
+                    }
+                }
+
+                // Vana'nın uçtan mesafesini hesapla
+                if (endpoint === 'p1') {
+                    const uctenMesafe = vanaT * pipeLength;
+                    return uctenMesafe <= MESAFE_LIMIT;
+                } else {
+                    const uctenMesafe = (1 - vanaT) * pipeLength;
+                    return uctenMesafe <= MESAFE_LIMIT;
+                }
+            });
+        }
+
         if (!vanaVar) {
             // Vana yoksa, kapalı değil
             return false;
@@ -504,8 +538,6 @@ export class Boru {
 
         // 3. Uçta FLEKS bağlantısı var mı? (sayaç veya cihaz)
         if (manager) {
-            const ucNokta = endpoint === 'p1' ? this.p1 : this.p2;
-            const TOLERANCE = 1; // 1 cm tolerans
 
             // Sayaçlarda FLEKS kontrolü
             const fleksliSayac = manager.meters?.some(meter => {
