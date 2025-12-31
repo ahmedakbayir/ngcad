@@ -445,6 +445,112 @@ export class Boru {
     }
 
     /**
+     * Boru ucunda vana var mı kontrol et (uçtan geriye mesafe içinde)
+     * @param {string} endpoint - 'p1' veya 'p2'
+     * @param {number} mesafe - Uçtan geriye mesafe (cm) (varsayılan: 51)
+     * @returns {boolean} - Vana var mı?
+     */
+    ucundaVanaVarMi(endpoint, mesafe = 51) {
+        if (!this.vana) return false;
+
+        const length = this.uzunluk;
+        if (length === 0) return false;
+
+        // Vana'nın pozisyonunu hesapla (t değeri)
+        let vanaT = this.vana.t;
+
+        // Eğer fixedDistance varsa, t değerini hesapla
+        if (this.vana.fixedDistance !== undefined && this.vana.fixedDistance !== null && this.vana.fromEnd) {
+            if (this.vana.fromEnd === 'p1') {
+                vanaT = Math.min(this.vana.fixedDistance / length, 0.95);
+            } else {
+                vanaT = Math.max(1 - (this.vana.fixedDistance / length), 0.05);
+            }
+        }
+
+        // Vana'nın uçtan mesafesini hesapla
+        if (endpoint === 'p1') {
+            // p1'den vana'ya mesafe
+            const uctenMesafe = vanaT * length;
+            return uctenMesafe <= mesafe;
+        } else {
+            // p2'den vana'ya mesafe
+            const uctenMesafe = (1 - vanaT) * length;
+            return uctenMesafe <= mesafe;
+        }
+    }
+
+    /**
+     * Boru ucu kapalı mı olmalı?
+     * Kural: Uçta vana varsa (51 cm içinde) VE uçta FLEKS yoksa (sayaç/cihaz bağlı değilse)
+     * @param {string} endpoint - 'p1' veya 'p2'
+     * @param {object} manager - PlumbingManager instance (FLEKS kontrolü için)
+     * @returns {boolean} - Uç kapalı mı gösterilmeli?
+     */
+    ucKapaliMi(endpoint, manager = null) {
+        // 1. Uç başka bir boruya bağlı mı? (Bağlıysa kapalı değil)
+        const baglanti = endpoint === 'p1' ? this.baslangicBaglanti : this.bitisBaglanti;
+        if (baglanti.hedefId !== null) {
+            // Boru-boru bağlantısı veya başka bir bağlantı varsa, kapalı değil
+            return false;
+        }
+
+        // 2. Uçta vana var mı? (51 cm içinde)
+        const vanaVar = this.ucundaVanaVarMi(endpoint, 51);
+        if (!vanaVar) {
+            // Vana yoksa, kapalı değil
+            return false;
+        }
+
+        // 3. Uçta FLEKS bağlantısı var mı? (sayaç veya cihaz)
+        if (manager) {
+            const ucNokta = endpoint === 'p1' ? this.p1 : this.p2;
+            const TOLERANCE = 1; // 1 cm tolerans
+
+            // Sayaçlarda FLEKS kontrolü
+            const fleksliSayac = manager.meters?.some(meter => {
+                if (!meter.fleksBaglanti?.boruId || !meter.fleksBaglanti?.endpoint) {
+                    return false;
+                }
+
+                if (meter.fleksBaglanti.boruId !== this.id) {
+                    return false;
+                }
+
+                // Bu sayaç bu borunun bu ucuna bağlı mı?
+                return meter.fleksBaglanti.endpoint === endpoint;
+            });
+
+            if (fleksliSayac) {
+                // FLEKS bağlantısı var, kapalı değil
+                return false;
+            }
+
+            // Cihazlarda FLEKS kontrolü
+            const fleksliCihaz = manager.devices?.some(device => {
+                if (!device.fleksBaglanti?.boruId || !device.fleksBaglanti?.endpoint) {
+                    return false;
+                }
+
+                if (device.fleksBaglanti.boruId !== this.id) {
+                    return false;
+                }
+
+                // Bu cihaz bu borunun bu ucuna bağlı mı?
+                return device.fleksBaglanti.endpoint === endpoint;
+            });
+
+            if (fleksliCihaz) {
+                // FLEKS bağlantısı var, kapalı değil
+                return false;
+            }
+        }
+
+        // 4. Tüm koşullar sağlandı: Vana var, FLEKS yok, başka boruya bağlı değil
+        return true;
+    }
+
+    /**
      * Bounding box
      */
     getBoundingBox() {
