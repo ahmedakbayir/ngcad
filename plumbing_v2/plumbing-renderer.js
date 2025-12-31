@@ -763,7 +763,7 @@ export class PlumbingRenderer {
 
         // 6. Yazı (S.K.)
         ctx.fillStyle = '#222';
-        ctx.font = 'bold 12px Arial';
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('S.K.', 0, 1);

@@ -18,8 +18,8 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
 // Servis Kutusu Sabitleri
 export const SERVIS_KUTUSU_CONFIG = {
-    width: 40,
-    height: 20,
+    width: 50,
+    height: 25,
     depth: 70,
     // Görsel bütünlük için eklenen renk paleti
     colors: {
