@@ -285,7 +285,16 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     const connectedMeter = interactionManager.manager.components.find(c =>
         c.type === 'sayac' &&
         c.fleksBaglanti &&
-        c.fleksBaglanti.boruId === pipe.id
+        c.fleksBaglanti.boruId === pipe.id &&
+        c.fleksBaglanti.endpoint === endpoint
+    );
+
+    // 🚨 KRİTİK: Bu boru bir cihazın GİRİŞ borusuysa da aynı mantık!
+    const connectedDevice = interactionManager.manager.components.find(c =>
+        c.type === 'cihaz' &&
+        c.fleksBaglanti &&
+        c.fleksBaglanti.boruId === pipe.id &&
+        c.fleksBaglanti.endpoint === endpoint
     );
 
     let excludePipes = [pipe];
@@ -296,6 +305,8 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
             // // console.log('[ENDPOINT DRAG] Sayaç giriş borusu - çıkış borusu exclude edildi');
         }
     }
+
+    // Cihaz için exclude mantığı yok çünkü cihazların çıkış borusu yok (sadece giriş var)
 
     // Bağlı boruları bul (çıkış borusu exclude edilmiş)
     const connectedPipes = [];
@@ -999,6 +1010,47 @@ export function handleDrag(interactionManager, point) {
                         cikisBoru.p1.y += dy;
                     }
                 }
+            }
+
+            // 🚨 KRİTİK: Bu boru bir cihazın giriş hattıysa, CİHAZI hareket ettir!
+            const connectedDevice = interactionManager.manager.components.find(c =>
+                c.type === 'cihaz' &&
+                c.fleksBaglanti &&
+                c.fleksBaglanti.boruId === pipe.id &&
+                c.fleksBaglanti.endpoint === interactionManager.dragEndpoint
+            );
+
+            if (connectedDevice) {
+                // Boru ucu hareket etti - cihazı da aynı miktarda hareket ettir
+                const dx = finalPos.x - oldPoint.x;
+                const dy = finalPos.y - oldPoint.y;
+
+                connectedDevice.x += dx;
+                connectedDevice.y += dy;
+
+                // Cihaz hareket etti - bağlı bacayı da hareket ettir
+                const bacalar = interactionManager.manager.components.filter(c =>
+                    c.type === 'baca' && c.parentCihazId === connectedDevice.id
+                );
+
+                bacalar.forEach(baca => {
+                    baca.startX += dx;
+                    baca.startY += dy;
+                    baca.currentSegmentStart.x += dx;
+                    baca.currentSegmentStart.y += dy;
+
+                    baca.segments.forEach(seg => {
+                        seg.x1 += dx;
+                        seg.y1 += dy;
+                        seg.x2 += dx;
+                        seg.y2 += dy;
+                    });
+
+                    if (baca.havalandirma) {
+                        baca.havalandirma.x += dx;
+                        baca.havalandirma.y += dy;
+                    }
+                });
             }
 
             // SHARED VERTEX GÜNCELLEME - CACHED SİSTEM (KOPMA SORUNU ÇÖZÜLDÜ!)
