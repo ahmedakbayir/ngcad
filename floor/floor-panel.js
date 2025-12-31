@@ -18,8 +18,10 @@ function getThemeColors() {
         activeBg: '#1a5490',
         activeText: '#ffffff',
         activeBorder: '#0d2f5a',
-        inactiveBg: '#cccccc',
-        inactiveText: '#505050'
+        inactiveBg: '#e0e0e0',
+        inactiveText: '#505050',
+        panelBg: 'rgba(255, 255, 255, 0.95)',
+        panelBorder: '#b0b0b0'
     } : {
         // Dark mode renkleri
         headerText: '#8ab4f8',
@@ -27,7 +29,9 @@ function getThemeColors() {
         activeText: '#1e1f20',
         activeBorder: '#5a8dd4',
         inactiveBg: '#4a4b4c',
-        inactiveText: '#e7e6d0'
+        inactiveText: '#e7e6d0',
+        panelBg: 'rgba(42, 43, 44, 0.9)',
+        panelBorder: '#5f6368'
     };
 }
 
@@ -225,6 +229,12 @@ export function renderMiniPanel() {
     // Theme renkleri al
     const themeColors = getThemeColors();
 
+    // Mini panel arka planını theme'e göre güncelle
+    if (miniPanel) {
+        miniPanel.style.background = themeColors.panelBg;
+        miniPanel.style.borderColor = themeColors.panelBorder;
+    }
+
     allSortedFloors.forEach((floor, index) => {
         const isActive = state.currentFloor?.id === floor.id;
         const isVisible = floor.visible !== false;
@@ -252,23 +262,27 @@ export function renderMiniPanel() {
                           floorColumns.length > 0 || floorBeams.length > 0 || floorStairs.length > 0;
 
         // Durum renkler - Theme'e göre
-        let bgColor, textColor, dotColor, borderStyle, boxShadow;
+        let bgColor, textColor, dotColor, borderStyle, boxShadow, transform, fontWeight;
 
         if (isActive) {
-            // Aktif görünür - Theme'e göre mavi
+            // Aktif görünür - ÇOOK BELİRGİN vurgu
             bgColor = themeColors.activeBg;
             textColor = themeColors.activeText;
             dotColor = themeColors.activeBorder;
-            // Aktif kat için belirgin border ve shadow
-            borderStyle = `2px solid ${themeColors.activeBorder}`;
-            boxShadow = `0 0 8px ${themeColors.activeBorder}`;
+            // Çok kalın border, güçlü shadow ve scale
+            borderStyle = `3px solid ${themeColors.activeBorder}`;
+            boxShadow = `0 0 16px 2px ${themeColors.activeBorder}, 0 4px 8px rgba(0,0,0,0.3)`;
+            transform = 'scale(1.08)';
+            fontWeight = '900';
         } else {
             // Pasif görünür - Theme'e göre gri
             bgColor = themeColors.inactiveBg;
             textColor = themeColors.inactiveText;
             dotColor = '#808080'; // Gri nokta
-            borderStyle = 'none';
+            borderStyle = '1px solid transparent';
             boxShadow = 'none';
+            transform = 'scale(1)';
+            fontWeight = 'bold';
         }
 
         // Nokta HTML (sadece içerik varsa, sağ üst köşede)
@@ -284,8 +298,9 @@ export function renderMiniPanel() {
                         border-radius: 4px;
                         border: ${borderStyle};
                         box-shadow: ${boxShadow};
+                        transform: ${transform};
                         font-size: 11px;
-                        font-weight: bold;
+                        font-weight: ${fontWeight};
                         text-align: center;
                         min-width: 40px;
                         cursor: pointer;
