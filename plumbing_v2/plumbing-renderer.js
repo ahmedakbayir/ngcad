@@ -886,7 +886,7 @@ export class PlumbingRenderer {
     }
 
     drawVana(ctx, comp, manager = null) {
-        const size = 8;
+        const size = 9.6;
         const halfSize = size / 2;
 
         // 1. Boru Rengini Tespit Et
