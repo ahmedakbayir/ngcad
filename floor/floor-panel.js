@@ -221,6 +221,8 @@ function updateScrollButtons() {
 /**
  * Mini paneli render eder
  */
+// floor/floor-panel.js dosyasında renderMiniPanel fonksiyonu
+
 export function renderMiniPanel() {
     if (!miniPanel) return;
 
@@ -288,7 +290,7 @@ export function renderMiniPanel() {
         const dotHtml = hasContent ? `<span style="position: absolute; top: 4px; right: 4px; width: 4px; height: 4px; border-radius: 50%; background: ${dotColor};"></span>` : '';
 
         html += `
-            <div class="floor-mini-item clickable"
+            <div class="floor-mini-item clickable ${isActive ? 'selected' : ''}"
                  data-floor-id="${floor.id}"
                  style="position: relative;
                         background: ${bgColor};
