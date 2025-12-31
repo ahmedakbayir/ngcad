@@ -14,7 +14,8 @@ function getThemeColors() {
     const isLight = document.body.classList.contains('light-mode');
     return isLight ? {
         // Light mode renkleri
-        headerText: '#3a3a3a',
+        headerText: '#ffffff',
+        headerBg: '#3a3a3a',
         activeBg: '#1a5490',
         activeText: '#ffffff',
         activeBorder: '#0d2f5a',
@@ -25,6 +26,7 @@ function getThemeColors() {
     } : {
         // Dark mode renkleri
         headerText: '#8ab4f8',
+        headerBg: 'transparent',
         activeBg: '#8ab4f8',
         activeText: '#1e1f20',
         activeBorder: '#5a8dd4',
@@ -261,28 +263,19 @@ export function renderMiniPanel() {
         const hasContent = floorWalls.length > 0 || floorDoors.length > 0 ||
                           floorColumns.length > 0 || floorBeams.length > 0 || floorStairs.length > 0;
 
-        // Durum renkler - Theme'e göre
-        let bgColor, textColor, dotColor, borderStyle, boxShadow, transform, fontWeight;
+        // Durum renkler - Theme'e göre (sadece renk farkı)
+        let bgColor, textColor, dotColor;
 
         if (isActive) {
-            // Aktif görünür - ÇOOK BELİRGİN vurgu
+            // Aktif kat - theme'e göre belirgin renk
             bgColor = themeColors.activeBg;
             textColor = themeColors.activeText;
             dotColor = themeColors.activeBorder;
-            // Çok kalın border, güçlü shadow ve scale
-            borderStyle = `3px solid ${themeColors.activeBorder}`;
-            boxShadow = `0 0 16px 2px ${themeColors.activeBorder}, 0 4px 8px rgba(0,0,0,0.3)`;
-            transform = 'scale(1.08)';
-            fontWeight = '900';
         } else {
-            // Pasif görünür - Theme'e göre gri
+            // Pasif kat
             bgColor = themeColors.inactiveBg;
             textColor = themeColors.inactiveText;
-            dotColor = '#808080'; // Gri nokta
-            borderStyle = '1px solid transparent';
-            boxShadow = 'none';
-            transform = 'scale(1)';
-            fontWeight = 'bold';
+            dotColor = '#808080';
         }
 
         // Nokta HTML (sadece içerik varsa, sağ üst köşede)
@@ -296,11 +289,8 @@ export function renderMiniPanel() {
                         color: ${textColor};
                         padding: 6px 8px;
                         border-radius: 4px;
-                        border: ${borderStyle};
-                        box-shadow: ${boxShadow};
-                        transform: ${transform};
                         font-size: 11px;
-                        font-weight: ${fontWeight};
+                        font-weight: bold;
                         text-align: center;
                         min-width: 40px;
                         cursor: pointer;
@@ -546,15 +536,15 @@ function renderDetailPanel() {
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="border-bottom: 1px solid #3a3b3c;">
-                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 35px;">
+                    <th style="padding: 6px; text-align: center; background: ${themeColors.headerBg}; color: ${themeColors.headerText}; font-size: 11px; width: 35px;">
                         <input type="checkbox" id="select-all-floors" style="cursor: pointer;" ${selectedFloors.size === floors.filter(f => !f.isPlaceholder).length && selectedFloors.size > 0 ? 'checked' : ''}>
                     </th>
-                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 40px;">Göster</th>
-                    <th style="padding: 6px; text-align: left; color: ${themeColors.headerText}; font-size: 11px; width: 160px;">Kat Adı</th>
-                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 70px;">Kat Y.<br>(cm)</th>
-                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 80px;">Toplam Y.<br>(cm)</th>
-                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px;">Ön İzleme</th>
-                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 40px;">Sil</th>
+                    <th style="padding: 6px; text-align: center; background: ${themeColors.headerBg}; color: ${themeColors.headerText}; font-size: 11px; width: 40px;">Göster</th>
+                    <th style="padding: 6px; text-align: left; background: ${themeColors.headerBg}; color: ${themeColors.headerText}; font-size: 11px; width: 160px;">Kat Adı</th>
+                    <th style="padding: 6px; text-align: center; background: ${themeColors.headerBg}; color: ${themeColors.headerText}; font-size: 11px; width: 70px;">Kat Y.<br>(cm)</th>
+                    <th style="padding: 6px; text-align: center; background: ${themeColors.headerBg}; color: ${themeColors.headerText}; font-size: 11px; width: 80px;">Toplam Y.<br>(cm)</th>
+                    <th style="padding: 6px; text-align: center; background: ${themeColors.headerBg}; color: ${themeColors.headerText}; font-size: 11px;">Ön İzleme</th>
+                    <th style="padding: 6px; text-align: center; background: ${themeColors.headerBg}; color: ${themeColors.headerText}; font-size: 11px; width: 40px;">Sil</th>
                 </tr>
             </thead>
             <tbody>
