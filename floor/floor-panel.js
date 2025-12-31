@@ -8,6 +8,30 @@ let detailPanel = null; // Detaylı panel (çift tıklama ile açılır)
 let selectedFloors = new Set(); // Seçili katların ID'leri
 
 /**
+ * Theme'e göre renk değerlerini döndürür
+ */
+function getThemeColors() {
+    const isLight = document.body.classList.contains('light-mode');
+    return isLight ? {
+        // Light mode renkleri
+        headerText: '#3a3a3a',
+        activeBg: '#1a5490',
+        activeText: '#ffffff',
+        activeBorder: '#0d2f5a',
+        inactiveBg: '#cccccc',
+        inactiveText: '#505050'
+    } : {
+        // Dark mode renkleri
+        headerText: '#8ab4f8',
+        activeBg: '#8ab4f8',
+        activeText: '#1e1f20',
+        activeBorder: '#5a8dd4',
+        inactiveBg: '#4a4b4c',
+        inactiveText: '#e7e6d0'
+    };
+}
+
+/**
  * Kat isminin kısa versiyonunu döndürür
  */
 function getShortFloorName(fullName) {
@@ -198,6 +222,9 @@ export function renderMiniPanel() {
 
     let html = '';
 
+    // Theme renkleri al
+    const themeColors = getThemeColors();
+
     allSortedFloors.forEach((floor, index) => {
         const isActive = state.currentFloor?.id === floor.id;
         const isVisible = floor.visible !== false;
@@ -224,19 +251,24 @@ export function renderMiniPanel() {
         const hasContent = floorWalls.length > 0 || floorDoors.length > 0 ||
                           floorColumns.length > 0 || floorBeams.length > 0 || floorStairs.length > 0;
 
-        // Durum renkler
-        let bgColor, textColor, dotColor;
+        // Durum renkler - Theme'e göre
+        let bgColor, textColor, dotColor, borderStyle, boxShadow;
 
         if (isActive) {
-            // Aktif görünür - Mavi
-            bgColor = '#8ab4f8';
-            textColor = '#1e1f20';
-            dotColor = '#1e5a8e'; // Koyu mavi nokta
+            // Aktif görünür - Theme'e göre mavi
+            bgColor = themeColors.activeBg;
+            textColor = themeColors.activeText;
+            dotColor = themeColors.activeBorder;
+            // Aktif kat için belirgin border ve shadow
+            borderStyle = `2px solid ${themeColors.activeBorder}`;
+            boxShadow = `0 0 8px ${themeColors.activeBorder}`;
         } else {
-            // Pasif görünür - Koyu gri
-            bgColor = '#4a4b4c';
-            textColor = '#e7e6d0';
+            // Pasif görünür - Theme'e göre gri
+            bgColor = themeColors.inactiveBg;
+            textColor = themeColors.inactiveText;
             dotColor = '#808080'; // Gri nokta
+            borderStyle = 'none';
+            boxShadow = 'none';
         }
 
         // Nokta HTML (sadece içerik varsa, sağ üst köşede)
@@ -250,6 +282,8 @@ export function renderMiniPanel() {
                         color: ${textColor};
                         padding: 6px 8px;
                         border-radius: 4px;
+                        border: ${borderStyle};
+                        box-shadow: ${boxShadow};
                         font-size: 11px;
                         font-weight: bold;
                         text-align: center;
@@ -474,6 +508,9 @@ function renderDetailPanel() {
     const tableContainer = detailPanel.querySelector('#floor-detail-table-container');
     const floors = state.floors || [];
 
+    // Theme renkleri al
+    const themeColors = getThemeColors();
+
     // Toplu işlem butonları
     const bulkActionsHtml = selectedFloors.size > 0 ? `
         <div style="margin-bottom: 12px; padding: 8px; background: rgba(138, 180, 248, 0.1); border: 1px solid #8ab4f8; border-radius: 4px; display: flex; gap: 8px; align-items: center;">
@@ -494,15 +531,15 @@ function renderDetailPanel() {
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="border-bottom: 1px solid #3a3b3c;">
-                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 35px;">
+                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 35px;">
                         <input type="checkbox" id="select-all-floors" style="cursor: pointer;" ${selectedFloors.size === floors.filter(f => !f.isPlaceholder).length && selectedFloors.size > 0 ? 'checked' : ''}>
                     </th>
-                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 40px;">Göster</th>
-                    <th style="padding: 6px; text-align: left; color: #8ab4f8; font-size: 11px; width: 160px;">Kat Adı</th>
-                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 70px;">Kat Y.<br>(cm)</th>
-                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 80px;">Toplam Y.<br>(cm)</th>
-                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px;">Ön İzleme</th>
-                    <th style="padding: 6px; text-align: center; color: #8ab4f8; font-size: 11px; width: 40px;">Sil</th>
+                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 40px;">Göster</th>
+                    <th style="padding: 6px; text-align: left; color: ${themeColors.headerText}; font-size: 11px; width: 160px;">Kat Adı</th>
+                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 70px;">Kat Y.<br>(cm)</th>
+                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 80px;">Toplam Y.<br>(cm)</th>
+                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px;">Ön İzleme</th>
+                    <th style="padding: 6px; text-align: center; color: ${themeColors.headerText}; font-size: 11px; width: 40px;">Sil</th>
                 </tr>
             </thead>
             <tbody>
