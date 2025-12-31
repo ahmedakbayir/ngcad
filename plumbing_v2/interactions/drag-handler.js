@@ -1158,22 +1158,47 @@ export function handleDrag(interactionManager, point) {
 
     // Cihaz taşıma (KOMBI, OCAK, vb.)
     if (interactionManager.dragObject.type === 'cihaz') {
-        const oldPos = { x: interactionManager.dragObject.x, y: interactionManager.dragObject.y };
+        const cihaz = interactionManager.dragObject;
+        const oldPos = { x: cihaz.x, y: cihaz.y };
+
+        // 🚨 GİRİŞ BORUSUNUN ESKİ POZİSYONUNU KAYDET
+        // Cihaz hareket edince giriş borusu SABİT kalmalı (fleks uzasın/kısalsın)
+        let inputPipeOldEndpoint = null;
+        if (cihaz.fleksBaglanti?.boruId && cihaz.fleksBaglanti?.endpoint) {
+            const girisBoru = interactionManager.manager.pipes.find(p => p.id === cihaz.fleksBaglanti.boruId);
+            if (girisBoru) {
+                const endpoint = cihaz.fleksBaglanti.endpoint;
+                // Eski pozisyonu kaydet
+                inputPipeOldEndpoint = {
+                    pipe: girisBoru,
+                    endpoint: endpoint,
+                    x: girisBoru[endpoint].x,
+                    y: girisBoru[endpoint].y
+                };
+            }
+        }
 
         // Cihazı yeni pozisyona taşı
-        interactionManager.dragObject.move(point.x, point.y);
+        cihaz.move(point.x, point.y);
+
+        // 🚨 GİRİŞ BORUSUNU ESKİ POZİSYONUNA GERİ DÖNDÜR
+        // Cihaz hareket etti ama giriş borusu sabit kalmalı (fleks uzasın)
+        if (inputPipeOldEndpoint) {
+            inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].x = inputPipeOldEndpoint.x;
+            inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].y = inputPipeOldEndpoint.y;
+        }
 
         // Bağlı bacayı da taşı
         const deltaX = point.x - oldPos.x;
         const deltaY = point.y - oldPos.y;
         const bacalar = interactionManager.manager.components.filter(c =>
-            c.type === 'baca' && c.parentCihazId === interactionManager.dragObject.id
+            c.type === 'baca' && c.parentCihazId === cihaz.id
         );
 
         // Debug: İlk taşımada log
         if (bacalar.length > 0 && !interactionManager._bacaDragLogged) {
             console.log('🔥 Baca ile cihaz birlikte taşınıyor:', {
-                cihazId: interactionManager.dragObject.id,
+                cihazId: cihaz.id,
                 bacaSayisi: bacalar.length,
                 delta: `(${deltaX.toFixed(1)}, ${deltaY.toFixed(1)})`
             });
@@ -1202,7 +1227,6 @@ export function handleDrag(interactionManager, point) {
             }
         });
 
-        // Fleks otomatik güncellenir (move metodu içinde)
         return;
     }
 
