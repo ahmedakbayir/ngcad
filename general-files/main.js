@@ -453,6 +453,11 @@ export let state = {
     isoPanOffset: { x: 0, y: 0 },
     isoPanning: false,
     isoPanStart: { x: 0, y: 0 },
+    // Sürükleme ile değiştirilen boru offsetleri (görsel değişiklikler, projeyi etkilemez)
+    isoPipeOffsets: {}, // { pipeId: { dx: number, dy: number } }
+    isoDragging: false,
+    isoDraggedPipe: null,
+    isoDraggedEndpoint: null, // 'start' veya 'end'
     // --- İZOMETRİK GÖRÜNÜM SONU ---
 };
 

@@ -80,6 +80,9 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
 
+    // Global değişkenleri sakla (mouse hit detection için)
+    window._isoRenderParams = { centerX, centerY, zoom, offset };
+
     // Tesisat bileşenlerini çiz
     ctx.save();
 
@@ -105,8 +108,48 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     ctx.fillText(`Zoom: ${(zoom * 100).toFixed(0)}%`, 10, 30);
     ctx.fillText(`Borular: ${plumbingManager.pipes.length}`, 10, 50);
     ctx.fillText(`Bileşenler: ${plumbingManager.components.length}`, 10, 70);
+    ctx.fillText('Sol tuş: Boru uçlarını sürükle | Sağ tuş: Pan', 10, 90);
     ctx.restore();
 }
+
+/**
+ * Mouse pozisyonunda boru ucu var mı kontrol eder
+ * @param {number} mouseX - Canvas içindeki X koordinatı
+ * @param {number} mouseY - Canvas içindeki Y koordinatı
+ * @returns {{pipe: object, type: string} | null}
+ */
+window.getIsoEndpointAtMouse = function(mouseX, mouseY) {
+    if (!window._isoEndpoints || !window._isoRenderParams) return null;
+
+    const { centerX, centerY, zoom, offset } = window._isoRenderParams;
+
+    // Mouse pozisyonunu world koordinatlarına çevir
+    const worldX = (mouseX - centerX - offset.x) / zoom;
+    const worldY = (mouseY - centerY - offset.y) / zoom;
+
+    // Endpoint'lere yakınlık kontrolü
+    const hitRadius = 10 / zoom; // Zoom'a göre ayarlanmış hit radius
+
+    for (const endpoint of window._isoEndpoints) {
+        const dx = worldX - endpoint.x;
+        const dy = worldY - endpoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < hitRadius) {
+            return { pipe: endpoint.pipe, type: endpoint.type };
+        }
+    }
+
+    return null;
+};
+
+// Her render'da endpoint listesini temizle
+renderIsometric = ((oldRender) => {
+    return function(...args) {
+        window._isoEndpoints = [];
+        return oldRender.apply(this, args);
+    };
+})(renderIsometric);
 
 /**
  * Boruları izometrik perspektifte çizer
@@ -114,6 +157,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
  */
 function drawIsometricPipes(ctx) {
     if (!plumbingManager || !plumbingManager.pipes) return;
+    if (!state) return;
 
     ctx.strokeStyle = document.body.classList.contains('light-mode') ? '#0066CC' : '#FF8C00';
     ctx.lineWidth = 3;
@@ -121,9 +165,22 @@ function drawIsometricPipes(ctx) {
     plumbingManager.pipes.forEach(pipe => {
         if (!pipe.p1 || !pipe.p2) return;
 
+        // Offset kontrolü
+        const offset = state.isoPipeOffsets[pipe.id] || {};
+        const startDx = offset.startDx || 0;
+        const startDy = offset.startDy || 0;
+        const endDx = offset.endDx || 0;
+        const endDy = offset.endDy || 0;
+
         // Başlangıç ve bitiş noktalarını izometrik koordinatlara dönüştür
-        const start = toIsometric(pipe.p1.x, pipe.p1.y, 0);
-        const end = toIsometric(pipe.p2.x, pipe.p2.y, 0);
+        let start = toIsometric(pipe.p1.x, pipe.p1.y, 0);
+        let end = toIsometric(pipe.p2.x, pipe.p2.y, 0);
+
+        // Offset uygula
+        start.isoX += startDx;
+        start.isoY += startDy;
+        end.isoX += endDx;
+        end.isoY += endDy;
 
         // Çizgiyi çiz
         ctx.beginPath();
@@ -131,14 +188,19 @@ function drawIsometricPipes(ctx) {
         ctx.lineTo(end.isoX, end.isoY);
         ctx.stroke();
 
-        // Uç noktaları çiz
+        // Uç noktaları çiz (daha büyük, sürüklenebilir)
         ctx.fillStyle = ctx.strokeStyle;
         ctx.beginPath();
-        ctx.arc(start.isoX, start.isoY, 4, 0, Math.PI * 2);
+        ctx.arc(start.isoX, start.isoY, 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(end.isoX, end.isoY, 4, 0, Math.PI * 2);
+        ctx.arc(end.isoX, end.isoY, 6, 0, Math.PI * 2);
         ctx.fill();
+
+        // Global endpoint pozisyonlarını sakla (hit detection için)
+        if (!window._isoEndpoints) window._isoEndpoints = [];
+        window._isoEndpoints.push({ pipe, type: 'start', x: start.isoX, y: start.isoY });
+        window._isoEndpoints.push({ pipe, type: 'end', x: end.isoX, y: end.isoY });
     });
 }
 
