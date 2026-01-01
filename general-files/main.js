@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { setupInputListeners, handleDelete } from './input.js';
-import { setupUIListeners, initializeSettings, toggle3DView, toggleIsoView, drawIsoView } from './ui.js';
+import { setupUIListeners, initializeSettings, toggle3DView, toggleIsoView, drawIsoView, setupIsometricControls } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../menu/guide-menu.js';
 import { initFloorOperationsMenu } from '../menu/floor-operations-menu.js';
@@ -445,8 +445,15 @@ export let state = {
     // --- OPACITY AYARLARI SONU ---
 
     // --- PENCERE YERLEŞTIRME AŞAMASI ---
-    windowPlacementStage: 0 // 0: ilk tıklama (en geniş duvarlara), 1: ikinci tıklama (kalan duvarlara)
+    windowPlacementStage: 0, // 0: ilk tıklama (en geniş duvarlara), 1: ikinci tıklama (kalan duvarlara)
     // --- PENCERE YERLEŞTIRME SONU ---
+
+    // --- İZOMETRİK GÖRÜNÜM ---
+    isoZoom: 0.5,
+    isoPanOffset: { x: 0, y: 0 },
+    isoPanning: false,
+    isoPanStart: { x: 0, y: 0 },
+    // --- İZOMETRİK GÖRÜNÜM SONU ---
 };
 
 export function setState(newState) {
@@ -1236,6 +1243,7 @@ function initialize() {
     setupUIListeners();
     setupInputListeners();
     setupFileIOListeners();
+    setupIsometricControls(); // İzometrik zoom ve pan kontrollerini kur
     createWallPanel();
     initializeDefaultFloors(); // Önce katları initialize et
     createFloorPanel(); // Sonra paneli oluştur
