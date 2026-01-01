@@ -80,8 +80,9 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
 
-    // Global değişkenleri sakla (mouse hit detection için)
+    // Global değişkenleri sakla (mouse hit detection ve sürükleme için)
     window._isoRenderParams = { centerX, centerY, zoom, offset };
+    window._toIsometric = toIsometric; // toIsometric fonksiyonunu global olarak sakla
 
     // Tesisat bileşenlerini çiz
     ctx.save();
@@ -200,13 +201,13 @@ function drawIsometricPipes(ctx) {
         ctx.lineTo(end.isoX, end.isoY);
         ctx.stroke();
 
-        // Uç noktaları çiz (daha büyük, sürüklenebilir)
+        // Uç noktaları çiz (sürüklenebilir)
         ctx.fillStyle = pipeColor;
         ctx.beginPath();
-        ctx.arc(start.isoX, start.isoY, 6, 0, Math.PI * 2);
+        ctx.arc(start.isoX, start.isoY, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(end.isoX, end.isoY, 6, 0, Math.PI * 2);
+        ctx.arc(end.isoX, end.isoY, 4, 0, Math.PI * 2);
         ctx.fill();
 
         // Global endpoint pozisyonlarını sakla (hit detection için)
@@ -223,8 +224,18 @@ function drawIsometricPipes(ctx) {
 function drawIsometricComponents(ctx) {
     if (!plumbingManager || !plumbingManager.components) return;
 
-    plumbingManager.components.forEach(component => {
+    plumbingManager.components.forEach((component, index) => {
         if (!component.x || !component.y) return;
+
+        // DEBUG: İlk bileşeni konsola yazdır
+        if (index === 0) {
+            console.log('İzometrik bileşen debug:', {
+                type: component.type,
+                config: component.config,
+                position: { x: component.x, y: component.y },
+                rotation: component.rotation
+            });
+        }
 
         // Bileşen konumunu izometrik koordinatlara dönüştür
         const pos = toIsometric(component.x, component.y, 0);
@@ -376,9 +387,11 @@ function shadeColor(color, percent) {
  */
 function drawServisKutusuIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    const width = component.config?.width || 50;
-    const depth = component.config?.depth || 70;
-    const height = component.config?.height || 25;
+    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
+    const scale = 1.2;
+    const width = (component.config?.width || 50) * scale;
+    const height = (component.config?.height || 25) * scale;
+    const depth = (component.config?.depth || 70) * scale;
 
     // Projedeki renkleri kullan
     let fillColor, strokeColor;
@@ -414,9 +427,11 @@ function drawServisKutusuIso(ctx, component) {
  */
 function drawSayacIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    const width = component.config?.width || 22;
-    const depth = component.config?.depth || 16;
-    const height = component.config?.height || 24;
+    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
+    const scale = 1.2;
+    const width = (component.config?.width || 22) * scale;
+    const depth = (component.config?.depth || 16) * scale;
+    const height = (component.config?.height || 24) * scale;
 
     // Projedeki renkleri kullan
     const fillColor = component.config?.color ? hexToCSS(component.config.color) : '#A8A8A8';
@@ -440,9 +455,11 @@ function drawSayacIso(ctx, component) {
  */
 function drawVanaIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    const width = component.config?.width || 8;
-    const depth = component.config?.width || 8;  // Vana genelde kare
-    const height = component.config?.height || 8;
+    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
+    const scale = 1.2;
+    const width = (component.config?.width || 8) * scale;
+    const depth = (component.config?.width || 8) * scale;  // Vana genelde kare
+    const height = (component.config?.height || 8) * scale;
 
     // Projedeki renkleri kullan
     const fillColor = component.config?.color ? hexToCSS(component.config.color) : '#A0A0A0';
@@ -467,9 +484,11 @@ function drawVanaIso(ctx, component) {
  */
 function drawCihazIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    const width = component.config?.width || 30;
-    const depth = component.config?.depth || 29;
-    const height = component.config?.height || 30;
+    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
+    const scale = 1.2;
+    const width = (component.config?.width || 30) * scale;
+    const depth = (component.config?.depth || 29) * scale;
+    const height = (component.config?.height || 30) * scale;
 
     // Projedeki renkleri kullan
     const fillColor = component.config?.color ? hexToCSS(component.config.color) : '#C0C0C0';
@@ -498,9 +517,11 @@ function drawCihazIso(ctx, component) {
  */
 function drawBacaIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    const width = component.config?.width || 15;
-    const depth = component.config?.depth || 15;
-    const height = component.config?.height || 80;
+    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
+    const scale = 1.2;
+    const width = (component.config?.width || 15) * scale;
+    const depth = (component.config?.depth || 15) * scale;
+    const height = (component.config?.height || 80) * scale;
 
     // Projedeki renkleri kullan
     const fillColor = component.config?.color ? hexToCSS(component.config.color) :
@@ -525,9 +546,11 @@ function drawBacaIso(ctx, component) {
  */
 function drawDefaultComponentIso(ctx, component) {
     // Projedeki boyutları kullan veya varsayılan
-    const width = component.config?.width || 20;
-    const depth = component.config?.depth || 20;
-    const height = component.config?.height || 20;
+    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
+    const scale = 1.2;
+    const width = (component.config?.width || 20) * scale;
+    const depth = (component.config?.depth || 20) * scale;
+    const height = (component.config?.height || 20) * scale;
 
     // Projedeki renkleri kullan
     const fillColor = component.config?.color ? hexToCSS(component.config.color) :
