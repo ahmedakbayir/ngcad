@@ -650,6 +650,40 @@
     </div>
     <div id="pIso" class="panel">
       <canvas id="cIso"></canvas>
+      <!-- İzometri Overlay: Ekran Bölme Oranı Butonları (Sağ Üst) -->
+      <div id="iso-ratio-buttons" style="display: none;">
+        <button id="iso-100" class="split-btn" data-ratio="100" title="Tam Ekran İzometri">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <rect x="2" y="2" width="20" height="20" fill="#FFB74D" stroke="#666" stroke-width="1" />
+          </svg>
+        </button>
+        <button id="iso-75" class="split-btn" data-ratio="75" title="75% İzometri">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <rect x="2" y="2" width="5" height="20" fill="#999" stroke="#666" stroke-width="1" />
+            <rect x="7" y="2" width="15" height="20" fill="#FFB74D" stroke="#666" stroke-width="1" />
+          </svg>
+        </button>
+        <button id="iso-50" class="split-btn" data-ratio="50" title="50% İzometri / 50% 2D">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <rect x="2" y="2" width="10" height="20" fill="#999" stroke="#666" stroke-width="1" />
+            <rect x="12" y="2" width="10" height="20" fill="#FFB74D" stroke="#666" stroke-width="1" />
+          </svg>
+        </button>
+        <button id="iso-25" class="split-btn" data-ratio="25" title="25% İzometri">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <rect x="2" y="2" width="15" height="20" fill="#999" stroke="#666" stroke-width="1" />
+            <rect x="17" y="2" width="5" height="20" fill="#FFB74D" stroke="#666" stroke-width="1" />
+          </svg>
+        </button>
+        <button id="iso-0" class="split-btn" data-ratio="0" title="İzometri Kapalı">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <rect x="2" y="2" width="20" height="20" fill="#999" stroke="#666" stroke-width="1" />
+            <!-- × işareti (Close/Kapalı) -->
+            <line x1="8" y1="8" x2="16" y2="16" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+            <line x1="16" y1="8" x2="8" y2="16" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 

@@ -255,11 +255,93 @@ export function toggleIsoView() {
     if (dom.mainContainer.classList.contains('show-iso')) {
         setMode("select"); // İzometri açılırken modu "select" yap
 
+        // İzometri ratio butonlarını göster
+        const isoButtons = document.getElementById('iso-ratio-buttons');
+        if (isoButtons) isoButtons.style.display = 'flex';
+
         // İzometrik canvas boyutunu ayarla
         resizeIsoCanvas();
 
         // İzometrik görünümü çiz
         drawIsoView();
+
+        // Varsayılan split ratio'yu ayarla (25%)
+        setIsoRatio(25);
+    } else {
+        // İzometri ratio butonlarını gizle
+        const isoButtons = document.getElementById('iso-ratio-buttons');
+        if (isoButtons) isoButtons.style.display = 'none';
+    }
+
+    setTimeout(() => {
+        resize();
+        if (dom.mainContainer.classList.contains('show-iso')) {
+            resizeIsoCanvas();
+            drawIsoView();
+        }
+    }, 10);
+}
+
+// İzometri ekran bölme oranını ayarla
+export function setIsoRatio(ratio) {
+    const p2dPanel = document.getElementById('p2d');
+    const pIsoPanel = document.getElementById('pIso');
+
+    // Buton aktif durumlarını güncelle
+    document.querySelectorAll('#iso-ratio-buttons .split-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`iso-${ratio}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Ratio 0 ise izometri panelini kapat
+    if (ratio === 0) {
+        // Önce 2D panelini tam ekran yap
+        p2dPanel.style.flex = '1 1 100%';
+        pIsoPanel.style.flex = '0 0 0';
+
+        // Sonra izometriyi kapat
+        if (dom.mainContainer.classList.contains('show-iso')) {
+            toggleIsoView(); // İzometriyi kapat
+        }
+
+        // resize'ı çağır
+        setTimeout(() => {
+            resize();
+        }, 10);
+        return;
+    }
+
+    // İzometri açık değilse, önce aç sonra ratio'yu tekrar ayarla
+    if (!dom.mainContainer.classList.contains('show-iso')) {
+        // İzometri ratio butonlarını ve izometriyi göster
+        dom.mainContainer.classList.add('show-iso');
+        dom.bIso.classList.add('active');
+        setMode("select");
+
+        const isoButtons = document.getElementById('iso-ratio-buttons');
+        if (isoButtons) isoButtons.style.display = 'flex';
+
+        // Ratio'yu tekrar ayarla (recursive call ile)
+        setTimeout(() => {
+            setIsoRatio(ratio);
+        }, 50);
+        return;
+    }
+
+    // Ratio'ya göre flex ayarla
+    if (ratio === 100) {
+        p2dPanel.style.flex = '0 0 0';
+        pIsoPanel.style.flex = '1 1 100%';
+    } else if (ratio === 75) {
+        p2dPanel.style.flex = '1 1 25%';
+        pIsoPanel.style.flex = '1 1 75%';
+    } else if (ratio === 50) {
+        p2dPanel.style.flex = '1 1 50%';
+        pIsoPanel.style.flex = '1 1 50%';
+    } else if (ratio === 25) {
+        p2dPanel.style.flex = '1 1 75%';
+        pIsoPanel.style.flex = '1 1 25%';
     }
 
     setTimeout(() => {
@@ -294,10 +376,75 @@ export function drawIsoView() {
     const ctx = dom.ctxIso;
     const canvas = dom.cIso;
 
-    // İzometrik görünümü render et
-    // Şimdilik sabit zoom ve offset kullanıyoruz
-    // İlerleye pan ve zoom ekleyebiliriz
-    renderIsometric(ctx, canvas.width, canvas.height, 0.5, { x: 0, y: 0 });
+    // İzometrik görünümü render et (state'ten zoom ve offset kullan)
+    renderIsometric(ctx, canvas.width, canvas.height, state.isoZoom, state.isoPanOffset);
+}
+
+/**
+ * İzometrik görünüm için mouse event listener'larını kurar
+ */
+export function setupIsometricControls() {
+    if (!dom.cIso) return;
+
+    // Mouse wheel ile zoom
+    dom.cIso.addEventListener('wheel', (e) => {
+        if (!dom.mainContainer.classList.contains('show-iso')) return;
+
+        e.preventDefault();
+
+        const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+        const newZoom = Math.max(0.1, Math.min(5, state.isoZoom * zoomDelta));
+
+        setState({ isoZoom: newZoom });
+        drawIsoView();
+    }, { passive: false });
+
+    // Mouse down - pan başlat
+    dom.cIso.addEventListener('mousedown', (e) => {
+        if (!dom.mainContainer.classList.contains('show-iso')) return;
+        if (e.button !== 1 && e.button !== 2) return; // Sadece orta veya sağ tuş
+
+        e.preventDefault();
+        setState({
+            isoPanning: true,
+            isoPanStart: { x: e.clientX, y: e.clientY }
+        });
+    });
+
+    // Mouse move - pan
+    dom.cIso.addEventListener('mousemove', (e) => {
+        if (!state.isoPanning) return;
+
+        const dx = e.clientX - state.isoPanStart.x;
+        const dy = e.clientY - state.isoPanStart.y;
+
+        setState({
+            isoPanOffset: {
+                x: state.isoPanOffset.x + dx,
+                y: state.isoPanOffset.y + dy
+            },
+            isoPanStart: { x: e.clientX, y: e.clientY }
+        });
+
+        drawIsoView();
+    });
+
+    // Mouse up - pan bitir
+    const stopPanning = () => {
+        if (state.isoPanning) {
+            setState({ isoPanning: false });
+        }
+    };
+
+    dom.cIso.addEventListener('mouseup', stopPanning);
+    dom.cIso.addEventListener('mouseleave', stopPanning);
+
+    // Sağ tık menüsünü engelle
+    dom.cIso.addEventListener('contextmenu', (e) => {
+        if (dom.mainContainer.classList.contains('show-iso')) {
+            e.preventDefault();
+        }
+    });
 }
 
 // 3D sahneyi %100 genişlet / daralt
@@ -958,6 +1105,15 @@ export function setupUIListeners() {
 
     // OPACITY KONTROLLERI
     setupOpacityControls();
+
+    // İZOMETRİ RATIO BUTONLARI
+    const isoRatioButtons = document.querySelectorAll('#iso-ratio-buttons .split-btn');
+    isoRatioButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ratio = parseInt(btn.getAttribute('data-ratio'));
+            setIsoRatio(ratio);
+        });
+    });
 }
 // --- setupUIListeners Sonu ---
 
