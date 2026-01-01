@@ -533,6 +533,17 @@
         </svg>
         3D Göster
       </button>
+      <button id="bIso" class="btn btn-show-iso">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round">
+          <!-- İzometrik kutu ikonu -->
+          <path d="M12 2L4 7v10l8 5 8-5V7z"></path>
+          <path d="M12 22v-10"></path>
+          <path d="M4 7l8 5 8-5"></path>
+          <path d="M12 2v10"></path>
+        </svg>
+        İzometri
+      </button>
     </div>
     <div id="splitter"></div>
     <div id="p3d" class="panel">
@@ -636,6 +647,9 @@
         <button id="bFirstPerson" class="fps-btn" title="FPS Kamera">FPS Kamera</button>
       </div>
       <!-- Mod Göstergesi (Her Zaman Görünür) -->
+    </div>
+    <div id="pIso" class="panel">
+      <canvas id="cIso"></canvas>
     </div>
   </div>
 

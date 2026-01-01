@@ -98,6 +98,41 @@ body.light-mode {
     flex: 1 1 50%;
 }
 
+/* İzometrik Panel */
+#pIso {
+    flex: 0 1 0;
+    display: none;
+}
+
+.main.show-iso #pIso {
+    display: block;
+    flex: 1 1 33.33%;
+    pointer-events: auto;
+}
+
+/* 3D + İzometri birlikte açık */
+.main.show-3d.show-iso #p2d {
+    flex: 1 1 33.33%;
+}
+
+.main.show-3d.show-iso #p3d {
+    flex: 1 1 33.33%;
+}
+
+.main.show-3d.show-iso #pIso {
+    display: block;
+    flex: 1 1 33.33%;
+}
+
+/* Sadece İzometri açık */
+.main.show-iso:not(.show-3d) #p2d {
+    flex: 1 1 50%;
+}
+
+.main.show-iso:not(.show-3d) #pIso {
+    flex: 1 1 50%;
+}
+
 /* 3D Fullscreen Mode - 2D becomes mini-map */
 .main.fullscreen-3d #p3d {
     flex: 1 1 100% !important;
@@ -1163,6 +1198,55 @@ body.light-mode .btn.active svg {
 
 /* 3D açıkken butonu gizle */
 .main.show-3d .btn-show-3d {
+    display: none;
+}
+
+/* İzometri Göster Butonu - 3D Göster butonunun yanında */
+.btn-show-iso {
+    position: absolute;
+    top: 10px;
+    right: 130px; /* 3D butonunun soluna yerleştir */
+    z-index: 100;
+    padding: 7px 10px;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: auto;
+    white-space: nowrap;
+    background: #3c4043;
+    border: 1px solid #5f6368;
+    color: #e8eaed;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-show-iso svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+}
+
+.btn-show-iso:hover {
+    background: #5f6368;
+    border-color: #87CEEB;
+    box-shadow: 0 2px 8px rgba(135, 206, 235, 0.3);
+}
+
+.btn-show-iso.active {
+    background: #8ab4f8;
+    color: #202124;
+    border-color: #8ab4f8;
+    font-weight: 600;
+}
+
+/* İzometri açıkken butonu gizle */
+.main.show-iso .btn-show-iso {
     display: none;
 }
 

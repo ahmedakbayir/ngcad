@@ -13,6 +13,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
+import { renderIsometric } from '../scene3d/scene-isometric.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
 
 // ═══════════════════════════════════════════════════════════════
@@ -246,6 +247,57 @@ export function toggle3DView() {
             update3DScene();
         }
     }, 10);
+}
+
+export function toggleIsoView() {
+    dom.mainContainer.classList.toggle('show-iso');
+
+    if (dom.mainContainer.classList.contains('show-iso')) {
+        setMode("select"); // İzometri açılırken modu "select" yap
+
+        // İzometrik canvas boyutunu ayarla
+        resizeIsoCanvas();
+
+        // İzometrik görünümü çiz
+        drawIsoView();
+    }
+
+    setTimeout(() => {
+        resize();
+        if (dom.mainContainer.classList.contains('show-iso')) {
+            resizeIsoCanvas();
+            drawIsoView();
+        }
+    }, 10);
+}
+
+function resizeIsoCanvas() {
+    const rIso = dom.pIso.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+
+    // Canvas boyutunu ayarla
+    dom.cIso.width = rIso.width * dpr;
+    dom.cIso.height = rIso.height * dpr;
+    dom.cIso.style.width = rIso.width + 'px';
+    dom.cIso.style.height = rIso.height + 'px';
+
+    // Smoothing'i kapat (keskin çizgiler için)
+    dom.ctxIso.imageSmoothingEnabled = false;
+    dom.ctxIso.webkitImageSmoothingEnabled = false;
+    dom.ctxIso.mozImageSmoothingEnabled = false;
+    dom.ctxIso.msImageSmoothingEnabled = false;
+}
+
+export function drawIsoView() {
+    if (!dom.mainContainer.classList.contains('show-iso')) return;
+
+    const ctx = dom.ctxIso;
+    const canvas = dom.cIso;
+
+    // İzometrik görünümü render et
+    // Şimdilik sabit zoom ve offset kullanıyoruz
+    // İlerleye pan ve zoom ekleyebiliriz
+    renderIsometric(ctx, canvas.width, canvas.height, 0.5, { x: 0, y: 0 });
 }
 
 // 3D sahneyi %100 genişlet / daralt
@@ -873,6 +925,11 @@ export function setupUIListeners() {
     // 3D GÖSTER BUTONU LISTENER'I
     dom.b3d.addEventListener('click', () => {
         toggle3DView();
+    });
+
+    // İZOMETRİ GÖSTER BUTONU LISTENER'I
+    dom.bIso.addEventListener('click', () => {
+        toggleIsoView();
     });
 
     // KATI GÖSTER / BİNAYI GÖSTER TOGGLE BUTONU
