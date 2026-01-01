@@ -650,8 +650,11 @@
     </div>
     <div id="pIso" class="panel">
       <canvas id="cIso"></canvas>
-      <!-- İzometri Overlay: Ekran Bölme Oranı Butonları (Sağ Üst) -->
+      <!-- İzometri Overlay: Ekran Bölme Oranı Butonları ve Slider (Sağ Üst) -->
       <div id="iso-ratio-buttons" style="display: none;">
+        <input type="range" id="iso-size-slider" min="0" max="100" value="50" step="1"
+               title="İzometri Panel Boyutu"
+               style="margin-right: 12px; width: 120px; vertical-align: middle;">
         <button id="iso-reset" class="split-btn" title="Orijinal Boyut" style="margin-right: 8px;">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
             <!-- Reset/Refresh icon -->
