@@ -287,12 +287,6 @@ export function setIsoRatio(ratio) {
     const p2dPanel = document.getElementById('p2d');
     const pIsoPanel = document.getElementById('pIso');
 
-    // Slider değerini güncelle
-    const isoSizeSlider = document.getElementById('iso-size-slider');
-    if (isoSizeSlider) {
-        isoSizeSlider.value = ratio;
-    }
-
     // Buton aktif durumlarını güncelle
     document.querySelectorAll('#iso-ratio-buttons .split-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -1243,15 +1237,6 @@ export function setupUIListeners() {
     if (isoResetBtn) {
         isoResetBtn.addEventListener('click', () => {
             resetIsometricView();
-        });
-    }
-
-    // İZOMETRİ BOYUT SLIDER
-    const isoSizeSlider = document.getElementById('iso-size-slider');
-    if (isoSizeSlider) {
-        isoSizeSlider.addEventListener('input', (e) => {
-            const ratio = parseInt(e.target.value);
-            setIsoRatio(ratio);
         });
     }
 }

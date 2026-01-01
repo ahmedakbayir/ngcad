@@ -204,10 +204,10 @@ function drawIsometricPipes(ctx) {
         // Uç noktaları çiz (sürüklenebilir)
         ctx.fillStyle = pipeColor;
         ctx.beginPath();
-        ctx.arc(start.isoX, start.isoY, 4, 0, Math.PI * 2);
+        ctx.arc(start.isoX, start.isoY, 2.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.beginPath();
-        ctx.arc(end.isoX, end.isoY, 4, 0, Math.PI * 2);
+        ctx.arc(end.isoX, end.isoY, 2.5, 0, Math.PI * 2);
         ctx.fill();
 
         // Global endpoint pozisyonlarını sakla (hit detection için)
