@@ -448,8 +448,8 @@ export function setupIsometricControls() {
                     ...state.isoPipeOffsets,
                     [pipeId]: {
                         ...currentOffset,
-                        [state.isoDraggedEndpoint + 'Dx']: currentOffset[state.isoDraggedEndpoint + 'Dx'] || 0 + dx / state.isoZoom,
-                        [state.isoDraggedEndpoint + 'Dy']: currentOffset[state.isoDraggedEndpoint + 'Dy'] || 0 + dy / state.isoZoom
+                        [state.isoDraggedEndpoint + 'Dx']: (currentOffset[state.isoDraggedEndpoint + 'Dx'] || 0) + dx / state.isoZoom,
+                        [state.isoDraggedEndpoint + 'Dy']: (currentOffset[state.isoDraggedEndpoint + 'Dy'] || 0) + dy / state.isoZoom
                     }
                 },
                 isoPanStart: { x: e.clientX, y: e.clientY }

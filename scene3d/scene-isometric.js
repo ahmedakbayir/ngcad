@@ -159,11 +159,23 @@ function drawIsometricPipes(ctx) {
     if (!plumbingManager || !plumbingManager.pipes) return;
     if (!state) return;
 
-    ctx.strokeStyle = document.body.classList.contains('light-mode') ? '#0066CC' : '#FF8C00';
+    const isLightMode = document.body.classList.contains('light-mode');
     ctx.lineWidth = 3;
 
     plumbingManager.pipes.forEach(pipe => {
         if (!pipe.p1 || !pipe.p2) return;
+
+        // Boru rengini colorGroup'a göre belirle
+        let pipeColor;
+        if (pipe.colorGroup === 'YELLOW') {
+            pipeColor = isLightMode ? 'rgba(160, 82, 45, 1)' : 'rgba(184, 134, 11, 1)';  // Sienna / Dark Goldenrod
+        } else if (pipe.colorGroup === 'TURQUAZ') {
+            pipeColor = isLightMode ? 'rgba(0, 100, 204, 1)' : 'rgba(21, 154, 172, 1)';  // Dark Blue / Dodger Blue
+        } else {
+            pipeColor = isLightMode ? 'rgba(128, 128, 128, 1)' : 'rgba(200, 200, 200, 1)';  // Gray / Light Gray
+        }
+
+        ctx.strokeStyle = pipeColor;
 
         // Offset kontrolü
         const offset = state.isoPipeOffsets[pipe.id] || {};
@@ -189,7 +201,7 @@ function drawIsometricPipes(ctx) {
         ctx.stroke();
 
         // Uç noktaları çiz (daha büyük, sürüklenebilir)
-        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fillStyle = pipeColor;
         ctx.beginPath();
         ctx.arc(start.isoX, start.isoY, 6, 0, Math.PI * 2);
         ctx.fill();
@@ -229,18 +241,18 @@ function drawIsometricComponents(ctx) {
 
         // Bileşen tipine göre çiz
         if (component.type === 'servis_kutusu') {
-            drawServisKutusuIso(ctx);
+            drawServisKutusuIso(ctx, component);
         } else if (component.type === 'sayac') {
-            drawSayacIso(ctx);
+            drawSayacIso(ctx, component);
         } else if (component.type === 'vana') {
-            drawVanaIso(ctx);
+            drawVanaIso(ctx, component);
         } else if (component.type === 'cihaz') {
             drawCihazIso(ctx, component);
         } else if (component.type === 'baca') {
-            drawBacaIso(ctx);
+            drawBacaIso(ctx, component);
         } else {
             // Bilinmeyen tip için basit bir kare çiz
-            drawDefaultComponentIso(ctx);
+            drawDefaultComponentIso(ctx, component);
         }
 
         ctx.restore();
@@ -311,6 +323,20 @@ function drawIsometricBox(ctx, width, depth, height, fillColor, strokeColor) {
 }
 
 /**
+ * Hex rengi (0xRRGGBB veya #RRGGBB) CSS string'e çevirir
+ * @param {number|string} color - Hex renk (0xA8A8A8 veya #A8A8A8)
+ * @returns {string} CSS hex renk (#RRGGBB)
+ */
+function hexToCSS(color) {
+    if (typeof color === 'string') {
+        // Zaten string ise (#RRGGBB formatında), olduğu gibi döndür
+        return color.startsWith('#') ? color : '#' + color;
+    }
+    // Numeric hex ise (0xRRGGBB), string'e çevir
+    return '#' + color.toString(16).padStart(6, '0');
+}
+
+/**
  * Rengi koyulaştırır veya açar
  * @param {string} color - Hex renk (#RRGGBB)
  * @param {number} percent - % koyulaştırma/açma (-100 ile 100 arası)
@@ -346,13 +372,29 @@ function shadeColor(color, percent) {
 /**
  * Servis kutusunu izometrik perspektifte çizer (3D blok)
  * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {object} component - Servis kutusu bileşeni
  */
-function drawServisKutusuIso(ctx) {
-    const width = 40;
-    const depth = 40;
-    const height = 50;
-    const fillColor = document.body.classList.contains('light-mode') ? '#4CAF50' : '#66BB6A';
-    const strokeColor = document.body.classList.contains('light-mode') ? '#388E3C' : '#81C784';
+function drawServisKutusuIso(ctx, component) {
+    // Projedeki gerçek boyutları kullan
+    const width = component.config?.width || 50;
+    const depth = component.config?.depth || 70;
+    const height = component.config?.height || 25;
+
+    // Projedeki renkleri kullan
+    let fillColor, strokeColor;
+    if (component.config?.colors) {
+        // ServisKutusu'nun özel renk paleti varsa
+        fillColor = component.config.colors.middle || '#A8A8A8';
+        strokeColor = component.config.colors.stroke || '#555555';
+    } else if (component.config?.color) {
+        // Tek renk varsa
+        fillColor = hexToCSS(component.config.color);
+        strokeColor = shadeColor(fillColor, -30);
+    } else {
+        // Varsayılan renkler
+        fillColor = '#A8A8A8';
+        strokeColor = '#555555';
+    }
 
     // 3D kutu çiz
     drawIsometricBox(ctx, width, depth, height, fillColor, strokeColor);
@@ -368,13 +410,17 @@ function drawServisKutusuIso(ctx) {
 /**
  * Sayacı izometrik perspektifte çizer (3D blok)
  * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {object} component - Sayaç bileşeni
  */
-function drawSayacIso(ctx) {
-    const width = 30;
-    const depth = 30;
-    const height = 35;
-    const fillColor = document.body.classList.contains('light-mode') ? '#2196F3' : '#64B5F6';
-    const strokeColor = document.body.classList.contains('light-mode') ? '#1976D2' : '#90CAF9';
+function drawSayacIso(ctx, component) {
+    // Projedeki gerçek boyutları kullan
+    const width = component.config?.width || 22;
+    const depth = component.config?.depth || 16;
+    const height = component.config?.height || 24;
+
+    // Projedeki renkleri kullan
+    const fillColor = component.config?.color ? hexToCSS(component.config.color) : '#A8A8A8';
+    const strokeColor = shadeColor(fillColor, -30);
 
     // 3D kutu çiz
     drawIsometricBox(ctx, width, depth, height, fillColor, strokeColor);
@@ -390,20 +436,24 @@ function drawSayacIso(ctx) {
 /**
  * Vanayı izometrik perspektifte çizer (3D silindir benzeri)
  * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {object} component - Vana bileşeni
  */
-function drawVanaIso(ctx) {
-    const width = 20;
-    const depth = 20;
-    const height = 25;
-    const fillColor = document.body.classList.contains('light-mode') ? '#FF9800' : '#FFB74D';
-    const strokeColor = document.body.classList.contains('light-mode') ? '#F57C00' : '#FFA726';
+function drawVanaIso(ctx, component) {
+    // Projedeki gerçek boyutları kullan
+    const width = component.config?.width || 8;
+    const depth = component.config?.width || 8;  // Vana genelde kare
+    const height = component.config?.height || 8;
+
+    // Projedeki renkleri kullan
+    const fillColor = component.config?.color ? hexToCSS(component.config.color) : '#A0A0A0';
+    const strokeColor = shadeColor(fillColor, -30);
 
     // 3D kutu çiz (küçük silindir gibi)
     drawIsometricBox(ctx, width, depth, height, fillColor, strokeColor);
 
     // Üst yüzeye çizgi ekle (vana simgesi)
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(-width / 3, -height);
     ctx.lineTo(width / 3, -height);
@@ -416,13 +466,14 @@ function drawVanaIso(ctx) {
  * @param {object} component - Cihaz bileşeni
  */
 function drawCihazIso(ctx, component) {
-    const width = 40;
-    const depth = 40;
-    const height = 60;
-    const fillColor = component.cihazTipi === 'KOMBI'
-        ? (document.body.classList.contains('light-mode') ? '#9C27B0' : '#BA68C8')
-        : (document.body.classList.contains('light-mode') ? '#F44336' : '#E57373');
-    const strokeColor = document.body.classList.contains('light-mode') ? '#000' : '#fff';
+    // Projedeki gerçek boyutları kullan
+    const width = component.config?.width || 30;
+    const depth = component.config?.depth || 29;
+    const height = component.config?.height || 30;
+
+    // Projedeki renkleri kullan
+    const fillColor = component.config?.color ? hexToCSS(component.config.color) : '#C0C0C0';
+    const strokeColor = shadeColor(fillColor, -30);
 
     // 3D kutu çiz
     drawIsometricBox(ctx, width, depth, height, fillColor, strokeColor);
@@ -432,19 +483,29 @@ function drawCihazIso(ctx, component) {
     ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(component.cihazTipi === 'KOMBI' ? 'K' : 'O', 0, -height);
+    const label = component.cihazTipi === 'KOMBI' ? 'K' :
+                  component.cihazTipi === 'OCAK' ? 'O' :
+                  component.cihazTipi === 'SOBA' ? 'S' :
+                  component.cihazTipi === 'SOFBEN' ? 'Ş' :
+                  component.cihazTipi === 'KAZAN' ? 'KZ' : 'C';
+    ctx.fillText(label, 0, -height);
 }
 
 /**
  * Bacayı izometrik perspektifte çizer (3D ince ve uzun blok)
  * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {object} component - Baca bileşeni
  */
-function drawBacaIso(ctx) {
-    const width = 15;
-    const depth = 15;
-    const height = 80;
-    const fillColor = document.body.classList.contains('light-mode') ? '#795548' : '#A1887F';
-    const strokeColor = document.body.classList.contains('light-mode') ? '#5D4037' : '#8D6E63';
+function drawBacaIso(ctx, component) {
+    // Projedeki gerçek boyutları kullan
+    const width = component.config?.width || 15;
+    const depth = component.config?.depth || 15;
+    const height = component.config?.height || 80;
+
+    // Projedeki renkleri kullan
+    const fillColor = component.config?.color ? hexToCSS(component.config.color) :
+                      (document.body.classList.contains('light-mode') ? '#795548' : '#A1887F');
+    const strokeColor = shadeColor(fillColor, -20);
 
     // 3D kutu çiz (ince ve uzun)
     drawIsometricBox(ctx, width, depth, height, fillColor, strokeColor);
@@ -460,21 +521,26 @@ function drawBacaIso(ctx) {
 /**
  * Bilinmeyen bileşen için varsayılan şekil çizer
  * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {object} component - Bileşen
  */
-function drawDefaultComponentIso(ctx) {
-    const size = 20;
-    ctx.fillStyle = document.body.classList.contains('light-mode') ? '#9E9E9E' : '#BDBDBD';
-    ctx.strokeStyle = document.body.classList.contains('light-mode') ? '#616161' : '#E0E0E0';
-    ctx.lineWidth = 2;
+function drawDefaultComponentIso(ctx, component) {
+    // Projedeki boyutları kullan veya varsayılan
+    const width = component.config?.width || 20;
+    const depth = component.config?.depth || 20;
+    const height = component.config?.height || 20;
 
-    // Kare
-    ctx.fillRect(-size / 2, -size / 2, size, size);
-    ctx.strokeRect(-size / 2, -size / 2, size, size);
+    // Projedeki renkleri kullan
+    const fillColor = component.config?.color ? hexToCSS(component.config.color) :
+                      (document.body.classList.contains('light-mode') ? '#9E9E9E' : '#BDBDBD');
+    const strokeColor = shadeColor(fillColor, -30);
+
+    // 3D kutu çiz
+    drawIsometricBox(ctx, width, depth, height, fillColor, strokeColor);
 
     // Soru işareti
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('?', 0, 0);
+    ctx.fillText('?', 0, -height / 2);
 }
