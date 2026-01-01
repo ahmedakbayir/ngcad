@@ -399,45 +399,99 @@ export function setupIsometricControls() {
         drawIsoView();
     }, { passive: false });
 
-    // Mouse down - pan başlat
+    // Mouse down - sürükleme veya pan başlat
     dom.cIso.addEventListener('mousedown', (e) => {
         if (!dom.mainContainer.classList.contains('show-iso')) return;
-        if (e.button !== 1 && e.button !== 2) return; // Sadece orta veya sağ tuş
 
-        e.preventDefault();
-        setState({
-            isoPanning: true,
-            isoPanStart: { x: e.clientX, y: e.clientY }
-        });
+        const rect = dom.cIso.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Sol tuş: Boru ucu sürükleme dene
+        if (e.button === 0) {
+            const endpoint = findPipeEndpointAtMouse(mouseX, mouseY);
+            if (endpoint) {
+                e.preventDefault();
+                setState({
+                    isoDragging: true,
+                    isoDraggedPipe: endpoint.pipe,
+                    isoDraggedEndpoint: endpoint.type,
+                    isoPanStart: { x: e.clientX, y: e.clientY }
+                });
+                return;
+            }
+        }
+
+        // Orta veya sağ tuş: Pan başlat
+        if (e.button === 1 || e.button === 2) {
+            e.preventDefault();
+            setState({
+                isoPanning: true,
+                isoPanStart: { x: e.clientX, y: e.clientY }
+            });
+        }
     });
 
-    // Mouse move - pan
+    // Mouse move - sürükleme veya pan
     dom.cIso.addEventListener('mousemove', (e) => {
-        if (!state.isoPanning) return;
+        // Boru ucu sürükleme
+        if (state.isoDragging && state.isoDraggedPipe) {
+            const dx = e.clientX - state.isoPanStart.x;
+            const dy = e.clientY - state.isoPanStart.y;
 
-        const dx = e.clientX - state.isoPanStart.x;
-        const dy = e.clientY - state.isoPanStart.y;
+            const pipeId = state.isoDraggedPipe.id;
+            const currentOffset = state.isoPipeOffsets[pipeId] || { dx: 0, dy: 0 };
 
-        setState({
-            isoPanOffset: {
-                x: state.isoPanOffset.x + dx,
-                y: state.isoPanOffset.y + dy
-            },
-            isoPanStart: { x: e.clientX, y: e.clientY }
-        });
+            // Sadece sürüklenen uç noktayı güncelle
+            setState({
+                isoPipeOffsets: {
+                    ...state.isoPipeOffsets,
+                    [pipeId]: {
+                        ...currentOffset,
+                        [state.isoDraggedEndpoint + 'Dx']: currentOffset[state.isoDraggedEndpoint + 'Dx'] || 0 + dx / state.isoZoom,
+                        [state.isoDraggedEndpoint + 'Dy']: currentOffset[state.isoDraggedEndpoint + 'Dy'] || 0 + dy / state.isoZoom
+                    }
+                },
+                isoPanStart: { x: e.clientX, y: e.clientY }
+            });
 
-        drawIsoView();
+            drawIsoView();
+            return;
+        }
+
+        // Pan
+        if (state.isoPanning) {
+            const dx = e.clientX - state.isoPanStart.x;
+            const dy = e.clientY - state.isoPanStart.y;
+
+            setState({
+                isoPanOffset: {
+                    x: state.isoPanOffset.x + dx,
+                    y: state.isoPanOffset.y + dy
+                },
+                isoPanStart: { x: e.clientX, y: e.clientY }
+            });
+
+            drawIsoView();
+        }
     });
 
-    // Mouse up - pan bitir
-    const stopPanning = () => {
+    // Mouse up - sürükleme ve pan bitir
+    const stopInteraction = () => {
         if (state.isoPanning) {
             setState({ isoPanning: false });
         }
+        if (state.isoDragging) {
+            setState({
+                isoDragging: false,
+                isoDraggedPipe: null,
+                isoDraggedEndpoint: null
+            });
+        }
     };
 
-    dom.cIso.addEventListener('mouseup', stopPanning);
-    dom.cIso.addEventListener('mouseleave', stopPanning);
+    dom.cIso.addEventListener('mouseup', stopInteraction);
+    dom.cIso.addEventListener('mouseleave', stopInteraction);
 
     // Sağ tık menüsünü engelle
     dom.cIso.addEventListener('contextmenu', (e) => {
@@ -1107,15 +1161,49 @@ export function setupUIListeners() {
     setupOpacityControls();
 
     // İZOMETRİ RATIO BUTONLARI
-    const isoRatioButtons = document.querySelectorAll('#iso-ratio-buttons .split-btn');
+    const isoRatioButtons = document.querySelectorAll('#iso-ratio-buttons .split-btn[data-ratio]');
     isoRatioButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const ratio = parseInt(btn.getAttribute('data-ratio'));
             setIsoRatio(ratio);
         });
     });
+
+    // İZOMETRİ RESET BUTONU
+    const isoResetBtn = document.getElementById('iso-reset');
+    if (isoResetBtn) {
+        isoResetBtn.addEventListener('click', () => {
+            resetIsometricView();
+        });
+    }
 }
 // --- setupUIListeners Sonu ---
+
+/**
+ * İzometrik görünümü orijinal boyutlara sıfırlar
+ */
+export function resetIsometricView() {
+    setState({
+        isoZoom: 0.5,
+        isoPanOffset: { x: 0, y: 0 },
+        isoPipeOffsets: {}
+    });
+    drawIsoView();
+}
+
+/**
+ * Mouse pozisyonunda boru ucu var mı kontrol eder
+ * @param {number} mouseX - Canvas içindeki X koordinatı
+ * @param {number} mouseY - Canvas içindeki Y koordinatı
+ * @returns {{pipe: object, type: string} | null} - Boru ve uç tipi ('start' veya 'end')
+ */
+function findPipeEndpointAtMouse(mouseX, mouseY) {
+    // Bu fonksiyon scene-isometric.js'de export edilecek
+    if (typeof window.getIsoEndpointAtMouse === 'function') {
+        return window.getIsoEndpointAtMouse(mouseX, mouseY);
+    }
+    return null;
+}
 
 /**
  * Opacity kontrol UI'sini başlatır
