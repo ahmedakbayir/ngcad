@@ -439,8 +439,38 @@ export function setupIsometricControls() {
             const dx = e.clientX - state.isoPanStart.x;
             const dy = e.clientY - state.isoPanStart.y;
 
-            const pipeId = state.isoDraggedPipe.id;
-            const currentOffset = state.isoPipeOffsets[pipeId] || { dx: 0, dy: 0 };
+            const pipe = state.isoDraggedPipe;
+            const pipeId = pipe.id;
+
+            // Borunun yön vektörünü hesapla (izometrik koordinatlarda)
+            // toIsometric fonksiyonunu kullan (window._toIsometric global olarak saklanıyor)
+            const toIso = window._toIsometric || ((x, y) => ({ isoX: x, isoY: y }));
+            const start = toIso(pipe.p1.x, pipe.p1.y, 0);
+            const end = toIso(pipe.p2.x, pipe.p2.y, 0);
+
+            // Boru yön vektörü
+            const dirX = end.isoX - start.isoX;
+            const dirY = end.isoY - start.isoY;
+            const length = Math.sqrt(dirX * dirX + dirY * dirY);
+
+            if (length < 0.001) return; // Çok kısa boru, skip
+
+            // Normalize edilmiş yön vektörü
+            const normDirX = dirX / length;
+            const normDirY = dirY / length;
+
+            // Mouse hareketini zoom'a göre ayarla
+            const mouseDx = dx / state.isoZoom;
+            const mouseDy = dy / state.isoZoom;
+
+            // Mouse hareketini boru doğrultusuna project et
+            const projection = mouseDx * normDirX + mouseDy * normDirY;
+
+            // Projeksiyon miktarı kadar, sadece o uç noktayı boru doğrultusunda hareket ettir
+            const offsetX = projection * normDirX;
+            const offsetY = projection * normDirY;
+
+            const currentOffset = state.isoPipeOffsets[pipeId] || {};
 
             // Sadece sürüklenen uç noktayı güncelle
             setState({
@@ -448,8 +478,8 @@ export function setupIsometricControls() {
                     ...state.isoPipeOffsets,
                     [pipeId]: {
                         ...currentOffset,
-                        [state.isoDraggedEndpoint + 'Dx']: (currentOffset[state.isoDraggedEndpoint + 'Dx'] || 0) + dx / state.isoZoom,
-                        [state.isoDraggedEndpoint + 'Dy']: (currentOffset[state.isoDraggedEndpoint + 'Dy'] || 0) + dy / state.isoZoom
+                        [state.isoDraggedEndpoint + 'Dx']: (currentOffset[state.isoDraggedEndpoint + 'Dx'] || 0) + offsetX,
+                        [state.isoDraggedEndpoint + 'Dy']: (currentOffset[state.isoDraggedEndpoint + 'Dy'] || 0) + offsetY
                     }
                 },
                 isoPanStart: { x: e.clientX, y: e.clientY }
