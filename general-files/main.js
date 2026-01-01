@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { setupInputListeners, handleDelete } from './input.js';
-import { setupUIListeners, initializeSettings, toggle3DView } from './ui.js';
+import { setupUIListeners, initializeSettings, toggle3DView, toggleIsoView, drawIsoView } from './ui.js';
 import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../menu/guide-menu.js';
 import { initFloorOperationsMenu } from '../menu/floor-operations-menu.js';
@@ -479,6 +479,9 @@ export const dom = {
     ctx2d: document.getElementById("c2d").getContext("2d"),
     p3d: document.getElementById("p3d"),
     c3d: document.getElementById("c3d"),
+    pIso: document.getElementById("pIso"),
+    cIso: document.getElementById("cIso"),
+    ctxIso: document.getElementById("cIso").getContext("2d"),
     bSel: document.getElementById("bSel"),
     bDelete: document.getElementById("bDelete"),
     bWall: document.getElementById("bWall"),
@@ -558,6 +561,7 @@ export const dom = {
     confirmStairPopupButton: document.getElementById("confirm-stair-popup"),
     cancelStairPopupButton: document.getElementById("cancel-stair-popup"),
     b3d: document.getElementById("b3d"), // 3D Göster butonu
+    bIso: document.getElementById("bIso"), // İzometri Göster butonu
 };
 
 // Proje modu butonlarını kurar (MİMARİ, TESİSAT, KARMA)
@@ -881,6 +885,22 @@ export function resize() {
         renderer3d.setPixelRatio(window.devicePixelRatio);
         renderer3d.setSize(r3d.width, r3d.height);
     }
+
+    // İzometrik canvas'ı resize et
+    if (dom.mainContainer.classList.contains('show-iso')) {
+        const rIso = dom.pIso.getBoundingClientRect();
+        if (rIso.width > 0 && rIso.height > 0) {
+            dom.cIso.width = rIso.width * dpr;
+            dom.cIso.height = rIso.height * dpr;
+            dom.cIso.style.width = rIso.width + 'px';
+            dom.cIso.style.height = rIso.height + 'px';
+
+            dom.ctxIso.imageSmoothingEnabled = false;
+            dom.ctxIso.webkitImageSmoothingEnabled = false;
+            dom.ctxIso.mozImageSmoothingEnabled = false;
+            dom.ctxIso.msImageSmoothingEnabled = false;
+        }
+    }
 }
 
 let lastTime = performance.now();
@@ -952,6 +972,11 @@ function animate() {
         }
 
         renderer3d.render(scene3d, camera3d);
+    }
+
+    // İzometrik görünümü çiz
+    if (dom.mainContainer.classList.contains('show-iso')) {
+        drawIsoView();
     }
 }
 // --- GÜNCELLEME SONU ---
