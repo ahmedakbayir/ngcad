@@ -287,6 +287,12 @@ export function setIsoRatio(ratio) {
     const p2dPanel = document.getElementById('p2d');
     const pIsoPanel = document.getElementById('pIso');
 
+    // Slider değerini güncelle
+    const isoSizeSlider = document.getElementById('iso-size-slider');
+    if (isoSizeSlider) {
+        isoSizeSlider.value = ratio;
+    }
+
     // Buton aktif durumlarını güncelle
     document.querySelectorAll('#iso-ratio-buttons .split-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -466,22 +472,55 @@ export function setupIsometricControls() {
             // Mouse hareketini boru doğrultusuna project et
             const projection = mouseDx * normDirX + mouseDy * normDirY;
 
-            // Projeksiyon miktarı kadar, sadece o uç noktayı boru doğrultusunda hareket ettir
+            // Projeksiyon miktarı kadar, o uç noktayı boru doğrultusunda hareket ettir
             const offsetX = projection * normDirX;
             const offsetY = projection * normDirY;
 
+            // Sürüklenen endpoint'in mevcut pozisyonunu hesapla (offset dahil)
+            const draggedEndpointPos = state.isoDraggedEndpoint === 'start' ? start : end;
             const currentOffset = state.isoPipeOffsets[pipeId] || {};
+            draggedEndpointPos.isoX += (currentOffset[state.isoDraggedEndpoint + 'Dx'] || 0);
+            draggedEndpointPos.isoY += (currentOffset[state.isoDraggedEndpoint + 'Dy'] || 0);
 
-            // Sadece sürüklenen uç noktayı güncelle
+            // Tüm boruları gez ve aynı pozisyonda olan endpoint'leri bul (bağlı hatlar)
+            const newOffsets = { ...state.isoPipeOffsets };
+            const threshold = 2; // Yakınlık eşiği (pixel)
+
+            if (plumbingManager && plumbingManager.pipes) {
+                plumbingManager.pipes.forEach(otherPipe => {
+                    // Her endpoint'i kontrol et
+                    ['start', 'end'].forEach(endpointType => {
+                        const otherEndpointPos = toIso(
+                            endpointType === 'start' ? otherPipe.p1.x : otherPipe.p2.x,
+                            endpointType === 'start' ? otherPipe.p1.y : otherPipe.p2.y,
+                            0
+                        );
+
+                        // Mevcut offset'i uygula
+                        const otherOffset = newOffsets[otherPipe.id] || {};
+                        otherEndpointPos.isoX += (otherOffset[endpointType + 'Dx'] || 0);
+                        otherEndpointPos.isoY += (otherOffset[endpointType + 'Dy'] || 0);
+
+                        // Yakınlık kontrolü - bu endpoint sürüklenen endpoint ile aynı pozisyonda mı?
+                        const distance = Math.sqrt(
+                            Math.pow(otherEndpointPos.isoX - draggedEndpointPos.isoX, 2) +
+                            Math.pow(otherEndpointPos.isoY - draggedEndpointPos.isoY, 2)
+                        );
+
+                        if (distance < threshold) {
+                            // Bu endpoint de sürüklenen endpoint ile birlikte hareket etmeli
+                            if (!newOffsets[otherPipe.id]) {
+                                newOffsets[otherPipe.id] = {};
+                            }
+                            newOffsets[otherPipe.id][endpointType + 'Dx'] = (otherOffset[endpointType + 'Dx'] || 0) + offsetX;
+                            newOffsets[otherPipe.id][endpointType + 'Dy'] = (otherOffset[endpointType + 'Dy'] || 0) + offsetY;
+                        }
+                    });
+                });
+            }
+
             setState({
-                isoPipeOffsets: {
-                    ...state.isoPipeOffsets,
-                    [pipeId]: {
-                        ...currentOffset,
-                        [state.isoDraggedEndpoint + 'Dx']: (currentOffset[state.isoDraggedEndpoint + 'Dx'] || 0) + offsetX,
-                        [state.isoDraggedEndpoint + 'Dy']: (currentOffset[state.isoDraggedEndpoint + 'Dy'] || 0) + offsetY
-                    }
-                },
+                isoPipeOffsets: newOffsets,
                 isoPanStart: { x: e.clientX, y: e.clientY }
             });
 
@@ -1204,6 +1243,15 @@ export function setupUIListeners() {
     if (isoResetBtn) {
         isoResetBtn.addEventListener('click', () => {
             resetIsometricView();
+        });
+    }
+
+    // İZOMETRİ BOYUT SLIDER
+    const isoSizeSlider = document.getElementById('iso-size-slider');
+    if (isoSizeSlider) {
+        isoSizeSlider.addEventListener('input', (e) => {
+            const ratio = parseInt(e.target.value);
+            setIsoRatio(ratio);
         });
     }
 }

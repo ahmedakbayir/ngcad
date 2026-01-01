@@ -227,16 +227,6 @@ function drawIsometricComponents(ctx) {
     plumbingManager.components.forEach((component, index) => {
         if (!component.x || !component.y) return;
 
-        // DEBUG: İlk bileşeni konsola yazdır
-        if (index === 0) {
-            console.log('İzometrik bileşen debug:', {
-                type: component.type,
-                config: component.config,
-                position: { x: component.x, y: component.y },
-                rotation: component.rotation
-            });
-        }
-
         // Bileşen konumunu izometrik koordinatlara dönüştür
         const pos = toIsometric(component.x, component.y, 0);
 
@@ -271,7 +261,7 @@ function drawIsometricComponents(ctx) {
 }
 
 /**
- * İzometrik kutu (3D blok) çizer
+ * Basit izometrik dikdörtgen prizma çizer (flat, 3D kabuk değil)
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} width - Genişlik (X ekseni)
  * @param {number} depth - Derinlik (Y ekseni)
@@ -280,57 +270,14 @@ function drawIsometricComponents(ctx) {
  * @param {string} strokeColor - Kenar rengi
  */
 function drawIsometricBox(ctx, width, depth, height, fillColor, strokeColor) {
-    const angle = Math.PI / 6; // 30 derece
-
-    // Taban köşe noktaları (düzlem üzerinde)
-    const frontLeft = { x: -width / 2, y: 0 };
-    const frontRight = { x: width / 2, y: 0 };
-    const backLeft = { x: -width / 2 + depth * Math.cos(angle), y: -depth * Math.sin(angle) };
-    const backRight = { x: width / 2 + depth * Math.cos(angle), y: -depth * Math.sin(angle) };
-
-    // Üst köşe noktaları
-    const topFrontLeft = { x: frontLeft.x, y: frontLeft.y - height };
-    const topFrontRight = { x: frontRight.x, y: frontRight.y - height };
-    const topBackLeft = { x: backLeft.x, y: backLeft.y - height };
-    const topBackRight = { x: backRight.x, y: backRight.y - height };
-
-    ctx.lineWidth = 1.5;
-
-    // Üst yüzey (en açık)
+    // Basit dikdörtgen prizma - sadece ön yüzey
     ctx.fillStyle = fillColor;
     ctx.strokeStyle = strokeColor;
-    ctx.beginPath();
-    ctx.moveTo(topFrontLeft.x, topFrontLeft.y);
-    ctx.lineTo(topFrontRight.x, topFrontRight.y);
-    ctx.lineTo(topBackRight.x, topBackRight.y);
-    ctx.lineTo(topBackLeft.x, topBackLeft.y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    ctx.lineWidth = 1;
 
-    // Sol yüzey (orta ton)
-    const leftColor = shadeColor(fillColor, -20);
-    ctx.fillStyle = leftColor;
-    ctx.beginPath();
-    ctx.moveTo(frontLeft.x, frontLeft.y);
-    ctx.lineTo(topFrontLeft.x, topFrontLeft.y);
-    ctx.lineTo(topBackLeft.x, topBackLeft.y);
-    ctx.lineTo(backLeft.x, backLeft.y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Sağ yüzey (en koyu)
-    const rightColor = shadeColor(fillColor, -40);
-    ctx.fillStyle = rightColor;
-    ctx.beginPath();
-    ctx.moveTo(frontRight.x, frontRight.y);
-    ctx.lineTo(topFrontRight.x, topFrontRight.y);
-    ctx.lineTo(topBackRight.x, topBackRight.y);
-    ctx.lineTo(backRight.x, backRight.y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    // Basit dikdörtgen çiz
+    ctx.fillRect(-width / 2, -height, width, height);
+    ctx.strokeRect(-width / 2, -height, width, height);
 }
 
 /**
@@ -387,8 +334,8 @@ function shadeColor(color, percent) {
  */
 function drawServisKutusuIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
-    const scale = 1.2;
+    // İzometrik görünümde daha küçük gösterim için 0.4x ölçeklendirme
+    const scale = 0.4;
     const width = (component.config?.width || 50) * scale;
     const height = (component.config?.height || 25) * scale;
     const depth = (component.config?.depth || 70) * scale;
@@ -427,8 +374,8 @@ function drawServisKutusuIso(ctx, component) {
  */
 function drawSayacIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
-    const scale = 1.2;
+    // İzometrik görünümde daha küçük gösterim için 0.4x ölçeklendirme
+    const scale = 0.4;
     const width = (component.config?.width || 22) * scale;
     const depth = (component.config?.depth || 16) * scale;
     const height = (component.config?.height || 24) * scale;
@@ -455,8 +402,8 @@ function drawSayacIso(ctx, component) {
  */
 function drawVanaIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
-    const scale = 1.2;
+    // İzometrik görünümde daha küçük gösterim için 0.4x ölçeklendirme
+    const scale = 0.4;
     const width = (component.config?.width || 8) * scale;
     const depth = (component.config?.width || 8) * scale;  // Vana genelde kare
     const height = (component.config?.height || 8) * scale;
@@ -484,8 +431,8 @@ function drawVanaIso(ctx, component) {
  */
 function drawCihazIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
-    const scale = 1.2;
+    // İzometrik görünümde daha küçük gösterim için 0.4x ölçeklendirme
+    const scale = 0.4;
     const width = (component.config?.width || 30) * scale;
     const depth = (component.config?.depth || 29) * scale;
     const height = (component.config?.height || 30) * scale;
@@ -517,8 +464,8 @@ function drawCihazIso(ctx, component) {
  */
 function drawBacaIso(ctx, component) {
     // Projedeki gerçek boyutları kullan
-    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
-    const scale = 1.2;
+    // İzometrik görünümde daha küçük gösterim için 0.4x ölçeklendirme
+    const scale = 0.4;
     const width = (component.config?.width || 15) * scale;
     const depth = (component.config?.depth || 15) * scale;
     const height = (component.config?.height || 80) * scale;
@@ -546,8 +493,8 @@ function drawBacaIso(ctx, component) {
  */
 function drawDefaultComponentIso(ctx, component) {
     // Projedeki boyutları kullan veya varsayılan
-    // İzometrik görünümde görünürlük için 1.2x ölçeklendirme
-    const scale = 1.2;
+    // İzometrik görünümde daha küçük gösterim için 0.4x ölçeklendirme
+    const scale = 0.4;
     const width = (component.config?.width || 20) * scale;
     const depth = (component.config?.depth || 20) * scale;
     const height = (component.config?.height || 20) * scale;
