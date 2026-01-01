@@ -466,52 +466,73 @@ export function setupIsometricControls() {
             // Mouse hareketini boru doğrultusuna project et
             const projection = mouseDx * normDirX + mouseDy * normDirY;
 
-            // Projeksiyon miktarı kadar, o uç noktayı boru doğrultusunda hareket ettir
+            // Projeksiyon miktarı kadar hareket ettir
             const offsetX = projection * normDirX;
             const offsetY = projection * normDirY;
 
-            // Sürüklenen endpoint'in mevcut pozisyonunu hesapla (offset dahil)
-            const draggedEndpointPos = state.isoDraggedEndpoint === 'start' ? start : end;
-            const currentOffset = state.isoPipeOffsets[pipeId] || {};
-            draggedEndpointPos.isoX += (currentOffset[state.isoDraggedEndpoint + 'Dx'] || 0);
-            draggedEndpointPos.isoY += (currentOffset[state.isoDraggedEndpoint + 'Dy'] || 0);
-
-            // Tüm boruları gez ve aynı pozisyonda olan endpoint'leri bul (bağlı hatlar)
+            // Recursive olarak bağlı tüm endpoint'leri hareket ettir
             const newOffsets = { ...state.isoPipeOffsets };
+            const visited = new Set();
             const threshold = 2; // Yakınlık eşiği (pixel)
 
-            if (plumbingManager && plumbingManager.pipes) {
-                plumbingManager.pipes.forEach(otherPipe => {
-                    // Her endpoint'i kontrol et
-                    ['start', 'end'].forEach(endpointType => {
-                        const otherEndpointPos = toIso(
-                            endpointType === 'start' ? otherPipe.p1.x : otherPipe.p2.x,
-                            endpointType === 'start' ? otherPipe.p1.y : otherPipe.p2.y,
-                            0
-                        );
+            // Recursive fonksiyon: Bir endpoint'i ve ona bağlı tüm endpoint'leri hareket ettir
+            const moveEndpointAndConnected = (movePipe, moveEndpoint, moveOffsetX, moveOffsetY) => {
+                const key = movePipe.id + '_' + moveEndpoint;
+                if (visited.has(key)) return; // Zaten ziyaret edildi, sonsuz döngü önle
+                visited.add(key);
 
-                        // Mevcut offset'i uygula
-                        const otherOffset = newOffsets[otherPipe.id] || {};
-                        otherEndpointPos.isoX += (otherOffset[endpointType + 'Dx'] || 0);
-                        otherEndpointPos.isoY += (otherOffset[endpointType + 'Dy'] || 0);
+                // Bu endpoint'i hareket ettir
+                if (!newOffsets[movePipe.id]) newOffsets[movePipe.id] = {};
+                const prevOffset = newOffsets[movePipe.id];
+                newOffsets[movePipe.id][moveEndpoint + 'Dx'] = (prevOffset[moveEndpoint + 'Dx'] || 0) + moveOffsetX;
+                newOffsets[movePipe.id][moveEndpoint + 'Dy'] = (prevOffset[moveEndpoint + 'Dy'] || 0) + moveOffsetY;
 
-                        // Yakınlık kontrolü - bu endpoint sürüklenen endpoint ile aynı pozisyonda mı?
-                        const distance = Math.sqrt(
-                            Math.pow(otherEndpointPos.isoX - draggedEndpointPos.isoX, 2) +
-                            Math.pow(otherEndpointPos.isoY - draggedEndpointPos.isoY, 2)
-                        );
+                // Bu endpoint'in şu anki pozisyonunu hesapla
+                const isStart = moveEndpoint === 'start';
+                const endpointPos = toIso(
+                    isStart ? movePipe.p1.x : movePipe.p2.x,
+                    isStart ? movePipe.p1.y : movePipe.p2.y,
+                    0
+                );
+                endpointPos.isoX += newOffsets[movePipe.id][moveEndpoint + 'Dx'] || 0;
+                endpointPos.isoY += newOffsets[movePipe.id][moveEndpoint + 'Dy'] || 0;
 
-                        if (distance < threshold) {
-                            // Bu endpoint de sürüklenen endpoint ile birlikte hareket etmeli
-                            if (!newOffsets[otherPipe.id]) {
-                                newOffsets[otherPipe.id] = {};
+                // Aynı pozisyonda olan diğer endpoint'leri bul ve onları da hareket ettir
+                if (plumbingManager && plumbingManager.pipes) {
+                    plumbingManager.pipes.forEach(otherPipe => {
+                        ['start', 'end'].forEach(otherEndpointType => {
+                            const otherKey = otherPipe.id + '_' + otherEndpointType;
+                            if (visited.has(otherKey)) return; // Zaten ziyaret edildi
+
+                            const otherIsStart = otherEndpointType === 'start';
+                            const otherPos = toIso(
+                                otherIsStart ? otherPipe.p1.x : otherPipe.p2.x,
+                                otherIsStart ? otherPipe.p1.y : otherPipe.p2.y,
+                                0
+                            );
+
+                            // Mevcut offset'i uygula
+                            const otherOffset = newOffsets[otherPipe.id] || {};
+                            otherPos.isoX += (otherOffset[otherEndpointType + 'Dx'] || 0);
+                            otherPos.isoY += (otherOffset[otherEndpointType + 'Dy'] || 0);
+
+                            // Yakınlık kontrolü
+                            const dist = Math.sqrt(
+                                Math.pow(otherPos.isoX - endpointPos.isoX, 2) +
+                                Math.pow(otherPos.isoY - endpointPos.isoY, 2)
+                            );
+
+                            if (dist < threshold) {
+                                // Bu endpoint de hareket etmeli - recursive çağrı
+                                moveEndpointAndConnected(otherPipe, otherEndpointType, moveOffsetX, moveOffsetY);
                             }
-                            newOffsets[otherPipe.id][endpointType + 'Dx'] = (otherOffset[endpointType + 'Dx'] || 0) + offsetX;
-                            newOffsets[otherPipe.id][endpointType + 'Dy'] = (otherOffset[endpointType + 'Dy'] || 0) + offsetY;
-                        }
+                        });
                     });
-                });
-            }
+                }
+            };
+
+            // İlk endpoint'i hareket ettir (ve bağlı tüm ağı)
+            moveEndpointAndConnected(pipe, state.isoDraggedEndpoint, offsetX, offsetY);
 
             setState({
                 isoPipeOffsets: newOffsets,
