@@ -391,7 +391,7 @@ function drawPipeLabels(ctx, pipeHierarchy) {
         // Etiket metnini oluştur
         const parent = pipeData.parent || '';
         const self = pipeData.label;
-        const children = pipeData.children.length > 0 ? `[${pipeData.children.join(',')}]` : '';
+        const children = pipeData.children.length > 0 ? pipeData.children.join(',') : '';
         const labelText = `${parent}:${self}:${children}`;
 
         // Boru ortasını izometrik koordinatlara dönüştür

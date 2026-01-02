@@ -1940,7 +1940,7 @@ export class PlumbingRenderer {
             if (pipeData) {
                 const parent = pipeData.parent || '';
                 const self = pipeData.label;
-                const children = pipeData.children.length > 0 ? `[${pipeData.children.join(',')}]` : '';
+                const children = pipeData.children.length > 0 ? pipeData.children.join(',') : '';
 
                 // Yazı pozisyonları hesapla
                 ctx.textAlign = "center";
