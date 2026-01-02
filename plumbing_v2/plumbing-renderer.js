@@ -103,28 +103,32 @@ function buildPipeHierarchy(pipes, components) {
     }
 
     const hierarchy = new Map();
-    const TOLERANCE = 5; // cm cinsinden mesafe toleransı
+    const TOLERANCE = 15; // cm cinsinden mesafe toleransı (artırıldı)
 
     // Kaynak bileşeni bul (Servis Kutusu veya Sayaç)
     const sourceComponent = components.find(c =>
         c.type === 'servis_kutusu' || c.type === 'sayac'
     );
 
-    if (!sourceComponent) {
-        // Kaynak yoksa boş map döndür
-        return new Map();
+    let rootPipes = [];
+
+    if (sourceComponent) {
+        // Kaynağa bağlı ilk boruyu/boruları bul
+        const sourcePos = { x: sourceComponent.x, y: sourceComponent.y };
+        rootPipes = pipes.filter(pipe =>
+            distance(pipe.p1, sourcePos) < TOLERANCE ||
+            distance(pipe.p2, sourcePos) < TOLERANCE
+        );
     }
 
-    // Kaynağa bağlı ilk boruyu/boruları bul
-    const sourcePos = { x: sourceComponent.x, y: sourceComponent.y };
-    let rootPipes = pipes.filter(pipe =>
-        distance(pipe.p1, sourcePos) < TOLERANCE ||
-        distance(pipe.p2, sourcePos) < TOLERANCE
-    );
-
     if (rootPipes.length === 0) {
-        // Kaynak bileşene bağlı boru yok
-        return new Map();
+        // Kaynak yoksa veya bağlı boru yoksa, en soldaki/üstteki borudan başla
+        const sortedPipes = [...pipes].sort((a, b) => {
+            const aMin = Math.min(a.p1.x, a.p2.x) + Math.min(a.p1.y, a.p2.y);
+            const bMin = Math.min(b.p1.x, b.p2.x) + Math.min(b.p1.y, b.p2.y);
+            return aMin - bMin;
+        });
+        rootPipes = [sortedPipes[0]];
     }
 
     // BFS ile tüm boruları etiketle
@@ -179,6 +183,18 @@ function buildPipeHierarchy(pipes, components) {
             });
         });
     }
+
+    // Ziyaret edilmemiş boruları da etiketle (bağlantısız borular)
+    pipes.forEach(pipe => {
+        if (!visited.has(pipe.id)) {
+            const label = String.fromCharCode(65 + labelIndex++);
+            hierarchy.set(pipe.id, {
+                label: label,
+                parent: null,
+                children: []
+            });
+        }
+    });
 
     return hierarchy;
 }
