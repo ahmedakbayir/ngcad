@@ -370,6 +370,44 @@ function drawIsometricComponents(ctx) {
 }
 
 /**
+ * Boru etiketlerini çizer (Parent:Self:[Children] formatında)
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ * @param {Map} pipeHierarchy - Boru hierarchy bilgisi
+ */
+function drawPipeLabels(ctx, pipeHierarchy) {
+    if (!plumbingManager || !plumbingManager.pipes || !pipeHierarchy) return;
+
+    const isLightMode = document.body.classList.contains('light-mode');
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    plumbingManager.pipes.forEach(pipe => {
+        if (!pipe.p1 || !pipe.p2) return;
+
+        const pipeData = pipeHierarchy.get(pipe.id);
+        if (!pipeData) return;
+
+        // Etiket metnini oluştur
+        const parent = pipeData.parent || '';
+        const self = pipeData.label;
+        const children = pipeData.children.length > 0 ? `[${pipeData.children.join(',')}]` : '';
+        const labelText = `${parent}:${self}:${children}`;
+
+        // Boru ortasını izometrik koordinatlara dönüştür
+        const midX = (pipe.p1.x + pipe.p2.x) / 2;
+        const midY = (pipe.p1.y + pipe.p2.y) / 2;
+        const mid = toIsometric(midX, midY, 0);
+
+        // Etiket rengini ayarla
+        ctx.fillStyle = isLightMode ? '#333' : '#fff';
+
+        // Etiketi çiz
+        ctx.fillText(labelText, mid.isoX, mid.isoY - 15);
+    });
+}
+
+/**
  * Basit izometrik dikdörtgen prizma çizer (flat, 3D kabuk değil)
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} width - Genişlik (X ekseni)
