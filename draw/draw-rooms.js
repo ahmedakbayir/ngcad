@@ -174,7 +174,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
         }
 
         // Çizim moduna göre renk ayarla
-        const baseNameColor = room.name === 'MAHAL' ? '#e57373' : '#8ab4f8';
+        const baseNameColor = room.name === 'MAHAL' ? '#e57373' : '#84868aff';
         const adjustedNameColor = getAdjustedColor(baseNameColor, 'roomName');
         ctx2d.fillStyle = adjustedNameColor;
 
