@@ -58,6 +58,108 @@ export function angleToIsometric(angle) {
 }
 
 /**
+ * İki nokta arasındaki mesafeyi hesaplar
+ */
+function distance(p1, p2) {
+    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+}
+
+/**
+ * Borular arasında parent-child ilişkisini kurar ve etiketler
+ * @returns {Map} pipe.id -> { label, parent, children }
+ */
+function buildPipeHierarchy() {
+    if (!plumbingManager || !plumbingManager.pipes || !plumbingManager.components) {
+        return new Map();
+    }
+
+    const pipes = plumbingManager.pipes;
+    const components = plumbingManager.components;
+    const hierarchy = new Map();
+    const TOLERANCE = 1; // cm cinsinden mesafe toleransı
+
+    // Kaynak bileşeni bul (Servis Kutusu veya Sayaç)
+    const sourceComponent = components.find(c =>
+        c.type === 'servis_kutusu' || c.type === 'sayac'
+    );
+
+    if (!sourceComponent || pipes.length === 0) {
+        return new Map();
+    }
+
+    // Kaynağa bağlı ilk boruyu bul
+    const sourcePos = { x: sourceComponent.x, y: sourceComponent.y };
+    let rootPipes = pipes.filter(pipe =>
+        distance(pipe.p1, sourcePos) < TOLERANCE ||
+        distance(pipe.p2, sourcePos) < TOLERANCE
+    );
+
+    if (rootPipes.length === 0) {
+        // Kaynak yoksa, en soldaki/üstteki borudan başla
+        const sortedPipes = [...pipes].sort((a, b) => {
+            const aMin = Math.min(a.p1.x, a.p2.x) + Math.min(a.p1.y, a.p2.y);
+            const bMin = Math.min(b.p1.x, b.p2.x) + Math.min(b.p1.y, b.p2.y);
+            return aMin - bMin;
+        });
+        rootPipes = [sortedPipes[0]];
+    }
+
+    // BFS ile tüm boruları etiketle
+    const visited = new Set();
+    const queue = [];
+    let labelIndex = 0;
+
+    // Root pipe'ları başlat
+    rootPipes.forEach(rootPipe => {
+        hierarchy.set(rootPipe.id, {
+            label: String.fromCharCode(65 + labelIndex++), // A, B, C...
+            parent: null,
+            children: []
+        });
+        queue.push(rootPipe);
+        visited.add(rootPipe.id);
+    });
+
+    // BFS
+    while (queue.length > 0) {
+        const currentPipe = queue.shift();
+        const currentData = hierarchy.get(currentPipe.id);
+
+        // Bu borunun her iki ucunu kontrol et
+        const endpoints = [currentPipe.p1, currentPipe.p2];
+
+        endpoints.forEach(endpoint => {
+            // Bu uç noktaya bağlı diğer boruları bul
+            pipes.forEach(otherPipe => {
+                if (visited.has(otherPipe.id)) return;
+
+                const connected =
+                    distance(endpoint, otherPipe.p1) < TOLERANCE ||
+                    distance(endpoint, otherPipe.p2) < TOLERANCE;
+
+                if (connected) {
+                    // Yeni etiket ata
+                    const newLabel = String.fromCharCode(65 + labelIndex++);
+                    hierarchy.set(otherPipe.id, {
+                        label: newLabel,
+                        parent: currentData.label,
+                        children: []
+                    });
+
+                    // Parent'ın children listesine ekle
+                    currentData.children.push(newLabel);
+
+                    visited.add(otherPipe.id);
+                    queue.push(otherPipe);
+                }
+            });
+        });
+    }
+
+    return hierarchy;
+}
+
+/**
  * İzometrik görünümü çizer
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {number} canvasWidth - Canvas genişliği
@@ -80,6 +182,10 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
 
+    // Parent-child ilişkisini kur
+    const pipeHierarchy = buildPipeHierarchy();
+    window._isoPipeHierarchy = pipeHierarchy; // Global olarak sakla
+
     // Global değişkenleri sakla (mouse hit detection ve sürükleme için)
     window._isoRenderParams = { centerX, centerY, zoom, offset };
     window._toIsometric = toIsometric; // toIsometric fonksiyonunu global olarak sakla
@@ -96,6 +202,9 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
 
     // Bileşenleri çiz
     drawIsometricComponents(ctx);
+
+    // Parça etiketlerini çiz
+    drawPipeLabels(ctx, pipeHierarchy);
 
     ctx.restore();
 

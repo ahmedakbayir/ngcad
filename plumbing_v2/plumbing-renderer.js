@@ -84,6 +84,104 @@ const CUSTOM_COLORS = {
 
 //   { pos: 0.75, color: '#ff' }, // Magenta
 
+/**
+ * İki nokta arasındaki mesafeyi hesaplar
+ */
+function distance(p1, p2) {
+    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+}
+
+/**
+ * Borular arasında parent-child ilişkisini kurar ve etiketler
+ * @param {Array} pipes - Borular listesi
+ * @param {Array} components - Bileşenler listesi
+ * @returns {Map} pipe.id -> { label, parent, children }
+ */
+function buildPipeHierarchy(pipes, components) {
+    if (!pipes || !components || pipes.length === 0) {
+        return new Map();
+    }
+
+    const hierarchy = new Map();
+    const TOLERANCE = 5; // cm cinsinden mesafe toleransı
+
+    // Kaynak bileşeni bul (Servis Kutusu veya Sayaç)
+    const sourceComponent = components.find(c =>
+        c.type === 'servis_kutusu' || c.type === 'sayac'
+    );
+
+    if (!sourceComponent) {
+        // Kaynak yoksa boş map döndür
+        return new Map();
+    }
+
+    // Kaynağa bağlı ilk boruyu/boruları bul
+    const sourcePos = { x: sourceComponent.x, y: sourceComponent.y };
+    let rootPipes = pipes.filter(pipe =>
+        distance(pipe.p1, sourcePos) < TOLERANCE ||
+        distance(pipe.p2, sourcePos) < TOLERANCE
+    );
+
+    if (rootPipes.length === 0) {
+        // Kaynak bileşene bağlı boru yok
+        return new Map();
+    }
+
+    // BFS ile tüm boruları etiketle
+    const visited = new Set();
+    const queue = [];
+    let labelIndex = 0;
+
+    // Root pipe'ları başlat (kaynaktan çıkan borular parent'sız)
+    rootPipes.forEach(rootPipe => {
+        const label = String.fromCharCode(65 + labelIndex++); // A, B, C...
+        hierarchy.set(rootPipe.id, {
+            label: label,
+            parent: null,
+            children: []
+        });
+        queue.push(rootPipe);
+        visited.add(rootPipe.id);
+    });
+
+    // BFS ile devam et
+    while (queue.length > 0) {
+        const currentPipe = queue.shift();
+        const currentData = hierarchy.get(currentPipe.id);
+
+        // Bu borunun her iki ucunu kontrol et
+        const endpoints = [currentPipe.p1, currentPipe.p2];
+
+        endpoints.forEach(endpoint => {
+            // Bu uç noktaya bağlı diğer boruları bul
+            pipes.forEach(otherPipe => {
+                if (visited.has(otherPipe.id)) return;
+
+                const connected =
+                    distance(endpoint, otherPipe.p1) < TOLERANCE ||
+                    distance(endpoint, otherPipe.p2) < TOLERANCE;
+
+                if (connected) {
+                    // Yeni etiket ata
+                    const newLabel = String.fromCharCode(65 + labelIndex++);
+                    hierarchy.set(otherPipe.id, {
+                        label: newLabel,
+                        parent: currentData.label,
+                        children: []
+                    });
+
+                    // Parent'ın children listesine ekle
+                    currentData.children.push(newLabel);
+
+                    visited.add(otherPipe.id);
+                    queue.push(otherPipe);
+                }
+            });
+        });
+    }
+
+    return hierarchy;
+}
 
 export class PlumbingRenderer {
     constructor() {
@@ -1628,6 +1726,10 @@ export class PlumbingRenderer {
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
 
+        // Parent-child ilişkisini kur
+        const manager = window.plumbingManager;
+        const hierarchy = manager ? buildPipeHierarchy(manager.pipes, manager.components) : new Map();
+
         pipes.forEach(pipe => {
             const dx = pipe.p2.x - pipe.p1.x;
             const dy = pipe.p2.y - pipe.p1.y;
@@ -1673,14 +1775,34 @@ export class PlumbingRenderer {
 
             // Rounded length
             const roundedLength = Math.round(length);
-            const displayText = roundedLength.toString();
+            const lengthText = roundedLength.toString();
 
-            // Yazıyı çiz (arka plan yok) - THEME_COLORS'dan al
+            // Parent-child etiketi oluştur
+            const pipeData = hierarchy.get(pipe.id);
+            let labelText = '';
+            if (pipeData) {
+                const parent = pipeData.parent || '';
+                const self = pipeData.label;
+                const children = pipeData.children.length > 0 ? `[${pipeData.children.join(',')}]` : '';
+                labelText = `${parent}:${self}:${children}`;
+            }
+
+            // Yazıyı çiz - THEME_COLORS'dan al
             const plumbingDimensionColor = getDimensionPlumbingColor();
             ctx.fillStyle = plumbingDimensionColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText(displayText, 0, 0);
+
+            // Uzunluk ve etiket - iki satır halinde
+            if (labelText) {
+                // İlk satır: Etiket
+                ctx.fillText(labelText, 0, -actualFontSize * 0.6);
+                // İkinci satır: Uzunluk
+                ctx.fillText(lengthText, 0, actualFontSize * 0.6);
+            } else {
+                // Sadece uzunluk
+                ctx.fillText(lengthText, 0, 0);
+            }
 
             ctx.restore();
         });
