@@ -308,6 +308,12 @@ export class PlumbingRenderer {
             if (geciciBoru) {
                 this.drawTempPipeMeasurement(ctx, geciciBoru);
             }
+        } else {
+            // Ölçüler gizli iken sadece etiketleri göster
+            const showLabelsOnly = !shouldBeFaded && state.dimensionMode === 0;
+            if (showLabelsOnly) {
+                this.drawPipeLabelsOnly(ctx, manager.pipes, manager.components);
+            }
         }
 
         // Ghost eleman (her zaman yarı saydam) - sadece mouse hareket ettikten sonra görünsün
@@ -1742,10 +1748,6 @@ export class PlumbingRenderer {
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
 
-        // Parent-child ilişkisini kur
-        const manager = window.plumbingManager;
-        const hierarchy = manager ? buildPipeHierarchy(manager.pipes, manager.components) : new Map();
-
         pipes.forEach(pipe => {
             const dx = pipe.p2.x - pipe.p1.x;
             const dy = pipe.p2.y - pipe.p1.y;
@@ -1791,34 +1793,14 @@ export class PlumbingRenderer {
 
             // Rounded length
             const roundedLength = Math.round(length);
-            const lengthText = roundedLength.toString();
+            const displayText = roundedLength.toString();
 
-            // Parent-child etiketi oluştur
-            const pipeData = hierarchy.get(pipe.id);
-            let labelText = '';
-            if (pipeData) {
-                const parent = pipeData.parent || '';
-                const self = pipeData.label;
-                const children = pipeData.children.length > 0 ? `[${pipeData.children.join(',')}]` : '';
-                labelText = `${parent}:${self}:${children}`;
-            }
-
-            // Yazıyı çiz - THEME_COLORS'dan al
+            // Yazıyı çiz - THEME_COLORS'dan al (sadece uzunluk)
             const plumbingDimensionColor = getDimensionPlumbingColor();
             ctx.fillStyle = plumbingDimensionColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-
-            // Uzunluk ve etiket - iki satır halinde
-            if (labelText) {
-                // İlk satır: Etiket
-                ctx.fillText(labelText, 0, -actualFontSize * 0.6);
-                // İkinci satır: Uzunluk
-                ctx.fillText(lengthText, 0, actualFontSize * 0.6);
-            } else {
-                // Sadece uzunluk
-                ctx.fillText(lengthText, 0, 0);
-            }
+            ctx.fillText(displayText, 0, 0);
 
             ctx.restore();
         });
@@ -1883,6 +1865,110 @@ export class PlumbingRenderer {
         ctx.fillText(displayText, 0, 0);
 
         ctx.restore();
+    }
+
+    /**
+     * Sadece boru etiketlerini çizer (ölçüler gizli iken)
+     * Ortadaki harf KIRMIZI renkte
+     */
+    drawPipeLabelsOnly(ctx, pipes, components) {
+        if (!pipes || pipes.length === 0) return;
+
+        const zoom = state.zoom || 1;
+        const baseFontSize = 10;
+        const ZOOM_EXPONENT = -0.1;
+        const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+        const minWorldFontSize = 5;
+
+        // Parent-child ilişkisini kur
+        const hierarchy = buildPipeHierarchy(pipes, components);
+
+        pipes.forEach(pipe => {
+            const dx = pipe.p2.x - pipe.p1.x;
+            const dy = pipe.p2.y - pipe.p1.y;
+            const length = Math.hypot(dx, dy);
+
+            // Çok kısa borularda etiket gösterme
+            if (length < 15) return;
+
+            // Borunun ortası
+            const midX = (pipe.p1.x + pipe.p2.x) / 2;
+            const midY = (pipe.p1.y + pipe.p2.y) / 2;
+
+            // Boru açısı
+            const angle = Math.atan2(dy, dx);
+
+            // Boru genişliği
+            const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
+            const width = config.lineWidth;
+
+            // Etiket offset (boruya temas etmeden)
+            const offset = width / 2 - 10;
+
+            // Normal vektör (boruya dik)
+            const normalX = -Math.sin(angle);
+            const normalY = Math.cos(angle);
+
+            // Yazı pozisyonu (borunun üstünde)
+            const textX = midX + normalX * offset;
+            const textY = midY + normalY * offset;
+
+            ctx.save();
+            ctx.translate(textX, textY);
+            ctx.rotate(angle);
+
+            // Açıyı düzelt (ters yazmasın)
+            if (Math.abs(angle) > Math.PI / 2) {
+                ctx.rotate(Math.PI);
+            }
+
+            // Font ayarla
+            const actualFontSize = Math.max(minWorldFontSize, fontSize);
+            ctx.font = `400 ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+
+            // Parent-child etiketi oluştur
+            const pipeData = hierarchy.get(pipe.id);
+            if (pipeData) {
+                const parent = pipeData.parent || '';
+                const self = pipeData.label;
+                const children = pipeData.children.length > 0 ? `[${pipeData.children.join(',')}]` : '';
+
+                // Yazı pozisyonları hesapla
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                // Parent kısmını çiz (normal renk)
+                const plumbingDimensionColor = getDimensionPlumbingColor();
+                const parentText = parent + ':';
+                const parentWidth = ctx.measureText(parentText).width;
+
+                // Self kısmını çiz (KIRMIZI)
+                const selfText = self;
+                const selfWidth = ctx.measureText(selfText).width;
+
+                // Children kısmını çiz (normal renk)
+                const childrenText = ':' + children;
+
+                // Toplam genişlik
+                const totalWidth = parentWidth + selfWidth + ctx.measureText(childrenText).width;
+                const startX = -totalWidth / 2;
+
+                // Parent (normal renk)
+                ctx.fillStyle = plumbingDimensionColor;
+                ctx.textAlign = "left";
+                ctx.fillText(parentText, startX, 0);
+
+                // Self (KIRMIZI)
+                ctx.fillStyle = '#ff0000'; // Kırmızı
+                ctx.fillText(selfText, startX + parentWidth, 0);
+
+                // Children (normal renk)
+                ctx.fillStyle = plumbingDimensionColor;
+                ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
+            }
+
+            ctx.restore();
+        });
     }
 
     drawMeasurementInput(ctx, interactionManager) {
