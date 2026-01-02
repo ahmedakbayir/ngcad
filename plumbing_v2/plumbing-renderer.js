@@ -1946,8 +1946,9 @@ export class PlumbingRenderer {
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
 
-                // Parent kısmını çiz (normal renk)
-                const plumbingDimensionColor = getDimensionPlumbingColor();
+                // Dark blue renk (parent ve children için)
+                const darkBlue = '#00008B';
+
                 const parentText = parent + ':';
                 const parentWidth = ctx.measureText(parentText).width;
 
@@ -1955,15 +1956,15 @@ export class PlumbingRenderer {
                 const selfText = self;
                 const selfWidth = ctx.measureText(selfText).width;
 
-                // Children kısmını çiz (normal renk)
+                // Children kısmını çiz (dark blue)
                 const childrenText = ':' + children;
 
                 // Toplam genişlik
                 const totalWidth = parentWidth + selfWidth + ctx.measureText(childrenText).width;
                 const startX = -totalWidth / 2;
 
-                // Parent (normal renk)
-                ctx.fillStyle = plumbingDimensionColor;
+                // Parent (dark blue)
+                ctx.fillStyle = darkBlue;
                 ctx.textAlign = "left";
                 ctx.fillText(parentText, startX, 0);
 
@@ -1971,8 +1972,8 @@ export class PlumbingRenderer {
                 ctx.fillStyle = '#ff0000'; // Kırmızı
                 ctx.fillText(selfText, startX + parentWidth, 0);
 
-                // Children (normal renk)
-                ctx.fillStyle = plumbingDimensionColor;
+                // Children (dark blue)
+                ctx.fillStyle = darkBlue;
                 ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
             }
 

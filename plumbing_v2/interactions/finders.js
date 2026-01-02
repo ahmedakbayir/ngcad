@@ -383,25 +383,43 @@ export function removeObject(manager, obj) {
         // Bağlı boruları bul ve bağlantıyı güncelle
         const deletedPipe = obj;
 
-        // Silme sonrası seçilecek boruyu belirle
-        // p2'ye bağlı boruyu/boruları bul (silinecek borunun devamı)
-        const tolerance = 1;
-        const nextPipes = manager.pipes.filter(p =>
-            p.id !== deletedPipe.id &&
-            Math.hypot(p.p1.x - deletedPipe.p2.x, p.p1.y - deletedPipe.p2.y) < tolerance
-        );
+        // Silme sonrası parent boruyu seç (hierarchy'den)
+        const hierarchy = window._pipeHierarchy;
+        if (hierarchy) {
+            const pipeData = hierarchy.get(deletedPipe.id);
+            if (pipeData && pipeData.parent) {
+                // Parent label'ına sahip boruyu bul
+                const parentPipe = manager.pipes.find(p => {
+                    const data = hierarchy.get(p.id);
+                    return data && data.label === pipeData.parent;
+                });
+                if (parentPipe) {
+                    pipeToSelect = parentPipe;
+                }
+            }
+        }
 
-        // Eğer tek bir sonraki boru varsa onu seç
-        if (nextPipes.length === 1) {
-            pipeToSelect = nextPipes[0];
-        } else {
-            // Sonraki boru yoksa veya birden fazla varsa, önceki boruyu seç
-            const prevPipe = manager.pipes.find(p =>
+        // Eğer parent bulunamadıysa, eski mantığı kullan
+        if (!pipeToSelect) {
+            // p2'ye bağlı boruyu/boruları bul (silinecek borunun devamı)
+            const tolerance = 1;
+            const nextPipes = manager.pipes.filter(p =>
                 p.id !== deletedPipe.id &&
-                Math.hypot(p.p2.x - deletedPipe.p1.x, p.p2.y - deletedPipe.p1.y) < tolerance
+                Math.hypot(p.p1.x - deletedPipe.p2.x, p.p1.y - deletedPipe.p2.y) < tolerance
             );
-            if (prevPipe) {
-                pipeToSelect = prevPipe;
+
+            // Eğer tek bir sonraki boru varsa onu seç
+            if (nextPipes.length === 1) {
+                pipeToSelect = nextPipes[0];
+            } else {
+                // Sonraki boru yoksa veya birden fazla varsa, önceki boruyu seç
+                const prevPipe = manager.pipes.find(p =>
+                    p.id !== deletedPipe.id &&
+                    Math.hypot(p.p2.x - deletedPipe.p1.x, p.p2.y - deletedPipe.p1.y) < tolerance
+                );
+                if (prevPipe) {
+                    pipeToSelect = prevPipe;
+                }
             }
         }
 

@@ -392,18 +392,45 @@ function drawPipeLabels(ctx, pipeHierarchy) {
         const parent = pipeData.parent || '';
         const self = pipeData.label;
         const children = pipeData.children.length > 0 ? pipeData.children.join(',') : '';
-        const labelText = `${parent}:${self}:${children}`;
 
         // Boru ortasını izometrik koordinatlara dönüştür
         const midX = (pipe.p1.x + pipe.p2.x) / 2;
         const midY = (pipe.p1.y + pipe.p2.y) / 2;
         const mid = toIsometric(midX, midY, 0);
 
-        // Etiket rengini ayarla
-        ctx.fillStyle = isLightMode ? '#333' : '#fff';
+        // Renkleri ayarla
+        const darkBlue = '#00008B';
+        const red = '#ff0000';
 
-        // Etiketi çiz
-        ctx.fillText(labelText, mid.isoX, mid.isoY - 15);
+        // Parent:Self:Children formatında ayrı ayrı çiz
+        const parentText = parent + ':';
+        const selfText = self;
+        const childrenText = ':' + children;
+
+        // Metin genişliklerini hesapla
+        const parentWidth = ctx.measureText(parentText).width;
+        const selfWidth = ctx.measureText(selfText).width;
+        const childrenWidth = ctx.measureText(childrenText).width;
+        const totalWidth = parentWidth + selfWidth + childrenWidth;
+
+        // Başlangıç pozisyonu (ortalanmış)
+        let currentX = mid.isoX - totalWidth / 2;
+        const y = mid.isoY - 15;
+
+        // Parent (dark blue)
+        ctx.fillStyle = darkBlue;
+        ctx.textAlign = 'left';
+        ctx.fillText(parentText, currentX, y);
+        currentX += parentWidth;
+
+        // Self (kırmızı)
+        ctx.fillStyle = red;
+        ctx.fillText(selfText, currentX, y);
+        currentX += selfWidth;
+
+        // Children (dark blue)
+        ctx.fillStyle = darkBlue;
+        ctx.fillText(childrenText, currentX, y);
     });
 }
 
