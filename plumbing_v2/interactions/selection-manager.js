@@ -7,6 +7,55 @@ import { setState } from '../../../general-files/main.js';
 import { saveState } from '../../../general-files/history.js';
 
 /**
+ * Seçilen borunun kaynaktan o boruya kadar olan yolunu bulur
+ * @param {Object} pipe - Seçilen boru
+ * @param {Object} manager - PlumbingManager instance
+ * @returns {Array} Yol (label dizisi) örn: ['A', 'B', 'D']
+ */
+function getPipePath(pipe, manager) {
+    if (!pipe || !manager || !manager.pipes || !manager.components) {
+        return [];
+    }
+
+    // Hierarchy'yi al (window'da cache'lenmiş olabilir)
+    let hierarchy = window._pipeHierarchy;
+
+    // Yoksa yeniden oluştur
+    if (!hierarchy) {
+        // buildPipeHierarchy'yi çağırmak için basit bir implementasyon
+        // (Bu fonksiyon plumbing-renderer.js'te var, ama import etmek yerine burada da yazabiliriz)
+        hierarchy = new Map();
+    }
+
+    // Seçilen borunun data'sını al
+    const pipeData = hierarchy.get(pipe.id);
+    if (!pipeData) {
+        return [];
+    }
+
+    // Parent zincirini takip et
+    const path = [pipeData.label];
+    let currentLabel = pipeData.parent;
+
+    while (currentLabel) {
+        path.unshift(currentLabel); // Başa ekle
+
+        // Bu label'a sahip pipe'ı bul
+        const parentPipe = manager.pipes.find(p => {
+            const data = hierarchy.get(p.id);
+            return data && data.label === currentLabel;
+        });
+
+        if (!parentPipe) break;
+
+        const parentData = hierarchy.get(parentPipe.id);
+        currentLabel = parentData ? parentData.parent : null;
+    }
+
+    return path;
+}
+
+/**
  * Belirtilen nesneyi seç
  * @param {Object} interactionManager - InteractionManager instance
  * @param {Object} obj - Seçilecek nesne
@@ -36,6 +85,15 @@ export function selectObject(interactionManager, obj) {
     }
     interactionManager.selectedObject = obj;
     obj.isSelected = true;
+
+    // Eğer seçilen nesne boru ise, yolunu hesapla ve sakla
+    if (obj.type === 'boru') {
+        const path = getPipePath(obj, interactionManager.manager);
+        window._selectedPipePath = path;
+    } else {
+        // Boru değilse yolu temizle
+        window._selectedPipePath = null;
+    }
 
     // Eğer seçilen nesne cihaz ise, bağlı bacayı da seç
     if (obj.type === 'cihaz') {
@@ -85,6 +143,9 @@ export function selectValve(interactionManager, pipe, vana) {
             interactionManager.selectedValve.vana.isSelected = false;
         }
     }
+
+    // Yolu temizle (vana seçildiğinde)
+    window._selectedPipePath = null;
 
     interactionManager.selectedValve = { pipe, vana };
     if (vana) vana.isSelected = true;
@@ -136,6 +197,9 @@ export function deselectObject(interactionManager) {
         }
         interactionManager.selectedValve = null;
     }
+
+    // Yolu temizle
+    window._selectedPipePath = null;
 
     // state.selectedObject'i de temizle
     setState({ selectedObject: null });
