@@ -246,6 +246,10 @@ export class PlumbingRenderer {
     render(ctx, manager) {
         if (!manager) return;
 
+        // Hierarchy'yi hesapla ve cache'le (selection-manager için)
+        const hierarchy = buildPipeHierarchy(manager.pipes, manager.components);
+        window._pipeHierarchy = hierarchy;
+
         // Vanaların pozisyonlarını güncelle (boru uzunluğu değiştiğinde)
         manager.updateAllValvePositions();
 
@@ -404,6 +408,11 @@ export class PlumbingRenderer {
         // Vana preview (vana tool aktif, hover)
         if (manager.interactionManager?.vanaPreview) {
             this.drawVanaPreview(ctx, manager.interactionManager.vanaPreview);
+        }
+
+        // Seçili borunun yolunu sağ üstte göster
+        if (window._selectedPipePath && window._selectedPipePath.length > 0) {
+            this.drawSelectedPipePath(ctx);
         }
     }
 
@@ -2552,6 +2561,40 @@ export class PlumbingRenderer {
         const text = `${distance.toFixed(0)} cm`;
         ctx.strokeText(text, midX, midY - 10);
         ctx.fillText(text, midX, midY - 10);
+
+        ctx.restore();
+    }
+
+    /**
+     * Seçili borunun yolunu sağ üstte gösterir
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     */
+    drawSelectedPipePath(ctx) {
+        const path = window._selectedPipePath;
+        if (!path || path.length === 0) return;
+
+        // Yol metnini oluştur: "A , B , D"
+        const pathText = path.join(' , ');
+
+        ctx.save();
+
+        // Canvas koordinatlarına dönüş (zoom/pan'den bağımsız)
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        // Sağ üst köşe pozisyonu
+        const canvas = ctx.canvas;
+        const padding = 20;
+        const x = canvas.width - padding;
+        const y = padding;
+
+        // Font ayarları
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+
+        // Kırmızı renk
+        ctx.fillStyle = '#ff0000';
+        ctx.fillText(pathText, x, y);
 
         ctx.restore();
     }
