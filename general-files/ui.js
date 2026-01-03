@@ -528,13 +528,39 @@ export function setupIsometricControls() {
             const visited = new Set();
             const threshold = 15; // Yakınlık eşiği (pixel)
 
-            // Helper: Bir endpoint'i hareket ettir
+            // Helper: Bir endpoint'i hareket ettir (MİNİMUM UZUNLUK KONTROLÜ ile)
             const moveEndpoint = (targetPipe, endpoint, moveOffsetX, moveOffsetY) => {
                 if (!newOffsets[targetPipe.id]) newOffsets[targetPipe.id] = {};
                 const prevOffset = newOffsets[targetPipe.id];
 
-                newOffsets[targetPipe.id][endpoint + 'Dx'] = (prevOffset[endpoint + 'Dx'] || 0) + moveOffsetX;
-                newOffsets[targetPipe.id][endpoint + 'Dy'] = (prevOffset[endpoint + 'Dy'] || 0) + moveOffsetY;
+                // Yeni offset'leri geçici olarak hesapla
+                const testOffsets = { ...prevOffset };
+                testOffsets[endpoint + 'Dx'] = (prevOffset[endpoint + 'Dx'] || 0) + moveOffsetX;
+                testOffsets[endpoint + 'Dy'] = (prevOffset[endpoint + 'Dy'] || 0) + moveOffsetY;
+
+                // Pipe'ın yeni uzunluğunu hesapla
+                const startPos = toIso(targetPipe.p1.x, targetPipe.p1.y, 0);
+                const endPos = toIso(targetPipe.p2.x, targetPipe.p2.y, 0);
+                startPos.isoX += (testOffsets.startDx || 0);
+                startPos.isoY += (testOffsets.startDy || 0);
+                endPos.isoX += (testOffsets.endDx || 0);
+                endPos.isoY += (testOffsets.endDy || 0);
+
+                const newLength = Math.hypot(endPos.isoX - startPos.isoX, endPos.isoY - startPos.isoY);
+
+                // Orijinal uzunluğu hesapla
+                const origStart = toIso(targetPipe.p1.x, targetPipe.p1.y, 0);
+                const origEnd = toIso(targetPipe.p2.x, targetPipe.p2.y, 0);
+                const origLength = Math.hypot(origEnd.isoX - origStart.isoX, origEnd.isoY - origStart.isoY);
+
+                // Minimum uzunluk kontrolü: %10'un altına düşmesin
+                const minLength = origLength * 0.1;
+                if (newLength >= minLength) {
+                    // Uzunluk OK, hareketi uygula
+                    newOffsets[targetPipe.id][endpoint + 'Dx'] = testOffsets[endpoint + 'Dx'];
+                    newOffsets[targetPipe.id][endpoint + 'Dy'] = testOffsets[endpoint + 'Dy'];
+                }
+                // Eğer minimum'un altına düşecekse hareketi UYGULAMA (pipe kısalmaz)
             };
 
             // Helper: Bir pipe'ı tamamen translate et (her iki uç)
@@ -594,8 +620,8 @@ export function setupIsometricControls() {
                 const parentStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, 0);
                 const parentEnd = toIso(constraintPipe.p2.x, constraintPipe.p2.y, 0);
 
-                // Parent'ın önceki offset'lerini ekle
-                const prevParentOffset = state.isoPipeOffsets[constraintPipe.id] || {};
+                // Parent'ın GÜNCELLENMİŞ offset'lerini ekle (newOffsets'ten oku!)
+                const prevParentOffset = newOffsets[constraintPipe.id] || state.isoPipeOffsets[constraintPipe.id] || {};
                 parentStart.isoX += (prevParentOffset.startDx || 0);
                 parentStart.isoY += (prevParentOffset.startDy || 0);
                 parentEnd.isoX += (prevParentOffset.endDx || 0);
