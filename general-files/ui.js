@@ -441,12 +441,64 @@ export function setupIsometricControls() {
 
             const pipe = state.isoDraggedPipe;
 
-            // Mouse hareketini zoom'a göre ayarla (SERBEST HAREKET - projeksiyon YOK!)
-            const offsetX = dx / state.isoZoom;
-            const offsetY = dy / state.isoZoom;
-
             // toIsometric fonksiyonunu al
             const toIso = window._toIsometric || ((x, y) => ({ isoX: x, isoY: y }));
+
+            // Mouse hareketini zoom'a göre ayarla
+            const mouseDx = dx / state.isoZoom;
+            const mouseDy = dy / state.isoZoom;
+
+            // KISITLAMA: Parent pipe'ın doğrultusunda hareket etmeli
+            const hierarchy = window._isoPipeHierarchy;
+            const pipeData = hierarchy ? hierarchy.get(pipe.id) : null;
+            let constraintPipe = pipe; // Varsayılan: kendi doğrultusunda
+
+            // Eğer bu pipe'ın parent'ı varsa ve sürüklenen endpoint parent'a bağlıysa
+            if (pipeData && pipeData.parent && plumbingManager) {
+                const parentPipe = plumbingManager.pipes.find(p => {
+                    const pData = hierarchy.get(p.id);
+                    return pData && pData.label === pipeData.parent;
+                });
+
+                if (parentPipe) {
+                    // Sürüklenen endpoint'in pozisyonu
+                    const draggedIsStart = state.isoDraggedEndpoint === 'start';
+                    const draggedPos = toIso(
+                        draggedIsStart ? pipe.p1.x : pipe.p2.x,
+                        draggedIsStart ? pipe.p1.y : pipe.p2.y,
+                        0
+                    );
+
+                    // Parent'ın endpoint'lerine yakınlık kontrolü
+                    const parentStart = toIso(parentPipe.p1.x, parentPipe.p1.y, 0);
+                    const parentEnd = toIso(parentPipe.p2.x, parentPipe.p2.y, 0);
+                    const distToParentStart = Math.hypot(draggedPos.isoX - parentStart.isoX, draggedPos.isoY - parentStart.isoY);
+                    const distToParentEnd = Math.hypot(draggedPos.isoX - parentEnd.isoX, draggedPos.isoY - parentEnd.isoY);
+
+                    // Eğer parent'a bağlıysa, parent'ın doğrultusunu kullan
+                    if (distToParentStart < 20 || distToParentEnd < 20) {
+                        constraintPipe = parentPipe;
+                    }
+                }
+            }
+
+            // Constraint pipe'ın doğrultusunu hesapla
+            const constraintStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, 0);
+            const constraintEnd = toIso(constraintPipe.p2.x, constraintPipe.p2.y, 0);
+            const dirX = constraintEnd.isoX - constraintStart.isoX;
+            const dirY = constraintEnd.isoY - constraintStart.isoY;
+            const length = Math.sqrt(dirX * dirX + dirY * dirY);
+
+            if (length < 0.001) return; // Çok kısa pipe, skip
+
+            // Normalize edilmiş yön vektörü
+            const normDirX = dirX / length;
+            const normDirY = dirY / length;
+
+            // Mouse hareketini constraint pipe'ın doğrultusuna PROJECT ET
+            const projection = mouseDx * normDirX + mouseDy * normDirY;
+            const offsetX = projection * normDirX;
+            const offsetY = projection * normDirY;
 
             // Yeni offset state'i oluştur
             const newOffsets = { ...state.isoPipeOffsets };
@@ -493,68 +545,79 @@ export function setupIsometricControls() {
                 });
             };
 
-            // Ana mantık: Sürüklenen endpoint'i hareket ettir
+            // Ana mantık: Parent'a bağlı mı child'a bağlı mı kontrol et
             if (!newOffsets[pipe.id]) newOffsets[pipe.id] = {};
             const prevOffset = newOffsets[pipe.id];
 
-            // Sürüklenen endpoint'i hareket ettir
-            if (state.isoDraggedEndpoint === 'start') {
+            // Sürüklenen endpoint parent'a bağlı mı yoksa child'a bağlı mı?
+            const isDraggedStart = state.isoDraggedEndpoint === 'start';
+            const isParentConnectedEndpoint = (constraintPipe !== pipe); // Parent doğrultusunda hareket ediyorsa, parent'a bağlı demektir
+
+            if (isParentConnectedEndpoint) {
+                // PARENT'A BAĞLI UÇ: Sadece bu ucu hareket ettir, pipe uzar/kısalır
+                if (state.isoDraggedEndpoint === 'start') {
+                    newOffsets[pipe.id].startDx = (prevOffset.startDx || 0) + offsetX;
+                    newOffsets[pipe.id].startDy = (prevOffset.startDy || 0) + offsetY;
+                } else {
+                    newOffsets[pipe.id].endDx = (prevOffset.endDx || 0) + offsetX;
+                    newOffsets[pipe.id].endDy = (prevOffset.endDy || 0) + offsetY;
+                }
+                // Child'lar hareket etmez (diğer uç sabit)
+            } else {
+                // CHILD'A BAĞLI UÇ veya SERBEST: Tüm pipe'ı translate et
                 newOffsets[pipe.id].startDx = (prevOffset.startDx || 0) + offsetX;
                 newOffsets[pipe.id].startDy = (prevOffset.startDy || 0) + offsetY;
-            } else {
                 newOffsets[pipe.id].endDx = (prevOffset.endDx || 0) + offsetX;
                 newOffsets[pipe.id].endDy = (prevOffset.endDy || 0) + offsetY;
-            }
 
-            // Sürüklenen endpoint'in güncel pozisyonunu hesapla
-            const isDraggedStart = state.isoDraggedEndpoint === 'start';
-            const draggedEndpointPos = toIso(
-                isDraggedStart ? pipe.p1.x : pipe.p2.x,
-                isDraggedStart ? pipe.p1.y : pipe.p2.y,
-                0
-            );
-            draggedEndpointPos.isoX += newOffsets[pipe.id][state.isoDraggedEndpoint + 'Dx'] || 0;
-            draggedEndpointPos.isoY += newOffsets[pipe.id][state.isoDraggedEndpoint + 'Dy'] || 0;
+                // Sürüklenen endpoint'in güncel pozisyonunu hesapla
+                const draggedEndpointPos = toIso(
+                    isDraggedStart ? pipe.p1.x : pipe.p2.x,
+                    isDraggedStart ? pipe.p1.y : pipe.p2.y,
+                    0
+                );
+                draggedEndpointPos.isoX += newOffsets[pipe.id][state.isoDraggedEndpoint + 'Dx'] || 0;
+                draggedEndpointPos.isoY += newOffsets[pipe.id][state.isoDraggedEndpoint + 'Dy'] || 0;
 
-            // Bu endpoint'e bağlı child pipe'ları bul ve translate et
-            const hierarchy = window._isoPipeHierarchy;
-            if (hierarchy && plumbingManager) {
-                const pipeData = hierarchy.get(pipe.id);
+                // Bu endpoint'e bağlı child pipe'ları bul ve translate et
+                if (hierarchy && plumbingManager) {
+                    const pipeData = hierarchy.get(pipe.id);
 
-                if (pipeData && pipeData.children && pipeData.children.length > 0) {
-                    pipeData.children.forEach(childLabel => {
-                        const childPipe = plumbingManager.pipes.find(p => {
-                            const pData = hierarchy.get(p.id);
-                            return pData && pData.label === childLabel;
+                    if (pipeData && pipeData.children && pipeData.children.length > 0) {
+                        pipeData.children.forEach(childLabel => {
+                            const childPipe = plumbingManager.pipes.find(p => {
+                                const pData = hierarchy.get(p.id);
+                                return pData && pData.label === childLabel;
+                            });
+
+                            if (!childPipe) return;
+
+                            // Child'ın hangi ucu parent'a bağlı?
+                            ['start', 'end'].forEach(childEndpointType => {
+                                const childIsStart = childEndpointType === 'start';
+                                const childPos = toIso(
+                                    childIsStart ? childPipe.p1.x : childPipe.p2.x,
+                                    childIsStart ? childPipe.p1.y : childPipe.p2.y,
+                                    0
+                                );
+
+                                const childOffset = newOffsets[childPipe.id] || {};
+                                childPos.isoX += (childOffset[childEndpointType + 'Dx'] || 0);
+                                childPos.isoY += (childOffset[childEndpointType + 'Dy'] || 0);
+
+                                // Parent'ın sürüklenen ucuna yakın mı?
+                                const dist = Math.sqrt(
+                                    Math.pow(childPos.isoX - draggedEndpointPos.isoX, 2) +
+                                    Math.pow(childPos.isoY - draggedEndpointPos.isoY, 2)
+                                );
+
+                                if (dist < threshold) {
+                                    // Child pipe ve onun tüm child'larını translate et
+                                    movePipeAndChildren(childPipe, offsetX, offsetY);
+                                }
+                            });
                         });
-
-                        if (!childPipe) return;
-
-                        // Child'ın hangi ucu parent'a bağlı?
-                        ['start', 'end'].forEach(childEndpointType => {
-                            const childIsStart = childEndpointType === 'start';
-                            const childPos = toIso(
-                                childIsStart ? childPipe.p1.x : childPipe.p2.x,
-                                childIsStart ? childPipe.p1.y : childPipe.p2.y,
-                                0
-                            );
-
-                            const childOffset = newOffsets[childPipe.id] || {};
-                            childPos.isoX += (childOffset[childEndpointType + 'Dx'] || 0);
-                            childPos.isoY += (childOffset[childEndpointType + 'Dy'] || 0);
-
-                            // Parent'ın sürüklenen ucuna yakın mı?
-                            const dist = Math.sqrt(
-                                Math.pow(childPos.isoX - draggedEndpointPos.isoX, 2) +
-                                Math.pow(childPos.isoY - draggedEndpointPos.isoY, 2)
-                            );
-
-                            if (dist < threshold) {
-                                // Child pipe ve onun tüm child'larını translate et
-                                movePipeAndChildren(childPipe, offsetX, offsetY);
-                            }
-                        });
-                    });
+                    }
                 }
             }
 
