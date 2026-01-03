@@ -1947,9 +1947,10 @@ export class PlumbingRenderer {
                 ctx.textBaseline = "middle";
 
                 // Dark blue renk (parent ve children için)
-                const darkBlue = '#00008B';
+                const darkBlue = '#2b97df';
+                const darkgreen = '#008b0c';
 
-                const parentText = parent + ':';
+                const parentText = parent + ' ';
                 const parentWidth = ctx.measureText(parentText).width;
 
                 // Self kısmını çiz (KIRMIZI)
@@ -1957,7 +1958,7 @@ export class PlumbingRenderer {
                 const selfWidth = ctx.measureText(selfText).width;
 
                 // Children kısmını çiz (dark blue)
-                const childrenText = ':' + children;
+                const childrenText = ' ' + children;
 
                 // Toplam genişlik
                 const totalWidth = parentWidth + selfWidth + ctx.measureText(childrenText).width;
@@ -1973,7 +1974,7 @@ export class PlumbingRenderer {
                 ctx.fillText(selfText, startX + parentWidth, 0);
 
                 // Children (dark blue)
-                ctx.fillStyle = darkBlue;
+                ctx.fillStyle = darkgreen;
                 ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
             }
 
