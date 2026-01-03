@@ -91,8 +91,11 @@ function distance(p1, p2) {
     return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 }
 
+
+// plumbing_v2/plumbing-renderer.js
+
 /**
- * Borular arasında parent-child ilişkisini kurar ve etiketler
+ * Borular arasında parent-child ilişkisini kurar ve etiketler (Mantıksal Bağlantı Bazlı)
  * @param {Array} pipes - Borular listesi
  * @param {Array} components - Bileşenler listesi
  * @returns {Map} pipe.id -> { label, parent, children }
@@ -103,108 +106,109 @@ function buildPipeHierarchy(pipes, components) {
     }
 
     const hierarchy = new Map();
-    const TOLERANCE = 15; // cm cinsinden mesafe toleransı (artırıldı)
+    const childrenMap = new Map(); // Parent ID -> [Child Pipes]
 
-    // Kaynak bileşeni bul (Servis Kutusu veya Sayaç)
-    const sourceComponent = components.find(c =>
-        c.type === 'servis_kutusu' || c.type === 'sayac'
-    );
-
-    let rootPipes = [];
-    let sourcePos = null;
-
-    if (sourceComponent) {
-        // Kaynağa bağlı ilk boruyu/boruları bul
-        sourcePos = { x: sourceComponent.x, y: sourceComponent.y };
-        rootPipes = pipes.filter(pipe =>
-            distance(pipe.p1, sourcePos) < TOLERANCE ||
-            distance(pipe.p2, sourcePos) < TOLERANCE
-        );
-    }
-
-    if (rootPipes.length === 0) {
-        // Kaynak yoksa veya bağlı boru yoksa, en soldaki/üstteki borudan başla
-        const sortedPipes = [...pipes].sort((a, b) => {
-            const aMin = Math.min(a.p1.x, a.p2.x) + Math.min(a.p1.y, a.p2.y);
-            const bMin = Math.min(b.p1.x, b.p2.x) + Math.min(b.p1.y, b.p2.y);
-            return aMin - bMin;
-        });
-        rootPipes = [sortedPipes[0]];
-        // Kaynak olmadığında root pipe'ın p1'ini kaynak olarak kabul et
-        sourcePos = rootPipes[0].p1;
-    }
-
-    // BFS ile tüm boruları etiketle
-    const visited = new Set();
-    const queue = []; // { pipe, exitPoint } - çıkış noktası ile birlikte
-    let labelIndex = 0;
-
-    // Root pipe'ları başlat (kaynaktan çıkan borular parent'sız)
-    rootPipes.forEach(rootPipe => {
-        const label = String.fromCharCode(65 + labelIndex++); // A, B, C...
-        hierarchy.set(rootPipe.id, {
-            label: label,
-            parent: null,
-            children: []
-        });
-
-        // Kaynağa hangi ucu bağlı? Diğer ucu çıkış noktası olarak kullan
-        const p1DistToSource = distance(rootPipe.p1, sourcePos);
-        const p2DistToSource = distance(rootPipe.p2, sourcePos);
-        const exitPoint = p1DistToSource < p2DistToSource ? rootPipe.p2 : rootPipe.p1;
-
-        queue.push({ pipe: rootPipe, exitPoint });
-        visited.add(rootPipe.id);
+    // 1. ADIM: Tüm boruların kime bağlı olduğunu (parent) analiz et
+    // Mesafe ölçümü yerine doğrudan veritabanındaki 'baslangicBaglanti' verisini kullanıyoruz.
+    pipes.forEach(pipe => {
+        if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === 'boru') {
+            const parentId = pipe.baslangicBaglanti.hedefId;
+            if (!childrenMap.has(parentId)) {
+                childrenMap.set(parentId, []);
+            }
+            childrenMap.get(parentId).push(pipe);
+        }
     });
 
-    // BFS ile devam et
+    // 2. ADIM: Kök (Root) boruları bul
+    // Kökler: Servis kutusuna bağlı olanlar, Sayaca bağlı olanlar veya hiçbir şeye bağlı olmayanlar
+    const rootPipes = [];
+    const processedIds = new Set();
+
+    // A) Bileşenlere bağlı olanlar (Explicit connection)
+    components.forEach(comp => {
+        if (comp.type === 'servis_kutusu' && comp.bagliBoruId) {
+            const pipe = pipes.find(p => p.id === comp.bagliBoruId);
+            if (pipe && !processedIds.has(pipe.id)) {
+                rootPipes.push(pipe);
+                processedIds.add(pipe.id);
+            }
+        }
+        else if (comp.type === 'sayac' && comp.cikisBagliBoruId) {
+            const pipe = pipes.find(p => p.id === comp.cikisBagliBoruId);
+            if (pipe && !processedIds.has(pipe.id)) {
+                rootPipes.push(pipe);
+                processedIds.add(pipe.id);
+            }
+        }
+    });
+
+    // B) Parent'ı olmayan diğer borular (Kopuk veya başlangıç boruları)
+    pipes.forEach(pipe => {
+        if (processedIds.has(pipe.id)) return;
+
+        // Eğer bir boru tipi parent'ı yoksa (childrenMap'e girmediyse) köktür
+        const isChildOfPipe = pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === 'boru';
+        
+        if (!isChildOfPipe) {
+            rootPipes.push(pipe);
+        }
+    });
+
+    // Görsel kararlılık için kökleri sırala (Sol-Üst'ten Sağ-Alt'a)
+    // Bu sayede sayfa yenilendiğinde A, B harfleri yer değiştirmez.
+    rootPipes.sort((a, b) => (a.p1.x + a.p1.y) - (b.p1.x + b.p1.y));
+
+    // 3. ADIM: Hiyerarşiyi oluştur (BFS Algoritması)
+    const queue = [];
+    let labelIndex = 0;
+
+    // Rootları kuyruğa ekle ve etiketle (A, B, C...)
+    rootPipes.forEach(p => {
+        const label = String.fromCharCode(65 + labelIndex++); 
+        hierarchy.set(p.id, { label, parent: null, children: [] });
+        queue.push(p);
+    });
+
     while (queue.length > 0) {
-        const { pipe: currentPipe, exitPoint: currentExitPoint } = queue.shift();
-        const currentData = hierarchy.get(currentPipe.id);
+        const parentPipe = queue.shift();
+        const parentData = hierarchy.get(parentPipe.id);
+        
+        // Bu borunun çocuklarını al
+        const children = childrenMap.get(parentPipe.id) || [];
 
-        // Sadece çıkış noktasından bağlı boruları bul
-        pipes.forEach(otherPipe => {
-            if (visited.has(otherPipe.id)) return;
+        // Çocukları geometrik olarak sırala (Akış yönünde düzenli harf dağılımı için)
+        // Parent'ın p1 noktasına olan mesafeye göre sıralıyoruz
+        children.sort((a, b) => {
+            const distA = Math.hypot(a.p1.x - parentPipe.p1.x, a.p1.y - parentPipe.p1.y);
+            const distB = Math.hypot(b.p1.x - parentPipe.p1.x, b.p1.y - parentPipe.p1.y);
+            return distA - distB;
+        });
 
-            // otherPipe'ın hangi ucu currentExitPoint'e bağlı?
-            const p1Connected = distance(currentExitPoint, otherPipe.p1) < TOLERANCE;
-            const p2Connected = distance(currentExitPoint, otherPipe.p2) < TOLERANCE;
-
-            if (p1Connected || p2Connected) {
-                // Yeni etiket ata
-                const newLabel = String.fromCharCode(65 + labelIndex++);
-                hierarchy.set(otherPipe.id, {
-                    label: newLabel,
-                    parent: currentData.label,
+        children.forEach(child => {
+            if (!hierarchy.has(child.id)) { // Döngüsel bağımlılığı önle
+                const childLabel = String.fromCharCode(65 + labelIndex++);
+                
+                hierarchy.set(child.id, {
+                    label: childLabel,
+                    parent: parentData.label,
                     children: []
                 });
 
-                // Parent'ın children listesine ekle
-                currentData.children.push(newLabel);
+                // Parent'ın çocuk listesine etiketi ekle
+                if (parentData) {
+                    parentData.children.push(childLabel);
+                }
 
-                // otherPipe'ın çıkış noktası = bağlantı noktasının karşısı
-                const newExitPoint = p1Connected ? otherPipe.p2 : otherPipe.p1;
-
-                visited.add(otherPipe.id);
-                queue.push({ pipe: otherPipe, exitPoint: newExitPoint });
+                queue.push(child);
             }
         });
     }
 
-    // Ziyaret edilmemiş boruları da etiketle (bağlantısız borular)
-    pipes.forEach(pipe => {
-        if (!visited.has(pipe.id)) {
-            const label = String.fromCharCode(65 + labelIndex++);
-            hierarchy.set(pipe.id, {
-                label: label,
-                parent: null,
-                children: []
-            });
-        }
-    });
-
     return hierarchy;
 }
+
+
 
 export class PlumbingRenderer {
     constructor() {
@@ -1957,7 +1961,7 @@ export class PlumbingRenderer {
                 const darkBlue = '#2b97df';
                 const darkgreen = '#008b0c';
 
-                const parentText = parent + ' ';
+                const parentText = parent + '';
                 const parentWidth = ctx.measureText(parentText).width;
 
                 // Self kısmını çiz (KIRMIZI)
@@ -1965,7 +1969,7 @@ export class PlumbingRenderer {
                 const selfWidth = ctx.measureText(selfText).width;
 
                 // Children kısmını çiz (dark blue)
-                const childrenText = ' ' + children;
+                const childrenText = '' + children;
 
                 // Toplam genişlik
                 const totalWidth = parentWidth + selfWidth + ctx.measureText(childrenText).width;

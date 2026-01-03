@@ -239,8 +239,20 @@ export function deleteSelectedObject(interactionManager) {
     // Servis kutusuna bağlı ilk boru silinemesin
     if (obj.type === 'boru') {
         const pipe = obj;
-        // Başlangıcı servis kutusuna bağlı mı kontrol et
-        /* if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) { alert('⚠️ Servis kutusuna bağlı ilk boru silinemez!\n\nÖnce servis kutusunu silin veya başka bir boru ekleyin.'); return; } */
+
+        // --- YENİ KURAL: En az 2 çocuğu varsa silinemesin ---
+        const hierarchy = window._pipeHierarchy;
+        if (hierarchy) {
+            const pipeData = hierarchy.get(pipe.id);
+            // Eğer hiyerarşi verisi varsa ve çocuk sayısı 2 veya daha fazlaysa
+            if (pipeData && pipeData.children && pipeData.children.length >= 2) {
+                //alert('⚠️ Bu borunun 2 veya daha fazla alt hattı var (T-bağlantı veya dağıtıcı), silinemez!\n\nLütfen önce bağlı alt hatları siliniz.');
+                return; // Silme işlemini iptal et
+            }
+        }
+
+         //Başlangıcı servis kutusuna bağlı mı kontrol et
+        // if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) { alert('⚠️ Servis kutusuna bağlı ilk boru silinemez!\n\nÖnce servis kutusunu silin veya başka bir boru ekleyin.'); return; } 
 
     }
 

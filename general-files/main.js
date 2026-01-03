@@ -382,7 +382,7 @@ export let state = {
     isSnapLocked: false,
     lockedSnapPoint: null,
     gridOptions: {
-        visible: true,
+        visible: false,
         spacing: 1,
         color: THEME_COLORS.dark.grid, // Getter ile değiştirilecek
         weight: 0.5,
