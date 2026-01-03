@@ -440,184 +440,123 @@ export function setupIsometricControls() {
             const dy = e.clientY - state.isoPanStart.y;
 
             const pipe = state.isoDraggedPipe;
-            const pipeId = pipe.id;
 
-            // Borunun yön vektörünü hesapla (izometrik koordinatlarda)
-            // toIsometric fonksiyonunu kullan (window._toIsometric global olarak saklanıyor)
+            // Mouse hareketini zoom'a göre ayarla (SERBEST HAREKET - projeksiyon YOK!)
+            const offsetX = dx / state.isoZoom;
+            const offsetY = dy / state.isoZoom;
+
+            // toIsometric fonksiyonunu al
             const toIso = window._toIsometric || ((x, y) => ({ isoX: x, isoY: y }));
-            const start = toIso(pipe.p1.x, pipe.p1.y, 0);
-            const end = toIso(pipe.p2.x, pipe.p2.y, 0);
 
-            // Boru yön vektörü
-            const dirX = end.isoX - start.isoX;
-            const dirY = end.isoY - start.isoY;
-            const length = Math.sqrt(dirX * dirX + dirY * dirY);
-
-            if (length < 0.001) return; // Çok kısa boru, skip
-
-            // Normalize edilmiş yön vektörü
-            const normDirX = dirX / length;
-            const normDirY = dirY / length;
-
-            // Mouse hareketini zoom'a göre ayarla
-            const mouseDx = dx / state.isoZoom;
-            const mouseDy = dy / state.isoZoom;
-
-            // Mouse hareketini boru doğrultusuna project et
-            const projection = mouseDx * normDirX + mouseDy * normDirY;
-
-            // Projeksiyon miktarı kadar hareket ettir
-            const offsetX = projection * normDirX;
-            const offsetY = projection * normDirY;
-
-            // Recursive olarak bağlı tüm endpoint'leri hareket ettir
+            // Yeni offset state'i oluştur
             const newOffsets = { ...state.isoPipeOffsets };
             const visited = new Set();
-            const threshold = 2; // Yakınlık eşiği (pixel)
+            const threshold = 15; // Yakınlık eşiği (pixel)
 
-            // Recursive fonksiyon: Bir endpoint'i ve ona bağlı tüm child'ları hareket ettir
-            const moveEndpointAndConnected = (movePipe, moveEndpoint, moveOffsetX, moveOffsetY) => {
-                const key = movePipe.id + '_' + moveEndpoint;
-                if (visited.has(key)) return; // Zaten ziyaret edildi, sonsuz döngü önle
-                visited.add(key);
+            // Helper: Bir pipe'ın tüm endpoint'lerini hareket ettir (translate)
+            const translatePipe = (targetPipe, moveOffsetX, moveOffsetY) => {
+                if (!newOffsets[targetPipe.id]) newOffsets[targetPipe.id] = {};
+                const prevOffset = newOffsets[targetPipe.id];
 
-                // Bu endpoint'i hareket ettir
-                if (!newOffsets[movePipe.id]) newOffsets[movePipe.id] = {};
-                const prevOffset = newOffsets[movePipe.id];
-                newOffsets[movePipe.id][moveEndpoint + 'Dx'] = (prevOffset[moveEndpoint + 'Dx'] || 0) + moveOffsetX;
-                newOffsets[movePipe.id][moveEndpoint + 'Dy'] = (prevOffset[moveEndpoint + 'Dy'] || 0) + moveOffsetY;
-
-                // Bu endpoint'in şu anki pozisyonunu hesapla
-                const isStart = moveEndpoint === 'start';
-                const endpointPos = toIso(
-                    isStart ? movePipe.p1.x : movePipe.p2.x,
-                    isStart ? movePipe.p1.y : movePipe.p2.y,
-                    0
-                );
-                endpointPos.isoX += newOffsets[movePipe.id][moveEndpoint + 'Dx'] || 0;
-                endpointPos.isoY += newOffsets[movePipe.id][moveEndpoint + 'Dy'] || 0;
-
-                // Parent-child ilişkisini kullan
-                const hierarchy = window._isoPipeHierarchy;
-                const movePipeData = hierarchy ? hierarchy.get(movePipe.id) : null;
-
-                if (movePipeData && plumbingManager && plumbingManager.pipes) {
-                    // Önce: Bu endpoint parent'a bağlı mı kontrol et (parent'dan kopmasını önle)
-                    if (movePipeData.parent) {
-                        // Parent pipe'ı bul
-                        const parentPipe = plumbingManager.pipes.find(p => {
-                            const pData = hierarchy.get(p.id);
-                            return pData && pData.label === movePipeData.parent;
-                        });
-
-                        if (parentPipe) {
-                            // Parent'ın hangi ucunun bu endpoint'e bağlı olduğunu bul
-                            ['start', 'end'].forEach(parentEndpointType => {
-                                const parentKey = parentPipe.id + '_' + parentEndpointType;
-                                if (visited.has(parentKey)) return; // Parent zaten hareket ettirildi
-
-                                const parentIsStart = parentEndpointType === 'start';
-                                const parentPos = toIso(
-                                    parentIsStart ? parentPipe.p1.x : parentPipe.p2.x,
-                                    parentIsStart ? parentPipe.p1.y : parentPipe.p2.y,
-                                    0
-                                );
-
-                                const parentOffset = newOffsets[parentPipe.id] || {};
-                                parentPos.isoX += (parentOffset[parentEndpointType + 'Dx'] || 0);
-                                parentPos.isoY += (parentOffset[parentEndpointType + 'Dy'] || 0);
-
-                                // Taşınan endpoint'e yakın mı?
-                                const dist = Math.sqrt(
-                                    Math.pow(parentPos.isoX - endpointPos.isoX, 2) +
-                                    Math.pow(parentPos.isoY - endpointPos.isoY, 2)
-                                );
-
-                                if (dist < threshold) {
-                                    // Parent'ın bu endpoint'ini de hareket ettir (böylece bağlantı kopmaz)
-                                    moveEndpointAndConnected(parentPipe, parentEndpointType, moveOffsetX, moveOffsetY);
-                                }
-                            });
-                        }
-                    }
-
-                    // Sonra: Bu pipe'ın child'larını bul ve taşı
-                    if (movePipeData.children && movePipeData.children.length > 0) {
-                        movePipeData.children.forEach(childLabel => {
-                            // Child pipe'ı bul
-                            const childPipe = plumbingManager.pipes.find(p => {
-                                const pData = hierarchy.get(p.id);
-                                return pData && pData.label === childLabel;
-                            });
-
-                            if (!childPipe) return;
-
-                            // Child'ın hangi ucunun parent'a (taşınan endpoint'e) bağlı olduğunu bul
-                            ['start', 'end'].forEach(childEndpointType => {
-                                const childIsStart = childEndpointType === 'start';
-                                const childPos = toIso(
-                                    childIsStart ? childPipe.p1.x : childPipe.p2.x,
-                                    childIsStart ? childPipe.p1.y : childPipe.p2.y,
-                                    0
-                                );
-
-                                // Mevcut offset'i uygula
-                                const childOffset = newOffsets[childPipe.id] || {};
-                                childPos.isoX += (childOffset[childEndpointType + 'Dx'] || 0);
-                                childPos.isoY += (childOffset[childEndpointType + 'Dy'] || 0);
-
-                                // Parent'ın taşınan ucuna yakın mı kontrol et
-                                const dist = Math.sqrt(
-                                    Math.pow(childPos.isoX - endpointPos.isoX, 2) +
-                                    Math.pow(childPos.isoY - endpointPos.isoY, 2)
-                                );
-
-                                if (dist < threshold) {
-                                    // Child'ın bağlı ucunu taşı
-                                    moveEndpointAndConnected(childPipe, childEndpointType, moveOffsetX, moveOffsetY);
-
-                                    // Child'ın karşı ucunu da taşı (tüm child pipe hareket etmeli)
-                                    const oppositeEndpoint = childEndpointType === 'start' ? 'end' : 'start';
-                                    moveEndpointAndConnected(childPipe, oppositeEndpoint, moveOffsetX, moveOffsetY);
-                                }
-                            });
-                        });
-                    }
-                } else {
-                    // Hierarchy yoksa, eski davranış: yakınlık esasına göre hareket ettir
-                    if (plumbingManager && plumbingManager.pipes) {
-                        plumbingManager.pipes.forEach(otherPipe => {
-                            ['start', 'end'].forEach(otherEndpointType => {
-                                const otherKey = otherPipe.id + '_' + otherEndpointType;
-                                if (visited.has(otherKey)) return;
-
-                                const otherIsStart = otherEndpointType === 'start';
-                                const otherPos = toIso(
-                                    otherIsStart ? otherPipe.p1.x : otherPipe.p2.x,
-                                    otherIsStart ? otherPipe.p1.y : otherPipe.p2.y,
-                                    0
-                                );
-
-                                const otherOffset = newOffsets[otherPipe.id] || {};
-                                otherPos.isoX += (otherOffset[otherEndpointType + 'Dx'] || 0);
-                                otherPos.isoY += (otherOffset[otherEndpointType + 'Dy'] || 0);
-
-                                const dist = Math.sqrt(
-                                    Math.pow(otherPos.isoX - endpointPos.isoX, 2) +
-                                    Math.pow(otherPos.isoY - endpointPos.isoY, 2)
-                                );
-
-                                if (dist < threshold) {
-                                    moveEndpointAndConnected(otherPipe, otherEndpointType, moveOffsetX, moveOffsetY);
-                                }
-                            });
-                        });
-                    }
-                }
+                // Her iki ucu da hareket ettir
+                newOffsets[targetPipe.id].startDx = (prevOffset.startDx || 0) + moveOffsetX;
+                newOffsets[targetPipe.id].startDy = (prevOffset.startDy || 0) + moveOffsetY;
+                newOffsets[targetPipe.id].endDx = (prevOffset.endDx || 0) + moveOffsetX;
+                newOffsets[targetPipe.id].endDy = (prevOffset.endDy || 0) + moveOffsetY;
             };
 
-            // İlk endpoint'i hareket ettir (ve bağlı tüm ağı)
-            moveEndpointAndConnected(pipe, state.isoDraggedEndpoint, offsetX, offsetY);
+            // Recursive: Bir pipe ve tüm child'larını translate et
+            const movePipeAndChildren = (targetPipe, moveOffsetX, moveOffsetY) => {
+                if (visited.has(targetPipe.id)) return;
+                visited.add(targetPipe.id);
+
+                // Bu pipe'ı translate et
+                translatePipe(targetPipe, moveOffsetX, moveOffsetY);
+
+                // Hierarchy'den bu pipe'ın child'larını al
+                const hierarchy = window._isoPipeHierarchy;
+                if (!hierarchy || !plumbingManager) return;
+
+                const pipeData = hierarchy.get(targetPipe.id);
+                if (!pipeData || !pipeData.children || pipeData.children.length === 0) return;
+
+                // Her child için recursive olarak hareket ettir
+                pipeData.children.forEach(childLabel => {
+                    const childPipe = plumbingManager.pipes.find(p => {
+                        const pData = hierarchy.get(p.id);
+                        return pData && pData.label === childLabel;
+                    });
+
+                    if (childPipe) {
+                        movePipeAndChildren(childPipe, moveOffsetX, moveOffsetY);
+                    }
+                });
+            };
+
+            // Ana mantık: Sürüklenen endpoint'i hareket ettir
+            if (!newOffsets[pipe.id]) newOffsets[pipe.id] = {};
+            const prevOffset = newOffsets[pipe.id];
+
+            // Sürüklenen endpoint'i hareket ettir
+            if (state.isoDraggedEndpoint === 'start') {
+                newOffsets[pipe.id].startDx = (prevOffset.startDx || 0) + offsetX;
+                newOffsets[pipe.id].startDy = (prevOffset.startDy || 0) + offsetY;
+            } else {
+                newOffsets[pipe.id].endDx = (prevOffset.endDx || 0) + offsetX;
+                newOffsets[pipe.id].endDy = (prevOffset.endDy || 0) + offsetY;
+            }
+
+            // Sürüklenen endpoint'in güncel pozisyonunu hesapla
+            const isDraggedStart = state.isoDraggedEndpoint === 'start';
+            const draggedEndpointPos = toIso(
+                isDraggedStart ? pipe.p1.x : pipe.p2.x,
+                isDraggedStart ? pipe.p1.y : pipe.p2.y,
+                0
+            );
+            draggedEndpointPos.isoX += newOffsets[pipe.id][state.isoDraggedEndpoint + 'Dx'] || 0;
+            draggedEndpointPos.isoY += newOffsets[pipe.id][state.isoDraggedEndpoint + 'Dy'] || 0;
+
+            // Bu endpoint'e bağlı child pipe'ları bul ve translate et
+            const hierarchy = window._isoPipeHierarchy;
+            if (hierarchy && plumbingManager) {
+                const pipeData = hierarchy.get(pipe.id);
+
+                if (pipeData && pipeData.children && pipeData.children.length > 0) {
+                    pipeData.children.forEach(childLabel => {
+                        const childPipe = plumbingManager.pipes.find(p => {
+                            const pData = hierarchy.get(p.id);
+                            return pData && pData.label === childLabel;
+                        });
+
+                        if (!childPipe) return;
+
+                        // Child'ın hangi ucu parent'a bağlı?
+                        ['start', 'end'].forEach(childEndpointType => {
+                            const childIsStart = childEndpointType === 'start';
+                            const childPos = toIso(
+                                childIsStart ? childPipe.p1.x : childPipe.p2.x,
+                                childIsStart ? childPipe.p1.y : childPipe.p2.y,
+                                0
+                            );
+
+                            const childOffset = newOffsets[childPipe.id] || {};
+                            childPos.isoX += (childOffset[childEndpointType + 'Dx'] || 0);
+                            childPos.isoY += (childOffset[childEndpointType + 'Dy'] || 0);
+
+                            // Parent'ın sürüklenen ucuna yakın mı?
+                            const dist = Math.sqrt(
+                                Math.pow(childPos.isoX - draggedEndpointPos.isoX, 2) +
+                                Math.pow(childPos.isoY - draggedEndpointPos.isoY, 2)
+                            );
+
+                            if (dist < threshold) {
+                                // Child pipe ve onun tüm child'larını translate et
+                                movePipeAndChildren(childPipe, offsetX, offsetY);
+                            }
+                        });
+                    });
+                }
+            }
 
             setState({
                 isoPipeOffsets: newOffsets,
