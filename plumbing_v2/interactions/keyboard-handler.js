@@ -205,24 +205,28 @@ export function handleKeyDown(e) {
     }
 
     // Ok tuşları - seçili boru navigasyonu
-    if (this.selectedObject && this.selectedObject.type === 'boru') {
+if (this.selectedObject && this.selectedObject.type === 'boru') {
         const tolerance = 1;
         const selectedPipe = this.selectedObject;
 
-        // ArrowRight veya ArrowUp: sonraki boru (p2'ye bağlı boru)
-        if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-            const nextPipe = this.manager.pipes.find(p =>
+        // ArrowRight: İleri (Çocuk boru)
+        if (e.key === 'ArrowRight') {
+            // p2'ye bağlı olan boruları bul
+            const nextPipes = this.manager.pipes.filter(p =>
                 p.id !== selectedPipe.id &&
                 Math.hypot(p.p1.x - selectedPipe.p2.x, p.p1.y - selectedPipe.p2.y) < tolerance
             );
-            if (nextPipe) {
-                this.selectObject(nextPipe);
+            
+            if (nextPipes.length > 0) {
+                // Şimdilik ilk bulunanı seç
+                this.selectObject(nextPipes[0]);
                 return true;
             }
         }
 
-        // ArrowLeft veya ArrowDown: önceki boru (p1'e bağlı boru)
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+        // ArrowLeft: Geri (Ebeveyn boru)
+        if (e.key === 'ArrowLeft') {
+            // p1'e bağlı olan boruyu bul (ebeveynin p2'si bizim p1'imize denk gelir)
             const prevPipe = this.manager.pipes.find(p =>
                 p.id !== selectedPipe.id &&
                 Math.hypot(p.p2.x - selectedPipe.p1.x, p.p2.y - selectedPipe.p1.y) < tolerance
@@ -232,8 +236,34 @@ export function handleKeyDown(e) {
                 return true;
             }
         }
-    }
 
+        // ArrowUp / ArrowDown: Kardeşler (Siblings) - Aynı noktadan başlayan diğer borular
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            // Aynı başlangıç noktasına (p1) sahip boruları bul
+            const siblings = this.manager.pipes.filter(p => 
+                Math.hypot(p.p1.x - selectedPipe.p1.x, p.p1.y - selectedPipe.p1.y) < tolerance
+            );
+
+            if (siblings.length > 1) {
+                // ID'ye göre sırala (kararlı geçiş için)
+                siblings.sort((a, b) => a.id.localeCompare(b.id));
+
+                const currentIndex = siblings.findIndex(p => p.id === selectedPipe.id);
+                let newIndex;
+
+                if (e.key === 'ArrowDown') {
+                    // Sonraki kardeş
+                    newIndex = (currentIndex + 1) % siblings.length;
+                } else {
+                    // Önceki kardeş
+                    newIndex = (currentIndex - 1 + siblings.length) % siblings.length;
+                }
+
+                this.selectObject(siblings[newIndex]);
+                return true;
+            }
+        }
+    }
     // Ok tuşları - seçili sayacı hareket ettir
     if (this.selectedObject && this.selectedObject.type === 'sayac') {
         const direction = {

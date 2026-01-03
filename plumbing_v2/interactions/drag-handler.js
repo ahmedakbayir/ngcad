@@ -40,7 +40,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return dist < TOLERANCE;
     });
     if (servisKutusuCikisi) {
-      //  console.log('[PROTECTED] Servis kutusu çıkışı');
+        //  console.log('[PROTECTED] Servis kutusu çıkışı');
         return true;
     }
 
@@ -91,7 +91,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
             const cikisPoint = c.getCikisNoktasi();
             const dist = Math.hypot(point.x - cikisPoint.x, point.y - cikisPoint.y);
             if (dist < TOLERANCE) {
-             //   // console.log('[PROTECTED] Sayaç çıkışı - başka boru bağlanamaz!');
+                //   // console.log('[PROTECTED] Sayaç çıkışı - başka boru bağlanamaz!');
                 return true;
             }
         }
@@ -99,7 +99,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return false;
     });
     if (sayacCikisi) {
-     //   // console.log('[PROTECTED] Sayaç çıkışı');
+        //   // console.log('[PROTECTED] Sayaç çıkışı');
         return true;
     }
 
@@ -125,7 +125,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return dist < TOLERANCE;
     });
     if (cihazFleksi) {
-       // // console.log('[PROTECTED] Cihaz fleks bağlantısı');
+        // // console.log('[PROTECTED] Cihaz fleks bağlantısı');
         return true;
     }
 
@@ -159,7 +159,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         return false;
     });
     if (isDirsek) {
-       // // console.log('[PROTECTED] Dirsek (2+ boru bağlı nokta)');
+        // // console.log('[PROTECTED] Dirsek (2+ boru bağlı nokta)');
         return true;
     }
 
@@ -195,7 +195,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
             return false;
         });
         if (bostaUc) {
-          //  // console.log('[PROTECTED] Boşta boru ucu (bağlantısı olmayan serbest uç)');
+            //  // console.log('[PROTECTED] Boşta boru ucu (bağlantısı olmayan serbest uç)');
             return true;
         }
     }
@@ -260,7 +260,7 @@ export function updateSharedVertex(pipes, oldPoint, newPoint, excludePipe = null
         pipe[endpoint].y = newPoint.y;
     });
 
-   // // console.log(`[SHARED VERTEX] ${pipesAtPoint.length} boru ucu güncellendi: (${oldPoint.x},${oldPoint.y}) -> (${newPoint.x},${newPoint.y})`);
+    // // console.log(`[SHARED VERTEX] ${pipesAtPoint.length} boru ucu güncellendi: (${oldPoint.x},${oldPoint.y}) -> (${newPoint.x},${newPoint.y})`);
 }
 
 /**
@@ -1669,6 +1669,29 @@ export function endDrag(interactionManager) {
                     bridgePipe1.colorGroup = draggedPipe.colorGroup;
 
                     interactionManager.manager.pipes.push(bridgePipe1);
+
+                    // --- BAĞLANTI MANTIĞI (PARENT/CHILD) ---
+                    // 1. draggedPipe'ın P1 ucundaki PARENT'ını bul (Akış: Parent -> Bridge -> Dragged)
+                    const parentAtP1 = p1Connections.find(c => draggedPipe.baslangicBaglanti && draggedPipe.baslangicBaglanti.hedefId === c.pipe.id);
+                    if (parentAtP1) {
+                        // Parent -> Bridge
+                        bridgePipe1.setBaslangicBaglanti('boru', parentAtP1.pipe.id);
+                        // Bridge -> Dragged
+                        draggedPipe.setBaslangicBaglanti('boru', bridgePipe1.id);
+                    }
+
+                    // 2. draggedPipe'ın P1 ucundaki CHILD'larını bul (Akış: Dragged -> Bridge -> Children)
+                    const childrenAtP1 = p1Connections.filter(c => c.pipe.baslangicBaglanti && c.pipe.baslangicBaglanti.hedefId === draggedPipe.id);
+                    if (childrenAtP1.length > 0) {
+                        // Dragged -> Bridge
+                        bridgePipe1.setBaslangicBaglanti('boru', draggedPipe.id);
+                        // Bridge -> Children
+                        childrenAtP1.forEach(c => {
+                            c.pipe.setBaslangicBaglanti('boru', bridgePipe1.id);
+                        });
+                    }
+
+
                 }
             }
 
@@ -1687,6 +1710,33 @@ export function endDrag(interactionManager) {
                     bridgePipe2.colorGroup = draggedPipe.colorGroup;
 
                     interactionManager.manager.pipes.push(bridgePipe2);
+
+                    // ✨ DÜZELTME: Rengi kopyala (TURQUAZ ise TURQUAZ kalsın)
+                    bridgePipe2.colorGroup = draggedPipe.colorGroup;
+
+                    interactionManager.manager.pipes.push(bridgePipe2);
+
+                    // --- BAĞLANTI MANTIĞI (PARENT/CHILD) ---
+                    // 1. draggedPipe'ın P2 ucundaki PARENT'ını bul
+                    const parentAtP2 = p2Connections.find(c => draggedPipe.baslangicBaglanti && draggedPipe.baslangicBaglanti.hedefId === c.pipe.id);
+                    if (parentAtP2) {
+                        // Parent -> Bridge
+                        bridgePipe2.setBaslangicBaglanti('boru', parentAtP2.pipe.id);
+                        // Bridge -> Dragged
+                        draggedPipe.setBaslangicBaglanti('boru', bridgePipe2.id);
+                    }
+
+                    // 2. draggedPipe'ın P2 ucundaki CHILD'larını bul
+                    const childrenAtP2 = p2Connections.filter(c => c.pipe.baslangicBaglanti && c.pipe.baslangicBaglanti.hedefId === draggedPipe.id);
+                    if (childrenAtP2.length > 0) {
+                        // Dragged -> Bridge
+                        bridgePipe2.setBaslangicBaglanti('boru', draggedPipe.id);
+                        // Bridge -> Children
+                        childrenAtP2.forEach(c => {
+                            c.pipe.setBaslangicBaglanti('boru', bridgePipe2.id);
+                        });
+                    }
+
                 }
             }
         } // useBridgeMode if bloğu kapanışı
