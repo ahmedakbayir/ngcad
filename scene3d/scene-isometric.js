@@ -76,7 +76,7 @@ function buildPipeHierarchy() {
     const pipes = plumbingManager.pipes;
     const components = plumbingManager.components;
     const hierarchy = new Map();
-    const TOLERANCE = 1; // cm cinsinden mesafe toleransı
+    const TOLERANCE = 15; // cm cinsinden mesafe toleransı (plumbing-renderer ile tutarlı)
 
     // Kaynak bileşeni bul (Servis Kutusu veya Sayaç)
     const sourceComponent = components.find(c =>
@@ -88,7 +88,7 @@ function buildPipeHierarchy() {
     }
 
     // Kaynağa bağlı ilk boruyu bul
-    const sourcePos = { x: sourceComponent.x, y: sourceComponent.y };
+    let sourcePos = { x: sourceComponent.x, y: sourceComponent.y };
     let rootPipes = pipes.filter(pipe =>
         distance(pipe.p1, sourcePos) < TOLERANCE ||
         distance(pipe.p2, sourcePos) < TOLERANCE
@@ -102,57 +102,64 @@ function buildPipeHierarchy() {
             return aMin - bMin;
         });
         rootPipes = [sortedPipes[0]];
+        // Kaynak olmadığında root pipe'ın p1'ini kaynak olarak kabul et
+        sourcePos = rootPipes[0].p1;
     }
 
     // BFS ile tüm boruları etiketle
     const visited = new Set();
-    const queue = [];
+    const queue = []; // { pipe, exitPoint } - çıkış noktası ile birlikte
     let labelIndex = 0;
 
-    // Root pipe'ları başlat
+    // Root pipe'ları başlat (kaynaktan çıkan borular parent'sız)
     rootPipes.forEach(rootPipe => {
+        const label = String.fromCharCode(65 + labelIndex++); // A, B, C...
         hierarchy.set(rootPipe.id, {
-            label: String.fromCharCode(65 + labelIndex++), // A, B, C...
+            label: label,
             parent: null,
             children: []
         });
-        queue.push(rootPipe);
+
+        // Kaynağa hangi ucu bağlı? Diğer ucu çıkış noktası olarak kullan
+        const p1DistToSource = distance(rootPipe.p1, sourcePos);
+        const p2DistToSource = distance(rootPipe.p2, sourcePos);
+        const exitPoint = p1DistToSource < p2DistToSource ? rootPipe.p2 : rootPipe.p1;
+
+        queue.push({ pipe: rootPipe, exitPoint });
         visited.add(rootPipe.id);
     });
 
-    // BFS
+    // BFS ile devam et
     while (queue.length > 0) {
-        const currentPipe = queue.shift();
+        const { pipe: currentPipe, exitPoint: currentExitPoint } = queue.shift();
         const currentData = hierarchy.get(currentPipe.id);
 
-        // Bu borunun her iki ucunu kontrol et
-        const endpoints = [currentPipe.p1, currentPipe.p2];
+        // Sadece çıkış noktasından bağlı boruları bul
+        pipes.forEach(otherPipe => {
+            if (visited.has(otherPipe.id)) return;
 
-        endpoints.forEach(endpoint => {
-            // Bu uç noktaya bağlı diğer boruları bul
-            pipes.forEach(otherPipe => {
-                if (visited.has(otherPipe.id)) return;
+            // otherPipe'ın hangi ucu currentExitPoint'e bağlı?
+            const p1Connected = distance(currentExitPoint, otherPipe.p1) < TOLERANCE;
+            const p2Connected = distance(currentExitPoint, otherPipe.p2) < TOLERANCE;
 
-                const connected =
-                    distance(endpoint, otherPipe.p1) < TOLERANCE ||
-                    distance(endpoint, otherPipe.p2) < TOLERANCE;
+            if (p1Connected || p2Connected) {
+                // Yeni etiket ata
+                const newLabel = String.fromCharCode(65 + labelIndex++);
+                hierarchy.set(otherPipe.id, {
+                    label: newLabel,
+                    parent: currentData.label,
+                    children: []
+                });
 
-                if (connected) {
-                    // Yeni etiket ata
-                    const newLabel = String.fromCharCode(65 + labelIndex++);
-                    hierarchy.set(otherPipe.id, {
-                        label: newLabel,
-                        parent: currentData.label,
-                        children: []
-                    });
+                // Parent'ın children listesine ekle
+                currentData.children.push(newLabel);
 
-                    // Parent'ın children listesine ekle
-                    currentData.children.push(newLabel);
+                // otherPipe'ın çıkış noktası = bağlantı noktasının karşısı
+                const newExitPoint = p1Connected ? otherPipe.p2 : otherPipe.p1;
 
-                    visited.add(otherPipe.id);
-                    queue.push(otherPipe);
-                }
-            });
+                visited.add(otherPipe.id);
+                queue.push({ pipe: otherPipe, exitPoint: newExitPoint });
+            }
         });
     }
 
