@@ -257,10 +257,16 @@ export function deleteSelectedObject(interactionManager) {
             return;
         }
     } else {
-        interactionManager.removeObject(obj);
+        const pipeToSelect = interactionManager.removeObject(obj);
         interactionManager.manager.saveToState();
-        // Boru için deselectObject çağırma - removeObject içinde zaten akıllı seçim yapılıyor
-        if (obj.type !== 'boru') {
+
+        // Boru silindiyse ve parent varsa onu seç
+        if (obj.type === 'boru' && pipeToSelect) {
+            selectObject(interactionManager, pipeToSelect);
+        } else if (obj.type !== 'boru') {
+            deselectObject(interactionManager);
+        } else {
+            // Boru silindi ama seçilecek parent yok
             deselectObject(interactionManager);
         }
     }
