@@ -237,7 +237,42 @@ export function handleKeyDown(e) {
     }
 
     // T - BORU çizme modu (boru icon'unu aktif et)
+    // GÜNCELLENDİ: Seçili boru varsa onun ucundan başlat
     if (e.key === 't' || e.key === 'T') {
+        // 1. Seçili boru var mı kontrol et
+        if (this.selectedObject && this.selectedObject.type === 'boru') {
+            const pipe = this.selectedObject;
+            
+            // Boş ucu bul (Önce P2 - bitiş, sonra P1 - başlangıç)
+            // isTrulyFreeEndpoint: O noktada sadece bu boru varsa true döner
+            let startPoint = null;
+            
+            if (this.manager.isTrulyFreeEndpoint(pipe.p2)) {
+                startPoint = pipe.p2;
+            } else if (this.manager.isTrulyFreeEndpoint(pipe.p1)) {
+                startPoint = pipe.p1;
+            }
+            
+            if (startPoint) {
+                // TESİSAT modunda olduğumuzdan emin ol
+                if (state.currentDrawingMode !== "KARMA") {
+                    setDrawingMode("TESİSAT");
+                }
+                
+                // Seçimi temizle ama pipe verilerini al (renk vb.)
+                const sourceId = pipe.id;
+                const sourceColor = pipe.colorGroup;
+                this.cancelCurrentAction(); // Bu seçimi kaldırır
+                
+                // O uçtan çizime başla (renk grubunu koruyarak)
+                this.startBoruCizim(startPoint, sourceId, 'boru', sourceColor);
+                
+                setMode("plumbingV2", true);
+                return true;
+            }
+        }
+
+        // Seçili boru yoksa veya uçları doluysa standart davranış (yeni boru)
         // TESİSAT modunda olduğumuzdan emin ol
         if (state.currentDrawingMode !== "KARMA") {
             setDrawingMode("TESİSAT");
@@ -246,7 +281,7 @@ export function handleKeyDown(e) {
         // Boru modunu başlat
         this.manager.startPipeMode();
 
-        // UI ikonunu güncelle
+        // UI ikonunun mavi yanması için setMode içindeki mantığı manuel tetikle
         setMode("plumbingV2", true);
         return true;
     }
