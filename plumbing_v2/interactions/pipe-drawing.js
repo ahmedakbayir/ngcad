@@ -266,19 +266,22 @@ export function handleBoruClick(interactionManager, point) {
 
     // ... Kalan kod aynı ...
     // NOT: handleBoruClick içinde değişiklik gerekmez, çünkü kaynakId zaten startBoruCizim ile doğru set edildi.
-    
+
     // Sadece referans olması için (Dosyanın geri kalanı aynı)
-    const tolerance = 10;
-    const problematicServisKutusu = interactionManager.manager.components.find(c => {
-        if (c.type !== 'servis_kutusu' || !c.bagliBoruId) return false;
-        const cikisNoktasi = c.getCikisNoktasi();
-        if (!cikisNoktasi) return false;
-        const dist = Math.hypot(interactionManager.boruBaslangic.nokta.x - cikisNoktasi.x,
-                                interactionManager.boruBaslangic.nokta.y - cikisNoktasi.y);
-        return dist < tolerance;
-    });
-    // ...
-    if (problematicServisKutusu) return;
+    // Dikey boru değilse servis kutusu kontrolü
+    if (!isVerticalPipe) {
+        const tolerance = 10;
+        const problematicServisKutusu = interactionManager.manager.components.find(c => {
+            if (c.type !== 'servis_kutusu' || !c.bagliBoruId) return false;
+            const cikisNoktasi = c.getCikisNoktasi();
+            if (!cikisNoktasi) return false;
+            const dist = Math.hypot(interactionManager.boruBaslangic.nokta.x - cikisNoktasi.x,
+                                    interactionManager.boruBaslangic.nokta.y - cikisNoktasi.y);
+            return dist < tolerance;
+        });
+        // ...
+        if (problematicServisKutusu) return;
+    }
     // ...
 
     console.log('🔧 createBoru çağrılıyor:', { p1: interactionManager.boruBaslangic.nokta, p2: point });
