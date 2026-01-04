@@ -26,8 +26,11 @@ export function handleKeyDown(e) {
         activeElement.contentEditable === 'true'
     );
 
-    // Eğer kullanıcı bir input alanında yazıyorsa, ESC ve Delete dışındaki kısayolları devre dışı bırak
-    if (isTyping && e.key !== 'Escape' && e.key !== 'Delete') {
+    // Düşey panel aktifse, klavye girişine izin ver (readonly input olsa bile)
+    const isVerticalPanelInput = activeElement && activeElement.id === 'vertical-height-input';
+
+    // Eğer kullanıcı bir input alanında yazıyorsa (ama düşey panel değilse), ESC ve Delete dışındaki kısayolları devre dışı bırak
+    if (isTyping && !isVerticalPanelInput && e.key !== 'Escape' && e.key !== 'Delete') {
         return false;
     }
 
