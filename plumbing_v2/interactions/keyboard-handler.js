@@ -430,8 +430,12 @@ export function applyVerticalHeight() {
 
     const height = this.verticalHeightInput;
 
+    console.log('🔍 DÜŞEY BORU OLUŞTURMA:');
+    console.log('  Girilen yükseklik:', height);
+
     // Yükseklik 0 ise paneli kapat ve normal çizime devam et
     if (height === 0) {
+        console.log('  ⚠️ Yükseklik 0, panel kapatılıyor');
         closeVerticalPanel.call(this);
         return;
     }
@@ -444,6 +448,10 @@ export function applyVerticalHeight() {
         y: startPoint.y,
         z: (startPoint.z || 0) + height
     };
+
+    console.log('  Başlangıç noktası:', startPoint);
+    console.log('  Bitiş noktası (Z ile):', endPoint);
+    console.log('  ✅ Düşey boru oluşturuluyor...');
 
     // Düşey boru oluştur ve ekle
     handleBoruClick(this, endPoint);
