@@ -45,18 +45,27 @@ export function handleKeyDown(e) {
             if (/^[0-9\-+]$/.test(e.key)) {
                 const input = document.getElementById('vertical-height-input');
                 if (input) {
-                    // Manuel olarak input'a ekle
-                    const currentValue = input.value || '0';
-                    if (e.key === '+' || e.key === '-') {
-                        input.value = e.key + (currentValue === '0' ? '' : currentValue);
+                    let currentValue = input.value || '0';
+                    let newValue;
+
+                    if (e.key === '+') {
+                        // Artı: pozitif yap
+                        newValue = Math.abs(parseFloat(currentValue) || 0).toString();
+                    } else if (e.key === '-') {
+                        // Eksi: işaret değiştir
+                        const num = parseFloat(currentValue) || 0;
+                        newValue = (-num).toString();
                     } else {
-                        if (currentValue === '0') {
-                            input.value = e.key;
+                        // Rakam: ekle
+                        if (currentValue === '0' || currentValue === '-0') {
+                            newValue = e.key;
                         } else {
-                            input.value = currentValue + e.key;
+                            newValue = currentValue + e.key;
                         }
                     }
-                    this.verticalHeightInput = parseFloat(input.value) || 0;
+
+                    input.value = newValue;
+                    this.verticalHeightInput = parseFloat(newValue) || 0;
                 }
                 return true;
             }
