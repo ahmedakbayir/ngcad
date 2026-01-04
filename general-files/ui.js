@@ -468,7 +468,7 @@ export function setupIsometricControls() {
                     const draggedPos = toIso(
                         draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x,
                         draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y,
-                        0
+                        draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0)
                     );
                     // Önceki offset'i ekle
                     const prevDraggedOffset = state.isoPipeOffsets[draggedPipe.id] || {};
@@ -476,8 +476,8 @@ export function setupIsometricControls() {
                     draggedPos.isoY += (prevDraggedOffset[draggedEndpoint + 'Dy'] || 0);
 
                     // Parent'ın endpoint'lerine yakınlık kontrolü
-                    const parentStart = toIso(parentPipe.p1.x, parentPipe.p1.y, 0);
-                    const parentEnd = toIso(parentPipe.p2.x, parentPipe.p2.y, 0);
+                    const parentStart = toIso(parentPipe.p1.x, parentPipe.p1.y, parentPipe.p1.z || 0);
+                    const parentEnd = toIso(parentPipe.p2.x, parentPipe.p2.y, parentPipe.p2.z || 0);
                     const prevParentOffset = state.isoPipeOffsets[parentPipe.id] || {};
                     parentStart.isoX += (prevParentOffset.startDx || 0);
                     parentStart.isoY += (prevParentOffset.startDy || 0);
@@ -498,8 +498,8 @@ export function setupIsometricControls() {
             }
 
             // Constraint pipe'ın doğrultusunu hesapla (ÖNCEKİ OFFSET'LERİ EKLE!)
-            const constraintStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, 0);
-            const constraintEnd = toIso(constraintPipe.p2.x, constraintPipe.p2.y, 0);
+            const constraintStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, constraintPipe.p1.z || 0);
+            const constraintEnd = toIso(constraintPipe.p2.x, constraintPipe.p2.y, constraintPipe.p2.z || 0);
 
             // Önceki offset'leri constraint pipe'a ekle
             const prevConstraintOffset = state.isoPipeOffsets[constraintPipe.id] || {};
@@ -539,8 +539,8 @@ export function setupIsometricControls() {
                 testOffsets[endpoint + 'Dy'] = (prevOffset[endpoint + 'Dy'] || 0) + moveOffsetY;
 
                 // Pipe'ın yeni uzunluğunu hesapla
-                const startPos = toIso(targetPipe.p1.x, targetPipe.p1.y, 0);
-                const endPos = toIso(targetPipe.p2.x, targetPipe.p2.y, 0);
+                const startPos = toIso(targetPipe.p1.x, targetPipe.p1.y, targetPipe.p1.z || 0);
+                const endPos = toIso(targetPipe.p2.x, targetPipe.p2.y, targetPipe.p2.z || 0);
                 startPos.isoX += (testOffsets.startDx || 0);
                 startPos.isoY += (testOffsets.startDy || 0);
                 endPos.isoX += (testOffsets.endDx || 0);
@@ -549,8 +549,8 @@ export function setupIsometricControls() {
                 const newLength = Math.hypot(endPos.isoX - startPos.isoX, endPos.isoY - startPos.isoY);
 
                 // Orijinal uzunluğu hesapla
-                const origStart = toIso(targetPipe.p1.x, targetPipe.p1.y, 0);
-                const origEnd = toIso(targetPipe.p2.x, targetPipe.p2.y, 0);
+                const origStart = toIso(targetPipe.p1.x, targetPipe.p1.y, targetPipe.p1.z || 0);
+                const origEnd = toIso(targetPipe.p2.x, targetPipe.p2.y, targetPipe.p2.z || 0);
                 const origLength = Math.hypot(origEnd.isoX - origStart.isoX, origEnd.isoY - origStart.isoY);
 
                 // Minimum uzunluk kontrolü: %10'un altına düşmesin
@@ -609,7 +609,7 @@ export function setupIsometricControls() {
                 const draggedPos = toIso(
                     draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x,
                     draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y,
-                    0
+                    draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0)
                 );
                 // Önceki offset'i ekle (yeni hareketle birlikte)
                 const prevDraggedOffset = newOffsets[draggedPipe.id] || {};
@@ -617,8 +617,8 @@ export function setupIsometricControls() {
                 draggedPos.isoY += (prevDraggedOffset[draggedEndpoint + 'Dy'] || 0);
 
                 // Parent'ın hangi ucu sürüklenen endpoint'e yakın?
-                const parentStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, 0);
-                const parentEnd = toIso(constraintPipe.p2.x, constraintPipe.p2.y, 0);
+                const parentStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, constraintPipe.p1.z || 0);
+                const parentEnd = toIso(constraintPipe.p2.x, constraintPipe.p2.y, constraintPipe.p2.z || 0);
 
                 // Parent'ın GÜNCELLENMİŞ offset'lerini ekle (newOffsets'ten oku!)
                 const prevParentOffset = newOffsets[constraintPipe.id] || state.isoPipeOffsets[constraintPipe.id] || {};
@@ -645,7 +645,7 @@ export function setupIsometricControls() {
                 const draggedEndpointPos = toIso(
                     draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x,
                     draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y,
-                    0
+                    draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0)
                 );
                 draggedEndpointPos.isoX += newOffsets[draggedPipe.id][draggedEndpoint + 'Dx'] || 0;
                 draggedEndpointPos.isoY += newOffsets[draggedPipe.id][draggedEndpoint + 'Dy'] || 0;
@@ -665,7 +665,7 @@ export function setupIsometricControls() {
                         const childPos = toIso(
                             childIsStart ? childPipe.p1.x : childPipe.p2.x,
                             childIsStart ? childPipe.p1.y : childPipe.p2.y,
-                            0
+                            childIsStart ? (childPipe.p1.z || 0) : (childPipe.p2.z || 0)
                         );
 
                         // Child'ın pozisyonunu hesapla (ÖNCEKİ OFFSET'LERİ DE EKLE!)
