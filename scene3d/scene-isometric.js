@@ -302,8 +302,8 @@ function drawIsometricPipes(ctx) {
         const endDy = offset.endDy || 0;
 
         // Başlangıç ve bitiş noktalarını izometrik koordinatlara dönüştür
-        let start = toIsometric(pipe.p1.x, pipe.p1.y, 0);
-        let end = toIsometric(pipe.p2.x, pipe.p2.y, 0);
+        let start = toIsometric(pipe.p1.x, pipe.p1.y, pipe.p1.z || 0);
+        let end = toIsometric(pipe.p2.x, pipe.p2.y, pipe.p2.z || 0);
 
         // Offset uygula
         start.isoX += startDx;
@@ -403,7 +403,8 @@ function drawPipeLabels(ctx, pipeHierarchy) {
         // Boru ortasını izometrik koordinatlara dönüştür
         const midX = (pipe.p1.x + pipe.p2.x) / 2;
         const midY = (pipe.p1.y + pipe.p2.y) / 2;
-        const mid = toIsometric(midX, midY, 0);
+        const midZ = ((pipe.p1.z || 0) + (pipe.p2.z || 0)) / 2;
+        const mid = toIsometric(midX, midY, midZ);
 
         // Renkleri ayarla
         const darkBlue = '#00008B';
