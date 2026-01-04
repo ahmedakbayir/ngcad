@@ -79,7 +79,12 @@ export function handleKeyDown(e) {
                     }
 
                     input.value = newValue;
-                    this.verticalHeightInput = parseFloat(newValue) || 0;
+                    // verticalHeightInput'u güncelle - ama sadece geçerli sayı ise
+                    const parsedValue = parseFloat(newValue);
+                    if (!isNaN(parsedValue)) {
+                        this.verticalHeightInput = parsedValue;
+                    }
+                    // Eğer sadece "-" ise, henüz güncelleme (kullanıcı rakam girecek)
                 }
                 return true;
             }
@@ -495,7 +500,9 @@ export function applyVerticalHeight() {
         return;
     }
 
-    const height = this.verticalHeightInput;
+    // Input alanından güncel değeri oku
+    const input = document.getElementById('vertical-height-input');
+    const height = input ? parseFloat(input.value) : this.verticalHeightInput;
 
     console.log('🔍 DÜŞEY BORU OLUŞTURMA:');
     console.log('  Girilen yükseklik:', height);

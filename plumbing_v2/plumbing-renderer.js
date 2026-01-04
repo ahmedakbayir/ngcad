@@ -518,8 +518,23 @@ export class PlumbingRenderer {
                 ctx.fill();
                 ctx.restore();
             }
+        });
 
-            // Dikey boru gösterimi (Z koordinatı farklıysa)
+        // Dirsek görüntülerini çiz
+        this.drawElbows(ctx, pipes, breakPoints);
+
+        // Boru üzerindeki vanaları çiz (ESKİ - deprecated, geriye dönük uyumluluk için)
+        this.drawPipeValves(ctx, pipes);
+
+        // Seçili borular için uç noktaları göster (dirseklerin üstünde görünsün)
+        pipes.forEach(pipe => {
+            if (pipe.isSelected) {
+                this.drawPipeEndpoints(ctx, pipe);
+            }
+        });
+
+        // Düşey boru gösterimlerini ÇİZ (tüm boruların üstünde görünsün)
+        pipes.forEach(pipe => {
             const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
             if (Math.abs(zDiff) > 0.1) {
                 ctx.save();
@@ -587,17 +602,19 @@ export class PlumbingRenderer {
                 } else {
                     // Aşağı iniş: 225 derece merkeze doğru
                     const angle225 = 5 * Math.PI / 4; // 225 derece
+                    const arrowHeadSize = 5;
+
+                    // Ok ucu çemberden 2px uzakta (merkeze yakın ama değmesin)
+                    const arrowTipX = centerX + (circleRadius + 2) * Math.cos(angle225);
+                    const arrowTipY = centerY - (circleRadius + 2) * Math.sin(angle225);
+
+                    // Ok çizgisi başlangıcı
                     const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
                     const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
 
-                    // Ok ucu çemberden 4px uzakta olsun (merkeze değmesin)
-                    const arrowTipX = centerX + (circleRadius + 4) * Math.cos(angle225);
-                    const arrowTipY = centerY - (circleRadius + 4) * Math.sin(angle225);
-
-                    // Ok çizgisi - uçtan 3px geride bitir (daha sivri görünsün)
-                    const lineEndOffset = 3;
-                    const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle225);
-                    const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle225);
+                    // Ok çizgisi - ok başının arkasında biter (cubu görünmez)
+                    const lineEndX = arrowTipX - arrowHeadSize * Math.cos(angle225);
+                    const lineEndY = arrowTipY + arrowHeadSize * Math.sin(angle225);
 
                     ctx.beginPath();
                     ctx.moveTo(arrowStartX, arrowStartY);
@@ -605,7 +622,6 @@ export class PlumbingRenderer {
                     ctx.stroke();
 
                     // Ok başı (üçgen) - merkeze doğru işaret ediyor
-                    const arrowHeadSize = 5;
                     const reverseAngle = angle225 + Math.PI; // Ok yönünü tersine çevir
                     ctx.beginPath();
                     ctx.moveTo(arrowTipX, arrowTipY);
@@ -621,19 +637,6 @@ export class PlumbingRenderer {
                     ctx.fill();
                 }
                 ctx.restore();
-            }
-        });
-
-        // Dirsek görüntülerini çiz
-        this.drawElbows(ctx, pipes, breakPoints);
-
-        // Boru üzerindeki vanaları çiz (ESKİ - deprecated, geriye dönük uyumluluk için)
-        this.drawPipeValves(ctx, pipes);
-
-        // Seçili borular için uç noktaları göster (dirseklerin üstünde görünsün)
-        pipes.forEach(pipe => {
-            if (pipe.isSelected) {
-                this.drawPipeEndpoints(ctx, pipe);
             }
         });
     }
