@@ -49,16 +49,30 @@ export function handleKeyDown(e) {
                     let newValue;
 
                     if (e.key === '+') {
-                        // Artı: pozitif yap
-                        newValue = Math.abs(parseFloat(currentValue) || 0).toString();
+                        // Artı: eğer '0' ise, pozitif başlangıç işareti
+                        if (currentValue === '0' || currentValue === '-0') {
+                            newValue = '0'; // Hazır, rakam bekliyor
+                        } else {
+                            // Zaten bir sayı varsa, pozitif yap
+                            newValue = Math.abs(parseFloat(currentValue) || 0).toString();
+                        }
                     } else if (e.key === '-') {
-                        // Eksi: işaret değiştir
-                        const num = parseFloat(currentValue) || 0;
-                        newValue = (-num).toString();
+                        // Eksi: eğer '0' ise, negatif başlangıç işareti
+                        if (currentValue === '0') {
+                            newValue = '-'; // Negatif başlangıç, rakam bekliyor
+                        } else if (currentValue === '-') {
+                            newValue = '0'; // İkinci eksi iptal eder
+                        } else {
+                            // Zaten bir sayı varsa, işaret değiştir
+                            const num = parseFloat(currentValue) || 0;
+                            newValue = (-num).toString();
+                        }
                     } else {
                         // Rakam: ekle
-                        if (currentValue === '0' || currentValue === '-0') {
+                        if (currentValue === '0') {
                             newValue = e.key;
+                        } else if (currentValue === '-') {
+                            newValue = '-' + e.key;
                         } else {
                             newValue = currentValue + e.key;
                         }

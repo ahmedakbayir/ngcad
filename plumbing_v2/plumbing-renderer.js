@@ -534,11 +534,17 @@ export class PlumbingRenderer {
                 const circleRadius = 5;
                 const arrowLength = 12;
 
-                // İçi boş çember çiz
-                ctx.strokeStyle = pipeColor;
-                ctx.lineWidth = 2;
+                // Çember çiz - içi gri dolu, kenar çizgili
                 ctx.beginPath();
                 ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
+
+                // Önce gri ile doldur
+                ctx.fillStyle = '#808080'; // Gri
+                ctx.fill();
+
+                // Sonra kenarını çiz
+                ctx.strokeStyle = pipeColor;
+                ctx.lineWidth = 2;
                 ctx.stroke();
 
                 // Ok çiz
@@ -583,8 +589,10 @@ export class PlumbingRenderer {
                     const angle225 = 5 * Math.PI / 4; // 225 derece
                     const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
                     const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
-                    const arrowTipX = centerX + circleRadius * Math.cos(angle225);
-                    const arrowTipY = centerY - circleRadius * Math.sin(angle225);
+
+                    // Ok ucu çemberden 4px uzakta olsun (merkeze değmesin)
+                    const arrowTipX = centerX + (circleRadius + 4) * Math.cos(angle225);
+                    const arrowTipY = centerY - (circleRadius + 4) * Math.sin(angle225);
 
                     // Ok çizgisi - uçtan 3px geride bitir (daha sivri görünsün)
                     const lineEndOffset = 3;
