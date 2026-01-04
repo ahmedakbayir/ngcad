@@ -658,15 +658,6 @@ export function setupIsometricControls() {
 
             // 3. Sürüklenen endpoint'e bağlı TÜM CHILD'LARI translate et (torunlar dahil)
             if (hierarchy && draggedPipeData && draggedPipeData.children && draggedPipeData.children.length > 0) {
-                // Sürüklenen endpoint'in güncel pozisyonunu hesapla
-                const draggedEndpointPos = toIso(
-                    draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x,
-                    draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y,
-                    draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0)
-                );
-                draggedEndpointPos.isoX += newOffsets[draggedPipe.id][draggedEndpoint + 'Dx'] || 0;
-                draggedEndpointPos.isoY += newOffsets[draggedPipe.id][draggedEndpoint + 'Dy'] || 0;
-
                 // Her child'ı kontrol et
                 draggedPipeData.children.forEach(childLabel => {
                     const childPipe = plumbingManager.pipes.find(p => {
@@ -676,56 +667,34 @@ export function setupIsometricControls() {
 
                     if (!childPipe) return;
 
-                    // Child'ın hangi ucu sürüklenen endpoint'e bağlı?
-                    ['start', 'end'].forEach(childEndpointType => {
-                        const childIsStart = childEndpointType === 'start';
-                        const childPos = toIso(
-                            childIsStart ? childPipe.p1.x : childPipe.p2.x,
-                            childIsStart ? childPipe.p1.y : childPipe.p2.y,
-                            childIsStart ? (childPipe.p1.z || 0) : (childPipe.p2.z || 0)
-                        );
+                    // Child'ın baslangicBaglanti noktası (p1) parent'ın hangi ucuna bağlı?
+                    // Sürüklenen uç ile child'ın başlangıcını karşılaştır
+                    const draggedX = draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x;
+                    const draggedY = draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y;
+                    const draggedZ = draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0);
 
-                        // Child'ın pozisyonunu hesapla (ÖNCEKİ OFFSET'LERİ DE EKLE!)
-                        const childOffset = newOffsets[childPipe.id] || state.isoPipeOffsets[childPipe.id] || {};
-                        childPos.isoX += (childOffset[childEndpointType + 'Dx'] || 0);
-                        childPos.isoY += (childOffset[childEndpointType + 'Dy'] || 0);
+                    // Child baslangıcı (her zaman p1, çünkü baslangicBaglanti)
+                    const childStartX = childPipe.p1.x;
+                    const childStartY = childPipe.p1.y;
+                    const childStartZ = childPipe.p1.z || 0;
 
-                        // Sürüklenen endpoint'e yakın mı? (İzometrik mesafe)
-                        const isoDist = Math.hypot(
-                            childPos.isoX - draggedEndpointPos.isoX,
-                            childPos.isoY - draggedEndpointPos.isoY
-                        );
+                    // 3D mesafe - SADECE 1 cm'den yakınsa bağlı sayılır
+                    const dist3D = Math.hypot(
+                        childStartX - draggedX,
+                        childStartY - draggedY,
+                        childStartZ - draggedZ
+                    );
 
-                        // 3D mesafe kontrolü de ekle (düşey borular için önemli)
-                        const childX = childIsStart ? childPipe.p1.x : childPipe.p2.x;
-                        const childY = childIsStart ? childPipe.p1.y : childPipe.p2.y;
-                        const childZ = childIsStart ? (childPipe.p1.z || 0) : (childPipe.p2.z || 0);
-                        const draggedX = draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x;
-                        const draggedY = draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y;
-                        const draggedZ = draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0);
-                        const dist3D = Math.hypot(childX - draggedX, childY - draggedY, childZ - draggedZ);
-
-                        // Bağlantı kontrolü: ya izometrik mesafe < threshold VEYA 3D mesafe küçük (< 5)
-                        // 3D eşiği gevşettik çünkü düşey-yatay bağlantılar kopuyordu
-
-                        // Debug: düşey boru ile yatay boru bağlantısını logla
-                        const isDraggedVertical = Math.abs(draggedPipe.p1.x - draggedPipe.p2.x) < 0.1 &&
-                                                  Math.abs(draggedPipe.p1.y - draggedPipe.p2.y) < 0.1;
-                        if (isDraggedVertical && dist3D < 10) {
-                            console.log(`🔍 Düşey-Yatay Bağlantı Kontrolü:
-  Sürüklenen: ${draggedPipe.id} (düşey)
-  Child: ${childPipe.id}
-  İzometrik mesafe: ${isoDist.toFixed(2)}
+                    console.log(`🔗 Child Bağlantı:
+  Parent: ${draggedPipe.id} ${draggedEndpoint} ucu
+  Child: ${childPipe.id} (label: ${childLabel})
   3D mesafe: ${dist3D.toFixed(2)}
-  Threshold: ${threshold}
-  Bağlanacak mı: ${isoDist < threshold || dist3D < 5}`);
-                        }
+  Bağlanacak: ${dist3D < 1}`);
 
-                        if (isoDist < threshold || dist3D < 5) {
-                            // Bu child ve tüm torunlarını translate et
-                            translatePipeAndAllChildren(childPipe, offsetX, offsetY);
-                        }
-                    });
+                    // Eğer child'ın başlangıcı sürüklenen uca çok yakınsa, tüm child'ı taşı
+                    if (dist3D < 1) {
+                        translatePipeAndAllChildren(childPipe, offsetX, offsetY);
+                    }
                 });
             }
 
