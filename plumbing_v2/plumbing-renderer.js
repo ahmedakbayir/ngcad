@@ -149,7 +149,7 @@ function buildPipeHierarchy(pipes, components) {
 
         // Eğer bir boru tipi parent'ı yoksa (childrenMap'e girmediyse) köktür
         const isChildOfPipe = pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === 'boru';
-        
+
         if (!isChildOfPipe) {
             rootPipes.push(pipe);
         }
@@ -165,7 +165,7 @@ function buildPipeHierarchy(pipes, components) {
 
     // Rootları kuyruğa ekle ve etiketle (A, B, C...)
     rootPipes.forEach(p => {
-        const label = String.fromCharCode(65 + labelIndex++); 
+        const label = String.fromCharCode(65 + labelIndex++);
         hierarchy.set(p.id, { label, parent: null, children: [] });
         queue.push(p);
     });
@@ -173,7 +173,7 @@ function buildPipeHierarchy(pipes, components) {
     while (queue.length > 0) {
         const parentPipe = queue.shift();
         const parentData = hierarchy.get(parentPipe.id);
-        
+
         // Bu borunun çocuklarını al
         const children = childrenMap.get(parentPipe.id) || [];
 
@@ -188,7 +188,7 @@ function buildPipeHierarchy(pipes, components) {
         children.forEach(child => {
             if (!hierarchy.has(child.id)) { // Döngüsel bağımlılığı önle
                 const childLabel = String.fromCharCode(65 + labelIndex++);
-                
+
                 hierarchy.set(child.id, {
                     label: childLabel,
                     parent: parentData.label,
@@ -614,8 +614,8 @@ export class PlumbingRenderer {
 
                     // Ok çizgisi - ok başının arkasında biter (cubuk görünmez)
                     const lineEndOffset = 3;
-                    const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle225);
-                    const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle225);
+                    const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle225) + (circleRadius * Math.cos(angle225));
+                    const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle225) - (circleRadius * Math.sin(angle225));
 
                     ctx.beginPath();
                     ctx.moveTo(arrowStartX, arrowStartY);
