@@ -17,8 +17,12 @@ export function handlePointerMove(e) {
     const point = screenToWorld(mouseScreenX, mouseScreenY);
     const walls = state.walls || [];
 
-    // Son mouse pozisyonunu kaydet
-    this.lastMousePoint = point;
+    // Son mouse pozisyonunu kaydet (hem world hem screen koordinatları)
+    this.lastMousePoint = {
+        ...point,
+        screenX: mouseScreenX,
+        screenY: mouseScreenY
+    };
 
     // Debug: Mouse koordinatları (sadece cihaz ghost için, ilk 3 kez)
     if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && !this._mouseDebugCount) {

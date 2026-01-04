@@ -11,7 +11,7 @@ import { handlePointerDown } from '../../pointer/handle-pointer-down.js';
 import { handlePointerUp } from '../../pointer/handle-pointer-up.js';
 
 // Keyboard handler
-import { handleKeyDown } from './keyboard-handler.js';
+import { handleKeyDown, toggleVerticalPanel, closeVerticalPanel, applyVerticalHeight } from './keyboard-handler.js';
 
 // Ghost updater
 import { updateGhostPosition } from './ghost-updater.js';
@@ -109,6 +109,11 @@ export class InteractionManager {
         this.measurementInput = '';
         this.measurementActive = false;
 
+        // Düşey (vertical) mod durumu
+        this.verticalModeActive = false;  // TAB ile panel açıkken true
+        this.verticalHeightInput = 0;     // Girilen yükseklik değeri (cm)
+        this.verticalQuickValues = [100, 200, 300, 400];  // Hızlı değerler
+
         // Sürükleme durumu
         this.isDragging = false;
         this.dragStart = null;
@@ -182,6 +187,21 @@ export class InteractionManager {
      */
     handleKeyDown(e) {
         return handleKeyDown.call(this, e);
+    }
+
+    /**
+     * Düşey panel yönetimi
+     */
+    toggleVerticalPanel() {
+        return toggleVerticalPanel.call(this);
+    }
+
+    closeVerticalPanel() {
+        return closeVerticalPanel.call(this);
+    }
+
+    applyVerticalHeight() {
+        return applyVerticalHeight.call(this);
     }
 
     /**
