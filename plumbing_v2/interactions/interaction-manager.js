@@ -108,6 +108,7 @@ export class InteractionManager {
         // Ölçü girişi
         this.measurementInput = '';
         this.measurementActive = false;
+        this.isVerticalMeasurement = false;  // +/- ile düşey ölçüm modu
 
         // Düşey (vertical) mod durumu
         this.verticalModeActive = false;  // TAB ile panel açıkken true
