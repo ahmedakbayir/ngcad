@@ -554,10 +554,14 @@ export class PlumbingRenderer {
                     const arrowTipX = centerX + (circleRadius + arrowLength) * Math.cos(angle45);
                     const arrowTipY = centerY - (circleRadius + arrowLength) * Math.sin(angle45);
 
-                    // Ok çizgisi
+                    // Ok çizgisi - uçtan 3px geride bitir (daha sivri görünsün)
+                    const lineEndOffset = 3;
+                    const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle45);
+                    const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle45);
+
                     ctx.beginPath();
                     ctx.moveTo(arrowStartX, arrowStartY);
-                    ctx.lineTo(arrowTipX, arrowTipY);
+                    ctx.lineTo(lineEndX, lineEndY);
                     ctx.stroke();
 
                     // Ok başı (üçgen)
@@ -582,10 +586,14 @@ export class PlumbingRenderer {
                     const arrowTipX = centerX + circleRadius * Math.cos(angle225);
                     const arrowTipY = centerY - circleRadius * Math.sin(angle225);
 
-                    // Ok çizgisi
+                    // Ok çizgisi - uçtan 3px geride bitir (daha sivri görünsün)
+                    const lineEndOffset = 3;
+                    const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle225);
+                    const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle225);
+
                     ctx.beginPath();
                     ctx.moveTo(arrowStartX, arrowStartY);
-                    ctx.lineTo(arrowTipX, arrowTipY);
+                    ctx.lineTo(lineEndX, lineEndY);
                     ctx.stroke();
 
                     // Ok başı (üçgen) - merkeze doğru işaret ediyor
