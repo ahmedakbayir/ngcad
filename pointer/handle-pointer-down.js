@@ -12,9 +12,18 @@ import { pixelsToWorld } from '../plumbing_v2/interactions/finders.js';
 export function handlePointerDown(e) {
     const rect = dom.c2d.getBoundingClientRect();
     const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-    const targetPoint = this.activeSnap
+
+    // Snap point varsa kullan, yoksa normal point
+    let targetPoint = this.activeSnap
         ? { x: this.activeSnap.x, y: this.activeSnap.y }
         : point;
+
+    // Boru çizim modundaysa ve başlangıç noktası Z koordinatına sahipse,
+    // hedef nokta da aynı Z'yi alsın (yatay çizim için)
+    if (this.boruCizimAktif && this.boruBaslangic && this.boruBaslangic.nokta) {
+        const startZ = this.boruBaslangic.nokta.z || 0;
+        targetPoint = { ...targetPoint, z: startZ };
+    }
 
     //console.log('[POINTER DOWN] activeTool:', this.manager.activeTool, 'tempComponent:', this.manager.tempComponent?.type);
 
