@@ -434,19 +434,19 @@
               </div>
               <div class="setting-control">
                 <label for="vertical-quick-1">Değer 1</label>
-                <input type="number" id="vertical-quick-1" min="-1000" max="1000" step="10" value="0" />
+                <input type="number" id="vertical-quick-1" min="1" max="1000" step="1" value="5" />
               </div>
               <div class="setting-control">
                 <label for="vertical-quick-2">Değer 2</label>
-                <input type="number" id="vertical-quick-2" min="-1000" max="1000" step="10" value="100" />
+                <input type="number" id="vertical-quick-2" min="1" max="1000" step="1" value="10" />
               </div>
               <div class="setting-control">
                 <label for="vertical-quick-3">Değer 3</label>
-                <input type="number" id="vertical-quick-3" min="-1000" max="1000" step="10" value="200" />
+                <input type="number" id="vertical-quick-3" min="1" max="1000" step="1" value="30" />
               </div>
               <div class="setting-control">
                 <label for="vertical-quick-4">Değer 4</label>
-                <input type="number" id="vertical-quick-4" min="-1000" max="1000" step="10" value="300" />
+                <input type="number" id="vertical-quick-4" min="1" max="1000" step="1" value="100" />
               </div>
             </div>
           </div>
@@ -546,17 +546,39 @@
 
       <!-- Düşey Yükseklik Paneli -->
       <div id="vertical-height-panel" class="vertical-panel" style="display: none;">
-        <div class="vertical-panel-controls">
-          <button class="vertical-btn vertical-btn-minus" id="vertical-btn-minus" title="Azalt">−</button>
-          <input type="number" class="vertical-input" id="vertical-height-input" value="0" />
-          <button class="vertical-btn vertical-btn-plus" id="vertical-btn-plus" title="Artır">+</button>
+        <div class="vertical-panel-header">Üst Kata Çık</div>
+        <div class="vertical-panel-main">
+          <div class="vertical-counter">
+            <input type="number" class="vertical-input" id="vertical-height-input" value="0" readonly />
+            <div class="vertical-arrows">
+              <button class="vertical-arrow-btn" id="vertical-arrow-up" title="Artır">▲</button>
+              <button class="vertical-arrow-btn" id="vertical-arrow-down" title="Azalt">▼</button>
+            </div>
+          </div>
+          <div class="vertical-quick-values">
+            <div class="vertical-quick-row">
+              <button class="vertical-quick-minus" data-value="-5">−</button>
+              <span class="vertical-quick-label">5</span>
+              <button class="vertical-quick-plus" data-value="5">+</button>
+            </div>
+            <div class="vertical-quick-row">
+              <button class="vertical-quick-minus" data-value="-10">−</button>
+              <span class="vertical-quick-label">10</span>
+              <button class="vertical-quick-plus" data-value="10">+</button>
+            </div>
+            <div class="vertical-quick-row">
+              <button class="vertical-quick-minus" data-value="-30">−</button>
+              <span class="vertical-quick-label">30</span>
+              <button class="vertical-quick-plus" data-value="30">+</button>
+            </div>
+            <div class="vertical-quick-row">
+              <button class="vertical-quick-minus" data-value="-100">−</button>
+              <span class="vertical-quick-label">100</span>
+              <button class="vertical-quick-plus" data-value="100">+</button>
+            </div>
+          </div>
         </div>
-        <div class="vertical-panel-quick">
-          <button class="vertical-quick-btn" data-value="0">0</button>
-          <button class="vertical-quick-btn" data-value="100">100</button>
-          <button class="vertical-quick-btn" data-value="200">200</button>
-          <button class="vertical-quick-btn" data-value="300">300</button>
-        </div>
+        <div class="vertical-panel-footer">Alt Kata İn</div>
       </div>
 
       <input type="text" id="length-input" />

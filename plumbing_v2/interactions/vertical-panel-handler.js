@@ -11,11 +11,10 @@ import { plumbingManager } from '../plumbing-manager.js';
 export function initVerticalPanelListeners() {
     const panel = document.getElementById('vertical-height-panel');
     const input = document.getElementById('vertical-height-input');
-    const minusBtn = document.getElementById('vertical-btn-minus');
-    const plusBtn = document.getElementById('vertical-btn-plus');
-    const quickBtns = document.querySelectorAll('.vertical-quick-btn');
+    const arrowUp = document.getElementById('vertical-arrow-up');
+    const arrowDown = document.getElementById('vertical-arrow-down');
 
-    if (!panel || !input || !minusBtn || !plusBtn) {
+    if (!panel || !input || !arrowUp || !arrowDown) {
         console.warn('Vertical panel elements not found');
         return;
     }
@@ -23,47 +22,57 @@ export function initVerticalPanelListeners() {
     // Ayarlardan hızlı değerleri yükle
     loadQuickValuesFromSettings();
 
-    // + buton: 10 cm artır
-    plusBtn.addEventListener('click', (e) => {
+    // ▲ buton: 1 artır
+    arrowUp.addEventListener('click', (e) => {
         e.stopPropagation();
         const currentValue = parseFloat(input.value) || 0;
-        const newValue = currentValue + 10;
+        const newValue = currentValue + 1;
         input.value = newValue;
         updateInteractionManagerValue(newValue);
     });
 
-    // - buton: 10 cm azalt
-    minusBtn.addEventListener('click', (e) => {
+    // ▼ buton: 1 azalt
+    arrowDown.addEventListener('click', (e) => {
         e.stopPropagation();
         const currentValue = parseFloat(input.value) || 0;
-        const newValue = currentValue - 10;
+        const newValue = currentValue - 1;
         input.value = newValue;
         updateInteractionManagerValue(newValue);
     });
 
-    // Input değişim
-    input.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value) || 0;
-        updateInteractionManagerValue(value);
-    });
-
-    // Mouse wheel: Artır/azalt
-    input.addEventListener('wheel', (e) => {
+    // Mouse wheel: Artır/azalt (panel üzerinde)
+    panel.addEventListener('wheel', (e) => {
         e.preventDefault();
         const currentValue = parseFloat(input.value) || 0;
-        const delta = e.deltaY > 0 ? -10 : 10; // Aşağı scroll = azalt, yukarı = artır
+        const delta = e.deltaY > 0 ? -1 : 1; // Aşağı scroll = azalt, yukarı = artır
         const newValue = currentValue + delta;
         input.value = newValue;
         updateInteractionManagerValue(newValue);
     });
 
-    // Hızlı değer butonları
-    quickBtns.forEach(btn => {
+    // Hızlı değer butonları - Plus (+)
+    const plusBtns = document.querySelectorAll('.vertical-quick-plus');
+    plusBtns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const value = parseFloat(btn.getAttribute('data-value')) || 0;
-            input.value = value;
-            updateInteractionManagerValue(value);
+            const currentValue = parseFloat(input.value) || 0;
+            const newValue = currentValue + value;
+            input.value = newValue;
+            updateInteractionManagerValue(newValue);
+        });
+    });
+
+    // Hızlı değer butonları - Minus (-)
+    const minusBtns = document.querySelectorAll('.vertical-quick-minus');
+    minusBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = parseFloat(btn.getAttribute('data-value')) || 0;
+            const currentValue = parseFloat(input.value) || 0;
+            const newValue = currentValue + value; // data-value zaten negatif
+            input.value = newValue;
+            updateInteractionManagerValue(newValue);
         });
     });
 
@@ -91,15 +100,26 @@ function updateInteractionManagerValue(value) {
  * Hızlı değerleri güncelle (ayarlar menüsünden)
  */
 export function updateQuickValues(values) {
-    const quickBtns = document.querySelectorAll('.vertical-quick-btn');
-    if (quickBtns.length !== 4 || values.length !== 4) {
+    const quickLabels = document.querySelectorAll('.vertical-quick-label');
+    const plusBtns = document.querySelectorAll('.vertical-quick-plus');
+    const minusBtns = document.querySelectorAll('.vertical-quick-minus');
+
+    if (quickLabels.length !== 4 || values.length !== 4) {
         console.warn('Quick values mismatch');
         return;
     }
 
-    quickBtns.forEach((btn, index) => {
+    // Label'ları ve buton değerlerini güncelle
+    quickLabels.forEach((label, index) => {
+        label.textContent = values[index];
+    });
+
+    plusBtns.forEach((btn, index) => {
         btn.setAttribute('data-value', values[index]);
-        btn.textContent = values[index];
+    });
+
+    minusBtns.forEach((btn, index) => {
+        btn.setAttribute('data-value', -values[index]); // Negatif değer
     });
 
     // InteractionManager'daki değerleri de güncelle
@@ -113,10 +133,10 @@ export function updateQuickValues(values) {
  */
 function loadQuickValuesFromSettings() {
     const values = [
-        parseInt(document.getElementById('vertical-quick-1')?.value) || 0,
-        parseInt(document.getElementById('vertical-quick-2')?.value) || 100,
-        parseInt(document.getElementById('vertical-quick-3')?.value) || 200,
-        parseInt(document.getElementById('vertical-quick-4')?.value) || 300
+        parseInt(document.getElementById('vertical-quick-1')?.value) || 5,
+        parseInt(document.getElementById('vertical-quick-2')?.value) || 10,
+        parseInt(document.getElementById('vertical-quick-3')?.value) || 30,
+        parseInt(document.getElementById('vertical-quick-4')?.value) || 100
     ];
     updateQuickValues(values);
 }

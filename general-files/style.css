@@ -1613,63 +1613,59 @@ body.light-mode .btn-show-3d {
     background: var(--bg-popup);
     border: 2px solid #8ab4f8;
     border-radius: 8px;
-    padding: 12px;
+    padding: 0;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(8px);
-    min-width: 200px;
+    min-width: 280px;
     pointer-events: auto;
+    overflow: hidden;
 }
 
-.vertical-panel-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.vertical-btn {
-    width: 32px;
-    height: 32px;
-    background: var(--bg-button);
-    border: 1px solid var(--border-button);
-    color: var(--color-text);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 18px;
+.vertical-panel-header {
+    background: rgba(138, 180, 248, 0.2);
+    padding: 8px 12px;
+    font-size: 13px;
     font-weight: 600;
+    color: var(--color-text);
+    text-align: center;
+    border-bottom: 1px solid rgba(138, 180, 248, 0.3);
+}
+
+.vertical-panel-footer {
+    background: rgba(138, 180, 248, 0.2);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+    text-align: center;
+    border-top: 1px solid rgba(138, 180, 248, 0.3);
+}
+
+.vertical-panel-main {
     display: flex;
+    gap: 12px;
+    padding: 12px;
+}
+
+.vertical-counter {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-}
-
-.vertical-btn:hover {
-    background: var(--bg-button-hover);
-    border-color: #87CEEB;
-    box-shadow: 0 2px 4px rgba(135, 206, 235, 0.3);
-}
-
-.vertical-btn:active {
-    transform: scale(0.95);
+    gap: 4px;
 }
 
 .vertical-input {
-    flex: 1;
+    width: 100px;
     background: var(--bg-input);
     color: var(--color-text);
     border: 2px solid #8ab4f8;
     border-radius: 6px;
-    padding: 8px;
-    font-size: 16px;
-    font-weight: 600;
+    padding: 12px 8px;
+    font-size: 24px;
+    font-weight: 700;
     text-align: center;
     outline: none;
-    min-width: 0;
-}
-
-.vertical-input:focus {
-    border-color: #87CEEB;
-    box-shadow: 0 0 8px rgba(135, 206, 235, 0.4);
+    pointer-events: none;
 }
 
 /* Remove spinner arrows for number input */
@@ -1683,32 +1679,81 @@ body.light-mode .btn-show-3d {
     -moz-appearance: textfield;
 }
 
-.vertical-panel-quick {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
+.vertical-arrows {
+    display: flex;
+    gap: 4px;
 }
 
-.vertical-quick-btn {
-    padding: 8px;
+.vertical-arrow-btn {
+    width: 48px;
+    height: 32px;
     background: var(--bg-button);
     border: 1px solid var(--border-button);
     color: var(--color-text);
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.2s ease;
-    text-align: center;
 }
 
-.vertical-quick-btn:hover {
+.vertical-arrow-btn:hover {
     background: var(--bg-button-hover);
     border-color: #87CEEB;
-    transform: scale(1.05);
+    box-shadow: 0 2px 4px rgba(135, 206, 235, 0.3);
 }
 
-.vertical-quick-btn:active {
-    background: var(--bg-button-active);
-    color: var(--color-button-active);
+.vertical-arrow-btn:active {
+    transform: scale(0.95);
+}
+
+.vertical-quick-values {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.vertical-quick-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.vertical-quick-minus,
+.vertical-quick-plus {
+    width: 32px;
+    height: 32px;
+    background: var(--bg-button);
+    border: 1px solid var(--border-button);
+    color: var(--color-text);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.vertical-quick-minus:hover,
+.vertical-quick-plus:hover {
+    background: var(--bg-button-hover);
+    border-color: #87CEEB;
+    box-shadow: 0 2px 4px rgba(135, 206, 235, 0.3);
+}
+
+.vertical-quick-minus:active,
+.vertical-quick-plus:active {
+    transform: scale(0.95);
+}
+
+.vertical-quick-label {
+    min-width: 40px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-text);
 }
