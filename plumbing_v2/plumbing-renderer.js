@@ -518,6 +518,52 @@ export class PlumbingRenderer {
                 ctx.fill();
                 ctx.restore();
             }
+
+            // Dikey boru gösterimi (Z koordinatı farklıysa)
+            const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+            if (Math.abs(zDiff) > 0.1) {
+                ctx.save();
+                const colorGroup = pipe.colorGroup || 'YELLOW';
+                const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
+
+                // Çemberin çapı: boru genişliğinin 1.5 katı
+                const circleRadius = width * 0.75;
+                const arrowLength = circleRadius * 0.6;
+
+                // Orta nokta
+                const midX = (pipe.p1.x + pipe.p2.x) / 2;
+                const midY = (pipe.p1.y + pipe.p2.y) / 2;
+
+                // Çember çiz (içi boş)
+                ctx.strokeStyle = pipeColor;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(midX, midY, circleRadius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Ok çiz
+                ctx.fillStyle = pipeColor;
+                if (zDiff > 0) {
+                    // Yükseliyor: Dışa doğru ok
+                    ctx.beginPath();
+                    ctx.moveTo(midX, midY); // Merkez
+                    ctx.lineTo(midX - arrowLength * 0.3, midY + arrowLength * 0.3);
+                    ctx.lineTo(midX, midY - arrowLength);
+                    ctx.lineTo(midX + arrowLength * 0.3, midY + arrowLength * 0.3);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    // Alçalıyor: İçe doğru ok
+                    ctx.beginPath();
+                    ctx.moveTo(midX, midY - arrowLength); // Dış nokta
+                    ctx.lineTo(midX - arrowLength * 0.3, midY - arrowLength * 0.3);
+                    ctx.lineTo(midX, midY);
+                    ctx.lineTo(midX + arrowLength * 0.3, midY - arrowLength * 0.3);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
         });
 
         // Dirsek görüntülerini çiz
