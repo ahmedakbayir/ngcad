@@ -486,10 +486,10 @@ export function setupIsometricControls() {
 
                     const distToParentStart = Math.hypot(draggedPos.isoX - parentStart.isoX, draggedPos.isoY - parentStart.isoY);
                     const distToParentEnd = Math.hypot(draggedPos.isoX - parentEnd.isoX, draggedPos.isoY - parentEnd.isoY);
-                    const threshold = 15;
+                    const connectionThreshold = 25; // Hızlı hareket için yeterli
 
                     // Eğer sürüklenen endpoint parent'a bağlıysa, parent doğrultusunu kullan
-                    if (distToParentStart < threshold || distToParentEnd < threshold) {
+                    if (distToParentStart < connectionThreshold || distToParentEnd < connectionThreshold) {
                         constraintPipe = parentPipe;
                         isDraggedEndpointConnectedToParent = true;
                     }
@@ -526,7 +526,7 @@ export function setupIsometricControls() {
             // Yeni offset state'i oluştur
             const newOffsets = { ...state.isoPipeOffsets };
             const visited = new Set();
-            const threshold = 15; // Yakınlık eşiği (pixel)
+            const threshold = 25; // Yakınlık eşiği (pixel) - hızlı hareket için yeterli
 
             // Helper: Bir endpoint'i hareket ettir (MİNİMUM UZUNLUK KONTROLÜ ile)
             const moveEndpoint = (targetPipe, endpoint, moveOffsetX, moveOffsetY) => {
@@ -668,7 +668,8 @@ export function setupIsometricControls() {
                             0
                         );
 
-                        const childOffset = newOffsets[childPipe.id] || {};
+                        // Child'ın pozisyonunu hesapla (ÖNCEKİ OFFSET'LERİ DE EKLE!)
+                        const childOffset = newOffsets[childPipe.id] || state.isoPipeOffsets[childPipe.id] || {};
                         childPos.isoX += (childOffset[childEndpointType + 'Dx'] || 0);
                         childPos.isoY += (childOffset[childEndpointType + 'Dy'] || 0);
 
