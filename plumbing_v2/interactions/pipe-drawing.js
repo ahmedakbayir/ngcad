@@ -252,7 +252,15 @@ export function handleBoruClick(interactionManager, point) {
     if (!interactionManager.boruBaslangic) return;
     saveState();
 
-    if (isProtectedPoint(point, interactionManager.manager, null, null, null, false)) {
+    // Dikey boru kontrolü (aynı x,y, farklı z)
+    const isVerticalPipe = (
+        Math.abs(point.x - interactionManager.boruBaslangic.nokta.x) < 0.1 &&
+        Math.abs(point.y - interactionManager.boruBaslangic.nokta.y) < 0.1 &&
+        Math.abs((point.z || 0) - (interactionManager.boruBaslangic.nokta.z || 0)) > 0.1
+    );
+
+    // Dikey boru değilse normal koruma kontrolü
+    if (!isVerticalPipe && isProtectedPoint(point, interactionManager.manager, null, null, null, false)) {
         return;
     }
 
@@ -316,6 +324,33 @@ export function handleBoruClick(interactionManager, point) {
 export function applyMeasurement(interactionManager) {
     // ... existing code ...
     if (!interactionManager.boruBaslangic) return;
+
+    // Düşey ölçüm kontrolü (+/- ile başlıyorsa)
+    if (interactionManager.isVerticalMeasurement) {
+        const height = parseFloat(interactionManager.measurementInput);
+        if (isNaN(height) || height === 0) {
+            interactionManager.measurementInput = '';
+            interactionManager.measurementActive = false;
+            interactionManager.isVerticalMeasurement = false;
+            return;
+        }
+
+        // Düşey boru oluştur
+        const startPoint = interactionManager.boruBaslangic.nokta;
+        const endPoint = {
+            x: startPoint.x,
+            y: startPoint.y,
+            z: (startPoint.z || 0) + height
+        };
+
+        handleBoruClick(interactionManager, endPoint);
+        interactionManager.measurementInput = '';
+        interactionManager.measurementActive = false;
+        interactionManager.isVerticalMeasurement = false;
+        return;
+    }
+
+    // Normal yatay ölçüm
     const measurement = parseFloat(interactionManager.measurementInput);
     if (isNaN(measurement) || measurement <= 0) {
         interactionManager.measurementInput = '';
