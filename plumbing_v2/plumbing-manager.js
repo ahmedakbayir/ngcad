@@ -12,6 +12,7 @@ import { Sayac, createSayac } from './objects/meter.js';
 import { Vana, createVana } from './objects/valve.js';
 import { Cihaz, createCihaz } from './objects/device.js';
 import { Baca, createBaca } from './objects/chimney.js';
+import { initVerticalPanelListeners } from './interactions/vertical-panel-handler.js';
 
 export class PlumbingManager {
     constructor() {
@@ -35,6 +36,8 @@ export class PlumbingManager {
     }
 
     init() {
+        // Düşey panel event listener'larını başlat
+        initVerticalPanelListeners();
     }
 
     /**
@@ -597,6 +600,9 @@ export class PlumbingManager {
 }
 
 export const plumbingManager = PlumbingManager.getInstance();
+
+// Düşey panel listener'larını başlat
+plumbingManager.init();
 
 // Export modları da
 export { TESISAT_MODLARI };
