@@ -530,9 +530,9 @@ export class PlumbingRenderer {
                 const centerX = pipe.p1.x;
                 const centerY = pipe.p1.y;
 
-                // Sabit çember çapı: 10
-                const circleRadius = 10;
-                const arrowLength = 15;
+                // Sabit çember çapı: 5 (yarıya düşürüldü)
+                const circleRadius = 5;
+                const arrowLength = 12;
 
                 // İçi boş çember çiz
                 ctx.strokeStyle = pipeColor;
@@ -575,7 +575,7 @@ export class PlumbingRenderer {
                     ctx.closePath();
                     ctx.fill();
                 } else {
-                    // Aşağı iniş: 225 derece merkezE doğru
+                    // Aşağı iniş: 225 derece merkeze doğru
                     const angle225 = 5 * Math.PI / 4; // 225 derece
                     const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
                     const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
@@ -588,17 +588,18 @@ export class PlumbingRenderer {
                     ctx.lineTo(arrowTipX, arrowTipY);
                     ctx.stroke();
 
-                    // Ok başı (üçgen)
+                    // Ok başı (üçgen) - merkeze doğru işaret ediyor
                     const arrowHeadSize = 5;
+                    const reverseAngle = angle225 + Math.PI; // Ok yönünü tersine çevir
                     ctx.beginPath();
                     ctx.moveTo(arrowTipX, arrowTipY);
                     ctx.lineTo(
-                        arrowTipX - arrowHeadSize * Math.cos(angle225 - Math.PI / 6),
-                        arrowTipY + arrowHeadSize * Math.sin(angle225 - Math.PI / 6)
+                        arrowTipX - arrowHeadSize * Math.cos(reverseAngle - Math.PI / 6),
+                        arrowTipY + arrowHeadSize * Math.sin(reverseAngle - Math.PI / 6)
                     );
                     ctx.lineTo(
-                        arrowTipX - arrowHeadSize * Math.cos(angle225 + Math.PI / 6),
-                        arrowTipY + arrowHeadSize * Math.sin(angle225 + Math.PI / 6)
+                        arrowTipX - arrowHeadSize * Math.cos(reverseAngle + Math.PI / 6),
+                        arrowTipY + arrowHeadSize * Math.sin(reverseAngle + Math.PI / 6)
                     );
                     ctx.closePath();
                     ctx.fill();
