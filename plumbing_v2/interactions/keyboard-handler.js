@@ -88,6 +88,14 @@ export function handleKeyDown(e) {
             }
         } else {
             // Normal ölçü girişi (düşey panel kapalıyken)
+            // +/- ile düşey mod
+            if (e.key === '+' || e.key === '-') {
+                this.measurementInput = e.key;
+                this.measurementActive = true;
+                this.isVerticalMeasurement = true;
+                return true;
+            }
+
             // Rakam girişi (0-9)
             if (/^[0-9]$/.test(e.key)) {
                 this.measurementInput += e.key;
@@ -100,6 +108,7 @@ export function handleKeyDown(e) {
                 this.measurementInput = this.measurementInput.slice(0, -1);
                 if (this.measurementInput.length === 0) {
                     this.measurementActive = false;
+                    this.isVerticalMeasurement = false;
                 }
                 return true;
             }
