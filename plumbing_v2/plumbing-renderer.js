@@ -527,48 +527,81 @@ export class PlumbingRenderer {
                 const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
                 // Dikey borunun konumu (p1 = p2 çünkü aynı x,y)
-                const posX = pipe.p1.x;
-                const posY = pipe.p1.y;
+                const centerX = pipe.p1.x;
+                const centerY = pipe.p1.y;
 
-                // Çember boyutu
-                const circleRadius = Math.max(width * 1.2, 8); // En az 8 piksel
-                const arrowSize = circleRadius * 0.8;
-                const arrowOffset = circleRadius + arrowSize * 0.3; // Ok çemberin yanında
+                // Sabit çember çapı: 10
+                const circleRadius = 10;
+                const arrowLength = 15;
 
                 // İçi boş çember çiz
                 ctx.strokeStyle = pipeColor;
-                ctx.lineWidth = 2.5;
+                ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.arc(posX, posY, circleRadius, 0, Math.PI * 2);
+                ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
                 ctx.stroke();
 
-                // Ok çiz (çemberin yanında)
+                // Ok çiz
                 ctx.fillStyle = pipeColor;
                 ctx.strokeStyle = pipeColor;
                 ctx.lineWidth = 2;
 
                 if (zDiff > 0) {
-                    // Yukarı çıkış: Dışa doğru ok (yukarı)
-                    const arrowTipX = posX;
-                    const arrowTipY = posY - arrowOffset;
+                    // Yukarı çıkış: 45 derece dışa doğru
+                    const angle45 = Math.PI / 4; // 45 derece
+                    const arrowStartX = centerX + circleRadius * Math.cos(angle45);
+                    const arrowStartY = centerY - circleRadius * Math.sin(angle45);
+                    const arrowTipX = centerX + (circleRadius + arrowLength) * Math.cos(angle45);
+                    const arrowTipY = centerY - (circleRadius + arrowLength) * Math.sin(angle45);
+
+                    // Ok çizgisi
+                    ctx.beginPath();
+                    ctx.moveTo(arrowStartX, arrowStartY);
+                    ctx.lineTo(arrowTipX, arrowTipY);
+                    ctx.stroke();
+
+                    // Ok başı (üçgen)
+                    const arrowHeadSize = 5;
                     ctx.beginPath();
                     ctx.moveTo(arrowTipX, arrowTipY);
-                    ctx.lineTo(arrowTipX - arrowSize * 0.4, arrowTipY + arrowSize * 0.6);
-                    ctx.lineTo(arrowTipX + arrowSize * 0.4, arrowTipY + arrowSize * 0.6);
+                    ctx.lineTo(
+                        arrowTipX - arrowHeadSize * Math.cos(angle45 - Math.PI / 6),
+                        arrowTipY + arrowHeadSize * Math.sin(angle45 - Math.PI / 6)
+                    );
+                    ctx.lineTo(
+                        arrowTipX - arrowHeadSize * Math.cos(angle45 + Math.PI / 6),
+                        arrowTipY + arrowHeadSize * Math.sin(angle45 + Math.PI / 6)
+                    );
                     ctx.closePath();
                     ctx.fill();
-                    ctx.stroke();
                 } else {
-                    // Aşağı iniş: İçe doğru ok (aşağı)
-                    const arrowTipX = posX;
-                    const arrowTipY = posY + arrowOffset;
+                    // Aşağı iniş: 225 derece merkezE doğru
+                    const angle225 = 5 * Math.PI / 4; // 225 derece
+                    const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
+                    const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
+                    const arrowTipX = centerX + circleRadius * Math.cos(angle225);
+                    const arrowTipY = centerY - circleRadius * Math.sin(angle225);
+
+                    // Ok çizgisi
+                    ctx.beginPath();
+                    ctx.moveTo(arrowStartX, arrowStartY);
+                    ctx.lineTo(arrowTipX, arrowTipY);
+                    ctx.stroke();
+
+                    // Ok başı (üçgen)
+                    const arrowHeadSize = 5;
                     ctx.beginPath();
                     ctx.moveTo(arrowTipX, arrowTipY);
-                    ctx.lineTo(arrowTipX - arrowSize * 0.4, arrowTipY - arrowSize * 0.6);
-                    ctx.lineTo(arrowTipX + arrowSize * 0.4, arrowTipY - arrowSize * 0.6);
+                    ctx.lineTo(
+                        arrowTipX - arrowHeadSize * Math.cos(angle225 - Math.PI / 6),
+                        arrowTipY + arrowHeadSize * Math.sin(angle225 - Math.PI / 6)
+                    );
+                    ctx.lineTo(
+                        arrowTipX - arrowHeadSize * Math.cos(angle225 + Math.PI / 6),
+                        arrowTipY + arrowHeadSize * Math.sin(angle225 + Math.PI / 6)
+                    );
                     ctx.closePath();
                     ctx.fill();
-                    ctx.stroke();
                 }
                 ctx.restore();
             }
