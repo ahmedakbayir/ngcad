@@ -442,6 +442,13 @@ export function setupIsometricControls() {
             const draggedPipe = state.isoDraggedPipe;
             const draggedEndpoint = state.isoDraggedEndpoint; // 'start' veya 'end'
 
+            console.log(`\n🎯 SÜRÜKLEME:
+  Pipe: ${draggedPipe.id}
+  Endpoint: ${draggedEndpoint}
+  p1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}, ${(draggedPipe.p1.z||0).toFixed(1)})
+  p2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)}, ${(draggedPipe.p2.z||0).toFixed(1)})
+  Sürüklenen nokta: ${draggedEndpoint === 'start' ? 'p1' : 'p2'}`);
+
             // toIsometric fonksiyonunu al
             const toIso = window._toIsometric || ((x, y) => ({ isoX: x, isoY: y }));
             const hierarchy = window._isoPipeHierarchy;
@@ -457,6 +464,8 @@ export function setupIsometricControls() {
 
             // Parent pipe'ı bul ve sürüklenen endpoint'in parent'a bağlı olup olmadığını kontrol et
             const draggedPipeData = hierarchy ? hierarchy.get(draggedPipe.id) : null;
+            console.log(`  Hierarchy: parent=${draggedPipeData?.parent || 'none'}, children=[${draggedPipeData?.children?.join(', ') || 'none'}]`);
+
             if (draggedPipeData && draggedPipeData.parent && plumbingManager) {
                 const parentPipe = plumbingManager.pipes.find(p => {
                     const pData = hierarchy.get(p.id);
