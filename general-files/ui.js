@@ -496,9 +496,9 @@ export function setupIsometricControls() {
                     const dist3DToEnd = Math.hypot(draggedX - parentPipe.p2.x, draggedY - parentPipe.p2.y, draggedZ - (parentPipe.p2.z || 0));
 
                     // Eğer sürüklenen endpoint parent'a bağlıysa, parent doğrultusunu kullan
-                    // İzometrik VEYA 3D mesafe kontrolü
+                    // İzometrik VEYA 3D mesafe kontrolü (3D eşiği gevşettik: < 5)
                     if (distToParentStart < connectionThreshold || distToParentEnd < connectionThreshold ||
-                        dist3DToStart < 1 || dist3DToEnd < 1) {
+                        dist3DToStart < 5 || dist3DToEnd < 5) {
                         constraintPipe = parentPipe;
                         isDraggedEndpointConnectedToParent = true;
                     }
@@ -705,8 +705,9 @@ export function setupIsometricControls() {
                         const draggedZ = draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0);
                         const dist3D = Math.hypot(childX - draggedX, childY - draggedY, childZ - draggedZ);
 
-                        // Bağlantı kontrolü: ya izometrik mesafe < threshold VEYA 3D mesafe çok küçük (< 1)
-                        if (isoDist < threshold || dist3D < 1) {
+                        // Bağlantı kontrolü: ya izometrik mesafe < threshold VEYA 3D mesafe küçük (< 5)
+                        // 3D eşiği gevşettik çünkü düşey-yatay bağlantılar kopuyordu
+                        if (isoDist < threshold || dist3D < 5) {
                             // Bu child ve tüm torunlarını translate et
                             translatePipeAndAllChildren(childPipe, offsetX, offsetY);
                         }
