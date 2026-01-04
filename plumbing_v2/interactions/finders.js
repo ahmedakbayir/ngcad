@@ -4,8 +4,8 @@
  */
 
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
-import { saveState } from '../../../general-files/history.js';
-import { setState, state } from '../../../general-files/main.js';
+import { saveState } from '../../general-files/history.js';
+import { setState, state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 
 /**
