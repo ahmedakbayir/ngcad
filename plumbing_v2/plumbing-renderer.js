@@ -604,17 +604,18 @@ export class PlumbingRenderer {
                     const angle225 = 5 * Math.PI / 4; // 225 derece
                     const arrowHeadSize = 5;
 
-                    // Ok ucu çemberden 2px uzakta (merkeze yakın ama değmesin)
-                    const arrowTipX = centerX + (circleRadius + 2) * Math.cos(angle225);
-                    const arrowTipY = centerY - (circleRadius + 2) * Math.sin(angle225);
-
-                    // Ok çizgisi başlangıcı
+                    // Ok başlangıcı dışarıda
                     const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
                     const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
 
-                    // Ok çizgisi - ok başının arkasında biter (cubu görünmez)
-                    const lineEndX = arrowTipX - arrowHeadSize * Math.cos(angle225);
-                    const lineEndY = arrowTipY + arrowHeadSize * Math.sin(angle225);
+                    // Ok ucu tam çember kenarında (yükseliş oku gibi)
+                    const arrowTipX = centerX + circleRadius * Math.cos(angle225);
+                    const arrowTipY = centerY - circleRadius * Math.sin(angle225);
+
+                    // Ok çizgisi - ok başının arkasında biter (cubuk görünmez)
+                    const lineEndOffset = 3;
+                    const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle225);
+                    const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle225);
 
                     ctx.beginPath();
                     ctx.moveTo(arrowStartX, arrowStartY);
