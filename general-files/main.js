@@ -533,6 +533,7 @@ export const dom = {
         snap: document.getElementById("tab-pane-snap"),
         dimension: document.getElementById("tab-pane-dimension"),
         stairs: document.getElementById("tab-pane-stairs"),
+        plumbing: document.getElementById("tab-pane-plumbing"),
     },
     darkModeToggle: document.getElementById("dark-mode-toggle"), // DARK MODE TOGGLE
     borderPicker: document.getElementById("borderPicker"),
