@@ -3,8 +3,8 @@
  * Klavye girişlerini yönetir
  */
 
-import { setMode, setState, setDrawingMode, state } from '../../../general-files/main.js';
-import { saveState } from '../../../general-files/history.js';
+import { setMode, setState, setDrawingMode, state } from '../../general-files/main.js';
+import { saveState } from '../../general-files/history.js';
 import { handleBoruClick } from './pipe-drawing.js';
 
 // Tool modları
