@@ -707,6 +707,20 @@ export function setupIsometricControls() {
 
                         // Bağlantı kontrolü: ya izometrik mesafe < threshold VEYA 3D mesafe küçük (< 5)
                         // 3D eşiği gevşettik çünkü düşey-yatay bağlantılar kopuyordu
+
+                        // Debug: düşey boru ile yatay boru bağlantısını logla
+                        const isDraggedVertical = Math.abs(draggedPipe.p1.x - draggedPipe.p2.x) < 0.1 &&
+                                                  Math.abs(draggedPipe.p1.y - draggedPipe.p2.y) < 0.1;
+                        if (isDraggedVertical && dist3D < 10) {
+                            console.log(`🔍 Düşey-Yatay Bağlantı Kontrolü:
+  Sürüklenen: ${draggedPipe.id} (düşey)
+  Child: ${childPipe.id}
+  İzometrik mesafe: ${isoDist.toFixed(2)}
+  3D mesafe: ${dist3D.toFixed(2)}
+  Threshold: ${threshold}
+  Bağlanacak mı: ${isoDist < threshold || dist3D < 5}`);
+                        }
+
                         if (isoDist < threshold || dist3D < 5) {
                             // Bu child ve tüm torunlarını translate et
                             translatePipeAndAllChildren(childPipe, offsetX, offsetY);
