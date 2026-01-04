@@ -667,32 +667,36 @@ export function setupIsometricControls() {
 
                     if (!childPipe) return;
 
-                    // Child'ın baslangicBaglanti noktası (p1) parent'ın hangi ucuna bağlı?
-                    // Sürüklenen uç ile child'ın başlangıcını karşılaştır
+                    // Sürüklenen endpoint'in 3D koordinatları
                     const draggedX = draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x;
                     const draggedY = draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y;
                     const draggedZ = draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0);
 
-                    // Child baslangıcı (her zaman p1, çünkü baslangicBaglanti)
-                    const childStartX = childPipe.p1.x;
-                    const childStartY = childPipe.p1.y;
-                    const childStartZ = childPipe.p1.z || 0;
-
-                    // 3D mesafe - SADECE 1 cm'den yakınsa bağlı sayılır
-                    const dist3D = Math.hypot(
-                        childStartX - draggedX,
-                        childStartY - draggedY,
-                        childStartZ - draggedZ
+                    // Child'ın her iki ucunu da kontrol et (baslangicBaglanti her zaman p1 olmalı ama emin olmak için)
+                    const distToStart3D = Math.hypot(
+                        childPipe.p1.x - draggedX,
+                        childPipe.p1.y - draggedY,
+                        (childPipe.p1.z || 0) - draggedZ
                     );
 
-                    console.log(`🔗 Child Bağlantı:
-  Parent: ${draggedPipe.id} ${draggedEndpoint} ucu
-  Child: ${childPipe.id} (label: ${childLabel})
-  3D mesafe: ${dist3D.toFixed(2)}
-  Bağlanacak: ${dist3D < 1}`);
+                    const distToEnd3D = Math.hypot(
+                        childPipe.p2.x - draggedX,
+                        childPipe.p2.y - draggedY,
+                        (childPipe.p2.z || 0) - draggedZ
+                    );
 
-                    // Eğer child'ın başlangıcı sürüklenen uca çok yakınsa, tüm child'ı taşı
-                    if (dist3D < 1) {
+                    const minDist = Math.min(distToStart3D, distToEnd3D);
+                    const threshold3D = 3; // 3 cm tolerance
+
+                    console.log(`🔗 Child Bağlantı:
+  Parent: ${draggedPipe.id} ${draggedEndpoint} (${draggedX.toFixed(1)}, ${draggedY.toFixed(1)}, ${draggedZ.toFixed(1)})
+  Child: ${childPipe.id} (label: ${childLabel})
+  Child p1: (${childPipe.p1.x.toFixed(1)}, ${childPipe.p1.y.toFixed(1)}, ${(childPipe.p1.z||0).toFixed(1)}) dist: ${distToStart3D.toFixed(2)}
+  Child p2: (${childPipe.p2.x.toFixed(1)}, ${childPipe.p2.y.toFixed(1)}, ${(childPipe.p2.z||0).toFixed(2)}) dist: ${distToEnd3D.toFixed(2)}
+  Min mesafe: ${minDist.toFixed(2)} < ${threshold3D}? ${minDist < threshold3D}`);
+
+                    // Eğer child'ın herhangi bir ucu sürüklenen uca yakınsa, tüm child'ı taşı
+                    if (minDist < threshold3D) {
                         translatePipeAndAllChildren(childPipe, offsetX, offsetY);
                     }
                 });
