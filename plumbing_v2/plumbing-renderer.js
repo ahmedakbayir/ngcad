@@ -526,41 +526,49 @@ export class PlumbingRenderer {
                 const colorGroup = pipe.colorGroup || 'YELLOW';
                 const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
-                // Çemberin çapı: boru genişliğinin 1.5 katı
-                const circleRadius = width * 0.75;
-                const arrowLength = circleRadius * 0.6;
+                // Dikey borunun konumu (p1 = p2 çünkü aynı x,y)
+                const posX = pipe.p1.x;
+                const posY = pipe.p1.y;
 
-                // Orta nokta
-                const midX = (pipe.p1.x + pipe.p2.x) / 2;
-                const midY = (pipe.p1.y + pipe.p2.y) / 2;
+                // Çember boyutu
+                const circleRadius = Math.max(width * 1.2, 8); // En az 8 piksel
+                const arrowSize = circleRadius * 0.8;
+                const arrowOffset = circleRadius + arrowSize * 0.3; // Ok çemberin yanında
 
-                // Çember çiz (içi boş)
+                // İçi boş çember çiz
                 ctx.strokeStyle = pipeColor;
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 2.5;
                 ctx.beginPath();
-                ctx.arc(midX, midY, circleRadius, 0, Math.PI * 2);
+                ctx.arc(posX, posY, circleRadius, 0, Math.PI * 2);
                 ctx.stroke();
 
-                // Ok çiz
+                // Ok çiz (çemberin yanında)
                 ctx.fillStyle = pipeColor;
+                ctx.strokeStyle = pipeColor;
+                ctx.lineWidth = 2;
+
                 if (zDiff > 0) {
-                    // Yükseliyor: Dışa doğru ok
+                    // Yukarı çıkış: Dışa doğru ok (yukarı)
+                    const arrowTipX = posX;
+                    const arrowTipY = posY - arrowOffset;
                     ctx.beginPath();
-                    ctx.moveTo(midX, midY); // Merkez
-                    ctx.lineTo(midX - arrowLength * 0.3, midY + arrowLength * 0.3);
-                    ctx.lineTo(midX, midY - arrowLength);
-                    ctx.lineTo(midX + arrowLength * 0.3, midY + arrowLength * 0.3);
+                    ctx.moveTo(arrowTipX, arrowTipY);
+                    ctx.lineTo(arrowTipX - arrowSize * 0.4, arrowTipY + arrowSize * 0.6);
+                    ctx.lineTo(arrowTipX + arrowSize * 0.4, arrowTipY + arrowSize * 0.6);
                     ctx.closePath();
                     ctx.fill();
+                    ctx.stroke();
                 } else {
-                    // Alçalıyor: İçe doğru ok
+                    // Aşağı iniş: İçe doğru ok (aşağı)
+                    const arrowTipX = posX;
+                    const arrowTipY = posY + arrowOffset;
                     ctx.beginPath();
-                    ctx.moveTo(midX, midY - arrowLength); // Dış nokta
-                    ctx.lineTo(midX - arrowLength * 0.3, midY - arrowLength * 0.3);
-                    ctx.lineTo(midX, midY);
-                    ctx.lineTo(midX + arrowLength * 0.3, midY - arrowLength * 0.3);
+                    ctx.moveTo(arrowTipX, arrowTipY);
+                    ctx.lineTo(arrowTipX - arrowSize * 0.4, arrowTipY - arrowSize * 0.6);
+                    ctx.lineTo(arrowTipX + arrowSize * 0.4, arrowTipY - arrowSize * 0.6);
                     ctx.closePath();
                     ctx.fill();
+                    ctx.stroke();
                 }
                 ctx.restore();
             }
