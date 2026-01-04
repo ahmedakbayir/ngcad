@@ -488,8 +488,17 @@ export function setupIsometricControls() {
                     const distToParentEnd = Math.hypot(draggedPos.isoX - parentEnd.isoX, draggedPos.isoY - parentEnd.isoY);
                     const connectionThreshold = 25; // Hızlı hareket için yeterli
 
+                    // 3D mesafe kontrolü (düşey borular için)
+                    const draggedX = draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x;
+                    const draggedY = draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y;
+                    const draggedZ = draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0);
+                    const dist3DToStart = Math.hypot(draggedX - parentPipe.p1.x, draggedY - parentPipe.p1.y, draggedZ - (parentPipe.p1.z || 0));
+                    const dist3DToEnd = Math.hypot(draggedX - parentPipe.p2.x, draggedY - parentPipe.p2.y, draggedZ - (parentPipe.p2.z || 0));
+
                     // Eğer sürüklenen endpoint parent'a bağlıysa, parent doğrultusunu kullan
-                    if (distToParentStart < connectionThreshold || distToParentEnd < connectionThreshold) {
+                    // İzometrik VEYA 3D mesafe kontrolü
+                    if (distToParentStart < connectionThreshold || distToParentEnd < connectionThreshold ||
+                        dist3DToStart < 1 || dist3DToEnd < 1) {
                         constraintPipe = parentPipe;
                         isDraggedEndpointConnectedToParent = true;
                     }
@@ -529,6 +538,7 @@ export function setupIsometricControls() {
             const threshold = 25; // Yakınlık eşiği (pixel) - hızlı hareket için yeterli
 
             // Helper: Bir endpoint'i hareket ettir (MİNİMUM UZUNLUK KONTROLÜ ile)
+            // Return: true = hareket edildi, false = engellendi
             const moveEndpoint = (targetPipe, endpoint, moveOffsetX, moveOffsetY) => {
                 if (!newOffsets[targetPipe.id]) newOffsets[targetPipe.id] = {};
                 const prevOffset = newOffsets[targetPipe.id];
@@ -559,8 +569,10 @@ export function setupIsometricControls() {
                     // Uzunluk OK, hareketi uygula
                     newOffsets[targetPipe.id][endpoint + 'Dx'] = testOffsets[endpoint + 'Dx'];
                     newOffsets[targetPipe.id][endpoint + 'Dy'] = testOffsets[endpoint + 'Dy'];
+                    return true; // Hareket başarılı
                 }
                 // Eğer minimum'un altına düşecekse hareketi UYGULAMA (pipe kısalmaz)
+                return false; // Hareket engellendi
             };
 
             // Helper: Bir pipe'ı tamamen translate et (her iki uç)
@@ -601,7 +613,12 @@ export function setupIsometricControls() {
 
             // ============ ANA MANTIK ============
             // 1. Sürüklenen pipe'ın endpoint'ini hareket ettir
-            moveEndpoint(draggedPipe, draggedEndpoint, offsetX, offsetY);
+            const draggedEndpointMoved = moveEndpoint(draggedPipe, draggedEndpoint, offsetX, offsetY);
+
+            // Eğer ana endpoint hareket etmediyse (min uzunluk kontrolü), tüm işlemi iptal et
+            if (!draggedEndpointMoved) {
+                return; // Hiçbir şey hareket etmez
+            }
 
             // 2. Parent pipe'ın bağlı ucunu hareket ettir (SADECE PARENT'A BAĞLI İSE!)
             if (isDraggedEndpointConnectedToParent && constraintPipe !== draggedPipe) {
@@ -673,13 +690,23 @@ export function setupIsometricControls() {
                         childPos.isoX += (childOffset[childEndpointType + 'Dx'] || 0);
                         childPos.isoY += (childOffset[childEndpointType + 'Dy'] || 0);
 
-                        // Sürüklenen endpoint'e yakın mı?
-                        const dist = Math.hypot(
+                        // Sürüklenen endpoint'e yakın mı? (İzometrik mesafe)
+                        const isoDist = Math.hypot(
                             childPos.isoX - draggedEndpointPos.isoX,
                             childPos.isoY - draggedEndpointPos.isoY
                         );
 
-                        if (dist < threshold) {
+                        // 3D mesafe kontrolü de ekle (düşey borular için önemli)
+                        const childX = childIsStart ? childPipe.p1.x : childPipe.p2.x;
+                        const childY = childIsStart ? childPipe.p1.y : childPipe.p2.y;
+                        const childZ = childIsStart ? (childPipe.p1.z || 0) : (childPipe.p2.z || 0);
+                        const draggedX = draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x;
+                        const draggedY = draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y;
+                        const draggedZ = draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0);
+                        const dist3D = Math.hypot(childX - draggedX, childY - draggedY, childZ - draggedZ);
+
+                        // Bağlantı kontrolü: ya izometrik mesafe < threshold VEYA 3D mesafe çok küçük (< 1)
+                        if (isoDist < threshold || dist3D < 1) {
                             // Bu child ve tüm torunlarını translate et
                             translatePipeAndAllChildren(childPipe, offsetX, offsetY);
                         }
