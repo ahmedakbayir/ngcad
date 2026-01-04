@@ -112,7 +112,7 @@ export class InteractionManager {
         // Düşey (vertical) mod durumu
         this.verticalModeActive = false;  // TAB ile panel açıkken true
         this.verticalHeightInput = 0;     // Girilen yükseklik değeri (cm)
-        this.verticalQuickValues = [100, 200, 300, 400];  // Hızlı değerler
+        this.verticalQuickValues = [5, 10, 30, 100];  // Hızlı değerler
 
         // Sürükleme durumu
         this.isDragging = false;
