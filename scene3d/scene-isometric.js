@@ -211,7 +211,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     drawIsometricComponents(ctx);
 
     // Parça etiketlerini çiz
-    drawPipeLabels(ctx, pipeHierarchy);
+    // drawPipeLabels(ctx, pipeHierarchy); // İzometrik görünümde harf etiketleri gizlendi
 
     ctx.restore();
 
