@@ -14,17 +14,16 @@ import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
  * @returns {{isoX: number, isoY: number}}
  */
 export function toIsometric(x, y, z = 0) {
-    // İzometrik projeksiyon formülü
-    // X ekseni: sağa doğru (0°)
-    // Y ekseni: yukarı-sağa doğru (30°)
+    // Standart izometrik projeksiyon formülü
+    // X ekseni: sağ-aşağı doğru (30° açıyla)
+    // Y ekseni: sol-aşağı doğru (30° açıyla)
     // Z ekseni: dikey yukarı
 
     const angle = Math.PI / 6; // 30 derece
 
-    // İzometrik X: orijinal X eksenini koruyoruz (sağa-sola hareketi temsil eder)
-    // İzometrik Y: Y eksenini 30 derece açıyla yukarı çıkarıyoruz (ileri-geri hareketi temsil eder)
-    const isoX = x - y * Math.cos(angle);
-    const isoY = -z + y * Math.sin(angle);
+    // Standart izometrik projeksiyon: her iki yatay eksen de 30 derece açı yapar
+    const isoX = (x - y) * Math.cos(angle);
+    const isoY = (x + y) * Math.sin(angle) - z;
 
     return { isoX, isoY };
 }
