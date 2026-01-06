@@ -288,18 +288,25 @@ export function draw2D() {
     // But done correctly so mouse coordinates work properly
 
     if (state.is3DPerspectiveActive) {
-        // 3D Perspektif mod: 30° eğim ve 30° soldan bakış
-        // Dimetrik projeksiyon kullan
-        const cos30 = Math.cos(30 * Math.PI / 180); // ≈ 0.866
-        const sin30 = Math.sin(30 * Math.PI / 180); // = 0.5
+        // İzometrik projeksiyon: scene-isometric.js ile aynı formül
+        // isoX = (x + y) * cos(30°)
+        // isoY = (y - x) * sin(30°) - z
+        //
+        // Matrix formunda (z=0 için):
+        // x' = x * cos(30°) + y * cos(30°)
+        // y' = -x * sin(30°) + y * sin(30°)
+
+        const angle = Math.PI / 6; // 30 derece
+        const cosAngle = Math.cos(angle); // ≈ 0.866
+        const sinAngle = Math.sin(angle); // = 0.5
 
         ctx2d.setTransform(
-            dpr * zoom * cos30,      // X ekseni yatay bileşeni (cos 30°)
-            dpr * zoom * sin30,      // X ekseni dikey bileşeni (sin 30°)
-            dpr * zoom * -sin30,     // Y ekseni yatay bileşeni (-sin 30°)
-            dpr * zoom * cos30,      // Y ekseni dikey bileşeni (cos 30°)
-            dpr * (c2d.width / (2 * dpr) + panOffset.x),  // X offset (merkezi ayarla)
-            dpr * (c2d.height / (2 * dpr) + panOffset.y)  // Y offset (merkezi ayarla)
+            dpr * zoom * cosAngle,      // a: X için X bileşeni
+            dpr * zoom * -sinAngle,     // b: X için Y bileşeni
+            dpr * zoom * cosAngle,      // c: Y için X bileşeni
+            dpr * zoom * sinAngle,      // d: Y için Y bileşeni
+            dpr * panOffset.x,          // e: X offset (normal gibi)
+            dpr * panOffset.y           // f: Y offset (normal gibi)
         );
     } else {
         // Normal 2D görünüm
