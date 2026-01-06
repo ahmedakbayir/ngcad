@@ -62,7 +62,8 @@ export function angleToIsometric(angle) {
  * İki nokta arasındaki mesafeyi hesaplar
  */
 function distance(p1, p2) {
-    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    // Dikey hatların (Z ekseni farkı) algılanabilmesi için Z farkı da hesaba katılmalı
+    return Math.hypot(p1.x - p2.x, p1.y - p2.y, (p1.z || 0) - (p2.z || 0));
 }
 
 /**

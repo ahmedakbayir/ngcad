@@ -140,14 +140,14 @@ function populateRoomNameList(filter = '') {
     if (filteredList.length > 0) {
         dom.roomNameSelect.selectedIndex = 0; // İlk elemanı seçili yap
     } else {
-         // Eğer filtre sonucu boşsa, input'taki değeri yeni seçenek olarak ekle (opsiyonel)
-         if (filter.trim() !== '' && !MAHAL_LISTESI.includes(filter.trim().toUpperCase())) {
+        // Eğer filtre sonucu boşsa, input'taki değeri yeni seçenek olarak ekle (opsiyonel)
+        if (filter.trim() !== '' && !MAHAL_LISTESI.includes(filter.trim().toUpperCase())) {
             const option = document.createElement('option');
             option.value = filter.trim();
             option.textContent = filter.trim();
             option.selected = true;
             dom.roomNameSelect.appendChild(option);
-         }
+        }
     }
 }
 
@@ -174,8 +174,8 @@ export function showRoomNamePopup(room, e, initialKey = '') {
     if (top + popupHeight > window.innerHeight) {
         top = window.innerHeight - popupHeight - 10;
     }
-     if (left < 10) left = 10;
-     if (top < 10) top = 10;
+    if (left < 10) left = 10;
+    if (top < 10) top = 10;
 
     dom.roomNamePopup.style.left = `${left}px`;
     dom.roomNamePopup.style.top = `${top}px`;
@@ -190,7 +190,7 @@ export function showRoomNamePopup(room, e, initialKey = '') {
     const clickListener = (event) => {
         // Tıklanan element popup'ın içinde değilse kapat
         if (!dom.roomNamePopup.contains(event.target)) {
-             hideRoomNamePopup();
+            hideRoomNamePopup();
         }
     };
     setState({ clickOutsideRoomPopupListener: clickListener });
@@ -205,7 +205,7 @@ export function hideRoomNamePopup() {
         window.removeEventListener('pointerdown', state.clickOutsideRoomPopupListener, { capture: true });
         setState({ clickOutsideRoomPopupListener: null, roomToEdit: null });
     }
-     dom.c2d.focus();
+    dom.c2d.focus();
 }
 
 function confirmRoomNameChange() {
@@ -535,8 +535,8 @@ export function setupIsometricControls() {
             console.log(`\n🎯 SÜRÜKLEME:
   Pipe: ${draggedPipe.id}
   Endpoint: ${draggedEndpoint}
-  p1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}, ${(draggedPipe.p1.z||0).toFixed(1)})
-  p2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)}, ${(draggedPipe.p2.z||0).toFixed(1)})
+  p1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}, ${(draggedPipe.p1.z || 0).toFixed(1)})
+  p2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)}, ${(draggedPipe.p2.z || 0).toFixed(1)})
   Sürüklenen nokta: ${draggedEndpoint === 'start' ? 'p1' : 'p2'}`);
 
             // toIsometric fonksiyonunu al
@@ -663,14 +663,41 @@ export function setupIsometricControls() {
 
                 // Minimum uzunluk kontrolü: %10'un altına düşmesin
                 const minLength = origLength * 0.1;
-                if (newLength >= minLength) {
-                    // Uzunluk OK, hareketi uygula
+
+                // YÖN KONTROLÜ (Flip Prevention):
+                // Yeni vektörün (sabit noktadan yeni uca), orijinal vektörle aynı yönde olması gerekir.
+                const origDx = origEnd.isoX - origStart.isoX;
+                const origDy = origEnd.isoY - origStart.isoY;
+
+                // Sabit nokta hangisi? (Hareket etmeyen uç)
+                // Eğer 'end' hareket ediyorsa sabit 'start'tır.
+                let vecOrigX, vecOrigY, vecNewX, vecNewY;
+
+                if (endpoint === 'end') {
+                    // Sabit: Start
+                    vecOrigX = origEnd.isoX - origStart.isoX;
+                    vecOrigY = origEnd.isoY - origStart.isoY;
+                    vecNewX = endPos.isoX - startPos.isoX; // startPos (sabit) - endPos (yeni)
+                    vecNewY = endPos.isoY - startPos.isoY;
+                } else {
+                    // Sabit: End
+                    vecOrigX = origStart.isoX - origEnd.isoX;
+                    vecOrigY = origStart.isoY - origEnd.isoY;
+                    vecNewX = startPos.isoX - endPos.isoX; // endPos (sabit) - startPos (yeni)
+                    vecNewY = startPos.isoY - endPos.isoY;
+                }
+
+                // Dot product (İç çarpım) > 0 ise yön aynıdır
+                const dotProduct = vecOrigX * vecNewX + vecOrigY * vecNewY;
+
+                if (newLength >= minLength && dotProduct > 0) {
+                    // Uzunluk OK ve Yön OK, hareketi uygula
                     newOffsets[targetPipe.id][endpoint + 'Dx'] = testOffsets[endpoint + 'Dx'];
                     newOffsets[targetPipe.id][endpoint + 'Dy'] = testOffsets[endpoint + 'Dy'];
                     return true; // Hareket başarılı
                 }
-                // Eğer minimum'un altına düşecekse hareketi UYGULAMA (pipe kısalmaz)
-                return false; // Hareket engellendi
+                // Eğer minimum'un altına düşecekse veya yön tersine dönecekse hareketi UYGULAMA
+                return false; // Hareket engellendi`
             };
 
             // Helper: Bir pipe'ı tamamen translate et (her iki uç)
@@ -841,7 +868,7 @@ export function setupIsometricControls() {
                     );
 
                     const minDist = Math.min(distToStart3D, distToEnd3D);
-                    const threshold3D = 3; // 3 cm tolerance
+                    const threshold3D = 25; // 25 cm tolerance (Dikey hatların yakalanması için artırıldı)
 
                     // Eğer child'ın herhangi bir ucu sürüklenen uca yakınsa, tüm child'ı taşı
                     if (minDist < threshold3D) {
@@ -923,7 +950,7 @@ export function setSplitRatio(ratio) {
     document.querySelectorAll('.split-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    const activeBtn = document.getElementById(`split-${ratio}`);
+    const activeBtn = document.getElementById(`split - ${ ratio } `);
     if (activeBtn) activeBtn.classList.add('active');
 
     // Ratio 0 ise 3D panelini kapat
@@ -1001,8 +1028,8 @@ function onSplitterPointerMove(e) {
 
     let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20;
 
-    p2dPanel.style.flex = `1 1 ${p2dWidth}px`;
-    p3dPanel.style.flex = `1 1 ${p3dWidth}px`;
+    p2dPanel.style.flex = `1 1 ${ p2dWidth } px`;
+    p3dPanel.style.flex = `1 1 ${ p3dWidth } px`;
 
     resize();
 }
@@ -1034,8 +1061,8 @@ export function positionLengthInput() {
     else if (selectedObject.type === "door" || selectedObject.type === "window") { const item = selectedObject.object; const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall; if (!wall || !wall.p1 || !wall.p2) return; const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 0.1) return; const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; midX = wall.p1.x + dx * item.pos; midY = wall.p1.y + dy * item.pos; }
     else { return; }
     const screenPos = worldToScreen(midX, midY);
-    dom.lengthInput.style.left = `${screenPos.x}px`;
-    dom.lengthInput.style.top = `${screenPos.y - 20}px`;
+    dom.lengthInput.style.left = `${ screenPos.x } px`;
+    dom.lengthInput.style.top = `${ screenPos.y - 20 } px`;
 }
 
 // Uzunluk düzenlemeyi başlatma
@@ -1210,7 +1237,7 @@ export function showStairPopup(stair, e) {
         if (s.id !== stair.id) {
             const option = document.createElement('option');
             option.value = s.id;
-            option.textContent = s.name || `Merdiven (${s.id.substring(0, 4)})`;
+            option.textContent = s.name || `Merdiven(${ s.id.substring(0, 4) })`;
             option.selected = (stair.connectedStairId === s.id);
             dom.stairConnectedStairSelect.appendChild(option);
         }
@@ -1233,8 +1260,8 @@ export function showStairPopup(stair, e) {
     if (left < 10) left = 10;
     if (top < 10) top = 10;
 
-    dom.stairPopup.style.left = `${left}px`;
-    dom.stairPopup.style.top = `${top}px`;
+    dom.stairPopup.style.left = `${ left } px`;
+    dom.stairPopup.style.top = `${ top } px`;
     dom.stairPopup.style.display = 'block';
 
     // Dışarı tıklama dinleyicisini ayarla
@@ -1646,7 +1673,7 @@ function setupOpacityControls() {
             // Tüm diğer slider'ları da aynı değere ayarla
             const newOpacitySettings = {};
             sliderTypes.forEach(type => {
-                const slider = document.getElementById(`opacity-${type}`);
+                const slider = document.getElementById(`opacity - ${ type } `);
                 const valueDisplay = slider?.nextElementSibling;
 
                 if (slider && valueDisplay) {
@@ -1665,7 +1692,7 @@ function setupOpacityControls() {
     }
 
     sliderTypes.forEach(type => {
-        const slider = document.getElementById(`opacity-${type}`);
+        const slider = document.getElementById(`opacity - ${ type } `);
         const valueDisplay = slider?.nextElementSibling;
 
         if (!slider || !valueDisplay) return;
