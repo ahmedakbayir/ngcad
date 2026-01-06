@@ -467,8 +467,9 @@ function drawJunctionElevations(ctx) {
     pipes.forEach(pipe => {
         if (!pipe.p1 || !pipe.p2) return;
 
-        // Her iki uç noktayı kontrol et
-        [pipe.p1, pipe.p2].forEach(point => {
+        // Her iki uç noktayı kontrol et (endpoint: 'p1' veya 'p2')
+        ['p1', 'p2'].forEach(endpoint => {
+            const point = pipe[endpoint];
             const z = point.z || 0;
 
             // Z değeri 0 ise gösterme (zemin seviyesi)
@@ -503,31 +504,23 @@ function drawJunctionElevations(ctx) {
                 processedJunctions.add(junctionKey);
 
                 // İzometrik koordinatlara dönüştür
-                const iso = toIsometric(point.x, point.y, z);
+                let iso = toIsometric(point.x, point.y, z);
+
+                // Offset kontrolü - borunun sürüklenme offset'ini uygula
+                const offset = state.isoPipeOffsets[pipe.id] || {};
+                const dx = endpoint === 'p1' ? (offset.startDx || 0) : (offset.endDx || 0);
+                const dy = endpoint === 'p1' ? (offset.startDy || 0) : (offset.endDy || 0);
+
+                // Offset uygula
+                iso.isoX += dx;
+                iso.isoY += dy;
 
                 // Z kotunu yaz (h:225 formatında, negatif değerler için -)
                 const elevationText = `h:${Math.round(z)}`;
 
-                // Metin arkaplanı (okunabilirlik için)
-                const textMetrics = ctx.measureText(elevationText);
-                const padding = 3;
-                const bgX = iso.isoX + 8;
-                const bgY = iso.isoY - 8;
-                const bgWidth = textMetrics.width + padding * 2;
-                const bgHeight = 14;
-
-                // Arkaplan kutusunu çiz
-                ctx.fillStyle = isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(50, 50, 50, 0.9)';
-                ctx.fillRect(bgX - padding, bgY - bgHeight/2, bgWidth, bgHeight);
-
-                // Kenar çizgisi
-                ctx.strokeStyle = isLightMode ? '#000' : '#fff';
-                ctx.lineWidth = 0.5;
-                ctx.strokeRect(bgX - padding, bgY - bgHeight/2, bgWidth, bgHeight);
-
-                // Metni yaz
+                // Sade metin - arkaplan yok
                 ctx.fillStyle = isLightMode ? '#000' : '#fff';
-                ctx.fillText(elevationText, bgX, bgY);
+                ctx.fillText(elevationText, iso.isoX + 8, iso.isoY - 8);
             }
         });
     });
