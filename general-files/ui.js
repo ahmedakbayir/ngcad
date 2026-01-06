@@ -14,6 +14,7 @@ import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
 import { renderIsometric } from '../scene3d/scene-isometric.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
 
 // ═══════════════════════════════════════════════════════════════
@@ -469,6 +470,13 @@ export function setupIsometricControls() {
                     }
                 }
 
+                console.log('[ISO DRAG START] Constraint belirlendi:', {
+                    draggedPipe: endpoint.pipe.id,
+                    draggedEndpoint: endpoint.type,
+                    constraintPipe: constraintPipe?.id || 'undefined',
+                    connectedToParent: isDraggedEndpointConnectedToParent
+                });
+
                 setState({
                     isoDragging: true,
                     isoDraggedPipe: endpoint.pipe,
@@ -513,6 +521,15 @@ export function setupIsometricControls() {
             // Kaydedilen constraint'i kullan (sürükleme boyunca sabit)
             const constraintPipe = state.isoConstraintPipe || draggedPipe;
             const isDraggedEndpointConnectedToParent = state.isoConstraintConnectedToParent || false;
+
+            console.log('[ISO DRAG MOVE]', {
+                draggedPipe: draggedPipe?.id,
+                draggedEndpoint,
+                constraintPipe: constraintPipe?.id,
+                connectedToParent: isDraggedEndpointConnectedToParent,
+                mouseDx,
+                mouseDy
+            });
 
             // Constraint pipe'ın doğrultusunu hesapla (ÖNCEKİ OFFSET'LERİ EKLE!)
             const constraintStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, constraintPipe.p1.z || 0);
@@ -573,6 +590,16 @@ export function setupIsometricControls() {
 
                 // Minimum uzunluk kontrolü: %10'un altına düşmesin
                 const minLength = origLength * 0.1;
+
+                console.log('[moveEndpoint]', {
+                    pipe: targetPipe.id,
+                    endpoint,
+                    newLength: newLength.toFixed(2),
+                    origLength: origLength.toFixed(2),
+                    minLength: minLength.toFixed(2),
+                    allowed: newLength >= minLength
+                });
+
                 if (newLength >= minLength) {
                     // Uzunluk OK, hareketi uygula
                     newOffsets[targetPipe.id][endpoint + 'Dx'] = testOffsets[endpoint + 'Dx'];
@@ -623,8 +650,11 @@ export function setupIsometricControls() {
             // 1. Sürüklenen pipe'ın endpoint'ini hareket ettir
             const draggedEndpointMoved = moveEndpoint(draggedPipe, draggedEndpoint, offsetX, offsetY);
 
+            console.log('[ISO DRAG] moveEndpoint result:', draggedEndpointMoved, 'offsetX:', offsetX, 'offsetY:', offsetY);
+
             // Eğer ana endpoint hareket etmediyse (min uzunluk kontrolü), tüm işlemi iptal et
             if (!draggedEndpointMoved) {
+                console.log('[ISO DRAG] Hareket engellendi - minimum uzunluk');
                 return; // Hiçbir şey hareket etmez
             }
 
