@@ -1265,6 +1265,50 @@ body.light-mode .btn.active svg {
     display: none;
 }
 
+/* 3D Perspektif Görünüm Butonu */
+.btn-show-3d-perspective {
+    position: absolute;
+    top: 10px;
+    right: 265px; /* İzometri butonunun soluna yerleştir */
+    z-index: 100;
+    padding: 7px 10px;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: auto;
+    white-space: nowrap;
+    background: #3c4043;
+    border: 1px solid #5f6368;
+    color: #e8eaed;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-show-3d-perspective svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+}
+
+.btn-show-3d-perspective:hover {
+    background: #5f6368;
+    border-color: #87CEEB;
+    box-shadow: 0 2px 8px rgba(135, 206, 235, 0.3);
+}
+
+.btn-show-3d-perspective.active {
+    background: #87CEEB;
+    color: #202124;
+    border-color: #87CEEB;
+    font-weight: 600;
+}
+
 /* 3D Opacity Kontrolleri */
 #opacity-controls-container {
     position: absolute;
@@ -1602,6 +1646,17 @@ body.light-mode #bToggle3D.active {
 body.light-mode .btn-show-3d {
     color: #3c4043;
     background: #e8eaed;
+}
+
+body.light-mode .btn-show-3d-perspective {
+    color: #3c4043;
+    background: #e8eaed;
+}
+
+body.light-mode .btn-show-3d-perspective.active {
+    background: #87CEEB;
+    color: #ffffff;
+    border-color: #87CEEB;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */

@@ -459,6 +459,10 @@ export let state = {
     isoDraggedPipe: null,
     isoDraggedEndpoint: null, // 'start' veya 'end'
     // --- İZOMETRİK GÖRÜNÜM SONU ---
+
+    // --- 3D PERSPEKTİF GÖRÜNÜM ---
+    is3DPerspectiveActive: false, // 3D perspektif modu aktif mi?
+    // --- 3D PERSPEKTİF GÖRÜNÜM SONU ---
 };
 
 export function setState(newState) {
@@ -575,6 +579,7 @@ export const dom = {
     cancelStairPopupButton: document.getElementById("cancel-stair-popup"),
     b3d: document.getElementById("b3d"), // 3D Göster butonu
     bIso: document.getElementById("bIso"), // İzometri Göster butonu
+    b3DPerspective: document.getElementById("b3DPerspective"), // 3D Perspektif Görünüm butonu
 };
 
 // Proje modu butonlarını kurar (MİMARİ, TESİSAT, KARMA)
