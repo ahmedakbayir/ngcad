@@ -667,6 +667,18 @@ export function setupIsometricControls() {
 
             // 3. Sürüklenen endpoint'e bağlı TÜM CHILD'LARI translate et (torunlar dahil)
             if (hierarchy && draggedPipeData && draggedPipeData.children && draggedPipeData.children.length > 0) {
+                // Sürüklenen endpoint'in YENİ (offset'li) izometrik koordinatlarını hesapla
+                const draggedPosIso = toIso(
+                    draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x,
+                    draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y,
+                    draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0)
+                );
+
+                // YENİ offset'i uygula
+                const currentDraggedOffset = newOffsets[draggedPipe.id] || {};
+                draggedPosIso.isoX += (currentDraggedOffset[draggedEndpoint + 'Dx'] || 0);
+                draggedPosIso.isoY += (currentDraggedOffset[draggedEndpoint + 'Dy'] || 0);
+
                 // Her child'ı kontrol et
                 draggedPipeData.children.forEach(childLabel => {
                     const childPipe = plumbingManager.pipes.find(p => {
@@ -676,36 +688,33 @@ export function setupIsometricControls() {
 
                     if (!childPipe) return;
 
-                    // Sürüklenen endpoint'in 3D koordinatları
-                    const draggedX = draggedEndpoint === 'start' ? draggedPipe.p1.x : draggedPipe.p2.x;
-                    const draggedY = draggedEndpoint === 'start' ? draggedPipe.p1.y : draggedPipe.p2.y;
-                    const draggedZ = draggedEndpoint === 'start' ? (draggedPipe.p1.z || 0) : (draggedPipe.p2.z || 0);
+                    // Child'ın her iki ucunun izometrik pozisyonlarını hesapla
+                    const childStartIso = toIso(childPipe.p1.x, childPipe.p1.y, childPipe.p1.z || 0);
+                    const childEndIso = toIso(childPipe.p2.x, childPipe.p2.y, childPipe.p2.z || 0);
 
-                    // Child'ın her iki ucunu da kontrol et (baslangicBaglanti her zaman p1 olmalı ama emin olmak için)
-                    const distToStart3D = Math.hypot(
-                        childPipe.p1.x - draggedX,
-                        childPipe.p1.y - draggedY,
-                        (childPipe.p1.z || 0) - draggedZ
+                    // Child'ın mevcut offset'lerini ekle
+                    const currentChildOffset = newOffsets[childPipe.id] || state.isoPipeOffsets[childPipe.id] || {};
+                    childStartIso.isoX += (currentChildOffset.startDx || 0);
+                    childStartIso.isoY += (currentChildOffset.startDy || 0);
+                    childEndIso.isoX += (currentChildOffset.endDx || 0);
+                    childEndIso.isoY += (currentChildOffset.endDy || 0);
+
+                    // İzometrik mesafe kontrolü (2D)
+                    const distToStartIso = Math.hypot(
+                        childStartIso.isoX - draggedPosIso.isoX,
+                        childStartIso.isoY - draggedPosIso.isoY
                     );
 
-                    const distToEnd3D = Math.hypot(
-                        childPipe.p2.x - draggedX,
-                        childPipe.p2.y - draggedY,
-                        (childPipe.p2.z || 0) - draggedZ
+                    const distToEndIso = Math.hypot(
+                        childEndIso.isoX - draggedPosIso.isoX,
+                        childEndIso.isoY - draggedPosIso.isoY
                     );
 
-                    const minDist = Math.min(distToStart3D, distToEnd3D);
-                    const threshold3D = 3; // 3 cm tolerance
-
-                    console.log(`🔗 Child Bağlantı:
-  Parent: ${draggedPipe.id} ${draggedEndpoint} (${draggedX.toFixed(1)}, ${draggedY.toFixed(1)}, ${draggedZ.toFixed(1)})
-  Child: ${childPipe.id} (label: ${childLabel})
-  Child p1: (${childPipe.p1.x.toFixed(1)}, ${childPipe.p1.y.toFixed(1)}, ${(childPipe.p1.z||0).toFixed(1)}) dist: ${distToStart3D.toFixed(2)}
-  Child p2: (${childPipe.p2.x.toFixed(1)}, ${childPipe.p2.y.toFixed(1)}, ${(childPipe.p2.z||0).toFixed(2)}) dist: ${distToEnd3D.toFixed(2)}
-  Min mesafe: ${minDist.toFixed(2)} < ${threshold3D}? ${minDist < threshold3D}`);
+                    const minDist = Math.min(distToStartIso, distToEndIso);
+                    const thresholdIso = 25; // İzometrik piksel toleransı
 
                     // Eğer child'ın herhangi bir ucu sürüklenen uca yakınsa, tüm child'ı taşı
-                    if (minDist < threshold3D) {
+                    if (minDist < thresholdIso) {
                         translatePipeAndAllChildren(childPipe, offsetX, offsetY);
                     }
                 });
