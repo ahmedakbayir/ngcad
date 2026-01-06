@@ -546,7 +546,19 @@ export function setupIsometricControls() {
             const dirY = constraintEnd.isoY - constraintStart.isoY;
             const length = Math.sqrt(dirX * dirX + dirY * dirY);
 
-            if (length < 0.001) return; // Çok kısa pipe, skip
+            console.log('[ISO DRAG] Constraint direction:', {
+                constraintPipe: constraintPipe.id,
+                start: { x: constraintStart.isoX.toFixed(2), y: constraintStart.isoY.toFixed(2) },
+                end: { x: constraintEnd.isoX.toFixed(2), y: constraintEnd.isoY.toFixed(2) },
+                dirX: dirX.toFixed(2),
+                dirY: dirY.toFixed(2),
+                length: length.toFixed(2)
+            });
+
+            if (length < 0.001) {
+                console.log('[ISO DRAG] ENGELLENDI: Constraint pipe çok kısa (length < 0.001)');
+                return; // Çok kısa pipe, skip
+            }
 
             // Normalize edilmiş yön vektörü (TEK BOYUT!)
             const normDirX = dirX / length;
