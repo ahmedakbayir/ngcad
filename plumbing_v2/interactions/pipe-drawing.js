@@ -54,14 +54,22 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
             // Tıklanan noktanın mevcut borunun BAŞLANGICI (P1) olup olmadığını kontrol et
             // Eğer P1 ise, bu boru buradan "başlıyordur" (Child).
             // Biz burada "biten" (Parent) bir boru arıyoruz.
-            const distToP1 = Math.hypot(baslangicNoktasi.x - currentPipe.p1.x, baslangicNoktasi.y - currentPipe.p1.y);
-            
+            const distToP1 = Math.hypot(
+                baslangicNoktasi.x - currentPipe.p1.x,
+                baslangicNoktasi.y - currentPipe.p1.y,
+                (baslangicNoktasi.z || 0) - (currentPipe.p1.z || 0)
+            );
+
             if (distToP1 < CHECK_RADIUS) {
                 // Evet, seçili borunun başlangıç noktasındayız.
                 // Acaba bu noktada BİTEN (P2'si burası olan) başka bir boru var mı?
                 const potentialParent = interactionManager.manager.pipes.find(p => {
                     if (p.id === kaynakId) return false; // Kendisi hariç
-                    const distToP2 = Math.hypot(baslangicNoktasi.x - p.p2.x, baslangicNoktasi.y - p.p2.y);
+                    const distToP2 = Math.hypot(
+                        baslangicNoktasi.x - p.p2.x,
+                        baslangicNoktasi.y - p.p2.y,
+                        (baslangicNoktasi.z || 0) - (p.p2.z || 0)
+                    );
                     return distToP2 < CHECK_RADIUS;
                 });
 
@@ -183,14 +191,22 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
     // Silinen boruya bağlı diğer boruları, uygun yeni parçaya bağla
     interactionManager.manager.pipes.forEach(childPipe => {
         if (childPipe.baslangicBaglanti && childPipe.baslangicBaglanti.tip === 'boru' && childPipe.baslangicBaglanti.hedefId === pipe.id) {
-            // Hangisine daha yakın?
-            const d1 = Math.hypot(childPipe.p1.x - boru1.p2.x, childPipe.p1.y - boru1.p2.y); // boru1 sonuna
-            const d2 = Math.hypot(childPipe.p1.x - boru2.p1.x, childPipe.p1.y - boru2.p1.y); // boru2 başına
-            
+            // Hangisine daha yakın? (3D mesafe ile)
+            const d1 = Math.hypot(
+                childPipe.p1.x - boru1.p2.x,
+                childPipe.p1.y - boru1.p2.y,
+                (childPipe.p1.z || 0) - (boru1.p2.z || 0)
+            ); // boru1 sonuna
+            const d2 = Math.hypot(
+                childPipe.p1.x - boru2.p1.x,
+                childPipe.p1.y - boru2.p1.y,
+                (childPipe.p1.z || 0) - (boru2.p1.z || 0)
+            ); // boru2 başına
+
             // Eğer boru1'in üzerine denk geliyorsa
             const proj1 = boru1.projectPoint(childPipe.p1);
             const proj2 = boru2.projectPoint(childPipe.p1);
-            
+
             if (proj1.distance < proj2.distance) {
                  childPipe.baslangicBaglanti.hedefId = boru1.id;
             } else {
