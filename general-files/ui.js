@@ -14,6 +14,7 @@ import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
 import { renderIsometric } from '../scene3d/scene-isometric.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
 
 // ═══════════════════════════════════════════════════════════════
@@ -514,6 +515,9 @@ export function setupIsometricControls() {
             const constraintPipe = state.isoConstraintPipe || draggedPipe;
             const isDraggedEndpointConnectedToParent = state.isoConstraintConnectedToParent || false;
 
+            // draggedPipeData'yı da tanımla (child pipe taşıma için gerekli)
+            const draggedPipeData = hierarchy ? hierarchy.get(draggedPipe.id) : null;
+
             // Constraint pipe'ın doğrultusunu hesapla (ÖNCEKİ OFFSET'LERİ EKLE!)
             const constraintStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, constraintPipe.p1.z || 0);
             const constraintEnd = toIso(constraintPipe.p2.x, constraintPipe.p2.y, constraintPipe.p2.z || 0);
@@ -695,13 +699,6 @@ export function setupIsometricControls() {
 
                     const minDist = Math.min(distToStart3D, distToEnd3D);
                     const threshold3D = 3; // 3 cm tolerance
-
-                    console.log(`🔗 Child Bağlantı:
-  Parent: ${draggedPipe.id} ${draggedEndpoint} (${draggedX.toFixed(1)}, ${draggedY.toFixed(1)}, ${draggedZ.toFixed(1)})
-  Child: ${childPipe.id} (label: ${childLabel})
-  Child p1: (${childPipe.p1.x.toFixed(1)}, ${childPipe.p1.y.toFixed(1)}, ${(childPipe.p1.z||0).toFixed(1)}) dist: ${distToStart3D.toFixed(2)}
-  Child p2: (${childPipe.p2.x.toFixed(1)}, ${childPipe.p2.y.toFixed(1)}, ${(childPipe.p2.z||0).toFixed(2)}) dist: ${distToEnd3D.toFixed(2)}
-  Min mesafe: ${minDist.toFixed(2)} < ${threshold3D}? ${minDist < threshold3D}`);
 
                     // Eğer child'ın herhangi bir ucu sürüklenen uca yakınsa, tüm child'ı taşı
                     if (minDist < threshold3D) {
