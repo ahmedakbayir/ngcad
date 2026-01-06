@@ -470,13 +470,6 @@ export function setupIsometricControls() {
                     }
                 }
 
-                console.log('[ISO DRAG START] Constraint belirlendi:', {
-                    draggedPipe: endpoint.pipe.id,
-                    draggedEndpoint: endpoint.type,
-                    constraintPipe: constraintPipe?.id || 'undefined',
-                    connectedToParent: isDraggedEndpointConnectedToParent
-                });
-
                 setState({
                     isoDragging: true,
                     isoDraggedPipe: endpoint.pipe,
@@ -522,14 +515,8 @@ export function setupIsometricControls() {
             const constraintPipe = state.isoConstraintPipe || draggedPipe;
             const isDraggedEndpointConnectedToParent = state.isoConstraintConnectedToParent || false;
 
-            console.log('[ISO DRAG MOVE]', {
-                draggedPipe: draggedPipe?.id,
-                draggedEndpoint,
-                constraintPipe: constraintPipe?.id,
-                connectedToParent: isDraggedEndpointConnectedToParent,
-                mouseDx,
-                mouseDy
-            });
+            // draggedPipeData'yı da tanımla (child pipe taşıma için gerekli)
+            const draggedPipeData = hierarchy ? hierarchy.get(draggedPipe.id) : null;
 
             // Constraint pipe'ın doğrultusunu hesapla (ÖNCEKİ OFFSET'LERİ EKLE!)
             const constraintStart = toIso(constraintPipe.p1.x, constraintPipe.p1.y, constraintPipe.p1.z || 0);
@@ -546,19 +533,7 @@ export function setupIsometricControls() {
             const dirY = constraintEnd.isoY - constraintStart.isoY;
             const length = Math.sqrt(dirX * dirX + dirY * dirY);
 
-            console.log('[ISO DRAG] Constraint direction:', {
-                constraintPipe: constraintPipe.id,
-                start: { x: constraintStart.isoX.toFixed(2), y: constraintStart.isoY.toFixed(2) },
-                end: { x: constraintEnd.isoX.toFixed(2), y: constraintEnd.isoY.toFixed(2) },
-                dirX: dirX.toFixed(2),
-                dirY: dirY.toFixed(2),
-                length: length.toFixed(2)
-            });
-
-            if (length < 0.001) {
-                console.log('[ISO DRAG] ENGELLENDI: Constraint pipe çok kısa (length < 0.001)');
-                return; // Çok kısa pipe, skip
-            }
+            if (length < 0.001) return; // Çok kısa pipe, skip
 
             // Normalize edilmiş yön vektörü (TEK BOYUT!)
             const normDirX = dirX / length;
@@ -602,16 +577,6 @@ export function setupIsometricControls() {
 
                 // Minimum uzunluk kontrolü: %10'un altına düşmesin
                 const minLength = origLength * 0.1;
-
-                console.log('[moveEndpoint]', {
-                    pipe: targetPipe.id,
-                    endpoint,
-                    newLength: newLength.toFixed(2),
-                    origLength: origLength.toFixed(2),
-                    minLength: minLength.toFixed(2),
-                    allowed: newLength >= minLength
-                });
-
                 if (newLength >= minLength) {
                     // Uzunluk OK, hareketi uygula
                     newOffsets[targetPipe.id][endpoint + 'Dx'] = testOffsets[endpoint + 'Dx'];
@@ -662,11 +627,8 @@ export function setupIsometricControls() {
             // 1. Sürüklenen pipe'ın endpoint'ini hareket ettir
             const draggedEndpointMoved = moveEndpoint(draggedPipe, draggedEndpoint, offsetX, offsetY);
 
-            console.log('[ISO DRAG] moveEndpoint result:', draggedEndpointMoved, 'offsetX:', offsetX, 'offsetY:', offsetY);
-
             // Eğer ana endpoint hareket etmediyse (min uzunluk kontrolü), tüm işlemi iptal et
             if (!draggedEndpointMoved) {
-                console.log('[ISO DRAG] Hareket engellendi - minimum uzunluk');
                 return; // Hiçbir şey hareket etmez
             }
 
@@ -737,13 +699,6 @@ export function setupIsometricControls() {
 
                     const minDist = Math.min(distToStart3D, distToEnd3D);
                     const threshold3D = 3; // 3 cm tolerance
-
-                    console.log(`🔗 Child Bağlantı:
-  Parent: ${draggedPipe.id} ${draggedEndpoint} (${draggedX.toFixed(1)}, ${draggedY.toFixed(1)}, ${draggedZ.toFixed(1)})
-  Child: ${childPipe.id} (label: ${childLabel})
-  Child p1: (${childPipe.p1.x.toFixed(1)}, ${childPipe.p1.y.toFixed(1)}, ${(childPipe.p1.z||0).toFixed(1)}) dist: ${distToStart3D.toFixed(2)}
-  Child p2: (${childPipe.p2.x.toFixed(1)}, ${childPipe.p2.y.toFixed(1)}, ${(childPipe.p2.z||0).toFixed(2)}) dist: ${distToEnd3D.toFixed(2)}
-  Min mesafe: ${minDist.toFixed(2)} < ${threshold3D}? ${minDist < threshold3D}`);
 
                     // Eğer child'ın herhangi bir ucu sürüklenen uca yakınsa, tüm child'ı taşı
                     if (minDist < threshold3D) {
