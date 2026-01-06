@@ -213,6 +213,9 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     // Parça etiketlerini çiz
     drawPipeLabels(ctx, pipeHierarchy);
 
+    // Z kotlarını çiz (dirsek ve TEE noktalarında)
+    drawJunctionElevations(ctx);
+
     ctx.restore();
 
     // Bilgi metni
@@ -439,6 +442,93 @@ function drawPipeLabels(ctx, pipeHierarchy) {
         // Children (dark blue)
         ctx.fillStyle = darkBlue;
         ctx.fillText(childrenText, currentX, y);
+    });
+}
+
+/**
+ * Dirsek ve TEE noktalarında Z kotlarını çizer
+ * @param {CanvasRenderingContext2D} ctx - Canvas context
+ */
+function drawJunctionElevations(ctx) {
+    if (!plumbingManager || !plumbingManager.pipes) return;
+
+    const pipes = plumbingManager.pipes;
+    const TOLERANCE = 3; // cm cinsinden mesafe toleransı
+    const processedJunctions = new Set(); // İşlenmiş junction'ları takip et
+
+    const isLightMode = document.body.classList.contains('light-mode');
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isLightMode ? '#000' : '#fff';
+
+    // Her boru için uç noktaları kontrol et
+    pipes.forEach(pipe => {
+        if (!pipe.p1 || !pipe.p2) return;
+
+        // Her iki uç noktayı kontrol et
+        [pipe.p1, pipe.p2].forEach(point => {
+            const z = point.z || 0;
+
+            // Z değeri 0 ise gösterme (zemin seviyesi)
+            if (Math.abs(z) < 0.1) return;
+
+            // Bu noktayı benzersiz bir şekilde tanımla
+            const junctionKey = `${point.x.toFixed(1)},${point.y.toFixed(1)},${z.toFixed(1)}`;
+
+            // Zaten işlenmiş mi?
+            if (processedJunctions.has(junctionKey)) return;
+
+            // Bu noktada kaç boru birleşiyor?
+            let connectionCount = 0;
+            pipes.forEach(otherPipe => {
+                if (!otherPipe.p1 || !otherPipe.p2) return;
+
+                [otherPipe.p1, otherPipe.p2].forEach(otherPoint => {
+                    const dist3D = Math.hypot(
+                        point.x - otherPoint.x,
+                        point.y - otherPoint.y,
+                        (point.z || 0) - (otherPoint.z || 0)
+                    );
+
+                    if (dist3D < TOLERANCE) {
+                        connectionCount++;
+                    }
+                });
+            });
+
+            // En az 2 bağlantı varsa bu bir junction (dirsek veya TEE)
+            if (connectionCount >= 2) {
+                processedJunctions.add(junctionKey);
+
+                // İzometrik koordinatlara dönüştür
+                const iso = toIsometric(point.x, point.y, z);
+
+                // Z kotunu yaz (h:225 formatında, negatif değerler için -)
+                const elevationText = `h:${Math.round(z)}`;
+
+                // Metin arkaplanı (okunabilirlik için)
+                const textMetrics = ctx.measureText(elevationText);
+                const padding = 3;
+                const bgX = iso.isoX + 8;
+                const bgY = iso.isoY - 8;
+                const bgWidth = textMetrics.width + padding * 2;
+                const bgHeight = 14;
+
+                // Arkaplan kutusunu çiz
+                ctx.fillStyle = isLightMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(50, 50, 50, 0.9)';
+                ctx.fillRect(bgX - padding, bgY - bgHeight/2, bgWidth, bgHeight);
+
+                // Kenar çizgisi
+                ctx.strokeStyle = isLightMode ? '#000' : '#fff';
+                ctx.lineWidth = 0.5;
+                ctx.strokeRect(bgX - padding, bgY - bgHeight/2, bgWidth, bgHeight);
+
+                // Metni yaz
+                ctx.fillStyle = isLightMode ? '#000' : '#fff';
+                ctx.fillText(elevationText, bgX, bgY);
+            }
+        });
     });
 }
 
