@@ -286,11 +286,29 @@ export function draw2D() {
     // Apply combined transform matrix for DPR, zoom, and pan
     // This is equivalent to: scale(dpr) -> translate(panOffset) -> scale(zoom)
     // But done correctly so mouse coordinates work properly
-    ctx2d.setTransform(
-        dpr * zoom, 0,
-        0, dpr * zoom,
-        dpr * panOffset.x, dpr * panOffset.y
-    );
+
+    if (state.is3DPerspectiveActive) {
+        // 3D Perspektif mod: 30° eğim ve 30° soldan bakış
+        // Dimetrik projeksiyon kullan
+        const cos30 = Math.cos(30 * Math.PI / 180); // ≈ 0.866
+        const sin30 = Math.sin(30 * Math.PI / 180); // = 0.5
+
+        ctx2d.setTransform(
+            dpr * zoom * cos30,      // X ekseni yatay bileşeni (cos 30°)
+            dpr * zoom * sin30,      // X ekseni dikey bileşeni (sin 30°)
+            dpr * zoom * -sin30,     // Y ekseni yatay bileşeni (-sin 30°)
+            dpr * zoom * cos30,      // Y ekseni dikey bileşeni (cos 30°)
+            dpr * (c2d.width / (2 * dpr) + panOffset.x),  // X offset (merkezi ayarla)
+            dpr * (c2d.height / (2 * dpr) + panOffset.y)  // Y offset (merkezi ayarla)
+        );
+    } else {
+        // Normal 2D görünüm
+        ctx2d.setTransform(
+            dpr * zoom, 0,
+            0, dpr * zoom,
+            dpr * panOffset.x, dpr * panOffset.y
+        );
+    }
 
     ctx2d.lineWidth = 1 / zoom;
 
