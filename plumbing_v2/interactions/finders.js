@@ -4,8 +4,8 @@
  */
 
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
-import { saveState } from '../../../general-files/history.js';
-import { setState, state } from '../../../general-files/main.js';
+import { saveState } from '../../general-files/history.js';
+import { setState, state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 
 /**
@@ -510,48 +510,33 @@ export function removeObject(manager, obj) {
         }
 
         // Boru silindiğinde, bu boruya fleks ile bağlı cihazların bağlantısını güncelle
+        const devicesToDelete = [];
+
         manager.components.forEach(comp => {
             if (comp.type === 'cihaz' && comp.fleksBaglanti && comp.fleksBaglanti.boruId === deletedPipe.id) {
-                // Eğer nextPipe varsa, fleks bağlantısını nextPipe'a aktar
+                // Eğer nextPipe varsa (hat iyileştiriliyorsa), fleks bağlantısını yeni boruya aktar
                 if (nextPipe) {
-                    // Silinen borunun p2'sine bağlıydı, şimdi nextPipe'ın p2'sine bağla
                     comp.fleksBaglanti.boruId = nextPipe.id;
                     comp.fleksBaglanti.endpoint = 'p2';
                 } else {
-                    // nextPipe yoksa, en yakın boru ucunu bul ve bağla
-                    const cihazPos = { x: comp.x, y: comp.y };
-                    let minDist = Infinity;
-                    let closestPipe = null;
-                    let closestEndpointName = null;
-
-                    manager.pipes.forEach(pipe => {
-                        if (pipe.id === deletedPipe.id) return;
-
-                        const dist1 = Math.hypot(pipe.p1.x - cihazPos.x, pipe.p1.y - cihazPos.y);
-                        const dist2 = Math.hypot(pipe.p2.x - cihazPos.x, pipe.p2.y - cihazPos.y);
-
-                        if (dist2 < minDist) {
-                            minDist = dist2;
-                            closestPipe = pipe;
-                            closestEndpointName = 'p2';
-                        }
-                        if (dist1 < minDist) {
-                            minDist = dist1;
-                            closestPipe = pipe;
-                            closestEndpointName = 'p1';
-                        }
-                    });
-
-                    if (closestPipe && minDist < 200) {
-                        comp.fleksBaglanti.boruId = closestPipe.id;
-                        comp.fleksBaglanti.endpoint = closestEndpointName;
-                    } else {
-                        // Yakın boru yoksa bağlantıyı temizle
-                        comp.fleksBaglanti.boruId = null;
-                        comp.fleksBaglanti.endpoint = null;
-                    }
+                    // Hat kopuyorsa cihazı silinecekler listesine ekle (artık en yakın boruyu aramıyor)
+                    devicesToDelete.push(comp);
                 }
             }
+        });
+
+        // Listelenen cihazları ve bacalarını sil
+        devicesToDelete.forEach(device => {
+            // 1. Bağlı bacaları sil
+            const bacalar = manager.components.filter(c => c.type === 'baca' && c.parentCihazId === device.id);
+            bacalar.forEach(baca => {
+                const bIdx = manager.components.indexOf(baca);
+                if (bIdx !== -1) manager.components.splice(bIdx, 1);
+            });
+
+            // 2. Cihazı sil
+            const dIdx = manager.components.indexOf(device);
+            if (dIdx !== -1) manager.components.splice(dIdx, 1);
         });
 
         // Bu boruda bağlı vanaları da sil (bağımsız vana nesneleri)

@@ -3,7 +3,7 @@
  * Ghost bileşenlerin pozisyon güncellemelerini yönetir
  */
 
-import { state } from '../../../general-files/main.js';
+import { state } from '../../general-files/main.js';
 
 export function updateGhostPosition(ghost, point, snap) {
     // Debug: İlk 3 güncellemede koordinat sistemi kontrolü

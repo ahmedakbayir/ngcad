@@ -23,9 +23,10 @@ export function toIsometric(x, y, z = 0) {
 
     // İzometrik X: orijinal X eksenini koruyoruz (sağa-sola hareketi temsil eder)
     // İzometrik Y: Y eksenini 30 derece açıyla yukarı çıkarıyoruz (ileri-geri hareketi temsil eder)
-    const isoX = x - y * Math.cos(angle);
-    const isoY = -z + y * Math.sin(angle);
-
+    // const isoX = x - y * Math.cos(angle);
+    // const isoY = -z + y * Math.sin(angle);
+    const isoX = (x + y) * Math.cos(angle);
+    const isoY = (y - x) * Math.sin(angle) - z;
     return { isoX, isoY };
 }
 
@@ -211,7 +212,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     drawIsometricComponents(ctx);
 
     // Parça etiketlerini çiz
-    drawPipeLabels(ctx, pipeHierarchy);
+    //drawPipeLabels(ctx, pipeHierarchy);
 
     // Z kotlarını çiz (dirsek ve TEE noktalarında)
     drawJunctionElevations(ctx);

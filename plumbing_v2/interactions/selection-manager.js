@@ -3,8 +3,8 @@
  * Seçim işlemlerini yönetir
  */
 
-import { setState } from '../../../general-files/main.js';
-import { saveState } from '../../../general-files/history.js';
+import { setState } from '../../general-files/main.js';
+import { saveState } from '../../general-files/history.js';
 
 /**
  * Seçilen borunun kaynaktan o boruya kadar olan yolunu bulur
