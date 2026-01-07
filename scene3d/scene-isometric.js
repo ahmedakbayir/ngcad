@@ -277,7 +277,7 @@ renderIsometric = ((oldRender) => {
  * Boruları izometrik perspektifte çizer
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  */
-function drawIsometricPipes(ctx) {
+export function drawIsometricPipes(ctx) {
     if (!plumbingManager || !plumbingManager.pipes) return;
     if (!state) return;
 
