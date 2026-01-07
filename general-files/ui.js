@@ -8,7 +8,7 @@ import { isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { recalculateStepCount, updateConnectedStairElevations } from '../architectural-objects/stairs.js';
 import { worldToScreen } from '../draw/geometry.js';
 import { applyStretchModification } from '../draw/geometry.js';
-import { toggleCameraMode, setIsometricCamera, resetToOrbitCamera } from '../scene3d/scene3d-camera.js';
+import { toggleCameraMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
