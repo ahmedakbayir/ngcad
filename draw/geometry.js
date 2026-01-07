@@ -58,11 +58,39 @@ export function distToArcWallSquared(point, wall, tolerance = 1.0) {
 }
 
 export function screenToWorld(sx, sy) {
-    const { zoom, panOffset } = state;
-    return {
-        x: (sx - panOffset.x) / zoom,
-        y: (sy - panOffset.y) / zoom
-    };
+    const { zoom, panOffset, is3DPerspectiveActive } = state;
+
+    if (is3DPerspectiveActive) {
+        // İzometrik görünümde inverse transformation uygula
+        const angle = Math.PI / 6; // 30 derece
+        const cosAngle = Math.cos(angle); // ≈ 0.866
+        const sinAngle = Math.sin(angle); // = 0.5
+
+        // Önce pan ve zoom'u geri al
+        const screenX = (sx - panOffset.x) / zoom;
+        const screenY = (sy - panOffset.y) / zoom;
+
+        // İzometrik inverse transformation matrix
+        // det = 2 * cosAngle * sinAngle
+        const det = 2 * cosAngle * sinAngle;
+
+        // Inverse matrix elementleri
+        const a_inv = sinAngle / det;    // = 1/(2*cosAngle)
+        const b_inv = sinAngle / det;    // = 1/(2*cosAngle)
+        const c_inv = -cosAngle / det;   // = -1/(2*sinAngle)
+        const d_inv = cosAngle / det;    // = 1/(2*sinAngle)
+
+        return {
+            x: screenX * a_inv + screenY * c_inv,
+            y: screenX * b_inv + screenY * d_inv
+        };
+    } else {
+        // Normal 2D görünüm
+        return {
+            x: (sx - panOffset.x) / zoom,
+            y: (sy - panOffset.y) / zoom
+        };
+    }
 }
 
 export function worldToScreen(wx, wy) {
