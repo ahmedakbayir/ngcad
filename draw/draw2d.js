@@ -7,6 +7,7 @@ import {
     drawBeam, drawStairs, drawGuides
 } from './renderer2d.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { drawIsometricPipes } from '../scene3d/scene-isometric.js';
 import {
     drawObjectPlacementPreviews, drawDragPreviews, drawSelectionFeedback,
     drawDrawingPreviews, drawSnapFeedback
@@ -286,11 +287,36 @@ export function draw2D() {
     // Apply combined transform matrix for DPR, zoom, and pan
     // This is equivalent to: scale(dpr) -> translate(panOffset) -> scale(zoom)
     // But done correctly so mouse coordinates work properly
-    ctx2d.setTransform(
-        dpr * zoom, 0,
-        0, dpr * zoom,
-        dpr * panOffset.x, dpr * panOffset.y
-    );
+
+    if (state.is3DPerspectiveActive) {
+        // İzometrik projeksiyon: scene-isometric.js ile aynı formül
+        // isoX = (x + y) * cos(30°)
+        // isoY = (y - x) * sin(30°) - z
+        //
+        // Matrix formunda (z=0 için 2D elemanlar):
+        // x' = x * cos(30°) + y * cos(30°)
+        // y' = -x * sin(30°) + y * sin(30°)
+
+        const angle = Math.PI / 6; // 30 derece
+        const cosAngle = Math.cos(angle); // ≈ 0.866
+        const sinAngle = Math.sin(angle); // = 0.5
+
+        ctx2d.setTransform(
+            dpr * zoom * cosAngle,      // a: X için X bileşeni
+            dpr * zoom * -sinAngle,     // b: X için Y bileşeni
+            dpr * zoom * cosAngle,      // c: Y için X bileşeni
+            dpr * zoom * sinAngle,      // d: Y için Y bileşeni
+            dpr * panOffset.x,          // e: X offset
+            dpr * panOffset.y           // f: Y offset
+        );
+    } else {
+        // Normal 2D görünüm
+        ctx2d.setTransform(
+            dpr * zoom, 0,
+            0, dpr * zoom,
+            dpr * panOffset.x, dpr * panOffset.y
+        );
+    }
 
     ctx2d.lineWidth = 1 / zoom;
 
@@ -552,7 +578,29 @@ export function draw2D() {
     drawCameraViewIndicator(ctx2d, zoom);
 
     // 13. TESİSAT SİSTEMİ (v2) - En üstte render edilir
-    plumbingManager.render(ctx2d);
+    if (state.is3DPerspectiveActive) {
+        // İzometrik görünümde: Z koordinatlarıyla boru çizimi
+        // Mevcut izometrik transformation'ı kaydet
+        ctx2d.save();
+
+        // Transformation'ı sıfırla ve sadece base transform uygula
+        ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // Merkez ve zoom uygula (izometrik canvas gibi)
+        const centerX = c2d.width / (2 * dpr);
+        const centerY = c2d.height / (2 * dpr);
+        ctx2d.translate(centerX + panOffset.x, centerY + panOffset.y);
+        ctx2d.scale(zoom, zoom);
+
+        // İzometrik boruları çiz (Z koordinatlarıyla)
+        drawIsometricPipes(ctx2d);
+
+        // Transformation'ı geri yükle
+        ctx2d.restore();
+    } else {
+        // Normal 2D görünümde: Standart plumbing renderer
+        plumbingManager.render(ctx2d);
+    }
 
     // 14. Referans Çizgileri (Rehberler)
     drawGuides(ctx2d, state);
