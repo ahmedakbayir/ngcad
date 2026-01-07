@@ -8,7 +8,7 @@ import { isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { recalculateStepCount, updateConnectedStairElevations } from '../architectural-objects/stairs.js';
 import { worldToScreen } from '../draw/geometry.js';
 import { applyStretchModification } from '../draw/geometry.js';
-import { toggleCameraMode } from '../scene3d/scene3d-camera.js';
+import { toggleCameraMode, setIsometricCamera, resetToOrbitCamera } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
@@ -286,8 +286,18 @@ export function toggleIsoView() {
 export function toggle3DPerspective() {
     setState({ is3DPerspectiveActive: !state.is3DPerspectiveActive });
 
-    // Buton görünümünü güncelle
+    // Buton görünümünü güncelle ve 3D sahneyi aç/kapat
     if (state.is3DPerspectiveActive) {
+        // 3D görünümü aç
+        if (!dom.mainContainer.classList.contains('show-3d')) {
+            toggle3DView(); // 3D sahneyi aç
+        }
+
+        // Kamerayı izometrik açıya ayarla
+        setTimeout(() => {
+            setIsometricCamera();
+        }, 100);
+
         dom.b3DPerspective.classList.add('active');
         dom.b3DPerspective.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -296,9 +306,12 @@ export function toggle3DPerspective() {
               <rect x="9" y="9" width="6" height="6" fill="none"></rect>
               <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
             </svg>
-            2D Görünüm
+            Normal Görünüm
         `;
     } else {
+        // Normal kamera pozisyonuna dön
+        resetToOrbitCamera();
+
         dom.b3DPerspective.classList.remove('active');
         dom.b3DPerspective.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -307,7 +320,7 @@ export function toggle3DPerspective() {
               <rect x="9" y="9" width="6" height="6" fill="none"></rect>
               <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
             </svg>
-            3D Görünüm
+            İzometrik Görünüm
         `;
     }
 }

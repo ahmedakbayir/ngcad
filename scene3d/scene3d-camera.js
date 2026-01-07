@@ -458,3 +458,52 @@ export function setupFirstPersonMouseControls() {
         }
     }, false);
 }
+
+/**
+ * Kamerayı izometrik görünüm açısına ayarlar
+ * İzometrik projeksiyon: 45° yatay dönüş, 30° yukarıdan bakış
+ */
+export function setIsometricCamera() {
+    if (!camera || !orbitControls) return;
+
+    // Sahne merkezini hesapla
+    const center = new THREE.Vector3();
+    if (sceneObjects && sceneObjects.children.length > 0) {
+        const boundingBox = new THREE.Box3();
+        sceneObjects.children.forEach(obj => {
+            if (obj.material !== floorMaterial) {
+                boundingBox.expandByObject(obj);
+            }
+        });
+        if (!boundingBox.isEmpty()) {
+            boundingBox.getCenter(center);
+        }
+    }
+
+    // İzometrik açılar: 45° yatay (azimuth), 30° yukarıdan (elevation)
+    const azimuthAngle = Math.PI / 4; // 45 derece
+    const elevationAngle = Math.PI / 6; // 30 derece
+
+    // Kamera mesafesi (sahne boyutuna göre)
+    const distance = 2000;
+
+    // Kamera pozisyonunu hesapla
+    const x = center.x + distance * Math.cos(elevationAngle) * Math.sin(azimuthAngle);
+    const y = center.y + distance * Math.sin(elevationAngle);
+    const z = center.z + distance * Math.cos(elevationAngle) * Math.cos(azimuthAngle);
+
+    camera.position.set(x, y, z);
+    orbitControls.target.copy(center);
+    orbitControls.update();
+}
+
+/**
+ * Kamerayı varsayılan orbit pozisyonuna geri döndürür
+ */
+export function resetToOrbitCamera() {
+    if (!camera || !orbitControls) return;
+
+    camera.position.set(1500, 1800, 1500);
+    orbitControls.target.set(0, WALL_HEIGHT / 2, 0);
+    orbitControls.update();
+}

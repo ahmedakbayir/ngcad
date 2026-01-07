@@ -286,36 +286,11 @@ export function draw2D() {
     // Apply combined transform matrix for DPR, zoom, and pan
     // This is equivalent to: scale(dpr) -> translate(panOffset) -> scale(zoom)
     // But done correctly so mouse coordinates work properly
-
-    if (state.is3DPerspectiveActive) {
-        // İzometrik projeksiyon: scene-isometric.js ile aynı formül
-        // isoX = (x + y) * cos(30°)
-        // isoY = (y - x) * sin(30°) - z
-        //
-        // Matrix formunda (z=0 için):
-        // x' = x * cos(30°) + y * cos(30°)
-        // y' = -x * sin(30°) + y * sin(30°)
-
-        const angle = Math.PI / 6; // 30 derece
-        const cosAngle = Math.cos(angle); // ≈ 0.866
-        const sinAngle = Math.sin(angle); // = 0.5
-
-        ctx2d.setTransform(
-            dpr * zoom * cosAngle,      // a: X için X bileşeni
-            dpr * zoom * -sinAngle,     // b: X için Y bileşeni
-            dpr * zoom * cosAngle,      // c: Y için X bileşeni
-            dpr * zoom * sinAngle,      // d: Y için Y bileşeni
-            dpr * panOffset.x,          // e: X offset (normal gibi)
-            dpr * panOffset.y           // f: Y offset (normal gibi)
-        );
-    } else {
-        // Normal 2D görünüm
-        ctx2d.setTransform(
-            dpr * zoom, 0,
-            0, dpr * zoom,
-            dpr * panOffset.x, dpr * panOffset.y
-        );
-    }
+    ctx2d.setTransform(
+        dpr * zoom, 0,
+        0, dpr * zoom,
+        dpr * panOffset.x, dpr * panOffset.y
+    );
 
     ctx2d.lineWidth = 1 / zoom;
 
