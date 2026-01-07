@@ -7,6 +7,7 @@ import {
     drawBeam, drawStairs, drawGuides
 } from './renderer2d.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { drawIsometricPipes } from '../scene3d/scene-isometric.js';
 import {
     drawObjectPlacementPreviews, drawDragPreviews, drawSelectionFeedback,
     drawDrawingPreviews, drawSnapFeedback
@@ -577,8 +578,29 @@ export function draw2D() {
     drawCameraViewIndicator(ctx2d, zoom);
 
     // 13. TESİSAT SİSTEMİ (v2) - En üstte render edilir
-    // İzometrik perspektif aktifse de normal render eder (transformation matrix otomatik uygulanır)
-    plumbingManager.render(ctx2d);
+    if (state.is3DPerspectiveActive) {
+        // İzometrik görünümde: Z koordinatlarıyla boru çizimi
+        // Transformation matrix'i bypass et
+        ctx2d.save();
+
+        // Identity transform (transformation'ı sıfırla)
+        ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // Merkezi hesapla ve viewport ayarla
+        const centerX = c2d.width / (2 * dpr);
+        const centerY = c2d.height / (2 * dpr);
+        ctx2d.translate(centerX, centerY);
+        ctx2d.scale(zoom, zoom);
+        ctx2d.translate(panOffset.x / zoom, panOffset.y / zoom);
+
+        // İzometrik boruları çiz (Z koordinatlarıyla)
+        drawIsometricPipes(ctx2d);
+
+        ctx2d.restore();
+    } else {
+        // Normal 2D görünümde: Standart plumbing renderer
+        plumbingManager.render(ctx2d);
+    }
 
     // 14. Referans Çizgileri (Rehberler)
     drawGuides(ctx2d, state);
