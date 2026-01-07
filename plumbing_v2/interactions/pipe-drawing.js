@@ -266,7 +266,6 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
 // ... handleBoruClick, applyMeasurement, cancelCurrentAction vb. (değişmedi) ...
 export function handleBoruClick(interactionManager, point) {
     if (!interactionManager.boruBaslangic) return;
-    saveState();
 
     // Dikey boru kontrolü (aynı x,y, farklı z)
     const isVerticalPipe = (
@@ -337,6 +336,9 @@ export function handleBoruClick(interactionManager, point) {
         kaynakColorGroup: boru.colorGroup 
     };
     interactionManager.snapSystem.setStartPoint(point);
+
+    saveState();
+
 }
 
 // ... Diğer fonksiyonlar (applyMeasurement, cancelCurrentAction vb.) olduğu gibi kalabilir ...
