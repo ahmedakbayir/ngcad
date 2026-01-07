@@ -577,7 +577,7 @@ export const dom = {
     stairShowRailingCheckbox: document.getElementById("stair-show-railing"), // <-- YENİ SATIR BURAYA EKLENECEK
     confirmStairPopupButton: document.getElementById("confirm-stair-popup"),
     cancelStairPopupButton: document.getElementById("cancel-stair-popup"),
-    b3d: document.getElementById("b3d"), // 3D Göster butonu
+    b3d: document.getElementById("b3d"), // Katı Model butonu
     bIso: document.getElementById("bIso"), // İzometri Göster butonu
     b3DPerspective: document.getElementById("b3DPerspective"), // 3D Perspektif Görünüm butonu
 };
