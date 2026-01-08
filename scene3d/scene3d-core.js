@@ -12,6 +12,8 @@ export let orbitControls, pointerLockControls;
 export let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
 export let sceneObjects;
 export let textureLoader; // <-- Resim çerçeveleri için eklendi
+export let renderer2d3d; // 2D paneldeki 3D görünüm için ayrı renderer
+export let controls2d3d; // 2D paneldeki 3D görünüm için ayrı kontroller
 
 // --- Malzemeler (Materials) ---
 export let wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
@@ -373,4 +375,48 @@ export function fit3DViewToScreen() {
     controls.target.copy(center);
     camera.position.copy(newPosition);
     controls.update();
+}
+
+/**
+ * 2D panel içindeki 3D görünüm renderer'ını başlatır
+ */
+export function init2D3DView() {
+    if (!dom.c2d3d || !scene || !camera) {
+        console.error("init2D3DView: Gerekli elemanlar bulunamadı");
+        return;
+    }
+
+    // Yeni bir renderer oluştur (c2d3d canvas'ı için)
+    renderer2d3d = new THREE.WebGLRenderer({
+        antialias: true,
+        canvas: dom.c2d3d,
+    });
+
+    // OrbitControls'ü bu renderer için de oluştur
+    controls2d3d = new OrbitControls(camera, renderer2d3d.domElement);
+    controls2d3d.target.set(0, WALL_HEIGHT / 2, 0);
+    controls2d3d.minDistance = 1;
+    controls2d3d.zoomSpeed = 1;
+    controls2d3d.update();
+
+    // Mouse tuş atamaları
+    controls2d3d.mouseButtons = {
+        LEFT: THREE.MOUSE.ROTATE,   // Sol Tuş = Döndürme
+        MIDDLE: THREE.MOUSE.PAN,    // Orta Tuş = Pan (Kaydırma)
+        RIGHT: THREE.MOUSE.PAN,     // Sağ Tuş = Pan
+    };
+
+    console.log("2D panel içi 3D görünüm başlatıldı");
+}
+
+/**
+ * 2D panel içindeki 3D görünümü resize eder
+ */
+export function resize2D3DView() {
+    if (!renderer2d3d || !dom.c2d3d || !camera) return;
+
+    const rect = dom.p2d.getBoundingClientRect();
+    renderer2d3d.setSize(rect.width, rect.height);
+    camera.aspect = rect.width / rect.height;
+    camera.updateProjectionMatrix();
 }
