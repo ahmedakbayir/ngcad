@@ -1070,14 +1070,48 @@ export function handleDrag(interactionManager, point, event = null) {
                 const dx = finalPos.x - oldPoint.x;
                 const dy = finalPos.y - oldPoint.y;
 
-                // Taşınan noktadan sonraki tüm downstream nesneleri bul
-                const downstreamChain = findConnectedPipesChain(interactionManager.manager, pipe);
-                const processedIds = new Set([pipe.id]); // Mevcut boruyu işaretliyoruz
+                // Sadece sürüklenen uçtan sonraki downstream borular (BFS)
+                const downstreamChain = [];
+                const visited = new Set([pipe.id]);
+                const queue = [];
+                const tolerance = 1;
+
+                // Başlangıç: Sürüklenen uça bağlı boruları bul
+                interactionManager.manager.pipes.forEach(otherPipe => {
+                    if (otherPipe.id === pipe.id) return;
+
+                    const p1Dist = Math.hypot(otherPipe.p1.x - finalPos.x, otherPipe.p1.y - finalPos.y);
+                    const p2Dist = Math.hypot(otherPipe.p2.x - finalPos.x, otherPipe.p2.y - finalPos.y);
+
+                    if (p1Dist < tolerance || p2Dist < tolerance) {
+                        visited.add(otherPipe.id);
+                        queue.push(otherPipe);
+                    }
+                });
+
+                // BFS ile tüm downstream chain'i topla
+                while (queue.length > 0) {
+                    const currentPipe = queue.shift();
+                    downstreamChain.push(currentPipe);
+
+                    // currentPipe'a bağlı diğer boruları bul
+                    interactionManager.manager.pipes.forEach(otherPipe => {
+                        if (visited.has(otherPipe.id)) return;
+
+                        const p1ToP1 = Math.hypot(otherPipe.p1.x - currentPipe.p1.x, otherPipe.p1.y - currentPipe.p1.y);
+                        const p1ToP2 = Math.hypot(otherPipe.p1.x - currentPipe.p2.x, otherPipe.p1.y - currentPipe.p2.y);
+                        const p2ToP1 = Math.hypot(otherPipe.p2.x - currentPipe.p1.x, otherPipe.p2.y - currentPipe.p1.y);
+                        const p2ToP2 = Math.hypot(otherPipe.p2.x - currentPipe.p2.x, otherPipe.p2.y - currentPipe.p2.y);
+
+                        if (p1ToP1 < tolerance || p1ToP2 < tolerance || p2ToP1 < tolerance || p2ToP2 < tolerance) {
+                            visited.add(otherPipe.id);
+                            queue.push(otherPipe);
+                        }
+                    });
+                }
 
                 // Downstream borular ve bileşenleri taşı
                 downstreamChain.forEach(chainPipe => {
-                    if (processedIds.has(chainPipe.id)) return;
-                    processedIds.add(chainPipe.id);
 
                     // Boru uçlarını taşı
                     chainPipe.p1.x += dx;
@@ -1107,7 +1141,7 @@ export function handleDrag(interactionManager, point, event = null) {
                         // Sayacın çıkış borusunu da taşı
                         if (comp.type === 'sayac' && comp.cikisBagliBoruId) {
                             const cikisBoru = interactionManager.manager.pipes.find(p => p.id === comp.cikisBagliBoruId);
-                            if (cikisBoru && !processedIds.has(cikisBoru.id)) {
+                            if (cikisBoru && !visited.has(cikisBoru.id)) {
                                 cikisBoru.p1.x += dx;
                                 cikisBoru.p1.y += dy;
                             }

@@ -202,7 +202,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     // Tesisat bileşenlerini çiz
     ctx.save();
 
-    // Zoom ve offset uygula
+    // Transform: screen = (world * zoom) + center + offset
     ctx.translate(centerX + offset.x, centerY + offset.y);
     ctx.scale(zoom, zoom);
 
