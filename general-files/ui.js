@@ -440,22 +440,20 @@ export function setupIsometricControls() {
         const centerX = dom.cIso.width / 2;
         const centerY = dom.cIso.height / 2;
 
-        // Zoom öncesi mouse pozisyonunun world koordinatları
-        const worldBeforeX = (mouseX - centerX - state.isoPanOffset.x) / state.isoZoom;
-        const worldBeforeY = (mouseY - centerY - state.isoPanOffset.y) / state.isoZoom;
+        // Zoom öncesi mouse'un altındaki world noktası
+        const worldPointX = (mouseX - centerX - state.isoPanOffset.x) / state.isoZoom;
+        const worldPointY = (mouseY - centerY - state.isoPanOffset.y) / state.isoZoom;
 
         // Zoom faktörü - daha smooth geçişler için küçük adımlar
         const zoomDelta = e.deltaY > 0 ? 0.95 : 1.05;
         const newZoom = Math.max(0.1, Math.min(5, state.isoZoom * zoomDelta));
 
-        // Zoom sonrası mouse pozisyonunun world koordinatları (yeni zoom ile)
-        const worldAfterX = (mouseX - centerX - state.isoPanOffset.x) / newZoom;
-        const worldAfterY = (mouseY - centerY - state.isoPanOffset.y) / newZoom;
-
-        // Pan offset'i ayarla ki mouse dünya üzerinde aynı noktayı göstersin
+        // Zoom sonrası aynı world noktası aynı mouse pozisyonunda olmalı
+        // Formül: mouseX = worldPointX * newZoom + centerX + newOffsetX
+        // Çözümü: newOffsetX = mouseX - centerX - worldPointX * newZoom
         const newIsoPanOffset = {
-            x: state.isoPanOffset.x + (worldAfterX - worldBeforeX) * newZoom,
-            y: state.isoPanOffset.y + (worldAfterY - worldBeforeY) * newZoom
+            x: mouseX - centerX - worldPointX * newZoom,
+            y: mouseY - centerY - worldPointY * newZoom
         };
 
         setState({
