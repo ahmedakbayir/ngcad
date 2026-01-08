@@ -429,8 +429,12 @@ export function setupIsometricControls() {
         e.preventDefault();
 
         const rect = dom.cIso.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const mouseXInRect = e.clientX - rect.left;
+        const mouseYInRect = e.clientY - rect.top;
+
+        // Canvas internal koordinatlarına dönüştür (CSS boyutu farklı olabilir)
+        const mouseX = (mouseXInRect / rect.width) * dom.cIso.width;
+        const mouseY = (mouseYInRect / rect.height) * dom.cIso.height;
 
         // Canvas merkezi
         const centerX = dom.cIso.width / 2;
