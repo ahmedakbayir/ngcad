@@ -73,7 +73,7 @@ export function init3D(canvasElement) {
     orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.target.set(0, WALL_HEIGHT / 2, 0);
     orbitControls.minDistance = 1;
-    orbitControls.zoomSpeed = 1;
+    orbitControls.zoomSpeed = 0.5; // Daha smooth zoom için düşürüldü
     orbitControls.update();
 
     // --- YENİ EKLENDİ: Mouse tuş atamaları (İsteğinize göre güncellendi) ---
