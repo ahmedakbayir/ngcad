@@ -439,9 +439,18 @@ export class PlumbingRenderer {
             // Çizim moduna göre renk ayarla
             const adjustedColor = getAdjustedColor(config.color, 'boru');
 
-            // Boru geometrisi
-            const dx = pipe.p2.x - pipe.p1.x;
-            const dy = pipe.p2.y - pipe.p1.y;
+            // Z koordinatlarını al (3D görünüm için)
+            const z1 = (state.is3DPerspectiveActive && pipe.p1.z) ? pipe.p1.z : 0;
+            const z2 = (state.is3DPerspectiveActive && pipe.p2.z) ? pipe.p2.z : 0;
+
+            // Boru geometrisi (Z koordinatlarını Y'den çıkararak izometrik çizim)
+            const x1 = pipe.p1.x;
+            const y1 = pipe.p1.y - z1;
+            const x2 = pipe.p2.x;
+            const y2 = pipe.p2.y - z2;
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
             const length = Math.hypot(dx, dy);
             const angle = Math.atan2(dy, dx);
 
@@ -460,8 +469,8 @@ export class PlumbingRenderer {
                 ctx.setLineDash([]);
             }
 
-            // Koordinat sistemini borunun başlangıcına taşı ve döndür
-            ctx.translate(pipe.p1.x, pipe.p1.y);
+            // Koordinat sistemini borunun başlangıcına taşı ve döndür (Z dahil)
+            ctx.translate(x1, y1);
             ctx.rotate(angle);
 
             if (pipe.isSelected) {

@@ -12,7 +12,7 @@ import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
-import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d, renderer2d3d, controls2d3d, resize2D3DView } from '../scene3d/scene3d-core.js';
+import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from '../scene3d/scene3d-core.js';
 // --- DEĞİŞİKLİK SONU ---
 import { createWallPanel } from '../wall/wall-panel.js';
 import { createFloorPanel, showFloorPanel, renderMiniPanel } from '../floor/floor-panel.js';
@@ -493,7 +493,6 @@ export const dom = {
     p2d: document.getElementById("p2d"),
     c2d: document.getElementById("c2d"),
     ctx2d: document.getElementById("c2d").getContext("2d"),
-    c2d3d: document.getElementById("c2d3d"), // 3D perspektif görünüm canvas'ı
     p3d: document.getElementById("p3d"),
     c3d: document.getElementById("c3d"),
     pIso: document.getElementById("pIso"),
@@ -922,10 +921,6 @@ export function resize() {
         }
     }
 
-    // 2D paneldeki 3D görünümü resize et
-    if (state.is3DPerspectiveActive && resize2D3DView) {
-        resize2D3DView();
-    }
 }
 
 let lastTime = performance.now();
@@ -1002,16 +997,6 @@ function animate() {
     // İzometrik görünümü çiz
     if (dom.mainContainer.classList.contains('show-iso')) {
         drawIsoView();
-    }
-
-    // 2D paneldeki 3D görünümü render et
-    if (state.is3DPerspectiveActive && renderer2d3d && scene3d && camera3d) {
-        // Kontrolleri güncelle
-        if (controls2d3d && controls2d3d.update) {
-            controls2d3d.update();
-        }
-
-        renderer2d3d.render(scene3d, camera3d);
     }
 }
 // --- GÜNCELLEME SONU ---

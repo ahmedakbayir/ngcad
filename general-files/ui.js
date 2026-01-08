@@ -10,7 +10,7 @@ import { worldToScreen } from '../draw/geometry.js';
 import { applyStretchModification } from '../draw/geometry.js';
 import { toggleCameraMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
-import { updateSceneBackground, init2D3DView, resize2D3DView, renderer2d3d } from '../scene3d/scene3d-core.js';
+import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
 import { renderIsometric } from '../scene3d/scene-isometric.js';
@@ -294,7 +294,6 @@ export function toggle3DPerspective() {
 
     // Buton görünümünü güncelle
     if (state.is3DPerspectiveActive) {
-        // 3D görünüme geç
         dom.b3DPerspective.classList.add('active');
         dom.b3DPerspective.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -305,23 +304,7 @@ export function toggle3DPerspective() {
             </svg>
             2D Görünüm
         `;
-
-        // 2D canvas'ı gizle, 3D canvas'ı göster
-        dom.c2d.style.display = 'none';
-        dom.c2d3d.style.display = 'block';
-
-        // İlk kez aktif ediliyorsa renderer'ı başlat
-        if (!renderer2d3d) {
-            init2D3DView();
-        }
-
-        // Resize et
-        resize2D3DView();
-
-        // 3D sahneyi güncelle
-        update3DScene();
     } else {
-        // 2D görünüme dön
         dom.b3DPerspective.classList.remove('active');
         dom.b3DPerspective.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -332,13 +315,6 @@ export function toggle3DPerspective() {
             </svg>
             3D Görünüm
         `;
-
-        // 3D canvas'ı gizle, 2D canvas'ı göster
-        dom.c2d3d.style.display = 'none';
-        dom.c2d.style.display = 'block';
-
-        // 2D'yi yeniden çiz
-        resize();
     }
 }
 
