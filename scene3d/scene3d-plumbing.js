@@ -385,60 +385,38 @@ export function createPlumbingBlockMaterial() {
  * @returns {THREE.Mesh} - Boru mesh'i
  */
 export function createPlumbingPipeMesh(pipe, material) {
-    const config = pipe.typeConfig || PLUMBING_PIPE_TYPES[pipe.pipeType || 'STANDART'];
+    const config = pipe.typeConfig || PLUMBING_PIPE_TYPES[pipe.pipeType];
 
-    // Z koordinatlarını al (yoksa 0)
-    const z1 = pipe.p1.z || 0;
-    const z2 = pipe.p2.z || 0;
-
-    // 3D boru uzunluğu (Z dahil)
-    const dx = pipe.p2.x - pipe.p1.x;
-    const dy = pipe.p2.y - pipe.p1.y;
-    const dz = z2 - z1;
-    const length = Math.hypot(dx, dy, dz);
-
+    // Boru uzunluğu
+    const length = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
     if (length < 0.1) return null; // Çok kısa boru
 
-    // Silindir geometrisi
-    const radius = (config.diameter || 2) / 2; // Yarıçap
+    // Silindir geometrisi (yatay olarak oluşturulacak)
+    const radius = config.diameter / 2; // Yarıçap
     const geometry = new THREE.CylinderGeometry(radius, radius, length, 16);
 
-    // Materyal oluştur - colorGroup'a göre renk belirle
-    let pipeColor = config.color || 0x808080;
+    // Silindiri 90 derece döndür (Y ekseni -> X ekseni)
+    geometry.rotateZ(Math.PI / 2);
 
-    // plumbingManager v2 borularında colorGroup var
-    if (pipe.colorGroup) {
-        const isLightMode = document.body.classList.contains('light-mode');
-        if (pipe.colorGroup === 'YELLOW') {
-            pipeColor = isLightMode ? 0xA0522D : 0xB8860B; // Sienna / Dark Goldenrod
-        } else if (pipe.colorGroup === 'TURQUAZ') {
-            pipeColor = isLightMode ? 0x0064CC : 0x159AAC; // Dark Blue / Cyan
-        }
-    }
-
-    const pipeMaterial = material.clone();
-    pipeMaterial.color.setHex(pipeColor);
+    // Materyal oluştur
+    const pipeMaterial = new THREE.MeshStandardMaterial({
+        color: config.color,
+        metalness: 0.6,
+        roughness: 0.4
+    });
 
     const mesh = new THREE.Mesh(geometry, pipeMaterial);
 
-    // Merkez noktası (3D)
+    // Merkez noktası
     const midX = (pipe.p1.x + pipe.p2.x) / 2;
-    const midY = (z1 + z2) / 2; // Z koordinatı Y eksenine
-    const midZ = (pipe.p1.y + pipe.p2.y) / 2; // 2D Y -> 3D Z
+    const midZ = (pipe.p1.y + pipe.p2.y) / 2;
 
-    // Borunun yönü (normalize edilmiş vektör)
-    const direction = new THREE.Vector3(dx, dz, dy).normalize();
-
-    // Silindirin varsayılan yönü (0, 1, 0) - Y ekseni
-    const defaultDirection = new THREE.Vector3(0, 1, 0);
-
-    // Quaternion ile rotasyon hesapla
-    const quaternion = new THREE.Quaternion();
-    quaternion.setFromUnitVectors(defaultDirection, direction);
+    // Rotasyon açısı (X-Z düzleminde)
+    const angle = Math.atan2(pipe.p2.y - pipe.p1.y, pipe.p2.x - pipe.p1.x);
 
     // Pozisyon ve rotasyon ayarla
-    mesh.position.set(midX, midY, midZ);
-    mesh.quaternion.copy(quaternion);
+    mesh.position.set(midX, radius, midZ); // Yerden radius kadar yükselt
+    mesh.rotation.y = -angle; // Y ekseninde döndür
 
     return mesh;
 }
