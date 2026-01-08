@@ -33,8 +33,14 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
         return dist < tolerance;
     });
 
-    if (problematicServisKutusu || problematicSayac) {
-        return; 
+    if (problematicServisKutusu) {
+        console.warn('⚠️ Servis kutusundan sadece bir çıkış olabilir!');
+        return;
+    }
+
+    if (problematicSayac) {
+        console.warn('⚠️ Sayaçtan sadece bir çıkış olabilir!');
+        return;
     }
 
     // ✨✨✨ GELİŞMİŞ PARENT SEÇİMİ (SMART PARENT SELECTION) ✨✨✨
