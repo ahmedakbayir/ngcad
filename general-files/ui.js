@@ -428,10 +428,36 @@ export function setupIsometricControls() {
 
         e.preventDefault();
 
+        const rect = dom.cIso.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Canvas merkezi
+        const centerX = dom.cIso.width / 2;
+        const centerY = dom.cIso.height / 2;
+
+        // Zoom öncesi mouse pozisyonunun world koordinatları
+        const worldBeforeX = (mouseX - centerX - state.isoPanOffset.x) / state.isoZoom;
+        const worldBeforeY = (mouseY - centerY - state.isoPanOffset.y) / state.isoZoom;
+
+        // Zoom faktörü
         const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
         const newZoom = Math.max(0.1, Math.min(5, state.isoZoom * zoomDelta));
 
-        setState({ isoZoom: newZoom });
+        // Zoom sonrası mouse pozisyonunun world koordinatları (yeni zoom ile)
+        const worldAfterX = (mouseX - centerX - state.isoPanOffset.x) / newZoom;
+        const worldAfterY = (mouseY - centerY - state.isoPanOffset.y) / newZoom;
+
+        // Pan offset'i ayarla ki mouse dünya üzerinde aynı noktayı göstersin
+        const newIsoPanOffset = {
+            x: state.isoPanOffset.x + (worldAfterX - worldBeforeX) * newZoom,
+            y: state.isoPanOffset.y + (worldAfterY - worldBeforeY) * newZoom
+        };
+
+        setState({
+            isoZoom: newZoom,
+            isoPanOffset: newIsoPanOffset
+        });
         drawIsoView();
     }, { passive: false });
 
