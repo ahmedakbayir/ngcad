@@ -140,6 +140,19 @@ export function handlePointerDown(e) {
             }
         }
 
+        // --- SERVİS KUTUSU KONTROLÜ (Boru modunda kutuya tıklanırsa çıkış ucundan başla) ---
+        if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
+            const clickedBox = this.manager.components.find(c =>
+                c.type === 'servis_kutusu' && c.containsPoint && c.containsPoint(point)
+            );
+            if (clickedBox) {
+                //  console.log('🎯 SERVİS KUTUSU BULUNDU, çıkış ucundan boru başlatılıyor:', clickedBox.id);
+                const cikisNoktasi = clickedBox.getCikisNoktasi();
+                this.startBoruCizim(cikisNoktasi, clickedBox.id, BAGLANTI_TIPLERI.SERVIS_KUTUSU);
+                return true;
+            }
+        }
+
         // Piksel bazlı tolerance - zoom bağımsız
         const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
 
