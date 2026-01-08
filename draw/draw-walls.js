@@ -712,6 +712,84 @@ export function drawWallGeometry(ctx2d, state, wallFillColor) {
     drawArcHalfSegments(ctx2d, arcHalfSegments.nonOrtho, adjustedWallColor, lineThickness, wallPx, getWallFillColor);
     drawArcHalfSegments(ctx2d, arcHalfSegments.selected, "#8ab4f8", lineThickness, wallPx, getWallFillColor);
 
+    // 3D Görünüm: Duvarların yüksekliğini göster
+    if (state.is3DPerspectiveActive) {
+        const WALL_HEIGHT = 270; // cm
+
+        ctx2d.strokeStyle = adjustedWallColor;
+        ctx2d.lineWidth = lineThickness / state.zoom;
+        ctx2d.lineCap = "round";
+        ctx2d.lineJoin = "round";
+
+        walls.forEach(wall => {
+            if (!wall || !wall.p1 || !wall.p2) return;
+
+            // Arc duvarlar için şimdilik pas geç
+            if (wall.isArc) return;
+
+            const isSelected = (selectedObject?.type === "wall" && selectedObject.object === wall) || selectedGroup.includes(wall);
+            ctx2d.strokeStyle = isSelected ? "#8ab4f8" : adjustedWallColor;
+
+            // Duvar kalınlığını hesapla
+            const thickness = wall.thickness || wallPx;
+            const halfThickness = thickness / 2;
+
+            // Duvar yönü
+            const dx = wall.p2.x - wall.p1.x;
+            const dy = wall.p2.y - wall.p1.y;
+            const len = Math.hypot(dx, dy);
+            if (len < 0.1) return;
+
+            // Normal vektör (duvarın sol tarafı)
+            const nx = -dy / len;
+            const ny = dx / len;
+
+            // Sol ve sağ kenar noktaları (alt - zemin seviyesi)
+            const p1Left = { x: wall.p1.x + nx * halfThickness, y: wall.p1.y + ny * halfThickness };
+            const p1Right = { x: wall.p1.x - nx * halfThickness, y: wall.p1.y - ny * halfThickness };
+            const p2Left = { x: wall.p2.x + nx * halfThickness, y: wall.p2.y + ny * halfThickness };
+            const p2Right = { x: wall.p2.x - nx * halfThickness, y: wall.p2.y - ny * halfThickness };
+
+            // Üst kenar noktaları (yükseklikte) - İzometrik projeksiyonda y'den yüksekliği çıkarıyoruz
+            const p1LeftTop = { x: p1Left.x, y: p1Left.y - WALL_HEIGHT };
+            const p1RightTop = { x: p1Right.x, y: p1Right.y - WALL_HEIGHT };
+            const p2LeftTop = { x: p2Left.x, y: p2Left.y - WALL_HEIGHT };
+            const p2RightTop = { x: p2Right.x, y: p2Right.y - WALL_HEIGHT };
+
+            // Üst kenarları çiz
+            ctx2d.beginPath();
+            ctx2d.moveTo(p1LeftTop.x, p1LeftTop.y);
+            ctx2d.lineTo(p2LeftTop.x, p2LeftTop.y);
+            ctx2d.stroke();
+
+            ctx2d.beginPath();
+            ctx2d.moveTo(p1RightTop.x, p1RightTop.y);
+            ctx2d.lineTo(p2RightTop.x, p2RightTop.y);
+            ctx2d.stroke();
+
+            // Dikey kenarları çiz (köşelerde)
+            ctx2d.beginPath();
+            ctx2d.moveTo(p1Left.x, p1Left.y);
+            ctx2d.lineTo(p1LeftTop.x, p1LeftTop.y);
+            ctx2d.stroke();
+
+            ctx2d.beginPath();
+            ctx2d.moveTo(p1Right.x, p1Right.y);
+            ctx2d.lineTo(p1RightTop.x, p1RightTop.y);
+            ctx2d.stroke();
+
+            ctx2d.beginPath();
+            ctx2d.moveTo(p2Left.x, p2Left.y);
+            ctx2d.lineTo(p2LeftTop.x, p2LeftTop.y);
+            ctx2d.stroke();
+
+            ctx2d.beginPath();
+            ctx2d.moveTo(p2Right.x, p2Right.y);
+            ctx2d.lineTo(p2RightTop.x, p2RightTop.y);
+            ctx2d.stroke();
+        });
+    }
+
     // Varsayılan ayarlara dön
     ctx2d.lineCap = "butt";
     ctx2d.lineJoin = "miter";
