@@ -13,23 +13,22 @@ export function onWheel(e) {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Zoom öncesi fare konumunun dünya koordinatları
-    const worldBeforeZoom = screenToWorld(mouseX, mouseY);
+    // Eski zoom ve pan değerleri
+    const oldZoom = state.zoom;
+    const oldPanOffset = state.panOffset;
 
     // Zoom faktörü
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9; // 1/1.1 yerine 0.9 kullanıldı
-    const newZoom = Math.max(0.1, Math.min(10, state.zoom * zoomFactor));
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9; 
+    const newZoom = Math.max(0.1, Math.min(10, oldZoom * zoomFactor));
 
-    // Zoom sonrası fare konumunun dünya koordinatları (yeni zoom ile)
-    const worldAfterZoom = {
-        x: (mouseX - state.panOffset.x) / newZoom,
-        y: (mouseY - state.panOffset.y) / newZoom
-    };
-
-    // Pan offset'i ayarla ki fare dünya üzerinde aynı noktayı göstersin
+    // YENİ HESAPLAMA: Projeksiyondan bağımsız offset hesabı
+    // Formül: newOffset = mouse - (mouse - oldOffset) * (newZoom / oldZoom)
+    // Bu formül, mouse'un altındaki dünya noktasının ekran üzerindeki yerini korur.
+    const ratio = newZoom / oldZoom;
+    
     const newPanOffset = {
-        x: state.panOffset.x + (worldAfterZoom.x - worldBeforeZoom.x) * newZoom,
-        y: state.panOffset.y + (worldAfterZoom.y - worldBeforeZoom.y) * newZoom
+        x: mouseX - (mouseX - oldPanOffset.x) * ratio,
+        y: mouseY - (mouseY - oldPanOffset.y) * ratio
     };
 
     setState({
@@ -44,9 +43,9 @@ export function onWheel(e) {
 }
 
 export function fitDrawingToScreen() {
-    const { nodes, walls, columns, beams, stairs } = state; // columns, beams, stairs eklendi
+    const { nodes, walls, columns, beams, stairs } = state; 
     const { c2d } = dom;
-    const PADDING = 50; // Kenarlarda bırakılacak piksel boşluk
+    const PADDING = 50; 
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     let hasContent = false;
@@ -83,9 +82,9 @@ export function fitDrawingToScreen() {
         }
     };
 
-    (columns || []).forEach(col => checkItemBounds(getColumnCorners(col))); //
-    (beams || []).forEach(beam => checkItemBounds(getBeamCorners(beam))); //
-    (stairs || []).forEach(stair => checkItemBounds(getStairCorners(stair))); //
+    (columns || []).forEach(col => checkItemBounds(getColumnCorners(col))); 
+    (beams || []).forEach(beam => checkItemBounds(getBeamCorners(beam))); 
+    (stairs || []).forEach(stair => checkItemBounds(getStairCorners(stair))); 
 
 
     // Eğer hiç çizim yoksa veya sınırlar geçersizse varsayılan zoom ve pan ayarına dön
@@ -104,17 +103,33 @@ export function fitDrawingToScreen() {
 
     // Gerekli zoom seviyesini hesapla (hem yatay hem dikey sığacak şekilde)
     // Eğer genişlik veya yükseklik sıfırsa (tek nokta vb.), zoom'u 1 yap
-    const zoomX = drawingWidth > 1 ? availableWidth / drawingWidth : 1; // 0 yerine 1 gibi küçük bir değer kontrolü
-    const zoomY = drawingHeight > 1 ? availableHeight / drawingHeight : 1; // 0 yerine 1 gibi küçük bir değer kontrolü
-    const newZoom = Math.min(zoomX, zoomY, 5); // Maksimum zoom sınırı (örneğin 5x)
+    const zoomX = drawingWidth > 1 ? availableWidth / drawingWidth : 1; 
+    const zoomY = drawingHeight > 1 ? availableHeight / drawingHeight : 1; 
+    const newZoom = Math.min(zoomX, zoomY, 5); // Maksimum zoom sınırı 
 
     // Çizimin merkezini dünya koordinatlarında bul
     const centerX = minX + drawingWidth / 2;
     const centerY = minY + drawingHeight / 2;
 
-    // Yeni pan offset'ini hesapla (çizim merkezini canvas merkezine getirecek şekilde)
-    const newPanOffsetX = c2d.width / 2 - centerX * newZoom;
-    const newPanOffsetY = c2d.height / 2 - centerY * newZoom;
+    // 3D Perspektif (İzometrik) modunda mıyız?
+    // Eğer öyleyse, merkeze alma işlemi izometrik projeksiyona göre yapılmalı
+    let newPanOffsetX, newPanOffsetY;
+
+    if (state.is3DPerspectiveActive) {
+        // İzometrik projeksiyon katsayıları
+        const angle = Math.PI / 6; // 30 derece
+        // Projeksiyon: isoX = (x+y)*cos(30), isoY = (y-x)*sin(30)
+        // Merkez noktasının projeksiyonunu bul
+        const isoCenterX = (centerX + centerY) * Math.cos(angle);
+        const isoCenterY = (centerY - centerX) * Math.sin(angle);
+        
+        newPanOffsetX = c2d.width / 2 - isoCenterX * newZoom;
+        newPanOffsetY = c2d.height / 2 - isoCenterY * newZoom;
+    } else {
+        // Normal 2D
+        newPanOffsetX = c2d.width / 2 - centerX * newZoom;
+        newPanOffsetY = c2d.height / 2 - centerY * newZoom;
+    }
 
     setState({
         zoom: newZoom,

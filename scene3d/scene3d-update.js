@@ -437,19 +437,25 @@ export function update3DScene() {
 
     // --- Orbit Hedefini Ayarla ---
     if (controls === orbitControls) { // Sadece orbit modundaysa hedefi ayarla
-        if (sceneObjects.children.length > 0) {
-            const boundingBox = new THREE.Box3();
-            sceneObjects.children.forEach(obj => { if (obj.material !== floorMaterial) boundingBox.expandByObject(obj); });
-            if (!boundingBox.isEmpty()) {
-                const center = new THREE.Vector3();
-                boundingBox.getCenter(center);
-                controls.target.copy(center);
-            } else {
-                 controls.target.set(0, WALL_HEIGHT/2, 0);
+        const isTargetDefault = controls.target.x === 0 && controls.target.y === WALL_HEIGHT / 2 && controls.target.z === 0;
+if (sceneObjects.children.length > 0) {
+            // Sadece target henüz ayarlanmamışsa (default ise) merkeze odakla
+            // Aksi takdirde kullanıcının baktığı yeri koru
+            if (isTargetDefault) {
+                const boundingBox = new THREE.Box3();
+                sceneObjects.children.forEach(obj => { if (obj.material !== floorMaterial) boundingBox.expandByObject(obj); });
+                
+                if (!boundingBox.isEmpty()) {
+                    const center = new THREE.Vector3();
+                    boundingBox.getCenter(center);
+                    controls.target.copy(center);
+                }
             }
         } else {
+             // Sahne boşsa defaulta dön
              controls.target.set(0, WALL_HEIGHT/2, 0);
         }
+        
         controls.update();
     }
 }
