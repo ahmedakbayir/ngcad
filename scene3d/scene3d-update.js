@@ -23,12 +23,14 @@ import {getArcWallPoints } from "../draw/geometry.js";
 import {state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
     BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "../general-files/main.js";
 import { findLargestAvailableSegment } from "../wall/wall-item-utils.js";
+import { plumbingManager } from "../plumbing_v2/plumbing-manager.js";
 
 /**
  * 2D veriye (state) dayanarak 3D sahneyi temizler ve yeniden oluşturur.
  */
 export function update3DScene() {
-    if (!dom.mainContainer.classList.contains('show-3d') || !sceneObjects) return;
+    // 3D görünüm aktif değilse (ne yan panel ne de 2D panel 3D görünümü) çık
+    if ((!dom.mainContainer.classList.contains('show-3d') && !state.is3DPerspectiveActive) || !sceneObjects) return;
     sceneObjects.clear(); // Sahnedeki eski objeleri temizle
 
     // Opacity ayarlarını state'ten al (0-100 arası değer)
@@ -341,6 +343,54 @@ export function update3DScene() {
                 }
             }
         });
+    }
+
+    // --- Tesisat v2: plumbingManager'dan Bileşenleri ve Boruları Ekle ---
+    if (plumbingManager && opacitySettings.plumbing > 0) {
+        const plumbingMaterial = createPlumbingBlockMaterial();
+        plumbingMaterial.opacity = plumbingOpacity;
+        plumbingMaterial.transparent = true;
+        plumbingMaterial.needsUpdate = true;
+
+        const pipeMaterial = createPlumbingPipeMaterial();
+        pipeMaterial.opacity = plumbingOpacity;
+        pipeMaterial.transparent = true;
+        pipeMaterial.needsUpdate = true;
+
+        // Bileşenleri ekle (components)
+        if (plumbingManager.components) {
+            plumbingManager.components
+                .filter(comp => shouldShowFloor(comp.floorId))
+                .forEach(comp => {
+                    // Bileşeni block formatına dönüştür
+                    const block = {
+                        center: { x: comp.x, y: comp.y },
+                        rotation: comp.rotation || 0,
+                        blockType: comp.type,
+                        floorId: comp.floorId
+                    };
+
+                    const m = createPlumbingBlockMesh(block, plumbingMaterial);
+                    if (m) {
+                        m.position.y = getFloorElevation(comp.floorId);
+                        sceneObjects.add(m);
+                    }
+                });
+        }
+
+        // Boruları ekle (pipes)
+        if (plumbingManager.pipes) {
+            plumbingManager.pipes
+                .filter(pipe => shouldShowFloor(pipe.floorId))
+                .forEach(pipe => {
+                    // Boru mesh'ini oluştur
+                    const m = createPlumbingPipeMesh(pipe, pipeMaterial);
+                    if (m) {
+                        m.position.y = getFloorElevation(pipe.floorId);
+                        sceneObjects.add(m);
+                    }
+                });
+        }
     }
 
     // --- Zeminleri Ekle ---
