@@ -260,6 +260,9 @@ export function toggleIsoView() {
         const isoButtons = document.getElementById('iso-ratio-buttons');
         if (isoButtons) isoButtons.style.display = 'flex';
 
+        // İzometri splitter'ını göster
+        dom.isoSplitter.style.display = 'block';
+
         // İzometrik canvas boyutunu ayarla
         resizeIsoCanvas();
 
@@ -272,6 +275,9 @@ export function toggleIsoView() {
         // İzometri ratio butonlarını gizle
         const isoButtons = document.getElementById('iso-ratio-buttons');
         if (isoButtons) isoButtons.style.display = 'none';
+
+        // İzometri splitter'ını gizle
+        dom.isoSplitter.style.display = 'none';
     }
 
     setTimeout(() => {
@@ -1029,6 +1035,8 @@ export function setSplitRatio(ratio) {
 
 // Splitter fonksiyonları
 let isResizing = false;
+let isIsoResizing = false;
+
 function onSplitterPointerDown(e) { isResizing = true; dom.p2d.style.pointerEvents = 'none'; dom.p3d.style.pointerEvents = 'none'; document.body.style.cursor = 'col-resize'; window.addEventListener('pointermove', onSplitterPointerMove); window.addEventListener('pointerup', onSplitterPointerUp); }
 function onSplitterPointerMove(e) {
     if (!isResizing) return;
@@ -1058,6 +1066,55 @@ function onSplitterPointerMove(e) {
     resize();
 }
 function onSplitterPointerUp() { isResizing = false; dom.p2d.style.pointerEvents = 'auto'; dom.p3d.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; window.removeEventListener('pointermove', onSplitterPointerMove); window.removeEventListener('pointerup', onSplitterPointerUp); }
+
+// İzometri Splitter fonksiyonları
+function onIsoSplitterPointerDown(e) {
+    isIsoResizing = true;
+    dom.p2d.style.pointerEvents = 'none';
+    dom.pIso.style.pointerEvents = 'none';
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('pointermove', onIsoSplitterPointerMove);
+    window.addEventListener('pointerup', onIsoSplitterPointerUp);
+}
+
+function onIsoSplitterPointerMove(e) {
+    if (!isIsoResizing) return;
+
+    const mainRect = dom.mainContainer.getBoundingClientRect();
+    const p2dPanel = document.getElementById('p2d');
+    const pIsoPanel = document.getElementById('pIso');
+
+    let p2dWidth = e.clientX - mainRect.left;
+
+    // Minimum genişlikler
+    const min2DWidth = 150; // 2D paneli en az 150px olmalı
+    const minIsoWidth = 150; // İzometri paneli en az 150px olmalı
+
+    // 2D panel için minimum kontrol
+    if (p2dWidth < min2DWidth) p2dWidth = min2DWidth;
+
+    // İzometri panel için minimum kontrol (2D panel maksimum genişliği)
+    const max2DWidth = mainRect.width - minIsoWidth - dom.isoSplitter.offsetWidth - 20;
+    if (p2dWidth > max2DWidth) p2dWidth = max2DWidth;
+
+    let pIsoWidth = mainRect.width - p2dWidth - dom.isoSplitter.offsetWidth - 20;
+
+    p2dPanel.style.flex = `1 1 ${p2dWidth}px`;
+    pIsoPanel.style.flex = `1 1 ${pIsoWidth}px`;
+
+    resize();
+    resizeIsoCanvas();
+    drawIsoView();
+}
+
+function onIsoSplitterPointerUp() {
+    isIsoResizing = false;
+    dom.p2d.style.pointerEvents = 'auto';
+    dom.pIso.style.pointerEvents = 'auto';
+    document.body.style.cursor = 'default';
+    window.removeEventListener('pointermove', onIsoSplitterPointerMove);
+    window.removeEventListener('pointerup', onIsoSplitterPointerUp);
+}
 
 
 // Duvar boyutlandırma fonksiyonu
@@ -1454,6 +1511,7 @@ export function setupUIListeners() {
     dom.roomNameSelect.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } });
     dom.roomNameInput.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); dom.roomNameSelect.focus(); } else if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } });
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
+    dom.isoSplitter.addEventListener('pointerdown', onIsoSplitterPointerDown);
     dom.lengthInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); } else if (e.key === "Escape") { cancelLengthEdit(); } });
     dom.lengthInput.addEventListener("blur", cancelLengthEdit);
 

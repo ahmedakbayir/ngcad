@@ -567,6 +567,7 @@ export const dom = {
     roomNameSelect: document.getElementById("room-name-select"),
     roomNameInput: document.getElementById("room-name-input"),
     splitter: document.getElementById("splitter"),
+    isoSplitter: document.getElementById("isoSplitter"),
     bSymmetry: document.getElementById("bSymmetry"), // YENİ SATIR
     stairPopup: document.getElementById("stair-popup"),
     stairNameInput: document.getElementById("stair-name"),
