@@ -440,8 +440,8 @@ export function setupIsometricControls() {
         const worldBeforeX = (mouseX - centerX - state.isoPanOffset.x) / state.isoZoom;
         const worldBeforeY = (mouseY - centerY - state.isoPanOffset.y) / state.isoZoom;
 
-        // Zoom faktörü
-        const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+        // Zoom faktörü - daha smooth geçişler için küçük adımlar
+        const zoomDelta = e.deltaY > 0 ? 0.95 : 1.05;
         const newZoom = Math.max(0.1, Math.min(5, state.isoZoom * zoomDelta));
 
         // Zoom sonrası mouse pozisyonunun world koordinatları (yeni zoom ile)
