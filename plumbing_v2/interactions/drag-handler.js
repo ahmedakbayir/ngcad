@@ -9,6 +9,7 @@ import { getObjectsOnPipe } from './placement-utils.js';
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
+import { findConnectedPipesChain } from './finders.js';
 
 /**
  * Bir noktanın korumalı (taşınamaz) olup olmadığını kontrol eder
@@ -643,8 +644,9 @@ export function startBodyDrag(interactionManager, pipe, point) {
  * Sürükleme işlemini gerçekleştir
  * @param {Object} interactionManager - InteractionManager instance
  * @param {Object} point - Güncel mouse pozisyonu {x, y}
+ * @param {Event} event - Mouse event (CTRL tuşu kontrolü için)
  */
-export function handleDrag(interactionManager, point) {
+export function handleDrag(interactionManager, point, event = null) {
     if (!interactionManager.dragObject) return;
 
     // Baca segment endpoint sürükleme
@@ -1060,6 +1062,80 @@ export function handleDrag(interactionManager, point) {
                 interactionManager.connectedPipesAtEndpoint.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = finalPos.x;
                     connectedPipe[connectedEndpoint].y = finalPos.y;
+                });
+            }
+
+            // 🔥 YENİ: CTRL BASILIYSA DOWNSTREAM NESNELERİ DE TAŞI
+            if (event && event.ctrlKey) {
+                const dx = finalPos.x - oldPoint.x;
+                const dy = finalPos.y - oldPoint.y;
+
+                // Taşınan noktadan sonraki tüm downstream nesneleri bul
+                const downstreamChain = findConnectedPipesChain(interactionManager.manager, pipe);
+                const processedIds = new Set([pipe.id]); // Mevcut boruyu işaretliyoruz
+
+                // Downstream borular ve bileşenleri taşı
+                downstreamChain.forEach(chainPipe => {
+                    if (processedIds.has(chainPipe.id)) return;
+                    processedIds.add(chainPipe.id);
+
+                    // Boru uçlarını taşı
+                    chainPipe.p1.x += dx;
+                    chainPipe.p1.y += dy;
+                    chainPipe.p2.x += dx;
+                    chainPipe.p2.y += dy;
+
+                    // Bağlı vanaları taşı
+                    const vanaListesi = interactionManager.manager.components.filter(c =>
+                        c.type === 'vana' && c.bagliBoruId === chainPipe.id
+                    );
+                    vanaListesi.forEach(vana => {
+                        vana.x += dx;
+                        vana.y += dy;
+                    });
+
+                    // Bağlı sayaçları ve cihazları taşı
+                    const componentListesi = interactionManager.manager.components.filter(c =>
+                        (c.type === 'sayac' || c.type === 'cihaz') &&
+                        c.fleksBaglanti &&
+                        c.fleksBaglanti.boruId === chainPipe.id
+                    );
+                    componentListesi.forEach(comp => {
+                        comp.x += dx;
+                        comp.y += dy;
+
+                        // Sayacın çıkış borusunu da taşı
+                        if (comp.type === 'sayac' && comp.cikisBagliBoruId) {
+                            const cikisBoru = interactionManager.manager.pipes.find(p => p.id === comp.cikisBagliBoruId);
+                            if (cikisBoru && !processedIds.has(cikisBoru.id)) {
+                                cikisBoru.p1.x += dx;
+                                cikisBoru.p1.y += dy;
+                            }
+                        }
+
+                        // Cihazın bacasını da taşı
+                        if (comp.type === 'cihaz') {
+                            const bacalar = interactionManager.manager.components.filter(c =>
+                                c.type === 'baca' && c.parentCihazId === comp.id
+                            );
+                            bacalar.forEach(baca => {
+                                baca.startX += dx;
+                                baca.startY += dy;
+                                baca.currentSegmentStart.x += dx;
+                                baca.currentSegmentStart.y += dy;
+                                baca.segments.forEach(seg => {
+                                    seg.x1 += dx;
+                                    seg.y1 += dy;
+                                    seg.x2 += dx;
+                                    seg.y2 += dy;
+                                });
+                                if (baca.havalandirma) {
+                                    baca.havalandirma.x += dx;
+                                    baca.havalandirma.y += dy;
+                                }
+                            });
+                        }
+                    });
                 });
             }
         } else {

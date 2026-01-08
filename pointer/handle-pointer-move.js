@@ -312,7 +312,7 @@ export function handlePointerMove(e) {
 
     // 4. Sürükleme - raw point kullan (handleDrag içinde gerekli snap yapılır)
     if (this.isDragging && this.dragObject) {
-        this.handleDrag(point);
+        this.handleDrag(point, e);
         return true;
     }
 
