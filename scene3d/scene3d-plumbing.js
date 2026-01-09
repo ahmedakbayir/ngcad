@@ -419,9 +419,20 @@ export function createPlumbingPipeMesh(pipe, material) {
     // Düşey boru kontrolü (sadece Z farkı varsa)
     const isVertical = Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1 && Math.abs(dz) > 0.1;
 
+    // Debug: Boru bilgilerini logla
+    console.log('🔧 Boru:', {
+        id: pipe.id?.substring(0, 15),
+        dx, dy, dz,
+        length,
+        isVertical,
+        p1: pipe.p1,
+        p2: pipe.p2
+    });
+
     if (isVertical) {
         // Düşey boru: Silindir zaten Y ekseninde, rotasyon gerekmiyor
         // (THREE.CylinderGeometry varsayılan olarak Y ekseni boyunca oluşturulur)
+        console.log('✅ Düşey boru - rotasyon yok');
     } else {
         // Yatay veya eğik boru: Silindiri döndür
 
@@ -435,6 +446,8 @@ export function createPlumbingPipeMesh(pipe, material) {
         const quaternion = new THREE.Quaternion();
         quaternion.setFromUnitVectors(defaultDirection, direction);
         mesh.setRotationFromQuaternion(quaternion);
+
+        console.log('🔄 Yatay/eğik boru - direction:', direction);
     }
 
     return mesh;
