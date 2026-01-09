@@ -421,14 +421,21 @@ export function createPlumbingPipeMesh(pipe, material) {
 
     mesh.position.set(midX, midY, midZ);
 
-    // Düşey boru kontrolü (sadece Z farkı varsa)
-    const isVertical = Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1 && Math.abs(dz) > 0.1;
+    // Düşey boru kontrolü (yatay sapma çok küçükse düşey say)
+    // Yatay mesafe (XY düzleminde) ve düşey mesafe (Z ekseni) hesapla
+    const horizontalDist = Math.hypot(dx, dy);
+    const verticalDist = Math.abs(dz);
+
+    // Eğer yatay mesafe, toplam uzunluğun %5'inden azsa ve düşey mesafe varsa -> düşey boru
+    const isVertical = horizontalDist < length * 0.05 && verticalDist > 0.1;
 
     // Debug: Boru bilgilerini logla
     console.log('🔧 Boru:', {
         id: pipe.id?.substring(0, 15),
         dx, dy, dz,
         length,
+        horizontalDist: horizontalDist.toFixed(2),
+        verticalDist: verticalDist.toFixed(2),
         isVertical,
         p1: pipe.p1,
         p2: pipe.p2
