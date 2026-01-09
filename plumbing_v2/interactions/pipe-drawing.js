@@ -384,9 +384,15 @@ export function applyMeasurement(interactionManager) {
         interactionManager.measurementActive = false;
         return;
     }
+const currentZ = interactionManager.boruBaslangic.nokta.z || 0;
+
     let targetPoint = interactionManager.geciciBoruBitis;
     if (!targetPoint) {
-        targetPoint = { x: interactionManager.boruBaslangic.nokta.x + measurement, y: interactionManager.boruBaslangic.nokta.y };
+        targetPoint = { 
+            x: interactionManager.boruBaslangic.nokta.x + measurement, 
+            y: interactionManager.boruBaslangic.nokta.y,
+            z: currentZ // Z kotunu koru
+        };
     } else {
         const dx = targetPoint.x - interactionManager.boruBaslangic.nokta.x;
         const dy = targetPoint.y - interactionManager.boruBaslangic.nokta.y;
@@ -394,9 +400,17 @@ export function applyMeasurement(interactionManager) {
         if (currentLength > 0.1) {
             const dirX = dx / currentLength;
             const dirY = dy / currentLength;
-            targetPoint = { x: interactionManager.boruBaslangic.nokta.x + dirX * measurement, y: interactionManager.boruBaslangic.nokta.y + dirY * measurement };
+            targetPoint = { 
+                x: interactionManager.boruBaslangic.nokta.x + dirX * measurement, 
+                y: interactionManager.boruBaslangic.nokta.y + dirY * measurement,
+                z: currentZ // Z kotunu koru
+            };
         } else {
-             targetPoint = { x: interactionManager.boruBaslangic.nokta.x + measurement, y: interactionManager.boruBaslangic.nokta.y };
+             targetPoint = { 
+                 x: interactionManager.boruBaslangic.nokta.x + measurement, 
+                 y: interactionManager.boruBaslangic.nokta.y,
+                 z: currentZ // Z kotunu koru
+             };
         }
     }
     handleBoruClick(interactionManager, targetPoint);
