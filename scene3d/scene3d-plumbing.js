@@ -387,16 +387,18 @@ export function createPlumbingBlockMaterial() {
 export function createPlumbingPipeMesh(pipe, material) {
     const config = pipe.typeConfig || PLUMBING_PIPE_TYPES[pipe.pipeType];
 
-    // Boru uzunluğu
-    const length = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
+    // Koordinat farkları
+    const dx = pipe.p2.x - pipe.p1.x;
+    const dy = pipe.p2.y - pipe.p1.y;
+    const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+
+    // Boru uzunluğu (3D mesafe, Z koordinatını da dahil et)
+    const length = Math.hypot(dx, dy, dz);
     if (length < 0.1) return null; // Çok kısa boru
 
-    // Silindir geometrisi (yatay olarak oluşturulacak)
+    // Silindir geometrisi
     const radius = config.diameter / 2; // Yarıçap
     const geometry = new THREE.CylinderGeometry(radius, radius, length, 16);
-
-    // Silindiri 90 derece döndür (Y ekseni -> X ekseni)
-    geometry.rotateZ(Math.PI / 2);
 
     // Materyal oluştur
     const pipeMaterial = new THREE.MeshStandardMaterial({
@@ -407,16 +409,33 @@ export function createPlumbingPipeMesh(pipe, material) {
 
     const mesh = new THREE.Mesh(geometry, pipeMaterial);
 
-    // Merkez noktası
+    // Merkez noktası (3D)
     const midX = (pipe.p1.x + pipe.p2.x) / 2;
-    const midZ = (pipe.p1.y + pipe.p2.y) / 2;
+    const midY = ((pipe.p1.z || 0) + (pipe.p2.z || 0)) / 2; // Z koordinatı THREE.js'te Y ekseni
+    const midZ = (pipe.p1.y + pipe.p2.y) / 2; // Y koordinatı THREE.js'te Z ekseni
 
-    // Rotasyon açısı (X-Z düzleminde)
-    const angle = Math.atan2(pipe.p2.y - pipe.p1.y, pipe.p2.x - pipe.p1.x);
+    mesh.position.set(midX, midY, midZ);
 
-    // Pozisyon ve rotasyon ayarla
-    mesh.position.set(midX, radius, midZ); // Yerden radius kadar yükselt
-    mesh.rotation.y = -angle; // Y ekseninde döndür
+    // Düşey boru kontrolü (sadece Z farkı varsa)
+    const isVertical = Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1 && Math.abs(dz) > 0.1;
+
+    if (isVertical) {
+        // Düşey boru: Silindir zaten Y ekseninde, rotasyon gerekmiyor
+        // (THREE.CylinderGeometry varsayılan olarak Y ekseni boyunca oluşturulur)
+    } else {
+        // Yatay veya eğik boru: Silindiri döndür
+
+        // Borunun yönünü hesapla
+        const direction = new THREE.Vector3(dx, dz, dy).normalize();
+
+        // Varsayılan silindir yönü (Y ekseni)
+        const defaultDirection = new THREE.Vector3(0, 1, 0);
+
+        // Rotasyon için quaternion hesapla
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromUnitVectors(defaultDirection, direction);
+        mesh.setRotationFromQuaternion(quaternion);
+    }
 
     return mesh;
 }

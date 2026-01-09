@@ -308,7 +308,8 @@ export function update3DScene() {
         plumbingPipes.forEach(pipe => {
             const m = createPlumbingPipeMesh(pipe, pipeMaterial);
             if (m) {
-                m.position.y = getFloorElevation(pipe.floorId);
+                // Kat yüksekliğini mevcut Y pozisyonuna ekle (relative + absolute)
+                m.position.y += getFloorElevation(pipe.floorId);
                 sceneObjects.add(m);
             }
 
