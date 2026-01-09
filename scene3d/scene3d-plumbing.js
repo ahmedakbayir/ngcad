@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PLUMBING_PIPE_TYPES, PLUMBING_COMPONENT_TYPES } from '../plumbing_v2/plumbing-types.js';
+import { BORU_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 // PLUMBING_BLOCK_TYPES artık PLUMBING_COMPONENT_TYPES olarak v2'de
 const PLUMBING_BLOCK_TYPES = PLUMBING_COMPONENT_TYPES;
 
@@ -385,7 +386,11 @@ export function createPlumbingBlockMaterial() {
  * @returns {THREE.Mesh} - Boru mesh'i
  */
 export function createPlumbingPipeMesh(pipe, material) {
-    const config = pipe.typeConfig || PLUMBING_PIPE_TYPES[pipe.pipeType];
+    // Hem yeni sistem (pipeType) hem eski sistem (boruTipi) ile uyumlu
+    const config = pipe.typeConfig
+        || PLUMBING_PIPE_TYPES[pipe.pipeType]
+        || BORU_TIPLERI[pipe.boruTipi]
+        || BORU_TIPLERI.STANDART; // Fallback
 
     // Koordinat farkları
     const dx = pipe.p2.x - pipe.p1.x;
