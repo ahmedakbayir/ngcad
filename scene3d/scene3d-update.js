@@ -98,7 +98,9 @@ export function update3DScene() {
     // 'floor' modunda sadece aktif kat, 'building' modunda tüm katlar görünür
     const shouldShowFloor = (floorId) => {
         if (viewMode === 'building') return true; // Tüm katlar
-        // Sadece currentFloorId ve floorId eşleşiyorsa göster (floorId olmayan öğeleri gösterme!)
+        // floorId undefined ise mevcut kata ait kabul et (geriye dönük uyumluluk)
+        if (!floorId) return true;
+        // Sadece currentFloorId ve floorId eşleşiyorsa göster
         return currentFloorId && floorId === currentFloorId;
     };
 
