@@ -422,7 +422,9 @@ export function createPlumbingPipeMesh(pipe, material) {
     mesh.position.set(midX, midY, midZ);
 
     // Düşey boru kontrolü (sadece Z farkı varsa)
-    const isVertical = Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1 && Math.abs(dz) > 0.1;
+const horizontalDist = Math.hypot(dx, dy);
+const verticalDist = Math.abs(dz);
+const isVertical = horizontalDist < length * 0.05 && verticalDist > 0.1;
 
     // Debug: Boru bilgilerini logla
     console.log('🔧 Boru:', {

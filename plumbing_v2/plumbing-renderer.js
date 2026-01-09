@@ -1,3 +1,5 @@
+// plumbing_v2/plumbing-renderer.js
+
 import { BORU_TIPLERI, RENK_GRUPLARI, getRenkGruplari } from './objects/pipe.js';
 import { SERVIS_KUTUSU_CONFIG, CIKIS_YONLERI } from './objects/service-box.js';
 import { SAYAC_CONFIG } from './objects/meter.js';
@@ -443,11 +445,27 @@ export class PlumbingRenderer {
             const z1 = (state.is3DPerspectiveActive && pipe.p1.z) ? pipe.p1.z : 0;
             const z2 = (state.is3DPerspectiveActive && pipe.p2.z) ? pipe.p2.z : 0;
 
-            // Boru geometrisi (Z koordinatlarını Y'den çıkararak izometrik çizim)
-            const x1 = pipe.p1.x;
-            const y1 = pipe.p1.y - z1;
-            const x2 = pipe.p2.x;
-            const y2 = pipe.p2.y - z2;
+            // Boru geometrisi (3D Perspektif aktifse Z'yi X'e ekle, Y'den çıkar)
+            // Bu formül draw2d.js'deki izometrik projeksiyon matrisiyle (rotate 30deg) uyumludur.
+            let x1, y1, x2, y2;
+
+            if (state.is3DPerspectiveActive) {
+                // İzometrik projeksiyon matrisi (draw2d.js'de):
+                // u = (x+y)*cos(30)
+                // v = (-x+y)*sin(30)
+                // Bu matriste dikey çizgi (sadece v değişsin, u sabit) elde etmek için:
+                // delta_x = delta_z, delta_y = -delta_z formülü uygulanmalı.
+                x1 = pipe.p1.x + z1;
+                y1 = pipe.p1.y - z1;
+                x2 = pipe.p2.x + z2;
+                y2 = pipe.p2.y - z2;
+            } else {
+                // Normal 2D görünüm (Z yok sayılır)
+                x1 = pipe.p1.x;
+                y1 = pipe.p1.y;
+                x2 = pipe.p2.x;
+                y2 = pipe.p2.y;
+            }
 
             const dx = x2 - x1;
             const dy = y2 - y1;
@@ -543,139 +561,170 @@ export class PlumbingRenderer {
         });
 
         // Düşey boru gösterimlerini ÇİZ (tüm boruların üstünde görünsün)
-        pipes.forEach(pipe => {
-            const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
-            if (Math.abs(zDiff) > 0.1) {
-                ctx.save();
-                const colorGroup = pipe.colorGroup || 'YELLOW';
-                const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
+        // DEĞİŞİKLİK: 3D modunda (state.is3DPerspectiveActive) bu sembolleri ÇİZME
+        if (!state.is3DPerspectiveActive) {
+            pipes.forEach(pipe => {
+                const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+                if (Math.abs(zDiff) > 0.1) {
+                    ctx.save();
+                    const colorGroup = pipe.colorGroup || 'YELLOW';
+                    const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
-                // Dikey borunun konumu (p1 = p2 çünkü aynı x,y)
-                const centerX = pipe.p1.x;
-                const centerY = pipe.p1.y;
+                    // Dikey borunun konumu (p1 = p2 çünkü aynı x,y)
+                    const centerX = pipe.p1.x;
+                    const centerY = pipe.p1.y;
 
-                // Sabit çember çapı: 5 (yarıya düşürüldü)
-                const circleRadius = 5;
-                const arrowLength = 12;
+                    // Sabit çember çapı: 5 (yarıya düşürüldü)
+                    const circleRadius = 5;
+                    const arrowLength = 12;
 
-                // Çember çiz - içi gri dolu, kenar çizgili
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
-
-                // Önce gri ile doldur
-                ctx.fillStyle = '#808080'; // Gri
-                ctx.fill();
-
-                // Sonra kenarını çiz
-                ctx.strokeStyle = pipeColor;
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                // Ok çiz
-                ctx.fillStyle = pipeColor;
-                ctx.strokeStyle = pipeColor;
-                ctx.lineWidth = 2;
-
-                if (zDiff > 0) {
-                    // Yukarı çıkış: 45 derece dışa doğru
-                    const angle45 = Math.PI / 4; // 45 derece
-                    const arrowStartX = centerX + circleRadius * Math.cos(angle45);
-                    const arrowStartY = centerY - circleRadius * Math.sin(angle45);
-                    const arrowTipX = centerX + (circleRadius + arrowLength) * Math.cos(angle45);
-                    const arrowTipY = centerY - (circleRadius + arrowLength) * Math.sin(angle45);
-
-                    // Ok çizgisi - uçtan 3px geride bitir (daha sivri görünsün)
-                    const lineEndOffset = 3;
-                    const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle45);
-                    const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle45);
-
+                    // Çember çiz - içi gri dolu, kenar çizgili
                     ctx.beginPath();
-                    ctx.moveTo(arrowStartX, arrowStartY);
-                    ctx.lineTo(lineEndX, lineEndY);
+                    ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
+
+                    // Önce gri ile doldur
+                    ctx.fillStyle = '#808080'; // Gri
+                    ctx.fill();
+
+                    // Sonra kenarını çiz
+                    ctx.strokeStyle = pipeColor;
+                    ctx.lineWidth = 2;
                     ctx.stroke();
 
-                    // Ok başı (üçgen)
-                    const arrowHeadSize = 5;
-                    ctx.beginPath();
-                    ctx.moveTo(arrowTipX, arrowTipY);
-                    ctx.lineTo(
-                        arrowTipX - arrowHeadSize * Math.cos(angle45 - Math.PI / 6),
-                        arrowTipY + arrowHeadSize * Math.sin(angle45 - Math.PI / 6)
-                    );
-                    ctx.lineTo(
-                        arrowTipX - arrowHeadSize * Math.cos(angle45 + Math.PI / 6),
-                        arrowTipY + arrowHeadSize * Math.sin(angle45 + Math.PI / 6)
-                    );
-                    ctx.closePath();
-                    ctx.fill();
-                } else {
-                    // Aşağı iniş: 225 derece merkeze doğru
-                    const angle225 = 5 * Math.PI / 4; // 225 derece
-                    const arrowHeadSize = 5;
+                    // Ok çiz
+                    ctx.fillStyle = pipeColor;
+                    ctx.strokeStyle = pipeColor;
+                    ctx.lineWidth = 2;
 
-                    // Ok başlangıcı dışarıda
-                    const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
-                    const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
+                    if (zDiff > 0) {
+                        // Yukarı çıkış: 45 derece dışa doğru
+                        const angle45 = Math.PI / 4; // 45 derece
+                        const arrowStartX = centerX + circleRadius * Math.cos(angle45);
+                        const arrowStartY = centerY - circleRadius * Math.sin(angle45);
+                        const arrowTipX = centerX + (circleRadius + arrowLength) * Math.cos(angle45);
+                        const arrowTipY = centerY - (circleRadius + arrowLength) * Math.sin(angle45);
 
-                    // Ok ucu tam çember kenarında (yükseliş oku gibi)
-                    const arrowTipX = centerX + circleRadius * Math.cos(angle225);
-                    const arrowTipY = centerY - circleRadius * Math.sin(angle225);
+                        // Ok çizgisi - uçtan 3px geride bitir (daha sivri görünsün)
+                        const lineEndOffset = 3;
+                        const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle45);
+                        const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle45);
 
-                    // Ok çizgisi - ok başının arkasında biter (cubuk görünmez)
-                    const lineEndOffset = 3;
-                    const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle225) + (circleRadius * Math.cos(angle225));
-                    const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle225) - (circleRadius * Math.sin(angle225));
+                        ctx.beginPath();
+                        ctx.moveTo(arrowStartX, arrowStartY);
+                        ctx.lineTo(lineEndX, lineEndY);
+                        ctx.stroke();
 
-                    ctx.beginPath();
-                    ctx.moveTo(arrowStartX, arrowStartY);
-                    ctx.lineTo(lineEndX, lineEndY);
-                    ctx.stroke();
+                        // Ok başı (üçgen)
+                        const arrowHeadSize = 5;
+                        ctx.beginPath();
+                        ctx.moveTo(arrowTipX, arrowTipY);
+                        ctx.lineTo(
+                            arrowTipX - arrowHeadSize * Math.cos(angle45 - Math.PI / 6),
+                            arrowTipY + arrowHeadSize * Math.sin(angle45 - Math.PI / 6)
+                        );
+                        ctx.lineTo(
+                            arrowTipX - arrowHeadSize * Math.cos(angle45 + Math.PI / 6),
+                            arrowTipY + arrowHeadSize * Math.sin(angle45 + Math.PI / 6)
+                        );
+                        ctx.closePath();
+                        ctx.fill();
+                    } else {
+                        // Aşağı iniş: 225 derece merkeze doğru
+                        const angle225 = 5 * Math.PI / 4; // 225 derece
+                        const arrowHeadSize = 5;
 
-                    // Ok başı (üçgen) - merkeze doğru işaret ediyor
-                    const reverseAngle = angle225 + Math.PI; // Ok yönünü tersine çevir
-                    ctx.beginPath();
-                    ctx.moveTo(arrowTipX, arrowTipY);
-                    ctx.lineTo(
-                        arrowTipX - arrowHeadSize * Math.cos(reverseAngle - Math.PI / 6),
-                        arrowTipY + arrowHeadSize * Math.sin(reverseAngle - Math.PI / 6)
-                    );
-                    ctx.lineTo(
-                        arrowTipX - arrowHeadSize * Math.cos(reverseAngle + Math.PI / 6),
-                        arrowTipY + arrowHeadSize * Math.sin(reverseAngle + Math.PI / 6)
-                    );
-                    ctx.closePath();
-                    ctx.fill();
+                        // Ok başlangıcı dışarıda
+                        const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
+                        const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
+
+                        // Ok ucu tam çember kenarında (yükseliş oku gibi)
+                        const arrowTipX = centerX + circleRadius * Math.cos(angle225);
+                        const arrowTipY = centerY - circleRadius * Math.sin(angle225);
+
+                        // Ok çizgisi - ok başının arkasında biter (cubuk görünmez)
+                        const lineEndOffset = 3;
+                        const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle225) + (circleRadius * Math.cos(angle225));
+                        const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle225) - (circleRadius * Math.sin(angle225));
+
+                        ctx.beginPath();
+                        ctx.moveTo(arrowStartX, arrowStartY);
+                        ctx.lineTo(lineEndX, lineEndY);
+                        ctx.stroke();
+
+                        // Ok başı (üçgen) - merkeze doğru işaret ediyor
+                        const reverseAngle = angle225 + Math.PI; // Ok yönünü tersine çevir
+                        ctx.beginPath();
+                        ctx.moveTo(arrowTipX, arrowTipY);
+                        ctx.lineTo(
+                            arrowTipX - arrowHeadSize * Math.cos(reverseAngle - Math.PI / 6),
+                            arrowTipY + arrowHeadSize * Math.sin(reverseAngle - Math.PI / 6)
+                        );
+                        ctx.lineTo(
+                            arrowTipX - arrowHeadSize * Math.cos(reverseAngle + Math.PI / 6),
+                            arrowTipY + arrowHeadSize * Math.sin(reverseAngle + Math.PI / 6)
+                        );
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                    ctx.restore();
                 }
-                ctx.restore();
-            }
-        });
+            });
+        }
     }
-
     findBreakPoints(pipes) {
         const pointMap = new Map();
         const tolerance = 0.5;
+        // 3D modunun aktifliğini kontrol et
+        const is3D = state.is3DPerspectiveActive;
 
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
 
-            // p1 noktası
-            const key1 = `${Math.round(pipe.p1.x / tolerance) * tolerance},${Math.round(pipe.p1.y / tolerance) * tolerance}`;
+            // Z değerlerini al (yoksa 0)
+            const z1 = pipe.p1.z || 0;
+            const z2 = pipe.p2.z || 0;
+
+            // Ekran izdüşüm koordinatlarını hesapla (Açıyı doğru bulmak için)
+            // drawPipes ile TAM UYUMLU olması şart: x' = x + z, y' = y - z
+            const tx1 = pipe.p1.x + (is3D ? z1 : 0);
+            const ty1 = pipe.p1.y - (is3D ? z1 : 0);
+            const tx2 = pipe.p2.x + (is3D ? z2 : 0);
+            const ty2 = pipe.p2.y - (is3D ? z2 : 0);
+
+            // Anahtar oluştururken X, Y ve Z'yi birlikte dikkate al (Farklı kotlar karışmasın)
+            const key1 = `${Math.round(pipe.p1.x / tolerance) * tolerance},${Math.round(pipe.p1.y / tolerance) * tolerance},${Math.round(z1 / tolerance) * tolerance}`;
             if (!pointMap.has(key1)) {
-                pointMap.set(key1, { x: pipe.p1.x, y: pipe.p1.y, pipes: [], directions: [], diameters: [] });
+                pointMap.set(key1, {
+                    x: pipe.p1.x,
+                    y: pipe.p1.y,
+                    z: z1, // Z bilgisini kaydet
+                    pipes: [],
+                    directions: [],
+                    diameters: []
+                });
             }
             const entry1 = pointMap.get(key1);
             entry1.pipes.push(pipe);
-            entry1.directions.push(Math.atan2(pipe.p2.y - pipe.p1.y, pipe.p2.x - pipe.p1.x));
+            // Açıyı İZDÜŞÜM (transformed) koordinatlarına göre hesapla
+            entry1.directions.push(Math.atan2(ty2 - ty1, tx2 - tx1));
             entry1.diameters.push(config.diameter);
 
-            // p2 noktası
-            const key2 = `${Math.round(pipe.p2.x / tolerance) * tolerance},${Math.round(pipe.p2.y / tolerance) * tolerance}`;
+            // p2 noktası için aynı işlemler
+            const key2 = `${Math.round(pipe.p2.x / tolerance) * tolerance},${Math.round(pipe.p2.y / tolerance) * tolerance},${Math.round(z2 / tolerance) * tolerance}`;
             if (!pointMap.has(key2)) {
-                pointMap.set(key2, { x: pipe.p2.x, y: pipe.p2.y, pipes: [], directions: [], diameters: [] });
+                pointMap.set(key2, {
+                    x: pipe.p2.x,
+                    y: pipe.p2.y,
+                    z: z2,
+                    pipes: [],
+                    directions: [],
+                    diameters: []
+                });
             }
             const entry2 = pointMap.get(key2);
             entry2.pipes.push(pipe);
-            entry2.directions.push(Math.atan2(pipe.p1.y - pipe.p2.y, pipe.p1.x - pipe.p2.x));
+            // Açıyı İZDÜŞÜM koordinatlarına göre hesapla (p2'den p1'e)
+            entry2.directions.push(Math.atan2(ty1 - ty2, tx1 - tx2));
             entry2.diameters.push(config.diameter);
         });
 
@@ -691,23 +740,33 @@ export class PlumbingRenderer {
     }
 
     drawElbows(ctx, pipes, breakPoints) {
+        // 3D modu kontrolü
+        const is3D = state.is3DPerspectiveActive;
+
         breakPoints.forEach(bp => {
-            // Dirsek rengini ilk borunun colorGroup'una göre belirle
             const firstPipe = bp.pipes[0];
             const colorGroup = firstPipe?.colorGroup || 'YELLOW';
+
+            // Dirseğin çizileceği MERKEZİ hesapla (drawPipes ile aynı mantık)
+            const z = is3D ? (bp.z || 0) : 0;
+            const cx = bp.x + z; // X'e Z ekle
+            const cy = bp.y - z; // Y'den Z çıkar
+
             // En büyük genişliği bul (merkez daire için)
             let maxArmWidth = 0;
             const armLength = 3;      // 3 cm kol uzunluğu
-            const armExtraWidth = 1;  // Sağdan soldan 1 cm fazla (toplam 2 cm)
+            const armExtraWidth = 1;  // Sağdan soldan 1 cm fazla
 
-            const dm = bp.diameters[1] + armExtraWidth * 2
-            const adjustedGrayx = ctx.createRadialGradient(bp.x, bp.y, dm / 4, bp.x, bp.y, dm / 2);
+            const dm = bp.diameters[1] + armExtraWidth * 2;
+
+            // Merkez daireyi çiz (Hesaplanan cx, cy'de)
+            const adjustedGrayx = ctx.createRadialGradient(cx, cy, dm / 4, cx, cy, dm / 2);
             adjustedGrayx.addColorStop(0, this.getRenkByGroup(colorGroup, 'dirsek', 1));
             adjustedGrayx.addColorStop(0.2, this.getRenkByGroup(colorGroup, 'dirsek', 1));
             adjustedGrayx.addColorStop(1, this.getRenkByGroup(colorGroup, 'dirsek', 0.8));
             ctx.fillStyle = adjustedGrayx;
             ctx.beginPath();
-            ctx.arc(bp.x, bp.y, dm / 2, 0, Math.PI * 2);
+            ctx.arc(cx, cy, dm / 2, 0, Math.PI * 2);
             ctx.fill();
 
             // Her yön için dirsek kolu çiz
@@ -715,68 +774,74 @@ export class PlumbingRenderer {
                 const angle = bp.directions[i];
                 const diameter = bp.diameters[i];
 
-                // Boyutlar (cm cinsinden)
-
                 const armWidth = diameter + armExtraWidth * 2;
-
                 if (armWidth > maxArmWidth) maxArmWidth = armWidth;
 
                 ctx.save();
-                ctx.translate(bp.x, bp.y);
+                // Translate'i cx, cy'ye yap (dönüşüm uygulanmış merkez)
+                ctx.translate(cx, cy);
                 ctx.rotate(angle);
 
-
                 const gradientdar = ctx.createLinearGradient(0, -armWidth / 2, 0, armWidth / 2);
-
-                // Kenarlarda hafif karartma, ortası boru rengi
-                // Geçişler yumuşak tutuldu
                 gradientdar.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'dirsek', 0.6));
                 gradientdar.addColorStop(0.2, this.getRenkByGroup(colorGroup, 'dirsek', 1));
                 gradientdar.addColorStop(0.6, this.getRenkByGroup(colorGroup, 'dirsek', 1));
                 gradientdar.addColorStop(1, this.getRenkByGroup(colorGroup, 'dirsek', 0.6));
 
-
-                // 3 cm'lik ana kol (dikdörtgen)
+                // Kolu çiz
                 ctx.fillStyle = gradientdar;
                 ctx.fillRect(0, -armWidth / 2, armLength, armWidth);
 
                 const gradientgenis = ctx.createLinearGradient(0, -armWidth / 2, 0, armWidth / 2);
-                // İç kısımda hafif parlaklık efekti
                 gradientgenis.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'dirsek', 0.8));
                 gradientgenis.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'dirsek', 1));
                 gradientgenis.addColorStop(1, this.getRenkByGroup(colorGroup, 'dirsek', 0.8));
 
-
-                // Uçta kalın çizgi (sağdan soldan 0.2 cm taşan, 1.5x kalın)
+                // Uç kalınlık
                 ctx.fillStyle = gradientgenis;
-                const lineWidth = armWidth + 0.4; // 0.2 cm her taraftan
+                const lineWidth = armWidth + 0.4;
                 const lineThickness = 1.5;
                 ctx.fillRect(armLength - 0.2, -lineWidth / 2, lineThickness, lineWidth);
 
                 ctx.restore();
-
             }
-
         });
     }
-
     drawPipeEndpoints(ctx, pipe) {
         // Uç noktaları küçük belirgin noktalar (seçili borular için)
         const r = 1.6; // Küçük
         const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
+
+        // Z koordinatlarını al
+        const z1 = (state.is3DPerspectiveActive && pipe.p1.z) ? pipe.p1.z : 0;
+        const z2 = (state.is3DPerspectiveActive && pipe.p2.z) ? pipe.p2.z : 0;
+
+        // Koordinatları hesapla (3D perspektif için Z düzeltmesi)
+        let x1 = pipe.p1.x;
+        let y1 = pipe.p1.y;
+        let x2 = pipe.p2.x;
+        let y2 = pipe.p2.y;
+
+        if (state.is3DPerspectiveActive) {
+            x1 += z1;
+            y1 -= z1;
+            x2 += z2;
+            y2 -= z2;
+        }
+
         // p1 noktası
         ctx.fillStyle = themeColors.pipeEndpoint;
         ctx.strokeStyle = themeColors.pipeEndpointStroke;
 
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(pipe.p1.x, pipe.p1.y, r, 0, Math.PI * 2);
+        ctx.arc(x1, y1, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         // p2 noktası
         ctx.beginPath();
-        ctx.arc(pipe.p2.x, pipe.p2.y, r, 0, Math.PI * 2);
+        ctx.arc(x2, y2, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
     }
@@ -895,14 +960,32 @@ export class PlumbingRenderer {
         if (zoom < 1) {
             width = 4 / zoom;
         }
-        const dx = geciciBoru.p2.x - geciciBoru.p1.x;
-        const dy = geciciBoru.p2.y - geciciBoru.p1.y;
+
+        // Z koordinatlarını al (3D görünüm için)
+        const z1 = (state.is3DPerspectiveActive && geciciBoru.p1.z) ? geciciBoru.p1.z : 0;
+        const z2 = (state.is3DPerspectiveActive && geciciBoru.p2.z) ? geciciBoru.p2.z : 0;
+
+        // Koordinatları hesapla (3D perspektif için Z düzeltmesi)
+        let x1 = geciciBoru.p1.x;
+        let y1 = geciciBoru.p1.y;
+        let x2 = geciciBoru.p2.x;
+        let y2 = geciciBoru.p2.y;
+
+        if (state.is3DPerspectiveActive) {
+            x1 += z1;
+            y1 -= z1;
+            x2 += z2;
+            y2 -= z2;
+        }
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
         const length = Math.hypot(dx, dy);
         const angle = Math.atan2(dy, dx);
 
 
 
-        ctx.translate(geciciBoru.p1.x, geciciBoru.p1.y);
+        ctx.translate(x1, y1);
         ctx.rotate(angle);
 
         // Renk grubuna göre gradient oluştur
@@ -1043,8 +1126,7 @@ export class PlumbingRenderer {
                 if (bagliBoru) {
                     ctx.save();
 
-                    /* 
-                                      // Büyük kırmızı daire - çıkış noktası
+                    /* // Büyük kırmızı daire - çıkış noktası
                                        ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
                                        ctx.strokeStyle = '#FFFFFF';
                                        ctx.lineWidth = 2;
