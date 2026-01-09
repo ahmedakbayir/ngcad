@@ -438,10 +438,13 @@ export function createPlumbingPipeMesh(pipe, material) {
         // Düşey boru: Silindir zaten Y ekseninde, rotasyon gerekmiyor
         // (THREE.CylinderGeometry varsayılan olarak Y ekseni boyunca oluşturulur)
         console.log('✅ Düşey boru - rotasyon yok');
+        // Ek test: Mesh'i açıkça kontrol et
+        console.log('   Position:', mesh.position);
+        console.log('   Rotation:', mesh.rotation);
     } else {
         // Yatay veya eğik boru: Silindiri döndür
 
-        // Borunun yönünü hesapla
+        // Borunun yönünü hesapla (2D koordinatlardan THREE.js koordinatlarına)
         const direction = new THREE.Vector3(dx, dz, dy).normalize();
 
         // Varsayılan silindir yönü (Y ekseni)
@@ -452,7 +455,7 @@ export function createPlumbingPipeMesh(pipe, material) {
         quaternion.setFromUnitVectors(defaultDirection, direction);
         mesh.setRotationFromQuaternion(quaternion);
 
-        console.log('🔄 Yatay/eğik boru - direction:', direction);
+        console.log('🔄 Yatay/eğik boru - direction:', direction, 'quaternion:', quaternion);
     }
 
     return mesh;
