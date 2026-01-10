@@ -44,8 +44,15 @@ body.light-mode {
     --border-menu: rgba(26, 115, 232, 0.3);
 }
 
-body {
+html, body {
     margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+body {
     background: #30302e; /* Koyu mod - düz renk */
     color: var(--color-text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
