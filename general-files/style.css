@@ -153,11 +153,11 @@ body.light-mode {
     flex: none !important;
 }
 
-.main.fullscreen-3d #splitter {
+.main.fullscreen-3d .splitter {
     display: none !important;
 }
 
-#splitter {
+.splitter {
     flex: 0 0 4px;
     /* DEĞİŞTİ (10px -> 4px) */
     cursor: col-resize;
@@ -170,9 +170,16 @@ body.light-mode {
     margin: 0 3px;
     /* DEĞİŞTİ (5px -> 3px) */
     border-radius: 5px;
+    transition: background-color 0.2s ease;
 }
 
-.main.show-3d #splitter {
+/* 3D paneli açıkken 3D splitter'ı göster */
+.main.show-3d #splitter-3d {
+    display: block;
+}
+
+/* İzometri paneli açıkken izometri splitter'ı göster */
+.main.show-iso #splitter-iso {
     display: block;
 }
 
