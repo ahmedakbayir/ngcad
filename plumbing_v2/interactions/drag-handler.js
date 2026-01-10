@@ -10,6 +10,7 @@ import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 import { findConnectedPipesChain } from './finders.js';
+import { showCoordinateAxes, hideCoordinateAxes } from '../../scene3d/scene3d-core.js';
 
 /**
  * Bir noktanın korumalı (taşınamaz) olup olmadığını kontrol eder
@@ -165,6 +166,11 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.dragStart = { ...point };
 
     const draggedPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
+
+    // 3D görünüm aktifse koordinat eksenlerini göster
+    if (state.is3DPerspectiveActive) {
+        showCoordinateAxes(draggedPoint.x, draggedPoint.y, draggedPoint.z || 0);
+    }
 
     const connectedMeter = interactionManager.manager.components.find(c =>
         c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === endpoint
@@ -395,13 +401,37 @@ export function handleDrag(interactionManager, point, event = null) {
 
         const oldPoint = interactionManager.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
 
+        // --- SHIFT TUŞU İLE Z YÖNÜNDE SÜRÜKLEME ---
+        // SHIFT basılıysa sadece Z (yükseklik) değişsin
+        if (event && event.shiftKey) {
+            // Z değişimi: Mouse Y hareketi ile
+            const deltaY = point.y - interactionManager.dragStart.y;
+            const newZ = (oldPoint.z || 0) - deltaY; // Y aşağı = Z yukarı
+
+            // Z değerini güncelle
+            if (interactionManager.dragEndpoint === 'p1') {
+                pipe.p1.z = newZ;
+            } else {
+                pipe.p2.z = newZ;
+            }
+
+            // 3D görünümde koordinat eksenlerini güncelle
+            if (state.is3DPerspectiveActive) {
+                const currentPoint = interactionManager.dragEndpoint === 'p1' ? pipe.p1 : pipe.p2;
+                showCoordinateAxes(currentPoint.x, currentPoint.y, currentPoint.z || 0);
+            }
+
+            return; // X-Y sürükleme yapmadan çık
+        }
+        // -----------------------------
+
         // --- 3D GÖRÜNÜM DÜZELTMESİ ---
         // Mouse koordinatını (Screen) gerçek boru koordinatına (World) çevir
         let finalPos = { x: point.x, y: point.y };
         if (state.is3DPerspectiveActive) {
             // Sürüklenen ucun Z değeri
             const z = (interactionManager.dragEndpoint === 'p1' ? pipe.p1.z : pipe.p2.z) || 0;
-            
+
             // Renderer formülü: screenX = worldX + z, screenY = worldY - z
             // Ters işlem: worldX = screenX - z, worldY = screenY + z
             finalPos.x -= z;
@@ -564,6 +594,12 @@ export function handleDrag(interactionManager, point, event = null) {
             } else {
                 pipe.p2.x = finalPos.x;
                 pipe.p2.y = finalPos.y;
+            }
+
+            // 3D görünümde koordinat eksenlerini güncelle
+            if (state.is3DPerspectiveActive) {
+                const currentPoint = interactionManager.dragEndpoint === 'p1' ? pipe.p1 : pipe.p2;
+                showCoordinateAxes(currentPoint.x, currentPoint.y, currentPoint.z || 0);
             }
 
             valvesOnPipe.forEach(valve => {
@@ -951,6 +987,9 @@ export function updateConnectedPipesChain(interactionManager, oldPoint, newPoint
  * (Aynen korundu)
  */
 export function endDrag(interactionManager) {
+    // Koordinat eksenlerini gizle
+    hideCoordinateAxes();
+
     if (interactionManager.isBodyDrag && interactionManager.dragObject && interactionManager.dragObject.type === 'boru') {
         const draggedPipe = interactionManager.dragObject;
         const oldP1 = interactionManager.bodyDragInitialP1;
