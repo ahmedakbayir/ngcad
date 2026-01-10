@@ -89,13 +89,13 @@ body.light-mode {
 
 .main.show-3d #p3d {
     display: block;
-    flex: 1 1 50%;
+    flex: 1 1 25%;
     pointer-events: auto;
     /* <-- 'none' YERİNE 'auto' YAPIN (Tıklamaları etkinleştirir) */
 }
 
 .main.show-3d #p2d {
-    flex: 1 1 50%;
+    flex: 1 1 75%;
 }
 
 /* İzometrik Panel */
@@ -106,31 +106,31 @@ body.light-mode {
 
 .main.show-iso #pIso {
     display: block;
-    flex: 1 1 33.33%;
+    flex: 1 1 25%;
     pointer-events: auto;
 }
 
 /* 3D + İzometri birlikte açık */
 .main.show-3d.show-iso #p2d {
-    flex: 1 1 33.33%;
+    flex: 1 1 50%;
 }
 
 .main.show-3d.show-iso #p3d {
-    flex: 1 1 33.33%;
+    flex: 1 1 25%;
 }
 
 .main.show-3d.show-iso #pIso {
     display: block;
-    flex: 1 1 33.33%;
+    flex: 1 1 25%;
 }
 
 /* Sadece İzometri açık */
 .main.show-iso:not(.show-3d) #p2d {
-    flex: 1 1 50%;
+    flex: 1 1 75%;
 }
 
 .main.show-iso:not(.show-3d) #pIso {
-    flex: 1 1 50%;
+    flex: 1 1 25%;
 }
 
 /* 3D Fullscreen Mode - 2D becomes mini-map */

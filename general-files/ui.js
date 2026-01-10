@@ -219,6 +219,9 @@ function confirmRoomNameChange() {
 export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
 
+    // Butona active sınıfını ekle/kaldır
+    dom.b3d?.classList.toggle('active');
+
     if (dom.mainContainer.classList.contains('show-3d')) {
         setMode("select"); // 3D açılırken modu "select" yap
 
@@ -252,6 +255,9 @@ export function toggle3DView() {
 
 export function toggleIsoView() {
     dom.mainContainer.classList.toggle('show-iso');
+
+    // Butona active sınıfını ekle/kaldır
+    dom.bIso?.classList.toggle('active');
 
     if (dom.mainContainer.classList.contains('show-iso')) {
         setMode("select"); // İzometri açılırken modu "select" yap
