@@ -218,8 +218,20 @@ function confirmRoomNameChange() {
 
 export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
+    const isVisible = dom.mainContainer.classList.contains('show-3d');
 
-    if (dom.mainContainer.classList.contains('show-3d')) {
+    // >>> YENİ EKLENEN KISIM: Buton rengini değiştir (Mavi yap) <<<
+    const btn3d = document.getElementById('b3d');
+    if (btn3d) {
+        if (isVisible) {
+            btn3d.classList.add('active');
+        } else {
+            btn3d.classList.remove('active');
+        }
+    }
+    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+    if (isVisible) {
         setMode("select"); // 3D açılırken modu "select" yap
 
         // Split ratio butonlarını göster
@@ -252,8 +264,20 @@ export function toggle3DView() {
 
 export function toggleIsoView() {
     dom.mainContainer.classList.toggle('show-iso');
+    const isVisible = dom.mainContainer.classList.contains('show-iso');
 
-    if (dom.mainContainer.classList.contains('show-iso')) {
+    // >>> YENİ EKLENEN KISIM: Buton rengini değiştir (Mavi yap) <<<
+    const btnIso = document.getElementById('bIso');
+    if (btnIso) {
+        if (isVisible) {
+            btnIso.classList.add('active');
+        } else {
+            btnIso.classList.remove('active');
+        }
+    }
+    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+    if (isVisible) {
         setMode("select"); // İzometri açılırken modu "select" yap
 
         // İzometri ratio butonlarını göster

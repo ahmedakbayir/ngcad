@@ -17,6 +17,28 @@
     <button class="mode-btn active" id="mode-karma" title="Karma Mod">KARMA</button>
   </div>
 
+  <!-- Görünüm Kontrolleri (Sağ Üst) -->
+  <div id="view-controls-container">
+    <button id="b3d" class="btn btn-show-3d" title="3D Görünümü Aç/Kapat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+      </svg>
+      3D Göster
+    </button>
+
+    <button id="bIso" class="btn btn-show-iso" title="İzometrik Görünümü Aç/Kapat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L4 7v10l8 5 8-5V7z"></path>
+        <path d="M12 22v-10"></path>
+        <path d="M4 7l8 5 8-5"></path>
+        <path d="M12 2v10"></path>
+      </svg>
+      İzometri
+    </button>
+  </div>
+
   <div class="main" id="main-container">
     <div id="p2d" class="panel">
       <div id="ui">
@@ -582,28 +604,6 @@
       </div>
 
       <input type="text" id="length-input" />
-      <button id="b3d" class="btn btn-show-3d">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-          stroke-linejoin="round">
-          <path
-            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-          </path>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-          <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-        3D Göster
-      </button>
-      <button id="bIso" class="btn btn-show-iso">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-          stroke-linejoin="round">
-          <!-- İzometrik kutu ikonu -->
-          <path d="M12 2L4 7v10l8 5 8-5V7z"></path>
-          <path d="M12 22v-10"></path>
-          <path d="M4 7l8 5 8-5"></path>
-          <path d="M12 2v10"></path>
-        </svg>
-        İzometri
-      </button>
     </div>
     <div id="splitter"></div>
     <div id="p3d" class="panel">
