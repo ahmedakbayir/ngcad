@@ -74,6 +74,8 @@ body.light-mode {
     border-radius: 2px;
     overflow: hidden;
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    padding-top: 60px; /* Araç çubuğu için boşluk */
+    box-sizing: border-box;
 }
 
 #p2d {
@@ -1165,10 +1167,10 @@ body.light-mode .btn.active svg {
     backdrop-filter: blur(4px);
 }
 
-/* 3D Göster Butonu - Canvas İçinde, Araç Çubuğunun Altında */
+/* 3D Göster Butonu - Toolbar hizasında */
 .btn-show-3d {
     position: absolute;
-    top: 110px;
+    top: 10px;
     right: 10px;
     z-index: 100;
     padding: 7px 10px;
@@ -1214,7 +1216,7 @@ body.light-mode .btn.active svg {
 /* İzometri Göster Butonu - 3D Göster butonunun yanında */
 .btn-show-iso {
     position: absolute;
-    top: 110px;
+    top: 10px;
     right: 130px; /* 3D butonunun soluna yerleştir */
     z-index: 100;
     padding: 7px 10px;
