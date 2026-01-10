@@ -1165,12 +1165,12 @@ body.light-mode .btn.active svg {
     backdrop-filter: blur(4px);
 }
 
-/* 3D Göster Butonu - 2D Ekranın Sağ Üst Köşesi */
+/* 3D Göster Butonu - Sağ Üst Köşe (Araç çubuğundan bağımsız) */
 .btn-show-3d {
-    position: absolute;
+    position: fixed;
     top: 10px;
     right: 10px;
-    z-index: 100;
+    z-index: 10000;
     padding: 7px 10px;
     /* %25 büyütüldü: 5px 8px -> 7px 10px */
     font-size: 14px;
@@ -1216,12 +1216,12 @@ body.light-mode .btn.active svg {
     display: none;
 }
 
-/* İzometri Göster Butonu - 3D Göster butonunun yanında */
+/* İzometri Göster Butonu - 3D Göster butonunun yanında (Araç çubuğundan bağımsız) */
 .btn-show-iso {
-    position: absolute;
+    position: fixed;
     top: 10px;
     right: 130px; /* 3D butonunun soluna yerleştir */
-    z-index: 100;
+    z-index: 10000;
     padding: 7px 10px;
     font-size: 14px;
     font-weight: 500;
