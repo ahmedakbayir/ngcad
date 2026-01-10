@@ -225,12 +225,14 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
+   /*
     ctx.fillText('İzometrik Görünüm - Sadece Tesisat', 10, 10);
     ctx.fillText(`Zoom: ${(zoom * 100).toFixed(0)}%`, 10, 30);
     ctx.fillText(`Borular: ${plumbingManager.pipes.length}`, 10, 50);
     ctx.fillText(`Bileşenler: ${plumbingManager.components.length}`, 10, 70);
     ctx.fillText('Sol tuş: Boru uçlarını sürükle | Sağ tuş: Pan', 10, 90);
-    ctx.restore();
+   */
+   ctx.restore();
 }
 
 /**
