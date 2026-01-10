@@ -450,3 +450,56 @@ export function fit3DViewToScreen() {
     camera.position.copy(newPosition);
     controls.update();
 }
+
+/**
+ * Kamerayı 2D plan görünümü (top-down) için ayarlar
+ */
+export function set2DPlanView() {
+    if (!sceneObjects || !camera || !controls || !renderer || !scene) {
+        console.error("Set 2D Plan View: Gerekli nesneler bulunamadı.");
+        return;
+    }
+
+    const boundingBox = new THREE.Box3();
+    let hasContent = false;
+
+    sceneObjects.children.forEach(obj => {
+        if (obj.visible) {
+            try {
+                obj.updateMatrixWorld(true);
+                const box = new THREE.Box3().setFromObject(obj, true);
+                if (!box.isEmpty()) {
+                    boundingBox.union(box);
+                    hasContent = true;
+                }
+            } catch (error) {
+                console.error("Set 2D Plan View: Bounding box hatası:", obj, error);
+            }
+        }
+    });
+
+    if (!hasContent || boundingBox.isEmpty()) {
+        // Varsayılan 2D görünüm pozisyonu
+        camera.position.set(0, 2000, 0); // Y ekseninde yukarıda
+        controls.target.set(0, 0, 0); // Sıfır noktasına bak
+        controls.update();
+        return;
+    }
+
+    const center = new THREE.Vector3();
+    boundingBox.getCenter(center);
+
+    // Bounding box boyutunu hesapla
+    const size = new THREE.Vector3();
+    boundingBox.getSize(size);
+    const maxDim = Math.max(size.x, size.z); // Y yüksekliğini dikkate almıyoruz
+
+    // FOV'a göre kamera yüksekliğini hesapla
+    const fov = camera.fov * (Math.PI / 180);
+    const cameraHeight = (maxDim / 2) / Math.tan(fov / 2) * 1.2; // %20 margin
+
+    // Kamerayı tam yukarıdan ayarla
+    camera.position.set(center.x, cameraHeight, center.z);
+    controls.target.set(center.x, 0, center.z); // Zemin seviyesine bak
+    controls.update();
+}

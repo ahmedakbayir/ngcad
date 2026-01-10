@@ -232,6 +232,12 @@ export function toggle3DView() {
 
         // Varsayılan split ratio'yu ayarla (25%)
         setSplitRatio(25);
+
+        // 2D plan görünümü butonunu başlangıçta aktif yap
+        const btn2DPlan = document.getElementById('b2DPlanView');
+        if (btn2DPlan && state.is2DPlanView) {
+            btn2DPlan.classList.add('active');
+        }
     } else {
         // Split ratio butonlarını gizle
         const splitButtons = document.getElementById('split-ratio-buttons');
@@ -246,8 +252,39 @@ export function toggle3DView() {
         resize();
         if (dom.mainContainer.classList.contains('show-3d')) {
             update3DScene();
+            // 2D plan görünümü aktifse kamerayı ayarla
+            if (state.is2DPlanView) {
+                import('../scene3d/scene3d-core.js').then(module => {
+                    module.set2DPlanView();
+                });
+            }
         }
     }, 10);
+}
+
+/**
+ * 2D plan görünümünü toggle eder
+ */
+export function toggle2DPlanView() {
+    setState({ is2DPlanView: !state.is2DPlanView });
+
+    // Butonu aktif/pasif yap
+    const btn = document.getElementById('b2DPlanView');
+    if (btn) {
+        btn.classList.toggle('active', state.is2DPlanView);
+    }
+
+    if (state.is2DPlanView) {
+        // 2D plan görünümüne geç
+        import('../scene3d/scene3d-core.js').then(module => {
+            module.set2DPlanView();
+        });
+    } else {
+        // Normal 3D görünüme geç
+        import('../scene3d/scene3d-core.js').then(module => {
+            module.fit3DViewToScreen();
+        });
+    }
 }
 
 export function toggleIsoView() {
@@ -1618,6 +1655,14 @@ export function setupUIListeners() {
         });
     });
     // MERDİVEN POPUP LISTENER'LARI SONU
+
+    // 2D PLAN GÖRÜNÜMÜ BUTONU LISTENER'I
+    const b2DPlanView = document.getElementById('b2DPlanView');
+    if (b2DPlanView) {
+        b2DPlanView.addEventListener('click', () => {
+            toggle2DPlanView();
+        });
+    }
 
     // FPS KAMERA BUTONU LISTENER'I
     dom.bFirstPerson.addEventListener('click', () => {

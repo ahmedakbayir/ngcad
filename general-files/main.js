@@ -463,6 +463,10 @@ export let state = {
     // --- 3D PERSPEKTİF GÖRÜNÜM ---
     is3DPerspectiveActive: false, // 3D perspektif modu aktif mi?
     // --- 3D PERSPEKTİF GÖRÜNÜM SONU ---
+
+    // --- 2D MİMARİ PLAN GÖRÜNÜMÜ (3D'de) ---
+    is2DPlanView: true, // 3D görünümde mimari planı 2D düzlemde göster (varsayılan: true)
+    // --- 2D MİMARİ PLAN GÖRÜNÜMÜ SONU ---
 };
 
 export function setState(newState) {
