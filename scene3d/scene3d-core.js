@@ -13,6 +13,9 @@ export let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
 export let sceneObjects;
 export let textureLoader; // <-- Resim çerçeveleri için eklendi
 
+// Koordinat eksenleri (seçilen nokta için)
+export let coordinateAxesHelper = null;
+
 // --- Malzemeler (Materials) ---
 export let wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
     mullionMaterial, sillMaterial, handleMaterial, floorMaterial,
@@ -298,6 +301,79 @@ export function init3D(canvasElement) {
         opacity: solidOpacity, // solidOpacity'yi init3D içinden alır
         side: THREE.DoubleSide
     });
+}
+
+/**
+ * Koordinat eksenlerini gösterir (seçilen nokta için)
+ * @param {number} x - X koordinatı (world)
+ * @param {number} y - Y koordinatı (world, THREE.js'te Z)
+ * @param {number} z - Z koordinatı (world, THREE.js'te Y - yükseklik)
+ */
+export function showCoordinateAxes(x, y, z) {
+    // Eski eksenleri temizle
+    hideCoordinateAxes();
+
+    if (!scene) return;
+
+    // Koordinat eksenleri grubu oluştur
+    coordinateAxesHelper = new THREE.Group();
+
+    // Eksen uzunluğu
+    const axisLength = 80;
+    const arrowHeadLength = 15;
+    const arrowHeadWidth = 8;
+
+    // X ekseni (Kırmızı) - 2D X yönü
+    const xAxis = new THREE.ArrowHelper(
+        new THREE.Vector3(1, 0, 0),  // Yön
+        new THREE.Vector3(0, 0, 0),  // Başlangıç noktası
+        axisLength,                   // Uzunluk
+        0xff0000,                     // Renk: Kırmızı
+        arrowHeadLength,
+        arrowHeadWidth
+    );
+
+    // Y ekseni (Yeşil) - 2D Y yönü (THREE.js'te Z)
+    const yAxis = new THREE.ArrowHelper(
+        new THREE.Vector3(0, 0, 1),  // Yön (THREE.js'te Z = 2D Y)
+        new THREE.Vector3(0, 0, 0),  // Başlangıç noktası
+        axisLength,                   // Uzunluk
+        0x00ff00,                     // Renk: Yeşil
+        arrowHeadLength,
+        arrowHeadWidth
+    );
+
+    // Z ekseni (Mavi) - Düşey yön (THREE.js'te Y)
+    const zAxis = new THREE.ArrowHelper(
+        new THREE.Vector3(0, 1, 0),  // Yön (THREE.js'te Y = 2D Z - yükseklik)
+        new THREE.Vector3(0, 0, 0),  // Başlangıç noktası
+        axisLength,                   // Uzunluk
+        0x0000ff,                     // Renk: Mavi
+        arrowHeadLength,
+        arrowHeadWidth
+    );
+
+    // Eksenleri gruba ekle
+    coordinateAxesHelper.add(xAxis);
+    coordinateAxesHelper.add(yAxis);
+    coordinateAxesHelper.add(zAxis);
+
+    // Grubu verilen pozisyona taşı
+    // 2D koordinatlarını THREE.js koordinatlarına çevir: (x, y) -> (x, z, y)
+    coordinateAxesHelper.position.set(x, z || 0, y);
+
+    // Sahneye ekle
+    scene.add(coordinateAxesHelper);
+}
+
+/**
+ * Koordinat eksenlerini gizler
+ */
+export function hideCoordinateAxes() {
+    if (coordinateAxesHelper && scene) {
+        scene.remove(coordinateAxesHelper);
+        coordinateAxesHelper = null;
+    }
 }
 
 /**
