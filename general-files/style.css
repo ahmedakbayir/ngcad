@@ -1225,10 +1225,7 @@ body.light-mode .btn.active svg {
     font-weight: 600;
 }
 
-/* 3D açıkken butonu gizle */
-.main.show-3d .btn-show-3d {
-    display: none;
-}
+/* 3D açıkken butonu gizleme - KALDIRILDI, buton her zaman görünür olmalı */
 
 /* İzometri Göster Butonu - 3D Göster butonunun yanında (Araç çubuğundan bağımsız) */
 .btn-show-iso {
@@ -1274,10 +1271,7 @@ body.light-mode .btn.active svg {
     font-weight: 600;
 }
 
-/* İzometri açıkken butonu gizle */
-.main.show-iso .btn-show-iso {
-    display: none;
-}
+/* İzometri açıkken butonu gizleme - KALDIRILDI, buton her zaman görünür olmalı */
 
 /* 3D Opacity Kontrolleri */
 #opacity-controls-container {
