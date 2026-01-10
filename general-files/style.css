@@ -1165,10 +1165,10 @@ body.light-mode .btn.active svg {
     backdrop-filter: blur(4px);
 }
 
-/* 3D Göster Butonu - 2D Ekranın Sağ Üst Köşesi */
+/* 3D Göster Butonu - Canvas İçinde, Araç Çubuğunun Altında */
 .btn-show-3d {
     position: absolute;
-    top: 10px;
+    top: 110px;
     right: 10px;
     z-index: 100;
     padding: 7px 10px;
@@ -1214,7 +1214,7 @@ body.light-mode .btn.active svg {
 /* İzometri Göster Butonu - 3D Göster butonunun yanında */
 .btn-show-iso {
     position: absolute;
-    top: 10px;
+    top: 110px;
     right: 130px; /* 3D butonunun soluna yerleştir */
     z-index: 100;
     padding: 7px 10px;
