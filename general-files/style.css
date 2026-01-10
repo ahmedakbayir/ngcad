@@ -1211,11 +1211,6 @@ body.light-mode .btn.active svg {
     font-weight: 600;
 }
 
-/* 3D açıkken butonu gizle */
-.main.show-3d .btn-show-3d {
-    display: none;
-}
-
 /* İzometri Göster Butonu - 3D Göster butonunun yanında */
 .btn-show-iso {
     position: absolute;
@@ -1258,11 +1253,6 @@ body.light-mode .btn.active svg {
     color: #202124;
     border-color: #8ab4f8;
     font-weight: 600;
-}
-
-/* İzometri açıkken butonu gizle */
-.main.show-iso .btn-show-iso {
-    display: none;
 }
 
 /* 3D Opacity Kontrolleri */
