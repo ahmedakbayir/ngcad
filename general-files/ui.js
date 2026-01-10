@@ -967,10 +967,11 @@ function onSplitterPointerMove(e) {
     if (p2dWidth < min2DWidth) p2dWidth = min2DWidth;
 
     // 3D panel için minimum kontrol (2D panel maksimum genişliği)
-    const max2DWidth = mainRect.width - min3DWidth - dom.splitter.offsetWidth - 20;
+    const splitterWidth = dom.splitter3d?.offsetWidth || 4;
+    const max2DWidth = mainRect.width - min3DWidth - splitterWidth - 20;
     if (p2dWidth > max2DWidth) p2dWidth = max2DWidth;
 
-    let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20;
+    let p3dWidth = mainRect.width - p2dWidth - splitterWidth - 20;
 
     p2dPanel.style.flex = `1 1 ${p2dWidth}px`;
     p3dPanel.style.flex = `1 1 ${p3dWidth}px`;
@@ -1373,7 +1374,8 @@ export function setupUIListeners() {
     dom.roomNameInput.addEventListener('input', filterRoomNameList);
     dom.roomNameSelect.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } });
     dom.roomNameInput.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); dom.roomNameSelect.focus(); } else if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } });
-    dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
+    dom.splitter3d?.addEventListener('pointerdown', onSplitterPointerDown);
+    dom.splitterIso?.addEventListener('pointerdown', onSplitterPointerDown);
     dom.lengthInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); } else if (e.key === "Escape") { cancelLengthEdit(); } });
     dom.lengthInput.addEventListener("blur", cancelLengthEdit);
 
