@@ -19,7 +19,6 @@ import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import { toggle3DView } from '../general-files/ui.js';
-import { draw2D } from '../draw/draw2d.js';
 // Plumbing functions now handled by plumbingManager
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
@@ -196,10 +195,15 @@ export function onPointerMove(e) {
         // Eğer fare 5 pikselden fazla hareket ettiyse sürükleme olarak kabul et
         if (distance > 5 && !state.ctrl3DToggleMoved) {
             setState({ ctrl3DToggleMoved: true });
+
+            // 3D panel kapalıysa aç
+            if (!dom.mainContainer.classList.contains('show-3d')) {
+                toggle3DView();
+            }
         }
 
-        // Eğer sürükleme başladıysa kamerayı döndür (katı model AÇILMAZ, sadece kamera döner)
-        if (state.ctrl3DToggleMoved) {
+        // Eğer sürükleme başladıysa ve 3D panel açıksa kamerayı döndür
+        if (state.ctrl3DToggleMoved && dom.mainContainer.classList.contains('show-3d')) {
             if (!orbitControls || !camera) {
                 console.warn('OrbitControls veya camera henüz başlatılmadı');
                 return;
@@ -213,19 +217,14 @@ export function onPointerMove(e) {
             const polarSpeed = 0.005;
 
             orbitControls.rotateLeft(deltaX * azimuthSpeed);
-            orbitControls.rotateUp(-deltaY * polarSpeed); // Negative: mouse down = camera rotates down
+            orbitControls.rotateUp(-deltaY * polarSpeed);
             orbitControls.update();
 
-            // Kamera açılarını state'e kaydet (draw2D için)
-            setState({
-                camera3DPolarAngle: orbitControls.getPolarAngle(),
-                camera3DAzimuthalAngle: orbitControls.getAzimuthalAngle(),
-                ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY } // Son pozisyonu da güncelle
-            });
+            // 3D sahneyi güncelle (render et)
+            update3DScene();
 
-            // 2D ve 3D sahneyi güncelle (render et)
-            draw2D(); // 2D canvas'ı 3D perspektifle çiz
-            update3DScene(); // 3D sahneyi render et
+            // Son pozisyonu güncelle
+            setState({ ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY } });
         }
 
         updateMouseCursor();

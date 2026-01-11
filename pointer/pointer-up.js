@@ -5,9 +5,6 @@ import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js'
 import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { toggle3DView } from '../general-files/ui.js';
-import { orbitControls, camera } from '../scene3d/scene3d-core.js';
-import { update3DScene } from '../scene3d/scene3d-update.js';
-import { draw2D } from '../draw/draw2d.js';
 import * as THREE from 'three';
 
 export function onPointerUp(e) {
@@ -17,101 +14,20 @@ export function onPointerUp(e) {
         return;
     }
 
-    // CTRL + Orta tuş ile 2D/3D geçiş (aynı sahne içinde sadece kamera dönüşü)
+    // CTRL + Orta tuş ile 2D/3D geçiş
     if (state.isCtrl3DToggling) {
-        // Eğer sürükleme olmadıysa (sadece tıklama) -> 1 saniyelik animasyon
+        // Eğer sürükleme olmadıysa (sadece tıklama) -> 3D paneli aç/kapat
         if (!state.ctrl3DToggleMoved) {
-            if (camera && orbitControls) {
-                // Kameranın şu anki polar açısını al
-                const currentPolarAngle = orbitControls.getPolarAngle();
-                const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
-
-                // Hedef açıyı belirle
-                let targetPolarAngle;
-                if (currentPolarDegrees < 10) {
-                    // 2D'den 3D'ye geç (60° perspektif)
-                    targetPolarAngle = 60 * (Math.PI / 180);
-                } else {
-                    // 3D'den 2D'ye geç (0° üstten bakış)
-                    targetPolarAngle = 0;
-                }
-
-                // 1 saniyelik animasyon (katı model AÇILMAZ, sadece kamera döner)
-                const duration = 1000; // ms
-                const startTime = Date.now();
-                const startPolarAngle = currentPolarAngle;
-
-                const animate = () => {
-                    const elapsed = Date.now() - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-
-                    // Easing function (ease-in-out)
-                    const eased = progress < 0.5
-                        ? 2 * progress * progress
-                        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-
-                    const newPolarAngle = startPolarAngle + (targetPolarAngle - startPolarAngle) * eased;
-                    orbitControls.setPolarAngle(newPolarAngle);
-                    orbitControls.update();
-
-                    // Kamera açılarını state'e kaydet (draw2D için)
-                    setState({
-                        camera3DPolarAngle: orbitControls.getPolarAngle(),
-                        camera3DAzimuthalAngle: orbitControls.getAzimuthalAngle()
-                    });
-
-                    // 2D ve 3D sahneyi güncelle (render et)
-                    draw2D(); // 2D canvas'ı 3D perspektifle çiz
-                    update3DScene(); // 3D sahneyi render et
-
-                    if (progress < 1) {
-                        requestAnimationFrame(animate);
-                    } else {
-                        // Animasyon bitti, is3DPerspectiveActive'i kamera pozisyonuna göre ayarla
-                        const finalPolarAngle = orbitControls.getPolarAngle();
-                        const finalPolarDegrees = finalPolarAngle * (180 / Math.PI);
-
-                        // 2D pozisyonundaysa (< 10°) ve başta aktif değildiyse kapat
-                        if (finalPolarDegrees < 10 && !state.ctrl3DWasActive) {
-                            setState({ is3DPerspectiveActive: false });
-                        } else {
-                            setState({ is3DPerspectiveActive: true });
-                        }
-
-                        // Son bir kez daha çiz (state değişikliği sonrası)
-                        draw2D();
-                        update3DScene();
-                    }
-                };
-
-                animate();
-            }
+            toggle3DView();
         }
-        // Sürükleme olduysa kamera zaten döndürüldü, hiçbir şey yapma
-        // is3DPerspectiveActive'i kamera pozisyonuna göre ayarla
-        if (state.ctrl3DToggleMoved && camera && orbitControls) {
-            const finalPolarAngle = orbitControls.getPolarAngle();
-            const finalPolarDegrees = finalPolarAngle * (180 / Math.PI);
-
-            // 2D pozisyonundaysa (< 10°) ve başta aktif değildiyse kapat
-            if (finalPolarDegrees < 10 && !state.ctrl3DWasActive) {
-                setState({ is3DPerspectiveActive: false });
-            } else {
-                setState({ is3DPerspectiveActive: true });
-            }
-
-            // Son bir kez daha çiz (state değişikliği sonrası)
-            draw2D();
-            update3DScene();
-        }
+        // Sürükleme olduysa kamera zaten döndürüldü, 3D panel zaten açık
 
         // State'i temizle
         setState({
             isCtrl3DToggling: false,
             ctrl3DToggleStart: null,
             ctrl3DToggleLastPos: null,
-            ctrl3DToggleMoved: false,
-            ctrl3DWasActive: undefined
+            ctrl3DToggleMoved: false
         });
         return;
     }
