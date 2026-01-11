@@ -34,8 +34,8 @@ body.light-mode {
     --bg-button: #e8eaed;
     --border-button: #c1c7cd;
     --bg-button-hover: #dadce0;
-    --bg-button-active: #87CEEB;
-    --border-button-active: #5da8d8;
+    --bg-button-active: #1a73e8;
+    --border-button-active: #1557b0;
     --color-button-active: #ffffff;
     --bg-popup: #f8f9fa;
     --bg-input: #ffffff;
@@ -1670,10 +1670,10 @@ body.light-mode .btn-show-3d {
 }
 
 body.light-mode .btn-show-3d.active {
-    background: #87CEEB;
+    background: #1a73e8;
     color: #ffffff;
-    border-color: #5da8d8;
-    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
+    border-color: #1557b0;
+    box-shadow: 0 0 8px rgba(26, 115, 232, 0.5);
 }
 
 body.light-mode .btn-show-iso {
@@ -1682,10 +1682,10 @@ body.light-mode .btn-show-iso {
 }
 
 body.light-mode .btn-show-iso.active {
-    background: #87CEEB;
+    background: #1a73e8;
     color: #ffffff;
-    border-color: #5da8d8;
-    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
+    border-color: #1557b0;
+    box-shadow: 0 0 8px rgba(26, 115, 232, 0.5);
 }
 
 body.light-mode .btn-show-3d-perspective {
@@ -1694,10 +1694,10 @@ body.light-mode .btn-show-3d-perspective {
 }
 
 body.light-mode .btn-show-3d-perspective.active {
-    background: #87CEEB;
+    background: #1a73e8;
     color: #ffffff;
-    border-color: #5da8d8;
-    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
+    border-color: #1557b0;
+    box-shadow: 0 0 8px rgba(26, 115, 232, 0.5);
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
