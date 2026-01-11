@@ -489,21 +489,22 @@ body.light-mode .btn.active svg {
 }
 
 #settings-btn {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    z-index: 11;
-    padding: 6px 8px;
-    /* Daraltıldı: 7px 10px -> 6px 8px */
+    padding: 7px 12px;
     font-size: 14px;
-    /* %25 büyütüldü: 11px -> 14px */
-    gap: 6px;
-    /* Daraltıldı: 8px -> 6px */
-    background: var(--bg-group);
+    font-weight: 500;
+    min-width: auto;
+    white-space: nowrap;
+    background: var(--bg-button);
     border: 1px solid var(--border-button);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(4px);
+    color: var(--color-text);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: auto;
 }
 
 #settings-btn svg {
@@ -516,8 +517,8 @@ body.light-mode .btn.active svg {
 #settings-popup {
     display: none;
     position: absolute;
-    bottom: 55px;
-    left: 10px;
+    top: 65px;
+    left: 20px;
     background-color: var(--bg-popup);
     border: 1px solid var(--border-button);
     border-radius: 8px;
