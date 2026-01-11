@@ -17,27 +17,53 @@ export function onPointerUp(e) {
 
     // CTRL + Orta tuş ile 2D/3D geçiş
     if (state.isCtrl3DToggling) {
-        // Eğer sürükleme olmadıysa (sadece tıklama)
+        // Eğer sürükleme olmadıysa (sadece tıklama) -> 1 saniyelik animasyon
         if (!state.ctrl3DToggleMoved) {
-            // 3D görünümdeyse ve kamera neredeyse üstten bakıyorsa 2D'ye geç
-            if (dom.mainContainer.classList.contains('show-3d') && camera && orbitControls) {
-                // Kameranın polar açısını kontrol et (0° = üstten bakış, 90° = yan bakış)
-                const polarAngle = orbitControls.getPolarAngle();
-                const polarAngleDegrees = polarAngle * (180 / Math.PI);
-
-                // Eğer kamera 0-5 derece arasında (neredeyse üstten bakış) ise 2D'ye geç
-                if (polarAngleDegrees >= 0 && polarAngleDegrees <= 5) {
-                    // Kamerayı tam üstten bakışa ayarla (0°)
-                    orbitControls.setPolarAngle(0);
-                    orbitControls.update();
-
-                    // Bir sonraki tıklamada 2D'ye geçmek için hazır hale getir
-                    // Şimdilik sadece toggle yapalım
-                }
+            // 3D görünüm kapalıysa aç
+            if (!dom.mainContainer.classList.contains('show-3d')) {
+                toggle3DView();
             }
 
-            // Normal toggle (2D <-> 3D)
-            toggle3DView();
+            if (camera && orbitControls) {
+                // Kameranın şu anki polar açısını al
+                const currentPolarAngle = orbitControls.getPolarAngle();
+                const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
+
+                // Hedef açıyı belirle
+                let targetPolarAngle;
+                if (currentPolarDegrees < 10) {
+                    // 2D'den 3D'ye geç (60° perspektif)
+                    targetPolarAngle = 60 * (Math.PI / 180);
+                } else {
+                    // 3D'den 2D'ye geç (0° üstten bakış)
+                    targetPolarAngle = 0;
+                }
+
+                // 1 saniyelik animasyon
+                const duration = 1000; // ms
+                const startTime = Date.now();
+                const startPolarAngle = currentPolarAngle;
+
+                const animate = () => {
+                    const elapsed = Date.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+
+                    // Easing function (ease-in-out)
+                    const eased = progress < 0.5
+                        ? 2 * progress * progress
+                        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+                    const newPolarAngle = startPolarAngle + (targetPolarAngle - startPolarAngle) * eased;
+                    orbitControls.setPolarAngle(newPolarAngle);
+                    orbitControls.update();
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    }
+                };
+
+                animate();
+            }
         }
         // Sürükleme olduysa kamera zaten döndürüldü, hiçbir şey yapma
 

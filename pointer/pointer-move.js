@@ -204,16 +204,16 @@ export function onPointerMove(e) {
 
         // Eğer sürükleme başladıysa kamerayı döndür
         if (state.ctrl3DToggleMoved && orbitControls && camera) {
-            // Yatay hareket için azimuth (yaw) açısını değiştir
+            // movementX/Y kullan (fare hareketinin anlık deltası)
+            const movementX = e.movementX || 0;
+            const movementY = e.movementY || 0;
+
             const azimuthSpeed = 0.005;
             const polarSpeed = 0.005;
 
-            orbitControls.rotateLeft(deltaX * azimuthSpeed);
-            orbitControls.rotateUp(deltaY * polarSpeed);
+            orbitControls.rotateLeft(movementX * azimuthSpeed);
+            orbitControls.rotateUp(-movementY * polarSpeed); // Negative: mouse down = camera rotates down
             orbitControls.update();
-
-            // Başlangıç noktasını güncelle (sürekli hareket için)
-            setState({ ctrl3DToggleStart: { x: e.clientX, y: e.clientY } });
         }
 
         updateMouseCursor();
