@@ -315,7 +315,7 @@ export const VECTORDRAW_AREA_TYPES = {
 export let state = {
     currentMode: "select", // Başlangıç modu "SEÇ"
     lastUsedMode: "select", // Son kullanılan da "SEÇ"
-    currentDrawingMode: "KARMA", // MİMARİ, TESİSAT, KARMA - Hangi tip nesnelerle çalışılabilir
+    currentDrawingMode: null, // MİMARİ, TESİSAT, KARMA - Hangi tip nesnelerle çalışılabilir (ilk yüklendiğinde null)
     currentPlumbingBlockType: 'SERVIS_KUTUSU', // Aktif tesisat bloğu tipi
     startPoint: null,
     nodes: [],
@@ -661,14 +661,16 @@ export function setDrawingMode(mode) {
             btn.style.boxShadow = 'none';
         });
 
-        // Aktif butonu ayarla
-        const activeBtn = mode === 'MİMARİ' ? modeMimari :
-            mode === 'TESİSAT' ? modeTesisat : modeKarma;
-        activeBtn.classList.add('active');
-        activeBtn.style.background = 'rgba(100, 149, 237, 0.4)';
-        activeBtn.style.borderColor = '#87CEEB';
-        activeBtn.style.color = '#87CEEB';
-        activeBtn.style.boxShadow = '0 0 8px rgba(135, 206, 235, 0.5)';
+        // Aktif butonu ayarla (null değilse)
+        if (mode !== null) {
+            const activeBtn = mode === 'MİMARİ' ? modeMimari :
+                mode === 'TESİSAT' ? modeTesisat : modeKarma;
+            activeBtn.classList.add('active');
+            activeBtn.style.background = 'rgba(100, 149, 237, 0.4)';
+            activeBtn.style.borderColor = '#87CEEB';
+            activeBtn.style.color = '#87CEEB';
+            activeBtn.style.boxShadow = '0 0 8px rgba(135, 206, 235, 0.5)';
+        }
     }
 }
 
