@@ -979,6 +979,38 @@ function onSplitterPointerMove(e) {
 }
 function onSplitterPointerUp() { isResizing = false; dom.p2d.style.pointerEvents = 'auto'; dom.p3d.style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; window.removeEventListener('pointermove', onSplitterPointerMove); window.removeEventListener('pointerup', onSplitterPointerUp); }
 
+// Splitter2 fonksiyonları (3D ve İzometri arasında)
+let isResizing2 = false;
+function onSplitter2PointerDown(e) { isResizing2 = true; dom.p3d.style.pointerEvents = 'none'; document.getElementById('pIso').style.pointerEvents = 'none'; document.body.style.cursor = 'col-resize'; window.addEventListener('pointermove', onSplitter2PointerMove); window.addEventListener('pointerup', onSplitter2PointerUp); }
+function onSplitter2PointerMove(e) {
+    if (!isResizing2) return;
+
+    const mainRect = dom.mainContainer.getBoundingClientRect();
+    const p3dPanel = document.getElementById('p3d');
+    const pIsoPanel = document.getElementById('pIso');
+
+    let p3dWidth = e.clientX - mainRect.left;
+
+    // Minimum genişlikler
+    const min3DWidth = 150;
+    const minIsoWidth = 150;
+
+    // 3D panel için minimum kontrol
+    if (p3dWidth < min3DWidth) p3dWidth = min3DWidth;
+
+    // İzometri panel için minimum kontrol
+    const max3DWidth = mainRect.width - minIsoWidth - dom.splitter2.offsetWidth - 20;
+    if (p3dWidth > max3DWidth) p3dWidth = max3DWidth;
+
+    let pIsoWidth = mainRect.width - p3dWidth - dom.splitter2.offsetWidth - 20;
+
+    p3dPanel.style.flex = `1 1 ${p3dWidth}px`;
+    pIsoPanel.style.flex = `1 1 ${pIsoWidth}px`;
+
+    resize();
+}
+function onSplitter2PointerUp() { isResizing2 = false; dom.p3d.style.pointerEvents = 'auto'; document.getElementById('pIso').style.pointerEvents = 'auto'; document.body.style.cursor = 'default'; window.removeEventListener('pointermove', onSplitter2PointerMove); window.removeEventListener('pointerup', onSplitter2PointerUp); }
+
 
 // Duvar boyutlandırma fonksiyonu
 function resizeWall(wall, newLengthCm, stationaryPointHandle) {
@@ -1374,6 +1406,7 @@ export function setupUIListeners() {
     dom.roomNameSelect.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } });
     dom.roomNameInput.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); dom.roomNameSelect.focus(); } else if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } });
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
+    dom.splitter2.addEventListener('pointerdown', onSplitter2PointerDown);
     dom.lengthInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); } else if (e.key === "Escape") { cancelLengthEdit(); } });
     dom.lengthInput.addEventListener("blur", cancelLengthEdit);
 
