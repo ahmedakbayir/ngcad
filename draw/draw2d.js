@@ -289,25 +289,29 @@ export function draw2D() {
     // But done correctly so mouse coordinates work properly
 
     if (state.is3DPerspectiveActive) {
-        // İzometrik projeksiyon: scene-isometric.js ile aynı formül
-        // isoX = (x + y) * cos(30°)
-        // isoY = (y - x) * sin(30°) - z
-        //
-        // Matrix formunda (z=0 için 2D elemanlar):
-        // x' = x * cos(30°) + y * cos(30°)
-        // y' = -x * sin(30°) + y * sin(30°)
+        // Kamera açılarını kullanarak dinamik projeksiyon
+        const polarAngle = state.camera3DPolarAngle || (Math.PI / 6); // Varsayılan 30°
+        const azimuthalAngle = state.camera3DAzimuthalAngle || 0;
 
-        const angle = Math.PI / 6; // 30 derece
-        const cosAngle = Math.cos(angle); // ≈ 0.866
-        const sinAngle = Math.sin(angle); // = 0.5
+        // Polar açıdan projeksiyon hesapla (0° = üstten, 90° = yandan)
+        // Azimuthal açı = yatay dönüş
+        const verticalScale = Math.cos(polarAngle); // 0° = 1 (tam üstten), 90° = 0 (yandan)
+        const depthScale = Math.sin(polarAngle);   // 0° = 0, 90° = 1
 
+        // İzometrik projeksiyon (azimuthal açıya göre)
+        const cosAz = Math.cos(azimuthalAngle);
+        const sinAz = Math.sin(azimuthalAngle);
+
+        // Basitleştirilmiş projeksiyon matrix
+        // X ekseni: azimuthal açıya göre döner
+        // Y ekseni: polar açıya göre kısalır (perspektif)
         ctx2d.setTransform(
-            dpr * zoom * cosAngle,      // a: X için X bileşeni
-            dpr * zoom * -sinAngle,     // b: X için Y bileşeni
-            dpr * zoom * cosAngle,      // c: Y için X bileşeni
-            dpr * zoom * sinAngle,      // d: Y için Y bileşeni
-            dpr * panOffset.x,          // e: X offset
-            dpr * panOffset.y           // f: Y offset
+            dpr * zoom * cosAz,                    // a: X için X bileşeni
+            dpr * zoom * sinAz,                    // b: X için Y bileşeni
+            dpr * zoom * -sinAz * verticalScale,   // c: Y için X bileşeni (perspektifle kısalır)
+            dpr * zoom * cosAz * verticalScale,    // d: Y için Y bileşeni (perspektifle kısalır)
+            dpr * panOffset.x,                     // e: X offset
+            dpr * panOffset.y                      // f: Y offset
         );
     } else {
         // Normal 2D görünüm

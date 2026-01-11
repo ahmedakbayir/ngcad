@@ -54,6 +54,12 @@ export function onPointerUp(e) {
                     orbitControls.setPolarAngle(newPolarAngle);
                     orbitControls.update();
 
+                    // Kamera açılarını state'e kaydet (draw2D için)
+                    setState({
+                        camera3DPolarAngle: orbitControls.getPolarAngle(),
+                        camera3DAzimuthalAngle: orbitControls.getAzimuthalAngle()
+                    });
+
                     // 2D ve 3D sahneyi güncelle (render et)
                     draw2D(); // 2D canvas'ı 3D perspektifle çiz
                     update3DScene(); // 3D sahneyi render et

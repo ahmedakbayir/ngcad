@@ -216,12 +216,16 @@ export function onPointerMove(e) {
             orbitControls.rotateUp(-deltaY * polarSpeed); // Negative: mouse down = camera rotates down
             orbitControls.update();
 
+            // Kamera açılarını state'e kaydet (draw2D için)
+            setState({
+                camera3DPolarAngle: orbitControls.getPolarAngle(),
+                camera3DAzimuthalAngle: orbitControls.getAzimuthalAngle(),
+                ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY } // Son pozisyonu da güncelle
+            });
+
             // 2D ve 3D sahneyi güncelle (render et)
             draw2D(); // 2D canvas'ı 3D perspektifle çiz
             update3DScene(); // 3D sahneyi render et
-
-            // Son pozisyonu güncelle
-            setState({ ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY } });
         }
 
         updateMouseCursor();
