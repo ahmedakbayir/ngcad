@@ -11,8 +11,9 @@
     --bg-button: #3c4043;
     --border-button: #5f6368;
     --bg-button-hover: #5f6368;
-    --bg-button-active: #8ab4f8;
-    --color-button-active: #202124;
+    --bg-button-active: rgba(100, 149, 237, 0.4);
+    --border-button-active: #87CEEB;
+    --color-button-active: #87CEEB;
     --bg-popup: #2a2b2c;
     --bg-input: #1e1f20;
     --color-secondary: #9aa0a6;
@@ -33,8 +34,9 @@ body.light-mode {
     --bg-button: #e8eaed;
     --border-button: #c1c7cd;
     --bg-button-hover: #dadce0;
-    --bg-button-active: #1a73e8;
-    --color-button-active: #ffffff;
+    --bg-button-active: rgba(100, 149, 237, 0.4);
+    --border-button-active: #87CEEB;
+    --color-button-active: #87CEEB;
     --bg-popup: #f8f9fa;
     --bg-input: #ffffff;
     --color-secondary: #5f6368;
@@ -1479,7 +1481,7 @@ body.light-mode .btn.active svg {
 
 .mode-btn.active {
     background: var(--bg-button-active);
-    border-color: var(--bg-button-active);
+    border-color: var(--border-button-active);
     box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
     color: var(--color-button-active);
 }
@@ -1644,7 +1646,7 @@ body.light-mode #drawing-mode-selector button {
 
 body.light-mode #drawing-mode-selector button.active {
     background: var(--bg-button-active) !important;
-    border-color: var(--bg-button-active) !important;
+    border-color: var(--border-button-active) !important;
     color: var(--color-button-active) !important;
 }
 
@@ -1673,9 +1675,10 @@ body.light-mode .btn-show-3d-perspective {
 }
 
 body.light-mode .btn-show-3d-perspective.active {
-    background: #87CEEB;
-    color: #ffffff;
+    background: rgba(100, 149, 237, 0.4);
+    color: #87CEEB;
     border-color: #87CEEB;
+    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
