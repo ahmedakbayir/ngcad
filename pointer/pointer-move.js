@@ -17,6 +17,8 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
 import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
+import { orbitControls, camera } from '../scene3d/scene3d-core.js';
+import { toggle3DView } from '../general-files/ui.js';
 // Plumbing functions now handled by plumbingManager
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
@@ -183,6 +185,40 @@ export function onPointerMove(e) {
         // --- DEĞİŞİKLİK SONU ---
     }
     // --- Yeni Tesisat Sistemi Sonu ---
+
+    // CTRL + Orta tuş ile 2D/3D geçiş
+    if (state.isCtrl3DToggling) {
+        const deltaX = e.clientX - state.ctrl3DToggleStart.x;
+        const deltaY = e.clientY - state.ctrl3DToggleStart.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+        // Eğer fare 5 pikselden fazla hareket ettiyse sürükleme olarak kabul et
+        if (distance > 5 && !state.ctrl3DToggleMoved) {
+            setState({ ctrl3DToggleMoved: true });
+
+            // 3D görünüm kapalıysa aç
+            if (!dom.mainContainer.classList.contains('show-3d')) {
+                toggle3DView();
+            }
+        }
+
+        // Eğer sürükleme başladıysa kamerayı döndür
+        if (state.ctrl3DToggleMoved && orbitControls && camera) {
+            // Yatay hareket için azimuth (yaw) açısını değiştir
+            const azimuthSpeed = 0.005;
+            const polarSpeed = 0.005;
+
+            orbitControls.rotateLeft(deltaX * azimuthSpeed);
+            orbitControls.rotateUp(deltaY * polarSpeed);
+            orbitControls.update();
+
+            // Başlangıç noktasını güncelle (sürekli hareket için)
+            setState({ ctrl3DToggleStart: { x: e.clientX, y: e.clientY } });
+        }
+
+        updateMouseCursor();
+        return;
+    }
 
     // Oda ismi sürükleme
     if (state.isDraggingRoomName) {

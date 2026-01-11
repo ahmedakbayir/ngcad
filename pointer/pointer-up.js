@@ -1,14 +1,52 @@
 import { getOrCreateNode } from '../draw/geometry.js';
-import { state, setState } from '../general-files/main.js';
+import { state, setState, dom } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { toggle3DView } from '../general-files/ui.js';
+import { orbitControls, camera } from '../scene3d/scene3d-core.js';
+import * as THREE from 'three';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
         setState({ isCtrlDeleting: false });
         saveState();
+        return;
+    }
+
+    // CTRL + Orta tuş ile 2D/3D geçiş
+    if (state.isCtrl3DToggling) {
+        // Eğer sürükleme olmadıysa (sadece tıklama)
+        if (!state.ctrl3DToggleMoved) {
+            // 3D görünümdeyse ve kamera neredeyse üstten bakıyorsa 2D'ye geç
+            if (dom.mainContainer.classList.contains('show-3d') && camera && orbitControls) {
+                // Kameranın polar açısını kontrol et (0° = üstten bakış, 90° = yan bakış)
+                const polarAngle = orbitControls.getPolarAngle();
+                const polarAngleDegrees = polarAngle * (180 / Math.PI);
+
+                // Eğer kamera 0-5 derece arasında (neredeyse üstten bakış) ise 2D'ye geç
+                if (polarAngleDegrees >= 0 && polarAngleDegrees <= 5) {
+                    // Kamerayı tam üstten bakışa ayarla (0°)
+                    orbitControls.setPolarAngle(0);
+                    orbitControls.update();
+
+                    // Bir sonraki tıklamada 2D'ye geçmek için hazır hale getir
+                    // Şimdilik sadece toggle yapalım
+                }
+            }
+
+            // Normal toggle (2D <-> 3D)
+            toggle3DView();
+        }
+        // Sürükleme olduysa kamera zaten döndürüldü, hiçbir şey yapma
+
+        // State'i temizle
+        setState({
+            isCtrl3DToggling: false,
+            ctrl3DToggleStart: null,
+            ctrl3DToggleMoved: false
+        });
         return;
     }
 
