@@ -222,9 +222,6 @@ export function toggle3DView() {
     if (dom.mainContainer.classList.contains('show-3d')) {
         setMode("select"); // 3D açılırken modu "select" yap
 
-        // 3D Perspektif modunu aktif et (2D canvas izometrik projeksiyon kullanacak)
-        setState({ is3DPerspectiveActive: true });
-
         // Split ratio butonlarını göster
         const splitButtons = document.getElementById('split-ratio-buttons');
         if (splitButtons) splitButtons.style.display = 'flex';
@@ -236,9 +233,6 @@ export function toggle3DView() {
         // Varsayılan split ratio'yu ayarla (25%)
         setSplitRatio(25);
     } else {
-        // 3D Perspektif modunu kapat (2D canvas normal görünüme dönecek)
-        setState({ is3DPerspectiveActive: false });
-
         // Split ratio butonlarını gizle
         const splitButtons = document.getElementById('split-ratio-buttons');
         if (splitButtons) splitButtons.style.display = 'none';
