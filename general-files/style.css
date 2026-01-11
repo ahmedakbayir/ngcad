@@ -222,6 +222,7 @@ canvas {
     pointer-events: auto;
     /* Gruplara tıklanabilsin */
     cursor: default;
+    z-index: 100;
 }
 
 /* Varsayılan pozisyonlar - yan yana */
@@ -1510,8 +1511,18 @@ body.light-mode .btn.active svg {
     border-left: 1px solid var(--border-group);
     border-bottom-left-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    z-index: 1234;
+    z-index: 10000;
     backdrop-filter: blur(4px);
+}
+
+/* viewing-mode-selector içindeki butonlar için eski kuralları override et */
+#viewing-mode-selector .btn-show-3d,
+#viewing-mode-selector .btn-show-iso,
+#viewing-mode-selector .btn-show-3d-perspective {
+    position: static;
+    top: auto;
+    right: auto;
+    z-index: auto;
 }
 
 
