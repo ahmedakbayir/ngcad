@@ -1476,25 +1476,25 @@ body.light-mode .btn.active svg {
     color: var(--color-button-active);
 }
 
-/* Sağ üst - Görüntüleme modları (Katı Model, İzometri, 3D) - drawing-mode-selector'ın solunda */
-#viewing-mode-selector {
+/* Sol üst - Proje Modları (Mimari, Tesisat, Karma) */
+#drawing-mode-selector {
     position: fixed;
     top: 0;
-    right: 320px;
+    left: 0;
     display: flex;
     gap: 4px;
     padding: 6px;
     background: var(--bg-group);
     border-bottom: 1px solid var(--border-group);
-    border-left: 1px solid var(--border-group);
-    border-bottom-left-radius: 8px;
+    border-right: 1px solid var(--border-group);
+    border-bottom-right-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     z-index: 10000;
     backdrop-filter: blur(4px);
 }
 
-/* Sağ üst - Proje Modları (Mimari, Tesisat, Karma) */
-#drawing-mode-selector {
+/* Sağ üst - Görüntüleme modları (Katı Model, İzometri, 3D) - drawing-mode-selector ile aynı stil */
+#viewing-mode-selector {
     position: fixed;
     top: 0;
     right: 0;
