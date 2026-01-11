@@ -1547,6 +1547,7 @@ function initialize() {
     // Başlangıç modunu zorla ayarla
     setMode(state.currentMode, true);
 
+    setDrawingMode(state.currentDrawingMode);
     // Sürüklenebilir gruplar için drag & drop
     initializeDraggableGroups();
 

@@ -218,9 +218,12 @@ function confirmRoomNameChange() {
 
 export function toggle3DView() {
     dom.mainContainer.classList.toggle('show-3d');
+    // --- YENİ EKLENEN KOD: Butonun rengini aktif/pasif yap ---
+    const is3DActive = dom.mainContainer.classList.contains('show-3d');
+    dom.b3d.classList.toggle('active', is3DActive);
 
-    if (dom.mainContainer.classList.contains('show-3d')) {
-        setMode("select"); // 3D açılırken modu "select" yap
+    if (is3DActive) { // (dom.mainContainer kontrolü yerine değişkene aldık)
+        setMode("select");
 
         // Split ratio butonlarını göster
         const splitButtons = document.getElementById('split-ratio-buttons');
@@ -252,9 +255,11 @@ export function toggle3DView() {
 
 export function toggleIsoView() {
     dom.mainContainer.classList.toggle('show-iso');
-
-    if (dom.mainContainer.classList.contains('show-iso')) {
-        setMode("select"); // İzometri açılırken modu "select" yap
+    // --- YENİ EKLENEN KOD: Butonun rengini aktif/pasif yap ---
+    const isIsoActive = dom.mainContainer.classList.contains('show-iso');
+    dom.bIso.classList.toggle('active', isIsoActive);
+    if (isIsoActive) {
+        setMode("select");
 
         // İzometri ratio butonlarını göster
         const isoButtons = document.getElementById('iso-ratio-buttons');
@@ -264,7 +269,7 @@ export function toggleIsoView() {
         dom.isoSplitter.style.display = 'block';
 
         // İzometrik canvas boyutunu ayarla
-        resizeIsoCanvas();
+        resizeIsoCanvas(); // Bu fonksiyonun bu dosyada olduğundan emin olun veya import edin
 
         // İzometrik görünümü çiz
         drawIsoView();
@@ -987,7 +992,7 @@ export function setSplitRatio(ratio) {
     document.querySelectorAll('.split-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    const activeBtn = document.getElementById(`split - ${ ratio } `);
+    const activeBtn = document.getElementById(`split - ${ratio} `);
     if (activeBtn) activeBtn.classList.add('active');
 
     // Ratio 0 ise 3D panelini kapat
@@ -1067,8 +1072,8 @@ function onSplitterPointerMove(e) {
 
     let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20;
 
-    p2dPanel.style.flex = `1 1 ${ p2dWidth } px`;
-    p3dPanel.style.flex = `1 1 ${ p3dWidth } px`;
+    p2dPanel.style.flex = `1 1 ${p2dWidth} px`;
+    p3dPanel.style.flex = `1 1 ${p3dWidth} px`;
 
     resize();
 }
@@ -1130,7 +1135,7 @@ function resizeWall(wall, newLengthCm, stationaryPointHandle) {
     const stationaryPoint = wall[stationaryPointHandle];
     const movingPointHandle = stationaryPointHandle === "p1" ? "p2" : "p1";
     const movingPoint = wall[movingPointHandle];
-    if(!stationaryPoint || !movingPoint) return;
+    if (!stationaryPoint || !movingPoint) return;
     const dx = movingPoint.x - stationaryPoint.x;
     const dy = movingPoint.y - stationaryPoint.y;
     const currentLength = Math.hypot(dx, dy);
@@ -1145,12 +1150,12 @@ export function positionLengthInput() {
     if (!state.selectedObject) return;
     let midX, midY;
     const { selectedObject } = state;
-    if (selectedObject.type === "wall") { const wall = selectedObject.object; if(!wall.p1 || !wall.p2) return; midX = (wall.p1.x + wall.p2.x) / 2; midY = (wall.p1.y + wall.p2.y) / 2; }
+    if (selectedObject.type === "wall") { const wall = selectedObject.object; if (!wall.p1 || !wall.p2) return; midX = (wall.p1.x + wall.p2.x) / 2; midY = (wall.p1.y + wall.p2.y) / 2; }
     else if (selectedObject.type === "door" || selectedObject.type === "window") { const item = selectedObject.object; const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall; if (!wall || !wall.p1 || !wall.p2) return; const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 0.1) return; const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; midX = wall.p1.x + dx * item.pos; midY = wall.p1.y + dy * item.pos; }
     else { return; }
     const screenPos = worldToScreen(midX, midY);
-    dom.lengthInput.style.left = `${ screenPos.x } px`;
-    dom.lengthInput.style.top = `${ screenPos.y - 20 } px`;
+    dom.lengthInput.style.left = `${screenPos.x} px`;
+    dom.lengthInput.style.top = `${screenPos.y - 20} px`;
 }
 
 // Uzunluk düzenlemeyi başlatma
@@ -1325,7 +1330,7 @@ export function showStairPopup(stair, e) {
         if (s.id !== stair.id) {
             const option = document.createElement('option');
             option.value = s.id;
-            option.textContent = s.name || `Merdiven(${ s.id.substring(0, 4) })`;
+            option.textContent = s.name || `Merdiven(${s.id.substring(0, 4)})`;
             option.selected = (stair.connectedStairId === s.id);
             dom.stairConnectedStairSelect.appendChild(option);
         }
@@ -1348,8 +1353,8 @@ export function showStairPopup(stair, e) {
     if (left < 10) left = 10;
     if (top < 10) top = 10;
 
-    dom.stairPopup.style.left = `${ left } px`;
-    dom.stairPopup.style.top = `${ top } px`;
+    dom.stairPopup.style.left = `${left} px`;
+    dom.stairPopup.style.top = `${top} px`;
     dom.stairPopup.style.display = 'block';
 
     // Dışarı tıklama dinleyicisini ayarla
@@ -1357,7 +1362,7 @@ export function showStairPopup(stair, e) {
         if (!dom.stairPopup.contains(event.target) &&
             event.target !== dom.confirmStairPopupButton &&
             event.target !== dom.cancelStairPopupButton) {
-             hideStairPopup();
+            hideStairPopup();
         }
     };
     setState({ clickOutsideRoomPopupListener: clickListener });
@@ -1372,7 +1377,7 @@ export function hideStairPopup() {
         window.removeEventListener('pointerdown', state.clickOutsideRoomPopupListener, { capture: true });
         setState({ clickOutsideRoomPopupListener: null });
     }
-     dom.c2d.focus();
+    dom.c2d.focus();
 }
 
 // --- KULLANICI İSTEĞİNE GÖRE GÜNCELLENMİŞ confirmStairChange ---
@@ -1398,8 +1403,8 @@ function confirmStairChange() {
         stair.showRailing = !stair.isLanding ? dom.stairShowRailingCheckbox.checked : false;
 
         const LANDING_THICKNESS = 10;
-        const connectedStair = (stair.connectedStairId) 
-            ? (state.stairs || []).find(s => s.id === stair.connectedStairId) 
+        const connectedStair = (stair.connectedStairId)
+            ? (state.stairs || []).find(s => s.id === stair.connectedStairId)
             : null;
 
         if (stair.isLanding) {
@@ -1442,7 +1447,7 @@ function confirmStairChange() {
 
         saveState(); // Değişiklikleri geçmişe kaydet
         if (dom.mainContainer.classList.contains('show-3d')) {
-             setTimeout(update3DScene, 0); // 3D sahneyi gecikmeli güncelle
+            setTimeout(update3DScene, 0); // 3D sahneyi gecikmeli güncelle
         }
 
     } catch (error) {
@@ -1492,7 +1497,7 @@ export function setupUIListeners() {
 
     dom.borderPicker.addEventListener("input", (e) => setState({ wallBorderColor: e.target.value }));
     dom.roomPicker.addEventListener("input", (e) => setState({ roomFillColor: e.target.value }));
-    dom.lineThicknessInput.addEventListener("input", (e) => { const value = parseFloat(e.target.value); if(!isNaN(value)) setState({ lineThickness: value }); });
+    dom.lineThicknessInput.addEventListener("input", (e) => { const value = parseFloat(e.target.value); if (!isNaN(value)) setState({ lineThickness: value }); });
     dom.wallThicknessInput.addEventListener("input", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) setState({ wallThickness: value }); });
     dom.drawingAngleInput.addEventListener("input", (e) => { const value = parseInt(e.target.value, 10); if (!isNaN(value)) setState({ drawingAngle: value }); });
     dom.gridVisibleInput.addEventListener("change", (e) => { state.gridOptions.visible = e.target.checked; });
@@ -1537,7 +1542,7 @@ export function setupUIListeners() {
     dom.stairIsLandingCheckbox.addEventListener('change', () => {
         const isLanding = dom.stairIsLandingCheckbox.checked;
         const LANDING_THICKNESS = 10;
-        
+
         // Input'ları ayarla
         dom.stairTopElevationInput.disabled = isLanding; // Sahanlıksa Üst Kot pasif
         dom.stairShowRailingCheckbox.disabled = isLanding; // Sahanlıksa Korkuluk pasif
@@ -1547,7 +1552,7 @@ export function setupUIListeners() {
         const connectedStairId = dom.stairConnectedStairSelect.value;
         if (connectedStairId) {
             const connectedStair = (state.stairs || []).find(s => s.id === connectedStairId);
-            if(connectedStair) currentBottomElev = connectedStair.topElevation || 0;
+            if (connectedStair) currentBottomElev = connectedStair.topElevation || 0;
         }
 
         if (isLanding) {
@@ -1572,39 +1577,39 @@ export function setupUIListeners() {
         let newBottomElevation = 0;
 
         if (selectedId && currentEditingStair) {
-             const connectedStair = (state.stairs || []).find(s => s.id === selectedId);
-             if (connectedStair) {
-                 newBottomElevation = connectedStair.topElevation || 0;
-                 dom.stairBottomElevationInput.value = newBottomElevation;
-                 isConnected = true;
-             }
+            const connectedStair = (state.stairs || []).find(s => s.id === selectedId);
+            if (connectedStair) {
+                newBottomElevation = connectedStair.topElevation || 0;
+                dom.stairBottomElevationInput.value = newBottomElevation;
+                isConnected = true;
+            }
         } else {
-             newBottomElevation = 0; 
-             dom.stairBottomElevationInput.value = newBottomElevation;
+            newBottomElevation = 0;
+            dom.stairBottomElevationInput.value = newBottomElevation;
         }
-        
+
         dom.stairBottomElevationInput.disabled = isConnected;
-        
+
         // Eğer sahanlık seçiliyse, üst kotu alt kota göre tekrar ayarla
         if (dom.stairIsLandingCheckbox.checked) {
-             dom.stairTopElevationInput.value = newBottomElevation + LANDING_THICKNESS;
+            dom.stairTopElevationInput.value = newBottomElevation + LANDING_THICKNESS;
         } else {
             // Normal merdivense üst kotu da kat yüksekliğine göre ayarla
-             dom.stairTopElevationInput.value = newBottomElevation + WALL_HEIGHT;
+            dom.stairTopElevationInput.value = newBottomElevation + WALL_HEIGHT;
         }
     });
 
     // Alt kot inputu değişirse (ve serbestse) ve sahanlıksa üst kotu da güncelle
-     dom.stairBottomElevationInput.addEventListener('input', () => {
-         if (dom.stairIsLandingCheckbox.checked && !dom.stairBottomElevationInput.disabled) {
-             const LANDING_THICKNESS = 10;
-             dom.stairTopElevationInput.value = (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + LANDING_THICKNESS;
-         }
-         // Normal merdivense üst kotu da güncelle
-         else if (!dom.stairIsLandingCheckbox.checked && !dom.stairBottomElevationInput.disabled) {
-             dom.stairTopElevationInput.value = (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + WALL_HEIGHT;
-         }
-     });
+    dom.stairBottomElevationInput.addEventListener('input', () => {
+        if (dom.stairIsLandingCheckbox.checked && !dom.stairBottomElevationInput.disabled) {
+            const LANDING_THICKNESS = 10;
+            dom.stairTopElevationInput.value = (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + LANDING_THICKNESS;
+        }
+        // Normal merdivense üst kotu da güncelle
+        else if (!dom.stairIsLandingCheckbox.checked && !dom.stairBottomElevationInput.disabled) {
+            dom.stairTopElevationInput.value = (parseInt(dom.stairBottomElevationInput.value, 10) || 0) + WALL_HEIGHT;
+        }
+    });
 
     // Merdiven popup inputları için Enter/Escape tuşları
     [dom.stairNameInput, dom.stairBottomElevationInput, dom.stairTopElevationInput, dom.stairWidthEditInput].forEach(input => {
@@ -1762,7 +1767,7 @@ function setupOpacityControls() {
             // Tüm diğer slider'ları da aynı değere ayarla
             const newOpacitySettings = {};
             sliderTypes.forEach(type => {
-                const slider = document.getElementById(`opacity - ${ type } `);
+                const slider = document.getElementById(`opacity - ${type} `);
                 const valueDisplay = slider?.nextElementSibling;
 
                 if (slider && valueDisplay) {
@@ -1781,7 +1786,7 @@ function setupOpacityControls() {
     }
 
     sliderTypes.forEach(type => {
-        const slider = document.getElementById(`opacity - ${ type } `);
+        const slider = document.getElementById(`opacity - ${type} `);
         const valueDisplay = slider?.nextElementSibling;
 
         if (!slider || !valueDisplay) return;
