@@ -289,25 +289,25 @@ export function draw2D() {
     // But done correctly so mouse coordinates work properly
 
     if (state.is3DPerspectiveActive) {
-        // İzometrik projeksiyon: scene-isometric.js ile aynı formül
-        // isoX = (x + y) * cos(30°)
-        // isoY = (y - x) * sin(30°) - z
-        //
-        // Matrix formunda (z=0 için 2D elemanlar):
-        // x' = x * cos(30°) + y * cos(30°)
-        // y' = -x * sin(30°) + y * sin(30°)
+        // Kamera açılarına göre dinamik projeksiyon
+        const polarAngle = state.camera3DPolarAngle || (Math.PI / 6); // Varsayılan 30°
+        const azimuthalAngle = state.camera3DAzimuthalAngle || 0;
 
-        const angle = Math.PI / 6; // 30 derece
-        const cosAngle = Math.cos(angle); // ≈ 0.866
-        const sinAngle = Math.sin(angle); // = 0.5
+        // Polar açı: 0° = üstten, 90° = yandan
+        const verticalScale = Math.cos(polarAngle); // Perspektif etkisi
 
+        // Azimuthal açı: yatay dönüş
+        const cosAz = Math.cos(azimuthalAngle);
+        const sinAz = Math.sin(azimuthalAngle);
+
+        // Projeksiyon matrix
         ctx2d.setTransform(
-            dpr * zoom * cosAngle,      // a: X için X bileşeni
-            dpr * zoom * -sinAngle,     // b: X için Y bileşeni
-            dpr * zoom * cosAngle,      // c: Y için X bileşeni
-            dpr * zoom * sinAngle,      // d: Y için Y bileşeni
-            dpr * panOffset.x,          // e: X offset
-            dpr * panOffset.y           // f: Y offset
+            dpr * zoom * cosAz,                    // X rotasyonu
+            dpr * zoom * sinAz,                    // Y rotasyonu
+            dpr * zoom * -sinAz * verticalScale,   // Perspektifli X
+            dpr * zoom * cosAz * verticalScale,    // Perspektifli Y
+            dpr * panOffset.x,
+            dpr * panOffset.y
         );
     } else {
         // Normal 2D görünüm

@@ -49,15 +49,20 @@ function markAllDownstreamPipesAsConnected(startPipe) {
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
     if (e.button === 1) { // Orta tuş ile pan veya CTRL ile 2D/3D geçiş
-        // CTRL basılıysa 2D/3D geçiş modu
+        // CTRL basılıysa 2D/3D geçiş modu (AYNI SAHNE İÇİNDE!)
         if (currentModifierKeys.ctrl) {
+            // is3DPerspectiveActive'i aç (2D canvas'ta perspektif için)
+            if (!state.is3DPerspectiveActive) {
+                setState({ is3DPerspectiveActive: true });
+            }
+
             setState({
                 isCtrl3DToggling: true,
                 ctrl3DToggleStart: { x: e.clientX, y: e.clientY },
                 ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY },
                 ctrl3DToggleMoved: false
             });
-            e.preventDefault();
+            // e.preventDefault() KALDIRILDI - mouse event'leri bloklamıyor
             return;
         }
         // CTRL basılı değilse normal pan

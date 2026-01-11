@@ -186,7 +186,7 @@ export function onPointerMove(e) {
     }
     // --- Yeni Tesisat Sistemi Sonu ---
 
-    // CTRL + Orta tuş ile 2D/3D geçiş
+    // CTRL + Orta tuş ile 2D/3D geçiş (AYNI SAHNE İÇİNDE, KATI MODEL AÇILMAZ!)
     if (state.isCtrl3DToggling) {
         const deltaX = e.clientX - state.ctrl3DToggleStart.x;
         const deltaY = e.clientY - state.ctrl3DToggleStart.y;
@@ -195,20 +195,10 @@ export function onPointerMove(e) {
         // Eğer fare 5 pikselden fazla hareket ettiyse sürükleme olarak kabul et
         if (distance > 5 && !state.ctrl3DToggleMoved) {
             setState({ ctrl3DToggleMoved: true });
-
-            // 3D panel kapalıysa aç
-            if (!dom.mainContainer.classList.contains('show-3d')) {
-                toggle3DView();
-            }
         }
 
-        // Eğer sürükleme başladıysa ve 3D panel açıksa kamerayı döndür
-        if (state.ctrl3DToggleMoved && dom.mainContainer.classList.contains('show-3d')) {
-            if (!orbitControls || !camera) {
-                console.warn('OrbitControls veya camera henüz başlatılmadı');
-                return;
-            }
-
+        // Eğer sürükleme başladıysa kamerayı döndür
+        if (state.ctrl3DToggleMoved && orbitControls && camera) {
             // Son pozisyonla şimdiki pozisyon arasındaki farkı hesapla
             const deltaX = e.clientX - state.ctrl3DToggleLastPos.x;
             const deltaY = e.clientY - state.ctrl3DToggleLastPos.y;
@@ -220,15 +210,17 @@ export function onPointerMove(e) {
             orbitControls.rotateUp(-deltaY * polarSpeed);
             orbitControls.update();
 
-            // 3D sahneyi güncelle (render et)
-            update3DScene();
-
-            // Son pozisyonu güncelle
-            setState({ ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY } });
+            // Kamera açılarını state'e kaydet
+            setState({
+                camera3DPolarAngle: orbitControls.getPolarAngle(),
+                camera3DAzimuthalAngle: orbitControls.getAzimuthalAngle(),
+                ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY }
+            });
         }
 
-        updateMouseCursor();
-        return;
+        // Mouse event'leri bloklama, normal akışa devam et
+        // updateMouseCursor();
+        // return; KALDIRILDI - diğer event'lerin de çalışmasına izin ver
     }
 
     // Oda ismi sürükleme
