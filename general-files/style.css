@@ -59,11 +59,18 @@ body.light-mode {
 
 .main {
     display: flex;
+    flex-direction: column;
     width: 100vw;
     height: 100vh;
     gap: 0;
     padding: 1px;
     box-sizing: border-box;
+}
+
+.panels-container {
+    display: flex;
+    flex: 1;
+    gap: 0;
 }
 
 .panel {
@@ -183,6 +190,20 @@ canvas {
 }
 
 #ui {
+    width: 100%;
+    height: 60px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    box-sizing: border-box;
+    background: var(--bg-group);
+    border-bottom: 1px solid var(--border-group);
+    z-index: 100;
+}
+
+#toolbar {
     margin-top: 50px;
     position: relative;
     z-index: 10;
@@ -268,7 +289,7 @@ body.light-mode .group-label {
 }
 
 /* YENİ KURAL: UI içindeki butonları sadece ikon göster (küçük ikon modu) */
-#ui.display-small-icon .btn {
+#toolbar.display-small-icon .btn {
     width: auto;
     /* Otomatik genişlik */
     min-width: 28px;
@@ -289,14 +310,14 @@ body.light-mode .group-label {
 }
 
 /* UI içindeki buton iconları (küçük ikon modu) */
-#ui.display-small-icon .btn svg {
+#toolbar.display-small-icon .btn svg {
     width: 16px;
     /* Kat çubuğu ile uyumlu boyut */
     height: 16px;
 }
 
 /* Display Mode: Küçük İkon + Metin */
-#ui.display-small-icon-text .btn {
+#toolbar.display-small-icon-text .btn {
     font-size: 14px;
     /* Metni göster */
     gap: 8px;
@@ -308,13 +329,13 @@ body.light-mode .group-label {
     /* Sola dayalı */
 }
 
-#ui.display-small-icon-text .btn svg {
+#toolbar.display-small-icon-text .btn svg {
     width: 16px;
     height: 16px;
 }
 
 /* Display Mode: Büyük İkon */
-#ui.display-big-icon .btn {
+#toolbar.display-big-icon .btn {
     min-width: 42px;
     /* 28 * 1.5 */
     height: 42px;
@@ -328,14 +349,14 @@ body.light-mode .group-label {
     /* İkonu ortala */
 }
 
-#ui.display-big-icon .btn svg {
+#toolbar.display-big-icon .btn svg {
     width: 24px;
     /* 16 * 1.5 */
     height: 24px;
 }
 
 /* Display Mode: Büyük İkon + Metin */
-#ui.display-big-icon-text .btn {
+#toolbar.display-big-icon-text .btn {
     font-size: 14px;
     /* Küçük ikonla aynı font boyutu */
     gap: 8px;
@@ -348,7 +369,7 @@ body.light-mode .group-label {
     /* Sola dayalı */
 }
 
-#ui.display-big-icon-text .btn svg {
+#toolbar.display-big-icon-text .btn svg {
     width: 24px;
     /* 16 * 1.5 */
     height: 24px;
@@ -382,8 +403,8 @@ body.light-mode .btn.active svg {
     background: var(--bg-button-hover);
 }
 
-/* UI içindeki butonlar için gelişmiş hover efekti */
-#ui .btn:hover:not(.active) {
+/* Toolbar içindeki butonlar için gelişmiş hover efekti */
+#toolbar .btn:hover:not(.active) {
     background: var(--bg-button-hover);
     border-color: #87CEEB;
     box-shadow: 0 2px 8px rgba(135, 206, 235, 0.3);
@@ -1165,22 +1186,16 @@ body.light-mode .btn.active svg {
     backdrop-filter: blur(4px);
 }
 
-/* 3D Göster Butonu - 2D Ekranın Sağ Üst Köşesi */
+/* 3D Göster Butonu - UI Bar içinde */
 .btn-show-3d {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 100;
-    padding: 7px 10px;
-    /* %25 büyütüldü: 5px 8px -> 7px 10px */
+    padding: 7px 12px;
     font-size: 14px;
-    /* %25 büyütüldü: 11px -> 14px */
     font-weight: 500;
     min-width: auto;
     white-space: nowrap;
-    background: #3c4043;
-    border: 1px solid #5f6368;
-    color: #e8eaed;
+    background: var(--bg-button);
+    border: 1px solid var(--border-button);
+    color: var(--color-text);
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1211,25 +1226,24 @@ body.light-mode .btn.active svg {
     font-weight: 600;
 }
 
-/* 3D açıkken butonu gizle */
+/* 3D açıkken buton vurgusu */
 .main.show-3d .btn-show-3d {
-    display: none;
+    background: var(--bg-button-active);
+    color: var(--color-button-active);
+    border-color: var(--bg-button-active);
+    font-weight: 600;
 }
 
-/* İzometri Göster Butonu - 3D Göster butonunun yanında */
+/* İzometri Göster Butonu - UI Bar içinde */
 .btn-show-iso {
-    position: absolute;
-    top: 10px;
-    right: 130px; /* 3D butonunun soluna yerleştir */
-    z-index: 100;
-    padding: 7px 10px;
+    padding: 7px 12px;
     font-size: 14px;
     font-weight: 500;
     min-width: auto;
     white-space: nowrap;
-    background: #3c4043;
-    border: 1px solid #5f6368;
-    color: #e8eaed;
+    background: var(--bg-button);
+    border: 1px solid var(--border-button);
+    color: var(--color-text);
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -1260,9 +1274,12 @@ body.light-mode .btn.active svg {
     font-weight: 600;
 }
 
-/* İzometri açıkken butonu gizle */
+/* İzometri açıkken buton vurgusu */
 .main.show-iso .btn-show-iso {
-    display: none;
+    background: var(--bg-button-active);
+    color: var(--color-button-active);
+    border-color: var(--bg-button-active);
+    font-weight: 600;
 }
 
 /* 3D Opacity Kontrolleri */
