@@ -655,20 +655,12 @@ export function setDrawingMode(mode) {
         // Tüm butonları pasif yap
         [modeMimari, modeTesisat, modeKarma].forEach(btn => {
             btn.classList.remove('active');
-            btn.style.background = 'rgba(60, 64, 67, 0.8)';
-            btn.style.borderColor = '#5f6368';
-            btn.style.color = '#e8eaed';
-            btn.style.boxShadow = 'none';
         });
 
         // Aktif butonu ayarla
         const activeBtn = mode === 'MİMARİ' ? modeMimari :
             mode === 'TESİSAT' ? modeTesisat : modeKarma;
         activeBtn.classList.add('active');
-        activeBtn.style.background = 'rgba(100, 149, 237, 0.4)';
-        activeBtn.style.borderColor = '#87CEEB';
-        activeBtn.style.color = '#87CEEB';
-        activeBtn.style.boxShadow = '0 0 8px rgba(135, 206, 235, 0.5)';
     }
 }
 
