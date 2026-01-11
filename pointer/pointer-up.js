@@ -6,6 +6,7 @@ import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { toggle3DView } from '../general-files/ui.js';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
+import { update3DScene } from '../scene3d/scene3d-update.js';
 import * as THREE from 'three';
 
 export function onPointerUp(e) {
@@ -52,6 +53,9 @@ export function onPointerUp(e) {
                     orbitControls.setPolarAngle(newPolarAngle);
                     orbitControls.update();
 
+                    // 3D sahneyi güncelle (render et)
+                    update3DScene();
+
                     if (progress < 1) {
                         requestAnimationFrame(animate);
                     }
@@ -66,6 +70,7 @@ export function onPointerUp(e) {
         setState({
             isCtrl3DToggling: false,
             ctrl3DToggleStart: null,
+            ctrl3DToggleLastPos: null,
             ctrl3DToggleMoved: false
         });
         return;

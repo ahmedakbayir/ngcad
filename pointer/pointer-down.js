@@ -54,8 +54,10 @@ export function onPointerDown(e) {
             setState({
                 isCtrl3DToggling: true,
                 ctrl3DToggleStart: { x: e.clientX, y: e.clientY },
+                ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY }, // Son pozisyonu da kaydet
                 ctrl3DToggleMoved: false
             });
+            e.preventDefault(); // Varsayılan davranışı engelle
             return;
         }
         // CTRL basılı değilse normal pan

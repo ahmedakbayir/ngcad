@@ -198,17 +198,28 @@ export function onPointerMove(e) {
         }
 
         // Eğer sürükleme başladıysa kamerayı döndür (katı model AÇILMAZ, sadece kamera döner)
-        if (state.ctrl3DToggleMoved && orbitControls && camera) {
-            // movementX/Y kullan (fare hareketinin anlık deltası)
-            const movementX = e.movementX || 0;
-            const movementY = e.movementY || 0;
+        if (state.ctrl3DToggleMoved) {
+            if (!orbitControls || !camera) {
+                console.warn('OrbitControls veya camera henüz başlatılmadı');
+                return;
+            }
+
+            // Son pozisyonla şimdiki pozisyon arasındaki farkı hesapla
+            const deltaX = e.clientX - state.ctrl3DToggleLastPos.x;
+            const deltaY = e.clientY - state.ctrl3DToggleLastPos.y;
 
             const azimuthSpeed = 0.005;
             const polarSpeed = 0.005;
 
-            orbitControls.rotateLeft(movementX * azimuthSpeed);
-            orbitControls.rotateUp(-movementY * polarSpeed); // Negative: mouse down = camera rotates down
+            orbitControls.rotateLeft(deltaX * azimuthSpeed);
+            orbitControls.rotateUp(-deltaY * polarSpeed); // Negative: mouse down = camera rotates down
             orbitControls.update();
+
+            // 3D sahneyi güncelle (render et)
+            update3DScene();
+
+            // Son pozisyonu güncelle
+            setState({ ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY } });
         }
 
         updateMouseCursor();
