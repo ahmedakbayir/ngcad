@@ -15,15 +15,10 @@ export function onPointerUp(e) {
         return;
     }
 
-    // CTRL + Orta tuş ile 2D/3D geçiş
+    // CTRL + Orta tuş ile 2D/3D geçiş (aynı sahne içinde sadece kamera dönüşü)
     if (state.isCtrl3DToggling) {
         // Eğer sürükleme olmadıysa (sadece tıklama) -> 1 saniyelik animasyon
         if (!state.ctrl3DToggleMoved) {
-            // 3D görünüm kapalıysa aç
-            if (!dom.mainContainer.classList.contains('show-3d')) {
-                toggle3DView();
-            }
-
             if (camera && orbitControls) {
                 // Kameranın şu anki polar açısını al
                 const currentPolarAngle = orbitControls.getPolarAngle();
@@ -39,7 +34,7 @@ export function onPointerUp(e) {
                     targetPolarAngle = 0;
                 }
 
-                // 1 saniyelik animasyon
+                // 1 saniyelik animasyon (katı model AÇILMAZ, sadece kamera döner)
                 const duration = 1000; // ms
                 const startTime = Date.now();
                 const startPolarAngle = currentPolarAngle;

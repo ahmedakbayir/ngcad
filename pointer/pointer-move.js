@@ -195,14 +195,9 @@ export function onPointerMove(e) {
         // Eğer fare 5 pikselden fazla hareket ettiyse sürükleme olarak kabul et
         if (distance > 5 && !state.ctrl3DToggleMoved) {
             setState({ ctrl3DToggleMoved: true });
-
-            // 3D görünüm kapalıysa aç
-            if (!dom.mainContainer.classList.contains('show-3d')) {
-                toggle3DView();
-            }
         }
 
-        // Eğer sürükleme başladıysa kamerayı döndür
+        // Eğer sürükleme başladıysa kamerayı döndür (katı model AÇILMAZ, sadece kamera döner)
         if (state.ctrl3DToggleMoved && orbitControls && camera) {
             // movementX/Y kullan (fare hareketinin anlık deltası)
             const movementX = e.movementX || 0;
