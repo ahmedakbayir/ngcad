@@ -6,14 +6,14 @@
  * @param {string} mode - 'small-icon' | 'small-icon-text' | 'big-icon' | 'big-icon-text'
  */
 function setPanelDisplayMode(mode) {
-    const ui = document.getElementById('ui');
-    if (!ui) return;
+    const toolbar = document.getElementById('toolbar');
+    if (!toolbar) return;
 
     // Tüm mod sınıflarını kaldır
-    ui.classList.remove('display-small-icon', 'display-small-icon-text', 'display-big-icon', 'display-big-icon-text');
+    toolbar.classList.remove('display-small-icon', 'display-small-icon-text', 'display-big-icon', 'display-big-icon-text');
 
     // Yeni modu ekle
-    ui.classList.add(`display-${mode}`);
+    toolbar.classList.add(`display-${mode}`);
 
     // Tercihi localStorage'a kaydet
     localStorage.setItem('panelDisplayMode', mode);
@@ -97,12 +97,12 @@ export function initPanelDisplayMenu() {
         });
     });
 
-    // #ui elementine sağ tık event listener'ı ekle
-    const ui = document.getElementById('ui');
-    if (ui) {
-        ui.addEventListener('contextmenu', (e) => {
-            // Sadece #ui div'inin kendisine tıklandığında aç, butonlara değil
-            if (e.target.id === 'ui' || e.target.closest('#ui') === ui) {
+    // #toolbar elementine sağ tık event listener'ı ekle
+    const toolbar = document.getElementById('toolbar');
+    if (toolbar) {
+        toolbar.addEventListener('contextmenu', (e) => {
+            // Sadece #toolbar div'inin kendisine tıklandığında aç, butonlara değil
+            if (e.target.id === 'toolbar' || e.target.closest('#toolbar') === toolbar) {
                 e.preventDefault();
                 e.stopPropagation();
                 showPanelDisplayMenu(e.clientX, e.clientY);
@@ -112,10 +112,10 @@ export function initPanelDisplayMenu() {
 
     // Sayfa yüklendiğinde kaydedilmiş modu uygula
     const savedMode = localStorage.getItem('panelDisplayMode') || 'big-icon';
-    if (ui) {
-        ui.classList.remove('display-small-icon', 'display-small-icon-text', 'display-big-icon', 'display-big-icon-text');
+    if (toolbar) {
+        toolbar.classList.remove('display-small-icon', 'display-small-icon-text', 'display-big-icon', 'display-big-icon-text');
         // Varsayılan mod artık big-icon olduğu için herzaman sınıfı ekle
-        ui.classList.add(`display-${savedMode}`);
+        toolbar.classList.add(`display-${savedMode}`);
     }
 
     //console.log('Panel display menü başlatıldı. Aktif mod:', savedMode);
