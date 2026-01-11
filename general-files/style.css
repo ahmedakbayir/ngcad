@@ -63,6 +63,7 @@ body.light-mode {
     height: 100vh;
     gap: 0;
     padding: 1px;
+    padding-top: 70px;
     box-sizing: border-box;
 }
 
@@ -196,11 +197,16 @@ canvas {
 }
 
 #ui {
-    margin-top: 50px;
-    position: relative;
-    z-index: 10;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 1000;
     pointer-events: none;
     /* UI container'a tıklanmasın, sadece çocuklar */
+    padding: 10px 10px 0 10px;
+    box-sizing: border-box;
 }
 
 /* Sürüklenebilir Buton Grubu Container */
