@@ -11,11 +11,21 @@
 
 <body>
   <!-- Proje Modları - En sol üst köşe -->
+  
+  
   <div id="drawing-mode-selector">
     <button class="mode-btn" id="mode-mimari" title="Mimari Mod">MİMARİ</button>
     <button class="mode-btn" id="mode-tesisat" title="Tesisat Mod">TESİSAT</button>
     <button class="mode-btn active" id="mode-karma" title="Karma Mod">KARMA</button>
   </div>
+
+
+  <div id="viewing-mode-selector ">
+    <button id="b3d" class="mode-btn btn btn-show-3d">Katı Model</button>
+    <button id="bIso" class="mode-btn btn btn-show-iso">İzometri</button>
+    <button id="b3DPerspective" class="mode-btn btn btn-show-3d-perspective">3D Görünüm</button>
+  </div>
+
 
   <div class="main" id="main-container">
     <div id="p2d" class="panel">
@@ -544,6 +554,7 @@
       </div>
       <canvas id="c2d"></canvas>
 
+
       <!-- Düşey Yükseklik Paneli -->
       <div id="vertical-height-panel" class="vertical-panel" style="display: none;">
         <div class="vertical-panel-header">Üst Kata Çık</div>
@@ -582,38 +593,8 @@
       </div>
 
       <input type="text" id="length-input" />
-      <button id="b3d" class="btn btn-show-3d">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-          stroke-linejoin="round">
-          <path
-            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-          </path>
-          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-          <line x1="12" y1="22.08" x2="12" y2="12"></line>
-        </svg>
-        Katı Model
-      </button>
-      <button id="bIso" class="btn btn-show-iso">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-          stroke-linejoin="round">
-          <!-- İzometrik kutu ikonu -->
-          <path d="M12 2L4 7v10l8 5 8-5V7z"></path>
-          <path d="M12 22v-10"></path>
-          <path d="M4 7l8 5 8-5"></path>
-          <path d="M12 2v10"></path>
-        </svg>
-        İzometri
-      </button>
-      <button id="b3DPerspective" class="btn btn-show-3d-perspective">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-          stroke-linejoin="round">
-          <!-- 3D Perspektif ikonu -->
-          <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
-          <rect x="9" y="9" width="6" height="6" fill="none"></rect>
-          <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
-        </svg>
-        3D Görünüm
-      </button>
+
+
     </div>
     <div id="splitter"></div>
     <div id="p3d" class="panel">
@@ -765,6 +746,7 @@
         </button>
       </div>
     </div>
+
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
@@ -784,7 +766,7 @@
     }
   }
   </script>
-<script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js"></script>
 
 </body>
 

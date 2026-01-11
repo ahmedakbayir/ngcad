@@ -274,7 +274,7 @@ body.light-mode .group-label {
     color: var(--color-text);
     border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 11px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -310,7 +310,7 @@ body.light-mode .group-label {
 
 /* Display Mode: Küçük İkon + Metin */
 #ui.display-small-icon-text .btn {
-    font-size: 14px;
+    font-size: 11px;
     /* Metni göster */
     gap: 8px;
     /* İkon ve metin arası boşluk */
@@ -349,7 +349,7 @@ body.light-mode .group-label {
 
 /* Display Mode: Büyük İkon + Metin */
 #ui.display-big-icon-text .btn {
-    font-size: 14px;
+    font-size: 11px;
     /* Küçük ikonla aynı font boyutu */
     gap: 8px;
     /* İkon ve metin arası boşluk */
@@ -395,12 +395,6 @@ body.light-mode .btn.active svg {
     background: var(--bg-button-hover);
 }
 
-/* UI içindeki butonlar için gelişmiş hover efekti */
-#ui .btn:hover:not(.active) {
-    background: var(--bg-button-hover);
-    border-color: #87CEEB;
-    box-shadow: 0 2px 8px rgba(135, 206, 235, 0.3);
-}
 
 /* --- Mouse İmleçleri (CSS - Sınıflara göre genel ayarlar) --- */
 
@@ -456,7 +450,7 @@ body.light-mode .btn.active svg {
     border: 1px solid #8ab4f8;
     border-radius: 4px;
     padding: 4px 6px;
-    font-size: 14px;
+    font-size: 11px;
     width: 80px;
     text-align: center;
     outline: none;
@@ -471,7 +465,7 @@ body.light-mode .btn.active svg {
     z-index: 11;
     padding: 6px 8px;
     /* Daraltıldı: 7px 10px -> 6px 8px */
-    font-size: 14px;
+    font-size: 11px;
     /* %25 büyütüldü: 11px -> 14px */
     gap: 6px;
     /* Daraltıldı: 8px -> 6px */
@@ -785,7 +779,7 @@ body.light-mode .btn.active svg {
     background-color: transparent;
     color: #9aa0a6;
     border-bottom: 2px solid transparent;
-    font-size: 13px;
+    font-size: 11px;
 }
 
 .tab-btn.active {
@@ -819,7 +813,7 @@ body.light-mode .btn.active svg {
     color: var(--color-text);
     border: none;
     padding: 5px;
-    font-size: 14px;
+    font-size: 11px;
     width: 100%;
     box-sizing: border-box;
 }
@@ -890,7 +884,7 @@ body.light-mode .btn.active svg {
     padding: 15px;
     width: 300px;
     /* Genişliği ayarlayın */
-    font-size: 14px;
+    font-size: 11px;
 }
 
 #stair-popup h3 {
@@ -963,7 +957,7 @@ body.light-mode .btn.active svg {
 }
 
 .context-menu-title {
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 500;
     color: #8ab4f8;
     padding: 6px 10px;
@@ -1180,13 +1174,13 @@ body.light-mode .btn.active svg {
 
 /* Katı Model Butonu - 2D Ekranın Sağ Üst Köşesi */
 .btn-show-3d {
-    position: absolute;
+    position: fixed;
     top: 10px;
-    right: 10px;
+    right: 105px;
     z-index: 100;
     padding: 7px 10px;
     /* %25 büyütüldü: 5px 8px -> 7px 10px */
-    font-size: 14px;
+    font-size: 11px;
     /* %25 büyütüldü: 11px -> 14px */
     font-weight: 500;
     min-width: auto;
@@ -1224,19 +1218,16 @@ body.light-mode .btn.active svg {
     font-weight: 600;
 }
 
-/* 3D açıkken butonu gizle */
-.main.show-3d .btn-show-3d {
-    display: none;
-}
+
 
 /* İzometri Göster Butonu - Katı Model butonunun yanında */
 .btn-show-iso {
-    position: absolute;
+    position: fixed;
     top: 10px;
-    right: 130px; /* 3D butonunun soluna yerleştir */
+    right: 10px; /* 3D butonunun soluna yerleştir */
     z-index: 100;
     padding: 7px 10px;
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 500;
     min-width: auto;
     white-space: nowrap;
@@ -1273,19 +1264,15 @@ body.light-mode .btn.active svg {
     font-weight: 600;
 }
 
-/* İzometri açıkken butonu gizle */
-.main.show-iso .btn-show-iso {
-    display: none;
-}
 
 /* 3D Perspektif Görünüm Butonu */
 .btn-show-3d-perspective {
-    position: absolute;
+    position: fixed;
     top: 10px;
-    right: 265px; /* İzometri butonunun soluna yerleştir */
+    right: 215px; /* İzometri butonunun soluna yerleştir */
     z-index: 100;
     padding: 7px 10px;
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 500;
     min-width: auto;
     white-space: nowrap;
@@ -1319,7 +1306,6 @@ body.light-mode .btn.active svg {
     background: #87CEEB;
     color: #202124;
     border-color: #87CEEB;
-    font-weight: 600;
 }
 
 /* 3D Opacity Kontrolleri */
@@ -1460,26 +1446,10 @@ body.light-mode .btn.active svg {
 /* ═══════════════════════════════════════════════════════════════ */
 /* ÇİZİM MODU SEÇME (MİMARİ / TESİSAT / KARMA) */
 /* ═══════════════════════════════════════════════════════════════ */
-.drawing-mode-selector {
-    position: absolute;
-    top: 0px;
-    /* Tavana temas etmeli */
-    left: 10px;
-    /* Sol üst köşe */
-    z-index: 100;
-    display: flex;
-    gap: 4px;
-    background: rgba(30, 31, 32, 0.85);
-    padding: 4px;
-    border-radius: 8px;
-    border: 1px solid rgba(100, 149, 237, 0.3);
-    backdrop-filter: blur(4px);
-    pointer-events: auto;
-}
 
 .mode-btn {
     padding: 8px 16px;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     background: var(--bg-button);
     border: 1px solid var(--border-button);
@@ -1522,6 +1492,23 @@ body.light-mode .btn.active svg {
     z-index: 10000;
     backdrop-filter: blur(4px);
 }
+
+#viewing-mode-selector {
+    position: fixed;
+    top: 0;
+    left: 1000;
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    background: var(--bg-group);
+    border-bottom: 1px solid var(--border-group);
+    border-right: 1px solid var(--border-group);
+    border-bottom-right-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 1234;
+    backdrop-filter: blur(4px);
+}
+
 
 /* 3D açıkken de göster */
 .main.show-3d #drawing-mode-selector {
@@ -1692,7 +1679,7 @@ body.light-mode .btn-show-3d-perspective.active {
 .vertical-panel-header {
     background: rgba(138, 180, 248, 0.2);
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--color-text);
     text-align: center;
@@ -1702,7 +1689,7 @@ body.light-mode .btn-show-3d-perspective.active {
 .vertical-panel-footer {
     background: rgba(138, 180, 248, 0.2);
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--color-text);
     text-align: center;
@@ -1821,7 +1808,7 @@ body.light-mode .btn-show-3d-perspective.active {
 .vertical-quick-label {
     min-width: 40px;
     text-align: center;
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 500;
     color: var(--color-text);
 }
