@@ -1274,50 +1274,6 @@ body.light-mode .btn.active svg {
 }
 
 
-/* 3D Perspektif Görünüm Butonu */
-.btn-show-3d-perspective {
-    position: fixed;
-    top: 10px;
-    right: 215px; /* İzometri butonunun soluna yerleştir */
-    z-index: 100;
-    padding: 7px 10px;
-    font-size: 11px;
-    font-weight: 500;
-    min-width: auto;
-    white-space: nowrap;
-    background: #3c4043;
-    border: 1px solid #5f6368;
-    color: #e8eaed;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.btn-show-3d-perspective svg {
-    width: 18px;
-    height: 18px;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 2;
-}
-
-.btn-show-3d-perspective:hover {
-    background: #5f6368;
-    border-color: #87CEEB;
-    box-shadow: 0 2px 8px rgba(135, 206, 235, 0.3);
-}
-
-.btn-show-3d-perspective.active {
-    background: rgba(100, 149, 237, 0.4);
-    color: #87CEEB;
-    border-color: #87CEEB;
-    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
-}
-
 /* 3D Opacity Kontrolleri */
 #opacity-controls-container {
     position: absolute;
@@ -1522,8 +1478,7 @@ body.light-mode .btn.active svg {
 
 /* viewing-mode-selector içindeki butonlar için eski kuralları override et */
 #viewing-mode-selector .btn-show-3d,
-#viewing-mode-selector .btn-show-iso,
-#viewing-mode-selector .btn-show-3d-perspective {
+#viewing-mode-selector .btn-show-iso {
     position: static;
     top: auto;
     right: auto;
@@ -1682,18 +1637,6 @@ body.light-mode .btn-show-iso {
 }
 
 body.light-mode .btn-show-iso.active {
-    background: #1a73e8;
-    color: #ffffff;
-    border-color: #1557b0;
-    box-shadow: 0 0 8px rgba(26, 115, 232, 0.5);
-}
-
-body.light-mode .btn-show-3d-perspective {
-    color: #3c4043;
-    background: #e8eaed;
-}
-
-body.light-mode .btn-show-3d-perspective.active {
     background: #1a73e8;
     color: #ffffff;
     border-color: #1557b0;

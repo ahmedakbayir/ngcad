@@ -222,6 +222,9 @@ export function toggle3DView() {
     if (dom.mainContainer.classList.contains('show-3d')) {
         setMode("select"); // 3D açılırken modu "select" yap
 
+        // 3D Perspektif modunu aktif et (2D canvas izometrik projeksiyon kullanacak)
+        setState({ is3DPerspectiveActive: true });
+
         // Split ratio butonlarını göster
         const splitButtons = document.getElementById('split-ratio-buttons');
         if (splitButtons) splitButtons.style.display = 'flex';
@@ -233,6 +236,9 @@ export function toggle3DView() {
         // Varsayılan split ratio'yu ayarla (25%)
         setSplitRatio(25);
     } else {
+        // 3D Perspektif modunu kapat (2D canvas normal görünüme dönecek)
+        setState({ is3DPerspectiveActive: false });
+
         // Split ratio butonlarını gizle
         const splitButtons = document.getElementById('split-ratio-buttons');
         if (splitButtons) splitButtons.style.display = 'none';
@@ -289,34 +295,6 @@ export function toggleIsoView() {
     }, 10);
 }
 
-export function toggle3DPerspective() {
-    setState({ is3DPerspectiveActive: !state.is3DPerspectiveActive });
-
-    // Buton görünümünü güncelle
-    if (state.is3DPerspectiveActive) {
-        dom.b3DPerspective.classList.add('active');
-        dom.b3DPerspective.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
-              <rect x="9" y="9" width="6" height="6" fill="none"></rect>
-              <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
-            </svg>
-            2D Görünüm
-        `;
-    } else {
-        dom.b3DPerspective.classList.remove('active');
-        dom.b3DPerspective.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
-              <rect x="9" y="9" width="6" height="6" fill="none"></rect>
-              <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
-            </svg>
-            3D Görünüm
-        `;
-    }
-}
 
 // İzometri ekran bölme oranını ayarla
 export function setIsoRatio(ratio) {
@@ -1651,13 +1629,6 @@ export function setupUIListeners() {
     dom.bIso.addEventListener('click', () => {
         toggleIsoView();
     });
-
-    // 3D PERSPEKTİF GÖRÜNÜM BUTONU LISTENER'I
-    if (dom.b3DPerspective) {
-        dom.b3DPerspective.addEventListener('click', () => {
-            toggle3DPerspective();
-        });
-    }
 
     // KATI GÖSTER / BİNAYI GÖSTER TOGGLE BUTONU
     if (dom.bFloorView) {
