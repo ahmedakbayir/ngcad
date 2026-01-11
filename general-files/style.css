@@ -1476,18 +1476,18 @@ body.light-mode .btn.active svg {
     color: var(--color-button-active);
 }
 
-/* Proje Modları - En sol üst köşe */
+/* Proje Modları - Sağ üst köşe */
 #drawing-mode-selector {
     position: fixed;
     top: 0;
-    left: 0;
+    right: 0;
     display: flex;
     gap: 4px;
     padding: 6px;
     background: var(--bg-group);
     border-bottom: 1px solid var(--border-group);
-    border-right: 1px solid var(--border-group);
-    border-bottom-right-radius: 8px;
+    border-left: 1px solid var(--border-group);
+    border-bottom-left-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     z-index: 10000;
     backdrop-filter: blur(4px);
@@ -1496,7 +1496,7 @@ body.light-mode .btn.active svg {
 #viewing-mode-selector {
     position: fixed;
     top: 0;
-    left: 1000;
+    left: 0;
     display: flex;
     gap: 4px;
     padding: 6px;
