@@ -51,11 +51,18 @@ export function onPointerDown(e) {
     if (e.button === 1) { // Orta tuş ile pan veya CTRL ile 2D/3D geçiş
         // CTRL basılıysa 2D/3D geçiş modu
         if (currentModifierKeys.ctrl) {
+            // 3D perspektifi aktif et (update3DScene'in çalışması için gerekli)
+            const wasActive = state.is3DPerspectiveActive;
+            if (!wasActive) {
+                setState({ is3DPerspectiveActive: true });
+            }
+
             setState({
                 isCtrl3DToggling: true,
                 ctrl3DToggleStart: { x: e.clientX, y: e.clientY },
                 ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY }, // Son pozisyonu da kaydet
-                ctrl3DToggleMoved: false
+                ctrl3DToggleMoved: false,
+                ctrl3DWasActive: wasActive // Önceki durumu kaydet
             });
             e.preventDefault(); // Varsayılan davranışı engelle
             return;

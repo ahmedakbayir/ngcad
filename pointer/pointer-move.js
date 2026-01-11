@@ -19,6 +19,7 @@ import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import { toggle3DView } from '../general-files/ui.js';
+import { draw2D } from '../draw/draw2d.js';
 // Plumbing functions now handled by plumbingManager
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
@@ -215,8 +216,9 @@ export function onPointerMove(e) {
             orbitControls.rotateUp(-deltaY * polarSpeed); // Negative: mouse down = camera rotates down
             orbitControls.update();
 
-            // 3D sahneyi güncelle (render et)
-            update3DScene();
+            // 2D ve 3D sahneyi güncelle (render et)
+            draw2D(); // 2D canvas'ı 3D perspektifle çiz
+            update3DScene(); // 3D sahneyi render et
 
             // Son pozisyonu güncelle
             setState({ ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY } });
