@@ -1217,9 +1217,10 @@ body.light-mode .btn.active svg {
 }
 
 .btn-show-3d.active {
-    background: #8ab4f8;
-    color: #202124;
-    border-color: #8ab4f8;
+    background: rgba(100, 149, 237, 0.4);
+    color: #87CEEB;
+    border-color: #87CEEB;
+    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
     font-weight: 600;
 }
 
@@ -1263,9 +1264,10 @@ body.light-mode .btn.active svg {
 }
 
 .btn-show-iso.active {
-    background: #8ab4f8;
-    color: #202124;
-    border-color: #8ab4f8;
+    background: rgba(100, 149, 237, 0.4);
+    color: #87CEEB;
+    border-color: #87CEEB;
+    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
     font-weight: 600;
 }
 
@@ -1308,9 +1310,10 @@ body.light-mode .btn.active svg {
 }
 
 .btn-show-3d-perspective.active {
-    background: #87CEEB;
-    color: #202124;
+    background: rgba(100, 149, 237, 0.4);
+    color: #87CEEB;
     border-color: #87CEEB;
+    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
 }
 
 /* 3D Opacity Kontrolleri */
