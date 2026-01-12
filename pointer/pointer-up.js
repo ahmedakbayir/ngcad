@@ -17,6 +17,49 @@ export function onPointerUp(e) {
         return;
     }
 
+    if (state.isCtrl3DToggling && e.button === 1) {
+        const deltaX = e.clientX - state.ctrl3DToggleStartPos.x;
+        const deltaY = e.clientY - state.ctrl3DToggleStartPos.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const wasClick = distance < 5;
+
+        if (wasClick) {
+            // Hedef durumu belirle (Şu an aktifse pasif, pasifse aktif yap)
+            const targetIsActive = !state.is3DPerspectiveActive;
+            
+            console.log(`[CTRL+MiddleBtn] Animasyon Başlıyor: ${state.is3DPerspectiveActive ? '3D -> 2D' : '2D -> 3D'}`);
+
+            // State'i hemen güncelle (ikonlar vs. için) ancak çizim draw2d içindeki viewBlendFactor'a bağlı olacak
+            setState({ is3DPerspectiveActive: targetIsActive });
+
+            // GSAP ANİMASYONU: viewBlendFactor değişkenini 0'dan 1'e (veya tersi) götür
+            gsap.to(state, {
+                viewBlendFactor: targetIsActive ? 1 : 0, // Hedef değer
+                duration: 0.8, // Süre
+                ease: "power2.inOut",
+                onUpdate: () => {
+                    // Her karede çizimi yenile
+                    draw2D(); 
+                    // İsterseniz 3D sahneyi de güncelleyebilirsiniz (farklı bir efekt için)
+                    // update3DScene(); 
+                },
+                onComplete: () => {
+                    console.log("[GSAP] Animasyon Tamamlandı.");
+                    // Garanti olsun diye değeri tam sayıya eşitle
+                    state.viewBlendFactor = targetIsActive ? 1 : 0;
+                    draw2D();
+                }
+            });
+
+        } else {
+            console.log('[CTRL+MiddleBtn] Sürükleme algılandı, işlem iptal.');
+        }
+
+        setState({ isCtrl3DToggling: false, ctrl3DToggleStartPos: null });
+        return;
+    }
+
+/*
     // CTRL + Orta Tuş ile 2D/3D Kamera Toggle (sadece tıklama)
     if (state.isCtrl3DToggling && e.button === 1) {
         // Tıklama mı yoksa sürükleme mi kontrol et (5px eşik)
@@ -116,7 +159,7 @@ export function onPointerUp(e) {
 
         return;
     }
-
+*/
     // --- Yeni Tesisat Sistemi (v2) ---
     // Tesisat nesneleri tüm modlarda interaktif olmalı (select, plumbingV2, karma)
     const isPlumbingMode = state.currentMode === 'plumbingV2' ||

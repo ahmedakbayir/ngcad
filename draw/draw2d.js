@@ -289,25 +289,42 @@ export function draw2D() {
     // But done correctly so mouse coordinates work properly
 
     if (state.is3DPerspectiveActive) {
-        // İzometrik projeksiyon: scene-isometric.js ile aynı formül
-        // isoX = (x + y) * cos(30°)
-        // isoY = (y - x) * sin(30°) - z
-        //
-        // Matrix formunda (z=0 için 2D elemanlar):
-        // x' = x * cos(30°) + y * cos(30°)
-        // y' = -x * sin(30°) + y * sin(30°)
+        // --- GÜVENLİ MATRİS GEÇİŞİ (INTERPOLATION) ---
+        // Hedef açı değerleri (30 Derece)
+        const angle = Math.PI / 6;
+        const isoCos = Math.cos(angle); // ~0.866
+        const isoSin = Math.sin(angle); // 0.5
 
-        const angle = Math.PI / 6; // 30 derece
-        const cosAngle = Math.cos(angle); // ≈ 0.866
-        const sinAngle = Math.sin(angle); // = 0.5
+        // Animasyon Değeri (t): 0 = 2D, 1 = 3D
+        // viewBlendFactor tanımlı değilse butona/duruma göre 0 veya 1 al
+        let t = (typeof state.viewBlendFactor === 'number')
+            ? state.viewBlendFactor
+            : (state.is3DPerspectiveActive ? 1 : 0);
 
+        // t değerini 0-1 arasına sabitle
+        t = Math.max(0, Math.min(1, t));
+
+        // Matris Katsayılarını Hesapla (Lerp: Linear Interpolation)
+        // a: X ölçeği (2D'de 1 -> 3D'de isoCos)
+        const a = 1 + (isoCos - 1) * t;
+
+        // b: X skew (2D'de 0 -> 3D'de -isoSin)
+        const b = 0 + (-isoSin - 0) * t;
+
+        // c: Y skew (2D'de 0 -> 3D'de isoCos)
+        const c = 0 + (isoCos - 0) * t;
+
+        // d: Y ölçeği (2D'de 1 -> 3D'de isoSin)
+        const d = 1 + (isoSin - 1) * t;
+
+        // Transformu Uygula
         ctx2d.setTransform(
-            dpr * zoom * cosAngle,      // a: X için X bileşeni
-            dpr * zoom * -sinAngle,     // b: X için Y bileşeni
-            dpr * zoom * cosAngle,      // c: Y için X bileşeni
-            dpr * zoom * sinAngle,      // d: Y için Y bileşeni
-            dpr * panOffset.x,          // e: X offset
-            dpr * panOffset.y           // f: Y offset
+            dpr * zoom * a,
+            dpr * zoom * b,
+            dpr * zoom * c,
+            dpr * zoom * d,
+            dpr * panOffset.x,
+            dpr * panOffset.y
         );
     } else {
         // Normal 2D görünüm

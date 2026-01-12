@@ -463,6 +463,8 @@ export let state = {
     // --- 3D PERSPEKTİF GÖRÜNÜM ---
     is3DPerspectiveActive: false, // 3D perspektif modu aktif mi?
     // --- 3D PERSPEKTİF GÖRÜNÜM SONU ---
+    viewBlendFactor: 0,
+    
 };
 
 export function setState(newState) {
