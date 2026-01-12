@@ -441,31 +441,18 @@ export class PlumbingRenderer {
             // Çizim moduna göre renk ayarla
             const adjustedColor = getAdjustedColor(config.color, 'boru');
 
-            // Z koordinatlarını al (3D görünüm için)
-            const z1 = (state.is3DPerspectiveActive && pipe.p1.z) ? pipe.p1.z : 0;
-            const z2 = (state.is3DPerspectiveActive && pipe.p2.z) ? pipe.p2.z : 0;
+            // Z koordinatlarını al ve viewBlendFactor ile interpolate et
+            // t=0 (2D): Z değerleri 0, t=1 (3D): Z değerleri full
+            const t = state.viewBlendFactor || 0;
+            const z1 = (pipe.p1.z || 0) * t;
+            const z2 = (pipe.p2.z || 0) * t;
 
-            // Boru geometrisi (3D Perspektif aktifse Z'yi X'e ekle, Y'den çıkar)
-            // Bu formül draw2d.js'deki izometrik projeksiyon matrisiyle (rotate 30deg) uyumludur.
-            let x1, y1, x2, y2;
-
-            if (state.is3DPerspectiveActive) {
-                // İzometrik projeksiyon matrisi (draw2d.js'de):
-                // u = (x+y)*cos(30)
-                // v = (-x+y)*sin(30)
-                // Bu matriste dikey çizgi (sadece v değişsin, u sabit) elde etmek için:
-                // delta_x = delta_z, delta_y = -delta_z formülü uygulanmalı.
-                x1 = pipe.p1.x + z1;
-                y1 = pipe.p1.y - z1;
-                x2 = pipe.p2.x + z2;
-                y2 = pipe.p2.y - z2;
-            } else {
-                // Normal 2D görünüm (Z yok sayılır)
-                x1 = pipe.p1.x;
-                y1 = pipe.p1.y;
-                x2 = pipe.p2.x;
-                y2 = pipe.p2.y;
-            }
+            // Boru geometrisi - Z'yi smooth interpolasyonla uygula
+            // İzometrik projeksiyon: delta_x = delta_z, delta_y = -delta_z
+            const x1 = pipe.p1.x + z1;
+            const y1 = pipe.p1.y - z1;
+            const x2 = pipe.p2.x + z2;
+            const y2 = pipe.p2.y - z2;
 
             const dx = x2 - x1;
             const dy = y2 - y1;
@@ -561,12 +548,15 @@ export class PlumbingRenderer {
         });
 
         // Düşey boru gösterimlerini ÇİZ (tüm boruların üstünde görünsün)
-        // DEĞİŞİKLİK: 3D modunda (state.is3DPerspectiveActive) bu sembolleri ÇİZME
-        if (!state.is3DPerspectiveActive) {
+        // Smooth geçiş: 2D moduna yaklaştıkça görünür (opacity = 1-t)
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.99) { // Tam 3D olmadığı sürece göster
+            const symbolOpacity = 1 - t; // 2D'de 1, 3D'e doğru 0
             pipes.forEach(pipe => {
                 const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
                 if (Math.abs(zDiff) > 0.1) {
                     ctx.save();
+                    ctx.globalAlpha = symbolOpacity; // Smooth fade out
                     const colorGroup = pipe.colorGroup || 'YELLOW';
                     const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
@@ -674,22 +664,22 @@ export class PlumbingRenderer {
     findBreakPoints(pipes) {
         const pointMap = new Map();
         const tolerance = 0.5;
-        // 3D modunun aktifliğini kontrol et
-        const is3D = state.is3DPerspectiveActive;
+        // viewBlendFactor ile smooth interpolasyon
+        const t = state.viewBlendFactor || 0;
 
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
 
-            // Z değerlerini al (yoksa 0)
-            const z1 = pipe.p1.z || 0;
-            const z2 = pipe.p2.z || 0;
+            // Z değerlerini al ve t ile interpolate et
+            const z1 = (pipe.p1.z || 0) * t;
+            const z2 = (pipe.p2.z || 0) * t;
 
-            // Ekran izdüşüm koordinatlarını hesapla (Açıyı doğru bulmak için)
-            // drawPipes ile TAM UYUMLU olması şart: x' = x + z, y' = y - z
-            const tx1 = pipe.p1.x + (is3D ? z1 : 0);
-            const ty1 = pipe.p1.y - (is3D ? z1 : 0);
-            const tx2 = pipe.p2.x + (is3D ? z2 : 0);
-            const ty2 = pipe.p2.y - (is3D ? z2 : 0);
+            // Ekran izdüşüm koordinatlarını hesapla
+            // drawPipes ile TAM UYUMLU: x' = x + z*t, y' = y - z*t
+            const tx1 = pipe.p1.x + z1;
+            const ty1 = pipe.p1.y - z1;
+            const tx2 = pipe.p2.x + z2;
+            const ty2 = pipe.p2.y - z2;
 
             // Anahtar oluştururken X, Y ve Z'yi birlikte dikkate al (Farklı kotlar karışmasın)
             const key1 = `${Math.round(pipe.p1.x / tolerance) * tolerance},${Math.round(pipe.p1.y / tolerance) * tolerance},${Math.round(z1 / tolerance) * tolerance}`;
@@ -740,15 +730,15 @@ export class PlumbingRenderer {
     }
 
     drawElbows(ctx, pipes, breakPoints) {
-        // 3D modu kontrolü
-        const is3D = state.is3DPerspectiveActive;
+        // viewBlendFactor ile smooth interpolasyon
+        const t = state.viewBlendFactor || 0;
 
         breakPoints.forEach(bp => {
             const firstPipe = bp.pipes[0];
             const colorGroup = firstPipe?.colorGroup || 'YELLOW';
 
-            // Dirseğin çizileceği MERKEZİ hesapla (drawPipes ile aynı mantık)
-            const z = is3D ? (bp.z || 0) : 0;
+            // Dirseğin çizileceği MERKEZİ hesapla (Z'yi t ile interpolate et)
+            const z = (bp.z || 0) * t;
             const cx = bp.x + z; // X'e Z ekle
             const cy = bp.y - z; // Y'den Z çıkar
 
@@ -812,22 +802,16 @@ export class PlumbingRenderer {
         const r = 1.6; // Küçük
         const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
 
-        // Z koordinatlarını al
-        const z1 = (state.is3DPerspectiveActive && pipe.p1.z) ? pipe.p1.z : 0;
-        const z2 = (state.is3DPerspectiveActive && pipe.p2.z) ? pipe.p2.z : 0;
+        // Z koordinatlarını al ve viewBlendFactor ile interpolate et
+        const t = state.viewBlendFactor || 0;
+        const z1 = (pipe.p1.z || 0) * t;
+        const z2 = (pipe.p2.z || 0) * t;
 
-        // Koordinatları hesapla (3D perspektif için Z düzeltmesi)
-        let x1 = pipe.p1.x;
-        let y1 = pipe.p1.y;
-        let x2 = pipe.p2.x;
-        let y2 = pipe.p2.y;
-
-        if (state.is3DPerspectiveActive) {
-            x1 += z1;
-            y1 -= z1;
-            x2 += z2;
-            y2 -= z2;
-        }
+        // Koordinatları hesapla (Z smooth interpolasyonla)
+        const x1 = pipe.p1.x + z1;
+        const y1 = pipe.p1.y - z1;
+        const x2 = pipe.p2.x + z2;
+        const y2 = pipe.p2.y - z2;
 
         // p1 noktası
         ctx.fillStyle = themeColors.pipeEndpoint;
@@ -961,22 +945,16 @@ export class PlumbingRenderer {
             width = 4 / zoom;
         }
 
-        // Z koordinatlarını al (3D görünüm için)
-        const z1 = (state.is3DPerspectiveActive && geciciBoru.p1.z) ? geciciBoru.p1.z : 0;
-        const z2 = (state.is3DPerspectiveActive && geciciBoru.p2.z) ? geciciBoru.p2.z : 0;
+        // Z koordinatlarını al ve viewBlendFactor ile interpolate et
+        const t = state.viewBlendFactor || 0;
+        const z1 = (geciciBoru.p1.z || 0) * t;
+        const z2 = (geciciBoru.p2.z || 0) * t;
 
-        // Koordinatları hesapla (3D perspektif için Z düzeltmesi)
-        let x1 = geciciBoru.p1.x;
-        let y1 = geciciBoru.p1.y;
-        let x2 = geciciBoru.p2.x;
-        let y2 = geciciBoru.p2.y;
-
-        if (state.is3DPerspectiveActive) {
-            x1 += z1;
-            y1 -= z1;
-            x2 += z2;
-            y2 -= z2;
-        }
+        // Koordinatları hesapla (Z smooth interpolasyonla)
+        const x1 = geciciBoru.p1.x + z1;
+        const y1 = geciciBoru.p1.y - z1;
+        const x2 = geciciBoru.p2.x + z2;
+        const y2 = geciciBoru.p2.y - z2;
 
         const dx = x2 - x1;
         const dy = y2 - y1;
