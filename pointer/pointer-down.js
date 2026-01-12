@@ -50,9 +50,9 @@ function markAllDownstreamPipesAsConnected(startPipe) {
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
     if (e.button === 1) { // Orta tuş ile pan veya CTRL ile 2D/3D geçiş
-        // CTRL basılıysa 2D/3D kamera dönüşü
+        // CTRL basılıysa 2D/3D kamera toggle (sadece tıklama, sürükleme yok)
         if (currentModifierKeys.ctrl) {
-            console.log('[CTRL+MiddleBtn] DOWN - Rotasyon modu başladı');
+            console.log('[CTRL+MiddleBtn] DOWN - Toggle modu başladı');
             console.log('[CTRL+MiddleBtn] orbitControls:', orbitControls ? 'mevcut' : 'YOK!');
             if (orbitControls) {
                 const polarAngle = orbitControls.getPolarAngle();
@@ -60,10 +60,8 @@ export function onPointerDown(e) {
                 console.log('[CTRL+MiddleBtn] Başlangıç polar açısı:', polarDegrees.toFixed(1), '°');
             }
             setState({
-                isCtrl3DRotating: true,
-                ctrl3DStartPos: { x: e.clientX, y: e.clientY },
-                ctrl3DLastPos: { x: e.clientX, y: e.clientY },
-                ctrl3DMoved: false
+                isCtrl3DToggling: true,
+                ctrl3DToggleStartPos: { x: e.clientX, y: e.clientY }
             });
             return;
         }

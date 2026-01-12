@@ -214,87 +214,13 @@ export function onPointerMove(e) {
         return;
     }
 
-    // CTRL + Orta Tuş ile 2D/3D Kamera Dönüşü (sürükleme)
-    if (state.isCtrl3DRotating) {
-        // CTRL bırakıldıysa rotasyonu durdur
-        if (!currentModifierKeys.ctrl) {
-            console.log('[CTRL+MiddleBtn] CTRL bırakıldı - rotasyon iptal');
-            setState({
-                isCtrl3DRotating: false,
-                ctrl3DStartPos: null,
-                ctrl3DLastPos: null,
-                ctrl3DMoved: false
-            });
-            updateMouseCursor();
-            return;
-        }
-
-        const deltaX = e.clientX - state.ctrl3DLastPos.x;
-        const deltaY = e.clientY - state.ctrl3DLastPos.y;
-
-        // Hareket mesafesini kontrol et (tıklama vs sürükleme ayrımı için)
-        if (!state.ctrl3DMoved) {
-            const totalDeltaX = e.clientX - state.ctrl3DStartPos.x;
-            const totalDeltaY = e.clientY - state.ctrl3DStartPos.y;
-            const distance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY);
-
-            if (distance > 5) {
-                console.log('[CTRL+MiddleBtn] MOVE - Sürükleme başladı, distance:', distance);
-                setState({
-                    ctrl3DMoved: true,
-                    is3DPerspectiveActive: true // Sürükleme başladığında 3D perspektifi aç
-                });
-            }
-        }
-
-        // Eğer sürükleme başladıysa kamerayı döndür
-        if (state.ctrl3DMoved) {
-            if (orbitControls && camera) {
-                // Manuel spherical koordinat rotasyonu (rotateLeft/rotateUp yok)
-                const target = orbitControls.target;
-                const offset = new THREE.Vector3().subVectors(camera.position, target);
-
-                // Spherical koordinatlara çevir
-                const spherical = new THREE.Spherical();
-                spherical.setFromVector3(offset);
-
-                // Açıları değiştir
-                const rotationSpeed = 0.005;
-                spherical.theta -= deltaX * rotationSpeed; // azimuthal (yatay)
-                spherical.phi += deltaY * rotationSpeed;   // polar (dikey)
-
-                // Polar açıyı limitle (0° ile 180° arası)
-                spherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, spherical.phi));
-
-                // Yeni pozisyonu hesapla ve uygula
-                offset.setFromSpherical(spherical);
-                camera.position.copy(target).add(offset);
-                orbitControls.update();
-
-                // Kamera açılarını state'e kaydet
-                const polarAngle = orbitControls.getPolarAngle();
-                const azimuthalAngle = orbitControls.getAzimuthalAngle();
-
-                console.log('[CTRL+MiddleBtn] Kamera döndürülüyor - polar:', (polarAngle * 180 / Math.PI).toFixed(1), '°');
-
-                setState({
-                    cameraPolarAngle: polarAngle,
-                    cameraAzimuthalAngle: azimuthalAngle
-                });
-
-                // 2D ve 3D sahneyi render et
-                draw2D();
-                update3DScene();
-            } else {
-                console.warn('[CTRL+MiddleBtn] orbitControls veya camera bulunamadı!');
-            }
-        }
-
-        // Son pozisyonu güncelle
+    // CTRL + Orta Tuş: CTRL bırakıldıysa toggle'ı iptal et
+    if (state.isCtrl3DToggling && !currentModifierKeys.ctrl) {
+        console.log('[CTRL+MiddleBtn] CTRL bırakıldı - toggle iptal');
         setState({
-            ctrl3DLastPos: { x: e.clientX, y: e.clientY }
+            isCtrl3DToggling: false,
+            ctrl3DToggleStartPos: null
         });
-
         updateMouseCursor();
         return;
     }
