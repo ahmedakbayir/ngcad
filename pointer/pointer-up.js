@@ -23,36 +23,60 @@ export function onPointerUp(e) {
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
         const wasClick = distance < 5;
 
-        if (wasClick) {
-            // Hedef durumu belirle (Şu an aktifse pasif, pasifse aktif yap)
+if (wasClick) {
+            // Hedef durumu belirle (Şu an 3D ise 2D'ye, 2D ise 3D'ye)
             const targetIsActive = !state.is3DPerspectiveActive;
-            
-            console.log(`[CTRL+MiddleBtn] Animasyon Başlıyor: ${state.is3DPerspectiveActive ? '3D -> 2D' : '2D -> 3D'}`);
+            const targetValue = targetIsActive ? 1 : 0; // Hedef değer (1 veya 0)
 
-            // State'i hemen güncelle (ikonlar vs. için) ancak çizim draw2d içindeki viewBlendFactor'a bağlı olacak
+            console.log(`[CTRL+MiddleBtn] Geçiş Başlıyor: ${state.is3DPerspectiveActive ? '3D -> 2D' : '2D -> 3D'}`);
+
+            // 1. Durumu hemen güncelle (Buton ikonları vs. için)
             setState({ is3DPerspectiveActive: targetIsActive });
 
-            // GSAP ANİMASYONU: viewBlendFactor değişkenini 0'dan 1'e (veya tersi) götür
-            gsap.to(state, {
-                viewBlendFactor: targetIsActive ? 1 : 0, // Hedef değer
-                duration: 0.8, // Süre
+            // 2. GSAP ANİMASYONU
+            // Hem 2D çizim faktörünü (viewBlendFactor) hem de 3D kamerayı anime ediyoruz
+            
+            // 3D Kamera değerleri
+            const targetAngle = targetIsActive ? (Math.PI / 3) : 0; 
+            const animationObject = { 
+                val: state.viewBlendFactor, // 2D için başlangıç
+                angle: orbitControls ? orbitControls.getPolarAngle() : 0 // 3D için başlangıç
+            };
+
+            gsap.to(animationObject, {
+                val: targetValue, // 2D Hedef
+                angle: targetAngle, // 3D Hedef
+                duration: 0.8, // Süre (Saniye) - Daha hızlı tepki için düşürüldü
                 ease: "power2.inOut",
                 onUpdate: () => {
-                    // Her karede çizimi yenile
+                    // A) 2D Değişkenini Güncelle
+                    state.viewBlendFactor = animationObject.val;
+                    
+                    // B) 3D Kamerayı Güncelle (Varsa)
+                    if (orbitControls && camera) {
+                        const dist = camera.position.distanceTo(orbitControls.target);
+                        const azimuth = orbitControls.getAzimuthalAngle();
+                        const spherical = new THREE.Spherical(dist, animationObject.angle, azimuth);
+                        camera.position.setFromSpherical(spherical).add(orbitControls.target);
+                        camera.lookAt(orbitControls.target);
+                    }
+
+                    // C) Sahneleri Yeniden Çiz
                     draw2D(); 
-                    // İsterseniz 3D sahneyi de güncelleyebilirsiniz (farklı bir efekt için)
-                    // update3DScene(); 
+                    update3DScene();
                 },
                 onComplete: () => {
-                    console.log("[GSAP] Animasyon Tamamlandı.");
-                    // Garanti olsun diye değeri tam sayıya eşitle
-                    state.viewBlendFactor = targetIsActive ? 1 : 0;
+                    // Emin olmak için değerleri tam sayıya sabitle
+                    state.viewBlendFactor = targetValue;
+                    if(orbitControls) orbitControls.update();
                     draw2D();
+                    update3DScene();
+                    console.log("[GSAP] Animasyon Tamamlandı.");
                 }
             });
-
+            
         } else {
-            console.log('[CTRL+MiddleBtn] Sürükleme algılandı, işlem iptal.');
+             console.log('[CTRL+MiddleBtn] Sürükleme algılandı - işlem yapılmıyor');
         }
 
         setState({ isCtrl3DToggling: false, ctrl3DToggleStartPos: null });
