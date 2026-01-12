@@ -35,6 +35,9 @@ export let currentModifierKeys = {
     shift: false
 };
 
+// Çift CTRL takibi için değişken
+let lastCtrlPressTime = 0;
+
 // function wallExists(p1, p2) {
 //     return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
 // }
@@ -442,7 +445,19 @@ export function handleDelete() {
 // ... (dosyanın kalanı değişmedi: onKeyDown, onKeyUp, on3DPointerDown, setupInputListeners, splitWallAtClickPosition) ...
 function onKeyDown(e) {
     // Modifier tuşları
-    if (e.key === 'Control') currentModifierKeys.ctrl = true;
+    if (e.key === 'Control') {
+        currentModifierKeys.ctrl = true;
+
+        // --- ÇİFT CTRL MANTIĞI ---
+        const now = Date.now();
+        if (now - lastCtrlPressTime < 300) { // 300ms içinde ikinci kez basıldıysa
+            toggle3DPerspective(); // Animasyonlu geçişi başlat
+            lastCtrlPressTime = 0; // Resetle
+        } else {
+            lastCtrlPressTime = now;
+        }
+        // -------------------------
+    }
     if (e.key === 'Alt') currentModifierKeys.alt = true;
     if (e.key === 'Shift') currentModifierKeys.shift = true;
 
