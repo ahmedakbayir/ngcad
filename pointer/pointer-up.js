@@ -8,6 +8,7 @@ import { draw2D } from '../draw/draw2d.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import * as THREE from 'three';
+import gsap from 'gsap';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
@@ -27,7 +28,7 @@ export function onPointerUp(e) {
         console.log('[CTRL+MiddleBtn] UP - wasClick:', wasClick, 'distance:', distance.toFixed(1));
 
         if (wasClick) {
-            // Tıklama oldu -> 1 saniyelik animasyonla 2D/3D toggle
+            // Tıklama oldu -> GSAP ile smooth 2D/3D toggle animasyonu
             if (orbitControls && camera) {
                 const currentPolarAngle = orbitControls.getPolarAngle();
                 const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
@@ -40,43 +41,35 @@ export function onPointerUp(e) {
                 const targetDegrees = targetAngle * (180 / Math.PI);
                 const goingTo3D = targetAngle === targetAngle3D;
 
-                console.log('[CTRL+MiddleBtn] TOGGLE animasyon - mevcut:', currentPolarDegrees.toFixed(1), '° -> hedef:', targetDegrees.toFixed(1), '°', goingTo3D ? '(3D)' : '(2D)');
+                console.log('[CTRL+MiddleBtn] GSAP animasyon - mevcut:', currentPolarDegrees.toFixed(1), '° -> hedef:', targetDegrees.toFixed(1), '°', goingTo3D ? '(3D)' : '(2D)');
 
-                // 1 saniyelik animasyon
-                const startAngle = currentPolarAngle;
-                const startTime = performance.now();
-                const duration = 1000; // 1 saniye
                 const target = orbitControls.target.clone();
                 const startDistance = camera.position.distanceTo(target);
 
-                const animate = () => {
-                    const elapsed = performance.now() - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
+                // GSAP ile animasyon - interpolate edilecek obje
+                const animationObject = { angle: currentPolarAngle };
 
-                    // Easing function (ease-in-out)
-                    const easeProgress = progress < 0.5
-                        ? 2 * progress * progress
-                        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+                // GSAP animasyonu
+                gsap.to(animationObject, {
+                    angle: targetAngle,
+                    duration: 1.2, // 1.2 saniye - biraz daha uzun ve cinematic
+                    ease: "power2.inOut", // Çok smooth easing
+                    onUpdate: () => {
+                        // Her frame'de kamera pozisyonunu güncelle
+                        const spherical = new THREE.Spherical(
+                            startDistance,
+                            animationObject.angle,
+                            orbitControls.getAzimuthalAngle()
+                        );
+                        const offset = new THREE.Vector3().setFromSpherical(spherical);
+                        camera.position.copy(target).add(offset);
+                        orbitControls.update();
 
-                    const currentAngle = startAngle + (targetAngle - startAngle) * easeProgress;
-
-                    // Spherical koordinatları kullanarak kamera pozisyonunu ayarla
-                    const spherical = new THREE.Spherical(
-                        startDistance,
-                        currentAngle,
-                        orbitControls.getAzimuthalAngle()
-                    );
-                    const offset = new THREE.Vector3().setFromSpherical(spherical);
-                    camera.position.copy(target).add(offset);
-                    orbitControls.update();
-
-                    // 2D ve 3D sahneyi render et
-                    draw2D();
-                    update3DScene();
-
-                    if (progress < 1) {
-                        requestAnimationFrame(animate);
-                    } else {
+                        // 2D ve 3D sahneyi render et
+                        draw2D();
+                        update3DScene();
+                    },
+                    onComplete: () => {
                         // Animasyon bitti - perspective ve state'i güncelle
                         console.log('[CTRL+MiddleBtn] Animasyon bitti -', goingTo3D ? '3D modunda' : '2D moduna geçildi');
 
@@ -96,9 +89,7 @@ export function onPointerUp(e) {
                         draw2D();
                         update3DScene();
                     }
-                };
-
-                animate();
+                });
             } else {
                 console.warn('[CTRL+MiddleBtn] orbitControls veya camera bulunamadı!');
             }
