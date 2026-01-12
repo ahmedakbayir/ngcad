@@ -13,6 +13,7 @@ import { applySymmetry, applyCopy } from '../draw/symmetry.js';
 import { state, dom, setState, setMode } from '../general-files/main.js';
 import { getSmartSnapPoint } from '../general-files/snap.js';
 import { currentModifierKeys } from '../general-files/input.js';
+import { orbitControls } from '../scene3d/scene3d-core.js';
 import { saveState } from '../general-files/history.js';
 import { cancelLengthEdit } from '../general-files/ui.js';
 import { getObjectAtPoint, getInteractableObjectAtPoint } from '../general-files/actions.js';
@@ -52,6 +53,12 @@ export function onPointerDown(e) {
         // CTRL basılıysa 2D/3D kamera dönüşü
         if (currentModifierKeys.ctrl) {
             console.log('[CTRL+MiddleBtn] DOWN - Rotasyon modu başladı');
+            console.log('[CTRL+MiddleBtn] orbitControls:', orbitControls ? 'mevcut' : 'YOK!');
+            if (orbitControls) {
+                const polarAngle = orbitControls.getPolarAngle();
+                const polarDegrees = polarAngle * (180 / Math.PI);
+                console.log('[CTRL+MiddleBtn] Başlangıç polar açısı:', polarDegrees.toFixed(1), '°');
+            }
             setState({
                 isCtrl3DRotating: true,
                 ctrl3DStartPos: { x: e.clientX, y: e.clientY },
