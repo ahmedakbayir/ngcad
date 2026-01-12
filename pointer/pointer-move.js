@@ -189,9 +189,19 @@ export function onPointerMove(e) {
 
     // CTRL + Orta tuş ile 2D/3D geçiş (AYNI SAHNE İÇİNDE, KATI MODEL AÇILMAZ!)
     if (state.isCtrl3DToggling) {
-        const deltaX = e.clientX - state.ctrl3DToggleStart.x;
-        const deltaY = e.clientY - state.ctrl3DToggleStart.y;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        // CTRL bırakıldıysa state'i temizle ve devam et
+        if (!currentModifierKeys.ctrl) {
+            setState({
+                isCtrl3DToggling: false,
+                ctrl3DToggleStart: null,
+                ctrl3DToggleLastPos: null,
+                ctrl3DToggleMoved: false
+            });
+            // Normal akışa devam et, return yapma
+        } else {
+            const deltaX = e.clientX - state.ctrl3DToggleStart.x;
+            const deltaY = e.clientY - state.ctrl3DToggleStart.y;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
         // Eğer fare 5 pikselden fazla hareket ettiyse sürükleme olarak kabul et
         if (distance > 5 && !state.ctrl3DToggleMoved) {
@@ -222,11 +232,8 @@ export function onPointerMove(e) {
             draw2D();
             update3DScene();
         }
-
-        // Mouse event'leri bloklama, normal akışa devam et
-        // updateMouseCursor();
-        // return; KALDIRILDI - diğer event'lerin de çalışmasına izin ver
-    }
+        } // else bloğunu kapat (CTRL basılıysa)
+    } // if bloğunu kapat (isCtrl3DToggling)
 
     // Oda ismi sürükleme
     if (state.isDraggingRoomName) {

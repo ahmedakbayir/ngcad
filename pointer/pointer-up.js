@@ -18,7 +18,8 @@ export function onPointerUp(e) {
     }
 
     // CTRL + Orta tuş ile 2D/3D geçiş (AYNI SAHNE İÇİNDE, KATI MODEL AÇILMAZ!)
-    if (state.isCtrl3DToggling) {
+    // SADECE orta tuş (button 1) bırakıldığında çalış
+    if (state.isCtrl3DToggling && e.button === 1) {
         // Eğer sürükleme olmadıysa (sadece tıklama) -> 1s animasyonla kamera döndür
         if (!state.ctrl3DToggleMoved && orbitControls && camera) {
             const currentPolarAngle = orbitControls.getPolarAngle();
