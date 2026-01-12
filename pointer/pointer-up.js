@@ -4,11 +4,116 @@ import { saveState } from '../general-files/history.js';
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { draw2D } from '../draw/draw2d.js';
+import { update3DScene } from '../scene3d/scene3d-update.js';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
         setState({ isCtrlDeleting: false });
         saveState();
+        return;
+    }
+
+    // CTRL + Orta Tuş ile 2D/3D Kamera Dönüşü
+    if (state.isCtrl3DRotating && e.button === 1) {
+        const wasClick = !state.ctrl3DMoved;
+
+        if (wasClick) {
+            // Tıklama oldu -> 1 saniyelik animasyonla 2D/3D geçişi
+            const { orbitControls } = state;
+            if (orbitControls) {
+                const currentPolarAngle = orbitControls.getPolarAngle();
+                const targetAngle2D = 0; // 0° = tam üstten bakış (2D)
+                const targetAngle3D = Math.PI / 3; // 60° = 3D perspektif
+
+                // Şu anki açıya göre hedef belirle
+                // Eğer 30°'den küçükse 3D'ye, değilse 2D'ye geç
+                const targetAngle = currentPolarAngle < Math.PI / 6 ? targetAngle3D : targetAngle2D;
+
+                // 3D'ye geçiyorsa perspektifi aç
+                if (targetAngle === targetAngle3D) {
+                    setState({ is3DPerspectiveActive: true });
+                }
+
+                // 1 saniyelik animasyon
+                const startAngle = currentPolarAngle;
+                const startTime = performance.now();
+                const duration = 1000; // 1 saniye
+
+                const animate = () => {
+                    const elapsed = performance.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+
+                    // Easing function (ease-in-out)
+                    const easeProgress = progress < 0.5
+                        ? 2 * progress * progress
+                        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+                    const currentAngle = startAngle + (targetAngle - startAngle) * easeProgress;
+
+                    // Kamera açısını ayarla
+                    orbitControls.setPolarAngle(currentAngle);
+                    orbitControls.update();
+
+                    // State'i güncelle
+                    setState({
+                        cameraPolarAngle: currentAngle,
+                        cameraAzimuthalAngle: orbitControls.getAzimuthalAngle()
+                    });
+
+                    // 2D ve 3D sahneyi render et
+                    draw2D();
+                    update3DScene();
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animate);
+                    } else {
+                        // Animasyon bitti - 0° ise tam olarak 0° yap ve perspektifi kapat
+                        if (targetAngle === targetAngle2D) {
+                            orbitControls.setPolarAngle(0);
+                            orbitControls.update();
+                            setState({
+                                cameraPolarAngle: 0,
+                                cameraAzimuthalAngle: orbitControls.getAzimuthalAngle(),
+                                is3DPerspectiveActive: false
+                            });
+                            draw2D();
+                            update3DScene();
+                        }
+                    }
+                };
+
+                animate();
+            }
+        } else {
+            // Sürükleme oldu - 0°-5° arasındaysa 0°'ye snap yap ve perspektifi kapat
+            const { orbitControls } = state;
+            if (orbitControls) {
+                const currentPolarAngle = orbitControls.getPolarAngle();
+                const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
+
+                if (currentPolarDegrees < 5) {
+                    orbitControls.setPolarAngle(0);
+                    orbitControls.update();
+                    setState({
+                        cameraPolarAngle: 0,
+                        cameraAzimuthalAngle: orbitControls.getAzimuthalAngle(),
+                        is3DPerspectiveActive: false
+                    });
+                    draw2D();
+                    update3DScene();
+                }
+            }
+        }
+
+        // State'i temizle
+        setState({
+            isCtrl3DRotating: false,
+            ctrl3DStartPos: null,
+            ctrl3DLastPos: null,
+            ctrl3DMoved: false
+        });
+
         return;
     }
 
