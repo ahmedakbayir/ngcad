@@ -6,7 +6,8 @@ import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { draw2D } from '../draw/draw2d.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
-import { orbitControls } from '../scene3d/scene3d-core.js';
+import { orbitControls, camera } from '../scene3d/scene3d-core.js';
+import * as THREE from 'three';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
@@ -22,7 +23,7 @@ export function onPointerUp(e) {
 
         if (wasClick) {
             // Tıklama oldu -> 1 saniyelik animasyonla 2D/3D geçişi
-            if (orbitControls) {
+            if (orbitControls && camera) {
                 const currentPolarAngle = orbitControls.getPolarAngle();
                 const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
                 const targetAngle2D = 0; // 0° = tam üstten bakış (2D)
@@ -44,6 +45,8 @@ export function onPointerUp(e) {
                 const startAngle = currentPolarAngle;
                 const startTime = performance.now();
                 const duration = 1000; // 1 saniye
+                const target = orbitControls.target.clone();
+                const startDistance = camera.position.distanceTo(target);
 
                 const animate = () => {
                     const elapsed = performance.now() - startTime;
@@ -56,8 +59,14 @@ export function onPointerUp(e) {
 
                     const currentAngle = startAngle + (targetAngle - startAngle) * easeProgress;
 
-                    // Kamera açısını ayarla
-                    orbitControls.setPolarAngle(currentAngle);
+                    // Spherical koordinatları kullanarak kamera pozisyonunu ayarla
+                    const spherical = new THREE.Spherical(
+                        startDistance,
+                        currentAngle,
+                        orbitControls.getAzimuthalAngle()
+                    );
+                    const offset = new THREE.Vector3().setFromSpherical(spherical);
+                    camera.position.copy(target).add(offset);
                     orbitControls.update();
 
                     // State'i güncelle
@@ -76,7 +85,9 @@ export function onPointerUp(e) {
                         // Animasyon bitti - 0° ise tam olarak 0° yap ve perspektifi kapat
                         if (targetAngle === targetAngle2D) {
                             console.log('[CTRL+MiddleBtn] Animasyon bitti - 2D moduna geçildi');
-                            orbitControls.setPolarAngle(0);
+                            const finalSpherical = new THREE.Spherical(startDistance, 0, orbitControls.getAzimuthalAngle());
+                            const finalOffset = new THREE.Vector3().setFromSpherical(finalSpherical);
+                            camera.position.copy(target).add(finalOffset);
                             orbitControls.update();
                             setState({
                                 cameraPolarAngle: 0,
@@ -93,11 +104,11 @@ export function onPointerUp(e) {
 
                 animate();
             } else {
-                console.warn('[CTRL+MiddleBtn] orbitControls bulunamadı!');
+                console.warn('[CTRL+MiddleBtn] orbitControls veya camera bulunamadı!');
             }
         } else {
             // Sürükleme oldu - 0°-5° arasındaysa 0°'ye snap yap ve perspektifi kapat
-            if (orbitControls) {
+            if (orbitControls && camera) {
                 const currentPolarAngle = orbitControls.getPolarAngle();
                 const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
 
@@ -105,7 +116,11 @@ export function onPointerUp(e) {
 
                 if (currentPolarDegrees < 5) {
                     console.log('[CTRL+MiddleBtn] 0°-5° arası -> 0°\'ye snap yapılıyor');
-                    orbitControls.setPolarAngle(0);
+                    const target = orbitControls.target;
+                    const distance = camera.position.distanceTo(target);
+                    const spherical = new THREE.Spherical(distance, 0, orbitControls.getAzimuthalAngle());
+                    const offset = new THREE.Vector3().setFromSpherical(spherical);
+                    camera.position.copy(target).add(offset);
                     orbitControls.update();
                     setState({
                         cameraPolarAngle: 0,
@@ -116,7 +131,7 @@ export function onPointerUp(e) {
                     update3DScene();
                 }
             } else {
-                console.warn('[CTRL+MiddleBtn] orbitControls bulunamadı!');
+                console.warn('[CTRL+MiddleBtn] orbitControls veya camera bulunamadı!');
             }
         }
 

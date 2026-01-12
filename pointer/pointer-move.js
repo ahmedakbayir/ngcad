@@ -15,10 +15,11 @@ import { positionLengthInput } from '../general-files/ui.js';
 import { currentModifierKeys } from '../general-files/input.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
-import { orbitControls } from '../scene3d/scene3d-core.js';
+import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 import { draw2D } from '../draw/draw2d.js';
+import * as THREE from 'three';
 // Plumbing functions now handled by plumbingManager
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
@@ -248,13 +249,26 @@ export function onPointerMove(e) {
 
         // Eğer sürükleme başladıysa kamerayı döndür
         if (state.ctrl3DMoved) {
-            if (orbitControls) {
-                // Yatay sürükleme -> azimuthal (yatay dönüş)
-                // Dikey sürükleme -> polar (yukarı/aşağı eğilme)
-                const rotationSpeed = 0.005; // Hassasiyet ayarı
+            if (orbitControls && camera) {
+                // Manuel spherical koordinat rotasyonu (rotateLeft/rotateUp yok)
+                const target = orbitControls.target;
+                const offset = new THREE.Vector3().subVectors(camera.position, target);
 
-                orbitControls.rotateLeft(deltaX * rotationSpeed);
-                orbitControls.rotateUp(-deltaY * rotationSpeed);
+                // Spherical koordinatlara çevir
+                const spherical = new THREE.Spherical();
+                spherical.setFromVector3(offset);
+
+                // Açıları değiştir
+                const rotationSpeed = 0.005;
+                spherical.theta -= deltaX * rotationSpeed; // azimuthal (yatay)
+                spherical.phi += deltaY * rotationSpeed;   // polar (dikey)
+
+                // Polar açıyı limitle (0° ile 180° arası)
+                spherical.phi = Math.max(0.001, Math.min(Math.PI - 0.001, spherical.phi));
+
+                // Yeni pozisyonu hesapla ve uygula
+                offset.setFromSpherical(spherical);
+                camera.position.copy(target).add(offset);
                 orbitControls.update();
 
                 // Kamera açılarını state'e kaydet
@@ -272,7 +286,7 @@ export function onPointerMove(e) {
                 draw2D();
                 update3DScene();
             } else {
-                console.warn('[CTRL+MiddleBtn] orbitControls bulunamadı!');
+                console.warn('[CTRL+MiddleBtn] orbitControls veya camera bulunamadı!');
             }
         }
 
