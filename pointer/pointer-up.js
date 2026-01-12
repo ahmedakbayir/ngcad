@@ -6,6 +6,7 @@ import { wallExists } from '../wall/wall-handler.js'; // <-- YENİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { draw2D } from '../draw/draw2d.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
+import { orbitControls } from '../scene3d/scene3d-core.js';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
@@ -17,18 +18,22 @@ export function onPointerUp(e) {
     // CTRL + Orta Tuş ile 2D/3D Kamera Dönüşü
     if (state.isCtrl3DRotating && e.button === 1) {
         const wasClick = !state.ctrl3DMoved;
+        console.log('[CTRL+MiddleBtn] UP - wasClick:', wasClick);
 
         if (wasClick) {
             // Tıklama oldu -> 1 saniyelik animasyonla 2D/3D geçişi
-            const { orbitControls } = state;
             if (orbitControls) {
                 const currentPolarAngle = orbitControls.getPolarAngle();
+                const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
                 const targetAngle2D = 0; // 0° = tam üstten bakış (2D)
                 const targetAngle3D = Math.PI / 3; // 60° = 3D perspektif
 
                 // Şu anki açıya göre hedef belirle
                 // Eğer 30°'den küçükse 3D'ye, değilse 2D'ye geç
                 const targetAngle = currentPolarAngle < Math.PI / 6 ? targetAngle3D : targetAngle2D;
+                const targetDegrees = targetAngle * (180 / Math.PI);
+
+                console.log('[CTRL+MiddleBtn] CLICK animasyon - mevcut:', currentPolarDegrees.toFixed(1), '° -> hedef:', targetDegrees.toFixed(1), '°');
 
                 // 3D'ye geçiyorsa perspektifi aç
                 if (targetAngle === targetAngle3D) {
@@ -70,6 +75,7 @@ export function onPointerUp(e) {
                     } else {
                         // Animasyon bitti - 0° ise tam olarak 0° yap ve perspektifi kapat
                         if (targetAngle === targetAngle2D) {
+                            console.log('[CTRL+MiddleBtn] Animasyon bitti - 2D moduna geçildi');
                             orbitControls.setPolarAngle(0);
                             orbitControls.update();
                             setState({
@@ -79,20 +85,26 @@ export function onPointerUp(e) {
                             });
                             draw2D();
                             update3DScene();
+                        } else {
+                            console.log('[CTRL+MiddleBtn] Animasyon bitti - 3D modunda kalındı');
                         }
                     }
                 };
 
                 animate();
+            } else {
+                console.warn('[CTRL+MiddleBtn] orbitControls bulunamadı!');
             }
         } else {
             // Sürükleme oldu - 0°-5° arasındaysa 0°'ye snap yap ve perspektifi kapat
-            const { orbitControls } = state;
             if (orbitControls) {
                 const currentPolarAngle = orbitControls.getPolarAngle();
                 const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
 
+                console.log('[CTRL+MiddleBtn] DRAG bitti - mevcut açı:', currentPolarDegrees.toFixed(1), '°');
+
                 if (currentPolarDegrees < 5) {
+                    console.log('[CTRL+MiddleBtn] 0°-5° arası -> 0°\'ye snap yapılıyor');
                     orbitControls.setPolarAngle(0);
                     orbitControls.update();
                     setState({
@@ -103,6 +115,8 @@ export function onPointerUp(e) {
                     draw2D();
                     update3DScene();
                 }
+            } else {
+                console.warn('[CTRL+MiddleBtn] orbitControls bulunamadı!');
             }
         }
 

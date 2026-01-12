@@ -51,6 +51,7 @@ export function onPointerDown(e) {
     if (e.button === 1) { // Orta tuş ile pan veya CTRL ile 2D/3D geçiş
         // CTRL basılıysa 2D/3D kamera dönüşü
         if (currentModifierKeys.ctrl) {
+            console.log('[CTRL+MiddleBtn] DOWN - Rotasyon modu başladı');
             setState({
                 isCtrl3DRotating: true,
                 ctrl3DStartPos: { x: e.clientX, y: e.clientY },
