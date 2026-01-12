@@ -19,6 +19,7 @@ import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import { toggle3DView } from '../general-files/ui.js';
+import { draw2D } from '../draw/draw2d.js';
 // Plumbing functions now handled by plumbingManager
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
@@ -216,6 +217,10 @@ export function onPointerMove(e) {
                 camera3DAzimuthalAngle: orbitControls.getAzimuthalAngle(),
                 ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY }
             });
+
+            // 2D ve 3D sahneyi render et
+            draw2D();
+            update3DScene();
         }
 
         // Mouse event'leri bloklama, normal akışa devam et
