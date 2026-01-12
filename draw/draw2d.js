@@ -284,6 +284,39 @@ export function draw2D() {
     ctx2d.fillRect(0, 0, c2d.width, c2d.height);
     ctx2d.save();
 
+
+// --- YENİ: Dinamik Tilt Transformu ---
+    const tiltDegrees = state.camera3DTilt || 0;
+    
+    // Eğer açı 0'dan büyükse VEYA perspektif modu aktifse
+    if (tiltDegrees > 0 || state.is3DPerspectiveActive) {
+        // Açıyı radyans çevir
+        const rad = tiltDegrees * Math.PI / 180;
+        
+        // Y eksenini sıkıştır (Scale Y = Cos(Angle))
+        // Bu işlem çizimi "geriye doğru yatmış" gibi gösterir (Google Earth tilt)
+        const scaleY = Math.cos(rad);
+
+        // Transform Matrisi: [ScaleX, SkewY, SkewX, ScaleY, TransX, TransY]
+        // Sadece ScaleY'yi değiştiriyoruz.
+        ctx2d.setTransform(
+            dpr * zoom,               // Scale X (Değişmez)
+            0,                        // Skew Y
+            0,                        // Skew X
+            dpr * zoom * scaleY,      // Scale Y (Basıklaşır)
+            dpr * panOffset.x,        // Translate X
+            dpr * panOffset.y         // Translate Y
+        );
+    } else {
+        // Standart 2D Görünüm (Hiçbir değişiklik yok)
+        ctx2d.setTransform(
+            dpr * zoom, 0,
+            0, dpr * zoom,
+            dpr * panOffset.x, dpr * panOffset.y
+        );
+    }
+
+
     // Apply combined transform matrix for DPR, zoom, and pan
     // This is equivalent to: scale(dpr) -> translate(panOffset) -> scale(zoom)
     // But done correctly so mouse coordinates work properly

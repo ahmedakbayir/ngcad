@@ -47,10 +47,29 @@ function markAllDownstreamPipesAsConnected(startPipe) {
 }
 
 export function onPointerDown(e) {
-    if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
-    if (e.button === 1) { // Orta tuş ile pan
+    if (e.target !== dom.c2d) return;
+
+    // --- YENİ: CTRL + Orta Tuş (Tekerlek) ile 2D Eğme (Tilt) Başlangıcı ---
+    if (e.button === 1 && (e.ctrlKey || state.currentModifierKeys?.ctrl)) {
+        e.preventDefault();
+        dom.c2d.setPointerCapture(e.pointerId); // Mouse'u yakala
+        
+        setState({
+            isCtrl3DToggling: true,
+            ctrl3DToggleStart: { x: e.clientX, y: e.clientY },
+            ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY },
+            ctrl3DToggleMoved: false,
+            // Eğer tilt değeri henüz yoksa 0 (2D) olarak başlat
+            camera3DTilt: state.camera3DTilt !== undefined ? state.camera3DTilt : 0
+        });
+        return; 
+    }
+    // ----------------------------------------------------------------------
+
+    // Mevcut Orta Tuş (Pan) Kodu
+    if (e.button === 1) { 
         setState({ isPanning: true, panStart: { x: e.clientX, y: e.clientY } });
-        dom.p2d.classList.add('panning'); // Pan cursor'ı ekle
+        dom.p2d.classList.add('panning');
         return;
     }
     if (e.button === 2) return; // Sağ tuş (context menu için ayrılmış)
