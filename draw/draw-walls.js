@@ -713,13 +713,16 @@ export function drawWallGeometry(ctx2d, state, wallFillColor) {
     drawArcHalfSegments(ctx2d, arcHalfSegments.selected, "#8ab4f8", lineThickness, wallPx, getWallFillColor);
 
     // 3D Görünüm: Duvarların yüksekliğini göster
-    if (state.is3DPerspectiveActive) {
-        const WALL_HEIGHT = 270; // cm
+    // viewBlendFactor ile smooth geçiş (0 = 2D, 1 = 3D)
+    const t = state.viewBlendFactor || 0;
+    if (t > 0.01) { // Sadece görünür olduğunda çiz (performans için)
+        const WALL_HEIGHT = 270 * t; // Yüksekliği t'ye göre interpolate et
 
         ctx2d.strokeStyle = adjustedWallColor;
         ctx2d.lineWidth = lineThickness / state.zoom;
         ctx2d.lineCap = "round";
         ctx2d.lineJoin = "round";
+        ctx2d.globalAlpha = t; // Opacity animasyonu ekle
 
         walls.forEach(wall => {
             if (!wall || !wall.p1 || !wall.p2) return;
@@ -788,6 +791,9 @@ export function drawWallGeometry(ctx2d, state, wallFillColor) {
             ctx2d.lineTo(p2RightTop.x, p2RightTop.y);
             ctx2d.stroke();
         });
+
+        // Alpha'yı resetle
+        ctx2d.globalAlpha = 1;
     }
 
     // Varsayılan ayarlara dön
