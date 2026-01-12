@@ -8,7 +8,7 @@ import { draw2D } from '../draw/draw2d.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import * as THREE from 'three';
-import gsap from 'gsap';
+import { gsap } from 'https://cdn.skypack.dev/gsap';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
