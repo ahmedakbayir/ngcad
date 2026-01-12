@@ -5,7 +5,7 @@ import * as THREE from "three"; // YENİ
 import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable } from './main.js'; // dom import edildiğinden emin olun
 import { getObjectAtPoint } from './actions.js';
 import { undo, redo, saveState, restoreState } from './history.js';
-import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen, toggleTheme } from './ui.js';
+import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen, toggle3DPerspective, toggleTheme } from './ui.js';
 import { createStairs, recalculateStepCount, isPointInStair, getNextStairLetter } from '../architectural-objects/stairs.js'; // isPointInStair eklendi
 import { createColumn, isPointInColumn } from '../architectural-objects/columns.js'; // isPointInColumn eklendi
 import { createBeam, isPointInBeam } from '../architectural-objects/beams.js'; // isPointInBeam eklendi
