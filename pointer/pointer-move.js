@@ -203,35 +203,38 @@ export function onPointerMove(e) {
             const deltaY = e.clientY - state.ctrl3DToggleStart.y;
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-        // Eğer fare 5 pikselden fazla hareket ettiyse sürükleme olarak kabul et
-        if (distance > 5 && !state.ctrl3DToggleMoved) {
-            setState({ ctrl3DToggleMoved: true });
-        }
+            // Eğer fare 5 pikselden fazla hareket ettiyse sürükleme olarak kabul et
+            if (distance > 5 && !state.ctrl3DToggleMoved) {
+                setState({
+                    ctrl3DToggleMoved: true,
+                    is3DPerspectiveActive: true // Sürükleme başladığında aç
+                });
+            }
 
-        // Eğer sürükleme başladıysa kamerayı döndür
-        if (state.ctrl3DToggleMoved && orbitControls && camera) {
-            // Son pozisyonla şimdiki pozisyon arasındaki farkı hesapla
-            const deltaX = e.clientX - state.ctrl3DToggleLastPos.x;
-            const deltaY = e.clientY - state.ctrl3DToggleLastPos.y;
+            // Eğer sürükleme başladıysa kamerayı döndür
+            if (state.ctrl3DToggleMoved && orbitControls && camera) {
+                // Son pozisyonla şimdiki pozisyon arasındaki farkı hesapla
+                const deltaX = e.clientX - state.ctrl3DToggleLastPos.x;
+                const deltaY = e.clientY - state.ctrl3DToggleLastPos.y;
 
-            const azimuthSpeed = 0.005;
-            const polarSpeed = 0.005;
+                const azimuthSpeed = 0.005;
+                const polarSpeed = 0.005;
 
-            orbitControls.rotateLeft(deltaX * azimuthSpeed);
-            orbitControls.rotateUp(-deltaY * polarSpeed);
-            orbitControls.update();
+                orbitControls.rotateLeft(deltaX * azimuthSpeed);
+                orbitControls.rotateUp(-deltaY * polarSpeed);
+                orbitControls.update();
 
-            // Kamera açılarını state'e kaydet
-            setState({
-                camera3DPolarAngle: orbitControls.getPolarAngle(),
-                camera3DAzimuthalAngle: orbitControls.getAzimuthalAngle(),
-                ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY }
-            });
+                // Kamera açılarını state'e kaydet
+                setState({
+                    camera3DPolarAngle: orbitControls.getPolarAngle(),
+                    camera3DAzimuthalAngle: orbitControls.getAzimuthalAngle(),
+                    ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY }
+                });
 
-            // 2D ve 3D sahneyi render et
-            draw2D();
-            update3DScene();
-        }
+                // 2D ve 3D sahneyi render et
+                draw2D();
+                update3DScene();
+            }
         } // else bloğunu kapat (CTRL basılıysa)
     } // if bloğunu kapat (isCtrl3DToggling)
 

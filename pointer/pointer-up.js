@@ -30,6 +30,8 @@ export function onPointerUp(e) {
             if (currentPolarDegrees < 10) {
                 // 2D'den 3D'ye geç (60° perspektif)
                 targetPolarAngle = 60 * (Math.PI / 180);
+                // Animasyon için is3DPerspectiveActive aç
+                setState({ is3DPerspectiveActive: true });
             } else {
                 // 3D'den 2D'ye geç (0° üstten bakış)
                 targetPolarAngle = 0;
