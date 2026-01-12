@@ -15,6 +15,7 @@ import { positionLengthInput } from '../general-files/ui.js';
 import { currentModifierKeys } from '../general-files/input.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
+import { orbitControls } from '../scene3d/scene3d-core.js';
 import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
 import { draw2D } from '../draw/draw2d.js';
@@ -216,6 +217,7 @@ export function onPointerMove(e) {
     if (state.isCtrl3DRotating) {
         // CTRL bırakıldıysa rotasyonu durdur
         if (!currentModifierKeys.ctrl) {
+            console.log('[CTRL+MiddleBtn] CTRL bırakıldı - rotasyon iptal');
             setState({
                 isCtrl3DRotating: false,
                 ctrl3DStartPos: null,
@@ -236,6 +238,7 @@ export function onPointerMove(e) {
             const distance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY);
 
             if (distance > 5) {
+                console.log('[CTRL+MiddleBtn] MOVE - Sürükleme başladı, distance:', distance);
                 setState({
                     ctrl3DMoved: true,
                     is3DPerspectiveActive: true // Sürükleme başladığında 3D perspektifi aç
@@ -245,7 +248,6 @@ export function onPointerMove(e) {
 
         // Eğer sürükleme başladıysa kamerayı döndür
         if (state.ctrl3DMoved) {
-            const { orbitControls } = state;
             if (orbitControls) {
                 // Yatay sürükleme -> azimuthal (yatay dönüş)
                 // Dikey sürükleme -> polar (yukarı/aşağı eğilme)
@@ -259,6 +261,8 @@ export function onPointerMove(e) {
                 const polarAngle = orbitControls.getPolarAngle();
                 const azimuthalAngle = orbitControls.getAzimuthalAngle();
 
+                console.log('[CTRL+MiddleBtn] Kamera döndürülüyor - polar:', (polarAngle * 180 / Math.PI).toFixed(1), '°');
+
                 setState({
                     cameraPolarAngle: polarAngle,
                     cameraAzimuthalAngle: azimuthalAngle
@@ -267,6 +271,8 @@ export function onPointerMove(e) {
                 // 2D ve 3D sahneyi render et
                 draw2D();
                 update3DScene();
+            } else {
+                console.warn('[CTRL+MiddleBtn] orbitControls bulunamadı!');
             }
         }
 
