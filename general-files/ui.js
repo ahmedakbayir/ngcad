@@ -307,7 +307,7 @@ export function toggle3DPerspective() {
               <rect x="9" y="9" width="6" height="6" fill="none"></rect>
               <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
             </svg>
-            2D Görünüm
+            3D → 2D Moduna Geç
         `;
     } else {
         dom.b3DPerspective.classList.remove('active');
@@ -318,7 +318,7 @@ export function toggle3DPerspective() {
               <rect x="9" y="9" width="6" height="6" fill="none"></rect>
               <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
             </svg>
-            3D Görünüm
+            2D → 3D Moduna Geç
         `;
     }
 }
