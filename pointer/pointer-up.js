@@ -8,7 +8,7 @@ import { draw2D } from '../draw/draw2d.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import * as THREE from 'three';
-import { gsap } from 'https://cdn.skypack.dev/gsap';
+import { gsap } from 'gsap';
 
 export function onPointerUp(e) {
     if (state.isCtrlDeleting) {
@@ -45,6 +45,10 @@ export function onPointerUp(e) {
 
                 const target = orbitControls.target.clone();
                 const startDistance = camera.position.distanceTo(target);
+                const startAzimuthalAngle = orbitControls.getAzimuthalAngle();
+
+                // Animasyon sırasında orbitControls'ü devre dışı bırak
+                orbitControls.enabled = false;
 
                 // GSAP ile animasyon - interpolate edilecek obje
                 const animationObject = { angle: currentPolarAngle };
@@ -54,16 +58,19 @@ export function onPointerUp(e) {
                     angle: targetAngle,
                     duration: 1.2, // 1.2 saniye - biraz daha uzun ve cinematic
                     ease: "power2.inOut", // Çok smooth easing
+                    onStart: () => {
+                        console.log('[GSAP] Animasyon başladı - orbitControls.enabled =', orbitControls.enabled);
+                    },
                     onUpdate: () => {
                         // Her frame'de kamera pozisyonunu güncelle
                         const spherical = new THREE.Spherical(
                             startDistance,
                             animationObject.angle,
-                            orbitControls.getAzimuthalAngle()
+                            startAzimuthalAngle
                         );
                         const offset = new THREE.Vector3().setFromSpherical(spherical);
                         camera.position.copy(target).add(offset);
-                        orbitControls.update();
+                        camera.lookAt(target);
 
                         // 2D ve 3D sahneyi render et
                         draw2D();
@@ -74,20 +81,24 @@ export function onPointerUp(e) {
                         console.log('[CTRL+MiddleBtn] Animasyon bitti -', goingTo3D ? '3D modunda' : '2D moduna geçildi');
 
                         // Son pozisyonu tam olarak hedef açıya ayarla
-                        const finalSpherical = new THREE.Spherical(startDistance, targetAngle, orbitControls.getAzimuthalAngle());
+                        const finalSpherical = new THREE.Spherical(startDistance, targetAngle, startAzimuthalAngle);
                         const finalOffset = new THREE.Vector3().setFromSpherical(finalSpherical);
                         camera.position.copy(target).add(finalOffset);
+                        camera.lookAt(target);
+
+                        // orbitControls'ü tekrar etkinleştir ve güncelle
+                        orbitControls.enabled = true;
                         orbitControls.update();
 
                         // Perspective'i animasyon BİTTİKTEN sonra ayarla
                         setState({
-                            cameraPolarAngle: targetAngle,
-                            cameraAzimuthalAngle: orbitControls.getAzimuthalAngle(),
                             is3DPerspectiveActive: goingTo3D
                         });
 
                         draw2D();
                         update3DScene();
+
+                        console.log('[GSAP] Animasyon bitti - orbitControls.enabled =', orbitControls.enabled);
                     }
                 });
             } else {
