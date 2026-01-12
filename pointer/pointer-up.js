@@ -16,13 +16,18 @@ export function onPointerUp(e) {
         return;
     }
 
-    // CTRL + Orta Tuş ile 2D/3D Kamera Dönüşü
-    if (state.isCtrl3DRotating && e.button === 1) {
-        const wasClick = !state.ctrl3DMoved;
-        console.log('[CTRL+MiddleBtn] UP - wasClick:', wasClick);
+    // CTRL + Orta Tuş ile 2D/3D Kamera Toggle (sadece tıklama)
+    if (state.isCtrl3DToggling && e.button === 1) {
+        // Tıklama mı yoksa sürükleme mi kontrol et (5px eşik)
+        const deltaX = e.clientX - state.ctrl3DToggleStartPos.x;
+        const deltaY = e.clientY - state.ctrl3DToggleStartPos.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        const wasClick = distance < 5;
+
+        console.log('[CTRL+MiddleBtn] UP - wasClick:', wasClick, 'distance:', distance.toFixed(1));
 
         if (wasClick) {
-            // Tıklama oldu -> 1 saniyelik animasyonla 2D/3D geçişi
+            // Tıklama oldu -> 1 saniyelik animasyonla 2D/3D toggle
             if (orbitControls && camera) {
                 const currentPolarAngle = orbitControls.getPolarAngle();
                 const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
@@ -33,13 +38,9 @@ export function onPointerUp(e) {
                 // Eğer 30°'den küçükse 3D'ye, değilse 2D'ye geç
                 const targetAngle = currentPolarAngle < Math.PI / 6 ? targetAngle3D : targetAngle2D;
                 const targetDegrees = targetAngle * (180 / Math.PI);
+                const goingTo3D = targetAngle === targetAngle3D;
 
-                console.log('[CTRL+MiddleBtn] CLICK animasyon - mevcut:', currentPolarDegrees.toFixed(1), '° -> hedef:', targetDegrees.toFixed(1), '°');
-
-                // 3D'ye geçiyorsa perspektifi aç
-                if (targetAngle === targetAngle3D) {
-                    setState({ is3DPerspectiveActive: true });
-                }
+                console.log('[CTRL+MiddleBtn] TOGGLE animasyon - mevcut:', currentPolarDegrees.toFixed(1), '° -> hedef:', targetDegrees.toFixed(1), '°', goingTo3D ? '(3D)' : '(2D)');
 
                 // 1 saniyelik animasyon
                 const startAngle = currentPolarAngle;
@@ -69,12 +70,6 @@ export function onPointerUp(e) {
                     camera.position.copy(target).add(offset);
                     orbitControls.update();
 
-                    // State'i güncelle
-                    setState({
-                        cameraPolarAngle: currentAngle,
-                        cameraAzimuthalAngle: orbitControls.getAzimuthalAngle()
-                    });
-
                     // 2D ve 3D sahneyi render et
                     draw2D();
                     update3DScene();
@@ -82,23 +77,24 @@ export function onPointerUp(e) {
                     if (progress < 1) {
                         requestAnimationFrame(animate);
                     } else {
-                        // Animasyon bitti - 0° ise tam olarak 0° yap ve perspektifi kapat
-                        if (targetAngle === targetAngle2D) {
-                            console.log('[CTRL+MiddleBtn] Animasyon bitti - 2D moduna geçildi');
-                            const finalSpherical = new THREE.Spherical(startDistance, 0, orbitControls.getAzimuthalAngle());
-                            const finalOffset = new THREE.Vector3().setFromSpherical(finalSpherical);
-                            camera.position.copy(target).add(finalOffset);
-                            orbitControls.update();
-                            setState({
-                                cameraPolarAngle: 0,
-                                cameraAzimuthalAngle: orbitControls.getAzimuthalAngle(),
-                                is3DPerspectiveActive: false
-                            });
-                            draw2D();
-                            update3DScene();
-                        } else {
-                            console.log('[CTRL+MiddleBtn] Animasyon bitti - 3D modunda kalındı');
-                        }
+                        // Animasyon bitti - perspective ve state'i güncelle
+                        console.log('[CTRL+MiddleBtn] Animasyon bitti -', goingTo3D ? '3D modunda' : '2D moduna geçildi');
+
+                        // Son pozisyonu tam olarak hedef açıya ayarla
+                        const finalSpherical = new THREE.Spherical(startDistance, targetAngle, orbitControls.getAzimuthalAngle());
+                        const finalOffset = new THREE.Vector3().setFromSpherical(finalSpherical);
+                        camera.position.copy(target).add(finalOffset);
+                        orbitControls.update();
+
+                        // Perspective'i animasyon BİTTİKTEN sonra ayarla
+                        setState({
+                            cameraPolarAngle: targetAngle,
+                            cameraAzimuthalAngle: orbitControls.getAzimuthalAngle(),
+                            is3DPerspectiveActive: goingTo3D
+                        });
+
+                        draw2D();
+                        update3DScene();
                     }
                 };
 
@@ -107,40 +103,13 @@ export function onPointerUp(e) {
                 console.warn('[CTRL+MiddleBtn] orbitControls veya camera bulunamadı!');
             }
         } else {
-            // Sürükleme oldu - 0°-5° arasındaysa 0°'ye snap yap ve perspektifi kapat
-            if (orbitControls && camera) {
-                const currentPolarAngle = orbitControls.getPolarAngle();
-                const currentPolarDegrees = currentPolarAngle * (180 / Math.PI);
-
-                console.log('[CTRL+MiddleBtn] DRAG bitti - mevcut açı:', currentPolarDegrees.toFixed(1), '°');
-
-                if (currentPolarDegrees < 5) {
-                    console.log('[CTRL+MiddleBtn] 0°-5° arası -> 0°\'ye snap yapılıyor');
-                    const target = orbitControls.target;
-                    const distance = camera.position.distanceTo(target);
-                    const spherical = new THREE.Spherical(distance, 0, orbitControls.getAzimuthalAngle());
-                    const offset = new THREE.Vector3().setFromSpherical(spherical);
-                    camera.position.copy(target).add(offset);
-                    orbitControls.update();
-                    setState({
-                        cameraPolarAngle: 0,
-                        cameraAzimuthalAngle: orbitControls.getAzimuthalAngle(),
-                        is3DPerspectiveActive: false
-                    });
-                    draw2D();
-                    update3DScene();
-                }
-            } else {
-                console.warn('[CTRL+MiddleBtn] orbitControls veya camera bulunamadı!');
-            }
+            console.log('[CTRL+MiddleBtn] Sürükleme algılandı - işlem yapılmıyor (sadece tıklama destekleniyor)');
         }
 
         // State'i temizle
         setState({
-            isCtrl3DRotating: false,
-            ctrl3DStartPos: null,
-            ctrl3DLastPos: null,
-            ctrl3DMoved: false
+            isCtrl3DToggling: false,
+            ctrl3DToggleStartPos: null
         });
 
         return;
