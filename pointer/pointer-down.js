@@ -61,7 +61,7 @@ export function onPointerDown(e) {
         }
         // CTRL basılı değilse normal pan
         setState({ isPanning: true, panStart: { x: e.clientX, y: e.clientY } });
-        dom.p2d.classList.add('panning'); // Pan cursor'ı ekle
+        dom.p2d.classList.add('panning');
         return;
     }
     if (e.button === 2) return; // Sağ tuş (context menu için ayrılmış)

@@ -46,6 +46,39 @@ function getSnappedWallInfo(point, tolerance = 1.0) { // Tolerans: 1 cm
 export function onPointerMove(e) {
     // Her fare hareketi başında geçici komşu duvar listesini temizle
     // (Eğer wall-handler.js içinde setState({tempNeighborWallsToDimension: ...}) çağrısı varsa bu gerekli)
+    // --- YENİ: CTRL + Orta Tuş Sürükleme Mantığı ---
+    if (state.isCtrl3DToggling) {
+        // Hareket eşiği (5px)
+        const totalDelta = Math.hypot(e.clientX - state.ctrl3DToggleStart.x, e.clientY - state.ctrl3DToggleStart.y);
+        if (!state.ctrl3DToggleMoved && totalDelta > 5) {
+            setState({ ctrl3DToggleMoved: true });
+        }
+
+        if (state.ctrl3DToggleMoved) {
+            const deltaY = e.clientY - state.ctrl3DToggleLastPos.y;
+            
+            // Hassasiyet (Mouse aşağı inerse açı azalır -> 2D'ye yaklaşır)
+            const sensitivity = 0.5; 
+            let newTilt = (state.camera3DTilt || 0) + (deltaY * sensitivity);
+
+            // Sınırlandırma: 0 (Tam 2D) ile 75 derece (Yatık) arası
+            newTilt = Math.max(0, Math.min(75, newTilt));
+
+            setState({ 
+                camera3DTilt: newTilt,
+                ctrl3DToggleLastPos: { x: e.clientX, y: e.clientY }
+            });
+
+            // 0 derece değilse perspektif modunu aktif et
+            if (newTilt > 0 && !state.is3DPerspectiveActive) {
+                setState({ is3DPerspectiveActive: true });
+            }
+
+            draw2D(); // 2D Sahneyi (eğik olarak) yeniden çiz
+        }
+        return;
+    }
+    
     if (state.isDragging && state.selectedObject?.type === 'wall') {
         // Sadece duvar sürükleniyorsa temizle, diğer sürüklemeleri etkilemesin
         setState({ tempNeighborWallsToDimension: null });

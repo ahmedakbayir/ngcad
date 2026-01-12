@@ -11,6 +11,45 @@ import { draw2D } from '../draw/draw2d.js';
 import * as THREE from 'three';
 
 export function onPointerUp(e) {
+
+// --- YENİ: CTRL + Orta Tuş Bırakma Mantığı ---
+    if (state.isCtrl3DToggling) {
+        dom.c2d.releasePointerCapture(e.pointerId);
+
+        let finalTilt = state.camera3DTilt || 0;
+
+        if (!state.ctrl3DToggleMoved) {
+            // Sürükleme olmadı -> Sadece Tıklandı -> TOGGLE
+            // Eğer şu an 0'a yakınsa standart 3D açısına (örn: 60) getir, yoksa sıfırla
+            if (finalTilt < 5) {
+                finalTilt = 60;
+                setState({ is3DPerspectiveActive: true });
+            } else {
+                finalTilt = 0;
+                setState({ is3DPerspectiveActive: false });
+            }
+        } else {
+            // Sürükleme oldu -> SNAP KONTROLÜ
+            // İSTEK: 0°-5° arasında iken 0° ye sabitlenip 2D görünüme geçme
+            if (finalTilt < 5) {
+                finalTilt = 0;
+                setState({ is3DPerspectiveActive: false });
+            }
+        }
+
+        // Yeni açıyı kaydet ve çiz
+        setState({ 
+            camera3DTilt: finalTilt,
+            isCtrl3DToggling: false,
+            ctrl3DToggleStart: null,
+            ctrl3DToggleLastPos: null,
+            ctrl3DToggleMoved: false
+        });
+        draw2D();
+        return;
+    }
+
+
     if (state.isCtrlDeleting) {
         setState({ isCtrlDeleting: false });
         saveState();

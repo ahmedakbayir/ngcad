@@ -296,7 +296,22 @@ export function toggleIsoView() {
 
 export function toggle3DPerspective() {
     setState({ is3DPerspectiveActive: !state.is3DPerspectiveActive });
-
+// Mevcut açıya göre karar ver
+    const currentTilt = state.camera3DTilt || 0;
+    
+    if (currentTilt > 5) {
+        // Zaten eğikse -> 2D'ye (0 dereceye) geç
+        setState({ 
+            camera3DTilt: 0, 
+            is3DPerspectiveActive: false 
+        });
+    } else {
+        // 2D ise -> Standart 3D açısına (60 derece) geç
+        setState({ 
+            camera3DTilt: 60, 
+            is3DPerspectiveActive: true 
+        });
+    }
     // Buton görünümünü güncelle
     if (state.is3DPerspectiveActive) {
         dom.b3DPerspective.classList.add('active');
@@ -1824,4 +1839,7 @@ function setupOpacityControls() {
     // İlk yükleme için kontrol
     const is3DVisible = dom.mainContainer.classList.contains('show-3d');
     container.style.display = is3DVisible ? 'block' : 'none';
+
+    // Sahneyi yeniden çiz
+    import('../draw/draw2d.js').then(module => module.draw2D());
 }
