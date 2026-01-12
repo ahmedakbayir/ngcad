@@ -16,6 +16,10 @@ import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
 import { renderIsometric } from '../scene3d/scene-isometric.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
+import { gsap } from 'gsap';
+import * as THREE from 'three';
+import { orbitControls, camera } from '../scene3d/scene3d-core.js';
+import { draw2D } from '../draw/draw2d.js';
 
 // ═══════════════════════════════════════════════════════════════
 // DARK MODE / LIGHT MODE FONKSİYONLARI
@@ -295,32 +299,93 @@ export function toggleIsoView() {
 }
 
 export function toggle3DPerspective() {
-    setState({ is3DPerspectiveActive: !state.is3DPerspectiveActive });
+    // Hedef Durum (Mevcut durumun tersi)
+    const targetIsActive = !state.is3DPerspectiveActive;
 
-    // Buton görünümünü güncelle
-    if (state.is3DPerspectiveActive) {
-        dom.b3DPerspective.classList.add('active');
-        dom.b3DPerspective.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
-              <rect x="9" y="9" width="6" height="6" fill="none"></rect>
-              <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
-            </svg>
-            3D → 2D Moduna Geç
-        `;
-    } else {
-        dom.b3DPerspective.classList.remove('active');
-        dom.b3DPerspective.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round">
-              <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
-              <rect x="9" y="9" width="6" height="6" fill="none"></rect>
-              <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
-            </svg>
-            2D → 3D Moduna Geç
-        `;
-    }
+    console.log(`[Double CTRL] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
+
+    // Animasyon Hedefleri
+    const targetBlend = targetIsActive ? 1 : 0; // 3D için 1, 2D için 0
+    const targetAngle = targetIsActive ? (Math.PI / 3) : 0; // 3D için 60 derece, 2D için 0
+
+    // Orbit kontrolleri kilitle (çatışmayı önlemek için)
+    if(orbitControls) orbitControls.enabled = false;
+
+    // Animasyon Objesi
+    const animObj = {
+        blend: state.viewBlendFactor || (targetIsActive ? 0 : 1),
+        angle: orbitControls ? orbitControls.getPolarAngle() : 0
+    };
+
+    // 3D Kamera Hedef Pozisyonu
+    const targetPos = orbitControls ? orbitControls.target.clone() : new THREE.Vector3();
+    const dist = camera ? camera.position.distanceTo(targetPos) : 1000;
+    const azimuth = orbitControls ? orbitControls.getAzimuthalAngle() : 0;
+
+    // --- GSAP ANİMASYONU ---
+    gsap.to(animObj, {
+        blend: targetBlend,
+        angle: targetAngle,
+        duration: 0.8,
+        ease: "power2.inOut",
+        onUpdate: () => {
+            // 1. 2D Çizim Değişkenini Güncelle
+            state.viewBlendFactor = animObj.blend;
+
+            // 2. 3D Kamerayı Güncelle
+            if (camera && orbitControls) {
+                const spherical = new THREE.Spherical(dist, animObj.angle, azimuth);
+                const offset = new THREE.Vector3().setFromSpherical(spherical);
+                camera.position.copy(targetPos).add(offset);
+                camera.lookAt(targetPos);
+            }
+
+            // 3. Sahneleri Yeniden Çiz
+            draw2D();
+            update3DScene();
+        },
+        onComplete: () => {
+            // Animasyon Bitti
+            state.viewBlendFactor = targetBlend;
+            setState({ is3DPerspectiveActive: targetIsActive });
+
+            if(orbitControls) {
+                orbitControls.enabled = true;
+                orbitControls.update();
+            }
+
+            // Buton ikonunu güncelle
+            if (dom.b3DPerspective) {
+                dom.b3DPerspective.classList.toggle('active', targetIsActive);
+
+                // İkon güncelleme
+                if (targetIsActive) {
+                    dom.b3DPerspective.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                          stroke-linejoin="round">
+                          <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
+                          <rect x="9" y="9" width="6" height="6" fill="none"></rect>
+                          <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
+                        </svg>
+                        3D → 2D Moduna Geç
+                    `;
+                } else {
+                    dom.b3DPerspective.innerHTML = `
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                          stroke-linejoin="round">
+                          <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
+                          <rect x="9" y="9" width="6" height="6" fill="none"></rect>
+                          <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
+                        </svg>
+                        2D → 3D Moduna Geç
+                    `;
+                }
+            }
+
+            draw2D();
+            update3DScene();
+        }
+    });
 }
 
 // İzometri ekran bölme oranını ayarla

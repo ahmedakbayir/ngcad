@@ -17,82 +17,8 @@ export function onPointerUp(e) {
         return;
     }
 
-    if (state.isCtrl3DToggling && e.button === 1) {
-        const deltaX = e.clientX - state.ctrl3DToggleStartPos.x;
-        const deltaY = e.clientY - state.ctrl3DToggleStartPos.y;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        const wasClick = distance < 5;
-
-if (wasClick) {
-            // Hedef Durum (Mevcut durumun tersi)
-            const targetIsActive = !state.is3DPerspectiveActive;
-            
-            console.log(`[CTRL+MiddleBtn] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
-
-            // Animasyon Hedefleri
-            const targetBlend = targetIsActive ? 1 : 0; // 3D için 1, 2D için 0
-            const targetAngle = targetIsActive ? (Math.PI / 3) : 0; // 3D için 60 derece, 2D için 0
-
-            // Orbit kontrolleri kilitle (çatışmayı önlemek için)
-            if(orbitControls) orbitControls.enabled = false;
-
-            // Animasyon Objesi (Başlangıç değerleri mevcut durumdan alınır)
-            const animObj = {
-                blend: state.viewBlendFactor || (targetIsActive ? 0 : 1), // Mevcut blend değeri
-                angle: orbitControls ? orbitControls.getPolarAngle() : 0  // Mevcut kamera açısı
-            };
-
-            // 3D Kamera Hedef Pozisyonu Hazırlığı
-            const targetPos = orbitControls ? orbitControls.target.clone() : new THREE.Vector3();
-            const dist = camera ? camera.position.distanceTo(targetPos) : 1000;
-            const azimuth = orbitControls ? orbitControls.getAzimuthalAngle() : 0;
-
-            // --- GSAP ANİMASYONU BAŞLAT ---
-            gsap.to(animObj, {
-                blend: targetBlend,
-                angle: targetAngle,
-                duration: 1.0, // Daha sinematik olması için 1.0sn
-                ease: "power2.inOut",
-                onUpdate: () => {
-                    // 1. 2D Çizim Değişkenini Güncelle
-                    state.viewBlendFactor = animObj.blend;
-
-                    // 2. 3D Kamerayı Güncelle
-                    if (camera && orbitControls) {
-                        const spherical = new THREE.Spherical(dist, animObj.angle, azimuth);
-                        const offset = new THREE.Vector3().setFromSpherical(spherical);
-                        camera.position.copy(targetPos).add(offset);
-                        camera.lookAt(targetPos);
-                    }
-
-                    // 3. Sahneleri Yeniden Çiz
-                    // draw2D artık viewBlendFactor'a baktığı için animasyonlu gelecek
-                    draw2D(); 
-                    update3DScene();
-                },
-                onComplete: () => {
-                    // Animasyon Bitti: Değerleri sabitle
-                    state.viewBlendFactor = targetBlend;
-                    setState({ is3DPerspectiveActive: targetIsActive });
-                    
-                    if(orbitControls) {
-                        orbitControls.enabled = true;
-                        orbitControls.update();
-                    }
-                    
-                    draw2D();
-                    update3DScene();
-                    console.log("[GSAP] Geçiş Tamamlandı.");
-                }
-            });
-
-        } else {
-            console.log('[CTRL+MiddleBtn] Sürükleme algılandı - işlem yapılmıyor');
-        }
-
-        setState({ isCtrl3DToggling: false, ctrl3DToggleStartPos: null });
-        return;
-    }
+    // ÇİFT CTRL ile 2D/3D geçişi artık input.js'de yapılıyor
+    // Ctrl + Orta Tuş kodu kaldırıldı
 
 /*
     // CTRL + Orta Tuş ile 2D/3D Kamera Toggle (sadece tıklama)
