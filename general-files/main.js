@@ -460,10 +460,10 @@ export let state = {
     isoDraggedEndpoint: null, // 'start' veya 'end'
     // --- İZOMETRİK GÖRÜNÜM SONU ---
 
-    // --- 3D PERSPEKTİF GÖRÜNÜM ---
-    is3DPerspectiveActive: false, // 3D perspektif modu aktif mi?
-    // --- 3D PERSPEKTİF GÖRÜNÜM SONU ---
-    viewBlendFactor: 0,
+    // ...
+    viewBlendFactor: 0, // Başlangıç 0 (2D)
+    is3DPerspectiveActive: false,
+    // ...
 
 };
 
