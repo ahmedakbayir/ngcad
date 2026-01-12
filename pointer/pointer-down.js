@@ -48,7 +48,18 @@ function markAllDownstreamPipesAsConnected(startPipe) {
 
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
-    if (e.button === 1) { // Orta tuş ile pan
+    if (e.button === 1) { // Orta tuş ile pan veya CTRL ile 2D/3D geçiş
+        // CTRL basılıysa 2D/3D kamera dönüşü
+        if (currentModifierKeys.ctrl) {
+            setState({
+                isCtrl3DRotating: true,
+                ctrl3DStartPos: { x: e.clientX, y: e.clientY },
+                ctrl3DLastPos: { x: e.clientX, y: e.clientY },
+                ctrl3DMoved: false
+            });
+            return;
+        }
+        // CTRL basılı değilse normal pan
         setState({ isPanning: true, panStart: { x: e.clientX, y: e.clientY } });
         dom.p2d.classList.add('panning'); // Pan cursor'ı ekle
         return;

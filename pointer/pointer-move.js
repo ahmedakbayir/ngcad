@@ -17,6 +17,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { setCameraPosition, setCameraRotation } from '../scene3d/scene3d-camera.js';
 import { onPointerMove as onPointerMoveWall, getWallAtPoint } from '../wall/wall-handler.js';
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
+import { draw2D } from '../draw/draw2d.js';
 // Plumbing functions now handled by plumbingManager
 
 // DÜZELTME: Debounce zamanlayıcısı eklendi
@@ -208,6 +209,73 @@ export function onPointerMove(e) {
             console.error("Error calculating bbox for room name dragging:", error);
         }
         // updateMouseCursor(); // Zaten grabbing ayarlı olmalı
+        return;
+    }
+
+    // CTRL + Orta Tuş ile 2D/3D Kamera Dönüşü (sürükleme)
+    if (state.isCtrl3DRotating) {
+        // CTRL bırakıldıysa rotasyonu durdur
+        if (!currentModifierKeys.ctrl) {
+            setState({
+                isCtrl3DRotating: false,
+                ctrl3DStartPos: null,
+                ctrl3DLastPos: null,
+                ctrl3DMoved: false
+            });
+            updateMouseCursor();
+            return;
+        }
+
+        const deltaX = e.clientX - state.ctrl3DLastPos.x;
+        const deltaY = e.clientY - state.ctrl3DLastPos.y;
+
+        // Hareket mesafesini kontrol et (tıklama vs sürükleme ayrımı için)
+        if (!state.ctrl3DMoved) {
+            const totalDeltaX = e.clientX - state.ctrl3DStartPos.x;
+            const totalDeltaY = e.clientY - state.ctrl3DStartPos.y;
+            const distance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY);
+
+            if (distance > 5) {
+                setState({
+                    ctrl3DMoved: true,
+                    is3DPerspectiveActive: true // Sürükleme başladığında 3D perspektifi aç
+                });
+            }
+        }
+
+        // Eğer sürükleme başladıysa kamerayı döndür
+        if (state.ctrl3DMoved) {
+            const { orbitControls } = state;
+            if (orbitControls) {
+                // Yatay sürükleme -> azimuthal (yatay dönüş)
+                // Dikey sürükleme -> polar (yukarı/aşağı eğilme)
+                const rotationSpeed = 0.005; // Hassasiyet ayarı
+
+                orbitControls.rotateLeft(deltaX * rotationSpeed);
+                orbitControls.rotateUp(-deltaY * rotationSpeed);
+                orbitControls.update();
+
+                // Kamera açılarını state'e kaydet
+                const polarAngle = orbitControls.getPolarAngle();
+                const azimuthalAngle = orbitControls.getAzimuthalAngle();
+
+                setState({
+                    cameraPolarAngle: polarAngle,
+                    cameraAzimuthalAngle: azimuthalAngle
+                });
+
+                // 2D ve 3D sahneyi render et
+                draw2D();
+                update3DScene();
+            }
+        }
+
+        // Son pozisyonu güncelle
+        setState({
+            ctrl3DLastPos: { x: e.clientX, y: e.clientY }
+        });
+
+        updateMouseCursor();
         return;
     }
 
