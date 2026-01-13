@@ -427,6 +427,11 @@ export class PlumbingRenderer {
             this.drawVanaPreview(ctx, manager.interactionManager.vanaPreview);
         }
 
+        // Sayaç/Cihaz boru üzerine ekleme preview (sayac/cihaz tool aktif, hover)
+        if (manager.interactionManager?.componentOnPipePreview) {
+            this.drawComponentOnPipePreview(ctx, manager.interactionManager.componentOnPipePreview);
+        }
+
         // Seçili borunun yolunu sağ üstte göster
         if (window._selectedPipePath && window._selectedPipePath.length > 0) {
             this.drawSelectedPipePath(ctx);
@@ -2749,6 +2754,49 @@ export class PlumbingRenderer {
         ctx.lineTo(0, -1);                  // Orta
         ctx.closePath();
         ctx.fill();
+
+        ctx.restore();
+    }
+
+    drawComponentOnPipePreview(ctx, preview) {
+        if (!preview || !preview.point) return;
+
+        const { point, componentType } = preview;
+        const zoom = state.zoom || 1;
+
+        ctx.save();
+
+        // Dış daire (yeşil/turuncu - sayaç için yeşil, cihaz için turuncu)
+        const previewColor = componentType === 'sayac' ? 'rgba(50, 200, 50, 0.8)' : 'rgba(255, 150, 50, 0.8)';
+        ctx.fillStyle = previewColor;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2 / zoom;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 8 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // İç daire (beyaz nokta)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 3 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dış pulse efekti
+        const pulseColor = componentType === 'sayac' ? 'rgba(50, 200, 50, 0.4)' : 'rgba(255, 150, 50, 0.4)';
+        ctx.strokeStyle = pulseColor;
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 12 / zoom, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Metin göstergesi (Sayaç veya Cihaz)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `${12 / zoom}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = componentType === 'sayac' ? 'S' : 'C';
+        ctx.fillText(label, point.x, point.y + 18 / zoom);
 
         ctx.restore();
     }
