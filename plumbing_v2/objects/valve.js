@@ -304,7 +304,7 @@ export class Vana {
         const pos = pipe.getPointAt(t);
         this.x = pos.x;
         this.y = pos.y;
-
+        this.z = pos.z; // <-- DÜZELTME: Z değerini borudan al  
         // Rotasyonu boru açısına göre ayarla
         this.rotation = pipe.aciDerece;
 
@@ -483,6 +483,7 @@ export class Vana {
             vanaTipi: this.vanaTipi,
             x: this.x,
             y: this.y,
+            z: this.z, // <-- DÜZELTME
             rotation: this.rotation,
             girisBagliBoruId: this.girisBagliBoruId,
             cikisBagliBoruId: this.cikisBagliBoruId,
@@ -505,7 +506,7 @@ export class Vana {
             fromEnd: data.fromEnd,
             fixedDistance: data.fixedDistance
         });
-
+        vana.z = data.z || 0; // <-- DÜZELTME
         vana.id = data.id;
         vana.rotation = data.rotation;
         vana.girisBagliBoruId = data.girisBagliBoruId;

@@ -1084,10 +1084,11 @@ export class PlumbingRenderer {
 
     drawComponent(ctx, comp, manager) {
         ctx.save();
+        const t = state.viewBlendFactor || 0;
+        const z = (comp.z || 0) * t;
+        ctx.translate(comp.x + z, comp.y - z);
 
-        ctx.translate(comp.x, comp.y);
         if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
-
         switch (comp.type) {
             case 'servis_kutusu':
                 this.drawServisKutusu(ctx, comp);

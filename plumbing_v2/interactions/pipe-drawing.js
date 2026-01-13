@@ -444,6 +444,10 @@ export function getGeciciBoruCizgisi(interactionManager) {
     if (!interactionManager.boruCizimAktif || !interactionManager.boruBaslangic || !interactionManager.geciciBoruBitis) return null;
     return { p1: interactionManager.boruBaslangic.nokta, p2: interactionManager.geciciBoruBitis };
 }
+/**
+ * 3D Snap Hesaplama (Eksen Kilitleme)
+ * X, Y ve Z eksenlerine akıllı kilitleme yapar.
+ */
 export function calculate3DSnap(interactionManager, mouseWorldPoint, isShiftPressed) {
     if (!interactionManager.boruCizimAktif || !interactionManager.boruBaslangic) {
         interactionManager.axisSnapMode = null;
@@ -460,59 +464,93 @@ export function calculate3DSnap(interactionManager, mouseWorldPoint, isShiftPres
     const startPt = interactionManager.boruBaslangic.nokta;
     // Z değerini sayısal olarak garantiye al
     const startZ = parseFloat(startPt.z || 0);
-    const SNAP_THRESHOLD = 20 / (state.zoom || 1);
 
-    // Başlangıç noktasının ekrandaki izdüşümü
+    // Başlangıç noktasının ekrandaki izdüşümü (Screen Coordinates)
+    // x' = x + z*t, y' = y - z*t formülü
     const screenStartX = startPt.x + startZ * t;
     const screenStartY = startPt.y - startZ * t;
 
-    // Mouse'un ekrandaki konumu (WorldPoint zaten 2D düzlemden gelir)
+    // Mouse'un ekrandaki konumu
     const mouseX = mouseWorldPoint.x;
     const mouseY = mouseWorldPoint.y;
+    
+    // Başlangıç noktasına göre mouse farkı (Delta)
+    const dx = mouseX - screenStartX;
+    const dy = mouseY - screenStartY;
 
-    let snappedPoint = { ...mouseWorldPoint, z: startZ }; // Varsayılan: Z değişmez
-    interactionManager.axisSnapMode = null;
+    let snappedPoint = { ...mouseWorldPoint, z: startZ };
+    
+    // --- EKSEN SEÇİMİ ---
+    // Hangi eksene daha yakın olduğumuzu bulalım.
+    
+    // X Ekseni (y=0 doğrusu): Ekranda yatay. Uzaklık = |dy|
+    const distX = Math.abs(dy);
+    
+    // Y Ekseni (x=0 doğrusu): Ekranda dikey. Uzaklık = |dx|
+    const distY = Math.abs(dx);
+    
+    // Z Ekseni (y = -x doğrusu): Ekranda 45 derece çapraz.
+    // Vektör (t, -t). Normali (t, t). Projeksiyon formülü ile uzaklık: |dx + dy| / sqrt(2)
+    const distZ = Math.abs(dx + dy) / 1.414; // sqrt(2) yaklaşık değeri
 
-    // SHIFT BASILI: Sadece Z Ekseni (Yukarı/Aşağı)
+    // En yakın ekseni belirle
+    let bestAxis = 'X';
+    let minDiff = distX;
+
+    if (distY < minDiff) {
+        bestAxis = 'Y';
+        minDiff = distY;
+    }
+    
+    // Z eksenini de adaylara ekle (Otomatik Z algılama)
+    // Görsel olarak Z yönüne hareket ediliyorsa Shift'e gerek kalmadan algılar
+    if (distZ < minDiff) {
+        bestAxis = 'Z';
+        minDiff = distZ;
+    }
+
+    // SHIFT basılıysa Z eksenini zorla (Kullanıcı manuel override yapabilir)
     if (isShiftPressed) {
-        interactionManager.axisSnapMode = 'Z';
+        bestAxis = 'Z';
+    }
 
-        // Mouse hareketini Z eksenine iz düşür
-        // Ekran üzerinde sağ-yukarı hareket Z artırır
-        const dx = mouseX - screenStartX;
-        const dy = mouseY - screenStartY;
+    interactionManager.axisSnapMode = bestAxis;
 
-        // Basit yaklaşımla ortalama delta
-        const deltaAvg = (dx - dy) / 2;
-        const newZ = deltaAvg / t; // t'ye göre ölçekle
-
+    // --- KOORDİNAT HESAPLAMA ---
+    if (bestAxis === 'X') {
+        // X KİLİDİ: Y ve Z sabit kalır, sadece X değişir.
+        // Mouse'un X koordinatından Z etkisini çıkararak ham X'i buluyoruz.
+        // Formül: screenX = worldX + worldZ*t  => worldX = screenX - worldZ*t
+        snappedPoint = {
+            x: mouseX - (startZ * t), 
+            y: startPt.y,
+            z: startZ
+        };
+    } 
+    else if (bestAxis === 'Y') {
+        // Y KİLİDİ: X ve Z sabit kalır, sadece Y değişir.
+        // Formül: screenY = worldY - worldZ*t => worldY = screenY + worldZ*t
+        snappedPoint = {
+            x: startPt.x,
+            y: mouseY + (startZ * t),
+            z: startZ
+        };
+    } 
+    else { // bestAxis === 'Z'
+        // Z KİLİDİ: X ve Y sabit kalır, sadece Z değişir.
+        // Z eksenindeki hareket ekranda (dx, dy) = (dz*t, -dz*t) yaratır.
+        // En iyi dz tahmini için dx ve dy değişimlerinin ortalamasını alıyoruz.
+        // dz = (dx - dy) / (2*t)
+        
+        // Sıçramayı önlemek için 't' kontrolü (zaten t >= 0.5 şartı var ama yine de)
+        const safeT = Math.max(0.1, t);
+        const deltaZ = (dx - dy) / (2 * safeT);
+        
         snappedPoint = {
             x: startPt.x,
             y: startPt.y,
-            z: startZ + newZ
+            z: startZ + deltaZ
         };
-    }
-    // SHIFT YOK: X veya Y eksenine yapışma
-    else {
-        const distToXAxis = Math.abs(mouseY - screenStartY); // Y farkı
-        const distToYAxis = Math.abs(mouseX - screenStartX); // X farkı
-
-        if (distToXAxis < SNAP_THRESHOLD && distToXAxis <= distToYAxis) {
-            interactionManager.axisSnapMode = 'X';
-            snappedPoint = {
-                x: mouseX - (startZ * t), // Ters izdüşüm
-                y: startPt.y,
-                z: startZ
-            };
-        }
-        else if (distToYAxis < SNAP_THRESHOLD) {
-            interactionManager.axisSnapMode = 'Y';
-            snappedPoint = {
-                x: startPt.x,
-                y: mouseY + (startZ * t), // Ters izdüşüm
-                z: startZ
-            };
-        }
     }
 
     // Geçici boru bitişini güncelle (Renderer için)

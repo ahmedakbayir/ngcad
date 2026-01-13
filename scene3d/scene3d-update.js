@@ -3,7 +3,7 @@
 
 import * as THREE from "three";
 import {
-    scene, camera, renderer, controls, sceneObjects,orbitControls,
+    scene, camera, renderer, controls, sceneObjects, orbitControls,
     wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
     mullionMaterial, sillMaterial, handleMaterial, floorMaterial,
     evenFloorMaterial, oddFloorMaterial, // <-- Tek ve çift katlar için materyaller
@@ -11,17 +11,21 @@ import {
     balconyRailingMaterial, glassMaterial, halfWallCapMaterial,
     handrailWoodMaterial, balusterMaterial, stepNosingMaterial,
     textureLoader, pictureFrameMaterial // İsim hatası da düzeltildi
-    } from "./scene3d-core.js";
+} from "./scene3d-core.js";
 
 // Mesh oluşturma fonksiyonlarını import et
-import {createWallSegmentMesh, createDoorMesh, createLintelMesh,
-    createComplexWindow, createWallPieceMesh, createVentMesh}
+import {
+    createWallSegmentMesh, createDoorMesh, createLintelMesh,
+    createComplexWindow, createWallPieceMesh, createVentMesh
+}
     from "./scene3d-walls.js";
-import {createColumnMesh, createBeamMesh, createStairMesh} from "./scene3d-structures.js";
-import {createPlumbingBlockMesh, createPlumbingBlockMaterial, createPlumbingPipeMesh, createPlumbingPipeMaterial, createVanaMesh} from "./scene3d-plumbing.js";
-import {getArcWallPoints } from "../draw/geometry.js";
-import {state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
-    BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT } from "../general-files/main.js";
+import { createColumnMesh, createBeamMesh, createStairMesh } from "./scene3d-structures.js";
+import { createPlumbingBlockMesh, createPlumbingBlockMaterial, createPlumbingPipeMesh, createPlumbingPipeMaterial, createVanaMesh } from "./scene3d-plumbing.js";
+import { getArcWallPoints } from "../draw/geometry.js";
+import {
+    state, setState, dom, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT,
+    BATHROOM_WINDOW_BOTTOM_HEIGHT, BATHROOM_WINDOW_TOP_HEIGHT
+} from "../general-files/main.js";
 import { findLargestAvailableSegment } from "../wall/wall-item-utils.js";
 import { plumbingManager } from "../plumbing_v2/plumbing-manager.js";
 
@@ -141,111 +145,111 @@ export function update3DScene() {
     // --- Duvarları, Kapıları, Pencereleri ve Menfezleri Oluştur ---
     // Duvarları sadece opacity > 0 ise göster
     if (opacitySettings.wall > 0) {
-    walls.forEach(w => {
-        if (!w.p1 || !w.p2) return;
-        const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y); if (wallLen < 1) return;
-        const wallThickness = w.thickness || state.wallThickness;
-        const wallType = w.wallType || 'normal';
-        const floorElevation = getFloorElevation(w.floorId);
+        walls.forEach(w => {
+            if (!w.p1 || !w.p2) return;
+            const wallLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y); if (wallLen < 1) return;
+            const wallThickness = w.thickness || state.wallThickness;
+            const wallType = w.wallType || 'normal';
+            const floorElevation = getFloorElevation(w.floorId);
 
-        if (w.isArc && w.arcControl1 && w.arcControl2) {
-            const arcPoints = getArcWallPoints(w, 30);
-            for (let i = 0; i < arcPoints.length - 1; i++) {
-                const p1 = arcPoints[i];
-                const p2 = arcPoints[i + 1];
-                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, false, false);
+            if (w.isArc && w.arcControl1 && w.arcControl2) {
+                const arcPoints = getArcWallPoints(w, 30);
+                for (let i = 0; i < arcPoints.length - 1; i++) {
+                    const p1 = arcPoints[i];
+                    const p2 = arcPoints[i + 1];
+                    const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, false, false);
+                    if (segMesh) {
+                        segMesh.position.y = floorElevation;
+                        sceneObjects.add(segMesh);
+                    }
+                }
+                return; // Arc duvarlarda kapı/pencere desteği şimdilik yok
+            }
+
+            const segmentBreakingItems = [];
+            (doors.filter(d => d.wall === w)).forEach(d => segmentBreakingItems.push({ item: d, type: 'door', pos: d.pos, width: d.width }));
+            (w.windows || []).forEach(win => segmentBreakingItems.push({ item: { ...win, roomName: win.roomName }, type: 'window', pos: win.pos, width: win.width }));
+            segmentBreakingItems.sort((a, b) => a.pos - b.pos);
+
+            let lastPos = 0;
+            let lastPosIsNode = true;
+            const dx = (w.p2.x - w.p1.x) / wallLen; const dy = (w.p2.y - w.p1.y) / wallLen;
+
+            segmentBreakingItems.forEach(itemData => {
+                const itemStart = itemData.pos - itemData.width / 2;
+                if (itemStart > lastPos + 0.1) {
+                    const p1 = { x: w.p1.x + dx * lastPos, y: w.p1.y + dy * lastPos };
+                    const p2 = { x: w.p1.x + dx * itemStart, y: w.p1.y + dy * itemStart };
+                    const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, false);
+                    if (segMesh) {
+                        segMesh.position.y = floorElevation;
+                        sceneObjects.add(segMesh);
+                    }
+                }
+
+                if (itemData.type === 'door' && opacitySettings.door > 0) {
+                    const doorGroup = createDoorMesh(itemData.item);
+                    if (doorGroup) {
+                        doorGroup.position.y = floorElevation;
+                        sceneObjects.add(doorGroup);
+                    }
+                    if (wallType === 'normal' || wallType === 'half') {
+                        const lintelMesh = createLintelMesh(itemData.item, wallThickness, wallMaterial);
+                        if (lintelMesh) {
+                            lintelMesh.position.y = floorElevation;
+                            sceneObjects.add(lintelMesh);
+                        }
+                    }
+                }
+                else if (itemData.type === 'window' && opacitySettings.window > 0) {
+                    const windowGroup = createComplexWindow(w, itemData.item, wallThickness);
+                    if (windowGroup) {
+                        windowGroup.position.y = floorElevation;
+                        sceneObjects.add(windowGroup);
+                    }
+                    const isBathroom = itemData.item.roomName === 'BANYO';
+                    const bottomHeight = isBathroom ? BATHROOM_WINDOW_BOTTOM_HEIGHT : WINDOW_BOTTOM_HEIGHT;
+                    const topHeight = isBathroom ? BATHROOM_WINDOW_TOP_HEIGHT : WINDOW_TOP_HEIGHT;
+                    if (wallType === 'normal' || wallType === 'half') {
+                        const lintelHeight = WALL_HEIGHT - topHeight;
+                        const lintelMesh = createWallPieceMesh(w, itemData.item, topHeight, lintelHeight, wallThickness, wallMaterial);
+                        if (lintelMesh) {
+                            lintelMesh.position.y = floorElevation;
+                            sceneObjects.add(lintelMesh);
+                        }
+                        const sillHeight = bottomHeight;
+                        const sillMesh = createWallPieceMesh(w, itemData.item, 0, sillHeight, wallThickness, wallMaterial);
+                        if (sillMesh) {
+                            sillMesh.position.y = floorElevation;
+                            sceneObjects.add(sillMesh);
+                        }
+                    }
+                }
+
+                if (itemData.type === 'door' || itemData.type === 'window') {
+                    lastPos = itemData.pos + itemData.width / 2;
+                    lastPosIsNode = false;
+                }
+            });
+
+            if (wallLen - lastPos > 0.1) {
+                const p1 = { x: w.p1.x + dx * lastPos, y: w.p1.y + dy * lastPos };
+                const p2 = { x: w.p1.x + dx * wallLen, y: w.p1.y + dy * wallLen };
+                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, true);
                 if (segMesh) {
                     segMesh.position.y = floorElevation;
                     sceneObjects.add(segMesh);
                 }
             }
-            return; // Arc duvarlarda kapı/pencere desteği şimdilik yok
-        }
 
-        const segmentBreakingItems = []; 
-        (doors.filter(d => d.wall === w)).forEach(d => segmentBreakingItems.push({ item: d, type: 'door', pos: d.pos, width: d.width }));
-        (w.windows || []).forEach(win => segmentBreakingItems.push({ item: { ...win, roomName: win.roomName }, type: 'window', pos: win.pos, width: win.width }));
-        segmentBreakingItems.sort((a, b) => a.pos - b.pos);
-        
-        let lastPos = 0;
-        let lastPosIsNode = true; 
-        const dx = (w.p2.x - w.p1.x) / wallLen; const dy = (w.p2.y - w.p1.y) / wallLen;
-
-        segmentBreakingItems.forEach(itemData => {
-            const itemStart = itemData.pos - itemData.width / 2;
-            if (itemStart > lastPos + 0.1) {
-                const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
-                const p2={x:w.p1.x+dx*itemStart, y:w.p1.y+dy*itemStart};
-                const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, false);
-                if(segMesh) {
-                    segMesh.position.y = floorElevation;
-                    sceneObjects.add(segMesh);
+            (w.vents || []).forEach(v => {
+                const ventMeshGroup = createVentMesh(w, v);
+                if (ventMeshGroup) {
+                    ventMeshGroup.position.y = floorElevation;
+                    sceneObjects.add(ventMeshGroup);
                 }
-            }
-
-            if (itemData.type === 'door' && opacitySettings.door > 0) {
-                const doorGroup = createDoorMesh(itemData.item);
-                if(doorGroup) {
-                    doorGroup.position.y = floorElevation;
-                    sceneObjects.add(doorGroup);
-                }
-                if (wallType === 'normal' || wallType === 'half') {
-                    const lintelMesh = createLintelMesh(itemData.item, wallThickness, wallMaterial);
-                    if(lintelMesh) {
-                        lintelMesh.position.y = floorElevation;
-                        sceneObjects.add(lintelMesh);
-                    }
-                }
-            }
-            else if (itemData.type === 'window' && opacitySettings.window > 0) {
-                const windowGroup = createComplexWindow(w, itemData.item, wallThickness);
-                if(windowGroup) {
-                    windowGroup.position.y = floorElevation;
-                    sceneObjects.add(windowGroup);
-                }
-                const isBathroom = itemData.item.roomName === 'BANYO';
-                const bottomHeight = isBathroom ? BATHROOM_WINDOW_BOTTOM_HEIGHT : WINDOW_BOTTOM_HEIGHT;
-                const topHeight = isBathroom ? BATHROOM_WINDOW_TOP_HEIGHT : WINDOW_TOP_HEIGHT;
-                if (wallType === 'normal' || wallType === 'half') {
-                    const lintelHeight = WALL_HEIGHT - topHeight;
-                    const lintelMesh = createWallPieceMesh(w, itemData.item, topHeight, lintelHeight, wallThickness, wallMaterial);
-                    if(lintelMesh) {
-                        lintelMesh.position.y = floorElevation;
-                        sceneObjects.add(lintelMesh);
-                    }
-                    const sillHeight = bottomHeight;
-                    const sillMesh = createWallPieceMesh(w, itemData.item, 0, sillHeight, wallThickness, wallMaterial);
-                    if(sillMesh) {
-                        sillMesh.position.y = floorElevation;
-                        sceneObjects.add(sillMesh);
-                    }
-                }
-            }
-
-            if (itemData.type === 'door' || itemData.type === 'window') {
-                 lastPos = itemData.pos + itemData.width / 2;
-                 lastPosIsNode = false;
-            }
+            });
         });
-
-        if (wallLen - lastPos > 0.1) {
-            const p1={x:w.p1.x+dx*lastPos, y:w.p1.y+dy*lastPos};
-            const p2={x:w.p1.x+dx*wallLen, y:w.p1.y+dy*wallLen};
-            const segMesh = createWallSegmentMesh(p1, p2, wallThickness, wallType, wallMaterial, lastPosIsNode, true);
-            if(segMesh) {
-                segMesh.position.y = floorElevation;
-                sceneObjects.add(segMesh);
-            }
-        }
-
-        (w.vents || []).forEach(v => {
-            const ventMeshGroup = createVentMesh(w, v);
-            if (ventMeshGroup) {
-                ventMeshGroup.position.y = floorElevation;
-                sceneObjects.add(ventMeshGroup);
-            }
-        });
-    });
     } // Duvar opacity kontrolü sonu
 
     // --- Kolonları Ekle ---
@@ -375,7 +379,10 @@ export function update3DScene() {
 
                     const m = createPlumbingBlockMesh(block, plumbingMaterial);
                     if (m) {
-                        m.position.y = getFloorElevation(comp.floorId);
+                        // DÜZELTME: comp.z değerini kat yüksekliğine ekle
+                        // Eski kod: m.position.y = getFloorElevation(comp.floorId);
+                        m.position.y = getFloorElevation(comp.floorId) + (comp.z || 0);
+
                         sceneObjects.add(m);
                     }
                 });
@@ -407,7 +414,7 @@ export function update3DScene() {
                         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
                         coords.forEach(p => { minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); });
                         const centerX = (minX + maxX) / 2; const centerZ = (minY + maxY) / 2;
-                        const shapePoints = coords.map(p => new THREE.Vector2(p[0] - centerX, -(p[1] - centerZ)) );
+                        const shapePoints = coords.map(p => new THREE.Vector2(p[0] - centerX, -(p[1] - centerZ)));
                         const roomShape = new THREE.Shape(shapePoints);
                         const geometry = new THREE.ShapeGeometry(roomShape);
 
@@ -442,13 +449,13 @@ export function update3DScene() {
     // --- Orbit Hedefini Ayarla ---
     if (controls === orbitControls) { // Sadece orbit modundaysa hedefi ayarla
         const isTargetDefault = controls.target.x === 0 && controls.target.y === WALL_HEIGHT / 2 && controls.target.z === 0;
-if (sceneObjects.children.length > 0) {
+        if (sceneObjects.children.length > 0) {
             // Sadece target henüz ayarlanmamışsa (default ise) merkeze odakla
             // Aksi takdirde kullanıcının baktığı yeri koru
             if (isTargetDefault) {
                 const boundingBox = new THREE.Box3();
                 sceneObjects.children.forEach(obj => { if (obj.material !== floorMaterial) boundingBox.expandByObject(obj); });
-                
+
                 if (!boundingBox.isEmpty()) {
                     const center = new THREE.Vector3();
                     boundingBox.getCenter(center);
@@ -456,10 +463,10 @@ if (sceneObjects.children.length > 0) {
                 }
             }
         } else {
-             // Sahne boşsa defaulta dön
-             controls.target.set(0, WALL_HEIGHT/2, 0);
+            // Sahne boşsa defaulta dön
+            controls.target.set(0, WALL_HEIGHT / 2, 0);
         }
-        
+
         controls.update();
     }
 }
@@ -505,7 +512,7 @@ function getWallsForRoom(room, allWalls) {
         if (typeof turf === 'undefined') console.warn("Turf.js bulunamadı, çerçeveler için iç/dış yönü hesaplanamıyor.");
         return roomWalls;
     }
-    
+
     const coords = room.polygon.geometry.coordinates[0];
     const TOLERANCE = 1; // 1 cm tolerans
 
@@ -543,8 +550,8 @@ function getWallsForRoom(room, allWalls) {
 
             // Sol normal yönünde 1cm içeri gir
             // 'turf.point' için koordinatlar [x, y] olmalı
-            const testPointLeft = turf.point([midX + leftNormal.x * 1, midZ + leftNormal.z * 1]); 
-            
+            const testPointLeft = turf.point([midX + leftNormal.x * 1, midZ + leftNormal.z * 1]);
+
             let insideNormal;
             // Test noktasının oda poligonunun içinde olup olmadığını kontrol et
             if (turf.booleanPointInPolygon(testPointLeft, room.polygon)) {
@@ -553,7 +560,7 @@ function getWallsForRoom(room, allWalls) {
                 // Teste gerek yok, diğeri olmalı
                 insideNormal = rightNormal; // Sağ normal içeride
             }
-            
+
             roomWalls.push({ wall, insideNormal });
             // --- HESAPLAMA SONU ---
         }
@@ -565,14 +572,14 @@ function getWallsForRoom(room, allWalls) {
  * Resim çerçevesi (resim + kenarlıklar) için 3D mesh oluşturur
  */
 function createPictureFrameMesh(wall, posOnWall, width, height, picMaterial, borderMaterial, insideNormal_3D, yPosition) {
-    
+
     const frameGroup = new THREE.Group();
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     if (wallLen < 0.1) return null;
 
     const dx_wall = (wall.p2.x - wall.p1.x) / wallLen; // Duvarın 2D X yönü
     const dy_wall = (wall.p2.y - wall.p1.y) / wallLen; // Duvarın 2D Y yönü (3D Z yönü)
-    
+
     const wallThickness = wall.thickness || state.wallThickness;
     const borderWidth = 4; // 4cm çerçeve kalınlığı
     const frameDepth = 3;  // 3cm çerçeve derinliği (duvardan çıkıntı)
@@ -583,7 +590,7 @@ function createPictureFrameMesh(wall, posOnWall, width, height, picMaterial, bor
     if (picWidth <= 0 || picHeight <= 0) return null; // Çok küçük
 
     // PlaneGeometry (Genişlik=X, Yükseklik=Y)
-    const picGeom = new THREE.PlaneGeometry(picWidth, picHeight); 
+    const picGeom = new THREE.PlaneGeometry(picWidth, picHeight);
     const picMesh = new THREE.Mesh(picGeom, picMaterial);
     picMesh.position.y = yPosition; // İstenen Y yüksekliği (merkez)
     frameGroup.add(picMesh);
@@ -664,7 +671,7 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
 
         // 1. Bu odaya ait duvarları ve "içeri" normalini bul
         const roomWalls = getWallsForRoom(room, walls);
-        
+
         // --- YENİ KURAL: Özel duvar tipine sahip mahallere EKLEME ---
         let hasSpecialWall = false;
         for (const { wall } of roomWalls) {
@@ -676,7 +683,7 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
         }
         // Eğer mahalde bu duvar tiplerinden biri varsa, o mahale hiç resim ekleme
         if (hasSpecialWall) {
-            continue; 
+            continue;
         }
         // --- YENİ KURAL SONU ---
 
@@ -684,7 +691,7 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
 
         // 2. Bu odaya ait duvarlardaki en büyük boşlukları bul
         for (const { wall, insideNormal } of roomWalls) {
-            
+
             // --- DÜZELTME: Duvar daha önce kullanıldıysa atla ---
             if (usedWalls.has(wall)) continue;
             // --- DÜZELTME SONU ---
@@ -697,8 +704,8 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
             // Duvardaki en büyük *kullanılabilir* boşluğu bul
             // (wall-item-utils.js'den import edilen fonksiyonu kullanıyoruz)
             // Bu fonksiyon zaten kapı/pencere/menfezleri hesaba katar.
-            const largestSegment = findLargestAvailableSegment(wall); 
-            
+            const largestSegment = findLargestAvailableSegment(wall);
+
             if (largestSegment && largestSegment.length >= (MIN_WIDTH + WALL_PADDING)) {
                 segments.push({
                     wall,
@@ -714,11 +721,11 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
 
         // 4. Seçilen duvarlara çerçeveleri oluştur ve sahneye ekle
         for (const { wall, segment, insideNormal } of wallsToPlace) {
-            
+
             // Boyutları belirle (KURAL: max 150x80)
             let frameWidth = Math.min(MAX_WIDTH, segment.length - WALL_PADDING);
             let frameHeight = MAX_HEIGHT; // Önce maksimum yüksekliği dene
-            
+
             // Oran (Genişlik / Yükseklik), örn: 150/80 = 1.875
             // Eğer hesaplanan genişlik, bu oranı koruyarak max yükseklikten daha azını gerektiriyorsa yüksekliği azalt
             // (Yani genişlik, yüksekliğin 1.875 katından küçükse)
@@ -743,7 +750,7 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
             // Mesh'i oluştur
             const frameMesh = createPictureFrameMesh(
                 wall, posOnWall, frameWidth, frameHeight,
-                picMaterial, 
+                picMaterial,
                 pictureFrameMaterial, // Kenarlık malzemesi (adı düzeltildi)
                 insideNormal, FRAME_Y_POSITION
             );

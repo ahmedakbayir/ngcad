@@ -95,6 +95,7 @@ export class Cihaz {
         // Pozisyon
         this.x = x;
         this.y = y;
+        this.z = 0; // Varsayılan Z değeri ekleyin
         this.rotation = 0; // derece
 
         // Cihaz tipi
@@ -444,7 +445,7 @@ export class Cihaz {
         };
     }
 
-    /**
+   /**
      * Serialize
      */
     toJSON() {
@@ -454,6 +455,7 @@ export class Cihaz {
             cihazTipi: this.cihazTipi,
             x: this.x,
             y: this.y,
+            z: this.z, // <-- DÜZELTME: Z değerini kaydet
             rotation: this.rotation,
             fleksBaglanti: { ...this.fleksBaglanti },
             iliskiliVanaId: this.iliskiliVanaId,
@@ -470,6 +472,7 @@ export class Cihaz {
         });
 
         cihaz.id = data.id;
+        cihaz.z = data.z || 0; // <-- DÜZELTME: Z değerini geri yükle
         cihaz.rotation = data.rotation;
 
         // Fleks bağlantısını yükle

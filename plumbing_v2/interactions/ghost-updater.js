@@ -7,6 +7,8 @@ import { state } from '../../general-files/main.js';
 
 export function updateGhostPosition(ghost, point, snap) {
     // Debug: İlk 3 güncellemede koordinat sistemi kontrolü
+    const t = state.viewBlendFactor || 0;
+
     if (ghost.type === 'cihaz' && !this._debugCount) this._debugCount = 0;
     if (ghost.type === 'cihaz' && this._debugCount < 3) {
         // console.log('🐛 CIHAZ GHOST DEBUG:', {
@@ -45,12 +47,20 @@ export function updateGhostPosition(ghost, point, snap) {
             const normBoruYonX = boruYonX / boruYonUzunluk;
             const normBoruYonY = boruYonY / boruYonUzunluk;
 
-            // Mouse'un boru ucundan mesafesini hesapla
-            const mouseUcMesafe = Math.hypot(
-                point.x - boruUcu.nokta.x,
-                point.y - boruUcu.nokta.y
-            );
+            let snapPointScreenX = boruUcu.screenPoint ? boruUcu.screenPoint.x : boruUcu.nokta.x;
+            let snapPointScreenY = boruUcu.screenPoint ? boruUcu.screenPoint.y : boruUcu.nokta.y;
 
+            // Eğer screenPoint yoksa manuel hesapla
+            if (!boruUcu.screenPoint && t > 0) {
+                const bz = boruUcu.nokta.z || 0;
+                snapPointScreenX = boruUcu.nokta.x + bz * t;
+                snapPointScreenY = boruUcu.nokta.y - bz * t;
+            }
+
+            const mouseUcMesafe = Math.hypot(
+                point.x - snapPointScreenX,
+                point.y - snapPointScreenY
+            );
             // Cihaz merkezini hesapla
             let merkezX, merkezY;
 
@@ -74,71 +84,98 @@ export function updateGhostPosition(ghost, point, snap) {
             ghost.y = merkezY;
             // DÜZELTME: Boru ucunun Z değerini al
             // Borunun ucundaki nokta {x, y, z} formatındadır.
-            if (boruUcu.nokta.z !== undefined) {
-                ghost.z = boruUcu.nokta.z;
+            // Boru ucunun Z değerini al
+            const targetZ = (boruUcu.nokta.z !== undefined) ? boruUcu.nokta.z : 0;
+            ghost.z = targetZ;
+
+            // Cihaz merkezini hesapla (World Coordinates olarak saklayacağız)
+            let merkezWorldX, merkezWorldY;
+
+            if (mouseUcMesafe < minFleksUzunluk) {
+                // Minimum mesafe (World üzerinde hesapla)
+                merkezWorldX = boruUcu.nokta.x + normBoruYonX * minFleksUzunluk;
+                merkezWorldY = boruUcu.nokta.y + normBoruYonY * minFleksUzunluk;
+            } else if (mouseUcMesafe <= maxFleksUzunluk) {
+                // Mouse pozisyonunda (Mouse ekran koordinatıdır, World'e çevirmeliyiz)
+                // Inverse Projection: World = Screen - Z_effect
+                // x_world = x_screen - z * t
+                // y_world = y_screen + z * t
+                merkezWorldX = point.x - (targetZ * t);
+                merkezWorldY = point.y + (targetZ * t);
             } else {
-                ghost.z = 0;
+                // Maksimum mesafe (World üzerinde orantıla)
+                // Mouse'un World karşılığını bul
+                const mouseWorldX = point.x - (targetZ * t);
+                const mouseWorldY = point.y + (targetZ * t);
+
+                const currentDistWorld = Math.hypot(mouseWorldX - boruUcu.nokta.x, mouseWorldY - boruUcu.nokta.y);
+                const oran = maxFleksUzunluk / currentDistWorld;
+
+                merkezWorldX = boruUcu.nokta.x + (mouseWorldX - boruUcu.nokta.x) * oran;
+                merkezWorldY = boruUcu.nokta.y + (mouseWorldY - boruUcu.nokta.y) * oran;
             }
-            // Ghost rendering için bağlantı bilgisini sakla
+
+            ghost.x = merkezWorldX;
+            ghost.y = merkezWorldY;
+
             ghost.ghostConnectionInfo = {
                 boruUcu: boruUcu,
-                girisNoktasi: boruUcu.nokta // Fleks boru ucundan başlayacak
+                girisNoktasi: boruUcu.nokta
             };
         } else {
-            // Boru ucu bulunamadı, normal cursor pozisyonu
+            // Boru ucu yok, serbest dolaşım
             const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
-            ghost.x = point.x - girisOffset.x;
-            ghost.y = point.y - girisOffset.y;
-            ghost.z = point.z || 0;
+            const currentZ = ghost.z || 0;
+
+            // DÜZELTME 2: 3D modunda mouse ekran koordinatını dünya koordinatına çevir
+            ghost.x = (point.x - girisOffset.x) - (currentZ * t);
+            ghost.y = (point.y - girisOffset.y) + (currentZ * t);
             ghost.ghostConnectionInfo = null;
         }
     }
     else if (ghost.type === 'sayac') {
-        // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-        const boruUcu = this.findBoruUcuAt(point, 72, true); // onlyFreeEndpoints = true
+        const boruUcu = this.findBoruUcuAt(point, 72, true);
 
         if (boruUcu && boruUcu.boru) {
-            // Sayaç pozisyonlandırma: Mouse konumuna göre yön belirleme
             const boru = boruUcu.boru;
+            // Z değerini al
+            const targetZ = (boruUcu.nokta.z !== undefined) ? boruUcu.nokta.z : 0;
+            ghost.z = targetZ;
+
+            // Boru geometrisi
             const dx = boru.p2.x - boru.p1.x;
             const dy = boru.p2.y - boru.p1.y;
             const length = Math.hypot(dx, dy);
+            const fleksUzunluk = 15;
 
-            // Fleks görünen boy
-            const fleksUzunluk = 15; // cm
+            // Mouse'un 3D düzeltilmiş pozisyonunu kullan
+            const mouseWorldX = point.x - (targetZ * t);
+            const mouseWorldY = point.y + (targetZ * t);
 
-            // Mouse'un boru ekseninin hangi tarafında olduğunu bul
-            // Cross product: (mouse - boruUcu) x (boru yönü)
-            const mouseVecX = point.x - boruUcu.nokta.x;
-            const mouseVecY = point.y - boruUcu.nokta.y;
+            // Cross product hesabı
+            const mouseVecX = mouseWorldX - boruUcu.nokta.x;
+            const mouseVecY = mouseWorldY - boruUcu.nokta.y;
             const crossProduct = mouseVecX * dy - mouseVecY * dx;
 
-            // Boru yönüne DİK (perpendicular) vektör hesapla
-            // 90° saat yönünde (clockwise) döndürülmüş vektör: (-dy, dx)
+            // Dik vektör
             let perpX = -dy / length;
             let perpY = dx / length;
 
-            // Cross product negatifse, diğer tarafa dön (180° döndür)
             if (crossProduct > 0) {
                 perpX = -perpX;
                 perpY = -perpY;
             }
 
-            // Sayaç rotation'u: Boru yönü veya ters yön (mouse konumuna göre)
+            // Rotasyon
             let baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
-            if (crossProduct > 0) {
-                baseRotation += 180;
-            }
+            if (crossProduct > 0) baseRotation += 180;
             ghost.rotation = baseRotation;
 
-            // Giriş rakorunun lokal koordinatı
+            // Pozisyon hesapla
             const girisLokal = ghost.getGirisLocalKoordinat();
-
-            // Giriş rakorunun dünya koordinatı (istenen)
             const girisHedefX = boruUcu.nokta.x + perpX * fleksUzunluk;
             const girisHedefY = boruUcu.nokta.y + perpY * fleksUzunluk;
 
-            // Sayaç merkezini hesapla
             const rad = ghost.rotation * Math.PI / 180;
             const cos = Math.cos(rad);
             const sin = Math.sin(rad);
@@ -149,19 +186,18 @@ export function updateGhostPosition(ghost, point, snap) {
             ghost.x = girisHedefX - girisRotatedX;
             ghost.y = girisHedefY - girisRotatedY;
 
-            // Ghost rendering için bağlantı bilgisini sakla
             ghost.ghostConnectionInfo = {
                 boruUcu: boruUcu,
                 girisNoktasi: boruUcu.nokta
             };
         } else {
-            // Boru ucu bulunamadı, normal cursor pozisyonu
-            ghost.x = point.x;
-            ghost.y = point.y;
+            // Serbest dolaşım
+            const currentZ = ghost.z || 0;
+            ghost.x = point.x - (currentZ * t);
+            ghost.y = point.y + (currentZ * t);
             ghost.ghostConnectionInfo = null;
         }
-    }
-    // Baca için: sadece cihaz üzerine snap yap
+    }    // Baca için: sadece cihaz üzerine snap yap
     else if (ghost.type === 'baca') {
         // KRITIK: Baca zaten yerleştirilmiş ve çizim modundaysa, cihaz snap yapma!
         // Sadece ilk yerleştirme için cihaz bulmalıyız
@@ -203,14 +239,17 @@ export function updateGhostPosition(ghost, point, snap) {
             // Bağlı cihaz bilgisini sakla
             ghost.ghostSnapCihazId = snapCihaz.id;
             ghost.ghostSnapCihaz = snapCihaz;
+
+            
         } else {
             // Cihaz bulunamadı - ghost görünmez (istekten dolayı)
             ghost.ghostSnapCihazId = null;
             ghost.ghostSnapCihaz = null;
         }
     } else {
-        ghost.x = point.x;
-        ghost.y = point.y;
+        const currentZ = ghost.z || 0;
+        ghost.x = point.x - (currentZ * t);
+        ghost.y = point.y + (currentZ * t);
     }
 
     // Servis kutusu - duvara snap (yerleştirme için useBoxPosition=false)
