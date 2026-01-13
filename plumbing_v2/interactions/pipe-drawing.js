@@ -370,8 +370,8 @@ export function applyMeasurement(interactionManager) {
         let targetPt = interactionManager.geciciBoruBitis;
 
         if (!targetPt) {
-            // Eğer fare hiç hareket etmediyse varsayılan olarak X ekseninde ekle
-            targetPt = { x: startPt.x + measurement, y: startPt.y, z: startZ };
+            // Eğer fare hiç hareket etmediyse varsayılan olarak Z ekseninde ekle (düşey)
+            targetPt = { x: startPt.x, y: startPt.y, z: startZ + height };
         } else {
             const dx = targetPt.x - startPt.x;
             const dy = targetPt.y - startPt.y;
@@ -381,15 +381,15 @@ export function applyMeasurement(interactionManager) {
             const currentLength = Math.hypot(dx, dy, dz);
 
             if (currentLength > 0.001) {
-                const factor = measurement / currentLength;
+                const factor = height / currentLength;
                 targetPt = {
                     x: startPt.x + dx * factor,
                     y: startPt.y + dy * factor,
                     z: startZ + dz * factor
                 };
             } else {
-                // Yön yoksa X+ varsay
-                targetPt = { x: startPt.x + measurement, y: startPt.y, z: startZ };
+                // Yön yoksa Z+ varsay (düşey)
+                targetPt = { x: startPt.x, y: startPt.y, z: startZ + height };
             }
         }
 
@@ -401,46 +401,54 @@ export function applyMeasurement(interactionManager) {
         //     z: (startPoint.z || 0) + height
         // };
 
-        handleBoruClick(interactionManager, endPoint);
+        handleBoruClick(interactionManager, targetPt);
         interactionManager.measurementInput = '';
         interactionManager.measurementActive = false;
         interactionManager.isVerticalMeasurement = false;
         return;
     }
 
-    // Normal yatay ölçüm
+    // Normal ölçüm (3D - X, Y, Z fark etmez)
     const measurement = parseFloat(interactionManager.measurementInput);
     if (isNaN(measurement) || measurement <= 0) {
         interactionManager.measurementInput = '';
         interactionManager.measurementActive = false;
         return;
     }
-    const currentZ = interactionManager.boruBaslangic.nokta.z || 0;
+    const startPt = interactionManager.boruBaslangic.nokta;
+    const startZ = startPt.z || 0;
 
     let targetPoint = interactionManager.geciciBoruBitis;
     if (!targetPoint) {
+        // Fare hiç hareket etmediyse X+ yönünde ekle (varsayılan)
         targetPoint = {
-            x: interactionManager.boruBaslangic.nokta.x + measurement,
-            y: interactionManager.boruBaslangic.nokta.y,
-            z: currentZ // Z kotunu koru
+            x: startPt.x + measurement,
+            y: startPt.y,
+            z: startZ
         };
     } else {
-        const dx = targetPoint.x - interactionManager.boruBaslangic.nokta.x;
-        const dy = targetPoint.y - interactionManager.boruBaslangic.nokta.y;
-        const currentLength = Math.hypot(dx, dy);
-        if (currentLength > 0.1) {
-            const dirX = dx / currentLength;
-            const dirY = dy / currentLength;
+        // 3D vektör hesaplama - Mouse'un baktığı yöne göre
+        const dx = targetPoint.x - startPt.x;
+        const dy = targetPoint.y - startPt.y;
+        const dz = (targetPoint.z || 0) - startZ;
+
+        // 3D uzunluk hesapla (X, Y, Z dahil)
+        const currentLength = Math.hypot(dx, dy, dz);
+
+        if (currentLength > 0.001) {
+            // Yönü normalize et ve ölçüm uzunluğu kadar çarp
+            const factor = measurement / currentLength;
             targetPoint = {
-                x: interactionManager.boruBaslangic.nokta.x + dirX * measurement,
-                y: interactionManager.boruBaslangic.nokta.y + dirY * measurement,
-                z: currentZ // Z kotunu koru
+                x: startPt.x + dx * factor,
+                y: startPt.y + dy * factor,
+                z: startZ + dz * factor
             };
         } else {
+            // Yön yoksa X+ varsay
             targetPoint = {
-                x: interactionManager.boruBaslangic.nokta.x + measurement,
-                y: interactionManager.boruBaslangic.nokta.y,
-                z: currentZ // Z kotunu koru
+                x: startPt.x + measurement,
+                y: startPt.y,
+                z: startZ
             };
         }
     }
