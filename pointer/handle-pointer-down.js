@@ -93,6 +93,17 @@ export function handlePointerDown(e) {
         return true;
     }
 
+    // 0.6 Sayaç/Cihaz boru üzerine ekleme - Sayaç/Cihaz tool aktif ve boru preview var
+    if ((this.manager.activeTool === 'sayac' || this.manager.activeTool === 'cihaz') &&
+        this.componentOnPipePreview && this.manager.tempComponent) {
+        this.handleComponentOnPipePlacement(
+            this.componentOnPipePreview.pipe,
+            this.componentOnPipePreview.point,
+            this.componentOnPipePreview.componentType
+        );
+        return true;
+    }
+
     // 1. Boru çizim modunda tıklama
     if (this.boruCizimAktif) {
         this.handleBoruClick(targetPoint);

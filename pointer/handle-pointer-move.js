@@ -246,6 +246,40 @@ export function handlePointerMove(e) {
         this.vanaPreview = null;
     }
 
+    // 1.7 Sayaç/Cihaz boru üzerine ekleme preview (boru ortasına ekleme)
+    if ((this.manager.activeTool === 'sayac' || this.manager.activeTool === 'cihaz') &&
+        this.manager.tempComponent && !this.manager.tempComponent.ghostConnectionInfo) {
+        const hoveredPipe = this.findPipeAt(point, 10);
+        if (hoveredPipe) {
+            const proj = hoveredPipe.projectPoint(point);
+            if (proj && proj.onSegment) {
+                // Köşelere snap (boru uçlarına yakınsa)
+                let splitPoint = { x: proj.x, y: proj.y, z: hoveredPipe.p1.z };
+                const CORNER_SNAP_DISTANCE = 10;
+                const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
+                const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
+
+                if (distToP1 < CORNER_SNAP_DISTANCE) {
+                    splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z };
+                } else if (distToP2 < CORNER_SNAP_DISTANCE) {
+                    splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y, z: hoveredPipe.p2.z };
+                }
+
+                this.componentOnPipePreview = {
+                    pipe: hoveredPipe,
+                    point: splitPoint,
+                    componentType: this.manager.activeTool
+                };
+            } else {
+                this.componentOnPipePreview = null;
+            }
+        } else {
+            this.componentOnPipePreview = null;
+        }
+    } else {
+        this.componentOnPipePreview = null;
+    }
+
     // 2. Ghost eleman
     if (this.manager.activeTool && this.manager.tempComponent) {
         this.updateGhostPosition(this.manager.tempComponent, targetPoint, this.activeSnap);

@@ -593,6 +593,160 @@ export function handleCihazEkleme(cihaz) {
 }
 
 /**
+ * Sayaç/Cihaz boru ortasına ekleme
+ * Boruyu böler ve bölünen uç noktaya sayaç/cihaz ekler
+ */
+export function handleComponentOnPipePlacement(pipe, splitPoint, componentType) {
+    // Undo için state kaydet
+    saveState();
+
+    // Boruyu böl
+    const splitResult = pipe.splitAt(splitPoint);
+    if (!splitResult) {
+        console.error('Boru bölme başarısız!');
+        return false;
+    }
+
+    const { boru1, boru2 } = splitResult;
+
+    // Bağlantı: boru1 (gelen) -> sayaç/cihaz -> boru2 (giden)
+    boru1.setBitisBaglanti('boru', boru2.id);
+    boru2.setBaslangicBaglanti('boru', boru1.id);
+
+    // Listeyi güncelle
+    const idx = this.manager.pipes.findIndex(p => p.id === pipe.id);
+    if (idx !== -1) this.manager.pipes.splice(idx, 1);
+    this.manager.pipes.push(boru1, boru2);
+
+    // Boru üzerindeki mevcut nesneleri yeni borulara dağıt (vanalar, fleks bağlantılar)
+    redistributePipeComponentsInline.call(this, pipe, boru1, boru2, splitPoint);
+
+    // Bölünen noktaya sayaç/cihaz ekle
+    if (componentType === 'sayac') {
+        // Sayaç ekle - boru2'nin başlangıç noktasına (p1)
+        const tempMeter = this.manager.tempComponent;
+        if (!tempMeter) return false;
+
+        // Ghost connection bilgisi oluştur (boru2'nin başlangıç ucu)
+        tempMeter.ghostConnectionInfo = {
+            boruUcu: {
+                boruId: boru2.id,
+                boru: boru2,
+                uc: 'p1',
+                nokta: { x: splitPoint.x, y: splitPoint.y, z: splitPoint.z || 0 }
+            }
+        };
+
+        // Sayaç yerleştirme fonksiyonunu çağır
+        const success = this.handleSayacEndPlacement(tempMeter);
+        if (success) {
+            // Sayacın çıkış noktasından boru çizimi başlat
+            const cikisNoktasi = tempMeter.getCikisNoktasi();
+            this.startBoruCizim(cikisNoktasi, tempMeter.id, BAGLANTI_TIPLERI.SAYAC);
+            this.manager.activeTool = 'boru';
+            setMode("plumbingV2", true);
+        }
+        return success;
+    } else if (componentType === 'cihaz') {
+        // Cihaz ekle - boru2'nin başlangıç noktasına (p1)
+        const tempDevice = this.manager.tempComponent;
+        if (!tempDevice) return false;
+
+        // Ghost connection bilgisi oluştur (boru2'nin başlangıç ucu)
+        tempDevice.ghostConnectionInfo = {
+            boruUcu: {
+                boruId: boru2.id,
+                boru: boru2,
+                uc: 'p1',
+                nokta: { x: splitPoint.x, y: splitPoint.y, z: splitPoint.z || 0 }
+            }
+        };
+
+        // Cihaz yerleştirme fonksiyonunu çağır
+        const success = this.handleCihazEkleme(tempDevice);
+        if (success) {
+            // Cihaz eklendikten sonra seç moduna geç
+            this.manager.activeTool = null;
+            setMode("select", true);
+        }
+        return success;
+    }
+
+    return false;
+}
+
+/**
+ * Boru bölündüğünde üzerindeki nesneleri (vanalar, fleks bağlantılar) yeni borulara dağıt
+ */
+function redistributePipeComponentsInline(oldPipe, boru1, boru2, splitPoint) {
+    const itemsToReattach = [];
+
+    // Vanalar
+    const valves = this.manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === oldPipe.id);
+    valves.forEach(v => {
+        const pos = oldPipe.getPointAt(v.boruPozisyonu !== undefined ? v.boruPozisyonu : 0.5);
+        itemsToReattach.push({ comp: v, type: 'vana', worldPos: { x: pos.x, y: pos.y } });
+    });
+
+    // Fleks bağlantılar (sayaç/cihaz)
+    const flexComponents = this.manager.components.filter(c =>
+        (c.type === 'cihaz' || c.type === 'sayac') &&
+        c.fleksBaglanti &&
+        c.fleksBaglanti.boruId === oldPipe.id
+    );
+    flexComponents.forEach(c => {
+        let pos;
+        if (c.fleksBaglanti.endpoint === 'p1') pos = oldPipe.p1;
+        else if (c.fleksBaglanti.endpoint === 'p2') pos = oldPipe.p2;
+        else {
+            const d1 = Math.hypot(c.x - oldPipe.p1.x, c.y - oldPipe.p1.y);
+            const d2 = Math.hypot(c.x - oldPipe.p2.x, c.y - oldPipe.p2.y);
+            pos = d1 < d2 ? oldPipe.p1 : oldPipe.p2;
+        }
+        itemsToReattach.push({ comp: c, type: 'fleks', worldPos: { x: pos.x, y: pos.y } });
+    });
+
+    // Nesneleri yeni borulara ata
+    itemsToReattach.forEach(item => {
+        const { comp, type, worldPos } = item;
+        const proj1 = boru1.projectPoint(worldPos);
+        const proj2 = boru2.projectPoint(worldPos);
+        let targetPipe = (proj1.distance < proj2.distance - 0.001) ? boru1 : boru2;
+        let targetProj = (targetPipe === boru1) ? proj1 : proj2;
+
+        if (type === 'vana') {
+            comp.bagliBoruId = targetPipe.id;
+            comp.boruPozisyonu = targetProj.t;
+            if (comp.updatePositionFromPipe) comp.updatePositionFromPipe(targetPipe);
+        } else if (type === 'fleks') {
+            comp.fleksBaglanti.boruId = targetPipe.id;
+            const dP1 = Math.hypot(worldPos.x - targetPipe.p1.x, worldPos.y - targetPipe.p1.y);
+            const dP2 = Math.hypot(worldPos.x - targetPipe.p2.x, worldPos.y - targetPipe.p2.y);
+            comp.fleksBaglanti.endpoint = dP1 < dP2 ? 'p1' : 'p2';
+        }
+    });
+
+    // Çocuk boruları güncelle (T-bağlantılar)
+    this.manager.pipes.forEach(childPipe => {
+        if (childPipe.baslangicBaglanti &&
+            childPipe.baslangicBaglanti.tip === 'boru' &&
+            childPipe.baslangicBaglanti.hedefId === oldPipe.id) {
+            // Hangisine daha yakın?
+            const proj1 = boru1.projectPoint(childPipe.p1);
+            const proj2 = boru2.projectPoint(childPipe.p1);
+
+            if (proj1.distance < proj2.distance) {
+                childPipe.baslangicBaglanti.hedefId = boru1.id;
+            } else {
+                childPipe.baslangicBaglanti.hedefId = boru2.id;
+            }
+        }
+    });
+
+    this.manager.saveToState();
+}
+
+/**
  * İç tesisat sayaç ekleme - ikinci nokta tıklaması
  * Kesikli boru oluştur + sayacı boru ucuna ekle
  */
