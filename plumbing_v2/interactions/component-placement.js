@@ -272,7 +272,7 @@ export function handleVanaPlacement(vanaPreview) {
 
     // ✨ P2 (ileri uç) ucundan sabit mesafe hesapla
     const pipeLength = pipe.uzunluk;
-    const distanceFromP2 = pipeLength * (1 - t); // cm cinsinden
+    const distanceFromP2 = 0; //pipeLength * (1 - t); // cm cinsinden
 
     // Bağımsız Vana nesnesi oluştur
     const vana = createVana(x, y, 'AKV', {

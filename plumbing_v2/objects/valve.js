@@ -330,8 +330,8 @@ export class Vana {
         }
 
         // Mesafe kontrolü: uçlardan 4cm, nesneler arası 2cm
-        const MIN_EDGE_DISTANCE = 2; // cm
-        const OBJECT_MARGIN = 2; // cm - Her nesnenin sağında ve solunda
+        const MIN_EDGE_DISTANCE = 1; // cm
+        const OBJECT_MARGIN = 1; // cm - Her nesnenin sağında ve solunda
         const pipeLength = pipe.uzunluk;
         const minT = MIN_EDGE_DISTANCE / pipeLength;
         const maxT = 1 - (MIN_EDGE_DISTANCE / pipeLength);
