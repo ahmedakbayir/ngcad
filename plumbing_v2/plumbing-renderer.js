@@ -427,8 +427,89 @@ export class PlumbingRenderer {
         if (window._selectedPipePath && window._selectedPipePath.length > 0) {
             this.drawSelectedPipePath(ctx);
         }
-    }
 
+        if (manager.interactionManager?.boruCizimAktif && manager.interactionManager?.boruBaslangic) {
+            this.draw3DAxisGuide(ctx, manager);
+        }
+
+    }
+    /**
+         * 3D Çizim Eksen Kılavuzlarını Çizer (Gizmo)
+         */
+    draw3DAxisGuide(ctx, manager) {
+        // Sadece 3D modunda çiz
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.1) return;
+
+        const startPt = manager.interactionManager.boruBaslangic.nokta;
+        const snapMode = manager.interactionManager.axisSnapMode; // 'X', 'Y', 'Z'
+        const zoom = state.zoom || 1;
+        const guideLength = 100 / zoom; // Kılavuz uzunluğu
+
+        // Başlangıç noktasının ekran koordinatlarını hesapla
+        const z = (startPt.z || 0) * t;
+        const cx = startPt.x + z;
+        const cy = startPt.y - z;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        // Ortak stil
+        ctx.lineWidth = 2 / zoom;
+        ctx.font = `bold ${12 / zoom}px Arial`;
+
+        // --- X EKSENİ (Kırmızı) ---
+        // Yatay sağa doğru
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(guideLength, 0);
+        ctx.strokeStyle = (snapMode === 'X') ? '#FF0000' : 'rgba(255, 0, 0, 0.3)'; // Aktifse parlak, değilse soluk
+        if (snapMode === 'X') ctx.lineWidth = 4 / zoom;
+        else ctx.setLineDash([5 / zoom, 3 / zoom]);
+        ctx.stroke();
+
+        ctx.fillStyle = '#FF0000';
+        ctx.fillText("X", guideLength + 5 / zoom, 0);
+
+        // --- Y EKSENİ (Yeşil) ---
+        // Dikey aşağı doğru
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, guideLength);
+        ctx.strokeStyle = (snapMode === 'Y') ? '#00AA00' : 'rgba(0, 170, 0, 0.3)';
+        ctx.lineWidth = (snapMode === 'Y') ? 4 / zoom : 2 / zoom;
+        if (snapMode !== 'Y') ctx.setLineDash([5 / zoom, 3 / zoom]);
+        else ctx.setLineDash([]);
+        ctx.stroke();
+
+        ctx.fillStyle = '#00AA00';
+        ctx.fillText("Y", 0, guideLength + 12 / zoom);
+
+        // --- Z EKSENİ (Mavi) ---
+        // Çapraz sağ-yukarı (Ekran koordinatlarında x+, y-)
+        // 3D projeksiyona göre 1 birim Z = 1 birim X ve -1 birim Y (t=1 iken)
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        // Z ekseni çizimi: t faktörünü de görsel uzunluğa yansıtıyoruz
+        ctx.lineTo(guideLength, -guideLength);
+
+        ctx.strokeStyle = (snapMode === 'Z') ? '#0000FF' : 'rgba(0, 0, 255, 0.3)';
+        ctx.lineWidth = (snapMode === 'Z') ? 4 / zoom : 2 / zoom;
+        if (snapMode !== 'Z') ctx.setLineDash([5 / zoom, 3 / zoom]);
+        else ctx.setLineDash([]);
+        ctx.stroke();
+
+        ctx.fillStyle = '#0000FF';
+        ctx.fillText("Z (Shift)", guideLength + 5 / zoom, -guideLength - 5 / zoom);
+
+        // Merkez nokta
+        ctx.beginPath();
+        ctx.arc(0, 0, 3 / zoom, 0, Math.PI * 2);
+        ctx.fillStyle = '#FFFF00'; // Sarı merkez
+        ctx.fill();
+
+        ctx.restore();
+    }
     drawPipes(ctx, pipes) {
         if (!pipes) return;
 

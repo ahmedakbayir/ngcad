@@ -47,7 +47,7 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
     // Eğer kaynak bir boruysa, o noktada BİTEN (Akışın geldiği) başka bir boru var mı diye kontrol et.
     // Çünkü T-bağlantı her zaman "Gelen Hattan" (Upstream) alınmalıdır.
     // Mevcut seçim "Giden Hat" (Downstream) olabilir, bunu düzeltmeliyiz.
-    
+
     let finalKaynakId = kaynakId;
     let finalKaynakTip = kaynakTip;
 
@@ -55,7 +55,7 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
         // O noktadaki (tolerance dahilinde) tüm boru uçlarını bul
         const CHECK_RADIUS = 2.0; // cm
         const currentPipe = interactionManager.manager.pipes.find(p => p.id === kaynakId);
-        
+
         if (currentPipe) {
             // Tıklanan noktanın mevcut borunun BAŞLANGICI (P1) olup olmadığını kontrol et
             // Eğer P1 ise, bu boru buradan "başlıyordur" (Child).
@@ -91,13 +91,13 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
 
 
     // Kaynak borunun renk grubunu belirle
-    let kaynakColorGroup = 'YELLOW'; 
+    let kaynakColorGroup = 'YELLOW';
 
     if (colorGroup) {
         kaynakColorGroup = colorGroup;
     } else if (finalKaynakId && finalKaynakTip) {
         if (interactionManager.hasAncestorMeter(finalKaynakId, finalKaynakTip)) {
-            kaynakColorGroup = 'TURQUAZ'; 
+            kaynakColorGroup = 'TURQUAZ';
         } else {
             kaynakColorGroup = 'YELLOW';
         }
@@ -130,7 +130,7 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
         nokta: baslangicNoktasi,
         kaynakId: finalKaynakId,
         kaynakTip: finalKaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU,
-        kaynakColorGroup: kaynakColorGroup 
+        kaynakColorGroup: kaynakColorGroup
     };
     interactionManager.snapSystem.setStartPoint(baslangicNoktasi);
     interactionManager.manager.activeTool = 'boru';
@@ -214,9 +214,9 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
             const proj2 = boru2.projectPoint(childPipe.p1);
 
             if (proj1.distance < proj2.distance) {
-                 childPipe.baslangicBaglanti.hedefId = boru1.id;
+                childPipe.baslangicBaglanti.hedefId = boru1.id;
             } else {
-                 childPipe.baslangicBaglanti.hedefId = boru2.id;
+                childPipe.baslangicBaglanti.hedefId = boru2.id;
             }
         }
     });
@@ -297,7 +297,7 @@ export function handleBoruClick(interactionManager, point) {
             const cikisNoktasi = c.getCikisNoktasi();
             if (!cikisNoktasi) return false;
             const dist = Math.hypot(interactionManager.boruBaslangic.nokta.x - cikisNoktasi.x,
-                                    interactionManager.boruBaslangic.nokta.y - cikisNoktasi.y);
+                interactionManager.boruBaslangic.nokta.y - cikisNoktasi.y);
             return dist < tolerance;
         });
         // ...
@@ -317,12 +317,12 @@ export function handleBoruClick(interactionManager, point) {
         );
         // ... bağlantı kodları ...
         if (interactionManager.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
-             const servisKutusu = interactionManager.manager.components.find(c => c.id === interactionManager.boruBaslangic.kaynakId);
-             if (servisKutusu) servisKutusu.baglaBoru(boru.id);
+            const servisKutusu = interactionManager.manager.components.find(c => c.id === interactionManager.boruBaslangic.kaynakId);
+            if (servisKutusu) servisKutusu.baglaBoru(boru.id);
         }
         if (interactionManager.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
-             const sayac = interactionManager.manager.components.find(c => c.id === interactionManager.boruBaslangic.kaynakId);
-             if (sayac) sayac.baglaCikis(boru.id);
+            const sayac = interactionManager.manager.components.find(c => c.id === interactionManager.boruBaslangic.kaynakId);
+            if (sayac) sayac.baglaCikis(boru.id);
         }
     }
 
@@ -339,7 +339,7 @@ export function handleBoruClick(interactionManager, point) {
         nokta: point,
         kaynakId: boru.id,
         kaynakTip: BAGLANTI_TIPLERI.BORU,
-        kaynakColorGroup: boru.colorGroup 
+        kaynakColorGroup: boru.colorGroup
     };
     interactionManager.snapSystem.setStartPoint(point);
 
@@ -384,12 +384,12 @@ export function applyMeasurement(interactionManager) {
         interactionManager.measurementActive = false;
         return;
     }
-const currentZ = interactionManager.boruBaslangic.nokta.z || 0;
+    const currentZ = interactionManager.boruBaslangic.nokta.z || 0;
 
     let targetPoint = interactionManager.geciciBoruBitis;
     if (!targetPoint) {
-        targetPoint = { 
-            x: interactionManager.boruBaslangic.nokta.x + measurement, 
+        targetPoint = {
+            x: interactionManager.boruBaslangic.nokta.x + measurement,
             y: interactionManager.boruBaslangic.nokta.y,
             z: currentZ // Z kotunu koru
         };
@@ -400,17 +400,17 @@ const currentZ = interactionManager.boruBaslangic.nokta.z || 0;
         if (currentLength > 0.1) {
             const dirX = dx / currentLength;
             const dirY = dy / currentLength;
-            targetPoint = { 
-                x: interactionManager.boruBaslangic.nokta.x + dirX * measurement, 
+            targetPoint = {
+                x: interactionManager.boruBaslangic.nokta.x + dirX * measurement,
                 y: interactionManager.boruBaslangic.nokta.y + dirY * measurement,
                 z: currentZ // Z kotunu koru
             };
         } else {
-             targetPoint = { 
-                 x: interactionManager.boruBaslangic.nokta.x + measurement, 
-                 y: interactionManager.boruBaslangic.nokta.y,
-                 z: currentZ // Z kotunu koru
-             };
+            targetPoint = {
+                x: interactionManager.boruBaslangic.nokta.x + measurement,
+                y: interactionManager.boruBaslangic.nokta.y,
+                z: currentZ // Z kotunu koru
+            };
         }
     }
     handleBoruClick(interactionManager, targetPoint);
@@ -419,7 +419,7 @@ const currentZ = interactionManager.boruBaslangic.nokta.z || 0;
 }
 
 export function cancelCurrentAction(interactionManager) {
-     // ... existing code ...
+    // ... existing code ...
     if (interactionManager.boruCizimAktif) {
         interactionManager.boruCizimAktif = false;
         interactionManager.boruBaslangic = null;
@@ -443,4 +443,80 @@ export function hasServisKutusu(interactionManager) {
 export function getGeciciBoruCizgisi(interactionManager) {
     if (!interactionManager.boruCizimAktif || !interactionManager.boruBaslangic || !interactionManager.geciciBoruBitis) return null;
     return { p1: interactionManager.boruBaslangic.nokta, p2: interactionManager.geciciBoruBitis };
+}
+export function calculate3DSnap(interactionManager, mouseWorldPoint, isShiftPressed) {
+    if (!interactionManager.boruCizimAktif || !interactionManager.boruBaslangic) {
+        interactionManager.axisSnapMode = null;
+        return mouseWorldPoint;
+    }
+
+    // 3D modunda değilsek (t < 0.5) işlem yapma
+    const t = state.viewBlendFactor || 0;
+    if (t < 0.5) {
+        interactionManager.axisSnapMode = null;
+        return mouseWorldPoint;
+    }
+
+    const startPt = interactionManager.boruBaslangic.nokta;
+    // Z değerini sayısal olarak garantiye al
+    const startZ = parseFloat(startPt.z || 0);
+    const SNAP_THRESHOLD = 20 / (state.zoom || 1);
+
+    // Başlangıç noktasının ekrandaki izdüşümü
+    const screenStartX = startPt.x + startZ * t;
+    const screenStartY = startPt.y - startZ * t;
+
+    // Mouse'un ekrandaki konumu (WorldPoint zaten 2D düzlemden gelir)
+    const mouseX = mouseWorldPoint.x;
+    const mouseY = mouseWorldPoint.y;
+
+    let snappedPoint = { ...mouseWorldPoint, z: startZ }; // Varsayılan: Z değişmez
+    interactionManager.axisSnapMode = null;
+
+    // SHIFT BASILI: Sadece Z Ekseni (Yukarı/Aşağı)
+    if (isShiftPressed) {
+        interactionManager.axisSnapMode = 'Z';
+
+        // Mouse hareketini Z eksenine iz düşür
+        // Ekran üzerinde sağ-yukarı hareket Z artırır
+        const dx = mouseX - screenStartX;
+        const dy = mouseY - screenStartY;
+
+        // Basit yaklaşımla ortalama delta
+        const deltaAvg = (dx - dy) / 2;
+        const newZ = deltaAvg / t; // t'ye göre ölçekle
+
+        snappedPoint = {
+            x: startPt.x,
+            y: startPt.y,
+            z: startZ + newZ
+        };
+    }
+    // SHIFT YOK: X veya Y eksenine yapışma
+    else {
+        const distToXAxis = Math.abs(mouseY - screenStartY); // Y farkı
+        const distToYAxis = Math.abs(mouseX - screenStartX); // X farkı
+
+        if (distToXAxis < SNAP_THRESHOLD && distToXAxis <= distToYAxis) {
+            interactionManager.axisSnapMode = 'X';
+            snappedPoint = {
+                x: mouseX - (startZ * t), // Ters izdüşüm
+                y: startPt.y,
+                z: startZ
+            };
+        }
+        else if (distToYAxis < SNAP_THRESHOLD) {
+            interactionManager.axisSnapMode = 'Y';
+            snappedPoint = {
+                x: startPt.x,
+                y: mouseY + (startZ * t), // Ters izdüşüm
+                z: startZ
+            };
+        }
+    }
+
+    // Geçici boru bitişini güncelle (Renderer için)
+    interactionManager.geciciBoruBitis = snappedPoint;
+
+    return snappedPoint;
 }

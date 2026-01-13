@@ -127,7 +127,8 @@ export class InteractionManager {
         // Seçili nesne
         this.selectedObject = null;
         this.selectedValve = null; // { pipe, vana }
-
+        this.axisSnapMode = null; // 'X', 'Y', 'Z' veya null
+        this.axisSnapPoint = null; // Snaplanan nokta koordinatı
         // Boru uç noktası snap lock (duvar node snap gibi)
         this.pipeEndpointSnapLock = null;
         this.pipeSnapMouseStart = null; // Snap başladığı andaki mouse pozisyonu

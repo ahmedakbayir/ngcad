@@ -9,6 +9,9 @@ import { BAGLANTI_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 import { TESISAT_CONSTANTS } from '../plumbing_v2/interactions/tesisat-snap.js';
 import { pixelsToWorld } from '../plumbing_v2/interactions/finders.js';
 
+// YENİ IMPORT: 3D hesaplama fonksiyonu
+import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
+
 export function handlePointerDown(e) {
     const rect = dom.c2d.getBoundingClientRect();
     const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
@@ -18,12 +21,28 @@ export function handlePointerDown(e) {
         ? { x: this.activeSnap.x, y: this.activeSnap.y }
         : point;
 
-    // Boru çizim modundaysa ve başlangıç noktası Z koordinatına sahipse,
-    // hedef nokta da aynı Z'yi alsın (yatay çizim için)
+    // --- DÜZELTME BAŞLANGIÇ ---
+    // Boru çizim modundaysa:
+    if (this.boruCizimAktif && this.boruBaslangic) {
+        // Tıklanan noktayı 3D kurallarına (ve Z yüksekliğine) göre düzelt
+        targetPoint = calculate3DSnap(this, targetPoint, e.shiftKey);
+
+        // 2D modunda (t < 0.5) Z'yi korumak için ekstra güvenlik
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.5 && this.boruBaslangic.nokta) {
+            const startZ = this.boruBaslangic.nokta.z || 0;
+            targetPoint.z = startZ;
+        }
+    }
+    // --- DÜZELTME BİTİŞ ---
+
+    /* ESKİ HATALI KOD: Bu blok Z'yi zorla başlangıç Z'sine eşitliyordu,
+       Shift ile verilen yüksekliği eziyordu. KALDIRILDI.
     if (this.boruCizimAktif && this.boruBaslangic && this.boruBaslangic.nokta) {
         const startZ = this.boruBaslangic.nokta.z || 0;
         targetPoint = { ...targetPoint, z: startZ };
     }
+    */
 
     //console.log('[POINTER DOWN] activeTool:', this.manager.activeTool, 'tempComponent:', this.manager.tempComponent?.type);
 
@@ -82,8 +101,6 @@ export function handlePointerDown(e) {
 
     // 1.5. İç tesisat sayaç yerleştirme - ikinci nokta tıklaması
     if (this.meterPlacementState === 'drawing_start_pipe' && this.meterStartPoint) {
-        // İkinci tıklama: Kesikli boru oluştur + sayaç ekle
-        // meterPreviewEndPoint kullan (açı snap uygulanmış nokta)
         const endPoint = this.meterPreviewEndPoint || targetPoint;
         this.handleMeterStartPipeSecondClick(endPoint);
         return true;
@@ -101,7 +118,7 @@ export function handlePointerDown(e) {
         state.currentMode === 'MİMARİ-TESİSAT';
 
     if (isSelectionMode) {
-        // Önce seçili nesnenin döndürme tutamacını kontrol et (servis kutusu, cihaz ve sayaç)
+        // Önce seçili nesnenin döndürme tutamacını kontrol et
         if (this.selectedObject && (this.selectedObject.type === 'servis_kutusu' || this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'sayac')) {
             if (this.findRotationHandleAt(this.selectedObject, point, 12)) {
                 this.startRotation(this.selectedObject, point);
@@ -109,126 +126,96 @@ export function handlePointerDown(e) {
             }
         }
 
-        // --- VANA KONTROLÜ (EN YÜKSEK ÖNCELİK VE HASSASİYET) ---
-        // Doğrudan bileşen listesinden, 0 tolerans ile (containsPoint varsayılanı)
+        // --- VANA KONTROLÜ ---
         const clickedValve = this.manager.components.find(c => c.type === 'vana' && c.containsPoint(point));
-
         if (clickedValve) {
-            // Vana seçildi
-            // Bağlı olduğu boruyu bul
             const pipe = clickedValve.bagliBoruId ? this.manager.pipes.find(p => p.id === clickedValve.bagliBoruId) : null;
-
-            // Vanayı seç
             this.selectValve(pipe, clickedValve);
-
-            // Sürükleme işlemini başlat (Bunu eklemezsek "kilitlendi" gibi hissedilir)
             this.startDrag(clickedValve, point);
-
             return true;
         }
 
-        // --- SAYAÇ KONTROLÜ (Boru modunda sayaca tıklanırsa çıkış ucundan başla) ---
+        // --- SAYAÇ KONTROLÜ ---
         if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
             const clickedMeter = this.manager.components.find(c =>
                 c.type === 'sayac' && c.containsPoint && c.containsPoint(point)
             );
             if (clickedMeter) {
-                //  console.log('🎯 SAYAÇ BULUNDU, çıkış ucundan boru başlatılıyor:', clickedMeter.id);
                 const cikisNoktasi = clickedMeter.getCikisNoktasi();
                 this.startBoruCizim(cikisNoktasi, clickedMeter.id, BAGLANTI_TIPLERI.SAYAC);
                 return true;
             }
         }
 
-        // --- SERVİS KUTUSU KONTROLÜ (Boru modunda kutuya tıklanırsa çıkış ucundan başla) ---
+        // --- SERVİS KUTUSU KONTROLÜ ---
         if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
             const clickedBox = this.manager.components.find(c =>
                 c.type === 'servis_kutusu' && c.containsPoint && c.containsPoint(point)
             );
             if (clickedBox) {
-                //  console.log('🎯 SERVİS KUTUSU BULUNDU, çıkış ucundan boru başlatılıyor:', clickedBox.id);
                 const cikisNoktasi = clickedBox.getCikisNoktasi();
                 this.startBoruCizim(cikisNoktasi, clickedBox.id, BAGLANTI_TIPLERI.SERVIS_KUTUSU);
                 return true;
             }
         }
 
-        // Piksel bazlı tolerance - zoom bağımsız
         const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
 
-        // Baca segment endpoint kontrolü (boru noktası kontrolünden önce - daha yüksek öncelik)
+        // Baca endpoint
         const bacalar = this.manager.components.filter(c => c.type === 'baca' && c.isSelected);
         for (const baca of bacalar) {
             const endpoint = baca.findNearestEndpoint(point, worldTolerance);
             if (endpoint) {
-                // Baca endpoint sürüklemesi başlat
                 this.isDragging = true;
                 this.dragObject = baca;
                 this.dragStart = { ...point };
-                this.dragBacaEndpoint = endpoint; // {segmentIndex, endpoint: 'start'|'end'}
+                this.dragBacaEndpoint = endpoint;
                 return true;
             }
         }
 
-        // Sonra boru uç noktası kontrolü yap (ÖNCE NOKTA - body'den önce)
+        // Boru ucu
         const boruUcu = this.findBoruUcuAt(point, worldTolerance);
         if (boruUcu) {
-            // console.log('🎯 BORU UCU BULUNDU:', boruUcu.uc, boruUcu.boruId);
             const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
             if (pipe) {
-                // Eğer boru aracı aktifse, o uçtan boru çizimi başlat
                 if (this.manager.activeTool === 'boru') {
                     const deviceVar = this.hasDeviceAtEndpoint(pipe.id, boruUcu.uc);
                     const meterVar = this.hasMeterAtEndpoint(pipe.id, boruUcu.uc);
-
                     if (deviceVar || meterVar) {
                         console.warn("🚫 Bu uçta Cihaz/Sayaç fleksi var! Tesisat devam ettirilemez.");
-                        return true; // Çizimi başlatmadan fonksiyondan çık
+                        return true;
                     }
                     const ucNokta = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
                     this.startBoruCizim(ucNokta, pipe.id, BAGLANTI_TIPLERI.BORU);
                     return true;
                 }
 
-                // Servis kutusuna veya sayaca bağlı boru ucunun taşınmasını engelle
                 const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
                 if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU || ucBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
-                    // Sadece seç, taşıma başlatma
                     this.selectObject(pipe);
                     return true;
                 }
 
-                // Yoksa boruyu seç ve uç nokta sürüklemesi başlat
                 this.selectObject(pipe);
                 this.startEndpointDrag(pipe, boruUcu.uc, point);
                 return true;
             }
         }
 
-        // Sonra nesne seçimi (Boru vs)
+        // Nesne seçimi
         const hitObject = this.findObjectAt(point);
         if (hitObject) {
-            //  console.log('📦 NESNE BULUNDU:', hitObject.type, hitObject.id);
             this.selectObject(hitObject);
-            // Boru gövdesi için body sürükleme, diğerleri için normal sürükleme
             if (hitObject.type === 'boru') {
-                // Kutuya bağlı boruların gövdesi taşınmasın
                 const bagliKutu = this.manager.components.find(c =>
                     c.type === 'servis_kutusu' && c.bagliBoruId === hitObject.id
                 );
-
-                if (bagliKutu) {
-                    // Kutuya bağlı boru, gövde sürükleme yapma (ama seçimi koru)
-                    return true;
-                }
-
-                // Sayaca bağlı boruların gövdesi de taşınmasın
+                if (bagliKutu) return true;
                 if (hitObject.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC ||
                     hitObject.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
-                    // Sayaca bağlı boru, gövde sürükleme yapma (ama seçimi koru)
                     return true;
                 }
-
                 this.startBodyDrag(hitObject, point);
             } else {
                 this.startDrag(hitObject, point);
@@ -237,16 +224,14 @@ export function handlePointerDown(e) {
         }
     }
 
-    // Seç modunda çizim başlatma - boş alana tıklandı
     if (isSelectionMode) {
         this.deselectObject();
         return false;
     }
 
-    // 4. Bileşen çıkış noktasından çizim başlat (servis kutusu, sayaç vb.)
+    // 4. Bileşen çıkış noktasından çizim başlat
     const bilesenCikis = this.findBilesenCikisAt(point);
     if (bilesenCikis) {
-        // Bileşen tipine göre bağlantı tipi belirle
         const baglantiTip = bilesenCikis.tip === 'servis_kutusu'
             ? BAGLANTI_TIPLERI.SERVIS_KUTUSU
             : bilesenCikis.tip === 'sayac'
@@ -257,24 +242,19 @@ export function handlePointerDown(e) {
     }
 
     // 5. Boru ucu veya gövdesinden çizim başlat
-    // Piksel bazlı tolerance - zoom bağımsız
     const worldTolerance2 = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
     const boruUcu2 = this.findBoruUcuAt(point, worldTolerance2);
     if (boruUcu2) {
         const deviceVar = this.hasDeviceAtEndpoint(boruUcu2.boruId, boruUcu2.uc);
         const meterVar = this.hasMeterAtEndpoint(boruUcu2.boruId, boruUcu2.uc);
-
         if (deviceVar || meterVar) {
             console.warn("🚫 Bu uçta Cihaz/Sayaç fleksi var! Tesisat devam ettirilemez.");
-            return true; // Çizimi başlatmadan fonksiyondan çık
+            return true;
         }
-
         this.startBoruCizim(boruUcu2.nokta, boruUcu2.boruId, BAGLANTI_TIPLERI.BORU);
         return true;
     }
 
-    // 6. Boru gövdesinden çizim başlat
-    // Piksel bazlı tolerance - zoom bağımsız
     const worldTolerance3 = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
     const boruGovde = this.findBoruGovdeAt(point, worldTolerance3);
     if (boruGovde) {
@@ -282,7 +262,6 @@ export function handlePointerDown(e) {
         return true;
     }
 
-    // 7. Boş alana tıklama - seçimi kaldır
     this.deselectObject();
     return false;
 }

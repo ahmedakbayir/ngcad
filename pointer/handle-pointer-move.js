@@ -5,6 +5,7 @@
 
 import { screenToWorld } from '../draw/geometry.js';
 import { dom, state } from '../general-files/main.js';
+import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
 
 export function handlePointerMove(e) {
     if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
@@ -46,7 +47,7 @@ export function handlePointerMove(e) {
         this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
     }
 
-    const targetPoint = this.activeSnap
+    let targetPoint = this.activeSnap
         ? { x: this.activeSnap.x, y: this.activeSnap.y }
         : point;
 
@@ -129,6 +130,7 @@ export function handlePointerMove(e) {
     // 1. Boru çizim modunda
     if (this.boruCizimAktif) {
         // Sayaç öncesi (YELLOW) hatlar için açı snap'i (3° tolerans)
+        targetPoint = calculate3DSnap(this, targetPoint, e.shiftKey);
         let finalTargetPoint = targetPoint;
         //console.log('🔍 DEBUG - kaynakColorGroup:', this.boruBaslangic?.kaynakColorGroup);
         if (this.boruBaslangic && this.boruBaslangic.kaynakColorGroup === 'YELLOW') {
