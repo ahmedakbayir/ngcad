@@ -21,6 +21,7 @@ import {
     placeComponent,
     restorePreviousMode,
     handleVanaPlacement,
+    handleComponentOnPipePlacement,
     handleSayacEndPlacement,
     handleCihazEkleme,
     handleMeterStartPipeSecondClick
@@ -139,6 +140,9 @@ export class InteractionManager {
         // Vana preview (vana tool aktif)
         this.vanaPreview = null; // { pipe, point, t, snapToEnd }
 
+        // Sayaç/Cihaz boru üzerine ekleme preview (sayac/cihaz tool aktif)
+        this.componentOnPipePreview = null; // { pipe, point, componentType }
+
         // İç tesisat (servis kutusu olmadan) sayaç yerleştirme durumu
         this.meterPlacementState = null; // null, 'drawing_start_pipe'
         this.meterStartPoint = null; // Kesikli borunun başlangıç noktası
@@ -226,6 +230,10 @@ export class InteractionManager {
 
     handleVanaPlacement(vanaPreview) {
         return handleVanaPlacement.call(this, vanaPreview);
+    }
+
+    handleComponentOnPipePlacement(pipe, splitPoint, componentType) {
+        return handleComponentOnPipePlacement.call(this, pipe, splitPoint, componentType);
     }
 
     handleSayacEndPlacement(meter) {
