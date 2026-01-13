@@ -117,6 +117,10 @@ export class Vana {
         this.fromEnd = options.fromEnd || null; // 'p1' veya 'p2'
         this.fixedDistance = options.fixedDistance || null; // cm cinsinden mesafe
 
+        // Kapama sembolü (end cap) gösterilmeli mi?
+        // Vana boru ucunda ve boru ucu boştaysa true
+        this.showEndCap = false;
+
         // Seçim durumu
         this.isSelected = false;
     }
@@ -417,6 +421,9 @@ export class Vana {
         this.fixedDistance = null;
         this.fromEnd = null;
 
+        // Not: updateEndCapStatus burada çağrılmaz çünkü manager'a erişimimiz yok
+        // Drag işleminden sonra çağrılmalı
+
         return true;
     }
 
@@ -476,6 +483,77 @@ export class Vana {
     }
 
     /**
+     * Vana çıkışına kapama sembolü eklenip eklenmeyeceğini kontrol et
+     * KURALLAR:
+     * - Vana boru ucunda olmalı (fromEnd set edilmiş)
+     * - Boru ucu boş olmalı (başka boru veya fleks bağlantısı yok)
+     * @param {object} manager - PlumbingManager instance
+     * @returns {boolean} - Kapama sembolü gösterilmeli mi?
+     */
+    checkEndCap(manager) {
+        if (!this.bagliBoruId || !this.fromEnd || !manager) {
+            return false;
+        }
+
+        const pipe = manager.findPipeById(this.bagliBoruId);
+        if (!pipe) {
+            return false;
+        }
+
+        // Vananın hangi uçta olduğunu belirle
+        const endpoint = this.fromEnd; // 'p1' veya 'p2'
+        const endPoint = pipe[endpoint]; // Boru uç noktası {x, y, z}
+
+        // Boru ucu boş mu kontrol et (sadece 1 boru var mı?)
+        const tolerance = 1; // 1 cm tolerans
+        let pipeCount = 0;
+
+        for (const otherPipe of manager.pipes) {
+            if (otherPipe.floorId && pipe.floorId && otherPipe.floorId !== pipe.floorId) {
+                continue;
+            }
+
+            const distP1 = Math.hypot(endPoint.x - otherPipe.p1.x, endPoint.y - otherPipe.p1.y);
+            const distP2 = Math.hypot(endPoint.x - otherPipe.p2.x, endPoint.y - otherPipe.p2.y);
+
+            if (distP1 < tolerance || distP2 < tolerance) {
+                pipeCount++;
+            }
+
+            if (pipeCount >= 2) {
+                return false; // Birden fazla boru var, boş değil
+            }
+        }
+
+        // Tam 1 boru olmalı (kendisi)
+        if (pipeCount !== 1) {
+            return false;
+        }
+
+        // Fleks bağlantısı var mı kontrol et (cihaz veya sayaç)
+        for (const comp of manager.components) {
+            if ((comp.type === 'cihaz' || comp.type === 'sayac') && comp.fleksBaglanti) {
+                if (comp.fleksBaglanti.boruId === pipe.id &&
+                    comp.fleksBaglanti.endpoint === endpoint) {
+                    return false; // Fleks bağlantısı var, boş değil
+                }
+            }
+        }
+
+        // Tüm kontroller geçti, kapama sembolü göster
+        return true;
+    }
+
+    /**
+     * Kapama sembolü durumunu güncelle
+     * Pozisyon güncellemelerinde çağrılmalı
+     * @param {object} manager - PlumbingManager instance
+     */
+    updateEndCapStatus(manager) {
+        this.showEndCap = this.checkEndCap(manager);
+    }
+
+    /**
      * Serialize
      */
     toJSON() {
@@ -493,7 +571,8 @@ export class Vana {
             bagliBoruId: this.bagliBoruId,
             fromEnd: this.fromEnd,
             fixedDistance: this.fixedDistance,
-            floorId: this.floorId
+            floorId: this.floorId,
+            showEndCap: this.showEndCap // Kapama sembolü durumu
         };
     }
 
@@ -513,6 +592,7 @@ export class Vana {
         vana.rotation = data.rotation;
         vana.girisBagliBoruId = data.girisBagliBoruId;
         vana.cikisBagliBoruId = data.cikisBagliBoruId;
+        vana.showEndCap = data.showEndCap || false; // Kapama sembolü durumunu yükle
 
         return vana;
     }

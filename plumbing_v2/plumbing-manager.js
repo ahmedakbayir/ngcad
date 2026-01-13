@@ -281,6 +281,14 @@ export class PlumbingManager {
                 this.updatePipeColorsAfterMeter(sayac.id);
             }
         });
+
+        // Tüm vanaların kapama sembolü durumunu güncelle
+        const valves = this.components.filter(c => c.type === 'vana');
+        valves.forEach(vana => {
+            if (vana.updateEndCapStatus) {
+                vana.updateEndCapStatus(this);
+            }
+        });
     }
 
     /**
@@ -313,6 +321,8 @@ export class PlumbingManager {
                 const pipe = this.findPipeById(vana.bagliBoruId);
                 if (pipe) {
                     vana.updatePositionFromPipe(pipe);
+                    // Kapama sembolü durumunu güncelle
+                    vana.updateEndCapStatus(this);
                 }
             }
         });
@@ -554,6 +564,14 @@ export class PlumbingManager {
                 }
             }).filter(c => c !== null);
         }
+
+        // Tüm vanaların kapama sembolü durumunu güncelle
+        const valves = this.components.filter(c => c.type === 'vana');
+        valves.forEach(vana => {
+            if (vana.updateEndCapStatus) {
+                vana.updateEndCapStatus(this);
+            }
+        });
     }
 
     // --- ÖZEL EYLEMLER ---

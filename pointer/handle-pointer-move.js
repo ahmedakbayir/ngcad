@@ -208,9 +208,10 @@ export function handlePointerMove(e) {
                 const END_SNAP_DISTANCE = 10;
                 const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
                 const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
-                const DIRSEK_KOL_UZUNLUGU = 2;
+                // Vana genişliğinin yarısı + boru ucuna kalan mesafe (max 1cm)
                 const VANA_GENISLIGI = 8;
-                const vanaMesafesi = DIRSEK_KOL_UZUNLUGU + VANA_GENISLIGI / 2;
+                const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda
+                const vanaMesafesi = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK;
                 const pipeLength = hoveredPipe.uzunluk;
                 if (distToP1 < END_SNAP_DISTANCE) {
                     const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
