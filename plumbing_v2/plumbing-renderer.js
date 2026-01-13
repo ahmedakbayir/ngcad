@@ -1434,6 +1434,38 @@ export class PlumbingRenderer {
             ctx.lineWidth = 1;
             ctx.strokeRect(-halfSize - 1, -halfSize - 1, size + 2, size + 2);
         }
+
+        // Kapama sembolü (end cap) - vana boru ucunda ve boşta ise
+        if (comp.showEndCap) {
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+
+            // Kapama pozisyonu: vananın sağ tarafı (çıkış)
+            const capX = halfSize + 1; // 1 cm boşluk
+            const capWidth = 3; // cm
+            const capHeight = 5; // cm
+
+            // Boruyla aynı renkte kapama çiz
+            // Palette'in ilk rengini kullan (beyaz hariç, sonraki renk)
+            let capColor;
+            if (comp.isSelected) {
+                capColor = this.getSecilenRenk(colorGroup);
+            } else {
+                // Palette'den ana rengi al (pozisyon 0.25'teki renk genellikle ana renk)
+                const mainColorStop = palette.find(s => s.pos === 0.25) || palette[1];
+                capColor = mainColorStop ? mainColorStop.color : 'rgba(255, 215, 0, 1)';
+            }
+
+            ctx.fillStyle = capColor;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.lineWidth = 0.5;
+
+            // Dikdörtgen kapama çiz
+            ctx.beginPath();
+            ctx.rect(capX, -capHeight / 2, capWidth, capHeight);
+            ctx.fill();
+            ctx.stroke();
+        }
     }
 
     drawCihaz(ctx, comp, manager) {

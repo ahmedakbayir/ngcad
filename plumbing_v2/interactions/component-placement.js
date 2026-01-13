@@ -270,24 +270,47 @@ export function handleVanaPlacement(vanaPreview) {
         // console.log('Vana pozisyonu mesafe kurallarına göre ayarlandı.');
     }
 
-    // ✨ P2 (ileri uç) ucundan sabit mesafe hesapla
+    // ✨ Boru ucu yakınındaysa sabit mesafe kullan
     const pipeLength = pipe.uzunluk;
-    const distanceFromP2 = 0; //pipeLength * (1 - t); // cm cinsinden
+    const VANA_GENISLIGI = 8;
+    const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda
+    const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm
 
-    // Bağımsız Vana nesnesi oluştur
-    const vana = createVana(x, y, 'AKV', {
+    // Boru ucuna yakın mı kontrol et (mesafe olarak, pixel değil cm olarak)
+    const END_THRESHOLD_CM = 10; // 10 cm içindeyse uç sayılır
+    const distToP1 = t * pipeLength;
+    const distToP2 = (1 - t) * pipeLength;
+    const isNearP1 = distToP1 < END_THRESHOLD_CM;
+    const isNearP2 = distToP2 < END_THRESHOLD_CM;
+
+    // Vana oluşturma seçenekleri
+    const vanaOptions = {
         floorId: state.currentFloorId,
         bagliBoruId: pipe.id,
-        boruPozisyonu: t,
-        fromEnd: 'p2',              // İleri uçtan (p2)
-        fixedDistance: distanceFromP2 // Sabit cm mesafe
-    });
+        boruPozisyonu: t
+    };
+
+    // Sadece boru ucuna yakınsa fixed distance kullan
+    if (isNearP2) {
+        vanaOptions.fromEnd = 'p2';
+        vanaOptions.fixedDistance = fixedDistanceFromEnd;
+    } else if (isNearP1) {
+        vanaOptions.fromEnd = 'p1';
+        vanaOptions.fixedDistance = fixedDistanceFromEnd;
+    }
+    // Ortadaysa boruPozisyonu kullan (fromEnd ve fixedDistance null kalır)
+
+    // Bağımsız Vana nesnesi oluştur
+    const vana = createVana(x, y, 'AKV', vanaOptions);
 
     // Rotasyonu boru açısına göre ayarla
     vana.rotation = pipe.aciDerece;
 
     // Manager'ın components dizisine ekle
     this.manager.components.push(vana);
+
+    // Kapama sembolü durumunu güncelle (boru ucunda ve boşta mı?)
+    vana.updateEndCapStatus(this.manager);
 
     // State'i senkronize et
     this.manager.saveToState();
@@ -354,11 +377,11 @@ export function handleSayacEndPlacement(meter) {
 
     // Vana yoksa otomatik ekle
     if (!vanaVar) {
-        // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
+        // Vana pozisyonunu hesapla
         const boru = boruUcu.boru;
-        const edgeMargin = 4;      // cm - kenar için margin
-        const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
-        const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
+        const VANA_GENISLIGI = 8;  // cm
+        const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda
+        const centerMargin = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm - merkez için toplam
 
         // Boru yönünü hesapla (boru ucundan içeriye doğru)
         const dx = boru.p2.x - boru.p1.x;
@@ -385,11 +408,18 @@ export function handleSayacEndPlacement(meter) {
         // Pozisyonu hesapla (0.0 - 1.0 arası)
         const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
         vana.boruPozisyonu = vanaToP1Dist / length;
+        // Uçtan sabit mesafe olarak ayarla
+        vana.fromEnd = boruUcu.uc; // 'p1' veya 'p2'
+        vana.fixedDistance = centerMargin; // 5 cm
 
         this.manager.components.push(vana);
+        // Kapama sembolü durumunu güncelle
+        vana.updateEndCapStatus(this.manager);
         meter.iliskiliVanaId = vana.id;
     } else {
         meter.iliskiliVanaId = vanaVar.id;
+        // Mevcut vananın kapama durumunu güncelle (yeni sayaç eklendi)
+        vanaVar.updateEndCapStatus(this.manager);
     }
     // Sayaç Z değerini boru ucundan al (eğer ghost'tan gelmediyse)
     if (meter.z === undefined) {
@@ -468,11 +498,11 @@ export function handleCihazEkleme(cihaz) {
 
     // Vana yoksa otomatik ekle
     if (!vanaVar) {
-        // Vana pozisyonunu hesapla - vananın KENARI boru ucundan 4 cm içeride olmalı
+        // Vana pozisyonunu hesapla
         const boru = boruUcu.boru;
-        const edgeMargin = 4;      // cm - kenar için margin
-        const vanaRadius = 4;      // cm - vana yarıçapı (8cm / 2)
-        const centerMargin = edgeMargin + vanaRadius; // 8 cm - merkez için toplam
+        const VANA_GENISLIGI = 8;  // cm
+        const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda
+        const centerMargin = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm - merkez için toplam
 
         // Boru yönünü hesapla (boru ucundan içeriye doğru)
         const dx = boru.p2.x - boru.p1.x;
@@ -500,11 +530,18 @@ export function handleCihazEkleme(cihaz) {
         // Pozisyonu hesapla (0.0 - 1.0 arası)
         const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
         vana.boruPozisyonu = vanaToP1Dist / length;
+        // Uçtan sabit mesafe olarak ayarla
+        vana.fromEnd = boruUcu.uc; // 'p1' veya 'p2'
+        vana.fixedDistance = centerMargin; // 5 cm
 
         this.manager.components.push(vana);
+        // Kapama sembolü durumunu güncelle
+        vana.updateEndCapStatus(this.manager);
         cihaz.vanaIliskilendir(vana.id);
     } else {
         cihaz.vanaIliskilendir(vanaVar.id);
+        // Mevcut vananın kapama durumunu güncelle (yeni cihaz eklendi)
+        vanaVar.updateEndCapStatus(this.manager);
     }
 
     // Cihaz rotation'unu sabit tut - tutamacı her zaman kuzeyde

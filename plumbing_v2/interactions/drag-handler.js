@@ -680,6 +680,8 @@ export function handleDrag(interactionManager, point, event = null) {
         let objectsOnPipe = interactionManager.dragObjectsOnPipe;
         if (!targetPipe) return;
         vana.moveAlongPipe(targetPipe, point, objectsOnPipe);
+        // Kapama sembolü durumunu güncelle (pozisyon değişti)
+        vana.updateEndCapStatus(manager);
         return;
     }
 
