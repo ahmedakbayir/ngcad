@@ -302,6 +302,13 @@ export function toggle3DPerspective() {
     // Hedef Durum (Mevcut durumun tersi)
     const targetIsActive = !state.is3DPerspectiveActive;
 
+    // --- UI SENKRONİZASYONU (EKLENDİ) ---
+    // Buton durumunu hedef duruma eşitle (Double Press Ctrl için gerekli)
+    if (dom.b3DPerspective) {
+        dom.b3DPerspective.checked = targetIsActive;
+    }
+    // ------------------------------------
+
     console.log(`[Double CTRL] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
     console.log(`[Double CTRL] Başlangıç viewBlendFactor: ${state.viewBlendFactor}, is3DActive: ${state.is3DPerspectiveActive}`);
 
