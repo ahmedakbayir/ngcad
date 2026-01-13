@@ -379,7 +379,7 @@ export function handleSayacEndPlacement(meter) {
         const vana = createVana(vanaX, vanaY, 'SAYAC');
         vana.rotation = boruUcu.boru.aciDerece;
         vana.floorId = meter.floorId;
-
+        vana.z = boruUcu.nokta.z || 0;
         // Vana'yı boru üzerindeki pozisyona bağla
         vana.bagliBoruId = boruUcu.boruId;
         // Pozisyonu hesapla (0.0 - 1.0 arası)
@@ -391,7 +391,10 @@ export function handleSayacEndPlacement(meter) {
     } else {
         meter.iliskiliVanaId = vanaVar.id;
     }
-
+    // Sayaç Z değerini boru ucundan al (eğer ghost'tan gelmediyse)
+    if (meter.z === undefined) {
+        meter.z = boruUcu.nokta.z || 0;
+    }
     // Sayaç pozisyonu ve rotation ghost'tan geliyor (mouse konumuna göre ayarlanmış)
     // Ghost'ta zaten doğru pozisyon ve yön belirlendi, burada yeniden hesaplamaya gerek yok
     // meter.x, meter.y ve meter.rotation zaten ghost positioning'den doğru değerlerde
@@ -490,7 +493,8 @@ export function handleCihazEkleme(cihaz) {
         const vana = createVana(vanaX, vanaY, 'AKV');
         vana.rotation = boruUcu.boru.aciDerece;
         vana.floorId = cihaz.floorId;
-
+        // DÜZELTME: Vanaya Z değerini ekle (boru ucunun Z'si)
+        vana.z = boruUcu.nokta.z || 0;
         // Vana'yı boru üzerindeki pozisyona bağla
         vana.bagliBoruId = boruUcu.boruId;
         // Pozisyonu hesapla (0.0 - 1.0 arası)
@@ -532,13 +536,17 @@ export function handleCihazEkleme(cihaz) {
         const baca = createBaca(cihaz.x, cihaz.y, cihaz.id, {
             floorId: cihaz.floorId
         });
-
+        baca.z = cihaz.z || 0;
         // İlk segment: Sağa doğru 100cm (1m)
+        // Segment noktalarına da Z eklemek gerekebilir, ancak baca genellikle
+        // 2D düzlemde (XY) çizilip Z'si tüm baca için sabit tutulur.
+        // Eğer segment noktaları 3D ise, onlara da z eklenmeli.
         const ilkSegmentBitis = {
             x: cihaz.x + 100, // 1m = 100cm
-            y: cihaz.y
+            y: cihaz.y,
+            z: cihaz.z || 0 // Z değerini ekle
         };
-        baca.addSegment(ilkSegmentBitis.x, ilkSegmentBitis.y);
+        baca.addSegment(ilkSegmentBitis.x, ilkSegmentBitis.y); // addSegment fonksiyonu Z destekliyorsa
 
         // Çizimi bitir - böylece baca seçilebilir ve düzenlenebilir olur
         baca.finishDrawing();

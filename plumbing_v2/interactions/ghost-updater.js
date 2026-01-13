@@ -72,7 +72,13 @@ export function updateGhostPosition(ghost, point, snap) {
             // Cihaz merkezini ayarla
             ghost.x = merkezX;
             ghost.y = merkezY;
-
+            // DÜZELTME: Boru ucunun Z değerini al
+            // Borunun ucundaki nokta {x, y, z} formatındadır.
+            if (boruUcu.nokta.z !== undefined) {
+                ghost.z = boruUcu.nokta.z;
+            } else {
+                ghost.z = 0;
+            }
             // Ghost rendering için bağlantı bilgisini sakla
             ghost.ghostConnectionInfo = {
                 boruUcu: boruUcu,
@@ -83,6 +89,7 @@ export function updateGhostPosition(ghost, point, snap) {
             const girisOffset = ghost.girisOffset || { x: 0, y: 0 };
             ghost.x = point.x - girisOffset.x;
             ghost.y = point.y - girisOffset.y;
+            ghost.z = point.z || 0;
             ghost.ghostConnectionInfo = null;
         }
     }
