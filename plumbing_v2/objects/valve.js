@@ -417,9 +417,28 @@ export class Vana {
         this.y = newPos.y;
         this.rotation = pipe.aciDerece;
 
-        // fixedDistance'ı temizle (artık serbest hareket ediyor)
-        this.fixedDistance = null;
-        this.fromEnd = null;
+        // Boru ucuna yakınsa fromEnd ve fixedDistance'ı tekrar set et
+        const END_THRESHOLD_CM = 10; // 10 cm içindeyse uç sayılır
+        const VANA_GENISLIGI = 8;
+        const BORU_UCU_BOSLUK = 1;
+        const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm
+
+        const distToP1 = newT * pipeLength;
+        const distToP2 = (1 - newT) * pipeLength;
+
+        if (distToP2 < END_THRESHOLD_CM) {
+            // p2 ucuna yakın
+            this.fromEnd = 'p2';
+            this.fixedDistance = fixedDistanceFromEnd;
+        } else if (distToP1 < END_THRESHOLD_CM) {
+            // p1 ucuna yakın
+            this.fromEnd = 'p1';
+            this.fixedDistance = fixedDistanceFromEnd;
+        } else {
+            // Ortada, serbest
+            this.fixedDistance = null;
+            this.fromEnd = null;
+        }
 
         // Not: updateEndCapStatus burada çağrılmaz çünkü manager'a erişimimiz yok
         // Drag işleminden sonra çağrılmalı
