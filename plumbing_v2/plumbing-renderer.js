@@ -1441,9 +1441,9 @@ export class PlumbingRenderer {
             ctx.shadowBlur = 0;
 
             // Kapama pozisyonu: vananın sağ tarafı (çıkış)
-            const capX = halfSize + 1; // 1 cm boşluk
-            const capWidth = 3; // cm
-            const capHeight = 5; // cm
+            const capX = halfSize + 0.5; // 0.5 cm boşluk
+            const capWidth = 1.5; // cm - daha ince
+            const capHeight = size + 2; // cm - vanadan 2cm daha geniş (daha görünür)
 
             // Boruyla aynı renkte kapama çiz
             // Palette'in ilk rengini kullan (beyaz hariç, sonraki renk)
