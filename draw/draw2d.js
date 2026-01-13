@@ -288,55 +288,46 @@ export function draw2D() {
     // This is equivalent to: scale(dpr) -> translate(panOffset) -> scale(zoom)
     // But done correctly so mouse coordinates work properly
 
-    if (state.is3DPerspectiveActive) {
-        const angle = Math.PI / 6;
-        const isoCos = Math.cos(angle); // ~0.866
-        const isoSin = Math.sin(angle); // 0.5
+    // Animasyon Değeri (t): 0 = Tam 2D, 1 = Tam 3D
+    // HER ZAMAN interpolasyonlu transform kullan (t=0 ise zaten 2D olur)
+    const angle = Math.PI / 6;
+    const isoCos = Math.cos(angle); // ~0.866
+    const isoSin = Math.sin(angle); // 0.5
 
-        // Animasyon Değeri (t): 0 = Tam 2D, 1 = Tam 3D
-        // Eğer değişken yoksa (ilk açılış) state'e bak
-        let t = (typeof state.viewBlendFactor === 'number')
-            ? state.viewBlendFactor
-            : (state.is3DPerspectiveActive ? 1 : 0);
+    let t = (typeof state.viewBlendFactor === 'number')
+        ? state.viewBlendFactor
+        : (state.is3DPerspectiveActive ? 1 : 0);
 
-        // t değerini 0-1 arasına sabitle
-        t = Math.max(0, Math.min(1, t));
+    // t değerini 0-1 arasına sabitle
+    t = Math.max(0, Math.min(1, t));
 
-        // --- Matris Katsayıları (Lineer İnterpolasyon) ---
-        // 2D Matrisi: [1, 0, 0, 1, dx, dy]
-        // 3D Matrisi: [isoCos, -isoSin, isoCos, isoSin, dx, dy]
+    // --- Matris Katsayıları (Lineer İnterpolasyon) ---
+    // 2D Matrisi: [1, 0, 0, 1, dx, dy]
+    // 3D Matrisi: [isoCos, -isoSin, isoCos, isoSin, dx, dy]
 
-        // a (Scale X): 2D'de 1 -> 3D'de isoCos
-        const a = 1 + (isoCos - 1) * t;
+    // a (Scale X): 2D'de 1 -> 3D'de isoCos
+    const a = 1 + (isoCos - 1) * t;
 
-        // b (Skew Y): 2D'de 0 -> 3D'de -isoSin
-        const b = 0 + (-isoSin - 0) * t;
+    // b (Skew Y): 2D'de 0 -> 3D'de -isoSin
+    const b = 0 + (-isoSin - 0) * t;
 
-        // c (Skew X): 2D'de 0 -> 3D'de isoCos
-        const c = 0 + (isoCos - 0) * t;
+    // c (Skew X): 2D'de 0 -> 3D'de isoCos
+    const c = 0 + (isoCos - 0) * t;
 
-        // d (Scale Y): 2D'de 1 -> 3D'de isoSin
-        // BURASI ÖNEMLİ: Bu değer 2D'de 1 iken 3D'de 0.5'e iner.
-        // Bu sayede çizim yavaşça "yatar".
-        const d = 1 + (isoSin - 1) * t;
+    // d (Scale Y): 2D'de 1 -> 3D'de isoSin
+    // BURASI ÖNEMLİ: Bu değer 2D'de 1 iken 3D'de 0.5'e iner.
+    // Bu sayede çizim yavaşça "yatar".
+    const d = 1 + (isoSin - 1) * t;
 
-        // Matrisi Uygula
-        ctx2d.setTransform(
-            dpr * zoom * a,
-            dpr * zoom * b,
-            dpr * zoom * c,
-            dpr * zoom * d,
-            dpr * panOffset.x,
-            dpr * panOffset.y
-        );
-    } else {
-        // Normal 2D görünüm
-        ctx2d.setTransform(
-            dpr * zoom, 0,
-            0, dpr * zoom,
-            dpr * panOffset.x, dpr * panOffset.y
-        );
-    }
+    // Matrisi Uygula (t=0 ise normal 2D, t=1 ise tam 3D)
+    ctx2d.setTransform(
+        dpr * zoom * a,
+        dpr * zoom * b,
+        dpr * zoom * c,
+        dpr * zoom * d,
+        dpr * panOffset.x,
+        dpr * panOffset.y
+    );
 
     ctx2d.lineWidth = 1 / zoom;
 

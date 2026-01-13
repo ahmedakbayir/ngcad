@@ -303,6 +303,7 @@ export function toggle3DPerspective() {
     const targetIsActive = !state.is3DPerspectiveActive;
 
     console.log(`[Double CTRL] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
+    console.log(`[Double CTRL] Başlangıç viewBlendFactor: ${state.viewBlendFactor}, is3DActive: ${state.is3DPerspectiveActive}`);
 
     // Animasyon Hedefleri
     const targetBlend = targetIsActive ? 1 : 0; // 3D için 1, 2D için 0
@@ -311,11 +312,15 @@ export function toggle3DPerspective() {
     // Orbit kontrolleri kilitle (çatışmayı önlemek için)
     if (orbitControls) orbitControls.enabled = false;
 
-    // Animasyon Objesi
+    // Animasyon Objesi - MEVCUT durumdan başla, HEDEF duruma git
     const animObj = {
-        blend: state.viewBlendFactor || (targetIsActive ? 0 : 1),
+        blend: (typeof state.viewBlendFactor === 'number')
+            ? state.viewBlendFactor
+            : (state.is3DPerspectiveActive ? 1 : 0), // MEVCUT duruma göre başlat (targetIsActive değil!)
         angle: orbitControls ? orbitControls.getPolarAngle() : 0
     };
+
+    console.log(`[Double CTRL] animObj.blend başlangıç: ${animObj.blend} -> hedef: ${targetBlend}`);
 
     // 3D Kamera Hedef Pozisyonu
     const targetPos = orbitControls ? orbitControls.target.clone() : new THREE.Vector3();
@@ -331,6 +336,11 @@ export function toggle3DPerspective() {
         onUpdate: () => {
             // 1. 2D Çizim Değişkenini Güncelle
             state.viewBlendFactor = animObj.blend;
+
+            // Debug: Her 10 frame'de bir log
+            if (Math.random() < 0.1) {
+                console.log(`[Anim] blend: ${animObj.blend.toFixed(3)}, angle: ${animObj.angle.toFixed(3)}`);
+            }
 
             // 2. 3D Kamerayı Güncelle
             if (camera && orbitControls) {
