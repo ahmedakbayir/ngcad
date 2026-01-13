@@ -1442,8 +1442,8 @@ export class PlumbingRenderer {
 
             // Kapama pozisyonu: vananın sağ tarafı (çıkış)
             const capX = halfSize + 0.5; // 0.5 cm boşluk
-            const capWidth = 1.5; // cm - daha ince
-            const capHeight = size + 2; // cm - vanadan 2cm daha geniş (daha görünür)
+            const capWidth = 3.5; // cm - kalın, belirgin
+            const capHeight = size; // cm - vana ile aynı yükseklikte
 
             // Boruyla aynı renkte kapama çiz
             // Palette'in ilk rengini kullan (beyaz hariç, sonraki renk)
@@ -1457,8 +1457,8 @@ export class PlumbingRenderer {
             }
 
             ctx.fillStyle = capColor;
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-            ctx.lineWidth = 0.5;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.lineWidth = 1;
 
             // Dikdörtgen kapama çiz
             ctx.beginPath();
