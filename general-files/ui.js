@@ -312,11 +312,15 @@ export function toggle3DPerspective() {
     // Orbit kontrolleri kilitle (çatışmayı önlemek için)
     if(orbitControls) orbitControls.enabled = false;
 
-    // Animasyon Objesi - viewBlendFactor'den başla (0 da geçerli bir değer!)
+    // Animasyon Objesi - MEVCUT durumdan başla, HEDEF duruma git
     const animObj = {
-        blend: (typeof state.viewBlendFactor === 'number') ? state.viewBlendFactor : (targetIsActive ? 0 : 1),
+        blend: (typeof state.viewBlendFactor === 'number')
+            ? state.viewBlendFactor
+            : (state.is3DPerspectiveActive ? 1 : 0), // MEVCUT duruma göre başlat (targetIsActive değil!)
         angle: orbitControls ? orbitControls.getPolarAngle() : 0
     };
+
+    console.log(`[Double CTRL] animObj.blend başlangıç: ${animObj.blend} -> hedef: ${targetBlend}`);
 
     // 3D Kamera Hedef Pozisyonu
     const targetPos = orbitControls ? orbitControls.target.clone() : new THREE.Vector3();
