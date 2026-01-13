@@ -80,22 +80,22 @@ export function handlePointerMove(e) {
         this.meterPreviewEndPoint = snappedPoint;
 
         if (this.manager.tempComponent && this.manager.tempComponent.type === 'sayac') {
-             // ... (Ghost kodları değişmedi) ...
-             const p1 = this.meterStartPoint;
-             const p2 = snappedPoint;
-             const dx = p2.x - p1.x;
-             const dy = p2.y - p1.y;
-             const length = Math.hypot(dx, dy);
-             const boruAci = Math.atan2(dy, dx) * 180 / Math.PI;
-             this.manager.tempComponent.rotation = boruAci;
-             const girisLocal = this.manager.tempComponent.getGirisLocalKoordinat();
-             const rad = this.manager.tempComponent.rotation * Math.PI / 180;
-             const cos = Math.cos(rad);
-             const sin = Math.sin(rad);
-             const girisRotatedX = girisLocal.x * cos - girisLocal.y * sin;
-             const girisRotatedY = girisLocal.x * sin + girisLocal.y * cos;
-             this.manager.tempComponent.x = p2.x - girisRotatedX;
-             this.manager.tempComponent.y = p2.y - girisRotatedY;
+            // ... (Ghost kodları değişmedi) ...
+            const p1 = this.meterStartPoint;
+            const p2 = snappedPoint;
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const length = Math.hypot(dx, dy);
+            const boruAci = Math.atan2(dy, dx) * 180 / Math.PI;
+            this.manager.tempComponent.rotation = boruAci;
+            const girisLocal = this.manager.tempComponent.getGirisLocalKoordinat();
+            const rad = this.manager.tempComponent.rotation * Math.PI / 180;
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+            const girisRotatedX = girisLocal.x * cos - girisLocal.y * sin;
+            const girisRotatedY = girisLocal.x * sin + girisLocal.y * cos;
+            this.manager.tempComponent.x = p2.x - girisRotatedX;
+            this.manager.tempComponent.y = p2.y - girisRotatedY;
         }
         return true;
     }
@@ -133,7 +133,7 @@ export function handlePointerMove(e) {
                     finalTargetPoint = {
                         x: this.boruBaslangic.nokta.x + Math.cos(rad) * distance,
                         y: this.boruBaslangic.nokta.y + Math.sin(rad) * distance,
-                        z: targetPoint.z || 0 
+                        z: targetPoint.z || 0
                     };
                 }
             }
@@ -174,17 +174,17 @@ export function handlePointerMove(e) {
         // ... (pipe split kodları) ...
         const hoveredPipe = this.findPipeAt(point, 10);
         if (hoveredPipe) {
-             // ...
-             const proj = hoveredPipe.projectPoint(point);
-             if (proj && proj.onSegment) {
-                 let splitPoint = { x: proj.x, y: proj.y };
-                 const CORNER_SNAP_DISTANCE = 10;
-                 const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
-                 const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
-                 if (distToP1 < CORNER_SNAP_DISTANCE) splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
-                 else if (distToP2 < CORNER_SNAP_DISTANCE) splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
-                 this.pipeSplitPreview = { pipe: hoveredPipe, point: splitPoint };
-             } else this.pipeSplitPreview = null;
+            // ...
+            const proj = hoveredPipe.projectPoint(point);
+            if (proj && proj.onSegment) {
+                let splitPoint = { x: proj.x, y: proj.y };
+                const CORNER_SNAP_DISTANCE = 10;
+                const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
+                const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
+                if (distToP1 < CORNER_SNAP_DISTANCE) splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
+                else if (distToP2 < CORNER_SNAP_DISTANCE) splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
+                this.pipeSplitPreview = { pipe: hoveredPipe, point: splitPoint };
+            } else this.pipeSplitPreview = null;
         } else this.pipeSplitPreview = null;
         return true;
     } else {
@@ -193,11 +193,13 @@ export function handlePointerMove(e) {
 
     // 1.6 Vana preview
     if (this.manager.activeTool === 'vana' && !this.boruCizimAktif) {
-        // ... (vana kodları) ...
+        // Varsayılan olarak mouse pozisyonuna getir (eğer boru yoksa)
         if (this.manager.tempComponent) {
             this.manager.tempComponent.x = point.x;
             this.manager.tempComponent.y = point.y;
+            this.manager.tempComponent.rotation = 0; // Boru yoksa açıyı sıfırla
         }
+
         const hoveredPipe = this.findPipeAt(point, 5);
         if (hoveredPipe) {
             const proj = hoveredPipe.projectPoint(point);
@@ -206,13 +208,15 @@ export function handlePointerMove(e) {
                 let vanaT = proj.t;
                 let snapToEnd = false;
                 const END_SNAP_DISTANCE = 10;
+
+                // ... (mesafe hesaplamaları aynı) ...
                 const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
                 const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
-                // Vana genişliğinin yarısı + boru ucuna kalan mesafe (max 1cm)
                 const VANA_GENISLIGI = 8;
-                const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda
+                const BORU_UCU_BOSLUK = 1;
                 const vanaMesafesi = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK;
                 const pipeLength = hoveredPipe.uzunluk;
+
                 if (distToP1 < END_SNAP_DISTANCE) {
                     const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
                     vanaPoint = hoveredPipe.getPointAt(adjustedT);
@@ -222,7 +226,19 @@ export function handlePointerMove(e) {
                     vanaPoint = hoveredPipe.getPointAt(adjustedT);
                     vanaT = 1; snapToEnd = true;
                 }
+
                 this.vanaPreview = { pipe: hoveredPipe, point: vanaPoint, t: vanaT, snapToEnd: snapToEnd };
+
+                // DEĞİŞİKLİK: Ghost (tempComponent) vanayı boruya tam hizala
+                if (this.manager.tempComponent) {
+                    // Pozisyonu snap noktasına taşı
+                    this.manager.tempComponent.x = vanaPoint.x;
+                    this.manager.tempComponent.y = vanaPoint.y;
+
+                    // Açıyı boru açısına eşitle
+                    this.manager.tempComponent.rotation = hoveredPipe.aciDerece;
+                }
+
             } else this.vanaPreview = null;
         } else this.vanaPreview = null;
         return true;

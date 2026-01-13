@@ -1441,8 +1441,8 @@ export class PlumbingRenderer {
             ctx.shadowBlur = 0;
 
             // Kapama pozisyonu: vananın sağ tarafı (çıkış)
-            const capX = halfSize + 0.5; // 0.5 cm boşluk
-            const capWidth = 3.5; // cm - kalın, belirgin
+            const capX = halfSize + 2; // 0.5 cm boşluk
+            const capWidth = 1; // cm - kalın, belirgin
             const capHeight = size; // cm - vana ile aynı yükseklikte
 
             // Boruyla aynı renkte kapama çiz
@@ -1458,13 +1458,15 @@ export class PlumbingRenderer {
 
             ctx.fillStyle = capColor;
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 0.2;
 
             // Dikdörtgen kapama çiz
             ctx.beginPath();
-            ctx.rect(capX, -capHeight / 2, capWidth, capHeight);
+            ctx.rect(capX, -capHeight / 2 -0.5, capWidth, capHeight+1);
+            ctx.rect(capX-1, -capHeight / 2-1,capWidth+1,0.5);
+            ctx.rect(capX-1,capHeight / 2+1,capWidth+1,-0.5);
             ctx.fill();
-            ctx.stroke();
+            //ctx.stroke();
         }
     }
 
@@ -2137,7 +2139,7 @@ export class PlumbingRenderer {
         // Snap göstergesi kaldırıldı - kullanıcı istemiyor
     }
 
-drawPipeMeasurements(ctx, pipes) {
+    drawPipeMeasurements(ctx, pipes) {
         if (!pipes) return;
 
         const zoom = state.zoom || 1;
@@ -2145,7 +2147,7 @@ drawPipeMeasurements(ctx, pipes) {
         const ZOOM_EXPONENT = -0.1;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
-        
+
         // 3D faktörü (Z izdüşümü için)
         const t = state.viewBlendFactor || 0;
 
@@ -2229,7 +2231,7 @@ drawPipeMeasurements(ctx, pipes) {
         const ZOOM_EXPONENT = -0.1;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
-        
+
         // 3D faktörü
         const t = state.viewBlendFactor || 0;
 
