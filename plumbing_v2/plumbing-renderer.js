@@ -273,7 +273,11 @@ export class PlumbingRenderer {
             ctx.save();
             ctx.globalAlpha = 0.35; // Biraz daha görünür (önceden 0.15)
         }
-
+        // --- YENİ EKLENEN KISIM: GÖLGE ÇİZİMİ ---
+        // Sadece 3D modunda gölge çiz (Zemine izdüşüm)
+        if (state.viewBlendFactor > 0.1) {
+            this.drawShadows(ctx, manager);
+        }
         // Borular
         this.drawPipes(ctx, manager.pipes);
 
@@ -433,6 +437,89 @@ export class PlumbingRenderer {
         }
 
     }
+
+    drawShadows(ctx, manager) {
+        const isLight = this.isLightMode();
+        // Açık mod: Siyah transparan gölge
+        // Koyu mod: Beyaz transparan iz (Zemin koyu olduğu için parlaklık veriyoruz)
+        const shadowColor = isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+
+        ctx.save();
+        ctx.fillStyle = shadowColor;
+        ctx.strokeStyle = shadowColor;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // 1. Boru Gölgeleri (Z=0, sadece X ve Y koordinatları)
+        manager.pipes.forEach(pipe => {
+            const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
+            const zoom = state.zoom || 1;
+
+            // Zoom'a göre kalınlık ayarı (drawPipes ile uyumlu)
+            let width = config.lineWidth;
+            if (zoom < 1) width = 4 / zoom;
+
+            ctx.lineWidth = width;
+            ctx.beginPath();
+            // Borunun orijinal X,Y koordinatları zaten zemindedir (Z hariç)
+            ctx.moveTo(pipe.p1.x, pipe.p1.y);
+            ctx.lineTo(pipe.p2.x, pipe.p2.y);
+            ctx.stroke();
+        });
+
+        // 2. Bileşen Gölgeleri
+        manager.components.forEach(comp => {
+            ctx.save();
+            ctx.translate(comp.x, comp.y);
+            if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
+
+            if (comp.type === 'servis_kutusu') {
+                const { width, height } = SERVIS_KUTUSU_CONFIG;
+                ctx.fillRect(-width / 2, -height / 2, width, height);
+            }
+            else if (comp.type === 'sayac') {
+                const { width, height } = comp.config || SAYAC_CONFIG;
+                ctx.fillRect(-width / 2, -height / 2, width, height);
+            }
+            else if (comp.type === 'cihaz') {
+                const config = CIHAZ_TIPLERI[comp.cihazTipi] || CIHAZ_TIPLERI.KOMBI;
+                if (comp.cihazTipi === 'KOMBI') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (comp.cihazTipi === 'OCAK') {
+                    const boxSize = 15;
+                    ctx.fillRect(-boxSize, -boxSize, boxSize * 2, boxSize * 2);
+                } else {
+                    ctx.fillRect(-config.width / 2, -config.height / 2, config.width, config.height);
+                }
+            }
+            else if (comp.type === 'vana') {
+                // Vana gölgesi (küçük daire)
+                ctx.beginPath();
+                ctx.arc(0, 0, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        });
+
+        // 3. Baca Gölgeleri
+        manager.components.filter(c => c.type === 'baca').forEach(baca => {
+            if (baca.segments && baca.segments.length > 0) {
+                ctx.lineWidth = 12; // Baca genişliği
+                ctx.beginPath();
+                baca.segments.forEach((seg, i) => {
+                    if (i === 0) ctx.moveTo(seg.x1, seg.y1);
+                    ctx.lineTo(seg.x2, seg.y2);
+                });
+                ctx.stroke();
+            }
+        });
+
+        ctx.restore();
+    }
+
     /**
          * 3D Çizim Eksen Kılavuzlarını Çizer (Gizmo)
          */
@@ -2018,7 +2105,7 @@ export class PlumbingRenderer {
         // Snap göstergesi kaldırıldı - kullanıcı istemiyor
     }
 
-    drawPipeMeasurements(ctx, pipes) {
+drawPipeMeasurements(ctx, pipes) {
         if (!pipes) return;
 
         const zoom = state.zoom || 1;
@@ -2026,28 +2113,45 @@ export class PlumbingRenderer {
         const ZOOM_EXPONENT = -0.1;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
+        
+        // 3D faktörü (Z izdüşümü için)
+        const t = state.viewBlendFactor || 0;
 
         pipes.forEach(pipe => {
-            const dx = pipe.p2.x - pipe.p1.x;
-            const dy = pipe.p2.y - pipe.p1.y;
-            const length = Math.hypot(dx, dy);
+            // 1. Gerçek 3D Uzunluk Hesapla (Z dahil)
+            const dxWorld = pipe.p2.x - pipe.p1.x;
+            const dyWorld = pipe.p2.y - pipe.p1.y;
+            const dzWorld = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+            const length3D = Math.hypot(dxWorld, dyWorld, dzWorld);
 
-            // Çok kısa borularda ölçü gösterme
-            if (length < 15) return;
+            // Çok kısa borularda ölçü gösterme (15 cm altı)
+            if (length3D < 15) return;
 
-            // Borunun ortası
-            const midX = (pipe.p1.x + pipe.p2.x) / 2;
-            const midY = (pipe.p1.y + pipe.p2.y) / 2;
+            // 2. Ekran Koordinatlarını Hesapla (İzdüşüm)
+            // x' = x + z*t, y' = y - z*t
+            const z1 = (pipe.p1.z || 0) * t;
+            const z2 = (pipe.p2.z || 0) * t;
 
-            // Boru açısı
-            const angle = Math.atan2(dy, dx);
+            const sx1 = pipe.p1.x + z1;
+            const sy1 = pipe.p1.y - z1;
+            const sx2 = pipe.p2.x + z2;
+            const sy2 = pipe.p2.y - z2;
+
+            // Ekran üzerindeki orta nokta
+            const midX = (sx1 + sx2) / 2;
+            const midY = (sy1 + sy2) / 2;
+
+            // Boru açısı (Ekran üzerindeki görsel açı)
+            const sdx = sx2 - sx1;
+            const sdy = sy2 - sy1;
+            const angle = Math.atan2(sdy, sdx);
 
             // Boru genişliği
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
             const width = config.lineWidth;
 
             // Ölçü offset (boruya temas etmeden, en yakınına)
-            const offset = width / 2 - 10; // 1cm yukarı
+            const offset = width / 2 + 10; // 1cm margin
 
             // Normal vektör (boruya dik)
             const normalX = -Math.sin(angle);
@@ -2071,10 +2175,10 @@ export class PlumbingRenderer {
             ctx.font = `400 ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
 
             // Rounded length
-            const roundedLength = Math.round(length);
+            const roundedLength = Math.round(length3D);
             const displayText = roundedLength.toString();
 
-            // Yazıyı çiz - THEME_COLORS'dan al (sadece uzunluk)
+            // Yazıyı çiz - THEME_COLORS'dan al
             const plumbingDimensionColor = getDimensionPlumbingColor();
             ctx.fillStyle = plumbingDimensionColor;
             ctx.textAlign = "center";
@@ -2093,23 +2197,39 @@ export class PlumbingRenderer {
         const ZOOM_EXPONENT = -0.1;
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
+        
+        // 3D faktörü
+        const t = state.viewBlendFactor || 0;
 
-        const dx = geciciBoru.p2.x - geciciBoru.p1.x;
-        const dy = geciciBoru.p2.y - geciciBoru.p1.y;
-        const length = Math.hypot(dx, dy);
+        // 3D uzunluk hesapla
+        const dxWorld = geciciBoru.p2.x - geciciBoru.p1.x;
+        const dyWorld = geciciBoru.p2.y - geciciBoru.p1.y;
+        const dzWorld = (geciciBoru.p2.z || 0) - (geciciBoru.p1.z || 0);
+        const length3D = Math.hypot(dxWorld, dyWorld, dzWorld);
 
-        if (length < 1) return;
+        if (length3D < 1) return;
 
-        // Borunun ortası
-        const midX = (geciciBoru.p1.x + geciciBoru.p2.x) / 2;
-        const midY = (geciciBoru.p1.y + geciciBoru.p2.y) / 2;
+        // Ekran koordinatlarını hesapla (İzdüşüm)
+        const z1 = (geciciBoru.p1.z || 0) * t;
+        const z2 = (geciciBoru.p2.z || 0) * t;
 
-        // Boru açısı
-        const angle = Math.atan2(dy, dx);
+        const sx1 = geciciBoru.p1.x + z1;
+        const sy1 = geciciBoru.p1.y - z1;
+        const sx2 = geciciBoru.p2.x + z2;
+        const sy2 = geciciBoru.p2.y - z2;
+
+        // Borunun ortası (Ekran)
+        const midX = (sx1 + sx2) / 2;
+        const midY = (sy1 + sy2) / 2;
+
+        // Boru açısı (Ekran)
+        const sdx = sx2 - sx1;
+        const sdy = sy2 - sy1;
+        const angle = Math.atan2(sdy, sdx);
 
         // Ölçü offset
         const width = 4; // geçici boru genişliği
-        const offset = width / 2 - 10;
+        const offset = width / 2 + 10;
 
         // Normal vektör
         const normalX = -Math.sin(angle);
@@ -2133,10 +2253,10 @@ export class PlumbingRenderer {
         ctx.font = `400 ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
 
         // Rounded length
-        const roundedLength = Math.round(length);
+        const roundedLength = Math.round(length3D);
         const displayText = roundedLength.toString();
 
-        // Yazıyı çiz (geçici için farklı renk, arka plan yok) - THEME_COLORS'dan al
+        // Yazıyı çiz
         const plumbingDimensionColor = getDimensionPlumbingColor();
         ctx.fillStyle = plumbingDimensionColor;
         ctx.textAlign = "center";
