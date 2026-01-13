@@ -94,6 +94,7 @@ export class Vana {
         // Pozisyon
         this.x = x;
         this.y = y;
+        this.z = options.z || 0; // Z değeri
         this.rotation = 0; // derece
 
         // Vana tipi
@@ -172,7 +173,8 @@ export class Vana {
 
         return {
             x: this.x + local.x * cos - local.y * sin,
-            y: this.y + local.x * sin + local.y * cos
+            y: this.y + local.x * sin + local.y * cos,
+            z: this.z || 0 // Z değerini ekle
         };
     }
 
@@ -483,7 +485,7 @@ export class Vana {
             vanaTipi: this.vanaTipi,
             x: this.x,
             y: this.y,
-            z: this.z, // <-- DÜZELTME
+            z: this.z, // Z değerini kaydet
             rotation: this.rotation,
             girisBagliBoruId: this.girisBagliBoruId,
             cikisBagliBoruId: this.cikisBagliBoruId,
@@ -506,7 +508,7 @@ export class Vana {
             fromEnd: data.fromEnd,
             fixedDistance: data.fixedDistance
         });
-        vana.z = data.z || 0; // <-- DÜZELTME
+        vana.z = data.z || 0; // Z değerini yükle
         vana.id = data.id;
         vana.rotation = data.rotation;
         vana.girisBagliBoruId = data.girisBagliBoruId;

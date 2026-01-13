@@ -30,6 +30,7 @@ export class Sayac {
         // Sayaç merkez pozisyonu
         this.x = x;
         this.y = y;
+        this.z = options.z || 0; // Z değerini başlat
         this.rotation = 0; // derece
 
         // Konfigürasyon
@@ -108,7 +109,8 @@ export class Sayac {
 
         return {
             x: this.x + local.x * cos - local.y * sin,
-            y: this.y + local.x * sin + local.y * cos
+            y: this.y + local.x * sin + local.y * cos,
+            z: this.z || 0 // Z değerini ekle
         };
     }
 
@@ -286,12 +288,12 @@ export class Sayac {
             type: this.type,
             x: this.x,
             y: this.y,
+            z: this.z, // Z değerini kaydet
             rotation: this.rotation,
             fleksBaglanti: { ...this.fleksBaglanti },
             cikisBagliBoruId: this.cikisBagliBoruId,
             iliskiliVanaId: this.iliskiliVanaId,
             floorId: this.floorId,
-            // GÜNCELLEME: rijitUzunluk değerini kaydet
             rijitUzunluk: this.config.rijitUzunluk 
         };
     }
@@ -305,6 +307,7 @@ export class Sayac {
         });
 
         sayac.id = data.id;
+        sayac.z = data.z || 0; // Z değerini yükle
         sayac.rotation = data.rotation;
         
         if (data.fleksBaglanti) {
@@ -316,7 +319,6 @@ export class Sayac {
         sayac.cikisBagliBoruId = data.cikisBagliBoruId;
         sayac.iliskiliVanaId = data.iliskiliVanaId;
 
-        // GÜNCELLEME: rijitUzunluk değerini geri yükle
         if (data.rijitUzunluk !== undefined) {
             sayac.config.rijitUzunluk = data.rijitUzunluk;
         }

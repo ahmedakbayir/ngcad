@@ -95,7 +95,7 @@ export class Cihaz {
         // Pozisyon
         this.x = x;
         this.y = y;
-        this.z = 0; // Varsayılan Z değeri ekleyin
+        this.z = options.z || 0; // Z değeri
         this.rotation = 0; // derece
 
         // Cihaz tipi
@@ -145,7 +145,8 @@ export class Cihaz {
 
         return {
             x: this.x + local.x * cos - local.y * sin,
-            y: this.y + local.x * sin + local.y * cos
+            y: this.y + local.x * sin + local.y * cos,
+            z: this.z || 0 // Z değerini ekle
         };
     }
 
@@ -455,7 +456,7 @@ export class Cihaz {
             cihazTipi: this.cihazTipi,
             x: this.x,
             y: this.y,
-            z: this.z, // <-- DÜZELTME: Z değerini kaydet
+            z: this.z, // Z değerini kaydet
             rotation: this.rotation,
             fleksBaglanti: { ...this.fleksBaglanti },
             iliskiliVanaId: this.iliskiliVanaId,
@@ -472,7 +473,7 @@ export class Cihaz {
         });
 
         cihaz.id = data.id;
-        cihaz.z = data.z || 0; // <-- DÜZELTME: Z değerini geri yükle
+        cihaz.z = data.z || 0; // Z değerini yükle
         cihaz.rotation = data.rotation;
 
         // Fleks bağlantısını yükle
