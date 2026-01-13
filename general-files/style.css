@@ -1853,3 +1853,107 @@ body.light-mode .btn-show-3d-perspective.active {
     font-weight: 500;
     color: var(--color-text);
 }
+/* --- DİNAMİK METİNLİ (BOŞLUKTA YAZAN) TOGGLE TASARIMI --- */
+
+.toggle-dynamic-wrapper {
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 12px;
+    position: relative;
+    user-select: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Input'u gizle */
+.toggle-dynamic-input {
+    display: none;
+}
+
+/* Ana Çerçeve (Pist) */
+.toggle-dynamic-label {
+    width: 76px;  /* Genişlik biraz artırıldı (Rahat sığması için) */
+    height: 34px; /* Yükseklik biraz artırıldı */
+    background-color: #ccc; /* Pasif Arkaplan */
+    border-radius: 34px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.4s ease;
+    display: block;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
+}
+
+/* Yuvarlak Buton (Knob) */
+.toggle-dynamic-circle {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 28px; /* Buton büyütüldü */
+    height: 28px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    z-index: 10;
+}
+
+/* --- METİNLER --- */
+.text-on-left, .text-on-right {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    
+    /* GÜNCELLENEN KISIM: Font ve Hizalama */
+    font-size: 13px; /* Yazı büyütüldü */
+    font-weight: 700; /* Kalınlık ayarlandı */
+    width: 45px; /* Boşluk genişliği kadar alan */
+    text-align: center; /* Alan içinde ortala */
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+/* Sol Taraftaki Yazı (3D) */
+/* Buton SAĞDA iken SOL boşlukta görünür */
+.text-on-left {
+    left: 0; /* Sol kenara yasla (width ile ortalanacak) */
+    opacity: 0;
+    color: white; 
+    padding-left: 2px; /* Görsel dengeleme */
+}
+
+/* Sağ Taraftaki Yazı (2D) */
+/* Buton SOLDA iken SAĞ boşlukta görünür */
+.text-on-right {
+    right: 0; /* Sağ kenara yasla */
+    opacity: 1;
+    color: #666; 
+    padding-right: 2px; /* Görsel dengeleme */
+}
+
+/* --- AKTİF (3D) DURUMU --- */
+
+/* 1. Yuvarlak Sağa Kayar */
+.toggle-dynamic-input:checked + .toggle-dynamic-label .toggle-dynamic-circle {
+    transform: translateX(42px); /* Pist Genişliği (76) - Buton (28) - Paylar */
+}
+
+/* 2. Arkaplan Rengi Mavi Olur */
+.toggle-dynamic-input:checked + .toggle-dynamic-label {
+    background-color: #2196F3;
+}
+
+/* 3. Metin Görünürlükleri Değişir */
+.toggle-dynamic-input:checked + .toggle-dynamic-label .text-on-right {
+    opacity: 0;
+}
+
+.toggle-dynamic-input:checked + .toggle-dynamic-label .text-on-left {
+    opacity: 1;
+}
+
+/* --- DARK MODE UYUMU --- */
+body:not(.light-mode) .toggle-dynamic-label {
+    background-color: #555;
+}
+body:not(.light-mode) .text-on-right {
+    color: #ddd;
+}

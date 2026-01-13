@@ -309,7 +309,7 @@ export function toggle3DPerspective() {
     const targetAngle = targetIsActive ? (Math.PI / 3) : 0; // 3D için 60 derece, 2D için 0
 
     // Orbit kontrolleri kilitle (çatışmayı önlemek için)
-    if(orbitControls) orbitControls.enabled = false;
+    if (orbitControls) orbitControls.enabled = false;
 
     // Animasyon Objesi
     const animObj = {
@@ -349,37 +349,9 @@ export function toggle3DPerspective() {
             state.viewBlendFactor = targetBlend;
             setState({ is3DPerspectiveActive: targetIsActive });
 
-            if(orbitControls) {
+            if (orbitControls) {
                 orbitControls.enabled = true;
                 orbitControls.update();
-            }
-
-            // Buton ikonunu güncelle
-            if (dom.b3DPerspective) {
-                dom.b3DPerspective.classList.toggle('active', targetIsActive);
-
-                // İkon güncelleme
-                if (targetIsActive) {
-                    dom.b3DPerspective.innerHTML = `
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                          stroke-linejoin="round">
-                          <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
-                          <rect x="9" y="9" width="6" height="6" fill="none"></rect>
-                          <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
-                        </svg>
-                        3D → 2D Moduna Geç
-                    `;
-                } else {
-                    dom.b3DPerspective.innerHTML = `
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                          stroke-linejoin="round">
-                          <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6"></path>
-                          <rect x="9" y="9" width="6" height="6" fill="none"></rect>
-                          <path d="M9 9L3 3M15 9L21 3M9 15L3 21M15 15L21 21"></path>
-                        </svg>
-                        2D → 3D Moduna Geç
-                    `;
-                }
             }
 
             draw2D();
@@ -1724,8 +1696,11 @@ export function setupUIListeners() {
 
     // 3D PERSPEKTİF GÖRÜNÜM BUTONU LISTENER'I
     if (dom.b3DPerspective) {
-        dom.b3DPerspective.addEventListener('click', () => {
-            toggle3DPerspective();
+        dom.b3DPerspective.addEventListener('change', (e) => {
+            // Eğer checkbox durumu state ile uyuşmuyorsa fonksiyonu tetikle
+            if (e.target.checked !== state.is3DPerspectiveActive) {
+                toggle3DPerspective();
+            }
         });
     }
 
