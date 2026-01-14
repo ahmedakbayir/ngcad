@@ -2557,7 +2557,7 @@ drawServisKutusu(ctx, comp) {
                 // Parent (dark blue)
                 ctx.fillStyle = darkBlue;
                 ctx.textAlign = "left";
-                ctx.fillText(parentText, startX, 0);
+                //ctx.fillText(parentText, startX, 0);
 
                 // Self (KIRMIZI)
                 ctx.fillStyle = '#ff0000'; // Kırmızı
@@ -2565,7 +2565,7 @@ drawServisKutusu(ctx, comp) {
 
                 // Children (dark blue)
                 ctx.fillStyle = darkgreen;
-                ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
+                //ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
             }
 
             ctx.restore();
