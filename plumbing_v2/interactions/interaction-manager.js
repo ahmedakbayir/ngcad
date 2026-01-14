@@ -379,6 +379,10 @@ export class InteractionManager {
         return findPipeAt(this.manager, point, tolerance);
     }
 
+    findBoruGovdeAt(point, tolerance = 5) {
+        return findBoruGovdeAt(this.manager, point, tolerance);
+    }
+
     findBilesenCikisAt(point, tolerance = 2) {
         return findBilesenCikisAt(this.manager, point, tolerance);
     }

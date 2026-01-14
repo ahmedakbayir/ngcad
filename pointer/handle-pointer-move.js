@@ -171,15 +171,16 @@ export function handlePointerMove(e) {
     // ... (Kalan kodlar aynı) ...
     // 1.5 Pipe splitting preview
     if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
-        const hoveredPipe = this.findPipeAt(point, 10);
-        if (hoveredPipe) {
-            const proj = hoveredPipe.projectPoint(point);
-            if (proj && proj.onSegment) {
-                // projectPoint artık Z döndürüyor (3D interpolate edilmiş)
-                let splitPoint = { x: proj.x, y: proj.y, z: proj.z };
+        // findBoruGovdeAt kullan - hem boruyu hem 3D noktayı döndürür
+        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 10);
+        if (boruGovde) {
+            const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
+            if (hoveredPipe) {
+                // boruGovde.nokta zaten 3D (x, y, z)
+                let splitPoint = { x: boruGovde.nokta.x, y: boruGovde.nokta.y, z: boruGovde.nokta.z };
                 const CORNER_SNAP_DISTANCE = 10;
 
-                // 2D mesafe (ekranda)
+                // 2D mesafe (ekranda görünen)
                 const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
                 const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
 
@@ -190,7 +191,9 @@ export function handlePointerMove(e) {
                 }
 
                 this.pipeSplitPreview = { pipe: hoveredPipe, point: splitPoint };
-            } else this.pipeSplitPreview = null;
+            } else {
+                this.pipeSplitPreview = null;
+            }
         } else this.pipeSplitPreview = null;
         return true;
     } else {
@@ -206,19 +209,32 @@ export function handlePointerMove(e) {
             this.manager.tempComponent.rotation = 0; // Boru yoksa açıyı sıfırla
         }
 
-        const hoveredPipe = this.findPipeAt(point, 5);
-        if (hoveredPipe) {
-            const proj = hoveredPipe.projectPoint(point);
-            if (proj && proj.onSegment) {
-                // projectPoint artık Z döndürüyor (3D interpolate edilmiş)
-                let vanaPoint = { x: proj.x, y: proj.y, z: proj.z };
-                let vanaT = proj.t;
+        // findBoruGovdeAt kullan - hem boruyu hem 3D noktayı döndürür
+        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 5);
+        if (boruGovde) {
+            const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
+            if (hoveredPipe) {
+                // boruGovde.nokta zaten 3D (x, y, z)
+                let vanaPoint = { x: boruGovde.nokta.x, y: boruGovde.nokta.y, z: boruGovde.nokta.z };
+
+                // T değerini hesapla (boru uzunluğuna göre pozisyon)
+                const dx = hoveredPipe.p2.x - hoveredPipe.p1.x;
+                const dy = hoveredPipe.p2.y - hoveredPipe.p1.y;
+                const dz = (hoveredPipe.p2.z || 0) - (hoveredPipe.p1.z || 0);
+                const totalLen = Math.hypot(dx, dy, dz);
+
+                const vdx = vanaPoint.x - hoveredPipe.p1.x;
+                const vdy = vanaPoint.y - hoveredPipe.p1.y;
+                const vdz = vanaPoint.z - (hoveredPipe.p1.z || 0);
+                const vanaLen = Math.hypot(vdx, vdy, vdz);
+
+                let vanaT = totalLen > 0 ? vanaLen / totalLen : 0.5;
                 let snapToEnd = false;
                 const END_SNAP_DISTANCE = 10;
 
-                // 2D mesafe (ekranda)
-                const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
-                const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
+                // 2D mesafe (ekranda görünen)
+                const distToP1 = Math.hypot(vanaPoint.x - hoveredPipe.p1.x, vanaPoint.y - hoveredPipe.p1.y);
+                const distToP2 = Math.hypot(vanaPoint.x - hoveredPipe.p2.x, vanaPoint.y - hoveredPipe.p2.y);
                 const VANA_GENISLIGI = 8;
                 const BORU_UCU_BOSLUK = 1;
                 const vanaMesafesi = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK;
@@ -246,8 +262,9 @@ export function handlePointerMove(e) {
                     // Açıyı boru açısına eşitle
                     this.manager.tempComponent.rotation = hoveredPipe.aciDerece;
                 }
-
-            } else this.vanaPreview = null;
+            } else {
+                this.vanaPreview = null;
+            }
         } else this.vanaPreview = null;
         return true;
     } else {
@@ -257,15 +274,16 @@ export function handlePointerMove(e) {
     // 1.7 Sayaç/Cihaz boru üzerine ekleme preview (boru ortasına ekleme)
     if ((this.manager.activeTool === 'sayac' || this.manager.activeTool === 'cihaz') &&
         this.manager.tempComponent && !this.manager.tempComponent.ghostConnectionInfo) {
-        const hoveredPipe = this.findPipeAt(point, 10);
-        if (hoveredPipe) {
-            const proj = hoveredPipe.projectPoint(point);
-            if (proj && proj.onSegment) {
-                // projectPoint artık Z döndürüyor (3D interpolate edilmiş)
-                let splitPoint = { x: proj.x, y: proj.y, z: proj.z };
+        // findBoruGovdeAt kullan - hem boruyu hem 3D noktayı döndürür
+        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 10);
+        if (boruGovde) {
+            const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
+            if (hoveredPipe) {
+                // boruGovde.nokta zaten 3D (x, y, z)
+                let splitPoint = { x: boruGovde.nokta.x, y: boruGovde.nokta.y, z: boruGovde.nokta.z };
                 const CORNER_SNAP_DISTANCE = 10;
 
-                // 2D mesafe (ekranda)
+                // 2D mesafe (ekranda görünen)
                 const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
                 const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
 
