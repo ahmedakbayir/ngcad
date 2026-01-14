@@ -2692,6 +2692,11 @@ export class PlumbingRenderer {
         const { point } = preview;
         const zoom = state.zoom || 1;
 
+        // 3D offset uygula
+        const z = point.z || 0;
+        const screenX = point.x + z;
+        const screenY = point.y - z;
+
         ctx.save();
 
         // Dış daire (mavi, parlak)
@@ -2699,21 +2704,21 @@ export class PlumbingRenderer {
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 2 / zoom;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 6 / zoom, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 6 / zoom, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         // İç daire (beyaz nokta)
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 2 / zoom, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 2 / zoom, 0, Math.PI * 2);
         ctx.fill();
 
         // Animasyon için pulse efekti (isteğe bağlı - statik de kalabilir)
         ctx.strokeStyle = 'rgba(0, 150, 255, 0.4)';
         ctx.lineWidth = 1.5 / zoom;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 10 / zoom, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 10 / zoom, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.restore();
@@ -2729,9 +2734,10 @@ export class PlumbingRenderer {
         const size = 8;
         const halfSize = size / 2;
 
-        // Vana merkezi ekleme noktasında
-        const adjustedX = point.x;
-        const adjustedY = point.y;
+        // 3D offset uygula
+        const z = point.z || 0;
+        const adjustedX = point.x + z;
+        const adjustedY = point.y - z;
 
         ctx.save();
         ctx.translate(adjustedX, adjustedY);
@@ -2764,6 +2770,11 @@ export class PlumbingRenderer {
         const { point, componentType } = preview;
         const zoom = state.zoom || 1;
 
+        // 3D offset uygula
+        const z = point.z || 0;
+        const screenX = point.x + z;
+        const screenY = point.y - z;
+
         ctx.save();
 
         // Dış daire (yeşil/turuncu - sayaç için yeşil, cihaz için turuncu)
@@ -2772,14 +2783,14 @@ export class PlumbingRenderer {
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 2 / zoom;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 8 / zoom, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 8 / zoom, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         // İç daire (beyaz nokta)
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 3 / zoom, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 3 / zoom, 0, Math.PI * 2);
         ctx.fill();
 
         // Dış pulse efekti
@@ -2787,7 +2798,7 @@ export class PlumbingRenderer {
         ctx.strokeStyle = pulseColor;
         ctx.lineWidth = 1.5 / zoom;
         ctx.beginPath();
-        ctx.arc(point.x, point.y, 12 / zoom, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 12 / zoom, 0, Math.PI * 2);
         ctx.stroke();
 
         // Metin göstergesi (Sayaç veya Cihaz)
@@ -2796,7 +2807,7 @@ export class PlumbingRenderer {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const label = componentType === 'sayac' ? 'S' : 'C';
-        ctx.fillText(label, point.x, point.y + 18 / zoom);
+        ctx.fillText(label, screenX, screenY + 18 / zoom);
 
         ctx.restore();
     }
