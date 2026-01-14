@@ -172,7 +172,8 @@ export function handlePointerMove(e) {
     // 1.5 Pipe splitting preview
     if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
         // findBoruGovdeAt kullan - hem boruyu hem 3D noktayı döndürür
-        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 10);
+        // Tolerance 15 (düşey borular için daha büyük)
+        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 15);
         if (boruGovde) {
             const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
             if (hoveredPipe) {
@@ -210,7 +211,8 @@ export function handlePointerMove(e) {
         }
 
         // findBoruGovdeAt kullan - hem boruyu hem 3D noktayı döndürür
-        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 5);
+        // Tolerance 10 (düşey borular için daha büyük)
+        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 10);
         if (boruGovde) {
             const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
             if (hoveredPipe) {
@@ -275,7 +277,8 @@ export function handlePointerMove(e) {
     if ((this.manager.activeTool === 'sayac' || this.manager.activeTool === 'cihaz') &&
         this.manager.tempComponent && !this.manager.tempComponent.ghostConnectionInfo) {
         // findBoruGovdeAt kullan - hem boruyu hem 3D noktayı döndürür
-        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 10);
+        // Tolerance 15 (düşey borular için daha büyük)
+        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 15);
         if (boruGovde) {
             const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
             if (hoveredPipe) {
