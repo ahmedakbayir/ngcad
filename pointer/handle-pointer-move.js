@@ -171,18 +171,24 @@ export function handlePointerMove(e) {
     // ... (Kalan kodlar aynı) ...
     // 1.5 Pipe splitting preview
     if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
-        // ... (pipe split kodları) ...
         const hoveredPipe = this.findPipeAt(point, 10);
         if (hoveredPipe) {
-            // ...
             const proj = hoveredPipe.projectPoint(point);
             if (proj && proj.onSegment) {
-                let splitPoint = { x: proj.x, y: proj.y };
+                // projectPoint artık Z döndürüyor (3D interpolate edilmiş)
+                let splitPoint = { x: proj.x, y: proj.y, z: proj.z };
                 const CORNER_SNAP_DISTANCE = 10;
+
+                // 2D mesafe (ekranda)
                 const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
                 const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
-                if (distToP1 < CORNER_SNAP_DISTANCE) splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y };
-                else if (distToP2 < CORNER_SNAP_DISTANCE) splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y };
+
+                if (distToP1 < CORNER_SNAP_DISTANCE) {
+                    splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z || 0 };
+                } else if (distToP2 < CORNER_SNAP_DISTANCE) {
+                    splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y, z: hoveredPipe.p2.z || 0 };
+                }
+
                 this.pipeSplitPreview = { pipe: hoveredPipe, point: splitPoint };
             } else this.pipeSplitPreview = null;
         } else this.pipeSplitPreview = null;
@@ -204,12 +210,13 @@ export function handlePointerMove(e) {
         if (hoveredPipe) {
             const proj = hoveredPipe.projectPoint(point);
             if (proj && proj.onSegment) {
-                let vanaPoint = { x: proj.x, y: proj.y };
+                // projectPoint artık Z döndürüyor (3D interpolate edilmiş)
+                let vanaPoint = { x: proj.x, y: proj.y, z: proj.z };
                 let vanaT = proj.t;
                 let snapToEnd = false;
                 const END_SNAP_DISTANCE = 10;
 
-                // ... (mesafe hesaplamaları aynı) ...
+                // 2D mesafe (ekranda)
                 const distToP1 = Math.hypot(proj.x - hoveredPipe.p1.x, proj.y - hoveredPipe.p1.y);
                 const distToP2 = Math.hypot(proj.x - hoveredPipe.p2.x, proj.y - hoveredPipe.p2.y);
                 const VANA_GENISLIGI = 8;
@@ -231,9 +238,10 @@ export function handlePointerMove(e) {
 
                 // DEĞİŞİKLİK: Ghost (tempComponent) vanayı boruya tam hizala
                 if (this.manager.tempComponent) {
-                    // Pozisyonu snap noktasına taşı
+                    // Pozisyonu snap noktasına taşı (Z dahil)
                     this.manager.tempComponent.x = vanaPoint.x;
                     this.manager.tempComponent.y = vanaPoint.y;
+                    this.manager.tempComponent.z = vanaPoint.z || 0;
 
                     // Açıyı boru açısına eşitle
                     this.manager.tempComponent.rotation = hoveredPipe.aciDerece;
@@ -253,16 +261,18 @@ export function handlePointerMove(e) {
         if (hoveredPipe) {
             const proj = hoveredPipe.projectPoint(point);
             if (proj && proj.onSegment) {
-                // Köşelere snap (boru uçlarına yakınsa)
-                let splitPoint = { x: proj.x, y: proj.y, z: hoveredPipe.p1.z };
+                // projectPoint artık Z döndürüyor (3D interpolate edilmiş)
+                let splitPoint = { x: proj.x, y: proj.y, z: proj.z };
                 const CORNER_SNAP_DISTANCE = 10;
+
+                // 2D mesafe (ekranda)
                 const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
                 const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
 
                 if (distToP1 < CORNER_SNAP_DISTANCE) {
-                    splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z };
+                    splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z || 0 };
                 } else if (distToP2 < CORNER_SNAP_DISTANCE) {
-                    splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y, z: hoveredPipe.p2.z };
+                    splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y, z: hoveredPipe.p2.z || 0 };
                 }
 
                 this.componentOnPipePreview = {

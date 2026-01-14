@@ -201,29 +201,45 @@ export class Boru {
     }
 
     /**
-     * Noktanın boru üzerine izdüşümü
+     * Noktanın boru üzerine izdüşümü (3D destekli)
      */
     projectPoint(point) {
         const { p1, p2 } = this;
+
+        // 3D mesafe hesaplama
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
-        const len2 = dx * dx + dy * dy;
+        const dz = (p2.z || 0) - (p1.z || 0);
+        const len2 = dx * dx + dy * dy + dz * dz;
 
         if (len2 === 0) {
-            const dist = Math.hypot(point.x - p1.x, point.y - p1.y);
-            return { x: p1.x, y: p1.y, t: 0, onSegment: true, distance: dist };
+            const dist = Math.hypot(point.x - p1.x, point.y - p1.y, (point.z || 0) - (p1.z || 0));
+            return { x: p1.x, y: p1.y, z: p1.z || 0, t: 0, onSegment: true, distance: dist };
         }
 
-        const t = ((point.x - p1.x) * dx + (point.y - p1.y) * dy) / len2;
+        // 3D projeksiyon
+        const px = (point.x || 0) - p1.x;
+        const py = (point.y || 0) - p1.y;
+        const pz = (point.z || 0) - (p1.z || 0);
+
+        const t = (px * dx + py * dy + pz * dz) / len2;
         const clampedT = Math.max(0, Math.min(1, t));
 
         const projX = p1.x + clampedT * dx;
         const projY = p1.y + clampedT * dy;
-        const distance = Math.hypot(point.x - projX, point.y - projY);
+        const projZ = (p1.z || 0) + clampedT * dz;
+
+        // 3D mesafe
+        const distance = Math.hypot(
+            (point.x || 0) - projX,
+            (point.y || 0) - projY,
+            (point.z || 0) - projZ
+        );
 
         return {
             x: projX,
             y: projY,
+            z: projZ,
             t: clampedT,
             onSegment: t >= 0 && t <= 1,
             distance: distance
@@ -260,13 +276,14 @@ export class Boru {
     }
 
     /**
-     * Boruyu belirli bir noktadan böl
+     * Boruyu belirli bir noktadan böl (3D destekli)
      */
     splitAt(point) {
         const proj = this.projectPoint(point);
         if (!proj || !proj.onSegment) return null;
 
-        const splitPoint = { x: proj.x, y: proj.y, z: this.p1.z };
+        // Z değeri interpolate ediliyor (3D destek)
+        const splitPoint = { x: proj.x, y: proj.y, z: proj.z };
 
         // İki yeni boru oluştur
         const boru1 = new Boru(this.p1, splitPoint, this.boruTipi);
