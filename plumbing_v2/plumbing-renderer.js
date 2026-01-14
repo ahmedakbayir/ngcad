@@ -536,7 +536,7 @@ export class PlumbingRenderer {
         const startPt = manager.interactionManager.boruBaslangic.nokta;
         const snapMode = manager.interactionManager.axisSnapMode; // 'X', 'Y', 'Z'
         const zoom = state.zoom || 1;
-        const guideLength = 100 / zoom; // Kılavuz uzunluğu
+        const guideLength = 50 / zoom; // Kılavuz uzunluğu
 
         // Başlangıç noktasının ekran koordinatlarını hesapla
         const z = (startPt.z || 0) * t;
@@ -568,13 +568,13 @@ export class PlumbingRenderer {
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(0, guideLength);
-        ctx.strokeStyle = (snapMode === 'Y') ? '#00AA00' : 'rgba(0, 170, 0, 0.3)';
+        ctx.strokeStyle = (snapMode === 'Y') ? '#0000FF' : 'rgba(0, 0, 255, 0.3)';
         ctx.lineWidth = (snapMode === 'Y') ? 4 / zoom : 2 / zoom;
         if (snapMode !== 'Y') ctx.setLineDash([5 / zoom, 3 / zoom]);
         else ctx.setLineDash([]);
         ctx.stroke();
 
-        ctx.fillStyle = '#00AA00';
+        ctx.fillStyle = '#0000FF';
         ctx.fillText("Y", 0, guideLength + 12 / zoom);
 
         // --- Z EKSENİ (Mavi) ---
@@ -585,14 +585,14 @@ export class PlumbingRenderer {
         // Z ekseni çizimi: t faktörünü de görsel uzunluğa yansıtıyoruz
         ctx.lineTo(guideLength, -guideLength);
 
-        ctx.strokeStyle = (snapMode === 'Z') ? '#0000FF' : 'rgba(0, 0, 255, 0.3)';
+        ctx.strokeStyle = (snapMode === 'Z') ? '#00AA00' : 'rgba(0, 170, 0, 0.3)';
         ctx.lineWidth = (snapMode === 'Z') ? 4 / zoom : 2 / zoom;
         if (snapMode !== 'Z') ctx.setLineDash([5 / zoom, 3 / zoom]);
         else ctx.setLineDash([]);
         ctx.stroke();
 
-        ctx.fillStyle = '#0000FF';
-        ctx.fillText("Z (Shift)", guideLength + 5 / zoom, -guideLength - 5 / zoom);
+        ctx.fillStyle = '#00AA00';
+        ctx.fillText("Z", guideLength + 5 / zoom, -guideLength - 5 / zoom);
 
         // Merkez nokta
         ctx.beginPath();
@@ -1214,52 +1214,213 @@ export class PlumbingRenderer {
         ctx.restore();
     }
 
-    drawServisKutusu(ctx, comp) {
+drawServisKutusu(ctx, comp) {
         const { width, height } = SERVIS_KUTUSU_CONFIG;
-        const colors = CUSTOM_COLORS.BOX_ORANGE;
+        
+        const t = state.viewBlendFactor || 0;
 
-        // 1. Gölge Efekti
-        getShadow(ctx);
-
-        // 2. Gradient Oluşturma
-        const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
-
-        if (comp.isSelected) {
-            // Seçili Durum: Gri Gradyan
-            grad.addColorStop(0, '#A0A0A0');
-            grad.addColorStop(0.5, '#808080');
-            grad.addColorStop(1, '#606060');
-            ctx.strokeStyle = '#505050';
-        } else {
-            // Normal Durum: Turuncu Gradyan
-            grad.addColorStop(0, colors.top);
-            grad.addColorStop(0.5, colors.middle);
-            grad.addColorStop(1, colors.bottom);
-            ctx.strokeStyle = colors.stroke;
+        // --- 2D GÖRÜNÜM (PLAN) ---
+        if (t < 0.1) {
+             const colors = CUSTOM_COLORS.BOX_ORANGE;
+             getShadow(ctx);
+             
+             const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
+             if (comp.isSelected) {
+                 grad.addColorStop(0, '#A0A0A0'); grad.addColorStop(0.5, '#808080'); grad.addColorStop(1, '#606060'); 
+                 ctx.strokeStyle = '#505050';
+             } else {
+                 grad.addColorStop(0, colors.top); grad.addColorStop(0.5, colors.middle); grad.addColorStop(1, colors.bottom); 
+                 ctx.strokeStyle = colors.stroke;
+             }
+             
+             ctx.fillStyle = grad;
+             ctx.beginPath(); 
+             ctx.roundRect(-width / 2, -height / 2, width, height, 2);
+             ctx.fill();
+             
+             ctx.shadowBlur = 0; 
+             ctx.lineWidth = 1.2 / (state.zoom || 1); 
+             ctx.stroke();
+             
+             ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'; 
+             ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
+             
+             ctx.fillStyle = '#222'; 
+             ctx.font = 'bold 14px Arial'; 
+             ctx.textAlign = 'center'; 
+             ctx.textBaseline = 'middle'; 
+             ctx.fillText('S.K.', 0, 1);
+             return;
         }
 
-        // 3. Gövdeyi Çiz
-        ctx.fillStyle = grad;
+        // --- 3D GÖRÜNÜM ---
+        
+        const boxHeight = 60; 
+        const currentH = boxHeight * t;
+        const screenZVector = { x: currentH, y: -currentH };
+
+        const rotRad = -(comp.rotation || 0) * Math.PI / 180;
+        const localZ = {
+            x: screenZVector.x * Math.cos(rotRad) - screenZVector.y * Math.sin(rotRad),
+            y: screenZVector.x * Math.sin(rotRad) + screenZVector.y * Math.cos(rotRad)
+        };
+        
+        const r = 2; 
+        const w = width;
+        const h = height; 
+        const x = -w / 2;
+        const y = -h / 2;
+        
+        getShadow(ctx);
+
+        const alpha = 0.3;
+        
+        const hexToRgba = (hex, a) => {
+            let c;
+            if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+                c= hex.substring(1).split('');
+                if(c.length== 3){ c= [c[0], c[0], c[1], c[1], c[2], c[2]]; }
+                c= '0x'+c.join('');
+                return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+a+')';
+            }
+            return hex; 
+        };
+
+        const baseColorHex = comp.isSelected ? '#808080' : CUSTOM_COLORS.BOX_ORANGE.middle;
+        const strokeColorHex = comp.isSelected ? '#505050' : CUSTOM_COLORS.BOX_ORANGE.stroke;
+
+        const faceFillStyle = hexToRgba(baseColorHex.substring(0, 7), alpha); 
+        const strokeStyle = hexToRgba(strokeColorHex.substring(0, 7), 0.6); 
+        const embossSideColor = hexToRgba('#555555', alpha + 0.2); 
+
+        ctx.save();
+        ctx.lineWidth = 0.5; // İnce çizgi
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = strokeStyle;
+        ctx.fillStyle = faceFillStyle;
+
+        // Köşeler
+        const p1 = { x: x, y: y };         
+        const p2 = { x: x + w, y: y };     
+        const p3 = { x: x + w, y: y + h }; 
+        const p4 = { x: x, y: y + h };     
+
+        // 1. ARKA YÜZEYLER
+        ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); 
+        
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p2.x + localZ.x, p2.y + localZ.y); ctx.lineTo(p1.x + localZ.x, p1.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p4.x, p4.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.lineTo(p1.x + localZ.x, p1.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+        // 2. ÖN YÜZEYLER
+        ctx.beginPath(); ctx.moveTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p2.x + localZ.x, p2.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(p4.x, p4.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke(); 
+
+        // 3. KABARTMA (EMBOSS) - Yazısız
+        const margin = 5; const embossDepth = 1.0; const er = 2; 
+        const vecW = { x: p3.x - p4.x, y: p3.y - p4.y }; 
+        const vecH = { x: localZ.x, y: localZ.y };       
+        const wRatio = (w - 2 * margin) / w; const hRatio = (boxHeight - 2 * margin) / boxHeight;
+        const startOffsetX = (margin / w) * vecW.x + (margin / boxHeight) * vecH.x;
+        const startOffsetY = (margin / w) * vecW.y + (margin / boxHeight) * vecH.y;
+        const eBL = { x: p4.x + startOffsetX, y: p4.y + startOffsetY }; 
+        const eBR = { x: eBL.x + wRatio * vecW.x, y: eBL.y + wRatio * vecW.y };
+        const eTR = { x: eBR.x + hRatio * vecH.x, y: eBR.y + hRatio * vecH.y };
+        const eTL = { x: eBL.x + hRatio * vecH.x, y: eBL.y + hRatio * vecH.y };
+        const embossShift = { x: 0, y: embossDepth * 1.5 }; 
+        const oBL = { x: eBL.x + embossShift.x, y: eBL.y + embossShift.y };
+        const oBR = { x: eBR.x + embossShift.x, y: eBR.y + embossShift.y };
+        const oTR = { x: eTR.x + embossShift.x, y: eTR.y + embossShift.y };
+        const oTL = { x: eTL.x + embossShift.x, y: eTL.y + embossShift.y };
+
+        ctx.fillStyle = embossSideColor;
         ctx.beginPath();
-        ctx.rect(-width / 2, -height / 2, width, height);
-        ctx.fill();
+        ctx.moveTo(eBL.x, eBL.y); ctx.lineTo(eBR.x, eBR.y); ctx.lineTo(oBR.x, oBR.y); ctx.lineTo(oBL.x, oBL.y);
+        ctx.moveTo(eBR.x, eBR.y); ctx.lineTo(eTR.x, eTR.y); ctx.lineTo(oTR.x, oTR.y); ctx.lineTo(oBR.x, oBR.y);
+        ctx.moveTo(eTR.x, eTR.y); ctx.lineTo(eTL.x, eTL.y); ctx.lineTo(oTL.x, oTL.y); ctx.lineTo(oTR.x, oTR.y);
+        ctx.moveTo(eTL.x, eTL.y); ctx.lineTo(eBL.x, eBL.y); ctx.lineTo(oBL.x, oBL.y); ctx.lineTo(oTL.x, oTL.y);
+        ctx.fill(); ctx.stroke();
 
-        // 4. Kenar Çizgisi
-        ctx.shadowBlur = 0;
-        ctx.lineWidth = 1.2 / (state.zoom || 1);
-        ctx.stroke();
+        ctx.fillStyle = faceFillStyle;
+        ctx.beginPath();
+        ctx.moveTo(oBL.x + er, oBL.y); ctx.lineTo(oBR.x - er, oBR.y); ctx.lineTo(oTR.x - er, oTR.y); ctx.lineTo(oTL.x + er, oTL.y); ctx.closePath();
+        ctx.fill(); ctx.stroke();
 
-        // 5. İç Kapak Detayı
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
+        // 4. ÜST KAPAK (TAVAN)
+        ctx.save();
+        ctx.translate(localZ.x, localZ.y);
+        ctx.fillStyle = faceFillStyle;
+        ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : strokeStyle;
+        
+        // Kapağı çiz
+        ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); ctx.stroke();
+        
+        // --- S.K. YAZISI (TAVAN MERKEZİNDE) ---
+        ctx.save();
+        // (0,0) şu an tavanın merkezi
+        
+        // DÜZ OKUNMASI İÇİN ROTASYONU SIFIRLA
+        if (comp.rotation) {
+            ctx.rotate(-(comp.rotation * Math.PI / 180));
+        }
 
-        // 6. Yazı (S.K.)
-        ctx.fillStyle = '#222';
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'center';
+        ctx.fillStyle = '#222'; 
+        ctx.font = 'bold 14px Arial'; 
+        ctx.textAlign = 'center'; 
         ctx.textBaseline = 'middle';
-        ctx.fillText('S.K.', 0, 1);
+        
+        ctx.fillText('S.K.', 0, 0);
+        ctx.restore(); // Yazı rotasyonunu geri al
 
+        ctx.restore(); // Tavan transformunu geri al
+
+        ctx.restore(); // Genel
+    }
+
+
+
+    // ... (drawBoxConnectionPoints ve diğerleri AYNEN KALSIN) ...
+    drawBoxConnectionPoints(ctx, components, manager) {
+        if (!components || !manager) return;
+        const boxes = components.filter(c => c.type === 'servis_kutusu');
+        boxes.forEach(box => {
+            const cikis = box.getCikisNoktasi();
+            if (box.bagliBoruId) {
+                const bagliBoru = manager.pipes.find(p => p.id === box.bagliBoruId);
+                if (bagliBoru) {
+                    ctx.save();
+                    const dist = Math.hypot(bagliBoru.p1.x - cikis.x, bagliBoru.p1.y - cikis.y);
+                    if (dist > 0.1) {
+                        ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(cikis.x, cikis.y); ctx.lineTo(bagliBoru.p1.x, bagliBoru.p1.y); ctx.stroke(); ctx.setLineDash([]);
+                        const midX = (cikis.x + bagliBoru.p1.x) / 2; const midY = (cikis.y + bagliBoru.p1.y) / 2;
+                        ctx.fillStyle = '#FF0000'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(`${dist.toFixed(2)} cm`, midX, midY - 10);
+                    }
+                    ctx.restore();
+                }
+            }
+        });
+    }
+
+    // ... (Diğer tüm metodlar AYNEN KALSIN) ...
+    // drawBoxConnectionPoints, drawVana, drawCihaz, drawKombi, drawOcak, drawBaca, drawSayac ...
+    drawBoxConnectionPoints(ctx, components, manager) {
+        if (!components || !manager) return;
+        const boxes = components.filter(c => c.type === 'servis_kutusu');
+        boxes.forEach(box => {
+            const cikis = box.getCikisNoktasi();
+            if (box.bagliBoruId) {
+                const bagliBoru = manager.pipes.find(p => p.id === box.bagliBoruId);
+                if (bagliBoru) {
+                    ctx.save();
+                    const dist = Math.hypot(bagliBoru.p1.x - cikis.x, bagliBoru.p1.y - cikis.y);
+                    if (dist > 0.1) {
+                        ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(cikis.x, cikis.y); ctx.lineTo(bagliBoru.p1.x, bagliBoru.p1.y); ctx.stroke(); ctx.setLineDash([]);
+                        const midX = (cikis.x + bagliBoru.p1.x) / 2; const midY = (cikis.y + bagliBoru.p1.y) / 2;
+                        ctx.fillStyle = '#FF0000'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(`${dist.toFixed(2)} cm`, midX, midY - 10);
+                    }
+                    ctx.restore();
+                }
+            }
+        });
     }
 
     drawBoxConnectionPoints(ctx, components, manager) {
@@ -1467,9 +1628,9 @@ export class PlumbingRenderer {
 
             // Dikdörtgen kapama çiz
             ctx.beginPath();
-            ctx.rect(capX, -capHeight / 2 -0.5, capWidth, capHeight+1);
-            ctx.rect(capX-1, -capHeight / 2-1,capWidth+1,0.5);
-            ctx.rect(capX-1,capHeight / 2+1,capWidth+1,-0.5);
+            ctx.rect(capX, -capHeight / 2 - 0.5, capWidth, capHeight + 1);
+            ctx.rect(capX - 1, -capHeight / 2 - 1, capWidth + 1, 0.5);
+            ctx.rect(capX - 1, capHeight / 2 + 1, capWidth + 1, -0.5);
             ctx.fill();
             //ctx.stroke();
         }
