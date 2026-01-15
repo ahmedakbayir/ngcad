@@ -165,13 +165,16 @@ export function placeComponent(point) {
                                 const snappedAngleRad = snappedAngle * Math.PI / 180;
                                 snappedPoint = {
                                     x: component.currentSegmentStart.x + distance * Math.cos(snappedAngleRad),
-                                    y: component.currentSegmentStart.y + distance * Math.sin(snappedAngleRad)
+                                    y: component.currentSegmentStart.y + distance * Math.sin(snappedAngleRad),
+                                    z: component.currentSegmentStart.z || component.z || 0 // Z koordinatını koru
                                 };
                             }
                         }
                     }
 
-                    const success = component.addSegment(snappedPoint.x, snappedPoint.y);
+                    // Z koordinatını garanti et
+                    const segmentZ = snappedPoint.z !== undefined ? snappedPoint.z : (component.z || 0);
+                    const success = component.addSegment(snappedPoint.x, snappedPoint.y, segmentZ);
                     if (success) {
                         this.manager.saveToState();
                         // tempComponent'i tutuyoruz - çizim devam edecek
@@ -596,20 +599,19 @@ export function handleCihazEkleme(cihaz) {
     // Baca gerektiren cihazlar için otomatik baca oluştur
     if (cihaz.bacaGerekliMi()) {
         // Baca oluştur - cihaz merkezinden başlayarak sağa doğru 100cm
+        const cihazZ = cihaz.z || 0;
         const baca = createBaca(cihaz.x, cihaz.y, cihaz.id, {
-            floorId: cihaz.floorId
+            floorId: cihaz.floorId,
+            z: cihazZ // Z değerini options'a ekle
         });
-        baca.z = cihaz.z || 0;
-        // İlk segment: Sağa doğru 100cm (1m)
-        // Segment noktalarına da Z eklemek gerekebilir, ancak baca genellikle
-        // 2D düzlemde (XY) çizilip Z'si tüm baca için sabit tutulur.
-        // Eğer segment noktaları 3D ise, onlara da z eklenmeli.
+
+        // İlk segment: Sağa doğru 100cm (1m) - Z koordinatıyla birlikte
         const ilkSegmentBitis = {
             x: cihaz.x + 100, // 1m = 100cm
             y: cihaz.y,
-            z: cihaz.z || 0 // Z değerini ekle
+            z: cihazZ // Z değerini ekle
         };
-        baca.addSegment(ilkSegmentBitis.x, ilkSegmentBitis.y); // addSegment fonksiyonu Z destekliyorsa
+        baca.addSegment(ilkSegmentBitis.x, ilkSegmentBitis.y, ilkSegmentBitis.z);
 
         // Çizimi bitir - böylece baca seçilebilir ve düzenlenebilir olur
         baca.finishDrawing();
