@@ -337,6 +337,11 @@ export class PlumbingRenderer {
             }
         }
 
+        // --- YENİ EKLENEN KISIM: KOT YAZILARI ---
+        // Boru köşe noktalarındaki h değerlerini çiz (3D modunda)
+        this.drawPipeElevations(ctx, manager.pipes);
+
+
         // Ghost eleman (her zaman yarı saydam) - sadece mouse hareket ettikten sonra görünsün
         if (manager.tempComponent && manager.interactionManager.lastMousePoint) {
             // İÇ TESİSAT: İlk tıklama öncesi sayaç ghost gösterme
@@ -441,6 +446,47 @@ export class PlumbingRenderer {
             this.draw3DAxisGuide(ctx, manager);
         }
 
+    }
+
+    /**
+     * 3D görünümde boru köşe kotlarını (h) çizer
+     */
+    drawPipeElevations(ctx, pipes) {
+        // Sadece 3D görünümde çiz (t > 0.1)
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.1) return;
+
+        const isLightMode = this.isLightMode();
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = isLightMode ? '#000000' : '#FFFFFF';
+
+        // Tekrarlanan noktaları önlemek için Set kullan
+        const processedPoints = new Set();
+
+        pipes.forEach(pipe => {
+            if (!pipe.p1 || !pipe.p2) return;
+
+            [pipe.p1, pipe.p2].forEach(point => {
+                const z = point.z || 0;
+                // Z değeri 0 ise gösterme (zemin kotu genelde kalabalık yapar)
+                if (Math.abs(z) < 0.1) return;
+
+                // Nokta anahtarı (x,y,z) - koordinatları yuvarlayarak karşılaştır
+                const key = `${Math.round(point.x)},${Math.round(point.y)},${Math.round(z)}`;
+
+                if (processedPoints.has(key)) return;
+                processedPoints.add(key);
+
+                // Ekran koordinatlarını hesapla (3D projection)
+                // x' = x + z*t, y' = y - z*t
+                const sx = point.x + (z * t);
+                const sy = point.y - (z * t);
+
+                ctx.fillText(`h:${Math.round(z)}`, sx, sy - 5);
+            });
+        });
     }
 
     drawShadows(ctx, manager) {
@@ -1213,7 +1259,8 @@ export class PlumbingRenderer {
 
         ctx.restore();
     }
-
+    /*
+    3D görünümde 2d çizecek
     drawServisKutusu(ctx, comp) {
         const { width, height } = SERVIS_KUTUSU_CONFIG;
         const colors = CUSTOM_COLORS.BOX_ORANGE;
@@ -1260,6 +1307,165 @@ export class PlumbingRenderer {
         ctx.textBaseline = 'middle';
         ctx.fillText('S.K.', 0, 1);
 
+    }
+    */
+
+    drawServisKutusu(ctx, comp) {
+        const { width, height } = SERVIS_KUTUSU_CONFIG;
+
+        const t = state.viewBlendFactor || 0;
+
+        // --- 2D GÖRÜNÜM (PLAN) ---
+        if (t < 0.1) {
+            const colors = CUSTOM_COLORS.BOX_ORANGE;
+            getShadow(ctx);
+
+            const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
+            if (comp.isSelected) {
+                grad.addColorStop(0, '#A0A0A0'); grad.addColorStop(0.5, '#808080'); grad.addColorStop(1, '#606060');
+                ctx.strokeStyle = '#505050';
+            } else {
+                grad.addColorStop(0, colors.top); grad.addColorStop(0.5, colors.middle); grad.addColorStop(1, colors.bottom);
+                ctx.strokeStyle = colors.stroke;
+            }
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.roundRect(-width / 2, -height / 2, width, height, 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 1.2 / (state.zoom || 1);
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
+
+            ctx.fillStyle = '#222';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('S.K.', 0, 1);
+            return;
+        }
+
+        // --- 3D GÖRÜNÜM ---
+
+        const boxHeight = 40;
+        const currentH = boxHeight * t;
+        const screenZVector = { x: currentH, y: -currentH };
+
+        const rotRad = -(comp.rotation || 0) * Math.PI / 180;
+        const localZ = {
+            x: screenZVector.x * Math.cos(rotRad) - screenZVector.y * Math.sin(rotRad),
+            y: screenZVector.x * Math.sin(rotRad) + screenZVector.y * Math.cos(rotRad)
+        };
+
+        const r = 2;
+        const w = width/2;
+        const h = height/2;
+        const x = -w / 2;
+        const y = -h / 2;
+
+        getShadow(ctx);
+
+        const alpha = 0.2;
+
+        const hexToRgba = (hex, a) => {
+            let c;
+            if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+                c = hex.substring(1).split('');
+                if (c.length == 3) { c = [c[0], c[0], c[1], c[1], c[2], c[2]]; }
+                c = '0x' + c.join('');
+                return 'rgba(' + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',') + ',' + a + ')';
+            }
+            return hex;
+        };
+
+        const baseColorHex = comp.isSelected ? '#808080' : CUSTOM_COLORS.BOX_ORANGE.middle;
+        const strokeColorHex = comp.isSelected ? '#505050' : CUSTOM_COLORS.BOX_ORANGE.stroke;
+
+        const faceFillStyle = hexToRgba(baseColorHex.substring(0, 7), alpha);
+        const strokeStyle = hexToRgba(strokeColorHex.substring(0, 7), 0.6);
+        const embossSideColor = hexToRgba('#555555', alpha + 0.2);
+
+        ctx.save();
+        ctx.lineWidth = 0.5; // İnce çizgi
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = strokeStyle;
+        ctx.fillStyle = faceFillStyle;
+
+        // Köşeler
+        const p1 = { x: x, y: y };
+        const p2 = { x: x + w, y: y };
+        const p3 = { x: x + w, y: y + h };
+        const p4 = { x: x, y: y + h };
+
+        // 1. ARKA YÜZEYLER
+        ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
+
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p2.x + localZ.x, p2.y + localZ.y); ctx.lineTo(p1.x + localZ.x, p1.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p4.x, p4.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.lineTo(p1.x + localZ.x, p1.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+        // 2. ÖN YÜZEYLER
+        ctx.beginPath(); ctx.moveTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p2.x + localZ.x, p2.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(p4.x, p4.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+        // 3. KABARTMA (EMBOSS) - Yazısız
+        const margin = 5; const embossDepth = 1.0; const er = 2;
+        const vecW = { x: p3.x - p4.x, y: p3.y - p4.y };
+        const vecH = { x: localZ.x, y: localZ.y };
+        const wRatio = (w - 2 * margin) / w; const hRatio = (boxHeight - 2 * margin) / boxHeight;
+        const startOffsetX = (margin / w) * vecW.x + (margin / boxHeight) * vecH.x;
+        const startOffsetY = (margin / w) * vecW.y + (margin / boxHeight) * vecH.y;
+        const eBL = { x: p4.x + startOffsetX, y: p4.y + startOffsetY };
+        const eBR = { x: eBL.x + wRatio * vecW.x, y: eBL.y + wRatio * vecW.y };
+        const eTR = { x: eBR.x + hRatio * vecH.x, y: eBR.y + hRatio * vecH.y };
+        const eTL = { x: eBL.x + hRatio * vecH.x, y: eBL.y + hRatio * vecH.y };
+        const embossShift = { x: 0, y: embossDepth * 1.5 };
+        const oBL = { x: eBL.x + embossShift.x, y: eBL.y + embossShift.y };
+        const oBR = { x: eBR.x + embossShift.x, y: eBR.y + embossShift.y };
+        const oTR = { x: eTR.x + embossShift.x, y: eTR.y + embossShift.y };
+        const oTL = { x: eTL.x + embossShift.x, y: eTL.y + embossShift.y };
+
+        ctx.fillStyle = embossSideColor;
+        ctx.beginPath();
+        ctx.moveTo(eBL.x, eBL.y); ctx.lineTo(eBR.x, eBR.y); ctx.lineTo(oBR.x, oBR.y); ctx.lineTo(oBL.x, oBL.y);
+        ctx.moveTo(eBR.x, eBR.y); ctx.lineTo(eTR.x, eTR.y); ctx.lineTo(oTR.x, oTR.y); ctx.lineTo(oBR.x, oBR.y);
+        ctx.moveTo(eTR.x, eTR.y); ctx.lineTo(eTL.x, eTL.y); ctx.lineTo(oTL.x, oTL.y); ctx.lineTo(oTR.x, oTR.y);
+        ctx.moveTo(eTL.x, eTL.y); ctx.lineTo(eBL.x, eBL.y); ctx.lineTo(oBL.x, oBL.y); ctx.lineTo(oTL.x, oTL.y);
+        ctx.fill(); ctx.stroke();
+
+        ctx.fillStyle = faceFillStyle;
+        ctx.beginPath();
+        ctx.moveTo(oBL.x + er, oBL.y); ctx.lineTo(oBR.x - er, oBR.y); ctx.lineTo(oTR.x - er, oTR.y); ctx.lineTo(oTL.x + er, oTL.y); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+
+        // 4. ÜST KAPAK (TAVAN)
+        ctx.save();
+        ctx.translate(localZ.x, localZ.y);
+        ctx.fillStyle = faceFillStyle;
+        ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : strokeStyle;
+
+        // Kapağı çiz
+        ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); ctx.stroke();
+
+        // --- S.K. YAZISI (TAVAN MERKEZİNDE) ---
+        ctx.save();
+        // (0,0) şu an tavanın merkezi
+
+
+        ctx.fillStyle = '#222';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.fillText('S.K.', 0, 0);
+        ctx.restore(); // Yazı rotasyonunu geri al
+
+        ctx.restore(); // Tavan transformunu geri al
+
+        ctx.restore(); // Genel
     }
 
     drawBoxConnectionPoints(ctx, components, manager) {
@@ -1467,9 +1673,9 @@ export class PlumbingRenderer {
 
             // Dikdörtgen kapama çiz
             ctx.beginPath();
-            ctx.rect(capX, -capHeight / 2 -0.5, capWidth, capHeight+1);
-            ctx.rect(capX-1, -capHeight / 2-1,capWidth+1,0.5);
-            ctx.rect(capX-1,capHeight / 2+1,capWidth+1,-0.5);
+            ctx.rect(capX, -capHeight / 2 - 0.5, capWidth, capHeight + 1);
+            ctx.rect(capX - 1, -capHeight / 2 - 1, capWidth + 1, 0.5);
+            ctx.rect(capX - 1, capHeight / 2 + 1, capWidth + 1, -0.5);
             ctx.fill();
             //ctx.stroke();
         }
@@ -2742,16 +2948,16 @@ export class PlumbingRenderer {
         ctx.restore();
     }
 
-drawVanaPreview(ctx, vanaPreview) {
+    drawVanaPreview(ctx, vanaPreview) {
         if (!vanaPreview || !vanaPreview.pipe || !vanaPreview.point) return;
 
         const { pipe, point } = vanaPreview;
-        
+
         // --- DÜZELTME BAŞLANGIÇ: Düşey boru açı kontrolü ---
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
         const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
-        
+
         const len2d = Math.hypot(dx, dy);
         const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
 
@@ -3118,5 +3324,45 @@ drawVanaPreview(ctx, vanaPreview) {
         ctx.restore();
     }
 
+    /**
+     * 3D görünümde boru köşe kotlarını (h) çizer
+     */
+    drawPipeElevations(ctx, pipes) {
+        // Sadece 3D görünümde çiz (t > 0.1)
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.1) return;
+
+        const isLightMode = this.isLightMode();
+        ctx.font = 'bold 7px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = isLightMode ? '#000000' : '#FFFFFF';
+
+        // Tekrarlanan noktaları önlemek için Set kullan
+        const processedPoints = new Set();
+
+        pipes.forEach(pipe => {
+            if (!pipe.p1 || !pipe.p2) return;
+
+            [pipe.p1, pipe.p2].forEach(point => {
+                const z = point.z || 0;
+                // Z değeri 0 ise gösterme (zemin kotu genelde kalabalık yapar)
+                if (Math.abs(z) < 0.1) return;
+
+                // Nokta anahtarı (x,y,z) - koordinatları yuvarlayarak karşılaştır
+                const key = `${Math.round(point.x)},${Math.round(point.y)},${Math.round(z)}`;
+
+                if (processedPoints.has(key)) return;
+                processedPoints.add(key);
+
+                // Ekran koordinatlarını hesapla (3D projection)
+                // x' = x + z*t, y' = y - z*t
+                const sx = point.x + (z * t);
+                const sy = point.y - (z * t);
+
+                ctx.fillText(`${Math.round(z)}`, sx, sy - 5);
+            });
+        });
+    }
 
 }
