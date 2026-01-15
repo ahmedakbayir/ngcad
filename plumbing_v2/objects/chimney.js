@@ -33,16 +33,17 @@ export class Baca {
         this.floorId = options.floorId || null;
 
         // Segment listesi - her segment bir dikdörtgen boru parçası
-        // Her segment: { x1, y1, x2, y2 }
+        // Her segment: { x1, y1, z1, x2, y2, z2 }
         this.segments = [];
 
         // İlk segment başlangıcı (cihaz üstü)
         this.startX = x;
         this.startY = y;
+        this.z = options.z || 0; // Z koordinatı ekle
 
         // Aktif çizim durumu
         this.isDrawing = true;
-        this.currentSegmentStart = { x, y };
+        this.currentSegmentStart = { x, y, z: this.z };
 
         // Havalandırma ızgarası (ESC basılınca eklenir)
         this.havalandirma = null;
@@ -51,7 +52,7 @@ export class Baca {
     /**
      * Yeni segment ekle (mouse click)
      */
-    addSegment(x, y) {
+    addSegment(x, y, z) {
         const dx = x - this.currentSegmentStart.x;
         const dy = y - this.currentSegmentStart.y;
         const uzunluk = Math.hypot(dx, dy);
@@ -61,16 +62,21 @@ export class Baca {
             return false;
         }
 
-        // Segment ekle
+        // Z değeri verilmemişse current segment'in Z'sini kullan
+        const endZ = z !== undefined ? z : (this.currentSegmentStart.z || this.z || 0);
+
+        // Segment ekle (Z koordinatlarıyla birlikte)
         this.segments.push({
             x1: this.currentSegmentStart.x,
             y1: this.currentSegmentStart.y,
+            z1: this.currentSegmentStart.z || this.z || 0,
             x2: x,
-            y2: y
+            y2: y,
+            z2: endZ
         });
 
         // Yeni segment başlangıcı
-        this.currentSegmentStart = { x, y };
+        this.currentSegmentStart = { x, y, z: endZ };
         return true;
     }
 
@@ -535,6 +541,7 @@ export class Baca {
             floorId: this.floorId,
             startX: this.startX,
             startY: this.startY,
+            z: this.z || 0, // Z koordinatını ekle
             segments: this.segments.map(s => ({ ...s })),
             isDrawing: this.isDrawing,
             currentSegmentStart: { ...this.currentSegmentStart },
@@ -547,7 +554,8 @@ export class Baca {
      */
     static fromJSON(data) {
         const baca = new Baca(data.startX, data.startY, data.parentCihazId, {
-            floorId: data.floorId
+            floorId: data.floorId,
+            z: data.z || 0 // Z koordinatını ekle
         });
 
         baca.id = data.id;
