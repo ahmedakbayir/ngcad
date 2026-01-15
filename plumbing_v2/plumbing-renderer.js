@@ -2318,23 +2318,40 @@ export class PlumbingRenderer {
         const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
         const minWorldFontSize = 5;
 
+        // 3D faktörü (Z izdüşümü için)
+        const t = state.viewBlendFactor || 0;
+
         // Parent-child ilişkisini kur
         const hierarchy = buildPipeHierarchy(pipes, components);
 
         pipes.forEach(pipe => {
-            const dx = pipe.p2.x - pipe.p1.x;
-            const dy = pipe.p2.y - pipe.p1.y;
-            const length = Math.hypot(dx, dy);
+            // 3D Uzunluk Hesapla (Z dahil)
+            const dxWorld = pipe.p2.x - pipe.p1.x;
+            const dyWorld = pipe.p2.y - pipe.p1.y;
+            const dzWorld = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+            const length3D = Math.hypot(dxWorld, dyWorld, dzWorld);
 
             // Çok kısa borularda etiket gösterme
-            if (length < 15) return;
+            if (length3D < 15) return;
 
-            // Borunun ortası
-            const midX = (pipe.p1.x + pipe.p2.x) / 2;
-            const midY = (pipe.p1.y + pipe.p2.y) / 2;
+            // Ekran Koordinatlarını Hesapla (3D İzdüşüm)
+            // x' = x + z*t, y' = y - z*t
+            const z1 = (pipe.p1.z || 0) * t;
+            const z2 = (pipe.p2.z || 0) * t;
 
-            // Boru açısı
-            const angle = Math.atan2(dy, dx);
+            const sx1 = pipe.p1.x + z1;
+            const sy1 = pipe.p1.y - z1;
+            const sx2 = pipe.p2.x + z2;
+            const sy2 = pipe.p2.y - z2;
+
+            // Ekran üzerindeki orta nokta
+            const midX = (sx1 + sx2) / 2;
+            const midY = (sy1 + sy2) / 2;
+
+            // Boru açısı (Ekran üzerindeki görsel açı)
+            const sdx = sx2 - sx1;
+            const sdy = sy2 - sy1;
+            const angle = Math.atan2(sdy, sdx);
 
             // Boru genişliği
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
@@ -2692,10 +2709,11 @@ export class PlumbingRenderer {
         const { point } = preview;
         const zoom = state.zoom || 1;
 
-        // 3D offset uygula
+        // 3D offset uygula (viewBlendFactor ile)
         const z = point.z || 0;
-        const screenX = point.x + z;
-        const screenY = point.y - z;
+        const t = state.viewBlendFactor || 0;
+        const screenX = point.x + (z * t);
+        const screenY = point.y - (z * t);
 
         ctx.save();
 
@@ -2785,10 +2803,11 @@ drawVanaPreview(ctx, vanaPreview) {
         const { point, componentType } = preview;
         const zoom = state.zoom || 1;
 
-        // 3D offset uygula
+        // 3D offset uygula (viewBlendFactor ile)
         const z = point.z || 0;
-        const screenX = point.x + z;
-        const screenY = point.y - z;
+        const t = state.viewBlendFactor || 0;
+        const screenX = point.x + (z * t);
+        const screenY = point.y - (z * t);
 
         ctx.save();
 
