@@ -2692,10 +2692,12 @@ export class PlumbingRenderer {
         const { point } = preview;
         const zoom = state.zoom || 1;
 
-        // 3D offset uygula
+        // 3D offset sadece 3D modunda uygula
+        const t = state.viewBlendFactor || 0;
+        const is3DMode = t >= 0.5;
         const z = point.z || 0;
-        const screenX = point.x + z;
-        const screenY = point.y - z;
+        const screenX = is3DMode ? (point.x + z) : point.x;
+        const screenY = is3DMode ? (point.y - z) : point.y;
 
         ctx.save();
 
@@ -2734,10 +2736,12 @@ export class PlumbingRenderer {
         const size = 8;
         const halfSize = size / 2;
 
-        // 3D offset uygula
+        // 3D offset sadece 3D modunda uygula
+        const t = state.viewBlendFactor || 0;
+        const is3DMode = t >= 0.5;
         const z = point.z || 0;
-        const adjustedX = point.x + z;
-        const adjustedY = point.y - z;
+        const adjustedX = is3DMode ? (point.x + z) : point.x;
+        const adjustedY = is3DMode ? (point.y - z) : point.y;
 
         ctx.save();
         ctx.translate(adjustedX, adjustedY);
@@ -2770,10 +2774,12 @@ export class PlumbingRenderer {
         const { point, componentType } = preview;
         const zoom = state.zoom || 1;
 
-        // 3D offset uygula
+        // 3D offset sadece 3D modunda uygula
+        const t = state.viewBlendFactor || 0;
+        const is3DMode = t >= 0.5;
         const z = point.z || 0;
-        const screenX = point.x + z;
-        const screenY = point.y - z;
+        const screenX = is3DMode ? (point.x + z) : point.x;
+        const screenY = is3DMode ? (point.y - z) : point.y;
 
         ctx.save();
 

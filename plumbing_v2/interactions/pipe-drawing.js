@@ -362,44 +362,50 @@ export function applyMeasurement(interactionManager) {
             return;
         }
 
-        // DEĞİŞİKLİK: 3D Vektör Hesabı
         const startPt = interactionManager.boruBaslangic.nokta;
         const startZ = startPt.z || 0;
 
-        // Hedef nokta, handlePointerMove içinde hesaplanan geçici nokta (mouse yönü)
-        let targetPt = interactionManager.geciciBoruBitis;
+        // View mode kontrolü: 2D mi 3D mi?
+        const t = state.viewBlendFactor || 0;
+        const is3DMode = t >= 0.5;
 
-        if (!targetPt) {
-            // Eğer fare hiç hareket etmediyse varsayılan olarak Z ekseninde ekle (düşey)
-            targetPt = { x: startPt.x, y: startPt.y, z: startZ + height };
-        } else {
-            const dx = targetPt.x - startPt.x;
-            const dy = targetPt.y - startPt.y;
-            const dz = (targetPt.z || 0) - startZ;
+        let targetPt;
 
-            // 3D uzunluk hesapla
-            const currentLength = Math.hypot(dx, dy, dz);
+        if (is3DMode) {
+            // 3D MODDA: Mouse'un baktığı yöne göre uzat (mevcut davranış)
+            targetPt = interactionManager.geciciBoruBitis;
 
-            if (currentLength > 0.001) {
-                const factor = height / currentLength;
-                targetPt = {
-                    x: startPt.x + dx * factor,
-                    y: startPt.y + dy * factor,
-                    z: startZ + dz * factor
-                };
-            } else {
-                // Yön yoksa Z+ varsay (düşey)
+            if (!targetPt) {
+                // Eğer fare hiç hareket etmediyse varsayılan olarak Z ekseninde ekle (düşey)
                 targetPt = { x: startPt.x, y: startPt.y, z: startZ + height };
-            }
-        }
+            } else {
+                const dx = targetPt.x - startPt.x;
+                const dy = targetPt.y - startPt.y;
+                const dz = (targetPt.z || 0) - startZ;
 
-        // // Düşey boru oluştur
-        // const startPoint = interactionManager.boruBaslangic.nokta;
-        // const endPoint = {
-        //     x: startPoint.x,
-        //     y: startPoint.y,
-        //     z: (startPoint.z || 0) + height
-        // };
+                // 3D uzunluk hesapla
+                const currentLength = Math.hypot(dx, dy, dz);
+
+                if (currentLength > 0.001) {
+                    const factor = height / currentLength;
+                    targetPt = {
+                        x: startPt.x + dx * factor,
+                        y: startPt.y + dy * factor,
+                        z: startZ + dz * factor
+                    };
+                } else {
+                    // Yön yoksa Z+ varsay (düşey)
+                    targetPt = { x: startPt.x, y: startPt.y, z: startZ + height };
+                }
+            }
+        } else {
+            // 2D MODDA: Sadece Y ekseninde (düşey) hareket ettir
+            targetPt = {
+                x: startPt.x,
+                y: startPt.y + height,
+                z: startZ
+            };
+        }
 
         handleBoruClick(interactionManager, targetPt);
         interactionManager.measurementInput = '';
