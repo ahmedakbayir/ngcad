@@ -10,7 +10,7 @@ import {
     stairMaterial, stairMaterialTop, ventMaterial, trimMaterial,
     balconyRailingMaterial, glassMaterial, halfWallCapMaterial,
     handrailWoodMaterial, balusterMaterial, stepNosingMaterial,
-    textureLoader, pictureFrameMaterial // İsim hatası da düzeltildi
+    textureLoader, pictureFrameMaterial, CSS2DObject // İsim hatası da düzeltildi + CSS2DObject
 } from "./scene3d-core.js";
 
 // Mesh oluşturma fonksiyonlarını import et
@@ -401,6 +401,10 @@ export function update3DScene() {
                         sceneObjects.add(m);
                     }
                 });
+
+            // Boru yükseklik etiketlerini ekle
+            const filteredPipes = plumbingManager.pipes.filter(pipe => shouldShowFloor(pipe.floorId));
+            addPipeElevationLabels(filteredPipes, getFloorElevation);
         }
     }
 
@@ -764,4 +768,82 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
             }
         }
     }
+}
+
+/**
+ * Boru bağlantı noktalarına yükseklik etiketleri ekler (h:225 formatında)
+ * @param {Array} pipes - Boru dizisi
+ * @param {Function} getFloorElevation - Kat yüksekliğini döndüren fonksiyon
+ */
+function addPipeElevationLabels(pipes, getFloorElevation) {
+    if (!pipes || pipes.length === 0) return;
+    const TOLERANCE = 3; // cm cinsinden mesafe toleransı
+    const processedJunctions = new Set();
+    const isLightMode = document.body.classList.contains('light-mode');
+
+    pipes.forEach(pipe => {
+        if (!pipe.p1 || !pipe.p2) return;
+
+        // Her iki uç noktayı kontrol et
+        ['p1', 'p2'].forEach(endpoint => {
+            const point = pipe[endpoint];
+            const z = point.z || 0;
+
+            // Z değeri 0 ise gösterme (zemin seviyesi)
+            if (Math.abs(z) < 0.1) return;
+
+            // Bu noktayı benzersiz bir şekilde tanımla
+            const junctionKey = `${point.x.toFixed(1)},${point.y.toFixed(1)},${z.toFixed(1)}`;
+
+            // Zaten işlenmiş mi?
+            if (processedJunctions.has(junctionKey)) return;
+
+            // Bu noktada kaç boru birleşiyor?
+            let connectionCount = 0;
+            pipes.forEach(otherPipe => {
+                if (!otherPipe.p1 || !otherPipe.p2) return;
+
+                [otherPipe.p1, otherPipe.p2].forEach(otherPoint => {
+                    const dist3D = Math.hypot(
+                        point.x - otherPoint.x,
+                        point.y - otherPoint.y,
+                        (point.z || 0) - (otherPoint.z || 0)
+                    );
+
+                    if (dist3D < TOLERANCE) {
+                        connectionCount++;
+                    }
+                });
+            });
+
+            // En az 2 bağlantı varsa bu bir junction (dirsek veya TEE)
+            if (connectionCount >= 2) {
+                processedJunctions.add(junctionKey);
+
+                // HTML element oluştur
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'pipe-elevation-label';
+                labelDiv.textContent = `h:${Math.round(z)}`;
+                labelDiv.style.color = isLightMode ? '#000' : '#fff';
+                labelDiv.style.fontFamily = 'sans-serif';
+                labelDiv.style.fontSize = '12px';
+                labelDiv.style.fontWeight = 'bold';
+                labelDiv.style.padding = '2px 4px';
+                labelDiv.style.backgroundColor = isLightMode ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)';
+                labelDiv.style.borderRadius = '3px';
+                labelDiv.style.pointerEvents = 'none';
+                labelDiv.style.userSelect = 'none';
+
+                // CSS2DObject oluştur
+                const label = new CSS2DObject(labelDiv);
+
+                // Pozisyonu ayarla (3D dünya koordinatları)
+                // Y koordinatı: kat yüksekliği + boru Z değeri
+                const floorElevation = getFloorElevation(pipe.floorId);
+                label.position.set(point.x, z + floorElevation, -point.y); // Y ve Z ters çevrilmiş (2D -> 3D)
+
+                sceneObjects.add(label);
+            }
+        });
+    });
 }

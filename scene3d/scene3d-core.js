@@ -4,6 +4,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
+import { CSS2DRenderer, CSS2DObject as CSS2DObjectClass } from "three/addons/renderers/CSS2DRenderer.js";
+export { CSS2DObjectClass as CSS2DObject }; // Diğer dosyalarda kullanmak için export et
 import { state, WALL_HEIGHT, dom, setState } from "../general-files/main.js"; // <-- setState eklendi
 
 // --- Global Değişkenler ---
@@ -12,6 +14,7 @@ export let orbitControls, pointerLockControls;
 export let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
 export let sceneObjects;
 export let textureLoader; // <-- Resim çerçeveleri için eklendi
+export let labelRenderer; // <-- Yükseklik etiketleri için CSS2DRenderer
 
 // --- Malzemeler (Materials) ---
 export let wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
@@ -298,6 +301,21 @@ export function init3D(canvasElement) {
         opacity: solidOpacity, // solidOpacity'yi init3D içinden alır
         side: THREE.DoubleSide
     });
+
+    // CSS2DRenderer'ı başlat (yükseklik etiketleri için)
+    labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(1, 1); // Başlangıçta boyutlandırılacak
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0';
+    labelRenderer.domElement.style.left = '0';
+    labelRenderer.domElement.style.pointerEvents = 'none'; // Mouse olaylarını engelleme
+
+    // Canvas'ın parent container'ına ekle
+    const container = canvasElement.parentElement;
+    if (container) {
+        container.appendChild(labelRenderer.domElement);
+        container.style.position = 'relative'; // Absolute pozisyonlama için gerekli
+    }
 }
 
 /**
