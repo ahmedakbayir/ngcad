@@ -193,6 +193,15 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
  * (Aynen korundu)
  */
 export function startDrag(interactionManager, obj, point) {
+
+
+    if (obj.type === 'baca' && obj.parentCihazId) {
+        const parentCihaz = interactionManager.manager.components.find(c => c.id === obj.parentCihazId);
+        if (parentCihaz) {
+            obj = parentCihaz; // Sürüklenen nesneyi 'cihaz' olarak değiştir
+        }
+    }
+    
     interactionManager.isDragging = true;
     interactionManager.dragObject = obj;
     interactionManager.dragEndpoint = null;
