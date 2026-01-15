@@ -441,6 +441,11 @@ export class PlumbingRenderer {
             this.draw3DAxisGuide(ctx, manager);
         }
 
+        // 3D Perspective modunda yükseklik etiketlerini çiz
+        if (state.is3DPerspectiveActive) {
+            this.drawJunctionElevations(ctx, manager.pipes);
+        }
+
     }
 
     drawShadows(ctx, manager) {
@@ -3084,5 +3089,79 @@ export class PlumbingRenderer {
         ctx.restore();
     }
 
+
+
+    /**
+     * Boru bağlantı noktalarında yükseklik etiketlerini çizer (h:120 formatında)
+     * İzometrik modda kullanılır
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Array} pipes - Boru dizisi
+     */
+    drawJunctionElevations(ctx, pipes) {
+        if (!pipes || pipes.length === 0) return;
+
+        const TOLERANCE = 3; // cm cinsinden mesafe toleransı
+        const processedJunctions = new Set();
+        const isLightMode = this.isLightMode();
+
+        ctx.save();
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isLightMode ? '#000' : '#fff';
+
+        // Her boru için uç noktaları kontrol et
+        pipes.forEach(pipe => {
+            if (!pipe.p1 || !pipe.p2) return;
+
+            // Her iki uç noktayı kontrol et
+            ['p1', 'p2'].forEach(endpoint => {
+                const point = pipe[endpoint];
+                const z = point.z || 0;
+
+                // Z değeri 0 ise gösterme (zemin seviyesi)
+                if (Math.abs(z) < 0.1) return;
+
+                // Bu noktayı benzersiz bir şekilde tanımla
+                const junctionKey = `${point.x.toFixed(1)},${point.y.toFixed(1)},${z.toFixed(1)}`;
+
+                // Zaten işlenmiş mi?
+                if (processedJunctions.has(junctionKey)) return;
+
+                // Bu noktada kaç boru birleşiyor?
+                let connectionCount = 0;
+                pipes.forEach(otherPipe => {
+                    if (!otherPipe.p1 || !otherPipe.p2) return;
+
+                    [otherPipe.p1, otherPipe.p2].forEach(otherPoint => {
+                        const dist3D = Math.hypot(
+                            point.x - otherPoint.x,
+                            point.y - otherPoint.y,
+                            (point.z || 0) - (otherPoint.z || 0)
+                        );
+
+                        if (dist3D < TOLERANCE) {
+                            connectionCount++;
+                        }
+                    });
+                });
+
+                // En az 2 bağlantı varsa bu bir junction (dirsek veya TEE)
+                if (connectionCount >= 2) {
+                    processedJunctions.add(junctionKey);
+
+                    // Z kotunu yaz (h:225 formatında)
+                    const elevationText = `h:${Math.round(z)}`;
+
+                    // 3D perspektifte koordinatlar zaten dönüştürülmüş durumda
+                    // point.x ve point.y kullanılabilir
+                    ctx.fillStyle = isLightMode ? '#000' : '#fff';
+                    ctx.fillText(elevationText, point.x + 8, point.y - 8);
+                }
+            });
+        });
+
+        ctx.restore();
+    }
 
 }
