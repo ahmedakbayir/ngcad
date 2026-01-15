@@ -3153,10 +3153,13 @@ export class PlumbingRenderer {
                     // Z kotunu yaz (h:225 formatında)
                     const elevationText = `h:${Math.round(z)}`;
 
-                    // İzometrik perspektifte Z değeri Y ekseninde offset oluşturur
-                    // Canvas transform zaten uygulandığı için, etiket pozisyonunu Z kadar yukarı kaydır
+                    // İzometrik perspektifte canvas transform Z'yi de scale ediyor (sin(30°) = 0.5)
+                    // viewBlendFactor (0-1): 0 = tam 2D, 1 = tam 3D
+                    const t = state.viewBlendFactor || (state.is3DPerspectiveActive ? 1 : 0);
+                    const zOffset = 2 * z * t; // t=0 ise offset yok, t=1 ise 2*z offset
+
                     const labelX = point.x + 8;
-                    const labelY = point.y - z - 8; // Z kadar yukarı kaydır
+                    const labelY = point.y - zOffset - 8;
 
                     ctx.fillStyle = isLightMode ? '#000' : '#fff';
                     ctx.fillText(elevationText, labelX, labelY);
