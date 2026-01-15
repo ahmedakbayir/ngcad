@@ -509,12 +509,13 @@ export class PlumbingRenderer {
             ctx.restore();
         });
 
-        // 3. Baca Gölgeleri
+        // 3. Baca Gölgeleri (Z=0 seviyesinde, zemin düzlemi)
         manager.components.filter(c => c.type === 'baca').forEach(baca => {
             if (baca.segments && baca.segments.length > 0) {
                 ctx.lineWidth = 12; // Baca genişliği
                 ctx.beginPath();
                 baca.segments.forEach((seg, i) => {
+                    // Gölgeler ALWAYS zemin seviyesinde (x, y), Z offset YOK
                     if (i === 0) ctx.moveTo(seg.x1, seg.y1);
                     ctx.lineTo(seg.x2, seg.y2);
                 });
@@ -1004,27 +1005,35 @@ export class PlumbingRenderer {
     }
 
     drawBacaEndpoints(ctx, baca) {
-        // Baca segment uç noktalarını küçük noktalarla göster (seçili bacalar için)
+        // Baca segment uç noktalarını küçük noktalarla göster (seçili bacalar için) - 3D izdüşüm ile
         const r = 1.6; // Küçük nokta
         const themeColors = this.isLightMode() ? THEME_COLORS.light : THEME_COLORS.dark;
+        const t = state.viewBlendFactor || 0;
 
         ctx.fillStyle = themeColors.pipeEndpoint;
         ctx.strokeStyle = themeColors.pipeEndpointStroke;
         ctx.lineWidth = 1;
 
-        // Her segment için uç noktaları çiz
+        // Her segment için uç noktaları çiz (3D izdüşüm ile)
         baca.segments.forEach((segment, index) => {
+            const z1 = segment.z1 || baca.z || 0;
+            const z2 = segment.z2 || baca.z || 0;
+            const screenX1 = segment.x1 + (z1 * t);
+            const screenY1 = segment.y1 - (z1 * t);
+            const screenX2 = segment.x2 + (z2 * t);
+            const screenY2 = segment.y2 - (z2 * t);
+
             // Segment başlangıcı (ilk segment hariç - cihaza bağlı)
             if (index > 0) {
                 ctx.beginPath();
-                ctx.arc(segment.x1, segment.y1, r, 0, Math.PI * 2);
+                ctx.arc(screenX1, screenY1, r, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
             }
 
             // Segment sonu (her zaman göster)
             ctx.beginPath();
-            ctx.arc(segment.x2, segment.y2, r, 0, Math.PI * 2);
+            ctx.arc(screenX2, screenY2, r, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
         });
@@ -1752,6 +1761,9 @@ export class PlumbingRenderer {
             strokeColor: '#babbbbff'      // Stroke (fill'e yakın)
         };
 
+        // 3D faktörü
+        const t = state.viewBlendFactor || 0;
+
         ctx.save();
 
         // Bağlı cihazı bul (clipping için)
@@ -1762,7 +1774,7 @@ export class PlumbingRenderer {
         ctx.lineJoin = 'round';  // Yuvarlatılmış köşeler
         ctx.lineCap = 'round';   // Yuvarlatılmış uçlar
 
-        // Gradient helper - her segment için perpendicular gradient
+        // Gradient helper - her segment için perpendicular gradient (3D koordinatlarla)
         const createSegmentGradient = (seg, startX, startY) => {
             const dx = seg.x2 - startX;
             const dy = seg.y2 - startY;
@@ -1787,45 +1799,60 @@ export class PlumbingRenderer {
             return gradient;
         };
 
-        // 1. Her segment için ayrı gradient ile çiz (köşelerde düzgün görünür)
+        // 1. Her segment için ayrı gradient ile çiz (3D izdüşüm ile)
         baca.segments.forEach((segment, index) => {
             ctx.beginPath();
 
-            // Başlangıç noktası (clipping hesabı ile)
-            let startX = segment.x1;
-            let startY = segment.y1;
+            // 3D izdüşüm hesapla
+            const z1 = segment.z1 || baca.z || 0;
+            const z2 = segment.z2 || baca.z || 0;
 
+            let screenX1 = segment.x1 + (z1 * t);
+            let screenY1 = segment.y1 - (z1 * t);
+            const screenX2 = segment.x2 + (z2 * t);
+            const screenY2 = segment.y2 - (z2 * t);
+
+            // Başlangıç noktası (clipping hesabı ile) - 3D koordinatlarda
             if (index === 0 && parentCihaz) {
+                const cihazZ = parentCihaz.z || 0;
+                const cihazScreenX = parentCihaz.x + (cihazZ * t);
+                const cihazScreenY = parentCihaz.y - (cihazZ * t);
                 const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                const distFromCenter = Math.hypot(segment.x1 - parentCihaz.x, segment.y1 - parentCihaz.y);
+                const distFromCenter = Math.hypot(screenX1 - cihazScreenX, screenY1 - cihazScreenY);
+
                 if (distFromCenter < cihazRadius) {
-                    const dx = segment.x2 - segment.x1;
-                    const dy = segment.y2 - segment.y1;
+                    const dx = screenX2 - screenX1;
+                    const dy = screenY2 - screenY1;
                     const angle = Math.atan2(dy, dx);
                     const startOffset = cihazRadius - distFromCenter;
-                    startX = segment.x1 + Math.cos(angle) * startOffset;
-                    startY = segment.y1 + Math.sin(angle) * startOffset;
+                    screenX1 = screenX1 + Math.cos(angle) * startOffset;
+                    screenY1 = screenY1 + Math.sin(angle) * startOffset;
                 }
             }
 
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(segment.x2, segment.y2);
+            ctx.moveTo(screenX1, screenY1);
+            ctx.lineTo(screenX2, screenY2);
 
-            // Gradient uygula
-            const gradient = createSegmentGradient(segment, startX, startY);
+            // Gradient uygula (ekran koordinatlarıyla)
+            const gradient = createSegmentGradient(
+                { x2: screenX2, y2: screenY2 },
+                screenX1,
+                screenY1
+            );
             ctx.strokeStyle = gradient;
             ctx.stroke();
         });
 
-        // 2. Köşeleri arc ile doldur - radial gradient
+        // 2. Köşeleri arc ile doldur - radial gradient (3D izdüşüm ile)
         const cornerRadius = BACA_CONFIG.genislik / 2;
         for (let i = 0; i < baca.segments.length - 1; i++) {
             const seg1 = baca.segments[i];
             const seg2 = baca.segments[i + 1];
 
-            // Köşe noktası (segmentlerin birleştiği nokta)
-            const cornerX = seg1.x2;
-            const cornerY = seg1.y2;
+            // Köşe noktası (segmentlerin birleştiği nokta) - 3D izdüşüm
+            const cornerZ = seg1.z2 || baca.z || 0;
+            const cornerX = seg1.x2 + (cornerZ * t);
+            const cornerY = seg1.y2 - (cornerZ * t);
 
             // Radial gradient: merkezden kenarlara
             const radialGrad = ctx.createRadialGradient(cornerX, cornerY, 0, cornerX, cornerY, cornerRadius);
@@ -1840,17 +1867,26 @@ export class PlumbingRenderer {
 
         // Outline ve highlight kaldırıldı - sadece gradient yeterli
 
-        // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA
+        // Havalandırma ızgarası (ESC basılınca) - BACANIN DIŞINDA (3D izdüşüm ile)
         if (baca.havalandirma && baca.segments.length > 0) {
             const lastSegment = baca.segments[baca.segments.length - 1];
-            const dx = lastSegment.x2 - lastSegment.x1;
-            const dy = lastSegment.y2 - lastSegment.y1;
+
+            // 3D izdüşüm hesapla
+            const lastZ1 = lastSegment.z1 || baca.z || 0;
+            const lastZ2 = lastSegment.z2 || baca.z || 0;
+            const screenLastX1 = lastSegment.x1 + (lastZ1 * t);
+            const screenLastY1 = lastSegment.y1 - (lastZ1 * t);
+            const screenLastX2 = lastSegment.x2 + (lastZ2 * t);
+            const screenLastY2 = lastSegment.y2 - (lastZ2 * t);
+
+            const dx = screenLastX2 - screenLastX1;
+            const dy = screenLastY2 - screenLastY1;
             const segmentAngle = Math.atan2(dy, dx);
 
             // Izgara pozisyonu: son segment ucundan offset kadar ötede
             const offsetDistance = BACA_CONFIG.genislik / 2 + BACA_CONFIG.havalandirmaOffset;
-            const izgaraX = lastSegment.x2 + Math.cos(segmentAngle) * offsetDistance;
-            const izgaraY = lastSegment.y2 + Math.sin(segmentAngle) * offsetDistance;
+            const izgaraX = screenLastX2 + Math.cos(segmentAngle) * offsetDistance;
+            const izgaraY = screenLastY2 + Math.sin(segmentAngle) * offsetDistance;
 
             ctx.save();
             ctx.translate(izgaraX, izgaraY);
