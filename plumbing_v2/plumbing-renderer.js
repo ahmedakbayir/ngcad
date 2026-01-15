@@ -3153,10 +3153,13 @@ export class PlumbingRenderer {
                     // Z kotunu yaz (h:225 formatında)
                     const elevationText = `h:${Math.round(z)}`;
 
-                    // 3D perspektifte koordinatlar zaten dönüştürülmüş durumda
-                    // point.x ve point.y kullanılabilir
+                    // İzometrik perspektifte Z değeri Y ekseninde offset oluşturur
+                    // Canvas transform zaten uygulandığı için, etiket pozisyonunu Z kadar yukarı kaydır
+                    const labelX = point.x + 8;
+                    const labelY = point.y - z - 8; // Z kadar yukarı kaydır
+
                     ctx.fillStyle = isLightMode ? '#000' : '#fff';
-                    ctx.fillText(elevationText, point.x + 8, point.y - 8);
+                    ctx.fillText(elevationText, labelX, labelY);
                 }
             });
         });
