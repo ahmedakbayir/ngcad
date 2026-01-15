@@ -12,7 +12,7 @@ import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
-import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d } from '../scene3d/scene3d-core.js';
+import { init3D, renderer as renderer3d, camera as camera3d, controls as controls3d, scene as scene3d, labelRenderer } from '../scene3d/scene3d-core.js';
 // --- DEĞİŞİKLİK SONU ---
 import { createWallPanel } from '../wall/wall-panel.js';
 import { createFloorPanel, showFloorPanel, renderMiniPanel } from '../floor/floor-panel.js';
@@ -897,6 +897,11 @@ export function resize() {
         camera3d.updateProjectionMatrix();
         renderer3d.setPixelRatio(window.devicePixelRatio);
         renderer3d.setSize(r3d.width, r3d.height);
+
+        // CSS2DRenderer boyutunu güncelle
+        if (labelRenderer) {
+            labelRenderer.setSize(r3d.width, r3d.height);
+        }
     }
 
     // İzometrik canvas'ı resize et
@@ -986,6 +991,11 @@ function animate() {
         }
 
         renderer3d.render(scene3d, camera3d);
+
+        // CSS2DRenderer ile yükseklik etiketlerini render et
+        if (labelRenderer) {
+            labelRenderer.render(scene3d, camera3d);
+        }
     }
 
     // İzometrik görünümü çiz
