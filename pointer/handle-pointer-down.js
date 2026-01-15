@@ -215,7 +215,11 @@ export function handlePointerDown(e) {
         }
 
         // Nesne seçimi
-        const hitObject = this.findObjectAt(point);
+        const hitObject = this.manager.getObjectAtPoint(point);
+        if (this.manager.activeTool === 'boru' && hitObject && hitObject.type === 'pipe' && hitObject.handle === 'body') {
+            this.handleMidpointPipeStart(hitObject.object, hitObject.point);
+            return true;
+        }
         if (hitObject) {
             this.selectObject(hitObject);
             if (hitObject.type === 'boru') {

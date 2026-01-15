@@ -259,7 +259,7 @@ export function handleVanaPlacement(vanaPreview) {
         return;
     }
 
-    const { t, x, y, adjusted } = placementResult;
+    const { t, x, y, z, adjusted } = placementResult;
 
     // Kullanıcıya bilgi ver (kaydırma yapıldıysa)
     if (adjusted) {
@@ -283,7 +283,8 @@ export function handleVanaPlacement(vanaPreview) {
     const vanaOptions = {
         floorId: state.currentFloorId,
         bagliBoruId: pipe.id,
-        boruPozisyonu: t
+        boruPozisyonu: t,
+        z: z
     };
 
     // Sadece boru ucuna yakınsa fixed distance kullan

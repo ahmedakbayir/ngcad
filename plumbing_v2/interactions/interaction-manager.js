@@ -35,7 +35,8 @@ import {
     applyMeasurement,
     cancelCurrentAction,
     hasServisKutusu,
-    getGeciciBoruCizgisi
+    getGeciciBoruCizgisi,
+    handleMidpointPipeStart
 } from './pipe-drawing.js';
 
 // Drag handlers
@@ -277,6 +278,9 @@ export class InteractionManager {
 
     getGeciciBoruCizgisi() {
         return getGeciciBoruCizgisi(this);
+    }
+    handleMidpointPipeStart(pipe, splitPoint) {
+        return handleMidpointPipeStart(this, pipe, splitPoint);
     }
 
     /**

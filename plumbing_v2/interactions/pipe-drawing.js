@@ -142,8 +142,8 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
 export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawing = true) {
     // 1. Köşe kontrolü
     const CORNER_THRESHOLD = 0.1;
-    const distToP1 = Math.hypot(splitPoint.x - pipe.p1.x, splitPoint.y - pipe.p1.y);
-    const distToP2 = Math.hypot(splitPoint.x - pipe.p2.x, splitPoint.y - pipe.p2.y);
+    const distToP1 = Math.hypot(splitPoint.x - pipe.p1.x, splitPoint.y - pipe.p1.y, (splitPoint.z || 0) - (pipe.p1.z || 0));
+    const distToP2 = Math.hypot(splitPoint.x - pipe.p2.x, splitPoint.y - pipe.p2.y, (splitPoint.z || 0) - (pipe.p2.z || 0));
 
     if (distToP1 < CORNER_THRESHOLD) {
         if (startDrawing) startBoruCizim(interactionManager, pipe.p1, pipe.id, BAGLANTI_TIPLERI.BORU);
@@ -482,6 +482,13 @@ export function hasServisKutusu(interactionManager) {
 export function getGeciciBoruCizgisi(interactionManager) {
     if (!interactionManager.boruCizimAktif || !interactionManager.boruBaslangic || !interactionManager.geciciBoruBitis) return null;
     return { p1: interactionManager.boruBaslangic.nokta, p2: interactionManager.geciciBoruBitis };
+}
+
+/**
+ * Boruyu ortadan bölerek yeni bir çizim başlatır.
+ */
+export function handleMidpointPipeStart(interactionManager, pipe, splitPoint) {
+    handlePipeSplit(interactionManager, pipe, splitPoint, true);
 }
 /**
  * 3D Snap Hesaplama (Eksen Kilitleme)

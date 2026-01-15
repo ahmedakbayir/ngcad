@@ -429,14 +429,13 @@ export class PlumbingManager {
             return objFloorId === currentFloorId;
         };
 
-        // Helper: Noktayı ekran koordinatına çevir (Projeksiyon)
-        // Eğer 3D aktifse Z değerini X ve Y'ye yansıt (Renderer ile aynı formül)
+        const t3d = state.viewBlendFactor || 0;
         const getScreenPoint = (p) => {
             if (!is3D) return { x: p.x, y: p.y };
             const z = p.z || 0;
             return {
-                x: p.x + z, // Renderer logic: x + z
-                y: p.y - z  // Renderer logic: y - z
+                x: p.x + z * t3d,
+                y: p.y - z * t3d
             };
         };
 
@@ -510,18 +509,22 @@ export class PlumbingManager {
 
             // Noktanın doğru parçasına (segment) en yakın izdüşümü (t parametresi)
             const t = ((pos.x - p1Screen.x) * dx + (pos.y - p1Screen.y) * dy) / (length * length);
-            
-            // Tıklama boru hizasında ama borunun boyunu aşıyorsa seçme
+
             if (t < 0 || t > 1) continue;
 
-            // En yakın nokta koordinatları
+            // En yakın nokta koordinatları (EKRANDA)
             const projX = p1Screen.x + t * dx;
             const projY = p1Screen.y + t * dy;
             
             // Mesafe kontrolü
             const dist = Math.hypot(pos.x - projX, pos.y - projY);
             if (dist < tolerance) {
-                return { type: 'pipe', object: pipe, handle: 'body' };
+                const intersectionPoint3D = {
+                    x: pipe.p1.x + (pipe.p2.x - pipe.p1.x) * t,
+                    y: pipe.p1.y + (pipe.p2.y - pipe.p1.y) * t,
+                    z: (pipe.p1.z || 0) + ((pipe.p2.z || 0) - (pipe.p1.z || 0)) * t
+                };
+                return { type: 'pipe', object: pipe, handle: 'body', point: intersectionPoint3D };
             }
         }
 

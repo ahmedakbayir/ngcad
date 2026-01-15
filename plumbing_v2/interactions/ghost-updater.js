@@ -199,8 +199,22 @@ export function updateGhostPosition(ghost, point, snap) {
             ghost.y = point.y + (currentZ * t);
             ghost.ghostConnectionInfo = null;
         }
-    }    // Baca için: sadece cihaz üzerine snap yap
-    else if (ghost.type === 'baca') {
+    } else if (ghost.type === 'vana') {
+        const pipe = this.findPipeAt(point, 10);
+        if (pipe) {
+            const proj = pipe.projectPoint(point);
+            ghost.x = proj.x;
+            ghost.y = proj.y;
+            ghost.z = proj.z;
+            ghost.rotation = pipe.aciDerece;
+            this.vanaPreview = { pipe, point: proj, t: proj.t };
+        } else {
+            this.vanaPreview = null;
+            ghost.x = point.x;
+            ghost.y = point.y;
+            ghost.z = 0;
+        }
+    } else if (ghost.type === 'baca') {
         // KRITIK: Baca zaten yerleştirilmiş ve çizim modundaysa, cihaz snap yapma!
         // Sadece ilk yerleştirme için cihaz bulmalıyız
         if (ghost.parentCihazId && ghost.isDrawing) {

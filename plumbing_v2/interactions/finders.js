@@ -339,10 +339,12 @@ export function findBoruGovdeAt(manager, point, tolerance = 5) {
  * Mouse altındaki boruyu bul (pipe splitting için) - 3D Destekli
  */
 export function findPipeAt(manager, point, tolerance = 2) {
-    // findBoruGovdeAt mantığının aynısını kullanır, sadece boruyu döner
-    const result = findBoruGovdeAt(manager, point, tolerance);
-    if (result) {
-        return manager.findPipeById(result.boruId);
+    const pipes = manager.pipes || [];
+    for (const pipe of pipes) {
+        const proj = pipe.projectPoint(point);
+        if (proj && proj.distance < tolerance) {
+            return pipe;
+        }
     }
     return null;
 }
