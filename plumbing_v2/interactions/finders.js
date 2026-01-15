@@ -10,15 +10,16 @@ import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 
 /**
  * 3D Görünüm için Ekran Koordinatı Hesaplayıcı
- * Renderer'daki mantığın aynısını kullanır: (x+z, y-z)
+ * Renderer'daki mantığın aynısını kullanır: (x+z*t, y-z*t)
  */
 function getScreenPoint(point) {
     if (!state.is3DPerspectiveActive) return { x: point.x, y: point.y };
     // Z değeri yoksa 0 kabul et
     const z = point.z || 0;
+    const t = state.viewBlendFactor || 0;
     return {
-        x: point.x + z,
-        y: point.y - z
+        x: point.x + (z * t),
+        y: point.y - (z * t)
     };
 }
 

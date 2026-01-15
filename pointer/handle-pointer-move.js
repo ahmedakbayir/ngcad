@@ -36,7 +36,14 @@ export function handlePointerMove(e) {
     }
 
     // Snap hesapla
+    // 3D modda boru çizim sırasında endpoint snap'i devre dışı bırak
+    const t = state.viewBlendFactor || 0;
+    const is3DMode = t > 0.5;
+
     if (this.isDragging && this.dragObject && this.dragObject.type === 'servis_kutusu') {
+        this.activeSnap = null;
+    } else if (this.boruCizimAktif && is3DMode) {
+        // 3D modda boru çizerken endpoint snap kullanma
         this.activeSnap = null;
     } else {
         this.activeSnap = this.snapSystem.getSnapPoint(point, walls);
