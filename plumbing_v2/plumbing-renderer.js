@@ -1310,48 +1310,48 @@ export class PlumbingRenderer {
     }
     */
 
-    drawServisKutusu(ctx, comp) {
+drawServisKutusu(ctx, comp) {
         const { width, height } = SERVIS_KUTUSU_CONFIG;
-
+        
         const t = state.viewBlendFactor || 0;
 
         // --- 2D GÖRÜNÜM (PLAN) ---
         if (t < 0.1) {
-            const colors = CUSTOM_COLORS.BOX_ORANGE;
-            getShadow(ctx);
-
-            const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
-            if (comp.isSelected) {
-                grad.addColorStop(0, '#A0A0A0'); grad.addColorStop(0.5, '#808080'); grad.addColorStop(1, '#606060');
-                ctx.strokeStyle = '#505050';
-            } else {
-                grad.addColorStop(0, colors.top); grad.addColorStop(0.5, colors.middle); grad.addColorStop(1, colors.bottom);
-                ctx.strokeStyle = colors.stroke;
-            }
-
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.roundRect(-width / 2, -height / 2, width, height, 2);
-            ctx.fill();
-
-            ctx.shadowBlur = 0;
-            ctx.lineWidth = 1.2 / (state.zoom || 1);
-            ctx.stroke();
-
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-            ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
-
-            ctx.fillStyle = '#222';
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('S.K.', 0, 1);
-            return;
+             const colors = CUSTOM_COLORS.BOX_ORANGE;
+             getShadow(ctx);
+             
+             const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
+             if (comp.isSelected) {
+                 grad.addColorStop(0, '#A0A0A0'); grad.addColorStop(0.5, '#808080'); grad.addColorStop(1, '#606060'); 
+                 ctx.strokeStyle = '#505050';
+             } else {
+                 grad.addColorStop(0, colors.top); grad.addColorStop(0.5, colors.middle); grad.addColorStop(1, colors.bottom); 
+                 ctx.strokeStyle = colors.stroke;
+             }
+             
+             ctx.fillStyle = grad;
+             ctx.beginPath(); 
+             ctx.roundRect(-width / 2, -height / 2, width, height, 4);
+             ctx.fill();
+             
+             ctx.shadowBlur = 0; 
+             ctx.lineWidth = 1.2 / (state.zoom || 1); 
+             ctx.stroke();
+             
+             ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)'; 
+             ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
+             
+             ctx.fillStyle = '#222'; 
+             ctx.font = 'bold 14px Arial'; 
+             ctx.textAlign = 'center'; 
+             ctx.textBaseline = 'middle'; 
+             ctx.fillText('S.K.', 0, 1);
+             return;
         }
 
         // --- 3D GÖRÜNÜM ---
-
-        const boxHeight = 40;
+        
+        const boxHeight = 50; 
         const currentH = boxHeight * t;
         const screenZVector = { x: currentH, y: -currentH };
 
@@ -1360,34 +1360,34 @@ export class PlumbingRenderer {
             x: screenZVector.x * Math.cos(rotRad) - screenZVector.y * Math.sin(rotRad),
             y: screenZVector.x * Math.sin(rotRad) + screenZVector.y * Math.cos(rotRad)
         };
-
-        const r = 2;
-        const w = width/2;
-        const h = height/2;
+        
+        const r = 2; 
+        const w = width;
+        const h = height; 
         const x = -w / 2;
         const y = -h / 2;
-
+        
         getShadow(ctx);
 
-        const alpha = 0.2;
-
+        const alpha = 0.3;
+        
         const hexToRgba = (hex, a) => {
             let c;
-            if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
-                c = hex.substring(1).split('');
-                if (c.length == 3) { c = [c[0], c[0], c[1], c[1], c[2], c[2]]; }
-                c = '0x' + c.join('');
-                return 'rgba(' + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',') + ',' + a + ')';
+            if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+                c= hex.substring(1).split('');
+                if(c.length== 3){ c= [c[0], c[0], c[1], c[1], c[2], c[2]]; }
+                c= '0x'+c.join('');
+                return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+a+')';
             }
-            return hex;
+            return hex; 
         };
 
         const baseColorHex = comp.isSelected ? '#808080' : CUSTOM_COLORS.BOX_ORANGE.middle;
         const strokeColorHex = comp.isSelected ? '#505050' : CUSTOM_COLORS.BOX_ORANGE.stroke;
 
-        const faceFillStyle = hexToRgba(baseColorHex.substring(0, 7), alpha);
-        const strokeStyle = hexToRgba(strokeColorHex.substring(0, 7), 0.6);
-        const embossSideColor = hexToRgba('#555555', alpha + 0.2);
+        const faceFillStyle = hexToRgba(baseColorHex.substring(0, 7), alpha); 
+        const strokeStyle = hexToRgba(strokeColorHex.substring(0, 7), 0.6); 
+        const embossSideColor = hexToRgba('#555555', alpha + 0.2); 
 
         ctx.save();
         ctx.lineWidth = 0.5; // İnce çizgi
@@ -1396,33 +1396,33 @@ export class PlumbingRenderer {
         ctx.fillStyle = faceFillStyle;
 
         // Köşeler
-        const p1 = { x: x, y: y };
-        const p2 = { x: x + w, y: y };
-        const p3 = { x: x + w, y: y + h };
-        const p4 = { x: x, y: y + h };
+        const p1 = { x: x, y: y };         
+        const p2 = { x: x + w, y: y };     
+        const p3 = { x: x + w, y: y + h }; 
+        const p4 = { x: x, y: y + h };     
 
         // 1. ARKA YÜZEYLER
-        ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
-
+        ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); 
+        
         ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p2.x + localZ.x, p2.y + localZ.y); ctx.lineTo(p1.x + localZ.x, p1.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p4.x, p4.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.lineTo(p1.x + localZ.x, p1.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
 
         // 2. ÖN YÜZEYLER
         ctx.beginPath(); ctx.moveTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p2.x + localZ.x, p2.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(p4.x, p4.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(p4.x, p4.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke(); 
 
         // 3. KABARTMA (EMBOSS) - Yazısız
-        const margin = 5; const embossDepth = 1.0; const er = 2;
-        const vecW = { x: p3.x - p4.x, y: p3.y - p4.y };
-        const vecH = { x: localZ.x, y: localZ.y };
+        const margin = 5; const embossDepth = 1.0; const er = 2; 
+        const vecW = { x: p3.x - p4.x, y: p3.y - p4.y }; 
+        const vecH = { x: localZ.x, y: localZ.y };       
         const wRatio = (w - 2 * margin) / w; const hRatio = (boxHeight - 2 * margin) / boxHeight;
         const startOffsetX = (margin / w) * vecW.x + (margin / boxHeight) * vecH.x;
         const startOffsetY = (margin / w) * vecW.y + (margin / boxHeight) * vecH.y;
-        const eBL = { x: p4.x + startOffsetX, y: p4.y + startOffsetY };
+        const eBL = { x: p4.x + startOffsetX, y: p4.y + startOffsetY }; 
         const eBR = { x: eBL.x + wRatio * vecW.x, y: eBL.y + wRatio * vecW.y };
         const eTR = { x: eBR.x + hRatio * vecH.x, y: eBR.y + hRatio * vecH.y };
         const eTL = { x: eBL.x + hRatio * vecH.x, y: eBL.y + hRatio * vecH.y };
-        const embossShift = { x: 0, y: embossDepth * 1.5 };
+        const embossShift = { x: 0, y: embossDepth * 1.5 }; 
         const oBL = { x: eBL.x + embossShift.x, y: eBL.y + embossShift.y };
         const oBR = { x: eBR.x + embossShift.x, y: eBR.y + embossShift.y };
         const oTR = { x: eTR.x + embossShift.x, y: eTR.y + embossShift.y };
@@ -1446,20 +1446,24 @@ export class PlumbingRenderer {
         ctx.translate(localZ.x, localZ.y);
         ctx.fillStyle = faceFillStyle;
         ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : strokeStyle;
-
+        
         // Kapağı çiz
         ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); ctx.stroke();
-
+        
         // --- S.K. YAZISI (TAVAN MERKEZİNDE) ---
         ctx.save();
         // (0,0) şu an tavanın merkezi
+        
+        // DÜZ OKUNMASI İÇİN ROTASYONU SIFIRLA
+        if (comp.rotation) {
+            ctx.rotate(-(comp.rotation * Math.PI / 180));
+        }
 
-
-        ctx.fillStyle = '#222';
-        ctx.font = 'bold 12px Arial';
-        ctx.textAlign = 'center';
+        ctx.fillStyle = '#222'; 
+        ctx.font = 'bold 14px Arial'; 
+        ctx.textAlign = 'center'; 
         ctx.textBaseline = 'middle';
-
+        
         ctx.fillText('S.K.', 0, 0);
         ctx.restore(); // Yazı rotasyonunu geri al
 
