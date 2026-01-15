@@ -362,44 +362,16 @@ export function applyMeasurement(interactionManager) {
             return;
         }
 
-        // DEĞİŞİKLİK: 3D Vektör Hesabı
+        // DÜZELTİLDİ: Düşey modda SADECE Z ekseni değişmeli, X-Y sabit kalmalı
         const startPt = interactionManager.boruBaslangic.nokta;
         const startZ = startPt.z || 0;
 
-        // Hedef nokta, handlePointerMove içinde hesaplanan geçici nokta (mouse yönü)
-        let targetPt = interactionManager.geciciBoruBitis;
-
-        if (!targetPt) {
-            // Eğer fare hiç hareket etmediyse varsayılan olarak Z ekseninde ekle (düşey)
-            targetPt = { x: startPt.x, y: startPt.y, z: startZ + height };
-        } else {
-            const dx = targetPt.x - startPt.x;
-            const dy = targetPt.y - startPt.y;
-            const dz = (targetPt.z || 0) - startZ;
-
-            // 3D uzunluk hesapla
-            const currentLength = Math.hypot(dx, dy, dz);
-
-            if (currentLength > 0.001) {
-                const factor = height / currentLength;
-                targetPt = {
-                    x: startPt.x + dx * factor,
-                    y: startPt.y + dy * factor,
-                    z: startZ + dz * factor
-                };
-            } else {
-                // Yön yoksa Z+ varsay (düşey)
-                targetPt = { x: startPt.x, y: startPt.y, z: startZ + height };
-            }
-        }
-
-        // // Düşey boru oluştur
-        // const startPoint = interactionManager.boruBaslangic.nokta;
-        // const endPoint = {
-        //     x: startPoint.x,
-        //     y: startPoint.y,
-        //     z: (startPoint.z || 0) + height
-        // };
+        // Hedef nokta: X ve Y aynı, sadece Z değişir
+        const targetPt = {
+            x: startPt.x,
+            y: startPt.y,
+            z: startZ + height
+        };
 
         handleBoruClick(interactionManager, targetPt);
         interactionManager.measurementInput = '';
