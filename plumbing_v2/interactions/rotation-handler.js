@@ -194,3 +194,163 @@ export function updateConnectedPipe(result, manager) {
     // Şimdilik boş bırakıyoruz, gerekirse silinebilir
     console.warn('[DEPRECATED] updateConnectedPipe kullanılıyor, yeni implementasyonu kullanın');
 }
+
+/**
+ * Helper: Bir noktayı origin etrafında döndür
+ */
+function rotatePoint(point, angleRad) {
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+    return {
+        x: point.x * cos - point.y * sin,
+        y: point.x * sin + point.y * cos
+    };
+}
+
+/**
+ * Boru bağlantı noktalarını SABİT tutarak bileşeni döndür
+ * "ÇAMAŞIR MANDAL" rotasyonu: İki uç nokta (boru bağlantıları) sabit kalır,
+ * ortadaki parça (sayaç/cihaz + fleks) bu iki nokta arasında döner.
+ *
+ * @param {Object} obj - Döndürülecek nesne (sayac veya cihaz)
+ * @param {Object} manager - PlumbingManager instance
+ * @param {number} angleDelta - Döndürme açısı (derece, varsayılan: 90)
+ */
+export function rotateComponentFixedPivots(obj, manager, angleDelta = 90) {
+    if (!obj || (obj.type !== 'sayac' && obj.type !== 'cihaz')) {
+        console.warn('[FIXED PIVOT] Sadece sayaç ve cihaz döndürülebilir');
+        return;
+    }
+
+    saveState();
+
+    // Mevcut giriş ve çıkış noktalarını kaydet
+    const P1 = obj.getGirisNoktasi(); // Giriş (fleks bağlantısı)
+
+    if (obj.type === 'sayac') {
+        // SAYAÇ: İki noktalı rotasyon (giriş ve çıkış sabit)
+        const P2 = obj.getCikisNoktasi(); // Çıkış (rijit boru)
+
+        console.log(`[FIXED PIVOT] Sayaç döndürülüyor: ${angleDelta}°`);
+        console.log(`  P1 (giriş): (${P1.x.toFixed(1)}, ${P1.y.toFixed(1)})`);
+        console.log(`  P2 (çıkış): (${P2.x.toFixed(1)}, ${P2.y.toFixed(1)})`);
+
+        // Eski ve yeni rotasyon (radyan)
+        const oldRotRad = obj.rotation * Math.PI / 180;
+        const newRotRad = (obj.rotation + angleDelta) * Math.PI / 180;
+
+        // Local koordinatlar (sayaç merkezine göre)
+        const girisLocal = obj.getGirisLocalKoordinat();
+        const cikisLocal = obj.getCikisLocalKoordinat();
+
+        // Yeni rotasyonda local koordinatların world pozisyonları (merkez 0,0'da)
+        const newGirisWorld = rotatePoint(girisLocal, newRotRad);
+        const newCikisWorld = rotatePoint(cikisLocal, newRotRad);
+
+        // Yeni merkezi hesapla
+        // Kısıt: P1 = newCenter + newGirisWorld
+        // Kısıt: P2 = newCenter + newCikisWorld
+        // İlk kısıttan: newCenter = P1 - newGirisWorld
+        const newCenterFromP1 = {
+            x: P1.x - newGirisWorld.x,
+            y: P1.y - newGirisWorld.y
+        };
+
+        // İkinci kısıttan: newCenter = P2 - newCikisWorld
+        const newCenterFromP2 = {
+            x: P2.x - newCikisWorld.x,
+            y: P2.y - newCikisWorld.y
+        };
+
+        // İki merkez hesabı arasındaki fark (ideal durumda sıfır olmalı)
+        const centerDiff = Math.hypot(
+            newCenterFromP1.x - newCenterFromP2.x,
+            newCenterFromP1.y - newCenterFromP2.y
+        );
+
+        if (centerDiff > 1) {
+            console.warn(`[FIXED PIVOT] Merkez hesapları arasında ${centerDiff.toFixed(2)} cm fark var!`);
+            console.warn('  P1 ve P2 arası mesafe sayaç geometrisi ile uyumsuz olabilir');
+            console.warn('  Yine de P1 bazlı merkez kullanılacak (fleks esnek)');
+        }
+
+        // P1 bazlı merkezi kullan (fleks esnek olduğu için uzayabilir)
+        obj.x = newCenterFromP1.x;
+        obj.y = newCenterFromP1.y;
+
+        // Rotasyonu güncelle
+        obj.rotation = (obj.rotation + angleDelta) % 360;
+        if (obj.rotation < 0) obj.rotation += 360;
+
+        console.log(`  Yeni merkez: (${obj.x.toFixed(1)}, ${obj.y.toFixed(1)})`);
+        console.log(`  Yeni rotasyon: ${obj.rotation.toFixed(1)}°`);
+
+        // Çıkış noktasını kontrol et
+        const newCikisCheck = obj.getCikisNoktasi();
+        const distToP2 = Math.hypot(newCikisCheck.x - P2.x, newCikisCheck.y - P2.y);
+
+        if (distToP2 > 0.1) {
+            console.log(`  ⚠ Çıkış noktası ${distToP2.toFixed(2)} cm kaydı (fleks telafi eder)`);
+        }
+
+        // Çıkış borusunu güncelle
+        if (obj.cikisBagliBoruId) {
+            const cikisBoru = manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
+            if (cikisBoru) {
+                cikisBoru.moveP1(newCikisCheck);
+                console.log('  ✓ Çıkış borusu güncellendi');
+            }
+        }
+
+        // Fleks uzunluğunu güncelle
+        if (obj.fleksBaglanti?.boruId) {
+            const girisBoru = manager.pipes.find(p => p.id === obj.fleksBaglanti.boruId);
+            if (girisBoru) {
+                const baglantiNoktasi = obj.getFleksBaglantiNoktasi(girisBoru);
+                const yeniFleksUzunluk = Math.hypot(
+                    P1.x - baglantiNoktasi.x,
+                    P1.y - baglantiNoktasi.y
+                );
+                obj.fleksBaglanti.uzunluk = yeniFleksUzunluk;
+                console.log(`  ✓ Fleks uzunluğu güncellendi: ${yeniFleksUzunluk.toFixed(1)} cm`);
+            }
+        }
+
+    } else if (obj.type === 'cihaz') {
+        // CİHAZ: Tek noktalı rotasyon (sadece giriş var, giriş sabit kalır)
+        console.log(`[FIXED PIVOT] Cihaz döndürülüyor: ${angleDelta}°`);
+        console.log(`  P1 (giriş): (${P1.x.toFixed(1)}, ${P1.y.toFixed(1)})`);
+
+        // Eski giriş pozisyonu
+        const oldGirisWorld = obj.localToWorld(obj.getGirisLocalKoordinat());
+
+        // Rotasyonu güncelle
+        obj.rotation = (obj.rotation + angleDelta) % 360;
+        if (obj.rotation < 0) obj.rotation += 360;
+
+        // Yeni giriş pozisyonunu hesapla (merkez henüz eski)
+        const newGirisWorld = obj.localToWorld(obj.getGirisLocalKoordinat());
+
+        // Merkezi ayarla (giriş noktası sabit kalsın)
+        obj.x += (oldGirisWorld.x - newGirisWorld.x);
+        obj.y += (oldGirisWorld.y - newGirisWorld.y);
+
+        console.log(`  Yeni merkez: (${obj.x.toFixed(1)}, ${obj.y.toFixed(1)})`);
+        console.log(`  Yeni rotasyon: ${obj.rotation.toFixed(1)}°`);
+
+        // Giriş offset'ini yeniden hesapla (en yakın kenar)
+        if (obj.fleksBaglanti?.boruId) {
+            const girisBoru = manager.pipes.find(p => p.id === obj.fleksBaglanti.boruId);
+            if (girisBoru) {
+                const baglantiNoktasi = obj.getFleksBaglantiNoktasi(girisBoru);
+                obj.yenidenHesaplaGirisOffset(baglantiNoktasi);
+                obj.fleksGuncelle(baglantiNoktasi);
+                console.log(`  ✓ Fleks güncellendi: ${obj.fleksBaglanti.uzunluk.toFixed(1)} cm`);
+            }
+        }
+    }
+
+    manager.saveToState();
+    saveState();
+    console.log('[FIXED PIVOT] ✓ Döndürme tamamlandı');
+}

@@ -6,6 +6,7 @@
 import { setMode, setState, setDrawingMode, state } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
 import { handleBoruClick } from './pipe-drawing.js';
+import { rotateComponentFixedPivots } from './rotation-handler.js';
 
 // Tool modları
 export const TESISAT_MODLARI = {
@@ -417,6 +418,19 @@ if (this.selectedObject && this.selectedObject.type === 'boru') {
         this.updateConnectedPipe(result);
         this.manager.saveToState();
         return true;
+    }
+
+    // R tuşu - Sayaç ve Cihazları döndür (ÇAMAŞIR MANDAL rotasyonu)
+    // 'R' (büyük R): Bağlantı noktalarını SABİT tutarak 90° döndür (saat yönünde)
+    // Shift+R: Bağlantı noktalarını SABİT tutarak -90° döndür (saat yönünün tersi)
+    if (this.selectedObject && (this.selectedObject.type === 'sayac' || this.selectedObject.type === 'cihaz')) {
+        if (e.key === 'R') {
+            // Büyük R: Fixed-pivot rotation (çamaşır mandal)
+            const angle = e.shiftKey ? -90 : 90;
+            console.log(`[KEYBOARD] ${this.selectedObject.type} için fixed-pivot rotasyon: ${angle}°`);
+            rotateComponentFixedPivots(this.selectedObject, this.manager, angle);
+            return true;
+        }
     }
 
     return false;
