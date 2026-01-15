@@ -23,8 +23,10 @@ export function updateGhostPosition(ghost, point, snap) {
     // Cihaz için: boru ucuna snap yap, fleks etrafında mouse ile hareket et
     if (ghost.type === 'cihaz') {
         // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-        // DÜZELTME: Tolerance 72 → 15 (boru ortasına ekleme için)
-        const boruUcu = this.findBoruUcuAt(point, 15, true); // onlyFreeEndpoints = true
+        // 3D modda tolerance artır (Z kaymasını hesaba kat)
+        const baseTolerance = 15;
+        const tolerance3D = t > 0.5 ? baseTolerance + (100 * t) : baseTolerance;
+        const boruUcu = this.findBoruUcuAt(point, tolerance3D, true); // onlyFreeEndpoints = true
 
         if (boruUcu && boruUcu.boru) {
             // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
@@ -135,8 +137,10 @@ export function updateGhostPosition(ghost, point, snap) {
         }
     }
     else if (ghost.type === 'sayac') {
-        // DÜZELTME: Tolerance 72 → 15 (boru ortasına ekleme için)
-        const boruUcu = this.findBoruUcuAt(point, 15, true);
+        // 3D modda tolerance artır (Z kaymasını hesaba kat)
+        const baseTolerance = 15;
+        const tolerance3D = t > 0.5 ? baseTolerance + (100 * t) : baseTolerance;
+        const boruUcu = this.findBoruUcuAt(point, tolerance3D, true);
 
         if (boruUcu && boruUcu.boru) {
             const boru = boruUcu.boru;
