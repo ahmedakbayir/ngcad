@@ -344,7 +344,74 @@ export function startBodyDrag(interactionManager, pipe, point) {
 export function handleDrag(interactionManager, point, event = null) {
     if (!interactionManager.dragObject) return;
 
-    // Baca segment endpoint sürükleme
+    const obj = interactionManager.dragObject;
+    const t = state.viewBlendFactor || 0;
+
+    // --- 3D Z-KOORDİNAT DÜZELTMESİ ---
+    let zOffset = obj.z || 0;
+    let isVerticalDrag = false;
+    let verticalPipeBase = null; // {x, y, z}
+
+    // Eğer boruya bağlı bir nesne ise, borunun durumunu kontrol et
+    if (obj.bagliBoruId) {
+        const pipe = interactionManager.manager.findPipeById(obj.bagliBoruId);
+        if (pipe) {
+            // Borunun geometrisini analiz et
+            const dx = pipe.p2.x - pipe.p1.x;
+            const dy = pipe.p2.y - pipe.p1.y;
+            const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+            const len2d = Math.hypot(dx, dy);
+            
+            // Düşey boru tespiti (3D modunda ve dik boru)
+            if (t > 0.1 && (len2d < 2.0 || Math.abs(dz) > len2d)) {
+                isVerticalDrag = true;
+                verticalPipeBase = pipe.p1;
+                // Düşey sürüklemede Z'yi mouse hareketinden hesaplayacağız, o yüzden şimdilik offset 0 alıyoruz
+                // (Hesaplama aşağıda correctedPoint içinde yapılacak)
+            } else {
+                // Yatay/Eğik boru: Başlangıç yüksekliğini baz al
+                zOffset = obj.z !== undefined ? obj.z : (pipe.p1.z || 0);
+            }
+        }
+    }
+    // Boru ucu sürükleme durumunda Z tespiti
+    else if (obj.type === 'boru' && interactionManager.dragEndpoint) {
+        zOffset = (interactionManager.dragEndpoint === 'p1' ? obj.p1.z : obj.p2.z) || 0;
+    }
+
+    let correctedPoint;
+
+    if (isVerticalDrag && verticalPipeBase) {
+        // --- DÜŞEY BORU İÇİN ÖZEL HESAPLAMA ---
+        // Mouse'un ekrandaki konumu (point.x, point.y) ile düşey borunun görsel izdüşümü arasındaki ilişkiyi kuruyoruz.
+        // Formül: Z = ((mx - px) - (my - py)) / (2*t) + pz
+        // mx, my: Mouse World Coords (Z=0 plane)
+        // px, py: Pipe Base World Coords
+        const mx = point.x;
+        const my = point.y;
+        const px = verticalPipeBase.x;
+        const py = verticalPipeBase.y;
+        
+        // Mouse'un boru üzerindeki izdüşümüne denk gelen Z değerini hesapla
+        const dynamicZ = ((mx - px) - (my - py)) / (2 * t) + (verticalPipeBase.z || 0);
+        
+        correctedPoint = {
+            x: px, // X sabit
+            y: py, // Y sabit
+            z: dynamicZ // Z dinamik
+        };
+    } else {
+        // --- STANDART 3D DÜZELTME (Yatay/Eğik/Serbest) ---
+        // Farenin bulunduğu yerden Z etkisi kadar ters yöne giderek "gerçek" konumu buluyoruz.
+        correctedPoint = {
+            x: point.x - (zOffset * t),
+            y: point.y + (zOffset * t),
+            z: zOffset
+        };
+    }
+    // -----------------------------------------
+
+    // 1. Baca Sürükleme
     if (interactionManager.dragBacaEndpoint && interactionManager.dragObject.type === 'baca') {
         const baca = interactionManager.dragObject;
         const endpoint = interactionManager.dragBacaEndpoint;
@@ -383,7 +450,7 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
-    // Uç nokta sürükleme
+    // 2. Boru Ucu Sürükleme
     if (interactionManager.dragEndpoint && interactionManager.dragObject.type === 'boru') {
         const pipe = interactionManager.dragObject;
 
@@ -395,19 +462,8 @@ export function handleDrag(interactionManager, point, event = null) {
 
         const oldPoint = interactionManager.dragEndpoint === 'p1' ? { ...pipe.p1 } : { ...pipe.p2 };
 
-        // --- 3D GÖRÜNÜM DÜZELTMESİ ---
-        // Mouse koordinatını (Screen) gerçek boru koordinatına (World) çevir
-        let finalPos = { x: point.x, y: point.y };
-        if (state.is3DPerspectiveActive) {
-            // Sürüklenen ucun Z değeri
-            const z = (interactionManager.dragEndpoint === 'p1' ? pipe.p1.z : pipe.p2.z) || 0;
-            
-            // Renderer formülü: screenX = worldX + z, screenY = worldY - z
-            // Ters işlem: worldX = screenX - z, worldY = screenY + z
-            finalPos.x -= z;
-            finalPos.y += z;
-        }
-        // -----------------------------
+        // 3D Düzeltilmiş nokta kullanılıyor
+        let finalPos = { x: correctedPoint.x, y: correctedPoint.y };
 
         // DUVAR SNAP SİSTEMİ
         const MAX_WALL_DISTANCE = 20;
@@ -574,6 +630,8 @@ export function handleDrag(interactionManager, point, event = null) {
                 valve.updatePositionFromPipe(pipe);
             });
 
+            // Bağlı diğer bileşenleri de güncelle
+            // (Sayac, cihaz vb.)
             const connectedMeter = interactionManager.manager.components.find(c =>
                 c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === interactionManager.dragEndpoint
             );
@@ -673,25 +731,30 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
-    // Vana için boru üzerinde kayma
+    // 3. Vana Taşıma (HATA BURADAYDI)
     if (interactionManager.dragObject.type === 'vana') {
         const vana = interactionManager.dragObject;
         let targetPipe = interactionManager.dragObjectPipe;
         let objectsOnPipe = interactionManager.dragObjectsOnPipe;
         if (!targetPipe) return;
-        vana.moveAlongPipe(targetPipe, point, objectsOnPipe);
-        // Kapama sembolü durumunu güncelle (pozisyon değişti)
-        vana.updateEndCapStatus(manager);
+        
+        // 3D Düzeltilmiş nokta (correctedPoint) kullanarak taşı
+        // Düşey boruysa correctedPoint içinde dinamik Z var
+        // Yatay boruysa correctedPoint içinde düzeltilmiş X,Y ve sabit Z var
+        vana.moveAlongPipe(targetPipe, correctedPoint, objectsOnPipe);
+        
+        vana.updateEndCapStatus(interactionManager.manager);
         return;
     }
 
-    // Servis kutusu taşıma
+    // 4. Servis Kutusu Taşıma
     if (interactionManager.dragObject.type === 'servis_kutusu') {
+        // ... (Bu kısım aynen kalsın, duvar snap 2D çalışıyor)
         const walls = state.walls;
         const snapDistance = 30;
         let closestWall = null;
         let minDist = Infinity;
-        const mousePos = point;
+        const mousePos = point; // Servis kutusu zeminde (Z=0), düz point kullan
 
         walls.forEach(wall => {
             if (!wall.p1 || !wall.p2) return;
@@ -760,7 +823,7 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
-    // Cihaz taşıma
+    // 5. Cihaz Taşıma
     if (interactionManager.dragObject.type === 'cihaz') {
         const cihaz = interactionManager.dragObject;
         const oldPos = { x: cihaz.x, y: cihaz.y };
@@ -772,13 +835,16 @@ export function handleDrag(interactionManager, point, event = null) {
                 inputPipeOldEndpoint = { pipe: girisBoru, endpoint: endpoint, x: girisBoru[endpoint].x, y: girisBoru[endpoint].y };
             }
         }
-        cihaz.move(point.x, point.y);
+        // Cihaz da yüksekte olabilir, correctedPoint kullanmak daha doğal olur
+        // Ancak cihazın move fonksiyonu 2D çalışıyor, şimdilik correctedPoint verelim
+        cihaz.move(correctedPoint.x, correctedPoint.y);
+        
         if (inputPipeOldEndpoint) {
             inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].x = inputPipeOldEndpoint.x;
             inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].y = inputPipeOldEndpoint.y;
         }
-        const deltaX = point.x - oldPos.x;
-        const deltaY = point.y - oldPos.y;
+        const deltaX = correctedPoint.x - oldPos.x;
+        const deltaY = correctedPoint.y - oldPos.y;
         const bacalar = interactionManager.manager.components.filter(c => c.type === 'baca' && c.parentCihazId === cihaz.id);
         bacalar.forEach(baca => {
             baca.startX += deltaX; baca.startY += deltaY;
@@ -789,19 +855,24 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
-    // Sayaç taşıma
+    // 6. Sayaç Taşıma
     if (interactionManager.dragObject.type === 'sayac') {
         const sayac = interactionManager.dragObject;
         if (!interactionManager.dragStartObjectPos) interactionManager.dragStartObjectPos = { x: sayac.x, y: sayac.y };
         const startX = interactionManager.dragStartObjectPos.x;
         const startY = interactionManager.dragStartObjectPos.y;
         const AXIS_LOCK_THRESHOLD = 0;
-        const totalDx = Math.abs(point.x - startX);
-        const totalDy = Math.abs(point.y - startY);
+        
+        // 3D corrected point kullan
+        const targetX = correctedPoint.x;
+        const targetY = correctedPoint.y;
+
+        const totalDx = Math.abs(targetX - startX);
+        const totalDy = Math.abs(targetY - startY);
         let newX, newY;
-        if (totalDx > AXIS_LOCK_THRESHOLD && totalDy > AXIS_LOCK_THRESHOLD) { newX = point.x; newY = point.y; }
-        else if (totalDx > totalDy) { newX = point.x; newY = startY; }
-        else { newX = startX; newY = point.y; }
+        if (totalDx > AXIS_LOCK_THRESHOLD && totalDy > AXIS_LOCK_THRESHOLD) { newX = targetX; newY = targetY; }
+        else if (totalDx > totalDy) { newX = targetX; newY = startY; }
+        else { newX = startX; newY = targetY; }
         const dx = newX - sayac.x;
         const dy = newY - sayac.y;
 
@@ -834,19 +905,24 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
-    // Boru gövdesi taşıma
+    // 7. Boru Gövdesi Taşıma
     if (interactionManager.dragObject.type === 'boru' && interactionManager.isBodyDrag) {
         const pipe = interactionManager.dragObject;
-        const dx = point.x - interactionManager.dragStart.x;
-        const dy = point.y - interactionManager.dragStart.y;
-        let offsetX = dx;
-        let offsetY = dy;
+        // Burada point (mouse) yerine correctedPoint kullanmak daha doğru olur 
+        // ama delta hesabı olduğu için fark etmez (ikisi de aynı oranda kayar)
+        // Yine de görsel tutarlılık için correctedPoint kullanabiliriz
+        const deltaX = point.x - interactionManager.dragStart.x;
+        const deltaY = point.y - interactionManager.dragStart.y;
+        
+        let offsetX = deltaX;
+        let offsetY = deltaY;
         if (interactionManager.dragAxis === 'x') offsetY = 0;
         else if (interactionManager.dragAxis === 'y') offsetX = 0;
 
         const newP1 = { x: interactionManager.bodyDragInitialP1.x + offsetX, y: interactionManager.bodyDragInitialP1.y + offsetY };
         const newP2 = { x: interactionManager.bodyDragInitialP2.x + offsetX, y: interactionManager.bodyDragInitialP2.y + offsetY };
 
+        // ... (Geri kalan boru gövdesi mantığı aynen kalabilir) ...
         const POINT_OCCUPATION_TOLERANCE = 1.5;
         const ELBOW_TOLERANCE = 8;
         const connectionTolerance = 1;
@@ -928,6 +1004,7 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
+    // Diğer nesneler
     if (interactionManager.dragObject.type !== 'boru') {
         const result = interactionManager.dragObject.move(point.x, point.y);
         interactionManager.updateConnectedPipe(result);

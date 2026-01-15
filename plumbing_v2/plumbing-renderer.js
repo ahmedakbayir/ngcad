@@ -2396,7 +2396,7 @@ export class PlumbingRenderer {
                 // Parent (dark blue)
                 ctx.fillStyle = darkBlue;
                 ctx.textAlign = "left";
-                ctx.fillText(parentText, startX, 0);
+                //ctx.fillText(parentText, startX, 0);
 
                 // Self (KIRMIZI)
                 ctx.fillStyle = '#ff0000'; // Kırmızı
@@ -2404,7 +2404,7 @@ export class PlumbingRenderer {
 
                 // Children (dark blue)
                 ctx.fillStyle = darkgreen;
-                ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
+                //ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
             }
 
             ctx.restore();
@@ -2724,11 +2724,26 @@ export class PlumbingRenderer {
         ctx.restore();
     }
 
-    drawVanaPreview(ctx, vanaPreview) {
+drawVanaPreview(ctx, vanaPreview) {
         if (!vanaPreview || !vanaPreview.pipe || !vanaPreview.point) return;
 
         const { pipe, point } = vanaPreview;
-        const angle = pipe.aci;
+        
+        // --- DÜZELTME BAŞLANGIÇ: Düşey boru açı kontrolü ---
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        
+        const len2d = Math.hypot(dx, dy);
+        const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+
+        let angle = pipe.aci;
+        const t = state.viewBlendFactor || 0;
+
+        if (isVertical && t > 0.1) {
+            angle = -45 * Math.PI / 180; // 3D'de düşey boru açısı
+        }
+        // --- DÜZELTME BİTİŞ ---
 
         // Vana boyutu
         const size = 8;
@@ -2736,8 +2751,8 @@ export class PlumbingRenderer {
 
         // 3D offset uygula
         const z = point.z || 0;
-        const adjustedX = point.x + z;
-        const adjustedY = point.y - z;
+        const adjustedX = point.x + (z * t); // Z etkisini t ile çarp
+        const adjustedY = point.y - (z * t);
 
         ctx.save();
         ctx.translate(adjustedX, adjustedY);
@@ -2746,9 +2761,9 @@ export class PlumbingRenderer {
         // Yarı saydam
         ctx.globalAlpha = 0.7;
 
-        // İki üçgen çiz (mavi) - STROKE YOK, sadece fill
+        // Vana rengi
         const vanaColor = '#00bffa';
-        const adjustedColor = getAdjustedColor(vanaColor, 'vana');
+        const adjustedColor = this.getAdjustedColor ? this.getAdjustedColor(vanaColor, 'vana') : vanaColor;
         ctx.fillStyle = adjustedColor;
 
         ctx.beginPath();

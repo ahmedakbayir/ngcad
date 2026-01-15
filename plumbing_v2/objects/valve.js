@@ -287,6 +287,9 @@ export class Vana {
      * @param {Boru} pipe - Bağlı olduğu boru
      * @returns {object} - Hesaplanan pozisyon {x, y}
      */
+/**
+     * Boru referansı ile pozisyonu güncelle
+     */
     updatePositionFromPipe(pipe) {
         if (!pipe || !this.bagliBoruId || pipe.id !== this.bagliBoruId) {
             return null;
@@ -296,13 +299,14 @@ export class Vana {
 
         // Eğer fixedDistance varsa, uçtan sabit mesafe olarak hesapla
         if (this.fixedDistance !== null && this.fromEnd) {
-            const length = pipe.uzunluk;
+            const length = pipe.uzunluk; // Not: Bu 2D uzunluktur, ancak oran (t) hesabı için genelde yeterlidir.
+            // Daha hassas 3D t hesabı gerekirse burada pipe 3D uzunluğu kullanılabilir.
+            
             if (this.fromEnd === 'p1') {
                 t = Math.min(this.fixedDistance / length, 0.95);
             } else if (this.fromEnd === 'p2') {
                 t = Math.max(1 - (this.fixedDistance / length), 0.05);
             }
-            // boruPozisyonu'nu da güncelle
             this.boruPozisyonu = t;
         }
 
@@ -310,14 +314,28 @@ export class Vana {
         const pos = pipe.getPointAt(t);
         this.x = pos.x;
         this.y = pos.y;
-        this.z = pos.z; // <-- DÜZELTME: Z değerini borudan al  
-        // Rotasyonu boru açısına göre ayarla
-        this.rotation = pipe.aciDerece;
+        this.z = pos.z; // Z değerini güncelle
+        
+        // --- DÜZELTME BAŞLANGIÇ: Düşey Boru Açı Kontrolü ---
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        const len2d = Math.hypot(dx, dy);
+
+        // Boru düşey mi? (Z farkı baskın veya 2D boy çok kısa)
+        const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+
+        if (isVertical) {
+            this.rotation = -45; // Düşey boruda sabit açı
+        } else {
+            this.rotation = pipe.aciDerece; // Yatay boruda normal açı
+        }
+        // --- DÜZELTME BİTİŞ ---
 
         return { x: this.x, y: this.y };
     }
 
-    /**
+/**
      * Boru üzerinde pozisyonu değiştir (sürüklenirken)
      * @param {Boru} pipe - Bağlı olduğu boru
      * @param {object} point - Hedef nokta {x, y}
@@ -329,16 +347,28 @@ export class Vana {
             return false;
         }
 
-        // Noktayı boru üzerine projeksiyonla
+        // Noktayı boru üzerine projeksiyonla (3D destekli pipe.projectPoint kullanır)
         const proj = pipe.projectPoint(point);
         if (!proj || !proj.onSegment) {
             return false;
         }
 
-        // Mesafe kontrolü: uçlardan 4cm, nesneler arası 2cm
+        // --- DÜZELTME BAŞLANGIÇ: 3D Uzunluk Hesabı ---
+        // pipe.uzunluk sadece 2D (hypot(dx, dy)) verir. Düşey boruda 0 olur.
+        // Z farkını da katarak gerçek 3D uzunluğu hesaplıyoruz.
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        const pipeLength = Math.hypot(dx, dy, dz); // 3D Uzunluk
+
+        // Boru çok kısaysa işlem yapma
+        if (pipeLength < 0.1) return false;
+        // --- DÜZELTME BİTİŞ ---
+
+        // Mesafe kontrolü: uçlardan 1cm, nesneler arası 1cm
         const MIN_EDGE_DISTANCE = 1; // cm
         const OBJECT_MARGIN = 1; // cm - Her nesnenin sağında ve solunda
-        const pipeLength = pipe.uzunluk;
+        
         const minT = MIN_EDGE_DISTANCE / pipeLength;
         const maxT = 1 - (MIN_EDGE_DISTANCE / pipeLength);
 
@@ -368,9 +398,10 @@ export class Vana {
         }
 
         // Tekrar sınır kontrolü - kaydırma sonrası hala sınır dışındaysa hareket etme
-        if (newLeftT < minT || newRightT > maxT) {
-            console.log('Vana boru sınırları içine sığmıyor');
-            return false;
+        // (Boru çok kısaysa ve vana sığmıyorsa buraya düşer)
+        if (newLeftT < 0 || newRightT > 1) { // minT/maxT yerine 0/1 ile genel kontrol
+             console.log('Vana boru sınırları içine sığmıyor');
+             return false;
         }
 
         // Diğer nesnelerle çakışma kontrolü
@@ -404,9 +435,6 @@ export class Vana {
                     // Uygun yer yok, hareket etme
                     return false;
                 }
-
-                // Bu nesneyle çakışma çözüldü
-                // Başka nesnelerle de çakışma olabilir, devam et
             }
         }
 
@@ -415,7 +443,19 @@ export class Vana {
         this.boruPozisyonu = newT;
         this.x = newPos.x;
         this.y = newPos.y;
-        this.rotation = pipe.aciDerece;
+        this.z = newPos.z; // Z değerini de güncelle
+        
+        // --- DÜZELTME: AÇI KONTROLÜ (Düşey boru için) ---
+        // Düşey boruda açıyı korumak için kontrol (önceki düzeltmelerle uyumlu)
+        const len2d = Math.hypot(dx, dy);
+        const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+        
+        if (isVertical) {
+            this.rotation = -45;
+        } else {
+            this.rotation = pipe.aciDerece;
+        }
+        // ------------------------------------------------
 
         // Boru ucuna yakınsa fromEnd ve fixedDistance'ı tekrar set et
         const END_THRESHOLD_CM = 10; // 10 cm içindeyse uç sayılır
@@ -423,7 +463,7 @@ export class Vana {
         const BORU_UCU_BOSLUK = 1;
         const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm
 
-        const distToP1 = newT * pipeLength;
+        const distToP1 = newT * pipeLength; // 3D Uzunluk kullanılıyor
         const distToP2 = (1 - newT) * pipeLength;
 
         if (distToP2 < END_THRESHOLD_CM) {
@@ -439,9 +479,6 @@ export class Vana {
             this.fixedDistance = null;
             this.fromEnd = null;
         }
-
-        // Not: updateEndCapStatus burada çağrılmaz çünkü manager'a erişimimiz yok
-        // Drag işleminden sonra çağrılmalı
 
         return true;
     }

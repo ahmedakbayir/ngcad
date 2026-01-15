@@ -182,8 +182,16 @@ export function handlePointerMove(e) {
                 const CORNER_SNAP_DISTANCE = 10;
 
                 // 2D mesafe (ekranda görünen)
-                const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
-                const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
+                const distToP1 = Math.hypot(
+                    splitPoint.x - hoveredPipe.p1.x,
+                    splitPoint.y - hoveredPipe.p1.y,
+                    (splitPoint.z || 0) - (hoveredPipe.p1.z || 0)
+                );
+                const distToP2 = Math.hypot(
+                    splitPoint.x - hoveredPipe.p2.x,
+                    splitPoint.y - hoveredPipe.p2.y,
+                    (splitPoint.z || 0) - (hoveredPipe.p2.z || 0)
+                );
 
                 if (distToP1 < CORNER_SNAP_DISTANCE) {
                     splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z || 0 };
@@ -207,62 +215,89 @@ export function handlePointerMove(e) {
         if (this.manager.tempComponent) {
             this.manager.tempComponent.x = point.x;
             this.manager.tempComponent.y = point.y;
-            this.manager.tempComponent.rotation = 0; // Boru yoksa açıyı sıfırla
+            this.manager.tempComponent.rotation = 0; 
         }
 
-        // findBoruGovdeAt kullan - hem boruyu hem 3D noktayı döndürür
-        // Tolerance 10 (düşey borular için daha büyük)
         const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 10);
         if (boruGovde) {
             const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
             if (hoveredPipe) {
-                // boruGovde.nokta zaten 3D (x, y, z)
+                // 3D nokta (Z dahil)
                 let vanaPoint = { x: boruGovde.nokta.x, y: boruGovde.nokta.y, z: boruGovde.nokta.z };
 
-                // T değerini hesapla (boru uzunluğuna göre pozisyon)
+                // Boru 3D uzunluğu ve VanaT hesabı
                 const dx = hoveredPipe.p2.x - hoveredPipe.p1.x;
                 const dy = hoveredPipe.p2.y - hoveredPipe.p1.y;
                 const dz = (hoveredPipe.p2.z || 0) - (hoveredPipe.p1.z || 0);
                 const totalLen = Math.hypot(dx, dy, dz);
 
+                // Noktanın P1'e olan 3D mesafesi
                 const vdx = vanaPoint.x - hoveredPipe.p1.x;
                 const vdy = vanaPoint.y - hoveredPipe.p1.y;
-                const vdz = vanaPoint.z - (hoveredPipe.p1.z || 0);
-                const vanaLen = Math.hypot(vdx, vdy, vdz);
+                const vdz = (vanaPoint.z || 0) - (hoveredPipe.p1.z || 0);
+                const distToP1_3D = Math.hypot(vdx, vdy, vdz);
 
-                let vanaT = totalLen > 0 ? vanaLen / totalLen : 0.5;
+                // vanaT (0-1 arası oran)
+                let vanaT = totalLen > 0 ? distToP1_3D / totalLen : 0.5;
+                
+                // Sınırlandırma
+                vanaT = Math.max(0, Math.min(1, vanaT));
+
+                // Uçlara yapışma (Snap to End) Kontrolü
                 let snapToEnd = false;
-                const END_SNAP_DISTANCE = 10;
-
-                // 2D mesafe (ekranda görünen)
-                const distToP1 = Math.hypot(vanaPoint.x - hoveredPipe.p1.x, vanaPoint.y - hoveredPipe.p1.y);
-                const distToP2 = Math.hypot(vanaPoint.x - hoveredPipe.p2.x, vanaPoint.y - hoveredPipe.p2.y);
+                const END_SNAP_DISTANCE = 10; // cm
                 const VANA_GENISLIGI = 8;
                 const BORU_UCU_BOSLUK = 1;
-                const vanaMesafesi = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK;
-                const pipeLength = hoveredPipe.uzunluk;
+                const vanaMesafesi = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // ~5cm
 
-                if (distToP1 < END_SNAP_DISTANCE) {
-                    const adjustedT = Math.min(vanaMesafesi / pipeLength, 0.95);
+                // P1'e yakınlık (3D mesafe kullanıyoruz)
+                if (distToP1_3D < END_SNAP_DISTANCE) {
+                    const adjustedT = totalLen > 0 ? Math.min(vanaMesafesi / totalLen, 0.95) : 0;
                     vanaPoint = hoveredPipe.getPointAt(adjustedT);
-                    vanaT = 0; snapToEnd = true;
-                } else if (distToP2 < END_SNAP_DISTANCE) {
-                    const adjustedT = Math.max(1 - (vanaMesafesi / pipeLength), 0.05);
-                    vanaPoint = hoveredPipe.getPointAt(adjustedT);
-                    vanaT = 1; snapToEnd = true;
+                    vanaT = 0; // Mantıksal olarak uçta
+                    snapToEnd = true;
+                } else {
+                    // P2'ye yakınlık kontrolü
+                    const distToP2_3D = Math.hypot(
+                        vanaPoint.x - hoveredPipe.p2.x,
+                        vanaPoint.y - hoveredPipe.p2.y,
+                        (vanaPoint.z || 0) - (hoveredPipe.p2.z || 0)
+                    );
+
+                    if (distToP2_3D < END_SNAP_DISTANCE) {
+                        const adjustedT = totalLen > 0 ? Math.max(1 - (vanaMesafesi / totalLen), 0.05) : 1;
+                        vanaPoint = hoveredPipe.getPointAt(adjustedT);
+                        vanaT = 1; // Mantıksal olarak uçta
+                        snapToEnd = true;
+                    }
                 }
 
+                // Preview nesnesini güncelle
                 this.vanaPreview = { pipe: hoveredPipe, point: vanaPoint, t: vanaT, snapToEnd: snapToEnd };
 
-                // DEĞİŞİKLİK: Ghost (tempComponent) vanayı boruya tam hizala
+                // --- GHOST NESNE GÜNCELLEMESİ ---
                 if (this.manager.tempComponent) {
-                    // Pozisyonu snap noktasına taşı (Z dahil)
-                    this.manager.tempComponent.x = vanaPoint.x;
-                    this.manager.tempComponent.y = vanaPoint.y;
-                    this.manager.tempComponent.z = vanaPoint.z || 0;
+                    const t = state.viewBlendFactor || 0;
+                    const z = vanaPoint.z || 0;
+                    
+                    // 1. KONUM: Z etkisini X ve Y'ye ekle (Ekranda doğru yerde görünsün)
+                    this.manager.tempComponent.x = vanaPoint.x + (z * t);
+                    this.manager.tempComponent.y = vanaPoint.y - (z * t);
+                    this.manager.tempComponent.z = 0; // Renderer'a Z göndermiyoruz, manuel işledik
 
-                    // Açıyı boru açısına eşitle
-                    this.manager.tempComponent.rotation = hoveredPipe.aciDerece;
+                    // 2. AÇI: Düşey boru kontrolü
+                    const len2d = Math.hypot(dx, dy);
+
+                    // Boru düşey mi? (Z farkı baskınsa veya 2D uzunluk kısaysa)
+                    const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+
+                    if (isVertical && t > 0.1) {
+                        // 3D modunda düşey boru -45 derece görünür
+                        this.manager.tempComponent.rotation = -45;
+                    } else {
+                        // Yatay boru normal açısında
+                        this.manager.tempComponent.rotation = hoveredPipe.aciDerece;
+                    }
                 }
             } else {
                 this.vanaPreview = null;
@@ -272,6 +307,7 @@ export function handlePointerMove(e) {
     } else {
         this.vanaPreview = null;
     }
+
 
     // 1.7 Sayaç/Cihaz boru üzerine ekleme preview (boru ortasına ekleme)
     if ((this.manager.activeTool === 'sayac' || this.manager.activeTool === 'cihaz') &&
@@ -287,8 +323,16 @@ export function handlePointerMove(e) {
                 const CORNER_SNAP_DISTANCE = 10;
 
                 // 2D mesafe (ekranda görünen)
-                const distToP1 = Math.hypot(splitPoint.x - hoveredPipe.p1.x, splitPoint.y - hoveredPipe.p1.y);
-                const distToP2 = Math.hypot(splitPoint.x - hoveredPipe.p2.x, splitPoint.y - hoveredPipe.p2.y);
+                const distToP1 = Math.hypot(
+                    splitPoint.x - hoveredPipe.p1.x,
+                    splitPoint.y - hoveredPipe.p1.y,
+                    (splitPoint.z || 0) - (hoveredPipe.p1.z || 0)
+                );
+                const distToP2 = Math.hypot(
+                    splitPoint.x - hoveredPipe.p2.x,
+                    splitPoint.y - hoveredPipe.p2.y,
+                    (splitPoint.z || 0) - (hoveredPipe.p2.z || 0)
+                );
 
                 if (distToP1 < CORNER_SNAP_DISTANCE) {
                     splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z || 0 };

@@ -34,25 +34,48 @@ export function pixelsToWorld(pixelTolerance) {
 
 /**
  * Bir noktada nesne bul (bileşen veya boru)
- * Öncelik sırası: 1) Bileşenler, 2) Borular (2cm), 3) Borular (5cm)
+ * Öncelik sırası: 1) Bileşenler (3D Destekli), 2) Borular
  */
 export function findObjectAt(manager, point) {
-    // ÖNCELİK 1: Bileşenler
-    // Bileşenler şu an için Z ekseninden etkilenmiyor (Renderer'da translate kullanılmıyor)
-    // Eğer ilerde bileşenlere de Z eklenirse buraya getScreenPoint eklenmeli.
+    // ÖNCELİK 1: Bileşenler (Vana, Sayaç, Cihaz vb.)
+    // 3D modunda Z derinliğini hesaba katarak seçim yapıyoruz.
+    const t = state.viewBlendFactor || 0;
+
     for (const comp of manager.components) {
-        if (comp.containsPoint && comp.containsPoint(point)) {
+        let hit = false;
+
+        // Nesnenin Z değeri var mı?
+        const z = comp.z || 0;
+
+        if (state.is3DPerspectiveActive && Math.abs(z) > 0.1) {
+            // 3D modundaysak ve nesnenin yüksekliği varsa:
+            // Görsel merkezini hesapla: x' = x + z*t, y' = y - z*t
+            const visualX = comp.x + z * t;
+            const visualY = comp.y - z * t;
+
+            // Mouse tıklaması bu görsel merkeze yakın mı?
+            // Bileşenler genelde 8-10cm civarındadır, 10cm yarıçaplı daire kontrolü yeterli
+            const dist = Math.hypot(point.x - visualX, point.y - visualY);
+            if (dist < 10) { 
+                hit = true;
+            }
+        } else {
+            // 2D modunda veya Z=0 ise standart kontrol (Bounding Box)
+            if (comp.containsPoint && comp.containsPoint(point)) {
+                hit = true;
+            }
+        }
+
+        if (hit) {
             return comp;
         }
     }
 
-    // ÖNCELİK 3: Borular (Piksel bazlı tolerance - zoom bağımsız)
+    // ÖNCELİK 2: Borular (Mevcut kod aynen kalıyor)
     const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
     
     for (const pipe of manager.pipes) {
-        // Boru uçlarının ve gövdesinin izdüşümünü kontrol et
-        
-        // 1. Uç Noktalar (3D İzdüşümlü)
+        // ... (Borular için mevcut 3D izdüşüm kontrolleri - burası zaten doğru çalışıyor) ...
         const p1Screen = getScreenPoint(pipe.p1);
         const p2Screen = getScreenPoint(pipe.p2);
 
@@ -63,8 +86,6 @@ export function findObjectAt(manager, point) {
             return pipe;
         }
 
-        // 2. Boru Gövdesi (3D İzdüşümlü)
-        // Noktanın doğru parçasına (p1Screen -> p2Screen) olan uzaklığı
         const dx = p2Screen.x - p1Screen.x;
         const dy = p2Screen.y - p1Screen.y;
         const length = Math.hypot(dx, dy);
@@ -79,8 +100,6 @@ export function findObjectAt(manager, point) {
                     return pipe;
                 }
             }
-        } else {
-            // Çok kısa boru, zaten uç nokta kontrolünde yakalanmıştır
         }
     }
 

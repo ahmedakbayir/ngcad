@@ -237,7 +237,7 @@ export function restorePreviousMode(prevMode, prevDrawMode, prevTool) {
 }
 
 /**
- * Vana yerleştir - YENİ STRATEJI
+ * Vana yerleştir - YENİ STRATEJİ (Düşey Boru Destekli)
  * Vana boruyu bölmez, boru üzerinde serbest kayabilir bir nesne olarak eklenir
  */
 export function handleVanaPlacement(vanaPreview) {
@@ -246,36 +246,65 @@ export function handleVanaPlacement(vanaPreview) {
     // Undo için state kaydet
     saveState();
 
-    // Boru üzerindeki mevcut nesneleri al
     const existingObjects = getObjectsOnPipe(this.manager.components, pipe.id);
 
-    // Yerleştirme kontrolü yap
-    const placementResult = canPlaceValveOnPipe(pipe, point, existingObjects);
+    // --- 1. DÜŞEY BORU VE 3D GEOMETRİ HESABI ---
+    const dx = pipe.p2.x - pipe.p1.x;
+    const dy = pipe.p2.y - pipe.p1.y;
+    const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+    
+    // 2D ve 3D uzunlukları ayrı hesapla
+    const len2d = Math.hypot(dx, dy);
+    const len3d = Math.hypot(dx, dy, dz);
+    
+    // Düşey boru tespiti: Z farkı baskınsa veya 2D uzunluk çok kısaysa
+    const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
 
-    if (!placementResult || placementResult.error) {
-        // Hata durumu - mesaj göster
-        //alert(placementResult?.message || 'Vana eklenemedi!');
+    let placementResult;
+
+    if (isVertical) {
+        // Düşey boru için MANUEL hesaplama (standart 2D fonksiyon çalışmaz)
+        let t = 0.5;
+        if (Math.abs(dz) > 0.01) {
+             t = ((point.z || 0) - (pipe.p1.z || 0)) / dz;
+        }
+        // T değerini 0-1 arasına sınırla
+        t = Math.max(0, Math.min(1, t));
+        
+        placementResult = {
+            success: true,
+            t: t,
+            x: pipe.p1.x, // Düşeyde X değişmez
+            y: pipe.p1.y, // Düşeyde Y değişmez
+            z: (pipe.p1.z || 0) + t * dz,
+            adjusted: false
+        };
+    } else {
+        // Yatay/Eğik borular için mevcut standart fonksiyonu kullan
+        placementResult = canPlaceValveOnPipe(pipe, point, existingObjects);
+    }
+
+    if (!placementResult || (placementResult.error && !placementResult.success)) {
+        // Hata durumu
         this.vanaPreview = null;
         return;
     }
 
     const { t, x, y, adjusted } = placementResult;
+    // Z değerini garantile (yatay boruysa p1.z ile aynıdır, düşeyse t ile değişir)
+    const z = placementResult.z !== undefined ? placementResult.z : ((pipe.p1.z || 0) + t * dz);
 
-    // Kullanıcıya bilgi ver (kaydırma yapıldıysa)
-    if (adjusted) {
-        // console.log('Vana pozisyonu mesafe kurallarına göre ayarlandı.');
-    }
-
-    // ✨ Boru ucu yakınındaysa sabit mesafe kullan
-    const pipeLength = pipe.uzunluk;
+    // --- 2. UÇ NOKTALARA SABİTLEME (3D Mesafe ile) ---
+    // pipe.uzunluk yerine hesapladığımız len3d (3D uzunluk) kullan
     const VANA_GENISLIGI = 8;
     const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda
-    const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm
+    const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // ~5 cm
 
-    // Boru ucuna yakın mı kontrol et (mesafe olarak, pixel değil cm olarak)
-    const END_THRESHOLD_CM = 10; // 10 cm içindeyse uç sayılır
-    const distToP1 = t * pipeLength;
-    const distToP2 = (1 - t) * pipeLength;
+    // Boru ucuna yakın mı kontrol et
+    const END_THRESHOLD_CM = 10; 
+    const distToP1 = t * len3d;
+    const distToP2 = (1 - t) * len3d;
+    
     const isNearP1 = distToP1 < END_THRESHOLD_CM;
     const isNearP2 = distToP2 < END_THRESHOLD_CM;
 
@@ -286,7 +315,6 @@ export function handleVanaPlacement(vanaPreview) {
         boruPozisyonu: t
     };
 
-    // Sadece boru ucuna yakınsa fixed distance kullan
     if (isNearP2) {
         vanaOptions.fromEnd = 'p2';
         vanaOptions.fixedDistance = fixedDistanceFromEnd;
@@ -294,27 +322,29 @@ export function handleVanaPlacement(vanaPreview) {
         vanaOptions.fromEnd = 'p1';
         vanaOptions.fixedDistance = fixedDistanceFromEnd;
     }
-    // Ortadaysa boruPozisyonu kullan (fromEnd ve fixedDistance null kalır)
 
-    // Bağımsız Vana nesnesi oluştur
+    // --- 3. NESNEYİ OLUŞTUR VE AYARLA ---
     const vana = createVana(x, y, 'AKV', vanaOptions);
+    
+    // Z Yüksekliğini Ata
+    vana.z = z;
 
-    // Rotasyonu boru açısına göre ayarla
-    vana.rotation = pipe.aciDerece;
+    // AÇI DÜZELTMESİ (Sorunu çözen kısım)
+    if (isVertical) {
+        // Düşey boru ise -45 derece (3D izometrikte dikey görünüm)
+        vana.rotation = -45; 
+    } else {
+        // Yatay boru ise kendi açısı
+        vana.rotation = pipe.aciDerece;
+    }
 
-    // Manager'ın components dizisine ekle
+    // Manager'a ekle
     this.manager.components.push(vana);
-
-    // Kapama sembolü durumunu güncelle (boru ucunda ve boşta mı?)
     vana.updateEndCapStatus(this.manager);
-
-    // State'i senkronize et
     this.manager.saveToState();
 
-    // Preview'ı temizle
+    // Temizlik
     this.vanaPreview = null;
-
-    // Vana eklendikten sonra SEÇ moduna geç
     this.manager.activeTool = null;
     this.cancelCurrentAction();
     setMode("select");
