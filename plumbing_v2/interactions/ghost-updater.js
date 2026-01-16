@@ -48,73 +48,48 @@ export function updateGhostPosition(ghost, point, snap) {
             const boruYonUzunluk = Math.hypot(boruYonX, boruYonY);
 
             // Normalize edilmiş boru yönü
-            const normBoruYonX = boruYonX / boruYonUzunluk;
-            const normBoruYonY = boruYonY / boruYonUzunluk;
-
-            let snapPointScreenX = boruUcu.screenPoint ? boruUcu.screenPoint.x : boruUcu.nokta.x;
-            let snapPointScreenY = boruUcu.screenPoint ? boruUcu.screenPoint.y : boruUcu.nokta.y;
-
-            // Eğer screenPoint yoksa manuel hesapla
-            if (!boruUcu.screenPoint && t > 0) {
-                const bz = boruUcu.nokta.z || 0;
-                snapPointScreenX = boruUcu.nokta.x + bz * t;
-                snapPointScreenY = boruUcu.nokta.y - bz * t;
-            }
-
-            const mouseUcMesafe = Math.hypot(
-                point.x - snapPointScreenX,
-                point.y - snapPointScreenY
-            );
-            // Cihaz merkezini hesapla
-            let merkezX, merkezY;
-
-            if (mouseUcMesafe < minFleksUzunluk) {
-                // Mouse minimum fleks uzunluğundan daha yakın, boru yönünde minimum mesafeye yerleştir
-                merkezX = boruUcu.nokta.x + normBoruYonX * minFleksUzunluk;
-                merkezY = boruUcu.nokta.y + normBoruYonY * minFleksUzunluk;
-            } else if (mouseUcMesafe <= maxFleksUzunluk) {
-                // Mouse fleks uzunluğu içinde, mouse pozisyonuna yerleştir
-                merkezX = point.x;
-                merkezY = point.y;
+            // DÜZELTME: Düşey borular için (X-Y'de uzunluk ~0), varsayılan yön kullan (kuzeye = 0,-1)
+            let normBoruYonX, normBoruYonY;
+            if (boruYonUzunluk < 2.0) {
+                // Düşey boru veya çok kısa boru - varsayılan yön: kuzeye (yukarı)
+                normBoruYonX = 0;
+                normBoruYonY = -1;
             } else {
-                // Mouse fleks uzunluğundan dışarıda, maksimum mesafeye mouse yönünde yerleştir
-                const oran = maxFleksUzunluk / mouseUcMesafe;
-                merkezX = boruUcu.nokta.x + (point.x - boruUcu.nokta.x) * oran;
-                merkezY = boruUcu.nokta.y + (point.y - boruUcu.nokta.y) * oran;
+                normBoruYonX = boruYonX / boruYonUzunluk;
+                normBoruYonY = boruYonY / boruYonUzunluk;
             }
 
-            // Cihaz merkezini ayarla
-            ghost.x = merkezX;
-            ghost.y = merkezY;
-            // DÜZELTME: Boru ucunun Z değerini al
-            // Borunun ucundaki nokta {x, y, z} formatındadır.
             // Boru ucunun Z değerini al
             const targetZ = (boruUcu.nokta.z !== undefined) ? boruUcu.nokta.z : 0;
             ghost.z = targetZ;
 
-            // Cihaz merkezini hesapla (World Coordinates olarak saklayacağız)
+            // Mouse pozisyonunu world coordinates'e çevir (3D projection tersini al)
+            // Inverse Projection: World = Screen - Z_effect
+            // x_world = x_screen - z * t
+            // y_world = y_screen + z * t
+            const mouseWorldX = point.x - (targetZ * t);
+            const mouseWorldY = point.y + (targetZ * t);
+
+            // Mouse ile boru ucu arasındaki mesafeyi WORLD coordinates'de hesapla
+            const mouseUcMesafe = Math.hypot(
+                mouseWorldX - boruUcu.nokta.x,
+                mouseWorldY - boruUcu.nokta.y
+            );
+
+            // Cihaz merkezini hesapla (World Coordinates)
             let merkezWorldX, merkezWorldY;
 
             if (mouseUcMesafe < minFleksUzunluk) {
-                // Minimum mesafe (World üzerinde hesapla)
+                // Mouse minimum fleks uzunluğundan daha yakın, boru yönünde minimum mesafeye yerleştir
                 merkezWorldX = boruUcu.nokta.x + normBoruYonX * minFleksUzunluk;
                 merkezWorldY = boruUcu.nokta.y + normBoruYonY * minFleksUzunluk;
             } else if (mouseUcMesafe <= maxFleksUzunluk) {
-                // Mouse pozisyonunda (Mouse ekran koordinatıdır, World'e çevirmeliyiz)
-                // Inverse Projection: World = Screen - Z_effect
-                // x_world = x_screen - z * t
-                // y_world = y_screen + z * t
-                merkezWorldX = point.x - (targetZ * t);
-                merkezWorldY = point.y + (targetZ * t);
+                // Mouse fleks uzunluğu içinde, mouse pozisyonuna yerleştir (world coordinates)
+                merkezWorldX = mouseWorldX;
+                merkezWorldY = mouseWorldY;
             } else {
-                // Maksimum mesafe (World üzerinde orantıla)
-                // Mouse'un World karşılığını bul
-                const mouseWorldX = point.x - (targetZ * t);
-                const mouseWorldY = point.y + (targetZ * t);
-
-                const currentDistWorld = Math.hypot(mouseWorldX - boruUcu.nokta.x, mouseWorldY - boruUcu.nokta.y);
-                const oran = maxFleksUzunluk / currentDistWorld;
-
+                // Mouse fleks uzunluğundan dışarıda, maksimum mesafeye mouse yönünde yerleştir
+                const oran = maxFleksUzunluk / mouseUcMesafe;
                 merkezWorldX = boruUcu.nokta.x + (mouseWorldX - boruUcu.nokta.x) * oran;
                 merkezWorldY = boruUcu.nokta.y + (mouseWorldY - boruUcu.nokta.y) * oran;
             }
