@@ -27,7 +27,9 @@ export function updateGhostPosition(ghost, point, snap) {
         // Z=100cm, t=1 için kayma ~141cm, tolerance en az 200cm olmalı
         const baseTolerance = 15;
         const tolerance3D = t > 0.5 ? baseTolerance * (1 + 15 * t) : baseTolerance;
+        console.log('[GHOST] findBoruUcuAt çağrılıyor - point:', point, 'tolerance:', tolerance3D, 't:', t);
         const boruUcu = this.findBoruUcuAt(point, tolerance3D, true); // onlyFreeEndpoints = true
+        console.log('[GHOST] boruUcu bulundu:', boruUcu);
 
         if (boruUcu && boruUcu.boru) {
             // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
