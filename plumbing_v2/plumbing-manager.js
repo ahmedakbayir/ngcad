@@ -195,10 +195,12 @@ export class PlumbingManager {
     /**
      * Bir noktanın gerçekten boş uç olup olmadığını kontrol eder
      * (T-junction, başka boru bağlantısı yok)
+     * DÜZELTME: 3D koordinatları da dikkate alır (Z değeri)
      */
     isTrulyFreeEndpoint(point, tolerance = 1) {
         let pipeCount = 0;
         const currentFloorId = state.currentFloor?.id;
+        const pointZ = point.z || 0;
 
         for (const boru of this.pipes) {
             // Sadece aktif kattaki boruları kontrol et
@@ -206,8 +208,11 @@ export class PlumbingManager {
                 continue;
             }
 
-            const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y);
-            const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y);
+            // 3D mesafe hesabı - Z koordinatını da dahil et
+            const p1Z = boru.p1.z || 0;
+            const p2Z = boru.p2.z || 0;
+            const distP1 = Math.hypot(point.x - boru.p1.x, point.y - boru.p1.y, pointZ - p1Z);
+            const distP2 = Math.hypot(point.x - boru.p2.x, point.y - boru.p2.y, pointZ - p2Z);
 
             if (distP1 < tolerance || distP2 < tolerance) {
                 pipeCount++;
