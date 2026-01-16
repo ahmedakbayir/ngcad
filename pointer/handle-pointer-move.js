@@ -251,32 +251,26 @@ export function handlePointerMove(e) {
                 vanaT = Math.max(0, Math.min(1, vanaT));
 
                 // Uçlara yapışma (Snap to End) Kontrolü
+                // KRITIK: 3D modda snap kontrolü T parametresine göre yapılmalı (ekran mesafesi değil)
                 let snapToEnd = false;
-                const END_SNAP_DISTANCE = 10; // cm
+                const END_SNAP_T_THRESHOLD = 0.05; // Boru uzunluğunun %5'i
                 const VANA_GENISLIGI = 8;
                 const BORU_UCU_BOSLUK = 1;
                 const vanaMesafesi = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // ~5cm
 
-                // P1'e yakınlık (3D mesafe kullanıyoruz)
-                if (distToP1_3D < END_SNAP_DISTANCE) {
+                // T parametresine göre snap kontrolü (0'a yakın = P1, 1'e yakın = P2)
+                if (vanaT < END_SNAP_T_THRESHOLD) {
+                    // P1'e çok yakın
                     const adjustedT = totalLen > 0 ? Math.min(vanaMesafesi / totalLen, 0.95) : 0;
                     vanaPoint = hoveredPipe.getPointAt(adjustedT);
                     vanaT = 0; // Mantıksal olarak uçta
                     snapToEnd = true;
-                } else {
-                    // P2'ye yakınlık kontrolü
-                    const distToP2_3D = Math.hypot(
-                        vanaPoint.x - hoveredPipe.p2.x,
-                        vanaPoint.y - hoveredPipe.p2.y,
-                        (vanaPoint.z || 0) - (hoveredPipe.p2.z || 0)
-                    );
-
-                    if (distToP2_3D < END_SNAP_DISTANCE) {
-                        const adjustedT = totalLen > 0 ? Math.max(1 - (vanaMesafesi / totalLen), 0.05) : 1;
-                        vanaPoint = hoveredPipe.getPointAt(adjustedT);
-                        vanaT = 1; // Mantıksal olarak uçta
-                        snapToEnd = true;
-                    }
+                } else if (vanaT > (1 - END_SNAP_T_THRESHOLD)) {
+                    // P2'ye çok yakın
+                    const adjustedT = totalLen > 0 ? Math.max(1 - (vanaMesafesi / totalLen), 0.05) : 1;
+                    vanaPoint = hoveredPipe.getPointAt(adjustedT);
+                    vanaT = 1; // Mantıksal olarak uçta
+                    snapToEnd = true;
                 }
 
                 // Preview nesnesini güncelle
