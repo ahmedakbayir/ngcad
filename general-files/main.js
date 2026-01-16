@@ -464,7 +464,14 @@ export let state = {
     viewBlendFactor: 0, // Başlangıç 0 (2D)
     is3DPerspectiveActive: false,
     // ...
-
+    tempVisibility: {
+        showZElevation: true,      // Z Kotu
+        showPipeLabels: true,      // Hat No (A, B, C...)
+        showArchDimensions: true,  // Mimari Ölçü
+        showPlumbingDimensions: true, // Tesisat Ölçü
+        showRoomNames: true,       // Mahal İsimleri
+        showPipeShadows: true      // Hat Gölgesi
+    },
 };
 
 export function setState(newState) {
@@ -772,7 +779,7 @@ export function getObjectOpacity_OLD(objectType) {
 export function isObjectInteractable(objectType) {
     const mode = state.currentDrawingMode;
 
-// KARMA modunda her şeye dokunulabilir
+    // KARMA modunda her şeye dokunulabilir
     if (mode === "KARMA") {
         return true;
     }

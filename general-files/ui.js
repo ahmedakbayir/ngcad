@@ -1764,6 +1764,83 @@ export function setupUIListeners() {
             resetIsometricView();
         });
     }
+    setupVisibilityPanel();
+}
+
+function setupVisibilityPanel() {
+    const ids = {
+        z: 'vis-chk-z',
+        labels: 'vis-chk-labels',
+        archDim: 'vis-chk-arch-dim',
+        plumbDim: 'vis-chk-plumb-dim',
+        room: 'vis-chk-room',
+        shadow: 'vis-chk-shadow'
+    };
+
+    // State'i güncelle ve sahneyi yeniden çiz
+    const updateVisibility = (key, value) => {
+        state.tempVisibility[key] = value;
+        
+        // Yeniden çizim tetikle
+        draw2D();
+        if (dom.mainContainer.classList.contains('show-3d')) {
+            update3DScene();
+        }
+        if (dom.mainContainer.classList.contains('show-iso')) {
+            // İzometrik görünümü yeniden çiz (gerekirse parametreleri state'ten al)
+            const canvas = document.getElementById('cIso');
+            const ctx = canvas.getContext('2d');
+            renderIsometric(ctx, canvas.width, canvas.height, state.isoZoom, state.isoPanOffset);
+        }
+    };
+
+    // Checkbox Listener'ları
+    document.getElementById(ids.z)?.addEventListener('change', (e) => updateVisibility('showZElevation', e.target.checked));
+    document.getElementById(ids.labels)?.addEventListener('change', (e) => updateVisibility('showPipeLabels', e.target.checked));
+    document.getElementById(ids.archDim)?.addEventListener('change', (e) => updateVisibility('showArchDimensions', e.target.checked));
+    document.getElementById(ids.plumbDim)?.addEventListener('change', (e) => updateVisibility('showPlumbingDimensions', e.target.checked));
+    document.getElementById(ids.room)?.addEventListener('change', (e) => updateVisibility('showRoomNames', e.target.checked));
+    document.getElementById(ids.shadow)?.addEventListener('change', (e) => updateVisibility('showPipeShadows', e.target.checked));
+
+    // Hepsini Göster
+    document.getElementById('vis-btn-show-all')?.addEventListener('click', () => {
+        Object.values(ids).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.checked = true;
+                el.dispatchEvent(new Event('change')); // Change eventini tetikle
+            }
+        });
+    });
+
+    // Hepsini Gizle
+    document.getElementById('vis-btn-hide-all')?.addEventListener('click', () => {
+        Object.values(ids).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.checked = false;
+                el.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+    
+    // Başlangıç değerlerini state'ten yükle (eğer daha önce set edildiyse)
+    Object.keys(ids).forEach(key => {
+        const stateKeyMap = {
+            'vis-chk-z': 'showZElevation',
+            'vis-chk-labels': 'showPipeLabels',
+            'vis-chk-arch-dim': 'showArchDimensions',
+            'vis-chk-plumb-dim': 'showPlumbingDimensions',
+            'vis-chk-room': 'showRoomNames',
+            'vis-chk-shadow': 'showPipeShadows'
+        };
+        const elId = ids[key];
+        const stateKey = stateKeyMap[elId];
+        const el = document.getElementById(elId);
+        if(el && state.tempVisibility) {
+            el.checked = state.tempVisibility[stateKey];
+        }
+    });
 }
 // --- setupUIListeners Sonu ---
 

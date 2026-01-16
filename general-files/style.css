@@ -1957,3 +1957,79 @@ body:not(.light-mode) .toggle-dynamic-label {
 body:not(.light-mode) .text-on-right {
     color: #ddd;
 }
+
+/* ... existing code ... */
+
+/* --- GEÇİCİ GÖRÜNÜRLÜK PANELİ --- */
+#visibility-panel {
+    position: fixed;
+    top: 50px; /* Üst barların altında */
+    right: 10px;
+    background: var(--bg-group);
+    border: 1px solid var(--border-group);
+    border-radius: 8px;
+    padding: 8px;
+    z-index: 900; /* Diğer overlaylerin altında kalabilir */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    backdrop-filter: blur(4px);
+    width: 140px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.vis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(128,128,128,0.3);
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.vis-toggle-all {
+    display: flex;
+    gap: 4px;
+}
+
+.vis-mini-btn {
+    background: transparent;
+    border: 1px solid var(--border-button);
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 4px;
+    color: var(--color-text);
+}
+.vis-mini-btn:hover {
+    background: var(--bg-button-hover);
+}
+
+.vis-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.vis-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--color-text);
+    cursor: pointer;
+    user-select: none;
+}
+
+.vis-item input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: #8ab4f8;
+}
+
+/* Light mode uyumu */
+body.light-mode #visibility-panel {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: #ccc;
+}
+/* ... existing code ... */

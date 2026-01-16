@@ -776,6 +776,8 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
  * @param {Function} getFloorElevation - Kat yüksekliğini döndüren fonksiyon
  */
 function addPipeElevationLabels(pipes, getFloorElevation) {
+    if (!state.tempVisibility.showZElevation) return;
+    
     if (!pipes || pipes.length === 0) return;
     const TOLERANCE = 3; // cm cinsinden mesafe toleransı
     const processedJunctions = new Set();

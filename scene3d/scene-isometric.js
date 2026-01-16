@@ -214,10 +214,13 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
 
     // Parça etiketlerini çiz
     //drawPipeLabels(ctx, pipeHierarchy);
-
+    if (state.tempVisibility.showPipeLabels) {
+        drawPipeLabels(ctx, pipeHierarchy);
+    }
     // Z kotlarını çiz (dirsek ve TEE noktalarında)
-    drawJunctionElevations(ctx);
-
+    if (state.tempVisibility.showZElevation) {
+        drawJunctionElevations(ctx);
+    }
     ctx.restore();
 
     // Bilgi metni
@@ -242,7 +245,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
  * @param {number} mouseY - Canvas içindeki Y koordinatı
  * @returns {{pipe: object, type: string} | null}
  */
-window.getIsoEndpointAtMouse = function(mouseX, mouseY) {
+window.getIsoEndpointAtMouse = function (mouseX, mouseY) {
     if (!window._isoEndpoints || !window._isoRenderParams) return null;
 
     const { centerX, centerY, zoom, offset } = window._isoRenderParams;
@@ -269,7 +272,7 @@ window.getIsoEndpointAtMouse = function(mouseX, mouseY) {
 
 // Her render'da endpoint listesini temizle
 renderIsometric = ((oldRender) => {
-    return function(...args) {
+    return function (...args) {
         window._isoEndpoints = [];
         return oldRender.apply(this, args);
     };
@@ -719,10 +722,10 @@ function drawCihazIso(ctx, component) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const label = component.cihazTipi === 'KOMBI' ? 'K' :
-                  component.cihazTipi === 'OCAK' ? 'O' :
-                  component.cihazTipi === 'SOBA' ? 'S' :
-                  component.cihazTipi === 'SOFBEN' ? 'Ş' :
-                  component.cihazTipi === 'KAZAN' ? 'KZ' : 'C';
+        component.cihazTipi === 'OCAK' ? 'O' :
+            component.cihazTipi === 'SOBA' ? 'S' :
+                component.cihazTipi === 'SOFBEN' ? 'Ş' :
+                    component.cihazTipi === 'KAZAN' ? 'KZ' : 'C';
     ctx.fillText(label, 0, -height);
 }
 
@@ -741,7 +744,7 @@ function drawBacaIso(ctx, component) {
 
     // Projedeki renkleri kullan
     const fillColor = component.config?.color ? hexToCSS(component.config.color) :
-                      (document.body.classList.contains('light-mode') ? '#795548' : '#A1887F');
+        (document.body.classList.contains('light-mode') ? '#795548' : '#A1887F');
     const strokeColor = shadeColor(fillColor, -20);
 
     // 3D kutu çiz (ince ve uzun)
@@ -770,7 +773,7 @@ function drawDefaultComponentIso(ctx, component) {
 
     // Projedeki renkleri kullan
     const fillColor = component.config?.color ? hexToCSS(component.config.color) :
-                      (document.body.classList.contains('light-mode') ? '#9E9E9E' : '#BDBDBD');
+        (document.body.classList.contains('light-mode') ? '#9E9E9E' : '#BDBDBD');
     const strokeColor = shadeColor(fillColor, -30);
 
     // 3D kutu çiz

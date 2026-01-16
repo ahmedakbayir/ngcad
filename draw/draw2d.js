@@ -435,8 +435,9 @@ export function draw2D() {
 
     // 7. Mahal Etiketleri (TESİSAT modunda gizli)
     // if (state.currentDrawingMode !== 'TESİSAT') {
-    drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
-    //}
+    if (state.tempVisibility.showRoomNames) {
+        drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
+    }    //}
 
     // 8. Kapılar, Pencereler, Menfezler
     doors.forEach((door) => {
@@ -473,16 +474,15 @@ export function draw2D() {
     drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol);
 
     // 10. Ölçülendirmeler (TESİSAT modunda gizli)
-    if (state.currentDrawingMode !== 'TESİSAT') {
+    if (state.currentDrawingMode !== 'TESİSAT' && state.tempVisibility.showArchDimensions) {
         if (dimensionMode === 1) {
             drawTotalDimensions(walls, rooms);
         } else if (dimensionMode === 2) {
             walls.forEach((w) => {
-                if (w.p1 && w.p2) drawDimension(w.p1, w.p2, false, 'single'); // Check added
+                if (w.p1 && w.p2) drawDimension(w.p1, w.p2, false, 'single');
             });
         }
-
-        drawOuterDimensions(walls); // Dış ölçüler
+        drawOuterDimensions(walls);
 
         // Seçili nesne veya sürüklenen duvarlar için geçici ölçüler
         if (isDragging && affectedWalls.length > 0 && (dimensionMode === 0 || dimensionMode === 1) && selectedObject?.type === 'wall') {
