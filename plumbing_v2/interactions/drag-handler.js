@@ -146,8 +146,19 @@ export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = T
     const pipesAtPoint = [];
     pipes.forEach(pipe => {
         if (pipe === excludePipe) return;
-        const distToP1 = Math.hypot(pipe.p1.x - point.x, pipe.p1.y - point.y);
-        const distToP2 = Math.hypot(pipe.p2.x - point.x, pipe.p2.y - point.y);
+        
+        // DÜZELTME: 3D Mesafe (Z Dahil)
+        const distToP1 = Math.hypot(
+            pipe.p1.x - point.x, 
+            pipe.p1.y - point.y, 
+            (pipe.p1.z || 0) - (point.z || 0)
+        );
+        const distToP2 = Math.hypot(
+            pipe.p2.x - point.x, 
+            pipe.p2.y - point.y, 
+            (pipe.p2.z || 0) - (point.z || 0)
+        );
+
         if (distToP1 < tolerance) pipesAtPoint.push({ pipe, endpoint: 'p1' });
         if (distToP2 < tolerance) pipesAtPoint.push({ pipe, endpoint: 'p2' });
     });
@@ -179,8 +190,19 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     const connectedPipes = [];
     interactionManager.manager.pipes.forEach(p => {
         if (excludePipes.includes(p)) return;
-        const distToP1 = Math.hypot(p.p1.x - draggedPoint.x, p.p1.y - draggedPoint.y);
-        const distToP2 = Math.hypot(p.p2.x - draggedPoint.x, p.p2.y - draggedPoint.y);
+        
+        // DÜZELTME: 3D Mesafe (Z Dahil) - Böylece düşey hattın diğer ucundaki boru seçilmez
+        const distToP1 = Math.hypot(
+            p.p1.x - draggedPoint.x, 
+            p.p1.y - draggedPoint.y, 
+            (p.p1.z || 0) - (draggedPoint.z || 0)
+        );
+        const distToP2 = Math.hypot(
+            p.p2.x - draggedPoint.x, 
+            p.p2.y - draggedPoint.y, 
+            (p.p2.z || 0) - (draggedPoint.z || 0)
+        );
+
         if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p1' });
         if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p2' });
     });
@@ -193,12 +215,10 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
  * (Aynen korundu)
  */
 export function startDrag(interactionManager, obj, point) {
-
-
     if (obj.type === 'baca' && obj.parentCihazId) {
         const parentCihaz = interactionManager.manager.components.find(c => c.id === obj.parentCihazId);
         if (parentCihaz) {
-            obj = parentCihaz; // Sürüklenen nesneyi 'cihaz' olarak değiştir
+            obj = parentCihaz;
         }
     }
 
@@ -207,11 +227,10 @@ export function startDrag(interactionManager, obj, point) {
     interactionManager.dragEndpoint = null;
     interactionManager.dragStart = { ...point };
 
-    // DÜZELTME: Vana için başlangıç Z değerini kaydet (düşey boru sürükleme için)
     if (obj.type === 'vana' && obj.bagliBoruId) {
         interactionManager.dragObjectPipe = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
         interactionManager.dragObjectsOnPipe = getObjectsOnPipe(interactionManager.manager.components, obj.bagliBoruId);
-        interactionManager.dragStartZ = obj.z || 0; // Başlangıç Z'yi kaydet
+        interactionManager.dragStartZ = obj.z || 0;
     } else {
         interactionManager.dragObjectPipe = null;
         interactionManager.dragObjectsOnPipe = null;
@@ -239,8 +258,19 @@ export function startDrag(interactionManager, obj, point) {
             const outputConnectedPipes = [];
             interactionManager.manager.pipes.forEach(p => {
                 if (excludePipes.includes(p)) return;
-                const distToP1 = Math.hypot(p.p1.x - cikisBoru.p1.x, p.p1.y - cikisBoru.p1.y);
-                const distToP2 = Math.hypot(p.p2.x - cikisBoru.p1.x, p.p2.y - cikisBoru.p1.y);
+                
+                // DÜZELTME: 3D Mesafe (Z Dahil)
+                const distToP1 = Math.hypot(
+                    p.p1.x - cikisBoru.p1.x, 
+                    p.p1.y - cikisBoru.p1.y,
+                    (p.p1.z || 0) - (cikisBoru.p1.z || 0)
+                );
+                const distToP2 = Math.hypot(
+                    p.p2.x - cikisBoru.p1.x, 
+                    p.p2.y - cikisBoru.p1.y,
+                    (p.p2.z || 0) - (cikisBoru.p1.z || 0)
+                );
+
                 if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
                 if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
             });
@@ -251,7 +281,7 @@ export function startDrag(interactionManager, obj, point) {
 
 /**
  * Boru body sürüklemeyi başlat
- * (Aynen korundu)
+ * GÜNCELLENDİ: Z ekseni kontrolü eklendi
  */
 export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.isDragging = true;
@@ -279,13 +309,32 @@ export function startBodyDrag(interactionManager, pipe, point) {
 
     interactionManager.manager.pipes.forEach(p => {
         if (excludePipesForBody.includes(p)) return;
-        const distToP1FromP1 = Math.hypot(p.p1.x - pipe.p1.x, p.p1.y - pipe.p1.y);
-        const distToP2FromP1 = Math.hypot(p.p2.x - pipe.p1.x, p.p2.y - pipe.p1.y);
+        
+        // P1 KONTROLLERİ (Z DAHİL)
+        const distToP1FromP1 = Math.hypot(
+            p.p1.x - pipe.p1.x, 
+            p.p1.y - pipe.p1.y,
+            (p.p1.z || 0) - (pipe.p1.z || 0)
+        );
+        const distToP2FromP1 = Math.hypot(
+            p.p2.x - pipe.p1.x, 
+            p.p2.y - pipe.p1.y,
+            (p.p2.z || 0) - (pipe.p1.z || 0)
+        );
         if (distToP1FromP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP1.push({ pipe: p, endpoint: 'p1' });
         if (distToP2FromP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP1.push({ pipe: p, endpoint: 'p2' });
 
-        const distToP1FromP2 = Math.hypot(p.p1.x - pipe.p2.x, p.p1.y - pipe.p2.y);
-        const distToP2FromP2 = Math.hypot(p.p2.x - pipe.p2.x, p.p2.y - pipe.p2.y);
+        // P2 KONTROLLERİ (Z DAHİL)
+        const distToP1FromP2 = Math.hypot(
+            p.p1.x - pipe.p2.x, 
+            p.p1.y - pipe.p2.y,
+            (p.p1.z || 0) - (pipe.p2.z || 0)
+        );
+        const distToP2FromP2 = Math.hypot(
+            p.p2.x - pipe.p2.x, 
+            p.p2.y - pipe.p2.y,
+            (p.p2.z || 0) - (pipe.p2.z || 0)
+        );
         if (distToP1FromP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP2.push({ pipe: p, endpoint: 'p1' });
         if (distToP2FromP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP2.push({ pipe: p, endpoint: 'p2' });
     });
@@ -301,8 +350,17 @@ export function startBodyDrag(interactionManager, pipe, point) {
             const outputConnectedPipes = [];
             interactionManager.manager.pipes.forEach(p => {
                 if (excludePipes.includes(p)) return;
-                const distToP1 = Math.hypot(p.p1.x - cikisBoru.p1.x, p.p1.y - cikisBoru.p1.y);
-                const distToP2 = Math.hypot(p.p2.x - cikisBoru.p1.x, p.p2.y - cikisBoru.p1.y);
+                // DÜZELTME: Z Dahil
+                const distToP1 = Math.hypot(
+                    p.p1.x - cikisBoru.p1.x, 
+                    p.p1.y - cikisBoru.p1.y,
+                    (p.p1.z || 0) - (cikisBoru.p1.z || 0)
+                );
+                const distToP2 = Math.hypot(
+                    p.p2.x - cikisBoru.p1.x, 
+                    p.p2.y - cikisBoru.p1.y,
+                    (p.p2.z || 0) - (cikisBoru.p1.z || 0)
+                );
                 if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
                 if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
             });
@@ -315,8 +373,20 @@ export function startBodyDrag(interactionManager, pipe, point) {
     if (interactionManager.connectedPipesAtP1.length === 1 && interactionManager.connectedPipesAtP2.length === 1) {
         const pipeA = interactionManager.connectedPipesAtP1[0].pipe;
         const pipeC = interactionManager.connectedPipesAtP2[0].pipe;
-        const p1OfA = (Math.hypot(pipeA.p1.x - pipe.p1.x, pipeA.p1.y - pipe.p1.y) < 1) ? pipeA.p2 : pipeA.p1;
-        const p2OfC = (Math.hypot(pipeC.p1.x - pipe.p2.x, pipeC.p1.y - pipe.p2.y) < 1) ? pipeC.p2 : pipeC.p1;
+        
+        // DÜZELTME: Bridge check için Z kontrolü
+        const p1OfA = (Math.hypot(
+            pipeA.p1.x - pipe.p1.x, 
+            pipeA.p1.y - pipe.p1.y,
+            (pipeA.p1.z || 0) - (pipe.p1.z || 0)
+        ) < 1) ? pipeA.p2 : pipeA.p1;
+        
+        const p2OfC = (Math.hypot(
+            pipeC.p1.x - pipe.p2.x, 
+            pipeC.p1.y - pipe.p2.y,
+            (pipeC.p1.z || 0) - (pipe.p2.z || 0)
+        ) < 1) ? pipeC.p2 : pipeC.p1;
+        
         const p1 = p1OfA;
         const p2 = pipe.p1;
         const p3 = pipe.p2;
@@ -1053,15 +1123,35 @@ export function handleDrag(interactionManager, point, event = null) {
 
 /**
  * Bağlı boru zincirini günceller
- * (Aynen korundu)
+ * GÜNCELLENDİ: Z ekseni kontrolü eklendi
  */
 export function updateConnectedPipesChain(interactionManager, oldPoint, newPoint) {
     const tolerance = 0.5;
     interactionManager.manager.pipes.forEach(pipe => {
-        const distP1 = Math.hypot(pipe.p1.x - oldPoint.x, pipe.p1.y - oldPoint.y);
-        if (distP1 < tolerance) { pipe.p1.x = newPoint.x; pipe.p1.y = newPoint.y; }
-        const distP2 = Math.hypot(pipe.p2.x - oldPoint.x, pipe.p2.y - oldPoint.y);
-        if (distP2 < tolerance) { pipe.p2.x = newPoint.x; pipe.p2.y = newPoint.y; }
+        // P1 KONTROLÜ (Z DAHİL)
+        const distP1 = Math.hypot(
+            pipe.p1.x - oldPoint.x, 
+            pipe.p1.y - oldPoint.y,
+            (pipe.p1.z || 0) - (oldPoint.z || 0)
+        );
+        if (distP1 < tolerance) { 
+            pipe.p1.x = newPoint.x; 
+            pipe.p1.y = newPoint.y; 
+            // Opsiyonel: Eğer newPoint'te Z bilgisi varsa Z'yi de güncelle
+            // if(newPoint.z !== undefined) pipe.p1.z = newPoint.z;
+        }
+        
+        // P2 KONTROLÜ (Z DAHİL)
+        const distP2 = Math.hypot(
+            pipe.p2.x - oldPoint.x, 
+            pipe.p2.y - oldPoint.y,
+            (pipe.p2.z || 0) - (oldPoint.z || 0)
+        );
+        if (distP2 < tolerance) { 
+            pipe.p2.x = newPoint.x; 
+            pipe.p2.y = newPoint.y; 
+             // Opsiyonel: if(newPoint.z !== undefined) pipe.p2.z = newPoint.z;
+        }
     });
 }
 
