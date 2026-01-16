@@ -592,7 +592,7 @@ export class PlumbingRenderer {
         const startPt = manager.interactionManager.boruBaslangic.nokta;
         const snapMode = manager.interactionManager.axisSnapMode; // 'X', 'Y', 'Z'
         const zoom = state.zoom || 1;
-        const guideLength = 100 / zoom; // Kılavuz uzunluğu
+        const guideLength = 50 / zoom; // Kılavuz uzunluğu
 
         // Başlangıç noktasının ekran koordinatlarını hesapla
         const z = (startPt.z || 0) * t;
@@ -617,7 +617,7 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         ctx.fillStyle = '#FF0000';
-        ctx.fillText("X", guideLength + 5 / zoom, 0);
+        //ctx.fillText("X", guideLength + 5 / zoom, 0);
 
         // --- Y EKSENİ (Yeşil) ---
         // Dikey aşağı doğru
@@ -631,7 +631,7 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         ctx.fillStyle = '#00AA00';
-        ctx.fillText("Y", 0, guideLength + 12 / zoom);
+       //ctx.fillText("Y", 0, guideLength + 12 / zoom);
 
         // --- Z EKSENİ (Mavi) ---
         // Çapraz sağ-yukarı (Ekran koordinatlarında x+, y-)
@@ -648,7 +648,7 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         ctx.fillStyle = '#0000FF';
-        ctx.fillText("Z (Shift)", guideLength + 5 / zoom, -guideLength - 5 / zoom);
+       // ctx.fillText("Z (Shift)", guideLength + 5 / zoom, -guideLength - 5 / zoom);
 
         // Merkez nokta
         ctx.beginPath();
