@@ -458,7 +458,8 @@ export class Vana {
         // ------------------------------------------------
 
         // Boru ucuna yakınsa fromEnd ve fixedDistance'ı tekrar set et
-        const END_THRESHOLD_CM = 10; // 10 cm içindeyse uç sayılır
+        // DÜZELTME: Threshold'u 10cm'den 3cm'e düşürdük - vana daha az atlayacak
+        const END_THRESHOLD_CM = 3; // 3 cm içindeyse uç sayılır (eski: 10)
         const VANA_GENISLIGI = 8;
         const BORU_UCU_BOSLUK = 1;
         const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm

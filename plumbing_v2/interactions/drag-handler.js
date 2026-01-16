@@ -379,11 +379,15 @@ export function handleDrag(interactionManager, point, event = null) {
                 // (Hesaplama aşağıda correctedPoint içinde yapılacak)
             } else {
                 // Yatay/Eğik boru: Vana için t parametresine göre Z interpolasyonu yap
-                if (obj.type === 'vana' && obj.vanaT !== undefined) {
-                    // Vana'nın boru üzerindeki pozisyonuna göre Z değerini interpolasyon ile hesapla
+                if (obj.type === 'vana') {
+                    // DÜZELTME: Mouse pozisyonunu boruya projekte edip gerçek t değerini bul
+                    // Bu sayede vana farklı yüksekliklere geçerken de doğru Z offseti kullanılır
+                    const proj = pipe.projectPoint(point);
+                    const currentT = (proj && proj.onSegment) ? proj.t : (obj.vanaT || 0);
+
                     const z1 = pipe.p1.z || 0;
                     const z2 = pipe.p2.z || 0;
-                    zOffset = z1 + obj.vanaT * (z2 - z1);
+                    zOffset = z1 + currentT * (z2 - z1);
                 } else {
                     // Diğer objeler: Başlangıç yüksekliğini baz al
                     zOffset = obj.z !== undefined ? obj.z : (pipe.p1.z || 0);
