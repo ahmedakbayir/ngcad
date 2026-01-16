@@ -351,7 +351,7 @@ export class InteractionManager {
         return findObjectAt(this.manager, point);
     }
 
-    isFreeEndpoint(point, tolerance = 1) {
+    isFreeEndpoint(point, tolerance = 5) {
         return isFreeEndpoint(this.manager, point, tolerance);
     }
 
