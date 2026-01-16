@@ -1109,6 +1109,17 @@ export class PlumbingRenderer {
         pipes.forEach(pipe => {
             if (!pipe.vana) return;
 
+            // --- DÜZELTME: Düşey borudaki vanayı 2D'de gizle ---
+            if (t < 0.1) {
+                const dx = pipe.p2.x - pipe.p1.x;
+                const dy = pipe.p2.y - pipe.p1.y;
+                const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+                const len2d = Math.hypot(dx, dy);
+                // Düşey boru kriteri: 2D uzunluk < 2cm veya Z farkı 2D boydan büyük
+                if (len2d < 2.0 || Math.abs(dz) > len2d) {
+                    return;
+                }
+            }
             // Vana pozisyonu (ekleme noktası)
             const vanaPos = pipe.getVanaPozisyon();
             if (!vanaPos) return;
@@ -1614,6 +1625,20 @@ export class PlumbingRenderer {
     }
 
     drawVana(ctx, comp, manager = null) {
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.1 && manager && comp.bagliBoruId) {
+            const pipe = manager.findPipeById(comp.bagliBoruId);
+            if (pipe) {
+                const dx = pipe.p2.x - pipe.p1.x;
+                const dy = pipe.p2.y - pipe.p1.y;
+                const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+                const len2d = Math.hypot(dx, dy);
+                // Düşey boru kriteri
+                if (len2d < 2.0 || Math.abs(dz) > len2d) {
+                    return;
+                }
+            }
+        }
         const size = 9.6;
         const halfSize = size / 2;
 
@@ -3021,6 +3046,9 @@ export class PlumbingRenderer {
 
         let angle = pipe.aci;
         const t = state.viewBlendFactor || 0;
+
+        if (isVertical && t < 0.1) return;
+        // -------------------------------------------------------------
 
         if (isVertical && t > 0.1) {
             angle = -45 * Math.PI / 180; // 3D'de düşey boru açısı
