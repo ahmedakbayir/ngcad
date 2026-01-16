@@ -361,7 +361,7 @@ export function handleDrag(interactionManager, point, event = null) {
             const dy = pipe.p2.y - pipe.p1.y;
             const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
             const len2d = Math.hypot(dx, dy);
-            
+
             // Düşey boru tespiti (3D modunda ve dik boru)
             if (t > 0.1 && (len2d < 2.0 || Math.abs(dz) > len2d)) {
                 isVerticalDrag = true;
@@ -369,8 +369,16 @@ export function handleDrag(interactionManager, point, event = null) {
                 // Düşey sürüklemede Z'yi mouse hareketinden hesaplayacağız, o yüzden şimdilik offset 0 alıyoruz
                 // (Hesaplama aşağıda correctedPoint içinde yapılacak)
             } else {
-                // Yatay/Eğik boru: Başlangıç yüksekliğini baz al
-                zOffset = obj.z !== undefined ? obj.z : (pipe.p1.z || 0);
+                // Yatay/Eğik boru: Vana için t parametresine göre Z interpolasyonu yap
+                if (obj.type === 'vana' && obj.vanaT !== undefined) {
+                    // Vana'nın boru üzerindeki pozisyonuna göre Z değerini interpolasyon ile hesapla
+                    const z1 = pipe.p1.z || 0;
+                    const z2 = pipe.p2.z || 0;
+                    zOffset = z1 + obj.vanaT * (z2 - z1);
+                } else {
+                    // Diğer objeler: Başlangıç yüksekliğini baz al
+                    zOffset = obj.z !== undefined ? obj.z : (pipe.p1.z || 0);
+                }
             }
         }
     }
