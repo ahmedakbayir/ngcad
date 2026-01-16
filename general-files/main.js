@@ -465,7 +465,7 @@ export let state = {
     is3DPerspectiveActive: false,
     // ...
     tempVisibility: {
-        showZElevation: false,      // Z Kotu
+        showZElevation: true,      // Z Kotu
         showPipeLabels: false,      // Hat No (A, B, C...)
         showArchDimensions: false,  // Mimari Ölçü
         showPlumbingDimensions: false, // Tesisat Ölçü

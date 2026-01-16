@@ -1834,7 +1834,8 @@ function setupVisibilityPanel() {
             'vis-chk-arch-dim': 'showArchDimensions',
             'vis-chk-plumb-dim': 'showPlumbingDimensions',
             'vis-chk-room': 'showRoomNames',
-            'vis-chk-shadow': 'showPipeShadows'
+            'vis-chk-shadow': 'showPipeShadows',
+            'vis-chk-axis': 'show3DAxis'
         };
         const elId = ids[key];
         const stateKey = stateKeyMap[elId];
