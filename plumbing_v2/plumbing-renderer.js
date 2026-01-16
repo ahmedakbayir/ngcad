@@ -3227,6 +3227,10 @@ drawServisKutusu(ctx, comp) {
         const { boruUcu } = connInfo;
         const boru = boruUcu.boru;
 
+        // DÜZELTME: 3D offset hesapla
+        const t = state.viewBlendFactor || 0;
+        const boruZ = boruUcu.nokta.z || 0;
+
         // 1. Boru ucunda vana var mı? (Ghost aşamasında yoksa hayalet vana çiz)
         const vanaVarMi = manager.components.some(comp =>
             comp.type === 'vana' &&
@@ -3252,7 +3256,11 @@ drawServisKutusu(ctx, comp) {
                 vanaY = boruUcu.nokta.y - (dy / length) * VANA_CENTER_MARGIN;
             }
 
-            ctx.translate(vanaX, vanaY);
+            // DÜZELTME: 3D offset uygula
+            const vanaScreenX = vanaX + (boruZ * t);
+            const vanaScreenY = vanaY - (boruZ * t);
+
+            ctx.translate(vanaScreenX, vanaScreenY);
             ctx.rotate(boru.aci);
             ctx.globalAlpha = 0.6;
 
@@ -3273,12 +3281,20 @@ drawServisKutusu(ctx, comp) {
             ctx.fill();
 
             ctx.rotate(-boru.aci); // Rotasyonu geri al
-            ctx.translate(-vanaX, -vanaY); // Translate'i geri al
+            ctx.translate(-vanaScreenX, -vanaScreenY); // Translate'i geri al
         }
 
         // 2. Fleks Çizgisi (Basit kesikli çizgi)
         // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil)
         const solRakor = ghost.getSolRakorNoktasi();
+
+        // DÜZELTME: 3D offset uygula (boru ucu ve sayaç rakor)
+        const boruUcScreenX = boruUcu.nokta.x + (boruZ * t);
+        const boruUcScreenY = boruUcu.nokta.y - (boruZ * t);
+
+        const sayacZ = ghost.z || 0;
+        const solRakorScreenX = solRakor.x + (sayacZ * t);
+        const solRakorScreenY = solRakor.y - (sayacZ * t);
 
         // Fleks rengini borunun colorGroup'una göre ayarla
         const colorGroup = boru?.colorGroup || 'YELLOW';
@@ -3291,9 +3307,9 @@ drawServisKutusu(ctx, comp) {
 
         ctx.beginPath();
         // Boru ucundan (veya vana hizasından)
-        ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y);
+        ctx.moveTo(boruUcScreenX, boruUcScreenY);
         // Sayacın sol rakoruna
-        ctx.lineTo(solRakor.x, solRakor.y);
+        ctx.lineTo(solRakorScreenX, solRakorScreenY);
         ctx.stroke();
 
 

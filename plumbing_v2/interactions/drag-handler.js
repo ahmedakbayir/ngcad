@@ -362,7 +362,7 @@ export function handleDrag(interactionManager, point, event = null) {
     // --- 3D Z-KOORDİNAT DÜZELTMESİ ---
     let zOffset = obj.z || 0;
     let isVerticalDrag = false;
-    let verticalPipeBase = null; // {x, y, z}
+    let verticalPipeBase = null; // {x, y, z, p2z}
 
     // Eğer boruya bağlı bir nesne ise, borunun durumunu kontrol et
     if (obj.bagliBoruId) {
@@ -377,7 +377,12 @@ export function handleDrag(interactionManager, point, event = null) {
             // Düşey boru tespiti (3D modunda ve dik boru)
             if (t > 0.1 && (len2d < 2.0 || Math.abs(dz) > len2d)) {
                 isVerticalDrag = true;
-                verticalPipeBase = pipe.p1;
+                verticalPipeBase = {
+                    x: pipe.p1.x,
+                    y: pipe.p1.y,
+                    z: pipe.p1.z || 0,
+                    p2z: pipe.p2.z || 0
+                };
                 // Düşey sürüklemede Z'yi mouse hareketinden hesaplayacağız, o yüzden şimdilik offset 0 alıyoruz
                 // (Hesaplama aşağıda correctedPoint içinde yapılacak)
             } else {
@@ -406,28 +411,34 @@ export function handleDrag(interactionManager, point, event = null) {
     let correctedPoint;
 
     if (isVerticalDrag && verticalPipeBase) {
-        // --- DÜŞEY BORU İÇİN ÖZEL HESAPLAMA ---
-        // Mouse'un ekrandaki konumu (point.x, point.y) ile düşey borunun görsel izdüşümü arasındaki ilişkiyi kuruyoruz.
-        // Formül: Z = ((mx - px) - (my - py)) / (2*t) + pz
-        // mx, my: Mouse World Coords (Z=0 plane)
-        // px, py: Pipe Base World Coords
+        // --- DÜŞEY BORU İÇİN ÖZEL HESAPLAMA (DELTA BAZLI) ---
+        // İzometrik projeksiyonda Z artarken ekranda sağ-üst diagonal hareket olur:
+        //   screen_x += z * t
+        //   screen_y -= z * t
+        // Diagonal bileşen: (dx - dy) bize Z yönündeki hareketi verir
+        // deltaZ = (screen_dx - screen_dy) / (2 * t)
 
-        // DÜZELTME: Başlangıç Z offset'ini dikkate al
-        // Vana ilk tıklandığında Z>0'daysa, mouse pozisyonu o Z offset ile kaydedilmiştir.
-        // Bu offset'i geri çıkararak gerçek mouse hareketini buluyoruz.
         const startZ = interactionManager.dragStartZ || 0;
-        const mx = point.x - (startZ * t);  // Başlangıç Z offset'ini çıkar
-        const my = point.y + (startZ * t);  // Başlangıç Z offset'ini çıkar
-        const px = verticalPipeBase.x;
-        const py = verticalPipeBase.y;
 
-        // Mouse'un boru üzerindeki izdüşümüne denk gelen Z değerini hesapla
-        const dynamicZ = ((mx - px) - (my - py)) / (2 * t) + (verticalPipeBase.z || 0);
+        // Mouse'un ekran koordinatındaki delta (başlangıç pozisyonundan)
+        const screenDx = point.x - interactionManager.dragStart.x;
+        const screenDy = point.y - interactionManager.dragStart.y;
+
+        // Z delta hesapla (sağ-üst diagonal hareket = pozitif Z)
+        const deltaZ = (screenDx - screenDy) / (2 * t);
+
+        // Yeni Z pozisyonu
+        const newZ = startZ + deltaZ;
+
+        // Boru sınırlarını kontrol et
+        const minZ = Math.min(verticalPipeBase.z, verticalPipeBase.p2z);
+        const maxZ = Math.max(verticalPipeBase.z, verticalPipeBase.p2z);
+        const clampedZ = Math.max(minZ, Math.min(maxZ, newZ));
 
         correctedPoint = {
-            x: px, // X sabit
-            y: py, // Y sabit
-            z: dynamicZ // Z dinamik
+            x: verticalPipeBase.x, // X sabit
+            y: verticalPipeBase.y, // Y sabit
+            z: clampedZ // Z dinamik ve sınırlı
         };
     } else {
         // --- STANDART 3D DÜZELTME (Yatay/Eğik/Serbest) ---
