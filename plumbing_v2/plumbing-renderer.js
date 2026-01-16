@@ -363,7 +363,14 @@ export class PlumbingRenderer {
 
                     // Manuel translate + draw
                     ctx.save();
-                    ctx.translate(manager.tempComponent.x, manager.tempComponent.y);
+
+                    // DÜZELTME: 3D modda Z offset'i uygula
+                    const z = manager.tempComponent.z || 0;
+                    const t = state.viewBlendFactor || 0;
+                    const screenX = manager.tempComponent.x + (z * t);
+                    const screenY = manager.tempComponent.y - (z * t);
+
+                    ctx.translate(screenX, screenY);
                     if (manager.tempComponent.rotation) {
                         ctx.rotate(manager.tempComponent.rotation * Math.PI / 180);
                     }
