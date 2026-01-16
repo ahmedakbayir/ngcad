@@ -1774,7 +1774,8 @@ function setupVisibilityPanel() {
         archDim: 'vis-chk-arch-dim',
         plumbDim: 'vis-chk-plumb-dim',
         room: 'vis-chk-room',
-        shadow: 'vis-chk-shadow'
+        shadow: 'vis-chk-shadow',
+        axis: 'vis-chk-axis'
     };
 
     // State'i güncelle ve sahneyi yeniden çiz
@@ -1801,6 +1802,7 @@ function setupVisibilityPanel() {
     document.getElementById(ids.plumbDim)?.addEventListener('change', (e) => updateVisibility('showPlumbingDimensions', e.target.checked));
     document.getElementById(ids.room)?.addEventListener('change', (e) => updateVisibility('showRoomNames', e.target.checked));
     document.getElementById(ids.shadow)?.addEventListener('change', (e) => updateVisibility('showPipeShadows', e.target.checked));
+    document.getElementById(ids.axis)?.addEventListener('change', (e) => updateVisibility('show3DAxis', e.target.checked));
 
     // Hepsini Göster
     document.getElementById('vis-btn-show-all')?.addEventListener('click', () => {

@@ -465,12 +465,13 @@ export let state = {
     is3DPerspectiveActive: false,
     // ...
     tempVisibility: {
-        showZElevation: true,      // Z Kotu
-        showPipeLabels: true,      // Hat No (A, B, C...)
-        showArchDimensions: true,  // Mimari Ölçü
-        showPlumbingDimensions: true, // Tesisat Ölçü
-        showRoomNames: true,       // Mahal İsimleri
-        showPipeShadows: true      // Hat Gölgesi
+        showZElevation: false,      // Z Kotu
+        showPipeLabels: false,      // Hat No (A, B, C...)
+        showArchDimensions: false,  // Mimari Ölçü
+        showPlumbingDimensions: false, // Tesisat Ölçü
+        showRoomNames: false,       // Mahal İsimleri
+        showPipeShadows: false,     // Hat Gölgesi
+        show3DAxis: true            // Varsayılan açık
     },
 };
 
