@@ -112,9 +112,12 @@ export function findObjectAt(manager, point) {
  * KRITIK: Cihazlar SADECE gerçek boş uçlara (1 borulu) bağlanabilir
  * Dirsek (2 boru), TE (3+ boru) = DOLU UÇ
  */
-export function isFreeEndpoint(manager, point, tolerance = 1) {
+export function isFreeEndpoint(manager, point, tolerance = 5) {
     const currentFloorId = state.currentFloor?.id;
     let pipeCount = 0;
+
+    // Point'i ekran koordinatına çevir (3D izdüşüm için)
+    const pointScreen = getScreenPoint(point);
 
     for (const boru of manager.pipes) {
         if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) {
@@ -125,8 +128,9 @@ export function isFreeEndpoint(manager, point, tolerance = 1) {
         const p1Screen = getScreenPoint(boru.p1);
         const p2Screen = getScreenPoint(boru.p2);
 
-        const distP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
-        const distP2 = Math.hypot(point.x - p2Screen.x, point.y - p2Screen.y);
+        // Ekran koordinatlarında mesafe ölç
+        const distP1 = Math.hypot(pointScreen.x - p1Screen.x, pointScreen.y - p1Screen.y);
+        const distP2 = Math.hypot(pointScreen.x - p2Screen.x, pointScreen.y - p2Screen.y);
 
         if (distP1 < tolerance || distP2 < tolerance) {
             pipeCount++;
