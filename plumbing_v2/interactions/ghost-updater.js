@@ -23,9 +23,10 @@ export function updateGhostPosition(ghost, point, snap) {
     // Cihaz için: boru ucuna snap yap, fleks etrafında mouse ile hareket et
     if (ghost.type === 'cihaz') {
         // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-        // 3D modda tolerance artır (Z kaymasını hesaba kat)
+        // 3D modda tolerance artır (Z kayması diagonal olarak sqrt(2)*Z*t olabilir)
+        // Z=100cm, t=1 için kayma ~141cm, tolerance en az 200cm olmalı
         const baseTolerance = 15;
-        const tolerance3D = t > 0.5 ? baseTolerance + (100 * t) : baseTolerance;
+        const tolerance3D = t > 0.5 ? baseTolerance * (1 + 15 * t) : baseTolerance;
         const boruUcu = this.findBoruUcuAt(point, tolerance3D, true); // onlyFreeEndpoints = true
 
         if (boruUcu && boruUcu.boru) {
@@ -137,9 +138,10 @@ export function updateGhostPosition(ghost, point, snap) {
         }
     }
     else if (ghost.type === 'sayac') {
-        // 3D modda tolerance artır (Z kaymasını hesaba kat)
+        // 3D modda tolerance artır (Z kayması diagonal olarak sqrt(2)*Z*t olabilir)
+        // Z=100cm, t=1 için kayma ~141cm, tolerance en az 200cm olmalı
         const baseTolerance = 15;
-        const tolerance3D = t > 0.5 ? baseTolerance + (100 * t) : baseTolerance;
+        const tolerance3D = t > 0.5 ? baseTolerance * (1 + 15 * t) : baseTolerance;
         const boruUcu = this.findBoruUcuAt(point, tolerance3D, true);
 
         if (boruUcu && boruUcu.boru) {
