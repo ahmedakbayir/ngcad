@@ -250,19 +250,23 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
         if (distP1 < tolerance) {
             // SADECE gerçek boş uçlar kontrolü
             // Not: isTrulyFreeEndpoint içinde de getScreenPoint kullanıldığı için uyumludur
+            const trulyFree = manager.isTrulyFreeEndpoint(boru.p1, 1);
+            const hasDevice = hasDeviceAtEndpoint(manager, boru.id, 'p1');
+            const hasMeter = hasMeterAtEndpoint(manager, boru.id, 'p1');
+            console.log('[findBoruUcuAt] p1 kontrol - boruId:', boru.id, 'p1:', boru.p1, 'trulyFree:', trulyFree, 'hasDevice:', hasDevice, 'hasMeter:', hasMeter, 'onlyFree:', onlyFreeEndpoints);
             if (!onlyFreeEndpoints ||
-                (manager.isTrulyFreeEndpoint(boru.p1, 1) &&
-                    !hasDeviceAtEndpoint(manager, boru.id, 'p1') &&
-                    !hasMeterAtEndpoint(manager, boru.id, 'p1'))) {
+                (trulyFree && !hasDevice && !hasMeter)) {
 
                 candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru, screenPoint: p1Screen });
             }
         }
         if (distP2 < tolerance) {
+            const trulyFree = manager.isTrulyFreeEndpoint(boru.p2, 1);
+            const hasDevice = hasDeviceAtEndpoint(manager, boru.id, 'p2');
+            const hasMeter = hasMeterAtEndpoint(manager, boru.id, 'p2');
+            console.log('[findBoruUcuAt] p2 kontrol - boruId:', boru.id, 'p2:', boru.p2, 'trulyFree:', trulyFree, 'hasDevice:', hasDevice, 'hasMeter:', hasMeter, 'onlyFree:', onlyFreeEndpoints);
             if (!onlyFreeEndpoints ||
-                (manager.isTrulyFreeEndpoint(boru.p2, 1) &&
-                    !hasDeviceAtEndpoint(manager, boru.id, 'p2') &&
-                    !hasMeterAtEndpoint(manager, boru.id, 'p2'))) {
+                (trulyFree && !hasDevice && !hasMeter)) {
                 candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru, screenPoint: p2Screen });
             }
         }

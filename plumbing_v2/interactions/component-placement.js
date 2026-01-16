@@ -480,40 +480,43 @@ export function handleSayacEndPlacement(meter) {
  * - Boru ucunda vana yoksa otomatik vana eklenir
  */
 export function handleCihazEkleme(cihaz) {
-    //console.log('[handleCihazEkleme] Başlıyor. Cihaz tipi:', cihaz.cihazTipi);
+    console.log('[handleCihazEkleme] Başlıyor. Cihaz tipi:', cihaz.cihazTipi);
 
     // Ghost'tan boru ucu bilgisini al (ghost gösterimde doğru pozisyon belirlendi)
     // Eğer ghost bilgisi yoksa, mevcut pozisyondan bul
     let boruUcu;
     if (cihaz.ghostConnectionInfo && cihaz.ghostConnectionInfo.boruUcu) {
         boruUcu = cihaz.ghostConnectionInfo.boruUcu;
-        //console.log('[handleCihazEkleme] Ghost connection info bulundu:', boruUcu);
+        console.log('[handleCihazEkleme] Ghost connection info bulundu:', boruUcu);
     } else {
         // Fallback: mevcut pozisyondan bul
         const girisNoktasi = cihaz.getGirisNoktasi();
         boruUcu = this.findBoruUcuAt(girisNoktasi, 50);
-        //console.log('[handleCihazEkleme] Fallback ile boru ucu bulundu:', boruUcu);
+        console.log('[handleCihazEkleme] Fallback ile boru ucu bulundu:', boruUcu);
     }
 
     if (!boruUcu) {
-        // console.error('[handleCihazEkleme] ✗ Boru ucu bulunamadı!');
-        //alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
+        console.error('[handleCihazEkleme] ✗ Boru ucu bulunamadı!');
+        alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
         // Cihazı components'a ekleme, sadece iptal et
         return false;
     }
 
     // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
-    if (!this.isFreeEndpoint(boruUcu.nokta, 5)) {
-        // console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
-        // alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
+    const isFree = this.isFreeEndpoint(boruUcu.nokta, 5);
+    console.log('[handleCihazEkleme] isFreeEndpoint sonucu:', isFree, 'nokta:', boruUcu.nokta);
+    if (!isFree) {
+        console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
+        alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
         return false;
     }
 
     // CİHAZ VAR MI KONTROLÜ: Bir boru ucunda zaten cihaz varsa başka cihaz eklenemez
     const mevcutCihaz = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
+    console.log('[handleCihazEkleme] Mevcut cihaz kontrolü:', mevcutCihaz);
     if (mevcutCihaz) {
-        // console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
-        // alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
+        console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
+        alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
         return false;
     }
 
