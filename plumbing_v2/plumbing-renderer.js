@@ -3106,6 +3106,10 @@ drawServisKutusu(ctx, comp) {
         const { boruUcu, girisNoktasi } = connInfo;
         const boru = boruUcu.boru;
 
+        // DÜZELTME: 3D offset hesapla
+        const t = state.viewBlendFactor || 0;
+        const boruZ = boruUcu.nokta.z || 0;
+
         // Boru ucunda vana var mı kontrol et
         const vanaVarMi = manager.components.some(comp =>
             comp.type === 'vana' &&
@@ -3137,9 +3141,13 @@ drawServisKutusu(ctx, comp) {
                 vanaY = boruUcu.nokta.y - (dy / length) * VANA_CENTER_MARGIN;
             }
 
+            // DÜZELTME: 3D offset uygula
+            const vanaScreenX = vanaX + (boruZ * t);
+            const vanaScreenY = vanaY - (boruZ * t);
+
             // Vana çiz
             ctx.save();
-            ctx.translate(vanaX, vanaY);
+            ctx.translate(vanaScreenX, vanaScreenY);
             ctx.rotate(boru.aci);
             ctx.globalAlpha = 0.6;
 
@@ -3186,6 +3194,14 @@ drawServisKutusu(ctx, comp) {
             fleksBitis = merkez;
         }
 
+        // DÜZELTME: 3D offset uygula (boru ucu ve fleks bitiş noktası)
+        const boruUcScreenX = boruUcu.nokta.x + (boruZ * t);
+        const boruUcScreenY = boruUcu.nokta.y - (boruZ * t);
+
+        const cihazZ = ghost.z || 0;
+        const fleksBitisScreenX = fleksBitis.x + (cihazZ * t);
+        const fleksBitisScreenY = fleksBitis.y - (cihazZ * t);
+
         // Fleks rengini borunun colorGroup'una göre ayarla
         const colorGroup = boru?.colorGroup || 'YELLOW';
         const fleksRenk = this.getRenkByGroup(colorGroup, 'fleks', 1);
@@ -3196,8 +3212,8 @@ drawServisKutusu(ctx, comp) {
         ctx.setLineDash([5, 5]); // Kesikli çizgi
 
         ctx.beginPath();
-        ctx.moveTo(boruUcu.nokta.x, boruUcu.nokta.y);
-        ctx.lineTo(fleksBitis.x, fleksBitis.y);
+        ctx.moveTo(boruUcScreenX, boruUcScreenY);
+        ctx.lineTo(fleksBitisScreenX, fleksBitisScreenY);
         ctx.stroke();
 
         ctx.setLineDash([]); // Reset dash

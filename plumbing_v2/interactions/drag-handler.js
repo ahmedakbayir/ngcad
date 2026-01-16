@@ -201,18 +201,21 @@ export function startDrag(interactionManager, obj, point) {
             obj = parentCihaz; // Sürüklenen nesneyi 'cihaz' olarak değiştir
         }
     }
-    
+
     interactionManager.isDragging = true;
     interactionManager.dragObject = obj;
     interactionManager.dragEndpoint = null;
     interactionManager.dragStart = { ...point };
 
+    // DÜZELTME: Vana için başlangıç Z değerini kaydet (düşey boru sürükleme için)
     if (obj.type === 'vana' && obj.bagliBoruId) {
         interactionManager.dragObjectPipe = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
         interactionManager.dragObjectsOnPipe = getObjectsOnPipe(interactionManager.manager.components, obj.bagliBoruId);
+        interactionManager.dragStartZ = obj.z || 0; // Başlangıç Z'yi kaydet
     } else {
         interactionManager.dragObjectPipe = null;
         interactionManager.dragObjectsOnPipe = null;
+        interactionManager.dragStartZ = null;
     }
 
     if (obj.type === 'servis_kutusu' && obj.bagliBoruId) {
@@ -408,14 +411,19 @@ export function handleDrag(interactionManager, point, event = null) {
         // Formül: Z = ((mx - px) - (my - py)) / (2*t) + pz
         // mx, my: Mouse World Coords (Z=0 plane)
         // px, py: Pipe Base World Coords
-        const mx = point.x;
-        const my = point.y;
+
+        // DÜZELTME: Başlangıç Z offset'ini dikkate al
+        // Vana ilk tıklandığında Z>0'daysa, mouse pozisyonu o Z offset ile kaydedilmiştir.
+        // Bu offset'i geri çıkararak gerçek mouse hareketini buluyoruz.
+        const startZ = interactionManager.dragStartZ || 0;
+        const mx = point.x - (startZ * t);  // Başlangıç Z offset'ini çıkar
+        const my = point.y + (startZ * t);  // Başlangıç Z offset'ini çıkar
         const px = verticalPipeBase.x;
         const py = verticalPipeBase.y;
-        
+
         // Mouse'un boru üzerindeki izdüşümüne denk gelen Z değerini hesapla
         const dynamicZ = ((mx - px) - (my - py)) / (2 * t) + (verticalPipeBase.z || 0);
-        
+
         correctedPoint = {
             x: px, // X sabit
             y: py, // Y sabit
@@ -1113,6 +1121,7 @@ export function endDrag(interactionManager) {
     interactionManager.ghostBridgePipes = [];
     interactionManager.pipeEndpointSnapLock = null;
     interactionManager.pipeSnapMouseStart = null;
+    interactionManager.dragStartZ = null; // DÜZELTME: dragStartZ'yi de temizle
 
     interactionManager.manager.saveToState();
     saveState();
