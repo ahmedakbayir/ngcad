@@ -275,7 +275,7 @@ export class PlumbingRenderer {
         }
         // --- YENİ EKLENEN KISIM: GÖLGE ÇİZİMİ ---
         // Sadece 3D modunda gölge çiz (Zemine izdüşüm)
-        if (state.viewBlendFactor > 0.1) {
+        if (state.viewBlendFactor > 0.1 && state.tempVisibility && state.tempVisibility.showPipeShadows) {
             this.drawShadows(ctx, manager);
         }
         // Borular
@@ -320,21 +320,26 @@ export class PlumbingRenderer {
             ctx.restore();
         }
 
-        // Boru ölçüleri (MİMARİ modunda veya dimensionMode=0 ise gizle)
         const showMeasurements = !shouldBeFaded && state.dimensionMode !== 0;
-        // DÜZELTME: state.tempVisibility.showPlumbingDimensions kontrolü eklendi
+
+        // 1. Ölçüler Açık İse (Ve Panelden de İzin Verildiyse)
         if (showMeasurements && state.tempVisibility.showPlumbingDimensions) {
             this.drawPipeMeasurements(ctx, manager.pipes);
             if (geciciBoru) {
                 this.drawTempPipeMeasurement(ctx, geciciBoru);
             }
-        } else {
-            // Ölçüler gizli iken sadece etiketleri göster
+        }
+        else {
+            // 2. Ölçüler Kapalı İse -> Sadece Etiketleri Göster
+            // DÜZELTME: && state.tempVisibility.showPipeLabels eklendi.
+            // Artık panelden "Hat No" kapatılınca burası çalışmayacak.
             const showLabelsOnly = !shouldBeFaded && state.dimensionMode === 0;
-            if (showLabelsOnly) {
+
+            if (showLabelsOnly && state.tempVisibility.showPipeLabels) {
                 this.drawPipeLabelsOnly(ctx, manager.pipes, manager.components);
             }
         }
+
 
         // --- YENİ EKLENEN KISIM: KOT YAZILARI ---
         // Boru köşe noktalarındaki h değerlerini çiz (3D modunda)
@@ -406,7 +411,10 @@ export class PlumbingRenderer {
                 ctx.restore();
             } // isSayacBeforeFirstClick kapatma
         }
-
+        // 3D Eksen Rehberi Çizimi
+        if (manager.interactionManager?.boruCizimAktif && manager.interactionManager?.boruBaslangic) {
+            this.draw3DAxisGuide(ctx, manager);
+        }
         // Snap göstergesi (her zaman normal)
         const activeSnap = manager.interactionManager?.activeSnap;
         if (activeSnap) {
@@ -459,8 +467,8 @@ export class PlumbingRenderer {
      * 3D görünümde boru köşe kotlarını (h) çizer
      */
     drawPipeElevations(ctx, pipes) {
-       
-       if (!state.tempVisibility.showZElevation) return;
+
+        if (!state.tempVisibility.showZElevation) return;
         // Sadece 3D görünümde çiz (t > 0.1)
         const t = state.viewBlendFactor || 0;
         if (t < 0.1) return;
@@ -586,6 +594,7 @@ export class PlumbingRenderer {
          */
     draw3DAxisGuide(ctx, manager) {
         // Sadece 3D modunda çiz
+        if (!state.tempVisibility.show3DAxis) return;
         const t = state.viewBlendFactor || 0;
         if (t < 0.1) return;
 
@@ -631,7 +640,7 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         ctx.fillStyle = '#00AA00';
-       //ctx.fillText("Y", 0, guideLength + 12 / zoom);
+        //ctx.fillText("Y", 0, guideLength + 12 / zoom);
 
         // --- Z EKSENİ (Mavi) ---
         // Çapraz sağ-yukarı (Ekran koordinatlarında x+, y-)
@@ -648,7 +657,7 @@ export class PlumbingRenderer {
         ctx.stroke();
 
         ctx.fillStyle = '#0000FF';
-       // ctx.fillText("Z (Shift)", guideLength + 5 / zoom, -guideLength - 5 / zoom);
+        // ctx.fillText("Z (Shift)", guideLength + 5 / zoom, -guideLength - 5 / zoom);
 
         // Merkez nokta
         ctx.beginPath();
