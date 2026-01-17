@@ -440,9 +440,9 @@ export function handleSayacEndPlacement(meter) {
         vana.z = vanaZ;
         // Vana'yı boru üzerindeki pozisyona bağla
         vana.bagliBoruId = boruUcu.boruId;
-        // Pozisyonu hesapla (0.0 - 1.0 arası)
-        const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
-        vana.boruPozisyonu = vanaToP1Dist / length;
+        // Pozisyonu hesapla (0.0 - 1.0 arası) - 3D mesafe kullan
+        const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y, vanaZ - (boru.p1.z || 0));
+        vana.boruPozisyonu = vanaToP1Dist / length3D;
         // Uçtan sabit mesafe olarak ayarla
         vana.fromEnd = boruUcu.uc; // 'p1' veya 'p2'
         vana.fixedDistance = centerMargin; // 5 cm
@@ -565,9 +565,9 @@ export function handleCihazEkleme(cihaz) {
         vana.z = vanaZ;
         // Vana'yı boru üzerindeki pozisyona bağla
         vana.bagliBoruId = boruUcu.boruId;
-        // Pozisyonu hesapla (0.0 - 1.0 arası)
-        const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y);
-        vana.boruPozisyonu = vanaToP1Dist / length;
+        // Pozisyonu hesapla (0.0 - 1.0 arası) - 3D mesafe kullan
+        const vanaToP1Dist = Math.hypot(vanaX - boru.p1.x, vanaY - boru.p1.y, vanaZ - (boru.p1.z || 0));
+        vana.boruPozisyonu = vanaToP1Dist / length3D;
         // Uçtan sabit mesafe olarak ayarla
         vana.fromEnd = boruUcu.uc; // 'p1' veya 'p2'
         vana.fixedDistance = centerMargin; // 5 cm
