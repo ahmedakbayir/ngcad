@@ -12,6 +12,20 @@ import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 import { findConnectedPipesChain } from './finders.js';
 
 /**
+ * 3D tolerance hesaplama - Z ekseni farkını telafi etmek için
+ * 2D mesafe: sqrt(dx² + dy²)
+ * 3D mesafe: sqrt(dx² + dy² + dz²) - Her zaman >= 2D mesafe
+ *
+ * ghost-updater.js'deki dinamik tolerance yaklaşımı
+ */
+function getConnectedPipesTolerance3D() {
+    const t = state.viewBlendFactor || 0;
+    const baseTolerance = 15; // cm - 2D için yeterli, 3D için taban değeri
+    // 3D modda (t > 0.5) tolerance'ı artır: Z=100cm, t=1 için ~15*(1+15)=240cm
+    return t > 0.5 ? baseTolerance * (1 + 15 * t) : baseTolerance;
+}
+
+/**
  * Bir noktanın korumalı (taşınamaz) olup olmadığını kontrol eder
  * (Aynen korundu)
  */
@@ -140,22 +154,27 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
 
 /**
  * SHARED VERTEX (ORTAK KÖŞE) MANTIĞI
- * (Aynen korundu)
+ * DÜZELTME: 3D tolerance desteği eklendi
  */
-export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
+export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = null) {
+    // Tolerance belirtilmemişse dinamik hesapla (3D desteği için)
+    if (tolerance === null) {
+        tolerance = getConnectedPipesTolerance3D();
+    }
+
     const pipesAtPoint = [];
     pipes.forEach(pipe => {
         if (pipe === excludePipe) return;
-        
-        // DÜZELTME: 3D Mesafe (Z Dahil)
+
+        // 3D Mesafe (Z Dahil)
         const distToP1 = Math.hypot(
-            pipe.p1.x - point.x, 
-            pipe.p1.y - point.y, 
+            pipe.p1.x - point.x,
+            pipe.p1.y - point.y,
             (pipe.p1.z || 0) - (point.z || 0)
         );
         const distToP2 = Math.hypot(
-            pipe.p2.x - point.x, 
-            pipe.p2.y - point.y, 
+            pipe.p2.x - point.x,
+            pipe.p2.y - point.y,
             (pipe.p2.z || 0) - (point.z || 0)
         );
 
@@ -167,7 +186,7 @@ export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = T
 
 /**
  * Uç nokta sürüklemeyi başlat
- * (Aynen korundu)
+ * DÜZELTME: 3D tolerance desteği eklendi
  */
 export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.isDragging = true;
@@ -187,24 +206,27 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
         if (cikisBoru) excludePipes.push(cikisBoru);
     }
 
+    // 3D tolerance hesapla
+    const tolerance = getConnectedPipesTolerance3D();
+
     const connectedPipes = [];
     interactionManager.manager.pipes.forEach(p => {
         if (excludePipes.includes(p)) return;
-        
-        // DÜZELTME: 3D Mesafe (Z Dahil) - Böylece düşey hattın diğer ucundaki boru seçilmez
+
+        // 3D Mesafe (Z Dahil) - Böylece düşey hattın diğer ucundaki boru seçilmez
         const distToP1 = Math.hypot(
-            p.p1.x - draggedPoint.x, 
-            p.p1.y - draggedPoint.y, 
+            p.p1.x - draggedPoint.x,
+            p.p1.y - draggedPoint.y,
             (p.p1.z || 0) - (draggedPoint.z || 0)
         );
         const distToP2 = Math.hypot(
-            p.p2.x - draggedPoint.x, 
-            p.p2.y - draggedPoint.y, 
+            p.p2.x - draggedPoint.x,
+            p.p2.y - draggedPoint.y,
             (p.p2.z || 0) - (draggedPoint.z || 0)
         );
 
-        if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p2' });
+        if (distToP1 < tolerance) connectedPipes.push({ pipe: p, endpoint: 'p1' });
+        if (distToP2 < tolerance) connectedPipes.push({ pipe: p, endpoint: 'p2' });
     });
 
     interactionManager.connectedPipesAtEndpoint = connectedPipes;
@@ -240,8 +262,9 @@ export function startDrag(interactionManager, obj, point) {
     if (obj.type === 'servis_kutusu' && obj.bagliBoruId) {
         const boru = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
         if (boru) {
+            // findPipesAtPoint artık dinamik tolerance kullanıyor
             interactionManager.servisKutusuConnectedPipes = findPipesAtPoint(
-                interactionManager.manager.pipes, boru.p1, boru, TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE
+                interactionManager.manager.pipes, boru.p1, boru
             );
         }
     }
@@ -255,24 +278,27 @@ export function startDrag(interactionManager, obj, point) {
             const excludePipes = [cikisBoru];
             if (girisBoru) excludePipes.push(girisBoru);
 
+            // 3D tolerance hesapla
+            const tolerance = getConnectedPipesTolerance3D();
+
             const outputConnectedPipes = [];
             interactionManager.manager.pipes.forEach(p => {
                 if (excludePipes.includes(p)) return;
-                
-                // DÜZELTME: 3D Mesafe (Z Dahil)
+
+                // 3D Mesafe (Z Dahil)
                 const distToP1 = Math.hypot(
-                    p.p1.x - cikisBoru.p1.x, 
+                    p.p1.x - cikisBoru.p1.x,
                     p.p1.y - cikisBoru.p1.y,
                     (p.p1.z || 0) - (cikisBoru.p1.z || 0)
                 );
                 const distToP2 = Math.hypot(
-                    p.p2.x - cikisBoru.p1.x, 
+                    p.p2.x - cikisBoru.p1.x,
                     p.p2.y - cikisBoru.p1.y,
                     (p.p2.z || 0) - (cikisBoru.p1.z || 0)
                 );
 
-                if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
-                if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
+                if (distToP1 < tolerance) outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
+                if (distToP2 < tolerance) outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
             });
             interactionManager.sayacConnectedPipes = outputConnectedPipes;
         }
@@ -281,7 +307,7 @@ export function startDrag(interactionManager, obj, point) {
 
 /**
  * Boru body sürüklemeyi başlat
- * GÜNCELLENDİ: Z ekseni kontrolü eklendi
+ * GÜNCELLENDİ: 3D tolerance desteği eklendi
  */
 export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.isDragging = true;
@@ -304,39 +330,42 @@ export function startBodyDrag(interactionManager, pipe, point) {
         if (cikisBoru) excludePipesForBody.push(cikisBoru);
     }
 
+    // 3D tolerance hesapla
+    const tolerance = getConnectedPipesTolerance3D();
+
     const connectedPipesAtP1 = [];
     const connectedPipesAtP2 = [];
 
     interactionManager.manager.pipes.forEach(p => {
         if (excludePipesForBody.includes(p)) return;
-        
+
         // P1 KONTROLLERİ (Z DAHİL)
         const distToP1FromP1 = Math.hypot(
-            p.p1.x - pipe.p1.x, 
+            p.p1.x - pipe.p1.x,
             p.p1.y - pipe.p1.y,
             (p.p1.z || 0) - (pipe.p1.z || 0)
         );
         const distToP2FromP1 = Math.hypot(
-            p.p2.x - pipe.p1.x, 
+            p.p2.x - pipe.p1.x,
             p.p2.y - pipe.p1.y,
             (p.p2.z || 0) - (pipe.p1.z || 0)
         );
-        if (distToP1FromP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP1.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2FromP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP1.push({ pipe: p, endpoint: 'p2' });
+        if (distToP1FromP1 < tolerance) connectedPipesAtP1.push({ pipe: p, endpoint: 'p1' });
+        if (distToP2FromP1 < tolerance) connectedPipesAtP1.push({ pipe: p, endpoint: 'p2' });
 
         // P2 KONTROLLERİ (Z DAHİL)
         const distToP1FromP2 = Math.hypot(
-            p.p1.x - pipe.p2.x, 
+            p.p1.x - pipe.p2.x,
             p.p1.y - pipe.p2.y,
             (p.p1.z || 0) - (pipe.p2.z || 0)
         );
         const distToP2FromP2 = Math.hypot(
-            p.p2.x - pipe.p2.x, 
+            p.p2.x - pipe.p2.x,
             p.p2.y - pipe.p2.y,
             (p.p2.z || 0) - (pipe.p2.z || 0)
         );
-        if (distToP1FromP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP2.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2FromP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP2.push({ pipe: p, endpoint: 'p2' });
+        if (distToP1FromP2 < tolerance) connectedPipesAtP2.push({ pipe: p, endpoint: 'p1' });
+        if (distToP2FromP2 < tolerance) connectedPipesAtP2.push({ pipe: p, endpoint: 'p2' });
     });
 
     interactionManager.connectedPipesAtP1 = connectedPipesAtP1;
@@ -350,19 +379,19 @@ export function startBodyDrag(interactionManager, pipe, point) {
             const outputConnectedPipes = [];
             interactionManager.manager.pipes.forEach(p => {
                 if (excludePipes.includes(p)) return;
-                // DÜZELTME: Z Dahil
+                // 3D Mesafe (tolerance yukarıda zaten hesaplandı)
                 const distToP1 = Math.hypot(
-                    p.p1.x - cikisBoru.p1.x, 
+                    p.p1.x - cikisBoru.p1.x,
                     p.p1.y - cikisBoru.p1.y,
                     (p.p1.z || 0) - (cikisBoru.p1.z || 0)
                 );
                 const distToP2 = Math.hypot(
-                    p.p2.x - cikisBoru.p1.x, 
+                    p.p2.x - cikisBoru.p1.x,
                     p.p2.y - cikisBoru.p1.y,
                     (p.p2.z || 0) - (cikisBoru.p1.z || 0)
                 );
-                if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
-                if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
+                if (distToP1 < tolerance) outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
+                if (distToP2 < tolerance) outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
             });
             interactionManager.meterConnectedPipesAtOutput = outputConnectedPipes;
         }
@@ -1123,33 +1152,38 @@ export function handleDrag(interactionManager, point, event = null) {
 
 /**
  * Bağlı boru zincirini günceller
- * GÜNCELLENDİ: Z ekseni kontrolü eklendi
+ * GÜNCELLENDİ: 3D tolerance desteği eklendi
  */
 export function updateConnectedPipesChain(interactionManager, oldPoint, newPoint) {
-    const tolerance = 0.5;
+    // 3D tolerance - burada çok hassas bağlantı aranıyor, tolerance daha düşük
+    // Ancak 3D modda yine de artmalı
+    const t = state.viewBlendFactor || 0;
+    const baseTolerance = 0.5;
+    const tolerance = t > 0.5 ? baseTolerance * (1 + 5 * t) : baseTolerance;
+
     interactionManager.manager.pipes.forEach(pipe => {
         // P1 KONTROLÜ (Z DAHİL)
         const distP1 = Math.hypot(
-            pipe.p1.x - oldPoint.x, 
+            pipe.p1.x - oldPoint.x,
             pipe.p1.y - oldPoint.y,
             (pipe.p1.z || 0) - (oldPoint.z || 0)
         );
-        if (distP1 < tolerance) { 
-            pipe.p1.x = newPoint.x; 
-            pipe.p1.y = newPoint.y; 
+        if (distP1 < tolerance) {
+            pipe.p1.x = newPoint.x;
+            pipe.p1.y = newPoint.y;
             // Opsiyonel: Eğer newPoint'te Z bilgisi varsa Z'yi de güncelle
             // if(newPoint.z !== undefined) pipe.p1.z = newPoint.z;
         }
-        
+
         // P2 KONTROLÜ (Z DAHİL)
         const distP2 = Math.hypot(
-            pipe.p2.x - oldPoint.x, 
+            pipe.p2.x - oldPoint.x,
             pipe.p2.y - oldPoint.y,
             (pipe.p2.z || 0) - (oldPoint.z || 0)
         );
-        if (distP2 < tolerance) { 
-            pipe.p2.x = newPoint.x; 
-            pipe.p2.y = newPoint.y; 
+        if (distP2 < tolerance) {
+            pipe.p2.x = newPoint.x;
+            pipe.p2.y = newPoint.y;
              // Opsiyonel: if(newPoint.z !== undefined) pipe.p2.z = newPoint.z;
         }
     });

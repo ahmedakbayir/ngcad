@@ -26,7 +26,10 @@ export const TESISAT_CONSTANTS = {
     MIN_BORU_UZUNLUGU: 5,       // cm
     ACI_TOLERANSI: 30,            // derece - 90° snap toleransı (X ve Y yönü)
     SELECTION_TOLERANCE_PIXELS: 12, // piksel - Seçim için tolerance (ZOOM BAĞIMSIZ - ekranda her zaman 12 piksel)
-    CONNECTED_PIPES_TOLERANCE: 7, // cm - Bağlı boruları bulmak için tolerance (world coordinates - fiziksel mesafe)
+    // NOT: Bu sabit artık kullanılmıyor - drag-handler.js dinamik 3D tolerance kullanıyor
+    // 3D modda tolerance = baseTolerance * (1 + 15 * t) formülü ile hesaplanıyor
+    // 2D için 15cm, 3D tam görünümde (t=1) ~240cm tolerance
+    CONNECTED_PIPES_TOLERANCE: 15, // cm - Bağlı boruları bulmak için tolerance (DEPRECATED - dinamik hesaplama kullanın)
 };
 
 // Snap Tipleri
