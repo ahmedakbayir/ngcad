@@ -799,8 +799,9 @@ export class PlumbingRenderer {
                     const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
                     // Dikey borunun konumu (p1 = p2 çünkü aynı x,y)
-                    const centerX = pipe.p1.x;
-                    const centerY = pipe.p1.y;
+                    const zOffset = (pipe.p1.z || 0) * t;
+                    const centerX = pipe.p1.x + zOffset;
+                    const centerY = pipe.p1.y - zOffset
 
                     // Sabit çember çapı: 5 (yarıya düşürüldü)
                     const circleRadius = 5;
@@ -908,24 +909,28 @@ export class PlumbingRenderer {
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
 
-            // Z değerlerini al ve t ile interpolate et
-            const z1 = (pipe.p1.z || 0) * t;
-            const z2 = (pipe.p2.z || 0) * t;
+            // Z değerlerini al (interpolasyon için t burada kullanılmayacak, çizimde kullanılacak)
+            const rawZ1 = pipe.p1.z || 0;
+            const rawZ2 = pipe.p2.z || 0;
+            
+            // Ekran izdüşüm koordinatlarını hesapla (Sadece açı hesabı için t kullanılıyor)
+            const z1_interp = rawZ1 * t;
+            const z2_interp = rawZ2 * t;
 
-            // Ekran izdüşüm koordinatlarını hesapla
             // drawPipes ile TAM UYUMLU: x' = x + z*t, y' = y - z*t
-            const tx1 = pipe.p1.x + z1;
-            const ty1 = pipe.p1.y - z1;
-            const tx2 = pipe.p2.x + z2;
-            const ty2 = pipe.p2.y - z2;
+            const tx1 = pipe.p1.x + z1_interp;
+            const ty1 = pipe.p1.y - z1_interp;
+            const tx2 = pipe.p2.x + z2_interp;
+            const ty2 = pipe.p2.y - z2_interp;
 
-            // Anahtar oluştururken X, Y ve Z'yi birlikte dikkate al (Farklı kotlar karışmasın)
-            const key1 = `${Math.round(pipe.p1.x / tolerance) * tolerance},${Math.round(pipe.p1.y / tolerance) * tolerance},${Math.round(z1 / tolerance) * tolerance}`;
+            // Anahtar oluştururken HAM (RAW) koordinatları kullan
+            // Böylece fiziksel olarak bağlı borular her zaman aynı grupta olur
+            const key1 = `${Math.round(pipe.p1.x / tolerance) * tolerance},${Math.round(pipe.p1.y / tolerance) * tolerance},${Math.round(rawZ1 / tolerance) * tolerance}`;
             if (!pointMap.has(key1)) {
                 pointMap.set(key1, {
                     x: pipe.p1.x,
                     y: pipe.p1.y,
-                    z: z1, // Z bilgisini kaydet
+                    z: rawZ1, // DÜZELTME: Ham Z değerini sakla
                     pipes: [],
                     directions: [],
                     diameters: []
@@ -938,12 +943,12 @@ export class PlumbingRenderer {
             entry1.diameters.push(config.diameter);
 
             // p2 noktası için aynı işlemler
-            const key2 = `${Math.round(pipe.p2.x / tolerance) * tolerance},${Math.round(pipe.p2.y / tolerance) * tolerance},${Math.round(z2 / tolerance) * tolerance}`;
+            const key2 = `${Math.round(pipe.p2.x / tolerance) * tolerance},${Math.round(pipe.p2.y / tolerance) * tolerance},${Math.round(rawZ2 / tolerance) * tolerance}`;
             if (!pointMap.has(key2)) {
                 pointMap.set(key2, {
                     x: pipe.p2.x,
                     y: pipe.p2.y,
-                    z: z2,
+                    z: rawZ2, // DÜZELTME: Ham Z değerini sakla
                     pipes: [],
                     directions: [],
                     diameters: []
