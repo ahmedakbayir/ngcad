@@ -480,43 +480,40 @@ export function handleSayacEndPlacement(meter) {
  * - Boru ucunda vana yoksa otomatik vana eklenir
  */
 export function handleCihazEkleme(cihaz) {
-    console.log('[handleCihazEkleme] Başlıyor. Cihaz tipi:', cihaz.cihazTipi);
+    //console.log('[handleCihazEkleme] Başlıyor. Cihaz tipi:', cihaz.cihazTipi);
 
     // Ghost'tan boru ucu bilgisini al (ghost gösterimde doğru pozisyon belirlendi)
     // Eğer ghost bilgisi yoksa, mevcut pozisyondan bul
     let boruUcu;
     if (cihaz.ghostConnectionInfo && cihaz.ghostConnectionInfo.boruUcu) {
         boruUcu = cihaz.ghostConnectionInfo.boruUcu;
-        console.log('[handleCihazEkleme] Ghost connection info bulundu:', boruUcu);
+        //console.log('[handleCihazEkleme] Ghost connection info bulundu:', boruUcu);
     } else {
         // Fallback: mevcut pozisyondan bul
         const girisNoktasi = cihaz.getGirisNoktasi();
         boruUcu = this.findBoruUcuAt(girisNoktasi, 50);
-        console.log('[handleCihazEkleme] Fallback ile boru ucu bulundu:', boruUcu);
+        //console.log('[handleCihazEkleme] Fallback ile boru ucu bulundu:', boruUcu);
     }
 
     if (!boruUcu) {
-        console.error('[handleCihazEkleme] ✗ Boru ucu bulunamadı!');
-        alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
+        // console.error('[handleCihazEkleme] ✗ Boru ucu bulunamadı!');
+        //alert('Cihaz bir boru ucuna yerleştirilmelidir! Lütfen bir boru ucunun yakınına yerleştirin.');
         // Cihazı components'a ekleme, sadece iptal et
         return false;
     }
 
     // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
-    const isFree = this.isFreeEndpoint(boruUcu.nokta, 5);
-    console.log('[handleCihazEkleme] isFreeEndpoint sonucu:', isFree, 'nokta:', boruUcu.nokta);
-    if (!isFree) {
-        console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
-        alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
+    if (!this.isFreeEndpoint(boruUcu.nokta, 5)) {
+        // console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
+        // alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
         return false;
     }
 
     // CİHAZ VAR MI KONTROLÜ: Bir boru ucunda zaten cihaz varsa başka cihaz eklenemez
     const mevcutCihaz = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
-    console.log('[handleCihazEkleme] Mevcut cihaz kontrolü:', mevcutCihaz);
     if (mevcutCihaz) {
-        console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
-        alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
+        // console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
+        // alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
         return false;
     }
 
@@ -536,27 +533,30 @@ export function handleCihazEkleme(cihaz) {
         const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda
         const centerMargin = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm - merkez için toplam
 
-        // Boru yönünü hesapla (boru ucundan içeriye doğru)
+        // DÜZELTME: 3D boru yönünü hesapla (düşey borular için Z dahil)
         const dx = boru.p2.x - boru.p1.x;
         const dy = boru.p2.y - boru.p1.y;
-        const length = Math.hypot(dx, dy);
+        const dz = (boru.p2.z || 0) - (boru.p1.z || 0);
+        const length3D = Math.hypot(dx, dy, dz);
 
-        let vanaX, vanaY;
+        let vanaX, vanaY, vanaZ;
         if (boruUcu.uc === 'p1') {
-            // p1 ucundayız, p2'ye doğru centerMargin kadar ilerle
-            vanaX = boruUcu.nokta.x + (dx / length) * centerMargin;
-            vanaY = boruUcu.nokta.y + (dy / length) * centerMargin;
+            // p1 ucundayız, p2'ye doğru centerMargin kadar ilerle (3D)
+            vanaX = boruUcu.nokta.x + (dx / length3D) * centerMargin;
+            vanaY = boruUcu.nokta.y + (dy / length3D) * centerMargin;
+            vanaZ = (boruUcu.nokta.z || 0) + (dz / length3D) * centerMargin;
         } else {
-            // p2 ucundayız, p1'e doğru centerMargin kadar ilerle
-            vanaX = boruUcu.nokta.x - (dx / length) * centerMargin;
-            vanaY = boruUcu.nokta.y - (dy / length) * centerMargin;
+            // p2 ucundayız, p1'e doğru centerMargin kadar ilerle (3D)
+            vanaX = boruUcu.nokta.x - (dx / length3D) * centerMargin;
+            vanaY = boruUcu.nokta.y - (dy / length3D) * centerMargin;
+            vanaZ = (boruUcu.nokta.z || 0) - (dz / length3D) * centerMargin;
         }
 
         const vana = createVana(vanaX, vanaY, 'AKV');
         vana.rotation = boruUcu.boru.aciDerece;
         vana.floorId = cihaz.floorId;
-        // DÜZELTME: Vanaya Z değerini ekle (boru ucunun Z'si)
-        vana.z = boruUcu.nokta.z || 0;
+        // Vanaya Z değerini ekle (3D hesaplanmış pozisyon)
+        vana.z = vanaZ;
         // Vana'yı boru üzerindeki pozisyona bağla
         vana.bagliBoruId = boruUcu.boruId;
         // Pozisyonu hesapla (0.0 - 1.0 arası)
