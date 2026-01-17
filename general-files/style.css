@@ -1700,76 +1700,192 @@ body.light-mode .btn-show-3d-perspective.active {
     box-shadow: 0 0 8px rgba(26, 115, 232, 0.5);
 }
 
-/* ═══════════════════════════════════════════════════════════════ */
-/* DÜŞEY YÜKSEKLİK PANELİ (VERTICAL HEIGHT PANEL) */
-/* ═══════════════════════════════════════════════════════════════ */
+
+
+/* Düşey Panel - Glassmorphism Tasarım */
 .vertical-panel {
     position: absolute;
-    z-index: 1000;
-    background: var(--bg-popup);
-    border: 2px solid #8ab4f8;
-    border-radius: 8px;
-    padding: 0;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(8px);
-    min-width: 280px;
-    pointer-events: auto;
+    z-index: 5000;
+    width: 260px;
+    border-radius: 16px;
+    font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+    color: #fff;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
     overflow: hidden;
+    background: rgba(30, 30, 35, 0.85); /* Yarı saydam koyu */
+    backdrop-filter: blur(12px); /* Arkası bulanık */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.vertical-panel-header {
-    background: rgba(138, 180, 248, 0.2);
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--color-text);
-    text-align: center;
-    border-bottom: 1px solid rgba(138, 180, 248, 0.3);
+@keyframes popIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
 }
 
-.vertical-panel-footer {
-    background: rgba(138, 180, 248, 0.2);
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--color-text);
-    text-align: center;
-    border-top: 1px solid rgba(138, 180, 248, 0.3);
-}
-
-.vertical-panel-main {
+.vertical-header {
+    padding: 14px 16px;
     display: flex;
-    gap: 12px;
-    padding: 12px;
-}
-
-.vertical-counter {
-    display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    gap: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, transparent 100%);
 }
 
-.vertical-input {
-    width: 100px;
-    background: var(--bg-input);
-    color: var(--color-text);
-    border: 2px solid #8ab4f8;
-    border-radius: 6px;
-    padding: 12px 8px;
-    font-size: 24px;
+.header-title {
+    font-size: 14px;
     font-weight: 700;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e0e0e0;
+}
+.header-title .icon { color: #4facfe; }
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: 0.2s;
+}
+.close-btn:hover { background: rgba(255,0,0,0.2); color: #ff5252; }
+
+.vertical-content { padding: 16px; }
+
+/* Sayaç Alanı */
+.counter-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    background: rgba(0,0,0,0.2);
+    padding: 6px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.control-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+    color: #fff;
+}
+.control-btn.minus { background: rgba(255, 82, 82, 0.15); color: #ff5252; }
+.control-btn.minus:hover { background: rgba(255, 82, 82, 0.3); }
+.control-btn.plus { background: rgba(66, 165, 245, 0.15); color: #42a5f5; }
+.control-btn.plus:hover { background: rgba(66, 165, 245, 0.3); }
+
+.input-display {
+    flex: 1;
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.input-display input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 800;
     text-align: center;
     outline: none;
-    pointer-events: none;
+    font-family: monospace;
+}
+.unit-label {
+    position: absolute;
+    right: 0;
+    bottom: 4px;
+    font-size: 10px;
+    color: #666;
 }
 
-/* Remove spinner arrows for number input */
-.vertical-input::-webkit-outer-spin-button,
-.vertical-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+/* Kat Butonları */
+.floor-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
 }
+.floor-btn {
+    flex: 1;
+    border: none;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: 0.2s;
+}
+.floor-btn.up { background: linear-gradient(135deg, #2a2a2a 0%, #333 100%); border: 1px solid #444; color: #4facfe; }
+.floor-btn.down { background: linear-gradient(135deg, #2a2a2a 0%, #333 100%); border: 1px solid #444; color: #ff9a9e; }
+.floor-btn:hover { transform: translateY(-2px); border-color: #666; }
+
+/* Hızlı Grid */
+.quick-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+.quick-val-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.05);
+    color: #bbb;
+    padding: 6px 0;
+    font-size: 11px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.quick-val-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+.vertical-footer {
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+    background: rgba(0,0,0,0.2);
+}
+
+.action-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: 0.2s;
+}
+.action-btn.confirm {
+    background: linear-gradient(90deg, #00c6fb 0%, #005bea 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 198, 251, 0.3);
+}
+.action-btn.confirm:hover { box-shadow: 0 6px 16px rgba(0, 198, 251, 0.5); transform: translateY(-1px); }
+.action-btn.cancel {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+}
+.action-btn.cancel:hover { border-color: #666; color: #fff; }
+
+
 
 /* .vertical-input[type=number] {
     -moz-appearance: textfield;

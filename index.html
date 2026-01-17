@@ -579,41 +579,47 @@
 
 
       <!-- Düşey Yükseklik Paneli -->
-      <div id="vertical-height-panel" class="vertical-panel" style="display: none;">
-        <div class="vertical-panel-header">Üst Kata Çık</div>
-        <div class="vertical-panel-main">
-          <div class="vertical-counter">
-            <input type="number" class="vertical-input" id="vertical-height-input" value="0" readonly />
-            <div class="vertical-arrows">
-              <button class="vertical-arrow-btn" id="vertical-arrow-up" title="Artır">▲</button>
-              <button class="vertical-arrow-btn" id="vertical-arrow-down" title="Azalt">▼</button>
-            </div>
-          </div>
-          <div class="vertical-quick-values">
-            <div class="vertical-quick-row">
-              <button class="vertical-quick-minus" data-value="-5">−</button>
-              <span class="vertical-quick-label">5</span>
-              <button class="vertical-quick-plus" data-value="5">+</button>
-            </div>
-            <div class="vertical-quick-row">
-              <button class="vertical-quick-minus" data-value="-10">−</button>
-              <span class="vertical-quick-label">10</span>
-              <button class="vertical-quick-plus" data-value="10">+</button>
-            </div>
-            <div class="vertical-quick-row">
-              <button class="vertical-quick-minus" data-value="-30">−</button>
-              <span class="vertical-quick-label">30</span>
-              <button class="vertical-quick-plus" data-value="30">+</button>
-            </div>
-            <div class="vertical-quick-row">
-              <button class="vertical-quick-minus" data-value="-100">−</button>
-              <span class="vertical-quick-label">100</span>
-              <button class="vertical-quick-plus" data-value="100">+</button>
-            </div>
-          </div>
+<div id="vertical-height-panel" class="vertical-panel" style="display: none;">
+    <div class="glass-effect"></div>
+    <div class="vertical-header">
+        <div class="header-title">
+            <span class="icon">↕</span> Düşey Kot
         </div>
-        <div class="vertical-panel-footer">Alt Kata İn</div>
-      </div>
+        <button id="vertical-close-btn" class="close-btn">✕</button>
+    </div>
+    
+    <div class="vertical-content">
+        <div class="counter-wrapper">
+            <button class="control-btn minus" id="btn-dec-10" title="-10cm">
+                <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13H5v-2h14v2z"/></svg>
+            </button>
+            <div class="input-display">
+                <input type="number" id="vertical-height-input" value="10" />
+                <span class="unit-label">cm</span>
+            </div>
+            <button class="control-btn plus" id="btn-inc-10" title="+10cm">
+                <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </button>
+        </div>
+
+        <div class="floor-actions">
+          <button class="floor-btn down" id="btn-floor-down">
+              <span class="symbol">▼</span> Alt Kat (-280)
+          </button>
+            <button class="floor-btn up" id="btn-floor-up">
+                <span class="symbol">▲</span> Üst Kat (+280)
+            </button>
+        </div>
+
+        <div class="quick-grid" id="quick-values-container">
+            </div>
+    </div>
+
+    <div class="vertical-footer">
+        <button id="vertical-cancel-btn" class="action-btn cancel">İptal</button>
+        <button id="vertical-confirm-btn" class="action-btn confirm">UYGULA</button>
+    </div>
+</div>
 
       <input type="text" id="length-input" />
 
