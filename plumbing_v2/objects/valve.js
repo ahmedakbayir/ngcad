@@ -287,9 +287,9 @@ export class Vana {
      * @param {Boru} pipe - Bağlı olduğu boru
      * @returns {object} - Hesaplanan pozisyon {x, y}
      */
-/**
-     * Boru referansı ile pozisyonu güncelle
-     */
+    /**
+         * Boru referansı ile pozisyonu güncelle
+         */
     updatePositionFromPipe(pipe) {
         if (!pipe || !this.bagliBoruId || pipe.id !== this.bagliBoruId) {
             return null;
@@ -297,10 +297,13 @@ export class Vana {
 
         let t = this.boruPozisyonu;
 
+const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        const length = Math.hypot(dx, dy, dz); // 3D Uzunluk
+
         // Eğer fixedDistance varsa, uçtan sabit mesafe olarak hesapla
-        if (this.fixedDistance !== null && this.fromEnd) {
-            const length = pipe.uzunluk; // Not: Bu 2D uzunluktur, ancak oran (t) hesabı için genelde yeterlidir.
-            // Daha hassas 3D t hesabı gerekirse burada pipe 3D uzunluğu kullanılabilir.
+        if (this.fixedDistance !== null && this.fromEnd && length > 0) {
             
             if (this.fromEnd === 'p1') {
                 t = Math.min(this.fixedDistance / length, 0.95);
@@ -316,12 +319,8 @@ export class Vana {
         this.y = pos.y;
         this.z = pos.z; // Z değerini güncelle
         
-        // --- DÜZELTME BAŞLANGIÇ: Düşey Boru Açı Kontrolü ---
-        const dx = pipe.p2.x - pipe.p1.x;
-        const dy = pipe.p2.y - pipe.p1.y;
-        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        // Düşey Boru Açı Kontrolü
         const len2d = Math.hypot(dx, dy);
-
         // Boru düşey mi? (Z farkı baskın veya 2D boy çok kısa)
         const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
 
@@ -330,18 +329,17 @@ export class Vana {
         } else {
             this.rotation = pipe.aciDerece; // Yatay boruda normal açı
         }
-        // --- DÜZELTME BİTİŞ ---
 
         return { x: this.x, y: this.y };
     }
 
-/**
-     * Boru üzerinde pozisyonu değiştir (sürüklenirken)
-     * @param {Boru} pipe - Bağlı olduğu boru
-     * @param {object} point - Hedef nokta {x, y}
-     * @param {Array} otherObjects - Boru üzerindeki diğer nesneler [{t, width}, ...]
-     * @returns {boolean} - Başarılı mı?
-     */
+    /**
+         * Boru üzerinde pozisyonu değiştir (sürüklenirken)
+         * @param {Boru} pipe - Bağlı olduğu boru
+         * @param {object} point - Hedef nokta {x, y}
+         * @param {Array} otherObjects - Boru üzerindeki diğer nesneler [{t, width}, ...]
+         * @returns {boolean} - Başarılı mı?
+         */
     moveAlongPipe(pipe, point, otherObjects = []) {
         if (!pipe || !this.bagliBoruId || pipe.id !== this.bagliBoruId) {
             return false;
@@ -368,7 +366,7 @@ export class Vana {
         // Mesafe kontrolü: uçlardan 1cm, nesneler arası 1cm
         const MIN_EDGE_DISTANCE = 1; // cm
         const OBJECT_MARGIN = 1; // cm - Her nesnenin sağında ve solunda
-        
+
         const minT = MIN_EDGE_DISTANCE / pipeLength;
         const maxT = 1 - (MIN_EDGE_DISTANCE / pipeLength);
 
@@ -400,8 +398,8 @@ export class Vana {
         // Tekrar sınır kontrolü - kaydırma sonrası hala sınır dışındaysa hareket etme
         // (Boru çok kısaysa ve vana sığmıyorsa buraya düşer)
         if (newLeftT < 0 || newRightT > 1) { // minT/maxT yerine 0/1 ile genel kontrol
-             console.log('Vana boru sınırları içine sığmıyor');
-             return false;
+            console.log('Vana boru sınırları içine sığmıyor');
+            return false;
         }
 
         // Diğer nesnelerle çakışma kontrolü
@@ -444,12 +442,12 @@ export class Vana {
         this.x = newPos.x;
         this.y = newPos.y;
         this.z = newPos.z; // Z değerini de güncelle
-        
+
         // --- DÜZELTME: AÇI KONTROLÜ (Düşey boru için) ---
         // Düşey boruda açıyı korumak için kontrol (önceki düzeltmelerle uyumlu)
         const len2d = Math.hypot(dx, dy);
         const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
-        
+
         if (isVertical) {
             this.rotation = -45;
         } else {
