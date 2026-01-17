@@ -417,21 +417,27 @@ export function handleSayacEndPlacement(meter) {
         const dy = boru.p2.y - boru.p1.y;
         const length = Math.hypot(dx, dy);
 
-        let vanaX, vanaY;
+        // 3D boru yönünü hesapla (düşey borular için Z dahil)
+        const dz = (boru.p2.z || 0) - (boru.p1.z || 0);
+        const length3D = Math.hypot(dx, dy, dz);
+
+        let vanaX, vanaY, vanaZ;
         if (boruUcu.uc === 'p1') {
-            // p1 ucundayız, p2'ye doğru centerMargin kadar ilerle
-            vanaX = boruUcu.nokta.x + (dx / length) * centerMargin;
-            vanaY = boruUcu.nokta.y + (dy / length) * centerMargin;
+            // p1 ucundayız, sayaç tarafına (boru dışına) centerMargin kadar git (3D)
+            vanaX = boruUcu.nokta.x - (dx / length3D) * centerMargin;
+            vanaY = boruUcu.nokta.y - (dy / length3D) * centerMargin;
+            vanaZ = (boruUcu.nokta.z || 0) - (dz / length3D) * centerMargin;
         } else {
-            // p2 ucundayız, p1'e doğru centerMargin kadar ilerle
-            vanaX = boruUcu.nokta.x - (dx / length) * centerMargin;
-            vanaY = boruUcu.nokta.y - (dy / length) * centerMargin;
+            // p2 ucundayız, sayaç tarafına (boru dışına) centerMargin kadar git (3D)
+            vanaX = boruUcu.nokta.x + (dx / length3D) * centerMargin;
+            vanaY = boruUcu.nokta.y + (dy / length3D) * centerMargin;
+            vanaZ = (boruUcu.nokta.z || 0) + (dz / length3D) * centerMargin;
         }
 
         const vana = createVana(vanaX, vanaY, 'SAYAC');
         vana.rotation = boruUcu.boru.aciDerece;
         vana.floorId = meter.floorId;
-        vana.z = boruUcu.nokta.z || 0;
+        vana.z = vanaZ;
         // Vana'yı boru üzerindeki pozisyona bağla
         vana.bagliBoruId = boruUcu.boruId;
         // Pozisyonu hesapla (0.0 - 1.0 arası)
@@ -541,15 +547,15 @@ export function handleCihazEkleme(cihaz) {
 
         let vanaX, vanaY, vanaZ;
         if (boruUcu.uc === 'p1') {
-            // p1 ucundayız, p2'ye doğru centerMargin kadar ilerle (3D)
-            vanaX = boruUcu.nokta.x + (dx / length3D) * centerMargin;
-            vanaY = boruUcu.nokta.y + (dy / length3D) * centerMargin;
-            vanaZ = (boruUcu.nokta.z || 0) + (dz / length3D) * centerMargin;
-        } else {
-            // p2 ucundayız, p1'e doğru centerMargin kadar ilerle (3D)
+            // p1 ucundayız, cihaz tarafına (boru dışına) centerMargin kadar git (3D)
             vanaX = boruUcu.nokta.x - (dx / length3D) * centerMargin;
             vanaY = boruUcu.nokta.y - (dy / length3D) * centerMargin;
             vanaZ = (boruUcu.nokta.z || 0) - (dz / length3D) * centerMargin;
+        } else {
+            // p2 ucundayız, cihaz tarafına (boru dışına) centerMargin kadar git (3D)
+            vanaX = boruUcu.nokta.x + (dx / length3D) * centerMargin;
+            vanaY = boruUcu.nokta.y + (dy / length3D) * centerMargin;
+            vanaZ = (boruUcu.nokta.z || 0) + (dz / length3D) * centerMargin;
         }
 
         const vana = createVana(vanaX, vanaY, 'AKV');
