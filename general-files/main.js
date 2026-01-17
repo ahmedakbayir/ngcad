@@ -471,7 +471,8 @@ export let state = {
         showPlumbingDimensions: false, // Tesisat Ölçü
         showRoomNames: false,       // Mahal İsimleri
         showPipeShadows: false,     // Hat Gölgesi
-        show3DAxis: true            // Varsayılan açık
+        show3DAxis: true,           // Varsayılan açık
+        showPipePath: false
     },
 };
 

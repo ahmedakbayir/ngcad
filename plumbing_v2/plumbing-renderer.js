@@ -453,7 +453,7 @@ export class PlumbingRenderer {
         }
 
         // Seçili borunun yolunu sağ üstte göster
-        if (window._selectedPipePath && window._selectedPipePath.length > 0) {
+        if (state.tempVisibility.showPipePath && window._selectedPipePath && window._selectedPipePath.length > 0) {
             this.drawSelectedPipePath(ctx);
         }
 
@@ -2702,7 +2702,7 @@ export class PlumbingRenderer {
                 // Parent (dark blue)
                 ctx.fillStyle = darkBlue;
                 ctx.textAlign = "left";
-                //ctx.fillText(parentText, startX, 0);
+                ctx.fillText(parentText, startX, 0);
 
                 // Self (KIRMIZI)
                 ctx.fillStyle = '#ff0000'; // Kırmızı
@@ -2710,7 +2710,7 @@ export class PlumbingRenderer {
 
                 // Children (dark blue)
                 ctx.fillStyle = darkgreen;
-                //ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
+                ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
             }
 
             ctx.restore();
