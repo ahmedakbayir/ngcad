@@ -438,28 +438,36 @@ export function startBodyDrag(interactionManager, pipe, point) {
     const dy = Math.abs(pipe.p2.y - pipe.p1.y);
     const dz = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
 
-    // En baskın yönü bul (borunun uzandığı yön)
-    const maxDelta = Math.max(dx, dy, dz);
     const AXIS_THRESHOLD = 2; // 2cm'den küçük farklar benzer kabul edilir
 
     let dragAxis = null;
 
-    // Eğer tüm yönler benzer uzunluktaysa serbest taşıma
-    if (maxDelta < AXIS_THRESHOLD) {
-        dragAxis = null;
+    // İki eksende uzama kontrolü (diagonal borular)
+    const isXYDiagonal = dx > AXIS_THRESHOLD && dy > AXIS_THRESHOLD && dz < AXIS_THRESHOLD;
+    const isXZDiagonal = dx > AXIS_THRESHOLD && dz > AXIS_THRESHOLD && dy < AXIS_THRESHOLD;
+    const isYZDiagonal = dy > AXIS_THRESHOLD && dz > AXIS_THRESHOLD && dx < AXIS_THRESHOLD;
+
+    if (isXYDiagonal) {
+        dragAxis = 'z'; // X-Y düzleminde diagonal → sadece Z'de taşınabilir
     }
-    // En baskın yön hangi eksen ise, o eksen kilitlenir (diğerleri serbest)
-    else if (dx === maxDelta && dx > dy + AXIS_THRESHOLD && dx > dz + AXIS_THRESHOLD) {
-        dragAxis = 'x'; // X yönünde uzanıyor → Y ve Z'de taşınabilir
+    else if (isXZDiagonal) {
+        dragAxis = 'y'; // X-Z düzleminde diagonal → sadece Y'de taşınabilir
     }
-    else if (dy === maxDelta && dy > dx + AXIS_THRESHOLD && dy > dz + AXIS_THRESHOLD) {
-        dragAxis = 'y'; // Y yönünde uzanıyor → X ve Z'de taşınabilir
+    else if (isYZDiagonal) {
+        dragAxis = 'x'; // Y-Z düzleminde diagonal → sadece X'de taşınabilir
     }
-    else if (dz === maxDelta && dz > dx + AXIS_THRESHOLD && dz > dy + AXIS_THRESHOLD) {
-        dragAxis = 'z'; // Z yönünde uzanıyor → X ve Y'de taşınabilir
+    // Tek eksende uzama kontrolü
+    else if (dx > dy + AXIS_THRESHOLD && dx > dz + AXIS_THRESHOLD) {
+        dragAxis = 'yz'; // X yönünde uzanıyor → Y ve Z'de taşınabilir
+    }
+    else if (dy > dx + AXIS_THRESHOLD && dy > dz + AXIS_THRESHOLD) {
+        dragAxis = 'xz'; // Y yönünde uzanıyor → X ve Z'de taşınabilir
+    }
+    else if (dz > dx + AXIS_THRESHOLD && dz > dy + AXIS_THRESHOLD) {
+        dragAxis = 'xy'; // Z yönünde uzanıyor → X ve Y'de taşınabilir
     }
     else {
-        // İki eksen benzer baskınsa serbest taşıma
+        // Tüm yönler benzer veya çok kısa boru → serbest taşıma
         dragAxis = null;
     }
 
@@ -1085,29 +1093,41 @@ export function handleDrag(interactionManager, point, event = null) {
         let offsetY = deltaY;
         let offsetZ = 0;
 
-        // 3D Mod aktifse ve Z ekseni için hesaplama gerekiyorsa
+        // 3D Mod aktifse Z ekseni için hesaplama yap
         if (t > 0.1) {
             // İzometrik projeksiyonda Z hareketi: diagonal (sağ-üst) hareket
             // screen_x += z * t
             // screen_y -= z * t
             // deltaZ = (screen_dx - screen_dy) / (2 * t)
-            const potentialDeltaZ = (deltaX - deltaY) / (2 * t);
-
-            // dragAxis'e göre Z offsetini belirle
-            if (interactionManager.dragAxis === 'x' || interactionManager.dragAxis === 'y') {
-                // X veya Y kilitliyse, Z serbest
-                offsetZ = potentialDeltaZ;
-            }
+            offsetZ = (deltaX - deltaY) / (2 * t);
         }
 
-        // dragAxis kısıtlamalarını uygula
-        if (interactionManager.dragAxis === 'x') {
-            offsetY = 0; // Y kilitli
-        } else if (interactionManager.dragAxis === 'y') {
-            offsetX = 0; // X kilitli
-        } else if (interactionManager.dragAxis === 'z') {
-            offsetZ = 0; // Z kilitli
+        // dragAxis kısıtlamalarını uygula (dragAxis = taşınabilir eksenler)
+        const dragAxis = interactionManager.dragAxis;
+
+        if (dragAxis === 'x') {
+            // Sadece X'de taşınabilir
+            offsetY = 0;
+            offsetZ = 0;
+        } else if (dragAxis === 'y') {
+            // Sadece Y'de taşınabilir
+            offsetX = 0;
+            offsetZ = 0;
+        } else if (dragAxis === 'z') {
+            // Sadece Z'de taşınabilir
+            offsetX = 0;
+            offsetY = 0;
+        } else if (dragAxis === 'yz') {
+            // Y ve Z'de taşınabilir (X kilitli)
+            offsetX = 0;
+        } else if (dragAxis === 'xz') {
+            // X ve Z'de taşınabilir (Y kilitli)
+            offsetY = 0;
+        } else if (dragAxis === 'xy') {
+            // X ve Y'de taşınabilir (Z kilitli)
+            offsetZ = 0;
         }
+        // dragAxis === null → her yönde taşınabilir (hiçbir offset sıfırlanmaz)
 
         const newP1 = {
             x: interactionManager.bodyDragInitialP1.x + offsetX,

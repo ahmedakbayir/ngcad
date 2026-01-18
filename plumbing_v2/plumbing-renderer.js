@@ -2946,11 +2946,28 @@ export class PlumbingRenderer {
         const minY = -panY / zoom - 500;
         const maxY = -panY / zoom + canvas.height / zoom + 500;
 
-        // dragAxis'e göre aktif eksenleri belirle
+        // dragAxis'e göre aktif eksenleri belirle (dragAxis = taşınabilir eksenler)
         const dragAxis = interactionManager.dragAxis;
-        let isXActive = dragAxis !== 'x'; // X kilitli değilse aktif
-        let isYActive = dragAxis !== 'y'; // Y kilitli değilse aktif
-        let isZActive = dragAxis !== 'z'; // Z kilitli değilse aktif
+        let isXActive = false;
+        let isYActive = false;
+        let isZActive = false;
+
+        if (dragAxis === null) {
+            // Her yönde taşınabilir
+            isXActive = isYActive = isZActive = true;
+        } else if (dragAxis === 'x') {
+            isXActive = true;
+        } else if (dragAxis === 'y') {
+            isYActive = true;
+        } else if (dragAxis === 'z') {
+            isZActive = true;
+        } else if (dragAxis === 'yz') {
+            isYActive = isZActive = true;
+        } else if (dragAxis === 'xz') {
+            isXActive = isZActive = true;
+        } else if (dragAxis === 'xy') {
+            isXActive = isYActive = true;
+        }
 
         // X ekseni snap'i varsa dikey çizgi çiz
         if (snapLock.x !== null) {
