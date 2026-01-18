@@ -2934,20 +2934,37 @@ drawPipes(ctx, pipes) {
     }
 
     drawPipeEndpointSnapGuides(ctx, interactionManager) {
-        const snapLock = interactionManager.pipeEndpointSnapLock;
-        if (!snapLock) return;
-
         const zoom = state.zoom || 1;
         const dragObject = interactionManager.dragObject;
         if (!dragObject || dragObject.type !== 'boru') return;
 
+        // Endpoint drag veya body drag kontrolü
+        const snapLock = interactionManager.pipeEndpointSnapLock;
         const endpoint = interactionManager.dragEndpoint;
-        if (!endpoint) return;
+        const isBodyDrag = interactionManager.isBodyDrag;
 
-        const point = endpoint === 'p1' ? dragObject.p1 : dragObject.p2;
+        // Ne endpoint ne de body drag ise çık
+        if (!endpoint && !isBodyDrag) return;
+
+        // Endpoint drag ise snapLock olmalı
+        if (endpoint && !snapLock) return;
+
+        // Koordinat gösterilecek nokta
+        let point;
+        if (endpoint) {
+            point = endpoint === 'p1' ? dragObject.p1 : dragObject.p2;
+        } else if (isBodyDrag) {
+            // Body drag: Boru ortasındaki bir nokta göster
+            point = {
+                x: (dragObject.p1.x + dragObject.p2.x) / 2,
+                y: (dragObject.p1.y + dragObject.p2.y) / 2,
+                z: ((dragObject.p1.z || 0) + (dragObject.p2.z || 0)) / 2
+            };
+        } else {
+            return;
+        }
 
         ctx.save();
-        ctx.strokeStyle = '#00FF00'; // Yeşil snap guide
         ctx.lineWidth = 1.5 / zoom;
         ctx.setLineDash([5 / zoom, 5 / zoom]);
 
@@ -2963,16 +2980,39 @@ drawPipes(ctx, pipes) {
         const minY = -panY / zoom - 500;
         const maxY = -panY / zoom + canvas.height / zoom + 500;
 
-        // X ekseni snap'i varsa dikey çizgi çiz
-        if (snapLock.x !== null) {
+        // dragAxis'e göre aktif eksenleri belirle
+        const dragAxis = interactionManager.dragAxis;
+        let isXActive = false;
+        let isYActive = false;
+        let isZActive = false;
+
+        if (dragAxis === 'x') {
+            isXActive = true;
+        } else if (dragAxis === 'y') {
+            isYActive = true;
+        } else if (dragAxis === 'z') {
+            isZActive = true;
+        } else {
+            // dragAxis === null → serbest taşıma
+            isXActive = isYActive = isZActive = true;
+        }
+
+        // X ekseni snap'i varsa dikey çizgi çiz (sadece endpoint drag için)
+        if (snapLock && snapLock.x !== null) {
+            // X ekseninde hareket ediyorsa koyu renk
+            ctx.strokeStyle = isXActive ? '#00DD00' : '#00FF00'; // Aktifse koyu yeşil, değilse açık yeşil
+            ctx.lineWidth = isXActive ? 2.5 / zoom : 1.5 / zoom; // Aktifse daha kalın
             ctx.beginPath();
             ctx.moveTo(snapLock.x, minY);
             ctx.lineTo(snapLock.x, maxY);
             ctx.stroke();
         }
 
-        // Y ekseni snap'i varsa yatay çizgi çiz
-        if (snapLock.y !== null) {
+        // Y ekseni snap'i varsa yatay çizgi çiz (sadece endpoint drag için)
+        if (snapLock && snapLock.y !== null) {
+            // Y ekseninde hareket ediyorsa koyu renk
+            ctx.strokeStyle = isYActive ? '#00DD00' : '#00FF00'; // Aktifse koyu yeşil, değilse açık yeşil
+            ctx.lineWidth = isYActive ? 2.5 / zoom : 1.5 / zoom; // Aktifse daha kalın
             ctx.beginPath();
             ctx.moveTo(minX, snapLock.y);
             ctx.lineTo(maxX, snapLock.y);
@@ -2988,6 +3028,49 @@ drawPipes(ctx, pipes) {
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
+
+        // Koordinat metni göster
+        ctx.font = `${12 / zoom}px Arial`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const xText = `x:${Math.round(point.x)}`;
+        const yText = `y:${Math.round(point.y)}`;
+        const zText = `z:${Math.round(point.z || 0)}`;
+        const coordText = `${xText} ${yText} ${zText}`;
+
+        // Metin arka planı (siyah, yarı saydam)
+        const textMetrics = ctx.measureText(coordText);
+        const textWidth = textMetrics.width;
+        const textHeight = 14 / zoom;
+        const padding = 4 / zoom;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(
+            point.x + 8 / zoom,
+            point.y - 8 / zoom - textHeight - padding,
+            textWidth + padding * 2,
+            textHeight + padding * 2
+        );
+
+        // Koordinatları renklendirerek göster
+        const textX = point.x + 8 / zoom + padding;
+        const textY = point.y - 8 / zoom - textHeight;
+        let currentX = textX;
+
+        // X koordinatı
+        ctx.fillStyle = isXActive ? '#00FF00' : '#AAAAAA'; // Aktifse yeşil, değilse gri
+        ctx.fillText(xText, currentX, textY);
+        currentX += ctx.measureText(xText + ' ').width;
+
+        // Y koordinatı
+        ctx.fillStyle = isYActive ? '#00FF00' : '#AAAAAA';
+        ctx.fillText(yText, currentX, textY);
+        currentX += ctx.measureText(yText + ' ').width;
+
+        // Z koordinatı
+        ctx.fillStyle = isZActive ? '#00FF00' : '#AAAAAA';
+        ctx.fillText(zText, currentX, textY);
 
         ctx.restore();
     }

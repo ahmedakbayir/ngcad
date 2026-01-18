@@ -433,14 +433,27 @@ export function startBodyDrag(interactionManager, pipe, point) {
         }
     }
 
-    const dx = pipe.p2.x - pipe.p1.x;
-    const dy = pipe.p2.y - pipe.p1.y;
-    let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
-    let dragAxis = null;
-    if (Math.abs(angle - 45) < 1) dragAxis = null;
-    else if (angle < 45) dragAxis = 'y';
-    else dragAxis = 'x';
-    interactionManager.dragAxis = dragAxis;
+    // Borunun hangi yönde uzandığını tespit et
+    const dx = Math.abs(pipe.p2.x - pipe.p1.x);
+    const dy = Math.abs(pipe.p2.y - pipe.p1.y);
+    const dz = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+
+    const AXIS_THRESHOLD = 2; // 2cm'den küçük farklar benzer kabul edilir
+
+    // Borunun uzandığı ekseni tespit et (taşınamaz eksen)
+    let pipeLockAxis = null; // Borunun uzandığı eksen (bu eksen kilitli)
+
+    if (dx > dy + AXIS_THRESHOLD && dx > dz + AXIS_THRESHOLD) {
+        pipeLockAxis = 'x'; // X yönünde uzanıyor
+    } else if (dy > dx + AXIS_THRESHOLD && dy > dz + AXIS_THRESHOLD) {
+        pipeLockAxis = 'y'; // Y yönünde uzanıyor
+    } else if (dz > dx + AXIS_THRESHOLD && dz > dy + AXIS_THRESHOLD) {
+        pipeLockAxis = 'z'; // Z yönünde uzanıyor
+    }
+    // Diagonal veya çok kısa boru ise null
+
+    interactionManager.pipeLockAxis = pipeLockAxis;
+    interactionManager.dragAxis = null; // İlk başta null, handleDrag'de mouse hareketine göre belirlenecek
 }
 
 /**
@@ -1053,26 +1066,85 @@ export function handleDrag(interactionManager, point, event = null) {
     // 7. Boru Gövdesi Taşıma
     if (interactionManager.dragObject.type === 'boru' && interactionManager.isBodyDrag) {
         const pipe = interactionManager.dragObject;
-        // Burada point (mouse) yerine correctedPoint kullanmak daha doğru olur 
-        // ama delta hesabı olduğu için fark etmez (ikisi de aynı oranda kayar)
-        // Yine de görsel tutarlılık için correctedPoint kullanabiliriz
+        const t = state.viewBlendFactor || 0;
+
         const deltaX = point.x - interactionManager.dragStart.x;
         const deltaY = point.y - interactionManager.dragStart.y;
 
         let offsetX = deltaX;
         let offsetY = deltaY;
-        if (interactionManager.dragAxis === 'x') offsetY = 0;
-        else if (interactionManager.dragAxis === 'y') offsetX = 0;
+        let offsetZ = 0;
+
+        // 3D Mod aktifse Z ekseni için hesaplama yap
+        if (t > 0.1) {
+            // İzometrik projeksiyonda Z hareketi: diagonal (sağ-üst) hareket
+            // screen_x += z * t
+            // screen_y -= z * t
+            // deltaZ = (screen_dx - screen_dy) / (2 * t)
+            offsetZ = (deltaX - deltaY) / (2 * t);
+        }
+
+        // Mouse hareketine göre hangi eksende taşınacağını belirle
+        const pipeLockAxis = interactionManager.pipeLockAxis;
+        let dragAxis = null;
+
+        if (pipeLockAxis === null) {
+            // Diagonal veya kısa boru - serbest taşıma
+            dragAxis = null;
+        } else {
+            // Borunun uzandığı eksen kilitli, diğer eksenlerden en büyük hareketi seç
+            if (pipeLockAxis === 'x') {
+                // X kilitli, Y veya Z'de taşınabilir
+                if (Math.abs(offsetY) > Math.abs(offsetZ)) {
+                    dragAxis = 'y';
+                } else if (Math.abs(offsetZ) > 0.5) { // Z için minimum threshold
+                    dragAxis = 'z';
+                } else {
+                    dragAxis = 'y'; // Default olarak Y
+                }
+            } else if (pipeLockAxis === 'y') {
+                // Y kilitli, X veya Z'de taşınabilir
+                if (Math.abs(offsetX) > Math.abs(offsetZ)) {
+                    dragAxis = 'x';
+                } else if (Math.abs(offsetZ) > 0.5) {
+                    dragAxis = 'z';
+                } else {
+                    dragAxis = 'x';
+                }
+            } else if (pipeLockAxis === 'z') {
+                // Z kilitli, X veya Y'de taşınabilir
+                if (Math.abs(offsetX) > Math.abs(offsetY)) {
+                    dragAxis = 'x';
+                } else {
+                    dragAxis = 'y';
+                }
+            }
+        }
+
+        // Seçilen eksene göre diğer eksenleri sıfırla
+        if (dragAxis === 'x') {
+            offsetY = 0;
+            offsetZ = 0;
+        } else if (dragAxis === 'y') {
+            offsetX = 0;
+            offsetZ = 0;
+        } else if (dragAxis === 'z') {
+            offsetX = 0;
+            offsetY = 0;
+        }
+
+        // dragAxis'i kaydet (görsel feedback için)
+        interactionManager.dragAxis = dragAxis;
 
         const newP1 = {
             x: interactionManager.bodyDragInitialP1.x + offsetX,
             y: interactionManager.bodyDragInitialP1.y + offsetY,
-            z: interactionManager.bodyDragInitialP1.z || 0  // Z eklendi
+            z: (interactionManager.bodyDragInitialP1.z || 0) + offsetZ
         };
         const newP2 = {
             x: interactionManager.bodyDragInitialP2.x + offsetX,
             y: interactionManager.bodyDragInitialP2.y + offsetY,
-            z: interactionManager.bodyDragInitialP2.z || 0  // Z eklendi
+            z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZ
         };
         // ... (Geri kalan boru gövdesi mantığı aynen kalabilir) ...
         const POINT_OCCUPATION_TOLERANCE = 1.5;
@@ -1108,8 +1180,8 @@ export function handleDrag(interactionManager, point, event = null) {
         const p2Blocked = checkEndpointDistance(newP2, interactionManager.bodyDragInitialP2);
         if (p1Blocked || p2Blocked) return;
 
-        pipe.p1.x = newP1.x; pipe.p1.y = newP1.y;
-        pipe.p2.x = newP2.x; pipe.p2.y = newP2.y;
+        pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
+        pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
 
         if (interactionManager.useBridgeMode) {
             interactionManager.ghostBridgePipes = [];
@@ -1128,26 +1200,33 @@ export function handleDrag(interactionManager, point, event = null) {
                 interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = newP1.x;
                     connectedPipe[connectedEndpoint].y = newP1.y;
+                    connectedPipe[connectedEndpoint].z = newP1.z;
                 });
             }
             if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
                 interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = newP2.x;
                     connectedPipe[connectedEndpoint].y = newP2.y;
+                    connectedPipe[connectedEndpoint].z = newP2.z;
                 });
             }
             if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
                 const connectedMeter = interactionManager.manager.components.find(c => c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id);
                 if (connectedMeter) {
-                    connectedMeter.x += offsetX; connectedMeter.y += offsetY;
+                    connectedMeter.x += offsetX;
+                    connectedMeter.y += offsetY;
+                    if (connectedMeter.z !== undefined) connectedMeter.z += offsetZ;
                     if (connectedMeter.cikisBagliBoruId) {
                         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
                         if (cikisBoru) {
-                            cikisBoru.p1.x += offsetX; cikisBoru.p1.y += offsetY;
-                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+                            cikisBoru.p1.x += offsetX;
+                            cikisBoru.p1.y += offsetY;
+                            if (cikisBoru.p1.z !== undefined) cikisBoru.p1.z += offsetZ;
+                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y, z: cikisBoru.p1.z || 0 };
                             interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                                 connectedPipe[connectedEndpoint].x = newOutputP1.x;
                                 connectedPipe[connectedEndpoint].y = newOutputP1.y;
+                                connectedPipe[connectedEndpoint].z = newOutputP1.z;
                             });
                         }
                     }
