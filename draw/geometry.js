@@ -58,39 +58,57 @@ export function distToArcWallSquared(point, wall, tolerance = 1.0) {
 }
 
 export function screenToWorld(sx, sy) {
-    const { zoom, panOffset, is3DPerspectiveActive } = state;
+    const { zoom, panOffset, is3DPerspectiveActive, viewBlendFactor } = state;
 
-    if (is3DPerspectiveActive) {
-        // İzometrik görünümde inverse transformation uygula
-        const angle = Math.PI / 6; // 30 derece
-        const cosAngle = Math.cos(angle); // ≈ 0.866
-        const sinAngle = Math.sin(angle); // = 0.5
+    // Blend faktörünü hesapla (canvas transform ile uyumlu)
+    let t = (typeof viewBlendFactor === 'number')
+        ? viewBlendFactor
+        : (is3DPerspectiveActive ? 1 : 0);
 
-        // Önce pan ve zoom'u geri al
-        const screenX = (sx - panOffset.x) / zoom;
-        const screenY = (sy - panOffset.y) / zoom;
+    // t değerini 0-1 arasına sabitle
+    t = Math.max(0, Math.min(1, t));
 
-        // İzometrik inverse transformation matrix
-        // det = 2 * cosAngle * sinAngle
-        const det = 2 * cosAngle * sinAngle;
+    // Önce pan ve zoom'u geri al
+    const screenX = (sx - panOffset.x) / zoom;
+    const screenY = (sy - panOffset.y) / zoom;
 
-        // Inverse matrix elementleri
-        const a_inv = sinAngle / det;    // = 1/(2*cosAngle)
-        const b_inv = sinAngle / det;    // = 1/(2*cosAngle)
-        const c_inv = -cosAngle / det;   // = -1/(2*sinAngle)
-        const d_inv = cosAngle / det;    // = 1/(2*sinAngle)
-
-        return {
-            x: screenX * a_inv + screenY * c_inv,
-            y: screenX * b_inv + screenY * d_inv
-        };
-    } else {
-        // Normal 2D görünüm
-        return {
-            x: (sx - panOffset.x) / zoom,
-            y: (sy - panOffset.y) / zoom
-        };
+    if (t === 0) {
+        // Tam 2D görünüm (optimizasyon)
+        return { x: screenX, y: screenY };
     }
+
+    // İzometrik parametreler
+    const angle = Math.PI / 6; // 30 derece
+    const isoCos = Math.cos(angle); // ≈ 0.866
+    const isoSin = Math.sin(angle); // = 0.5
+
+    // Canvas forward transform matrisi (blended):
+    // a = 1 + (isoCos - 1) * t
+    // b = 0 + (-isoSin - 0) * t = -isoSin * t
+    // c = 0 + (isoCos - 0) * t = isoCos * t
+    // d = 1 + (isoSin - 1) * t
+    const a = 1 + (isoCos - 1) * t;
+    const b = -isoSin * t;
+    const c = isoCos * t;
+    const d = 1 + (isoSin - 1) * t;
+
+    // Inverse transform matrix hesapla
+    const det = a * d - b * c;
+
+    if (Math.abs(det) < 1e-10) {
+        // Determinant çok küçükse (singüler matris), 2D kullan
+        return { x: screenX, y: screenY };
+    }
+
+    const a_inv = d / det;
+    const b_inv = -b / det;
+    const c_inv = -c / det;
+    const d_inv = a / det;
+
+    return {
+        x: screenX * a_inv + screenY * c_inv,
+        y: screenX * b_inv + screenY * d_inv
+    };
 }
 
 export function worldToScreen(wx, wy) {
