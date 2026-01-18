@@ -667,7 +667,8 @@ export class PlumbingRenderer {
 
         ctx.restore();
     }
-    drawPipes(ctx, pipes) {
+
+drawPipes(ctx, pipes) {
         if (!pipes) return;
 
         // Önce kırılım noktalarını bul (birden fazla borunun birleştiği noktalar)
@@ -792,13 +793,26 @@ export class PlumbingRenderer {
             const symbolOpacity = 1 - t; // 2D'de 1, 3D'e doğru 0
             pipes.forEach(pipe => {
                 const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
-                if (Math.abs(zDiff) > 0.1) {
+
+                // --- GÜNCELLEME: Sadece dik (85 derece üstü) boruları göster ---
+                const dx2d = pipe.p2.x - pipe.p1.x;
+                const dy2d = pipe.p2.y - pipe.p1.y;
+                const len2d = Math.hypot(dx2d, dy2d);
+
+                // Yatay düzlemle yapılan açıyı hesapla
+                let elevationAngle = 90; // Tam üst üste (len2d=0) ise 90 derece
+                if (len2d > 0.001) {
+                    elevationAngle = Math.atan2(Math.abs(zDiff), len2d) * 180 / Math.PI;
+                }
+                
+                // Kural: Z farkı olacak VE açı 85 dereceden büyük olacak
+                if (Math.abs(zDiff) > 0.1 && elevationAngle > 85) {
                     ctx.save();
                     ctx.globalAlpha = symbolOpacity; // Smooth fade out
                     const colorGroup = pipe.colorGroup || 'YELLOW';
                     const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
-                    // Dikey borunun konumu (p1 = p2 çünkü aynı x,y)
+                    // Dikey borunun konumu (p1 = p2 çünkü aynı x,y kabul edilir)
                     const zOffset = (pipe.p1.z || 0) * t;
                     const centerX = pipe.p1.x + zOffset;
                     const centerY = pipe.p1.y - zOffset
@@ -900,6 +914,8 @@ export class PlumbingRenderer {
             });
         }
     }
+
+    
     findBreakPoints(pipes) {
         const pointMap = new Map();
         const tolerance = 0.5;

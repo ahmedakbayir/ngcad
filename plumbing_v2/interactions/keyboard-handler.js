@@ -207,7 +207,6 @@ export function handleKeyDown(e) {
         this.cancelCurrentAction();
 
         // DÜZELTİLDİ: Parametre nesne olarak gönderilmeli
-        // Eskiden sadece 'OCAK' stringi gönderildiği için varsayılan (KOMBI) seçiliyordu.
         this.manager.startPlacement('cihaz', { cihazTipi: 'OCAK' });
         setMode("plumbingV2", true);
 
@@ -266,7 +265,6 @@ export function handleKeyDown(e) {
             const pipe = this.selectedObject;
             
             // Boş ucu bul (Önce P2 - bitiş, sonra P1 - başlangıç)
-            // isTrulyFreeEndpoint: O noktada sadece bu boru varsa true döner
             let startPoint = null;
             
             if (this.manager.isTrulyFreeEndpoint(pipe.p2)) {
@@ -276,17 +274,14 @@ export function handleKeyDown(e) {
             }
             
             if (startPoint) {
-                // TESİSAT modunda olduğumuzdan emin ol
                 if (state.currentDrawingMode !== "KARMA") {
                     setDrawingMode("TESİSAT");
                 }
                 
-                // Seçimi temizle ama pipe verilerini al (renk vb.)
                 const sourceId = pipe.id;
                 const sourceColor = pipe.colorGroup;
-                this.cancelCurrentAction(); // Bu seçimi kaldırır
+                this.cancelCurrentAction(); 
                 
-                // O uçtan çizime başla (renk grubunu koruyarak)
                 this.startBoruCizim(startPoint, sourceId, 'boru', sourceColor);
                 
                 setMode("plumbingV2", true);
@@ -294,38 +289,27 @@ export function handleKeyDown(e) {
             }
         }
 
-        // Seçili boru yoksa veya uçları doluysa standart davranış (yeni boru)
-        // TESİSAT modunda olduğumuzdan emin ol
         if (state.currentDrawingMode !== "KARMA") {
             setDrawingMode("TESİSAT");
         }
         this.cancelCurrentAction();
-        // Boru modunu başlat
         this.manager.startPipeMode();
-
-        // UI ikonunun mavi yanması için setMode içindeki mantığı manuel tetikle
         setMode("plumbingV2", true);
         return true;
     }
 
     // Delete - seçili nesneyi sil
     if (e.key === 'Delete') {
-        // Hem this.selectedObject hem de state.selectedObject'i kontrol et
         if (this.selectedObject) {
             this.deleteSelectedObject();
             return true;
         }
-        // Eğer this.selectedObject null ama state.selectedObject varsa, önce seç sonra sil
         if (!this.selectedObject && state.selectedObject) {
             const stateObj = state.selectedObject;
-            // V2 plumbing nesnesi mi kontrol et
             if (stateObj && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(stateObj.type)) {
-                // Nesneyi bul ve seç
                 const obj = stateObj.object;
                 if (obj) {
-                    // this.selectedObject'i senkronize et
                     this.selectedObject = obj;
-                    // Şimdi sil
                     this.deleteSelectedObject();
                     return true;
                 }
@@ -334,16 +318,21 @@ export function handleKeyDown(e) {
     }
 
     // Ok tuşları - seçili boru navigasyonu
-if (this.selectedObject && this.selectedObject.type === 'boru') {
+    if (this.selectedObject && this.selectedObject.type === 'boru') {
         const tolerance = 1;
         const selectedPipe = this.selectedObject;
 
         // ArrowRight: İleri (Çocuk boru)
         if (e.key === 'ArrowRight') {
             // p2'ye bağlı olan boruları bul
+            // DÜZELTME: Z ekseni kontrolü eklendi
             const nextPipes = this.manager.pipes.filter(p =>
                 p.id !== selectedPipe.id &&
-                Math.hypot(p.p1.x - selectedPipe.p2.x, p.p1.y - selectedPipe.p2.y) < tolerance
+                Math.hypot(
+                    p.p1.x - selectedPipe.p2.x, 
+                    p.p1.y - selectedPipe.p2.y,
+                    (p.p1.z || 0) - (selectedPipe.p2.z || 0)
+                ) < tolerance
             );
             
             if (nextPipes.length > 0) {
@@ -356,9 +345,14 @@ if (this.selectedObject && this.selectedObject.type === 'boru') {
         // ArrowLeft: Geri (Ebeveyn boru)
         if (e.key === 'ArrowLeft') {
             // p1'e bağlı olan boruyu bul (ebeveynin p2'si bizim p1'imize denk gelir)
+            // DÜZELTME: Z ekseni kontrolü eklendi (Hatayı çözen kısım)
             const prevPipe = this.manager.pipes.find(p =>
                 p.id !== selectedPipe.id &&
-                Math.hypot(p.p2.x - selectedPipe.p1.x, p.p2.y - selectedPipe.p1.y) < tolerance
+                Math.hypot(
+                    p.p2.x - selectedPipe.p1.x, 
+                    p.p2.y - selectedPipe.p1.y,
+                    (p.p2.z || 0) - (selectedPipe.p1.z || 0)
+                ) < tolerance
             );
             if (prevPipe) {
                 this.selectObject(prevPipe);
@@ -369,22 +363,24 @@ if (this.selectedObject && this.selectedObject.type === 'boru') {
         // ArrowUp / ArrowDown: Kardeşler (Siblings) - Aynı noktadan başlayan diğer borular
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             // Aynı başlangıç noktasına (p1) sahip boruları bul
+            // DÜZELTME: Z ekseni kontrolü eklendi
             const siblings = this.manager.pipes.filter(p => 
-                Math.hypot(p.p1.x - selectedPipe.p1.x, p.p1.y - selectedPipe.p1.y) < tolerance
+                Math.hypot(
+                    p.p1.x - selectedPipe.p1.x, 
+                    p.p1.y - selectedPipe.p1.y,
+                    (p.p1.z || 0) - (selectedPipe.p1.z || 0)
+                ) < tolerance
             );
 
             if (siblings.length > 1) {
-                // ID'ye göre sırala (kararlı geçiş için)
                 siblings.sort((a, b) => a.id.localeCompare(b.id));
 
                 const currentIndex = siblings.findIndex(p => p.id === selectedPipe.id);
                 let newIndex;
 
                 if (e.key === 'ArrowDown') {
-                    // Sonraki kardeş
                     newIndex = (currentIndex + 1) % siblings.length;
                 } else {
-                    // Önceki kardeş
                     newIndex = (currentIndex - 1 + siblings.length) % siblings.length;
                 }
 
@@ -393,6 +389,7 @@ if (this.selectedObject && this.selectedObject.type === 'boru') {
             }
         }
     }
+    
     // Ok tuşları - seçili sayacı hareket ettir
     if (this.selectedObject && this.selectedObject.type === 'sayac') {
         const direction = {
@@ -409,10 +406,10 @@ if (this.selectedObject && this.selectedObject.type === 'boru') {
         }
     }
 
-    // R tuşu - seçili servis kutusunu döndür (çıkış noktası etrafında)
+    // R tuşu - seçili servis kutusunu döndür
     if (this.selectedObject && this.selectedObject.type === 'servis_kutusu' && e.key === 'r') {
         saveState();
-        const deltaDerece = e.shiftKey ? -15 : 15; // Shift ile ters yön
+        const deltaDerece = e.shiftKey ? -15 : 15;
         const result = this.selectedObject.rotate(deltaDerece);
         this.updateConnectedPipe(result);
         this.manager.saveToState();
@@ -444,21 +441,16 @@ function openVerticalPanel() {
     const input = document.getElementById('vertical-height-input');
     if (!panel || !input) return;
 
-    // Mouse pozisyonunda paneli göster
     if (this.lastMousePoint) {
         const canvas = document.getElementById('c2d');
         const rect = canvas.getBoundingClientRect();
 
-        // Mouse pozisyonunu ekran koordinatlarına çevir
-        // lastMousePoint zaten screen koordinatlarında olmalı
         let screenX = this.lastMousePoint.screenX || rect.width / 2;
         let screenY = this.lastMousePoint.screenY || rect.height / 2;
 
-        // Panel boyutlarını hesaba kat
-        const panelWidth = 220; // Yaklaşık genişlik
-        const panelHeight = 120; // Yaklaşık yükseklik
+        const panelWidth = 220;
+        const panelHeight = 120;
 
-        // Ekran dışına taşmayı önle
         if (screenX + panelWidth > rect.width) {
             screenX = rect.width - panelWidth - 10;
         }
@@ -470,15 +462,12 @@ function openVerticalPanel() {
         panel.style.top = `${screenY}px`;
     }
 
-    // Paneli göster
     panel.style.display = 'block';
     this.verticalModeActive = true;
 
-    // Input değerini sıfırla
     input.value = '0';
     this.verticalHeightInput = 0;
 
-    // Input'a focus ver
     setTimeout(() => input.focus(), 50);
 }
 
@@ -503,22 +492,14 @@ export function applyVerticalHeight() {
         return;
     }
 
-    // Input alanından güncel değeri oku
     const input = document.getElementById('vertical-height-input');
     const height = input ? parseFloat(input.value) : this.verticalHeightInput;
 
-    console.log('🔍 DÜŞEY BORU OLUŞTURMA:');
-    console.log('  Girilen yükseklik:', height);
-
-    // Yükseklik 0 ise paneli kapat ve normal çizime devam et
     if (height === 0) {
-        console.log('  ⚠️ Yükseklik 0, panel kapatılıyor');
         closeVerticalPanel.call(this);
         return;
     }
 
-    // Düşey boru ekle
-    // Mevcut noktadan itibaren Z ekseninde yeni nokta oluştur
     const startPoint = this.boruBaslangic.nokta;
     const endPoint = {
         x: startPoint.x,
@@ -526,16 +507,7 @@ export function applyVerticalHeight() {
         z: (startPoint.z || 0) + height
     };
 
-    console.log('  Başlangıç noktası:', startPoint);
-    console.log('  Bitiş noktası (Z ile):', endPoint);
-    console.log('  ✅ Düşey boru oluşturuluyor...');
-
-    // Düşey boru oluştur ve ekle
     handleBoruClick(this, endPoint);
 
-    // Panel kapat
     closeVerticalPanel.call(this);
-
-    // Yeni başlangıç noktası artık bu yükseklikte
-    // handleBoruClick içinde zaten boruBaslangic güncelleniyor
 }
