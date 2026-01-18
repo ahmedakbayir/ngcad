@@ -348,6 +348,8 @@ export function removeObject(manager, obj) {
                     if (parentPipe.bitisBaglanti.hedefId === pipeId) {
                         parentPipe.bitisBaglanti.hedefId = childPipe.id;
                     }
+                    // Parent'ı seç (heal durumunda da parent seçilsin)
+                    pipeToSelect = parentPipe;
                 }
             }
 
@@ -355,8 +357,6 @@ export function removeObject(manager, obj) {
             if (pipeToDelete.colorGroup) {
                 childPipe.colorGroup = pipeToDelete.colorGroup;
             }
-
-            pipeToSelect = childPipe;
             
         } else {
             // HEAL YOKSA - Bağlantıları temizle
