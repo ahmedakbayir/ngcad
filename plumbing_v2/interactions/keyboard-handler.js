@@ -430,7 +430,7 @@ export function toggleVerticalPanel() {
     if (!panel) return;
 
     if (this.verticalModeActive) {
-        closeVerticalPanel.call(this);
+        applyVerticalHeight.call(this);
     } else {
         openVerticalPanel.call(this);
     }
