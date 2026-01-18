@@ -406,15 +406,15 @@ export function handleKeyDown(e) {
         }
     }
 
-    // R tuşu - seçili servis kutusunu döndür
-    if (this.selectedObject && this.selectedObject.type === 'servis_kutusu' && e.key === 'r') {
-        saveState();
-        const deltaDerece = e.shiftKey ? -15 : 15;
-        const result = this.selectedObject.rotate(deltaDerece);
-        this.updateConnectedPipe(result);
-        this.manager.saveToState();
-        return true;
-    }
+    // // R tuşu - seçili servis kutusunu döndür
+    // if (this.selectedObject && this.selectedObject.type === 'servis_kutusu' && e.key === 'r') {
+    //     saveState();
+    //     const deltaDerece = e.shiftKey ? -15 : 15;
+    //     const result = this.selectedObject.rotate(deltaDerece);
+    //     this.updateConnectedPipe(result);
+    //     this.manager.saveToState();
+    //     return true;
+    // }
 
     return false;
 }
@@ -465,7 +465,7 @@ function openVerticalPanel() {
     panel.style.display = 'block';
     this.verticalModeActive = true;
 
-    input.value = '0';
+    input.value = '100';
     this.verticalHeightInput = 0;
 
     setTimeout(() => input.focus(), 50);
