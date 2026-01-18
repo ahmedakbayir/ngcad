@@ -246,7 +246,21 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
 export function drawGrid() {
     const { ctx2d, c2d } = dom; const { zoom, gridOptions } = state; if (!gridOptions.visible) return;
     const dpr = window.devicePixelRatio || 1;
-    const { x: worldLeft, y: worldTop } = screenToWorld(0, 0); const { x: worldRight, y: worldBottom } = screenToWorld(c2d.width / dpr, c2d.height / dpr);
+
+    // 3D izometrik modda viewport eğik bir paralelkenar olduğu için
+    // canvas'ın 4 köşesini de hesaba katarak viewport sınırlarını hesapla
+    const canvasW = c2d.width / dpr;
+    const canvasH = c2d.height / dpr;
+    const topLeft = screenToWorld(0, 0);
+    const topRight = screenToWorld(canvasW, 0);
+    const bottomLeft = screenToWorld(0, canvasH);
+    const bottomRight = screenToWorld(canvasW, canvasH);
+
+    // Tüm köşelerin min/max değerlerini al
+    const worldLeft = Math.min(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x);
+    const worldRight = Math.max(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x);
+    const worldTop = Math.min(topLeft.y, topRight.y, bottomLeft.y, bottomRight.y);
+    const worldBottom = Math.max(topLeft.y, topRight.y, bottomLeft.y, bottomRight.y);
     const baseSpacing = gridOptions.spacing; const MIN_PIXEL_SPACING = 20; const multipliers = [100]; const visibleMultipliers = [];
     for (const mult of multipliers) { const spacing = baseSpacing * mult; const pixelSpacing = spacing * zoom; if (pixelSpacing >= MIN_PIXEL_SPACING) { visibleMultipliers.push({ multiplier: mult, spacing: spacing }); } }
     if (visibleMultipliers.length === 0) { visibleMultipliers.push({ multiplier: multipliers[multipliers.length - 1], spacing: baseSpacing * multipliers[multipliers.length - 1] }); if (multipliers.length > 1) { visibleMultipliers.push({ multiplier: multipliers[multipliers.length - 2], spacing: baseSpacing * multipliers[multipliers.length - 2] }); } } else if (visibleMultipliers.length === 1 && multipliers.indexOf(visibleMultipliers[0].multiplier) < multipliers.length - 1) { const currentMultIndex = multipliers.indexOf(visibleMultipliers[0].multiplier); const nextMult = multipliers[currentMultIndex + 1]; visibleMultipliers.push({ multiplier: nextMult, spacing: baseSpacing * nextMult }); }
