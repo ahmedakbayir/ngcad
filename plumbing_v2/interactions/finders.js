@@ -378,6 +378,8 @@ export function removeObject(manager, obj) {
                          if (parentPipe.bitisBaglanti.hedefId === pipeId) {
                              parentPipe.bitisBaglanti = { tip: null, hedefId: null, noktaIndex: null };
                          }
+                         // Parent boru varsa onu seç (heal yapılmadığında)
+                         pipeToSelect = parentPipe;
                     }
                 }
             }
