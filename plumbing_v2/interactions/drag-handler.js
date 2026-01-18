@@ -440,6 +440,9 @@ export function startBodyDrag(interactionManager, pipe, point) {
     if (Math.abs(angle - 45) < 1) dragAxis = null;
     else if (angle < 45) dragAxis = 'y';
     else dragAxis = 'x';
+
+    // SHIFT tuşu ile Z ekseni (3. boyut) aktif olur
+    interactionManager.baseDragAxis = dragAxis; // Orijinal ekseni kaydet
     interactionManager.dragAxis = dragAxis;
 }
 
@@ -1053,26 +1056,43 @@ export function handleDrag(interactionManager, point, event = null) {
     // 7. Boru Gövdesi Taşıma
     if (interactionManager.dragObject.type === 'boru' && interactionManager.isBodyDrag) {
         const pipe = interactionManager.dragObject;
-        // Burada point (mouse) yerine correctedPoint kullanmak daha doğru olur 
-        // ama delta hesabı olduğu için fark etmez (ikisi de aynı oranda kayar)
-        // Yine de görsel tutarlılık için correctedPoint kullanabiliriz
+        const t = state.viewBlendFactor || 0;
+
         const deltaX = point.x - interactionManager.dragStart.x;
         const deltaY = point.y - interactionManager.dragStart.y;
 
+        // SHIFT tuşu kontrolü - Z ekseni için
+        const isShiftPressed = event && event.shiftKey;
+        const baseDragAxis = interactionManager.baseDragAxis || interactionManager.dragAxis;
+
         let offsetX = deltaX;
         let offsetY = deltaY;
-        if (interactionManager.dragAxis === 'x') offsetY = 0;
-        else if (interactionManager.dragAxis === 'y') offsetX = 0;
+        let offsetZ = 0;
+
+        if (isShiftPressed && t > 0.1 && baseDragAxis) {
+            // SHIFT basılı ve 3D modda: Z ekseninde taşı
+            // İzometrik projeksiyonda Z hareketi: diagonal (sağ-üst) hareket
+            // deltaZ = (screen_dx - screen_dy) / (2 * t)
+            offsetZ = (deltaX - deltaY) / (2 * t);
+            offsetX = 0;
+            offsetY = 0;
+            interactionManager.dragAxis = 'z'; // Görsel feedback için
+        } else {
+            // Normal mod: X veya Y ekseninde taşı (eski mantık)
+            if (baseDragAxis === 'x') offsetY = 0;
+            else if (baseDragAxis === 'y') offsetX = 0;
+            interactionManager.dragAxis = baseDragAxis;
+        }
 
         const newP1 = {
             x: interactionManager.bodyDragInitialP1.x + offsetX,
             y: interactionManager.bodyDragInitialP1.y + offsetY,
-            z: interactionManager.bodyDragInitialP1.z || 0  // Z eklendi
+            z: (interactionManager.bodyDragInitialP1.z || 0) + offsetZ
         };
         const newP2 = {
             x: interactionManager.bodyDragInitialP2.x + offsetX,
             y: interactionManager.bodyDragInitialP2.y + offsetY,
-            z: interactionManager.bodyDragInitialP2.z || 0  // Z eklendi
+            z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZ
         };
         // ... (Geri kalan boru gövdesi mantığı aynen kalabilir) ...
         const POINT_OCCUPATION_TOLERANCE = 1.5;
@@ -1108,8 +1128,8 @@ export function handleDrag(interactionManager, point, event = null) {
         const p2Blocked = checkEndpointDistance(newP2, interactionManager.bodyDragInitialP2);
         if (p1Blocked || p2Blocked) return;
 
-        pipe.p1.x = newP1.x; pipe.p1.y = newP1.y;
-        pipe.p2.x = newP2.x; pipe.p2.y = newP2.y;
+        pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
+        pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
 
         if (interactionManager.useBridgeMode) {
             interactionManager.ghostBridgePipes = [];
@@ -1128,26 +1148,33 @@ export function handleDrag(interactionManager, point, event = null) {
                 interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = newP1.x;
                     connectedPipe[connectedEndpoint].y = newP1.y;
+                    connectedPipe[connectedEndpoint].z = newP1.z;
                 });
             }
             if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
                 interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = newP2.x;
                     connectedPipe[connectedEndpoint].y = newP2.y;
+                    connectedPipe[connectedEndpoint].z = newP2.z;
                 });
             }
             if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
                 const connectedMeter = interactionManager.manager.components.find(c => c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id);
                 if (connectedMeter) {
-                    connectedMeter.x += offsetX; connectedMeter.y += offsetY;
+                    connectedMeter.x += offsetX;
+                    connectedMeter.y += offsetY;
+                    if (connectedMeter.z !== undefined) connectedMeter.z += offsetZ;
                     if (connectedMeter.cikisBagliBoruId) {
                         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
                         if (cikisBoru) {
-                            cikisBoru.p1.x += offsetX; cikisBoru.p1.y += offsetY;
-                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+                            cikisBoru.p1.x += offsetX;
+                            cikisBoru.p1.y += offsetY;
+                            if (cikisBoru.p1.z !== undefined) cikisBoru.p1.z += offsetZ;
+                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y, z: cikisBoru.p1.z || 0 };
                             interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                                 connectedPipe[connectedEndpoint].x = newOutputP1.x;
                                 connectedPipe[connectedEndpoint].y = newOutputP1.y;
+                                connectedPipe[connectedEndpoint].z = newOutputP1.z;
                             });
                         }
                     }

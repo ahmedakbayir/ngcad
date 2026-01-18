@@ -2918,60 +2918,125 @@ export class PlumbingRenderer {
     }
 
     drawPipeEndpointSnapGuides(ctx, interactionManager) {
-        const snapLock = interactionManager.pipeEndpointSnapLock;
-        if (!snapLock) return;
-
         const zoom = state.zoom || 1;
         const dragObject = interactionManager.dragObject;
         if (!dragObject || dragObject.type !== 'boru') return;
 
+        const snapLock = interactionManager.pipeEndpointSnapLock;
         const endpoint = interactionManager.dragEndpoint;
-        if (!endpoint) return;
+        const isBodyDrag = interactionManager.isBodyDrag;
 
-        const point = endpoint === 'p1' ? dragObject.p1 : dragObject.p2;
+        // Ne endpoint ne de body drag ise çık
+        if (!endpoint && !isBodyDrag) return;
+
+        // Koordinat gösterilecek nokta
+        let point;
+        if (endpoint) {
+            point = endpoint === 'p1' ? dragObject.p1 : dragObject.p2;
+        } else if (isBodyDrag) {
+            // Body drag: Boru ortası
+            point = {
+                x: (dragObject.p1.x + dragObject.p2.x) / 2,
+                y: (dragObject.p1.y + dragObject.p2.y) / 2,
+                z: ((dragObject.p1.z || 0) + (dragObject.p2.z || 0)) / 2
+            };
+        } else {
+            return;
+        }
 
         ctx.save();
-        ctx.strokeStyle = '#00FF00'; // Yeşil snap guide
-        ctx.lineWidth = 1.5 / zoom;
-        ctx.setLineDash([5 / zoom, 5 / zoom]);
 
-        // Canvas boyutlarını al (görünür alan)
-        const canvas = ctx.canvas;
-        const rect = canvas.getBoundingClientRect();
-        const panX = state.panX || 0;
-        const panY = state.panY || 0;
+        // dragAxis'e göre renk belirle
+        const dragAxis = interactionManager.dragAxis;
+        const isZActive = dragAxis === 'z';
+        const guideColor = isZActive ? '#00DDDD' : '#00FF00'; // Z ekseni için cyan, diğerleri için yeşil
 
-        // Görünür dünya koordinatları
-        const minX = -panX / zoom - 500;
-        const maxX = -panX / zoom + canvas.width / zoom + 500;
-        const minY = -panY / zoom - 500;
-        const maxY = -panY / zoom + canvas.height / zoom + 500;
+        // Snap guide çizgileri (sadece endpoint drag için)
+        if (snapLock) {
+            ctx.strokeStyle = guideColor;
+            ctx.lineWidth = 1.5 / zoom;
+            ctx.setLineDash([5 / zoom, 5 / zoom]);
 
-        // X ekseni snap'i varsa dikey çizgi çiz
-        if (snapLock.x !== null) {
-            ctx.beginPath();
-            ctx.moveTo(snapLock.x, minY);
-            ctx.lineTo(snapLock.x, maxY);
-            ctx.stroke();
+            // Canvas boyutlarını al
+            const canvas = ctx.canvas;
+            const panX = state.panX || 0;
+            const panY = state.panY || 0;
+
+            // Görünür dünya koordinatları
+            const minX = -panX / zoom - 500;
+            const maxX = -panX / zoom + canvas.width / zoom + 500;
+            const minY = -panY / zoom - 500;
+            const maxY = -panY / zoom + canvas.height / zoom + 500;
+
+            // X ekseni snap'i varsa dikey çizgi çiz
+            if (snapLock.x !== null) {
+                ctx.beginPath();
+                ctx.moveTo(snapLock.x, minY);
+                ctx.lineTo(snapLock.x, maxY);
+                ctx.stroke();
+            }
+
+            // Y ekseni snap'i varsa yatay çizgi çiz
+            if (snapLock.y !== null) {
+                ctx.beginPath();
+                ctx.moveTo(minX, snapLock.y);
+                ctx.lineTo(maxX, snapLock.y);
+                ctx.stroke();
+            }
         }
 
-        // Y ekseni snap'i varsa yatay çizgi çiz
-        if (snapLock.y !== null) {
-            ctx.beginPath();
-            ctx.moveTo(minX, snapLock.y);
-            ctx.lineTo(maxX, snapLock.y);
-            ctx.stroke();
-        }
-
-        // Snap noktasında daire çiz
+        // Snap/drag noktasında daire çiz
         ctx.setLineDash([]);
-        ctx.fillStyle = '#00FF00';
+        ctx.fillStyle = guideColor;
         ctx.beginPath();
         ctx.arc(point.x, point.y, 4 / zoom, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
+
+        // Koordinat gösterimi
+        ctx.font = `${12 / zoom}px Arial`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const xText = `x:${Math.round(point.x)}`;
+        const yText = `y:${Math.round(point.y)}`;
+        const zText = `z:${Math.round(point.z || 0)}`;
+        const coordText = `${xText} ${yText} ${zText}`;
+
+        // Metin arka planı
+        const textMetrics = ctx.measureText(coordText);
+        const textWidth = textMetrics.width;
+        const textHeight = 14 / zoom;
+        const padding = 4 / zoom;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(
+            point.x + 8 / zoom,
+            point.y - 8 / zoom - textHeight - padding,
+            textWidth + padding * 2,
+            textHeight + padding * 2
+        );
+
+        // Koordinatları renklendirerek göster
+        const textX = point.x + 8 / zoom + padding;
+        const textY = point.y - 8 / zoom - textHeight;
+        let currentX = textX;
+
+        // X koordinatı
+        ctx.fillStyle = (dragAxis === 'x') ? '#00FF00' : '#AAAAAA';
+        ctx.fillText(xText, currentX, textY);
+        currentX += ctx.measureText(xText + ' ').width;
+
+        // Y koordinatı
+        ctx.fillStyle = (dragAxis === 'y') ? '#00FF00' : '#AAAAAA';
+        ctx.fillText(yText, currentX, textY);
+        currentX += ctx.measureText(yText + ' ').width;
+
+        // Z koordinatı
+        ctx.fillStyle = (dragAxis === 'z') ? '#00DDDD' : '#AAAAAA'; // Z için cyan
+        ctx.fillText(zText, currentX, textY);
 
         ctx.restore();
     }
