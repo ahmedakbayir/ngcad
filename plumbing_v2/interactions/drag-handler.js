@@ -402,19 +402,20 @@ export function startBodyDrag(interactionManager, pipe, point) {
     if (interactionManager.connectedPipesAtP1.length === 1 && interactionManager.connectedPipesAtP2.length === 1) {
         const pipeA = interactionManager.connectedPipesAtP1[0].pipe;
         const pipeC = interactionManager.connectedPipesAtP2[0].pipe;
-        
-        // DÜZELTME: Bridge check için Z kontrolü
+
+        // 3D FIX: Bridge check için dinamik tolerance kullan
+        const bridgeTol = getConnectedPipesTolerance3D();
         const p1OfA = (Math.hypot(
-            pipeA.p1.x - pipe.p1.x, 
+            pipeA.p1.x - pipe.p1.x,
             pipeA.p1.y - pipe.p1.y,
             (pipeA.p1.z || 0) - (pipe.p1.z || 0)
-        ) < 1) ? pipeA.p2 : pipeA.p1;
-        
+        ) < bridgeTol) ? pipeA.p2 : pipeA.p1;
+
         const p2OfC = (Math.hypot(
-            pipeC.p1.x - pipe.p2.x, 
+            pipeC.p1.x - pipe.p2.x,
             pipeC.p1.y - pipe.p2.y,
             (pipeC.p1.z || 0) - (pipe.p2.z || 0)
-        ) < 1) ? pipeC.p2 : pipeC.p1;
+        ) < bridgeTol) ? pipeC.p2 : pipeC.p1;
         
         const p1 = p1OfA;
         const p2 = pipe.p1;
@@ -671,11 +672,21 @@ export function handleDrag(interactionManager, point, event = null) {
         }
 
         // Boru hizalama snap'i
-        const connectionTolerance = 1;
+        // 3D FIX: Dinamik tolerance kullan
+        const connectionTolerance = getConnectedPipesTolerance3D();
         const connectedPipes = interactionManager.manager.pipes.filter(p => {
             if (p === pipe) return false;
-            const distToP1 = Math.hypot(p.p1.x - oldPoint.x, p.p1.y - oldPoint.y);
-            const distToP2 = Math.hypot(p.p2.x - oldPoint.x, p.p2.y - oldPoint.y);
+            // 3D mesafe kontrolü
+            const distToP1 = Math.hypot(
+                p.p1.x - oldPoint.x,
+                p.p1.y - oldPoint.y,
+                (p.p1.z || 0) - (oldPoint.z || 0)
+            );
+            const distToP2 = Math.hypot(
+                p.p2.x - oldPoint.x,
+                p.p2.y - oldPoint.y,
+                (p.p2.z || 0) - (oldPoint.z || 0)
+            );
             return distToP1 < connectionTolerance || distToP2 < connectionTolerance;
         });
 
@@ -692,7 +703,12 @@ export function handleDrag(interactionManager, point, event = null) {
         if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; }
 
         connectedPipes.forEach(connectedPipe => {
-            const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
+            // 3D mesafe ile hangi endpoint'in bağlı olduğunu bul
+            const distToP1 = Math.hypot(
+                connectedPipe.p1.x - oldPoint.x,
+                connectedPipe.p1.y - oldPoint.y,
+                (connectedPipe.p1.z || 0) - (oldPoint.z || 0)
+            );
             const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
             const xDiff = Math.abs(finalPos.x - otherEndpoint.x);
             if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = otherEndpoint.x; }
@@ -710,21 +726,37 @@ export function handleDrag(interactionManager, point, event = null) {
         // Doluluk kontrolü
         const POINT_OCCUPATION_TOLERANCE = 1.5;
         const ELBOW_TOLERANCE = 8;
-        const elbowConnectionTolerance = 1;
+        // 3D FIX: Dinamik tolerance kullan
+        const elbowConnectionTolerance = getConnectedPipesTolerance3D();
         let occupiedByOtherPipe = false;
-        
+
         for (const otherPipe of interactionManager.manager.pipes) {
             if (otherPipe === pipe) continue;
             if (connectedPipes.includes(otherPipe)) continue;
             for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
-                const distToOld = Math.hypot(endpoint.x - oldPoint.x, endpoint.y - oldPoint.y);
+                // 3D mesafe kontrolü
+                const distToOld = Math.hypot(
+                    endpoint.x - oldPoint.x,
+                    endpoint.y - oldPoint.y,
+                    (endpoint.z || 0) - (oldPoint.z || 0)
+                );
                 if (distToOld < elbowConnectionTolerance) continue;
 
+                // Occupation kontrolü (sadece XY)
                 const dist = Math.hypot(endpoint.x - finalPos.x, endpoint.y - finalPos.y);
                 const isElbow = interactionManager.manager.pipes.some(p => {
                     if (p === otherPipe) return false;
-                    const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
-                    const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
+                    // 3D mesafe kontrolü
+                    const d1 = Math.hypot(
+                        p.p1.x - endpoint.x,
+                        p.p1.y - endpoint.y,
+                        (p.p1.z || 0) - (endpoint.z || 0)
+                    );
+                    const d2 = Math.hypot(
+                        p.p2.x - endpoint.x,
+                        p.p2.y - endpoint.y,
+                        (p.p2.z || 0) - (endpoint.z || 0)
+                    );
                     return d1 < elbowConnectionTolerance || d2 < elbowConnectionTolerance;
                 });
 
@@ -811,22 +843,37 @@ export function handleDrag(interactionManager, point, event = null) {
                 interactionManager.connectedPipesAtEndpoint.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = finalPos.x;
                     connectedPipe[connectedEndpoint].y = finalPos.y;
+                    // 3D FIX: Z koordinatını da güncelle
+                    if (correctedPoint.z !== undefined) {
+                        connectedPipe[connectedEndpoint].z = correctedPoint.z;
+                    }
                 });
             }
 
             if (event && event.ctrlKey) {
                 const dx = finalPos.x - oldPoint.x;
                 const dy = finalPos.y - oldPoint.y;
+                const dz = (correctedPoint.z || 0) - (oldPoint.z || 0);
                 const downstreamChain = [];
                 const visited = new Set([pipe.id]);
                 const queue = [];
-                const tolerance = 1;
+                // 3D FIX: Dinamik tolerance kullan
+                const chainTolerance = getConnectedPipesTolerance3D();
 
                 interactionManager.manager.pipes.forEach(otherPipe => {
                     if (otherPipe.id === pipe.id) return;
-                    const p1Dist = Math.hypot(otherPipe.p1.x - finalPos.x, otherPipe.p1.y - finalPos.y);
-                    const p2Dist = Math.hypot(otherPipe.p2.x - finalPos.x, otherPipe.p2.y - finalPos.y);
-                    if (p1Dist < tolerance || p2Dist < tolerance) { visited.add(otherPipe.id); queue.push(otherPipe); }
+                    // 3D mesafe
+                    const p1Dist = Math.hypot(
+                        otherPipe.p1.x - finalPos.x,
+                        otherPipe.p1.y - finalPos.y,
+                        (otherPipe.p1.z || 0) - (correctedPoint.z || 0)
+                    );
+                    const p2Dist = Math.hypot(
+                        otherPipe.p2.x - finalPos.x,
+                        otherPipe.p2.y - finalPos.y,
+                        (otherPipe.p2.z || 0) - (correctedPoint.z || 0)
+                    );
+                    if (p1Dist < chainTolerance || p2Dist < chainTolerance) { visited.add(otherPipe.id); queue.push(otherPipe); }
                 });
 
                 while (queue.length > 0) {
@@ -834,17 +881,39 @@ export function handleDrag(interactionManager, point, event = null) {
                     downstreamChain.push(currentPipe);
                     interactionManager.manager.pipes.forEach(otherPipe => {
                         if (visited.has(otherPipe.id)) return;
-                        const p1ToP1 = Math.hypot(otherPipe.p1.x - currentPipe.p1.x, otherPipe.p1.y - currentPipe.p1.y);
-                        const p1ToP2 = Math.hypot(otherPipe.p1.x - currentPipe.p2.x, otherPipe.p1.y - currentPipe.p2.y);
-                        const p2ToP1 = Math.hypot(otherPipe.p2.x - currentPipe.p1.x, otherPipe.p2.y - currentPipe.p1.y);
-                        const p2ToP2 = Math.hypot(otherPipe.p2.x - currentPipe.p2.x, otherPipe.p2.y - currentPipe.p2.y);
-                        if (p1ToP1 < tolerance || p1ToP2 < tolerance || p2ToP1 < tolerance || p2ToP2 < tolerance) { visited.add(otherPipe.id); queue.push(otherPipe); }
+                        // 3D mesafe kontrolü
+                        const p1ToP1 = Math.hypot(
+                            otherPipe.p1.x - currentPipe.p1.x,
+                            otherPipe.p1.y - currentPipe.p1.y,
+                            (otherPipe.p1.z || 0) - (currentPipe.p1.z || 0)
+                        );
+                        const p1ToP2 = Math.hypot(
+                            otherPipe.p1.x - currentPipe.p2.x,
+                            otherPipe.p1.y - currentPipe.p2.y,
+                            (otherPipe.p1.z || 0) - (currentPipe.p2.z || 0)
+                        );
+                        const p2ToP1 = Math.hypot(
+                            otherPipe.p2.x - currentPipe.p1.x,
+                            otherPipe.p2.y - currentPipe.p1.y,
+                            (otherPipe.p2.z || 0) - (currentPipe.p1.z || 0)
+                        );
+                        const p2ToP2 = Math.hypot(
+                            otherPipe.p2.x - currentPipe.p2.x,
+                            otherPipe.p2.y - currentPipe.p2.y,
+                            (otherPipe.p2.z || 0) - (currentPipe.p2.z || 0)
+                        );
+                        if (p1ToP1 < chainTolerance || p1ToP2 < chainTolerance || p2ToP1 < chainTolerance || p2ToP2 < chainTolerance) { visited.add(otherPipe.id); queue.push(otherPipe); }
                     });
                 }
 
                 downstreamChain.forEach(chainPipe => {
                     chainPipe.p1.x += dx; chainPipe.p1.y += dy;
                     chainPipe.p2.x += dx; chainPipe.p2.y += dy;
+                    // 3D FIX: Z koordinatını da taşı
+                    if (dz !== 0) {
+                        chainPipe.p1.z = (chainPipe.p1.z || 0) + dz;
+                        chainPipe.p2.z = (chainPipe.p2.z || 0) + dz;
+                    }
                     const vanaListesi = interactionManager.manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === chainPipe.id);
                     vanaListesi.forEach(vana => { vana.x += dx; vana.y += dy; });
                     const componentListesi = interactionManager.manager.components.filter(c => (c.type === 'sayac' || c.type === 'cihaz') && c.fleksBaglanti && c.fleksBaglanti.boruId === chainPipe.id);
@@ -920,19 +989,30 @@ export function handleDrag(interactionManager, point, event = null) {
 
         const newCikis = interactionManager.dragObject.getCikisNoktasi();
         const ELBOW_TOLERANCE = 8;
-        const elbowConnectionTolerance = 1;
+        // 3D FIX: Dinamik tolerance kullan
+        const elbowConnectionToleranceSK = getConnectedPipesTolerance3D();
         let tooCloseToElbow = false;
         const bagliBoruId = interactionManager.dragObject.bagliBoruId;
 
         for (const otherPipe of interactionManager.manager.pipes) {
             if (bagliBoruId && otherPipe.id === bagliBoruId) continue;
             for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+                // Servis kutusu zeminde, sadece XY kontrolü
                 const dist = Math.hypot(endpoint.x - newCikis.x, endpoint.y - newCikis.y);
                 const isElbow = interactionManager.manager.pipes.some(p => {
                     if (p === otherPipe) return false;
-                    const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
-                    const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
-                    return d1 < elbowConnectionTolerance || d2 < elbowConnectionTolerance;
+                    // 3D mesafe kontrolü
+                    const d1 = Math.hypot(
+                        p.p1.x - endpoint.x,
+                        p.p1.y - endpoint.y,
+                        (p.p1.z || 0) - (endpoint.z || 0)
+                    );
+                    const d2 = Math.hypot(
+                        p.p2.x - endpoint.x,
+                        p.p2.y - endpoint.y,
+                        (p.p2.z || 0) - (endpoint.z || 0)
+                    );
+                    return d1 < elbowConnectionToleranceSK || d2 < elbowConnectionToleranceSK;
                 });
                 if (isElbow && dist < ELBOW_TOLERANCE) { tooCloseToElbow = true; break; }
             }
@@ -951,10 +1031,14 @@ export function handleDrag(interactionManager, point, event = null) {
             if (boru) {
                 boru.p1.x = newCikis.x;
                 boru.p1.y = newCikis.y;
+                // Servis kutusu zeminde (Z=0)
+                boru.p1.z = 0;
                 if (interactionManager.servisKutusuConnectedPipes && interactionManager.servisKutusuConnectedPipes.length > 0) {
                     interactionManager.servisKutusuConnectedPipes.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                         connectedPipe[connectedEndpoint].x = newCikis.x;
                         connectedPipe[connectedEndpoint].y = newCikis.y;
+                        // 3D FIX: Servis kutusu zeminde olduğu için Z=0
+                        connectedPipe[connectedEndpoint].z = 0;
                     });
                 }
             }
@@ -1032,11 +1116,14 @@ export function handleDrag(interactionManager, point, event = null) {
             const cikisBoru = interactionManager.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
             if (cikisBoru) {
                 cikisBoru.p1.x += dx; cikisBoru.p1.y += dy;
-                const newP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+                // Sayaç Z pozisyonu varsa koruyalım
+                const newP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y, z: cikisBoru.p1.z || 0 };
                 if (interactionManager.sayacConnectedPipes && interactionManager.sayacConnectedPipes.length > 0) {
                     interactionManager.sayacConnectedPipes.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                         connectedPipe[connectedEndpoint].x = newP1.x;
                         connectedPipe[connectedEndpoint].y = newP1.y;
+                        // 3D FIX: Z koordinatını da güncelle
+                        connectedPipe[connectedEndpoint].z = newP1.z;
                     });
                 }
             }
@@ -1047,24 +1134,32 @@ export function handleDrag(interactionManager, point, event = null) {
     // 7. Boru Gövdesi Taşıma
     if (interactionManager.dragObject.type === 'boru' && interactionManager.isBodyDrag) {
         const pipe = interactionManager.dragObject;
-        // Burada point (mouse) yerine correctedPoint kullanmak daha doğru olur 
-        // ama delta hesabı olduğu için fark etmez (ikisi de aynı oranda kayar)
-        // Yine de görsel tutarlılık için correctedPoint kullanabiliriz
+
+        // Delta hesaplama: mouse hareketi (3D düzeltmesiz, sadece 2D)
         const deltaX = point.x - interactionManager.dragStart.x;
         const deltaY = point.y - interactionManager.dragStart.y;
-        
+
         let offsetX = deltaX;
         let offsetY = deltaY;
         if (interactionManager.dragAxis === 'x') offsetY = 0;
         else if (interactionManager.dragAxis === 'y') offsetX = 0;
 
-        const newP1 = { x: interactionManager.bodyDragInitialP1.x + offsetX, y: interactionManager.bodyDragInitialP1.y + offsetY };
-        const newP2 = { x: interactionManager.bodyDragInitialP2.x + offsetX, y: interactionManager.bodyDragInitialP2.y + offsetY };
+        // 3D FIX: Z koordinatını koru
+        const newP1 = {
+            x: interactionManager.bodyDragInitialP1.x + offsetX,
+            y: interactionManager.bodyDragInitialP1.y + offsetY,
+            z: interactionManager.bodyDragInitialP1.z || 0
+        };
+        const newP2 = {
+            x: interactionManager.bodyDragInitialP2.x + offsetX,
+            y: interactionManager.bodyDragInitialP2.y + offsetY,
+            z: interactionManager.bodyDragInitialP2.z || 0
+        };
 
-        // ... (Geri kalan boru gövdesi mantığı aynen kalabilir) ...
+        // 3D FIX: Dinamik tolerance kullan
         const POINT_OCCUPATION_TOLERANCE = 1.5;
         const ELBOW_TOLERANCE = 8;
-        const connectionTolerance = 1;
+        const bodyConnectionTolerance = getConnectedPipesTolerance3D();
         const connectedPipes = [...(interactionManager.connectedPipesAtP1 || []).map(c => c.pipe), ...(interactionManager.connectedPipesAtP2 || []).map(c => c.pipe)];
 
         const checkEndpointDistance = (newPos, checkAgainstOldPos = null) => {
@@ -1073,15 +1168,30 @@ export function handleDrag(interactionManager, point, event = null) {
                 if (connectedPipes.includes(otherPipe)) continue;
                 for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
                     if (checkAgainstOldPos) {
-                        const distToOld = Math.hypot(endpoint.x - checkAgainstOldPos.x, endpoint.y - checkAgainstOldPos.y);
-                        if (distToOld < connectionTolerance) continue;
+                        // 3D mesafe kontrolü
+                        const distToOld = Math.hypot(
+                            endpoint.x - checkAgainstOldPos.x,
+                            endpoint.y - checkAgainstOldPos.y,
+                            (endpoint.z || 0) - (checkAgainstOldPos.z || 0)
+                        );
+                        if (distToOld < bodyConnectionTolerance) continue;
                     }
+                    // 3D mesafe kontrolü (sadece XY, çünkü occupation kontrolü)
                     const dist = Math.hypot(endpoint.x - newPos.x, endpoint.y - newPos.y);
                     const isElbow = interactionManager.manager.pipes.some(p => {
                         if (p === otherPipe) return false;
-                        const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
-                        const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
-                        return d1 < connectionTolerance || d2 < connectionTolerance;
+                        // Elbow kontrolü için 3D mesafe
+                        const d1 = Math.hypot(
+                            p.p1.x - endpoint.x,
+                            p.p1.y - endpoint.y,
+                            (p.p1.z || 0) - (endpoint.z || 0)
+                        );
+                        const d2 = Math.hypot(
+                            p.p2.x - endpoint.x,
+                            p.p2.y - endpoint.y,
+                            (p.p2.z || 0) - (endpoint.z || 0)
+                        );
+                        return d1 < bodyConnectionTolerance || d2 < bodyConnectionTolerance;
                     });
                     const tolerance = isElbow ? ELBOW_TOLERANCE : POINT_OCCUPATION_TOLERANCE;
                     if (dist < tolerance) return true;
@@ -1094,8 +1204,8 @@ export function handleDrag(interactionManager, point, event = null) {
         const p2Blocked = checkEndpointDistance(newP2, interactionManager.bodyDragInitialP2);
         if (p1Blocked || p2Blocked) return;
 
-        pipe.p1.x = newP1.x; pipe.p1.y = newP1.y;
-        pipe.p2.x = newP2.x; pipe.p2.y = newP2.y;
+        pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
+        pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
 
         if (interactionManager.useBridgeMode) {
             interactionManager.ghostBridgePipes = [];
@@ -1114,12 +1224,16 @@ export function handleDrag(interactionManager, point, event = null) {
                 interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = newP1.x;
                     connectedPipe[connectedEndpoint].y = newP1.y;
+                    // 3D FIX: Z koordinatını da güncelle
+                    connectedPipe[connectedEndpoint].z = newP1.z;
                 });
             }
             if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
                 interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = newP2.x;
                     connectedPipe[connectedEndpoint].y = newP2.y;
+                    // 3D FIX: Z koordinatını da güncelle
+                    connectedPipe[connectedEndpoint].z = newP2.z;
                 });
             }
             if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
@@ -1130,10 +1244,13 @@ export function handleDrag(interactionManager, point, event = null) {
                         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
                         if (cikisBoru) {
                             cikisBoru.p1.x += offsetX; cikisBoru.p1.y += offsetY;
-                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
+                            // 3D FIX: Z'yi koru
+                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y, z: cikisBoru.p1.z || 0 };
                             interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                                 connectedPipe[connectedEndpoint].x = newOutputP1.x;
                                 connectedPipe[connectedEndpoint].y = newOutputP1.y;
+                                // 3D FIX: Z koordinatını da güncelle
+                                connectedPipe[connectedEndpoint].z = newOutputP1.z;
                             });
                         }
                     }
