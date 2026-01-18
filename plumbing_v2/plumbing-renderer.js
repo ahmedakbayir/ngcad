@@ -2931,7 +2931,6 @@ export class PlumbingRenderer {
         const point = endpoint === 'p1' ? dragObject.p1 : dragObject.p2;
 
         ctx.save();
-        ctx.strokeStyle = '#00FF00'; // Yeşil snap guide
         ctx.lineWidth = 1.5 / zoom;
         ctx.setLineDash([5 / zoom, 5 / zoom]);
 
@@ -2947,8 +2946,17 @@ export class PlumbingRenderer {
         const minY = -panY / zoom - 500;
         const maxY = -panY / zoom + canvas.height / zoom + 500;
 
+        // dragAxis'e göre aktif eksenleri belirle
+        const dragAxis = interactionManager.dragAxis;
+        let isXActive = dragAxis !== 'x'; // X kilitli değilse aktif
+        let isYActive = dragAxis !== 'y'; // Y kilitli değilse aktif
+        let isZActive = dragAxis !== 'z'; // Z kilitli değilse aktif
+
         // X ekseni snap'i varsa dikey çizgi çiz
         if (snapLock.x !== null) {
+            // X ekseninde hareket ediyorsa koyu renk
+            ctx.strokeStyle = isXActive ? '#00DD00' : '#00FF00'; // Aktifse koyu yeşil, değilse açık yeşil
+            ctx.lineWidth = isXActive ? 2.5 / zoom : 1.5 / zoom; // Aktifse daha kalın
             ctx.beginPath();
             ctx.moveTo(snapLock.x, minY);
             ctx.lineTo(snapLock.x, maxY);
@@ -2957,6 +2965,9 @@ export class PlumbingRenderer {
 
         // Y ekseni snap'i varsa yatay çizgi çiz
         if (snapLock.y !== null) {
+            // Y ekseninde hareket ediyorsa koyu renk
+            ctx.strokeStyle = isYActive ? '#00DD00' : '#00FF00'; // Aktifse koyu yeşil, değilse açık yeşil
+            ctx.lineWidth = isYActive ? 2.5 / zoom : 1.5 / zoom; // Aktifse daha kalın
             ctx.beginPath();
             ctx.moveTo(minX, snapLock.y);
             ctx.lineTo(maxX, snapLock.y);
@@ -2972,6 +2983,30 @@ export class PlumbingRenderer {
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 1 / zoom;
         ctx.stroke();
+
+        // Koordinat metni göster
+        const coordText = `x:${Math.round(point.x)} y:${Math.round(point.y)} z:${Math.round(point.z || 0)}`;
+        ctx.font = `${12 / zoom}px Arial`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        // Metin arka planı (siyah, yarı saydam)
+        const textMetrics = ctx.measureText(coordText);
+        const textWidth = textMetrics.width;
+        const textHeight = 14 / zoom;
+        const padding = 4 / zoom;
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(
+            point.x + 8 / zoom,
+            point.y - 8 / zoom - textHeight - padding,
+            textWidth + padding * 2,
+            textHeight + padding * 2
+        );
+
+        // Aktif eksenleri koyu renkle vurgula
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(coordText, point.x + 8 / zoom + padding, point.y - 8 / zoom - textHeight);
 
         ctx.restore();
     }
