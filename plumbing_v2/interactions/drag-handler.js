@@ -730,9 +730,15 @@ export function handleDrag(interactionManager, point, event = null) {
 
                 const tolerance = isElbow ? ELBOW_TOLERANCE : POINT_OCCUPATION_TOLERANCE;
 
+                // 2D MODDA Z KONTROLÜNÜ DEVRE DIŞI BIRAK
+                // 2D modda (t < 0.5) kullanıcı Z farkını göremez, sadece X-Y düzleminde çalışır
+                // Bu nedenle 2D modda Z toleransını kontrol etmemeliyiz
+                const in2DMode = t < 0.5;
+                const zCheckPassed = in2DMode || distZ < Z_TOLERANCE;
+
                 // DEĞİŞİKLİK: Hem yatayda (dist) hem de düşeyde (distZ) yakınsa engelle.
-                // Eğer Z farkı toleranstan büyükse, üst üste gelebilirler (occupied = false kalır).
-                if (dist < tolerance && distZ < tolerance) {
+                // 2D modda ise sadece yatay mesafeye bak
+                if (dist < tolerance && zCheckPassed) {
                     occupiedByOtherPipe = true;
                     break;
                 }
@@ -1098,7 +1104,10 @@ export function handleDrag(interactionManager, point, event = null) {
                         return d1 < connectionTolerance || d2 < connectionTolerance;
                     });
                     const tolerance = isElbow ? ELBOW_TOLERANCE : POINT_OCCUPATION_TOLERANCE;
-                    if (dist < tolerance && distZ < tolerance) return true;
+                    // 2D modda Z kontrolünü devre dışı bırak
+                    const in2DMode = t < 0.5;
+                    const zCheckPassed = in2DMode || distZ < Z_TOLERANCE;
+                    if (dist < tolerance && zCheckPassed) return true;
                 }
             }
             return false;
