@@ -697,7 +697,7 @@ export function handleDrag(interactionManager, point, event = null) {
         if (pipeSnapX !== null) finalPos.x = pipeSnapX;
         if (pipeSnapY !== null) finalPos.y = pipeSnapY;
 
-        // Korumalı nokta kontrolü
+        // Korumalı nokta kontrolü (Z snap'ten ÖNCE, eski Z değeriyle)
         const isProtected = isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint);
         if (isProtected) return;
 
@@ -718,7 +718,7 @@ export function handleDrag(interactionManager, point, event = null) {
                 const dist = Math.hypot(endpoint.x - finalPos.x, endpoint.y - finalPos.y);
 
                 // DEĞİŞİKLİK: Z Mesafesi Kontrolü
-                // Mevcut boru ucunun yeni Z'si (correctedPoint.z) ile diğer boru ucunun Z'si karşılaştırılır
+                // Mevcut boru ucunun Z'si (correctedPoint.z - Z snap öncesi değer) ile diğer boru ucunun Z'si karşılaştırılır
                 const distZ = Math.abs((endpoint.z || 0) - (correctedPoint.z || 0));
 
                 const isElbow = interactionManager.manager.pipes.some(p => {
@@ -757,14 +757,33 @@ export function handleDrag(interactionManager, point, event = null) {
             newLength = Math.hypot(pipe.p1.x - finalPos.x, pipe.p1.y - finalPos.y);
         }
 
+        // Z SNAP: Eğer finalPos başka bir boru ucuna X-Y olarak snap olduysa, o ucun Z'sini kullan
+        // Böylece Z kotları farklı noktalar birbirinin üzerine sürüklenip dik boru oluşturabilir
+        // Not: Bu işlem isProtectedPoint ve doluluk kontrolünden SONRA yapılır
+        const SNAP_TOLERANCE_FOR_Z = 2; // 2cm tolerance ile boru ucu kontrolü
+        for (const otherPipe of interactionManager.manager.pipes) {
+            if (otherPipe === pipe) continue;
+
+            for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+                const dist = Math.hypot(endpoint.x - finalPos.x, endpoint.y - finalPos.y);
+                if (dist < SNAP_TOLERANCE_FOR_Z) {
+                    // finalPos X-Y olarak snap olmuş, hedef noktanın Z'sini kullan
+                    finalPos.z = endpoint.z || 0;
+                    break;
+                }
+            }
+        }
+
         if (!occupiedByOtherPipe && newLength >= minLength) {
             const oldLength = pipe.uzunluk;
             if (interactionManager.dragEndpoint === 'p1') {
                 pipe.p1.x = finalPos.x;
                 pipe.p1.y = finalPos.y;
+                pipe.p1.z = finalPos.z; // Z koordinatını da güncelle
             } else {
                 pipe.p2.x = finalPos.x;
                 pipe.p2.y = finalPos.y;
+                pipe.p2.z = finalPos.z; // Z koordinatını da güncelle
             }
 
             valvesOnPipe.forEach(valve => {
