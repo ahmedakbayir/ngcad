@@ -676,14 +676,18 @@ export function handleDrag(interactionManager, point, event = null) {
         const PIPE_ENDPOINT_SNAP_DISTANCE = 10;
         let pipeSnapX = null;
         let pipeSnapY = null;
+        let pipeSnapZ = null;
         let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
         let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
+        let minPipeSnapDistZ = PIPE_ENDPOINT_SNAP_DISTANCE;
 
         const ownOtherEndpoint = interactionManager.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
         const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
         if (ownXDiff < minPipeSnapDistX) { minPipeSnapDistX = ownXDiff; pipeSnapX = ownOtherEndpoint.x; }
         const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
         if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; }
+        const ownZDiff = Math.abs((correctedPoint.z || 0) - (ownOtherEndpoint.z || 0));
+        if (ownZDiff < minPipeSnapDistZ) { minPipeSnapDistZ = ownZDiff; pipeSnapZ = ownOtherEndpoint.z; }
 
         connectedPipes.forEach(connectedPipe => {
             const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
@@ -692,10 +696,13 @@ export function handleDrag(interactionManager, point, event = null) {
             if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = otherEndpoint.x; }
             const yDiff = Math.abs(finalPos.y - otherEndpoint.y);
             if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = otherEndpoint.y; }
+            const zDiff = Math.abs((correctedPoint.z || 0) - (otherEndpoint.z || 0));
+            if (zDiff < minPipeSnapDistZ) { minPipeSnapDistZ = zDiff; pipeSnapZ = otherEndpoint.z; }
         });
 
         if (pipeSnapX !== null) finalPos.x = pipeSnapX;
         if (pipeSnapY !== null) finalPos.y = pipeSnapY;
+        if (pipeSnapZ !== null) correctedPoint.z = pipeSnapZ;
 
         // Korumalı nokta kontrolü
         const isProtected = isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint);
@@ -762,9 +769,11 @@ export function handleDrag(interactionManager, point, event = null) {
             if (interactionManager.dragEndpoint === 'p1') {
                 pipe.p1.x = finalPos.x;
                 pipe.p1.y = finalPos.y;
+                pipe.p1.z = correctedPoint.z;
             } else {
                 pipe.p2.x = finalPos.x;
                 pipe.p2.y = finalPos.y;
+                pipe.p2.z = correctedPoint.z;
             }
 
             valvesOnPipe.forEach(valve => {
@@ -817,6 +826,7 @@ export function handleDrag(interactionManager, point, event = null) {
                 interactionManager.connectedPipesAtEndpoint.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = finalPos.x;
                     connectedPipe[connectedEndpoint].y = finalPos.y;
+                    connectedPipe[connectedEndpoint].z = correctedPoint.z;
                 });
             }
 
@@ -1180,8 +1190,8 @@ export function updateConnectedPipesChain(interactionManager, oldPoint, newPoint
         if (distP1 < tolerance) {
             pipe.p1.x = newPoint.x;
             pipe.p1.y = newPoint.y;
-            // Opsiyonel: Eğer newPoint'te Z bilgisi varsa Z'yi de güncelle
-            // if(newPoint.z !== undefined) pipe.p1.z = newPoint.z;
+            // Z bilgisi varsa Z'yi de güncelle
+            if(newPoint.z !== undefined) pipe.p1.z = newPoint.z;
         }
 
         // P2 KONTROLÜ (Z DAHİL)
@@ -1193,7 +1203,8 @@ export function updateConnectedPipesChain(interactionManager, oldPoint, newPoint
         if (distP2 < tolerance) {
             pipe.p2.x = newPoint.x;
             pipe.p2.y = newPoint.y;
-            // Opsiyonel: if(newPoint.z !== undefined) pipe.p2.z = newPoint.z;
+            // Z bilgisi varsa Z'yi de güncelle
+            if(newPoint.z !== undefined) pipe.p2.z = newPoint.z;
         }
     });
 }
