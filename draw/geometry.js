@@ -112,11 +112,40 @@ export function screenToWorld(sx, sy) {
 }
 
 export function worldToScreen(wx, wy) {
-    const { zoom, panOffset } = state;
-    return {
-        x: wx * zoom + panOffset.x,
-        y: wy * zoom + panOffset.y
-    };
+    const { zoom, panOffset, is3DPerspectiveActive, viewBlendFactor } = state;
+
+    // Blend faktörünü hesapla
+    let t = (typeof viewBlendFactor === 'number')
+        ? viewBlendFactor
+        : (is3DPerspectiveActive ? 1 : 0);
+
+    // t değerini 0-1 arasına sabitle
+    t = Math.max(0, Math.min(1, t));
+
+    if (t === 0) {
+        // Tam 2D görünüm (optimizasyon)
+        return {
+            x: wx * zoom + panOffset.x,
+            y: wy * zoom + panOffset.y
+        };
+    }
+
+    // İzometrik parametreler
+    const angle = Math.PI / 6; // 30 derece
+    const isoCos = Math.cos(angle); // ≈ 0.866
+    const isoSin = Math.sin(angle); // = 0.5
+
+    // Canvas forward transform matrisi (blended):
+    const a = 1 + (isoCos - 1) * t;
+    const b = -isoSin * t;
+    const c = isoCos * t;
+    const d = 1 + (isoSin - 1) * t;
+
+    // World → Screen dönüşümü (forward transform)
+    const screenX = (wx * a + wy * c) * zoom + panOffset.x;
+    const screenY = (wx * b + wy * d) * zoom + panOffset.y;
+
+    return { x: screenX, y: screenY };
 }
 
 // Noktanın çizgi segmentine olan en yakın mesafesinin karesini hesaplar

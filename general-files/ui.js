@@ -6,7 +6,7 @@ import { saveState } from './history.js';
 import { isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { recalculateStepCount, updateConnectedStairElevations } from '../architectural-objects/stairs.js';
-import { worldToScreen } from '../draw/geometry.js';
+import { worldToScreen, screenToWorld } from '../draw/geometry.js';
 import { applyStretchModification } from '../draw/geometry.js';
 import { toggleCameraMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
@@ -312,6 +312,17 @@ export function toggle3DPerspective() {
     console.log(`[Double CTRL] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
     console.log(`[Double CTRL] Başlangıç viewBlendFactor: ${state.viewBlendFactor}, is3DActive: ${state.is3DPerspectiveActive}`);
 
+    // --- EKRAN MERKEZİNİ KORU ---
+    // Geçiş öncesi ekran merkezindeki world koordinatını kaydet
+    const canvas = dom.c2d;
+    const centerScreenX = canvas.width / 2;
+    const centerScreenY = canvas.height / 2;
+    const centerWorld = screenToWorld(centerScreenX, centerScreenY);
+    const savedZoom = state.zoom;
+
+    console.log(`[ViewCenter] Merkez world koordinatı: (${centerWorld.x.toFixed(2)}, ${centerWorld.y.toFixed(2)})`);
+    // ---------------------------
+
     // Animasyon Hedefleri
     const targetBlend = targetIsActive ? 1 : 0; // 3D için 1, 2D için 0
     const targetAngle = targetIsActive ? (Math.PI / 3) : 0; // 3D için 60 derece, 2D için 0
@@ -343,6 +354,33 @@ export function toggle3DPerspective() {
         onUpdate: () => {
             // 1. 2D Çizim Değişkenini Güncelle
             state.viewBlendFactor = animObj.blend;
+
+            // --- EKRAN MERKEZİNİ VE ZOOM'U KORU ---
+            // İzometrik transform parametreleri
+            const angle = Math.PI / 6; // 30 derece
+            const isoCos = Math.cos(angle);
+            const isoSin = Math.sin(angle);
+            const t = animObj.blend;
+
+            // Transform matrisi
+            const a = 1 + (isoCos - 1) * t;
+            const b = -isoSin * t;
+            const c = isoCos * t;
+            const d = 1 + (isoSin - 1) * t;
+
+            // centerWorld'ün yeni transform ile screen konumu (panOffset olmadan)
+            const transformedX = (centerWorld.x * a + centerWorld.y * c) * savedZoom;
+            const transformedY = (centerWorld.x * b + centerWorld.y * d) * savedZoom;
+
+            // Pan offset'i ayarla: centerWorld ekran merkezinde kalmalı
+            state.panOffset = {
+                x: centerScreenX - transformedX,
+                y: centerScreenY - transformedY
+            };
+
+            // Zoom'u koru
+            state.zoom = savedZoom;
+            // ---------------------------
 
             // Debug: Her 10 frame'de bir log
             if (Math.random() < 0.1) {
