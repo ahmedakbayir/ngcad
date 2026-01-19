@@ -668,15 +668,15 @@ export class PlumbingRenderer {
         ctx.restore();
     }
 
-drawPipes(ctx, pipes) {
+    drawPipes(ctx, pipes) {
         if (!pipes) return;
 
         // Kırılım noktalarını hesapla
         const breakPoints = this.findBreakPoints(pipes);
         const t = state.viewBlendFactor || 0;
-        
+
         // Mod durumunu al
-        const isLight = isLightMode(); 
+        const isLight = isLightMode();
 
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
@@ -686,7 +686,7 @@ drawPipes(ctx, pipes) {
             const rawDx = pipe.p2.x - pipe.p1.x;
             const rawDy = pipe.p2.y - pipe.p1.y;
             const rawLen2d = Math.hypot(rawDx, rawDy);
-            
+
             let elevationAngle = 90;
             if (rawLen2d > 0.001) {
                 elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
@@ -743,22 +743,11 @@ drawPipes(ctx, pipes) {
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
                 const colorGroup = pipe.colorGroup || 'YELLOW';
 
-                if (isLight) {
-                    // LIGHT MODE:
-                    // Kenarlar: Yüksek Opasite (Koyu/Doygun Görünür)
-                    // Orta: Düşük Opasite (Beyaz zeminle karışıp Açık/Parlak Görünür)
-                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.9)); 
-                    gradient.addColorStop(0.4, this.getRenkByGroup(colorGroup, 'boru', 0.3)); // Highlight
-                    gradient.addColorStop(0.6, this.getRenkByGroup(colorGroup, 'boru', 0.3)); // Highlight
-                    gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.9));
-                } else {
-                    // DARK MODE:
-                    // Kenarlar: Düşük Opasite (Siyah zeminle karışıp Koyu/Gölge Görünür)
-                    // Orta: Yüksek Opasite (Parlak Görünür)
-                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.3));
-                    gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
-                    gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.3));
-                }
+                gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                gradient.addColorStop(0.45, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
+                gradient.addColorStop(0.55, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
+                gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
             }
@@ -786,15 +775,15 @@ drawPipes(ctx, pipes) {
         });
 
         // --- 3. DÜŞEY HAT SEMBOLLERİ ---
-        if (t < 0.99) { 
-            const symbolOpacity = 1 - t; 
-            
+        if (t < 0.99) {
+            const symbolOpacity = 1 - t;
+
             pipes.forEach(pipe => {
                 const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
                 const rawDx = pipe.p2.x - pipe.p1.x;
                 const rawDy = pipe.p2.y - pipe.p1.y;
                 const rawLen2d = Math.hypot(rawDx, rawDy);
-                
+
                 let elevationAngle = 90;
                 if (rawLen2d > 0.001) {
                     elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
@@ -804,7 +793,7 @@ drawPipes(ctx, pipes) {
                 if (rawZDiff > 0.1 && elevationAngle > 85) {
                     ctx.save();
                     ctx.globalAlpha = symbolOpacity;
-                    
+
                     const colorGroup = pipe.colorGroup || 'YELLOW';
                     const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
@@ -814,7 +803,7 @@ drawPipes(ctx, pipes) {
                         // SEÇİLİ: Turuncu dolgu, Beyaz/Siyah kontur
                         circleFill = '#FFA500'; // Turuncu
                         if (isLight) {
-                            circleStroke = '#000000'; 
+                            circleStroke = '#000000';
                             arrowColor = '#000000';
                         } else {
                             circleStroke = '#FFFFFF';
@@ -837,7 +826,7 @@ drawPipes(ctx, pipes) {
                     // Çember
                     ctx.beginPath();
                     ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
-                    ctx.fillStyle = circleFill; 
+                    ctx.fillStyle = circleFill;
                     ctx.fill();
                     ctx.strokeStyle = circleStroke;
                     ctx.lineWidth = 2;
@@ -851,12 +840,12 @@ drawPipes(ctx, pipes) {
                     const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
                     if (zDiff > 0) {
                         // YUKARI OK
-                        const angle45 = Math.PI / 4; 
+                        const angle45 = Math.PI / 4;
                         const arrowStartX = centerX + circleRadius * Math.cos(angle45);
                         const arrowStartY = centerY - circleRadius * Math.sin(angle45);
                         const arrowTipX = centerX + (circleRadius + arrowLength) * Math.cos(angle45);
                         const arrowTipY = centerY - (circleRadius + arrowLength) * Math.sin(angle45);
-                        
+
                         ctx.beginPath();
                         ctx.moveTo(arrowStartX, arrowStartY);
                         ctx.lineTo(arrowTipX - 3 * Math.cos(angle45), arrowTipY + 3 * Math.sin(angle45));
@@ -877,7 +866,7 @@ drawPipes(ctx, pipes) {
                         ctx.fill();
                     } else {
                         // AŞAĞI OK
-                        const angle225 = 5 * Math.PI / 4; 
+                        const angle225 = 5 * Math.PI / 4;
                         const arrowHeadSize = 5;
                         const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
                         const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
@@ -889,7 +878,7 @@ drawPipes(ctx, pipes) {
                         ctx.lineTo(arrowTipX - 3 * Math.cos(angle225) + (circleRadius * Math.cos(angle225)), arrowTipY + 3 * Math.sin(angle225) - (circleRadius * Math.sin(angle225)));
                         ctx.stroke();
 
-                        const reverseAngle = angle225 + Math.PI; 
+                        const reverseAngle = angle225 + Math.PI;
                         ctx.beginPath();
                         ctx.moveTo(arrowTipX, arrowTipY);
                         ctx.lineTo(
@@ -934,7 +923,7 @@ drawPipes(ctx, pipes) {
         }
     }
 
-    
+
     findBreakPoints(pipes) {
         const pointMap = new Map();
         const tolerance = 0.5;
@@ -947,7 +936,7 @@ drawPipes(ctx, pipes) {
             // Z değerlerini al (interpolasyon için t burada kullanılmayacak, çizimde kullanılacak)
             const rawZ1 = pipe.p1.z || 0;
             const rawZ2 = pipe.p2.z || 0;
-            
+
             // Ekran izdüşüm koordinatlarını hesapla (Sadece açı hesabı için t kullanılıyor)
             const z1_interp = rawZ1 * t;
             const z2_interp = rawZ2 * t;
