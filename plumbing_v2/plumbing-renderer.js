@@ -911,6 +911,36 @@ drawPipes(ctx, pipes) {
                     }
                     ctx.restore();
                 }
+                // 90° olmayan eğimli borular için açı etiketi
+                else if (Math.abs(zDiff) > 0.1 && elevationAngle < 85 && elevationAngle > 0.5) {
+                    ctx.save();
+                    ctx.globalAlpha = symbolOpacity;
+                    const colorGroup = pipe.colorGroup || 'YELLOW';
+                    const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
+
+                    // Borunun orta noktasını hesapla
+                    const midX = (pipe.p1.x + pipe.p2.x) / 2;
+                    const midY = (pipe.p1.y + pipe.p2.y) / 2;
+
+                    // Z interpolasyonu ile ekran koordinatlarını hesapla
+                    const midZ = ((pipe.p1.z || 0) + (pipe.p2.z || 0)) / 2;
+                    const zOffset = midZ * t;
+                    const centerX = midX + zOffset;
+                    const centerY = midY - zOffset;
+
+                    // Yükseliş/iniş ok işareti
+                    const isAscending = zDiff > 0;
+                    const arrowSymbol = isAscending ? '↗' : '↘';
+
+                    // Açı etiketini yaz (ok işareti + açı değeri)
+                    ctx.font = 'bold 14px Arial';
+                    ctx.fillStyle = pipeColor;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(`${arrowSymbol} ${Math.round(elevationAngle)}°`, centerX, centerY - 10);
+
+                    ctx.restore();
+                }
             });
         }
     }
