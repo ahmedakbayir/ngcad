@@ -1,7 +1,8 @@
 // plumbing_v2/renderer-colors.js
 // Renk ve tema ile ilgili yardımcı metodlar
 
-import { getRenkGruplari, isLightMode as mainIsLightMode } from '../general-files/main.js';
+import { getRenkGruplari } from './objects/pipe.js';
+import { isLightMode } from '../general-files/main.js';
 import { CUSTOM_COLORS } from './renderer-utils.js';
 
 /**
@@ -27,7 +28,7 @@ export const ColorMixin = {
      */
     isLightMode() {
         // main.js'ten import edilen fonksiyonu kullan
-        return mainIsLightMode();
+        return isLightMode();
     },
 
     /**
