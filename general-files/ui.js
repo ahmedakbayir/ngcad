@@ -298,6 +298,64 @@ export function toggleIsoView() {
     }, 10);
 }
 
+// Seçili nesnenin merkez koordinatını döndürür
+function getSelectedObjectCenter() {
+    // state.selectedObject kontrolü
+    if (state.selectedObject) {
+        const obj = state.selectedObject;
+
+        // Duvar
+        if (obj.type === 'wall' && obj.wall) {
+            return {
+                x: (obj.wall.p1.x + obj.wall.p2.x) / 2,
+                y: (obj.wall.p1.y + obj.wall.p2.y) / 2
+            };
+        }
+
+        // Kolon, kiriş, merdiven (center property'si var)
+        if (obj.type === 'column' || obj.type === 'beam' || obj.type === 'stair') {
+            const element = obj.column || obj.beam || obj.stair;
+            if (element && element.center) {
+                return { x: element.center.x, y: element.center.y };
+            }
+        }
+    }
+
+    // state.selectedGroup kontrolü (seçili grup varsa ilk elemanı al)
+    if (state.selectedGroup && state.selectedGroup.length > 0) {
+        const firstSelected = state.selectedGroup[0];
+        if (firstSelected.center) {
+            return { x: firstSelected.center.x, y: firstSelected.center.y };
+        }
+        if (firstSelected.p1 && firstSelected.p2) {
+            return {
+                x: (firstSelected.p1.x + firstSelected.p2.x) / 2,
+                y: (firstSelected.p1.y + firstSelected.p2.y) / 2
+            };
+        }
+    }
+
+    // Tesisat borularını ve komponentlerini kontrol et
+    if (plumbingManager && plumbingManager.pipes) {
+        const selectedPipe = plumbingManager.pipes.find(p => p.isSelected);
+        if (selectedPipe) {
+            return {
+                x: (selectedPipe.p1.x + selectedPipe.p2.x) / 2,
+                y: (selectedPipe.p1.y + selectedPipe.p2.y) / 2
+            };
+        }
+    }
+
+    if (plumbingManager && plumbingManager.tesisatKompNesneleri) {
+        const selectedComp = plumbingManager.tesisatKompNesneleri.find(c => c.isSelected);
+        if (selectedComp) {
+            return { x: selectedComp.x, y: selectedComp.y };
+        }
+    }
+
+    return null;
+}
+
 export function toggle3DPerspective() {
     // Hedef Durum (Mevcut durumun tersi)
     const targetIsActive = !state.is3DPerspectiveActive;
@@ -312,15 +370,26 @@ export function toggle3DPerspective() {
     console.log(`[Double CTRL] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
     console.log(`[Double CTRL] Başlangıç viewBlendFactor: ${state.viewBlendFactor}, is3DActive: ${state.is3DPerspectiveActive}`);
 
-    // --- EKRAN MERKEZİNİ KORU ---
-    // Geçiş öncesi ekran merkezindeki world koordinatını kaydet
+    // --- SEÇİLİ NESNE VEYA EKRAN MERKEZİNİ KORU ---
+    // Öncelik: Seçili nesne varsa onu merkeze getir, yoksa mevcut merkezi koru
     const canvas = dom.c2d;
     const centerScreenX = canvas.width / 2;
     const centerScreenY = canvas.height / 2;
-    const centerWorld = screenToWorld(centerScreenX, centerScreenY);
-    const savedZoom = state.zoom;
 
-    console.log(`[ViewCenter] Merkez world koordinatı: (${centerWorld.x.toFixed(2)}, ${centerWorld.y.toFixed(2)})`);
+    let centerWorld;
+    const selectedCenter = getSelectedObjectCenter();
+
+    if (selectedCenter) {
+        // Seçili nesne varsa, onu merkeze al (ÖNCELİK)
+        centerWorld = selectedCenter;
+        console.log(`[ViewCenter] Seçili nesne merkeze alınıyor: (${centerWorld.x.toFixed(2)}, ${centerWorld.y.toFixed(2)})`);
+    } else {
+        // Seçili nesne yoksa mevcut ekran merkezini koru
+        centerWorld = screenToWorld(centerScreenX, centerScreenY);
+        console.log(`[ViewCenter] Mevcut merkez korunuyor: (${centerWorld.x.toFixed(2)}, ${centerWorld.y.toFixed(2)})`);
+    }
+
+    const savedZoom = state.zoom;
     // ---------------------------
 
     // Animasyon Hedefleri
