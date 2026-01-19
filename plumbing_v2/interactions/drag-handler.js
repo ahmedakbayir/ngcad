@@ -31,10 +31,8 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
         if (!cikis) return false;
         
         const dist = Math.hypot(point.x - cikis.x, point.y - cikis.y);
-        const distZ = Math.abs(pointZ - (c.z || 0)); // Servis kutusu Z'si
-
-        // Hem yatayda hem dikeyde yakınsa korumalıdır
-        return dist < TOLERANCE && distZ < Z_TOLERANCE;
+        // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+        return dist < TOLERANCE;
     });
     if (servisKutusuCikisi) return true;
 
@@ -49,9 +47,8 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
 
             const girisPoint = girisBoru[c.fleksBaglanti.endpoint];
             const dist = Math.hypot(point.x - girisPoint.x, point.y - girisPoint.y);
-            const distZ = Math.abs(pointZ - (girisPoint.z || 0));
-
-            if (dist < TOLERANCE && distZ < Z_TOLERANCE) return true;
+            // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+            if (dist < TOLERANCE) return true;
         }
         return false;
     });
@@ -68,9 +65,8 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
 
             const cikisPoint = c.getCikisNoktasi();
             const dist = Math.hypot(point.x - cikisPoint.x, point.y - cikisPoint.y);
-            const distZ = Math.abs(pointZ - (c.z || 0)); // Sayaç Z'si
-
-            if (dist < TOLERANCE && distZ < Z_TOLERANCE) return true;
+            // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+            if (dist < TOLERANCE) return true;
         }
         return false;
     });
@@ -86,17 +82,15 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
             if (boru) {
                 const boruUcu = boru[c.fleksBaglanti.endpoint];
                 const dist = Math.hypot(point.x - boruUcu.x, point.y - boruUcu.y);
-                const distZ = Math.abs(pointZ - (boruUcu.z || 0));
-                
-                if (dist < TOLERANCE && distZ < Z_TOLERANCE) return true;
+                // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+                if (dist < TOLERANCE) return true;
             }
         }
         const giris = c.getGirisNoktasi();
         if (!giris) return false;
         const dist = Math.hypot(point.x - giris.x, point.y - giris.y);
-        const distZ = Math.abs(pointZ - (c.z || 0));
-
-        return dist < TOLERANCE && distZ < Z_TOLERANCE;
+        // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+        return dist < TOLERANCE;
     });
     if (cihazFleksi) return true;
 
@@ -111,10 +105,9 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
                 if (distToOld < elbowConnectionTol) continue;
             }
             const distToEndpoint = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
-            const distZ = Math.abs(pointZ - (endpoint.z || 0));
 
-            // Z farkı büyükse dirsek kontrolüne takılma
-            if (distToEndpoint >= DIRSEK_TOLERANCE || distZ >= Z_TOLERANCE) continue;
+            // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+            if (distToEndpoint >= DIRSEK_TOLERANCE) continue;
 
             const bagliBoruSayisi = manager.pipes.filter(p => {
                 if (p === otherPipe) return false;
@@ -139,9 +132,9 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
                     if (distToOld < 1) continue;
                 }
                 const dist = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
-                const distZ = Math.abs(pointZ - (endpoint.z || 0));
 
-                if (dist >= BOSTA_UC_TOLERANCE || distZ >= Z_TOLERANCE) continue;
+                // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+                if (dist >= BOSTA_UC_TOLERANCE) continue;
 
                 const connectedPipeCount = manager.pipes.filter(p => {
                     if (p === otherPipe || p === currentPipe) return false;
@@ -214,16 +207,15 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.manager.pipes.forEach(p => {
         if (excludePipes.includes(p)) return;
 
-        // DÜZELTME: 3D Mesafe (Z Dahil) - Böylece düşey hattın diğer ucundaki boru seçilmez
+        // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+        // Böylece Z kotları farklı noktalar birleşebilir
         const distToP1 = Math.hypot(
             p.p1.x - draggedPoint.x,
-            p.p1.y - draggedPoint.y,
-            (p.p1.z || 0) - (draggedPoint.z || 0)
+            p.p1.y - draggedPoint.y
         );
         const distToP2 = Math.hypot(
             p.p2.x - draggedPoint.x,
-            p.p2.y - draggedPoint.y,
-            (p.p2.z || 0) - (draggedPoint.z || 0)
+            p.p2.y - draggedPoint.y
         );
 
         if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p1' });
@@ -730,9 +722,9 @@ export function handleDrag(interactionManager, point, event = null) {
 
                 const tolerance = isElbow ? ELBOW_TOLERANCE : POINT_OCCUPATION_TOLERANCE;
 
-                // DEĞİŞİKLİK: Hem yatayda (dist) hem de düşeyde (distZ) yakınsa engelle.
-                // Eğer Z farkı toleranstan büyükse, üst üste gelebilirler (occupied = false kalır).
-                if (dist < tolerance && distZ < tolerance) {
+                // Z farkı ne olursa olsun, sadece X-Y mesafesine bak
+                // Böylece Z kotları farklı noktalar birbirinin üzerine sürüklenebilir ve dik boru oluşabilir
+                if (dist < tolerance) {
                     occupiedByOtherPipe = true;
                     break;
                 }
