@@ -933,7 +933,7 @@ drawPipes(ctx, pipes) {
                     const arrowSymbol = isAscending ? '↗' : '↘';
 
                     // Açı etiketini yaz (ok işareti + açı değeri)
-                    ctx.font = 'bold 14px Arial';
+                    ctx.font = '8px Arial';
                     ctx.fillStyle = pipeColor;
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
