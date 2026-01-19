@@ -705,24 +705,40 @@ export function handleDrag(interactionManager, point, event = null) {
         let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
         let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
         let minPipeSnapDistZ = PIPE_ENDPOINT_SNAP_DISTANCE;
+        let snapTargetPoint = null; // Snap yapılan hedef noktayı kaydet
 
         const ownOtherEndpoint = interactionManager.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
         const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
-        if (ownXDiff < minPipeSnapDistX) { minPipeSnapDistX = ownXDiff; pipeSnapX = ownOtherEndpoint.x; }
+        if (ownXDiff < minPipeSnapDistX) { minPipeSnapDistX = ownXDiff; pipeSnapX = ownOtherEndpoint.x; snapTargetPoint = ownOtherEndpoint; }
         const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
-        if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; }
+        if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; snapTargetPoint = ownOtherEndpoint; }
         const ownZDiff = Math.abs((correctedPoint.z || 0) - (ownOtherEndpoint.z || 0));
-        if (ownZDiff < minPipeSnapDistZ) { minPipeSnapDistZ = ownZDiff; pipeSnapZ = ownOtherEndpoint.z; }
+        if (ownZDiff < minPipeSnapDistZ) { minPipeSnapDistZ = ownZDiff; pipeSnapZ = ownOtherEndpoint.z; snapTargetPoint = ownOtherEndpoint; }
 
         connectedPipes.forEach(connectedPipe => {
             const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
             const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
             const xDiff = Math.abs(finalPos.x - otherEndpoint.x);
-            if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = otherEndpoint.x; }
+            if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = otherEndpoint.x; snapTargetPoint = otherEndpoint; }
             const yDiff = Math.abs(finalPos.y - otherEndpoint.y);
-            if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = otherEndpoint.y; }
+            if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = otherEndpoint.y; snapTargetPoint = otherEndpoint; }
             const zDiff = Math.abs((correctedPoint.z || 0) - (otherEndpoint.z || 0));
-            if (zDiff < minPipeSnapDistZ) { minPipeSnapDistZ = zDiff; pipeSnapZ = otherEndpoint.z; }
+            if (zDiff < minPipeSnapDistZ) { minPipeSnapDistZ = zDiff; pipeSnapZ = otherEndpoint.z; snapTargetPoint = otherEndpoint; }
+        });
+
+        // TÜM BORULARI KONTROL ET - Sadece connected değil, tüm borular
+        interactionManager.manager.pipes.forEach(otherPipe => {
+            if (otherPipe === pipe) return;
+            for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+                const xDiff = Math.abs(finalPos.x - endpoint.x);
+                const yDiff = Math.abs(finalPos.y - endpoint.y);
+                const zDiff = Math.abs((correctedPoint.z || 0) - (endpoint.z || 0));
+
+                // X, Y, Z'de en yakın noktayı bul
+                if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = endpoint.x; snapTargetPoint = endpoint; }
+                if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = endpoint.y; snapTargetPoint = endpoint; }
+                if (zDiff < minPipeSnapDistZ) { minPipeSnapDistZ = zDiff; pipeSnapZ = endpoint.z; snapTargetPoint = endpoint; }
+            }
         });
 
         if (pipeSnapX !== null) finalPos.x = pipeSnapX;
@@ -743,6 +759,11 @@ export function handleDrag(interactionManager, point, event = null) {
             if (otherPipe === pipe) continue;
             if (connectedPipes.includes(otherPipe)) continue;
             for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+                // SNAP HEDEF NOKTASI KONTROLÜ - Snap yapılan hedef noktayı atla
+                if (snapTargetPoint && endpoint === snapTargetPoint) {
+                    continue;
+                }
+
                 // 3D mesafe ile bağlantı kontrolü - farklı Z seviyelerindeki noktalar bağlı değilse
                 const distToOld3D = Math.hypot(
                     endpoint.x - oldPoint.x,
