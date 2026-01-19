@@ -198,7 +198,9 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.dragEndpoint = endpoint;
     interactionManager.dragStart = { ...point };
 
+    // Z ekseni sürükleme için başlangıç Z'yi kaydet
     const draggedPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
+    interactionManager.dragStartZ = draggedPoint.z || 0;
 
     const connectedMeter = interactionManager.manager.components.find(c =>
         c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === endpoint
@@ -497,7 +499,9 @@ export function handleDrag(interactionManager, point, event = null) {
         }
     }
     // Boru ucu sürükleme durumunda Z tespiti
-    else if (obj.type === 'boru' && interactionManager.dragEndpoint) {
+    let isPipeEndpointDrag = false;
+    if (obj.type === 'boru' && interactionManager.dragEndpoint) {
+        isPipeEndpointDrag = true;
         zOffset = (interactionManager.dragEndpoint === 'p1' ? obj.p1.z : obj.p2.z) || 0;
     }
 
@@ -532,6 +536,27 @@ export function handleDrag(interactionManager, point, event = null) {
             x: verticalPipeBase.x, // X sabit
             y: verticalPipeBase.y, // Y sabit
             z: clampedZ // Z dinamik ve sınırlı
+        };
+    } else if (isPipeEndpointDrag && t > 0.1 && interactionManager.dragStart) {
+        // --- BORU UCU SÜRÜKLEME İÇİN Z HESAPLAMASI ---
+        // İzometrik görünümde mouse hareketi Z değişimini de içerir
+        const startZ = interactionManager.dragStartZ || 0;
+
+        // Mouse'un ekran koordinatındaki delta (başlangıç pozisyonundan)
+        const screenDx = point.x - interactionManager.dragStart.x;
+        const screenDy = point.y - interactionManager.dragStart.y;
+
+        // Z delta hesapla (sağ-üst diagonal hareket = pozitif Z)
+        const deltaZ = (screenDx - screenDy) / (2 * t);
+
+        // Yeni Z pozisyonu
+        const newZ = startZ + deltaZ;
+
+        // Z'yi kullanarak 2D pozisyonu düzelt
+        correctedPoint = {
+            x: point.x - (newZ * t),
+            y: point.y + (newZ * t),
+            z: newZ
         };
     } else {
         // --- STANDART 3D DÜZELTME (Yatay/Eğik/Serbest) ---
@@ -718,8 +743,13 @@ export function handleDrag(interactionManager, point, event = null) {
             if (otherPipe === pipe) continue;
             if (connectedPipes.includes(otherPipe)) continue;
             for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
-                const distToOld = Math.hypot(endpoint.x - oldPoint.x, endpoint.y - oldPoint.y);
-                if (distToOld < elbowConnectionTolerance) continue;
+                // 3D mesafe ile bağlantı kontrolü - farklı Z seviyelerindeki noktalar bağlı değilse
+                const distToOld3D = Math.hypot(
+                    endpoint.x - oldPoint.x,
+                    endpoint.y - oldPoint.y,
+                    (endpoint.z || 0) - (oldPoint.z || 0)
+                );
+                if (distToOld3D < elbowConnectionTolerance) continue;
 
                 // 2D Mesafe
                 const dist = Math.hypot(endpoint.x - finalPos.x, endpoint.y - finalPos.y);
