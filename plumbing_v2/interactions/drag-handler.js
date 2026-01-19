@@ -699,51 +699,58 @@ export function handleDrag(interactionManager, point, event = null) {
         });
 
         const PIPE_ENDPOINT_SNAP_DISTANCE = 10;
-        let pipeSnapX = null;
-        let pipeSnapY = null;
-        let pipeSnapZ = null;
-        let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
-        let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
-        let minPipeSnapDistZ = PIPE_ENDPOINT_SNAP_DISTANCE;
         let snapTargetPoint = null; // Snap yapılan hedef noktayı kaydet
+        let minSnapDist3D = PIPE_ENDPOINT_SNAP_DISTANCE;
 
+        // Önce kendi diğer ucunu kontrol et
         const ownOtherEndpoint = interactionManager.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
-        const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
-        if (ownXDiff < minPipeSnapDistX) { minPipeSnapDistX = ownXDiff; pipeSnapX = ownOtherEndpoint.x; snapTargetPoint = ownOtherEndpoint; }
-        const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
-        if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; snapTargetPoint = ownOtherEndpoint; }
-        const ownZDiff = Math.abs((correctedPoint.z || 0) - (ownOtherEndpoint.z || 0));
-        if (ownZDiff < minPipeSnapDistZ) { minPipeSnapDistZ = ownZDiff; pipeSnapZ = ownOtherEndpoint.z; snapTargetPoint = ownOtherEndpoint; }
+        const ownDist3D = Math.hypot(
+            finalPos.x - ownOtherEndpoint.x,
+            finalPos.y - ownOtherEndpoint.y,
+            (correctedPoint.z || 0) - (ownOtherEndpoint.z || 0)
+        );
+        if (ownDist3D < minSnapDist3D) {
+            minSnapDist3D = ownDist3D;
+            snapTargetPoint = ownOtherEndpoint;
+        }
 
+        // Connected pipes'ları kontrol et
         connectedPipes.forEach(connectedPipe => {
             const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
             const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
-            const xDiff = Math.abs(finalPos.x - otherEndpoint.x);
-            if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = otherEndpoint.x; snapTargetPoint = otherEndpoint; }
-            const yDiff = Math.abs(finalPos.y - otherEndpoint.y);
-            if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = otherEndpoint.y; snapTargetPoint = otherEndpoint; }
-            const zDiff = Math.abs((correctedPoint.z || 0) - (otherEndpoint.z || 0));
-            if (zDiff < minPipeSnapDistZ) { minPipeSnapDistZ = zDiff; pipeSnapZ = otherEndpoint.z; snapTargetPoint = otherEndpoint; }
-        });
-
-        // TÜM BORULARI KONTROL ET - Sadece connected değil, tüm borular
-        interactionManager.manager.pipes.forEach(otherPipe => {
-            if (otherPipe === pipe) return;
-            for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
-                const xDiff = Math.abs(finalPos.x - endpoint.x);
-                const yDiff = Math.abs(finalPos.y - endpoint.y);
-                const zDiff = Math.abs((correctedPoint.z || 0) - (endpoint.z || 0));
-
-                // X, Y, Z'de en yakın noktayı bul
-                if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = endpoint.x; snapTargetPoint = endpoint; }
-                if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = endpoint.y; snapTargetPoint = endpoint; }
-                if (zDiff < minPipeSnapDistZ) { minPipeSnapDistZ = zDiff; pipeSnapZ = endpoint.z; snapTargetPoint = endpoint; }
+            const dist3D = Math.hypot(
+                finalPos.x - otherEndpoint.x,
+                finalPos.y - otherEndpoint.y,
+                (correctedPoint.z || 0) - (otherEndpoint.z || 0)
+            );
+            if (dist3D < minSnapDist3D) {
+                minSnapDist3D = dist3D;
+                snapTargetPoint = otherEndpoint;
             }
         });
 
-        if (pipeSnapX !== null) finalPos.x = pipeSnapX;
-        if (pipeSnapY !== null) finalPos.y = pipeSnapY;
-        if (pipeSnapZ !== null) correctedPoint.z = pipeSnapZ;
+        // TÜM BORULARI KONTROL ET - 3D mesafe ile en yakın noktayı bul
+        interactionManager.manager.pipes.forEach(otherPipe => {
+            if (otherPipe === pipe) return;
+            for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
+                const dist3D = Math.hypot(
+                    finalPos.x - endpoint.x,
+                    finalPos.y - endpoint.y,
+                    (correctedPoint.z || 0) - (endpoint.z || 0)
+                );
+                if (dist3D < minSnapDist3D) {
+                    minSnapDist3D = dist3D;
+                    snapTargetPoint = endpoint;
+                }
+            }
+        });
+
+        // Snap hedefine tam olarak kilitle
+        if (snapTargetPoint) {
+            finalPos.x = snapTargetPoint.x;
+            finalPos.y = snapTargetPoint.y;
+            correctedPoint.z = snapTargetPoint.z || 0;
+        }
 
         // Korumalı nokta kontrolü
         const isProtected = isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint);
