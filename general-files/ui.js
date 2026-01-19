@@ -389,11 +389,60 @@ export function toggle3DPerspective() {
         console.log(`[ViewCenter] Mevcut merkez korunuyor: (${centerWorld.x.toFixed(2)}, ${centerWorld.y.toFixed(2)})`);
     }
 
-    const savedZoom = state.zoom;
+    // --- BAŞLANGIÇ DURUMUNU KAYDET ---
+    const startPanOffset = { x: state.panOffset.x, y: state.panOffset.y };
+    const startZoom = state.zoom;
+    const startBlend = (typeof state.viewBlendFactor === 'number')
+        ? state.viewBlendFactor
+        : (state.is3DPerspectiveActive ? 1 : 0);
+
+    // --- HEDEF ZOOM HESAPLA ---
+    let targetZoom;
+    if (selectedCenter) {
+        // Seçili nesne varsa, uygun zoom seviyesi hesapla
+        // Ortalama bir nesne için ekranın %35'i kadar alan kaplamalı
+        const estimatedObjectSize = 200; // Ortalama nesne boyutu (world units)
+        const targetScreenSize = Math.min(canvas.width, canvas.height) * 0.35;
+        const calculatedZoom = targetScreenSize / estimatedObjectSize;
+
+        // Zoom limitlerini uygula (0.3 ile 2.5 arası)
+        targetZoom = Math.max(0.3, Math.min(2.5, calculatedZoom));
+        console.log(`[Zoom] Seçili nesne için hesaplanan zoom: ${targetZoom.toFixed(2)}`);
+    } else {
+        // Seçili nesne yoksa mevcut zoom'u koru
+        targetZoom = startZoom;
+    }
+
+    // --- HEDEF PAN OFFSET HESAPLA ---
+    const targetBlend = targetIsActive ? 1 : 0;
+
+    // Hedef blend ve hedef zoom ile transform matrisi
+    const angle = Math.PI / 6; // 30 derece
+    const isoCos = Math.cos(angle);
+    const isoSin = Math.sin(angle);
+    const t_target = targetBlend;
+
+    const a_target = 1 + (isoCos - 1) * t_target;
+    const b_target = -isoSin * t_target;
+    const c_target = isoCos * t_target;
+    const d_target = 1 + (isoSin - 1) * t_target;
+
+    // centerWorld'ün hedef transform ve zoom ile ekran konumu
+    const transformedX_target = (centerWorld.x * a_target + centerWorld.y * c_target) * targetZoom;
+    const transformedY_target = (centerWorld.x * b_target + centerWorld.y * d_target) * targetZoom;
+
+    // Hedef pan: centerWorld ekran merkezinde olmalı
+    const targetPanOffset = {
+        x: centerScreenX - transformedX_target,
+        y: centerScreenY - transformedY_target
+    };
+
+    console.log(`[Animation] Başlangıç zoom: ${startZoom.toFixed(2)}, Hedef zoom: ${targetZoom.toFixed(2)}`);
+    console.log(`[Animation] Başlangıç pan: (${startPanOffset.x.toFixed(0)}, ${startPanOffset.y.toFixed(0)})`);
+    console.log(`[Animation] Hedef pan: (${targetPanOffset.x.toFixed(0)}, ${targetPanOffset.y.toFixed(0)})`);
     // ---------------------------
 
     // Animasyon Hedefleri
-    const targetBlend = targetIsActive ? 1 : 0; // 3D için 1, 2D için 0
     const targetAngle = targetIsActive ? (Math.PI / 3) : 0; // 3D için 60 derece, 2D için 0
 
     // Orbit kontrolleri kilitle (çatışmayı önlemek için)
@@ -401,10 +450,11 @@ export function toggle3DPerspective() {
 
     // Animasyon Objesi - MEVCUT durumdan başla, HEDEF duruma git
     const animObj = {
-        blend: (typeof state.viewBlendFactor === 'number')
-            ? state.viewBlendFactor
-            : (state.is3DPerspectiveActive ? 1 : 0), // MEVCUT duruma göre başlat (targetIsActive değil!)
-        angle: orbitControls ? orbitControls.getPolarAngle() : 0
+        blend: startBlend,
+        angle: orbitControls ? orbitControls.getPolarAngle() : 0,
+        zoom: startZoom,
+        panX: startPanOffset.x,
+        panY: startPanOffset.y
     };
 
     console.log(`[Double CTRL] animObj.blend başlangıç: ${animObj.blend} -> hedef: ${targetBlend}`);
@@ -418,45 +468,28 @@ export function toggle3DPerspective() {
     gsap.to(animObj, {
         blend: targetBlend,
         angle: targetAngle,
+        zoom: targetZoom,
+        panX: targetPanOffset.x,
+        panY: targetPanOffset.y,
         duration: 0.8,
         ease: "power2.inOut",
         onUpdate: () => {
             // 1. 2D Çizim Değişkenini Güncelle
             state.viewBlendFactor = animObj.blend;
 
-            // --- EKRAN MERKEZİNİ VE ZOOM'U KORU ---
-            // İzometrik transform parametreleri
-            const angle = Math.PI / 6; // 30 derece
-            const isoCos = Math.cos(angle);
-            const isoSin = Math.sin(angle);
-            const t = animObj.blend;
-
-            // Transform matrisi
-            const a = 1 + (isoCos - 1) * t;
-            const b = -isoSin * t;
-            const c = isoCos * t;
-            const d = 1 + (isoSin - 1) * t;
-
-            // centerWorld'ün yeni transform ile screen konumu (panOffset olmadan)
-            const transformedX = (centerWorld.x * a + centerWorld.y * c) * savedZoom;
-            const transformedY = (centerWorld.x * b + centerWorld.y * d) * savedZoom;
-
-            // Pan offset'i ayarla: centerWorld ekran merkezinde kalmalı
+            // 2. Pan ve Zoom'u Animasyondan Al
+            state.zoom = animObj.zoom;
             state.panOffset = {
-                x: centerScreenX - transformedX,
-                y: centerScreenY - transformedY
+                x: animObj.panX,
+                y: animObj.panY
             };
-
-            // Zoom'u koru
-            state.zoom = savedZoom;
-            // ---------------------------
 
             // Debug: Her 10 frame'de bir log
             if (Math.random() < 0.1) {
-                console.log(`[Anim] blend: ${animObj.blend.toFixed(3)}, angle: ${animObj.angle.toFixed(3)}`);
+                console.log(`[Anim] blend: ${animObj.blend.toFixed(3)}, zoom: ${animObj.zoom.toFixed(3)}`);
             }
 
-            // 2. 3D Kamerayı Güncelle
+            // 3. 3D Kamerayı Güncelle
             if (camera && orbitControls) {
                 const spherical = new THREE.Spherical(dist, animObj.angle, azimuth);
                 const offset = new THREE.Vector3().setFromSpherical(spherical);
@@ -464,7 +497,7 @@ export function toggle3DPerspective() {
                 camera.lookAt(targetPos);
             }
 
-            // 3. Sahneleri Yeniden Çiz
+            // 4. Sahneleri Yeniden Çiz
             draw2D();
             update3DScene();
         },
