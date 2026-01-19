@@ -1,11 +1,11 @@
 // plumbing_v2/renderer-pipes.js
 // Boru çizim metodları
 
-import { BORU_TIPLERI, getRenkGruplari } from './objects/pipe.js';
-import { SERVIS_KUTUSU_CONFIG } from './objects/service-box.js';
-import { SAYAC_CONFIG } from './objects/meter.js';
-import { CIHAZ_TIPLERI } from './objects/device.js';
-import { state, getDimensionPlumbingColor, isLightMode, getShadow, THEME_COLORS } from '../general-files/main.js';
+import { BORU_TIPLERI, getRenkGruplari } from '../objects/pipe.js';
+import { SERVIS_KUTUSU_CONFIG } from '../objects/service-box.js';
+import { SAYAC_CONFIG } from '../objects/meter.js';
+import { CIHAZ_TIPLERI } from '../objects/device.js';
+import { state, getDimensionPlumbingColor, isLightMode, getShadow, THEME_COLORS } from '../../general-files/main.js';
 import { buildPipeHierarchy } from './renderer-utils.js';
 
 // Seçili eleman rengi

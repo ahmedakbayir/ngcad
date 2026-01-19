@@ -1,8 +1,8 @@
 // plumbing_v2/renderer-previews.js
 // Preview ve ghost çizim metodları
 
-import { getRenkGruplari } from './objects/pipe.js';
-import { state, getAdjustedColor } from '../general-files/main.js';
+import { getRenkGruplari } from '../objects/pipe.js';
+import { state, getAdjustedColor } from '../../general-files/main.js';
 
 export const PreviewMixin = {
     getRenkByGroup(colorGroup, tip, opacity) {

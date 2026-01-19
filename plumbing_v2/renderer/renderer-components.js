@@ -1,10 +1,10 @@
 // plumbing_v2/renderer-components.js
 // Bileşen çizim metodları
 
-import { SERVIS_KUTUSU_CONFIG } from './objects/service-box.js';
-import { SAYAC_CONFIG } from './objects/meter.js';
-import { getRenkGruplari } from './objects/pipe.js';
-import { state, getShadow, THEME_COLORS, isLightMode } from '../general-files/main.js';
+import { SERVIS_KUTUSU_CONFIG } from '../objects/service-box.js';
+import { SAYAC_CONFIG } from '../objects/meter.js';
+import { getRenkGruplari } from '../objects/pipe.js';
+import { state, getShadow, THEME_COLORS, isLightMode } from '../../general-files/main.js';
 
 // Seçili eleman rengi
 const CUSTOM_COLORS = {

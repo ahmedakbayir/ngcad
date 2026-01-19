@@ -1,13 +1,13 @@
 // plumbing_v2/plumbing-renderer.js
 // Ana tesisat renderer sınıfı - Modüler yapı ile yeniden organize edildi
 
-import { buildPipeHierarchy } from './renderer-utils.js';
-import { ColorMixin } from './renderer-colors.js';
-import { PipeMixin } from './renderer-pipes.js';
-import { ComponentMixin } from './renderer-components.js';
-import { DeviceMixin } from './renderer-devices.js';
-import { InteractionMixin } from './renderer-interaction.js';
-import { PreviewMixin } from './renderer-previews.js';
+import { buildPipeHierarchy } from './renderer/renderer-utils.js';
+import { ColorMixin } from './renderer/renderer-colors.js';
+import { PipeMixin } from './renderer/renderer-pipes.js';
+import { ComponentMixin } from './renderer/renderer-components.js';
+import { DeviceMixin } from './renderer/renderer-devices.js';
+import { InteractionMixin } from './renderer/renderer-interaction.js';
+import { PreviewMixin } from './renderer/renderer-previews.js';
 import { state } from '../general-files/main.js';
 
 /**

@@ -1,7 +1,7 @@
 // plumbing_v2/renderer-interaction.js
 // Kullanıcı etkileşimi göstergesi metodları
 
-import { state } from '../general-files/main.js';
+import { state } from '../../general-files/main.js';
 
 export const InteractionMixin = {
     drawSnapIndicator(ctx, snap) {

@@ -1,9 +1,9 @@
 // plumbing_v2/renderer-devices.js
 // Cihaz çizim metodları (Kombi, Ocak, Baca, vs.)
 
-import { CIHAZ_TIPLERI, FLEKS_CONFIG } from './objects/device.js';
-import { getRenkGruplari } from './objects/pipe.js';
-import { getAdjustedColor, state, isLightMode, getShadow } from '../general-files/main.js';
+import { CIHAZ_TIPLERI, FLEKS_CONFIG } from '../objects/device.js';
+import { getRenkGruplari } from '../objects/pipe.js';
+import { getAdjustedColor, state, isLightMode, getShadow } from '../../general-files/main.js';
 
 // Seçili eleman rengi ve cihaz renkleri
 const CUSTOM_COLORS = {
