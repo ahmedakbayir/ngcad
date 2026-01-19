@@ -671,23 +671,32 @@ export class PlumbingRenderer {
 drawPipes(ctx, pipes) {
         if (!pipes) return;
 
-        // Önce kırılım noktalarını bul (birden fazla borunun birleştiği noktalar)
+        // Kırılım noktalarını hesapla
         const breakPoints = this.findBreakPoints(pipes);
+        const t = state.viewBlendFactor || 0;
+        
+        // Mod durumunu al
+        const isLight = isLightMode(); 
 
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
 
-            // Çizim moduna göre renk ayarla
-            const adjustedColor = getAdjustedColor(config.color, 'boru');
+            // --- 1. DÜŞEYLİK HESABI ---
+            const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+            const rawDx = pipe.p2.x - pipe.p1.x;
+            const rawDy = pipe.p2.y - pipe.p1.y;
+            const rawLen2d = Math.hypot(rawDx, rawDy);
+            
+            let elevationAngle = 90;
+            if (rawLen2d > 0.001) {
+                elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
+            }
+            const isVerticalPipe = rawZDiff > 0.1 && elevationAngle > 85;
+            // ------------------------
 
-            // Z koordinatlarını al ve viewBlendFactor ile interpolate et
-            // t=0 (2D): Z değerleri 0, t=1 (3D): Z değerleri full
-            const t = state.viewBlendFactor || 0;
+            // Ekran koordinatlarını hesapla (3D/2D dönüşümü)
             const z1 = (pipe.p1.z || 0) * t;
             const z2 = (pipe.p2.z || 0) * t;
-
-            // Boru geometrisi - Z'yi smooth interpolasyonla uygula
-            // İzometrik projeksiyon: delta_x = delta_z, delta_y = -delta_z
             const x1 = pipe.p1.x + z1;
             const y1 = pipe.p1.y - z1;
             const x2 = pipe.p2.x + z2;
@@ -698,60 +707,57 @@ drawPipes(ctx, pipes) {
             const length = Math.hypot(dx, dy);
             const angle = Math.atan2(dy, dx);
 
+            // Zoom ayarı
             const zoom = state.zoom || 1;
             let width = config.lineWidth;
-            if (zoom < 1) {
-                width = 4 / zoom;
-            }
+            if (zoom < 1) width = 4 / zoom;
 
             ctx.save();
 
-            // Kesikli çizgi desteği (İÇ TESİSAT için temsili boru)
+            // Kesikli çizgi kontrolü
             if (pipe.lineStyle === 'dashed') {
-                ctx.setLineDash([10, 2]); // 10 dolu, 2 boş
+                ctx.setLineDash([10, 2]);
             } else {
                 ctx.setLineDash([]);
             }
 
-            // Koordinat sistemini borunun başlangıcına taşı ve döndür (Z dahil)
             ctx.translate(x1, y1);
             ctx.rotate(angle);
 
-            if (pipe.isSelected) {
-                // Seçili borunun rengi colorGroup'a göre ayarlanır
+            // --- 2. GÖVDE ÇİZİMİ ---
+            // Düşey boru seçili ise ve 2D modundaysak gövdeyi normal çiz (seçili çizme)
+            const showBodySelection = pipe.isSelected && !(isVerticalPipe && t < 0.95);
+
+            if (showBodySelection) {
+                // SEÇİLİ GÖVDE (Yatay hatlar için)
                 const secilenRenk = this.getSecilenRenk(pipe.colorGroup);
-
-                // Seçili rengi RGB'ye çevir
                 const rgb = this.hexToRgb(secilenRenk);
-
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-                gradient.addColorStop(0.0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`);
+                gradient.addColorStop(0.0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`);
                 gradient.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`);
-                gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`);
+                gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`);
                 ctx.fillStyle = gradient;
-                //getShadow(ctx);
                 ctx.fillRect(0, -width / 2, length, width);
-
             } else {
-                // Gradient ile 3D silindir etkisi (Kenarlarda yumuşak siyahlık)
+                // NORMAL GÖVDE (Gradyan Düzeltildi)
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-
-                // Renk grubuna göre renk seç
                 const colorGroup = pipe.colorGroup || 'YELLOW';
 
-                // Kenarlarda hafif karartma, ortası boru rengi
-                // Geçişler yumuşak tutuldu
-                if (isLightMode) {
-                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
-                    gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    //getShadow(ctx);
-                }
-                else {
-                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 1));
-                    gradient.addColorStop(0.1, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    gradient.addColorStop(0.9, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 1));
+                if (isLight) {
+                    // LIGHT MODE:
+                    // Kenarlar: Yüksek Opasite (Koyu/Doygun Görünür)
+                    // Orta: Düşük Opasite (Beyaz zeminle karışıp Açık/Parlak Görünür)
+                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.9)); 
+                    gradient.addColorStop(0.4, this.getRenkByGroup(colorGroup, 'boru', 0.3)); // Highlight
+                    gradient.addColorStop(0.6, this.getRenkByGroup(colorGroup, 'boru', 0.3)); // Highlight
+                    gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.9));
+                } else {
+                    // DARK MODE:
+                    // Kenarlar: Düşük Opasite (Siyah zeminle karışıp Koyu/Gölge Görünür)
+                    // Orta: Yüksek Opasite (Parlak Görünür)
+                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.3));
+                    gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
+                    gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.3));
                 }
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -759,12 +765,11 @@ drawPipes(ctx, pipes) {
 
             ctx.restore();
 
-            // İç tesisat temsili boru: Başlangıç noktasına yuvarlak ekle
+            // Temsili boru yuvarlağı
             if (pipe.isTemsiliBoru && pipe.lineStyle === 'dashed') {
                 ctx.save();
                 const colorGroup = pipe.colorGroup || 'YELLOW';
                 const yuvarlatRenk = this.getRenkByGroup(colorGroup, 'boru', 1);
-
                 ctx.fillStyle = yuvarlatRenk;
                 ctx.beginPath();
                 ctx.arc(pipe.p1.x, pipe.p1.y, width / 2, 0, Math.PI * 2);
@@ -773,91 +778,90 @@ drawPipes(ctx, pipes) {
             }
         });
 
-        // Dirsek görüntülerini çiz
+        // Ekstra çizimler
         this.drawElbows(ctx, pipes, breakPoints);
-
-        // Boru üzerindeki vanaları çiz (ESKİ - deprecated, geriye dönük uyumluluk için)
         this.drawPipeValves(ctx, pipes);
-
-        // Seçili borular için uç noktaları göster (dirseklerin üstünde görünsün)
         pipes.forEach(pipe => {
-            if (pipe.isSelected) {
-                this.drawPipeEndpoints(ctx, pipe);
-            }
+            if (pipe.isSelected) this.drawPipeEndpoints(ctx, pipe);
         });
 
-        // Düşey boru gösterimlerini ÇİZ (tüm boruların üstünde görünsün)
-        // Smooth geçiş: 2D moduna yaklaştıkça görünür (opacity = 1-t)
-        const t = state.viewBlendFactor || 0;
-        if (t < 0.99) { // Tam 3D olmadığı sürece göster
-            const symbolOpacity = 1 - t; // 2D'de 1, 3D'e doğru 0
+        // --- 3. DÜŞEY HAT SEMBOLLERİ ---
+        if (t < 0.99) { 
+            const symbolOpacity = 1 - t; 
+            
             pipes.forEach(pipe => {
-                const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
-
-                // --- GÜNCELLEME: Sadece dik (85 derece üstü) boruları göster ---
-                const dx2d = pipe.p2.x - pipe.p1.x;
-                const dy2d = pipe.p2.y - pipe.p1.y;
-                const len2d = Math.hypot(dx2d, dy2d);
-
-                // Yatay düzlemle yapılan açıyı hesapla
-                let elevationAngle = 90; // Tam üst üste (len2d=0) ise 90 derece
-                if (len2d > 0.001) {
-                    elevationAngle = Math.atan2(Math.abs(zDiff), len2d) * 180 / Math.PI;
-                }
+                const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+                const rawDx = pipe.p2.x - pipe.p1.x;
+                const rawDy = pipe.p2.y - pipe.p1.y;
+                const rawLen2d = Math.hypot(rawDx, rawDy);
                 
-                // Kural: Z farkı olacak VE açı 85 dereceden büyük olacak
-                if (Math.abs(zDiff) > 0.1 && elevationAngle > 85) {
+                let elevationAngle = 90;
+                if (rawLen2d > 0.001) {
+                    elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
+                }
+
+                // DÜŞEY BORU SEMBOLÜ
+                if (rawZDiff > 0.1 && elevationAngle > 85) {
                     ctx.save();
-                    ctx.globalAlpha = symbolOpacity; // Smooth fade out
+                    ctx.globalAlpha = symbolOpacity;
+                    
                     const colorGroup = pipe.colorGroup || 'YELLOW';
                     const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
-                    // Dikey borunun konumu (p1 = p2 çünkü aynı x,y kabul edilir)
+                    let circleFill, circleStroke, arrowColor;
+
+                    if (pipe.isSelected) {
+                        // SEÇİLİ: Turuncu dolgu, Beyaz/Siyah kontur
+                        circleFill = '#FFA500'; // Turuncu
+                        if (isLight) {
+                            circleStroke = '#000000'; 
+                            arrowColor = '#000000';
+                        } else {
+                            circleStroke = '#FFFFFF';
+                            arrowColor = '#FFFFFF';
+                        }
+                    } else {
+                        // NORMAL: Gri dolgu, boru rengi kontur
+                        circleFill = '#808080';
+                        circleStroke = pipeColor;
+                        arrowColor = pipeColor;
+                    }
+
                     const zOffset = (pipe.p1.z || 0) * t;
                     const centerX = pipe.p1.x + zOffset;
                     const centerY = pipe.p1.y - zOffset
 
-                    // Sabit çember çapı: 5 (yarıya düşürüldü)
                     const circleRadius = 5;
                     const arrowLength = 12;
 
-                    // Çember çiz - içi gri dolu, kenar çizgili
+                    // Çember
                     ctx.beginPath();
                     ctx.arc(centerX, centerY, circleRadius, 0, Math.PI * 2);
-
-                    // Önce gri ile doldur
-                    ctx.fillStyle = '#808080'; // Gri
+                    ctx.fillStyle = circleFill; 
                     ctx.fill();
-
-                    // Sonra kenarını çiz
-                    ctx.strokeStyle = pipeColor;
+                    ctx.strokeStyle = circleStroke;
                     ctx.lineWidth = 2;
                     ctx.stroke();
 
-                    // Ok çiz
-                    ctx.fillStyle = pipeColor;
-                    ctx.strokeStyle = pipeColor;
+                    // Oklar
+                    ctx.fillStyle = arrowColor;
+                    ctx.strokeStyle = arrowColor;
                     ctx.lineWidth = 2;
 
+                    const zDiff = (pipe.p2.z || 0) - (pipe.p1.z || 0);
                     if (zDiff > 0) {
-                        // Yukarı çıkış: 45 derece dışa doğru
-                        const angle45 = Math.PI / 4; // 45 derece
+                        // YUKARI OK
+                        const angle45 = Math.PI / 4; 
                         const arrowStartX = centerX + circleRadius * Math.cos(angle45);
                         const arrowStartY = centerY - circleRadius * Math.sin(angle45);
                         const arrowTipX = centerX + (circleRadius + arrowLength) * Math.cos(angle45);
                         const arrowTipY = centerY - (circleRadius + arrowLength) * Math.sin(angle45);
-
-                        // Ok çizgisi - uçtan 3px geride bitir (daha sivri görünsün)
-                        const lineEndOffset = 3;
-                        const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle45);
-                        const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle45);
-
+                        
                         ctx.beginPath();
                         ctx.moveTo(arrowStartX, arrowStartY);
-                        ctx.lineTo(lineEndX, lineEndY);
+                        ctx.lineTo(arrowTipX - 3 * Math.cos(angle45), arrowTipY + 3 * Math.sin(angle45));
                         ctx.stroke();
 
-                        // Ok başı (üçgen)
                         const arrowHeadSize = 5;
                         ctx.beginPath();
                         ctx.moveTo(arrowTipX, arrowTipY);
@@ -872,30 +876,20 @@ drawPipes(ctx, pipes) {
                         ctx.closePath();
                         ctx.fill();
                     } else {
-                        // Aşağı iniş: 225 derece merkeze doğru
-                        const angle225 = 5 * Math.PI / 4; // 225 derece
+                        // AŞAĞI OK
+                        const angle225 = 5 * Math.PI / 4; 
                         const arrowHeadSize = 5;
-
-                        // Ok başlangıcı dışarıda
                         const arrowStartX = centerX + (circleRadius + arrowLength) * Math.cos(angle225);
                         const arrowStartY = centerY - (circleRadius + arrowLength) * Math.sin(angle225);
-
-                        // Ok ucu tam çember kenarında (yükseliş oku gibi)
                         const arrowTipX = centerX + circleRadius * Math.cos(angle225);
                         const arrowTipY = centerY - circleRadius * Math.sin(angle225);
 
-                        // Ok çizgisi - ok başının arkasında biter (cubuk görünmez)
-                        const lineEndOffset = 3;
-                        const lineEndX = arrowTipX - lineEndOffset * Math.cos(angle225) + (circleRadius * Math.cos(angle225));
-                        const lineEndY = arrowTipY + lineEndOffset * Math.sin(angle225) - (circleRadius * Math.sin(angle225));
-
                         ctx.beginPath();
                         ctx.moveTo(arrowStartX, arrowStartY);
-                        ctx.lineTo(lineEndX, lineEndY);
+                        ctx.lineTo(arrowTipX - 3 * Math.cos(angle225) + (circleRadius * Math.cos(angle225)), arrowTipY + 3 * Math.sin(angle225) - (circleRadius * Math.sin(angle225)));
                         ctx.stroke();
 
-                        // Ok başı (üçgen) - merkeze doğru işaret ediyor
-                        const reverseAngle = angle225 + Math.PI; // Ok yönünü tersine çevir
+                        const reverseAngle = angle225 + Math.PI; 
                         ctx.beginPath();
                         ctx.moveTo(arrowTipX, arrowTipY);
                         ctx.lineTo(
@@ -911,28 +905,23 @@ drawPipes(ctx, pipes) {
                     }
                     ctx.restore();
                 }
-                // 90° olmayan eğimli borular için açı etiketi
-                else if (Math.abs(zDiff) > 0.1 && elevationAngle < 85 && elevationAngle > 0.5) {
+                // EĞİMLİ BORU ETİKETİ
+                else if (rawZDiff > 0.1 && elevationAngle < 85 && elevationAngle > 0.5) {
                     ctx.save();
                     ctx.globalAlpha = symbolOpacity;
                     const colorGroup = pipe.colorGroup || 'YELLOW';
                     const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
-                    // Borunun orta noktasını hesapla
                     const midX = (pipe.p1.x + pipe.p2.x) / 2;
                     const midY = (pipe.p1.y + pipe.p2.y) / 2;
-
-                    // Z interpolasyonu ile ekran koordinatlarını hesapla
                     const midZ = ((pipe.p1.z || 0) + (pipe.p2.z || 0)) / 2;
                     const zOffset = midZ * t;
                     const centerX = midX + zOffset;
                     const centerY = midY - zOffset;
 
-                    // Yükseliş/iniş ok işareti
-                    const isAscending = zDiff > 0;
+                    const isAscending = ((pipe.p2.z || 0) - (pipe.p1.z || 0)) > 0;
                     const arrowSymbol = isAscending ? '↗' : '↘';
 
-                    // Açı etiketini yaz (ok işareti + açı değeri)
                     ctx.font = '8px Arial';
                     ctx.fillStyle = pipeColor;
                     ctx.textAlign = 'center';
