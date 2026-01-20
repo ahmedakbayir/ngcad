@@ -676,7 +676,7 @@ export function handleDrag(interactionManager, point, event = null) {
             interactionManager.pipeSnapMouseStart = null;
         }
 
-        // Boru hizalama snap'i
+        // Boru hizalama snap'i (AÇI KONTROLÜ İLE)
         const connectionTolerance = 1;
         const connectedPipes = interactionManager.manager.pipes.filter(p => {
             if (p === pipe) return false;
@@ -686,24 +686,60 @@ export function handleDrag(interactionManager, point, event = null) {
         });
 
         const PIPE_ENDPOINT_SNAP_DISTANCE = 10;
+        const ANGLE_SNAP_TOLERANCE = 3; // Sadece 3° içinde snap yap (tam dik/paralel)
         let pipeSnapX = null;
         let pipeSnapY = null;
         let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
         let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
 
         const ownOtherEndpoint = interactionManager.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
-        const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
-        if (ownXDiff < minPipeSnapDistX) { minPipeSnapDistX = ownXDiff; pipeSnapX = ownOtherEndpoint.x; }
-        const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
-        if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; }
 
+        // Kendi borunun diğer ucuna snap (açı kontrolü ile)
+        const ownDx = finalPos.x - ownOtherEndpoint.x;
+        const ownDy = finalPos.y - ownOtherEndpoint.y;
+        const ownAngle = Math.atan2(ownDy, ownDx) * 180 / Math.PI;
+
+        // 0°, 90°, 180°, -90° açılarına yakın mı kontrol et
+        const angles = [0, 90, 180, -90];
+        let minAngleDiff = 360;
+        angles.forEach(angle => {
+            let diff = Math.abs(ownAngle - angle);
+            if (diff > 180) diff = 360 - diff;
+            if (diff < minAngleDiff) minAngleDiff = diff;
+        });
+
+        // Sadece açı toleransı içindeyse snap yap
+        if (minAngleDiff <= ANGLE_SNAP_TOLERANCE) {
+            const ownXDiff = Math.abs(ownDx);
+            if (ownXDiff < minPipeSnapDistX) { minPipeSnapDistX = ownXDiff; pipeSnapX = ownOtherEndpoint.x; }
+            const ownYDiff = Math.abs(ownDy);
+            if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; }
+        }
+
+        // Bağlı boruların uçlarına snap (açı kontrolü ile)
         connectedPipes.forEach(connectedPipe => {
             const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
             const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
-            const xDiff = Math.abs(finalPos.x - otherEndpoint.x);
-            if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = otherEndpoint.x; }
-            const yDiff = Math.abs(finalPos.y - otherEndpoint.y);
-            if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = otherEndpoint.y; }
+
+            const dx = finalPos.x - otherEndpoint.x;
+            const dy = finalPos.y - otherEndpoint.y;
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+            // 0°, 90°, 180°, -90° açılarına yakın mı kontrol et
+            let minAngleDiff = 360;
+            angles.forEach(snapAngle => {
+                let diff = Math.abs(angle - snapAngle);
+                if (diff > 180) diff = 360 - diff;
+                if (diff < minAngleDiff) minAngleDiff = diff;
+            });
+
+            // Sadece açı toleransı içindeyse snap yap
+            if (minAngleDiff <= ANGLE_SNAP_TOLERANCE) {
+                const xDiff = Math.abs(dx);
+                if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = otherEndpoint.x; }
+                const yDiff = Math.abs(dy);
+                if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = otherEndpoint.y; }
+            }
         });
 
         if (pipeSnapX !== null) finalPos.x = pipeSnapX;
