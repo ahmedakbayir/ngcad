@@ -704,6 +704,29 @@ export function handleDrag(interactionManager, point, event = null) {
             interactionManager.lastPipeSnapTarget = 'own';
         }
 
+        // Kendi borunun diğer ucuna snap (açı kontrolü ile)
+        const ownDx = finalPos.x - ownOtherEndpoint.x;
+        const ownDy = finalPos.y - ownOtherEndpoint.y;
+        const ownAngle = Math.atan2(ownDy, ownDx) * 180 / Math.PI;
+
+        // 0°, 90°, 180°, -90° açılarına yakın mı kontrol et
+        const angles = [0, 90, 180, -90];
+        let minAngleDiff = 360;
+        angles.forEach(angle => {
+            let diff = Math.abs(ownAngle - angle);
+            if (diff > 180) diff = 360 - diff;
+            if (diff < minAngleDiff) minAngleDiff = diff;
+        });
+
+        // Sadece açı toleransı içindeyse snap yap
+        if (minAngleDiff <= ANGLE_SNAP_TOLERANCE) {
+            const ownXDiff = Math.abs(ownDx);
+            if (ownXDiff < minPipeSnapDistX) { minPipeSnapDistX = ownXDiff; pipeSnapX = ownOtherEndpoint.x; }
+            const ownYDiff = Math.abs(ownDy);
+            if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; }
+        }
+
+        // Bağlı boruların uçlarına snap (açı kontrolü ile)
         connectedPipes.forEach(connectedPipe => {
             const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
             const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
