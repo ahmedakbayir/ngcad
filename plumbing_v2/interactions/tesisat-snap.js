@@ -70,49 +70,49 @@ export class TesisatSnapSystem {
         // 1. KESIŞIM NOKTALARI (En yüksek öncelik)
         const kesisimSnap = this.findKesisimSnap(point, tesisatHatlari, snapMesafesi);
         if (kesisimSnap) {
-            // if (isDebugAngle) console.log('🔴 Kesişim snap, açı:', userAngle.toFixed(1));
+            if (isDebugAngle) console.log('🔴 Kesişim snap, açı:', userAngle.toFixed(1), 'nokta:', kesisimSnap.x.toFixed(1), kesisimSnap.y.toFixed(1));
             return kesisimSnap;
         }
 
         // 1.5. BORU KESİŞİM NOKTALARI (Mevcut borularla kesişim)
         const boruKesisimSnap = this.findBoruKesisimSnap(point, snapMesafesi);
         if (boruKesisimSnap) {
-            // if (isDebugAngle) console.log('🟠 Boru kesişim snap, açı:', userAngle.toFixed(1));
+            if (isDebugAngle) console.log('🟠 Boru kesişim snap, açı:', userAngle.toFixed(1));
             return boruKesisimSnap;
         }
 
         // 2. BORU UÇ NOKTALARI (Bağlantı noktaları)
         const boruUcSnap = this.findBoruUcSnap(point, snapMesafesi);
         if (boruUcSnap) {
-            // if (isDebugAngle) console.log('🟡 Boru uç snap, açı:', userAngle.toFixed(1));
+            if (isDebugAngle) console.log('🟡 Boru uç snap, açı:', userAngle.toFixed(1));
             return boruUcSnap;
         }
 
         // 3. DİKLİK KONTROLÜ (Tesisat hattına dik)
         const diklikSnap = this.findDiklikSnap(point, tesisatHatlari, snapMesafesi);
         if (diklikSnap) {
-            // if (isDebugAngle) console.log('🟢 Diklik snap, açı:', userAngle.toFixed(1));
+            if (isDebugAngle) console.log('🟢 Diklik snap, açı:', userAngle.toFixed(1), 'nokta:', diklikSnap.x.toFixed(1), diklikSnap.y.toFixed(1));
             return diklikSnap;
         }
 
         // 4. BORU ÜZERİNE DİK İNME
         const boruDikSnap = this.findBoruDikSnap(point, snapMesafesi);
         if (boruDikSnap) {
-            // if (isDebugAngle) console.log('🔵 Boru dik snap, açı:', userAngle.toFixed(1));
+            if (isDebugAngle) console.log('🔵 Boru dik snap, açı:', userAngle.toFixed(1));
             return boruDikSnap;
         }
 
         // 5. TESİSAT HATTI ÜZERİ (Serbest hareket)
         const hatSnap = this.findHatUzeriSnap(point, tesisatHatlari, snapMesafesi);
         if (hatSnap) {
-            // if (isDebugAngle) console.log('🟣 Hat üzeri snap, açı:', userAngle.toFixed(1));
+            if (isDebugAngle) console.log('🟣 Hat üzeri snap, açı:', userAngle.toFixed(1));
             return hatSnap;
         }
 
         // 6. BORU ÜZERİ SNAP
         const boruSnap = this.findBoruUzeriSnap(point, snapMesafesi);
         if (boruSnap) {
-            // if (isDebugAngle) console.log('⚪ Boru üzeri snap, açı:', userAngle.toFixed(1));
+            if (isDebugAngle) console.log('⚪ Boru üzeri snap, açı:', userAngle.toFixed(1));
             return boruSnap;
         }
 
@@ -120,15 +120,15 @@ export class TesisatSnapSystem {
         if (this.currentStartPoint) {
             const aci90Snap = this.find90DereceSnap(point, this.currentStartPoint);
             if (aci90Snap) {
-                // if (isDebugAngle) console.log('⚫ 90° snap, açı:', userAngle.toFixed(1), '→', aci90Snap.angle);
+                if (isDebugAngle) console.log('⚫ 90° snap, açı:', userAngle.toFixed(1), '→', aci90Snap.angle);
                 return aci90Snap;
             }
         }
 
         // Hiçbir snap bulunamadı - serbest çizim
-        // if (isDebugAngle) 
-        //     console.log('✅ Serbest çizim, açı:', userAngle.toFixed(1));
-        // return null;
+        if (isDebugAngle)
+            console.log('✅ Serbest çizim, açı:', userAngle.toFixed(1));
+        return null;
     }
 
     /**
@@ -261,6 +261,9 @@ export class TesisatSnapSystem {
         kesisimler.forEach(k => {
             const dist = Math.hypot(point.x - k.x, point.y - k.y);
 
+            // Debug için açı kontrolü
+            const isDebugAngle = userAngle !== null && userAngle < -90 && userAngle > -180;
+
             // AÇI KONTROLÜ: Kullanıcı bir yöne gidiyorsa, sadece o yöne yakın kesişimlere snap yap
             // Bu sayede diklik snap'i, kesişim snap'inden önce devreye girebilir
             if (userAngle !== null && this.currentStartPoint) {
@@ -272,9 +275,16 @@ export class TesisatSnapSystem {
                 let angleDiff = Math.abs(userAngle - kesisimAngle);
                 if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
+                if (isDebugAngle) {
+                    console.log(`  📍 Kesişim adayı: (${k.x.toFixed(1)}, ${k.y.toFixed(1)}) mesafe:${dist.toFixed(1)} kesişimAçı:${kesisimAngle.toFixed(1)} açıFark:${angleDiff.toFixed(1)}`);
+                }
+
                 // Kullanıcının yönü ile kesişim yönü arasında 30° den fazla fark varsa atla
                 // Bu tolerans, diklik snap'indeki tolerans ile aynı (30°)
-                if (angleDiff > 30) return;
+                if (angleDiff > 30) {
+                    if (isDebugAngle) console.log(`    ❌ Açı farkı çok büyük (>${30}°), atlandı`);
+                    return;
+                }
             }
 
             if (dist < minDist) {
@@ -285,6 +295,7 @@ export class TesisatSnapSystem {
                     type: TESISAT_SNAP_TYPES.KESISIM,
                     target: k.hatlar
                 };
+                if (isDebugAngle) console.log(`    ✅ En yakın kesişim güncellendi`);
             }
         });
 
@@ -413,6 +424,8 @@ export class TesisatSnapSystem {
             point.x - this.currentStartPoint.x
         ) * 180 / Math.PI;
 
+        const isDebugAngle = userAngle !== null && userAngle < -90 && userAngle > -180;
+
         hatlar.forEach(hat => {
             // Başlangıç noktasından hatta dik çizgi
             const dikNokta = this.perpendicularPoint(
@@ -433,8 +446,15 @@ export class TesisatSnapSystem {
             let angleDiff = Math.abs(userAngle - dikAngle);
             if (angleDiff > 180) angleDiff = 360 - angleDiff;
 
+            if (isDebugAngle) {
+                console.log(`  🔷 Diklik adayı: (${dikNokta.x.toFixed(1)}, ${dikNokta.y.toFixed(1)}) mesafe:${Math.hypot(point.x - dikNokta.x, point.y - dikNokta.y).toFixed(1)} dikAçı:${dikAngle.toFixed(1)} açıFark:${angleDiff.toFixed(1)}`);
+            }
+
             // Sadece kullanıcı diklik yönüne yakın gidiyorsa snap uygula (30° tolerans)
-            if (angleDiff > 30) return;
+            if (angleDiff > 30) {
+                if (isDebugAngle) console.log(`    ❌ Açı farkı çok büyük (>${30}°), atlandı`);
+                return;
+            }
 
             // Mouse bu dik noktaya yakın mı?
             const dist = Math.hypot(point.x - dikNokta.x, point.y - dikNokta.y);
@@ -447,6 +467,7 @@ export class TesisatSnapSystem {
                     target: hat,
                     angle: hat.angle
                 };
+                if (isDebugAngle) console.log(`    ✅ En yakın diklik güncellendi`);
             }
         });
 
