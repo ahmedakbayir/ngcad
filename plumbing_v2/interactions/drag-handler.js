@@ -231,6 +231,7 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     });
 
     interactionManager.connectedPipesAtEndpoint = connectedPipes;
+    interactionManager.lastPipeSnapTarget = undefined; // Hysteresis state'i temizle
 }
 
 /**
@@ -664,7 +665,7 @@ export function handleDrag(interactionManager, point, event = null) {
             interactionManager.pipeSnapMouseStart = null;
         }
 
-        // Boru hizalama snap'i
+        // Boru hizalama snap'i (HİSTEREZİS İLE - Titreme önleme)
         const connectionTolerance = 1;
         const connectedPipes = interactionManager.manager.pipes.filter(p => {
             if (p === pipe) return false;
@@ -673,26 +674,56 @@ export function handleDrag(interactionManager, point, event = null) {
             return distToP1 < connectionTolerance || distToP2 < connectionTolerance;
         });
 
-        const PIPE_ENDPOINT_SNAP_DISTANCE = 10;
+        const PIPE_ENDPOINT_SNAP_ENGAGE = 10;    // Snap yakalama mesafesi
+        const PIPE_ENDPOINT_SNAP_RELEASE = 20;   // Snap bırakma mesafesi (daha büyük!)
+
         let pipeSnapX = null;
         let pipeSnapY = null;
-        let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
-        let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
+        let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_ENGAGE;
+        let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_ENGAGE;
+
+        // Şu anda snap aktif mi kontrol et
+        const currentlySnapped = interactionManager.lastPipeSnapTarget !== undefined;
+
+        // Snap aktifse, daha büyük mesafede bırak (hysteresis)
+        if (currentlySnapped) {
+            minPipeSnapDistX = PIPE_ENDPOINT_SNAP_RELEASE;
+            minPipeSnapDistY = PIPE_ENDPOINT_SNAP_RELEASE;
+        }
 
         const ownOtherEndpoint = interactionManager.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
         const ownXDiff = Math.abs(finalPos.x - ownOtherEndpoint.x);
-        if (ownXDiff < minPipeSnapDistX) { minPipeSnapDistX = ownXDiff; pipeSnapX = ownOtherEndpoint.x; }
         const ownYDiff = Math.abs(finalPos.y - ownOtherEndpoint.y);
-        if (ownYDiff < minPipeSnapDistY) { minPipeSnapDistY = ownYDiff; pipeSnapY = ownOtherEndpoint.y; }
+
+        if (ownXDiff < minPipeSnapDistX) {
+            pipeSnapX = ownOtherEndpoint.x;
+            interactionManager.lastPipeSnapTarget = 'own';
+        }
+        if (ownYDiff < minPipeSnapDistY) {
+            pipeSnapY = ownOtherEndpoint.y;
+            interactionManager.lastPipeSnapTarget = 'own';
+        }
 
         connectedPipes.forEach(connectedPipe => {
             const distToP1 = Math.hypot(connectedPipe.p1.x - oldPoint.x, connectedPipe.p1.y - oldPoint.y);
             const otherEndpoint = distToP1 < connectionTolerance ? connectedPipe.p2 : connectedPipe.p1;
             const xDiff = Math.abs(finalPos.x - otherEndpoint.x);
-            if (xDiff < minPipeSnapDistX) { minPipeSnapDistX = xDiff; pipeSnapX = otherEndpoint.x; }
             const yDiff = Math.abs(finalPos.y - otherEndpoint.y);
-            if (yDiff < minPipeSnapDistY) { minPipeSnapDistY = yDiff; pipeSnapY = otherEndpoint.y; }
+
+            if (xDiff < minPipeSnapDistX) {
+                pipeSnapX = otherEndpoint.x;
+                interactionManager.lastPipeSnapTarget = connectedPipe.id;
+            }
+            if (yDiff < minPipeSnapDistY) {
+                pipeSnapY = otherEndpoint.y;
+                interactionManager.lastPipeSnapTarget = connectedPipe.id;
+            }
         });
+
+        // Snap bulunamadıysa, snap state'i temizle
+        if (pipeSnapX === null && pipeSnapY === null) {
+            interactionManager.lastPipeSnapTarget = undefined;
+        }
 
         if (pipeSnapX !== null) finalPos.x = pipeSnapX;
         if (pipeSnapY !== null) finalPos.y = pipeSnapY;
@@ -1266,6 +1297,7 @@ export function endDrag(interactionManager) {
     interactionManager.pipeEndpointSnapLock = null;
     interactionManager.pipeSnapMouseStart = null;
     interactionManager.dragStartZ = null; // DÜZELTME: dragStartZ'yi de temizle
+    interactionManager.lastPipeSnapTarget = undefined; // Hysteresis state'i temizle
 
     interactionManager.manager.saveToState();
     saveState();
