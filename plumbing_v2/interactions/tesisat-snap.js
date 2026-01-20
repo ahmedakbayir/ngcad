@@ -261,8 +261,22 @@ export class TesisatSnapSystem {
         kesisimler.forEach(k => {
             const dist = Math.hypot(point.x - k.x, point.y - k.y);
 
-            // Kesişim noktaları öncelikli - açı kontrolü yok!
-            // Kullanıcı tüm köşe noktalarına snap olabilmeli
+            // AÇI KONTROLÜ: Kullanıcı bir yöne gidiyorsa, sadece o yöne yakın kesişimlere snap yap
+            // Bu sayede diklik snap'i, kesişim snap'inden önce devreye girebilir
+            if (userAngle !== null && this.currentStartPoint) {
+                const kesisimAngle = Math.atan2(
+                    k.y - this.currentStartPoint.y,
+                    k.x - this.currentStartPoint.x
+                ) * 180 / Math.PI;
+
+                let angleDiff = Math.abs(userAngle - kesisimAngle);
+                if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+                // Kullanıcının yönü ile kesişim yönü arasında 30° den fazla fark varsa atla
+                // Bu tolerans, diklik snap'indeki tolerans ile aynı (30°)
+                if (angleDiff > 30) return;
+            }
+
             if (dist < minDist) {
                 minDist = dist;
                 closest = {
