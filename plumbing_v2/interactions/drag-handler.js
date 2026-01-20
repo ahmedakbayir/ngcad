@@ -598,10 +598,22 @@ export function handleDrag(interactionManager, point, event = null) {
         // 3D Düzeltilmiş nokta kullanılıyor
         let finalPos = { x: correctedPoint.x, y: correctedPoint.y, z: correctedPoint.z };
 
+        // TESİSAT SNAP SİSTEMİ (Diklik, Kesişim vb.)
+        const walls = state.walls || [];
+        const otherEndpoint = interactionManager.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
+        interactionManager.snapSystem.setStartPoint(otherEndpoint);
+        const tesisatSnap = interactionManager.snapSystem.getSnapPoint(correctedPoint, walls);
+
+        if (tesisatSnap) {
+            // Tesisat snap bulundu (kesişim, diklik vb.)
+            finalPos.x = tesisatSnap.x;
+            finalPos.y = tesisatSnap.y;
+            console.log('🎯 DRAG: Tesisat snap aktif:', tesisatSnap.type.name, 'nokta:', finalPos.x.toFixed(1), finalPos.y.toFixed(1));
+        }
+
         // DUVAR SNAP SİSTEMİ
         const MAX_WALL_DISTANCE = 20;
         const BORU_CLEARANCE = 5;
-        const walls = state.walls || [];
         const pipeFloorId = pipe.floorId;
 
         let bestSnapX = { diff: MAX_WALL_DISTANCE, value: null };
@@ -1266,6 +1278,7 @@ export function endDrag(interactionManager) {
     interactionManager.pipeEndpointSnapLock = null;
     interactionManager.pipeSnapMouseStart = null;
     interactionManager.dragStartZ = null; // DÜZELTME: dragStartZ'yi de temizle
+    interactionManager.snapSystem.clearStartPoint(); // Snap sistemini temizle
 
     interactionManager.manager.saveToState();
     saveState();
