@@ -522,7 +522,7 @@ function drawJunctionElevations(ctx) {
                 iso.isoY += dy;
 
                 // Z kotunu yaz (h:225 formatında, negatif değerler için -)
-                const elevationText = `h:${Math.round(z)}`;
+                const elevationText = `${Math.round(z)}`;
 
                 // Sade metin - arkaplan yok
                 ctx.fillStyle = isLightMode ? '#000' : '#fff';

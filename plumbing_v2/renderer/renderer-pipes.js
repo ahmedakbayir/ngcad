@@ -272,7 +272,7 @@ export const PipeMixin = {
         if (t < 0.1) return;
 
         const isLightMode = this.isLightMode();
-        ctx.font = 'bold 10px Arial';
+        ctx.font = '7px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillStyle = isLightMode ? '#000000' : '#FFFFFF';
@@ -299,7 +299,7 @@ export const PipeMixin = {
                 const sx = point.x + (z * t);
                 const sy = point.y - (z * t);
 
-                ctx.fillText(`h:${Math.round(z)}`, sx, sy - 5);
+                ctx.fillText(`${Math.round(z)}`, sx-5, sy - 5);
             });
         });
     },

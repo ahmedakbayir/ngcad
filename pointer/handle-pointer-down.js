@@ -18,7 +18,7 @@ export function handlePointerDown(e) {
 
     // Snap point varsa kullan, yoksa normal point
     let targetPoint = this.activeSnap
-        ? { x: this.activeSnap.x, y: this.activeSnap.y }
+        ? { x: this.activeSnap.x, y: this.activeSnap.y, z: this.activeSnap.z }
         : point;
 
     // --- DÜZELTME BAŞLANGIÇ ---
