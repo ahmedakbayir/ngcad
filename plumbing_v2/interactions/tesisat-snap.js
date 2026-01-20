@@ -65,7 +65,7 @@ export class TesisatSnapSystem {
                 point.x - this.currentStartPoint.x
             ) * 180 / Math.PI;
         }
-        const isDebugAngle = userAngle !== null && userAngle < -90 && userAngle > -180;
+        const isDebugAngle = true; // DEBUG: Her zaman aktif
 
         // 1. KESIŞIM NOKTALARI (En yüksek öncelik)
         const kesisimSnap = this.findKesisimSnap(point, tesisatHatlari, snapMesafesi);
@@ -262,7 +262,7 @@ export class TesisatSnapSystem {
             const dist = Math.hypot(point.x - k.x, point.y - k.y);
 
             // Debug için açı kontrolü
-            const isDebugAngle = userAngle !== null && userAngle < -90 && userAngle > -180;
+            const isDebugAngle = true; // DEBUG: Her zaman aktif
 
             // AÇI KONTROLÜ: Kullanıcı bir yöne gidiyorsa, sadece o yöne yakın kesişimlere snap yap
             // Bu sayede diklik snap'i, kesişim snap'inden önce devreye girebilir
@@ -424,7 +424,7 @@ export class TesisatSnapSystem {
             point.x - this.currentStartPoint.x
         ) * 180 / Math.PI;
 
-        const isDebugAngle = userAngle !== null && userAngle < -90 && userAngle > -180;
+        const isDebugAngle = true; // DEBUG: Her zaman aktif
 
         hatlar.forEach(hat => {
             // Başlangıç noktasından hatta dik çizgi
