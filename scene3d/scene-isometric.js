@@ -289,17 +289,33 @@ export function drawIsometricPipes(ctx) {
     const isLightMode = document.body.classList.contains('light-mode');
     ctx.lineWidth = 3;
 
+    // Düşey boru renkleri
+    const greenColor = isLightMode ? '#008000' : '#39ff14'; // Light: Koyu Yeşil, Dark: Neon Yeşil
+
     plumbingManager.pipes.forEach(pipe => {
         if (!pipe.p1 || !pipe.p2) return;
 
-        // Boru rengini colorGroup'a göre belirle
+        // --- DÜŞEYLİK KONTROLÜ ---
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        // 2D mesafesi çok kısa (örn: < 1 cm) VE Z farkı varsa düşeydir
+        const isVertical = Math.hypot(dx, dy) < 1.0 && Math.abs(dz) > 1.0; 
+
+        // Boru rengini belirle
         let pipeColor;
-        if (pipe.colorGroup === 'YELLOW') {
-            pipeColor = isLightMode ? 'rgba(160, 82, 45, 1)' : 'rgba(184, 134, 11, 1)';  // Sienna / Dark Goldenrod
-        } else if (pipe.colorGroup === 'TURQUAZ') {
-            pipeColor = isLightMode ? 'rgba(0, 100, 204, 1)' : 'rgba(21, 154, 172, 1)';  // Dark Blue / Dodger Blue
+        
+        if (isVertical) {
+            pipeColor = greenColor;
         } else {
-            pipeColor = isLightMode ? 'rgba(128, 128, 128, 1)' : 'rgba(200, 200, 200, 1)';  // Gray / Light Gray
+            // Yatay borular için standart renkler
+            if (pipe.colorGroup === 'YELLOW') {
+                pipeColor = isLightMode ? 'rgba(160, 82, 45, 1)' : 'rgba(184, 134, 11, 1)';  // Sienna / Dark Goldenrod
+            } else if (pipe.colorGroup === 'TURQUAZ') {
+                pipeColor = isLightMode ? 'rgba(0, 100, 204, 1)' : 'rgba(21, 154, 172, 1)';  // Dark Blue / Dodger Blue
+            } else {
+                pipeColor = isLightMode ? 'rgba(128, 128, 128, 1)' : 'rgba(200, 200, 200, 1)';  // Gray / Light Gray
+            }
         }
 
         ctx.strokeStyle = pipeColor;

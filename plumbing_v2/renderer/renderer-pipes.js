@@ -304,7 +304,7 @@ export const PipeMixin = {
         });
     },
 
-    drawPipes(ctx, pipes) {
+drawPipes(ctx, pipes) {
         if (!pipes) return;
 
         // Kırılım noktalarını hesapla
@@ -313,6 +313,11 @@ export const PipeMixin = {
 
         // Mod durumunu al
         const isLight = isLightMode();
+
+        // YEŞİL RENKLER (Düşey borular için)
+        const greenColor = isLight ? '#008000' : '#39ff14'; // Light: Koyu Yeşil, Dark: Neon Yeşil
+        // Transparan versiyonlar (gradyan uçları için)
+        const greenColorTransparent = isLight ? 'rgba(0, 128, 0, 0.5)' : 'rgba(57, 255, 20, 0.5)';
 
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
@@ -375,14 +380,23 @@ export const PipeMixin = {
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
             } else {
-                // NORMAL GÖVDE (Gradyan Düzeltildi)
+                // NORMAL GÖVDE
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-                const colorGroup = pipe.colorGroup || 'YELLOW';
-
-                gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                gradient.addColorStop(0.45, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
-                gradient.addColorStop(0.55, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
-                gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                
+                if (isVerticalPipe) {
+                    // DÜŞEY BORU İSE YEŞİL GRADYAN
+                    gradient.addColorStop(0.0, greenColorTransparent);
+                    gradient.addColorStop(0.45, greenColor); 
+                    gradient.addColorStop(0.55, greenColor); 
+                    gradient.addColorStop(1.0, greenColorTransparent);
+                } else {
+                    // YATAY/EĞİMLİ İSE STANDART GRADYAN
+                    const colorGroup = pipe.colorGroup || 'YELLOW';
+                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                    gradient.addColorStop(0.45, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
+                    gradient.addColorStop(0.55, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
+                    gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                }
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -394,6 +408,7 @@ export const PipeMixin = {
             if (pipe.isTemsiliBoru && pipe.lineStyle === 'dashed') {
                 ctx.save();
                 const colorGroup = pipe.colorGroup || 'YELLOW';
+                // Temsili boruda standart renk kalsın veya isterseniz greenColor yapabilirsiniz
                 const yuvarlatRenk = this.getRenkByGroup(colorGroup, 'boru', 1);
                 ctx.fillStyle = yuvarlatRenk;
                 ctx.beginPath();
@@ -425,19 +440,19 @@ export const PipeMixin = {
                     elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
                 }
 
-                // DÜŞEY BORU SEMBOLÜ
+                // DÜŞEY BORU SEMBOLÜ (Çember ve Oklar)
                 if (rawZDiff > 0.1 && elevationAngle > 85) {
                     ctx.save();
                     ctx.globalAlpha = symbolOpacity;
 
-                    const colorGroup = pipe.colorGroup || 'YELLOW';
-                    const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
+                    // YEŞİL RENGİ KULLAN
+                    const pipeColor = greenColor;
 
                     let circleFill, circleStroke, arrowColor;
 
                     if (pipe.isSelected) {
-                        // SEÇİLİ: Turuncu dolgu, Beyaz/Siyah kontur
-                        circleFill = '#FFA500'; // Turuncu
+                        // SEÇİLİ: Turuncu dolgu
+                        circleFill = '#FFA500'; 
                         if (isLight) {
                             circleStroke = '#000000';
                             arrowColor = '#000000';
@@ -446,10 +461,10 @@ export const PipeMixin = {
                             arrowColor = '#FFFFFF';
                         }
                     } else {
-                        // NORMAL: Gri dolgu, boru rengi kontur
+                        // NORMAL: Gri dolgu, YEŞİL kontur ve ok
                         circleFill = '#808080';
-                        circleStroke = pipeColor;
-                        arrowColor = pipeColor;
+                        circleStroke = pipeColor; 
+                        arrowColor = pipeColor;   
                     }
 
                     const zOffset = (pipe.p1.z || 0) * t;

@@ -484,7 +484,7 @@ export function handleDrag(interactionManager, point, event = null) {
         const screenDy = point.y - interactionManager.dragStart.y;
 
         // Minimum hareket eşiği - Body drag için daha yüksek
-        const MIN_MOVEMENT = interactionManager.isBodyDrag ? 15 : 5;
+        const MIN_MOVEMENT = interactionManager.isBodyDrag ? 25 : 5;
         const totalMovement = Math.hypot(screenDx, screenDy);
 
         if (totalMovement > MIN_MOVEMENT) {
