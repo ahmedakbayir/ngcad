@@ -1,5 +1,5 @@
 // ahmedakbayir/ngcad/ngcad-25cb8b9daa7f201d20b7282862eee992cd9d77b2/general-files/input.js
-// GÜNCELLENDİ: handleDelete, boru silindiğinde bağlantıyı "iyileştirecek" (heal) şekilde güncellendi.
+// GÜNCELLENDİ: Çift CTRL iptal edildi, yerine CTRL + " (Terminal Kısayolu) eklendi.
 
 import * as THREE from "three"; // YENİ
 import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable } from './main.js'; // dom import edildiğinden emin olun
@@ -448,16 +448,25 @@ function onKeyDown(e) {
     if (e.key === 'Control') {
         currentModifierKeys.ctrl = true;
 
-        // --- ÇİFT CTRL MANTIĞI ---
+        /* --- ÇİFT CTRL MANTIĞI İPTAL EDİLDİ ---
         const now = Date.now();
-        if (now - lastCtrlPressTime < 300) { // 300ms içinde ikinci kez basıldıysa
-            toggle3DPerspective(); // Animasyonlu geçişi başlat
-            lastCtrlPressTime = 0; // Resetle
+        if (now - lastCtrlPressTime < 300) { 
+            toggle3DPerspective(); 
+            lastCtrlPressTime = 0; 
         } else {
             lastCtrlPressTime = now;
         }
-        // -------------------------
+        ------------------------- */
     }
+    
+    // YENİ EKLENEN KISAYOL: CTRL + " (veya Türkçe klavyede 'é' / Backquote)
+    // VS Code'da terminal açma kısayolu: Ctrl + ` (Backquote)
+    if (e.ctrlKey && (e.key === '"' || e.key === 'é' || e.code === 'Backquote' || e.key === '`')) {
+         e.preventDefault();
+         toggle3DPerspective();
+         return;
+    }
+
     if (e.key === 'Alt') currentModifierKeys.alt = true;
     if (e.key === 'Shift') currentModifierKeys.shift = true;
 
