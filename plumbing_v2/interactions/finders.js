@@ -542,3 +542,69 @@ export function findVerticalPipeChain(manager, basePipe) {
 
     return chain;
 }
+
+/**
+ * Aynı eksende uzanan ve uç-uca bağlı boru zincirini bulur (yatay/düşey)
+ * @param {*} manager
+ * @param {*} basePipe - Başlangıç borusu
+ * @param {string} primaryAxis - 'X', 'Y' veya 'Z' - borunun uzandığı eksen
+ * @returns {Array} - Zincirdeki tüm borular
+ */
+export function findAlignedPipeChain(manager, basePipe, primaryAxis) {
+    const chain = [basePipe];
+    const visited = new Set([basePipe.id]);
+    const tolerance = 1; // cm
+    const angleTolerance = 10; // derece
+
+    // BFS ile bağlı boruları bul
+    const queue = [basePipe];
+
+    while (queue.length > 0) {
+        const currentPipe = queue.shift();
+
+        // p1 ve p2'ye bağlı boruları kontrol et
+        for (const endpoint of ['p1', 'p2']) {
+            const point = currentPipe[endpoint];
+
+            // Bu noktaya bağlı diğer boruları bul
+            for (const otherPipe of manager.pipes) {
+                if (visited.has(otherPipe.id)) continue;
+
+                // Bağlantı kontrolü
+                const distToP1 = Math.hypot(
+                    otherPipe.p1.x - point.x,
+                    otherPipe.p1.y - point.y,
+                    (otherPipe.p1.z || 0) - (point.z || 0)
+                );
+                const distToP2 = Math.hypot(
+                    otherPipe.p2.x - point.x,
+                    otherPipe.p2.y - point.y,
+                    (otherPipe.p2.z || 0) - (point.z || 0)
+                );
+
+                if (distToP1 < tolerance || distToP2 < tolerance) {
+                    // Bağlı! Şimdi aynı yönde mi kontrol et
+                    const otherDx = Math.abs(otherPipe.p2.x - otherPipe.p1.x);
+                    const otherDy = Math.abs(otherPipe.p2.y - otherPipe.p1.y);
+                    const otherDz = Math.abs((otherPipe.p2.z || 0) - (otherPipe.p1.z || 0));
+
+                    let otherPrimaryAxis = 'X';
+                    if (otherDy >= otherDx && otherDy >= otherDz) {
+                        otherPrimaryAxis = 'Y';
+                    } else if (otherDz >= otherDx && otherDz >= otherDy) {
+                        otherPrimaryAxis = 'Z';
+                    }
+
+                    // Aynı primary axis'e sahip mi?
+                    if (otherPrimaryAxis === primaryAxis) {
+                        chain.push(otherPipe);
+                        visited.add(otherPipe.id);
+                        queue.push(otherPipe);
+                    }
+                }
+            }
+        }
+    }
+
+    return chain;
+}
