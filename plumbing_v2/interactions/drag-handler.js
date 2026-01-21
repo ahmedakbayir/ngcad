@@ -489,8 +489,8 @@ export function handleDrag(interactionManager, point, event = null) {
             minDist = distY;
         }
 
-        // Z eksenini de adaylara ekle
-        if (distZ < minDist) {
+        // Z eksenini de adaylara ekle (sadece 3D modda)
+        if (distZ < minDist && t > 0.1) {
             bestAxis = 'Z';
         }
 

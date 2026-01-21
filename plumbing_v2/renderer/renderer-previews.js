@@ -461,6 +461,10 @@ export const PreviewMixin = {
         if (!point) return;
 
         const t = state.viewBlendFactor || 0;
+
+        // D2 ekranda gizmo görünmemeli
+        if (t < 0.1) return;
+
         const zoom = state.zoom || 1;
 
         // 3D offset uygula
