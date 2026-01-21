@@ -397,9 +397,9 @@ export function startBodyDrag(interactionManager, pipe, point) {
         }
     }
 
-    const dx = pipe.p2.x - pipe.p1.x;
-    const dy = pipe.p2.y - pipe.p1.y;
-    let angle = Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI;
+    const pipeDx = pipe.p2.x - pipe.p1.x;
+    const pipeDy = pipe.p2.y - pipe.p1.y;
+    let angle = Math.atan2(Math.abs(pipeDy), Math.abs(pipeDx)) * 180 / Math.PI;
     let dragAxis = null;
     if (Math.abs(angle - 45) < 1) dragAxis = null;
     else if (angle < 45) dragAxis = 'y';
