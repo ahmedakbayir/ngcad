@@ -11,7 +11,7 @@ import { handlePointerDown } from '../../pointer/handle-pointer-down.js';
 import { handlePointerUp } from '../../pointer/handle-pointer-up.js';
 
 // Keyboard handler
-import { handleKeyDown, toggleVerticalPanel, closeVerticalPanel, applyVerticalHeight } from './keyboard-handler.js';
+import { handleKeyDown, toggleVerticalPanel, closeVerticalPanel, applyVerticalHeight, toggleVerticalPanelForDrag, applyVerticalHeightDuringDrag } from './keyboard-handler.js';
 
 // Ghost updater
 import { updateGhostPosition } from './ghost-updater.js';
@@ -210,6 +210,14 @@ export class InteractionManager {
 
     applyVerticalHeight() {
         return applyVerticalHeight.call(this);
+    }
+
+    toggleVerticalPanelForDrag() {
+        return toggleVerticalPanelForDrag.call(this);
+    }
+
+    applyVerticalHeightDuringDrag() {
+        return applyVerticalHeightDuringDrag.call(this);
     }
 
     /**

@@ -34,14 +34,27 @@ export function handleKeyDown(e) {
         return false;
     }
 
-    // Boru çizim modunda ölçü girişi ve düşey mod
-    if (this.boruCizimAktif && this.boruBaslangic) {
-        // TAB - Düşey yükseklik panelini aç/kapat
-        if (e.key === 'Tab') {
-            e.preventDefault(); // Varsayılan tab davranışını engelle
+    // TAB tuşu - Düşey panel (hem çizim hem taşıma modunda)
+    if (e.key === 'Tab') {
+        e.preventDefault(); // Varsayılan tab davranışını engelle
+
+        // Boru çizim modundaysa
+        if (this.boruCizimAktif && this.boruBaslangic) {
             this.toggleVerticalPanel();
             return true;
         }
+
+        // Taşıma modundaysa (endpoint, body drag veya obje taşıma)
+        if (this.isDragging && this.dragObject) {
+            this.toggleVerticalPanelForDrag();
+            return true;
+        }
+
+        return true;
+    }
+
+    // Boru çizim modunda ölçü girişi ve düşey mod
+    if (this.boruCizimAktif && this.boruBaslangic) {
 
         // Düşey panel aktifken sayı girişi
         if (this.verticalModeActive) {
@@ -105,7 +118,13 @@ export function handleKeyDown(e) {
 
             // Enter - düşey yüksekliği uygula ve paneli kapat
             if (e.key === 'Enter') {
-                this.applyVerticalHeight();
+                // Taşıma modundaysa
+                if (this.isDragging && this.dragObject) {
+                    this.applyVerticalHeightDuringDrag();
+                } else {
+                    // Çizim modundaysa
+                    this.applyVerticalHeight();
+                }
                 return true;
             }
         } else {
@@ -510,4 +529,104 @@ export function applyVerticalHeight() {
     handleBoruClick(this, endPoint);
 
     closeVerticalPanel.call(this);
+}
+
+/**
+ * Taşıma sırasında düşey yükseklik panelini aç/kapat
+ */
+export function toggleVerticalPanelForDrag() {
+    const panel = document.getElementById('vertical-height-panel');
+    if (!panel) return;
+
+    if (this.verticalModeActive) {
+        applyVerticalHeightDuringDrag.call(this);
+    } else {
+        openVerticalPanelForDrag.call(this);
+    }
+}
+
+/**
+ * Taşıma için düşey yükseklik panelini aç
+ */
+function openVerticalPanelForDrag() {
+    const panel = document.getElementById('vertical-height-panel');
+    const input = document.getElementById('vertical-height-input');
+    if (!panel || !input) return;
+
+    // Paneli mouse pozisyonuna yerleştir
+    if (this.lastMousePoint) {
+        const canvas = document.getElementById('c2d');
+        const rect = canvas.getBoundingClientRect();
+
+        let screenX = this.lastMousePoint.screenX || rect.width / 2;
+        let screenY = this.lastMousePoint.screenY || rect.height / 2;
+
+        const panelWidth = 220;
+        const panelHeight = 120;
+
+        if (screenX + panelWidth > rect.width) {
+            screenX = rect.width - panelWidth - 10;
+        }
+        if (screenY + panelHeight > rect.height) {
+            screenY = rect.height - panelHeight - 10;
+        }
+
+        panel.style.left = `${screenX + 20}px`;
+        panel.style.top = `${screenY}px`;
+    }
+
+    panel.style.display = 'block';
+    this.verticalModeActive = true;
+
+    // Mevcut Z koordinatını göster
+    let currentZ = 0;
+    if (this.dragObject) {
+        if (this.dragObject.type === 'boru' && this.dragEndpoint) {
+            // Boru endpoint taşıması
+            currentZ = this.dragEndpoint === 'p1' ? (this.dragObject.p1.z || 0) : (this.dragObject.p2.z || 0);
+        } else if (this.dragObject.z !== undefined) {
+            // Obje taşıması (vana, sayaç, cihaz, vs.)
+            currentZ = this.dragObject.z || 0;
+        }
+    }
+
+    input.value = currentZ.toString();
+    this.verticalHeightInput = currentZ;
+    this.dragStartZ = currentZ; // Başlangıç Z'sini kaydet
+
+    setTimeout(() => input.focus(), 50);
+}
+
+/**
+ * Taşıma sırasında düşey yüksekliği uygula
+ */
+export function applyVerticalHeightDuringDrag() {
+    if (!this.isDragging || !this.dragObject) {
+        closeVerticalPanel.call(this);
+        return;
+    }
+
+    const input = document.getElementById('vertical-height-input');
+    const newZ = input ? parseFloat(input.value) : this.verticalHeightInput;
+
+    if (isNaN(newZ)) {
+        closeVerticalPanel.call(this);
+        return;
+    }
+
+    // Z koordinatını güncelle
+    if (this.dragObject.type === 'boru' && this.dragEndpoint) {
+        // Boru endpoint taşıması
+        const endpoint = this.dragEndpoint === 'p1' ? this.dragObject.p1 : this.dragObject.p2;
+        endpoint.z = newZ;
+    } else if (this.dragObject.z !== undefined) {
+        // Obje taşıması
+        this.dragObject.z = newZ;
+    }
+
+    // Panel'i kapat
+    closeVerticalPanel.call(this);
+
+    // Manager'ı güncelle
+    this.manager.saveToState();
 }
