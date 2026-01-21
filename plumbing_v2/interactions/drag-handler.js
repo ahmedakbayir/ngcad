@@ -10,7 +10,7 @@ import { getObjectsOnPipe } from './placement-utils.js';
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
-import { findVerticalPipeChain } from './finders.js';
+import { findVerticalPipeChain, findAlignedPipeChain } from './finders.js';
 
 export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null, skipBostaUcCheck = false) {
     const TOLERANCE = 10;
@@ -256,35 +256,23 @@ export function startBodyDrag(interactionManager, pipe, point) {
 
     console.log(`🔧 Gövde taşıma: Boru ${interactionManager.bodyDragPrimaryAxis} ekseninde uzanıyor`);
 
-    // --- DÜŞEY BORU ZİNCİRİ KONTROLÜ ---
-    const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
-    const rawDx = pipe.p2.x - pipe.p1.x;
-    const rawDy = pipe.p2.y - pipe.p1.y;
-    const rawLen2d = Math.hypot(rawDx, rawDy);
+    // --- BORU ZİNCİRİ KONTROLÜ (DÜŞEY VE YATAY) ---
+    // Aynı eksende uzanan ve uç-uca bağlı tüm boruları zincir olarak bul
+    const alignedChain = findAlignedPipeChain(interactionManager.manager, pipe, interactionManager.bodyDragPrimaryAxis);
 
-    let elevationAngle = 90;
-    if (rawLen2d > 0.001) {
-        elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
-    }
-
-    const isVerticalPipe = rawZDiff > 0.1 && elevationAngle > 85;
-
-    if (isVerticalPipe) {
-        // Zincirdeki tüm düşey boruları bul
-        const verticalChain = findVerticalPipeChain(interactionManager.manager, pipe);
-
+    if (alignedChain.length > 1) {
         // Zincirdeki her borunun başlangıç pozisyonlarını kaydet
-        interactionManager.verticalPipeChain = verticalChain.map(p => ({
+        interactionManager.alignedPipeChain = alignedChain.map(p => ({
             pipe: p,
             initialP1: { ...p.p1 },
             initialP2: { ...p.p2 }
         }));
 
         // Zincirdeki her borunun bağlantılarını topla (zincir içindeki borular hariç)
-        const chainPipeIds = new Set(verticalChain.map(p => p.id));
+        const chainPipeIds = new Set(alignedChain.map(p => p.id));
         const allChainConnections = [];
 
-        verticalChain.forEach(chainPipe => {
+        alignedChain.forEach(chainPipe => {
             // p1'e bağlı borular
             interactionManager.manager.pipes.forEach(otherPipe => {
                 if (chainPipeIds.has(otherPipe.id)) return; // Zincir içi hariç
@@ -312,12 +300,12 @@ export function startBodyDrag(interactionManager, pipe, point) {
             });
         });
 
-        interactionManager.verticalChainConnections = allChainConnections;
+        interactionManager.alignedChainConnections = allChainConnections;
 
-        console.log(`🔗 Düşey boru zinciri bulundu: ${verticalChain.length} boru, ${allChainConnections.length} bağlantı`);
+        console.log(`🔗 ${interactionManager.bodyDragPrimaryAxis} ekseni boru zinciri bulundu: ${alignedChain.length} boru, ${allChainConnections.length} bağlantı`);
     } else {
-        interactionManager.verticalPipeChain = null;
-        interactionManager.verticalChainConnections = null;
+        interactionManager.alignedPipeChain = null;
+        interactionManager.alignedChainConnections = null;
     }
     // -----------------------------------
 
@@ -505,8 +493,8 @@ export function handleDrag(interactionManager, point, event = null) {
             let minDist = distX;
 
             // Body drag için: Borunun uzandığı eksen hariç diğer 2 eksen arasından seç
-            // Düşey boru zinciri hariç (onlar serbest hareket eder)
-            if (interactionManager.isBodyDrag && interactionManager.bodyDragPrimaryAxis && !interactionManager.verticalPipeChain) {
+            // Boru zinciri hariç (onlar serbest hareket eder)
+            if (interactionManager.isBodyDrag && interactionManager.bodyDragPrimaryAxis && !interactionManager.alignedPipeChain) {
                 const primaryAxis = interactionManager.bodyDragPrimaryAxis;
 
                 if (primaryAxis === 'X') {
@@ -1071,35 +1059,33 @@ export function handleDrag(interactionManager, point, event = null) {
         let offsetY = deltaY;
         let offsetZ = deltaZ;
 
-        // --- DÜŞEY BORU ZİNCİRİ TAŞIMA ---
-        if (interactionManager.verticalPipeChain && interactionManager.verticalPipeChain.length > 0) {
-            // Düşey borular için eksen kısıtlaması yok, serbest X-Y hareketi
-            interactionManager.verticalPipeChain.forEach(({ pipe: chainPipe, initialP1, initialP2 }) => {
+        // --- BORU ZİNCİRİ TAŞIMA (DÜŞEY VE YATAY) ---
+        if (interactionManager.alignedPipeChain && interactionManager.alignedPipeChain.length > 0) {
+            // Zincirdeki tüm boruları birlikte taşı
+            interactionManager.alignedPipeChain.forEach(({ pipe: chainPipe, initialP1, initialP2 }) => {
                 chainPipe.p1.x = initialP1.x + offsetX;
                 chainPipe.p1.y = initialP1.y + offsetY;
+                chainPipe.p1.z = (initialP1.z || 0) + offsetZ;
                 chainPipe.p2.x = initialP2.x + offsetX;
                 chainPipe.p2.y = initialP2.y + offsetY;
-                // Z değerleri değişmez, sadece X-Y taşınır
+                chainPipe.p2.z = (initialP2.z || 0) + offsetZ;
             });
 
             // Zincirdeki HER borunun bağlantılarını birlikte taşı (tesisat kopmasın!)
-            if (interactionManager.verticalChainConnections && interactionManager.verticalChainConnections.length > 0) {
-                interactionManager.verticalChainConnections.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint, connectedTo }) => {
+            if (interactionManager.alignedChainConnections && interactionManager.alignedChainConnections.length > 0) {
+                interactionManager.alignedChainConnections.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint, connectedTo }) => {
                     // Bağlı olduğu zincir borusunun bağlantı noktasının yeni pozisyonu
                     const chainPipe = connectedTo.pipe;
                     const chainPoint = connectedTo.point; // 'p1' veya 'p2'
 
                     // Yeni pozisyon
-                    const newX = chainPipe[chainPoint].x;
-                    const newY = chainPipe[chainPoint].y;
-
-                    // Bağlı borunun endpoint'ini taşı
-                    connectedPipe[connectedEndpoint].x = newX;
-                    connectedPipe[connectedEndpoint].y = newY;
+                    connectedPipe[connectedEndpoint].x = chainPipe[chainPoint].x;
+                    connectedPipe[connectedEndpoint].y = chainPipe[chainPoint].y;
+                    connectedPipe[connectedEndpoint].z = chainPipe[chainPoint].z || 0;
                 });
             }
 
-            return; // Düşey boru zinciri işlemi bitti, normal mantık çalışmasın
+            return; // Boru zinciri işlemi bitti, normal mantık çalışmasın
         }
         // -----------------------------------
 
@@ -1294,8 +1280,8 @@ export function endDrag(interactionManager) {
     interactionManager.pipeEndpointSnapLock = null;
     interactionManager.pipeSnapMouseStart = null;
     interactionManager.dragStartZ = null;
-    interactionManager.verticalPipeChain = null; // Düşey boru zinciri temizle
-    interactionManager.verticalChainConnections = null; // Düşey boru bağlantıları temizle
+    interactionManager.alignedPipeChain = null; // Boru zinciri temizle
+    interactionManager.alignedChainConnections = null; // Boru bağlantıları temizle
 
     // TEMİZLİK
     if (interactionManager.snapSystem) interactionManager.snapSystem.clearStartPoint();
