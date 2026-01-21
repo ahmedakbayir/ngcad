@@ -463,27 +463,31 @@ export function handleDrag(interactionManager, point, event = null) {
     const screenDx = point.x - interactionManager.dragStart.x;
     const screenDy = point.y - interactionManager.dragStart.y;
 
-    // World koordinatlarında değişim
-    const worldDx = Math.abs(correctedPoint.x - dragStartPos.x);
-    const worldDy = Math.abs(correctedPoint.y - dragStartPos.y);
-
-    // Z ekseni için screen hareketinden deltaZ hesapla
-    const deltaZ = (screenDx - screenDy) / (2 * (t || 1));
-    const worldDz = Math.abs(deltaZ);
-
     // Minimum hareket eşiği (5 birim)
     const MIN_MOVEMENT = 5;
     const totalMovement = Math.hypot(screenDx, screenDy);
 
     if (totalMovement > MIN_MOVEMENT) {
-        // En baskın ekseni bul
-        if (worldDx > worldDy && worldDx > worldDz) {
-            interactionManager.selectedDragAxis = 'X';
-        } else if (worldDy > worldDx && worldDy > worldDz) {
-            interactionManager.selectedDragAxis = 'Y';
-        } else if (worldDz > worldDx && worldDz > worldDy && t > 0.1) {
-            // Z ekseni sadece 3D modda
+        // Hareket açısını hesapla
+        const angle = Math.atan2(screenDy, screenDx) * 180 / Math.PI;
+
+        // Z ekseni için diagonal hareket tespiti (45 derece veya 135 derece yönünde)
+        // screenDx ve screenDy'nin mutlak değerleri yakınsa → diagonal hareket → Z ekseni
+        const isDiagonal = Math.abs(Math.abs(screenDx) - Math.abs(screenDy)) < totalMovement * 0.3;
+
+        // World koordinatlarında değişim
+        const worldDx = Math.abs(correctedPoint.x - dragStartPos.x);
+        const worldDy = Math.abs(correctedPoint.y - dragStartPos.y);
+
+        if (isDiagonal && t > 0.1) {
+            // Diagonal hareket → Z ekseni (3D modda)
             interactionManager.selectedDragAxis = 'Z';
+        } else if (worldDx > worldDy) {
+            // Yatay hareket → X ekseni
+            interactionManager.selectedDragAxis = 'X';
+        } else if (worldDy > worldDx) {
+            // Dikey hareket → Y ekseni
+            interactionManager.selectedDragAxis = 'Y';
         } else {
             // Eşit değişimler varsa, eksen yok
             interactionManager.selectedDragAxis = null;
@@ -500,6 +504,8 @@ export function handleDrag(interactionManager, point, event = null) {
     } else if (interactionManager.selectedDragAxis === 'Z') {
         correctedPoint.x = dragStartPos.x;
         correctedPoint.y = dragStartPos.y;
+        // Z değişimini diagonal hareketten hesapla
+        const deltaZ = (screenDx - screenDy) / (2 * (t || 1));
         correctedPoint.z = dragStartPos.z + deltaZ;
     }
 
