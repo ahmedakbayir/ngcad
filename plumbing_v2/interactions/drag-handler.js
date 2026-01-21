@@ -459,58 +459,64 @@ export function handleDrag(interactionManager, point, event = null) {
 
     const dragStartPos = interactionManager.dragStartWorldPos;
 
-    // Mouse hareketinden otomatik eksen belirleme
-    const screenDx = point.x - interactionManager.dragStart.x;
-    const screenDy = point.y - interactionManager.dragStart.y;
+    // Eksen kısıtlaması sadece 3D modda yapılmalı
+    if (t > 0.1) {
+        // Mouse hareketinden otomatik eksen belirleme (sadece 3D)
+        const screenDx = point.x - interactionManager.dragStart.x;
+        const screenDy = point.y - interactionManager.dragStart.y;
 
-    // Minimum hareket eşiği (5 birim)
-    const MIN_MOVEMENT = 5;
-    const totalMovement = Math.hypot(screenDx, screenDy);
+        // Minimum hareket eşiği (5 birim)
+        const MIN_MOVEMENT = 5;
+        const totalMovement = Math.hypot(screenDx, screenDy);
 
-    if (totalMovement > MIN_MOVEMENT) {
-        // Çizim algoritması ile aynı: Her eksene olan uzaklığı hesapla
+        if (totalMovement > MIN_MOVEMENT) {
+            // Çizim algoritması ile aynı: Her eksene olan uzaklığı hesapla
 
-        // X Ekseni (y=0 doğrusu): Ekranda yatay. Uzaklık = |dy|
-        const distX = Math.abs(screenDy);
+            // X Ekseni (y=0 doğrusu): Ekranda yatay. Uzaklık = |dy|
+            const distX = Math.abs(screenDy);
 
-        // Y Ekseni (x=0 doğrusu): Ekranda dikey. Uzaklık = |dx|
-        const distY = Math.abs(screenDx);
+            // Y Ekseni (x=0 doğrusu): Ekranda dikey. Uzaklık = |dx|
+            const distY = Math.abs(screenDx);
 
-        // Z Ekseni (y = -x doğrusu): Ekranda 45 derece çapraz.
-        // Vektör (t, -t). Normali (t, t). Projeksiyon formülü ile uzaklık: |dx + dy| / sqrt(2)
-        const distZ = Math.abs(screenDx + screenDy) / 1.414; // sqrt(2)
+            // Z Ekseni (y = -x doğrusu): Ekranda 45 derece çapraz.
+            // Vektör (t, -t). Normali (t, t). Projeksiyon formülü ile uzaklık: |dx + dy| / sqrt(2)
+            const distZ = Math.abs(screenDx + screenDy) / 1.414; // sqrt(2)
 
-        // En yakın ekseni belirle
-        let bestAxis = 'X';
-        let minDist = distX;
+            // En yakın ekseni belirle
+            let bestAxis = 'X';
+            let minDist = distX;
 
-        if (distY < minDist) {
-            bestAxis = 'Y';
-            minDist = distY;
+            if (distY < minDist) {
+                bestAxis = 'Y';
+                minDist = distY;
+            }
+
+            // Z eksenini de adaylara ekle
+            if (distZ < minDist) {
+                bestAxis = 'Z';
+            }
+
+            interactionManager.selectedDragAxis = bestAxis;
         }
 
-        // Z eksenini de adaylara ekle (sadece 3D modda)
-        if (distZ < minDist && t > 0.1) {
-            bestAxis = 'Z';
+        // Seçili eksende kilitli taşıma uygula (sadece 3D)
+        if (interactionManager.selectedDragAxis === 'X') {
+            correctedPoint.y = dragStartPos.y;
+            correctedPoint.z = dragStartPos.z;
+        } else if (interactionManager.selectedDragAxis === 'Y') {
+            correctedPoint.x = dragStartPos.x;
+            correctedPoint.z = dragStartPos.z;
+        } else if (interactionManager.selectedDragAxis === 'Z') {
+            correctedPoint.x = dragStartPos.x;
+            correctedPoint.y = dragStartPos.y;
+            // Z değişimini diagonal hareketten hesapla
+            const safeT = Math.max(0.1, t);
+            const deltaZ = (screenDx - screenDy) / (2 * safeT);
+            correctedPoint.z = dragStartPos.z + deltaZ;
         }
-
-        interactionManager.selectedDragAxis = bestAxis;
-    }
-
-    // Seçili eksende kilitli taşıma uygula
-    if (interactionManager.selectedDragAxis === 'X') {
-        correctedPoint.y = dragStartPos.y;
-        correctedPoint.z = dragStartPos.z;
-    } else if (interactionManager.selectedDragAxis === 'Y') {
-        correctedPoint.x = dragStartPos.x;
-        correctedPoint.z = dragStartPos.z;
-    } else if (interactionManager.selectedDragAxis === 'Z') {
-        correctedPoint.x = dragStartPos.x;
-        correctedPoint.y = dragStartPos.y;
-        // Z değişimini diagonal hareketten hesapla
-        const safeT = Math.max(0.1, t);
-        const deltaZ = (screenDx - screenDy) / (2 * safeT);
-        correctedPoint.z = dragStartPos.z + deltaZ;
+    } else {
+        // D2 modda eksen kısıtlaması yok, serbest hareket
+        interactionManager.selectedDragAxis = null;
     }
 
     if (interactionManager.dragBacaEndpoint && interactionManager.dragObject.type === 'baca') {
