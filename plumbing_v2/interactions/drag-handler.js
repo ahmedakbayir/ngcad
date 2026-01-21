@@ -907,6 +907,29 @@ export function handleDrag(interactionManager, point, event = null) {
                 chainPipe.p2.y = initialP2.y + offsetY;
                 // Z değerleri değişmez, sadece X-Y taşınır
             });
+
+            // Bağlı boruları da birlikte taşı (tesisat kopmasın!)
+            if (interactionManager.connectedPipesAtP1 && interactionManager.connectedPipesAtP1.length > 0) {
+                const newP1 = {
+                    x: interactionManager.bodyDragInitialP1.x + offsetX,
+                    y: interactionManager.bodyDragInitialP1.y + offsetY
+                };
+                interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                    connectedPipe[connectedEndpoint].x = newP1.x;
+                    connectedPipe[connectedEndpoint].y = newP1.y;
+                });
+            }
+            if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
+                const newP2 = {
+                    x: interactionManager.bodyDragInitialP2.x + offsetX,
+                    y: interactionManager.bodyDragInitialP2.y + offsetY
+                };
+                interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                    connectedPipe[connectedEndpoint].x = newP2.x;
+                    connectedPipe[connectedEndpoint].y = newP2.y;
+                });
+            }
+
             return; // Düşey boru zinciri işlemi bitti, normal mantık çalışmasın
         }
         // -----------------------------------
