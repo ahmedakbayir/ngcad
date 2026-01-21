@@ -103,9 +103,6 @@ export const InteractionMixin = {
      * @param {Object} interactionManager - InteractionManager instance
      */
     drawDragCoordinateGizmo(ctx, interactionManager) {
-        // 3D Eksen ayarı kapalıysa gösterme
-        if (!state.show3DAxis) return;
-
         if (!interactionManager.isDragging || !interactionManager.dragObject) return;
 
         let point = null;
