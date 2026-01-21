@@ -228,8 +228,15 @@ export class PlumbingRenderer {
         if (state.tempVisibility.showPipePath && window._selectedPipePath && window._selectedPipePath.length > 0) {
             this.drawSelectedPipePath(ctx);
         }
+
+        // Koordinat gizmo (taşıma sırasında)
+        if (manager.interactionManager?.isDragging) {
+            this.drawDragCoordinateGizmo(ctx, manager.interactionManager);
+        }
     }
 }
+
+
 
 // Tüm mixin'leri PlumbingRenderer sınıfına ekle
 Object.assign(PlumbingRenderer.prototype, ColorMixin);

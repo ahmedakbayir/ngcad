@@ -451,5 +451,148 @@ export const PreviewMixin = {
         ctx.fillText(text, midX, midY - 10);
 
         ctx.restore();
+    },
+
+    /**
+     * 3D Koordinat Gizmo - Taşıma sırasında gösterilir
+     * X, Y, Z eksenlerini ve mevcut koordinatları gösterir
+     */
+    drawCoordinateGizmo(ctx, point, selectedAxis = null) {
+        if (!point) return;
+
+        const t = state.viewBlendFactor || 0;
+        const zoom = state.zoom || 1;
+
+        // 3D offset uygula
+        const z = point.z || 0;
+        const screenX = point.x + (z * t);
+        const screenY = point.y - (z * t);
+
+        ctx.save();
+
+        // Gizmo uzunluğu (eksen okları)
+        const axisLength = 60 / zoom;
+        const arrowSize = 8 / zoom;
+        const lineWidth = 2 / zoom;
+
+        // Z ekseni (yukarı - mavi)
+        ctx.save();
+        ctx.strokeStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
+        ctx.fillStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
+        ctx.lineWidth = selectedAxis === 'Z' ? lineWidth * 1.5 : lineWidth;
+
+        // Z ekseni çizgisi (3D görünümde yukarı-sol yönü)
+        const zEndX = screenX - (axisLength * t);
+        const zEndY = screenY + (axisLength * t);
+
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(zEndX, zEndY);
+        ctx.stroke();
+
+        // Z ok ucu
+        drawArrow(ctx, screenX, screenY, zEndX, zEndY, arrowSize);
+
+        // Z etiketi
+        ctx.font = `bold ${12 / zoom}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Z', zEndX - 10 / zoom, zEndY + 10 / zoom);
+        ctx.restore();
+
+        // X ekseni (sağa - kırmızı)
+        ctx.save();
+        ctx.strokeStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
+        ctx.fillStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
+        ctx.lineWidth = selectedAxis === 'X' ? lineWidth * 1.5 : lineWidth;
+
+        const xEndX = screenX + axisLength;
+        const xEndY = screenY;
+
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(xEndX, xEndY);
+        ctx.stroke();
+
+        // X ok ucu
+        drawArrow(ctx, screenX, screenY, xEndX, xEndY, arrowSize);
+
+        // X etiketi
+        ctx.font = `bold ${12 / zoom}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('X', xEndX + 15 / zoom, xEndY);
+        ctx.restore();
+
+        // Y ekseni (aşağı - yeşil)
+        ctx.save();
+        ctx.strokeStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
+        ctx.fillStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
+        ctx.lineWidth = selectedAxis === 'Y' ? lineWidth * 1.5 : lineWidth;
+
+        const yEndX = screenX;
+        const yEndY = screenY + axisLength;
+
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(yEndX, yEndY);
+        ctx.stroke();
+
+        // Y ok ucu
+        drawArrow(ctx, screenX, screenY, yEndX, yEndY, arrowSize);
+
+        // Y etiketi
+        ctx.font = `bold ${12 / zoom}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Y', yEndX, yEndY + 15 / zoom);
+        ctx.restore();
+
+        // Merkez nokta
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2 / zoom;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 4 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Koordinat bilgisi göster
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(screenX + 10 / zoom, screenY - 40 / zoom, 120 / zoom, 36 / zoom);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = `${11 / zoom}px monospace`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        const coordText = `X: ${Math.round(point.x)}\nY: ${Math.round(point.y)}\nZ: ${Math.round(z)}`;
+        const lines = coordText.split('\n');
+        lines.forEach((line, i) => {
+            ctx.fillText(line, screenX + 15 / zoom, screenY - 35 / zoom + (i * 12 / zoom));
+        });
+
+        ctx.restore();
+
+        ctx.restore();
+
+        // Ok çizme yardımcı fonksiyonu
+        function drawArrow(ctx, x1, y1, x2, y2, size) {
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(
+                x2 - size * Math.cos(angle - Math.PI / 6),
+                y2 - size * Math.sin(angle - Math.PI / 6)
+            );
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(
+                x2 - size * Math.cos(angle + Math.PI / 6),
+                y2 - size * Math.sin(angle + Math.PI / 6)
+            );
+            ctx.stroke();
+        }
     }
 };

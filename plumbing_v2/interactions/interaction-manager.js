@@ -168,6 +168,9 @@ export class InteractionManager {
         this.axisLockDetermined = false;
         this.lockedAxis = null;
 
+        // Koordinat gizmo için seçili eksen (X, Y, Z veya null)
+        this.selectedDragAxis = null;
+
         // Double-click detection
         this.lastClickTime = 0;
         this.lastClickPoint = null;

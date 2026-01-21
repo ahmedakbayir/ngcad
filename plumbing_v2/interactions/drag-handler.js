@@ -146,6 +146,7 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.dragObject = pipe;
     interactionManager.dragEndpoint = endpoint;
     interactionManager.dragStart = { ...point };
+    interactionManager.selectedDragAxis = null; // Reset axis selection
 
     const draggedPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
 
@@ -183,6 +184,7 @@ export function startDrag(interactionManager, obj, point) {
     interactionManager.dragObject = obj;
     interactionManager.dragEndpoint = null;
     interactionManager.dragStart = { ...point };
+    interactionManager.selectedDragAxis = null; // Reset axis selection
 
     if (obj.type === 'vana' && obj.bagliBoruId) {
         interactionManager.dragObjectPipe = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
@@ -436,6 +438,51 @@ export function handleDrag(interactionManager, point, event = null) {
         correctedPoint = { x: verticalPipeBase.x, y: verticalPipeBase.y, z: clampedZ };
     } else {
         correctedPoint = { x: point.x - (zOffset * t), y: point.y + (zOffset * t), z: zOffset };
+    }
+
+    // Axis-locked dragging (koordinat eksenine kilitli taşıma)
+    if (interactionManager.selectedDragAxis) {
+        const startPoint = {
+            x: interactionManager.dragStart.x - (zOffset * t),
+            y: interactionManager.dragStart.y + (zOffset * t),
+            z: zOffset
+        };
+
+        // Taşınan noktanın başlangıç pozisyonu
+        let originalPoint = startPoint;
+        if (obj.type === 'boru' && interactionManager.dragEndpoint) {
+            const ep = interactionManager.dragEndpoint === 'p1' ? obj.p1 : obj.p2;
+            originalPoint = { x: ep.x, y: ep.y, z: ep.z || 0 };
+        } else if (obj.x !== undefined) {
+            originalPoint = { x: obj.x, y: obj.y, z: obj.z || 0 };
+        }
+
+        // İlk taşımadaysa, başlangıç pozisyonunu kaydet
+        if (!interactionManager.dragStartWorldPos) {
+            interactionManager.dragStartWorldPos = { ...originalPoint };
+        }
+
+        const dragStartPos = interactionManager.dragStartWorldPos;
+
+        // Seçili eksende kilitli taşıma
+        if (interactionManager.selectedDragAxis === 'X') {
+            correctedPoint.y = dragStartPos.y;
+            correctedPoint.z = dragStartPos.z;
+        } else if (interactionManager.selectedDragAxis === 'Y') {
+            correctedPoint.x = dragStartPos.x;
+            correctedPoint.z = dragStartPos.z;
+        } else if (interactionManager.selectedDragAxis === 'Z') {
+            correctedPoint.x = dragStartPos.x;
+            correctedPoint.y = dragStartPos.y;
+            // Z değişimini hesapla
+            const screenDx = point.x - interactionManager.dragStart.x;
+            const screenDy = point.y - interactionManager.dragStart.y;
+            const deltaZ = (screenDx - screenDy) / (2 * t || 1);
+            correctedPoint.z = dragStartPos.z + deltaZ;
+        }
+    } else {
+        // Axis seçili değilse, başlangıç pozisyonunu sıfırla
+        interactionManager.dragStartWorldPos = null;
     }
 
     if (interactionManager.dragBacaEndpoint && interactionManager.dragObject.type === 'baca') {
@@ -1127,6 +1174,8 @@ export function endDrag(interactionManager) {
     interactionManager.dragBacaEndpoint = null;
     interactionManager.dragStart = null;
     interactionManager._bacaDragLogged = false;
+    interactionManager.selectedDragAxis = null; // Eksen seçimini sıfırla
+    interactionManager.dragStartWorldPos = null; // Başlangıç pozisyonunu sıfırla
     interactionManager.dragStartObjectPos = null;
     interactionManager.isBodyDrag = false;
     interactionManager.bodyDragInitialP1 = null;

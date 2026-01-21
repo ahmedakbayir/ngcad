@@ -143,6 +143,22 @@ export function handleKeyDown(e) {
         }
     }
 
+    // Taşıma sırasında eksen kilitleme (X, Y, Z tuşları)
+    if (this.isDragging && this.dragObject) {
+        if (e.key === 'x' || e.key === 'X') {
+            this.selectedDragAxis = this.selectedDragAxis === 'X' ? null : 'X';
+            return true;
+        }
+        if (e.key === 'y' || e.key === 'Y') {
+            this.selectedDragAxis = this.selectedDragAxis === 'Y' ? null : 'Y';
+            return true;
+        }
+        if (e.key === 'z' || e.key === 'Z') {
+            this.selectedDragAxis = this.selectedDragAxis === 'Z' ? null : 'Z';
+            return true;
+        }
+    }
+
     // ESC - iptal ve seç moduna geç
     if (e.key === 'Escape') {
         // Düşey panel açıksa önce onu kapat
