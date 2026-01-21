@@ -457,7 +457,7 @@ export const PreviewMixin = {
      * 3D Koordinat Gizmo - Taşıma sırasında gösterilir
      * X, Y, Z eksenlerini ve mevcut koordinatları gösterir
      */
-    drawCoordinateGizmo(ctx, point, selectedAxis = null) {
+    drawCoordinateGizmo(ctx, point, selectedAxis = null, allowedAxes = ['X', 'Y', 'Z']) {
         if (!point) return;
 
         const t = state.viewBlendFactor || 0;
@@ -480,80 +480,86 @@ export const PreviewMixin = {
         const lineWidth = 2 / zoom;
 
         // Z ekseni (yukarı - mavi)
-        ctx.save();
-        ctx.globalAlpha = selectedAxis === 'Z' ? 1.0 : 0.3;
-        ctx.strokeStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
-        ctx.fillStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
-        ctx.lineWidth = selectedAxis === 'Z' ? lineWidth * 1.5 : lineWidth;
+        if (allowedAxes.includes('Z')) {
+            ctx.save();
+            ctx.globalAlpha = selectedAxis === 'Z' ? 1.0 : 0.3;
+            ctx.strokeStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
+            ctx.fillStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
+            ctx.lineWidth = selectedAxis === 'Z' ? lineWidth * 1.5 : lineWidth;
 
-        // Z ekseni çizgisi (3D görünümde yukarı-sol yönü)
-        const zEndX = screenX - (axisLength * t);
-        const zEndY = screenY + (axisLength * t);
+            // Z ekseni çizgisi (3D görünümde yukarı-sol yönü)
+            const zEndX = screenX - (axisLength * t);
+            const zEndY = screenY + (axisLength * t);
 
-        ctx.beginPath();
-        ctx.moveTo(screenX, screenY);
-        ctx.lineTo(zEndX, zEndY);
-        ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(zEndX, zEndY);
+            ctx.stroke();
 
-        // Z ok ucu
-        drawArrow(ctx, screenX, screenY, zEndX, zEndY, arrowSize);
+            // Z ok ucu
+            drawArrow(ctx, screenX, screenY, zEndX, zEndY, arrowSize);
 
-        // Z etiketi
-        ctx.font = `bold ${12 / zoom}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Z', zEndX - 10 / zoom, zEndY + 10 / zoom);
-        ctx.restore();
+            // Z etiketi
+            ctx.font = `bold ${12 / zoom}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Z', zEndX - 10 / zoom, zEndY + 10 / zoom);
+            ctx.restore();
+        }
 
         // X ekseni (sağa - kırmızı)
-        ctx.save();
-        ctx.globalAlpha = selectedAxis === 'X' ? 1.0 : 0.3;
-        ctx.strokeStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
-        ctx.fillStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
-        ctx.lineWidth = selectedAxis === 'X' ? lineWidth * 1.5 : lineWidth;
+        if (allowedAxes.includes('X')) {
+            ctx.save();
+            ctx.globalAlpha = selectedAxis === 'X' ? 1.0 : 0.3;
+            ctx.strokeStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
+            ctx.fillStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
+            ctx.lineWidth = selectedAxis === 'X' ? lineWidth * 1.5 : lineWidth;
 
-        const xEndX = screenX + axisLength;
-        const xEndY = screenY;
+            const xEndX = screenX + axisLength;
+            const xEndY = screenY;
 
-        ctx.beginPath();
-        ctx.moveTo(screenX, screenY);
-        ctx.lineTo(xEndX, xEndY);
-        ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(xEndX, xEndY);
+            ctx.stroke();
 
-        // X ok ucu
-        drawArrow(ctx, screenX, screenY, xEndX, xEndY, arrowSize);
+            // X ok ucu
+            drawArrow(ctx, screenX, screenY, xEndX, xEndY, arrowSize);
 
-        // X etiketi
-        ctx.font = `bold ${12 / zoom}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('X', xEndX + 15 / zoom, xEndY);
-        ctx.restore();
+            // X etiketi
+            ctx.font = `bold ${12 / zoom}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('X', xEndX + 15 / zoom, xEndY);
+            ctx.restore();
+        }
 
         // Y ekseni (aşağı - yeşil)
-        ctx.save();
-        ctx.globalAlpha = selectedAxis === 'Y' ? 1.0 : 0.3;
-        ctx.strokeStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
-        ctx.fillStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
-        ctx.lineWidth = selectedAxis === 'Y' ? lineWidth * 1.5 : lineWidth;
+        if (allowedAxes.includes('Y')) {
+            ctx.save();
+            ctx.globalAlpha = selectedAxis === 'Y' ? 1.0 : 0.3;
+            ctx.strokeStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
+            ctx.fillStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
+            ctx.lineWidth = selectedAxis === 'Y' ? lineWidth * 1.5 : lineWidth;
 
-        const yEndX = screenX;
-        const yEndY = screenY + axisLength;
+            const yEndX = screenX;
+            const yEndY = screenY + axisLength;
 
-        ctx.beginPath();
-        ctx.moveTo(screenX, screenY);
-        ctx.lineTo(yEndX, yEndY);
-        ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(yEndX, yEndY);
+            ctx.stroke();
 
-        // Y ok ucu
-        drawArrow(ctx, screenX, screenY, yEndX, yEndY, arrowSize);
+            // Y ok ucu
+            drawArrow(ctx, screenX, screenY, yEndX, yEndY, arrowSize);
 
-        // Y etiketi
-        ctx.font = `bold ${12 / zoom}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Y', yEndX, yEndY + 15 / zoom);
-        ctx.restore();
+            // Y etiketi
+            ctx.font = `bold ${12 / zoom}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Y', yEndX, yEndY + 15 / zoom);
+            ctx.restore();
+        }
 
         // Merkez nokta
         ctx.fillStyle = '#FFFFFF';

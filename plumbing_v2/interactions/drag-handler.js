@@ -237,6 +237,24 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.isBodyDrag = true;
     interactionManager.bodyDragInitialP1 = { ...pipe.p1 };
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
+    interactionManager.selectedDragAxis = null; // Otomatik belirlenecek
+    interactionManager.dragStartWorldPos = null; // Başlangıç pozisyonunu sıfırla
+
+    // Borunun hangi eksende uzandığını belirle
+    const dx = Math.abs(pipe.p2.x - pipe.p1.x);
+    const dy = Math.abs(pipe.p2.y - pipe.p1.y);
+    const dz = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+
+    // En uzun eksen = borunun uzandığı eksen = taşınamaz eksen
+    if (dx >= dy && dx >= dz) {
+        interactionManager.bodyDragPrimaryAxis = 'X'; // X'te uzanıyor, Y-Z'de taşınabilir
+    } else if (dy >= dx && dy >= dz) {
+        interactionManager.bodyDragPrimaryAxis = 'Y'; // Y'de uzanıyor, X-Z'de taşınabilir
+    } else {
+        interactionManager.bodyDragPrimaryAxis = 'Z'; // Z'de uzanıyor, X-Y'de taşınabilir
+    }
+
+    console.log(`🔧 Gövde taşıma: Boru ${interactionManager.bodyDragPrimaryAxis} ekseninde uzanıyor`);
 
     // --- DÜŞEY BORU ZİNCİRİ KONTROLÜ ---
     const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
@@ -486,14 +504,32 @@ export function handleDrag(interactionManager, point, event = null) {
             let bestAxis = 'X';
             let minDist = distX;
 
-            if (distY < minDist) {
-                bestAxis = 'Y';
-                minDist = distY;
-            }
+            // Body drag için: Borunun uzandığı eksen hariç diğer 2 eksen arasından seç
+            // Düşey boru zinciri hariç (onlar serbest hareket eder)
+            if (interactionManager.isBodyDrag && interactionManager.bodyDragPrimaryAxis && !interactionManager.verticalPipeChain) {
+                const primaryAxis = interactionManager.bodyDragPrimaryAxis;
 
-            // Z eksenini de adaylara ekle
-            if (distZ < minDist) {
-                bestAxis = 'Z';
+                if (primaryAxis === 'X') {
+                    // Boru X'te uzanıyor -> sadece Y ve Z arasından seç
+                    bestAxis = distY < distZ ? 'Y' : 'Z';
+                } else if (primaryAxis === 'Y') {
+                    // Boru Y'de uzanıyor -> sadece X ve Z arasından seç
+                    bestAxis = distX < distZ ? 'X' : 'Z';
+                } else if (primaryAxis === 'Z') {
+                    // Boru Z'de uzanıyor -> sadece X ve Y arasından seç
+                    bestAxis = distX < distY ? 'X' : 'Y';
+                }
+            } else {
+                // Endpoint drag için: Tüm 3 eksen arasından seç
+                if (distY < minDist) {
+                    bestAxis = 'Y';
+                    minDist = distY;
+                }
+
+                // Z eksenini de adaylara ekle
+                if (distZ < minDist) {
+                    bestAxis = 'Z';
+                }
             }
 
             interactionManager.selectedDragAxis = bestAxis;
@@ -628,17 +664,21 @@ export function handleDrag(interactionManager, point, event = null) {
 
         let pipeSnapX = null;
         let pipeSnapY = null;
+        let pipeSnapZ = null;
         let minPipeSnapDistX = PIPE_ENDPOINT_SNAP_DISTANCE;
         let minPipeSnapDistY = PIPE_ENDPOINT_SNAP_DISTANCE;
+        let minPipeSnapDistZ = PIPE_ENDPOINT_SNAP_DISTANCE;
 
         const processSnapCandidate = (targetPoint) => {
             const dx = finalPos.x - targetPoint.x;
             const dy = finalPos.y - targetPoint.y;
+            const dz = (finalPos.z || 0) - (targetPoint.z || 0);
             const dist = Math.hypot(dx, dy);
-            
+
             if (dist < PIPE_ENDPOINT_SNAP_DISTANCE) {
                 if (Math.abs(dx) < minPipeSnapDistX) { minPipeSnapDistX = Math.abs(dx); pipeSnapX = targetPoint.x; }
                 if (Math.abs(dy) < minPipeSnapDistY) { minPipeSnapDistY = Math.abs(dy); pipeSnapY = targetPoint.y; }
+                if (Math.abs(dz) < minPipeSnapDistZ) { minPipeSnapDistZ = Math.abs(dz); pipeSnapZ = targetPoint.z || 0; }
                 return;
             }
 
@@ -653,6 +693,12 @@ export function handleDrag(interactionManager, point, event = null) {
                 minPipeSnapDistY = Math.abs(dy);
                 pipeSnapY = targetPoint.y;
             }
+            // Z snap - 3D modda (t > 0.1)
+            const t = state.viewBlendFactor || 0;
+            if (t > 0.1 && Math.abs(dz) < minPipeSnapDistZ) {
+                minPipeSnapDistZ = Math.abs(dz);
+                pipeSnapZ = targetPoint.z || 0;
+            }
         };
 
         const ownOtherEndpoint = interactionManager.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
@@ -666,6 +712,7 @@ export function handleDrag(interactionManager, point, event = null) {
 
         if (pipeSnapX !== null) finalPos.x = pipeSnapX;
         if (pipeSnapY !== null) finalPos.y = pipeSnapY;
+        if (pipeSnapZ !== null) finalPos.z = pipeSnapZ;
 
         const isProtected = isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint);
         if (isProtected) return;
