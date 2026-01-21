@@ -489,8 +489,8 @@ export function handleDrag(interactionManager, point, event = null) {
             minDist = distY;
         }
 
-        // Z eksenini de adaylara ekle (3D modda)
-        if (distZ < minDist && t > 0.1) {
+        // Z eksenini de adaylara ekle
+        if (distZ < minDist) {
             bestAxis = 'Z';
         }
 
@@ -508,7 +508,8 @@ export function handleDrag(interactionManager, point, event = null) {
         correctedPoint.x = dragStartPos.x;
         correctedPoint.y = dragStartPos.y;
         // Z değişimini diagonal hareketten hesapla
-        const deltaZ = (screenDx - screenDy) / (2 * (t || 1));
+        const safeT = Math.max(0.1, t);
+        const deltaZ = (screenDx - screenDy) / (2 * safeT);
         correctedPoint.z = dragStartPos.z + deltaZ;
     }
 
