@@ -477,6 +477,7 @@ export const PreviewMixin = {
 
         // Z ekseni (yukarı - mavi)
         ctx.save();
+        ctx.globalAlpha = selectedAxis === 'Z' ? 1.0 : 0.3;
         ctx.strokeStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
         ctx.fillStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
         ctx.lineWidth = selectedAxis === 'Z' ? lineWidth * 1.5 : lineWidth;
@@ -502,6 +503,7 @@ export const PreviewMixin = {
 
         // X ekseni (sağa - kırmızı)
         ctx.save();
+        ctx.globalAlpha = selectedAxis === 'X' ? 1.0 : 0.3;
         ctx.strokeStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
         ctx.fillStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
         ctx.lineWidth = selectedAxis === 'X' ? lineWidth * 1.5 : lineWidth;
@@ -526,6 +528,7 @@ export const PreviewMixin = {
 
         // Y ekseni (aşağı - yeşil)
         ctx.save();
+        ctx.globalAlpha = selectedAxis === 'Y' ? 1.0 : 0.3;
         ctx.strokeStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
         ctx.fillStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
         ctx.lineWidth = selectedAxis === 'Y' ? lineWidth * 1.5 : lineWidth;
@@ -556,24 +559,6 @@ export const PreviewMixin = {
         ctx.arc(screenX, screenY, 4 / zoom, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-
-        // Koordinat bilgisi göster
-        ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(screenX + 10 / zoom, screenY - 40 / zoom, 120 / zoom, 36 / zoom);
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = `${11 / zoom}px monospace`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-
-        const coordText = `X: ${Math.round(point.x)}\nY: ${Math.round(point.y)}\nZ: ${Math.round(z)}`;
-        const lines = coordText.split('\n');
-        lines.forEach((line, i) => {
-            ctx.fillText(line, screenX + 15 / zoom, screenY - 35 / zoom + (i * 12 / zoom));
-        });
-
-        ctx.restore();
 
         ctx.restore();
 
