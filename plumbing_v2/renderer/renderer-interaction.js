@@ -107,15 +107,33 @@ export const InteractionMixin = {
 
         let point = null;
         let selectedAxis = interactionManager.selectedDragAxis || null;
+        let allowedAxes = ['X', 'Y', 'Z']; // Varsayılan: Tüm eksenler
 
         // Hangi nokta taşınıyor?
         const obj = interactionManager.dragObject;
 
         if (obj.type === 'boru' && interactionManager.dragEndpoint) {
-            // Boru endpoint taşıması
+            // Boru endpoint taşıması - Tüm eksenler
             point = interactionManager.dragEndpoint === 'p1' ? obj.p1 : obj.p2;
+        } else if (obj.type === 'boru' && interactionManager.isBodyDrag) {
+            // Boru gövde taşıması - Borunun ortası
+            point = {
+                x: (obj.p1.x + obj.p2.x) / 2,
+                y: (obj.p1.y + obj.p2.y) / 2,
+                z: ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2
+            };
+
+            // Borunun uzandığı eksen hariç diğer 2 eksen
+            const primaryAxis = interactionManager.bodyDragPrimaryAxis;
+            if (primaryAxis === 'X') {
+                allowedAxes = ['Y', 'Z']; // X'te uzanıyor -> Y-Z'de hareket
+            } else if (primaryAxis === 'Y') {
+                allowedAxes = ['X', 'Z']; // Y'de uzanıyor -> X-Z'de hareket
+            } else if (primaryAxis === 'Z') {
+                allowedAxes = ['X', 'Y']; // Z'de uzanıyor -> X-Y'de hareket
+            }
         } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
-            // Obje taşıması
+            // Obje taşıması - Tüm eksenler
             point = { x: obj.x, y: obj.y, z: obj.z || 0 };
         }
 
@@ -123,7 +141,7 @@ export const InteractionMixin = {
 
         // Gizmo'yu çiz (PreviewMixin'den)
         if (this.drawCoordinateGizmo) {
-            this.drawCoordinateGizmo(ctx, point, selectedAxis);
+            this.drawCoordinateGizmo(ctx, point, selectedAxis, allowedAxes);
         }
     }
 };
