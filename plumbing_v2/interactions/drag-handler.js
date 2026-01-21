@@ -1073,15 +1073,58 @@ export function handleDrag(interactionManager, point, event = null) {
 
             // Zincirdeki HER borunun bağlantılarını birlikte taşı (tesisat kopmasın!)
             if (interactionManager.alignedChainConnections && interactionManager.alignedChainConnections.length > 0) {
+                const SNAP_DISTANCE = 10; // cm
+                const chainPipeIds = new Set(interactionManager.alignedPipeChain.map(({ pipe }) => pipe.id));
+
                 interactionManager.alignedChainConnections.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint, connectedTo }) => {
                     // Bağlı olduğu zincir borusunun bağlantı noktasının yeni pozisyonu
                     const chainPipe = connectedTo.pipe;
                     const chainPoint = connectedTo.point; // 'p1' veya 'p2'
 
-                    // Yeni pozisyon
-                    connectedPipe[connectedEndpoint].x = chainPipe[chainPoint].x;
-                    connectedPipe[connectedEndpoint].y = chainPipe[chainPoint].y;
-                    connectedPipe[connectedEndpoint].z = chainPipe[chainPoint].z || 0;
+                    // Hedef pozisyon (snap olmadan)
+                    let targetX = chainPipe[chainPoint].x;
+                    let targetY = chainPipe[chainPoint].y;
+                    const targetZ = chainPipe[chainPoint].z || 0;
+
+                    // X-Y yönünde snap kontrolü (diğer boruların endpoint'lerine)
+                    let snapX = null;
+                    let snapY = null;
+                    let minDistX = SNAP_DISTANCE;
+                    let minDistY = SNAP_DISTANCE;
+
+                    // Tüm boruları tara (zincir dışındaki)
+                    interactionManager.manager.pipes.forEach(otherPipe => {
+                        if (chainPipeIds.has(otherPipe.id)) return; // Zincir içi hariç
+                        if (otherPipe === connectedPipe) return; // Kendi borusu hariç
+
+                        // Her iki endpoint'i kontrol et
+                        for (const otherPoint of [otherPipe.p1, otherPipe.p2]) {
+                            const dx = Math.abs(targetX - otherPoint.x);
+                            const dy = Math.abs(targetY - otherPoint.y);
+                            const dz = Math.abs(targetZ - (otherPoint.z || 0));
+
+                            // Z koordinatı yakınsa X-Y snap kontrolü yap
+                            if (dz < 5) {
+                                if (dx < minDistX) {
+                                    minDistX = dx;
+                                    snapX = otherPoint.x;
+                                }
+                                if (dy < minDistY) {
+                                    minDistY = dy;
+                                    snapY = otherPoint.y;
+                                }
+                            }
+                        }
+                    });
+
+                    // Snap varsa kullan
+                    if (snapX !== null) targetX = snapX;
+                    if (snapY !== null) targetY = snapY;
+
+                    // Bağlı borunun endpoint'ini taşı
+                    connectedPipe[connectedEndpoint].x = targetX;
+                    connectedPipe[connectedEndpoint].y = targetY;
+                    connectedPipe[connectedEndpoint].z = targetZ;
                 });
             }
 
