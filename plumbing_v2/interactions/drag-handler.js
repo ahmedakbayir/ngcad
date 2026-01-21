@@ -468,33 +468,33 @@ export function handleDrag(interactionManager, point, event = null) {
     const totalMovement = Math.hypot(screenDx, screenDy);
 
     if (totalMovement > MIN_MOVEMENT) {
-        // Hareket açısını hesapla (derece cinsinden)
-        const angle = Math.atan2(screenDy, screenDx) * 180 / Math.PI;
+        // Çizim algoritması ile aynı: Her eksene olan uzaklığı hesapla
 
-        // Z ekseni için diagonal hareket tespiti (açı bazlı)
-        // 45 derece (sağ-alt) veya -135 derece (sol-üst) → Z ekseni
-        const ANGLE_TOLERANCE = 25; // ±25 derece tolerans
-        const isZDiagonal =
-            (Math.abs(angle - 45) < ANGLE_TOLERANCE) ||      // Sağ-alt diagonal
-            (Math.abs(angle + 135) < ANGLE_TOLERANCE);       // Sol-üst diagonal
+        // X Ekseni (y=0 doğrusu): Ekranda yatay. Uzaklık = |dy|
+        const distX = Math.abs(screenDy);
 
-        // World koordinatlarında değişim
-        const worldDx = Math.abs(correctedPoint.x - dragStartPos.x);
-        const worldDy = Math.abs(correctedPoint.y - dragStartPos.y);
+        // Y Ekseni (x=0 doğrusu): Ekranda dikey. Uzaklık = |dx|
+        const distY = Math.abs(screenDx);
 
-        if (isZDiagonal && t > 0.1) {
-            // Diagonal hareket → Z ekseni (3D modda)
-            interactionManager.selectedDragAxis = 'Z';
-        } else if (worldDx > worldDy) {
-            // Yatay hareket → X ekseni
-            interactionManager.selectedDragAxis = 'X';
-        } else if (worldDy > worldDx) {
-            // Dikey hareket → Y ekseni
-            interactionManager.selectedDragAxis = 'Y';
-        } else {
-            // Eşit değişimler varsa, eksen yok
-            interactionManager.selectedDragAxis = null;
+        // Z Ekseni (y = -x doğrusu): Ekranda 45 derece çapraz.
+        // Vektör (t, -t). Normali (t, t). Projeksiyon formülü ile uzaklık: |dx + dy| / sqrt(2)
+        const distZ = Math.abs(screenDx + screenDy) / 1.414; // sqrt(2)
+
+        // En yakın ekseni belirle
+        let bestAxis = 'X';
+        let minDist = distX;
+
+        if (distY < minDist) {
+            bestAxis = 'Y';
+            minDist = distY;
         }
+
+        // Z eksenini de adaylara ekle (3D modda)
+        if (distZ < minDist && t > 0.1) {
+            bestAxis = 'Z';
+        }
+
+        interactionManager.selectedDragAxis = bestAxis;
     }
 
     // Seçili eksende kilitli taşıma uygula
