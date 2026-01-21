@@ -455,3 +455,90 @@ export function findConnectedPipesChain(manager, startPipe) {
     }
     return allConnected;
 }
+
+/**
+ * 2D sahnede (t < 0.99) düşey boru sembolü (çember) tıklandığında boruyu bulur
+ * @param {*} manager
+ * @param {*} point - Tıklanan nokta (world coordinates)
+ * @param {number} tolerance - Tıklama toleransı
+ * @returns {Object|null} - { pipe, point } veya null
+ */
+export function findVerticalPipeSymbolAt(manager, point, tolerance = 10) {
+    const t = state.viewBlendFactor || 0;
+
+    // Sadece 2D modunda (t < 0.99) düşey semboller gösterilir
+    if (t >= 0.99) return null;
+
+    for (const pipe of manager.pipes) {
+        const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+        const rawDx = pipe.p2.x - pipe.p1.x;
+        const rawDy = pipe.p2.y - pipe.p1.y;
+        const rawLen2d = Math.hypot(rawDx, rawDy);
+
+        let elevationAngle = 90;
+        if (rawLen2d > 0.001) {
+            elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
+        }
+
+        // Düşey boru kontrolü (renderer-pipes.js'deki mantıkla aynı)
+        if (rawZDiff > 0.1 && elevationAngle > 85) {
+            // Çember merkezi: p1'in ekran koordinatları
+            const zOffset = (pipe.p1.z || 0) * t;
+            const centerX = pipe.p1.x + zOffset;
+            const centerY = pipe.p1.y - zOffset;
+
+            const dist = Math.hypot(point.x - centerX, point.y - centerY);
+
+            // Çember yarıçapı + tolerans (renderer'da 5 px yarıçap + ok uzunluğu ~17 px)
+            if (dist < tolerance) {
+                return {
+                    pipe: pipe,
+                    point: { x: pipe.p1.x, y: pipe.p1.y, z: pipe.p1.z || 0 }
+                };
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Aynı noktaya (aynı X,Y koordinatları) bağlı zincir halindeki düşey boruları bulur
+ * @param {*} manager
+ * @param {*} basePipe - Başlangıç borusu
+ * @returns {Array} - Zincirdeki tüm düşey borular
+ */
+export function findVerticalPipeChain(manager, basePipe) {
+    const chain = [];
+    const tolerance = 1; // cm
+
+    // Baz borunun X,Y koordinatlarını al
+    const baseX = basePipe.p1.x;
+    const baseY = basePipe.p1.y;
+
+    // Tüm boruları tara
+    for (const pipe of manager.pipes) {
+        // Düşey boru kontrolü
+        const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+        const rawDx = pipe.p2.x - pipe.p1.x;
+        const rawDy = pipe.p2.y - pipe.p1.y;
+        const rawLen2d = Math.hypot(rawDx, rawDy);
+
+        let elevationAngle = 90;
+        if (rawLen2d > 0.001) {
+            elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
+        }
+
+        // Düşey boru mu?
+        if (rawZDiff > 0.1 && elevationAngle > 85) {
+            // Aynı X,Y noktasında mı?
+            const distXY = Math.hypot(pipe.p1.x - baseX, pipe.p1.y - baseY);
+
+            if (distXY < tolerance) {
+                chain.push(pipe);
+            }
+        }
+    }
+
+    return chain;
+}

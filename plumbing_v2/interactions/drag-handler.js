@@ -10,6 +10,7 @@ import { getObjectsOnPipe } from './placement-utils.js';
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
+import { findVerticalPipeChain } from './finders.js';
 
 export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null, skipBostaUcCheck = false) {
     const TOLERANCE = 10;
@@ -232,6 +233,36 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.isBodyDrag = true;
     interactionManager.bodyDragInitialP1 = { ...pipe.p1 };
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
+
+    // --- DÜŞEY BORU ZİNCİRİ KONTROLÜ ---
+    const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+    const rawDx = pipe.p2.x - pipe.p1.x;
+    const rawDy = pipe.p2.y - pipe.p1.y;
+    const rawLen2d = Math.hypot(rawDx, rawDy);
+
+    let elevationAngle = 90;
+    if (rawLen2d > 0.001) {
+        elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
+    }
+
+    const isVerticalPipe = rawZDiff > 0.1 && elevationAngle > 85;
+
+    if (isVerticalPipe) {
+        // Zincirdeki tüm düşey boruları bul
+        const verticalChain = findVerticalPipeChain(interactionManager.manager, pipe);
+
+        // Zincirdeki her borunun başlangıç pozisyonlarını kaydet
+        interactionManager.verticalPipeChain = verticalChain.map(p => ({
+            pipe: p,
+            initialP1: { ...p.p1 },
+            initialP2: { ...p.p2 }
+        }));
+
+        console.log(`🔗 Düşey boru zinciri bulundu: ${verticalChain.length} boru`);
+    } else {
+        interactionManager.verticalPipeChain = null;
+    }
+    // -----------------------------------
 
     if (!window.__lastDraggedPipe) window.__lastDraggedPipe = { pipe: null, positions: null };
 
@@ -857,7 +888,7 @@ export function handleDrag(interactionManager, point, event = null) {
     // 7. Boru Gövdesi Taşıma
     if (interactionManager.dragObject.type === 'boru' && interactionManager.isBodyDrag) {
         const pipe = interactionManager.dragObject;
-        // Burada point (mouse) yerine correctedPoint kullanmak daha doğru olur 
+        // Burada point (mouse) yerine correctedPoint kullanmak daha doğru olur
         // ama delta hesabı olduğu için fark etmez (ikisi de aynı oranda kayar)
         // Yine de görsel tutarlılık için correctedPoint kullanabiliriz
         const deltaX = point.x - interactionManager.dragStart.x;
@@ -865,6 +896,21 @@ export function handleDrag(interactionManager, point, event = null) {
 
         let offsetX = deltaX;
         let offsetY = deltaY;
+
+        // --- DÜŞEY BORU ZİNCİRİ TAŞIMA ---
+        if (interactionManager.verticalPipeChain && interactionManager.verticalPipeChain.length > 0) {
+            // Düşey borular için eksen kısıtlaması yok, serbest X-Y hareketi
+            interactionManager.verticalPipeChain.forEach(({ pipe: chainPipe, initialP1, initialP2 }) => {
+                chainPipe.p1.x = initialP1.x + offsetX;
+                chainPipe.p1.y = initialP1.y + offsetY;
+                chainPipe.p2.x = initialP2.x + offsetX;
+                chainPipe.p2.y = initialP2.y + offsetY;
+                // Z değerleri değişmez, sadece X-Y taşınır
+            });
+            return; // Düşey boru zinciri işlemi bitti, normal mantık çalışmasın
+        }
+        // -----------------------------------
+
         if (interactionManager.dragAxis === 'x') offsetY = 0;
         else if (interactionManager.dragAxis === 'y') offsetX = 0;
 
@@ -1043,6 +1089,7 @@ export function endDrag(interactionManager) {
     interactionManager.pipeEndpointSnapLock = null;
     interactionManager.pipeSnapMouseStart = null;
     interactionManager.dragStartZ = null;
+    interactionManager.verticalPipeChain = null; // Düşey boru zinciri temizle
 
     // TEMİZLİK
     if (interactionManager.snapSystem) interactionManager.snapSystem.clearStartPoint();

@@ -172,6 +172,16 @@ export function handlePointerDown(e) {
 
         const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
 
+        // --- DÜŞEY BORU SEMBOLü KONTROLÜ (2D modunda) ---
+        const verticalSymbol = this.manager.interactionManager.findVerticalPipeSymbolAt(point, worldTolerance);
+        if (verticalSymbol) {
+            const pipe = verticalSymbol.pipe;
+            this.selectObject(pipe);
+            // Düşey boruları BODY olarak taşı (zincir halindeki tüm düşey borularla birlikte)
+            this.startBodyDrag(pipe, point);
+            return true;
+        }
+
         // Baca endpoint
         const bacalar = this.manager.components.filter(c => c.type === 'baca' && c.isSelected);
         for (const baca of bacalar) {
