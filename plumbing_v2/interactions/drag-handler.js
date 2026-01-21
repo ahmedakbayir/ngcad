@@ -468,12 +468,14 @@ export function handleDrag(interactionManager, point, event = null) {
     const totalMovement = Math.hypot(screenDx, screenDy);
 
     if (totalMovement > MIN_MOVEMENT) {
-        // Hareket açısını hesapla
-        const angle = Math.atan2(screenDy, screenDx) * 180 / Math.PI;
-
-        // Z ekseni için diagonal hareket tespiti (45 derece veya 135 derece yönünde)
-        // screenDx ve screenDy'nin mutlak değerleri yakınsa → diagonal hareket → Z ekseni
-        const isDiagonal = Math.abs(Math.abs(screenDx) - Math.abs(screenDy)) < totalMovement * 0.3;
+        // Z ekseni için diagonal hareket tespiti
+        // İzometrik 3D'de: Z yukarı = sol-üst diagonal, Z aşağı = sağ-alt diagonal
+        // screenDx ve screenDy aynı işarete sahip ve benzer büyüklükteyse → Z ekseni
+        const absDx = Math.abs(screenDx);
+        const absDy = Math.abs(screenDy);
+        const sameSign = (screenDx * screenDy) > 0; // Aynı işaret mi?
+        const ratio = absDx > absDy ? absDy / absDx : absDx / absDy;
+        const isDiagonal = sameSign && ratio > 0.5; // %50'den fazla benzer → diagonal
 
         // World koordinatlarında değişim
         const worldDx = Math.abs(correctedPoint.x - dragStartPos.x);
