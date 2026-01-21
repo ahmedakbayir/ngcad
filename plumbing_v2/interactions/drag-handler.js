@@ -720,8 +720,16 @@ export function handleDrag(interactionManager, point, event = null) {
 
         if (!occupiedByOtherPipe && newLength >= minLength) {
             const oldLength = pipe.uzunluk;
-            if (interactionManager.dragEndpoint === 'p1') { pipe.p1.x = finalPos.x; pipe.p1.y = finalPos.y; }
-            else { pipe.p2.x = finalPos.x; pipe.p2.y = finalPos.y; }
+            if (interactionManager.dragEndpoint === 'p1') {
+                pipe.p1.x = finalPos.x;
+                pipe.p1.y = finalPos.y;
+                pipe.p1.z = finalPos.z;
+            }
+            else {
+                pipe.p2.x = finalPos.x;
+                pipe.p2.y = finalPos.y;
+                pipe.p2.z = finalPos.z;
+            }
 
             valvesOnPipe.forEach(valve => {
                 const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
@@ -765,6 +773,7 @@ export function handleDrag(interactionManager, point, event = null) {
                 interactionManager.connectedPipesAtEndpoint.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                     connectedPipe[connectedEndpoint].x = finalPos.x;
                     connectedPipe[connectedEndpoint].y = finalPos.y;
+                    connectedPipe[connectedEndpoint].z = finalPos.z;
                 });
             }
 
