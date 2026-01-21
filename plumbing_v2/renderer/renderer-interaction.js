@@ -95,5 +95,35 @@ export const InteractionMixin = {
         ctx.fillText(pathText, x, y);
 
         ctx.restore();
+    },
+
+    /**
+     * Koordinat gizmo'yu göster (taşıma sırasında)
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} interactionManager - InteractionManager instance
+     */
+    drawDragCoordinateGizmo(ctx, interactionManager) {
+        if (!interactionManager.isDragging || !interactionManager.dragObject) return;
+
+        let point = null;
+        let selectedAxis = interactionManager.selectedDragAxis || null;
+
+        // Hangi nokta taşınıyor?
+        const obj = interactionManager.dragObject;
+
+        if (obj.type === 'boru' && interactionManager.dragEndpoint) {
+            // Boru endpoint taşıması
+            point = interactionManager.dragEndpoint === 'p1' ? obj.p1 : obj.p2;
+        } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
+            // Obje taşıması
+            point = { x: obj.x, y: obj.y, z: obj.z || 0 };
+        }
+
+        if (!point) return;
+
+        // Gizmo'yu çiz (PreviewMixin'den)
+        if (this.drawCoordinateGizmo) {
+            this.drawCoordinateGizmo(ctx, point, selectedAxis);
+        }
     }
 };
