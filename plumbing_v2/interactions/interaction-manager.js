@@ -78,7 +78,9 @@ import {
     checkVanaAtPoint,
     findPipeEndpoint,
     removeObject,
-    findConnectedPipesChain
+    findConnectedPipesChain,
+    findVerticalPipeSymbolAt,
+    findVerticalPipeChain
 } from './finders.js';
 
 // Tool modları
@@ -401,5 +403,13 @@ export class InteractionManager {
 
     findConnectedPipesChain(startPipe) {
         return findConnectedPipesChain(this.manager, startPipe);
+    }
+
+    findVerticalPipeSymbolAt(point, tolerance = 10) {
+        return findVerticalPipeSymbolAt(this.manager, point, tolerance);
+    }
+
+    findVerticalPipeChain(basePipe) {
+        return findVerticalPipeChain(this.manager, basePipe);
     }
 }
