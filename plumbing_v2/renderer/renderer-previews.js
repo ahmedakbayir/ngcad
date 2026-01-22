@@ -479,12 +479,12 @@ export const PreviewMixin = {
         const arrowSize = 8 / zoom;
         const lineWidth = 2 / zoom;
 
-        // Z ekseni (yukarı - mavi)
+        // Z ekseni (yukarı - yeşil)
         if (allowedAxes.includes('Z')) {
             ctx.save();
             ctx.globalAlpha = selectedAxis === 'Z' ? 1.0 : 0.3;
-            ctx.strokeStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
-            ctx.fillStyle = selectedAxis === 'Z' ? '#00FFFF' : '#0088FF';
+            ctx.strokeStyle = selectedAxis === 'Z' ? '#00FF00' : '#00AA00';
+            ctx.fillStyle = selectedAxis === 'Z' ? '#00FF00' : '#00AA00';
             ctx.lineWidth = selectedAxis === 'Z' ? lineWidth * 1.5 : lineWidth;
 
             // Z ekseni çizgisi (3D görünümde yukarı-sol yönü)
@@ -534,12 +534,12 @@ export const PreviewMixin = {
             ctx.restore();
         }
 
-        // Y ekseni (aşağı - yeşil)
+        // Y ekseni (aşağı - turkuaz)
         if (allowedAxes.includes('Y')) {
             ctx.save();
             ctx.globalAlpha = selectedAxis === 'Y' ? 1.0 : 0.3;
-            ctx.strokeStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
-            ctx.fillStyle = selectedAxis === 'Y' ? '#00FF00' : '#00AA00';
+            ctx.strokeStyle = selectedAxis === 'Y' ? '#00FFFF' : '#00CED1';
+            ctx.fillStyle = selectedAxis === 'Y' ? '#00FFFF' : '#00CED1';
             ctx.lineWidth = selectedAxis === 'Y' ? lineWidth * 1.5 : lineWidth;
 
             const yEndX = screenX;
