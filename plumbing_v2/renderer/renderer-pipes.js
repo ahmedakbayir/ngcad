@@ -421,6 +421,10 @@ drawPipes(ctx, pipes) {
         // Ekstra çizimler
         this.drawElbows(ctx, pipes, breakPoints);
         this.drawPipeValves(ctx, pipes);
+
+        // Seçili borular için yön görselleştirmesi (sınırlayıcı kutu/prizma)
+        this.drawPipeDirectionVisualization(ctx, pipes);
+
         pipes.forEach(pipe => {
             if (pipe.isSelected) this.drawPipeEndpoints(ctx, pipe);
         });
@@ -1224,5 +1228,172 @@ drawPipes(ctx, pipes) {
         ctx.stroke();
 
         ctx.restore();
+    },
+
+    /**
+     * Borunun kaç boyutlu olduğunu hesaplar (1D, 2D, 3D)
+     * @param {Object} pipe - Boru objesi (p1, p2 noktaları ile)
+     * @returns {number} 1, 2 veya 3 (boyut sayısı)
+     */
+    getPipeDimensionality(pipe) {
+        const threshold = 0.1; // Minimum değişim eşiği (cm cinsinden)
+
+        const dx = Math.abs(pipe.p2.x - pipe.p1.x);
+        const dy = Math.abs(pipe.p2.y - pipe.p1.y);
+        const dz = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+
+        let changedDimensions = 0;
+        if (dx > threshold) changedDimensions++;
+        if (dy > threshold) changedDimensions++;
+        if (dz > threshold) changedDimensions++;
+
+        return changedDimensions;
+    },
+
+    /**
+     * 2D borular için sınırlayıcı dikdörtgen çizer (kesikli çizgilerle)
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} pipe - Boru objesi
+     */
+    draw2DBoundingBox(ctx, pipe) {
+        const t = state.viewBlendFactor || 0;
+        const zoom = state.zoom || 1;
+        const isLight = this.isLightMode();
+
+        // Ekran koordinatlarını hesapla
+        const z1 = (pipe.p1.z || 0) * t;
+        const z2 = (pipe.p2.z || 0) * t;
+        const x1 = pipe.p1.x + z1;
+        const y1 = pipe.p1.y - z1;
+        const x2 = pipe.p2.x + z2;
+        const y2 = pipe.p2.y - z2;
+
+        // Dikdörtgenin köşelerini belirle
+        const minX = Math.min(x1, x2);
+        const maxX = Math.max(x1, x2);
+        const minY = Math.min(y1, y2);
+        const maxY = Math.max(y1, y2);
+
+        // Biraz kenar boşluğu ekle
+        const padding = 5;
+
+        ctx.save();
+        ctx.strokeStyle = isLight ? 'rgba(100, 149, 237, 0.6)' : 'rgba(100, 200, 255, 0.8)'; // Cornflower blue
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.setLineDash([8 / zoom, 4 / zoom]); // Kesikli çizgi
+
+        // Dikdörtgen çiz
+        ctx.strokeRect(
+            minX - padding,
+            minY - padding,
+            (maxX - minX) + padding * 2,
+            (maxY - minY) + padding * 2
+        );
+
+        ctx.restore();
+    },
+
+    /**
+     * 3D borular için dikdörtgen prizma çizer (kesikli çizgilerle)
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} pipe - Boru objesi
+     */
+    draw3DBoundingPrism(ctx, pipe) {
+        const t = state.viewBlendFactor || 0;
+        const zoom = state.zoom || 1;
+        const isLight = this.isLightMode();
+
+        // Dünya koordinatlarında sınırlayıcı kutuyu hesapla
+        const minX = Math.min(pipe.p1.x, pipe.p2.x);
+        const maxX = Math.max(pipe.p1.x, pipe.p2.x);
+        const minY = Math.min(pipe.p1.y, pipe.p2.y);
+        const maxY = Math.max(pipe.p1.y, pipe.p2.y);
+        const minZ = Math.min(pipe.p1.z || 0, pipe.p2.z || 0);
+        const maxZ = Math.max(pipe.p1.z || 0, pipe.p2.z || 0);
+
+        // Biraz kenar boşluğu ekle
+        const padding = 5;
+
+        // 8 köşe noktası (dünya koordinatları)
+        const corners3D = [
+            { x: minX - padding, y: minY - padding, z: minZ },
+            { x: maxX + padding, y: minY - padding, z: minZ },
+            { x: maxX + padding, y: maxY + padding, z: minZ },
+            { x: minX - padding, y: maxY + padding, z: minZ },
+            { x: minX - padding, y: minY - padding, z: maxZ },
+            { x: maxX + padding, y: minY - padding, z: maxZ },
+            { x: maxX + padding, y: maxY + padding, z: maxZ },
+            { x: minX - padding, y: maxY + padding, z: maxZ }
+        ];
+
+        // Köşeleri ekran koordinatlarına dönüştür
+        const corners2D = corners3D.map(corner => {
+            const zOffset = corner.z * t;
+            return {
+                x: corner.x + zOffset,
+                y: corner.y - zOffset
+            };
+        });
+
+        ctx.save();
+        ctx.strokeStyle = isLight ? 'rgba(100, 149, 237, 0.6)' : 'rgba(100, 200, 255, 0.8)';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.setLineDash([8 / zoom, 4 / zoom]);
+
+        // Alt yüz (z=minZ)
+        ctx.beginPath();
+        ctx.moveTo(corners2D[0].x, corners2D[0].y);
+        ctx.lineTo(corners2D[1].x, corners2D[1].y);
+        ctx.lineTo(corners2D[2].x, corners2D[2].y);
+        ctx.lineTo(corners2D[3].x, corners2D[3].y);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Üst yüz (z=maxZ)
+        ctx.beginPath();
+        ctx.moveTo(corners2D[4].x, corners2D[4].y);
+        ctx.lineTo(corners2D[5].x, corners2D[5].y);
+        ctx.lineTo(corners2D[6].x, corners2D[6].y);
+        ctx.lineTo(corners2D[7].x, corners2D[7].y);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Dikey kenarlar (alt ve üst yüzü birleştiren)
+        for (let i = 0; i < 4; i++) {
+            ctx.beginPath();
+            ctx.moveTo(corners2D[i].x, corners2D[i].y);
+            ctx.lineTo(corners2D[i + 4].x, corners2D[i + 4].y);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    },
+
+    /**
+     * Seçili borular için yön görselleştirmesi çizer
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Array} pipes - Boru dizisi
+     */
+    drawPipeDirectionVisualization(ctx, pipes) {
+        if (!pipes) return;
+
+        pipes.forEach(pipe => {
+            // Sadece seçili borular için çiz
+            if (!pipe.isSelected) return;
+
+            const dimensionality = this.getPipeDimensionality(pipe);
+
+            // 1D borular için görselleştirme yapma
+            if (dimensionality === 1) return;
+
+            // 2D borular için dikdörtgen çiz
+            if (dimensionality === 2) {
+                this.draw2DBoundingBox(ctx, pipe);
+            }
+            // 3D borular için prizma çiz
+            else if (dimensionality === 3) {
+                this.draw3DBoundingPrism(ctx, pipe);
+            }
+        });
     }
 };
