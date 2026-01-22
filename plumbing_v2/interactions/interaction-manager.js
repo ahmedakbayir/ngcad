@@ -171,6 +171,12 @@ export class InteractionManager {
         // Koordinat gizmo için seçili eksen (X, Y, Z veya null)
         this.selectedDragAxis = null;
 
+        // Gizmo hover durumu (mouse gizmo ekseninin üzerindeyken)
+        this.hoveredGizmoAxis = null;
+
+        // Boru gövde taşıması için ana eksen (X, Y, Z)
+        this.bodyDragPrimaryAxis = null;
+
         // Double-click detection
         this.lastClickTime = 0;
         this.lastClickPoint = null;

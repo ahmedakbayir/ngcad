@@ -143,5 +143,64 @@ export const InteractionMixin = {
         if (this.drawCoordinateGizmo) {
             this.drawCoordinateGizmo(ctx, point, selectedAxis, allowedAxes);
         }
+    },
+
+    /**
+     * Seçili nesne için gizmo göster (sürüklemeden önce - statik)
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     * @param {Object} interactionManager - InteractionManager instance
+     */
+    drawSelectionGizmo(ctx, interactionManager) {
+        // Sürükleme sırasında gösterme (zaten drawDragCoordinateGizmo var)
+        if (interactionManager.isDragging) return;
+
+        // Seçili nesne yoksa gösterme
+        if (!interactionManager.selectedObject) return;
+
+        const obj = interactionManager.selectedObject;
+        let point = null;
+        let allowedAxes = ['X', 'Y', 'Z'];
+
+        // Nesneye göre gizmo pozisyonunu belirle
+        if (obj.type === 'boru') {
+            // Boru için merkez noktayı kullan
+            point = {
+                x: (obj.p1.x + obj.p2.x) / 2,
+                y: (obj.p1.y + obj.p2.y) / 2,
+                z: ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2
+            };
+
+            // Borunun uzandığı ekseni hesapla
+            const dx = Math.abs(obj.p2.x - obj.p1.x);
+            const dy = Math.abs(obj.p2.y - obj.p1.y);
+            const dz = Math.abs((obj.p2.z || 0) - (obj.p1.z || 0));
+
+            // Ana ekseni bul (en uzun olanı)
+            if (dx > dy && dx > dz) {
+                allowedAxes = ['Y', 'Z']; // X'te uzanıyor -> Y-Z'de hareket
+            } else if (dy > dx && dy > dz) {
+                allowedAxes = ['X', 'Z']; // Y'de uzanıyor -> X-Z'de hareket
+            } else if (dz > dx && dz > dy) {
+                allowedAxes = ['X', 'Y']; // Z'de uzanıyor -> X-Y'de hareket
+            }
+        } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
+            // Diğer nesneler için kendi pozisyonunu kullan
+            point = { x: obj.x, y: obj.y, z: obj.z || 0 };
+        }
+
+        if (!point) return;
+
+        // Hover ediliyorsa göster
+        if (interactionManager.hoveredGizmoAxis) {
+            // Gizmo'yu çiz - hover edilen ekseni vurgula
+            if (this.drawCoordinateGizmo) {
+                this.drawCoordinateGizmo(ctx, point, interactionManager.hoveredGizmoAxis, allowedAxes);
+            }
+        } else {
+            // Gizmo'yu çiz - hiç seçili eksen yok
+            if (this.drawCoordinateGizmo) {
+                this.drawCoordinateGizmo(ctx, point, null, allowedAxes);
+            }
+        }
     }
 };

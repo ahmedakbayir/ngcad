@@ -235,6 +235,11 @@ export class PlumbingRenderer {
         if (manager.interactionManager?.isDragging) {
             this.drawDragCoordinateGizmo(ctx, manager.interactionManager);
         }
+
+        // Seçim gizmosu (seçili nesne için - sürüklemeden önce)
+        if (!manager.interactionManager?.isDragging && manager.interactionManager?.selectedObject) {
+            this.drawSelectionGizmo(ctx, manager.interactionManager);
+        }
     }
 }
 

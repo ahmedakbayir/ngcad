@@ -8,12 +8,9 @@ import { dom, state } from '../general-files/main.js';
 
 // YENİ IMPORT
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
+import { findGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
 
 export function handlePointerMove(e) {
-    if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
-        return false;
-    }
-
     const rect = dom.c2d.getBoundingClientRect();
     const mouseScreenX = e.clientX - rect.left;
     const mouseScreenY = e.clientY - rect.top;
@@ -26,6 +23,48 @@ export function handlePointerMove(e) {
         screenX: mouseScreenX,
         screenY: mouseScreenY
     };
+
+    // Gizmo hover kontrolü (seçili nesne varsa ve sürüklenmiyorsa)
+    if (this.selectedObject && !this.isDragging) {
+        let gizmoCenter = null;
+        let allowedAxes = ['X', 'Y', 'Z'];
+
+        if (this.selectedObject.type === 'boru') {
+            gizmoCenter = {
+                x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
+                y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
+                z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
+            };
+
+            // Borunun uzandığı ekseni hesapla
+            const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
+            const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
+            const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
+
+            if (dx > dy && dx > dz) {
+                allowedAxes = ['Y', 'Z'];
+            } else if (dy > dx && dy > dz) {
+                allowedAxes = ['X', 'Z'];
+            } else if (dz > dx && dz > dy) {
+                allowedAxes = ['X', 'Y'];
+            }
+        } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
+                   this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
+            gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
+        }
+
+        if (gizmoCenter) {
+            this.hoveredGizmoAxis = findGizmoAxisAt(gizmoCenter, point, allowedAxes);
+        } else {
+            this.hoveredGizmoAxis = null;
+        }
+    } else {
+        this.hoveredGizmoAxis = null;
+    }
+
+    if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
+        return false;
+    }
 
     // Debug...
     if (this.manager.activeTool === 'cihaz' && this.manager.tempComponent && !this._mouseDebugCount) {
