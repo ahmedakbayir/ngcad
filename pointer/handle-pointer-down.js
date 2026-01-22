@@ -7,7 +7,7 @@ import { screenToWorld } from '../draw/geometry.js';
 import { dom, state } from '../general-files/main.js';
 import { BAGLANTI_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 import { TESISAT_CONSTANTS } from '../plumbing_v2/interactions/tesisat-snap.js';
-import { pixelsToWorld } from '../plumbing_v2/interactions/finders.js';
+import { pixelsToWorld, findGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
 
 // YENİ IMPORT: 3D hesaplama fonksiyonu
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
@@ -134,6 +134,59 @@ export function handlePointerDown(e) {
             if (this.findRotationHandleAt(this.selectedObject, point, 12)) {
                 this.startRotation(this.selectedObject, point);
                 return true;
+            }
+        }
+
+        // --- GİZMO EKSENİNE TIKLAMA KONTROLÜ ---
+        if (this.selectedObject && !this.isDragging) {
+            let gizmoCenter = null;
+            let allowedAxes = ['X', 'Y', 'Z'];
+
+            if (this.selectedObject.type === 'boru') {
+                gizmoCenter = {
+                    x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
+                    y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
+                    z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
+                };
+
+                // Borunun uzandığı ekseni hesapla
+                const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
+                const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
+                const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
+
+                if (dx > dy && dx > dz) {
+                    allowedAxes = ['Y', 'Z'];
+                } else if (dy > dx && dy > dz) {
+                    allowedAxes = ['X', 'Z'];
+                } else if (dz > dx && dz > dy) {
+                    allowedAxes = ['X', 'Y'];
+                }
+            } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
+                       this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
+                gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
+            }
+
+            // Gizmo eksenine tıklandı mı kontrol et
+            if (gizmoCenter) {
+                const clickedAxis = findGizmoAxisAt(gizmoCenter, point, allowedAxes);
+                if (clickedAxis) {
+                    // Gizmo eksenine tıklandı - o eksende locked dragging başlat
+                    console.log('🎯 Gizmo eksenine tıklandı:', clickedAxis);
+
+                    // Sürüklemeyi başlat
+                    if (this.selectedObject.type === 'boru') {
+                        this.startBodyDrag(this.selectedObject, point);
+                    } else {
+                        this.startDrag(this.selectedObject, point);
+                    }
+
+                    // Ekseni kilitle
+                    this.selectedDragAxis = clickedAxis;
+                    this.axisLockDetermined = true;
+                    this.lockedAxis = clickedAxis;
+
+                    return true;
+                }
             }
         }
 

@@ -608,3 +608,120 @@ export function findAlignedPipeChain(manager, basePipe, primaryAxis) {
 
     return chain;
 }
+
+/**
+ * Gizmo eksenine tıklama kontrolü (hit detection)
+ * @param {Object} gizmoCenter - Gizmo merkez noktası {x, y, z}
+ * @param {Object} mousePoint - Mouse pozisyonu {x, y}
+ * @param {Array} allowedAxes - İzin verilen eksenler ['X', 'Y', 'Z']
+ * @returns {string|null} - Tıklanan eksen ('X', 'Y', 'Z') veya null
+ */
+export function findGizmoAxisAt(gizmoCenter, mousePoint, allowedAxes = ['X', 'Y', 'Z']) {
+    if (!gizmoCenter || !mousePoint) return null;
+
+    const t = state.viewBlendFactor || 0;
+
+    // 2D modda gizmo yok
+    if (t < 0.1) return null;
+
+    const zoom = state.zoom || 1;
+    const axisLength = 60 / zoom;
+    const hitTolerance = 10 / zoom; // Hit detection toleransı
+
+    // Gizmo merkez noktasının ekran koordinatları
+    const z = gizmoCenter.z || 0;
+    const screenX = gizmoCenter.x + (z * t);
+    const screenY = gizmoCenter.y - (z * t);
+
+    // Mouse'un ekran koordinatları (zaten world space'te, ama 3D offset yok)
+    const mouseScreenX = mousePoint.x;
+    const mouseScreenY = mousePoint.y;
+
+    let closestAxis = null;
+    let closestDist = Infinity;
+
+    // X ekseni kontrolü (sağa doğru)
+    if (allowedAxes.includes('X')) {
+        const xEndX = screenX + axisLength;
+        const xEndY = screenY;
+
+        // Çizgi segment'ine nokta-segment mesafesi
+        const dist = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            xEndX, xEndY
+        );
+
+        if (dist < hitTolerance && dist < closestDist) {
+            closestDist = dist;
+            closestAxis = 'X';
+        }
+    }
+
+    // Y ekseni kontrolü (aşağı doğru)
+    if (allowedAxes.includes('Y')) {
+        const yEndX = screenX;
+        const yEndY = screenY + axisLength;
+
+        const dist = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            yEndX, yEndY
+        );
+
+        if (dist < hitTolerance && dist < closestDist) {
+            closestDist = dist;
+            closestAxis = 'Y';
+        }
+    }
+
+    // Z ekseni kontrolü (çapraz yukarı-sol)
+    if (allowedAxes.includes('Z')) {
+        const zEndX = screenX - (axisLength * t);
+        const zEndY = screenY + (axisLength * t);
+
+        const dist = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            zEndX, zEndY
+        );
+
+        if (dist < hitTolerance && dist < closestDist) {
+            closestDist = dist;
+            closestAxis = 'Z';
+        }
+    }
+
+    return closestAxis;
+}
+
+/**
+ * Nokta-segment arası en kısa mesafe
+ * @param {number} px - Nokta x
+ * @param {number} py - Nokta y
+ * @param {number} x1 - Segment başlangıç x
+ * @param {number} y1 - Segment başlangıç y
+ * @param {number} x2 - Segment bitiş x
+ * @param {number} y2 - Segment bitiş y
+ * @returns {number} - Mesafe
+ */
+function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+
+    if (lenSq === 0) {
+        // Segment bir nokta
+        return Math.hypot(px - x1, py - y1);
+    }
+
+    // Parametrik t değeri (0-1 arası projeksiyon)
+    let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+
+    // En yakın nokta segment üzerinde
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+
+    return Math.hypot(px - closestX, py - closestY);
+}
