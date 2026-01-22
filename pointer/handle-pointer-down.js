@@ -249,7 +249,9 @@ export function handlePointerDown(e) {
         }
 
         // Boru ucu
-        const boruUcu = this.findBoruUcuAt(point, worldTolerance);
+        // Eğer zaten bir boru seçiliyse, ortak noktalarda o boruyu tercih et
+        const preferredPipeId = (this.selectedObject?.type === 'boru') ? this.selectedObject.id : null;
+        const boruUcu = this.findBoruUcuAt(point, worldTolerance, false, preferredPipeId);
         if (boruUcu) {
             const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
             if (pipe) {

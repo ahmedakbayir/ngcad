@@ -174,7 +174,7 @@ export function hasAncestorMeter(manager, componentId, componentType) {
     return false;
 }
 
-export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints = false) {
+export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints = false, preferredPipeId = null) {
     const currentFloorId = state.currentFloor?.id;
     const candidates = [];
 
@@ -200,6 +200,13 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
     }
 
     if (candidates.length === 0) return null;
+
+    // Eğer tercih edilen boru adaylar arasındaysa, onu döndür
+    if (preferredPipeId) {
+        const preferredCandidate = candidates.find(c => c.boruId === preferredPipeId);
+        if (preferredCandidate) return preferredCandidate;
+    }
+
     return candidates[0]; // İlk bulunanı döndür
 }
 
