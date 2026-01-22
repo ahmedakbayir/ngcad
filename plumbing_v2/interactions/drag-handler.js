@@ -467,11 +467,13 @@ export function handleDrag(interactionManager, point, event = null) {
 
     // Eksen kısıtlaması sadece 3D modda yapılmalı
     if (t > 0.1) {
+        // Mouse hareketini hesapla (Z ekseni için de gerekli)
+        const screenDx = point.x - interactionManager.dragStart.x;
+        const screenDy = point.y - interactionManager.dragStart.y;
+
         // Eğer gizmo koluna tıklanarak eksen kilitlenmişse, otomatik belirleme yapma
         if (!interactionManager.axisLockDetermined) {
             // Mouse hareketinden otomatik eksen belirleme (sadece 3D)
-            const screenDx = point.x - interactionManager.dragStart.x;
-            const screenDy = point.y - interactionManager.dragStart.y;
 
             // Minimum hareket eşiği - Body drag için daha yüksek
             const MIN_MOVEMENT = interactionManager.isBodyDrag ? 25 : 5;
