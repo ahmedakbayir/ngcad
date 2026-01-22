@@ -467,61 +467,65 @@ export function handleDrag(interactionManager, point, event = null) {
 
     // Eksen kısıtlaması sadece 3D modda yapılmalı
     if (t > 0.1) {
-        // Mouse hareketinden otomatik eksen belirleme (sadece 3D)
-        const screenDx = point.x - interactionManager.dragStart.x;
-        const screenDy = point.y - interactionManager.dragStart.y;
+        // Eğer gizmo koluna tıklanarak eksen kilitlenmişse, otomatik belirleme yapma
+        if (!interactionManager.axisLockDetermined) {
+            // Mouse hareketinden otomatik eksen belirleme (sadece 3D)
+            const screenDx = point.x - interactionManager.dragStart.x;
+            const screenDy = point.y - interactionManager.dragStart.y;
 
-        // Minimum hareket eşiği - Body drag için daha yüksek
-        const MIN_MOVEMENT = interactionManager.isBodyDrag ? 25 : 5;
-        const totalMovement = Math.hypot(screenDx, screenDy);
+            // Minimum hareket eşiği - Body drag için daha yüksek
+            const MIN_MOVEMENT = interactionManager.isBodyDrag ? 25 : 5;
+            const totalMovement = Math.hypot(screenDx, screenDy);
 
-        if (totalMovement > MIN_MOVEMENT) {
-            // Çizim algoritması ile aynı: Her eksene olan uzaklığı hesapla
+            if (totalMovement > MIN_MOVEMENT) {
+                // Çizim algoritması ile aynı: Her eksene olan uzaklığı hesapla
 
-            // X Ekseni (y=0 doğrusu): Ekranda yatay. Uzaklık = |dy|
-            const distX = Math.abs(screenDy);
+                // X Ekseni (y=0 doğrusu): Ekranda yatay. Uzaklık = |dy|
+                const distX = Math.abs(screenDy);
 
-            // Y Ekseni (x=0 doğrusu): Ekranda dikey. Uzaklık = |dx|
-            const distY = Math.abs(screenDx);
+                // Y Ekseni (x=0 doğrusu): Ekranda dikey. Uzaklık = |dx|
+                const distY = Math.abs(screenDx);
 
-            // Z Ekseni (y = -x doğrusu): Ekranda 45 derece çapraz.
-            // Vektör (t, -t). Normali (t, t). Projeksiyon formülü ile uzaklık: |dx + dy| / sqrt(2)
-            const distZ = Math.abs(screenDx + screenDy) / 1.414; // sqrt(2)
+                // Z Ekseni (y = -x doğrusu): Ekranda 45 derece çapraz.
+                // Vektör (t, -t). Normali (t, t). Projeksiyon formülü ile uzaklık: |dx + dy| / sqrt(2)
+                const distZ = Math.abs(screenDx + screenDy) / 1.414; // sqrt(2)
 
-            // En yakın ekseni belirle
-            let bestAxis = 'X';
-            let minDist = distX;
+                // En yakın ekseni belirle
+                let bestAxis = 'X';
+                let minDist = distX;
 
-            // Body drag için: Borunun uzandığı eksen hariç diğer 2 eksen arasından seç
-            // Boru zinciri hariç (onlar serbest hareket eder)
-            if (interactionManager.isBodyDrag && interactionManager.bodyDragPrimaryAxis && !interactionManager.alignedPipeChain) {
-                const primaryAxis = interactionManager.bodyDragPrimaryAxis;
+                // Body drag için: Borunun uzandığı eksen hariç diğer 2 eksen arasından seç
+                // Boru zinciri hariç (onlar serbest hareket eder)
+                if (interactionManager.isBodyDrag && interactionManager.bodyDragPrimaryAxis && !interactionManager.alignedPipeChain) {
+                    const primaryAxis = interactionManager.bodyDragPrimaryAxis;
 
-                if (primaryAxis === 'X') {
-                    // Boru X'te uzanıyor -> sadece Y ve Z arasından seç
-                    bestAxis = distY < distZ ? 'Y' : 'Z';
-                } else if (primaryAxis === 'Y') {
-                    // Boru Y'de uzanıyor -> sadece X ve Z arasından seç
-                    bestAxis = distX < distZ ? 'X' : 'Z';
-                } else if (primaryAxis === 'Z') {
-                    // Boru Z'de uzanıyor -> sadece X ve Y arasından seç
-                    bestAxis = distX < distY ? 'X' : 'Y';
+                    if (primaryAxis === 'X') {
+                        // Boru X'te uzanıyor -> sadece Y ve Z arasından seç
+                        bestAxis = distY < distZ ? 'Y' : 'Z';
+                    } else if (primaryAxis === 'Y') {
+                        // Boru Y'de uzanıyor -> sadece X ve Z arasından seç
+                        bestAxis = distX < distZ ? 'X' : 'Z';
+                    } else if (primaryAxis === 'Z') {
+                        // Boru Z'de uzanıyor -> sadece X ve Y arasından seç
+                        bestAxis = distX < distY ? 'X' : 'Y';
+                    }
+                } else {
+                    // Endpoint drag için: Tüm 3 eksen arasından seç
+                    if (distY < minDist) {
+                        bestAxis = 'Y';
+                        minDist = distY;
+                    }
+
+                    // Z eksenini de adaylara ekle
+                    if (distZ < minDist) {
+                        bestAxis = 'Z';
+                    }
                 }
-            } else {
-                // Endpoint drag için: Tüm 3 eksen arasından seç
-                if (distY < minDist) {
-                    bestAxis = 'Y';
-                    minDist = distY;
-                }
 
-                // Z eksenini de adaylara ekle
-                if (distZ < minDist) {
-                    bestAxis = 'Z';
-                }
+                interactionManager.selectedDragAxis = bestAxis;
             }
-
-            interactionManager.selectedDragAxis = bestAxis;
         }
+        // Eğer axisLockDetermined true ise, selectedDragAxis zaten gizmo tıklamasıyla set edilmiş
 
         // Seçili eksende kilitli taşıma uygula (sadece 3D)
         if (interactionManager.selectedDragAxis === 'X') {
@@ -1264,11 +1268,14 @@ export function endDrag(interactionManager) {
     interactionManager.dragStart = null;
     interactionManager._bacaDragLogged = false;
     interactionManager.selectedDragAxis = null; // Eksen seçimini sıfırla
+    interactionManager.axisLockDetermined = false; // Gizmo eksen kilidini sıfırla
+    interactionManager.lockedAxis = null; // Kilitli ekseni sıfırla
     interactionManager.dragStartWorldPos = null; // Başlangıç pozisyonunu sıfırla
     interactionManager.dragStartObjectPos = null;
     interactionManager.isBodyDrag = false;
     interactionManager.bodyDragInitialP1 = null;
     interactionManager.bodyDragInitialP2 = null;
+    interactionManager.bodyDragPrimaryAxis = null; // Body drag eksenini sıfırla
     interactionManager.dragAxis = null;
     interactionManager.connectedPipesAtEndpoint = null;
     interactionManager.connectedPipesAtP1 = null;
