@@ -141,21 +141,21 @@ export const PipeMixin = {
         ctx.fillStyle = '#FF0000';
         //ctx.fillText("X", guideLength + 5 / zoom, 0);
 
-        // --- Y EKSENİ (Yeşil) ---
+        // --- Y EKSENİ (Turkuaz) ---
         // Dikey aşağı doğru
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(0, guideLength);
-        ctx.strokeStyle = (snapMode === 'Y') ? '#00AA00' : 'rgba(0, 170, 0, 0.3)';
+        ctx.strokeStyle = (snapMode === 'Y') ? '#00FFFF' : 'rgba(0, 206, 209, 0.3)';
         ctx.lineWidth = (snapMode === 'Y') ? 4 / zoom : 2 / zoom;
         if (snapMode !== 'Y') ctx.setLineDash([5 / zoom, 3 / zoom]);
         else ctx.setLineDash([]);
         ctx.stroke();
 
-        ctx.fillStyle = '#00AA00';
+        ctx.fillStyle = '#00CED1';
         //ctx.fillText("Y", 0, guideLength + 12 / zoom);
 
-        // --- Z EKSENİ (Mavi) ---
+        // --- Z EKSENİ (Yeşil) ---
         // Çapraz sağ-yukarı (Ekran koordinatlarında x+, y-)
         // 3D projeksiyona göre 1 birim Z = 1 birim X ve -1 birim Y (t=1 iken)
         ctx.beginPath();
@@ -163,13 +163,13 @@ export const PipeMixin = {
         // Z ekseni çizimi: t faktörünü de görsel uzunluğa yansıtıyoruz
         ctx.lineTo(guideLength, -guideLength);
 
-        ctx.strokeStyle = (snapMode === 'Z') ? '#0000FF' : 'rgba(0, 0, 255, 0.3)';
+        ctx.strokeStyle = (snapMode === 'Z') ? '#00FF00' : 'rgba(0, 170, 0, 0.3)';
         ctx.lineWidth = (snapMode === 'Z') ? 4 / zoom : 2 / zoom;
         if (snapMode !== 'Z') ctx.setLineDash([5 / zoom, 3 / zoom]);
         else ctx.setLineDash([]);
         ctx.stroke();
 
-        ctx.fillStyle = '#0000FF';
+        ctx.fillStyle = '#00AA00';
         // ctx.fillText("Z (Shift)", guideLength + 5 / zoom, -guideLength - 5 / zoom);
 
         // Merkez nokta
@@ -449,14 +449,15 @@ drawPipes(ctx, pipes) {
                     ctx.save();
                     ctx.globalAlpha = symbolOpacity;
 
-                    // YEŞİL RENGİ KULLAN
-                    const pipeColor = greenColor;
+                    // NORMAL BORU RENGİNİ KULLAN
+                    const colorGroup = pipe.colorGroup || 'YELLOW';
+                    const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1.0);
 
                     let circleFill, circleStroke, arrowColor;
 
                     if (pipe.isSelected) {
                         // SEÇİLİ: Turuncu dolgu
-                        circleFill = '#FFA500'; 
+                        circleFill = '#FFA500';
                         if (isLight) {
                             circleStroke = '#000000';
                             arrowColor = '#000000';
@@ -465,10 +466,10 @@ drawPipes(ctx, pipes) {
                             arrowColor = '#FFFFFF';
                         }
                     } else {
-                        // NORMAL: Gri dolgu, YEŞİL kontur ve ok
+                        // NORMAL: Gri dolgu, normal boru rengi kontur ve ok
                         circleFill = '#808080';
-                        circleStroke = pipeColor; 
-                        arrowColor = pipeColor;   
+                        circleStroke = pipeColor;
+                        arrowColor = pipeColor;
                     }
 
                     const zOffset = (pipe.p1.z || 0) * t;
