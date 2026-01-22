@@ -182,9 +182,11 @@ export class PlumbingRenderer {
             } // isSayacBeforeFirstClick kapatma
         }
 
-        // 3D Eksen Rehberi Çizimi
+        // 3D Eksen Rehberi Çizimi - taşıma gizmosu ile aynı
         if (manager.interactionManager?.boruCizimAktif && manager.interactionManager?.boruBaslangic) {
-            this.draw3DAxisGuide(ctx, manager);
+            const startPt = manager.interactionManager.boruBaslangic.nokta;
+            const snapMode = manager.interactionManager.axisSnapMode;
+            this.drawCoordinateGizmo(ctx, startPt, snapMode, ['X', 'Y', 'Z']);
         }
 
         // Snap göstergesi (her zaman normal)
