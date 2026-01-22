@@ -46,6 +46,12 @@ export class PlumbingRenderer {
         // Sadece 3D modunda gölge çiz (Zemine izdüşüm)
         if (state.viewBlendFactor > 0.1 && state.tempVisibility && state.tempVisibility.showPipeShadows) {
             this.drawShadows(ctx, manager);
+
+            // Geçici boru gölgesini de çiz
+            const geciciBoru = manager.interactionManager?.getGeciciBoruCizgisi();
+            if (geciciBoru) {
+                this.drawGeciciBoruShadow(ctx, geciciBoru);
+            }
         }
 
         // Borular

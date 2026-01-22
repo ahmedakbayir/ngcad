@@ -766,6 +766,33 @@ drawPipes(ctx, pipes) {
         });
     },
 
+    drawGeciciBoruShadow(ctx, geciciBoru) {
+        // Geçici borunun gölgesini çiz (zemin seviyesinde)
+        const isLight = this.isLightMode();
+        const shadowColor = isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+
+        ctx.save();
+        ctx.strokeStyle = shadowColor;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Zoom'a göre kalınlık ayarı
+        const zoom = state.zoom || 1;
+        let width = 4;
+        if (zoom < 1) {
+            width = 4 / zoom;
+        }
+
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        // Gölge zemin seviyesinde (sadece X, Y koordinatları)
+        ctx.moveTo(geciciBoru.p1.x, geciciBoru.p1.y);
+        ctx.lineTo(geciciBoru.p2.x, geciciBoru.p2.y);
+        ctx.stroke();
+
+        ctx.restore();
+    },
+
     drawGeciciBoru(ctx, geciciBoru, colorGroup = 'YELLOW') {
         ctx.save();
 
