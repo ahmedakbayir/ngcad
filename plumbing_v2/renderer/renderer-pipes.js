@@ -1231,9 +1231,9 @@ drawPipes(ctx, pipes) {
     },
 
     /**
-     * Borunun kaç boyutlu olduğunu hesaplar (1D, 2D, 3D)
+     * Borunun kaç boyutlu olduğunu ve hangi eksenlerde hareket ettiğini hesaplar
      * @param {Object} pipe - Boru objesi (p1, p2 noktaları ile)
-     * @returns {number} 1, 2 veya 3 (boyut sayısı)
+     * @returns {Object} Boyut bilgisi ve eksen değişimleri
      */
     getPipeDimensionality(pipe) {
         const threshold = 0.1; // Minimum değişim eşiği (cm cinsinden)
@@ -1242,63 +1242,143 @@ drawPipes(ctx, pipes) {
         const dy = Math.abs(pipe.p2.y - pipe.p1.y);
         const dz = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
 
-        let changedDimensions = 0;
-        if (dx > threshold) changedDimensions++;
-        if (dy > threshold) changedDimensions++;
-        if (dz > threshold) changedDimensions++;
+        const changesX = dx > threshold;
+        const changesY = dy > threshold;
+        const changesZ = dz > threshold;
 
-        return changedDimensions;
+        const dimensionality = (changesX ? 1 : 0) + (changesY ? 1 : 0) + (changesZ ? 1 : 0);
+
+        return {
+            dimensionality,
+            changesX,
+            changesY,
+            changesZ,
+            dx,
+            dy,
+            dz
+        };
     },
 
     /**
-     * 2D borular için sınırlayıcı dikdörtgen çizer (kesikli çizgilerle)
+     * 2D borular için sınırlayıcı dikdörtgen çizer (doğru düzlemde, kesikli çizgilerle)
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {Object} pipe - Boru objesi
+     * @param {Object} dimInfo - Boyut bilgisi
      */
-    draw2DBoundingBox(ctx, pipe) {
+    draw2DBoundingBox(ctx, pipe, dimInfo) {
         const t = state.viewBlendFactor || 0;
         const zoom = state.zoom || 1;
         const isLight = this.isLightMode();
-
-        // Ekran koordinatlarını hesapla
-        const z1 = (pipe.p1.z || 0) * t;
-        const z2 = (pipe.p2.z || 0) * t;
-        const x1 = pipe.p1.x + z1;
-        const y1 = pipe.p1.y - z1;
-        const x2 = pipe.p2.x + z2;
-        const y2 = pipe.p2.y - z2;
-
-        // Dikdörtgenin köşelerini belirle
-        const minX = Math.min(x1, x2);
-        const maxX = Math.max(x1, x2);
-        const minY = Math.min(y1, y2);
-        const maxY = Math.max(y1, y2);
-
-        // Biraz kenar boşluğu ekle
         const padding = 5;
 
-        ctx.save();
-        ctx.strokeStyle = isLight ? 'rgba(100, 149, 237, 0.6)' : 'rgba(100, 200, 255, 0.8)'; // Cornflower blue
-        ctx.lineWidth = 1.5 / zoom;
-        ctx.setLineDash([8 / zoom, 4 / zoom]); // Kesikli çizgi
+        // Dünya koordinatlarında min/max değerler
+        const minX = Math.min(pipe.p1.x, pipe.p2.x);
+        const maxX = Math.max(pipe.p1.x, pipe.p2.x);
+        const minY = Math.min(pipe.p1.y, pipe.p2.y);
+        const maxY = Math.max(pipe.p1.y, pipe.p2.y);
+        const minZ = Math.min(pipe.p1.z || 0, pipe.p2.z || 0);
+        const maxZ = Math.max(pipe.p1.z || 0, pipe.p2.z || 0);
 
-        // Dikdörtgen çiz
-        ctx.strokeRect(
-            minX - padding,
-            minY - padding,
-            (maxX - minX) + padding * 2,
-            (maxY - minY) + padding * 2
-        );
+        let corners3D = [];
+        let labels = []; // Kenar etiketleri için
+
+        // Hangi düzlemde olduğunu belirle ve köşeleri oluştur
+        if (dimInfo.changesX && dimInfo.changesY && !dimInfo.changesZ) {
+            // X-Y düzlemi (Z sabit)
+            const z = (pipe.p1.z || 0);
+            corners3D = [
+                { x: minX - padding, y: minY - padding, z },
+                { x: maxX + padding, y: minY - padding, z },
+                { x: maxX + padding, y: maxY + padding, z },
+                { x: minX - padding, y: maxY + padding, z }
+            ];
+            labels = [
+                { text: `${Math.round(dimInfo.dx)}`, mid: { x: (minX + maxX) / 2, y: minY - padding, z }, axis: 'x' },
+                { text: `${Math.round(dimInfo.dy)}`, mid: { x: maxX + padding, y: (minY + maxY) / 2, z }, axis: 'y' }
+            ];
+        } else if (dimInfo.changesX && !dimInfo.changesY && dimInfo.changesZ) {
+            // X-Z düzlemi (Y sabit)
+            const y = pipe.p1.y;
+            corners3D = [
+                { x: minX - padding, y, z: minZ },
+                { x: maxX + padding, y, z: minZ },
+                { x: maxX + padding, y, z: maxZ },
+                { x: minX - padding, y, z: maxZ }
+            ];
+            labels = [
+                { text: `${Math.round(dimInfo.dx)}`, mid: { x: (minX + maxX) / 2, y, z: minZ }, axis: 'x' },
+                { text: `${Math.round(dimInfo.dz)}`, mid: { x: maxX + padding, y, z: (minZ + maxZ) / 2 }, axis: 'z' }
+            ];
+        } else if (!dimInfo.changesX && dimInfo.changesY && dimInfo.changesZ) {
+            // Y-Z düzlemi (X sabit)
+            const x = pipe.p1.x;
+            corners3D = [
+                { x, y: minY - padding, z: minZ },
+                { x, y: maxY + padding, z: minZ },
+                { x, y: maxY + padding, z: maxZ },
+                { x, y: minY - padding, z: maxZ }
+            ];
+            labels = [
+                { text: `${Math.round(dimInfo.dy)}`, mid: { x, y: (minY + maxY) / 2, z: minZ }, axis: 'y' },
+                { text: `${Math.round(dimInfo.dz)}`, mid: { x, y: maxY + padding, z: (minZ + maxZ) / 2 }, axis: 'z' }
+            ];
+        }
+
+        // Köşeleri ekran koordinatlarına dönüştür
+        const corners2D = corners3D.map(corner => {
+            const zOffset = corner.z * t;
+            return {
+                x: corner.x + zOffset,
+                y: corner.y - zOffset
+            };
+        });
+
+        ctx.save();
+        ctx.strokeStyle = isLight ? 'rgba(100, 149, 237, 0.6)' : 'rgba(100, 200, 255, 0.8)';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.setLineDash([8 / zoom, 4 / zoom]);
+
+        // Dikdörtgeni çiz
+        ctx.beginPath();
+        ctx.moveTo(corners2D[0].x, corners2D[0].y);
+        ctx.lineTo(corners2D[1].x, corners2D[1].y);
+        ctx.lineTo(corners2D[2].x, corners2D[2].y);
+        ctx.lineTo(corners2D[3].x, corners2D[3].y);
+        ctx.closePath();
+        ctx.stroke();
+
+        // Uzunluk etiketlerini çiz
+        ctx.setLineDash([]);
+        ctx.fillStyle = isLight ? 'rgba(100, 149, 237, 1)' : 'rgba(100, 200, 255, 1)';
+        ctx.font = `bold ${10 / zoom}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        labels.forEach(label => {
+            const zOffset = label.mid.z * t;
+            const sx = label.mid.x + zOffset;
+            const sy = label.mid.y - zOffset;
+
+            // Arka plan kutusu
+            const textWidth = ctx.measureText(label.text).width;
+            ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(sx - textWidth / 2 - 2 / zoom, sy - 6 / zoom, textWidth + 4 / zoom, 12 / zoom);
+
+            // Yazıyı çiz
+            ctx.fillStyle = isLight ? 'rgba(100, 149, 237, 1)' : 'rgba(100, 200, 255, 1)';
+            ctx.fillText(label.text, sx, sy);
+        });
 
         ctx.restore();
     },
 
     /**
-     * 3D borular için dikdörtgen prizma çizer (kesikli çizgilerle)
+     * 3D borular için dikdörtgen prizma çizer (kesikli çizgilerle + uzunluk etiketleri)
      * @param {CanvasRenderingContext2D} ctx - Canvas context
      * @param {Object} pipe - Boru objesi
+     * @param {Object} dimInfo - Boyut bilgisi
      */
-    draw3DBoundingPrism(ctx, pipe) {
+    draw3DBoundingPrism(ctx, pipe, dimInfo) {
         const t = state.viewBlendFactor || 0;
         const zoom = state.zoom || 1;
         const isLight = this.isLightMode();
@@ -1316,14 +1396,14 @@ drawPipes(ctx, pipes) {
 
         // 8 köşe noktası (dünya koordinatları)
         const corners3D = [
-            { x: minX - padding, y: minY - padding, z: minZ },
-            { x: maxX + padding, y: minY - padding, z: minZ },
-            { x: maxX + padding, y: maxY + padding, z: minZ },
-            { x: minX - padding, y: maxY + padding, z: minZ },
-            { x: minX - padding, y: minY - padding, z: maxZ },
-            { x: maxX + padding, y: minY - padding, z: maxZ },
-            { x: maxX + padding, y: maxY + padding, z: maxZ },
-            { x: minX - padding, y: maxY + padding, z: maxZ }
+            { x: minX - padding, y: minY - padding, z: minZ }, // 0
+            { x: maxX + padding, y: minY - padding, z: minZ }, // 1
+            { x: maxX + padding, y: maxY + padding, z: minZ }, // 2
+            { x: minX - padding, y: maxY + padding, z: minZ }, // 3
+            { x: minX - padding, y: minY - padding, z: maxZ }, // 4
+            { x: maxX + padding, y: minY - padding, z: maxZ }, // 5
+            { x: maxX + padding, y: maxY + padding, z: maxZ }, // 6
+            { x: minX - padding, y: maxY + padding, z: maxZ }  // 7
         ];
 
         // Köşeleri ekran koordinatlarına dönüştür
@@ -1366,6 +1446,57 @@ drawPipes(ctx, pipes) {
             ctx.stroke();
         }
 
+        // Uzunluk etiketlerini çiz
+        ctx.setLineDash([]);
+        ctx.font = `bold ${10 / zoom}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const labels = [
+            // X ekseni (alt yüz, ön kenar)
+            {
+                text: `${Math.round(dimInfo.dx)}`,
+                mid: {
+                    x: (minX + maxX) / 2,
+                    y: minY - padding,
+                    z: minZ
+                }
+            },
+            // Y ekseni (alt yüz, sağ kenar)
+            {
+                text: `${Math.round(dimInfo.dy)}`,
+                mid: {
+                    x: maxX + padding,
+                    y: (minY + maxY) / 2,
+                    z: minZ
+                }
+            },
+            // Z ekseni (ön-sol dikey kenar)
+            {
+                text: `${Math.round(dimInfo.dz)}`,
+                mid: {
+                    x: minX - padding,
+                    y: minY - padding,
+                    z: (minZ + maxZ) / 2
+                }
+            }
+        ];
+
+        labels.forEach(label => {
+            const zOffset = label.mid.z * t;
+            const sx = label.mid.x + zOffset;
+            const sy = label.mid.y - zOffset;
+
+            // Arka plan kutusu
+            const textWidth = ctx.measureText(label.text).width;
+            ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(sx - textWidth / 2 - 2 / zoom, sy - 6 / zoom, textWidth + 4 / zoom, 12 / zoom);
+
+            // Yazıyı çiz
+            ctx.fillStyle = isLight ? 'rgba(100, 149, 237, 1)' : 'rgba(100, 200, 255, 1)';
+            ctx.fillText(label.text, sx, sy);
+        });
+
         ctx.restore();
     },
 
@@ -1381,18 +1512,18 @@ drawPipes(ctx, pipes) {
             // Sadece seçili borular için çiz
             if (!pipe.isSelected) return;
 
-            const dimensionality = this.getPipeDimensionality(pipe);
+            const dimInfo = this.getPipeDimensionality(pipe);
 
             // 1D borular için görselleştirme yapma
-            if (dimensionality === 1) return;
+            if (dimInfo.dimensionality === 1) return;
 
-            // 2D borular için dikdörtgen çiz
-            if (dimensionality === 2) {
-                this.draw2DBoundingBox(ctx, pipe);
+            // 2D borular için dikdörtgen çiz (doğru düzlemde)
+            if (dimInfo.dimensionality === 2) {
+                this.draw2DBoundingBox(ctx, pipe, dimInfo);
             }
             // 3D borular için prizma çiz
-            else if (dimensionality === 3) {
-                this.draw3DBoundingPrism(ctx, pipe);
+            else if (dimInfo.dimensionality === 3) {
+                this.draw3DBoundingPrism(ctx, pipe, dimInfo);
             }
         });
     }
