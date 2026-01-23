@@ -1258,6 +1258,9 @@ export function endDrag(interactionManager) {
         }
     }
 
+    // Sürüklenen nesneyi seçili tut
+    const draggedObject = interactionManager.dragObject;
+
     interactionManager.isDragging = false;
     interactionManager.dragObject = null;
     interactionManager.dragEndpoint = null;
@@ -1283,6 +1286,11 @@ export function endDrag(interactionManager) {
     interactionManager.dragStartZ = null;
     interactionManager.alignedPipeChain = null; // Boru zinciri temizle
     interactionManager.alignedChainConnections = null; // Boru bağlantıları temizle
+
+    // Sürüklenen nesneyi seçili tut
+    if (draggedObject) {
+        interactionManager.selectedObject = draggedObject;
+    }
 
     // TEMİZLİK
     if (interactionManager.snapSystem) interactionManager.snapSystem.clearStartPoint();

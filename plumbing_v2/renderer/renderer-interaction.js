@@ -139,9 +139,9 @@ export const InteractionMixin = {
 
         if (!point) return;
 
-        // Gizmo'yu çiz (PreviewMixin'den)
-        if (this.drawCoordinateGizmo) {
-            this.drawCoordinateGizmo(ctx, point, selectedAxis, allowedAxes);
+        // 3D sahnede taşıma gizmo'yu çiz (PreviewMixin'den)
+        if (this.drawTranslateGizmo) {
+            this.drawTranslateGizmo(ctx, point, selectedAxis, allowedAxes);
         }
     },
 
