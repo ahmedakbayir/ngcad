@@ -481,12 +481,12 @@ export const PreviewMixin = {
         // Kesikli çizgi paterni [çizgi uzunluğu, boşluk uzunluğu]
         const dashPattern = [10 / zoom, 10 / zoom];
 
-        // Z ekseni (yukarı - yeşil)
+        // Z ekseni (yukarı - yeşil) - Her zaman aktif renkte
         if (allowedAxes.includes('Z')) {
             ctx.save();
-            ctx.globalAlpha = selectedAxis === 'Z' ? 1.0 : 0.3;
-            ctx.strokeStyle = selectedAxis === 'Z' ? '#00FF00' : '#00AA00';
-            ctx.lineWidth = lineWidth;
+            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#00FF00';
+            ctx.lineWidth = selectedAxis === 'Z' ? lineWidth * 1.5 : lineWidth;
             ctx.setLineDash(dashPattern);
 
             // Z ekseni çizgisi (3D görünümde yukarı-sol yönü) - iki yönde sonsuz
@@ -503,12 +503,12 @@ export const PreviewMixin = {
             ctx.restore();
         }
 
-        // X ekseni (sağa - kırmızı)
+        // X ekseni (sağa - kırmızı/magenta) - Her zaman aktif renkte
         if (allowedAxes.includes('X')) {
             ctx.save();
-            ctx.globalAlpha = selectedAxis === 'X' ? 1.0 : 0.3;
-            ctx.strokeStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
-            ctx.lineWidth = lineWidth;
+            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#FF00FF';
+            ctx.lineWidth = selectedAxis === 'X' ? lineWidth * 1.5 : lineWidth;
             ctx.setLineDash(dashPattern);
 
             // X ekseni - iki yönde sonsuz
@@ -525,12 +525,12 @@ export const PreviewMixin = {
             ctx.restore();
         }
 
-        // Y ekseni (aşağı - turkuaz)
+        // Y ekseni (aşağı - turkuaz/cyan) - Her zaman aktif renkte
         if (allowedAxes.includes('Y')) {
             ctx.save();
-            ctx.globalAlpha = selectedAxis === 'Y' ? 1.0 : 0.3;
-            ctx.strokeStyle = selectedAxis === 'Y' ? '#00FFFF' : '#00CED1';
-            ctx.lineWidth = lineWidth;
+            ctx.globalAlpha = 1.0;
+            ctx.strokeStyle = '#00FFFF';
+            ctx.lineWidth = selectedAxis === 'Y' ? lineWidth * 1.5 : lineWidth;
             ctx.setLineDash(dashPattern);
 
             // Y ekseni - iki yönde sonsuz
