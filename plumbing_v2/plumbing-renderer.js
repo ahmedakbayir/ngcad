@@ -237,14 +237,17 @@ export class PlumbingRenderer {
             this.drawSelectedPipePath(ctx);
         }
 
-        // Koordinat gizmo (taşıma sırasında)
-        if (manager.interactionManager?.isDragging) {
-            this.drawDragCoordinateGizmo(ctx, manager.interactionManager);
-        }
+        // Gizmo gösterimi ayara bağlı
+        if (state.tempVisibility && state.tempVisibility.show3DAxis) {
+            // Koordinat gizmo (taşıma sırasında)
+            if (manager.interactionManager?.isDragging) {
+                this.drawDragCoordinateGizmo(ctx, manager.interactionManager);
+            }
 
-        // Seçim gizmosu (seçili nesne için - sürüklemeden önce)
-        if (!manager.interactionManager?.isDragging && manager.interactionManager?.selectedObject) {
-            this.drawSelectionGizmo(ctx, manager.interactionManager);
+            // Seçim gizmosu (seçili nesne için - sürüklemeden önce)
+            if (!manager.interactionManager?.isDragging && manager.interactionManager?.selectedObject) {
+                this.drawSelectionGizmo(ctx, manager.interactionManager);
+            }
         }
     }
 }
