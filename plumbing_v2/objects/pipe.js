@@ -44,9 +44,9 @@ export function getRenkGruplari() {
             INCLINED: {
                 id: 'inclined',
                 name: 'Turuncu-Yeşil (Eğimli Borular)',
-                boru: 'rgba(180, 140, 0, {opacity})',      // Zeytin sarısı
-                dirsek: 'rgba(180, 140, 0, {opacity})',    // Zeytin sarısı
-                fleks: '#b48c00'                            // Zeytin sarısı
+                boru: 'rgba(180, 168, 0, {opacity})',      // Zeytin sarısı
+                dirsek: 'rgba(180, 168, 0, {opacity})',    // Zeytin sarısı
+                fleks: 'rgb(180, 140, 0)'                            // Zeytin sarısı
             }
         };
     } else {
@@ -76,9 +76,9 @@ export function getRenkGruplari() {
             INCLINED: {
                 id: 'inclined',
                 name: 'Limon Yeşili (Eğimli Borular)',
-                boru: 'rgba(200, 255, 0, {opacity})',      // Limon yeşili
-                dirsek: 'rgba(200, 255, 0, {opacity})',    // Limon yeşili
-                fleks: '#c8ff00'                            // Limon yeşili
+                boru: 'rgba(136, 255, 0, {opacity})',      // Limon yeşili
+                dirsek: 'rgba(136, 255, 0, {opacity})',    // Limon yeşili
+                fleks: 'rgb(136, 255, 0)'                            // Limon yeşili
             }
         };
     }
