@@ -745,13 +745,13 @@ export function importFromXML(xmlString) {
                         girisBoru.pipe.baslangicBaglanti = {
                             tip: 'sayac',
                             hedefId: sayacData.id,
-                            noktaIndex: 0 // Giriş noktası
+                            baglananNokta: 'giris' // Giriş noktasına bağlanıyor
                         };
                     } else {
                         girisBoru.pipe.bitisBaglanti = {
                             tip: 'sayac',
                             hedefId: sayacData.id,
-                            noktaIndex: 0
+                            baglananNokta: 'giris'
                         };
                     }
                     console.log(`    -> Giriş borusu bağlandı: ${girisBoru.pipe.id.substring(0, 20)}... (${girisBoru.end}, mesafe: ${girisBoru.distance.toFixed(2)})`);
@@ -762,13 +762,13 @@ export function importFromXML(xmlString) {
                         cikisBoru.pipe.baslangicBaglanti = {
                             tip: 'sayac',
                             hedefId: sayacData.id,
-                            noktaIndex: 1 // Çıkış noktası
+                            baglananNokta: 'cikis' // Çıkış noktasına bağlanıyor
                         };
                     } else {
                         cikisBoru.pipe.bitisBaglanti = {
                             tip: 'sayac',
                             hedefId: sayacData.id,
-                            noktaIndex: 1
+                            baglananNokta: 'cikis'
                         };
                     }
                     console.log(`    -> Çıkış borusu bağlandı: ${cikisBoru.pipe.id.substring(0, 20)}... (${cikisBoru.end}, mesafe: ${cikisBoru.distance.toFixed(2)})`);
@@ -848,7 +848,7 @@ export function importFromXML(xmlString) {
         }
     });
 
-    // 8.4. Kombiler (clskombi) - Boru bağlantılarını kur
+    // 8.4. Kombiler (clskombi) - Boru bağlantılarını kur VE BACA EKLE
     const kombiElements = xmlDoc.querySelectorAll("O[T='clskombi']");
     console.log(`\n${kombiElements.length} clskombi bulundu (tüm XML'de)`);
 
@@ -891,13 +891,13 @@ export function importFromXML(xmlString) {
                         yakinBoru.pipe.baslangicBaglanti = {
                             tip: 'cihaz',
                             hedefId: cihazData.id,
-                            noktaIndex: 0
+                            baglananNokta: 'giris'
                         };
                     } else {
                         yakinBoru.pipe.bitisBaglanti = {
                             tip: 'cihaz',
                             hedefId: cihazData.id,
-                            noktaIndex: 0
+                            baglananNokta: 'giris'
                         };
                     }
                     console.log(`    -> Kombi boruya bağlandı: ${yakinBoru.pipe.id.substring(0, 20)}... (${yakinBoru.end}, mesafe: ${yakinBoru.distance.toFixed(2)})`);
@@ -905,6 +905,44 @@ export function importFromXML(xmlString) {
 
                 state.plumbingBlocks.push(cihazData);
                 console.log(`    -> Kombi eklendi: (${cihazPoint.x.toFixed(2)}, ${cihazPoint.y.toFixed(2)})`);
+
+                // BACA EKLE - Kombi bacaya sahip olmalı
+                // Basit dikey baca oluştur (yukarı doğru)
+                const bacaData = {
+                    id: `baca_xml_${idx}_${Date.now()}`,
+                    type: 'baca',
+                    parentCihazId: cihazData.id,
+                    floorId: state.currentFloor?.id,
+                    startX: cihazPoint.x,
+                    startY: cihazPoint.y,
+                    z: cihazPoint.z,
+                    segments: [
+                        {
+                            x1: cihazPoint.x,
+                            y1: cihazPoint.y,
+                            z1: cihazPoint.z,
+                            x2: cihazPoint.x,
+                            y2: cihazPoint.y - 100, // 100cm yukarı (negatif Y)
+                            z2: cihazPoint.z
+                        }
+                    ],
+                    isDrawing: false,
+                    currentSegmentStart: {
+                        x: cihazPoint.x,
+                        y: cihazPoint.y - 100,
+                        z: cihazPoint.z
+                    },
+                    havalandirma: {
+                        x: cihazPoint.x,
+                        y: cihazPoint.y - 100,
+                        width: 10,  // BACA_CONFIG.havalandirmaGenislik
+                        height: 30, // BACA_CONFIG.havalandirmaUzunluk
+                        angle: -Math.PI / 2 // Yukarı yönlü (-90°)
+                    }
+                };
+
+                state.plumbingBlocks.push(bacaData);
+                console.log(`    -> Kombi bacası eklendi: (${cihazPoint.x.toFixed(2)}, ${(cihazPoint.y - 100).toFixed(2)})`);
             }
         } catch (e) {
             console.error("Kombi işlenirken hata:", e, kombiEl);
