@@ -238,17 +238,32 @@ drawPipes(ctx, pipes) {
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
 
-            // --- 1. DÜŞEYLİK HESABI ---
+            // --- 1. BORU YÖNELİM TESPİTİ ---
             const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
             const rawDx = pipe.p2.x - pipe.p1.x;
             const rawDy = pipe.p2.y - pipe.p1.y;
             const rawLen2d = Math.hypot(rawDx, rawDy);
 
+            // Eşik değerleri (cm)
+            const Z_THRESHOLD = 0.1;
+            const XY_THRESHOLD = 0.1;
+
+            // Boru yönelim tespiti:
+            // DÜŞEY: z1≠z2 VE x1=x2 VE y1=y2
+            // YATAY: z1=z2 VE (x1≠x2 VEYA y1≠y2)
+            // EĞİMLİ: z1≠z2 VE (x1≠x2 VEYA y1≠y2)
+            const hasZDiff = rawZDiff > Z_THRESHOLD;
+            const hasXYDiff = rawLen2d > XY_THRESHOLD;
+
+            const isVerticalPipe = hasZDiff && !hasXYDiff;     // Sadece Z farkı var
+            const isHorizontalPipe = !hasZDiff && hasXYDiff;   // Sadece X/Y farkı var
+            const isInclinedPipe = hasZDiff && hasXYDiff;      // Hem Z hem X/Y farkı var
+
+            // Eğim açısı hesabı (etiketleme için)
             let elevationAngle = 90;
             if (rawLen2d > 0.001) {
                 elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
             }
-            const isVerticalPipe = rawZDiff > 0.1 && elevationAngle > 85;
             // ------------------------
 
             // Ekran koordinatlarını hesapla (3D/2D dönüşümü)
@@ -299,8 +314,15 @@ drawPipes(ctx, pipes) {
                 // NORMAL GÖVDE
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
 
-                // Düşey borular için yeşil renk grubu, diğerleri için normal renk grubu
-                const colorGroup = isVerticalPipe ? 'GREEN' : (pipe.colorGroup || 'YELLOW');
+                // Boru yönelimine göre renk grubu seçimi
+                let colorGroup;
+                if (isVerticalPipe) {
+                    colorGroup = 'GREEN';          // Düşey borular yeşil
+                } else if (isInclinedPipe) {
+                    colorGroup = 'INCLINED';       // Eğimli borular turuncu-yeşil
+                } else {
+                    colorGroup = pipe.colorGroup || 'YELLOW';  // Yatay borular sarı/mavi
+                }
 
                 // Tüm borular için aynı gradient formatı
                 gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
@@ -351,13 +373,23 @@ drawPipes(ctx, pipes) {
                 const rawDy = pipe.p2.y - pipe.p1.y;
                 const rawLen2d = Math.hypot(rawDx, rawDy);
 
+                // Eşik değerleri (cm)
+                const Z_THRESHOLD = 0.1;
+                const XY_THRESHOLD = 0.1;
+
+                const hasZDiff = rawZDiff > Z_THRESHOLD;
+                const hasXYDiff = rawLen2d > XY_THRESHOLD;
+
+                // Boru yönelim tespiti
+                const isVerticalPipe = hasZDiff && !hasXYDiff;     // Sadece Z farkı var
+
                 let elevationAngle = 90;
                 if (rawLen2d > 0.001) {
                     elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
                 }
 
                 // DÜŞEY BORU SEMBOLÜ (Çember ve Oklar)
-                if (rawZDiff > 0.1 && elevationAngle > 85) {
+                if (isVerticalPipe) {
                     ctx.save();
                     ctx.globalAlpha = symbolOpacity;
 
@@ -463,10 +495,11 @@ drawPipes(ctx, pipes) {
                     ctx.restore();
                 }
                 // EĞİMLİ BORU ETİKETİ
-                else if (rawZDiff > 0.1 && elevationAngle < 85 && elevationAngle > 0.5) {
+                else if (hasZDiff && hasXYDiff) {
                     ctx.save();
                     ctx.globalAlpha = symbolOpacity;
-                    const colorGroup = pipe.colorGroup || 'YELLOW';
+                    // Eğimli borular için özel renk grubu kullan
+                    const colorGroup = 'INCLINED';
                     const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1);
 
                     const midX = (pipe.p1.x + pipe.p2.x) / 2;
@@ -571,25 +604,40 @@ drawPipes(ctx, pipes) {
         breakPoints.forEach(bp => {
             const firstPipe = bp.pipes[0];
 
-            // Birleşme noktasındaki borulardan en az birinin düşey olup olmadığını kontrol et
+            // Birleşme noktasındaki boruların yönelimini kontrol et
+            // Öncelik: DÜŞEY > EĞİMLİ > YATAY
+            const Z_THRESHOLD = 0.1;
+            const XY_THRESHOLD = 0.1;
+
             let hasVerticalPipe = false;
+            let hasInclinedPipe = false;
+
             for (const pipe of bp.pipes) {
                 const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
                 const rawDx = pipe.p2.x - pipe.p1.x;
                 const rawDy = pipe.p2.y - pipe.p1.y;
                 const rawLen2d = Math.hypot(rawDx, rawDy);
-                let elevationAngle = 90;
-                if (rawLen2d > 0.001) {
-                    elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
-                }
-                if (rawZDiff > 0.1 && elevationAngle > 85) {
+
+                const hasZDiff = rawZDiff > Z_THRESHOLD;
+                const hasXYDiff = rawLen2d > XY_THRESHOLD;
+
+                if (hasZDiff && !hasXYDiff) {
                     hasVerticalPipe = true;
-                    break;
+                    break;  // En yüksek öncelik
+                } else if (hasZDiff && hasXYDiff) {
+                    hasInclinedPipe = true;
                 }
             }
 
-            // Düşey boru varsa yeşil, yoksa normal renk grubu
-            const colorGroup = hasVerticalPipe ? 'GREEN' : (firstPipe?.colorGroup || 'YELLOW');
+            // Boru yönelimine göre renk grubu seçimi (öncelik sırasına göre)
+            let colorGroup;
+            if (hasVerticalPipe) {
+                colorGroup = 'GREEN';
+            } else if (hasInclinedPipe) {
+                colorGroup = 'INCLINED';
+            } else {
+                colorGroup = firstPipe?.colorGroup || 'YELLOW';
+            }
 
             // Dirseğin çizileceği MERKEZİ hesapla (Z'yi t ile interpolate et)
             const z = (bp.z || 0) * t;

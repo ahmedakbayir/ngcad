@@ -40,6 +40,13 @@ export function getRenkGruplari() {
                 boru: 'rgba(0, 100, 0, {opacity})',        // Koyu yeşil
                 dirsek: 'rgba(0, 100, 0, {opacity})',      // Koyu yeşil
                 fleks: '#006400'                            // Koyu yeşil
+            },
+            INCLINED: {
+                id: 'inclined',
+                name: 'Turuncu-Yeşil (Eğimli Borular)',
+                boru: 'rgba(180, 140, 0, {opacity})',      // Zeytin sarısı
+                dirsek: 'rgba(180, 140, 0, {opacity})',    // Zeytin sarısı
+                fleks: '#b48c00'                            // Zeytin sarısı
             }
         };
     } else {
@@ -65,6 +72,13 @@ export function getRenkGruplari() {
                 boru: 'rgba(57, 255, 20, {opacity})',      // Neon yeşil
                 dirsek: 'rgba(57, 255, 20, {opacity})',    // Neon yeşil
                 fleks: '#39ff14'                            // Neon yeşil
+            },
+            INCLINED: {
+                id: 'inclined',
+                name: 'Limon Yeşili (Eğimli Borular)',
+                boru: 'rgba(200, 255, 0, {opacity})',      // Limon yeşili
+                dirsek: 'rgba(200, 255, 0, {opacity})',    // Limon yeşili
+                fleks: '#c8ff00'                            // Limon yeşili
             }
         };
     }
