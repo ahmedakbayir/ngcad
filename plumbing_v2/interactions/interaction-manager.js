@@ -378,8 +378,8 @@ export class InteractionManager {
         return hasAncestorMeter(this.manager, componentId, componentType);
     }
 
-    findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false) {
-        return findBoruUcuAt(this.manager, point, tolerance, onlyFreeEndpoints);
+    findBoruUcuAt(point, tolerance = 5, onlyFreeEndpoints = false, preferredPipeId = null) {
+        return findBoruUcuAt(this.manager, point, tolerance, onlyFreeEndpoints, preferredPipeId);
     }
 
     findBoruGovdeAt(point, tolerance = 5) {
