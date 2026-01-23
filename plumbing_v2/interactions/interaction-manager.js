@@ -177,6 +177,10 @@ export class InteractionManager {
         // Boru gövde taşıması için ana eksen (X, Y, Z)
         this.bodyDragPrimaryAxis = null;
 
+        // Sezgisel endpoint drag için tercih edilen eksen (X, Y, Z veya null)
+        this.endpointDragPreferredAxis = null;
+        this.endpointDragAlternativeAxes = [];
+
         // Double-click detection
         this.lastClickTime = 0;
         this.lastClickPoint = null;
