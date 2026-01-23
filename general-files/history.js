@@ -228,9 +228,10 @@ export function restoreState(snapshot) {
              plumbingManager.interactionManager.snapSystem.clearStartPoint();
         }
 
-        if (snapshot.plumbingInteraction.boruCizimAktif) {
-             plumbingManager.interactionManager.manager.activeTool = 'boru';
-        }
+        // Removed: Don't change activeTool during undo - keep current mode
+        // if (snapshot.plumbingInteraction.boruCizimAktif) {
+        //      plumbingManager.interactionManager.manager.activeTool = 'boru';
+        // }
     } else if (plumbingManager && plumbingManager.interactionManager) {
         // Eski kayıtlarda veri yoksa temizle
         plumbingManager.interactionManager.boruCizimAktif = false;
