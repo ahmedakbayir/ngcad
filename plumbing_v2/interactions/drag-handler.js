@@ -475,7 +475,8 @@ export function handleDrag(interactionManager, point, event = null) {
         const MIN_MOVEMENT = interactionManager.isBodyDrag ? 2 : 5;
         const totalMovement = Math.hypot(screenDx, screenDy);
 
-        if (totalMovement > MIN_MOVEMENT) {
+        // Otomatik eksen belirleme sadece manuel kilit yoksa çalışmalı
+        if (totalMovement > MIN_MOVEMENT && !interactionManager.axisLockDetermined) {
             // Çizim algoritması ile aynı: Her eksene olan uzaklığı hesapla
 
             // X Ekseni (y=0 doğrusu): Ekranda yatay. Uzaklık = |dy|
