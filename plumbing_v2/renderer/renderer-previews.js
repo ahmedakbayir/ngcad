@@ -455,7 +455,7 @@ export const PreviewMixin = {
 
     /**
      * 3D Koordinat Gizmo - Taşıma sırasında gösterilir
-     * X, Y, Z eksenlerini ve mevcut koordinatları gösterir
+     * X, Y, Z eksenlerini sonsuz kesikli çizgiler olarak gösterir
      */
     drawCoordinateGizmo(ctx, point, selectedAxis = null, allowedAxes = ['X', 'Y', 'Z']) {
         if (!point) return;
@@ -474,36 +474,32 @@ export const PreviewMixin = {
 
         ctx.save();
 
-        // Gizmo uzunluğu (eksen okları)
-        const axisLength = 60 / zoom;
-        const arrowSize = 8 / zoom;
-        const lineWidth = 2 / zoom;
+        // Sonsuz uzunluk için çok büyük bir değer
+        const axisLength = 10000;
+        const lineWidth = 0.5 / zoom;
+
+        // Kesikli çizgi paterni [çizgi uzunluğu, boşluk uzunluğu]
+        const dashPattern = [10 / zoom, 10 / zoom];
 
         // Z ekseni (yukarı - yeşil)
         if (allowedAxes.includes('Z')) {
             ctx.save();
             ctx.globalAlpha = selectedAxis === 'Z' ? 1.0 : 0.3;
             ctx.strokeStyle = selectedAxis === 'Z' ? '#00FF00' : '#00AA00';
-            ctx.fillStyle = selectedAxis === 'Z' ? '#00FF00' : '#00AA00';
-            ctx.lineWidth = selectedAxis === 'Z' ? lineWidth * 1.5 : lineWidth;
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash(dashPattern);
 
-            // Z ekseni çizgisi (3D görünümde yukarı-sol yönü)
-            const zEndX = screenX - (axisLength * t);
-            const zEndY = screenY + (axisLength * t);
+            // Z ekseni çizgisi (3D görünümde yukarı-sol yönü) - iki yönde sonsuz
+            const zEndX1 = screenX - (axisLength * t);
+            const zEndY1 = screenY + (axisLength * t);
+            const zEndX2 = screenX + (axisLength * t);
+            const zEndY2 = screenY - (axisLength * t);
 
             ctx.beginPath();
-            ctx.moveTo(screenX, screenY);
-            ctx.lineTo(zEndX, zEndY);
+            ctx.moveTo(zEndX1, zEndY1);
+            ctx.lineTo(zEndX2, zEndY2);
             ctx.stroke();
 
-            // Z ok ucu
-            drawArrow(ctx, screenX, screenY, zEndX, zEndY, arrowSize);
-
-            // Z etiketi
-            ctx.font = `bold ${12 / zoom}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Z', zEndX - 10 / zoom, zEndY + 10 / zoom);
             ctx.restore();
         }
 
@@ -512,25 +508,20 @@ export const PreviewMixin = {
             ctx.save();
             ctx.globalAlpha = selectedAxis === 'X' ? 1.0 : 0.3;
             ctx.strokeStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
-            ctx.fillStyle = selectedAxis === 'X' ? '#FF00FF' : '#FF0000';
-            ctx.lineWidth = selectedAxis === 'X' ? lineWidth * 1.5 : lineWidth;
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash(dashPattern);
 
-            const xEndX = screenX + axisLength;
-            const xEndY = screenY;
+            // X ekseni - iki yönde sonsuz
+            const xEndX1 = screenX - axisLength;
+            const xEndY1 = screenY;
+            const xEndX2 = screenX + axisLength;
+            const xEndY2 = screenY;
 
             ctx.beginPath();
-            ctx.moveTo(screenX, screenY);
-            ctx.lineTo(xEndX, xEndY);
+            ctx.moveTo(xEndX1, xEndY1);
+            ctx.lineTo(xEndX2, xEndY2);
             ctx.stroke();
 
-            // X ok ucu
-            drawArrow(ctx, screenX, screenY, xEndX, xEndY, arrowSize);
-
-            // X etiketi
-            ctx.font = `bold ${12 / zoom}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('X', xEndX + 15 / zoom, xEndY);
             ctx.restore();
         }
 
@@ -539,55 +530,33 @@ export const PreviewMixin = {
             ctx.save();
             ctx.globalAlpha = selectedAxis === 'Y' ? 1.0 : 0.3;
             ctx.strokeStyle = selectedAxis === 'Y' ? '#00FFFF' : '#00CED1';
-            ctx.fillStyle = selectedAxis === 'Y' ? '#00FFFF' : '#00CED1';
-            ctx.lineWidth = selectedAxis === 'Y' ? lineWidth * 1.5 : lineWidth;
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash(dashPattern);
 
-            const yEndX = screenX;
-            const yEndY = screenY + axisLength;
+            // Y ekseni - iki yönde sonsuz
+            const yEndX1 = screenX;
+            const yEndY1 = screenY - axisLength;
+            const yEndX2 = screenX;
+            const yEndY2 = screenY + axisLength;
 
             ctx.beginPath();
-            ctx.moveTo(screenX, screenY);
-            ctx.lineTo(yEndX, yEndY);
+            ctx.moveTo(yEndX1, yEndY1);
+            ctx.lineTo(yEndX2, yEndY2);
             ctx.stroke();
 
-            // Y ok ucu
-            drawArrow(ctx, screenX, screenY, yEndX, yEndY, arrowSize);
-
-            // Y etiketi
-            ctx.font = `bold ${12 / zoom}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('Y', yEndX, yEndY + 15 / zoom);
             ctx.restore();
         }
 
-        // Merkez nokta
+        // Merkez nokta - daha küçük
         ctx.fillStyle = '#FFFFFF';
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2 / zoom;
+        ctx.lineWidth = 1 / zoom;
+        ctx.setLineDash([]); // Düz çizgi
         ctx.beginPath();
-        ctx.arc(screenX, screenY, 4 / zoom, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, 2 / zoom, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         ctx.restore();
-
-        // Ok çizme yardımcı fonksiyonu
-        function drawArrow(ctx, x1, y1, x2, y2, size) {
-            const angle = Math.atan2(y2 - y1, x2 - x1);
-
-            ctx.beginPath();
-            ctx.moveTo(x2, y2);
-            ctx.lineTo(
-                x2 - size * Math.cos(angle - Math.PI / 6),
-                y2 - size * Math.sin(angle - Math.PI / 6)
-            );
-            ctx.moveTo(x2, y2);
-            ctx.lineTo(
-                x2 - size * Math.cos(angle + Math.PI / 6),
-                y2 - size * Math.sin(angle + Math.PI / 6)
-            );
-            ctx.stroke();
-        }
     }
 };
