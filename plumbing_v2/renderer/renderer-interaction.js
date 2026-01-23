@@ -113,8 +113,15 @@ export const InteractionMixin = {
         const obj = interactionManager.dragObject;
 
         if (obj.type === 'boru' && interactionManager.dragEndpoint) {
-            // Boru endpoint taşıması - Tüm eksenler
+            // Boru endpoint taşıması
             point = interactionManager.dragEndpoint === 'p1' ? obj.p1 : obj.p2;
+
+            // ✨✨✨ SEZGİSEL EKSEN GÖSTERİMİ (INTUITIVE AXIS DISPLAY) ✨✨✨
+            // Eğer tercih edilen eksen varsa, sadece seçili ekseni göster
+            if (interactionManager.endpointDragPreferredAxis && selectedAxis) {
+                allowedAxes = [selectedAxis]; // Sadece aktif olan ekseni göster
+            }
+            // ✨✨✨ SON ✨✨✨
         } else if (obj.type === 'boru' && interactionManager.isBodyDrag) {
             // Boru gövde taşıması - Borunun ortası
             point = {

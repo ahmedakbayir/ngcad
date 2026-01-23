@@ -173,6 +173,51 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     });
 
     interactionManager.connectedPipesAtEndpoint = connectedPipes;
+
+    // ✨✨✨ SEZGİSEL EKSEN ÖNCELİKLENDİRME (INTUITIVE AXIS PRIORITY) ✨✨✨
+    // Taşınan uç noktaya bağlı olan boruları kontrol et
+    // Eğer bir parent boru varsa, onun uzandığı ekseni tercih et
+    interactionManager.endpointDragPreferredAxis = null;
+    interactionManager.endpointDragAlternativeAxes = [];
+
+    if (connectedPipes.length > 0) {
+        // En uzun bağlı boruyu parent olarak kabul et (en güçlü bağlantı)
+        let parentPipe = null;
+        let maxLength = 0;
+
+        connectedPipes.forEach(({ pipe: connectedPipe }) => {
+            const dx = connectedPipe.p2.x - connectedPipe.p1.x;
+            const dy = connectedPipe.p2.y - connectedPipe.p1.y;
+            const dz = (connectedPipe.p2.z || 0) - (connectedPipe.p1.z || 0);
+            const length = Math.hypot(dx, dy, dz);
+            if (length > maxLength) {
+                maxLength = length;
+                parentPipe = connectedPipe;
+            }
+        });
+
+        if (parentPipe) {
+            // Parent borunun hangi eksende uzandığını belirle
+            const dx = Math.abs(parentPipe.p2.x - parentPipe.p1.x);
+            const dy = Math.abs(parentPipe.p2.y - parentPipe.p1.y);
+            const dz = Math.abs((parentPipe.p2.z || 0) - (parentPipe.p1.z || 0));
+
+            // En uzun eksen = borunun uzandığı eksen = tercih edilen eksen
+            if (dx >= dy && dx >= dz) {
+                interactionManager.endpointDragPreferredAxis = 'X';
+                interactionManager.endpointDragAlternativeAxes = ['Y', 'Z'];
+            } else if (dy >= dx && dy >= dz) {
+                interactionManager.endpointDragPreferredAxis = 'Y';
+                interactionManager.endpointDragAlternativeAxes = ['X', 'Z'];
+            } else {
+                interactionManager.endpointDragPreferredAxis = 'Z';
+                interactionManager.endpointDragAlternativeAxes = ['X', 'Y'];
+            }
+
+            console.log(`🎯 Sezgisel eksen: ${interactionManager.endpointDragPreferredAxis} (Parent boru: ${parentPipe.id.substring(0, 8)}...)`);
+        }
+    }
+    // ✨✨✨ SON ✨✨✨
 }
 
 export function startDrag(interactionManager, obj, point) {
@@ -488,6 +533,9 @@ export function handleDrag(interactionManager, point, event = null) {
             // Vektör (t, -t). Normali (t, t). Projeksiyon formülü ile uzaklık: |dx + dy| / sqrt(2)
             const distZ = Math.abs(screenDx + screenDy) / 1.414; // sqrt(2)
 
+            // SHIFT tuşu durumu
+            const isShiftPressed = event && event.shiftKey;
+
             // En yakın ekseni belirle
             let bestAxis = 'X';
             let minDist = distX;
@@ -507,8 +555,32 @@ export function handleDrag(interactionManager, point, event = null) {
                     // Boru Z'de uzanıyor -> sadece X ve Y arasından seç
                     bestAxis = distX < distY ? 'X' : 'Y';
                 }
+            } else if (interactionManager.dragEndpoint && interactionManager.endpointDragPreferredAxis) {
+                // ✨✨✨ SEZGİSEL ENDPOINT DRAG (INTUITIVE ENDPOINT DRAG) ✨✨✨
+                // Tercih edilen eksen varsa, SHIFT durumuna göre eksen seç
+                if (!isShiftPressed) {
+                    // SHIFT basılı değil -> Sadece tercih edilen ekseni kullan
+                    bestAxis = interactionManager.endpointDragPreferredAxis;
+                } else {
+                    // SHIFT basılı -> Alternatif eksenler arasından en yakınını seç
+                    const altAxes = interactionManager.endpointDragAlternativeAxes || [];
+                    const distances = {
+                        'X': distX,
+                        'Y': distY,
+                        'Z': distZ
+                    };
+
+                    let minAltDist = Infinity;
+                    altAxes.forEach(axis => {
+                        if (distances[axis] < minAltDist) {
+                            minAltDist = distances[axis];
+                            bestAxis = axis;
+                        }
+                    });
+                }
+                // ✨✨✨ SON ✨✨✨
             } else {
-                // Endpoint drag için: Tüm 3 eksen arasından seç
+                // Endpoint drag için (tercih edilen eksen yoksa): Tüm 3 eksen arasından seç
                 if (distY < minDist) {
                     bestAxis = 'Y';
                     minDist = distY;
@@ -1273,6 +1345,8 @@ export function endDrag(interactionManager) {
     interactionManager.connectedPipesAtEndpoint = null;
     interactionManager.connectedPipesAtP1 = null;
     interactionManager.connectedPipesAtP2 = null;
+    interactionManager.endpointDragPreferredAxis = null; // Sezgisel eksen temizle
+    interactionManager.endpointDragAlternativeAxes = []; // Alternatif eksenleri temizle
     interactionManager.servisKutusuConnectedPipes = null;
     interactionManager.sayacConnectedPipes = null;
     interactionManager.meterConnectedPipesAtOutput = null;
