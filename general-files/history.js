@@ -216,26 +216,16 @@ export function restoreState(snapshot) {
         ? restoredNodes[snapshot.startPointIndex]
         : null;
 
-    // --- YENİ: Tesisat etkileşim durumunu (boruBaslangic) geri yükle ---
-    if (snapshot.plumbingInteraction && plumbingManager && plumbingManager.interactionManager) {
-        plumbingManager.interactionManager.boruCizimAktif = snapshot.plumbingInteraction.boruCizimAktif;
-        plumbingManager.interactionManager.boruBaslangic = snapshot.plumbingInteraction.boruBaslangic;
-
-        if (snapshot.plumbingInteraction.boruBaslangic) {
-             // Snap sistemine de başlangıç noktasını bildir
-             plumbingManager.interactionManager.snapSystem.setStartPoint(snapshot.plumbingInteraction.boruBaslangic.nokta);
-        } else {
-             plumbingManager.interactionManager.snapSystem.clearStartPoint();
-        }
-
-        if (snapshot.plumbingInteraction.boruCizimAktif) {
-             plumbingManager.interactionManager.manager.activeTool = 'boru';
-        }
-    } else if (plumbingManager && plumbingManager.interactionManager) {
-        // Eski kayıtlarda veri yoksa temizle
+    // --- Tesisat etkileşim durumunu undo/redo sırasında geri yükleme ---
+    // NOT: Undo/redo yapıldığında devam eden boru çizim etkileşimini geri yüklememeliyiz.
+    // Sadece objeleri (borular, bloklar) geri yükleriz, yarım kalmış çizim durumunu değil.
+    // Bu sayede kullanıcı undo yaptığında istenmeyen şekilde hat çizim moduna geçmez.
+    if (plumbingManager && plumbingManager.interactionManager) {
+        // Her undo/redo sonrası etkileşim durumunu temizle
         plumbingManager.interactionManager.boruCizimAktif = false;
         plumbingManager.interactionManager.boruBaslangic = null;
         plumbingManager.interactionManager.snapSystem.clearStartPoint();
+        plumbingManager.interactionManager.manager.activeTool = null;
     }
 
     setState({
