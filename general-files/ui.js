@@ -1776,6 +1776,7 @@ function setupVisibilityPanel() {
         room: 'vis-chk-room',
         shadow: 'vis-chk-shadow',
         axis: 'vis-chk-axis',
+        pipeFrame: 'vis-chk-pipe-frame',
         path: 'vis-chk-path'
     };
 
@@ -1804,6 +1805,7 @@ function setupVisibilityPanel() {
     document.getElementById(ids.room)?.addEventListener('change', (e) => updateVisibility('showRoomNames', e.target.checked));
     document.getElementById(ids.shadow)?.addEventListener('change', (e) => updateVisibility('showPipeShadows', e.target.checked));
     document.getElementById(ids.axis)?.addEventListener('change', (e) => updateVisibility('show3DAxis', e.target.checked));
+    document.getElementById(ids.pipeFrame)?.addEventListener('change', (e) => updateVisibility('show3DPipeFrame', e.target.checked));
     document.getElementById(ids.path)?.addEventListener('change', (e) => updateVisibility('showPipePath', e.target.checked));
     // Hepsini Göster
     document.getElementById('vis-btn-show-all')?.addEventListener('click', () => {
@@ -1837,6 +1839,7 @@ function setupVisibilityPanel() {
             'vis-chk-room': 'showRoomNames',
             'vis-chk-shadow': 'showPipeShadows',
             'vis-chk-axis': 'show3DAxis',
+            'vis-chk-pipe-frame': 'show3DPipeFrame',
             'vis-chk-path': 'showPipePath'
         };
         const elId = ids[key];

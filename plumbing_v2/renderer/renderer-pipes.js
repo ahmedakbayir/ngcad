@@ -235,11 +235,6 @@ drawPipes(ctx, pipes) {
         // Mod durumunu al
         const isLight = isLightMode();
 
-        // YEŞİL RENKLER (Düşey borular için)
-        const greenColor = isLight ? '#008000' : '#39ff14'; // Light: Koyu Yeşil, Dark: Neon Yeşil
-        // Transparan versiyonlar (gradyan uçları için)
-        const greenColorTransparent = isLight ? 'rgba(0, 128, 0, 0.5)' : 'rgba(57, 255, 20, 0.5)';
-
         pipes.forEach(pipe => {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
 
@@ -303,21 +298,15 @@ drawPipes(ctx, pipes) {
             } else {
                 // NORMAL GÖVDE
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-                
-                if (isVerticalPipe) {
-                    // DÜŞEY BORU İSE YEŞİL GRADYAN
-                    gradient.addColorStop(0.0, greenColorTransparent);
-                    gradient.addColorStop(0.45, greenColor); 
-                    gradient.addColorStop(0.55, greenColor); 
-                    gradient.addColorStop(1.0, greenColorTransparent);
-                } else {
-                    // YATAY/EĞİMLİ İSE STANDART GRADYAN
-                    const colorGroup = pipe.colorGroup || 'YELLOW';
-                    gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                    gradient.addColorStop(0.45, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
-                    gradient.addColorStop(0.55, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
-                    gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
-                }
+
+                // Düşey borular için yeşil renk grubu, diğerleri için normal renk grubu
+                const colorGroup = isVerticalPipe ? 'GREEN' : (pipe.colorGroup || 'YELLOW');
+
+                // Tüm borular için aynı gradient formatı
+                gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
+                gradient.addColorStop(0.45, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
+                gradient.addColorStop(0.55, this.getRenkByGroup(colorGroup, 'boru', 1.0)); // Highlight
+                gradient.addColorStop(1.0, this.getRenkByGroup(colorGroup, 'boru', 0.5));
 
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
@@ -343,8 +332,10 @@ drawPipes(ctx, pipes) {
         this.drawElbows(ctx, pipes, breakPoints);
         this.drawPipeValves(ctx, pipes);
 
-        // Seçili borular için yön görselleştirmesi (sınırlayıcı kutu/prizma)
-        this.drawPipeDirectionVisualization(ctx, pipes);
+        // Seçili borular için yön görselleştirmesi (sınırlayıcı kutu/prizma) - ayara bağlı
+        if (state.tempVisibility && state.tempVisibility.show3DPipeFrame) {
+            this.drawPipeDirectionVisualization(ctx, pipes);
+        }
 
         pipes.forEach(pipe => {
             if (pipe.isSelected) this.drawPipeEndpoints(ctx, pipe);
@@ -579,7 +570,26 @@ drawPipes(ctx, pipes) {
 
         breakPoints.forEach(bp => {
             const firstPipe = bp.pipes[0];
-            const colorGroup = firstPipe?.colorGroup || 'YELLOW';
+
+            // Birleşme noktasındaki borulardan en az birinin düşey olup olmadığını kontrol et
+            let hasVerticalPipe = false;
+            for (const pipe of bp.pipes) {
+                const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+                const rawDx = pipe.p2.x - pipe.p1.x;
+                const rawDy = pipe.p2.y - pipe.p1.y;
+                const rawLen2d = Math.hypot(rawDx, rawDy);
+                let elevationAngle = 90;
+                if (rawLen2d > 0.001) {
+                    elevationAngle = Math.atan2(rawZDiff, rawLen2d) * 180 / Math.PI;
+                }
+                if (rawZDiff > 0.1 && elevationAngle > 85) {
+                    hasVerticalPipe = true;
+                    break;
+                }
+            }
+
+            // Düşey boru varsa yeşil, yoksa normal renk grubu
+            const colorGroup = hasVerticalPipe ? 'GREEN' : (firstPipe?.colorGroup || 'YELLOW');
 
             // Dirseğin çizileceği MERKEZİ hesapla (Z'yi t ile interpolate et)
             const z = (bp.z || 0) * t;

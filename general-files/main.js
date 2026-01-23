@@ -472,6 +472,7 @@ export let state = {
         showRoomNames: false,       // Mahal İsimleri
         showPipeShadows: false,     // Hat Gölgesi
         show3DAxis: true,           // Varsayılan açık
+        show3DPipeFrame: true,      // 3D Hat Çerçevesi (varsayılan açık)
         showPipePath: false
     },
 };
