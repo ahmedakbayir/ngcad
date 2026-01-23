@@ -386,6 +386,71 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.connectedPipesAtP2 = connectedPipesAtP2;
     interactionManager.meterConnectedPipesAtOutput = null;
 
+    // ✨✨✨ GÖVDE İÇİN SEZGİSEL EKSEN ÖNCELİKLENDİRME ✨✨✨
+    // Bağlı boruların yönüne göre tercih edilen taşıma eksenini belirle
+    interactionManager.bodyDragPreferredAxis = null;
+    interactionManager.bodyDragAlternativeAxis = null;
+
+    // Tüm bağlı boruları topla
+    const allConnectedPipes = [...connectedPipesAtP1, ...connectedPipesAtP2];
+
+    if (allConnectedPipes.length > 0 && !interactionManager.alignedPipeChain) {
+        // Bağlı borular varsa ve zincir yoksa (zincir varsa serbest hareket)
+        // bodyDragPrimaryAxis: Borunun uzandığı eksen (taşınamaz)
+        // İki perpendicular eksen var, hangisini tercih edelim?
+
+        // Bağlı boruların hangi eksende uzandığını say
+        const axisCount = { X: 0, Y: 0, Z: 0 };
+
+        allConnectedPipes.forEach(({ pipe: connectedPipe }) => {
+            const dx = Math.abs(connectedPipe.p2.x - connectedPipe.p1.x);
+            const dy = Math.abs(connectedPipe.p2.y - connectedPipe.p1.y);
+            const dz = Math.abs((connectedPipe.p2.z || 0) - (connectedPipe.p1.z || 0));
+
+            // Bağlı borunun hangi eksende uzandığını belirle
+            if (dx >= dy && dx >= dz) {
+                axisCount.X++;
+            } else if (dy >= dx && dy >= dz) {
+                axisCount.Y++;
+            } else {
+                axisCount.Z++;
+            }
+        });
+
+        // bodyDragPrimaryAxis: Borunun kendi ekseni (taşınamaz)
+        // İzin verilen eksenler: bodyDragPrimaryAxis dışındaki eksenler
+        const primaryAxis = interactionManager.bodyDragPrimaryAxis;
+        let allowedAxes = [];
+
+        if (primaryAxis === 'X') {
+            allowedAxes = ['Y', 'Z'];
+        } else if (primaryAxis === 'Y') {
+            allowedAxes = ['X', 'Z'];
+        } else if (primaryAxis === 'Z') {
+            allowedAxes = ['X', 'Y'];
+        }
+
+        // İzin verilen eksenler arasında, bağlı boruların en çok uzandığı ekseni tercih et
+        let maxCount = 0;
+        let preferredAxis = null;
+
+        allowedAxes.forEach(axis => {
+            if (axisCount[axis] > maxCount) {
+                maxCount = axisCount[axis];
+                preferredAxis = axis;
+            }
+        });
+
+        if (preferredAxis) {
+            interactionManager.bodyDragPreferredAxis = preferredAxis;
+            // Alternatif eksen: Diğer izin verilen eksen
+            interactionManager.bodyDragAlternativeAxis = allowedAxes.find(a => a !== preferredAxis);
+
+            console.log(`🎯 Gövde sezgisel eksen: ${preferredAxis} (Bağlı borular: ${axisCount[preferredAxis]} adet), Alternatif: ${interactionManager.bodyDragAlternativeAxis}`);
+        }
+    }
+    // ✨✨✨ SON ✨✨✨
+
     if (connectedMeterForBody && connectedMeterForBody.cikisBagliBoruId) {
         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeterForBody.cikisBagliBoruId);
         if (cikisBoru) {
@@ -545,16 +610,30 @@ export function handleDrag(interactionManager, point, event = null) {
             if (interactionManager.isBodyDrag && interactionManager.bodyDragPrimaryAxis && !interactionManager.alignedPipeChain) {
                 const primaryAxis = interactionManager.bodyDragPrimaryAxis;
 
-                if (primaryAxis === 'X') {
-                    // Boru X'te uzanıyor -> sadece Y ve Z arasından seç
-                    bestAxis = distY < distZ ? 'Y' : 'Z';
-                } else if (primaryAxis === 'Y') {
-                    // Boru Y'de uzanıyor -> sadece X ve Z arasından seç
-                    bestAxis = distX < distZ ? 'X' : 'Z';
-                } else if (primaryAxis === 'Z') {
-                    // Boru Z'de uzanıyor -> sadece X ve Y arasından seç
-                    bestAxis = distX < distY ? 'X' : 'Y';
+                // ✨✨✨ SEZGİSEL GÖVDE DRAG (INTUITIVE BODY DRAG) ✨✨✨
+                if (interactionManager.bodyDragPreferredAxis) {
+                    // Tercih edilen eksen varsa, SHIFT durumuna göre eksen seç
+                    if (!isShiftPressed) {
+                        // SHIFT basılı değil -> Sadece tercih edilen ekseni kullan
+                        bestAxis = interactionManager.bodyDragPreferredAxis;
+                    } else {
+                        // SHIFT basılı -> Alternatif ekseni kullan
+                        bestAxis = interactionManager.bodyDragAlternativeAxis || bestAxis;
+                    }
+                } else {
+                    // Tercih edilen eksen yoksa, eski mantık: En yakın ekseni seç
+                    if (primaryAxis === 'X') {
+                        // Boru X'te uzanıyor -> sadece Y ve Z arasından seç
+                        bestAxis = distY < distZ ? 'Y' : 'Z';
+                    } else if (primaryAxis === 'Y') {
+                        // Boru Y'de uzanıyor -> sadece X ve Z arasından seç
+                        bestAxis = distX < distZ ? 'X' : 'Z';
+                    } else if (primaryAxis === 'Z') {
+                        // Boru Z'de uzanıyor -> sadece X ve Y arasından seç
+                        bestAxis = distX < distY ? 'X' : 'Y';
+                    }
                 }
+                // ✨✨✨ SON ✨✨✨
             } else if (interactionManager.dragEndpoint && interactionManager.endpointDragPreferredAxis) {
                 // ✨✨✨ SEZGİSEL ENDPOINT DRAG (INTUITIVE ENDPOINT DRAG) ✨✨✨
                 // Tercih edilen eksen varsa, SHIFT durumuna göre eksen seç
@@ -1228,20 +1307,32 @@ export function handleDrag(interactionManager, point, event = null) {
             }
         } else {
             interactionManager.ghostBridgePipes = [];
-            if (interactionManager.connectedPipesAtP1 && interactionManager.connectedPipesAtP1.length > 0) {
-                interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = newP1.x;
-                    connectedPipe[connectedEndpoint].y = newP1.y;
-                    connectedPipe[connectedEndpoint].z = newP1.z;
-                });
+
+            // ✨✨✨ SEZGİSEL GÖVDE NOKTA KİLİTLEME (INTUITIVE BODY POINT LOCKING) ✨✨✨
+            // Tercih edilen eksende taşırken -> Noktaları kilitlemiyoruz (borular uzayabilir)
+            // Alternatif eksende taşırken (SHIFT ile) -> Noktaları kilitliyoruz (borular hareket eder)
+            const isShiftPressed = event && event.shiftKey;
+            const shouldLockPoints = interactionManager.bodyDragPreferredAxis && isShiftPressed;
+            // ✨✨✨ SON ✨✨✨
+
+            if (shouldLockPoints || !interactionManager.bodyDragPreferredAxis) {
+                // Noktaları kilitleme aktifse veya tercih edilen eksen yoksa -> Eski mantık
+                if (interactionManager.connectedPipesAtP1 && interactionManager.connectedPipesAtP1.length > 0) {
+                    interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                        connectedPipe[connectedEndpoint].x = newP1.x;
+                        connectedPipe[connectedEndpoint].y = newP1.y;
+                        connectedPipe[connectedEndpoint].z = newP1.z;
+                    });
+                }
+                if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
+                    interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                        connectedPipe[connectedEndpoint].x = newP2.x;
+                        connectedPipe[connectedEndpoint].y = newP2.y;
+                        connectedPipe[connectedEndpoint].z = newP2.z;
+                    });
+                }
             }
-            if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
-                interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = newP2.x;
-                    connectedPipe[connectedEndpoint].y = newP2.y;
-                    connectedPipe[connectedEndpoint].z = newP2.z;
-                });
-            }
+            // Tercih edilen eksende taşırken (SHIFT basılı değil) -> Noktaları kilitlemiyoruz, borular uzayabilir
             if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
                 const connectedMeter = interactionManager.manager.components.find(c => c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id);
                 if (connectedMeter) {
@@ -1347,6 +1438,8 @@ export function endDrag(interactionManager) {
     interactionManager.connectedPipesAtP2 = null;
     interactionManager.endpointDragPreferredAxis = null; // Sezgisel eksen temizle
     interactionManager.endpointDragAlternativeAxes = []; // Alternatif eksenleri temizle
+    interactionManager.bodyDragPreferredAxis = null; // Gövde sezgisel eksen temizle
+    interactionManager.bodyDragAlternativeAxis = null; // Gövde alternatif eksen temizle
     interactionManager.servisKutusuConnectedPipes = null;
     interactionManager.sayacConnectedPipes = null;
     interactionManager.meterConnectedPipesAtOutput = null;

@@ -130,15 +130,22 @@ export const InteractionMixin = {
                 z: ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2
             };
 
-            // Borunun uzandığı eksen hariç diğer 2 eksen
-            const primaryAxis = interactionManager.bodyDragPrimaryAxis;
-            if (primaryAxis === 'X') {
-                allowedAxes = ['Y', 'Z']; // X'te uzanıyor -> Y-Z'de hareket
-            } else if (primaryAxis === 'Y') {
-                allowedAxes = ['X', 'Z']; // Y'de uzanıyor -> X-Z'de hareket
-            } else if (primaryAxis === 'Z') {
-                allowedAxes = ['X', 'Y']; // Z'de uzanıyor -> X-Y'de hareket
+            // ✨✨✨ SEZGİSEL GÖVDE GIZMO (INTUITIVE BODY GIZMO) ✨✨✨
+            // Eğer tercih edilen eksen varsa, sadece seçili ekseni göster
+            if (interactionManager.bodyDragPreferredAxis && selectedAxis) {
+                allowedAxes = [selectedAxis]; // Sadece aktif olan ekseni göster
+            } else {
+                // Tercih edilen eksen yoksa, tüm izin verilen eksenleri göster
+                const primaryAxis = interactionManager.bodyDragPrimaryAxis;
+                if (primaryAxis === 'X') {
+                    allowedAxes = ['Y', 'Z']; // X'te uzanıyor -> Y-Z'de hareket
+                } else if (primaryAxis === 'Y') {
+                    allowedAxes = ['X', 'Z']; // Y'de uzanıyor -> X-Z'de hareket
+                } else if (primaryAxis === 'Z') {
+                    allowedAxes = ['X', 'Y']; // Z'de uzanıyor -> X-Y'de hareket
+                }
             }
+            // ✨✨✨ SON ✨✨✨
         } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
             // Obje taşıması - Tüm eksenler
             point = { x: obj.x, y: obj.y, z: obj.z || 0 };

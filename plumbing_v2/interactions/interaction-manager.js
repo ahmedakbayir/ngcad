@@ -181,6 +181,10 @@ export class InteractionManager {
         this.endpointDragPreferredAxis = null;
         this.endpointDragAlternativeAxes = [];
 
+        // Sezgisel body drag için tercih edilen eksen (X, Y, Z veya null)
+        this.bodyDragPreferredAxis = null;
+        this.bodyDragAlternativeAxis = null;
+
         // Double-click detection
         this.lastClickTime = 0;
         this.lastClickPoint = null;
