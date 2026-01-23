@@ -118,7 +118,9 @@ export function importFromXML(xmlString) {
         guides: [],
         selectedObject: null,
         selectedGroup: [],
-        startPoint: null
+        startPoint: null,
+        plumbingBlocks: [],
+        plumbingPipes: []
     });
     // --- TEMİZLİK SONU ---
 
@@ -584,7 +586,249 @@ export function importFromXML(xmlString) {
     });
 
 
-    // 8. Son işlemler
+    // 8. Tesisat elementlerini parse et
+    console.log("\n=== TESİSAT ELEMENTLERİ PARSE EDİLİYOR ===");
+
+    // 8.1. Sayaçlar (clssayac)
+    const sayacElements = xmlDoc.querySelectorAll("O[T='clssayac']");
+    console.log(`\n${sayacElements.length} clssayac bulundu (tüm XML'de)`);
+
+    sayacElements.forEach((sayacEl, idx) => {
+        console.log(`  -> Sayaç ${idx} işleniyor...`);
+        try {
+            const startPointEl = sayacEl.querySelector("P[F='StartPoint']");
+            const endPointEl = sayacEl.querySelector("P[F='EndPoint']");
+
+            if (startPointEl && endPointEl) {
+                const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
+                const endCoords = endPointEl.getAttribute('V').split(',').map(Number);
+
+                // Merkez koordinatı hesapla (start ve end ortası)
+                const centerX = ((startCoords[0] + endCoords[0]) / 2) * SCALE;
+                const centerY = -((startCoords[1] + endCoords[1]) / 2) * SCALE;
+                const z = startCoords[2] ? startCoords[2] * SCALE : 0;
+
+                // Sayaç objesi oluştur
+                const sayacData = {
+                    id: `sayac_xml_${idx}_${Date.now()}`,
+                    type: 'sayac',
+                    x: centerX,
+                    y: centerY,
+                    z: z,
+                    rotation: 0,
+                    floorId: state.currentFloor?.id,
+                    fleksBaglanti: {
+                        boruId: null,
+                        endpoint: null,
+                        uzunluk: 30 // Varsayılan fleks uzunluğu
+                    },
+                    cikisBagliBoruId: null,
+                    iliskiliVanaId: null
+                };
+
+                state.plumbingBlocks.push(sayacData);
+                console.log(`    -> Sayaç eklendi: (${centerX.toFixed(2)}, ${centerY.toFixed(2)})`);
+            }
+        } catch (e) {
+            console.error("Sayaç işlenirken hata:", e, sayacEl);
+        }
+    });
+
+    // 8.2. Vanalar (clsvana)
+    const vanaElements = xmlDoc.querySelectorAll("O[T='clsvana']");
+    console.log(`\n${vanaElements.length} clsvana bulundu (tüm XML'de)`);
+
+    vanaElements.forEach((vanaEl, idx) => {
+        console.log(`  -> Vana ${idx} işleniyor...`);
+        try {
+            const originEl = vanaEl.querySelector("P[F='origin']");
+            const vanaTipiEl = vanaEl.querySelector("P[F='GLVANATIPI']");
+
+            if (originEl) {
+                const originCoords = originEl.getAttribute('V').split(',').map(Number);
+                const x = originCoords[0] * SCALE;
+                const y = -originCoords[1] * SCALE;
+                const z = originCoords[2] ? originCoords[2] * SCALE : 0;
+
+                // Vana tipi mapping (XML'deki tip numarası -> Uygulama vana tipi)
+                const xmlVanaTipi = vanaTipiEl ? parseInt(vanaTipiEl.getAttribute('V')) : 1;
+                let vanaTipi = 'AKV'; // Varsayılan
+
+                // XML vana tipi mapping (tahmine dayalı - gerçek mapping'i bilmiyoruz)
+                if (xmlVanaTipi === 4) vanaTipi = 'KKV';
+                else if (xmlVanaTipi === 5) vanaTipi = 'EMNIYET';
+
+                const vanaData = {
+                    id: `vana_xml_${idx}_${Date.now()}`,
+                    type: 'vana',
+                    x: x,
+                    y: y,
+                    z: z,
+                    rotation: 0,
+                    vanaTipi: vanaTipi,
+                    floorId: state.currentFloor?.id,
+                    bagliBoruId: null,
+                    boruPozisyonu: 0.5,
+                    fromEnd: false,
+                    fixedDistance: null,
+                    girisBagliBoruId: null,
+                    cikisBagliBoruId: null,
+                    showEndCap: false
+                };
+
+                state.plumbingBlocks.push(vanaData);
+                console.log(`    -> Vana eklendi: (${x.toFixed(2)}, ${y.toFixed(2)}) tip: ${vanaTipi}`);
+            }
+        } catch (e) {
+            console.error("Vana işlenirken hata:", e, vanaEl);
+        }
+    });
+
+    // 8.3. Borular (clsboru)
+    const boruElements = xmlDoc.querySelectorAll("O[T='clsboru']");
+    console.log(`\n${boruElements.length} clsboru bulundu (tüm XML'de)`);
+
+    boruElements.forEach((boruEl, idx) => {
+        console.log(`  -> Boru ${idx} işleniyor...`);
+        try {
+            const startPointEl = boruEl.querySelector("P[F='StartPoint']");
+            const endPointEl = boruEl.querySelector("P[F='EndPoint']");
+            const boruCapEl = boruEl.querySelector("P[F='GLBORUCAP']");
+
+            if (startPointEl && endPointEl) {
+                const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
+                const endCoords = endPointEl.getAttribute('V').split(',').map(Number);
+
+                const p1 = {
+                    x: startCoords[0] * SCALE,
+                    y: -startCoords[1] * SCALE,
+                    z: startCoords[2] ? startCoords[2] * SCALE : 0
+                };
+
+                const p2 = {
+                    x: endCoords[0] * SCALE,
+                    y: -endCoords[1] * SCALE,
+                    z: endCoords[2] ? endCoords[2] * SCALE : 0
+                };
+
+                // Boru çapından tipi belirle
+                const boruCap = boruCapEl ? parseInt(boruCapEl.getAttribute('V')) : 25;
+                const boruTipi = boruCap > 30 ? 'KALIN' : 'STANDART';
+
+                const boruData = {
+                    id: `boru_xml_${idx}_${Date.now()}`,
+                    type: 'boru',
+                    boruTipi: boruTipi,
+                    p1: p1,
+                    p2: p2,
+                    colorGroup: 'YELLOW', // Varsayılan renk
+                    floorId: state.currentFloor?.id,
+                    baslangicBaglanti: {
+                        tip: null,
+                        hedefId: null,
+                        noktaIndex: null
+                    },
+                    bitisBaglanti: {
+                        tip: null,
+                        hedefId: null,
+                        noktaIndex: null
+                    },
+                    uzerindekiElemanlar: [],
+                    tBaglantilar: []
+                };
+
+                state.plumbingPipes.push(boruData);
+                console.log(`    -> Boru eklendi: (${p1.x.toFixed(2)}, ${p1.y.toFixed(2)}) -> (${p2.x.toFixed(2)}, ${p2.y.toFixed(2)})`);
+            }
+        } catch (e) {
+            console.error("Boru işlenirken hata:", e, boruEl);
+        }
+    });
+
+    // 8.4. Kombiler (clskombi)
+    const kombiElements = xmlDoc.querySelectorAll("O[T='clskombi']");
+    console.log(`\n${kombiElements.length} clskombi bulundu (tüm XML'de)`);
+
+    kombiElements.forEach((kombiEl, idx) => {
+        console.log(`  -> Kombi ${idx} işleniyor...`);
+        try {
+            const startPointEl = kombiEl.querySelector("P[F='StartPoint']");
+            const endPointEl = kombiEl.querySelector("P[F='EndPoint']");
+
+            if (startPointEl) {
+                const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
+                const x = startCoords[0] * SCALE;
+                const y = -startCoords[1] * SCALE;
+                const z = startCoords[2] ? startCoords[2] * SCALE : 0;
+
+                const cihazData = {
+                    id: `cihaz_xml_${idx}_${Date.now()}`,
+                    type: 'cihaz',
+                    cihazTipi: 'KOMBI',
+                    x: x,
+                    y: y,
+                    z: z,
+                    rotation: 0,
+                    floorId: state.currentFloor?.id,
+                    fleksBaglanti: {
+                        boruId: null,
+                        endpoint: null,
+                        uzunluk: 30
+                    },
+                    iliskiliVanaId: null
+                };
+
+                state.plumbingBlocks.push(cihazData);
+                console.log(`    -> Kombi eklendi: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            }
+        } catch (e) {
+            console.error("Kombi işlenirken hata:", e, kombiEl);
+        }
+    });
+
+    // 8.5. Ocaklar (clsocak)
+    const ocakElements = xmlDoc.querySelectorAll("O[T='clsocak']");
+    console.log(`\n${ocakElements.length} clsocak bulundu (tüm XML'de)`);
+
+    ocakElements.forEach((ocakEl, idx) => {
+        console.log(`  -> Ocak ${idx} işleniyor...`);
+        try {
+            const startPointEl = ocakEl.querySelector("P[F='StartPoint']");
+
+            if (startPointEl) {
+                const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
+                const x = startCoords[0] * SCALE;
+                const y = -startCoords[1] * SCALE;
+                const z = startCoords[2] ? startCoords[2] * SCALE : 0;
+
+                const cihazData = {
+                    id: `cihaz_xml_${idx}_${Date.now()}`,
+                    type: 'cihaz',
+                    cihazTipi: 'OCAK',
+                    x: x,
+                    y: y,
+                    z: z,
+                    rotation: 0,
+                    floorId: state.currentFloor?.id,
+                    fleksBaglanti: {
+                        boruId: null,
+                        endpoint: null,
+                        uzunluk: 30
+                    },
+                    iliskiliVanaId: null
+                };
+
+                state.plumbingBlocks.push(cihazData);
+                console.log(`    -> Ocak eklendi: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            }
+        } catch (e) {
+            console.error("Ocak işlenirken hata:", e, ocakEl);
+        }
+    });
+
+    console.log("=========================================\n");
+
+    // 9. Son işlemler
     console.log("\n=== İMPORT ÖZETİ ===");
     console.log(`Duvarlar: ${state.walls.length}`);
     console.log(`Node'lar: ${state.nodes.length}`);
@@ -593,6 +837,8 @@ export function importFromXML(xmlString) {
     console.log(`Kolonlar: ${state.columns ? state.columns.length : 0}`);
     console.log(`Kirişler: ${state.beams ? state.beams.length : 0}`);
     console.log(`Merdivenler: ${state.stairs ? state.stairs.length : 0}`);
+    console.log(`Tesisat Borular: ${state.plumbingPipes ? state.plumbingPipes.length : 0}`);
+    console.log(`Tesisat Bileşenler: ${state.plumbingBlocks ? state.plumbingBlocks.length : 0}`);
     console.log("===================\n");
 
     // Room'lar için polygon ve center hesapla (turf.js kullanarak) - processWalls'tan ÖNCE
@@ -645,6 +891,22 @@ export function importFromXML(xmlString) {
     processWalls(false, true, true); // skipMerge=false, skipRoomDetection=true, processAllFloors=true
 
     saveState();
+
+    // Tesisat verilerini yükle
+    if (state.plumbingBlocks?.length > 0 || state.plumbingPipes?.length > 0) {
+        console.log("\n=== TESİSAT VERİLERİ YÜKLENMEK ÜZERE ===");
+        console.log(`plumbingBlocks: ${state.plumbingBlocks.length}`);
+        console.log(`plumbingPipes: ${state.plumbingPipes.length}`);
+
+        // PlumbingManager'ı dinamik import ile yükle
+        if (window.plumbingManager) {
+            window.plumbingManager.loadFromState();
+            console.log("PlumbingManager.loadFromState() çağrıldı!");
+        } else {
+            console.warn("PlumbingManager bulunamadı! Tesisat verileri yüklenemedi.");
+        }
+    }
+
     // 'dom' artık import edildiği için bu kontrol çalışacaktır
     if (dom.mainContainer.classList.contains('show-3d')) {
          setTimeout(update3DScene, 0);
