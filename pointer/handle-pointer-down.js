@@ -319,7 +319,9 @@ export function handlePointerDown(e) {
 
     // 5. Boru ucu veya gövdesinden çizim başlat
     const worldTolerance2 = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
-    const boruUcu2 = this.findBoruUcuAt(point, worldTolerance2);
+    // Seçili boru varsa onu tercih et
+    const preferredPipeId2 = (this.selectedObject?.type === 'boru') ? this.selectedObject.id : null;
+    const boruUcu2 = this.findBoruUcuAt(point, worldTolerance2, false, preferredPipeId2);
     if (boruUcu2) {
         const deviceVar = this.hasDeviceAtEndpoint(boruUcu2.boruId, boruUcu2.uc);
         const meterVar = this.hasMeterAtEndpoint(boruUcu2.boruId, boruUcu2.uc);
