@@ -558,5 +558,172 @@ export const PreviewMixin = {
         ctx.stroke();
 
         ctx.restore();
+    },
+
+    /**
+     * 3D Taşıma Gizmo - Taşıma modunda kullanılır (3D sahnede)
+     * 50px uzunlukta kollar ve ok işaretleri ile gösterir
+     * Pasif eksenler soluk, aktif eksen belirgin renkte
+     */
+    drawTranslateGizmo(ctx, point, selectedAxis = null, allowedAxes = ['X', 'Y', 'Z']) {
+        if (!point) return;
+
+        const t = state.viewBlendFactor || 0;
+
+        // 2D ekranda gizmo görünmemeli
+        if (t < 0.1) return;
+
+        const zoom = state.zoom || 1;
+
+        // 3D offset uygula
+        const z = point.z || 0;
+        const screenX = point.x + (z * t);
+        const screenY = point.y - (z * t);
+
+        ctx.save();
+
+        // Kol uzunluğu: 50px (world koordinatlarında)
+        const armLength = 50;
+        const lineWidth = 1.5 / zoom;
+        const arrowSize = 8 / zoom; // Ok başı boyutu
+
+        // Yardımcı fonksiyon: Ok başı çiz
+        const drawArrowHead = (x, y, angle, color, alpha) => {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.fillStyle = color;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-arrowSize, -arrowSize / 2);
+            ctx.lineTo(-arrowSize, arrowSize / 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        };
+
+        // Z ekseni (yeşil) - çapraz yukarı-sol yönü
+        if (allowedAxes.includes('Z')) {
+            const isActive = selectedAxis === 'Z';
+            const alpha = isActive ? 1.0 : 0.3;
+            const color = '#00FF00';
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isActive ? lineWidth * 1.5 : lineWidth;
+
+            // Z ekseni kolları (hem + hem - yönde)
+            // + yönü: yukarı-sağ
+            const zPlusEndX = screenX + (armLength * t);
+            const zPlusEndY = screenY - (armLength * t);
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(zPlusEndX, zPlusEndY);
+            ctx.stroke();
+
+            // - yönü: aşağı-sol
+            const zMinusEndX = screenX - (armLength * t);
+            const zMinusEndY = screenY + (armLength * t);
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(zMinusEndX, zMinusEndY);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Ok başları
+            const zAnglePlus = -Math.PI / 4; // Yukarı-sağ
+            const zAngleMinus = Math.PI * 3 / 4; // Aşağı-sol
+            drawArrowHead(zPlusEndX, zPlusEndY, zAnglePlus, color, alpha);
+            drawArrowHead(zMinusEndX, zMinusEndY, zAngleMinus, color, alpha);
+        }
+
+        // X ekseni (magenta) - yatay sağa/sola
+        if (allowedAxes.includes('X')) {
+            const isActive = selectedAxis === 'X';
+            const alpha = isActive ? 1.0 : 0.3;
+            const color = '#FF00FF';
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isActive ? lineWidth * 1.5 : lineWidth;
+
+            // X ekseni kolları (hem + hem - yönde)
+            // + yönü: sağa
+            const xPlusEndX = screenX + armLength;
+            const xPlusEndY = screenY;
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(xPlusEndX, xPlusEndY);
+            ctx.stroke();
+
+            // - yönü: sola
+            const xMinusEndX = screenX - armLength;
+            const xMinusEndY = screenY;
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(xMinusEndX, xMinusEndY);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Ok başları
+            const xAnglePlus = 0; // Sağa
+            const xAngleMinus = Math.PI; // Sola
+            drawArrowHead(xPlusEndX, xPlusEndY, xAnglePlus, color, alpha);
+            drawArrowHead(xMinusEndX, xMinusEndY, xAngleMinus, color, alpha);
+        }
+
+        // Y ekseni (cyan) - dikey yukarı/aşağı
+        if (allowedAxes.includes('Y')) {
+            const isActive = selectedAxis === 'Y';
+            const alpha = isActive ? 1.0 : 0.3;
+            const color = '#00FFFF';
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = isActive ? lineWidth * 1.5 : lineWidth;
+
+            // Y ekseni kolları (hem + hem - yönde)
+            // + yönü: aşağı (canvas Y ekseni)
+            const yPlusEndX = screenX;
+            const yPlusEndY = screenY + armLength;
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(yPlusEndX, yPlusEndY);
+            ctx.stroke();
+
+            // - yönü: yukarı
+            const yMinusEndX = screenX;
+            const yMinusEndY = screenY - armLength;
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(yMinusEndX, yMinusEndY);
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Ok başları
+            const yAnglePlus = Math.PI / 2; // Aşağı
+            const yAngleMinus = -Math.PI / 2; // Yukarı
+            drawArrowHead(yPlusEndX, yPlusEndY, yAnglePlus, color, alpha);
+            drawArrowHead(yMinusEndX, yMinusEndY, yAngleMinus, color, alpha);
+        }
+
+        // Merkez nokta - beyaz daire
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1 / zoom;
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 3 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
     }
 };
