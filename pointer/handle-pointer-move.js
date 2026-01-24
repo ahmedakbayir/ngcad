@@ -8,7 +8,7 @@ import { dom, state } from '../general-files/main.js';
 
 // YENİ IMPORT
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
-import { findGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
+import { findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
 
 export function handlePointerMove(e) {
     const rect = dom.c2d.getBoundingClientRect();
@@ -30,23 +30,31 @@ export function handlePointerMove(e) {
         let allowedAxes = ['X', 'Y', 'Z'];
 
         if (this.selectedObject.type === 'boru') {
-            gizmoCenter = {
-                x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
-                y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
-                z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
-            };
+            // Endpoint seçiliyse o noktayı kullan
+            if (this.selectedEndpoint) {
+                gizmoCenter = this.selectedEndpoint === 'p1' ? this.selectedObject.p1 : this.selectedObject.p2;
+                // Endpoint için tüm eksenler kullanılabilir
+                allowedAxes = ['X', 'Y', 'Z'];
+            } else {
+                // Body için merkez kullan
+                gizmoCenter = {
+                    x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
+                    y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
+                    z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
+                };
 
-            // Borunun uzandığı ekseni hesapla
-            const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
-            const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
-            const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
+                // Borunun uzandığı ekseni hesapla
+                const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
+                const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
+                const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
 
-            if (dx > dy && dx > dz) {
-                allowedAxes = ['Y', 'Z'];
-            } else if (dy > dx && dy > dz) {
-                allowedAxes = ['X', 'Z'];
-            } else if (dz > dx && dz > dy) {
-                allowedAxes = ['X', 'Y'];
+                if (dx > dy && dx > dz) {
+                    allowedAxes = ['Y', 'Z'];
+                } else if (dy > dx && dy > dz) {
+                    allowedAxes = ['X', 'Z'];
+                } else if (dz > dx && dz > dy) {
+                    allowedAxes = ['X', 'Y'];
+                }
             }
         } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
                    this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
@@ -54,7 +62,8 @@ export function handlePointerMove(e) {
         }
 
         if (gizmoCenter) {
-            this.hoveredGizmoAxis = findGizmoAxisAt(gizmoCenter, point, allowedAxes);
+            // Translate gizmo için yeni hit detection kullan (50px kısa kollar)
+            this.hoveredGizmoAxis = findTranslateGizmoAxisAt(gizmoCenter, point, allowedAxes);
         } else {
             this.hoveredGizmoAxis = null;
         }

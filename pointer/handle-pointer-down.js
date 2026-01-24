@@ -7,7 +7,7 @@ import { screenToWorld } from '../draw/geometry.js';
 import { dom, state } from '../general-files/main.js';
 import { BAGLANTI_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 import { TESISAT_CONSTANTS } from '../plumbing_v2/interactions/tesisat-snap.js';
-import { pixelsToWorld, findGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
+import { pixelsToWorld, findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
 
 // YENİ IMPORT: 3D hesaplama fonksiyonu
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
@@ -143,40 +143,53 @@ export function handlePointerDown(e) {
             let allowedAxes = ['X', 'Y', 'Z'];
 
             if (this.selectedObject.type === 'boru') {
-                gizmoCenter = {
-                    x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
-                    y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
-                    z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
-                };
+                // Endpoint seçiliyse o noktayı kullan
+                if (this.selectedEndpoint) {
+                    gizmoCenter = this.selectedEndpoint === 'p1' ? this.selectedObject.p1 : this.selectedObject.p2;
+                    // Endpoint için tüm eksenler kullanılabilir
+                    allowedAxes = ['X', 'Y', 'Z'];
+                } else {
+                    // Body için merkez kullan
+                    gizmoCenter = {
+                        x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
+                        y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
+                        z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
+                    };
 
-                // Borunun uzandığı ekseni hesapla
-                const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
-                const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
-                const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
+                    // Borunun uzandığı ekseni hesapla
+                    const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
+                    const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
+                    const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
 
-                if (dx > dy && dx > dz) {
-                    allowedAxes = ['Y', 'Z'];
-                } else if (dy > dx && dy > dz) {
-                    allowedAxes = ['X', 'Z'];
-                } else if (dz > dx && dz > dy) {
-                    allowedAxes = ['X', 'Y'];
+                    if (dx > dy && dx > dz) {
+                        allowedAxes = ['Y', 'Z'];
+                    } else if (dy > dx && dy > dz) {
+                        allowedAxes = ['X', 'Z'];
+                    } else if (dz > dx && dz > dy) {
+                        allowedAxes = ['X', 'Y'];
+                    }
                 }
             } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
                        this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
                 gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
             }
 
-            // Gizmo eksenine tıklandı mı kontrol et
+            // Gizmo eksenine tıklandı mı kontrol et (translate gizmo için yeni hit detection)
             if (gizmoCenter) {
-                const clickedAxis = findGizmoAxisAt(gizmoCenter, point, allowedAxes);
+                const clickedAxis = findTranslateGizmoAxisAt(gizmoCenter, point, allowedAxes);
                 if (clickedAxis) {
                     // Gizmo eksenine tıklandı - o eksende locked dragging başlat
                     console.log('🎯 Gizmo eksenine tıklandı:', clickedAxis);
 
                     // Sürüklemeyi başlat
-                    if (this.selectedObject.type === 'boru') {
+                    if (this.selectedObject.type === 'boru' && !this.selectedEndpoint) {
+                        // Body drag
                         this.startBodyDrag(this.selectedObject, point);
+                    } else if (this.selectedObject.type === 'boru' && this.selectedEndpoint) {
+                        // Endpoint drag
+                        this.startEndpointDrag(this.selectedObject, this.selectedEndpoint, point);
                     } else {
+                        // Diğer nesneler
                         this.startDrag(this.selectedObject, point);
                     }
 
