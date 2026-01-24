@@ -139,65 +139,89 @@ export function handlePointerDown(e) {
 
         // --- GİZMO EKSENİNE TIKLAMA KONTROLÜ ---
         if (this.selectedObject && !this.isDragging) {
-            let gizmoCenter = null;
-            let allowedAxes = ['X', 'Y', 'Z'];
-
             if (this.selectedObject.type === 'boru') {
-                // Endpoint seçiliyse o noktayı kullan
+                // Endpoint seçiliyse sadece o gizmo'yu kontrol et
                 if (this.selectedEndpoint) {
-                    gizmoCenter = this.selectedEndpoint === 'p1' ? this.selectedObject.p1 : this.selectedObject.p2;
-                    // Endpoint için tüm eksenler kullanılabilir
-                    allowedAxes = ['X', 'Y', 'Z'];
+                    const gizmoCenter = this.selectedEndpoint === 'p1' ? this.selectedObject.p1 : this.selectedObject.p2;
+                    const allowedAxes = ['X', 'Y', 'Z'];
+                    const clickedAxis = findTranslateGizmoAxisAt(gizmoCenter, point, allowedAxes);
+
+                    if (clickedAxis) {
+                        console.log('🎯 Endpoint gizmo eksenine tıklandı:', clickedAxis);
+                        this.startEndpointDrag(this.selectedObject, this.selectedEndpoint, point);
+                        this.selectedDragAxis = clickedAxis;
+                        this.axisLockDetermined = true;
+                        this.lockedAxis = clickedAxis;
+                        return true;
+                    }
                 } else {
-                    // Body için merkez kullan
-                    gizmoCenter = {
-                        x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
-                        y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
-                        z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
-                    };
+                    // Boru gövdesi seçili: önce endpoint gizmo'larını kontrol et, sonra merkez
 
                     // Borunun uzandığı ekseni hesapla
                     const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
                     const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
                     const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
 
+                    let bodyAllowedAxes = ['X', 'Y', 'Z'];
                     if (dx > dy && dx > dz) {
-                        allowedAxes = ['Y', 'Z'];
+                        bodyAllowedAxes = ['Y', 'Z'];
                     } else if (dy > dx && dy > dz) {
-                        allowedAxes = ['X', 'Z'];
+                        bodyAllowedAxes = ['X', 'Z'];
                     } else if (dz > dx && dz > dy) {
-                        allowedAxes = ['X', 'Y'];
+                        bodyAllowedAxes = ['X', 'Y'];
+                    }
+
+                    // p1 gizmo kontrolü (öncelikli)
+                    const p1Axis = findTranslateGizmoAxisAt(this.selectedObject.p1, point, ['X', 'Y', 'Z']);
+                    if (p1Axis) {
+                        console.log('🎯 P1 endpoint gizmo eksenine tıklandı:', p1Axis);
+                        this.selectedEndpoint = 'p1'; // Endpoint bilgisini kaydet
+                        this.startEndpointDrag(this.selectedObject, 'p1', point);
+                        this.selectedDragAxis = p1Axis;
+                        this.axisLockDetermined = true;
+                        this.lockedAxis = p1Axis;
+                        return true;
+                    }
+
+                    // p2 gizmo kontrolü
+                    const p2Axis = findTranslateGizmoAxisAt(this.selectedObject.p2, point, ['X', 'Y', 'Z']);
+                    if (p2Axis) {
+                        console.log('🎯 P2 endpoint gizmo eksenine tıklandı:', p2Axis);
+                        this.selectedEndpoint = 'p2'; // Endpoint bilgisini kaydet
+                        this.startEndpointDrag(this.selectedObject, 'p2', point);
+                        this.selectedDragAxis = p2Axis;
+                        this.axisLockDetermined = true;
+                        this.lockedAxis = p2Axis;
+                        return true;
+                    }
+
+                    // Merkez gizmo kontrolü (en düşük öncelik)
+                    const centerPoint = {
+                        x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
+                        y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
+                        z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
+                    };
+                    const centerAxis = findTranslateGizmoAxisAt(centerPoint, point, bodyAllowedAxes);
+                    if (centerAxis) {
+                        console.log('🎯 Merkez (body) gizmo eksenine tıklandı:', centerAxis);
+                        this.startBodyDrag(this.selectedObject, point);
+                        this.selectedDragAxis = centerAxis;
+                        this.axisLockDetermined = true;
+                        this.lockedAxis = centerAxis;
+                        return true;
                     }
                 }
             } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
                        this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
-                gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
-            }
+                const gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
+                const clickedAxis = findTranslateGizmoAxisAt(gizmoCenter, point, ['X', 'Y', 'Z']);
 
-            // Gizmo eksenine tıklandı mı kontrol et (translate gizmo için yeni hit detection)
-            if (gizmoCenter) {
-                const clickedAxis = findTranslateGizmoAxisAt(gizmoCenter, point, allowedAxes);
                 if (clickedAxis) {
-                    // Gizmo eksenine tıklandı - o eksende locked dragging başlat
                     console.log('🎯 Gizmo eksenine tıklandı:', clickedAxis);
-
-                    // Sürüklemeyi başlat
-                    if (this.selectedObject.type === 'boru' && !this.selectedEndpoint) {
-                        // Body drag
-                        this.startBodyDrag(this.selectedObject, point);
-                    } else if (this.selectedObject.type === 'boru' && this.selectedEndpoint) {
-                        // Endpoint drag
-                        this.startEndpointDrag(this.selectedObject, this.selectedEndpoint, point);
-                    } else {
-                        // Diğer nesneler
-                        this.startDrag(this.selectedObject, point);
-                    }
-
-                    // Ekseni kilitle
+                    this.startDrag(this.selectedObject, point);
                     this.selectedDragAxis = clickedAxis;
                     this.axisLockDetermined = true;
                     this.lockedAxis = clickedAxis;
-
                     return true;
                 }
             }
