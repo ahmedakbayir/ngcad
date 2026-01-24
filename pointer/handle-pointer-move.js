@@ -63,8 +63,20 @@ export function handlePointerMove(e) {
                 // p2 gizmo kontrolü
                 const p2Axis = findTranslateGizmoAxisAt(this.selectedObject.p2, point, ['X', 'Y', 'Z']);
 
-                // Herhangi biri hover edilmişse onu kullan (öncelik sırasıyla: p1, p2, center)
-                this.hoveredGizmoAxis = p1Axis || p2Axis || centerAxis;
+                // Sadece mouse'un gerçekten üzerinde olduğu gizmoda eksen aktif olsun
+                if (p1Axis) {
+                    this.hoveredGizmoAxis = p1Axis;
+                    this.hoveredGizmoId = 'p1';
+                } else if (p2Axis) {
+                    this.hoveredGizmoAxis = p2Axis;
+                    this.hoveredGizmoId = 'p2';
+                } else if (centerAxis) {
+                    this.hoveredGizmoAxis = centerAxis;
+                    this.hoveredGizmoId = 'center';
+                } else {
+                    this.hoveredGizmoAxis = null;
+                    this.hoveredGizmoId = null;
+                }
             }
         } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
                    this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {

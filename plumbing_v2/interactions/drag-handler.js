@@ -1098,6 +1098,80 @@ export function handleDrag(interactionManager, point, event = null) {
         let offsetY = deltaY;
         let offsetZ = deltaZ;
 
+        // --- BAĞLI KOLLAR İÇİN DİK SNAP ---
+        // Bağlı kollar drag eksenine dik duruma geldiğinde snap yap
+        const PERPENDICULAR_SNAP_TOLERANCE = 5; // Dik olma toleransı
+        const t3D = state.viewBlendFactor || 0;
+
+        if (t3D > 0.1 && interactionManager.selectedDragAxis) {
+            const dragAxis = interactionManager.selectedDragAxis;
+            const allConnections = [
+                ...(interactionManager.connectedPipesAtP1 || []),
+                ...(interactionManager.connectedPipesAtP2 || [])
+            ];
+
+            allConnections.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                // Bağlı borunun vektörünü hesapla
+                const otherEnd = connectedEndpoint === 'p1' ? connectedPipe.p2 : connectedPipe.p1;
+                const currentEnd = connectedEndpoint === 'p1' ? connectedPipe.p1 : connectedPipe.p2;
+
+                // Taşıma sonrası bağlı nokta pozisyonu (hangi endpoint'e bağlı?)
+                let newConnectedPoint;
+                const distToP1 = Math.hypot(currentEnd.x - interactionManager.bodyDragInitialP1.x, currentEnd.y - interactionManager.bodyDragInitialP1.y);
+                const distToP2 = Math.hypot(currentEnd.x - interactionManager.bodyDragInitialP2.x, currentEnd.y - interactionManager.bodyDragInitialP2.y);
+
+                if (distToP1 < distToP2) {
+                    newConnectedPoint = {
+                        x: interactionManager.bodyDragInitialP1.x + offsetX,
+                        y: interactionManager.bodyDragInitialP1.y + offsetY,
+                        z: (interactionManager.bodyDragInitialP1.z || 0) + offsetZ
+                    };
+                } else {
+                    newConnectedPoint = {
+                        x: interactionManager.bodyDragInitialP2.x + offsetX,
+                        y: interactionManager.bodyDragInitialP2.y + offsetY,
+                        z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZ
+                    };
+                }
+
+                // Bağlı borunun yeni vektörü
+                const dx = otherEnd.x - newConnectedPoint.x;
+                const dy = otherEnd.y - newConnectedPoint.y;
+                const dz = (otherEnd.z || 0) - (newConnectedPoint.z || 0);
+
+                // Drag eksenine göre dik kontrolü
+                let isPerpendicular = false;
+                let snapOffset = 0;
+
+                if (dragAxis === 'X') {
+                    // X ekseninde taşıma -> bağlı kol X'e dik olmalı (dx ≈ 0)
+                    if (Math.abs(dx) < PERPENDICULAR_SNAP_TOLERANCE) {
+                        isPerpendicular = true;
+                        snapOffset = -deltaX; // X offset'i sıfırla ki tam dik olsun
+                    }
+                } else if (dragAxis === 'Y') {
+                    // Y ekseninde taşıma -> bağlı kol Y'ye dik olmalı (dy ≈ 0)
+                    if (Math.abs(dy) < PERPENDICULAR_SNAP_TOLERANCE) {
+                        isPerpendicular = true;
+                        snapOffset = -deltaY; // Y offset'i sıfırla ki tam dik olsun
+                    }
+                } else if (dragAxis === 'Z') {
+                    // Z ekseninde taşıma -> bağlı kol Z'ye dik olmalı (dz ≈ 0)
+                    if (Math.abs(dz) < PERPENDICULAR_SNAP_TOLERANCE) {
+                        isPerpendicular = true;
+                        snapOffset = -deltaZ; // Z offset'i sıfırla ki tam dik olsun
+                    }
+                }
+
+                // Snap uygula
+                if (isPerpendicular) {
+                    if (dragAxis === 'X') offsetX += snapOffset;
+                    else if (dragAxis === 'Y') offsetY += snapOffset;
+                    else if (dragAxis === 'Z') offsetZ += snapOffset;
+                }
+            });
+        }
+
         // --- BORU ZİNCİRİ TAŞIMA (DÜŞEY VE YATAY) ---
         if (interactionManager.alignedPipeChain && interactionManager.alignedPipeChain.length > 0) {
             // Zincirdeki tüm boruları birlikte taşı
