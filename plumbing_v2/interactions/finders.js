@@ -719,7 +719,7 @@ export function findTranslateGizmoAxisAt(gizmoCenter, mousePoint, allowedAxes = 
     if (t < 0.1) return null;
 
     const zoom = state.zoom || 1;
-    const armLength = 50 / zoom; // Ekranda 50px (zoom'a göre ayarlanır)
+    const armLength = 30 * Math.min(1, zoom); // Uzaklaşınca küçülür, yaklaşınca büyümez
     const hitTolerance = 12 / zoom; // Biraz daha geniş tolerans (tutulabilmesi için)
 
     // Gizmo merkez noktasının ekran koordinatları

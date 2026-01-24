@@ -208,17 +208,23 @@ export const InteractionMixin = {
                     z: ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2
                 };
                 if (this.drawTranslateGizmo) {
-                    this.drawTranslateGizmo(ctx, centerPoint, interactionManager.hoveredGizmoAxis, bodyAllowedAxes);
+                    // Sadece merkez gizmo hover edilmişse eksen aktif
+                    const centerSelectedAxis = interactionManager.hoveredGizmoId === 'center' ? interactionManager.hoveredGizmoAxis : null;
+                    this.drawTranslateGizmo(ctx, centerPoint, centerSelectedAxis, bodyAllowedAxes);
                 }
 
                 // p1 endpoint gizmo (tüm eksenler)
                 if (this.drawTranslateGizmo) {
-                    this.drawTranslateGizmo(ctx, obj.p1, interactionManager.hoveredGizmoAxis, ['X', 'Y', 'Z']);
+                    // Sadece p1 gizmo hover edilmişse eksen aktif
+                    const p1SelectedAxis = interactionManager.hoveredGizmoId === 'p1' ? interactionManager.hoveredGizmoAxis : null;
+                    this.drawTranslateGizmo(ctx, obj.p1, p1SelectedAxis, ['X', 'Y', 'Z']);
                 }
 
                 // p2 endpoint gizmo (tüm eksenler)
                 if (this.drawTranslateGizmo) {
-                    this.drawTranslateGizmo(ctx, obj.p2, interactionManager.hoveredGizmoAxis, ['X', 'Y', 'Z']);
+                    // Sadece p2 gizmo hover edilmişse eksen aktif
+                    const p2SelectedAxis = interactionManager.hoveredGizmoId === 'p2' ? interactionManager.hoveredGizmoAxis : null;
+                    this.drawTranslateGizmo(ctx, obj.p2, p2SelectedAxis, ['X', 'Y', 'Z']);
                 }
             }
         } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
