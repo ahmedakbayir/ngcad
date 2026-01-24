@@ -151,6 +151,13 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
 
     const draggedPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
 
+    // Endpoint'in başlangıç pozisyonunu kaydet (offset için)
+    interactionManager.dragStartObjectPos = {
+        x: draggedPoint.x,
+        y: draggedPoint.y,
+        z: draggedPoint.z || 0
+    };
+
     interactionManager.snapSystem.setStartPoint(draggedPoint, pipe.id);
 
     const connectedMeter = interactionManager.manager.components.find(c =>
@@ -188,6 +195,13 @@ export function startDrag(interactionManager, obj, point) {
     interactionManager.dragStart = { ...point };
     interactionManager.selectedDragAxis = null; // Otomatik belirlenecek
     interactionManager.dragStartWorldPos = null; // Başlangıç pozisyonunu sıfırla
+
+    // Nesnenin başlangıç pozisyonunu kaydet (offset için)
+    interactionManager.dragStartObjectPos = {
+        x: obj.x,
+        y: obj.y,
+        z: obj.z || 0
+    };
 
     if (obj.type === 'vana' && obj.bagliBoruId) {
         interactionManager.dragObjectPipe = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
@@ -241,6 +255,13 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.bodyDragInitialP2 = { ...pipe.p2 };
     interactionManager.selectedDragAxis = null; // Otomatik belirlenecek
     interactionManager.dragStartWorldPos = null; // Başlangıç pozisyonunu sıfırla
+
+    // Borunun merkez pozisyonunu kaydet (offset için)
+    interactionManager.dragStartObjectPos = {
+        x: (pipe.p1.x + pipe.p2.x) / 2,
+        y: (pipe.p1.y + pipe.p2.y) / 2,
+        z: ((pipe.p1.z || 0) + (pipe.p2.z || 0)) / 2
+    };
 
     // Borunun hangi eksende uzandığını belirle
     const dx = Math.abs(pipe.p2.x - pipe.p1.x);
@@ -435,37 +456,36 @@ export function handleDrag(interactionManager, point, event = null) {
         zOffset = (interactionManager.dragEndpoint === 'p1' ? obj.p1.z : obj.p2.z) || 0;
     }
 
+    // Mouse'un dragStart'tan farkını hesapla (offset korunması için)
+    const mouseDx = point.x - interactionManager.dragStart.x;
+    const mouseDy = point.y - interactionManager.dragStart.y;
+
     let correctedPoint;
     if (isVerticalDrag && verticalPipeBase) {
         const startZ = interactionManager.dragStartZ || 0;
-        const screenDx = point.x - interactionManager.dragStart.x;
-        const screenDy = point.y - interactionManager.dragStart.y;
-        const deltaZ = (screenDx - screenDy) / (2 * t);
+        const deltaZ = (mouseDx - mouseDy) / (2 * t);
         const newZ = startZ + deltaZ;
         const minZ = Math.min(verticalPipeBase.z, verticalPipeBase.p2z);
         const maxZ = Math.max(verticalPipeBase.z, verticalPipeBase.p2z);
         const clampedZ = Math.max(minZ, Math.min(maxZ, newZ));
         correctedPoint = { x: verticalPipeBase.x, y: verticalPipeBase.y, z: clampedZ };
     } else {
-        correctedPoint = { x: point.x - (zOffset * t), y: point.y + (zOffset * t), z: zOffset };
+        // Offset tabanlı hareket: başlangıç pozisyonu + mouse delta
+        const startPos = interactionManager.dragStartObjectPos || { x: point.x, y: point.y, z: zOffset };
+        correctedPoint = {
+            x: startPos.x + mouseDx - (zOffset * t) + ((startPos.z || 0) * t),
+            y: startPos.y + mouseDy + (zOffset * t) - ((startPos.z || 0) * t),
+            z: zOffset
+        };
     }
 
     // Otomatik eksen tespiti ve kilitli taşıma
-    // İlk taşımadaysa, başlangıç pozisyonunu kaydet
-    if (!interactionManager.dragStartWorldPos) {
-        let originalPoint;
-        if (obj.type === 'boru' && interactionManager.dragEndpoint) {
-            const ep = interactionManager.dragEndpoint === 'p1' ? obj.p1 : obj.p2;
-            originalPoint = { x: ep.x, y: ep.y, z: ep.z || 0 };
-        } else if (obj.x !== undefined) {
-            originalPoint = { x: obj.x, y: obj.y, z: obj.z || 0 };
-        } else {
-            originalPoint = { x: correctedPoint.x, y: correctedPoint.y, z: correctedPoint.z };
-        }
-        interactionManager.dragStartWorldPos = { ...originalPoint };
+    // dragStartWorldPos'u dragStartObjectPos'tan al (ilk kez çağrıldığında)
+    if (!interactionManager.dragStartWorldPos && interactionManager.dragStartObjectPos) {
+        interactionManager.dragStartWorldPos = { ...interactionManager.dragStartObjectPos };
     }
 
-    const dragStartPos = interactionManager.dragStartWorldPos;
+    const dragStartPos = interactionManager.dragStartWorldPos || correctedPoint;
 
     // Eksen kısıtlaması sadece 3D modda yapılmalı
     if (t > 0.1) {
