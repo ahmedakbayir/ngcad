@@ -703,6 +703,122 @@ export function findGizmoAxisAt(gizmoCenter, mousePoint, allowedAxes = ['X', 'Y'
 }
 
 /**
+ * Translate gizmo kollarına tıklama/hover kontrolü (50px kısa kollar için)
+ * Hem + hem - yönleri kontrol eder
+ * @param {Object} gizmoCenter - Gizmo merkez noktası {x, y, z}
+ * @param {Object} mousePoint - Mouse pozisyonu {x, y}
+ * @param {Array} allowedAxes - İzin verilen eksenler ['X', 'Y', 'Z']
+ * @returns {string|null} - Hover edilen eksen ('X', 'Y', 'Z') veya null
+ */
+export function findTranslateGizmoAxisAt(gizmoCenter, mousePoint, allowedAxes = ['X', 'Y', 'Z']) {
+    if (!gizmoCenter || !mousePoint) return null;
+
+    const t = state.viewBlendFactor || 0;
+
+    // 2D modda gizmo yok
+    if (t < 0.1) return null;
+
+    const zoom = state.zoom || 1;
+    const armLength = 50; // World koordinatlarında 50px
+    const hitTolerance = 12 / zoom; // Biraz daha geniş tolerans (tutulabilmesi için)
+
+    // Gizmo merkez noktasının ekran koordinatları
+    const z = gizmoCenter.z || 0;
+    const screenX = gizmoCenter.x + (z * t);
+    const screenY = gizmoCenter.y - (z * t);
+
+    // Mouse'un ekran koordinatları (zaten world space'te, ama 3D offset yok)
+    const mouseScreenX = mousePoint.x;
+    const mouseScreenY = mousePoint.y;
+
+    let closestAxis = null;
+    let closestDist = Infinity;
+
+    // X ekseni kontrolü (hem + hem - yönde)
+    if (allowedAxes.includes('X')) {
+        // + yönü (sağa)
+        const xPlusEndX = screenX + armLength;
+        const xPlusEndY = screenY;
+        const distXPlus = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            xPlusEndX, xPlusEndY
+        );
+
+        // - yönü (sola)
+        const xMinusEndX = screenX - armLength;
+        const xMinusEndY = screenY;
+        const distXMinus = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            xMinusEndX, xMinusEndY
+        );
+
+        const distX = Math.min(distXPlus, distXMinus);
+        if (distX < hitTolerance && distX < closestDist) {
+            closestDist = distX;
+            closestAxis = 'X';
+        }
+    }
+
+    // Y ekseni kontrolü (hem + hem - yönde)
+    if (allowedAxes.includes('Y')) {
+        // + yönü (aşağı)
+        const yPlusEndX = screenX;
+        const yPlusEndY = screenY + armLength;
+        const distYPlus = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            yPlusEndX, yPlusEndY
+        );
+
+        // - yönü (yukarı)
+        const yMinusEndX = screenX;
+        const yMinusEndY = screenY - armLength;
+        const distYMinus = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            yMinusEndX, yMinusEndY
+        );
+
+        const distY = Math.min(distYPlus, distYMinus);
+        if (distY < hitTolerance && distY < closestDist) {
+            closestDist = distY;
+            closestAxis = 'Y';
+        }
+    }
+
+    // Z ekseni kontrolü (hem + hem - yönde)
+    if (allowedAxes.includes('Z')) {
+        // + yönü (yukarı-sağ)
+        const zPlusEndX = screenX + (armLength * t);
+        const zPlusEndY = screenY - (armLength * t);
+        const distZPlus = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            zPlusEndX, zPlusEndY
+        );
+
+        // - yönü (aşağı-sol)
+        const zMinusEndX = screenX - (armLength * t);
+        const zMinusEndY = screenY + (armLength * t);
+        const distZMinus = pointToSegmentDistance(
+            mouseScreenX, mouseScreenY,
+            screenX, screenY,
+            zMinusEndX, zMinusEndY
+        );
+
+        const distZ = Math.min(distZPlus, distZMinus);
+        if (distZ < hitTolerance && distZ < closestDist) {
+            closestDist = distZ;
+            closestAxis = 'Z';
+        }
+    }
+
+    return closestAxis;
+}
+
+/**
  * Nokta-segment arası en kısa mesafe
  * @param {number} px - Nokta x
  * @param {number} py - Nokta y
