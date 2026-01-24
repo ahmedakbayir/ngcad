@@ -582,8 +582,8 @@ export const PreviewMixin = {
 
         ctx.save();
 
-        // Kol uzunluğu: 50px (world koordinatlarında)
-        const armLength = 50;
+        // Kol uzunluğu: 50px ekranda (zoom'a göre ayarlanır)
+        const armLength = 50 / zoom;
         const lineWidth = 1.5 / zoom;
         const arrowSize = 8 / zoom; // Ok başı boyutu
 

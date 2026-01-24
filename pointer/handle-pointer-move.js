@@ -26,44 +26,50 @@ export function handlePointerMove(e) {
 
     // Gizmo hover kontrolü (seçili nesne varsa ve sürüklenmiyorsa)
     if (this.selectedObject && !this.isDragging) {
-        let gizmoCenter = null;
-        let allowedAxes = ['X', 'Y', 'Z'];
-
         if (this.selectedObject.type === 'boru') {
-            // Endpoint seçiliyse o noktayı kullan
+            // Endpoint seçiliyse sadece o noktayı kontrol et
             if (this.selectedEndpoint) {
-                gizmoCenter = this.selectedEndpoint === 'p1' ? this.selectedObject.p1 : this.selectedObject.p2;
-                // Endpoint için tüm eksenler kullanılabilir
-                allowedAxes = ['X', 'Y', 'Z'];
+                const gizmoCenter = this.selectedEndpoint === 'p1' ? this.selectedObject.p1 : this.selectedObject.p2;
+                const allowedAxes = ['X', 'Y', 'Z']; // Endpoint için tüm eksenler kullanılabilir
+                this.hoveredGizmoAxis = findTranslateGizmoAxisAt(gizmoCenter, point, allowedAxes);
             } else {
-                // Body için merkez kullan
-                gizmoCenter = {
-                    x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
-                    y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
-                    z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
-                };
+                // Boru gövdesi seçili: merkez + p1 + p2 gizmo'larını kontrol et
 
                 // Borunun uzandığı ekseni hesapla
                 const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
                 const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
                 const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
 
+                let bodyAllowedAxes = ['X', 'Y', 'Z'];
                 if (dx > dy && dx > dz) {
-                    allowedAxes = ['Y', 'Z'];
+                    bodyAllowedAxes = ['Y', 'Z'];
                 } else if (dy > dx && dy > dz) {
-                    allowedAxes = ['X', 'Z'];
+                    bodyAllowedAxes = ['X', 'Z'];
                 } else if (dz > dx && dz > dy) {
-                    allowedAxes = ['X', 'Y'];
+                    bodyAllowedAxes = ['X', 'Y'];
                 }
+
+                // Merkez gizmo kontrolü
+                const centerPoint = {
+                    x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
+                    y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
+                    z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
+                };
+                const centerAxis = findTranslateGizmoAxisAt(centerPoint, point, bodyAllowedAxes);
+
+                // p1 gizmo kontrolü
+                const p1Axis = findTranslateGizmoAxisAt(this.selectedObject.p1, point, ['X', 'Y', 'Z']);
+
+                // p2 gizmo kontrolü
+                const p2Axis = findTranslateGizmoAxisAt(this.selectedObject.p2, point, ['X', 'Y', 'Z']);
+
+                // Herhangi biri hover edilmişse onu kullan (öncelik sırasıyla: p1, p2, center)
+                this.hoveredGizmoAxis = p1Axis || p2Axis || centerAxis;
             }
         } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
                    this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
-            gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
-        }
-
-        if (gizmoCenter) {
-            // Translate gizmo için yeni hit detection kullan (50px kısa kollar)
-            this.hoveredGizmoAxis = findTranslateGizmoAxisAt(gizmoCenter, point, allowedAxes);
+            const gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
+            this.hoveredGizmoAxis = findTranslateGizmoAxisAt(gizmoCenter, point, ['X', 'Y', 'Z']);
         } else {
             this.hoveredGizmoAxis = null;
         }
