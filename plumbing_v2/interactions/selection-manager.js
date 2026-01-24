@@ -83,6 +83,12 @@ export function selectObject(interactionManager, obj) {
         }
         interactionManager.selectedValve = null;
     }
+    // Endpoint seçimini temizle (endpoint drag haricinde)
+    // Bu, body drag veya başka nesne seçiminde endpoint bilgisini sıfırlar
+    // Endpoint drag sonrası için endDrag'da tekrar atanacak
+    if (!interactionManager.isDragging || !interactionManager.dragEndpoint) {
+        interactionManager.selectedEndpoint = null;
+    }
     interactionManager.selectedObject = obj;
     obj.isSelected = true;
 
@@ -190,6 +196,9 @@ export function deselectObject(interactionManager) {
 
         interactionManager.selectedObject = null;
     }
+    // Endpoint seçimini de temizle
+    interactionManager.selectedEndpoint = null;
+
     if (interactionManager.selectedValve) {
         // DÜZELTME: Kilitlenmeye neden olan hatalı referans düzeltildi
         if (interactionManager.selectedValve.vana) {

@@ -184,6 +184,7 @@ export function startDrag(interactionManager, obj, point) {
     interactionManager.isDragging = true;
     interactionManager.dragObject = obj;
     interactionManager.dragEndpoint = null;
+    interactionManager.selectedEndpoint = null; // Endpoint drag olmayan durumlarda endpoint seçimi yok
     interactionManager.dragStart = { ...point };
     interactionManager.selectedDragAxis = null; // Otomatik belirlenecek
     interactionManager.dragStartWorldPos = null; // Başlangıç pozisyonunu sıfırla
@@ -233,6 +234,7 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.isDragging = true;
     interactionManager.dragObject = pipe;
     interactionManager.dragEndpoint = null;
+    interactionManager.selectedEndpoint = null; // Body drag sırasında endpoint seçimi yok
     interactionManager.dragStart = { ...point };
     interactionManager.isBodyDrag = true;
     interactionManager.bodyDragInitialP1 = { ...pipe.p1 };
@@ -1260,6 +1262,7 @@ export function endDrag(interactionManager) {
 
     // Sürüklenen nesneyi seçili tut
     const draggedObject = interactionManager.dragObject;
+    const draggedEndpoint = interactionManager.dragEndpoint;
 
     interactionManager.isDragging = false;
     interactionManager.dragObject = null;
@@ -1290,6 +1293,12 @@ export function endDrag(interactionManager) {
     // Sürüklenen nesneyi seçili tut
     if (draggedObject) {
         interactionManager.selectedObject = draggedObject;
+        // Eğer endpoint sürüklenmişse, endpoint bilgisini de sakla
+        if (draggedEndpoint) {
+            interactionManager.selectedEndpoint = draggedEndpoint;
+        } else {
+            interactionManager.selectedEndpoint = null;
+        }
     }
 
     // TEMİZLİK
