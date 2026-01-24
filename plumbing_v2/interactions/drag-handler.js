@@ -453,7 +453,18 @@ export function handleDrag(interactionManager, point, event = null) {
         }
     }
     else if (obj.type === 'boru' && interactionManager.dragEndpoint) {
+        // Endpoint drag: endpoint'in Z'si
         zOffset = (interactionManager.dragEndpoint === 'p1' ? obj.p1.z : obj.p2.z) || 0;
+    }
+    else if (obj.type === 'boru' && interactionManager.isBodyDrag) {
+        // Body drag: merkez Z'yi kullan
+        zOffset = ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2;
+    }
+
+    // dragStartObjectPos varsa, z değerini oradan al (en güvenilir)
+    // Böylece drag sırasında obj.p1.z/p2.z değişse bile tutarlı offset korunur
+    if (interactionManager.dragStartObjectPos && interactionManager.dragStartObjectPos.z !== undefined) {
+        zOffset = interactionManager.dragStartObjectPos.z;
     }
 
     // Mouse'un dragStart'tan farkını hesapla (offset korunması için)
@@ -472,10 +483,15 @@ export function handleDrag(interactionManager, point, event = null) {
     } else {
         // Offset tabanlı hareket: başlangıç pozisyonu + mouse delta
         const startPos = interactionManager.dragStartObjectPos || { x: point.x, y: point.y, z: zOffset };
+
+        // Mouse hareketi dünya koordinatlarına dönüştür
+        // point zaten screenToWorld ile dönüştürülmüş, ama 3D offset içermiyor
+        // dragStart da aynı şekilde
+        // Bu yüzden mouseDx/mouseDy doğrudan world space delta
         correctedPoint = {
-            x: startPos.x + mouseDx - (zOffset * t) + ((startPos.z || 0) * t),
-            y: startPos.y + mouseDy + (zOffset * t) - ((startPos.z || 0) * t),
-            z: zOffset
+            x: startPos.x + mouseDx,
+            y: startPos.y + mouseDy,
+            z: startPos.z || 0
         };
     }
 
