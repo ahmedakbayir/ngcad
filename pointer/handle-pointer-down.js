@@ -274,6 +274,7 @@ export function handlePointerDown(e) {
                 }
 
                 this.selectObject(pipe);
+                this.selectedEndpoint = boruUcu.uc; // Endpoint bilgisini kaydet
                 this.startEndpointDrag(pipe, boruUcu.uc, point);
                 return true;
             }
