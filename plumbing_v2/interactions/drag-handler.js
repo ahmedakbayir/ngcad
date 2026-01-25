@@ -1110,6 +1110,10 @@ export function handleDrag(interactionManager, point, event = null) {
                 ...(interactionManager.connectedPipesAtP2 || [])
             ];
 
+            let shouldSnapX = false;
+            let shouldSnapY = false;
+            let shouldSnapZ = false;
+
             allConnections.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
                 // Bağlı borunun vektörünü hesapla
                 const otherEnd = connectedEndpoint === 'p1' ? connectedPipe.p2 : connectedPipe.p1;
@@ -1140,36 +1144,28 @@ export function handleDrag(interactionManager, point, event = null) {
                 const dz = (otherEnd.z || 0) - (newConnectedPoint.z || 0);
 
                 // Drag eksenine göre dik kontrolü
-                let isPerpendicular = false;
-                let snapOffset = 0;
-
                 if (dragAxis === 'X') {
                     // X ekseninde taşıma -> bağlı kol X'e dik olmalı (dx ≈ 0)
                     if (Math.abs(dx) < PERPENDICULAR_SNAP_TOLERANCE) {
-                        isPerpendicular = true;
-                        snapOffset = -deltaX; // X offset'i sıfırla ki tam dik olsun
+                        shouldSnapX = true;
                     }
                 } else if (dragAxis === 'Y') {
                     // Y ekseninde taşıma -> bağlı kol Y'ye dik olmalı (dy ≈ 0)
                     if (Math.abs(dy) < PERPENDICULAR_SNAP_TOLERANCE) {
-                        isPerpendicular = true;
-                        snapOffset = -deltaY; // Y offset'i sıfırla ki tam dik olsun
+                        shouldSnapY = true;
                     }
                 } else if (dragAxis === 'Z') {
                     // Z ekseninde taşıma -> bağlı kol Z'ye dik olmalı (dz ≈ 0)
                     if (Math.abs(dz) < PERPENDICULAR_SNAP_TOLERANCE) {
-                        isPerpendicular = true;
-                        snapOffset = -deltaZ; // Z offset'i sıfırla ki tam dik olsun
+                        shouldSnapZ = true;
                     }
                 }
-
-                // Snap uygula
-                if (isPerpendicular) {
-                    if (dragAxis === 'X') offsetX += snapOffset;
-                    else if (dragAxis === 'Y') offsetY += snapOffset;
-                    else if (dragAxis === 'Z') offsetZ += snapOffset;
-                }
             });
+
+            // Snap uygula (sadece bir kere)
+            if (shouldSnapX) offsetX = 0;
+            if (shouldSnapY) offsetY = 0;
+            if (shouldSnapZ) offsetZ = 0;
         }
 
         // --- BORU ZİNCİRİ TAŞIMA (DÜŞEY VE YATAY) ---
