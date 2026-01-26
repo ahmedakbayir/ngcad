@@ -20,11 +20,11 @@ export function setupFileIOListeners() {
  * Canvas'a sürükle-bırak desteği ekle
  */
 function setupDragAndDrop() {
-    const canvas = dom.canvas;
+    const dropZone = dom.mainContainer;
 
     // Sürükleme sırasında varsayılan davranışı engelle
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        canvas.addEventListener(eventName, preventDefaults, false);
+        dropZone.addEventListener(eventName, preventDefaults, false);
         document.body.addEventListener(eventName, preventDefaults, false);
     });
 
@@ -35,25 +35,25 @@ function setupDragAndDrop() {
 
     // Sürüklerken görsel feedback
     ['dragenter', 'dragover'].forEach(eventName => {
-        canvas.addEventListener(eventName, highlight, false);
+        dropZone.addEventListener(eventName, highlight, false);
     });
 
     ['dragleave', 'drop'].forEach(eventName => {
-        canvas.addEventListener(eventName, unhighlight, false);
+        dropZone.addEventListener(eventName, unhighlight, false);
     });
 
     function highlight() {
-        canvas.style.opacity = '0.7';
-        canvas.style.border = '3px dashed #4CAF50';
+        dropZone.style.opacity = '0.7';
+        dropZone.style.border = '3px dashed #4CAF50';
     }
 
     function unhighlight() {
-        canvas.style.opacity = '1';
-        canvas.style.border = '';
+        dropZone.style.opacity = '1';
+        dropZone.style.border = '';
     }
 
     // Dosya bırakıldığında
-    canvas.addEventListener('drop', handleDrop, false);
+    dropZone.addEventListener('drop', handleDrop, false);
 
     function handleDrop(e) {
         const dt = e.dataTransfer;
