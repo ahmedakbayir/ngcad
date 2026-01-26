@@ -11,6 +11,88 @@ export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', saveProject);
     dom.bOpen.addEventListener('click', () => dom.fileInput.click());
     dom.fileInput.addEventListener('change', openProject);
+
+    // Sürükle-bırak desteği ekle
+    setupDragAndDrop();
+}
+
+/**
+ * Canvas'a sürükle-bırak desteği ekle
+ */
+function setupDragAndDrop() {
+    const canvas = dom.canvas;
+
+    // Sürükleme sırasında varsayılan davranışı engelle
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        canvas.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Sürüklerken görsel feedback
+    ['dragenter', 'dragover'].forEach(eventName => {
+        canvas.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        canvas.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+        canvas.style.opacity = '0.7';
+        canvas.style.border = '3px dashed #4CAF50';
+    }
+
+    function unhighlight() {
+        canvas.style.opacity = '1';
+        canvas.style.border = '';
+    }
+
+    // Dosya bırakıldığında
+    canvas.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+            const file = files[0];
+            const fileName = file.name.toLowerCase();
+
+            // Sadece desteklenen dosya formatlarını kabul et
+            if (fileName.endsWith('.xml') || fileName.endsWith('.json') || fileName.endsWith('.vdcl')) {
+                // FileReader ile dosyayı oku ve openProject benzeri işle
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const fileContent = event.target.result;
+
+                    try {
+                        if (fileName.endsWith('.xml')) {
+                            console.log("XML dosyası sürükle-bırak ile yükleniyor...");
+                            importFromXML(fileContent);
+                        } else if (fileName.endsWith('.json')) {
+                            console.log("JSON dosyası sürükle-bırak ile yükleniyor...");
+                            // JSON yükleme mantığı - openProject fonksiyonundan kopyala
+                            loadJSONProject(fileContent);
+                        } else if (fileName.endsWith('.vdcl')) {
+                            alert("HATA: .vdcl dosyası sıkıştırılmış bir dosyadır.\n\nLütfen bu dosyayı 7zip veya WinRAR gibi bir programla açıp içindeki .xml dosyasını çıkarın ve o dosyayı sürükleyip bırakın.");
+                        }
+                    } catch (error) {
+                        console.error('Dosya yükleme hatası:', error);
+                        alert('Dosya yüklenirken bir hata oluştu! Hata: ' + error.message);
+                    }
+                };
+
+                reader.readAsText(file);
+            } else {
+                alert("Desteklenmeyen dosya formatı: " + fileName + "\n\nSadece .xml, .json veya .vdcl dosyaları desteklenmektedir.");
+            }
+        }
+    }
 }
 
 function saveProject() {
@@ -96,6 +178,168 @@ function saveProject() {
     URL.revokeObjectURL(url);
 }
 
+/**
+ * JSON proje dosyasını yükle (openProject ve drag-and-drop için ortak fonksiyon)
+ */
+function loadJSONProject(fileContent) {
+    const projectData = JSON.parse(fileContent);
+
+    if (!projectData.version || !projectData.nodes || !projectData.walls) {
+        alert('Geçersiz proje dosyası formatı!');
+        return;
+    }
+
+    // Ayarları geri yükle
+    if (projectData.gridOptions) {
+        setState({ gridOptions: projectData.gridOptions });
+        dom.gridVisibleInput.checked = projectData.gridOptions.visible;
+        dom.gridColorInput.value = projectData.gridOptions.color;
+        dom.gridWeightInput.value = projectData.gridOptions.weight;
+        dom.gridSpaceInput.value = projectData.gridOptions.spacing;
+    }
+
+    if (projectData.snapOptions) {
+        setState({ snapOptions: projectData.snapOptions });
+        dom.snapEndpointInput.checked = projectData.snapOptions.endpoint;
+        dom.snapMidpointInput.checked = projectData.snapOptions.midpoint;
+        dom.snapEndpointExtInput.checked = projectData.snapOptions.endpointExtension;
+        dom.snapMidpointExtInput.checked = projectData.snapOptions.midpointExtension;
+        dom.snapNearestOnlyInput.checked = projectData.snapOptions.nearestOnly;
+    }
+
+    if (projectData.dimensionOptions) {
+        setState({ dimensionOptions: projectData.dimensionOptions });
+        dom.dimensionFontSizeInput.value = projectData.dimensionOptions.fontSize;
+        dom.dimensionColorInput.value = projectData.dimensionOptions.color;
+        dom.dimensionDefaultViewSelect.value = projectData.dimensionOptions.defaultView;
+        dom.dimensionShowAreaSelect.value = projectData.dimensionOptions.showArea;
+        dom.dimensionShowOuterSelect.value = projectData.dimensionOptions.showOuter;
+    }
+
+    if (projectData.wallBorderColor) {
+        setState({ wallBorderColor: projectData.wallBorderColor });
+        dom.borderPicker.value = projectData.wallBorderColor;
+    }
+
+    if (projectData.roomFillColor) {
+        setState({ roomFillColor: projectData.roomFillColor });
+        dom.roomPicker.value = projectData.roomFillColor;
+    }
+
+    if (projectData.lineThickness) {
+        setState({ lineThickness: projectData.lineThickness });
+        dom.lineThicknessInput.value = projectData.lineThickness;
+    }
+
+    if (projectData.wallThickness) {
+        setState({ wallThickness: projectData.wallThickness });
+        dom.wallThicknessInput.value = projectData.wallThickness;
+    }
+    if (projectData.drawingAngle) {
+        setState({ drawingAngle: projectData.drawingAngle });
+        dom.drawingAngleInput.value = projectData.drawingAngle;
+    }
+
+    // Node'ları geri yükle
+    const restoredNodes = projectData.nodes.map(n => ({
+        x: n.x,
+        y: n.y,
+        isColumn: n.isColumn || false,
+        columnSize: n.columnSize || 30
+    }));
+
+    // Duvarları geri yükle
+    const restoredWalls = projectData.walls.map(w => ({
+        type: w.type || 'wall',
+        p1: restoredNodes[w.p1Index],
+        p2: restoredNodes[w.p2Index],
+        thickness: w.thickness || 20,
+        wallType: w.wallType || 'normal',
+        windows: w.windows || [],
+        vents: w.vents || [],
+        isArc: w.isArc,
+        arcControl1: w.arcControl1,
+        arcControl2: w.arcControl2,
+        floorId: w.floorId // floorId geri yükle
+    }));
+
+    // Kapıları geri yükle
+    const restoredDoors = projectData.doors.map(d => ({
+        wall: restoredWalls[d.wallIndex],
+        pos: d.pos,
+        width: d.width,
+        type: d.type || 'door',
+        isWidthManuallySet: d.isWidthManuallySet
+    }));
+
+    // Odaları geri yükle
+    const restoredRooms = projectData.rooms.map(r => ({
+        polygon: r.polygon,
+        area: r.area,
+        center: r.center,
+        name: r.name,
+        centerOffset: r.centerOffset,
+        floorId: r.floorId
+    }));
+
+    // Kolonları, Kirişleri ve Merdivenleri geri yükle
+    const restoredColumns = projectData.columns || [];
+    const restoredBeams = projectData.beams || [];
+    const restoredStairs = (projectData.stairs || []).map(s => ({
+         type: s.type || 'stairs',
+         id: s.id || `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+         name: s.name || 'Merdiven',
+         center: s.center,
+         width: s.width,
+         height: s.height,
+         rotation: s.rotation,
+         stepCount: s.stepCount || 1,
+         bottomElevation: s.bottomElevation || 0,
+         topElevation: s.topElevation || 270,
+         connectedStairId: s.connectedStairId || null,
+         isLanding: s.isLanding || false,
+         showRailing: s.showRailing || false,
+         floorId: s.floorId // <-- DÜZELTME: Kat bilgisi geri yükleniyor
+    }));
+    const restoredGuides = projectData.guides || [];
+
+    // Katları geri yükle
+    const restoredFloors = projectData.floors || [];
+    const restoredCurrentFloor = projectData.currentFloor ?
+        restoredFloors.find(f => f.id === projectData.currentFloor.id) : null;
+    const restoredDefaultFloorHeight = projectData.defaultFloorHeight || 270;
+
+    // State'i güncelle
+    setState({
+        nodes: restoredNodes,
+        walls: restoredWalls,
+        doors: restoredDoors,
+        rooms: restoredRooms,
+        columns: restoredColumns,
+        beams: restoredBeams,
+        stairs: restoredStairs,
+        guides: restoredGuides,
+        floors: restoredFloors,
+        currentFloor: restoredCurrentFloor,
+        defaultFloorHeight: restoredDefaultFloorHeight,
+        selectedObject: null,
+        selectedGroup: [],
+        startPoint: null
+    });
+
+    // Kat panelini güncelle
+    if (restoredFloors.length > 0) {
+        renderMiniPanel();
+    }
+
+    // Duvarları işle ve history'ye kaydet - TÜM KATLARI İŞLE
+    processWalls(false, false, true);
+    saveState();
+
+    console.log('JSON Proje başarıyla yüklendi!');
+
+}
+
 // --- BU FONKSİYON GÜNCELLENDİ ---
 function openProject(e) {
     const file = e.target.files[0];
@@ -111,171 +355,17 @@ function openProject(e) {
             if (fileName.endsWith('.xml')) {
                 console.log("XML dosyası okunuyor...");
                 // XML import fonksiyonunu (xml-io.js'den) çağır
-                importFromXML(fileContent); // <-- HATA BURADAYDI (Satır 107)
+                importFromXML(fileContent);
 
             } else if (fileName.endsWith('.json')) {
                 console.log("JSON dosyası okunuyor...");
-                // Mevcut JSON yükleme mantığı
-                const projectData = JSON.parse(fileContent);
-
-                if (!projectData.version || !projectData.nodes || !projectData.walls) {
-                    alert('Geçersiz proje dosyası formatı!');
-                    return;
-                }
-                
-                // Ayarları geri yükle
-                if (projectData.gridOptions) {
-                    setState({ gridOptions: projectData.gridOptions });
-                    dom.gridVisibleInput.checked = projectData.gridOptions.visible;
-                    dom.gridColorInput.value = projectData.gridOptions.color;
-                    dom.gridWeightInput.value = projectData.gridOptions.weight;
-                    dom.gridSpaceInput.value = projectData.gridOptions.spacing;
-                }
-
-                if (projectData.snapOptions) {
-                    setState({ snapOptions: projectData.snapOptions });
-                    dom.snapEndpointInput.checked = projectData.snapOptions.endpoint;
-                    dom.snapMidpointInput.checked = projectData.snapOptions.midpoint;
-                    dom.snapEndpointExtInput.checked = projectData.snapOptions.endpointExtension;
-                    dom.snapMidpointExtInput.checked = projectData.snapOptions.midpointExtension;
-                    dom.snapNearestOnlyInput.checked = projectData.snapOptions.nearestOnly;
-                }
-                
-                if (projectData.dimensionOptions) {
-                    setState({ dimensionOptions: projectData.dimensionOptions });
-                    dom.dimensionFontSizeInput.value = projectData.dimensionOptions.fontSize;
-                    dom.dimensionColorInput.value = projectData.dimensionOptions.color;
-                    dom.dimensionDefaultViewSelect.value = projectData.dimensionOptions.defaultView;
-                    dom.dimensionShowAreaSelect.value = projectData.dimensionOptions.showArea;
-                    dom.dimensionShowOuterSelect.value = projectData.dimensionOptions.showOuter;
-                }
-
-                if (projectData.wallBorderColor) {
-                    setState({ wallBorderColor: projectData.wallBorderColor });
-                    dom.borderPicker.value = projectData.wallBorderColor;
-                }
-
-                if (projectData.roomFillColor) {
-                    setState({ roomFillColor: projectData.roomFillColor });
-                    dom.roomPicker.value = projectData.roomFillColor;
-                }
-
-                if (projectData.lineThickness) {
-                    setState({ lineThickness: projectData.lineThickness });
-                    dom.lineThicknessInput.value = projectData.lineThickness;
-                }
-
-                if (projectData.wallThickness) {
-                    setState({ wallThickness: projectData.wallThickness });
-                    dom.wallThicknessInput.value = projectData.wallThickness;
-                }
-                if (projectData.drawingAngle) {
-                    setState({ drawingAngle: projectData.drawingAngle });
-                    dom.drawingAngleInput.value = projectData.drawingAngle;
-                }
-
-                // Node'ları geri yükle
-                const restoredNodes = projectData.nodes.map(n => ({
-                    x: n.x,
-                    y: n.y,
-                    isColumn: n.isColumn || false,
-                    columnSize: n.columnSize || 30
-                }));
-
-                // Duvarları geri yükle
-                const restoredWalls = projectData.walls.map(w => ({
-                    type: w.type || 'wall',
-                    p1: restoredNodes[w.p1Index],
-                    p2: restoredNodes[w.p2Index],
-                    thickness: w.thickness || 20,
-                    wallType: w.wallType || 'normal',
-                    windows: w.windows || [],
-                    vents: w.vents || [],
-                    isArc: w.isArc,
-                    arcControl1: w.arcControl1,
-                    arcControl2: w.arcControl2,
-                    floorId: w.floorId // floorId geri yükle
-                }));
-
-                // Kapıları geri yükle
-                const restoredDoors = projectData.doors.map(d => ({
-                    wall: restoredWalls[d.wallIndex],
-                    pos: d.pos,
-                    width: d.width,
-                    type: d.type || 'door',
-                    isWidthManuallySet: d.isWidthManuallySet
-                }));
-
-                // Odaları geri yükle
-                const restoredRooms = projectData.rooms.map(r => ({
-                    polygon: r.polygon,
-                    area: r.area,
-                    center: r.center,
-                    name: r.name,
-                    centerOffset: r.centerOffset,
-                    floorId: r.floorId
-                }));
-
-                // Kolonları, Kirişleri ve Merdivenleri geri yükle
-                const restoredColumns = projectData.columns || [];
-                const restoredBeams = projectData.beams || [];
-                const restoredStairs = (projectData.stairs || []).map(s => ({
-                     type: s.type || 'stairs',
-                     id: s.id || `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-                     name: s.name || 'Merdiven',
-                     center: s.center,
-                     width: s.width,
-                     height: s.height,
-                     rotation: s.rotation,
-                     stepCount: s.stepCount || 1,
-                     bottomElevation: s.bottomElevation || 0,
-                     topElevation: s.topElevation || 270,
-                     connectedStairId: s.connectedStairId || null,
-                     isLanding: s.isLanding || false,
-                     showRailing: s.showRailing || false,
-                     floorId: s.floorId // <-- DÜZELTME: Kat bilgisi geri yükleniyor
-                }));
-                const restoredGuides = projectData.guides || [];
-
-                // Katları geri yükle
-                const restoredFloors = projectData.floors || [];
-                const restoredCurrentFloor = projectData.currentFloor ?
-                    restoredFloors.find(f => f.id === projectData.currentFloor.id) : null;
-                const restoredDefaultFloorHeight = projectData.defaultFloorHeight || 270;
-
-                // State'i güncelle
-                setState({
-                    nodes: restoredNodes,
-                    walls: restoredWalls,
-                    doors: restoredDoors,
-                    rooms: restoredRooms,
-                    columns: restoredColumns,
-                    beams: restoredBeams,
-                    stairs: restoredStairs,
-                    guides: restoredGuides,
-                    floors: restoredFloors,
-                    currentFloor: restoredCurrentFloor,
-                    defaultFloorHeight: restoredDefaultFloorHeight,
-                    selectedObject: null,
-                    selectedGroup: [],
-                    startPoint: null
-                });
-
-                // Kat panelini güncelle
-                if (restoredFloors.length > 0) {
-                    renderMiniPanel();
-                }
-
-                // Duvarları işle ve history'ye kaydet - TÜM KATLARI İŞLE
-                processWalls(false, false, true);
-                saveState();
-
-                console.log('JSON Proje başarıyla yüklendi!');
+                // JSON yükleme fonksiyonunu çağır
+                loadJSONProject(fileContent);
 
             } else if (fileName.endsWith('.vdcl')) {
                 // KULLANICIYA UYARI VER
-                alert("HATA: .vdcl dosyası sıkıştırılmış bir dosyadır.\n\Lütfen bu dosyayı 7zip veya WinRAR gibi bir programla açıp içindeki .xml dosyasını çıkarın ve o dosyayı 'Aç' butonuyla seçin.");
-            
+                alert("HATA: .vdcl dosyası sıkıştırılmış bir dosyadır.\n\nLütfen bu dosyayı 7zip veya WinRAR gibi bir programla açıp içindeki .xml dosyasını çıkarın ve o dosyayı 'Aç' butonuyla seçin.");
+
             } else {
                 alert("Desteklenmeyen dosya formatı: " + fileName);
             }
