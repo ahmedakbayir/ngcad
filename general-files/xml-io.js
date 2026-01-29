@@ -563,29 +563,46 @@ export function importFromXML(xmlString) {
                 const rotationRad = parseFloat(rotationEl.getAttribute('V'));
                 const rotationDeg = rotationRad * (180 / Math.PI);
 
-                // DÜZELTME: Rotation'ı OLDUĞU GİBİ kullan
-                // Y-eksen terslemesi sadece Y koordinatını etkiler, rotation'ı ETKİLEMEZ
+                // DÜZELTME: InsertionPoint merkez DEĞİL, köşe noktası
+                // InsertionPoint'ten merkez koordinatına dönüştürme:
+                // 1. InsertionPoint yerel koordinat sisteminde (rotation=0)
+                // 2. Merkez offset = (width/2, height/2)
+                // 3. Bu offset'i rotation kadar döndür
+                // 4. InsertionPoint + rotated offset = gerçek merkez
+                //
                 // createBeam: (centerX, centerY, width=length, height=thickness, rotation)
-                //
-                // XML mapping:
-                // - Width: X yönünde uzunluk (yatay)
-                // - Height: Y yönünde kalınlık (dikey)
-                //
-                // Koordinat dönüşümü:
-                // 1. Y koordinatını negatif yap (eksen terslemesi)
-                // 2. Rotation'ı OLDUĞU GİBİ kullan (eksen terslemesi rotation'ı etkilemez)
+
+                const insertionX = centerCoords[0] * SCALE;
+                const insertionY = -centerCoords[1] * SCALE;
+
+                // Merkez offset'i hesapla (local koordinatlarda)
+                const halfWidth = width_xml / 2;
+                const halfHeight = height_xml / 2;
+
+                // Rotation uygula (InsertionPoint'ten merkeze giden vektörü döndür)
+                const cos = Math.cos(rotationRad);
+                const sin = Math.sin(rotationRad);
+
+                // Rotated offset
+                const offsetX = halfWidth * cos - halfHeight * sin;
+                const offsetY = halfWidth * sin + halfHeight * cos;
+
+                // Gerçek merkez = InsertionPoint + rotated offset
+                const centerX = insertionX + offsetX;
+                const centerY = insertionY - offsetY; // Y-eksen ters olduğu için -offsetY
+
                 const newBeam = createBeam(
-                    centerCoords[0] * SCALE,
-                    -centerCoords[1] * SCALE,
+                    centerX,
+                    centerY,
                     width_xml,    // length (XML Width)
                     height_xml,   // thickness (XML Height)
-                    rotationDeg   // DÜZELTME: Rotation negatif YAPMA!
+                    rotationDeg   // Rotation
                 );
 
                 if (!state.beams) state.beams = [];
                 state.beams.push(newBeam);
 
-                console.log(`    -> Kiriş eklendi: merkez=(${(centerCoords[0] * SCALE).toFixed(2)}, ${(-centerCoords[1] * SCALE).toFixed(2)}), length=${width_xml.toFixed(1)}, thickness=${height_xml.toFixed(1)}, rotation=${rotationDeg.toFixed(1)}°`);
+                console.log(`    -> Kiriş eklendi: insertion=(${insertionX.toFixed(2)}, ${insertionY.toFixed(2)}), merkez=(${centerX.toFixed(2)}, ${centerY.toFixed(2)}), length=${width_xml.toFixed(1)}, thickness=${height_xml.toFixed(1)}, rotation=${rotationDeg.toFixed(1)}°`);
             }
         } catch (e) {
             console.error("Kiriş işlenirken hata:", e, kirisEl);
@@ -1371,6 +1388,13 @@ export function importFromXML(xmlString) {
     // Duvarları process et ama room detection'ı skip et (room'lar XML'den geldi)
     console.log("\nprocessWalls çağrılıyor (skipRoomDetection=true, processAllFloors=true)...");
     processWalls(false, true, true); // skipMerge=false, skipRoomDetection=true, processAllFloors=true
+
+    // DÜZELTME: Mahal isimlerini otomatik olarak göster (XML yüklendiğinde)
+    if (!state.tempVisibility) {
+        state.tempVisibility = {};
+    }
+    state.tempVisibility.showRoomNames = true;
+    console.log("Mahal isimleri otomatik olarak aktif edildi (showRoomNames=true)");
 
     saveState();
 
