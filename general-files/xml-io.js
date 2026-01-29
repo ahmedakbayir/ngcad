@@ -563,26 +563,28 @@ export function importFromXML(xmlString) {
                 const rotationRad = parseFloat(rotationEl.getAttribute('V'));
                 const rotationDeg = rotationRad * (180 / Math.PI);
 
-                // DÜZELTME: Y eksenini ters çevir
-                // createBeam fonksiyonumuz: (centerX, centerY, length, thickness, rotation)
-                // XML'deki Width ve Height'ın doğru mapping'i:
-                // - Width: Kiriş kalınlığı (thickness)
-                // - Height: Kiriş uzunluğu (length)
-
-                // Y-ekseni ters çevrildiği için Y koordinatını negatif yap
-                // Rotation'ı da Y-eksen terslemesi nedeniyle ayarla
+                // DÜZELTME: Y ekseni ters çevrildiği için hem koordinat hem rotation ayarlanmalı
+                // createBeam: (centerX, centerY, width=length, height=thickness, rotation)
+                //
+                // XML'deki mapping'i doğru anlamak için:
+                // - Width: Kiriş uzunluğu (X yönünde)
+                // - Height: Kiriş kalınlığı (Y yönünde)
+                //
+                // Y-ekseni ters çevrildiği için:
+                // 1. Y koordinatını negatif yap
+                // 2. Rotation'ı negatif yap (ayna etkisi için)
                 const newBeam = createBeam(
                     centerCoords[0] * SCALE,
                     -centerCoords[1] * SCALE,
-                    height_xml,  // length (XML Height)
-                    width_xml,   // thickness (XML Width)
-                    rotationDeg  // DÜZELTME: Rotasyonu olduğu gibi kullan (negation kaldırıldı)
+                    width_xml,    // length (XML Width)
+                    height_xml,   // thickness (XML Height)
+                    -rotationDeg  // Y-eksen terslemesi için rotation'ı da tersle
                 );
 
                 if (!state.beams) state.beams = [];
                 state.beams.push(newBeam);
 
-                console.log(`    -> Kiriş eklendi: merkez=(${(centerCoords[0] * SCALE).toFixed(2)}, ${(-centerCoords[1] * SCALE).toFixed(2)}), rotation=${rotationDeg.toFixed(1)}°`);
+                console.log(`    -> Kiriş eklendi: merkez=(${(centerCoords[0] * SCALE).toFixed(2)}, ${(-centerCoords[1] * SCALE).toFixed(2)}), length=${width_xml.toFixed(1)}, thickness=${height_xml.toFixed(1)}, rotation=${(-rotationDeg).toFixed(1)}°`);
             }
         } catch (e) {
             console.error("Kiriş işlenirken hata:", e, kirisEl);
@@ -725,6 +727,75 @@ export function importFromXML(xmlString) {
                 const girisBoru = findClosestPipeEnd(girisPoint, state.plumbingPipes);
                 const cikisBoru = findClosestPipeEnd(cikisPoint, state.plumbingPipes);
 
+                // DÜZELTME: Sayaç girişine fleks segment ekle (tıpkı çıkış segment gibi)
+                let girisBoruId = null;
+                if (girisBoru) {
+                    // Sayaç giriş noktasından boru ucuna doğru kısa bir fleks segment ekle
+                    const girisFleksUzunluk = 30; // 30cm fleks segment
+
+                    // Yön vektörü hesapla: sayaç giriş noktasından boru ucuna doğru
+                    const boruUcu = girisBoru.end === 'p1' ? girisBoru.pipe.p1 : girisBoru.pipe.p2;
+                    const dx = boruUcu.x - girisPoint.x;
+                    const dy = boruUcu.y - girisPoint.y;
+                    const distance = Math.hypot(dx, dy);
+
+                    if (distance > 0.1) {
+                        // Normalize edilmiş yön vektörü
+                        const nx = dx / distance;
+                        const ny = dy / distance;
+
+                        // Fleks segment bitiş noktası (boru ucuna doğru)
+                        const girisFleksP2 = {
+                            x: girisPoint.x + nx * Math.min(girisFleksUzunluk, distance),
+                            y: girisPoint.y + ny * Math.min(girisFleksUzunluk, distance),
+                            z: girisPoint.z
+                        };
+
+                        // Fleks segment borusu oluştur (esnek tip)
+                        const girisFleksBoru = {
+                            id: `boru_sayac_giris_fleks_${idx}_${Date.now()}`,
+                            type: 'boru',
+                            boruTipi: 'FLEKS', // Esnek boru
+                            p1: { ...girisPoint },
+                            p2: girisFleksP2,
+                            colorGroup: 'YELLOW',
+                            floorId: state.currentFloor?.id,
+                            baslangicBaglanti: {
+                                tip: 'sayac',
+                                hedefId: null, // Sayaç ID'si sonra eklenecek
+                                baglananNokta: 'giris'
+                            },
+                            bitisBaglanti: {
+                                tip: 'boru',
+                                hedefId: girisBoru.pipe.id,
+                                noktaIndex: girisBoru.end
+                            },
+                            uzerindekiElemanlar: [],
+                            tBaglantilar: []
+                        };
+
+                        state.plumbingPipes.push(girisFleksBoru);
+                        girisBoruId = girisFleksBoru.id;
+
+                        // Giriş borusunun bağlantısını güncelle (orijinal boru fleks segment'e bağlan)
+                        if (girisBoru.end === 'p1') {
+                            girisBoru.pipe.baslangicBaglanti = {
+                                tip: 'boru',
+                                hedefId: girisFleksBoru.id,
+                                noktaIndex: 'p2'
+                            };
+                        } else {
+                            girisBoru.pipe.bitisBaglanti = {
+                                tip: 'boru',
+                                hedefId: girisFleksBoru.id,
+                                noktaIndex: 'p2'
+                            };
+                        }
+
+                        console.log(`    -> Sayaç giriş fleks segment eklendi: ${girisFleksUzunluk}cm fleks`);
+                    }
+                }
+
                 // DÜZELTME: Sayaç çıkışına kısa bir rijit boru parçası ekle (sayaç çıkış parçası)
                 // Eğer çıkış borusu varsa, araya çıkış parçası ekle
                 let cikisBoruId = null;
@@ -805,11 +876,11 @@ export function importFromXML(xmlString) {
                     rotation: 0,
                     floorId: state.currentFloor?.id,
                     fleksBaglanti: {
-                        boruId: girisBoru ? girisBoru.pipe.id : null,
-                        endpoint: girisBoru ? girisBoru.end : null,
-                        uzunluk: 30 // Varsayılan fleks uzunluğu
+                        boruId: girisBoruId, // Fleks segment ID'si
+                        endpoint: 'p1', // Fleks segment'in başı (p1) sayaca bağlı
+                        uzunluk: 30 // Fleks uzunluğu
                     },
-                    cikisBagliBoruId: cikisBoruId, // Çıkış segmenti veya null
+                    cikisBagliBoruId: cikisBoruId, // Çıkış segmenti ID'si
                     iliskiliVanaId: null
                 };
 
@@ -821,22 +892,13 @@ export function importFromXML(xmlString) {
                     }
                 }
 
-                // Giriş borusunun sayaca bağlantısını kur
-                if (girisBoru) {
-                    if (girisBoru.end === 'p1') {
-                        girisBoru.pipe.baslangicBaglanti = {
-                            tip: 'sayac',
-                            hedefId: sayacData.id,
-                            baglananNokta: 'giris' // Giriş noktasına bağlanıyor
-                        };
-                    } else {
-                        girisBoru.pipe.bitisBaglanti = {
-                            tip: 'sayac',
-                            hedefId: sayacData.id,
-                            baglananNokta: 'giris'
-                        };
+                // Giriş fleks segment'in sayaç ID'sini güncelle
+                if (girisBoruId) {
+                    const girisFleksSegment = state.plumbingPipes.find(p => p.id === girisBoruId);
+                    if (girisFleksSegment) {
+                        girisFleksSegment.baslangicBaglanti.hedefId = sayacData.id;
                     }
-                    console.log(`    -> Giriş borusu bağlandı: ${girisBoru.pipe.id.substring(0, 20)}... (${girisBoru.end}, mesafe: ${girisBoru.distance.toFixed(2)})`);
+                    console.log(`    -> Giriş fleks segment sayaca bağlandı: ${girisBoruId.substring(0, 20)}...`);
                 }
 
                 state.plumbingBlocks.push(sayacData);
@@ -933,7 +995,7 @@ export function importFromXML(xmlString) {
                 // En yakın boru ucunu bul
                 const yakinBoru = findClosestPipeEnd(xmlCihazPoint, state.plumbingPipes, 50);
 
-                // DÜZELTME: Cihazı boru ucundan 20-30 cm uzaklaştır
+                // DÜZELTME: Cihazı DAIMA boru ucundan 25cm uzağa yerleştir
                 let cihazPoint = { ...xmlCihazPoint };
                 if (yakinBoru) {
                     // Boru ucundan cihaza doğru vektör
@@ -942,18 +1004,18 @@ export function importFromXML(xmlString) {
                     const dy = xmlCihazPoint.y - boruUcu.y;
                     const distance = Math.hypot(dx, dy);
 
-                    // Eğer cihaz boru ucuna çok yakınsa (30cm'den yakınsa), 25cm uzaklaştır
-                    const minDistance = 25; // cm
-                    if (distance < minDistance && distance > 0.1) {
+                    const targetDistance = 25; // cm - cihaz boru ucundan bu kadar uzakta olmalı
+
+                    if (distance > 0.1) {
                         // Normalize edilmiş yön vektörü
                         const nx = dx / distance;
                         const ny = dy / distance;
 
-                        // Cihazı boru ucundan minDistance kadar uzağa yerleştir
-                        cihazPoint.x = boruUcu.x + nx * minDistance;
-                        cihazPoint.y = boruUcu.y + ny * minDistance;
+                        // Cihazı boru ucundan targetDistance kadar uzağa yerleştir
+                        cihazPoint.x = boruUcu.x + nx * targetDistance;
+                        cihazPoint.y = boruUcu.y + ny * targetDistance;
 
-                        console.log(`    -> Kombi boru ucundan ${minDistance}cm uzaklaştırıldı`);
+                        console.log(`    -> Kombi boru ucundan ${targetDistance}cm uzağa yerleştirildi (orijinal mesafe: ${distance.toFixed(2)}cm)`);
                     }
                 }
 
@@ -1058,7 +1120,7 @@ export function importFromXML(xmlString) {
                 // En yakın boru ucunu bul
                 const yakinBoru = findClosestPipeEnd(xmlCihazPoint, state.plumbingPipes, 50);
 
-                // DÜZELTME: Cihazı boru ucundan 20-30 cm uzaklaştır
+                // DÜZELTME: Cihazı DAIMA boru ucundan 25cm uzağa yerleştir
                 let cihazPoint = { ...xmlCihazPoint };
                 if (yakinBoru) {
                     // Boru ucundan cihaza doğru vektör
@@ -1067,18 +1129,18 @@ export function importFromXML(xmlString) {
                     const dy = xmlCihazPoint.y - boruUcu.y;
                     const distance = Math.hypot(dx, dy);
 
-                    // Eğer cihaz boru ucuna çok yakınsa (30cm'den yakınsa), 25cm uzaklaştır
-                    const minDistance = 25; // cm
-                    if (distance < minDistance && distance > 0.1) {
+                    const targetDistance = 25; // cm - cihaz boru ucundan bu kadar uzakta olmalı
+
+                    if (distance > 0.1) {
                         // Normalize edilmiş yön vektörü
                         const nx = dx / distance;
                         const ny = dy / distance;
 
-                        // Cihazı boru ucundan minDistance kadar uzağa yerleştir
-                        cihazPoint.x = boruUcu.x + nx * minDistance;
-                        cihazPoint.y = boruUcu.y + ny * minDistance;
+                        // Cihazı boru ucundan targetDistance kadar uzağa yerleştir
+                        cihazPoint.x = boruUcu.x + nx * targetDistance;
+                        cihazPoint.y = boruUcu.y + ny * targetDistance;
 
-                        console.log(`    -> Ocak boru ucundan ${minDistance}cm uzaklaştırıldı`);
+                        console.log(`    -> Ocak boru ucundan ${targetDistance}cm uzağa yerleştirildi (orijinal mesafe: ${distance.toFixed(2)}cm)`);
                     }
                 }
 
