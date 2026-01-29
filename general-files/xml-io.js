@@ -563,28 +563,29 @@ export function importFromXML(xmlString) {
                 const rotationRad = parseFloat(rotationEl.getAttribute('V'));
                 const rotationDeg = rotationRad * (180 / Math.PI);
 
-                // DÜZELTME: Y ekseni ters çevrildiği için hem koordinat hem rotation ayarlanmalı
+                // DÜZELTME: Rotation'ı OLDUĞU GİBİ kullan
+                // Y-eksen terslemesi sadece Y koordinatını etkiler, rotation'ı ETKİLEMEZ
                 // createBeam: (centerX, centerY, width=length, height=thickness, rotation)
                 //
-                // XML'deki mapping'i doğru anlamak için:
-                // - Width: Kiriş uzunluğu (X yönünde)
-                // - Height: Kiriş kalınlığı (Y yönünde)
+                // XML mapping:
+                // - Width: X yönünde uzunluk (yatay)
+                // - Height: Y yönünde kalınlık (dikey)
                 //
-                // Y-ekseni ters çevrildiği için:
-                // 1. Y koordinatını negatif yap
-                // 2. Rotation'ı negatif yap (ayna etkisi için)
+                // Koordinat dönüşümü:
+                // 1. Y koordinatını negatif yap (eksen terslemesi)
+                // 2. Rotation'ı OLDUĞU GİBİ kullan (eksen terslemesi rotation'ı etkilemez)
                 const newBeam = createBeam(
                     centerCoords[0] * SCALE,
                     -centerCoords[1] * SCALE,
                     width_xml,    // length (XML Width)
                     height_xml,   // thickness (XML Height)
-                    -rotationDeg  // Y-eksen terslemesi için rotation'ı da tersle
+                    rotationDeg   // DÜZELTME: Rotation negatif YAPMA!
                 );
 
                 if (!state.beams) state.beams = [];
                 state.beams.push(newBeam);
 
-                console.log(`    -> Kiriş eklendi: merkez=(${(centerCoords[0] * SCALE).toFixed(2)}, ${(-centerCoords[1] * SCALE).toFixed(2)}), length=${width_xml.toFixed(1)}, thickness=${height_xml.toFixed(1)}, rotation=${(-rotationDeg).toFixed(1)}°`);
+                console.log(`    -> Kiriş eklendi: merkez=(${(centerCoords[0] * SCALE).toFixed(2)}, ${(-centerCoords[1] * SCALE).toFixed(2)}), length=${width_xml.toFixed(1)}, thickness=${height_xml.toFixed(1)}, rotation=${rotationDeg.toFixed(1)}°`);
             }
         } catch (e) {
             console.error("Kiriş işlenirken hata:", e, kirisEl);
@@ -995,7 +996,7 @@ export function importFromXML(xmlString) {
                 // En yakın boru ucunu bul
                 const yakinBoru = findClosestPipeEnd(xmlCihazPoint, state.plumbingPipes, 50);
 
-                // DÜZELTME: Cihazı DAIMA boru ucundan 25cm uzağa yerleştir
+                // DÜZELTME: Cihazı DAIMA boru ucundan 40cm uzağa yerleştir (fleks hortum için)
                 let cihazPoint = { ...xmlCihazPoint };
                 if (yakinBoru) {
                     // Boru ucundan cihaza doğru vektör
@@ -1004,7 +1005,7 @@ export function importFromXML(xmlString) {
                     const dy = xmlCihazPoint.y - boruUcu.y;
                     const distance = Math.hypot(dx, dy);
 
-                    const targetDistance = 25; // cm - cihaz boru ucundan bu kadar uzakta olmalı
+                    const targetDistance = 40; // cm - cihaz boru ucundan bu kadar uzakta olmalı (fleks hortum için)
 
                     if (distance > 0.1) {
                         // Normalize edilmiş yön vektörü
@@ -1120,7 +1121,7 @@ export function importFromXML(xmlString) {
                 // En yakın boru ucunu bul
                 const yakinBoru = findClosestPipeEnd(xmlCihazPoint, state.plumbingPipes, 50);
 
-                // DÜZELTME: Cihazı DAIMA boru ucundan 25cm uzağa yerleştir
+                // DÜZELTME: Cihazı DAIMA boru ucundan 40cm uzağa yerleştir (fleks hortum için)
                 let cihazPoint = { ...xmlCihazPoint };
                 if (yakinBoru) {
                     // Boru ucundan cihaza doğru vektör
@@ -1129,7 +1130,7 @@ export function importFromXML(xmlString) {
                     const dy = xmlCihazPoint.y - boruUcu.y;
                     const distance = Math.hypot(dx, dy);
 
-                    const targetDistance = 25; // cm - cihaz boru ucundan bu kadar uzakta olmalı
+                    const targetDistance = 40; // cm - cihaz boru ucundan bu kadar uzakta olmalı (fleks hortum için)
 
                     if (distance > 0.1) {
                         // Normalize edilmiş yön vektörü
