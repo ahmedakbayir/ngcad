@@ -467,10 +467,10 @@ export let state = {
     tempVisibility: {
         showZElevation: true,      // Z Kotu
         showPipeLabels: false,      // Hat No (A, B, C...)
-        showArchDimensions: false,  // Mimari Ölçü
-        showPlumbingDimensions: false, // Tesisat Ölçü
-        showRoomNames: false,       // Mahal İsimleri
-        showPipeShadows: false,     // Hat Gölgesi
+        showArchDimensions: true,  // Mimari Ölçü
+        showPlumbingDimensions: true, // Tesisat Ölçü
+        showRoomNames: true,       // Mahal İsimleri
+        showPipeShadows: true,     // Hat Gölgesi
         show3DAxis: true,           // Varsayılan açık
         show3DPipeFrame: true,      // 3D Hat Çerçevesi (varsayılan açık)
         showPipePath: false
