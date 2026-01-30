@@ -725,5 +725,148 @@ export const PreviewMixin = {
         ctx.stroke();
 
         ctx.restore();
+    },
+
+    /**
+     * Copy/Paste Preview - Kopyalanan/Kesilen borular ve bileşenler için ghost preview
+     * Mouse pozisyonunu takip eder
+     */
+    drawPastePreview(ctx, interactionManager) {
+        const pasteData = interactionManager.cutPipes || interactionManager.copiedPipes;
+
+        if (!pasteData || !interactionManager.lastMousePoint) {
+            return;
+        }
+
+        const isCut = !!interactionManager.cutPipes;
+
+        // Referans noktasından mouse'a olan farkı hesapla
+        const dx = interactionManager.lastMousePoint.x - pasteData.referencePoint.x;
+        const dy = interactionManager.lastMousePoint.y - pasteData.referencePoint.y;
+        const dz = (interactionManager.lastMousePoint.z || 0) - (pasteData.referencePoint.z || 0);
+
+        const t = state.viewBlendFactor || 0;
+        const zoom = state.zoom || 1;
+
+        ctx.save();
+
+        // Ghost alpha (Cut için daha soluk)
+        ctx.globalAlpha = isCut ? 0.4 : 0.6;
+
+        // 1. Boruları çiz
+        for (const pipeData of pasteData.pipes) {
+            const p1 = {
+                x: pipeData.p1.x + dx,
+                y: pipeData.p1.y + dy,
+                z: (pipeData.p1.z || 0) + dz
+            };
+            const p2 = {
+                x: pipeData.p2.x + dx,
+                y: pipeData.p2.y + dy,
+                z: (pipeData.p2.z || 0) + dz
+            };
+
+            // 3D offset uygula
+            const p1ScreenX = p1.x + (p1.z * t);
+            const p1ScreenY = p1.y - (p1.z * t);
+            const p2ScreenX = p2.x + (p2.z * t);
+            const p2ScreenY = p2.y - (p2.z * t);
+
+            // Boru rengi (colorGroup'a göre)
+            const renkGruplari = getRenkGruplari();
+            const colorGroup = renkGruplari[pipeData.colorGroup] || renkGruplari.YELLOW;
+            ctx.strokeStyle = colorGroup.boru.replace('{opacity}', '0.8');
+            ctx.lineWidth = 4;
+
+            // Kesikli çizgi (Cut için)
+            if (isCut) {
+                ctx.setLineDash([10, 5]);
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(p1ScreenX, p1ScreenY);
+            ctx.lineTo(p2ScreenX, p2ScreenY);
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+
+            // Uç noktaları
+            ctx.fillStyle = colorGroup.boru.replace('{opacity}', '1');
+            ctx.beginPath();
+            ctx.arc(p1ScreenX, p1ScreenY, 3 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(p2ScreenX, p2ScreenY, 3 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 2. Bileşenleri çiz (basit gösterim)
+        for (const compData of pasteData.components) {
+            if (compData.type === 'vana') {
+                const vanaPos = {
+                    x: compData.data.x + dx,
+                    y: compData.data.y + dy,
+                    z: (compData.data.z || 0) + dz
+                };
+
+                const screenX = vanaPos.x + (vanaPos.z * t);
+                const screenY = vanaPos.y - (vanaPos.z * t);
+
+                // Basit vana gösterimi
+                ctx.fillStyle = 'rgba(0, 191, 250, 0.6)';
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, 4 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            else if (compData.type === 'sayac') {
+                const sayacPos = {
+                    x: compData.data.x + dx,
+                    y: compData.data.y + dy,
+                    z: (compData.data.z || 0) + dz
+                };
+
+                const screenX = sayacPos.x + (sayacPos.z * t);
+                const screenY = sayacPos.y - (sayacPos.z * t);
+
+                // Basit sayaç gösterimi
+                ctx.fillStyle = 'rgba(50, 200, 50, 0.6)';
+                ctx.fillRect(screenX - 10 / zoom, screenY - 6 / zoom, 20 / zoom, 12 / zoom);
+            }
+            else if (compData.type === 'cihaz') {
+                const cihazPos = {
+                    x: compData.data.x + dx,
+                    y: compData.data.y + dy,
+                    z: (compData.data.z || 0) + dz
+                };
+
+                const screenX = cihazPos.x + (cihazPos.z * t);
+                const screenY = cihazPos.y - (cihazPos.z * t);
+
+                // Basit cihaz gösterimi
+                ctx.fillStyle = 'rgba(255, 150, 50, 0.6)';
+                ctx.fillRect(screenX - 15 / zoom, screenY - 15 / zoom, 30 / zoom, 30 / zoom);
+            }
+        }
+
+        // 3. "Kopyala/Kes" etiketi
+        const labelText = isCut ? '✂️ Kesilen Parçalar (CTRL+V ile yapıştır)' : '📋 Kopyalanan Parçalar (CTRL+V ile yapıştır)';
+        const labelX = interactionManager.lastMousePoint.x;
+        const labelY = interactionManager.lastMousePoint.y - 30 / zoom;
+
+        const labelScreenX = labelX + ((interactionManager.lastMousePoint.z || 0) * t);
+        const labelScreenY = labelY - ((interactionManager.lastMousePoint.z || 0) * t);
+
+        ctx.globalAlpha = 1.0;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.font = `${14 / zoom}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.strokeText(labelText, labelScreenX, labelScreenY);
+        ctx.fillText(labelText, labelScreenX, labelScreenY);
+
+        ctx.restore();
     }
 };

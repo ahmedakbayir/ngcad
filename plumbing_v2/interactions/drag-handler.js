@@ -858,53 +858,152 @@ export function handleDrag(interactionManager, point, event = null) {
             }
 
             if (event && event.ctrlKey) {
+                // CTRL ile toplu taşıma (cascade move) - 3D destekli
                 const dx = finalPos.x - oldPoint.x;
                 const dy = finalPos.y - oldPoint.y;
+                const dz = (finalPos.z || 0) - (oldPoint.z || 0); // 3D desteği eklendi
+
                 const downstreamChain = [];
                 const visited = new Set([pipe.id]);
                 const queue = [];
                 const tolerance = 1;
+
+                // Taşınan noktaya bağlı tüm boruları bul (başlangıç)
                 interactionManager.manager.pipes.forEach(otherPipe => {
                     if (otherPipe.id === pipe.id) return;
-                    const p1Dist = Math.hypot(otherPipe.p1.x - finalPos.x, otherPipe.p1.y - finalPos.y);
-                    const p2Dist = Math.hypot(otherPipe.p2.x - finalPos.x, otherPipe.p2.y - finalPos.y);
-                    if (p1Dist < tolerance || p2Dist < tolerance) { visited.add(otherPipe.id); queue.push(otherPipe); }
+                    const p1Dist = Math.hypot(
+                        otherPipe.p1.x - finalPos.x,
+                        otherPipe.p1.y - finalPos.y,
+                        (otherPipe.p1.z || 0) - (finalPos.z || 0) // 3D mesafe
+                    );
+                    const p2Dist = Math.hypot(
+                        otherPipe.p2.x - finalPos.x,
+                        otherPipe.p2.y - finalPos.y,
+                        (otherPipe.p2.z || 0) - (finalPos.z || 0) // 3D mesafe
+                    );
+                    if (p1Dist < tolerance || p2Dist < tolerance) {
+                        visited.add(otherPipe.id);
+                        queue.push(otherPipe);
+                    }
                 });
+
+                // BFS ile tüm bağlı boru zincirini bul
                 while (queue.length > 0) {
                     const currentPipe = queue.shift();
                     downstreamChain.push(currentPipe);
+
                     interactionManager.manager.pipes.forEach(otherPipe => {
                         if (visited.has(otherPipe.id)) return;
-                        const p1ToP1 = Math.hypot(otherPipe.p1.x - currentPipe.p1.x, otherPipe.p1.y - currentPipe.p1.y);
-                        const p1ToP2 = Math.hypot(otherPipe.p1.x - currentPipe.p2.x, otherPipe.p1.y - currentPipe.p2.y);
-                        const p2ToP1 = Math.hypot(otherPipe.p2.x - currentPipe.p1.x, otherPipe.p2.y - currentPipe.p1.y);
-                        const p2ToP2 = Math.hypot(otherPipe.p2.x - currentPipe.p2.x, otherPipe.p2.y - currentPipe.p2.y);
-                        if (p1ToP1 < tolerance || p1ToP2 < tolerance || p2ToP1 < tolerance || p2ToP2 < tolerance) { visited.add(otherPipe.id); queue.push(otherPipe); }
+
+                        // Tüm uç noktalar arasında 3D mesafe kontrolü
+                        const p1ToP1 = Math.hypot(
+                            otherPipe.p1.x - currentPipe.p1.x,
+                            otherPipe.p1.y - currentPipe.p1.y,
+                            (otherPipe.p1.z || 0) - (currentPipe.p1.z || 0)
+                        );
+                        const p1ToP2 = Math.hypot(
+                            otherPipe.p1.x - currentPipe.p2.x,
+                            otherPipe.p1.y - currentPipe.p2.y,
+                            (otherPipe.p1.z || 0) - (currentPipe.p2.z || 0)
+                        );
+                        const p2ToP1 = Math.hypot(
+                            otherPipe.p2.x - currentPipe.p1.x,
+                            otherPipe.p2.y - currentPipe.p1.y,
+                            (otherPipe.p2.z || 0) - (currentPipe.p1.z || 0)
+                        );
+                        const p2ToP2 = Math.hypot(
+                            otherPipe.p2.x - currentPipe.p2.x,
+                            otherPipe.p2.y - currentPipe.p2.y,
+                            (otherPipe.p2.z || 0) - (currentPipe.p2.z || 0)
+                        );
+
+                        if (p1ToP1 < tolerance || p1ToP2 < tolerance || p2ToP1 < tolerance || p2ToP2 < tolerance) {
+                            visited.add(otherPipe.id);
+                            queue.push(otherPipe);
+                        }
                     });
                 }
+
+                // Tüm bağlı borular ve elemanları aynı delta ile taşı
                 downstreamChain.forEach(chainPipe => {
-                    chainPipe.p1.x += dx; chainPipe.p1.y += dy;
-                    chainPipe.p2.x += dx; chainPipe.p2.y += dy;
-                    const vanaListesi = interactionManager.manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === chainPipe.id);
-                    vanaListesi.forEach(vana => { vana.x += dx; vana.y += dy; });
-                    const componentListesi = interactionManager.manager.components.filter(c => (c.type === 'sayac' || c.type === 'cihaz') && c.fleksBaglanti && c.fleksBaglanti.boruId === chainPipe.id);
+                    // Boru uçlarını taşı (3D)
+                    chainPipe.p1.x += dx;
+                    chainPipe.p1.y += dy;
+                    chainPipe.p1.z = (chainPipe.p1.z || 0) + dz; // 3D
+
+                    chainPipe.p2.x += dx;
+                    chainPipe.p2.y += dy;
+                    chainPipe.p2.z = (chainPipe.p2.z || 0) + dz; // 3D
+
+                    // Boru üzerindeki vanaları taşı
+                    const vanaListesi = interactionManager.manager.components.filter(
+                        c => c.type === 'vana' && c.bagliBoruId === chainPipe.id
+                    );
+                    vanaListesi.forEach(vana => {
+                        vana.x += dx;
+                        vana.y += dy;
+                        vana.z = (vana.z || 0) + dz; // 3D
+                    });
+
+                    // Boruya bağlı sayaç ve cihazları taşı
+                    const componentListesi = interactionManager.manager.components.filter(
+                        c => (c.type === 'sayac' || c.type === 'cihaz') &&
+                             c.fleksBaglanti &&
+                             c.fleksBaglanti.boruId === chainPipe.id
+                    );
                     componentListesi.forEach(comp => {
-                        comp.x += dx; comp.y += dy;
+                        comp.x += dx;
+                        comp.y += dy;
+                        comp.z = (comp.z || 0) + dz; // 3D
+
+                        // Sayaç çıkış borusunu da taşı
                         if (comp.type === 'sayac' && comp.cikisBagliBoruId) {
-                            const cikisBoru = interactionManager.manager.pipes.find(p => p.id === comp.cikisBagliBoruId);
-                            if (cikisBoru && !visited.has(cikisBoru.id)) { cikisBoru.p1.x += dx; cikisBoru.p1.y += dy; }
+                            const cikisBoru = interactionManager.manager.pipes.find(
+                                p => p.id === comp.cikisBagliBoruId
+                            );
+                            if (cikisBoru && !visited.has(cikisBoru.id)) {
+                                cikisBoru.p1.x += dx;
+                                cikisBoru.p1.y += dy;
+                                cikisBoru.p1.z = (cikisBoru.p1.z || 0) + dz; // 3D
+                            }
                         }
+
+                        // Cihazın bacasını da taşı
                         if (comp.type === 'cihaz') {
-                            const bacalar = interactionManager.manager.components.filter(c => c.type === 'baca' && c.parentCihazId === comp.id);
+                            const bacalar = interactionManager.manager.components.filter(
+                                c => c.type === 'baca' && c.parentCihazId === comp.id
+                            );
                             bacalar.forEach(baca => {
-                                baca.startX += dx; baca.startY += dy;
-                                baca.currentSegmentStart.x += dx; baca.currentSegmentStart.y += dy;
-                                baca.segments.forEach(seg => { seg.x1 += dx; seg.y1 += dy; seg.x2 += dx; seg.y2 += dy; });
-                                if (baca.havalandirma) { baca.havalandirma.x += dx; baca.havalandirma.y += dy; }
+                                baca.startX += dx;
+                                baca.startY += dy;
+                                baca.z = (baca.z || 0) + dz; // 3D
+
+                                baca.currentSegmentStart.x += dx;
+                                baca.currentSegmentStart.y += dy;
+                                baca.currentSegmentStart.z = (baca.currentSegmentStart.z || 0) + dz; // 3D
+
+                                // Tüm baca segmentlerini taşı
+                                baca.segments.forEach(seg => {
+                                    seg.x1 += dx;
+                                    seg.y1 += dy;
+                                    seg.z1 = (seg.z1 || 0) + dz; // 3D
+
+                                    seg.x2 += dx;
+                                    seg.y2 += dy;
+                                    seg.z2 = (seg.z2 || 0) + dz; // 3D
+                                });
+
+                                // Havalandırma ızgarasını taşı
+                                if (baca.havalandirma) {
+                                    baca.havalandirma.x += dx;
+                                    baca.havalandirma.y += dy;
+                                }
                             });
                         }
                     });
                 });
+
+                console.log(`CTRL ile toplu taşıma: ${downstreamChain.length} boru ve bağlı elemanlar taşındı (dx=${dx.toFixed(1)}, dy=${dy.toFixed(1)}, dz=${dz.toFixed(1)})`);
             }
         }
         return;

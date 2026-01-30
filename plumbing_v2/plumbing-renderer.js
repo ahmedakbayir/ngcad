@@ -232,6 +232,11 @@ export class PlumbingRenderer {
             this.drawComponentOnPipePreview(ctx, manager.interactionManager.componentOnPipePreview);
         }
 
+        // Copy/Paste Preview (CTRL+C veya CTRL+X sonrası)
+        if (manager.interactionManager && (manager.interactionManager.copiedPipes || manager.interactionManager.cutPipes)) {
+            this.drawPastePreview(ctx, manager.interactionManager);
+        }
+
         // Seçili borunun yolunu sağ üstte göster
         if (state.tempVisibility.showPipePath && window._selectedPipePath && window._selectedPipePath.length > 0) {
             this.drawSelectedPipePath(ctx);

@@ -182,6 +182,13 @@ export class InteractionManager {
         this.lastClickPoint = null;
         this.DOUBLE_CLICK_THRESHOLD = 300; // ms
         this.DOUBLE_CLICK_DISTANCE = 10; // world units
+
+        // Copy/Paste/Cut state
+        this.copiedPipes = null; // Kopyalanan pipe'lar ve bileşenler
+        this.cutPipes = null; // Kesilen pipe'lar ve bileşenler
+        this.cutPipesOriginalIds = null; // Kesilen pipe'ların orijinal ID'leri
+        this.pastePreviewPipes = null; // Yapıştırma preview'ı
+        this.pastePreviewComponents = null; // Yapıştırma preview bileşenleri
     }
 
     /**

@@ -6,6 +6,11 @@
 import { setMode, setState, setDrawingMode, state } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
 import { handleBoruClick } from './pipe-drawing.js';
+import { Boru } from '../objects/pipe.js';
+import { Vana } from '../objects/valve.js';
+import { Sayac } from '../objects/meter.js';
+import { Cihaz } from '../objects/device.js';
+import { Baca } from '../objects/chimney.js';
 
 // Tool modları
 export const TESISAT_MODLARI = {
@@ -317,6 +322,30 @@ export function handleKeyDown(e) {
         }
     }
 
+    // CTRL+C - Kopyala (seçili boru ve sonrasındaki tüm parçaları)
+    if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+        if (this.selectedObject && this.selectedObject.type === 'boru') {
+            handlePipeCopy.call(this);
+            return true;
+        }
+    }
+
+    // CTRL+X - Kes (seçili boru ve sonrasındaki tüm parçaları)
+    if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
+        if (this.selectedObject && this.selectedObject.type === 'boru') {
+            handlePipeCut.call(this);
+            return true;
+        }
+    }
+
+    // CTRL+V - Yapıştır (kopyalanan/kesilen parçaları)
+    if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+        if (this.copiedPipes || this.cutPipes) {
+            handlePipePaste.call(this);
+            return true;
+        }
+    }
+
     // Ok tuşları - seçili boru navigasyonu
     if (this.selectedObject && this.selectedObject.type === 'boru') {
         const tolerance = 1;
@@ -510,4 +539,469 @@ export function applyVerticalHeight() {
     handleBoruClick(this, endPoint);
 
     closeVerticalPanel.call(this);
+}
+
+/**
+ * Seçili borudan başlayarak downstream (sonrasındaki) tüm boruları ve bileşenleri bulur
+ * BFS algoritması kullanarak tüm bağlı zinciri toplar
+ */
+function getDownstreamPipesAndComponents(startPipe, manager) {
+    const result = {
+        pipes: [],
+        components: [],
+        connections: new Map() // pipe.id -> { p1Connection, p2Connection }
+    };
+
+    const visited = new Set();
+    const queue = [startPipe];
+    const tolerance = 1; // 3D mesafe toleransı
+
+    // Başlangıç borusunu ekle
+    visited.add(startPipe.id);
+    result.pipes.push(startPipe);
+
+    // Bağlantı bilgilerini kaydet
+    result.connections.set(startPipe.id, {
+        p1Connection: startPipe.baslangicBaglanti ? JSON.parse(JSON.stringify(startPipe.baslangicBaglanti)) : null,
+        p2Connection: startPipe.bitisBaglanti ? JSON.parse(JSON.stringify(startPipe.bitisBaglanti)) : null
+    });
+
+    // BFS ile tüm downstream pipe'ları bul
+    while (queue.length > 0) {
+        const currentPipe = queue.shift();
+
+        // p2 ucuna bağlı boruları bul (downstream direction)
+        const nextPipes = manager.pipes.filter(p =>
+            !visited.has(p.id) &&
+            Math.hypot(
+                p.p1.x - currentPipe.p2.x,
+                p.p1.y - currentPipe.p2.y,
+                (p.p1.z || 0) - (currentPipe.p2.z || 0)
+            ) < tolerance
+        );
+
+        for (const nextPipe of nextPipes) {
+            visited.add(nextPipe.id);
+            result.pipes.push(nextPipe);
+            queue.push(nextPipe);
+
+            // Bağlantı bilgilerini kaydet
+            result.connections.set(nextPipe.id, {
+                p1Connection: nextPipe.baslangicBaglanti ? JSON.parse(JSON.stringify(nextPipe.baslangicBaglanti)) : null,
+                p2Connection: nextPipe.bitisBaglanti ? JSON.parse(JSON.stringify(nextPipe.bitisBaglanti)) : null
+            });
+        }
+
+        // T-bağlantılardan çıkan boruları da ekle
+        if (currentPipe.tBaglantilar && currentPipe.tBaglantilar.length > 0) {
+            for (const tBaglanti of currentPipe.tBaglantilar) {
+                const branchPipe = manager.pipes.find(p => p.id === tBaglanti.boruId);
+                if (branchPipe && !visited.has(branchPipe.id)) {
+                    visited.add(branchPipe.id);
+                    result.pipes.push(branchPipe);
+                    queue.push(branchPipe);
+
+                    // Bağlantı bilgilerini kaydet
+                    result.connections.set(branchPipe.id, {
+                        p1Connection: branchPipe.baslangicBaglanti ? JSON.parse(JSON.stringify(branchPipe.baslangicBaglanti)) : null,
+                        p2Connection: branchPipe.bitisBaglanti ? JSON.parse(JSON.stringify(branchPipe.bitisBaglanti)) : null
+                    });
+                }
+            }
+        }
+
+        // Bu boru üzerindeki vanaları ekle
+        if (currentPipe.vana) {
+            result.components.push({
+                type: 'vana',
+                object: currentPipe.vana,
+                parentPipeId: currentPipe.id
+            });
+        }
+
+        // Bu borunun uçlarına bağlı bileşenleri bul (sayaç, cihaz, baca)
+        for (const component of manager.components) {
+            // Sayaç kontrolü
+            if (component.type === 'sayac') {
+                const distToP2 = Math.hypot(
+                    component.girisNoktasi.x - currentPipe.p2.x,
+                    component.girisNoktasi.y - currentPipe.p2.y,
+                    (component.girisNoktasi.z || 0) - (currentPipe.p2.z || 0)
+                );
+                if (distToP2 < tolerance) {
+                    result.components.push({
+                        type: 'sayac',
+                        object: component,
+                        connectionPoint: 'p2'
+                    });
+                }
+            }
+            // Cihaz kontrolü
+            else if (component.type === 'cihaz') {
+                const distToP2 = Math.hypot(
+                    component.girisNoktasi.x - currentPipe.p2.x,
+                    component.girisNoktasi.y - currentPipe.p2.y,
+                    (component.girisNoktasi.z || 0) - (currentPipe.p2.z || 0)
+                );
+                if (distToP2 < tolerance) {
+                    result.components.push({
+                        type: 'cihaz',
+                        object: component,
+                        connectionPoint: 'p2'
+                    });
+
+                    // Cihazın bacasını da ekle
+                    const baca = manager.components.find(c =>
+                        c.type === 'baca' && c.parentCihazId === component.id
+                    );
+                    if (baca) {
+                        result.components.push({
+                            type: 'baca',
+                            object: baca,
+                            parentCihazId: component.id
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+/**
+ * CTRL+C - Kopyala
+ * Seçili boru ve sonrasındaki tüm parçaları kopyalar
+ */
+function handlePipeCopy() {
+    if (!this.selectedObject || this.selectedObject.type !== 'boru') {
+        return;
+    }
+
+    const selectedPipe = this.selectedObject;
+
+    // Downstream pipe'ları ve bileşenleri bul
+    const downstream = getDownstreamPipesAndComponents(selectedPipe, this.manager);
+
+    // Kopyalanacak veriyi hazırla
+    this.copiedPipes = {
+        pipes: downstream.pipes.map(pipe => ({
+            id: pipe.id,
+            p1: { ...pipe.p1 },
+            p2: { ...pipe.p2 },
+            boruTipi: pipe.boruTipi,
+            colorGroup: pipe.colorGroup,
+            floorId: pipe.floorId,
+            baslangicBaglanti: downstream.connections.get(pipe.id).p1Connection,
+            bitisBaglanti: downstream.connections.get(pipe.id).p2Connection,
+            tBaglantilar: pipe.tBaglantilar ? JSON.parse(JSON.stringify(pipe.tBaglantilar)) : [],
+            uzerindekiElemanlar: pipe.uzerindekiElemanlar ? JSON.parse(JSON.stringify(pipe.uzerindekiElemanlar)) : []
+        })),
+        components: downstream.components.map(comp => ({
+            type: comp.type,
+            data: JSON.parse(JSON.stringify(comp.object)),
+            parentPipeId: comp.parentPipeId,
+            parentCihazId: comp.parentCihazId,
+            connectionPoint: comp.connectionPoint
+        })),
+        referencePoint: { ...selectedPipe.p1 } // İlk borunun p1'i referans nokta
+    };
+
+    // Cut state'i temizle
+    this.cutPipes = null;
+    this.cutPipesOriginalIds = null;
+
+    console.log(`✅ ${downstream.pipes.length} boru ve ${downstream.components.length} bileşen kopyalandı`);
+}
+
+/**
+ * CTRL+X - Kes
+ * Seçili boru ve sonrasındaki tüm parçaları keser (ghost olarak gösterilir)
+ */
+function handlePipeCut() {
+    if (!this.selectedObject || this.selectedObject.type !== 'boru') {
+        return;
+    }
+
+    const selectedPipe = this.selectedObject;
+
+    // Downstream pipe'ları ve bileşenleri bul
+    const downstream = getDownstreamPipesAndComponents(selectedPipe, this.manager);
+
+    // Kesilecek veriyi hazırla
+    this.cutPipes = {
+        pipes: downstream.pipes.map(pipe => ({
+            id: pipe.id,
+            p1: { ...pipe.p1 },
+            p2: { ...pipe.p2 },
+            boruTipi: pipe.boruTipi,
+            colorGroup: pipe.colorGroup,
+            floorId: pipe.floorId,
+            baslangicBaglanti: downstream.connections.get(pipe.id).p1Connection,
+            bitisBaglanti: downstream.connections.get(pipe.id).p2Connection,
+            tBaglantilar: pipe.tBaglantilar ? JSON.parse(JSON.stringify(pipe.tBaglantilar)) : [],
+            uzerindekiElemanlar: pipe.uzerindekiElemanlar ? JSON.parse(JSON.stringify(pipe.uzerindekiElemanlar)) : []
+        })),
+        components: downstream.components.map(comp => ({
+            type: comp.type,
+            data: JSON.parse(JSON.stringify(comp.object)),
+            parentPipeId: comp.parentPipeId,
+            parentCihazId: comp.parentCihazId,
+            connectionPoint: comp.connectionPoint
+        })),
+        referencePoint: { ...selectedPipe.p1 } // İlk borunun p1'i referans nokta
+    };
+
+    // Orijinal ID'leri sakla (paste'ten sonra silmek için)
+    this.cutPipesOriginalIds = {
+        pipeIds: downstream.pipes.map(p => p.id),
+        componentIds: downstream.components.map(c => c.object.id)
+    };
+
+    // Copy state'i temizle
+    this.copiedPipes = null;
+
+    console.log(`✂️ ${downstream.pipes.length} boru ve ${downstream.components.length} bileşen kesildi`);
+}
+
+/**
+ * CTRL+V - Yapıştır
+ * Kopyalanan/kesilen parçaları mouse pozisyonuna yapıştırır
+ */
+function handlePipePaste() {
+    const pasteData = this.cutPipes || this.copiedPipes;
+
+    if (!pasteData || !this.lastMousePoint) {
+        return;
+    }
+
+    const isCut = !!this.cutPipes;
+
+    // Referans noktasından mouse'a olan farkı hesapla
+    const dx = this.lastMousePoint.x - pasteData.referencePoint.x;
+    const dy = this.lastMousePoint.y - pasteData.referencePoint.y;
+    const dz = (this.lastMousePoint.z || 0) - (pasteData.referencePoint.z || 0);
+
+    saveState();
+
+    // Yeni ID mapping (eski ID -> yeni ID)
+    const pipeIdMap = new Map();
+    const componentIdMap = new Map();
+    const newPipes = [];
+    const newComponents = [];
+
+    // 1. Boruları oluştur
+    for (const pipeData of pasteData.pipes) {
+        const newPipe = new Boru(
+            {
+                x: pipeData.p1.x + dx,
+                y: pipeData.p1.y + dy,
+                z: (pipeData.p1.z || 0) + dz
+            },
+            {
+                x: pipeData.p2.x + dx,
+                y: pipeData.p2.y + dy,
+                z: (pipeData.p2.z || 0) + dz
+            },
+            pipeData.boruTipi
+        );
+
+        newPipe.colorGroup = pipeData.colorGroup;
+        newPipe.floorId = pipeData.floorId;
+
+        // ID mapping'i kaydet
+        pipeIdMap.set(pipeData.id, newPipe.id);
+
+        // Bağlantı bilgilerini güncelle (ID'ler henüz eski, sonra güncellenecek)
+        if (pipeData.baslangicBaglanti) {
+            newPipe.baslangicBaglanti = JSON.parse(JSON.stringify(pipeData.baslangicBaglanti));
+        }
+        if (pipeData.bitisBaglanti) {
+            newPipe.bitisBaglanti = JSON.parse(JSON.stringify(pipeData.bitisBaglanti));
+        }
+
+        // T-bağlantıları kopyala (ID'ler sonra güncellenecek)
+        if (pipeData.tBaglantilar && pipeData.tBaglantilar.length > 0) {
+            newPipe.tBaglantilar = JSON.parse(JSON.stringify(pipeData.tBaglantilar));
+        }
+
+        newPipes.push(newPipe);
+        this.manager.pipes.push(newPipe);
+    }
+
+    // 2. Pipe bağlantı ID'lerini güncelle
+    for (let i = 0; i < newPipes.length; i++) {
+        const newPipe = newPipes[i];
+        const oldPipeData = pasteData.pipes[i];
+
+        // Başlangıç bağlantısı
+        if (newPipe.baslangicBaglanti && newPipe.baslangicBaglanti.tip === 'boru') {
+            const newTargetId = pipeIdMap.get(newPipe.baslangicBaglanti.hedefId);
+            if (newTargetId) {
+                newPipe.baslangicBaglanti.hedefId = newTargetId;
+            } else {
+                // Hedef boru kopyalanmadıysa bağlantıyı kaldır
+                newPipe.baslangicBaglanti = null;
+            }
+        }
+
+        // Bitiş bağlantısı
+        if (newPipe.bitisBaglanti && newPipe.bitisBaglanti.tip === 'boru') {
+            const newTargetId = pipeIdMap.get(newPipe.bitisBaglanti.hedefId);
+            if (newTargetId) {
+                newPipe.bitisBaglanti.hedefId = newTargetId;
+            } else {
+                newPipe.bitisBaglanti = null;
+            }
+        }
+
+        // T-bağlantıları güncelle
+        if (newPipe.tBaglantilar && newPipe.tBaglantilar.length > 0) {
+            newPipe.tBaglantilar = newPipe.tBaglantilar.map(tBag => {
+                const newBranchId = pipeIdMap.get(tBag.boruId);
+                if (newBranchId) {
+                    return {
+                        pozisyon: {
+                            x: tBag.pozisyon.x + dx,
+                            y: tBag.pozisyon.y + dy,
+                            z: (tBag.pozisyon.z || 0) + dz
+                        },
+                        boruId: newBranchId
+                    };
+                }
+                return null;
+            }).filter(t => t !== null);
+        }
+    }
+
+    // 3. Bileşenleri oluştur
+    for (const compData of pasteData.components) {
+        let newComponent = null;
+
+        if (compData.type === 'vana') {
+            // Vana: parentPipeId'yi bul
+            const newParentPipeId = pipeIdMap.get(compData.parentPipeId);
+            const newParentPipe = newPipes.find(p => p.id === newParentPipeId);
+
+            if (newParentPipe) {
+                // Yeni vana oluştur
+                const vanaData = compData.data;
+                const newVana = new Vana(
+                    {
+                        x: vanaData.x + dx,
+                        y: vanaData.y + dy,
+                        z: (vanaData.z || 0) + dz
+                    },
+                    vanaData.rotation
+                );
+                newVana.vanaAcik = vanaData.vanaAcik;
+                newVana.vanaKilitli = vanaData.vanaKilitli;
+
+                // Boru üzerine ekle
+                newParentPipe.vana = newVana;
+                this.manager.components.push(newVana);
+
+                componentIdMap.set(compData.data.id, newVana.id);
+                newComponents.push(newVana);
+            }
+        }
+        else if (compData.type === 'sayac') {
+            // Sayaç: Yeni boru ucuna bağla
+            const sayacData = compData.data;
+
+            const newSayac = new Sayac(
+                {
+                    x: sayacData.girisNoktasi.x + dx,
+                    y: sayacData.girisNoktasi.y + dy,
+                    z: (sayacData.girisNoktasi.z || 0) + dz
+                },
+                sayacData.rotation
+            );
+
+            this.manager.components.push(newSayac);
+            componentIdMap.set(compData.data.id, newSayac.id);
+            newComponents.push(newSayac);
+        }
+        else if (compData.type === 'cihaz') {
+            // Cihaz: Yeni konuma yerleştir
+            const cihazData = compData.data;
+
+            const newCihaz = new Cihaz(
+                cihazData.x + dx,
+                cihazData.y + dy,
+                (cihazData.z || 0) + dz,
+                cihazData.cihazTipi
+            );
+            newCihaz.rotation = cihazData.rotation;
+            newCihaz.girisNoktasi = {
+                x: cihazData.girisNoktasi.x + dx,
+                y: cihazData.girisNoktasi.y + dy,
+                z: (cihazData.girisNoktasi.z || 0) + dz
+            };
+
+            this.manager.components.push(newCihaz);
+            componentIdMap.set(compData.data.id, newCihaz.id);
+            newComponents.push(newCihaz);
+        }
+        else if (compData.type === 'baca') {
+            // Baca: Parent cihazı bul
+            const newParentCihazId = componentIdMap.get(compData.parentCihazId);
+            const newParentCihaz = newComponents.find(c => c.id === newParentCihazId);
+
+            if (newParentCihaz) {
+                const bacaData = compData.data;
+
+                const newBaca = new Baca(
+                    bacaData.startX + dx,
+                    bacaData.startY + dy,
+                    (bacaData.startZ || 0) + dz,
+                    newParentCihaz.id
+                );
+
+                // Segment'leri kopyala
+                if (bacaData.segments && bacaData.segments.length > 0) {
+                    newBaca.segments = bacaData.segments.map(seg => ({
+                        x: seg.x + dx,
+                        y: seg.y + dy,
+                        z: (seg.z || 0) + dz
+                    }));
+                }
+
+                newBaca.isDrawing = false;
+
+                this.manager.components.push(newBaca);
+                componentIdMap.set(compData.data.id, newBaca.id);
+                newComponents.push(newBaca);
+            }
+        }
+    }
+
+    // 4. Eğer CUT işlemi idiyse, orijinal parçaları sil
+    if (isCut && this.cutPipesOriginalIds) {
+        // Boruları sil
+        for (const oldPipeId of this.cutPipesOriginalIds.pipeIds) {
+            const index = this.manager.pipes.findIndex(p => p.id === oldPipeId);
+            if (index !== -1) {
+                this.manager.pipes.splice(index, 1);
+            }
+        }
+
+        // Bileşenleri sil
+        for (const oldCompId of this.cutPipesOriginalIds.componentIds) {
+            const index = this.manager.components.findIndex(c => c.id === oldCompId);
+            if (index !== -1) {
+                this.manager.components.splice(index, 1);
+            }
+        }
+    }
+
+    // State'i temizle
+    this.copiedPipes = null;
+    this.cutPipes = null;
+    this.cutPipesOriginalIds = null;
+
+    // Manager state'i güncelle
+    this.manager.saveToState();
+
+    console.log(`✅ ${newPipes.length} boru ve ${newComponents.length} bileşen yapıştırıldı`);
 }
