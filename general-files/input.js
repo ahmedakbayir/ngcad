@@ -79,6 +79,11 @@ function extendWallOnTabPress() {
 function handleCopy(e) {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement === dom.roomNameSelect) return; // roomNameSelect eklendi
 
+    // Tesisat nesneleri için plumbing manager'ın kendi handler'ını kullan
+    if (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type)) {
+        return; // Plumbing handler devreye girecek
+    }
+
     // Hiçbir obje seçili değilse, kat mimarisini kopyala
     if (!state.selectedObject && state.selectedGroup.length === 0) {
         e.preventDefault();
@@ -120,6 +125,11 @@ function handleCopy(e) {
 // Yapıştırma Fonksiyonu
 function handlePaste(e) {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement === dom.roomNameSelect) return; // roomNameSelect eklendi
+
+    // Tesisat nesneleri için plumbing manager'ın kendi handler'ını kullan
+    if (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type)) {
+        return; // Plumbing handler devreye girecek
+    }
 
     // Eğer clipboard boşsa, kat mimarisi yapıştırmayı dene
     if (!state.clipboard) {
@@ -648,17 +658,9 @@ function onKeyDown(e) {
         return;
     }
 
-    // Kopyala / Yapıştır (Input dışındayken)
-    if (e.ctrlKey && e.key.toLowerCase() === 'c') { handleCopy(e); return; }
-    if (e.ctrlKey && e.key.toLowerCase() === 'v') { handlePaste(e); return; }
-
-
-    // Geri Alma / İleri Alma
-    if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
-    if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
-
     // --- Yeni Tesisat Sistemi (v2) Klavye İşlemleri ---
     // PlumbingV2, Select, MİMARİ-TESİSAT modlarında VEYA tesisat nesnesi seçiliyse
+    // CTRL+C/V için önce plumbing handler'ını kontrol et
     if (state.currentMode === "plumbingV2" || state.currentMode === "select" || state.currentMode === "MİMARİ-TESİSAT" ||
         (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type))) {
         const handled = plumbingManager.interactionManager.handleKeyDown(e);
@@ -667,6 +669,15 @@ function onKeyDown(e) {
         }
     }
     // --- Yeni Tesisat Sistemi Sonu ---
+
+    // Kopyala / Yapıştır (Input dışındayken)
+    if (e.ctrlKey && e.key.toLowerCase() === 'c') { handleCopy(e); return; }
+    if (e.ctrlKey && e.key.toLowerCase() === 'v') { handlePaste(e); return; }
+
+
+    // Geri Alma / İleri Alma
+    if (e.ctrlKey && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); return; }
+    if (e.ctrlKey && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
 
     // Escape veya Space ile iptal/seç moduna dönme
     if (e.key === "Escape" || e.code === "Space") {
