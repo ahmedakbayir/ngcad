@@ -484,10 +484,10 @@ export const PreviewMixin = {
         // Z ekseni (yukarı - yeşil) - Her zaman aktif renkte
         if (allowedAxes.includes('Z')) {
             ctx.save();
-            ctx.globalAlpha = 1.0;
+            ctx.globalAlpha = selectedAxis === 'Z' ? 0.7 : 0.3;
             ctx.strokeStyle = '#00FF00';
-            ctx.lineWidth = selectedAxis === 'Z' ? lineWidth * 1.5 : lineWidth;
-            ctx.setLineDash(dashPattern);
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash([]);
 
             // Z ekseni çizgisi (3D görünümde yukarı-sol yönü) - iki yönde sonsuz
             const zEndX1 = screenX - (axisLength * t);
@@ -506,10 +506,10 @@ export const PreviewMixin = {
         // X ekseni (sağa - kırmızı/magenta) - Her zaman aktif renkte
         if (allowedAxes.includes('X')) {
             ctx.save();
-            ctx.globalAlpha = 1.0;
+            ctx.globalAlpha = selectedAxis === 'X' ? 0.7 : 0.3;
             ctx.strokeStyle = '#FF00FF';
-            ctx.lineWidth = selectedAxis === 'X' ? lineWidth * 1.5 : lineWidth;
-            ctx.setLineDash(dashPattern);
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash([]);
 
             // X ekseni - iki yönde sonsuz
             const xEndX1 = screenX - axisLength;
@@ -528,10 +528,10 @@ export const PreviewMixin = {
         // Y ekseni (aşağı - turkuaz/cyan) - Her zaman aktif renkte
         if (allowedAxes.includes('Y')) {
             ctx.save();
-            ctx.globalAlpha = 1.0;
+            ctx.globalAlpha = selectedAxis === 'Y' ? 0.7 : 0.3;
             ctx.strokeStyle = '#00FFFF';
-            ctx.lineWidth = selectedAxis === 'Y' ? lineWidth * 1.5 : lineWidth;
-            ctx.setLineDash(dashPattern);
+            ctx.lineWidth = lineWidth;
+            ctx.setLineDash([]);
 
             // Y ekseni - iki yönde sonsuz
             const yEndX1 = screenX;
