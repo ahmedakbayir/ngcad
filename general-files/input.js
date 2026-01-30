@@ -81,6 +81,7 @@ function handleCopy(e) {
 
     // Tesisat nesneleri için plumbing manager'ın kendi handler'ını kullan
     if (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type)) {
+        e.preventDefault();
         return; // Plumbing handler devreye girecek
     }
 
@@ -128,6 +129,12 @@ function handlePaste(e) {
 
     // Tesisat nesneleri için plumbing manager'ın kendi handler'ını kullan
     if (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type)) {
+        return; // Plumbing handler devreye girecek
+    }
+
+    // Plumbing manager'da kopyalanmış/kesilmiş tesisat parçası varsa, mimari paste yapma
+    if (plumbingManager && plumbingManager.interactionManager &&
+        (plumbingManager.interactionManager.copiedPipes || plumbingManager.interactionManager.cutPipes)) {
         return; // Plumbing handler devreye girecek
     }
 
