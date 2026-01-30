@@ -127,19 +127,29 @@ function handleCopy(e) {
 function handlePaste(e) {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement === dom.roomNameSelect) return; // roomNameSelect eklendi
 
+    console.log('🟡 handlePaste (mimari) çağrıldı:', {
+        selectedObject: state.selectedObject?.type,
+        hasCopiedPipes: !!(plumbingManager?.interactionManager?.copiedPipes),
+        hasCutPipes: !!(plumbingManager?.interactionManager?.cutPipes),
+        hasClipboard: !!state.clipboard
+    });
+
     // Tesisat nesneleri için plumbing manager'ın kendi handler'ını kullan
     if (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type)) {
+        console.log('✅ Tesisat nesnesi seçili, plumbing handler çalışacak');
         return; // Plumbing handler devreye girecek
     }
 
     // Plumbing manager'da kopyalanmış/kesilmiş tesisat parçası varsa, mimari paste yapma
     if (plumbingManager && plumbingManager.interactionManager &&
         (plumbingManager.interactionManager.copiedPipes || plumbingManager.interactionManager.cutPipes)) {
+        console.log('✅ Plumbing manager\'da kopyalanmış parçalar var, plumbing handler çalışacak');
         return; // Plumbing handler devreye girecek
     }
 
     // Eğer clipboard boşsa, kat mimarisi yapıştırmayı dene
     if (!state.clipboard) {
+        console.log('⚠️ Clipboard boş, mimari paste çağrılacak');
         e.preventDefault();
         pasteFloorArchitecture();
         return;

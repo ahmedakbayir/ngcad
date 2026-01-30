@@ -678,6 +678,7 @@ function getDownstreamPipesAndComponents(startPipe, manager) {
  */
 function handlePipeCopy() {
     if (!this.selectedObject || this.selectedObject.type !== 'boru') {
+        console.log('❌ Copy: Seçili boru yok');
         return;
     }
 
@@ -774,7 +775,15 @@ function handlePipeCut() {
 function handlePipePaste() {
     const pasteData = this.cutPipes || this.copiedPipes;
 
+    console.log('🔵 Paste çağrıldı:', {
+        hasPasteData: !!pasteData,
+        hasMousePoint: !!this.lastMousePoint,
+        cutPipes: !!this.cutPipes,
+        copiedPipes: !!this.copiedPipes
+    });
+
     if (!pasteData || !this.lastMousePoint) {
+        console.log('❌ Paste iptal: Veri veya mouse pozisyonu yok');
         return;
     }
 
