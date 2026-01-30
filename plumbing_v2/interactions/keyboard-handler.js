@@ -240,8 +240,8 @@ export function handleKeyDown(e) {
         return true;
     }
 
-    // V - Vana ekle (Ghost mod)
-    if (e.key === 'v' || e.key === 'V') {
+    // V - Vana ekle (Ghost mod) - CTRL tuşu basılı DEĞİLKEN
+    if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey) {
         // Önceki modu kaydet
         this.previousMode = state.currentMode;
         this.previousDrawingMode = state.currentDrawingMode;
@@ -325,6 +325,7 @@ export function handleKeyDown(e) {
     // CTRL+C - Kopyala (seçili boru ve sonrasındaki tüm parçaları)
     if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
         if (this.selectedObject && this.selectedObject.type === 'boru') {
+            e.preventDefault();
             handlePipeCopy.call(this);
             return true;
         }
@@ -333,6 +334,7 @@ export function handleKeyDown(e) {
     // CTRL+X - Kes (seçili boru ve sonrasındaki tüm parçaları)
     if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
         if (this.selectedObject && this.selectedObject.type === 'boru') {
+            e.preventDefault();
             handlePipeCut.call(this);
             return true;
         }
@@ -341,6 +343,7 @@ export function handleKeyDown(e) {
     // CTRL+V - Yapıştır (kopyalanan/kesilen parçaları)
     if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
         if (this.copiedPipes || this.cutPipes) {
+            e.preventDefault();
             handlePipePaste.call(this);
             return true;
         }
