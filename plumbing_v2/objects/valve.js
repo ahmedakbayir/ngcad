@@ -570,13 +570,30 @@ const dx = pipe.p2.x - pipe.p1.x;
     /**
      * Vana çıkışına kapama sembolü eklenip eklenmeyeceğini kontrol et
      * KURALLAR:
-     * - Sonlanma vanaları (BRANSMAN, YAN_BINA, DOMESTIK): fromEnd set ise DAIMA göster
+     * - Sonlanma vanaları (BRANSMAN, YAN_BINA, DOMESTIK): Boruya bağlı ise DAIMA göster
      * - Ara vanalar: Vana boru ucunda olmalı VE boru ucu boş olmalı
      * @param {object} manager - PlumbingManager instance
      * @returns {boolean} - Kapama sembolü gösterilmeli mi?
      */
     checkEndCap(manager) {
-        if (!this.bagliBoruId || !this.fromEnd || !manager) {
+        // Manager yoksa hiçbir şey gösterme
+        if (!manager) {
+            return false;
+        }
+
+        // *** SONLANMA VANALARI İÇİN BASİTLEŞTİRİLMİŞ MANTIK ***
+        // Sonlanma vanası ise ve boruya bağlı ise, DAIMA kapama göster
+        // fromEnd kontrolü yapmıyoruz çünkü drag sırasında geçici olarak null olabiliyor
+        if (this.isSonlanma() && this.bagliBoruId) {
+            const pipe = manager.findPipeById(this.bagliBoruId);
+            if (pipe) {
+                return true; // Boruya bağlı sonlanma vanası = daima kapama göster
+            }
+        }
+
+        // *** ARA VANALAR İÇİN MEVCUT MANTIK ***
+        // Boru ucunda olmalı (fromEnd set)
+        if (!this.bagliBoruId || !this.fromEnd) {
             return false;
         }
 
@@ -585,13 +602,6 @@ const dx = pipe.p2.x - pipe.p1.x;
             return false;
         }
 
-        // *** SONLANMA VANALARI İÇİN BASİTLEŞTİRİLMİŞ MANTIK ***
-        // Sonlanma vanası ise ve boru ucundaysa, DAIMA kapama göster
-        if (this.isSonlanma()) {
-            return true; // Başka kontrol gereksiz
-        }
-
-        // *** ARA VANALAR İÇİN MEVCUT MANTIK ***
         // Vananın hangi uçta olduğunu belirle
         const endpoint = this.fromEnd; // 'p1' veya 'p2'
         const endPoint = pipe[endpoint]; // Boru uç noktası {x, y, z}
