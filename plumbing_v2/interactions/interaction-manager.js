@@ -312,8 +312,8 @@ export class InteractionManager {
         return startBodyDrag(this, pipe, point);
     }
 
-    handleDrag(point) {
-        return handleDrag(this, point);
+    handleDrag(point, event) { // <-- DÜZELTME: event parametresi eklendi
+        return handleDrag(this, point, event);
     }
 
     endDrag() {

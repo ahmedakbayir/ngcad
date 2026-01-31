@@ -1,7 +1,8 @@
 /**
- * Drag Handler - 3D LENGTH FIX
+ * Drag Handler - 3D LENGTH FIX + RECURSIVE MOVE (CTRL)
  * "Boru boyu 0 olamaz" kontrolüne Z ekseni eklendi.
  * Artık düşey borulara (X=0, Y=0, Z=100) izin verilir.
+ * CTRL ile tam ağaç taşıma (Endpoint ve Body) eklendi.
  */
 
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
@@ -849,161 +850,62 @@ export function handleDrag(interactionManager, point, event = null) {
                 });
             }
 
-            if (interactionManager.connectedPipesAtEndpoint && interactionManager.connectedPipesAtEndpoint.length > 0) {
-                interactionManager.connectedPipesAtEndpoint.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = finalPos.x;
-                    connectedPipe[connectedEndpoint].y = finalPos.y;
-                    connectedPipe[connectedEndpoint].z = finalPos.z;
-                });
-            }
-
+            // --- ⚡ CTRL İLE ENDPOINT TAŞIMA (DÜZELTİLMİŞ) ⚡ ---
             if (event && event.ctrlKey) {
-                // CTRL ile toplu taşıma (cascade move) - 3D destekli
+                // 1. Delta hesapla
                 const dx = finalPos.x - oldPoint.x;
                 const dy = finalPos.y - oldPoint.y;
-                const dz = (finalPos.z || 0) - (oldPoint.z || 0); // 3D desteği eklendi
+                const dz = (finalPos.z || 0) - (oldPoint.z || 0);
 
-                const downstreamChain = [];
-                const visited = new Set([pipe.id]);
-                const queue = [];
-                const tolerance = 1;
+                // 2. Ağacı bul (Bağlı boruları kullanarak)
+                // interactionManager.connectedPipesAtEndpoint: Sürükleme başladığında belirlenen,
+                // bu noktaya bağlı boruların listesidir. 
+                // Bu liste henüz hareket etmemiş boruları içerir.
+                const startPipes = (interactionManager.connectedPipesAtEndpoint || []).map(cp => cp.pipe);
 
-                // Taşınan noktaya bağlı tüm boruları bul (başlangıç)
-                interactionManager.manager.pipes.forEach(otherPipe => {
-                    if (otherPipe.id === pipe.id) return;
-                    const p1Dist = Math.hypot(
-                        otherPipe.p1.x - finalPos.x,
-                        otherPipe.p1.y - finalPos.y,
-                        (otherPipe.p1.z || 0) - (finalPos.z || 0) // 3D mesafe
-                    );
-                    const p2Dist = Math.hypot(
-                        otherPipe.p2.x - finalPos.x,
-                        otherPipe.p2.y - finalPos.y,
-                        (otherPipe.p2.z || 0) - (finalPos.z || 0) // 3D mesafe
-                    );
-                    if (p1Dist < tolerance || p2Dist < tolerance) {
-                        visited.add(otherPipe.id);
-                        queue.push(otherPipe);
-                    }
-                });
-
-                // BFS ile tüm bağlı boru zincirini bul
-                while (queue.length > 0) {
-                    const currentPipe = queue.shift();
-                    downstreamChain.push(currentPipe);
-
-                    interactionManager.manager.pipes.forEach(otherPipe => {
-                        if (visited.has(otherPipe.id)) return;
-
-                        // Tüm uç noktalar arasında 3D mesafe kontrolü
-                        const p1ToP1 = Math.hypot(
-                            otherPipe.p1.x - currentPipe.p1.x,
-                            otherPipe.p1.y - currentPipe.p1.y,
-                            (otherPipe.p1.z || 0) - (currentPipe.p1.z || 0)
-                        );
-                        const p1ToP2 = Math.hypot(
-                            otherPipe.p1.x - currentPipe.p2.x,
-                            otherPipe.p1.y - currentPipe.p2.y,
-                            (otherPipe.p1.z || 0) - (currentPipe.p2.z || 0)
-                        );
-                        const p2ToP1 = Math.hypot(
-                            otherPipe.p2.x - currentPipe.p1.x,
-                            otherPipe.p2.y - currentPipe.p1.y,
-                            (otherPipe.p2.z || 0) - (currentPipe.p1.z || 0)
-                        );
-                        const p2ToP2 = Math.hypot(
-                            otherPipe.p2.x - currentPipe.p2.x,
-                            otherPipe.p2.y - currentPipe.p2.y,
-                            (otherPipe.p2.z || 0) - (currentPipe.p2.z || 0)
-                        );
-
-                        if (p1ToP1 < tolerance || p1ToP2 < tolerance || p2ToP1 < tolerance || p2ToP2 < tolerance) {
-                            visited.add(otherPipe.id);
-                            queue.push(otherPipe);
+                if (startPipes.length > 0) {
+                    // Recursive olarak tüm ağacı bul (Sürüklenen ana boru hariç)
+                    const tree = getRecursiveConnectedObjects(interactionManager.manager, startPipes, [pipe.id]);
+                    
+                    // Ağaçtaki tüm elemanları taşı
+                    tree.pipes.forEach(p => {
+                        p.p1.x += dx; p.p1.y += dy; p.p1.z = (p.p1.z || 0) + dz;
+                        p.p2.x += dx; p.p2.y += dy; p.p2.z = (p.p2.z || 0) + dz;
+                    });
+                    
+                    tree.components.forEach(c => {
+                        if (c.type === 'vana') {
+                             c.x += dx; c.y += dy; c.z = (c.z || 0) + dz;
+                        } else if (c.type === 'sayac' || c.type === 'cihaz' || c.type === 'servis_kutusu') {
+                             c.x += dx; c.y += dy; c.z = (c.z || 0) + dz;
+                             
+                             // Cihaz bacalarını da taşı
+                             if (c.type === 'cihaz') {
+                                 const bacalar = interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
+                                 bacalar.forEach(baca => {
+                                    baca.startX += dx; baca.startY += dy; baca.z = (baca.z || 0) + dz;
+                                    baca.currentSegmentStart.x += dx; baca.currentSegmentStart.y += dy; baca.currentSegmentStart.z = (baca.currentSegmentStart.z || 0) + dz;
+                                    baca.segments.forEach(seg => {
+                                        seg.x1 += dx; seg.y1 += dy; seg.z1 = (seg.z1 || 0) + dz;
+                                        seg.x2 += dx; seg.y2 += dy; seg.z2 = (seg.z2 || 0) + dz;
+                                    });
+                                    if(baca.havalandirma) {
+                                        baca.havalandirma.x += dx; baca.havalandirma.y += dy;
+                                    }
+                                 });
+                             }
                         }
                     });
                 }
-
-                // Tüm bağlı borular ve elemanları aynı delta ile taşı
-                downstreamChain.forEach(chainPipe => {
-                    // Boru uçlarını taşı (3D)
-                    chainPipe.p1.x += dx;
-                    chainPipe.p1.y += dy;
-                    chainPipe.p1.z = (chainPipe.p1.z || 0) + dz; // 3D
-
-                    chainPipe.p2.x += dx;
-                    chainPipe.p2.y += dy;
-                    chainPipe.p2.z = (chainPipe.p2.z || 0) + dz; // 3D
-
-                    // Boru üzerindeki vanaları taşı
-                    const vanaListesi = interactionManager.manager.components.filter(
-                        c => c.type === 'vana' && c.bagliBoruId === chainPipe.id
-                    );
-                    vanaListesi.forEach(vana => {
-                        vana.x += dx;
-                        vana.y += dy;
-                        vana.z = (vana.z || 0) + dz; // 3D
+            } else {
+                // CTRL basılı DEĞİLSE standart esneme davranışı
+                if (interactionManager.connectedPipesAtEndpoint && interactionManager.connectedPipesAtEndpoint.length > 0) {
+                    interactionManager.connectedPipesAtEndpoint.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
+                        connectedPipe[connectedEndpoint].x = finalPos.x;
+                        connectedPipe[connectedEndpoint].y = finalPos.y;
+                        connectedPipe[connectedEndpoint].z = finalPos.z;
                     });
-
-                    // Boruya bağlı sayaç ve cihazları taşı
-                    const componentListesi = interactionManager.manager.components.filter(
-                        c => (c.type === 'sayac' || c.type === 'cihaz') &&
-                             c.fleksBaglanti &&
-                             c.fleksBaglanti.boruId === chainPipe.id
-                    );
-                    componentListesi.forEach(comp => {
-                        comp.x += dx;
-                        comp.y += dy;
-                        comp.z = (comp.z || 0) + dz; // 3D
-
-                        // Sayaç çıkış borusunu da taşı
-                        if (comp.type === 'sayac' && comp.cikisBagliBoruId) {
-                            const cikisBoru = interactionManager.manager.pipes.find(
-                                p => p.id === comp.cikisBagliBoruId
-                            );
-                            if (cikisBoru && !visited.has(cikisBoru.id)) {
-                                cikisBoru.p1.x += dx;
-                                cikisBoru.p1.y += dy;
-                                cikisBoru.p1.z = (cikisBoru.p1.z || 0) + dz; // 3D
-                            }
-                        }
-
-                        // Cihazın bacasını da taşı
-                        if (comp.type === 'cihaz') {
-                            const bacalar = interactionManager.manager.components.filter(
-                                c => c.type === 'baca' && c.parentCihazId === comp.id
-                            );
-                            bacalar.forEach(baca => {
-                                baca.startX += dx;
-                                baca.startY += dy;
-                                baca.z = (baca.z || 0) + dz; // 3D
-
-                                baca.currentSegmentStart.x += dx;
-                                baca.currentSegmentStart.y += dy;
-                                baca.currentSegmentStart.z = (baca.currentSegmentStart.z || 0) + dz; // 3D
-
-                                // Tüm baca segmentlerini taşı
-                                baca.segments.forEach(seg => {
-                                    seg.x1 += dx;
-                                    seg.y1 += dy;
-                                    seg.z1 = (seg.z1 || 0) + dz; // 3D
-
-                                    seg.x2 += dx;
-                                    seg.y2 += dy;
-                                    seg.z2 = (seg.z2 || 0) + dz; // 3D
-                                });
-
-                                // Havalandırma ızgarasını taşı
-                                if (baca.havalandirma) {
-                                    baca.havalandirma.x += dx;
-                                    baca.havalandirma.y += dy;
-                                }
-                            });
-                        }
-                    });
-                });
-
-                console.log(`CTRL ile toplu taşıma: ${downstreamChain.length} boru ve bağlı elemanlar taşındı (dx=${dx.toFixed(1)}, dy=${dy.toFixed(1)}, dz=${dz.toFixed(1)})`);
+                }
             }
         }
         return;
@@ -1196,6 +1098,94 @@ export function handleDrag(interactionManager, point, event = null) {
         let offsetX = deltaX;
         let offsetY = deltaY;
         let offsetZ = deltaZ;
+
+        // --- CTRL İLE GÖVDE TAŞIMA: TAM AĞAÇ HAREKETİ ---
+        if (event && event.ctrlKey) {
+            // Yeni hedef noktaları hesapla
+            const newP1 = {
+                x: interactionManager.bodyDragInitialP1.x + offsetX,
+                y: interactionManager.bodyDragInitialP1.y + offsetY,
+                z: (interactionManager.bodyDragInitialP1.z || 0) + offsetZ
+            };
+            const newP2 = {
+                x: interactionManager.bodyDragInitialP2.x + offsetX,
+                y: interactionManager.bodyDragInitialP2.y + offsetY,
+                z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZ
+            };
+
+            // Frame Delta (Bu karedeki değişim)
+            const frameDx = newP1.x - pipe.p1.x;
+            const frameDy = newP1.y - pipe.p1.y;
+            const frameDz = newP1.z - (pipe.p1.z || 0);
+
+            // Borunun mevcut iki ucuna bağlı olan TÜM elemanları bul ve ağacı kur
+            // (Burada boru henüz hareket etmediği için geometrik kontroller çalışır)
+            const startPipes = [];
+            const tolerance = 1;
+            
+            interactionManager.manager.pipes.forEach(otherPipe => {
+                if (otherPipe.id === pipe.id) return;
+
+                // p1'e bağlı olanlar
+                const d1_1 = Math.hypot(otherPipe.p1.x - pipe.p1.x, otherPipe.p1.y - pipe.p1.y, (otherPipe.p1.z || 0) - (pipe.p1.z || 0));
+                const d1_2 = Math.hypot(otherPipe.p2.x - pipe.p1.x, otherPipe.p2.y - pipe.p1.y, (otherPipe.p2.z || 0) - (pipe.p1.z || 0));
+                // p2'ye bağlı olanlar
+                const d2_1 = Math.hypot(otherPipe.p1.x - pipe.p2.x, otherPipe.p1.y - pipe.p2.y, (otherPipe.p1.z || 0) - (pipe.p2.z || 0));
+                const d2_2 = Math.hypot(otherPipe.p2.x - pipe.p2.x, otherPipe.p2.y - pipe.p2.y, (otherPipe.p2.z || 0) - (pipe.p2.z || 0));
+
+                if (d1_1 < tolerance || d1_2 < tolerance || d2_1 < tolerance || d2_2 < tolerance) {
+                    startPipes.push(otherPipe);
+                }
+            });
+
+            // Sürüklenen borunun kendisini taşı
+            pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
+            pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
+            
+            // Boru üzerindeki vanaları güncelle
+             const vanaListesi = interactionManager.manager.components.filter(
+                c => c.type === 'vana' && c.bagliBoruId === pipe.id
+            );
+            vanaListesi.forEach(vana => {
+                vana.x += frameDx; vana.y += frameDy; vana.z = (vana.z || 0) + frameDz;
+            });
+
+            // Bağlı ağacı taşı
+            if (startPipes.length > 0) {
+                const tree = getRecursiveConnectedObjects(interactionManager.manager, startPipes, [pipe.id]);
+                
+                tree.pipes.forEach(p => {
+                    p.p1.x += frameDx; p.p1.y += frameDy; p.p1.z = (p.p1.z || 0) + frameDz;
+                    p.p2.x += frameDx; p.p2.y += frameDy; p.p2.z = (p.p2.z || 0) + frameDz;
+                });
+                
+                tree.components.forEach(c => {
+                    if (c.type === 'vana') {
+                         c.x += frameDx; c.y += frameDy; c.z = (c.z || 0) + frameDz;
+                    } else if (c.type === 'sayac' || c.type === 'cihaz' || c.type === 'servis_kutusu') {
+                         c.x += frameDx; c.y += frameDy; c.z = (c.z || 0) + frameDz;
+                         
+                         if (c.type === 'cihaz') {
+                             const bacalar = interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
+                             bacalar.forEach(baca => {
+                                baca.startX += frameDx; baca.startY += frameDy; baca.z = (baca.z || 0) + frameDz;
+                                baca.currentSegmentStart.x += frameDx; baca.currentSegmentStart.y += frameDy; baca.currentSegmentStart.z = (baca.currentSegmentStart.z || 0) + frameDz;
+                                baca.segments.forEach(seg => {
+                                    seg.x1 += frameDx; seg.y1 += frameDy; seg.z1 = (seg.z1 || 0) + frameDz;
+                                    seg.x2 += frameDx; seg.y2 += frameDy; seg.z2 = (seg.z2 || 0) + frameDz;
+                                });
+                                if(baca.havalandirma) {
+                                    baca.havalandirma.x += frameDx; baca.havalandirma.y += frameDy;
+                                }
+                             });
+                         }
+                    }
+                });
+            }
+
+            return; // Normal gövde taşıma mantığını atla
+        }
+        // ----------------------------------------------
 
         // --- BORU ZİNCİRİ TAŞIMA (DÜŞEY VE YATAY) ---
         if (interactionManager.alignedPipeChain && interactionManager.alignedPipeChain.length > 0) {
@@ -1441,4 +1431,74 @@ export function endDrag(interactionManager) {
 
     interactionManager.manager.saveToState();
     saveState();
+}
+
+/**
+ * Bağlı tüm nesneleri ve boruları (ağaç yapısı) bulur. (Recursive BFS)
+ */
+function getRecursiveConnectedObjects(manager, startPipes, excludePipeIds = []) {
+    const pipesToMove = new Set();
+    const componentsToMove = new Set();
+    const queue = [...startPipes];
+    const visitedPipes = new Set(excludePipeIds);
+    startPipes.forEach(p => visitedPipes.add(p.id));
+    startPipes.forEach(p => pipesToMove.add(p));
+
+    // Helper to add pipe
+    const addPipe = (p) => {
+        if (!p || visitedPipes.has(p.id)) return;
+        visitedPipes.add(p.id);
+        pipesToMove.add(p);
+        queue.push(p);
+    };
+
+    while (queue.length > 0) {
+        const curr = queue.shift();
+
+        // 1. Find geometric connections (pipes connected to endpoints)
+        manager.pipes.forEach(p => {
+             if(visitedPipes.has(p.id)) return;
+             
+             // Check connection with current pipe
+             const tolerance = 1.0;
+             const isConnected = 
+                Math.hypot(p.p1.x - curr.p1.x, p.p1.y - curr.p1.y, (p.p1.z||0) - (curr.p1.z||0)) < tolerance ||
+                Math.hypot(p.p1.x - curr.p2.x, p.p1.y - curr.p2.y, (p.p1.z||0) - (curr.p2.z||0)) < tolerance ||
+                Math.hypot(p.p2.x - curr.p1.x, p.p2.y - curr.p1.y, (p.p2.z||0) - (curr.p1.z||0)) < tolerance ||
+                Math.hypot(p.p2.x - curr.p2.x, p.p2.y - curr.p2.y, (p.p2.z||0) - (curr.p2.z||0)) < tolerance;
+             
+             if(isConnected) addPipe(p);
+        });
+
+        // 2. Find components on/connected to this pipe
+        manager.components.forEach(c => {
+             if(componentsToMove.has(c)) return;
+             let linked = false;
+             if (c.bagliBoruId === curr.id) linked = true;
+             if (c.fleksBaglanti?.boruId === curr.id) linked = true;
+             if (c.cikisBagliBoruId === curr.id) linked = true;
+             
+             if(linked) {
+                 componentsToMove.add(c);
+                 // Check if component bridges to other pipes (Meter output, Device flex, etc.)
+                 if (c.type === 'sayac' && c.cikisBagliBoruId && c.cikisBagliBoruId !== curr.id) {
+                     addPipe(manager.findPipeById(c.cikisBagliBoruId));
+                 }
+                 if (c.type === 'sayac' && c.fleksBaglanti?.boruId && c.fleksBaglanti.boruId !== curr.id) {
+                     addPipe(manager.findPipeById(c.fleksBaglanti.boruId));
+                 }
+                 if (c.type === 'cihaz' && c.fleksBaglanti?.boruId && c.fleksBaglanti.boruId !== curr.id) {
+                     addPipe(manager.findPipeById(c.fleksBaglanti.boruId));
+                 }
+                 if (c.type === 'servis_kutusu' && c.bagliBoruId && c.bagliBoruId !== curr.id) {
+                     addPipe(manager.findPipeById(c.bagliBoruId));
+                 }
+             }
+        });
+    }
+    
+    return { 
+        pipes: Array.from(pipesToMove), 
+        components: Array.from(componentsToMove) 
+    };
 }
