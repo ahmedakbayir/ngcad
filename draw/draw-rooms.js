@@ -1,4 +1,4 @@
-import { getRoomSelectedColor, getRoomFillColor, getAdjustedColor, isObjectInteractable} from '../general-files/main.js';
+import { getRoomSelectedColor, getRoomFillColor, getAdjustedColor, isObjectInteractable, isLightMode} from '../general-files/main.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
@@ -169,7 +169,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
         // Gölge efekti
         const isHoveredOrDraggingName = hoveredRoom === room || room === isDraggingRoomName;
         if (isHoveredOrDraggingName) {
-            ctx2d.shadowColor = 'rgba(138, 180, 248, 0.6)';
+            ctx2d.shadowColor = isLightMode() ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)';
             ctx2d.shadowBlur = 8 / zoom; // Gölgeyi zoom'a göre ayarla
         }
 
@@ -230,7 +230,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
             const minWorldNameFontSize = 3;
 
             // Gölge ekle (sürüklenirken)
-            ctx2d.shadowColor = 'rgba(138, 180, 248, 0.6)';
+            ctx2d.shadowColor = isLightMode() ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.6)';
             ctx2d.shadowBlur = 8 / zoom;
 
             ctx2d.font = `500 ${Math.max(minWorldNameFontSize, nameFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;

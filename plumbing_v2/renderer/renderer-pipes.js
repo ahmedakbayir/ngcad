@@ -106,7 +106,7 @@ export const PipeMixin = {
         const isLight = this.isLightMode();
         // Açık mod: Siyah transparan gölge
         // Koyu mod: Beyaz transparan iz (Zemin koyu olduğu için parlaklık veriyoruz)
-        const shadowColor = isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+        const shadowColor = isLight ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.4)';
 
         ctx.save();
         ctx.fillStyle = shadowColor;
@@ -827,7 +827,7 @@ drawPipes(ctx, pipes) {
     drawGeciciBoruShadow(ctx, geciciBoru) {
         // Geçici borunun gölgesini çiz (zemin seviyesinde)
         const isLight = this.isLightMode();
-        const shadowColor = isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)';
+        const shadowColor = isLight ? 'rgba(0, 0, 0, 0.4)' : 'rgba(255, 255, 255, 0.4)';
 
         ctx.save();
         ctx.strokeStyle = shadowColor;
