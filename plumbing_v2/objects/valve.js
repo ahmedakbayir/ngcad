@@ -363,8 +363,8 @@ const dx = pipe.p2.x - pipe.p1.x;
         if (pipeLength < 0.1) return false;
         // --- DÜZELTME BİTİŞ ---
 
-        // Mesafe kontrolü: uçlardan 1cm, nesneler arası 1cm
-        const MIN_EDGE_DISTANCE = 1; // cm
+        // Mesafe kontrolü: uçlardan 1cm (ara vanalar), sonlanma vanaları için 0.5cm
+        const MIN_EDGE_DISTANCE = this.isSonlanma() ? 0.5 : 1; // cm
         const OBJECT_MARGIN = 1; // cm - Her nesnenin sağında ve solunda
 
         const minT = MIN_EDGE_DISTANCE / pipeLength;
@@ -459,8 +459,8 @@ const dx = pipe.p2.x - pipe.p1.x;
         // DÜZELTME: Threshold'u 10cm'den 3cm'e düşürdük - vana daha az atlayacak
         const END_THRESHOLD_CM = 3; // 3 cm içindeyse uç sayılır (eski: 10)
         const VANA_GENISLIGI = 8;
-        const BORU_UCU_BOSLUK = 1;
-        const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm
+        const BORU_UCU_BOSLUK = this.isSonlanma() ? 0 : 1; // Sonlanma vanaları için boşluk yok
+        const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // Sonlanma: 4cm, Ara: 5cm
 
         const distToP1 = newT * pipeLength; // 3D Uzunluk kullanılıyor
         const distToP2 = (1 - newT) * pipeLength;

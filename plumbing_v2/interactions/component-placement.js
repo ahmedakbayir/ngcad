@@ -300,14 +300,16 @@ export function handleVanaPlacement(vanaPreview) {
     // --- 2. UÇ NOKTALARA SABİTLEME (3D Mesafe ile) ---
     // pipe.uzunluk yerine hesapladığımız len3d (3D uzunluk) kullan
     const VANA_GENISLIGI = 8;
-    const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda
-    const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // ~5 cm
+    const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda (ara vanalar için)
+    const BORU_UCU_BOSLUK_SONLANMA = 0; // Sonlanma vanaları için boşluk yok
+    const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // ~5 cm (ara vanalar)
+    const fixedDistanceFromEndSonlanma = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK_SONLANMA; // 4 cm (sonlanma vanaları)
 
     // Boru ucuna yakın mı kontrol et
-    const END_THRESHOLD_CM = 10; 
+    const END_THRESHOLD_CM = 10;
     const distToP1 = t * len3d;
     const distToP2 = (1 - t) * len3d;
-    
+
     const isNearP1 = distToP1 < END_THRESHOLD_CM;
     const isNearP2 = distToP2 < END_THRESHOLD_CM;
 
@@ -327,18 +329,25 @@ export function handleVanaPlacement(vanaPreview) {
     }
 
     // --- 3. NESNEYİ OLUŞTUR VE AYARLA ---
-    const vana = createVana(x, y, 'AKV', vanaOptions);
-    
+    // tempComponent'ten vana tipini al (yoksa varsayılan 'AKV')
+    const vanaTipi = this.manager.tempComponent?.vanaTipi || 'AKV';
+    const vana = createVana(x, y, vanaTipi, vanaOptions);
+
     // Z Yüksekliğini Ata
     vana.z = z;
 
     // AÇI DÜZELTMESİ (Sorunu çözen kısım)
     if (isVertical) {
         // Düşey boru ise -45 derece (3D izometrikte dikey görünüm)
-        vana.rotation = -45; 
+        vana.rotation = -45;
     } else {
         // Yatay boru ise kendi açısı
         vana.rotation = pipe.aciDerece;
+    }
+
+    // Sonlanma vanaları için fixedDistance değerini güncelle (boru ucuna daha yakın)
+    if (vana.isSonlanma() && vana.fixedDistance !== null) {
+        vana.fixedDistance = fixedDistanceFromEndSonlanma;
     }
 
     // Manager'a ekle
