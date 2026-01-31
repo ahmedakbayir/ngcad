@@ -309,8 +309,8 @@ export function toggle3DPerspective() {
     }
     // ------------------------------------
 
-    console.log(`[Double CTRL] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
-    console.log(`[Double CTRL] Başlangıç viewBlendFactor: ${state.viewBlendFactor}, is3DActive: ${state.is3DPerspectiveActive}`);
+//    console.log(`[Double CTRL] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
+  //  console.log(`[Double CTRL] Başlangıç viewBlendFactor: ${state.viewBlendFactor}, is3DActive: ${state.is3DPerspectiveActive}`);
 
     // Animasyon Hedefleri
     const targetBlend = targetIsActive ? 1 : 0; // 3D için 1, 2D için 0
@@ -327,7 +327,7 @@ export function toggle3DPerspective() {
         angle: orbitControls ? orbitControls.getPolarAngle() : 0
     };
 
-    console.log(`[Double CTRL] animObj.blend başlangıç: ${animObj.blend} -> hedef: ${targetBlend}`);
+ //   console.log(`[Double CTRL] animObj.blend başlangıç: ${animObj.blend} -> hedef: ${targetBlend}`);
 
     // 3D Kamera Hedef Pozisyonu
     const targetPos = orbitControls ? orbitControls.target.clone() : new THREE.Vector3();
@@ -346,7 +346,7 @@ export function toggle3DPerspective() {
 
             // Debug: Her 10 frame'de bir log
             if (Math.random() < 0.1) {
-                console.log(`[Anim] blend: ${animObj.blend.toFixed(3)}, angle: ${animObj.angle.toFixed(3)}`);
+   //             console.log(`[Anim] blend: ${animObj.blend.toFixed(3)}, angle: ${animObj.angle.toFixed(3)}`);
             }
 
             // 2. 3D Kamerayı Güncelle
@@ -628,12 +628,12 @@ export function setupIsometricControls() {
             const draggedPipe = state.isoDraggedPipe;
             const draggedEndpoint = state.isoDraggedEndpoint; // 'start' veya 'end'
 
-            console.log(`\n🎯 SÜRÜKLEME:
-  Pipe: ${draggedPipe.id}
-  Endpoint: ${draggedEndpoint}
-  p1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}, ${(draggedPipe.p1.z || 0).toFixed(1)})
-  p2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)}, ${(draggedPipe.p2.z || 0).toFixed(1)})
-  Sürüklenen nokta: ${draggedEndpoint === 'start' ? 'p1' : 'p2'}`);
+//             console.log(`\n🎯 SÜRÜKLEME:
+//   Pipe: ${draggedPipe.id}
+//   Endpoint: ${draggedEndpoint}
+//   p1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}, ${(draggedPipe.p1.z || 0).toFixed(1)})
+//   p2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)}, ${(draggedPipe.p2.z || 0).toFixed(1)})
+//   Sürüklenen nokta: ${draggedEndpoint === 'start' ? 'p1' : 'p2'}`);
 
             // toIsometric fonksiyonunu al
             const toIso = window._toIsometric || ((x, y) => ({ isoX: x, isoY: y }));
@@ -649,7 +649,7 @@ export function setupIsometricControls() {
 
             // draggedPipeData'yı da tanımla (child pipe taşıma için gerekli)
             const draggedPipeData = hierarchy ? hierarchy.get(draggedPipe.id) : null;
-            console.log(`  Hierarchy: parent=${draggedPipeData?.parent || 'none'}, children=[${draggedPipeData?.children?.join(', ') || 'none'}]`);
+   //         console.log(`  Hierarchy: parent=${draggedPipeData?.parent || 'none'}, children=[${draggedPipeData?.children?.join(', ') || 'none'}]`);
 
             if (draggedPipeData && draggedPipeData.parent && plumbingManager) {
                 const parentPipe = plumbingManager.pipes.find(p => {

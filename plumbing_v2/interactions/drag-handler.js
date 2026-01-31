@@ -278,7 +278,7 @@ export function startBodyDrag(interactionManager, pipe, point) {
         interactionManager.bodyDragPrimaryAxis = 'Z'; // Z'de uzanıyor, X-Y'de taşınabilir
     }
 
-    console.log(`🔧 Gövde taşıma: Boru ${interactionManager.bodyDragPrimaryAxis} ekseninde uzanıyor`);
+ //   console.log(`🔧 Gövde taşıma: Boru ${interactionManager.bodyDragPrimaryAxis} ekseninde uzanıyor`);
 
     // --- BORU ZİNCİRİ KONTROLÜ (DÜŞEY VE YATAY) ---
     // Aynı eksende uzanan ve uç-uca bağlı tüm boruları zincir olarak bul
@@ -326,7 +326,7 @@ export function startBodyDrag(interactionManager, pipe, point) {
 
         interactionManager.alignedChainConnections = allChainConnections;
 
-        console.log(`🔗 ${interactionManager.bodyDragPrimaryAxis} ekseni boru zinciri bulundu: ${alignedChain.length} boru, ${allChainConnections.length} bağlantı`);
+   //     console.log(`🔗 ${interactionManager.bodyDragPrimaryAxis} ekseni boru zinciri bulundu: ${alignedChain.length} boru, ${allChainConnections.length} bağlantı`);
     } else {
         interactionManager.alignedPipeChain = null;
         interactionManager.alignedChainConnections = null;

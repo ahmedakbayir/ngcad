@@ -313,7 +313,7 @@ export function handleBoruClick(interactionManager, point) {
     }
     // ...
 
-    console.log('🔧 createBoru çağrılıyor:', { p1: interactionManager.boruBaslangic.nokta, p2: point });
+//    console.log('🔧 createBoru çağrılıyor:', { p1: interactionManager.boruBaslangic.nokta, p2: point });
     const boru = createBoru(interactionManager.boruBaslangic.nokta, point, 'STANDART');
     boru.floorId = state.currentFloorId;
     boru.colorGroup = interactionManager.boruBaslangic.kaynakColorGroup || 'YELLOW';

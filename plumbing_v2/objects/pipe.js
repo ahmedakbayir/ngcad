@@ -125,15 +125,15 @@ export class Boru {
         this.p1 = { x: p1.x, y: p1.y, z: p1.z || 0 };
         this.p2 = { x: p2.x, y: p2.y, z: p2.z || 0 };
 
-        // Z koordinatı kontrolü (debug)
-        if (this.p1.z !== 0 || this.p2.z !== 0) {
-            console.log(`📐 BORU OLUŞTURULDU (Z koordinatlı):`, {
-                id: this.id.substring(0, 20) + '...',
-                p1: this.p1,
-                p2: this.p2,
-                zFarkı: Math.abs(this.p2.z - this.p1.z)
-            });
-        }
+        // // Z koordinatı kontrolü (debug)
+        // if (this.p1.z !== 0 || this.p2.z !== 0) {
+        //     console.log(`📐 BORU OLUŞTURULDU (Z koordinatlı):`, {
+        //         id: this.id.substring(0, 20) + '...',
+        //         p1: this.p1,
+        //         p2: this.p2,
+        //         zFarkı: Math.abs(this.p2.z - this.p1.z)
+        //     });
+        // }
 
         // Renk Grubu (Sayaç Öncesi/Sonrası)
         this.colorGroup = 'YELLOW'; // Varsayılan: Sarı (Sayaç Öncesi)
