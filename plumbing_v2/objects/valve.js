@@ -459,8 +459,8 @@ const dx = pipe.p2.x - pipe.p1.x;
         // DÜZELTME: Threshold'u 10cm'den 3cm'e düşürdük - vana daha az atlayacak
         const END_THRESHOLD_CM = 3; // 3 cm içindeyse uç sayılır (eski: 10)
         const VANA_GENISLIGI = 8;
-        const BORU_UCU_BOSLUK = this.isSonlanma() ? 0 : 1; // Sonlanma vanaları için boşluk yok
-        const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // Sonlanma: 4cm, Ara: 5cm
+        const BORU_UCU_BOSLUK = 1; // Ara vanalar için boşluk
+        const fixedDistanceFromEnd = this.isSonlanma() ? 1 : (VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK); // Sonlanma: 1cm, Ara: 5cm
 
         const distToP1 = newT * pipeLength; // 3D Uzunluk kullanılıyor
         const distToP2 = (1 - newT) * pipeLength;
@@ -540,8 +540,8 @@ const dx = pipe.p2.x - pipe.p1.x;
     /**
      * Vana çıkışına kapama sembolü eklenip eklenmeyeceğini kontrol et
      * KURALLAR:
-     * - Vana boru ucunda olmalı (fromEnd set edilmiş)
-     * - Boru ucu boş olmalı (başka boru veya fleks bağlantısı yok)
+     * - Sonlanma vanaları (BRANSMAN, YAN_BINA, DOMESTIK): fromEnd set ise DAIMA göster
+     * - Ara vanalar: Vana boru ucunda olmalı VE boru ucu boş olmalı
      * @param {object} manager - PlumbingManager instance
      * @returns {boolean} - Kapama sembolü gösterilmeli mi?
      */
@@ -555,6 +555,13 @@ const dx = pipe.p2.x - pipe.p1.x;
             return false;
         }
 
+        // *** SONLANMA VANALARI İÇİN BASİTLEŞTİRİLMİŞ MANTIK ***
+        // Sonlanma vanası ise ve boru ucundaysa, DAIMA kapama göster
+        if (this.isSonlanma()) {
+            return true; // Başka kontrol gereksiz
+        }
+
+        // *** ARA VANALAR İÇİN MEVCUT MANTIK ***
         // Vananın hangi uçta olduğunu belirle
         const endpoint = this.fromEnd; // 'p1' veya 'p2'
         const endPoint = pipe[endpoint]; // Boru uç noktası {x, y, z}
