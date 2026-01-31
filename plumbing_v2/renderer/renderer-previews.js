@@ -582,10 +582,11 @@ export const PreviewMixin = {
 
         ctx.save();
 
-        // Kol uzunluğu: uzaklaşınca küçülür, yaklaşınca büyümez
-        const armLength = 30 * Math.min(1, zoom);
+        // Kol uzunluğu: uzaklaşınca küçülür, yaklaşınca en fazla %50 büyür
+        const scaleFactor = zoom < 1 ? zoom : Math.min(1.5, zoom);
+        const armLength = 30 * scaleFactor;
         const lineWidth = 1.5 / zoom;
-        const arrowSize = 6 * Math.min(1, zoom); // Ok başı boyutu
+        const arrowSize = 6 * scaleFactor; // Ok başı boyutu
 
         // Yardımcı fonksiyon: Ok başı çiz
         const drawArrowHead = (x, y, angle, color, alpha) => {
