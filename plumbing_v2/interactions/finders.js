@@ -848,3 +848,69 @@ function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
 
     return Math.hypot(px - closestX, py - closestY);
 }
+
+/**
+ * CTRL ile sürükleme: Bir endpoint'ten itibaren devam eden tüm boru ağacını bulur
+ * @param {Object} manager - Plumbing manager
+ * @param {Object} startPipe - Başlangıç borusu
+ * @param {string} startEndpoint - Başlangıç endpoint'i ('p1' veya 'p2')
+ * @returns {Array} - {pipe, endpoint, delta} şeklinde nesnelerin listesi
+ */
+export function findPipeTreeFromEndpoint(manager, startPipe, startEndpoint) {
+    const result = [];
+    const visited = new Set([startPipe.id]);
+    const tolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE || 1;
+
+    // Başlangıç noktası
+    const startPoint = startPipe[startEndpoint];
+
+    // BFS ile bu noktadan devam eden tüm boruları bul
+    const queue = [{ point: startPoint, excludePipeId: startPipe.id }];
+
+    while (queue.length > 0) {
+        const { point, excludePipeId } = queue.shift();
+
+        // Bu noktaya bağlı tüm boruları bul
+        for (const otherPipe of manager.pipes) {
+            if (visited.has(otherPipe.id)) continue;
+            if (otherPipe.id === excludePipeId) continue;
+
+            // p1'e bağlı mı?
+            const distToP1 = Math.hypot(
+                otherPipe.p1.x - point.x,
+                otherPipe.p1.y - point.y,
+                (otherPipe.p1.z || 0) - (point.z || 0)
+            );
+
+            // p2'ye bağlı mı?
+            const distToP2 = Math.hypot(
+                otherPipe.p2.x - point.x,
+                otherPipe.p2.y - point.y,
+                (otherPipe.p2.z || 0) - (point.z || 0)
+            );
+
+            if (distToP1 < tolerance) {
+                // p1 bağlı -> p2'den devam et
+                visited.add(otherPipe.id);
+                result.push({
+                    pipe: otherPipe,
+                    connectedEndpoint: 'p1', // Hangi ucu bağlı
+                    otherEndpoint: 'p2'      // Diğer uç
+                });
+                queue.push({ point: otherPipe.p2, excludePipeId: otherPipe.id });
+            } else if (distToP2 < tolerance) {
+                // p2 bağlı -> p1'den devam et
+                visited.add(otherPipe.id);
+                result.push({
+                    pipe: otherPipe,
+                    connectedEndpoint: 'p2', // Hangi ucu bağlı
+                    otherEndpoint: 'p1'      // Diğer uç
+                });
+                queue.push({ point: otherPipe.p1, excludePipeId: otherPipe.id });
+            }
+        }
+    }
+
+    return result;
+}
+}

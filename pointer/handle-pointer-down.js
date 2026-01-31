@@ -8,6 +8,7 @@ import { dom, state } from '../general-files/main.js';
 import { BAGLANTI_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 import { TESISAT_CONSTANTS } from '../plumbing_v2/interactions/tesisat-snap.js';
 import { pixelsToWorld, findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
+import { currentModifierKeys } from '../general-files/input.js';
 
 // YENİ IMPORT: 3D hesaplama fonksiyonu
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
@@ -148,7 +149,7 @@ export function handlePointerDown(e) {
 
                     if (clickedAxis) {
                         console.log('🎯 Endpoint gizmo eksenine tıklandı:', clickedAxis);
-                        this.startEndpointDrag(this.selectedObject, this.selectedEndpoint, point);
+                        this.startEndpointDrag(this.selectedObject, this.selectedEndpoint, point, currentModifierKeys.ctrl);
                         this.selectedDragAxis = clickedAxis;
                         this.axisLockDetermined = true;
                         this.lockedAxis = clickedAxis;
@@ -176,7 +177,7 @@ export function handlePointerDown(e) {
                     if (p1Axis) {
                         console.log('🎯 P1 endpoint gizmo eksenine tıklandı:', p1Axis);
                         this.selectedEndpoint = 'p1'; // Endpoint bilgisini kaydet
-                        this.startEndpointDrag(this.selectedObject, 'p1', point);
+                        this.startEndpointDrag(this.selectedObject, 'p1', point, currentModifierKeys.ctrl);
                         this.selectedDragAxis = p1Axis;
                         this.axisLockDetermined = true;
                         this.lockedAxis = p1Axis;
@@ -188,7 +189,7 @@ export function handlePointerDown(e) {
                     if (p2Axis) {
                         console.log('🎯 P2 endpoint gizmo eksenine tıklandı:', p2Axis);
                         this.selectedEndpoint = 'p2'; // Endpoint bilgisini kaydet
-                        this.startEndpointDrag(this.selectedObject, 'p2', point);
+                        this.startEndpointDrag(this.selectedObject, 'p2', point, currentModifierKeys.ctrl);
                         this.selectedDragAxis = p2Axis;
                         this.axisLockDetermined = true;
                         this.lockedAxis = p2Axis;
@@ -204,7 +205,7 @@ export function handlePointerDown(e) {
                     const centerAxis = findTranslateGizmoAxisAt(centerPoint, point, bodyAllowedAxes);
                     if (centerAxis) {
                         console.log('🎯 Merkez (body) gizmo eksenine tıklandı:', centerAxis);
-                        this.startBodyDrag(this.selectedObject, point);
+                        this.startBodyDrag(this.selectedObject, point, currentModifierKeys.ctrl);
                         this.selectedDragAxis = centerAxis;
                         this.axisLockDetermined = true;
                         this.lockedAxis = centerAxis;
@@ -268,7 +269,7 @@ export function handlePointerDown(e) {
             const pipe = verticalSymbol.pipe;
             this.selectObject(pipe);
             // Düşey boruları BODY olarak taşı (zincir halindeki tüm düşey borularla birlikte)
-            this.startBodyDrag(pipe, point);
+            this.startBodyDrag(pipe, point, currentModifierKeys.ctrl);
             return true;
         }
 
@@ -312,7 +313,7 @@ export function handlePointerDown(e) {
 
                 this.selectObject(pipe);
                 this.selectedEndpoint = boruUcu.uc; // Endpoint bilgisini kaydet
-                this.startEndpointDrag(pipe, boruUcu.uc, point);
+                this.startEndpointDrag(pipe, boruUcu.uc, point, currentModifierKeys.ctrl);
                 return true;
             }
         }
@@ -330,7 +331,7 @@ export function handlePointerDown(e) {
                     hitObject.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
                     return true;
                 }
-                this.startBodyDrag(hitObject, point);
+                this.startBodyDrag(hitObject, point, currentModifierKeys.ctrl);
             } else {
                 this.startDrag(hitObject, point);
             }
