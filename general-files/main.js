@@ -155,12 +155,12 @@ export function getCursorWallDrawColor() {
 
 export function getShadow(ctx, shadowColor = null, shadowBlur = 3, shadowOffsetX = 0.5, shadowOffsetY = 0.5) {
     if (isLightMode()) {
-        ctx.shadowColor = 'rgba(139, 139, 139, 1)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 1)';
         ctx.shadowBlur = 3;
         ctx.shadowOffsetX = 0.5;
         ctx.shadowOffsetY = 0.5;
     } else {
-        ctx.shadowColor = 'rgba(139, 139, 139, 1)';
+        ctx.shadowColor = 'rgba(255, 255, 255, 1)';
         ctx.shadowBlur = 3;
         ctx.shadowOffsetX = 0.5;
         ctx.shadowOffsetY = 0.5;
