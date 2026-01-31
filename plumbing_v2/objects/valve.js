@@ -465,18 +465,48 @@ const dx = pipe.p2.x - pipe.p1.x;
         const distToP1 = newT * pipeLength; // 3D Uzunluk kullanılıyor
         const distToP2 = (1 - newT) * pipeLength;
 
-        if (distToP2 < END_THRESHOLD_CM) {
-            // p2 ucuna yakın
-            this.fromEnd = 'p2';
-            this.fixedDistance = fixedDistanceFromEnd;
-        } else if (distToP1 < END_THRESHOLD_CM) {
-            // p1 ucuna yakın
-            this.fromEnd = 'p1';
-            this.fixedDistance = fixedDistanceFromEnd;
+        // *** SONLANMA VANALARI İÇİN ÖZEL MANTIK ***
+        // Sonlanma vanası için fromEnd değerini koru (hareket sırasında kaybolmasın)
+        if (this.isSonlanma()) {
+            const SONLANMA_KEEP_THRESHOLD = 15; // 15cm içinde kaldığı sürece fromEnd koru
+
+            // Zaten bir uca bağlıysa ve hala yakınsa, korumaya devam et
+            if (this.fromEnd === 'p2' && distToP2 < SONLANMA_KEEP_THRESHOLD) {
+                // p2'ye bağlı kalmaya devam et
+                this.fromEnd = 'p2';
+                this.fixedDistance = fixedDistanceFromEnd;
+            } else if (this.fromEnd === 'p1' && distToP1 < SONLANMA_KEEP_THRESHOLD) {
+                // p1'e bağlı kalmaya devam et
+                this.fromEnd = 'p1';
+                this.fixedDistance = fixedDistanceFromEnd;
+            } else if (distToP2 < END_THRESHOLD_CM) {
+                // p2'ye yeni yaklaştı
+                this.fromEnd = 'p2';
+                this.fixedDistance = fixedDistanceFromEnd;
+            } else if (distToP1 < END_THRESHOLD_CM) {
+                // p1'e yeni yaklaştı
+                this.fromEnd = 'p1';
+                this.fixedDistance = fixedDistanceFromEnd;
+            } else {
+                // Gerçekten ortada (15cm'den uzak)
+                this.fixedDistance = null;
+                this.fromEnd = null;
+            }
         } else {
-            // Ortada, serbest
-            this.fixedDistance = null;
-            this.fromEnd = null;
+            // *** ARA VANALAR İÇİN MEVCUT MANTIK ***
+            if (distToP2 < END_THRESHOLD_CM) {
+                // p2 ucuna yakın
+                this.fromEnd = 'p2';
+                this.fixedDistance = fixedDistanceFromEnd;
+            } else if (distToP1 < END_THRESHOLD_CM) {
+                // p1 ucuna yakın
+                this.fromEnd = 'p1';
+                this.fixedDistance = fixedDistanceFromEnd;
+            } else {
+                // Ortada, serbest
+                this.fixedDistance = null;
+                this.fromEnd = null;
+            }
         }
 
         return true;
