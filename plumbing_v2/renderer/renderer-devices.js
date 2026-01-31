@@ -224,7 +224,7 @@ export const DeviceMixin = {
         const boxSize = 15;
         const cornerRadius = 3;
 
-        ctx.shadowColor = isLightMode() ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.5)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
@@ -662,7 +662,7 @@ export const DeviceMixin = {
             ctx.lineJoin = 'round';
 
             // Gölge efekti
-            ctx.shadowColor = isLightMode() ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
             ctx.shadowBlur = 4;
 
             ctx.beginPath();
