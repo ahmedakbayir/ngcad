@@ -301,9 +301,8 @@ export function handleVanaPlacement(vanaPreview) {
     // pipe.uzunluk yerine hesapladığımız len3d (3D uzunluk) kullan
     const VANA_GENISLIGI = 8;
     const BORU_UCU_BOSLUK = 1; // max 1 cm kalsın boru ucunda (ara vanalar için)
-    const BORU_UCU_BOSLUK_SONLANMA = 0; // Sonlanma vanaları için boşluk yok
     const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // ~5 cm (ara vanalar)
-    const fixedDistanceFromEndSonlanma = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK_SONLANMA; // 4 cm (sonlanma vanaları)
+    const fixedDistanceFromEndSonlanma = 1; // 1 cm (sonlanma vanaları - boru ucuna çok yakın)
 
     // Boru ucuna yakın mı kontrol et
     const END_THRESHOLD_CM = 10;
