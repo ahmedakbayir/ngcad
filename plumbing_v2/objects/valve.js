@@ -655,10 +655,8 @@ const dx = pipe.p2.x - pipe.p1.x;
         // Sonlanma vanaları için basitleştirilmiş mantık: DAIMA true
         if (this.isSonlanma()) {
             this.showEndCap = true;
-            console.log(`[UPDATE] Sonlanma vanası ${this.id}: showEndCap = true (tip: ${this.vanaTipi})`);
         } else {
             this.showEndCap = this.checkEndCap(manager);
-            console.log(`[UPDATE] Ara vana ${this.id}: showEndCap = ${this.showEndCap} (tip: ${this.vanaTipi})`);
         }
     }
 
