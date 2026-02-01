@@ -423,6 +423,11 @@ export function createPlumbingPipeMesh(pipe, material) {
     cap1.position.set(0, length / 2, 0);
     cap2.position.set(0, -length / 2, 0);
 
+    // Kapakları layer 1'e at (raycasting'ten çıkar)
+    // Raycaster varsayılan olarak sadece layer 0'ı görür
+    cap1.layers.set(1);
+    cap2.layers.set(1);
+
     // Group oluştur ve tüm parçaları ekle
     const group = new THREE.Group();
     group.add(mesh);
