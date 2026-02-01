@@ -173,15 +173,9 @@ export const InteractionMixin = {
                 const point = interactionManager.selectedEndpoint === 'p1' ? obj.p1 : obj.p2;
                 const allowedAxes = ['X', 'Y', 'Z']; // Endpoint için tüm eksenler kullanılabilir
 
-                // Hover ediliyorsa göster
-                if (interactionManager.hoveredGizmoAxis) {
-                    if (this.drawTranslateGizmo) {
-                        this.drawTranslateGizmo(ctx, point, interactionManager.hoveredGizmoAxis, allowedAxes);
-                    }
-                } else {
-                    if (this.drawTranslateGizmo) {
-                        this.drawTranslateGizmo(ctx, point, null, allowedAxes);
-                    }
+                // Hover durumunda eksen uzamasın, sadece vurgulansın
+                if (this.drawTranslateGizmo) {
+                    this.drawTranslateGizmo(ctx, point, null, allowedAxes);
                 }
             } else {
                 // Boru gövdesi seçili: hem merkez hem endpoint'lerde gizmo göster
@@ -201,46 +195,33 @@ export const InteractionMixin = {
                     bodyAllowedAxes = ['X', 'Y']; // Z'de uzanıyor -> X-Y'de hareket
                 }
 
-                // Merkez gizmo (body için)
+                // Merkez gizmo (body için) - Hover durumunda uzamasın
                 const centerPoint = {
                     x: (obj.p1.x + obj.p2.x) / 2,
                     y: (obj.p1.y + obj.p2.y) / 2,
                     z: ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2
                 };
                 if (this.drawTranslateGizmo) {
-                    // Sadece merkez gizmo hover edilmişse eksen aktif
-                    const centerSelectedAxis = interactionManager.hoveredGizmoId === 'center' ? interactionManager.hoveredGizmoAxis : null;
-                    this.drawTranslateGizmo(ctx, centerPoint, centerSelectedAxis, bodyAllowedAxes);
+                    this.drawTranslateGizmo(ctx, centerPoint, null, bodyAllowedAxes);
                 }
 
-                // p1 endpoint gizmo (tüm eksenler)
+                // p1 endpoint gizmo (tüm eksenler) - Hover durumunda uzamasın
                 if (this.drawTranslateGizmo) {
-                    // Sadece p1 gizmo hover edilmişse eksen aktif
-                    const p1SelectedAxis = interactionManager.hoveredGizmoId === 'p1' ? interactionManager.hoveredGizmoAxis : null;
-                    this.drawTranslateGizmo(ctx, obj.p1, p1SelectedAxis, ['X', 'Y', 'Z']);
+                    this.drawTranslateGizmo(ctx, obj.p1, null, ['X', 'Y', 'Z']);
                 }
 
-                // p2 endpoint gizmo (tüm eksenler)
+                // p2 endpoint gizmo (tüm eksenler) - Hover durumunda uzamasın
                 if (this.drawTranslateGizmo) {
-                    // Sadece p2 gizmo hover edilmişse eksen aktif
-                    const p2SelectedAxis = interactionManager.hoveredGizmoId === 'p2' ? interactionManager.hoveredGizmoAxis : null;
-                    this.drawTranslateGizmo(ctx, obj.p2, p2SelectedAxis, ['X', 'Y', 'Z']);
+                    this.drawTranslateGizmo(ctx, obj.p2, null, ['X', 'Y', 'Z']);
                 }
             }
         } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
-            // Diğer nesneler için kendi pozisyonunu kullan
+            // Diğer nesneler için kendi pozisyonunu kullan - Hover durumunda uzamasın
             const point = { x: obj.x, y: obj.y, z: obj.z || 0 };
             const allowedAxes = ['X', 'Y', 'Z'];
 
-            // Hover ediliyorsa göster
-            if (interactionManager.hoveredGizmoAxis) {
-                if (this.drawTranslateGizmo) {
-                    this.drawTranslateGizmo(ctx, point, interactionManager.hoveredGizmoAxis, allowedAxes);
-                }
-            } else {
-                if (this.drawTranslateGizmo) {
-                    this.drawTranslateGizmo(ctx, point, null, allowedAxes);
-                }
+            if (this.drawTranslateGizmo) {
+                this.drawTranslateGizmo(ctx, point, null, allowedAxes);
             }
         }
     }
