@@ -147,9 +147,10 @@ export const InteractionMixin = {
         if (!point) return;
 
         // 3D sahnede taşıma gizmo'yu çiz (PreviewMixin'den)
-        // Taşıma esnasında eksenler uzamasın
+        // Hover edilen eksen belirgin olsun
+        const hoveredAxis = interactionManager.hoveredGizmoAxis || null;
         if (this.drawTranslateGizmo) {
-            this.drawTranslateGizmo(ctx, point, null, allowedAxes);
+            this.drawTranslateGizmo(ctx, point, hoveredAxis, allowedAxes);
         }
     },
 
