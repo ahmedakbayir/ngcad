@@ -455,7 +455,8 @@ export const PreviewMixin = {
 
     /**
      * 3D Koordinat Gizmo - Taşıma sırasında gösterilir
-     * X, Y, Z eksenlerini sonsuz kesikli çizgiler olarak gösterir
+     * X, Y, Z eksenlerini zoom'a göre ayarlanmış uzunlukta gösterir
+     * Seçili eksen sonsuz uzunlukta, diğerleri kısa
      */
     drawCoordinateGizmo(ctx, point, selectedAxis = null, allowedAxes = ['X', 'Y', 'Z']) {
         if (!point) return;
@@ -474,26 +475,29 @@ export const PreviewMixin = {
 
         ctx.save();
 
-        // Sonsuz uzunluk için çok büyük bir değer
-        const axisLength = 10000;
+        // Ekranda sabit boyutta görünmesi için zoom'a göre ayarla
+        const baseAxisLength = 150 / zoom;  // Ekranda ~150px gibi görünür
+        const infiniteLength = 10000;  // Seçili eksen için sonsuz uzunluk
         const lineWidth = 0.5 / zoom;
 
         // Kesikli çizgi paterni [çizgi uzunluğu, boşluk uzunluğu]
         const dashPattern = [10 / zoom, 10 / zoom];
 
-        // Z ekseni (yukarı - yeşil) - Her zaman aktif renkte
+        // Z ekseni (yukarı - yeşil)
         if (allowedAxes.includes('Z')) {
+            const zLength = selectedAxis === 'Z' ? infiniteLength : baseAxisLength;
+
             ctx.save();
             ctx.globalAlpha = selectedAxis === 'Z' ? 0.7 : 0.3;
             ctx.strokeStyle = '#00FF00';
             ctx.lineWidth = lineWidth;
             ctx.setLineDash([]);
 
-            // Z ekseni çizgisi (3D görünümde yukarı-sol yönü) - iki yönde sonsuz
-            const zEndX1 = screenX - (axisLength * t);
-            const zEndY1 = screenY + (axisLength * t);
-            const zEndX2 = screenX + (axisLength * t);
-            const zEndY2 = screenY - (axisLength * t);
+            // Z ekseni çizgisi (3D görünümde yukarı-sol yönü) - iki yönde
+            const zEndX1 = screenX - (zLength * t);
+            const zEndY1 = screenY + (zLength * t);
+            const zEndX2 = screenX + (zLength * t);
+            const zEndY2 = screenY - (zLength * t);
 
             ctx.beginPath();
             ctx.moveTo(zEndX1, zEndY1);
@@ -503,18 +507,20 @@ export const PreviewMixin = {
             ctx.restore();
         }
 
-        // X ekseni (sağa - kırmızı/magenta) - Her zaman aktif renkte
+        // X ekseni (sağa - kırmızı/magenta)
         if (allowedAxes.includes('X')) {
+            const xLength = selectedAxis === 'X' ? infiniteLength : baseAxisLength;
+
             ctx.save();
             ctx.globalAlpha = selectedAxis === 'X' ? 0.7 : 0.3;
             ctx.strokeStyle = '#FF00FF';
             ctx.lineWidth = lineWidth;
             ctx.setLineDash([]);
 
-            // X ekseni - iki yönde sonsuz
-            const xEndX1 = screenX - axisLength;
+            // X ekseni - iki yönde
+            const xEndX1 = screenX - xLength;
             const xEndY1 = screenY;
-            const xEndX2 = screenX + axisLength;
+            const xEndX2 = screenX + xLength;
             const xEndY2 = screenY;
 
             ctx.beginPath();
@@ -525,19 +531,21 @@ export const PreviewMixin = {
             ctx.restore();
         }
 
-        // Y ekseni (aşağı - turkuaz/cyan) - Her zaman aktif renkte
+        // Y ekseni (aşağı - turkuaz/cyan)
         if (allowedAxes.includes('Y')) {
+            const yLength = selectedAxis === 'Y' ? infiniteLength : baseAxisLength;
+
             ctx.save();
             ctx.globalAlpha = selectedAxis === 'Y' ? 0.7 : 0.3;
             ctx.strokeStyle = '#00FFFF';
             ctx.lineWidth = lineWidth;
             ctx.setLineDash([]);
 
-            // Y ekseni - iki yönde sonsuz
+            // Y ekseni - iki yönde
             const yEndX1 = screenX;
-            const yEndY1 = screenY - axisLength;
+            const yEndY1 = screenY - yLength;
             const yEndX2 = screenX;
-            const yEndY2 = screenY + axisLength;
+            const yEndY2 = screenY + yLength;
 
             ctx.beginPath();
             ctx.moveTo(yEndX1, yEndY1);
@@ -562,8 +570,8 @@ export const PreviewMixin = {
 
     /**
      * 3D Taşıma Gizmo - Taşıma modunda kullanılır (3D sahnede)
-     * 50px uzunlukta kollar ve ok işaretleri ile gösterir
-     * Pasif eksenler soluk, aktif eksen belirgin renkte
+     * Zoom'a göre ayarlanmış uzunlukta kollar ve ok işaretleri ile gösterir
+     * Seçili eksen daha uzun, pasif eksenler kısa ve soluk renkte
      */
     drawTranslateGizmo(ctx, point, selectedAxis = null, allowedAxes = ['X', 'Y', 'Z']) {
         if (!point) return;
@@ -582,10 +590,11 @@ export const PreviewMixin = {
 
         ctx.save();
 
-        // Kol uzunluğu: uzaklaşınca küçülür, yaklaşınca büyümez
-        const armLength = 30 * Math.min(1, zoom);
+        // Ekranda sabit boyutta görünmesi için zoom'a göre ayarla
+        const baseArmLength = 50 / zoom;  // Ekranda ~50px gibi görünür
+        const longArmLength = 150 / zoom; // Seçili eksen için daha uzun
         const lineWidth = 1.5 / zoom;
-        const arrowSize = 6 * Math.min(1, zoom); // Ok başı boyutu
+        const arrowSize = 6 / zoom; // Ok başı boyutu
 
         // Yardımcı fonksiyon: Ok başı çiz
         const drawArrowHead = (x, y, angle, color, alpha) => {
@@ -606,6 +615,7 @@ export const PreviewMixin = {
         // Z ekseni (yeşil) - çapraz yukarı-sol yönü
         if (allowedAxes.includes('Z')) {
             const isActive = selectedAxis === 'Z';
+            const zArmLength = isActive ? longArmLength : baseArmLength;
             const alpha = isActive ? 1.0 : 0.3;
             const color = '#00FF00';
 
@@ -616,16 +626,16 @@ export const PreviewMixin = {
 
             // Z ekseni kolları (hem + hem - yönde)
             // + yönü: yukarı-sağ
-            const zPlusEndX = screenX + (armLength * t);
-            const zPlusEndY = screenY - (armLength * t);
+            const zPlusEndX = screenX + (zArmLength * t);
+            const zPlusEndY = screenY - (zArmLength * t);
             ctx.beginPath();
             ctx.moveTo(screenX, screenY);
             ctx.lineTo(zPlusEndX, zPlusEndY);
             ctx.stroke();
 
             // - yönü: aşağı-sol
-            const zMinusEndX = screenX - (armLength * t);
-            const zMinusEndY = screenY + (armLength * t);
+            const zMinusEndX = screenX - (zArmLength * t);
+            const zMinusEndY = screenY + (zArmLength * t);
             ctx.beginPath();
             ctx.moveTo(screenX, screenY);
             ctx.lineTo(zMinusEndX, zMinusEndY);
@@ -643,6 +653,7 @@ export const PreviewMixin = {
         // X ekseni (magenta) - yatay sağa/sola
         if (allowedAxes.includes('X')) {
             const isActive = selectedAxis === 'X';
+            const xArmLength = isActive ? longArmLength : baseArmLength;
             const alpha = isActive ? 1.0 : 0.3;
             const color = '#FF00FF';
 
@@ -653,7 +664,7 @@ export const PreviewMixin = {
 
             // X ekseni kolları (hem + hem - yönde)
             // + yönü: sağa
-            const xPlusEndX = screenX + armLength;
+            const xPlusEndX = screenX + xArmLength;
             const xPlusEndY = screenY;
             ctx.beginPath();
             ctx.moveTo(screenX, screenY);
@@ -661,7 +672,7 @@ export const PreviewMixin = {
             ctx.stroke();
 
             // - yönü: sola
-            const xMinusEndX = screenX - armLength;
+            const xMinusEndX = screenX - xArmLength;
             const xMinusEndY = screenY;
             ctx.beginPath();
             ctx.moveTo(screenX, screenY);
@@ -680,6 +691,7 @@ export const PreviewMixin = {
         // Y ekseni (cyan) - dikey yukarı/aşağı
         if (allowedAxes.includes('Y')) {
             const isActive = selectedAxis === 'Y';
+            const yArmLength = isActive ? longArmLength : baseArmLength;
             const alpha = isActive ? 1.0 : 0.3;
             const color = '#00FFFF';
 
@@ -691,7 +703,7 @@ export const PreviewMixin = {
             // Y ekseni kolları (hem + hem - yönde)
             // + yönü: aşağı (canvas Y ekseni)
             const yPlusEndX = screenX;
-            const yPlusEndY = screenY + armLength;
+            const yPlusEndY = screenY + yArmLength;
             ctx.beginPath();
             ctx.moveTo(screenX, screenY);
             ctx.lineTo(yPlusEndX, yPlusEndY);
@@ -699,7 +711,7 @@ export const PreviewMixin = {
 
             // - yönü: yukarı
             const yMinusEndX = screenX;
-            const yMinusEndY = screenY - armLength;
+            const yMinusEndY = screenY - yArmLength;
             ctx.beginPath();
             ctx.moveTo(screenX, screenY);
             ctx.lineTo(yMinusEndX, yMinusEndY);
