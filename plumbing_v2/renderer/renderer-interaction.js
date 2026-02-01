@@ -147,8 +147,9 @@ export const InteractionMixin = {
         if (!point) return;
 
         // 3D sahnede taşıma gizmo'yu çiz (PreviewMixin'den)
+        // Taşıma esnasında eksenler uzamasın
         if (this.drawTranslateGizmo) {
-            this.drawTranslateGizmo(ctx, point, selectedAxis, allowedAxes);
+            this.drawTranslateGizmo(ctx, point, null, allowedAxes);
         }
     },
 
