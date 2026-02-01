@@ -792,6 +792,16 @@ function redistributePipeComponentsInline(oldPipe, boru1, boru2, splitPoint) {
         }
     });
 
+    // Parent boruyu güncelle - eski boruya bağlı olan parent pipe'ın referansını boru1'e güncelle
+    const parentPipe = this.manager.pipes.find(p =>
+        p.bitisBaglanti &&
+        p.bitisBaglanti.tip === 'boru' &&
+        p.bitisBaglanti.hedefId === oldPipe.id
+    );
+    if (parentPipe) {
+        parentPipe.bitisBaglanti.hedefId = boru1.id;
+    }
+
     this.manager.saveToState();
 }
 
