@@ -476,7 +476,9 @@ export const PreviewMixin = {
         ctx.save();
 
         // Ekranda sabit boyutta görünmesi için zoom'a göre ayarla
-        const baseAxisLength = 150 / zoom;  // Ekranda ~150px gibi görünür
+        // zoom > 0.5: ekranda sabit boyut, zoom <= 0.5: dünya koordinatında sabit boyut
+        const effectiveZoom = Math.max(zoom, 0.5);
+        const baseAxisLength = 150 / effectiveZoom;  // Ekranda ~150px gibi görünür
         const infiniteLength = 10000;  // Seçili eksen için sonsuz uzunluk
         const lineWidth = 0.5 / zoom;
 
@@ -591,8 +593,10 @@ export const PreviewMixin = {
         ctx.save();
 
         // Ekranda sabit boyutta görünmesi için zoom'a göre ayarla
-        const baseArmLength = 50 / zoom;  // Ekranda ~50px gibi görünür
-        const longArmLength = 150 / zoom; // Seçili eksen için daha uzun
+        // zoom > 0.5: ekranda sabit boyut, zoom <= 0.5: dünya koordinatında sabit boyut
+        const effectiveZoom = Math.max(zoom, 0.5);
+        const baseArmLength = 50 / effectiveZoom;  // Ekranda ~50px gibi görünür
+        const longArmLength = 150 / effectiveZoom; // Seçili eksen için daha uzun
         const lineWidth = 1.5 / zoom;
         const arrowSize = 6 / zoom; // Ok başı boyutu
 
