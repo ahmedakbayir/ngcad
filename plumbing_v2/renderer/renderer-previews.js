@@ -476,8 +476,8 @@ export const PreviewMixin = {
         ctx.save();
 
         // Ekranda sabit boyutta görünmesi için zoom'a göre ayarla
-        // zoom > 0.5: ekranda sabit boyut, zoom <= 0.5: dünya koordinatında sabit boyut
-        const effectiveZoom = Math.max(zoom, 0.5);
+        // zoom > 2: ekranda sabit boyut, zoom <= 2: dünya koordinatında sabit boyut
+        const effectiveZoom = Math.max(zoom, 2);
         const baseAxisLength = 150 / effectiveZoom;  // Ekranda ~150px gibi görünür
         const infiniteLength = 10000;  // Seçili eksen için sonsuz uzunluk
         const lineWidth = 0.5 / zoom;
@@ -593,10 +593,9 @@ export const PreviewMixin = {
         ctx.save();
 
         // Ekranda sabit boyutta görünmesi için zoom'a göre ayarla
-        // zoom > 0.5: ekranda sabit boyut, zoom <= 0.5: dünya koordinatında sabit boyut
-        const effectiveZoom = Math.max(zoom, 0.5);
+        // zoom > 2: ekranda sabit boyut, zoom <= 2: dünya koordinatında sabit boyut
+        const effectiveZoom = Math.max(zoom, 2);
         const baseArmLength = 50 / effectiveZoom;  // Ekranda ~50px gibi görünür
-        const longArmLength = 150 / effectiveZoom; // Seçili eksen için daha uzun
         const lineWidth = 1.5 / zoom;
         const arrowSize = 6 / zoom; // Ok başı boyutu
 
@@ -619,7 +618,7 @@ export const PreviewMixin = {
         // Z ekseni (yeşil) - çapraz yukarı-sol yönü
         if (allowedAxes.includes('Z')) {
             const isActive = selectedAxis === 'Z';
-            const zArmLength = isActive ? longArmLength : baseArmLength;
+            const zArmLength = baseArmLength;  // Her zaman aynı uzunluk
             const alpha = isActive ? 1.0 : 0.3;
             const color = '#00FF00';
 
@@ -657,7 +656,7 @@ export const PreviewMixin = {
         // X ekseni (magenta) - yatay sağa/sola
         if (allowedAxes.includes('X')) {
             const isActive = selectedAxis === 'X';
-            const xArmLength = isActive ? longArmLength : baseArmLength;
+            const xArmLength = baseArmLength;  // Her zaman aynı uzunluk
             const alpha = isActive ? 1.0 : 0.3;
             const color = '#FF00FF';
 
@@ -695,7 +694,7 @@ export const PreviewMixin = {
         // Y ekseni (cyan) - dikey yukarı/aşağı
         if (allowedAxes.includes('Y')) {
             const isActive = selectedAxis === 'Y';
-            const yArmLength = isActive ? longArmLength : baseArmLength;
+            const yArmLength = baseArmLength;  // Her zaman aynı uzunluk
             const alpha = isActive ? 1.0 : 0.3;
             const color = '#00FFFF';
 
