@@ -320,8 +320,8 @@ export function handlePointerMove(e) {
                 // KRITIK: 3D modda snap kontrolü T parametresine göre yapılmalı (ekran mesafesi değil)
                 let snapToEnd = false;
                 const END_SNAP_T_THRESHOLD = 0.05; // Boru uzunluğunun %5'i
-                const VANA_GENISLIGI = 8;
-                const BORU_UCU_BOSLUK = 1;
+                const VANA_GENISLIGI = 6;
+                const BORU_UCU_BOSLUK = 0;
                 const vanaMesafesi = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // ~5cm
 
                 // T parametresine göre snap kontrolü (0'a yakın = P1, 1'e yakın = P2)

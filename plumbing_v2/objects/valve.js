@@ -17,7 +17,7 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 // Vana Sabitleri
 export const VANA_CONFIG = {
     width: 8,           // cm
-    height: 8,          // cm
+    height: 16,          // cm
     color: 0xA0A0A0,
 };
 
@@ -457,9 +457,9 @@ const dx = pipe.p2.x - pipe.p1.x;
 
         // Boru ucuna yakınsa fromEnd ve fixedDistance'ı tekrar set et
         // DÜZELTME: Threshold'u 10cm'den 3cm'e düşürdük - vana daha az atlayacak
-        const END_THRESHOLD_CM = 3; // 3 cm içindeyse uç sayılır (eski: 10)
-        const VANA_GENISLIGI = 8;
-        const BORU_UCU_BOSLUK = 1; // Ara vanalar için boşluk
+        const END_THRESHOLD_CM = 10; // 3 cm içindeyse uç sayılır (eski: 10)
+        const VANA_GENISLIGI = 6;
+        const BORU_UCU_BOSLUK = 0; // Ara vanalar için boşluk
         const fixedDistanceFromEnd = this.isSonlanma() ? 1 : (VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK); // Sonlanma: 1cm, Ara: 5cm
 
         const distToP1 = newT * pipeLength; // 3D Uzunluk kullanılıyor

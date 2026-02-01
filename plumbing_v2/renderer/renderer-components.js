@@ -458,7 +458,7 @@ export const ComponentMixin = {
                 }
             }
         }
-        const size = 9.6;
+        const size = 12;
         const halfSize = size / 2;
 
         // 1. Boru Rengini Tespit Et
