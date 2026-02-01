@@ -69,16 +69,16 @@ export function getRenkGruplari() {
             GREEN: {
                 id: 'green',
                 name: 'Yeşil (Düşey Borular)',
-                boru: 'rgba(57, 255, 20, {opacity})',      // Neon yeşil
-                dirsek: 'rgba(57, 255, 20, {opacity})',    // Neon yeşil
-                fleks: '#39ff14'                            // Neon yeşil
+                boru: 'rgb(255, 181, 20,  {opacity})',      // Neon yeşil
+                dirsek: 'rgba(255, 181, 20, {opacity})',    // Neon yeşil
+                fleks: '#ffb514'                            // Neon yeşil
             },
             INCLINED: {
                 id: 'inclined',
                 name: 'Limon Yeşili (Eğimli Borular)',
-                boru: 'rgba(136, 255, 0, {opacity})',      // Limon yeşili
-                dirsek: 'rgba(136, 255, 0, {opacity})',    // Limon yeşili
-                fleks: 'rgb(136, 255, 0)'                            // Limon yeşili
+                boru: 'rgb(166, 255, 0, {opacity})',      // Limon yeşili
+                dirsek: 'rgba(166, 255, 0, {opacity})',    // Limon yeşili
+                fleks: 'rgb(166, 255, 0)'                            // Limon yeşili
             }
         };
     }
