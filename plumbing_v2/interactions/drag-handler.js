@@ -1424,6 +1424,11 @@ export function endDrag(interactionManager) {
         } else {
             interactionManager.selectedEndpoint = null;
         }
+
+        // Vana sürüklendiyse, kapama sembolü durumunu güncelle
+        if (draggedObject.type === 'vana' && draggedObject.updateEndCapStatus) {
+            draggedObject.updateEndCapStatus(interactionManager.manager);
+        }
     }
 
     // TEMİZLİK
