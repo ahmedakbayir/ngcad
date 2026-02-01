@@ -299,7 +299,7 @@ export function handleVanaPlacement(vanaPreview) {
 
     // --- 2. UÇ NOKTALARA SABİTLEME (3D Mesafe ile) ---
     // pipe.uzunluk yerine hesapladığımız len3d (3D uzunluk) kullan
-    const VANA_GENISLIGI = 6;
+    const VANA_GENISLIGI = 8;
     const BORU_UCU_BOSLUK = 0; // max 1 cm kalsın boru ucunda (ara vanalar için)
     const fixedDistanceFromEnd = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // ~5 cm (ara vanalar)
     const fixedDistanceFromEndSonlanma = 1; // 1 cm (sonlanma vanaları - boru ucuna çok yakın)
@@ -416,7 +416,7 @@ export function handleSayacEndPlacement(meter) {
     if (!vanaVar) {
         // Vana pozisyonunu hesapla
         const boru = boruUcu.boru;
-        const VANA_GENISLIGI = 6;  // cm
+        const VANA_GENISLIGI = 8;  // cm
         const BORU_UCU_BOSLUK = 0; // max 1 cm kalsın boru ucunda
         const centerMargin = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm - merkez için toplam
 
@@ -543,7 +543,7 @@ export function handleCihazEkleme(cihaz) {
     if (!vanaVar) {
         // Vana pozisyonunu hesapla
         const boru = boruUcu.boru;
-        const VANA_GENISLIGI = 6;  // cm
+        const VANA_GENISLIGI = 8;  // cm
         const BORU_UCU_BOSLUK = 0; // max 1 cm kalsın boru ucunda
         const centerMargin = VANA_GENISLIGI / 2 + BORU_UCU_BOSLUK; // 5 cm - merkez için toplam
 
