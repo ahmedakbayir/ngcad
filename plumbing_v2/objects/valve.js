@@ -699,7 +699,13 @@ const dx = pipe.p2.x - pipe.p1.x;
         vana.rotation = data.rotation;
         vana.girisBagliBoruId = data.girisBagliBoruId;
         vana.cikisBagliBoruId = data.cikisBagliBoruId;
-        vana.showEndCap = data.showEndCap || false; // Kapama sembolü durumunu yükle
+
+        // Sonlanma vanaları için showEndCap daima true
+        if (vana.isSonlanma()) {
+            vana.showEndCap = true;
+        } else {
+            vana.showEndCap = data.showEndCap || false;
+        }
 
         return vana;
     }
