@@ -414,12 +414,27 @@ export function createPlumbingPipeMesh(pipe, material) {
 
     const mesh = new THREE.Mesh(geometry, pipeMaterial);
 
+    // Uçlar için yuvarlak kapaklar (küreler)
+    const sphereGeometry = new THREE.SphereGeometry(radius, 16, 16);
+    const cap1 = new THREE.Mesh(sphereGeometry, pipeMaterial);
+    const cap2 = new THREE.Mesh(sphereGeometry, pipeMaterial);
+
+    // Kapakları borunun uçlarına yerleştir (lokal koordinatlarda)
+    cap1.position.set(0, length / 2, 0);
+    cap2.position.set(0, -length / 2, 0);
+
+    // Group oluştur ve tüm parçaları ekle
+    const group = new THREE.Group();
+    group.add(mesh);
+    group.add(cap1);
+    group.add(cap2);
+
     // Merkez noktası (3D)
     const midX = (pipe.p1.x + pipe.p2.x) / 2;
     const midY = ((pipe.p1.z || 0) + (pipe.p2.z || 0)) / 2; // Z koordinatı THREE.js'te Y ekseni
     const midZ = (pipe.p1.y + pipe.p2.y) / 2; // Y koordinatı THREE.js'te Z ekseni
 
-    mesh.position.set(midX, midY, midZ);
+    group.position.set(midX, midY, midZ);
 
     // Düşey boru kontrolü (sadece Z farkı varsa)
     const horizontalDist = Math.hypot(dx, dy);
@@ -441,10 +456,10 @@ export function createPlumbingPipeMesh(pipe, material) {
         // (THREE.CylinderGeometry varsayılan olarak Y ekseni boyunca oluşturulur)
         // console.log('✅ Düşey boru - rotasyon yok');
         // // Ek test: Mesh'i açıkça kontrol et
-        // console.log('   Position:', mesh.position);
-        // console.log('   Rotation:', mesh.rotation);
+        // console.log('   Position:', group.position);
+        // console.log('   Rotation:', group.rotation);
     } else {
-        // Yatay veya eğik boru: Silindiri döndür
+        // Yatay veya eğik boru: Grubu döndür
 
         // Borunun yönünü hesapla (2D koordinatlardan THREE.js koordinatlarına)
         const direction = new THREE.Vector3(dx, dz, dy).normalize();
@@ -455,12 +470,12 @@ export function createPlumbingPipeMesh(pipe, material) {
         // Rotasyon için quaternion hesapla
         const quaternion = new THREE.Quaternion();
         quaternion.setFromUnitVectors(defaultDirection, direction);
-        mesh.setRotationFromQuaternion(quaternion);
+        group.setRotationFromQuaternion(quaternion);
 
         //        console.log('🔄 Yatay/eğik boru - direction:', direction, 'quaternion:', quaternion);
     }
 
-    return mesh;
+    return group;
 }
 
 /**
