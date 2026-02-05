@@ -80,7 +80,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
     if (cihazFleksi) return true;
 
     const DIRSEK_TOLERANCE = 10;
-    const elbowConnectionTol = 1;
+    const elbowConnectionTol = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Hardcoded 1 → Tutarlı tolerance
     const isDirsek = manager.pipes.some(otherPipe => {
         if (otherPipe === currentPipe) return false;
         for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
@@ -105,12 +105,13 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
 
     if (!skipBostaUcCheck) {
         const BOSTA_UC_TOLERANCE = 10;
+        const connectionTol = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Hardcoded 1 → Tutarlı tolerance
         const bostaUc = manager.pipes.some(otherPipe => {
             if (otherPipe === currentPipe) return false;
             for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
                 if (oldPoint) {
                     const distToOld = Math.hypot(endpoint.x - oldPoint.x, endpoint.y - oldPoint.y);
-                    if (distToOld < 1) continue;
+                    if (distToOld < connectionTol) continue;
                 }
                 const dist = Math.hypot(point.x - endpoint.x, point.y - endpoint.y);
                 const distZ = Math.abs(pointZ - (endpoint.z || 0));
@@ -119,7 +120,7 @@ export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeC
                     if (p === otherPipe || p === currentPipe) return false;
                     const d1 = Math.hypot(p.p1.x - endpoint.x, p.p1.y - endpoint.y);
                     const d2 = Math.hypot(p.p2.x - endpoint.x, p.p2.y - endpoint.y);
-                    return d1 < 1 || d2 < 1;
+                    return d1 < connectionTol || d2 < connectionTol;
                 }).length;
                 if (connectedPipeCount === 0) return true;
             }
@@ -386,8 +387,9 @@ export function startBodyDrag(interactionManager, pipe, point) {
     if (interactionManager.connectedPipesAtP1.length === 1 && interactionManager.connectedPipesAtP2.length === 1) {
         const pipeA = interactionManager.connectedPipesAtP1[0].pipe;
         const pipeC = interactionManager.connectedPipesAtP2[0].pipe;
-        const p1OfA = (Math.hypot(pipeA.p1.x - pipe.p1.x, pipeA.p1.y - pipe.p1.y, (pipeA.p1.z || 0) - (pipe.p1.z || 0)) < 1) ? pipeA.p2 : pipeA.p1;
-        const p2OfC = (Math.hypot(pipeC.p1.x - pipe.p2.x, pipeC.p1.y - pipe.p2.y, (pipeC.p1.z || 0) - (pipe.p2.z || 0)) < 1) ? pipeC.p2 : pipeC.p1;
+        const bridgeTolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Hardcoded 1 → Tutarlı tolerance
+        const p1OfA = (Math.hypot(pipeA.p1.x - pipe.p1.x, pipeA.p1.y - pipe.p1.y, (pipeA.p1.z || 0) - (pipe.p1.z || 0)) < bridgeTolerance) ? pipeA.p2 : pipeA.p1;
+        const p2OfC = (Math.hypot(pipeC.p1.x - pipe.p2.x, pipeC.p1.y - pipe.p2.y, (pipeC.p1.z || 0) - (pipe.p2.z || 0)) < bridgeTolerance) ? pipeC.p2 : pipeC.p1;
 
         const p1 = p1OfA; const p2 = pipe.p1; const p3 = pipe.p2; const p4 = p2OfC;
         const v1 = { x: p2.x - p1.x, y: p2.y - p1.y };
@@ -679,7 +681,7 @@ export function handleDrag(interactionManager, point, event = null) {
         }
 
         // BORU HİZALAMA SNAP
-        const connectionTolerance = 1;
+        const connectionTolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Hardcoded 1 → Tutarlı tolerance
         const connectedPipes = interactionManager.manager.pipes.filter(p => {
             if (p === pipe) return false;
             const distToP1 = Math.hypot(p.p1.x - oldPoint.x, p.p1.y - oldPoint.y);
@@ -747,7 +749,7 @@ export function handleDrag(interactionManager, point, event = null) {
 
         const POINT_OCCUPATION_TOLERANCE = 1.5;
         const ELBOW_TOLERANCE = 8;
-        const elbowConnectionTolerance = 1;
+        const elbowConnectionTolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Hardcoded 1 → Tutarlı tolerance
         let occupiedByOtherPipe = false;
 
         for (const otherPipe of interactionManager.manager.pipes) {
@@ -1242,7 +1244,7 @@ export function handleDrag(interactionManager, point, event = null) {
         // ... (Geri kalan boru gövdesi mantığı aynen kalabilir) ...
         const POINT_OCCUPATION_TOLERANCE = 1.5;
         const ELBOW_TOLERANCE = 8;
-        const connectionTolerance = 1;
+        const connectionTolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Hardcoded 1 → Tutarlı tolerance
         const connectedPipes = [...(interactionManager.connectedPipesAtP1 || []).map(c => c.pipe), ...(interactionManager.connectedPipesAtP2 || []).map(c => c.pipe)];
 
         const checkEndpointDistance = (newPos, checkAgainstOldPos = null) => {
