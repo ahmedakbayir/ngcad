@@ -180,28 +180,90 @@ function createSayacMesh(block, material) {
 }
 
 /**
- * Vana mesh'i oluşturur
+ * Vana mesh'i oluşturur - Resimdeki gibi detaylı vana
  */
 export function createVanaMesh(block, material) {
     const config = PLUMBING_BLOCK_TYPES.VANA;
 
-    // Çift kesik koni geometrisi (dar uçlar ortada birleşik)
-    const geometry = createDoubleConeFrustumGeometry(
-        config.width,
-        config.height / 2,  // Geniş yarıçap
-        1                    // Dar yarıçap
-    );
-
-    // Geometri zaten X ekseni boyunca doğru yönde, rotasyon gerekmez
-    geometry.translate(0, config.height / 2, 0); // Yerden yükselt
-
-    const mesh = new THREE.Mesh(geometry, material.clone());
-    mesh.material.color.setHex(config.color);
-    mesh.material.metalness = 0.6;
-    mesh.material.roughness = 0.3;
-
     const group = new THREE.Group();
-    group.add(mesh);
+
+    // Malzeme ayarları
+    const valveMaterial = material.clone();
+    valveMaterial.color.setHex(config.color);
+    valveMaterial.metalness = 0.6;
+    valveMaterial.roughness = 0.3;
+
+    // Boru yarıçapı ve uzunlukları
+    const pipeRadius = config.height / 4;
+    const pipeLength = config.width * 0.3; // Her boru parçası toplam genişliğin %30'u
+
+    // Vana gövdesi boyutları
+    const valveBodyRadius = pipeRadius * 1.8;
+    const valveBodyLength = config.width * 0.25;
+
+    // Kol/Handle boyutları
+    const handleRadius = pipeRadius * 0.6;
+    const handleLength = config.height * 1.2;
+    const handleOffsetY = config.height / 2;
+
+    // 1. Sol boru parçası
+    const leftPipeGeometry = new THREE.CylinderGeometry(pipeRadius, pipeRadius, pipeLength, 16);
+    leftPipeGeometry.rotateZ(Math.PI / 2); // X ekseni boyunca yatay
+    const leftPipe = new THREE.Mesh(leftPipeGeometry, valveMaterial);
+    leftPipe.position.set(-config.width / 2 + pipeLength / 2, handleOffsetY, 0);
+    group.add(leftPipe);
+
+    // 2. Sağ boru parçası
+    const rightPipeGeometry = new THREE.CylinderGeometry(pipeRadius, pipeRadius, pipeLength, 16);
+    rightPipeGeometry.rotateZ(Math.PI / 2); // X ekseni boyunca yatay
+    const rightPipe = new THREE.Mesh(rightPipeGeometry, valveMaterial);
+    rightPipe.position.set(config.width / 2 - pipeLength / 2, handleOffsetY, 0);
+    group.add(rightPipe);
+
+    // 3. Sol geçiş parçası (bağlantı)
+    const leftTransitionGeometry = new THREE.CylinderGeometry(valveBodyRadius, pipeRadius, valveBodyLength * 0.4, 16);
+    leftTransitionGeometry.rotateZ(Math.PI / 2);
+    const leftTransition = new THREE.Mesh(leftTransitionGeometry, valveMaterial);
+    leftTransition.position.set(-valveBodyLength * 0.7, handleOffsetY, 0);
+    group.add(leftTransition);
+
+    // 4. Sağ geçiş parçası (bağlantı)
+    const rightTransitionGeometry = new THREE.CylinderGeometry(pipeRadius, valveBodyRadius, valveBodyLength * 0.4, 16);
+    rightTransitionGeometry.rotateZ(Math.PI / 2);
+    const rightTransition = new THREE.Mesh(rightTransitionGeometry, valveMaterial);
+    rightTransition.position.set(valveBodyLength * 0.7, handleOffsetY, 0);
+    group.add(rightTransition);
+
+    // 5. Vana gövdesi (ortadaki kalın kısım)
+    const valveBodyGeometry = new THREE.CylinderGeometry(valveBodyRadius, valveBodyRadius, valveBodyLength, 16);
+    valveBodyGeometry.rotateZ(Math.PI / 2);
+    const valveBody = new THREE.Mesh(valveBodyGeometry, valveMaterial);
+    valveBody.position.set(0, handleOffsetY, 0);
+    group.add(valveBody);
+
+    // 6. Kontrol kolu tabanı (vana gövdesinin üstünde)
+    const handleBaseRadius = valveBodyRadius * 0.7;
+    const handleBaseHeight = config.height * 0.3;
+    const handleBaseGeometry = new THREE.CylinderGeometry(handleBaseRadius, handleBaseRadius, handleBaseHeight, 16);
+    const handleBase = new THREE.Mesh(handleBaseGeometry, valveMaterial);
+    handleBase.position.set(0, handleOffsetY + handleBaseHeight / 2, 0);
+    group.add(handleBase);
+
+    // 7. Kontrol kolu (üstteki dikey parça)
+    const handleGeometry = new THREE.CylinderGeometry(handleRadius, handleRadius, handleLength, 16);
+    const handleMaterial = valveMaterial.clone();
+    handleMaterial.color.setHex(0xFF4444); // Kırmızımsı renk
+    const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+    handle.position.set(0, handleOffsetY + handleBaseHeight + handleLength / 2, 0);
+    group.add(handle);
+
+    // 8. Kol üst kısmı (yatay dönme kolu)
+    const handleTopLength = config.width * 0.35;
+    const handleTopGeometry = new THREE.CylinderGeometry(handleRadius * 0.8, handleRadius * 0.8, handleTopLength, 16);
+    handleTopGeometry.rotateZ(Math.PI / 2);
+    const handleTop = new THREE.Mesh(handleTopGeometry, handleMaterial);
+    handleTop.position.set(0, handleOffsetY + handleBaseHeight + handleLength, 0);
+    group.add(handleTop);
 
     // Bağlantı noktaları
     config.connectionPoints.forEach((cp, i) => {
