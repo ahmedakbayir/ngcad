@@ -409,8 +409,8 @@ export class InteractionManager {
         return checkVanaAtPoint(this.manager, point, tolerance);
     }
 
-    findPipeEndpoint(pipe, point) {
-        return findPipeEndpoint(pipe, point);
+    findPipeEndpoint(pipe, point, tolerance = 2) {
+        return findPipeEndpoint(pipe, point, tolerance);
     }
 
     removeObject(obj) {
