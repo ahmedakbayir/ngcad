@@ -142,6 +142,59 @@ export function findPipesAtPoint(pipes, point, excludePipe = null, tolerance = T
     return pipesAtPoint;
 }
 
+
+function pushUniqueConnection(list, pipe, endpoint) {
+    if (!pipe || !endpoint) return;
+    if (!list.some(c => c.pipe.id === pipe.id && c.endpoint === endpoint)) {
+        list.push({ pipe, endpoint });
+    }
+}
+
+function getLogicalEndpointConnections(manager, pipe, endpoint, excludePipes = []) {
+    const connections = [];
+    const isExcluded = (candidate) => excludePipes.includes(candidate);
+    const anchorPoint = endpoint === 'p1' ? pipe.p1 : pipe.p2;
+
+    manager.pipes.forEach(otherPipe => {
+        if (otherPipe.id === pipe.id || isExcluded(otherPipe)) return;
+
+        const isLogicallyLinked =
+            (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.BORU && pipe.baslangicBaglanti.hedefId === otherPipe.id) ||
+            (pipe.bitisBaglanti?.tip === BAGLANTI_TIPLERI.BORU && pipe.bitisBaglanti.hedefId === otherPipe.id) ||
+            (otherPipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.BORU && otherPipe.baslangicBaglanti.hedefId === pipe.id) ||
+            (otherPipe.bitisBaglanti?.tip === BAGLANTI_TIPLERI.BORU && otherPipe.bitisBaglanti.hedefId === pipe.id);
+
+        if (!isLogicallyLinked) return;
+
+        const distP1 = Math.hypot(otherPipe.p1.x - anchorPoint.x, otherPipe.p1.y - anchorPoint.y, (otherPipe.p1.z || 0) - (anchorPoint.z || 0));
+        const distP2 = Math.hypot(otherPipe.p2.x - anchorPoint.x, otherPipe.p2.y - anchorPoint.y, (otherPipe.p2.z || 0) - (anchorPoint.z || 0));
+        const closestEndpoint = distP1 <= distP2 ? 'p1' : 'p2';
+        pushUniqueConnection(connections, otherPipe, closestEndpoint);
+    });
+
+    return connections;
+}
+
+function findConnectedPipesRobust(manager, basePoint, excludePipes = [], basePipe = null, baseEndpoint = null) {
+    const connected = [];
+    const isExcluded = (candidate) => excludePipes.includes(candidate);
+
+    manager.pipes.forEach(p => {
+        if (isExcluded(p)) return;
+        const distToP1 = Math.hypot(p.p1.x - basePoint.x, p.p1.y - basePoint.y, (p.p1.z || 0) - (basePoint.z || 0));
+        const distToP2 = Math.hypot(p.p2.x - basePoint.x, p.p2.y - basePoint.y, (p.p2.z || 0) - (basePoint.z || 0));
+        if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) pushUniqueConnection(connected, p, 'p1');
+        if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) pushUniqueConnection(connected, p, 'p2');
+    });
+
+    if (basePipe && baseEndpoint) {
+        const logical = getLogicalEndpointConnections(manager, basePipe, baseEndpoint, excludePipes);
+        logical.forEach(c => pushUniqueConnection(connected, c.pipe, c.endpoint));
+    }
+
+    return connected;
+}
+
 export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     interactionManager.isDragging = true;
     interactionManager.dragObject = pipe;
@@ -171,16 +224,13 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
         if (cikisBoru) excludePipes.push(cikisBoru);
     }
 
-    const connectedPipes = [];
-    interactionManager.manager.pipes.forEach(p => {
-        if (excludePipes.includes(p)) return;
-        const distToP1 = Math.hypot(p.p1.x - draggedPoint.x, p.p1.y - draggedPoint.y, (p.p1.z || 0) - (draggedPoint.z || 0));
-        const distToP2 = Math.hypot(p.p2.x - draggedPoint.x, p.p2.y - draggedPoint.y, (p.p2.z || 0) - (draggedPoint.z || 0));
-        if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p2' });
-    });
-
-    interactionManager.connectedPipesAtEndpoint = connectedPipes;
+    interactionManager.connectedPipesAtEndpoint = findConnectedPipesRobust(
+        interactionManager.manager,
+        draggedPoint,
+        excludePipes,
+        pipe,
+        endpoint
+    );
 }
 
 export function startDrag(interactionManager, obj, point) {
@@ -345,24 +395,20 @@ export function startBodyDrag(interactionManager, pipe, point) {
         if (cikisBoru) excludePipesForBody.push(cikisBoru);
     }
 
-    const connectedPipesAtP1 = [];
-    const connectedPipesAtP2 = [];
-
-    interactionManager.manager.pipes.forEach(p => {
-        if (excludePipesForBody.includes(p)) return;
-        const distToP1FromP1 = Math.hypot(p.p1.x - pipe.p1.x, p.p1.y - pipe.p1.y, (p.p1.z || 0) - (pipe.p1.z || 0));
-        const distToP2FromP1 = Math.hypot(p.p2.x - pipe.p1.x, p.p2.y - pipe.p1.y, (p.p2.z || 0) - (pipe.p1.z || 0));
-        if (distToP1FromP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP1.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2FromP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP1.push({ pipe: p, endpoint: 'p2' });
-
-        const distToP1FromP2 = Math.hypot(p.p1.x - pipe.p2.x, p.p1.y - pipe.p2.y, (p.p1.z || 0) - (pipe.p2.z || 0));
-        const distToP2FromP2 = Math.hypot(p.p2.x - pipe.p2.x, p.p2.y - pipe.p2.y, (p.p2.z || 0) - (pipe.p2.z || 0));
-        if (distToP1FromP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP2.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2FromP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP2.push({ pipe: p, endpoint: 'p2' });
-    });
-
-    interactionManager.connectedPipesAtP1 = connectedPipesAtP1;
-    interactionManager.connectedPipesAtP2 = connectedPipesAtP2;
+    interactionManager.connectedPipesAtP1 = findConnectedPipesRobust(
+        interactionManager.manager,
+        pipe.p1,
+        excludePipesForBody,
+        pipe,
+        'p1'
+    );
+    interactionManager.connectedPipesAtP2 = findConnectedPipesRobust(
+        interactionManager.manager,
+        pipe.p2,
+        excludePipesForBody,
+        pipe,
+        'p2'
+    );
     interactionManager.meterConnectedPipesAtOutput = null;
 
     if (connectedMeterForBody && connectedMeterForBody.cikisBagliBoruId) {

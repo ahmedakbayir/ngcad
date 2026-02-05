@@ -330,6 +330,15 @@ export function handlePointerDown(e) {
                     hitObject.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
                     return true;
                 }
+                // Uca yakın tıklamalarda gövde taşıma yerine endpoint drag başlat.
+                // Böylece boru ucundan tutup çekince bağlantı kopması engellenir.
+                const endpoint = this.findPipeEndpoint(hitObject, point, worldTolerance);
+                if (endpoint) {
+                    this.selectedEndpoint = endpoint;
+                    this.startEndpointDrag(hitObject, endpoint, point);
+                    return true;
+                }
+
                 this.startBodyDrag(hitObject, point);
             } else {
                 this.startDrag(hitObject, point);

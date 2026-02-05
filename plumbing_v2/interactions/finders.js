@@ -282,8 +282,7 @@ export function checkVanaAtPoint(manager, point, tolerance = 2) {
     return null;
 }
 
-export function findPipeEndpoint(pipe, point) {
-    const tolerance = 2; 
+export function findPipeEndpoint(pipe, point, tolerance = 2) {
     const p1Screen = getScreenPoint(pipe.p1);
     const p2Screen = getScreenPoint(pipe.p2);
     const distToP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
@@ -291,6 +290,30 @@ export function findPipeEndpoint(pipe, point) {
 
     if (distToP1 <= tolerance && distToP1 <= distToP2) return 'p1';
     if (distToP2 <= tolerance) return 'p2';
+
+    // Uçlara yakın tıklamalarda (tam endpoint'in üstünde olmasa bile) endpoint drag önceliği ver.
+    const dx = p2Screen.x - p1Screen.x;
+    const dy = p2Screen.y - p1Screen.y;
+    const length = Math.hypot(dx, dy);
+
+    if (length > 0.01) {
+        const t = ((point.x - p1Screen.x) * dx + (point.y - p1Screen.y) * dy) / (length * length);
+        if (t >= 0 && t <= 1) {
+            const projX = p1Screen.x + t * dx;
+            const projY = p1Screen.y + t * dy;
+            const perpendicularDist = Math.hypot(point.x - projX, point.y - projY);
+
+            // Endpoint etki alanı: toleransın biraz genişletilmiş hali.
+            const endpointZone = Math.max(tolerance * 2, 8);
+            const distProjToP1 = Math.hypot(projX - p1Screen.x, projY - p1Screen.y);
+            const distProjToP2 = Math.hypot(projX - p2Screen.x, projY - p2Screen.y);
+
+            if (perpendicularDist <= tolerance && (distProjToP1 <= endpointZone || distProjToP2 <= endpointZone)) {
+                return distProjToP1 <= distProjToP2 ? 'p1' : 'p2';
+            }
+        }
+    }
+
     return null;
 }
 
