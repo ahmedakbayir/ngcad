@@ -184,24 +184,58 @@ function createSayacMesh(block, material) {
  */
 export function createVanaMesh(block, material) {
     const config = PLUMBING_BLOCK_TYPES.VANA;
-
-    // Çift kesik koni geometrisi (dar uçlar ortada birleşik)
-    const geometry = createDoubleConeFrustumGeometry(
-        config.width,
-        config.height / 2,  // Geniş yarıçap
-        1                    // Dar yarıçap
-    );
-
-    // Geometri zaten X ekseni boyunca doğru yönde, rotasyon gerekmez
-    geometry.translate(0, config.height / 2, 0); // Yerden yükselt
-
-    const mesh = new THREE.Mesh(geometry, material.clone());
-    mesh.material.color.setHex(config.color);
-    mesh.material.metalness = 0.6;
-    mesh.material.roughness = 0.3;
-
     const group = new THREE.Group();
-    group.add(mesh);
+
+    // Vana gövdesini daha gerçekçi göstermek için çok parçalı model
+    // X ekseni boru doğrultusu; Y ekseninde zemin üstünde yükseltilir
+    const totalLength = config.width;
+    const baseRadius = Math.max(1.2, config.height * 0.16);
+    const collarRadius = Math.max(baseRadius + 1.5, config.height * 0.24);
+    const coneRadius = Math.max(collarRadius + 1.2, config.height * 0.34);
+    const centerRadius = Math.max(1, baseRadius * 0.78);
+    const liftY = Math.max(baseRadius, config.height * 0.45);
+
+    const sharedMaterial = material.clone();
+    sharedMaterial.color.setHex(config.color);
+    sharedMaterial.metalness = 0.7;
+    sharedMaterial.roughness = 0.28;
+
+    const darkMetalMaterial = new THREE.MeshStandardMaterial({
+        color: 0x5d5d5d,
+        metalness: 0.78,
+        roughness: 0.25
+    });
+
+    const addSegment = (startX, endX, startRadius, endRadius, segmentMaterial = sharedMaterial) => {
+        const length = Math.max(0.1, endX - startX);
+        const geometry = new THREE.CylinderGeometry(endRadius, startRadius, length, 24);
+        geometry.rotateZ(Math.PI / 2);
+        const segment = new THREE.Mesh(geometry, segmentMaterial);
+        segment.position.set((startX + endX) / 2, liftY, 0);
+        group.add(segment);
+    };
+
+    // Sol bağlantı boynu + genişleyen adaptör
+    addSegment(-totalLength / 2, -totalLength * 0.32, baseRadius, baseRadius);
+    addSegment(-totalLength * 0.32, -totalLength * 0.1, collarRadius, coneRadius);
+
+    // Orta dar gövde
+    addSegment(-totalLength * 0.1, totalLength * 0.1, centerRadius, centerRadius, darkMetalMaterial);
+
+    // Sağ adaptör + bağlantı boynu
+    addSegment(totalLength * 0.1, totalLength * 0.32, coneRadius, collarRadius);
+    addSegment(totalLength * 0.32, totalLength / 2, baseRadius, baseRadius);
+
+    // Üstte vana kolu / mil başlığı
+    const stemGeom = new THREE.CylinderGeometry(centerRadius * 0.45, centerRadius * 0.45, liftY * 0.8, 16);
+    const stem = new THREE.Mesh(stemGeom, darkMetalMaterial);
+    stem.position.set(0, liftY + (liftY * 0.4), 0);
+    group.add(stem);
+
+    const handleGeom = new THREE.BoxGeometry(totalLength * 0.22, centerRadius * 0.55, centerRadius * 2.4);
+    const handle = new THREE.Mesh(handleGeom, darkMetalMaterial);
+    handle.position.set(0, stem.position.y + (liftY * 0.45), 0);
+    group.add(handle);
 
     // Bağlantı noktaları
     config.connectionPoints.forEach((cp, i) => {
