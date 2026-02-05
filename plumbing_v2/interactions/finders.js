@@ -64,8 +64,9 @@ export function findObjectAt(manager, point) {
     }
 
     // ÖNCELİK 2: Borular
-    const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
-    
+    const endpointTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
+    const bodyTolerance = pixelsToWorld(TESISAT_CONSTANTS.PIPE_BODY_TOLERANCE_PIXELS);
+
     for (const pipe of manager.pipes) {
         const p1Screen = getScreenPoint(pipe.p1);
         const p2Screen = getScreenPoint(pipe.p2);
@@ -73,7 +74,7 @@ export function findObjectAt(manager, point) {
         const distP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
         const distP2 = Math.hypot(point.x - p2Screen.x, point.y - p2Screen.y);
 
-        if (distP1 < worldTolerance || distP2 < worldTolerance) {
+        if (distP1 < endpointTolerance || distP2 < endpointTolerance) {
             return pipe;
         }
 
@@ -87,7 +88,7 @@ export function findObjectAt(manager, point) {
                 const projX = p1Screen.x + t * dx;
                 const projY = p1Screen.y + t * dy;
                 const dist = Math.hypot(point.x - projX, point.y - projY);
-                if (dist < worldTolerance) {
+                if (dist < bodyTolerance) {
                     return pipe;
                 }
             }
@@ -210,7 +211,7 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
     return candidates[0]; // İlk bulunanı döndür
 }
 
-export function findBoruGovdeAt(manager, point, tolerance = 5) {
+export function findBoruGovdeAt(manager, point, tolerance = 3) {
     for (const boru of manager.pipes) {
         const p1Screen = getScreenPoint(boru.p1);
         const p2Screen = getScreenPoint(boru.p2);

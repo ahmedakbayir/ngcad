@@ -371,8 +371,8 @@ export function handlePointerDown(e) {
         return true;
     }
 
-    const worldTolerance3 = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
-    const boruGovde = this.findBoruGovdeAt(point, worldTolerance3);
+    const bodyTolerance = pixelsToWorld(TESISAT_CONSTANTS.PIPE_BODY_TOLERANCE_PIXELS);
+    const boruGovde = this.findBoruGovdeAt(point, bodyTolerance);
     if (boruGovde) {
         this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
         return true;

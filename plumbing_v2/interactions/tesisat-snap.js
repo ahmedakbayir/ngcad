@@ -25,7 +25,8 @@ export const TESISAT_CONSTANTS = {
     SNAP_MESAFESI: 20,          // cm - Snap yakalama mesafesi
     MIN_BORU_UZUNLUGU: 5,       // cm
     ACI_TOLERANSI: 30,            // derece - 90° snap toleransı (X ve Y yönü)
-    SELECTION_TOLERANCE_PIXELS: 12, // piksel - Seçim için tolerance (ZOOM BAĞIMSIZ - ekranda her zaman 12 piksel)
+    SELECTION_TOLERANCE_PIXELS: 5, // piksel - Seçim için tolerance (ZOOM BAĞIMSIZ - ekranda her zaman 5 piksel)
+    PIPE_BODY_TOLERANCE_PIXELS: 3, // piksel - Boru gövdesi seçim toleransı (boru görsel genişliğinin yarısı)
     CONNECTED_PIPES_TOLERANCE: 7, // cm - Bağlı boruları bulmak için tolerance (world coordinates - fiziksel mesafe)
 };
 

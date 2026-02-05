@@ -389,7 +389,7 @@ export class InteractionManager {
         return findBoruUcuAt(this.manager, point, tolerance, onlyFreeEndpoints, preferredPipeId);
     }
 
-    findBoruGovdeAt(point, tolerance = 5) {
+    findBoruGovdeAt(point, tolerance = 3) {
         return findBoruGovdeAt(this.manager, point, tolerance);
     }
 
@@ -397,7 +397,7 @@ export class InteractionManager {
         return findPipeAt(this.manager, point, tolerance);
     }
 
-    findBoruGovdeAt(point, tolerance = 5) {
+    findBoruGovdeAt(point, tolerance = 3) {
         return findBoruGovdeAt(this.manager, point, tolerance);
     }
 
