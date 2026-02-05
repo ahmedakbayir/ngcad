@@ -183,6 +183,7 @@ function createSayacMesh(block, material) {
  * Vana mesh'i oluşturur - Resimdeki gibi detaylı vana
  */
 export function createVanaMesh(block, material) {
+    console.log('🔧 YENİ VANA KODU ÇALIŞIYOR! Detaylı vana oluşturuluyor...');
     const config = PLUMBING_BLOCK_TYPES.VANA;
 
     const group = new THREE.Group();
