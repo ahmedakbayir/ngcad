@@ -371,12 +371,14 @@ export function handlePointerDown(e) {
         return true;
     }
 
-    const bodyTolerance = pixelsToWorld(TESISAT_CONSTANTS.PIPE_BODY_TOLERANCE_PIXELS);
-    const boruGovde = this.findBoruGovdeAt(point, bodyTolerance);
-    if (boruGovde) {
-        this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
-        return true;
-    }
+    // DEVRE DIŞI: Boru gövdesinden yeni boru başlatma - borular kopmamalı!
+    // Yeni borular sadece endpoint'lerden (uçlardan) başlatılabilir.
+    // const bodyTolerance = pixelsToWorld(TESISAT_CONSTANTS.PIPE_BODY_TOLERANCE_PIXELS);
+    // const boruGovde = this.findBoruGovdeAt(point, bodyTolerance);
+    // if (boruGovde) {
+    //     this.startBoruCizim(boruGovde.nokta, boruGovde.boruId, BAGLANTI_TIPLERI.BORU);
+    //     return true;
+    // }
 
     this.deselectObject();
     return false;
