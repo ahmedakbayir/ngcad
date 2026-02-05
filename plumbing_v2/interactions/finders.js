@@ -282,8 +282,7 @@ export function checkVanaAtPoint(manager, point, tolerance = 2) {
     return null;
 }
 
-export function findPipeEndpoint(pipe, point) {
-    const tolerance = 2; 
+export function findPipeEndpoint(pipe, point, tolerance = 2) {
     const p1Screen = getScreenPoint(pipe.p1);
     const p2Screen = getScreenPoint(pipe.p2);
     const distToP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
