@@ -517,7 +517,7 @@ export function findVerticalPipeSymbolAt(manager, point, tolerance = 10) {
  */
 export function findVerticalPipeChain(manager, basePipe) {
     const chain = [];
-    const tolerance = 1; // cm
+    const tolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Tutarlı tolerance kullan (kopma önleme)
 
     // Baz borunun X,Y koordinatlarını al
     const baseX = basePipe.p1.x;
@@ -560,7 +560,7 @@ export function findVerticalPipeChain(manager, basePipe) {
 export function findAlignedPipeChain(manager, basePipe, primaryAxis) {
     const chain = [basePipe];
     const visited = new Set([basePipe.id]);
-    const tolerance = 1; // cm
+    const tolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Tutarlı tolerance kullan (kopma önleme)
     const angleTolerance = 10; // derece
 
     // BFS ile bağlı boruları bul

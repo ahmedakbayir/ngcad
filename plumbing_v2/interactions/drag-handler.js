@@ -827,10 +827,15 @@ export function handleDrag(interactionManager, point, event = null) {
             if (connectedMeter) {
                 const dx = finalPos.x - oldPoint.x;
                 const dy = finalPos.y - oldPoint.y;
+                const dz = (finalPos.z || 0) - (oldPoint.z || 0); // DÜZELTME: Z eksenini de hesapla
                 connectedMeter.x += dx; connectedMeter.y += dy;
                 if (connectedMeter.cikisBagliBoruId) {
                     const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
-                    if (cikisBoru) { cikisBoru.p1.x += dx; cikisBoru.p1.y += dy; }
+                    if (cikisBoru) {
+                        cikisBoru.p1.x += dx;
+                        cikisBoru.p1.y += dy;
+                        cikisBoru.p1.z = (cikisBoru.p1.z || 0) + dz; // DÜZELTME: Z eksenini de güncelle (3D'de kopma önleme)
+                    }
                 }
             }
 
@@ -1121,8 +1126,8 @@ export function handleDrag(interactionManager, point, event = null) {
             // Borunun mevcut iki ucuna bağlı olan TÜM elemanları bul ve ağacı kur
             // (Burada boru henüz hareket etmediği için geometrik kontroller çalışır)
             const startPipes = [];
-            const tolerance = 1;
-            
+            const tolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE; // DÜZELTME: Tutarlı tolerance kullan
+
             interactionManager.manager.pipes.forEach(otherPipe => {
                 if (otherPipe.id === pipe.id) return;
 
@@ -1463,15 +1468,15 @@ function getRecursiveConnectedObjects(manager, startPipes, excludePipeIds = []) 
         // 1. Find geometric connections (pipes connected to endpoints)
         manager.pipes.forEach(p => {
              if(visitedPipes.has(p.id)) return;
-             
-             // Check connection with current pipe
-             const tolerance = 1.0;
-             const isConnected = 
+
+             // Check connection with current pipe - DÜZELTME: CONNECTED_PIPES_TOLERANCE kullan (tutarlılık için)
+             const tolerance = TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE;
+             const isConnected =
                 Math.hypot(p.p1.x - curr.p1.x, p.p1.y - curr.p1.y, (p.p1.z||0) - (curr.p1.z||0)) < tolerance ||
                 Math.hypot(p.p1.x - curr.p2.x, p.p1.y - curr.p2.y, (p.p1.z||0) - (curr.p2.z||0)) < tolerance ||
                 Math.hypot(p.p2.x - curr.p1.x, p.p2.y - curr.p1.y, (p.p2.z||0) - (curr.p1.z||0)) < tolerance ||
                 Math.hypot(p.p2.x - curr.p2.x, p.p2.y - curr.p2.y, (p.p2.z||0) - (curr.p2.z||0)) < tolerance;
-             
+
              if(isConnected) addPipe(p);
         });
 
