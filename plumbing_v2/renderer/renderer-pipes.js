@@ -282,6 +282,11 @@ drawPipes(ctx, pipes) {
             // Zoom ayarı
             const zoom = state.zoom || 1;
             let width = config.lineWidth;
+            // 3D çizim görünümünde (katı model dışı) düşey borular, yataylarla aynı
+            // görsel kalınlıkta olmalı. Bu yüzden düşeylerde standart lineWidth kullan.
+            if (isVerticalPipe) {
+                width = BORU_TIPLERI.STANDART.lineWidth;
+            }
             if (zoom < 1) width = 4 / zoom;
 
             ctx.save();
