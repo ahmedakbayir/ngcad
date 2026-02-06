@@ -246,7 +246,8 @@ drawPipes(ctx, pipes) {
 
             // Eşik değerleri (cm)
             const Z_THRESHOLD = 0.1;
-            const XY_THRESHOLD = 0.1;
+            // Düşey hatlarda küçük XY sapmalarını tolere et (dirsek/bağlantı kaynaklı)
+            const XY_THRESHOLD = 1.0;
 
             // Boru yönelim tespiti:
             // DÜŞEY: z1≠z2 VE x1=x2 VE y1=y2
@@ -282,6 +283,11 @@ drawPipes(ctx, pipes) {
             // Zoom ayarı
             const zoom = state.zoom || 1;
             let width = config.lineWidth;
+            // 3D çizim görünümünde (katı model dışı) düşey borular, yataylarla aynı
+            // görsel kalınlıkta olmalı. Bu yüzden düşeylerde standart lineWidth kullan.
+            if (isVerticalPipe) {
+                width = BORU_TIPLERI.STANDART.lineWidth;
+            }
             if (zoom < 1) width = 4 / zoom;
 
             ctx.save();
@@ -375,7 +381,8 @@ drawPipes(ctx, pipes) {
 
                 // Eşik değerleri (cm)
                 const Z_THRESHOLD = 0.1;
-                const XY_THRESHOLD = 0.1;
+                // Düşey sembolde de aynı toleransı kullan
+                const XY_THRESHOLD = 1.0;
 
                 const hasZDiff = rawZDiff > Z_THRESHOLD;
                 const hasXYDiff = rawLen2d > XY_THRESHOLD;
