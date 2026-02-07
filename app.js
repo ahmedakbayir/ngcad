@@ -20,3 +20,13 @@ import './plumbing_v2/interactions/interaction-manager.js';
 import './wall/wall-panel.js';
 import './menu/guide-menu.js';
 import './menu/floor-operations-menu.js';
+
+// Voice Commands
+import { createVoiceCommandUI } from './voice-commands/voice-command-ui.js';
+
+// Sayfa yüklendiğinde sesli komut UI'ını oluştur
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => createVoiceCommandUI());
+} else {
+    createVoiceCommandUI();
+}
