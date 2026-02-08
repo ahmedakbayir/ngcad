@@ -602,6 +602,13 @@ export function handleCihazEkleme(cihaz) {
     // boruUcu.uc = 'p1' veya 'p2'
     cihaz.fleksBagla(boruUcu.boruId, boruUcu.uc);
 
+    // Fleks bağlantı noktasını boru ucuna göre yeniden hesapla
+    // (Sesli komut akışında ghost updater çalışmaz, bu yüzden burada hesaplanmalı)
+    cihaz.yenidenHesaplaGirisOffset(boruUcu.nokta);
+
+    // Fleks uzunluğunu güncelle
+    cihaz.fleksGuncelle(boruUcu.nokta);
+
     // Cihazı components'a ekle (eğer henüz eklenmemişse)
     // Normal icon click workflow'unda placeComponent() ekler,
     // ama K/O shortcuts gibi direkt çağrılarda burada eklemeliyiz

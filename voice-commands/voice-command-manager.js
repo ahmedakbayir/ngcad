@@ -180,35 +180,60 @@ export class VoiceCommandManager {
     /**
      * Seçili boru veya bileşenden devam etmeyi dene.
      * Kullanıcı bir boru/kutu/sayaç seçtiyse, onun ucundan devam eder.
+     * Seçim yoksa mevcut tesisattaki açık boru ucundan devam eder.
      */
     _tryInitFromSelection() {
+        // 1. Seçili nesneden devam etmeyi dene
         const sel = state.selectedObject;
-        if (!sel || !sel.object) return;
+        if (sel && sel.object) {
+            const obj = sel.object;
 
-        const obj = sel.object;
+            // Seçili nesne boru ise, bitiş ucundan (p2) devam et
+            if (sel.type === 'pipe' && obj.p2) {
+                this.currentPosition = { x: obj.p2.x, y: obj.p2.y, z: obj.p2.z || 0 };
+                this.lastPipeId = obj.id;
+                this.lastComponentId = null;
+                return;
+            }
 
-        // Seçili nesne boru ise, bitiş ucundan (p2) devam et
-        if (sel.type === 'pipe' && obj.p2) {
-            this.currentPosition = { x: obj.p2.x, y: obj.p2.y, z: obj.p2.z || 0 };
-            this.lastPipeId = obj.id;
-            this.lastComponentId = null;
-            return;
+            // Seçili nesne bileşen ise (servis kutusu, sayaç vs.) çıkış noktasından devam et
+            if (obj.getCikisNoktasi) {
+                const cikis = obj.getCikisNoktasi();
+                this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
+                this.lastComponentId = obj.id;
+                this.lastPipeId = null;
+                return;
+            }
+
+            // Nesnenin konumu varsa oradan devam et
+            if (obj.x !== undefined && obj.y !== undefined) {
+                this.currentPosition = { x: obj.x, y: obj.y, z: obj.z || 0 };
+                this.lastComponentId = obj.id;
+                this.lastPipeId = null;
+                return;
+            }
         }
 
-        // Seçili nesne bileşen ise (servis kutusu, sayaç vs.) çıkış noktasından devam et
-        if (obj.getCikisNoktasi) {
-            const cikis = obj.getCikisNoktasi();
-            this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
-            this.lastComponentId = obj.id;
-            this.lastPipeId = null;
-            return;
-        }
-
-        // Nesnenin konumu varsa oradan devam et
-        if (obj.x !== undefined && obj.y !== undefined) {
-            this.currentPosition = { x: obj.x, y: obj.y, z: obj.z || 0 };
-            this.lastComponentId = obj.id;
-            this.lastPipeId = null;
+        // 2. Seçim yoksa, mevcut tesisattaki açık boru ucundan devam et
+        //    (servis kutusu aramaya gerek yok - zaten tesisat var)
+        if (!this.currentPosition && plumbingManager.pipes.length > 0) {
+            const openEnds = plumbingManager.getBosBitisBorular();
+            if (openEnds.length > 0) {
+                // Son açık ucu kullan (en son eklenen boru genelde en altta)
+                const lastOpen = openEnds[openEnds.length - 1];
+                const pt = lastOpen.pipe[lastOpen.end];
+                this.currentPosition = { x: pt.x, y: pt.y, z: pt.z || 0 };
+                this.lastPipeId = lastOpen.pipe.id;
+                this.lastComponentId = null;
+                return;
+            }
+            // Açık uç yoksa son borunun p2 ucundan devam et
+            const lastPipe = plumbingManager.pipes[plumbingManager.pipes.length - 1];
+            if (lastPipe && lastPipe.p2) {
+                this.currentPosition = { x: lastPipe.p2.x, y: lastPipe.p2.y, z: lastPipe.p2.z || 0 };
+                this.lastPipeId = lastPipe.id;
+                this.lastComponentId = null;
+            }
         }
     }
 
@@ -799,7 +824,7 @@ export class VoiceCommandManager {
             return { success: false, message: `${deviceType} eklemek için önce boru çizin!` };
         }
 
-        saveState();
+        // NOT: saveState() burada çağrılmıyor - handleCihazEkleme kendi içinde çağırır
 
         const endPt = pipe.p2;
 
@@ -847,6 +872,19 @@ export class VoiceCommandManager {
 
             // Cihaz eklendikten sonra bu noktadan ilerleme durur (cihaz son eleman)
             const step = this._addStep(cmd, { ...endPt }, { ...this.currentPosition });
+
+            // Geri al için oluşturulan tüm bileşen ID'lerini kaydet
+            step.createdIds.push(newDevice.id);
+            if (newDevice.iliskiliVanaId) {
+                step.createdIds.push(newDevice.iliskiliVanaId);
+            }
+            // Otomatik oluşturulan bacayı bul ve kaydet
+            const baca = plumbingManager.components.find(
+                c => c.type === 'baca' && c.parentCihazId === newDevice.id
+            );
+            if (baca) {
+                step.createdIds.push(baca.id);
+            }
 
             return { success: true, message: `${deviceType} eklendi`, step };
         }
