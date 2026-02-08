@@ -141,11 +141,18 @@ export class VoiceCommandManager {
      * Tek bir komutu yürüt
      */
     _executeCommand(cmd) {
+        // Hareket/dallanma komutu öncesi: eğer currentPosition yoksa seçili nesneden devam et
+        if (!this.currentPosition && (cmd.type === 'move' || cmd.type === 'branch' || cmd.type === 'add')) {
+            this._tryInitFromSelection();
+        }
+
         switch (cmd.type) {
             case 'place':
                 return this._executePlaceCommand(cmd);
             case 'move':
                 return this._executeMoveCommand(cmd);
+            case 'branch':
+                return this._executeBranchCommand(cmd);
             case 'add':
                 return this._executeAddCommand(cmd);
             case 'view':
@@ -158,6 +165,41 @@ export class VoiceCommandManager {
                 return this._executeFinishCommand();
             default:
                 return { success: false, message: 'Bilinmeyen komut tipi' };
+        }
+    }
+
+    /**
+     * Seçili boru veya bileşenden devam etmeyi dene.
+     * Kullanıcı bir boru/kutu/sayaç seçtiyse, onun ucundan devam eder.
+     */
+    _tryInitFromSelection() {
+        const sel = state.selectedObject;
+        if (!sel || !sel.object) return;
+
+        const obj = sel.object;
+
+        // Seçili nesne boru ise, bitiş ucundan (p2) devam et
+        if (sel.type === 'pipe' && obj.p2) {
+            this.currentPosition = { x: obj.p2.x, y: obj.p2.y, z: obj.p2.z || 0 };
+            this.lastPipeId = obj.id;
+            this.lastComponentId = null;
+            return;
+        }
+
+        // Seçili nesne bileşen ise (servis kutusu, sayaç vs.) çıkış noktasından devam et
+        if (obj.getCikisNoktasi) {
+            const cikis = obj.getCikisNoktasi();
+            this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
+            this.lastComponentId = obj.id;
+            this.lastPipeId = null;
+            return;
+        }
+
+        // Nesnenin konumu varsa oradan devam et
+        if (obj.x !== undefined && obj.y !== undefined) {
+            this.currentPosition = { x: obj.x, y: obj.y, z: obj.z || 0 };
+            this.lastComponentId = obj.id;
+            this.lastPipeId = null;
         }
     }
 
@@ -292,6 +334,58 @@ export class VoiceCommandManager {
         return { success: true, message: `${commandToText(displayCmd)} - Boru çizildi`, step };
     }
 
+    // ───── DALLANMA KOMUTLARI ─────
+
+    /**
+     * Hattın ortasından dallanma (T-bağlantı)
+     * "hattın ortasından 100 ileri" → mevcut borunun ortasından yeni boru çiz
+     */
+    _executeBranchCommand(cmd) {
+        const pipe = this._getLastPipe();
+        if (!pipe) {
+            return { success: false, message: 'Dallanma için önce boru çizin!' };
+        }
+
+        // Mesafe
+        const distance = cmd.distance || VARSAYILAN_MESAFE;
+
+        // Dallanma noktası (ortası = t:0.5)
+        const t = 0.5;
+        const branchPoint = pipe.getPointAt(t);
+
+        const vec = directionToVector(cmd.direction, distance);
+        const endPt = {
+            x: branchPoint.x + vec.dx,
+            y: branchPoint.y + vec.dy,
+            z: (branchPoint.z || 0) + vec.dz
+        };
+
+        saveState();
+
+        // Yeni boru oluştur (T-bağlantı)
+        const boru = createBoru(branchPoint, endPt, 'STANDART');
+        boru.floorId = state.currentFloor?.id;
+        boru.colorGroup = this._determineColorGroup();
+
+        // Ana boruya T-bağlantı ekle
+        pipe.tBaglantiEkle(t, boru.id);
+
+        // Yeni borunun başlangıcını ana boruya bağla
+        boru.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, pipe.id);
+
+        plumbingManager.pipes.push(boru);
+        plumbingManager.saveToState();
+
+        this.currentPosition = { ...endPt };
+        this.lastPipeId = boru.id;
+
+        const displayCmd = { ...cmd, distance };
+        const step = this._addStep(displayCmd, { ...branchPoint }, endPt);
+        step.createdIds.push(boru.id);
+
+        return { success: true, message: `Ortadan ${distance} cm ${cmd.direction} - T-bağlantı`, step };
+    }
+
     // ───── BİLEŞEN EKLEME KOMUTLARI ─────
 
     /**
@@ -378,19 +472,65 @@ export class VoiceCommandManager {
     }
 
     /**
-     * Son borunun ucuna sayaç ekle
+     * Sayaç ekle: önce 100cm boru çiz, sonra ucuna sayaç yerleştir.
+     * Eski davranışla uyumlu: boru ucuna sayaç ekler.
      */
     _addSayac(cmd) {
-        const pipe = this._getLastPipe();
-        if (!pipe) {
-            return { success: false, message: 'Sayaç eklemek için önce boru çizin!' };
+        if (!this.currentPosition) {
+            return { success: false, message: 'Sayaç eklemek için önce başlangıç konumu belirleyin!' };
         }
 
         saveState();
 
-        // Borunun bitiş noktasına sayaç ekle
-        const endPt = pipe.p2;
+        // 1. Önce 100cm boru çiz (mevcut yönde veya son borunun yönünde)
+        const SAYAC_BORU_MESAFE = 100;
+        const startPt = { ...this.currentPosition };
 
+        // Son borunun yönünü kullan, yoksa sağa varsayılan
+        let dx = 1, dy = 0, dz = 0;
+        if (this.lastPipeId) {
+            const lastPipe = plumbingManager.findPipeById(this.lastPipeId);
+            if (lastPipe) {
+                const len = lastPipe.uzunluk;
+                if (len > 0) {
+                    dx = (lastPipe.p2.x - lastPipe.p1.x) / len;
+                    dy = (lastPipe.p2.y - lastPipe.p1.y) / len;
+                    dz = ((lastPipe.p2.z || 0) - (lastPipe.p1.z || 0)) / len;
+                }
+            }
+        }
+
+        const endPt = {
+            x: startPt.x + dx * SAYAC_BORU_MESAFE,
+            y: startPt.y + dy * SAYAC_BORU_MESAFE,
+            z: (startPt.z || 0) + dz * SAYAC_BORU_MESAFE
+        };
+
+        // Boru oluştur
+        const boru = createBoru(startPt, endPt, 'STANDART');
+        boru.floorId = state.currentFloor?.id;
+        boru.colorGroup = this._determineColorGroup();
+
+        if (this.lastPipeId) {
+            boru.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, this.lastPipeId);
+            const prevPipe = plumbingManager.findPipeById(this.lastPipeId);
+            if (prevPipe) {
+                prevPipe.setBitisBaglanti(BAGLANTI_TIPLERI.BORU, boru.id);
+            }
+        } else if (this.lastComponentId) {
+            const comp = plumbingManager.findComponentById(this.lastComponentId);
+            if (comp && comp.type === 'servis_kutusu') {
+                boru.setBaslangicBaglanti(BAGLANTI_TIPLERI.SERVIS_KUTUSU, this.lastComponentId);
+                comp.baglaBoru(boru.id);
+            } else if (comp && comp.type === 'sayac') {
+                boru.setBaslangicBaglanti(BAGLANTI_TIPLERI.SAYAC, this.lastComponentId);
+                if (comp.baglaCikis) comp.baglaCikis(boru.id);
+            }
+        }
+
+        plumbingManager.pipes.push(boru);
+
+        // 2. Borunun ucuna sayaç ekle
         const sayac = createSayac(endPt.x + 30, endPt.y, {
             floorId: state.currentFloor?.id,
             z: endPt.z || 0
@@ -399,8 +539,8 @@ export class VoiceCommandManager {
         // Ghost bağlantı ayarla
         sayac.ghostConnectionInfo = {
             boruUcu: {
-                boruId: pipe.id,
-                boru: pipe,
+                boruId: boru.id,
+                boru: boru,
                 uc: 'p2',
                 nokta: { x: endPt.x, y: endPt.y, z: endPt.z || 0 }
             }
@@ -413,19 +553,17 @@ export class VoiceCommandManager {
             if (success) {
                 plumbingManager.saveToState();
 
-                // Sayacın çıkış noktasından devam et
                 const cikis = sayac.getCikisNoktasi();
                 this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
                 this.lastComponentId = sayac.id;
                 this.lastPipeId = null;
 
-                const step = this._addStep(cmd, { ...endPt }, { ...this.currentPosition });
-                step.createdIds.push(sayac.id);
+                const step = this._addStep(cmd, startPt, { ...this.currentPosition });
+                step.createdIds.push(boru.id, sayac.id);
 
-                // Renkleri güncelle
                 plumbingManager.updatePipeColorsAfterMeter(sayac.id);
 
-                return { success: true, message: 'Sayaç eklendi', step };
+                return { success: true, message: 'Sayaç eklendi (100 cm boru + sayaç)', step };
             }
         }
 
@@ -438,10 +576,10 @@ export class VoiceCommandManager {
         this.lastComponentId = sayac.id;
         this.lastPipeId = null;
 
-        const step = this._addStep(cmd, { ...endPt }, { ...this.currentPosition });
-        step.createdIds.push(sayac.id);
+        const step = this._addStep(cmd, startPt, { ...this.currentPosition });
+        step.createdIds.push(boru.id, sayac.id);
 
-        return { success: true, message: 'Sayaç eklendi', step };
+        return { success: true, message: 'Sayaç eklendi (100 cm boru + sayaç)', step };
     }
 
     /**
@@ -501,9 +639,16 @@ export class VoiceCommandManager {
             }
 
             case 'show_dimensions': {
+                // dimensionMode 0 ise ölçüler hiç çizilmez, en az 1 olmalı
+                if (state.dimensionMode === 0) {
+                    setState({ dimensionMode: 1 });
+                    // dimensionOptions da güncelle
+                    if (state.dimensionOptions) {
+                        state.dimensionOptions.defaultView = 1;
+                    }
+                }
                 state.tempVisibility.showArchDimensions = true;
                 state.tempVisibility.showPlumbingDimensions = true;
-                // Checkbox'ları da güncelle
                 this._syncDimensionCheckboxes(true);
                 draw2D();
                 return { success: true, message: 'Ölçüler gösteriliyor' };
@@ -637,7 +782,7 @@ export class VoiceCommandManager {
     }
 
     /**
-     * Son boruyu al
+     * Son boruyu al (seçili boruyu da kontrol eder)
      */
     _getLastPipe() {
         if (this.lastPipeId) {
@@ -649,6 +794,11 @@ export class VoiceCommandManager {
                 const pipe = plumbingManager.findPipeById(this.steps[i].createdIds[j]);
                 if (pipe) return pipe;
             }
+        }
+        // Seçili nesne boru ise onu kullan
+        const sel = state.selectedObject;
+        if (sel && sel.type === 'pipe' && sel.object) {
+            return sel.object;
         }
         return null;
     }

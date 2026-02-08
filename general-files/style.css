@@ -2337,6 +2337,7 @@ body:not(.light-mode) .text-on-right {
 .voice-cmd-step.type-place .voice-cmd-step-icon { color: #a78bfa; }
 .voice-cmd-step.type-add .voice-cmd-step-icon { color: #fb923c; }
 .voice-cmd-step.type-view .voice-cmd-step-icon { color: #38bdf8; }
+.voice-cmd-step.type-branch .voice-cmd-step-icon { color: #f472b6; }
 
 /* Durum mesajları */
 .voice-cmd-status {
