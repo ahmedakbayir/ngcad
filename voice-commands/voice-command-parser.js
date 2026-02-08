@@ -156,18 +156,18 @@ export function parseVoiceCommand(text) {
     const vanaCmd = parseVanaCommand(clean, text);
     if (vanaCmd) return vanaCmd;
 
-    // Sayaç ekle
-    if (matchAny(clean, ['sayaç ekle', 'sayac ekle', 'sayaç koy', 'sayaç yerleştir'])) {
+    // Sayaç ekle - "sayaç" tek başına da yeterli
+    if (matchAny(clean, ['sayaç ekle', 'sayac ekle', 'sayaç koy', 'sayaç yerleştir']) || clean === 'sayaç' || clean === 'sayac') {
         return { type: 'add', object: 'sayac', raw: text };
     }
 
-    // Kombi ekle
-    if (matchAny(clean, ['kombi ekle', 'kombi koy', 'kombi yerleştir', 'kombi bağla'])) {
+    // Kombi ekle - "kombi" tek başına da yeterli
+    if (matchAny(clean, ['kombi ekle', 'kombi koy', 'kombi yerleştir', 'kombi bağla']) || clean === 'kombi') {
         return { type: 'add', object: 'kombi', raw: text };
     }
 
-    // Ocak ekle
-    if (matchAny(clean, ['ocak ekle', 'ocak koy', 'ocak yerleştir', 'ocak bağla'])) {
+    // Ocak ekle - "ocak" tek başına da yeterli
+    if (matchAny(clean, ['ocak ekle', 'ocak koy', 'ocak yerleştir', 'ocak bağla']) || clean === 'ocak') {
         return { type: 'add', object: 'ocak', raw: text };
     }
 
@@ -300,19 +300,18 @@ function parseVanaCommand(clean, raw) {
         return { type: 'add', object: 'vana', position: 'start', raw };
     }
 
-    // "10 cm geriye vana ekle" / "sondan 10 cm vana ekle"
-    const offsetMatch = clean.match(/(\d+)\s*(?:cm)?\s*(?:geriye?|ileriye?|sondan|baştan)\s*vana\s*(ekle|koy)/);
-    if (offsetMatch) {
-        const offset = parseInt(offsetMatch[1], 10);
-        const fromEnd = clean.includes('baştan') || clean.includes('ileri') ? 'start' : 'end';
-        return { type: 'add', object: 'vana', position: 'offset', offset, fromEnd, raw };
-    }
-
-    // "vana ekle 10 cm geriye"
-    const offsetMatch2 = clean.match(/vana\s*(ekle|koy)\s*(\d+)\s*(?:cm)?\s*(?:geriye?|sondan)/);
-    if (offsetMatch2) {
-        const offset = parseInt(offsetMatch2[2], 10);
-        return { type: 'add', object: 'vana', position: 'offset', offset, fromEnd: 'end', raw };
+    // Genel offset vana komutu: metin içinde vana + sayı + yön ipucu varsa
+    // "ucundan 30 cm geriye vana ekle", "10 cm geriye vana ekle",
+    // "sondan 10 cm vana ekle", "vana ekle 10 cm geriye"
+    if (clean.includes('vana')) {
+        const numMatch = clean.match(/(\d+)/);
+        if (numMatch) {
+            const offset = parseInt(numMatch[1], 10);
+            if (offset > 0) {
+                const fromEnd = (clean.includes('baştan') || clean.includes('başından') || clean.includes('ileri')) ? 'start' : 'end';
+                return { type: 'add', object: 'vana', position: 'offset', offset, fromEnd, raw };
+            }
+        }
     }
 
     return null;
