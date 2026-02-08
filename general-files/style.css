@@ -2333,6 +2333,11 @@ body:not(.light-mode) .text-on-right {
 .voice-cmd-step.dir-yukari .voice-cmd-step-icon { color: #ef4444; }
 .voice-cmd-step.dir-asagi .voice-cmd-step-icon { color: #06b6d4; }
 
+/* Komut tipi renkleri */
+.voice-cmd-step.type-place .voice-cmd-step-icon { color: #a78bfa; }
+.voice-cmd-step.type-add .voice-cmd-step-icon { color: #fb923c; }
+.voice-cmd-step.type-view .voice-cmd-step-icon { color: #38bdf8; }
+
 /* Durum mesajları */
 .voice-cmd-status {
     padding: 6px 14px;

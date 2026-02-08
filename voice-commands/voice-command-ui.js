@@ -6,6 +6,7 @@
 
 import { voiceCommandManager } from './voice-command-manager.js';
 import { commandToText } from './voice-command-parser.js';
+import { draw2D } from '../draw/draw2d.js';
 
 // ───── WEB SPEECH API ─────
 
@@ -139,11 +140,9 @@ function processVoiceInput(text) {
 // ───── CANVAS YENİDEN ÇİZİM ─────
 
 function requestRedraw() {
-    // Canvas yeniden çizimi tetikle
     if (window.requestAnimationFrame) {
         window.requestAnimationFrame(() => {
-            // draw2d veya benzeri çizim fonksiyonu tetikleme
-            // State değişikliği zaten saveToState ile yapıldı
+            draw2D();
         });
     }
 }
@@ -175,7 +174,11 @@ export function createVoiceCommandUI() {
         </div>
 
         <div class="voice-cmd-step-list" id="voice-cmd-step-list">
-            <div class="voice-cmd-empty">Henüz komut verilmedi.<br><small>"Servis kutusu koy" ile başlayın</small></div>
+            <div class="voice-cmd-empty">
+                Henüz komut verilmedi.<br>
+                <small>"Servis kutusu koy" ile başlayın</small><br>
+                <small style="opacity:0.6;margin-top:4px;display:block">Toplu: 100 sağ, 150 yukarı, 200 ileri</small>
+            </div>
         </div>
 
         <div class="voice-cmd-status" id="voice-cmd-status"></div>
@@ -310,6 +313,24 @@ function setupManagerListeners() {
 
 // ───── UI GÜNCELLEME ─────
 
+/**
+ * Komut tipine göre ikon döndür
+ */
+function getStepIcon(cmd) {
+    switch (cmd.type) {
+        case 'place': return '&#9646;'; // ▆ (kutu)
+        case 'move':  return '&#9654;'; // ► (ok)
+        case 'add': {
+            if (cmd.object === 'vana') return '&#9670;';  // ◆
+            if (cmd.object === 'sayac') return '&#9633;';  // □
+            if (cmd.object === 'kombi' || cmd.object === 'ocak') return '&#9673;'; // ◉
+            return '&#43;'; // +
+        }
+        case 'view':  return '&#9673;'; // ◉
+        default:       return '&#9654;'; // ►
+    }
+}
+
 function renderStepList(steps) {
     const listEl = document.getElementById('voice-cmd-step-list');
     if (!listEl) return;
@@ -323,11 +344,12 @@ function renderStepList(steps) {
 
     listEl.innerHTML = steps.map((step, idx) => {
         const isActive = idx === activeIdx;
-        const icon = step.command.type === 'place' ? '&#9646;' : '&#9654;';  // ▆ veya ►
+        const icon = getStepIcon(step.command);
         const dirClass = step.command.direction ? `dir-${step.command.direction}` : '';
+        const typeClass = `type-${step.command.type}`;
 
         return `
-            <div class="voice-cmd-step ${isActive ? 'active' : ''} ${dirClass}"
+            <div class="voice-cmd-step ${isActive ? 'active' : ''} ${dirClass} ${typeClass}"
                  data-step="${step.stepNumber}"
                  title="Bu adıma dönmek için tıklayın">
                 <span class="voice-cmd-step-num">${step.stepNumber}.</span>
