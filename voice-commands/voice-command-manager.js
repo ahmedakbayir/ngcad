@@ -472,33 +472,95 @@ export class VoiceCommandManager {
     }
 
     /**
-     * Sayaç ekle: önce 100cm boru çiz, sonra ucuna sayaç yerleştir.
-     * Eski davranışla uyumlu: boru ucuna sayaç ekler.
+     * Sayaç ekle:
+     * - Mevcut boru varsa: borunun ucuna doğrudan sayaç yerleştir
+     * - Boru yoksa (bileşenden başlıyorsa): 100cm boru çiz + ucuna sayaç
      */
     _addSayac(cmd) {
         if (!this.currentPosition) {
             return { success: false, message: 'Sayaç eklemek için önce başlangıç konumu belirleyin!' };
         }
 
+        const existingPipe = this._getLastPipe();
+
+        // Mevcut boru varsa doğrudan ucuna sayaç ekle
+        if (existingPipe) {
+            return this._addSayacToPipeEnd(cmd, existingPipe);
+        }
+
+        // Boru yoksa (bileşenden başlıyorsa) önce 100cm boru çiz
+        return this._addSayacWithPipe(cmd);
+    }
+
+    /**
+     * Mevcut borunun ucuna doğrudan sayaç yerleştir
+     */
+    _addSayacToPipeEnd(cmd, pipe) {
         saveState();
 
-        // 1. Önce 100cm boru çiz (mevcut yönde veya son borunun yönünde)
+        const endPt = pipe.p2;
+        const startPt = { ...this.currentPosition };
+
+        const sayac = createSayac(endPt.x + 30, endPt.y, {
+            floorId: state.currentFloor?.id,
+            z: endPt.z || 0
+        });
+
+        sayac.ghostConnectionInfo = {
+            boruUcu: {
+                boruId: pipe.id,
+                boru: pipe,
+                uc: 'p2',
+                nokta: { x: endPt.x, y: endPt.y, z: endPt.z || 0 }
+            }
+        };
+
+        const interactionMgr = plumbingManager.interactionManager;
+        if (interactionMgr && interactionMgr.handleSayacEndPlacement) {
+            const success = interactionMgr.handleSayacEndPlacement(sayac);
+            if (success) {
+                plumbingManager.saveToState();
+
+                const cikis = sayac.getCikisNoktasi();
+                this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
+                this.lastComponentId = sayac.id;
+                this.lastPipeId = null;
+
+                const step = this._addStep(cmd, startPt, { ...this.currentPosition });
+                step.createdIds.push(sayac.id);
+
+                plumbingManager.updatePipeColorsAfterMeter(sayac.id);
+
+                return { success: true, message: 'Sayaç eklendi', step };
+            }
+        }
+
+        // Fallback: Manuel ekleme
+        plumbingManager.components.push(sayac);
+        plumbingManager.saveToState();
+
+        const cikis = sayac.getCikisNoktasi();
+        this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
+        this.lastComponentId = sayac.id;
+        this.lastPipeId = null;
+
+        const step = this._addStep(cmd, startPt, { ...this.currentPosition });
+        step.createdIds.push(sayac.id);
+
+        return { success: true, message: 'Sayaç eklendi', step };
+    }
+
+    /**
+     * Boru yokken: 100cm boru çiz + ucuna sayaç (iç tesisat başlatma senaryosu)
+     */
+    _addSayacWithPipe(cmd) {
+        saveState();
+
         const SAYAC_BORU_MESAFE = 100;
         const startPt = { ...this.currentPosition };
 
-        // Son borunun yönünü kullan, yoksa sağa varsayılan
-        let dx = 1, dy = 0, dz = 0;
-        if (this.lastPipeId) {
-            const lastPipe = plumbingManager.findPipeById(this.lastPipeId);
-            if (lastPipe) {
-                const len = lastPipe.uzunluk;
-                if (len > 0) {
-                    dx = (lastPipe.p2.x - lastPipe.p1.x) / len;
-                    dy = (lastPipe.p2.y - lastPipe.p1.y) / len;
-                    dz = ((lastPipe.p2.z || 0) - (lastPipe.p1.z || 0)) / len;
-                }
-            }
-        }
+        // Varsayılan yön: sağa
+        const dx = 1, dy = 0, dz = 0;
 
         const endPt = {
             x: startPt.x + dx * SAYAC_BORU_MESAFE,
@@ -511,13 +573,7 @@ export class VoiceCommandManager {
         boru.floorId = state.currentFloor?.id;
         boru.colorGroup = this._determineColorGroup();
 
-        if (this.lastPipeId) {
-            boru.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, this.lastPipeId);
-            const prevPipe = plumbingManager.findPipeById(this.lastPipeId);
-            if (prevPipe) {
-                prevPipe.setBitisBaglanti(BAGLANTI_TIPLERI.BORU, boru.id);
-            }
-        } else if (this.lastComponentId) {
+        if (this.lastComponentId) {
             const comp = plumbingManager.findComponentById(this.lastComponentId);
             if (comp && comp.type === 'servis_kutusu') {
                 boru.setBaslangicBaglanti(BAGLANTI_TIPLERI.SERVIS_KUTUSU, this.lastComponentId);
@@ -530,13 +586,12 @@ export class VoiceCommandManager {
 
         plumbingManager.pipes.push(boru);
 
-        // 2. Borunun ucuna sayaç ekle
+        // Borunun ucuna sayaç ekle
         const sayac = createSayac(endPt.x + 30, endPt.y, {
             floorId: state.currentFloor?.id,
             z: endPt.z || 0
         });
 
-        // Ghost bağlantı ayarla
         sayac.ghostConnectionInfo = {
             boruUcu: {
                 boruId: boru.id,
@@ -546,7 +601,6 @@ export class VoiceCommandManager {
             }
         };
 
-        // handleSayacEndPlacement varsa kullan
         const interactionMgr = plumbingManager.interactionManager;
         if (interactionMgr && interactionMgr.handleSayacEndPlacement) {
             const success = interactionMgr.handleSayacEndPlacement(sayac);
@@ -567,7 +621,7 @@ export class VoiceCommandManager {
             }
         }
 
-        // Fallback: Manuel ekleme
+        // Fallback
         plumbingManager.components.push(sayac);
         plumbingManager.saveToState();
 
