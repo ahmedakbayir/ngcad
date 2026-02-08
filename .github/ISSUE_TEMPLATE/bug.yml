@@ -1,1 +1,39 @@
 
+name: Bug Report
+description: Something is not working as expected
+title: "[BUG] "
+labels:
+  - type:bug
+  - status:triage
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - priority:p0-critical
+        - priority:p1-high
+        - priority:p2-medium
+        - priority:p3-low
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - area:architecture
+        - area:plumbing
+        - area:calculation
+        - area:import-export
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is wrong?
+    validations:
+      required: true
