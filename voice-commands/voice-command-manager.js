@@ -23,6 +23,7 @@ import { saveState } from '../general-files/history.js';
 import { state, setState } from '../general-files/main.js';
 import { toggle3DPerspective } from '../general-files/ui.js';
 import { draw2D } from '../draw/draw2d.js';
+import { buildPipeHierarchy } from '../plumbing_v2/renderer/renderer-utils.js';
 
 /**
  * Tek bir adımı temsil eder
@@ -35,6 +36,8 @@ class VoiceStep {
         this.endPoint = endPoint ? { ...endPoint } : null;
         this.createdIds = [];
         this.active = true;
+        this.parentStepIndex = -1;  // -1 = kök seviye, >=0 = dallanma (parent step index)
+        this.children = [];         // Alt adımların index'leri
     }
 
     get text() {
@@ -51,6 +54,7 @@ export class VoiceCommandManager {
         this.lastDirection = null; // Son kullanılan yön (sadece sayı verildiğinde devam için)
         this.isActive = false;
         this.activeStepIndex = -1;
+        this._branchFromStepIndex = -1; // Dallanma durumunda parent step index
 
         this._listeners = {
             stepAdded: [],
@@ -160,6 +164,8 @@ export class VoiceCommandManager {
                 return this._executeAddCommand(cmd);
             case 'view':
                 return this._executeViewCommand(cmd);
+            case 'select':
+                return this._executeSelectCommand(cmd);
             case 'goto':
                 return this._executeGotoCommand(cmd);
             case 'undo':
@@ -785,6 +791,7 @@ export class VoiceCommandManager {
 
     /**
      * Son borunun ucuna cihaz (kombi/ocak) ekle
+     * Cihazı fleksle beraber hattın ucuna doğru yönde konumlar.
      */
     _addCihaz(cmd, deviceType) {
         const pipe = this._getLastPipe();
@@ -794,15 +801,46 @@ export class VoiceCommandManager {
 
         saveState();
 
-        // plumbingManager.placeDeviceAtOpenEnd kullan (otomatik vana + fleks + baca)
         const endPt = pipe.p2;
-        const boruUcuInfo = {
-            pipe: pipe,
-            end: 'p2',
-            point: { x: endPt.x, y: endPt.y, z: endPt.z || 0 }
+
+        // Boru yönünü hesapla (p1 → p2 yönünde devam)
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        const length3D = Math.hypot(dx, dy, dz);
+
+        // Boru yönü birim vektörü
+        const dirX = length3D > 0 ? dx / length3D : 1;
+        const dirY = length3D > 0 ? dy / length3D : 0;
+
+        // Cihaz pozisyonunu fleks uzunluğu kadar ileri hesapla
+        const fleksUzunluk = 30; // defaultUzunluk
+        const deviceX = endPt.x + dirX * fleksUzunluk;
+        const deviceY = endPt.y + dirY * fleksUzunluk;
+        const deviceZ = (endPt.z || 0) + (length3D > 0 ? (dz / length3D) * fleksUzunluk : 0);
+
+        // Cihazı oluştur - doğru pozisyonda
+        const newDevice = createCihaz(deviceX, deviceY, deviceType, {
+            floorId: pipe.floorId || state.currentFloor?.id
+        });
+        newDevice.z = deviceZ;
+
+        // Boru açısına göre cihaz rotation'unu ayarla
+        const boruAci = Math.atan2(dy, dx) * 180 / Math.PI;
+        newDevice.rotation = 0; // handleCihazEkleme de 0 yapıyor
+
+        // Ghost connection info ekle
+        newDevice.ghostConnectionInfo = {
+            boruUcu: {
+                boruId: pipe.id,
+                nokta: { x: endPt.x, y: endPt.y, z: endPt.z || 0 },
+                uc: 'p2',
+                boru: pipe
+            }
         };
 
-        const success = plumbingManager.placeDeviceAtOpenEnd(deviceType, boruUcuInfo);
+        // handleCihazEkleme ile vana + fleks + baca otomatik ekle
+        const success = plumbingManager.interactionManager.handleCihazEkleme(newDevice);
 
         if (success) {
             plumbingManager.saveToState();
@@ -863,6 +901,48 @@ export class VoiceCommandManager {
                 return { success: true, message: 'Ölçüler gizlendi' };
             }
 
+            case 'show_z': {
+                state.tempVisibility.showZElevation = true;
+                this._syncVisibilityCheckbox('vis-chk-z', true);
+                draw2D();
+                return { success: true, message: 'Z kotu gösteriliyor' };
+            }
+
+            case 'hide_z': {
+                state.tempVisibility.showZElevation = false;
+                this._syncVisibilityCheckbox('vis-chk-z', false);
+                draw2D();
+                return { success: true, message: 'Z kotu gizlendi' };
+            }
+
+            case 'show_shadow': {
+                state.tempVisibility.showPipeShadows = true;
+                this._syncVisibilityCheckbox('vis-chk-shadow', true);
+                draw2D();
+                return { success: true, message: 'Hat gölgesi gösteriliyor' };
+            }
+
+            case 'hide_shadow': {
+                state.tempVisibility.showPipeShadows = false;
+                this._syncVisibilityCheckbox('vis-chk-shadow', false);
+                draw2D();
+                return { success: true, message: 'Hat gölgesi gizlendi' };
+            }
+
+            case 'show_labels': {
+                state.tempVisibility.showPipeLabels = true;
+                this._syncVisibilityCheckbox('vis-chk-labels', true);
+                draw2D();
+                return { success: true, message: 'Hat etiketleri gösteriliyor' };
+            }
+
+            case 'hide_labels': {
+                state.tempVisibility.showPipeLabels = false;
+                this._syncVisibilityCheckbox('vis-chk-labels', false);
+                draw2D();
+                return { success: true, message: 'Hat etiketleri gizlendi' };
+            }
+
             default:
                 return { success: false, message: `Bilinmeyen görünüm komutu: ${cmd.action}` };
         }
@@ -876,6 +956,62 @@ export class VoiceCommandManager {
         const plumbCb = document.getElementById('vis-chk-plumb-dim');
         if (archCb) archCb.checked = visible;
         if (plumbCb) plumbCb.checked = visible;
+    }
+
+    /**
+     * Tek bir görünürlük checkbox'ını senkronize et
+     */
+    _syncVisibilityCheckbox(id, checked) {
+        const cb = document.getElementById(id);
+        if (cb) cb.checked = checked;
+    }
+
+    // ───── SEÇİM KOMUTLARI ─────
+
+    /**
+     * Etikete göre hat seçimi: "A nolu hattı seç"
+     */
+    _executeSelectCommand(cmd) {
+        const label = cmd.label;
+        if (!label) {
+            return { success: false, message: 'Hat etiketi belirtilmedi' };
+        }
+
+        // Pipe hierarchy'den label'a sahip boruyu bul
+        const hierarchy = buildPipeHierarchy(plumbingManager.pipes, plumbingManager.components);
+
+        // Label'a sahip boru ID'sini bul
+        let targetPipe = null;
+        for (const [pipeId, data] of hierarchy) {
+            if (data.label === label) {
+                targetPipe = plumbingManager.findPipeById(pipeId);
+                break;
+            }
+        }
+
+        if (!targetPipe) {
+            return { success: false, message: `"${label}" etiketli hat bulunamadı` };
+        }
+
+        // Boruyu seç
+        targetPipe.isSelected = true;
+        setState({
+            selectedObject: {
+                type: 'pipe',
+                object: targetPipe,
+                handle: 'body'
+            }
+        });
+
+        // Voice command position'ı güncelle - bu hattan devam edilebilir
+        this.currentPosition = { x: targetPipe.p2.x, y: targetPipe.p2.y, z: targetPipe.p2.z || 0 };
+        this.lastPipeId = targetPipe.id;
+        this.lastComponentId = null;
+
+        draw2D();
+
+        const step = this._addStep(cmd, { ...targetPipe.p1 }, { ...targetPipe.p2 });
+        return { success: true, message: `${label} hattı seçildi`, step };
     }
 
     // ───── NAVİGASYON KOMUTLARI ─────
@@ -896,6 +1032,9 @@ export class VoiceCommandManager {
 
         this.currentPosition = { ...step.endPoint };
         this.activeStepIndex = targetStep - 1;
+
+        // Dallanma bağlamını ayarla - sonraki komutlar bu adımın altına eklenecek
+        this._branchFromStepIndex = targetStep - 1;
 
         // Son boru/bileşen ID'sini bul
         this._restoreLastIds(targetStep - 1);
@@ -961,6 +1100,16 @@ export class VoiceCommandManager {
             startPt,
             endPt
         );
+
+        // Dallanma bağlamı varsa parent-child ilişkisi kur
+        if (this._branchFromStepIndex >= 0) {
+            step.parentStepIndex = this._branchFromStepIndex;
+            const parentStep = this.steps[this._branchFromStepIndex];
+            if (parentStep) {
+                parentStep.children.push(this.steps.length); // yeni step'in index'i
+            }
+        }
+
         this.steps.push(step);
         this.activeStepIndex = this.steps.length - 1;
 
@@ -1035,6 +1184,7 @@ export class VoiceCommandManager {
         this.lastComponentId = null;
         this.lastDirection = null;
         this.activeStepIndex = -1;
+        this._branchFromStepIndex = -1;
         this._emit('stepsChanged', this.steps);
         this._emit('positionChanged', null);
     }

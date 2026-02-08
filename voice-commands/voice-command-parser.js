@@ -34,6 +34,38 @@
  *   "bitir"                                 → { type: 'finish' }
  */
 
+// ───── SES TANIMA DÜZELTMELERİ ─────
+
+/**
+ * Web Speech API'nin Türkçe'de sıkça yanlış tanıdığı kelimelerin düzeltme haritası.
+ * Anahtar: yanlış tanınan kelime, Değer: doğru kelime
+ */
+const SES_DUZELTME_HARITASI = {
+    'bana': 'vana',
+    'izle': 'gizle',
+    'daha': 'sağa',
+    'dana': 'vana',
+    'vane': 'vana',
+    'bane': 'vana',
+    'saha': 'sağa',
+    'sala': 'sola',
+};
+
+/**
+ * Ses tanıma metnini düzeltir - yanlış tanınan kelimeleri doğru karşılıklarıyla değiştirir.
+ * @param {string} text - Ham ses tanıma metni
+ * @returns {string} Düzeltilmiş metin
+ */
+function correctSpeechText(text) {
+    if (!text) return text;
+    const words = text.split(/\s+/);
+    const corrected = words.map(w => {
+        const lower = w.toLowerCase();
+        return SES_DUZELTME_HARITASI[lower] || w;
+    });
+    return corrected.join(' ');
+}
+
 // ───── YÖN HARİTASI ─────
 
 // Tek kelimelik yön eşleşmeleri (her kelime kendi başına kontrol edilir)
@@ -80,6 +112,9 @@ export const VARSAYILAN_MESAFE = 100; // cm
 export function parseBatch(text) {
     if (!text || typeof text !== 'string') return [];
 
+    // Ses tanıma düzeltmelerini uygula
+    text = correctSpeechText(text);
+
     // Virgül veya " ve " ile böl
     const parts = text.split(/\s*[,،]\s*|\s+ve\s+/i)
         .map(p => p.trim())
@@ -109,6 +144,9 @@ export function parseBatch(text) {
  */
 export function parseVoiceCommand(text) {
     if (!text || typeof text !== 'string') return null;
+
+    // Ses tanıma düzeltmelerini uygula
+    text = correctSpeechText(text);
 
     const clean = text.toLowerCase().trim()
         .replace(/\s+/g, ' ');
@@ -150,6 +188,30 @@ export function parseVoiceCommand(text) {
         return { type: 'view', action: 'hide_dimensions', raw: text };
     }
 
+    // Z kotu göster/gizle
+    if (matchAny(clean, ['z göster', 'z kotu göster', 'kot göster', 'kotu göster'])) {
+        return { type: 'view', action: 'show_z', raw: text };
+    }
+    if (matchAny(clean, ['z gizle', 'z kotu gizle', 'kot gizle', 'kotu gizle'])) {
+        return { type: 'view', action: 'hide_z', raw: text };
+    }
+
+    // Hat gölgesi göster/gizle
+    if (matchAny(clean, ['gölge göster', 'gölgeleri göster', 'gölgeyi göster'])) {
+        return { type: 'view', action: 'show_shadow', raw: text };
+    }
+    if (matchAny(clean, ['gölge gizle', 'gölgeleri gizle', 'gölgeyi gizle'])) {
+        return { type: 'view', action: 'hide_shadow', raw: text };
+    }
+
+    // Hat etiketleri göster/gizle
+    if (matchAny(clean, ['etiket göster', 'etiketleri göster', 'etiketleri aç', 'hat no göster'])) {
+        return { type: 'view', action: 'show_labels', raw: text };
+    }
+    if (matchAny(clean, ['etiket gizle', 'etiketleri gizle', 'etiketleri kapat', 'hat no gizle'])) {
+        return { type: 'view', action: 'hide_labels', raw: text };
+    }
+
     // ── 3. BİLEŞEN EKLEME ──
 
     // Vana ekleme (konumlu)
@@ -169,6 +231,17 @@ export function parseVoiceCommand(text) {
     // Ocak ekle - "ocak" tek başına da yeterli
     if (matchAny(clean, ['ocak ekle', 'ocak koy', 'ocak yerleştir', 'ocak bağla']) || clean === 'ocak') {
         return { type: 'add', object: 'ocak', raw: text };
+    }
+
+    // ── 3b. HAT SEÇİMİ (etikete göre) ──
+
+    // "A hattını seç", "A nolu hattı seç", "B hattı seç", "hattı A seç"
+    const selectMatch = clean.match(/([a-z])\s*(?:nolu?\s+)?hatt?[ıi]n?[ıi]?\s*seç/i)
+        || clean.match(/hatt?[ıi]\s*([a-z])\s*seç/i)
+        || clean.match(/([a-z])\s+seç/i);
+    if (selectMatch) {
+        const label = selectMatch[1].toUpperCase();
+        return { type: 'select', label, raw: text };
     }
 
     // ── 4. NAVİGASYON ──
@@ -216,6 +289,46 @@ export function parseVoiceCommand(text) {
     return null;
 }
 
+// ───── TÜRKÇE SAYI KELİMELERİ ─────
+
+const TURKCE_SAYILAR = {
+    'bir': 1, 'iki': 2, 'üç': 3, 'dört': 4, 'beş': 5,
+    'altı': 6, 'yedi': 7, 'sekiz': 8, 'dokuz': 9,
+    'on': 10, 'yirmi': 20, 'otuz': 30, 'kırk': 40, 'elli': 50,
+    'altmış': 60, 'yetmiş': 70, 'seksen': 80, 'doksan': 90,
+    'yüz': 100, 'ikiyüz': 200, 'üçyüz': 300,
+};
+
+/**
+ * Türkçe sayı kelimelerini rakama çevirir.
+ * "doksan" → 90, "yüz elli" → 150, "iki yüz" → 200
+ */
+function parseTurkceNumber(text) {
+    if (!text) return null;
+
+    // Önce rakam ara
+    const numMatch = text.match(/(\d+(?:[.,]\d+)?)/);
+    if (numMatch) {
+        let dist = parseFloat(numMatch[1].replace(',', '.'));
+        if (text.includes('metre')) dist *= 100;
+        return dist > 0 ? dist : null;
+    }
+
+    // Türkçe sayı kelimeleri ara
+    const words = text.toLowerCase().split(/\s+/);
+    let total = 0;
+    let found = false;
+
+    for (const w of words) {
+        if (TURKCE_SAYILAR[w] !== undefined) {
+            total += TURKCE_SAYILAR[w];
+            found = true;
+        }
+    }
+
+    return found && total > 0 ? total : null;
+}
+
 // ───── HAREKET KOMUTU AYRIŞTIRMA ─────
 
 /**
@@ -223,6 +336,7 @@ export function parseVoiceCommand(text) {
  * İçinde bir yön kelimesi ve (opsiyonel) bir sayı varsa hareket komutudur.
  * "100 sağa", "sağa 100", "sağ tarafa 100", "100 birim sağ",
  * "sağa doğru 100", "100 cm sağa çiz", "sağa git", "sağ" hepsi geçerli.
+ * "doksan ileri", "90 ileri", "ileri 90" hepsi geçerli.
  */
 function parseMoveCommand(clean, raw) {
     const words = clean.split(/\s+/);
@@ -235,19 +349,8 @@ function parseMoveCommand(clean, raw) {
     }
     if (!dir) return null;
 
-    // 2. Sayıyı bul (varsa)
-    let distance = null;
-    const numMatch = clean.match(/(\d+(?:[.,]\d+)?)/);
-    if (numMatch) {
-        let dist = parseFloat(numMatch[1].replace(',', '.'));
-        // Metre birimi kontrolü
-        if (clean.includes('metre')) {
-            dist *= 100;
-        }
-        if (dist > 0) {
-            distance = dist;
-        }
-    }
+    // 2. Sayıyı bul (varsa) - rakam veya Türkçe sayı kelimesi
+    const distance = parseTurkceNumber(clean);
 
     return { type: 'move', distance, direction: dir, raw };
 }
@@ -275,14 +378,8 @@ function parseBranchCommand(clean, raw) {
     }
     if (!dir) return null;
 
-    // Sayıyı bul (varsa)
-    let distance = null;
-    const numMatch = clean.match(/(\d+(?:[.,]\d+)?)/);
-    if (numMatch) {
-        let dist = parseFloat(numMatch[1].replace(',', '.'));
-        if (clean.includes('metre')) dist *= 100;
-        if (dist > 0) distance = dist;
-    }
+    // Sayıyı bul (varsa) - rakam veya Türkçe sayı kelimesi
+    const distance = parseTurkceNumber(clean);
 
     return { type: 'branch', position: 'middle', distance, direction: dir, raw };
 }
@@ -390,7 +487,13 @@ export function commandToText(cmd) {
                 '3d': '3D Sahne',
                 '2d': '2D Sahne',
                 'show_dimensions': 'Ölçüleri Göster',
-                'hide_dimensions': 'Ölçüleri Gizle'
+                'hide_dimensions': 'Ölçüleri Gizle',
+                'show_z': 'Z Kotu Göster',
+                'hide_z': 'Z Kotu Gizle',
+                'show_shadow': 'Gölge Göster',
+                'hide_shadow': 'Gölge Gizle',
+                'show_labels': 'Etiket Göster',
+                'hide_labels': 'Etiket Gizle'
             };
             return actions[cmd.action] || cmd.action;
         }
@@ -406,6 +509,8 @@ export function commandToText(cmd) {
             return `Ortadan ${mesafe}${yonAd}`;
         }
 
+        case 'select':
+            return `${cmd.label} Hattını Seç`;
         case 'goto':
             return `${cmd.step}. adıma dön`;
         case 'undo':

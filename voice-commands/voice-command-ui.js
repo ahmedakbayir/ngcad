@@ -328,6 +328,7 @@ function getStepIcon(cmd) {
             return '&#43;'; // +
         }
         case 'view':   return '&#9673;'; // ◉
+        case 'select': return '&#9745;'; // ☑ (seçim)
         default:        return '&#9654;'; // ►
     }
 }
@@ -343,23 +344,8 @@ function renderStepList(steps) {
 
     const activeIdx = voiceCommandManager.activeStepIndex;
 
-    listEl.innerHTML = steps.map((step, idx) => {
-        const isActive = idx === activeIdx;
-        const icon = getStepIcon(step.command);
-        const dirClass = step.command.direction ? `dir-${step.command.direction}` : '';
-        const typeClass = `type-${step.command.type}`;
-
-        return `
-            <div class="voice-cmd-step ${isActive ? 'active' : ''} ${dirClass} ${typeClass}"
-                 data-step="${step.stepNumber}"
-                 title="Bu adıma dönmek için tıklayın">
-                <span class="voice-cmd-step-num">${step.stepNumber}.</span>
-                <span class="voice-cmd-step-icon">${icon}</span>
-                <span class="voice-cmd-step-text">${step.text}</span>
-                ${isActive ? '<span class="voice-cmd-step-marker">●</span>' : ''}
-            </div>
-        `;
-    }).join('');
+    // Treeview oluştur: kök seviyedeki adımları ve alt adımları hiyerarşik göster
+    listEl.innerHTML = buildTreeHTML(steps, activeIdx);
 
     // Adım tıklama olayları
     listEl.querySelectorAll('.voice-cmd-step').forEach(el => {
@@ -372,6 +358,66 @@ function renderStepList(steps) {
             }
         });
     });
+}
+
+/**
+ * Adımları treeview HTML olarak oluşturur.
+ * Kök adımlar (parentStepIndex === -1) ana seviyede gösterilir.
+ * Dallanma adımları (parentStepIndex >= 0) parent'larının altında girintili gösterilir.
+ */
+function buildTreeHTML(steps, activeIdx) {
+    // Kök seviyedeki adımları bul
+    const rootSteps = [];
+    const childMap = new Map(); // parentIndex → [childStepIndices]
+
+    steps.forEach((step, idx) => {
+        if (step.parentStepIndex < 0) {
+            rootSteps.push(idx);
+        } else {
+            if (!childMap.has(step.parentStepIndex)) {
+                childMap.set(step.parentStepIndex, []);
+            }
+            childMap.get(step.parentStepIndex).push(idx);
+        }
+    });
+
+    // Recursive HTML oluşturma
+    function renderNode(stepIdx, depth) {
+        const step = steps[stepIdx];
+        const isActive = stepIdx === activeIdx;
+        const icon = getStepIcon(step.command);
+        const dirClass = step.command.direction ? `dir-${step.command.direction}` : '';
+        const typeClass = `type-${step.command.type}`;
+        const children = childMap.get(stepIdx) || [];
+        const hasChildren = children.length > 0;
+        const indent = depth * 16; // px indent per level
+
+        let html = `
+            <div class="voice-cmd-step ${isActive ? 'active' : ''} ${dirClass} ${typeClass} ${hasChildren ? 'has-children' : ''}"
+                 data-step="${step.stepNumber}"
+                 style="padding-left: ${6 + indent}px;"
+                 title="Bu adıma dönmek için tıklayın">
+                ${depth > 0 ? '<span class="voice-cmd-tree-line">└</span>' : ''}
+                <span class="voice-cmd-step-num">${step.stepNumber}.</span>
+                <span class="voice-cmd-step-icon">${icon}</span>
+                <span class="voice-cmd-step-text">${step.text}</span>
+                ${isActive ? '<span class="voice-cmd-step-marker">●</span>' : ''}
+            </div>
+        `;
+
+        // Alt adımları render et
+        for (const childIdx of children) {
+            html += renderNode(childIdx, depth + 1);
+        }
+
+        return html;
+    }
+
+    let html = '';
+    for (const rootIdx of rootSteps) {
+        html += renderNode(rootIdx, 0);
+    }
+    return html;
 }
 
 function scrollStepListToBottom() {
