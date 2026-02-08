@@ -49,6 +49,14 @@ const SES_DUZELTME_HARITASI = {
     'bane': 'vana',
     'saha': 'sağa',
     'sala': 'sola',
+    'ilerleme': 'ileri',
+    'ileride': 'ileri',
+    'geride': 'geri',
+    'yukarıda': 'yukarı',
+    'aşağıda': 'aşağı',
+    'doksanı': 'doksan',
+    'ellisi': 'elli',
+    'yüzü': 'yüz',
 };
 
 /**
@@ -178,39 +186,11 @@ export function parseVoiceCommand(text) {
         return { type: 'view', action: '2d', raw: text };
     }
 
-    // Ölçüleri göster
-    if (matchAny(clean, ['ölçüleri göster', 'ölçüler göster', 'ölçüleri aç', 'ölçü göster'])) {
-        return { type: 'view', action: 'show_dimensions', raw: text };
-    }
-
-    // Ölçüleri gizle
-    if (matchAny(clean, ['ölçüleri gizle', 'ölçüler gizle', 'ölçüleri kapat', 'ölçü gizle'])) {
-        return { type: 'view', action: 'hide_dimensions', raw: text };
-    }
-
-    // Z kotu göster/gizle
-    if (matchAny(clean, ['z göster', 'z kotu göster', 'kot göster', 'kotu göster'])) {
-        return { type: 'view', action: 'show_z', raw: text };
-    }
-    if (matchAny(clean, ['z gizle', 'z kotu gizle', 'kot gizle', 'kotu gizle'])) {
-        return { type: 'view', action: 'hide_z', raw: text };
-    }
-
-    // Hat gölgesi göster/gizle
-    if (matchAny(clean, ['gölge göster', 'gölgeleri göster', 'gölgeyi göster'])) {
-        return { type: 'view', action: 'show_shadow', raw: text };
-    }
-    if (matchAny(clean, ['gölge gizle', 'gölgeleri gizle', 'gölgeyi gizle'])) {
-        return { type: 'view', action: 'hide_shadow', raw: text };
-    }
-
-    // Hat etiketleri göster/gizle
-    if (matchAny(clean, ['etiket göster', 'etiketleri göster', 'etiketleri aç', 'hat no göster'])) {
-        return { type: 'view', action: 'show_labels', raw: text };
-    }
-    if (matchAny(clean, ['etiket gizle', 'etiketleri gizle', 'etiketleri kapat', 'hat no gizle'])) {
-        return { type: 'view', action: 'hide_labels', raw: text };
-    }
+    // Toggle komutları: konu + on/off grubu
+    // ON grubu: göster, aç, on, açık
+    // OFF grubu: gizle, kapat, off, kapalı, gösterme
+    const toggleResult = parseToggleCommand(clean, text);
+    if (toggleResult) return toggleResult;
 
     // ── 3. BİLEŞEN EKLEME ──
 
@@ -300,8 +280,25 @@ const TURKCE_SAYILAR = {
 };
 
 /**
+ * Türkçe ek/takılarını temizleyerek kök kelimeyi bulmaya çalışır.
+ * "doksanı" → "doksan", "yüzü" → "yüz", "elliyi" → "elli"
+ */
+function stripTurkceSuffix(word) {
+    // Yaygın Türkçe sayı ekleri: -ı, -i, -u, -ü, -yı, -yi, -yu, -yü, -e, -a, -ye, -ya, -den, -dan
+    const suffixes = ['yı', 'yi', 'yu', 'yü', 'ı', 'i', 'u', 'ü', 'ye', 'ya', 'e', 'a', 'den', 'dan'];
+    for (const suffix of suffixes) {
+        if (word.endsWith(suffix) && word.length > suffix.length + 1) {
+            const stem = word.slice(0, -suffix.length);
+            if (TURKCE_SAYILAR[stem] !== undefined) return stem;
+        }
+    }
+    return word;
+}
+
+/**
  * Türkçe sayı kelimelerini rakama çevirir.
  * "doksan" → 90, "yüz elli" → 150, "iki yüz" → 200
+ * Ek/takıları da tanır: "doksanı" → 90, "yüzü" → 100
  */
 function parseTurkceNumber(text) {
     if (!text) return null;
@@ -314,7 +311,7 @@ function parseTurkceNumber(text) {
         return dist > 0 ? dist : null;
     }
 
-    // Türkçe sayı kelimeleri ara
+    // Türkçe sayı kelimeleri ara (ek/takı temizleme ile)
     const words = text.toLowerCase().split(/\s+/);
     let total = 0;
     let found = false;
@@ -323,6 +320,13 @@ function parseTurkceNumber(text) {
         if (TURKCE_SAYILAR[w] !== undefined) {
             total += TURKCE_SAYILAR[w];
             found = true;
+        } else {
+            // Ek/takı temizleyerek dene
+            const stem = stripTurkceSuffix(w);
+            if (stem !== w && TURKCE_SAYILAR[stem] !== undefined) {
+                total += TURKCE_SAYILAR[stem];
+                found = true;
+            }
         }
     }
 
@@ -341,15 +345,46 @@ function parseTurkceNumber(text) {
 function parseMoveCommand(clean, raw) {
     const words = clean.split(/\s+/);
 
-    // 1. Yön kelimesini bul
+    // 1. Yön kelimesini bul (tam kelime eşleşmesi)
     let dir = null;
     for (const w of words) {
         const d = YON_KELIME_HARITASI[w];
         if (d) { dir = d; break; }
     }
+
+    // 2. Tam kelime bulunamadıysa, alt-metin eşleşmesi dene
+    //    (ses tanıma bitişik yazabilir: "doksanileri", "yüzsağa" vb.)
+    if (!dir) {
+        // Bilinen yön köklerini metinde ara (uzundan kısaya sıralı - en spesifik önce)
+        const YON_KOKLERI = [
+            { pattern: 'yukarıya', dir: 'yukari' },
+            { pattern: 'aşağıya', dir: 'asagi' },
+            { pattern: 'ileriye', dir: 'ileri' },
+            { pattern: 'geriye', dir: 'geri' },
+            { pattern: 'yukarı', dir: 'yukari' },
+            { pattern: 'yukari', dir: 'yukari' },
+            { pattern: 'aşağı', dir: 'asagi' },
+            { pattern: 'asagi', dir: 'asagi' },
+            { pattern: 'ileri', dir: 'ileri' },
+            { pattern: 'sağa', dir: 'saga' },
+            { pattern: 'saga', dir: 'saga' },
+            { pattern: 'sola', dir: 'sola' },
+            { pattern: 'geri', dir: 'geri' },
+            { pattern: 'sağ', dir: 'saga' },
+            { pattern: 'sol', dir: 'sola' },
+        ];
+
+        for (const yk of YON_KOKLERI) {
+            if (clean.includes(yk.pattern)) {
+                dir = yk.dir;
+                break;
+            }
+        }
+    }
+
     if (!dir) return null;
 
-    // 2. Sayıyı bul (varsa) - rakam veya Türkçe sayı kelimesi
+    // 3. Sayıyı bul (varsa) - rakam veya Türkçe sayı kelimesi
     const distance = parseTurkceNumber(clean);
 
     return { type: 'move', distance, direction: dir, raw };
@@ -421,6 +456,57 @@ function parseVanaCommand(clean, raw) {
         }
     }
 
+    return null;
+}
+
+// ───── TOGGLE KOMUT AYRIŞTIRMA ─────
+
+// ON grubu: görünürlüğü açan kelimeler
+const ON_KELIMELER = ['göster', 'aç', 'on', 'açık'];
+// OFF grubu: görünürlüğü kapatan kelimeler
+// "gösterme" "göster"den önce kontrol edilmeli (substring çakışması)
+const OFF_KELIMELER = ['gösterme', 'gizle', 'kapat', 'off', 'kapalı'];
+
+// Toggle konuları: konu anahtar kelimeleri → show/hide action eşlemesi
+const TOGGLE_KONULARI = [
+    { keywords: ['ölçü', 'ölçüleri', 'ölçüler'], on: 'show_dimensions', off: 'hide_dimensions' },
+    { keywords: ['z kotu', 'z', 'kot', 'kotu'],   on: 'show_z',          off: 'hide_z' },
+    { keywords: ['gölge', 'gölgeleri', 'gölgeyi'], on: 'show_shadow',     off: 'hide_shadow' },
+    { keywords: ['etiket', 'etiketleri', 'hat no'], on: 'show_labels',    off: 'hide_labels' },
+];
+
+/**
+ * Kelime sınırı duyarlı metin arama.
+ * Kısa anahtar kelimeler (3 karakter ve altı) için kelime sınırı kontrolü yapar.
+ * Uzun anahtar kelimeler için includes kullanır.
+ */
+function subjectMatch(clean, keyword) {
+    if (keyword.length <= 2) {
+        // Kısa kelimeler (z, on vb.) için kelime sınırı duyarlı arama
+        const regex = new RegExp('(?:^|\\s)' + keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?:\\s|$)');
+        return regex.test(clean);
+    }
+    return clean.includes(keyword);
+}
+
+/**
+ * Toggle komutunu ayrıştırır.
+ * Herhangi bir konu + ON/OFF kelime kombinasyonu çalışır.
+ * Örnek: "etiket göster", "etiketleri aç", "etiket on" → show_labels
+ *         "etiket gizle", "etiketleri kapat", "etiket off" → hide_labels
+ */
+function parseToggleCommand(clean, raw) {
+    for (const konu of TOGGLE_KONULARI) {
+        const hasSubject = konu.keywords.some(k => subjectMatch(clean, k));
+        if (!hasSubject) continue;
+
+        // OFF önce kontrol et ("gösterme" içinde "göster" var, çakışma olmasın)
+        const isOff = OFF_KELIMELER.some(k => clean.includes(k));
+        if (isOff) return { type: 'view', action: konu.off, raw };
+
+        const isOn = ON_KELIMELER.some(k => clean.includes(k));
+        if (isOn) return { type: 'view', action: konu.on, raw };
+    }
     return null;
 }
 
