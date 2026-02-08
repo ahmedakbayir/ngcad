@@ -318,16 +318,17 @@ function setupManagerListeners() {
  */
 function getStepIcon(cmd) {
     switch (cmd.type) {
-        case 'place': return '&#9646;'; // ▆ (kutu)
-        case 'move':  return '&#9654;'; // ► (ok)
+        case 'place':  return '&#9646;'; // ▆ (kutu)
+        case 'move':   return '&#9654;'; // ► (ok)
+        case 'branch': return '&#9580;'; // ╬ (T-bağlantı)
         case 'add': {
             if (cmd.object === 'vana') return '&#9670;';  // ◆
             if (cmd.object === 'sayac') return '&#9633;';  // □
             if (cmd.object === 'kombi' || cmd.object === 'ocak') return '&#9673;'; // ◉
             return '&#43;'; // +
         }
-        case 'view':  return '&#9673;'; // ◉
-        default:       return '&#9654;'; // ►
+        case 'view':   return '&#9673;'; // ◉
+        default:        return '&#9654;'; // ►
     }
 }
 

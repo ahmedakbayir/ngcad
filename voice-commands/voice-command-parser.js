@@ -36,20 +36,24 @@
 
 // ───── YÖN HARİTASI ─────
 
-const YON_HARITASI = {
-    // Tam hali
-    'sağa': 'saga', 'sola': 'sola',
-    'yukarı': 'yukari', 'aşağı': 'asagi',
-    'ileri': 'ileri', 'geri': 'geri',
-    // ASCII / kısaltma
-    'saga': 'saga', 'yukari': 'yukari', 'asagi': 'asagi',
-    // Kısa hali (ek almamış)
-    'sağ': 'saga', 'sol': 'sola',
-    'yukarıya': 'yukari', 'aşağıya': 'asagi',
-    'ileriye': 'ileri', 'geriye': 'geri',
-    // Alternatifler
-    'sağa doğru': 'saga', 'sola doğru': 'sola',
+// Tek kelimelik yön eşleşmeleri (her kelime kendi başına kontrol edilir)
+const YON_KELIME_HARITASI = {
+    // sağ ailesi
+    'sağa': 'saga', 'sağ': 'saga', 'saga': 'saga', 'sağı': 'saga',
+    // sol ailesi
+    'sola': 'sola', 'sol': 'sola',
+    // yukarı ailesi
+    'yukarı': 'yukari', 'yukarıya': 'yukari', 'yukari': 'yukari', 'yukarıya': 'yukari',
+    // aşağı ailesi
+    'aşağı': 'asagi', 'aşağıya': 'asagi', 'asagi': 'asagi', 'aşağıya': 'asagi',
+    // ileri ailesi
+    'ileri': 'ileri', 'ileriye': 'ileri', 'ileriyi': 'ileri',
+    // geri ailesi
+    'geri': 'geri', 'geriye': 'geri', 'geriyi': 'geri',
 };
+
+// Geriye uyumluluk için eski harita (resolveDirection kullanır)
+const YON_HARITASI = { ...YON_KELIME_HARITASI };
 
 // Yön → vektör eşlemesi
 // X: sağa/sola, Y: ileri/geri (ekranda yukarı/aşağı), Z: yukarı/aşağı (dikey)
@@ -189,7 +193,11 @@ export function parseVoiceCommand(text) {
         }
     }
 
-    // ── 5. HAREKET (boru çizme) ──
+    // ── 5. DALLANMA (hattın ortasından/başından yön) ──
+    const branchCmd = parseBranchCommand(clean, text);
+    if (branchCmd) return branchCmd;
+
+    // ── 6. HAREKET (boru çizme) ──
     // En sona bırakıyoruz çünkü en geniş eşleme kurallarına sahip
 
     const moveCmd = parseMoveCommand(clean, text);
@@ -200,54 +208,73 @@ export function parseVoiceCommand(text) {
 
 // ───── HAREKET KOMUTU AYRIŞTIRMA ─────
 
+/**
+ * Çok esnek hareket komutu ayrıştırıcı.
+ * İçinde bir yön kelimesi ve (opsiyonel) bir sayı varsa hareket komutudur.
+ * "100 sağa", "sağa 100", "sağ tarafa 100", "100 birim sağ",
+ * "sağa doğru 100", "100 cm sağa çiz", "sağa git", "sağ" hepsi geçerli.
+ */
 function parseMoveCommand(clean, raw) {
-    // Desenleri dene: "100 cm sağa", "100 sağa", "sağa 100", "100 sağ", "sağ 100", "sağa"
+    const words = clean.split(/\s+/);
 
-    // Desen 1: sayı + birim? + yön → "100 cm sağa", "100 sağa", "100 sağ"
-    const m1 = clean.match(/^(\d+(?:[.,]\d+)?)\s*(?:cm|santim|santimetre)?\s+(.+)$/);
-    if (m1) {
-        const dist = parseFloat(m1[1].replace(',', '.'));
-        const dir = resolveDirection(m1[2].trim());
-        if (dir && dist > 0) {
-            return { type: 'move', distance: dist, direction: dir, raw };
+    // 1. Yön kelimesini bul
+    let dir = null;
+    for (const w of words) {
+        const d = YON_KELIME_HARITASI[w];
+        if (d) { dir = d; break; }
+    }
+    if (!dir) return null;
+
+    // 2. Sayıyı bul (varsa)
+    let distance = null;
+    const numMatch = clean.match(/(\d+(?:[.,]\d+)?)/);
+    if (numMatch) {
+        let dist = parseFloat(numMatch[1].replace(',', '.'));
+        // Metre birimi kontrolü
+        if (clean.includes('metre')) {
+            dist *= 100;
+        }
+        if (dist > 0) {
+            distance = dist;
         }
     }
 
-    // Desen 2: yön + sayı + birim? → "sağa 100 cm", "sağa 100", "sağ 100"
-    const m2 = clean.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(?:cm|santim|santimetre)?$/);
-    if (m2) {
-        const dir = resolveDirection(m2[1].trim());
-        const dist = parseFloat(m2[2].replace(',', '.'));
-        if (dir && dist > 0) {
-            return { type: 'move', distance: dist, direction: dir, raw };
-        }
+    return { type: 'move', distance, direction: dir, raw };
+}
+
+// ───── DALLANMA KOMUTU AYRIŞTIRMA ─────
+
+/**
+ * "hattın ortasından 100 ileri", "hattın ortasından sağa 50" gibi dallanma komutlarını ayrıştırır.
+ * Mevcut borunun belirtilen noktasından yeni bir boru dallandırır (T-bağlantı).
+ */
+function parseBranchCommand(clean, raw) {
+    // "hattın ortasından", "borunun ortasından" kalıbı
+    const ortaMatch = clean.match(/(?:hatt?ın|borunun)\s+ortası(?:ndan|na)/);
+    if (!ortaMatch) return null;
+
+    // Yön ve mesafe bul
+    const afterMatch = clean.substring(ortaMatch.index + ortaMatch[0].length).trim();
+    const combined = afterMatch || clean;
+
+    // Yön kelimesini bul
+    let dir = null;
+    for (const w of combined.split(/\s+/)) {
+        const d = YON_KELIME_HARITASI[w];
+        if (d) { dir = d; break; }
+    }
+    if (!dir) return null;
+
+    // Sayıyı bul (varsa)
+    let distance = null;
+    const numMatch = clean.match(/(\d+(?:[.,]\d+)?)/);
+    if (numMatch) {
+        let dist = parseFloat(numMatch[1].replace(',', '.'));
+        if (clean.includes('metre')) dist *= 100;
+        if (dist > 0) distance = dist;
     }
 
-    // Desen 3: metre birimi → "1 metre sağa", "sağa 2 metre"
-    const mMetre = clean.match(/(\d+(?:[.,]\d+)?)\s*metre\s+(.+)/);
-    if (mMetre) {
-        const dist = parseFloat(mMetre[1].replace(',', '.')) * 100;
-        const dir = resolveDirection(mMetre[2].trim());
-        if (dir && dist > 0) {
-            return { type: 'move', distance: dist, direction: dir, raw };
-        }
-    }
-    const mMetre2 = clean.match(/(.+?)\s+(\d+(?:[.,]\d+)?)\s*metre$/);
-    if (mMetre2) {
-        const dir = resolveDirection(mMetre2[1].trim());
-        const dist = parseFloat(mMetre2[2].replace(',', '.')) * 100;
-        if (dir && dist > 0) {
-            return { type: 'move', distance: dist, direction: dir, raw };
-        }
-    }
-
-    // Desen 4: sadece yön (mesafesiz) → "sağa", "ileri", "sağ"
-    const dir = resolveDirection(clean);
-    if (dir) {
-        return { type: 'move', distance: null, direction: dir, raw };
-    }
-
-    return null;
+    return { type: 'branch', position: 'middle', distance, direction: dir, raw };
 }
 
 // ───── VANA KOMUTU AYRIŞTIRMA ─────
@@ -302,17 +329,15 @@ function matchAny(text, patterns) {
 
 /**
  * Yön metnini normalize yön anahtarına çevirir.
- * "sağa", "sağ", "sağa doğru" → "saga"
+ * Kelime kelime kontrol eder, herhangi birinde yön bulursa döndürür.
  */
 function resolveDirection(text) {
     if (!text) return null;
     const t = text.toLowerCase().trim();
-    // Önce tam eşleşme dene
-    if (YON_HARITASI[t]) return YON_HARITASI[t];
     // Kelime kelime kontrol et
     const words = t.split(/\s+/);
     for (const w of words) {
-        if (YON_HARITASI[w]) return YON_HARITASI[w];
+        if (YON_KELIME_HARITASI[w]) return YON_KELIME_HARITASI[w];
     }
     return null;
 }
@@ -359,6 +384,12 @@ export function commandToText(cmd) {
                 'hide_dimensions': 'Ölçüleri Gizle'
             };
             return actions[cmd.action] || cmd.action;
+        }
+
+        case 'branch': {
+            const yonAd = YON_ISIMLERI[cmd.direction] || cmd.direction;
+            const mesafe = cmd.distance ? `${cmd.distance} cm ` : '';
+            return `Ortadan ${mesafe}${yonAd}`;
         }
 
         case 'goto':
