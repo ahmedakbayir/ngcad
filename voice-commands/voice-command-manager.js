@@ -48,6 +48,7 @@ export class VoiceCommandManager {
         this.currentPosition = null;
         this.lastPipeId = null;
         this.lastComponentId = null;
+        this.lastDirection = null; // Son kullanılan yön (sadece sayı verildiğinde devam için)
         this.isActive = false;
         this.activeStepIndex = -1;
 
@@ -151,6 +152,8 @@ export class VoiceCommandManager {
                 return this._executePlaceCommand(cmd);
             case 'move':
                 return this._executeMoveCommand(cmd);
+            case 'continue':
+                return this._executeContinueCommand(cmd);
             case 'branch':
                 return this._executeBranchCommand(cmd);
             case 'add':
@@ -246,34 +249,99 @@ export class VoiceCommandManager {
     }
 
     /**
-     * İç tesisat başlat - sayaçla başla (servis kutusu olmadan)
+     * İç tesisat başlat - kesikli boru + sayaç (manuel akışla aynı)
+     * Manuel akış: handleMeterStartPipeSecondClick → kesikli temsili boru + handleSayacEndPlacement
      */
     _placeIcTesisat(cmd) {
         saveState();
 
+        // Başlangıç noktası (p1)
         const startX = state.panOffset ? -state.panOffset.x / state.zoom + 200 : 200;
         const startY = state.panOffset ? -state.panOffset.y / state.zoom + 400 : 400;
 
-        const sayac = createSayac(startX, startY, {
+        // Bitiş noktası (p2) - sağa doğru 200cm
+        const BORU_UZUNLUK = 200;
+        const endX = startX + BORU_UZUNLUK;
+        const endY = startY;
+
+        // 1. Kesikli temsili boru oluştur (manuel akışla aynı)
+        const temsiliBoru = createBoru({ x: startX, y: startY }, { x: endX, y: endY });
+        temsiliBoru.dagitimTuru = 'KOLON';
+        temsiliBoru.lineStyle = 'dashed';
+        temsiliBoru.isTemsiliBoru = true;
+        temsiliBoru.floorId = state.currentFloor?.id;
+
+        plumbingManager.pipes.push(temsiliBoru);
+
+        // 2. Sayaç pozisyon ve rotation hesapla (handleMeterStartPipeSecondClick mantığı)
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const length = Math.hypot(dx, dy);
+        const fleksUzunluk = 15;
+        const boruAci = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        const tempMeter = createSayac(endX, endY, {
             floorId: state.currentFloor?.id
         });
+        tempMeter.rotation = boruAci;
 
-        plumbingManager.components.push(sayac);
+        // Sayacın giriş noktasını hesapla (rotation uygulanmış)
+        const girisLocal = tempMeter.getGirisLocalKoordinat();
+        const rad = tempMeter.rotation * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        const girisRotatedX = girisLocal.x * cos - girisLocal.y * sin;
+        const girisRotatedY = girisLocal.x * sin + girisLocal.y * cos;
+
+        // Perpendicular yön
+        const perpX = -dy / length;
+        const perpY = dx / length;
+
+        tempMeter.x = endX - girisRotatedX + perpX * fleksUzunluk;
+        tempMeter.y = endY - girisRotatedY + perpY * fleksUzunluk;
+
+        // 3. Ghost connection bilgisi
+        tempMeter.ghostConnectionInfo = {
+            boruUcu: {
+                boruId: temsiliBoru.id,
+                boru: temsiliBoru,
+                uc: 'p2',
+                nokta: { x: endX, y: endY }
+            }
+        };
+
+        // 4. handleSayacEndPlacement ile vana + fleks + sayaç otomatik ekle
+        const interactionMgr = plumbingManager.interactionManager;
+        let success = false;
+        if (interactionMgr && interactionMgr.handleSayacEndPlacement) {
+            success = interactionMgr.handleSayacEndPlacement(tempMeter);
+        }
+
+        if (!success) {
+            // Fallback: Manuel ekleme
+            plumbingManager.components.push(tempMeter);
+        }
+
         plumbingManager.saveToState();
 
-        // Sayacın çıkış noktasını mevcut konum olarak ayarla
-        const cikis = sayac.getCikisNoktasi();
+        // Sayacın çıkış noktasından devam et
+        const cikis = tempMeter.getCikisNoktasi();
         this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
-        this.lastComponentId = sayac.id;
+        this.lastComponentId = tempMeter.id;
         this.lastPipeId = null;
 
         const step = this._addStep(cmd,
             { x: startX, y: startY, z: 0 },
             { ...this.currentPosition }
         );
-        step.createdIds.push(sayac.id);
+        step.createdIds.push(temsiliBoru.id, tempMeter.id);
 
-        return { success: true, message: `İç tesisat başlatıldı (sayaç yerleştirildi)`, step };
+        if (success) {
+            plumbingManager.updatePipeColorsAfterMeter(tempMeter.id);
+        }
+
+        return { success: true, message: `İç tesisat başlatıldı`, step };
     }
 
     // ───── HAREKET KOMUTLARI ─────
@@ -288,6 +356,9 @@ export class VoiceCommandManager {
 
         // Mesafe yoksa varsayılan mesafe kullan
         const distance = cmd.distance || VARSAYILAN_MESAFE;
+
+        // Son yönü kaydet
+        this.lastDirection = cmd.direction;
 
         const vec = directionToVector(cmd.direction, distance);
         const startPt = { ...this.currentPosition };
@@ -332,6 +403,49 @@ export class VoiceCommandManager {
         step.createdIds.push(boru.id);
 
         return { success: true, message: `${commandToText(displayCmd)} - Boru çizildi`, step };
+    }
+
+    // ───── DEVAM KOMUTU (sadece sayı) ─────
+
+    /**
+     * Sadece sayı verildiğinde son yönde devam et.
+     * "100 geri" sonra "50" → aynı yönde 50 daha
+     * Son yön yoksa son borunun doğrultusunu kullan.
+     */
+    _executeContinueCommand(cmd) {
+        if (!this.currentPosition) {
+            return { success: false, message: 'Önce başlangıç konumu belirleyin!' };
+        }
+
+        // Son yönü bul
+        let direction = this.lastDirection;
+
+        // Son yön yoksa son borunun doğrultusunu kullan
+        if (!direction && this.lastPipeId) {
+            const lastPipe = plumbingManager.findPipeById(this.lastPipeId);
+            if (lastPipe) {
+                const dx = lastPipe.p2.x - lastPipe.p1.x;
+                const dy = lastPipe.p2.y - lastPipe.p1.y;
+                const dz = (lastPipe.p2.z || 0) - (lastPipe.p1.z || 0);
+                // En baskın ekseni bul
+                const ax = Math.abs(dx), ay = Math.abs(dy), az = Math.abs(dz);
+                if (ax >= ay && ax >= az) {
+                    direction = dx > 0 ? 'saga' : 'sola';
+                } else if (ay >= ax && ay >= az) {
+                    direction = dy < 0 ? 'ileri' : 'geri';
+                } else {
+                    direction = dz > 0 ? 'yukari' : 'asagi';
+                }
+            }
+        }
+
+        if (!direction) {
+            return { success: false, message: 'Yön belirtilmedi ve önceki yön bulunamadı. Yön belirtin (ör: "50 sağa")' };
+        }
+
+        // Move komutu olarak yürüt
+        const moveCmd = { type: 'move', distance: cmd.distance, direction, raw: cmd.raw };
+        return this._executeMoveCommand(moveCmd);
     }
 
     // ───── DALLANMA KOMUTLARI ─────
@@ -493,19 +607,47 @@ export class VoiceCommandManager {
     }
 
     /**
-     * Mevcut borunun ucuna doğrudan sayaç yerleştir
+     * Mevcut borunun ucuna sayaç yerleştir (manuel akışla aynı)
+     * Pipe p2 ucuna: vana + fleks + sayaç otomatik eklenir
      */
     _addSayacToPipeEnd(cmd, pipe) {
         saveState();
 
-        const endPt = pipe.p2;
         const startPt = { ...this.currentPosition };
+        const endPt = pipe.p2;
 
-        const sayac = createSayac(endPt.x + 30, endPt.y, {
+        // Boru yönü hesapla
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        const length = Math.hypot(dx, dy);
+        const fleksUzunluk = 15;
+        const boruAci = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        // Sayaç oluştur ve pozisyon/rotation ayarla
+        const sayac = createSayac(endPt.x, endPt.y, {
             floorId: state.currentFloor?.id,
             z: endPt.z || 0
         });
+        sayac.rotation = boruAci;
 
+        // Sayacın giriş noktasını hesapla (rotation uygulanmış)
+        const girisLocal = sayac.getGirisLocalKoordinat();
+        const rad = sayac.rotation * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        const girisRotatedX = girisLocal.x * cos - girisLocal.y * sin;
+        const girisRotatedY = girisLocal.x * sin + girisLocal.y * cos;
+
+        // Perpendicular yön
+        const perpX = length > 0 ? -dy / length : 0;
+        const perpY = length > 0 ? dx / length : 1;
+
+        sayac.x = endPt.x - girisRotatedX + perpX * fleksUzunluk;
+        sayac.y = endPt.y - girisRotatedY + perpY * fleksUzunluk;
+
+        // Ghost connection bilgisi
         sayac.ghostConnectionInfo = {
             boruUcu: {
                 boruId: pipe.id,
@@ -515,28 +657,17 @@ export class VoiceCommandManager {
             }
         };
 
+        // handleSayacEndPlacement ile vana + fleks + sayaç otomatik ekle
         const interactionMgr = plumbingManager.interactionManager;
+        let success = false;
         if (interactionMgr && interactionMgr.handleSayacEndPlacement) {
-            const success = interactionMgr.handleSayacEndPlacement(sayac);
-            if (success) {
-                plumbingManager.saveToState();
-
-                const cikis = sayac.getCikisNoktasi();
-                this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
-                this.lastComponentId = sayac.id;
-                this.lastPipeId = null;
-
-                const step = this._addStep(cmd, startPt, { ...this.currentPosition });
-                step.createdIds.push(sayac.id);
-
-                plumbingManager.updatePipeColorsAfterMeter(sayac.id);
-
-                return { success: true, message: 'Sayaç eklendi', step };
-            }
+            success = interactionMgr.handleSayacEndPlacement(sayac);
         }
 
-        // Fallback: Manuel ekleme
-        plumbingManager.components.push(sayac);
+        if (!success) {
+            plumbingManager.components.push(sayac);
+        }
+
         plumbingManager.saveToState();
 
         const cikis = sayac.getCikisNoktasi();
@@ -547,11 +678,16 @@ export class VoiceCommandManager {
         const step = this._addStep(cmd, startPt, { ...this.currentPosition });
         step.createdIds.push(sayac.id);
 
+        if (success) {
+            plumbingManager.updatePipeColorsAfterMeter(sayac.id);
+        }
+
         return { success: true, message: 'Sayaç eklendi', step };
     }
 
     /**
-     * Boru yokken: 100cm boru çiz + ucuna sayaç (iç tesisat başlatma senaryosu)
+     * Boru yokken: 100cm boru çiz + ucuna sayaç (bileşenden başlama senaryosu)
+     * Manuel akışla aynı: boru + vana + fleks + sayaç
      */
     _addSayacWithPipe(cmd) {
         saveState();
@@ -560,12 +696,10 @@ export class VoiceCommandManager {
         const startPt = { ...this.currentPosition };
 
         // Varsayılan yön: sağa
-        const dx = 1, dy = 0, dz = 0;
-
         const endPt = {
-            x: startPt.x + dx * SAYAC_BORU_MESAFE,
-            y: startPt.y + dy * SAYAC_BORU_MESAFE,
-            z: (startPt.z || 0) + dz * SAYAC_BORU_MESAFE
+            x: startPt.x + SAYAC_BORU_MESAFE,
+            y: startPt.y,
+            z: startPt.z || 0
         };
 
         // Boru oluştur
@@ -586,11 +720,32 @@ export class VoiceCommandManager {
 
         plumbingManager.pipes.push(boru);
 
-        // Borunun ucuna sayaç ekle
-        const sayac = createSayac(endPt.x + 30, endPt.y, {
+        // Borunun ucuna sayaç ekle (tam pozisyon hesabıyla)
+        const dx = endPt.x - startPt.x;
+        const dy = endPt.y - startPt.y;
+        const length = Math.hypot(dx, dy);
+        const fleksUzunluk = 15;
+        const boruAci = Math.atan2(dy, dx) * 180 / Math.PI;
+
+        const sayac = createSayac(endPt.x, endPt.y, {
             floorId: state.currentFloor?.id,
             z: endPt.z || 0
         });
+        sayac.rotation = boruAci;
+
+        const girisLocal = sayac.getGirisLocalKoordinat();
+        const rad = sayac.rotation * Math.PI / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        const girisRotatedX = girisLocal.x * cos - girisLocal.y * sin;
+        const girisRotatedY = girisLocal.x * sin + girisLocal.y * cos;
+
+        const perpX = length > 0 ? -dy / length : 0;
+        const perpY = length > 0 ? dx / length : 1;
+
+        sayac.x = endPt.x - girisRotatedX + perpX * fleksUzunluk;
+        sayac.y = endPt.y - girisRotatedY + perpY * fleksUzunluk;
 
         sayac.ghostConnectionInfo = {
             boruUcu: {
@@ -602,27 +757,15 @@ export class VoiceCommandManager {
         };
 
         const interactionMgr = plumbingManager.interactionManager;
+        let success = false;
         if (interactionMgr && interactionMgr.handleSayacEndPlacement) {
-            const success = interactionMgr.handleSayacEndPlacement(sayac);
-            if (success) {
-                plumbingManager.saveToState();
-
-                const cikis = sayac.getCikisNoktasi();
-                this.currentPosition = { x: cikis.x, y: cikis.y, z: cikis.z || 0 };
-                this.lastComponentId = sayac.id;
-                this.lastPipeId = null;
-
-                const step = this._addStep(cmd, startPt, { ...this.currentPosition });
-                step.createdIds.push(boru.id, sayac.id);
-
-                plumbingManager.updatePipeColorsAfterMeter(sayac.id);
-
-                return { success: true, message: 'Sayaç eklendi (100 cm boru + sayaç)', step };
-            }
+            success = interactionMgr.handleSayacEndPlacement(sayac);
         }
 
-        // Fallback
-        plumbingManager.components.push(sayac);
+        if (!success) {
+            plumbingManager.components.push(sayac);
+        }
+
         plumbingManager.saveToState();
 
         const cikis = sayac.getCikisNoktasi();
@@ -633,7 +776,11 @@ export class VoiceCommandManager {
         const step = this._addStep(cmd, startPt, { ...this.currentPosition });
         step.createdIds.push(boru.id, sayac.id);
 
-        return { success: true, message: 'Sayaç eklendi (100 cm boru + sayaç)', step };
+        if (success) {
+            plumbingManager.updatePipeColorsAfterMeter(sayac.id);
+        }
+
+        return { success: true, message: 'Sayaç eklendi (boru + sayaç)', step };
     }
 
     /**
@@ -886,6 +1033,7 @@ export class VoiceCommandManager {
         this.currentPosition = null;
         this.lastPipeId = null;
         this.lastComponentId = null;
+        this.lastDirection = null;
         this.activeStepIndex = -1;
         this._emit('stepsChanged', this.steps);
         this._emit('positionChanged', null);

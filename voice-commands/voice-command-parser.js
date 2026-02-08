@@ -203,6 +203,16 @@ export function parseVoiceCommand(text) {
     const moveCmd = parseMoveCommand(clean, text);
     if (moveCmd) return moveCmd;
 
+    // ── 7. SADECE SAYI (son yönde devam) ──
+    // "50", "100", "200 cm" gibi yönsüz sayılar → son yönde devam
+    const numOnly = clean.match(/^(\d+(?:[.,]\d+)?)\s*(?:cm|santim|santimetre|birim)?$/);
+    if (numOnly) {
+        let dist = parseFloat(numOnly[1].replace(',', '.'));
+        if (dist > 0) {
+            return { type: 'continue', distance: dist, raw: text };
+        }
+    }
+
     return null;
 }
 
@@ -383,6 +393,11 @@ export function commandToText(cmd) {
                 'hide_dimensions': 'Ölçüleri Gizle'
             };
             return actions[cmd.action] || cmd.action;
+        }
+
+        case 'continue': {
+            const yonAd = cmd.direction ? (YON_ISIMLERI[cmd.direction] || cmd.direction) : 'devam';
+            return `${cmd.distance} cm ${yonAd}`;
         }
 
         case 'branch': {
