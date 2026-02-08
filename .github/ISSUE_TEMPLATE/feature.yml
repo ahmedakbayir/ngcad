@@ -1,1 +1,37 @@
 
+name: Feature Request
+description: New feature or improvement
+title: "[FEATURE] "
+labels:
+  - type:feature
+  - status:triage
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - priority:p1-high
+        - priority:p2-medium
+        - priority:p3-low
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - area:architecture
+        - area:plumbing
+        - area:calculation
+        - area:import-export
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+    validations:
+      required: true
