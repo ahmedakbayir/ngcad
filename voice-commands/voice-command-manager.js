@@ -23,6 +23,7 @@ import { saveState } from '../general-files/history.js';
 import { state, setState } from '../general-files/main.js';
 import { toggle3DPerspective } from '../general-files/ui.js';
 import { draw2D } from '../draw/draw2d.js';
+import { fitDrawingToScreen } from '../draw/zoom.js';
 import { buildPipeHierarchy } from '../plumbing_v2/renderer/renderer-utils.js';
 
 /**
@@ -38,6 +39,8 @@ class VoiceStep {
         this.active = true;
         this.parentStepIndex = -1;  // -1 = kök seviye, >=0 = dallanma (parent step index)
         this.children = [];         // Alt adımların index'leri
+        this.pipeLabel = null;      // Hat harfi (A, B, C...) - boru çizen adımlar için
+        this.parentPipeLabel = null; // Üst hat harfi - bileşen ekleme adımları için
     }
 
     get text() {
@@ -981,6 +984,12 @@ export class VoiceCommandManager {
                 return { success: true, message: 'Hat etiketleri gizlendi' };
             }
 
+            case 'fit_to_screen': {
+                fitDrawingToScreen();
+                draw2D();
+                return { success: true, message: 'Ekrana sığdırıldı' };
+            }
+
             default:
                 return { success: false, message: `Bilinmeyen görünüm komutu: ${cmd.action}` };
         }
@@ -1151,6 +1160,9 @@ export class VoiceCommandManager {
         this.steps.push(step);
         this.activeStepIndex = this.steps.length - 1;
 
+        // Hat harflerini güncelle
+        this._refreshPipeLabels();
+
         this._emit('stepAdded', step);
         this._emit('stepsChanged', this.steps);
         this._emit('positionChanged', this.currentPosition);
@@ -1159,13 +1171,22 @@ export class VoiceCommandManager {
     }
 
     /**
-     * Renk grubunu belirle
+     * Renk grubunu belirle.
+     * Manuel (mouse) akışla aynı mantık: sayaç sonrası borular TURQUAZ olmalı.
      */
     _determineColorGroup() {
+        // 1. Son boru varsa onun renk grubunu kullan
         if (this.lastPipeId) {
             const lastPipe = plumbingManager.findPipeById(this.lastPipeId);
             if (lastPipe) return lastPipe.colorGroup;
         }
+
+        // 2. Son bileşen sayaç ise, sayaç sonrası → TURQUAZ
+        if (this.lastComponentId) {
+            const comp = plumbingManager.findComponentById(this.lastComponentId);
+            if (comp && comp.type === 'sayac') return 'TURQUAZ';
+        }
+
         return 'YELLOW';
     }
 
@@ -1208,6 +1229,37 @@ export class VoiceCommandManager {
                     this.lastComponentId = id;
                 }
                 if (this.lastPipeId) return; // Boru bulunca dur
+            }
+        }
+    }
+
+    /**
+     * Tüm adımların hat harflerini güncelle (buildPipeHierarchy ile)
+     */
+    _refreshPipeLabels() {
+        const hierarchy = buildPipeHierarchy(plumbingManager.pipes, plumbingManager.components);
+        if (!hierarchy || hierarchy.size === 0) return;
+
+        for (const step of this.steps) {
+            step.pipeLabel = null;
+            step.parentPipeLabel = null;
+
+            for (const id of step.createdIds) {
+                // Boru mu?
+                const pipeData = hierarchy.get(id);
+                if (pipeData) {
+                    step.pipeLabel = pipeData.label;
+                    break;
+                }
+                // Bileşen ise, bağlı olduğu borunun harfini bul
+                const comp = plumbingManager.findComponentById(id);
+                if (comp && comp.bagliBoruId) {
+                    const parentPipeData = hierarchy.get(comp.bagliBoruId);
+                    if (parentPipeData) {
+                        step.parentPipeLabel = parentPipeData.label;
+                        break;
+                    }
+                }
             }
         }
     }

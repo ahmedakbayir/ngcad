@@ -192,6 +192,11 @@ export function parseVoiceCommand(text) {
     const toggleResult = parseToggleCommand(clean, text);
     if (toggleResult) return toggleResult;
 
+    // Ekrana sığdır
+    if (EKRANA_SIGDIR_KALIPLARI.some(k => clean.includes(k))) {
+        return { type: 'view', action: 'fit_to_screen', raw: text };
+    }
+
     // ── 3. BİLEŞEN EKLEME ──
 
     // Vana ekleme (konumlu)
@@ -475,6 +480,13 @@ const TOGGLE_KONULARI = [
     { keywords: ['etiket', 'etiketleri', 'hat no'], on: 'show_labels',    off: 'hide_labels' },
 ];
 
+// Ekrana sığdır kalıpları
+const EKRANA_SIGDIR_KALIPLARI = [
+    'ekrana sığdır', 'ekrana sigdir', 'sığdır', 'sigdir',
+    'ekrana sıgdır', 'ekrana sıgdır',
+    'fit', 'fit to screen'
+];
+
 /**
  * Kelime sınırı duyarlı metin arama.
  * Kısa anahtar kelimeler (3 karakter ve altı) için kelime sınırı kontrolü yapar.
@@ -579,7 +591,8 @@ export function commandToText(cmd) {
                 'show_shadow': 'Gölge Göster',
                 'hide_shadow': 'Gölge Gizle',
                 'show_labels': 'Etiket Göster',
-                'hide_labels': 'Etiket Gizle'
+                'hide_labels': 'Etiket Gizle',
+                'fit_to_screen': 'Ekrana Sığdır'
             };
             return actions[cmd.action] || cmd.action;
         }

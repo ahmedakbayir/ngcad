@@ -295,6 +295,10 @@ function setupEventListeners(panel) {
                 voiceCommandManager.activate();
                 const input = document.getElementById('voice-cmd-input');
                 if (input) input.focus();
+                // Panel açıldığında mikrofonu otomatik başlat
+                if (!isListening) {
+                    startListening();
+                }
             } else {
                 voiceCommandManager.deactivate();
                 stopListening();
@@ -392,6 +396,12 @@ function buildTreeHTML(steps, activeIdx) {
         const hasChildren = children.length > 0;
         const indent = depth * 16; // px indent per level
 
+        // Hat harfi etiketi
+        const label = step.pipeLabel || step.parentPipeLabel || null;
+        const labelHTML = label
+            ? `<span class="voice-cmd-step-label" title="${step.pipeLabel ? 'Hat ' + label : label + ' hattına bağlı'}">${label}</span>`
+            : '';
+
         let html = `
             <div class="voice-cmd-step ${isActive ? 'active' : ''} ${dirClass} ${typeClass} ${hasChildren ? 'has-children' : ''}"
                  data-step="${step.stepNumber}"
@@ -399,6 +409,7 @@ function buildTreeHTML(steps, activeIdx) {
                  title="Bu adıma dönmek için tıklayın">
                 ${depth > 0 ? '<span class="voice-cmd-tree-line">└</span>' : ''}
                 <span class="voice-cmd-step-num">${step.stepNumber}.</span>
+                ${labelHTML}
                 <span class="voice-cmd-step-icon">${icon}</span>
                 <span class="voice-cmd-step-text">${step.text}</span>
                 ${isActive ? '<span class="voice-cmd-step-marker">●</span>' : ''}
