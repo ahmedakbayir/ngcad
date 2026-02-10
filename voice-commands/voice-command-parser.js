@@ -398,13 +398,17 @@ function parseMoveCommand(clean, raw) {
 // ───── DALLANMA KOMUTU AYRIŞTIRMA ─────
 
 /**
- * "hattın ortasından 100 ileri", "hattın ortasından sağa 50" gibi dallanma komutlarını ayrıştırır.
- * Mevcut borunun belirtilen noktasından yeni bir boru dallandırır (T-bağlantı).
+ * "hattın ortasından 100 ileri", "K hattının ortasından sağa 50" gibi dallanma komutlarını ayrıştırır.
+ * Mevcut borunun veya etiketli borunun belirtilen noktasından yeni bir boru dallandırır (T-bağlantı).
  */
 function parseBranchCommand(clean, raw) {
-    // "hattın ortasından", "borunun ortasından" kalıbı
-    const ortaMatch = clean.match(/(?:hatt?ın|borunun)\s+ortası(?:ndan|na)/);
+    // "K hattının ortasından", "hattın ortasından", "borunun ortasından" kalıbı
+    // Opsiyonel hat etiketi: [harf] [nolu] hattının ortasından
+    const ortaMatch = clean.match(/(?:([a-zçğıöşü])\s*(?:nolu?\s+)?)?(?:hatt?ının|hatt?ın|borunun)\s+ortası(?:ndan|na)/i);
     if (!ortaMatch) return null;
+
+    // Hat etiketi varsa al
+    const label = ortaMatch[1] ? ortaMatch[1].toUpperCase() : null;
 
     // Yön ve mesafe bul
     const afterMatch = clean.substring(ortaMatch.index + ortaMatch[0].length).trim();
@@ -421,7 +425,7 @@ function parseBranchCommand(clean, raw) {
     // Sayıyı bul (varsa) - rakam veya Türkçe sayı kelimesi
     const distance = parseTurkceNumber(clean);
 
-    return { type: 'branch', position: 'middle', distance, direction: dir, raw };
+    return { type: 'branch', position: 'middle', distance, direction: dir, label, raw };
 }
 
 // ───── VANA KOMUTU AYRIŞTIRMA ─────
@@ -605,7 +609,8 @@ export function commandToText(cmd) {
         case 'branch': {
             const yonAd = YON_ISIMLERI[cmd.direction] || cmd.direction;
             const mesafe = cmd.distance ? `${cmd.distance} cm ` : '';
-            return `Ortadan ${mesafe}${yonAd}`;
+            const hatLabel = cmd.label ? `${cmd.label} hattı ortadan ` : 'Ortadan ';
+            return `${hatLabel}${mesafe}${yonAd}`;
         }
 
         case 'select':

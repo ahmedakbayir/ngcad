@@ -487,9 +487,27 @@ export class VoiceCommandManager {
     /**
      * Hattın ortasından dallanma (T-bağlantı)
      * "hattın ortasından 100 ileri" → mevcut borunun ortasından yeni boru çiz
+     * "K hattının ortasından 150 geri" → K etiketli borunun ortasından yeni boru çiz
      */
     _executeBranchCommand(cmd) {
-        const pipe = this._getLastPipe();
+        let pipe = null;
+
+        // Etiketli hat belirtilmişse o hattı bul
+        if (cmd.label) {
+            const hierarchy = buildPipeHierarchy(plumbingManager.pipes, plumbingManager.components);
+            for (const [pipeId, data] of hierarchy) {
+                if (data.label === cmd.label) {
+                    pipe = plumbingManager.findPipeById(pipeId);
+                    break;
+                }
+            }
+            if (!pipe) {
+                return { success: false, message: `"${cmd.label}" etiketli hat bulunamadı` };
+            }
+        } else {
+            pipe = this._getLastPipe();
+        }
+
         if (!pipe) {
             return { success: false, message: 'Dallanma için önce boru çizin!' };
         }
