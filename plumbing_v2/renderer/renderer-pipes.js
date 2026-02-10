@@ -1160,18 +1160,18 @@ drawPipes(ctx, pipes) {
                 const totalWidth = parentWidth + selfWidth + ctx.measureText(childrenText).width;
                 const startX = -totalWidth / 2;
 
-                // Parent (dark blue)
-                ctx.fillStyle = darkBlue;
-                ctx.textAlign = "left";
-                ctx.fillText(parentText, startX, 0);
+                // // Parent (dark blue)
+                // ctx.fillStyle = darkBlue;
+                // ctx.textAlign = "left";
+                // ctx.fillText(parentText, startX, 0);
 
                 // Self (KIRMIZI)
-                ctx.fillStyle = '#ff0000'; // Kırmızı
+                ctx.fillStyle = darkBlue; //'#ff0000'; // Kırmızı
                 ctx.fillText(selfText, startX + parentWidth, 0);
 
-                // Children (dark blue)
-                ctx.fillStyle = darkgreen;
-                ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
+                // // Children (dark blue)
+                // ctx.fillStyle = darkgreen;
+                // ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
             }
 
             ctx.restore();
