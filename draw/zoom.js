@@ -82,10 +82,34 @@ export function fitDrawingToScreen() {
         }
     };
 
-    (columns || []).forEach(col => checkItemBounds(getColumnCorners(col))); 
-    (beams || []).forEach(beam => checkItemBounds(getBeamCorners(beam))); 
-    (stairs || []).forEach(stair => checkItemBounds(getStairCorners(stair))); 
+    (columns || []).forEach(col => checkItemBounds(getColumnCorners(col)));
+    (beams || []).forEach(beam => checkItemBounds(getBeamCorners(beam)));
+    (stairs || []).forEach(stair => checkItemBounds(getStairCorners(stair)));
 
+    // Tesisat borularının koordinatlarını dahil et
+    const plumbingPipes = state.plumbingPipes || [];
+    plumbingPipes.forEach(p => {
+        if (p.p1) {
+            minX = Math.min(minX, p.p1.x); minY = Math.min(minY, p.p1.y);
+            maxX = Math.max(maxX, p.p1.x); maxY = Math.max(maxY, p.p1.y);
+            hasContent = true;
+        }
+        if (p.p2) {
+            minX = Math.min(minX, p.p2.x); minY = Math.min(minY, p.p2.y);
+            maxX = Math.max(maxX, p.p2.x); maxY = Math.max(maxY, p.p2.y);
+            hasContent = true;
+        }
+    });
+
+    // Tesisat bileşenlerinin koordinatlarını dahil et
+    const plumbingBlocks = state.plumbingBlocks || [];
+    plumbingBlocks.forEach(comp => {
+        if (comp.x !== undefined && comp.y !== undefined) {
+            minX = Math.min(minX, comp.x - 20); minY = Math.min(minY, comp.y - 20);
+            maxX = Math.max(maxX, comp.x + 20); maxY = Math.max(maxY, comp.y + 20);
+            hasContent = true;
+        }
+    });
 
     // Eğer hiç çizim yoksa veya sınırlar geçersizse varsayılan zoom ve pan ayarına dön
     if (!hasContent || !isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {

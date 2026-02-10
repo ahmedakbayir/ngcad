@@ -2304,6 +2304,25 @@ body:not(.light-mode) .text-on-right {
     color: inherit;
 }
 
+.voice-cmd-step-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 8px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    border-radius: 3px;
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+    margin-right: 2px;
+}
+
+.voice-cmd-step.active .voice-cmd-step-label {
+    background: rgba(59, 130, 246, 0.3);
+}
+
 .voice-cmd-step-icon {
     font-size: 9px;
     opacity: 0.6;
