@@ -23,7 +23,7 @@ import { saveState } from '../general-files/history.js';
 import { state, setState, setMode, setDrawingMode } from '../general-files/main.js';
 import { toggle3DPerspective } from '../general-files/ui.js';
 import { draw2D } from '../draw/draw2d.js';
-import { fitDrawingToScreen, zoomIn, zoomOut, fitSelectionToScreen } from '../draw/zoom.js';
+import { fitDrawingToScreen, zoomIn, zoomOut, fitSelectionToScreen, panView } from '../draw/zoom.js';
 import { buildPipeHierarchy } from '../plumbing_v2/renderer/renderer-utils.js';
 
 /**
@@ -169,12 +169,16 @@ export class VoiceCommandManager {
                 return this._executeViewCommand(cmd);
             case 'zoom':
                 return this._executeZoomCommand(cmd);
+            case 'pan':
+                return this._executePanCommand(cmd);
             case 'split':
                 return this._executeSplitCommand(cmd);
             case 'mode':
                 return this._executeModeCommand(cmd);
             case 'select':
                 return this._executeSelectCommand(cmd);
+            case 'select_adjacent':
+                return this._executeSelectAdjacentCommand(cmd);
             case 'goto':
                 return this._executeGotoCommand(cmd);
             case 'undo':
@@ -1035,15 +1039,28 @@ export class VoiceCommandManager {
      * Yakınlaş / Uzaklaş
      */
     _executeZoomCommand(cmd) {
+        const times = cmd.multiplier || 1;
         if (cmd.action === 'in') {
-            zoomIn();
+            for (let i = 0; i < times; i++) zoomIn();
             draw2D();
-            return { success: true, message: 'Yakınlaştırıldı' };
+            return { success: true, message: times > 1 ? `${times}x Yakınlaştırıldı` : 'Yakınlaştırıldı' };
         } else {
-            zoomOut();
+            for (let i = 0; i < times; i++) zoomOut();
             draw2D();
-            return { success: true, message: 'Uzaklaştırıldı' };
+            return { success: true, message: times > 1 ? `${times}x Uzaklaştırıldı` : 'Uzaklaştırıldı' };
         }
+    }
+
+    // ───── PAN (KAYDIR) KOMUTLARI ─────
+
+    /**
+     * Ekranı belirtilen yöne kaydır
+     */
+    _executePanCommand(cmd) {
+        panView(cmd.direction);
+        draw2D();
+        const dirNames = { right: 'sağa', left: 'sola', up: 'yukarı', down: 'aşağı' };
+        return { success: true, message: `Ekran ${dirNames[cmd.direction] || cmd.direction} kaydırıldı` };
     }
 
     // ───── HAT BÖLME KOMUTLARI ─────
@@ -1226,6 +1243,12 @@ export class VoiceCommandManager {
             return { success: false, message: `"${label}" etiketli hat bulunamadı` };
         }
 
+        // Önceki seçimi temizle (mouse seçimiyle aynı davranış)
+        const prevSel = state.selectedObject;
+        if (prevSel && prevSel.object && prevSel.object !== targetPipe) {
+            prevSel.object.isSelected = false;
+        }
+
         // Boruyu seç
         targetPipe.isSelected = true;
         setState({
@@ -1245,6 +1268,48 @@ export class VoiceCommandManager {
 
         const step = this._addStep(cmd, { ...targetPipe.p1 }, { ...targetPipe.p2 });
         return { success: true, message: `${label} hattı seçildi`, step };
+    }
+
+    // ───── ÖNCEKİ / SONRAKİ HAT SEÇİMİ ─────
+
+    /**
+     * Önceki veya sonraki hattı seç (alfabetik sıraya göre)
+     */
+    _executeSelectAdjacentCommand(cmd) {
+        const hierarchy = buildPipeHierarchy(plumbingManager.pipes, plumbingManager.components);
+        if (!hierarchy || hierarchy.size === 0) {
+            return { success: false, message: 'Hiç hat bulunamadı' };
+        }
+
+        // Etiketli boruları topla ve sırala
+        const labeledPipes = [];
+        for (const [pipeId, data] of hierarchy) {
+            if (data.label) {
+                labeledPipes.push({ pipeId, label: data.label });
+            }
+        }
+        labeledPipes.sort((a, b) => a.label.localeCompare(b.label, 'tr'));
+
+        if (labeledPipes.length === 0) {
+            return { success: false, message: 'Etiketli hat bulunamadı' };
+        }
+
+        // Mevcut seçimi bul
+        const sel = state.selectedObject;
+        let currentIndex = -1;
+        if (sel && sel.object && sel.type === 'pipe') {
+            currentIndex = labeledPipes.findIndex(lp => lp.pipeId === sel.object.id);
+        }
+
+        let targetIndex;
+        if (cmd.direction === 'next') {
+            targetIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % labeledPipes.length;
+        } else {
+            targetIndex = currentIndex < 0 ? labeledPipes.length - 1 : (currentIndex - 1 + labeledPipes.length) % labeledPipes.length;
+        }
+
+        const targetLabel = labeledPipes[targetIndex].label;
+        return this._executeSelectCommand({ type: 'select', label: targetLabel, raw: cmd.raw });
     }
 
     // ───── NAVİGASYON KOMUTLARI ─────
