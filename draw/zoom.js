@@ -165,3 +165,114 @@ export function fitDrawingToScreen() {
         positionLengthInput();
     }
 }
+
+// ───── PROGRAMATIK ZOOM FONKSİYONLARI ─────
+
+/**
+ * Programatik zoom in (yakınlaş) - ekranın merkezine doğru
+ * @param {number} factor - Zoom çarpanı (varsayılan 1.3)
+ */
+export function zoomIn(factor = 1.3) {
+    const { c2d } = dom;
+    const centerX = c2d.width / 2;
+    const centerY = c2d.height / 2;
+
+    const oldZoom = state.zoom;
+    const newZoom = Math.max(0.1, Math.min(10, oldZoom * factor));
+    const ratio = newZoom / oldZoom;
+
+    const newPanOffset = {
+        x: centerX - (centerX - state.panOffset.x) * ratio,
+        y: centerY - (centerY - state.panOffset.y) * ratio
+    };
+
+    setState({ zoom: newZoom, panOffset: newPanOffset });
+
+    if (state.isEditingLength) {
+        positionLengthInput();
+    }
+}
+
+/**
+ * Programatik zoom out (uzaklaş) - ekranın merkezinden dışa
+ * @param {number} factor - Zoom böleni (varsayılan 1.3)
+ */
+export function zoomOut(factor = 1.3) {
+    zoomIn(1 / factor);
+}
+
+/**
+ * Seçili nesneyi ekrana sığdır / merkezle.
+ * Seçili nesne yoksa tüm çizimi sığdırır (fallback).
+ */
+export function fitSelectionToScreen() {
+    const sel = state.selectedObject;
+    if (!sel || !sel.object) {
+        fitDrawingToScreen();
+        return;
+    }
+
+    const { c2d } = dom;
+    const PADDING = 80;
+    const obj = sel.object;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let found = false;
+
+    // Boru (pipe)
+    if (obj.p1 && obj.p2) {
+        minX = Math.min(obj.p1.x, obj.p2.x);
+        minY = Math.min(obj.p1.y, obj.p2.y);
+        maxX = Math.max(obj.p1.x, obj.p2.x);
+        maxY = Math.max(obj.p1.y, obj.p2.y);
+        found = true;
+    }
+
+    // Bileşen (component) - x, y koordinatlı
+    if (!found && obj.x !== undefined && obj.y !== undefined) {
+        const pad = 50;
+        minX = obj.x - pad;
+        minY = obj.y - pad;
+        maxX = obj.x + pad;
+        maxY = obj.y + pad;
+        found = true;
+    }
+
+    if (!found) {
+        fitDrawingToScreen();
+        return;
+    }
+
+    const MIN_SIZE = 100;
+    const drawingWidth = Math.max(maxX - minX, MIN_SIZE);
+    const drawingHeight = Math.max(maxY - minY, MIN_SIZE);
+
+    const centerX = minX + (maxX - minX) / 2;
+    const centerY = minY + (maxY - minY) / 2;
+
+    const availableWidth = c2d.width - 2 * PADDING;
+    const availableHeight = c2d.height - 2 * PADDING;
+
+    const zoomX = drawingWidth > 1 ? availableWidth / drawingWidth : 1;
+    const zoomY = drawingHeight > 1 ? availableHeight / drawingHeight : 1;
+    const newZoom = Math.min(zoomX, zoomY, 5);
+
+    let newPanOffsetX, newPanOffsetY;
+
+    if (state.is3DPerspectiveActive) {
+        const angle = Math.PI / 6;
+        const isoCenterX = (centerX + centerY) * Math.cos(angle);
+        const isoCenterY = (centerY - centerX) * Math.sin(angle);
+        newPanOffsetX = c2d.width / 2 - isoCenterX * newZoom;
+        newPanOffsetY = c2d.height / 2 - isoCenterY * newZoom;
+    } else {
+        newPanOffsetX = c2d.width / 2 - centerX * newZoom;
+        newPanOffsetY = c2d.height / 2 - centerY * newZoom;
+    }
+
+    setState({ zoom: newZoom, panOffset: { x: newPanOffsetX, y: newPanOffsetY } });
+
+    if (state.isEditingLength) {
+        positionLengthInput();
+    }
+}
