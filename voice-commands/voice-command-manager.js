@@ -20,10 +20,10 @@ import { createVana } from '../plumbing_v2/objects/valve.js';
 import { createSayac } from '../plumbing_v2/objects/meter.js';
 import { createCihaz } from '../plumbing_v2/objects/device.js';
 import { saveState } from '../general-files/history.js';
-import { state, setState } from '../general-files/main.js';
+import { state, setState, setMode, setDrawingMode } from '../general-files/main.js';
 import { toggle3DPerspective } from '../general-files/ui.js';
 import { draw2D } from '../draw/draw2d.js';
-import { fitDrawingToScreen } from '../draw/zoom.js';
+import { fitDrawingToScreen, zoomIn, zoomOut, fitSelectionToScreen } from '../draw/zoom.js';
 import { buildPipeHierarchy } from '../plumbing_v2/renderer/renderer-utils.js';
 
 /**
@@ -167,6 +167,12 @@ export class VoiceCommandManager {
                 return this._executeAddCommand(cmd);
             case 'view':
                 return this._executeViewCommand(cmd);
+            case 'zoom':
+                return this._executeZoomCommand(cmd);
+            case 'split':
+                return this._executeSplitCommand(cmd);
+            case 'mode':
+                return this._executeModeCommand(cmd);
             case 'select':
                 return this._executeSelectCommand(cmd);
             case 'goto':
@@ -990,6 +996,16 @@ export class VoiceCommandManager {
                 return { success: true, message: 'Ekrana sığdırıldı' };
             }
 
+            case 'fit_selection': {
+                fitSelectionToScreen();
+                draw2D();
+                const sel = state.selectedObject;
+                if (sel && sel.object) {
+                    return { success: true, message: 'Seçili nesne ekrana sığdırıldı' };
+                }
+                return { success: true, message: 'Seçim yok - tüm çizim ekrana sığdırıldı' };
+            }
+
             default:
                 return { success: false, message: `Bilinmeyen görünüm komutu: ${cmd.action}` };
         }
@@ -1011,6 +1027,176 @@ export class VoiceCommandManager {
     _syncVisibilityCheckbox(id, checked) {
         const cb = document.getElementById(id);
         if (cb) cb.checked = checked;
+    }
+
+    // ───── ZOOM KOMUTLARI ─────
+
+    /**
+     * Yakınlaş / Uzaklaş
+     */
+    _executeZoomCommand(cmd) {
+        if (cmd.action === 'in') {
+            zoomIn();
+            draw2D();
+            return { success: true, message: 'Yakınlaştırıldı' };
+        } else {
+            zoomOut();
+            draw2D();
+            return { success: true, message: 'Uzaklaştırıldı' };
+        }
+    }
+
+    // ───── HAT BÖLME KOMUTLARI ─────
+
+    /**
+     * Hattı (boruyu) böl.
+     * - position: 'middle' → ortadan ikiye böl
+     * - position: 'distance' → belirtilen cm noktasından böl
+     * - position: 'parts' → N eşit parçaya böl
+     */
+    _executeSplitCommand(cmd) {
+        // Son boru veya seçili boru
+        let pipe = this._getLastPipe();
+        if (!pipe) {
+            return { success: false, message: 'Bölmek için önce bir hat çizin veya seçin!' };
+        }
+
+        saveState();
+
+        const pipeLen = pipe.uzunluk || Math.hypot(
+            pipe.p2.x - pipe.p1.x,
+            pipe.p2.y - pipe.p1.y
+        );
+
+        if (cmd.position === 'distance') {
+            // Belirli mesafeden böl
+            const dist = cmd.distance;
+            if (dist <= 0 || dist >= pipeLen) {
+                return { success: false, message: `Bölme noktası hattın dışında (hat uzunluğu: ${Math.round(pipeLen)} cm)` };
+            }
+            const t = dist / pipeLen;
+            return this._splitPipeAtT(pipe, [t], cmd);
+        }
+
+        if (cmd.position === 'parts') {
+            // N parçaya böl
+            const parts = cmd.parts;
+            const tValues = [];
+            for (let i = 1; i < parts; i++) {
+                tValues.push(i / parts);
+            }
+            return this._splitPipeAtT(pipe, tValues, cmd);
+        }
+
+        // Ortadan böl (varsayılan)
+        return this._splitPipeAtT(pipe, [0.5], cmd);
+    }
+
+    /**
+     * Boruyu belirtilen t değerlerinde (0-1 arası) böler.
+     * Her t değeri bir bölme noktasıdır.
+     * @param {object} pipe - Bölünecek boru
+     * @param {number[]} tValues - Bölme noktaları (sıralı, 0-1 arası)
+     * @param {object} cmd - Komut nesnesi
+     */
+    _splitPipeAtT(pipe, tValues, cmd) {
+        // t değerlerini sırala
+        const sorted = [...tValues].sort((a, b) => a - b);
+
+        // Orijinal boru bilgileri
+        const origP1 = { ...pipe.p1 };
+        const origP2 = { ...pipe.p2 };
+        const dx = origP2.x - origP1.x;
+        const dy = origP2.y - origP1.y;
+        const dz = (origP2.z || 0) - (origP1.z || 0);
+
+        // Bölme noktalarını hesapla
+        const points = [origP1];
+        for (const t of sorted) {
+            points.push({
+                x: origP1.x + dx * t,
+                y: origP1.y + dy * t,
+                z: (origP1.z || 0) + dz * t
+            });
+        }
+        points.push(origP2);
+
+        // Orijinal boruyu ilk segment olarak güncelle
+        pipe.p2 = { ...points[1] };
+        if (pipe.p2.z !== undefined) pipe.p2.z = points[1].z;
+
+        // Ek segmentleri oluştur
+        const newPipeIds = [];
+        let prevPipe = pipe;
+
+        for (let i = 1; i < points.length - 1; i++) {
+            const segStart = points[i];
+            const segEnd = points[i + 1];
+
+            const newPipe = createBoru(segStart, segEnd, 'STANDART');
+            newPipe.floorId = pipe.floorId;
+            newPipe.colorGroup = pipe.colorGroup;
+            newPipe.dagitimTuru = pipe.dagitimTuru;
+
+            // Bağlantılar
+            newPipe.setBaslangicBaglanti(BAGLANTI_TIPLERI.BORU, prevPipe.id);
+            prevPipe.setBitisBaglanti(BAGLANTI_TIPLERI.BORU, newPipe.id);
+
+            // Son segment ise, orijinal borunun bitiş bağlantısını aktar
+            if (i === points.length - 2 && pipe.bitisBaglanti) {
+                newPipe.bitisBaglanti = { ...pipe.bitisBaglanti };
+            }
+
+            plumbingManager.pipes.push(newPipe);
+            newPipeIds.push(newPipe.id);
+            prevPipe = newPipe;
+        }
+
+        plumbingManager.saveToState();
+
+        // Son parçanın ucundan devam et
+        const lastPoint = points[points.length - 1];
+        this.currentPosition = { x: lastPoint.x, y: lastPoint.y, z: lastPoint.z || 0 };
+        this.lastPipeId = newPipeIds.length > 0 ? newPipeIds[newPipeIds.length - 1] : pipe.id;
+
+        const step = this._addStep(cmd, origP1, lastPoint);
+        step.createdIds.push(...newPipeIds);
+
+        const partsCount = points.length - 1;
+        return { success: true, message: `Hat ${partsCount} parçaya bölündü`, step };
+    }
+
+    // ───── MOD DEĞİŞTİRME KOMUTLARI ─────
+
+    /**
+     * Çizim modunu veya proje modunu değiştir.
+     * "mimari moda geç" → setDrawingMode('MİMARİ')
+     * "duvar çiz" → setMode('drawWall')
+     */
+    _executeModeCommand(cmd) {
+        // Proje modu değişikliği (MİMARİ, TESİSAT, KARMA)
+        if (cmd.drawingMode) {
+            setDrawingMode(cmd.drawingMode);
+            draw2D();
+            const modeNames = { 'MİMARİ': 'Mimari', 'TESİSAT': 'Tesisat', 'KARMA': 'Karma' };
+            return { success: true, message: `${modeNames[cmd.drawingMode] || cmd.drawingMode} moduna geçildi` };
+        }
+
+        // Araç modu değişikliği (drawWall, drawRoom, etc.)
+        if (cmd.mode) {
+            setMode(cmd.mode, true);
+            draw2D();
+            const toolNames = {
+                'drawWall': 'Duvar çizim', 'drawRoom': 'Oda çizim', 'drawDoor': 'Kapı yerleştirme',
+                'drawWindow': 'Pencere yerleştirme', 'drawColumn': 'Kolon yerleştirme',
+                'drawBeam': 'Kiriş yerleştirme', 'drawStairs': 'Merdiven çizim',
+                'drawSymmetry': 'Simetri', 'select': 'Seçim',
+                'plumbingV2': 'Tesisat'
+            };
+            return { success: true, message: `${toolNames[cmd.mode] || cmd.mode} moduna geçildi` };
+        }
+
+        return { success: false, message: 'Geçersiz mod komutu' };
     }
 
     // ───── SEÇİM KOMUTLARI ─────

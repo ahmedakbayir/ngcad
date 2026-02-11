@@ -1,6 +1,7 @@
 /**
- * Voice Command Parser (v2)
+ * Voice Command Parser (v3)
  * Türkçe sesli komutları yapısal komut nesnelerine ayrıştırır.
+ * Yapay zeka benzeri fuzzy intent recognition ile tanınmayan komutları da anlar.
  *
  * Desteklenen komutlar:
  *
@@ -28,10 +29,34 @@
  *   "ölçüleri göster"                       → { type: 'view', action: 'show_dimensions' }
  *   "ölçüleri gizle"                        → { type: 'view', action: 'hide_dimensions' }
  *
+ *  ZOOM:
+ *   "yakınlaş" / "yaklaş" / "zoom in"      → { type: 'zoom', action: 'in' }
+ *   "uzaklaş" / "zoom out"                 → { type: 'zoom', action: 'out' }
+ *
+ *  SEÇİMİ MERKEZLE:
+ *   "seçimi merkezle" / "seçimi ekrana sığdır" → { type: 'view', action: 'fit_selection' }
+ *
+ *  HAT BÖLME:
+ *   "hattı böl"                            → { type: 'split', position: 'middle' }
+ *   "hattı 50 cm den böl"                  → { type: 'split', position: 'distance', distance: 50 }
+ *   "hattı 3 parçaya böl"                  → { type: 'split', position: 'parts', parts: 3 }
+ *
+ *  MOD DEĞİŞTİRME:
+ *   "mimari moda geç"                      → { type: 'mode', drawingMode: 'MİMARİ' }
+ *   "karma moda geç"                       → { type: 'mode', drawingMode: 'KARMA' }
+ *   "duvar çiz" / "duvar modu"             → { type: 'mode', mode: 'drawWall' }
+ *
+ *  ŞEHİR İSMİ İLE HAT SEÇİMİ:
+ *   "konya seç"                            → { type: 'select', label: 'K' } (ilk harf)
+ *   "istanbul seç"                         → { type: 'select', label: 'İ' }
+ *
  *  NAVİGASYON:
  *   "4. adıma dön"                          → { type: 'goto', step: 4 }
  *   "geri al"                               → { type: 'undo' }
  *   "bitir"                                 → { type: 'finish' }
+ *
+ *  YAPAY ZEKA NİYET TANIMA (FALLBACK):
+ *   Tanınmayan komutlar Levenshtein benzerlik analizi ile en yakın bilinen komuta eşlenir.
  */
 
 // ───── SES TANIMA DÜZELTMELERİ ─────
@@ -58,6 +83,224 @@ const SES_DUZELTME_HARITASI = {
     'ellisi': 'elli',
     'yüzü': 'yüz',
 };
+
+// ───── TÜRK ŞEHİR İSİMLERİ → HAT ETİKETİ EŞLEMESİ ─────
+
+/**
+ * Türk şehir isimleri → ilk harf eşlemesi.
+ * "konya seç" → K hattını seç anlamına gelir.
+ * Her harf için en bilinen şehir öncelikli.
+ */
+const SEHIR_HARF_HARITASI = {
+    'adana': 'A', 'ankara': 'A', 'antalya': 'A', 'afyon': 'A', 'ağrı': 'A', 'aksaray': 'A', 'amasya': 'A', 'ardahan': 'A', 'artvin': 'A', 'aydın': 'A',
+    'bursa': 'B', 'bolu': 'B', 'burdur': 'B', 'bilecik': 'B', 'bingöl': 'B', 'bitlis': 'B', 'batman': 'B', 'bayburt': 'B', 'bartın': 'B',
+    'çorum': 'Ç', 'çanakkale': 'Ç', 'çankırı': 'Ç',
+    'denizli': 'D', 'düzce': 'D', 'diyarbakır': 'D',
+    'erzurum': 'E', 'eskişehir': 'E', 'edirne': 'E', 'elazığ': 'E', 'erzincan': 'E',
+    'fethiye': 'F',
+    'giresun': 'G', 'gaziantep': 'G', 'gümüşhane': 'G',
+    'hatay': 'H', 'hakkari': 'H',
+    'istanbul': 'İ', 'izmir': 'İ', 'isparta': 'İ', 'iğdır': 'İ',
+    'kahramanmaraş': 'K', 'konya': 'K', 'kayseri': 'K', 'kocaeli': 'K', 'kütahya': 'K', 'kırklareli': 'K', 'kırıkkale': 'K', 'kırşehir': 'K', 'kilis': 'K', 'kastamonu': 'K', 'karaman': 'K', 'karabük': 'K',
+    'lüleburgaz': 'L',
+    'muğla': 'M', 'malatya': 'M', 'manisa': 'M', 'mersin': 'M', 'mardin': 'M', 'muş': 'M',
+    'niğde': 'N', 'nevşehir': 'N',
+    'ordu': 'O', 'osmaniye': 'O',
+    'rize': 'R',
+    'sivas': 'S', 'samsun': 'S', 'sinop': 'S', 'sakarya': 'S', 'siirt': 'S', 'şanlıurfa': 'Ş', 'şırnak': 'Ş',
+    'trabzon': 'T', 'tokat': 'T', 'tekirdağ': 'T', 'tunceli': 'T',
+    'uşak': 'U',
+    'van': 'V',
+    'yozgat': 'Y', 'yalova': 'Y',
+    'zonguldak': 'Z',
+};
+
+// ───── ZOOM KOMUT KALIPLARI ─────
+
+const YAKINLAS_KALIPLARI = [
+    'yakınlaş', 'yakinlas', 'yaklaş', 'yaklas', 'zoom in', 'zoomin',
+    'yakına gel', 'yakına bak', 'büyüt', 'büyült'
+];
+
+const UZAKLAS_KALIPLARI = [
+    'uzaklaş', 'uzaklas', 'zoom out', 'zoomout',
+    'uzağa git', 'uzağa bak', 'küçült', 'küçüt'
+];
+
+// ───── SEÇİMİ MERKEZLE KALIPLARI ─────
+
+const SECIMI_MERKEZLE_KALIPLARI = [
+    'seçimi merkezle', 'seçimi ekrana sığdır', 'seçimi ekrana sigdir',
+    'seçilen nesneyi ekrana sığdır', 'seçilen nesneyi ekrana sigdir',
+    'seçileni merkezle', 'seçileni göster',
+    'nesneyi merkezle', 'nesneyi ekrana sığdır',
+    'seçime odaklan', 'seçime yakınlaş', 'seçime zoom',
+    'seçimi göster', 'seçimi bul',
+    'center selection', 'fit selection', 'zoom to selection'
+];
+
+// ───── HAT BÖLME KALIPLARI ─────
+
+const HAT_BOL_KALIPLARI = [
+    'hattı böl', 'hatti böl', 'hattı bol', 'hatti bol',
+    'boruyu böl', 'boruyu bol',
+    'hattı 2 parça yap', 'hattı iki parça yap', 'hattı ikiye böl',
+    'hattı 2 parçaya böl', 'hattı iki parçaya böl',
+    'boruyu 2 parça yap', 'boruyu ikiye böl'
+];
+
+// ───── MOD DEĞİŞTİRME HARİTASI ─────
+
+/**
+ * Mod değiştirme komutları için anahtar kelime → mod eşlemesi.
+ * Her girdi: keywords (tetikleyici kelimeler), mode (hedef mod), drawingMode (proje modu, opsiyonel)
+ */
+const MOD_HARITASI = [
+    // Proje modları
+    { keywords: ['mimari mod', 'mimari moda', 'mimari modu'], drawingMode: 'MİMARİ' },
+    { keywords: ['tesisat mod', 'tesisat moda', 'tesisat modu'], drawingMode: 'TESİSAT' },
+    { keywords: ['karma mod', 'karma moda', 'karma modu', 'karışık mod'], drawingMode: 'KARMA' },
+
+    // Mimari araç modları
+    { keywords: ['duvar çiz', 'duvar modu', 'duvar moduna', 'duvar moduna geç'], mode: 'drawWall' },
+    { keywords: ['oda çiz', 'oda modu', 'mahal çiz', 'oda moduna geç'], mode: 'drawRoom' },
+    { keywords: ['kapı çiz', 'kapı modu', 'kapı koy', 'kapı moduna geç'], mode: 'drawDoor' },
+    { keywords: ['pencere çiz', 'pencere modu', 'pencere koy', 'pencere moduna geç'], mode: 'drawWindow' },
+    { keywords: ['kolon çiz', 'kolon modu', 'kolon koy', 'kolon moduna geç'], mode: 'drawColumn' },
+    { keywords: ['kiriş çiz', 'kiriş modu', 'kiriş koy', 'kiriş moduna geç'], mode: 'drawBeam' },
+    { keywords: ['merdiven çiz', 'merdiven modu', 'merdiven koy', 'merdiven moduna geç'], mode: 'drawStairs' },
+    { keywords: ['simetri modu', 'simetri moduna geç', 'simetri'], mode: 'drawSymmetry' },
+
+    // Seçim modu
+    { keywords: ['seçim modu', 'seçim moduna', 'seç modu', 'seçme modu', 'seçme moduna geç'], mode: 'select' },
+];
+
+// ───── YAPAY ZEKA BENZERİ NİYET TANIMA (FUZZY INTENT) ─────
+
+/**
+ * Levenshtein mesafesi - iki metin arasındaki düzenleme mesafesini hesaplar.
+ * Yazım hatalarını ve ses tanıma farklılıklarını tolere etmek için kullanılır.
+ */
+function levenshteinDistance(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = a[i - 1] === b[j - 1]
+                ? dp[i - 1][j - 1]
+                : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        }
+    }
+    return dp[m][n];
+}
+
+/**
+ * Metin benzerlik skoru (0-1 arası, 1 = tam eşleşme)
+ */
+function similarity(a, b) {
+    if (!a || !b) return 0;
+    const maxLen = Math.max(a.length, b.length);
+    if (maxLen === 0) return 1;
+    return 1 - levenshteinDistance(a, b) / maxLen;
+}
+
+/**
+ * Niyet (intent) tanımlama sistemi.
+ * Tanınmayan komutları yapay zeka benzeri benzerlik analizi ile eşleştirir.
+ * Eşik: %60 benzerlik (threshold = 0.6)
+ */
+const INTENT_KALIPLARI = [
+    // Zoom
+    { patterns: ['yakınlaş', 'yaklaş', 'zoom in', 'büyüt', 'yakına gel'], result: { type: 'zoom', action: 'in' } },
+    { patterns: ['uzaklaş', 'zoom out', 'küçült', 'uzağa git'], result: { type: 'zoom', action: 'out' } },
+
+    // Görünüm
+    { patterns: ['ekrana sığdır', 'fit to screen', 'hepsini göster'], result: { type: 'view', action: 'fit_to_screen' } },
+    { patterns: ['seçimi merkezle', 'seçimi göster', 'seçime odaklan'], result: { type: 'view', action: 'fit_selection' } },
+    { patterns: ['3 boyutlu', '3d göster', 'üç boyut'], result: { type: 'view', action: '3d' } },
+    { patterns: ['2 boyutlu', '2d göster', 'iki boyut'], result: { type: 'view', action: '2d' } },
+    { patterns: ['ölçüleri göster', 'ölçü aç', 'dimension göster'], result: { type: 'view', action: 'show_dimensions' } },
+    { patterns: ['ölçüleri gizle', 'ölçü kapat', 'dimension gizle'], result: { type: 'view', action: 'hide_dimensions' } },
+
+    // Mod değiştirme
+    { patterns: ['mimari moda geç', 'mimari mod', 'mimari çizim'], result: { type: 'mode', drawingMode: 'MİMARİ' } },
+    { patterns: ['tesisat moda geç', 'tesisat mod', 'tesisat çizim'], result: { type: 'mode', drawingMode: 'TESİSAT' } },
+    { patterns: ['karma moda geç', 'karma mod', 'karışık mod'], result: { type: 'mode', drawingMode: 'KARMA' } },
+    { patterns: ['duvar çiz', 'duvar modu', 'duvar moduna geç'], result: { type: 'mode', mode: 'drawWall' } },
+    { patterns: ['oda çiz', 'oda modu', 'mahal çiz'], result: { type: 'mode', mode: 'drawRoom' } },
+    { patterns: ['kapı çiz', 'kapı koy', 'kapı modu'], result: { type: 'mode', mode: 'drawDoor' } },
+    { patterns: ['pencere çiz', 'pencere koy', 'pencere modu'], result: { type: 'mode', mode: 'drawWindow' } },
+    { patterns: ['kolon koy', 'kolon çiz', 'kolon modu'], result: { type: 'mode', mode: 'drawColumn' } },
+    { patterns: ['kiriş koy', 'kiriş çiz', 'kiriş modu'], result: { type: 'mode', mode: 'drawBeam' } },
+    { patterns: ['merdiven çiz', 'merdiven koy', 'merdiven modu'], result: { type: 'mode', mode: 'drawStairs' } },
+    { patterns: ['seçim modu', 'seçme modu', 'seçime geç'], result: { type: 'mode', mode: 'select' } },
+
+    // Boru / Hat
+    { patterns: ['hattı böl', 'boruyu böl', 'ikiye böl'], result: { type: 'split', position: 'middle' } },
+    { patterns: ['geri al', 'iptal et', 'son adımı geri al'], result: { type: 'undo' } },
+    { patterns: ['bitir', 'tamamla', 'kapat', 'bitti'], result: { type: 'finish' } },
+
+    // Yerleştirme
+    { patterns: ['servis kutusu koy', 'servis kutusu yerleştir'], result: { type: 'place', object: 'servis_kutusu' } },
+    { patterns: ['iç tesisat başlat', 'iç tesisat'], result: { type: 'place', object: 'ic_tesisat' } },
+
+    // Bileşen ekleme
+    { patterns: ['vana ekle', 'vana koy'], result: { type: 'add', object: 'vana', position: 'end' } },
+    { patterns: ['sayaç ekle', 'sayaç koy'], result: { type: 'add', object: 'sayac' } },
+    { patterns: ['kombi ekle', 'kombi koy'], result: { type: 'add', object: 'kombi' } },
+    { patterns: ['ocak ekle', 'ocak koy'], result: { type: 'add', object: 'ocak' } },
+];
+
+/**
+ * Fuzzy intent matching - Yapay zeka benzeri niyet tanıma.
+ * Tanınmayan komutları en yakın bilinen kalıpla eşleştirir.
+ * @param {string} text - Temizlenmiş komut metni
+ * @returns {object|null} - Eşleşen komut nesnesi veya null
+ */
+function fuzzyIntentMatch(text) {
+    if (!text || text.length < 2) return null;
+
+    let bestMatch = null;
+    let bestScore = 0;
+    const THRESHOLD = 0.55; // Minimum benzerlik eşiği
+
+    for (const intent of INTENT_KALIPLARI) {
+        for (const pattern of intent.patterns) {
+            // Tam metin benzerliği
+            const textSim = similarity(text, pattern);
+
+            // Alt-metin kontrolü (metin kalıbı içeriyor mu)
+            const containsBonus = text.includes(pattern) || pattern.includes(text) ? 0.3 : 0;
+
+            // Kelime bazlı benzerlik - her kelimeyi karşılaştır
+            const textWords = text.split(/\s+/);
+            const patternWords = pattern.split(/\s+/);
+            let wordMatchScore = 0;
+            let matchedWords = 0;
+            for (const pw of patternWords) {
+                let bestWordSim = 0;
+                for (const tw of textWords) {
+                    bestWordSim = Math.max(bestWordSim, similarity(tw, pw));
+                }
+                if (bestWordSim > 0.7) matchedWords++;
+                wordMatchScore += bestWordSim;
+            }
+            const avgWordSim = patternWords.length > 0 ? wordMatchScore / patternWords.length : 0;
+
+            // Toplam skor: metin benzerliği + kelime benzerliği + içerme bonusu
+            const totalScore = (textSim * 0.4) + (avgWordSim * 0.4) + containsBonus * 0.2;
+
+            if (totalScore > bestScore && totalScore >= THRESHOLD) {
+                bestScore = totalScore;
+                bestMatch = { ...intent.result, raw: text, _fuzzyScore: totalScore };
+            }
+        }
+    }
+
+    return bestMatch;
+}
 
 /**
  * Ses tanıma metnini düzeltir - yanlış tanınan kelimeleri doğru karşılıklarıyla değiştirir.
@@ -187,8 +430,6 @@ export function parseVoiceCommand(text) {
     }
 
     // Toggle komutları: konu + on/off grubu
-    // ON grubu: göster, aç, on, açık
-    // OFF grubu: gizle, kapat, off, kapalı, gösterme
     const toggleResult = parseToggleCommand(clean, text);
     if (toggleResult) return toggleResult;
 
@@ -196,6 +437,32 @@ export function parseVoiceCommand(text) {
     if (EKRANA_SIGDIR_KALIPLARI.some(k => clean.includes(k))) {
         return { type: 'view', action: 'fit_to_screen', raw: text };
     }
+
+    // ── 2b. ZOOM (Yakınlaş / Uzaklaş) ──
+
+    if (YAKINLAS_KALIPLARI.some(k => clean.includes(k))) {
+        return { type: 'zoom', action: 'in', raw: text };
+    }
+
+    if (UZAKLAS_KALIPLARI.some(k => clean.includes(k))) {
+        return { type: 'zoom', action: 'out', raw: text };
+    }
+
+    // ── 2c. SEÇİMİ MERKEZLE / SEÇİMİ EKRANA SIĞDIR ──
+
+    if (SECIMI_MERKEZLE_KALIPLARI.some(k => clean.includes(k))) {
+        return { type: 'view', action: 'fit_selection', raw: text };
+    }
+
+    // ── 2d. MOD DEĞİŞTİRME ──
+
+    const modeCmd = parseModeCommand(clean, text);
+    if (modeCmd) return modeCmd;
+
+    // ── 2e. HAT BÖLME ──
+
+    const splitCmd = parseSplitCommand(clean, text);
+    if (splitCmd) return splitCmd;
 
     // ── 3. BİLEŞEN EKLEME ──
 
@@ -221,13 +488,18 @@ export function parseVoiceCommand(text) {
     // ── 3b. HAT SEÇİMİ (etikete göre) ──
 
     // "A hattını seç", "A nolu hattı seç", "B hattı seç", "hattı A seç"
-    const selectMatch = clean.match(/([a-z])\s*(?:nolu?\s+)?hatt?[ıi]n?[ıi]?\s*seç/i)
-        || clean.match(/hatt?[ıi]\s*([a-z])\s*seç/i)
-        || clean.match(/([a-z])\s+seç/i);
+    const selectMatch = clean.match(/([a-zçğıöşü])\s*(?:nolu?\s+)?hatt?[ıi]n?[ıi]?\s*seç/i)
+        || clean.match(/hatt?[ıi]\s*([a-zçğıöşü])\s*seç/i)
+        || clean.match(/^([a-zçğıöşü])\s+seç$/i);
     if (selectMatch) {
         const label = selectMatch[1].toUpperCase();
         return { type: 'select', label, raw: text };
     }
+
+    // ── 3c. ŞEHİR İSMİ İLE HAT SEÇİMİ ──
+    // "konya seç" → K hattını seç, "istanbul seç" → İ hattını seç
+    const cityCmd = parseCitySelectCommand(clean, text);
+    if (cityCmd) return cityCmd;
 
     // ── 4. NAVİGASYON ──
 
@@ -270,6 +542,11 @@ export function parseVoiceCommand(text) {
             return { type: 'continue', distance: dist, raw: text };
         }
     }
+
+    // ── 8. YAPAY ZEKA BENZERİ NİYET TANIMA (FALLBACK) ──
+    // Hiçbir kalıba uymayan komutlar için fuzzy matching ile niyet tahmini yap
+    const fuzzyResult = fuzzyIntentMatch(clean);
+    if (fuzzyResult) return fuzzyResult;
 
     return null;
 }
@@ -522,6 +799,118 @@ function parseToggleCommand(clean, raw) {
     return null;
 }
 
+// ───── MOD DEĞİŞTİRME KOMUTU AYRIŞTIRMA ─────
+
+/**
+ * Mod değiştirme komutlarını ayrıştırır.
+ * "mimari moda geç", "duvar çiz", "seçim modu" gibi komutlar.
+ * Serbest formda da çalışır: "mimari moda geçelim", "tesisat moduna dön" vb.
+ */
+function parseModeCommand(clean, raw) {
+    // Önce kesin kalıpları kontrol et
+    for (const entry of MOD_HARITASI) {
+        for (const kw of entry.keywords) {
+            if (clean.includes(kw)) {
+                const result = { type: 'mode', raw };
+                if (entry.mode) result.mode = entry.mode;
+                if (entry.drawingMode) result.drawingMode = entry.drawingMode;
+                return result;
+            }
+        }
+    }
+
+    // Esnek kalıp: "[isim] + [mod/moda/moduna] + [geç/dön/aç/git]"
+    const flexMatch = clean.match(/(mimari|tesisat|karma|karışık|duvar|oda|mahal|kapı|pencere|kolon|kiriş|merdiven|simetri|seçim|seçme)\s*(?:mod|moda|modu|moduna|moduna)\s*(?:geç|dön|aç|git)?/);
+    if (flexMatch) {
+        const name = flexMatch[1];
+        const modeMap = {
+            'mimari': { drawingMode: 'MİMARİ' },
+            'tesisat': { drawingMode: 'TESİSAT' },
+            'karma': { drawingMode: 'KARMA' },
+            'karışık': { drawingMode: 'KARMA' },
+            'duvar': { mode: 'drawWall' },
+            'oda': { mode: 'drawRoom' },
+            'mahal': { mode: 'drawRoom' },
+            'kapı': { mode: 'drawDoor' },
+            'pencere': { mode: 'drawWindow' },
+            'kolon': { mode: 'drawColumn' },
+            'kiriş': { mode: 'drawBeam' },
+            'merdiven': { mode: 'drawStairs' },
+            'simetri': { mode: 'drawSymmetry' },
+            'seçim': { mode: 'select' },
+            'seçme': { mode: 'select' },
+        };
+        const mapped = modeMap[name];
+        if (mapped) {
+            return { type: 'mode', ...mapped, raw };
+        }
+    }
+
+    return null;
+}
+
+// ───── HAT BÖLME KOMUTU AYRIŞTIRMA ─────
+
+/**
+ * Hat/boru bölme komutlarını ayrıştırır.
+ * "hattı böl" → ortadan böl
+ * "hattı 50 cm den böl" → 50 cm noktasından böl
+ * "hattı 3 parçaya böl" → 3 eşit parçaya böl
+ */
+function parseSplitCommand(clean, raw) {
+    // Basit bölme: "hattı böl", "boruyu böl"
+    if (HAT_BOL_KALIPLARI.some(k => clean.includes(k))) {
+        return { type: 'split', position: 'middle', raw };
+    }
+
+    // Belirli mesafeden bölme: "hattı 50 cm den böl", "hattı 50 den böl"
+    const distSplitMatch = clean.match(/(?:hatt?[ıi]|boruyu)\s+(\d+(?:[.,]\d+)?)\s*(?:cm|santim)?\s*(?:den|dan|noktasından|noktasında)\s*böl/);
+    if (distSplitMatch) {
+        const distance = parseFloat(distSplitMatch[1].replace(',', '.'));
+        if (distance > 0) {
+            return { type: 'split', position: 'distance', distance, raw };
+        }
+    }
+
+    // N parçaya bölme: "hattı 3 parçaya böl", "hattı 3 parça yap"
+    const partsSplitMatch = clean.match(/(?:hatt?[ıi]|boruyu)\s+(\d+)\s*parça(?:ya)?\s*(?:böl|yap|ayır)/);
+    if (partsSplitMatch) {
+        const parts = parseInt(partsSplitMatch[1], 10);
+        if (parts >= 2 && parts <= 20) {
+            return { type: 'split', position: 'parts', parts, raw };
+        }
+    }
+
+    return null;
+}
+
+// ───── ŞEHİR İSMİ İLE HAT SEÇİMİ AYRIŞTIRMA ─────
+
+/**
+ * Şehir ismi ile hat seçimi: "konya seç" → K hattını seç
+ * Şehir isminin ilk harfi hat etiketine dönüştürülür.
+ */
+function parseCitySelectCommand(clean, raw) {
+    // "[şehir] seç" veya "[şehir] hattını seç" kalıbı
+    const words = clean.split(/\s+/);
+
+    for (let i = 0; i < words.length; i++) {
+        const word = words[i];
+        const label = SEHIR_HARF_HARITASI[word];
+        if (label) {
+            // Kelimeden sonra "seç" veya "hattını seç" gibi bir fiil var mı?
+            const rest = words.slice(i + 1).join(' ');
+            if (rest.includes('seç') || rest.includes('sec') ||
+                rest.includes('hattı') || rest.includes('hat') ||
+                words.length === 1) {
+                return { type: 'select', label, raw, _cityName: word };
+            }
+        }
+    }
+
+    return null;
+}
+
 // ───── YARDIMCI FONKSİYONLAR ─────
 
 /**
@@ -592,9 +981,36 @@ export function commandToText(cmd) {
                 'hide_shadow': 'Gölge Gizle',
                 'show_labels': 'Etiket Göster',
                 'hide_labels': 'Etiket Gizle',
-                'fit_to_screen': 'Ekrana Sığdır'
+                'fit_to_screen': 'Ekrana Sığdır',
+                'fit_selection': 'Seçimi Merkezle'
             };
             return actions[cmd.action] || cmd.action;
+        }
+
+        case 'zoom':
+            return cmd.action === 'in' ? 'Yakınlaş' : 'Uzaklaş';
+
+        case 'split': {
+            if (cmd.position === 'distance') return `Hattı ${cmd.distance} cm'den Böl`;
+            if (cmd.position === 'parts') return `Hattı ${cmd.parts} Parçaya Böl`;
+            return 'Hattı Böl';
+        }
+
+        case 'mode': {
+            if (cmd.drawingMode) {
+                const modes = { 'MİMARİ': 'Mimari Mod', 'TESİSAT': 'Tesisat Mod', 'KARMA': 'Karma Mod' };
+                return modes[cmd.drawingMode] || cmd.drawingMode;
+            }
+            if (cmd.mode) {
+                const toolModes = {
+                    'drawWall': 'Duvar Çiz', 'drawRoom': 'Oda Çiz', 'drawDoor': 'Kapı Koy',
+                    'drawWindow': 'Pencere Koy', 'drawColumn': 'Kolon Koy', 'drawBeam': 'Kiriş Koy',
+                    'drawStairs': 'Merdiven Çiz', 'drawSymmetry': 'Simetri', 'select': 'Seçim Modu',
+                    'plumbingV2': 'Tesisat Modu'
+                };
+                return toolModes[cmd.mode] || cmd.mode;
+            }
+            return 'Mod Değiştir';
         }
 
         case 'continue': {
@@ -609,7 +1025,9 @@ export function commandToText(cmd) {
         }
 
         case 'select':
-            return `${cmd.label} Hattını Seç`;
+            return cmd._cityName
+                ? `${cmd._cityName.charAt(0).toUpperCase() + cmd._cityName.slice(1)} (${cmd.label}) Hattını Seç`
+                : `${cmd.label} Hattını Seç`;
         case 'goto':
             return `${cmd.step}. adıma dön`;
         case 'undo':

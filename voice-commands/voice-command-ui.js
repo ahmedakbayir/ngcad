@@ -332,6 +332,9 @@ function getStepIcon(cmd) {
             return '&#43;'; // +
         }
         case 'view':   return '&#9673;'; // ◉
+        case 'zoom':   return '&#128269;'; // 🔍
+        case 'split':  return '&#9986;'; // ✂
+        case 'mode':   return '&#9881;'; // ⚙
         case 'select': return '&#9745;'; // ☑ (seçim)
         default:        return '&#9654;'; // ►
     }
