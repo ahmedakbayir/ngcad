@@ -97,22 +97,29 @@ const SEHIR_HARF_HARITASI = {
     'çorum': 'Ç', 'çanakkale': 'Ç', 'çankırı': 'Ç',
     'denizli': 'D', 'düzce': 'D', 'diyarbakır': 'D',
     'erzurum': 'E', 'eskişehir': 'E', 'edirne': 'E', 'elazığ': 'E', 'erzincan': 'E',
-    'fethiye': 'F',
+    'ceyhan': 'C',
+    'fethiye': 'F', 'fatsa': 'F', 'fransa': 'F',
     'giresun': 'G', 'gaziantep': 'G', 'gümüşhane': 'G',
     'hatay': 'H', 'hakkari': 'H',
     'istanbul': 'İ', 'izmir': 'İ', 'isparta': 'İ', 'iğdır': 'İ',
+    'jandarma': 'J',
     'kahramanmaraş': 'K', 'konya': 'K', 'kayseri': 'K', 'kocaeli': 'K', 'kütahya': 'K', 'kırklareli': 'K', 'kırıkkale': 'K', 'kırşehir': 'K', 'kilis': 'K', 'kastamonu': 'K', 'karaman': 'K', 'karabük': 'K',
     'lüleburgaz': 'L',
+    'pozantı': 'P', 'paris': 'P',
     'muğla': 'M', 'malatya': 'M', 'manisa': 'M', 'mersin': 'M', 'mardin': 'M', 'muş': 'M',
     'niğde': 'N', 'nevşehir': 'N',
     'ordu': 'O', 'osmaniye': 'O',
     'rize': 'R',
     'sivas': 'S', 'samsun': 'S', 'sinop': 'S', 'sakarya': 'S', 'siirt': 'S', 'şanlıurfa': 'Ş', 'şırnak': 'Ş',
     'trabzon': 'T', 'tokat': 'T', 'tekirdağ': 'T', 'tunceli': 'T',
-    'uşak': 'U',
+    'uşak': 'U', 'urfa': 'U',
+    'ünye': 'Ü', 'üsküp': 'Ü', 'ürdün': 'Ü',
     'van': 'V',
+    'vaşington': 'W',
+    'zenon': 'X',
     'yozgat': 'Y', 'yalova': 'Y',
     'zonguldak': 'Z',
+    'kuveyt': 'Q', 'katar': 'Q',
 };
 
 // ───── ZOOM KOMUT KALIPLARI ─────
@@ -251,6 +258,16 @@ const INTENT_KALIPLARI = [
     { patterns: ['sayaç ekle', 'sayaç koy'], result: { type: 'add', object: 'sayac' } },
     { patterns: ['kombi ekle', 'kombi koy'], result: { type: 'add', object: 'kombi' } },
     { patterns: ['ocak ekle', 'ocak koy'], result: { type: 'add', object: 'ocak' } },
+
+    // Önceki / Sonraki hat seçimi
+    { patterns: ['önceki hattı seç', 'önceki hat', 'öncekini seç'], result: { type: 'select_adjacent', direction: 'prev' } },
+    { patterns: ['sonraki hattı seç', 'sonraki hat', 'sonrakini seç'], result: { type: 'select_adjacent', direction: 'next' } },
+
+    // Pan (kaydır)
+    { patterns: ['sağa kaydır', 'sağa pan'], result: { type: 'pan', direction: 'right' } },
+    { patterns: ['sola kaydır', 'sola pan'], result: { type: 'pan', direction: 'left' } },
+    { patterns: ['yukarı kaydır', 'yukarı pan'], result: { type: 'pan', direction: 'up' } },
+    { patterns: ['aşağı kaydır', 'aşağı pan'], result: { type: 'pan', direction: 'down' } },
 ];
 
 /**
@@ -438,6 +455,17 @@ export function parseVoiceCommand(text) {
         return { type: 'view', action: 'fit_to_screen', raw: text };
     }
 
+    // ── 2b1. ÇOK ZOOM (3x yaklaş/uzaklaş) ──
+
+    if (clean.includes('çok')) {
+        if (YAKINLAS_KALIPLARI.some(k => clean.includes(k))) {
+            return { type: 'zoom', action: 'in', multiplier: 3, raw: text };
+        }
+        if (UZAKLAS_KALIPLARI.some(k => clean.includes(k))) {
+            return { type: 'zoom', action: 'out', multiplier: 3, raw: text };
+        }
+    }
+
     // ── 2b. ZOOM (Yakınlaş / Uzaklaş) ──
 
     if (YAKINLAS_KALIPLARI.some(k => clean.includes(k))) {
@@ -452,6 +480,23 @@ export function parseVoiceCommand(text) {
 
     if (SECIMI_MERKEZLE_KALIPLARI.some(k => clean.includes(k))) {
         return { type: 'view', action: 'fit_selection', raw: text };
+    }
+
+    // ── 2c2. PAN (KAYDIR) ──
+
+    if (clean.includes('kaydır') || clean.includes('kaydir')) {
+        if (clean.includes('sağa') || clean.includes('saga') || clean.includes('sağ')) {
+            return { type: 'pan', direction: 'right', raw: text };
+        }
+        if (clean.includes('sola') || clean.includes('sol')) {
+            return { type: 'pan', direction: 'left', raw: text };
+        }
+        if (clean.includes('yukarı') || clean.includes('yukari')) {
+            return { type: 'pan', direction: 'up', raw: text };
+        }
+        if (clean.includes('aşağı') || clean.includes('asagi')) {
+            return { type: 'pan', direction: 'down', raw: text };
+        }
     }
 
     // ── 2d. MOD DEĞİŞTİRME ──
@@ -483,6 +528,15 @@ export function parseVoiceCommand(text) {
     // Ocak ekle - "ocak" tek başına da yeterli
     if (matchAny(clean, ['ocak ekle', 'ocak koy', 'ocak yerleştir', 'ocak bağla']) || clean === 'ocak') {
         return { type: 'add', object: 'ocak', raw: text };
+    }
+
+    // ── 3a2. ÖNCEKİ / SONRAKİ HAT SEÇİMİ ──
+
+    if (clean.includes('önceki') && (clean.includes('hat') || clean.includes('boru') || clean.includes('seç'))) {
+        return { type: 'select_adjacent', direction: 'prev', raw: text };
+    }
+    if (clean.includes('sonraki') && (clean.includes('hat') || clean.includes('boru') || clean.includes('seç'))) {
+        return { type: 'select_adjacent', direction: 'next', raw: text };
     }
 
     // ── 3b. HAT SEÇİMİ (etikete göre) ──
@@ -988,6 +1042,9 @@ export function commandToText(cmd) {
         }
 
         case 'zoom':
+            if (cmd.multiplier && cmd.multiplier > 1) {
+                return cmd.action === 'in' ? 'Çok Yakınlaş' : 'Çok Uzaklaş';
+            }
             return cmd.action === 'in' ? 'Yakınlaş' : 'Uzaklaş';
 
         case 'split': {
@@ -1028,6 +1085,12 @@ export function commandToText(cmd) {
             return cmd._cityName
                 ? `${cmd._cityName.charAt(0).toUpperCase() + cmd._cityName.slice(1)} (${cmd.label}) Hattını Seç`
                 : `${cmd.label} Hattını Seç`;
+        case 'select_adjacent':
+            return cmd.direction === 'next' ? 'Sonraki Hattı Seç' : 'Önceki Hattı Seç';
+        case 'pan': {
+            const panDirs = { right: 'Sağa', left: 'Sola', up: 'Yukarı', down: 'Aşağı' };
+            return `${panDirs[cmd.direction] || ''} Kaydır`;
+        }
         case 'goto':
             return `${cmd.step}. adıma dön`;
         case 'undo':

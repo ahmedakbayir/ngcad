@@ -43,9 +43,9 @@ export function onWheel(e) {
 }
 
 export function fitDrawingToScreen() {
-    const { nodes, walls, columns, beams, stairs } = state; 
+    const { nodes, walls, columns, beams, stairs } = state;
     const { c2d } = dom;
-    const PADDING = 50; 
+    const PADDING = 30;
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     let hasContent = false;
@@ -126,10 +126,9 @@ export function fitDrawingToScreen() {
     const availableHeight = c2d.height - 2 * PADDING;
 
     // Gerekli zoom seviyesini hesapla (hem yatay hem dikey sığacak şekilde)
-    // Eğer genişlik veya yükseklik sıfırsa (tek nokta vb.), zoom'u 1 yap
-    const zoomX = drawingWidth > 1 ? availableWidth / drawingWidth : 1; 
-    const zoomY = drawingHeight > 1 ? availableHeight / drawingHeight : 1; 
-    const newZoom = Math.min(zoomX, zoomY, 5); // Maksimum zoom sınırı 
+    const zoomX = drawingWidth > 1 ? availableWidth / drawingWidth : 1;
+    const zoomY = drawingHeight > 1 ? availableHeight / drawingHeight : 1;
+    const newZoom = Math.min(zoomX, zoomY, 3);
 
     // Çizimin merkezini dünya koordinatlarında bul
     const centerX = minX + drawingWidth / 2;
@@ -213,7 +212,7 @@ export function fitSelectionToScreen() {
     }
 
     const { c2d } = dom;
-    const PADDING = 80;
+    const PADDING = 60;
     const obj = sel.object;
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -243,7 +242,8 @@ export function fitSelectionToScreen() {
         return;
     }
 
-    const MIN_SIZE = 100;
+    // Minimum alan boyutu - çok küçük nesnelerde aşırı zoom yapmasın
+    const MIN_SIZE = 300;
     const drawingWidth = Math.max(maxX - minX, MIN_SIZE);
     const drawingHeight = Math.max(maxY - minY, MIN_SIZE);
 
@@ -255,7 +255,7 @@ export function fitSelectionToScreen() {
 
     const zoomX = drawingWidth > 1 ? availableWidth / drawingWidth : 1;
     const zoomY = drawingHeight > 1 ? availableHeight / drawingHeight : 1;
-    const newZoom = Math.min(zoomX, zoomY, 5);
+    const newZoom = Math.min(zoomX, zoomY, 3);
 
     let newPanOffsetX, newPanOffsetY;
 
@@ -271,6 +271,37 @@ export function fitSelectionToScreen() {
     }
 
     setState({ zoom: newZoom, panOffset: { x: newPanOffsetX, y: newPanOffsetY } });
+
+    if (state.isEditingLength) {
+        positionLengthInput();
+    }
+}
+
+// ───── PROGRAMATIK PAN FONKSİYONU ─────
+
+/**
+ * Programatik pan (kaydırma) - ekranı belirtilen yöne kaydırır.
+ * @param {string} direction - 'right', 'left', 'up', 'down'
+ */
+export function panView(direction) {
+    const { c2d } = dom;
+    // Kaydırma miktarı: canvas boyutunun 1/3'ü
+    const panAmount = Math.min(c2d.width, c2d.height) / 3;
+
+    let dx = 0, dy = 0;
+    switch (direction) {
+        case 'right': dx = -panAmount; break; // İçerik sola kayar, sağ taraf görünür
+        case 'left':  dx = panAmount;  break; // İçerik sağa kayar, sol taraf görünür
+        case 'up':    dy = panAmount;  break; // İçerik aşağı kayar, üst taraf görünür
+        case 'down':  dy = -panAmount; break; // İçerik yukarı kayar, alt taraf görünür
+    }
+
+    setState({
+        panOffset: {
+            x: state.panOffset.x + dx,
+            y: state.panOffset.y + dy
+        }
+    });
 
     if (state.isEditingLength) {
         positionLengthInput();
