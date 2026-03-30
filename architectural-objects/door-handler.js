@@ -34,7 +34,8 @@ export function getDoorAtPoint(pos, tolerance) {
         const distPerpendicular = Math.abs(dx_p * (-dy) + dy_p * dx);
         const distParallel = Math.abs(dx_p * dx + dy_p * dy);
 
-        if (distPerpendicular < wallPx / 2 + tolerance && distParallel < door.width / 2 + tolerance) {
+        // Kapının sadece orta %50'sinde (%25-%75) kapıyı seç, kenarlarda duvarı seç
+        if (distPerpendicular < wallPx / 2 + tolerance && distParallel < door.width * 0.25) {
              return { type: "door", object: door, handle: 'body' };
         }
     }

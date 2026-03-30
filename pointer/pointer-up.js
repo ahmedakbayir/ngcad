@@ -1,4 +1,4 @@
-import { getOrCreateNode } from '../draw/geometry.js';
+import { getOrCreateNode, findBestLabelPosition } from '../draw/geometry.js';
 import { state, setState } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
 import { processWalls, cleanupNodeHoverTimers } from '../wall/wall-processor.js';
@@ -142,8 +142,8 @@ export function onPointerUp(e) {
         const point = turf.point(room.center);
 
         if (!turf.booleanPointInPolygon(point, room.polygon)) {
-            const centerPoint = turf.pointOnFeature(room.polygon);
-            room.center = centerPoint.geometry.coordinates;
+            const bestPos = findBestLabelPosition(room.polygon);
+            room.center = bestPos || turf.pointOnFeature(room.polygon).geometry.coordinates;
         }
 
         setState({ isDraggingRoomName: null, roomDragStartPos: null, roomOriginalCenter: null });

@@ -241,6 +241,9 @@ export function draw2D() {
         dimensionOptions, wallAdjacency,
     } = state;
 
+    const showArch = state.tempVisibility.showArchitecture ?? true;
+    const showPlumbing = state.tempVisibility.showPlumbing ?? true;
+
     // Sadece aktif kata ait çizimleri filtrele
     const currentFloorId = state.currentFloor?.id;
     // Eğer currentFloorId yoksa (eski projeler), tüm öğeleri göster
@@ -336,12 +339,12 @@ export function draw2D() {
 
 
     // 2. Mahaller (Poligonlar)
-    drawRoomPolygons(ctx2d, { ...state, rooms });
+    if (showArch) drawRoomPolygons(ctx2d, { ...state, rooms });
 
     // 3. Duvar Geometrisi - Filtrelenmiş duvarları kullan
-    drawWallGeometry(ctx2d, { ...state, walls, doors }, getWallFillColor());
+    if (showArch) drawWallGeometry(ctx2d, { ...state, walls, doors }, getWallFillColor());
     // 3.5. Arc Duvar Kontrol Noktaları
-    walls.forEach(wall => {
+    if (showArch) walls.forEach(wall => {
         if (wall.isArc && wall.arcControl1 && wall.arcControl2) {
             const isSelected = selectedObject?.type === "wall" && selectedObject.object === wall;
             const isArcControlSelected = selectedObject?.type === "arcControl" && selectedObject.object === wall;
@@ -390,7 +393,7 @@ export function draw2D() {
     });
 
     // 4. KOLONLAR (Duvarlardan sonra, kapı/pencereden önce)
-    (columns || []).forEach(column => {
+    if (showArch) (columns || []).forEach(column => {
         // Her kolon için isSelected durumunu kontrol et (tek seçim veya grup seçimi)
         const isSelected = (selectedObject?.type === "column" && selectedObject.object === column) ||
             state.selectedGroup.some(item => item.type === "column" && item.object === column);
@@ -398,7 +401,7 @@ export function draw2D() {
     });
 
     // 4.5. KİRİŞLER
-    (beams || []).forEach(beam => {
+    if (showArch) (beams || []).forEach(beam => {
         // Her kiriş için isSelected durumunu kontrol et (tek seçim veya grup seçimi)
         const isSelected = (selectedObject?.type === "beam" && selectedObject.object === beam) ||
             state.selectedGroup.some(item => item.type === "beam" && item.object === beam);
@@ -406,7 +409,7 @@ export function draw2D() {
     });
 
     // 4.7. MERDİVENLER
-    (stairs || []).forEach(stair => {
+    if (showArch) (stairs || []).forEach(stair => {
         // Her bir merdiven için seçili olup olmadığını kontrol et (tek seçim veya grup seçimi)
         const isSelected = !!(
             (selectedObject && selectedObject.type === "stairs" && selectedObject.object === stair) ||
@@ -416,9 +419,25 @@ export function draw2D() {
     });
 
     // 5. Atomik Semboller
-    nodes.forEach(node => {
+    if (showArch) nodes.forEach(node => {
         drawNodeWallCount(node);
     });
+
+    // 5b. Köşe Noktaları (3+ duvar birleşen node'lara mavi nokta)
+    if (showArch && state.tempVisibility.showJunctionNodes) {
+        const radius = 1.5;
+        ctx2d.save();
+        ctx2d.fillStyle = '#919b9b3f';
+        nodes.forEach(node => {
+            const wallCount = walls.filter(w => w.p1 === node || w.p2 === node).length;
+            if (wallCount >= 2) {
+                ctx2d.beginPath();
+                ctx2d.arc(node.x, node.y, radius, 0, Math.PI * 2);
+                ctx2d.fill();
+            }
+        });
+        ctx2d.restore();
+    }
 
     // 6. Açı Sembolleri (Bu kısım merdivenlerle doğrudan ilgili değil)
     const nodesToDrawAngle = new Set();
@@ -435,15 +454,21 @@ export function draw2D() {
 
     // 7. Mahal Etiketleri (TESİSAT modunda gizli)
     // if (state.currentDrawingMode !== 'TESİSAT') {
-    if (state.tempVisibility.showRoomNames) {
+    if (showArch && state.tempVisibility.showRoomNames) {
         drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
     }    //}
 
     // 8. Kapılar, Pencereler, Menfezler
+    if (showArch) {
+    const hoveredObject = (!isDragging && state.currentMode === 'select')
+        ? getObjectAtPoint(state.mousePos)
+        : null;
+
     doors.forEach((door) => {
         const isSelected = (selectedObject?.type === "door" && selectedObject.object === door) ||
             state.selectedGroup.some(item => item.type === "door" && item.object === door);
-        drawDoorSymbol(door, false, isSelected);
+        const isHovered = hoveredObject?.type === "door" && hoveredObject.object === door;
+        drawDoorSymbol(door, false, isSelected, isHovered);
     });
 
     walls.forEach(wall => {
@@ -451,7 +476,8 @@ export function draw2D() {
             wall.windows.forEach(window => {
                 const isSelected = (selectedObject?.type === "window" && selectedObject.object === window) ||
                     state.selectedGroup.some(item => item.type === "window" && item.object === window);
-                drawWindowSymbol(wall, window, false, isSelected);
+                const isHovered = hoveredObject?.type === "window" && hoveredObject.object === window;
+                drawWindowSymbol(wall, window, false, isSelected, isHovered);
             });
         }
         if (wall.vents && wall.vents.length > 0) {
@@ -559,6 +585,7 @@ export function draw2D() {
         }
         // --- YENİ KOD SONU ---
     }
+    } // showArch sonu
 
     // 11. Sürükleme/Çizim Geri Bildirimleri
     drawDragPreviews(ctx2d, state, drawDimension);
@@ -590,7 +617,7 @@ export function draw2D() {
 
     // 13. TESİSAT SİSTEMİ (v2) - En üstte render edilir
     // Transform zaten izometrik, plumbingRenderer state.is3DPerspectiveActive'i kullanır
-    plumbingManager.render(ctx2d);
+    if (showPlumbing) plumbingManager.render(ctx2d);
 
     // 14. Referans Çizgileri (Rehberler)
     drawGuides(ctx2d, state);

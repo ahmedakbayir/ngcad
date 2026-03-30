@@ -63,7 +63,8 @@ export function getWindowAtPoint(pos, tolerance) {
             const distPerpendicular = Math.abs(dx_p * (-dy) + dy_p * dx);
             const distParallel = Math.abs(dx_p * dx + dy_p * dy);
 
-             if (distPerpendicular < wallPx / 2 + tolerance && distParallel < window.width / 2 + tolerance) {
+             // Pencerenin sadece orta %50'sinde (%25-%75) pencereyi seç, kenarlarda duvarı seç
+             if (distPerpendicular < wallPx / 2 + tolerance && distParallel < window.width * 0.25) {
                  return { type: "window", object: window, wall: wall, handle: 'body' };
              }
         }

@@ -17,7 +17,7 @@ export function drawNodeWallCount(node) {
 }
 
 // Kapı sembolünü çizer
-export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
+export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHovered = false) {
     const { ctx2d } = dom;
     const { wallBorderColor, lineThickness } = state;
 
@@ -42,7 +42,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
     const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'door');
 
     // Renk belirleme
-    let baseColor = isPreview || isSelected ? "#8ab4f8" : "rgba(128, 128, 128, 0.4)";
+    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "rgba(160, 160, 160, 0.6)" : "rgba(128, 128, 128, 0.4)";
     const color = getAdjustedColor(baseColor, 'door');
 
     // Çizim ayarları
@@ -99,7 +99,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false) {
 }
 
 // --- GÜNCELLENMİŞ Pencere Sembolü Çizimi ---
-export function drawWindowSymbol(wall, window, isPreview = false, isSelected = false) {
+export function drawWindowSymbol(wall, window, isPreview = false, isSelected = false, isHovered = false) {
     const { ctx2d } = dom;
     const { selectedObject, wallBorderColor, lineThickness, zoom } = state; // zoom eklendi
 
@@ -119,7 +119,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const adjustedWindowColor = getAdjustedColor(baseWindowColor, 'window');
 
     // Renk belirleme
-    let baseColor = isPreview || isSelected ? "#8ab4f8" : "rgba(128, 128, 128, 0.4)";
+    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "rgba(160, 160, 160, 0.6)" : "rgba(128, 128, 128, 0.4)";
     const color = getAdjustedColor(baseColor, 'door');
 
     // Çizim ayarları

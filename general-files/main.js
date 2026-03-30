@@ -473,7 +473,10 @@ export let state = {
         showPipeShadows: true,     // Hat Gölgesi
         show3DAxis: true,           // Varsayılan açık
         show3DPipeFrame: true,      // 3D Hat Çerçevesi (varsayılan açık)
-        showPipePath: false
+        showPipePath: false,
+        showJunctionNodes: true,   // Köşe Noktaları (3+ duvar birleşimi)
+        showArchitecture: true,    // Mimari Katman
+        showPlumbing: true,        // Tesisat Katmanı
     },
 };
 

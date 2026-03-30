@@ -3,7 +3,7 @@
 // GÜNCELLENDİ: Merdiven rotasyonu 90° CCW (-90) olarak ayarlandı ve boyutları (en/boy) buna göre düzeltildi.
 
 import { state, setState, dom, VECTORDRAW_AREA_TYPES } from './main.js';
-import { getOrCreateNode, distToSegmentSquared, calculatePlanarArea } from '../draw/geometry.js';
+import { getOrCreateNode, distToSegmentSquared, calculatePlanarArea, findBestLabelPosition } from '../draw/geometry.js';
 import { wallExists } from '../wall/wall-handler.js';
 import { createColumn } from '../architectural-objects/columns.js';
 import { createBeam } from '../architectural-objects/beams.js';
@@ -1367,9 +1367,14 @@ export function importFromXML(xmlString) {
                     // Turf polygon oluştur
                     room.polygon = turf.polygon([turfCoords]);
 
-                    // Center hesapla
-                    const centerPoint = turf.center(room.polygon);
-                    room.center = centerPoint.geometry.coordinates;
+                    // Center hesapla - inscribed rectangle yöntemi
+                    const bestPos = findBestLabelPosition(room.polygon);
+                    if (bestPos) {
+                        room.center = bestPos;
+                    } else {
+                        const centerPoint = turf.center(room.polygon);
+                        room.center = centerPoint.geometry.coordinates;
+                    }
 
                     // Alan hesapla (m²) - Planar area calculation (Shoelace formula)
                     room.area = calculatePlanarArea(room.polygon.geometry.coordinates) / 10000; // cm² to m²

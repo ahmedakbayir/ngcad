@@ -340,18 +340,36 @@ export function detectRooms() {
                     const bboxWidth = bbox[2] - bbox[0];
                     const bboxHeight = bbox[3] - bbox[1];
 
-                    // Yeni mutlak merkezi, orantısal bilgiye göre hesapla
-                    let newCenterX = bbox[0] + bboxWidth * existingRoomCenterOffset.x;
-                    let newCenterY = bbox[1] + bboxHeight * existingRoomCenterOffset.y;
+                    // Kullanıcı özel konum belirlemediyse (varsayılan %50,%50) inscribed rectangle kullan
+                    const isDefaultOffset = existingRoomCenterOffset.x === 0.5 && existingRoomCenterOffset.y === 0.5;
+                    let newCenterX, newCenterY;
 
-                    // Hesaplanan merkez poligon dışında kalırsa (örn: L şeklindeki odalar)
+                    if (isDefaultOffset) {
+                        // En boy oranı 1'e yakın iç dikdörtgenin merkezini bul
+                        const bestPos = findBestLabelPosition(polygon);
+                        if (bestPos) {
+                            [newCenterX, newCenterY] = bestPos;
+                        } else {
+                            newCenterX = bbox[0] + bboxWidth * 0.5;
+                            newCenterY = bbox[1] + bboxHeight * 0.5;
+                        }
+                    } else {
+                        // Kullanıcının kaydettiği orantısal konumu kullan
+                        newCenterX = bbox[0] + bboxWidth * existingRoomCenterOffset.x;
+                        newCenterY = bbox[1] + bboxHeight * existingRoomCenterOffset.y;
+                    }
+
+                    // Hesaplanan merkez yine de poligon dışındaysa fallback
                     const calculatedCenterPoint = turf.point([newCenterX, newCenterY]);
                     if (!turf.booleanPointInPolygon(calculatedCenterPoint, polygon)) {
-                        // Turf'un güvenli merkez bulma fonksiyonunu (pointOnFeature) kullan
-                        const centerOnFeature = turf.pointOnFeature(polygon);
-                        newCenterX = centerOnFeature.geometry.coordinates[0];
-                        newCenterY = centerOnFeature.geometry.coordinates[1];
-                        // Yeni merkeze göre orantıyı yeniden hesapla ve kaydet
+                        const bestPos = findBestLabelPosition(polygon);
+                        if (bestPos) {
+                            [newCenterX, newCenterY] = bestPos;
+                        } else {
+                            const centerOnFeature = turf.pointOnFeature(polygon);
+                            newCenterX = centerOnFeature.geometry.coordinates[0];
+                            newCenterY = centerOnFeature.geometry.coordinates[1];
+                        }
                         if (bboxWidth > 0 && bboxHeight > 0) {
                             existingRoomCenterOffset = {
                                 x: (newCenterX - bbox[0]) / bboxWidth,
@@ -531,4 +549,83 @@ export function reflectPoint(point, axisP1, axisP2) {
     const reflectedY = 2 * projY - point.y;
     
     return { x: reflectedX, y: reflectedY };
+}
+
+/**
+ * Poligon içindeki en uygun etiket konumunu bulur.
+ * En boy oranı 1'e en yakın (kareye yakın) ve alanı büyük olan
+ * iç dikdörtgeni bularak merkezini döndürür.
+ * L-tipi ve düzensiz mahaller için tasarlanmıştır.
+ * @param {object} polygon - Turf.js polygon feature
+ * @returns {[number, number] | null} - [x, y] koordinatları veya null
+ */
+export function findBestLabelPosition(polygon) {
+    const bbox = turf.bbox(polygon);
+    const [minX, minY, maxX, maxY] = bbox;
+    const bboxW = maxX - minX;
+    const bboxH = maxY - minY;
+    if (bboxW < 1 || bboxH < 1) return null;
+
+    const ROWS = 32;
+    const rowH = bboxH / ROWS;
+    const coords = polygon.geometry.coordinates[0];
+
+    // y yüksekliğinde poligonun yatay kesişim aralıklarını döndürür
+    function getSpansAtY(y) {
+        const xs = [];
+        for (let i = 0; i < coords.length - 1; i++) {
+            const [x1, y1] = coords[i];
+            const [x2, y2] = coords[i + 1];
+            if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) {
+                xs.push(x1 + (y - y1) * (x2 - x1) / (y2 - y1));
+            }
+        }
+        xs.sort((a, b) => a - b);
+        const spans = [];
+        for (let i = 0; i + 1 < xs.length; i += 2) spans.push([xs[i], xs[i + 1]]);
+        return spans;
+    }
+
+    // Her satır için aralıkları örnekle
+    const rowSpans = [];
+    for (let i = 0; i < ROWS; i++) {
+        rowSpans.push(getSpansAtY(minY + (i + 0.5) * rowH));
+    }
+
+    let best = null;
+    let bestScore = -1;
+
+    // Ardışık satır gruplarının kesişiminden dikdörtgenler oluştur
+    for (let r0 = 0; r0 < ROWS; r0++) {
+        if (rowSpans[r0].length === 0) continue;
+        let L = -Infinity, R = Infinity;
+
+        for (let r1 = r0; r1 < ROWS; r1++) {
+            const spans = rowSpans[r1];
+            if (spans.length === 0) break;
+
+            // Bu satırın en geniş aralığını al ve mevcut kesişime uygula
+            const [sl, sr] = spans.reduce((a, b) => (b[1] - b[0]) > (a[1] - a[0]) ? b : a);
+            L = L === -Infinity ? sl : Math.max(L, sl);
+            R = R === Infinity ? sr : Math.min(R, sr);
+            if (R <= L) break;
+
+            const w = R - L;
+            const h = (r1 - r0 + 1) * rowH;
+            const cx = (L + R) / 2;
+            const cy = minY + r0 * rowH + h / 2;
+
+            // Alan öncelikli; en boy oranı 0.25'ten küçükse bu dikdörtgeni atla
+            const aspect = Math.min(w, h) / Math.max(w, h);
+            if (aspect < 0.25) continue;
+            const score = w * h;
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = [cx, cy];
+            }
+        }
+    }
+
+    return best;
 }

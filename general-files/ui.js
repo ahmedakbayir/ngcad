@@ -1208,8 +1208,8 @@ export function positionLengthInput() {
     else if (selectedObject.type === "door" || selectedObject.type === "window") { const item = selectedObject.object; const wall = (selectedObject.type === 'door') ? item.wall : selectedObject.wall; if (!wall || !wall.p1 || !wall.p2) return; const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y); if (wallLen < 0.1) return; const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen; midX = wall.p1.x + dx * item.pos; midY = wall.p1.y + dy * item.pos; }
     else { return; }
     const screenPos = worldToScreen(midX, midY);
-    dom.lengthInput.style.left = `${screenPos.x} px`;
-    dom.lengthInput.style.top = `${screenPos.y - 20} px`;
+    dom.lengthInput.style.left = `${screenPos.x}px`;
+    dom.lengthInput.style.top = `${screenPos.y - 20}px`;
 }
 
 // Uzunluk düzenlemeyi başlatma
@@ -1777,7 +1777,10 @@ function setupVisibilityPanel() {
         shadow: 'vis-chk-shadow',
         axis: 'vis-chk-axis',
         pipeFrame: 'vis-chk-pipe-frame',
-        path: 'vis-chk-path'
+        path: 'vis-chk-path',
+        junctions: 'vis-chk-junctions',
+        arch: 'vis-chk-arch',
+        plumbing: 'vis-chk-plumbing'
     };
 
     // State'i güncelle ve sahneyi yeniden çiz
@@ -1807,6 +1810,9 @@ function setupVisibilityPanel() {
     document.getElementById(ids.axis)?.addEventListener('change', (e) => updateVisibility('show3DAxis', e.target.checked));
     document.getElementById(ids.pipeFrame)?.addEventListener('change', (e) => updateVisibility('show3DPipeFrame', e.target.checked));
     document.getElementById(ids.path)?.addEventListener('change', (e) => updateVisibility('showPipePath', e.target.checked));
+    document.getElementById(ids.junctions)?.addEventListener('change', (e) => updateVisibility('showJunctionNodes', e.target.checked));
+    document.getElementById(ids.arch)?.addEventListener('change', (e) => updateVisibility('showArchitecture', e.target.checked));
+    document.getElementById(ids.plumbing)?.addEventListener('change', (e) => updateVisibility('showPlumbing', e.target.checked));
     // Hepsini Göster
     document.getElementById('vis-btn-show-all')?.addEventListener('click', () => {
         Object.values(ids).forEach(id => {
@@ -1840,7 +1846,10 @@ function setupVisibilityPanel() {
             'vis-chk-shadow': 'showPipeShadows',
             'vis-chk-axis': 'show3DAxis',
             'vis-chk-pipe-frame': 'show3DPipeFrame',
-            'vis-chk-path': 'showPipePath'
+            'vis-chk-path': 'showPipePath',
+            'vis-chk-junctions': 'showJunctionNodes',
+            'vis-chk-arch': 'showArchitecture',
+            'vis-chk-plumbing': 'showPlumbing'
         };
         const elId = ids[key];
         const stateKey = stateKeyMap[elId];
