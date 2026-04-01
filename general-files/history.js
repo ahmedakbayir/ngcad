@@ -63,6 +63,7 @@ export function saveState() {
         })))),
         
         plumbingBlocks: JSON.parse(JSON.stringify(state.plumbingBlocks || [])),
+        plumbingNodes: JSON.parse(JSON.stringify(state.plumbingNodes || [])),
         plumbingPipes: (state.plumbingPipes || []).map(p => {
             if (!p.connections) {
                 return JSON.parse(JSON.stringify(p));
@@ -260,6 +261,7 @@ export function restoreState(snapshot) {
         })),
 
         plumbingBlocks: restoredPlumbingBlocks,
+        plumbingNodes: snapshot.plumbingNodes || [],
         plumbingPipes: restoredPlumbingPipes,
 
         guides: snapshot.guides || [],

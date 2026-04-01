@@ -199,6 +199,8 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
     // Listeyi güncelle
     const idx = interactionManager.manager.pipes.findIndex(p => p.id === pipe.id);
     if (idx !== -1) interactionManager.manager.pipes.splice(idx, 1);
+    interactionManager.manager.registerPipeNodes(boru1);
+    interactionManager.manager.registerPipeNodes(boru2);
     interactionManager.manager.pipes.push(boru1, boru2);
 
     // --- ÇOCUKLARI KURTARMA (ÖNEMLİ!) ---
@@ -313,8 +315,16 @@ export function handleBoruClick(interactionManager, point) {
     }
     // ...
 
-//    console.log('🔧 createBoru çağrılıyor:', { p1: interactionManager.boruBaslangic.nokta, p2: point });
-    const boru = createBoru(interactionManager.boruBaslangic.nokta, point, 'STANDART');
+    // Düğüm paylaşımı: başlangıç ve bitiş noktalarında mevcut düğüm varsa onu kullan.
+    // Bu sayede borular ortak köşe noktasını paylaşır — tolerans taramasına gerek kalmaz.
+    const mgr = interactionManager.manager;
+    const startNode = mgr.getOrCreateNodeAt(
+        interactionManager.boruBaslangic.nokta.x,
+        interactionManager.boruBaslangic.nokta.y,
+        interactionManager.boruBaslangic.nokta.z || 0
+    );
+    const endNode = mgr.getOrCreateNodeAt(point.x, point.y, point.z || 0);
+    const boru = createBoru(startNode, endNode, 'STANDART');
     boru.floorId = state.currentFloorId;
     boru.colorGroup = interactionManager.boruBaslangic.kaynakColorGroup || 'YELLOW';
 
@@ -334,6 +344,7 @@ export function handleBoruClick(interactionManager, point) {
         }
     }
 
+    mgr.registerPipeNodes(boru);
     interactionManager.manager.pipes.push(boru);
 
     if (interactionManager.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC) {

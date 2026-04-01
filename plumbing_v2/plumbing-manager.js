@@ -18,6 +18,7 @@ export class PlumbingManager {
     constructor() {
         this.pipes = [];
         this.components = []; // Servis kutusu, sayaç, vana, cihaz
+        this.nodes = new Map(); // nodeId -> { _nodeId, x, y, z }
         this.activeTool = null;
         this.tempComponent = null; // Ghost eleman
 
@@ -34,6 +35,43 @@ export class PlumbingManager {
     static getInstance() {
         return window.plumbingManager || new PlumbingManager();
     }
+
+    // ─── DÜĞÜM (NODE) YÖNETİMİ ───────────────────────────────────────────────
+
+    /** Yeni düğüm oluştur ve nodes map'e kaydet */
+    createNode(x, y, z = 0) {
+        const node = { _nodeId: `n_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`, x, y, z };
+        this.nodes.set(node._nodeId, node);
+        return node;
+    }
+
+    /**
+     * Verilen koordinata zaten bir düğüm varsa onu döndür, yoksa yeni oluştur.
+     * Bu sayede iki boru aynı noktada buluştuğunda otomatik olarak aynı nesneyi paylaşır.
+     */
+    getOrCreateNodeAt(x, y, z = 0, tol = 0.5) {
+        for (const node of this.nodes.values()) {
+            if (Math.hypot(node.x - x, node.y - y, (node.z || 0) - (z || 0)) < tol) {
+                return node;
+            }
+        }
+        return this.createNode(x, y, z);
+    }
+
+    /** Bir borunun iki düğümünü map'e kaydet (yoksa ekle) */
+    registerPipeNodes(pipe) {
+        if (!this.nodes.has(pipe.p1NodeId)) this.nodes.set(pipe.p1NodeId, pipe.p1);
+        if (!this.nodes.has(pipe.p2NodeId)) this.nodes.set(pipe.p2NodeId, pipe.p2);
+    }
+
+    /** Belirli bir düğümü kullanan borular (excludePipe hariç) */
+    getPipesAtNode(node, excludePipe = null) {
+        return this.pipes.filter(p =>
+            p !== excludePipe && (p.p1 === node || p.p2 === node)
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     init() {
         // Düşey panel event listener'larını başlat
@@ -240,6 +278,15 @@ export class PlumbingManager {
      * State'e kaydet
      */
     saveToState() {
+        // Tüm boru düğümlerini topla ve kaydet
+        const nodeMap = new Map();
+        this.pipes.forEach(pipe => {
+            nodeMap.set(pipe.p1NodeId, pipe.p1);
+            nodeMap.set(pipe.p2NodeId, pipe.p2);
+        });
+        state.plumbingNodes = Array.from(nodeMap.values()).map(n => ({
+            _nodeId: n._nodeId, x: n.x, y: n.y, z: n.z || 0
+        }));
         state.plumbingPipes = this.pipes.map(p => p.toJSON());
         state.plumbingBlocks = this.components.map(c => c.toJSON());
     }
@@ -248,15 +295,34 @@ export class PlumbingManager {
      * State'den yükle
      */
     loadFromState() {
-        // DEBUG: Track when state is loaded (this might be corrupting positions!)
-        // console.log('═'.repeat(80));
-        // console.log('[CRITICAL] loadFromState() CALLED - Pipes being reloaded from state!');
-        // console.log('  Stack trace:', new Error().stack);
-        // console.log('═'.repeat(80));
+        // Düğümleri yükle (yeni format)
+        this.nodes = new Map();
+        if (state.plumbingNodes) {
+            state.plumbingNodes.forEach(n => {
+                const node = { _nodeId: n._nodeId, x: n.x, y: n.y, z: n.z || 0 };
+                this.nodes.set(node._nodeId, node);
+            });
+        }
 
         // Boruları yükle
         if (state.plumbingPipes) {
-            this.pipes = state.plumbingPipes.map(data => Boru.fromJSON(data));
+            this.pipes = state.plumbingPipes.map(data => {
+                let node1, node2;
+                if (data.p1NodeId && data.p2NodeId &&
+                    this.nodes.has(data.p1NodeId) && this.nodes.has(data.p2NodeId)) {
+                    // Yeni format: düğümler hazır
+                    node1 = this.nodes.get(data.p1NodeId);
+                    node2 = this.nodes.get(data.p2NodeId);
+                } else {
+                    // Eski format: koordinatlardan düğüm bul/oluştur (0.5cm tolerans ile otomatik birleştir)
+                    node1 = this.getOrCreateNodeAt(data.p1.x, data.p1.y, data.p1.z || 0);
+                    node2 = this.getOrCreateNodeAt(data.p2.x, data.p2.y, data.p2.z || 0);
+                }
+                const boru = Boru.fromJSON(data, node1, node2);
+                this.nodes.set(boru.p1NodeId, boru.p1);
+                this.nodes.set(boru.p2NodeId, boru.p2);
+                return boru;
+            });
         }
 
         // Bileşenleri yükle
@@ -537,7 +603,13 @@ export class PlumbingManager {
      * JSON'a dönüştür
      */
     toJSON() {
+        const nodeMap = new Map();
+        this.pipes.forEach(pipe => {
+            nodeMap.set(pipe.p1NodeId, pipe.p1);
+            nodeMap.set(pipe.p2NodeId, pipe.p2);
+        });
         return {
+            nodes: Array.from(nodeMap.values()).map(n => ({ _nodeId: n._nodeId, x: n.x, y: n.y, z: n.z || 0 })),
             pipes: this.pipes.map(p => p.toJSON()),
             components: this.components.map(c => c.toJSON())
         };
@@ -547,8 +619,27 @@ export class PlumbingManager {
      * JSON'dan yükle
      */
     fromJSON(data) {
+        // Düğümleri yükle
+        this.nodes = new Map();
+        if (data.nodes) {
+            data.nodes.forEach(n => {
+                const node = { _nodeId: n._nodeId, x: n.x, y: n.y, z: n.z || 0 };
+                this.nodes.set(node._nodeId, node);
+            });
+        }
+
         if (data.pipes) {
-            this.pipes = data.pipes.map(p => Boru.fromJSON(p));
+            this.pipes = data.pipes.map(pData => {
+                let node1, node2;
+                if (pData.p1NodeId && this.nodes.has(pData.p1NodeId)) {
+                    node1 = this.nodes.get(pData.p1NodeId);
+                    node2 = this.nodes.get(pData.p2NodeId);
+                } else {
+                    node1 = this.getOrCreateNodeAt(pData.p1.x, pData.p1.y, pData.p1.z || 0);
+                    node2 = this.getOrCreateNodeAt(pData.p2.x, pData.p2.y, pData.p2.z || 0);
+                }
+                return Boru.fromJSON(pData, node1, node2);
+            });
         }
 
         if (data.components) {

@@ -121,9 +121,23 @@ export class Boru {
         this.type = 'boru';
         this.boruTipi = tip;
 
-        // Uç noktalar
-        this.p1 = { x: p1.x, y: p1.y, z: p1.z || 0 };
-        this.p2 = { x: p2.x, y: p2.y, z: p2.z || 0 };
+        // Uç noktalar — DÜĞÜM referansları.
+        // Eğer gelen nesne bir düğümse (id alanı var) doğrudan kullan (paylaşılan referans).
+        // Yoksa yeni bir düğüm nesnesi oluştur.
+        if (p1 && p1._nodeId !== undefined) {
+            this.p1 = p1;
+            this.p1NodeId = p1._nodeId;
+        } else {
+            this.p1 = { _nodeId: `n_${Date.now()}_${Math.random().toString(36).substr(2,6)}`, x: (p1 && p1.x) || 0, y: (p1 && p1.y) || 0, z: (p1 && p1.z) || 0 };
+            this.p1NodeId = this.p1._nodeId;
+        }
+        if (p2 && p2._nodeId !== undefined) {
+            this.p2 = p2;
+            this.p2NodeId = p2._nodeId;
+        } else {
+            this.p2 = { _nodeId: `n_${Date.now()}_${Math.random().toString(36).substr(2,6)}`, x: (p2 && p2.x) || 0, y: (p2 && p2.y) || 0, z: (p2 && p2.z) || 0 };
+            this.p2NodeId = this.p2._nodeId;
+        }
 
         // // Z koordinatı kontrolü (debug)
         // if (this.p1.z !== 0 || this.p2.z !== 0) {
@@ -311,11 +325,12 @@ export class Boru {
         if (!proj || !proj.onSegment) return null;
 
         // Z değeri interpolate ediliyor (3D destek)
-        const splitPoint = { x: proj.x, y: proj.y, z: proj.z };
+        // Ortak düğüm nesnesi oluştur: boru1.p2 === boru2.p1 (aynı referans)
+        const splitNode = { _nodeId: `n_${Date.now()}_${Math.random().toString(36).substr(2,6)}`, x: proj.x, y: proj.y, z: proj.z };
 
         // İki yeni boru oluştur
-        const boru1 = new Boru(this.p1, splitPoint, this.boruTipi);
-        const boru2 = new Boru(splitPoint, this.p2, this.boruTipi);
+        const boru1 = new Boru(this.p1, splitNode, this.boruTipi);
+        const boru2 = new Boru(splitNode, this.p2, this.boruTipi);
 
         // Özellikleri kopyala
         boru1.floorId = this.floorId;
@@ -375,7 +390,7 @@ export class Boru {
             }
         }
 
-        return { boru1, boru2, splitPoint, splitT: proj.t };
+        return { boru1, boru2, splitPoint: splitNode, splitT: proj.t };
     }
 
     /**
@@ -520,8 +535,11 @@ export class Boru {
             type: this.type,
             boruTipi: this.boruTipi,
             colorGroup: this.colorGroup,
-            p1: { ...this.p1 },
-            p2: { ...this.p2 },
+            p1NodeId: this.p1NodeId,
+            p2NodeId: this.p2NodeId,
+            // Koordinatları da sakla: geriye dönük uyumluluk + düğüm map'inde aramanın yanı sıra kontrol
+            p1: { x: this.p1.x, y: this.p1.y, z: this.p1.z || 0 },
+            p2: { x: this.p2.x, y: this.p2.y, z: this.p2.z || 0 },
             floorId: this.floorId,
             baslangicBaglanti: { ...this.baslangicBaglanti },
             bitisBaglanti: { ...this.bitisBaglanti },
@@ -532,12 +550,14 @@ export class Boru {
     }
 
     /**
-     * Deserialize
+     * Deserialize — node1/node2: manager.nodes'dan gelen paylaşılan düğüm nesneleri
      */
-    static fromJSON(data) {
-        const boru = new Boru(data.p1, data.p2, data.boruTipi);
+    static fromJSON(data, node1 = null, node2 = null) {
+        const p1 = node1 || data.p1;
+        const p2 = node2 || data.p2;
+        const boru = new Boru(p1, p2, data.boruTipi);
         boru.id = data.id;
-        boru.colorGroup = data.colorGroup || 'YELLOW'; // Varsayılan: Sarı (geriye dönük uyumluluk)
+        boru.colorGroup = data.colorGroup || 'YELLOW';
         boru.floorId = data.floorId;
         boru.baslangicBaglanti = data.baslangicBaglanti || { tip: null, hedefId: null, noktaIndex: null };
         boru.bitisBaglanti = data.bitisBaglanti || { tip: null, hedefId: null, noktaIndex: null };

@@ -11,7 +11,6 @@ import { getObjectsOnPipe } from './placement-utils.js';
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
-import { findVerticalPipeChain, findAlignedPipeChain } from './finders.js';
 
 export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null, skipBostaUcCheck = false) {
     const TOLERANCE = 10;
@@ -161,26 +160,9 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
 
     interactionManager.snapSystem.setStartPoint(draggedPoint, pipe.id);
 
-    const connectedMeter = interactionManager.manager.components.find(c =>
-        c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === endpoint
-    );
-
-    let excludePipes = [pipe];
-    if (connectedMeter && connectedMeter.cikisBagliBoruId) {
-        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
-        if (cikisBoru) excludePipes.push(cikisBoru);
-    }
-
-    const connectedPipes = [];
-    interactionManager.manager.pipes.forEach(p => {
-        if (excludePipes.includes(p)) return;
-        const distToP1 = Math.hypot(p.p1.x - draggedPoint.x, p.p1.y - draggedPoint.y, (p.p1.z || 0) - (draggedPoint.z || 0));
-        const distToP2 = Math.hypot(p.p2.x - draggedPoint.x, p.p2.y - draggedPoint.y, (p.p2.z || 0) - (draggedPoint.z || 0));
-        if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipes.push({ pipe: p, endpoint: 'p2' });
-    });
-
-    interactionManager.connectedPipesAtEndpoint = connectedPipes;
+    // Düğüm paylaşımı sayesinde connectedPipesAtEndpoint taramasına gerek yok:
+    // draggedPoint bir düğüm nesnesidir; taşındığında onu paylaşan tüm borular otomatik güncellenir.
+    interactionManager.connectedPipesAtEndpoint = null;
 }
 
 export function startDrag(interactionManager, obj, point) {
@@ -280,119 +262,36 @@ export function startBodyDrag(interactionManager, pipe, point) {
 
  //   console.log(`🔧 Gövde taşıma: Boru ${interactionManager.bodyDragPrimaryAxis} ekseninde uzanıyor`);
 
-    // --- BORU ZİNCİRİ KONTROLÜ (DÜŞEY VE YATAY) ---
-    // Aynı eksende uzanan ve uç-uca bağlı tüm boruları zincir olarak bul
-    const alignedChain = findAlignedPipeChain(interactionManager.manager, pipe, interactionManager.bodyDragPrimaryAxis);
-
-    if (alignedChain.length > 1) {
-        // Zincirdeki her borunun başlangıç pozisyonlarını kaydet
-        interactionManager.alignedPipeChain = alignedChain.map(p => ({
-            pipe: p,
-            initialP1: { ...p.p1 },
-            initialP2: { ...p.p2 }
-        }));
-
-        // Zincirdeki her borunun bağlantılarını topla (zincir içindeki borular hariç)
-        const chainPipeIds = new Set(alignedChain.map(p => p.id));
-        const allChainConnections = [];
-
-        alignedChain.forEach(chainPipe => {
-            // p1'e bağlı borular
-            interactionManager.manager.pipes.forEach(otherPipe => {
-                if (chainPipeIds.has(otherPipe.id)) return; // Zincir içi hariç
-                const distToP1 = Math.hypot(otherPipe.p1.x - chainPipe.p1.x, otherPipe.p1.y - chainPipe.p1.y, (otherPipe.p1.z || 0) - (chainPipe.p1.z || 0));
-                const distToP2 = Math.hypot(otherPipe.p2.x - chainPipe.p1.x, otherPipe.p2.y - chainPipe.p1.y, (otherPipe.p2.z || 0) - (chainPipe.p1.z || 0));
-                if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
-                    allChainConnections.push({ pipe: otherPipe, endpoint: 'p1', connectedTo: { pipe: chainPipe, point: 'p1' } });
-                }
-                if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
-                    allChainConnections.push({ pipe: otherPipe, endpoint: 'p2', connectedTo: { pipe: chainPipe, point: 'p1' } });
-                }
-            });
-
-            // p2'ye bağlı borular
-            interactionManager.manager.pipes.forEach(otherPipe => {
-                if (chainPipeIds.has(otherPipe.id)) return; // Zincir içi hariç
-                const distToP1 = Math.hypot(otherPipe.p1.x - chainPipe.p2.x, otherPipe.p1.y - chainPipe.p2.y, (otherPipe.p1.z || 0) - (chainPipe.p2.z || 0));
-                const distToP2 = Math.hypot(otherPipe.p2.x - chainPipe.p2.x, otherPipe.p2.y - chainPipe.p2.y, (otherPipe.p2.z || 0) - (chainPipe.p2.z || 0));
-                if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
-                    allChainConnections.push({ pipe: otherPipe, endpoint: 'p1', connectedTo: { pipe: chainPipe, point: 'p2' } });
-                }
-                if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) {
-                    allChainConnections.push({ pipe: otherPipe, endpoint: 'p2', connectedTo: { pipe: chainPipe, point: 'p2' } });
-                }
-            });
-        });
-
-        interactionManager.alignedChainConnections = allChainConnections;
-
-   //     console.log(`🔗 ${interactionManager.bodyDragPrimaryAxis} ekseni boru zinciri bulundu: ${alignedChain.length} boru, ${allChainConnections.length} bağlantı`);
-    } else {
-        interactionManager.alignedPipeChain = null;
-        interactionManager.alignedChainConnections = null;
-    }
-    // -----------------------------------
+    // Zincir mantığı kaldırıldı: sürüklenen borunun SADECE kendi p1/p2 düğümleri taşınır.
+    // O düğümleri paylaşan komşu borular node sharing sayesinde otomatik gerilir;
+    // komşu boruların dış uç noktaları hiç hareket etmez.
+    interactionManager.alignedPipeChain = null;
+    interactionManager.alignedChainConnections = null;
 
     if (!window.__lastDraggedPipe) window.__lastDraggedPipe = { pipe: null, positions: null };
 
-    const connectedMeterForBody = interactionManager.manager.components.find(c =>
-        c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id
-    );
-
-    let excludePipesForBody = [pipe];
-    if (connectedMeterForBody && connectedMeterForBody.cikisBagliBoruId) {
-        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeterForBody.cikisBagliBoruId);
-        if (cikisBoru) excludePipesForBody.push(cikisBoru);
-    }
-
-    const connectedPipesAtP1 = [];
-    const connectedPipesAtP2 = [];
-
-    interactionManager.manager.pipes.forEach(p => {
-        if (excludePipesForBody.includes(p)) return;
-        const distToP1FromP1 = Math.hypot(p.p1.x - pipe.p1.x, p.p1.y - pipe.p1.y, (p.p1.z || 0) - (pipe.p1.z || 0));
-        const distToP2FromP1 = Math.hypot(p.p2.x - pipe.p1.x, p.p2.y - pipe.p1.y, (p.p2.z || 0) - (pipe.p1.z || 0));
-        if (distToP1FromP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP1.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2FromP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP1.push({ pipe: p, endpoint: 'p2' });
-
-        const distToP1FromP2 = Math.hypot(p.p1.x - pipe.p2.x, p.p1.y - pipe.p2.y, (p.p1.z || 0) - (pipe.p2.z || 0));
-        const distToP2FromP2 = Math.hypot(p.p2.x - pipe.p2.x, p.p2.y - pipe.p2.y, (p.p2.z || 0) - (pipe.p2.z || 0));
-        if (distToP1FromP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP2.push({ pipe: p, endpoint: 'p1' });
-        if (distToP2FromP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) connectedPipesAtP2.push({ pipe: p, endpoint: 'p2' });
-    });
-
-    interactionManager.connectedPipesAtP1 = connectedPipesAtP1;
-    interactionManager.connectedPipesAtP2 = connectedPipesAtP2;
+    // Düğüm paylaşımı sayesinde connectedPipesAtP1/P2 listesine gerek yok:
+    // pipe.p1 ve pipe.p2 birer düğüm nesnesidir; koordinatları değişince
+    // aynı düğümü paylaşan tüm diğer borular otomatik olarak güncellenir.
+    interactionManager.connectedPipesAtP1 = [];
+    interactionManager.connectedPipesAtP2 = [];
     interactionManager.meterConnectedPipesAtOutput = null;
 
-    if (connectedMeterForBody && connectedMeterForBody.cikisBagliBoruId) {
-        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeterForBody.cikisBagliBoruId);
-        if (cikisBoru) {
-            const excludePipes = [cikisBoru, pipe];
-            const outputConnectedPipes = [];
-            interactionManager.manager.pipes.forEach(p => {
-                if (excludePipes.includes(p)) return;
-                const distToP1 = Math.hypot(p.p1.x - cikisBoru.p1.x, p.p1.y - cikisBoru.p1.y, (p.p1.z || 0) - (cikisBoru.p1.z || 0));
-                const distToP2 = Math.hypot(p.p2.x - cikisBoru.p1.x, p.p2.y - cikisBoru.p1.y, (p.p2.z || 0) - (cikisBoru.p1.z || 0));
-                if (distToP1 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p1' });
-                if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
-            });
-            interactionManager.meterConnectedPipesAtOutput = outputConnectedPipes;
-        }
-    }
-
+    // useBridgeMode: p1 ve p2'nin her birinde tam olarak 1 başka boru bağlıysa
+    // ve üçü sıralı/hizalıysa köprü modu aktif olur.
     interactionManager.useBridgeMode = false;
+    const connAtP1 = interactionManager.manager.getPipesAtNode(pipe.p1, pipe);
+    const connAtP2 = interactionManager.manager.getPipesAtNode(pipe.p2, pipe);
 
-    if (interactionManager.connectedPipesAtP1.length === 1 && interactionManager.connectedPipesAtP2.length === 1) {
-        const pipeA = interactionManager.connectedPipesAtP1[0].pipe;
-        const pipeC = interactionManager.connectedPipesAtP2[0].pipe;
-        const p1OfA = (Math.hypot(pipeA.p1.x - pipe.p1.x, pipeA.p1.y - pipe.p1.y, (pipeA.p1.z || 0) - (pipe.p1.z || 0)) < 1) ? pipeA.p2 : pipeA.p1;
-        const p2OfC = (Math.hypot(pipeC.p1.x - pipe.p2.x, pipeC.p1.y - pipe.p2.y, (pipeC.p1.z || 0) - (pipe.p2.z || 0)) < 1) ? pipeC.p2 : pipeC.p1;
+    if (connAtP1.length === 1 && connAtP2.length === 1) {
+        const pipeA = connAtP1[0];
+        const pipeC = connAtP2[0];
+        const p1OfA = (pipeA.p1 === pipe.p1) ? pipeA.p2 : pipeA.p1;
+        const p2OfC = (pipeC.p1 === pipe.p2) ? pipeC.p2 : pipeC.p1;
 
-        const p1 = p1OfA; const p2 = pipe.p1; const p3 = pipe.p2; const p4 = p2OfC;
-        const v1 = { x: p2.x - p1.x, y: p2.y - p1.y };
-        const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
-        const v3 = { x: p4.x - p3.x, y: p4.y - p3.y };
+        const v1 = { x: pipe.p1.x - p1OfA.x, y: pipe.p1.y - p1OfA.y };
+        const v2 = { x: pipe.p2.x - pipe.p1.x, y: pipe.p2.y - pipe.p1.y };
+        const v3 = { x: p2OfC.x - pipe.p2.x, y: p2OfC.y - pipe.p2.y };
         const len1 = Math.hypot(v1.x, v1.y);
         const len2 = Math.hypot(v2.x, v2.y);
         const len3 = Math.hypot(v3.x, v3.y);
@@ -404,8 +303,7 @@ export function startBodyDrag(interactionManager, pipe, point) {
             const dot12 = dir1.x * dir2.x + dir1.y * dir2.y;
             const dot23 = dir2.x * dir3.x + dir2.y * dir3.y;
             const ANGLE_TOLERANCE = 0.94;
-            const isColinear = Math.abs(dot12) > ANGLE_TOLERANCE && Math.abs(dot23) > ANGLE_TOLERANCE && Math.sign(dot12) === Math.sign(dot23);
-            interactionManager.useBridgeMode = isColinear;
+            interactionManager.useBridgeMode = Math.abs(dot12) > ANGLE_TOLERANCE && Math.abs(dot23) > ANGLE_TOLERANCE && Math.sign(dot12) === Math.sign(dot23);
         }
     }
 
@@ -533,8 +431,8 @@ export function handleDrag(interactionManager, point, event = null) {
             let minDist = distX;
 
             // Body drag için: Borunun uzandığı eksen hariç diğer 2 eksen arasından seç
-            // Boru zinciri hariç (onlar serbest hareket eder)
-            if (interactionManager.isBodyDrag && interactionManager.bodyDragPrimaryAxis && !interactionManager.alignedPipeChain) {
+            // Zincir de dahil — zincirdeki borular da kendi eksenlerine dik hareket eder
+            if (interactionManager.isBodyDrag && interactionManager.bodyDragPrimaryAxis) {
                 const primaryAxis = interactionManager.bodyDragPrimaryAxis;
 
                 if (primaryAxis === 'X') {
@@ -850,53 +748,38 @@ export function handleDrag(interactionManager, point, event = null) {
                 });
             }
 
-            // --- ⚡ CTRL İLE ENDPOINT TAŞIMA (DÜZELTİLMİŞ) ⚡ ---
+            // --- ⚡ CTRL İLE ENDPOINT TAŞIMA ⚡ ---
             if (event && event.ctrlKey) {
-                // 1. Delta hesapla
                 const dx = finalPos.x - oldPoint.x;
                 const dy = finalPos.y - oldPoint.y;
                 const dz = (finalPos.z || 0) - (oldPoint.z || 0);
 
-                // 2. Ağacı bul (Bağlı boruları kullanarak)
-                // interactionManager.connectedPipesAtEndpoint: Sürükleme başladığında belirlenen,
-                // bu noktaya bağlı boruların listesidir. 
-                // Bu liste henüz hareket etmemiş boruları içerir.
-                const startPipes = (interactionManager.connectedPipesAtEndpoint || []).map(cp => cp.pipe);
+                // Taşınan düğüm (pipe.p1 veya pipe.p2) zaten finalPos'a taşındı.
+                // O düğümden downstream ulaşılabilen tüm düğümleri aynı delta ile taşı.
+                // "Öncesi" borular node sharing sayesinde otomatik gerilir — burada dokunmuyoruz.
+                const draggedNode = interactionManager.dragEndpoint === 'p1' ? pipe.p1 : pipe.p2;
+                const downstreamNodes = collectDownstreamNodes(interactionManager.manager, [draggedNode], pipe);
+                downstreamNodes.forEach(node => {
+                    node.x += dx; node.y += dy; node.z = (node.z || 0) + dz;
+                });
 
-                if (startPipes.length > 0) {
-                    // Recursive olarak tüm ağacı bul (Sürüklenen ana boru hariç)
-                    const tree = getRecursiveConnectedObjects(interactionManager.manager, startPipes, [pipe.id]);
-                    
-                    // Ağaçtaki tüm elemanları taşı
-                    tree.pipes.forEach(p => {
-                        p.p1.x += dx; p.p1.y += dy; p.p1.z = (p.p1.z || 0) + dz;
-                        p.p2.x += dx; p.p2.y += dy; p.p2.z = (p.p2.z || 0) + dz;
-                    });
-                    
-                    tree.components.forEach(c => {
-                        if (c.type === 'vana') {
-                             c.x += dx; c.y += dy; c.z = (c.z || 0) + dz;
-                        } else if (c.type === 'sayac' || c.type === 'cihaz' || c.type === 'servis_kutusu') {
-                             c.x += dx; c.y += dy; c.z = (c.z || 0) + dz;
-                             
-                             // Cihaz bacalarını da taşı
-                             if (c.type === 'cihaz') {
-                                 const bacalar = interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
-                                 bacalar.forEach(baca => {
-                                    baca.startX += dx; baca.startY += dy; baca.z = (baca.z || 0) + dz;
-                                    baca.currentSegmentStart.x += dx; baca.currentSegmentStart.y += dy; baca.currentSegmentStart.z = (baca.currentSegmentStart.z || 0) + dz;
-                                    baca.segments.forEach(seg => {
-                                        seg.x1 += dx; seg.y1 += dy; seg.z1 = (seg.z1 || 0) + dz;
-                                        seg.x2 += dx; seg.y2 += dy; seg.z2 = (seg.z2 || 0) + dz;
-                                    });
-                                    if(baca.havalandirma) {
-                                        baca.havalandirma.x += dx; baca.havalandirma.y += dy;
-                                    }
-                                 });
-                             }
+                // Downstream pipe'ların üzerindeki component'leri taşı
+                const downstreamPipes = collectDownstreamPipes(interactionManager.manager, [draggedNode], pipe);
+                downstreamPipes.forEach(p => {
+                    interactionManager.manager.components.forEach(c => {
+                        if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
+                        c.x += dx; c.y += dy; c.z = (c.z || 0) + dz;
+                        if (c.type === 'cihaz') {
+                            const bacalar = interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
+                            bacalar.forEach(baca => {
+                                baca.startX += dx; baca.startY += dy;
+                                baca.currentSegmentStart.x += dx; baca.currentSegmentStart.y += dy;
+                                baca.segments.forEach(seg => { seg.x1 += dx; seg.y1 += dy; seg.x2 += dx; seg.y2 += dy; });
+                                if (baca.havalandirma) { baca.havalandirma.x += dx; baca.havalandirma.y += dy; }
+                            });
                         }
                     });
-                }
+                });
             } else {
                 // CTRL basılı DEĞİLSE standart esneme davranışı
                 if (interactionManager.connectedPipesAtEndpoint && interactionManager.connectedPipesAtEndpoint.length > 0) {
@@ -1099,9 +982,16 @@ export function handleDrag(interactionManager, point, event = null) {
         let offsetY = deltaY;
         let offsetZ = deltaZ;
 
-        // --- CTRL İLE GÖVDE TAŞIMA: TAM AĞAÇ HAREKETİ ---
+        // Eksen kısıtlaması: 2D modda CTRL'dan önce uygula (her iki durumu da kapsar).
+        // 3D modda correctedPoint üzerinden zaten uygulandı.
+        if (t < 0.1 && interactionManager.bodyDragPrimaryAxis) {
+            const primary = interactionManager.bodyDragPrimaryAxis;
+            if (primary === 'X') offsetX = 0;
+            else if (primary === 'Y') offsetY = 0;
+        }
+
+        // --- CTRL İLE GÖVDE TAŞIMA ---
         if (event && event.ctrlKey) {
-            // Yeni hedef noktaları hesapla
             const newP1 = {
                 x: interactionManager.bodyDragInitialP1.x + offsetX,
                 y: interactionManager.bodyDragInitialP1.y + offsetY,
@@ -1113,117 +1003,88 @@ export function handleDrag(interactionManager, point, event = null) {
                 z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZ
             };
 
-            // Frame Delta (Bu karedeki değişim)
+            // Pipe henüz hareket etmeden ÖNCE downstream düğümleri topla.
+            // Per-frame delta: pipe henüz hareket etmeden ÖNCE mevcut pozisyondan hesapla.
+            // offsetX/offsetY total offset olduğu için her kareye eklenemez.
             const frameDx = newP1.x - pipe.p1.x;
             const frameDy = newP1.y - pipe.p1.y;
             const frameDz = newP1.z - (pipe.p1.z || 0);
 
-            // Borunun mevcut iki ucuna bağlı olan TÜM elemanları bul ve ağacı kur
-            // (Burada boru henüz hareket etmediği için geometrik kontroller çalışır)
-            const startPipes = [];
-            const tolerance = 1;
-            
-            interactionManager.manager.pipes.forEach(otherPipe => {
-                if (otherPipe.id === pipe.id) return;
+            // Downstream düğümleri ve pipe'ları pipe taşınmadan ÖNCE topla
+            const downstreamNodesFromP1 = collectDownstreamNodes(interactionManager.manager, [pipe.p1], pipe);
+            const downstreamNodesFromP2 = collectDownstreamNodes(interactionManager.manager, [pipe.p2], pipe);
+            const downstreamPipesFromP1 = collectDownstreamPipes(interactionManager.manager, [pipe.p1], pipe);
+            const downstreamPipesFromP2 = collectDownstreamPipes(interactionManager.manager, [pipe.p2], pipe);
 
-                // p1'e bağlı olanlar
-                const d1_1 = Math.hypot(otherPipe.p1.x - pipe.p1.x, otherPipe.p1.y - pipe.p1.y, (otherPipe.p1.z || 0) - (pipe.p1.z || 0));
-                const d1_2 = Math.hypot(otherPipe.p2.x - pipe.p1.x, otherPipe.p2.y - pipe.p1.y, (otherPipe.p2.z || 0) - (pipe.p1.z || 0));
-                // p2'ye bağlı olanlar
-                const d2_1 = Math.hypot(otherPipe.p1.x - pipe.p2.x, otherPipe.p1.y - pipe.p2.y, (otherPipe.p1.z || 0) - (pipe.p2.z || 0));
-                const d2_2 = Math.hypot(otherPipe.p2.x - pipe.p2.x, otherPipe.p2.y - pipe.p2.y, (otherPipe.p2.z || 0) - (pipe.p2.z || 0));
-
-                if (d1_1 < tolerance || d1_2 < tolerance || d2_1 < tolerance || d2_2 < tolerance) {
-                    startPipes.push(otherPipe);
-                }
-            });
-
-            // Sürüklenen borunun kendisini taşı
+            // Sürüklenen boruyu taşı (node sharing: önceki borular gerilir)
             pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
             pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
-            
-            // Boru üzerindeki vanaları güncelle
-             const vanaListesi = interactionManager.manager.components.filter(
-                c => c.type === 'vana' && c.bagliBoruId === pipe.id
-            );
-            vanaListesi.forEach(vana => {
-                vana.x += frameDx; vana.y += frameDy; vana.z = (vana.z || 0) + frameDz;
+
+            // Boru üzerindeki vanaları per-frame delta ile taşı
+            interactionManager.manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === pipe.id)
+                .forEach(v => { v.x += frameDx; v.y += frameDy; v.z = (v.z || 0) + frameDz; });
+
+            // Downstream düğümleri per-frame delta ile taşı
+            [...downstreamNodesFromP1, ...downstreamNodesFromP2].forEach(node => {
+                node.x += frameDx; node.y += frameDy; node.z = (node.z || 0) + frameDz;
             });
 
-            // Bağlı ağacı taşı
-            if (startPipes.length > 0) {
-                const tree = getRecursiveConnectedObjects(interactionManager.manager, startPipes, [pipe.id]);
-                
-                tree.pipes.forEach(p => {
-                    p.p1.x += frameDx; p.p1.y += frameDy; p.p1.z = (p.p1.z || 0) + frameDz;
-                    p.p2.x += frameDx; p.p2.y += frameDy; p.p2.z = (p.p2.z || 0) + frameDz;
-                });
-                
-                tree.components.forEach(c => {
-                    if (c.type === 'vana') {
-                         c.x += frameDx; c.y += frameDy; c.z = (c.z || 0) + frameDz;
-                    } else if (c.type === 'sayac' || c.type === 'cihaz' || c.type === 'servis_kutusu') {
-                         c.x += frameDx; c.y += frameDy; c.z = (c.z || 0) + frameDz;
-                         
-                         if (c.type === 'cihaz') {
-                             const bacalar = interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
-                             bacalar.forEach(baca => {
-                                baca.startX += frameDx; baca.startY += frameDy; baca.z = (baca.z || 0) + frameDz;
-                                baca.currentSegmentStart.x += frameDx; baca.currentSegmentStart.y += frameDy; baca.currentSegmentStart.z = (baca.currentSegmentStart.z || 0) + frameDz;
-                                baca.segments.forEach(seg => {
-                                    seg.x1 += frameDx; seg.y1 += frameDy; seg.z1 = (seg.z1 || 0) + frameDz;
-                                    seg.x2 += frameDx; seg.y2 += frameDy; seg.z2 = (seg.z2 || 0) + frameDz;
-                                });
-                                if(baca.havalandirma) {
-                                    baca.havalandirma.x += frameDx; baca.havalandirma.y += frameDy;
-                                }
-                             });
-                         }
+            // Downstream pipe'ların componentlerini per-frame delta ile taşı
+            const allDownstreamPipes = [...downstreamPipesFromP1, ...downstreamPipesFromP2];
+            allDownstreamPipes.forEach(p => {
+                interactionManager.manager.components.forEach(c => {
+                    if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
+                    c.x += frameDx; c.y += frameDy; c.z = (c.z || 0) + frameDz;
+                    if (c.type === 'cihaz') {
+                        interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id).forEach(baca => {
+                            baca.startX += frameDx; baca.startY += frameDy;
+                            baca.currentSegmentStart.x += frameDx; baca.currentSegmentStart.y += frameDy;
+                            baca.segments.forEach(seg => { seg.x1 += frameDx; seg.y1 += frameDy; seg.x2 += frameDx; seg.y2 += frameDy; });
+                            if (baca.havalandirma) { baca.havalandirma.x += frameDx; baca.havalandirma.y += frameDy; }
+                        });
                     }
                 });
-            }
+            });
 
-            return; // Normal gövde taşıma mantığını atla
+            return;
         }
         // ----------------------------------------------
 
         // --- BORU ZİNCİRİ TAŞIMA (DÜŞEY VE YATAY) ---
         if (interactionManager.alignedPipeChain && interactionManager.alignedPipeChain.length > 0) {
-            // Zincirdeki tüm boruları birlikte taşı
-            interactionManager.alignedPipeChain.forEach(({ pipe: chainPipe, initialP1, initialP2 }) => {
-                chainPipe.p1.x = initialP1.x + offsetX;
-                chainPipe.p1.y = initialP1.y + offsetY;
-                chainPipe.p1.z = (initialP1.z || 0) + offsetZ;
-                chainPipe.p2.x = initialP2.x + offsetX;
-                chainPipe.p2.y = initialP2.y + offsetY;
-                chainPipe.p2.z = (initialP2.z || 0) + offsetZ;
-            });
-
-            // Zincirdeki HER borunun bağlantılarını birlikte taşı (tesisat kopmasın!)
-            if (interactionManager.alignedChainConnections && interactionManager.alignedChainConnections.length > 0) {
-                interactionManager.alignedChainConnections.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint, connectedTo }) => {
-                    // Bağlı olduğu zincir borusunun bağlantı noktasının yeni pozisyonu
-                    const chainPipe = connectedTo.pipe;
-                    const chainPoint = connectedTo.point; // 'p1' veya 'p2'
-
-                    // Yeni pozisyon
-                    connectedPipe[connectedEndpoint].x = chainPipe[chainPoint].x;
-                    connectedPipe[connectedEndpoint].y = chainPipe[chainPoint].y;
-                    connectedPipe[connectedEndpoint].z = chainPipe[chainPoint].z || 0;
-                });
+            // Zincir de aynı eksen kısıtlamasına tabi: borunun uzandığı yönde hareket yasak.
+            if (t < 0.1 && interactionManager.bodyDragPrimaryAxis) {
+                const primary = interactionManager.bodyDragPrimaryAxis;
+                if (primary === 'X') offsetX = 0;
+                else if (primary === 'Y') offsetY = 0;
             }
+
+            // Zincirdeki tüm boruların düğümlerini birlikte taşı.
+            // Paylaşılan düğümler (köşe noktaları) sadece bir kez güncellenir;
+            // o düğümü kullanan bağlı borular otomatik takip eder.
+            const movedNodes = new Set();
+            interactionManager.alignedPipeChain.forEach(({ pipe: chainPipe, initialP1, initialP2 }) => {
+                if (!movedNodes.has(chainPipe.p1NodeId)) {
+                    chainPipe.p1.x = initialP1.x + offsetX;
+                    chainPipe.p1.y = initialP1.y + offsetY;
+                    chainPipe.p1.z = (initialP1.z || 0) + offsetZ;
+                    movedNodes.add(chainPipe.p1NodeId);
+                }
+                if (!movedNodes.has(chainPipe.p2NodeId)) {
+                    chainPipe.p2.x = initialP2.x + offsetX;
+                    chainPipe.p2.y = initialP2.y + offsetY;
+                    chainPipe.p2.z = (initialP2.z || 0) + offsetZ;
+                    movedNodes.add(chainPipe.p2NodeId);
+                }
+            });
 
             return; // Boru zinciri işlemi bitti, normal mantık çalışmasın
         }
         // -----------------------------------
 
-        // 3D modda eksen kısıtlaması zaten correctedPoint'te uygulanmış
-        // 2D modda eski dragAxis sistemini kullan
-        if (t < 0.1) {
-            if (interactionManager.dragAxis === 'x') offsetY = 0;
-            else if (interactionManager.dragAxis === 'y') offsetX = 0;
-        }
-
+        // Eksen kısıtlaması: boru hangi eksende uzanıyorsa o eksende hareket yasak.
+        // 3D modda correctedPoint üzerinden zaten uygulandı.
+        // 2D modda (t < 0.1) burada uygula.
         const newP1 = {
             x: interactionManager.bodyDragInitialP1.x + offsetX,
             y: interactionManager.bodyDragInitialP1.y + offsetY,
@@ -1268,58 +1129,25 @@ export function handleDrag(interactionManager, point, event = null) {
         const p2Blocked = checkEndpointDistance(newP2, interactionManager.bodyDragInitialP2);
         if (p1Blocked || p2Blocked) return;
 
+        // Düğüm nesnelerinin koordinatlarını güncelle.
+        // pipe.p1 ve pipe.p2 birer düğüm nesnesidir; aynı düğümü paylaşan
+        // tüm diğer borular otomatik olarak güncellenir — ayrı loop gerekmez.
         pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
         pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
 
         if (interactionManager.useBridgeMode) {
             interactionManager.ghostBridgePipes = [];
             const MIN_BRIDGE_LENGTH = 5;
-            if (interactionManager.connectedPipesAtP1.length > 0) {
-                const dist = Math.hypot(pipe.p1.x - interactionManager.bodyDragInitialP1.x, pipe.p1.y - interactionManager.bodyDragInitialP1.y);
-                if (dist >= MIN_BRIDGE_LENGTH) interactionManager.ghostBridgePipes.push({ p1: { ...interactionManager.bodyDragInitialP1 }, p2: { ...pipe.p1 }, type: 'ghost_bridge' });
+            const dist1 = Math.hypot(pipe.p1.x - interactionManager.bodyDragInitialP1.x, pipe.p1.y - interactionManager.bodyDragInitialP1.y);
+            if (dist1 >= MIN_BRIDGE_LENGTH && interactionManager.manager.getPipesAtNode(pipe.p1, pipe).length > 0) {
+                interactionManager.ghostBridgePipes.push({ p1: { ...interactionManager.bodyDragInitialP1 }, p2: { x: pipe.p1.x, y: pipe.p1.y, z: pipe.p1.z }, type: 'ghost_bridge' });
             }
-            if (interactionManager.connectedPipesAtP2.length > 0) {
-                const dist = Math.hypot(pipe.p2.x - interactionManager.bodyDragInitialP2.x, pipe.p2.y - interactionManager.bodyDragInitialP2.y);
-                if (dist >= MIN_BRIDGE_LENGTH) interactionManager.ghostBridgePipes.push({ p1: { ...pipe.p2 }, p2: { ...interactionManager.bodyDragInitialP2 }, type: 'ghost_bridge' });
+            const dist2 = Math.hypot(pipe.p2.x - interactionManager.bodyDragInitialP2.x, pipe.p2.y - interactionManager.bodyDragInitialP2.y);
+            if (dist2 >= MIN_BRIDGE_LENGTH && interactionManager.manager.getPipesAtNode(pipe.p2, pipe).length > 0) {
+                interactionManager.ghostBridgePipes.push({ p1: { x: pipe.p2.x, y: pipe.p2.y, z: pipe.p2.z }, p2: { ...interactionManager.bodyDragInitialP2 }, type: 'ghost_bridge' });
             }
         } else {
             interactionManager.ghostBridgePipes = [];
-            if (interactionManager.connectedPipesAtP1 && interactionManager.connectedPipesAtP1.length > 0) {
-                interactionManager.connectedPipesAtP1.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = newP1.x;
-                    connectedPipe[connectedEndpoint].y = newP1.y;
-                    connectedPipe[connectedEndpoint].z = newP1.z;
-                });
-            }
-            if (interactionManager.connectedPipesAtP2 && interactionManager.connectedPipesAtP2.length > 0) {
-                interactionManager.connectedPipesAtP2.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                    connectedPipe[connectedEndpoint].x = newP2.x;
-                    connectedPipe[connectedEndpoint].y = newP2.y;
-                    connectedPipe[connectedEndpoint].z = newP2.z;
-                });
-            }
-            if (interactionManager.meterConnectedPipesAtOutput && interactionManager.meterConnectedPipesAtOutput.length > 0) {
-                const connectedMeter = interactionManager.manager.components.find(c => c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id);
-                if (connectedMeter) {
-                    connectedMeter.x += offsetX;
-                    connectedMeter.y += offsetY;
-                    connectedMeter.z = (connectedMeter.z || 0) + offsetZ;
-                    if (connectedMeter.cikisBagliBoruId) {
-                        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
-                        if (cikisBoru) {
-                            cikisBoru.p1.x += offsetX;
-                            cikisBoru.p1.y += offsetY;
-                            cikisBoru.p1.z = (cikisBoru.p1.z || 0) + offsetZ;
-                            const newOutputP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y, z: cikisBoru.p1.z };
-                            interactionManager.meterConnectedPipesAtOutput.forEach(({ pipe: connectedPipe, endpoint: connectedEndpoint }) => {
-                                connectedPipe[connectedEndpoint].x = newOutputP1.x;
-                                connectedPipe[connectedEndpoint].y = newOutputP1.y;
-                                connectedPipe[connectedEndpoint].z = newOutputP1.z;
-                            });
-                        }
-                    }
-                }
-            }
         }
         return;
     }
@@ -1352,34 +1180,41 @@ export function endDrag(interactionManager) {
 
         if (interactionManager.useBridgeMode) {
             const MIN_BRIDGE_LENGTH = 5;
-            const p1Connections = interactionManager.connectedPipesAtP1 || [];
-            const p2Connections = interactionManager.connectedPipesAtP2 || [];
+            const mgr = interactionManager.manager;
+            // Bridge pipe'lar için düğüm referansı: köprü noktaları snapshot (başlangıç) koordinatları
+            const p1Connections = mgr.getPipesAtNode(draggedPipe.p1, draggedPipe);
+            const p2Connections = mgr.getPipesAtNode(draggedPipe.p2, draggedPipe);
 
             if (p1Connections.length > 0) {
                 const distP1 = Math.hypot(newP1.x - oldP1.x, newP1.y - oldP1.y);
                 if (distP1 >= MIN_BRIDGE_LENGTH) {
-                    const bridgePipe1 = new Boru({ x: oldP1.x, y: oldP1.y, z: oldP1.z || 0 }, { x: newP1.x, y: newP1.y, z: newP1.z || 0 }, draggedPipe.boruTipi);
+                    // oldP1 snapshot'tan yeni düğüm oluştur
+                    const snapNode1 = mgr.createNode(oldP1.x, oldP1.y, oldP1.z || 0);
+                    const bridgePipe1 = new Boru(snapNode1, draggedPipe.p1, draggedPipe.boruTipi);
                     bridgePipe1.floorId = draggedPipe.floorId;
                     bridgePipe1.colorGroup = draggedPipe.colorGroup;
-                    interactionManager.manager.pipes.push(bridgePipe1);
-                    const parentAtP1 = p1Connections.find(c => draggedPipe.baslangicBaglanti && draggedPipe.baslangicBaglanti.hedefId === c.pipe.id);
-                    if (parentAtP1) { bridgePipe1.setBaslangicBaglanti('boru', parentAtP1.pipe.id); draggedPipe.setBaslangicBaglanti('boru', bridgePipe1.id); }
-                    const childrenAtP1 = p1Connections.filter(c => c.pipe.baslangicBaglanti && c.pipe.baslangicBaglanti.hedefId === draggedPipe.id);
-                    if (childrenAtP1.length > 0) { bridgePipe1.setBaslangicBaglanti('boru', draggedPipe.id); childrenAtP1.forEach(c => { c.pipe.setBaslangicBaglanti('boru', bridgePipe1.id); }); }
+                    mgr.registerPipeNodes(bridgePipe1);
+                    mgr.pipes.push(bridgePipe1);
+                    const parentAtP1 = p1Connections.find(c => draggedPipe.baslangicBaglanti && draggedPipe.baslangicBaglanti.hedefId === c.id);
+                    if (parentAtP1) { bridgePipe1.setBaslangicBaglanti('boru', parentAtP1.id); draggedPipe.setBaslangicBaglanti('boru', bridgePipe1.id); }
+                    const childrenAtP1 = p1Connections.filter(c => c.baslangicBaglanti && c.baslangicBaglanti.hedefId === draggedPipe.id);
+                    if (childrenAtP1.length > 0) { bridgePipe1.setBaslangicBaglanti('boru', draggedPipe.id); childrenAtP1.forEach(c => { c.setBaslangicBaglanti('boru', bridgePipe1.id); }); }
                 }
             }
 
             if (p2Connections.length > 0) {
                 const distP2 = Math.hypot(newP2.x - oldP2.x, newP2.y - oldP2.y);
                 if (distP2 >= MIN_BRIDGE_LENGTH) {
-                    const bridgePipe2 = new Boru({ x: newP2.x, y: newP2.y, z: newP2.z || 0 }, { x: oldP2.x, y: oldP2.y, z: oldP2.z || 0 }, draggedPipe.boruTipi);
+                    const snapNode2 = mgr.createNode(oldP2.x, oldP2.y, oldP2.z || 0);
+                    const bridgePipe2 = new Boru(draggedPipe.p2, snapNode2, draggedPipe.boruTipi);
                     bridgePipe2.floorId = draggedPipe.floorId;
                     bridgePipe2.colorGroup = draggedPipe.colorGroup;
-                    interactionManager.manager.pipes.push(bridgePipe2);
-                    const parentAtP2 = p2Connections.find(c => draggedPipe.baslangicBaglanti && draggedPipe.baslangicBaglanti.hedefId === c.pipe.id);
-                    if (parentAtP2) { bridgePipe2.setBaslangicBaglanti('boru', parentAtP2.pipe.id); draggedPipe.setBaslangicBaglanti('boru', bridgePipe2.id); }
-                    const childrenAtP2 = p2Connections.filter(c => c.pipe.baslangicBaglanti && c.pipe.baslangicBaglanti.hedefId === draggedPipe.id);
-                    if (childrenAtP2.length > 0) { bridgePipe2.setBaslangicBaglanti('boru', draggedPipe.id); childrenAtP2.forEach(c => { c.pipe.setBaslangicBaglanti('boru', bridgePipe2.id); }); }
+                    mgr.registerPipeNodes(bridgePipe2);
+                    mgr.pipes.push(bridgePipe2);
+                    const parentAtP2 = p2Connections.find(c => draggedPipe.baslangicBaglanti && draggedPipe.baslangicBaglanti.hedefId === c.id);
+                    if (parentAtP2) { bridgePipe2.setBaslangicBaglanti('boru', parentAtP2.id); draggedPipe.setBaslangicBaglanti('boru', bridgePipe2.id); }
+                    const childrenAtP2 = p2Connections.filter(c => c.baslangicBaglanti && c.baslangicBaglanti.hedefId === draggedPipe.id);
+                    if (childrenAtP2.length > 0) { bridgePipe2.setBaslangicBaglanti('boru', draggedPipe.id); childrenAtP2.forEach(c => { c.setBaslangicBaglanti('boru', bridgePipe2.id); }); }
                 }
             }
         }
@@ -1439,71 +1274,52 @@ export function endDrag(interactionManager) {
 }
 
 /**
- * Bağlı tüm nesneleri ve boruları (ağaç yapısı) bulur. (Recursive BFS)
+ * Verilen düğümlerden AŞAĞI AKIŞ yönünde (p1→p2) ulaşılabilen
+ * tüm ek düğümleri döndürür. fromNodes zaten taşınmış; dönen liste
+ * aynı delta ile taşınacak ek (downstream) düğümlerdir.
+ * fromNodes'un sahip olduğu pipe'lar hariç tutulur (excludePipe).
  */
-function getRecursiveConnectedObjects(manager, startPipes, excludePipeIds = []) {
-    const pipesToMove = new Set();
-    const componentsToMove = new Set();
-    const queue = [...startPipes];
-    const visitedPipes = new Set(excludePipeIds);
-    startPipes.forEach(p => visitedPipes.add(p.id));
-    startPipes.forEach(p => pipesToMove.add(p));
-
-    // Helper to add pipe
-    const addPipe = (p) => {
-        if (!p || visitedPipes.has(p.id)) return;
-        visitedPipes.add(p.id);
-        pipesToMove.add(p);
-        queue.push(p);
-    };
+function collectDownstreamNodes(manager, fromNodes, excludePipe = null) {
+    const seenNodeIds = new Set(fromNodes.map(n => n._nodeId));
+    const result = [];
+    const queue = [...fromNodes];
 
     while (queue.length > 0) {
-        const curr = queue.shift();
-
-        // 1. Find geometric connections (pipes connected to endpoints)
+        const node = queue.shift();
         manager.pipes.forEach(p => {
-             if(visitedPipes.has(p.id)) return;
-             
-             // Check connection with current pipe
-             const tolerance = 1.0;
-             const isConnected = 
-                Math.hypot(p.p1.x - curr.p1.x, p.p1.y - curr.p1.y, (p.p1.z||0) - (curr.p1.z||0)) < tolerance ||
-                Math.hypot(p.p1.x - curr.p2.x, p.p1.y - curr.p2.y, (p.p1.z||0) - (curr.p2.z||0)) < tolerance ||
-                Math.hypot(p.p2.x - curr.p1.x, p.p2.y - curr.p1.y, (p.p2.z||0) - (curr.p1.z||0)) < tolerance ||
-                Math.hypot(p.p2.x - curr.p2.x, p.p2.y - curr.p2.y, (p.p2.z||0) - (curr.p2.z||0)) < tolerance;
-             
-             if(isConnected) addPipe(p);
-        });
-
-        // 2. Find components on/connected to this pipe
-        manager.components.forEach(c => {
-             if(componentsToMove.has(c)) return;
-             let linked = false;
-             if (c.bagliBoruId === curr.id) linked = true;
-             if (c.fleksBaglanti?.boruId === curr.id) linked = true;
-             if (c.cikisBagliBoruId === curr.id) linked = true;
-             
-             if(linked) {
-                 componentsToMove.add(c);
-                 // Check if component bridges to other pipes (Meter output, Device flex, etc.)
-                 if (c.type === 'sayac' && c.cikisBagliBoruId && c.cikisBagliBoruId !== curr.id) {
-                     addPipe(manager.findPipeById(c.cikisBagliBoruId));
-                 }
-                 if (c.type === 'sayac' && c.fleksBaglanti?.boruId && c.fleksBaglanti.boruId !== curr.id) {
-                     addPipe(manager.findPipeById(c.fleksBaglanti.boruId));
-                 }
-                 if (c.type === 'cihaz' && c.fleksBaglanti?.boruId && c.fleksBaglanti.boruId !== curr.id) {
-                     addPipe(manager.findPipeById(c.fleksBaglanti.boruId));
-                 }
-                 if (c.type === 'servis_kutusu' && c.bagliBoruId && c.bagliBoruId !== curr.id) {
-                     addPipe(manager.findPipeById(c.bagliBoruId));
-                 }
-             }
+            if (p === excludePipe) return;
+            // p, bu düğümden başlıyorsa (p.p1 === node) → p.p2 downstream'dir
+            if (p.p1 === node && !seenNodeIds.has(p.p2NodeId)) {
+                seenNodeIds.add(p.p2NodeId);
+                result.push(p.p2);
+                queue.push(p.p2);
+            }
         });
     }
-    
-    return { 
-        pipes: Array.from(pipesToMove), 
-        components: Array.from(componentsToMove) 
-    };
+    return result;
 }
+
+/**
+ * Düğümlerden ulaşılabilen downstream pipe'ları döndürür.
+ */
+function collectDownstreamPipes(manager, fromNodes, excludePipe = null) {
+    const seenNodeIds = new Set(fromNodes.map(n => n._nodeId));
+    const pipes = [];
+    const queue = [...fromNodes];
+
+    while (queue.length > 0) {
+        const node = queue.shift();
+        manager.pipes.forEach(p => {
+            if (p === excludePipe || pipes.includes(p)) return;
+            if (p.p1 === node) {
+                pipes.push(p);
+                if (!seenNodeIds.has(p.p2NodeId)) {
+                    seenNodeIds.add(p.p2NodeId);
+                    queue.push(p.p2);
+                }
+            }
+        });
+    }
+    return pipes;
+}
+

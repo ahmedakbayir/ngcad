@@ -589,7 +589,9 @@ export function findAlignedPipeChain(manager, basePipe, primaryAxis) {
                     (otherPipe.p2.z || 0) - (point.z || 0)
                 );
 
-                if (distToP1 < tolerance || distToP2 < tolerance) {
+                // Düğüm paylaşımı (referans eşitliği) birincil kontrol; koordinat mesafesi fallback
+                const connected = (otherPipe.p1 === point || otherPipe.p2 === point) || distToP1 < tolerance || distToP2 < tolerance;
+                if (connected) {
                     // Bağlı! Şimdi aynı yönde mi kontrol et
                     const otherDx = Math.abs(otherPipe.p2.x - otherPipe.p1.x);
                     const otherDy = Math.abs(otherPipe.p2.y - otherPipe.p1.y);
