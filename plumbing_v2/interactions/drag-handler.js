@@ -1286,13 +1286,29 @@ function collectDownstreamNodes(manager, fromNodes, excludePipe = null) {
 
     while (queue.length > 0) {
         const node = queue.shift();
+
+        // Normal boru→boru traversal (p1→p2 yönü)
         manager.pipes.forEach(p => {
             if (p === excludePipe) return;
-            // p, bu düğümden başlıyorsa (p.p1 === node) → p.p2 downstream'dir
             if (p.p1 === node && !seenNodeIds.has(p.p2NodeId)) {
                 seenNodeIds.add(p.p2NodeId);
                 result.push(p.p2);
                 queue.push(p.p2);
+            }
+        });
+
+        // Sayaç üzerinden geçiş: bu node'a giriş yapan sayacın çıkış borusunu ekle
+        manager.components.forEach(sayac => {
+            if (sayac.type !== 'sayac') return;
+            if (!sayac.fleksBaglanti?.boruId || !sayac.cikisBagliBoruId) return;
+            const girisBoru = manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
+            if (!girisBoru || girisBoru[sayac.fleksBaglanti.endpoint] !== node) return;
+            const cikisBoru = manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
+            if (!cikisBoru) return;
+            if (!seenNodeIds.has(cikisBoru.p1NodeId)) {
+                seenNodeIds.add(cikisBoru.p1NodeId);
+                result.push(cikisBoru.p1);
+                queue.push(cikisBoru.p1);
             }
         });
     }
@@ -1309,6 +1325,8 @@ function collectDownstreamPipes(manager, fromNodes, excludePipe = null) {
 
     while (queue.length > 0) {
         const node = queue.shift();
+
+        // Normal boru→boru traversal
         manager.pipes.forEach(p => {
             if (p === excludePipe || pipes.includes(p)) return;
             if (p.p1 === node) {
@@ -1317,6 +1335,21 @@ function collectDownstreamPipes(manager, fromNodes, excludePipe = null) {
                     seenNodeIds.add(p.p2NodeId);
                     queue.push(p.p2);
                 }
+            }
+        });
+
+        // Sayaç üzerinden geçiş: çıkış borusunu da downstream pipe olarak ekle
+        manager.components.forEach(sayac => {
+            if (sayac.type !== 'sayac') return;
+            if (!sayac.fleksBaglanti?.boruId || !sayac.cikisBagliBoruId) return;
+            const girisBoru = manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId);
+            if (!girisBoru || girisBoru[sayac.fleksBaglanti.endpoint] !== node) return;
+            const cikisBoru = manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
+            if (!cikisBoru || pipes.includes(cikisBoru)) return;
+            pipes.push(cikisBoru);
+            if (!seenNodeIds.has(cikisBoru.p2NodeId)) {
+                seenNodeIds.add(cikisBoru.p2NodeId);
+                queue.push(cikisBoru.p2);
             }
         });
     }

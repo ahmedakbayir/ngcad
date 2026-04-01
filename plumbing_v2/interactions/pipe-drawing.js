@@ -21,7 +21,11 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
         if (c.type !== 'servis_kutusu' || !c.bagliBoruId) return false;
         const cikisNoktasi = c.getCikisNoktasi();
         if (!cikisNoktasi) return false;
-        const dist = Math.hypot(baslangicNoktasi.x - cikisNoktasi.x, baslangicNoktasi.y - cikisNoktasi.y);
+        const dist = Math.hypot(
+            baslangicNoktasi.x - cikisNoktasi.x,
+            baslangicNoktasi.y - cikisNoktasi.y,
+            (baslangicNoktasi.z || 0) - (cikisNoktasi.z || 0)
+        );
         return dist < tolerance;
     });
 
@@ -29,7 +33,11 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
         if (c.type !== 'sayac' || !c.cikisBagliBoruId) return false;
         const cikisNoktasi = c.getCikisNoktasi();
         if (!cikisNoktasi) return false;
-        const dist = Math.hypot(baslangicNoktasi.x - cikisNoktasi.x, baslangicNoktasi.y - cikisNoktasi.y);
+        const dist = Math.hypot(
+            baslangicNoktasi.x - cikisNoktasi.x,
+            baslangicNoktasi.y - cikisNoktasi.y,
+            (baslangicNoktasi.z || 0) - (cikisNoktasi.z || 0)
+        );
         return dist < tolerance;
     });
 
@@ -306,8 +314,11 @@ export function handleBoruClick(interactionManager, point) {
             if (c.type !== 'servis_kutusu' || !c.bagliBoruId) return false;
             const cikisNoktasi = c.getCikisNoktasi();
             if (!cikisNoktasi) return false;
-            const dist = Math.hypot(interactionManager.boruBaslangic.nokta.x - cikisNoktasi.x,
-                interactionManager.boruBaslangic.nokta.y - cikisNoktasi.y);
+            const dist = Math.hypot(
+                interactionManager.boruBaslangic.nokta.x - cikisNoktasi.x,
+                interactionManager.boruBaslangic.nokta.y - cikisNoktasi.y,
+                (interactionManager.boruBaslangic.nokta.z || 0) - (cikisNoktasi.z || 0)
+            );
             return dist < tolerance;
         });
         // ...

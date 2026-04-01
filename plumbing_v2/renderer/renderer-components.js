@@ -28,55 +28,55 @@ const CUSTOM_COLORS = {
 
 // --- VANA RENK PALETLERİ (Light/Dark Mod Destekli) ---
 const VALVE_THEMES = {
-    // SARI BORU -> GOLD/SARI VANA
+    // SARI BORU -> ALTIN VANA
     YELLOW: {
-        light: [ // Aydınlık Mod (Daha canlı, parlak)
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(160, 82, 45, 1)' }, // Sienna
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(160, 82, 45, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+        light: [
+            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.25, color: 'rgba(120, 50, 5, 1)' },   // koyu kahve-kahverengi
+            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.75, color: 'rgba(120, 50, 5, 1)' },
+            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
         ],
-        dark: [ // Karanlık Mod (Daha metalik, doygun)
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(184, 134, 11, 1)' }, // Dark Goldenrod
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(184, 134, 11, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+        dark: [
+            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.25, color: 'rgba(150, 95, 0, 1)' },   // koyu altın
+            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.75, color: 'rgba(150, 95, 0, 1)' },
+            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
         ]
     },
     // TURKUAZ BORU -> MAVİ VANA
     TURQUAZ: {
         light: [
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(0, 100, 204, 1)' }, // Dark Blue
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(0, 100, 204, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.25, color: 'rgba(0, 60, 150, 1)' },   // koyu lacivert
+            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.75, color: 'rgba(0, 60, 150, 1)' },
+            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
         ],
         dark: [
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(21, 154, 172, 1)' }, // Dodger Blue
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(21, 154, 172, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.25, color: 'rgba(0, 100, 120, 1)' },  // koyu teal
+            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.75, color: 'rgba(0, 100, 120, 1)' },
+            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
         ]
     },
     // VARSAYILAN (Gri/Beyaz)
     DEFAULT: {
         light: [
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(128, 128, 128, 1)' },
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(128, 128, 128, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.25, color: 'rgba(80, 80, 80, 1)' },
+            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.75, color: 'rgba(80, 80, 80, 1)' },
+            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
         ],
         dark: [
-            { pos: 0, color: 'rgba(200, 200, 200, 1)' },
-            { pos: 0.25, color: 'rgba(80, 80, 80, 1)' },
-            { pos: 0.5, color: 'rgba(200, 200, 200, 1)' },
-            { pos: 0.75, color: 'rgba(80, 80, 80, 1)' },
-            { pos: 1, color: 'rgba(200, 200, 200, 1)' }
+            { pos: 0,    color: 'rgba(200, 200, 200, 1)' },
+            { pos: 0.25, color: 'rgba(50, 50, 50, 1)' },
+            { pos: 0.5,  color: 'rgba(200, 200, 200, 1)' },
+            { pos: 0.75, color: 'rgba(50, 50, 50, 1)' },
+            { pos: 1,    color: 'rgba(200, 200, 200, 1)' }
         ]
     }
 };
@@ -206,8 +206,42 @@ export const ComponentMixin = {
             return;
         }
 
-        // --- 3D GÖRÜNÜM ---
+        // --- 3D GÖRÜNÜM: 2D çizim kullan (aynı 2D kodu) ---
+        // (Eski 3D kutu kodu aşağıda yorum olarak korunmuştur)
+        {
+            const colors = CUSTOM_COLORS.BOX_ORANGE;
+            getShadow(ctx);
 
+            const grad = ctx.createLinearGradient(0, -height / 2, 0, height / 2);
+            if (comp.isSelected) {
+                grad.addColorStop(0, '#A0A0A0'); grad.addColorStop(0.5, '#808080'); grad.addColorStop(1, '#606060');
+                ctx.strokeStyle = '#505050';
+            } else {
+                grad.addColorStop(0, colors.top); grad.addColorStop(0.5, colors.middle); grad.addColorStop(1, colors.bottom);
+                ctx.strokeStyle = colors.stroke;
+            }
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.roundRect(-width / 2, -height / 2, width, height, 4);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 1.2 / (state.zoom || 1);
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.strokeRect(-width / 2 + 3, -height / 2 + 3, width - 6, height - 6);
+
+            ctx.fillStyle = '#222';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('S.K.', 0, 1);
+        }
+
+        /*
+        // --- ESKİ 3D KUTU GÖRÜNÜMÜ (DEVRE DIŞI) ---
         const boxHeight = 50;
         const currentH = boxHeight * t;
         const screenZVector = { x: currentH, y: -currentH };
@@ -247,28 +281,22 @@ export const ComponentMixin = {
         const embossSideColor = hexToRgba('#555555', alpha + 0.2);
 
         ctx.save();
-        ctx.lineWidth = 0.5; // İnce çizgi
+        ctx.lineWidth = 0.5;
         ctx.lineJoin = 'round';
         ctx.strokeStyle = strokeStyle;
         ctx.fillStyle = faceFillStyle;
 
-        // Köşeler
         const p1 = { x: x, y: y };
         const p2 = { x: x + w, y: y };
         const p3 = { x: x + w, y: y + h };
         const p4 = { x: x, y: y + h };
 
-        // 1. ARKA YÜZEYLER
         ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill();
-
         ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.lineTo(p2.x + localZ.x, p2.y + localZ.y); ctx.lineTo(p1.x + localZ.x, p1.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p4.x, p4.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.lineTo(p1.x + localZ.x, p1.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-
-        // 2. ÖN YÜZEYLER
         ctx.beginPath(); ctx.moveTo(p2.x, p2.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p2.x + localZ.x, p2.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(p4.x, p4.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p3.x + localZ.x, p3.y + localZ.y); ctx.lineTo(p4.x + localZ.x, p4.y + localZ.y); ctx.closePath(); ctx.fill(); ctx.stroke();
 
-        // 3. KABARTMA (EMBOSS) - Yazısız
         const margin = 5; const embossDepth = 1.0; const er = 2;
         const vecW = { x: p3.x - p4.x, y: p3.y - p4.y };
         const vecH = { x: localZ.x, y: localZ.y };
@@ -298,35 +326,23 @@ export const ComponentMixin = {
         ctx.moveTo(oBL.x + er, oBL.y); ctx.lineTo(oBR.x - er, oBR.y); ctx.lineTo(oTR.x - er, oTR.y); ctx.lineTo(oTL.x + er, oTL.y); ctx.closePath();
         ctx.fill(); ctx.stroke();
 
-        // 4. ÜST KAPAK (TAVAN)
         ctx.save();
         ctx.translate(localZ.x, localZ.y);
         ctx.fillStyle = faceFillStyle;
         ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : strokeStyle;
-
-        // Kapağı çiz
         ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); ctx.stroke();
 
-        // --- S.K. YAZISI (TAVAN MERKEZİNDE) ---
         ctx.save();
-        // (0,0) şu an tavanın merkezi
-
-        // DÜZ OKUNMASI İÇİN ROTASYONU SIFIRLA
-        if (comp.rotation) {
-            ctx.rotate(-(comp.rotation * Math.PI / 180));
-        }
-
+        if (comp.rotation) { ctx.rotate(-(comp.rotation * Math.PI / 180)); }
         ctx.fillStyle = '#222';
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-
         ctx.fillText('S.K.', 0, 0);
-        ctx.restore(); // Yazı rotasyonunu geri al
-
-        ctx.restore(); // Tavan transformunu geri al
-
-        ctx.restore(); // Genel
+        ctx.restore();
+        ctx.restore();
+        ctx.restore();
+        */
     },
 
     drawBoxConnectionPoints(ctx, components, manager) {
