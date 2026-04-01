@@ -277,6 +277,15 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.connectedPipesAtP2 = [];
     interactionManager.meterConnectedPipesAtOutput = null;
 
+    // Kutu/sayaç bağlantısı olan ucu kilitle: o uç hareket etmemeli
+    // p1 = baslangicBaglanti, p2 = bitisBaglanti
+    const p1Tip = pipe.baslangicBaglanti?.tip;
+    const p2Tip = pipe.bitisBaglanti?.tip;
+    const LOCKED_TIPS = [BAGLANTI_TIPLERI.SERVIS_KUTUSU, BAGLANTI_TIPLERI.SAYAC];
+    interactionManager.bodyDragLockedEndpoint = null;
+    if (LOCKED_TIPS.includes(p1Tip)) interactionManager.bodyDragLockedEndpoint = 'p1';
+    else if (LOCKED_TIPS.includes(p2Tip)) interactionManager.bodyDragLockedEndpoint = 'p2';
+
     // useBridgeMode: p1 ve p2'nin her birinde tam olarak 1 başka boru bağlıysa
     // ve üçü sıralı/hizalıysa köprü modu aktif olur.
     interactionManager.useBridgeMode = false;
@@ -990,17 +999,24 @@ export function handleDrag(interactionManager, point, event = null) {
             else if (primary === 'Y') offsetY = 0;
         }
 
+        // Kutu/sayaç bağlantısı olan ucu kilitli tut: o uç için offset sıfır
+        const lockedEndpoint = interactionManager.bodyDragLockedEndpoint;
+        let offsetXp1 = offsetX, offsetYp1 = offsetY, offsetZp1 = offsetZ;
+        let offsetXp2 = offsetX, offsetYp2 = offsetY, offsetZp2 = offsetZ;
+        if (lockedEndpoint === 'p1') { offsetXp1 = 0; offsetYp1 = 0; offsetZp1 = 0; }
+        else if (lockedEndpoint === 'p2') { offsetXp2 = 0; offsetYp2 = 0; offsetZp2 = 0; }
+
         // --- CTRL İLE GÖVDE TAŞIMA ---
         if (event && event.ctrlKey) {
             const newP1 = {
-                x: interactionManager.bodyDragInitialP1.x + offsetX,
-                y: interactionManager.bodyDragInitialP1.y + offsetY,
-                z: (interactionManager.bodyDragInitialP1.z || 0) + offsetZ
+                x: interactionManager.bodyDragInitialP1.x + offsetXp1,
+                y: interactionManager.bodyDragInitialP1.y + offsetYp1,
+                z: (interactionManager.bodyDragInitialP1.z || 0) + offsetZp1
             };
             const newP2 = {
-                x: interactionManager.bodyDragInitialP2.x + offsetX,
-                y: interactionManager.bodyDragInitialP2.y + offsetY,
-                z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZ
+                x: interactionManager.bodyDragInitialP2.x + offsetXp2,
+                y: interactionManager.bodyDragInitialP2.y + offsetYp2,
+                z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZp2
             };
 
             // Pipe henüz hareket etmeden ÖNCE downstream düğümleri topla.
@@ -1030,10 +1046,14 @@ export function handleDrag(interactionManager, point, event = null) {
             });
 
             // Downstream pipe'ların componentlerini per-frame delta ile taşı
+            // movedComponents: her component sadece bir kez taşınsın (sayaç vb. double-move önleme)
             const allDownstreamPipes = [...downstreamPipesFromP1, ...downstreamPipesFromP2];
+            const movedComponents = new Set();
             allDownstreamPipes.forEach(p => {
                 interactionManager.manager.components.forEach(c => {
                     if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
+                    if (movedComponents.has(c.id)) return;
+                    movedComponents.add(c.id);
                     c.x += frameDx; c.y += frameDy; c.z = (c.z || 0) + frameDz;
                     if (c.type === 'cihaz') {
                         interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id).forEach(baca => {
@@ -1082,18 +1102,15 @@ export function handleDrag(interactionManager, point, event = null) {
         }
         // -----------------------------------
 
-        // Eksen kısıtlaması: boru hangi eksende uzanıyorsa o eksende hareket yasak.
-        // 3D modda correctedPoint üzerinden zaten uygulandı.
-        // 2D modda (t < 0.1) burada uygula.
         const newP1 = {
-            x: interactionManager.bodyDragInitialP1.x + offsetX,
-            y: interactionManager.bodyDragInitialP1.y + offsetY,
-            z: (interactionManager.bodyDragInitialP1.z || 0) + offsetZ
+            x: interactionManager.bodyDragInitialP1.x + offsetXp1,
+            y: interactionManager.bodyDragInitialP1.y + offsetYp1,
+            z: (interactionManager.bodyDragInitialP1.z || 0) + offsetZp1
         };
         const newP2 = {
-            x: interactionManager.bodyDragInitialP2.x + offsetX,
-            y: interactionManager.bodyDragInitialP2.y + offsetY,
-            z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZ
+            x: interactionManager.bodyDragInitialP2.x + offsetXp2,
+            y: interactionManager.bodyDragInitialP2.y + offsetYp2,
+            z: (interactionManager.bodyDragInitialP2.z || 0) + offsetZp2
         };
         // ... (Geri kalan boru gövdesi mantığı aynen kalabilir) ...
         const POINT_OCCUPATION_TOLERANCE = 1.5;
@@ -1273,6 +1290,12 @@ export function endDrag(interactionManager) {
     saveState();
 }
 
+/**
+ * Verilen düğümlerden AŞAĞI AKIŞ yönünde (p1→p2) ulaşılabilen
+ * tüm ek düğümleri döndürür. fromNodes zaten taşınmış; dönen liste
+ * aynı delta ile taşınacak ek (downstream) düğümlerdir.
+ * fromNodes'un sahip olduğu pipe'lar hariç tutulur (excludePipe).
+ */
 /**
  * Verilen düğümlerden AŞAĞI AKIŞ yönünde (p1→p2) ulaşılabilen
  * tüm ek düğümleri döndürür. fromNodes zaten taşınmış; dönen liste
