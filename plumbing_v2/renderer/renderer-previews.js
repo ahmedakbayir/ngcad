@@ -304,7 +304,7 @@ export const PreviewMixin = {
         ctx.restore();
     },
 
-    drawSayacGhostConnection(ctx, ghost, manager) {
+drawSayacGhostConnection(ctx, ghost, manager) {
         const connInfo = ghost.ghostConnectionInfo;
         if (!connInfo || !connInfo.boruUcu) return;
 
@@ -340,7 +340,7 @@ export const PreviewMixin = {
                 vanaY = boruUcu.nokta.y - (dy / length) * VANA_CENTER_MARGIN;
             }
 
-            // DÜZELTME: 3D offset uygula
+            // 3D offset uygula
             const vanaScreenX = vanaX + (boruZ * t);
             const vanaScreenY = vanaY - (boruZ * t);
 
@@ -368,34 +368,8 @@ export const PreviewMixin = {
             ctx.translate(-vanaScreenX, -vanaScreenY); // Translate'i geri al
         }
 
-        // 2. Fleks Çizgisi (Basit kesikli çizgi)
-        // FLEKS SOL RAKORA BAĞLANIR (gövdeye değil)
-        const solRakor = ghost.getSolRakorNoktasi();
-
-        // DÜZELTME: 3D offset uygula (boru ucu ve sayaç rakor)
-        const boruUcScreenX = boruUcu.nokta.x + (boruZ * t);
-        const boruUcScreenY = boruUcu.nokta.y - (boruZ * t);
-
-        const sayacZ = ghost.z || 0;
-        const solRakorScreenX = solRakor.x + (sayacZ * t);
-        const solRakorScreenY = solRakor.y - (sayacZ * t);
-
-        // Fleks rengini borunun colorGroup'una göre ayarla
-        const colorGroup = boru?.colorGroup || 'YELLOW';
-        const fleksRenk = this.getRenkByGroup(colorGroup, 'fleks', 1);
-
-        ctx.globalAlpha = 0.6;
-        ctx.strokeStyle = fleksRenk;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-
-        ctx.beginPath();
-        // Boru ucundan (veya vana hizasından)
-        ctx.moveTo(boruUcScreenX, boruUcScreenY);
-        // Sayacın sol rakoruna
-        ctx.lineTo(solRakorScreenX, solRakorScreenY);
-        ctx.stroke();
-
+        // ESKİ VE HATALI OLAN "2. Fleks Çizgisi (Basit kesikli çizgi)" BÖLÜMÜ BURADAN SİLİNDİ!
+        // Çünkü drawSayac fonksiyonu artık bu fleksin 3D versiyonunu zaten kendi içinde çok güzel çiziyor.
 
         ctx.restore();
     },

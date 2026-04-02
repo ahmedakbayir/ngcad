@@ -204,11 +204,15 @@ export const PipeMixin = {
         pipes.forEach(pipe => {
             if (!pipe.p1 || !pipe.p2) return;
 
+            const z1 = pipe.p1.z || 0;
+            const z2 = pipe.p2.z || 0;
+
+            // YENİ KOŞUL: Hattın iki ucu arasında Z (kot) farkı yoksa hiçbir şey yazdırma (Yatay boruları atla)
+            if (Math.abs(z1 - z2) < 0.1) return;
+
             [pipe.p1, pipe.p2].forEach(point => {
                 const z = point.z || 0;
-                // Z değeri 0 ise gösterme (zemin kotu genelde kalabalık yapar)
                 if (Math.abs(z) < 0.1) return;
-
                 // Nokta anahtarı (x,y,z) - koordinatları yuvarlayarak karşılaştır
                 const key = `${Math.round(point.x)},${Math.round(point.y)},${Math.round(z)}`;
 
@@ -220,12 +224,12 @@ export const PipeMixin = {
                 const sx = point.x + (z * t);
                 const sy = point.y - (z * t);
 
-                ctx.fillText(`${Math.round(z)}`, sx-5, sy - 5);
+                ctx.fillText(`${Math.round(z)}`, sx - 5, sy - 5);
             });
         });
     },
 
-drawPipes(ctx, pipes) {
+    drawPipes(ctx, pipes) {
         if (!pipes) return;
 
         // Kırılım noktalarını hesapla

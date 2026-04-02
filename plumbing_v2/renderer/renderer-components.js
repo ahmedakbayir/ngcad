@@ -31,52 +31,52 @@ const VALVE_THEMES = {
     // SARI BORU -> ALTIN VANA
     YELLOW: {
         light: [
-            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(120, 50, 5, 1)' },   // koyu kahve-kahverengi
-            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(120, 50, 5, 1)' },
-            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ],
         dark: [
-            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(150, 95, 0, 1)' },   // koyu altın
-            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(150, 95, 0, 1)' },
-            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ]
     },
     // TURKUAZ BORU -> MAVİ VANA
     TURQUAZ: {
         light: [
-            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(0, 60, 150, 1)' },   // koyu lacivert
-            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(0, 60, 150, 1)' },
-            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ],
         dark: [
-            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(0, 100, 120, 1)' },  // koyu teal
-            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(0, 100, 120, 1)' },
-            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ]
     },
     // VARSAYILAN (Gri/Beyaz)
     DEFAULT: {
         light: [
-            { pos: 0,    color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.25, color: 'rgba(80, 80, 80, 1)' },
-            { pos: 0.5,  color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
             { pos: 0.75, color: 'rgba(80, 80, 80, 1)' },
-            { pos: 1,    color: 'rgba(255, 255, 255, 1)' }
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ],
         dark: [
-            { pos: 0,    color: 'rgba(200, 200, 200, 1)' },
+            { pos: 0, color: 'rgba(200, 200, 200, 1)' },
             { pos: 0.25, color: 'rgba(50, 50, 50, 1)' },
-            { pos: 0.5,  color: 'rgba(200, 200, 200, 1)' },
+            { pos: 0.5, color: 'rgba(200, 200, 200, 1)' },
             { pos: 0.75, color: 'rgba(50, 50, 50, 1)' },
-            { pos: 1,    color: 'rgba(200, 200, 200, 1)' }
+            { pos: 1, color: 'rgba(200, 200, 200, 1)' }
         ]
     }
 };
@@ -572,54 +572,150 @@ export const ComponentMixin = {
         }
     },
 
-    drawSayac(ctx, comp, manager) {
+drawSayac(ctx, comp, manager) {
         const { width, height, connectionOffset, nutHeight } = comp.config;
         const zoom = state.zoom || 1;
         const rijitUzunluk = comp.config.rijitUzunluk || (comp.ghostConnectionInfo ? 15 : 0);
+        const nutWidth = 7;
 
+        const t = state.viewBlendFactor || 0;
+        const rot = (comp.rotation || 0) * Math.PI / 180;
+        const cos = Math.cos(rot);
+        const sin = Math.sin(rot);
+
+        // --- GLOBAL EKRAN KOORDİNATLARINA DÖNÜŞ ---
+        ctx.save();
+        const defaultZ = (comp.z || 0) * t;
+        if (comp.rotation) ctx.rotate(-rot);
+        ctx.translate(-(comp.x + defaultZ), -(comp.y - defaultZ));
+
+        // Tesisat bağlantılarının Y eksenindeki Pivot (Menteşe) Noktası
+        const connY = -height / 2;
+        const pivotY = connY - nutHeight - rijitUzunluk;
+
+        // Tesisatın Z Kotunu bul
+        let pipeZ = comp.z || 0;
         if (manager) {
-            ctx.save();
-            if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
-            ctx.translate(-comp.x, -comp.y);
-
-            let targetPoint = null;
-            if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
-                const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
-                if (pipe) {
-                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
-                } else {
-                    if (!comp._fleksWarningLogged) {
-                        // console.warn('⚠️ SAYAÇ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
-                        comp._fleksWarningLogged = true;
-                    }
-                }
-            } else {
-                if (!comp._fleksWarningLogged2) {
-                    //console.warn('⚠️ SAYAÇ FLEKS: Bağlantı bilgisi eksik!', comp.fleksBaglanti);
-                    comp._fleksWarningLogged2 = true;
-                }
+            if (comp.cikisBagliBoruId) {
+                const pipe = manager.findPipeById(comp.cikisBagliBoruId);
+                if (pipe) pipeZ = pipe.p1.z || pipe.p2.z || 0;
+            } else if (comp.fleksBaglanti?.boruId) {
+                const pipe = manager.findPipeById(comp.fleksBaglanti.boruId);
+                if (pipe) pipeZ = pipe.p1.z || pipe.p2.z || 0;
             }
-
-            const connectionPoint = comp.getSolRakorNoktasi();
-            this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, null);
-            ctx.restore();
         }
 
-        ctx.save();
+        // --- 1. FLEKS BORUNUN ÇİZİMİ ---
+        let targetScreen = null;
+        if (manager && comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
+            const pipe = manager.findPipeById(comp.fleksBaglanti.boruId);
+            if (pipe) {
+                let targetWorld = comp.getFleksBaglantiNoktasi(pipe);
+                if (targetWorld) {
+                    if (targetWorld.z === undefined) targetWorld.z = pipeZ;
+                    
+                    targetScreen = {
+                        x: targetWorld.x + targetWorld.z * t,
+                        y: targetWorld.y - targetWorld.z * t
+                    };
+                }
+            }
+        }
+
+        // Sol rakorun "sarkmış" (folded) halindeki kesin ekran koordinatı
+        const lx = -connectionOffset;
+        const ly = connY - nutHeight;
+        const sx = comp.x + lx * cos - (pivotY*t + ly*(1-t)) * sin + (pipeZ + pivotY*t - ly*t) * t;
+        const sy = comp.y + lx * sin + (pivotY*t + ly*(1-t)) * cos - (pipeZ + pivotY*t - ly*t) * t;
+        const leftRakorScreen = { x: sx, y: sy };
+
+        // Ghost (hayalet) sayacın fleksini yatay değil, aşağı/3D yönünde sarkıt
+        if (!targetScreen) {
+            const ghostLx = -connectionOffset;
+            const ghostLy = pivotY; 
+            const gSx = comp.x + ghostLx * cos - (pivotY*t + ghostLy*(1-t)) * sin + (pipeZ + pivotY*t - ghostLy*t) * t;
+            const gSy = comp.y + ghostLx * sin + (pivotY*t + ghostLy*(1-t)) * cos - (pipeZ + pivotY*t - ghostLy*t) * t;
+            targetScreen = { x: gSx, y: gSy };
+        }
+
+        if (manager) {
+            this.drawWavyConnectionLine(ctx, leftRakorScreen, zoom, manager, targetScreen, null);
+        }
+
+        // --- 2. SİHİRLİ MATRİS İLE SETİ BÜKME ---
+        const a = cos;
+        const b = sin;
+        const c = -sin * (1 - t) - t * t;
+        const d = cos * (1 - t) + t * t;
+        const e = comp.x - pivotY * t * sin + pipeZ * t + pivotY * t * t;
+        const f = comp.y + pivotY * t * cos - pipeZ * t - pivotY * t * t;
+
+        ctx.transform(a, b, c, d, e, f);
         getShadow(ctx);
 
-        // Yeşil Gradient
+        // --- 3. RİJİT ÇIKIŞ BORUSUNUN ÇİZİMİ ---
+        let rijitColorGroup = 'TURQUAZ';
+        let rightAnchor_lx = connectionOffset;
+        let rightAnchor_ly = pivotY;
+
+        if (manager && comp.cikisBagliBoruId) {
+            const cikisBoru = manager.findPipeById(comp.cikisBagliBoruId);
+            if (cikisBoru) {
+                rijitColorGroup = cikisBoru.colorGroup || 'TURQUAZ';
+                const wX = comp.x + connectionOffset * cos - pivotY * sin;
+                const wY = comp.y + connectionOffset * sin + pivotY * cos;
+                const d1 = Math.hypot(cikisBoru.p1.x - wX, cikisBoru.p1.y - wY);
+                const d2 = Math.hypot(cikisBoru.p2.x - wX, cikisBoru.p2.y - wY);
+                const pipeStart = d1 < d2 ? cikisBoru.p1 : cikisBoru.p2;
+
+                const dx = pipeStart.x - comp.x;
+                const dy = pipeStart.y - comp.y;
+                rightAnchor_lx = dx * cos + dy * sin;
+                rightAnchor_ly = -dx * sin + dy * cos;
+            }
+        }
+
+        const rijitRenk = this.getRenkByGroup(rijitColorGroup, 'boru', 1);
+        
+        // ÇÖZÜM: Siyah çamurlu çerçeve eklemeden, orijinal normal boru kalınlığına (4) çektik
+        ctx.lineWidth = 4 / zoom; 
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = rijitRenk;
+        
+        ctx.beginPath();
+        ctx.moveTo(rightAnchor_lx, rightAnchor_ly); // Ana Boru Bağlantısı
+        ctx.lineTo(connectionOffset, connY - nutHeight); // Sağ Rakor
+        ctx.stroke();
+
+        // --- 4. REKORLAR (SOMUNLAR) ---
+        const rekorGradient = ctx.createLinearGradient(0, connY - nutHeight, 0, connY);
+        rekorGradient.addColorStop(0, '#E8E8E8');
+        rekorGradient.addColorStop(1, '#999999');
+        ctx.fillStyle = rekorGradient;
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 1 / zoom;
+
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight, 1);
+        else ctx.rect(-connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
+        ctx.fill(); ctx.stroke();
+
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight, 1);
+        else ctx.rect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
+        ctx.fill(); ctx.stroke();
+
+        // --- 5. SAYAÇ GÖVDESİ ---
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(width, height) / 1.5);
         const colors = isLightMode() ? CUSTOM_COLORS.METER_GREEN.light : CUSTOM_COLORS.METER_GREEN.dark;
 
         if (comp.isSelected) {
-            // Seçili: Gri
             gradient.addColorStop(0, '#FFFFFF');
             gradient.addColorStop(0.4, '#C0C0C0');
             gradient.addColorStop(0.7, '#A0A0A0');
             gradient.addColorStop(1, '#606060');
         } else {
-            // Normal: Yeşil
             gradient.addColorStop(0, colors[0]);
             gradient.addColorStop(0.3, colors[0.3]);
             gradient.addColorStop(0.7, colors[0.7]);
@@ -628,6 +724,7 @@ export const ComponentMixin = {
 
         ctx.fillStyle = gradient;
         const radius = 4;
+        
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(-width / 2, -height / 2, width, height, radius);
         else ctx.rect(-width / 2, -height / 2, width, height);
@@ -645,45 +742,7 @@ export const ComponentMixin = {
         ctx.textBaseline = 'middle';
         ctx.fillText('G4', 0, 2);
 
-        // Rekorlar ve Çıkış Borusu
-        const connY = -height / 2;
-        const nutWidth = 7;
-        const rekorGradient = ctx.createLinearGradient(0, connY - nutHeight, 0, connY);
-        rekorGradient.addColorStop(0, '#E8E8E8');
-        rekorGradient.addColorStop(1, '#999999');
-        ctx.fillStyle = rekorGradient;
-        ctx.strokeStyle = '#555';
-
-        ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(-connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight, 1);
-        else ctx.rect(-connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
-        ctx.fill(); ctx.stroke();
-
-        ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight, 1);
-        else ctx.rect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
-        ctx.fill(); ctx.stroke();
-
-        // Rijit Çıkış Rengi
-        const armStartX = connectionOffset;
-        const armStartY = connY - nutHeight;
-        let rijitColorGroup = 'TURQUAZ';
-        if (comp.cikisBagliBoruId && manager) {
-            const cikisBoru = manager.findPipeById(comp.cikisBagliBoruId);
-            if (cikisBoru) rijitColorGroup = cikisBoru.colorGroup || 'TURQUAZ';
-        }
-        const rijitRenk = this.getRenkByGroup(rijitColorGroup, 'fleks', 1);
-
-        // Rijit boru gradienti (hafif metalik)
-        const pipeGradient = ctx.createLinearGradient(armStartX - 0.5, 0, armStartX + 0.5, 0);
-        pipeGradient.addColorStop(0, rijitRenk);
-        pipeGradient.addColorStop(0.5, rijitRenk);
-        pipeGradient.addColorStop(1, rijitRenk);
-
-        ctx.fillStyle = pipeGradient;
-        ctx.fillRect(armStartX - 0.5, armStartY - rijitUzunluk, 1, rijitUzunluk);
-
-        ctx.restore();
+        ctx.restore(); // Her şeyi temizle
     },
 
     drawSelectionBox(ctx, comp) {
