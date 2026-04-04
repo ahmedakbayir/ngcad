@@ -1049,8 +1049,10 @@ export function handleDrag(interactionManager, point, event = null) {
             // movedComponents: her component sadece bir kez taşınsın (sayaç vb. double-move önleme)
             const allDownstreamPipes = [...downstreamPipesFromP1, ...downstreamPipesFromP2];
             const movedComponents = new Set();
-            allDownstreamPipes.forEach(p => {
+            // Sürüklenen boru dahil tüm ilgili boruların componentlerini tara
+            [pipe, ...allDownstreamPipes].forEach(p => {
                 interactionManager.manager.components.forEach(c => {
+                    if (c.type === 'vana' && p === pipe) return; // Sürüklenen borudaki vanalar zaten yukarıda taşındı
                     if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
                     if (movedComponents.has(c.id)) return;
                     movedComponents.add(c.id);
@@ -1059,7 +1061,12 @@ export function handleDrag(interactionManager, point, event = null) {
                         interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id).forEach(baca => {
                             baca.startX += frameDx; baca.startY += frameDy;
                             baca.currentSegmentStart.x += frameDx; baca.currentSegmentStart.y += frameDy;
-                            baca.segments.forEach(seg => { seg.x1 += frameDx; seg.y1 += frameDy; seg.x2 += frameDx; seg.y2 += frameDy; });
+                            baca.segments.forEach(seg => {
+                                seg.x1 += frameDx; seg.y1 += frameDy; seg.x2 += frameDx; seg.y2 += frameDy;
+                                if (seg.z1 !== undefined) seg.z1 += frameDz;
+                                if (seg.z2 !== undefined) seg.z2 += frameDz;
+                            });
+                            baca.z = (baca.z || 0) + frameDz;
                             if (baca.havalandirma) { baca.havalandirma.x += frameDx; baca.havalandirma.y += frameDy; }
                         });
                     }

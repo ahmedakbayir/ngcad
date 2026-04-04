@@ -54,11 +54,16 @@ export class PlumbingRenderer {
             }
         }
 
-        // Borular
+        // Servis kutuları (boruların altında olacak şekilde önce çiz)
+        const servisKutulari = (manager.components || []).filter(c => c.type === 'servis_kutusu');
+        const digerBileskenler = (manager.components || []).filter(c => c.type !== 'servis_kutusu');
+        servisKutulari.forEach(comp => this.drawComponent(ctx, comp, manager));
+
+        // Borular (servis kutularının üstünde)
         this.drawPipes(ctx, manager.pipes);
 
-        // Bileşenler
-        this.drawComponents(ctx, manager.components, manager);
+        // Diğer bileşenler (borular üstünde)
+        this.drawComponents(ctx, digerBileskenler, manager);
 
         // Geçici boru çizgisi (boru çizim modunda)
         const geciciBoru = manager.interactionManager?.getGeciciBoruCizgisi();
