@@ -196,18 +196,24 @@ export function startDrag(interactionManager, obj, point) {
         interactionManager.dragStartZ = null;
     }
 
+    interactionManager.verticalOtherEndsOutput = [];
+
     if (obj.type === 'servis_kutusu' && obj.bagliBoruId) {
         const boru = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
         if (boru) {
             interactionManager.servisKutusuConnectedPipes = findPipesAtPoint(
                 interactionManager.manager.pipes, boru.p1, boru, TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE
             );
+            // Çıkış noktasına bağlı düşey boruların diğer uçları
+            interactionManager.verticalOtherEndsOutput = findVerticalConnectedOtherEnds(interactionManager.manager, boru.p1, boru);
         }
     }
 
     if (obj.type === 'sayac' && obj.cikisBagliBoruId) {
         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
         if (cikisBoru) {
+            // Sayacın çıkış node'una bağlı düşey boruların diğer uçları
+            interactionManager.verticalOtherEndsOutput = findVerticalConnectedOtherEnds(interactionManager.manager, cikisBoru.p1, cikisBoru);
             const girisBoru = obj.fleksBaglanti?.boruId
                 ? interactionManager.manager.pipes.find(p => p.id === obj.fleksBaglanti.boruId)
                 : null;
@@ -270,12 +276,17 @@ export function startBodyDrag(interactionManager, pipe, point) {
 
     if (!window.__lastDraggedPipe) window.__lastDraggedPipe = { pipe: null, positions: null };
 
-    // Düğüm paylaşımı sayesinde connectedPipesAtP1/P2 listesine gerek yok:
-    // pipe.p1 ve pipe.p2 birer düğüm nesnesidir; koordinatları değişince
-    // aynı düğümü paylaşan tüm diğer borular otomatik olarak güncellenir.
-    interactionManager.connectedPipesAtP1 = [];
-    interactionManager.connectedPipesAtP2 = [];
+    // Düğüm paylaşan komşu boruları bul — checkEndpointDistance'ın bunları
+    // "çakışma" olarak saymaması için listeye ekliyoruz.
+    const _connAtP1 = interactionManager.manager.getPipesAtNode(pipe.p1, pipe);
+    const _connAtP2 = interactionManager.manager.getPipesAtNode(pipe.p2, pipe);
+    interactionManager.connectedPipesAtP1 = _connAtP1.map(p => ({ pipe: p }));
+    interactionManager.connectedPipesAtP2 = _connAtP2.map(p => ({ pipe: p }));
     interactionManager.meterConnectedPipesAtOutput = null;
+
+    // Düşey boru tespiti: p1/p2'ye bağlı düşey boruların diğer uçlarını sakla
+    interactionManager.verticalOtherEndsP1 = findVerticalConnectedOtherEnds(interactionManager.manager, pipe.p1, pipe);
+    interactionManager.verticalOtherEndsP2 = findVerticalConnectedOtherEnds(interactionManager.manager, pipe.p2, pipe);
 
     // Kutu/sayaç bağlantısı olan ucu kilitle: o uç hareket etmemeli
     // p1 = baslangicBaglanti, p2 = bitisBaglanti
@@ -727,34 +738,44 @@ export function handleDrag(interactionManager, point, event = null) {
                 valve.updatePositionFromPipe(pipe);
             });
 
-            // ... (Kalan kodlar aynı)
-            const connectedMeter = interactionManager.manager.components.find(c =>
-                c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === interactionManager.dragEndpoint
-            );
-            if (connectedMeter) {
-                const dx = finalPos.x - oldPoint.x;
-                const dy = finalPos.y - oldPoint.y;
-                connectedMeter.x += dx; connectedMeter.y += dy;
-                if (connectedMeter.cikisBagliBoruId) {
-                    const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
-                    if (cikisBoru) { cikisBoru.p1.x += dx; cikisBoru.p1.y += dy; }
+            // CTRL basılıysa downstream loop zaten sayaç/cihazı taşıyacak — burada atla
+            if (!(event && event.ctrlKey)) {
+                const connectedMeter = interactionManager.manager.components.find(c =>
+                    c.type === 'sayac' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === interactionManager.dragEndpoint
+                );
+                if (connectedMeter) {
+                    const dx = finalPos.x - oldPoint.x;
+                    const dy = finalPos.y - oldPoint.y;
+                    const dz = (finalPos.z || 0) - (oldPoint.z || 0);
+                    connectedMeter.x += dx; connectedMeter.y += dy;
+                    connectedMeter.z = (connectedMeter.z || 0) + dz;
+                    if (connectedMeter.cikisBagliBoruId) {
+                        const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
+                        if (cikisBoru) { cikisBoru.p1.x += dx; cikisBoru.p1.y += dy; cikisBoru.p1.z = (cikisBoru.p1.z || 0) + dz; }
+                    }
                 }
-            }
 
-            const connectedDevice = interactionManager.manager.components.find(c =>
-                c.type === 'cihaz' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === interactionManager.dragEndpoint
-            );
-            if (connectedDevice) {
-                const dx = finalPos.x - oldPoint.x;
-                const dy = finalPos.y - oldPoint.y;
-                connectedDevice.x += dx; connectedDevice.y += dy;
-                const bacalar = interactionManager.manager.components.filter(c => c.type === 'baca' && c.parentCihazId === connectedDevice.id);
-                bacalar.forEach(baca => {
-                    baca.startX += dx; baca.startY += dy;
-                    baca.currentSegmentStart.x += dx; baca.currentSegmentStart.y += dy;
-                    baca.segments.forEach(seg => { seg.x1 += dx; seg.y1 += dy; seg.x2 += dx; seg.y2 += dy; });
-                    if (baca.havalandirma) { baca.havalandirma.x += dx; baca.havalandirma.y += dy; }
-                });
+                const connectedDevice = interactionManager.manager.components.find(c =>
+                    c.type === 'cihaz' && c.fleksBaglanti && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === interactionManager.dragEndpoint
+                );
+                if (connectedDevice) {
+                    const dx = finalPos.x - oldPoint.x;
+                    const dy = finalPos.y - oldPoint.y;
+                    const dz = (finalPos.z || 0) - (oldPoint.z || 0);
+                    connectedDevice.x += dx; connectedDevice.y += dy;
+                    connectedDevice.z = (connectedDevice.z || 0) + dz;
+                    const bacalar = interactionManager.manager.components.filter(c => c.type === 'baca' && c.parentCihazId === connectedDevice.id);
+                    bacalar.forEach(baca => {
+                        baca.startX += dx; baca.startY += dy;
+                        baca.z = (baca.z || 0) + dz;
+                        baca.currentSegmentStart.x += dx; baca.currentSegmentStart.y += dy;
+                        baca.segments.forEach(seg => {
+                            seg.x1 += dx; seg.y1 += dy; seg.z1 = (seg.z1 || 0) + dz;
+                            seg.x2 += dx; seg.y2 += dy; seg.z2 = (seg.z2 || 0) + dz;
+                        });
+                        if (baca.havalandirma) { baca.havalandirma.x += dx; baca.havalandirma.y += dy; }
+                    });
+                }
             }
 
             // --- ⚡ CTRL İLE ENDPOINT TAŞIMA ⚡ ---
@@ -774,9 +795,12 @@ export function handleDrag(interactionManager, point, event = null) {
 
                 // Downstream pipe'ların üzerindeki component'leri taşı
                 const downstreamPipes = collectDownstreamPipes(interactionManager.manager, [draggedNode], pipe);
+                const movedComponents = new Set();
                 downstreamPipes.forEach(p => {
                     interactionManager.manager.components.forEach(c => {
                         if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
+                        if (movedComponents.has(c.id)) return;
+                        movedComponents.add(c.id);
                         c.x += dx; c.y += dy; c.z = (c.z || 0) + dz;
                         if (c.type === 'cihaz') {
                             const bacalar = interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
@@ -890,6 +914,10 @@ export function handleDrag(interactionManager, point, event = null) {
                         connectedPipe[connectedEndpoint].y = newCikis.y;
                     });
                 }
+                // Düşey boru takibi: çıkış node'una bağlı düşey boruların diğer uçları
+                (interactionManager.verticalOtherEndsOutput || []).forEach(({ otherNode }) => {
+                    otherNode.x = newCikis.x; otherNode.y = newCikis.y;
+                });
             }
         }
         return;
@@ -972,6 +1000,10 @@ export function handleDrag(interactionManager, point, event = null) {
                         connectedPipe[connectedEndpoint].y = newP1.y;
                     });
                 }
+                // Düşey boru takibi: çıkış node'una bağlı düşey boruların diğer uçları
+                (interactionManager.verticalOtherEndsOutput || []).forEach(({ otherNode }) => {
+                    otherNode.x = newP1.x; otherNode.y = newP1.y;
+                });
             }
         }
         return;
@@ -1041,8 +1073,21 @@ export function handleDrag(interactionManager, point, event = null) {
                 .forEach(v => { v.x += frameDx; v.y += frameDy; v.z = (v.z || 0) + frameDz; });
 
             // Downstream düğümleri per-frame delta ile taşı
+            const movedDownstreamNodeIds = new Set();
             [...downstreamNodesFromP1, ...downstreamNodesFromP2].forEach(node => {
                 node.x += frameDx; node.y += frameDy; node.z = (node.z || 0) + frameDz;
+                movedDownstreamNodeIds.add(node._nodeId);
+            });
+
+            // Düşey boru takibi (CTRL): her hareket eden node'a bağlı düşey boruların diğer uçları
+            const allMovedNodes = [pipe.p1, pipe.p2, ...downstreamNodesFromP1, ...downstreamNodesFromP2];
+            const verticalSyncedIds = new Set(allMovedNodes.map(n => n._nodeId));
+            allMovedNodes.forEach(movedNode => {
+                findVerticalConnectedOtherEnds(interactionManager.manager, movedNode, null).forEach(({ otherNode }) => {
+                    if (verticalSyncedIds.has(otherNode._nodeId)) return; // zaten taşındı
+                    verticalSyncedIds.add(otherNode._nodeId);
+                    otherNode.x = movedNode.x; otherNode.y = movedNode.y;
+                });
             });
 
             // Downstream pipe'ların componentlerini per-frame delta ile taşı
@@ -1159,7 +1204,22 @@ export function handleDrag(interactionManager, point, event = null) {
         pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
         pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
 
-        if (interactionManager.useBridgeMode) {
+        // Düşey boru takibi: bağlı düşey boruların diğer ucunu X/Y'de takip ettir
+        const lockedEP = interactionManager.bodyDragLockedEndpoint;
+        if (lockedEP !== 'p1') {
+            (interactionManager.verticalOtherEndsP1 || []).forEach(({ otherNode }) => {
+                otherNode.x = pipe.p1.x; otherNode.y = pipe.p1.y;
+            });
+        }
+        if (lockedEP !== 'p2') {
+            (interactionManager.verticalOtherEndsP2 || []).forEach(({ otherNode }) => {
+                otherNode.x = pipe.p2.x; otherNode.y = pipe.p2.y;
+            });
+        }
+
+        // Bridge (süpürme) modu: sadece SHIFT basılıysa ghost ara borular göster
+        const shiftBridge = interactionManager.useBridgeMode && event && event.shiftKey;
+        if (shiftBridge) {
             interactionManager.ghostBridgePipes = [];
             const MIN_BRIDGE_LENGTH = 5;
             const dist1 = Math.hypot(pipe.p1.x - interactionManager.bodyDragInitialP1.x, pipe.p1.y - interactionManager.bodyDragInitialP1.y);
@@ -1202,7 +1262,8 @@ export function endDrag(interactionManager) {
         const newP1 = draggedPipe.p1;
         const newP2 = draggedPipe.p2;
 
-        if (interactionManager.useBridgeMode) {
+        // Bridge yalnızca SHIFT basılıyken aktifti (ghostBridgePipes doluysa)
+        if (interactionManager.useBridgeMode && interactionManager.ghostBridgePipes && interactionManager.ghostBridgePipes.length > 0) {
             const MIN_BRIDGE_LENGTH = 5;
             const mgr = interactionManager.manager;
             // Bridge pipe'lar için düğüm referansı: köprü noktaları snapshot (başlangıç) koordinatları
@@ -1212,17 +1273,27 @@ export function endDrag(interactionManager) {
             if (p1Connections.length > 0) {
                 const distP1 = Math.hypot(newP1.x - oldP1.x, newP1.y - oldP1.y);
                 if (distP1 >= MIN_BRIDGE_LENGTH) {
-                    // oldP1 snapshot'tan yeni düğüm oluştur
+                    // oldP1 konumunda yeni bağımsız düğüm oluştur
                     const snapNode1 = mgr.createNode(oldP1.x, oldP1.y, oldP1.z || 0);
+                    // Adjacent pipe'ların node'unu snapNode1'e geri döndür
+                    // (node sharing ile sürüklenince adjacent pipe da newP1'e gitmiş)
+                    p1Connections.forEach(connPipe => {
+                        if (connPipe.p1 === draggedPipe.p1) {
+                            connPipe.p1 = snapNode1;
+                            connPipe.p1NodeId = snapNode1._nodeId;
+                            mgr.nodes.set(snapNode1._nodeId, snapNode1);
+                        } else if (connPipe.p2 === draggedPipe.p1) {
+                            connPipe.p2 = snapNode1;
+                            connPipe.p2NodeId = snapNode1._nodeId;
+                            mgr.nodes.set(snapNode1._nodeId, snapNode1);
+                        }
+                    });
+                    // Dikey köprü boru: snapNode1 (eski konum) → draggedPipe.p1 (yeni konum)
                     const bridgePipe1 = new Boru(snapNode1, draggedPipe.p1, draggedPipe.boruTipi);
                     bridgePipe1.floorId = draggedPipe.floorId;
                     bridgePipe1.colorGroup = draggedPipe.colorGroup;
                     mgr.registerPipeNodes(bridgePipe1);
                     mgr.pipes.push(bridgePipe1);
-                    const parentAtP1 = p1Connections.find(c => draggedPipe.baslangicBaglanti && draggedPipe.baslangicBaglanti.hedefId === c.id);
-                    if (parentAtP1) { bridgePipe1.setBaslangicBaglanti('boru', parentAtP1.id); draggedPipe.setBaslangicBaglanti('boru', bridgePipe1.id); }
-                    const childrenAtP1 = p1Connections.filter(c => c.baslangicBaglanti && c.baslangicBaglanti.hedefId === draggedPipe.id);
-                    if (childrenAtP1.length > 0) { bridgePipe1.setBaslangicBaglanti('boru', draggedPipe.id); childrenAtP1.forEach(c => { c.setBaslangicBaglanti('boru', bridgePipe1.id); }); }
                 }
             }
 
@@ -1230,15 +1301,23 @@ export function endDrag(interactionManager) {
                 const distP2 = Math.hypot(newP2.x - oldP2.x, newP2.y - oldP2.y);
                 if (distP2 >= MIN_BRIDGE_LENGTH) {
                     const snapNode2 = mgr.createNode(oldP2.x, oldP2.y, oldP2.z || 0);
+                    p2Connections.forEach(connPipe => {
+                        if (connPipe.p1 === draggedPipe.p2) {
+                            connPipe.p1 = snapNode2;
+                            connPipe.p1NodeId = snapNode2._nodeId;
+                            mgr.nodes.set(snapNode2._nodeId, snapNode2);
+                        } else if (connPipe.p2 === draggedPipe.p2) {
+                            connPipe.p2 = snapNode2;
+                            connPipe.p2NodeId = snapNode2._nodeId;
+                            mgr.nodes.set(snapNode2._nodeId, snapNode2);
+                        }
+                    });
+                    // Dikey köprü boru: draggedPipe.p2 (yeni konum) → snapNode2 (eski konum)
                     const bridgePipe2 = new Boru(draggedPipe.p2, snapNode2, draggedPipe.boruTipi);
                     bridgePipe2.floorId = draggedPipe.floorId;
                     bridgePipe2.colorGroup = draggedPipe.colorGroup;
                     mgr.registerPipeNodes(bridgePipe2);
                     mgr.pipes.push(bridgePipe2);
-                    const parentAtP2 = p2Connections.find(c => draggedPipe.baslangicBaglanti && draggedPipe.baslangicBaglanti.hedefId === c.id);
-                    if (parentAtP2) { bridgePipe2.setBaslangicBaglanti('boru', parentAtP2.id); draggedPipe.setBaslangicBaglanti('boru', bridgePipe2.id); }
-                    const childrenAtP2 = p2Connections.filter(c => c.baslangicBaglanti && c.baslangicBaglanti.hedefId === draggedPipe.id);
-                    if (childrenAtP2.length > 0) { bridgePipe2.setBaslangicBaglanti('boru', draggedPipe.id); childrenAtP2.forEach(c => { c.setBaslangicBaglanti('boru', bridgePipe2.id); }); }
                 }
             }
         }
@@ -1309,6 +1388,28 @@ export function endDrag(interactionManager) {
  * aynı delta ile taşınacak ek (downstream) düğümlerdir.
  * fromNodes'un sahip olduğu pipe'lar hariç tutulur (excludePipe).
  */
+/**
+ * Verilen node'a bağlı DÜŞEY boruları bulur ve her birinin DİĞER ucunu döndürür.
+ * Düşey boru: iki uç arasındaki 2D mesafe VERTICAL_2D_THRESHOLD'dan küçük olan boru.
+ * Bu fonksiyon drag başlangıcında çağrılır; dönen nesneler {otherNode, initialX, initialY} içerir.
+ */
+const VERTICAL_2D_THRESHOLD = 2;
+function findVerticalConnectedOtherEnds(manager, node, excludePipe) {
+    const result = [];
+    manager.pipes.forEach(p => {
+        if (p === excludePipe) return;
+        let otherNode = null;
+        if (p.p1 === node) otherNode = p.p2;
+        else if (p.p2 === node) otherNode = p.p1;
+        if (!otherNode) return;
+        const dist2d = Math.hypot(p.p2.x - p.p1.x, p.p2.y - p.p1.y);
+        if (dist2d < VERTICAL_2D_THRESHOLD) {
+            result.push({ otherNode, initialX: otherNode.x, initialY: otherNode.y });
+        }
+    });
+    return result;
+}
+
 function collectDownstreamNodes(manager, fromNodes, excludePipe = null) {
     const seenNodeIds = new Set(fromNodes.map(n => n._nodeId));
     const result = [];

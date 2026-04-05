@@ -26,57 +26,58 @@ const CUSTOM_COLORS = {
     }
 };
 
+
 // --- VANA RENK PALETLERİ (Light/Dark Mod Destekli) ---
 const VALVE_THEMES = {
     // SARI BORU -> ALTIN VANA
     YELLOW: {
         light: [
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(120, 50, 5, 1)' },   // koyu kahve-kahverengi
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0, color: 'rgba(70, 70, 70, 1)' },
+            { pos: 0.25, color: 'rgba(120, 50, 5, 1)' },   
+            { pos: 0.5, color: 'rgba(70, 70, 70, 1)' },
             { pos: 0.75, color: 'rgba(120, 50, 5, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+            { pos: 1, color: 'rgba(70, 70, 70, 1)' }
         ],
         dark: [
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(150, 95, 0, 1)' },   // koyu altın
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(150, 95, 0, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' }, // Tam saf beyaz
+            { pos: 0.25, color: 'rgba(245, 235, 200, 1)' }, // Neredeyse beyaz (Çok hafif krem/altın)
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' }, // Tam saf beyaz
+            { pos: 0.75, color: 'rgba(245, 235, 200, 1)' },
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }  // Tam saf beyaz
         ]
     },
     // TURKUAZ BORU -> MAVİ VANA
     TURQUAZ: {
         light: [
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(0, 60, 150, 1)' },   // koyu lacivert
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0, color: 'rgba(70, 70, 70, 1)' },
+            { pos: 0.25, color: 'rgba(0, 60, 150, 1)' },   
+            { pos: 0.5, color: 'rgba(70, 70, 70, 1)' },
             { pos: 0.75, color: 'rgba(0, 60, 150, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+            { pos: 1, color: 'rgba(70, 70, 70, 1)' }
         ],
         dark: [
             { pos: 0, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.25, color: 'rgba(0, 100, 120, 1)' },  // koyu teal
+            { pos: 0.25, color: 'rgba(210, 240, 250, 1)' }, // Neredeyse beyaz (Buz mavisine çalan çok açık ton)
             { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
-            { pos: 0.75, color: 'rgba(0, 100, 120, 1)' },
+            { pos: 0.75, color: 'rgba(210, 240, 250, 1)' },
             { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ]
     },
-    // VARSAYILAN (Gri/Beyaz)
+    // VARSAYILAN 
     DEFAULT: {
         light: [
-            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0, color: 'rgba(70, 70, 70, 1)' },
             { pos: 0.25, color: 'rgba(80, 80, 80, 1)' },
-            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.5, color: 'rgba(70, 70, 70, 1)' },
             { pos: 0.75, color: 'rgba(80, 80, 80, 1)' },
-            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
+            { pos: 1, color: 'rgba(70, 70, 70, 1)' }
         ],
         dark: [
-            { pos: 0, color: 'rgba(200, 200, 200, 1)' },
-            { pos: 0.25, color: 'rgba(50, 50, 50, 1)' },
-            { pos: 0.5, color: 'rgba(200, 200, 200, 1)' },
-            { pos: 0.75, color: 'rgba(50, 50, 50, 1)' },
-            { pos: 1, color: 'rgba(200, 200, 200, 1)' }
+            { pos: 0, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.25, color: 'rgba(240, 240, 240, 1)' }, // Neredeyse beyaz (sadece vananın şeklini belli edecek ufak bir grilik)
+            { pos: 0.5, color: 'rgba(255, 255, 255, 1)' },
+            { pos: 0.75, color: 'rgba(240, 240, 240, 1)' },
+            { pos: 1, color: 'rgba(255, 255, 255, 1)' }
         ]
     }
 };
@@ -601,7 +602,12 @@ drawSayac(ctx, comp, manager) {
                 if (pipe) pipeZ = pipe.p1.z || pipe.p2.z || 0;
             } else if (comp.fleksBaglanti?.boruId) {
                 const pipe = manager.findPipeById(comp.fleksBaglanti.boruId);
-                if (pipe) pipeZ = pipe.p1.z || pipe.p2.z || 0;
+                if (pipe) {
+                    const ep = comp.fleksBaglanti.endpoint;
+                    const epPoint = ep === 'p1' ? pipe.p1 : ep === 'p2' ? pipe.p2 : null;
+                    pipeZ = epPoint !== null ? (epPoint.z !== undefined ? epPoint.z : 0)
+                                            : (pipe.p1.z || pipe.p2.z || 0);
+                }
             }
         }
 

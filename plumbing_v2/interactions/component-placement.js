@@ -620,7 +620,7 @@ export function handleCihazEkleme(cihaz) {
     // State'e kaydet
     this.manager.saveToState();
 
-    // Baca gerektiren cihazlar için otomatik baca oluştur
+    // Baca gerektiren cihazlar için otomatik baca oluştur (2D ve 3D'de)
     if (cihaz.bacaGerekliMi()) {
         // Baca oluştur - cihaz merkezinden başlayarak sağa doğru 100cm
         const cihazZ = cihaz.z || 0;
@@ -642,6 +642,9 @@ export function handleCihazEkleme(cihaz) {
 
         // Bileşenlere ekle
         this.manager.components.push(baca);
+
+        // Baca dahil state'i kaydet
+        this.manager.saveToState();
     }
 
     // console.log('[handleCihazEkleme] ✓ Cihaz başarıyla eklendi. Toplam components:', this.manager.components.length);

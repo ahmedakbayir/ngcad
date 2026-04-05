@@ -103,11 +103,21 @@ export const DeviceMixin = {
             if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
             ctx.translate(-comp.x, -comp.y);
 
+            const _t3d = state.viewBlendFactor || 0;
             let targetPoint = null;
             if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
                 const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
                 if (pipe) {
-                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
+                    const raw = comp.getFleksBaglantiNoktasi(pipe);
+                    if (raw) {
+                        // drawComponent, ctx'e device Z offset uyguluyor: translate(comp.x + devZ*t, comp.y - devZ*t)
+                        // drawKombi içinde -comp.x, -comp.y ile geri alınıyor ama devZ*t kalıyor.
+                        // Bu yüzden targetPoint için sadece (pipeZ - devZ)*t farkını uygula.
+                        const pipeZ = (comp.fleksBaglanti.endpoint === 'p1' ? pipe.p1.z : pipe.p2.z) || 0;
+                        const devZ = comp.z || 0;
+                        const zDiff = (pipeZ - devZ) * _t3d;
+                        targetPoint = { x: raw.x + zDiff, y: raw.y - zDiff };
+                    }
                 } else {
                     if (!comp._fleksWarningLogged) {
                         // console.warn('⚠️ FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
@@ -193,11 +203,18 @@ export const DeviceMixin = {
             if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
             ctx.translate(-comp.x, -comp.y);
 
+            const _t3d = state.viewBlendFactor || 0;
             let targetPoint = null;
             if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
                 const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
                 if (pipe) {
-                    targetPoint = comp.getFleksBaglantiNoktasi(pipe);
+                    const raw = comp.getFleksBaglantiNoktasi(pipe);
+                    if (raw) {
+                        const pipeZ = (comp.fleksBaglanti.endpoint === 'p1' ? pipe.p1.z : pipe.p2.z) || 0;
+                        const devZ = comp.z || 0;
+                        const zDiff = (pipeZ - devZ) * _t3d;
+                        targetPoint = { x: raw.x + zDiff, y: raw.y - zDiff };
+                    }
                 } else {
                     if (!comp._fleksWarningLogged) {
                         // console.warn('⚠️ OCAK FLEKS: Boru bulunamadı!', comp.fleksBaglanti.boruId);
@@ -305,6 +322,7 @@ export const DeviceMixin = {
 
         // 3D faktörü
         const t = state.viewBlendFactor || 0;
+        if (t > 0.1) { return; } // 3D modda baca çizme
 
         ctx.save();
 

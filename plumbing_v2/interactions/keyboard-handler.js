@@ -173,48 +173,46 @@ export function handleKeyDown(e) {
         return true;
     }
 
-    // K - Kombi ekle (Ghost mod)
+    // K - Kombi ekle (Ghost mod, ya da 3D + seçili hat varsa otomatik)
     if (e.key === 'k' || e.key === 'K') {
-        // Önceki modu kaydet
+        if ((state.viewBlendFactor || 0) > 0.1) {
+            const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+            if (boruUcuInfo) {
+                this.cancelCurrentAction();
+                this.manager.placeDeviceAtOpenEnd('KOMBI', boruUcuInfo);
+                return true;
+            }
+        }
+        // 2D mod veya seçili hat yoksa ghost mod
         this.previousMode = state.currentMode;
         this.previousDrawingMode = state.currentDrawingMode;
         this.previousActiveTool = this.manager.activeTool;
-
-        // TESİSAT moduna geç
-        if (state.currentDrawingMode !== "KARMA") {
-            setDrawingMode("TESİSAT");
-        }
-
-        // Mevcut eylemleri iptal et
+        if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
         this.cancelCurrentAction();
-
-        // DÜZELTİLDİ: Parametre nesne olarak gönderilmeli
         this.manager.startPlacement('cihaz', { cihazTipi: 'KOMBI' });
         setMode("plumbingV2", true);
-
         return true;
     }
 
-    // O - Ocak ekle (Ghost mod)
+    // O - Ocak ekle (Ghost mod, ya da 3D + seçili hat varsa otomatik)
     if (e.key === 'o' || e.key === 'O') {
-        // Önceki modu kaydet
+        if ((state.viewBlendFactor || 0) > 0.1) {
+            const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+            if (boruUcuInfo) {
+                this.cancelCurrentAction();
+                this.manager.placeDeviceAtOpenEnd('OCAK', boruUcuInfo);
+                return true;
+            }
+        }
+        // 2D mod veya seçili hat yoksa ghost mod
         this.previousMode = state.currentMode;
         this.previousDrawingMode = state.currentDrawingMode;
         this.previousActiveTool = this.manager.activeTool;
         this.cancelCurrentAction();
-
-        // TESİSAT moduna geç
-        if (state.currentDrawingMode !== "KARMA") {
-            setDrawingMode("TESİSAT");
-        }
-
-        // Mevcut eylemleri iptal et
+        if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
         this.cancelCurrentAction();
-
-        // DÜZELTİLDİ: Parametre nesne olarak gönderilmeli
         this.manager.startPlacement('cihaz', { cihazTipi: 'OCAK' });
         setMode("plumbingV2", true);
-
         return true;
     }
 
@@ -545,6 +543,40 @@ export function applyVerticalHeight() {
  * Seçili borudan başlayarak downstream (sonrasındaki) tüm boruları ve bileşenleri bulur
  * BFS algoritması kullanarak tüm bağlı zinciri toplar
  */
+/**
+ * 3D modda seçili hattın boş ucunu döndürür.
+ * `this` = InteractionManager bağlamında çağrılır.
+ * @returns {{ pipe, end, point } | null}
+ */
+function _getSeciliHatinBosUcu() {
+    const manager = this.manager;
+    // Seçili boruları bul
+    const seciliPipes = manager.pipes.filter(p => p.isSelected);
+    if (seciliPipes.length === 0) return null;
+
+    for (const pipe of seciliPipes) {
+        // p1 ucunu kontrol et
+        if (manager.isTrulyFreeEndpoint(pipe.p1, 1)) {
+            const hasDevice = manager.components.some(c =>
+                (c.type === 'cihaz' || c.type === 'sayac') &&
+                c.fleksBaglanti?.boruId === pipe.id &&
+                c.fleksBaglanti?.endpoint === 'p1'
+            );
+            if (!hasDevice) return { pipe, end: 'p1', point: pipe.p1 };
+        }
+        // p2 ucunu kontrol et
+        if (manager.isTrulyFreeEndpoint(pipe.p2, 1)) {
+            const hasDevice = manager.components.some(c =>
+                (c.type === 'cihaz' || c.type === 'sayac') &&
+                c.fleksBaglanti?.boruId === pipe.id &&
+                c.fleksBaglanti?.endpoint === 'p2'
+            );
+            if (!hasDevice) return { pipe, end: 'p2', point: pipe.p2 };
+        }
+    }
+    return null;
+}
+
 function getDownstreamPipesAndComponents(startPipe, manager) {
     const result = {
         pipes: [],

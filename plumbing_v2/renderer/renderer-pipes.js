@@ -133,6 +133,10 @@ export const PipeMixin = {
 
         // 2. Bileşen Gölgeleri
         manager.components.forEach(comp => {
+            if (comp.type === 'sayac') return; // sayaç gölgesi yok
+            if (comp.type === 'cihaz') return; // cihaz gölgesi yok
+            if (comp.type === 'baca') return;  // baca gölgesi yok
+
             ctx.save();
             ctx.translate(comp.x, comp.y);
             if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
@@ -140,23 +144,6 @@ export const PipeMixin = {
             if (comp.type === 'servis_kutusu') {
                 const { width, height } = SERVIS_KUTUSU_CONFIG;
                 ctx.fillRect(-width / 2, -height / 2, width, height);
-            }
-            else if (comp.type === 'sayac') {
-                const { width, height } = comp.config || SAYAC_CONFIG;
-                ctx.fillRect(-width / 2, -height / 2, width, height);
-            }
-            else if (comp.type === 'cihaz') {
-                const config = CIHAZ_TIPLERI[comp.cihazTipi] || CIHAZ_TIPLERI.KOMBI;
-                if (comp.cihazTipi === 'KOMBI') {
-                    ctx.beginPath();
-                    ctx.arc(0, 0, 20, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (comp.cihazTipi === 'OCAK') {
-                    const boxSize = 15;
-                    ctx.fillRect(-boxSize, -boxSize, boxSize * 2, boxSize * 2);
-                } else {
-                    ctx.fillRect(-config.width / 2, -config.height / 2, config.width, config.height);
-                }
             }
             else if (comp.type === 'vana') {
                 // Vana gölgesi (küçük daire)
@@ -166,20 +153,6 @@ export const PipeMixin = {
             }
 
             ctx.restore();
-        });
-
-        // 3. Baca Gölgeleri (Z=0 seviyesinde, zemin düzlemi)
-        manager.components.filter(c => c.type === 'baca').forEach(baca => {
-            if (baca.segments && baca.segments.length > 0) {
-                ctx.lineWidth = 12; // Baca genişliği
-                ctx.beginPath();
-                baca.segments.forEach((seg, i) => {
-                    // Gölgeler ALWAYS zemin seviyesinde (x, y), Z offset YOK
-                    if (i === 0) ctx.moveTo(seg.x1, seg.y1);
-                    ctx.lineTo(seg.x2, seg.y2);
-                });
-                ctx.stroke();
-            }
         });
 
         ctx.restore();

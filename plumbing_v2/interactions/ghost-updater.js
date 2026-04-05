@@ -48,12 +48,37 @@ export function updateGhostPosition(ghost, point, snap) {
             const boruYonUzunluk = Math.hypot(boruYonX, boruYonY);
 
             // Normalize edilmiş boru yönü
-            // DÜZELTME: Düşey borular için (X-Y'de uzunluk ~0), varsayılan yön kullan (kuzeye = 0,-1)
             let normBoruYonX, normBoruYonY;
             if (boruYonUzunluk < 2.0) {
-                // Düşey boru veya çok kısa boru - varsayılan yön: kuzeye (yukarı)
-                normBoruYonX = 0;
-                normBoruYonY = -1;
+                // Dikey boru: üst ucuna bağlı yatay segmentin yönünü bul
+                const otherEnd = boruUcu.uc === 'p1' ? boru.p2 : boru.p1;
+                let foundDx = 0, foundDy = 0, foundLen = 0;
+                for (const pipe of this.manager.pipes) {
+                    if (pipe.id === boru.id) continue;
+                    const d1 = Math.hypot(pipe.p1.x - otherEnd.x, pipe.p1.y - otherEnd.y, (pipe.p1.z || 0) - (otherEnd.z || 0));
+                    const d2 = Math.hypot(pipe.p2.x - otherEnd.x, pipe.p2.y - otherEnd.y, (pipe.p2.z || 0) - (otherEnd.z || 0));
+                    if (Math.min(d1, d2) < 2) {
+                        const pDx = pipe.p2.x - pipe.p1.x;
+                        const pDy = pipe.p2.y - pipe.p1.y;
+                        const pLen = Math.hypot(pDx, pDy);
+                        if (pLen > 0.01) {
+                            // Bağlantı noktasından dışarı yönü (ucun tersi)
+                            const sign = d1 < d2 ? 1 : -1;
+                            foundDx = (pDx / pLen) * sign;
+                            foundDy = (pDy / pLen) * sign;
+                            foundLen = 1;
+                            break;
+                        }
+                    }
+                }
+                if (foundLen > 0) {
+                    normBoruYonX = foundDx;
+                    normBoruYonY = foundDy;
+                } else {
+                    // Fallback: isometrik aşağı-sağ yönü
+                    normBoruYonX = 1 / Math.SQRT2;
+                    normBoruYonY = 1 / Math.SQRT2;
+                }
             } else {
                 normBoruYonX = boruYonX / boruYonUzunluk;
                 normBoruYonY = boruYonY / boruYonUzunluk;
@@ -135,23 +160,53 @@ export function updateGhostPosition(ghost, point, snap) {
             const mouseWorldX = point.x - (targetZ * t);
             const mouseWorldY = point.y + (targetZ * t);
 
-            // Cross product hesabı
             const mouseVecX = mouseWorldX - boruUcu.nokta.x;
             const mouseVecY = mouseWorldY - boruUcu.nokta.y;
-            const crossProduct = mouseVecX * dy - mouseVecY * dx;
 
-            // Dik vektör
-            let perpX = -dy / length;
-            let perpY = dx / length;
+            let perpX, perpY, baseRotation;
 
-            if (crossProduct > 0) {
-                perpX = -perpX;
-                perpY = -perpY;
+            if (length < 0.01) {
+                // Dikey boru: diğer ucuna bağlı son yatay segmentin yönünü bul
+                const otherEnd = boruUcu.uc === 'p1' ? boru.p2 : boru.p1;
+                let hdx = 0, hdy = 0, hLength = 0;
+                for (const pipe of this.manager.pipes) {
+                    if (pipe.id === boru.id) continue;
+                    const d1 = Math.hypot(pipe.p1.x - otherEnd.x, pipe.p1.y - otherEnd.y, (pipe.p1.z || 0) - (otherEnd.z || 0));
+                    const d2 = Math.hypot(pipe.p2.x - otherEnd.x, pipe.p2.y - otherEnd.y, (pipe.p2.z || 0) - (otherEnd.z || 0));
+                    if (Math.min(d1, d2) < 2) {
+                        const pDx = pipe.p2.x - pipe.p1.x;
+                        const pDy = pipe.p2.y - pipe.p1.y;
+                        const pLen = Math.hypot(pDx, pDy);
+                        if (pLen > 0.01) { hdx = pDx; hdy = pDy; hLength = pLen; break; }
+                    }
+                }
+
+                if (hLength > 0.01) {
+                    // Yatay borunun yönünü kullan — yatay boru gibi dik yönde yerleştir
+                    const crossProduct = mouseVecX * hdy - mouseVecY * hdx;
+                    perpX = -hdy / hLength;
+                    perpY =  hdx / hLength;
+                    if (crossProduct > 0) { perpX = -perpX; perpY = -perpY; }
+                    baseRotation = Math.atan2(hdy, hdx) * 180 / Math.PI;
+                    if (crossProduct > 0) baseRotation += 180;
+                } else {
+                    // Fallback: yatay boru bulunamazsa isometrik diagonal
+                    const side = mouseVecX + mouseVecY;
+                    const sign = side >= 0 ? 1 : -1;
+                    perpX = sign / Math.SQRT2;
+                    perpY = sign / Math.SQRT2;
+                    baseRotation = sign >= 0 ? 45 : -135;
+                }
+            } else {
+                // Normal yatay/eğik boru
+                const crossProduct = mouseVecX * dy - mouseVecY * dx;
+                perpX = -dy / length;
+                perpY =  dx / length;
+                if (crossProduct > 0) { perpX = -perpX; perpY = -perpY; }
+                baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
+                if (crossProduct > 0) baseRotation += 180;
             }
 
-            // Rotasyon
-            let baseRotation = Math.atan2(dy, dx) * 180 / Math.PI;
-            if (crossProduct > 0) baseRotation += 180;
             ghost.rotation = baseRotation;
 
             // Pozisyon hesapla

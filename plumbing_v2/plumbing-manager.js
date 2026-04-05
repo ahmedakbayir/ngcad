@@ -435,13 +435,22 @@ export class PlumbingManager {
 
         const floorId = targetPipe.floorId || state.currentFloor?.id;
 
-        // Cihazı oluştur (geçici pozisyon, handleCihazEkleme ayarlayacak)
-        const newDevice = createCihaz(targetPoint.x, targetPoint.y, deviceType, { floorId });
+        // Cihazı oluştur; boru ucundan dik aşağıya (+Y) konumlandır
+        // Cihaz yarısı (15cm) + fleks (15cm) = 30cm offset
+        const DEVICE_HALF = 15;
+        const FLEKS_UZUNLUK = 15;
+        const devX = targetPoint.x;
+        const devY = targetPoint.y + DEVICE_HALF + FLEKS_UZUNLUK;
+
+        const newDevice = createCihaz(devX, devY, deviceType, { floorId });
 
         if (!newDevice) {
             // console.error("Cihaz oluşturulamadı.");
             return false;
         }
+
+        // Z değerini boru ucundan al
+        newDevice.z = targetPoint.z || 0;
 
         // Ghost connection info ekle (handleCihazEkleme kullanır)
         newDevice.ghostConnectionInfo = {

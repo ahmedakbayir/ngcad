@@ -207,7 +207,16 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
         if (preferredCandidate) return preferredCandidate;
     }
 
-    return candidates[0]; // İlk bulunanı döndür
+    // En yakın adayı döndür (ekran mesafesine göre sırala)
+    let nearest = candidates[0];
+    let nearestDist = Math.hypot(point.x - getScreenPoint(candidates[0].nokta).x,
+                                 point.y - getScreenPoint(candidates[0].nokta).y);
+    for (let i = 1; i < candidates.length; i++) {
+        const sp = getScreenPoint(candidates[i].nokta);
+        const dist = Math.hypot(point.x - sp.x, point.y - sp.y);
+        if (dist < nearestDist) { nearestDist = dist; nearest = candidates[i]; }
+    }
+    return nearest;
 }
 
 export function findBoruGovdeAt(manager, point, tolerance = 5) {
@@ -316,17 +325,21 @@ export function removeObject(manager, obj) {
 
         // 2. Parent bilgisini al (Bu borunun BAŞLANGICINDAKİ kaynak)
         const parentConn = pipeToDelete.baslangicBaglanti;
-        const p1Location = { x: pipeToDelete.p1.x, y: pipeToDelete.p1.y, z: pipeToDelete.p1.z };
 
         // 3. BİRLEŞTİRME (HEAL) MANTIĞI
         // Eğer 1 çocuk ve geçerli bir kaynak varsa
         if (childPipe && parentConn && parentConn.hedefId) {
-            
-            // Çocuğun başlangıç noktasını, silinen borunun başlangıç noktasına taşı
-            if (childPipe.moveP1) {
-                childPipe.moveP1(p1Location);
-            } else {
-                childPipe.p1 = { ...p1Location };
+
+            // Çocuğun başlangıç noktasını, silinen borunun p1 NODE'una bağla.
+            // { ...p1Location } KULLANMA — düz obje _nodeId içermez ve node sharing'i kırar.
+            // pipeToDelete.p1, parent boruyla zaten paylaşılan node nesnesidir;
+            // childPipe.p1'i aynı nesneye bağlamak bağlantıyı korur.
+            const oldChildP1NodeId = childPipe.p1NodeId;
+            childPipe.p1 = pipeToDelete.p1;
+            childPipe.p1NodeId = pipeToDelete.p1NodeId;
+            // Artık kullanılmayan eski node'u temizle
+            if (oldChildP1NodeId && oldChildP1NodeId !== pipeToDelete.p1NodeId) {
+                manager.nodes.delete(oldChildP1NodeId);
             }
             
             // Çocuğun bağlantısını güncelle (Silinen borunun parent'ına bağla)
