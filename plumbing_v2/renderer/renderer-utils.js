@@ -195,3 +195,57 @@ export function buildPipeHierarchy(pipes, components) {
 
     return hierarchy;
 }
+
+/**
+ * Her boruya kümülatif debi atar:
+ *   1. Doğrudan bağlı cihazların debisi atanır.
+ *   2. Alt→üst (post-order DFS) ile çocukların debisi ebeveyne eklenir.
+ * Böylece her borunun debi'si kendisinden sonraki tüm dalların toplamını içerir.
+ */
+export function computePipeDebileri(manager) {
+    if (!manager?.pipes) return;
+
+    const pipes   = manager.pipes;
+    const pipeMap = new Map(pipes.map(p => [p.id, p]));
+
+    // 1. Sıfırla ve doğrudan cihaz debilerini ata
+    pipes.forEach(p => { p.debi = 0; });
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'cihaz') return;
+        const pipeId = c.fleksBaglanti?.boruId;
+        if (!pipeId) return;
+        const kcal  = parseFloat(c.kapasiteKcal);
+        const verim = (parseFloat(c.verim) || 100) / 100;
+        if (isNaN(kcal) || kcal <= 0) return;
+        const pipe = pipeMap.get(pipeId);
+        if (pipe) pipe.debi += kcal / 8250 / verim;
+    });
+
+    // 2. Çocuk haritası: ebeveyn boru id → çocuk boru id listesi
+    const childrenOf = new Map();
+    pipes.forEach(p => {
+        const bag = p.baslangicBaglanti;
+        if (bag?.tip === 'boru' && bag.hedefId) {
+            if (!childrenOf.has(bag.hedefId)) childrenOf.set(bag.hedefId, []);
+            childrenOf.get(bag.hedefId).push(p.id);
+        }
+    });
+
+    // 3. Post-order DFS: çocukların debisini ebeveyne ekle
+    const visited = new Set();
+    function dfs(pipeId) {
+        if (visited.has(pipeId)) return;
+        visited.add(pipeId);
+        (childrenOf.get(pipeId) || []).forEach(childId => {
+            dfs(childId);
+            const parent = pipeMap.get(pipeId);
+            const child  = pipeMap.get(childId);
+            if (parent && child) parent.debi += child.debi;
+        });
+    }
+
+    // Kök borulardan başla (başlangıcı başka bir boruya bağlı olmayanlar)
+    pipes.forEach(p => {
+        if (p.baslangicBaglanti?.tip !== 'boru') dfs(p.id);
+    });
+}

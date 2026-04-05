@@ -1,7 +1,7 @@
 // plumbing_v2/plumbing-renderer.js
 // Ana tesisat renderer sınıfı - Modüler yapı ile yeniden organize edildi
 
-import { buildPipeHierarchy } from './renderer/renderer-utils.js';
+import { buildPipeHierarchy, computePipeDebileri } from './renderer/renderer-utils.js';
 import { ColorMixin } from './renderer/renderer-colors.js';
 import { PipeMixin } from './renderer/renderer-pipes.js';
 import { ComponentMixin } from './renderer/renderer-components.js';
@@ -30,6 +30,9 @@ export class PlumbingRenderer {
         // Hierarchy'yi hesapla ve cache'le (selection-manager için)
         const hierarchy = buildPipeHierarchy(manager.pipes, manager.components);
         window._pipeHierarchy = hierarchy;
+
+        // Her boruya doğrudan bağlı cihazların debi toplamını hesapla
+        computePipeDebileri(manager);
 
         // Vanaların pozisyonlarını güncelle (boru uzunluğu değiştiğinde)
         manager.updateAllValvePositions();

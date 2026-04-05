@@ -949,7 +949,17 @@ export const PipeMixin = {
             ctx.fillStyle = plumbingDimensionColor;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.fillText(displayText, 0, 0);
+
+            // Debi değeri varsa: uzunluk üstte, debi altında
+            const debi = typeof pipe.debi === 'number' && pipe.debi > 0 ? pipe.debi : null;
+            if (debi !== null) {
+                ctx.fillText(displayText, 0, -actualFontSize * 0.7);
+                ctx.font = `italic ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+                ctx.fillStyle = '#4ade80'; // yeşil
+                ctx.fillText(debi.toFixed(2), 0, actualFontSize * 0.7);
+            } else {
+                ctx.fillText(displayText, 0, 0);
+            }
 
             ctx.restore();
         });
@@ -1142,13 +1152,17 @@ export const PipeMixin = {
                 // ctx.textAlign = "left";
                 // ctx.fillText(parentText, startX, 0);
 
-                // Self (KIRMIZI)
-                ctx.fillStyle = darkBlue; //'#ff0000'; // Kırmızı
+                // Self (mavi)
+                ctx.fillStyle = darkBlue;
                 ctx.fillText(selfText, startX + parentWidth, 0);
 
-                // // Children (dark blue)
-                // ctx.fillStyle = darkgreen;
-                // ctx.fillText(childrenText, startX + parentWidth + selfWidth, 0);
+                // Debi (yeşil italic, label'ın altında)
+                const debi = typeof pipe.debi === 'number' && pipe.debi > 0 ? pipe.debi : null;
+                if (debi !== null) {
+                    ctx.font = `italic ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+                    ctx.fillStyle = '#4ade80';
+                    ctx.fillText(debi.toFixed(2), 0, actualFontSize * 1.4);
+                }
             }
 
             ctx.restore();

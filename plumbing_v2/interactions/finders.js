@@ -419,8 +419,64 @@ export function removeObject(manager, obj) {
         if (index !== -1) manager.pipes.splice(index, 1);
 
     } else if (obj.type === 'servis_kutusu') {
-        const index = manager.components.findIndex(c => c.id === obj.id);
-        if (index !== -1) manager.components.splice(index, 1);
+        // BFS: kutuya bağlı tüm boru ve bileşenleri topla
+        const pipeIds  = new Set();
+        const sayacIds = new Set();
+        const sourceIds = new Set([obj.id]); // başlangıç: kutu id'si
+
+        let changed = true;
+        while (changed) {
+            changed = false;
+            // Başlangıç noktası sourceIds içinde olan boruları topla
+            manager.pipes.forEach(pipe => {
+                if (pipeIds.has(pipe.id)) return;
+                const bag = pipe.baslangicBaglanti;
+                if (bag?.hedefId && sourceIds.has(bag.hedefId)) {
+                    pipeIds.add(pipe.id);
+                    sourceIds.add(pipe.id);
+                    changed = true;
+                }
+            });
+            // Bu borulara fleks bağlı sayaçları topla
+            manager.components.forEach(c => {
+                if (c.type !== 'sayac' || sayacIds.has(c.id)) return;
+                if (c.fleksBaglanti?.boruId && pipeIds.has(c.fleksBaglanti.boruId)) {
+                    sayacIds.add(c.id);
+                    sourceIds.add(c.id); // sayaç çıkışındaki borular da bulunabilsin
+                    changed = true;
+                }
+            });
+        }
+
+        // Cihaz ID'lerini topla (bacaları da silebilmek için)
+        const cihazIds = new Set(
+            manager.components
+                .filter(c => c.type === 'cihaz' && c.fleksBaglanti?.boruId && pipeIds.has(c.fleksBaglanti.boruId))
+                .map(c => c.id)
+        );
+
+        // Bileşenleri geriden silerek temizle
+        for (let i = manager.components.length - 1; i >= 0; i--) {
+            const c = manager.components[i];
+            const remove =
+                c.id === obj.id ||                                                   // servis kutusu
+                sayacIds.has(c.id) ||                                                // sayaç
+                cihazIds.has(c.id) ||                                                // cihaz
+                (c.type === 'baca'  && cihazIds.has(c.parentCihazId)) ||            // baca
+                (c.type === 'vana'  && pipeIds.has(c.bagliBoruId))    ||            // boru vanası
+                (c.fleksBaglanti?.boruId && pipeIds.has(c.fleksBaglanti.boruId));   // fleks bağlı
+            if (remove) manager.components.splice(i, 1);
+        }
+
+        // Boruların node'larını ve kendilerini temizle
+        for (let i = manager.pipes.length - 1; i >= 0; i--) {
+            const pipe = manager.pipes[i];
+            if (!pipeIds.has(pipe.id)) continue;
+            if (pipe.p1NodeId) manager.nodes?.delete(pipe.p1NodeId);
+            if (pipe.p2NodeId) manager.nodes?.delete(pipe.p2NodeId);
+            manager.pipes.splice(i, 1);
+        }
+
     } else if (obj.type === 'sayac') {
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);

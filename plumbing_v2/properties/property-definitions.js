@@ -18,7 +18,7 @@ export const BAGLANTI_TIPLERI = ['DİŞLİ', 'KAYNAKLI'];
 export const SAYAC_TURLERI   = ['KÖRÜKLÜ', 'ROTARY', 'TÜRBİN'];
 export const SAYAC_TIPLERI   = [
     'G4', 'G6', 'G10', 'G16', 'G25', 'G40',
-    'G65', 'G100', 'G160', 'G250', 'G400', 'G650', 'G1000',
+    'G65', 'G100', 'G160', 'G250', 'G400', 'G650', 'G1000', 'G1600',
 ];
 export const BIRIM_TIPLERI   = ['KONUT', 'OFİS', 'TİCARİ', 'KAZAN DAİRESİ'];
 export const ESNEK_BORU_MARKALARI = ['AYVAZ', 'GFS', 'KAS', 'HITACHI', 'PAKTERMO', 'LEXFLEX', 'KALDE', 'GFLEX'];
@@ -52,7 +52,48 @@ export const SERVIS_KUTUSU_TIPLERI = ['S200', 'S300', 'S700', 'S2200', 'CES200']
 export const KUTU_BASINCLAR        = ['21', '300'];
 export const CIKIS_YONLERI         = ['Yandan Çıkış', 'Alttan Çıkış', 'Üstten Çıkış'];
 
+/** Sayaç debi tablosu — Tip, Tür, min/max kapasiteler ve çıkış çapı */
+export const SAYAC_DEBI_TABLOSU = [
+    { Tip: 'G4',    Tur: 'KÖRÜKLÜ', Qmin: 0.04,  Qmax21:    6, Qmax300:    7.8, Cap: 25 },
+    { Tip: 'G6',    Tur: 'KÖRÜKLÜ', Qmin: 0.06,  Qmax21:   10, Qmax300:   13,   Cap: 25 },
+    { Tip: 'G10',   Tur: 'KÖRÜKLÜ', Qmin: 0.1,   Qmax21:   16, Qmax300:   20.8, Cap: 40 },
+    { Tip: 'G16',   Tur: 'KÖRÜKLÜ', Qmin: 0.16,  Qmax21:   25, Qmax300:   32.5, Cap: 40 },
+    { Tip: 'G25',   Tur: 'KÖRÜKLÜ', Qmin: 0.25,  Qmax21:   40, Qmax300:   52,   Cap: 50 },
+    { Tip: 'G40',   Tur: 'ROTARY',  Qmin: 0.4,   Qmax21:   65, Qmax300:   84.5, Cap: 50 },
+    { Tip: 'G65',   Tur: 'ROTARY',  Qmin: 0.65,  Qmax21:  100, Qmax300:  130,   Cap: 50 },
+    { Tip: 'G100',  Tur: 'ROTARY',  Qmin: 1,     Qmax21:  160, Qmax300:  208,   Cap: 50 },
+    { Tip: 'G160',  Tur: 'ROTARY',  Qmin: 1.6,   Qmax21:  250, Qmax300:  325,   Cap: 50 },
+    { Tip: 'G250',  Tur: 'ROTARY',  Qmin: 2.5,   Qmax21:  400, Qmax300:  520,   Cap: 50 },
+    { Tip: 'G400',  Tur: 'TÜRBİN', Qmin: 4,     Qmax21:  650, Qmax300:  845,   Cap: 50 },
+    { Tip: 'G650',  Tur: 'TÜRBİN', Qmin: 6.5,   Qmax21: 1000, Qmax300: 1300,   Cap: 50 },
+    { Tip: 'G1000', Tur: 'TÜRBİN', Qmin: 10,    Qmax21: 1600, Qmax300: 2080,   Cap: 50 },
+    { Tip: 'G1600', Tur: 'TÜRBİN', Qmin: 16,    Qmax21: 2500, Qmax300: 3250,   Cap: 50 },
+];
+
 // ─── YARDIMCI ────────────────────────────────────────────────────────────────
+
+/** Sayaç tipine ve basınca göre min/max debi limitlerini döndürür */
+function _getSayacLimits(obj) {
+    const row = SAYAC_DEBI_TABLOSU.find(r => r.Tip === obj.sayacTipi);
+    if (!row) return { tur: '—', minDebi: 0.04, maxDebi: 6 };
+    const is300 = String(obj.basinc) === '300';
+    return {
+        tur:     row.Tur,
+        minDebi: row.Qmin,
+        maxDebi: is300 ? row.Qmax300 : row.Qmax21,
+    };
+}
+
+/**
+ * Sayaç çıkışındaki ilk borunun kümülatif debisini döndürür.
+ * computePipeDebileri her boruya alt dalların toplamını zaten atar,
+ * bu yüzden ilk boru tek başına tüm tesisatın debisini içerir.
+ */
+function _sumDebiAfterSayac(sayac, manager) {
+    if (!manager || !sayac.cikisBagliBoruId) return 0;
+    const pipe = manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
+    return pipe?.debi || 0;
+}
 
 /** P1/P2 koordinat span'ı: değişen siyah, değişmeyen gri */
 function _coordSpan(label, changed) {
@@ -136,7 +177,7 @@ export const PROPERTY_DEFS = {
     boruDebi: {
         label: 'Debi',
         type: 'readonly',
-        readonlyFn: (obj) => obj.debi != null ? `${obj.debi} m³/h` : '3.5 m³/h',
+        readonlyFn: (obj) => (obj.debi != null && obj.debi > 0) ? `${Number(obj.debi).toFixed(2)} m³/h` : '— m³/h',
     },
     boruBasinc: {
         label: 'Basınç',
@@ -250,8 +291,6 @@ export const PROPERTY_DEFS = {
         },
         default: 'DN25',
     },
-
-    sayac_sec_hesap: { type: 'section', label: 'Hesap Değerleri' },
 
     sayacdebi: {
         label: 'Debi',
@@ -550,11 +589,12 @@ export const PROPERTY_DEFS = {
     // Sayaç debi çubuğu — min/mevcut/max görseli
     sayacDebiCubugu: {
         type: 'bar',
-        barFn: (obj) => {
-            const _pf = (v, d) => { const n = parseFloat(v); return isNaN(n) ? d : n; };
-            const minD = _pf(obj.minDebi,        0.04);
-            const maxD = _pf(obj.maxDebi,        6.00);
-            const curD = _pf(obj.sayacdebi,    3.50);
+        barFn: (obj, manager) => {
+            const { minDebi, maxDebi } = _getSayacLimits(obj);
+            const minD = minDebi;
+            const maxD = maxDebi;
+            const raw  = _sumDebiAfterSayac(obj, manager);
+            const curD = raw > 0 ? raw : minD;
             const range = maxD - minD || 1;
             // Ham yüzde: [0,100] dışına çıkabilir
             const rawPct = ((curD - minD) / range) * 100;
@@ -790,9 +830,9 @@ export const PROPERTY_DEFS = {
 
 export const OBJECT_PROPERTIES = {
     boru: [
-        'boru_sec_urun',
-        'boruMarka',
-        'boruModel',
+        // 'boru_sec_urun',
+        // 'boruMarka',
+        // 'boruModel',
         'boru_sec_tip',
         'boruCap',
         'boruTipi',
@@ -815,7 +855,6 @@ export const OBJECT_PROPERTIES = {
         'sayacTuru',
         'sayacCikisCap',
         'sayacBasinc',
-        'sayac_sec_hesap',
         'sayacDebiCubugu',
         'sayac_sec_birim_ici',
         'sayacBirimBaglantiTipi',
@@ -831,14 +870,13 @@ export const OBJECT_PROPERTIES = {
         'sayacUstaNo',
     ],
     vana: [
-        'vana_sec_urun',
-        'vanaMarka',
-        'vanaModel',
-        'vana_sec_birim',
-        'vanaBirimNo',
+        // 'vana_sec_urun',
+        // 'vanaMarka',
+        // 'vanaModel',
         'vana_sec_tanim',
         'vanaTipi',
         'vanaCap',
+        'vanaBirimNo',
         'vana_sec_ozellik',
         'vanaIzolator',
         'vanaFlans',
@@ -849,7 +887,7 @@ export const OBJECT_PROPERTIES = {
         'vanaBasincKaybi',
     ],
     servis_kutusu: [
-        'kutu_sec_tanim',
+        // 'kutu_sec_tanim',
         'kutuTipi',
         'kutuBasinc',
         'kutuCikisYonu',
