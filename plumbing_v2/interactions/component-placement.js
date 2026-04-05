@@ -566,7 +566,7 @@ export function handleCihazEkleme(cihaz) {
             vanaZ = (boruUcu.nokta.z || 0) + (dz / length3D) * centerMargin;
         }
 
-        const vana = createVana(vanaX, vanaY, 'AKV');
+        const vana = createVana(vanaX, vanaY, 'CIHAZ');
         vana.rotation = boruUcu.boru.aciDerece;
         vana.floorId = cihaz.floorId;
         // Vanaya Z değerini ekle (3D hesaplanmış pozisyon)

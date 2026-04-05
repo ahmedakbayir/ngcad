@@ -1530,6 +1530,26 @@ body.light-mode .btn.active svg {
     z-index: auto;
 }
 
+.viewing-separator {
+    width: 1px;
+    align-self: stretch;
+    background: var(--border-group);
+    margin: 2px 2px;
+    opacity: 0.5;
+}
+
+.btn-properties {
+    font-size: 11px;
+    padding: 4px 10px;
+    letter-spacing: 0.2px;
+}
+
+.btn-properties.active {
+    background: var(--bg-button-active);
+    border-color: var(--border-button-active);
+    color: var(--color-button-active);
+}
+
 
 /* 3D açıkken de göster */
 .main.show-3d #drawing-mode-selector {
@@ -2075,17 +2095,16 @@ body:not(.light-mode) .text-on-right {
 }
 
 /* ... existing code ... */
-/* --- GEÇİCİ GÖRÜNÜRLÜK PANELİ (SOL ALT) --- */
+/* --- GÖRÜNÜRLÜK PANELİ (SOL ALT — ayarlar butonunun hemen üstü) --- */
 #visibility-panel {
     position: fixed;
-    bottom: 10px;       /* Alttan mesafe */
-    right: 10px;         /* Soldaki mod butonlarının (2D/3D) sağ tarafına */
-    
-    background: var(--bg-group, rgba(30, 30, 30, 0.9)); 
+    bottom: 52px;        /* settings-btn yüksekliği kadar yukarı */
+    left: 10px;
+    background: var(--bg-group, rgba(30, 30, 30, 0.9));
     border: 1px solid var(--border-group, #555);
     border-radius: 6px;
     padding: 8px;
-    z-index: 2000;      /* Diğer panellerin üzerinde kalsın */
+    z-index: 50;         /* settings-popup (z:100) altında kalır */
     box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
     backdrop-filter: blur(4px);
     width: 130px;
@@ -2495,3 +2514,321 @@ body:not(.light-mode) .text-on-right {
 
 /* Seçim tipi rengi */
 .voice-cmd-step.type-select .voice-cmd-step-icon { color: #10b981; }
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* ÖZELLİKLER PANELİ */
+/* ═══════════════════════════════════════════════════════════════ */
+.props-panel {
+    position: fixed;
+    top: 48px;           /* viewing-mode-selector (~38px) + boşluk */
+    right: 0;
+    z-index: 9400;
+    width: 272px;
+    /* Panel içeriği 50vh'yi geçene kadar max 50vh, geçince tam ekran yüksekliği */
+    max-height: calc(100vh - 48px);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-panel);
+    border-top: none;
+    border-right: none;
+    border-radius: 0 0 0 8px;
+    box-shadow: -4px 4px 16px rgba(0,0,0,0.35);
+    font-size: 12px;
+    color: var(--color-text);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+}
+
+.props-panel.visible {
+    display: flex;
+}
+
+/* Başlık çubuğu */
+.props-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    background: var(--bg-button);
+    border-bottom: 1px solid var(--border-panel);
+    cursor: default;
+    gap: 6px;
+}
+
+.props-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text);
+    letter-spacing: 0.3px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.props-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.props-btn-pin,
+.props-btn-close {
+    background: none;
+    border: none;
+    color: var(--color-secondary);
+    cursor: pointer;
+    padding: 3px 5px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+.props-btn-pin:hover,
+.props-btn-close:hover {
+    color: var(--color-text);
+    background: var(--bg-button-hover);
+}
+
+/* Raptiye SVG geçiş animasyonu */
+.props-btn-pin svg {
+    transition: transform 0.2s;
+}
+
+/* Sabitlenmiş durum — gri + eğik */
+.props-btn-pin.pinned {
+    color: var(--color-text);
+}
+.props-btn-pin.pinned svg {
+    transform: rotate(-45deg);
+}
+
+.props-btn-close {
+    font-size: 16px;
+}
+
+/* Disabled alanlar */
+.props-select:disabled,
+.props-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.props-toggle-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.props-toggle-disabled .props-toggle-track {
+    cursor: not-allowed;
+}
+
+/* ─── Debi Çubuğu ─────────────────────────────────────────────────────── */
+.props-bar-row {
+    padding: 4px 10px 2px;
+    overflow: visible;
+}
+.debi-bar {
+    font-size: 9px;
+    color: var(--color-text);
+    user-select: none;
+}
+
+/* Track: position:relative, yüksekliği label + ok'u kapsayacak kadar */
+.debi-track {
+    position: relative;
+    height: 40px;
+    border-bottom: 1.5px solid var(--color-text);
+    margin-bottom: 3px;
+    overflow: visible;
+}
+
+/* Mevcut debi etiketi — track içinde, okun üzerinde */
+.debi-label-cur {
+    position: absolute;
+    bottom: 14px;           /* okun üstünde (ok bottom:2px, yükseklik ~10px) */
+    transform: translateX(-50%);
+    text-align: center;
+    white-space: nowrap;
+    line-height: 1.3;
+    color: var(--color-primary, #f59e0b);
+    font-weight: 600;
+}
+
+/* Oklar (▽) — track içinde, alta yaslanmış */
+.debi-arrow {
+    position: absolute;
+    bottom: 2px;
+    transform: translateX(-50%);
+    font-size: 10px;
+    line-height: 1;
+}
+.debi-arrow-end {
+    color: var(--color-text);
+}
+.debi-arrow-cur {
+    color: var(--color-primary, #f59e0b);
+}
+
+/* Min / Max etiketleri */
+.debi-minmax {
+    display: flex;
+    justify-content: space-between;
+    line-height: 1.3;
+    color: var(--color-secondary);
+}
+.debi-minmax span:last-child {
+    text-align: right;
+}
+
+/* İçerik gövdesi:
+   - min-height 0 → flex shrink çalışsın
+   - max-height 50vh (header ~28px dahil) → yarı ekranı geçmez
+   - içerik fazlaysa .props-panel max-height devreye girer, body flex-grow ile dolar
+*/
+.props-body {
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(50vh - 28px);
+}
+
+/* İçerik 50vh'yi geçince panel tam açılır — body da genişler */
+.props-panel.full-height .props-body {
+    max-height: none;
+}
+
+.props-empty {
+    color: var(--color-secondary);
+    font-size: 11px;
+    padding: 8px;
+    text-align: center;
+}
+
+/* Satır */
+.props-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: 4px;
+    transition: background 0.1s;
+}
+
+.props-row:hover {
+    background: var(--bg-button);
+}
+
+.props-label {
+    font-size: 11px;
+    color: var(--color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.props-value-readonly {
+    font-size: 11px;
+    color: var(--color-text);
+    font-weight: 500;
+}
+
+.props-select,
+.props-input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border-button);
+    border-radius: 4px;
+    color: var(--color-text);
+    font-size: 11px;
+    padding: 3px 5px;
+    outline: none;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.props-select:focus,
+.props-input:focus {
+    border-color: var(--border-button-active);
+}
+
+.props-select:hover,
+.props-input:hover {
+    border-color: var(--border-button-active);
+}
+
+/* Bölüm başlığı */
+.props-section-header {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-secondary);
+    padding: 8px 4px 3px;
+    border-bottom: 1px solid var(--border-panel);
+    margin-bottom: 2px;
+    margin-top: 2px;
+}
+
+.props-section-header:first-child {
+    margin-top: 0;
+    padding-top: 2px;
+}
+
+/* On/Off Toggle */
+.props-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.props-toggle input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.props-toggle-track {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 16px;
+    background: var(--bg-button);
+    border: 1px solid var(--border-button);
+    border-radius: 8px;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+}
+
+.props-toggle input:checked + .props-toggle-track {
+    background: #1a73e8;
+    border-color: #1557b0;
+}
+
+.props-toggle-thumb {
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 12px;
+    height: 12px;
+    background: var(--color-secondary);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.props-toggle input:checked + .props-toggle-track .props-toggle-thumb {
+    transform: translateX(16px);
+    background: #fff;
+}

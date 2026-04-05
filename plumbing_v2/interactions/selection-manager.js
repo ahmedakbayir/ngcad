@@ -5,6 +5,7 @@
 
 import { setState } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
+import { openPropertiesPanel, closePropertiesPanel, onDeselect, isPanelOpen, isPinned } from '../properties/properties-panel.js';
 
 /**
  * Seçilen borunun kaynaktan o boruya kadar olan yolunu bulur
@@ -128,6 +129,14 @@ export function selectObject(interactionManager, obj) {
             handle: 'body'
         }
     });
+
+    // Pinliyse → nesne seçilince panel otomatik açılır
+    // Pinli değil ama panel zaten açıksa → yeni nesneye geç
+    if (['boru', 'sayac', 'vana', 'servis_kutusu', 'cihaz'].includes(obj.type)) {
+        if (isPinned() || isPanelOpen()) {
+            openPropertiesPanel(obj, interactionManager.manager);
+        }
+    }
 }
 
 /**
@@ -165,6 +174,11 @@ export function selectValve(interactionManager, pipe, vana) {
             handle: 'body'
         }
     });
+
+    // Pinliyse veya panel açıksa vanayı göster
+    if (vana && (isPinned() || isPanelOpen())) {
+        openPropertiesPanel(vana, interactionManager.manager);
+    }
 }
 
 /**
@@ -209,6 +223,9 @@ export function deselectObject(interactionManager) {
 
     // Yolu temizle
     window._selectedPipePath = null;
+
+    // Özellikler panelini kapat (sabitliyse kapatma)
+    onDeselect();
 
     // state.selectedObject'i de temizle
     setState({ selectedObject: null });

@@ -11,6 +11,7 @@ import { Vana } from '../objects/valve.js';
 import { Sayac } from '../objects/meter.js';
 import { Cihaz } from '../objects/device.js';
 import { Baca } from '../objects/chimney.js';
+import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, isPinned } from '../properties/properties-panel.js';
 
 // Tool modları
 export const TESISAT_MODLARI = {
@@ -148,8 +149,32 @@ export function handleKeyDown(e) {
         }
     }
 
+    // SPACE - Özellikler panelini aç/kapat
+    if (e.key === ' ' && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        const sel = this.selectedObject;
+        const selVana = this.selectedValve?.vana;
+        const target = (sel && ['boru', 'sayac', 'servis_kutusu', 'cihaz'].includes(sel.type)) ? sel
+            : selVana ? selVana
+            : null;
+        if (target) {
+            togglePropertiesPanel(target, this.manager);
+            return true;
+        }
+        if (isPanelOpen() && !isPinned()) {
+            closePropertiesPanel();
+            return true;
+        }
+        return false;
+    }
+
     // ESC - iptal ve seç moduna geç
     if (e.key === 'Escape') {
+        // Özellikler paneli açıksa önce onu kapat (pinli olsa bile ESC kapatır)
+        if (isPanelOpen()) {
+            closePropertiesPanel();
+            return true;
+        }
         // Düşey panel açıksa önce onu kapat
         if (this.verticalModeActive) {
             this.closeVerticalPanel();
