@@ -352,7 +352,13 @@ export class ServisKutusu {
             cikisYonu: this.cikisYonu,
             bagliBoruId: this.bagliBoruId,
             cikisKullanildi: this.cikisKullanildi,
-            floorId: this.floorId
+            floorId: this.floorId,
+            // Panel özellikleri
+            kutuTipi: this.kutuTipi,
+            kutuBasinc: this.kutuBasinc,
+            cikisCap: this.cikisCap,
+            kutuBoruTipi: this.kutuBoruTipi,
+            kutuBaglantiTipi: this.kutuBaglantiTipi
         };
     }
 
@@ -370,6 +376,12 @@ export class ServisKutusu {
         kutu.rotation = data.rotation;
         kutu.bagliBoruId = data.bagliBoruId;
         kutu.cikisKullanildi = data.cikisKullanildi;
+        // Panel özellikleri
+        if (data.kutuTipi !== undefined) kutu.kutuTipi = data.kutuTipi;
+        if (data.kutuBasinc !== undefined) kutu.kutuBasinc = data.kutuBasinc;
+        if (data.cikisCap !== undefined) kutu.cikisCap = data.cikisCap;
+        if (data.kutuBoruTipi !== undefined) kutu.kutuBoruTipi = data.kutuBoruTipi;
+        if (data.kutuBaglantiTipi !== undefined) kutu.kutuBaglantiTipi = data.kutuBaglantiTipi;
 
         return kutu;
     }

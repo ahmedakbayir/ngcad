@@ -6,6 +6,7 @@ import { saveState } from './history.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { importFromXML } from './xml-io.js'; // <-- HATA BURADAYDI (Satır 5)
 import { renderMiniPanel } from '../floor/floor-panel.js'; // <-- KAT PANELİ İÇİN EKLENDİ
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', saveProject);
@@ -162,7 +163,11 @@ function saveProject() {
         guides: state.guides || [], // <-- REFERANS ÇİZGİSİ EKLENDİ
         floors: state.floors || [], // <-- KAT BİLGİLERİ EKLENDİ
         currentFloor: state.currentFloor || null, // <-- AKTİF KAT EKLENDİ
-        defaultFloorHeight: state.defaultFloorHeight || 270 // <-- VARSAYILAN KAT YÜKSEKLİĞİ EKLENDİ
+        defaultFloorHeight: state.defaultFloorHeight || 270, // <-- VARSAYILAN KAT YÜKSEKLİĞİ EKLENDİ
+        // Tesisat verileri
+        plumbingNodes: state.plumbingNodes || [],
+        plumbingPipes: state.plumbingPipes || [],
+        plumbingBlocks: state.plumbingBlocks || []
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -324,8 +329,17 @@ function loadJSONProject(fileContent) {
         defaultFloorHeight: restoredDefaultFloorHeight,
         selectedObject: null,
         selectedGroup: [],
-        startPoint: null
+        startPoint: null,
+        // Tesisat verileri
+        plumbingNodes: projectData.plumbingNodes || [],
+        plumbingPipes: projectData.plumbingPipes || [],
+        plumbingBlocks: projectData.plumbingBlocks || []
     });
+
+    // Tesisat yöneticisini güncelle
+    if (plumbingManager) {
+        plumbingManager.loadFromState();
+    }
 
     // Kat panelini güncelle
     if (restoredFloors.length > 0) {

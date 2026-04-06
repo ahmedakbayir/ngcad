@@ -294,7 +294,22 @@ export class Sayac {
             cikisBagliBoruId: this.cikisBagliBoruId,
             iliskiliVanaId: this.iliskiliVanaId,
             floorId: this.floorId,
-            rijitUzunluk: this.config.rijitUzunluk 
+            rijitUzunluk: this.config.rijitUzunluk,
+            // Panel özellikleri
+            sayacTipi: this.sayacTipi,
+            sayacTuru: this.sayacTuru,
+            cikisCap: this.cikisCap,
+            basinc: this.basinc,
+            birimTipi: this.birimTipi,
+            birimNo: this.birimNo,
+            birimBoruTipi: this.birimBoruTipi,
+            birimBaglantiTipi: this.birimBaglantiTipi,
+            esnekMarka: this.esnekMarka,
+            muhafaza: this.muhafaza,
+            aboneNo: this.aboneNo,
+            aboneAdi: this.aboneAdi,
+            ustaAdi: this.ustaAdi,
+            ustaNo: this.ustaNo
         };
     }
 
@@ -322,6 +337,22 @@ export class Sayac {
         if (data.rijitUzunluk !== undefined) {
             sayac.config.rijitUzunluk = data.rijitUzunluk;
         }
+
+        // Panel özellikleri
+        if (data.sayacTipi !== undefined) sayac.sayacTipi = data.sayacTipi;
+        if (data.sayacTuru !== undefined) sayac.sayacTuru = data.sayacTuru;
+        if (data.cikisCap !== undefined) sayac.cikisCap = data.cikisCap;
+        if (data.basinc !== undefined) sayac.basinc = data.basinc;
+        if (data.birimTipi !== undefined) sayac.birimTipi = data.birimTipi;
+        if (data.birimNo !== undefined) sayac.birimNo = data.birimNo;
+        if (data.birimBoruTipi !== undefined) sayac.birimBoruTipi = data.birimBoruTipi;
+        if (data.birimBaglantiTipi !== undefined) sayac.birimBaglantiTipi = data.birimBaglantiTipi;
+        if (data.esnekMarka !== undefined) sayac.esnekMarka = data.esnekMarka;
+        if (data.muhafaza !== undefined) sayac.muhafaza = data.muhafaza;
+        if (data.aboneNo !== undefined) sayac.aboneNo = data.aboneNo;
+        if (data.aboneAdi !== undefined) sayac.aboneAdi = data.aboneAdi;
+        if (data.ustaAdi !== undefined) sayac.ustaAdi = data.ustaAdi;
+        if (data.ustaNo !== undefined) sayac.ustaNo = data.ustaNo;
 
         return sayac;
     }

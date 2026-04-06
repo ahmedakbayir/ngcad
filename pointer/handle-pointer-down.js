@@ -11,7 +11,7 @@ import { pixelsToWorld, findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plu
 
 // YENİ IMPORT: 3D hesaplama fonksiyonu
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
-import { hitTestLabel, startLabelDrag } from '../plumbing_v2/renderer/renderer-labels.js';
+import { hitTestLabel, startLabelDrag, rotateLabelDir } from '../plumbing_v2/renderer/renderer-labels.js';
 
 export function handlePointerDown(e) {
     const rect = dom.c2d.getBoundingClientRect();
@@ -228,10 +228,15 @@ export function handlePointerDown(e) {
             }
         }
 
-        // --- ETIKET SÜRÜKLEME KONTROLÜ ---
+        // --- ETIKET SÜRÜKLEME / ÇİFT TIKLA YÖN DEĞİŞTİRME KONTROLÜ ---
         if (state.tempVisibility.showObjectLabels) {
             const labelId = hitTestLabel(point.x, point.y);
             if (labelId) {
+                if (isDoubleClick) {
+                    rotateLabelDir(labelId);
+                    this.lastClickTime = 0;
+                    return true;
+                }
                 startLabelDrag(labelId, point.x, point.y);
                 this.isDraggingLabel = true;
                 return true;

@@ -47,7 +47,11 @@ export const VANA_TIP_ETIKETLERI = {
 
 export const SERVIS_KUTUSU_TIPLERI = ['S200', 'S300', 'S700', 'S2200', 'CES200'];
 export const KUTU_BASINCLAR        = ['21', '300'];
-export const CIKIS_YONLERI         = ['Yandan Çıkış', 'Alttan Çıkış', 'Üstten Çıkış'];
+export const CIKIS_YONLERI         = [
+    { value: 'sag', label: 'Yandan Çıkış' },
+    { value: 'alt', label: 'Alttan Çıkış' },
+    { value: 'ust', label: 'Üstten Çıkış' },
+];
 
 /** Sayaç debi tablosu — Tip, Tür, min/max kapasiteler ve çıkış çapı */
 export const SAYAC_DEBI_TABLOSU = [
@@ -155,6 +159,15 @@ export const PROPERTY_DEFS = {
     // ════════════════════════════════════════════════════════
 
     boru_sec_tip: { type: 'section', label: 'Tanım' },
+
+    boruHatNo: {
+        label: 'Hat No',
+        type: 'readonly',
+        readonlyFn: (obj) => {
+            const no = window._hatMap?.get(obj.id);
+            return no != null ? String(no) : '—';
+        },
+    },
 
     boruCap: {
         label: 'Çap',
@@ -267,6 +280,24 @@ export const PROPERTY_DEFS = {
         key: 'sayacTipi',
         options: SAYAC_TIPLERI,
         default: 'G4',
+        afterChange: (obj, _manager, panelEl) => {
+            // Tür: tablodaki varsayılana güncelle (kullanıcı farklı seçebilir)
+            const row = SAYAC_DEBI_TABLOSU.find(r => r.Tip === obj.sayacTipi);
+            if (row) {
+                const turSel = panelEl?.querySelector('[data-prop-key="sayacTuru"]');
+                if (turSel && turSel.value === obj.sayacTuru) {
+                    obj.sayacTuru = row.Tur;
+                    turSel.value = row.Tur;
+                }
+                // Çıkış çapı önerisi
+                const capKey = `DN${row.Cap}`;
+                const capSel = panelEl?.querySelector('[data-prop-key="cikisCap"]');
+                if (capSel) {
+                    obj.cikisCap = capKey;
+                    capSel.value = capKey;
+                }
+            }
+        },
     },
     sayacTuru: {
         label: 'Tür',
@@ -347,8 +378,8 @@ export const PROPERTY_DEFS = {
             const sel = panelEl?.querySelector('[data-prop-key="birimBaglantiTipi"]');
             if (!sel) return;
             if (obj.birimBoruTipi === 'ESNEK') {
-                obj.birimBaglantiTipi = 'DİŞLİ';
-                sel.value = 'DİŞLİ';
+                obj.birimBaglantiTipi = '';
+                sel.value = '';
                 sel.disabled = true;
             } else {
                 sel.disabled = false;
@@ -490,12 +521,67 @@ export const PROPERTY_DEFS = {
         visibleFn: (obj) => ['BRANSMAN', 'YANBINA'].includes(obj.vanaTipi),
     },
 
+    // YANBINA ek bilgiler
+    vanaTesisatNo: {
+        label: 'Tesisat No',
+        type: 'text',
+        key: 'tesisatNo',
+        default: '',
+        placeholder: 'Tesisat no...',
+        visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
+    },
+    vanaDaireSayisi: {
+        label: 'Daire Sayısı',
+        type: 'text',
+        key: 'daireSayisi',
+        default: '0',
+        placeholder: '0',
+        inputType: 'number',
+        visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
+    },
+    vanaDukkanSayisi: {
+        label: 'Dükkan Sayısı',
+        type: 'text',
+        key: 'dukkanSayisi',
+        default: '0',
+        placeholder: '0',
+        inputType: 'number',
+        visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
+    },
+    vanaEkDebi: {
+        label: 'Ek Debi (m³/h)',
+        type: 'text',
+        key: 'ekDebi',
+        default: '0',
+        placeholder: '0.00',
+        inputType: 'number',
+        visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
+    },
+    vanaYanBinaToplam: {
+        label: 'Toplam Debi',
+        type: 'readonly',
+        readonlyFn: (obj) => {
+            const d = (parseFloat(obj.daireSayisi) || 0);
+            const dk = (parseFloat(obj.dukkanSayisi) || 0);
+            const ek = (parseFloat(obj.ekDebi) || 0);
+            return `${((d + dk) * 3.5 + ek).toFixed(2)} m³/h`;
+        },
+        visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
+    },
+
     vana_sec_hesap: { type: 'section', label: 'Hesap Değerleri' },
 
     vanaDebi: {
         label: 'Debi',
         type: 'readonly',
-        readonlyFn: (obj) => obj.debi != null ? `${obj.debi} m³/h` : '3.50 m³/h',
+        readonlyFn: (obj, manager) => {
+            // Branşman: hattın debisini göster
+            if (obj.vanaTipi === 'BRANSMAN' && manager && obj.bagliBoruId) {
+                const boru = manager.pipes.find(p => p.id === obj.bagliBoruId);
+                if (boru != null) return `${(boru.debi || 0).toFixed(2)} m³/h`;
+            }
+            return obj.debi != null ? `${Number(obj.debi).toFixed(2)} m³/h` : '— m³/h';
+        },
     },
     vanaBasinc: {
         label: 'Basınç',
@@ -560,7 +646,11 @@ export const PROPERTY_DEFS = {
         type: 'select',
         key: 'cikisYonu',
         options: CIKIS_YONLERI,
-        default: 'Yandan Çıkış',
+        optionsAreObjects: true,
+        default: 'sag',
+        afterChange: (obj) => {
+            if (typeof obj.setCikisYonu === 'function') obj.setCikisYonu(obj.cikisYonu);
+        },
     },
     kutuCikisCap: {
         label: 'Çıkış Çapı',
@@ -849,6 +939,7 @@ export const OBJECT_PROPERTIES = {
         // 'boruMarka',
         // 'boruModel',
         'boru_sec_tip',
+        'boruHatNo',
         'boruCap',
         'boruTipi',
         'boru_sec_hesap',
@@ -894,7 +985,13 @@ export const OBJECT_PROPERTIES = {
         'vana_sec_tanim',
         'vanaTipi',
         'vanaCap',
+        'vana_sec_birim',
         'vanaBirimNo',
+        'vanaTesisatNo',
+        'vanaDaireSayisi',
+        'vanaDukkanSayisi',
+        'vanaEkDebi',
+        'vanaYanBinaToplam',
         'vana_sec_ozellik',
         'vanaIzolator',
         'vanaFlans',

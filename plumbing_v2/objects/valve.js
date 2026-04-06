@@ -660,7 +660,17 @@ const dx = pipe.p2.x - pipe.p1.x;
             fromEnd: this.fromEnd,
             fixedDistance: this.fixedDistance,
             floorId: this.floorId,
-            showEndCap: this.showEndCap // Kapama sembolü durumu
+            showEndCap: this.showEndCap, // Kapama sembolü durumu
+            // Panel özellikleri
+            vanaCap: this.vanaCap,
+            izolator: this.izolator,
+            flans: this.flans,
+            muhafaza: this.muhafaza,
+            birimNo: this.birimNo,
+            tesisatNo: this.tesisatNo,
+            daireSayisi: this.daireSayisi,
+            dukkanSayisi: this.dukkanSayisi,
+            ekDebi: this.ekDebi
         };
     }
 
@@ -681,6 +691,16 @@ const dx = pipe.p2.x - pipe.p1.x;
         vana.girisBagliBoruId = data.girisBagliBoruId;
         vana.cikisBagliBoruId = data.cikisBagliBoruId;
         vana.showEndCap = data.showEndCap || false; // Kapama sembolü durumunu yükle
+        // Panel özellikleri
+        if (data.vanaCap !== undefined) vana.vanaCap = data.vanaCap;
+        if (data.izolator !== undefined) vana.izolator = data.izolator;
+        if (data.flans !== undefined) vana.flans = data.flans;
+        if (data.muhafaza !== undefined) vana.muhafaza = data.muhafaza;
+        if (data.birimNo !== undefined) vana.birimNo = data.birimNo;
+        if (data.tesisatNo !== undefined) vana.tesisatNo = data.tesisatNo;
+        if (data.daireSayisi !== undefined) vana.daireSayisi = data.daireSayisi;
+        if (data.dukkanSayisi !== undefined) vana.dukkanSayisi = data.dukkanSayisi;
+        if (data.ekDebi !== undefined) vana.ekDebi = data.ekDebi;
 
         return vana;
     }

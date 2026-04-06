@@ -248,15 +248,45 @@ export function computePipeDebileri(manager) {
     pipes.forEach(p => {
         if (p.baslangicBaglanti?.tip !== 'boru') dfs(p.id);
     });
+
+    // 4. Sayaç sonrası debiyi sayaç öncesi borulara yay
+    // Sayacın girişine bağlı boru, sayacın çıkışındaki boru(ların) debisini alır.
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'sayac') return;
+        const girisBoru = c.fleksBaglanti?.boruId ? pipeMap.get(c.fleksBaglanti.boruId) : null;
+        const cikisBoru = c.cikisBagliBoruId ? pipeMap.get(c.cikisBagliBoruId) : null;
+        if (!girisBoru || !cikisBoru) return;
+        // Giriş borusuna çıkış borusunun debisini ekle (sayaç öncesi hat bunları taşır)
+        girisBoru.debi += cikisBoru.debi;
+    });
+
+    // 5. Sayaç öncesi zincirlerde debiyi yukarı topla (step 4 sonrası güncellenen değerleri yay)
+    const visited2 = new Set();
+    function dfs2(pipeId) {
+        if (visited2.has(pipeId)) return;
+        visited2.add(pipeId);
+        (childrenOf.get(pipeId) || []).forEach(childId => {
+            dfs2(childId);
+            const parent = pipeMap.get(pipeId);
+            const child  = pipeMap.get(childId);
+            if (parent && child) parent.debi += child.debi;
+        });
+    }
+    // Sadece sayaç öncesi kök borular (servis kutusuna bağlı)
+    pipes.forEach(p => {
+        if (p.baslangicBaglanti?.tip === 'servis_kutusu') dfs2(p.id);
+    });
 }
 
 /**
  * Boru segmentlerini "hat" gruplarına ayırır.
- * Yeni hat numarası şu durumlarda verilir:
- *   - Çap (boruCap) değişti
- *   - Kapasite/debi değişti (dallanma)
- *   - Sayaç geçildi (öncesi ve sonrası farklı hat)
- *   - Basınç değişti (boruBasinc)
+ *
+ * AŞAMA 1 — Kesim: Şu durumlarda yeni section başlar:
+ *   • Çap değişti  • Debi değişti (dallanma)  • Sayaç sınırı  • Basınç değişti
+ *
+ * AŞAMA 2 — Birleştirme: Aynı özelliklere sahip farklı section'lar aynı hat no'yu paylaşır.
+ *   Eşleşme kriterleri: debi · toplam uzunluk · yükseklik farkı · basınç · dirsek sayısı
+ *                       · önceki hat çapı · sonraki hat çapı
  *
  * @returns {{ hatMap: Map<pipeId, hatNo>, hatCount: number }}
  */
@@ -265,86 +295,183 @@ export function computeHatGroups(pipes, components) {
 
     const pipeMap = new Map(pipes.map(p => [p.id, p]));
 
-    // Çocuk haritası: ebeveyn boru id → [çocuk boru id]
+    // Çocuk ve ebeveyn haritaları
     const childrenOf = new Map();
+    const parentOf   = new Map();
     pipes.forEach(p => {
         const bag = p.baslangicBaglanti;
         if (bag?.tip === 'boru' && bag.hedefId) {
             if (!childrenOf.has(bag.hedefId)) childrenOf.set(bag.hedefId, []);
             childrenOf.get(bag.hedefId).push(p.id);
+            parentOf.set(p.id, bag.hedefId);
         }
     });
 
-    // Sayaç çıkışından başlayan boru ID'leri
     const sayacStartIds = new Set(
-        (components || [])
-            .filter(c => c.type === 'sayac' && c.cikisBagliBoruId)
+        (components || []).filter(c => c.type === 'sayac' && c.cikisBagliBoruId)
             .map(c => c.cikisBagliBoruId)
     );
-
-    // Servis kutusu kök boru ID'leri (önce sıralaması için)
     const servisRootIds = new Set(
-        (components || [])
-            .filter(c => c.type === 'servis_kutusu' && c.bagliBoruId)
+        (components || []).filter(c => c.type === 'servis_kutusu' && c.bagliBoruId)
             .map(c => c.bagliBoruId)
     );
 
-    // Kök borular: başlangıcı başka bir boruya bağlı olmayanlar
-    const rootPipes = pipes.filter(p =>
-        !p.baslangicBaglanti?.tip || p.baslangicBaglanti.tip !== 'boru'
-    );
-
-    // Servis kutusu kökleri önce, sonra sayaç kökleri, sonra diğerleri
+    const rootPipes = pipes.filter(p => !parentOf.has(p.id));
     rootPipes.sort((a, b) => {
-        const aScore = servisRootIds.has(a.id) ? 0 : sayacStartIds.has(a.id) ? 1 : 2;
-        const bScore = servisRootIds.has(b.id) ? 0 : sayacStartIds.has(b.id) ? 1 : 2;
-        return aScore - bScore || (a.p1.x + a.p1.y) - (b.p1.x + b.p1.y);
+        const aS = servisRootIds.has(a.id) ? 0 : sayacStartIds.has(a.id) ? 1 : 2;
+        const bS = servisRootIds.has(b.id) ? 0 : sayacStartIds.has(b.id) ? 1 : 2;
+        return aS - bS || (a.p1.x + a.p1.y) - (b.p1.x + b.p1.y);
     });
 
-    const hatMap = new Map(); // pipeId → hatNo
-    let hatCounter = 0;
+    // ── AŞAMA 1: Section'lara böl ─────────────────────────────────────────────
+    // section: { pipeIds, cap, debi, basınç, prevSecIdx, nextSecIdxs[] }
+    const sections   = [];
+    const sectionOf  = new Map(); // pipeId → section index
 
-    // BFS: { pipeId, parentPipeId, parentHat }
-    const queue = rootPipes.map(p => ({ pipeId: p.id, parentPipeId: null, parentHat: null }));
+    function isBreak(pipeId, parId) {
+        if (!parId) return true;
+        if (sayacStartIds.has(pipeId)) return true;
+        const p = pipeMap.get(pipeId), par = pipeMap.get(parId);
+        if (!p || !par) return true;
+        if (p.boruCap !== par.boruCap) return true;
+        if (Math.abs((p.debi || 0) - (par.debi || 0)) > 0.001) return true;
+        if ((p.boruBasinc ?? '') !== (par.boruBasinc ?? '')) return true;
+        return false;
+    }
+
+    const bfsQ = rootPipes.map(p => ({ pipeId: p.id, parId: null, parSecIdx: null }));
     const visited = new Set();
 
-    while (queue.length > 0) {
-        const { pipeId, parentPipeId, parentHat } = queue.shift();
+    while (bfsQ.length > 0) {
+        const { pipeId, parId, parSecIdx } = bfsQ.shift();
         if (visited.has(pipeId)) continue;
         visited.add(pipeId);
 
         const pipe = pipeMap.get(pipeId);
         if (!pipe) continue;
 
-        let hatNo;
-
-        if (parentPipeId === null) {
-            // Kök boru → her zaman yeni hat
-            hatNo = ++hatCounter;
-        } else if (sayacStartIds.has(pipeId)) {
-            // Sayaç sonrası → yeni hat
-            hatNo = ++hatCounter;
+        let secIdx;
+        if (isBreak(pipeId, parId)) {
+            secIdx = sections.length;
+            sections.push({
+                pipeIds:    [pipeId],
+                cap:        pipe.boruCap || 'DN25',
+                debi:       pipe.debi    || 0,
+                basınç:     pipe.boruBasinc ?? '',
+                prevSecIdx: parSecIdx,
+                nextSecIdxs: []
+            });
+            if (parSecIdx != null) sections[parSecIdx].nextSecIdxs.push(secIdx);
         } else {
-            const par = pipeMap.get(parentPipeId);
-            const sameCap    = !par || par.boruCap    === pipe.boruCap;
-            const sameDebi   = !par || Math.abs((par.debi || 0) - (pipe.debi || 0)) < 0.001;
-            const sameBasinc = !par || (par.boruBasinc ?? '') === (pipe.boruBasinc ?? '');
-
-            hatNo = (sameCap && sameDebi && sameBasinc) ? parentHat : ++hatCounter;
+            secIdx = parSecIdx;
+            sections[secIdx].pipeIds.push(pipeId);
         }
+        sectionOf.set(pipeId, secIdx);
 
-        hatMap.set(pipeId, hatNo);
-
-        // Çocukları geometrik sırayla kuyruğa ekle
-        const children = (childrenOf.get(pipeId) || []).slice().sort((a, b) => {
+        const ch = (childrenOf.get(pipeId) || []).slice().sort((a, b) => {
             const pa = pipeMap.get(a), pb = pipeMap.get(b);
-            return ((pa?.p1.x || 0) + (pa?.p1.y || 0)) - ((pb?.p1.x || 0) + (pb?.p1.y || 0));
+            return ((pa?.p1.x||0)+(pa?.p1.y||0)) - ((pb?.p1.x||0)+(pb?.p1.y||0));
         });
-        children.forEach(childId => {
-            if (!visited.has(childId))
-                queue.push({ pipeId: childId, parentPipeId: pipeId, parentHat: hatNo });
-        });
+        ch.forEach(cid => { if (!visited.has(cid)) bfsQ.push({ pipeId: cid, parId: pipeId, parSecIdx: secIdx }); });
     }
 
-    return { hatMap, hatCount: hatCounter };
+    // ── AŞAMA 2: Her section için özellik hesapla ─────────────────────────────
+    sections.forEach(sec => {
+        const idSet = new Set(sec.pipeIds);
+
+        // Toplam uzunluk (cm)
+        sec.totalLen = Math.round(sec.pipeIds.reduce((s, pid) => {
+            const p = pipeMap.get(pid);
+            if (!p?.p1 || !p?.p2) return s;
+            return s + Math.hypot(p.p2.x-p.p1.x, p.p2.y-p.p1.y, (p.p2.z||0)-(p.p1.z||0));
+        }, 0));
+
+        // Yükseklik farkı: section başı p1.z → section sonu p2.z
+        let startZ = null, endZ = null;
+        sec.pipeIds.forEach(pid => {
+            const p = pipeMap.get(pid);
+            if (!p) return;
+            if (!parentOf.has(pid) || !idSet.has(parentOf.get(pid)))
+                startZ = p.p1.z || 0;
+            const ch = (childrenOf.get(pid) || []).filter(c => idSet.has(c));
+            if (ch.length === 0)
+                endZ = p.p2.z || 0;
+        });
+        sec.heightDiff = Math.round(Math.abs((endZ || 0) - (startZ || 0)));
+
+        // Dirsek sayısı: ardışık borular arasındaki açı > 15°
+        // Section içindeki sıralı zincir
+        let cur = sec.pipeIds.find(pid => !parentOf.has(pid) || !idSet.has(parentOf.get(pid)));
+        const chain = [];
+        const vSec = new Set();
+        while (cur && !vSec.has(cur)) {
+            vSec.add(cur); chain.push(cur);
+            cur = (childrenOf.get(cur) || []).find(c => idSet.has(c) && !vSec.has(c));
+        }
+        let elbows = 0;
+        for (let i = 1; i < chain.length; i++) {
+            const a = pipeMap.get(chain[i-1]), b = pipeMap.get(chain[i]);
+            if (!a || !b) continue;
+            const ax = a.p2.x-a.p1.x, ay = a.p2.y-a.p1.y, az = (a.p2.z||0)-(a.p1.z||0);
+            const bx = b.p2.x-b.p1.x, by = b.p2.y-b.p1.y, bz = (b.p2.z||0)-(b.p1.z||0);
+            const la = Math.hypot(ax,ay,az), lb = Math.hypot(bx,by,bz);
+            if (la < 0.01 || lb < 0.01) continue;
+            const dot = (ax*bx+ay*by+az*bz)/(la*lb);
+            if (Math.acos(Math.max(-1,Math.min(1,dot))) * 180/Math.PI > 15) elbows++;
+        }
+        sec.elbowCount = elbows;
+
+        // Önceki ve sonraki hat çapları
+        sec.prevCap = sec.prevSecIdx != null ? (sections[sec.prevSecIdx]?.cap || '') : '';
+        sec.nextCap = sec.nextSecIdxs.length === 1 ? (sections[sec.nextSecIdxs[0]]?.cap || '') : '';
+    });
+
+    // ── AŞAMA 3: Fingerprint eşleştirme → hat no atan ─────────────────────────
+    // 21 mbar hatlar: 1'den başlar
+    // 300 mbar hatlar: 301'den başlar (ayrı sayaç)
+    const fpToHat = new Map();
+    let hatCounter21  = 0;
+    let hatCounter300 = 300;
+    const secHat = new Map(); // secIdx → hatNo
+
+    // Section'ları ağaç sırasında (BFS) işle
+    const secQueue = rootPipes.map(p => sectionOf.get(p.id)).filter(i => i != null);
+    const secVisited = new Set();
+    const secOrder = [];
+    while (secQueue.length > 0) {
+        const idx = secQueue.shift();
+        if (secVisited.has(idx)) continue;
+        secVisited.add(idx);
+        secOrder.push(idx);
+        sections[idx].nextSecIdxs.forEach(ni => { if (!secVisited.has(ni)) secQueue.push(ni); });
+    }
+
+    secOrder.forEach(idx => {
+        const sec = sections[idx];
+        const is300 = String(sec.basınç) === '300';
+        const fp = [
+            is300 ? '300' : '21',  // basınç grubu fingerprint'e dahil
+            Math.round((sec.debi || 0) * 1000),
+            sec.totalLen,
+            sec.heightDiff,
+            sec.elbowCount,
+            sec.prevCap,
+            sec.nextCap,
+            sec.cap
+        ].join('|');
+
+        if (!fpToHat.has(fp)) {
+            fpToHat.set(fp, is300 ? ++hatCounter300 : ++hatCounter21);
+        }
+        secHat.set(idx, fpToHat.get(fp));
+    });
+
+    // ── Boru → hat no eşlemesi ────────────────────────────────────────────────
+    const hatMap = new Map();
+    pipes.forEach(p => {
+        const si = sectionOf.get(p.id);
+        if (si != null) hatMap.set(p.id, secHat.get(si));
+    });
+
+    return { hatMap, hatCount: hatCounter21 + (hatCounter300 - 300) };
 }

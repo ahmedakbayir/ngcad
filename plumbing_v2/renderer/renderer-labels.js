@@ -1,20 +1,11 @@
 // plumbing_v2/renderer/renderer-labels.js
 // Nesne etiket çizim sistemi — taşınabilir etiketler
 
-import { buildPipeHierarchy, computeHatGroups } from './renderer-utils.js';
+import { computeHatGroups } from './renderer-utils.js';
 import { SERVIS_KUTUSU_CONFIG } from '../objects/service-box.js';
 import { SAYAC_CONFIG } from '../objects/meter.js';
 import { CIHAZ_TIPLERI } from '../objects/device.js';
 import { state, isLightMode } from '../../general-files/main.js';
-
-// ─── Unicode çemberleri ①–⑳ ─────────────────────────────────────────────────
-const CIRCLE_NUMS = [
-    '①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩',
-    '⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳',
-];
-function getCircleNum(n) {
-    return (n >= 1 && n <= 20) ? CIRCLE_NUMS[n - 1] : `(${n})`;
-}
 
 // ─── Sayaç tür etiketi ───────────────────────────────────────────────────────
 const SAYAC_TURU_LABEL = {
@@ -72,6 +63,13 @@ export function endLabelDrag() {
     _drag = null;
 }
 
+/** Çift tıklamada etiket yönünü döndür: 0(üst)→1(sağ)→2(alt)→3(sol)→0 */
+export function rotateLabelDir(id) {
+    const off = _labelOffsets.get(id) || { dx: 0, dy: 0, dir: 0 };
+    const newDir = ((off.dir ?? 0) + 1) % 4;
+    _labelOffsets.set(id, { dx: off.dx, dy: off.dy, dir: newDir });
+}
+
 function _getOffset(id) {
     return _labelOffsets.get(id) || { dx: 0, dy: 0 };
 }
@@ -105,16 +103,36 @@ export const LabelMixin = {
 
         // Hat gruplarını hesapla (debi zaten computePipeDebileri ile set edildi)
         const { hatMap } = computeHatGroups(manager.pipes, manager.components);
+        window._hatMap = hatMap; // panel readonly için erişilebilir yap
 
-        // Borular: hat numarasına göre sıralı çiz
+        // Borular: her hat no için sadece en uzun parçada 1 etiket
         if (manager.pipes && manager.pipes.length > 0) {
-            const sorted = [...manager.pipes].sort((a, b) =>
-                (hatMap.get(a.id) || 0) - (hatMap.get(b.id) || 0)
-            );
-            sorted.forEach(pipe => {
+            // Hat no → borular
+            const hatGroups = new Map();
+            manager.pipes.forEach(pipe => {
                 const hatNo = hatMap.get(pipe.id);
                 if (hatNo == null) return;
-                this._drawPipeObjLabel(ctx, pipe, hatNo, opts);
+                if (!hatGroups.has(hatNo)) hatGroups.set(hatNo, []);
+                hatGroups.get(hatNo).push(pipe);
+            });
+
+            // Her hat için en uzun boruyu seç, toplam uzunluğu hesapla
+            hatGroups.forEach((pipes, hatNo) => {
+                let longest = pipes[0];
+                let maxLen = 0;
+                let totalLen = 0;
+                pipes.forEach(pipe => {
+                    if (!pipe.p1 || !pipe.p2) return;
+                    const len = Math.hypot(
+                        pipe.p2.x - pipe.p1.x,
+                        pipe.p2.y - pipe.p1.y,
+                        (pipe.p2.z || 0) - (pipe.p1.z || 0)
+                    );
+                    totalLen += len;
+                    if (len > maxLen) { maxLen = len; longest = pipe; }
+                });
+                if (longest && longest.p1 && longest.p2)
+                    this._drawPipeObjLabel(ctx, longest, hatNo, totalLen, opts);
             });
         }
 
@@ -228,9 +246,9 @@ export const LabelMixin = {
     },
 
     // ─── BORU (Sol: numara | Sağ: bilgiler) ─────────────────────────────────
-    _drawPipeObjLabel(ctx, pipe, pipeNum, opts) {
+    _drawPipeObjLabel(ctx, pipe, pipeNum, totalLen, opts) {
         const { t, zoom, fontSize, lineH,
-                textColor, subColor, accentColor,
+                subColor, accentColor,
                 connColor, bgColor, borderColor, accentBar } = opts;
 
         if (!pipe.p1 || !pipe.p2) return;
@@ -250,9 +268,17 @@ export const LabelMixin = {
         const midY  = (sy1 + sy2) / 2;
         const angle = Math.atan2(sy2 - sy1, sx2 - sx1);
 
-        let nX = -Math.sin(angle);
-        let nY =  Math.cos(angle);
-        if (nY > 0) { nX = -nX; nY = -nY; }
+        // Etiket yönü: _labelOffsets'te direction kaydedilir (0=üst,1=sağ,2=alt,3=sol)
+        const off = _getOffset(pipe.id);
+        const dir = off.dir != null ? off.dir : 0; // 0=üst,1=sağ,2=alt,3=sol
+        let nX, nY;
+        switch (dir) {
+            case 0: nX = -Math.sin(angle); nY = Math.cos(angle); if (nY > 0) { nX=-nX; nY=-nY; } break; // boru normali (üst)
+            case 1: nX =  Math.cos(angle); nY = Math.sin(angle); break; // sağ (boru yönü)
+            case 2: nX = -Math.sin(angle); nY = Math.cos(angle); if (nY < 0) { nX=-nX; nY=-nY; } break; // alt
+            case 3: nX = -Math.cos(angle); nY = -Math.sin(angle); break; // sol
+            default: nX = -Math.sin(angle); nY = Math.cos(angle); if (nY > 0) { nX=-nX; nY=-nY; } break;
+        }
 
         const connDist  = 7  / zoom;
         const labelDist = 18 / zoom;
@@ -260,12 +286,12 @@ export const LabelMixin = {
         const cx = midX + nX * connDist;
         const cy = midY + nY * connDist;
 
-        const off = _getOffset(pipe.id);
         const ax  = midX + nX * labelDist + off.dx;
         const ay  = midY + nY * labelDist + off.dy;
 
-        const uzunluk = pipe.uzunluk != null ? (pipe.uzunluk / 100).toFixed(1) : null;
-        const debi    = (typeof pipe.debi === 'number' && pipe.debi > 0) ? pipe.debi : null;
+        // Toplam uzunluk (cm → m)
+        const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(1) : null;
+        const debi    = typeof pipe.debi === 'number' ? pipe.debi : null;
         const cap     = pipe.boruCap || '';
 
         const infoLines = [
@@ -275,6 +301,9 @@ export const LabelMixin = {
         ].filter(Boolean);
 
         if (infoLines.length === 0) return;
+
+        // 300 mbar hatlar 301'den numaralandırılır → kırmızı
+        const numColor = pipeNum >= 301 ? '#ef4444' : accentColor;
 
         const numStr    = String(pipeNum);
         const numFont   = `bold ${fontSize * 1.4}px "Segoe UI",sans-serif`;
@@ -346,9 +375,9 @@ export const LabelMixin = {
         ctx.lineTo(bx + leftW, by + boxH - pad * 0.5);
         ctx.stroke();
 
-        // Numara (sol, ortalanmış)
+        // Numara (sol, ortalanmış) — 300 mbar → kırmızı
         ctx.font      = numFont;
-        ctx.fillStyle = accentColor;
+        ctx.fillStyle = numColor;
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(numStr, bx + pad + numW / 2, by + boxH / 2);
@@ -448,8 +477,15 @@ export const LabelMixin = {
             lines.push({ text: 'Selenoid Vana', sub: true });
 
         } else if (vt === 'YANBINA') {
-            lines.push({ text: 'Yan Bina Vanası', sub: true });
-
+            lines.push({ text: 'Yan Bina Vanası', bold: true });
+            if (comp.tesisatNo) lines.push({ text: `Tesisat No: ${comp.tesisatNo}`, sub: true });
+            const d  = parseFloat(comp.daireSayisi)  || 0;
+            const dk = parseFloat(comp.dukkanSayisi) || 0;
+            const ek = parseFloat(comp.ekDebi)       || 0;
+            if (d  > 0) lines.push({ text: `Daire Sayısı: ${d}`,  sub: true });
+            if (dk > 0) lines.push({ text: `Dükkan Sayısı: ${dk}`, sub: true });
+            const toplam = (d + dk) * 3.5 + ek;
+            lines.push({ text: `Toplam Debi: ${toplam.toFixed(2)} m³/h`, sub: true });
         }
 
         if (lines.length === 0) return;
@@ -477,12 +513,18 @@ export const LabelMixin = {
 
         const lines = [];
 
-        // Birinci satır: kutu tipi + çıkış yönü
-        const tipYon = [comp.kutuTipi, comp.cikisYonu].filter(Boolean).join(' ');
-        if (tipYon) lines.push({ text: tipYon, bold: true });
+        // Birinci satır: kutu tipi
+        if (comp.kutuTipi) lines.push({ text: comp.kutuTipi, bold: true });
 
         // İkinci satır: basınç
         if (comp.kutuBasinc) lines.push({ text: `${comp.kutuBasinc} mbar`, sub: true });
+
+        // Üçüncü satır: çıkış yönü (insan okunabilir)
+        const yonLabel = comp.cikisYonu === 'sag' ? 'Yandan Çıkış'
+                       : comp.cikisYonu === 'alt' ? 'Alttan Çıkış'
+                       : comp.cikisYonu === 'ust' ? 'Üstten Çıkış'
+                       : comp.cikisYonu || '';
+        if (yonLabel) lines.push({ text: yonLabel, sub: true });
 
         if (lines.length === 0) return;
 

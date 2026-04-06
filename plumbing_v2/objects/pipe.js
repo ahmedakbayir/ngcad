@@ -548,7 +548,11 @@ export class Boru {
             bitisBaglanti: { ...this.bitisBaglanti },
             uzerindekiElemanlar: [...this.uzerindekiElemanlar],
             tBaglantilar: [...this.tBaglantilar],
-            vana: this.vana ? { ...this.vana } : null
+            vana: this.vana ? { ...this.vana } : null,
+            // Panel özellikleri
+            boruCap: this.boruCap,
+            topraklama: this.topraklama,
+            gomulu: this.gomulu
         };
     }
 
@@ -567,6 +571,10 @@ export class Boru {
         boru.uzerindekiElemanlar = data.uzerindekiElemanlar || [];
         boru.tBaglantilar = data.tBaglantilar || [];
         boru.vana = data.vana || null;
+        // Panel özellikleri
+        if (data.boruCap !== undefined) boru.boruCap = data.boruCap;
+        if (data.topraklama !== undefined) boru.topraklama = data.topraklama;
+        if (data.gomulu !== undefined) boru.gomulu = data.gomulu;
         return boru;
     }
 }

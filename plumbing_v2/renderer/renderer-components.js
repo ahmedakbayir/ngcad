@@ -740,13 +740,15 @@ drawSayac(ctx, comp, manager) {
         ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : colors[1];
         ctx.stroke();
 
-        // G4 Yazısı
+        // Sayaç tipi yazısı (G4, G6, ... — karakter sayısına göre font küçülür)
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#222';
-        ctx.font = `bold 12px Arial`;
+        const tipText = comp.sayacTipi || 'G4';
+        const tipFontSize = tipText.length <= 3 ? 12 : tipText.length <= 4 ? 10 : 8;
+        ctx.font = `bold ${tipFontSize}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('G4', 0, 2);
+        ctx.fillText(tipText, 0, 2);
 
         ctx.restore(); // Her şeyi temizle
     },

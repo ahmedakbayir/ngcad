@@ -460,7 +460,17 @@ export class Cihaz {
             rotation: this.rotation,
             fleksBaglanti: { ...this.fleksBaglanti },
             iliskiliVanaId: this.iliskiliVanaId,
-            floorId: this.floorId
+            floorId: this.floorId,
+            // Panel özellikleri
+            marka: this.marka,
+            model: this.model,
+            bacaTipi: this.bacaTipi,
+            kapasiteKcal: this.kapasiteKcal,
+            kapasiteKW: this.kapasiteKW,
+            verim: this.verim,
+            muhafaza: this.muhafaza,
+            yedekCihaz: this.yedekCihaz,
+            yogusmali: this.yogusmali
         };
     }
 
@@ -484,6 +494,16 @@ export class Cihaz {
         }
 
         cihaz.iliskiliVanaId = data.iliskiliVanaId;
+        // Panel özellikleri
+        if (data.marka !== undefined) cihaz.marka = data.marka;
+        if (data.model !== undefined) cihaz.model = data.model;
+        if (data.bacaTipi !== undefined) cihaz.bacaTipi = data.bacaTipi;
+        if (data.kapasiteKcal !== undefined) cihaz.kapasiteKcal = data.kapasiteKcal;
+        if (data.kapasiteKW !== undefined) cihaz.kapasiteKW = data.kapasiteKW;
+        if (data.verim !== undefined) cihaz.verim = data.verim;
+        if (data.muhafaza !== undefined) cihaz.muhafaza = data.muhafaza;
+        if (data.yedekCihaz !== undefined) cihaz.yedekCihaz = data.yedekCihaz;
+        if (data.yogusmali !== undefined) cihaz.yogusmali = data.yogusmali;
 
         return cihaz;
     }
