@@ -149,6 +149,9 @@ export class Boru {
         //     });
         // }
 
+        // Çap (varsayılan DN25)
+        this.boruCap = 'DN25';
+
         // Renk Grubu (Sayaç Öncesi/Sonrası)
         this.colorGroup = 'YELLOW'; // Varsayılan: Sarı (Sayaç Öncesi)
 

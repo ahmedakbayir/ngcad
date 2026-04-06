@@ -1770,7 +1770,6 @@ export function setupUIListeners() {
 function setupVisibilityPanel() {
     const ids = {
         z: 'vis-chk-z',
-        labels: 'vis-chk-labels',
         archDim: 'vis-chk-arch-dim',
         plumbDim: 'vis-chk-plumb-dim',
         room: 'vis-chk-room',
@@ -1803,7 +1802,6 @@ function setupVisibilityPanel() {
 
     // Checkbox Listener'ları
     document.getElementById(ids.z)?.addEventListener('change', (e) => updateVisibility('showZElevation', e.target.checked));
-    document.getElementById(ids.labels)?.addEventListener('change', (e) => updateVisibility('showPipeLabels', e.target.checked));
     document.getElementById(ids.archDim)?.addEventListener('change', (e) => updateVisibility('showArchDimensions', e.target.checked));
     document.getElementById(ids.plumbDim)?.addEventListener('change', (e) => updateVisibility('showPlumbingDimensions', e.target.checked));
     document.getElementById(ids.room)?.addEventListener('change', (e) => updateVisibility('showRoomNames', e.target.checked));
@@ -1841,7 +1839,6 @@ function setupVisibilityPanel() {
     Object.keys(ids).forEach(key => {
         const stateKeyMap = {
             'vis-chk-z': 'showZElevation',
-            'vis-chk-labels': 'showPipeLabels',
             'vis-chk-arch-dim': 'showArchDimensions',
             'vis-chk-plumb-dim': 'showPlumbingDimensions',
             'vis-chk-room': 'showRoomNames',

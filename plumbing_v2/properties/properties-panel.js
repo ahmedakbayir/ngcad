@@ -57,7 +57,11 @@ export function closePropertiesPanel() {
     updatePropertiesBtn(false);
 }
 
-/** Nesnede tanımlı default değerler yoksa atar (panel ilk açılışında debi hesaplanabilsin) */
+/** Nesnede tanımlı default değerler yoksa atar — nesne oluşturulurken de çağrılabilir */
+export function initObjectDefaults(obj, manager) {
+    _initDefaults(obj, manager);
+}
+
 function _initDefaults(obj, manager) {
     const props = getPropertiesForObject(obj);
     props.forEach(p => {
@@ -68,25 +72,42 @@ function _initDefaults(obj, manager) {
     void manager; // manager ileride kullanılabilir
 }
 
-/** rAF döngüsü: boru seçiliyken P1/P2 ve tüm readonly alanları anlık günceller */
+/** rAF döngüsü: tüm alanları anlık günceller (readonly, select, text, toggle, bar) */
 function _startLiveRefresh() {
-    // Sadece mevcut RAF'ı iptal et — _liveProps'u sıfırlama (renderPanel zaten set etti)
     if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
     function tick() {
-        if (!panelEl?.classList.contains('visible') || !_currentObj || !_liveProps) {
+        if (!panelEl?.classList.contains('visible') || !_currentObj) {
             _rafId = null;
             return;
         }
-        _liveProps.forEach(prop => {
-            const el = panelEl.querySelector(`[data-prop-id="${prop.id}"]`);
-            if (!el) return;
-            if (prop.type === 'bar') {
-                const val = prop.barFn(_currentObj, _currentManager);
-                if (el.innerHTML !== val) el.innerHTML = val;
-            } else {
-                const val = prop.readonlyFn(_currentObj, _currentManager);
-                if (el.innerHTML !== val) el.innerHTML = val;
-            }
+        // readonly / bar alanları (hesaplanan değerler)
+        if (_liveProps) {
+            _liveProps.forEach(prop => {
+                const el = panelEl.querySelector(`[data-prop-id="${prop.id}"]`);
+                if (!el) return;
+                if (prop.type === 'bar') {
+                    const val = prop.barFn(_currentObj, _currentManager);
+                    if (el.innerHTML !== val) el.innerHTML = val;
+                } else {
+                    const val = prop.readonlyFn(_currentObj, _currentManager);
+                    if (el.innerHTML !== val) el.innerHTML = val;
+                }
+            });
+        }
+        // select alanları: obj değeri değiştiyse güncelle
+        panelEl.querySelectorAll('select[data-prop-key]').forEach(el => {
+            const key = el.dataset.propKey;
+            if (!key) return;
+            const objVal = String(_currentObj[key] ?? '');
+            if (el.value !== objVal) el.value = objVal;
+        });
+        // text / number alanları: odakta değilse güncelle
+        panelEl.querySelectorAll('input[data-prop-key]').forEach(el => {
+            if (document.activeElement === el) return;
+            const key = el.dataset.propKey;
+            if (!key) return;
+            const objVal = String(_currentObj[key] ?? '');
+            if (el.value !== objVal) el.value = objVal;
         });
         _rafId = requestAnimationFrame(tick);
     }
@@ -362,17 +383,16 @@ function pinSvg() {
 export function initPropertiesButton(manager) {
     const btn = document.getElementById('btn-properties');
     if (!btn) return;
+
     btn.addEventListener('click', () => {
         if (isPanelOpen()) {
             closePropertiesPanel();
         } else {
-            // Seçili nesne varsa aç
             const im = manager?.interactionManager;
             const sel = im?.selectedObject || im?.selectedValve?.vana;
             if (sel && ['boru', 'sayac', 'vana', 'servis_kutusu', 'cihaz'].includes(sel.type)) {
                 openPropertiesPanel(sel, manager);
             }
-            // Seçili nesne yoksa butonu vurgula (kapama görevi görmez)
         }
     });
 }

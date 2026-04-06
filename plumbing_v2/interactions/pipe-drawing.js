@@ -10,6 +10,7 @@ import { setMode } from '../../general-files/main.js';
 import { getObjectsOnPipe, canPlaceValveOnPipe } from './placement-utils.js';
 import { state } from '../../general-files/main.js';
 import { isProtectedPoint } from './drag-handler.js';
+import { initObjectDefaults } from '../properties/properties-panel.js';
 
 /**
  * Boru çizim modunu başlat
@@ -356,6 +357,7 @@ export function handleBoruClick(interactionManager, point) {
     }
 
     mgr.registerPipeNodes(boru);
+    initObjectDefaults(boru, interactionManager.manager);
     interactionManager.manager.pipes.push(boru);
 
     if (interactionManager.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC) {

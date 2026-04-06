@@ -249,3 +249,102 @@ export function computePipeDebileri(manager) {
         if (p.baslangicBaglanti?.tip !== 'boru') dfs(p.id);
     });
 }
+
+/**
+ * Boru segmentlerini "hat" gruplarına ayırır.
+ * Yeni hat numarası şu durumlarda verilir:
+ *   - Çap (boruCap) değişti
+ *   - Kapasite/debi değişti (dallanma)
+ *   - Sayaç geçildi (öncesi ve sonrası farklı hat)
+ *   - Basınç değişti (boruBasinc)
+ *
+ * @returns {{ hatMap: Map<pipeId, hatNo>, hatCount: number }}
+ */
+export function computeHatGroups(pipes, components) {
+    if (!pipes || pipes.length === 0) return { hatMap: new Map(), hatCount: 0 };
+
+    const pipeMap = new Map(pipes.map(p => [p.id, p]));
+
+    // Çocuk haritası: ebeveyn boru id → [çocuk boru id]
+    const childrenOf = new Map();
+    pipes.forEach(p => {
+        const bag = p.baslangicBaglanti;
+        if (bag?.tip === 'boru' && bag.hedefId) {
+            if (!childrenOf.has(bag.hedefId)) childrenOf.set(bag.hedefId, []);
+            childrenOf.get(bag.hedefId).push(p.id);
+        }
+    });
+
+    // Sayaç çıkışından başlayan boru ID'leri
+    const sayacStartIds = new Set(
+        (components || [])
+            .filter(c => c.type === 'sayac' && c.cikisBagliBoruId)
+            .map(c => c.cikisBagliBoruId)
+    );
+
+    // Servis kutusu kök boru ID'leri (önce sıralaması için)
+    const servisRootIds = new Set(
+        (components || [])
+            .filter(c => c.type === 'servis_kutusu' && c.bagliBoruId)
+            .map(c => c.bagliBoruId)
+    );
+
+    // Kök borular: başlangıcı başka bir boruya bağlı olmayanlar
+    const rootPipes = pipes.filter(p =>
+        !p.baslangicBaglanti?.tip || p.baslangicBaglanti.tip !== 'boru'
+    );
+
+    // Servis kutusu kökleri önce, sonra sayaç kökleri, sonra diğerleri
+    rootPipes.sort((a, b) => {
+        const aScore = servisRootIds.has(a.id) ? 0 : sayacStartIds.has(a.id) ? 1 : 2;
+        const bScore = servisRootIds.has(b.id) ? 0 : sayacStartIds.has(b.id) ? 1 : 2;
+        return aScore - bScore || (a.p1.x + a.p1.y) - (b.p1.x + b.p1.y);
+    });
+
+    const hatMap = new Map(); // pipeId → hatNo
+    let hatCounter = 0;
+
+    // BFS: { pipeId, parentPipeId, parentHat }
+    const queue = rootPipes.map(p => ({ pipeId: p.id, parentPipeId: null, parentHat: null }));
+    const visited = new Set();
+
+    while (queue.length > 0) {
+        const { pipeId, parentPipeId, parentHat } = queue.shift();
+        if (visited.has(pipeId)) continue;
+        visited.add(pipeId);
+
+        const pipe = pipeMap.get(pipeId);
+        if (!pipe) continue;
+
+        let hatNo;
+
+        if (parentPipeId === null) {
+            // Kök boru → her zaman yeni hat
+            hatNo = ++hatCounter;
+        } else if (sayacStartIds.has(pipeId)) {
+            // Sayaç sonrası → yeni hat
+            hatNo = ++hatCounter;
+        } else {
+            const par = pipeMap.get(parentPipeId);
+            const sameCap    = !par || par.boruCap    === pipe.boruCap;
+            const sameDebi   = !par || Math.abs((par.debi || 0) - (pipe.debi || 0)) < 0.001;
+            const sameBasinc = !par || (par.boruBasinc ?? '') === (pipe.boruBasinc ?? '');
+
+            hatNo = (sameCap && sameDebi && sameBasinc) ? parentHat : ++hatCounter;
+        }
+
+        hatMap.set(pipeId, hatNo);
+
+        // Çocukları geometrik sırayla kuyruğa ekle
+        const children = (childrenOf.get(pipeId) || []).slice().sort((a, b) => {
+            const pa = pipeMap.get(a), pb = pipeMap.get(b);
+            return ((pa?.p1.x || 0) + (pa?.p1.y || 0)) - ((pb?.p1.x || 0) + (pb?.p1.y || 0));
+        });
+        children.forEach(childId => {
+            if (!visited.has(childId))
+                queue.push({ pipeId: childId, parentPipeId: pipeId, parentHat: hatNo });
+        });
+    }
+
+    return { hatMap, hatCount: hatCounter };
+}

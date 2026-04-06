@@ -6,54 +6,42 @@
 import { setState } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
 import { openPropertiesPanel, closePropertiesPanel, onDeselect, isPanelOpen, isPinned } from '../properties/properties-panel.js';
+import { computeHatGroups } from '../renderer/renderer-utils.js';
 
 /**
- * Seçilen borunun kaynaktan o boruya kadar olan yolunu bulur
- * @param {Object} pipe - Seçilen boru
- * @param {Object} manager - PlumbingManager instance
- * @returns {Array} Yol (label dizisi) örn: ['A', 'B', 'D']
+ * Seçilen borunun kaynaktan o boruya kadar olan hat yolunu bulur.
+ * Hat numaralarını tekrarsız sıralı döndürür: [1, 3, 5] gibi.
  */
 function getPipePath(pipe, manager) {
-    if (!pipe || !manager || !manager.pipes || !manager.components) {
-        return [];
+    if (!pipe || !manager?.pipes) return [];
+
+    const { hatMap } = computeHatGroups(manager.pipes, manager.components);
+
+    // Seçilen borunun hat numarası
+    const myHat = hatMap.get(pipe.id);
+    if (myHat == null) return [];
+
+    // Ata zinciri: baslangicBaglanti.tip==='boru' olan ebeveynleri takip et
+    const pipeById = new Map(manager.pipes.map(p => [p.id, p]));
+    const path = [];
+    let current = pipe;
+    const visited = new Set();
+    while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        const hat = hatMap.get(current.id);
+        if (hat != null && (path.length === 0 || path[0] !== hat)) {
+            path.unshift(hat);
+        }
+        const bag = current.baslangicBaglanti;
+        if (bag?.tip === 'boru' && bag.hedefId) {
+            current = pipeById.get(bag.hedefId) || null;
+        } else {
+            break;
+        }
     }
 
-    // Hierarchy'yi al (window'da cache'lenmiş olabilir)
-    let hierarchy = window._pipeHierarchy;
-
-    // Yoksa yeniden oluştur
-    if (!hierarchy) {
-        // buildPipeHierarchy'yi çağırmak için basit bir implementasyon
-        // (Bu fonksiyon plumbing-renderer.js'te var, ama import etmek yerine burada da yazabiliriz)
-        hierarchy = new Map();
-    }
-
-    // Seçilen borunun data'sını al
-    const pipeData = hierarchy.get(pipe.id);
-    if (!pipeData) {
-        return [];
-    }
-
-    // Parent zincirini takip et
-    const path = [pipeData.label];
-    let currentLabel = pipeData.parent;
-
-    while (currentLabel) {
-        path.unshift(currentLabel); // Başa ekle
-
-        // Bu label'a sahip pipe'ı bul
-        const parentPipe = manager.pipes.find(p => {
-            const data = hierarchy.get(p.id);
-            return data && data.label === currentLabel;
-        });
-
-        if (!parentPipe) break;
-
-        const parentData = hierarchy.get(parentPipe.id);
-        currentLabel = parentData ? parentData.parent : null;
-    }
-
-    return path;
+    // Tekrarlı hat numaralarını kaldır (aynı hat no art arda gelmesin)
+    return path.filter((v, i) => i === 0 || v !== path[i - 1]);
 }
 
 /**

@@ -1,7 +1,7 @@
 // plumbing_v2/renderer/renderer-labels.js
 // Nesne etiket çizim sistemi — taşınabilir etiketler
 
-import { buildPipeHierarchy } from './renderer-utils.js';
+import { buildPipeHierarchy, computeHatGroups } from './renderer-utils.js';
 import { SERVIS_KUTUSU_CONFIG } from '../objects/service-box.js';
 import { SAYAC_CONFIG } from '../objects/meter.js';
 import { CIHAZ_TIPLERI } from '../objects/device.js';
@@ -103,20 +103,18 @@ export const LabelMixin = {
             accentBar:   light ? 'rgba(29,78,216,0.50)' : 'rgba(96,165,250,0.50)',
         };
 
-        // Boru hiyerarşisi (numara sırası için)
-        const hierarchy = buildPipeHierarchy(manager.pipes, manager.components);
+        // Hat gruplarını hesapla (debi zaten computePipeDebileri ile set edildi)
+        const { hatMap } = computeHatGroups(manager.pipes, manager.components);
 
-        // Borular
+        // Borular: hat numarasına göre sıralı çiz
         if (manager.pipes && manager.pipes.length > 0) {
-            const sorted = [...manager.pipes].sort((a, b) => {
-                const la = hierarchy.get(a.id)?.label || 'ZZZ';
-                const lb = hierarchy.get(b.id)?.label || 'ZZZ';
-                const na = la.length === 1 ? la.charCodeAt(0) - 64 : la.charCodeAt(0) - 64 + 26;
-                const nb = lb.length === 1 ? lb.charCodeAt(0) - 64 : lb.charCodeAt(0) - 64 + 26;
-                return na - nb;
-            });
-            sorted.forEach((pipe, idx) => {
-                this._drawPipeObjLabel(ctx, pipe, idx + 1, opts);
+            const sorted = [...manager.pipes].sort((a, b) =>
+                (hatMap.get(a.id) || 0) - (hatMap.get(b.id) || 0)
+            );
+            sorted.forEach(pipe => {
+                const hatNo = hatMap.get(pipe.id);
+                if (hatNo == null) return;
+                this._drawPipeObjLabel(ctx, pipe, hatNo, opts);
             });
         }
 

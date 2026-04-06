@@ -63,35 +63,33 @@ export const InteractionMixin = {
         ctx.restore();
     },
 
-    /**
-     * Seçili borunun yolunu sağ üstte gösterir
-     * @param {CanvasRenderingContext2D} ctx - Canvas context
-     */
     drawSelectedPipePath(ctx) {
         const path = window._selectedPipePath;
         if (!path || path.length === 0) return;
 
-        // Yol metnini oluştur: "A , B , D"
-        const pathText = path.join(' , ');
+        // Sayıları "1 → 3 → 5" formatında göster
+        const pathText = path.join(' → ');
 
         ctx.save();
-
-        // Canvas koordinatlarına dönüş (zoom/pan'den bağımsız)
         ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-        // Sağ üst köşe pozisyonu
         const canvas = ctx.canvas;
         const padding = 20;
         const x = canvas.width - padding;
-        const y = padding;
+        const y = canvas.height - padding;
 
-        // Font ayarları
-        ctx.font = 'bold 24px Arial';
+        ctx.font = 'bold 15px "Segoe UI",sans-serif';
         ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
+        ctx.textBaseline = 'bottom';
 
-        // Kırmızı renk
-        ctx.fillStyle = '#ff0000';
+        // Arka plan
+        const tw = ctx.measureText(pathText).width;
+        ctx.fillStyle = 'rgba(20,20,35,0.55)';
+        ctx.beginPath();
+        ctx.roundRect(x - tw - 8, y - 22, tw + 16, 26, 5);
+        ctx.fill();
+
+        ctx.fillStyle = '#60a5fa';
         ctx.fillText(pathText, x, y);
 
         ctx.restore();

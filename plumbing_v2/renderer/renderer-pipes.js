@@ -950,16 +950,7 @@ export const PipeMixin = {
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
-            // Debi değeri varsa: uzunluk üstte, debi altında
-            const debi = typeof pipe.debi === 'number' && pipe.debi > 0 ? pipe.debi : null;
-            if (debi !== null) {
-                ctx.fillText(displayText, 0, -actualFontSize * 0.7);
-                ctx.font = `italic ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-                ctx.fillStyle = '#4ade80'; // yeşil
-                ctx.fillText(debi.toFixed(2), 0, actualFontSize * 0.7);
-            } else {
-                ctx.fillText(displayText, 0, 0);
-            }
+            ctx.fillText(displayText, 0, 0);
 
             ctx.restore();
         });
@@ -1042,131 +1033,8 @@ export const PipeMixin = {
         ctx.restore();
     },
 
-    /**
-     * Sadece boru etiketlerini çizer (ölçüler gizli iken)
-     * Ortadaki harf KIRMIZI renkte
-     */
     drawPipeLabelsOnly(ctx, pipes, components) {
-        if (!pipes || pipes.length === 0) return;
-
-        const zoom = state.zoom || 1;
-        const baseFontSize = 10;
-        const ZOOM_EXPONENT = -0.1;
-        const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
-        const minWorldFontSize = 5;
-
-        // 3D faktörü (Z izdüşümü için)
-        const t = state.viewBlendFactor || 0;
-
-        // Parent-child ilişkisini kur
-        const hierarchy = buildPipeHierarchy(pipes, components);
-
-        pipes.forEach(pipe => {
-            // 3D Uzunluk Hesapla (Z dahil)
-            const dxWorld = pipe.p2.x - pipe.p1.x;
-            const dyWorld = pipe.p2.y - pipe.p1.y;
-            const dzWorld = (pipe.p2.z || 0) - (pipe.p1.z || 0);
-            const length3D = Math.hypot(dxWorld, dyWorld, dzWorld);
-
-            // Çok kısa borularda etiket gösterme
-            if (length3D < 15) return;
-
-            // Ekran Koordinatlarını Hesapla (3D İzdüşüm)
-            // x' = x + z*t, y' = y - z*t
-            const z1 = (pipe.p1.z || 0) * t;
-            const z2 = (pipe.p2.z || 0) * t;
-
-            const sx1 = pipe.p1.x + z1;
-            const sy1 = pipe.p1.y - z1;
-            const sx2 = pipe.p2.x + z2;
-            const sy2 = pipe.p2.y - z2;
-
-            // Ekran üzerindeki orta nokta
-            const midX = (sx1 + sx2) / 2;
-            const midY = (sy1 + sy2) / 2;
-
-            // Boru açısı (Ekran üzerindeki görsel açı)
-            const sdx = sx2 - sx1;
-            const sdy = sy2 - sy1;
-            const angle = Math.atan2(sdy, sdx);
-
-            // Boru genişliği
-            const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
-            const width = config.lineWidth;
-
-            // Etiket offset (boruya temas etmeden)
-            const offset = width / 2 - 10;
-
-            // Normal vektör (boruya dik)
-            const normalX = -Math.sin(angle);
-            const normalY = Math.cos(angle);
-
-            // Yazı pozisyonu (borunun üstünde)
-            const textX = midX + normalX * offset;
-            const textY = midY + normalY * offset;
-
-            ctx.save();
-            ctx.translate(textX, textY);
-            ctx.rotate(angle);
-
-            // Açıyı düzelt (ters yazmasın)
-            if (Math.abs(angle) > Math.PI / 2) {
-                ctx.rotate(Math.PI);
-            }
-
-            // Font ayarla
-            const actualFontSize = Math.max(minWorldFontSize, fontSize);
-            ctx.font = `400 ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-
-            // Parent-child etiketi oluştur
-            const pipeData = hierarchy.get(pipe.id);
-            if (pipeData) {
-                const parent = pipeData.parent || '';
-                const self = pipeData.label;
-                const children = pipeData.children.length > 0 ? pipeData.children.join(',') : '';
-
-                // Yazı pozisyonları hesapla
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-
-                // Dark blue renk (parent ve children için)
-                const darkBlue = '#2b97df';
-                const darkgreen = '#008b0c';
-
-                const parentText = parent + '';
-                const parentWidth = ctx.measureText(parentText).width;
-
-                // Self kısmını çiz (KIRMIZI)
-                const selfText = self;
-                const selfWidth = ctx.measureText(selfText).width;
-
-                // Children kısmını çiz (dark blue)
-                const childrenText = '' + children;
-
-                // Toplam genişlik
-                const totalWidth = parentWidth + selfWidth + ctx.measureText(childrenText).width;
-                const startX = -totalWidth / 2;
-
-                // // Parent (dark blue)
-                // ctx.fillStyle = darkBlue;
-                // ctx.textAlign = "left";
-                // ctx.fillText(parentText, startX, 0);
-
-                // Self (mavi)
-                ctx.fillStyle = darkBlue;
-                ctx.fillText(selfText, startX + parentWidth, 0);
-
-                // Debi (yeşil italic, label'ın altında)
-                const debi = typeof pipe.debi === 'number' && pipe.debi > 0 ? pipe.debi : null;
-                if (debi !== null) {
-                    ctx.font = `italic ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
-                    ctx.fillStyle = '#4ade80';
-                    ctx.fillText(debi.toFixed(2), 0, actualFontSize * 1.4);
-                }
-            }
-
-            ctx.restore();
-        });
+        // Hat etiketleri artık renderer-labels.js içindeki nesne etiketleri sistemi ile çiziliyor.
     },
 
     drawPipeEndpointSnapGuides(ctx, interactionManager) {

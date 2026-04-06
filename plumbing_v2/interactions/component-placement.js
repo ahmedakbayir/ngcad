@@ -12,6 +12,7 @@ import { createBaca } from '../objects/chimney.js';
 import { canPlaceValveOnPipe, getObjectsOnPipe } from './placement-utils.js';
 import { TESISAT_MODLARI } from './interaction-manager.js';
 import { snapTo15DegreeAngle } from '../../draw/geometry.js';
+import { initObjectDefaults } from '../properties/properties-panel.js';
 
 /**
  * Bileşeni yerleştir
@@ -22,6 +23,9 @@ export function placeComponent(point) {
     const prevMode = this.previousMode;
     const prevDrawMode = this.previousDrawingMode;
     const prevTool = this.previousActiveTool;
+
+    // Yerleştirilmeden önce tüm default değerleri ata
+    initObjectDefaults(component, this.manager);
 
     switch (component.type) {
         case 'servis_kutusu':
@@ -350,6 +354,7 @@ export function handleVanaPlacement(vanaPreview) {
     }
 
     // Manager'a ekle
+    initObjectDefaults(vana, this.manager);
     this.manager.components.push(vana);
     vana.updateEndCapStatus(this.manager);
     this.manager.saveToState();

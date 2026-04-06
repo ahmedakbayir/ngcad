@@ -114,16 +114,6 @@ export class PlumbingRenderer {
                 this.drawTempPipeMeasurement(ctx, geciciBoru);
             }
         }
-        else {
-            // 2. Ölçüler Kapalı İse -> Sadece Etiketleri Göster
-            // DÜZELTME: && state.tempVisibility.showPipeLabels eklendi.
-            // Artık panelden "Hat No" kapatılınca burası çalışmayacak.
-            const showLabelsOnly = !shouldBeFaded && state.dimensionMode === 0;
-
-            if (showLabelsOnly && state.tempVisibility.showPipeLabels) {
-                this.drawPipeLabelsOnly(ctx, manager.pipes, manager.components);
-            }
-        }
 
 
         // Nesne Etiketleri (boru/sayaç/vana/cihaz detay)
