@@ -30,12 +30,6 @@ export const VANA_TIPLERI = {
         kategori: 'ara',
         sembol: 'standart'
     },
-    KKV: {
-        id: 'KKV',
-        name: 'Küresel Kapama Vanası',
-        kategori: 'ara',
-        sembol: 'standart'
-    },
     EMNIYET: {
         id: 'EMNIYET',
         name: 'Emniyet Vanası',
@@ -54,13 +48,6 @@ export const VANA_TIPLERI = {
         kategori: 'ara',
         sembol: 'elektrik'  // Artırılmış sembol
     },
-    SAYAC: {
-        id: 'SAYAC',
-        name: 'Sayaç Vanası',
-        kategori: 'ara',
-        sembol: 'standart'
-    },
-
     // Sonlanma Vanaları
     BRANSMAN: {
         id: 'BRANSMAN',
@@ -74,17 +61,11 @@ export const VANA_TIPLERI = {
         kategori: 'sonlanma',
         sembol: 'kapama'
     },
-    DOMESTIK: {
-        id: 'DOMESTIK',
-        name: 'Domestik Vana',
-        kategori: 'sonlanma',
-        sembol: 'kapama'
-    }
 };
 
 // Kategori listesi
-export const ARA_VANALAR = ['AKV', 'KKV', 'EMNIYET', 'CIHAZ', 'SELENOID', 'SAYAC'];
-export const SONLANMA_VANALARI = ['BRANSMAN', 'YAN_BINA', 'DOMESTIK'];
+export const ARA_VANALAR = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'];
+export const SONLANMA_VANALARI = ['BRANSMAN', 'YAN_BINA'];
 
 export class Vana {
     constructor(x, y, tip = 'AKV', options = {}) {
@@ -238,11 +219,11 @@ export class Vana {
     }
 
     /**
-     * Branşman vanasını sayaç vanasına dönüştür
+     * Branşman vanasını emniyet vanasına dönüştür (sayaç bağlandığında)
      */
     bransmandanSayacVanasiyaDonustur() {
         if (this.vanaTipi === 'BRANSMAN') {
-            this.vanaTipi = 'SAYAC';
+            this.vanaTipi = 'EMNIYET';
             return true;
         }
         return false;

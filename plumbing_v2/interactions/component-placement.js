@@ -442,7 +442,7 @@ export function handleSayacEndPlacement(meter) {
             vanaZ = (boruUcu.nokta.z || 0) + (dz / length3D) * centerMargin;
         }
 
-        const vana = createVana(vanaX, vanaY, 'SAYAC');
+        const vana = createVana(vanaX, vanaY, 'EMNIYET');
         vana.rotation = boruUcu.boru.aciDerece;
         vana.floorId = meter.floorId;
         vana.z = vanaZ;

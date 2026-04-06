@@ -9,6 +9,8 @@ import { dom, state } from '../general-files/main.js';
 // YENİ IMPORT
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
 import { findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
+import { updateLabelDrag } from '../plumbing_v2/renderer/renderer-labels.js';
+import { draw2D } from '../draw/draw2d.js';
 
 export function handlePointerMove(e) {
     const rect = dom.c2d.getBoundingClientRect();
@@ -87,6 +89,13 @@ export function handlePointerMove(e) {
         }
     } else {
         this.hoveredGizmoAxis = null;
+    }
+
+    // Etiket sürükleme
+    if (this.isDraggingLabel) {
+        updateLabelDrag(point.x, point.y);
+        draw2D();
+        return true;
     }
 
     if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {

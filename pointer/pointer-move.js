@@ -510,6 +510,11 @@ export function onPointerMove(e) {
 
     // Her fare hareketinde imleci güncelle
     updateMouseCursor();
+
+    // Nesne etiketleri açıksa her harekette canvas yenile (debi vs. güncel kalsın)
+    if (state.tempVisibility?.showObjectLabels) {
+        draw2D();
+    }
 }
 
 // pointer-move.js -> updateMouseCursor fonksiyonu

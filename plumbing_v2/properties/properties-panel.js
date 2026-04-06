@@ -6,6 +6,7 @@
  */
 
 import { getPropertiesForObject, getObjectLabel, PROPERTY_DEFS } from './property-definitions.js';
+import { draw2D } from '../../draw/draw2d.js';
 
 // ─── DURUM ───────────────────────────────────────────────────────────────────
 
@@ -340,6 +341,7 @@ function refreshEsnekMarkaDurum(panelEl, obj) {
 
 function persist() {
     if (window.plumbingManager?.saveToState) window.plumbingManager.saveToState();
+    draw2D();
 }
 
 // ─── YARDIMCI ────────────────────────────────────────────────────────────────

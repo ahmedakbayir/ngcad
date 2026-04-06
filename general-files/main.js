@@ -474,6 +474,7 @@ export let state = {
         show3DAxis: true,           // Varsayılan açık
         show3DPipeFrame: true,      // 3D Hat Çerçevesi (varsayılan açık)
         showPipePath: false,
+        showObjectLabels: false,  // Nesne Etiketleri (boru/sayaç/vana/cihaz)
         showJunctionNodes: true,   // Köşe Noktaları (3+ duvar birleşimi)
         showArchitecture: true,    // Mimari Katman
         showPlumbing: true,        // Tesisat Katmanı

@@ -11,6 +11,7 @@ import { pixelsToWorld, findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plu
 
 // YENİ IMPORT: 3D hesaplama fonksiyonu
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
+import { hitTestLabel, startLabelDrag } from '../plumbing_v2/renderer/renderer-labels.js';
 
 export function handlePointerDown(e) {
     const rect = dom.c2d.getBoundingClientRect();
@@ -224,6 +225,16 @@ export function handlePointerDown(e) {
                     this.lockedAxis = clickedAxis;
                     return true;
                 }
+            }
+        }
+
+        // --- ETIKET SÜRÜKLEME KONTROLÜ ---
+        if (state.tempVisibility.showObjectLabels) {
+            const labelId = hitTestLabel(point.x, point.y);
+            if (labelId) {
+                startLabelDrag(labelId, point.x, point.y);
+                this.isDraggingLabel = true;
+                return true;
             }
         }
 

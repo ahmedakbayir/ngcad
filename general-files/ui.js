@@ -1780,7 +1780,8 @@ function setupVisibilityPanel() {
         path: 'vis-chk-path',
         junctions: 'vis-chk-junctions',
         arch: 'vis-chk-arch',
-        plumbing: 'vis-chk-plumbing'
+        plumbing: 'vis-chk-plumbing',
+        objLabels: 'vis-chk-obj-labels'
     };
 
     // State'i güncelle ve sahneyi yeniden çiz
@@ -1813,6 +1814,7 @@ function setupVisibilityPanel() {
     document.getElementById(ids.junctions)?.addEventListener('change', (e) => updateVisibility('showJunctionNodes', e.target.checked));
     document.getElementById(ids.arch)?.addEventListener('change', (e) => updateVisibility('showArchitecture', e.target.checked));
     document.getElementById(ids.plumbing)?.addEventListener('change', (e) => updateVisibility('showPlumbing', e.target.checked));
+    document.getElementById(ids.objLabels)?.addEventListener('change', (e) => updateVisibility('showObjectLabels', e.target.checked));
     // Hepsini Göster
     document.getElementById('vis-btn-show-all')?.addEventListener('click', () => {
         Object.values(ids).forEach(id => {
@@ -1849,7 +1851,8 @@ function setupVisibilityPanel() {
             'vis-chk-path': 'showPipePath',
             'vis-chk-junctions': 'showJunctionNodes',
             'vis-chk-arch': 'showArchitecture',
-            'vis-chk-plumbing': 'showPlumbing'
+            'vis-chk-plumbing': 'showPlumbing',
+            'vis-chk-obj-labels': 'showObjectLabels'
         };
         const elId = ids[key];
         const stateKey = stateKeyMap[elId];

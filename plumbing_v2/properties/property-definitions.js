@@ -32,20 +32,17 @@ export const BORU_CAPLARI_TUMU = ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50'
 
 export const BACA_TIPLERI = ['Hermetik', 'Bacalı', 'Atmosferik'];
 
-export const ARA_VANALAR       = ['AKV', 'KKV', 'EMNIYET', 'CIHAZ', 'SELENOID', 'SAYAC'];
-export const SONLANMA_VANALARI = ['BRANSMAN', 'YANBINA', 'DOMESTIK'];
+export const ARA_VANALAR       = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'];
+export const SONLANMA_VANALARI = ['BRANSMAN', 'YANBINA'];
 export const VANA_TIPLERI_LISTESI = [...ARA_VANALAR, ...SONLANMA_VANALARI];
 
 export const VANA_TIP_ETIKETLERI = {
     AKV:      'AKV',
-    KKV:      'KKV',
     EMNIYET:  'Emniyet',
-    CIHAZ:    'Cihaz',
+    CIHAZ:    'Cihaz Vanası',
     SELENOID: 'Selenoid',
-    SAYAC:    'Sayaç',
     BRANSMAN: 'Branşman',
     YANBINA:  'Yan Bina',
-    DOMESTIK: 'Domestik',
 };
 
 export const SERVIS_KUTUSU_TIPLERI = ['S200', 'S300', 'S700', 'S2200', 'CES200'];
@@ -320,6 +317,24 @@ export const PROPERTY_DEFS = {
         },
     },
 
+    sayac_sec_birim: { type: 'section', label: 'Birim' },
+
+    sayacBirimTipi: {
+        label: 'Birim Tipi',
+        type: 'select',
+        key: 'birimTipi',
+        options: BIRIM_TIPLERI,
+        default: 'KONUT',
+        placeholder: '— seçiniz —',
+    },
+    sayacBirimNo: {
+        label: 'Birim No',
+        type: 'text',
+        key: 'birimNo',
+        default: '',
+        placeholder: 'Birim no...',
+    },
+
     sayac_sec_birim_ici: { type: 'section', label: 'Birim İçi' },
 
     sayacBirimBoruTipi: {
@@ -463,7 +478,7 @@ export const PROPERTY_DEFS = {
     vana_sec_birim: {
         type: 'section',
         label: 'Birim',
-        visibleFn: (obj) => ['BRANSMAN', 'YANBINA', 'DOMESTIK', 'SAYAC'].includes(obj.vanaTipi),
+        visibleFn: (obj) => ['BRANSMAN', 'YANBINA'].includes(obj.vanaTipi),
     },
 
     vanaBirimNo: {
@@ -472,7 +487,7 @@ export const PROPERTY_DEFS = {
         key: 'birimNo',
         default: '',
         placeholder: 'Birim no...',
-        visibleFn: (obj) => ['BRANSMAN', 'YANBINA', 'DOMESTIK', 'SAYAC'].includes(obj.vanaTipi),
+        visibleFn: (obj) => ['BRANSMAN', 'YANBINA'].includes(obj.vanaTipi),
     },
 
     vana_sec_hesap: { type: 'section', label: 'Hesap Değerleri' },
@@ -856,6 +871,9 @@ export const OBJECT_PROPERTIES = {
         'sayacCikisCap',
         'sayacBasinc',
         'sayacDebiCubugu',
+        'sayac_sec_birim',
+        'sayacBirimTipi',
+        'sayacBirimNo',
         'sayac_sec_birim_ici',
         'sayacBirimBaglantiTipi',
         'sayacBirimBoruTipi',

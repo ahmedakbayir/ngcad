@@ -8,6 +8,7 @@ import { ComponentMixin } from './renderer/renderer-components.js';
 import { DeviceMixin } from './renderer/renderer-devices.js';
 import { InteractionMixin } from './renderer/renderer-interaction.js';
 import { PreviewMixin } from './renderer/renderer-previews.js';
+import { LabelMixin } from './renderer/renderer-labels.js';
 import { state } from '../general-files/main.js';
 
 /**
@@ -124,6 +125,11 @@ export class PlumbingRenderer {
             }
         }
 
+
+        // Nesne Etiketleri (boru/sayaç/vana/cihaz detay)
+        if (!shouldBeFaded && state.tempVisibility.showObjectLabels) {
+            this.drawObjectLabels(ctx, manager);
+        }
 
         // --- YENİ EKLENEN KISIM: KOT YAZILARI ---
         // Boru köşe noktalarındaki h değerlerini çiz (3D modunda)
@@ -274,3 +280,4 @@ Object.assign(PlumbingRenderer.prototype, ComponentMixin);
 Object.assign(PlumbingRenderer.prototype, DeviceMixin);
 Object.assign(PlumbingRenderer.prototype, InteractionMixin);
 Object.assign(PlumbingRenderer.prototype, PreviewMixin);
+Object.assign(PlumbingRenderer.prototype, LabelMixin);
