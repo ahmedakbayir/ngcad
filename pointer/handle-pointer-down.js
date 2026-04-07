@@ -244,7 +244,14 @@ export function handlePointerDown(e) {
         }
 
         // --- VANA KONTROLÜ ---
-        const clickedValve = this.manager.components.find(c => c.type === 'vana' && c.containsPoint(point));
+        const _blendT = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
+        const clickedValve = this.manager.components.find(c => {
+            if (c.type !== 'vana') return false;
+            // 3D blend modunda Z offset'ini geri al
+            const cz = (c.z || 0) * _blendT;
+            const localPt = { x: point.x - cz, y: point.y + cz };
+            return c.containsPoint(localPt);
+        });
         if (clickedValve) {
             const pipe = clickedValve.bagliBoruId ? this.manager.pipes.find(p => p.id === clickedValve.bagliBoruId) : null;
             this.selectValve(pipe, clickedValve);
@@ -254,9 +261,14 @@ export function handlePointerDown(e) {
 
         // --- SAYAÇ KONTROLÜ ---
         if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
-            const clickedMeter = this.manager.components.find(c =>
-                c.type === 'sayac' && c.containsPoint && c.containsPoint(point)
-            );
+            const blendT = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
+            const clickedMeter = this.manager.components.find(c => {
+                if (c.type !== 'sayac' || !c.containsPoint) return false;
+                // 3D blend modunda Z offset'ini geri alarak world koordinatına çevir
+                const cz = (c.z || 0) * blendT;
+                const localPoint = { x: point.x - cz, y: point.y + cz };
+                return c.containsPoint(localPoint);
+            });
             if (clickedMeter) {
                 const cikisNoktasi = clickedMeter.getCikisNoktasi();
                 this.startBoruCizim(cikisNoktasi, clickedMeter.id, BAGLANTI_TIPLERI.SAYAC);
@@ -266,9 +278,13 @@ export function handlePointerDown(e) {
 
         // --- SERVİS KUTUSU KONTROLÜ ---
         if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
-            const clickedBox = this.manager.components.find(c =>
-                c.type === 'servis_kutusu' && c.containsPoint && c.containsPoint(point)
-            );
+            const blendT = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
+            const clickedBox = this.manager.components.find(c => {
+                if (c.type !== 'servis_kutusu' || !c.containsPoint) return false;
+                const cz = (c.z || 0) * blendT;
+                const localPoint = { x: point.x - cz, y: point.y + cz };
+                return c.containsPoint(localPoint);
+            });
             if (clickedBox) {
                 const cikisNoktasi = clickedBox.getCikisNoktasi();
                 this.startBoruCizim(cikisNoktasi, clickedBox.id, BAGLANTI_TIPLERI.SERVIS_KUTUSU);

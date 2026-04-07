@@ -324,9 +324,9 @@ export const LabelMixin = {
         visLines.forEach(l => {
             ctx.font      = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
             ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
-            ctx.textAlign    = 'center';
+            ctx.textAlign    = 'left';
             ctx.textBaseline = 'alphabetic';
-            ctx.fillText(l.text, bx + boxW / 2, ty);
+            ctx.fillText(l.text, bx + pad, ty);
             ty += lineH;
         });
 

@@ -537,8 +537,7 @@ const dx = pipe.p2.x - pipe.p1.x;
      */
     containsPoint(point) {
         const bbox = this.getBoundingBox();
-        // Seçim kolaylığı için 5 cm tolerans payı ekliyoruz
-        const tolerance = 0;
+        const tolerance = 8; // cm — seçim alanı genişletildi
 
         return (
             point.x >= bbox.minX - tolerance &&

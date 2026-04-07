@@ -1033,7 +1033,8 @@ export function setupInputListeners() {
             showStairPopup(object.object, e); // Merdiven popup'ını göster
         } else if (object && object.type === 'plumbingPipe' && object.handle === 'body') {
             // Boru gövdesine çift tıklanırsa bölme işlemi yap
-            splitPipeAtClickPosition(object.object, clickPos);
+            // splitT: getObjectAtPoint'ten gelen ekran-uzayı projeksiyon oranı → 3D world noktası
+            splitPipeAtClickPosition(object.object, clickPos, object.splitT);
         } else if (object && object.type === 'baca' && object.handle === 'body') {
             // Baca gövdesine çift tıklanırsa bölme işlemi yap
             console.log('🔥 BACA DOUBLE-CLICK DETECTED!', object);
@@ -1241,23 +1242,32 @@ function splitWallAtClickPosition(clickPos) { // <-- Parametre ekledik
 
 // Boru bölme
 // Boru bölme fonksiyonunu güncelleyin
-function splitPipeAtClickPosition(pipeToSplit, clickPos) {
+function splitPipeAtClickPosition(pipeToSplit, clickPos, splitT) {
     if (!pipeToSplit || !pipeToSplit.p1 || !pipeToSplit.p2) {
         return;
     }
 
-    const MIN_SPLIT_DIST = 10;
-    const distToP1 = Math.hypot(clickPos.x - pipeToSplit.p1.x, clickPos.y - pipeToSplit.p1.y);
-    const distToP2 = Math.hypot(clickPos.x - pipeToSplit.p2.x, clickPos.y - pipeToSplit.p2.y);
+    // 3D blend modunda splitT (ekran-uzayı projeksiyon oranı) kullanarak
+    // gerçek 3D world noktasını hesapla; yoksa clickPos kullan
+    let splitPoint;
+    if (splitT != null && isFinite(splitT)) {
+        const p1 = pipeToSplit.p1, p2 = pipeToSplit.p2;
+        splitPoint = {
+            x: p1.x + splitT * (p2.x - p1.x),
+            y: p1.y + splitT * (p2.y - p1.y),
+            z: (p1.z || 0) + splitT * ((p2.z || 0) - (p1.z || 0))
+        };
+    } else {
+        splitPoint = clickPos;
+    }
 
-    if (distToP1 < MIN_SPLIT_DIST || distToP2 < MIN_SPLIT_DIST) {
+    const MIN_SPLIT_T = 0.05; // borunun en az %5 içinde olmalı
+    if (splitT != null && (splitT < MIN_SPLIT_T || splitT > 1 - MIN_SPLIT_T)) {
         return;
     }
 
     if (window.plumbingManager && window.plumbingManager.interactionManager) {
-        // ✨ BURASI DEĞİŞTİ: false parametresi ile çizim modunu engelliyoruz
-        window.plumbingManager.interactionManager.handlePipeSplit(pipeToSplit, clickPos, false);
-
+        window.plumbingManager.interactionManager.handlePipeSplit(pipeToSplit, splitPoint, false);
         setState({ selectedObject: null });
     }
 }

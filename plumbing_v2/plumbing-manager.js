@@ -498,8 +498,8 @@ export class PlumbingManager {
         }
 
         const currentFloorId = state.currentFloor?.id;
-        // 3D modunun aktif olup olmadığını kontrol et
-        const is3D = state.is3DPerspectiveActive;
+        // 3D blend oranı: hem tam perspektif hem de blend modunu kapsar
+        const blendT = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
 
         // Manager'ın kendi pipe/component dizilerini kullan
         const pipes = this.pipes || [];
@@ -512,15 +512,10 @@ export class PlumbingManager {
             return objFloorId === currentFloorId;
         };
 
-        // Helper: Noktayı ekran koordinatına çevir (Projeksiyon)
-        // Eğer 3D aktifse Z değerini X ve Y'ye yansıt (Renderer ile aynı formül)
+        // Helper: Noktayı ekran koordinatına çevir — renderer ile aynı formül (x+z*t, y-z*t)
         const getScreenPoint = (p) => {
-            if (!is3D) return { x: p.x, y: p.y };
-            const z = p.z || 0;
-            return {
-                x: p.x + z, // Renderer logic: x + z
-                y: p.y - z  // Renderer logic: y - z
-            };
+            const z = (p.z || 0) * blendT;
+            return { x: p.x + z, y: p.y - z };
         };
 
         // 1. Önce uç noktaları kontrol et (handle'lar)
@@ -557,10 +552,9 @@ export class PlumbingManager {
             const cx = comp.x ?? comp.center?.x;
             const cy = comp.y ?? comp.center?.y;
             if (cx !== undefined && cy !== undefined) {
-                // Bileşen koordinatını da proje et (Eğer Z'si varsa)
-                // Genelde bileşenler Z=0 kabul edilir ama ilerde Z eklenirse buraya p.z eklenmeli
-                const compScreen = is3D ? { x: cx, y: cy } : { x: cx, y: cy }; 
-                
+                // Bileşen ekran koordinatına çevir (Z blend dahil)
+                const compScreen = getScreenPoint({ x: cx, y: cy, z: comp.z || 0 });
+
                 const dist = Math.hypot(pos.x - compScreen.x, pos.y - compScreen.y);
                 const selectTolerance = comp.type === 'vana' ? 6 : tolerance * 2;
 
@@ -591,20 +585,21 @@ export class PlumbingManager {
                  continue;
             }
 
-            // Noktanın doğru parçasına (segment) en yakın izdüşümü (t parametresi)
-            const t = ((pos.x - p1Screen.x) * dx + (pos.y - p1Screen.y) * dy) / (length * length);
-            
+            // Noktanın doğru parçasına (segment) en yakın izdüşümü (tParam parametresi)
+            const tParam = ((pos.x - p1Screen.x) * dx + (pos.y - p1Screen.y) * dy) / (length * length);
+
             // Tıklama boru hizasında ama borunun boyunu aşıyorsa seçme
-            if (t < 0 || t > 1) continue;
+            if (tParam < 0 || tParam > 1) continue;
 
             // En yakın nokta koordinatları
-            const projX = p1Screen.x + t * dx;
-            const projY = p1Screen.y + t * dy;
-            
+            const projX = p1Screen.x + tParam * dx;
+            const projY = p1Screen.y + tParam * dy;
+
             // Mesafe kontrolü
             const dist = Math.hypot(pos.x - projX, pos.y - projY);
             if (dist < tolerance) {
-                return { type: 'pipe', object: pipe, handle: 'body' };
+                // tParam: borudaki bölme noktasını 3D world'e çevirmek için sakla
+                return { type: 'pipe', object: pipe, handle: 'body', splitT: tParam };
             }
         }
 
