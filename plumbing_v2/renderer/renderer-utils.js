@@ -197,10 +197,80 @@ export function buildPipeHierarchy(pipes, components) {
 }
 
 /**
- * Her boruya kümülatif debi atar:
- *   1. Doğrudan bağlı cihazların debisi atanır.
- *   2. Alt→üst (post-order DFS) ile çocukların debisi ebeveyne eklenir.
- * Böylece her borunun debi'si kendisinden sonraki tüm dalların toplamını içerir.
+ * TS 7363:2018 Çizelge 7 — Eş Zaman Faktörleri (sayaç sonrası, 1–50 cihaz)
+ * Index 0 = 1 cihaz, index 49 = 50 cihaz
+ */
+const CIZELGE_7 = [
+    {ocak:0.621,kombi:1.000,soba:1.000,sofben:1.000},
+    {ocak:0.448,kombi:0.883,soba:0.800,sofben:0.607},
+    {ocak:0.371,kombi:0.822,soba:0.703,sofben:0.456},
+    {ocak:0.325,kombi:0.782,soba:0.641,sofben:0.373},
+    {ocak:0.294,kombi:0.752,soba:0.597,sofben:0.320},
+    {ocak:0.271,kombi:0.729,soba:0.564,sofben:0.283},
+    {ocak:0.253,kombi:0.710,soba:0.537,sofben:0.255},
+    {ocak:0.239,kombi:0.694,soba:0.515,sofben:0.234},
+    {ocak:0.227,kombi:0.680,soba:0.496,sofben:0.217},
+    {ocak:0.217,kombi:0.668,soba:0.480,sofben:0.202},
+    {ocak:0.208,kombi:0.657,soba:0.466,sofben:0.191},
+    {ocak:0.201,kombi:0.648,soba:0.454,sofben:0.180},
+    {ocak:0.194,kombi:0.639,soba:0.443,sofben:0.172},
+    {ocak:0.188,kombi:0.631,soba:0.432,sofben:0.164},
+    {ocak:0.183,kombi:0.624,soba:0.423,sofben:0.157},
+    {ocak:0.178,kombi:0.617,soba:0.415,sofben:0.151},
+    {ocak:0.173,kombi:0.611,soba:0.407,sofben:0.146},
+    {ocak:0.169,kombi:0.605,soba:0.400,sofben:0.141},
+    {ocak:0.166,kombi:0.599,soba:0.394,sofben:0.137},
+    {ocak:0.162,kombi:0.594,soba:0.387,sofben:0.133},
+    {ocak:0.159,kombi:0.590,soba:0.382,sofben:0.129},
+    {ocak:0.156,kombi:0.585,soba:0.376,sofben:0.125},
+    {ocak:0.153,kombi:0.581,soba:0.371,sofben:0.122},
+    {ocak:0.151,kombi:0.577,soba:0.366,sofben:0.119},
+    {ocak:0.148,kombi:0.573,soba:0.362,sofben:0.117},
+    {ocak:0.145,kombi:0.569,soba:0.357,sofben:0.114},
+    {ocak:0.144,kombi:0.566,soba:0.353,sofben:0.112},
+    {ocak:0.142,kombi:0.562,soba:0.349,sofben:0.110},
+    {ocak:0.140,kombi:0.559,soba:0.346,sofben:0.108},
+    {ocak:0.138,kombi:0.555,soba:0.342,sofben:0.106},
+    {ocak:0.136,kombi:0.553,soba:0.339,sofben:0.104},
+    {ocak:0.134,kombi:0.550,soba:0.336,sofben:0.102},
+    {ocak:0.133,kombi:0.547,soba:0.332,sofben:0.100},
+    {ocak:0.131,kombi:0.545,soba:0.329,sofben:0.099},
+    {ocak:0.130,kombi:0.542,soba:0.327,sofben:0.097},
+    {ocak:0.128,kombi:0.540,soba:0.324,sofben:0.096},
+    {ocak:0.127,kombi:0.537,soba:0.321,sofben:0.095},
+    {ocak:0.125,kombi:0.535,soba:0.319,sofben:0.093},
+    {ocak:0.125,kombi:0.533,soba:0.316,sofben:0.092},
+    {ocak:0.123,kombi:0.530,soba:0.314,sofben:0.091},
+    {ocak:0.122,kombi:0.528,soba:0.311,sofben:0.090},
+    {ocak:0.121,kombi:0.526,soba:0.309,sofben:0.089},
+    {ocak:0.120,kombi:0.524,soba:0.307,sofben:0.088},
+    {ocak:0.119,kombi:0.522,soba:0.305,sofben:0.087},
+    {ocak:0.118,kombi:0.520,soba:0.303,sofben:0.086},
+    {ocak:0.117,kombi:0.518,soba:0.301,sofben:0.085},
+    {ocak:0.116,kombi:0.517,soba:0.299,sofben:0.084},
+    {ocak:0.115,kombi:0.515,soba:0.297,sofben:0.083},
+    {ocak:0.114,kombi:0.513,soba:0.295,sofben:0.082},
+    {ocak:0.114,kombi:0.512,soba:0.293,sofben:0.082}
+];
+
+/** Çizelge 7'den eş zaman faktörünü döner (tipKey: 'ocak'|'kombi'|'soba'|'sofben') */
+function getEszamanFaktor(tipKey, count) {
+    if (count <= 0) return 1;
+    const idx = Math.min(count, 50) - 1;
+    return CIZELGE_7[idx]?.[tipKey] ?? 1;
+}
+
+/** Sayaç sonrası: her tip için minimum debi (m³/h). En az 1 cihaz varsa uygulanır. */
+const MIN_DEBI_TIP = { ocak: 1.6, kombi: 2.5 };
+
+/**
+ * Her boruya kümülatif debi atar.
+ *
+ * SAYAÇ SONRASI hatlar: TS 7363:2018 Çizelge 7 eş zaman faktörleri uygulanır.
+ *   Her boru için downstream cihazlar tipe göre (ocak/kombi/soba/sofben) sayılır,
+ *   toplam kapasite × faktör hesaplanır ve tipler toplanır.
+ *
+ * SAYAÇ ÖNCESİ hatlar: cihazlar doğrudan toplanır (sayaç öncesinde cihaz olmaz).
  */
 export function computePipeDebileri(manager) {
     if (!manager?.pipes) return;
@@ -208,38 +278,7 @@ export function computePipeDebileri(manager) {
     const pipes   = manager.pipes;
     const pipeMap = new Map(pipes.map(p => [p.id, p]));
 
-    // 1. Sıfırla ve doğrudan cihaz debilerini ata
-    pipes.forEach(p => { p.debi = 0; });
-    (manager.components || []).forEach(c => {
-        if (c.type === 'cihaz') {
-            const pipeId = c.fleksBaglanti?.boruId;
-            if (!pipeId) return;
-            const kcal  = parseFloat(c.kapasiteKcal);
-            const verim = (parseFloat(c.verim) || 100) / 100;
-            if (isNaN(kcal) || kcal <= 0) return;
-            const pipe = pipeMap.get(pipeId);
-            if (pipe) pipe.debi += kcal / 8250 / verim;
-        } else if (c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && c.bagliBoruId) {
-            // Branşman: kullanıcının girdiği debi doğrudan boruya atanır
-            const debi = parseFloat(c.bransmanDebi);
-            if (!isNaN(debi) && debi > 0) {
-                const pipe = pipeMap.get(c.bagliBoruId);
-                if (pipe) pipe.debi += debi;
-            }
-        } else if (c.type === 'vana' && c.vanaTipi === 'YANBINA' && c.bagliBoruId) {
-            // Yan Bina: hesaplanan toplam debi boruya atanır
-            const d  = parseFloat(c.daireSayisi)  || 0;
-            const dk = parseFloat(c.dukkanSayisi) || 0;
-            const ek = parseFloat(c.ekDebi)       || 0;
-            const debi = (d + dk) * 3.5 + ek;
-            if (debi > 0) {
-                const pipe = pipeMap.get(c.bagliBoruId);
-                if (pipe) pipe.debi += debi;
-            }
-        }
-    });
-
-    // 2. Çocuk ve ebeveyn haritası
+    // 1. Çocuk ve ebeveyn haritası
     const childrenOf = new Map();
     const parentOf   = new Map();
     pipes.forEach(p => {
@@ -251,27 +290,148 @@ export function computePipeDebileri(manager) {
         }
     });
 
-    // 3. Post-order DFS: çocukların debisini ebeveyne ekle
+    // 2. Sayaç sonrası pipe ID'lerini BFS ile belirle
+    const sayacSonrasiIds = new Set();
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'sayac' || !c.cikisBagliBoruId) return;
+        const queue = [c.cikisBagliBoruId];
+        while (queue.length > 0) {
+            const id = queue.shift();
+            if (sayacSonrasiIds.has(id)) continue;
+            sayacSonrasiIds.add(id);
+            (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
+        }
+    });
+
+    // 3. Tüm boruları sıfırla; sayaç sonrası için cihaz dağılımı tutacak alanlar ekle
+    pipes.forEach(p => {
+        p.debi = 0;
+        if (sayacSonrasiIds.has(p.id)) {
+            p._db = {
+                ocak:   { count: 0, totalM3h: 0 },
+                kombi:  { count: 0, totalM3h: 0 },
+                soba:   { count: 0, totalM3h: 0 },
+                sofben: { count: 0, totalM3h: 0 },
+                other:  { count: 0, totalM3h: 0 }
+            };
+            p._nfd = 0;           // non-factored debi (BRANSMAN, YANBINA)
+            p._directDebi = 0;    // doğrudan bağlı cihazların minimum uygulanmış debisi
+            p._hasDirectDevice = false;
+        }
+    });
+
+    // 4. Doğrudan bağlı bileşenlerin katkısını ata
+    (manager.components || []).forEach(c => {
+        if (c.type === 'cihaz') {
+            const pipeId = c.fleksBaglanti?.boruId;
+            if (!pipeId) return;
+            const pipe = pipeMap.get(pipeId);
+            if (!pipe) return;
+            const kcal  = parseFloat(c.kapasiteKcal);
+            const verim = (parseFloat(c.verim) || 100) / 100;
+            if (isNaN(kcal) || kcal <= 0) return;
+            const m3h = kcal / 8250 / verim;
+
+            if (sayacSonrasiIds.has(pipeId)) {
+                const tip    = (c.cihazTipi || '').toUpperCase();
+                const tipKey = ['OCAK','KOMBI','SOBA','SOFBEN'].includes(tip) ? tip.toLowerCase() : 'other';
+                // _db: parent borular Çizelge 7 için kullanır — minimum uygulanmış değer
+                const minM3h = Math.max(m3h, MIN_DEBI_TIP[tipKey] ?? 0);
+                pipe._db[tipKey].count++;
+                pipe._db[tipKey].totalM3h += minM3h;
+                // _directDebi: bu borunun kendi debisi (Çizelge 7 yok)
+                pipe._directDebi += minM3h;
+                pipe._hasDirectDevice = true;
+            } else {
+                pipe.debi += m3h;
+            }
+
+        } else if (c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && c.bagliBoruId) {
+            const debi = parseFloat(c.bransmanDebi);
+            if (!isNaN(debi) && debi > 0) {
+                const pipe = pipeMap.get(c.bagliBoruId);
+                if (pipe) {
+                    if (sayacSonrasiIds.has(c.bagliBoruId)) pipe._nfd += debi;
+                    else pipe.debi += debi;
+                }
+            }
+
+        } else if (c.type === 'vana' && c.vanaTipi === 'YANBINA' && c.bagliBoruId) {
+            const d  = parseFloat(c.daireSayisi)  || 0;
+            const dk = parseFloat(c.dukkanSayisi) || 0;
+            const ek = parseFloat(c.ekDebi)       || 0;
+            const debi = (d + dk) * 3.5 + ek;
+            if (debi > 0) {
+                const pipe = pipeMap.get(c.bagliBoruId);
+                if (pipe) {
+                    if (sayacSonrasiIds.has(c.bagliBoruId)) pipe._nfd += debi;
+                    else pipe.debi += debi;
+                }
+            }
+        }
+    });
+
+    // 5. Post-order DFS
+    //    Sayaç sonrası: cihaz dağılımını biriktir, sonra Çizelge 7 ile debi hesapla.
+    //    Sayaç öncesi : debileri doğrudan topla.
     const visited = new Set();
     function dfs(pipeId) {
         if (visited.has(pipeId)) return;
         visited.add(pipeId);
+
         (childrenOf.get(pipeId) || []).forEach(childId => {
             dfs(childId);
             const parent = pipeMap.get(pipeId);
             const child  = pipeMap.get(childId);
-            if (parent && child) parent.debi += child.debi;
+            if (!parent || !child) return;
+
+            if (sayacSonrasiIds.has(pipeId)) {
+                // Sayaç sonrası: cihaz dağılımını biriktir (debi değil)
+                for (const k of ['ocak','kombi','soba','sofben','other']) {
+                    parent._db[k].count    += child._db?.[k]?.count    || 0;
+                    parent._db[k].totalM3h += child._db?.[k]?.totalM3h || 0;
+                }
+                parent._nfd += child._nfd || 0;
+                // Çocuk sayaç öncesi ise (örn. girişten gelen dal) child.debi'yi ekle
+                if (!sayacSonrasiIds.has(childId)) {
+                    parent._nfd += child.debi;
+                }
+            } else {
+                parent.debi += child.debi;
+            }
         });
+
+        // Sayaç sonrası boru: debi hesapla
+        if (sayacSonrasiIds.has(pipeId)) {
+            const pipe = pipeMap.get(pipeId);
+            if (pipe) {
+                if (pipe._hasDirectDevice) {
+                    // Doğrudan cihaz bağlı: minimum uygulanmış cihaz debisi, Çizelge 7 yok
+                    pipe.debi = pipe._directDebi + pipe._nfd;
+                } else {
+                    // Çocuklardan biriktirilen veriye Çizelge 7 faktörü uygula
+                    const tiplerMevcut = ['ocak','kombi','soba','sofben'].filter(k => pipe._db[k].count > 0);
+                    const tekTip = tiplerMevcut.length === 1 ? tiplerMevcut[0] : null;
+
+                    let factored = 0;
+                    for (const k of tiplerMevcut) {
+                        const { count, totalM3h } = pipe._db[k];
+                        const hesap = totalM3h * getEszamanFaktor(k, count);
+                        // Sadece tek tip cihaza hizmet eden hatlarda minimum uygula
+                        factored += tekTip ? Math.max(hesap, MIN_DEBI_TIP[k] ?? 0) : hesap;
+                    }
+                    factored += pipe._db.other.totalM3h;
+                    pipe.debi = factored + pipe._nfd;
+                }
+            }
+        }
     }
 
-    // Kök borulardan başla (başlangıcı başka bir boruya bağlı olmayanlar)
     pipes.forEach(p => {
         if (p.baslangicBaglanti?.tip !== 'boru') dfs(p.id);
     });
 
-    // 4. Sayaç geçişi: çıkış borusunun debisini sayaç girişinden köke kadar yayar.
-    // Her sayaç için giriş borusundan kök boroya kadar tüm atalar güncellenir.
-    // (Eski step5 DFS'nin yerine — double-count olmadan)
+    // 6. Sayaç geçişi: çıkış borusunun debisini sayaç girişinden köke kadar yayar
     (manager.components || []).forEach(c => {
         if (c.type !== 'sayac') return;
         const girisBoru = c.fleksBaglanti?.boruId ? pipeMap.get(c.fleksBaglanti.boruId) : null;

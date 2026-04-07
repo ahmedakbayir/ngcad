@@ -13,14 +13,14 @@
 
 // ─── SABİTLER ────────────────────────────────────────────────────────────────
 
-export const BORU_TIPLERI    = ['ÇELİK', 'ESNEK'];
+export const BORU_TIPLERI = ['ÇELİK', 'ESNEK'];
 export const BAGLANTI_TIPLERI = ['DİŞLİ', 'KAYNAKLI'];
-export const SAYAC_TURLERI   = ['KÖRÜKLÜ', 'ROTARY', 'TÜRBİN'];
-export const SAYAC_TIPLERI   = [
+export const SAYAC_TURLERI = ['KÖRÜKLÜ', 'ROTARY', 'TÜRBİN'];
+export const SAYAC_TIPLERI = [
     'G4', 'G6', 'G10', 'G16', 'G25', 'G40',
     'G65', 'G100', 'G160', 'G250', 'G400', 'G650', 'G1000', 'G1600',
 ];
-export const BIRIM_TIPLERI   = ['KONUT', 'OFİS', 'TİCARİ', 'KAZAN DAİRESİ'];
+export const BIRIM_TIPLERI = ['KONUT', 'OFİS', 'TİCARİ', 'KAZAN DAİRESİ'];
 export const ESNEK_BORU_MARKALARI = ['AYVAZ', 'GFS', 'KAS', 'HITACHI', 'PAKTERMO', 'LEXFLEX', 'KALDE', 'GFLEX'];
 
 export const BORU_CAPLARI = {
@@ -32,22 +32,22 @@ export const BORU_CAPLARI_TUMU = ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50'
 
 export const BACA_TIPLERI = ['Hermetik', 'Bacalı', 'Atmosferik'];
 
-export const ARA_VANALAR       = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'];
+export const ARA_VANALAR = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'];
 export const SONLANMA_VANALARI = ['BRANSMAN', 'YANBINA'];
 export const VANA_TIPLERI_LISTESI = [...ARA_VANALAR, ...SONLANMA_VANALARI];
 
 export const VANA_TIP_ETIKETLERI = {
-    AKV:      'AKV',
-    EMNIYET:  'Emniyet',
-    CIHAZ:    'Cihaz Vanası',
-    SELENOID: 'Selenoid',
-    BRANSMAN: 'Branşman',
-    YANBINA:  'Yan Bina',
+    AKV: 'AKV',
+    EMNIYET: 'Emniyet Vanası',
+    CIHAZ: 'Cihaz Vanası',
+    SELENOID: 'Selenoid Vana',
+    BRANSMAN: 'Branşman Vanası',
+    YANBINA: 'Yan Bina Vanası',
 };
 
 export const SERVIS_KUTUSU_TIPLERI = ['S200', 'S300', 'S700', 'S2200', 'CES200'];
-export const KUTU_BASINCLAR        = ['21', '300'];
-export const CIKIS_YONLERI         = [
+export const KUTU_BASINCLAR = ['21', '300'];
+export const CIKIS_YONLERI = [
     { value: 'sag', label: 'Yandan Çıkış' },
     { value: 'alt', label: 'Alttan Çıkış' },
     { value: 'ust', label: 'Üstten Çıkış' },
@@ -55,20 +55,20 @@ export const CIKIS_YONLERI         = [
 
 /** Sayaç debi tablosu — Tip, Tür, min/max kapasiteler ve çıkış çapı */
 export const SAYAC_DEBI_TABLOSU = [
-    { Tip: 'G4',    Tur: 'KÖRÜKLÜ', Qmin: 0.04,  Qmax21:    6, Qmax300:    7.8, Cap: 25 },
-    { Tip: 'G6',    Tur: 'KÖRÜKLÜ', Qmin: 0.06,  Qmax21:   10, Qmax300:   13,   Cap: 25 },
-    { Tip: 'G10',   Tur: 'KÖRÜKLÜ', Qmin: 0.1,   Qmax21:   16, Qmax300:   20.8, Cap: 40 },
-    { Tip: 'G16',   Tur: 'KÖRÜKLÜ', Qmin: 0.16,  Qmax21:   25, Qmax300:   32.5, Cap: 40 },
-    { Tip: 'G25',   Tur: 'KÖRÜKLÜ', Qmin: 0.25,  Qmax21:   40, Qmax300:   52,   Cap: 50 },
-    { Tip: 'G40',   Tur: 'ROTARY',  Qmin: 0.4,   Qmax21:   65, Qmax300:   84.5, Cap: 50 },
-    { Tip: 'G65',   Tur: 'ROTARY',  Qmin: 0.65,  Qmax21:  100, Qmax300:  130,   Cap: 50 },
-    { Tip: 'G100',  Tur: 'ROTARY',  Qmin: 1,     Qmax21:  160, Qmax300:  208,   Cap: 50 },
-    { Tip: 'G160',  Tur: 'ROTARY',  Qmin: 1.6,   Qmax21:  250, Qmax300:  325,   Cap: 50 },
-    { Tip: 'G250',  Tur: 'ROTARY',  Qmin: 2.5,   Qmax21:  400, Qmax300:  520,   Cap: 50 },
-    { Tip: 'G400',  Tur: 'TÜRBİN', Qmin: 4,     Qmax21:  650, Qmax300:  845,   Cap: 50 },
-    { Tip: 'G650',  Tur: 'TÜRBİN', Qmin: 6.5,   Qmax21: 1000, Qmax300: 1300,   Cap: 50 },
-    { Tip: 'G1000', Tur: 'TÜRBİN', Qmin: 10,    Qmax21: 1600, Qmax300: 2080,   Cap: 50 },
-    { Tip: 'G1600', Tur: 'TÜRBİN', Qmin: 16,    Qmax21: 2500, Qmax300: 3250,   Cap: 50 },
+    { Tip: 'G4', Tur: 'KÖRÜKLÜ', Qmin: 0.04, Qmax21: 6, Qmax300: 7.8, Cap: 25 },
+    { Tip: 'G6', Tur: 'KÖRÜKLÜ', Qmin: 0.06, Qmax21: 10, Qmax300: 13, Cap: 25 },
+    { Tip: 'G10', Tur: 'KÖRÜKLÜ', Qmin: 0.1, Qmax21: 16, Qmax300: 20.8, Cap: 40 },
+    { Tip: 'G16', Tur: 'KÖRÜKLÜ', Qmin: 0.16, Qmax21: 25, Qmax300: 32.5, Cap: 40 },
+    { Tip: 'G25', Tur: 'KÖRÜKLÜ', Qmin: 0.25, Qmax21: 40, Qmax300: 52, Cap: 50 },
+    { Tip: 'G40', Tur: 'ROTARY', Qmin: 0.4, Qmax21: 65, Qmax300: 84.5, Cap: 50 },
+    { Tip: 'G65', Tur: 'ROTARY', Qmin: 0.65, Qmax21: 100, Qmax300: 130, Cap: 50 },
+    { Tip: 'G100', Tur: 'ROTARY', Qmin: 1, Qmax21: 160, Qmax300: 208, Cap: 50 },
+    { Tip: 'G160', Tur: 'ROTARY', Qmin: 1.6, Qmax21: 250, Qmax300: 325, Cap: 50 },
+    { Tip: 'G250', Tur: 'ROTARY', Qmin: 2.5, Qmax21: 400, Qmax300: 520, Cap: 50 },
+    { Tip: 'G400', Tur: 'TÜRBİN', Qmin: 4, Qmax21: 650, Qmax300: 845, Cap: 50 },
+    { Tip: 'G650', Tur: 'TÜRBİN', Qmin: 6.5, Qmax21: 1000, Qmax300: 1300, Cap: 50 },
+    { Tip: 'G1000', Tur: 'TÜRBİN', Qmin: 10, Qmax21: 1600, Qmax300: 2080, Cap: 50 },
+    { Tip: 'G1600', Tur: 'TÜRBİN', Qmin: 16, Qmax21: 2500, Qmax300: 3250, Cap: 50 },
 ];
 
 // ─── YARDIMCI ────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ function _getSayacLimits(obj) {
     if (!row) return { tur: '—', minDebi: 0.04, maxDebi: 6 };
     const is300 = String(obj.basinc) === '300';
     return {
-        tur:     row.Tur,
+        tur: row.Tur,
         minDebi: row.Qmin,
         maxDebi: is300 ? row.Qmax300 : row.Qmax21,
     };
@@ -139,15 +139,23 @@ function _isDN65Plus(cap) {
     return parseInt((cap || '').replace('DN', '') || '0') >= 65;
 }
 
+const _CIHAZ_MIN_DEBI = { OCAK: 1.6, KOMBI: 2.5 };
+
+function _cihazDebiHesapla(obj) {
+    const kcal  = parseFloat(obj.kapasiteKcal);
+    const verim = (parseFloat(obj.verim) || 100) / 100;
+    if (isNaN(kcal) || kcal <= 0) return null;
+    const raw = kcal / 8250 / verim;
+    const min = _CIHAZ_MIN_DEBI[(obj.cihazTipi || '').toUpperCase()] ?? 0;
+    return Math.max(raw, min);
+}
+
 /** Kapasite/verim değişince debi label'ını günceller. Verim % → /100 dönüşümü yapılır. */
 function _refreshCihazDebi(obj, panelEl) {
     const debiSpan = panelEl.querySelector('[data-prop-id="cihazDebi"]');
     if (!debiSpan) return;
-    const kcal  = parseFloat(obj.kapasiteKcal);
-    const verim = (parseFloat(obj.verim) || 100) / 100;
-    debiSpan.textContent = (!isNaN(kcal) && kcal > 0)
-        ? `${(kcal / 8250 / verim).toFixed(2)} m³/h`
-        : '—';
+    const debi = _cihazDebiHesapla(obj);
+    debiSpan.textContent = debi != null ? `${debi.toFixed(2)} m³/h` : '—';
 }
 
 // ─── ÖZELLİK TANIMLARI ───────────────────────────────────────────────────────
@@ -204,7 +212,7 @@ export const PROPERTY_DEFS = {
         type: 'readonly',
         readonlyFn: (obj) => obj.kumulatifKayip != null ? `${obj.kumulatifKayip} mbar` : '0.650 mbar',
     },
-    
+
     boru_sec_konum: { type: 'section', label: 'Konum' },
 
     boruUzunluk: {
@@ -221,7 +229,7 @@ export const PROPERTY_DEFS = {
             const x1 = Math.round(obj.p1.x), x2 = Math.round(obj.p2.x);
             const y1 = Math.round(obj.p1.y), y2 = Math.round(obj.p2.y);
             const z1 = Math.round(obj.p1.z || 0), z2 = Math.round(obj.p2.z || 0);
-            return `${_coordSpan('x:'+x1, x1!==x2)}\u2002${_coordSpan('y:'+y1, y1!==y2)}\u2002${_coordSpan('z:'+z1, z1!==z2)}`;
+            return `${_coordSpan('x:' + x1, x1 !== x2)}\u2002${_coordSpan('y:' + y1, y1 !== y2)}\u2002${_coordSpan('z:' + z1, z1 !== z2)}`;
         },
     },
     boruP2: {
@@ -232,7 +240,7 @@ export const PROPERTY_DEFS = {
             const x1 = Math.round(obj.p1.x), x2 = Math.round(obj.p2.x);
             const y1 = Math.round(obj.p1.y), y2 = Math.round(obj.p2.y);
             const z1 = Math.round(obj.p1.z || 0), z2 = Math.round(obj.p2.z || 0);
-            return `${_coordSpan('x:'+x2, x1!==x2)}\u2002${_coordSpan('y:'+y2, y1!==y2)}\u2002${_coordSpan('z:'+z2, z1!==z2)}`;
+            return `${_coordSpan('x:' + x2, x1 !== x2)}\u2002${_coordSpan('y:' + y2, y1 !== y2)}\u2002${_coordSpan('z:' + z2, z1 !== z2)}`;
         },
     },
 
@@ -713,10 +721,8 @@ export const PROPERTY_DEFS = {
         label: 'Debi',
         type: 'readonly',
         readonlyFn: (obj) => {
-            const kcal  = parseFloat(obj.kapasiteKcal);
-            const verim = (parseFloat(obj.verim) || 100) / 100;
-            if (isNaN(kcal) || kcal <= 0) return '—';
-            return `${(kcal / 8250 / verim).toFixed(2)} m³/h`;
+            const debi = _cihazDebiHesapla(obj);
+            return debi != null ? `${debi.toFixed(2)} m³/h` : '—';
         },
     },
 
@@ -727,7 +733,7 @@ export const PROPERTY_DEFS = {
             const { minDebi, maxDebi } = _getSayacLimits(obj);
             const minD = minDebi;
             const maxD = maxDebi;
-            const raw  = _sumDebiAfterSayac(obj, manager);
+            const raw = _sumDebiAfterSayac(obj, manager);
             const curD = raw > 0 ? raw : minD;
 
             let pct;
@@ -746,10 +752,10 @@ export const PROPERTY_DEFS = {
                 pct = Math.min(99, pct);
             }
 
-            const pctStr   = pct.toFixed(1);
-            const isOver   = curD > maxD;
+            const pctStr = pct.toFixed(1);
+            const isOver = curD > maxD;
             // max debi ok'u: overflow varsa %50'ye sabitlenir
-            const maxPct   = isOver ? '50' : '100';
+            const maxPct = isOver ? '50' : '100';
 
             return `
 <div class="debi-bar">
@@ -1105,11 +1111,11 @@ export function getObjectLabel(obj) {
 /** Nesne tipi için okunabilir başlık */
 export function getObjectTypeLabel(type) {
     const labels = {
-        boru:         'Boru',
-        sayac:        'Sayaç',
-        vana:         'Vana',
-        servis_kutusu:'Servis Kutusu',
-        cihaz:        'Cihaz',
+        boru: 'Boru',
+        sayac: 'Sayaç',
+        vana: 'Vana',
+        servis_kutusu: 'Servis Kutusu',
+        cihaz: 'Cihaz',
     };
     return labels[type] || type;
 }
