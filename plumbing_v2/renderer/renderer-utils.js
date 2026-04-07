@@ -211,23 +211,43 @@ export function computePipeDebileri(manager) {
     // 1. Sıfırla ve doğrudan cihaz debilerini ata
     pipes.forEach(p => { p.debi = 0; });
     (manager.components || []).forEach(c => {
-        if (c.type !== 'cihaz') return;
-        const pipeId = c.fleksBaglanti?.boruId;
-        if (!pipeId) return;
-        const kcal  = parseFloat(c.kapasiteKcal);
-        const verim = (parseFloat(c.verim) || 100) / 100;
-        if (isNaN(kcal) || kcal <= 0) return;
-        const pipe = pipeMap.get(pipeId);
-        if (pipe) pipe.debi += kcal / 8250 / verim;
+        if (c.type === 'cihaz') {
+            const pipeId = c.fleksBaglanti?.boruId;
+            if (!pipeId) return;
+            const kcal  = parseFloat(c.kapasiteKcal);
+            const verim = (parseFloat(c.verim) || 100) / 100;
+            if (isNaN(kcal) || kcal <= 0) return;
+            const pipe = pipeMap.get(pipeId);
+            if (pipe) pipe.debi += kcal / 8250 / verim;
+        } else if (c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && c.bagliBoruId) {
+            // Branşman: kullanıcının girdiği debi doğrudan boruya atanır
+            const debi = parseFloat(c.bransmanDebi);
+            if (!isNaN(debi) && debi > 0) {
+                const pipe = pipeMap.get(c.bagliBoruId);
+                if (pipe) pipe.debi += debi;
+            }
+        } else if (c.type === 'vana' && c.vanaTipi === 'YANBINA' && c.bagliBoruId) {
+            // Yan Bina: hesaplanan toplam debi boruya atanır
+            const d  = parseFloat(c.daireSayisi)  || 0;
+            const dk = parseFloat(c.dukkanSayisi) || 0;
+            const ek = parseFloat(c.ekDebi)       || 0;
+            const debi = (d + dk) * 3.5 + ek;
+            if (debi > 0) {
+                const pipe = pipeMap.get(c.bagliBoruId);
+                if (pipe) pipe.debi += debi;
+            }
+        }
     });
 
-    // 2. Çocuk haritası: ebeveyn boru id → çocuk boru id listesi
+    // 2. Çocuk ve ebeveyn haritası
     const childrenOf = new Map();
+    const parentOf   = new Map();
     pipes.forEach(p => {
         const bag = p.baslangicBaglanti;
         if (bag?.tip === 'boru' && bag.hedefId) {
             if (!childrenOf.has(bag.hedefId)) childrenOf.set(bag.hedefId, []);
             childrenOf.get(bag.hedefId).push(p.id);
+            parentOf.set(p.id, bag.hedefId);
         }
     });
 
@@ -249,32 +269,20 @@ export function computePipeDebileri(manager) {
         if (p.baslangicBaglanti?.tip !== 'boru') dfs(p.id);
     });
 
-    // 4. Sayaç sonrası debiyi sayaç öncesi borulara yay
-    // Sayacın girişine bağlı boru, sayacın çıkışındaki boru(ların) debisini alır.
+    // 4. Sayaç geçişi: çıkış borusunun debisini sayaç girişinden köke kadar yayar.
+    // Her sayaç için giriş borusundan kök boroya kadar tüm atalar güncellenir.
+    // (Eski step5 DFS'nin yerine — double-count olmadan)
     (manager.components || []).forEach(c => {
         if (c.type !== 'sayac') return;
         const girisBoru = c.fleksBaglanti?.boruId ? pipeMap.get(c.fleksBaglanti.boruId) : null;
         const cikisBoru = c.cikisBagliBoruId ? pipeMap.get(c.cikisBagliBoruId) : null;
-        if (!girisBoru || !cikisBoru) return;
-        // Giriş borusuna çıkış borusunun debisini ekle (sayaç öncesi hat bunları taşır)
-        girisBoru.debi += cikisBoru.debi;
-    });
-
-    // 5. Sayaç öncesi zincirlerde debiyi yukarı topla (step 4 sonrası güncellenen değerleri yay)
-    const visited2 = new Set();
-    function dfs2(pipeId) {
-        if (visited2.has(pipeId)) return;
-        visited2.add(pipeId);
-        (childrenOf.get(pipeId) || []).forEach(childId => {
-            dfs2(childId);
-            const parent = pipeMap.get(pipeId);
-            const child  = pipeMap.get(childId);
-            if (parent && child) parent.debi += child.debi;
-        });
-    }
-    // Sadece sayaç öncesi kök borular (servis kutusuna bağlı)
-    pipes.forEach(p => {
-        if (p.baslangicBaglanti?.tip === 'servis_kutusu') dfs2(p.id);
+        if (!girisBoru || !cikisBoru || cikisBoru.debi <= 0) return;
+        let curId = girisBoru.id;
+        while (curId) {
+            const p = pipeMap.get(curId);
+            if (p) p.debi += cikisBoru.debi;
+            curId = parentOf.get(curId);
+        }
     });
 }
 
@@ -335,7 +343,9 @@ export function computeHatGroups(pipes, components) {
         if (!p || !par) return true;
         if (p.boruCap !== par.boruCap) return true;
         if (Math.abs((p.debi || 0) - (par.debi || 0)) > 0.001) return true;
-        if ((p.boruBasinc ?? '') !== (par.boruBasinc ?? '')) return true;
+        if ((p.basinc ?? '') !== (par.basinc ?? '')) return true;
+        // Dallanma noktasında (ebeveynin 2+ çocuğu var) yeni hat başlat
+        if ((childrenOf.get(parId) || []).length > 1) return true;
         return false;
     }
 
@@ -357,7 +367,7 @@ export function computeHatGroups(pipes, components) {
                 pipeIds:    [pipeId],
                 cap:        pipe.boruCap || 'DN25',
                 debi:       pipe.debi    || 0,
-                basınç:     pipe.boruBasinc ?? '',
+                basınç:     pipe.basinc ?? '',
                 prevSecIdx: parSecIdx,
                 nextSecIdxs: []
             });

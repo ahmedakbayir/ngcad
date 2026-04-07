@@ -670,7 +670,8 @@ const dx = pipe.p2.x - pipe.p1.x;
             tesisatNo: this.tesisatNo,
             daireSayisi: this.daireSayisi,
             dukkanSayisi: this.dukkanSayisi,
-            ekDebi: this.ekDebi
+            ekDebi: this.ekDebi,
+            bransmanDebi: this.bransmanDebi
         };
     }
 
@@ -701,6 +702,7 @@ const dx = pipe.p2.x - pipe.p1.x;
         if (data.daireSayisi !== undefined) vana.daireSayisi = data.daireSayisi;
         if (data.dukkanSayisi !== undefined) vana.dukkanSayisi = data.dukkanSayisi;
         if (data.ekDebi !== undefined) vana.ekDebi = data.ekDebi;
+        if (data.bransmanDebi !== undefined) vana.bransmanDebi = data.bransmanDebi;
 
         return vana;
     }

@@ -474,11 +474,21 @@ export const PROPERTY_DEFS = {
         },
         default: 'DN25',
         afterChange: (obj, _manager, panelEl) => {
-            // DN65 altına düşünce flanşı kapat
-            if (!_isDN65Plus(obj.vanaCap) && obj.flans) {
-                obj.flans = false;
-                const cb = panelEl?.querySelector('[data-prop-key="flans"]');
-                if (cb) cb.checked = false;
+            const isDN65 = _isDN65Plus(obj.vanaCap);
+            const cb = panelEl?.querySelector('[data-prop-key="flans"]');
+            if (cb) {
+                cb.disabled = !isDN65;
+                // DN65 altına düşünce flanşı kapat
+                if (!isDN65 && obj.flans) {
+                    obj.flans = false;
+                    cb.checked = false;
+                }
+                // Toggle görselini de güncelle
+                const wrapper = cb.closest('.props-toggle');
+                if (wrapper) {
+                    if (!isDN65) wrapper.classList.add('props-toggle-disabled');
+                    else wrapper.classList.remove('props-toggle-disabled');
+                }
             }
         },
     },
@@ -509,7 +519,7 @@ export const PROPERTY_DEFS = {
     vana_sec_birim: {
         type: 'section',
         label: 'Birim',
-        visibleFn: (obj) => ['BRANSMAN', 'YANBINA'].includes(obj.vanaTipi),
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
     },
 
     vanaBirimNo: {
@@ -518,7 +528,7 @@ export const PROPERTY_DEFS = {
         key: 'birimNo',
         default: '',
         placeholder: 'Birim no...',
-        visibleFn: (obj) => ['BRANSMAN', 'YANBINA'].includes(obj.vanaTipi),
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
     },
 
     // YANBINA ek bilgiler
@@ -571,17 +581,26 @@ export const PROPERTY_DEFS = {
 
     vana_sec_hesap: { type: 'section', label: 'Hesap Değerleri' },
 
+    vanaBransmanDebi: {
+        label: 'Debi (m³/h)',
+        type: 'text',
+        inputType: 'number',
+        key: 'bransmanDebi',
+        default: '3.5',
+        placeholder: '3.50',
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
+        afterChange: (obj, manager) => {
+            if (!manager || !obj.bagliBoruId) return;
+            const debi = parseFloat(obj.bransmanDebi) || 0;
+            const pipe = manager.pipes.find(p => p.id === obj.bagliBoruId);
+            if (pipe) pipe.debi = debi;
+        },
+    },
     vanaDebi: {
         label: 'Debi',
         type: 'readonly',
-        readonlyFn: (obj, manager) => {
-            // Branşman: hattın debisini göster
-            if (obj.vanaTipi === 'BRANSMAN' && manager && obj.bagliBoruId) {
-                const boru = manager.pipes.find(p => p.id === obj.bagliBoruId);
-                if (boru != null) return `${(boru.debi || 0).toFixed(2)} m³/h`;
-            }
-            return obj.debi != null ? `${Number(obj.debi).toFixed(2)} m³/h` : '— m³/h';
-        },
+        readonlyFn: (obj) => obj.debi != null ? `${Number(obj.debi).toFixed(2)} m³/h` : '— m³/h',
+        visibleFn: (obj) => obj.vanaTipi !== 'BRANSMAN',
     },
     vanaBasinc: {
         label: 'Basınç',
@@ -700,22 +719,35 @@ export const PROPERTY_DEFS = {
             const maxD = maxDebi;
             const raw  = _sumDebiAfterSayac(obj, manager);
             const curD = raw > 0 ? raw : minD;
-            const range = maxD - minD || 1;
-            // Ham yüzde: [0,100] dışına çıkabilir
-            const rawPct = ((curD - minD) / range) * 100;
-            // Kenar kenetleme: çok uzakta ise ~4% içe al (görsel 1cm)
-            const EDGE = 4;
-            const pct = rawPct < 0   ? EDGE
-                      : rawPct > 100 ? 100 - EDGE
-                      :                rawPct;
-            const pctStr = pct.toFixed(1);
+
+            let pct;
+            if (curD <= maxD) {
+                // Normal aralık: lineer [0,100]
+                const range = maxD - minD || 1;
+                pct = ((curD - minD) / range) * 100;
+                pct = Math.max(1, Math.min(100, pct));
+            } else {
+                // Max aşıldı: logaritmik ölçek, max noktası en fazla %50'de
+                // maxD noktası %50'ye yerleşir, fazlası log(curD/maxD) ile uzar
+                // Toplam [50,100] aralığına sıkıştırılır
+                const logRatio = Math.log(curD / maxD) / Math.log(100); // 0..1+ range
+                const overflow = Math.min(logRatio, 1.0); // üst limit
+                pct = 50 + overflow * 50; // 50..100 arası
+                pct = Math.min(99, pct);
+            }
+
+            const pctStr   = pct.toFixed(1);
+            const isOver   = curD > maxD;
+            // max debi ok'u: overflow varsa %50'ye sabitlenir
+            const maxPct   = isOver ? '50' : '100';
+
             return `
 <div class="debi-bar">
   <div class="debi-track">
     <span class="debi-label-cur" style="left:${pctStr}%">debi<br>${curD.toFixed(2)} m³/h</span>
     <span class="debi-arrow debi-arrow-end" style="left:0%">▽</span>
-    <span class="debi-arrow debi-arrow-cur" style="left:${pctStr}%">▽</span>
-    <span class="debi-arrow debi-arrow-end" style="left:100%">▽</span>
+    <span class="debi-arrow debi-arrow-cur${isOver ? ' debi-over' : ''}" style="left:${pctStr}%">▽</span>
+    <span class="debi-arrow debi-arrow-end" style="left:${maxPct}%">▽</span>
   </div>
   <div class="debi-minmax">
     <span>min debi<br>${minD.toFixed(2)} m³/h</span>
@@ -987,6 +1019,8 @@ export const OBJECT_PROPERTIES = {
         'vanaCap',
         'vana_sec_birim',
         'vanaBirimNo',
+        'vanaBransmanDebi',
+        //'vanaDebi',
         'vanaTesisatNo',
         'vanaDaireSayisi',
         'vanaDukkanSayisi',
@@ -996,10 +1030,6 @@ export const OBJECT_PROPERTIES = {
         'vanaIzolator',
         'vanaFlans',
         'vanaMuhafaza',
-        'vana_sec_hesap',
-        'vanaDebi',
-        'vanaBasinc',
-        'vanaBasincKaybi',
     ],
     servis_kutusu: [
         // 'kutu_sec_tanim',

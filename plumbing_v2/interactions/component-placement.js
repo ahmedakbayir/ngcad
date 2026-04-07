@@ -634,9 +634,9 @@ export function handleCihazEkleme(cihaz) {
             z: cihazZ // Z değerini options'a ekle
         });
 
-        // İlk segment: Sağa doğru 100cm (1m) - Z koordinatıyla birlikte
+        // İlk segment: Sağa doğru 50cm (0.5m) - Z koordinatıyla birlikte
         const ilkSegmentBitis = {
-            x: cihaz.x + 100, // 1m = 100cm
+            x: cihaz.x + 50, // 50cm
             y: cihaz.y,
             z: cihazZ // Z değerini ekle
         };
