@@ -415,19 +415,19 @@ export const PROPERTY_DEFS = {
 
     sayac_sec_abone: { type: 'section', label: 'Abone Bilgileri' },
 
-    sayacAboneNo: {
-        label: 'Abone No',
-        type: 'text',
-        key: 'aboneNo',
-        default: '',
-        placeholder: 'Abone numarası...',
-    },
     sayacAboneAdi: {
         label: 'Abone Adı',
         type: 'text',
         key: 'aboneAdi',
         default: '',
         placeholder: 'Ad Soyad...',
+    },
+    sayacAboneNo: {
+        label: 'Abone No',
+        type: 'text',
+        key: 'aboneNo',
+        default: '',
+        placeholder: 'Abone numarası...',
     },
 
     sayac_sec_yapan: { type: 'section', label: 'Yapan' },
@@ -519,6 +519,16 @@ export const PROPERTY_DEFS = {
     vana_sec_birim: {
         type: 'section',
         label: 'Birim',
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
+    },
+
+    vanaBirimTipi: {
+        label: 'Birim Tipi',
+        type: 'select',
+        key: 'birimTipi',
+        options: BIRIM_TIPLERI,
+        default: 'KONUT',
+        placeholder: '— seçiniz —',
         visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
     },
 
@@ -1004,8 +1014,8 @@ export const OBJECT_PROPERTIES = {
         'sayac_sec_ozellik',
         'sayacMuhafaza',
         'sayac_sec_abone',
-        'sayacAboneNo',
         'sayacAboneAdi',
+        'sayacAboneNo',
         'sayac_sec_yapan',
         'sayacUstaAdi',
         'sayacUstaNo',
@@ -1018,6 +1028,7 @@ export const OBJECT_PROPERTIES = {
         'vanaTipi',
         'vanaCap',
         'vana_sec_birim',
+        'vanaBirimTipi',
         'vanaBirimNo',
         'vanaBransmanDebi',
         //'vanaDebi',

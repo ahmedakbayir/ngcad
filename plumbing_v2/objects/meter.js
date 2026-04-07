@@ -306,8 +306,8 @@ export class Sayac {
             birimBaglantiTipi: this.birimBaglantiTipi,
             esnekMarka: this.esnekMarka,
             muhafaza: this.muhafaza,
-            aboneNo: this.aboneNo,
             aboneAdi: this.aboneAdi,
+            aboneNo: this.aboneNo,
             ustaAdi: this.ustaAdi,
             ustaNo: this.ustaNo
         };

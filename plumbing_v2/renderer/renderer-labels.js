@@ -252,6 +252,87 @@ export const LabelMixin = {
         return { cx: sc.x + halfW, cy: sc.y, ax: sc.x + halfW + gap / zoom };
     },
 
+    // ─── Etiket kutusu ALTINDA çiz (üst-orta ankraj) ────────────────────────
+    /**
+     * @param cx, cy  - bağlantı çizgisinin obje tarafındaki ucu (obje alt-merkezi)
+     * @param ox, oy  - kullanıcı offset (taşıma)
+     * @param lines   - [{text, bold?, sub?, accent?}]
+     */
+    _drawObjLabelBoxBelow(ctx, id, cx, cy, ox, oy, lines, opts) {
+        const { zoom, fontSize, lineH,
+                textColor, subColor, accentColor,
+                connColor, bgColor, borderColor, accentBar } = opts;
+
+        const visLines = lines.filter(l => l && l.text);
+        if (visLines.length === 0) return;
+
+        const pad  = fontSize * 0.6;
+        const gap  = 10 / zoom;
+        const r    = 2.5 / zoom;
+
+        ctx.save();
+
+        // Genişlik ölç
+        let maxW = 0;
+        visLines.forEach(l => {
+            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            maxW = Math.max(maxW, ctx.measureText(l.text).width);
+        });
+        const boxW = maxW + pad * 2;
+        const boxH = visLines.length * lineH + pad * 0.8;
+
+        // Kutu üst-merkezi = obje altı + gap + offset
+        const topCX = cx + ox;
+        const topCY = cy + gap + oy;
+        const bx = topCX - boxW / 2;
+        const by = topCY;
+
+        // Bbox kaydet
+        _labelBBoxes.push({ id, bx, by, bw: boxW, bh: boxH });
+
+        // Kesikli bağlantı çizgisi → kutunun üst-orta noktasına
+        ctx.strokeStyle = connColor;
+        ctx.lineWidth   = 0.6 / zoom;
+        ctx.setLineDash([2 / zoom, 2 / zoom]);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(topCX, by);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Arka plan
+        ctx.fillStyle   = bgColor;
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth   = 0.5 / zoom;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, boxW, boxH, r);
+        ctx.fill();
+        ctx.stroke();
+
+        // Üst vurgu çubuğu (yatay)
+        ctx.strokeStyle = accentBar;
+        ctx.lineWidth   = 1.5 / zoom;
+        ctx.lineCap     = 'round';
+        ctx.beginPath();
+        ctx.moveTo(bx + r, by + 0.75 / zoom);
+        ctx.lineTo(bx + boxW - r, by + 0.75 / zoom);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+
+        // Metinler
+        let ty = by + pad * 0.4 + fontSize;
+        visLines.forEach(l => {
+            ctx.font      = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
+            ctx.textAlign    = 'center';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(l.text, bx + boxW / 2, ty);
+            ty += lineH;
+        });
+
+        ctx.restore();
+    },
+
     // ─── BORU — hat numarası + küçük bilgi satırları ────────────────────────
     _drawPipeObjLabel(ctx, pipe, pipeNum, totalLen, opts) {
         const { t, zoom, fontSize,
@@ -452,7 +533,7 @@ export const LabelMixin = {
 
     // ─── SAYAÇ ──────────────────────────────────────────────────────────────
     _drawSayacObjLabel(ctx, comp, opts) {
-        const { t, zoom } = opts;
+        const { t } = opts;
         const sc  = this._scrPos(comp, t);
         const off = _getOffset(comp.id);
 
@@ -490,13 +571,11 @@ export const LabelMixin = {
 
         if (lines.length === 0) return;
 
-        const hw  = SAYAC_CONFIG.width / 2;
-        const cx  = sc.x + hw;
-        const cy  = sc.y;
-        const ax  = cx + 22 / zoom + off.dx;
-        const ay  = cy + off.dy;
+        // Sayacın alt-merkezi
+        const cx = sc.x + SAYAC_CONFIG.width / 2;
+        const cy = sc.y + SAYAC_CONFIG.height / 2;
 
-        this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts);
+        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx, off.dy, lines, opts);
     },
 
     // ─── VANA ───────────────────────────────────────────────────────────────
@@ -516,12 +595,13 @@ export const LabelMixin = {
             lines.push({ text: 'AKV', bold: true });
 
         } else if (vt === 'BRANSMAN') {
-            // Birim tipi: sayaç üzerinden bul
-            let birimTipi = 'KONUT';
-            if (manager) {
+            // Birim tipi: önce vananın kendi property'si, yoksa bağlı sayaçtan
+            let birimTipi = comp.birimTipi || '';
+            if (!birimTipi && manager) {
                 const sayac = manager.components.find(c => c.type === 'sayac' && c.iliskiliVanaId === comp.id);
                 if (sayac?.birimTipi) birimTipi = sayac.birimTipi;
             }
+            if (!birimTipi) birimTipi = 'KONUT';
             const lbl = getBirimLabel(birimTipi, comp.birimNo || '');
             if (lbl) lines.push({ text: lbl, bold: true });
 
@@ -562,7 +642,7 @@ export const LabelMixin = {
 
     // ─── SERVİS KUTUSU ──────────────────────────────────────────────────────
     _drawKutuObjLabel(ctx, comp, opts) {
-        const { t, zoom } = opts;
+        const { t } = opts;
         const sc  = this._scrPos(comp, t);
         const off = _getOffset(comp.id);
 
@@ -582,18 +662,16 @@ export const LabelMixin = {
                        : '';
         if (yonLabel) lines.push({ text: yonLabel, sub: true });
 
-        const hw  = SERVIS_KUTUSU_CONFIG.width / 2;
-        const cx  = sc.x + hw;
-        const cy  = sc.y;
-        const ax  = cx + 22 / zoom + off.dx;
-        const ay  = cy + off.dy;
+        // Kutunun alt-merkezi
+        const cx = sc.x + SERVIS_KUTUSU_CONFIG.width / 2;
+        const cy = sc.y + SERVIS_KUTUSU_CONFIG.height / 2;
 
-        this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts);
+        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx, off.dy, lines, opts);
     },
 
     // ─── CİHAZ (KOMBİ / OCAK) ───────────────────────────────────────────────
     _drawCihazObjLabel(ctx, comp, opts) {
-        const { t, zoom } = opts;
+        const { t } = opts;
         const sc  = this._scrPos(comp, t);
         const off = _getOffset(comp.id);
 
@@ -625,17 +703,13 @@ export const LabelMixin = {
 
         if (lines.length === 0) return;
 
-        const config  = CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30 };
-        const angle   = (comp.rotation || 0) * Math.PI / 180;
-        const hw      = config.width / 2;
-        const rX      = Math.cos(angle) * hw;
-        const rY      = Math.sin(angle) * hw;
+        const config = CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30, height: 30 };
+        const hh     = (config.height || config.width) / 2;
 
-        const cx = sc.x + rX;
-        const cy = sc.y + rY;
-        const ax = cx + Math.cos(angle) * (22 / zoom) + off.dx;
-        const ay = cy + Math.sin(angle) * (22 / zoom) + off.dy;
+        // Etiket cihazın altına (y eksen alt kenar)
+        const cx = sc.x;
+        const cy = sc.y + hh;
 
-        this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts);
+        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx, off.dy, lines, opts);
     },
 };

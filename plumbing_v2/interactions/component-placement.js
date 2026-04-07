@@ -244,6 +244,112 @@ export function restorePreviousMode(prevMode, prevDrawMode, prevTool) {
 }
 
 /**
+ * Yerleştirilen boruya ve konuma göre otomatik vana tipini belirle.
+ *   - Servis kutusu → ilk ayrım arası boru → AKV
+ *   - Borunun serbest (bağlantısız) ucuna yakın              → BRANSMAN
+ *   - Diğer durumlar                                         → EMNIYET
+ */
+function _detectVanaTipi(pipe, t, manager) {
+    const pipes      = manager.pipes      || [];
+    const components = manager.components || [];
+
+    // Boruların fiziksel uç noktası haritaları
+    // Her boru ucu koordinatına o borunun bilgisini tut
+    const ptKey = (p) => `${Math.round(p.x * 10)},${Math.round(p.y * 10)},${Math.round((p.z || 0) * 10)}`;
+
+    // p1 koordinatından hangi borular başlar / bitiyor — junction tespiti için
+    const pipesStartingAt = new Map(); // key → [boruId, ...]
+    const pipesEndingAt   = new Map();
+    pipes.forEach(p => {
+        if (!p.p1 || !p.p2) return;
+        const k1 = ptKey(p.p1), k2 = ptKey(p.p2);
+        if (!pipesStartingAt.has(k1)) pipesStartingAt.set(k1, []);
+        pipesStartingAt.get(k1).push(p.id);
+        if (!pipesEndingAt.has(k2)) pipesEndingAt.set(k2, []);
+        pipesEndingAt.get(k2).push(p.id);
+    });
+
+    // ── 1. Serbest boru ucu tespiti → BRANSMAN ──────────────────────────────
+    const END_T = 0.20; // borunun son %20'si "uca yakın" sayılır
+    if (pipe.p1 && pipe.p2) {
+        const len3d = Math.hypot(
+            pipe.p2.x - pipe.p1.x,
+            pipe.p2.y - pipe.p1.y,
+            (pipe.p2.z || 0) - (pipe.p1.z || 0)
+        );
+        const END_T_abs = len3d > 0 ? Math.min(END_T, 15 / len3d) : END_T;
+
+        if (t >= 1 - END_T_abs) {
+            // p2 ucuna yakın — o uç serbest mi?
+            const k2 = ptKey(pipe.p2);
+            const connectedAtP2 = (pipesStartingAt.get(k2) || []).length;
+            const hasComponentAtP2 = components.some(c => {
+                const cp = c.getGirisNoktasi?.() || c.getCikisNoktasi?.();
+                return cp && Math.hypot(cp.x - pipe.p2.x, cp.y - pipe.p2.y) < 5;
+            });
+            if (connectedAtP2 === 0 && !hasComponentAtP2) return 'BRANSMAN';
+        }
+        if (t <= END_T_abs) {
+            // p1 ucuna yakın — o uç serbest mi?
+            const k1 = ptKey(pipe.p1);
+            const connectedAtP1 = (pipesEndingAt.get(k1) || []).length;
+            const hasComponentAtP1 = components.some(c => {
+                const cp = c.getGirisNoktasi?.() || c.getCikisNoktasi?.();
+                return cp && Math.hypot(cp.x - pipe.p1.x, cp.y - pipe.p1.y) < 5;
+            });
+            if (connectedAtP1 === 0 && !hasComponentAtP1) return 'BRANSMAN';
+        }
+    }
+
+    // ── 2. Servis kutusu → ilk ayrım arası boru tespiti → AKV ───────────────
+    // Servis kutusunu bul
+    const sk = components.find(c => c.type === 'servis_kutusu');
+    if (sk) {
+        const skCikis = sk.getCikisNoktasi?.();
+        if (skCikis) {
+            // BFS: SK çıkışından ilerle, junction'a kadar olan boru kümesini bul
+            const visited = new Set();
+            const queue   = [];
+            // SK çıkışından başlayan borular
+            const skKey = ptKey(skCikis);
+            (pipesStartingAt.get(skKey) || []).forEach(id => queue.push(id));
+
+            const preJunctionPipes = new Set();
+            while (queue.length > 0) {
+                const bid = queue.shift();
+                if (visited.has(bid)) continue;
+                visited.add(bid);
+
+                const b = pipes.find(p => p.id === bid);
+                if (!b || !b.p2) continue;
+                preJunctionPipes.add(bid);
+
+                // p2'den devam eden borular
+                const nextKey = ptKey(b.p2);
+                const nextPipes = pipesStartingAt.get(nextKey) || [];
+
+                // Junction: 2+ boru ayrılıyor → DUR (bu nokta ayrım noktası, bu borular dahil değil)
+                if (nextPipes.length >= 2) break;
+
+                // Tek devam eden boru varsa ilerle
+                nextPipes.forEach(id => { if (!visited.has(id)) queue.push(id); });
+            }
+
+            if (preJunctionPipes.has(pipe.id)) {
+                // Bu bölgede zaten bir AKV varsa EMNIYET ekle
+                const akvarAlreadyExists = components.some(
+                    c => c.type === 'vana' && c.vanaTipi === 'AKV' && preJunctionPipes.has(c.bagliBoruId)
+                );
+                return akvarAlreadyExists ? 'EMNIYET' : 'AKV';
+            }
+        }
+    }
+
+    // ── 3. Varsayılan ────────────────────────────────────────────────────────
+    return 'EMNIYET';
+}
+
+/**
  * Vana yerleştir - YENİ STRATEJİ (Düşey Boru Destekli)
  * Vana boruyu bölmez, boru üzerinde serbest kayabilir bir nesne olarak eklenir
  */
@@ -332,8 +438,8 @@ export function handleVanaPlacement(vanaPreview) {
     }
 
     // --- 3. NESNEYİ OLUŞTUR VE AYARLA ---
-    // tempComponent'ten vana tipini al (yoksa varsayılan 'AKV')
-    const vanaTipi = this.manager.tempComponent?.vanaTipi || 'AKV';
+    // Vana tipini konuma göre otomatik tespit et
+    const vanaTipi = _detectVanaTipi(pipe, t, this.manager);
     const vana = createVana(x, y, vanaTipi, vanaOptions);
 
     // Z Yüksekliğini Ata
