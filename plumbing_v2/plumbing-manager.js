@@ -3,7 +3,7 @@
  * Merkezi tesisat yönetim sınıfı - yeni bileşenlerle entegre
  */
 
-import { state } from '../general-files/main.js';
+import { state, setBoruCursor } from '../general-files/main.js';
 import { InteractionManager, TESISAT_MODLARI } from './interactions/interaction-manager.js';
 import { PlumbingRenderer } from './plumbing-renderer.js';
 import { ServisKutusu } from './objects/service-box.js';
@@ -20,7 +20,7 @@ export class PlumbingManager {
         this.pipes = [];
         this.components = []; // Servis kutusu, sayaç, vana, cihaz
         this.nodes = new Map(); // nodeId -> { _nodeId, x, y, z }
-        this.activeTool = null;
+        this._activeTool = null;
         this.tempComponent = null; // Ghost eleman
 
         // Alt modüller
@@ -70,6 +70,12 @@ export class PlumbingManager {
         return this.pipes.filter(p =>
             p !== excludePipe && (p.p1 === node || p.p2 === node)
         );
+    }
+
+    get activeTool() { return this._activeTool; }
+    set activeTool(val) {
+        this._activeTool = val;
+        setBoruCursor(val === 'boru');
     }
 
     // ─────────────────────────────────────────────────────────────────────────

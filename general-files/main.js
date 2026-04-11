@@ -153,6 +153,23 @@ export function getCursorWallDrawColor() {
     return isLightMode() ? THEME_COLORS.light.cursorWallDraw : THEME_COLORS.dark.cursorWallDraw;
 }
 
+function _makePencilCursor() {
+    const svg = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        + '<path fill-rule="evenodd" clip-rule="evenodd" d="M9.64996 17.5433L21.3925 5.75229L21.8162 5.32858C22.7401 4.40463 19.5821 1.24166 18.6556 2.16808C18.2615 2.5622 18.2725 2.55122 18.2725 2.55122L6.43555 14.3289L9.64996 17.5433ZM19.5526 5.81511L20.5023 4.863C20.9264 4.43885 19.5425 3.04996 19.1163 3.47617L18.1638 4.42633L19.5526 5.81511ZM19.096 6.27281L17.7061 4.88288L16.7959 5.79075L18.1881 7.18297L19.096 6.27281ZM16.3382 6.2473L7.64176 14.9218L9.05704 16.3371L17.7316 7.64067L16.3382 6.2473Z" fill="#FF0404"/>'
+        + '<path d="M7.64176 14.9218L16.3382 6.2473L17.7316 7.64067L9.05704 16.3371L7.64176 14.9218Z" fill="white"/>'
+        + '<path d="M17.7061 4.88288L19.096 6.27281L18.1881 7.18297L16.7959 5.79075L17.7061 4.88288Z" fill="white"/>'
+        + '<path d="M20.5023 4.863L19.5526 5.81511L18.1638 4.42633L19.1163 3.47617C19.5425 3.04996 20.9264 4.43885 20.5023 4.863Z" fill="white"/>'
+        + '<path d="M1.99805 22L9.28225 17.7152L6.28287 14.7158L1.99805 22Z" fill="#0E416C"/>'
+        + '</svg>';
+    return `url('data:image/svg+xml;base64,${btoa(svg)}') 2 22, crosshair`;
+}
+const _PENCIL_CURSOR = _makePencilCursor();
+
+export function setBoruCursor(active) {
+    if (!dom?.p2d) return;
+    dom.p2d.style.cursor = active ? _PENCIL_CURSOR : '';
+}
+
 export function getShadow(ctx, shadowColor = null, shadowBlur = 3, shadowOffsetX = 0.5, shadowOffsetY = 0.5) {
     if (isLightMode()) {
         ctx.shadowColor = 'rgba(139, 139, 139, 1)';
@@ -882,10 +899,8 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bSymmetry.classList.toggle("active", newMode === "drawSymmetry");
     dom.p2d.className = `panel ${newMode}-mode`;
 
-    // Tesisat modunda aktif araca göre cursor sınıfı ekle
-    if (newMode === "plumbingV2" && plumbingManager?.activeTool) {
-        dom.p2d.classList.add(`tool-${plumbingManager.activeTool}`);
-    }
+    // Mod değişince boru cursor'ını sıfırla (setBoruCursor(true) ile tekrar set edilir)
+    if (dom.p2d) dom.p2d.style.cursor = '';
 
 }
 
@@ -1511,8 +1526,8 @@ function initialize() {
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
-            plumbingManager.startPipeMode();
-            setMode("plumbingV2", true);
+            setMode("plumbingV2", true);   // önce mode (cursor'ı sıfırlar)
+            plumbingManager.startPipeMode(); // sonra tool (setter cursor'ı set eder)
         });
     }
 
