@@ -8,7 +8,8 @@ import { ComponentMixin } from './renderer/renderer-components.js';
 import { DeviceMixin } from './renderer/renderer-devices.js';
 import { InteractionMixin } from './renderer/renderer-interaction.js';
 import { PreviewMixin } from './renderer/renderer-previews.js';
-import { LabelMixin } from './renderer/renderer-labels.js';
+import { LabelMixin, clearLabelAutoPos } from './renderer/renderer-labels.js';
+import { EnclosureMixin } from './renderer/renderer-enclosure.js';
 import { state } from '../general-files/main.js';
 
 /**
@@ -58,6 +59,9 @@ export class PlumbingRenderer {
             }
         }
 
+        // Muhafaza kutuları (her şeyin altında)
+        this.drawMuhafazaBoxes(ctx, manager);
+
         // Servis kutuları (boruların altında olacak şekilde önce çiz)
         const servisKutulari = (manager.components || []).filter(c => c.type === 'servis_kutusu');
         const digerBileskenler = (manager.components || []).filter(c => c.type !== 'servis_kutusu');
@@ -65,6 +69,9 @@ export class PlumbingRenderer {
 
         // Borular (servis kutularının üstünde)
         this.drawPipes(ctx, manager.pipes);
+
+        // Topraklama sembolleri
+        this.drawTopraklamaSymbols(ctx, manager.pipes);
 
         // Diğer bileşenler (borular üstünde)
         this.drawComponents(ctx, digerBileskenler, manager);
@@ -271,3 +278,4 @@ Object.assign(PlumbingRenderer.prototype, DeviceMixin);
 Object.assign(PlumbingRenderer.prototype, InteractionMixin);
 Object.assign(PlumbingRenderer.prototype, PreviewMixin);
 Object.assign(PlumbingRenderer.prototype, LabelMixin);
+Object.assign(PlumbingRenderer.prototype, EnclosureMixin);

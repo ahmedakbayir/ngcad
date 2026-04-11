@@ -1,3 +1,5 @@
+import { getCizelge6Debi } from '../renderer/renderer-utils.js';
+
 /**
  * Özellik Tanımları
  * Her özellik burada tek bir yerde tanımlanır.
@@ -419,6 +421,7 @@ export const PROPERTY_DEFS = {
         type: 'toggle',
         key: 'muhafaza',
         default: false,
+        groupBtn: 'muhafazaGrupla',
     },
 
     sayac_sec_abone: { type: 'section', label: 'Abone Bilgileri' },
@@ -522,6 +525,7 @@ export const PROPERTY_DEFS = {
         type: 'toggle',
         key: 'muhafaza',
         default: false,
+        groupBtn: 'muhafazaGrupla',
     },
 
     vana_sec_birim: {
@@ -589,10 +593,11 @@ export const PROPERTY_DEFS = {
         label: 'Toplam Debi',
         type: 'readonly',
         readonlyFn: (obj) => {
-            const d = (parseFloat(obj.daireSayisi) || 0);
-            const dk = (parseFloat(obj.dukkanSayisi) || 0);
-            const ek = (parseFloat(obj.ekDebi) || 0);
-            return `${((d + dk) * 3.5 + ek).toFixed(2)} m³/h`;
+            const n = (parseFloat(obj.daireSayisi) || 0) + (parseFloat(obj.dukkanSayisi) || 0);
+            const ek = parseFloat(obj.ekDebi) || 0;
+            const faktorlu = n > 0 ? getCizelge6Debi(n, 0, true) : 0;
+            const toplam = faktorlu + ek;
+            return `${toplam.toFixed(2)} m³/h`;
         },
         visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
     },
@@ -861,6 +866,7 @@ export const PROPERTY_DEFS = {
         type: 'toggle',
         key: 'muhafaza',
         default: false,
+        groupBtn: 'muhafazaGrupla',
     },
     kombiYedekCihaz: {
         label: 'Yedek Cihaz',
@@ -963,6 +969,7 @@ export const PROPERTY_DEFS = {
         type: 'toggle',
         key: 'muhafaza',
         default: false,
+        groupBtn: 'muhafazaGrupla',
     },
     ocakYedekCihaz: {
         label: 'Yedek Cihaz',

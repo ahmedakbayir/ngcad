@@ -264,6 +264,55 @@ function getEszamanFaktor(tipKey, count) {
 const MIN_DEBI_TIP = { ocak: 1.6, kombi: 2.5 };
 
 /**
+ * TS 7363:2018 Çizelge 6 — Bağımsız birimler (n=1…100)
+ * f_bry: eş zaman faktörü, bry: tablodaki doğrudan debi (m³/h, tüm birimler 3.5 m³/h ise)
+ * Index 0 = n=1 … index 99 = n=100
+ */
+const CIZELGE_6 = [
+    {f_bry:0.854,bry:  3.5},{f_bry:0.853,bry:  7.0},{f_bry:0.772,bry:  9.5},{f_bry:0.719,bry: 11.8},
+    {f_bry:0.682,bry: 14.0},{f_bry:0.670,bry: 16.5},{f_bry:0.644,bry: 18.5},{f_bry:0.625,bry: 20.5},
+    {f_bry:0.609,bry: 22.5},{f_bry:0.597,bry: 24.5},{f_bry:0.587,bry: 26.5},{f_bry:0.579,bry: 28.5},
+    {f_bry:0.566,bry: 30.2},{f_bry:0.557,bry: 32.0},{f_bry:0.552,bry: 33.9},{f_bry:0.548,bry: 35.9},
+    {f_bry:0.545,bry: 38.0},{f_bry:0.542,bry: 40.0},{f_bry:0.539,bry: 42.0},{f_bry:0.524,bry: 43.0},
+    {f_bry:0.523,bry: 45.0},{f_bry:0.521,bry: 47.0},{f_bry:0.515,bry: 48.5},{f_bry:0.508,bry: 50.0},
+    {f_bry:0.504,bry: 51.6},{f_bry:0.499,bry: 53.2},{f_bry:0.495,bry: 54.8},{f_bry:0.490,bry: 56.3},
+    {f_bry:0.484,bry: 57.5},{f_bry:0.477,bry: 58.7},{f_bry:0.474,bry: 60.2},{f_bry:0.471,bry: 61.7},
+    {f_bry:0.468,bry: 63.2},{f_bry:0.465,bry: 64.7},{f_bry:0.461,bry: 66.2},{f_bry:0.459,bry: 67.8},
+    {f_bry:0.457,bry: 69.3},{f_bry:0.455,bry: 70.9},{f_bry:0.453,bry: 72.4},{f_bry:0.451,bry: 74.0},
+    {f_bry:0.449,bry: 75.5},{f_bry:0.447,bry: 77.0},{f_bry:0.445,bry: 78.5},{f_bry:0.443,bry: 80.0},
+    {f_bry:0.441,bry: 81.4},{f_bry:0.439,bry: 82.9},{f_bry:0.437,bry: 84.4},{f_bry:0.436,bry: 85.9},
+    {f_bry:0.434,bry: 87.3},{f_bry:0.433,bry: 88.8},{f_bry:0.432,bry: 90.3},{f_bry:0.431,bry: 91.8},
+    {f_bry:0.430,bry: 93.3},{f_bry:0.428,bry: 94.8},{f_bry:0.427,bry: 96.3},{f_bry:0.426,bry: 97.8},
+    {f_bry:0.425,bry: 99.2},{f_bry:0.424,bry:100.7},{f_bry:0.422,bry:102.1},{f_bry:0.421,bry:103.6},
+    {f_bry:0.420,bry:105.1},{f_bry:0.419,bry:106.6},{f_bry:0.418,bry:108.1},{f_bry:0.418,bry:109.6},
+    {f_bry:0.417,bry:111.1},{f_bry:0.416,bry:112.6},{f_bry:0.415,bry:114.1},{f_bry:0.414,bry:115.5},
+    {f_bry:0.414,bry:117.0},{f_bry:0.413,bry:118.5},{f_bry:0.412,bry:120.0},{f_bry:0.411,bry:121.4},
+    {f_bry:0.410,bry:122.9},{f_bry:0.410,bry:124.3},{f_bry:0.409,bry:125.8},{f_bry:0.408,bry:127.3},
+    {f_bry:0.408,bry:128.8},{f_bry:0.407,bry:130.2},{f_bry:0.407,bry:131.7},{f_bry:0.406,bry:133.2},
+    {f_bry:0.405,bry:134.6},{f_bry:0.405,bry:136.1},{f_bry:0.404,bry:137.5},{f_bry:0.404,bry:139.0},
+    {f_bry:0.403,bry:140.4},{f_bry:0.403,bry:141.9},{f_bry:0.402,bry:143.4},{f_bry:0.402,bry:144.9},
+    {f_bry:0.401,bry:146.4},{f_bry:0.401,bry:148.0},{f_bry:0.400,bry:149.5},{f_bry:0.400,bry:151.0},
+    {f_bry:0.399,bry:152.4},{f_bry:0.399,bry:153.9},{f_bry:0.399,bry:155.4},{f_bry:0.399,bry:156.9},
+    {f_bry:0.398,bry:158.4},{f_bry:0.398,bry:159.9},{f_bry:0.397,bry:161.3},{f_bry:0.397,bry:162.8}
+];
+
+/** 1 birimin bry faktörü — ham debi hesabında bölen olarak kullanılır (0.854) */
+const BRY1 = CIZELGE_6[0].f_bry;
+
+/**
+ * Çizelge 6 ile sayaç öncesi hat debisini hesaplar.
+ * @param {number}  count   - Toplam birim sayısı
+ * @param {number}  hamDebi - Ham debi toplamı (her birim = birimDebi / BRY1)
+ * @param {boolean} hepsi35 - Tüm birimler tam 3.5 m³/h ise → bry kolonunu doğrudan kullan
+ */
+export function getCizelge6Debi(count, hamDebi, hepsi35) {
+    if (count <= 0) return 0;
+    const idx = Math.min(count, 100) - 1;
+    const row = CIZELGE_6[idx];
+    return hepsi35 ? row.bry : hamDebi * row.f_bry;
+}
+
+/**
  * Her boruya kümülatif debi atar.
  *
  * SAYAÇ SONRASI hatlar: TS 7363:2018 Çizelge 7 eş zaman faktörleri uygulanır.
@@ -303,7 +352,9 @@ export function computePipeDebileri(manager) {
         }
     });
 
-    // 3. Tüm boruları sıfırla; sayaç sonrası için cihaz dağılımı tutacak alanlar ekle
+    // 3. Tüm boruları sıfırla
+    //    Sayaç sonrası → cihaz dağılımı (_db) + direkt debi (_directDebi)
+    //    Sayaç öncesi  → birim tablosu (_birim: {count, hamDebi, hepsi35}) — Çizelge 6 için
     pipes.forEach(p => {
         p.debi = 0;
         if (sayacSonrasiIds.has(p.id)) {
@@ -314,9 +365,12 @@ export function computePipeDebileri(manager) {
                 sofben: { count: 0, totalM3h: 0 },
                 other:  { count: 0, totalM3h: 0 }
             };
-            p._nfd = 0;           // non-factored debi (BRANSMAN, YANBINA)
-            p._directDebi = 0;    // doğrudan bağlı cihazların minimum uygulanmış debisi
+            p._nfd = 0;
+            p._directDebi = 0;
             p._hasDirectDevice = false;
+        } else {
+            p._birim = { count: 0, hamDebi: 0, hepsi35: true }; // Çizelge 6 birim biriktirici
+            p._nfd   = 0; // Aritmetik eklenen debi (sayaç öncesinde de kullanılır)
         }
     });
 
@@ -335,24 +389,26 @@ export function computePipeDebileri(manager) {
             if (sayacSonrasiIds.has(pipeId)) {
                 const tip    = (c.cihazTipi || '').toUpperCase();
                 const tipKey = ['OCAK','KOMBI','SOBA','SOFBEN'].includes(tip) ? tip.toLowerCase() : 'other';
-                // _db: parent borular Çizelge 7 için kullanır — minimum uygulanmış değer
                 const minM3h = Math.max(m3h, MIN_DEBI_TIP[tipKey] ?? 0);
                 pipe._db[tipKey].count++;
                 pipe._db[tipKey].totalM3h += minM3h;
-                // _directDebi: bu borunun kendi debisi (Çizelge 7 yok)
                 pipe._directDebi += minM3h;
                 pipe._hasDirectDevice = true;
-            } else {
-                pipe.debi += m3h;
             }
+            // Sayaç öncesinde cihaz olmaz — yoksay
 
         } else if (c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && c.bagliBoruId) {
             const debi = parseFloat(c.bransmanDebi);
             if (!isNaN(debi) && debi > 0) {
                 const pipe = pipeMap.get(c.bagliBoruId);
-                if (pipe) {
-                    if (sayacSonrasiIds.has(c.bagliBoruId)) pipe._nfd += debi;
-                    else pipe.debi += debi;
+                if (!pipe) return;
+                if (sayacSonrasiIds.has(c.bagliBoruId)) {
+                    pipe._nfd += debi;
+                } else {
+                    // Sayaç öncesi: 1 birim, ham debi = birimDebi / BRY1
+                    pipe._birim.count   += 1;
+                    pipe._birim.hamDebi += debi / BRY1;
+                    if (Math.abs(debi - 3.5) > 0.001) pipe._birim.hepsi35 = false;
                 }
             }
 
@@ -360,20 +416,28 @@ export function computePipeDebileri(manager) {
             const d  = parseFloat(c.daireSayisi)  || 0;
             const dk = parseFloat(c.dukkanSayisi) || 0;
             const ek = parseFloat(c.ekDebi)       || 0;
-            const debi = (d + dk) * 3.5 + ek;
-            if (debi > 0) {
-                const pipe = pipeMap.get(c.bagliBoruId);
-                if (pipe) {
-                    if (sayacSonrasiIds.has(c.bagliBoruId)) pipe._nfd += debi;
-                    else pipe.debi += debi;
+            const pipe = pipeMap.get(c.bagliBoruId);
+            if (!pipe) return;
+            if (sayacSonrasiIds.has(c.bagliBoruId)) {
+                const debi = (d + dk) * 3.5 + ek;
+                if (debi > 0) pipe._nfd += debi;
+            } else {
+                // Sayaç öncesi: (daire+dükkan) birim; her birim 3.5 m³/h
+                const n = d + dk;
+                if (n > 0) {
+                    pipe._birim.count   += n;
+                    pipe._birim.hamDebi += n * (3.5 / BRY1);
+                    // Yan bina birimleri her zaman 3.5 — hepsi35 değişmez
                 }
+                // Ek debi: Çizelge 6'ya girmez, doğrudan (aritmetik) eklenir
+                if (ek > 0) pipe._nfd += ek;
             }
         }
     });
 
     // 5. Post-order DFS
-    //    Sayaç sonrası: cihaz dağılımını biriktir, sonra Çizelge 7 ile debi hesapla.
-    //    Sayaç öncesi : debileri doğrudan topla.
+    //    Sayaç sonrası: cihaz dağılımını (_db) biriktir → Çizelge 7 ile debi hesapla
+    //    Sayaç öncesi : birim bilgisini (_birim) biriktir → Çizelge 6 sonraki adımda
     const visited = new Set();
     function dfs(pipeId) {
         if (visited.has(pipeId)) return;
@@ -386,38 +450,41 @@ export function computePipeDebileri(manager) {
             if (!parent || !child) return;
 
             if (sayacSonrasiIds.has(pipeId)) {
-                // Sayaç sonrası: cihaz dağılımını biriktir (debi değil)
+                // Sayaç sonrası → _db biriktir
                 for (const k of ['ocak','kombi','soba','sofben','other']) {
                     parent._db[k].count    += child._db?.[k]?.count    || 0;
                     parent._db[k].totalM3h += child._db?.[k]?.totalM3h || 0;
                 }
                 parent._nfd += child._nfd || 0;
-                // Çocuk sayaç öncesi ise (örn. girişten gelen dal) child.debi'yi ekle
                 if (!sayacSonrasiIds.has(childId)) {
+                    // Alt dal sayaç öncesi ise debisini ekle (degenerate durum)
                     parent._nfd += child.debi;
                 }
             } else {
-                parent.debi += child.debi;
+                // Sayaç öncesi → _birim biriktir (çocuk da sayaç öncesiyse)
+                if (!sayacSonrasiIds.has(childId) && child._birim) {
+                    parent._birim.count   += child._birim.count   || 0;
+                    parent._birim.hamDebi += child._birim.hamDebi || 0;
+                    if (!child._birim.hepsi35) parent._birim.hepsi35 = false;
+                    parent._nfd += child._nfd || 0; // Ek debi aritmetik olarak yukarı taşı
+                }
+                // Çocuk sayaç sonrasıysa sayaç step 6'da işlenir, burada dokunma
             }
         });
 
-        // Sayaç sonrası boru: debi hesapla
+        // Sayaç sonrası boru: Çizelge 7 ile debi hesapla
         if (sayacSonrasiIds.has(pipeId)) {
             const pipe = pipeMap.get(pipeId);
             if (pipe) {
                 if (pipe._hasDirectDevice) {
-                    // Doğrudan cihaz bağlı: minimum uygulanmış cihaz debisi, Çizelge 7 yok
                     pipe.debi = pipe._directDebi + pipe._nfd;
                 } else {
-                    // Çocuklardan biriktirilen veriye Çizelge 7 faktörü uygula
                     const tiplerMevcut = ['ocak','kombi','soba','sofben'].filter(k => pipe._db[k].count > 0);
                     const tekTip = tiplerMevcut.length === 1 ? tiplerMevcut[0] : null;
-
                     let factored = 0;
                     for (const k of tiplerMevcut) {
                         const { count, totalM3h } = pipe._db[k];
                         const hesap = totalM3h * getEszamanFaktor(k, count);
-                        // Sadece tek tip cihaza hizmet eden hatlarda minimum uygula
                         factored += tekTip ? Math.max(hesap, MIN_DEBI_TIP[k] ?? 0) : hesap;
                     }
                     factored += pipe._db.other.totalM3h;
@@ -431,18 +498,41 @@ export function computePipeDebileri(manager) {
         if (p.baslangicBaglanti?.tip !== 'boru') dfs(p.id);
     });
 
-    // 6. Sayaç geçişi: çıkış borusunun debisini sayaç girişinden köke kadar yayar
+    // 6. Sayaç geçişi — Çizelge 6 ile birim olarak işle (aritmetik toplama yok)
+    //    Her sayaç için birim_debi hesaplanır ve giriş borusuna + atalarına birim eklenir.
+    //    Sayaç sonrası debi:  0–5 m³/h → 3.5,  >5 → 3.5 + (debi−5)
     (manager.components || []).forEach(c => {
         if (c.type !== 'sayac') return;
         const girisBoru = c.fleksBaglanti?.boruId ? pipeMap.get(c.fleksBaglanti.boruId) : null;
         const cikisBoru = c.cikisBagliBoruId ? pipeMap.get(c.cikisBagliBoruId) : null;
         if (!girisBoru || !cikisBoru || cikisBoru.debi <= 0) return;
+
+        const sayacDebi = cikisBoru.debi;
+        const birimDebi = sayacDebi <= 5 ? 3.5 : 3.5 + (sayacDebi - 5);
+        const hamDebi   = birimDebi / BRY1;
+        const bu35      = Math.abs(birimDebi - 3.5) <= 0.001;
+
         let curId = girisBoru.id;
         while (curId) {
             const p = pipeMap.get(curId);
-            if (p) p.debi += cikisBoru.debi;
+            if (p && p._birim) {
+                p._birim.count   += 1;
+                p._birim.hamDebi += hamDebi;
+                if (!bu35) p._birim.hepsi35 = false;
+            }
             curId = parentOf.get(curId);
         }
+    });
+
+    // 7. Sayaç öncesi borular: Çizelge 6 ile debi hesapla + ek debi aritmetik ekle
+    //    Tüm birimler 3.5 m³/h ise → bry kolonunu doğrudan kullan
+    //    Aksi hâlde → hamDebi × f_bry
+    //    Yan bina ek debisi (_nfd) Çizelge 6 dışında doğrudan eklenir
+    pipes.forEach(p => {
+        if (sayacSonrasiIds.has(p.id) || !p._birim) return;
+        const { count, hamDebi, hepsi35 } = p._birim;
+        const cizelgeDebi = (count > 0 && hamDebi > 0) ? getCizelge6Debi(count, hamDebi, hepsi35) : 0;
+        p.debi = cizelgeDebi + (p._nfd || 0);
     });
 }
 

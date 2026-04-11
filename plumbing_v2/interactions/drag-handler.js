@@ -8,6 +8,7 @@
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
 import { saveState } from '../../general-files/history.js';
 import { getObjectsOnPipe } from './placement-utils.js';
+import { clearLabelAutoPos } from '../renderer/renderer-labels.js';
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
@@ -1326,6 +1327,9 @@ export function endDrag(interactionManager) {
     // Sürüklenen nesneyi seçili tut
     const draggedObject = interactionManager.dragObject;
     const draggedEndpoint = interactionManager.dragEndpoint;
+
+    // Boru taşındıysa oto-konum cache'ini temizle
+    if (draggedObject?.type === 'boru') clearLabelAutoPos(draggedObject.id);
 
     interactionManager.isDragging = false;
     interactionManager.dragObject = null;

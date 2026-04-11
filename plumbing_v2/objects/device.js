@@ -469,6 +469,7 @@ export class Cihaz {
             kapasiteKW: this.kapasiteKW,
             verim: this.verim,
             muhafaza: this.muhafaza,
+            muhafazaGrupla: this.muhafazaGrupla,
             yedekCihaz: this.yedekCihaz,
             yogusmali: this.yogusmali
         };
@@ -502,6 +503,7 @@ export class Cihaz {
         if (data.kapasiteKW !== undefined) cihaz.kapasiteKW = data.kapasiteKW;
         if (data.verim !== undefined) cihaz.verim = data.verim;
         if (data.muhafaza !== undefined) cihaz.muhafaza = data.muhafaza;
+        if (data.muhafazaGrupla !== undefined) cihaz.muhafazaGrupla = data.muhafazaGrupla;
         if (data.yedekCihaz !== undefined) cihaz.yedekCihaz = data.yedekCihaz;
         if (data.yogusmali !== undefined) cihaz.yogusmali = data.yogusmali;
 

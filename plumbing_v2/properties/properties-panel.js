@@ -272,15 +272,40 @@ function renderProperty(prop, obj, manager) {
         const isDisabled = prop.disabled === true || (prop.disabledFn && prop.disabledFn(obj, manager));
         // Disabled iken her zaman kapalı görünsün
         const isChecked = current && !isDisabled;
+
+        // İsteğe bağlı inline grup ikon butonu
+        let groupBtnHtml = '';
+        if (prop.groupBtn) {
+            const gKey  = prop.groupBtn;
+            const gVal  = obj[gKey] !== false; // default: true
+            const vis   = isChecked ? '' : 'visibility:hidden';
+            groupBtnHtml = `
+                <button class="props-group-btn${gVal ? ' props-group-btn--active' : ''}"
+                        data-group-key="${gKey}"
+                        title="Grupla"
+                        style="${vis}">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Dışarıdaki birleşik grup kutusu (kesikli) -->
+                        <rect x="0.75" y="2.5" width="14.5" height="11" rx="1.5" stroke-width="1.1" stroke-dasharray="2 1.2"/>
+                        <!-- İki iç nesne -->
+                        <rect x="2.5" y="5" width="4" height="6" rx="0.8" stroke-width="1.3"/>
+                        <rect x="9.5" y="5" width="4" height="6" rx="0.8" stroke-width="1.3"/>
+                    </svg>
+                </button>`;
+        }
+
         return `
             <div class="props-row">
                 <label class="props-label">${prop.label}</label>
-                <label class="props-toggle${isDisabled ? ' props-toggle-disabled' : ''}">
-                    <input type="checkbox" id="${uid}" data-prop-key="${prop.key}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
-                    <span class="props-toggle-track">
-                        <span class="props-toggle-thumb"></span>
-                    </span>
-                </label>
+                <div class="props-toggle-inline">
+                    <label class="props-toggle${isDisabled ? ' props-toggle-disabled' : ''}">
+                        <input type="checkbox" id="${uid}" data-prop-key="${prop.key}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
+                        <span class="props-toggle-track">
+                            <span class="props-toggle-thumb"></span>
+                        </span>
+                    </label>
+                    ${groupBtnHtml}
+                </div>
             </div>`;
     }
 
@@ -334,6 +359,22 @@ function bindInputEvents(panelEl, props, obj, manager) {
             const key = e.target.dataset.propKey;
             if (!key) return;
             obj[key] = e.target.checked;
+            // Toggle'ın groupBtn'ı varsa görünürlüğünü güncelle
+            const groupBtn = e.target.closest('.props-toggle-inline')?.querySelector('.props-group-btn');
+            if (groupBtn) groupBtn.style.visibility = e.target.checked ? '' : 'hidden';
+            persist();
+        });
+    });
+
+    // Grup ikon butonu — muhafazaGrupla state'ini toggle eder
+    panelEl.querySelectorAll('.props-group-btn[data-group-key]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const key = btn.dataset.groupKey;
+            if (!key) return;
+            const current = obj[key] !== false; // default true
+            obj[key] = !current;
+            btn.classList.toggle('props-group-btn--active', obj[key]);
             persist();
         });
     });

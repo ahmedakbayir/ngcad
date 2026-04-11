@@ -1,7 +1,7 @@
 // plumbing_v2/renderer/renderer-labels.js
 // Nesne etiket çizim sistemi — taşınabilir etiketler
 
-import { computeHatGroups } from './renderer-utils.js';
+import { computeHatGroups, getCizelge6Debi } from './renderer-utils.js';
 import { SERVIS_KUTUSU_CONFIG } from '../objects/service-box.js';
 import { SAYAC_CONFIG } from '../objects/meter.js';
 import { CIHAZ_TIPLERI } from '../objects/device.js';
@@ -29,11 +29,38 @@ function getBirimLabel(birimTipi, birimNo) {
 // ─── Kalıcı etiket offsetleri {dx, dy} her obje id'si için ──────────────────
 const _labelOffsets = new Map(); // id → {dx, dy}
 
+// ─── Oto-hesaplanan etiket konumları — bir kez hesaplanır, cache'lenir ───────
+const _labelAutoPos = new Map(); // pipe.id → {ax, ay}
+
+/** Cache'i temizle (boru eklendi/silindi/taşındı) */
+export function clearLabelAutoPos(pipeId) {
+    if (pipeId) _labelAutoPos.delete(pipeId);
+    else        _labelAutoPos.clear();
+}
+
+/**
+ * Segment (x1,y1)→(x2,y2) ile dikdörtgen (rx,ry,rw,rh) kesişiyor mu?
+ */
+function _segIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+    const r = rx + rw, b = ry + rh;
+    function inside(px, py) { return px >= rx && px <= r && py >= ry && py <= b; }
+    if (inside(x1, y1) || inside(x2, y2)) return true;
+    function segSeg(ax, ay, bx, by, cx, cy, dx, dy) {
+        const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+        if (Math.abs(d) < 1e-9) return false;
+        const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d;
+        const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
+        return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+    }
+    return segSeg(x1,y1,x2,y2, rx,ry,r,ry) || segSeg(x1,y1,x2,y2, r,ry,r,b) ||
+           segSeg(x1,y1,x2,y2, r,b,rx,b)  || segSeg(x1,y1,x2,y2, rx,b,rx,ry);
+}
+
 // ─── Render sırasında kaydedilen etiket sınırlayıcı kutuları ────────────────
 let _labelBBoxes = []; // {id, bx, by, bw, bh}  (dünya koordinatları)
 
 // ─── Sürükleme durumu ────────────────────────────────────────────────────────
-let _drag = null; // {id, startX, startY, startDX, startDY}
+let _drag = null; // {id, startX, startY, startAX, startAY}
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
@@ -48,16 +75,27 @@ export function hitTestLabel(wx, wy) {
 }
 
 export function startLabelDrag(id, startX, startY) {
-    const off = _labelOffsets.get(id) || { dx: 0, dy: 0 };
-    _drag = { id, startX, startY, startDX: off.dx, startDY: off.dy };
+    // Mevcut bbox'tan gerçek ekran konumunu al — zoom veya auto-konum bağımsız
+    const bb = _labelBBoxes.find(b => b.id === id);
+    let startAX = 0, startAY = 0;
+    if (bb) {
+        if (bb.style === 'top-center') {
+            startAX = bb.bx + bb.bw / 2;
+            startAY = bb.by;
+        } else { // 'left-center' (boru + vana etiketleri)
+            startAX = bb.bx;
+            startAY = bb.by + bb.bh / 2;
+        }
+    }
+    _drag = { id, startX, startY, startAX, startAY };
 }
 
 export function updateLabelDrag(curX, curY) {
     if (!_drag) return;
-    const dx = _drag.startDX + (curX - _drag.startX);
-    const dy = _drag.startDY + (curY - _drag.startY);
+    const ax = _drag.startAX + (curX - _drag.startX);
+    const ay = _drag.startAY + (curY - _drag.startY);
     const existing = _labelOffsets.get(_drag.id) || {};
-    _labelOffsets.set(_drag.id, { dx, dy, dir: existing.dir ?? 0 });
+    _labelOffsets.set(_drag.id, { ax, ay, dir: existing.dir ?? 0 });
 }
 
 export function endLabelDrag() {
@@ -66,9 +104,9 @@ export function endLabelDrag() {
 
 /** Çift tıklamada etiket yönünü döndür: 0(üst)→1(sağ)→2(alt)→3(sol)→0 */
 export function rotateLabelDir(id) {
-    const off = _labelOffsets.get(id) || { dx: 0, dy: 0, dir: 0 };
+    const off = _labelOffsets.get(id) || { dir: 0 };
     const newDir = ((off.dir ?? 0) + 1) % 4;
-    _labelOffsets.set(id, { dx: off.dx, dy: off.dy, dir: newDir });
+    _labelOffsets.set(id, { ax: off.ax, ay: off.ay, dir: newDir });
 }
 
 function _getOffset(id) {
@@ -85,11 +123,20 @@ export const LabelMixin = {
 
         _labelBBoxes = []; // Her render'da sıfırla
 
+        // Artık mevcut olmayan borular için oto-konum cache'ini temizle
+        if (manager.pipes) {
+            const activePipeIds = new Set(manager.pipes.map(p => p.id));
+            for (const id of _labelAutoPos.keys()) {
+                if (!activePipeIds.has(id)) _labelAutoPos.delete(id);
+            }
+        }
+
         const zoom  = state.zoom || 1;
         const t     = state.viewBlendFactor || 0;
         const light = isLightMode();
 
-        const fontSize = Math.max(5.5, 9 * Math.pow(zoom, -0.10));
+        // Sabit dünya birimi — zoom ile birlikte doğal olarak büyür/küçülür
+        const fontSize = 9;
         const lineH    = fontSize * 1.6;
 
         const opts = {
@@ -135,7 +182,7 @@ export const LabelMixin = {
                     if (len > maxLen) { maxLen = len; longest = pipe; }
                 });
                 if (longest && longest.p1 && longest.p2)
-                    this._drawPipeObjLabel(ctx, longest, hatNo, totalLen, opts);
+                    this._drawPipeObjLabel(ctx, longest, hatNo, totalLen, opts, manager.pipes);
             });
         }
 
@@ -156,6 +203,13 @@ export const LabelMixin = {
                         this._drawCihazObjLabel(ctx, comp, opts);
                         break;
                 }
+            });
+        }
+
+        // Topraklama etiketleri
+        if (manager.pipes) {
+            manager.pipes.forEach(pipe => {
+                if (pipe.topraklama) this._drawTopraklamaLabel(ctx, pipe, opts);
             });
         }
     },
@@ -197,8 +251,8 @@ export const LabelMixin = {
         const bx   = ax;
         const by   = ay - boxH / 2;
 
-        // Bbox kaydet (hit test için)
-        _labelBBoxes.push({ id, bx, by, bw: boxW, bh: boxH });
+        // Bbox kaydet (hit test için) — style: sürükleme anchor hesabı için
+        _labelBBoxes.push({ id, bx, by, bw: boxW, bh: boxH, style: 'left-center' });
 
         // Kesikli bağlantı çizgisi — kutu sol-orta kenarına kadar
         {
@@ -281,14 +335,21 @@ export const LabelMixin = {
         const boxW = maxW + pad * 2;
         const boxH = visLines.length * lineH + pad * 0.8;
 
-        // Kutu üst-merkezi = obje altı + gap + offset
-        const topCX = cx + ox;
-        const topCY = cy + gap + oy;
+        // Kutu üst-merkezi: mutlak konum saklandıysa onu kullan (zoom/taşıma bağımsız)
+        const stored = _labelOffsets.get(id);
+        let topCX, topCY;
+        if (stored && stored.ax != null) {
+            topCX = stored.ax;
+            topCY = stored.ay;
+        } else {
+            topCX = cx + ox;
+            topCY = cy + gap + oy;
+        }
         const bx = topCX - boxW / 2;
         const by = topCY;
 
-        // Bbox kaydet
-        _labelBBoxes.push({ id, bx, by, bw: boxW, bh: boxH });
+        // Bbox kaydet — style: sürükleme anchor hesabı için
+        _labelBBoxes.push({ id, bx, by, bw: boxW, bh: boxH, style: 'top-center' });
 
         // Kesikli bağlantı çizgisi → kutunun üst-orta noktasına
         ctx.strokeStyle = connColor;
@@ -334,7 +395,7 @@ export const LabelMixin = {
     },
 
     // ─── BORU — hat numarası + küçük bilgi satırları ────────────────────────
-    _drawPipeObjLabel(ctx, pipe, pipeNum, totalLen, opts) {
+    _drawPipeObjLabel(ctx, pipe, pipeNum, totalLen, opts, allPipes) {
         const { t, zoom, fontSize,
                 subColor, accentColor, connColor, bgColor, borderColor, accentBar } = opts;
 
@@ -355,23 +416,90 @@ export const LabelMixin = {
         const midY  = (sy1 + sy2) / 2;
         const angle = Math.atan2(sy2 - sy1, sx2 - sx1);
 
-        // Boru normali (daima üst tarafa)
-        let nX = -Math.sin(angle);
-        let nY =  Math.cos(angle);
-        if (nY > 0) { nX = -nX; nY = -nY; }
+        const connDist  = 10 / zoom;
+        const labelDist = 50 / zoom;
 
-        const connDist  = 6  / zoom;
-        const labelDist = 26 / zoom;
+        const cx = midX - Math.sin(angle) * connDist;
+        const cy = midY + Math.cos(angle) * connDist;
 
-        const cx = midX + nX * connDist;
-        const cy = midY + nY * connDist;
+        const stored = _labelOffsets.get(pipe.id);
+        const dir = stored?.dir ?? 0;
 
-        const off = _getOffset(pipe.id);
-        // dir: 0=num sol (default), 1=num üst, 2=num sağ, 3=num alt
-        const dir = off.dir != null ? off.dir : 0;
+        // Mutlak konum saklandıysa doğrudan kullan — zoom veya boru hareketi bağımsız
+        let ax, ay;
 
-        const ax = midX + nX * labelDist + off.dx;
-        const ay = midY + nY * labelDist + off.dy;
+        if (stored && stored.ax != null) {
+            ax = stored.ax;
+            ay = stored.ay;
+        } else {
+            // Oto-konum cache'te varsa doğrudan kullan — her render'da yeniden hesaplama
+            const cached = _labelAutoPos.get(pipe.id);
+            if (cached) {
+                ax = cached.ax;
+                ay = cached.ay;
+            } else {
+                // İlk kez: 8 aday yön dene, en az çakışanı seç
+                const candidates = [
+                    { dx:  0, dy: -1 },
+                    { dx:  1, dy:  0 },
+                    { dx:  0, dy:  1 },
+                    { dx: -1, dy:  0 },
+                    { dx:  0.707, dy: -0.707 },
+                    { dx:  0.707, dy:  0.707 },
+                    { dx: -0.707, dy: -0.707 },
+                    { dx: -0.707, dy:  0.707 },
+                ];
+
+                let pNX = -Math.sin(angle), pNY = Math.cos(angle);
+                if (pNY > 0) { pNX = -pNX; pNY = -pNY; }
+                candidates.sort((a, b) =>
+                    (a.dx * pNX + a.dy * pNY) - (b.dx * pNX + b.dy * pNY)
+                );
+
+                // Tahmini kutu boyutu (dünya birimi — fontSize sabit dünya birimi)
+                const estW = fontSize * 3 + fontSize * 0.84 * 8;
+                const estH = fontSize * 1.4 + fontSize * 0.78 * 1.45 * 3;
+
+                let bestScore = Infinity, bestAx = 0, bestAy = 0;
+
+                for (const cand of candidates) {
+                    const cax = midX + cand.dx * labelDist;
+                    const cay = midY + cand.dy * labelDist;
+                    const cbx = cax;
+                    const cby = cay - estH / 2;
+
+                    let score = 0;
+                    for (const bb of _labelBBoxes) {
+                        const ox = Math.max(0, Math.min(cbx + estW, bb.bx + bb.bw) - Math.max(cbx, bb.bx));
+                        const oy = Math.max(0, Math.min(cby + estH, bb.by + bb.bh) - Math.max(cby, bb.by));
+                        if (ox > 0 && oy > 0) score += 10 + ox * oy;
+                    }
+
+                    if (allPipes) {
+                        for (const p of allPipes) {
+                            if (p.id === pipe.id || !p.p1 || !p.p2) continue;
+                            const pz1 = (p.p1.z || 0) * t, pz2 = (p.p2.z || 0) * t;
+                            if (_segIntersectsRect(
+                                p.p1.x + pz1, p.p1.y - pz1,
+                                p.p2.x + pz2, p.p2.y - pz2,
+                                cbx, cby, estW, estH
+                            )) score += 3;
+                        }
+                    }
+
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestAx = cax;
+                        bestAy = cay;
+                        if (score === 0) break;
+                    }
+                }
+
+                ax = bestAx;
+                ay = bestAy;
+                _labelAutoPos.set(pipe.id, { ax, ay });
+            }
+        }
 
         // Bilgi satırları (küçük font)
         const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(1) : null;
@@ -439,7 +567,7 @@ export const LabelMixin = {
             numBX = bx; numBY = by + infoCellH + sep; numBW = boxW; numBH = numCellH;
         }
 
-        _labelBBoxes.push({ id: pipe.id, bx, by, bw: boxW, bh: boxH });
+        _labelBBoxes.push({ id: pipe.id, bx, by, bw: boxW, bh: boxH, style: 'left-center' });
 
         // Bağlantı çizgisi → numara hücresinin merkezinden en yakın kenarına
         {
@@ -619,8 +747,11 @@ export const LabelMixin = {
             const ek = parseFloat(comp.ekDebi)       || 0;
             if (d  > 0) lines.push({ text: `Daire Sayısı: ${d}`,  sub: true });
             if (dk > 0) lines.push({ text: `Dükkan Sayısı: ${dk}`, sub: true });
-            const toplam = (d + dk) * 3.5 + ek;
-            lines.push({ text: `Toplam Debi: ${toplam.toFixed(2)} m³/h`, sub: true });
+            const n = d + dk;
+            const faktorluDebi = n > 0 ? getCizelge6Debi(n, 0, true) : 0;
+            const toplamDebi = faktorluDebi + ek;
+            if (ek > 0) lines.push({ text: `Ek Debi: ${ek.toFixed(2)} m³/h`, sub: true });
+            if (toplamDebi > 0) lines.push({ text: `Toplam Debi: ${toplamDebi.toFixed(2)} m³/h`, sub: true });
         }
 
         if (lines.length === 0) return;
@@ -634,8 +765,16 @@ export const LabelMixin = {
         const hw  = 3; // yarı-genişlik
         const cx  = sc.x + nX * hw;
         const cy  = sc.y + nY * hw;
-        const ax  = sc.x + nX * (hw + 12 / zoom) + off.dx;
-        const ay  = sc.y + nY * (hw + 12 / zoom) + off.dy;
+
+        // Mutlak konum saklandıysa doğrudan kullan (zoom değişse de sabit kalır)
+        let ax, ay;
+        if (off.ax != null) {
+            ax = off.ax;
+            ay = off.ay;
+        } else {
+            ax = sc.x + nX * (hw + 12 / zoom);
+            ay = sc.y + nY * (hw + 12 / zoom);
+        }
 
         this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts);
     },
@@ -711,5 +850,115 @@ export const LabelMixin = {
         const cy = sc.y + hh;
 
         this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx, off.dy, lines, opts);
+    },
+
+    _drawTopraklamaLabel(ctx, pipe, opts) {
+        if (!pipe.p1 || !pipe.p2) return;
+        const { t, zoom, fontSize, lineH,
+                textColor, subColor, bgColor, borderColor, connColor, accentBar } = opts;
+
+        // Sembol geometrisi (renderer-pipes ile aynı hesap)
+        const STEM = 12, VERT = 8, W1 = 9;
+
+        const z1 = (pipe.p1.z || 0) * t, z2 = (pipe.p2.z || 0) * t;
+        const sx1 = pipe.p1.x + z1, sy1 = pipe.p1.y - z1;
+        const sx2 = pipe.p2.x + z2, sy2 = pipe.p2.y - z2;
+        const mx  = (sx1 + sx2) / 2, my  = (sy1 + sy2) / 2;
+
+        const dx  = sx2 - sx1, dy = sy2 - sy1;
+        const len = Math.hypot(dx, dy);
+        const ndx = len > 0.01 ? dx / len : 0;
+        const ndy = len > 0.01 ? dy / len : 1;
+
+        let px = ndy, py = -ndx;
+        if (px < -0.001 || (Math.abs(px) < 0.001 && py < 0)) { px = -px; py = -py; }
+
+        const qx = -ndx, qy = -ndy;
+
+        // Sembol tabanı (line4 ucu)
+        const e5x = mx + px * STEM, e5y = my + py * STEM;
+        const bx  = e5x + qx * VERT, by  = e5y + qy * VERT;
+
+        // Etiket bağlantı noktası: geniş çizginin (W1) ucu
+        const connX = bx + px * W1, connY = by + py * W1;
+
+        // Saklı veya varsayılan etiket konumu
+        const stored = _labelOffsets.get(pipe.id + '_topraklama');
+        let ax, ay;
+        if (stored?.ax != null) {
+            ax = stored.ax; ay = stored.ay;
+        } else {
+            ax = connX + px * 10; ay = connY + py * 10;
+        }
+
+        const lines = [
+            { text: 'TOPRAKLAMA', bold: true },
+            { text: 'Bakır Çubuk - 1.5m', sub: true },
+            { text: 'ø:16mm', sub: true },
+        ];
+
+        const pad  = fontSize * 0.5;
+        const r    = 2.5 / zoom;
+
+        ctx.save();
+        ctx.font = `bold ${fontSize}px "Segoe UI",sans-serif`;
+        let maxW = 0;
+        lines.forEach(l => {
+            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            maxW = Math.max(maxW, ctx.measureText(l.text).width);
+        });
+
+        const boxW = maxW + pad * 2;
+        const boxH = lines.length * lineH + pad * 0.6;
+        const boxX = ax;
+        const boxY = ay - boxH / 2;
+
+        // Bbox kaydet (hit test + drag için)
+        _labelBBoxes.push({
+            id: pipe.id + '_topraklama',
+            bx: boxX, by: boxY, bw: boxW, bh: boxH,
+            style: 'left-center',
+        });
+
+        // Kesikli bağlantı çizgisi
+        ctx.strokeStyle = connColor;
+        ctx.lineWidth   = 0.6 / zoom;
+        ctx.setLineDash([2 / zoom, 2 / zoom]);
+        ctx.beginPath();
+        ctx.moveTo(connX, connY);
+        ctx.lineTo(boxX, ay);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Arka plan
+        ctx.fillStyle   = bgColor;
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth   = 0.5 / zoom;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, boxW, boxH, r);
+        ctx.fill();
+        ctx.stroke();
+
+        // Sol vurgu çubuğu
+        ctx.strokeStyle = accentBar;
+        ctx.lineWidth   = 1.5 / zoom;
+        ctx.lineCap     = 'round';
+        ctx.beginPath();
+        ctx.moveTo(boxX + 0.75 / zoom, boxY + r);
+        ctx.lineTo(boxX + 0.75 / zoom, boxY + boxH - r);
+        ctx.stroke();
+
+        // Metinler
+        let ty = boxY + pad * 0.1 + fontSize;
+        lines.forEach(l => {
+            ctx.font      = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            ctx.fillStyle = l.sub ? subColor : textColor;
+            ctx.textAlign    = 'left';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText(l.text, boxX + pad, ty);
+            ty += lineH;
+        });
+
+        ctx.restore();
     },
 };

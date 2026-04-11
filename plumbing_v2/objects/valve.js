@@ -665,6 +665,7 @@ const dx = pipe.p2.x - pipe.p1.x;
             izolator: this.izolator,
             flans: this.flans,
             muhafaza: this.muhafaza,
+            muhafazaGrupla: this.muhafazaGrupla,
             birimNo: this.birimNo,
             tesisatNo: this.tesisatNo,
             daireSayisi: this.daireSayisi,
@@ -696,6 +697,7 @@ const dx = pipe.p2.x - pipe.p1.x;
         if (data.izolator !== undefined) vana.izolator = data.izolator;
         if (data.flans !== undefined) vana.flans = data.flans;
         if (data.muhafaza !== undefined) vana.muhafaza = data.muhafaza;
+        if (data.muhafazaGrupla !== undefined) vana.muhafazaGrupla = data.muhafazaGrupla;
         if (data.birimNo !== undefined) vana.birimNo = data.birimNo;
         if (data.tesisatNo !== undefined) vana.tesisatNo = data.tesisatNo;
         if (data.daireSayisi !== undefined) vana.daireSayisi = data.daireSayisi;

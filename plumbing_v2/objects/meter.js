@@ -306,6 +306,7 @@ export class Sayac {
             birimBaglantiTipi: this.birimBaglantiTipi,
             esnekMarka: this.esnekMarka,
             muhafaza: this.muhafaza,
+            muhafazaGrupla: this.muhafazaGrupla,
             aboneAdi: this.aboneAdi,
             aboneNo: this.aboneNo,
             ustaAdi: this.ustaAdi,
@@ -349,6 +350,7 @@ export class Sayac {
         if (data.birimBaglantiTipi !== undefined) sayac.birimBaglantiTipi = data.birimBaglantiTipi;
         if (data.esnekMarka !== undefined) sayac.esnekMarka = data.esnekMarka;
         if (data.muhafaza !== undefined) sayac.muhafaza = data.muhafaza;
+        if (data.muhafazaGrupla !== undefined) sayac.muhafazaGrupla = data.muhafazaGrupla;
         if (data.aboneNo !== undefined) sayac.aboneNo = data.aboneNo;
         if (data.aboneAdi !== undefined) sayac.aboneAdi = data.aboneAdi;
         if (data.ustaAdi !== undefined) sayac.ustaAdi = data.ustaAdi;
