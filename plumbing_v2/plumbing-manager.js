@@ -75,7 +75,16 @@ export class PlumbingManager {
     get activeTool() { return this._activeTool; }
     set activeTool(val) {
         this._activeTool = val;
-        setBoruCursor(val === 'boru');
+
+        // CSS class yönetimi ile kalemi göster/gizle
+        const p2dPanel = document.getElementById("p2d");
+        if (p2dPanel) {
+            if (val === 'boru') {
+                p2dPanel.classList.add('drawing-pipe-mode');
+            } else {
+                p2dPanel.classList.remove('drawing-pipe-mode');
+            }
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -492,12 +501,12 @@ export class PlumbingManager {
     }
 
 
-/**
-     * Verilen noktadaki nesneyi bul (3D/İzometrik destekli)
-     * @param {object} pos - {x, y} koordinatları
-     * @param {number} tolerance - Tolerans değeri
-     * @returns {object|null} - Bulunan nesne veya null
-     */
+    /**
+         * Verilen noktadaki nesneyi bul (3D/İzometrik destekli)
+         * @param {object} pos - {x, y} koordinatları
+         * @param {number} tolerance - Tolerans değeri
+         * @returns {object|null} - Bulunan nesne veya null
+         */
     getObjectAtPoint(pos, tolerance = 10) {
         if (!pos || typeof pos.x !== 'number' || typeof pos.y !== 'number') {
             return null;
@@ -582,13 +591,13 @@ export class PlumbingManager {
             const dx = p2Screen.x - p1Screen.x;
             const dy = p2Screen.y - p1Screen.y;
             const length = Math.hypot(dx, dy);
-            
+
             // Eğer boru ekranda çok kısaysa (nokta gibiyse)
             if (length < 0.1) {
-                 if (Math.hypot(pos.x - p1Screen.x, pos.y - p1Screen.y) < tolerance) {
+                if (Math.hypot(pos.x - p1Screen.x, pos.y - p1Screen.y) < tolerance) {
                     return { type: 'pipe', object: pipe, handle: 'body' };
-                 }
-                 continue;
+                }
+                continue;
             }
 
             // Noktanın doğru parçasına (segment) en yakın izdüşümü (tParam parametresi)
@@ -702,7 +711,7 @@ export class PlumbingManager {
         // Çıkış borusundan başlayarak tüm boruları TURQUAZ yap (recursive)
         this.setPipeColorRecursive(cikisBoru, 'TURQUAZ');
 
-       // console.log(`[updatePipeColorsAfterMeter] Sayaç ${sayacId} sonrası borular TURQUAZ yapıldı`);
+        // console.log(`[updatePipeColorsAfterMeter] Sayaç ${sayacId} sonrası borular TURQUAZ yapıldı`);
     }
 
     /**

@@ -519,6 +519,8 @@ export function onPointerMove(e) {
 
 // pointer-move.js -> updateMouseCursor fonksiyonu
 
+// pointer-move.js -> updateMouseCursor fonksiyonu
+
 function updateMouseCursor() {
     const { c2d } = dom;
     const { currentMode, isDragging, isPanning, mousePos, selectedObject, zoom, isCtrlDeleting } = state;
@@ -535,57 +537,51 @@ function updateMouseCursor() {
 
     // --- ÖNCELİK 1: Özel Durumlar ---
     if (isCtrlDeleting && currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
-        c2d.style.cursor = 'crosshair'; // Silme için crosshair kullanabiliriz
-        c2d.classList.add('delete-mode'); // İsteğe bağlı: Kırmızı efekt için sınıf kalabilir
+        c2d.style.cursor = 'crosshair'; 
+        c2d.classList.add('delete-mode'); 
         return;
     }
     if (state.isDraggingRoomName || isPanning) {
-        c2d.style.cursor = 'grabbing'; // Pan ve oda ismi sürükleme
-        // c2d.classList.add('panning'); // Sınıf da kalabilir
+        c2d.style.cursor = 'grabbing'; 
         return;
     }
     if (isDragging && selectedObject) {
         const handle = selectedObject.handle;
         if (typeof handle === 'string') {
             if (handle === 'body') {
-                c2d.style.cursor = 'grabbing'; // Gövde sürükleme
-                // c2d.classList.add('dragging-body');
+                c2d.style.cursor = 'grabbing'; 
             } else if (handle === 'p1' || handle === 'p2') {
-                c2d.style.cursor = 'move'; // Node sürükleme
-                // c2d.classList.add('dragging-node');
+                c2d.style.cursor = 'move'; 
             } else if (handle.startsWith('corner_')) {
-                c2d.classList.add('rotate-handle-hover'); // Döndürme sınıfını KULLAN (CSS'e ekledik)
+                c2d.classList.add('rotate-handle-hover'); 
             } else if (handle.startsWith('edge_')) {
-                // --- YENİ: Doğrudan stil ata ---
                 const rotation = selectedObject.object.rotation || 0;
                 const angleDeg = ((rotation % 360) + 360) % 360;
-                let cursorStyle = 'ew-resize'; // Varsayılan yatay
+                let cursorStyle = 'ew-resize'; 
                 const isNearVertical = (angleDeg > 45 && angleDeg < 135) || (angleDeg > 225 && angleDeg < 315);
                 if (handle === 'edge_top' || handle === 'edge_bottom') {
-                    cursorStyle = isNearVertical ? 'ew-resize' : 'ns-resize'; // Dikey kenar için
-                } else { // edge_left veya edge_right
-                    cursorStyle = isNearVertical ? 'ns-resize' : 'ew-resize'; // Yatay kenar için
+                    cursorStyle = isNearVertical ? 'ew-resize' : 'ns-resize'; 
+                } else { 
+                    cursorStyle = isNearVertical ? 'ns-resize' : 'ew-resize'; 
                 }
-                c2d.style.cursor = cursorStyle; // Stili doğrudan ata
-                // --- YENİ SONU ---
+                c2d.style.cursor = cursorStyle; 
             } else {
-                c2d.style.cursor = 'grabbing'; // Bilinmeyen handle
+                c2d.style.cursor = 'grabbing'; 
             }
         } else {
-            c2d.style.cursor = 'grabbing'; // handle string değilse
+            c2d.style.cursor = 'grabbing'; 
         }
         return;
     }
 
     // --- ÖNCELİK 2: Çizim Modları ---
-    // ... (Bu kısım aynı kalabilir, doğrudan stil ataması yapıyor) ...
     let modeCursorStyle = '';
     switch (currentMode) {
         case 'drawWall':
         case 'drawRoom':
-            modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><path fill=\"white\" transform=\"translate(20 20) scale(0.5)\" d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z\"/></svg>') 16 16, crosshair"; // Örnek duvar ikonu + fallback
+            modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><path fill=\"white\" transform=\"translate(20 20) scale(0.5)\" d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z\"/></svg>') 16 16, crosshair"; 
             if (currentMode === 'drawRoom') {
-                modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><rect x=\"20\" y=\"20\" width=\"10\" height=\"8\" fill=\"none\" stroke=\"white\" stroke-width=\"1.5\" rx=\"1\"/></svg>') 16 16, crosshair"; // Oda ikonu + fallback
+                modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 32 32\"><line x1=\"16\" y1=\"4\" x2=\"16\" y2=\"28\" stroke=\"white\" stroke-width=\"1.5\"/><line x1=\"4\" y1=\"16\" x2=\"28\" y2=\"16\" stroke=\"white\" stroke-width=\"1.5\"/><rect x=\"20\" y=\"20\" width=\"10\" height=\"8\" fill=\"none\" stroke=\"white\" stroke-width=\"1.5\" rx=\"1\"/></svg>') 16 16, crosshair"; 
             }
             break;
         case 'drawColumn':
@@ -602,17 +598,15 @@ function updateMouseCursor() {
             modeCursorStyle = 'crosshair';
             break;
         case 'plumbingV2':
-            // Boru aracı seçiliyse veya boru çizim modu aktifse özel cursor göster
+            // İŞTE DÜZELTTİĞİMİZ YER BURASI!
             if (plumbingManager.activeTool === 'boru' || plumbingManager.interactionManager?.boruCizimAktif) {
-                // Custom SVG cursor for pipe drawing - hot spot kalemin ucunda (4, 22)
-                //modeCursorStyle = "url('general-files/pipe-cursor.svg') 6 36, crosshair";
-                modeCursorStyle='default';
+                // Inline SVG ile kesin ve sorunsuz kalem kursoru ataması yapıyoruz.
+                modeCursorStyle = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"32\" height=\"32\" viewBox=\"0 0 24 24\"><path d=\"M1.998 22l7.284-4.285-3-2.999L1.998 22z\" fill=\"%23cccccc\"/><path d=\"M9.65 17.543L21.392 5.752l.424-.424c.924-.924-2.234-4.087-3.16-3.16l-11.84 11.777 3.214 3.214z\" fill=\"%23555555\"/><path d=\"M7.642 14.922L16.338 6.247l1.378 1.394-8.66 8.696-1.414-1.415z\" fill=\"white\"/></svg>') 2 22, crosshair";
             } else {
                 modeCursorStyle = 'crosshair';
             }
             break;
         case 'select':
-            // Select modu aşağıda ele alınacak
             break;
         default:
             modeCursorStyle = 'default';
@@ -623,44 +617,33 @@ function updateMouseCursor() {
         return;
     }
 
-
     // --- ÖNCELİK 3: Select Modu - Hover Durumları ---
     if (currentMode === 'select') {
         const hoveredObject = getObjectAtPoint(mousePos);
 
         if (hoveredObject) {
-            // İlk olarak nesnenin interaktif olup olmadığını kontrol et
             const objectType = hoveredObject.type;
             const isInteractive = isObjectInteractable(objectType);
 
-            // Eğer nesne interaktif değilse, cursor değiştirme
             if (!isInteractive) {
                 c2d.style.cursor = 'default';
                 return;
             }
 
-            // --- YENİ ÖNCELİKLİ KONTROL ---
-            // 1. Mahal Adı/Alanı Hover (Handle'dan bağımsız)
             if (hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
-                c2d.style.cursor = 'grab'; // Oda ismi/alanı (İstediğiniz sarı "hand" ikonu)
-                // c2d.classList.add('hover-room-label'); // (Opsiyonel sınıf)
-                return; // Öncelikli olarak çık
+                c2d.style.cursor = 'grab'; 
+                return; 
             }
-            // --- YENİ KONTROL SONU ---
-            // 2. Mahal Alanı (Etiket hariç)
             if (hoveredObject.type === 'room') {
-                c2d.style.cursor = 'default'; // Alanın üzeri 'default' (beyaz ok)
-                return; // Çık
+                c2d.style.cursor = 'default'; 
+                return; 
             }
-            // --- GÜNCELLENMİŞ KONTROL SONU ---
             const handle = hoveredObject.handle;
             if (typeof handle === 'string') {
-                // 1. Handle Hover
                 if (handle.startsWith('corner_')) {
-                    c2d.classList.add('rotate-handle-hover'); // Döndürme sınıfını KULLAN
+                    c2d.classList.add('rotate-handle-hover'); 
                     return;
                 } else if (handle.startsWith('edge_')) {
-                    // --- YENİ: Doğrudan stil ata ---
                     const rotation = hoveredObject.object.rotation || 0;
                     const angleDeg = ((rotation % 360) + 360) % 360;
                     let cursorStyle = 'ew-resize';
@@ -670,57 +653,40 @@ function updateMouseCursor() {
                     } else {
                         cursorStyle = isNearVertical ? 'ns-resize' : 'ew-resize';
                     }
-                    c2d.style.cursor = cursorStyle; // Stili doğrudan ata
-                    // --- YENİ SONU ---
+                    c2d.style.cursor = cursorStyle; 
                     return;
                 } else if (handle === 'p1' || handle === 'p2') {
-                    // --- GÜNCELLEME: guide handle'ı da 'move' olmalı ---
                     if (hoveredObject.type === 'guide' || hoveredObject.type === 'wall') {
-                        c2d.style.cursor = 'move'; // Node veya Guide P1/P2 hover
+                        c2d.style.cursor = 'move'; 
                     } else {
                         c2d.style.cursor = 'move';
                     }
-                    // c2d.classList.add('hover-node');
                     return;
                 }
-                // 2. Gövde Hover
                 else if (handle === 'body') {
                     if (hoveredObject.type === 'wall') {
-                        c2d.style.cursor = 'default'; // Duvar gövdesi
-                        // c2d.classList.add('hover-wall-body');
-                        // } else if (hoveredObject.type === 'room' || hoveredObject.type === 'roomName' || hoveredObject.type === 'roomArea') {
-                        //      c2d.style.cursor = 'grab'; // Oda ismi/alanı
-                        //      // c2d.classList.add('hover-room-label');
+                        c2d.style.cursor = 'default'; 
                     }
-                    // --- YENİ EKLENDİ ---
                     else if (hoveredObject.type === 'guide') {
-                        c2d.style.cursor = 'move'; // Rehber gövdesi
-                        // c2d.classList.add('hover-guide'); // (Opsiyonel sınıf)
+                        c2d.style.cursor = 'move'; 
                     }
-                    // --- YENİ SONU ---
                     else {
-                        c2d.style.cursor = 'grab'; // Diğer nesne gövdeleri (kolon, kiriş, merdiven, kapı, pencere)
-                        // c2d.classList.add('hover-object-body');
+                        c2d.style.cursor = 'grab'; 
                     }
                     return;
                 }
             }
-            // handle string değilse veya bilinmeyen handle ise varsayılana düş
         }
 
-        // 3. Node Hover (getObjectAtPoint bulamadıysa, ek kontrol)
         const hoveredNode = findNodeAt(mousePos.x, mousePos.y);
         if (hoveredNode) {
-            c2d.style.cursor = 'move'; // Node hover
-            // c2d.classList.add('hover-node');
+            c2d.style.cursor = 'move'; 
             return;
         }
 
-        // 4. Hiçbir şeyin üzerinde değilse
         c2d.style.cursor = 'default';
         return;
     }
 
-    // --- Varsayılan ---
     c2d.style.cursor = 'default';
 }
