@@ -358,7 +358,8 @@ export class ServisKutusu {
             kutuBasinc: this.kutuBasinc,
             cikisCap: this.cikisCap,
             kutuBoruTipi: this.kutuBoruTipi,
-            kutuBaglantiTipi: this.kutuBaglantiTipi
+            kutuBaglantiTipi: this.kutuBaglantiTipi,
+            description: this.description ?? ''
         };
     }
 
@@ -382,6 +383,7 @@ export class ServisKutusu {
         if (data.cikisCap !== undefined) kutu.cikisCap = data.cikisCap;
         if (data.kutuBoruTipi !== undefined) kutu.kutuBoruTipi = data.kutuBoruTipi;
         if (data.kutuBaglantiTipi !== undefined) kutu.kutuBaglantiTipi = data.kutuBaglantiTipi;
+        kutu.description = data.description ?? '';
 
         return kutu;
     }

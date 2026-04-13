@@ -671,7 +671,8 @@ const dx = pipe.p2.x - pipe.p1.x;
             daireSayisi: this.daireSayisi,
             dukkanSayisi: this.dukkanSayisi,
             ekDebi: this.ekDebi,
-            bransmanDebi: this.bransmanDebi
+            bransmanDebi: this.bransmanDebi,
+            description: this.description ?? ''
         };
     }
 
@@ -704,7 +705,7 @@ const dx = pipe.p2.x - pipe.p1.x;
         if (data.dukkanSayisi !== undefined) vana.dukkanSayisi = data.dukkanSayisi;
         if (data.ekDebi !== undefined) vana.ekDebi = data.ekDebi;
         if (data.bransmanDebi !== undefined) vana.bransmanDebi = data.bransmanDebi;
-
+        vana.description = data.description ?? '';
         return vana;
     }
 }

@@ -581,6 +581,69 @@
           </div>
         </div>
       </div>
+
+      <!-- Tesisat Sağ Tık Menüsü -->
+      <div id="plumbing-context-menu">
+        <div class="context-menu-title">Tesisat</div>
+
+        <!-- Kes / Kopyala / Yapıştır -->
+        <div class="plumbing-clip-row">
+          <button id="plumbing-btn-cut" class="plumbing-clip-btn" title="Kes (CTRL+X)">
+            <span class="plumbing-clip-icon">✂</span>Kes
+          </button>
+          <button id="plumbing-btn-copy" class="plumbing-clip-btn" title="Kopyala (CTRL+C)">
+            <span class="plumbing-clip-icon">⎘</span>Kopyala
+          </button>
+          <button id="plumbing-btn-paste" class="plumbing-clip-btn" title="Yapıştır (CTRL+V)">
+            <span class="plumbing-clip-icon">📋</span>Yapıştır
+          </button>
+        </div>
+
+        <div class="context-menu-divider"></div>
+
+        <!-- Hattı Böl -->
+        <button id="plumbing-btn-split" class="context-menu-btn">⊣ Hattı Böl</button>
+
+        <div class="context-menu-divider"></div>
+
+        <!-- Vana Ekle -->
+        <div class="context-menu-item-with-submenu">
+          <button class="context-menu-btn submenu-trigger">🔧 Vana Ekle ▶</button>
+          <div class="context-submenu">
+            <button id="plumbing-vana-AKV" class="context-menu-btn">AKV</button>
+            <button id="plumbing-vana-EMNIYET" class="context-menu-btn">Emniyet Vanası</button>
+            <button id="plumbing-vana-CIHAZ" class="context-menu-btn">Cihaz Vanası</button>
+            <button id="plumbing-vana-SELENOID" class="context-menu-btn">Selenoid Vana</button>
+            <div class="context-menu-divider"></div>
+            <button id="plumbing-vana-BRANSMAN" class="context-menu-btn">Branşman Vanası</button>
+            <button id="plumbing-vana-YANBINA" class="context-menu-btn">Yan Bina Vanası</button>
+          </div>
+        </div>
+
+        <!-- Sayaç Ekle -->
+        <div class="context-menu-item-with-submenu">
+          <button class="context-menu-btn submenu-trigger">🔢 Sayaç Ekle ▶</button>
+          <div class="context-submenu">
+            <button id="plumbing-sayac-DIREKT" class="context-menu-btn">Sayaç</button>
+            <button id="plumbing-inis-SAYAC" class="context-menu-btn">⬇ İniş + Sayaç</button>
+          </div>
+        </div>
+
+        <div class="context-menu-divider"></div>
+
+        <!-- Cihaz Ekle -->
+        <div class="context-menu-item-with-submenu">
+          <button class="context-menu-btn submenu-trigger">🏠 Cihaz Ekle ▶</button>
+          <div class="context-submenu">
+            <button id="plumbing-cihaz-KOMBI" class="context-menu-btn">Kombi</button>
+            <button id="plumbing-cihaz-OCAK" class="context-menu-btn">Ocak</button>
+            <div class="context-menu-divider"></div>
+            <button id="plumbing-inis-KOMBI" class="context-menu-btn">⬇ İniş + Kombi</button>
+            <button id="plumbing-inis-OCAK" class="context-menu-btn">⬇ İniş + Ocak</button>
+          </div>
+        </div>
+      </div>
+
       <canvas id="c2d"></canvas>
 
 

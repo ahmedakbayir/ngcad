@@ -284,50 +284,63 @@ export const PROPERTY_DEFS = {
 
     sayac_sec_tanim: { type: 'section', label: 'Tanım' },
 
-    sayacTipi: {
-        label: 'Tip',
-        type: 'select',
-        key: 'sayacTipi',
-        options: SAYAC_TIPLERI,
-        default: 'G4',
-        afterChange: (obj, _manager, panelEl) => {
-            // Tür: tablodaki varsayılana güncelle (kullanıcı farklı seçebilir)
-            const row = SAYAC_DEBI_TABLOSU.find(r => r.Tip === obj.sayacTipi);
-            if (row) {
-                const turSel = panelEl?.querySelector('[data-prop-key="sayacTuru"]');
-                if (turSel && turSel.value === obj.sayacTuru) {
-                    obj.sayacTuru = row.Tur;
-                    turSel.value = row.Tur;
-                }
-                // Çıkış çapı önerisi
-                const capKey = `DN${row.Cap}`;
-                const capSel = panelEl?.querySelector('[data-prop-key="cikisCap"]');
-                if (capSel) {
-                    obj.cikisCap = capKey;
-                    capSel.value = capKey;
-                }
-            }
-        },
+    // Tip + Tür yanyana
+    sayac_tiptur: {
+        type: 'dual',
+        label: 'Tip - Tür',
+        fields: [
+            {
+                type: 'select',
+                key: 'sayacTipi',
+                options: SAYAC_TIPLERI,
+                default: 'G4',
+                afterChange: (obj, _manager, panelEl) => {
+                    const row = SAYAC_DEBI_TABLOSU.find(r => r.Tip === obj.sayacTipi);
+                    if (row) {
+                        const turSel = panelEl?.querySelector('[data-prop-key="sayacTuru"]');
+                        if (turSel) { obj.sayacTuru = row.Tur; turSel.value = row.Tur; }
+                        const capSel = panelEl?.querySelector('[data-prop-key="cikisCap"]');
+                        if (capSel) { obj.cikisCap = `DN${row.Cap}`; capSel.value = `DN${row.Cap}`; }
+                    }
+                },
+            },
+            {
+                type: 'select',
+                key: 'sayacTuru',
+                options: SAYAC_TURLERI,
+                default: 'KÖRÜKLÜ',
+            },
+        ],
     },
-    sayacTuru: {
-        label: 'Tür',
-        type: 'select',
-        key: 'sayacTuru',
-        options: SAYAC_TURLERI,
-        default: 'KÖRÜKLÜ',
-    },
-    sayacCikisCap: {
-        label: 'Çıkış Çapı',
-        type: 'select',
-        key: 'cikisCap',
-        options: (obj, manager) => {
-            if (manager && obj.cikisBagliBoruId) {
-                const boru = manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
-                if (boru?.boruTipi) return BORU_CAPLARI[boru.boruTipi] || BORU_CAPLARI_TUMU;
-            }
-            return BORU_CAPLARI_TUMU;
-        },
-        default: 'DN25',
+
+    // Çap + Basınç yanyana
+    sayac_capbasinc: {
+        type: 'dual',
+        label: 'Çap - Basınç',
+        fields: [
+            {
+                type: 'select',
+                key: 'cikisCap',
+                options: (obj, manager) => {
+                    if (manager && obj.cikisBagliBoruId) {
+                        const boru = manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
+                        if (boru?.boruTipi) return BORU_CAPLARI[boru.boruTipi] || BORU_CAPLARI_TUMU;
+                    }
+                    return BORU_CAPLARI_TUMU;
+                },
+                default: 'DN25',
+            },
+            {
+                type: 'select',
+                key: 'basinc',
+                options: KUTU_BASINCLAR,
+                default: '21',
+                disabledFn: (_obj, manager) => {
+                    if (!manager) return false;
+                    return manager.components.some(c => c.type === 'servis_kutusu');
+                },
+            },
+        ],
     },
 
     sayacdebi: {
@@ -345,65 +358,70 @@ export const PROPERTY_DEFS = {
         type: 'readonly',
         readonlyFn: (obj) => obj.maxDebi != null ? `${obj.maxDebi} m³/h` : '6.00 m³/h',
     },
-    sayacBasinc: {
-        label: 'Basınç',
-        type: 'select',
-        key: 'basinc',
-        options: KUTU_BASINCLAR,
-        default: '21',
-        // Servis kutusu varsa değer oradan gelir, combobox disabled
-        disabledFn: (_obj, manager) => {
-            if (!manager) return false;
-            return manager.components.some(c => c.type === 'servis_kutusu');
-        },
-    },
 
     sayac_sec_birim: { type: 'section', label: 'Birim' },
 
-    sayacBirimTipi: {
-        label: 'Birim Tipi',
-        type: 'select',
-        key: 'birimTipi',
-        options: BIRIM_TIPLERI,
-        default: 'KONUT',
-        placeholder: '— seçiniz —',
-    },
-    sayacBirimNo: {
-        label: 'Birim No',
-        type: 'text',
-        key: 'birimNo',
-        default: '',
-        placeholder: 'Birim no...',
+    // Birim Tipi + No yanyana
+    sayac_birimtipi_no: {
+        type: 'dual',
+        label: 'Birim Tipi - No',
+        fields: [
+            {
+                type: 'select',
+                key: 'birimTipi',
+                options: BIRIM_TIPLERI,
+                default: 'KONUT',
+                placeholder: '— seçiniz —',
+                flex: 2,
+            },
+            {
+                type: 'text',
+                key: 'birimNo',
+                default: '',
+                placeholder: 'No...',
+                flex: 1,
+            },
+        ],
     },
 
-    sayac_sec_birim_ici: { type: 'section', label: 'Birim İçi' },
-
-    sayacBirimBoruTipi: {
-        label: 'Boru Tipi',
+    // Boru bağlantısı: kombine select (birimBoruTipi + birimBaglantiTipi)
+    sayac_borubag: {
+        label: 'Boru Bağlantısı',
         type: 'select',
-        key: 'birimBoruTipi',
-        options: BORU_TIPLERI,
-        default: 'ÇELİK',
+        key: 'borubag',
+        valueFn: (obj) => {
+            if (obj.birimBoruTipi === 'ESNEK') return 'ESNEK';
+            if (obj.birimBaglantiTipi === 'DİŞLİ') return 'DİŞLİ_ÇELİK';
+            return 'KAYNAKLI_ÇELİK';
+        },
+        // relatedFields: defaults for underlying real keys
+        relatedFields: [
+            { key: 'birimBoruTipi', default: 'ÇELİK' },
+            { key: 'birimBaglantiTipi', default: 'KAYNAKLI' },
+        ],
+        options: [
+            { value: 'DİŞLİ_ÇELİK',    label: 'Dişli Tesisat (Çelik)' },
+            { value: 'KAYNAKLI_ÇELİK', label: 'Kaynaklı Tesisat (Çelik)' },
+            { value: 'ESNEK',           label: 'Esnek Tesisat' },
+        ],
+        optionsAreObjects: true,
         afterChange: (obj, _manager, panelEl) => {
-            const sel = panelEl?.querySelector('[data-prop-key="birimBaglantiTipi"]');
-            if (!sel) return;
-            if (obj.birimBoruTipi === 'ESNEK') {
+            const val = obj.borubag;
+            if (val === 'ESNEK') {
+                obj.birimBoruTipi = 'ESNEK';
                 obj.birimBaglantiTipi = '';
-                sel.value = '';
-                sel.disabled = true;
+            } else if (val === 'DİŞLİ_ÇELİK') {
+                obj.birimBoruTipi = 'ÇELİK';
+                obj.birimBaglantiTipi = 'DİŞLİ';
             } else {
-                sel.disabled = false;
+                obj.birimBoruTipi = 'ÇELİK';
+                obj.birimBaglantiTipi = 'KAYNAKLI';
             }
+            // Re-render panel so esnekMarka row appears/disappears
+            if (panelEl?._refresh) panelEl._refresh();
         },
     },
-    sayacBirimBaglantiTipi: {
-        label: 'Bağlantı Tipi',
-        type: 'select',
-        key: 'birimBaglantiTipi',
-        options: BAGLANTI_TIPLERI,
-        default: 'KAYNAKLI',
-        disabledFn: (obj) => obj.birimBoruTipi === 'ESNEK',
-    },
+
     sayacEsnekMarka: {
         label: 'Esnek Marka',
         type: 'select',
@@ -411,7 +429,41 @@ export const PROPERTY_DEFS = {
         options: ESNEK_BORU_MARKALARI,
         placeholder: '— seçiniz —',
         default: '',
-        disabledFn: (obj) => obj.birimBoruTipi !== 'ESNEK',
+        visibleFn: (obj) => obj.birimBoruTipi === 'ESNEK',
+    },
+
+    // Eski (ayrı) tanımlar — artık listede değil ama başka nesneler için saklanıyor
+    sayacTipi: {
+        label: 'Tip', type: 'select', key: 'sayacTipi',
+        options: SAYAC_TIPLERI, default: 'G4',
+    },
+    sayacTuru: {
+        label: 'Tür', type: 'select', key: 'sayacTuru',
+        options: SAYAC_TURLERI, default: 'KÖRÜKLÜ',
+    },
+    sayacCikisCap: {
+        label: 'Çıkış Çapı', type: 'select', key: 'cikisCap',
+        options: BORU_CAPLARI_TUMU, default: 'DN25',
+    },
+    sayacBasinc: {
+        label: 'Basınç', type: 'select', key: 'basinc',
+        options: KUTU_BASINCLAR, default: '21',
+    },
+    sayacBirimTipi: {
+        label: 'Birim Tipi', type: 'select', key: 'birimTipi',
+        options: BIRIM_TIPLERI, default: 'KONUT', placeholder: '— seçiniz —',
+    },
+    sayacBirimNo: {
+        label: 'Birim No', type: 'text', key: 'birimNo',
+        default: '', placeholder: 'Birim no...',
+    },
+    sayacBirimBoruTipi: {
+        label: 'Boru Tipi', type: 'select', key: 'birimBoruTipi',
+        options: BORU_TIPLERI, default: 'ÇELİK',
+    },
+    sayacBirimBaglantiTipi: {
+        label: 'Bağlantı Tipi', type: 'select', key: 'birimBaglantiTipi',
+        options: BAGLANTI_TIPLERI, default: 'KAYNAKLI',
     },
 
     sayac_sec_ozellik: { type: 'section', label: 'Özellikler' },
@@ -424,39 +476,35 @@ export const PROPERTY_DEFS = {
         groupBtn: 'muhafazaGrupla',
     },
 
+    sayac_sec_abone_usta: { type: 'section', label: 'Abone - Usta Bilgileri' },
+
+    // Abone adı + no yanyana, etiketsiz
+    sayac_abone_row: {
+        type: 'dual',
+        noLabel: true,
+        fields: [
+            { type: 'text', key: 'aboneAdi', default: '', placeholder: 'Abone Adı...' },
+            { type: 'text', key: 'aboneNo',  default: '', placeholder: 'Abone No...' },
+        ],
+    },
+
+    // Usta adı + no yanyana, etiketsiz
+    sayac_usta_row: {
+        type: 'dual',
+        noLabel: true,
+        fields: [
+            { type: 'text', key: 'ustaAdi', default: '', placeholder: 'Usta Adı...' },
+            { type: 'text', key: 'ustaNo',  default: '', placeholder: 'Sicil No...' },
+        ],
+    },
+
+    // Eski tekil abone/usta tanımları (başka nesnelerde kullanılabilir)
     sayac_sec_abone: { type: 'section', label: 'Abone Bilgileri' },
-
-    sayacAboneAdi: {
-        label: 'Abone Adı',
-        type: 'text',
-        key: 'aboneAdi',
-        default: '',
-        placeholder: 'Ad Soyad...',
-    },
-    sayacAboneNo: {
-        label: 'Abone No',
-        type: 'text',
-        key: 'aboneNo',
-        default: '',
-        placeholder: 'Abone numarası...',
-    },
-
+    sayacAboneAdi: { label: 'Abone Adı', type: 'text', key: 'aboneAdi', default: '', placeholder: 'Ad Soyad...' },
+    sayacAboneNo:  { label: 'Abone No',  type: 'text', key: 'aboneNo',  default: '', placeholder: 'Abone numarası...' },
     sayac_sec_yapan: { type: 'section', label: 'Yapan' },
-
-    sayacUstaAdi: {
-        label: 'Usta Adı',
-        type: 'text',
-        key: 'ustaAdi',
-        default: '',
-        placeholder: 'Usta adı...',
-    },
-    sayacUstaNo: {
-        label: 'Usta No',
-        type: 'text',
-        key: 'ustaNo',
-        default: '',
-        placeholder: 'Usta sicil no...',
-    },
+    sayacUstaAdi: { label: 'Usta Adı', type: 'text', key: 'ustaAdi', default: '', placeholder: 'Usta adı...' },
+    sayacUstaNo:  { label: 'Usta No',  type: 'text', key: 'ustaNo',  default: '', placeholder: 'Usta sicil no...' },
 
     // ════════════════════════════════════════════════════════
     // VANA
@@ -718,6 +766,41 @@ export const PROPERTY_DEFS = {
         disabled: true,
     },
 
+    // Kombine boru bağlantısı (kutuBoruTipi + kutuBaglantiTipi)
+    kutu_borubag: {
+        label: 'Boru Bağlantısı',
+        type: 'select',
+        key: 'kutuBorubag',
+        valueFn: (obj) => {
+            if (obj.kutuBoruTipi === 'ESNEK') return 'ESNEK';
+            if (obj.kutuBaglantiTipi === 'DİŞLİ') return 'DİŞLİ_ÇELİK';
+            return 'KAYNAKLI_ÇELİK';
+        },
+        relatedFields: [
+            { key: 'kutuBoruTipi',     default: 'ÇELİK' },
+            { key: 'kutuBaglantiTipi', default: 'KAYNAKLI' },
+        ],
+        options: [
+            { value: 'DİŞLİ_ÇELİK',    label: 'Dişli Tesisat (Çelik)' },
+            { value: 'KAYNAKLI_ÇELİK', label: 'Kaynaklı Tesisat (Çelik)' },
+            { value: 'ESNEK',           label: 'Esnek Tesisat' },
+        ],
+        optionsAreObjects: true,
+        afterChange: (obj) => {
+            const val = obj.kutuBorubag;
+            if (val === 'ESNEK') {
+                obj.kutuBoruTipi = 'ESNEK';
+                obj.kutuBaglantiTipi = '';
+            } else if (val === 'DİŞLİ_ÇELİK') {
+                obj.kutuBoruTipi = 'ÇELİK';
+                obj.kutuBaglantiTipi = 'DİŞLİ';
+            } else {
+                obj.kutuBoruTipi = 'ÇELİK';
+                obj.kutuBaglantiTipi = 'KAYNAKLI';
+            }
+        },
+    },
+
     // ════════════════════════════════════════════════════════
     // CİHAZ — ORTAK
     // ════════════════════════════════════════════════════════
@@ -739,7 +822,8 @@ export const PROPERTY_DEFS = {
             const minD = minDebi;
             const maxD = maxDebi;
             const raw = _sumDebiAfterSayac(obj, manager);
-            const curD = raw > 0 ? raw : minD;
+            // Boru bağlı değilse 3.5 m³/h referans değeri göster
+            const curD = raw > 0 ? raw : Math.min(3.5, maxD * 0.9);
 
             let pct;
             if (curD <= maxD) {
@@ -765,7 +849,7 @@ export const PROPERTY_DEFS = {
             return `
 <div class="debi-bar">
   <div class="debi-track">
-    <span class="debi-label-cur" style="left:${pctStr}%">debi<br>${curD.toFixed(2)} m³/h</span>
+    <span class="debi-label-cur" style="left:${pctStr}%">${raw > 0 ? `debi<br>${curD.toFixed(2)} m³/h` : `<span style="opacity:.5">—</span><br>${curD.toFixed(2)} m³/h`}</span>
     <span class="debi-arrow debi-arrow-end" style="left:0%">▽</span>
     <span class="debi-arrow debi-arrow-cur${isOver ? ' debi-over' : ''}" style="left:${pctStr}%">▽</span>
     <span class="debi-arrow debi-arrow-end" style="left:${maxPct}%">▽</span>
@@ -1012,26 +1096,18 @@ export const OBJECT_PROPERTIES = {
     ],
     sayac: [
         'sayac_sec_tanim',
-        'sayacTipi',
-        'sayacTuru',
-        'sayacCikisCap',
-        'sayacBasinc',
+        'sayac_tiptur',         // Tip + Tür yanyana
+        'sayac_capbasinc',      // Çıkış Çapı + Basınç yanyana
         'sayacDebiCubugu',
         'sayac_sec_birim',
-        'sayacBirimTipi',
-        'sayacBirimNo',
-        'sayac_sec_birim_ici',
-        'sayacBirimBaglantiTipi',
-        'sayacBirimBoruTipi',
-        'sayacEsnekMarka',
+        'sayac_birimtipi_no',   // Birim Tipi + No yanyana
+        'sayac_borubag',        // Kombine boru bağlantısı
+        'sayacEsnekMarka',      // Sadece ESNEK seçiliyken görünür
         'sayac_sec_ozellik',
         'sayacMuhafaza',
-        'sayac_sec_abone',
-        'sayacAboneAdi',
-        'sayacAboneNo',
-        'sayac_sec_yapan',
-        'sayacUstaAdi',
-        'sayacUstaNo',
+        'sayac_sec_abone_usta',
+        'sayac_abone_row',      // Abone adı + no yanyana
+        'sayac_usta_row',       // Usta adı + no yanyana
     ],
     vana: [
         // 'vana_sec_urun',
@@ -1061,8 +1137,7 @@ export const OBJECT_PROPERTIES = {
         'kutuBasinc',
         'kutuCikisYonu',
         'kutuCikisCap',
-        'kutuBoruTipi',
-        'kutuBaglantiTipi',
+        'kutu_borubag',
     ],
     cihaz_kombi: [
         'kombi_sec_urun',

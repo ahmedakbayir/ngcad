@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xxd)",
+      "Bash(grep -n \"contextmenu\\\\|right.*click\\\\|rightclick\" /c/Users/ahmet.akbayir/Documents/aangcad/pointer/*.js)"
+    ]
+  }
+}

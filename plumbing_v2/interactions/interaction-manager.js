@@ -11,7 +11,7 @@ import { handlePointerDown } from '../../pointer/handle-pointer-down.js';
 import { handlePointerUp } from '../../pointer/handle-pointer-up.js';
 
 // Keyboard handler
-import { handleKeyDown, toggleVerticalPanel, closeVerticalPanel, applyVerticalHeight } from './keyboard-handler.js';
+import { handleKeyDown, toggleVerticalPanel, closeVerticalPanel, applyVerticalHeight, applyPipeResize, handlePipePaste } from './keyboard-handler.js';
 
 // Ghost updater
 import { updateGhostPosition } from './ghost-updater.js';
@@ -108,10 +108,14 @@ export class InteractionManager {
         this.boruBaslangic = null;
         this.geciciBoruBitis = null;
 
-        // Ölçü girişi
+        // Ölçü girişi (boru çizim modu)
         this.measurementInput = '';
         this.measurementActive = false;
         this.isVerticalMeasurement = false;  // +/- ile düşey ölçüm modu
+
+        // Seçili boru yeniden boyutlandırma
+        this.pipeResizeInput = '';
+        this.pipeResizeActive = false;
 
         // Düşey (vertical) mod durumu
         this.verticalModeActive = false;  // TAB ile panel açıkken true
@@ -226,6 +230,10 @@ export class InteractionManager {
 
     applyVerticalHeight() {
         return applyVerticalHeight.call(this);
+    }
+
+    handlePipePaste() {
+        return handlePipePaste.call(this);
     }
 
     /**

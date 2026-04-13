@@ -167,7 +167,8 @@ function saveProject() {
         // Tesisat verileri
         plumbingNodes: state.plumbingNodes || [],
         plumbingPipes: state.plumbingPipes || [],
-        plumbingBlocks: state.plumbingBlocks || []
+        plumbingBlocks: state.plumbingBlocks || [],
+        plumbingLabelOffsets: state.plumbingLabelOffsets || {}
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -333,7 +334,8 @@ function loadJSONProject(fileContent) {
         // Tesisat verileri
         plumbingNodes: projectData.plumbingNodes || [],
         plumbingPipes: projectData.plumbingPipes || [],
-        plumbingBlocks: projectData.plumbingBlocks || []
+        plumbingBlocks: projectData.plumbingBlocks || [],
+        plumbingLabelOffsets: projectData.plumbingLabelOffsets || {}
     });
 
     // Tesisat yöneticisini güncelle

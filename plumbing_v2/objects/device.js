@@ -471,7 +471,8 @@ export class Cihaz {
             muhafaza: this.muhafaza,
             muhafazaGrupla: this.muhafazaGrupla,
             yedekCihaz: this.yedekCihaz,
-            yogusmali: this.yogusmali
+            yogusmali: this.yogusmali,
+            description: this.description ?? ''
         };
     }
 
@@ -506,7 +507,7 @@ export class Cihaz {
         if (data.muhafazaGrupla !== undefined) cihaz.muhafazaGrupla = data.muhafazaGrupla;
         if (data.yedekCihaz !== undefined) cihaz.yedekCihaz = data.yedekCihaz;
         if (data.yogusmali !== undefined) cihaz.yogusmali = data.yogusmali;
-
+        cihaz.description = data.description ?? '';
         return cihaz;
     }
 }

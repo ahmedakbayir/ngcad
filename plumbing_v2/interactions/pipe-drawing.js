@@ -434,7 +434,8 @@ export function applyMeasurement(interactionManager) {
         // 3D vektör hesaplama - Mouse'un baktığı yöne göre
         const dx = targetPoint.x - startPt.x;
         const dy = targetPoint.y - startPt.y;
-        const dz = (targetPoint.z || 0) - startZ;
+        // z undefined ise (2D modda screenToWorld z döndürmez) z değişimi yok demektir
+        const dz = (targetPoint.z !== undefined ? targetPoint.z : startZ) - startZ;
 
         // 3D uzunluk hesapla (X, Y, Z dahil)
         const currentLength = Math.hypot(dx, dy, dz);
@@ -471,11 +472,16 @@ export function cancelCurrentAction(interactionManager) {
     }
     interactionManager.measurementInput = '';
     interactionManager.measurementActive = false;
+    interactionManager.pipeResizeInput = '';
+    interactionManager.pipeResizeActive = false;
     if (interactionManager.manager.tempComponent) interactionManager.manager.tempComponent = null;
     interactionManager.manager.activeTool = null;
     interactionManager.meterPlacementState = null;
     interactionManager.meterStartPoint = null;
     interactionManager.meterPreviewEndPoint = null;
+    // Kes bekleyen durumunu iptal et (Kopyala multi-paste için korunur)
+    interactionManager.cutPipes = null;
+    interactionManager.cutPipesOriginalIds = null;
     interactionManager.deselectObject();
 }
 

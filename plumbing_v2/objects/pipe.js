@@ -151,6 +151,7 @@ export class Boru {
 
         // Çap (varsayılan DN25)
         this.boruCap = 'DN25';
+        // description: undefined (yeni nesne) — panel ilk açılışta alwaysAdd şablonları uygular
 
         // Renk Grubu (Sayaç Öncesi/Sonrası)
         this.colorGroup = 'YELLOW'; // Varsayılan: Sarı (Sayaç Öncesi)
@@ -552,7 +553,8 @@ export class Boru {
             // Panel özellikleri
             boruCap: this.boruCap,
             topraklama: this.topraklama,
-            gomulu: this.gomulu
+            gomulu: this.gomulu,
+            description: this.description ?? ''
         };
     }
 
@@ -575,6 +577,7 @@ export class Boru {
         if (data.boruCap !== undefined) boru.boruCap = data.boruCap;
         if (data.topraklama !== undefined) boru.topraklama = data.topraklama;
         if (data.gomulu !== undefined) boru.gomulu = data.gomulu;
+        boru.description = data.description ?? '';
         return boru;
     }
 }

@@ -64,12 +64,42 @@ export function initObjectDefaults(obj, manager) {
 
 function _initDefaults(obj, manager) {
     const props = getPropertiesForObject(obj);
+
+    // İlk geçiş: normal defaults + dual fields + relatedFields
     props.forEach(p => {
+        if (p.type === 'dual' && p.fields) {
+            p.fields.forEach(f => {
+                if (f.key && f.default !== undefined && obj[f.key] === undefined) {
+                    obj[f.key] = f.default;
+                }
+            });
+            return;
+        }
+        if (p.relatedFields) {
+            p.relatedFields.forEach(rf => {
+                if (rf.key && rf.default !== undefined && obj[rf.key] === undefined) {
+                    obj[rf.key] = rf.default;
+                }
+            });
+        }
         if (p.key && p.default !== undefined && obj[p.key] === undefined) {
             obj[p.key] = p.default;
         }
     });
-    void manager; // manager ileride kullanılabilir
+
+    // İkinci geçiş: valueFn ile hesaplanan sanal anahtarlar (gerçek alanlar hazır olmalı)
+    props.forEach(p => {
+        if (p.valueFn && p.key) obj[p.key] = p.valueFn(obj);
+    });
+
+    // Yeni nesne (description hiç set edilmemiş) → alwaysAdd şablonlarını uygula
+    if (obj.description === undefined) {
+        const tplObj = _tplsForType(obj.type || '');
+        const alwaysTexts = Object.values(tplObj)
+            .filter(v => v.alwaysAdd).map(v => v.text).filter(Boolean);
+        obj.description = alwaysTexts.join('\n');
+    }
+    void manager;
 }
 
 /** rAF döngüsü: tüm alanları anlık günceller (readonly, select, text, toggle, bar) */
@@ -158,6 +188,8 @@ function renderPanel(obj, manager) {
         (p.type === 'bar'      && p.barFn)
     );
 
+    const hasDesc = true; // tüm nesnelerde açıklama alanı göster
+
     panelEl.innerHTML = `
         <div class="props-header">
             <span class="props-title">${typeLabel} Özellikleri</span>
@@ -173,8 +205,12 @@ function renderPanel(obj, manager) {
                 ? '<div class="props-empty">Bu nesne için tanımlı özellik yok.</div>'
                 : props.map(prop => renderProperty(prop, obj, manager)).join('')
             }
+            ${hasDesc ? renderDescriptionsSection(obj) : ''}
         </div>
     `;
+
+    // afterChange callback'lerinin paneli yeniden render edebilmesi için
+    panelEl._refresh = () => { renderPanel(obj, manager); };
 
     panelEl.querySelector('#props-close-btn').addEventListener('click', closePropertiesPanel);
     panelEl.querySelector('#props-pin-btn').addEventListener('click', () => {
@@ -185,6 +221,8 @@ function renderPanel(obj, manager) {
         btn.innerHTML = pinSvg(_isPinned);
     });
     bindInputEvents(panelEl, props, obj, manager);
+    if (hasDesc) bindDescriptionEvents(panelEl, obj);
+    _initCollapsibleSections(panelEl);
 
     // İçerik 50vh'yi geçiyorsa paneli tam boy aç
     requestAnimationFrame(() => {
@@ -196,12 +234,62 @@ function renderPanel(obj, manager) {
     });
 }
 
+function renderDualField(field, obj, manager) {
+    if (field.type === 'select') {
+        const rawOpts = typeof field.options === 'function' ? field.options(obj, manager) : (field.options || []);
+        const current = field.valueFn ? String(field.valueFn(obj)) : String(obj[field.key] ?? field.default ?? '');
+        const isDisabled = field.disabled === true || (field.disabledFn && field.disabledFn(obj, manager));
+        let optHtml = '';
+        if (field.placeholder) {
+            optHtml += `<option value="" ${!current ? 'selected' : ''}>${field.placeholder}</option>`;
+        }
+        if (field.optionsAreObjects) {
+            optHtml += rawOpts.map(o =>
+                `<option value="${o.value}" ${current === String(o.value) ? 'selected' : ''}>${o.label}</option>`
+            ).join('');
+        } else {
+            optHtml += rawOpts.map(o =>
+                `<option value="${o}" ${current === String(o) ? 'selected' : ''}>${o}</option>`
+            ).join('');
+        }
+        const flexStyle = field.flex ? ` style="flex:${field.flex}"` : '';
+        return `<select class="props-select props-dual-field" data-prop-key="${field.key}"${flexStyle} ${isDisabled ? 'disabled' : ''}>${optHtml}</select>`;
+    }
+    if (field.type === 'text') {
+        const current = obj[field.key] ?? field.default ?? '';
+        const placeholder = field.placeholder || '';
+        const isDisabled = field.disabled === true || (field.disabledFn && field.disabledFn(obj, manager));
+        const flexStyle = field.flex ? ` style="flex:${field.flex}"` : '';
+        return `<input class="props-input props-dual-field" type="text"
+            data-prop-key="${field.key}"
+            value="${escHtml(String(current))}"
+            placeholder="${escHtml(placeholder)}"${flexStyle}
+            ${isDisabled ? 'disabled' : ''}>`;
+    }
+    return '';
+}
+
 function renderProperty(prop, obj, manager) {
     // visibleFn false ise alan ve section header'ı gizle
     if (prop.visibleFn && !prop.visibleFn(obj, manager)) return '';
 
     if (prop.type === 'section') {
         return `<div class="props-section-header">${prop.label}</div>`;
+    }
+
+    if (prop.type === 'dual') {
+        const fieldsHtml = (prop.fields || []).map(f => renderDualField(f, obj, manager)).join('');
+        if (prop.noLabel) {
+            return `
+                <div class="props-row props-dual-row props-dual-row--nolabel">
+                    <div class="props-dual-controls">${fieldsHtml}</div>
+                </div>`;
+        }
+        return `
+            <div class="props-row props-dual-row">
+                <label class="props-label">${prop.label || ''}</label>
+                <div class="props-dual-controls">${fieldsHtml}</div>
+            </div>`;
     }
 
     if (prop.type === 'readonly') {
@@ -215,7 +303,7 @@ function renderProperty(prop, obj, manager) {
 
     if (prop.type === 'select') {
         const rawOpts = typeof prop.options === 'function' ? prop.options(obj, manager) : prop.options;
-        const current = String(obj[prop.key] ?? prop.default ?? '');
+        const current = prop.valueFn ? String(prop.valueFn(obj)) : String(obj[prop.key] ?? prop.default ?? '');
         const isDisabled = prop.disabled === true || (prop.disabledFn && prop.disabledFn(obj, manager));
         let optionsHtml = '';
         if (prop.placeholder) {
@@ -312,7 +400,262 @@ function renderProperty(prop, obj, manager) {
     return '';
 }
 
+// ─── COLLAPSIBLE SECTIONS ────────────────────────────────────────────────────
+
+const _sectionCollapsed = new Map(); // section label → bool (persistent across renders)
+
+// ─── AÇIKLAMA ŞABLONLARI — nesne tipine göre ayrı key-value store ────────────
+// Yapı: { [objType]: { [key]: {text, alwaysAdd} } }
+const TPLS_KEY = 'aangcad_desc_tpls_v2';
+function _loadTplStore() {
+    try { const raw = localStorage.getItem(TPLS_KEY); return raw ? JSON.parse(raw) : {}; }
+    catch { return {}; }
+}
+function _saveTplStore() {
+    try { localStorage.setItem(TPLS_KEY, JSON.stringify(_tplStore)); } catch {}
+}
+const _tplStore = _loadTplStore();
+/** Belirli nesne tipi için şablon nesnesini döndür (yoksa oluştur) */
+function _tplsForType(objType) {
+    if (!_tplStore[objType]) _tplStore[objType] = {};
+    return _tplStore[objType]; // { [key]: {text, alwaysAdd} }
+}
+
+function _initCollapsibleSections(panelEl) {
+    const body = panelEl.querySelector('.props-body');
+    if (!body) return;
+
+    // Sadece .props-body'nin doğrudan çocuk section başlıklarını işle.
+    // :scope > selector ile iç içe geçmiş başlıklar (örn. .desc-section içindeki) atlanır.
+    const directHeaders = [...body.querySelectorAll(':scope > .props-section-header')];
+    _applyCollapsible(directHeaders);
+
+    // .desc-section kendi içindeki başlığı ayrıca işle
+    const descSection = body.querySelector('.desc-section');
+    if (descSection) {
+        const descHeaders = [...descSection.querySelectorAll(':scope > .props-section-header')];
+        _applyCollapsible(descHeaders);
+    }
+}
+
+function _applyCollapsible(headers) {
+    headers.forEach((header, hIdx) => {
+        const nextHeader = headers[hIdx + 1];
+        const siblings = [];
+        let el = header.nextElementSibling;
+        // desc-section'da dur — o kendi başına işlenir
+        while (el && el !== nextHeader && !el.classList.contains('desc-section')) {
+            siblings.push(el);
+            el = el.nextElementSibling;
+        }
+        if (!siblings.length) return;
+
+        const key = header.textContent.trim();
+        const wrapper = document.createElement('div');
+        wrapper.className = 'section-content';
+        const collapsed = _sectionCollapsed.get(key) || false;
+        if (collapsed) wrapper.classList.add('sec-collapsed');
+
+        header.insertAdjacentElement('afterend', wrapper);
+        siblings.forEach(s => wrapper.appendChild(s));
+
+        const arrow = document.createElement('span');
+        arrow.className = 'section-arrow';
+        arrow.textContent = collapsed ? '›' : '▾';
+        header.appendChild(arrow);
+        header.classList.add('collapsible');
+
+        header.addEventListener('click', () => {
+            const nowCollapsed = !wrapper.classList.contains('sec-collapsed');
+            wrapper.classList.toggle('sec-collapsed', nowCollapsed);
+            arrow.textContent = nowCollapsed ? '›' : '▾';
+            _sectionCollapsed.set(key, nowCollapsed);
+        });
+    });
+}
+
+// ─── AÇIKLAMALAR ─────────────────────────────────────────────────────────────
+
+function renderDescriptionsSection(obj) {
+    const safeDesc  = escHtml(obj.description || '');
+    const objType   = obj.type || '';
+    const tplObj    = _tplsForType(objType);
+    const tplEntries = Object.entries(tplObj);
+
+    const tplItemsHtml = tplEntries.map(([key, val]) => {
+        const sk       = escHtml(key);
+        const sv       = escHtml(val.text);
+        const chk      = val.alwaysAdd ? 'checked' : '';
+        const starCls  = val.alwaysAdd ? 'desc-tpl-star desc-tpl-star--on' : 'desc-tpl-star';
+        const starChar = val.alwaysAdd ? '★' : '☆';
+        return `
+        <div class="desc-tpl-item" data-key="${sk}">
+            <div class="desc-tpl-row">
+                <button class="desc-tpl-apply-btn" title="${sv}">${sk}</button>
+                <span class="${starCls}" title="Her zaman ekle">${starChar}</span>
+                <button class="desc-tpl-edit-btn">···</button>
+            </div>
+            <div class="desc-tpl-edit-panel" style="display:none">
+                <label class="desc-opt-lbl">
+                    <input type="checkbox" class="desc-tpl-always-chk" ${chk}>
+                    <span>Her zaman ekle</span>
+                </label>
+                <textarea class="desc-tpl-edit-ta" rows="3">${sv}</textarea>
+                <div class="desc-tpl-edit-btns">
+                    <button class="desc-tpl-edit-ok">✓ Kaydet</button>
+                    <button class="desc-tpl-edit-cancel">✕</button>
+                    <button class="desc-tpl-delete-btn">Sil</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    return `
+    <div class="desc-section">
+        <div class="props-section-header">Açıklama</div>
+        <div class="desc-body">
+            <textarea class="desc-main-ta" rows="4" placeholder="Nesne açıklaması — etikete aynen yansır">${safeDesc}</textarea>
+            <div class="desc-actions">
+                <button class="desc-save-tpl-btn">Sakla…</button>
+            </div>
+            <div class="desc-save-key-row" style="display:none">
+                <input class="desc-key-input" type="text" placeholder="Şablon adı">
+                <button class="desc-key-ok">✓</button>
+                <button class="desc-key-cancel">✕</button>
+            </div>
+            ${tplEntries.length > 0 ? `
+            <div class="desc-tpl-header">Kaydedilmiş Şablonlar</div>
+            <div class="desc-tpl-list">${tplItemsHtml}</div>` : ''}
+        </div>
+    </div>`;
+}
+
+function bindDescriptionEvents(panelEl, obj) {
+    const section = panelEl.querySelector('.desc-section');
+    if (!section) return;
+    const objType = obj.type || '';
+
+    function refresh() {
+        const old = panelEl.querySelector('.desc-section');
+        if (!old) return;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = renderDescriptionsSection(obj);
+        old.replaceWith(tmp.firstElementChild);
+        draw2D();
+        bindDescriptionEvents(panelEl, obj);
+        _initCollapsibleSections(panelEl);
+    }
+
+    // Ana açıklama textarea — değişiklik anlık etikete yansır
+    const mainTa = section.querySelector('.desc-main-ta');
+    if (mainTa) {
+        mainTa.addEventListener('input', () => { obj.description = mainTa.value; draw2D(); });
+        mainTa.addEventListener('keydown', e => e.stopPropagation());
+    }
+
+    // Sakla… butonu
+    const saveTplBtn = section.querySelector('.desc-save-tpl-btn');
+    const saveKeyRow = section.querySelector('.desc-save-key-row');
+    const keyInput   = section.querySelector('.desc-key-input');
+    const keyOk      = section.querySelector('.desc-key-ok');
+    const keyCancel  = section.querySelector('.desc-key-cancel');
+
+    function confirmSave() {
+        const key = (keyInput?.value || '').trim();
+        if (key) {
+            const tplObj = _tplsForType(objType);
+            tplObj[key] = { text: mainTa ? mainTa.value : '', alwaysAdd: tplObj[key]?.alwaysAdd || false };
+            _saveTplStore();
+            refresh();
+            return;
+        }
+        if (saveKeyRow) saveKeyRow.style.display = 'none';
+    }
+
+    saveTplBtn?.addEventListener('click', () => {
+        if (!saveKeyRow) return;
+        saveKeyRow.style.display = '';
+        if (keyInput) { keyInput.value = ''; keyInput.focus(); }
+    });
+    keyOk?.addEventListener('click', confirmSave);
+    keyCancel?.addEventListener('click', () => { if (saveKeyRow) saveKeyRow.style.display = 'none'; });
+    keyInput?.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { confirmSave(); e.preventDefault(); }
+        if (e.key === 'Escape') { if (saveKeyRow) saveKeyRow.style.display = 'none'; e.preventDefault(); }
+        e.stopPropagation();
+    });
+
+    // Şablon öğeleri
+    section.querySelectorAll('.desc-tpl-item').forEach(item => {
+        const key = item.dataset.key;
+        if (!key) return;
+        const editPanel = item.querySelector('.desc-tpl-edit-panel');
+
+        // Şablonu textarea'ya ekle
+        item.querySelector('.desc-tpl-apply-btn')?.addEventListener('click', () => {
+            const tpl = _tplsForType(objType)[key];
+            if (!tpl || !mainTa) return;
+            mainTa.value = mainTa.value ? mainTa.value + '\n' + tpl.text : tpl.text;
+            obj.description = mainTa.value;
+            draw2D();
+        });
+
+        // Düzenle paneli aç/kapat
+        item.querySelector('.desc-tpl-edit-btn')?.addEventListener('click', () => {
+            const isOpen = editPanel?.style.display !== 'none';
+            section.querySelectorAll('.desc-tpl-edit-panel').forEach(p => { p.style.display = 'none'; });
+            if (!isOpen && editPanel) editPanel.style.display = '';
+        });
+
+        // Her zaman ekle — yıldızı DOM'da anlık güncelle
+        item.querySelector('.desc-tpl-always-chk')?.addEventListener('change', e => {
+            const tplObj = _tplsForType(objType);
+            if (tplObj[key]) {
+                tplObj[key].alwaysAdd = e.target.checked;
+                _saveTplStore();
+                const starEl = item.querySelector('.desc-tpl-star');
+                if (starEl) {
+                    starEl.textContent = e.target.checked ? '★' : '☆';
+                    starEl.classList.toggle('desc-tpl-star--on', e.target.checked);
+                }
+            }
+        });
+
+        // Şablon sil
+        item.querySelector('.desc-tpl-delete-btn')?.addEventListener('click', () => {
+            const tplObj = _tplsForType(objType);
+            delete tplObj[key];
+            _saveTplStore();
+            refresh();
+        });
+
+        // Şablon düzenle
+        const editTa = item.querySelector('.desc-tpl-edit-ta');
+        editTa?.addEventListener('keydown', e => e.stopPropagation());
+        item.querySelector('.desc-tpl-edit-ok')?.addEventListener('click', () => {
+            const tplObj = _tplsForType(objType);
+            if (tplObj[key] && editTa) { tplObj[key].text = editTa.value; _saveTplStore(); }
+            if (editPanel) editPanel.style.display = 'none';
+        });
+        item.querySelector('.desc-tpl-edit-cancel')?.addEventListener('click', () => {
+            if (editPanel) editPanel.style.display = 'none';
+        });
+    });
+}
+
 // ─── INPUT OLAYLARI ──────────────────────────────────────────────────────────
+
+/** Prop listesinde key'e göre prop veya dual field tanımını bul */
+function _findPropByKey(props, key) {
+    for (const p of props) {
+        if (p.key === key) return p;
+        if (p.type === 'dual' && p.fields) {
+            const f = p.fields.find(f => f.key === key);
+            if (f) return f;
+        }
+    }
+    return null;
+}
 
 function bindInputEvents(panelEl, props, obj, manager) {
     // Text ve Number input'lar
@@ -322,7 +665,7 @@ function bindInputEvents(panelEl, props, obj, manager) {
             const key = e.target.dataset.propKey;
             if (!key) return;
             obj[key] = e.target.value;
-            const prop = props.find(p => p.key === key);
+            const prop = _findPropByKey(props, key);
             if (prop?.afterChange) prop.afterChange(obj, manager, panelEl);
         });
         // change event: kalıcı kayıt
@@ -331,7 +674,7 @@ function bindInputEvents(panelEl, props, obj, manager) {
             if (!key) return;
             obj[key] = e.target.value;
             if (key === 'boruCap') syncVanaCapOnPipe(obj, manager, e.target.value);
-            const prop = props.find(p => p.key === key);
+            const prop = _findPropByKey(props, key);
             if (prop?.afterChange) prop.afterChange(obj, manager, panelEl);
             persist();
         });
@@ -348,7 +691,7 @@ function bindInputEvents(panelEl, props, obj, manager) {
             if (key === 'vanaTipi') { persist(); renderPanel(obj, manager); return; }
             // boruCap değişince üzerindeki vananın çapını güncelle
             if (key === 'boruCap') syncVanaCapOnPipe(obj, manager, e.target.value);
-            const prop = props.find(p => p.key === key);
+            const prop = _findPropByKey(props, key);
             if (prop?.afterChange) prop.afterChange(obj, manager, panelEl);
             persist();
         });

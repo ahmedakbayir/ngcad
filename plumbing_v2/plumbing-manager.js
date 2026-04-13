@@ -14,6 +14,7 @@ import { Cihaz, createCihaz } from './objects/device.js';
 import { Baca, createBaca } from './objects/chimney.js';
 import { initVerticalPanelListeners } from './interactions/vertical-panel-handler.js';
 import { initPropertiesButton } from './properties/properties-panel.js';
+import { getLabelOffsetsJSON, setLabelOffsetsJSON } from './renderer/renderer-labels.js';
 
 export class PlumbingManager {
     constructor() {
@@ -307,6 +308,7 @@ export class PlumbingManager {
         }));
         state.plumbingPipes = this.pipes.map(p => p.toJSON());
         state.plumbingBlocks = this.components.map(c => c.toJSON());
+        state.plumbingLabelOffsets = getLabelOffsetsJSON();
     }
 
     /**
@@ -378,7 +380,14 @@ export class PlumbingManager {
                 vana.updateEndCapStatus(this);
             }
         });
+
+        // Etiket konumlarını yükle
+        setLabelOffsetsJSON(state.plumbingLabelOffsets || {});
     }
+
+    /**
+     * Belirli bir boruya bağlı vanaların pozisyonlarını güncelle
+     * @param {string} pipeId - Boru ID
 
     /**
      * Belirli bir boruya bağlı vanaların pozisyonlarını güncelle

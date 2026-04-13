@@ -218,9 +218,14 @@ export class PlumbingRenderer {
             this.drawGhostBridgePipes(ctx, ghostBridgePipes);
         }
 
-        // Ölçü girişi göstergesi
+        // Ölçü girişi göstergesi (boru çizim modu)
         if (manager.interactionManager?.measurementActive) {
             this.drawMeasurementInput(ctx, manager.interactionManager);
+        }
+
+        // Seçili boru yeniden boyutlandırma girişi
+        if (manager.interactionManager?.pipeResizeActive) {
+            this.drawPipeResizeInput(ctx, manager.interactionManager);
         }
 
         // Boru uç noktası snap guide çizgileri

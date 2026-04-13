@@ -310,7 +310,8 @@ export class Sayac {
             aboneAdi: this.aboneAdi,
             aboneNo: this.aboneNo,
             ustaAdi: this.ustaAdi,
-            ustaNo: this.ustaNo
+            ustaNo: this.ustaNo,
+            description: this.description ?? ''
         };
     }
 
@@ -355,7 +356,7 @@ export class Sayac {
         if (data.aboneAdi !== undefined) sayac.aboneAdi = data.aboneAdi;
         if (data.ustaAdi !== undefined) sayac.ustaAdi = data.ustaAdi;
         if (data.ustaNo !== undefined) sayac.ustaNo = data.ustaNo;
-
+        sayac.description = data.description ?? '';
         return sayac;
     }
 }

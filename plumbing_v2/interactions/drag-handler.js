@@ -8,7 +8,7 @@
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
 import { saveState } from '../../general-files/history.js';
 import { getObjectsOnPipe } from './placement-utils.js';
-import { clearLabelAutoPos } from '../renderer/renderer-labels.js';
+import { clearLabelAutoPos, translateLabel } from '../renderer/renderer-labels.js';
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
@@ -798,11 +798,13 @@ export function handleDrag(interactionManager, point, event = null) {
                 const downstreamPipes = collectDownstreamPipes(interactionManager.manager, [draggedNode], pipe);
                 const movedComponents = new Set();
                 downstreamPipes.forEach(p => {
+                    translateLabel(p.id, dx, dy);
                     interactionManager.manager.components.forEach(c => {
                         if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
                         if (movedComponents.has(c.id)) return;
                         movedComponents.add(c.id);
                         c.x += dx; c.y += dy; c.z = (c.z || 0) + dz;
+                        translateLabel(c.id, dx, dy);
                         if (c.type === 'cihaz') {
                             const bacalar = interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
                             bacalar.forEach(baca => {
@@ -876,6 +878,10 @@ export function handleDrag(interactionManager, point, event = null) {
             interactionManager.dragObject.placeFree(point);
         }
 
+        const _boxDx = interactionManager.dragObject.x - oldBoxX;
+        const _boxDy = interactionManager.dragObject.y - oldBoxY;
+        if (_boxDx || _boxDy) translateLabel(interactionManager.dragObject.id, _boxDx, _boxDy);
+
         const newCikis = interactionManager.dragObject.getCikisNoktasi();
         const ELBOW_TOLERANCE = 8;
         const elbowConnectionTolerance = 1;
@@ -946,6 +952,7 @@ export function handleDrag(interactionManager, point, event = null) {
         }
         const deltaX = correctedPoint.x - oldPos.x;
         const deltaY = correctedPoint.y - oldPos.y;
+        translateLabel(cihaz.id, deltaX, deltaY);
         const bacalar = interactionManager.manager.components.filter(c => c.type === 'baca' && c.parentCihazId === cihaz.id);
         bacalar.forEach(baca => {
             baca.startX += deltaX; baca.startY += deltaY;
@@ -985,6 +992,7 @@ export function handleDrag(interactionManager, point, event = null) {
                 inputPipeOldEndpoint = { pipe: girisBoru, endpoint: endpoint, x: girisBoru[endpoint].x, y: girisBoru[endpoint].y };
             }
         }
+        translateLabel(sayac.id, dx, dy);
         sayac.move(newX, newY);
         if (inputPipeOldEndpoint) {
             inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].x = inputPipeOldEndpoint.x;
@@ -1097,12 +1105,14 @@ export function handleDrag(interactionManager, point, event = null) {
             const movedComponents = new Set();
             // Sürüklenen boru dahil tüm ilgili boruların componentlerini tara
             [pipe, ...allDownstreamPipes].forEach(p => {
+                translateLabel(p.id, frameDx, frameDy);
                 interactionManager.manager.components.forEach(c => {
                     if (c.type === 'vana' && p === pipe) return; // Sürüklenen borudaki vanalar zaten yukarıda taşındı
                     if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
                     if (movedComponents.has(c.id)) return;
                     movedComponents.add(c.id);
                     c.x += frameDx; c.y += frameDy; c.z = (c.z || 0) + frameDz;
+                    translateLabel(c.id, frameDx, frameDy);
                     if (c.type === 'cihaz') {
                         interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id).forEach(baca => {
                             baca.startX += frameDx; baca.startY += frameDy;
@@ -1414,7 +1424,7 @@ function findVerticalConnectedOtherEnds(manager, node, excludePipe) {
     return result;
 }
 
-function collectDownstreamNodes(manager, fromNodes, excludePipe = null) {
+export function collectDownstreamNodes(manager, fromNodes, excludePipe = null) {
     const seenNodeIds = new Set(fromNodes.map(n => n._nodeId));
     const result = [];
     const queue = [...fromNodes];
@@ -1453,7 +1463,7 @@ function collectDownstreamNodes(manager, fromNodes, excludePipe = null) {
 /**
  * Düğümlerden ulaşılabilen downstream pipe'ları döndürür.
  */
-function collectDownstreamPipes(manager, fromNodes, excludePipe = null) {
+export function collectDownstreamPipes(manager, fromNodes, excludePipe = null) {
     const seenNodeIds = new Set(fromNodes.map(n => n._nodeId));
     const pipes = [];
     const queue = [...fromNodes];

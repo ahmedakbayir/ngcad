@@ -47,6 +47,24 @@ export function handlePointerDown(e) {
 
     //console.log('[POINTER DOWN] activeTool:', this.manager.activeTool, 'tempComponent:', this.manager.tempComponent?.type);
 
+    // ─── Yapıştırma modu: sol tık ile yapıştır ────────────────────────────
+    // Kes/Kopyala sonrası, çizim modu dışında sol tıklanırsa yapıştır
+    if (e.button === 0 && (this.cutPipes || this.copiedPipes) && !this.boruCizimAktif && !this.manager.activeTool) {
+        // Endpoint snap varsa onu kullan (boru ucuna doğru yapıştırma)
+        if (this.activeSnap) {
+            this._pasteSnapOverride = {
+                x: this.activeSnap.x,
+                y: this.activeSnap.y,
+                z: this.lastMousePoint?.z || 0
+            };
+        }
+        // handlePipePaste, _pasteSnapOverride'ı okuyacak
+        this.handlePipePaste();
+        this._pasteSnapOverride = null;
+        return true;
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     // Double-click detection
     const currentTime = Date.now();
     const timeSinceLastClick = currentTime - this.lastClickTime;

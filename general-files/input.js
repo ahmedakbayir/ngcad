@@ -11,6 +11,7 @@ import { createColumn, isPointInColumn } from '../architectural-objects/columns.
 import { createBeam, isPointInBeam } from '../architectural-objects/beams.js'; // isPointInBeam eklendi
 import { screenToWorld, worldToScreen, getOrCreateNode, distToSegmentSquared, findNodeAt, isPointOnWallBody, snapTo15DegreeAngle } from '../draw/geometry.js'; // distToSegmentSquared ekleyin
 import { showGuideContextMenu, hideGuideContextMenu } from '../menu/guide-menu.js';
+import { showPlumbingContextMenu, hidePlumbingContextMenu } from '../plumbing_v2/interactions/plumbing-context-menu.js';
 import { fitDrawingToScreen, onWheel } from '../draw/zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { showWallPanel, hideWallPanel } from '../wall/wall-panel.js'; // <-- HIDEWALLPANEL EKLENDİ
 import { copyFloorArchitecture, pasteFloorArchitecture } from '../menu/floor-operations-menu.js'; // <-- KAT MİMARİSİ KOPYALA/YAPIŞTIR
@@ -84,6 +85,12 @@ function handleCopy(e) {
         return; // Plumbing handler devreye girecek
     }
 
+    // TESİSAT / KARMA modunda mimari kopyalama yapma
+    const _drawMode = state.currentDrawingMode;
+    if (_drawMode === 'TESİSAT' || _drawMode === 'KARMA') {
+        return;
+    }
+
     // Hiçbir obje seçili değilse, kat mimarisini kopyala
     if (!state.selectedObject && state.selectedGroup.length === 0) {
         e.preventDefault();
@@ -125,6 +132,12 @@ function handleCopy(e) {
 // Yapıştırma Fonksiyonu
 function handlePaste(e) {
     if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement === dom.roomNameSelect) return; // roomNameSelect eklendi
+
+    // Tesisat clipboard aktifse mimari yapıştırmaya geçme
+    const _im = plumbingManager?.interactionManager;
+    if (_im && (_im.cutPipes || _im.copiedPipes)) {
+        return; // Tesisat paste mode aktif — canvas tıklaması veya plumbing handler kullanacak
+    }
 
     // Tesisat nesneleri için plumbing manager'ın kendi handler'ını kullan
     if (state.selectedObject && ['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(state.selectedObject.type)) {
@@ -1067,6 +1080,16 @@ export function setupInputListeners() {
         hideRoomNamePopup();
         hideWallPanel();
         hideGuideContextMenu();
+        hidePlumbingContextMenu();
+
+        // Tesisat modunda VEYA KARMA modda boru/tesisat nesnesi yakınındaysa menüyü göster
+        const isTesisatMode = state.currentDrawingMode === 'TESİSAT';
+        const isKarmaMode = state.currentDrawingMode === 'KARMA';
+        const hasPipes = plumbingManager && plumbingManager.pipes && plumbingManager.pipes.length > 0;
+        if (isTesisatMode || (isKarmaMode && hasPipes)) {
+            showPlumbingContextMenu(e.clientX, e.clientY, clickPos, plumbingManager.interactionManager);
+            return;
+        }
 
         if (object && (object.type === 'room' || object.type === 'roomName')) {
             showRoomNamePopup(object.object, e);
@@ -1075,9 +1098,6 @@ export function setupInputListeners() {
         } else if (object && object.type === 'stairs') {
             showStairPopup(object.object, e); // Merdiven sağ tık
         } else if (!object) {
-            if (state.currentDrawingMode === 'TESİSAT') {
-                return;
-            }
             // Boş alana tıklandı
             showGuideContextMenu(e.clientX, e.clientY, clickPos);
         } else {

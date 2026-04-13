@@ -211,11 +211,12 @@ export function handlePointerMove(e) {
 
                 if (minAngleDiff <= 3) {
                     const rad = closestAngle * Math.PI / 180;
-                    // DÜZELTME 1: Z koordinatını koru (targetPoint.z)
+                    // DÜZELTME 1: Z koordinatını koru (z undefined ise başlangıç z'sini kullan)
+                    const _snapStartZ = this.boruBaslangic.nokta.z || 0;
                     finalTargetPoint = {
                         x: this.boruBaslangic.nokta.x + Math.cos(rad) * distance,
                         y: this.boruBaslangic.nokta.y + Math.sin(rad) * distance,
-                        z: targetPoint.z || 0
+                        z: targetPoint.z !== undefined ? targetPoint.z : _snapStartZ
                     };
                 }
             }
@@ -232,11 +233,12 @@ export function handlePointerMove(e) {
                 if (currentLength > 0) {
                     const dirX = dx / currentLength;
                     const dirY = dy / currentLength;
-                    // DÜZELTME 2: Z koordinatını koru (targetPoint.z)
+                    // DÜZELTME 2: Z koordinatını koru (z undefined ise başlangıç z'sini kullan)
+                    const _startZ = this.boruBaslangic.nokta.z || 0;
                     this.geciciBoruBitis = {
                         x: this.boruBaslangic.nokta.x + dirX * measurement,
                         y: this.boruBaslangic.nokta.y + dirY * measurement,
-                        z: targetPoint.z || 0
+                        z: targetPoint.z !== undefined ? targetPoint.z : _startZ
                     };
                 } else {
                     this.geciciBoruBitis = finalTargetPoint;

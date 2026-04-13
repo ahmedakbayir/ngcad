@@ -1034,6 +1034,59 @@ body.light-mode .btn.active svg {
     color: #ff6b6b !important;
 }
 
+/* ─── Tesisat Sağ Tık Menüsü ──────────────────────────────────── */
+#plumbing-context-menu {
+    display: none;
+    position: fixed;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button);
+    border-radius: 8px;
+    z-index: 2000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    padding: 6px 0 4px;
+    min-width: 210px;
+}
+
+/* Kes / Kopyala / Yapıştır — yan yana */
+.plumbing-clip-row {
+    display: flex;
+    gap: 5px;
+    padding: 0 8px 6px;
+}
+
+.plumbing-clip-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 4px 5px;
+    background: #2a2b2d;
+    color: #d0cfc0;
+    border: 1px solid var(--border-button);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+    transition: background 0.12s, color 0.12s;
+}
+
+.plumbing-clip-btn:hover:not(:disabled) {
+    background: #3a3b3d;
+    color: #8ab4f8;
+    border-color: #8ab4f8;
+}
+
+.plumbing-clip-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.plumbing-clip-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
 /* 3D Overlay: Kamera Koordinatları */
 #camera-coords {
     background: var(--bg-menu);
@@ -2692,14 +2745,13 @@ body:not(.light-mode) .text-on-right {
    - içerik fazlaysa .props-panel max-height devreye girer, body flex-grow ile dolar
 */
 .props-body {
-    padding: 8px 6px;
+    padding: 4px 8px 12px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0px;
     overflow-y: auto;
     flex: 1 1 auto;
     min-height: 0;
-    /* max-height: calc(50vh - 28px); */
 }
 
 /* İçerik 50vh'yi geçince panel tam açılır — body da genişler */
@@ -2717,16 +2769,11 @@ body:not(.light-mode) .text-on-right {
 /* Satır */
 .props-row {
     display: grid;
-    grid-template-columns: 100px 1fr;
+    grid-template-columns: 86px 1fr;
     align-items: center;
-    gap: 6px;
-    padding: 3px 4px;
+    gap: 8px;
+    padding: 4px 6px;
     border-radius: 4px;
-    transition: background 0.1s;
-}
-
-.props-row:hover {
-    background: var(--bg-button);
 }
 
 .props-label {
@@ -2735,10 +2782,11 @@ body:not(.light-mode) .text-on-right {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    line-height: 1.4;
 }
 
 .props-value-readonly {
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--color-text);
     font-weight: 500;
 }
@@ -2747,42 +2795,99 @@ body:not(.light-mode) .text-on-right {
 .props-input {
     width: 100%;
     background: var(--bg-input);
-    border: 1px solid var(--border-button);
-    border-radius: 4px;
+    border: 1px solid transparent;
+    border-radius: 5px;
     color: var(--color-text);
     font-size: 11px;
-    padding: 3px 5px;
+    font-weight: 400;
+    padding: 5px 8px;
+    min-height: 28px;
     outline: none;
     cursor: pointer;
     box-sizing: border-box;
+    box-shadow: inset 0 0 0 1px var(--border-button);
+    transition: box-shadow 0.15s;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
 }
 
 .props-select:focus,
 .props-input:focus {
-    border-color: var(--border-button-active);
+    box-shadow: inset 0 0 0 1.5px var(--border-button-active);
 }
 
 .props-select:hover,
 .props-input:hover {
-    border-color: var(--border-button-active);
+    box-shadow: inset 0 0 0 1px var(--border-button-active);
 }
 
 /* Bölüm başlığı */
 .props-section-header {
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 700;
-    letter-spacing: 0.6px;
+    letter-spacing: 0.9px;
     text-transform: uppercase;
     color: var(--color-secondary);
-    padding: 8px 4px 3px;
-    border-bottom: 1px solid var(--border-panel);
-    margin-bottom: 2px;
-    margin-top: 2px;
+    padding: 5px 6px 4px;
+    margin-top: 14px;
+    margin-bottom: 0;
+    opacity: 0.7;
+    /* Alt border section-content üst border ile birleşir */
 }
 
 .props-section-header:first-child {
-    margin-top: 0;
-    padding-top: 2px;
+    margin-top: 4px;
+}
+
+/* Section içerik sarmalayıcısı — JS tarafından oluşturulur */
+.section-content {
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.03);
+    border-radius: 0 0 6px 6px;
+    padding: 4px 0 6px;
+    margin-bottom: 0;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-top: none;
+}
+
+.light-mode .section-content {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.08);
+}
+
+/* Başlık section ile aynı kutu görünümü için */
+.props-section-header.collapsible {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px 6px 0 0;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-bottom: none;
+    padding: 5px 6px 4px;
+}
+
+.light-mode .props-section-header.collapsible {
+    background: rgba(0,0,0,0.04);
+    border-color: rgba(0,0,0,0.08);
+}
+
+
+.section-content.sec-collapsed {
+    display: none;
+}
+
+/* Section kapalıyken başlık kendi başına tam kutu */
+.props-section-header.collapsible:has(+ .section-content.sec-collapsed) {
+    border-radius: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.light-mode .props-section-header.collapsible:has(+ .section-content.sec-collapsed) {
+    border-bottom-color: rgba(0,0,0,0.08);
 }
 
 /* On/Off Toggle */
@@ -2872,3 +2977,282 @@ body:not(.light-mode) .text-on-right {
     width: 100%;
     height: 100%;
 }
+
+/* ─── Açıklama Bölümü ───────────────────────────────────────────────────── */
+
+/* Açıklama: diğer section'larla aynı kart görünümü — JS bağımsız */
+.desc-section {
+    margin-top: 14px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.light-mode .desc-section {
+    border-color: rgba(0,0,0,0.08);
+}
+.desc-section > .props-section-header {
+    margin-top: 0 !important;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-radius: 0;
+}
+.light-mode .desc-section > .props-section-header {
+    background: rgba(0,0,0,0.04);
+    border-bottom-color: rgba(0,0,0,0.08);
+}
+
+.desc-body {
+    padding: 6px 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Ana açıklama textarea */
+.desc-main-ta {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 60px;
+    padding: 5px 7px;
+    border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.05);
+    color: inherit;
+    font-size: 11px;
+    font-family: inherit;
+    line-height: 1.45;
+    outline: none;
+}
+.desc-main-ta:focus { border-color: rgba(96,165,250,0.50); }
+.light-mode .desc-main-ta {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.18);
+    color: #202124;
+}
+
+/* Araç çubuğu */
+.desc-actions { display: flex; gap: 4px; }
+
+.desc-save-tpl-btn {
+    padding: 3px 10px;
+    font-size: 10.5px;
+    border-radius: 4px;
+    border: 1px solid rgba(96,165,250,0.40);
+    background: rgba(96,165,250,0.08);
+    color: #60a5fa;
+    cursor: pointer;
+}
+.desc-save-tpl-btn:hover { background: rgba(96,165,250,0.18); }
+.light-mode .desc-save-tpl-btn { border-color: rgba(29,78,216,0.35); background: rgba(29,78,216,0.06); color: #1d4ed8; }
+
+/* Key adı satırı */
+.desc-save-key-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.desc-key-input {
+    flex: 1;
+    padding: 3px 6px;
+    font-size: 11px;
+    font-family: inherit;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+    color: inherit;
+    outline: none;
+}
+.desc-key-input:focus { border-color: rgba(96,165,250,0.50); }
+.light-mode .desc-key-input { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.18); color: #202124; }
+.desc-key-ok, .desc-key-cancel {
+    padding: 3px 8px;
+    font-size: 11px;
+    border-radius: 3px;
+    border: none;
+    cursor: pointer;
+}
+.desc-key-ok     { background: rgba(96,165,250,0.20); color: #60a5fa; }
+.desc-key-cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.55); }
+.light-mode .desc-key-ok     { background: rgba(29,78,216,0.12); color: #1d4ed8; }
+.light-mode .desc-key-cancel { background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.50); }
+
+/* Şablon listesi başlığı */
+.desc-tpl-header {
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    padding-top: 2px;
+}
+.light-mode .desc-tpl-header { color: rgba(0,0,0,0.35); }
+
+/* Şablon listesi */
+.desc-tpl-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.desc-tpl-item { display: flex; flex-direction: column; }
+
+.desc-tpl-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.desc-tpl-apply-btn {
+    flex: 1;
+    text-align: left;
+    padding: 3px 7px;
+    font-size: 11px;
+    font-family: inherit;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.04);
+    color: var(--color-text, #e8eaed);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.desc-tpl-apply-btn:hover { background: rgba(96,165,250,0.12); border-color: rgba(96,165,250,0.30); color: #93c5fd; }
+.light-mode .desc-tpl-apply-btn { border-color: rgba(0,0,0,0.12); background: rgba(0,0,0,0.03); color: #202124; }
+.light-mode .desc-tpl-apply-btn:hover { background: rgba(29,78,216,0.08); border-color: rgba(29,78,216,0.25); color: #1d4ed8; }
+
+.desc-tpl-star {
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 24px;
+    color: rgba(255,255,255,0.20);
+    cursor: default;
+    user-select: none;
+}
+.desc-tpl-star--on { color: #fbbf24; }
+.light-mode .desc-tpl-star { color: rgba(0,0,0,0.18); }
+.light-mode .desc-tpl-star--on { color: #d97706; }
+
+.desc-tpl-edit-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+    line-height: 1;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: transparent;
+    color: rgba(255,255,255,0.40);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+}
+.desc-tpl-edit-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.80); }
+.light-mode .desc-tpl-edit-btn { border-color: rgba(0,0,0,0.12); color: rgba(0,0,0,0.40); }
+.light-mode .desc-tpl-edit-btn:hover { background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.75); }
+
+/* Düzenle paneli */
+.desc-tpl-edit-panel {
+    margin-top: 4px;
+    margin-left: 4px;
+    padding: 7px;
+    border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.light-mode .desc-tpl-edit-panel { border-color: rgba(0,0,0,0.12); background: rgba(0,0,0,0.03); }
+
+.desc-tpl-edit-ta {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 50px;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-family: inherit;
+    line-height: 1.4;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.05);
+    color: inherit;
+    outline: none;
+}
+.desc-tpl-edit-ta:focus { border-color: rgba(96,165,250,0.45); }
+.light-mode .desc-tpl-edit-ta { background: rgba(0,0,0,0.03); border-color: rgba(0,0,0,0.15); color: #202124; }
+
+.desc-tpl-edit-btns {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.desc-tpl-edit-ok, .desc-tpl-edit-cancel, .desc-tpl-delete-btn {
+    padding: 2px 8px;
+    font-size: 10.5px;
+    border-radius: 3px;
+    border: none;
+    cursor: pointer;
+    line-height: 1.5;
+}
+.desc-tpl-edit-ok     { background: rgba(96,165,250,0.20); color: #60a5fa; }
+.desc-tpl-edit-cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.55); }
+.desc-tpl-delete-btn  { background: rgba(248,113,113,0.12); color: #f87171; margin-left: auto; }
+.desc-tpl-delete-btn:hover { background: rgba(248,113,113,0.25); }
+.light-mode .desc-tpl-edit-ok     { background: rgba(29,78,216,0.12); color: #1d4ed8; }
+.light-mode .desc-tpl-edit-cancel { background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.50); }
+.light-mode .desc-tpl-delete-btn  { background: rgba(220,38,38,0.08); color: #dc2626; }
+
+/* ─── Açılır/Kapanır Bölümler ──────────────────────────────────────────── */
+.props-section-header.collapsible {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.section-arrow {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-left: 4px;
+    line-height: 1;
+}
+.section-content.sec-collapsed {
+    display: none;
+}
+
+/* ─── İKİLİ (DUAL) SATIR ────────────────────────────────────────────────── */
+.props-dual-row .props-dual-controls {
+    display: flex;
+    gap: 3px;
+    min-width: 0;
+}
+.props-dual-controls .props-dual-field {
+    flex: 1;
+    min-width: 0;
+    font-size: 11px;
+    font-weight: 400;
+    padding: 5px 6px;
+    min-height: 28px;
+    line-height: 1.4;
+}
+/* Etiketsiz satır: kontroller tüm genişliği kaplar */
+.props-dual-row--nolabel {
+    grid-template-columns: 1fr;
+}
+.props-dual-row--nolabel .props-dual-controls {
+    width: 100%;
+}
+
+/* .desc-opt-lbl is used inside .desc-tpl-edit-panel */
+.desc-opt-lbl {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    color: var(--color-secondary, #9aa0a6);
+    cursor: pointer;
+}
+.desc-opt-lbl input[type="checkbox"] { width: 12px; height: 12px; margin: 0; cursor: pointer; }

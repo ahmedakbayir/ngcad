@@ -6,6 +6,8 @@
 import { setMode, setState, setDrawingMode, state } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
 import { handleBoruClick } from './pipe-drawing.js';
+import { collectDownstreamNodes, collectDownstreamPipes } from './drag-handler.js';
+import { translateLabel, clearLabelAutoPos } from '../renderer/renderer-labels.js';
 import { Boru } from '../objects/pipe.js';
 import { Vana } from '../objects/valve.js';
 import { Sayac } from '../objects/meter.js';
@@ -149,6 +151,35 @@ export function handleKeyDown(e) {
         }
     }
 
+    // Seçili boru yeniden boyutlandırma / düşey hat ekleme (boru çizim modu dışında, seçili boru varsa)
+    if (!this.boruCizimAktif && this.selectedObject?.type === 'boru') {
+        // +/- ile başlayan giriş: P2'ye düşey boru ekle
+        if ((e.key === '+' || e.key === '-') && !this.pipeResizeActive) {
+            this.pipeResizeInput = e.key;
+            this.pipeResizeActive = true;
+            return true;
+        }
+        if (/^[0-9]$/.test(e.key)) {
+            this.pipeResizeInput += e.key;
+            this.pipeResizeActive = true;
+            return true;
+        }
+        if (e.key === 'Backspace' && this.pipeResizeActive) {
+            this.pipeResizeInput = this.pipeResizeInput.slice(0, -1);
+            if (this.pipeResizeInput.length === 0) this.pipeResizeActive = false;
+            return true;
+        }
+        if (e.key === 'Enter' && this.pipeResizeActive) {
+            const inp = this.pipeResizeInput;
+            if (inp.startsWith('+') || inp.startsWith('-')) {
+                applyVerticalPipeInsert.call(this);
+            } else {
+                applyPipeResize.call(this);
+            }
+            return true;
+        }
+    }
+
     // SPACE - Özellikler panelini aç/kapat
     if (e.key === ' ' && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
@@ -170,6 +201,12 @@ export function handleKeyDown(e) {
 
     // ESC - iptal ve seç moduna geç
     if (e.key === 'Escape') {
+        // Boru resize aktifse önce onu iptal et
+        if (this.pipeResizeActive) {
+            this.pipeResizeInput = '';
+            this.pipeResizeActive = false;
+            return true;
+        }
         // Özellikler paneli açıksa önce onu kapat (pinli olsa bile ESC kapatır)
         if (isPanelOpen()) {
             closePropertiesPanel();
@@ -361,11 +398,10 @@ export function handleKeyDown(e) {
         }
     }
 
-    // CTRL+V - Yapıştır (kopyalanan/kesilen parçaları)
+    // CTRL+V - Yapıştır (canvas tıklamasını bekle — handle-pointer-down.js halleder)
     if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
         if (this.copiedPipes || this.cutPipes) {
-            handlePipePaste.call(this);
-            return true;
+            return true; // Mimari handler'a geçmeyi engelle; yapıştırma canvas tıklamasıyla olur
         }
     }
 
@@ -730,7 +766,7 @@ function getDownstreamPipesAndComponents(startPipe, manager) {
  * CTRL+C - Kopyala
  * Seçili boru ve sonrasındaki tüm parçaları kopyalar
  */
-function handlePipeCopy() {
+export function handlePipeCopy() {
     if (!this.selectedObject || this.selectedObject.type !== 'boru') {
         return;
     }
@@ -775,7 +811,7 @@ function handlePipeCopy() {
  * CTRL+X - Kes
  * Seçili boru ve sonrasındaki tüm parçaları keser (ghost olarak gösterilir)
  */
-function handlePipeCut() {
+export function handlePipeCut() {
     if (!this.selectedObject || this.selectedObject.type !== 'boru') {
         return;
     }
@@ -825,7 +861,7 @@ function handlePipeCut() {
  * CTRL+V - Yapıştır
  * Kopyalanan/kesilen parçaları mouse pozisyonuna yapıştırır
  */
-function handlePipePaste() {
+export function handlePipePaste() {
     const pasteData = this.cutPipes || this.copiedPipes;
 
     if (!pasteData || !this.lastMousePoint) {
@@ -834,10 +870,13 @@ function handlePipePaste() {
 
     const isCut = !!this.cutPipes;
 
-    // Referans noktasından mouse'a olan farkı hesapla
-    const dx = this.lastMousePoint.x - pasteData.referencePoint.x;
-    const dy = this.lastMousePoint.y - pasteData.referencePoint.y;
-    const dz = (this.lastMousePoint.z || 0) - (pasteData.referencePoint.z || 0);
+    // Snap geçersiz kılma varsa (endpoint snap ile tıklama) onu kullan
+    const targetPt = this._pasteSnapOverride || this.lastMousePoint;
+
+    // Referans noktasından hedef noktaya olan farkı hesapla
+    const dx = targetPt.x - pasteData.referencePoint.x;
+    const dy = targetPt.y - pasteData.referencePoint.y;
+    const dz = (targetPt.z || 0) - (pasteData.referencePoint.z || 0);
 
     saveState();
 
@@ -1061,4 +1100,206 @@ function handlePipePaste() {
     this.manager.saveToState();
 
     console.log(`✅ ${newPipes.length} boru ve ${newComponents.length} bileşen yapıştırıldı`);
+}
+
+/**
+ * Seçili boruyu girilen uzunluğa yeniden boyutlandırır.
+ * p1 sabit kalır, p2 aynı yön boyunca yeni uzunluğa taşınır.
+ * `this` = InteractionManager bağlamında çağrılır.
+ */
+export function applyPipeResize() {
+    const newLen = parseFloat(this.pipeResizeInput);
+    this.pipeResizeInput = '';
+    this.pipeResizeActive = false;
+
+    if (isNaN(newLen) || newLen <= 0) return;
+
+    const pipe = this.selectedObject;
+    if (!pipe || pipe.type !== 'boru') return;
+
+    const p1 = pipe.p1;
+    const p2 = pipe.p2;
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const dz = (p2.z || 0) - (p1.z || 0);
+    const currentLen = Math.hypot(dx, dy, dz);
+
+    if (currentLen < 0.001) return;
+
+    const factor = newLen / currentLen;
+
+    // p2'nin yeni konumu
+    const newP2x = p1.x + dx * factor;
+    const newP2y = p1.y + dy * factor;
+    const newP2z = (p1.z || 0) + dz * factor;
+
+    // p2'nin hareketi (delta)
+    const moveDx = newP2x - p2.x;
+    const moveDy = newP2y - p2.y;
+    const moveDz = newP2z - (p2.z || 0);
+
+    if (Math.abs(moveDx) < 0.001 && Math.abs(moveDy) < 0.001 && Math.abs(moveDz) < 0.001) return;
+
+    saveState();
+
+    // p2'den itibaren tüm downstream düğümleri topla (CTRL drag ile aynı mantık)
+    const downstreamNodes = collectDownstreamNodes(this.manager, [p2], pipe);
+    const downstreamPipes = collectDownstreamPipes(this.manager, [p2], pipe);
+
+    // p2 ve tüm downstream düğümleri delta kadar taşı
+    p2.x = newP2x; p2.y = newP2y; p2.z = newP2z;
+    downstreamNodes.forEach(node => {
+        node.x += moveDx; node.y += moveDy; node.z = (node.z || 0) + moveDz;
+    });
+
+    // Seçili boru etiketini güncelle (otomatik konumu yeniden hesaplat)
+    clearLabelAutoPos(pipe.id);
+
+    // Yardımcı: cihazın bacalarını taşı
+    const moveBacalar = (cihaz) => {
+        this.manager.components.forEach(baca => {
+            if (baca.type !== 'baca' || baca.parentCihazId !== cihaz.id) return;
+            baca.startX += moveDx; baca.startY += moveDy;
+            if (baca.currentSegmentStart) {
+                baca.currentSegmentStart.x += moveDx;
+                baca.currentSegmentStart.y += moveDy;
+            }
+            if (baca.segments) {
+                baca.segments.forEach(seg => {
+                    seg.x1 += moveDx; seg.y1 += moveDy;
+                    seg.x2 += moveDx; seg.y2 += moveDy;
+                    if (seg.z1 !== undefined) seg.z1 += moveDz;
+                    if (seg.z2 !== undefined) seg.z2 += moveDz;
+                });
+            }
+            baca.z = (baca.z || 0) + moveDz;
+            if (baca.havalandirma) {
+                baca.havalandirma.x += moveDx;
+                baca.havalandirma.y += moveDy;
+            }
+        });
+    };
+
+    // Downstream pipe'ların etiketlerini ve bileşenlerini taşı
+    const movedComponents = new Set();
+    downstreamPipes.forEach(p => {
+        clearLabelAutoPos(p.id);
+        this.manager.components.forEach(c => {
+            if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
+            if (movedComponents.has(c.id)) return;
+            movedComponents.add(c.id);
+            c.x += moveDx; c.y += moveDy; c.z = (c.z || 0) + moveDz;
+            translateLabel(c.id, moveDx, moveDy);
+            if (c.type === 'cihaz') moveBacalar(c);
+        });
+    });
+
+    // Seçili borunun p2 ucundaki bileşenler (downstreamPipes dışında kaldıklarından ayrıca işlenir)
+    // Not: bagliBoruId vanalar için kullanılır, updateAllValvePositions() onları otomatik günceller
+    this.manager.components.forEach(c => {
+        if (movedComponents.has(c.id)) return;
+        const onSelectedPipe =
+            (c.fleksBaglanti?.boruId === pipe.id) ||
+            (c.cikisBagliBoruId === pipe.id);
+        if (!onSelectedPipe) return;
+        movedComponents.add(c.id);
+        c.x += moveDx; c.y += moveDy; c.z = (c.z || 0) + moveDz;
+        translateLabel(c.id, moveDx, moveDy);
+        if (c.type === 'cihaz') moveBacalar(c);
+    });
+
+    this.manager.saveToState();
+}
+
+/**
+ * Seçili borunun P2 ucuna düşey (Z yönünde) boru ekler.
+ * +100 → yukarı 100 cm, -50 → aşağı 50 cm.
+ * Downstream zinciri de aynı miktarda Z'de kayar.
+ * `this` = InteractionManager bağlamında çağrılır.
+ */
+export function applyVerticalPipeInsert() {
+    const input = this.pipeResizeInput;
+    this.pipeResizeInput = '';
+    this.pipeResizeActive = false;
+
+    const amount = parseFloat(input); // "+100" → 100, "-50" → -50
+    if (isNaN(amount) || amount === 0) return;
+
+    const pipe = this.selectedObject;
+    if (!pipe || pipe.type !== 'boru') return;
+
+    saveState();
+
+    const p2 = pipe.p2;
+    const moveDz = amount;
+
+    // Downstream node ve pipe'ları yeni boru eklenmeden ÖNCE hesapla
+    const downstreamNodes = collectDownstreamNodes(this.manager, [p2], pipe);
+    const downstreamPipes = collectDownstreamPipes(this.manager, [p2], pipe);
+
+    // Yeni düşey boru: p1 = mevcut p2 (shared node), p2 = yeni nokta z+amount
+    const newPipe = new Boru(p2, { x: p2.x, y: p2.y, z: (p2.z || 0) + amount }, pipe.boruTipi);
+    newPipe.colorGroup = pipe.colorGroup || 'YELLOW';
+    newPipe.boruCap = pipe.boruCap || 'DN25';
+    newPipe.floorId = pipe.floorId;
+
+    const newNode = newPipe.p2; // z+amount konumundaki yeni düğüm
+
+    // Doğrudan bağlı downstream pipe'ların P1'ini eski p2'den yeni düğüme aktar
+    this.manager.pipes.forEach(p => {
+        if (p === pipe) return;
+        if (p.p1 === p2) {
+            p.p1 = newNode;
+            p.p1NodeId = newNode._nodeId;
+        }
+    });
+
+    // Downstream düğümleri Z'de kaydır (X, Y değişmez)
+    downstreamNodes.forEach(node => {
+        node.z = (node.z || 0) + moveDz;
+    });
+
+    // Yardımcı: cihazın bacalarını Z'de kaydır
+    const moveBacalarZ = (cihaz) => {
+        this.manager.components.forEach(baca => {
+            if (baca.type !== 'baca' || baca.parentCihazId !== cihaz.id) return;
+            baca.z = (baca.z || 0) + moveDz;
+            if (baca.segments) {
+                baca.segments.forEach(seg => {
+                    if (seg.z1 !== undefined) seg.z1 += moveDz;
+                    if (seg.z2 !== undefined) seg.z2 += moveDz;
+                });
+            }
+        });
+    };
+
+    // Downstream bileşenlerini taşı (yalnızca z)
+    const movedComponents = new Set();
+    downstreamPipes.forEach(p => {
+        clearLabelAutoPos(p.id);
+        this.manager.components.forEach(c => {
+            if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
+            if (movedComponents.has(c.id)) return;
+            movedComponents.add(c.id);
+            c.z = (c.z || 0) + moveDz;
+            if (c.type === 'cihaz') moveBacalarZ(c);
+        });
+    });
+
+    // Seçili borunun p2 ucundaki bileşenler (downstreamPipes dışında kaldı)
+    this.manager.components.forEach(c => {
+        if (movedComponents.has(c.id)) return;
+        const onSelectedPipe =
+            (c.fleksBaglanti?.boruId === pipe.id) ||
+            (c.cikisBagliBoruId === pipe.id);
+        if (!onSelectedPipe) return;
+        movedComponents.add(c.id);
+        c.z = (c.z || 0) + moveDz;
+        if (c.type === 'cihaz') moveBacalarZ(c);
+    });
+
+    // Yeni boruyu ekle
+    this.manager.pipes.push(newPipe);
+
+    this.manager.saveToState();
 }

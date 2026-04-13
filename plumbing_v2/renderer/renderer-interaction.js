@@ -63,6 +63,68 @@ export const InteractionMixin = {
         ctx.restore();
     },
 
+    drawPipeResizeInput(ctx, interactionManager) {
+        if (!interactionManager.pipeResizeActive) return;
+        const pipe = interactionManager.selectedObject;
+        if (!pipe || pipe.type !== 'boru') return;
+
+        const zoom = state.zoom || 1;
+        const t = state.viewBlendFactor || 0;
+
+        // Borunun orta noktası (3D projeksiyon dahil)
+        const mx = (pipe.p1.x + pipe.p2.x) / 2;
+        const my = (pipe.p1.y + pipe.p2.y) / 2;
+        const mz = ((pipe.p1.z || 0) + (pipe.p2.z || 0)) / 2;
+        const cx = mx + mz * t;
+        const cy = my - mz * t;
+
+        const baseFontSize = 16;
+        const ZOOM_EXPONENT = -0.65;
+        const fontSize = baseFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+        const actualFontSize = Math.max(8, fontSize);
+
+        ctx.save();
+        ctx.translate(cx, cy - 15 / zoom);
+
+        ctx.font = `bold ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+        const rawInput = interactionManager.pipeResizeInput;
+        const isVertical = rawInput.startsWith('+') || rawInput.startsWith('-');
+        const displayText = isVertical
+            ? rawInput + '_ cm ↕'
+            : rawInput + '_ cm';
+
+        const metrics = ctx.measureText(displayText);
+        const textWidth = metrics.width;
+        const padding = 4;
+
+        // Arka plan: düşey ekleme → yeşil/kırmızı, boyutlandırma → açık mavi
+        const isNegative = rawInput.startsWith('-');
+        ctx.fillStyle = isVertical
+            ? (isNegative ? 'rgba(255, 120, 80, 0.95)' : 'rgba(80, 200, 120, 0.95)')
+            : 'rgba(100, 180, 255, 0.95)';
+        ctx.beginPath();
+        ctx.roundRect(
+            -textWidth / 2 - padding,
+            -actualFontSize / 2 - padding,
+            textWidth + padding * 2,
+            actualFontSize + padding * 2,
+            3 / zoom
+        );
+        ctx.fill();
+
+        // Kenarlık
+        ctx.strokeStyle = isVertical ? (isNegative ? '#cc3300' : '#006633') : '#0066cc';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.stroke();
+
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(displayText, 0, 0);
+
+        ctx.restore();
+    },
+
     drawSelectedPipePath(ctx) {
         const path = window._selectedPipePath;
         if (!path || path.length === 0) return;

@@ -39,6 +39,22 @@ export function clearLabelAutoPos(pipeId) {
 }
 
 /**
+ * Saklı etiket konumunu (dx, dy) kadar ötelir.
+ * Manuel konumlandırılmış etiketlerin nesnesiyle birlikte taşınması için kullanılır.
+ * Otomatik konumlandırılmış etiketler için sadece cache temizlenir (yeni konumda yeniden hesaplanır).
+ */
+export function translateLabel(id, dx, dy) {
+    if (!dx && !dy) return;
+    const stored = _labelOffsets.get(id);
+    if (stored && stored.ax != null) {
+        _labelOffsets.set(id, { ax: stored.ax + dx, ay: stored.ay + dy, dir: stored.dir ?? 0 });
+    } else {
+        // Manuel konum yok — auto-pos cache'ini temizle, yeni pozisyonda yeniden hesaplanır
+        _labelAutoPos.delete(id);
+    }
+}
+
+/**
  * Segment (x1,y1)→(x2,y2) ile dikdörtgen (rx,ry,rw,rh) kesişiyor mu?
  */
 function _segIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
@@ -100,6 +116,21 @@ export function updateLabelDrag(curX, curY) {
 
 export function endLabelDrag() {
     _drag = null;
+}
+
+/** Tüm etiket offsetlerini düz nesne olarak döndür (kaydetme için) */
+export function getLabelOffsetsJSON() {
+    const out = {};
+    _labelOffsets.forEach((v, k) => { out[k] = v; });
+    return out;
+}
+
+/** Kaydedilmiş offsetleri yükle (proje açılışında) */
+export function setLabelOffsetsJSON(data) {
+    _labelOffsets.clear();
+    _labelAutoPos.clear();
+    if (!data) return;
+    Object.entries(data).forEach(([k, v]) => _labelOffsets.set(k, v));
 }
 
 /** Çift tıklamada etiket yönünü döndür: 0(üst)→1(sağ)→2(alt)→3(sol)→0 */
@@ -166,23 +197,40 @@ export const LabelMixin = {
                 hatGroups.get(hatNo).push(pipe);
             });
 
-            // Her hat için en uzun boruyu seç, toplam uzunluğu hesapla
+            // Her hat için etiket borusunu seç, toplam uzunluğu hesapla
+            // Kural: en yatay boru varsa öncelik onda, yoksa en uzun boru
             hatGroups.forEach((pipes, hatNo) => {
-                let longest = pipes[0];
-                let maxLen = 0;
-                let totalLen = 0;
+                let fallback      = pipes[0]; // en uzun boru (yatay yoksa)
+                let maxLen        = 0;
+                let totalLen      = 0;
+                let horizBest     = null;
+                let horizBestAngle = Infinity; // açı küçüldükçe daha yatay
+
                 pipes.forEach(pipe => {
                     if (!pipe.p1 || !pipe.p2) return;
-                    const len = Math.hypot(
-                        pipe.p2.x - pipe.p1.x,
-                        pipe.p2.y - pipe.p1.y,
-                        (pipe.p2.z || 0) - (pipe.p1.z || 0)
-                    );
+                    const dx  = pipe.p2.x - pipe.p1.x;
+                    const dy  = pipe.p2.y - pipe.p1.y;
+                    const len = Math.hypot(dx, dy, (pipe.p2.z || 0) - (pipe.p1.z || 0));
+                    const xyLen = Math.hypot(dx, dy);
                     totalLen += len;
-                    if (len > maxLen) { maxLen = len; longest = pipe; }
+
+                    if (len > maxLen) { maxLen = len; fallback = pipe; }
+
+                    // Yataydanlık açısı: 0=mükemmel yatay, 90=dik
+                    // Çok kısa (xyLen<10) boruları dışla
+                    if (xyLen >= 10) {
+                        const angle = Math.abs(Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI);
+                        // 45°'den az eğimli = "yatay"
+                        if (angle < 45 && angle < horizBestAngle) {
+                            horizBestAngle = angle;
+                            horizBest = pipe;
+                        }
+                    }
                 });
-                if (longest && longest.p1 && longest.p2)
-                    this._drawPipeObjLabel(ctx, longest, hatNo, totalLen, opts, manager.pipes);
+
+                const chosen = horizBest || fallback;
+                if (chosen && chosen.p1 && chosen.p2)
+                    this._drawPipeObjLabel(ctx, chosen, hatNo, totalLen, opts, manager.pipes);
             });
         }
 
@@ -512,6 +560,11 @@ export const LabelMixin = {
             cap     || null,
         ].filter(Boolean);
 
+        // Açıklama metni — boruya ait description string
+        if (pipe.description) {
+            pipe.description.trimEnd().split('\n').forEach(line => infoLines.push(line.trimEnd()));
+        }
+
         // 300 mbar → kırmızı
         const numColor = pipeNum >= 301 ? '#ef4444' : accentColor;
 
@@ -697,6 +750,13 @@ export const LabelMixin = {
             lines.push({ text: [aboneAdi, aboneNo].filter(Boolean).join(' - '), sub: true });
         }
 
+        // Açıklama metni
+        if (comp.description) {
+            comp.description.trimEnd().split('\n').forEach(line => {
+                lines.push({ text: line.trimEnd() || ' ', sub: true });
+            });
+        }
+
         if (lines.length === 0) return;
 
         // Sayacın alt-merkezi
@@ -754,6 +814,13 @@ export const LabelMixin = {
             if (toplamDebi > 0) lines.push({ text: `Toplam Debi: ${toplamDebi.toFixed(2)} m³/h`, sub: true });
         }
 
+        // Açıklama metni
+        if (comp.description) {
+            comp.description.trimEnd().split('\n').forEach(line => {
+                lines.push({ text: line.trimEnd() || ' ', sub: true });
+            });
+        }
+
         if (lines.length === 0) return;
 
         // Vana açısına dik yönde konumlandır
@@ -801,6 +868,13 @@ export const LabelMixin = {
                        : '';
         if (yonLabel) lines.push({ text: yonLabel, sub: true });
 
+        // Açıklama metni
+        if (comp.description) {
+            comp.description.trimEnd().split('\n').forEach(line => {
+                lines.push({ text: line.trimEnd() || ' ', sub: true });
+            });
+        }
+
         // Kutunun alt-merkezi
         const cx = sc.x + SERVIS_KUTUSU_CONFIG.width / 2;
         const cy = sc.y + SERVIS_KUTUSU_CONFIG.height / 2;
@@ -838,6 +912,13 @@ export const LabelMixin = {
 
         } else {
             return;
+        }
+
+        // Açıklama metni
+        if (comp.description) {
+            comp.description.trimEnd().split('\n').forEach(line => {
+                lines.push({ text: line.trimEnd() || ' ', sub: true });
+            });
         }
 
         if (lines.length === 0) return;
@@ -893,8 +974,8 @@ export const LabelMixin = {
 
         const lines = [
             { text: 'TOPRAKLAMA', bold: true },
-            { text: 'Bakır Çubuk - 1.5m', sub: true },
-            { text: 'ø:16mm', sub: true },
+            { text: 'Bakır Çubuk', sub: true },
+            { text: 'ø:16mm - L:1.5m', sub: true },
         ];
 
         const pad  = fontSize * 0.5;

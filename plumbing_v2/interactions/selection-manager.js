@@ -78,6 +78,9 @@ export function selectObject(interactionManager, obj) {
     if (!interactionManager.isDragging || !interactionManager.dragEndpoint) {
         interactionManager.selectedEndpoint = null;
     }
+    // Resize girişini temizle
+    interactionManager.pipeResizeInput = '';
+    interactionManager.pipeResizeActive = false;
     interactionManager.selectedObject = obj;
     obj.isSelected = true;
 
