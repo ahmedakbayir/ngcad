@@ -83,6 +83,27 @@ import {
     findVerticalPipeChain
 } from './finders.js';
 
+/**
+ * İki 2D segmentin GERÇEK kesişimini kontrol eder (paylaşılan uç noktalar hariç).
+ */
+function _segmentsProperlyIntersect2D(a1, a2, b1, b2) {
+    const EPSILON = 1.5; // cm — paylaşılan uç nokta toleransı
+    if (Math.hypot(a1.x - b1.x, a1.y - b1.y) < EPSILON) return false;
+    if (Math.hypot(a1.x - b2.x, a1.y - b2.y) < EPSILON) return false;
+    if (Math.hypot(a2.x - b1.x, a2.y - b1.y) < EPSILON) return false;
+    if (Math.hypot(a2.x - b2.x, a2.y - b2.y) < EPSILON) return false;
+
+    const cross = (o, a, b) =>
+        (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+    const d1 = cross(b1, b2, a1);
+    const d2 = cross(b1, b2, a2);
+    const d3 = cross(a1, a2, b1);
+    const d4 = cross(a1, a2, b2);
+
+    return (d1 * d2 < 0 && d3 * d4 < 0);
+}
+
 // Tool modları
 export const TESISAT_MODLARI = {
     NONE: null,
@@ -193,6 +214,87 @@ export class InteractionManager {
         this.cutPipesOriginalIds = null; // Kesilen pipe'ların orijinal ID'leri
         this.pastePreviewPipes = null; // Yapıştırma preview'ı
         this.pastePreviewComponents = null; // Yapıştırma preview bileşenleri
+        this.pasteSnapPoint = null; // Aktif yapıştırma snap noktası { x, y, z, type, hasConflict }
+    }
+
+    /**
+     * Yapıştırma modu için en yakın geçerli snap noktasını bul.
+     * Hem uç noktalara hem boru gövdesine yapıştırılabilir.
+     * Kes modunda kesilen boruların orijinal konumları hariç tutulur.
+     * Kesişim varsa hasConflict=true döner.
+     */
+    _findPasteSnapPoint(point) {
+        const pasteData = this.cutPipes || this.copiedPipes;
+        if (!pasteData) return null;
+
+        const isCut = !!this.cutPipes;
+        const excludeIds = isCut
+            ? new Set(this.cutPipesOriginalIds?.pipeIds || [])
+            : new Set();
+
+        const TOLERANCE = 20; // cm — snap yakalama mesafesi
+        let best = null;
+        let bestDist = TOLERANCE;
+
+        for (const pipe of this.manager.pipes) {
+            if (excludeIds.has(pipe.id)) continue;
+
+            // P1 uç noktası
+            const d1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
+            if (d1 < bestDist) {
+                bestDist = d1;
+                best = { x: pipe.p1.x, y: pipe.p1.y, z: pipe.p1.z || 0, type: 'endpoint', pipeId: pipe.id };
+            }
+
+            // P2 uç noktası
+            const d2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
+            if (d2 < bestDist) {
+                bestDist = d2;
+                best = { x: pipe.p2.x, y: pipe.p2.y, z: pipe.p2.z || 0, type: 'endpoint', pipeId: pipe.id };
+            }
+
+            // Gövde üzeri (projeksiyon) — uçlardan %5 uzakta kalmak şartıyla
+            const ddx = pipe.p2.x - pipe.p1.x;
+            const ddy = pipe.p2.y - pipe.p1.y;
+            const len2 = ddx * ddx + ddy * ddy;
+            if (len2 > 0.01) {
+                const tBody = ((point.x - pipe.p1.x) * ddx + (point.y - pipe.p1.y) * ddy) / len2;
+                if (tBody > 0.05 && tBody < 0.95) {
+                    const projX = pipe.p1.x + tBody * ddx;
+                    const projY = pipe.p1.y + tBody * ddy;
+                    const projZ = (pipe.p1.z || 0) + tBody * ((pipe.p2.z || 0) - (pipe.p1.z || 0));
+                    const dist = Math.hypot(point.x - projX, point.y - projY);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        best = { x: projX, y: projY, z: projZ, type: 'body', pipeId: pipe.id };
+                    }
+                }
+            }
+        }
+
+        if (!best) return null;
+
+        // Kesişim kontrolü: yapıştırılacak borular mevcut borularla çakışıyor mu?
+        const ddx = best.x - (pasteData.referencePoint.x);
+        const ddy = best.y - (pasteData.referencePoint.y);
+        const ddz = best.z - (pasteData.referencePoint.z || 0);
+
+        let hasConflict = false;
+        outer: for (const pipeData of pasteData.pipes) {
+            const np1 = { x: pipeData.p1.x + ddx, y: pipeData.p1.y + ddy };
+            const np2 = { x: pipeData.p2.x + ddx, y: pipeData.p2.y + ddy };
+
+            for (const existing of this.manager.pipes) {
+                if (excludeIds.has(existing.id)) continue;
+                if (_segmentsProperlyIntersect2D(np1, np2, existing.p1, existing.p2)) {
+                    hasConflict = true;
+                    break outer;
+                }
+            }
+        }
+
+        best.hasConflict = hasConflict;
+        return best;
     }
 
     /**

@@ -728,19 +728,64 @@ drawSayacGhostConnection(ctx, ghost, manager) {
         }
 
         const isCut = !!interactionManager.cutPipes;
+        const snap = interactionManager.pasteSnapPoint; // { x, y, z, type, hasConflict } veya null
 
-        // Referans noktasından mouse'a olan farkı hesapla
-        const dx = interactionManager.lastMousePoint.x - pasteData.referencePoint.x;
-        const dy = interactionManager.lastMousePoint.y - pasteData.referencePoint.y;
-        const dz = (interactionManager.lastMousePoint.z || 0) - (pasteData.referencePoint.z || 0);
+        // Ghost konumunu belirle: snap noktası varsa ona, yoksa mouse'a
+        const refPt = snap
+            ? { x: snap.x, y: snap.y, z: snap.z || 0 }
+            : interactionManager.lastMousePoint;
+
+        const dx = refPt.x - pasteData.referencePoint.x;
+        const dy = refPt.y - pasteData.referencePoint.y;
+        const dz = (refPt.z || 0) - (pasteData.referencePoint.z || 0);
 
         const t = state.viewBlendFactor || 0;
         const zoom = state.zoom || 1;
 
+        // Renk durumu: çakışma varsa kırmızı, snap varsa yeşil, yoksa nötr
+        const hasSnap = !!snap;
+        const hasConflict = snap?.hasConflict;
+
         ctx.save();
 
-        // Ghost alpha (Cut için daha soluk)
-        ctx.globalAlpha = isCut ? 0.4 : 0.6;
+        // 0. Snap göstergesi — yaklaşılabilir noktada büyük halka
+        if (hasSnap) {
+            ctx.globalAlpha = 1.0;
+            const snapScreenX = snap.x + (snap.z || 0) * t;
+            const snapScreenY = snap.y - (snap.z || 0) * t;
+            const snapColor = hasConflict ? '#FF4444' : '#44FF88';
+            const snapR = snap.type === 'endpoint' ? 8 / zoom : 6 / zoom;
+
+            ctx.strokeStyle = snapColor;
+            ctx.lineWidth = 2.5 / zoom;
+            ctx.beginPath();
+            ctx.arc(snapScreenX, snapScreenY, snapR, 0, Math.PI * 2);
+            ctx.stroke();
+
+            if (!hasConflict) {
+                // İçi dolu küçük nokta — "tıklanabilir" işareti
+                ctx.fillStyle = snapColor;
+                ctx.beginPath();
+                ctx.arc(snapScreenX, snapScreenY, 2.5 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Çakışma: çarpı
+                ctx.strokeStyle = '#FF4444';
+                ctx.lineWidth = 2 / zoom;
+                const s = 5 / zoom;
+                ctx.beginPath();
+                ctx.moveTo(snapScreenX - s, snapScreenY - s);
+                ctx.lineTo(snapScreenX + s, snapScreenY + s);
+                ctx.moveTo(snapScreenX + s, snapScreenY - s);
+                ctx.lineTo(snapScreenX - s, snapScreenY + s);
+                ctx.stroke();
+            }
+        }
+
+        // Ghost alpha: snap + geçerli → opak; snap yok → soluk
+        ctx.globalAlpha = hasSnap && !hasConflict
+            ? (isCut ? 0.55 : 0.75)
+            : 0.25;
 
         // 1. Boruları çiz
         for (const pipeData of pasteData.pipes) {
@@ -755,32 +800,33 @@ drawSayacGhostConnection(ctx, ghost, manager) {
                 z: (pipeData.p2.z || 0) + dz
             };
 
-            // 3D offset uygula
             const p1ScreenX = p1.x + (p1.z * t);
             const p1ScreenY = p1.y - (p1.z * t);
             const p2ScreenX = p2.x + (p2.z * t);
             const p2ScreenY = p2.y - (p2.z * t);
 
-            // Boru rengi (colorGroup'a göre)
             const renkGruplari = getRenkGruplari();
             const colorGroup = renkGruplari[pipeData.colorGroup] || renkGruplari.YELLOW;
-            ctx.strokeStyle = colorGroup.boru.replace('{opacity}', '0.8');
+
+            // Çakışma varsa kırmızı çiz
+            if (hasConflict) {
+                ctx.strokeStyle = 'rgba(255,60,60,0.85)';
+            } else {
+                ctx.strokeStyle = colorGroup.boru.replace('{opacity}', '0.85');
+            }
             ctx.lineWidth = 4;
 
-            // Kesikli çizgi (Cut için)
-            if (isCut) {
-                ctx.setLineDash([10, 5]);
-            }
+            if (isCut) ctx.setLineDash([10, 5]);
 
             ctx.beginPath();
             ctx.moveTo(p1ScreenX, p1ScreenY);
             ctx.lineTo(p2ScreenX, p2ScreenY);
             ctx.stroke();
-
             ctx.setLineDash([]);
 
-            // Uç noktaları
-            ctx.fillStyle = colorGroup.boru.replace('{opacity}', '1');
+            ctx.fillStyle = hasConflict
+                ? 'rgba(255,60,60,1)'
+                : colorGroup.boru.replace('{opacity}', '1');
             ctx.beginPath();
             ctx.arc(p1ScreenX, p1ScreenY, 3 / zoom, 0, Math.PI * 2);
             ctx.fill();
@@ -797,11 +843,8 @@ drawSayacGhostConnection(ctx, ghost, manager) {
                     y: compData.data.y + dy,
                     z: (compData.data.z || 0) + dz
                 };
-
                 const screenX = vanaPos.x + (vanaPos.z * t);
                 const screenY = vanaPos.y - (vanaPos.z * t);
-
-                // Basit vana gösterimi
                 ctx.fillStyle = 'rgba(0, 191, 250, 0.6)';
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, 4 / zoom, 0, Math.PI * 2);
@@ -813,11 +856,8 @@ drawSayacGhostConnection(ctx, ghost, manager) {
                     y: compData.data.y + dy,
                     z: (compData.data.z || 0) + dz
                 };
-
                 const screenX = sayacPos.x + (sayacPos.z * t);
                 const screenY = sayacPos.y - (sayacPos.z * t);
-
-                // Basit sayaç gösterimi
                 ctx.fillStyle = 'rgba(50, 200, 50, 0.6)';
                 ctx.fillRect(screenX - 10 / zoom, screenY - 6 / zoom, 20 / zoom, 12 / zoom);
             }
@@ -827,32 +867,36 @@ drawSayacGhostConnection(ctx, ghost, manager) {
                     y: compData.data.y + dy,
                     z: (compData.data.z || 0) + dz
                 };
-
                 const screenX = cihazPos.x + (cihazPos.z * t);
                 const screenY = cihazPos.y - (cihazPos.z * t);
-
-                // Basit cihaz gösterimi
                 ctx.fillStyle = 'rgba(255, 150, 50, 0.6)';
                 ctx.fillRect(screenX - 15 / zoom, screenY - 15 / zoom, 30 / zoom, 30 / zoom);
             }
         }
 
-        // 3. "Kopyala/Kes" etiketi
-        const labelText = isCut ? '✂️ Kesilen Parçalar (CTRL+V ile yapıştır)' : '📋 Kopyalanan Parçalar (CTRL+V ile yapıştır)';
-        const labelX = interactionManager.lastMousePoint.x;
-        const labelY = interactionManager.lastMousePoint.y - 30 / zoom;
+        // 3. Durum etiketi
+        let labelText;
+        if (hasSnap && hasConflict) {
+            labelText = isCut ? '✂ Çakışma — başka yer seçin' : '⎘ Çakışma — başka yer seçin';
+        } else if (hasSnap) {
+            labelText = isCut ? '✂ Tıkla: yapıştır' : '⎘ Tıkla: yapıştır';
+        } else {
+            labelText = isCut ? '✂ Yapıştırılabilir bir noktaya yaklaşın' : '⎘ Yapıştırılabilir bir noktaya yaklaşın';
+        }
 
-        const labelScreenX = labelX + ((interactionManager.lastMousePoint.z || 0) * t);
-        const labelScreenY = labelY - ((interactionManager.lastMousePoint.z || 0) * t);
+        const labelRefX = interactionManager.lastMousePoint.x;
+        const labelRefY = interactionManager.lastMousePoint.y - 30 / zoom;
+        const labelScreenX = labelRefX + ((interactionManager.lastMousePoint.z || 0) * t);
+        const labelScreenY = labelRefY - ((interactionManager.lastMousePoint.z || 0) * t);
 
         ctx.globalAlpha = 1.0;
-        ctx.fillStyle = '#FFFFFF';
+        const labelColor = hasConflict ? '#FF8888' : (hasSnap ? '#88FF99' : '#CCCCCC');
+        ctx.fillStyle = labelColor;
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
-        ctx.font = `${14 / zoom}px Arial`;
+        ctx.font = `bold ${14 / zoom}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-
         ctx.strokeText(labelText, labelScreenX, labelScreenY);
         ctx.fillText(labelText, labelScreenX, labelScreenY);
 

@@ -7,8 +7,7 @@ import { saveState } from '../../general-files/history.js';
 import { handlePipeCopy, handlePipeCut } from './keyboard-handler.js';
 import { findBoruGovdeAt } from './finders.js';
 import { Boru } from '../objects/pipe.js';
-import { createSayac } from '../objects/meter.js';
-import { createCihaz } from '../objects/device.js';
+import { setMode, setDrawingMode, state } from '../../general-files/main.js';
 
 let menuEl = null;
 let menuState = null; // { worldPos, pipe, nokta, t, interactionManager }
@@ -37,47 +36,16 @@ function getPipeTarget(menuState) {
     return null;
 }
 
-// ─── Yardımcı: boru yönü ve dikini hesapla ────────────────────────────────
+// ─── Ghost mod başlatma: Sayaç ────────────────────────────────────────────
 
-function getPipeDir(pipe) {
-    const dx = pipe.p2.x - pipe.p1.x;
-    const dy = pipe.p2.y - pipe.p1.y;
-    const len2d = Math.hypot(dx, dy);
-    if (len2d < 0.01) {
-        // Düşey boru: varsayılan perpendicular X yönünde
-        return { nx: 1, ny: 0, perpX: 0, perpY: -1 };
-    }
-    const nx = dx / len2d;
-    const ny = dy / len2d;
-    return { nx, ny, perpX: -ny, perpY: nx };
+function autoPlaceSayac(interactionManager) {
+    interactionManager.cancelCurrentAction();
+    if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
+    interactionManager.manager.startPlacement('sayac');
+    setMode("plumbingV2", true);
 }
 
-// ─── Otomatik Yerleştirme: Sayaç ──────────────────────────────────────────
-
-function autoPlaceSayac(interactionManager, pipe) {
-    saveState();
-    const manager = interactionManager.manager;
-    const p2 = pipe.p2;
-    const { perpX, perpY } = getPipeDir(pipe);
-    const FLEKS = 15; // cm
-
-    const sayac = createSayac(
-        p2.x + perpX * FLEKS,
-        p2.y + perpY * FLEKS,
-        { z: p2.z || 0, floorId: pipe.floorId }
-    );
-    sayac.ghostConnectionInfo = {
-        boruUcu: { boruId: pipe.id, uc: 'p2', nokta: p2, boru: pipe },
-        girisNoktasi: p2
-    };
-    sayac.z = p2.z || 0;
-    sayac.rotation = pipe.aciDerece || 0;
-
-    const success = interactionManager.handleSayacEndPlacement(sayac);
-    if (success) manager.saveToState();
-}
-
-// ─── Otomatik Yerleştirme: İniş + Sayaç ──────────────────────────────────
+// ─── İniş + Ghost mod: Sayaç ─────────────────────────────────────────────
 
 function placeInisVeSayac(interactionManager, pipe) {
     saveState();
@@ -93,48 +61,25 @@ function placeInisVeSayac(interactionManager, pipe) {
     inisBoru.colorGroup = pipe.colorGroup || 'YELLOW';
     inisBoru.floorId = pipe.floorId;
     manager.pipes.push(inisBoru);
+    manager.saveToState();
 
-    // İniş borusunun ucuna sayaç ekle (X yönünde ofset — düşey boru)
-    const inisP2 = inisBoru.p2;
-    const FLEKS = 15;
-    const sayac = createSayac(
-        inisP2.x + FLEKS,
-        inisP2.y,
-        { z: inisP2.z || 0, floorId: pipe.floorId }
-    );
-    sayac.ghostConnectionInfo = {
-        boruUcu: { boruId: inisBoru.id, uc: 'p2', nokta: inisP2, boru: inisBoru },
-        girisNoktasi: inisP2
-    };
-    sayac.z = inisP2.z || 0;
-
-    const success = interactionManager.handleSayacEndPlacement(sayac);
-    if (success) manager.saveToState();
+    // İniş eklendi, şimdi kullanıcı mouse ile sayacı yerleştirsin
+    interactionManager.cancelCurrentAction();
+    if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
+    manager.startPlacement('sayac');
+    setMode("plumbingV2", true);
 }
 
-// ─── Otomatik Yerleştirme: Cihaz ──────────────────────────────────────────
+// ─── Ghost mod başlatma: Cihaz ────────────────────────────────────────────
 
-function autoPlaceCihaz(interactionManager, pipe, cihazTipi) {
-    const p2 = pipe.p2;
-    const { perpX, perpY } = getPipeDir(pipe);
-    const OFFSET = 20; // cm
-
-    const cihaz = createCihaz(
-        p2.x + perpX * OFFSET,
-        p2.y + perpY * OFFSET,
-        cihazTipi,
-        { z: p2.z || 0, floorId: pipe.floorId }
-    );
-    cihaz.ghostConnectionInfo = {
-        boruUcu: { boruId: pipe.id, uc: 'p2', nokta: p2, boru: pipe },
-        girisNoktasi: p2
-    };
-    cihaz.z = p2.z || 0;
-
-    interactionManager.handleCihazEkleme(cihaz);
+function autoPlaceCihaz(interactionManager, cihazTipi) {
+    interactionManager.cancelCurrentAction();
+    if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
+    interactionManager.manager.startPlacement('cihaz', { cihazTipi });
+    setMode("plumbingV2", true);
 }
 
-// ─── Otomatik Yerleştirme: İniş + Cihaz ──────────────────────────────────
+// ─── İniş + Ghost mod: Cihaz ─────────────────────────────────────────────
 
 function placeInisVeCihaz(interactionManager, pipe, cihazTipi) {
     saveState();
@@ -150,23 +95,13 @@ function placeInisVeCihaz(interactionManager, pipe, cihazTipi) {
     inisBoru.colorGroup = pipe.colorGroup || 'YELLOW';
     inisBoru.floorId = pipe.floorId;
     manager.pipes.push(inisBoru);
+    manager.saveToState();
 
-    // İniş borusunun ucuna cihaz ekle (X yönünde ofset — düşey boru)
-    const inisP2 = inisBoru.p2;
-    const OFFSET = 20;
-    const cihaz = createCihaz(
-        inisP2.x + OFFSET,
-        inisP2.y,
-        cihazTipi,
-        { z: inisP2.z || 0, floorId: pipe.floorId }
-    );
-    cihaz.ghostConnectionInfo = {
-        boruUcu: { boruId: inisBoru.id, uc: 'p2', nokta: inisP2, boru: inisBoru },
-        girisNoktasi: inisP2
-    };
-    cihaz.z = inisP2.z || 0;
-
-    interactionManager.handleCihazEkleme(cihaz);
+    // İniş eklendi, şimdi kullanıcı mouse ile cihazı yerleştirsin
+    interactionManager.cancelCurrentAction();
+    if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
+    manager.startPlacement('cihaz', { cihazTipi });
+    setMode("plumbingV2", true);
 }
 
 // ─── Menü init ─────────────────────────────────────────────────────────────
@@ -199,17 +134,6 @@ function initMenu() {
         hide();
     });
 
-    // ── Yapıştır ───────────────────────────────────────────────────────────
-    // worldPos'a (sağ tık noktasına) yapıştır
-    document.getElementById('plumbing-btn-paste').addEventListener('click', () => {
-        if (!menuState) return;
-        const { worldPos, interactionManager } = menuState;
-        interactionManager._pasteSnapOverride = worldPos;
-        interactionManager.handlePipePaste();
-        interactionManager._pasteSnapOverride = null;
-        hide();
-    });
-
     // ── Hattı Böl ──────────────────────────────────────────────────────────
     document.getElementById('plumbing-btn-split').addEventListener('click', () => {
         if (!menuState) return;
@@ -238,15 +162,14 @@ function initMenu() {
         });
     });
 
-    // ── Sayaç — P2 ucuna otomatik ekle ────────────────────────────────────
+    // ── Sayaç — ghost mod başlat ───────────────────────────────────────────
     document.getElementById('plumbing-sayac-DIREKT')?.addEventListener('click', () => {
         if (!menuState) return;
-        const pipe = getPipeTarget(menuState);
-        if (pipe) autoPlaceSayac(menuState.interactionManager, pipe);
+        autoPlaceSayac(menuState.interactionManager);
         hide();
     });
 
-    // ── İniş + Sayaç — P2 ucuna iniş + sayaç otomatik ekle ───────────────
+    // ── İniş + Sayaç — iniş ekle, sonra ghost mod ─────────────────────────
     document.getElementById('plumbing-inis-SAYAC')?.addEventListener('click', () => {
         if (!menuState) return;
         const pipe = getPipeTarget(menuState);
@@ -254,17 +177,16 @@ function initMenu() {
         hide();
     });
 
-    // ── Cihaz — P2 ucuna otomatik ekle ────────────────────────────────────
+    // ── Cihaz — ghost mod başlat ───────────────────────────────────────────
     ['KOMBI', 'OCAK'].forEach(tip => {
         document.getElementById(`plumbing-cihaz-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
-            const pipe = getPipeTarget(menuState);
-            if (pipe) autoPlaceCihaz(menuState.interactionManager, pipe, tip);
+            autoPlaceCihaz(menuState.interactionManager, tip);
             hide();
         });
     });
 
-    // ── İniş + Cihaz — P2 ucuna iniş + cihaz otomatik ekle ───────────────
+    // ── İniş + Cihaz — iniş ekle, sonra ghost mod ─────────────────────────
     ['KOMBI', 'OCAK'].forEach(tip => {
         document.getElementById(`plumbing-inis-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
@@ -290,10 +212,8 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
 
     menuState = { worldPos, pipe, nokta, t, interactionManager };
 
-    const hasPaste = !!(interactionManager.copiedPipes || interactionManager.cutPipes);
     const hasPipe = !!getPipeTarget(menuState);
 
-    document.getElementById('plumbing-btn-paste').disabled = !hasPaste;
     document.getElementById('plumbing-btn-cut').disabled = !hasPipe;
     document.getElementById('plumbing-btn-copy').disabled = !hasPipe;
     document.getElementById('plumbing-btn-split').disabled = !pipe; // Böl sadece gövdeye tıklanınca
@@ -307,13 +227,25 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
         const r = menuEl.getBoundingClientRect();
         if (r.right  > window.innerWidth  - 8) menuEl.style.left = `${window.innerWidth  - r.width  - 8}px`;
         if (r.bottom > window.innerHeight - 8) menuEl.style.top  = `${window.innerHeight - r.height - 8}px`;
+
+        // Alt menülerin ekran dışına çıkmaması: menü sağ yarıdaysa solda aç
+        const r2 = menuEl.getBoundingClientRect();
+        if (r2.left + r2.width / 2 > window.innerWidth / 2) {
+            menuEl.classList.add('submenu-flip-left');
+        } else {
+            menuEl.classList.remove('submenu-flip-left');
+        }
     });
 
+    // click-outside: once:true kullanmıyoruz; menü içi tıklamalarda listener kaybolmasın
+    if (clickOutsideListener) {
+        window.removeEventListener('pointerdown', clickOutsideListener, { capture: true });
+    }
     setTimeout(() => {
         clickOutsideListener = (ev) => {
             if (menuEl && !menuEl.contains(ev.target)) hide();
         };
-        window.addEventListener('pointerdown', clickOutsideListener, { capture: true, once: true });
+        window.addEventListener('pointerdown', clickOutsideListener, { capture: true });
     }, 0);
 }
 

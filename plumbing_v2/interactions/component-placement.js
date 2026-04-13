@@ -502,7 +502,10 @@ export function handleSayacEndPlacement(meter) {
     }
 
     // T JUNCTION KONTROLÜ: Sayaç sadece gerçek uçlara bağlanabilir, T noktasına değil
-    if (!this.isFreeEndpoint(boruUcu.nokta, 5)) {
+    // NOT: isTrulyFreeEndpoint 3D mesafe kullanır — 2D'de iniş borusu gibi dikey boruların
+    //       alt ucu ekran üst ucuyla aynı pikselde görünse de 3D'de ayrı oldukları için
+    //       doğru şekilde serbest uç olarak tanınır.
+    if (!this.manager.isTrulyFreeEndpoint(boruUcu.nokta, 5)) {
         // console.error('[handleSayacEndPlacement] ✗ T-junction kontrolü başarısız!');
         // alert('⚠️ Sayaç T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
         return false;
@@ -628,7 +631,10 @@ export function handleCihazEkleme(cihaz) {
     }
 
     // T JUNCTION KONTROLÜ: Cihaz sadece gerçek uçlara bağlanabilir, T noktasına değil
-    if (!this.isFreeEndpoint(boruUcu.nokta, 5)) {
+    // NOT: isTrulyFreeEndpoint 3D mesafe kullanır — 2D'de iniş borusu gibi dikey boruların
+    //       alt ucu ekran üst ucuyla aynı pikselde görünse de 3D'de ayrı oldukları için
+    //       doğru şekilde serbest uç olarak tanınır.
+    if (!this.manager.isTrulyFreeEndpoint(boruUcu.nokta, 5)) {
         // console.error('[handleCihazEkleme] ✗ T-junction kontrolü başarısız!');
         // alert('⚠️ Cihaz T-bağlantısına yerleştirilemez!\n\nLütfen serbest bir hat ucuna yerleştirin.');
         return false;

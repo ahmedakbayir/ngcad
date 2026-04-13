@@ -1003,6 +1003,7 @@ body.light-mode .btn.active svg {
     display: none;
     position: absolute;
     left: calc(100% - 4px);
+    right: auto;
     top: -5px;
     background-color: var(--bg-popup);
     border: 1px solid var(--border-button);
@@ -1010,8 +1011,14 @@ body.light-mode .btn.active svg {
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     padding: 5px;
     min-width: 180px;
-    z-index: 201;
+    z-index: 2001;
     pointer-events: auto;
+}
+
+/* Menü sağ yarıdaysa alt menüleri sola aç */
+#plumbing-context-menu.submenu-flip-left .context-submenu {
+    left: auto;
+    right: calc(100% - 4px);
 }
 
 .context-menu-item-with-submenu:hover .context-submenu,

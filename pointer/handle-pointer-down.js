@@ -47,20 +47,17 @@ export function handlePointerDown(e) {
 
     //console.log('[POINTER DOWN] activeTool:', this.manager.activeTool, 'tempComponent:', this.manager.tempComponent?.type);
 
-    // ─── Yapıştırma modu: sol tık ile yapıştır ────────────────────────────
-    // Kes/Kopyala sonrası, çizim modu dışında sol tıklanırsa yapıştır
+    // ─── Yapıştırma modu: geçerli snap noktasına tıklanınca yapıştır ──────
+    // Kes/Kopyala sonrası, çizim modu dışında geçerli snap noktasına sol tıklanırsa yapıştır
     if (e.button === 0 && (this.cutPipes || this.copiedPipes) && !this.boruCizimAktif && !this.manager.activeTool) {
-        // Endpoint snap varsa onu kullan (boru ucuna doğru yapıştırma)
-        if (this.activeSnap) {
-            this._pasteSnapOverride = {
-                x: this.activeSnap.x,
-                y: this.activeSnap.y,
-                z: this.lastMousePoint?.z || 0
-            };
+        const snap = this.pasteSnapPoint;
+        if (snap && !snap.hasConflict) {
+            this._pasteSnapOverride = { x: snap.x, y: snap.y, z: snap.z || 0 };
+            this.handlePipePaste();
+            this._pasteSnapOverride = null;
+            this.pasteSnapPoint = null;
         }
-        // handlePipePaste, _pasteSnapOverride'ı okuyacak
-        this.handlePipePaste();
-        this._pasteSnapOverride = null;
+        // Geçerli snap noktası yoksa veya çakışma varsa: yapıştırma yok
         return true;
     }
     // ─────────────────────────────────────────────────────────────────────

@@ -27,7 +27,10 @@ export function updateGhostPosition(ghost, point, snap) {
         // Z=100cm, t=1 için kayma ~141cm, tolerance en az 200cm olmalı
         const baseTolerance = 15;
         const tolerance3D = t > 0.5 ? baseTolerance * (1 + 15 * t) : baseTolerance;
-        const boruUcu = this.findBoruUcuAt(point, tolerance3D, true); // onlyFreeEndpoints = true
+        // activeSnap point yerine gerçek mouse pozisyonunu kullan (2D dikey borularda activeSnap
+        // yanlış yere çeker ve ghost kayboluyor)
+        const searchPoint = (t < 0.5 && this.lastMousePoint) ? this.lastMousePoint : point;
+        const boruUcu = this.findBoruUcuAt(searchPoint, tolerance3D, true); // onlyFreeEndpoints = true
 
         if (boruUcu && boruUcu.boru) {
             // Cihaz rotation'u sabit - tutamacı her zaman kuzeyde
@@ -142,7 +145,9 @@ export function updateGhostPosition(ghost, point, snap) {
         // Z=100cm, t=1 için kayma ~141cm, tolerance en az 200cm olmalı
         const baseTolerance = 15;
         const tolerance3D = t > 0.5 ? baseTolerance * (1 + 15 * t) : baseTolerance;
-        const boruUcu = this.findBoruUcuAt(point, tolerance3D, true);
+        // activeSnap point yerine gerçek mouse pozisyonunu kullan (2D dikey borularda snap kayması)
+        const searchPoint = (t < 0.5 && this.lastMousePoint) ? this.lastMousePoint : point;
+        const boruUcu = this.findBoruUcuAt(searchPoint, tolerance3D, true);
 
         if (boruUcu && boruUcu.boru) {
             const boru = boruUcu.boru;

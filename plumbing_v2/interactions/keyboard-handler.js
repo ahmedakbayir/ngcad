@@ -6,6 +6,7 @@
 import { setMode, setState, setDrawingMode, state } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
 import { handleBoruClick } from './pipe-drawing.js';
+import { draw2D } from '../../draw/draw2d.js';
 import { collectDownstreamNodes, collectDownstreamPipes } from './drag-handler.js';
 import { translateLabel, clearLabelAutoPos } from '../renderer/renderer-labels.js';
 import { Boru } from '../objects/pipe.js';
@@ -384,16 +385,26 @@ export function handleKeyDown(e) {
 
     // CTRL+C - Kopyala (seçili boru ve sonrasındaki tüm parçaları)
     if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
-        if (this.selectedObject && this.selectedObject.type === 'boru') {
+        // this.selectedObject yoksa state.selectedObject'ten al
+        const selForCopy = this.selectedObject ||
+            (state.selectedObject?.object?.type === 'boru' ? state.selectedObject.object : null);
+        if (selForCopy && selForCopy.type === 'boru') {
+            if (!this.selectedObject) this.selectedObject = selForCopy;
             handlePipeCopy.call(this);
+            draw2D();
             return true;
         }
     }
 
     // CTRL+X - Kes (seçili boru ve sonrasındaki tüm parçaları)
     if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
-        if (this.selectedObject && this.selectedObject.type === 'boru') {
+        // this.selectedObject yoksa state.selectedObject'ten al
+        const selForCut = this.selectedObject ||
+            (state.selectedObject?.object?.type === 'boru' ? state.selectedObject.object : null);
+        if (selForCut && selForCut.type === 'boru') {
+            if (!this.selectedObject) this.selectedObject = selForCut;
             handlePipeCut.call(this);
+            draw2D();
             return true;
         }
     }
