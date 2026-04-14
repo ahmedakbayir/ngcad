@@ -2,7 +2,7 @@
 // Son Güncelleme: Sahanlık kotu (125-135) mantığı confirmStairChange ve ilgili listener'larda düzeltildi.
 import { getMinWallLength } from './actions.js';
 import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT, setMode, THEME_COLORS } from './main.js'; // THEME_COLORS eklendi
-import { saveState } from './history.js';
+import { saveState, undo, redo } from './history.js';
 import { isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { recalculateStepCount, updateConnectedStairElevations } from '../architectural-objects/stairs.js';
@@ -309,9 +309,6 @@ export function toggle3DPerspective() {
     }
     // ------------------------------------
 
-//    console.log(`[Double CTRL] Geçiş Başlıyor: ${targetIsActive ? '2D -> 3D' : '3D -> 2D'}`);
-  //  console.log(`[Double CTRL] Başlangıç viewBlendFactor: ${state.viewBlendFactor}, is3DActive: ${state.is3DPerspectiveActive}`);
-
     // Animasyon Hedefleri
     const targetBlend = targetIsActive ? 1 : 0; // 3D için 1, 2D için 0
     const targetAngle = targetIsActive ? (Math.PI / 3) : 0; // 3D için 60 derece, 2D için 0
@@ -327,8 +324,6 @@ export function toggle3DPerspective() {
         angle: orbitControls ? orbitControls.getPolarAngle() : 0
     };
 
- //   console.log(`[Double CTRL] animObj.blend başlangıç: ${animObj.blend} -> hedef: ${targetBlend}`);
-
     // 3D Kamera Hedef Pozisyonu
     const targetPos = orbitControls ? orbitControls.target.clone() : new THREE.Vector3();
     const dist = camera ? camera.position.distanceTo(targetPos) : 1000;
@@ -343,11 +338,6 @@ export function toggle3DPerspective() {
         onUpdate: () => {
             // 1. 2D Çizim Değişkenini Güncelle
             state.viewBlendFactor = animObj.blend;
-
-            // Debug: Her 10 frame'de bir log
-            if (Math.random() < 0.1) {
-   //             console.log(`[Anim] blend: ${animObj.blend.toFixed(3)}, angle: ${animObj.angle.toFixed(3)}`);
-            }
 
             // 2. 3D Kamerayı Güncelle
             if (camera && orbitControls) {
@@ -511,8 +501,6 @@ export function setupIsometricControls() {
         const newZoom = Math.max(0.1, Math.min(5, state.isoZoom * zoomDelta));
 
         // Zoom sonrası aynı world noktası mouse pozisyonunda kalmalı
-        // mouse = worldPoint * newZoom + center + newOffset
-        // newOffset = mouse - center - worldPoint * newZoom
         const newIsoPanOffset = {
             x: mouseX - centerX - worldPointX * newZoom,
             y: mouseY - centerY - worldPointY * newZoom
@@ -628,13 +616,6 @@ export function setupIsometricControls() {
             const draggedPipe = state.isoDraggedPipe;
             const draggedEndpoint = state.isoDraggedEndpoint; // 'start' veya 'end'
 
-//             console.log(`\n🎯 SÜRÜKLEME:
-//   Pipe: ${draggedPipe.id}
-//   Endpoint: ${draggedEndpoint}
-//   p1: (${draggedPipe.p1.x.toFixed(1)}, ${draggedPipe.p1.y.toFixed(1)}, ${(draggedPipe.p1.z || 0).toFixed(1)})
-//   p2: (${draggedPipe.p2.x.toFixed(1)}, ${draggedPipe.p2.y.toFixed(1)}, ${(draggedPipe.p2.z || 0).toFixed(1)})
-//   Sürüklenen nokta: ${draggedEndpoint === 'start' ? 'p1' : 'p2'}`);
-
             // toIsometric fonksiyonunu al
             const toIso = window._toIsometric || ((x, y) => ({ isoX: x, isoY: y }));
             const hierarchy = window._isoPipeHierarchy;
@@ -649,7 +630,6 @@ export function setupIsometricControls() {
 
             // draggedPipeData'yı da tanımla (child pipe taşıma için gerekli)
             const draggedPipeData = hierarchy ? hierarchy.get(draggedPipe.id) : null;
-   //         console.log(`  Hierarchy: parent=${draggedPipeData?.parent || 'none'}, children=[${draggedPipeData?.children?.join(', ') || 'none'}]`);
 
             if (draggedPipeData && draggedPipeData.parent && plumbingManager) {
                 const parentPipe = plumbingManager.pipes.find(p => {
@@ -1546,6 +1526,106 @@ export function setupUIListeners() {
         });
     }
 
+    // MAIN MENU DROPDOWN LOGIC
+    const mainMenuBtn = document.getElementById('mainMenuBtn');
+    const mainMenuContent = document.getElementById('mainMenuContent');
+
+    if (mainMenuBtn && mainMenuContent) {
+        mainMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            mainMenuBtn.parentElement.classList.toggle('show');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.main-dropdown')) {
+                const dropdowns = document.querySelectorAll('.main-dropdown.show');
+                dropdowns.forEach(d => d.classList.remove('show'));
+            }
+        });
+    }
+
+    // Geri Al İşlemi (Ctrl + Z)
+    document.getElementById('menuUndo')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+        undo();
+        draw2D();
+        if (dom.mainContainer.classList.contains('show-3d')) update3DScene();
+    });
+
+    // İleri Al İşlemi (Ctrl + Y)
+    document.getElementById('menuRedo')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+        redo();
+        draw2D();
+        if (dom.mainContainer.classList.contains('show-3d')) update3DScene();
+    });
+    // SİLME İŞLEMİ (Menüden tetiklenir)
+    document.getElementById('menuDelete')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+        document.getElementById('bDelete')?.click(); // Gizli orijinal silme butonunu tetikler
+    });
+
+    // Kaydet İşlemi (Üzerine yaz / update et)
+    document.getElementById('menuSave')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+
+        const projectNameInput = document.getElementById('projectNameInput');
+        const projectName = projectNameInput ? projectNameInput.value.trim() : 'Adsız Proje';
+
+        window.currentProjectName = projectName; // Dosya I/O tarafının kullanması için
+        window.saveAsNewFile = false; // Farklı kaydetme, update et
+
+        document.getElementById('bSave')?.click();
+    });
+
+    // Farklı Kaydet İşlemi (Yeni isimle oluştur)
+    document.getElementById('menuSaveAs')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+
+        const projectNameInput = document.getElementById('projectNameInput');
+        const currentName = projectNameInput ? projectNameInput.value.trim() : 'Adsız Proje';
+
+        const newName = prompt("Farklı Kaydet - Yeni Proje Adını Girin:", currentName);
+        if (newName && newName.trim() !== "") {
+            if (projectNameInput) projectNameInput.value = newName.trim();
+            document.title = `${newName.trim()} - AangCAD`;
+            window.currentProjectName = newName.trim();
+            window.saveAsNewFile = true; // Yeni bir kopya oluştur (save as)
+
+            document.getElementById('bSave')?.click();
+        }
+    });
+
+    // Aç İşlemi
+    document.getElementById('menuOpen')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+        document.getElementById('bOpen')?.click();
+    });
+
+    // --- PROJE ADI DÜZENLEME MANTIĞI ---
+    const projectNameInput = document.getElementById('projectNameInput');
+    if (projectNameInput) {
+        projectNameInput.addEventListener('change', (e) => {
+            const newName = e.target.value.trim() || "Adsız Proje";
+            e.target.value = newName; // Boş bırakılırsa varsayılan ile geri doldur
+            document.title = `${newName} - AangCAD`; // Tarayıcı sekme adını da güncelle
+            window.currentProjectName = newName; // Sistem için kaydet
+        });
+
+        // Enter tuşuna basıldığında odaktan çık
+        projectNameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                projectNameInput.blur();
+            }
+        });
+    }
+
     // DARK MODE TOGGLE
     dom.darkModeToggle.addEventListener("change", toggleDarkMode);
 
@@ -1714,7 +1794,7 @@ export function setupUIListeners() {
     // 3D PERSPEKTİF GÖRÜNÜM BUTONU LISTENER'I
     if (dom.b3DPerspective) {
         dom.b3DPerspective.addEventListener('change', (e) => {
-            // Eğer checkbox durumu state ile uyuşmuyorsa fonksiyonu tetikle
+            // Eğer checkbox durumu state ile uyuş নির্ভরযোগ্যsa fonksiyonu tetikle
             if (e.target.checked !== state.is3DPerspectiveActive) {
                 toggle3DPerspective();
             }
@@ -1786,7 +1866,7 @@ function setupVisibilityPanel() {
     // State'i güncelle ve sahneyi yeniden çiz
     const updateVisibility = (key, value) => {
         state.tempVisibility[key] = value;
-        
+
         // Yeniden çizim tetikle
         draw2D();
         if (dom.mainContainer.classList.contains('show-3d')) {
@@ -1834,7 +1914,7 @@ function setupVisibilityPanel() {
             }
         });
     });
-    
+
     // Başlangıç değerlerini state'ten yükle (eğer daha önce set edildiyse)
     Object.keys(ids).forEach(key => {
         const stateKeyMap = {
@@ -1854,7 +1934,7 @@ function setupVisibilityPanel() {
         const elId = ids[key];
         const stateKey = stateKeyMap[elId];
         const el = document.getElementById(elId);
-        if(el && state.tempVisibility) {
+        if (el && state.tempVisibility) {
             el.checked = state.tempVisibility[stateKey];
         }
     });

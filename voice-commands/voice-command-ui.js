@@ -210,7 +210,7 @@ export function createVoiceCommandUI() {
     // Ana mikrofon butonu (araç çubuğundaki)
     const toolbarMicBtn = document.createElement('button');
     toolbarMicBtn.id = 'voice-cmd-toolbar-btn';
-    toolbarMicBtn.className = 'voice-cmd-toolbar-btn';
+    toolbarMicBtn.className = 'voice-cmd-toolbar-btn btn';
     toolbarMicBtn.title = 'Sesli Komut Paneli';
     toolbarMicBtn.innerHTML = `
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

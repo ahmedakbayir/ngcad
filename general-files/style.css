@@ -3271,3 +3271,241 @@ body:not(.light-mode) .text-on-right {
     cursor: pointer;
 }
 .desc-opt-lbl input[type="checkbox"] { width: 12px; height: 12px; margin: 0; cursor: pointer; }
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* SOL ÜST MENÜ & PROJE ADI VE SAĞ ÜST BUTON STİLLERİ */
+/* ═══════════════════════════════════════════════════════════════ */
+
+/* Menü Kapsayıcısını Köşeye Yaslama */
+#drawing-mode-selector {
+    padding-left: 0 !important;
+}
+
+/* Ana Menü İkonu */
+.menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--color-text);
+    cursor: pointer;
+    padding: 8px 12px; /* Daha geniş tıklama alanı */
+    transition: color 0.2s ease, transform 0.1s ease;
+}
+
+.menu-btn svg {
+    width: 24px; /* İkon büyütüldü */
+    height: 24px;
+    display: block;
+}
+
+.menu-btn:hover {
+    color: var(--color-button-active);
+    transform: scale(1.1);
+    background: transparent !important;
+}
+
+/* Açılır Menü Container */
+.main-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 0; /* Köşeye tam otursun */
+    background-color: var(--bg-popup);
+    min-width: 170px; /* Genişletildi */
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+    border: 1px solid var(--border-button);
+    border-radius: 0 6px 6px 6px; /* Sol üst köşe sıfırlandı */
+    z-index: 9999;
+    overflow: hidden;
+}
+
+/* Açılır Menü İçindeki Öğeler */
+.dropdown-content a {
+    color: var(--color-text);
+    padding: 12px 16px; /* Geniş ve ferah boşluk */
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 10px; /* İkon ile metin arası mesafe artırıldı */
+    font-size: 13px; /* Font büyütüldü */
+    font-weight: 500;
+    transition: background 0.2s;
+    border-bottom: none; /* Çizgiler kaldırıldı, separator kullanılacak */
+}
+
+/* Açılır Menü İçindeki İkonlar */
+.dropdown-content a svg {
+    width: 18px; /* Öğelerin içindeki ikonlar büyütüldü */
+    height: 18px;
+}
+
+.dropdown-content a:hover {
+    background-color: var(--bg-button-hover);
+    color: var(--color-button-active);
+}
+
+/* Sil Butonu Hover Özel Rengi */
+#menuDelete:hover {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+}
+
+/* Menüyü Gösterme Sınıfı */
+.main-dropdown.show .dropdown-content {
+    display: block;
+}
+
+/* Çizgili Ayırıcılar */
+.menu-separator {
+    height: 1px;
+    background-color: var(--border-button);
+    margin: 2px 0;
+}
+
+/* Tıklanabilir Proje Adı Alanı */
+.project-name-input {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--color-text);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 8px;
+    margin: 0 2px;
+    border-radius: 4px;
+    width: 140px;
+    outline: none;
+    transition: all 0.2s ease;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.project-name-input:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.project-name-input:focus {
+    background: var(--bg-input);
+    border-color: #8ab4f8;
+    width: 200px;
+}
+
+body.light-mode .project-name-input:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .project-name-input:focus {
+    background: #fff;
+    color: #000;
+}
+
+/* Üst Butonları Ferah ve Hizalı Yapma (1 Numaralı Resim Gibi) */
+#viewing-mode-selector .mode-btn, 
+#drawing-mode-selector .mode-btn {
+    padding: 8px 16px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Özellikler Butonu Özel Düzeltme */
+.btn-properties {
+    letter-spacing: 0.2px;
+}
+
+/* 2D/3D Toggle Düğmesini Hizalama */
+.toggle-dynamic-wrapper {
+    margin-left: 4px;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* ÜST BAR İNCELTME VE DENGELİ SARKMA (OVERHANG) AYARLARI */
+/* ═══════════════════════════════════════════════════════════════ */
+
+/* Ana çizim alanının üst boşluğunu azaltarak "Üst Barı" inceltiyoruz */
+.main {
+    margin-top: 42px !important; 
+    height: calc(100vh - 38px) !important;
+}
+
+/* Sol ve Sağ menü kapsayıcılarının boylarını eşitleyip aşağı sarkıtıyoruz */
+#drawing-mode-selector, 
+#viewing-mode-selector {
+    height: 42px !important; /* Bar 38px, Kutu 48px -> 10px aşağı sarkar */
+    box-sizing: border-box;
+    display: flex;
+    align-items: center !important; /* İçerikleri tam dikey ortalar */
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+#drawing-mode-selector {
+    padding-left: 0 !important; /* Menü ikonu tam sola dayalı kalsın */
+}
+
+/* Menü içindeki tüm buton ve kutuların yüksekliklerini 32px'e eşitliyoruz */
+.menu-btn, 
+.project-name-input, 
+#viewing-mode-selector .mode-btn, 
+#drawing-mode-selector .mode-btn, 
+.toggle-dynamic-wrapper {
+    height: 32px !important;
+    box-sizing: border-box;
+    margin-top: 0 !important; 
+    margin-bottom: 0 !important;
+}
+
+/* Menü Butonu (Sol Baştaki İkon) Düzeltmesi */
+.menu-btn {
+    padding: 0 12px !important;
+    display: flex !important;
+    align-items: center !important;
+}
+.menu-btn svg {
+    width: 22px !important;
+    height: 22px !important;
+}
+
+/* Proje Adı Input Düzeltmesi */
+.project-name-input {
+    margin-left: 8px !important;
+    margin-right: 8px !important;
+    line-height: 32px !important;
+    padding: 0 8px !important;
+}
+
+/* Ayırıcı Çizgilerin (Separator) Boyunu Eşitleme */
+.viewing-separator {
+    height: 24px !important; /* Çizgiler çok uzun olmasın */
+    align-self: center !important;
+    margin: 0 4px !important;
+}
+
+/* 2D/3D Toggle Düğmesinin Yüksekliğini Diğerleriyle Eşitleme */
+.toggle-dynamic-label {
+    height: 32px !important;
+    margin: 0 !important;
+}
+.toggle-dynamic-circle {
+    top: 4px !important; /* 32px yüksekliğe tam oturtmak için */
+    width: 24px !important;
+    height: 24px !important;
+}

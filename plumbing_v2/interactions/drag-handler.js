@@ -207,6 +207,21 @@ export function startDrag(interactionManager, obj, point) {
             );
             // Çıkış noktasına bağlı düşey boruların diğer uçları
             interactionManager.verticalOtherEndsOutput = findVerticalConnectedOtherEnds(interactionManager.manager, boru.p1, boru);
+            // Kutuya doğrudan bağlı borunun dikey olup olmadığını tespit et
+            const d2d = Math.hypot(boru.p2.x - boru.p1.x, boru.p2.y - boru.p1.y);
+            interactionManager.servisKutusuBoruIsVertical = d2d < VERTICAL_2D_THRESHOLD;
+            // Dikey borunun diğer ucundaki (boru.p2) downstream borularını tespit et.
+            // Elbow kontrolünde bunlar atlanmalı — kutunun kendi pipeline'ının parçasıdır.
+            if (interactionManager.servisKutusuBoruIsVertical) {
+                interactionManager.servisKutusuDownstreamIds = new Set(
+                    findPipesAtPoint(
+                        interactionManager.manager.pipes, boru.p2, boru,
+                        TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE
+                    ).map(c => c.pipe.id)
+                );
+            } else {
+                interactionManager.servisKutusuDownstreamIds = null;
+            }
         }
     }
 
@@ -230,6 +245,10 @@ export function startDrag(interactionManager, obj, point) {
                 if (distToP2 < TESISAT_CONSTANTS.CONNECTED_PIPES_TOLERANCE) outputConnectedPipes.push({ pipe: p, endpoint: 'p2' });
             });
             interactionManager.sayacConnectedPipes = outputConnectedPipes;
+
+            // Çıkış borusu dikey ise: p2 de sayaçla birlikte taşınmalı
+            const d2dC = Math.hypot(cikisBoru.p2.x - cikisBoru.p1.x, cikisBoru.p2.y - cikisBoru.p1.y);
+            interactionManager.sayacCikisBoruIsVertical = d2dC < VERTICAL_2D_THRESHOLD;
         }
     }
 }
@@ -297,6 +316,22 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.bodyDragLockedEndpoint = null;
     if (LOCKED_TIPS.includes(p1Tip)) interactionManager.bodyDragLockedEndpoint = 'p1';
     else if (LOCKED_TIPS.includes(p2Tip)) interactionManager.bodyDragLockedEndpoint = 'p2';
+
+    // Dikey hat üzerinden kutu/sayaç çıkışına bağlı ucu da kilitle.
+    // Örnek: kutu → dikey boru → yatay boru; yatay boru sürüklenince dikey sabit kalmalı.
+    if (!interactionManager.bodyDragLockedEndpoint) {
+        const p1VertAnchored = (interactionManager.verticalOtherEndsP1 || []).some(({ otherNode }) =>
+            _isNodeAtFixedAnchor(interactionManager.manager, otherNode)
+        );
+        if (p1VertAnchored) {
+            interactionManager.bodyDragLockedEndpoint = 'p1';
+        } else {
+            const p2VertAnchored = (interactionManager.verticalOtherEndsP2 || []).some(({ otherNode }) =>
+                _isNodeAtFixedAnchor(interactionManager.manager, otherNode)
+            );
+            if (p2VertAnchored) interactionManager.bodyDragLockedEndpoint = 'p2';
+        }
+    }
 
     // useBridgeMode: p1 ve p2'nin her birinde tam olarak 1 başka boru bağlıysa
     // ve üçü sıralı/hizalıysa köprü modu aktif olur.
@@ -890,6 +925,7 @@ export function handleDrag(interactionManager, point, event = null) {
 
         for (const otherPipe of interactionManager.manager.pipes) {
             if (bagliBoruId && otherPipe.id === bagliBoruId) continue;
+            if (interactionManager.servisKutusuDownstreamIds?.has(otherPipe.id)) continue;
             for (const endpoint of [otherPipe.p1, otherPipe.p2]) {
                 const dist = Math.hypot(endpoint.x - newCikis.x, endpoint.y - newCikis.y);
                 const isElbow = interactionManager.manager.pipes.some(p => {
@@ -913,6 +949,14 @@ export function handleDrag(interactionManager, point, event = null) {
         if (interactionManager.dragObject.bagliBoruId) {
             const boru = interactionManager.manager.pipes.find(p => p.id === interactionManager.dragObject.bagliBoruId);
             if (boru) {
+                // Kutuya bağlı boru dikey ise: p2'yi de aynı delta ile kaydır (dikey kalıcılığı koru)
+                if (interactionManager.servisKutusuBoruIsVertical) {
+                    const dxV = newCikis.x - boru.p1.x;
+                    const dyV = newCikis.y - boru.p1.y;
+                    boru.p2.x += dxV;
+                    boru.p2.y += dyV;
+                    // p2'yi paylaşan diğer borular (horizontal gibi) node sharing ile otomatik takip eder
+                }
                 boru.p1.x = newCikis.x;
                 boru.p1.y = newCikis.y;
                 if (interactionManager.servisKutusuConnectedPipes && interactionManager.servisKutusuConnectedPipes.length > 0) {
@@ -1001,6 +1045,10 @@ export function handleDrag(interactionManager, point, event = null) {
         if (sayac.cikisBagliBoruId) {
             const cikisBoru = interactionManager.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
             if (cikisBoru) {
+                // Çıkış borusu dikey ise: p2'yi de aynı delta ile kaydır
+                if (interactionManager.sayacCikisBoruIsVertical) {
+                    cikisBoru.p2.x += dx; cikisBoru.p2.y += dy;
+                }
                 cikisBoru.p1.x += dx; cikisBoru.p1.y += dy;
                 const newP1 = { x: cikisBoru.p1.x, y: cikisBoru.p1.y };
                 if (interactionManager.sayacConnectedPipes && interactionManager.sayacConnectedPipes.length > 0) {
@@ -1402,6 +1450,25 @@ export function endDrag(interactionManager) {
  * aynı delta ile taşınacak ek (downstream) düğümlerdir.
  * fromNodes'un sahip olduğu pipe'lar hariç tutulur (excludePipe).
  */
+/**
+ * Node'un servis kutusu veya sayaç çıkışında sabit olup olmadığını kontrol eder.
+ * Dikey boru üzerinden kutu/sayaça bağlı yatay boru sürüklenirken endpoint kilit kararı için kullanılır.
+ */
+function _isNodeAtFixedAnchor(manager, node) {
+    const TOLERANCE = 10;
+    return manager.components.some(c => {
+        if (c.type === 'servis_kutusu') {
+            const cikis = c.getCikisNoktasi();
+            return cikis && Math.hypot(node.x - cikis.x, node.y - cikis.y) < TOLERANCE;
+        }
+        if (c.type === 'sayac') {
+            const cikis = c.getCikisNoktasi?.();
+            return cikis && Math.hypot(node.x - cikis.x, node.y - cikis.y) < TOLERANCE;
+        }
+        return false;
+    });
+}
+
 /**
  * Verilen node'a bağlı DÜŞEY boruları bulur ve her birinin DİĞER ucunu döndürür.
  * Düşey boru: iki uç arasındaki 2D mesafe VERTICAL_2D_THRESHOLD'dan küçük olan boru.

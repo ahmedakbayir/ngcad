@@ -74,8 +74,9 @@ export function createFloorPanel() {
         background: rgba(42, 43, 44, 0.9);
         border: 1px solid #5f6368;
         border-top: none;
-        border-radius: 0;
-        padding: 6px 10px;
+        border-bottom-right-radius: 8px;
+        border-bottom-left-radius: 8px;
+        padding: 5px 10px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         z-index: 1000;
         max-width: 90vw;

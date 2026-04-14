@@ -1420,6 +1420,19 @@ export function applyVerticalPipeInsert() {
 
     // Yeni boruyu ekle
     this.manager.pipes.push(newPipe);
+    this.manager.registerPipeNodes(newPipe);
+
+    // Debi ağacı: newPipe, mevcut borunun devamıdır
+    newPipe.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
+    pipe.bitisBaglanti        = { tip: 'boru', hedefId: newPipe.id };
+
+    // pipe'ın eski çocukları (baslangicBaglanti.hedefId === pipe.id) artık newPipe'a bağlanır
+    this.manager.pipes.forEach(p => {
+        if (p === newPipe) return;
+        if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId === pipe.id) {
+            p.baslangicBaglanti = { tip: 'boru', hedefId: newPipe.id };
+        }
+    });
 
     this.manager.saveToState();
 }

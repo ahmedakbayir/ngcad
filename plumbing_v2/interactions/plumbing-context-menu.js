@@ -63,6 +63,8 @@ function placeInisVeSayac(interactionManager, pipe) {
     inisBoru.floorId = pipe.floorId;
     manager.pipes.push(inisBoru);
     manager.registerPipeNodes(inisBoru);
+    inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
+    pipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
     manager.saveToState();
 
     // İniş eklendi, şimdi kullanıcı mouse ile sayacı yerleştirsin
@@ -98,6 +100,8 @@ function placeInisVeCihaz(interactionManager, pipe, cihazTipi) {
     inisBoru.floorId = pipe.floorId;
     manager.pipes.push(inisBoru);
     manager.registerPipeNodes(inisBoru);
+    inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
+    pipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
     manager.saveToState();
 
     // İniş eklendi, şimdi kullanıcı mouse ile cihazı yerleştirsin
