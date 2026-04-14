@@ -1574,7 +1574,7 @@ export function setupUIListeners() {
         document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
 
         const projectNameInput = document.getElementById('projectNameInput');
-        const projectName = projectNameInput ? projectNameInput.value.trim() : 'Adsız Proje';
+        const projectName = projectNameInput ? projectNameInput.value.trim() : 'Ahmet Akbayir';
 
         window.currentProjectName = projectName; // Dosya I/O tarafının kullanması için
         window.saveAsNewFile = false; // Farklı kaydetme, update et
@@ -1588,7 +1588,7 @@ export function setupUIListeners() {
         document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
 
         const projectNameInput = document.getElementById('projectNameInput');
-        const currentName = projectNameInput ? projectNameInput.value.trim() : 'Adsız Proje';
+        const currentName = projectNameInput ? projectNameInput.value.trim() : 'Ahmet Akbayir';
 
         const newName = prompt("Farklı Kaydet - Yeni Proje Adını Girin:", currentName);
         if (newName && newName.trim() !== "") {

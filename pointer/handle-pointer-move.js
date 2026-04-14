@@ -396,55 +396,80 @@ export function handlePointerMove(e) {
     // 1.7 Sayaç/Cihaz boru üzerine ekleme preview (boru ortasına ekleme)
     if ((this.manager.activeTool === 'sayac' || this.manager.activeTool === 'cihaz') &&
         this.manager.tempComponent && !this.manager.tempComponent.ghostConnectionInfo) {
-        // findBoruGovdeAt kullan - hem boruyu hem 3D noktayı döndürür
-        // Tolerance 15 (düşey borular için daha büyük)
-        const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 15);
-        if (boruGovde) {
-            const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
-            if (hoveredPipe) {
-                // 2D dikey boru kontrolü: XY koordinatları aynı → uç snap'i ghost-updater'a bırak
-                const is2DVertical = Math.hypot(
-                    hoveredPipe.p2.x - hoveredPipe.p1.x,
-                    hoveredPipe.p2.y - hoveredPipe.p1.y
-                ) < 2.0;
+        // Sayaç için: yakında serbest boru ucu varsa (50cm içinde) pipe-body preview kullanma.
+        // Ghost-updater aynı tolerans ile endpoint snap yapacak; diğer tarafta ghost göstermeye devam eder.
+        if (this.manager.activeTool === 'sayac') {
+            const nearEndpoint = this.findBoruUcuAt(point, 50, true);
+            if (nearEndpoint) {
+                this.componentOnPipePreview = null;
+                // Ghost update devam etsin (aşağıda)
+            } else {
+                // Uzakta — pipe gövde preview'a izin ver
+                const boruGovdeForSayac = this.manager.interactionManager.findBoruGovdeAt(point, 15);
+                if (boruGovdeForSayac) {
+                    const hoveredPipeS = this.manager.findPipeById(boruGovdeForSayac.boruId);
+                    if (hoveredPipeS) {
+                        const is2DVerticalS = Math.hypot(hoveredPipeS.p2.x - hoveredPipeS.p1.x, hoveredPipeS.p2.y - hoveredPipeS.p1.y) < 2.0;
+                        if (is2DVerticalS) {
+                            this.componentOnPipePreview = null;
+                        } else {
+                            let splitPointS = { x: boruGovdeForSayac.nokta.x, y: boruGovdeForSayac.nokta.y, z: boruGovdeForSayac.nokta.z };
+                            const dP1 = Math.hypot(splitPointS.x - hoveredPipeS.p1.x, splitPointS.y - hoveredPipeS.p1.y, (splitPointS.z || 0) - (hoveredPipeS.p1.z || 0));
+                            const dP2 = Math.hypot(splitPointS.x - hoveredPipeS.p2.x, splitPointS.y - hoveredPipeS.p2.y, (splitPointS.z || 0) - (hoveredPipeS.p2.z || 0));
+                            if (dP1 < 10) splitPointS = { x: hoveredPipeS.p1.x, y: hoveredPipeS.p1.y, z: hoveredPipeS.p1.z || 0 };
+                            else if (dP2 < 10) splitPointS = { x: hoveredPipeS.p2.x, y: hoveredPipeS.p2.y, z: hoveredPipeS.p2.z || 0 };
+                            this.componentOnPipePreview = { pipe: hoveredPipeS, point: splitPointS, componentType: 'sayac' };
+                        }
+                    } else { this.componentOnPipePreview = null; }
+                } else { this.componentOnPipePreview = null; }
+            }
+        } else {
+            // cihaz: mevcut pipe gövde logic
+            const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 15);
+            if (boruGovde) {
+                const hoveredPipe = this.manager.findPipeById(boruGovde.boruId);
+                if (hoveredPipe) {
+                    // 2D dikey boru kontrolü: XY koordinatları aynı → uç snap'i ghost-updater'a bırak
+                    const is2DVertical = Math.hypot(
+                        hoveredPipe.p2.x - hoveredPipe.p1.x,
+                        hoveredPipe.p2.y - hoveredPipe.p1.y
+                    ) < 2.0;
 
-                if (is2DVertical) {
-                    // Dikey boru gövdesine değil, ucuna snap yapmak gerekiyor;
-                    // ghost-updater findBoruUcuAt ile halleder.
-                    this.componentOnPipePreview = null;
-                } else {
-                    // boruGovde.nokta zaten 3D (x, y, z)
-                    let splitPoint = { x: boruGovde.nokta.x, y: boruGovde.nokta.y, z: boruGovde.nokta.z };
-                    const CORNER_SNAP_DISTANCE = 10;
+                    if (is2DVertical) {
+                        this.componentOnPipePreview = null;
+                    } else {
+                        let splitPoint = { x: boruGovde.nokta.x, y: boruGovde.nokta.y, z: boruGovde.nokta.z };
+                        const CORNER_SNAP_DISTANCE = 10;
 
-                    const distToP1 = Math.hypot(
-                        splitPoint.x - hoveredPipe.p1.x,
-                        splitPoint.y - hoveredPipe.p1.y,
-                        (splitPoint.z || 0) - (hoveredPipe.p1.z || 0)
-                    );
-                    const distToP2 = Math.hypot(
-                        splitPoint.x - hoveredPipe.p2.x,
-                        splitPoint.y - hoveredPipe.p2.y,
-                        (splitPoint.z || 0) - (hoveredPipe.p2.z || 0)
-                    );
+                        const distToP1 = Math.hypot(
+                            splitPoint.x - hoveredPipe.p1.x,
+                            splitPoint.y - hoveredPipe.p1.y,
+                            (splitPoint.z || 0) - (hoveredPipe.p1.z || 0)
+                        );
+                        const distToP2 = Math.hypot(
+                            splitPoint.x - hoveredPipe.p2.x,
+                            splitPoint.y - hoveredPipe.p2.y,
+                            (splitPoint.z || 0) - (hoveredPipe.p2.z || 0)
+                        );
 
-                    if (distToP1 < CORNER_SNAP_DISTANCE) {
-                        splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z || 0 };
-                    } else if (distToP2 < CORNER_SNAP_DISTANCE) {
-                        splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y, z: hoveredPipe.p2.z || 0 };
+                        if (distToP1 < CORNER_SNAP_DISTANCE) {
+                            splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z || 0 };
+                        } else if (distToP2 < CORNER_SNAP_DISTANCE) {
+                            splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y, z: hoveredPipe.p2.z || 0 };
+                        }
+
+                        this.componentOnPipePreview = {
+                            pipe: hoveredPipe,
+                            point: splitPoint,
+                            componentType: this.manager.activeTool
+                        };
                     }
-
-                    this.componentOnPipePreview = {
-                        pipe: hoveredPipe,
-                        point: splitPoint,
-                        componentType: this.manager.activeTool
-                    };
+                } else {
+                    this.componentOnPipePreview = null;
                 }
             } else {
                 this.componentOnPipePreview = null;
             }
-        } else {
-            this.componentOnPipePreview = null;
         }
     } else {
         this.componentOnPipePreview = null;

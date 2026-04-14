@@ -179,7 +179,7 @@ function saveProject() {
     a.href = url;
     
     // YENİ: Dosya adını arayüzden alıyoruz, eğer yoksa "Adsız Proje" yapıyoruz
-    let fileName = window.currentProjectName || "Adsız Proje";
+    let fileName = window.currentProjectName || "Ahmet Akbayir";
     
     // Eğer ismin sonunda uzantı yoksa .json uzantısını ekle
     if (!fileName.toLowerCase().endsWith('.json')) {

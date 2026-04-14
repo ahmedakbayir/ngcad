@@ -143,8 +143,10 @@ export function updateGhostPosition(ghost, point, snap) {
     else if (ghost.type === 'sayac') {
         // 3D modda tolerance artır (Z kayması diagonal olarak sqrt(2)*Z*t olabilir)
         // Z=100cm, t=1 için kayma ~141cm, tolerance en az 200cm olmalı
-        const baseTolerance = 15;
-        const tolerance3D = t > 0.5 ? baseTolerance * (1 + 15 * t) : baseTolerance;
+        // 2D: 50cm — lastMousePoint kullanıldığından snap yardımı yok, geniş tolerans gerekli
+        // 3D: orijinal 15cm tabanlı formül değişmeden kalıyor
+        const baseTolerance2D = 50;
+        const tolerance3D = t > 0.5 ? 15 * (1 + 15 * t) : baseTolerance2D;
         // activeSnap point yerine gerçek mouse pozisyonunu kullan (2D dikey borularda snap kayması)
         const searchPoint = (t < 0.5 && this.lastMousePoint) ? this.lastMousePoint : point;
         const boruUcu = this.findBoruUcuAt(searchPoint, tolerance3D, true);

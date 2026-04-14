@@ -468,9 +468,9 @@ body.light-mode .btn.active svg {
 #settings-btn {
     position: absolute;
     bottom: 0px;
-    left: 10px;
+    left: 0px;
     z-index: 11;
-    padding: 6px 8px;
+    padding: 6px;
     /* Daraltıldı: 7px 10px -> 6px 8px */
     font-size: 11px;
     /* %25 büyütüldü: 11px -> 14px */
@@ -493,8 +493,8 @@ body.light-mode .btn.active svg {
 #settings-popup {
     display: none;
     position: absolute;
-    bottom: 55px;
-    left: 10px;
+    bottom: 32px;
+    left: 0px;
     background-color: var(--bg-popup);
     border: 1px solid var(--border-button);
     border-radius: 8px;
@@ -2170,14 +2170,34 @@ body:not(.light-mode) .text-on-right {
 #visibility-panel {
     position: fixed;
     bottom: 0px;
-    left: 100px; /* Ayarlar butonunun hemen yanı */
+    border-top: none;
+    left: 80px; /* Ayarlar butonunun hemen yanı */
     z-index: 50;
+    margin-top: 3px ;
     display: flex;
     flex-direction: column-reverse; /* Handle altta, içerik üstte */
     align-items: flex-start;
-    /* İçeriği aşağıda gizler, sadece handle görünür */
-    transform: translateY(calc(100% - 32px)); 
+    transform: translateY(calc(100% - 35px)); 
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+}
+/* Sol tarafta dışarıda duran Göz İkonu (Tutamaç) */
+.vis-handle {
+    width: 36px;
+    padding: 6px 8px;
+    background: var(--bg-button);
+    border: 1px solid var(--border-button);
+    border-bottom: none;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin: 1px;
+    color: var(--color-text);
+    box-shadow: 2px 0 8px rgba(0,0,0,0.3);
+    background: var(--bg-group);
+
 }
 
 .vis-handle svg {
@@ -2190,21 +2210,6 @@ body:not(.light-mode) .text-on-right {
     transform: translateX(0); /* Fare üzerine gelince sağa doğru tamamen açılır */
 }
 
-/* Sol tarafta dışarıda duran Göz İkonu (Tutamaç) */
-.vis-handle {
-    width: 48px;
-    height: 32px;
-    background: var(--bg-button);
-    border: 1px solid var(--border-button);
-    border-bottom: none;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: var(--color-text);
-    box-shadow: 3px 0 8px rgba(0,0,0,0.3);
-}
 
 .vis-handle:hover {
     color: #8ab4f8;
