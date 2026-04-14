@@ -177,11 +177,74 @@ function saveProject() {
 
     const a = document.createElement('a');
     a.href = url;
-    a.download = `floorplan_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    // YENİ: Dosya adını arayüzden alıyoruz, eğer yoksa "Adsız Proje" yapıyoruz
+    let fileName = window.currentProjectName || "Adsız Proje";
+    
+    // Eğer ismin sonunda uzantı yoksa .json uzantısını ekle
+    if (!fileName.toLowerCase().endsWith('.json')) {
+        fileName += '.json';
+    }
+    
+// =================================================================
+    // YENİ: DOSYA ÜZERİNE YAZMA VEYA YENİ KAYDETME MANTIĞI
+    // =================================================================
+    
+    // Fonksiyonu async yapmamız gerektiği için anlık bir async blok oluşturuyoruz
+    (async () => {
+        try {
+            // Modern Tarayıcılar (File System Access API - Üzerine Yazma Destekler)
+            if ('showSaveFilePicker' in window) {
+                
+                let fileHandle = window.currentFileHandle;
+
+                // Farklı Kaydet dendiğinde veya daha önce hiç kaydedilmediyse yeni yer sor
+                if (window.saveAsNewFile || !fileHandle) {
+                    fileHandle = await window.showSaveFilePicker({
+                        suggestedName: fileName,
+                        types: [{
+                            description: 'AangCAD Proje Dosyası',
+                            accept: { 'application/json': ['.json'] },
+                        }],
+                    });
+                    // Handle'ı sakla ki bir dahaki sefere üzerine yazabilsin
+                    window.currentFileHandle = fileHandle; 
+                    
+                    // Dosyanın gerçek adını UI'a yansıt (uzantısız)
+                    const actualName = fileHandle.name.replace(/\.json$/i, '');
+                    window.currentProjectName = actualName;
+                    
+                    const nameInput = document.getElementById('projectNameInput');
+                    if (nameInput) nameInput.value = actualName;
+                    document.title = `${actualName} - AangCAD`;
+                }
+
+                // Seçilen veya zaten var olan dosyanın üzerine yaz
+                const writable = await fileHandle.createWritable();
+                await writable.write(dataStr);
+                await writable.close();
+                
+                console.log("Proje başarıyla kaydedildi / üzerine yazıldı.");
+
+            } else {
+                // Eski Tarayıcılar İçin Fallback (Sadece İndirir)
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        } catch (error) {
+            // Kullanıcı kaydetme penceresini iptal ederse buraya düşer
+            if (error.name !== 'AbortError') {
+                console.error("Kaydetme sırasında bir hata oluştu:", error);
+            }
+        }
+    })();
 }
 
 /**

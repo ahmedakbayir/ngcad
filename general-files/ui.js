@@ -1608,13 +1608,52 @@ export function setupUIListeners() {
         document.getElementById('bOpen')?.click();
     });
 
+
+    // --- YENİ: DOSYA AÇILDIĞINDA PROJE ADINI GÜNCELLEME ---
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                // Dosya adını al ve uzantısını (.json veya .xml) temizle
+                const fileName = file.name.replace(/\.[^/.]+$/, "");
+                
+                const projectNameInput = document.getElementById('projectNameInput');
+                if (projectNameInput) {
+                    projectNameInput.value = fileName;
+                    // Global durumu ve sekme başlığını da güncelle
+                    window.currentProjectName = fileName;
+                    document.title = `${fileName} - AangCAD`;
+                }
+            }
+        });
+    }
+
+    // =================================================================
+    // KLAVYE KISAYOLLARI (TARAYICIYI EZME)
+    // =================================================================
+    document.addEventListener('keydown', (e) => {
+        // Ctrl + S (veya Mac için Cmd + S) yakalama
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+            e.preventDefault(); // Tarayıcının varsayılan sayfa kaydetmesini ENGELLER
+            
+            if (e.shiftKey) {
+                // Ctrl + Shift + S -> Farklı Kaydet'i tetikle
+                document.getElementById('menuSaveAs')?.click();
+            } else {
+                // Sadece Ctrl + S -> Normal Kaydet'i tetikle
+                document.getElementById('menuSave')?.click();
+            }
+        }
+    });
+
     // --- PROJE ADI DÜZENLEME MANTIĞI ---
     const projectNameInput = document.getElementById('projectNameInput');
     if (projectNameInput) {
         projectNameInput.addEventListener('change', (e) => {
-            const newName = e.target.value.trim() || "Adsız Proje";
+            const newName = e.target.value.trim() || "Ahmet Akbayir";
             e.target.value = newName; // Boş bırakılırsa varsayılan ile geri doldur
-            document.title = `${newName} - AangCAD`; // Tarayıcı sekme adını da güncelle
+            document.title = `${newName}`; // Tarayıcı sekme adını da güncelle
             window.currentProjectName = newName; // Sistem için kaydet
         });
 

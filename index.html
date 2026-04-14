@@ -100,29 +100,31 @@
     <button id="btn-properties" class="mode-btn btn btn-properties" title="Özellikler Paneli (SPACE)">Özellikler</button>
   </div>
 
-    <div id="visibility-panel">
-      <div class="vis-header">
-        <span>Görünüm </span>
-        <div class="vis-toggle-all">
-          <button id="vis-btn-show-all" class="vis-mini-btn" title="Hepsini Göster">🟢</button>
-          <button id="vis-btn-hide-all" class="vis-mini-btn" title="Hepsini Gizle">🔴</button>
+<div id="visibility-panel">
+      <div class="vis-panel-inner">
+        <div class="vis-header">
+          <span>Görünüm Ayarları</span>
+          <div class="vis-toggle-all">
+            <button id="vis-btn-show-all" class="vis-mini-btn" title="Hepsini Göster">🟢</button>
+            <button id="vis-btn-hide-all" class="vis-mini-btn" title="Hepsini Gizle">🔴</button>
+          </div>
+        </div>
+        <div class="vis-content">
+          <label class="vis-item"><input type="checkbox" id="vis-chk-z" checked> <span>Z Kotu</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-shadow" checked> <span>Hat Gölgesi</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-pipe-frame" checked> <span>3D Hat Çerçevesi</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-axis" checked> <span>3D Eksen</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-room" checked> <span>Mahal İsimleri</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-arch-dim" checked> <span>Mimari Ölçü</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-plumb-dim" checked> <span>Hat Ölçüsü</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-obj-labels" checked> <span>Nesne Etiketleri</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-junctions" checked> <span>Köşe Noktaları</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-arch" checked> <span>Mimari</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-plumbing" checked> <span>Tesisat</span></label>
         </div>
       </div>
-      <div class="vis-content">
-        <label class="vis-item"><input type="checkbox" id="vis-chk-z" checked> <span>Z Kotu</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-shadow" checked> <span>Hat Gölgesi</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-pipe-frame" checked> <span>3D Hat
-            Çerçevesi</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-axis" checked> <span>3D Eksen</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-room" checked> <span>Mahal İsimleri</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-arch-dim" checked> <span>Mimari Ölçü</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-plumb-dim" checked> <span>Hat Ölçüsü</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-obj-labels" checked> <span>Nesne
-            Etiketleri</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-junctions" checked> <span>Köşe
-            Noktaları</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-arch" checked> <span>Mimari</span></label>
-        <label class="vis-item"><input type="checkbox" id="vis-chk-plumbing" checked> <span>Tesisat</span></label>
+      <div class="vis-handle" title="Görünüm Ayarları">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
       </div>
     </div>
 

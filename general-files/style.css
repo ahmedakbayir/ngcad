@@ -467,7 +467,7 @@ body.light-mode .btn.active svg {
 
 #settings-btn {
     position: absolute;
-    bottom: 10px;
+    bottom: 0px;
     left: 10px;
     z-index: 11;
     padding: 6px 8px;
@@ -2162,70 +2162,111 @@ body:not(.light-mode) .text-on-right {
     color: #ddd;
 }
 
-/* ... existing code ... */
-/* --- GÖRÜNÜRLÜK PANELİ (SOL ALT — ayarlar butonunun hemen üstü) --- */
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* GÖRÜNÜM PANELİ (SOL ALT - YUKARI DOĞRU AÇILAN) */
+/* ═══════════════════════════════════════════════════════════════ */
+
 #visibility-panel {
     position: fixed;
-    bottom: 52px;        /* settings-btn yüksekliği kadar yukarı */
-    left: 10px;
-    background: var(--bg-group, rgba(30, 30, 30, 0.9));
-    border: 1px solid var(--border-group, #555);
-    border-radius: 6px;
-    padding: 8px;
-    z-index: 50;         /* settings-popup (z:100) altında kalır */
-    box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
-    backdrop-filter: blur(4px);
-    width: 130px;
-    font-family: sans-serif;
-    font-size: 11px;
-    color: var(--color-text, #eee);
-    opacity: 0.9;
-    transition: opacity 0.3s;
+    bottom: 0px;
+    left: 100px; /* Ayarlar butonunun hemen yanı */
+    z-index: 50;
+    display: flex;
+    flex-direction: column-reverse; /* Handle altta, içerik üstte */
+    align-items: flex-start;
+    /* İçeriği aşağıda gizler, sadece handle görünür */
+    transform: translateY(calc(100% - 32px)); 
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.vis-handle svg {
+    width: 18px;
+    height: 18px;
+}
+
+
 #visibility-panel:hover {
-    opacity: 1;
+    transform: translateX(0); /* Fare üzerine gelince sağa doğru tamamen açılır */
+}
+
+/* Sol tarafta dışarıda duran Göz İkonu (Tutamaç) */
+.vis-handle {
+    width: 48px;
+    height: 32px;
+    background: var(--bg-button);
+    border: 1px solid var(--border-button);
+    border-bottom: none;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--color-text);
+    box-shadow: 3px 0 8px rgba(0,0,0,0.3);
+}
+
+.vis-handle:hover {
+    color: #8ab4f8;
+}
+
+/* Çekmecenin Asıl İçeriği */
+.vis-panel-inner {
+    width: 155px;
+    background: var(--bg-group, rgba(30, 30, 30, 0.95));
+    border: 1px solid var(--border-group, #555);
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    padding: 12px;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px);
+    font-family: sans-serif;
+    font-size: 10px;
+    color: var(--color-text, #eee);
+}
+
+body.light-mode .vis-panel-inner {
+    background: rgba(255, 255, 255, 0.95);
 }
 
 .vis-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(128,128,128,0.3);
-    padding-bottom: 5px;
-    margin-bottom: 5px;
+    border-bottom: 1px solid var(--border-button);
+    padding-bottom: 6px;
+    margin-bottom: 8px;
     font-weight: 600;
 }
 
 .vis-toggle-all {
     display: flex;
-    gap: 3px;
+    gap: 4px;
 }
 
 .vis-mini-btn {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 3px;
+    background: transparent;
+    border: none;
     cursor: pointer;
-    font-size: 10px;
-    padding: 1px 4px;
-    color: inherit;
+    font-size: 13px;
+    padding: 0;
+    transition: transform 0.1s;
 }
 
 .vis-mini-btn:hover {
-    background: rgba(255,255,255,0.2);
+    transform: scale(1.2);
 }
 
 .vis-content {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 7px;
 }
 
 .vis-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     cursor: pointer;
     user-select: none;
 }
@@ -2233,6 +2274,8 @@ body:not(.light-mode) .text-on-right {
 .vis-item input[type="checkbox"] {
     margin: 0;
     cursor: pointer;
+    width: 13px;
+    height: 13px;
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -3508,4 +3551,20 @@ body.light-mode .project-name-input:focus {
     top: 4px !important; /* 32px yüksekliğe tam oturtmak için */
     width: 24px !important;
     height: 24px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* KAYDIRMA ÇUBUKLARINI (SCROLL) GİZLEME VE TAM EKRAN DÜZELTMESİ */
+/* ═══════════════════════════════════════════════════════════════ */
+
+body {
+    overflow: hidden !important; /* Tarayıcının genel kaydırma çubuklarını kapatır */
+}
+
+.main {
+    width: 100% !important; /* 100vw Windows'ta yatay kaydırma yapabilir, 100% güvenlidir */
+    height: calc(100vh - 40px) !important;
+    margin-top: 40px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important; /* Kapsayıcı içindeki taşmaları gizler */
 }
