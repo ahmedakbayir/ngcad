@@ -991,6 +991,14 @@ body.light-mode .btn.active svg {
     color: #8ab4f8;
 }
 
+.context-menu-btn-danger {
+    color: #c1655a;
+}
+.context-menu-btn-danger:hover {
+    background: #3a1c1c;
+    color: #d97368;
+}
+
 .context-menu-item-with-submenu {
     position: relative;
 }

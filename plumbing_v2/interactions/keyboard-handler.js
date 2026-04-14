@@ -714,57 +714,64 @@ function getDownstreamPipesAndComponents(startPipe, manager) {
             }
         }
 
-        // Bu boru üzerindeki vanaları ekle
-        if (currentPipe.vana) {
-            result.components.push({
-                type: 'vana',
-                object: currentPipe.vana,
-                parentPipeId: currentPipe.id
-            });
+        // Bu boru üzerindeki Vana bileşenlerini topla (manager.components'tan, bagliBoruId ile)
+        // NOT: pipe.vana eski stil basit metadata'dır; gerçek vana bileşenleri manager.components'tedir.
+        for (const comp of manager.components) {
+            if (comp.type === 'vana' && comp.bagliBoruId === currentPipe.id) {
+                result.components.push({
+                    type: 'vana',
+                    object: comp,
+                    parentPipeId: currentPipe.id
+                });
+            }
         }
 
         // Bu borunun uçlarına bağlı bileşenleri bul (sayaç, cihaz, baca)
+        // NOT: girisNoktasi bir metod olduğu için doğrudan erişilemez;
+        //      fleksBaglanti.boruId ile bağlantı kontrolü yapılır.
         for (const component of manager.components) {
-            // Sayaç kontrolü
-            if (component.type === 'sayac') {
-                const distToP2 = Math.hypot(
-                    component.girisNoktasi.x - currentPipe.p2.x,
-                    component.girisNoktasi.y - currentPipe.p2.y,
-                    (component.girisNoktasi.z || 0) - (currentPipe.p2.z || 0)
-                );
-                if (distToP2 < tolerance) {
-                    result.components.push({
-                        type: 'sayac',
-                        object: component,
-                        connectionPoint: 'p2'
-                    });
+            // Sayaç kontrolü: fleksBaglanti ile boru bağlantısına bak
+            if (component.type === 'sayac' && component.fleksBaglanti?.boruId === currentPipe.id) {
+                result.components.push({
+                    type: 'sayac',
+                    object: component,
+                    parentPipeId: currentPipe.id,
+                    connectionEndpoint: component.fleksBaglanti.endpoint
+                });
+
+                // Sayacın çıkış borusunu BFS'e ekle (sayaç üzerinden geçiş)
+                if (component.cikisBagliBoruId) {
+                    const nextPipe = manager.pipes.find(p => p.id === component.cikisBagliBoruId);
+                    if (nextPipe && !visited.has(nextPipe.id)) {
+                        visited.add(nextPipe.id);
+                        result.pipes.push(nextPipe);
+                        queue.push(nextPipe);
+                        result.connections.set(nextPipe.id, {
+                            p1Connection: nextPipe.baslangicBaglanti ? JSON.parse(JSON.stringify(nextPipe.baslangicBaglanti)) : null,
+                            p2Connection: nextPipe.bitisBaglanti    ? JSON.parse(JSON.stringify(nextPipe.bitisBaglanti))    : null
+                        });
+                    }
                 }
             }
             // Cihaz kontrolü
-            else if (component.type === 'cihaz') {
-                const distToP2 = Math.hypot(
-                    component.girisNoktasi.x - currentPipe.p2.x,
-                    component.girisNoktasi.y - currentPipe.p2.y,
-                    (component.girisNoktasi.z || 0) - (currentPipe.p2.z || 0)
-                );
-                if (distToP2 < tolerance) {
-                    result.components.push({
-                        type: 'cihaz',
-                        object: component,
-                        connectionPoint: 'p2'
-                    });
+            else if (component.type === 'cihaz' && component.fleksBaglanti?.boruId === currentPipe.id) {
+                result.components.push({
+                    type: 'cihaz',
+                    object: component,
+                    parentPipeId: currentPipe.id,
+                    connectionEndpoint: component.fleksBaglanti.endpoint
+                });
 
-                    // Cihazın bacasını da ekle
-                    const baca = manager.components.find(c =>
-                        c.type === 'baca' && c.parentCihazId === component.id
-                    );
-                    if (baca) {
-                        result.components.push({
-                            type: 'baca',
-                            object: baca,
-                            parentCihazId: component.id
-                        });
-                    }
+                // Cihazın bacasını da ekle
+                const baca = manager.components.find(c =>
+                    c.type === 'baca' && c.parentCihazId === component.id
+                );
+                if (baca) {
+                    result.components.push({
+                        type: 'baca',
+                        object: baca,
+                        parentCihazId: component.id
+                    });
                 }
             }
         }
@@ -794,6 +801,7 @@ export function handlePipeCopy() {
             p1: { ...pipe.p1 },
             p2: { ...pipe.p2 },
             boruTipi: pipe.boruTipi,
+            boruCap: pipe.boruCap,
             colorGroup: pipe.colorGroup,
             floorId: pipe.floorId,
             baslangicBaglanti: downstream.connections.get(pipe.id).p1Connection,
@@ -839,6 +847,7 @@ export function handlePipeCut() {
             p1: { ...pipe.p1 },
             p2: { ...pipe.p2 },
             boruTipi: pipe.boruTipi,
+            boruCap: pipe.boruCap,
             colorGroup: pipe.colorGroup,
             floorId: pipe.floorId,
             baslangicBaglanti: downstream.connections.get(pipe.id).p1Connection,
@@ -898,23 +907,22 @@ export function handlePipePaste() {
     const newComponents = [];
 
     // 1. Boruları oluştur
+    // getOrCreateNodeAt kullanarak komşu borular arasında NODE PAYLAŞIMI sağlanır.
+    // Drag sistemi "p.p1 === node" referans eşitliğiyle çalıştığı için bu kritiktir;
+    // aksi hâlde yapıştırılan borular geometrik olarak bitişik olsa da bağımsız sürüklenir.
     for (const pipeData of pasteData.pipes) {
-        const newPipe = new Boru(
-            {
-                x: pipeData.p1.x + dx,
-                y: pipeData.p1.y + dy,
-                z: (pipeData.p1.z || 0) + dz
-            },
-            {
-                x: pipeData.p2.x + dx,
-                y: pipeData.p2.y + dy,
-                z: (pipeData.p2.z || 0) + dz
-            },
-            pipeData.boruTipi
+        const p1Node = this.manager.getOrCreateNodeAt(
+            pipeData.p1.x + dx, pipeData.p1.y + dy, (pipeData.p1.z || 0) + dz
         );
+        const p2Node = this.manager.getOrCreateNodeAt(
+            pipeData.p2.x + dx, pipeData.p2.y + dy, (pipeData.p2.z || 0) + dz
+        );
+
+        const newPipe = new Boru(p1Node, p2Node, pipeData.boruTipi);
 
         newPipe.colorGroup = pipeData.colorGroup;
         newPipe.floorId = pipeData.floorId;
+        if (pipeData.boruCap) newPipe.boruCap = pipeData.boruCap;
 
         // ID mapping'i kaydet
         pipeIdMap.set(pipeData.id, newPipe.id);
@@ -934,6 +942,7 @@ export function handlePipePaste() {
 
         newPipes.push(newPipe);
         this.manager.pipes.push(newPipe);
+        this.manager.registerPipeNodes(newPipe); // Node'ları sisteme kaydet
     }
 
     // 2. Pipe bağlantı ID'lerini güncelle
@@ -991,63 +1000,114 @@ export function handlePipePaste() {
             const newParentPipe = newPipes.find(p => p.id === newParentPipeId);
 
             if (newParentPipe) {
-                // Yeni vana oluştur
                 const vanaData = compData.data;
-                const newVana = new Vana(
-                    {
-                        x: vanaData.x + dx,
-                        y: vanaData.y + dy,
-                        z: (vanaData.z || 0) + dz
-                    },
-                    vanaData.rotation
-                );
-                newVana.vanaAcik = vanaData.vanaAcik;
-                newVana.vanaKilitli = vanaData.vanaKilitli;
 
-                // Boru üzerine ekle
-                newParentPipe.vana = newVana;
+                // Vana constructor: (x, y, tip, options)
+                const newVana = new Vana(vanaData.x + dx, vanaData.y + dy, vanaData.vanaTipi, {
+                    z: (vanaData.z || 0) + dz,
+                    floorId: vanaData.floorId,
+                    bagliBoruId: newParentPipe.id,  // yeni boru ID'si ile bağla
+                    boruPozisyonu: vanaData.boruPozisyonu,
+                    fromEnd: vanaData.fromEnd,
+                    fixedDistance: vanaData.fixedDistance
+                });
+                newVana.rotation = vanaData.rotation;
+                newVana.showEndCap = vanaData.showEndCap || false;
+
+                // girisBagliBoruId / cikisBagliBoruId (BRANSMAN/YANBINA vanalar için)
+                if (vanaData.girisBagliBoruId) {
+                    const newGirisId = pipeIdMap.get(vanaData.girisBagliBoruId);
+                    if (newGirisId) newVana.girisBagliBoruId = newGirisId;
+                }
+                if (vanaData.cikisBagliBoruId) {
+                    const newCikisId = pipeIdMap.get(vanaData.cikisBagliBoruId);
+                    if (newCikisId) newVana.cikisBagliBoruId = newCikisId;
+                }
+
+                // Panel özellikleri (fromJSON ile aynı alan listesi)
+                ['vanaCap', 'izolator', 'flans', 'muhafaza', 'muhafazaGrupla',
+                 'birimNo', 'tesisatNo', 'daireSayisi', 'dukkanSayisi',
+                 'ekDebi', 'bransmanDebi', 'description'].forEach(k => {
+                    if (vanaData[k] !== undefined) newVana[k] = vanaData[k];
+                });
+
                 this.manager.components.push(newVana);
+                newVana.updateEndCapStatus(this.manager);
 
-                componentIdMap.set(compData.data.id, newVana.id);
+                componentIdMap.set(vanaData.id, newVana.id);
                 newComponents.push(newVana);
             }
         }
         else if (compData.type === 'sayac') {
-            // Sayaç: Yeni boru ucuna bağla
             const sayacData = compData.data;
 
-            const newSayac = new Sayac(
-                {
-                    x: sayacData.girisNoktasi.x + dx,
-                    y: sayacData.girisNoktasi.y + dy,
-                    z: (sayacData.girisNoktasi.z || 0) + dz
-                },
-                sayacData.rotation
-            );
+            // Sayaç constructor: (x, y, options)
+            const newSayac = new Sayac(sayacData.x + dx, sayacData.y + dy, {
+                z: (sayacData.z || 0) + dz,
+                floorId: sayacData.floorId
+            });
+            newSayac.rotation = sayacData.rotation;
+            newSayac.config.rijitUzunluk = sayacData.rijitUzunluk ?? 0;
+
+            // Panel özellikleri (fromJSON ile aynı alan listesi)
+            ['sayacTipi', 'sayacTuru', 'cikisCap', 'basinc',
+             'birimTipi', 'birimNo', 'birimBoruTipi', 'birimBaglantiTipi',
+             'esnekMarka', 'muhafaza', 'muhafazaGrupla',
+             'aboneAdi', 'aboneNo', 'ustaAdi', 'ustaNo', 'description'].forEach(k => {
+                if (sayacData[k] !== undefined) newSayac[k] = sayacData[k];
+            });
+
+            // fleksBaglanti: eski boruId'yi yeni ID'ye maple
+            const fbPipeId = pipeIdMap.get(sayacData.fleksBaglanti?.boruId);
+            if (fbPipeId) {
+                newSayac.fleksBaglanti.boruId   = fbPipeId;
+                newSayac.fleksBaglanti.endpoint  = sayacData.fleksBaglanti.endpoint;
+                newSayac.fleksBaglanti.uzunluk   = sayacData.fleksBaglanti.uzunluk ?? 15;
+            }
+
+            // cikisBagliBoruId: eski ID'yi yeni ID'ye maple
+            const cikisPipeId = pipeIdMap.get(sayacData.cikisBagliBoruId);
+            if (cikisPipeId) newSayac.cikisBagliBoruId = cikisPipeId;
+
+            // iliskiliVanaId: vana daha önce oluşturulmuş olmalı
+            const newVanaId = componentIdMap.get(sayacData.iliskiliVanaId);
+            if (newVanaId) newSayac.iliskiliVanaId = newVanaId;
 
             this.manager.components.push(newSayac);
-            componentIdMap.set(compData.data.id, newSayac.id);
+            componentIdMap.set(sayacData.id, newSayac.id);
             newComponents.push(newSayac);
         }
         else if (compData.type === 'cihaz') {
-            // Cihaz: Yeni konuma yerleştir
             const cihazData = compData.data;
 
-            const newCihaz = new Cihaz(
-                cihazData.x + dx,
-                cihazData.y + dy,
-                (cihazData.z || 0) + dz,
-                cihazData.cihazTipi
-            );
+            // Cihaz constructor: (x, y, tip, options)
+            const newCihaz = new Cihaz(cihazData.x + dx, cihazData.y + dy, cihazData.cihazTipi, {
+                z: (cihazData.z || 0) + dz,
+                floorId: cihazData.floorId
+            });
             newCihaz.rotation = cihazData.rotation;
-            newCihaz.girisNoktasi = {
-                x: cihazData.girisNoktasi.x + dx,
-                y: cihazData.girisNoktasi.y + dy,
-                z: (cihazData.girisNoktasi.z || 0) + dz
-            };
+            newCihaz.z = (cihazData.z || 0) + dz;
+
+            // Panel özellikleri
+            ['marka', 'model', 'bacaTipi', 'kapasiteKcal', 'kapasiteKW', 'verim',
+             'muhafaza', 'muhafazaGrupla', 'yedekCihaz', 'yogusmali', 'description'].forEach(k => {
+                if (cihazData[k] !== undefined) newCihaz[k] = cihazData[k];
+            });
+
+            // fleksBaglanti: eski boruId'yi yeni ID'ye maple
+            const cfbPipeId = pipeIdMap.get(cihazData.fleksBaglanti?.boruId);
+            if (cfbPipeId) {
+                newCihaz.fleksBaglanti.boruId  = cfbPipeId;
+                newCihaz.fleksBaglanti.endpoint = cihazData.fleksBaglanti.endpoint;
+                newCihaz.fleksBaglanti.uzunluk  = cihazData.fleksBaglanti.uzunluk ?? 30;
+            }
+
+            // iliskiliVanaId
+            const newCihazVanaId = componentIdMap.get(cihazData.iliskiliVanaId);
+            if (newCihazVanaId) newCihaz.iliskiliVanaId = newCihazVanaId;
 
             this.manager.components.push(newCihaz);
-            componentIdMap.set(compData.data.id, newCihaz.id);
+            componentIdMap.set(cihazData.id, newCihaz.id);
             newComponents.push(newCihaz);
         }
         else if (compData.type === 'baca') {
@@ -1058,22 +1118,29 @@ export function handlePipePaste() {
             if (newParentCihaz) {
                 const bacaData = compData.data;
 
+                // Baca constructor: (x, y, parentCihazId, options)
                 const newBaca = new Baca(
                     bacaData.startX + dx,
                     bacaData.startY + dy,
-                    (bacaData.startZ || 0) + dz,
-                    newParentCihaz.id
+                    newParentCihaz.id,
+                    { z: (bacaData.z || 0) + dz, floorId: bacaData.floorId }
                 );
 
-                // Segment'leri kopyala
+                // Segment'leri kopyala: orijinal format {x1,y1,z1,x2,y2,z2}
                 if (bacaData.segments && bacaData.segments.length > 0) {
                     newBaca.segments = bacaData.segments.map(seg => ({
-                        x: seg.x + dx,
-                        y: seg.y + dy,
-                        z: (seg.z || 0) + dz
+                        x1: seg.x1 + dx, y1: seg.y1 + dy, z1: (seg.z1 || 0) + dz,
+                        x2: seg.x2 + dx, y2: seg.y2 + dy, z2: (seg.z2 || 0) + dz
                     }));
+                    // currentSegmentStart son segment sonuna konumlan
+                    const last = bacaData.segments[bacaData.segments.length - 1];
+                    newBaca.currentSegmentStart = {
+                        x: last.x2 + dx, y: last.y2 + dy, z: (last.z2 || 0) + dz
+                    };
                 }
-
+                if (bacaData.havalandirma) {
+                    newBaca.havalandirma = { ...bacaData.havalandirma };
+                }
                 newBaca.isDrawing = false;
 
                 this.manager.components.push(newBaca);
@@ -1083,7 +1150,42 @@ export function handlePipePaste() {
         }
     }
 
-    // 4. Eğer CUT işlemi idiyse, orijinal parçaları sil
+    // 4. Snap noktasındaki boru ile ilk pasted boru arasında bağlantı kur
+    const snapInfo = this._pasteSnapOverride;
+    if (snapInfo?.snapPipeId && newPipes.length > 0) {
+        const snapPipe = this.manager.pipes.find(p => p.id === snapInfo.snapPipeId);
+        const firstPastePipe = newPipes[0];
+        if (snapPipe && firstPastePipe) {
+            // Snap noktasının snap borusunun hangi ucuna daha yakın olduğunu bul
+            const sx = snapInfo.x, sy = snapInfo.y, sz = snapInfo.z || 0;
+            const dP1 = Math.hypot(snapPipe.p1.x - sx, snapPipe.p1.y - sy, (snapPipe.p1.z||0) - sz);
+            const dP2 = Math.hypot(snapPipe.p2.x - sx, snapPipe.p2.y - sy, (snapPipe.p2.z||0) - sz);
+            const snapToP1 = dP1 < dP2;
+            const snapNode  = snapToP1 ? snapPipe.p1 : snapPipe.p2;
+
+            // NODE PAYLAŞIMINI ZORLA:
+            // getOrCreateNodeAt, snap borusunun node'unu haritada bulamazsa (registerPipeNodes
+            // çağrılmamış borularda olur) yeni bir ayrı node oluşturur. Bunu düzelt:
+            // firstPastePipe.p1'i doğrudan snapNode nesnesiyle değiştir.
+            const oldNode = firstPastePipe.p1;
+            if (oldNode !== snapNode) {
+                firstPastePipe.p1       = snapNode;
+                firstPastePipe.p1NodeId = snapNode._nodeId;
+                this.manager.nodes.set(snapNode._nodeId, snapNode);
+                if (oldNode?._nodeId) this.manager.nodes.delete(oldNode._nodeId);
+            }
+
+            // Debi bağlantıları (hangi uca snap yapıldığına göre)
+            firstPastePipe.baslangicBaglanti = { tip: 'boru', hedefId: snapPipe.id };
+            if (snapToP1) {
+                snapPipe.baslangicBaglanti = { tip: 'boru', hedefId: firstPastePipe.id };
+            } else {
+                snapPipe.bitisBaglanti = { tip: 'boru', hedefId: firstPastePipe.id };
+            }
+        }
+    }
+
+    // 5. Eğer CUT işlemi idiyse, orijinal parçaları sil
     if (isCut && this.cutPipesOriginalIds) {
         // Boruları sil
         for (const oldPipeId of this.cutPipesOriginalIds.pipeIds) {
@@ -1103,12 +1205,19 @@ export function handlePipePaste() {
     }
 
     // State'i temizle
-    this.copiedPipes = null;
-    this.cutPipes = null;
-    this.cutPipesOriginalIds = null;
+    // Kopyala: copiedPipes korunur — ESC'ye kadar yeniden yapıştırılabilir.
+    // Kes: ilk yapıştırmada orijinaller silindi; bundan sonra kopya gibi davran.
+    if (isCut) {
+        this.copiedPipes = pasteData; // sonraki paste'ler için kopyaya dönüştür
+        this.cutPipes = null;
+        this.cutPipesOriginalIds = null;
+    }
+    // Yapıştırma sonrası seçimi sıfırla (artık silinmiş boru referansı kalmasın)
+    this.selectedObject = null;
 
     // Manager state'i güncelle
     this.manager.saveToState();
+    draw2D();
 
     console.log(`✅ ${newPipes.length} boru ve ${newComponents.length} bileşen yapıştırıldı`);
 }

@@ -793,6 +793,8 @@ export function handleComponentOnPipePlacement(pipe, splitPoint, componentType) 
     const idx = this.manager.pipes.findIndex(p => p.id === pipe.id);
     if (idx !== -1) this.manager.pipes.splice(idx, 1);
     this.manager.pipes.push(boru1, boru2);
+    this.manager.registerPipeNodes(boru1);
+    this.manager.registerPipeNodes(boru2);
 
     // Boru üzerindeki mevcut nesneleri yeni borulara dağıt (vanalar, fleks bağlantılar)
     redistributePipeComponentsInline.call(this, pipe, boru1, boru2, splitPoint);
@@ -956,6 +958,7 @@ export function handleMeterStartPipeSecondClick(endPoint) {
     temsiliBoru.isTemsiliBoru = true; // Temsili boru işareti
 
     this.manager.pipes.push(temsiliBoru);
+    this.manager.registerPipeNodes(temsiliBoru);
 
     // Sayaç pozisyon ve rotation hesapla (updateGhostPosition mantığını kullan)
     const dx = p2.x - p1.x;

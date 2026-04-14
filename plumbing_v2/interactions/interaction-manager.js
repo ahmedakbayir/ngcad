@@ -4,6 +4,7 @@
  */
 
 import { TesisatSnapSystem } from './tesisat-snap.js';
+import { state } from '../../general-files/main.js';
 
 // Pointer handlers
 import { handlePointerMove } from '../../pointer/handle-pointer-move.js';
@@ -102,6 +103,49 @@ function _segmentsProperlyIntersect2D(a1, a2, b1, b2) {
     const d4 = cross(a1, a2, b2);
 
     return (d1 * d2 < 0 && d3 * d4 < 0);
+}
+
+/**
+ * İki 3D segmentin aynı yol üzerinde örtüşüp örtüşmediğini kontrol eder.
+ * (Birebir aynı boru — kopya üstüne yapıştırma tespiti)
+ */
+function _segmentsCollinearOverlap3D(a1, a2, b1, b2) {
+    const EPSILON = 5; // cm
+    const adx = a2.x - a1.x, ady = a2.y - a1.y, adz = (a2.z || 0) - (a1.z || 0);
+    const aLen = Math.hypot(adx, ady, adz);
+    if (aLen < 0.001) return false;
+
+    // B'nin her iki ucu A'nın doğrusu üzerinde mi?
+    const onLine = (pt) => {
+        const t = ((pt.x - a1.x) * adx + (pt.y - a1.y) * ady + ((pt.z || 0) - (a1.z || 0)) * adz) / (aLen * aLen);
+        const cx = a1.x + t * adx, cy = a1.y + t * ady, cz = (a1.z || 0) + t * adz;
+        return Math.hypot(pt.x - cx, pt.y - cy, (pt.z || 0) - cz) < EPSILON;
+    };
+    if (!onLine(b1) || !onLine(b2)) return false;
+
+    // T parametrelerini hesapla; örtüşme aralığı [0,1] ile kesişiyor mu?
+    const tb1 = ((b1.x - a1.x) * adx + (b1.y - a1.y) * ady + ((b1.z || 0) - (a1.z || 0)) * adz) / (aLen * aLen);
+    const tb2 = ((b2.x - a1.x) * adx + (b2.y - a1.y) * ady + ((b2.z || 0) - (a1.z || 0)) * adz) / (aLen * aLen);
+    const tMin = Math.min(tb1, tb2), tMax = Math.max(tb1, tb2);
+    return tMax > 0.05 && tMin < 0.95;
+}
+
+/**
+ * 3D farkında çakışma kontrolü:
+ * – Collinear örtüşme (birebir aynı hat) her zaman çakışmadır.
+ * – 2D kesişme yalnızca aynı Z seviyesindeyse çakışmadır;
+ *   farklı katlarda çapraz geçen borular çakışmaz.
+ */
+function _segmentsConflict3D(np1, np2, eq1, eq2) {
+    // Önce collinear örtüşme kontrolü
+    if (_segmentsCollinearOverlap3D(np1, np2, eq1, eq2)) return true;
+
+    // 2D kesişme: Z seviyeleri yeterince yakınsa çakışmadır
+    const zMidNew = ((np1.z || 0) + (np2.z || 0)) / 2;
+    const zMidEx  = ((eq1.z || 0) + (eq2.z || 0)) / 2;
+    if (Math.abs(zMidNew - zMidEx) > 50) return false; // Farklı kot — çakışma yok
+
+    return _segmentsProperlyIntersect2D(np1, np2, eq1, eq2);
 }
 
 // Tool modları
@@ -232,6 +276,13 @@ export class InteractionManager {
             ? new Set(this.cutPipesOriginalIds?.pipeIds || [])
             : new Set();
 
+        // 3D modda borular Z değerlerine göre kaydırılmış görünür:
+        // Dünya noktası (wx, wy, wz) canvas'ta (wx + wz*t, wy - wz*t) konumunda çizilir.
+        // screenToWorld() bu kaydırımı zaten tersine çevirir, bu yüzden
+        // mouse `point` ile pipe endpoint'lerini karşılaştırırken pipe endpoint'lerini
+        // aynı projeksiyon uzayına taşımamız gerekir.
+        const t3d = state.viewBlendFactor || 0;
+
         const TOLERANCE = 20; // cm — snap yakalama mesafesi
         let best = null;
         let bestDist = TOLERANCE;
@@ -239,31 +290,41 @@ export class InteractionManager {
         for (const pipe of this.manager.pipes) {
             if (excludeIds.has(pipe.id)) continue;
 
-            // P1 uç noktası
-            const d1 = Math.hypot(point.x - pipe.p1.x, point.y - pipe.p1.y);
+            const z1 = pipe.p1.z || 0;
+            const z2 = pipe.p2.z || 0;
+
+            // P1 uç noktası — Z offsetiyle projekte edilmiş konum
+            const p1px = pipe.p1.x + z1 * t3d;
+            const p1py = pipe.p1.y - z1 * t3d;
+            const d1 = Math.hypot(point.x - p1px, point.y - p1py);
             if (d1 < bestDist) {
                 bestDist = d1;
-                best = { x: pipe.p1.x, y: pipe.p1.y, z: pipe.p1.z || 0, type: 'endpoint', pipeId: pipe.id };
+                best = { x: pipe.p1.x, y: pipe.p1.y, z: z1, type: 'endpoint', pipeId: pipe.id };
             }
 
-            // P2 uç noktası
-            const d2 = Math.hypot(point.x - pipe.p2.x, point.y - pipe.p2.y);
+            // P2 uç noktası — Z offsetiyle projekte edilmiş konum
+            const p2px = pipe.p2.x + z2 * t3d;
+            const p2py = pipe.p2.y - z2 * t3d;
+            const d2 = Math.hypot(point.x - p2px, point.y - p2py);
             if (d2 < bestDist) {
                 bestDist = d2;
-                best = { x: pipe.p2.x, y: pipe.p2.y, z: pipe.p2.z || 0, type: 'endpoint', pipeId: pipe.id };
+                best = { x: pipe.p2.x, y: pipe.p2.y, z: z2, type: 'endpoint', pipeId: pipe.id };
             }
 
             // Gövde üzeri (projeksiyon) — uçlardan %5 uzakta kalmak şartıyla
-            const ddx = pipe.p2.x - pipe.p1.x;
-            const ddy = pipe.p2.y - pipe.p1.y;
+            // Gövde proyeksiyonunu da 3D offsetiyle hesapla
+            const ddx = p2px - p1px;
+            const ddy = p2py - p1py;
             const len2 = ddx * ddx + ddy * ddy;
             if (len2 > 0.01) {
-                const tBody = ((point.x - pipe.p1.x) * ddx + (point.y - pipe.p1.y) * ddy) / len2;
+                const tBody = ((point.x - p1px) * ddx + (point.y - p1py) * ddy) / len2;
                 if (tBody > 0.05 && tBody < 0.95) {
-                    const projX = pipe.p1.x + tBody * ddx;
-                    const projY = pipe.p1.y + tBody * ddy;
-                    const projZ = (pipe.p1.z || 0) + tBody * ((pipe.p2.z || 0) - (pipe.p1.z || 0));
-                    const dist = Math.hypot(point.x - projX, point.y - projY);
+                    const projX = pipe.p1.x + tBody * (pipe.p2.x - pipe.p1.x);
+                    const projY = pipe.p1.y + tBody * (pipe.p2.y - pipe.p1.y);
+                    const projZ = z1 + tBody * (z2 - z1);
+                    const spx  = projX + projZ * t3d;
+                    const spy  = projY - projZ * t3d;
+                    const dist = Math.hypot(point.x - spx, point.y - spy);
                     if (dist < bestDist) {
                         bestDist = dist;
                         best = { x: projX, y: projY, z: projZ, type: 'body', pipeId: pipe.id };
@@ -281,12 +342,12 @@ export class InteractionManager {
 
         let hasConflict = false;
         outer: for (const pipeData of pasteData.pipes) {
-            const np1 = { x: pipeData.p1.x + ddx, y: pipeData.p1.y + ddy };
-            const np2 = { x: pipeData.p2.x + ddx, y: pipeData.p2.y + ddy };
+            const np1 = { x: pipeData.p1.x + ddx, y: pipeData.p1.y + ddy, z: (pipeData.p1.z || 0) + ddz };
+            const np2 = { x: pipeData.p2.x + ddx, y: pipeData.p2.y + ddy, z: (pipeData.p2.z || 0) + ddz };
 
             for (const existing of this.manager.pipes) {
                 if (excludeIds.has(existing.id)) continue;
-                if (_segmentsProperlyIntersect2D(np1, np2, existing.p1, existing.p2)) {
+                if (_segmentsConflict3D(np1, np2, existing.p1, existing.p2)) {
                     hasConflict = true;
                     break outer;
                 }

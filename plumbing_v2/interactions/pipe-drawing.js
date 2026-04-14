@@ -479,9 +479,11 @@ export function cancelCurrentAction(interactionManager) {
     interactionManager.meterPlacementState = null;
     interactionManager.meterStartPoint = null;
     interactionManager.meterPreviewEndPoint = null;
-    // Kes bekleyen durumunu iptal et (Kopyala multi-paste için korunur)
+    // Kes/Kopyala durumunu temizle
     interactionManager.cutPipes = null;
     interactionManager.cutPipesOriginalIds = null;
+    interactionManager.copiedPipes = null;
+    interactionManager.pasteSnapPoint = null;
     interactionManager.deselectObject();
 }
 

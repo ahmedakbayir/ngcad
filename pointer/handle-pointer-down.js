@@ -52,7 +52,11 @@ export function handlePointerDown(e) {
     if (e.button === 0 && (this.cutPipes || this.copiedPipes) && !this.boruCizimAktif && !this.manager.activeTool) {
         const snap = this.pasteSnapPoint;
         if (snap && !snap.hasConflict) {
-            this._pasteSnapOverride = { x: snap.x, y: snap.y, z: snap.z || 0 };
+            this._pasteSnapOverride = {
+                x: snap.x, y: snap.y, z: snap.z || 0,
+                snapPipeId: snap.pipeId,   // ilk pasted boru bu boruya bağlanacak
+                snapType: snap.type        // 'endpoint' veya 'body'
+            };
             this.handlePipePaste();
             this._pasteSnapOverride = null;
             this.pasteSnapPoint = null;
