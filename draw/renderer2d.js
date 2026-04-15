@@ -42,7 +42,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHo
     const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'door');
 
     // Renk belirleme
-    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "rgba(160, 160, 160, 0.6)" : "rgba(128, 128, 128, 0.4)";
+    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "#a0b8df" : "#859096";
     const color = getAdjustedColor(baseColor, 'door');
 
     // Çizim ayarları
@@ -119,7 +119,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const adjustedWindowColor = getAdjustedColor(baseWindowColor, 'window');
 
     // Renk belirleme
-    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "rgba(160, 160, 160, 0.6)" : "rgba(128, 128, 128, 0.4)";
+    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "#a0b8df" : "#859096ad";
     const color = getAdjustedColor(baseColor, 'door');
 
     // Çizim ayarları
@@ -569,15 +569,17 @@ export function drawStairs(stair, isSelected = false) {
     const { ctx2d } = dom;
     const { zoom, lineThickness, wallBorderColor, roomFillColor } = state;
 
+    const lnw = Math.min(1 / zoom, 2);
     // Çizim moduna göre opacity ayarla
     ctx2d.save();
-
+    ctx2d.globalAlpha = 0.3;
     const corners = getStairCorners(stair); // Köşe noktalarını al
     // Çizim moduna göre renk ayarla
     const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'stair');
     const adjustedRoomFillColor = getAdjustedColor(roomFillColor || '#1e1f20', 'stair');
     const stairColor = isSelected ? '#8ab4f8' : adjustedWallBorderColor;
     const backgroundColor = adjustedRoomFillColor;
+    ctx2d.fillStyle =adjustedRoomFillColor;
     const rotRad = (stair.rotation || 0) * Math.PI / 180;
     const dirX = Math.cos(rotRad); // Ok için yön vektörleri
     const dirY = Math.sin(rotRad);
@@ -585,7 +587,7 @@ export function drawStairs(stair, isSelected = false) {
     const perpY = dirX;
 
     // --- ARKA PLAN VE KENARLIK ÇİZİMİ ---
-    ctx2d.fillStyle = backgroundColor;
+    ctx2d.lineWidth = lnw;
     ctx2d.beginPath();
     ctx2d.moveTo(corners[0].x, corners[0].y);
     ctx2d.lineTo(corners[1].x, corners[1].y);
@@ -595,7 +597,7 @@ export function drawStairs(stair, isSelected = false) {
     ctx2d.fill();
 
     ctx2d.strokeStyle = stairColor;
-    ctx2d.lineWidth = lineThickness / zoom;
+    ctx2d.lineWidth = lnw;
     ctx2d.beginPath();
     ctx2d.moveTo(corners[0].x, corners[0].y);
     ctx2d.lineTo(corners[1].x, corners[1].y);
@@ -611,6 +613,7 @@ export function drawStairs(stair, isSelected = false) {
         // Basamakları Çiz
         const stepCount = stair.stepCount || 1;
         if (stepCount > 1) {
+            ctx2d.lineWidth = lnw;
             const halfHeight = stair.height / 2; // Artık offset yok, tam yarı genişlik
             const startEdgeCenter = {
                 x: (corners[0].x + corners[3].x) / 2, // (sol üst + sol alt) / 2
@@ -627,7 +630,7 @@ export function drawStairs(stair, isSelected = false) {
                 ctx2d.moveTo(p1.x, p1.y);
                 ctx2d.lineTo(p2.x, p2.y);
             }
-            ctx2d.lineWidth = (lineThickness / 2) / zoom;
+            ctx2d.lineWidth = lnw;
             ctx2d.strokeStyle = stairColor; // Renk zaten ayarlı ama garanti olsun
             ctx2d.stroke();
         }
@@ -646,7 +649,7 @@ export function drawStairs(stair, isSelected = false) {
         ctx2d.beginPath();
         ctx2d.moveTo(arrowStart.x, arrowStart.y);
         ctx2d.lineTo(arrowEnd.x, arrowEnd.y);
-        ctx2d.lineWidth = (lineThickness / 1.5) / zoom;
+        ctx2d.lineWidth = lnw;
         ctx2d.strokeStyle = stairColor;
         ctx2d.stroke();
 

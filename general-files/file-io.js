@@ -102,12 +102,12 @@ function saveProject() {
         timestamp: new Date().toISOString(),
         gridOptions: state.gridOptions,
         snapOptions: state.snapOptions,
-        dimensionOptions: state.dimensionOptions, // EKLENDİ
+        dimensionOptions: state.dimensionOptions,
         wallBorderColor: state.wallBorderColor,
         roomFillColor: state.roomFillColor,
         lineThickness: state.lineThickness,
-        wallThickness: state.wallThickness, // YENİ EKLENDİ
-        drawingAngle: state.drawingAngle, // YENİ EKLENDİ
+        wallThickness: state.wallThickness,
+        drawingAngle: state.drawingAngle,
         nodes: state.nodes.map(n => ({
             x: n.x,
             y: n.y,
@@ -118,53 +118,52 @@ function saveProject() {
             type: w.type,
             p1Index: state.nodes.indexOf(w.p1),
             p2Index: state.nodes.indexOf(w.p2),
-            thickness: w.thickness || state.wallThickness, // GÜNCELLENDİ
+            thickness: w.thickness || state.wallThickness,
             wallType: w.wallType || 'normal',
             windows: w.windows || [],
             vents: w.vents || [],
-            isArc: w.isArc, // EKLENDİ
-            arcControl1: w.arcControl1, // EKLENDİ
-            arcControl2: w.arcControl2,  // EKLENDİ
-            floorId: w.floorId // floorId ekle
+            isArc: w.isArc,
+            arcControl1: w.arcControl1,
+            arcControl2: w.arcControl2,
+            floorId: w.floorId
         })),
         doors: state.doors.map(d => ({
             wallIndex: state.walls.indexOf(d.wall),
             pos: d.pos,
             width: d.width,
             type: d.type,
-            isWidthManuallySet: d.isWidthManuallySet // EKLENDİ
+            isWidthManuallySet: d.isWidthManuallySet
         })),
         rooms: state.rooms.map(r => ({
             polygon: r.polygon,
             area: r.area,
             center: r.center,
             name: r.name,
-            centerOffset: r.centerOffset, // EKLENDİ
-            floorId: r.floorId // EKLENDİ
+            centerOffset: r.centerOffset,
+            floorId: r.floorId
         })),
-        columns: state.columns, // <-- GÜNCELLENDİ/EKLENDİ
+        columns: state.columns,
         beams: state.beams, 
-        stairs: state.stairs.map(s => ({ // <-- MERDİVEN GÜNCELLENDİ
+        stairs: state.stairs.map(s => ({
             type: s.type,
-            id: s.id, // ID eklendi
-            name: s.name, // name eklendi
+            id: s.id,
+            name: s.name,
             center: s.center,
             width: s.width,
             height: s.height,
             rotation: s.rotation,
             stepCount: s.stepCount,
-            bottomElevation: s.bottomElevation, // eklendi
-            topElevation: s.topElevation, // eklendi
-            connectedStairId: s.connectedStairId, // eklendi
-            isLanding: s.isLanding, // eklendi
-            showRailing: s.showRailing, // <-- DÜZELTME: Korkuluk bilgisi eklendi
-            floorId: s.floorId // <-- DÜZELTME: Kat bilgisi eklendi
+            bottomElevation: s.bottomElevation,
+            topElevation: s.topElevation,
+            connectedStairId: s.connectedStairId,
+            isLanding: s.isLanding,
+            showRailing: s.showRailing,
+            floorId: s.floorId
         })),
-        guides: state.guides || [], // <-- REFERANS ÇİZGİSİ EKLENDİ
-        floors: state.floors || [], // <-- KAT BİLGİLERİ EKLENDİ
-        currentFloor: state.currentFloor || null, // <-- AKTİF KAT EKLENDİ
-        defaultFloorHeight: state.defaultFloorHeight || 270, // <-- VARSAYILAN KAT YÜKSEKLİĞİ EKLENDİ
-        // Tesisat verileri
+        guides: state.guides || [],
+        floors: state.floors || [],
+        currentFloor: state.currentFloor || null,
+        defaultFloorHeight: state.defaultFloorHeight || 270,
         plumbingNodes: state.plumbingNodes || [],
         plumbingPipes: state.plumbingPipes || [],
         plumbingBlocks: state.plumbingBlocks || [],
@@ -172,33 +171,52 @@ function saveProject() {
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
 
-    const a = document.createElement('a');
-    a.href = url;
-    
-    // YENİ: Dosya adını arayüzden alıyoruz, eğer yoksa "Adsız Proje" yapıyoruz
-    let fileName = window.currentProjectName || "Ahmet Akbayir";
-    
-    // Eğer ismin sonunda uzantı yoksa .json uzantısını ekle
-    if (!fileName.toLowerCase().endsWith('.json')) {
-        fileName += '.json';
-    }
-    
-// =================================================================
-    // YENİ: DOSYA ÜZERİNE YAZMA VEYA YENİ KAYDETME MANTIĞI
+    // =================================================================
+    // TARİH FORMATLAMA VE İSİM GÜNCELLEME MANTIĞI
     // =================================================================
     
-    // Fonksiyonu async yapmamız gerektiği için anlık bir async blok oluşturuyoruz
+    // YYYYMMDD formatında tarih üret (Örn: 20260415)
+    const getFormattedDate = () => {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}${mm}${dd}`;
+    };
+
+    let baseName = window.currentProjectName || "Ahmet Akbayir";
+    const dateSuffix = getFormattedDate();
+
+    // Eğer ismin sonunda zaten bugünün tarihi yoksa ekle
+    // Regex, ismin sonunda " 20260415" gibi bir kalıp olup olmadığını kontrol eder
+    const datePattern = new RegExp(`\\s${dateSuffix}$`);
+    
+    if (!datePattern.test(baseName)) {
+        // Eski tarihli bir isimse (başka bir günün tarihi varsa) onu temizleyip yenisini ekle
+        // Bu satır "İsim 20260414" -> "İsim 20260415" dönüşümünü sağlar
+        baseName = baseName.replace(/\s\d{8}$/, ""); 
+        baseName = `${baseName} ${dateSuffix}`;
+        
+        // UI ve Global değişkenleri güncelle
+        window.currentProjectName = baseName;
+        const nameInput = document.getElementById('projectNameInput');
+        if (nameInput) nameInput.value = baseName;
+        document.title = `${baseName} - AangCAD`;
+    }
+
+    let fileName = `${baseName}.json`;
+
+    // =================================================================
+    // KAYDETME İŞLEMİ (ASENKRON)
+    // =================================================================
+    
     (async () => {
         try {
-            // Modern Tarayıcılar (File System Access API - Üzerine Yazma Destekler)
             if ('showSaveFilePicker' in window) {
-                
                 let fileHandle = window.currentFileHandle;
 
-                // Farklı Kaydet dendiğinde veya daha önce hiç kaydedilmediyse yeni yer sor
+                // Farklı Kaydet veya yeni dosya durumu
                 if (window.saveAsNewFile || !fileHandle) {
                     fileHandle = await window.showSaveFilePicker({
                         suggestedName: fileName,
@@ -207,27 +225,23 @@ function saveProject() {
                             accept: { 'application/json': ['.json'] },
                         }],
                     });
-                    // Handle'ı sakla ki bir dahaki sefere üzerine yazabilsin
                     window.currentFileHandle = fileHandle; 
                     
-                    // Dosyanın gerçek adını UI'a yansıt (uzantısız)
+                    // Dosya isminden uzantıyı çıkarıp son hali UI'a yansıt
                     const actualName = fileHandle.name.replace(/\.json$/i, '');
                     window.currentProjectName = actualName;
-                    
                     const nameInput = document.getElementById('projectNameInput');
                     if (nameInput) nameInput.value = actualName;
                     document.title = `${actualName} - AangCAD`;
                 }
 
-                // Seçilen veya zaten var olan dosyanın üzerine yaz
                 const writable = await fileHandle.createWritable();
                 await writable.write(dataStr);
                 await writable.close();
-                
-                console.log("Proje başarıyla kaydedildi / üzerine yazıldı.");
+                console.log(`Proje kaydedildi: ${window.currentProjectName}`);
 
             } else {
-                // Eski Tarayıcılar İçin Fallback (Sadece İndirir)
+                // Tarayıcı desteği yoksa standart indirme
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -239,9 +253,8 @@ function saveProject() {
                 URL.revokeObjectURL(url);
             }
         } catch (error) {
-            // Kullanıcı kaydetme penceresini iptal ederse buraya düşer
             if (error.name !== 'AbortError') {
-                console.error("Kaydetme sırasında bir hata oluştu:", error);
+                console.error("Kaydetme hatası:", error);
             }
         }
     })();
