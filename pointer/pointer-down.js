@@ -199,7 +199,8 @@ export function onPointerDown(e) {
                     isDraggingRoomName: clickedObject.object,
                     roomDragStartPos: { x: pos.x, y: pos.y },
                     roomOriginalCenter: [...clickedObject.object.center],
-                    selectedObject: null
+                    selectedObject: null,
+                    selectedRoom: clickedObject.object
                 });
                 dom.p2d.classList.add('dragging');
             } else {

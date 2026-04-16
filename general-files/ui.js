@@ -1899,7 +1899,8 @@ function setupVisibilityPanel() {
         junctions: 'vis-chk-junctions',
         arch: 'vis-chk-arch',
         plumbing: 'vis-chk-plumbing',
-        objLabels: 'vis-chk-obj-labels'
+        objLabels: 'vis-chk-obj-labels',
+        birim: 'vis-chk-birim'
     };
 
     // State'i güncelle ve sahneyi yeniden çiz
@@ -1932,6 +1933,7 @@ function setupVisibilityPanel() {
     document.getElementById(ids.arch)?.addEventListener('change', (e) => updateVisibility('showArchitecture', e.target.checked));
     document.getElementById(ids.plumbing)?.addEventListener('change', (e) => updateVisibility('showPlumbing', e.target.checked));
     document.getElementById(ids.objLabels)?.addEventListener('change', (e) => updateVisibility('showObjectLabels', e.target.checked));
+    document.getElementById(ids.birim)?.addEventListener('change', (e) => updateVisibility('showBirimBoundaries', e.target.checked));
     // Hepsini Göster
     document.getElementById('vis-btn-show-all')?.addEventListener('click', () => {
         Object.values(ids).forEach(id => {
@@ -1968,7 +1970,8 @@ function setupVisibilityPanel() {
             'vis-chk-junctions': 'showJunctionNodes',
             'vis-chk-arch': 'showArchitecture',
             'vis-chk-plumbing': 'showPlumbing',
-            'vis-chk-obj-labels': 'showObjectLabels'
+            'vis-chk-obj-labels': 'showObjectLabels',
+            'vis-chk-birim': 'showBirimBoundaries'
         };
         const elId = ids[key];
         const stateKey = stateKeyMap[elId];

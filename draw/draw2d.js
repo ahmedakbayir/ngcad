@@ -16,6 +16,7 @@ import { drawWallGeometry } from './draw-walls.js';
 import { drawSymmetryPreview } from './draw-previews.js';
 import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
+import { drawBirimLabels, drawBirimBoundaries } from './draw-birim-labels.js';
 import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { getColumnCorners } from '../architectural-objects/columns.js';
@@ -454,8 +455,12 @@ export function draw2D() {
 
     // 7. Mahal Etiketleri (TESİSAT modunda gizli)
     // if (state.currentDrawingMode !== 'TESİSAT') {
+    if (showArch) {
+        drawBirimBoundaries(ctx2d, { ...state, rooms, doors, walls });
+    }
     if (showArch && state.tempVisibility.showRoomNames) {
         drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
+        drawBirimLabels(ctx2d, { ...state, rooms, doors, walls });
     }    //}
 
     // 8. Kapılar, Pencereler, Menfezler
