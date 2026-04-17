@@ -455,9 +455,6 @@ export function draw2D() {
 
     // 7. Mahal Etiketleri (TESİSAT modunda gizli)
     // if (state.currentDrawingMode !== 'TESİSAT') {
-    if (showArch) {
-        drawBirimBoundaries(ctx2d, { ...state, rooms, doors, walls });
-    }
     if (showArch && state.tempVisibility.showRoomNames) {
         drawRoomNames(ctx2d, { ...state, rooms }, getObjectAtPoint);
         drawBirimLabels(ctx2d, { ...state, rooms, doors, walls });
@@ -500,6 +497,11 @@ export function draw2D() {
     //         drawColumnSymbol(node);
     //     }
     // });
+
+    // Birim sınır çizgileri – kapı/pencere üzerinde
+    if (showArch) {
+        drawBirimBoundaries(ctx2d, { ...state, rooms, doors, walls });
+    }
 
     // 9. Obj. Yerleştirme Önizlemeleri
     drawObjectPlacementPreviews(ctx2d, state, getDoorPlacement, isSpaceForDoor, getWindowPlacement, isSpaceForWindow, drawDoorSymbol, drawWindowSymbol);

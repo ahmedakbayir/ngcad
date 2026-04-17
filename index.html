@@ -120,6 +120,7 @@
           <label class="vis-item"><input type="checkbox" id="vis-chk-plumb-dim" checked> <span>Hat Ölçüsü</span></label>
           <label class="vis-item"><input type="checkbox" id="vis-chk-obj-labels" checked> <span>Nesne Etiketleri</span></label>
           <label class="vis-item"><input type="checkbox" id="vis-chk-junctions" checked> <span>Köşe Noktaları</span></label>
+          <label class="vis-item"><input type="checkbox" id="vis-chk-3d-perspective" checked> <span>Perspektif 3D</span></label>
           <label class="vis-item"><input type="checkbox" id="vis-chk-arch" checked> <span>Mimari</span></label>
           <label class="vis-item"><input type="checkbox" id="vis-chk-plumbing" checked> <span>Tesisat</span></label>
         </div>
@@ -142,14 +143,6 @@
 
           <div class="button-group draggable-group" id="group-architecture">
             <div class="group-label drag-handle">MİMARİ</div>
-            <button id="bWall" class="btn" title="Duvar">
-              <svg viewBox="0 0 24 24">
-                <path d="M5 6H19v5h3v5H19v5H5V16H2V11H5V6Zm0 5H19M5 16H19M12 6v5M8.5 11v5m7-5v5M12 16v5"
-                  stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none">
-                </path>
-              </svg>
-              Duvar
-            </button>
             <button id="bRoom" class="btn" title="Oda">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#e6e6e6" stroke-width="2">
                 <path d="M15 21
@@ -165,6 +158,14 @@
                 <path d="M10 21 v-5a5 5 0 0 1 5 5" stroke-width="0.5" />
               </svg>
               Oda
+            </button>
+            <button id="bWall" class="btn" title="Duvar">
+              <svg viewBox="0 0 24 24">
+                <path d="M5 6H19v5h3v5H19v5H5V16H2V11H5V6Zm0 5H19M5 16H19M12 6v5M8.5 11v5m7-5v5M12 16v5"
+                  stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                </path>
+              </svg>
+              Duvar
             </button>
             <button id="bDoor" class="btn" title="Kapı">
               <svg viewBox="0 0 24 24">

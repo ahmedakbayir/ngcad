@@ -207,7 +207,7 @@ export function computeUnitBirims() {
 
                 // Duvar kalınlığı yarısı + küçük boşluk kadar öteliyoruz
                 const halfWall = (wall.thickness || state.wallThickness || 20) / 2;
-                const offset   = halfWall + 22; // kapıdan 22cm ötede
+                const offset   = halfWall + 10; // kapıdan 10cm ötede
 
                 const labelX = dcx + nx * sign * offset;
                 const labelY = dcy + ny * sign * offset;
@@ -216,7 +216,10 @@ export function computeUnitBirims() {
                 let angle = Math.atan2(wdy, wdx);
                 if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle += Math.PI;
 
-                result.push({ door, birimTipi, labelX, labelY, angle });
+                // Birim toplam alanı (m²)
+                const unitArea = unitRooms.reduce((sum, r) => sum + (r.area || 0), 0);
+
+                result.push({ door, birimTipi, labelX, labelY, angle, unitArea });
             }
         }
     }
@@ -235,10 +238,14 @@ export function invalidateBirimCache() {
 
 // ── Renk paleti ───────────────────────────────────────────────────────────────
 const BIRIM_COLOR = {
-    'KONUT':         '#ffcc80', // turuncu
-    'OFİS':          '#52fd58', // açık yeşil
-    'TİCARİ':        '#32dcfa', // açık mavi
-    'KAZAN D.': '#8260ff'  // kırmızımsı
+   
+    'KONUT':         '#ffcc80', 
+    'OFİS':          '#52fd58', 
+    'TİCARİ':        '#32dcfa', 
+    'KAZAN D.':      '#8260ff'  
+    
+
+    
 };
 
 // ── Çizim fonksiyonu (etiket – sadece metin, çerçeve yok) ────────────────────
@@ -249,7 +256,7 @@ export function drawBirimLabels(ctx2d, st) {
     if (!labels.length) return;
 
     const zoom     = st.zoom || 1;
-    const ZOOM_EXP = -0.4;
+    const ZOOM_EXP = -0.1;
     const BASE_SIZE = 11;
     const fontSize  = Math.max(4, BASE_SIZE * Math.pow(zoom, ZOOM_EXP));
 
@@ -258,7 +265,10 @@ export function drawBirimLabels(ctx2d, st) {
     ctx2d.textBaseline = 'middle';
     ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
 
-    for (const { labelX, labelY, angle, birimTipi } of labels) {
+    const showArea = !!st.tempVisibility?.showArchDimensions;
+    const areaFontSize = fontSize * 0.8;
+
+    for (const { labelX, labelY, angle, birimTipi, unitArea } of labels) {
         const color = BIRIM_COLOR[birimTipi] || '#ffffff';
 
         ctx2d.save();
@@ -266,7 +276,13 @@ export function drawBirimLabels(ctx2d, st) {
         ctx2d.rotate(angle);
 
         ctx2d.fillStyle = color;
+        ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
         ctx2d.fillText(birimTipi, 0, 0);
+
+        if (showArea && unitArea > 0) {
+            ctx2d.font = `${areaFontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
+            ctx2d.fillText(unitArea.toFixed(2) + ' m²', 0, fontSize * 1.1);
+        }
 
         ctx2d.restore();
     }
@@ -339,7 +355,7 @@ export function drawBirimBoundaries(ctx2d, st) {
         const isSelUnit = selectedUnitRooms && [...unitRooms].some(r => selectedUnitRooms.has(r));
         if (isSelUnit) continue;
 
-        const color = BIRIM_COLOR[birimTipi] || '#ffffff';
+        const color = BIRIM_COLOR[birimTipi] || 'rgb(255, 255, 255)';
         ctx2d.strokeStyle = color;
         ctx2d.lineWidth   = thinW;
         ctx2d.shadowColor = color + 'aa';
@@ -369,7 +385,7 @@ export function drawBirimBoundaries(ctx2d, st) {
             const isSelUnit = [...unitRooms].some(r => selectedUnitRooms.has(r));
             if (!isSelUnit) continue;
 
-            const color = BIRIM_COLOR[birimTipi] || '#ffffff';
+            const color = BIRIM_COLOR[birimTipi] || '#ffcc80';
             ctx2d.shadowColor = color;
             ctx2d.shadowBlur  = 12 / zoom;
             ctx2d.strokeStyle = color;

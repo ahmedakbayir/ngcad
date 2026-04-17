@@ -510,18 +510,6 @@ function onKeyDown(e) {
             // Ancak, aşağıdaki genel kısayolların çalışmaması için return KULLANILMAMALI
             // Eğer Enter, Esc, ArrowDown değilse, diğer kısayolları engellemek için return edelim
             if (!['Enter', 'Escape', 'ArrowDown', 'ArrowUp'].includes(e.key)) { // ArrowUp eklendi
-                // F tuşunu burada da engelle
-                if (e.key.toLowerCase() === 'f') {
-                    e.preventDefault(); // Tarayıcının varsayılan 'F' işlemini (Find) engelle
-
-                    // 3D Ekran aktif mi kontrol et
-                    if (dom.mainContainer.classList.contains('show-3d')) {
-                        fit3DViewToScreen(); // 3D sığdırmayı çağır
-                    } else {
-                        fitDrawingToScreen(); // 2D sığdırmayı çağır
-                    }
-                    return; // Diğer kısayollarla çakışmasın
-                }
                 // Ctrl+L - Tema değiştir (input içindeyken de çalışsın)
                 if (e.ctrlKey && e.key.toLowerCase() === 'l') {
                     e.preventDefault();
@@ -548,11 +536,6 @@ function onKeyDown(e) {
                 dom.lengthInput.blur();
                 return;
             }
-            // F tuşunu burada da engelle
-            else if (e.key.toLowerCase() === 'f') {
-                e.preventDefault();
-                return;
-            }
             // Ctrl+L - Tema değiştir
             else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
                 e.preventDefault();
@@ -570,11 +553,6 @@ function onKeyDown(e) {
         }
         // Diğer input/settings alanları için (genel engelleme)
         else {
-            // F tuşunu engelle
-            if (e.key.toLowerCase() === 'f') {
-                e.preventDefault();
-                return;
-            }
             // Ctrl+L - Tema değiştir
             if (e.ctrlKey && e.key.toLowerCase() === 'l') {
                 e.preventDefault();
@@ -657,8 +635,10 @@ function onKeyDown(e) {
         return;
     }
 
-    // Mahal (room) seçiliyken harf girişi ile filtreleme
-    if (state.selectedRoom && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key)) {
+    // Mahal (room) seçiliyken harf girişi ile filtreleme – sadece MİMARİ mod + 2D sahne
+    const is2DScene   = !dom.mainContainer.classList.contains('show-3d');
+    const isMimariMod = state.currentDrawingMode === 'MİMARİ';
+    if (state.selectedRoom && is2DScene && isMimariMod && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key)) {
         e.preventDefault();
         const room = state.selectedRoom;
         // Get room center position (stored as array [x, y]) and convert to screen coordinates
@@ -1108,9 +1088,16 @@ export function setupInputListeners() {
     });
     p2d.addEventListener("pointerleave", (e) => {
         if (state.isDragging) {
-            setState({ isDragging: false, isStretchDragging: false, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map() });
+            setState({ isDragging: false, isStretchDragging: false, aDragOccurred: false, selectedGroup: [], affectedWalls: [], preDragWallStates: new Map(), preDragNodeStates: new Map() });
             if (state.history[state.historyIndex]) restoreState(state.history[state.historyIndex]);
         }
+        // Room name sürükleme temizliği
+        if (state.isDraggingRoomName) {
+            const room = state.isDraggingRoomName;
+            if (state.roomOriginalCenter) room.center = [...state.roomOriginalCenter];
+            setState({ isDraggingRoomName: null, roomDragStartPos: null, roomOriginalCenter: null });
+        }
+        dom.p2d.classList.remove('dragging');
         if (state.isPanning) {
             setState({ isPanning: false });
             dom.p2d.classList.remove('panning'); // Pan sınıfını kaldır
@@ -1134,11 +1121,29 @@ export function setupInputListeners() {
             setState({
                 isDragging: false,
                 isStretchDragging: false,
+                aDragOccurred: false,
                 affectedWalls: [],
                 preDragWallStates: new Map(),
                 preDragNodeStates: new Map()
             });
             if (state.history[state.historyIndex]) restoreState(state.history[state.historyIndex]);
+        }
+
+        // Room name sürükleme temizliği
+        if (state.isDraggingRoomName) {
+            const room = state.isDraggingRoomName;
+            if (state.roomOriginalCenter) room.center = [...state.roomOriginalCenter];
+            setState({ isDraggingRoomName: null, roomDragStartPos: null, roomOriginalCenter: null });
+        }
+
+        // Dragging CSS class'ını temizle
+        if (dom.p2d) {
+            dom.p2d.classList.remove('dragging');
+        }
+
+        // Orbit state'i temizle
+        if (state.isOrbiting) {
+            setState({ isOrbiting: false, orbitStart: null });
         }
 
         // Panning state'i temizle
@@ -1151,6 +1156,11 @@ export function setupInputListeners() {
         if (state.isCtrlDeleting) {
             setState({ isCtrlDeleting: false });
             dom.p2d.style.cursor = '';
+        }
+
+        // Plumbing interaction temizliği
+        if (plumbingManager.interactionManager) {
+            plumbingManager.interactionManager.cancelCurrentAction();
         }
 
         // Cursor'u resetle
