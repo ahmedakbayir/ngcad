@@ -26,6 +26,7 @@ import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../sce
 import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { hitTestLabel } from '../plumbing_v2/renderer/renderer-labels.js';
 
 
 
@@ -1000,6 +1001,10 @@ export function setupInputListeners() {
         e.preventDefault();
         const rect = dom.c2d.getBoundingClientRect();
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+
+        // HAT etiketine (tesisat hat/nesne etiketi) çift tıklanırsa mahal tanımlama açılmasın
+        if (state.tempVisibility?.showObjectLabels && hitTestLabel(clickPos.x, clickPos.y)) return;
+
         const object = getObjectAtPoint(clickPos);
 
         console.log('🔍 DOUBLE-CLICK EVENT:', {

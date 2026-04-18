@@ -237,7 +237,7 @@ export function handleKeyDown(e) {
     }
 
     // K - Kombi ekle (Ghost mod, ya da 3D + seçili hat varsa otomatik)
-    if (e.key === 'k' || e.key === 'K') {
+    if ((e.key === 'k' || e.key === 'K') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         if ((state.viewBlendFactor || 0) > 0.1) {
             const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
             if (boruUcuInfo) {
@@ -258,7 +258,7 @@ export function handleKeyDown(e) {
     }
 
     // O - Ocak ekle (Ghost mod, ya da 3D + seçili hat varsa otomatik)
-    if (e.key === 'o' || e.key === 'O') {
+    if ((e.key === 'o' || e.key === 'O') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         if ((state.viewBlendFactor || 0) > 0.1) {
             const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
             if (boruUcuInfo) {
@@ -280,7 +280,7 @@ export function handleKeyDown(e) {
     }
 
     // S - Sayaç ekle (Ghost mod)
-    if (e.key === 's' || e.key === 'S') {
+    if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         // Önceki modu kaydet
         this.previousMode = state.currentMode;
         this.previousDrawingMode = state.currentDrawingMode;
@@ -302,7 +302,7 @@ export function handleKeyDown(e) {
     }
 
     // V - Vana ekle (Ghost mod)
-    if (e.key === 'v' || e.key === 'V') {
+    if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         // Önceki modu kaydet
         this.previousMode = state.currentMode;
         this.previousDrawingMode = state.currentDrawingMode;
@@ -325,7 +325,7 @@ export function handleKeyDown(e) {
 
     // T - BORU çizme modu (boru icon'unu aktif et)
     // GÜNCELLENDİ: Seçili boru varsa onun ucundan başlat
-    if (e.key === 't' || e.key === 'T') {
+    if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         // 1. Seçili boru var mı kontrol et
         if (this.selectedObject && this.selectedObject.type === 'boru') {
             const pipe = this.selectedObject;

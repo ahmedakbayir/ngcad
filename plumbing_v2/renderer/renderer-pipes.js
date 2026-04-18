@@ -158,6 +158,48 @@ export const PipeMixin = {
         ctx.restore();
     },
 
+    /**
+     * Sayacın giriş (fleks) borusunun serbest ucunda Z kotunu yazar.
+     * İç tesisat modunda bu, kullanıcının sayaç için tıkladığı ilk noktadır.
+     */
+    drawCanliHatKotu(ctx, manager) {
+        if (!manager || !manager.components || !manager.pipes) return;
+        if (!state.tempVisibility.showZElevation) return;
+
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.1) return;
+
+        const isLightMode = this.isLightMode();
+        ctx.save();
+        ctx.font = '7px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = isLightMode ? '#000000' : '#FFFFFF';
+
+        const drawn = new Set();
+
+        manager.components.forEach(comp => {
+            if (comp.type !== 'sayac' || !comp.fleksBaglanti || !comp.fleksBaglanti.boruId) return;
+            const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+            if (!pipe || !pipe.p1 || !pipe.p2) return;
+
+            // Sayaca bağlı olmayan serbest uç
+            const serbestUc = comp.fleksBaglanti.endpoint === 'p2' ? pipe.p1 : pipe.p2;
+
+            const z = serbestUc.z || 0;
+            const key = `${Math.round(serbestUc.x)},${Math.round(serbestUc.y)},${Math.round(z)}`;
+            if (drawn.has(key)) return;
+            drawn.add(key);
+
+            const sx = serbestUc.x + (z * t);
+            const sy = serbestUc.y - (z * t);
+
+            ctx.fillText(`${Math.round(z)}`, sx - 5, sy - 5);
+        });
+
+        ctx.restore();
+    },
+
     drawPipeElevations(ctx, pipes) {
 
         if (!state.tempVisibility.showZElevation) return;

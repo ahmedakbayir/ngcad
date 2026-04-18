@@ -58,7 +58,8 @@ export function placeComponent(point) {
                 saveState();
 
                 this.meterPlacementState = 'drawing_start_pipe';
-                this.meterStartPoint = { x: point.x, y: point.y };
+                // İç tesisat modunda ilk tıklama noktası default Z=200 (canlı hat kotu)
+                this.meterStartPoint = { x: point.x, y: point.y, z: 200 };
                 // tempComponent'i TUTUYORUZ - mevcut ghost sistemi kullanacak
 
                 // console.log('✅ İÇ TESİSAT: Kesikli boru başlangıç noktası belirlendi. İkinci nokta için tıklayın.');
@@ -942,7 +943,8 @@ export function handleMeterStartPipeSecondClick(endPoint) {
     if (!this.meterStartPoint) return;
 
     const p1 = this.meterStartPoint;
-    const p2 = endPoint;
+    // İkinci nokta (sayaç tarafı) ilk noktanın Z kotunu miras alır → hat yatay olsun
+    const p2 = { x: endPoint.x, y: endPoint.y, z: p1.z || 0 };
 
     // Minimum mesafe kontrolü (çok kısa borular olmasın)
     const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
@@ -977,7 +979,8 @@ export function handleMeterStartPipeSecondClick(endPoint) {
 
     // Geçici sayaç oluştur - POZİSYON ve ROTATION AYARLI
     const tempMeter = createSayac(p2.x, p2.y, {
-        floorId: state.currentFloorId
+        floorId: state.currentFloorId,
+        z: p1.z || 0
     });
     tempMeter.rotation = sayacRotation;
 
@@ -1005,7 +1008,7 @@ export function handleMeterStartPipeSecondClick(endPoint) {
             boruId: temsiliBoru.id,
             boru: temsiliBoru,
             uc: 'p2',
-            nokta: { x: p2.x, y: p2.y }
+            nokta: { x: p2.x, y: p2.y, z: p2.z || 0 }
         }
     };
 

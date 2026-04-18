@@ -28,6 +28,7 @@ import {
 } from "../general-files/main.js";
 import { findLargestAvailableSegment } from "../wall/wall-item-utils.js";
 import { plumbingManager } from "../plumbing_v2/plumbing-manager.js";
+import { computeUnitBirims, getBirimShortLabel } from "../draw/draw-birim-labels.js";
 
 /**
  * 2D veriye (state) dayanarak 3D sahneyi temizler ve yeniden oluşturur.
@@ -454,6 +455,18 @@ export function update3DScene() {
     }
     // --- YENİ SONU ---
 
+    // --- Birim kapı etiketleri (D2, 125 m², Abone Adı) ---
+    if (opacitySettings.door > 0) {
+        try {
+            const visibleFloorIds = (state.floors || [])
+                .filter(f => !f.isPlaceholder && shouldShowFloor(f.id))
+                .map(f => f.id);
+            addDoorBirimLabels(visibleFloorIds, getFloorElevation);
+        } catch (error) {
+            console.error("Birim kapı etiketleri oluşturulurken hata:", error);
+        }
+    }
+
 
     // --- Orbit Hedefini Ayarla ---
     if (controls === orbitControls) { // Sadece orbit modundaysa hedefi ayarla
@@ -830,7 +843,6 @@ function addPipeElevationLabels(pipes, getFloorElevation) {
                 // HTML element oluştur
                 const labelDiv = document.createElement('div');
                 labelDiv.className = 'pipe-elevation-label';
-                labelDiv.textContent = `h:${Math.round(z)}`;
                 labelDiv.style.color = isLightMode ? '#000' : '#fff';
                 labelDiv.style.fontFamily = 'sans-serif';
                 labelDiv.style.fontSize = '12px';
@@ -849,8 +861,121 @@ function addPipeElevationLabels(pipes, getFloorElevation) {
                 const floorElevation = getFloorElevation(pipe.floorId);
                 label.position.set(point.x, z + floorElevation, -point.y); // Y ve Z ters çevrilmiş (2D -> 3D)
 
-                sceneObjects.add(label);
+                //sceneObjects.add(label);
             }
         });
     });
+}
+
+/**
+ * Birim kapılarının dış yüzeyine "D{no} / {alan} m² / Abone Adı" etiketi yapıştırır.
+ * Kanvas dokulu düzlem olarak oluşturulur — sahnenin bir parçası, kapı ile birlikte döner.
+ */
+function addDoorBirimLabels(floorIds, getFloorElevation) {
+    if (!state.tempVisibility?.showRoomNames) return;
+    if (!Array.isArray(floorIds) || floorIds.length === 0) return;
+
+    const sayaclar = (plumbingManager?.components || [])
+        .filter(c => c.type === 'sayac');
+
+    for (const fId of floorIds) {
+        const labels = computeUnitBirims(fId);
+        if (!labels || !labels.length) continue;
+        const floorElevation = getFloorElevation(fId);
+        const floorSayaclar = sayaclar.filter(s => s.floorId === fId);
+
+        for (const entry of labels) {
+            const { door, birimTipi, outerLabelX, outerLabelY, outerDirX, outerDirY, unitArea } = entry;
+            if (!door) continue;
+
+            // Bu birime ait sayacı bul: tipi uyan ve dış etikete en yakın olan
+            let bestSayac = null;
+            let bestDist = Infinity;
+            for (const s of floorSayaclar) {
+                if (s.birimTipi && birimTipi && s.birimTipi !== birimTipi
+                    && !(birimTipi === 'KAZAN D.' && s.birimTipi === 'KAZAN DAİRESİ')) {
+                    continue;
+                }
+                const d = Math.hypot(s.x - outerLabelX, s.y - outerLabelY);
+                if (d < bestDist) { bestDist = d; bestSayac = s; }
+            }
+
+            const birimNo  = bestSayac?.birimNo || '';
+            const aboneAdi = bestSayac?.aboneAdi || '';
+            const lines = [
+                getBirimShortLabel(birimTipi, birimNo),
+                unitArea > 0 ? `${unitArea.toFixed(0)} m²` : '',
+                aboneAdi
+            ].filter(Boolean);
+            if (!lines.length) continue;
+
+            const mesh = createDoorBirimLabelMesh(door, lines);
+            if (!mesh) continue;
+
+            // Kapı merkezi (2D), dış yön vektörü, ve kapı yüksekliğinin ortası
+            const dcx = outerLabelX; // zaten kapı merkezinin dışa ötelenmişi (~halfWall+10 cm)
+            const dcz = outerLabelY; // 2D y → 3D z (pozitif — sahne konvansiyonu)
+
+            mesh.position.set(dcx, floorElevation + DOOR_HEIGHT * 0.55, dcz);
+            // Düzlemin +Z normali dış yöne bakacak şekilde Y ekseni etrafında döndür
+            mesh.rotation.y = Math.atan2(outerDirX, outerDirY);
+
+            sceneObjects.add(mesh);
+        }
+    }
+}
+
+/**
+ * Kapının dış yüzeyine yapıştırılacak "D2 / 125 m² / Abone Adı" düzlem mesh'i üretir.
+ */
+function createDoorBirimLabelMesh(door, lines) {
+    if (!lines || !lines.length) return null;
+    const dpr = 2;
+    const pxW = 512, pxH = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width  = pxW * dpr;
+    canvas.height = pxH * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, pxW, pxH);
+
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle    = '#ffffff';
+    ctx.shadowColor  = 'rgba(0,0,0,0.9)';
+    ctx.shadowBlur   = 8;
+
+    const fontSizes = [
+        Math.round(pxH * 0.30),  // D2 — büyük
+        Math.round(pxH * 0.22),  // m² — orta
+        Math.round(pxH * 0.18)   // Abone Adı — küçük
+    ];
+    const totalH = lines.reduce((s, _, i) => s + fontSizes[Math.min(i, 2)] * 1.15, 0);
+    let y = (pxH - totalH)/1.2 + fontSizes[0] / 2;
+
+    for (let i = 0; i < lines.length; i++) {
+        const fs = fontSizes[Math.min(i, fontSizes.length - 1)];
+        ctx.font = `${i === 0 ? 'bold ' : ''}${fs}px "Segoe UI","Roboto",sans-serif`;
+        ctx.fillText(lines[i], pxW / 2, y);
+        y += fs * 1.15;
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+
+    const mat = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.FrontSide
+    });
+
+    // Düzlem boyutu: kapı genişliğinin %85'i × oransal yükseklik
+    const planeW = Math.max(60, (door.width || 90) * 0.85);
+    const planeH = planeW * (pxH / pxW);
+    const geom = new THREE.PlaneGeometry(planeW, planeH);
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.renderOrder = 10;
+    return mesh;
 }

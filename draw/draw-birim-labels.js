@@ -120,13 +120,8 @@ function classifyUnit(unitRooms) {
     return null; // BİRİM HARİCİ
 }
 
-// ── Cache ─────────────────────────────────────────────────────────────────────
-let _cachedResult   = null;
-let _cachedRooms    = null;
-let _cachedDoors    = null;
-let _cachedWalls    = null;
-let _cachedFloor    = null;
-let _cachedNamesKey = null;
+// ── Cache (per-floor) ─────────────────────────────────────────────────────────
+const _cache = new Map(); // floorId → { rooms, doors, walls, namesKey, result }
 
 function _roomNamesKey(rooms) {
     // Mahal adları değiştiğinde cache'i geçersiz kılmak için basit bir anahtar
@@ -134,106 +129,131 @@ function _roomNamesKey(rooms) {
 }
 
 // ── Ana hesaplama fonksiyonu ──────────────────────────────────────────────────
-export function computeUnitBirims() {
+export function computeUnitBirims(overrideFloorId) {
     const { rooms = [], doors = [], walls = [] } = state;
-    const floorId = state.currentFloor?.id ?? null;
+    const floorId = overrideFloorId !== undefined
+        ? overrideFloorId
+        : (state.currentFloor?.id ?? null);
     const namesKey = _roomNamesKey(rooms);
 
-    // Array referansı, kat VE mahal adları değişmemişse önbelleği kullan
+    const cached = _cache.get(floorId);
     if (
-        _cachedRooms === rooms &&
-        _cachedDoors === doors &&
-        _cachedWalls === walls &&
-        _cachedFloor === floorId &&
-        _cachedNamesKey === namesKey &&
-        _cachedResult !== null
+        cached &&
+        cached.rooms === rooms &&
+        cached.doors === doors &&
+        cached.walls === walls &&
+        cached.namesKey === namesKey
     ) {
-        return _cachedResult;
+        return cached.result;
     }
-
-    _cachedRooms    = rooms;
-    _cachedDoors    = doors;
-    _cachedWalls    = walls;
-    _cachedFloor    = floorId;
-    _cachedNamesKey = namesKey;
 
     // Kat filtrele
     const fRooms = rooms.filter(r => !floorId || !r.floorId || r.floorId === floorId);
     const fDoors = doors.filter(d => !floorId || !d.floorId || d.floorId === floorId);
     const fWalls = walls.filter(w => !floorId || !w.floorId || w.floorId === floorId);
 
-    // Separator mahalleri
+    // Separator mahalleri (sahanlık / bahçe vb.)
     const separators = fRooms.filter(r => SEPARATOR_NAMES.has((r.name || '').toUpperCase().trim()));
-    if (separators.length === 0) {
-        _cachedResult = [];
-        return _cachedResult;
-    }
 
     const result = [];
     const seen   = new Set(); // aynı kapıyı çift işleme
 
-    for (const sep of separators) {
-        for (const wall of getWallsBorderingRoom(sep, fWalls)) {
-            const wallDoors = fDoors.filter(d => d.wall === wall);
-            for (const door of wallDoors) {
-                if (seen.has(door)) continue;
-                seen.add(door);
+    // Tek döngü: hem sahanlık/bahçe kapıları hem de dış cephe kapıları
+    for (const door of fDoors) {
+        if (seen.has(door)) continue;
+        const wall = door.wall;
+        if (!wall || !wall.p1 || !wall.p2) continue;
 
-                const adjacent   = getRoomsAdjacentToWall(wall, fRooms);
-                const startRoom  = adjacent.find(r => !separators.includes(r));
-                if (!startRoom) continue;
+        const adjacent = getRoomsAdjacentToWall(wall, fRooms);
 
-                const unitRooms  = traverseUnit(startRoom, separators, fWalls, fDoors, fRooms);
-                const birimTipi  = classifyUnit(unitRooms);
-                if (!birimTipi) continue; // BİRİM HARİCİ → etiket yok
-
-                // Kapı merkezi (dünya koordinatı)
-                const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
-                if (wallLen < 0.01) continue;
-                const wdx = (wall.p2.x - wall.p1.x) / wallLen;
-                const wdy = (wall.p2.y - wall.p1.y) / wallLen;
-
-                const dcx = wall.p1.x + wdx * door.pos;
-                const dcy = wall.p1.y + wdy * door.pos;
-
-                // Duvara dik vektör (normal)
-                const nx = -wdy;
-                const ny =  wdx;
-
-                // Birim mahali hangi tarafta? → startRoom merkezi
-                const toRx  = startRoom.center[0] - dcx;
-                const toRy  = startRoom.center[1] - dcy;
-                const sign  = (toRx * nx + toRy * ny) >= 0 ? 1 : -1;
-
-                // Duvar kalınlığı yarısı + küçük boşluk kadar öteliyoruz
-                const halfWall = (wall.thickness || state.wallThickness || 20) / 2;
-                const offset   = halfWall + 10; // kapıdan 10cm ötede
-
-                const labelX = dcx + nx * sign * offset;
-                const labelY = dcy + ny * sign * offset;
-
-                // Metin açısı: duvara paralel, ama ters çevrilmiş olmaması için normalize
-                let angle = Math.atan2(wdy, wdx);
-                if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle += Math.PI;
-
-                // Birim toplam alanı (m²)
-                const unitArea = unitRooms.reduce((sum, r) => sum + (r.area || 0), 0);
-
-                result.push({ door, birimTipi, labelX, labelY, angle, unitArea });
+        // Birim mahali belirle:
+        //  • 2 komşu: biri separator (sahanlık vb.), diğeri birim mahali → sahanlık kapısı
+        //  • 1 komşu: dış cephe kapısı, o komşu birim mahali olmalı
+        let startRoom = null;
+        if (adjacent.length === 2) {
+            const sepAdj    = adjacent.filter(r =>  separators.includes(r));
+            const nonSepAdj = adjacent.filter(r => !separators.includes(r));
+            if (sepAdj.length === 1 && nonSepAdj.length === 1) {
+                startRoom = nonSepAdj[0];
             }
+        } else if (adjacent.length === 1 && !separators.includes(adjacent[0])) {
+            startRoom = adjacent[0];
         }
+        if (!startRoom) continue;
+
+        const unitRooms = traverseUnit(startRoom, separators, fWalls, fDoors, fRooms);
+        const birimTipi = classifyUnit(unitRooms);
+        if (!birimTipi) continue; // BİRİM HARİCİ → etiket yok
+
+        seen.add(door);
+
+        // Kapı merkezi (dünya koordinatı)
+        const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+        if (wallLen < 0.01) continue;
+        const wdx = (wall.p2.x - wall.p1.x) / wallLen;
+        const wdy = (wall.p2.y - wall.p1.y) / wallLen;
+
+        const dcx = wall.p1.x + wdx * door.pos;
+        const dcy = wall.p1.y + wdy * door.pos;
+
+        // Duvara dik vektör (normal)
+        const nx = -wdy;
+        const ny =  wdx;
+
+        // Birim mahali hangi tarafta? → startRoom merkezi
+        const toRx = startRoom.center[0] - dcx;
+        const toRy = startRoom.center[1] - dcy;
+        const sign = (toRx * nx + toRy * ny) >= 0 ? 1 : -1;
+
+        // Duvar kalınlığı yarısı + küçük boşluk kadar öteliyoruz
+        const halfWall = (wall.thickness || state.wallThickness || 20) / 2;
+        const offset   = halfWall + 10; // kapıdan 10cm ötede
+
+        const labelX = dcx + nx * sign * offset;
+        const labelY = dcy + ny * sign * offset;
+        const outerLabelX = dcx - nx * sign * offset;
+        const outerLabelY = dcy - ny * sign * offset;
+
+        // Dış yöne (sahanlık/bahçe) birim vektör (3D kapı etiketi için)
+        const outerDirX = -nx * sign;
+        const outerDirY = -ny * sign;
+
+        // Metin açısı: duvara paralel, ama ters çevrilmiş olmaması için normalize
+        let angle = Math.atan2(wdy, wdx);
+        if (angle > Math.PI / 2 || angle < -Math.PI / 2) angle += Math.PI;
+
+        // Birim toplam alanı (m²)
+        const unitArea = unitRooms.reduce((sum, r) => sum + (r.area || 0), 0);
+
+        result.push({
+            door, birimTipi, labelX, labelY, angle, unitArea,
+            outerLabelX, outerLabelY,
+            outerDirX, outerDirY,
+            floorId: door.floorId ?? wall.floorId ?? floorId,
+            unitRooms
+        });
     }
 
-    _cachedResult = result;
+    _cache.set(floorId, { rooms, doors, walls, namesKey, result });
     return result;
 }
 
 // Cache'i dışarıdan temizlemek için (duvar/kapı değiştiğinde state referansı zaten değişir)
 export function invalidateBirimCache() {
-    _cachedResult = null;
-    _cachedRooms  = null;
-    _cachedDoors  = null;
-    _cachedWalls  = null;
+    _cache.clear();
+}
+
+// ── Birim tipi kısaltması (ör. "D2", "Dük3 (Ofis)", "KD1") ───────────────────
+export function getBirimShortLabel(birimTipi, birimNo) {
+    const no = birimNo || '';
+    switch (birimTipi) {
+        case 'KONUT':         return `D${no}`;
+        case 'OFİS':          return `Dük${no} (Ofis)`;
+        case 'TİCARİ':        return `Dük${no} (Ticari)`;
+        case 'KAZAN D.':
+        case 'KAZAN DAİRESİ': return `KD${no}`;
+        default:              return `D${no}`;
+    }
 }
 
 // ── Renk paleti ───────────────────────────────────────────────────────────────
@@ -282,7 +302,7 @@ export function drawBirimLabels(ctx2d, st) {
 
         if (showArea && unitArea > 0) {
             ctx2d.font = `${areaFontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
-            ctx2d.fillText(unitArea.toFixed(1) + ' m2', 0, fontSize);
+            ctx2d.fillText(unitArea.toFixed(0) + ' m2', 0, fontSize);
         }
 
         ctx2d.restore();

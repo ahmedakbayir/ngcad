@@ -134,6 +134,11 @@ export class PlumbingRenderer {
             this.drawPipeElevations(ctx, manager.pipes);
         }
 
+        // Canlı hat (iç tesisat) başlangıç noktası kot etiketi
+        if (!shouldBeFaded) {
+            this.drawCanliHatKotu(ctx, manager);
+        }
+
         // Ghost eleman (her zaman yarı saydam) - sadece mouse hareket ettikten sonra görünsün
         if (manager.tempComponent && manager.interactionManager.lastMousePoint) {
             // İÇ TESİSAT: İlk tıklama öncesi sayaç ghost gösterme
