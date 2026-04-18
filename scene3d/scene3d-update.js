@@ -428,8 +428,13 @@ export function update3DScene() {
                         const selectedMaterial = isEvenFloor ? evenFloorMaterial : oddFloorMaterial;
 
                         const floorMesh = new THREE.Mesh(geometry, selectedMaterial);
+                        selectedMaterial.polygonOffset = true;
+                        selectedMaterial.polygonOffsetFactor = -1; // Kameraya daha yakın gösterir
+                        selectedMaterial.polygonOffsetUnits = -1;
+
                         floorMesh.rotation.x = -Math.PI / 2;
                         const roomFloorElevation = getFloorElevation(room.floorId);
+                        // Grid -2'de olduğu için bu yüzey (0.1) fiziksel olarak üstte kalacaktır
                         floorMesh.position.set(centerX, 0.1 + roomFloorElevation, centerZ);
                         sceneObjects.add(floorMesh);
                     } catch (error) {
@@ -777,7 +782,7 @@ function buildPictureFrames(sceneObjects, getFloorElevation, rooms, walls) {
  */
 function addPipeElevationLabels(pipes, getFloorElevation) {
     if (!state.tempVisibility.showZElevation) return;
-    
+
     if (!pipes || pipes.length === 0) return;
     const TOLERANCE = 3; // cm cinsinden mesafe toleransı
     const processedJunctions = new Set();

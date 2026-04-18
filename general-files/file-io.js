@@ -271,56 +271,56 @@ function loadJSONProject(fileContent) {
         return;
     }
 
-    // Ayarları geri yükle
-    if (projectData.gridOptions) {
-        setState({ gridOptions: projectData.gridOptions });
-        dom.gridVisibleInput.checked = projectData.gridOptions.visible;
-        dom.gridColorInput.value = projectData.gridOptions.color;
-        dom.gridWeightInput.value = projectData.gridOptions.weight;
-        dom.gridSpaceInput.value = projectData.gridOptions.spacing;
-    }
+    // // Ayarları geri yükle
+    // if (projectData.gridOptions) {
+    //     setState({ gridOptions: projectData.gridOptions });
+    //     dom.gridVisibleInput.checked = projectData.gridOptions.visible;
+    //     dom.gridColorInput.value = projectData.gridOptions.color;
+    //     dom.gridWeightInput.value = projectData.gridOptions.weight;
+    //     dom.gridSpaceInput.value = projectData.gridOptions.spacing;
+    // }
 
-    if (projectData.snapOptions) {
-        setState({ snapOptions: projectData.snapOptions });
-        dom.snapEndpointInput.checked = projectData.snapOptions.endpoint;
-        dom.snapMidpointInput.checked = projectData.snapOptions.midpoint;
-        dom.snapEndpointExtInput.checked = projectData.snapOptions.endpointExtension;
-        dom.snapMidpointExtInput.checked = projectData.snapOptions.midpointExtension;
-        dom.snapNearestOnlyInput.checked = projectData.snapOptions.nearestOnly;
-    }
+    // if (projectData.snapOptions) {
+    //     setState({ snapOptions: projectData.snapOptions });
+    //     dom.snapEndpointInput.checked = projectData.snapOptions.endpoint;
+    //     dom.snapMidpointInput.checked = projectData.snapOptions.midpoint;
+    //     dom.snapEndpointExtInput.checked = projectData.snapOptions.endpointExtension;
+    //     dom.snapMidpointExtInput.checked = projectData.snapOptions.midpointExtension;
+    //     dom.snapNearestOnlyInput.checked = projectData.snapOptions.nearestOnly;
+    // }
 
-    if (projectData.dimensionOptions) {
-        setState({ dimensionOptions: projectData.dimensionOptions });
-        dom.dimensionFontSizeInput.value = projectData.dimensionOptions.fontSize;
-        dom.dimensionColorInput.value = projectData.dimensionOptions.color;
-        dom.dimensionDefaultViewSelect.value = projectData.dimensionOptions.defaultView;
-        dom.dimensionShowAreaSelect.value = projectData.dimensionOptions.showArea;
-        dom.dimensionShowOuterSelect.value = projectData.dimensionOptions.showOuter;
-    }
+    // if (projectData.dimensionOptions) {
+    //     setState({ dimensionOptions: projectData.dimensionOptions });
+    //     dom.dimensionFontSizeInput.value = projectData.dimensionOptions.fontSize;
+    //     dom.dimensionColorInput.value = projectData.dimensionOptions.color;
+    //     dom.dimensionDefaultViewSelect.value = projectData.dimensionOptions.defaultView;
+    //     dom.dimensionShowAreaSelect.value = projectData.dimensionOptions.showArea;
+    //     dom.dimensionShowOuterSelect.value = projectData.dimensionOptions.showOuter;
+    // }
 
-    if (projectData.wallBorderColor) {
-        setState({ wallBorderColor: projectData.wallBorderColor });
-        dom.borderPicker.value = projectData.wallBorderColor;
-    }
+    // if (projectData.wallBorderColor) {
+    //     setState({ wallBorderColor: projectData.wallBorderColor });
+    //     dom.borderPicker.value = projectData.wallBorderColor;
+    // }
 
-    if (projectData.roomFillColor) {
-        setState({ roomFillColor: projectData.roomFillColor });
-        dom.roomPicker.value = projectData.roomFillColor;
-    }
+    // if (projectData.roomFillColor) {
+    //     setState({ roomFillColor: projectData.roomFillColor });
+    //     dom.roomPicker.value = projectData.roomFillColor;
+    // }
 
-    if (projectData.lineThickness) {
-        setState({ lineThickness: projectData.lineThickness });
-        dom.lineThicknessInput.value = projectData.lineThickness;
-    }
+    // if (projectData.lineThickness) {
+    //     setState({ lineThickness: projectData.lineThickness });
+    //     dom.lineThicknessInput.value = projectData.lineThickness;
+    // }
 
-    if (projectData.wallThickness) {
-        setState({ wallThickness: projectData.wallThickness });
-        dom.wallThicknessInput.value = projectData.wallThickness;
-    }
-    if (projectData.drawingAngle) {
-        setState({ drawingAngle: projectData.drawingAngle });
-        dom.drawingAngleInput.value = projectData.drawingAngle;
-    }
+    // if (projectData.wallThickness) {
+    //     setState({ wallThickness: projectData.wallThickness });
+    //     dom.wallThicknessInput.value = projectData.wallThickness;
+    // }
+    // if (projectData.drawingAngle) {
+    //     setState({ drawingAngle: projectData.drawingAngle });
+    //     dom.drawingAngleInput.value = projectData.drawingAngle;
+    // }
 
     // Node'ları geri yükle
     const restoredNodes = projectData.nodes.map(n => ({

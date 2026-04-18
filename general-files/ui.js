@@ -237,8 +237,8 @@ export function toggle3DView() {
         const fpsControls = document.getElementById('fps-camera-controls');
         if (fpsControls) fpsControls.style.display = 'flex';
 
-        // Varsayılan split ratio'yu ayarla (25%)
-        setSplitRatio(25);
+        // Varsayılan split ratio'yu ayarla (50%)
+        setSplitRatio(50);
     } else {
         // Split ratio butonlarını gizle
         const splitButtons = document.getElementById('split-ratio-buttons');
@@ -278,8 +278,8 @@ export function toggleIsoView() {
         // İzometrik görünümü çiz
         drawIsoView();
 
-        // Varsayılan split ratio'yu ayarla (25%)
-        setIsoRatio(25);
+        // Varsayılan split ratio'yu ayarla (50%)
+        setIsoRatio(50);
     } else {
         // İzometri ratio butonlarını gizle
         const isoButtons = document.getElementById('iso-ratio-buttons');

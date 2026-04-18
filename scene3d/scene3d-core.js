@@ -15,6 +15,7 @@ export let cameraMode = 'orbit'; // 'orbit' veya 'firstPerson'
 export let sceneObjects;
 export let textureLoader; // <-- Resim çerçeveleri için eklendi
 export let labelRenderer; // <-- Yükseklik etiketleri için CSS2DRenderer
+export let groundPlane = null; // <-- YENİ EKLENDİ: Katı Zemin
 
 // --- Malzemeler (Materials) ---
 export let wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
@@ -48,11 +49,36 @@ export function setActiveControls(activeControls) {
 export function updateSceneBackground() {
     if (!scene) return;
     const isLightMode = document.body.classList.contains('light-mode');
-    // Kullanıcının istediği renkler: Koyu #30302e, Açık #e6e7e7
-    const bgColor = isLightMode ? 0xe6e7e7 : 0x30302e;
-    scene.background = new THREE.Color(bgColor);
+
+    // Orbit kamerasının zemin altına inmesini her ihtimale karşı tut
+    if (orbitControls) {
+        orbitControls.maxPolarAngle = Math.PI / 2 - 0.02;
+    }
+
+    if (isLightMode) {
+        // Gündüz: Net gökyüzü
+        scene.background = new THREE.Color(0x87CEEB);
+
+        // Sisi azalttık: Sis 6000 birimde başlayıp 10000'de bitecek. Grid daha görünür olacak.
+        // scene.fog = new THREE.Fog(0x87CEEB, 6000, 10000);
+
+        if (groundPlane) groundPlane.material.color.setHex(0xf8f5ee);
+    } else {
+        // Gece: Sadece koyu uzay boşluğu (Yıldızlar kaldırıldı)
+        scene.background = new THREE.Color(0x282c36);
+
+        // Sisi azalttık
+        //scene.fog = new THREE.Fog(0x050510, 6000, 10000);
+
+        if (groundPlane) groundPlane.material.color.setHex(0x3d3d3d);
+    }
 }
+
+
 // YENİ SETTER FONKSİYONLARI SONU
+
+
+
 
 /**
  * 3D Sahneyi, kamerayı, ışıkları, kontrolleri ve malzemeleri başlatır.
@@ -78,7 +104,7 @@ export function init3D(canvasElement) {
     orbitControls.minDistance = 1;
     orbitControls.zoomSpeed = 0.5; // Daha smooth zoom için düşürüldü
     orbitControls.update();
-
+    orbitControls.maxPolarAngle = Math.PI / 2 - 0.02;
     // --- YENİ EKLENDİ: Mouse tuş atamaları (İsteğinize göre güncellendi) ---
     orbitControls.mouseButtons = {
         LEFT: THREE.MOUSE.ROTATE,   // Sol Tuş = Döndürme
@@ -97,11 +123,11 @@ export function init3D(canvasElement) {
 
         // SADECE Sağ tık (RMB) FPS-style rotate (Yaw/Pitch) yapsın
         // VE SADECE Orbit modundayken çalışsın
-        if (e.button === 2 && cameraMode === 'orbit') { 
+        if (e.button === 2 && cameraMode === 'orbit') {
             // OrbitControls'ün bu tuşu işlemesini engelle
-            e.preventDefault(); 
+            e.preventDefault();
             e.stopPropagation();
-            
+
             isRotating = true;
 
             // Pointer lock'u etkinleştir
@@ -139,7 +165,7 @@ export function init3D(canvasElement) {
             camera.getWorldDirection(newDirection);
             const newTarget = new THREE.Vector3();
             newTarget.copy(camera.position).addScaledVector(newDirection, distance);
-            
+
             orbitControls.target.copy(newTarget);
 
             // 6. OrbitControls'ü güncelle (kameranın yeni durumunu senkronize et)
@@ -178,8 +204,52 @@ export function init3D(canvasElement) {
 
     sceneObjects = new THREE.Group();
     scene.add(sceneObjects);
+    // --- DAİRESEL ERİYEN SONSUZLUK GRİDİ ---
+    const gridRadius = 10000; // Gridin ne kadar uzağa gideceği (yarıçap)
+    const gridSize = gridRadius * 2;
+    const gridDivisions = 100; // Çizgi sıklığı
 
-    const solidOpacity = 0.75; 
+    const perspectiveGrid = new THREE.GridHelper(gridSize, gridDivisions, 0x000000, 0x000000);
+    perspectiveGrid.material.transparent = true;
+    perspectiveGrid.material.opacity = 0.15; // Merkezdeki maksimum belirginlik
+
+    // Özel Shader: Çizgileri kare sınırda kesmek yerine dairesel olarak eritir
+    perspectiveGrid.material.onBeforeCompile = function (shader) {
+        // Noktaların 3D uzaydaki gerçek yerini hesapla
+        shader.vertexShader = `
+            varying vec3 vWorldPosition;
+            ${shader.vertexShader}
+        `.replace(
+            `#include <worldpos_vertex>`,
+            `
+            #include <worldpos_vertex>
+            vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
+            `
+        );
+
+        // Merkeze olan uzaklığına göre şeffaflığı (alpha) azalt
+        shader.fragmentShader = `
+            varying vec3 vWorldPosition;
+            ${shader.fragmentShader}
+        `.replace(
+            `vec4 diffuseColor = vec4( diffuse, opacity );`,
+            `
+            // Merkezden (0,0,0) uzaklığı hesapla (sadece X ve Z düzleminde)
+            float dist = length(vWorldPosition.xz);
+            
+            // smoothstep ile dairesel yumuşak geçiş 
+            // (Yarıçapın %40'ında erimeye başlar, %100'üne geldiğinde tamamen görünmez olur)
+            float fade = 1.0 - smoothstep(${gridRadius * 0.4}.0, ${gridRadius}.0, dist);
+            
+            vec4 diffuseColor = vec4( diffuse, opacity * fade );
+            `
+        );
+    };
+
+    perspectiveGrid.position.y = 0; // Gridin yüksekliği
+    scene.add(perspectiveGrid);
+    // ----------------------------------------
+    const solidOpacity = 0.75;
 
     // --- Malzemeleri burada oluştur ---
     wallMaterial = new THREE.MeshStandardMaterial({
@@ -245,7 +315,7 @@ export function init3D(canvasElement) {
         color: 'rgb(93, 93, 93)', // %20 koyu (116 * 0.8 = 92.8)
         roughness: 0.5, transparent: true, opacity: 0.8, side: THREE.DoubleSide
     });
-    
+
     stairMaterial = new THREE.MeshStandardMaterial({
         color: 'rgba(151, 151, 147, 1)',
         roughness: 0.8, transparent: true, opacity: solidOpacity, side: THREE.DoubleSide
@@ -256,12 +326,12 @@ export function init3D(canvasElement) {
         color: 'rgba(151, 151, 147, 1)',
         roughness: 0.8, transparent: true, opacity: solidOpacity, side: THREE.DoubleSide
     });
-       
+
     stepNosingMaterial = new THREE.MeshStandardMaterial({
         color: 'rgba(73, 72, 72, 1)',
         metalness: 0.3, roughness: 0.5, transparent: false, opacity: 0.5, side: THREE.DoubleSide
     });
-    
+
     handrailWoodMaterial = new THREE.MeshStandardMaterial({
         color: 0XE1E1E1,
         metalness: 0.8, roughness: 0.4, transparent: false, opacity: 1.0, side: THREE.DoubleSide
@@ -316,6 +386,22 @@ export function init3D(canvasElement) {
         container.appendChild(labelRenderer.domElement);
         container.style.position = 'relative'; // Absolute pozisyonlama için gerekli
     }
+
+    // --- YENİ EKLENDİ: Katı Zemin Düzlemi ---
+    // Bu düzlem gridin altını kapatarak arka planla karışmasını önler
+    const planeGeo = new THREE.PlaneGeometry(30000, 30000);
+    const planeMat = new THREE.MeshBasicMaterial({
+        color: 0xf8f5ee
+    });
+    groundPlane = new THREE.Mesh(planeGeo, planeMat);
+    groundPlane.rotation.x = -Math.PI / 2;
+    groundPlane.position.y = -5; // Zemini iyice aşağı çekiyoruz
+    scene.add(groundPlane);
+
+    // Grid ayarı
+    perspectiveGrid.position.y = -2; // Gridi zeminden yukarıda ama binadan aşağıda tutuyoruz
+    perspectiveGrid.material.transparent = true;
+    perspectiveGrid.material.opacity = 0.1;
 }
 
 /**

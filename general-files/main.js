@@ -39,13 +39,13 @@ export const THEME_COLORS = {
         },
 
         // Duvarlar
-        wallStroke: '#e9e9e9', // Duvar çizgisi
-        wallFill: '#333333', // Duvar dolgusu (BG ile aynı)
+        wallStroke: 'rgb(172, 172, 172)', // Duvar çizgisi
+        wallFill: '#30302e', // Duvar dolgusu (BG ile aynı)
 
 
 
         // Mahaller
-        roomFill: '#2e2d2dff', // Mahal dolgusu (BG'ye yakın)
+        roomFill: '#30302e', // Mahal dolgusu (BG'ye yakın)
         roomHover: '#8ab4f8', // Mahal hover
         roomSelected: '#363636', // Mahal seçili
 
@@ -811,7 +811,7 @@ export function isObjectInteractable(objectType) {
 
     // Mimari nesneler listesi
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'column', 'beam', 'stair', 'stairs', 'arcControl', 'guide' // guide eklendi
+        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'vent', 'column', 'beam', 'stair', 'stairs', 'arcControl', 'guide' // guide eklendi
     ];
 
     // Tesisat nesneleri listesi - GÜNCELLENDİ

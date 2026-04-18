@@ -257,16 +257,16 @@ export function drawBirimLabels(ctx2d, st) {
 
     const zoom     = st.zoom || 1;
     const ZOOM_EXP = -0.1;
-    const BASE_SIZE = 11;
+    const BASE_SIZE = 13;
     const fontSize  = Math.max(4, BASE_SIZE * Math.pow(zoom, ZOOM_EXP));
 
     ctx2d.save();
     ctx2d.textAlign    = 'center';
-    ctx2d.textBaseline = 'middle';
+    ctx2d.textBaseline = 'bottom';
     ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
 
     const showArea = !!st.tempVisibility?.showArchDimensions;
-    const areaFontSize = fontSize * 0.8;
+    const areaFontSize = fontSize * 0.9;
 
     for (const { labelX, labelY, angle, birimTipi, unitArea } of labels) {
         const color = BIRIM_COLOR[birimTipi] || '#ffffff';
@@ -277,11 +277,12 @@ export function drawBirimLabels(ctx2d, st) {
 
         ctx2d.fillStyle = color;
         ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
+        ctx2d.globalAlpha = 0.8;
         ctx2d.fillText(birimTipi, 0, 0);
 
         if (showArea && unitArea > 0) {
             ctx2d.font = `${areaFontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
-            ctx2d.fillText(unitArea.toFixed(2) + ' m²', 0, fontSize * 1.1);
+            ctx2d.fillText(unitArea.toFixed(1) + ' m2', 0, fontSize);
         }
 
         ctx2d.restore();

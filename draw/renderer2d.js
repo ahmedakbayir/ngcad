@@ -572,7 +572,7 @@ export function drawStairs(stair, isSelected = false) {
     const lnw = Math.min(1 / zoom, 2);
     // Çizim moduna göre opacity ayarla
     ctx2d.save();
-    ctx2d.globalAlpha = 0.3;
+    ctx2d.globalAlpha = 0.8;
     const corners = getStairCorners(stair); // Köşe noktalarını al
     // Çizim moduna göre renk ayarla
     const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'stair');
