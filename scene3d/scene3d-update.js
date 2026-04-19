@@ -28,7 +28,7 @@ import {
 } from "../general-files/main.js";
 import { findLargestAvailableSegment } from "../wall/wall-item-utils.js";
 import { plumbingManager } from "../plumbing_v2/plumbing-manager.js";
-import { computeUnitBirims, getBirimShortLabel } from "../draw/draw-birim-labels.js";
+import { computeUnitBirims, getBirimShortLabel, resolveBirimNo } from "../draw/draw-birim-labels.js";
 
 /**
  * 2D veriye (state) dayanarak 3D sahneyi temizler ve yeniden oluşturur.
@@ -900,7 +900,7 @@ function addDoorBirimLabels(floorIds, getFloorElevation) {
                 if (d < bestDist) { bestDist = d; bestSayac = s; }
             }
 
-            const birimNo  = bestSayac?.birimNo || '';
+            const birimNo  = resolveBirimNo(entry) || bestSayac?.birimNo || '';
             const aboneAdi = bestSayac?.aboneAdi || '';
             const lines = [
                 getBirimShortLabel(birimTipi, birimNo),
@@ -916,7 +916,7 @@ function addDoorBirimLabels(floorIds, getFloorElevation) {
             const dcx = outerLabelX; // zaten kapı merkezinin dışa ötelenmişi (~halfWall+10 cm)
             const dcz = outerLabelY; // 2D y → 3D z (pozitif — sahne konvansiyonu)
 
-            mesh.position.set(dcx, floorElevation + DOOR_HEIGHT * 0.55, dcz);
+            mesh.position.set(dcx, floorElevation + DOOR_HEIGHT * 0.80, dcz);
             // Düzlemin +Z normali dış yöne bakacak şekilde Y ekseni etrafında döndür
             mesh.rotation.y = Math.atan2(outerDirX, outerDirY);
 

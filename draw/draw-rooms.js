@@ -1,4 +1,4 @@
-import { getRoomSelectedColor, getRoomFillColor, getAdjustedColor, isObjectInteractable} from '../general-files/main.js';
+import { isLightMode, getRoomSelectedColor, getRoomFillColor, getAdjustedColor, isObjectInteractable} from '../general-files/main.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
@@ -174,7 +174,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
         }
 
         // Çizim moduna göre renk ayarla
-        const baseNameColor = room.name === 'MAHAL' ? '#e57373' : 'rgb(134, 168, 161)';
+        const baseNameColor = room.name === 'MAHAL' ? '#e57395' :  isLightMode()? 'rgb(50, 50, 50)': 'rgb(205, 205, 205)';
         const adjustedNameColor = getAdjustedColor(baseNameColor, 'roomName');
         ctx2d.fillStyle = adjustedNameColor;
 

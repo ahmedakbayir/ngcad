@@ -10,19 +10,19 @@ import { state, isLightMode } from '../../general-files/main.js';
 // ─── Sayaç tür etiketi ───────────────────────────────────────────────────────
 const SAYAC_TURU_LABEL = {
     'KÖRÜKLÜ': '',
-    'ROTARY':  'Rotary Sayaç',
-    'TÜRBİN':  'Türbin Sayaç',
+    'ROTARY': 'Rotary Sayaç',
+    'TÜRBİN': 'Türbin Sayaç',
 };
 
 // ─── Birim tipi kısaltması ───────────────────────────────────────────────────
 function getBirimLabel(birimTipi, birimNo) {
     const no = birimNo || '';
     switch (birimTipi) {
-        case 'KONUT':         return `D${no}`;
-        case 'OFİS':          return `Dük${no} (Ofis)`;
-        case 'TİCARİ':        return `Dük${no} (Ticari)`;
+        case 'KONUT': return `D${no}`;
+        case 'OFİS': return `Dük${no} (Ofis)`;
+        case 'TİCARİ': return `Dük${no} (Ticari)`;
         case 'KAZAN DAİRESİ': return `KD${no}`;
-        default:              return `D${no}`;   // en azından 'D' göster
+        default: return `D${no}`;   // en azından 'D' göster
     }
 }
 
@@ -35,7 +35,7 @@ const _labelAutoPos = new Map(); // pipe.id → {ax, ay}
 /** Cache'i temizle (boru eklendi/silindi/taşındı) */
 export function clearLabelAutoPos(pipeId) {
     if (pipeId) _labelAutoPos.delete(pipeId);
-    else        _labelAutoPos.clear();
+    else _labelAutoPos.clear();
 }
 
 /**
@@ -68,8 +68,8 @@ function _segIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
         const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
         return t >= 0 && t <= 1 && u >= 0 && u <= 1;
     }
-    return segSeg(x1,y1,x2,y2, rx,ry,r,ry) || segSeg(x1,y1,x2,y2, r,ry,r,b) ||
-           segSeg(x1,y1,x2,y2, r,b,rx,b)  || segSeg(x1,y1,x2,y2, rx,b,rx,ry);
+    return segSeg(x1, y1, x2, y2, rx, ry, r, ry) || segSeg(x1, y1, x2, y2, r, ry, r, b) ||
+        segSeg(x1, y1, x2, y2, r, b, rx, b) || segSeg(x1, y1, x2, y2, rx, b, rx, ry);
 }
 
 // ─── Render sırasında kaydedilen etiket sınırlayıcı kutuları ────────────────
@@ -162,24 +162,24 @@ export const LabelMixin = {
             }
         }
 
-        const zoom  = state.zoom || 1;
-        const t     = state.viewBlendFactor || 0;
+        const zoom = state.zoom || 1;
+        const t = state.viewBlendFactor || 0;
         const light = isLightMode();
 
         // Sabit dünya birimi — zoom ile birlikte doğal olarak büyür/küçülür
-        const fontSize = 9;
-        const lineH    = fontSize * 1.6;
+        const fontSize = 10;
+        const lineH = fontSize * 1.6;
 
         const opts = {
             zoom, t, fontSize, lineH,
-            textColor:   light ? '#111827' : '#e8eaf6',
-            subColor:    light ? '#374151' : '#9ca3af',
+            textColor: light ? '#111827' : '#e8eaf6',
+            subColor: light ? '#1a1e25' : '#9ca3af',
             accentColor: light ? '#1d4ed8' : '#60a5fa',
             // Çok hafif arka plan — hemen hemen şeffaf
-            bgColor:     light ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,35,0.10)',
+            bgColor: light ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,35,0.10)',
             borderColor: light ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)',
-            connColor:   light ? 'rgba(0,0,0,0.30)' : 'rgba(255,255,255,0.30)',
-            accentBar:   light ? 'rgba(29,78,216,0.50)' : 'rgba(96,165,250,0.50)',
+            connColor: light ? 'rgba(0,0,0,0.30)' : 'rgba(255,255,255,0.30)',
+            accentBar: light ? 'rgba(29,78,216,0.50)' : 'rgba(96,165,250,0.50)',
         };
 
         // Hat gruplarını hesapla (debi zaten computePipeDebileri ile set edildi)
@@ -200,16 +200,16 @@ export const LabelMixin = {
             // Her hat için etiket borusunu seç, toplam uzunluğu hesapla
             // Kural: en yatay boru varsa öncelik onda, yoksa en uzun boru
             hatGroups.forEach((pipes, hatNo) => {
-                let fallback      = pipes[0]; // en uzun boru (yatay yoksa)
-                let maxLen        = 0;
-                let totalLen      = 0;
-                let horizBest     = null;
+                let fallback = pipes[0]; // en uzun boru (yatay yoksa)
+                let maxLen = 0;
+                let totalLen = 0;
+                let horizBest = null;
                 let horizBestAngle = Infinity; // açı küçüldükçe daha yatay
 
                 pipes.forEach(pipe => {
                     if (!pipe.p1 || !pipe.p2) return;
-                    const dx  = pipe.p2.x - pipe.p1.x;
-                    const dy  = pipe.p2.y - pipe.p1.y;
+                    const dx = pipe.p2.x - pipe.p1.x;
+                    const dy = pipe.p2.y - pipe.p1.y;
                     const len = Math.hypot(dx, dy, (pipe.p2.z || 0) - (pipe.p1.z || 0));
                     const xyLen = Math.hypot(dx, dy);
                     totalLen += len;
@@ -276,14 +276,14 @@ export const LabelMixin = {
      */
     _drawObjLabelBox(ctx, id, ax, ay, cx, cy, lines, opts) {
         const { zoom, fontSize, lineH,
-                textColor, subColor, accentColor,
-                connColor, bgColor, borderColor, accentBar } = opts;
+            textColor, subColor, accentColor,
+            connColor, bgColor, borderColor, accentBar } = opts;
 
         const visLines = lines.filter(l => l && l.text);
         if (visLines.length === 0) return;
 
         const pad = fontSize * 0.6;
-        const r   = 2.5 / zoom;
+        const r = 2.5 / zoom;
 
         ctx.save();
         ctx.font = `${fontSize}px "Segoe UI",sans-serif`;
@@ -296,8 +296,8 @@ export const LabelMixin = {
         });
         const boxW = maxW + pad * 2;
         const boxH = visLines.length * lineH + pad * 0.8;
-        const bx   = ax;
-        const by   = ay - boxH / 2;
+        const bx = ax;
+        const by = ay - boxH / 2;
 
         // Bbox kaydet (hit test için) — style: sürükleme anchor hesabı için
         _labelBBoxes.push({ id, bx, by, bw: boxW, bh: boxH, style: 'left-center' });
@@ -307,7 +307,7 @@ export const LabelMixin = {
             const ex = bx; // kutunun sol kenarı
             const ey = ay; // kutu merkezi y
             ctx.strokeStyle = connColor;
-            ctx.lineWidth   = 0.6 / zoom;
+            ctx.lineWidth = 0.6 / zoom;
             ctx.setLineDash([2 / zoom, 2 / zoom]);
             ctx.beginPath();
             ctx.moveTo(cx, cy);
@@ -317,9 +317,9 @@ export const LabelMixin = {
         }
 
         // Arka plan (çok hafif)
-        ctx.fillStyle   = bgColor;
+        ctx.fillStyle = bgColor;
         ctx.strokeStyle = borderColor;
-        ctx.lineWidth   = 0.5 / zoom;
+        ctx.lineWidth = 0.5 / zoom;
         ctx.beginPath();
         ctx.roundRect(bx, by, boxW, boxH, r);
         ctx.fill();
@@ -327,8 +327,8 @@ export const LabelMixin = {
 
         // Sol vurgu çubuğu
         ctx.strokeStyle = accentBar;
-        ctx.lineWidth   = 1.5 / zoom;
-        ctx.lineCap     = 'round';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(bx + 0.75 / zoom, by + r);
         ctx.lineTo(bx + 0.75 / zoom, by + boxH - r);
@@ -338,9 +338,9 @@ export const LabelMixin = {
         // Metinler
         let ty = by + pad * 0.4 + fontSize;
         visLines.forEach(l => {
-            ctx.font      = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
             ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
-            ctx.textAlign    = 'left';
+            ctx.textAlign = 'left';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(l.text, bx + pad, ty);
             ty += lineH;
@@ -362,15 +362,15 @@ export const LabelMixin = {
      */
     _drawObjLabelBoxBelow(ctx, id, cx, cy, ox, oy, lines, opts) {
         const { zoom, fontSize, lineH,
-                textColor, subColor, accentColor,
-                connColor, bgColor, borderColor, accentBar } = opts;
+            textColor, subColor, accentColor,
+            connColor, bgColor, borderColor, accentBar } = opts;
 
         const visLines = lines.filter(l => l && l.text);
         if (visLines.length === 0) return;
 
-        const pad  = fontSize * 0.6;
-        const gap  = 10 / zoom;
-        const r    = 2.5 / zoom;
+        const pad = fontSize * 0.6;
+        const gap = 10 / zoom;
+        const r = 2.5 / zoom;
 
         ctx.save();
 
@@ -401,7 +401,7 @@ export const LabelMixin = {
 
         // Kesikli bağlantı çizgisi → kutunun üst-orta noktasına
         ctx.strokeStyle = connColor;
-        ctx.lineWidth   = 0.6 / zoom;
+        ctx.lineWidth = 0.6 / zoom;
         ctx.setLineDash([2 / zoom, 2 / zoom]);
         ctx.beginPath();
         ctx.moveTo(cx, cy);
@@ -410,9 +410,9 @@ export const LabelMixin = {
         ctx.setLineDash([]);
 
         // Arka plan
-        ctx.fillStyle   = bgColor;
+        ctx.fillStyle = bgColor;
         ctx.strokeStyle = borderColor;
-        ctx.lineWidth   = 0.5 / zoom;
+        ctx.lineWidth = 0.5 / zoom;
         ctx.beginPath();
         ctx.roundRect(bx, by, boxW, boxH, r);
         ctx.fill();
@@ -420,8 +420,8 @@ export const LabelMixin = {
 
         // Üst vurgu çubuğu (yatay)
         ctx.strokeStyle = accentBar;
-        ctx.lineWidth   = 1.5 / zoom;
-        ctx.lineCap     = 'round';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(bx + r, by + 0.75 / zoom);
         ctx.lineTo(bx + boxW - r, by + 0.75 / zoom);
@@ -431,9 +431,9 @@ export const LabelMixin = {
         // Metinler
         let ty = by + pad * 0.4 + fontSize;
         visLines.forEach(l => {
-            ctx.font      = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
             ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
-            ctx.textAlign    = 'left';
+            ctx.textAlign = 'left';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(l.text, bx + pad, ty);
             ty += lineH;
@@ -445,7 +445,7 @@ export const LabelMixin = {
     // ─── BORU — hat numarası + küçük bilgi satırları ────────────────────────
     _drawPipeObjLabel(ctx, pipe, pipeNum, totalLen, opts, allPipes) {
         const { t, zoom, fontSize,
-                subColor, accentColor, connColor, bgColor, borderColor, accentBar } = opts;
+            subColor, accentColor, connColor, bgColor, borderColor, accentBar } = opts;
 
         if (!pipe.p1 || !pipe.p2) return;
 
@@ -460,11 +460,11 @@ export const LabelMixin = {
         const sx1 = pipe.p1.x + z1, sy1 = pipe.p1.y - z1;
         const sx2 = pipe.p2.x + z2, sy2 = pipe.p2.y - z2;
 
-        const midX  = (sx1 + sx2) / 2;
-        const midY  = (sy1 + sy2) / 2;
+        const midX = (sx1 + sx2) / 2;
+        const midY = (sy1 + sy2) / 2;
         const angle = Math.atan2(sy2 - sy1, sx2 - sx1);
 
-        const connDist  = 10 / zoom;
+        const connDist = 1 / zoom;
         const labelDist = 50 / zoom;
 
         const cx = midX - Math.sin(angle) * connDist;
@@ -488,14 +488,14 @@ export const LabelMixin = {
             } else {
                 // İlk kez: 8 aday yön dene, en az çakışanı seç
                 const candidates = [
-                    { dx:  0, dy: -1 },
-                    { dx:  1, dy:  0 },
-                    { dx:  0, dy:  1 },
-                    { dx: -1, dy:  0 },
-                    { dx:  0.707, dy: -0.707 },
-                    { dx:  0.707, dy:  0.707 },
+                    { dx: 0, dy: -1 },
+                    { dx: 1, dy: 0 },
+                    { dx: 0, dy: 1 },
+                    { dx: -1, dy: 0 },
+                    { dx: 0.707, dy: -0.707 },
+                    { dx: 0.707, dy: 0.707 },
                     { dx: -0.707, dy: -0.707 },
-                    { dx: -0.707, dy:  0.707 },
+                    { dx: -0.707, dy: 0.707 },
                 ];
 
                 let pNX = -Math.sin(angle), pNY = Math.cos(angle);
@@ -551,13 +551,13 @@ export const LabelMixin = {
 
         // Bilgi satırları (küçük font)
         const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(1) : null;
-        const debi    = typeof pipe.debi === 'number' ? pipe.debi : null;
-        const cap     = pipe.boruCap || '';
+        const debi = typeof pipe.debi === 'number' ? pipe.debi : null;
+        const cap = pipe.boruCap || '';
 
         const infoLines = [
-            debi    != null ? `${debi.toFixed(2)} m³/h` : null,
-            uzunluk != null ? `${uzunluk} m`            : null,
-            cap     || null,
+            debi != null ? `${debi.toFixed(2)} m³/h` : null,
+            uzunluk != null ? `${uzunluk} m` : null,
+            cap || null,
         ].filter(Boolean);
 
         // Açıklama metni — boruya ait description string
@@ -566,15 +566,15 @@ export const LabelMixin = {
         }
 
         // 300 mbar → kırmızı
-        const numColor = pipeNum >= 301 ? '#ef4444' : accentColor;
+        const numColor = pipeNum >= 300 ? '#ef4444' : accentColor;
 
-        const numStr    = String(pipeNum);
-        const numFont   = `bold ${fontSize * 1.4}px "Segoe UI",sans-serif`;
-        const infoFont  = `${fontSize * 0.78}px "Segoe UI",sans-serif`;
+        const numStr = String(pipeNum);
+        const numFont = `bold ${fontSize * 1.4}px "Segoe UI",sans-serif`;
+        const infoFont = `${fontSize * 0.78}px "Segoe UI",sans-serif`;
         const infoLineH = fontSize * 0.78 * 1.45;
-        const pad  = fontSize * 0.42;
-        const sep  = 1 / zoom;
-        const r    = 2.5 / zoom;
+        const pad = fontSize * 0.42;
+        const sep = 1 / zoom;
+        const r = 2.5 / zoom;
 
         ctx.save();
 
@@ -584,8 +584,8 @@ export const LabelMixin = {
         let maxInfoW = 0;
         infoLines.forEach(l => { maxInfoW = Math.max(maxInfoW, ctx.measureText(l).width); });
 
-        const numCellW  = pad + numW + pad;
-        const numCellH  = fontSize * 1.4 + pad * 0.7;
+        const numCellW = pad + numW + pad;
+        const numCellH = fontSize * 1.4 + pad * 0.7;
         const infoCellW = infoLines.length > 0 ? pad + maxInfoW + pad : 0;
         const infoCellH = infoLines.length > 0 ? infoLines.length * infoLineH + pad * 0.6 : 0;
 
@@ -626,7 +626,7 @@ export const LabelMixin = {
         {
             const nlx = numBX + numBW / 2;
             const nly = numBY + numBH / 2;
-            const dx  = cx - nlx, dy = cy - nly;
+            const dx = cx - nlx, dy = cy - nly;
             const dist = Math.hypot(dx, dy);
             if (dist > 0.1) {
                 const ux = dx / dist, uy = dy / dist;
@@ -637,7 +637,7 @@ export const LabelMixin = {
                 if (uy < 0) tEdge = Math.min(tEdge, (numBY - nly) / uy);
                 if (isFinite(tEdge) && tEdge > 0) {
                     ctx.strokeStyle = connColor;
-                    ctx.lineWidth   = 0.6 / zoom;
+                    ctx.lineWidth = 0.6 / zoom;
                     ctx.setLineDash([2 / zoom, 2 / zoom]);
                     ctx.beginPath();
                     ctx.moveTo(cx, cy);
@@ -649,9 +649,9 @@ export const LabelMixin = {
         }
 
         // Arka plan
-        ctx.fillStyle   = bgColor;
+        ctx.fillStyle = bgColor;
         ctx.strokeStyle = borderColor;
-        ctx.lineWidth   = 0.5 / zoom;
+        ctx.lineWidth = 1 / zoom;
         ctx.beginPath();
         ctx.roundRect(bx, by, boxW, boxH, r);
         ctx.fill();
@@ -660,7 +660,7 @@ export const LabelMixin = {
         // Ayırıcı çizgi
         if (infoCellW > 0 || infoCellH > 0) {
             ctx.strokeStyle = borderColor;
-            ctx.lineWidth   = 0.5 / zoom;
+            ctx.lineWidth = 0.5 / zoom;
             ctx.beginPath();
             if (isHoriz) {
                 const sepX = (dir === 0) ? bx + numCellW : bx + infoCellW;
@@ -676,8 +676,8 @@ export const LabelMixin = {
 
         // Vurgu çubuğu (numara hücresinin önde gelen kenarı)
         ctx.strokeStyle = accentBar;
-        ctx.lineWidth   = 1.5 / zoom;
-        ctx.lineCap     = 'round';
+        ctx.lineWidth = 3 / zoom;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         if (isHoriz) {
             ctx.moveTo(numBX + 0.75 / zoom, numBY + r);
@@ -690,24 +690,24 @@ export const LabelMixin = {
         ctx.lineCap = 'butt';
 
         // Hat numarası
-        ctx.font         = numFont;
-        ctx.fillStyle    = numColor;
-        ctx.textAlign    = 'center';
+        ctx.font = numFont;
+        ctx.fillStyle = numColor;
+        ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(numStr, numBX + numBW / 2, numBY + numBH / 2);
 
         // Bilgi satırları
-        if (infoCellW > 0 || infoCellH > 0) {
-            const infoH      = infoLines.length * infoLineH;
-            const infoStartY = infoBY + (infoCellH - infoH) / 2 + fontSize * 0.78 * 0.8;
-            ctx.font         = infoFont;
-            ctx.fillStyle    = subColor;
-            ctx.textAlign    = 'left';
-            ctx.textBaseline = 'alphabetic';
-            infoLines.forEach((l, i) => {
-                ctx.fillText(l, infoBX + pad, infoStartY + i * infoLineH);
-            });
-        }
+        ctx.font = infoFont;
+        ctx.fillStyle = subColor;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+
+        const infoH = infoLines.length * infoLineH;
+        const infoStartY = infoBY + (infoCellH - infoH) / 2 + infoLineH / 2;
+
+        infoLines.forEach((l, i) => {
+            ctx.fillText(l, infoBX + pad, infoStartY + i * infoLineH);
+        });
 
         ctx.restore();
     },
@@ -715,7 +715,7 @@ export const LabelMixin = {
     // ─── SAYAÇ ──────────────────────────────────────────────────────────────
     _drawSayacObjLabel(ctx, comp, opts) {
         const { t } = opts;
-        const sc  = this._scrPos(comp, t);
+        const sc = this._scrPos(comp, t);
         const off = _getOffset(comp.id);
 
         const lines = [];
@@ -732,22 +732,24 @@ export const LabelMixin = {
         const boruTipi = comp.birimBoruTipi || 'ÇELİK';
         if (boruTipi === 'ESNEK') {
             const marka = comp.esnekMarka || '';
-            lines.push({ text: marka ? `${marka} Esnek Tesisat` : 'Esnek Tesisat', sub: true });
+            lines.push({ text: marka ? `Birim İçi Esnek Tesisat (${marka})` : 'Esnek Tesisat', sub: true });
         } else {
             const bagTipi = comp.birimBaglantiTipi || '';
             if (bagTipi) {
                 const bagLabel = bagTipi === 'DİŞLİ' ? 'Dişli'
-                               : bagTipi === 'KAYNAKLI' ? 'Kaynaklı'
-                               : bagTipi;
-                lines.push({ text: `${bagLabel} Tesisat`, sub: true });
+                    : bagTipi === 'KAYNAKLI' ? 'Kaynaklı'
+                        : bagTipi;
+                lines.push({ text: `Birim İçi ${bagLabel} Tesisat`, sub: true });
             }
         }
 
         // Abone bilgisi
         const aboneAdi = comp.aboneAdi || '';
-        const aboneNo  = comp.aboneNo  || '';
+        const aboneNo = comp.aboneNo || '';
+
         if (aboneAdi || aboneNo) {
-            lines.push({ text: [aboneAdi, aboneNo].filter(Boolean).join(' - '), sub: true });
+            if (aboneAdi) lines.push({ text: aboneAdi, sub: true });
+            if (aboneNo) lines.push({ text: aboneNo, sub: true });
         }
 
         // Açıklama metni
@@ -769,7 +771,7 @@ export const LabelMixin = {
     // ─── VANA ───────────────────────────────────────────────────────────────
     _drawVanaObjLabel(ctx, comp, manager, opts) {
         const { t, zoom } = opts;
-        const sc  = this._scrPos(comp, t);
+        const sc = this._scrPos(comp, t);
         const off = _getOffset(comp.id);
 
         const lines = [];
@@ -802,10 +804,10 @@ export const LabelMixin = {
         } else if (vt === 'YANBINA' || vt === 'YAN_BINA') {
             lines.push({ text: 'Yan Bina Vanası', bold: true });
             if (comp.tesisatNo) lines.push({ text: `Tesisat No: ${comp.tesisatNo}`, sub: true });
-            const d  = parseFloat(comp.daireSayisi)  || 0;
+            const d = parseFloat(comp.daireSayisi) || 0;
             const dk = parseFloat(comp.dukkanSayisi) || 0;
-            const ek = parseFloat(comp.ekDebi)       || 0;
-            if (d  > 0) lines.push({ text: `Daire Sayısı: ${d}`,  sub: true });
+            const ek = parseFloat(comp.ekDebi) || 0;
+            if (d > 0) lines.push({ text: `Daire Sayısı: ${d}`, sub: true });
             if (dk > 0) lines.push({ text: `Dükkan Sayısı: ${dk}`, sub: true });
             const n = d + dk;
             const faktorluDebi = n > 0 ? getCizelge6Debi(n, 0, true) : 0;
@@ -826,12 +828,12 @@ export const LabelMixin = {
         // Vana açısına dik yönde konumlandır
         const angle = (comp.rotation || 0) * Math.PI / 180;
         let nX = -Math.sin(angle);
-        let nY =  Math.cos(angle);
+        let nY = Math.cos(angle);
         if (nY > 0) { nX = -nX; nY = -nY; }
 
-        const hw  = 3; // yarı-genişlik
-        const cx  = sc.x + nX * hw;
-        const cy  = sc.y + nY * hw;
+        const hw = 3; // yarı-genişlik
+        const cx = sc.x + nX * hw;
+        const cy = sc.y + nY * hw;
 
         // Mutlak konum saklandıysa doğrudan kullan (zoom değişse de sabit kalır)
         let ax, ay;
@@ -849,7 +851,7 @@ export const LabelMixin = {
     // ─── SERVİS KUTUSU ──────────────────────────────────────────────────────
     _drawKutuObjLabel(ctx, comp, opts) {
         const { t } = opts;
-        const sc  = this._scrPos(comp, t);
+        const sc = this._scrPos(comp, t);
         const off = _getOffset(comp.id);
 
         const lines = [];
@@ -863,9 +865,9 @@ export const LabelMixin = {
         // Üçüncü satır: çıkış yönü (insan okunabilir)
         const yon = comp.cikisYonu || 'sag';
         const yonLabel = yon === 'sag' ? 'Yandan Çıkış'
-                       : yon === 'alt' ? 'Alttan Çıkış'
-                       : yon === 'ust' ? 'Üstten Çıkış'
-                       : '';
+            : yon === 'alt' ? 'Alttan Çıkış'
+                : yon === 'ust' ? 'Üstten Çıkış'
+                    : '';
         if (yonLabel) lines.push({ text: yonLabel, sub: true });
 
         // Açıklama metni
@@ -885,19 +887,19 @@ export const LabelMixin = {
     // ─── CİHAZ (KOMBİ / OCAK) ───────────────────────────────────────────────
     _drawCihazObjLabel(ctx, comp, opts) {
         const { t } = opts;
-        const sc  = this._scrPos(comp, t);
+        const sc = this._scrPos(comp, t);
         const off = _getOffset(comp.id);
 
         const lines = [];
 
         if (comp.cihazTipi === 'KOMBI') {
             const yogusmali = comp.yogusmali !== false;
-            const baca      = comp.bacaTipi || 'Hermetik';
+            const baca = comp.bacaTipi || 'Hermetik';
             lines.push({ text: yogusmali ? `Yoğuşmalı ${baca} Kombi` : `${baca} Kombi`, bold: true });
             if (comp.marka) lines.push({ text: comp.marka, sub: true });
             if (comp.model) lines.push({ text: comp.model, sub: true });
             const kcal = parseFloat(comp.kapasiteKcal);
-            const kw   = parseFloat(comp.kapasiteKW);
+            const kw = parseFloat(comp.kapasiteKW);
             if (!isNaN(kcal) && kcal > 0) {
                 const kwStr = (!isNaN(kw) && kw > 0) ? ` (${kw} kW)` : '';
                 lines.push({ text: `${Math.round(kcal).toLocaleString('tr-TR')} kcal/h${kwStr}`, sub: true });
@@ -924,7 +926,7 @@ export const LabelMixin = {
         if (lines.length === 0) return;
 
         const config = CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30, height: 30 };
-        const hh     = (config.height || config.width) / 2;
+        const hh = (config.height || config.width) / 2;
 
         // Etiket cihazın altına (y eksen alt kenar)
         const cx = sc.x;
@@ -936,7 +938,7 @@ export const LabelMixin = {
     _drawTopraklamaLabel(ctx, pipe, opts) {
         if (!pipe.p1 || !pipe.p2) return;
         const { t, zoom, fontSize, lineH,
-                textColor, subColor, bgColor, borderColor, connColor, accentBar } = opts;
+            textColor, subColor, bgColor, borderColor, connColor, accentBar } = opts;
 
         // Sembol geometrisi (renderer-pipes ile aynı hesap)
         const STEM = 12, VERT = 8, W1 = 9;
@@ -944,9 +946,9 @@ export const LabelMixin = {
         const z1 = (pipe.p1.z || 0) * t, z2 = (pipe.p2.z || 0) * t;
         const sx1 = pipe.p1.x + z1, sy1 = pipe.p1.y - z1;
         const sx2 = pipe.p2.x + z2, sy2 = pipe.p2.y - z2;
-        const mx  = (sx1 + sx2) / 2, my  = (sy1 + sy2) / 2;
+        const mx = (sx1 + sx2) / 2, my = (sy1 + sy2) / 2;
 
-        const dx  = sx2 - sx1, dy = sy2 - sy1;
+        const dx = sx2 - sx1, dy = sy2 - sy1;
         const len = Math.hypot(dx, dy);
         const ndx = len > 0.01 ? dx / len : 0;
         const ndy = len > 0.01 ? dy / len : 1;
@@ -958,7 +960,7 @@ export const LabelMixin = {
 
         // Sembol tabanı (line4 ucu)
         const e5x = mx + px * STEM, e5y = my + py * STEM;
-        const bx  = e5x + qx * VERT, by  = e5y + qy * VERT;
+        const bx = e5x + qx * VERT, by = e5y + qy * VERT;
 
         // Etiket bağlantı noktası: geniş çizginin (W1) ucu
         const connX = bx + px * W1, connY = by + py * W1;
@@ -978,8 +980,8 @@ export const LabelMixin = {
             { text: 'ø:16mm - L:1.5m', sub: true },
         ];
 
-        const pad  = fontSize * 0.5;
-        const r    = 2.5 / zoom;
+        const pad = fontSize * 0.5;
+        const r = 2.5 / zoom;
 
         ctx.save();
         ctx.font = `bold ${fontSize}px "Segoe UI",sans-serif`;
@@ -1003,7 +1005,7 @@ export const LabelMixin = {
 
         // Kesikli bağlantı çizgisi
         ctx.strokeStyle = connColor;
-        ctx.lineWidth   = 0.6 / zoom;
+        ctx.lineWidth = 0.6 / zoom;
         ctx.setLineDash([2 / zoom, 2 / zoom]);
         ctx.beginPath();
         ctx.moveTo(connX, connY);
@@ -1012,9 +1014,9 @@ export const LabelMixin = {
         ctx.setLineDash([]);
 
         // Arka plan
-        ctx.fillStyle   = bgColor;
+        ctx.fillStyle = bgColor;
         ctx.strokeStyle = borderColor;
-        ctx.lineWidth   = 0.5 / zoom;
+        ctx.lineWidth = 0.5 / zoom;
         ctx.beginPath();
         ctx.roundRect(boxX, boxY, boxW, boxH, r);
         ctx.fill();
@@ -1022,8 +1024,8 @@ export const LabelMixin = {
 
         // Sol vurgu çubuğu
         ctx.strokeStyle = accentBar;
-        ctx.lineWidth   = 1.5 / zoom;
-        ctx.lineCap     = 'round';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(boxX + 0.75 / zoom, boxY + r);
         ctx.lineTo(boxX + 0.75 / zoom, boxY + boxH - r);
@@ -1032,9 +1034,9 @@ export const LabelMixin = {
         // Metinler
         let ty = boxY + pad * 0.1 + fontSize;
         lines.forEach(l => {
-            ctx.font      = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
             ctx.fillStyle = l.sub ? subColor : textColor;
-            ctx.textAlign    = 'left';
+            ctx.textAlign = 'left';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(l.text, boxX + pad, ty);
             ty += lineH;

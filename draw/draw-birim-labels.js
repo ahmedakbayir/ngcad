@@ -11,7 +11,8 @@
  *     duvara paralel metin yazılır.
  */
 
-import { state } from '../general-files/main.js';
+import { isLightMode, state } from '../general-files/main.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 // ── Separator mahaller (bunlar birim ayırır) ─────────────────────────────────
 const SEPARATOR_NAMES = new Set(['SAHANLIK', 'AÇIK SAHANLIK', 'BAHÇE']);
@@ -60,9 +61,9 @@ function getWallsBorderingRoom(room, walls) {
         for (const wall of walls) {
             if (!wall.p1 || !wall.p2) continue;
             const d1 = Math.hypot(wall.p1.x - ax, wall.p1.y - ay) +
-                       Math.hypot(wall.p2.x - bx, wall.p2.y - by);
+                Math.hypot(wall.p2.x - bx, wall.p2.y - by);
             const d2 = Math.hypot(wall.p1.x - bx, wall.p1.y - by) +
-                       Math.hypot(wall.p2.x - ax, wall.p2.y - ay);
+                Math.hypot(wall.p2.x - ax, wall.p2.y - ay);
             if (Math.min(d1, d2) < TOLS) { found.push(wall); break; }
         }
     }
@@ -79,9 +80,9 @@ function getRoomsAdjacentToWall(wall, rooms) {
             const [ax, ay] = coords[i];
             const [bx, by] = coords[i + 1];
             const d1 = Math.hypot(wall.p1.x - ax, wall.p1.y - ay) +
-                       Math.hypot(wall.p2.x - bx, wall.p2.y - by);
+                Math.hypot(wall.p2.x - bx, wall.p2.y - by);
             const d2 = Math.hypot(wall.p1.x - bx, wall.p1.y - by) +
-                       Math.hypot(wall.p2.x - ax, wall.p2.y - ay);
+                Math.hypot(wall.p2.x - ax, wall.p2.y - ay);
             if (Math.min(d1, d2) < TOLS) { found.push(room); break; }
         }
     }
@@ -110,11 +111,11 @@ function traverseUnit(startRoom, separatorRooms, walls, doors, allRooms) {
 // ── Sınıflandırma ─────────────────────────────────────────────────────────────
 function classifyUnit(unitRooms) {
     const names = unitRooms.map(r => (r.name || '').toUpperCase().trim());
-    if (names.some(n => KONUT_T1.has(n)))  return 'KONUT';
-    if (names.some(n => TICARI.has(n)))    return 'TİCARİ';
-    if (names.some(n => OFIS.has(n)))      return 'OFİS';
-    if (names.some(n => KAZAN.has(n)))     return 'KAZAN D.';
-    if (names.some(n => KONUT_T2.has(n)))  return 'KONUT';
+    if (names.some(n => KONUT_T1.has(n))) return 'KONUT';
+    if (names.some(n => TICARI.has(n))) return 'TİCARİ';
+    if (names.some(n => OFIS.has(n))) return 'OFİS';
+    if (names.some(n => KAZAN.has(n))) return 'KAZAN D.';
+    if (names.some(n => KONUT_T2.has(n))) return 'KONUT';
     // Tamamı birim-dışı mı?
     if (names.every(n => BIRIM_DISI.has(n) || n === '' || n === 'MAHAL')) return null;
     return null; // BİRİM HARİCİ
@@ -124,8 +125,8 @@ function classifyUnit(unitRooms) {
 const _cache = new Map(); // floorId → { rooms, doors, walls, namesKey, result }
 
 function _roomNamesKey(rooms) {
-    // Mahal adları değiştiğinde cache'i geçersiz kılmak için basit bir anahtar
-    return rooms.map(r => (r.name || '') + (r.id ?? '')).join('|');
+    // Mahal adları / birim no değiştiğinde cache'i geçersiz kılmak için anahtar
+    return rooms.map(r => (r.name || '') + (r.id ?? '') + ':' + (r.birimNo ?? '')).join('|');
 }
 
 // ── Ana hesaplama fonksiyonu ──────────────────────────────────────────────────
@@ -156,7 +157,7 @@ export function computeUnitBirims(overrideFloorId) {
     const separators = fRooms.filter(r => SEPARATOR_NAMES.has((r.name || '').toUpperCase().trim()));
 
     const result = [];
-    const seen   = new Set(); // aynı kapıyı çift işleme
+    const seen = new Set(); // aynı kapıyı çift işleme
 
     // Tek döngü: hem sahanlık/bahçe kapıları hem de dış cephe kapıları
     for (const door of fDoors) {
@@ -171,7 +172,7 @@ export function computeUnitBirims(overrideFloorId) {
         //  • 1 komşu: dış cephe kapısı, o komşu birim mahali olmalı
         let startRoom = null;
         if (adjacent.length === 2) {
-            const sepAdj    = adjacent.filter(r =>  separators.includes(r));
+            const sepAdj = adjacent.filter(r => separators.includes(r));
             const nonSepAdj = adjacent.filter(r => !separators.includes(r));
             if (sepAdj.length === 1 && nonSepAdj.length === 1) {
                 startRoom = nonSepAdj[0];
@@ -198,7 +199,7 @@ export function computeUnitBirims(overrideFloorId) {
 
         // Duvara dik vektör (normal)
         const nx = -wdy;
-        const ny =  wdx;
+        const ny = wdx;
 
         // Birim mahali hangi tarafta? → startRoom merkezi
         const toRx = startRoom.center[0] - dcx;
@@ -207,7 +208,7 @@ export function computeUnitBirims(overrideFloorId) {
 
         // Duvar kalınlığı yarısı + küçük boşluk kadar öteliyoruz
         const halfWall = (wall.thickness || state.wallThickness || 20) / 2;
-        const offset   = halfWall + 10; // kapıdan 10cm ötede
+        const offset = halfWall + 10; // kapıdan 10cm ötede
 
         const labelX = dcx + nx * sign * offset;
         const labelY = dcy + ny * sign * offset;
@@ -225,12 +226,17 @@ export function computeUnitBirims(overrideFloorId) {
         // Birim toplam alanı (m²)
         const unitArea = unitRooms.reduce((sum, r) => sum + (r.area || 0), 0);
 
+        // Birim no: unitRooms içinden birimNo girilmiş olanı al (öncelik)
+        const roomWithNo = unitRooms.find(r => r.birimNo != null && String(r.birimNo).trim() !== '');
+        const roomBirimNo = roomWithNo ? String(roomWithNo.birimNo).trim() : '';
+
         result.push({
             door, birimTipi, labelX, labelY, angle, unitArea,
             outerLabelX, outerLabelY,
             outerDirX, outerDirY,
             floorId: door.floorId ?? wall.floorId ?? floorId,
-            unitRooms
+            unitRooms,
+            roomBirimNo,
         });
     }
 
@@ -243,29 +249,55 @@ export function invalidateBirimCache() {
     _cache.clear();
 }
 
+// ── Birim için sayaç bul (tip uyumlu + dış etikete en yakın) ─────────────────
+export function findBirimSayac(entry, sayaclar) {
+    if (!entry || !Array.isArray(sayaclar) || !sayaclar.length) return null;
+    const { birimTipi, outerLabelX, outerLabelY, floorId } = entry;
+    let best = null, bestDist = Infinity;
+    for (const s of sayaclar) {
+        if (s.floorId != null && floorId != null && s.floorId !== floorId) continue;
+        if (s.birimTipi && birimTipi && s.birimTipi !== birimTipi
+            && !(birimTipi === 'KAZAN D.' && s.birimTipi === 'KAZAN DAİRESİ')) {
+            continue;
+        }
+        const d = Math.hypot(s.x - outerLabelX, s.y - outerLabelY);
+        if (d < bestDist) { bestDist = d; best = s; }
+    }
+    return best;
+}
+
+// ── Birim için etiket numarasını çöz: önce oda, sonra sayaç ──────────────────
+export function resolveBirimNo(entry) {
+    if (!entry) return '';
+    if (entry.roomBirimNo) return entry.roomBirimNo;
+    const sayaclar = (plumbingManager?.components || []).filter(c => c.type === 'sayac');
+    const s = findBirimSayac(entry, sayaclar);
+    return (s?.birimNo ?? '') + '';
+}
+
 // ── Birim tipi kısaltması (ör. "D2", "Dük3 (Ofis)", "KD1") ───────────────────
 export function getBirimShortLabel(birimTipi, birimNo) {
     const no = birimNo || '';
     switch (birimTipi) {
-        case 'KONUT':         return `D${no}`;
-        case 'OFİS':          return `Dük${no} (Ofis)`;
-        case 'TİCARİ':        return `Dük${no} (Ticari)`;
+        case 'KONUT': return `D${no}`;
+        case 'OFİS': return `Dük${no} (Ofis)`;
+        case 'TİCARİ': return `Dük${no} (Ticari)`;
         case 'KAZAN D.':
         case 'KAZAN DAİRESİ': return `KD${no}`;
-        default:              return `D${no}`;
+        default: return `D${no}`;
     }
 }
 
 // ── Renk paleti ───────────────────────────────────────────────────────────────
 const BIRIM_COLOR = {
-   
-    'KONUT':         '#ffcc80', 
-    'OFİS':          '#52fd58', 
-    'TİCARİ':        '#32dcfa', 
-    'KAZAN D.':      '#8260ff'  
-    
 
-    
+    'KONUT': '#d1a96e',
+    'OFİS': '#65c968',
+    'TİCARİ': '#7295d6',
+    'KAZAN D.': '#cc7592'
+
+
+
 };
 
 // ── Çizim fonksiyonu (etiket – sadece metin, çerçeve yok) ────────────────────
@@ -275,21 +307,24 @@ export function drawBirimLabels(ctx2d, st) {
     const labels = computeUnitBirims();
     if (!labels.length) return;
 
-    const zoom     = st.zoom || 1;
+    const zoom = st.zoom || 1;
     const ZOOM_EXP = -0.1;
     const BASE_SIZE = 13;
-    const fontSize  = Math.max(4, BASE_SIZE * Math.pow(zoom, ZOOM_EXP));
+    const fontSize = Math.max(4, BASE_SIZE * Math.pow(zoom, ZOOM_EXP));
 
     ctx2d.save();
-    ctx2d.textAlign    = 'center';
+    ctx2d.textAlign = 'center';
     ctx2d.textBaseline = 'bottom';
     ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
 
     const showArea = !!st.tempVisibility?.showArchDimensions;
     const areaFontSize = fontSize * 0.9;
 
-    for (const { labelX, labelY, angle, birimTipi, unitArea } of labels) {
-        const color = BIRIM_COLOR[birimTipi] || '#ffffff';
+    for (const entry of labels) {
+        const { labelX, labelY, angle, birimTipi, unitArea } = entry;
+        const color = isLightMode() ? 'rgb(50, 50, 50)' : 'rgb(205, 205, 205)';
+        const birimNo = resolveBirimNo(entry);
+        const labelText = birimNo ? getBirimShortLabel(birimTipi, birimNo) : birimTipi;
 
         ctx2d.save();
         ctx2d.translate(labelX, labelY);
@@ -298,7 +333,7 @@ export function drawBirimLabels(ctx2d, st) {
         ctx2d.fillStyle = color;
         ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
         ctx2d.globalAlpha = 0.8;
-        ctx2d.fillText(birimTipi, 0, 0);
+        ctx2d.fillText(labelText, 0, 0);
 
         if (showArea && unitArea > 0) {
             ctx2d.font = `${areaFontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
@@ -362,13 +397,13 @@ export function drawBirimBoundaries(ctx2d, st) {
         allUnitRoomSets.push({ unitRooms, birimTipi });
     }
 
-    const zoom   = st.zoom || 1;
-    const thinW  = 1 / zoom;    // ~6px – normal sınır
+    const zoom = st.zoom || 1;
+    const thinW = 1 / zoom;    // ~6px – normal sınır
     const thickW = 2 / zoom;   // ~16px – seçili birim sınırı
 
     // İki geçiş: önce normal birimler, sonra seçili birim (üstte görünsün)
     ctx2d.save();
-    ctx2d.lineCap  = 'round';
+    ctx2d.lineCap = 'round';
     ctx2d.lineJoin = 'round';
 
     // Geçiş 1: seçili olmayan birimler
@@ -378,18 +413,19 @@ export function drawBirimBoundaries(ctx2d, st) {
 
         const color = BIRIM_COLOR[birimTipi] || 'rgb(255, 255, 255)';
         ctx2d.strokeStyle = color;
-        ctx2d.lineWidth   = thinW;
+        ctx2d.lineWidth = thinW;
         ctx2d.shadowColor = color + 'aa';
-        ctx2d.shadowBlur  = 5 / zoom;
+        ctx2d.shadowBlur = 5 / zoom;
 
         for (const wall of fWalls) {
             if (!wall.p1 || !wall.p2) continue;
-            const adjacent     = getRoomsAdjacentToWall(wall, fRooms);
-            const insideCount  = adjacent.filter(r =>  unitRooms.has(r)).length;
+            const adjacent = getRoomsAdjacentToWall(wall, fRooms);
+            const insideCount = adjacent.filter(r => unitRooms.has(r)).length;
             const outsideCount = adjacent.filter(r => !unitRooms.has(r)).length;
             // İç duvar (her iki komşu da birim içi) → atla; dış cephe veya sınır duvarı → çiz
-            if (insideCount === 0) continue;
-            if (insideCount >= 2 && outsideCount === 0) continue;
+            // if (insideCount === 0) continue;
+            // if (insideCount >= 2 && outsideCount === 0) continue;
+            if (insideCount === 0 || outsideCount === 0) continue;
             ctx2d.beginPath();
             ctx2d.moveTo(wall.p1.x, wall.p1.y);
             ctx2d.lineTo(wall.p2.x, wall.p2.y);
@@ -397,7 +433,7 @@ export function drawBirimBoundaries(ctx2d, st) {
         }
 
         ctx2d.shadowColor = 'transparent';
-        ctx2d.shadowBlur  = 0;
+        ctx2d.shadowBlur = 0;
     }
 
     // Geçiş 2: seçili birim – kalın + glow
@@ -408,18 +444,19 @@ export function drawBirimBoundaries(ctx2d, st) {
 
             const color = BIRIM_COLOR[birimTipi] || '#ffcc80';
             ctx2d.shadowColor = color;
-            ctx2d.shadowBlur  = 12 / zoom;
+            ctx2d.shadowBlur = 12 / zoom;
             ctx2d.strokeStyle = color;
-            ctx2d.lineWidth   = thickW;
+            ctx2d.lineWidth = thickW;
 
             for (const wall of fWalls) {
                 if (!wall.p1 || !wall.p2) continue;
-                const adjacent     = getRoomsAdjacentToWall(wall, fRooms);
-                const insideCount  = adjacent.filter(r =>  unitRooms.has(r)).length;
+                const adjacent = getRoomsAdjacentToWall(wall, fRooms);
+                const insideCount = adjacent.filter(r => unitRooms.has(r)).length;
                 const outsideCount = adjacent.filter(r => !unitRooms.has(r)).length;
                 // İç duvar (her iki komşu da birim içi) → atla; dış cephe veya sınır duvarı → çiz
-            if (insideCount === 0) continue;
-            if (insideCount >= 2 && outsideCount === 0) continue;
+                // if (insideCount === 0) continue;
+                // if (insideCount >= 2 && outsideCount === 0) continue;
+                if (insideCount === 0 || outsideCount === 0) continue;
                 ctx2d.beginPath();
                 ctx2d.moveTo(wall.p1.x, wall.p1.y);
                 ctx2d.lineTo(wall.p2.x, wall.p2.y);
@@ -427,7 +464,7 @@ export function drawBirimBoundaries(ctx2d, st) {
             }
 
             ctx2d.shadowColor = 'transparent';
-            ctx2d.shadowBlur  = 0;
+            ctx2d.shadowBlur = 0;
             break;
         }
     }
@@ -435,9 +472,9 @@ export function drawBirimBoundaries(ctx2d, st) {
     // Geçiş 3: seçili ayrıcı mahal (SAHANLIK vb.) – çevresi kalın beyaz
     if (selectedSeparatorWalls) {
         ctx2d.strokeStyle = '#ffffff';
-        ctx2d.lineWidth   = thickW;
+        ctx2d.lineWidth = thickW;
         ctx2d.shadowColor = 'rgba(255,255,255,0.6)';
-        ctx2d.shadowBlur  = 8 / zoom;
+        ctx2d.shadowBlur = 8 / zoom;
 
         for (const wall of selectedSeparatorWalls) {
             if (!wall.p1 || !wall.p2) continue;
@@ -448,7 +485,7 @@ export function drawBirimBoundaries(ctx2d, st) {
         }
 
         ctx2d.shadowColor = 'transparent';
-        ctx2d.shadowBlur  = 0;
+        ctx2d.shadowBlur = 0;
     }
 
     ctx2d.restore();

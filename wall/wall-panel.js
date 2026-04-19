@@ -76,7 +76,7 @@ export function createWallPanel() {
 }
 
 // Yay duvarın bezier tutamaçlarını 180° ters çeviren fonksiyon
-function flipArcWall(wall) {
+export function flipArcWall(wall) {
     if (!wall || !wall.isArc || !wall.arcControl1 || !wall.arcControl2) {
         return;
     }
@@ -250,7 +250,7 @@ export function hideWallPanel() {
 
 
 // --- GÜNCELLENDİ: update3DScene çağrılarına gecikme ve kontrol eklendi ---
-function addDoorToWall(wall) {
+export function addDoorToWall(wall) {
     // ... (kapı ekleme mantığı aynı) ...
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const doorWidth = 70; const doorPos = length / 2;
@@ -271,7 +271,7 @@ function addDoorToWall(wall) {
     }
 }
 
-function addWindowToWall(wall) {
+export function addWindowToWall(wall) {
     // ... (pencere ekleme mantığı aynı) ...
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const wallThickness = wall.thickness || state.wallThickness;
@@ -292,7 +292,7 @@ function addWindowToWall(wall) {
     }
 }
 
-function addVentToWall(wall) {
+export function addVentToWall(wall) {
     // ... (menfez ekleme mantığı aynı) ...
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const ventWidth = 40; const ventPos = length / 2; const margin = 15;
@@ -307,7 +307,7 @@ function addVentToWall(wall) {
     // Menfezler 3D'de gösterilmiyor
 }
 
-function addColumnToWall(wall) {
+export function addColumnToWall(wall) {
     // ... (kolon ekleme mantığı aynı) ...
     const length = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     const columnPos = length / 2; const columnSize = 30; const halfColumnSize = columnSize / 2;

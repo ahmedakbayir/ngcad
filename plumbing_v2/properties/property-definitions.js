@@ -1,4 +1,6 @@
 import { getCizelge6Debi } from '../renderer/renderer-utils.js';
+import { MAHAL_LISTESI, WALL_HEIGHT } from '../../general-files/main.js';
+import { addDoorToWall, addWindowToWall, addVentToWall, addColumnToWall, flipArcWall } from '../../wall/wall-panel.js';
 
 /**
  * Özellik Tanımları
@@ -202,17 +204,17 @@ export const PROPERTY_DEFS = {
     boruBasinc: {
         label: 'Basınç',
         type: 'readonly',
-        readonlyFn: (obj) => obj.basinc != null ? `${obj.basinc} mbar` : '21 mbar',
+        readonlyFn: (obj) => obj.basinc != null ? `${Math.round(Number(obj.basinc))} mbar` : '21 mbar',
     },
     boruHatBasincKaybi: {
         label: 'Hat Basınç Kaybı',
         type: 'readonly',
-        readonlyFn: (obj) => obj.hatBasincKaybi != null ? `${obj.hatBasincKaybi} mbar` : '0.200 mbar',
+        readonlyFn: (obj) => obj.hatBasincKaybi != null ? `${Number(obj.hatBasincKaybi).toFixed(3)} mbar` : '0.200 mbar',
     },
     boruKumulatifKayip: {
         label: 'Kümülatif Kayıp',
         type: 'readonly',
-        readonlyFn: (obj) => obj.kumulatifKayip != null ? `${obj.kumulatifKayip} mbar` : '0.650 mbar',
+        readonlyFn: (obj) => obj.kumulatifKayip != null ? `${Number(obj.kumulatifKayip).toFixed(3)} mbar` : '0.650 mbar',
     },
 
     boru_sec_konum: { type: 'section', label: 'Konum' },
@@ -346,17 +348,17 @@ export const PROPERTY_DEFS = {
     sayacdebi: {
         label: 'Debi',
         type: 'readonly',
-        readonlyFn: (obj) => obj.sayacdebi != null ? `${obj.sayacdebi} m³/h` : '3.50 m³/h',
+        readonlyFn: (obj) => obj.sayacdebi != null ? `${Number(obj.sayacdebi).toFixed(2)} m³/h` : '3.50 m³/h',
     },
     sayacMinDebi: {
         label: 'Min Debi',
         type: 'readonly',
-        readonlyFn: (obj) => obj.minDebi != null ? `${obj.minDebi} m³/h` : '0.04 m³/h',
+        readonlyFn: (obj) => obj.minDebi != null ? `${Number(obj.minDebi).toFixed(2)} m³/h` : '0.04 m³/h',
     },
     sayacMaxDebi: {
         label: 'Max Debi',
         type: 'readonly',
-        readonlyFn: (obj) => obj.maxDebi != null ? `${obj.maxDebi} m³/h` : '6.00 m³/h',
+        readonlyFn: (obj) => obj.maxDebi != null ? `${Number(obj.maxDebi).toFixed(2)} m³/h` : '6.00 m³/h',
     },
 
     sayac_sec_birim: { type: 'section', label: 'Birim' },
@@ -617,6 +619,7 @@ export const PROPERTY_DEFS = {
         default: '0',
         placeholder: '0',
         inputType: 'number',
+        precision: 0,
         visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
     },
     vanaDukkanSayisi: {
@@ -626,6 +629,7 @@ export const PROPERTY_DEFS = {
         default: '0',
         placeholder: '0',
         inputType: 'number',
+        precision: 0,
         visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
     },
     vanaEkDebi: {
@@ -635,6 +639,7 @@ export const PROPERTY_DEFS = {
         default: '0',
         placeholder: '0.00',
         inputType: 'number',
+        precision: 2,
         visibleFn: (obj) => obj.vanaTipi === 'YANBINA',
     },
     vanaYanBinaToplam: {
@@ -659,6 +664,7 @@ export const PROPERTY_DEFS = {
         key: 'bransmanDebi',
         default: '3.5',
         placeholder: '3.50',
+        precision: 2,
         visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
         afterChange: (obj, manager) => {
             if (!manager || !obj.bagliBoruId) return;
@@ -676,12 +682,12 @@ export const PROPERTY_DEFS = {
     vanaBasinc: {
         label: 'Basınç',
         type: 'readonly',
-        readonlyFn: (obj) => obj.basinc != null ? `${obj.basinc} mbar` : '21 mbar',
+        readonlyFn: (obj) => obj.basinc != null ? `${Math.round(Number(obj.basinc))} mbar` : '21 mbar',
     },
     vanaBasincKaybi: {
         label: 'Basınç Kaybı',
         type: 'readonly',
-        readonlyFn: (obj) => obj.basincKaybi != null ? `${obj.basincKaybi} mbar` : '0.500 mbar',
+        readonlyFn: (obj) => obj.basincKaybi != null ? `${Number(obj.basincKaybi).toFixed(3)} mbar` : '0.500 mbar',
     },
 
     vana_sec_urun: { type: 'section', label: 'Ürün' },
@@ -877,6 +883,7 @@ export const PROPERTY_DEFS = {
         key: 'kapasiteKcal',
         default: '20640',
         placeholder: 'kcal/h',
+        precision: 0,
         afterChange: (obj, _manager, panelEl) => {
             const kcal = parseFloat(obj.kapasiteKcal);
             if (!isNaN(kcal)) {
@@ -896,6 +903,7 @@ export const PROPERTY_DEFS = {
         key: 'kapasiteKW',
         default: '24',
         placeholder: 'kW',
+        precision: 2,
         afterChange: (obj, _manager, panelEl) => {
             const kw = parseFloat(obj.kapasiteKW);
             if (!isNaN(kw)) {
@@ -916,6 +924,7 @@ export const PROPERTY_DEFS = {
         key: 'verim',
         default: '100',
         placeholder: '%',
+        precision: 0,
         afterChange: (obj, _manager, panelEl) => _refreshCihazDebi(obj, panelEl),
     },
 
@@ -980,6 +989,7 @@ export const PROPERTY_DEFS = {
         key: 'kapasiteKcal',
         default: '13200',
         placeholder: 'kcal/h',
+        precision: 0,
         afterChange: (obj, _manager, panelEl) => {
             const kcal = parseFloat(obj.kapasiteKcal);
             if (!isNaN(kcal)) {
@@ -999,6 +1009,7 @@ export const PROPERTY_DEFS = {
         key: 'kapasiteKW',
         default: '15.35',
         placeholder: 'kW',
+        precision: 2,
         afterChange: (obj, _manager, panelEl) => {
             const kw = parseFloat(obj.kapasiteKW);
             if (!isNaN(kw)) {
@@ -1019,6 +1030,7 @@ export const PROPERTY_DEFS = {
         key: 'verim',
         default: '100',
         placeholder: '%',
+        precision: 0,
         disabled: true,
     },
 
@@ -1067,6 +1079,234 @@ export const PROPERTY_DEFS = {
         key: 'yogusmali',
         default: false,
         disabled: true,
+    },
+
+    // ─── MİMARİ NESNELER ─────────────────────────────────────────────────────
+
+    // Oda (room)
+    room_sec_tanim: { type: 'section', label: 'Tanım' },
+    roomName: {
+        label: 'Mahal Adı',
+        type: 'select',
+        key: 'name',
+        default: 'MAHAL',
+        options: () => MAHAL_LISTESI,
+    },
+    roomArea: {
+        label: 'Alan (m²)',
+        type: 'readonly',
+        readonlyFn: (obj) => {
+            const a = Number(obj?.area) || 0;
+            return `${a.toFixed(2)} m²`;
+        },
+    },
+    roomVolume: {
+        label: 'Hacim (m³)',
+        type: 'readonly',
+        readonlyFn: (obj) => {
+            const a = Number(obj?.area) || 0;
+            const h = WALL_HEIGHT / 100; // cm → m
+            return `${(a * h).toFixed(2)} m³`;
+        },
+    },
+    roomBirimNo: {
+        label: 'Birim No',
+        type: 'text',
+        key: 'birimNo',
+        default: '',
+        placeholder: 'Birim no...',
+    },
+
+    // Duvar (wall)
+    wall_sec_boyut: { type: 'section', label: 'Boyut' },
+    wallThickness: {
+        label: 'Kalınlık (cm)',
+        type: 'text',
+        key: 'thickness',
+        inputType: 'number',
+        default: 20,
+        min: 5,
+        max: 50,
+        precision: 0,
+    },
+    wallType: {
+        label: 'Tip',
+        type: 'select',
+        key: 'wallType',
+        default: 'normal',
+        optionsAreObjects: true,
+        options: [
+            { value: 'normal',  label: 'Normal Duvar' },
+            { value: 'balcony', label: 'Balkon Duvarı' },
+            { value: 'glass',   label: 'Camekan' },
+            { value: 'half',    label: 'Yarım Duvar' },
+        ],
+    },
+    wallArc: {
+        label: 'Yay Duvar',
+        type: 'toggle',
+        key: 'isArc',
+        default: false,
+        afterChange: (obj, _manager, panelEl) => {
+            if (obj.isArc && !obj.arcControl1) {
+                const dx = obj.p2.x - obj.p1.x;
+                const dy = obj.p2.y - obj.p1.y;
+                const len = Math.hypot(dx, dy);
+                if (len > 1e-6) {
+                    const nx = -dy / len, ny = dx / len;
+                    const offset = len / 2;
+                    obj.arcControl1 = { x: obj.p1.x + nx * offset, y: obj.p1.y + ny * offset };
+                    obj.arcControl2 = { x: obj.p2.x + nx * offset, y: obj.p2.y + ny * offset };
+                }
+            }
+            if (panelEl?._refresh) panelEl._refresh();
+        },
+    },
+    wallArcFlip: {
+        type: 'actions',
+        label: 'Yay Yönü',
+        visibleFn: (obj) => !!obj.isArc,
+        buttons: [
+            { label: '↻ Yayı Ters Çevir', onClick: (obj) => flipArcWall(obj) },
+        ],
+    },
+    wall_sec_ekle: { type: 'section', label: 'Ekle' },
+    wallActions: {
+        type: 'actions',
+        noLabel: true,
+        buttons: [
+            { label: 'Kapı Ekle',    onClick: (obj) => addDoorToWall(obj) },
+            { label: 'Pencere Ekle', onClick: (obj) => addWindowToWall(obj) },
+            { label: 'Menfez Ekle',  onClick: (obj) => addVentToWall(obj) },
+            { label: 'Kolon Ekle',   onClick: (obj) => addColumnToWall(obj) },
+        ],
+    },
+
+    // Kapı (door) / Pencere (window) — en, boy, kot
+    door_sec_boyut: { type: 'section', label: 'Boyut' },
+    doorWidth: {
+        label: 'En (cm)',
+        type: 'text',
+        key: 'width',
+        inputType: 'number',
+        default: 90,
+        min: 30,
+        max: 400,
+        precision: 0,
+    },
+    doorHeight: {
+        label: 'Boy (cm)',
+        type: 'text',
+        key: 'height',
+        inputType: 'number',
+        default: 220,
+        min: 100,
+        max: 400,
+        precision: 0,
+    },
+    doorKot: {
+        label: 'Kot (cm)',
+        type: 'text',
+        key: 'kot',
+        inputType: 'number',
+        default: 0,
+        min: -500,
+        max: 500,
+        precision: 0,
+    },
+    window_sec_boyut: { type: 'section', label: 'Boyut' },
+    windowWidth: {
+        label: 'En (cm)',
+        type: 'text',
+        key: 'width',
+        inputType: 'number',
+        default: 120,
+        min: 30,
+        max: 500,
+        precision: 0,
+    },
+    windowHeight: {
+        label: 'Boy (cm)',
+        type: 'text',
+        key: 'height',
+        inputType: 'number',
+        default: 140,
+        min: 30,
+        max: 400,
+        precision: 0,
+    },
+    windowKot: {
+        label: 'Kot (cm)',
+        type: 'text',
+        key: 'kot',
+        inputType: 'number',
+        default: 80,
+        min: -500,
+        max: 500,
+        precision: 0,
+    },
+
+    // Merdiven (stairs)
+    stair_sec_tanim: { type: 'section', label: 'Tanım' },
+    stairName: {
+        label: 'Ad',
+        type: 'text',
+        key: 'name',
+        default: '',
+        placeholder: 'Merdiven adı...',
+    },
+    stairIsLanding: {
+        label: 'Sahanlık',
+        type: 'toggle',
+        key: 'isLanding',
+        default: false,
+    },
+    stair_sec_boyut: { type: 'section', label: 'Boyut' },
+    stairLength: {
+        label: 'Uzunluk (cm)',
+        type: 'text',
+        key: 'width',
+        inputType: 'number',
+        default: 300,
+        min: 50,
+        precision: 0,
+    },
+    stairDepth: {
+        label: 'Genişlik (cm)',
+        type: 'text',
+        key: 'height',
+        inputType: 'number',
+        default: 120,
+        min: 50,
+        precision: 0,
+    },
+    stairStepCount: {
+        label: 'Basamak Sayısı',
+        type: 'readonly',
+        readonlyFn: (obj) => String(obj?.stepCount ?? 1),
+    },
+    stair_sec_kot: { type: 'section', label: 'Kot' },
+    stairBottomElevation: {
+        label: 'Alt Kot (cm)',
+        type: 'text',
+        key: 'bottomElevation',
+        inputType: 'number',
+        default: 0,
+        precision: 0,
+    },
+    stairTopElevation: {
+        label: 'Üst Kot (cm)',
+        type: 'text',
+        key: 'topElevation',
+        inputType: 'number',
+        default: 135,
+        precision: 0,
+    },
+    stairShowRailing: {
+        label: 'Korkuluk Göster',
+        type: 'toggle',
+        key: 'showRailing',
+        default: true,
     },
 };
 
@@ -1168,6 +1408,49 @@ export const OBJECT_PROPERTIES = {
         'ocakMuhafaza',
         'ocakYedekCihaz',
     ],
+
+    // Mimari nesneler
+    room: [
+        'room_sec_tanim',
+        'roomName',
+        'roomArea',
+        'roomVolume',
+        'roomBirimNo',
+    ],
+    wall: [
+        'wall_sec_boyut',
+        'wallThickness',
+        'wallType',
+        'wallArc',
+        'wallArcFlip',
+        'wall_sec_ekle',
+        'wallActions',
+    ],
+    door: [
+        'door_sec_boyut',
+        'doorWidth',
+        'doorHeight',
+        'doorKot',
+    ],
+    window: [
+        'window_sec_boyut',
+        'windowWidth',
+        'windowHeight',
+        'windowKot',
+    ],
+    stairs: [
+        'stair_sec_tanim',
+        'stairName',
+        'stairIsLanding',
+        'stair_sec_boyut',
+        'stairLength',
+        'stairDepth',
+        'stairStepCount',
+        'stair_sec_kot',
+        'stairBottomElevation',
+        'stairTopElevation',
+        'stairShowRailing',
+    ],
 };
 
 // ─── DIŞA AKTARILAN FONKSİYONLAR ─────────────────────────────────────────────
@@ -1198,6 +1481,11 @@ export function getObjectTypeLabel(type) {
         vana: 'Vana',
         servis_kutusu: 'Servis Kutusu',
         cihaz: 'Cihaz',
+        room: 'Oda',
+        wall: 'Duvar',
+        door: 'Kapı',
+        window: 'Pencere',
+        stairs: 'Merdiven',
     };
     return labels[type] || type;
 }

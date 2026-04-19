@@ -5,7 +5,7 @@ import * as THREE from "three"; // YENİ
 import { state, setState, setMode, dom, EXTEND_RANGE, isObjectInteractable } from './main.js'; // dom import edildiğinden emin olun
 import { getObjectAtPoint } from './actions.js';
 import { undo, redo, saveState, restoreState } from './history.js';
-import { startLengthEdit, cancelLengthEdit, showStairPopup, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen, toggle3DPerspective, toggleTheme } from './ui.js';
+import { startLengthEdit, cancelLengthEdit, showRoomNamePopup, hideRoomNamePopup, positionLengthInput, toggle3DFullscreen, toggle3DPerspective, toggleTheme } from './ui.js';
 import { createStairs, recalculateStepCount, isPointInStair, getNextStairLetter } from '../architectural-objects/stairs.js'; // isPointInStair eklendi
 import { createColumn, isPointInColumn } from '../architectural-objects/columns.js'; // isPointInColumn eklendi
 import { createBeam, isPointInBeam } from '../architectural-objects/beams.js'; // isPointInBeam eklendi
@@ -27,6 +27,7 @@ import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { hitTestLabel } from '../plumbing_v2/renderer/renderer-labels.js';
+import { openPropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 
 
 
@@ -1027,8 +1028,6 @@ export function setupInputListeners() {
         } else if (object && object.type === 'wall' && object.handle === 'body') {
             // Duvar gövdesine çift tıklanırsa bölme işlemi yap
             splitWallAtClickPosition(clickPos); // <-- Pozisyonu parametre olarak gönder
-        } else if (object && object.type === 'stairs') { // YENİ: Merdiven çift tıklama
-            showStairPopup(object.object, e); // Merdiven popup'ını göster
         } else if (object && object.type === 'plumbingPipe' && object.handle === 'body') {
             // Boru gövdesine çift tıklanırsa bölme işlemi yap
             // splitT: getObjectAtPoint'ten gelen ekran-uzayı projeksiyon oranı → 3D world noktası
@@ -1067,6 +1066,21 @@ export function setupInputListeners() {
         hideGuideContextMenu();
         hidePlumbingContextMenu();
 
+        // MİMARİ nesneler (oda/duvar/merdiven) — mod farketmeksizin kendi menüsü/paneli gelir
+        if (object && (object.type === 'room' || object.type === 'roomName')) {
+            showRoomNamePopup(object.object, e);
+            return;
+        }
+        if (object && object.type === 'wall') {
+            showWallPanel(object.object, e.clientX, e.clientY);
+            return;
+        }
+        if (object && object.type === 'stairs') {
+            // Merdiven sağ tık → özellikler paneli
+            openPropertiesPanel(object.object, plumbingManager);
+            return;
+        }
+
         // Tesisat modunda VEYA KARMA modda boru/tesisat nesnesi yakınındaysa menüyü göster
         const isTesisatMode = state.currentDrawingMode === 'TESİSAT';
         const isKarmaMode = state.currentDrawingMode === 'KARMA';
@@ -1076,13 +1090,7 @@ export function setupInputListeners() {
             return;
         }
 
-        if (object && (object.type === 'room' || object.type === 'roomName')) {
-            showRoomNamePopup(object.object, e);
-        } else if (object && object.type === 'wall') {
-            showWallPanel(object.object, e.clientX, e.clientY);
-        } else if (object && object.type === 'stairs') {
-            showStairPopup(object.object, e); // Merdiven sağ tık
-        } else if (!object) {
+        if (!object) {
             // Boş alana tıklandı
             showGuideContextMenu(e.clientX, e.clientY, clickPos);
         } else {

@@ -15,6 +15,7 @@ import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
 import { renderIsometric } from '../scene3d/scene-isometric.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { closePropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
 import { gsap } from 'gsap';
 import * as THREE from 'three';
@@ -228,6 +229,7 @@ export function toggle3DView() {
 
     if (is3DActive) { // (dom.mainContainer kontrolü yerine değişkene aldık)
         setMode("select");
+        closePropertiesPanel(); // 3D açılınca özellikler paneli otomatik kapansın
 
         // Split ratio butonlarını göster
         const splitButtons = document.getElementById('split-ratio-buttons');
@@ -1053,6 +1055,7 @@ export function setSplitRatio(ratio) {
         dom.mainContainer.classList.add('show-3d');
         dom.b3d.classList.add('active');
         setMode("select");
+        closePropertiesPanel(); // 3D açılınca özellikler paneli otomatik kapansın
 
         const splitButtons = document.getElementById('split-ratio-buttons');
         if (splitButtons) splitButtons.style.display = 'flex';

@@ -2943,6 +2943,73 @@ body.light-mode .vis-panel-inner {
     display: none;
 }
 
+/* Bağlı Nesneler listesi */
+.props-connected-item {
+    padding: 5px 8px;
+    margin: 2px 0;
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: background .1s, border-color .1s;
+}
+.props-connected-item:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.12);
+}
+.light-mode .props-connected-item {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.08);
+}
+.light-mode .props-connected-item:hover {
+    background: rgba(0,0,0,0.06);
+    border-color: rgba(0,0,0,0.12);
+}
+
+/* Properties panel — action butonları */
+.props-actions-row {
+    align-items: flex-start;
+}
+.props-actions-row--nolabel {
+    grid-template-columns: 1fr;
+}
+.props-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+.props-action-btn {
+    padding: 6px 10px;
+    background: rgba(255,255,255,0.05);
+    color: var(--color-primary);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    text-align: left;
+    transition: background .12s, border-color .12s, color .12s;
+}
+.props-action-btn:hover:not(:disabled) {
+    background: rgba(138,180,248,0.12);
+    border-color: #8ab4f8;
+    color: #8ab4f8;
+}
+.props-action-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+.light-mode .props-action-btn {
+    background: rgba(0,0,0,0.03);
+    border-color: rgba(0,0,0,0.12);
+}
+.light-mode .props-action-btn:hover:not(:disabled) {
+    background: rgba(25,103,210,0.08);
+    border-color: #1967d2;
+    color: #1967d2;
+}
+
 /* Section kapalıyken başlık kendi başına tam kutu */
 .props-section-header.collapsible:has(+ .section-content.sec-collapsed) {
     border-radius: 6px;

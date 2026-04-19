@@ -4,7 +4,7 @@ import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from '.
 import { getColumnCorners, isPointInColumn } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
-import { state, dom, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor, getWallFillColor } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
+import { state, dom, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor, getWallFillColor, isLightMode } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
 
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
 export function drawNodeWallCount(node) {
@@ -42,7 +42,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHo
     const adjustedWallBorderColor = getAdjustedColor(wallBorderColor, 'door');
 
     // Renk belirleme
-    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "#a0b8df" : "#859096";
+    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "#a0b8df" : isLightMode()? "#7c7c7c": "#7c7c7c";
     const color = getAdjustedColor(baseColor, 'door');
 
     // Çizim ayarları
@@ -119,7 +119,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const adjustedWindowColor = getAdjustedColor(baseWindowColor, 'window');
 
     // Renk belirleme
-    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "#a0b8df" : "#859096ad";
+    let baseColor = (isPreview || isSelected) ? "#8ab4f8" : isHovered ? "#a0b8df" : isLightMode()? "#999898": "#575656";
     const color = getAdjustedColor(baseColor, 'door');
 
     // Çizim ayarları
@@ -207,6 +207,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     ctx2d.fill();
 
     // Dış çizgiler ve kenar birleştirmeler
+    ctx2d.fillStyle = wallBorderColor;
     ctx2d.beginPath();
     ctx2d.moveTo(line1_start.x, line1_start.y); ctx2d.lineTo(line1_end.x, line1_end.y); // Dış üst
     ctx2d.moveTo(line4_start.x, line4_start.y); ctx2d.lineTo(line4_end.x, line4_end.y); // Dış alt

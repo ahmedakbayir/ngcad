@@ -19,7 +19,10 @@ import { cancelLengthEdit } from '../general-files/ui.js';
 import { getObjectAtPoint, getInteractableObjectAtPoint } from '../general-files/actions.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { processWalls } from '../wall/wall-processor.js';
+import { openPropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 // plumbingManager zaten yukarıda import edildi
+
+const ARCH_PANEL_TYPES = ['wall', 'door', 'window', 'stairs'];
 
 /**
  * Vanadan/Sayaçtan sonraki tüm bağlı boruları düz çizgi yap
@@ -194,6 +197,7 @@ export function onPointerDown(e) {
         if (clickedObject) {
             if (clickedObject.type === 'room') {
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
+                if (clickedObject.object) openPropertiesPanel(clickedObject.object, plumbingManager);
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
                 setState({
                     isDraggingRoomName: clickedObject.object,
@@ -214,6 +218,11 @@ export function onPointerDown(e) {
                 // Yeni seçili tesisat nesnesinin isSelected'ını ayarla (renderer için)
                 if (clickedObject.type === 'plumbingPipe' || clickedObject.type === 'plumbingBlock') {
                     clickedObject.object.isSelected = true;
+                }
+
+                // Mimari nesne seçildiyse özellikler panelini aç
+                if (ARCH_PANEL_TYPES.includes(clickedObject.type) && clickedObject.object) {
+                    openPropertiesPanel(clickedObject.object, plumbingManager);
                 }
 
                 let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };

@@ -18,6 +18,7 @@ import { createWallPanel } from '../wall/wall-panel.js';
 import { createFloorPanel, showFloorPanel, renderMiniPanel } from '../floor/floor-panel.js';
 import { initializeDefaultFloors } from '../floor/floor-handler.js';
 import { plumbingManager, TESISAT_MODLARI } from '../plumbing_v2/plumbing-manager.js';
+import { closePropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 
 
 //export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
@@ -70,20 +71,23 @@ export const THEME_COLORS = {
         backgroundGradient: 'radial-gradient(ellipse at center, #fdffff 0%, #e7fafa 100%)',
         canvas: '#e6e7e7', // Canvas temizleme rengi
         canvasGradient: {
-            center: '#fdfdff',  // Merkez - koyu gri
-            mid: '#f3f3ff',     // Orta
-            edge: '#efeffd'     // Kenar - daha koyu
+            center: '#f9f8f6',  // Merkez - koyu gri
+            mid: '#f9f8f6',     // Orta
+            edge: '#f9f8f6'     // Kenar - daha koyu
+            // center: '#ffffff',  // Merkez - koyu gri
+            // mid: '#fafaff',     // Orta
+            // edge: '#f7f7ff'     // Kenar - daha koyu
         },
 
         // Grid
         grid: '#b6b6b6',
 
         // Duvarlar
-        wallStroke: '#505050', // Duvar çizgisi (koyu)
-        wallFill: '#dddddd', // Duvar dolgusu (açık)
+        wallStroke: '#2b2b2b', // Duvar çizgisi (koyu)
+        wallFill: '#f9f8f6', // Duvar dolgusu (açık)
 
         // Mahaller
-        roomFill: '#fefefe', // Mahal dolgusu (BG'ye yakın)
+        roomFill: 'rgb(250, 249, 247)', // Mahal dolgusu (BG'ye yakın)
         roomHover: '#fff1f1', // Mahal hover
         roomSelected: '#fff1f1', // Mahal seçili
 
@@ -491,7 +495,7 @@ export let state = {
         show3DAxis: true,           // Varsayılan açık
         show3DPipeFrame: true,      // 3D Hat Çerçevesi (varsayılan açık)
         showPipePath: false,
-        showBirimBoundaries:true,
+        showBirimBoundaries: true,
         showObjectLabels: true,   // Nesne Etiketleri (boru/sayaç/vana/cihaz)
         showJunctionNodes: true,   // Köşe Noktaları (3+ duvar birleşimi)
         showArchitecture: true,    // Mimari Katman
@@ -508,7 +512,16 @@ export function setState(newState) {
     const wallsChanged = newState.walls !== undefined && newState.walls !== state.walls;
     const doorsChanged = newState.doors !== undefined && newState.doors !== state.doors;
 
+    // Seçim (selectedObject veya selectedRoom) kaybolduysa özellikler panelini kapat
+    const hadSelection = !!(state.selectedObject || state.selectedRoom);
+    const willHaveSelection = !!(
+        (newState.selectedObject !== undefined ? newState.selectedObject : state.selectedObject) ||
+        (newState.selectedRoom !== undefined ? newState.selectedRoom : state.selectedRoom)
+    );
+
     state = { ...state, ...newState };
+
+    if (hadSelection && !willHaveSelection) closePropertiesPanel();
 
     // Debug: State güncellendiğinde window'u da güncelle
     window.DEBUG_state = state;

@@ -7,6 +7,7 @@
 
 import { getPropertiesForObject, getObjectLabel, PROPERTY_DEFS } from './property-definitions.js';
 import { draw2D } from '../../draw/draw2d.js';
+import { state } from '../../general-files/main.js';
 
 // ─── DURUM ───────────────────────────────────────────────────────────────────
 
@@ -136,7 +137,9 @@ function _startLiveRefresh() {
             if (document.activeElement === el) return;
             const key = el.dataset.propKey;
             if (!key) return;
-            const objVal = String(_currentObj[key] ?? '');
+            const raw = _currentObj[key] ?? '';
+            const prec = el.dataset.precision != null ? parseInt(el.dataset.precision) : null;
+            const objVal = _formatNumeric(raw, prec);
             if (el.value !== objVal) el.value = objVal;
         });
         _rafId = requestAnimationFrame(tick);
@@ -149,9 +152,8 @@ function _stopLiveRefresh() {
     _liveProps = null;
 }
 
-// Seçim kaldırıldığında çağrılır: sabitlendiyse paneli kapatma
+// Seçim kaldırıldığında çağrılır: nesne seçiminden çıkılınca panel her zaman kapanır
 export function onDeselect() {
-    if (_isPinned) return;
     closePropertiesPanel();
 }
 
@@ -205,6 +207,7 @@ function renderPanel(obj, manager) {
                 ? '<div class="props-empty">Bu nesne için tanımlı özellik yok.</div>'
                 : props.map(prop => renderProperty(prop, obj, manager)).join('')
             }
+            ${renderConnectedObjectsSection(obj, manager)}
             ${hasDesc ? renderDescriptionsSection(obj) : ''}
         </div>
     `;
@@ -221,6 +224,7 @@ function renderPanel(obj, manager) {
         btn.innerHTML = pinSvg(_isPinned);
     });
     bindInputEvents(panelEl, props, obj, manager);
+    bindConnectedObjectsEvents(panelEl, obj, manager);
     if (hasDesc) bindDescriptionEvents(panelEl, obj);
     _initCollapsibleSections(panelEl);
 
@@ -256,12 +260,14 @@ function renderDualField(field, obj, manager) {
         return `<select class="props-select props-dual-field" data-prop-key="${field.key}"${flexStyle} ${isDisabled ? 'disabled' : ''}>${optHtml}</select>`;
     }
     if (field.type === 'text') {
-        const current = obj[field.key] ?? field.default ?? '';
+        const raw = obj[field.key] ?? field.default ?? '';
+        const current = _formatNumeric(raw, field.precision);
         const placeholder = field.placeholder || '';
         const isDisabled = field.disabled === true || (field.disabledFn && field.disabledFn(obj, manager));
         const flexStyle = field.flex ? ` style="flex:${field.flex}"` : '';
+        const precAttr = field.precision != null ? ` data-precision="${field.precision}"` : '';
         return `<input class="props-input props-dual-field" type="text"
-            data-prop-key="${field.key}"
+            data-prop-key="${field.key}"${precAttr}
             value="${escHtml(String(current))}"
             placeholder="${escHtml(placeholder)}"${flexStyle}
             ${isDisabled ? 'disabled' : ''}>`;
@@ -328,7 +334,8 @@ function renderProperty(prop, obj, manager) {
     }
 
     if (prop.type === 'text') {
-        const current = obj[prop.key] ?? prop.default ?? '';
+        const raw = obj[prop.key] ?? prop.default ?? '';
+        const current = _formatNumeric(raw, prop.precision);
         const placeholder = prop.placeholder || '';
         const isDisabled = prop.disabled === true || (prop.disabledFn && prop.disabledFn(obj, manager));
         const itype = prop.inputType || 'text';
@@ -337,11 +344,12 @@ function renderProperty(prop, obj, manager) {
             prop.min  != null ? `min="${prop.min}"`   : '',
             prop.max  != null ? `max="${prop.max}"`   : '',
         ].filter(Boolean).join(' ');
+        const precAttr = prop.precision != null ? ` data-precision="${prop.precision}"` : '';
         return `
             <div class="props-row">
                 <label class="props-label">${prop.label}</label>
                 <input class="props-input" type="${itype}"
-                    data-prop-key="${prop.key}"
+                    data-prop-key="${prop.key}"${precAttr}
                     value="${escHtml(String(current))}"
                     placeholder="${escHtml(placeholder)}"
                     ${extraAttrs}
@@ -352,6 +360,17 @@ function renderProperty(prop, obj, manager) {
     if (prop.type === 'bar') {
         const html = prop.barFn ? prop.barFn(obj, manager) : '';
         return `<div class="props-bar-row" data-prop-id="${prop.id}">${html}</div>`;
+    }
+
+    if (prop.type === 'actions') {
+        const btns = (prop.buttons || []).map((b, i) => {
+            const disabled = (b.disabledFn && b.disabledFn(obj, manager)) || b.disabled === true;
+            return `<button class="props-action-btn" data-action-idx="${i}" ${disabled ? 'disabled' : ''}>${escHtml(b.label)}</button>`;
+        }).join('');
+        if (prop.noLabel) {
+            return `<div class="props-row props-actions-row props-actions-row--nolabel" data-prop-id="${prop.id}"><div class="props-actions-list">${btns}</div></div>`;
+        }
+        return `<div class="props-row props-actions-row" data-prop-id="${prop.id}"><label class="props-label">${prop.label || ''}</label><div class="props-actions-list">${btns}</div></div>`;
     }
 
     if (prop.type === 'toggle') {
@@ -398,6 +417,65 @@ function renderProperty(prop, obj, manager) {
     }
 
     return '';
+}
+
+// ─── BAĞLI NESNELER ──────────────────────────────────────────────────────────
+
+const CONNECTED_SECTION_LABEL = 'Bağlı Nesneler';
+
+function _getConnectedObjects(obj, manager) {
+    if (!obj) return [];
+    if (obj.type === 'boru' && manager) {
+        return manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === obj.id);
+    }
+    if (obj.type === 'wall') {
+        const doors = (state.doors || []).filter(d => d.wall === obj);
+        const windows = obj.windows || [];
+        return [...doors, ...windows];
+    }
+    return [];
+}
+
+function _connectedItemLabel(item) {
+    if (item.type === 'vana') {
+        const tip = item.vanaTipi || '—';
+        const cap = item.vanaCap || '';
+        return `Vana · ${tip}${cap ? ' · ' + cap : ''}`;
+    }
+    if (item.type === 'door') {
+        const w = item.width != null ? `${Math.round(item.width)}×${Math.round(item.height || 0)} cm` : '';
+        return `Kapı${w ? ' · ' + w : ''}`;
+    }
+    if (item.type === 'window') {
+        const w = item.width != null ? `${Math.round(item.width)}×${Math.round(item.height || 0)} cm` : '';
+        return `Pencere${w ? ' · ' + w : ''}`;
+    }
+    return item.type || '—';
+}
+
+function renderConnectedObjectsSection(obj, manager) {
+    const list = _getConnectedObjects(obj, manager);
+    if (!list.length) return '';
+    if (!_sectionCollapsed.has(CONNECTED_SECTION_LABEL)) {
+        _sectionCollapsed.set(CONNECTED_SECTION_LABEL, true); // default closed
+    }
+    const itemsHtml = list.map((item, i) => {
+        const lbl = escHtml(_connectedItemLabel(item));
+        return `<div class="props-connected-item" data-conn-idx="${i}">${lbl}</div>`;
+    }).join('');
+    return `<div class="props-section-header" data-section-key="${CONNECTED_SECTION_LABEL}">${CONNECTED_SECTION_LABEL} (${list.length})</div>${itemsHtml}`;
+}
+
+function bindConnectedObjectsEvents(panelEl, obj, manager) {
+    const list = _getConnectedObjects(obj, manager);
+    if (!list.length) return;
+    panelEl.querySelectorAll('.props-connected-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const idx = parseInt(el.dataset.connIdx);
+            const target = list[idx];
+            if (target) openPropertiesPanel(target, manager);
+        });
+    });
 }
 
 // ─── COLLAPSIBLE SECTIONS ────────────────────────────────────────────────────
@@ -450,7 +528,7 @@ function _applyCollapsible(headers) {
         }
         if (!siblings.length) return;
 
-        const key = header.textContent.trim();
+        const key = header.dataset.sectionKey || header.textContent.trim();
         const wrapper = document.createElement('div');
         wrapper.className = 'section-content';
         const collapsed = _sectionCollapsed.get(key) || false;
@@ -705,7 +783,25 @@ function bindInputEvents(panelEl, props, obj, manager) {
             // Toggle'ın groupBtn'ı varsa görünürlüğünü güncelle
             const groupBtn = e.target.closest('.props-toggle-inline')?.querySelector('.props-group-btn');
             if (groupBtn) groupBtn.style.visibility = e.target.checked ? '' : 'hidden';
+            const prop = _findPropByKey(props, key);
+            if (prop?.afterChange) prop.afterChange(obj, manager, panelEl);
             persist();
+        });
+    });
+
+    // Action butonları
+    panelEl.querySelectorAll('.props-action-btn[data-action-idx]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const row = btn.closest('.props-actions-row');
+            const propId = row?.dataset.propId;
+            const prop = props.find(p => p.id === propId);
+            const idx = parseInt(btn.dataset.actionIdx);
+            const action = prop?.buttons?.[idx];
+            if (action?.onClick) {
+                action.onClick(obj, manager, panelEl);
+                persist();
+                if (panelEl._refresh) panelEl._refresh();
+            }
         });
     });
 
@@ -755,6 +851,15 @@ function escHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/** Sayısal değeri verilen precision'a göre biçimlendir. precision null/undefined ise dokunma. */
+function _formatNumeric(val, precision) {
+    if (precision == null) return String(val ?? '');
+    if (val === '' || val == null) return String(val ?? '');
+    const n = parseFloat(val);
+    if (!isFinite(n)) return String(val);
+    return n.toFixed(precision);
+}
+
 function pinSvg() {
     return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
         <line x1="12" y1="17" x2="12" y2="22"/>
@@ -774,7 +879,7 @@ export function initPropertiesButton(manager) {
         } else {
             const im = manager?.interactionManager;
             const sel = im?.selectedObject || im?.selectedValve?.vana;
-            if (sel && ['boru', 'sayac', 'vana', 'servis_kutusu', 'cihaz'].includes(sel.type)) {
+            if (sel && ['boru', 'sayac', 'vana', 'servis_kutusu', 'cihaz', 'room', 'wall', 'door', 'window', 'stairs'].includes(sel.type)) {
                 openPropertiesPanel(sel, manager);
             }
         }
