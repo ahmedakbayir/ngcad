@@ -188,12 +188,13 @@ export function handleKeyDown(e) {
         const selVana = this.selectedValve?.vana;
         const target = (sel && ['boru', 'sayac', 'servis_kutusu', 'cihaz'].includes(sel.type)) ? sel
             : selVana ? selVana
-            : null;
+                : null;
         if (target) {
             togglePropertiesPanel(target, this.manager);
             return true;
         }
-        if (isPanelOpen() && !isPinned()) {
+        // DÜZELTME: && !isPinned() şartını kaldırdık. Paneli kapatırken pini dikkate almaz.
+        if (isPanelOpen()) {
             closePropertiesPanel();
             return true;
         }
@@ -329,27 +330,27 @@ export function handleKeyDown(e) {
         // 1. Seçili boru var mı kontrol et
         if (this.selectedObject && this.selectedObject.type === 'boru') {
             const pipe = this.selectedObject;
-            
+
             // Boş ucu bul (Önce P2 - bitiş, sonra P1 - başlangıç)
             let startPoint = null;
-            
+
             if (this.manager.isTrulyFreeEndpoint(pipe.p2)) {
                 startPoint = pipe.p2;
             } else if (this.manager.isTrulyFreeEndpoint(pipe.p1)) {
                 startPoint = pipe.p1;
             }
-            
+
             if (startPoint) {
                 if (state.currentDrawingMode !== "KARMA") {
                     setDrawingMode("TESİSAT");
                 }
-                
+
                 const sourceId = pipe.id;
                 const sourceColor = pipe.colorGroup;
-                this.cancelCurrentAction(); 
-                
+                this.cancelCurrentAction();
+
                 this.startBoruCizim(startPoint, sourceId, 'boru', sourceColor);
-                
+
                 setMode("plumbingV2", true);
                 return true;
             }
@@ -428,12 +429,12 @@ export function handleKeyDown(e) {
             const nextPipes = this.manager.pipes.filter(p =>
                 p.id !== selectedPipe.id &&
                 Math.hypot(
-                    p.p1.x - selectedPipe.p2.x, 
+                    p.p1.x - selectedPipe.p2.x,
                     p.p1.y - selectedPipe.p2.y,
                     (p.p1.z || 0) - (selectedPipe.p2.z || 0)
                 ) < tolerance
             );
-            
+
             if (nextPipes.length > 0) {
                 // Şimdilik ilk bulunanı seç
                 this.selectObject(nextPipes[0]);
@@ -448,7 +449,7 @@ export function handleKeyDown(e) {
             const prevPipe = this.manager.pipes.find(p =>
                 p.id !== selectedPipe.id &&
                 Math.hypot(
-                    p.p2.x - selectedPipe.p1.x, 
+                    p.p2.x - selectedPipe.p1.x,
                     p.p2.y - selectedPipe.p1.y,
                     (p.p2.z || 0) - (selectedPipe.p1.z || 0)
                 ) < tolerance
@@ -463,9 +464,9 @@ export function handleKeyDown(e) {
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             // Aynı başlangıç noktasına (p1) sahip boruları bul
             // DÜZELTME: Z ekseni kontrolü eklendi
-            const siblings = this.manager.pipes.filter(p => 
+            const siblings = this.manager.pipes.filter(p =>
                 Math.hypot(
-                    p.p1.x - selectedPipe.p1.x, 
+                    p.p1.x - selectedPipe.p1.x,
                     p.p1.y - selectedPipe.p1.y,
                     (p.p1.z || 0) - (selectedPipe.p1.z || 0)
                 ) < tolerance
@@ -488,7 +489,7 @@ export function handleKeyDown(e) {
             }
         }
     }
-    
+
     // Ok tuşları - seçili sayacı hareket ettir
     if (this.selectedObject && this.selectedObject.type === 'sayac') {
         const direction = {
@@ -748,7 +749,7 @@ function getDownstreamPipesAndComponents(startPipe, manager) {
                         queue.push(nextPipe);
                         result.connections.set(nextPipe.id, {
                             p1Connection: nextPipe.baslangicBaglanti ? JSON.parse(JSON.stringify(nextPipe.baslangicBaglanti)) : null,
-                            p2Connection: nextPipe.bitisBaglanti    ? JSON.parse(JSON.stringify(nextPipe.bitisBaglanti))    : null
+                            p2Connection: nextPipe.bitisBaglanti ? JSON.parse(JSON.stringify(nextPipe.bitisBaglanti)) : null
                         });
                     }
                 }
@@ -1026,10 +1027,10 @@ export function handlePipePaste() {
 
                 // Panel özellikleri (fromJSON ile aynı alan listesi)
                 ['vanaCap', 'izolator', 'flans', 'muhafaza', 'muhafazaGrupla',
-                 'birimNo', 'tesisatNo', 'daireSayisi', 'dukkanSayisi',
-                 'ekDebi', 'bransmanDebi', 'description'].forEach(k => {
-                    if (vanaData[k] !== undefined) newVana[k] = vanaData[k];
-                });
+                    'birimNo', 'tesisatNo', 'daireSayisi', 'dukkanSayisi',
+                    'ekDebi', 'bransmanDebi', 'description'].forEach(k => {
+                        if (vanaData[k] !== undefined) newVana[k] = vanaData[k];
+                    });
 
                 this.manager.components.push(newVana);
                 newVana.updateEndCapStatus(this.manager);
@@ -1051,18 +1052,18 @@ export function handlePipePaste() {
 
             // Panel özellikleri (fromJSON ile aynı alan listesi)
             ['sayacTipi', 'sayacTuru', 'cikisCap', 'basinc',
-             'birimTipi', 'birimNo', 'birimBoruTipi', 'birimBaglantiTipi',
-             'esnekMarka', 'muhafaza', 'muhafazaGrupla',
-             'aboneAdi', 'aboneNo', 'ustaAdi', 'ustaNo', 'description'].forEach(k => {
-                if (sayacData[k] !== undefined) newSayac[k] = sayacData[k];
-            });
+                'birimTipi', 'birimNo', 'birimBoruTipi', 'birimBaglantiTipi',
+                'esnekMarka', 'muhafaza', 'muhafazaGrupla',
+                'aboneAdi', 'aboneNo', 'ustaAdi', 'ustaNo', 'description'].forEach(k => {
+                    if (sayacData[k] !== undefined) newSayac[k] = sayacData[k];
+                });
 
             // fleksBaglanti: eski boruId'yi yeni ID'ye maple
             const fbPipeId = pipeIdMap.get(sayacData.fleksBaglanti?.boruId);
             if (fbPipeId) {
-                newSayac.fleksBaglanti.boruId   = fbPipeId;
-                newSayac.fleksBaglanti.endpoint  = sayacData.fleksBaglanti.endpoint;
-                newSayac.fleksBaglanti.uzunluk   = sayacData.fleksBaglanti.uzunluk ?? 15;
+                newSayac.fleksBaglanti.boruId = fbPipeId;
+                newSayac.fleksBaglanti.endpoint = sayacData.fleksBaglanti.endpoint;
+                newSayac.fleksBaglanti.uzunluk = sayacData.fleksBaglanti.uzunluk ?? 15;
             }
 
             // cikisBagliBoruId: eski ID'yi yeni ID'ye maple
@@ -1090,16 +1091,16 @@ export function handlePipePaste() {
 
             // Panel özellikleri
             ['marka', 'model', 'bacaTipi', 'kapasiteKcal', 'kapasiteKW', 'verim',
-             'muhafaza', 'muhafazaGrupla', 'yedekCihaz', 'yogusmali', 'description'].forEach(k => {
-                if (cihazData[k] !== undefined) newCihaz[k] = cihazData[k];
-            });
+                'muhafaza', 'muhafazaGrupla', 'yedekCihaz', 'yogusmali', 'description'].forEach(k => {
+                    if (cihazData[k] !== undefined) newCihaz[k] = cihazData[k];
+                });
 
             // fleksBaglanti: eski boruId'yi yeni ID'ye maple
             const cfbPipeId = pipeIdMap.get(cihazData.fleksBaglanti?.boruId);
             if (cfbPipeId) {
-                newCihaz.fleksBaglanti.boruId  = cfbPipeId;
+                newCihaz.fleksBaglanti.boruId = cfbPipeId;
                 newCihaz.fleksBaglanti.endpoint = cihazData.fleksBaglanti.endpoint;
-                newCihaz.fleksBaglanti.uzunluk  = cihazData.fleksBaglanti.uzunluk ?? 30;
+                newCihaz.fleksBaglanti.uzunluk = cihazData.fleksBaglanti.uzunluk ?? 30;
             }
 
             // iliskiliVanaId
@@ -1158,10 +1159,10 @@ export function handlePipePaste() {
         if (snapPipe && firstPastePipe) {
             // Snap noktasının snap borusunun hangi ucuna daha yakın olduğunu bul
             const sx = snapInfo.x, sy = snapInfo.y, sz = snapInfo.z || 0;
-            const dP1 = Math.hypot(snapPipe.p1.x - sx, snapPipe.p1.y - sy, (snapPipe.p1.z||0) - sz);
-            const dP2 = Math.hypot(snapPipe.p2.x - sx, snapPipe.p2.y - sy, (snapPipe.p2.z||0) - sz);
+            const dP1 = Math.hypot(snapPipe.p1.x - sx, snapPipe.p1.y - sy, (snapPipe.p1.z || 0) - sz);
+            const dP2 = Math.hypot(snapPipe.p2.x - sx, snapPipe.p2.y - sy, (snapPipe.p2.z || 0) - sz);
             const snapToP1 = dP1 < dP2;
-            const snapNode  = snapToP1 ? snapPipe.p1 : snapPipe.p2;
+            const snapNode = snapToP1 ? snapPipe.p1 : snapPipe.p2;
 
             // NODE PAYLAŞIMINI ZORLA:
             // getOrCreateNodeAt, snap borusunun node'unu haritada bulamazsa (registerPipeNodes
@@ -1169,7 +1170,7 @@ export function handlePipePaste() {
             // firstPastePipe.p1'i doğrudan snapNode nesnesiyle değiştir.
             const oldNode = firstPastePipe.p1;
             if (oldNode !== snapNode) {
-                firstPastePipe.p1       = snapNode;
+                firstPastePipe.p1 = snapNode;
                 firstPastePipe.p1NodeId = snapNode._nodeId;
                 this.manager.nodes.set(snapNode._nodeId, snapNode);
                 if (oldNode?._nodeId) this.manager.nodes.delete(oldNode._nodeId);
@@ -1424,7 +1425,7 @@ export function applyVerticalPipeInsert() {
 
     // Debi ağacı: newPipe, mevcut borunun devamıdır
     newPipe.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
-    pipe.bitisBaglanti        = { tip: 'boru', hedefId: newPipe.id };
+    pipe.bitisBaglanti = { tip: 'boru', hedefId: newPipe.id };
 
     // pipe'ın eski çocukları (baslangicBaglanti.hedefId === pipe.id) artık newPipe'a bağlanır
     this.manager.pipes.forEach(p => {

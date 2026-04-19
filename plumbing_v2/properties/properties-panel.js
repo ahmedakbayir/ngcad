@@ -30,11 +30,17 @@ function createPanel() {
 
     panelEl.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            _isPinned = false; // ESC her zaman kapatır, pin'i de sıfırlar
+            // Pin'i sıfırlamıyoruz, paneli kapatıyoruz (Seçim de iptal olmaz)
             closePropertiesPanel();
             e.stopPropagation();
         }
-        if (e.key === ' ') e.stopPropagation();
+        if (e.key === ' ') {
+            // Eğer kullanıcı bir input'a yazı yazmıyorsa paneli kapat
+            if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                closePropertiesPanel();
+                e.stopPropagation();
+            }
+        }
     });
 }
 
@@ -194,8 +200,8 @@ function renderPanel(obj, manager) {
     // rAF döngüsü için dinamik prop'ları sakla (readonly + bar)
     _liveProps = props.filter(p =>
         (p.type === 'readonly' && p.readonlyFn) ||
-        (p.type === 'bar'      && p.barFn) ||
-        (p.type === 'table'    && p.tableFn)
+        (p.type === 'bar' && p.barFn) ||
+        (p.type === 'table' && p.tableFn)
     );
 
     const hasDesc = true; // tüm nesnelerde açıklama alanı göster
@@ -212,9 +218,9 @@ function renderPanel(obj, manager) {
         </div>
         <div class="props-body">
             ${props.length === 0
-                ? '<div class="props-empty">Bu nesne için tanımlı özellik yok.</div>'
-                : props.map(prop => renderProperty(prop, obj, manager)).join('')
-            }
+            ? '<div class="props-empty">Bu nesne için tanımlı özellik yok.</div>'
+            : props.map(prop => renderProperty(prop, obj, manager)).join('')
+        }
             ${renderConnectedObjectsSection(obj, manager)}
             ${hasDesc ? renderDescriptionsSection(obj) : ''}
         </div>
@@ -369,8 +375,8 @@ function renderProperty(prop, obj, manager) {
         const itype = prop.inputType || 'text';
         const extraAttrs = [
             prop.step != null ? `step="${prop.step}"` : '',
-            prop.min  != null ? `min="${prop.min}"`   : '',
-            prop.max  != null ? `max="${prop.max}"`   : '',
+            prop.min != null ? `min="${prop.min}"` : '',
+            prop.max != null ? `max="${prop.max}"` : '',
         ].filter(Boolean).join(' ');
         const precAttr = prop.precision != null ? ` data-precision="${prop.precision}"` : '';
         return `
@@ -419,9 +425,9 @@ function renderProperty(prop, obj, manager) {
         // İsteğe bağlı inline grup ikon butonu
         let groupBtnHtml = '';
         if (prop.groupBtn) {
-            const gKey  = prop.groupBtn;
-            const gVal  = obj[gKey] !== false; // default: true
-            const vis   = isChecked ? '' : 'visibility:hidden';
+            const gKey = prop.groupBtn;
+            const gVal = obj[gKey] !== false; // default: true
+            const vis = isChecked ? '' : 'visibility:hidden';
             groupBtnHtml = `
                 <button class="props-group-btn${gVal ? ' props-group-btn--active' : ''}"
                         data-group-key="${gKey}"
@@ -593,7 +599,7 @@ function _loadTplStore() {
     catch { return {}; }
 }
 function _saveTplStore() {
-    try { localStorage.setItem(TPLS_KEY, JSON.stringify(_tplStore)); } catch {}
+    try { localStorage.setItem(TPLS_KEY, JSON.stringify(_tplStore)); } catch { }
 }
 const _tplStore = _loadTplStore();
 /** Belirli nesne tipi için şablon nesnesini döndür (yoksa oluştur) */
@@ -658,16 +664,16 @@ function _applyCollapsible(headers) {
 // ─── AÇIKLAMALAR ─────────────────────────────────────────────────────────────
 
 function renderDescriptionsSection(obj) {
-    const safeDesc  = escHtml(obj.description || '');
-    const objType   = obj.type || '';
-    const tplObj    = _tplsForType(objType);
+    const safeDesc = escHtml(obj.description || '');
+    const objType = obj.type || '';
+    const tplObj = _tplsForType(objType);
     const tplEntries = Object.entries(tplObj);
 
     const tplItemsHtml = tplEntries.map(([key, val]) => {
-        const sk       = escHtml(key);
-        const sv       = escHtml(val.text);
-        const chk      = val.alwaysAdd ? 'checked' : '';
-        const starCls  = val.alwaysAdd ? 'desc-tpl-star desc-tpl-star--on' : 'desc-tpl-star';
+        const sk = escHtml(key);
+        const sv = escHtml(val.text);
+        const chk = val.alwaysAdd ? 'checked' : '';
+        const starCls = val.alwaysAdd ? 'desc-tpl-star desc-tpl-star--on' : 'desc-tpl-star';
         const starChar = val.alwaysAdd ? '★' : '☆';
         return `
         <div class="desc-tpl-item" data-key="${sk}">
@@ -737,9 +743,9 @@ function bindDescriptionEvents(panelEl, obj) {
     // Sakla… butonu
     const saveTplBtn = section.querySelector('.desc-save-tpl-btn');
     const saveKeyRow = section.querySelector('.desc-save-key-row');
-    const keyInput   = section.querySelector('.desc-key-input');
-    const keyOk      = section.querySelector('.desc-key-ok');
-    const keyCancel  = section.querySelector('.desc-key-cancel');
+    const keyInput = section.querySelector('.desc-key-input');
+    const keyOk = section.querySelector('.desc-key-ok');
+    const keyCancel = section.querySelector('.desc-key-cancel');
 
     function confirmSave() {
         const key = (keyInput?.value || '').trim();
@@ -761,7 +767,7 @@ function bindDescriptionEvents(panelEl, obj) {
     keyOk?.addEventListener('click', confirmSave);
     keyCancel?.addEventListener('click', () => { if (saveKeyRow) saveKeyRow.style.display = 'none'; });
     keyInput?.addEventListener('keydown', e => {
-        if (e.key === 'Enter')  { confirmSave(); e.preventDefault(); }
+        if (e.key === 'Enter') { confirmSave(); e.preventDefault(); }
         if (e.key === 'Escape') { if (saveKeyRow) saveKeyRow.style.display = 'none'; e.preventDefault(); }
         e.stopPropagation();
     });
@@ -1009,4 +1015,4 @@ export function initPropertiesButton(manager) {
 }
 
 // refreshPanelPosition artık gerekli değil (panel sabit), ama import edenler için boş bırak
-export function refreshPanelPosition() {}
+export function refreshPanelPosition() { }

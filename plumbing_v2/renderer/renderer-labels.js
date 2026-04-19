@@ -649,7 +649,7 @@ export const LabelMixin = {
         }
 
         // Arka plan
-        ctx.fillStyle = bgColor;
+        ctx.fillStyle = isLightMode?  `color-mix(in srgb, ${bgColor} 90%, black)`:  `color-mix(in srgb, ${bgColor} 90%, white)`;
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 1 / zoom;
         ctx.beginPath();

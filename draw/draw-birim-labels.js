@@ -486,7 +486,7 @@ export function drawBirimLabels(ctx2d, st) {
 
     ctx2d.save();
     ctx2d.textAlign = 'center';
-    ctx2d.textBaseline = 'bottom';
+    ctx2d.textBaseline = 'Top';
     ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
 
     const showArea = !!st.tempVisibility?.showArchDimensions;
@@ -505,7 +505,7 @@ export function drawBirimLabels(ctx2d, st) {
 
         ctx2d.fillStyle = color;
         ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
-        ctx2d.globalAlpha = 0.8;
+        ctx2d.globalAlpha = 1;
         // Çok satır: ilk satırı baseline'da, sonraki satırları fontSize aralığıyla aşağıya
         labelLines.forEach((line, i) => {
             ctx2d.fillText(line, 0, i * fontSize);
@@ -647,7 +647,7 @@ export function drawBirimBoundaries(ctx2d, st) {
 
     // Geçiş 3: seçili ayrıcı mahal (SAHANLIK vb.) – çevresi kalın beyaz
     if (selectedSeparatorWalls) {
-        ctx2d.strokeStyle = isLightMode() ? '#000' :'#fff'
+        ctx2d.strokeStyle = isLightMode() ? '#000' : '#fff'
         ctx2d.lineWidth = thickW;
         ctx2d.shadowColor = 'rgba(255,255,255,0.6)';
         ctx2d.shadowBlur = 8 / zoom;
