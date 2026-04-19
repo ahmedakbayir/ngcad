@@ -16,6 +16,8 @@ import { hitTestLabel, startLabelDrag, rotateLabelDir } from '../plumbing_v2/ren
 export function handlePointerDown(e) {
     const rect = dom.c2d.getBoundingClientRect();
     const point = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    const isDblClick = (e.detail || 0) >= 2;
+    const selectOpts = { openPanel: isDblClick };
 
     // Snap point varsa kullan, yoksa normal point
     let targetPoint = this.activeSnap
@@ -273,7 +275,7 @@ export function handlePointerDown(e) {
         });
         if (clickedValve) {
             const pipe = clickedValve.bagliBoruId ? this.manager.pipes.find(p => p.id === clickedValve.bagliBoruId) : null;
-            this.selectValve(pipe, clickedValve);
+            this.selectValve(pipe, clickedValve, selectOpts);
             this.startDrag(clickedValve, point);
             return true;
         }
@@ -317,7 +319,7 @@ export function handlePointerDown(e) {
         const verticalSymbol = this.manager.interactionManager.findVerticalPipeSymbolAt(point, worldTolerance);
         if (verticalSymbol) {
             const pipe = verticalSymbol.pipe;
-            this.selectObject(pipe);
+            this.selectObject(pipe, selectOpts);
             // Düşey boruları BODY olarak taşı (zincir halindeki tüm düşey borularla birlikte)
             this.startBodyDrag(pipe, point);
             return true;
@@ -357,11 +359,11 @@ export function handlePointerDown(e) {
 
                 const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
                 if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU || ucBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
-                    this.selectObject(pipe);
+                    this.selectObject(pipe, selectOpts);
                     return true;
                 }
 
-                this.selectObject(pipe);
+                this.selectObject(pipe, selectOpts);
                 this.selectedEndpoint = boruUcu.uc; // Endpoint bilgisini kaydet
                 this.startEndpointDrag(pipe, boruUcu.uc, point);
                 return true;
@@ -371,7 +373,7 @@ export function handlePointerDown(e) {
         // Nesne seçimi
         const hitObject = this.findObjectAt(point);
         if (hitObject) {
-            this.selectObject(hitObject);
+            this.selectObject(hitObject, selectOpts);
             if (hitObject.type === 'boru') {
                 const bagliKutu = this.manager.components.find(c =>
                     c.type === 'servis_kutusu' && c.bagliBoruId === hitObject.id

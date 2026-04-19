@@ -158,8 +158,9 @@ export function recalculateStepCount(stair) {
     }
     const totalRun = stair.width; // Merdiven uzunluğu
 
-    // Basamak derinliği aralığını ayarlardan al
-    const [minStepRun, maxStepRun] = state.stairSettings.stepDepthRange.split('-').map(val => parseInt(val, 10));
+    // Basamak derinliği aralığı: önce merdivene özel değer, yoksa global ayar
+    const effectiveRange = stair.stepDepthRange || state.stairSettings.stepDepthRange;
+    const [minStepRun, maxStepRun] = effectiveRange.split('-').map(val => parseInt(val, 10));
 
     // Geçersiz uzunluk veya yükseklik durumunda 1 basamak ata
     const totalRise = stair.topElevation - stair.bottomElevation;

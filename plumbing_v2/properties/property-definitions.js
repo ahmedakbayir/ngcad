@@ -1,6 +1,8 @@
 import { getCizelge6Debi } from '../renderer/renderer-utils.js';
-import { MAHAL_LISTESI, WALL_HEIGHT } from '../../general-files/main.js';
+import { MAHAL_LISTESI, WALL_HEIGHT, state } from '../../general-files/main.js';
 import { addDoorToWall, addWindowToWall, addVentToWall, addColumnToWall, flipArcWall } from '../../wall/wall-panel.js';
+import { recalculateStepCount } from '../../architectural-objects/stairs.js';
+import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom } from '../../draw/draw-birim-labels.js';
 
 /**
  * Özellik Tanımları
@@ -1092,31 +1094,73 @@ export const PROPERTY_DEFS = {
         default: 'MAHAL',
         options: () => MAHAL_LISTESI,
     },
-    roomArea: {
-        label: 'Alan (m²)',
-        type: 'readonly',
-        readonlyFn: (obj) => {
-            const a = Number(obj?.area) || 0;
-            return `${a.toFixed(2)} m²`;
-        },
-    },
-    roomVolume: {
-        label: 'Hacim (m³)',
-        type: 'readonly',
-        readonlyFn: (obj) => {
-            const a = Number(obj?.area) || 0;
-            const h = WALL_HEIGHT / 100; // cm → m
-            return `${(a * h).toFixed(2)} m³`;
-        },
-    },
     roomBirimNo: {
         label: 'Birim No',
         type: 'text',
         key: 'birimNo',
         default: '',
         placeholder: 'Birim no...',
+        valueFn: (obj) => {
+            const own = obj?.birimNo;
+            if (own != null && String(own).trim() !== '') return own;
+            const unitRooms = getUnitRoomsForRoom(obj);
+            const sibling = unitRooms.find(r => r !== obj && r.birimNo != null && String(r.birimNo).trim() !== '');
+            if (sibling) return sibling.birimNo;
+            const resolved = resolveBirimNoForRoom(obj);
+            return resolved.assigned ? resolved.no : '';
+        },
+        afterChange: (obj) => {
+            const val = obj.birimNo;
+            const unitRooms = getUnitRoomsForRoom(obj);
+            unitRooms.forEach(r => { if (r !== obj) r.birimNo = val; });
+            invalidateBirimCache();
+        },
+    },
+    roomFloor: {
+        label: 'Kat',
+        type: 'readonly',
+        readonlyFn: (obj) => {
+            const f = (state.floors || []).find(fl => fl.id === obj?.floorId);
+            return f?.name || '—';
+        },
+    },
+    room_sec_olcu: { type: 'section', label: 'Ölçü' },
+    roomDimensionsTable: {
+        type: 'table',
+        tableFn: (obj) => {
+            const a = Number(obj?.area) || 0;
+            const h = WALL_HEIGHT / 100;
+            const coords = obj?.polygon?.geometry?.coordinates?.[0];
+            let per = 0;
+            if (Array.isArray(coords) && coords.length >= 2) {
+                for (let i = 0; i < coords.length - 1; i++) {
+                    const [ax, ay] = coords[i];
+                    const [bx, by] = coords[i + 1];
+                    per += Math.hypot(bx - ax, by - ay);
+                }
+            }
+            const unitRooms = getUnitRoomsForRoom(obj);
+            const unitA = unitRooms.reduce((s, r) => s + (Number(r.area) || 0), 0);
+            const unitPer = getUnitBoundaryPerimeter(unitRooms);
+            const rows = [
+                ['Alan',  `${a.toFixed(2)} m²`,     `${unitA.toFixed(2)} m²`],
+                ['Hacim', `${(a * h).toFixed(2)} m³`, `${(unitA * h).toFixed(2)} m³`],
+                ['Çevre', `${(per / 100).toFixed(2)} m`, `${(unitPer / 100).toFixed(2)} m`],
+            ];
+            return { showUnit: true, rows };
+        },
+    },
+   
+   /* roomWallCount: {
+        label: 'Duvar Sayısı',
+        type: 'readonly',
+        readonlyFn: (obj) => {
+            const coords = obj?.polygon?.geometry?.coordinates?.[0];
+            return Array.isArray(coords) ? String(Math.max(0, coords.length - 1)) : '—';
+        },
     },
 
+    */
     // Duvar (wall)
     wall_sec_boyut: { type: 'section', label: 'Boyut' },
     wallThickness: {
@@ -1161,14 +1205,12 @@ export const PROPERTY_DEFS = {
             }
             if (panelEl?._refresh) panelEl._refresh();
         },
-    },
-    wallArcFlip: {
-        type: 'actions',
-        label: 'Yay Yönü',
-        visibleFn: (obj) => !!obj.isArc,
-        buttons: [
-            { label: '↻ Yayı Ters Çevir', onClick: (obj) => flipArcWall(obj) },
-        ],
+        inlineAction: {
+            label: '↻',
+            title: 'Yayı Ters Çevir',
+            visibleFn: (obj) => !!(obj.isArc && obj.arcControl1 && obj.arcControl2),
+            onClick: (obj) => flipArcWall(obj),
+        },
     },
     wall_sec_ekle: { type: 'section', label: 'Ekle' },
     wallActions: {
@@ -1246,6 +1288,29 @@ export const PROPERTY_DEFS = {
         precision: 0,
     },
 
+    // Menfez (vent) — dairesel; çap ve alt kot
+    vent_sec_boyut: { type: 'section', label: 'Boyut' },
+    ventWidth: {
+        label: 'Çap (cm)',
+        type: 'text',
+        key: 'width',
+        inputType: 'number',
+        default: 25,
+        min: 5,
+        max: 100,
+        precision: 0,
+    },
+    ventKot: {
+        label: 'Alt Kot (cm)',
+        type: 'text',
+        key: 'kot',
+        inputType: 'number',
+        default: 230,
+        min: 0,
+        max: 500,
+        precision: 0,
+    },
+
     // Merdiven (stairs)
     stair_sec_tanim: { type: 'section', label: 'Tanım' },
     stairName: {
@@ -1262,6 +1327,23 @@ export const PROPERTY_DEFS = {
         default: false,
     },
     stair_sec_boyut: { type: 'section', label: 'Boyut' },
+    stairStepDepthRange: {
+        label: 'Basamak Derinliği',
+        type: 'select',
+        key: 'stepDepthRange',
+        optionsAreObjects: true,
+        options: [
+            { value: '20-30', label: '20-30 cm' },
+            { value: '25-35', label: '25-35 cm' },
+            { value: '30-40', label: '30-40 cm' },
+            { value: '35-45', label: '35-45 cm' },
+            { value: '40-50', label: '40-50 cm' },
+            { value: '45-55', label: '45-55 cm' },
+            { value: '50-60', label: '50-60 cm' },
+        ],
+        valueFn: (obj) => obj.stepDepthRange || state.stairSettings?.stepDepthRange || '30-40',
+        afterChange: (obj) => { recalculateStepCount(obj); },
+    },
     stairLength: {
         label: 'Uzunluk (cm)',
         type: 'text',
@@ -1270,6 +1352,7 @@ export const PROPERTY_DEFS = {
         default: 300,
         min: 50,
         precision: 0,
+        afterChange: (obj) => { recalculateStepCount(obj); },
     },
     stairDepth: {
         label: 'Genişlik (cm)',
@@ -1293,6 +1376,7 @@ export const PROPERTY_DEFS = {
         inputType: 'number',
         default: 0,
         precision: 0,
+        afterChange: (obj) => { recalculateStepCount(obj); },
     },
     stairTopElevation: {
         label: 'Üst Kot (cm)',
@@ -1301,6 +1385,7 @@ export const PROPERTY_DEFS = {
         inputType: 'number',
         default: 135,
         precision: 0,
+        afterChange: (obj) => { recalculateStepCount(obj); },
     },
     stairShowRailing: {
         label: 'Korkuluk Göster',
@@ -1413,16 +1498,17 @@ export const OBJECT_PROPERTIES = {
     room: [
         'room_sec_tanim',
         'roomName',
-        'roomArea',
-        'roomVolume',
         'roomBirimNo',
+        'roomFloor',
+        'room_sec_olcu',
+        'roomDimensionsTable',
+        'roomWallCount',
     ],
     wall: [
         'wall_sec_boyut',
         'wallThickness',
         'wallType',
         'wallArc',
-        'wallArcFlip',
         'wall_sec_ekle',
         'wallActions',
     ],
@@ -1438,11 +1524,17 @@ export const OBJECT_PROPERTIES = {
         'windowHeight',
         'windowKot',
     ],
+    vent: [
+        'vent_sec_boyut',
+        'ventWidth',
+        'ventKot',
+    ],
     stairs: [
         'stair_sec_tanim',
         'stairName',
         'stairIsLanding',
         'stair_sec_boyut',
+        'stairStepDepthRange',
         'stairLength',
         'stairDepth',
         'stairStepCount',
@@ -1485,6 +1577,7 @@ export function getObjectTypeLabel(type) {
         wall: 'Duvar',
         door: 'Kapı',
         window: 'Pencere',
+        vent: 'Menfez',
         stairs: 'Merdiven',
     };
     return labels[type] || type;

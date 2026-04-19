@@ -22,7 +22,7 @@ import { processWalls } from '../wall/wall-processor.js';
 import { openPropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 // plumbingManager zaten yukarıda import edildi
 
-const ARCH_PANEL_TYPES = ['wall', 'door', 'window', 'stairs'];
+const ARCH_PANEL_TYPES = ['wall', 'door', 'window', 'vent', 'stairs'];
 
 /**
  * Vanadan/Sayaçtan sonraki tüm bağlı boruları düz çizgi yap
@@ -197,7 +197,10 @@ export function onPointerDown(e) {
         if (clickedObject) {
             if (clickedObject.type === 'room') {
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
-                if (clickedObject.object) openPropertiesPanel(clickedObject.object, plumbingManager);
+                if (clickedObject.object) {
+                    if (!clickedObject.object.type) clickedObject.object.type = 'room';
+                    openPropertiesPanel(clickedObject.object, plumbingManager);
+                }
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
                 setState({
                     isDraggingRoomName: clickedObject.object,
@@ -291,18 +294,22 @@ export function onPointerDown(e) {
                     case 'wall': dragInfo = onPointerDownSelectWall(clickedObject, pos, snappedPos, e); break;
                     case 'door': dragInfo = onPointerDownSelectDoor(clickedObject, pos); break;
                     case 'window': dragInfo = onPointerDownSelectWindow(clickedObject, pos); break;
-                    case 'vent':
-                        const vent = clickedObject.object; const wall = clickedObject.wall;
+                    case 'vent': {
+                        const vent = clickedObject.object;
+                        const wall = clickedObject.wall;
                         if (wall && wall.p1 && wall.p2) {
                             const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
                             if (wallLen > 0.1) {
-                                const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
-                                const ventCenterX = wall.p1.x + dx * vent.pos; const ventCenterY = wall.p1.y + dy * vent.pos;
+                                const dx = (wall.p2.x - wall.p1.x) / wallLen;
+                                const dy = (wall.p2.y - wall.p1.y) / wallLen;
+                                const ventCenterX = wall.p1.x + dx * vent.pos;
+                                const ventCenterY = wall.p1.y + dy * vent.pos;
                                 dragInfo.startPointForDragging = { x: ventCenterX, y: ventCenterY };
                                 dragInfo.dragOffset = { x: ventCenterX - pos.x, y: ventCenterY - pos.y };
                             }
                         }
                         break;
+                    }
                 }
                 setState({
                     isDragging: true,

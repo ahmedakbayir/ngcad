@@ -49,7 +49,8 @@ function getPipePath(pipe, manager) {
  * @param {Object} interactionManager - InteractionManager instance
  * @param {Object} obj - Seçilecek nesne
  */
-export function selectObject(interactionManager, obj) {
+export function selectObject(interactionManager, obj, opts = {}) {
+    const openPanel = !!opts.openPanel;
     // Önceki seçimi temizle
     if (interactionManager.selectedObject && interactionManager.selectedObject !== obj) {
         interactionManager.selectedObject.isSelected = false;
@@ -121,10 +122,11 @@ export function selectObject(interactionManager, obj) {
         }
     });
 
-    // Pinliyse → nesne seçilince panel otomatik açılır
-    // Pinli değil ama panel zaten açıksa → yeni nesneye geç
+    // Tek tık: sadece seçim (panel açıksa içeriği günceller)
+    // Çift tık (openPanel=true): paneli aç / güncelle
+    // Pin sadece panel bir kez açıldıktan sonra kapanmamasını sağlar
     if (['boru', 'sayac', 'vana', 'servis_kutusu', 'cihaz'].includes(obj.type)) {
-        if (isPinned() || isPanelOpen()) {
+        if (openPanel || isPanelOpen()) {
             openPropertiesPanel(obj, interactionManager.manager);
         }
     }
@@ -136,7 +138,8 @@ export function selectObject(interactionManager, obj) {
  * @param {Object} pipe - Boru nesnesi
  * @param {Object} vana - Vana nesnesi
  */
-export function selectValve(interactionManager, pipe, vana) {
+export function selectValve(interactionManager, pipe, vana, opts = {}) {
+    const openPanel = !!opts.openPanel;
     // Önceki seçimi temizle
     if (interactionManager.selectedObject) {
         interactionManager.selectedObject.isSelected = false;
@@ -166,8 +169,8 @@ export function selectValve(interactionManager, pipe, vana) {
         }
     });
 
-    // Pinliyse veya panel açıksa vanayı göster
-    if (vana && (isPinned() || isPanelOpen())) {
+    // Panel zaten açıksa içeriğini vanaya güncelle; çift tıkta yeni aç
+    if (vana && (openPanel || isPanelOpen())) {
         openPropertiesPanel(vana, interactionManager.manager);
     }
 }

@@ -312,6 +312,7 @@ export function detectRooms() {
                     const areaInM2 = areaInCm2 / 10000; // Metrekareye çevir
 
                     let existingRoomName = 'MAHAL'; // Varsayılan isim
+                    let existingBirimNo = ''; // Eski odadan devralınacak birim no
                     // Orantısal merkez için varsayılan değer (%50 x, %50 y)
                     let existingRoomCenterOffset = { x: 0.5, y: 0.5 };
 
@@ -328,6 +329,7 @@ export function detectRooms() {
                             containedOldRooms.sort((a, b) => b.area - a.area);
                             const bestOldRoom = containedOldRooms[0];
                             existingRoomName = bestOldRoom.name; // İsmi devral
+                            if (bestOldRoom.birimNo != null) existingBirimNo = bestOldRoom.birimNo; // Birim no'yu devral
                             // Eski odanın orantısal merkez bilgisini devral (varsa)
                             if (bestOldRoom.centerOffset) {
                                 existingRoomCenterOffset = bestOldRoom.centerOffset;
@@ -398,10 +400,12 @@ export function detectRooms() {
 
                     // Yeni odayı listeye ekle
                     newRooms.push({
+                        type: 'room',
                         polygon: polygon, // Geometri
                         area: areaInM2, // Alan (m²)
                         center: [newCenterX, newCenterY], // Hesaplanan merkez [x, y]
                         name: finalRoomName, // İsim
+                        birimNo: existingBirimNo, // Eski odadan devralınan birim no
                         centerOffset: existingRoomCenterOffset, // Orantısal merkez bilgisi
                         floorId: roomFloorId // Odanın ait olduğu kat
                     });

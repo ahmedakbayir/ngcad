@@ -517,12 +517,12 @@ export class InteractionManager {
     /**
      * Selection handlers
      */
-    selectObject(obj) {
-        return selectObject(this, obj);
+    selectObject(obj, opts) {
+        return selectObject(this, obj, opts);
     }
 
-    selectValve(pipe, vana) {
-        return selectValve(this, pipe, vana);
+    selectValve(pipe, vana, opts) {
+        return selectValve(this, pipe, vana, opts);
     }
 
     deselectObject() {

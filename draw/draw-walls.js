@@ -677,7 +677,7 @@ export function drawWallGeometry(ctx2d, state, wallFillColor) {
     // Gruplanmış segmentleri ilgili çizim fonksiyonlarıyla çiz (renk ayarlı)
     drawNormalSegments(ctx2d, normalSegments.ortho, adjustedWallColor, lineThickness, wallPx, getWallFillColor, nodeWallConnections, precalculatedCorners);
     drawNormalSegments(ctx2d, normalSegments.nonOrtho, adjustedWallColor, lineThickness, wallPx, getWallFillColor, nodeWallConnections, precalculatedCorners);
-    drawNormalSegments(ctx2d, normalSegments.selected, "#8ab4f8", lineThickness, wallPx, getWallFillColor, nodeWallConnections, precalculatedCorners);
+    drawNormalSegments(ctx2d, normalSegments.selected, "#8ab4f8", 2*lineThickness, wallPx, getWallFillColor, nodeWallConnections, precalculatedCorners);
 
     drawBalconySegments(ctx2d, balconySegments.ortho, adjustedWallColor);
     drawBalconySegments(ctx2d, balconySegments.nonOrtho, adjustedWallColor);

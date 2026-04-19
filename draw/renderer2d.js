@@ -6,6 +6,7 @@ import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
 import { state, dom, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor, getWallFillColor, isLightMode } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
 
+/*
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
 export function drawNodeWallCount(node) {
     const { ctx2d } = dom;
@@ -15,7 +16,7 @@ export function drawNodeWallCount(node) {
     // if (wallCount <= 1) return;
     // ... (Çizim kodu eklenebilir)
 }
-
+*/
 // Kapı sembolünü çizer
 export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHovered = false) {
     const { ctx2d } = dom;

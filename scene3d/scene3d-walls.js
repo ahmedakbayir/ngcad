@@ -356,13 +356,16 @@ export function createVentMesh(wall, vent) {
     const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
     if (wallLen < 0.1) return null;
 
-    const VENT_Y_POSITION = WALL_HEIGHT - (VENT_DIAMETER / 2) - 15;
+    const ventDiameter = vent.width || VENT_DIAMETER;
+    const ventRadius = ventDiameter / 2;
+    // vent.kot = alt kot; yoksa eski hesap (üstten 15cm boşluk)
+    const ventBottomY = (vent.kot != null) ? vent.kot : (WALL_HEIGHT - ventDiameter - 15);
+    const VENT_Y_POSITION = ventBottomY + ventRadius;
     const wallThickness = wall.thickness || state.wallThickness;
     const dx = (wall.p2.x - wall.p1.x) / wallLen; const dy = (wall.p2.y - wall.p1.y) / wallLen;
     const nx = -dy; const ny = dx;
     const ventCenterX_2D = wall.p1.x + dx * vent.pos;
     const ventCenterZ_2D = wall.p1.y + dy * vent.pos;
-    const ventRadius = VENT_DIAMETER / 2;
     const baseThickness = 1.0;
     const ventGroup = new THREE.Group();
 

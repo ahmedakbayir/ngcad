@@ -1393,6 +1393,7 @@ body.light-mode .btn.active svg {
     right: 320px;
     /* split-ratio-buttons'ın soluna yerleştir */
     z-index: 100;
+    display: none;
 }
 
 .opacity-toggle-btn {
@@ -1403,7 +1404,7 @@ body.light-mode .btn.active svg {
     border: 1px solid var(--border-button);
     border-radius: 6px;
     cursor: pointer;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
@@ -2854,6 +2855,52 @@ body.light-mode .vis-panel-inner {
     font-weight: 500;
 }
 
+/* Ölçü tablosu — oda + birim yan yana */
+.props-table-row {
+    display: block;
+    padding: 4px 6px;
+}
+
+.props-table-wrap {
+    width: 100%;
+}
+
+.props-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11.5px;
+    color: var(--color-text);
+}
+
+.props-table thead th {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-secondary);
+    text-align: right;
+    padding: 3px 6px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border-button);
+    opacity: 0.75;
+}
+
+.props-table thead th:first-child {
+    text-align: left;
+}
+
+.props-table tbody td {
+    padding: 4px 6px;
+    text-align: right;
+    font-weight: 500;
+}
+
+.props-table tbody td.props-table-label {
+    text-align: left;
+    font-size: 11px;
+    color: var(--color-secondary);
+    font-weight: 400;
+}
+
 .props-select,
 .props-input {
     width: 100%;
@@ -2965,6 +3012,36 @@ body.light-mode .vis-panel-inner {
 .light-mode .props-connected-item:hover {
     background: rgba(0,0,0,0.06);
     border-color: rgba(0,0,0,0.12);
+}
+
+/* Properties panel — toggle yanında inline action butonu */
+.props-inline-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: transparent;
+    color: #8ab4f8;
+    border: 1px solid rgba(138,180,248,0.4);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: background .12s, border-color .12s, color .12s;
+}
+.props-inline-action-btn:hover {
+    background: rgba(138,180,248,0.12);
+    border-color: #8ab4f8;
+}
+.light-mode .props-inline-action-btn {
+    color: #1967d2;
+    border-color: rgba(25,103,210,0.4);
+}
+.light-mode .props-inline-action-btn:hover {
+    background: rgba(25,103,210,0.08);
+    border-color: #1967d2;
 }
 
 /* Properties panel — action butonları */

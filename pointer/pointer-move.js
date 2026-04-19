@@ -410,12 +410,17 @@ export function onPointerMove(e) {
                 break;
             case 'door': onPointerMoveDoor(unsnappedPos); break;
             case 'window': onPointerMoveWindow(unsnappedPos); break;
-            case 'vent':
+            case 'vent': {
                 const currentFloorId_vent = state.currentFloor?.id;
                 const walls_vent = (state.walls || []).filter(w => !currentFloorId_vent || !w.floorId || w.floorId === currentFloorId_vent);
-                const vent = state.selectedObject.object; const oldWall = state.selectedObject.wall;
-                const targetX = unsnappedPos.x + state.dragOffset.x; const targetY = unsnappedPos.y + state.dragOffset.y; const targetPos = { x: targetX, y: targetY };
-                let closestWall = null; let minDistSq = Infinity; const bodyHitTolerance = state.wallThickness * 2;
+                const vent = state.selectedObject.object;
+                const oldWall = state.selectedObject.wall;
+                const targetX = unsnappedPos.x + state.dragOffset.x;
+                const targetY = unsnappedPos.y + state.dragOffset.y;
+                const targetPos = { x: targetX, y: targetY };
+                let closestWall = null;
+                let minDistSq = Infinity;
+                const bodyHitTolerance = state.wallThickness * 2;
                 for (const w of walls_vent) {
                     if (!w.p1 || !w.p2) continue;
                     const d = distToSegmentSquared(targetPos, w.p1, w.p2);
@@ -425,10 +430,12 @@ export function onPointerMove(e) {
                     const wallLen = Math.hypot(closestWall.p2.x - closestWall.p1.x, closestWall.p2.y - closestWall.p1.y);
                     const ventMargin = 15;
                     if (wallLen >= vent.width + 2 * ventMargin) {
-                        const dx = closestWall.p2.x - closestWall.p1.x; const dy = closestWall.p2.y - closestWall.p1.y;
+                        const dx = closestWall.p2.x - closestWall.p1.x;
+                        const dy = closestWall.p2.y - closestWall.p1.y;
                         const t = Math.max(0, Math.min(1, ((targetPos.x - closestWall.p1.x) * dx + (targetPos.y - closestWall.p1.y) * dy) / (dx * dx + dy * dy)));
                         const newPos = t * wallLen;
-                        const minPos = vent.width / 2 + ventMargin; const maxPos = wallLen - vent.width / 2 + ventMargin;
+                        const minPos = vent.width / 2 + ventMargin;
+                        const maxPos = wallLen - vent.width / 2 - ventMargin;
                         vent.pos = Math.max(minPos, Math.min(maxPos, newPos));
                         if (oldWall !== closestWall) {
                             if (oldWall && oldWall.vents) oldWall.vents = oldWall.vents.filter(v => v !== vent);
@@ -439,6 +446,7 @@ export function onPointerMove(e) {
                     }
                 }
                 break;
+            }
         }
         // update3DScene(); // <-- SİLİNDİ (Sürükleme sonrası 3D'yi güncelle)
     }

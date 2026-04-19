@@ -28,7 +28,7 @@ import {
 } from "../general-files/main.js";
 import { findLargestAvailableSegment } from "../wall/wall-item-utils.js";
 import { plumbingManager } from "../plumbing_v2/plumbing-manager.js";
-import { computeUnitBirims, getBirimShortLabel, resolveBirimNo } from "../draw/draw-birim-labels.js";
+import { computeUnitBirims, getBirimShortLabel, getBirimShortLabelLines, resolveBirimNo } from "../draw/draw-birim-labels.js";
 
 /**
  * 2D veriye (state) dayanarak 3D sahneyi temizler ve yeniden oluşturur.
@@ -900,10 +900,14 @@ function addDoorBirimLabels(floorIds, getFloorElevation) {
                 if (d < bestDist) { bestDist = d; bestSayac = s; }
             }
 
-            const birimNo  = resolveBirimNo(entry) || bestSayac?.birimNo || '';
+            const resolved = resolveBirimNo(entry);
+            const birimNo  = resolved.no || bestSayac?.birimNo || '';
             const aboneAdi = bestSayac?.aboneAdi || '';
+            const birimLines = (resolved.assigned || bestSayac)
+                ? getBirimShortLabelLines(birimTipi, birimNo)
+                : [birimTipi];
             const lines = [
-                getBirimShortLabel(birimTipi, birimNo),
+                ...birimLines,
                 unitArea > 0 ? `${unitArea.toFixed(0)} m²` : '',
                 aboneAdi
             ].filter(Boolean);

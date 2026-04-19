@@ -3,7 +3,7 @@
 import { screenToWorld, distToSegmentSquared, findNodeAt, snapTo15DegreeAngle } from './geometry.js';
 import {
     drawDoorSymbol, drawGrid, isMouseOverWall, drawWindowSymbol,
-    drawVentSymbol, drawColumnSymbol, drawNodeWallCount, drawColumn,
+    drawVentSymbol, drawColumnSymbol,  drawColumn,
     drawBeam, drawStairs, drawGuides
 } from './renderer2d.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
@@ -419,10 +419,10 @@ export function draw2D() {
         drawStairs(stair, isSelected);
     });
 
-    // 5. Atomik Semboller
-    if (showArch) nodes.forEach(node => {
-        drawNodeWallCount(node);
-    });
+    // // 5. Atomik Semboller
+    // if (showArch) nodes.forEach(node => {
+    //     drawNodeWallCount(node);
+    // });
 
     // 5b. Köşe Noktaları (3+ duvar birleşen node'lara mavi nokta)
     if (showArch && state.tempVisibility.showJunctionNodes) {

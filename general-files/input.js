@@ -27,7 +27,7 @@ import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { hitTestLabel } from '../plumbing_v2/renderer/renderer-labels.js';
-import { openPropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
+import { openPropertiesPanel, isPanelOpen } from '../plumbing_v2/properties/properties-panel.js';
 
 
 
@@ -637,20 +637,21 @@ function onKeyDown(e) {
         return;
     }
 
-    // Mahal (room) seçiliyken harf girişi ile filtreleme – sadece MİMARİ mod + 2D sahne
+    // Mahal (room) seçili VEYA üzerinde hover iken harf girişi → mahal tanımlama
+    // MİMARİ ve KARMA modlarında çalışır, 2D sahnede
     const is2DScene   = !dom.mainContainer.classList.contains('show-3d');
-    const isMimariMod = state.currentDrawingMode === 'MİMARİ';
-    if (state.selectedRoom && is2DScene && isMimariMod && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key)) {
-        e.preventDefault();
-        const room = state.selectedRoom;
-        // Get room center position (stored as array [x, y]) and convert to screen coordinates
-        const centerX = room.center ? room.center[0] : 0;
-        const centerY = room.center ? room.center[1] : 0;
-        const screenPos = worldToScreen(centerX, centerY);
-        // Create a synthetic event with screen position
-        const syntheticEvent = { clientX: screenPos.x, clientY: screenPos.y };
-        showRoomNamePopup(room, syntheticEvent, e.key);
-        return;
+    const isArchMode  = state.currentDrawingMode === 'MİMARİ' || state.currentDrawingMode === 'KARMA';
+    if (is2DScene && isArchMode && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        let targetRoom = state.selectedRoom || null;
+        if (targetRoom) {
+            e.preventDefault();
+            const centerX = targetRoom.center ? targetRoom.center[0] : 0;
+            const centerY = targetRoom.center ? targetRoom.center[1] : 0;
+            const screenPos = worldToScreen(centerX, centerY);
+            const syntheticEvent = { clientX: screenPos.x, clientY: screenPos.y };
+            showRoomNamePopup(targetRoom, syntheticEvent, e.key);
+            return;
+        }
     }
 
     // --- Yeni Tesisat Sistemi (v2) Klavye İşlemleri ---
@@ -707,6 +708,43 @@ function onKeyDown(e) {
     if ((e.key === "Delete" || e.key === "Backspace") && (state.selectedObject || state.selectedGroup.length > 0)) {
         e.preventDefault();
         handleDelete();
+    }
+
+    // Mahal seçiliyken ok tuşlarıyla komşu mahale geç
+    if (state.selectedRoom && !state.selectedObject && (state.selectedGroup?.length ?? 0) === 0 &&
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        const dirs = {
+            ArrowUp:    { x: 0, y: -1 },
+            ArrowDown:  { x: 0, y:  1 },
+            ArrowLeft:  { x: -1, y: 0 },
+            ArrowRight: { x:  1, y: 0 },
+        };
+        const dir = dirs[e.key];
+        const current = state.selectedRoom;
+        const [cx, cy] = current.center || [0, 0];
+        const floorId = current.floorId ?? state.currentFloor?.id ?? null;
+        const candidates = (state.rooms || []).filter(r =>
+            r !== current && r.center && (!floorId || !r.floorId || r.floorId === floorId)
+        );
+        let best = null;
+        let bestScore = Infinity;
+        for (const r of candidates) {
+            const dx = r.center[0] - cx;
+            const dy = r.center[1] - cy;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 1) continue;
+            const dot = (dx / dist) * dir.x + (dy / dist) * dir.y;
+            if (dot < 0.5) continue; // direction cone ~±60°
+            const score = dist / dot;
+            if (score < bestScore) { bestScore = score; best = r; }
+        }
+        if (best) {
+            if (!best.type) best.type = 'room';
+            setState({ selectedRoom: best, selectedObject: null, selectedGroup: [] });
+            if (isPanelOpen()) openPropertiesPanel(best, plumbingManager);
+        }
+        return;
     }
 
     // Ok tuşları ile seçili nesneleri hareket ettirme (1cm artışlarla)

@@ -7,7 +7,7 @@
 
 import { getPropertiesForObject, getObjectLabel, PROPERTY_DEFS } from './property-definitions.js';
 import { draw2D } from '../../draw/draw2d.js';
-import { state } from '../../general-files/main.js';
+import { state, setState } from '../../general-files/main.js';
 
 // ─── DURUM ───────────────────────────────────────────────────────────────────
 
@@ -119,6 +119,10 @@ function _startLiveRefresh() {
                 if (prop.type === 'bar') {
                     const val = prop.barFn(_currentObj, _currentManager);
                     if (el.innerHTML !== val) el.innerHTML = val;
+                } else if (prop.type === 'table') {
+                    const data = prop.tableFn(_currentObj, _currentManager);
+                    const val = _renderTableBody(data);
+                    if (el.innerHTML !== val) el.innerHTML = val;
                 } else {
                     const val = prop.readonlyFn(_currentObj, _currentManager);
                     if (el.innerHTML !== val) el.innerHTML = val;
@@ -154,8 +158,11 @@ function _stopLiveRefresh() {
 
 // Seçim kaldırıldığında çağrılır: nesne seçiminden çıkılınca panel her zaman kapanır
 export function onDeselect() {
+    if (_isPinned) return;
     closePropertiesPanel();
 }
+
+
 
 export function togglePropertiesPanel(obj, manager) {
     if (panelEl && panelEl.classList.contains('visible') && _currentObj === obj) {
@@ -187,7 +194,8 @@ function renderPanel(obj, manager) {
     // rAF döngüsü için dinamik prop'ları sakla (readonly + bar)
     _liveProps = props.filter(p =>
         (p.type === 'readonly' && p.readonlyFn) ||
-        (p.type === 'bar'      && p.barFn)
+        (p.type === 'bar'      && p.barFn) ||
+        (p.type === 'table'    && p.tableFn)
     );
 
     const hasDesc = true; // tüm nesnelerde açıklama alanı göster
@@ -275,6 +283,18 @@ function renderDualField(field, obj, manager) {
     return '';
 }
 
+function _renderTableBody(data) {
+    const { showUnit, rows } = data || { showUnit: false, rows: [] };
+    const head = showUnit
+        ? `<thead><tr><th></th><th>Mahal</th><th>Birim</th></tr></thead>`
+        : `<thead><tr><th></th><th>Mahal</th></tr></thead>`;
+    const body = rows.map(([label, roomVal, unitVal]) => showUnit
+        ? `<tr><td class="props-table-label">${label}</td><td>${roomVal}</td><td>${unitVal ?? roomVal}</td></tr>`
+        : `<tr><td class="props-table-label">${label}</td><td>${roomVal}</td></tr>`
+    ).join('');
+    return `<table class="props-table">${head}<tbody>${body}</tbody></table>`;
+}
+
 function renderProperty(prop, obj, manager) {
     // visibleFn false ise alan ve section header'ı gizle
     if (prop.visibleFn && !prop.visibleFn(obj, manager)) return '';
@@ -304,6 +324,14 @@ function renderProperty(prop, obj, manager) {
             <div class="props-row">
                 <label class="props-label">${prop.label}</label>
                 <span class="props-value-readonly" data-prop-id="${prop.id}">${value}</span>
+            </div>`;
+    }
+
+    if (prop.type === 'table') {
+        const data = prop.tableFn ? prop.tableFn(obj, manager) : { showUnit: false, rows: [] };
+        return `
+            <div class="props-row props-table-row">
+                <div class="props-table-wrap" data-prop-id="${prop.id}">${_renderTableBody(data)}</div>
             </div>`;
     }
 
@@ -380,6 +408,14 @@ function renderProperty(prop, obj, manager) {
         // Disabled iken her zaman kapalı görünsün
         const isChecked = current && !isDisabled;
 
+        // İsteğe bağlı inline action butonu (örn. yay ters çevir)
+        let inlineActionHtml = '';
+        if (prop.inlineAction) {
+            const ia = prop.inlineAction;
+            const vis = (!ia.visibleFn || ia.visibleFn(obj, manager)) ? '' : 'display:none';
+            inlineActionHtml = `<button class="props-inline-action-btn" data-inline-action="1" title="${escHtml(ia.title || '')}" style="${vis}">${escHtml(ia.label || '↻')}</button>`;
+        }
+
         // İsteğe bağlı inline grup ikon butonu
         let groupBtnHtml = '';
         if (prop.groupBtn) {
@@ -404,13 +440,14 @@ function renderProperty(prop, obj, manager) {
         return `
             <div class="props-row">
                 <label class="props-label">${prop.label}</label>
-                <div class="props-toggle-inline">
+                <div class="props-toggle-inline" data-prop-id="${prop.id}">
                     <label class="props-toggle${isDisabled ? ' props-toggle-disabled' : ''}">
                         <input type="checkbox" id="${uid}" data-prop-key="${prop.key}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
                         <span class="props-toggle-track">
                             <span class="props-toggle-thumb"></span>
                         </span>
                     </label>
+                    ${inlineActionHtml}
                     ${groupBtnHtml}
                 </div>
             </div>`;
@@ -423,15 +460,50 @@ function renderProperty(prop, obj, manager) {
 
 const CONNECTED_SECTION_LABEL = 'Bağlı Nesneler';
 
+// Bağlı nesneleri hiyerarşik (flat + depth) olarak döndürür.
+// Oda → Duvar (depth 0) → Kapı/Pencere/Menfez (depth 1)
+// Duvar → Kapı/Pencere/Menfez (depth 0)
+// Boru  → Vana (depth 0)
 function _getConnectedObjects(obj, manager) {
     if (!obj) return [];
     if (obj.type === 'boru' && manager) {
-        return manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === obj.id);
+        return manager.components
+            .filter(c => c.type === 'vana' && c.bagliBoruId === obj.id)
+            .map(item => ({ item, depth: 0 }));
     }
     if (obj.type === 'wall') {
         const doors = (state.doors || []).filter(d => d.wall === obj);
         const windows = obj.windows || [];
-        return [...doors, ...windows];
+        const vents = obj.vents || [];
+        return [...doors, ...windows, ...vents].map(item => ({ item, depth: 0 }));
+    }
+    if (obj.type === 'room') {
+        const coords = obj?.polygon?.geometry?.coordinates?.[0];
+        if (!Array.isArray(coords) || coords.length < 2) return [];
+        const TOL = 2;
+        const walls = [];
+        const allWalls = (state.walls || []).filter(w => !obj.floorId || !w.floorId || w.floorId === obj.floorId);
+        for (let i = 0; i < coords.length - 1; i++) {
+            const [ax, ay] = coords[i];
+            const [bx, by] = coords[i + 1];
+            for (const w of allWalls) {
+                if (!w.p1 || !w.p2 || walls.includes(w)) continue;
+                const d1 = Math.hypot(w.p1.x - ax, w.p1.y - ay) + Math.hypot(w.p2.x - bx, w.p2.y - by);
+                const d2 = Math.hypot(w.p1.x - bx, w.p1.y - by) + Math.hypot(w.p2.x - ax, w.p2.y - ay);
+                if (Math.min(d1, d2) < TOL) { walls.push(w); break; }
+            }
+        }
+        const result = [];
+        for (const w of walls) {
+            result.push({ item: w, depth: 0 });
+            const wDoors = (state.doors || []).filter(d => d.wall === w);
+            const wWindows = w.windows || [];
+            const wVents = w.vents || [];
+            for (const child of [...wDoors, ...wWindows, ...wVents]) {
+                result.push({ item: child, depth: 1 });
+            }
+        }
+        return result;
     }
     return [];
 }
@@ -450,6 +522,15 @@ function _connectedItemLabel(item) {
         const w = item.width != null ? `${Math.round(item.width)}×${Math.round(item.height || 0)} cm` : '';
         return `Pencere${w ? ' · ' + w : ''}`;
     }
+    if (item.type === 'vent') {
+        const d = item.width != null ? `Ø${Math.round(item.width)} cm` : '';
+        return `Menfez${d ? ' · ' + d : ''}`;
+    }
+    if (item.type === 'wall') {
+        const len = (item.p1 && item.p2) ? Math.round(Math.hypot(item.p2.x - item.p1.x, item.p2.y - item.p1.y)) : 0;
+        const thk = item.thickness != null ? Math.round(item.thickness) : null;
+        return `Duvar${len ? ' · ' + len + ' cm' : ''}${thk != null ? ' · ' + thk + ' cm kal.' : ''}`;
+    }
     return item.type || '—';
 }
 
@@ -459,21 +540,43 @@ function renderConnectedObjectsSection(obj, manager) {
     if (!_sectionCollapsed.has(CONNECTED_SECTION_LABEL)) {
         _sectionCollapsed.set(CONNECTED_SECTION_LABEL, true); // default closed
     }
-    const itemsHtml = list.map((item, i) => {
-        const lbl = escHtml(_connectedItemLabel(item));
-        return `<div class="props-connected-item" data-conn-idx="${i}">${lbl}</div>`;
+    const itemsHtml = list.map((entry, i) => {
+        const lbl = escHtml(_connectedItemLabel(entry.item));
+        const pad = 8 + (entry.depth || 0) * 16;
+        return `<div class="props-connected-item" data-conn-idx="${i}" style="padding-left:${pad}px">${lbl}</div>`;
     }).join('');
     return `<div class="props-section-header" data-section-key="${CONNECTED_SECTION_LABEL}">${CONNECTED_SECTION_LABEL} (${list.length})</div>${itemsHtml}`;
+}
+
+function _selectConnectedTarget(target) {
+    if (!target) return;
+    const ARCH_WRAPPED = ['wall', 'door', 'window', 'vent', 'column', 'beam', 'stairs'];
+    if (target.type === 'room') {
+        setState({ selectedRoom: target, selectedObject: null, selectedGroup: [] });
+    } else if (ARCH_WRAPPED.includes(target.type)) {
+        setState({ selectedObject: { type: target.type, object: target }, selectedRoom: null, selectedGroup: [] });
+    } else {
+        // Plumbing veya bilinmeyen tipler — clickedObject benzeri wrapper
+        setState({ selectedObject: { type: target.type, object: target }, selectedRoom: null, selectedGroup: [] });
+    }
+    draw2D();
 }
 
 function bindConnectedObjectsEvents(panelEl, obj, manager) {
     const list = _getConnectedObjects(obj, manager);
     if (!list.length) return;
     panelEl.querySelectorAll('.props-connected-item').forEach(el => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+            if (e.detail > 1) return;
             const idx = parseInt(el.dataset.connIdx);
-            const target = list[idx];
-            if (target) openPropertiesPanel(target, manager);
+            _selectConnectedTarget(list[idx]?.item);
+        });
+        el.addEventListener('dblclick', () => {
+            const idx = parseInt(el.dataset.connIdx);
+            const target = list[idx]?.item;
+            if (!target) return;
+            _selectConnectedTarget(target);
+            openPropertiesPanel(target, manager);
         });
     });
 }
@@ -783,9 +886,28 @@ function bindInputEvents(panelEl, props, obj, manager) {
             // Toggle'ın groupBtn'ı varsa görünürlüğünü güncelle
             const groupBtn = e.target.closest('.props-toggle-inline')?.querySelector('.props-group-btn');
             if (groupBtn) groupBtn.style.visibility = e.target.checked ? '' : 'hidden';
+            // Toggle'ın inline action butonu varsa görünürlüğünü güncelle
+            const inlineBtn = e.target.closest('.props-toggle-inline')?.querySelector('.props-inline-action-btn');
             const prop = _findPropByKey(props, key);
+            if (inlineBtn && prop?.inlineAction?.visibleFn) {
+                inlineBtn.style.display = prop.inlineAction.visibleFn(obj, manager) ? '' : 'none';
+            }
             if (prop?.afterChange) prop.afterChange(obj, manager, panelEl);
             persist();
+        });
+    });
+
+    // Toggle inline action butonları (örn. yay ters çevir)
+    panelEl.querySelectorAll('.props-inline-action-btn[data-inline-action]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const wrap = btn.closest('.props-toggle-inline');
+            const propId = wrap?.dataset.propId;
+            const prop = props.find(p => p.id === propId);
+            if (prop?.inlineAction?.onClick) {
+                prop.inlineAction.onClick(obj, manager, panelEl);
+                persist();
+            }
         });
     });
 

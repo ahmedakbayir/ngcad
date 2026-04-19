@@ -14,15 +14,15 @@ const SAYAC_TURU_LABEL = {
     'TÜRBİN': 'Türbin Sayaç',
 };
 
-// ─── Birim tipi kısaltması ───────────────────────────────────────────────────
-function getBirimLabel(birimTipi, birimNo) {
+// ─── Birim tipi kısaltması — her zaman satır dizisi döner ─────────────────
+function getBirimLabelLines(birimTipi, birimNo) {
     const no = birimNo || '';
     switch (birimTipi) {
-        case 'KONUT': return `D${no}`;
-        case 'OFİS': return `Dük${no} (Ofis)`;
-        case 'TİCARİ': return `Dük${no} (Ticari)`;
-        case 'KAZAN DAİRESİ': return `KD${no}`;
-        default: return `D${no}`;   // en azından 'D' göster
+        case 'KONUT': return [`D${no}`];
+        case 'OFİS': return [`Dük${no}`, 'Ofis'];
+        case 'TİCARİ': return [`Dük${no}`, 'Ticari'];
+        case 'KAZAN DAİRESİ': return [`KD${no}`];
+        default: return [`D${no}`];
     }
 }
 
@@ -721,8 +721,8 @@ export const LabelMixin = {
         const lines = [];
 
         // Birim: D1 / Dük1 / KD1
-        const birimLabel = getBirimLabel(comp.birimTipi || '', comp.birimNo || '');
-        if (birimLabel) lines.push({ text: birimLabel, bold: true });
+        const birimLines = getBirimLabelLines(comp.birimTipi || '', comp.birimNo || '');
+        birimLines.forEach(t => { if (t) lines.push({ text: t, bold: true }); });
 
         // Sayaç türü (Körüklü → gösterme)
         const turuLabel = SAYAC_TURU_LABEL[comp.sayacTuru || 'KÖRÜKLÜ'] || '';
@@ -732,14 +732,14 @@ export const LabelMixin = {
         const boruTipi = comp.birimBoruTipi || 'ÇELİK';
         if (boruTipi === 'ESNEK') {
             const marka = comp.esnekMarka || '';
-            lines.push({ text: marka ? `Birim İçi Esnek Tesisat (${marka})` : 'Esnek Tesisat', sub: true });
+            lines.push({ text: marka ? `Esnek Tesisat (${marka})` : 'Esnek Tesisat', sub: true });
         } else {
             const bagTipi = comp.birimBaglantiTipi || '';
             if (bagTipi) {
                 const bagLabel = bagTipi === 'DİŞLİ' ? 'Dişli'
                     : bagTipi === 'KAYNAKLI' ? 'Kaynaklı'
                         : bagTipi;
-                lines.push({ text: `Birim İçi ${bagLabel} Tesisat`, sub: true });
+                lines.push({ text: `${bagLabel} Tesisat`, sub: true });
             }
         }
 
@@ -792,8 +792,8 @@ export const LabelMixin = {
                 if (sayac?.birimTipi) birimTipi = sayac.birimTipi;
             }
             if (!birimTipi) birimTipi = 'KONUT';
-            const lbl = getBirimLabel(birimTipi, comp.birimNo || '');
-            if (lbl) lines.push({ text: lbl, bold: true });
+            const lblLines = getBirimLabelLines(birimTipi, comp.birimNo || '');
+            lblLines.forEach(t => { if (t) lines.push({ text: t, bold: true }); });
 
         } else if (vt === 'EMNIYET') {
             // Hiçbir şey yazılmaz
