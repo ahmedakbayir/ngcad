@@ -11,6 +11,7 @@ import { getObjectsOnPipe, canPlaceValveOnPipe } from './placement-utils.js';
 import { state } from '../../general-files/main.js';
 import { isProtectedPoint } from './drag-handler.js';
 import { initObjectDefaults } from '../properties/properties-panel.js';
+import { syncBirimState, seedSayacFromRooms } from '../../draw/draw-birim-labels.js';
 
 /**
  * Boru çizim modunu başlat
@@ -364,6 +365,10 @@ export function handleBoruClick(interactionManager, point) {
         const sayac = interactionManager.manager.components.find(c => c.id === interactionManager.boruBaslangic.kaynakId);
         if (sayac) interactionManager.manager.updatePipeColorsAfterMeter(sayac.id);
     }
+
+    // Boru birime ulaştıysa: sayaç boşsa mahallerden tohumla, sonra sayaç→oda yay
+    seedSayacFromRooms();
+    syncBirimState();
 
     interactionManager.manager.saveToState();
 

@@ -2,7 +2,7 @@ import { getCizelge6Debi } from '../renderer/renderer-utils.js';
 import { MAHAL_LISTESI, WALL_HEIGHT, state } from '../../general-files/main.js';
 import { addDoorToWall, addWindowToWall, addVentToWall, addColumnToWall, flipArcWall } from '../../wall/wall-panel.js';
 import { recalculateStepCount } from '../../architectural-objects/stairs.js';
-import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom } from '../../draw/draw-birim-labels.js';
+import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom, syncBirimState, findSayacEnteringRoomUnit } from '../../draw/draw-birim-labels.js';
 
 /**
  * Özellik Tanımları
@@ -456,10 +456,12 @@ export const PROPERTY_DEFS = {
     sayacBirimTipi: {
         label: 'Birim Tipi', type: 'select', key: 'birimTipi',
         options: BIRIM_TIPLERI, default: 'KONUT', placeholder: '— seçiniz —',
+        afterChange: () => { syncBirimState(); invalidateBirimCache(); },
     },
     sayacBirimNo: {
         label: 'Birim No', type: 'text', key: 'birimNo',
         default: '', placeholder: 'Birim no...',
+        afterChange: () => { syncBirimState(); invalidateBirimCache(); },
     },
     sayacBirimBoruTipi: {
         label: 'Boru Tipi', type: 'select', key: 'birimBoruTipi',
@@ -1109,10 +1111,16 @@ export const PROPERTY_DEFS = {
             const resolved = resolveBirimNoForRoom(obj);
             return resolved.assigned ? resolved.no : '';
         },
+        // Sayaçta bir no atanmışsa bu odanın birim no'su sayaçtan gelir — kilit
+        disabledFn: (obj) => {
+            const s = findSayacEnteringRoomUnit(obj);
+            return !!(s && String(s.birimNo ?? '').trim() !== '');
+        },
         afterChange: (obj) => {
             const val = obj.birimNo;
             const unitRooms = getUnitRoomsForRoom(obj);
             unitRooms.forEach(r => { if (r !== obj) r.birimNo = val; });
+            syncBirimState();
             invalidateBirimCache();
         },
     },

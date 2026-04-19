@@ -8,6 +8,7 @@
 import { getPropertiesForObject, getObjectLabel, PROPERTY_DEFS } from './property-definitions.js';
 import { draw2D } from '../../draw/draw2d.js';
 import { state, setState } from '../../general-files/main.js';
+import { syncBirimState } from '../../draw/draw-birim-labels.js';
 
 // ─── DURUM ───────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,8 @@ function createPanel() {
 
 export function openPropertiesPanel(obj, manager) {
     if (!panelEl) createPanel();
+    // Panel açılmadan önce sayaç↔mahal birim no senkronizasyonu garantiye alınmalı
+    syncBirimState();
     _currentObj = obj;
     _currentManager = manager;
     _initDefaults(obj, manager);

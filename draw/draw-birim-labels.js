@@ -318,21 +318,75 @@ function _isPointInAnyRoom(pt, rooms) {
     return false;
 }
 
-function _pipeTreeEntersUnit(startPipeId, unitRooms, pipes) {
+// Bir borunun komşu boru id'lerini toplar: baslangic/bitis bağlantıları,
+// T-bağlantıları ve bu boruya başka borulardan gelen referanslar dahil.
+function _getPipeNeighbors(pipe, pipes) {
+    const out = new Set();
+    if (pipe.baslangicBaglanti?.tip === 'boru' && pipe.baslangicBaglanti.hedefId) {
+        out.add(pipe.baslangicBaglanti.hedefId);
+    }
+    if (pipe.bitisBaglanti?.tip === 'boru' && pipe.bitisBaglanti.hedefId) {
+        out.add(pipe.bitisBaglanti.hedefId);
+    }
+    (pipe.tBaglantilar || []).forEach(tb => { if (tb?.boruId) out.add(tb.boruId); });
+    // Ters yön: başka borular bu boruya referans veriyor olabilir
+    for (const p of pipes) {
+        if (p === pipe) continue;
+        if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId === pipe.id) out.add(p.id);
+        if (p.bitisBaglanti?.tip === 'boru' && p.bitisBaglanti.hedefId === pipe.id) out.add(p.id);
+        if ((p.tBaglantilar || []).some(tb => tb?.boruId === pipe.id)) out.add(p.id);
+    }
+    return out;
+}
+
+// Diğer sayaçların çıkış borularını toplar (onların bölgesine girmeyi engellemek için)
+function _getOtherSayacBarrierPipes(excludeSayac) {
+    const comps = plumbingManager?.components || [];
+    const barrier = new Set();
+    for (const c of comps) {
+        if (c.type !== 'sayac' || c === excludeSayac) continue;
+        if (c.cikisBagliBoruId) barrier.add(c.cikisBagliBoruId);
+        if (c.fleksBaglanti?.boruId) barrier.add(c.fleksBaglanti.boruId);
+    }
+    return barrier;
+}
+
+// Boru ağacında uç noktaları verilen odalardan birine düşen ilk odayı bulur
+function _pipeTreeFindFirstRoom(startPipeId, rooms, pipes, barrier = new Set()) {
     const visited = new Set();
     const stack = [startPipeId];
     while (stack.length) {
         const pid = stack.pop();
         if (!pid || visited.has(pid)) continue;
         visited.add(pid);
+        if (pid !== startPipeId && barrier.has(pid)) continue; // diğer sayaca ait boru
+        const pipe = pipes.find(p => p.id === pid);
+        if (!pipe) continue;
+        for (const r of rooms) {
+            if (!r?.polygon) continue;
+            try {
+                if (pipe.p1 && turf.booleanPointInPolygon(turf.point([pipe.p1.x, pipe.p1.y]), r.polygon)) return r;
+                if (pipe.p2 && turf.booleanPointInPolygon(turf.point([pipe.p2.x, pipe.p2.y]), r.polygon)) return r;
+            } catch { /* ignore */ }
+        }
+        for (const nid of _getPipeNeighbors(pipe, pipes)) stack.push(nid);
+    }
+    return null;
+}
+
+function _pipeTreeEntersUnit(startPipeId, unitRooms, pipes, barrier = new Set()) {
+    const visited = new Set();
+    const stack = [startPipeId];
+    while (stack.length) {
+        const pid = stack.pop();
+        if (!pid || visited.has(pid)) continue;
+        visited.add(pid);
+        if (pid !== startPipeId && barrier.has(pid)) continue;
         const pipe = pipes.find(p => p.id === pid);
         if (!pipe) continue;
         if (_isPointInAnyRoom(pipe.p1, unitRooms)) return true;
         if (_isPointInAnyRoom(pipe.p2, unitRooms)) return true;
-        if (pipe.bitisBaglanti?.tip === 'boru' && pipe.bitisBaglanti.hedefId) {
-            stack.push(pipe.bitisBaglanti.hedefId);
-        }
-        (pipe.tBaglantilar || []).forEach(tb => { if (tb?.boruId) stack.push(tb.boruId); });
+        for (const nid of _getPipeNeighbors(pipe, pipes)) stack.push(nid);
     }
     return false;
 }
@@ -349,7 +403,8 @@ function _findSayacByPipeIntoUnit(entry) {
         if (s.type !== 'sayac') continue;
         if (s.floorId != null && floorId != null && s.floorId !== floorId) continue;
         if (!s.cikisBagliBoruId) continue;
-        if (_pipeTreeEntersUnit(s.cikisBagliBoruId, unitRooms, pipes)) return s;
+        const barrier = _getOtherSayacBarrierPipes(s);
+        if (_pipeTreeEntersUnit(s.cikisBagliBoruId, unitRooms, pipes, barrier)) return s;
     }
     return null;
 }
@@ -368,48 +423,69 @@ export function findSayacEnteringRoomUnit(room) {
     return _findSayacByPipeIntoUnit({ unitRooms, floorId });
 }
 
-// Sayaç ↔ birim odaları arasında birimNo/birimTipi senkronu.
-// Kural: sayaç birim no DOLU ise odalar sayaca uyar; sayaç birim no BOŞ ise odada
-// yazılmış bir değer varsa sayaca kopyalar. birimTipi: sayaçta yoksa oda
-// sınıflandırmasından atanır.
+// Yardımcı: bir sayaç için boruyla bağlı birim odalarını döner (yoksa null)
+function _getUnitRoomsForSayac(s) {
+    const pm = plumbingManager;
+    if (!pm?.pipes || !s?.cikisBagliBoruId) return null;
+    // Sayaç boru ağacı önce sahanlık/koridor/separator odalarına girebilir;
+    // bizim aradığımız gerçek birime ait odadır. Bu yüzden separator/birim-dışı
+    // odaları aday listesinden çıkarıyoruz.
+    const candidateRooms = (state.rooms || []).filter(r => {
+        if (s.floorId != null && r.floorId != null && r.floorId !== s.floorId) return false;
+        const nm = (r.name || '').toUpperCase().trim();
+        if (SEPARATOR_NAMES.has(nm)) return false;
+        if (BIRIM_DISI.has(nm)) return false;
+        return true;
+    });
+    const barrier = _getOtherSayacBarrierPipes(s);
+    const anyRoom = _pipeTreeFindFirstRoom(s.cikisBagliBoruId, candidateRooms, pm.pipes, barrier);
+    if (!anyRoom) return null;
+    const unitRooms = getUnitRoomsForRoom(anyRoom);
+    return unitRooms.length ? unitRooms : null;
+}
+
+// Sayaç ↔ birim odaları arasında çift yönlü birimNo/birimTipi senkronu.
+// Kural:
+//  • Sayaçta birimNo DOLU → odalara yaz (sayaç otoriter).
+//  • Sayaçta birimNo BOŞ ama odada yazılı → odadaki değeri sayaca kopyala,
+//    sonra tüm birim odalarına yay.
+//  • Sayaçta birimTipi BOŞ → oda sınıflandırmasından atanır.
 export function syncBirimState() {
     const pm = plumbingManager;
     if (!pm?.components || !pm?.pipes) return false;
     let changed = false;
     for (const s of pm.components) {
-        if (s.type !== 'sayac' || !s.cikisBagliBoruId) continue;
-        const candidateRooms = (state.rooms || []).filter(r =>
-            s.floorId == null || r.floorId == null || r.floorId === s.floorId
-        );
-        const anyRoom = _pipeTreeFindFirstRoom(s.cikisBagliBoruId, candidateRooms, pm.pipes);
-        if (!anyRoom) continue;
-        const unitRooms = getUnitRoomsForRoom(anyRoom);
-        if (!unitRooms.length) continue;
-
-        const sayacNo = (s.birimNo ?? '').toString().trim();
-        const roomWithNo = unitRooms.find(r => r.birimNo != null && String(r.birimNo).trim() !== '');
-        const roomNo = roomWithNo ? String(roomWithNo.birimNo).trim() : '';
+        if (s.type !== 'sayac') continue;
+        const unitRooms = _getUnitRoomsForSayac(s);
+        if (!unitRooms) continue;
 
         // Birim tipi: sayaçta yoksa oda sınıflandırmasından
-        const classified = _classifyToSayacTipi(classifyUnit(unitRooms));
-        if (!s.birimTipi && classified) { s.birimTipi = classified; changed = true; }
+        if (!s.birimTipi) {
+            const classified = _classifyToSayacTipi(classifyUnit(unitRooms));
+            if (classified) { s.birimTipi = classified; changed = true; }
+        }
 
-        if (sayacNo) {
-            // Sayaç otoriter: odalara yaz
-            for (const r of unitRooms) {
-                if ((r.birimNo ?? '') !== sayacNo) { r.birimNo = sayacNo; changed = true; }
+        let sayacNo = (s.birimNo ?? '').toString().trim();
+        if (!sayacNo) {
+            const roomWithNo = unitRooms.find(r => r.birimNo != null && String(r.birimNo).trim() !== '');
+            if (roomWithNo) {
+                sayacNo = String(roomWithNo.birimNo).trim();
+                if (s.birimNo !== sayacNo) { s.birimNo = sayacNo; changed = true; }
             }
-        } else if (roomNo) {
-            // Sayaç boş, oda yazılmış: odadan sayaca kopyala, sonra tüm odalara yay
-            if (s.birimNo !== roomNo) { s.birimNo = roomNo; changed = true; }
-            for (const r of unitRooms) {
-                if ((r.birimNo ?? '') !== roomNo) { r.birimNo = roomNo; changed = true; }
-            }
+        }
+
+        // sayaç → odalar: sayaçtaki değer (boş olsa bile) odalara aynen yansıtılır
+        for (const r of unitRooms) {
+            const rn = (r.birimNo ?? '').toString();
+            if (rn !== sayacNo) { r.birimNo = sayacNo; changed = true; }
         }
     }
     if (changed) invalidateBirimCache();
     return changed;
 }
+
+// Geriye dönük uyum: tohumlama ayrı bir çağrı olarak da kullanılabilir
+export function seedSayacFromRooms() { return syncBirimState(); }
 
 // Bir oda verildiğinde, birim için atanmış birimNo'yu çöz (sayaç önceliğine göre)
 export function resolveBirimNoForRoom(room) {
@@ -474,7 +550,9 @@ const BIRIM_COLOR = {
 
 // ── Çizim fonksiyonu (etiket – sadece metin, çerçeve yok) ────────────────────
 export function drawBirimLabels(ctx2d, st) {
-    if (!st.tempVisibility?.showRoomNames) return; // mahal adları kapalıysa atla
+    // Sync görünürlük bayrağından bağımsız çalışmalı ki panel değerleri güncel kalsın
+    syncBirimState();
+    if (!st.tempVisibility?.showRoomNames) return; // mahal adları kapalıysa çizme
 
     const labels = computeUnitBirims();
     if (!labels.length) return;
