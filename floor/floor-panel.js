@@ -1337,7 +1337,7 @@ function renumberFloors(floors) {
 /**
  * Placeholder'dan yeni kat ekler
  */
-function addFloorFromPlaceholder(placeholderId) {
+export function addFloorFromPlaceholder(placeholderId) {
     const floors = [...state.floors];
     const placeholderIndex = floors.findIndex(f => f.id === placeholderId);
 
@@ -1422,6 +1422,33 @@ function addFloorFromPlaceholder(placeholderId) {
     renderDetailPanel();
     renderMiniPanel();
     update3DScene(); // 3D sahneyi güncelle
+}
+
+/**
+ * Verilen kot için gerekli katları otomatik oluşturur.
+ * Tesisat yukarı/aşağı bir placeholder sınırını aşarsa o placeholder
+ * gerçek kata dönüştürülür. Birden fazla placeholder aşılmışsa zincirleme çalışır.
+ */
+export function ensureFloorForElevation(elevation) {
+    if (elevation == null || !isFinite(elevation)) return;
+    const MAX_ITER = 50; // güvenlik
+    for (let i = 0; i < MAX_ITER; i++) {
+        const realFloors = state.floors.filter(f => !f.isPlaceholder);
+        if (!realFloors.length) return;
+        const top = Math.max(...realFloors.map(f => f.topElevation));
+        const bottom = Math.min(...realFloors.map(f => f.bottomElevation));
+        // Kat aralığı [bottom, top) — topElevation bir üst kata aittir
+        if (elevation < top && elevation >= bottom) return;
+        if (elevation >= top) {
+            const upperPh = state.floors.find(f => f.isPlaceholder && !f.isBelow);
+            if (!upperPh) return;
+            addFloorFromPlaceholder(upperPh.id);
+        } else {
+            const lowerPh = state.floors.find(f => f.isPlaceholder && f.isBelow);
+            if (!lowerPh) return;
+            addFloorFromPlaceholder(lowerPh.id);
+        }
+    }
 }
 
 /**

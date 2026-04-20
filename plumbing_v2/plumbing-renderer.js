@@ -1,7 +1,7 @@
 // plumbing_v2/plumbing-renderer.js
 // Ana tesisat renderer sınıfı - Modüler yapı ile yeniden organize edildi
 
-import { buildPipeHierarchy, computePipeDebileri } from './renderer/renderer-utils.js';
+import { buildPipeHierarchy, computePipeDebileri, slicePipeAcrossFloors, makeSlicedPipeProxy } from './renderer/renderer-utils.js';
 import { ColorMixin } from './renderer/renderer-colors.js';
 import { PipeMixin } from './renderer/renderer-pipes.js';
 import { ComponentMixin } from './renderer/renderer-components.js';
@@ -47,6 +47,34 @@ export class PlumbingRenderer {
             ctx.globalAlpha = 0.35; // Biraz daha görünür (önceden 0.15)
         }
 
+        // --- KAT FİLTRESİ + DİLİMLEME ---
+        // 2D: sadece aktif katın tesisatı çizilir.
+        // 3D: diğer katların tesisatı da çizilir ama sönük (α≈0.35).
+        // floorId yoksa (legacy kayıt) her zaman görünür sayılır.
+        // Borular Z aralığına göre her katın kesitine dilimlenir; cross-floor
+        // riser her iki katta da kendi Z aralığıyla görünür.
+        const _vbf = state.viewBlendFactor || 0;
+        const _is3D = _vbf >= 0.5;
+        const _curFloorId = state.currentFloor?.id || null;
+        const _sameFloor = (o) => !_curFloorId || !o.floorId || o.floorId === _curFloorId;
+
+        const _floors = (state.floors || []).filter(f => !f.isPlaceholder);
+        const _allSlices = [];
+        manager.pipes.forEach(pipe => {
+            const slices = slicePipeAcrossFloors(pipe, _floors);
+            slices.forEach(s => _allSlices.push(s));
+        });
+        const _slicesCurrent = _allSlices.filter(s => !_curFloorId || !s.floorId || s.floorId === _curFloorId);
+        const _slicesOther = _is3D ? _allSlices.filter(s => s.floorId && _curFloorId && s.floorId !== _curFloorId) : [];
+        const _pipesCurrent = _slicesCurrent.map(makeSlicedPipeProxy);
+        const _pipesOther = _slicesOther.map(makeSlicedPipeProxy);
+
+        const _allComps = manager.components || [];
+        const _skCurrent = _allComps.filter(c => c.type === 'servis_kutusu' && _sameFloor(c));
+        const _skOther = _is3D ? _allComps.filter(c => c.type === 'servis_kutusu' && !_sameFloor(c)) : [];
+        const _digerCurrent = _allComps.filter(c => c.type !== 'servis_kutusu' && _sameFloor(c));
+        const _digerOther = _is3D ? _allComps.filter(c => c.type !== 'servis_kutusu' && !_sameFloor(c)) : [];
+
         // --- YENİ EKLENEN KISIM: GÖLGE ÇİZİMİ ---
         // Sadece 3D modunda gölge çiz (Zemine izdüşüm)
         if (state.viewBlendFactor > 0.1 && state.tempVisibility && state.tempVisibility.showPipeShadows) {
@@ -62,19 +90,24 @@ export class PlumbingRenderer {
         // Muhafaza kutuları (her şeyin altında)
         this.drawMuhafazaBoxes(ctx, manager);
 
-        // Servis kutuları (boruların altında olacak şekilde önce çiz)
-        const servisKutulari = (manager.components || []).filter(c => c.type === 'servis_kutusu');
-        const digerBileskenler = (manager.components || []).filter(c => c.type !== 'servis_kutusu');
-        servisKutulari.forEach(comp => this.drawComponent(ctx, comp, manager));
+        // Diğer kat (yalnız 3D'de) — sönük geçiş
+        if (_pipesOther.length || _skOther.length || _digerOther.length) {
+            ctx.save();
+            ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.35;
+            _skOther.forEach(comp => this.drawComponent(ctx, comp, manager));
+            this.drawPipes(ctx, _pipesOther);
+            this.drawTopraklamaSymbols(ctx, _pipesOther);
+            this.drawFloorCrossingMarkers(ctx, _pipesOther);
+            this.drawComponents(ctx, _digerOther, manager);
+            ctx.restore();
+        }
 
-        // Borular (servis kutularının üstünde)
-        this.drawPipes(ctx, manager.pipes);
-
-        // Topraklama sembolleri
-        this.drawTopraklamaSymbols(ctx, manager.pipes);
-
-        // Diğer bileşenler (borular üstünde)
-        this.drawComponents(ctx, digerBileskenler, manager);
+        // Aktif kat — normal
+        _skCurrent.forEach(comp => this.drawComponent(ctx, comp, manager));
+        this.drawPipes(ctx, _pipesCurrent);
+        this.drawTopraklamaSymbols(ctx, _pipesCurrent);
+        this.drawFloorCrossingMarkers(ctx, _pipesCurrent);
+        this.drawComponents(ctx, _digerCurrent, manager);
 
         // Geçici boru çizgisi (boru çizim modunda)
         const geciciBoru = manager.interactionManager?.getGeciciBoruCizgisi();
@@ -115,8 +148,9 @@ export class PlumbingRenderer {
         const showMeasurements = !shouldBeFaded && state.dimensionMode !== 0;
 
         // 1. Ölçüler Açık İse (Ve Panelden de İzin Verildiyse)
+        // Ölçüler sadece aktif katın boruları için yazılır; diğer katlar sadece çizim olarak görünür
         if (showMeasurements && state.tempVisibility.showPlumbingDimensions) {
-            this.drawPipeMeasurements(ctx, manager.pipes);
+            this.drawPipeMeasurements(ctx, _pipesCurrent);
             if (geciciBoru) {
                 this.drawTempPipeMeasurement(ctx, geciciBoru);
             }
@@ -131,7 +165,7 @@ export class PlumbingRenderer {
         // --- YENİ EKLENEN KISIM: KOT YAZILARI ---
         // Boru köşe noktalarındaki h değerlerini çiz (3D modunda)
         if (state.tempVisibility.showZElevation) {
-            this.drawPipeElevations(ctx, manager.pipes);
+            this.drawPipeElevations(ctx, _pipesCurrent);
         }
 
         // Canlı hat (iç tesisat) başlangıç noktası kot etiketi

@@ -162,6 +162,12 @@ export const LabelMixin = {
             }
         }
 
+        // Kat filtresi: etiketler de ait oldukları katta görünsün
+        const _curFloorId = state.currentFloor?.id || null;
+        const _sameFloor = (o) => !_curFloorId || !o.floorId || o.floorId === _curFloorId;
+        const _pipesForLabels = manager.pipes ? manager.pipes.filter(_sameFloor) : [];
+        const _compsForLabels = manager.components ? manager.components.filter(_sameFloor) : [];
+
         const zoom = state.zoom || 1;
         const t = state.viewBlendFactor || 0;
         const light = isLightMode();
@@ -187,10 +193,10 @@ export const LabelMixin = {
         window._hatMap = hatMap; // panel readonly için erişilebilir yap
 
         // Borular: her hat no için sadece en uzun parçada 1 etiket
-        if (manager.pipes && manager.pipes.length > 0) {
-            // Hat no → borular
+        if (_pipesForLabels && _pipesForLabels.length > 0) {
+            // Hat no → borular (yalnız aktif katın boruları)
             const hatGroups = new Map();
-            manager.pipes.forEach(pipe => {
+            _pipesForLabels.forEach(pipe => {
                 const hatNo = hatMap.get(pipe.id);
                 if (hatNo == null) return;
                 if (!hatGroups.has(hatNo)) hatGroups.set(hatNo, []);
@@ -234,9 +240,9 @@ export const LabelMixin = {
             });
         }
 
-        // Bileşenler
-        if (manager.components) {
-            manager.components.forEach(comp => {
+        // Bileşenler (yalnız aktif katın bileşenleri)
+        if (_compsForLabels) {
+            _compsForLabels.forEach(comp => {
                 switch (comp.type) {
                     case 'sayac':
                         this._drawSayacObjLabel(ctx, comp, opts);
@@ -254,9 +260,9 @@ export const LabelMixin = {
             });
         }
 
-        // Topraklama etiketleri
-        if (manager.pipes) {
-            manager.pipes.forEach(pipe => {
+        // Topraklama etiketleri (yalnız aktif katın boruları)
+        if (_pipesForLabels) {
+            _pipesForLabels.forEach(pipe => {
                 if (pipe.topraklama) this._drawTopraklamaLabel(ctx, pipe, opts);
             });
         }

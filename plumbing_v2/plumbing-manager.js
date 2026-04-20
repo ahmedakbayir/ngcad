@@ -111,33 +111,33 @@ export class PlumbingManager {
         switch (type) {
             case TESISAT_MODLARI.SERVIS_KUTUSU:
                 this.tempComponent = new ServisKutusu(0, 0, {
-                    floorId: state.currentFloorId,
+                    floorId: state.currentFloor?.id,
                     cikisYonu: options.cikisYonu
                 });
                 break;
 
             case TESISAT_MODLARI.SAYAC:
                 this.tempComponent = createSayac(0, 0, {
-                    floorId: state.currentFloorId
+                    floorId: state.currentFloor?.id
                 });
                 break;
 
             case TESISAT_MODLARI.VANA:
                 this.tempComponent = createVana(0, 0, options.vanaTipi || 'AKV', {
-                    floorId: state.currentFloorId
+                    floorId: state.currentFloor?.id
                 });
                 break;
 
             case TESISAT_MODLARI.CIHAZ:
                 this.tempComponent = createCihaz(0, 0, options.cihazTipi || 'KOMBI', {
-                    floorId: state.currentFloorId
+                    floorId: state.currentFloor?.id
                 });
                 break;
 
             case TESISAT_MODLARI.BACA:
                 // Baca için geçici nesne - henüz cihaza bağlı değil
                 this.tempComponent = createBaca(0, 0, null, {
-                    floorId: state.currentFloorId
+                    floorId: state.currentFloor?.id
                 });
                 break;
 

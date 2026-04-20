@@ -15,6 +15,8 @@ import { Sayac } from '../objects/meter.js';
 import { Cihaz } from '../objects/device.js';
 import { Baca } from '../objects/chimney.js';
 import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, isPinned } from '../properties/properties-panel.js';
+import { getFloorIdForZ } from '../../floor/floor-handler.js';
+import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 
 // Tool modları
 export const TESISAT_MODLARI = {
@@ -912,17 +914,24 @@ export function handlePipePaste() {
     // Drag sistemi "p.p1 === node" referans eşitliğiyle çalıştığı için bu kritiktir;
     // aksi hâlde yapıştırılan borular geometrik olarak bitişik olsa da bağımsız sürüklenir.
     for (const pipeData of pasteData.pipes) {
+        const newP1Z = (pipeData.p1.z || 0) + dz;
+        const newP2Z = (pipeData.p2.z || 0) + dz;
+        // Hedef yükseklikte kat yoksa placeholder'dan oluştur
+        ensureFloorForElevation(newP1Z);
+        ensureFloorForElevation(newP2Z);
+
         const p1Node = this.manager.getOrCreateNodeAt(
-            pipeData.p1.x + dx, pipeData.p1.y + dy, (pipeData.p1.z || 0) + dz
+            pipeData.p1.x + dx, pipeData.p1.y + dy, newP1Z
         );
         const p2Node = this.manager.getOrCreateNodeAt(
-            pipeData.p2.x + dx, pipeData.p2.y + dy, (pipeData.p2.z || 0) + dz
+            pipeData.p2.x + dx, pipeData.p2.y + dy, newP2Z
         );
 
         const newPipe = new Boru(p1Node, p2Node, pipeData.boruTipi);
 
         newPipe.colorGroup = pipeData.colorGroup;
-        newPipe.floorId = pipeData.floorId;
+        // floorId: p1.z'ye göre (mevcut kural: boru p1 katında yaşar)
+        newPipe.floorId = getFloorIdForZ(newP1Z) || pipeData.floorId;
         if (pipeData.boruCap) newPipe.boruCap = pipeData.boruCap;
 
         // ID mapping'i kaydet
@@ -1004,9 +1013,13 @@ export function handlePipePaste() {
                 const vanaData = compData.data;
 
                 // Vana constructor: (x, y, tip, options)
+                const newVanaZ = (vanaData.z || 0) + dz;
+                ensureFloorForElevation(newVanaZ);
+                // Vana bağlı olduğu borunun katında yaşasın (riser üzerindeki vana da üst katta gözüksün)
+                const newVanaFloorId = newParentPipe.floorId || getFloorIdForZ(newVanaZ) || vanaData.floorId;
                 const newVana = new Vana(vanaData.x + dx, vanaData.y + dy, vanaData.vanaTipi, {
-                    z: (vanaData.z || 0) + dz,
-                    floorId: vanaData.floorId,
+                    z: newVanaZ,
+                    floorId: newVanaFloorId,
                     bagliBoruId: newParentPipe.id,  // yeni boru ID'si ile bağla
                     boruPozisyonu: vanaData.boruPozisyonu,
                     fromEnd: vanaData.fromEnd,
@@ -1043,9 +1056,15 @@ export function handlePipePaste() {
             const sayacData = compData.data;
 
             // Sayaç constructor: (x, y, options)
+            const newSayacZ = (sayacData.z || 0) + dz;
+            ensureFloorForElevation(newSayacZ);
+            // Sayaç bağlı olduğu boruya göre kata düşsün
+            const sayacFleksNewPipeId = pipeIdMap.get(sayacData.fleksBaglanti?.boruId);
+            const sayacFleksNewPipe = sayacFleksNewPipeId ? newPipes.find(p => p.id === sayacFleksNewPipeId) : null;
+            const newSayacFloorId = sayacFleksNewPipe?.floorId || getFloorIdForZ(newSayacZ) || sayacData.floorId;
             const newSayac = new Sayac(sayacData.x + dx, sayacData.y + dy, {
-                z: (sayacData.z || 0) + dz,
-                floorId: sayacData.floorId
+                z: newSayacZ,
+                floorId: newSayacFloorId
             });
             newSayac.rotation = sayacData.rotation;
             newSayac.config.rijitUzunluk = sayacData.rijitUzunluk ?? 0;
@@ -1082,12 +1101,18 @@ export function handlePipePaste() {
             const cihazData = compData.data;
 
             // Cihaz constructor: (x, y, tip, options)
+            const newCihazZ = (cihazData.z || 0) + dz;
+            ensureFloorForElevation(newCihazZ);
+            // Cihaz bağlı olduğu boruya göre kata düşsün
+            const cihazFleksNewPipeId = pipeIdMap.get(cihazData.fleksBaglanti?.boruId);
+            const cihazFleksNewPipe = cihazFleksNewPipeId ? newPipes.find(p => p.id === cihazFleksNewPipeId) : null;
+            const newCihazFloorId = cihazFleksNewPipe?.floorId || getFloorIdForZ(newCihazZ) || cihazData.floorId;
             const newCihaz = new Cihaz(cihazData.x + dx, cihazData.y + dy, cihazData.cihazTipi, {
-                z: (cihazData.z || 0) + dz,
-                floorId: cihazData.floorId
+                z: newCihazZ,
+                floorId: newCihazFloorId
             });
             newCihaz.rotation = cihazData.rotation;
-            newCihaz.z = (cihazData.z || 0) + dz;
+            newCihaz.z = newCihazZ;
 
             // Panel özellikleri
             ['marka', 'model', 'bacaTipi', 'kapasiteKcal', 'kapasiteKW', 'verim',
@@ -1120,11 +1145,14 @@ export function handlePipePaste() {
                 const bacaData = compData.data;
 
                 // Baca constructor: (x, y, parentCihazId, options)
+                const newBacaZ = (bacaData.z || 0) + dz;
+                // Baca parent cihazla aynı katta olsun
+                const newBacaFloorId = newParentCihaz.floorId || getFloorIdForZ(newBacaZ) || bacaData.floorId;
                 const newBaca = new Baca(
                     bacaData.startX + dx,
                     bacaData.startY + dy,
                     newParentCihaz.id,
-                    { z: (bacaData.z || 0) + dz, floorId: bacaData.floorId }
+                    { z: newBacaZ, floorId: newBacaFloorId }
                 );
 
                 // Segment'leri kopyala: orijinal format {x1,y1,z1,x2,y2,z2}

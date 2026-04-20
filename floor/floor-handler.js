@@ -250,3 +250,11 @@ export function getFloorAtElevation(elevation) {
         elevation < f.topElevation
     ) || null;
 }
+
+/**
+ * Z kotuna göre floorId döndürür. Bulunamazsa aktif katın id'sine düşer.
+ */
+export function getFloorIdForZ(z) {
+    const floor = getFloorAtElevation(z || 0);
+    return floor?.id || state.currentFloor?.id || null;
+}

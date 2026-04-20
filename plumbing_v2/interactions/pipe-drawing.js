@@ -12,6 +12,8 @@ import { state } from '../../general-files/main.js';
 import { isProtectedPoint } from './drag-handler.js';
 import { initObjectDefaults } from '../properties/properties-panel.js';
 import { syncBirimState, seedSayacFromRooms } from '../../draw/draw-birim-labels.js';
+import { getFloorAtElevation, switchToFloor } from '../../floor/floor-handler.js';
+import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 
 /**
  * Boru çizim modunu başlat
@@ -338,7 +340,15 @@ export function handleBoruClick(interactionManager, point) {
     );
     const endNode = mgr.getOrCreateNodeAt(point.x, point.y, point.z || 0);
     const boru = createBoru(startNode, endNode, 'STANDART');
-    boru.floorId = state.currentFloorId;
+    // Kat ataması: borunun başlangıç (p1) Z kotunun düştüğü katı kullan.
+    // Dikey riser için bile başlangıç katı referans alınır (p2 üst katta olabilir).
+    const startZ = boru.p1.z || 0;
+    const endZ = boru.p2.z || 0;
+    // Üst uç mevcut katlarını aşıyorsa otomatik üst kat oluştur
+    ensureFloorForElevation(endZ);
+    ensureFloorForElevation(startZ);
+    const startFloor = getFloorAtElevation(startZ) || state.currentFloor;
+    boru.floorId = startFloor?.id || null;
     boru.colorGroup = interactionManager.boruBaslangic.kaynakColorGroup || 'YELLOW';
 
     if (interactionManager.boruBaslangic.kaynakId) {
@@ -369,6 +379,12 @@ export function handleBoruClick(interactionManager, point) {
     // Boru birime ulaştıysa: sayaç boşsa mahallerden tohumla, sonra sayaç→oda yay
     seedSayacFromRooms();
     syncBirimState();
+
+    // Üst/alt kata geçildiyse aktif katı otomatik değiştir — sonraki borular yeni katta çizilir
+    const endFloor = getFloorAtElevation(endZ);
+    if (endFloor && endFloor.id !== state.currentFloor?.id) {
+        switchToFloor(endFloor.id);
+    }
 
     interactionManager.manager.saveToState();
 

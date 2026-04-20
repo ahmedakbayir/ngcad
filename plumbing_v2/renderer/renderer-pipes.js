@@ -6,7 +6,7 @@ import { SERVIS_KUTUSU_CONFIG } from '../objects/service-box.js';
 import { SAYAC_CONFIG } from '../objects/meter.js';
 import { CIHAZ_TIPLERI } from '../objects/device.js';
 import { state, getDimensionPlumbingColor, isLightMode, getShadow, THEME_COLORS } from '../../general-files/main.js';
-import { buildPipeHierarchy } from './renderer-utils.js';
+import { buildPipeHierarchy, clipPipeToFloor } from './renderer-utils.js';
 
 // Seçili eleman rengi
 const CUSTOM_COLORS = {
@@ -104,9 +104,16 @@ export const PipeMixin = {
 
     drawShadows(ctx, manager) {
         const isLight = this.isLightMode();
-        // Açık mod: Siyah transparan gölge
-        // Koyu mod: Beyaz transparan iz (Zemin koyu olduğu için parlaklık veriyoruz)
         const shadowColor = isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+
+        // Sadece aktif katın gölgesi görünür — diğer katlar 3D'de de çizilmez
+        const t = state.viewBlendFactor || 0;
+        const currentFloor = state.currentFloor;
+        if (!currentFloor) return;
+        const baseZ = currentFloor.bottomElevation || 0;
+        const curFloorId = currentFloor.id;
+        const off = baseZ * t;
+        const sameFloor = (o) => !o.floorId || o.floorId === curFloorId;
 
         ctx.save();
         ctx.fillStyle = shadowColor;
@@ -114,31 +121,42 @@ export const PipeMixin = {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        // 1. Boru Gölgeleri (Z=0, sadece X ve Y koordinatları)
+        // 1. Boru Gölgeleri — aktif kattaki boru parçaları (slice'lar)
+        //    Cross-floor riser aktif katın Z aralığına kırpılır.
         manager.pipes.forEach(pipe => {
+            // Hızlı filtre: pipe.floorId başka katsa ve Z aralığı bu kata hiç değmiyorsa atla
+            if (pipe.floorId && pipe.floorId !== curFloorId) {
+                const z1 = pipe.p1.z || 0;
+                const z2 = pipe.p2.z || 0;
+                const zMin = Math.min(z1, z2);
+                const zMax = Math.max(z1, z2);
+                if (zMax <= currentFloor.bottomElevation || zMin >= currentFloor.topElevation) return;
+            }
+
+            const slice = clipPipeToFloor(pipe, currentFloor);
+            if (!slice) return;
+
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
             const zoom = state.zoom || 1;
-
-            // Zoom'a göre kalınlık ayarı (drawPipes ile uyumlu)
             let width = config.lineWidth;
             if (zoom < 1) width = 4 / zoom;
 
             ctx.lineWidth = width;
             ctx.beginPath();
-            // Borunun orijinal X,Y koordinatları zaten zemindedir (Z hariç)
-            ctx.moveTo(pipe.p1.x, pipe.p1.y);
-            ctx.lineTo(pipe.p2.x, pipe.p2.y);
+            ctx.moveTo(slice.p1.x + off, slice.p1.y - off);
+            ctx.lineTo(slice.p2.x + off, slice.p2.y - off);
             ctx.stroke();
         });
 
-        // 2. Bileşen Gölgeleri
+        // 2. Bileşen Gölgeleri — yalnız aktif kattakiler
         manager.components.forEach(comp => {
-            if (comp.type === 'sayac') return; // sayaç gölgesi yok
-            if (comp.type === 'cihaz') return; // cihaz gölgesi yok
-            if (comp.type === 'baca') return;  // baca gölgesi yok
+            if (comp.type === 'sayac') return;
+            if (comp.type === 'cihaz') return;
+            if (comp.type === 'baca') return;
+            if (!sameFloor(comp)) return;
 
             ctx.save();
-            ctx.translate(comp.x, comp.y);
+            ctx.translate(comp.x + off, comp.y - off);
             if (comp.rotation) ctx.rotate(comp.rotation * Math.PI / 180);
 
             if (comp.type === 'servis_kutusu') {
@@ -146,7 +164,6 @@ export const PipeMixin = {
                 ctx.fillRect(-width / 2, -height / 2, width, height);
             }
             else if (comp.type === 'vana') {
-                // Vana gölgesi (küçük daire)
                 ctx.beginPath();
                 ctx.arc(0, 0, 4, 0, Math.PI * 2);
                 ctx.fill();
@@ -844,7 +861,7 @@ export const PipeMixin = {
     },
 
     drawGeciciBoruShadow(ctx, geciciBoru) {
-        // Geçici borunun gölgesini çiz (zemin seviyesinde)
+        // Geçici borunun gölgesini çiz — aktif katın tabanına düşür
         const isLight = this.isLightMode();
         const shadowColor = isLight ? 'rgba(0, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.3)';
 
@@ -853,18 +870,21 @@ export const PipeMixin = {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        // Zoom'a göre kalınlık ayarı
         const zoom = state.zoom || 1;
         let width = 4;
         if (zoom < 1) {
             width = 4 / zoom;
         }
 
+        // Aktif katın tabanı
+        const t = state.viewBlendFactor || 0;
+        const baseZ = state.currentFloor?.bottomElevation || 0;
+        const off = baseZ * t;
+
         ctx.lineWidth = width;
         ctx.beginPath();
-        // Gölge zemin seviyesinde (sadece X, Y koordinatları)
-        ctx.moveTo(geciciBoru.p1.x, geciciBoru.p1.y);
-        ctx.lineTo(geciciBoru.p2.x, geciciBoru.p2.y);
+        ctx.moveTo(geciciBoru.p1.x + off, geciciBoru.p1.y - off);
+        ctx.lineTo(geciciBoru.p2.x + off, geciciBoru.p2.y - off);
         ctx.stroke();
 
         ctx.restore();
@@ -1493,6 +1513,74 @@ export const PipeMixin = {
 
             ctx.restore();
         });
+    },
+
+    /**
+     * Kat geçiş işaretleri. pipes listesi slice proxy'leri (her biri _crossesTop /
+     * _crossesBottom bilgisi taşır). Çizilen semboller:
+     *  - Slice'ın alt katı bırakan ucunda (crossesTop) ve üst kata giren ucunda
+     *    (crossesBottom): borunun yanına çift çizgi
+     *  - Yalnız üst kattaki slice'ın alt ucunda (crossesBottom): yuvarlak çıkış
+     *    sembolü (aşağıdan yukarı geldiği işareti)
+     */
+    drawFloorCrossingMarkers(ctx, pipes) {
+        if (!pipes || !pipes.length) return;
+        const t = state.viewBlendFactor || 0;
+        // Yalnız 3D sahnede çiz
+        if (t < 0.5) return;
+
+        const zoom = state.zoom || 1;
+        const light = isLightMode();
+        const strokeColor = light ? '#374151' : '#d1d5db';
+        const LW = 2 / zoom;
+
+        const LINE_LEN = 14;    // borunun yanındaki kısa çizgi uzunluğu
+        const LINE_OFFSET = 4; // borudan dışa doğru mesafe
+
+        ctx.save();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = LW;
+        ctx.lineCap = 'round';
+        ctx.setLineDash([]);
+
+        pipes.forEach(pipe => {
+            if (!pipe._isSlice) return;
+            if (!pipe._crossesTop && !pipe._crossesBottom) return;
+            if (!pipe.p1 || !pipe.p2) return;
+
+            const z1 = (pipe.p1.z || 0) * t;
+            const z2 = (pipe.p2.z || 0) * t;
+            const sx1 = pipe.p1.x + z1, sy1 = pipe.p1.y - z1;
+            const sx2 = pipe.p2.x + z2, sy2 = pipe.p2.y - z2;
+
+            const dx = sx2 - sx1, dy = sy2 - sy1;
+            const len = Math.hypot(dx, dy);
+            const ndx = len > 0.01 ? dx / len : 0;
+            const ndy = len > 0.01 ? dy / len : -1;
+            // Boruya dik yön
+            const px = ndy, py = -ndx;
+
+            const upperIsP2 = (pipe.p2.z || 0) >= (pipe.p1.z || 0);
+            const upper = { x: upperIsP2 ? sx2 : sx1, y: upperIsP2 ? sy2 : sy1 };
+            const lower = { x: upperIsP2 ? sx1 : sx2, y: upperIsP2 ? sy1 : sy2 };
+
+            // Borunun sağ ve solunda birer kısa paralel çizgi
+            const drawSideLines = (pt) => {
+                for (const sign of [1, -1]) {
+                    const cx = pt.x + px * (sign * LINE_OFFSET);
+                    const cy = pt.y + py * (sign * LINE_OFFSET);
+                    ctx.beginPath();
+                    ctx.moveTo(cx - ndx * LINE_LEN / 2, cy - ndy * LINE_LEN / 2);
+                    ctx.lineTo(cx + ndx * LINE_LEN / 2, cy + ndy * LINE_LEN / 2);
+                    ctx.stroke();
+                }
+            };
+
+            if (pipe._crossesTop) drawSideLines(upper);
+            if (pipe._crossesBottom) drawSideLines(lower);
+        });
+
+        ctx.restore();
     },
 
     drawPipeDirectionVisualization(ctx, pipes) {

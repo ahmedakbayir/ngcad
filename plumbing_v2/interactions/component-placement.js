@@ -13,6 +13,8 @@ import { canPlaceValveOnPipe, getObjectsOnPipe } from './placement-utils.js';
 import { TESISAT_MODLARI } from './interaction-manager.js';
 import { snapTo15DegreeAngle } from '../../draw/geometry.js';
 import { initObjectDefaults } from '../properties/properties-panel.js';
+import { getFloorIdForZ } from '../../floor/floor-handler.js';
+import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 
 /**
  * Bileşeni yerleştir
@@ -425,7 +427,7 @@ export function handleVanaPlacement(vanaPreview) {
 
     // Vana oluşturma seçenekleri
     const vanaOptions = {
-        floorId: state.currentFloorId,
+        floorId: state.currentFloor?.id,
         bagliBoruId: pipe.id,
         boruPozisyonu: t
     };
@@ -445,6 +447,8 @@ export function handleVanaPlacement(vanaPreview) {
 
     // Z Yüksekliğini Ata
     vana.z = z;
+    ensureFloorForElevation(z);
+    vana.floorId = getFloorIdForZ(z);
 
     // AÇI DÜZELTMESİ (Sorunu çözen kısım)
     if (isVertical) {
@@ -583,6 +587,10 @@ export function handleSayacEndPlacement(meter) {
     if (meter.z === undefined) {
         meter.z = boruUcu.nokta.z || 0;
     }
+    // Sayacın katı, bağlantı noktasının Z'sine göre belirlenir.
+    // (Cross-floor boru: p1 alt katta, p2 üst katta — sayaç bağlandığı uç hangi
+    // kattaysa o katta gözükmeli, borunun floorId'sine değil.)
+    meter.floorId = getFloorIdForZ(meter.z) || boruUcu.boru?.floorId || null;
     // Sayaç pozisyonu ve rotation ghost'tan geliyor (mouse konumuna göre ayarlanmış)
     // Ghost'ta zaten doğru pozisyon ve yön belirlendi, burada yeniden hesaplamaya gerek yok
     // meter.x, meter.y ve meter.rotation zaten ghost positioning'den doğru değerlerde
@@ -653,6 +661,12 @@ export function handleCihazEkleme(cihaz) {
 
     // Undo için state kaydet
     saveState();
+
+    // Cihazın floorId'si: bağlantı noktasının Z'sine göre belirlenir.
+    // (Cross-floor boruya bağlanan cihaz, bağlandığı ucun hangi katta olduğuna
+    // göre o katta görünsün — borunun genel floorId'sine değil.)
+    const _cihazBagZ = (boruUcu.nokta?.z != null ? boruUcu.nokta.z : (cihaz.z || 0));
+    cihaz.floorId = getFloorIdForZ(_cihazBagZ) || boruUcu.boru?.floorId || null;
 
     // Boru ucunda vana var mı kontrol et
     const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
@@ -979,7 +993,7 @@ export function handleMeterStartPipeSecondClick(endPoint) {
 
     // Geçici sayaç oluştur - POZİSYON ve ROTATION AYARLI
     const tempMeter = createSayac(p2.x, p2.y, {
-        floorId: state.currentFloorId,
+        floorId: state.currentFloor?.id,
         z: p1.z || 0
     });
     tempMeter.rotation = sayacRotation;

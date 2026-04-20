@@ -40,8 +40,24 @@ export function pixelsToWorld(pixelTolerance) {
 export function findObjectAt(manager, point) {
     // ÖNCELİK 1: Bileşenler (Vana, Sayaç, Cihaz vb.)
     const t = state.viewBlendFactor || 0;
+    // Kat filtresi: 2D'de başka katın nesneleri seçilmesin.
+    // 3D'de ise tüm katlardan seçilebilir (sonra katı otomatik değiştireceğiz).
+    // Ancak cross-floor boruların görünen slice'ı aktif katta da seçilebilmeli.
+    const is3D = t >= 0.5;
+    const currentFloorId = state.currentFloor?.id || null;
+    const currentFloor = state.currentFloor || null;
+    const sameFloor = (o) => is3D || !currentFloorId || !o.floorId || o.floorId === currentFloorId;
+    const pipeVisibleOnFloor = (pipe) => {
+        if (is3D) return true;
+        if (!currentFloorId || !pipe.floorId || pipe.floorId === currentFloorId) return true;
+        if (!currentFloor) return true;
+        const z1 = pipe.p1?.z || 0, z2 = pipe.p2?.z || 0;
+        const zMin = Math.min(z1, z2), zMax = Math.max(z1, z2);
+        return zMax > currentFloor.bottomElevation && zMin < currentFloor.topElevation;
+    };
 
     for (const comp of manager.components) {
+        if (!sameFloor(comp)) continue;
         let hit = false;
         const z = comp.z || 0;
 
@@ -49,7 +65,7 @@ export function findObjectAt(manager, point) {
             const visualX = comp.x + z * t;
             const visualY = comp.y - z * t;
             const dist = Math.hypot(point.x - visualX, point.y - visualY);
-            if (dist < 10) { 
+            if (dist < 10) {
                 hit = true;
             }
         } else {
@@ -65,8 +81,9 @@ export function findObjectAt(manager, point) {
 
     // ÖNCELİK 2: Borular
     const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
-    
+
     for (const pipe of manager.pipes) {
+        if (!pipeVisibleOnFloor(pipe)) continue;
         const p1Screen = getScreenPoint(pipe.p1);
         const p2Screen = getScreenPoint(pipe.p2);
 
@@ -175,24 +192,31 @@ export function hasAncestorMeter(manager, componentId, componentType) {
 }
 
 export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints = false, preferredPipeId = null) {
-    const currentFloorId = state.currentFloor?.id;
+    const currentFloor = state.currentFloor || null;
+    const t = state.viewBlendFactor || 0;
+    const is3D = t >= 0.5;
+    // Uç noktanın aktif katta görünür olup olmadığını kontrol eder
+    // (cross-floor boru için p1 bir katta, p2 diğer katta olabilir)
+    const endpointVisible = (pt) => {
+        if (is3D || !currentFloor) return true;
+        const z = pt.z || 0;
+        return z >= currentFloor.bottomElevation && z < currentFloor.topElevation;
+    };
     const candidates = [];
 
     for (const boru of manager.pipes) {
-        if (currentFloorId && boru.floorId && boru.floorId !== currentFloorId) continue;
-
         const p1Screen = getScreenPoint(boru.p1);
         const p2Screen = getScreenPoint(boru.p2);
 
         const distP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
         const distP2 = Math.hypot(point.x - p2Screen.x, point.y - p2Screen.y);
 
-        if (distP1 < tolerance) {
+        if (distP1 < tolerance && endpointVisible(boru.p1)) {
             if (!onlyFreeEndpoints || (manager.isTrulyFreeEndpoint(boru.p1, 1) && !hasDeviceAtEndpoint(manager, boru.id, 'p1') && !hasMeterAtEndpoint(manager, boru.id, 'p1'))) {
                 candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
             }
         }
-        if (distP2 < tolerance) {
+        if (distP2 < tolerance && endpointVisible(boru.p2)) {
             if (!onlyFreeEndpoints || (manager.isTrulyFreeEndpoint(boru.p2, 1) && !hasDeviceAtEndpoint(manager, boru.id, 'p2') && !hasMeterAtEndpoint(manager, boru.id, 'p2'))) {
                 candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
             }
@@ -220,7 +244,18 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
 }
 
 export function findBoruGovdeAt(manager, point, tolerance = 5) {
+    const currentFloor = state.currentFloor || null;
+    const t = state.viewBlendFactor || 0;
+    const is3D = t >= 0.5;
+    // Boru gövdesi aktif katta görünüyor mu (z aralığı kesişiyor mu)
+    const pipeVisible = (pipe) => {
+        if (is3D || !currentFloor) return true;
+        const z1 = pipe.p1?.z || 0, z2 = pipe.p2?.z || 0;
+        const zMin = Math.min(z1, z2), zMax = Math.max(z1, z2);
+        return zMax > currentFloor.bottomElevation && zMin < currentFloor.topElevation;
+    };
     for (const boru of manager.pipes) {
+        if (!pipeVisible(boru)) continue;
         const p1Screen = getScreenPoint(boru.p1);
         const p2Screen = getScreenPoint(boru.p2);
         const dx = p2Screen.x - p1Screen.x;

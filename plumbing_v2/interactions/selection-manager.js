@@ -3,10 +3,11 @@
  * Seçim işlemlerini yönetir
  */
 
-import { setState } from '../../general-files/main.js';
+import { setState, state } from '../../general-files/main.js';
 import { saveState } from '../../general-files/history.js';
 import { openPropertiesPanel, closePropertiesPanel, onDeselect, isPanelOpen, isPinned } from '../properties/properties-panel.js';
 import { computeHatGroups } from '../renderer/renderer-utils.js';
+import { switchToFloor } from '../../floor/floor-handler.js';
 
 /**
  * Seçilen borunun kaynaktan o boruya kadar olan hat yolunu bulur.
@@ -51,6 +52,13 @@ function getPipePath(pipe, manager) {
  */
 export function selectObject(interactionManager, obj, opts = {}) {
     const openPanel = !!opts.openPanel;
+
+    // 3D sahnede başka katın nesnesi seçildiyse o kata otomatik geç
+    const vbf = state.viewBlendFactor || 0;
+    if (vbf >= 0.5 && obj && obj.floorId && obj.floorId !== state.currentFloor?.id) {
+        switchToFloor(obj.floorId);
+    }
+
     // Önceki seçimi temizle
     if (interactionManager.selectedObject && interactionManager.selectedObject !== obj) {
         interactionManager.selectedObject.isSelected = false;

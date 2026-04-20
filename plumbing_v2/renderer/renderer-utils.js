@@ -83,6 +83,113 @@ export function distance(p1, p2) {
 }
 
 /**
+ * Boruyu verilen kat aralığına kırpar.
+ * Yatay borular (z1≈z2) z değerleri aralıktaysa tek parça döner.
+ * Dikey/eğik borular kat sınırlarında kesilir ve crossesBottom/Top bilgisiyle döner.
+ * @returns {null | { p1, p2, crossesBottom, crossesTop }}
+ */
+export function clipPipeToFloor(pipe, floor) {
+    if (!pipe || !pipe.p1 || !pipe.p2 || !floor) return null;
+    const z1 = pipe.p1.z || 0;
+    const z2 = pipe.p2.z || 0;
+    const fB = floor.bottomElevation;
+    const fT = floor.topElevation;
+
+    // Yatay boru — z sabit
+    if (Math.abs(z1 - z2) < 0.01) {
+        if (z1 >= fB && z1 < fT) {
+            return {
+                p1: { ...pipe.p1 },
+                p2: { ...pipe.p2 },
+                crossesBottom: false,
+                crossesTop: false
+            };
+        }
+        return null;
+    }
+
+    // Dikey/eğik — [fB, fT) ile kesişim al
+    const zMin = Math.min(z1, z2);
+    const zMax = Math.max(z1, z2);
+    const zLo = Math.max(zMin, fB);
+    const zHi = Math.min(zMax, fT);
+    if (zLo >= zHi) return null;
+
+    const interp = (p, q, t) => ({
+        x: p.x + (q.x - p.x) * t,
+        y: p.y + (q.y - p.y) * t,
+        z: (p.z || 0) + ((q.z || 0) - (p.z || 0)) * t
+    });
+
+    // p1 -> p2 yönünde ilerleyen t parametresi bul
+    const tLo = (zLo - z1) / (z2 - z1);
+    const tHi = (zHi - z1) / (z2 - z1);
+    const tStart = Math.min(tLo, tHi);
+    const tEnd = Math.max(tLo, tHi);
+
+    return {
+        p1: interp(pipe.p1, pipe.p2, tStart),
+        p2: interp(pipe.p1, pipe.p2, tEnd),
+        crossesBottom: zMin < fB - 0.01,
+        crossesTop: zMax > fT + 0.01
+    };
+}
+
+/**
+ * Borunun tüm katlarla kesişimini döner. Her slice kendi floorId'sini taşır
+ * ve orijinal boruyu referans alır (hierarcy, renk vs. için).
+ * @param {object} pipe
+ * @param {Array} floors - placeholder olmayanlar
+ * @returns {Array<{p1,p2,floorId,originalPipe,crossesBottom,crossesTop}>}
+ */
+export function slicePipeAcrossFloors(pipe, floors) {
+    const out = [];
+    if (!floors || !floors.length) return out;
+    for (const f of floors) {
+        if (f.isPlaceholder) continue;
+        const c = clipPipeToFloor(pipe, f);
+        if (c) {
+            out.push({
+                p1: c.p1,
+                p2: c.p2,
+                floorId: f.id,
+                originalPipe: pipe,
+                crossesBottom: c.crossesBottom,
+                crossesTop: c.crossesTop
+            });
+        }
+    }
+    // Eğer hiçbir floor eşleşmediyse (z aralığı dışında), orijinalini ait olduğu
+    // floorId ile tek slice olarak döndür — legacy/edge durum güvenliği.
+    if (out.length === 0) {
+        out.push({
+            p1: { ...pipe.p1 },
+            p2: { ...pipe.p2 },
+            floorId: pipe.floorId || null,
+            originalPipe: pipe,
+            crossesBottom: false,
+            crossesTop: false
+        });
+    }
+    return out;
+}
+
+/**
+ * Slice verisinden çizim için pipe proxy'si üretir. Orijinal boru özelliklerini
+ * (boruTipi, colorGroup, id, boruCap, topraklama) miras alır, yalnız p1/p2 değişir.
+ */
+export function makeSlicedPipeProxy(slice) {
+    const proxy = Object.create(slice.originalPipe);
+    proxy.p1 = slice.p1;
+    proxy.p2 = slice.p2;
+    proxy._isSlice = true;
+    proxy._sliceFloorId = slice.floorId;
+    proxy._crossesBottom = slice.crossesBottom;
+    proxy._crossesTop = slice.crossesTop;
+    return proxy;
+}
+
+/**
  * Borular arasında parent-child ilişkisini kurar ve etiketler (Mantıksal Bağlantı Bazlı)
  * @param {Array} pipes - Borular listesi
  * @param {Array} components - Bileşenler listesi
