@@ -10,14 +10,66 @@ import { draw2D } from '../../draw/draw2d.js';
 import { state, setState } from '../../general-files/main.js';
 import { syncBirimState } from '../../draw/draw-birim-labels.js';
 
+
+export const PANEL_MODES = {
+    MANUAL: 0, // 👆 Sadece SPACE veya Özellikler butonu ile açılır
+    AUTO: 1,   // 🎯 Nesne seçince açılır, seçimi bırakınca kapanır
+    ALWAYS: 2  // 📌 Her zaman açık kalır, boşta "Nesne Seçilmedi" yazar
+};
+export let currentPanelMode = PANEL_MODES.ALWAYS; // Varsayılan mod Daima olsun
+
 // ─── DURUM ───────────────────────────────────────────────────────────────────
 
 let panelEl = null;
 let _currentObj = null;
 let _currentManager = null;
-let _isPinned = true;
 let _rafId = null;
 let _liveProps = null; // readonly props with readonlyFn — rAF döngüsünde güncellenir
+
+// --- MOD BUTONU İÇİN YARDIMCI FONKSİYON ---
+function getModeBtnUI(mode) {
+    if (mode === PANEL_MODES.MANUAL) return { icon: '🔘', title: 'Manuel (Sadece Buton/SPACE ile açılır)', color: '#888' };
+    if (mode === PANEL_MODES.AUTO) return { icon: '⚡', title: 'Otomatik (Seçimde açılır, boşta kapanır)', color: '#fff' };
+    return { icon: '📌', title: 'Sabit (Her zaman açık kalır)', color: '#00bffa' };
+}
+
+//Sahnede hiçbir şey seçili değilken "Her Zaman Açık" modunda çalışacak şık bir boş ekran fonksiyonu :
+export function openEmptyPanel() {
+    if (!panelEl) createPanel();
+
+    panelEl.style.display = 'flex';
+    panelEl.classList.add('visible', 'full-height');
+    const modeUI = getModeBtnUI(currentPanelMode);
+
+    panelEl.innerHTML = `
+        <div class="props-header">
+            <span class="props-title">Özellikler</span>
+            <div class="props-header-actions">
+                <button class="props-btn-pin" id="props-pin-btn" title="${modeUI.title}" style="color: ${modeUI.color}; opacity: 1;">
+                    ${modeUI.icon}
+                </button>
+                <button class="props-btn-close" title="Kapat (ESC)" id="props-close-btn">×</button>
+            </div>
+        </div>
+        <div class="props-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; 
+                height: calc(100vh - 48px); color: #888; text-align: center; padding: 20px;">
+            <div style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;">🖱️</div>
+            <div style="font-size: 14px; font-weight: bold; color: #aaa;">Nesne Seçilmedi</div>
+            <div style="font-size: 12px; margin-top: 5px; opacity: 0.7;">Özelliklerini görmek için sahnede bir nesneye tıklayın.</div>
+        </div>
+    `;
+
+    // Boş ekrandaki butonları bağla
+    panelEl.querySelector('#props-close-btn').addEventListener('click', () => closePropertiesPanel(true));
+    panelEl.querySelector('#props-pin-btn').addEventListener('click', () => {
+        togglePanelMode();
+        const btn = panelEl.querySelector('#props-pin-btn');
+        const newUI = getModeBtnUI(currentPanelMode);
+        btn.innerHTML = newUI.icon;
+        btn.title = newUI.title;
+        btn.style.color = newUI.color;
+    });
+}
 
 // ─── PANEL YARAT ─────────────────────────────────────────────────────────────
 
@@ -31,7 +83,6 @@ function createPanel() {
 
     panelEl.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            // Pin'i sıfırlamıyoruz, paneli kapatıyoruz (Seçim de iptal olmaz)
             closePropertiesPanel();
             e.stopPropagation();
         }
@@ -46,7 +97,6 @@ function createPanel() {
 }
 
 // ─── AÇMA / KAPAMA ───────────────────────────────────────────────────────────
-
 export function openPropertiesPanel(obj, manager) {
     if (!panelEl) createPanel();
     // Panel açılmadan önce sayaç↔mahal birim no senkronizasyonu garantiye alınmalı
@@ -55,15 +105,26 @@ export function openPropertiesPanel(obj, manager) {
     _currentManager = manager;
     _initDefaults(obj, manager);
     renderPanel(obj, manager);
-    panelEl.classList.add('visible');
+
+    // BURASI ÖNEMLİ: Panel açılırken visible ile birlikte full-height da eklenir
+    panelEl.classList.add('visible', 'full-height');
+    panelEl.style.display = 'flex';
+
     updatePropertiesBtn(true);
     _startLiveRefresh();
 }
 
-export function closePropertiesPanel() {
-    _stopLiveRefresh();
-    if (panelEl) panelEl.classList.remove('visible');
-    _currentObj = null;
+export function closePropertiesPanel(forceClose = false) {
+    // Sabit moddaysak ve "Özellikler" butonuna/ESC'ye ZORLA basılmadıysa paneli kapatma, sadece boşalt
+    if (currentPanelMode === PANEL_MODES.ALWAYS && !forceClose) {
+        openEmptyPanel();
+        return;
+    }
+
+    if (panelEl) {
+        panelEl.classList.remove('visible');
+        panelEl.style.display = 'none';
+    }
     updatePropertiesBtn(false);
 }
 
@@ -167,14 +228,18 @@ function _stopLiveRefresh() {
 
 // Seçim kaldırıldığında çağrılır: nesne seçiminden çıkılınca panel her zaman kapanır
 export function onDeselect() {
-    if (_isPinned) return;
-    closePropertiesPanel();
+    if (currentPanelMode === PANEL_MODES.ALWAYS) {
+        openEmptyPanel(); // Sabitse boş ekran göster
+    } else if (currentPanelMode === PANEL_MODES.AUTO) {
+        closePropertiesPanel(); // Otomatikse kapat
+    }
+    // Manuel moddaysa zaten kendimiz kapatana kadar durur
 }
 
 
-
 export function togglePropertiesPanel(obj, manager) {
-    if (panelEl && panelEl.classList.contains('visible') && _currentObj === obj) {
+    if (panelEl && panelEl.classList.contains('visible') && _currentObj === obj && panelEl.querySelector('.props-empty') === null) {
+        // Eğer aynı nesneye tıklandıysa ve panel ZATEN boş ekran değilse kapat
         closePropertiesPanel();
     } else {
         openPropertiesPanel(obj, manager);
@@ -186,7 +251,9 @@ export function isPanelOpen() {
 }
 
 export function isPinned() {
-    return _isPinned;
+    // Manuel (0) modunda false döner -> Sistem otomatik panel açmaz
+    // Auto (1) ve Sabit (2) modunda true döner -> Sistem nesne seçilince paneli günceller
+    return currentPanelMode === PANEL_MODES.AUTO || currentPanelMode === PANEL_MODES.ALWAYS;
 }
 
 function updatePropertiesBtn(active) {
@@ -208,18 +275,19 @@ function renderPanel(obj, manager) {
     );
 
     const hasDesc = true; // tüm nesnelerde açıklama alanı göster
+    const modeUI = getModeBtnUI(currentPanelMode);
 
     panelEl.innerHTML = `
         <div class="props-header">
             <span class="props-title">${typeLabel} Özellikleri</span>
             <div class="props-header-actions">
-                <button class="props-btn-pin ${_isPinned ? 'pinned' : ''}" id="props-pin-btn" title="${_isPinned ? 'Sabitlemeyi Kaldır' : 'Sabitle'}">
-                    ${pinSvg(_isPinned)}
+                <button class="props-btn-pin" id="props-pin-btn" title="${modeUI.title}" style="color: ${modeUI.color}; opacity: 1;">
+                    ${modeUI.icon}
                 </button>
                 <button class="props-btn-close" title="Kapat (ESC)" id="props-close-btn">×</button>
             </div>
         </div>
-        <div class="props-body">
+        <div class="props-body" style="min-height: calc(100vh - 48px);">  
             ${props.length === 0
             ? '<div class="props-empty">Bu nesne için tanımlı özellik yok.</div>'
             : props.map(prop => renderProperty(prop, obj, manager)).join('')
@@ -232,27 +300,23 @@ function renderPanel(obj, manager) {
     // afterChange callback'lerinin paneli yeniden render edebilmesi için
     panelEl._refresh = () => { renderPanel(obj, manager); };
 
-    panelEl.querySelector('#props-close-btn').addEventListener('click', closePropertiesPanel);
+    panelEl.querySelector('#props-close-btn').addEventListener('click', () => closePropertiesPanel(true)); // X basınca ZORLA kapat
     panelEl.querySelector('#props-pin-btn').addEventListener('click', () => {
-        _isPinned = !_isPinned;
+        togglePanelMode();
         const btn = panelEl.querySelector('#props-pin-btn');
-        btn.classList.toggle('pinned', _isPinned);
-        btn.title = _isPinned ? 'Sabitlemeyi Kaldır' : 'Sabitle';
-        btn.innerHTML = pinSvg(_isPinned);
+        const newUI = getModeBtnUI(currentPanelMode);
+        btn.innerHTML = newUI.icon;
+        btn.title = newUI.title;
+        btn.style.color = newUI.color;
     });
+
     bindInputEvents(panelEl, props, obj, manager);
     bindConnectedObjectsEvents(panelEl, obj, manager);
     if (hasDesc) bindDescriptionEvents(panelEl, obj);
     _initCollapsibleSections(panelEl);
 
-    // İçerik 50vh'yi geçiyorsa paneli tam boy aç
-    requestAnimationFrame(() => {
-        const body = panelEl.querySelector('.props-body');
-        if (!body) return;
-        const halfVh = window.innerHeight * 0.5;
-        const bodyH = body.scrollHeight;
-        panelEl.classList.toggle('full-height', bodyH > halfVh);
-    });
+
+
 }
 
 function renderDualField(field, obj, manager) {
@@ -437,9 +501,7 @@ function renderProperty(prop, obj, manager) {
                         title="Grupla"
                         style="${vis}">
                     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Dışarıdaki birleşik grup kutusu (kesikli) -->
                         <rect x="0.75" y="2.5" width="14.5" height="11" rx="1.5" stroke-width="1.1" stroke-dasharray="2 1.2"/>
-                        <!-- İki iç nesne -->
                         <rect x="2.5" y="5" width="4" height="6" rx="0.8" stroke-width="1.3"/>
                         <rect x="9.5" y="5" width="4" height="6" rx="0.8" stroke-width="1.3"/>
                     </svg>
@@ -991,13 +1053,6 @@ function _formatNumeric(val, precision) {
     return n.toFixed(precision);
 }
 
-function pinSvg() {
-    return `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="12" y1="17" x2="12" y2="22"/>
-        <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/>
-    </svg>`;
-}
-
 // ─── BUTON BAĞLAMA (uygulama başladığında çağrılır) ──────────────────────────
 
 export function initPropertiesButton(manager) {
@@ -1006,15 +1061,45 @@ export function initPropertiesButton(manager) {
 
     btn.addEventListener('click', () => {
         if (isPanelOpen()) {
-            closePropertiesPanel();
+            // Panel açıksa ZORLA kapat (forceClose = true)
+            closePropertiesPanel(true);
         } else {
+            // Panel kapalıysa AÇ
             const im = manager?.interactionManager;
-            const sel = im?.selectedObject || im?.selectedValve?.vana;
-            if (sel && ['boru', 'sayac', 'vana', 'servis_kutusu', 'cihaz', 'room', 'wall', 'door', 'window', 'stairs'].includes(sel.type)) {
+            let sel = im?.selectedObject || im?.selectedValve?.vana;
+            if (!sel && window.state?.selectedObject) sel = window.state.selectedObject.object;
+            if (!sel && window.state?.selectedRoom) sel = window.state.selectedRoom;
+
+            // Eğer seçili nesne varsa onunla aç, yoksa boş ekranı fırlat
+            if (sel) {
                 openPropertiesPanel(sel, manager);
+            } else {
+                openEmptyPanel();
             }
         }
     });
+}
+
+export function togglePanelMode() {
+    currentPanelMode = (currentPanelMode + 1) % 3; // 0 -> 1 -> 2 -> 0 diye döner
+
+    // Panel Header'ındaki butonun görünümünü güncelle (Eğer panel henüz açılmamışsa çalışmaz)
+    const btn = document.getElementById('props-pin-btn');
+    if (btn) {
+        const newUI = getModeBtnUI(currentPanelMode);
+        btn.innerHTML = newUI.icon;
+        btn.title = newUI.title;
+        btn.style.color = newUI.color;
+    }
+
+    // Moda geçer geçmez anlık tepki ver:
+    if (currentPanelMode === PANEL_MODES.ALWAYS && !isPanelOpen()) {
+        openEmptyPanel();
+    } else if ((currentPanelMode === PANEL_MODES.AUTO || currentPanelMode === PANEL_MODES.MANUAL) && isPanelOpen()) {
+        // Eğer sahnede bir seçim yoksa paneli gizle
+        const selObj = window.state?.selectedObject || window.plumbingManager?.interactionManager?.selectedObject;
+        if (!selObj) closePropertiesPanel(true);
+    }
 }
 
 // refreshPanelPosition artık gerekli değil (panel sabit), ama import edenler için boş bırak

@@ -273,7 +273,7 @@ function _detectVanaTipi(pipe, t, manager) {
     });
 
     // ── 1. Serbest boru ucu tespiti → BRANSMAN ──────────────────────────────
-    const END_T = 0.20; // borunun son %20'si "uca yakın" sayılır
+    const END_T = 0.10; // borunun son %20'si "uca yakın" sayılır
     if (pipe.p1 && pipe.p2) {
         const len3d = Math.hypot(
             pipe.p2.x - pipe.p1.x,
@@ -766,7 +766,7 @@ export function handleCihazEkleme(cihaz) {
 
         // İlk segment: Sağa doğru 50cm (0.5m) - Z koordinatıyla birlikte
         const ilkSegmentBitis = {
-            x: cihaz.x + 50, // 50cm
+            x: cihaz.x + 80, // 50cm
             y: cihaz.y,
             z: cihazZ // Z değerini ekle
         };

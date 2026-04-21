@@ -14,9 +14,10 @@ import { Vana } from '../objects/valve.js';
 import { Sayac } from '../objects/meter.js';
 import { Cihaz } from '../objects/device.js';
 import { Baca } from '../objects/chimney.js';
-import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, isPinned } from '../properties/properties-panel.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
+import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, currentPanelMode, PANEL_MODES } from '../properties/properties-panel.js';
+
 
 // Tool modları
 export const TESISAT_MODLARI = {
@@ -225,11 +226,7 @@ export function handleKeyDown(e) {
             this.pipeResizeActive = false;
             return true;
         }
-        // Özellikler paneli açıksa önce onu kapat (pinli olsa bile ESC kapatır)
-        if (isPanelOpen()) {
-            closePropertiesPanel();
-            return true;
-        }
+        
         // Düşey panel açıksa önce onu kapat
         if (this.verticalModeActive) {
             this.closeVerticalPanel();
@@ -248,6 +245,29 @@ export function handleKeyDown(e) {
             return true;
         }
 
+        // --- YENİ VE DOĞRU SIRALAMA ---
+        
+        // 1. EĞER çizim, yerleştirme, sürükleme vb. bir İŞLEM varsa ÖNCE onu iptal et
+        if (this.boruCizimAktif || this.manager.tempComponent || this.isDragging || this.isRotating) {
+            this.cancelCurrentAction();
+            setMode("select");
+            return true;
+        }
+
+        // 2. EĞER işlem yok ama bir nesne SEÇİLİYSE, önce seçimi bırak
+        if (this.selectedObject) {
+            this.cancelCurrentAction();
+            setMode("select");
+            return true;
+        }
+
+        // 3. EĞER hiçbir çizim/işlem veya seçim yoksa ve panel DAİMA AÇIK modunda DEĞİLSE paneli kapat
+        if (isPanelOpen() && currentPanelMode !== PANEL_MODES.ALWAYS) {
+            closePropertiesPanel(true); // Zorla kapat
+            return true;
+        }
+
+        // Garanti çıkış
         this.cancelCurrentAction();
         setMode("select");
         return true;

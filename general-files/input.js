@@ -576,7 +576,7 @@ function onKeyDown(e) {
     // --- Buradan sonrası, HİÇBİR input alanı aktif değilken çalışacak kısayollar ---
 
     // Fit to Screen ('F' tuşu)
-    if (e.key.toLowerCase() === 'f') {
+    if (e.ctrlKey  && e.key.toLowerCase() === 'f') {
         e.preventDefault(); // Tarayıcının varsayılan 'F' işlemini (Find) engelle
         fitDrawingToScreen();
         return; // Diğer kısayollarla çakışmasın
@@ -894,7 +894,7 @@ function onKeyDown(e) {
     const inFPSMode = isFPSMode();
 
     // F tuşu ile 3D fullscreen toggle
-    if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+    if ((e.ctrlKey  && e.key.toLowerCase() === 'f') && !e.altKey && !e.shiftKey) {
         if (dom.mainContainer.classList.contains('show-3d')) {
             e.preventDefault();
             toggle3DFullscreen();
