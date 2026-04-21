@@ -908,6 +908,7 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === "c" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawColumn");
     if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawBeam");
     if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawStairs");
+    if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawDoor");
     if (e.key.toLowerCase() === "l" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         plumbingManager.startPipeMode(); // Boru çizim aracını başlat
         setMode("plumbingV2", true); // UI'yı güncelle (ikonu aktif et)
@@ -946,80 +947,81 @@ const mouse = new THREE.Vector2();
 /**
  * 3D Sahnedeki tıklamaları yönetir (Kapı açmak için)
  */
-function on3DPointerDown(event) {
-    // Sadece sol tıklama
-    if (window.IS_DEBUG_MODE) return;
-    if (event.button !== 0) return;
+// bu fonksiyonu sakın silme sonra kullanacağız.
+ function on3DPointerDown(event) {
+//     // Sadece sol tıklama
+//     if (window.IS_DEBUG_MODE) return;
+//     if (event.button !== 0) return;
 
-    // Gerekli 3D nesneleri kontrol et
-    if (!renderer || !camera || !sceneObjects) return;
+//     // Gerekli 3D nesneleri kontrol et
+//     if (!renderer || !camera || !sceneObjects) return;
 
-    // Fare koordinatlarını normalize et (-1 to +1)
-    const rect = renderer.domElement.getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+//     // Fare koordinatlarını normalize et (-1 to +1)
+//     const rect = renderer.domElement.getBoundingClientRect();
+//     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+//     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    // Raycaster'ı ayarla
-    raycaster.setFromCamera(mouse, camera);
+//     // Raycaster'ı ayarla
+//     raycaster.setFromCamera(mouse, camera);
 
-    // Çarpışmaları bul (recursive = true, tüm alt objeleri de kontrol et)
-    const intersects = raycaster.intersectObjects(sceneObjects.children, true);
+//     // Çarpışmaları bul (recursive = true, tüm alt objeleri de kontrol et)
+//     const intersects = raycaster.intersectObjects(sceneObjects.children, true);
 
-    if (intersects.length > 0) {
-        let clickedDoorGroup = null;
-        let obj = intersects[0].object;
+//     if (intersects.length > 0) {
+//         let clickedDoorGroup = null;
+//         let obj = intersects[0].object;
 
-        // Tıkladığımız nesnenin en üstteki "door" grubunu bul
-        // (scene3d.js'de kapı grubuna userData eklenmelidir)
-        while (obj.parent) {
-            // Not: scene3d.js'nin bu veriyi eklediğini varsayıyoruz:
-            // doorGroup.userData = { type: 'door', doorObject: door };
-            if (obj.userData?.type === 'door' && obj.userData?.doorObject) {
-                clickedDoorGroup = obj;
-                break;
-            }
-            if (obj.parent === sceneObjects || !obj.parent) break; // Ana gruba ulaştıysak dur
-            obj = obj.parent;
-        }
+//         // Tıkladığımız nesnenin en üstteki "door" grubunu bul
+//         // (scene3d.js'de kapı grubuna userData eklenmelidir)
+//         while (obj.parent) {
+//             // Not: scene3d.js'nin bu veriyi eklediğini varsayıyoruz:
+//             // doorGroup.userData = { type: 'door', doorObject: door };
+//             if (obj.userData?.type === 'door' && obj.userData?.doorObject) {
+//                 clickedDoorGroup = obj;
+//                 break;
+//             }
+//             if (obj.parent === sceneObjects || !obj.parent) break; // Ana gruba ulaştıysak dur
+//             obj = obj.parent;
+//         }
 
-        if (clickedDoorGroup) {
+//         if (clickedDoorGroup) {
 
-            // Orijinal rotasyonu (eğer ayarlanmadıysa) kaydet
-            if (clickedDoorGroup.userData.originalRotation === undefined) {
-                clickedDoorGroup.userData.originalRotation = clickedDoorGroup.rotation.y;
-            }
+//             // Orijinal rotasyonu (eğer ayarlanmadıysa) kaydet
+//             if (clickedDoorGroup.userData.originalRotation === undefined) {
+//                 clickedDoorGroup.userData.originalRotation = clickedDoorGroup.rotation.y;
+//             }
 
-            // Kapının zaten açık olup olmadığını veya animasyonda olup olmadığını kontrol et
-            if (clickedDoorGroup.userData.isOpening || clickedDoorGroup.userData.isOpen) {
-                // Kapatma animasyonu
-                new TWEEN.Tween(clickedDoorGroup.rotation)
-                    .to({ y: clickedDoorGroup.userData.originalRotation }, 1000) // 1 saniye
-                    .easing(TWEEN.Easing.Cubic.InOut)
-                    .onStart(() => { clickedDoorGroup.userData.isOpening = true; })
-                    .onComplete(() => {
-                        clickedDoorGroup.userData.isOpening = false;
-                        clickedDoorGroup.userData.isOpen = false;
-                    })
-                    .start();
-            } else {
-                // Açma animasyonu (90 derece = Math.PI / 2)
-                // Not: Menteşe yönünü (pivot) scene3d.js'de ayarladığımızı varsayıyoruz
-                // (scene3d.js'de doorGeom.translate(door.width / 2, ...) yapılmalı)
-                const targetRotation = (clickedDoorGroup.userData.originalRotation || 0) + (Math.PI / 2 * 0.95); // 90 derece aç
+//             // Kapının zaten açık olup olmadığını veya animasyonda olup olmadığını kontrol et
+//             if (clickedDoorGroup.userData.isOpening || clickedDoorGroup.userData.isOpen) {
+//                 // Kapatma animasyonu
+//                 new TWEEN.Tween(clickedDoorGroup.rotation)
+//                     .to({ y: clickedDoorGroup.userData.originalRotation }, 1000) // 1 saniye
+//                     .easing(TWEEN.Easing.Cubic.InOut)
+//                     .onStart(() => { clickedDoorGroup.userData.isOpening = true; })
+//                     .onComplete(() => {
+//                         clickedDoorGroup.userData.isOpening = false;
+//                         clickedDoorGroup.userData.isOpen = false;
+//                     })
+//                     .start();
+//             } else {
+//                 // Açma animasyonu (90 derece = Math.PI / 2)
+//                 // Not: Menteşe yönünü (pivot) scene3d.js'de ayarladığımızı varsayıyoruz
+//                 // (scene3d.js'de doorGeom.translate(door.width / 2, ...) yapılmalı)
+//                 const targetRotation = (clickedDoorGroup.userData.originalRotation || 0) + (Math.PI / 2 * 0.95); // 90 derece aç
 
-                new TWEEN.Tween(clickedDoorGroup.rotation)
-                    .to({ y: targetRotation }, 1000) // 1 saniye
-                    .easing(TWEEN.Easing.Cubic.InOut)
-                    .onStart(() => { clickedDoorGroup.userData.isOpening = true; })
-                    .onComplete(() => {
-                        clickedDoorGroup.userData.isOpening = false;
-                        clickedDoorGroup.userData.isOpen = true;
-                    })
-                    .start();
-            }
-        }
-    }
-}
+//                 new TWEEN.Tween(clickedDoorGroup.rotation)
+//                     .to({ y: targetRotation }, 1000) // 1 saniye
+//                     .easing(TWEEN.Easing.Cubic.InOut)
+//                     .onStart(() => { clickedDoorGroup.userData.isOpening = true; })
+//                     .onComplete(() => {
+//                         clickedDoorGroup.userData.isOpening = false;
+//                         clickedDoorGroup.userData.isOpen = true;
+//                     })
+//                     .start();
+//             }
+//         }
+//     }
+ }
 // --- 3D KAPI AÇMA MANTIĞI SONU ---
 
 
@@ -1057,7 +1059,6 @@ export function setupInputListeners() {
         // Nesneye çift tıklama için interaktif olup olmadığını kontrol et
         if (object && !isObjectInteractable(object.type)) {
             // TESİSAT modunda mimari nesnelere çift tıklanamaz
-            console.warn('⚠️ Object not interactable:', object.type);
             return;
         }
 
@@ -1072,7 +1073,6 @@ export function setupInputListeners() {
             splitPipeAtClickPosition(object.object, clickPos, object.splitT);
         } else if (object && object.type === 'baca' && object.handle === 'body') {
             // Baca gövdesine çift tıklanırsa bölme işlemi yap
-            console.log('🔥 BACA DOUBLE-CLICK DETECTED!', object);
             splitChimneyAtClickPosition(object.object, clickPos);
         }
     });
@@ -1355,23 +1355,16 @@ function splitPipeAtClickPosition(pipeToSplit, clickPos, splitT) {
 
 // Baca bölme fonksiyonu
 function splitChimneyAtClickPosition(chimneyToSplit, clickPos) {
-    console.log('🔥 splitChimneyAtClickPosition called', {
-        chimney: chimneyToSplit,
-        clickPos,
-        segments: chimneyToSplit?.segments?.length
-    });
+
 
     if (!chimneyToSplit || !chimneyToSplit.segments || chimneyToSplit.segments.length === 0) {
-        console.warn('⚠️ Baca bölme iptal - geçersiz baca veya segment yok');
         return;
     }
 
     // Bacayı böl
     const result = chimneyToSplit.splitAt(clickPos);
-    console.log('🔥 splitAt result:', result);
 
     if (result) {
-        console.log('✅ Baca başarıyla bölündü:', result);
         // Başarılı bölme - render'ı güncelle
         requestRender();
         setState({ selectedObject: null });
@@ -1380,7 +1373,5 @@ function splitChimneyAtClickPosition(chimneyToSplit, clickPos) {
         if (window.undoRedoManager) {
             window.undoRedoManager.recordState();
         }
-    } else {
-        console.warn('❌ Baca bölme başarısız - splitAt null döndü');
     }
 }

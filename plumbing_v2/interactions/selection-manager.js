@@ -130,11 +130,10 @@ export function selectObject(interactionManager, obj, opts = {}) {
         }
     });
 
-    // Tek tık: sadece seçim (panel açıksa içeriği günceller)
-    // Çift tık (openPanel=true): paneli aç / güncelle
-    // Pin sadece panel bir kez açıldıktan sonra kapanmamasını sağlar
+
+    // Eğer Pin işaretliyse, panel zaten açıksa veya çift tıklandıysa (openPanel) paneli aç/güncelle
     if (['boru', 'sayac', 'vana', 'servis_kutusu', 'cihaz'].includes(obj.type)) {
-        if (openPanel || isPanelOpen()) {
+        if (isPinned() || isPanelOpen() || openPanel) {
             openPropertiesPanel(obj, interactionManager.manager);
         }
     }
@@ -177,8 +176,8 @@ export function selectValve(interactionManager, pipe, vana, opts = {}) {
         }
     });
 
-    // Panel zaten açıksa içeriğini vanaya güncelle; çift tıkta yeni aç
-    if (vana && (openPanel || isPanelOpen())) {
+    // Vana seçildiğinde: Pin işaretliyse, panel zaten açıksa veya çift tıklandıysa aç/güncelle
+    if (vana && (isPinned() || isPanelOpen() || openPanel)) {
         openPropertiesPanel(vana, interactionManager.manager);
     }
 }
@@ -279,7 +278,7 @@ export function deleteSelectedObject(interactionManager) {
             }
         }
 
-         //Başlangıcı servis kutusuna bağlı mı kontrol et
+        //Başlangıcı servis kutusuna bağlı mı kontrol et
         // if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) { alert('⚠️ Servis kutusuna bağlı ilk boru silinemez!\n\nÖnce servis kutusunu silin veya başka bir boru ekleyin.'); return; } 
 
     }

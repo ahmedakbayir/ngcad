@@ -59,24 +59,65 @@ export function findObjectAt(manager, point) {
     for (const comp of manager.components) {
         if (!sameFloor(comp)) continue;
         let hit = false;
-        const z = comp.z || 0;
+        const zBase = comp.z || 0;
+        const t = state.viewBlendFactor || 0;
 
-        if (state.is3DPerspectiveActive && Math.abs(z) > 0.1) {
-            const visualX = comp.x + z * t;
-            const visualY = comp.y - z * t;
-            const dist = Math.hypot(point.x - visualX, point.y - visualY);
-            if (dist < 10) {
+        // --- 3D TIKLAMA ALANI GÜNCELLEMESİ ---
+        if (t > 0.1) {
+            let zHeight = 0;
+            let minX, maxX, minY, maxY;
+
+            // Sayaçların ve Cihazların 3D çizimlerinde (origin noktasına göre) 
+            // görsel kaymalar olabildiği için, BoundingBox yerine manuel ve
+            // ÇOK DAHA GENİŞ bir tıklama alanı (padding) tanımlıyoruz.
+            if (comp.type === 'sayac') {
+                zHeight = 30; // Z eksenindeki yüksekliği
+                const padding = 35; // 70x70'lik çok geniş bir alan (kaymayı kapsar)
+                minX = comp.x - padding; maxX = comp.x + padding;
+                minY = comp.y - padding; maxY = comp.y + padding;
+            } else if (comp.type === 'cihaz') {
+                zHeight = comp.config?.height || 72;
+                const padding = 25;
+                minX = comp.x - padding; maxX = comp.x + padding;
+                minY = comp.y - padding; maxY = comp.y + padding;
+            } else if (comp.type === 'servis_kutusu') {
+                zHeight = 35;
+                const padding = 25;
+                minX = comp.x - padding; maxX = comp.x + padding;
+                minY = comp.y - padding; maxY = comp.y + padding;
+            } else {
+                zHeight = 15;
+                const padding = 10; // Vanalar daha küçük olduğu için dar alan
+                minX = comp.x - padding; maxX = comp.x + padding;
+                minY = comp.y - padding; maxY = comp.y + padding;
+            }
+
+            // 3D İzdüşüm Kayması
+            const shiftX_bot = zBase * t;
+            const shiftY_bot = -(zBase * t);
+            const shiftX_top = (zBase + zHeight) * t;
+            const shiftY_top = -(zBase + zHeight) * t;
+
+            // Tavan ve Tabanı birleştiren devasa Seçim Kutusu
+            const vMinX = Math.min(minX + shiftX_bot, minX + shiftX_top);
+            const vMaxX = Math.max(maxX + shiftX_bot, maxX + shiftX_top);
+            const vMinY = Math.min(minY + shiftY_bot, minY + shiftY_top);
+            const vMaxY = Math.max(maxY + shiftY_bot, maxY + shiftY_top);
+
+            // Ekstra hata payı
+            const margin = 10;
+            if (point.x >= vMinX - margin && point.x <= vMaxX + margin &&
+                point.y >= vMinY - margin && point.y <= vMaxY + margin) {
                 hit = true;
             }
         } else {
+            // 2D Modu: Kendi standart kontrolünü kullan
             if (comp.containsPoint && comp.containsPoint(point)) {
                 hit = true;
             }
         }
 
-        if (hit) {
-            return comp;
-        }
+        if (hit) return comp;
     }
 
     // ÖNCELİK 2: Borular
@@ -231,14 +272,31 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
         if (preferredCandidate) return preferredCandidate;
     }
 
-    // En yakın adayı döndür (ekran mesafesine göre sırala)
+    // En yakın adayı döndür (ekran mesafesine göre sırala ve boş uca öncelik ver)
     let nearest = candidates[0];
-    let nearestDist = Math.hypot(point.x - getScreenPoint(candidates[0].nokta).x,
-                                 point.y - getScreenPoint(candidates[0].nokta).y);
+    let nearestDist = Math.hypot(point.x - getScreenPoint(nearest.nokta).x,
+        point.y - getScreenPoint(nearest.nokta).y);
+    let nearestIsFree = manager.isTrulyFreeEndpoint ? manager.isTrulyFreeEndpoint(nearest.nokta, 1) : false;
+
     for (let i = 1; i < candidates.length; i++) {
-        const sp = getScreenPoint(candidates[i].nokta);
+        const aday = candidates[i];
+        const sp = getScreenPoint(aday.nokta);
         const dist = Math.hypot(point.x - sp.x, point.y - sp.y);
-        if (dist < nearestDist) { nearestDist = dist; nearest = candidates[i]; }
+        const isFree = manager.isTrulyFreeEndpoint ? manager.isTrulyFreeEndpoint(aday.nokta, 1) : false;
+
+        // Eğer adayın ekran mesafesi belirgin şekilde daha kısaysa onu seç
+        if (dist < nearestDist - 0.1) {
+            nearestDist = dist;
+            nearest = aday;
+            nearestIsFree = isFree;
+        }
+        // Mesafe tamamen aynıysa (örneğin 2D'deki düşey boru uçları üst üsteyse) 
+        // ve bu aday boşta bir uçsa, diğer dolu uca kıyasla bunu tercih et.
+        else if (Math.abs(dist - nearestDist) <= 0.1 && isFree && !nearestIsFree) {
+            nearestDist = dist;
+            nearest = aday;
+            nearestIsFree = isFree;
+        }
     }
     return nearest;
 }
@@ -327,7 +385,7 @@ export function checkVanaAtPoint(manager, point, tolerance = 2) {
 }
 
 export function findPipeEndpoint(pipe, point) {
-    const tolerance = 2; 
+    const tolerance = 2;
     const p1Screen = getScreenPoint(pipe.p1);
     const p2Screen = getScreenPoint(pipe.p2);
     const distToP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
@@ -350,12 +408,12 @@ export function removeObject(manager, obj) {
 
         // 1. Çocukları bul (Bu borunun BİTİŞİNE bağlı olan tek hat)
         // Eğer birden fazla hat varsa T-junction'dır, birleştirme yapılmaz.
-        const children = manager.pipes.filter(p => 
-            p.baslangicBaglanti && 
+        const children = manager.pipes.filter(p =>
+            p.baslangicBaglanti &&
             p.baslangicBaglanti.hedefId === pipeId &&
             p.baslangicBaglanti.tip === BAGLANTI_TIPLERI.BORU
         );
-        
+
         const childPipe = children.length === 1 ? children[0] : null;
 
         // 2. Parent bilgisini al (Bu borunun BAŞLANGICINDAKİ kaynak)
@@ -376,7 +434,7 @@ export function removeObject(manager, obj) {
             if (oldChildP1NodeId && oldChildP1NodeId !== pipeToDelete.p1NodeId) {
                 manager.nodes.delete(oldChildP1NodeId);
             }
-            
+
             // Çocuğun bağlantısını güncelle (Silinen borunun parent'ına bağla)
             childPipe.setBaslangicBaglanti(parentConn.tip, parentConn.hedefId, parentConn.noktaIndex);
 
@@ -412,7 +470,7 @@ export function removeObject(manager, obj) {
             if (pipeToDelete.colorGroup) {
                 childPipe.colorGroup = pipeToDelete.colorGroup;
             }
-            
+
         } else {
             // HEAL YOKSA - Bağlantıları temizle
             children.forEach(child => {
@@ -420,7 +478,7 @@ export function removeObject(manager, obj) {
             });
 
             if (parentConn && parentConn.hedefId) {
-                 if (parentConn.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
+                if (parentConn.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU) {
                     const box = manager.findComponentById(parentConn.hedefId);
                     if (box && box.bagliBoruId === pipeId) box.bagliBoruId = null;
                 } else if (parentConn.tip === BAGLANTI_TIPLERI.SAYAC) {
@@ -429,33 +487,47 @@ export function removeObject(manager, obj) {
                 } else if (parentConn.tip === BAGLANTI_TIPLERI.BORU) {
                     const parentPipe = manager.findPipeById(parentConn.hedefId);
                     if (parentPipe) {
-                         parentPipe.tBaglantiKaldir(pipeId);
-                         if (parentPipe.bitisBaglanti.hedefId === pipeId) {
-                             parentPipe.bitisBaglanti = { tip: null, hedefId: null, noktaIndex: null };
-                         }
-                         // Parent boru varsa onu seç (heal yapılmadığında)
-                         pipeToSelect = parentPipe;
+                        parentPipe.tBaglantiKaldir(pipeId);
+                        if (parentPipe.bitisBaglanti.hedefId === pipeId) {
+                            parentPipe.bitisBaglanti = { tip: null, hedefId: null, noktaIndex: null };
+                        }
+                        // Parent boru varsa onu seç (heal yapılmadığında)
+                        pipeToSelect = parentPipe;
                     }
                 }
             }
         }
-        
+
         // Bu boru üzerindeki bileşenleri sil
-        const componentsToDelete = manager.components.filter(c => 
+        const componentsToDelete = manager.components.filter(c =>
             (c.type === 'vana' && c.bagliBoruId === pipeId) ||
             (c.fleksBaglanti && c.fleksBaglanti.boruId === pipeId)
         );
         componentsToDelete.forEach(c => {
-             const idx = manager.components.indexOf(c);
-             if (idx !== -1) manager.components.splice(idx, 1);
-        });
+            // YENİ EKLENEN KISIM: Boru silinirken cihaz siliniyorsa, bacasını ve vanasını da temizle
+            if (c.type === 'cihaz') {
+                // Bacasını bul ve sil
+                const bacalar = manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
+                bacalar.forEach(baca => {
+                    const bacaIdx = manager.components.indexOf(baca);
+                    if (bacaIdx !== -1) manager.components.splice(bacaIdx, 1);
+                });
+                // Cihazın kendi vanasını garanti olarak sil
+                if (c.iliskiliVanaId) {
+                    const vanaIdx = manager.components.findIndex(v => v.id === c.iliskiliVanaId);
+                    if (vanaIdx !== -1) manager.components.splice(vanaIdx, 1);
+                }
+            }
 
+            const idx = manager.components.indexOf(c);
+            if (idx !== -1) manager.components.splice(idx, 1);
+        });
         const index = manager.pipes.findIndex(p => p.id === obj.id);
         if (index !== -1) manager.pipes.splice(index, 1);
 
     } else if (obj.type === 'servis_kutusu') {
         // BFS: kutuya bağlı tüm boru ve bileşenleri topla
-        const pipeIds  = new Set();
+        const pipeIds = new Set();
         const sayacIds = new Set();
         const sourceIds = new Set([obj.id]); // başlangıç: kutu id'si
 
@@ -497,8 +569,8 @@ export function removeObject(manager, obj) {
                 c.id === obj.id ||                                                   // servis kutusu
                 sayacIds.has(c.id) ||                                                // sayaç
                 cihazIds.has(c.id) ||                                                // cihaz
-                (c.type === 'baca'  && cihazIds.has(c.parentCihazId)) ||            // baca
-                (c.type === 'vana'  && pipeIds.has(c.bagliBoruId))    ||            // boru vanası
+                (c.type === 'baca' && cihazIds.has(c.parentCihazId)) ||            // baca
+                (c.type === 'vana' && pipeIds.has(c.bagliBoruId)) ||            // boru vanası
                 (c.fleksBaglanti?.boruId && pipeIds.has(c.fleksBaglanti.boruId));   // fleks bağlı
             if (remove) manager.components.splice(i, 1);
         }
@@ -519,7 +591,7 @@ export function removeObject(manager, obj) {
         if (obj.bagliBoruId) {
             const pipe = manager.findPipeById(obj.bagliBoruId);
             if (pipe && pipe.vana && pipe.vana.id === obj.id) {
-                pipe.vana = null; 
+                pipe.vana = null;
             }
         }
         const idx = manager.components.findIndex(c => c.id === obj.id);
@@ -531,6 +603,12 @@ export function removeObject(manager, obj) {
                 const bacaIdx = manager.components.findIndex(c => c.id === baca.id);
                 if (bacaIdx !== -1) manager.components.splice(bacaIdx, 1);
             });
+
+            // YENİ EKLENEN KISIM: Cihazı sildiğimizde borudaki cihaz vanasını da otomatik sil
+            if (obj.iliskiliVanaId) {
+                const vanaIdx = manager.components.findIndex(c => c.id === obj.iliskiliVanaId);
+                if (vanaIdx !== -1) manager.components.splice(vanaIdx, 1);
+            }
         }
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);

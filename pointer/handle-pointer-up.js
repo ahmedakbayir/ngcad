@@ -23,5 +23,15 @@ export function handlePointerUp(e) {
         this.endDrag();
         return true;
     }
+    
+    // YENİ EKLENEN KISIM:
+    // Sürükleme (drag) kilitli/yapılmamış olsa bile (örn: sayaca bağlı ilk boru),
+    // eğer bir tesisat nesnesi başarıyla seçilmişse bu tıklamayı tesisatın 
+    // üstlendiğini belirtmek için true dönmeliyiz. Aksi takdirde mimari sistem 
+    // (pointer-up.js) tıklamayı boşluğa yapılmış sayıp seçimi ve paneli kapatır.
+    if (this.selectedObject) {
+        return true;
+    }
+
     return false;
 }

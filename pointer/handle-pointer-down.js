@@ -83,7 +83,6 @@ export function handlePointerDown(e) {
             if (baca.containsPoint(point)) {
                 const splitResult = baca.splitAt(point);
                 if (splitResult) {
-                    console.log('✂️ Baca bölündü:', splitResult);
                     // Bölünen noktayı seç (drag için hazır)
                     this.isDragging = true;
                     this.dragObject = baca;
@@ -169,7 +168,6 @@ export function handlePointerDown(e) {
                     const clickedAxis = findTranslateGizmoAxisAt(gizmoCenter, point, allowedAxes);
 
                     if (clickedAxis) {
-                        console.log('🎯 Endpoint gizmo eksenine tıklandı:', clickedAxis);
                         this.startEndpointDrag(this.selectedObject, this.selectedEndpoint, point);
                         this.selectedDragAxis = clickedAxis;
                         this.axisLockDetermined = true;
@@ -196,7 +194,6 @@ export function handlePointerDown(e) {
                     // p1 gizmo kontrolü (öncelikli)
                     const p1Axis = findTranslateGizmoAxisAt(this.selectedObject.p1, point, ['X', 'Y', 'Z']);
                     if (p1Axis) {
-                        console.log('🎯 P1 endpoint gizmo eksenine tıklandı:', p1Axis);
                         this.selectedEndpoint = 'p1'; // Endpoint bilgisini kaydet
                         this.startEndpointDrag(this.selectedObject, 'p1', point);
                         this.selectedDragAxis = p1Axis;
@@ -208,7 +205,6 @@ export function handlePointerDown(e) {
                     // p2 gizmo kontrolü
                     const p2Axis = findTranslateGizmoAxisAt(this.selectedObject.p2, point, ['X', 'Y', 'Z']);
                     if (p2Axis) {
-                        console.log('🎯 P2 endpoint gizmo eksenine tıklandı:', p2Axis);
                         this.selectedEndpoint = 'p2'; // Endpoint bilgisini kaydet
                         this.startEndpointDrag(this.selectedObject, 'p2', point);
                         this.selectedDragAxis = p2Axis;
@@ -225,7 +221,6 @@ export function handlePointerDown(e) {
                     };
                     const centerAxis = findTranslateGizmoAxisAt(centerPoint, point, bodyAllowedAxes);
                     if (centerAxis) {
-                        console.log('🎯 Merkez (body) gizmo eksenine tıklandı:', centerAxis);
                         this.startBodyDrag(this.selectedObject, point);
                         this.selectedDragAxis = centerAxis;
                         this.axisLockDetermined = true;
@@ -239,7 +234,6 @@ export function handlePointerDown(e) {
                 const clickedAxis = findTranslateGizmoAxisAt(gizmoCenter, point, ['X', 'Y', 'Z']);
 
                 if (clickedAxis) {
-                    console.log('🎯 Gizmo eksenine tıklandı:', clickedAxis);
                     this.startDrag(this.selectedObject, point);
                     this.selectedDragAxis = clickedAxis;
                     this.axisLockDetermined = true;
@@ -349,7 +343,6 @@ export function handlePointerDown(e) {
                     const deviceVar = this.hasDeviceAtEndpoint(pipe.id, boruUcu.uc);
                     const meterVar = this.hasMeterAtEndpoint(pipe.id, boruUcu.uc);
                     if (deviceVar || meterVar) {
-                        console.warn("🚫 Bu uçta Cihaz/Sayaç fleksi var! Tesisat devam ettirilemez.");
                         return true;
                     }
                     const ucNokta = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
@@ -417,7 +410,6 @@ export function handlePointerDown(e) {
         const deviceVar = this.hasDeviceAtEndpoint(boruUcu2.boruId, boruUcu2.uc);
         const meterVar = this.hasMeterAtEndpoint(boruUcu2.boruId, boruUcu2.uc);
         if (deviceVar || meterVar) {
-            console.warn("🚫 Bu uçta Cihaz/Sayaç fleksi var! Tesisat devam ettirilemez.");
             return true;
         }
         this.startBoruCizim(boruUcu2.nokta, boruUcu2.boruId, BAGLANTI_TIPLERI.BORU);

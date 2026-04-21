@@ -974,10 +974,31 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
-    // 5. Cihaz Taşıma
+// 5. Cihaz Taşıma
     if (interactionManager.dragObject.type === 'cihaz') {
         const cihaz = interactionManager.dragObject;
         const oldPos = { x: cihaz.x, y: cihaz.y };
+        const oldZ = cihaz.z || 0; 
+        const t = state.viewBlendFactor || 0;
+
+        let targetX = correctedPoint.x;
+        let targetY = correctedPoint.y;
+        let targetZ = correctedPoint.z;
+
+        // --- 3D BAĞIMSIZLIK KURALI: 2D Yerleşimini Koru ---
+        if (t > 0.1 && interactionManager.selectedDragAxis !== 'X' && interactionManager.selectedDragAxis !== 'Y') {
+            // Kullanıcı gizmo üzerinden özel olarak X veya Y eksenini tutmadıysa,
+            // 3D modunda gövdeden yapılan serbest sürüklemelerde 2D yerleşimi (X,Y) KİLİTLE!
+            interactionManager.selectedDragAxis = 'Z';
+            
+            targetX = interactionManager.dragStartObjectPos.x;
+            targetY = interactionManager.dragStartObjectPos.y;
+            
+            // Farenin ekrandaki dikey (yukarı/aşağı) hareketini doğrudan Z yüksekliğine çevir
+            const mouseDy = point.y - interactionManager.dragStart.y;
+            targetZ = (interactionManager.dragStartObjectPos.z || 0) - (mouseDy / t);
+        }
+
         let inputPipeOldEndpoint = null;
         if (cihaz.fleksBaglanti?.boruId && cihaz.fleksBaglanti?.endpoint) {
             const girisBoru = interactionManager.manager.pipes.find(p => p.id === cihaz.fleksBaglanti.boruId);
@@ -986,22 +1007,33 @@ export function handleDrag(interactionManager, point, event = null) {
                 inputPipeOldEndpoint = { pipe: girisBoru, endpoint: endpoint, x: girisBoru[endpoint].x, y: girisBoru[endpoint].y };
             }
         }
-        // Cihaz da yüksekte olabilir, correctedPoint kullanmak daha doğal olur
-        // Ancak cihazın move fonksiyonu 2D çalışıyor, şimdilik correctedPoint verelim
-        cihaz.move(correctedPoint.x, correctedPoint.y);
+        
+        cihaz.move(targetX, targetY);
+        cihaz.z = targetZ;
 
         if (inputPipeOldEndpoint) {
             inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].x = inputPipeOldEndpoint.x;
             inputPipeOldEndpoint.pipe[inputPipeOldEndpoint.endpoint].y = inputPipeOldEndpoint.y;
         }
-        const deltaX = correctedPoint.x - oldPos.x;
-        const deltaY = correctedPoint.y - oldPos.y;
+        
+        const deltaX = targetX - oldPos.x;
+        const deltaY = targetY - oldPos.y;
+        const deltaZ = cihaz.z - oldZ;
+
         translateLabel(cihaz.id, deltaX, deltaY);
+        
         const bacalar = interactionManager.manager.components.filter(c => c.type === 'baca' && c.parentCihazId === cihaz.id);
         bacalar.forEach(baca => {
             baca.startX += deltaX; baca.startY += deltaY;
+            baca.z = (baca.z || 0) + deltaZ;
+            
             baca.currentSegmentStart.x += deltaX; baca.currentSegmentStart.y += deltaY;
-            baca.segments.forEach(seg => { seg.x1 += deltaX; seg.y1 += deltaY; seg.x2 += deltaX; seg.y2 += deltaY; });
+            baca.segments.forEach(seg => { 
+                seg.x1 += deltaX; seg.y1 += deltaY; 
+                seg.x2 += deltaX; seg.y2 += deltaY; 
+                if (seg.z1 !== undefined) seg.z1 += deltaZ;
+                if (seg.z2 !== undefined) seg.z2 += deltaZ;
+            });
             if (baca.havalandirma) { baca.havalandirma.x += deltaX; baca.havalandirma.y += deltaY; }
         });
         return;

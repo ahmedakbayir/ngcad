@@ -564,7 +564,7 @@ export function drawBirimLabels(ctx2d, st) {
 
     ctx2d.save();
     ctx2d.textAlign = 'center';
-    ctx2d.textBaseline = 'Top';
+    ctx2d.textBaseline = 'middle';
     ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
 
     const showArea = !!st.tempVisibility?.showArchDimensions;

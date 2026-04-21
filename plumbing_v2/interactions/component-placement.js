@@ -253,7 +253,7 @@ export function restorePreviousMode(prevMode, prevDrawMode, prevTool) {
  *   - Diğer durumlar                                         → EMNIYET
  */
 function _detectVanaTipi(pipe, t, manager) {
-    const pipes      = manager.pipes      || [];
+    const pipes = manager.pipes || [];
     const components = manager.components || [];
 
     // Boruların fiziksel uç noktası haritaları
@@ -262,7 +262,7 @@ function _detectVanaTipi(pipe, t, manager) {
 
     // p1 koordinatından hangi borular başlar / bitiyor — junction tespiti için
     const pipesStartingAt = new Map(); // key → [boruId, ...]
-    const pipesEndingAt   = new Map();
+    const pipesEndingAt = new Map();
     pipes.forEach(p => {
         if (!p.p1 || !p.p2) return;
         const k1 = ptKey(p.p1), k2 = ptKey(p.p2);
@@ -312,7 +312,7 @@ function _detectVanaTipi(pipe, t, manager) {
         if (skCikis) {
             // BFS: SK çıkışından ilerle, junction'a kadar olan boru kümesini bul
             const visited = new Set();
-            const queue   = [];
+            const queue = [];
             // SK çıkışından başlayan borular
             const skKey = ptKey(skCikis);
             (pipesStartingAt.get(skKey) || []).forEach(id => queue.push(id));
@@ -368,11 +368,11 @@ export function handleVanaPlacement(vanaPreview) {
     const dx = pipe.p2.x - pipe.p1.x;
     const dy = pipe.p2.y - pipe.p1.y;
     const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
-    
+
     // 2D ve 3D uzunlukları ayrı hesapla
     const len2d = Math.hypot(dx, dy);
     const len3d = Math.hypot(dx, dy, dz);
-    
+
     // Düşey boru tespiti: Z farkı baskınsa veya 2D uzunluk çok kısaysa
     const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
 
@@ -382,11 +382,11 @@ export function handleVanaPlacement(vanaPreview) {
         // Düşey boru için MANUEL hesaplama (standart 2D fonksiyon çalışmaz)
         let t = 0.5;
         if (Math.abs(dz) > 0.01) {
-             t = ((point.z || 0) - (pipe.p1.z || 0)) / dz;
+            t = ((point.z || 0) - (pipe.p1.z || 0)) / dz;
         }
         // T değerini 0-1 arasına sınırla
         t = Math.max(0, Math.min(1, t));
-        
+
         placementResult = {
             success: true,
             t: t,
@@ -667,6 +667,9 @@ export function handleCihazEkleme(cihaz) {
     // göre o katta görünsün — borunun genel floorId'sine değil.)
     const _cihazBagZ = (boruUcu.nokta?.z != null ? boruUcu.nokta.z : (cihaz.z || 0));
     cihaz.floorId = getFloorIdForZ(_cihazBagZ) || boruUcu.boru?.floorId || null;
+
+    // YENİ EKLENEN KISIM: Cihazın 3D Z kotunu, bağlandığı borunun uç noktasına eşitle!
+    cihaz.z = _cihazBagZ;
 
     // Boru ucunda vana var mı kontrol et
     const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);

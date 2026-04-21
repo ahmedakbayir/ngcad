@@ -195,7 +195,7 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
     const { currentMode, mousePos, isDragging, selectedObject, zoom, startPoint } = state;
 
     // Snap uzantı çizgileri
-    const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawBeam' || currentMode === 'drawStairs'; // <-- "drawStairs" EKLEYİN
+    const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawBeam' || currentMode === 'drawStairs'; 
     if (isDrawingMode && mousePos.isSnapped) {
         const hasExtensionLines = mousePos.snapLines.h_origins.length > 0 || mousePos.snapLines.v_origins.length > 0;
         if (!startPoint && hasExtensionLines && !isMouseOverWall()) {
@@ -218,10 +218,10 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
         }
     }
 
-    // Snap noktası gösterimi - ÇİZİM MODLARINDA VE SÜRÜKLEME SIRASINDA GÖSTER
+    // Snap noktası gösterimi - ÇİZİM MODLARINDA, TESİSAT MODLARINDA VE SÜRÜKLEME SIRASINDA GÖSTER
     const isInDrawMode = (currentMode === 'drawWall' || currentMode === 'drawRoom' ||
                           currentMode === 'drawColumn' || currentMode === 'drawBeam' ||
-                          currentMode === 'drawStairs');
+                          currentMode === 'drawStairs' || currentMode === 'plumbingV2');
 
     // Sürükleme sırasında da snap göster (door/window hariç)
     const isDraggingValidObject = isDragging && selectedObject &&
@@ -232,14 +232,38 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
         currentMode !== 'drawDoor' &&
         currentMode !== 'drawWindow') {
 
-        const snapRadius = 4 / zoom;
-        const color = "#8ab4f8";
+        // Eğer yakalanan snap bir UÇ NOKTA (Endpoint) veya KESİŞİM (Intersection/Köşe) ise daha koyu ve belirgin çiz
+        const isCornerOrEndpoint = (
+            mousePos.snapType === 'ENDPOINT' || 
+            mousePos.snapType === 'INTERSECTION' || 
+            mousePos.snapType === 'PIPE_ENDPOINT_OFFSET' ||
+            mousePos.snapType === 'Kesişim' // Tesisat modundan gelebilecek isim
+        );
 
-        ctx2d.fillStyle = color;
+        if (isCornerOrEndpoint) {
+            // Köşelerde/Uçlarda daha büyük, daha koyu bir işaret (Örn: Lacivert ve kare görünümlü)
+            const snapSize = 6 / zoom;
+            const darkColor = "#1a73e8"; // Daha koyu, belirgin mavi
 
-        ctx2d.beginPath();
-        ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
-        ctx2d.fill();
+            ctx2d.fillStyle = darkColor;
+            ctx2d.strokeStyle = "#ffffff";
+            ctx2d.lineWidth = 1.5 / zoom;
+
+            ctx2d.beginPath();
+            // Kare çizimi (belirginleştirmek için)
+            ctx2d.rect(mousePos.x - snapSize/2, mousePos.y - snapSize/2, snapSize, snapSize);
+            ctx2d.fill();
+            ctx2d.stroke();
+        } else {
+            // Hat üzeri (Line/Edge) gibi normal snap noktaları için eski, açık mavi yuvarlak
+            const snapRadius = 4 / zoom;
+            const lightColor = "#8ab4f8";
+
+            ctx2d.fillStyle = lightColor;
+            ctx2d.beginPath();
+            ctx2d.arc(mousePos.x, mousePos.y, snapRadius, 0, Math.PI * 2);
+            ctx2d.fill();
+        }
     }
 }
 
