@@ -127,6 +127,7 @@ body.light-mode {
 #p3d {
     flex: 0 1 0;
     display: none;
+    z-index: 10000;
     /* pointer-events: none; */
     /* <-- BU SATIRI SİLİN VEYA YORUMA ALIN */
 }
