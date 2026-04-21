@@ -37,41 +37,61 @@ export const PreviewMixin = {
         ctx.restore();
     },
 
-    drawPipeSplitPreview(ctx, preview) {
+drawPipeSplitPreview(ctx, preview) {
         if (!preview || !preview.point) return;
 
-        const { point } = preview;
+        const { point, isEndpoint } = preview;
         const zoom = state.zoom || 1;
 
-        // 3D offset uygula (viewBlendFactor ile)
         const z = point.z || 0;
         const t = state.viewBlendFactor || 0;
         const screenX = point.x + (z * t);
         const screenY = point.y - (z * t);
 
         ctx.save();
+        ctx.translate(screenX, screenY);
 
-        // Dış daire (mavi, parlak)
-        ctx.fillStyle = 'rgba(0, 150, 255, 0.8)';
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 2 / zoom;
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, 6 / zoom, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        if (isEndpoint) {
+            // UÇ NOKTA / KÖŞE: Daha koyu mavi ve KARE
+            const size = 8 / zoom;
+            ctx.fillStyle = '#1a73e8'; // Koyu mavi
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 3 / zoom;
 
-        // İç daire (beyaz nokta)
-        ctx.fillStyle = '#FFFFFF';
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, 2 / zoom, 0, Math.PI * 2);
-        ctx.fill();
+            ctx.beginPath();
+            ctx.rect(-size / 2, -size / 2, size, size);
+            ctx.fill();
+            ctx.stroke();
 
-        // Animasyon için pulse efekti (isteğe bağlı - statik de kalabilir)
-        ctx.strokeStyle = 'rgba(0, 150, 255, 0.4)';
-        ctx.lineWidth = 1.5 / zoom;
-        ctx.beginPath();
-        ctx.arc(screenX, screenY, 10 / zoom, 0, Math.PI * 2);
-        ctx.stroke();
+            // Dış çerçeve efekti
+            ctx.strokeStyle = 'rgba(26, 115, 232, 0.4)';
+            ctx.lineWidth = 3 / zoom;
+            ctx.beginPath();
+            ctx.rect(-(size + 4) / 2, -(size + 4) / 2, size + 4, size + 4);
+            ctx.stroke();
+        } else {
+            // HAT ÜZERİ: Mevcut açık mavi yuvarlak
+            ctx.fillStyle = 'rgba(0, 150, 255, 0.8)';
+            ctx.strokeStyle = '#5a5858';
+            ctx.lineWidth = 2 / zoom;
+            ctx.beginPath();
+            ctx.arc(0, 0, 4 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // İç nokta
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(0, 0, 3 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Dış pulse efekti
+            ctx.strokeStyle = 'rgba(0, 150, 255, 0.4)';
+            ctx.lineWidth = 1.5 / zoom;
+            ctx.beginPath();
+            ctx.arc(0, 0, 7 / zoom, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
         ctx.restore();
     },

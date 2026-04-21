@@ -183,26 +183,40 @@ export function handleKeyDown(e) {
         }
     }
 
-    // SPACE - Özellikler panelini aç/kapat
+// SPACE - Özellikler panelini aç/kapat
     if (e.key === ' ' && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
+        
+        // 1. Önce Tesisat motorunda bir şey seçili mi ona bak
         const sel = this.selectedObject;
         const selVana = this.selectedValve?.vana;
-        const target = (sel && ['boru', 'sayac', 'servis_kutusu', 'cihaz'].includes(sel.type)) ? sel
+        let target = (sel && ['boru', 'sayac', 'servis_kutusu', 'cihaz'].includes(sel.type)) ? sel
             : selVana ? selVana
-                : null;
+            : null;
+            
+        // 2. Eğer tesisatta hiçbir şey seçili değilse, Mimari (genel state) seçimine bak
+        if (!target && state.selectedObject && state.selectedObject.object) {
+            target = state.selectedObject.object;
+        }
+        
+        // 3. O da yoksa, Oda (Room) seçimine bak
+        if (!target && state.selectedRoom) {
+            target = state.selectedRoom;
+        }
+
+        // Bulunan bir hedef varsa paneli aç
         if (target) {
             togglePropertiesPanel(target, this.manager);
             return true;
         }
-        // DÜZELTME: && !isPinned() şartını kaldırdık. Paneli kapatırken pini dikkate almaz.
+        
+        // Hiçbir şey seçili değilse ve panel açıksa kapat
         if (isPanelOpen()) {
             closePropertiesPanel();
             return true;
         }
         return false;
     }
-
     // ESC - iptal ve seç moduna geç
     if (e.key === 'Escape') {
         // Boru resize aktifse önce onu iptal et

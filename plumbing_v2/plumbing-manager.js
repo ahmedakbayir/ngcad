@@ -3,7 +3,7 @@
  * Merkezi tesisat yönetim sınıfı - yeni bileşenlerle entegre
  */
 
-import { state, setBoruCursor } from '../general-files/main.js';
+import { state, setBoruCursor, dom } from '../general-files/main.js';
 import { InteractionManager, TESISAT_MODLARI } from './interactions/interaction-manager.js';
 import { PlumbingRenderer } from './plumbing-renderer.js';
 import { ServisKutusu } from './objects/service-box.js';
@@ -82,8 +82,12 @@ export class PlumbingManager {
         if (p2dPanel) {
             if (val === 'boru') {
                 p2dPanel.classList.add('drawing-pipe-mode');
+                // YENİ: Boru butonu aktifse mavi ışığı yak
+                if (dom.bBoru) dom.bBoru.classList.add('active');
             } else {
                 p2dPanel.classList.remove('drawing-pipe-mode');
+                // YENİ: Boru butonu aktif değilse ışığı söndür
+                if (dom.bBoru) dom.bBoru.classList.remove('active');
             }
         }
     }
@@ -112,7 +116,8 @@ export class PlumbingManager {
             case TESISAT_MODLARI.SERVIS_KUTUSU:
                 this.tempComponent = new ServisKutusu(0, 0, {
                     floorId: state.currentFloor?.id,
-                    cikisYonu: options.cikisYonu
+                    cikisYonu: options.cikisYonu,
+                    z: 20 // YENİ: Servis kutusu daima Z=20 kotunda başlar
                 });
                 break;
 

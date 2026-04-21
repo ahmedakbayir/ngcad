@@ -81,7 +81,7 @@ export function handlePointerMove(e) {
                 }
             }
         } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
-                   this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
+            this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
             const gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
             this.hoveredGizmoAxis = findTranslateGizmoAxisAt(gizmoCenter, point, ['X', 'Y', 'Z']);
         } else {
@@ -283,13 +283,17 @@ export function handlePointerMove(e) {
                     (splitPoint.z || 0) - (hoveredPipe.p2.z || 0)
                 );
 
+                let isEndpoint = false; // <--- Sinyal başlangıcı
                 if (distToP1 < CORNER_SNAP_DISTANCE) {
                     splitPoint = { x: hoveredPipe.p1.x, y: hoveredPipe.p1.y, z: hoveredPipe.p1.z || 0 };
+                    isEndpoint = true; // <--- Köşe bulundu
                 } else if (distToP2 < CORNER_SNAP_DISTANCE) {
                     splitPoint = { x: hoveredPipe.p2.x, y: hoveredPipe.p2.y, z: hoveredPipe.p2.z || 0 };
+                    isEndpoint = true; // <--- Köşe bulundu
                 }
 
-                this.pipeSplitPreview = { pipe: hoveredPipe, point: splitPoint };
+                // isEndpoint sinyalini çizim motoruna gönderiyoruz
+                this.pipeSplitPreview = { pipe: hoveredPipe, point: splitPoint, isEndpoint: isEndpoint };
             } else {
                 this.pipeSplitPreview = null;
             }
@@ -305,7 +309,7 @@ export function handlePointerMove(e) {
         if (this.manager.tempComponent) {
             this.manager.tempComponent.x = point.x;
             this.manager.tempComponent.y = point.y;
-            this.manager.tempComponent.rotation = 0; 
+            this.manager.tempComponent.rotation = 0;
         }
 
         const boruGovde = this.manager.interactionManager.findBoruGovdeAt(point, 10);
@@ -329,7 +333,7 @@ export function handlePointerMove(e) {
 
                 // vanaT (0-1 arası oran)
                 let vanaT = totalLen > 0 ? distToP1_3D / totalLen : 0.5;
-                
+
                 // Sınırlandırma
                 vanaT = Math.max(0, Math.min(1, vanaT));
 
@@ -363,7 +367,7 @@ export function handlePointerMove(e) {
                 if (this.manager.tempComponent) {
                     const t = state.viewBlendFactor || 0;
                     const z = vanaPoint.z || 0;
-                    
+
                     // 1. KONUM: Z etkisini X ve Y'ye ekle (Ekranda doğru yerde görünsün)
                     this.manager.tempComponent.x = vanaPoint.x + (z * t);
                     this.manager.tempComponent.y = vanaPoint.y - (z * t);

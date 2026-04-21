@@ -7,6 +7,13 @@ import { endLabelDrag } from '../plumbing_v2/renderer/renderer-labels.js';
 import { saveState } from '../general-files/history.js';
 
 export function handlePointerUp(e) {
+    // --- EKRAN KAYDIRMA (PAN) KİLİTLENMESİNİ ÖNLEYEN DÜZELTME ---
+    // Eğer farenin sol tuşu (0) dışındaki bir tuşla (örneğin orta tekerlek=1) işlem yapılıyorsa,
+    // tesisat motoru bu tıklamayı yutmamalıdır. Yoksa ekran kaydırma modu takılı kalır!
+    if (e && e.button !== 0) {
+        return false;
+    }
+
     if (this.isDraggingLabel) {
         endLabelDrag();
         this.isDraggingLabel = false;
@@ -24,7 +31,6 @@ export function handlePointerUp(e) {
         return true;
     }
     
-    // YENİ EKLENEN KISIM:
     // Sürükleme (drag) kilitli/yapılmamış olsa bile (örn: sayaca bağlı ilk boru),
     // eğer bir tesisat nesnesi başarıyla seçilmişse bu tıklamayı tesisatın 
     // üstlendiğini belirtmek için true dönmeliyiz. Aksi takdirde mimari sistem 

@@ -19,7 +19,7 @@ import { cancelLengthEdit } from '../general-files/ui.js';
 import { getObjectAtPoint, getInteractableObjectAtPoint } from '../general-files/actions.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { processWalls } from '../wall/wall-processor.js';
-import { openPropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
+import { openPropertiesPanel, isPinned, isPanelOpen } from '../plumbing_v2/properties/properties-panel.js';
 // plumbingManager zaten yukarıda import edildi
 
 const ARCH_PANEL_TYPES = ['wall', 'door', 'window', 'vent', 'stairs'];
@@ -90,10 +90,10 @@ export function onPointerDown(e) {
     // SADECE plumbing modlarında boru çizim handler'ını çağır
     // Diğer çizim modlarında (drawStairs, drawColumn, vb.) kesmemeli
     const isPlumbingMode = state.currentMode === 'plumbingV2' ||
-                          state.currentMode === 'drawPlumbingPipe' ||
-                          state.currentMode === 'drawPlumbingBlock' ||
-                          state.currentMode === 'select' ||
-                          state.currentMode === 'MİMARİ-TESİSAT';
+        state.currentMode === 'drawPlumbingPipe' ||
+        state.currentMode === 'drawPlumbingBlock' ||
+        state.currentMode === 'select' ||
+        state.currentMode === 'MİMARİ-TESİSAT';
 
     const boruCizimAktif = plumbingManager.interactionManager?.boruCizimAktif;
 
@@ -199,7 +199,9 @@ export function onPointerDown(e) {
                 setState({ selectedRoom: clickedObject.object, selectedObject: null });
                 if (clickedObject.object) {
                     if (!clickedObject.object.type) clickedObject.object.type = 'room';
-                    openPropertiesPanel(clickedObject.object, plumbingManager);
+                    if (isPinned() || isPanelOpen()) {
+                        openPropertiesPanel(clickedObject.object, plumbingManager);
+                    }
                 }
             } else if (clickedObject.type === 'roomName' || clickedObject.type === 'roomArea') {
                 setState({
@@ -225,7 +227,9 @@ export function onPointerDown(e) {
 
                 // Mimari nesne seçildiyse özellikler panelini aç
                 if (ARCH_PANEL_TYPES.includes(clickedObject.type) && clickedObject.object) {
-                    openPropertiesPanel(clickedObject.object, plumbingManager);
+                    if (isPinned() || isPanelOpen()) {
+                        openPropertiesPanel(clickedObject.object, plumbingManager);
+                    }
                 }
 
                 let dragInfo = { startPointForDragging: pos, dragOffset: { x: 0, y: 0 }, additionalState: {} };
@@ -409,7 +413,7 @@ export function onPointerDown(e) {
         setMode("plumbingV2");
         return;
 
-    // --- Merdiven Çizim Modu (YORUM BLOĞUNDAN ÇIKARILDI) ---
+        // --- Merdiven Çizim Modu (YORUM BLOĞUNDAN ÇIKARILDI) ---
     } else if (state.currentMode === "drawStairs") {
         if (!state.startPoint) {
             setState({ startPoint: { x: snappedPos.roundedX, y: snappedPos.roundedY } });
