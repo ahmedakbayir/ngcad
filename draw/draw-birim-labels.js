@@ -21,15 +21,15 @@ const SEPARATOR_NAMES = new Set(['SAHANLIK', 'AÇIK SAHANLIK', 'BAHÇE']);
 const KONUT_T1 = new Set(['YATAK ODASI', 'ÇOCUK ODASI', 'DAİRE']);
 
 const TICARI = new Set([
-    'ÇAY OCAĞİ', 'LOKANTA', 'KAHVEHANE', 'KAFE', 'FIRIN',
-    'İMALATHANE', 'ENDÜSTRİYEL MUTFAK', 'FABRİKA', 'ATÖLYE'
+    'ÇAY OCAĞİ', 'LOKANTA', 'KAHVEHANE', 'KAFE', 'FIRIN','YEMEKHANE', 
+    'İMALATHANE', 'ENDÜSTRİYEL MUTFAK', 'FABRİKA', 'ATÖLYE','KANTİN'
 ]);
 
 const OFIS = new Set([
     'OFİS', 'BEKLEME ODASI', 'TOPLANTI ODASI', 'DÜKKAN', 'BAKKAL',
     'MARKET', 'REVİR', 'MESCİD', 'CAMİ', 'OKUL', 'DANIŞMA', 'BÜFE',
-    'YEMEKHANE', 'SINIF', 'SAĞLIK OCAĞI', 'SHOWROOM', 'MAĞAZA',
-    'LABARATUVAR', 'SPOR SALONU', 'MUAYENEHANE', 'KANTİN', 'ARŞİV',
+    'SINIF', 'SAĞLIK OCAĞI', 'SHOWROOM', 'MAĞAZA',
+    'LABARATUVAR', 'SPOR SALONU', 'MUAYENEHANE',  'ARŞİV',
     'HAMAM', 'SOSYAL TESİS'
 ]);
 
@@ -519,10 +519,10 @@ export function getBirimShortLabelLines(birimTipi, birimNo) {
     const no = birimNo || '';
     switch (birimTipi) {
         case 'KONUT': return [`D${no}`];
-        case 'OFİS': return [`Dük${no}`, 'Ofis'];
-        case 'TİCARİ': return [`Dük${no}`, 'Ticari'];
+        case 'OFİS': return [`(Ofis) Dük${no}`];
+        case 'TİCARİ': return [`(Ticari) Dük${no}`];
         case 'KAZAN D.':
-        case 'KAZAN DAİRESİ': return [`KD${no}`];
+        case 'KAZAN DAİRESİ': return [`KazanD. ${no}`];
         default: return [`D${no}`];
     }
 }
@@ -559,7 +559,7 @@ export function drawBirimLabels(ctx2d, st) {
 
     const zoom = st.zoom || 1;
     const ZOOM_EXP = -0.1;
-    const BASE_SIZE = 13;
+    const BASE_SIZE = 10;
     const fontSize = Math.max(4, BASE_SIZE * Math.pow(zoom, ZOOM_EXP));
 
     ctx2d.save();

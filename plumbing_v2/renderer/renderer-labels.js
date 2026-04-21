@@ -19,8 +19,8 @@ function getBirimLabelLines(birimTipi, birimNo) {
     const no = birimNo || '';
     switch (birimTipi) {
         case 'KONUT': return [`D${no}`];
-        case 'OFİS': return [`Dük${no}`, 'Ofis'];
-        case 'TİCARİ': return [`Dük${no}`, 'Ticari'];
+        case 'OFİS': return [`(Ofis) Dük${no}`];
+        case 'TİCARİ': return [`(Ticari) Dük${no}`];
         case 'KAZAN DAİRESİ': return [`KD${no}`];
         default: return [`D${no}`];
     }
@@ -178,9 +178,9 @@ export const LabelMixin = {
 
         const opts = {
             zoom, t, fontSize, lineH,
-            textColor: light ? '#111827' : '#e8eaf6',
-            subColor: light ? '#1a1e25' : '#9ca3af',
-            accentColor: light ? '#1d4ed8' : '#60a5fa',
+            textColor: light ? '#0a0e16' : '#f3f4f8',
+            subColor: light ? '#25272c' : '#c8ced8',
+            accentColor: light ? '#153692' : '#a2cbfc',
             // Çok hafif arka plan — hemen hemen şeffaf
             bgColor: light ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,35,0.10)',
             borderColor: light ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)',
@@ -494,14 +494,14 @@ export const LabelMixin = {
             } else {
                 // İlk kez: 8 aday yön dene, en az çakışanı seç
                 const candidates = [
-                    { dx: 0, dy: -1 },
-                    { dx: 1, dy: 0 },
-                    { dx: 0, dy: 1 },
-                    { dx: -1, dy: 0 },
-                    { dx: 0.707, dy: -0.707 },
-                    { dx: 0.707, dy: 0.707 },
-                    { dx: -0.707, dy: -0.707 },
-                    { dx: -0.707, dy: 0.707 },
+                    { dx: 0, dy: -2 },
+                    { dx: 2, dy: 0 },
+                    { dx: 0, dy: 2 },
+                    { dx: -2, dy: 0 },
+                    { dx: 1, dy: -1 },
+                    { dx: 1, dy: 1 },
+                    { dx: -1, dy: -1 },
+                    { dx: -1, dy: 1 },
                 ];
 
                 let pNX = -Math.sin(angle), pNY = Math.cos(angle);
@@ -572,7 +572,7 @@ export const LabelMixin = {
         }
 
         // 300 mbar → kırmızı
-        const numColor = pipeNum >= 300 ? '#ef4444' : accentColor;
+        const numColor = pipeNum >= 300 ? '#8d2121' : accentColor;
 
         const numStr = String(pipeNum);
         const numFont = `bold ${fontSize * 1.4}px "Segoe UI",sans-serif`;
@@ -837,7 +837,7 @@ export const LabelMixin = {
         let nY = Math.cos(angle);
         if (nY > 0) { nX = -nX; nY = -nY; }
 
-        const hw = 3; // yarı-genişlik
+        const hw = 10; // yarı-genişlik
         const cx = sc.x + nX * hw;
         const cy = sc.y + nY * hw;
 

@@ -785,7 +785,7 @@ drawSayac(ctx, comp, manager) {
         }
 
         // Çubuğu çiz (merkezden yukarı doğru, local koordinatlarda)
-        ctx.strokeStyle = this.secilenRenk;
+        ctx.strokeStyle =isLightMode()?'#464545':'#949191'
         ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
         ctx.beginPath();
@@ -794,8 +794,8 @@ drawSayac(ctx, comp, manager) {
         ctx.stroke();
 
         // Ucunda tutamaç (daire) - biraz daha küçük
-        ctx.fillStyle = this.secilenRenk;
-        ctx.strokeStyle = '#fff';
+        ctx.fillStyle = isLightMode()?'#464545':'#949191'
+        ctx.strokeStyle = isLightMode()?'#181818':'#ebe8e8'
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(0, -handleLength, 4, 0, Math.PI * 2);
