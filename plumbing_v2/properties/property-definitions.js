@@ -148,7 +148,7 @@ function _isDN65Plus(cap) {
 const _CIHAZ_MIN_DEBI = { OCAK: 1.6, KOMBI: 2.5 };
 
 function _cihazDebiHesapla(obj) {
-    const kcal  = parseFloat(obj.kapasiteKcal);
+    const kcal = parseFloat(obj.kapasiteKcal);
     const verim = (parseFloat(obj.verim) || 100) / 100;
     if (isNaN(kcal) || kcal <= 0) return null;
     const raw = kcal / 8250 / verim;
@@ -404,9 +404,9 @@ export const PROPERTY_DEFS = {
             { key: 'birimBaglantiTipi', default: 'KAYNAKLI' },
         ],
         options: [
-            { value: 'DİŞLİ_ÇELİK',    label: 'Dişli Tesisat (Çelik)' },
+            { value: 'DİŞLİ_ÇELİK', label: 'Dişli Tesisat (Çelik)' },
             { value: 'KAYNAKLI_ÇELİK', label: 'Kaynaklı Tesisat (Çelik)' },
-            { value: 'ESNEK',           label: 'Esnek Tesisat' },
+            { value: 'ESNEK', label: 'Esnek Tesisat' },
         ],
         optionsAreObjects: true,
         afterChange: (obj, _manager, panelEl) => {
@@ -490,7 +490,7 @@ export const PROPERTY_DEFS = {
         noLabel: true,
         fields: [
             { type: 'text', key: 'aboneAdi', default: '', placeholder: 'Abone Adı...' },
-            { type: 'text', key: 'aboneNo',  default: '', placeholder: 'Abone No...' },
+            { type: 'text', key: 'aboneNo', default: '', placeholder: 'Abone No...' },
         ],
     },
 
@@ -500,17 +500,17 @@ export const PROPERTY_DEFS = {
         noLabel: true,
         fields: [
             { type: 'text', key: 'ustaAdi', default: '', placeholder: 'Usta Adı...' },
-            { type: 'text', key: 'ustaNo',  default: '', placeholder: 'Sicil No...' },
+            { type: 'text', key: 'ustaNo', default: '', placeholder: 'Sicil No...' },
         ],
     },
 
     // Eski tekil abone/usta tanımları (başka nesnelerde kullanılabilir)
     sayac_sec_abone: { type: 'section', label: 'Abone Bilgileri' },
     sayacAboneAdi: { label: 'Abone Adı', type: 'text', key: 'aboneAdi', default: '', placeholder: 'Ad Soyad...' },
-    sayacAboneNo:  { label: 'Abone No',  type: 'text', key: 'aboneNo',  default: '', placeholder: 'Abone numarası...' },
+    sayacAboneNo: { label: 'Abone No', type: 'text', key: 'aboneNo', default: '', placeholder: 'Abone numarası...' },
     sayac_sec_yapan: { type: 'section', label: 'Yapan' },
     sayacUstaAdi: { label: 'Usta Adı', type: 'text', key: 'ustaAdi', default: '', placeholder: 'Usta adı...' },
-    sayacUstaNo:  { label: 'Usta No',  type: 'text', key: 'ustaNo',  default: '', placeholder: 'Usta sicil no...' },
+    sayacUstaNo: { label: 'Usta No', type: 'text', key: 'ustaNo', default: '', placeholder: 'Usta sicil no...' },
 
     // ════════════════════════════════════════════════════════
     // VANA
@@ -775,7 +775,51 @@ export const PROPERTY_DEFS = {
         default: 'KAYNAKLI',
         disabled: true,
     },
+    kutuCikisKotu: {
+        label: 'Çıkış Kotu (cm)',
+        type: 'text',
+        inputType: 'number',
+        key: 'z', // Teknik olarak nesnenin Z koordinatını kontrol eder
+        default: 20,
+        precision: 1,
+        afterChange: (obj, manager) => {
+            if (!manager || !obj) return;
 
+            const newZ = parseFloat(obj.z);
+            if (isNaN(newZ)) return;
+
+            // Kutunun bağlı olduğu tüm boruları tara
+            manager.pipes.forEach(pipe => {
+                // Borunun başlangıcı (p1) bu kutuya mı bağlı?
+                if (pipe.baslangicBaglanti?.tip === 'servis_kutusu' && pipe.baslangicBaglanti.hedefId === obj.id) {
+                    // Node koordinatını güncelle (bu sayede 3D render boruyu yeni yerde çizer)
+                    pipe.p1.z = newZ;
+                    // Eğer boru dikey değilse etiket pozisyonunu sıfırla
+                    if (typeof manager.interactionManager?.clearLabelAutoPos === 'function') {
+                        manager.interactionManager.clearLabelAutoPos(pipe.id);
+                    }
+                }
+
+                // Borunun bitişi (p2) bu kutuya mı bağlı?
+                if (pipe.bitisBaglanti?.tip === 'servis_kutusu' && pipe.bitisBaglanti.hedefId === obj.id) {
+                    pipe.p2.z = newZ;
+                    if (typeof manager.interactionManager?.clearLabelAutoPos === 'function') {
+                        manager.interactionManager.clearLabelAutoPos(pipe.id);
+                    }
+                }
+            });
+
+            // Değişiklikleri kaydet ve tüm sahneyi (2D/3D) yeniden çiz
+            if (typeof manager.saveToState === 'function') {
+                manager.saveToState();
+            }
+
+            // 3D sahnenin anlık güncellenmesi için (eğer varsa)
+            if (window.update3DScene) {
+                window.update3DScene();
+            }
+        }
+    },
     // Kombine boru bağlantısı (kutuBoruTipi + kutuBaglantiTipi)
     kutu_borubag: {
         label: 'Boru Bağlantısı',
@@ -787,13 +831,13 @@ export const PROPERTY_DEFS = {
             return 'KAYNAKLI_ÇELİK';
         },
         relatedFields: [
-            { key: 'kutuBoruTipi',     default: 'ÇELİK' },
+            { key: 'kutuBoruTipi', default: 'ÇELİK' },
             { key: 'kutuBaglantiTipi', default: 'KAYNAKLI' },
         ],
         options: [
-            { value: 'DİŞLİ_ÇELİK',    label: 'Dişli Tesisat (Çelik)' },
+            { value: 'DİŞLİ_ÇELİK', label: 'Dişli Tesisat (Çelik)' },
             { value: 'KAYNAKLI_ÇELİK', label: 'Kaynaklı Tesisat (Çelik)' },
-            { value: 'ESNEK',           label: 'Esnek Tesisat' },
+            { value: 'ESNEK', label: 'Esnek Tesisat' },
         ],
         optionsAreObjects: true,
         afterChange: (obj) => {
@@ -1151,24 +1195,24 @@ export const PROPERTY_DEFS = {
             const unitA = unitRooms.reduce((s, r) => s + (Number(r.area) || 0), 0);
             const unitPer = getUnitBoundaryPerimeter(unitRooms);
             const rows = [
-                ['Alan',  `${a.toFixed(2)} m²`,     `${unitA.toFixed(2)} m²`],
+                ['Alan', `${a.toFixed(2)} m²`, `${unitA.toFixed(2)} m²`],
                 ['Hacim', `${(a * h).toFixed(2)} m³`, `${(unitA * h).toFixed(2)} m³`],
                 ['Çevre', `${(per / 100).toFixed(2)} m`, `${(unitPer / 100).toFixed(2)} m`],
             ];
             return { showUnit: true, rows };
         },
     },
-   
-   /* roomWallCount: {
-        label: 'Duvar Sayısı',
-        type: 'readonly',
-        readonlyFn: (obj) => {
-            const coords = obj?.polygon?.geometry?.coordinates?.[0];
-            return Array.isArray(coords) ? String(Math.max(0, coords.length - 1)) : '—';
-        },
-    },
 
-    */
+    /* roomWallCount: {
+         label: 'Duvar Sayısı',
+         type: 'readonly',
+         readonlyFn: (obj) => {
+             const coords = obj?.polygon?.geometry?.coordinates?.[0];
+             return Array.isArray(coords) ? String(Math.max(0, coords.length - 1)) : '—';
+         },
+     },
+ 
+     */
     // Duvar (wall)
     wall_sec_boyut: { type: 'section', label: 'Boyut' },
     wallThickness: {
@@ -1188,10 +1232,10 @@ export const PROPERTY_DEFS = {
         default: 'normal',
         optionsAreObjects: true,
         options: [
-            { value: 'normal',  label: 'Normal Duvar' },
+            { value: 'normal', label: 'Normal Duvar' },
             { value: 'balcony', label: 'Balkon Duvarı' },
-            { value: 'glass',   label: 'Camekan' },
-            { value: 'half',    label: 'Yarım Duvar' },
+            { value: 'glass', label: 'Camekan' },
+            { value: 'half', label: 'Yarım Duvar' },
         ],
     },
     wallArc: {
@@ -1225,10 +1269,10 @@ export const PROPERTY_DEFS = {
         type: 'actions',
         noLabel: true,
         buttons: [
-            { label: 'Kapı Ekle',    onClick: (obj) => addDoorToWall(obj) },
+            { label: 'Kapı Ekle', onClick: (obj) => addDoorToWall(obj) },
             { label: 'Pencere Ekle', onClick: (obj) => addWindowToWall(obj) },
-            { label: 'Menfez Ekle',  onClick: (obj) => addVentToWall(obj) },
-            { label: 'Kolon Ekle',   onClick: (obj) => addColumnToWall(obj) },
+            { label: 'Menfez Ekle', onClick: (obj) => addVentToWall(obj) },
+            { label: 'Kolon Ekle', onClick: (obj) => addColumnToWall(obj) },
         ],
     },
 
@@ -1469,6 +1513,7 @@ export const OBJECT_PROPERTIES = {
         'kutuTipi',
         'kutuBasinc',
         'kutuCikisYonu',
+        'kutuCikisKotu',
         'kutuCikisCap',
         'kutu_borubag',
     ],
