@@ -73,8 +73,8 @@ function drawCameraViewIndicator(ctx2d, zoom) {
     const dirZ = -Math.cos(yaw); // Negatif çünkü varsayılan bakış -Z yönünde
 
     // Göz bebeği (bakış yönünde kaydırılmış)
-    const pupilOffsetX = dirX * (eyeRadius - pupilRadius) * 0.5;
-    const pupilOffsetZ = dirZ * (eyeRadius - pupilRadius) * 0.5;
+    const pupilOffsetX = dirX * (eyeRadius - pupilRadius) * 0.8;
+    const pupilOffsetZ = dirZ * (eyeRadius - pupilRadius) * 0.8;
     ctx2d.beginPath();
     ctx2d.arc(camX + pupilOffsetX, camZ + pupilOffsetZ, pupilRadius, 0, Math.PI * 2);
     ctx2d.fillStyle = '#1E3A8A'; // Koyu mavi

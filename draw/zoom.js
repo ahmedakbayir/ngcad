@@ -212,7 +212,7 @@ export function fitSelectionToScreen() {
     }
 
     const { c2d } = dom;
-    const PADDING = 60;
+    const PADDING = 100;
     const obj = sel.object;
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

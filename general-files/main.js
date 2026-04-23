@@ -71,12 +71,10 @@ export const THEME_COLORS = {
         backgroundGradient: 'radial-gradient(ellipse at center, #fdffff 0%, #e7fafa 100%)',
         canvas: '#e6e7e7', // Canvas temizleme rengi
         canvasGradient: {
-            center: '#f9f8f6',  // Merkez - koyu gri
-            mid: '#f9f8f6',     // Orta
-            edge: '#f9f8f6'     // Kenar - daha koyu
-            // center: '#ffffff',  // Merkez - koyu gri
-            // mid: '#fafaff',     // Orta
-            // edge: '#f7f7ff'     // Kenar - daha koyu
+
+            center: '#ffffff',  // Merkez - koyu gri
+            mid: '#fafaff',     // Orta
+            edge: '#f7f7ff'     // Kenar - daha koyu
         },
 
         // Grid
@@ -84,10 +82,10 @@ export const THEME_COLORS = {
 
         // Duvarlar
         wallStroke: '#2b2b2b', // Duvar çizgisi (koyu)
-        wallFill: '#f9f8f6', // Duvar dolgusu (açık)
+        wallFill: 'rgb(245, 247, 246)', // Duvar dolgusu (açık)
 
         // Mahaller
-        roomFill: 'rgb(250, 249, 247)', // Mahal dolgusu (BG'ye yakın)
+        roomFill: 'rgb(255, 255, 255)', // Mahal dolgusu (BG'ye yakın)
         roomHover: '#fff1f1', // Mahal hover
         roomSelected: '#fff1f1', // Mahal seçili
 
@@ -212,12 +210,12 @@ export function getThemeColor(colorKey) {
 export const METER_SCALE = 1;
 // export const WALL_THICKNESS = 20; // SABİT KALDIRILDI
 export const WALL_HEIGHT = 270;
-export const DOOR_HEIGHT = 220; // <-- DEĞİŞTİRİLDİ (220 -> 200)
+export const DOOR_HEIGHT = 200; // <-- DEĞİŞTİRİLDİ (220 -> 200)
 export const WINDOW_BOTTOM_HEIGHT = 80;
-export const WINDOW_TOP_HEIGHT = 220;
+export const WINDOW_TOP_HEIGHT = 200;
 export const BATHROOM_WINDOW_BOTTOM_HEIGHT = 170;
-export const BATHROOM_WINDOW_TOP_HEIGHT = 220; // 170 + 50
-export const BATHROOM_WINDOW_DEFAULT_WIDTH = 50;
+export const BATHROOM_WINDOW_TOP_HEIGHT = 200; // 170 + 50
+export const BATHROOM_WINDOW_DEFAULT_WIDTH = 30;
 export const DRAG_HANDLE_RADIUS = 8;
 export const EXTEND_RANGE = 500;
 export const SNAP_UNLOCK_DISTANCE_CM = 10;
@@ -486,12 +484,12 @@ export let state = {
     is3DPerspectiveActive: false,
     // ...
     tempVisibility: {
-        showZElevation: true,      // Z Kotu
+        showZElevation: false,      // Z Kotu
         showPipeLabels: false,      // Hat No (A, B, C...)
         showArchDimensions: true,  // Mimari Ölçü
         showPlumbingDimensions: true, // Tesisat Ölçü
         showRoomNames: true,       // Mahal İsimleri
-        showPipeShadows: true,     // Hat Gölgesi
+        showPipeShadows: false,     // Hat Gölgesi
         show3DAxis: true,           // Varsayılan açık
         show3DPipeFrame: true,      // 3D Hat Çerçevesi (varsayılan açık)
         showPipePath: false,

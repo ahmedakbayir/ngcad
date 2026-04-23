@@ -2,7 +2,22 @@ import { state, dom, getAdjustedColor, getWallFillColor } from '../general-files
 
 // --- YARDIMCI FONKSİYONLAR ---
 
-function darkenColor(hex, percent) { /* ... (değişiklik yok) ... */ let color = hex.startsWith('#') ? hex.slice(1) : hex; let r = parseInt(color.substring(0, 2), 16); let g = parseInt(color.substring(2, 4), 16); let b = parseInt(color.substring(4, 6), 16); r = parseInt(r * (100 - percent) / 100); g = parseInt(g * (100 - percent) / 100); b = parseInt(b * (100 - percent) / 100); r = (r < 0) ? 0 : r; g = (g < 0) ? 0 : g; b = (b < 0) ? 0 : b; const rStr = (r.toString(16).length < 2) ? '0' + r.toString(16) : r.toString(16); const gStr = (g.toString(16).length < 2) ? '0' + g.toString(16) : g.toString(16); const bStr = (b.toString(16).length < 2) ? '0' + b.toString(16) : b.toString(16); return `#${rStr}${gStr}${bStr}`; }
+function darkenColor(hex, percent) {
+    let color = hex.startsWith('#') ? hex.slice(1) : hex;
+    let r = parseInt(color.substring(0, 2), 16);
+    let g = parseInt(color.substring(2, 4), 16);
+    let b = parseInt(color.substring(4, 6), 16);
+    r = parseInt(r * (100 - percent) / 100);
+    g = parseInt(g * (100 - percent) / 100);
+    b = parseInt(b * (100 - percent) / 100);
+    r = (r < 0) ? 0 : r;
+    g = (g < 0) ? 0 : g;
+    b = (b < 0) ? 0 : b;
+    const rStr = (r.toString(16).length < 2) ? '0' + r.toString(16) : r.toString(16);
+    const gStr = (g.toString(16).length < 2) ? '0' + g.toString(16) : g.toString(16);
+    const bStr = (b.toString(16).length < 2) ? '0' + b.toString(16) : b.toString(16);
+    return `#${rStr}${gStr}${bStr}`;
+}
 
 // İki _sonsuz_ çizginin kesişim noktasını bulur
 function getInfiniteLineIntersection(line1_p1, line1_p2, line2_p1, line2_p2) {

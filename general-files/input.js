@@ -31,7 +31,6 @@ import { openPropertiesPanel, isPanelOpen } from '../plumbing_v2/properties/prop
 
 
 
-// ... (dosyanın üst kısmı değişmedi: currentModifierKeys, extendWallOnTabPress, handleCopy, handlePaste) ...
 export let currentModifierKeys = {
     ctrl: false,
     alt: false,

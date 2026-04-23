@@ -1,4 +1,4 @@
-import { isLightMode, getRoomSelectedColor, getRoomFillColor, getAdjustedColor, isObjectInteractable} from '../general-files/main.js';
+import { isLightMode, getRoomSelectedColor, getRoomHoverColor,getRoomFillColor, getAdjustedColor, isObjectInteractable} from '../general-files/main.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 
 // --- EKSİK SABİTİ EKLEYİN ---
@@ -7,7 +7,6 @@ const ZOOM_EXPONENT = -0.4;
 // --- SABİT EKLENDİ ---
 
 function darkenColor(hex, percent) {
-    // ... (Bu fonksiyon aynı kalabilir) ...
     let color = hex.startsWith('#') ? hex.slice(1) : hex;
     let r = parseInt(color.substring(0, 2), 16);
     let g = parseInt(color.substring(2, 4), 16);
@@ -174,7 +173,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
         }
 
         // Çizim moduna göre renk ayarla
-        const baseNameColor = room.name === 'MAHAL' ? '#e57395' :  isLightMode()? 'rgb(50, 50, 50)': 'rgb(205, 205, 205)';
+        const baseNameColor = room.name === 'MAHAL' ? '#e57395' :  isLightMode()? 'rgb(30, 67, 73)': 'rgb(192, 223, 226)';
         const adjustedNameColor = getAdjustedColor(baseNameColor, 'roomName');
         ctx2d.fillStyle = adjustedNameColor;
 
@@ -195,7 +194,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
 
         if (showArea) {
             // Çizim moduna göre alan metni rengi ayarla
-            const adjustedAreaColor = getAdjustedColor('#e57373', 'roomName');
+            const adjustedAreaColor =isLightMode()? 'rgb(35, 81, 85)': 'rgb(131, 152, 153)';
             ctx2d.fillStyle = adjustedAreaColor;
             ctx2d.font = `400 ${Math.max(minWorldAreaFontSize, areaFontSize)}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
             ctx2d.textBaseline = "middle";
