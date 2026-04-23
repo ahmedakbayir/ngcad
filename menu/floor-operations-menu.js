@@ -39,12 +39,23 @@ export function initFloorOperationsMenu() {
     }
 }
 
+// Tesisat clipboard'unu temizle — mimari kopyala/yapıştır Ctrl+V ile çakışmasın
+function clearPlumbingClipboard() {
+    const im = window.plumbingManager?.interactionManager;
+    if (!im) return;
+    im.copiedPipes = null;
+    im.cutPipes = null;
+    im.cutPipesOriginalIds = null;
+}
+
 // Mevcut kattaki tüm mimariyi kopyala
 export function copyFloorArchitecture() {
     if (!state.currentFloor) {
         alert('Aktif kat bulunamadı!');
         return;
     }
+
+    clearPlumbingClipboard();
 
     const currentFloorId = state.currentFloor.id;
     console.log('Kopyalama başladı, kaynak kat:', currentFloorId, 'isPlaceholder:', state.currentFloor.isPlaceholder);
@@ -84,6 +95,8 @@ export function pasteFloorArchitecture() {
         alert('Aktif kat bulunamadı!');
         return;
     }
+
+    clearPlumbingClipboard();
 
     const currentFloorId = state.currentFloor.id;
     console.log('Yapıştırma başladı, hedef kat:', currentFloorId, 'isPlaceholder:', state.currentFloor.isPlaceholder);

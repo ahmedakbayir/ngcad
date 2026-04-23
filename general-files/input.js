@@ -909,8 +909,18 @@ function onKeyDown(e) {
     if (e.key.toLowerCase() === "m" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawStairs");
     if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.altKey && !e.shiftKey) setMode("drawDoor");
     if (e.key.toLowerCase() === "l" && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-        plumbingManager.startPipeMode(); // Boru çizim aracını başlat
-        setMode("plumbingV2", true); // UI'yı güncelle (ikonu aktif et)
+        const im = plumbingManager?.interactionManager;
+        const selPipe = (im?.selectedObject?.type === 'boru')
+            ? im.selectedObject
+            : (state.selectedObject?.object?.type === 'boru' ? state.selectedObject.object : null);
+        if (selPipe && im) {
+            im.cancelCurrentAction();
+            im.startBoruCizim(selPipe.p2, selPipe.id, 'boru', selPipe.colorGroup);
+            setMode("plumbingV2", true);
+        } else {
+            plumbingManager.startPipeMode(); // Boru çizim aracını başlat
+            setMode("plumbingV2", true); // UI'yı güncelle (ikonu aktif et)
+        }
     }
     // S tuşu artık sayaç eklemek için kullanılıyor (interaction-manager.js'de)
     // if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.altKey && !e.shiftKey && !inFPSMode) setMode("drawSymmetry");
@@ -1118,6 +1128,12 @@ export function setupInputListeners() {
             return;
         }
 
+        // Boş alana sağ tıklandığında referans + kat işlemleri menüsü (tesisat modundan bağımsız)
+        if (!object) {
+            showGuideContextMenu(e.clientX, e.clientY, clickPos);
+            return;
+        }
+
         // Tesisat modunda VEYA KARMA modda boru/tesisat nesnesi yakınındaysa menüyü göster
         const isTesisatMode = state.currentDrawingMode === 'TESİSAT';
         const isKarmaMode = state.currentDrawingMode === 'KARMA';
@@ -1127,14 +1143,9 @@ export function setupInputListeners() {
             return;
         }
 
-        if (!object) {
-            // Boş alana tıklandı
-            showGuideContextMenu(e.clientX, e.clientY, clickPos);
-        } else {
-            // Diğer nesneler (kolon, kiriş, rehber vb.)
-            setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null, selectedObject: null, selectedGroup: [] });
-            setMode("select");
-        }
+        // Diğer nesneler (kolon, kiriş, rehber vb.)
+        setState({ startPoint: null, isSnapLocked: false, lockedSnapPoint: null, selectedObject: null, selectedGroup: [] });
+        setMode("select");
     });
     p2d.addEventListener("pointerleave", (e) => {
         if (state.isDragging) {

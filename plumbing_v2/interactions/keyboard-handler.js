@@ -361,35 +361,20 @@ export function handleKeyDown(e) {
     }
 
     // T - BORU çizme modu (boru icon'unu aktif et)
-    // GÜNCELLENDİ: Seçili boru varsa onun ucundan başlat
+    // GÜNCELLENDİ: Seçili boru varsa her zaman P2 ucundan çizime başla
     if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        // 1. Seçili boru var mı kontrol et
-        if (this.selectedObject && this.selectedObject.type === 'boru') {
-            const pipe = this.selectedObject;
+        const selPipe = (this.selectedObject && this.selectedObject.type === 'boru')
+            ? this.selectedObject
+            : (state.selectedObject?.object?.type === 'boru' ? state.selectedObject.object : null);
 
-            // Boş ucu bul (Önce P2 - bitiş, sonra P1 - başlangıç)
-            let startPoint = null;
-
-            if (this.manager.isTrulyFreeEndpoint(pipe.p2)) {
-                startPoint = pipe.p2;
-            } else if (this.manager.isTrulyFreeEndpoint(pipe.p1)) {
-                startPoint = pipe.p1;
+        if (selPipe) {
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
             }
-
-            if (startPoint) {
-                if (state.currentDrawingMode !== "KARMA") {
-                    setDrawingMode("TESİSAT");
-                }
-
-                const sourceId = pipe.id;
-                const sourceColor = pipe.colorGroup;
-                this.cancelCurrentAction();
-
-                this.startBoruCizim(startPoint, sourceId, 'boru', sourceColor);
-
-                setMode("plumbingV2", true);
-                return true;
-            }
+            this.cancelCurrentAction();
+            this.startBoruCizim(selPipe.p2, selPipe.id, 'boru', selPipe.colorGroup);
+            setMode("plumbingV2", true);
+            return true;
         }
 
         if (state.currentDrawingMode !== "KARMA") {

@@ -1313,13 +1313,23 @@ function initialize() {
     }
     if (dom.bBoru) {
         dom.bBoru.addEventListener("click", () => {
+            const im = plumbingManager.interactionManager;
+            const selPipe = (im?.selectedObject?.type === 'boru')
+                ? im.selectedObject
+                : (state.selectedObject?.object?.type === 'boru' ? state.selectedObject.object : null);
+
             // Aktif boru çizimini iptal et
-            plumbingManager.interactionManager?.cancelCurrentAction();
+            im?.cancelCurrentAction();
             if (state.currentDrawingMode !== "KARMA") {
                 setDrawingMode("TESİSAT");
             }
             setMode("plumbingV2", true);   // önce mode (cursor'ı sıfırlar)
-            plumbingManager.startPipeMode(); // sonra tool (setter cursor'ı set eder)
+
+            if (selPipe && im) {
+                im.startBoruCizim(selPipe.p2, selPipe.id, 'boru', selPipe.colorGroup);
+            } else {
+                plumbingManager.startPipeMode(); // sonra tool (setter cursor'ı set eder)
+            }
         });
     }
 

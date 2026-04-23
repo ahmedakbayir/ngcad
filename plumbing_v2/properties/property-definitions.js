@@ -1181,7 +1181,12 @@ export const PROPERTY_DEFS = {
         type: 'table',
         tableFn: (obj) => {
             const a = Number(obj?.area) || 0;
-            const h = WALL_HEIGHT / 100;
+            const getFloorHeightM = (room) => {
+                const f = (state.floors || []).find(fl => fl.id === room?.floorId);
+                const cm = f ? (Number(f.topElevation) - Number(f.bottomElevation)) : Number(state.defaultFloorHeight);
+                return (Number.isFinite(cm) && cm > 0 ? cm : WALL_HEIGHT) / 100;
+            };
+            const h = getFloorHeightM(obj);
             const coords = obj?.polygon?.geometry?.coordinates?.[0];
             let per = 0;
             if (Array.isArray(coords) && coords.length >= 2) {
@@ -1193,10 +1198,11 @@ export const PROPERTY_DEFS = {
             }
             const unitRooms = getUnitRoomsForRoom(obj);
             const unitA = unitRooms.reduce((s, r) => s + (Number(r.area) || 0), 0);
+            const unitVol = unitRooms.reduce((s, r) => s + (Number(r.area) || 0) * getFloorHeightM(r), 0);
             const unitPer = getUnitBoundaryPerimeter(unitRooms);
             const rows = [
                 ['Alan', `${a.toFixed(2)} m²`, `${unitA.toFixed(2)} m²`],
-                ['Hacim', `${(a * h).toFixed(2)} m³`, `${(unitA * h).toFixed(2)} m³`],
+                ['Hacim', `${(a * h).toFixed(2)} m³`, `${unitVol.toFixed(2)} m³`],
                 ['Çevre', `${(per / 100).toFixed(2)} m`, `${(unitPer / 100).toFixed(2)} m`],
             ];
             return { showUnit: true, rows };

@@ -9,6 +9,9 @@ import { getPropertiesForObject, getObjectLabel, PROPERTY_DEFS } from './propert
 import { draw2D } from '../../draw/draw2d.js';
 import { state, setState } from '../../general-files/main.js';
 import { syncBirimState } from '../../draw/draw-birim-labels.js';
+import { processWalls } from '../../wall/wall-processor.js';
+import { saveState } from '../../general-files/history.js';
+import { update3DScene } from '../../scene3d/scene3d-update.js';
 
 
 export const PANEL_MODES = {
@@ -287,13 +290,19 @@ function renderPanel(obj, manager) {
                 <button class="props-btn-close" title="Kapat (ESC)" id="props-close-btn">×</button>
             </div>
         </div>
-        <div class="props-body" style="min-height: calc(100vh - 48px);">  
+        <div class="props-body" style="min-height: calc(100vh - 48px);">
             ${props.length === 0
             ? '<div class="props-empty">Bu nesne için tanımlı özellik yok.</div>'
             : props.map(prop => renderProperty(prop, obj, manager)).join('')
         }
             ${renderConnectedObjectsSection(obj, manager)}
             ${hasDesc ? renderDescriptionsSection(obj) : ''}
+            <div class="props-delete-row" style="padding:12px 8px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.08)">
+                <button id="props-delete-current-btn" class="props-delete-current-btn"
+                    style="width:100%;padding:8px 12px;background:rgba(220,50,50,0.15);border:1px solid rgba(220,50,50,0.5);color:#ff7070;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:0.5px">
+                    🗑 SİL
+                </button>
+            </div>
         </div>
     `;
 
@@ -314,6 +323,10 @@ function renderPanel(obj, manager) {
     bindConnectedObjectsEvents(panelEl, obj, manager);
     if (hasDesc) bindDescriptionEvents(panelEl, obj);
     _initCollapsibleSections(panelEl);
+
+    panelEl.querySelector('#props-delete-current-btn')?.addEventListener('click', () => {
+        _deleteCurrentPanelObject();
+    });
 
 
 
@@ -614,9 +627,90 @@ function renderConnectedObjectsSection(obj, manager) {
     const itemsHtml = list.map((entry, i) => {
         const lbl = escHtml(_connectedItemLabel(entry.item));
         const pad = 8 + (entry.depth || 0) * 16;
-        return `<div class="props-connected-item" data-conn-idx="${i}" style="padding-left:${pad}px">${lbl}</div>`;
+        return `<div class="props-connected-item" data-conn-idx="${i}" style="padding-left:${pad}px;display:flex;align-items:center;justify-content:space-between;gap:6px">
+            <span class="props-conn-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}</span>
+            <button class="props-conn-delete-btn" data-conn-del-idx="${i}" title="Bağlı nesneyi sil"
+                style="flex-shrink:0;background:transparent;border:1px solid rgba(255,80,80,0.35);color:#ff7070;border-radius:3px;padding:0 6px;cursor:pointer;font-size:12px;line-height:18px">×</button>
+        </div>`;
     }).join('');
     return `<div class="props-section-header" data-section-key="${CONNECTED_SECTION_LABEL}">${CONNECTED_SECTION_LABEL} (${list.length})</div>${itemsHtml}`;
+}
+
+// ─── SİLME YARDIMCILARI ───────────────────────────────────────────────────────
+function _deleteArbitraryObject(obj) {
+    if (!obj || !obj.type) return { deleted: false, skipSave: false };
+    const t = obj.type;
+
+    // Plumbing v2: interactionManager.deleteSelectedObject bağlantı iyileştirmelerini yapar
+    if (['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(t)) {
+        const im = window.plumbingManager?.interactionManager;
+        if (!im) return { deleted: false, skipSave: false };
+        const prevSel = im.selectedObject;
+        im.selectedObject = { type: t, object: obj };
+        try { im.deleteSelectedObject(); } catch (e) { console.error(e); }
+        if (im.selectedObject && im.selectedObject.object === obj) im.selectedObject = prevSel;
+        return { deleted: true, skipSave: true }; // v2 kendi saveState çağırıyor
+    }
+
+    let deleted = false;
+    if (t === 'column') { state.columns = state.columns.filter(x => x !== obj); deleted = true; }
+    else if (t === 'beam') { state.beams = state.beams.filter(x => x !== obj); deleted = true; }
+    else if (t === 'stairs') { state.stairs = state.stairs.filter(x => x !== obj); deleted = true; }
+    else if (t === 'door') { state.doors = state.doors.filter(x => x !== obj); deleted = true; }
+    else if (t === 'guide') { state.guides = (state.guides || []).filter(x => x !== obj); deleted = true; }
+    else if (t === 'room') { state.rooms = state.rooms.filter(x => x !== obj); deleted = true; }
+    else if (t === 'wall') {
+        state.walls = state.walls.filter(x => x !== obj);
+        state.doors = state.doors.filter(d => d.wall !== obj);
+        deleted = true;
+    }
+    else if (t === 'window' || t === 'vent') {
+        const listKey = t === 'window' ? 'windows' : 'vents';
+        for (const w of (state.walls || [])) {
+            if (Array.isArray(w[listKey]) && w[listKey].includes(obj)) {
+                w[listKey] = w[listKey].filter(x => x !== obj);
+                deleted = true;
+                break;
+            }
+        }
+    }
+    else if (t === 'valve') {
+        const pipes = (window.plumbingManager?.pipes) || state.plumbingPipes || [];
+        for (const p of pipes) {
+            if (Array.isArray(p.valves) && p.valves.includes(obj)) {
+                p.valves = p.valves.filter(x => x !== obj);
+                deleted = true;
+                break;
+            }
+        }
+    }
+    else if (t === 'plumbingBlock') { state.plumbingBlocks = (state.plumbingBlocks || []).filter(x => x !== obj); deleted = true; }
+    else if (t === 'plumbingPipe') { state.plumbingPipes = (state.plumbingPipes || []).filter(x => x !== obj); deleted = true; }
+
+    return { deleted, skipSave: false };
+}
+
+function _postDeleteRefresh(skipSave) {
+    try { processWalls(); } catch (e) { console.error(e); }
+    if (!skipSave) { try { saveState(); } catch (e) { console.error(e); } }
+    try { update3DScene(); } catch (e) { console.error(e); }
+    draw2D();
+}
+
+function _deleteCurrentPanelObject() {
+    const obj = _currentObj;
+    if (!obj) return;
+    const label = getObjectLabel(obj) || 'nesne';
+    if (!confirm(`Bu ${label.toLowerCase()} silinecek. Emin misiniz?`)) return;
+    const res = _deleteArbitraryObject(obj);
+    if (!res.deleted) return;
+    _postDeleteRefresh(res.skipSave);
+    // Seçimleri temizle
+    if (state.selectedObject && (state.selectedObject.object === obj || state.selectedObject === obj)) {
+        setState({ selectedObject: null, selectedGroup: [] });
+    }
+    if (state.selectedRoom === obj) setState({ selectedRoom: null });
+    closePropertiesPanel(true);
 }
 
 function _selectConnectedTarget(target) {
@@ -639,15 +733,32 @@ function bindConnectedObjectsEvents(panelEl, obj, manager) {
     panelEl.querySelectorAll('.props-connected-item').forEach(el => {
         el.addEventListener('click', (e) => {
             if (e.detail > 1) return;
+            // Sil butonuna tıklama satır seçimine dönüşmesin
+            if (e.target && e.target.closest('.props-conn-delete-btn')) return;
             const idx = parseInt(el.dataset.connIdx);
             _selectConnectedTarget(list[idx]?.item);
         });
-        el.addEventListener('dblclick', () => {
+        el.addEventListener('dblclick', (e) => {
+            if (e.target && e.target.closest('.props-conn-delete-btn')) return;
             const idx = parseInt(el.dataset.connIdx);
             const target = list[idx]?.item;
             if (!target) return;
             _selectConnectedTarget(target);
             openPropertiesPanel(target, manager);
+        });
+    });
+    panelEl.querySelectorAll('.props-conn-delete-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.connDelIdx);
+            const target = list[idx]?.item;
+            if (!target) return;
+            const lbl = _connectedItemLabel(target);
+            if (!confirm(`"${lbl}" silinecek. Emin misiniz?`)) return;
+            const res = _deleteArbitraryObject(target);
+            if (!res.deleted) return;
+            _postDeleteRefresh(res.skipSave);
+            if (panelEl._refresh) panelEl._refresh();
         });
     });
 }
