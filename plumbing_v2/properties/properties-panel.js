@@ -641,15 +641,25 @@ function _deleteArbitraryObject(obj) {
     if (!obj || !obj.type) return { deleted: false, skipSave: false };
     const t = obj.type;
 
-    // Plumbing v2: interactionManager.deleteSelectedObject bağlantı iyileştirmelerini yapar
-    if (['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz'].includes(t)) {
+    // Plumbing v2: interactionManager.deleteSelectedObject bağlantı iyileştirmelerini
+    // (heal, bağlı cihaz/baca/vana temizliği, servis kutusu BFS vs.) yönetir.
+    if (['pipe', 'boru', 'servis_kutusu', 'sayac', 'vana', 'cihaz', 'baca'].includes(t)) {
         const im = window.plumbingManager?.interactionManager;
         if (!im) return { deleted: false, skipSave: false };
         const prevSel = im.selectedObject;
-        im.selectedObject = { type: t, object: obj };
+        const prevValve = im.selectedValve;
+        im.selectedValve = null;
+        // deleteSelectedObject düz nesne bekliyor (wrapper değil)
+        im.selectedObject = obj;
         try { im.deleteSelectedObject(); } catch (e) { console.error(e); }
-        if (im.selectedObject && im.selectedObject.object === obj) im.selectedObject = prevSel;
-        return { deleted: true, skipSave: true }; // v2 kendi saveState çağırıyor
+        // deleteSelectedObject parent boru seçmiş olabilir; biz silme çağrısıydık, eski seçimi geri yüklemeyelim
+        if (im.selectedObject === obj) im.selectedObject = null;
+        // state.selectedObject'i de temizle (referans kalmasın)
+        if (state.selectedObject && state.selectedObject.object === obj) {
+            setState({ selectedObject: null, selectedGroup: [] });
+        }
+        void prevSel; void prevValve;
+        return { deleted: true, skipSave: true }; // v2 zaten saveToState / saveState çağırıyor
     }
 
     let deleted = false;

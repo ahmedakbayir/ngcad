@@ -1,5 +1,8 @@
 // floor-handler.js
 import { state, setState } from '../general-files/main.js';
+import { renderMiniPanel } from './floor-panel.js';
+import { draw2D } from '../draw/draw2d.js';
+import { update3DScene } from '../scene3d/scene3d-update.js';
 
 /**
  * Default katları initialize eder
@@ -126,8 +129,12 @@ function migrateOldDrawingsToFloor(targetFloorId) {
 export function switchToFloor(floorId) {
     const floor = state.floors.find(f => f.id === floorId);
 
-    if (floor && !floor.isPlaceholder) {
+    if (floor && !floor.isPlaceholder && state.currentFloor?.id !== floor.id) {
         setState({ currentFloor: floor });
+        // UI'yi tazele: mini panel indikatörü, 2D ve 3D sahne
+        try { renderMiniPanel(); } catch (e) { /* ignore */ }
+        try { draw2D(); } catch (e) { /* ignore */ }
+        try { update3DScene(); } catch (e) { /* ignore */ }
     }
 }
 

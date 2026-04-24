@@ -8,10 +8,40 @@ import { dom, state } from '../general-files/main.js';
 import { BAGLANTI_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 import { TESISAT_CONSTANTS } from '../plumbing_v2/interactions/tesisat-snap.js';
 import { pixelsToWorld, findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
+import { getFloorAtElevation } from '../floor/floor-handler.js';
 
 // YENİ IMPORT: 3D hesaplama fonksiyonu
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
 import { hitTestLabel, startLabelDrag, rotateLabelDir } from '../plumbing_v2/renderer/renderer-labels.js';
+
+/**
+ * 3D perspektif modda bir boruya tıklandığında, tıklama noktasının
+ * borunun hangi Z kotuna (elevation) denk geldiğini hesaplayıp o kata ait floorId'yi döndürür.
+ * Renderer projeksiyonu: screenX = x + z*t, screenY = y - z*t (t = viewBlendFactor)
+ */
+function _computeFloorIdFromPipeClick(pipe, clickPoint, t) {
+    if (!pipe || !pipe.p1 || !pipe.p2) return null;
+    const p1 = pipe.p1, p2 = pipe.p2;
+    const z1 = p1.z || 0, z2 = p2.z || 0;
+
+    const p1sx = p1.x + z1 * t;
+    const p1sy = p1.y - z1 * t;
+    const p2sx = p2.x + z2 * t;
+    const p2sy = p2.y - z2 * t;
+
+    const dx = p2sx - p1sx;
+    const dy = p2sy - p1sy;
+    const lenSq = dx * dx + dy * dy;
+    let u = 0.5;
+    if (lenSq > 0.0001) {
+        u = ((clickPoint.x - p1sx) * dx + (clickPoint.y - p1sy) * dy) / lenSq;
+        if (u < 0) u = 0;
+        if (u > 1) u = 1;
+    }
+    const clickedZ = z1 + u * (z2 - z1);
+    const floor = getFloorAtElevation(clickedZ);
+    return floor ? floor.id : null;
+}
 
 export function handlePointerDown(e) {
     const rect = dom.c2d.getBoundingClientRect();
@@ -350,13 +380,22 @@ export function handlePointerDown(e) {
                     return true;
                 }
 
+                // 3D perspektifte tıklanan uç noktasının Z'sine göre katı bul
+                const ucNoktaForZ = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
+                const _vbfEp = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
+                let selectOptsEp = selectOpts;
+                if (_vbfEp >= 0.5 && ucNoktaForZ) {
+                    const floorFromZ = getFloorAtElevation(ucNoktaForZ.z || 0);
+                    if (floorFromZ) selectOptsEp = { ...(selectOpts || {}), preferredFloorId: floorFromZ.id };
+                }
+
                 const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
                 if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU || ucBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
-                    this.selectObject(pipe, selectOpts);
+                    this.selectObject(pipe, selectOptsEp);
                     return true;
                 }
 
-                this.selectObject(pipe, selectOpts);
+                this.selectObject(pipe, selectOptsEp);
                 this.selectedEndpoint = boruUcu.uc; // Endpoint bilgisini kaydet
                 this.startEndpointDrag(pipe, boruUcu.uc, point);
                 return true;
@@ -366,7 +405,16 @@ export function handlePointerDown(e) {
         // Nesne seçimi
         const hitObject = this.findObjectAt(point);
         if (hitObject) {
-            this.selectObject(hitObject, selectOpts);
+            // 3D perspektifte boruya tıklandıysa tıklanan noktanın Z'sine göre katı bul
+            let selectOptsForHit = selectOpts;
+            if (hitObject.type === 'boru') {
+                const vbf = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
+                if (vbf >= 0.5) {
+                    const pFloorId = _computeFloorIdFromPipeClick(hitObject, point, vbf);
+                    if (pFloorId) selectOptsForHit = { ...(selectOpts || {}), preferredFloorId: pFloorId };
+                }
+            }
+            this.selectObject(hitObject, selectOptsForHit);
             if (hitObject.type === 'boru') {
                 const bagliKutu = this.manager.components.find(c =>
                     c.type === 'servis_kutusu' && c.bagliBoruId === hitObject.id

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PLUMBING_PIPE_TYPES, PLUMBING_COMPONENT_TYPES } from '../plumbing_v2/plumbing-types.js';
 import { BORU_TIPLERI } from '../plumbing_v2/objects/pipe.js';
+import { CIHAZ_TIPLERI } from '../plumbing_v2/objects/device.js';
 
 // PLUMBING_BLOCK_TYPES undefined gelme ihtimaline karşı boş obje ile koruma
 const PLUMBING_BLOCK_TYPES = PLUMBING_COMPONENT_TYPES || {};
@@ -124,7 +125,7 @@ function createSayacMesh(block, material) {
     );
 
     geometry.rotateX(Math.PI / 2);
-    geometry.translate(0, (config.depth || 15) / 2, 0);
+    // Sayaç borunun eksenine oturacak şekilde merkezlenmeli (translate kaldırıldı).
 
     const mesh = new THREE.Mesh(geometry, material.clone());
     if (config.color) mesh.material.color.setHex(config.color);
@@ -188,16 +189,17 @@ export function createVanaMesh(block, material) {
 }
 
 function createKombiMesh(block, material) {
-    const config = PLUMBING_BLOCK_TYPES.KOMBI || {};
+    // Boyutlar PLUMBING_BLOCK_TYPES yerine gerçek cihaz tanımından (CIHAZ_TIPLERI.KOMBI) okunur
+    const config = { ...(PLUMBING_BLOCK_TYPES.KOMBI || {}), ...((CIHAZ_TIPLERI && CIHAZ_TIPLERI.KOMBI) || {}) };
 
     const geometry = createRoundedBoxGeometry(
-        config.width || 41,      
-        config.depth || 29,      
-        config.height || 72,     
+        config.width || 41,
+        config.depth || 29,
+        config.height || 72,
         config.cornerRadius || 2
     );
 
-    geometry.rotateX(-Math.PI / 2); 
+    geometry.rotateX(-Math.PI / 2);
     geometry.translate(0, (config.height || 72) / 2, 0);
 
     const mesh = new THREE.Mesh(geometry, material.clone());
@@ -221,12 +223,13 @@ function createKombiMesh(block, material) {
 }
 
 function createOcakMesh(block, material) {
-    const config = PLUMBING_BLOCK_TYPES.OCAK || {};
+    // Boyutlar PLUMBING_BLOCK_TYPES yerine gerçek cihaz tanımından (CIHAZ_TIPLERI.OCAK) okunur
+    const config = { ...(PLUMBING_BLOCK_TYPES.OCAK || {}), ...((CIHAZ_TIPLERI && CIHAZ_TIPLERI.OCAK) || {}) };
 
     const geometry = createRoundedBoxGeometry(
         config.width || 60,
-        config.height || 60, 
-        config.depth || 5,  
+        config.height || 60,
+        config.depth || 5,
         config.cornerRadius || 2
     );
 
@@ -271,6 +274,27 @@ function createOcakMesh(block, material) {
     return group;
 }
 
+function createGenericCihazMesh(block, material) {
+    const cfg = (CIHAZ_TIPLERI && CIHAZ_TIPLERI[block.blockType]) || { width: 40, height: 40, depth: 40, color: 0xC0C0C0 };
+
+    const geometry = createRoundedBoxGeometry(
+        cfg.width || 40,
+        cfg.depth || 40,   // Yükseklik (dik eksen)
+        cfg.height || 40,  // Derinlik (yatay)
+        2
+    );
+
+    geometry.rotateX(-Math.PI / 2);
+    geometry.translate(0, (cfg.height || 40) / 2, 0);
+
+    const mesh = new THREE.Mesh(geometry, material.clone());
+    if (cfg.color) mesh.material.color.setHex(cfg.color);
+
+    const group = new THREE.Group();
+    group.add(mesh);
+    return group;
+}
+
 export function createPlumbingBlockMesh(block, material) {
     try {
         if (!block || !block.center) {
@@ -287,6 +311,11 @@ export function createPlumbingBlockMesh(block, material) {
             case 'VANA': group = createVanaMesh(block, material); break;
             case 'KOMBI': group = createKombiMesh(block, material); break;
             case 'OCAK': group = createOcakMesh(block, material); break;
+            case 'SOBA':
+            case 'SOFBEN':
+            case 'KAZAN':
+            case 'TICARI':
+                group = createGenericCihazMesh(block, material); break;
             default:
                 console.warn(`Render atlandı. Bilinmeyen blok tipi: '${blockType}'`);
                 return null;

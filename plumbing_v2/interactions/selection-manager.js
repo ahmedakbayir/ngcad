@@ -54,9 +54,11 @@ export function selectObject(interactionManager, obj, opts = {}) {
     const openPanel = !!opts.openPanel;
 
     // 3D sahnede başka katın nesnesi seçildiyse o kata otomatik geç
+    // opts.preferredFloorId verilmişse (ör. düşey borunun tıklanan Z'sine göre) onu kullan
     const vbf = state.viewBlendFactor || 0;
-    if (vbf >= 0.5 && obj && obj.floorId && obj.floorId !== state.currentFloor?.id) {
-        switchToFloor(obj.floorId);
+    const targetFloorId = opts.preferredFloorId || (obj && obj.floorId) || null;
+    if (vbf >= 0.5 && targetFloorId && targetFloorId !== state.currentFloor?.id) {
+        switchToFloor(targetFloorId);
     }
 
     // Önceki seçimi temizle

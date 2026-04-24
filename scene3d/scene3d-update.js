@@ -370,11 +370,27 @@ export function update3DScene() {
             plumbingManager.components
                 .filter(comp => shouldShowFloor(comp.floorId))
                 .forEach(comp => {
+                    // Cihaz için cihazTipi'ne göre mesh üret (KOMBI/OCAK/SOBA vb.)
+                    const resolvedBlockType = comp.type === 'cihaz'
+                        ? (comp.cihazTipi || (comp.config && comp.config.type) || 'KOMBI')
+                        : comp.type;
+
+                    // Vana üzerindeki borunun düşey olup olmadığını tespit et
+                    let isVerticalVana = false;
+                    if (comp.type === 'vana' && comp.bagliBoruId && plumbingManager.pipes) {
+                        const boru = plumbingManager.pipes.find(p => p.id === comp.bagliBoruId);
+                        if (boru && boru.p1 && boru.p2) {
+                            const dxy = Math.hypot((boru.p2.x || 0) - (boru.p1.x || 0), (boru.p2.y || 0) - (boru.p1.y || 0));
+                            const dzAbs = Math.abs((boru.p2.z || 0) - (boru.p1.z || 0));
+                            isVerticalVana = dxy < 0.5 && dzAbs > 0.5;
+                        }
+                    }
+
                     // Bileşeni block formatına dönüştür
                     const block = {
                         center: { x: comp.x, y: comp.y },
                         rotation: comp.rotation || 0,
-                        blockType: comp.type,
+                        blockType: resolvedBlockType,
                         floorId: comp.floorId
                     };
 
@@ -383,6 +399,11 @@ export function update3DScene() {
                         // DÜZELTME: comp.z değerini kat yüksekliğine ekle
                         // Eski kod: m.position.y = getFloorElevation(comp.floorId);
                         m.position.y = getFloorElevation(comp.floorId) + (comp.z || 0);
+
+                        // Düşey borudaki vanayı X eksenden Y eksenine çevir
+                        if (isVerticalVana) {
+                            m.rotation.set(0, 0, Math.PI / 2);
+                        }
 
                         sceneObjects.add(m);
                     }
