@@ -70,11 +70,12 @@ function setupDragAndDrop() {
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     const fileContent = event.target.result;
+                    const originalName = file.name.replace(/\.[^.]+$/, '');
 
                     try {
                         if (fileName.endsWith('.xml')) {
                             console.log("XML dosyası sürükle-bırak ile yükleniyor...");
-                            importFromXML(fileContent);
+                            importFromXML(fileContent, { fileName: originalName });
                         } else if (fileName.endsWith('.json')) {
                             console.log("JSON dosyası sürükle-bırak ile yükleniyor...");
                             // JSON yükleme mantığı - openProject fonksiyonundan kopyala
@@ -446,8 +447,9 @@ function openProject(e) {
             // YENİ: Dosya uzantısına göre yönlendir
             if (fileName.endsWith('.xml')) {
                 console.log("XML dosyası okunuyor...");
+                const originalName = file.name.replace(/\.[^.]+$/, '');
                 // XML import fonksiyonunu (xml-io.js'den) çağır
-                importFromXML(fileContent);
+                importFromXML(fileContent, { fileName: originalName });
 
             } else if (fileName.endsWith('.json')) {
                 console.log("JSON dosyası okunuyor...");

@@ -18,6 +18,169 @@ import { fitDrawingToScreen } from '../draw/zoom.js';
 // XML'deki koordinatları cm'ye çevirmek için ölçek
 const SCALE = 100;
 
+// --- GASLINE IMPORT HELPER'LARI ---------------------------------------------
+
+// XML metin satırlarında \P ayracı veya gerçek yeni satır olabilir
+function _splitTextLines(s) {
+    if (!s) return [];
+    return String(s).split(/\\P|\r?\n/).map(t => t.trim()).filter(Boolean);
+}
+
+// GLVANATIPI (int) + text → v2 vana tipi + izolator flag
+function _mapVanaFromXML({ vanaTipiInt, textLines, muhafazali }) {
+    const joined = (textLines || []).join(' ').toUpperCase();
+    let tip = 'AKV';
+    let izolator = false;
+    if (joined.includes('SELENOID') || joined.includes('SELENO')) tip = 'SELENOID';
+    else if (joined.includes('BRAN')) tip = 'BRANSMAN';
+    else if (joined.includes('YAN B') || joined.includes('YANB')) tip = 'YAN_BINA';
+    else if (joined.includes('EMN')) tip = 'EMNIYET';
+    else if (joined.includes('CİHAZ') || joined.includes('CIHAZ')) tip = 'CIHAZ';
+    else {
+        // GLVANATIPI int mapping
+        switch (vanaTipiInt) {
+            case 1: tip = 'AKV'; break;            // Açma-Kapama Vanası
+            case 2: tip = 'BRANSMAN'; break;       // Daire branşmanı
+            case 3: tip = 'AKV'; break;            // EKV → AKV
+            case 4: tip = 'AKV'; izolator = true; break; // İzolatörlü
+            case 5: tip = 'EMNIYET'; break;        // Emniyet vanası
+            case 7: tip = 'AKV'; break;            // KKV yok → AKV
+            default: tip = 'AKV';
+        }
+    }
+    // "İzolatörlü" metni varsa izolator flag'ini set et
+    if (joined.includes('İZOLAT') || joined.includes('IZOLAT')) izolator = true;
+    return { tip, izolator, muhafaza: !!muhafazali };
+}
+
+// Birim no: "D3\PDaire" veya "AKV\PDN50\Ph:1.8m" → sadece D3 çıkar
+function _extractBirimNo(textLines) {
+    for (const line of textLines) {
+        const m = /\b(D\d+|G\d+|K\d+)\b/.exec(line);
+        if (m) return m[1];
+    }
+    return '';
+}
+
+// Çap: "DN50" / "DN32" → 50 / 32
+function _extractVanaCap(textLines) {
+    for (const line of textLines) {
+        const m = /DN\s*(\d+)/i.exec(line);
+        if (m) return parseInt(m[1], 10);
+    }
+    return null;
+}
+
+// Kombi/Ocak description text'ini parse et
+function _parseCihazText(textLines) {
+    const out = { bacaTipi: null, yogusmali: false, marka: null, model: null, kapasiteKcal: null, kapasiteKW: null };
+    const joined = textLines.join(' ');
+    const upperJoined = joined.toUpperCase();
+
+    // Baca tipi
+    if (/HERMET[İI]K/i.test(joined)) out.bacaTipi = 'Hermetik';
+    else if (/BACASIZ/i.test(joined)) out.bacaTipi = 'Bacasız';
+    else if (/ATMOSFER[İI]K/i.test(joined)) out.bacaTipi = 'Atmosferik';
+
+    // Yoğuşmalı
+    if (/YO[ĞG]U[ŞS]/i.test(joined)) out.yogusmali = true;
+
+    // Kapasite: "20726Kcal/h", "20.726 Kcal/h", "87720Kcal/h" — hem küçük hem büyük harf
+    const kcalM = /(\d[\d.,]*)\s*[Kk][Cc][Aa][Ll]\s*\/?\s*[Hh]/.exec(joined);
+    if (kcalM) {
+        const num = kcalM[1].replace(/\./g, '').replace(',', '.');
+        const v = parseFloat(num);
+        if (!isNaN(v)) out.kapasiteKcal = v;
+    }
+    // "(24,1KW)", "24 kW", "102 KW"
+    const kwM = /(\d[\d.,]*)\s*[Kk][Ww]\b/.exec(joined);
+    if (kwM) {
+        const num = kwM[1].replace(/\./g, '').replace(',', '.');
+        const v = parseFloat(num);
+        if (!isNaN(v)) out.kapasiteKW = v;
+    }
+
+    // Kapasiteler birbirinden türetilebilir (1 kW ≈ 860 Kcal/h)
+    if (out.kapasiteKcal && !out.kapasiteKW) out.kapasiteKW = parseFloat((out.kapasiteKcal / 860).toFixed(2));
+    if (out.kapasiteKW && !out.kapasiteKcal) out.kapasiteKcal = Math.round(out.kapasiteKW * 860);
+
+    // Marka / Model: açıklayıcı olmayan satırlar
+    const stripped = textLines.filter(l => !/Kcal|KW|kW|Hermet|Bacas|Atmosfer|Yoğu|Yogus|Evsel|Duvar Tipi|Kazan|Kombi|Ocak|Cihaz|drenaj|Onayl|GAZMER|ATM|Dirsek|L=|\bG\b/i.test(l));
+    if (stripped.length >= 1 && !out.marka) out.marka = stripped[0];
+    if (stripped.length >= 2 && !out.model) out.model = stripped[1];
+
+    return out;
+}
+
+// Z kotlarından kat tespit et ve state.floors'u kur
+// zPipeElev: yatay boru Z'leri (genelde boru kotları ~200cm zemin üstünde olur)
+function _ensureFloorsFromZValues(zValues, existingFloors) {
+    // Kullanıcı önceden elle kat tanımladıysa koru
+    const realFloors = (existingFloors || []).filter(f => !f.isPlaceholder);
+    if (realFloors.length >= 2) return null;
+
+    const zs = zValues.filter(v => Number.isFinite(v));
+    if (zs.length === 0) return null;
+
+    // 1-boyutlu kümeleme
+    const sorted = [...zs].sort((a, b) => a - b);
+    const clusters = [];
+    const CLUSTER_GAP = 80;
+    let cur = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] - cur[cur.length - 1] <= CLUSTER_GAP) cur.push(sorted[i]);
+        else { clusters.push(cur); cur = [sorted[i]]; }
+    }
+    clusters.push(cur);
+
+    // Her kümenin medyan merkezi = o katın boru kotu
+    const centers = clusters.map(c => {
+        const s = [...c].sort((a, b) => a - b);
+        return s[Math.floor(s.length / 2)];
+    });
+
+    // Gasline'da yatay boru kotu tipik olarak zemin slabından ~200cm yüksekte.
+    // Floor bottom = center - 200cm (slab), top = sonraki center - 200cm (bir sonraki slab).
+    const PIPE_OFFSET = 200; // cm — kot-zemin arası tipik ofset
+    const MIN_FLOOR_HEIGHT = 260;
+    const floors = [];
+    for (let i = 0; i < centers.length; i++) {
+        const bottom = Math.round(centers[i] - PIPE_OFFSET);
+        const rawTop = (i + 1 < centers.length)
+            ? Math.round(centers[i + 1] - PIPE_OFFSET)
+            : (bottom + MIN_FLOOR_HEIGHT + 10);
+        const top = Math.max(rawTop, bottom + MIN_FLOOR_HEIGHT);
+        floors.push({
+            id: `floor-xml-${i}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            name: i === 0 ? 'Zemin' : `${i}. Kat`,
+            bottomElevation: bottom,
+            topElevation: top,
+            visible: true,
+            isPlaceholder: false
+        });
+    }
+    return floors;
+}
+
+function _findFloorIdForZ(z, floors) {
+    if (!floors || !floors.length) return null;
+    const v = Number.isFinite(z) ? z : 0;
+    for (const f of floors) {
+        if (f.isPlaceholder) continue;
+        if (v >= f.bottomElevation && v < f.topElevation) return f.id;
+    }
+    // Range dışında ise en yakına at
+    let best = null, bestD = Infinity;
+    for (const f of floors) {
+        if (f.isPlaceholder) continue;
+        const d = Math.min(Math.abs(v - f.bottomElevation), Math.abs(v - f.topElevation));
+        if (d < bestD) { bestD = d; best = f; }
+    }
+    return best ? best.id : null;
+}
+
+// --------------------------------------------------------------------------
+
 /**
  * Verilen bir mutlak X,Y koordinatına en yakın duvarı ve o duvar üzerindeki
  * göreceli pozisyonu (pos) bulan yardımcı fonksiyon.
@@ -59,9 +222,26 @@ function findClosestWallAndPosition(origin) {
  * Verilen XML metnini ayrıştırır ve ngcad state'ine ekler.
  * @param {string} xmlString - Import edilecek XML içeriği
  */
-export function importFromXML(xmlString) {
+export function importFromXML(xmlString, options = {}) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+
+    // Proje adını input'a yaz (dosya adı öncelikli, yoksa bina/abone ünvanı)
+    try {
+        const nameInput = document.getElementById('projectNameInput');
+        if (nameInput) {
+            let pname = options.fileName;
+            if (!pname) {
+                // Bina yönetimi sayacı ya da ilk sayaç ünvanını dene
+                const unvanEl = xmlDoc.querySelector("O[T='clssayac'] P[F='GLAboneUnvan']");
+                if (unvanEl) pname = unvanEl.getAttribute('V');
+            }
+            if (pname) {
+                nameInput.value = pname;
+                window.currentProjectName = pname;
+            }
+        }
+    } catch (e) { /* ignore */ }
 
     // Hata ayıklama: XML doğru okundu mu?
     const entities = xmlDoc.querySelector("O[F='Entities']");
@@ -709,6 +889,57 @@ export function importFromXML(xmlString) {
         }
     });
 
+    // 8.1b. Branşman (clsbransman) → BRANSMAN vanası (sonlanma vanası)
+    // Not: clsbransman gerçek servis kutusu değil, daire branşmanı vanasıdır.
+    const bransmanElements = xmlDoc.querySelectorAll("O[T='clsbransman']");
+    console.log(`\n${bransmanElements.length} clsbransman bulundu (daire branşmanı vana)`);
+
+    bransmanElements.forEach((bransmanEl, idx) => {
+        try {
+            const sp = bransmanEl.querySelector("P[F='StartPoint']");
+            const ep = bransmanEl.querySelector("P[F='EndPoint']");
+            if (!sp) return;
+            const sc = sp.getAttribute('V').split(',').map(Number);
+            const ec = (ep ? ep.getAttribute('V') : sp.getAttribute('V')).split(',').map(Number);
+            const topZ = Math.max((sc[2] || 0), (ec[2] || 0)) * SCALE;
+            const point = { x: sc[0] * SCALE, y: -sc[1] * SCALE, z: topZ };
+
+            const yakin = findClosestPipeEnd(point, state.plumbingPipes, 80);
+            const vanaData = {
+                id: `vana_bransman_xml_${idx}_${Date.now()}`,
+                type: 'vana',
+                x: point.x, y: point.y, z: point.z,
+                rotation: 0,
+                vanaTipi: 'BRANSMAN',
+                floorId: state.currentFloor?.id,
+                bagliBoruId: yakin ? yakin.pipe.id : null,
+                boruPozisyonu: 1.0,
+                fromEnd: yakin ? yakin.end : null,
+                fixedDistance: 0,
+                girisBagliBoruId: null,
+                cikisBagliBoruId: null,
+                showEndCap: false,
+                vanaCap: null,
+                izolator: false,
+                muhafaza: false,
+                muhafazaGrupla: false,
+                birimNo: '',
+                tesisatNo: '',
+                daireSayisi: 0,
+                dukkanSayisi: 0,
+                ekDebi: 0,
+                bransmanDebi: 0
+            };
+            if (yakin) {
+                yakin.pipe.uzerindekiElemanlar = yakin.pipe.uzerindekiElemanlar || [];
+                yakin.pipe.uzerindekiElemanlar.push({ tip: 'vana', elemanId: vanaData.id, pozisyon: 1.0 });
+            }
+            state.plumbingBlocks.push(vanaData);
+        } catch (e) {
+            console.error("Branşman vana işlenirken hata:", e, bransmanEl);
+        }
+    });
+
     // 8.2. Sayaçlar (clssayac) - Şimdi boru bağlantılarını da kur
     const sayacElements = xmlDoc.querySelectorAll("O[T='clssayac']");
     console.log(`\n${sayacElements.length} clssayac bulundu (tüm XML'de)`);
@@ -884,6 +1115,17 @@ export function importFromXML(xmlString) {
                     }
                 }
 
+                // Sayaç panel alanlarını XML'den çek
+                const glSayacTipi = parseInt(sayacEl.querySelector("P[F='GLSAYACTIPI']")?.getAttribute('V') || '1', 10);
+                const glAboneUnvan = sayacEl.querySelector("P[F='GLAboneUnvan']")?.getAttribute('V') || '';
+                const glAboneTesisatNo = sayacEl.querySelector("P[F='GLAboneTesisatNo']")?.getAttribute('V') || '';
+                const glAbonePoliceNo = sayacEl.querySelector("P[F='GLAbonePoliceNo']")?.getAttribute('V') || '';
+                const glKapiNoAdi = sayacEl.querySelector("P[F='GLAboneKapiNoAdi']")?.getAttribute('V') || '';
+                const glKullanimTipi = parseInt(sayacEl.querySelector("P[F='GLKULLANIMTIPI']")?.getAttribute('V') || '1', 10);
+                // Sayaç tipi mapping: 1→G4, 2→G6, 3→G10, 4→G16, 5→G25 (Gasline konvansiyonu)
+                const sayacTipiStr = ({1:'G4',2:'G6',3:'G10',4:'G16',5:'G25',6:'G40'}[glSayacTipi]) || `G${glSayacTipi}`;
+                const birimTipiStr = ({1:'Konut',2:'Dükkan',3:'Sanayi',4:'Kamu',5:'Isınma'}[glKullanimTipi]) || 'Konut';
+
                 // Sayaç objesi oluştur
                 const sayacData = {
                     id: `sayac_xml_${idx}_${Date.now()}`,
@@ -893,6 +1135,12 @@ export function importFromXML(xmlString) {
                     z: z,
                     rotation: 0,
                     floorId: state.currentFloor?.id,
+                    // Panel alanları
+                    sayacTipi: sayacTipiStr,
+                    birimTipi: birimTipiStr,
+                    birimNo: glKapiNoAdi || '',
+                    aboneAdi: glAboneUnvan,
+                    aboneNo: glAboneTesisatNo || glAbonePoliceNo,
                     fleksBaglanti: {
                         boruId: girisBoruId, // Fleks segment ID'si
                         endpoint: 'p1', // Fleks segment'in başı (p1) sayaca bağlı
@@ -936,6 +1184,11 @@ export function importFromXML(xmlString) {
         try {
             const originEl = vanaEl.querySelector("P[F='origin']");
             const vanaTipiEl = vanaEl.querySelector("P[F='GLVANATIPI']");
+            const muhafazaEl = vanaEl.querySelector("P[F='GLMUHAFAZALI']");
+            const birimSayisiEl = vanaEl.querySelector("P[F='GLBIRIMSAYISI']");
+            const dukkanSayisiEl = vanaEl.querySelector("P[F='GLDUKKANSAYISI']");
+            const ekTuketimEl = vanaEl.querySelector("P[F='GLEKTUKETIM']");
+            const daireNoEl = vanaEl.querySelector("P[F='GLDAIRENO']");
 
             if (originEl) {
                 const originCoords = originEl.getAttribute('V').split(',').map(Number);
@@ -945,16 +1198,23 @@ export function importFromXML(xmlString) {
                     z: originCoords[2] ? originCoords[2] * SCALE : 0
                 };
 
+                // Vana içindeki metin satırları (Tip, DN, İZOLATIRLI vb.)
+                const textEls = vanaEl.querySelectorAll("O[T='vdMText'] P[F='TextString'], O[T='vdText'] P[F='TextString']");
+                const textLines = [];
+                textEls.forEach(te => { _splitTextLines(te.getAttribute('V') || '').forEach(l => textLines.push(l)); });
+
                 // En yakın boruyu bul
                 const yakinBoru = findClosestPipeEnd(vanaPoint, state.plumbingPipes, 50);
 
-                // Vana tipi mapping (XML'deki tip numarası -> Uygulama vana tipi)
+                // Vana tipi mapping
                 const xmlVanaTipi = vanaTipiEl ? parseInt(vanaTipiEl.getAttribute('V')) : 1;
-                let vanaTipi = 'AKV'; // Varsayılan
+                const muhafazali = muhafazaEl ? (muhafazaEl.getAttribute('V') === 'True') : false;
+                const { tip: vanaTipi, izolator, muhafaza } = _mapVanaFromXML({
+                    vanaTipiInt: xmlVanaTipi, textLines, muhafazali
+                });
 
-                // XML vana tipi mapping (tahmine dayalı - gerçek mapping'i bilmiyoruz)
-                if (xmlVanaTipi === 4) vanaTipi = 'KKV';
-                else if (xmlVanaTipi === 5) vanaTipi = 'EMNIYET';
+                const vanaCap = _extractVanaCap(textLines);
+                const birimNo = daireNoEl?.getAttribute('V') || _extractBirimNo(textLines) || '';
 
                 const vanaData = {
                     id: `vana_xml_${idx}_${Date.now()}`,
@@ -971,7 +1231,18 @@ export function importFromXML(xmlString) {
                     fixedDistance: null,
                     girisBagliBoruId: null,
                     cikisBagliBoruId: null,
-                    showEndCap: false
+                    showEndCap: false,
+                    // Panel alanları
+                    vanaCap: vanaCap,
+                    izolator: izolator,
+                    muhafaza: muhafaza,
+                    muhafazaGrupla: false,
+                    birimNo: birimNo,
+                    tesisatNo: '',
+                    daireSayisi: birimSayisiEl ? parseInt(birimSayisiEl.getAttribute('V')) || 0 : 0,
+                    dukkanSayisi: dukkanSayisiEl ? parseInt(dukkanSayisiEl.getAttribute('V')) || 0 : 0,
+                    ekDebi: ekTuketimEl ? parseFloat(ekTuketimEl.getAttribute('V')) || 0 : 0,
+                    bransmanDebi: 0
                 };
 
                 // Borunun vanaya bağlantısını kur
@@ -991,6 +1262,50 @@ export function importFromXML(xmlString) {
         } catch (e) {
             console.error("Vana işlenirken hata:", e, vanaEl);
         }
+    });
+
+    // 8.3b. Selenoid Vanalar (clsselenoid) → SELENOID vana
+    const selenoidElements = xmlDoc.querySelectorAll("O[T='clsselenoid']");
+    console.log(`\n${selenoidElements.length} clsselenoid bulundu`);
+    selenoidElements.forEach((el, idx) => {
+        try {
+            const originEl = el.querySelector("P[F='origin']") || el.querySelector("P[F='StartPoint']");
+            if (!originEl) return;
+            const c = originEl.getAttribute('V').split(',').map(Number);
+            const p = { x: c[0] * SCALE, y: -c[1] * SCALE, z: (c[2] || 0) * SCALE };
+            const yakin = findClosestPipeEnd(p, state.plumbingPipes, 80);
+            const vanaData = {
+                id: `vana_selenoid_xml_${idx}_${Date.now()}`,
+                type: 'vana',
+                x: p.x, y: p.y, z: p.z,
+                rotation: 0,
+                vanaTipi: 'SELENOID',
+                floorId: state.currentFloor?.id,
+                bagliBoruId: yakin ? yakin.pipe.id : null,
+                boruPozisyonu: 0.5,
+                fromEnd: false,
+                fixedDistance: null,
+                girisBagliBoruId: null,
+                cikisBagliBoruId: null,
+                showEndCap: false,
+                vanaCap: null,
+                izolator: false,
+                muhafaza: false,
+                muhafazaGrupla: false,
+                birimNo: '',
+                tesisatNo: '',
+                daireSayisi: 0,
+                dukkanSayisi: 0,
+                ekDebi: 0,
+                bransmanDebi: 0
+            };
+            if (yakin) {
+                yakin.pipe.uzerindekiElemanlar = yakin.pipe.uzerindekiElemanlar || [];
+                yakin.pipe.uzerindekiElemanlar.push({ tip: 'vana', elemanId: vanaData.id, pozisyon: 0.5 });
+            }
+            state.plumbingBlocks.push(vanaData);
+            console.log(`    -> SELENOID vana eklendi: (${p.x.toFixed(1)}, ${p.y.toFixed(1)})`);
+        } catch (e) { console.error("Selenoid işlenirken hata:", e, el); }
     });
 
     // 8.4. Kombiler (clskombi) - Boru bağlantılarını kur VE BACA EKLE
@@ -1037,6 +1352,12 @@ export function importFromXML(xmlString) {
                     }
                 }
 
+                // Metin (marka/model/kapasite) parse et
+                const textEls = kombiEl.querySelectorAll("O[T='vdMText'] P[F='TextString'], O[T='vdText'] P[F='TextString']");
+                const textLines = [];
+                textEls.forEach(te => { _splitTextLines(te.getAttribute('V') || '').forEach(l => textLines.push(l)); });
+                const parsed = _parseCihazText(textLines);
+
                 const cihazData = {
                     id: `cihaz_xml_${idx}_${Date.now()}`,
                     type: 'cihaz',
@@ -1051,7 +1372,18 @@ export function importFromXML(xmlString) {
                         endpoint: yakinBoru ? yakinBoru.end : null,
                         uzunluk: 30
                     },
-                    iliskiliVanaId: null
+                    iliskiliVanaId: null,
+                    // Panel alanları
+                    marka: parsed.marka || '',
+                    model: parsed.model || '',
+                    bacaTipi: parsed.bacaTipi || 'Hermetik',
+                    kapasiteKcal: parsed.kapasiteKcal || 0,
+                    kapasiteKW: parsed.kapasiteKW || 0,
+                    yogusmali: !!parsed.yogusmali,
+                    verim: 100,
+                    muhafaza: false,
+                    muhafazaGrupla: false,
+                    yedekCihaz: false
                 };
 
                 // Borunun cihaza bağlantısını kur
@@ -1069,49 +1401,13 @@ export function importFromXML(xmlString) {
                             baglananNokta: 'giris'
                         };
                     }
-                    console.log(`    -> Kombi boruya bağlandı: ${yakinBoru.pipe.id.substring(0, 20)}... (${yakinBoru.end}, mesafe: ${yakinBoru.distance.toFixed(2)})`);
+                    console.log(`    -> Kombi boruya bağlandı: ${yakinBoru.pipe.id.substring(0, 20)}... (${yakinBoru.end}, mesafe: ${yakinBoru.distance.toFixed(2)}, ${parsed.marka || '-'} ${parsed.model || '-'}, ${parsed.kapasiteKW || 0} kW)`);
                 }
 
                 state.plumbingBlocks.push(cihazData);
                 console.log(`    -> Kombi eklendi: (${cihazPoint.x.toFixed(2)}, ${cihazPoint.y.toFixed(2)})`);
-
-                // BACA EKLE - Kombi bacaya sahip olmalı
-                // Basit dikey baca oluştur (yukarı doğru)
-                const bacaData = {
-                    id: `baca_xml_${idx}_${Date.now()}`,
-                    type: 'baca',
-                    parentCihazId: cihazData.id,
-                    floorId: state.currentFloor?.id,
-                    startX: cihazPoint.x,
-                    startY: cihazPoint.y,
-                    z: cihazPoint.z,
-                    segments: [
-                        {
-                            x1: cihazPoint.x,
-                            y1: cihazPoint.y,
-                            z1: cihazPoint.z,
-                            x2: cihazPoint.x,
-                            y2: cihazPoint.y - 100, // 100cm yukarı (negatif Y)
-                            z2: cihazPoint.z
-                        }
-                    ],
-                    isDrawing: false,
-                    currentSegmentStart: {
-                        x: cihazPoint.x,
-                        y: cihazPoint.y - 100,
-                        z: cihazPoint.z
-                    },
-                    havalandirma: {
-                        x: cihazPoint.x,
-                        y: cihazPoint.y - 100,
-                        width: 10,  // BACA_CONFIG.havalandirmaGenislik
-                        height: 30, // BACA_CONFIG.havalandirmaUzunluk
-                        angle: -Math.PI / 2 // Yukarı yönlü (-90°)
-                    }
-                };
-
-                state.plumbingBlocks.push(bacaData);
-                console.log(`    -> Kombi bacası eklendi: (${cihazPoint.x.toFixed(2)}, ${(cihazPoint.y - 100).toFixed(2)})`);
+                // Not: Varsayılan baca OLUŞTURULMAZ. Gerçek baca elemanları (clshermetik/clsbaca)
+                // ayrı adımda parse edilir ve cihaza bağlanır. Baca yoksa cihazın bacası olmaz.
             }
         } catch (e) {
             console.error("Kombi işlenirken hata:", e, kombiEl);
@@ -1162,6 +1458,14 @@ export function importFromXML(xmlString) {
                     }
                 }
 
+                // Metin parse et (marka/model)
+                const textElsO = ocakEl.querySelectorAll("O[T='vdMText'] P[F='TextString'], O[T='vdText'] P[F='TextString']");
+                const textLinesO = [];
+                textElsO.forEach(te => { _splitTextLines(te.getAttribute('V') || '').forEach(l => textLinesO.push(l)); });
+                const parsedO = _parseCihazText(textLinesO);
+                const verimEl = ocakEl.querySelector("P[F='GLVerim']");
+                const verim = verimEl ? parseInt(verimEl.getAttribute('V'), 10) || 100 : 100;
+
                 const cihazData = {
                     id: `cihaz_xml_${idx}_${Date.now()}`,
                     type: 'cihaz',
@@ -1176,7 +1480,18 @@ export function importFromXML(xmlString) {
                         endpoint: yakinBoru ? yakinBoru.end : null,
                         uzunluk: 30
                     },
-                    iliskiliVanaId: null
+                    iliskiliVanaId: null,
+                    // Panel alanları
+                    marka: parsedO.marka || '',
+                    model: parsedO.model || '',
+                    bacaTipi: parsedO.bacaTipi || 'Bacasız',
+                    kapasiteKcal: parsedO.kapasiteKcal || 0,
+                    kapasiteKW: parsedO.kapasiteKW || 0,
+                    yogusmali: false,
+                    verim: verim,
+                    muhafaza: false,
+                    muhafazaGrupla: false,
+                    yedekCihaz: false
                 };
 
                 // Borunun cihaza bağlantısını kur
@@ -1198,11 +1513,65 @@ export function importFromXML(xmlString) {
                 }
 
                 state.plumbingBlocks.push(cihazData);
-                console.log(`    -> Ocak eklendi: (${cihazPoint.x.toFixed(2)}, ${cihazPoint.y.toFixed(2)})`);
+                console.log(`    -> Ocak eklendi: (${cihazPoint.x.toFixed(2)}, ${cihazPoint.y.toFixed(2)}) ${parsedO.marka || '-'} ${parsedO.model || '-'} verim=${verim}%`);
             }
         } catch (e) {
             console.error("Ocak işlenirken hata:", e, ocakEl);
         }
+    });
+
+    // 8.5b. Hermetik baca (clshermetik) → baca bileşeni
+    const hermetikElements = xmlDoc.querySelectorAll("O[T='clshermetik']");
+    console.log(`\n${hermetikElements.length} clshermetik bulundu`);
+    hermetikElements.forEach((el, idx) => {
+        try {
+            const lineEls = el.querySelectorAll("O[T='vdLine']");
+            const segs = [];
+            lineEls.forEach(ln => {
+                const sp = ln.querySelector("P[F='StartPoint']");
+                const ep = ln.querySelector("P[F='EndPoint']");
+                if (!sp || !ep) return;
+                const s = sp.getAttribute('V').split(',').map(Number);
+                const e2 = ep.getAttribute('V').split(',').map(Number);
+                segs.push({
+                    x1: s[0] * SCALE, y1: -s[1] * SCALE, z1: (s[2] || 0) * SCALE,
+                    x2: e2[0] * SCALE, y2: -e2[1] * SCALE, z2: (e2[2] || 0) * SCALE
+                });
+            });
+            if (segs.length === 0) return;
+
+            // Baca başlangıcı (ilk segment başı) ve en yakın cihazı bul
+            const startPt = { x: segs[0].x1, y: segs[0].y1 };
+            let best = null, bestD = 150;
+            for (const b of state.plumbingBlocks) {
+                if (b.type !== 'cihaz') continue;
+                const d = Math.hypot(b.x - startPt.x, b.y - startPt.y);
+                if (d < bestD) { bestD = d; best = b; }
+            }
+            if (!best) return;
+
+            const last = segs[segs.length - 1];
+            const bacaData = {
+                id: `baca_hermetik_xml_${idx}_${Date.now()}`,
+                type: 'baca',
+                parentCihazId: best.id,
+                floorId: best.floorId,
+                startX: startPt.x, startY: startPt.y,
+                z: segs[0].z1,
+                segments: segs,
+                isDrawing: false,
+                currentSegmentStart: { x: last.x2, y: last.y2, z: last.z2 },
+                havalandirma: {
+                    x: last.x2, y: last.y2,
+                    width: 10, height: 30,
+                    angle: Math.atan2(last.y2 - last.y1, last.x2 - last.x1)
+                }
+            };
+            state.plumbingBlocks.push(bacaData);
+            // Cihaz bacaTipi = Hermetik
+            if (!best.bacaTipi || best.bacaTipi !== 'Hermetik') best.bacaTipi = 'Hermetik';
+            console.log(`    -> Hermetik baca eklendi (cihaz ${best.cihazTipi}): ${segs.length} segment`);
+        } catch (e) { console.error('Hermetik baca hatası:', e, el); }
     });
 
     // 8.6. Bacaları (clsbaca veya benzeri) parse et ve cihazlara bağla
@@ -1326,6 +1695,181 @@ export function importFromXML(xmlString) {
     }
 
     console.log("=========================================\n");
+
+    // --- 8.7. KAT YÖNETİMİ: Z kotlarından katları tespit et ve floorId ata ---
+    try {
+        const zPool = [];
+        // Yatay borular: kot değeri = Z (p1.z ≈ p2.z). Her yatay boruyu zPool'a ekle.
+        state.plumbingPipes.forEach(p => {
+            const z1 = p.p1?.z || 0, z2 = p.p2?.z || 0;
+            if (Math.abs(z1 - z2) < 20) {
+                zPool.push((z1 + z2) / 2);
+            }
+        });
+        // Bileşenler (sayaç, vana, cihaz, servis kutusu, baca) kat belirleyici
+        state.plumbingBlocks.forEach(b => { if (b.z != null) zPool.push(b.z); });
+
+        const newFloors = _ensureFloorsFromZValues(zPool, state.floors || []);
+        if (newFloors && newFloors.length >= 1) {
+            setState({ floors: newFloors, currentFloor: newFloors[0] });
+            console.log(`\n=== KATLAR OLUŞTURULDU: ${newFloors.length} kat ===`);
+            newFloors.forEach(f => console.log(`  ${f.name}: ${f.bottomElevation} - ${f.topElevation} cm`));
+        }
+
+        const activeFloors = (state.floors || []).filter(f => !f.isPlaceholder);
+        if (activeFloors.length >= 1) {
+            // Borulara: kendi Z'sinin ortalamasına göre floorId
+            state.plumbingPipes.forEach(p => {
+                const zMid = ((p.p1?.z || 0) + (p.p2?.z || 0)) / 2;
+                const fid = _findFloorIdForZ(zMid, activeFloors);
+                if (fid) p.floorId = fid;
+            });
+            // Bileşenlere
+            state.plumbingBlocks.forEach(b => {
+                const fid = _findFloorIdForZ(b.z || 0, activeFloors);
+                if (fid) b.floorId = fid;
+            });
+            // Mimari: Gasline XML'inde tek kat mimarisi gelir, tümünü zemin kata ata
+            // (kullanıcı mimariyi kat kat paste-to-all ile çoğaltabilir)
+            const groundFloorId = activeFloors[0].id;
+            (state.walls || []).forEach(w => { w.floorId = groundFloorId; });
+            (state.rooms || []).forEach(r => { r.floorId = groundFloorId; });
+            (state.columns || []).forEach(c => { c.floorId = groundFloorId; });
+            (state.beams || []).forEach(b => { b.floorId = groundFloorId; });
+            (state.stairs || []).forEach(s => { s.floorId = groundFloorId; });
+            (state.doors || []).forEach(d => {
+                if (d.wall?.floorId) d.floorId = d.wall.floorId;
+                else d.floorId = groundFloorId;
+            });
+        }
+    } catch (e) {
+        console.warn('Kat tespiti hatası:', e);
+    }
+
+    // --- 8.8a. CİHAZ VANASI: Her kombi/ocak için CIHAZ vanası ilişkilendir/oluştur ---
+    try {
+        const cihazlar = state.plumbingBlocks.filter(b => b.type === 'cihaz');
+        cihazlar.forEach((cihaz, i) => {
+            if (cihaz.iliskiliVanaId) return;
+            const fleksBoruId = cihaz.fleksBaglanti?.boruId;
+            let candidate = null;
+            if (fleksBoruId) {
+                candidate = state.plumbingBlocks.find(b =>
+                    b.type === 'vana' && b.bagliBoruId === fleksBoruId
+                );
+            }
+            if (!candidate) {
+                let bestD = 80;
+                state.plumbingBlocks.forEach(b => {
+                    if (b.type !== 'vana') return;
+                    const d = Math.hypot(b.x - cihaz.x, b.y - cihaz.y);
+                    if (d < bestD) { bestD = d; candidate = b; }
+                });
+            }
+            if (candidate) {
+                // Mevcut vanayı CIHAZ olarak işaretle (sonlanma vanaları korunur)
+                if (!['EMNIYET', 'SELENOID', 'BRANSMAN', 'YAN_BINA'].includes(candidate.vanaTipi)) {
+                    candidate.vanaTipi = 'CIHAZ';
+                }
+                cihaz.iliskiliVanaId = candidate.id;
+            } else {
+                const vanaId = `vana_auto_cihaz_${i}_${Date.now()}`;
+                const vanaData = {
+                    id: vanaId,
+                    type: 'vana',
+                    x: cihaz.x, y: cihaz.y + 20, // cihaz önünde boru üzerinde
+                    z: cihaz.z || 0,
+                    rotation: 0,
+                    vanaTipi: 'CIHAZ',
+                    floorId: cihaz.floorId,
+                    bagliBoruId: fleksBoruId || null,
+                    boruPozisyonu: 0.9,
+                    fromEnd: cihaz.fleksBaglanti?.endpoint || null,
+                    fixedDistance: null,
+                    girisBagliBoruId: null,
+                    cikisBagliBoruId: null,
+                    showEndCap: false,
+                    vanaCap: null,
+                    izolator: false,
+                    muhafaza: false,
+                    muhafazaGrupla: false,
+                    birimNo: '', tesisatNo: '',
+                    daireSayisi: 0, dukkanSayisi: 0, ekDebi: 0, bransmanDebi: 0
+                };
+                state.plumbingBlocks.push(vanaData);
+                cihaz.iliskiliVanaId = vanaId;
+                console.log(`    -> Cihaz (${cihaz.cihazTipi}) için otomatik CIHAZ vanası eklendi`);
+            }
+        });
+    } catch (e) { console.warn('Cihaz vana entegrasyonu hatası:', e); }
+
+    // --- 8.8. SAYAÇ ENTEGRASYONU: Her sayaca bir CIHAZ vanası ilişkilendir ---
+    // XML'de ayrı vana varsa en yakınını iliskiliVanaId olarak bağla, yoksa oluştur.
+    try {
+        const sayaclar = state.plumbingBlocks.filter(b => b.type === 'sayac');
+        sayaclar.forEach((sayac, i) => {
+            if (sayac.iliskiliVanaId) return;
+            // Sayacın giriş fleks borusuna bağlı bir vana var mı?
+            const girisBoruId = sayac.fleksBaglanti?.boruId;
+            let candidate = null;
+            if (girisBoruId) {
+                candidate = state.plumbingBlocks.find(b =>
+                    b.type === 'vana' && b.bagliBoruId === girisBoruId
+                );
+            }
+            // Yoksa pozisyon bazlı en yakını dene (50cm)
+            if (!candidate) {
+                let bestD = 80;
+                state.plumbingBlocks.forEach(b => {
+                    if (b.type !== 'vana') return;
+                    const d = Math.hypot((b.x - sayac.x), (b.y - sayac.y));
+                    if (d < bestD) { bestD = d; candidate = b; }
+                });
+            }
+            if (candidate) {
+                sayac.iliskiliVanaId = candidate.id;
+                // Cihaz kategorisindeyse işaretle (görsel + panel)
+                if (!['EMNIYET', 'SELENOID', 'BRANSMAN', 'YAN_BINA'].includes(candidate.vanaTipi)) {
+                    candidate.vanaTipi = 'CIHAZ';
+                }
+            } else {
+                // Sayacın giriş noktasının hemen yanına CIHAZ vanası ekle
+                const vanaId = `vana_auto_sayac_${i}_${Date.now()}`;
+                const vanaData = {
+                    id: vanaId,
+                    type: 'vana',
+                    x: sayac.x - 18, // sayacın giriş tarafı (sola)
+                    y: sayac.y - 20, // biraz üstte (boru hattı yüksekliğinde)
+                    z: sayac.z || 0,
+                    rotation: 0,
+                    vanaTipi: 'CIHAZ',
+                    floorId: sayac.floorId,
+                    bagliBoruId: sayac.fleksBaglanti?.boruId || null,
+                    boruPozisyonu: 0.9,
+                    fromEnd: null,
+                    fixedDistance: null,
+                    girisBagliBoruId: null,
+                    cikisBagliBoruId: null,
+                    showEndCap: false,
+                    vanaCap: null,
+                    izolator: false,
+                    muhafaza: false,
+                    muhafazaGrupla: false,
+                    birimNo: sayac.birimNo || '',
+                    tesisatNo: '',
+                    daireSayisi: 0,
+                    dukkanSayisi: 0,
+                    ekDebi: 0,
+                    bransmanDebi: 0
+                };
+                state.plumbingBlocks.push(vanaData);
+                sayac.iliskiliVanaId = vanaId;
+                console.log(`    -> Sayaç için otomatik CIHAZ vanası eklendi: ${sayac.birimNo || sayac.aboneAdi || sayac.id}`);
+            }
+        });
+    } catch (e) {
+        console.warn('Sayaç vana entegrasyonu hatası:', e);
+    }
 
     // 9. Son işlemler
     console.log("\n=== İMPORT ÖZETİ ===");
