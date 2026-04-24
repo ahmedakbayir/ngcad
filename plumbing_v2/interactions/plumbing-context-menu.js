@@ -9,6 +9,7 @@ import { findBoruGovdeAt } from './finders.js';
 import { Boru } from '../objects/pipe.js';
 import { setMode, setDrawingMode, state } from '../../general-files/main.js';
 import { draw2D } from '../../draw/draw2d.js';
+import { relayoutAllLabels } from '../renderer/renderer-labels.js';
 
 let menuEl = null;
 let menuState = null; // { worldPos, pipe, nokta, t, interactionManager }
@@ -449,6 +450,35 @@ function initMenu() {
         if (!menuState) return;
         deleteIcTesisatlar(menuState.interactionManager.manager);
         hide();
+    });
+
+    // ── Etiketleri Yeniden Yerleştir — tek tuş, "hat etiketlerini sona bırak" modunda
+    document.getElementById('plumbing-relayout-labels')?.addEventListener('click', async () => {
+        if (!menuState) return;
+        const manager = menuState.interactionManager?.manager;
+        hide();
+        if (!manager) return;
+        const toast = document.getElementById('label-relayout-toast');
+        const toastText = document.getElementById('label-relayout-toast-text');
+        const showToast = (msg) => { if (toast && toastText) { toastText.textContent = msg; toast.style.display = 'block'; } };
+        const hideToast = () => { if (toast) toast.style.display = 'none'; };
+
+        try {
+            saveState();
+            showToast('Etiketler yerleştiriliyor…');
+            // Toast'un gerçekten render edilmesi için bir frame bekle, sonra ilk draw
+            await new Promise(res => requestAnimationFrame(() => res()));
+            draw2D();
+            // Yerleşim SENKRON çalışır (ara kare çizilmez) → titreşim yok
+            await relayoutAllLabels(manager, 'pipes-last');
+            manager.saveToState?.();
+            draw2D();
+            showToast('Etiketler yerleştirildi');
+            setTimeout(hideToast, 800);
+        } catch (e) {
+            console.error('Etiket yerleşimi hatası:', e);
+            hideToast();
+        }
     });
 }
 

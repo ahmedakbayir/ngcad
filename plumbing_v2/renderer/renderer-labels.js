@@ -1051,3 +1051,385 @@ export const LabelMixin = {
         ctx.restore();
     },
 };
+
+// ─── ETİKET YENİDEN YERLEŞİMİ (AKILLI LOKAL KEŞİF + GLOBAL FİZİK) ──────────
+
+function _rectsOverlap(a, b, pad) {
+    return !(a.bx + a.bw + pad <= b.bx ||
+        b.bx + b.bw + pad <= a.bx ||
+        a.by + a.bh + pad <= b.by ||
+        b.by + b.bh + pad <= a.by);
+}
+
+function _getLabelAnchor(obj, t) {
+    if (obj.type === 'boru' || (obj.p1 && obj.p2)) {
+        const z1 = (obj.p1?.z || 0) * t, z2 = (obj.p2?.z || 0) * t;
+        const sx1 = obj.p1.x + z1, sy1 = obj.p1.y - z1;
+        const sx2 = obj.p2.x + z2, sy2 = obj.p2.y - z2;
+        return { x: (sx1 + sx2) / 2, y: (sy1 + sy2) / 2 };
+    }
+    const zOff = (obj.z || 0) * t;
+    return { x: (obj.x || 0) + zOff, y: (obj.y || 0) - zOff };
+}
+
+function _estimateBoxSize(id, fallbackW, fallbackH) {
+    const bb = _labelBBoxes.find(b => b.id === id);
+    if (bb) return { bw: bb.bw, bh: bb.bh, style: bb.style };
+    return { bw: fallbackW, bh: fallbackH, style: 'left-center' };
+}
+
+function _bboxToStoredOffset(bx, by, bw, bh, style) {
+    if (style === 'top-center') return { ax: bx + bw / 2, ay: by };
+    return { ax: bx, ay: by + bh / 2 };
+}
+
+function _collectPipeLabelCandidates(manager, t) {
+    const out = [];
+    if (!manager?.pipes) return out;
+    const { hatMap } = computeHatGroups(manager.pipes, manager.components);
+    const hatGroups = new Map();
+    manager.pipes.forEach(p => {
+        if (!p.p1 || !p.p2) return;
+        const hatNo = hatMap.get(p.id);
+        if (hatNo == null) return;
+        if (!hatGroups.has(hatNo)) hatGroups.set(hatNo, []);
+        hatGroups.get(hatNo).push(p);
+    });
+    hatGroups.forEach((pipes, hatNo) => {
+        let best = pipes[0], maxLen = 0, horizBest = null, horizAng = Infinity;
+        pipes.forEach(p => {
+            const dx = p.p2.x - p.p1.x, dy = p.p2.y - p.p1.y;
+            const len = Math.hypot(dx, dy, (p.p2.z || 0) - (p.p1.z || 0));
+            const xy = Math.hypot(dx, dy);
+            if (len > maxLen) { maxLen = len; best = p; }
+            if (xy >= 10) {
+                const a = Math.abs(Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI);
+                if (a < 45 && a < horizAng) { horizAng = a; horizBest = p; }
+            }
+        });
+        const chosen = horizBest || best;
+        if (chosen) out.push({ obj: chosen, type: 'boru', hatNo });
+    });
+    return out;
+}
+
+function _collectAllCandidates(manager) {
+    const cands = [];
+    const pipeCands = _collectPipeLabelCandidates(manager, 0);
+    pipeCands.forEach(c => cands.push(c));
+    if (manager?.components) {
+        manager.components.forEach(c => {
+            if (c.type === 'vana') cands.push({ obj: c, type: 'vana' });
+            else if (c.type === 'cihaz') cands.push({ obj: c, type: 'cihaz' });
+            else if (c.type === 'sayac') cands.push({ obj: c, type: 'sayac' });
+            else if (c.type === 'servis_kutusu') cands.push({ obj: c, type: 'servis_kutusu' });
+        });
+    }
+    return cands;
+}
+
+function _buildObstacleRects(manager, t) {
+    const rects = [];
+    const curFloor = state.currentFloor?.id || null;
+    const sameFloor = (o) => !curFloor || !o?.floorId || o.floorId === curFloor;
+
+    if (manager?.components) {
+        for (const c of manager.components) {
+            if (!sameFloor(c)) continue;
+            const zOff = (c.z || 0) * t;
+            const sx = (c.x || 0) + zOff, sy = (c.y || 0) - zOff;
+            let bw = 0, bh = 0;
+            if (c.type === 'sayac') { bw = SAYAC_CONFIG.width; bh = SAYAC_CONFIG.height; }
+            else if (c.type === 'servis_kutusu') { bw = SERVIS_KUTUSU_CONFIG.width; bh = SERVIS_KUTUSU_CONFIG.height; }
+            else if (c.type === 'cihaz') {
+                const cfg = CIHAZ_TIPLERI[c.cihazTipi] || { width: 40, height: 40 };
+                bw = cfg.width; bh = cfg.height;
+            }
+            else if (c.type === 'vana') { bw = 18; bh = 18; }
+            else if (c.type === 'baca') { bw = 18; bh = 18; }
+            if (bw > 0) rects.push({ bx: sx - bw / 2, by: sy - bh / 2, bw, bh });
+        }
+    }
+    
+    const pushAABB = (minX, minY, maxX, maxY) => {
+        if (maxX > minX && maxY > minY)
+            rects.push({ bx: minX, by: minY, bw: maxX - minX, bh: maxY - minY });
+    };
+
+    if (state.walls) {
+        for (const w of state.walls) {
+            if (!sameFloor(w) || !w.p1 || !w.p2) continue;
+            const thk = (w.thickness || 20) / 2 + 2;
+            pushAABB(Math.min(w.p1.x, w.p2.x) - thk, Math.min(w.p1.y, w.p2.y) - thk,
+                Math.max(w.p1.x, w.p2.x) + thk, Math.max(w.p1.y, w.p2.y) + thk);
+        }
+    }
+    return rects;
+}
+
+// Nesnelerin boyutlarının yarısını döndüren yardımcı fonksiyon (Kenar hesabı için)
+function _getObjectHalfSize(obj) {
+    if (obj.type === 'sayac') return { hw: (SAYAC_CONFIG?.width || 40) / 2, hh: (SAYAC_CONFIG?.height || 40) / 2 };
+    if (obj.type === 'servis_kutusu') return { hw: (SERVIS_KUTUSU_CONFIG?.width || 40) / 2, hh: (SERVIS_KUTUSU_CONFIG?.height || 40) / 2 };
+    if (obj.type === 'cihaz') {
+        const cfg = CIHAZ_TIPLERI[obj.cihazTipi] || { width: 40, height: 40 };
+        return { hw: cfg.width / 2, hh: cfg.height / 2 };
+    }
+    if (obj.type === 'vana') return { hw: 9, hh: 9 }; // Vanalar genelde 18x18
+    return { hw: 4, hh: 4 }; // Borular veya bilinmeyenler
+}
+
+// YENİ: AŞAMA 1 - NET 20 CM KENAR BOŞLUĞU İLE LOKAL KEŞİF
+function _findBestLocalPosition(c, obstacleRects) {
+    const GAP = 20; // İstenen net kenardan-kenara mesafe
+    
+    const objHalf = _getObjectHalfSize(c.obj);
+    const lblHW = c.bw / 2; // Etiket yarı genişliği
+    const lblHH = c.bh / 2; // Etiket yarı yüksekliği
+
+    // Düz eksenlerdeki tam ofsetler (Nesne Yarı + GAP + Etiket Yarı)
+    const offY = objHalf.hh + GAP + lblHH;
+    const offX = objHalf.hw + GAP + lblHW;
+
+    // 8 Yön (Öncelikli düz eksenler, en son çaprazlar)
+    const directions = [
+        { id: 'bottom', dx: 0, dy: offY, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'] },
+        { id: 'right', dx: offX, dy: 0, align: 'horizontal', pref: ['vana'] },
+        { id: 'top', dx: 0, dy: -offY, align: 'vertical', pref: ['boru'] },
+        { id: 'left', dx: -offX, dy: 0, align: 'horizontal', pref: [] },
+        
+        // Çaprazlar (Zorunlu kalınmadıkça tercih edilmemesi için estetik cezası alacaklar)
+        { id: 'br', dx: offX, dy: offY, align: 'free', pref: [] },
+        { id: 'bl', dx: -offX, dy: offY, align: 'free', pref: [] },
+        { id: 'tr', dx: offX, dy: -offY, align: 'free', pref: [] },
+        { id: 'tl', dx: -offX, dy: -offY, align: 'free', pref: [] }
+    ];
+
+    let bestScore = Infinity;
+    let bestSpot = { cx: c.anchor.x, cy: c.anchor.y, align: 'free' };
+
+    for (const dir of directions) {
+        const candCX = c.anchor.x + dir.dx;
+        const candCY = c.anchor.y + dir.dy;
+        const candBx = candCX - lblHW;
+        const candBy = candCY - lblHH;
+
+        let penalty = 0;
+
+        // 1. Mimari Objelerle Çakışma Kontrolü (Alan bazlı ağır ceza)
+        for (const obs of obstacleRects) {
+            if (!(candBx + c.bw <= obs.bx || candBx >= obs.bx + obs.bw ||
+                  candBy + c.bh <= obs.by || candBy >= obs.by + obs.bh)) {
+                
+                const overlapX = Math.min(candBx + c.bw, obs.bx + obs.bw) - Math.max(candBx, obs.bx);
+                const overlapY = Math.min(candBy + c.bh, obs.by + obs.bh) - Math.max(candBy, obs.by);
+                penalty += (overlapX * overlapY) * 10; 
+            }
+        }
+
+        // 2. Doğal Yön Tercihi Cezası (Örn: Cihazsa alt öncelikli)
+        if (!dir.pref.includes(c.obj.type)) {
+            penalty += 150; 
+        }
+
+        // 3. Estetik Çapraz Cezası (Düz çizgileri bozmamak için)
+        if (dir.id.length === 2) { // br, bl, tr, tl
+            penalty += 300; // Sadece düz eksenler tamamen doluysa çapraza geç
+        }
+
+        // En temiz noktayı kaydet
+        if (penalty < bestScore) {
+            bestScore = penalty;
+            bestSpot = { cx: candCX, cy: candCY, align: dir.align };
+        }
+        
+        // Sıfır cezalı mükemmel yeri bulduysak diğerlerini taramaya gerek yok
+        if (penalty === 0 && dir.pref.includes(c.obj.type)) break;
+    }
+
+    return bestSpot;
+}
+
+function _sign(val) { return val >= 0 ? 1 : -1; }
+
+function _getPushVector(r1, r2, pad) {
+    const cx1 = r1.bx + r1.bw / 2;
+    const cy1 = r1.by + r1.bh / 2;
+    const cx2 = r2.bx + r2.bw / 2;
+    const cy2 = r2.by + r2.bh / 2;
+
+    let dx = cx1 - cx2;
+    let dy = cy1 - cy2;
+
+    if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) {
+        dx = (Math.random() - 0.5) * 5;
+        dy = (Math.random() - 0.5) * 5;
+    }
+
+    const minHDist = (r1.bw + r2.bw) / 2 + pad;
+    const minVDist = (r1.bh + r2.bh) / 2 + pad;
+
+    if (Math.abs(dx) < minHDist && Math.abs(dy) < minVDist) {
+        const overlapX = minHDist - Math.abs(dx);
+        const overlapY = minVDist - Math.abs(dy);
+
+        // Her ikisi de DİKEY hizalıysa (Cihaz vs), X'i bozmadan aşağı yukarı (stacking) itişsinler
+        if (r1.align === 'vertical' && r2.align === 'vertical') {
+            return { x: dx * 0.05, y: _sign(dy) * overlapY }; 
+        }
+
+        // Genel çarpışma
+        if (overlapX < overlapY) {
+            return { x: _sign(dx) * overlapX, y: dy * 0.1 };
+        } else {
+            return { x: dx * 0.1, y: _sign(dy) * overlapY };
+        }
+    }
+    return { x: 0, y: 0 };
+}
+
+function _strictSeparation(cands, obstacleRects, pad) {
+    const MAX_PASS = 20; 
+    for (let pass = 0; pass < MAX_PASS; pass++) {
+        let anyOverlap = false;
+
+        for (let i = 0; i < cands.length; i++) {
+            const c = cands[i];
+            for (const obs of obstacleRects) {
+                const push = _getPushVector(c, obs, pad);
+                if (push.x !== 0 || push.y !== 0) {
+                    c.bx += push.x; c.by += push.y;
+                    anyOverlap = true;
+                }
+            }
+            for (let j = 0; j < cands.length; j++) {
+                if (i === j) continue;
+                const other = cands[j];
+                const push = _getPushVector(c, other, pad);
+                if (push.x !== 0 || push.y !== 0) {
+                    c.bx += push.x * 0.5; c.by += push.y * 0.5;
+                    other.bx -= push.x * 0.5; other.by -= push.y * 0.5;
+                    anyOverlap = true;
+                }
+            }
+        }
+        if (!anyOverlap) break; 
+    }
+}
+
+// AŞAMA 2 - GLOBAL ÇÖZÜM VE YIĞILMA (STACKING)
+async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated) {
+    const PAD = 8; 
+    
+    for (let iter = 0; iter < iterCount; iter++) {
+        for (let i = 0; i < cands.length; i++) {
+            const c = cands[i];
+            let forceX = 0, forceY = 0;
+            const cx = c.bx + c.bw / 2;
+            const cy = c.by + c.bh / 2;
+
+            // Bulunan 20cm mesafeli kusursuz noktaya çekme
+            let dx = c.idealCX - cx;
+            let dy = c.idealCY - cy;
+
+            if (c.align === 'vertical') {
+                // X ekseninden asla sapma (Kusursuz düz dikey çizgi)
+                // Y ekseninde (aşağı doğru) itişmeye izin ver (Stacking için)
+                forceX += dx * 0.8; 
+                forceY += dy * 0.15; 
+            } else if (c.align === 'horizontal') {
+                forceX += dx * 0.15;
+                forceY += dy * 0.8;
+            } else {
+                forceX += dx * 0.3;
+                forceY += dy * 0.3;
+            }
+
+            // Mimari engellerden son kez kaçış
+            for (const obs of obstacleRects) {
+                const push = _getPushVector(c, obs, PAD);
+                forceX += push.x * 0.7;
+                forceY += push.y * 0.7;
+            }
+
+            // Sadece diğer etiketlerle üst üste bindiyse kaç
+            for (let j = 0; j < cands.length; j++) {
+                if (i === j) continue;
+                const other = cands[j];
+                const push = _getPushVector(c, other, PAD);
+                forceX += push.x * 0.6;
+                forceY += push.y * 0.6;
+            }
+
+            // Hız Limiti
+            const maxSpeed = 30;
+            const speed = Math.hypot(forceX, forceY);
+            if (speed > maxSpeed) {
+                forceX = (forceX / speed) * maxSpeed;
+                forceY = (forceY / speed) * maxSpeed;
+            }
+
+            c.bx += forceX; c.by += forceY;
+        }
+
+        if (isAnimated && iter % 2 === 0) {
+            cands.forEach(c => {
+                const off = _bboxToStoredOffset(c.bx, c.by, c.bw, c.bh, c.style);
+                const prev = _labelOffsets.get(c.obj.id) || {};
+                _labelOffsets.set(c.obj.id, { ax: off.ax, ay: off.ay, dir: prev.dir ?? 0 });
+            });
+            if (onProgress) onProgress(iter + 1, iterCount);
+            await new Promise(res => setTimeout(res, 15));
+        }
+    }
+
+    _strictSeparation(cands, obstacleRects, PAD);
+}
+
+export async function relayoutAllLabels(manager, mode, onProgress) {
+    if (!manager) return;
+    const t = state.viewBlendFactor || 0;
+    const curFloorId = state.currentFloor?.id || null;
+    const sameFloor = (o) => !curFloorId || !o.floorId || o.floorId === curFloorId;
+
+    let cands = _collectAllCandidates(manager).filter(c => sameFloor(c.obj));
+    if (cands.length === 0) return;
+
+    // Engelleri bir kez oluştur
+    const obstacleRects = _buildObstacleRects(manager, t);
+
+    // AŞAMA 1: Her etiket net 20cm boşluklu kendi ideal noktasını arar
+    cands.forEach(c => {
+        c.anchor = _getLabelAnchor(c.obj, t);
+        const sz = _estimateBoxSize(c.obj.id, 80, 40);
+        c.bw = sz.bw; c.bh = sz.bh; c.style = sz.style;
+        
+        // Çevresini tarayıp engelsiz en iyi noktayı buluyor
+        const bestSpot = _findBestLocalPosition(c, obstacleRects);
+        
+        c.align = bestSpot.align;
+        c.idealCX = bestSpot.cx;
+        c.idealCY = bestSpot.cy;
+
+        // Başlangıç noktasını bu mükemmel nokta olarak belirliyoruz
+        c.bx = c.idealCX - c.bw / 2;
+        c.by = c.idealCY - c.bh / 2;
+    });
+
+    const isAnimated = mode === 'free';
+    const iterCount = 40; 
+
+    // AŞAMA 2: Global Fizik (Çakışan etiketler düz ekseni bozmadan hizalanır)
+    await _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated);
+
+    // Verileri kaydet
+    cands.forEach(c => {
+        const off = _bboxToStoredOffset(c.bx, c.by, c.bw, c.bh, c.style);
+        const prev = _labelOffsets.get(c.obj.id) || {};
+        _labelOffsets.set(c.obj.id, { ax: off.ax, ay: off.ay, dir: prev.dir ?? 0 });
+        _labelAutoPos.delete(c.obj.id);
+    });
+
+    if (onProgress && !isAnimated) onProgress('done', 0);
+    await new Promise(res => setTimeout(res, 0));
+}
