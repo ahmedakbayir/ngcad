@@ -61,6 +61,7 @@ import {
 import {
     selectObject,
     selectValve,
+    selectHat,
     deselectObject,
     deleteSelectedObject
 } from './selection-manager.js';
@@ -523,6 +524,10 @@ export class InteractionManager {
 
     selectValve(pipe, vana, opts) {
         return selectValve(this, pipe, vana, opts);
+    }
+
+    selectHat(pipe, opts) {
+        return selectHat(this, pipe, opts);
     }
 
     deselectObject() {

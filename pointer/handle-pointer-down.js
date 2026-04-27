@@ -273,13 +273,25 @@ export function handlePointerDown(e) {
             }
         }
 
-        // --- ETIKET SÜRÜKLEME / ÇİFT TIKLA YÖN DEĞİŞTİRME KONTROLÜ ---
+        // --- ETIKET SÜRÜKLEME / ÇİFT TIKLA YÖN DEĞİŞTİRME / TIKLA SEÇ KONTROLÜ ---
         if (state.tempVisibility.showObjectLabels) {
             const labelId = hitTestLabel(point.x, point.y);
             if (labelId) {
                 if (isDoubleClick) {
                     rotateLabelDir(labelId);
                     this.lastClickTime = 0;
+                    return true;
+                }
+                // Cihaz/Sayaç/Servis kutusu/Hat etiketi: sürüklemeyi hemen başlatma.
+                // Pointer hareketsiz bırakılırsa nesneyi seç (hat etiketinde tüm hattı),
+                // eşik aşılırsa etiket sürüklemesine geç.
+                const labelObj =
+                    this.manager.components.find(c => c.id === labelId &&
+                        (c.type === 'cihaz' || c.type === 'sayac' || c.type === 'servis_kutusu')) ||
+                    this.manager.pipes.find(p => p.id === labelId);
+                if (labelObj) {
+                    this._pendingLabelClick = { id: labelId, sx: point.x, sy: point.y, obj: labelObj };
+                    this.isDraggingLabel = true;
                     return true;
                 }
                 startLabelDrag(labelId, point.x, point.y);

@@ -15,6 +15,18 @@ export function handlePointerUp(e) {
     }
 
     if (this.isDraggingLabel) {
+        // Sürükleme eşiğine ulaşılmadıysa: etiket "tıklaması" sayılır.
+        // Hat etiketinde tüm hattı, diğerlerinde nesnenin kendisini seç.
+        if (this._pendingLabelClick) {
+            const obj = this._pendingLabelClick.obj;
+            this._pendingLabelClick = null;
+            this.isDraggingLabel = false;
+            if (obj) {
+                if (obj.type === 'boru') this.selectHat(obj);
+                else this.selectObject(obj);
+            }
+            return true;
+        }
         endLabelDrag();
         this.isDraggingLabel = false;
         // Etiket konumunu kaydet — proje kaydında korunsun

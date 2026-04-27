@@ -75,6 +75,11 @@ export function selectObject(interactionManager, obj, opts = {}) {
             }
         }
     }
+    // Önceki hat seçimini temizle (etikete tıklanarak topluca seçilen borular)
+    if (interactionManager.selectedHatPipes) {
+        interactionManager.selectedHatPipes.forEach(p => { if (p !== obj) p.isSelected = false; });
+        interactionManager.selectedHatPipes = null;
+    }
     // Vana seçimi temizle
     if (interactionManager.selectedValve) {
         // DÜZELTME: pipe.vana yerine doğrudan vana bileşenini hedefle
@@ -142,6 +147,25 @@ export function selectObject(interactionManager, obj, opts = {}) {
 }
 
 /**
+ * Hat etiketine tıklanınca aynı hat numarasına sahip tüm boruları seç.
+ * Panel/seçim hedefi `pipe` (etiketin temsilcisi) olur, ama tüm hat
+ * isSelected olarak işaretlenir.
+ */
+export function selectHat(interactionManager, pipe, opts = {}) {
+    if (!pipe || pipe.type !== 'boru') return;
+    const manager = interactionManager.manager;
+    const { hatMap } = computeHatGroups(manager.pipes, manager.components);
+    const hatNo = hatMap.get(pipe.id);
+
+    selectObject(interactionManager, pipe, opts);
+
+    if (hatNo == null) return;
+    const siblings = manager.pipes.filter(p => hatMap.get(p.id) === hatNo);
+    siblings.forEach(p => { p.isSelected = true; });
+    interactionManager.selectedHatPipes = siblings;
+}
+
+/**
  * Boru üzerindeki vanayı seç
  * @param {Object} interactionManager - InteractionManager instance
  * @param {Object} pipe - Boru nesnesi
@@ -153,6 +177,11 @@ export function selectValve(interactionManager, pipe, vana, opts = {}) {
     if (interactionManager.selectedObject) {
         interactionManager.selectedObject.isSelected = false;
         interactionManager.selectedObject = null;
+    }
+    // Önceki hat seçimini temizle
+    if (interactionManager.selectedHatPipes) {
+        interactionManager.selectedHatPipes.forEach(p => { p.isSelected = false; });
+        interactionManager.selectedHatPipes = null;
     }
     // Önceki vana seçimini temizle
     if (interactionManager.selectedValve) {
@@ -222,6 +251,12 @@ export function deselectObject(interactionManager) {
             interactionManager.selectedValve.vana.isSelected = false;
         }
         interactionManager.selectedValve = null;
+    }
+
+    // Hat seçimini temizle
+    if (interactionManager.selectedHatPipes) {
+        interactionManager.selectedHatPipes.forEach(p => { p.isSelected = false; });
+        interactionManager.selectedHatPipes = null;
     }
 
     // Yolu temizle

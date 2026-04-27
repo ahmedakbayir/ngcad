@@ -8,8 +8,8 @@ import { dom, state } from '../general-files/main.js';
 
 // YENİ IMPORT
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
-import { findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
-import { updateLabelDrag } from '../plumbing_v2/renderer/renderer-labels.js';
+import { findGizmoAxisAt, findTranslateGizmoAxisAt, pixelsToWorld } from '../plumbing_v2/interactions/finders.js';
+import { startLabelDrag, updateLabelDrag } from '../plumbing_v2/renderer/renderer-labels.js';
 import { draw2D } from '../draw/draw2d.js';
 
 export function handlePointerMove(e) {
@@ -93,8 +93,19 @@ export function handlePointerMove(e) {
 
     // Etiket sürükleme
     if (this.isDraggingLabel) {
-        updateLabelDrag(point.x, point.y);
-        draw2D();
+        // Bekleyen cihaz etiketi tıklaması: eşik aşıldığında gerçek sürüklemeye geç
+        if (this._pendingLabelClick) {
+            const dx = point.x - this._pendingLabelClick.sx;
+            const dy = point.y - this._pendingLabelClick.sy;
+            if (Math.hypot(dx, dy) >= pixelsToWorld(4)) {
+                startLabelDrag(this._pendingLabelClick.id, this._pendingLabelClick.sx, this._pendingLabelClick.sy);
+                this._pendingLabelClick = null;
+            }
+        }
+        if (!this._pendingLabelClick) {
+            updateLabelDrag(point.x, point.y);
+            draw2D();
+        }
         return true;
     }
 
