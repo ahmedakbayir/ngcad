@@ -184,7 +184,7 @@ export const LabelMixin = {
             // Çok hafif arka plan — hemen hemen şeffaf
             bgColor: light ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,35,0.10)',
             borderColor: light ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)',
-            connColor: light ? 'rgba(0,0,0,0.30)' : 'rgba(255,255,255,0.30)',
+            connColor: light ? 'rgba(85, 85, 85, 0.65)' : 'rgba(182, 182, 182, 0.65)',
             accentBar: light ? 'rgba(29,78,216,0.50)' : 'rgba(96,165,250,0.50)',
         };
 
@@ -313,13 +313,13 @@ export const LabelMixin = {
             const ex = bx; // kutunun sol kenarı
             const ey = ay; // kutu merkezi y
             ctx.strokeStyle = connColor;
-            ctx.lineWidth = 0.6 / zoom;
-            ctx.setLineDash([2 / zoom, 2 / zoom]);
+            ctx.lineWidth = 0.5 / zoom;
+            //ctx.setLineDash([3 / zoom, 2 / zoom]);
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.lineTo(ex, ey);
             ctx.stroke();
-            ctx.setLineDash([]);
+           // ctx.setLineDash([]);
         }
 
         // Arka plan (çok hafif)
@@ -407,13 +407,13 @@ export const LabelMixin = {
 
         // Kesikli bağlantı çizgisi → kutunun üst-orta noktasına
         ctx.strokeStyle = connColor;
-        ctx.lineWidth = 0.6 / zoom;
-        ctx.setLineDash([2 / zoom, 2 / zoom]);
+        ctx.lineWidth = 0.5 / zoom;
+       // ctx.setLineDash([3 / zoom, 2 / zoom]);
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.lineTo(topCX, by);
         ctx.stroke();
-        ctx.setLineDash([]);
+        //ctx.setLineDash([]);
 
         // Arka plan
         ctx.fillStyle = bgColor;
@@ -471,10 +471,15 @@ export const LabelMixin = {
         const angle = Math.atan2(sy2 - sy1, sx2 - sx1);
 
         const connDist = 1 / zoom;
-        const labelDist = 50 / zoom;
 
         const cx = midX - Math.sin(angle) * connDist;
         const cy = midY + Math.cos(angle) * connDist;
+
+        // Tahmini kutu boyutu (yön-spesifik clearance için kullanılacak)
+        const _estBoxW = fontSize * 3 + fontSize * 0.84 * 8;
+        const _estBoxH = fontSize * 1.4 + fontSize * 0.78 * 1.45 * 3;
+        // Boruyla etiket arasında istenen net boşluk (duvar kalınlığı kadar)
+        const PIPE_LABEL_GAP = 20;
 
         const stored = _labelOffsets.get(pipe.id);
         const dir = stored?.dir ?? 0;
@@ -492,33 +497,41 @@ export const LabelMixin = {
                 ax = cached.ax;
                 ay = cached.ay;
             } else {
-                // İlk kez: 8 aday yön dene, en az çakışanı seç
+                // İlk kez: 8 aday yön dene. Her yön için ofset, kutunun o yöndeki
+                // yarı-uzunluğu + 20cm boşlukla world-birim olarak hesaplanır;
+                // zoom seviyesinden bağımsızdır.
+                const estW = _estBoxW;
+                const estH = _estBoxH;
+                const halfDiag = Math.hypot(estW / 2, estH / 2);
+
+                // Her aday: yön birim vektörü + o yön için anchor'dan kutu merkezi
+                // mesafesi (hedef: kutunun o yöndeki kenarı pipe'tan PIPE_LABEL_GAP uzakta)
                 const candidates = [
-                    { dx: 0, dy: -2 },
-                    { dx: 2, dy: 0 },
-                    { dx: 0, dy: 2 },
-                    { dx: -2, dy: 0 },
-                    { dx: 1, dy: -1 },
-                    { dx: 1, dy: 1 },
-                    { dx: -1, dy: -1 },
-                    { dx: -1, dy: 1 },
+                    { ux: 0, uy: -1, off: estH / 2 + PIPE_LABEL_GAP }, // top
+                    { ux: 1, uy: 0, off: estW / 2 + PIPE_LABEL_GAP }, // right
+                    { ux: 0, uy: 1, off: estH / 2 + PIPE_LABEL_GAP }, // bottom
+                    { ux: -1, uy: 0, off: estW / 2 + PIPE_LABEL_GAP }, // left
+                    { ux: 0.7071, uy: -0.7071, off: halfDiag + PIPE_LABEL_GAP },
+                    { ux: 0.7071, uy: 0.7071, off: halfDiag + PIPE_LABEL_GAP },
+                    { ux: -0.7071, uy: -0.7071, off: halfDiag + PIPE_LABEL_GAP },
+                    { ux: -0.7071, uy: 0.7071, off: halfDiag + PIPE_LABEL_GAP },
                 ];
 
                 let pNX = -Math.sin(angle), pNY = Math.cos(angle);
                 if (pNY > 0) { pNX = -pNX; pNY = -pNY; }
                 candidates.sort((a, b) =>
-                    (a.dx * pNX + a.dy * pNY) - (b.dx * pNX + b.dy * pNY)
+                    (a.ux * pNX + a.uy * pNY) - (b.ux * pNX + b.uy * pNY)
                 );
-
-                // Tahmini kutu boyutu (dünya birimi — fontSize sabit dünya birimi)
-                const estW = fontSize * 3 + fontSize * 0.84 * 8;
-                const estH = fontSize * 1.4 + fontSize * 0.78 * 1.45 * 3;
 
                 let bestScore = Infinity, bestAx = 0, bestAy = 0;
 
                 for (const cand of candidates) {
-                    const cax = midX + cand.dx * labelDist;
-                    const cay = midY + cand.dy * labelDist;
+                    // Kutu sol-orta (ax,ay): "left-center" stiline uyumlu konum
+                    // dolayısıyla kutu merkezi (cax + estW/2, cay) olur
+                    const centerX = midX + cand.ux * cand.off;
+                    const centerY = midY + cand.uy * cand.off;
+                    const cax = centerX - estW / 2; // ax = sol kenar
+                    const cay = centerY;            // ay = orta y
                     const cbx = cax;
                     const cby = cay - estH / 2;
 
@@ -643,13 +656,13 @@ export const LabelMixin = {
                 if (uy < 0) tEdge = Math.min(tEdge, (numBY - nly) / uy);
                 if (isFinite(tEdge) && tEdge > 0) {
                     ctx.strokeStyle = connColor;
-                    ctx.lineWidth = 0.6 / zoom;
-                    ctx.setLineDash([2 / zoom, 2 / zoom]);
+                    ctx.lineWidth = 0.5 / zoom;
+                   // ctx.setLineDash([3 / zoom, 2 / zoom]);
                     ctx.beginPath();
                     ctx.moveTo(cx, cy);
                     ctx.lineTo(nlx + ux * tEdge, nly + uy * tEdge);
                     ctx.stroke();
-                    ctx.setLineDash([]);
+                    //ctx.setLineDash([]);
                 }
             }
         }
@@ -1011,13 +1024,13 @@ export const LabelMixin = {
 
         // Kesikli bağlantı çizgisi
         ctx.strokeStyle = connColor;
-        ctx.lineWidth = 0.6 / zoom;
-        ctx.setLineDash([2 / zoom, 2 / zoom]);
+        ctx.lineWidth = 0.5 / zoom;
+        //ctx. ([3 / zoom, 2 / zoom]);
         ctx.beginPath();
         ctx.moveTo(connX, connY);
         ctx.lineTo(boxX, ay);
         ctx.stroke();
-        ctx.setLineDash([]);
+        // ctx.setLineDash([]);
 
         // Arka plan
         ctx.fillStyle = bgColor;
@@ -1167,6 +1180,51 @@ function _buildObstacleRects(manager, t) {
     return rects;
 }
 
+// Aktif kattaki tüm boruları ekran koordinatlarında segment listesine indirger.
+// Etiketlerin "hatların üzerine" düşmesini engelleyen yumuşak ceza için kullanılır.
+function _buildPipeSegments(manager, t) {
+    const segs = [];
+    if (!manager?.pipes) return segs;
+    const curFloor = state.currentFloor?.id || null;
+    const sameFloor = (o) => !curFloor || !o?.floorId || o.floorId === curFloor;
+    for (const p of manager.pipes) {
+        if (!sameFloor(p) || !p.p1 || !p.p2) continue;
+        const z1 = (p.p1.z || 0) * t, z2 = (p.p2.z || 0) * t;
+        segs.push({
+            x1: p.p1.x + z1, y1: p.p1.y - z1,
+            x2: p.p2.x + z2, y2: p.p2.y - z2,
+            pipeId: p.id
+        });
+    }
+    return segs;
+}
+
+function _segOverlapsSeg(ax, ay, bx, by, cx, cy, dx, dy) {
+    const d1x = bx - ax, d1y = by - ay;
+    const d2x = dx - cx, d2y = dy - cy;
+    const denom = d1x * d2y - d1y * d2x;
+    if (Math.abs(denom) < 1e-9) return false;
+    const t = ((cx - ax) * d2y - (cy - ay) * d2x) / denom;
+    const u = ((cx - ax) * d1y - (cy - ay) * d1x) / denom;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+// Bir boru segmenti, etiket dikdörtgeniyle kesişiyor mu? (kendi borusunu ignoreId ile dışla)
+function _segmentIntersectsRect(seg, bx, by, bw, bh, ignoreId) {
+    if (ignoreId && seg.pipeId === ignoreId) return false;
+    const { x1, y1, x2, y2 } = seg;
+    if (Math.max(x1, x2) < bx || Math.min(x1, x2) > bx + bw ||
+        Math.max(y1, y2) < by || Math.min(y1, y2) > by + bh) return false;
+    const inside = (px, py) => px >= bx && px <= bx + bw && py >= by && py <= by + bh;
+    if (inside(x1, y1) || inside(x2, y2)) return true;
+    return (
+        _segOverlapsSeg(x1, y1, x2, y2, bx, by, bx + bw, by) ||
+        _segOverlapsSeg(x1, y1, x2, y2, bx + bw, by, bx + bw, by + bh) ||
+        _segOverlapsSeg(x1, y1, x2, y2, bx + bw, by + bh, bx, by + bh) ||
+        _segOverlapsSeg(x1, y1, x2, y2, bx, by + bh, bx, by)
+    );
+}
+
 // Nesnelerin boyutlarının yarısını döndüren yardımcı fonksiyon (Kenar hesabı için)
 function _getObjectHalfSize(obj) {
     if (obj.type === 'sayac') return { hw: (SAYAC_CONFIG?.width || 40) / 2, hh: (SAYAC_CONFIG?.height || 40) / 2 };
@@ -1179,10 +1237,285 @@ function _getObjectHalfSize(obj) {
     return { hw: 4, hh: 4 }; // Borular veya bilinmeyenler
 }
 
-// YENİ: AŞAMA 1 - NET 20 CM KENAR BOŞLUĞU İLE LOKAL KEŞİF
-function _findBestLocalPosition(c, obstacleRects) {
-    const GAP = 20; // İstenen net kenardan-kenara mesafe
-    
+// Sahnenin (mimari + bileşen) merkezini ekran-koordinatında hesapla.
+// Cihaz etiketlerinin "dışa" itilmesi bu merkeze göre yapılır.
+function _computeSceneCenter(manager, t) {
+    let sx = 0, sy = 0, n = 0;
+    if (manager?.components) {
+        manager.components.forEach(c => {
+            if (c.x == null || c.y == null) return;
+            const zOff = (c.z || 0) * t;
+            sx += c.x + zOff;
+            sy += c.y - zOff;
+            n++;
+        });
+    }
+    if (state.walls) {
+        for (const w of state.walls) {
+            if (!w.p1 || !w.p2) continue;
+            sx += (w.p1.x + w.p2.x) / 2;
+            sy += (w.p1.y + w.p2.y) / 2;
+            n++;
+        }
+    }
+    if (n === 0) return { x: 0, y: 0 };
+    return { x: sx / n, y: sy / n };
+}
+
+// Bir yöndeki "açıklık" skoru (düşük = açık, yüksek = engelli).
+// Anchor'dan başlayarak verilen yön boyunca örnek noktalar atar; her noktayı
+// boru segmentlerine ve bileşen bbox'larına yakınlığına göre cezalandırır.
+// Yakın engeller daha çok ceza yer (mesafeyle ters orantılı).
+function _probeDirectionOpenness(anchor, dx, dy, obstacleRects, pipeSegments) {
+    let score = 0;
+    const SAMPLES = 6;
+    const MAX_R = 300;
+    const PROX = 70;
+    for (let i = 1; i <= SAMPLES; i++) {
+        const r = (i / SAMPLES) * MAX_R;
+        const px = anchor.x + dx * r;
+        const py = anchor.y + dy * r;
+        const distWeight = 1 - (i - 1) / SAMPLES; // yakın örnekler ağırlıklı
+
+        if (pipeSegments) {
+            for (const seg of pipeSegments) {
+                const sdx = seg.x2 - seg.x1, sdy = seg.y2 - seg.y1;
+                const segLen2 = sdx * sdx + sdy * sdy;
+                if (segLen2 < 0.01) continue;
+                let tt = ((px - seg.x1) * sdx + (py - seg.y1) * sdy) / segLen2;
+                if (tt < 0) tt = 0; else if (tt > 1) tt = 1;
+                const cx2 = seg.x1 + tt * sdx, cy2 = seg.y1 + tt * sdy;
+                const dist = Math.hypot(px - cx2, py - cy2);
+                if (dist < PROX) score += (PROX - dist) / PROX * distWeight;
+            }
+        }
+        if (obstacleRects) {
+            for (const obs of obstacleRects) {
+                const cxR = Math.max(obs.bx, Math.min(px, obs.bx + obs.bw));
+                const cyR = Math.max(obs.by, Math.min(py, obs.by + obs.bh));
+                const dist = Math.hypot(px - cxR, py - cyR);
+                if (dist < PROX) score += (PROX - dist) / PROX * distWeight;
+            }
+        }
+    }
+    return score;
+}
+
+// Cihaz etiketleri için: konuma göre mantıksal sıralama.
+// Sahne merkezine göre açıyla sıralarsak, çevre boyunca yan yana cihazların
+// etiketleri de yan yana çıkar (ardışıklık korunur).
+function _sortCihazByLayout(cihazCands, sceneCenter) {
+    cihazCands.forEach(c => {
+        const dx = c.anchor.x - sceneCenter.x;
+        const dy = c.anchor.y - sceneCenter.y;
+        // Açı: -π..π — yatayda soldan sağa, dikeyde yukarıdan aşağıya doğru artar
+        c._layoutAngle = Math.atan2(dy, dx);
+        c._layoutDist = Math.hypot(dx, dy);
+    });
+    cihazCands.sort((a, b) => {
+        // Önce dikey-grup (üst/alt) ayrımı: aynı yatay bantta olanlar X'e göre sıralansın
+        const dy = a.anchor.y - b.anchor.y;
+        if (Math.abs(dy) > 30) return dy;
+        return a.anchor.x - b.anchor.x;
+    });
+}
+
+// Yan yana (≥2) cihazların etiketlerini aynı banda hizalar.
+// Yatay grup tespit edilirse: ortak Y, etiket X'i cihaz X'ine eşitlenir.
+// Dikey grup: ortak X, etiket Y'si cihaz Y'sine eşitlenir.
+// Etiket-cihaz mesafesi, gruptaki ortalama cihaz aralığına orantılı olarak büyür.
+function _alignSequentialCihazLabels(cihazCands, sceneCenter, obstacleRects, pipeSegments) {
+    if (cihazCands.length < 2) return;
+    const TOL = 35; // cm — aynı banda dahil sayma toleransı
+    const visited = new Set();
+
+    for (let i = 0; i < cihazCands.length; i++) {
+        if (visited.has(i)) continue;
+
+        // Yatay ve dikey grup adaylarını topla
+        const horizGroup = [];
+        const vertGroup = [];
+        for (let j = 0; j < cihazCands.length; j++) {
+            if (visited.has(j)) continue;
+            if (Math.abs(cihazCands[i].anchor.y - cihazCands[j].anchor.y) <= TOL) horizGroup.push(j);
+            if (Math.abs(cihazCands[i].anchor.x - cihazCands[j].anchor.x) <= TOL) vertGroup.push(j);
+        }
+
+        // Daha kalabalık olan grup tercih edilir; ≥2 değilse atla
+        const useHoriz = horizGroup.length >= vertGroup.length;
+        const groupIdx = useHoriz ? horizGroup : vertGroup;
+        if (groupIdx.length < 2) { visited.add(i); continue; }
+
+        const group = groupIdx.map(idx => cihazCands[idx]);
+        groupIdx.forEach(idx => visited.add(idx));
+
+        if (useHoriz) {
+            group.sort((a, b) => a.anchor.x - b.anchor.x);
+            let sumGap = 0;
+            for (let k = 1; k < group.length; k++) sumGap += (group[k].anchor.x - group[k - 1].anchor.x);
+            const avgGap = sumGap / (group.length - 1);
+
+            const groupYAvg = group.reduce((s, g) => s + g.anchor.y, 0) / group.length;
+            const groupXAvg = group.reduce((s, g) => s + g.anchor.x, 0) / group.length;
+            const groupAnchor = { x: groupXAvg, y: groupYAvg };
+
+            // Yön: lokal AÇIKLIK ile karar ver — UP vs DOWN, hangisi daha boş?
+            const upScore = _probeDirectionOpenness(groupAnchor, 0, -1, obstacleRects, pipeSegments);
+            const downScore = _probeDirectionOpenness(groupAnchor, 0, 1, obstacleRects, pipeSegments);
+            // Eşitlikte sahne merkezine göre dışa doğru
+            let dirY;
+            if (Math.abs(upScore - downScore) < 0.5) {
+                dirY = groupYAvg >= sceneCenter.y ? 1 : -1;
+            } else {
+                dirY = upScore < downScore ? -1 : 1;
+            }
+
+            const halfMax = Math.max(...group.map(g => _getObjectHalfSize(g.obj).hh + g.bh / 2));
+            const distance = Math.max(20, Math.min(80, 20 + avgGap * 0.18));
+            const commonY = groupYAvg + dirY * (halfMax + distance);
+
+            group.forEach(g => {
+                g.idealCX = g.anchor.x;
+                g.idealCY = commonY;
+                g.bx = g.idealCX - g.bw / 2;
+                g.by = g.idealCY - g.bh / 2;
+                g.align = 'vertical';
+            });
+        } else {
+            group.sort((a, b) => a.anchor.y - b.anchor.y);
+            let sumGap = 0;
+            for (let k = 1; k < group.length; k++) sumGap += (group[k].anchor.y - group[k - 1].anchor.y);
+            const avgGap = sumGap / (group.length - 1);
+
+            const groupYAvg = group.reduce((s, g) => s + g.anchor.y, 0) / group.length;
+            const groupXAvg = group.reduce((s, g) => s + g.anchor.x, 0) / group.length;
+            const groupAnchor = { x: groupXAvg, y: groupYAvg };
+
+            const leftScore = _probeDirectionOpenness(groupAnchor, -1, 0, obstacleRects, pipeSegments);
+            const rightScore = _probeDirectionOpenness(groupAnchor, 1, 0, obstacleRects, pipeSegments);
+            let dirX;
+            if (Math.abs(leftScore - rightScore) < 0.5) {
+                dirX = groupXAvg >= sceneCenter.x ? 1 : -1;
+            } else {
+                dirX = leftScore < rightScore ? -1 : 1;
+            }
+
+            const halfMax = Math.max(...group.map(g => _getObjectHalfSize(g.obj).hw + g.bw / 2));
+            const distance = Math.max(20, Math.min(80, 20 + avgGap * 0.18));
+            const commonX = groupXAvg + dirX * (halfMax + distance);
+
+            group.forEach(g => {
+                g.idealCX = commonX;
+                g.idealCY = g.anchor.y;
+                g.bx = g.idealCX - g.bw / 2;
+                g.by = g.idealCY - g.bh / 2;
+                g.align = 'horizontal';
+            });
+        }
+    }
+}
+
+// AŞAMA 1B - CIHAZ İÇİN: Dış-yön tercihli, çok-mesafeli yerleşim taraması.
+// Önce 1×, sonra 1.6×, 2.4×, 3.6×, 5.5× mesafelerle dışa doğru genişler.
+// Mevcut etiketler "engel" olarak verildiğinde cihaz onların üstüne basmaz.
+function _findBestPositionForCihaz(c, obstacleRects, sceneCenter, pipeSegments) {
+    const baseGap = 20;
+    const objHalf = _getObjectHalfSize(c.obj);
+    const lblHW = c.bw / 2;
+    const lblHH = c.bh / 2;
+    const baseY = objHalf.hh + baseGap + lblHH;
+    const baseX = objHalf.hw + baseGap + lblHW;
+
+    const directions = [
+        { id: 'bottom', nx: 0, ny: 1, align: 'vertical' },
+        { id: 'top', nx: 0, ny: -1, align: 'vertical' },
+        { id: 'right', nx: 1, ny: 0, align: 'horizontal' },
+        { id: 'left', nx: -1, ny: 0, align: 'horizontal' },
+        { id: 'br', nx: 0.7071, ny: 0.7071, align: 'free' },
+        { id: 'bl', nx: -0.7071, ny: 0.7071, align: 'free' },
+        { id: 'tr', nx: 0.7071, ny: -0.7071, align: 'free' },
+        { id: 'tl', nx: -0.7071, ny: -0.7071, align: 'free' },
+    ];
+
+    // Her yönün lokal "açıklığını" bir kez hesapla (ne kadar boş?).
+    // Düşük skor = bol yer var; cihaz etiketi o yönü tercih etmeli.
+    const dirScores = directions.map(d =>
+        _probeDirectionOpenness(c.anchor, d.nx, d.ny, obstacleRects, pipeSegments)
+    );
+    const minDirScore = Math.min(...dirScores);
+    const maxDirScore = Math.max(...dirScores);
+    const dirRange = Math.max(0.001, maxDirScore - minDirScore);
+
+    // Mesafe katmanları — yer bulamazsak adım adım dışa açıl
+    const distances = [1.0, 1.5, 2.2, 3.2, 4.5, 6.0];
+
+    let bestScore = Infinity;
+    let bestSpot = { cx: c.anchor.x + baseX, cy: c.anchor.y + baseY, align: 'vertical' };
+
+    for (const d of distances) {
+        let layerBest = Infinity;
+        for (let di = 0; di < directions.length; di++) {
+            const dir = directions[di];
+            const candCX = c.anchor.x + dir.nx * baseX * d;
+            const candCY = c.anchor.y + dir.ny * baseY * d;
+            const candBx = candCX - lblHW;
+            const candBy = candCY - lblHH;
+
+            let penalty = 0;
+
+            // Engellerle çakışma alanı (mimari + önce yerleştirilen etiketler)
+            for (const obs of obstacleRects) {
+                if (!(candBx + c.bw <= obs.bx || candBx >= obs.bx + obs.bw ||
+                      candBy + c.bh <= obs.by || candBy >= obs.by + obs.bh)) {
+                    const ox2 = Math.min(candBx + c.bw, obs.bx + obs.bw) - Math.max(candBx, obs.bx);
+                    const oy2 = Math.min(candBy + c.bh, obs.by + obs.bh) - Math.max(candBy, obs.by);
+                    penalty += (ox2 * oy2) * 10;
+                }
+            }
+
+            // Boru üstüne düşme cezası
+            if (pipeSegments && pipeSegments.length) {
+                for (const seg of pipeSegments) {
+                    if (_segmentIntersectsRect(seg, candBx, candBy, c.bw, c.bh, null)) {
+                        penalty += 220;
+                    }
+                }
+            }
+
+            // Mesafe cezası (ne kadar uzaktaysa o kadar pahalı)
+            penalty += (d - 1.0) * 90;
+
+            // LOKAL AÇIKLIK BONUSU: en boş yöne büyük indirim, en dolu yöne ceza
+            // (sceneCenter'a değil, gerçek lokal alana göre karar)
+            const norm = (dirScores[di] - minDirScore) / dirRange; // 0 = en açık, 1 = en dolu
+            penalty += norm * 160;
+
+            // Çapraz cezası (çapraz son tercih)
+            if (dir.id.length === 2) penalty += 120;
+
+            // Cihaz için "alt" hafif tercih (eşit boşluklarda alta gitsin)
+            if (dir.id === 'bottom') penalty -= 8;
+
+            if (penalty < bestScore) {
+                bestScore = penalty;
+                bestSpot = { cx: candCX, cy: candCY, align: dir.align };
+            }
+            if (penalty < layerBest) layerBest = penalty;
+        }
+        // Bu mesafede çakışmasız çözüm bulduysak daha uzağa gitme
+        if (layerBest < 50) break;
+    }
+
+    return bestSpot;
+}
+
+// YENİ: AŞAMA 1 - LOKAL KEŞİF (boru-üstü cezası dahil)
+function _findBestLocalPosition(c, obstacleRects, pipeSegments) {
+    // Tüm etiketler net 20 cm (duvar kalınlığı kadar) kenardan-kenara boşluk
+    // bırakır. Bu, bağlantı çizgisinin görünür kalmasını sağlar ama etiket
+    // gereğinden uzağa atılmaz.
+    const GAP = 20;
+
     const objHalf = _getObjectHalfSize(c.obj);
     const lblHW = c.bw / 2; // Etiket yarı genişliği
     const lblHH = c.bh / 2; // Etiket yarı yüksekliği
@@ -1197,13 +1530,15 @@ function _findBestLocalPosition(c, obstacleRects) {
         { id: 'right', dx: offX, dy: 0, align: 'horizontal', pref: ['vana'] },
         { id: 'top', dx: 0, dy: -offY, align: 'vertical', pref: ['boru'] },
         { id: 'left', dx: -offX, dy: 0, align: 'horizontal', pref: [] },
-        
+
         // Çaprazlar (Zorunlu kalınmadıkça tercih edilmemesi için estetik cezası alacaklar)
         { id: 'br', dx: offX, dy: offY, align: 'free', pref: [] },
         { id: 'bl', dx: -offX, dy: offY, align: 'free', pref: [] },
         { id: 'tr', dx: offX, dy: -offY, align: 'free', pref: [] },
         { id: 'tl', dx: -offX, dy: -offY, align: 'free', pref: [] }
     ];
+
+    const ignorePipeId = c.obj.type === 'boru' ? c.obj.id : null;
 
     let bestScore = Infinity;
     let bestSpot = { cx: c.anchor.x, cy: c.anchor.y, align: 'free' };
@@ -1216,23 +1551,32 @@ function _findBestLocalPosition(c, obstacleRects) {
 
         let penalty = 0;
 
-        // 1. Mimari Objelerle Çakışma Kontrolü (Alan bazlı ağır ceza)
+        // 1. Mimari + bileşen engelleriyle çakışma (alan bazlı ağır ceza)
         for (const obs of obstacleRects) {
             if (!(candBx + c.bw <= obs.bx || candBx >= obs.bx + obs.bw ||
                   candBy + c.bh <= obs.by || candBy >= obs.by + obs.bh)) {
-                
+
                 const overlapX = Math.min(candBx + c.bw, obs.bx + obs.bw) - Math.max(candBx, obs.bx);
                 const overlapY = Math.min(candBy + c.bh, obs.by + obs.bh) - Math.max(candBy, obs.by);
-                penalty += (overlapX * overlapY) * 10; 
+                penalty += (overlapX * overlapY) * 10;
             }
         }
 
-        // 2. Doğal Yön Tercihi Cezası (Örn: Cihazsa alt öncelikli)
-        if (!dir.pref.includes(c.obj.type)) {
-            penalty += 150; 
+        // 2. Boru üstüne düşme cezası (kendi borusu hariç)
+        if (pipeSegments && pipeSegments.length) {
+            for (const seg of pipeSegments) {
+                if (_segmentIntersectsRect(seg, candBx, candBy, c.bw, c.bh, ignorePipeId)) {
+                    penalty += 220;
+                }
+            }
         }
 
-        // 3. Estetik Çapraz Cezası (Düz çizgileri bozmamak için)
+        // 3. Doğal Yön Tercihi Cezası (Örn: Cihazsa alt öncelikli)
+        if (!dir.pref.includes(c.obj.type)) {
+            penalty += 150;
+        }
+
+        // 4. Estetik Çapraz Cezası (Düz çizgileri bozmamak için)
         if (dir.id.length === 2) { // br, bl, tr, tl
             penalty += 300; // Sadece düz eksenler tamamen doluysa çapraza geç
         }
@@ -1242,8 +1586,7 @@ function _findBestLocalPosition(c, obstacleRects) {
             bestScore = penalty;
             bestSpot = { cx: candCX, cy: candCY, align: dir.align };
         }
-        
-        // Sıfır cezalı mükemmel yeri bulduysak diğerlerini taramaya gerek yok
+
         if (penalty === 0 && dir.pref.includes(c.obj.type)) break;
     }
 
@@ -1318,15 +1661,42 @@ function _strictSeparation(cands, obstacleRects, pad) {
 }
 
 // AŞAMA 2 - GLOBAL ÇÖZÜM VE YIĞILMA (STACKING)
-async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated) {
-    const PAD = 8; 
-    
+async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated, pipeSegments) {
+    const PAD = 8;
+
     for (let iter = 0; iter < iterCount; iter++) {
         for (let i = 0; i < cands.length; i++) {
             const c = cands[i];
             let forceX = 0, forceY = 0;
             const cx = c.bx + c.bw / 2;
             const cy = c.by + c.bh / 2;
+
+            // Borulardan uzaklaşma kuvveti (kendi borusu hariç).
+            // Hat etiketi kendi borusuna YAKIN kalmalı, başkalarının üstüne düşmemeli.
+            if (pipeSegments && pipeSegments.length) {
+                const ignoreId = c.obj.type === 'boru' ? c.obj.id : null;
+                const halfDiag = Math.hypot(c.bw, c.bh) / 2;
+                const safeDist = halfDiag + 4;
+                for (const seg of pipeSegments) {
+                    if (ignoreId && seg.pipeId === ignoreId) continue;
+                    const sdx = seg.x2 - seg.x1;
+                    const sdy = seg.y2 - seg.y1;
+                    const segLen2 = sdx * sdx + sdy * sdy;
+                    if (segLen2 < 0.01) continue;
+                    let tt = ((cx - seg.x1) * sdx + (cy - seg.y1) * sdy) / segLen2;
+                    if (tt < 0) tt = 0; else if (tt > 1) tt = 1;
+                    const px = seg.x1 + tt * sdx;
+                    const py = seg.y1 + tt * sdy;
+                    const ddx = cx - px;
+                    const ddy = cy - py;
+                    const dist = Math.hypot(ddx, ddy);
+                    if (dist > 0.01 && dist < safeDist) {
+                        const k = (safeDist - dist) / dist * 0.45;
+                        forceX += ddx * k;
+                        forceY += ddy * k;
+                    }
+                }
+            }
 
             // Bulunan 20cm mesafeli kusursuz noktaya çekme
             let dx = c.idealCX - cx;
@@ -1397,30 +1767,63 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
 
     // Engelleri bir kez oluştur
     const obstacleRects = _buildObstacleRects(manager, t);
+    const pipeSegments = _buildPipeSegments(manager, t);
+    const sceneCenter = _computeSceneCenter(manager, t);
 
-    // AŞAMA 1: Her etiket net 20cm boşluklu kendi ideal noktasını arar
+    // Anchor + boyut ön-hesabı
     cands.forEach(c => {
         c.anchor = _getLabelAnchor(c.obj, t);
         const sz = _estimateBoxSize(c.obj.id, 80, 40);
         c.bw = sz.bw; c.bh = sz.bh; c.style = sz.style;
-        
-        // Çevresini tarayıp engelsiz en iyi noktayı buluyor
-        const bestSpot = _findBestLocalPosition(c, obstacleRects);
-        
+    });
+
+    // AŞAMA 1A: Cihaz olmayanlar (boru/sayaç/kutu/vana) önce yerleşir.
+    // Cihaz etiketleri EN SON yerleşeceği için diğerlerini engel olarak kullanır.
+    const nonCihaz = cands.filter(c => c.obj.type !== 'cihaz');
+    const cihazCands = cands.filter(c => c.obj.type === 'cihaz');
+
+    nonCihaz.forEach(c => {
+        const bestSpot = _findBestLocalPosition(c, obstacleRects, pipeSegments);
         c.align = bestSpot.align;
         c.idealCX = bestSpot.cx;
         c.idealCY = bestSpot.cy;
-
-        // Başlangıç noktasını bu mükemmel nokta olarak belirliyoruz
         c.bx = c.idealCX - c.bw / 2;
         c.by = c.idealCY - c.bh / 2;
     });
 
+    // Yerleşmiş diğer etiketler artık cihaz için engel
+    const runningObstacles = obstacleRects.slice();
+    nonCihaz.forEach(c => runningObstacles.push({ bx: c.bx, by: c.by, bw: c.bw, bh: c.bh }));
+
+    // AŞAMA 1B: Yan yana cihaz gruplarını bantlara hizala
+    _sortCihazByLayout(cihazCands, sceneCenter);
+    _alignSequentialCihazLabels(cihazCands, sceneCenter, runningObstacles, pipeSegments);
+
+    // AŞAMA 1C: Grup-dışı (tekil) cihazlar için dış-yön tercihli yerleşim;
+    // grup üyelerinin önceden belirlenmiş yeri korunur ama engel listesine eklenir.
+    const placedByGroup = new Set();
+    cihazCands.forEach(c => {
+        if (c.idealCX != null && c.idealCY != null) {
+            placedByGroup.add(c);
+            runningObstacles.push({ bx: c.bx, by: c.by, bw: c.bw, bh: c.bh });
+        }
+    });
+    cihazCands.forEach(c => {
+        if (placedByGroup.has(c)) return;
+        const bestSpot = _findBestPositionForCihaz(c, runningObstacles, sceneCenter, pipeSegments);
+        c.align = bestSpot.align;
+        c.idealCX = bestSpot.cx;
+        c.idealCY = bestSpot.cy;
+        c.bx = c.idealCX - c.bw / 2;
+        c.by = c.idealCY - c.bh / 2;
+        runningObstacles.push({ bx: c.bx, by: c.by, bw: c.bw, bh: c.bh });
+    });
+
     const isAnimated = mode === 'free';
-    const iterCount = 40; 
+    const iterCount = 40;
 
     // AŞAMA 2: Global Fizik (Çakışan etiketler düz ekseni bozmadan hizalanır)
-    await _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated);
+    await _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated, pipeSegments);
 
     // Verileri kaydet
     cands.forEach(c => {
