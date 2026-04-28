@@ -112,17 +112,20 @@ function _parseCihazText(textLines) {
     return out;
 }
 
-// Z kotlarından kat tespit et ve state.floors'u kur
-// zPipeElev: yatay boru Z'leri (genelde boru kotları ~200cm zemin üstünde olur)
+// Z kotlarından kat tespit et ve state.floors'u kur.
+// - Proje yüksekteki bir katta başlıyorsa (Z=900 gibi), Zemin'den başlayarak boş
+//   alt katlar GİZLİ placeholder olarak eklenir.
+// - Sadece içinde içerik bulunan katlar `visible: true` döner.
+// - Kullanıcı önceden gerçek kat tanımladıysa hiç dokunulmaz.
 function _ensureFloorsFromZValues(zValues, existingFloors) {
-    // Kullanıcı önceden elle kat tanımladıysa koru
+    // Kullanıcı zaten gerçek kat tanımladıysa koru
     const realFloors = (existingFloors || []).filter(f => !f.isPlaceholder);
     if (realFloors.length >= 2) return null;
 
     const zs = zValues.filter(v => Number.isFinite(v));
     if (zs.length === 0) return null;
 
-    // 1-boyutlu kümeleme
+    // 1-boyutlu kümeleme — proje içindeki kat sayısı
     const sorted = [...zs].sort((a, b) => a - b);
     const clusters = [];
     const CLUSTER_GAP = 80;
@@ -134,32 +137,207 @@ function _ensureFloorsFromZValues(zValues, existingFloors) {
     clusters.push(cur);
 
     // Her kümenin medyan merkezi = o katın boru kotu
-    const centers = clusters.map(c => {
+    const projectCenters = clusters.map(c => {
         const s = [...c].sort((a, b) => a - b);
         return s[Math.floor(s.length / 2)];
     });
 
-    // Gasline'da yatay boru kotu tipik olarak zemin slabından ~200cm yüksekte.
-    // Floor bottom = center - 200cm (slab), top = sonraki center - 200cm (bir sonraki slab).
-    const PIPE_OFFSET = 200; // cm — kot-zemin arası tipik ofset
+    const PIPE_OFFSET = 200;       // cm — boru hattı zemin slabının üstünde
+    const FLOOR_HEIGHT = 300;      // cm — varsayılan kat yüksekliği
     const MIN_FLOOR_HEIGHT = 260;
+
+    // Projedeki en alt kat zemine ne kadar uzakta?
+    const projectBottomCenter = projectCenters[0];
+    const projectBottom = Math.round(projectBottomCenter - PIPE_OFFSET);
+
+    // Proje hangi kat indeksinden başlıyor? (Zemin = 0)
+    const startFloorIdx = Math.max(0, Math.round(projectBottom / FLOOR_HEIGHT));
+
+    // Kaç gerçek kat var? (kümeleme sonucu)
+    const projectFloorCount = projectCenters.length;
+    const totalFloorCount = startFloorIdx + projectFloorCount;
+
     const floors = [];
-    for (let i = 0; i < centers.length; i++) {
-        const bottom = Math.round(centers[i] - PIPE_OFFSET);
-        const rawTop = (i + 1 < centers.length)
-            ? Math.round(centers[i + 1] - PIPE_OFFSET)
-            : (bottom + MIN_FLOOR_HEIGHT + 10);
-        const top = Math.max(rawTop, bottom + MIN_FLOOR_HEIGHT);
+
+    // 0..startFloorIdx-1: GİZLİ placeholder zemin/ara katlar
+    for (let i = 0; i < startFloorIdx; i++) {
+        const bottom = i * FLOOR_HEIGHT;
+        const top = (i + 1) * FLOOR_HEIGHT;
         floors.push({
             id: `floor-xml-${i}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
             name: i === 0 ? 'Zemin' : `${i}. Kat`,
+            bottomElevation: bottom,
+            topElevation: top,
+            visible: false,
+            isPlaceholder: false
+        });
+    }
+
+    // Proje katları (görünür) — gerçek Z kotlarına göre
+    for (let i = 0; i < projectCenters.length; i++) {
+        const floorIdx = startFloorIdx + i;
+        const bottom = Math.round(projectCenters[i] - PIPE_OFFSET);
+        const rawTop = (i + 1 < projectCenters.length)
+            ? Math.round(projectCenters[i + 1] - PIPE_OFFSET)
+            : (bottom + FLOOR_HEIGHT);
+        const top = Math.max(rawTop, bottom + MIN_FLOOR_HEIGHT);
+        floors.push({
+            id: `floor-xml-${floorIdx}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            name: floorIdx === 0 ? 'Zemin' : `${floorIdx}. Kat`,
             bottomElevation: bottom,
             topElevation: top,
             visible: true,
             isPlaceholder: false
         });
     }
+
     return floors;
+}
+
+// Import sonrası boruları uçlarından birbirine bağla ve doğrultularını normalize et.
+// Sayaç giriş/çıkış fleks segmentlerinden başlayan BFS ile her boru ziyaret edilir;
+// her boru için "parent'a bakan uç = p1" konvansiyonu sağlanır (gerekirse p1/p2 takas).
+// Böylece computePipeDebileri'nin baslangicBaglanti.tip='boru' zinciri kesintisiz olur.
+function _linkPipeNetwork(pipes) {
+    if (!pipes || pipes.length === 0) return;
+    const TOL = 60; // cm — uç eşleşme toleransı (gasline'da bağlantılar bazen kayık)
+    const eq3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0)) <= TOL;
+    const pipeMap = new Map(pipes.map(p => [p.id, p]));
+    let _linkCount = 0;
+
+    // 'next' borusunun p1'i 'parent' borusuna en yakın uca eşit olacak şekilde gerekirse takas et,
+    // sonra baslangicBaglanti'yi parent'a 'boru' tipiyle ayarla.
+    function _orientAndLink(next, parent, touchingEndOfNext) {
+        if (!touchingEndOfNext) {
+            const d1 = Math.min(
+                Math.hypot(next.p1.x - parent.p1.x, next.p1.y - parent.p1.y, (next.p1.z||0)-(parent.p1.z||0)),
+                Math.hypot(next.p1.x - parent.p2.x, next.p1.y - parent.p2.y, (next.p1.z||0)-(parent.p2.z||0))
+            );
+            const d2 = Math.min(
+                Math.hypot(next.p2.x - parent.p1.x, next.p2.y - parent.p1.y, (next.p2.z||0)-(parent.p1.z||0)),
+                Math.hypot(next.p2.x - parent.p2.x, next.p2.y - parent.p2.y, (next.p2.z||0)-(parent.p2.z||0))
+            );
+            touchingEndOfNext = d1 <= d2 ? 'p1' : 'p2';
+        }
+        if (touchingEndOfNext === 'p2') {
+            [next.p1, next.p2] = [next.p2, next.p1];
+            const tmp = next.baslangicBaglanti;
+            next.baslangicBaglanti = next.bitisBaglanti;
+            next.bitisBaglanti = tmp;
+        }
+        // Parent'ın hangi ucunda olduğumuzu da belirle (debugging + bazı renderer'lar için)
+        const dToParentP1 = Math.hypot(next.p1.x - parent.p1.x, next.p1.y - parent.p1.y, (next.p1.z||0)-(parent.p1.z||0));
+        const dToParentP2 = Math.hypot(next.p1.x - parent.p2.x, next.p1.y - parent.p2.y, (next.p1.z||0)-(parent.p2.z||0));
+        const parentEnd = dToParentP1 <= dToParentP2 ? 'p1' : 'p2';
+        next.baslangicBaglanti = { tip: 'boru', hedefId: parent.id, noktaIndex: parentEnd };
+        _linkCount++;
+    }
+
+    // Yardımcı: nokta `pt` segmentin (segP1→segP2) GÖVDESİ üzerinde mi? (T-bağlantı)
+    function _pointOnBody(pt, segP1, segP2) {
+        const dx = segP2.x - segP1.x, dy = segP2.y - segP1.y, dz = (segP2.z||0) - (segP1.z||0);
+        const len2 = dx*dx + dy*dy + dz*dz;
+        if (len2 < 1) return null;
+        const t = ((pt.x - segP1.x)*dx + (pt.y - segP1.y)*dy + ((pt.z||0)-(segP1.z||0))*dz) / len2;
+        if (t < 0.05 || t > 0.95) return null; // uçları hariç tut
+        const px = segP1.x + t*dx, py = segP1.y + t*dy, pz = (segP1.z||0) + t*dz;
+        const d = Math.hypot(pt.x - px, pt.y - py, (pt.z||0) - pz);
+        return d <= TOL ? t : null;
+    }
+
+    const visited = new Set();
+    const queue = [];
+
+    // Seed: sayaç-bağlı borular (giriş/çıkış fleks segmentleri)
+    pipes.forEach(p => {
+        if (p.baslangicBaglanti?.tip === 'sayac' || p.bitisBaglanti?.tip === 'sayac') {
+            if (!visited.has(p.id)) { visited.add(p.id); queue.push(p.id); }
+        }
+    });
+
+    while (queue.length) {
+        const cur = pipeMap.get(queue.shift());
+        if (!cur) continue;
+
+        // (1) cur'un her iki tarafındaki mevcut 'boru' linklerini takip et — yön normalize et
+        for (const f of ['baslangicBaglanti', 'bitisBaglanti']) {
+            const bag = cur[f];
+            if (bag?.tip === 'boru' && bag.hedefId) {
+                const next = pipeMap.get(bag.hedefId);
+                if (next && !visited.has(next.id)) {
+                    _orientAndLink(next, cur, null);
+                    visited.add(next.id);
+                    queue.push(next.id);
+                }
+            }
+        }
+
+        // (2) cur'un AÇIK uçlarından komşu boru uçları ara
+        for (const myEnd of ['p1', 'p2']) {
+            const bag = myEnd === 'p1' ? cur.baslangicBaglanti : cur.bitisBaglanti;
+            if (bag?.tip === 'boru' || bag?.tip === 'sayac' ||
+                bag?.tip === 'cihaz' || bag?.tip === 'servis_kutusu') continue;
+
+            const myPt = cur[myEnd];
+            for (const other of pipes) {
+                if (other.id === cur.id || visited.has(other.id)) continue;
+                if (!other.p1 || !other.p2) continue;
+                let touching = null;
+                if (eq3(myPt, other.p1)) touching = 'p1';
+                else if (eq3(myPt, other.p2)) touching = 'p2';
+                if (!touching) continue;
+                _orientAndLink(other, cur, touching);
+                visited.add(other.id);
+                queue.push(other.id);
+            }
+        }
+
+        // (3) T-BAĞLANTI: cur'un GÖVDESİNE bir başka borunun ucu temas ediyor mu?
+        // Bu boru cur'un "child"ı olur (debi onun üzerinden cur'a akar).
+        for (const other of pipes) {
+            if (other.id === cur.id || visited.has(other.id)) continue;
+            if (!other.p1 || !other.p2) continue;
+            // other'ın hangi ucu cur'un body'sinde? p1 öncelikli (zaten convention).
+            const tP1 = _pointOnBody(other.p1, cur.p1, cur.p2);
+            const tP2 = _pointOnBody(other.p2, cur.p1, cur.p2);
+            if (tP1 == null && tP2 == null) continue;
+            const touching = (tP1 != null && (tP2 == null || tP1 < tP2)) ? 'p1' : 'p2';
+            _orientAndLink(other, cur, touching);
+            visited.add(other.id);
+            queue.push(other.id);
+        }
+    }
+
+    console.log(`  -> _linkPipeNetwork: ${visited.size}/${pipes.length} boru zincire dahil edildi, ${_linkCount} link kuruldu`);
+
+    // Seed yok ise (sayaç hiç parse edilmediyse) — yine de borular arasında uç-uç
+    // eşleşmesi yapılır ki istemcide grafik bütünlüğü olsun (debi olmasa da hat çizilir).
+    if (visited.size === 0) {
+        // Herhangi bir boruyu kök olarak seç ve BFS yap
+        const root = pipes[0];
+        if (root) {
+            visited.add(root.id);
+            queue.push(root.id);
+            while (queue.length) {
+                const cur = pipeMap.get(queue.shift());
+                if (!cur) continue;
+                for (const myEnd of ['p1', 'p2']) {
+                    const myPt = cur[myEnd];
+                    for (const other of pipes) {
+                        if (other.id === cur.id || visited.has(other.id)) continue;
+                        if (!other.p1 || !other.p2) continue;
+                        let touching = null;
+                        if (eq3(myPt, other.p1)) touching = 'p1';
+                        else if (eq3(myPt, other.p2)) touching = 'p2';
+                        if (!touching) continue;
+                        _orientAndLink(other, cur, touching);
+                        visited.add(other.id);
+                        queue.push(other.id);
+                    }
+                }
+            }
+        }
+    }
 }
 
 function _findFloorIdForZ(z, floors) {
@@ -286,7 +464,8 @@ export function importFromXML(xmlString, options = {}) {
         }
     }
 
-    // --- ÖNEMLİ: Import öncesi mevcut state'i temizle ---
+    // --- ÖNEMLİ: Import öncesi mevcut state'i tamamen temizle ---
+    // Eski katlar dahil her şey sıfırlansın ki yeni import temiz başlangıç yapsın.
     setState({
         nodes: [],
         walls: [],
@@ -300,7 +479,11 @@ export function importFromXML(xmlString, options = {}) {
         selectedGroup: [],
         startPoint: null,
         plumbingBlocks: [],
-        plumbingPipes: []
+        plumbingPipes: [],
+        plumbingNodes: [],
+        plumbingLabelOffsets: {},
+        floors: [],
+        currentFloor: null
     });
     // --- TEMİZLİK SONU ---
 
@@ -904,6 +1087,15 @@ export function importFromXML(xmlString, options = {}) {
             const topZ = Math.max((sc[2] || 0), (ec[2] || 0)) * SCALE;
             const point = { x: sc[0] * SCALE, y: -sc[1] * SCALE, z: topZ };
 
+            // Branşman debisi: XML'de değer varsa onu, yoksa standart 3.5 m³/h
+            const ekTukEl = bransmanEl.querySelector("P[F='GLEKTUKETIM']");
+            const xmlDebi = ekTukEl ? parseFloat(ekTukEl.getAttribute('V')) : 0;
+            const bransmanDebi = (xmlDebi && xmlDebi > 0) ? xmlDebi : 3.5;
+
+            const birimSayisiEl2 = bransmanEl.querySelector("P[F='GLBIRIMSAYISI']");
+            const dukkanSayisiEl2 = bransmanEl.querySelector("P[F='GLDUKKANSAYISI']");
+            const daireNoEl2 = bransmanEl.querySelector("P[F='GLDAIRENO']");
+
             const yakin = findClosestPipeEnd(point, state.plumbingPipes, 80);
             const vanaData = {
                 id: `vana_bransman_xml_${idx}_${Date.now()}`,
@@ -923,12 +1115,12 @@ export function importFromXML(xmlString, options = {}) {
                 izolator: false,
                 muhafaza: false,
                 muhafazaGrupla: false,
-                birimNo: '',
+                birimNo: daireNoEl2?.getAttribute('V') || '',
                 tesisatNo: '',
-                daireSayisi: 0,
-                dukkanSayisi: 0,
+                daireSayisi: birimSayisiEl2 ? parseInt(birimSayisiEl2.getAttribute('V')) || 0 : 0,
+                dukkanSayisi: dukkanSayisiEl2 ? parseInt(dukkanSayisiEl2.getAttribute('V')) || 0 : 0,
                 ekDebi: 0,
-                bransmanDebi: 0
+                bransmanDebi: bransmanDebi
             };
             if (yakin) {
                 yakin.pipe.uzerindekiElemanlar = yakin.pipe.uzerindekiElemanlar || [];
@@ -1242,7 +1434,12 @@ export function importFromXML(xmlString, options = {}) {
                     daireSayisi: birimSayisiEl ? parseInt(birimSayisiEl.getAttribute('V')) || 0 : 0,
                     dukkanSayisi: dukkanSayisiEl ? parseInt(dukkanSayisiEl.getAttribute('V')) || 0 : 0,
                     ekDebi: ekTuketimEl ? parseFloat(ekTuketimEl.getAttribute('V')) || 0 : 0,
-                    bransmanDebi: 0
+                    // BRANSMAN vanaları: XML değeri varsa onu, yoksa 3.5 m³/h standart
+                    bransmanDebi: vanaTipi === 'BRANSMAN'
+                        ? ((ekTuketimEl && parseFloat(ekTuketimEl.getAttribute('V')) > 0)
+                            ? parseFloat(ekTuketimEl.getAttribute('V'))
+                            : 3.5)
+                        : 0
                 };
 
                 // Borunun vanaya bağlantısını kur
@@ -1485,8 +1682,9 @@ export function importFromXML(xmlString, options = {}) {
                     marka: parsedO.marka || '',
                     model: parsedO.model || '',
                     bacaTipi: parsedO.bacaTipi || 'Bacasız',
-                    kapasiteKcal: parsedO.kapasiteKcal || 0,
-                    kapasiteKW: parsedO.kapasiteKW || 0,
+                    // Ocak için TS standart kapasite 13200 kcal/h (parse edilmediyse)
+                    kapasiteKcal: parsedO.kapasiteKcal || 13200,
+                    kapasiteKW: parsedO.kapasiteKW || parseFloat((13200 / 860).toFixed(2)),
                     yogusmali: false,
                     verim: verim,
                     muhafaza: false,
@@ -1696,6 +1894,17 @@ export function importFromXML(xmlString, options = {}) {
 
     console.log("=========================================\n");
 
+    // --- 8.6b. BORU AĞINI BAĞLA: uç-uç eşleştirmesiyle baslangicBaglanti zincirini kur
+    // Bu adım, computePipeDebileri'nin sayaç→cihaz BFS'inin tüm hatlara erişmesini
+    // sağlar; aksi halde XML'den null bağlantılarla gelen borular debi propagasyonunu
+    // kıracak ve tüm hatlar 0.00 görünecektir.
+    try {
+        _linkPipeNetwork(state.plumbingPipes);
+        console.log('  -> Boru ağı uçlardan birbirine bağlandı (debi propagasyonu için)');
+    } catch (e) {
+        console.warn('Boru ağ bağlama hatası:', e);
+    }
+
     // --- 8.7. KAT YÖNETİMİ: Z kotlarından katları tespit et ve floorId ata ---
     try {
         const zPool = [];
@@ -1711,9 +1920,11 @@ export function importFromXML(xmlString, options = {}) {
 
         const newFloors = _ensureFloorsFromZValues(zPool, state.floors || []);
         if (newFloors && newFloors.length >= 1) {
-            setState({ floors: newFloors, currentFloor: newFloors[0] });
+            // currentFloor: ilk GÖRÜNÜR (yani projenin gerçekten başladığı) kat olsun.
+            const firstVisible = newFloors.find(f => f.visible !== false) || newFloors[0];
+            setState({ floors: newFloors, currentFloor: firstVisible });
             console.log(`\n=== KATLAR OLUŞTURULDU: ${newFloors.length} kat ===`);
-            newFloors.forEach(f => console.log(`  ${f.name}: ${f.bottomElevation} - ${f.topElevation} cm`));
+            newFloors.forEach(f => console.log(`  ${f.name}: ${f.bottomElevation} - ${f.topElevation} cm  [${f.visible === false ? 'GİZLİ' : 'görünür'}]`));
         }
 
         const activeFloors = (state.floors || []).filter(f => !f.isPlaceholder);
@@ -1729,18 +1940,94 @@ export function importFromXML(xmlString, options = {}) {
                 const fid = _findFloorIdForZ(b.z || 0, activeFloors);
                 if (fid) b.floorId = fid;
             });
-            // Mimari: Gasline XML'inde tek kat mimarisi gelir, tümünü zemin kata ata
-            // (kullanıcı mimariyi kat kat paste-to-all ile çoğaltabilir)
-            const groundFloorId = activeFloors[0].id;
-            (state.walls || []).forEach(w => { w.floorId = groundFloorId; });
-            (state.rooms || []).forEach(r => { r.floorId = groundFloorId; });
-            (state.columns || []).forEach(c => { c.floorId = groundFloorId; });
-            (state.beams || []).forEach(b => { b.floorId = groundFloorId; });
-            (state.stairs || []).forEach(s => { s.floorId = groundFloorId; });
+            // Mimari: projenin başladığı (ilk görünür) kata ata — Zemin değil!
+            // Gasline XML'inde tek kat mimarisi gelir; bu kat projenin gerçek katı.
+            const projectFloor = (state.currentFloor && activeFloors.find(f => f.id === state.currentFloor.id))
+                || activeFloors.find(f => f.visible !== false)
+                || activeFloors[0];
+            const projectFloorId = projectFloor.id;
+            (state.walls || []).forEach(w => { w.floorId = projectFloorId; });
+            (state.rooms || []).forEach(r => { r.floorId = projectFloorId; });
+            (state.columns || []).forEach(c => { c.floorId = projectFloorId; });
+            (state.beams || []).forEach(b => { b.floorId = projectFloorId; });
+            (state.stairs || []).forEach(s => { s.floorId = projectFloorId; });
             (state.doors || []).forEach(d => {
                 if (d.wall?.floorId) d.floorId = d.wall.floorId;
-                else d.floorId = groundFloorId;
+                else d.floorId = projectFloorId;
             });
+            console.log(`  -> Mimari "${projectFloor.name}" katına atandı (bottom=${projectFloor.bottomElevation}cm)`);
+
+            // --- MİMARİ KLONLAMA: her görünür katın kendi kopyası olsun ---
+            // Gasline tek-kat mimari verir; ama ngcad çoklu kat sahnesinde her katın
+            // kendi duvar/oda/kolon/kiriş/merdiven/kapı kopyası olmalı (boş kat görünmesin).
+            const visibleFloors = activeFloors.filter(f => f.visible !== false && f.id !== projectFloorId);
+            if (visibleFloors.length > 0) {
+                const sourceWalls = (state.walls || []).filter(w => w.floorId === projectFloorId);
+                const sourceRooms = (state.rooms || []).filter(r => r.floorId === projectFloorId);
+                const sourceColumns = (state.columns || []).filter(c => c.floorId === projectFloorId);
+                const sourceBeams = (state.beams || []).filter(b => b.floorId === projectFloorId);
+                const sourceStairs = (state.stairs || []).filter(s => s.floorId === projectFloorId);
+                const sourceDoors = (state.doors || []).filter(d => d.wall && d.wall.floorId === projectFloorId);
+
+                visibleFloors.forEach(tf => {
+                    const tfId = tf.id;
+                    const nodeMap = new Map();
+                    const wallMap = new Map(); // sourceWall -> newWall
+
+                    sourceWalls.forEach(sw => {
+                        const k1 = `${sw.p1.x},${sw.p1.y}`;
+                        const k2 = `${sw.p2.x},${sw.p2.y}`;
+                        let p1 = nodeMap.get(k1);
+                        if (!p1) { p1 = { x: sw.p1.x, y: sw.p1.y }; nodeMap.set(k1, p1); }
+                        let p2 = nodeMap.get(k2);
+                        if (!p2) { p2 = { x: sw.p2.x, y: sw.p2.y }; nodeMap.set(k2, p2); }
+                        const nw = {
+                            type: 'wall', p1, p2,
+                            thickness: sw.thickness,
+                            wallType: sw.wallType || 'normal',
+                            windows: sw.windows ? JSON.parse(JSON.stringify(sw.windows)) : [],
+                            vents: sw.vents ? JSON.parse(JSON.stringify(sw.vents)) : [],
+                            floorId: tfId
+                        };
+                        state.walls.push(nw);
+                        wallMap.set(sw, nw);
+                    });
+                    nodeMap.forEach(n => { if (!state.nodes.includes(n)) state.nodes.push(n); });
+
+                    sourceDoors.forEach(sd => {
+                        const nw = wallMap.get(sd.wall);
+                        if (!nw) return;
+                        state.doors.push({ ...sd, wall: nw, floorId: tfId });
+                    });
+
+                    sourceColumns.forEach(sc => {
+                        state.columns.push({ ...sc, center: sc.center ? { ...sc.center } : sc.center, floorId: tfId });
+                    });
+                    sourceBeams.forEach(sb => {
+                        state.beams.push({ ...sb, center: sb.center ? { ...sb.center } : sb.center, floorId: tfId });
+                    });
+                    sourceStairs.forEach(ss => {
+                        state.stairs.push({
+                            ...ss,
+                            center: ss.center ? { ...ss.center } : ss.center,
+                            id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+                            connectedStairId: null,
+                            floorId: tfId
+                        });
+                    });
+                    sourceRooms.forEach(sr => {
+                        state.rooms.push({
+                            ...sr,
+                            center: sr.center ? [...sr.center] : sr.center,
+                            centerOffset: sr.centerOffset ? { ...sr.centerOffset } : sr.centerOffset,
+                            polygon: sr.polygon ? JSON.parse(JSON.stringify(sr.polygon)) : sr.polygon,
+                            vertices: sr.vertices ? sr.vertices.map(v => ({ ...v })) : sr.vertices,
+                            floorId: tfId
+                        });
+                    });
+                });
+                console.log(`  -> Mimari ${visibleFloors.length} ek görünür kata da klonlandı`);
+            }
         }
     } catch (e) {
         console.warn('Kat tespiti hatası:', e);
