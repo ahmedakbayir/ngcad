@@ -37,7 +37,7 @@ export const PreviewMixin = {
         ctx.restore();
     },
 
-drawPipeSplitPreview(ctx, preview) {
+    drawPipeSplitPreview(ctx, preview) {
         if (!preview || !preview.point) return;
 
         const { point, isEndpoint } = preview;
@@ -324,7 +324,7 @@ drawPipeSplitPreview(ctx, preview) {
         ctx.restore();
     },
 
-drawSayacGhostConnection(ctx, ghost, manager) {
+    drawSayacGhostConnection(ctx, ghost, manager) {
         const connInfo = ghost.ghostConnectionInfo;
         if (!connInfo || !connInfo.boruUcu) return;
 
@@ -774,6 +774,8 @@ drawSayacGhostConnection(ctx, ghost, manager) {
             const snapScreenX = snap.x + (snap.z || 0) * t;
             const snapScreenY = snap.y - (snap.z || 0) * t;
             const snapColor = hasConflict ? '#FF4444' : '#44FF88';
+            // Köşe ve uç noktası: daha belirgin halka (8); gövde: küçük (6)
+            //  const snapR = (snap.type === 'endpoint' || snap.type === 'corner') ? 8 / zoom : 6 / zoom;
             const snapR = snap.type === 'endpoint' ? 8 / zoom : 6 / zoom;
 
             ctx.strokeStyle = snapColor;

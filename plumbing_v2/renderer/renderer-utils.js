@@ -446,8 +446,10 @@ export function computePipeDebileri(manager) {
         }
     });
 
-    // 2. Sayaç sonrası pipe ID'lerini BFS ile belirle
+    // 2. Sayaç sonrası pipe ID'lerini BFS ile belirle (+ pipe→sayac eşlemesi)
+    // pipeToMeter: bir post-meter borusunun ait olduğu sayaç bileşeni (en yakın sayaç)
     const sayacSonrasiIds = new Set();
+    const pipeToMeter = new Map();
     (manager.components || []).forEach(c => {
         if (c.type !== 'sayac' || !c.cikisBagliBoruId) return;
         const queue = [c.cikisBagliBoruId];
@@ -455,9 +457,15 @@ export function computePipeDebileri(manager) {
             const id = queue.shift();
             if (sayacSonrasiIds.has(id)) continue;
             sayacSonrasiIds.add(id);
+            if (!pipeToMeter.has(id)) pipeToMeter.set(id, c);
             (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
         }
     });
+
+    // Sayaç ARİTMETİK modunda mı? (TİCARİ veya KAZAN DAİRESİ)
+    // Bu sayaçlarda eşzaman faktörü uygulanmaz, cihazlar birebir toplanır;
+    // ve sayaç öncesine cikis debisi AYNEN yansır (birim/Çizelge 6 yerine direkt nfd).
+    const _isAritmetikSayac = (s) => s && (s.birimTipi === 'TİCARİ' || s.birimTipi === 'KAZAN DAİRESİ');
 
     // 3. Tüm boruları sıfırla
     //    Sayaç sonrası → cihaz dağılımı (_db) + direkt debi (_directDebi)
@@ -579,12 +587,21 @@ export function computePipeDebileri(manager) {
             }
         });
 
-        // Sayaç sonrası boru: Çizelge 7 ile debi hesapla
+        // Sayaç sonrası boru: Çizelge 7 ile debi hesapla (TİCARİ/KAZAN için aritmetik)
         if (sayacSonrasiIds.has(pipeId)) {
             const pipe = pipeMap.get(pipeId);
             if (pipe) {
+                const sayac = pipeToMeter.get(pipeId);
+                const aritmetik = _isAritmetikSayac(sayac);
                 if (pipe._hasDirectDevice) {
                     pipe.debi = pipe._directDebi + pipe._nfd;
+                } else if (aritmetik) {
+                    // TİCARİ/KAZAN DAİRESİ: cihazlar BİREBİR aritmetik toplanır
+                    let toplam = 0;
+                    for (const k of ['ocak','kombi','soba','sofben','other']) {
+                        toplam += pipe._db[k].totalM3h || 0;
+                    }
+                    pipe.debi = toplam + pipe._nfd;
                 } else {
                     const tiplerMevcut = ['ocak','kombi','soba','sofben'].filter(k => pipe._db[k].count > 0);
                     const tekTip = tiplerMevcut.length === 1 ? tiplerMevcut[0] : null;
@@ -605,9 +622,8 @@ export function computePipeDebileri(manager) {
         if (p.baslangicBaglanti?.tip !== 'boru') dfs(p.id);
     });
 
-    // 6. Sayaç geçişi — Çizelge 6 ile birim olarak işle (aritmetik toplama yok)
-    //    Her sayaç için birim_debi hesaplanır ve giriş borusuna + atalarına birim eklenir.
-    //    Sayaç sonrası debi:  0–5 m³/h → 3.5,  >5 → 3.5 + (debi−5)
+    // 6. Sayaç geçişi — TİCARİ/KAZAN DAİRESİ AYNEN yansır, KONUT/OFİS Çizelge 6 birim
+    //    Her sayaç için giriş borusundan başlayıp tüm sayaç ÖNCESİ borulara dağıt.
     (manager.components || []).forEach(c => {
         if (c.type !== 'sayac') return;
         const girisBoru = c.fleksBaglanti?.boruId ? pipeMap.get(c.fleksBaglanti.boruId) : null;
@@ -615,19 +631,37 @@ export function computePipeDebileri(manager) {
         if (!girisBoru || !cikisBoru || cikisBoru.debi <= 0) return;
 
         const sayacDebi = cikisBoru.debi;
-        const birimDebi = sayacDebi <= 5 ? 3.5 : 3.5 + (sayacDebi - 5);
-        const hamDebi   = birimDebi / BRY1;
-        const bu35      = Math.abs(birimDebi - 3.5) <= 0.001;
+        const aritmetik = _isAritmetikSayac(c);
 
-        let curId = girisBoru.id;
-        while (curId) {
-            const p = pipeMap.get(curId);
-            if (p && p._birim) {
-                p._birim.count   += 1;
+        // Standart birim hesabı (KONUT/OFİS için)
+        const birimDebi = sayacDebi <= 5 ? 3.5 : 3.5 + (sayacDebi - 5);
+        const hamDebi = birimDebi / BRY1;
+        const bu35 = Math.abs(birimDebi - 3.5) <= 0.001;
+
+        // Sayaç giriş borusundan başlayıp BÜTÜN sayaç öncesi pipe'lara dağıt.
+        // Hem childrenOf (upstream yöne) hem parentOf (downstream/diğer kökler) genişletilir.
+        const queue = [girisBoru.id];
+        const localVisited = new Set();
+        while (queue.length > 0) {
+            const id = queue.shift();
+            if (localVisited.has(id) || sayacSonrasiIds.has(id)) continue;
+            localVisited.add(id);
+            const p = pipeMap.get(id);
+            if (!p) continue;
+
+            if (aritmetik) {
+                // TİCARİ/KAZAN DAİRESİ: cikis debisi DİREKT yansır (aritmetik)
+                p._nfd = (p._nfd || 0) + sayacDebi;
+            } else if (p._birim) {
+                // KONUT/OFİS: Çizelge 6 birim biriktirici
+                p._birim.count += 1;
                 p._birim.hamDebi += hamDebi;
                 if (!bu35) p._birim.hepsi35 = false;
             }
-            curId = parentOf.get(curId);
+
+            (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
+            const par = parentOf.get(id);
+            if (par != null) queue.push(par);
         }
     });
 
@@ -839,6 +873,45 @@ export function computeHatGroups(pipes, components) {
         const si = sectionOf.get(p.id);
         if (si != null) hatMap.set(p.id, secHat.get(si));
     });
+
+    // ── KURAL: SERVİS KUTUSU OLMAYAN İÇ TESİSAT PROJELERİ ──────────────────────
+    // Bu tipte projelerde sayaç öncesindeki borulara hat numarası verilmez —
+    // sayaç öncesi sadece kısa bağlantı/hizmet kısmıdır, gerçek dağıtım hatları
+    // sayaç sonrasında numaralanır. Tek istisna: önemli kapasitede pre-meter
+    // (debi > 3.5) vardır → bu durumda hat no kalır (yan bina, ek tüketim, vs.).
+    const hasServisKutusu = (components || []).some(c => c.type === 'servis_kutusu');
+    if (!hasServisKutusu) {
+        // Her sayaçın giriş borusundan upstream'e doğru tüm boruları topla.
+        // sayacOncesiByMeter: meter id → set of upstream pipe ids
+        // sayacOncesiAll: birleşim — global filtre için
+        const sayacOncesiAll = new Set();
+        (components || []).forEach(c => {
+            if (c.type !== 'sayac' || !c.fleksBaglanti?.boruId) return;
+            // Bu sayacın throughput'u (cikis boru debisi) — eşik kontrolü için
+            const cikis = c.cikisBagliBoruId ? pipeMap.get(c.cikisBagliBoruId) : null;
+            const throughput = cikis ? parseFloat(cikis.debi) || 0 : 0;
+            // Sayaç önceki boruları topla (children chain ile upstream yönde)
+            const localUpstream = new Set();
+            const queue = [c.fleksBaglanti.boruId];
+            while (queue.length > 0) {
+                const id = queue.shift();
+                if (localUpstream.has(id)) continue;
+                localUpstream.add(id);
+                (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
+            }
+            // Bu sayaç için throughput ≤ 3.5 ise sayacın TÜM öncesini sil.
+            // > 3.5 ise yalnızca debi'si 3.5'i geçen pipe'lar korunur.
+            localUpstream.forEach(pid => {
+                const p = pipeMap.get(pid);
+                const pdebi = p ? (parseFloat(p.debi) || 0) : 0;
+                if (throughput <= 3.5 || pdebi <= 3.5) {
+                    sayacOncesiAll.add(pid);
+                }
+            });
+        });
+
+        sayacOncesiAll.forEach(pid => hatMap.delete(pid));
+    }
 
     return { hatMap, hatCount: hatCounter21 + (hatCounter300 - 300) };
 }

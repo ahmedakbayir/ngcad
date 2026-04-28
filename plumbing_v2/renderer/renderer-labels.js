@@ -192,25 +192,58 @@ export const LabelMixin = {
         const { hatMap } = computeHatGroups(manager.pipes, manager.components);
         window._hatMap = hatMap; // panel readonly için erişilebilir yap
 
-        // Borular: her hat no için sadece en uzun parçada 1 etiket
+        // Borular: aynı hat no'ya sahip olsalar bile FİZİKSEL OLARAK AYRI bağlı
+        // bölümlerin (section) her birine ayrı etiket çiziyoruz. Aynı hat no birden
+        // fazla yerde tekrar edebilir (fingerprint eşleşmesi); kullanıcı her ayrı
+        // bölümü görmek istiyor.
         if (_pipesForLabels && _pipesForLabels.length > 0) {
-            // Hat no → borular (yalnız aktif katın boruları)
-            const hatGroups = new Map();
-            _pipesForLabels.forEach(pipe => {
-                const hatNo = hatMap.get(pipe.id);
-                if (hatNo == null) return;
-                if (!hatGroups.has(hatNo)) hatGroups.set(hatNo, []);
-                hatGroups.get(hatNo).push(pipe);
+            const pipeMap = new Map(_pipesForLabels.map(p => [p.id, p]));
+            // Çocuk indeksi: parentId → [childPipeId,...]
+            const childrenIdx = new Map();
+            _pipesForLabels.forEach(p => {
+                if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId) {
+                    const par = p.baslangicBaglanti.hedefId;
+                    if (!childrenIdx.has(par)) childrenIdx.set(par, []);
+                    childrenIdx.get(par).push(p.id);
+                }
             });
 
-            // Her hat için etiket borusunu seç, toplam uzunluğu hesapla
-            // Kural: en yatay boru varsa öncelik onda, yoksa en uzun boru
-            hatGroups.forEach((pipes, hatNo) => {
-                let fallback = pipes[0]; // en uzun boru (yatay yoksa)
+            // Bağlı bileşenler: aynı hatNo + baslangic-chain ile bağlı borular tek section
+            const visitedSec = new Set();
+            const sections = []; // { hatNo, pipes }
+            _pipesForLabels.forEach(seedPipe => {
+                if (visitedSec.has(seedPipe.id)) return;
+                const hatNo = hatMap.get(seedPipe.id);
+                if (hatNo == null) return;
+
+                const group = [];
+                const queue = [seedPipe.id];
+                while (queue.length > 0) {
+                    const id = queue.shift();
+                    if (visitedSec.has(id)) continue;
+                    if (hatMap.get(id) !== hatNo) continue;
+                    const p = pipeMap.get(id);
+                    if (!p) continue;
+                    visitedSec.add(id);
+                    group.push(p);
+
+                    const par = p.baslangicBaglanti?.tip === 'boru' ? p.baslangicBaglanti.hedefId : null;
+                    if (par && hatMap.get(par) === hatNo) queue.push(par);
+                    (childrenIdx.get(id) || []).forEach(cid => {
+                        if (hatMap.get(cid) === hatNo) queue.push(cid);
+                    });
+                }
+
+                if (group.length > 0) sections.push({ hatNo, pipes: group });
+            });
+
+            // Her section için etiket borusunu seç ve etiketi çiz
+            sections.forEach(({ hatNo, pipes }) => {
+                let fallback = pipes[0];
                 let maxLen = 0;
                 let totalLen = 0;
                 let horizBest = null;
-                let horizBestAngle = Infinity; // açı küçüldükçe daha yatay
+                let horizBestAngle = Infinity;
 
                 pipes.forEach(pipe => {
                     if (!pipe.p1 || !pipe.p2) return;
@@ -219,14 +252,9 @@ export const LabelMixin = {
                     const len = Math.hypot(dx, dy, (pipe.p2.z || 0) - (pipe.p1.z || 0));
                     const xyLen = Math.hypot(dx, dy);
                     totalLen += len;
-
                     if (len > maxLen) { maxLen = len; fallback = pipe; }
-
-                    // Yataydanlık açısı: 0=mükemmel yatay, 90=dik
-                    // Çok kısa (xyLen<10) boruları dışla
                     if (xyLen >= 10) {
                         const angle = Math.abs(Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI);
-                        // 45°'den az eğimli = "yatay"
                         if (angle < 45 && angle < horizBestAngle) {
                             horizBestAngle = angle;
                             horizBest = pipe;
@@ -1100,17 +1128,47 @@ function _collectPipeLabelCandidates(manager, t) {
     const out = [];
     if (!manager?.pipes) return out;
     const { hatMap } = computeHatGroups(manager.pipes, manager.components);
-    const hatGroups = new Map();
+
+    // Aynı hat no'ya sahip olsa bile fiziksel olarak ayrı bağlı section'lara
+    // ayır → her section ayrı aday (ayrı etiket için).
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const childrenIdx = new Map();
     manager.pipes.forEach(p => {
-        if (!p.p1 || !p.p2) return;
-        const hatNo = hatMap.get(p.id);
-        if (hatNo == null) return;
-        if (!hatGroups.has(hatNo)) hatGroups.set(hatNo, []);
-        hatGroups.get(hatNo).push(p);
+        if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId) {
+            const par = p.baslangicBaglanti.hedefId;
+            if (!childrenIdx.has(par)) childrenIdx.set(par, []);
+            childrenIdx.get(par).push(p.id);
+        }
     });
-    hatGroups.forEach((pipes, hatNo) => {
-        let best = pipes[0], maxLen = 0, horizBest = null, horizAng = Infinity;
-        pipes.forEach(p => {
+
+    const visitedSec = new Set();
+    manager.pipes.forEach(seedPipe => {
+        if (!seedPipe.p1 || !seedPipe.p2) return;
+        if (visitedSec.has(seedPipe.id)) return;
+        const hatNo = hatMap.get(seedPipe.id);
+        if (hatNo == null) return;
+
+        const group = [];
+        const queue = [seedPipe.id];
+        while (queue.length > 0) {
+            const id = queue.shift();
+            if (visitedSec.has(id)) continue;
+            if (hatMap.get(id) !== hatNo) continue;
+            const p = pipeMap.get(id);
+            if (!p) continue;
+            visitedSec.add(id);
+            group.push(p);
+
+            const par = p.baslangicBaglanti?.tip === 'boru' ? p.baslangicBaglanti.hedefId : null;
+            if (par && hatMap.get(par) === hatNo) queue.push(par);
+            (childrenIdx.get(id) || []).forEach(cid => {
+                if (hatMap.get(cid) === hatNo) queue.push(cid);
+            });
+        }
+
+        if (group.length === 0) return;
+        let best = group[0], maxLen = 0, horizBest = null, horizAng = Infinity;
+        group.forEach(p => {
             const dx = p.p2.x - p.p1.x, dy = p.p2.y - p.p1.y;
             const len = Math.hypot(dx, dy, (p.p2.z || 0) - (p.p1.z || 0));
             const xy = Math.hypot(dx, dy);
