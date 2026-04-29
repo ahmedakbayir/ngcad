@@ -7,7 +7,7 @@ import { screenToWorld } from '../draw/geometry.js';
 import { dom, state } from '../general-files/main.js';
 import { BAGLANTI_TIPLERI } from '../plumbing_v2/objects/pipe.js';
 import { TESISAT_CONSTANTS } from '../plumbing_v2/interactions/tesisat-snap.js';
-import { pixelsToWorld, findGizmoAxisAt, findTranslateGizmoAxisAt } from '../plumbing_v2/interactions/finders.js';
+import { pixelsToWorld, findGizmoAxisAt, findTranslateGizmoAxisAt, findBoruGovdeAt } from '../plumbing_v2/interactions/finders.js';
 import { getFloorAtElevation } from '../floor/floor-handler.js';
 
 // YENİ IMPORT: 3D hesaplama fonksiyonu
@@ -79,21 +79,60 @@ export function handlePointerDown(e) {
 
     //console.log('[POINTER DOWN] activeTool:', this.manager.activeTool, 'tempComponent:', this.manager.tempComponent?.type);
 
-    // ─── Yapıştırma modu: geçerli snap noktasına tıklanınca yapıştır ──────
-    // Kes/Kopyala sonrası, çizim modu dışında geçerli snap noktasına sol tıklanırsa yapıştır
+    // ─── Yapıştırma modu ─────────────────────────────────────────────────
+    // Snap noktası varsa (mouse hareket'te yakalanan): SNAP NOKTASINA yapıştır.
+    //   - endpoint → o boru ucuna bağla
+    //   - body     → o noktada boruyu BÖL, yeni uca yapıştır (T-bağlantı)
+    //   - corner   → duvar köşesine bırak (boru bağlantısı yok)
+    // Snap yoksa: serbest yapıştır (mouse noktasında, bağlantı yok).
     if (e.button === 0 && (this.cutPipes || this.copiedPipes) && !this.boruCizimAktif && !this.manager.activeTool) {
         const snap = this.pasteSnapPoint;
+        let pasteX, pasteY, pasteZ;
+        let snapPipeId = null;
+        let snapType = 'free';
+
         if (snap && !snap.hasConflict) {
-            this._pasteSnapOverride = {
-                x: snap.x, y: snap.y, z: snap.z || 0,
-                snapPipeId: snap.pipeId,   // ilk pasted boru bu boruya bağlanacak
-                snapType: snap.type        // 'endpoint' veya 'body'
-            };
-            this.handlePipePaste();
-            this._pasteSnapOverride = null;
-            this.pasteSnapPoint = null;
+            pasteX = snap.x;
+            pasteY = snap.y;
+            pasteZ = snap.z || 0;
+
+            if (snap.type === 'body' && snap.pipeId) {
+                // Boruyu split point'te böl, sonra yeni uca yapıştır
+                const pipe = this.manager.findPipeById(snap.pipeId);
+                if (pipe) {
+                    const originalPipeId = pipe.id;
+                    this.handlePipeSplit(pipe, { x: pasteX, y: pasteY, z: pasteZ }, false);
+                    const TOL_PT = 0.5;
+                    const newBoru1 = this.manager.pipes.find(p =>
+                        p.id !== originalPipeId &&
+                        Math.hypot(p.p2.x - pasteX, p.p2.y - pasteY, (p.p2.z || 0) - pasteZ) < TOL_PT
+                    );
+                    if (newBoru1) {
+                        snapPipeId = newBoru1.id;
+                        snapType = 'endpoint';
+                    }
+                }
+            } else if (snap.type === 'endpoint' && snap.pipeId) {
+                snapPipeId = snap.pipeId;
+                snapType = 'endpoint';
+            } else {
+                snapType = snap.type;
+            }
+        } else {
+            // Snap yok → mouse noktasına serbest yapıştır
+            pasteX = point.x;
+            pasteY = point.y;
+            pasteZ = point.z || 0;
         }
-        // Geçerli snap noktası yoksa veya çakışma varsa: yapıştırma yok
+
+        this._pasteSnapOverride = {
+            x: pasteX, y: pasteY, z: pasteZ,
+            snapPipeId,
+            snapType
+        };
+        this.handlePipePaste();
+        this._pasteSnapOverride = null;
+        this.pasteSnapPoint = null;
         return true;
     }
     // ─────────────────────────────────────────────────────────────────────
