@@ -187,13 +187,6 @@ export function onPointerMove(e) {
     }
     // --- Yeni Tesisat Sistemi Sonu ---
 
-    
-    // 3D Perspektif: tesisat dışındaki hiçbir hover/drag işlemi tetiklenmesin.
-    if (state.is3DPerspectiveActive) {
-        updateMouseCursor();
-        return;
-    }
-
 
     // Oda ismi sürükleme
     if (state.isDraggingRoomName) {
