@@ -57,6 +57,9 @@ export class PlumbingRenderer {
         const _is3D = _vbf >= 0.5;
         const _curFloorId = state.currentFloor?.id || null;
         const _sameFloor = (o) => !_curFloorId || !o.floorId || o.floorId === _curFloorId;
+        // "3D Diğer Katları Gizle" görünüm ayarı: 3D'de bile diğer katların hiç çizilmemesi.
+        const _hideOtherIn3D = !!state.tempVisibility?.hideOtherFloors3D;
+        const _showOtherSlices = _is3D && !_hideOtherIn3D;
 
         const _floors = (state.floors || []).filter(f => !f.isPlaceholder);
         const _allSlices = [];
@@ -65,15 +68,15 @@ export class PlumbingRenderer {
             slices.forEach(s => _allSlices.push(s));
         });
         const _slicesCurrent = _allSlices.filter(s => !_curFloorId || !s.floorId || s.floorId === _curFloorId);
-        const _slicesOther = _is3D ? _allSlices.filter(s => s.floorId && _curFloorId && s.floorId !== _curFloorId) : [];
+        const _slicesOther = _showOtherSlices ? _allSlices.filter(s => s.floorId && _curFloorId && s.floorId !== _curFloorId) : [];
         const _pipesCurrent = _slicesCurrent.map(makeSlicedPipeProxy);
         const _pipesOther = _slicesOther.map(makeSlicedPipeProxy);
 
         const _allComps = manager.components || [];
         const _skCurrent = _allComps.filter(c => c.type === 'servis_kutusu' && _sameFloor(c));
-        const _skOther = _is3D ? _allComps.filter(c => c.type === 'servis_kutusu' && !_sameFloor(c)) : [];
+        const _skOther = _showOtherSlices ? _allComps.filter(c => c.type === 'servis_kutusu' && !_sameFloor(c)) : [];
         const _digerCurrent = _allComps.filter(c => c.type !== 'servis_kutusu' && _sameFloor(c));
-        const _digerOther = _is3D ? _allComps.filter(c => c.type !== 'servis_kutusu' && !_sameFloor(c)) : [];
+        const _digerOther = _showOtherSlices ? _allComps.filter(c => c.type !== 'servis_kutusu' && !_sameFloor(c)) : [];
 
         // --- YENİ EKLENEN KISIM: GÖLGE ÇİZİMİ ---
         // Sadece 3D modunda gölge çiz (Zemine izdüşüm)
@@ -93,7 +96,7 @@ export class PlumbingRenderer {
         // Diğer kat (yalnız 3D'de) — sönük geçiş
         if (_pipesOther.length || _skOther.length || _digerOther.length) {
             ctx.save();
-            ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.35;
+            ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.12;
             _skOther.forEach(comp => this.drawComponent(ctx, comp, manager));
             this.drawPipes(ctx, _pipesOther);
             this.drawTopraklamaSymbols(ctx, _pipesOther);

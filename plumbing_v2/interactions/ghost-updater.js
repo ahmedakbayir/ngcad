@@ -22,14 +22,13 @@ export function updateGhostPosition(ghost, point, snap) {
 
     // Cihaz için: boru ucuna snap yap, fleks etrafında mouse ile hareket et
     if (ghost.type === 'cihaz') {
-        // En yakın SERBEST boru ucunu bul (T-junction'ları atla)
-        // 3D modda tolerance artır (Z kayması diagonal olarak sqrt(2)*Z*t olabilir)
-        // Z=100cm, t=1 için kayma ~141cm, tolerance en az 200cm olmalı
-        const baseTolerance = 15;
-        const tolerance3D = t > 0.5 ? baseTolerance * (1 + 15 * t) : baseTolerance;
-        // activeSnap point yerine gerçek mouse pozisyonunu kullan (2D dikey borularda activeSnap
-        // yanlış yere çeker ve ghost kayboluyor)
-        const searchPoint = (t < 0.5 && this.lastMousePoint) ? this.lastMousePoint : point;
+        // En yakın SERBEST boru ucunu bul (T-junction'ları atla, dolu uçlar atlanır)
+        // Tolerance: aşırı geniş tutulmamalı, aksi hâlde uzaktaki bir uca yapışır.
+        // 3D'de Z projeksiyonu zaten getScreenPoint'e dahil; ekstra çarpan gerekmez.
+        const tolerance3D = t > 0.5 ? 40 : 15; // cm
+        // DAİMA gerçek mouse noktasını kullan — activeSnap (duvar/kolon) boru ucu
+        // detekssiyonunu bozmamalı; öncelik BOŞ HAT UCUNDA olmalıdır.
+        const searchPoint = this.lastMousePoint || point;
         const boruUcu = this.findBoruUcuAt(searchPoint, tolerance3D, true); // onlyFreeEndpoints = true
 
         if (boruUcu && boruUcu.boru) {
@@ -141,14 +140,11 @@ export function updateGhostPosition(ghost, point, snap) {
         }
     }
     else if (ghost.type === 'sayac') {
-        // 3D modda tolerance artır (Z kayması diagonal olarak sqrt(2)*Z*t olabilir)
-        // Z=100cm, t=1 için kayma ~141cm, tolerance en az 200cm olmalı
-        // 2D: 50cm — lastMousePoint kullanıldığından snap yardımı yok, geniş tolerans gerekli
-        // 3D: orijinal 15cm tabanlı formül değişmeden kalıyor
-        const baseTolerance2D = 50;
-        const tolerance3D = t > 0.5 ? 15 * (1 + 15 * t) : baseTolerance2D;
-        // activeSnap point yerine gerçek mouse pozisyonunu kullan (2D dikey borularda snap kayması)
-        const searchPoint = (t < 0.5 && this.lastMousePoint) ? this.lastMousePoint : point;
+        // Tolerance: makul tut, uzaktaki uçlara yapışmasın
+        const tolerance3D = t > 0.5 ? 40 : 50; // cm
+        // DAİMA gerçek mouse noktasını kullan — activeSnap (duvar/kolon) boru ucu
+        // detekssiyonunu bozmamalı; öncelik BOŞ HAT UCUNDA olmalıdır.
+        const searchPoint = this.lastMousePoint || point;
         const boruUcu = this.findBoruUcuAt(searchPoint, tolerance3D, true);
 
         if (boruUcu && boruUcu.boru) {

@@ -230,29 +230,40 @@ export const PreviewMixin = {
             const VANA_SIZE = 8; // cm
             const VANA_CENTER_MARGIN = VANA_EDGE_MARGIN + (VANA_SIZE / 2); // 8 cm
 
-            const dx = boru.p2.x - boru.p1.x;
-            const dy = boru.p2.y - boru.p1.y;
-            const length = Math.hypot(dx, dy);
+            // Düşey borularda dx=dy=0 olur; yönü EKRAN (3D projekte) koordinatlarında
+            // hesapla — Z farkı ekranda görünür eğim üretir.
+            const p1z = boru.p1.z || 0, p2z = boru.p2.z || 0;
+            const p1sx = boru.p1.x + p1z * t, p1sy = boru.p1.y - p1z * t;
+            const p2sx = boru.p2.x + p2z * t, p2sy = boru.p2.y - p2z * t;
+            const sdx = p2sx - p1sx;
+            const sdy = p2sy - p1sy;
+            const sLen = Math.hypot(sdx, sdy);
 
-            let vanaX, vanaY;
-            if (boruUcu.uc === 'p1') {
-                // p1 ucundayız, vana p1'den içeri
-                vanaX = boruUcu.nokta.x + (dx / length) * VANA_CENTER_MARGIN;
-                vanaY = boruUcu.nokta.y + (dy / length) * VANA_CENTER_MARGIN;
+            // Boru ucunun ekran konumu
+            const boruUcScreenX0 = boruUcu.nokta.x + boruZ * t;
+            const boruUcScreenY0 = boruUcu.nokta.y - boruZ * t;
+
+            let vanaScreenX, vanaScreenY;
+            if (sLen > 0.01) {
+                if (boruUcu.uc === 'p1') {
+                    vanaScreenX = boruUcScreenX0 + (sdx / sLen) * VANA_CENTER_MARGIN;
+                    vanaScreenY = boruUcScreenY0 + (sdy / sLen) * VANA_CENTER_MARGIN;
+                } else {
+                    vanaScreenX = boruUcScreenX0 - (sdx / sLen) * VANA_CENTER_MARGIN;
+                    vanaScreenY = boruUcScreenY0 - (sdy / sLen) * VANA_CENTER_MARGIN;
+                }
             } else {
-                // p2 ucundayız, vana p2'den içeri
-                vanaX = boruUcu.nokta.x - (dx / length) * VANA_CENTER_MARGIN;
-                vanaY = boruUcu.nokta.y - (dy / length) * VANA_CENTER_MARGIN;
+                vanaScreenX = boruUcScreenX0;
+                vanaScreenY = boruUcScreenY0;
             }
 
-            // DÜZELTME: 3D offset uygula
-            const vanaScreenX = vanaX + (boruZ * t);
-            const vanaScreenY = vanaY - (boruZ * t);
+            // Ekran açısı (vana yönelimi için)
+            const screenAci = (sLen > 0.01) ? Math.atan2(sdy, sdx) : (boru.aci || 0);
 
             // Vana çiz
             ctx.save();
             ctx.translate(vanaScreenX, vanaScreenY);
-            ctx.rotate(boru.aci);
+            ctx.rotate(screenAci);
             ctx.globalAlpha = 0.6;
 
             const vanaColor = '#00bffa';
@@ -347,25 +358,36 @@ export const PreviewMixin = {
         if (!vanaVarMi) {
             // Vana Önizlemesi (Boru ucundan 4cm içeride)
             const VANA_CENTER_MARGIN = 8; // 4cm edge + 4cm radius
-            const dx = boru.p2.x - boru.p1.x;
-            const dy = boru.p2.y - boru.p1.y;
-            const length = Math.hypot(dx, dy);
 
-            let vanaX, vanaY;
-            if (boruUcu.uc === 'p1') {
-                vanaX = boruUcu.nokta.x + (dx / length) * VANA_CENTER_MARGIN;
-                vanaY = boruUcu.nokta.y + (dy / length) * VANA_CENTER_MARGIN;
+            // Düşey borularda yön EKRAN koordinatlarında hesaplanmalı
+            const p1z = boru.p1.z || 0, p2z = boru.p2.z || 0;
+            const p1sx = boru.p1.x + p1z * t, p1sy = boru.p1.y - p1z * t;
+            const p2sx = boru.p2.x + p2z * t, p2sy = boru.p2.y - p2z * t;
+            const sdx = p2sx - p1sx;
+            const sdy = p2sy - p1sy;
+            const sLen = Math.hypot(sdx, sdy);
+
+            const boruUcScreenX0 = boruUcu.nokta.x + boruZ * t;
+            const boruUcScreenY0 = boruUcu.nokta.y - boruZ * t;
+
+            let vanaScreenX, vanaScreenY;
+            if (sLen > 0.01) {
+                if (boruUcu.uc === 'p1') {
+                    vanaScreenX = boruUcScreenX0 + (sdx / sLen) * VANA_CENTER_MARGIN;
+                    vanaScreenY = boruUcScreenY0 + (sdy / sLen) * VANA_CENTER_MARGIN;
+                } else {
+                    vanaScreenX = boruUcScreenX0 - (sdx / sLen) * VANA_CENTER_MARGIN;
+                    vanaScreenY = boruUcScreenY0 - (sdy / sLen) * VANA_CENTER_MARGIN;
+                }
             } else {
-                vanaX = boruUcu.nokta.x - (dx / length) * VANA_CENTER_MARGIN;
-                vanaY = boruUcu.nokta.y - (dy / length) * VANA_CENTER_MARGIN;
+                vanaScreenX = boruUcScreenX0;
+                vanaScreenY = boruUcScreenY0;
             }
 
-            // 3D offset uygula
-            const vanaScreenX = vanaX + (boruZ * t);
-            const vanaScreenY = vanaY - (boruZ * t);
+            const screenAci = (sLen > 0.01) ? Math.atan2(sdy, sdx) : (boru.aci || 0);
 
             ctx.translate(vanaScreenX, vanaScreenY);
-            ctx.rotate(boru.aci);
+            ctx.rotate(screenAci);
             ctx.globalAlpha = 0.6;
 
             // Vana rengi
@@ -384,7 +406,7 @@ export const PreviewMixin = {
             ctx.closePath();
             ctx.fill();
 
-            ctx.rotate(-boru.aci); // Rotasyonu geri al
+            ctx.rotate(-screenAci); // Rotasyonu geri al
             ctx.translate(-vanaScreenX, -vanaScreenY); // Translate'i geri al
         }
 

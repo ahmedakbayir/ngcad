@@ -338,6 +338,12 @@ export function draw2D() {
     // 1. Grid
     drawGrid();
 
+    // 3D perspektifte mimariyi kat kotuna göre yükselt (tesisatla aynı formül)
+    const archBaseZ = state.currentFloor?.bottomElevation || 0;
+    const archOff = archBaseZ * t;
+    ctx2d.save();
+    ctx2d.translate(archOff, -archOff);
+
 
     // 2. Mahaller (Poligonlar)
     if (showArch) drawRoomPolygons(ctx2d, { ...state, rooms });
@@ -618,6 +624,9 @@ export function draw2D() {
             }
         });
     }
+
+    // Mimari kat-kotu sarmalayıcısını kapat (tesisat/UI kendi ofsetini kullanır)
+    ctx2d.restore();
 
     // 12. Kamera Görünüm Göstergesi (FPS modunda)
     drawCameraViewIndicator(ctx2d, zoom);

@@ -12,6 +12,7 @@ import { syncBirimState } from '../../draw/draw-birim-labels.js';
 import { processWalls } from '../../wall/wall-processor.js';
 import { saveState } from '../../general-files/history.js';
 import { update3DScene } from '../../scene3d/scene3d-update.js';
+import { setLabelOffsetsJSON } from '../renderer/renderer-labels.js';
 
 
 export const PANEL_MODES = {
@@ -54,11 +55,15 @@ export function openEmptyPanel() {
                 <button class="props-btn-close" title="Kapat (ESC)" id="props-close-btn">×</button>
             </div>
         </div>
-        <div class="props-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        <div class="props-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center;
                 height: calc(100vh - 48px); color: #888; text-align: center; padding: 20px;">
             <div style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;">🖱️</div>
             <div style="font-size: 14px; font-weight: bold; color: #aaa;">Nesne Seçilmedi</div>
             <div style="font-size: 12px; margin-top: 5px; opacity: 0.7;">Özelliklerini görmek için sahnede bir nesneye tıklayın.</div>
+            <button id="props-relabel-all-btn"
+                style="margin-top:24px;padding:8px 14px;background:rgba(0,191,250,0.12);border:1px solid rgba(0,191,250,0.5);color:#7fd9ff;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:0.3px">
+                🏷 Etiketleri yeniden yerleştir
+            </button>
         </div>
     `;
 
@@ -72,6 +77,15 @@ export function openEmptyPanel() {
         btn.title = newUI.title;
         btn.style.color = newUI.color;
     });
+    panelEl.querySelector('#props-relabel-all-btn')?.addEventListener('click', _resetAllLabelOffsets);
+}
+
+/** Tüm katlardaki manuel etiket konumlarını temizler — etiketler otomatik yerleşime döner */
+function _resetAllLabelOffsets() {
+    setLabelOffsetsJSON({});
+    if (window.plumbingManager?.saveToState) window.plumbingManager.saveToState();
+    try { saveState(); } catch (e) { console.error(e); }
+    draw2D();
 }
 
 // ─── PANEL YARAT ─────────────────────────────────────────────────────────────

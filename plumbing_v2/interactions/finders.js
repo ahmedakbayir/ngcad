@@ -236,67 +236,57 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
     const currentFloor = state.currentFloor || null;
     const t = state.viewBlendFactor || 0;
     const is3D = t >= 0.5;
-    // Uç noktanın aktif katta görünür olup olmadığını kontrol eder
-    // (cross-floor boru için p1 bir katta, p2 diğer katta olabilir)
     const endpointVisible = (pt) => {
         if (is3D || !currentFloor) return true;
         const z = pt.z || 0;
         return z >= currentFloor.bottomElevation && z < currentFloor.topElevation;
     };
-    const candidates = [];
+
+    // İki kategoriye ayır: serbest uçlar (öncelikli) ve dolu uçlar (yedek).
+    // onlyFreeEndpoints=true ise dolu uçlar hiç döndürülmez.
+    const freeCandidates = [];
+    const occupiedCandidates = [];
+
+    const isFreeUc = (boru, uc) => {
+        const pt = uc === 'p1' ? boru.p1 : boru.p2;
+        return manager.isTrulyFreeEndpoint(pt, 1)
+            && !hasDeviceAtEndpoint(manager, boru.id, uc)
+            && !hasMeterAtEndpoint(manager, boru.id, uc);
+    };
 
     for (const boru of manager.pipes) {
         const p1Screen = getScreenPoint(boru.p1);
         const p2Screen = getScreenPoint(boru.p2);
-
         const distP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
         const distP2 = Math.hypot(point.x - p2Screen.x, point.y - p2Screen.y);
 
         if (distP1 < tolerance && endpointVisible(boru.p1)) {
-            if (!onlyFreeEndpoints || (manager.isTrulyFreeEndpoint(boru.p1, 1) && !hasDeviceAtEndpoint(manager, boru.id, 'p1') && !hasMeterAtEndpoint(manager, boru.id, 'p1'))) {
-                candidates.push({ boruId: boru.id, nokta: boru.p1, uc: 'p1', boru: boru });
-            }
+            const cand = { boruId: boru.id, nokta: boru.p1, uc: 'p1', boru, dist: distP1 };
+            if (isFreeUc(boru, 'p1')) freeCandidates.push(cand);
+            else if (!onlyFreeEndpoints) occupiedCandidates.push(cand);
         }
         if (distP2 < tolerance && endpointVisible(boru.p2)) {
-            if (!onlyFreeEndpoints || (manager.isTrulyFreeEndpoint(boru.p2, 1) && !hasDeviceAtEndpoint(manager, boru.id, 'p2') && !hasMeterAtEndpoint(manager, boru.id, 'p2'))) {
-                candidates.push({ boruId: boru.id, nokta: boru.p2, uc: 'p2', boru: boru });
-            }
+            const cand = { boruId: boru.id, nokta: boru.p2, uc: 'p2', boru, dist: distP2 };
+            if (isFreeUc(boru, 'p2')) freeCandidates.push(cand);
+            else if (!onlyFreeEndpoints) occupiedCandidates.push(cand);
         }
     }
 
-    if (candidates.length === 0) return null;
+    // ÖNCELİK: serbest uç varsa o havuzdan seç. Yoksa (sadece onlyFreeEndpoints=false ise)
+    // dolu uçlardan seç.
+    const pool = freeCandidates.length > 0 ? freeCandidates : occupiedCandidates;
+    if (pool.length === 0) return null;
 
-    // Eğer tercih edilen boru adaylar arasındaysa, onu döndür
+    // Tercih edilen boru havuzdaysa onu döndür
     if (preferredPipeId) {
-        const preferredCandidate = candidates.find(c => c.boruId === preferredPipeId);
-        if (preferredCandidate) return preferredCandidate;
+        const pref = pool.find(c => c.boruId === preferredPipeId);
+        if (pref) return pref;
     }
 
-    // En yakın adayı döndür (ekran mesafesine göre sırala ve boş uca öncelik ver)
-    let nearest = candidates[0];
-    let nearestDist = Math.hypot(point.x - getScreenPoint(nearest.nokta).x,
-        point.y - getScreenPoint(nearest.nokta).y);
-    let nearestIsFree = manager.isTrulyFreeEndpoint ? manager.isTrulyFreeEndpoint(nearest.nokta, 1) : false;
-
-    for (let i = 1; i < candidates.length; i++) {
-        const aday = candidates[i];
-        const sp = getScreenPoint(aday.nokta);
-        const dist = Math.hypot(point.x - sp.x, point.y - sp.y);
-        const isFree = manager.isTrulyFreeEndpoint ? manager.isTrulyFreeEndpoint(aday.nokta, 1) : false;
-
-        // Eğer adayın ekran mesafesi belirgin şekilde daha kısaysa onu seç
-        if (dist < nearestDist - 0.1) {
-            nearestDist = dist;
-            nearest = aday;
-            nearestIsFree = isFree;
-        }
-        // Mesafe tamamen aynıysa (örneğin 2D'deki düşey boru uçları üst üsteyse) 
-        // ve bu aday boşta bir uçsa, diğer dolu uca kıyasla bunu tercih et.
-        else if (Math.abs(dist - nearestDist) <= 0.1 && isFree && !nearestIsFree) {
-            nearestDist = dist;
-            nearest = aday;
-            nearestIsFree = isFree;
-        }
+    // En yakın adayı döndür
+    let nearest = pool[0];
+    for (let i = 1; i < pool.length; i++) {
+        if (pool[i].dist < nearest.dist) nearest = pool[i];
     }
     return nearest;
 }

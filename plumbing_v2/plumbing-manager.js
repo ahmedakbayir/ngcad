@@ -567,7 +567,12 @@ export class PlumbingManager {
             }
         }
 
-        // 2. Bileşenleri kontrol et
+        // 2 + 3. Bileşen ve pipe gövde adaylarını topla, EN YAKINI seç
+        // (Önceki kod sayaç toleransını 20 cm'e açıp pipe gövdesinden ÖNCE döndürüyordu;
+        //  3D perspektifte üst kotlardaki pipe sayaç merkezine yaklaşınca sayaç kazanıyordu.)
+        let bestHit = null;
+        let bestDist = Infinity;
+
         for (const comp of blocks) {
             if (!floorMatches(comp.floorId)) continue;
 
@@ -580,59 +585,48 @@ export class PlumbingManager {
 
             const cx = comp.x ?? comp.center?.x;
             const cy = comp.y ?? comp.center?.y;
-            if (cx !== undefined && cy !== undefined) {
-                // Bileşen ekran koordinatına çevir (Z blend dahil)
-                const compScreen = getScreenPoint({ x: cx, y: cy, z: comp.z || 0 });
+            if (cx === undefined || cy === undefined) continue;
 
-                const dist = Math.hypot(pos.x - compScreen.x, pos.y - compScreen.y);
-                const selectTolerance = comp.type === 'vana' ? 6 : tolerance * 2;
-
-                if (dist < selectTolerance) {
-                    return { type: 'component', object: comp, handle: 'body' };
-                }
+            const compScreen = getScreenPoint({ x: cx, y: cy, z: comp.z || 0 });
+            const dist = Math.hypot(pos.x - compScreen.x, pos.y - compScreen.y);
+            const selectTolerance = comp.type === 'vana' ? 6 : tolerance * 2;
+            if (dist < selectTolerance && dist < bestDist) {
+                bestDist = dist;
+                bestHit = { type: 'component', object: comp, handle: 'body' };
             }
         }
 
-        // 3. Son olarak boru gövdesini kontrol et (İzdüşüm üzerinden)
         for (const pipe of pipes) {
             if (!floorMatches(pipe.floorId)) continue;
             if (!pipe.p1 || !pipe.p2) continue;
 
-            // Boru uçlarını ekran koordinatlarına çevir
             const p1Screen = getScreenPoint(pipe.p1);
             const p2Screen = getScreenPoint(pipe.p2);
-
             const dx = p2Screen.x - p1Screen.x;
             const dy = p2Screen.y - p1Screen.y;
             const length = Math.hypot(dx, dy);
 
-            // Eğer boru ekranda çok kısaysa (nokta gibiyse)
             if (length < 0.1) {
-                if (Math.hypot(pos.x - p1Screen.x, pos.y - p1Screen.y) < tolerance) {
-                    return { type: 'pipe', object: pipe, handle: 'body' };
+                const dist = Math.hypot(pos.x - p1Screen.x, pos.y - p1Screen.y);
+                if (dist < tolerance && dist < bestDist) {
+                    bestDist = dist;
+                    bestHit = { type: 'pipe', object: pipe, handle: 'body' };
                 }
                 continue;
             }
 
-            // Noktanın doğru parçasına (segment) en yakın izdüşümü (tParam parametresi)
             const tParam = ((pos.x - p1Screen.x) * dx + (pos.y - p1Screen.y) * dy) / (length * length);
-
-            // Tıklama boru hizasında ama borunun boyunu aşıyorsa seçme
             if (tParam < 0 || tParam > 1) continue;
-
-            // En yakın nokta koordinatları
             const projX = p1Screen.x + tParam * dx;
             const projY = p1Screen.y + tParam * dy;
-
-            // Mesafe kontrolü
             const dist = Math.hypot(pos.x - projX, pos.y - projY);
-            if (dist < tolerance) {
-                // tParam: borudaki bölme noktasını 3D world'e çevirmek için sakla
-                return { type: 'pipe', object: pipe, handle: 'body', splitT: tParam };
+            if (dist < tolerance && dist < bestDist) {
+                bestDist = dist;
+                bestHit = { type: 'pipe', object: pipe, handle: 'body', splitT: tParam };
             }
         }
 
-        return null;
+        return bestHit;
     }
 
     /**

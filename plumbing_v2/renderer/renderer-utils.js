@@ -638,30 +638,26 @@ export function computePipeDebileri(manager) {
         const hamDebi = birimDebi / BRY1;
         const bu35 = Math.abs(birimDebi - 3.5) <= 0.001;
 
-        // Sayaç giriş borusundan başlayıp BÜTÜN sayaç öncesi pipe'lara dağıt.
-        // Hem childrenOf (upstream yöne) hem parentOf (downstream/diğer kökler) genişletilir.
-        const queue = [girisBoru.id];
+        // Sayaç giriş borusundan başlayıp YALNIZ ÜST yöne (parentOf) yürü.
+        // Aksi hâlde aynı trunk'tan beslenen sibling kollara da birim eklenir
+        // ve tek sayaca giden branch'ta 3-4 birim görünür.
+        let curId = girisBoru.id;
         const localVisited = new Set();
-        while (queue.length > 0) {
-            const id = queue.shift();
-            if (localVisited.has(id) || sayacSonrasiIds.has(id)) continue;
-            localVisited.add(id);
-            const p = pipeMap.get(id);
-            if (!p) continue;
-
-            if (aritmetik) {
-                // TİCARİ/KAZAN DAİRESİ: cikis debisi DİREKT yansır (aritmetik)
-                p._nfd = (p._nfd || 0) + sayacDebi;
-            } else if (p._birim) {
-                // KONUT/OFİS: Çizelge 6 birim biriktirici
-                p._birim.count += 1;
-                p._birim.hamDebi += hamDebi;
-                if (!bu35) p._birim.hepsi35 = false;
+        while (curId && !localVisited.has(curId) && !sayacSonrasiIds.has(curId)) {
+            localVisited.add(curId);
+            const p = pipeMap.get(curId);
+            if (p) {
+                if (aritmetik) {
+                    // TİCARİ/KAZAN DAİRESİ: cikis debisi DİREKT yansır (aritmetik)
+                    p._nfd = (p._nfd || 0) + sayacDebi;
+                } else if (p._birim) {
+                    // KONUT/OFİS: Çizelge 6 birim biriktirici
+                    p._birim.count += 1;
+                    p._birim.hamDebi += hamDebi;
+                    if (!bu35) p._birim.hepsi35 = false;
+                }
             }
-
-            (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
-            const par = parentOf.get(id);
-            if (par != null) queue.push(par);
+            curId = parentOf.get(curId);
         }
     });
 

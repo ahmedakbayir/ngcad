@@ -498,6 +498,7 @@ export let state = {
         showJunctionNodes: true,   // Köşe Noktaları (3+ duvar birleşimi)
         showArchitecture: true,    // Mimari Katman
         showPlumbing: true,        // Tesisat Katmanı
+        hideOtherFloors3D: false,  // 3D'de aktif kat dışındaki katları tamamen gizle (default: kapalı)
     },
 };
 

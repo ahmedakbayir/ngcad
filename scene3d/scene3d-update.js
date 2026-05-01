@@ -98,7 +98,10 @@ export function update3DScene() {
 
     // 3D görünüm moduna göre filtreleme
     const currentFloorId = state.currentFloor?.id;
-    const viewMode = state.viewMode3D || 'floor';
+    let viewMode = state.viewMode3D || 'floor';
+    // "3D Diğer Katları Gizle" görünüm ayarı seçiliyse 'building' bile olsa
+    // sadece aktif kat gösterilir.
+    if (state.tempVisibility?.hideOtherFloors3D) viewMode = 'floor';
 
     // 'floor' modunda sadece aktif kat, 'building' modunda tüm katlar görünür
     const shouldShowFloor = (floorId) => {
