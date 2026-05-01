@@ -38,11 +38,7 @@ export function pixelsToWorld(pixelTolerance) {
  * Öncelik sırası: 1) Bileşenler (3D Destekli), 2) Borular
  */
 export function findObjectAt(manager, point) {
-    // ÖNCELİK 1: Bileşenler (Vana, Sayaç, Cihaz vb.)
     const t = state.viewBlendFactor || 0;
-    // Kat filtresi: 2D'de başka katın nesneleri seçilmesin.
-    // 3D'de ise tüm katlardan seçilebilir (sonra katı otomatik değiştireceğiz).
-    // Ancak cross-floor boruların görünen slice'ı aktif katta da seçilebilmeli.
     const is3D = t >= 0.5;
     const currentFloorId = state.currentFloor?.id || null;
     const currentFloor = state.currentFloor || null;
@@ -56,103 +52,167 @@ export function findObjectAt(manager, point) {
         return zMax > currentFloor.bottomElevation && zMin < currentFloor.topElevation;
     };
 
-    for (const comp of manager.components) {
-        if (!sameFloor(comp)) continue;
-        let hit = false;
-        const zBase = comp.z || 0;
-        const t = state.viewBlendFactor || 0;
-
-        // --- 3D TIKLAMA ALANI GÜNCELLEMESİ ---
-        if (t > 0.1) {
-            let zHeight = 0;
-            let minX, maxX, minY, maxY;
-
-            // Sayaçların ve Cihazların 3D çizimlerinde (origin noktasına göre) 
-            // görsel kaymalar olabildiği için, BoundingBox yerine manuel ve
-            // ÇOK DAHA GENİŞ bir tıklama alanı (padding) tanımlıyoruz.
-            if (comp.type === 'sayac') {
-                zHeight = 30; // Z eksenindeki yüksekliği
-                const padding = 35; // 70x70'lik çok geniş bir alan (kaymayı kapsar)
-                minX = comp.x - padding; maxX = comp.x + padding;
-                minY = comp.y - padding; maxY = comp.y + padding;
-            } else if (comp.type === 'cihaz') {
-                zHeight = comp.config?.height || 72;
-                const padding = 25;
-                minX = comp.x - padding; maxX = comp.x + padding;
-                minY = comp.y - padding; maxY = comp.y + padding;
-            } else if (comp.type === 'servis_kutusu') {
-                zHeight = 35;
-                const padding = 25;
-                minX = comp.x - padding; maxX = comp.x + padding;
-                minY = comp.y - padding; maxY = comp.y + padding;
-            } else {
-                zHeight = 15;
-                const padding = 10; // Vanalar daha küçük olduğu için dar alan
-                minX = comp.x - padding; maxX = comp.x + padding;
-                minY = comp.y - padding; maxY = comp.y + padding;
-            }
-
-            // 3D İzdüşüm Kayması
-            const shiftX_bot = zBase * t;
-            const shiftY_bot = -(zBase * t);
-            const shiftX_top = (zBase + zHeight) * t;
-            const shiftY_top = -(zBase + zHeight) * t;
-
-            // Tavan ve Tabanı birleştiren devasa Seçim Kutusu
-            const vMinX = Math.min(minX + shiftX_bot, minX + shiftX_top);
-            const vMaxX = Math.max(maxX + shiftX_bot, maxX + shiftX_top);
-            const vMinY = Math.min(minY + shiftY_bot, minY + shiftY_top);
-            const vMaxY = Math.max(maxY + shiftY_bot, maxY + shiftY_top);
-
-            // Ekstra hata payı
-            const margin = 10;
-            if (point.x >= vMinX - margin && point.x <= vMaxX + margin &&
-                point.y >= vMinY - margin && point.y <= vMaxY + margin) {
-                hit = true;
-            }
-        } else {
-            // 2D Modu: Kendi standart kontrolünü kullan
-            if (comp.containsPoint && comp.containsPoint(point)) {
-                hit = true;
+    // 2D / hafif blend (t<=0.1): eski tip-öncelikli davranış (komponent → boru, ilk bulunan döner)
+    if (t <= 0.1) {
+        for (const comp of manager.components) {
+            if (!sameFloor(comp)) continue;
+            if (comp.containsPoint && comp.containsPoint(point)) return comp;
+        }
+        const worldToleranceLegacy = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
+        for (const pipe of manager.pipes) {
+            if (!pipeVisibleOnFloor(pipe)) continue;
+            const p1Screen = getScreenPoint(pipe.p1);
+            const p2Screen = getScreenPoint(pipe.p2);
+            const distP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
+            const distP2 = Math.hypot(point.x - p2Screen.x, point.y - p2Screen.y);
+            if (distP1 < worldToleranceLegacy || distP2 < worldToleranceLegacy) return pipe;
+            const dx = p2Screen.x - p1Screen.x;
+            const dy = p2Screen.y - p1Screen.y;
+            const length = Math.hypot(dx, dy);
+            if (length > 0.1) {
+                const u = ((point.x - p1Screen.x) * dx + (point.y - p1Screen.y) * dy) / (length * length);
+                if (u >= 0 && u <= 1) {
+                    const projX = p1Screen.x + u * dx;
+                    const projY = p1Screen.y + u * dy;
+                    const d = Math.hypot(point.x - projX, point.y - projY);
+                    if (d < worldToleranceLegacy) return pipe;
+                }
             }
         }
-
-        if (hit) return comp;
+        return null;
     }
 
-    // ÖNCELİK 2: Borular
+    // 3D / blend modu: tüm adayları (komponentler + borular) topla, fareye en yakın
+    // (yani ekrana en yakın çizilmiş) olanı seç. Mesafe = world-space (cm) tolerans
+    // bandı içindeki en küçük mesafe; eşitlikte sahnede daha "öne" çizilen tercih
+    // edilir (yüksek z-tabanlı komponent → yüksek z taşıyan boru). Fare doğrudan
+    // ne üzerindeyse o seçilir.
+
+    const candidates = [];
     const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
 
+    // --- Komponentler ---
+    for (const comp of manager.components) {
+        if (!sameFloor(comp)) continue;
+        const zBase = comp.z || 0;
+
+        // Tıklama alanı, gerçek görünür gövdenin boyutuna mümkün olduğunca yakın olsun.
+        // Sayaç: 22×24 cm (flat), Cihaz: comp.config.width/height, Servis Kutusu: ~50×30,
+        // Vana: küçük. Önceki sürüm sayaç için 70×70 cm + 10 cm margin kullanıyordu;
+        // bu, gövdenin çok dışında tıklamayla seçim yapılmasına yol açıyordu.
+        let halfW, halfH, zHeight;
+        if (comp.type === 'sayac') {
+            const cfg = comp.config || {};
+            halfW = (cfg.width  || 22) / 2 + 2;  // ~13 cm yarıçap
+            halfH = (cfg.height || 24) / 2 + 2;  // ~14 cm yarıçap
+            zHeight = 0;                          // gövde flat çiziliyor
+        } else if (comp.type === 'cihaz') {
+            const cfg = comp.config || {};
+            halfW = (cfg.width  || 30) / 2 + 3;
+            halfH = (cfg.height || 30) / 2 + 3;
+            zHeight = cfg.height || 72;
+        } else if (comp.type === 'servis_kutusu') {
+            halfW = 25; halfH = 25; zHeight = 35;
+        } else {
+            // vana ve diğerleri
+            halfW = 8; halfH = 8; zHeight = 15;
+        }
+
+        // Rotasyonu kabaca dahil et: dönmüş eksen-hizalı kutu yerine rotated bbox'un
+        // eksen-hizalı kabuğunu kullan (basit ama güvenli).
+        const rad = ((comp.rotation || 0) * Math.PI) / 180;
+        const aw = Math.abs(halfW * Math.cos(rad)) + Math.abs(halfH * Math.sin(rad));
+        const ah = Math.abs(halfW * Math.sin(rad)) + Math.abs(halfH * Math.cos(rad));
+
+        const minX = comp.x - aw, maxX = comp.x + aw;
+        const minY = comp.y - ah, maxY = comp.y + ah;
+
+        const shiftX_bot = zBase * t;
+        const shiftY_bot = -(zBase * t);
+        const shiftX_top = (zBase + zHeight) * t;
+        const shiftY_top = -(zBase + zHeight) * t;
+
+        const vMinX = Math.min(minX + shiftX_bot, minX + shiftX_top);
+        const vMaxX = Math.max(maxX + shiftX_bot, maxX + shiftX_top);
+        const vMinY = Math.min(minY + shiftY_bot, minY + shiftY_top);
+        const vMaxY = Math.max(maxY + shiftY_bot, maxY + shiftY_top);
+
+        // Hit testi: sadece görünür kutunun KENDİ İÇİNDE — fazladan margin yok.
+        const inside = point.x >= vMinX && point.x <= vMaxX &&
+                       point.y >= vMinY && point.y <= vMaxY;
+        if (!inside) continue;
+
+        // Adayın "merkez" ekran konumuna mesafesi (kutu içi tıklamalar için 0'a yakın)
+        const cx = (vMinX + vMaxX) / 2;
+        const cy = (vMinY + vMaxY) / 2;
+        const dx = Math.max(0, Math.max(vMinX - point.x, point.x - vMaxX));
+        const dy = Math.max(0, Math.max(vMinY - point.y, point.y - vMaxY));
+        const distEdge = Math.hypot(dx, dy);
+        const distCenter = Math.hypot(cx - point.x, cy - point.y);
+
+        // Önde olma puanı: yükseklik (zBase + zHeight) ne kadar büyükse o kadar önde sayılır
+        const frontScore = zBase + zHeight;
+
+        candidates.push({
+            obj: comp,
+            kind: 'component',
+            distEdge,
+            distCenter,
+            frontScore
+        });
+    }
+
+    // --- Borular ---
     for (const pipe of manager.pipes) {
         if (!pipeVisibleOnFloor(pipe)) continue;
         const p1Screen = getScreenPoint(pipe.p1);
         const p2Screen = getScreenPoint(pipe.p2);
 
-        const distP1 = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
-        const distP2 = Math.hypot(point.x - p2Screen.x, point.y - p2Screen.y);
-
-        if (distP1 < worldTolerance || distP2 < worldTolerance) {
-            return pipe;
-        }
-
         const dx = p2Screen.x - p1Screen.x;
         const dy = p2Screen.y - p1Screen.y;
-        const length = Math.hypot(dx, dy);
+        const lenSq = dx * dx + dy * dy;
 
-        if (length > 0.1) {
-            const t = ((point.x - p1Screen.x) * dx + (point.y - p1Screen.y) * dy) / (length * length);
-            if (t >= 0 && t <= 1) {
-                const projX = p1Screen.x + t * dx;
-                const projY = p1Screen.y + t * dy;
-                const dist = Math.hypot(point.x - projX, point.y - projY);
-                if (dist < worldTolerance) {
-                    return pipe;
-                }
-            }
+        let distEdge;
+        let uClamp = 0.5;
+        if (lenSq < 0.0001) {
+            // Pür düşey görünen boru: tek noktaya mesafe
+            distEdge = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
+        } else {
+            let u = ((point.x - p1Screen.x) * dx + (point.y - p1Screen.y) * dy) / lenSq;
+            if (u < 0) u = 0;
+            if (u > 1) u = 1;
+            uClamp = u;
+            const projX = p1Screen.x + u * dx;
+            const projY = p1Screen.y + u * dy;
+            distEdge = Math.hypot(point.x - projX, point.y - projY);
         }
+
+        if (distEdge >= worldTolerance) continue;
+
+        // Tıklanan noktadaki dünya z'si — borunun hangi seviyede olduğu (önde-arkada)
+        const zAtClick = (pipe.p1.z || 0) + uClamp * ((pipe.p2.z || 0) - (pipe.p1.z || 0));
+
+        candidates.push({
+            obj: pipe,
+            kind: 'pipe',
+            distEdge,
+            distCenter: distEdge,
+            frontScore: zAtClick
+        });
     }
 
-    return null;
+    if (candidates.length === 0) return null;
+
+    // Sıralama: önce en yakın (distEdge), eşitlikte en önde (frontScore büyük), eşitlikte
+    // tipe göre belirleyici davranış (komponentler boru üstüne çakışıyorsa komponent öncelikli).
+    candidates.sort((a, b) => {
+        if (a.distEdge !== b.distEdge) return a.distEdge - b.distEdge;
+        if (b.frontScore !== a.frontScore) return b.frontScore - a.frontScore;
+        if (a.kind !== b.kind) return a.kind === 'component' ? -1 : 1;
+        return a.distCenter - b.distCenter;
+    });
+
+    return candidates[0].obj;
 }
 
 /**
@@ -644,9 +704,10 @@ export function findConnectedPipesChain(manager, startPipe) {
  */
 export function findVerticalPipeSymbolAt(manager, point, tolerance = 10) {
     const t = state.viewBlendFactor || 0;
-
-    // Sadece 2D modunda (t < 0.99) düşey semboller gösterilir
-    if (t >= 0.99) return null;
+    // 3D perspektifte düşey-sembol erken yakalaması yapılmaz: 3D seçim,
+    // findObjectAt içindeki "en yakın aday" mantığıyla yürür.
+    if (state.is3DPerspectiveActive || t >= 0.99) return null;
+    const effectiveTolerance = tolerance;
 
     for (const pipe of manager.pipes) {
         const rawZDiff = Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
@@ -661,18 +722,31 @@ export function findVerticalPipeSymbolAt(manager, point, tolerance = 10) {
 
         // Düşey boru kontrolü (renderer-pipes.js'deki mantıkla aynı)
         if (rawZDiff > 0.1 && elevationAngle > 85) {
-            // Çember merkezi: p1'in ekran koordinatları
-            const zOffset = (pipe.p1.z || 0) * t;
-            const centerX = pipe.p1.x + zOffset;
-            const centerY = pipe.p1.y - zOffset;
+            // P1 ekran konumu (alt uç — sembol/çember burada çizilir)
+            const z1Off = (pipe.p1.z || 0) * t;
+            const c1X = pipe.p1.x + z1Off;
+            const c1Y = pipe.p1.y - z1Off;
 
-            const dist = Math.hypot(point.x - centerX, point.y - centerY);
-
-            // Çember yarıçapı + tolerans (renderer'da 5 px yarıçap + ok uzunluğu ~17 px)
-            if (dist < tolerance) {
+            const dist1 = Math.hypot(point.x - c1X, point.y - c1Y);
+            if (dist1 < effectiveTolerance) {
                 return {
                     pipe: pipe,
                     point: { x: pipe.p1.x, y: pipe.p1.y, z: pipe.p1.z || 0 }
+                };
+            }
+
+            // P2 ekran konumu (üst uç — blended görünümde z-offset kadar kayar).
+            // Üstten tıklamada P2'de bir komponent (vana/cihaz) olsa dahi düşey
+            // boru sembolünün öncelikli yakalanması için P2 de hit-test edilir.
+            const z2Off = (pipe.p2.z || 0) * t;
+            const c2X = pipe.p2.x + z2Off;
+            const c2Y = pipe.p2.y - z2Off;
+
+            const dist2 = Math.hypot(point.x - c2X, point.y - c2Y);
+            if (dist2 < effectiveTolerance) {
+                return {
+                    pipe: pipe,
+                    point: { x: pipe.p2.x, y: pipe.p2.y, z: pipe.p2.z || 0 }
                 };
             }
         }

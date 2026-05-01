@@ -234,6 +234,13 @@ export function onPointerMove(e) {
         return;
     }
 
+    // 3D Perspektif: pan / ctrl-3d toggle / panel-drag tamamlandıktan SONRA
+    // tesisat dışındaki hiçbir hover/drag/seçim işlemi tetiklenmesin.
+    if (state.is3DPerspectiveActive) {
+        updateMouseCursor();
+        return;
+    }
+
     // Drag başladı mı kontrolü
     if (state.isDragging && !state.aDragOccurred) {
         if ((e.clientX - state.dragStartScreen.x) ** 2 + (e.clientY - state.dragStartScreen.y) ** 2 > 25) {

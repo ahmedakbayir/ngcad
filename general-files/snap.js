@@ -206,6 +206,13 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         return { x: wm.x, y: wm.y, isSnapped: false, snapLines: { h_origins: [], v_origins: [] }, isLockable: false, point: null, snapType: null, roundedX: wm.x, roundedY: wm.y };
     }
 
+    // 3D Perspektif modunda mimari (duvar/uç/kesişim) snap'leri yok.
+    // Tesisat snap'leri zaten plumbingManager.interactionManager tarafından
+    // 3D'ye duyarlı şekilde yönetiliyor; burada sadece raw mouse döner.
+    if (state.is3DPerspectiveActive) {
+        return { x: wm.x, y: wm.y, isSnapped: false, snapLines: { h_origins: [], v_origins: [] }, isLockable: false, point: null, snapType: null, roundedX: wm.x, roundedY: wm.y };
+    }
+
     // Dinamik uzaktan snap
     if (state.isDragging && state.selectedObject) {
          // ... (mevcut kod korunuyor)

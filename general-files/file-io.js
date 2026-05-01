@@ -164,7 +164,7 @@ function saveProject() {
         guides: state.guides || [],
         floors: state.floors || [],
         currentFloor: state.currentFloor || null,
-        defaultFloorHeight: state.defaultFloorHeight || 270,
+        defaultFloorHeight: state.defaultFloorHeight || 300,
         plumbingNodes: state.plumbingNodes || [],
         plumbingPipes: state.plumbingPipes || [],
         plumbingBlocks: state.plumbingBlocks || [],
@@ -378,7 +378,7 @@ function loadJSONProject(fileContent) {
          rotation: s.rotation,
          stepCount: s.stepCount || 1,
          bottomElevation: s.bottomElevation || 0,
-         topElevation: s.topElevation || 270,
+         topElevation: s.topElevation || 300,
          connectedStairId: s.connectedStairId || null,
          isLanding: s.isLanding || false,
          showRailing: s.showRailing || false,
@@ -390,7 +390,7 @@ function loadJSONProject(fileContent) {
     const restoredFloors = projectData.floors || [];
     const restoredCurrentFloor = projectData.currentFloor ?
         restoredFloors.find(f => f.id === projectData.currentFloor.id) : null;
-    const restoredDefaultFloorHeight = projectData.defaultFloorHeight || 270;
+    const restoredDefaultFloorHeight = projectData.defaultFloorHeight || 300
 
     // State'i güncelle
     setState({

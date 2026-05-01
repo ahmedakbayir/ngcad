@@ -114,6 +114,13 @@ export function onPointerDown(e) {
         // --- DEĞİŞİKLİK SONU ---
     }
 
+    // 3D PERSPEKTİF MOD: Plumbing yakalamadıysa hiçbir mimari/seçim/çizim
+    // handler'ı çalıştırma. Sahne tesisat moduna kilitlidir; mimariye dair
+    // arka plan tıklamaları görmezden gelinir.
+    if (state.is3DPerspectiveActive) {
+        return;
+    }
+
     // --- Seçim Modu ---
     if (state.currentMode === "select") {
         // NOT: Select modunda v2 interactionManager kullanılmıyor

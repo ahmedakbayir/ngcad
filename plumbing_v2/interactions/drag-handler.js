@@ -696,6 +696,44 @@ export function handleDrag(interactionManager, point, event = null) {
         if (pipeSnapY !== null) finalPos.y = pipeSnapY;
         if (pipeSnapZ !== null) finalPos.z = pipeSnapZ;
 
+        // --- DİKLİK KORUMA SNAP (5° tolerans) ---
+        // Çizilmiş bir hattın ucunu sürüklerken küçük mouse oynamaları sebebiyle
+        // X, Y veya Z (düşey) eksenlerinden ayrılması engellenir. 5°'den fazla
+        // sapıldığında snap kalkar ve kullanıcı serbestçe çevirebilir.
+        const fixedEnd = interactionManager.dragEndpoint === 'p1' ? pipe.p2 : pipe.p1;
+        const _fdx = finalPos.x - fixedEnd.x;
+        const _fdy = finalPos.y - fixedEnd.y;
+        const _fdz = (finalPos.z || 0) - (fixedEnd.z || 0);
+        const _len2D = Math.hypot(_fdx, _fdy);
+        const _len3D = Math.hypot(_fdx, _fdy, _fdz);
+        const _ANGLE_TOL = 5; // derece
+
+        if (_len3D > 0.001) {
+            // Düşeylik (Z): 2D yatay sapma açısı, 3D vektörle düşey arasındaki fark
+            const elevDeg = Math.atan2(_len2D, Math.abs(_fdz)) * 180 / Math.PI;
+            if (elevDeg <= _ANGLE_TOL) {
+                // Düşey hat: x ve y'yi sabit tut, z serbest
+                finalPos.x = fixedEnd.x;
+                finalPos.y = fixedEnd.y;
+            } else if (_len2D > 0.001) {
+                // Yatay düzlemde X/Y eksen kontrolü (yalnızca düşey snap kullanılmadıysa)
+                const angXY = Math.atan2(_fdy, _fdx) * 180 / Math.PI;
+                const axisAngles = [0, 90, 180, -90];
+                let closest = 0, minD = 360;
+                axisAngles.forEach(a => {
+                    let d = Math.abs(angXY - a);
+                    while (d > 180) d = Math.abs(360 - d);
+                    if (d < minD) { minD = d; closest = a; }
+                });
+                if (minD <= _ANGLE_TOL) {
+                    const rad = closest * Math.PI / 180;
+                    finalPos.x = fixedEnd.x + Math.cos(rad) * _len2D;
+                    finalPos.y = fixedEnd.y + Math.sin(rad) * _len2D;
+                }
+            }
+        }
+        // ---------------------------------------
+
         const isProtected = isProtectedPoint(finalPos, interactionManager.manager, pipe, oldPoint);
         if (isProtected) return;
 

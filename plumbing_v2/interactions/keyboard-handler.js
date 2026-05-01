@@ -1357,24 +1357,42 @@ export function applyPipeResize() {
             if (movedComponents.has(c.id)) return;
             movedComponents.add(c.id);
             c.x += moveDx; c.y += moveDy; c.z = (c.z || 0) + moveDz;
+            c.floorId = getFloorIdForZ(c.z) || c.floorId;
             translateLabel(c.id, moveDx, moveDy);
             if (c.type === 'cihaz') moveBacalar(c);
         });
+        p.floorId = getFloorIdForZ(p.p1.z || 0) || p.floorId;
     });
 
-    // Seçili borunun p2 ucundaki bileşenler (downstreamPipes dışında kaldıklarından ayrıca işlenir)
-    // Not: bagliBoruId vanalar için kullanılır, updateAllValvePositions() onları otomatik günceller
+    // Seçili borunun p2 ucundaki bileşenler — yalnızca p2'ye bağlı olanlar taşınır.
+    // p1 sabit kaldığı için p1'e bağlı sayaç/cihaz/vana hareket etmemeli.
     this.manager.components.forEach(c => {
         if (movedComponents.has(c.id)) return;
-        const onSelectedPipe =
-            (c.fleksBaglanti?.boruId === pipe.id) ||
-            (c.cikisBagliBoruId === pipe.id);
-        if (!onSelectedPipe) return;
+        let attachedToP2 = false;
+        if (c.fleksBaglanti?.boruId === pipe.id) {
+            attachedToP2 = c.fleksBaglanti.endpoint === 'p2';
+        } else if (c.cikisBagliBoruId === pipe.id) {
+            // Sayacın çıkışı genelde p1'e bağlanır; ama eski verilerde p2 olabilir.
+            const cikis = typeof c.getCikisNoktasi === 'function' ? c.getCikisNoktasi() : null;
+            if (cikis) {
+                const dP1 = Math.hypot(p1.x - cikis.x, p1.y - cikis.y);
+                const dP2 = Math.hypot(p2.x - cikis.x, p2.y - cikis.y);
+                attachedToP2 = dP2 < dP1;
+            }
+        }
+        if (!attachedToP2) return;
         movedComponents.add(c.id);
         c.x += moveDx; c.y += moveDy; c.z = (c.z || 0) + moveDz;
+        c.floorId = getFloorIdForZ(c.z) || c.floorId;
         translateLabel(c.id, moveDx, moveDy);
         if (c.type === 'cihaz') moveBacalar(c);
     });
+
+    // Seçili borunun yeni p2 z'sine göre floorId'sini güncelle (p1 katı korunur).
+    if (pipe.floorId) {
+        const newPipeFloorId = getFloorIdForZ(p1.z || 0);
+        if (newPipeFloorId) pipe.floorId = newPipeFloorId;
+    }
 
     this.manager.saveToState();
 }
@@ -1441,7 +1459,7 @@ export function applyVerticalPipeInsert() {
         });
     };
 
-    // Downstream bileşenlerini taşı (yalnızca z)
+    // Downstream bileşenlerini taşı (yalnızca z) — floorId'leri de güncelle
     const movedComponents = new Set();
     downstreamPipes.forEach(p => {
         clearLabelAutoPos(p.id);
@@ -1450,25 +1468,21 @@ export function applyVerticalPipeInsert() {
             if (movedComponents.has(c.id)) return;
             movedComponents.add(c.id);
             c.z = (c.z || 0) + moveDz;
+            c.floorId = getFloorIdForZ(c.z) || c.floorId;
             if (c.type === 'cihaz') moveBacalarZ(c);
         });
+        p.floorId = getFloorIdForZ(p.p1.z || 0) || p.floorId;
     });
 
-    // Seçili borunun p2 ucundaki bileşenler (downstreamPipes dışında kaldı)
-    this.manager.components.forEach(c => {
-        if (movedComponents.has(c.id)) return;
-        const onSelectedPipe =
-            (c.fleksBaglanti?.boruId === pipe.id) ||
-            (c.cikisBagliBoruId === pipe.id);
-        if (!onSelectedPipe) return;
-        movedComponents.add(c.id);
-        c.z = (c.z || 0) + moveDz;
-        if (c.type === 'cihaz') moveBacalarZ(c);
-    });
+    // NOT: Seçili borunun p1 ve p2 uçları yerinde kaldı (yeni düşey boru ARALARINA
+    // değil, p2'den itibaren yukarıya/aşağıya eklendi). Dolayısıyla seçili boruya
+    // doğrudan bağlı sayaç/cihaz/vana z'sinin değişmemesi gerekir — eski kod
+    // bunları yanlış olarak kaydırıyordu.
 
     // Yeni boruyu ekle
     this.manager.pipes.push(newPipe);
     this.manager.registerPipeNodes(newPipe);
+    newPipe.floorId = getFloorIdForZ(newPipe.p1.z || 0) || pipe.floorId;
 
     // Debi ağacı: newPipe, mevcut borunun devamıdır
     newPipe.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };

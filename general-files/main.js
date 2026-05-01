@@ -209,7 +209,7 @@ export function getThemeColor(colorKey) {
 
 export const METER_SCALE = 1;
 // export const WALL_THICKNESS = 20; // SABİT KALDIRILDI
-export const WALL_HEIGHT = 270;
+export const WALL_HEIGHT = 300
 export const DOOR_HEIGHT = 200; // <-- DEĞİŞTİRİLDİ (220 -> 200)
 export const WINDOW_BOTTOM_HEIGHT = 80;
 export const WINDOW_TOP_HEIGHT = 200;
@@ -440,7 +440,7 @@ export let state = {
     // --- YENİ: KAT YÖNETİMİ ---
     floors: [], // Katlar dizisi
     currentFloor: null, // Aktif kat
-    defaultFloorHeight: 270, // Varsayılan kat yüksekliği (cm)
+    defaultFloorHeight: 300,// Varsayılan kat yüksekliği (cm)
     // --- KAT YÖNETİMİ SONU ---
 
     // --- MERDİVEN AYARLARI ---

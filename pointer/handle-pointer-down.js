@@ -339,6 +339,23 @@ export function handlePointerDown(e) {
             }
         }
 
+        // --- DÜŞEY BORU SEMBOLÜ ÖNCELİKLİ KONTROLÜ (yalnızca 2D / hafif blend) ---
+        // 2D'de düşey hat sembolü (çember+ok) komponentlerle çakıştığında bile
+        // boru öncelikli yakalanmalı. 3D / ağır blend'de ise farenin altında ne
+        // varsa o seçilsin — bu yüzden burada erken yakalama yapılmaz; seçim
+        // findObjectAt'taki en-yakın-aday mantığına bırakılır.
+        const _vbfEarly = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
+        if (_vbfEarly < 0.5 && (!this.manager.activeTool || this.manager.activeTool !== 'boru')) {
+            const verticalToleranceEarly = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
+            const verticalSymbolEarly = this.manager.interactionManager.findVerticalPipeSymbolAt(point, verticalToleranceEarly);
+            if (verticalSymbolEarly) {
+                const pipe = verticalSymbolEarly.pipe;
+                this.selectObject(pipe, selectOpts);
+                this.startBodyDrag(pipe, point);
+                return true;
+            }
+        }
+
         // --- VANA KONTROLÜ ---
         const _blendT = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
         const clickedValve = this.manager.components.find(c => {

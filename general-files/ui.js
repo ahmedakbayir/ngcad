@@ -1,7 +1,7 @@
 // ui.js
 // Son Güncelleme: Sahanlık kotu (125-135) mantığı confirmStairChange ve ilgili listener'larda düzeltildi.
 import { getMinWallLength } from './actions.js';
-import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT, setMode, THEME_COLORS } from './main.js'; // THEME_COLORS eklendi
+import { state, setState, dom, resize, MAHAL_LISTESI, WALL_HEIGHT, setMode, setDrawingMode, THEME_COLORS } from './main.js'; // THEME_COLORS eklendi
 import { saveState, undo, redo } from './history.js';
 import { isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { isSpaceForWindow } from '../architectural-objects/window-handler.js';
@@ -303,6 +303,23 @@ export function toggleIsoView() {
 export function toggle3DPerspective() {
     // Hedef Durum (Mevcut durumun tersi)
     const targetIsActive = !state.is3DPerspectiveActive;
+
+    // --- 3D Perspektif → TESİSAT modu (mimari gizlenir, etkileşim engellenir) ---
+    // 3D perspektifte mimari arka planda kalmasın: drawingMode TESİSAT'a
+    // geçirilir; çıkışta önceki mod geri yüklenir.
+    if (targetIsActive) {
+        if (state.currentDrawingMode !== 'TESİSAT') {
+            setState({ _preview3DPrevDrawingMode: state.currentDrawingMode });
+            setDrawingMode('TESİSAT');
+        }
+    } else {
+        const prev = state._preview3DPrevDrawingMode;
+        if (prev && prev !== state.currentDrawingMode) {
+            setDrawingMode(prev);
+        }
+        setState({ _preview3DPrevDrawingMode: null });
+    }
+    // -------------------------------------------------------------------------
 
     // --- UI SENKRONİZASYONU (EKLENDİ) ---
     // Buton durumunu hedef duruma eşitle (Double Press Ctrl için gerekli)

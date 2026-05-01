@@ -731,7 +731,7 @@ export function drawWallGeometry(ctx2d, state, wallFillColor) {
     // viewBlendFactor ile smooth geçiş (0 = 2D, 1 = 3D)
     const t = state.viewBlendFactor || 0;
     // if (t > 0.01) { // Sadece görünür olduğunda çiz (performans için)
-    //     const WALL_HEIGHT = 270 * t; // Yüksekliği t'ye göre interpolate et
+    //     const WALL_HEIGHT = 300 * t; // Yüksekliği t'ye göre interpolate et
 
     //     ctx2d.strokeStyle = adjustedWallColor;
     //     ctx2d.lineWidth = lineThickness / state.zoom;

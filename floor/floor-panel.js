@@ -1317,9 +1317,9 @@ function renumberFloors(floors) {
         .filter(f => !f.isPlaceholder && f.name !== 'ZEMİN')
         .sort((a, b) => a.bottomElevation - b.bottomElevation);
 
-    // Zemin üstü katlar (bottomElevation >= 270, ZEMİN'in üstünde)
+    // Zemin üstü katlar (bottomElevation >= 300, ZEMİN'in üstünde)
     // İsim kontrolü YOK - sadece pozisyona göre
-    const aboveGroundFloors = sortedFloors.filter(f => f.bottomElevation >= 270);
+    const aboveGroundFloors = sortedFloors.filter(f => f.bottomElevation >= 300);
 
     aboveGroundFloors.forEach((floor, index) => {
         floor.name = `${index + 1}.KAT`;
@@ -1544,7 +1544,7 @@ function bulkDeleteFloors() {
 function bulkSetHeight() {
     if (selectedFloors.size === 0) return;
 
-    const heightStr = prompt('Tüm seçili katlar için yükseklik (cm):', '270');
+    const heightStr = prompt('Tüm seçili katlar için yükseklik (cm):', '300');
     if (!heightStr) return;
 
     const newHeight = parseFloat(heightStr);

@@ -112,6 +112,15 @@ export function update3DScene() {
         return currentFloorId && floorId === currentFloorId;
     };
 
+    // Tesisat bileşenleri (sayaç/cihaz/vana) için katı kat filtresi:
+    // floorId yoksa "her katta gözüksün" demek istemiyoruz; "Diğer Katları Gizle"
+    // aktifken bu, sayaç/cihazların yanlış katta görünmesine yol açıyor.
+    const shouldShowCompFloor = (floorId) => {
+        if (viewMode === 'building') return true;
+        if (!floorId) return !currentFloorId; // hiç kat tanımı yoksa göster
+        return currentFloorId && floorId === currentFloorId;
+    };
+
     const walls = (state.walls || []).filter(w => shouldShowFloor(w.floorId));
     // DÜZELTME: Kapılar duvar üzerinden filtrelenmeli (d.wall.floorId)
     const doors = (state.doors || []).filter(d => d.wall && shouldShowFloor(d.wall.floorId));
@@ -371,7 +380,7 @@ export function update3DScene() {
         // Bileşenleri ekle (components)
         if (plumbingManager.components) {
             plumbingManager.components
-                .filter(comp => shouldShowFloor(comp.floorId))
+                .filter(comp => shouldShowCompFloor(comp.floorId))
                 .forEach(comp => {
                     // Cihaz için cihazTipi'ne göre mesh üret (KOMBI/OCAK/SOBA vb.)
                     const resolvedBlockType = comp.type === 'cihaz'
@@ -416,7 +425,7 @@ export function update3DScene() {
         // Boruları ekle (pipes)
         if (plumbingManager.pipes) {
             plumbingManager.pipes
-                .filter(pipe => shouldShowFloor(pipe.floorId))
+                .filter(pipe => shouldShowCompFloor(pipe.floorId))
                 .forEach(pipe => {
                     // Boru mesh'ini oluştur
                     const m = createPlumbingPipeMesh(pipe, pipeMaterial);
@@ -428,7 +437,7 @@ export function update3DScene() {
                 });
 
             // Boru yükseklik etiketlerini ekle
-            const filteredPipes = plumbingManager.pipes.filter(pipe => shouldShowFloor(pipe.floorId));
+            const filteredPipes = plumbingManager.pipes.filter(pipe => shouldShowCompFloor(pipe.floorId));
             addPipeElevationLabels(filteredPipes, getFloorElevation);
         }
     }
