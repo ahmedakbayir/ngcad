@@ -485,10 +485,17 @@ function onKeyDown(e) {
     
     // YENİ EKLENEN KISAYOL: CTRL + " (veya Türkçe klavyede 'é' / Backquote)
     // VS Code'da terminal açma kısayolu: Ctrl + ` (Backquote)
-    if (e.ctrlKey && (e.key === '"' || e.key === 'é' || e.code === 'Backquote' || e.key === '`')) {
-         e.preventDefault();
-         toggle3DPerspective();
-         return;
+    // if (e.ctrlKey && (e.key === '"' || e.key === 'é' || e.code === 'Backquote' || e.key === '`')) {
+    //      e.preventDefault();
+    //      toggle3DPerspective();
+    //      return;
+    // }
+
+        // F2: 2D/3D yan yana görünümü aç/kapa (son kullanılan oranı hatırlar)
+    if (e.key === 'F2') {
+        e.preventDefault();
+        toggle3DPerspective();
+        return;
     }
 
     if (e.key === 'Alt') currentModifierKeys.alt = true;
