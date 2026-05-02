@@ -144,7 +144,7 @@ export const PipeMixin = {
 
     drawShadows(ctx, manager) {
         const isLight = this.isLightMode();
-        const shadowColor = isLight ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.1)';
+        const shadowColor = isLight ? 'rgba(0, 0, 0, 0.7)' : 'rgba(255, 255, 255, 0.7)';
 
         // Sadece aktif katın gölgesi görünür — diğer katlar 3D'de de çizilmez
         const t = state.viewBlendFactor || 0;
@@ -179,7 +179,7 @@ export const PipeMixin = {
             const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
             const zoom = state.zoom || 1;
             let width = config.lineWidth;
-            if (zoom < 1) width = 4 / zoom;
+            width = 1 / zoom;
 
             ctx.lineWidth = width;
             ctx.beginPath();

@@ -780,7 +780,7 @@ export const PROPERTY_DEFS = {
         type: 'text',
         inputType: 'number',
         key: 'z', // Teknik olarak nesnenin Z koordinatını kontrol eder
-        default: 20,
+        default: 1,
         precision: 1,
         afterChange: (obj, manager) => {
             if (!manager || !obj) return;

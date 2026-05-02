@@ -35,9 +35,32 @@ export function handlePointerMove(e) {
                 const allowedAxes = ['X', 'Y', 'Z']; // Endpoint için tüm eksenler kullanılabilir
                 this.hoveredGizmoAxis = findTranslateGizmoAxisAt(gizmoCenter, point, allowedAxes);
             } else {
-                // Boru gövdesi seçili: merkez + p1 + p2 gizmo'larını kontrol et
+                // Boru gövdesi seçili: mouse pozisyonuna göre AKTİF gizmo belirle.
+                //   • Borunun p1'e yakın %25 → sadece p1 gizmosu
+                //   • Borunun p2'ye yakın %25 → sadece p2 gizmosu
+                //   • Ortadaki %50 → sadece merkez (gövde) gizmosu
 
-                // Borunun uzandığı ekseni hesapla
+                const _vbf = state.viewBlendFactor || 0;
+                const _z1 = (this.selectedObject.p1.z || 0) * _vbf;
+                const _z2 = (this.selectedObject.p2.z || 0) * _vbf;
+                const sx1 = this.selectedObject.p1.x + _z1;
+                const sy1 = this.selectedObject.p1.y - _z1;
+                const sx2 = this.selectedObject.p2.x + _z2;
+                const sy2 = this.selectedObject.p2.y - _z2;
+                const sdx = sx2 - sx1, sdy = sy2 - sy1;
+                const sLen2 = sdx * sdx + sdy * sdy;
+                let pipeT = 0.5;
+                if (sLen2 > 0.01) {
+                    pipeT = ((point.x - sx1) * sdx + (point.y - sy1) * sdy) / sLen2;
+                    if (pipeT < 0) pipeT = 0; else if (pipeT > 1) pipeT = 1;
+                }
+                let activeGizmo;
+                if (pipeT <= 0.25) activeGizmo = 'p1';
+                else if (pipeT >= 0.75) activeGizmo = 'p2';
+                else activeGizmo = 'center';
+                this.activePipeGizmo = activeGizmo;
+
+                // Borunun uzandığı ekseni hesapla (merkez gizmonun izinli eksenleri için)
                 const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
                 const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
                 const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
@@ -51,33 +74,24 @@ export function handlePointerMove(e) {
                     bodyAllowedAxes = ['X', 'Y'];
                 }
 
-                // Merkez gizmo kontrolü
-                const centerPoint = {
-                    x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
-                    y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
-                    z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
-                };
-                const centerAxis = findTranslateGizmoAxisAt(centerPoint, point, bodyAllowedAxes);
-
-                // p1 gizmo kontrolü
-                const p1Axis = findTranslateGizmoAxisAt(this.selectedObject.p1, point, ['X', 'Y', 'Z']);
-
-                // p2 gizmo kontrolü
-                const p2Axis = findTranslateGizmoAxisAt(this.selectedObject.p2, point, ['X', 'Y', 'Z']);
-
-                // Sadece mouse'un gerçekten üzerinde olduğu gizmoda eksen aktif olsun
-                if (p1Axis) {
-                    this.hoveredGizmoAxis = p1Axis;
-                    this.hoveredGizmoId = 'p1';
-                } else if (p2Axis) {
-                    this.hoveredGizmoAxis = p2Axis;
-                    this.hoveredGizmoId = 'p2';
-                } else if (centerAxis) {
-                    this.hoveredGizmoAxis = centerAxis;
-                    this.hoveredGizmoId = 'center';
+                // Sadece aktif gizmo için eksen hover kontrolü yap
+                if (activeGizmo === 'p1') {
+                    const p1Axis = findTranslateGizmoAxisAt(this.selectedObject.p1, point, ['X', 'Y', 'Z']);
+                    this.hoveredGizmoAxis = p1Axis || null;
+                    this.hoveredGizmoId = p1Axis ? 'p1' : null;
+                } else if (activeGizmo === 'p2') {
+                    const p2Axis = findTranslateGizmoAxisAt(this.selectedObject.p2, point, ['X', 'Y', 'Z']);
+                    this.hoveredGizmoAxis = p2Axis || null;
+                    this.hoveredGizmoId = p2Axis ? 'p2' : null;
                 } else {
-                    this.hoveredGizmoAxis = null;
-                    this.hoveredGizmoId = null;
+                    const centerPoint = {
+                        x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
+                        y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
+                        z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
+                    };
+                    const centerAxis = findTranslateGizmoAxisAt(centerPoint, point, bodyAllowedAxes);
+                    this.hoveredGizmoAxis = centerAxis || null;
+                    this.hoveredGizmoId = centerAxis ? 'center' : null;
                 }
             }
         } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||

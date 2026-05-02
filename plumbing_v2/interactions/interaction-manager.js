@@ -244,6 +244,10 @@ export class InteractionManager {
         // Gizmo hover durumu (mouse gizmo ekseninin üzerindeyken)
         this.hoveredGizmoAxis = null;
 
+        // Seçili boru üzerinde mouse hangi yüzdelik dilimde:
+        // 'p1' (≤25%), 'center' (25-75%), 'p2' (≥75%) — sadece ilgili gizmo gösterilir
+        this.activePipeGizmo = 'center';
+
         // Boru gövde taşıması için ana eksen (X, Y, Z)
         this.bodyDragPrimaryAxis = null;
 

@@ -244,9 +244,11 @@ export function handlePointerDown(e) {
                         return true;
                     }
                 } else {
-                    // Boru gövdesi seçili: önce endpoint gizmo'larını kontrol et, sonra merkez
+                    // Boru gövdesi seçili: mouse'un bulunduğu yüzdelik dilime göre
+                    // sadece AKTİF gizmo'ya tıklanabilir (p1 ≤25%, p2 ≥75%, ortada center).
+                    const activeGizmo = this.activePipeGizmo || 'center';
 
-                    // Borunun uzandığı ekseni hesapla
+                    // Borunun uzandığı eksen — center için izinli eksenler
                     const dx = Math.abs(this.selectedObject.p2.x - this.selectedObject.p1.x);
                     const dy = Math.abs(this.selectedObject.p2.y - this.selectedObject.p1.y);
                     const dz = Math.abs((this.selectedObject.p2.z || 0) - (this.selectedObject.p1.z || 0));
@@ -260,41 +262,40 @@ export function handlePointerDown(e) {
                         bodyAllowedAxes = ['X', 'Y'];
                     }
 
-                    // p1 gizmo kontrolü (öncelikli)
-                    const p1Axis = findTranslateGizmoAxisAt(this.selectedObject.p1, point, ['X', 'Y', 'Z']);
-                    if (p1Axis) {
-                        this.selectedEndpoint = 'p1'; // Endpoint bilgisini kaydet
-                        this.startEndpointDrag(this.selectedObject, 'p1', point);
-                        this.selectedDragAxis = p1Axis;
-                        this.axisLockDetermined = true;
-                        this.lockedAxis = p1Axis;
-                        return true;
-                    }
-
-                    // p2 gizmo kontrolü
-                    const p2Axis = findTranslateGizmoAxisAt(this.selectedObject.p2, point, ['X', 'Y', 'Z']);
-                    if (p2Axis) {
-                        this.selectedEndpoint = 'p2'; // Endpoint bilgisini kaydet
-                        this.startEndpointDrag(this.selectedObject, 'p2', point);
-                        this.selectedDragAxis = p2Axis;
-                        this.axisLockDetermined = true;
-                        this.lockedAxis = p2Axis;
-                        return true;
-                    }
-
-                    // Merkez gizmo kontrolü (en düşük öncelik)
-                    const centerPoint = {
-                        x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
-                        y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
-                        z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
-                    };
-                    const centerAxis = findTranslateGizmoAxisAt(centerPoint, point, bodyAllowedAxes);
-                    if (centerAxis) {
-                        this.startBodyDrag(this.selectedObject, point);
-                        this.selectedDragAxis = centerAxis;
-                        this.axisLockDetermined = true;
-                        this.lockedAxis = centerAxis;
-                        return true;
+                    if (activeGizmo === 'p1') {
+                        const p1Axis = findTranslateGizmoAxisAt(this.selectedObject.p1, point, ['X', 'Y', 'Z']);
+                        if (p1Axis) {
+                            this.selectedEndpoint = 'p1';
+                            this.startEndpointDrag(this.selectedObject, 'p1', point);
+                            this.selectedDragAxis = p1Axis;
+                            this.axisLockDetermined = true;
+                            this.lockedAxis = p1Axis;
+                            return true;
+                        }
+                    } else if (activeGizmo === 'p2') {
+                        const p2Axis = findTranslateGizmoAxisAt(this.selectedObject.p2, point, ['X', 'Y', 'Z']);
+                        if (p2Axis) {
+                            this.selectedEndpoint = 'p2';
+                            this.startEndpointDrag(this.selectedObject, 'p2', point);
+                            this.selectedDragAxis = p2Axis;
+                            this.axisLockDetermined = true;
+                            this.lockedAxis = p2Axis;
+                            return true;
+                        }
+                    } else {
+                        const centerPoint = {
+                            x: (this.selectedObject.p1.x + this.selectedObject.p2.x) / 2,
+                            y: (this.selectedObject.p1.y + this.selectedObject.p2.y) / 2,
+                            z: ((this.selectedObject.p1.z || 0) + (this.selectedObject.p2.z || 0)) / 2
+                        };
+                        const centerAxis = findTranslateGizmoAxisAt(centerPoint, point, bodyAllowedAxes);
+                        if (centerAxis) {
+                            this.startBodyDrag(this.selectedObject, point);
+                            this.selectedDragAxis = centerAxis;
+                            this.axisLockDetermined = true;
+                            this.lockedAxis = centerAxis;
+                            return true;
+                        }
                     }
                 }
             } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
@@ -351,7 +352,8 @@ export function handlePointerDown(e) {
             if (verticalSymbolEarly) {
                 const pipe = verticalSymbolEarly.pipe;
                 this.selectObject(pipe, selectOpts);
-                this.startBodyDrag(pipe, point);
+                // Doğrudan gövdeden sürükleme: ALT ile (taşıma) veya CTRL ile (kopya)
+                if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
                 return true;
             }
         }
@@ -412,8 +414,8 @@ export function handlePointerDown(e) {
         if (verticalSymbol) {
             const pipe = verticalSymbol.pipe;
             this.selectObject(pipe, selectOpts);
-            // Düşey boruları BODY olarak taşı (zincir halindeki tüm düşey borularla birlikte)
-            this.startBodyDrag(pipe, point);
+            // Doğrudan gövdeden sürükleme: ALT ile (taşıma) veya CTRL ile (kopya)
+            if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
             return true;
         }
 
@@ -492,7 +494,9 @@ export function handlePointerDown(e) {
                     hitObject.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
                     return true;
                 }
-                this.startBodyDrag(hitObject, point);
+                // Doğrudan gövdeden sürükleme: ALT ile (taşıma) veya CTRL ile (kopya).
+                // Modifier'sız tıklama sadece seçer (gizmo okları üzerinden taşıma yapılır).
+                if (e.altKey || e.ctrlKey) this.startBodyDrag(hitObject, point);
             } else {
                 this.startDrag(hitObject, point);
             }

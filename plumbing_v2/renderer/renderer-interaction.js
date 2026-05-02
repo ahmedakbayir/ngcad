@@ -241,44 +241,33 @@ export const InteractionMixin = {
                     this.drawTranslateGizmo(ctx, point, hoveredAxis, allowedAxes);
                 }
             } else {
-                // Boru gövdesi seçili: hem merkez hem endpoint'lerde gizmo göster
+                // Boru gövdesi seçili: mouse'un yüzdelik dilimine göre TEK gizmo göster
+                //   p1 (≤25%) | center (25-75%) | p2 (≥75%)
+                const activeGizmo = interactionManager.activePipeGizmo || 'center';
 
-                // Borunun uzandığı ekseni hesapla
-                const dx = Math.abs(obj.p2.x - obj.p1.x);
-                const dy = Math.abs(obj.p2.y - obj.p1.y);
-                const dz = Math.abs((obj.p2.z || 0) - (obj.p1.z || 0));
+                if (activeGizmo === 'p1' && this.drawTranslateGizmo) {
+                    const hoverAx = interactionManager.hoveredGizmoId === 'p1' ? interactionManager.hoveredGizmoAxis : null;
+                    this.drawTranslateGizmo(ctx, obj.p1, hoverAx, ['X', 'Y', 'Z']);
+                } else if (activeGizmo === 'p2' && this.drawTranslateGizmo) {
+                    const hoverAx = interactionManager.hoveredGizmoId === 'p2' ? interactionManager.hoveredGizmoAxis : null;
+                    this.drawTranslateGizmo(ctx, obj.p2, hoverAx, ['X', 'Y', 'Z']);
+                } else if (this.drawTranslateGizmo) {
+                    // Borunun uzandığı eksen hariç diğer 2 eksende hareket
+                    const dx = Math.abs(obj.p2.x - obj.p1.x);
+                    const dy = Math.abs(obj.p2.y - obj.p1.y);
+                    const dz = Math.abs((obj.p2.z || 0) - (obj.p1.z || 0));
+                    let bodyAllowedAxes = ['X', 'Y', 'Z'];
+                    if (dx > dy && dx > dz) bodyAllowedAxes = ['Y', 'Z'];
+                    else if (dy > dx && dy > dz) bodyAllowedAxes = ['X', 'Z'];
+                    else if (dz > dx && dz > dy) bodyAllowedAxes = ['X', 'Y'];
 
-                let bodyAllowedAxes = ['X', 'Y', 'Z'];
-                // Ana ekseni bul (en uzun olanı)
-                if (dx > dy && dx > dz) {
-                    bodyAllowedAxes = ['Y', 'Z']; // X'te uzanıyor -> Y-Z'de hareket
-                } else if (dy > dx && dy > dz) {
-                    bodyAllowedAxes = ['X', 'Z']; // Y'de uzanıyor -> X-Z'de hareket
-                } else if (dz > dx && dz > dy) {
-                    bodyAllowedAxes = ['X', 'Y']; // Z'de uzanıyor -> X-Y'de hareket
-                }
-
-                // Merkez gizmo (body için) - Hover edilen eksen belirgin olsun
-                const centerPoint = {
-                    x: (obj.p1.x + obj.p2.x) / 2,
-                    y: (obj.p1.y + obj.p2.y) / 2,
-                    z: ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2
-                };
-                if (this.drawTranslateGizmo) {
-                    const centerHoveredAxis = interactionManager.hoveredGizmoId === 'center' ? interactionManager.hoveredGizmoAxis : null;
-                    this.drawTranslateGizmo(ctx, centerPoint, centerHoveredAxis, bodyAllowedAxes);
-                }
-
-                // p1 endpoint gizmo (tüm eksenler) - Hover edilen eksen belirgin olsun
-                if (this.drawTranslateGizmo) {
-                    const p1HoveredAxis = interactionManager.hoveredGizmoId === 'p1' ? interactionManager.hoveredGizmoAxis : null;
-                    this.drawTranslateGizmo(ctx, obj.p1, p1HoveredAxis, ['X', 'Y', 'Z']);
-                }
-
-                // p2 endpoint gizmo (tüm eksenler) - Hover edilen eksen belirgin olsun
-                if (this.drawTranslateGizmo) {
-                    const p2HoveredAxis = interactionManager.hoveredGizmoId === 'p2' ? interactionManager.hoveredGizmoAxis : null;
-                    this.drawTranslateGizmo(ctx, obj.p2, p2HoveredAxis, ['X', 'Y', 'Z']);
+                    const centerPoint = {
+                        x: (obj.p1.x + obj.p2.x) / 2,
+                        y: (obj.p1.y + obj.p2.y) / 2,
+                        z: ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2
+                    };
+                    const hoverAx = interactionManager.hoveredGizmoId === 'center' ? interactionManager.hoveredGizmoAxis : null;
+                    this.drawTranslateGizmo(ctx, centerPoint, hoverAx, bodyAllowedAxes);
                 }
             }
         } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
