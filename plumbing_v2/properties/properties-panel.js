@@ -12,7 +12,7 @@ import { syncBirimState } from '../../draw/draw-birim-labels.js';
 import { processWalls } from '../../wall/wall-processor.js';
 import { saveState } from '../../general-files/history.js';
 import { update3DScene } from '../../scene3d/scene3d-update.js';
-import { setLabelOffsetsJSON } from '../renderer/renderer-labels.js';
+import { setLabelOffsetsJSON, relayoutAllLabels } from '../renderer/renderer-labels.js';
 
 
 export const PANEL_MODES = {
@@ -80,12 +80,34 @@ export function openEmptyPanel() {
     panelEl.querySelector('#props-relabel-all-btn')?.addEventListener('click', _resetAllLabelOffsets);
 }
 
-/** Tüm katlardaki manuel etiket konumlarını temizler — etiketler otomatik yerleşime döner */
-function _resetAllLabelOffsets() {
-    setLabelOffsetsJSON({});
-    if (window.plumbingManager?.saveToState) window.plumbingManager.saveToState();
-    try { saveState(); } catch (e) { console.error(e); }
-    draw2D();
+/** Tüm etiketleri otomatik yerleşim algoritmasıyla yeniden yerleştirir */
+async function _resetAllLabelOffsets() {
+    const manager = window.plumbingManager;
+    const toast = document.getElementById('label-relayout-toast');
+    const toastText = document.getElementById('label-relayout-toast-text');
+    const showToast = (msg) => { if (toast && toastText) { toastText.textContent = msg; toast.style.display = 'block'; } };
+    const hideToast = () => { if (toast) toast.style.display = 'none'; };
+
+    try {
+        try { saveState(); } catch (e) { console.error(e); }
+        // Mevcut manuel offsetleri temizle ki algoritma sıfırdan yerleştirsin
+        setLabelOffsetsJSON({});
+        if (!manager) {
+            draw2D();
+            return;
+        }
+        showToast('Etiketler yerleştiriliyor…');
+        await new Promise(res => requestAnimationFrame(() => res()));
+        draw2D();
+        await relayoutAllLabels(manager, 'pipes-last');
+        manager.saveToState?.();
+        draw2D();
+        showToast('Etiketler yerleştirildi');
+        setTimeout(hideToast, 800);
+    } catch (e) {
+        console.error('Etiket yerleşimi hatası:', e);
+        hideToast();
+    }
 }
 
 // ─── PANEL YARAT ─────────────────────────────────────────────────────────────

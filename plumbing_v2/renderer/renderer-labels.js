@@ -1567,85 +1567,99 @@ function _findBestPositionForCihaz(c, obstacleRects, sceneCenter, pipeSegments) 
     return bestSpot;
 }
 
-// YENİ: AŞAMA 1 - LOKAL KEŞİF (boru-üstü cezası dahil)
+// YENİ: AŞAMA 1 - LOKAL KEŞİF (boru-üstü cezası + çoklu mesafe taraması)
+//
+// Etiket yerleşim mantığı:
+//   • Önce 4 düz yön (üst/alt/sağ/sol) → bağlantı çizgisi nesneye DİK olur
+//   • Engel varsa mesafeyi adım adım uzat (1×, 1.4×, ...) — daha ferah yerleşim
+//   • Hala olmazsa "sağa kaydırma" varyantları → label nesneye göre hafif sağda,
+//     bağlantı çizgisi sağa eğik olur (kullanıcı tercihi)
+//   • Son çare olarak çaprazlar
+//
+// Engeller listesi sıralı doldurulur: önce yerleşen etiket sonrakine engel
+// olur (üstüste binmeyi önler).
 function _findBestLocalPosition(c, obstacleRects, pipeSegments) {
-    // Tüm etiketler net 20 cm (duvar kalınlığı kadar) kenardan-kenara boşluk
-    // bırakır. Bu, bağlantı çizgisinin görünür kalmasını sağlar ama etiket
-    // gereğinden uzağa atılmaz.
-    const GAP = 20;
+    // Nesneyle etiket arasında bırakılan minimum boşluk
+    const GAP = 35;
 
     const objHalf = _getObjectHalfSize(c.obj);
-    const lblHW = c.bw / 2; // Etiket yarı genişliği
-    const lblHH = c.bh / 2; // Etiket yarı yüksekliği
+    const lblHW = c.bw / 2;
+    const lblHH = c.bh / 2;
 
-    // Düz eksenlerdeki tam ofsetler (Nesne Yarı + GAP + Etiket Yarı)
-    const offY = objHalf.hh + GAP + lblHH;
-    const offX = objHalf.hw + GAP + lblHW;
+    const baseOffY = objHalf.hh + GAP + lblHH;
+    const baseOffX = objHalf.hw + GAP + lblHW;
 
-    // 8 Yön (Öncelikli düz eksenler, en son çaprazlar)
+    // Yön kümesi:
+    //   - 4 ana yön (penalty 0)
+    //   - Sağa kaydırılmış varyantlar (üst-sağ-shift / alt-sağ-shift) — orta ceza
+    //   - Çaprazlar (yüksek ceza, son çare)
     const directions = [
-        { id: 'bottom', dx: 0, dy: offY, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'] },
-        { id: 'right', dx: offX, dy: 0, align: 'horizontal', pref: ['vana'] },
-        { id: 'top', dx: 0, dy: -offY, align: 'vertical', pref: ['boru'] },
-        { id: 'left', dx: -offX, dy: 0, align: 'horizontal', pref: [] },
+        // Düz eksenler
+        { id: 'bottom', nx: 0, ny: 1, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'], dirPenalty: 0 },
+        { id: 'right',  nx: 1, ny: 0, align: 'horizontal', pref: ['vana'], dirPenalty: 0 },
+        { id: 'top',    nx: 0, ny: -1, align: 'vertical', pref: ['boru'], dirPenalty: 0 },
+        { id: 'left',   nx: -1, ny: 0, align: 'horizontal', pref: [], dirPenalty: 0 },
 
-        // Çaprazlar (Zorunlu kalınmadıkça tercih edilmemesi için estetik cezası alacaklar)
-        { id: 'br', dx: offX, dy: offY, align: 'free', pref: [] },
-        { id: 'bl', dx: -offX, dy: offY, align: 'free', pref: [] },
-        { id: 'tr', dx: offX, dy: -offY, align: 'free', pref: [] },
-        { id: 'tl', dx: -offX, dy: -offY, align: 'free', pref: [] }
+        // "Sağa kaydır" varyantları — bağlantı çizgisi nesneden etikete sağa eğik gider
+        { id: 'top-rs',    nx: 0.45, ny: -0.89, align: 'free', pref: [], dirPenalty: 80 },
+        { id: 'bottom-rs', nx: 0.45, ny: 0.89, align: 'free', pref: [], dirPenalty: 80 },
+        { id: 'right-us',  nx: 0.89, ny: -0.45, align: 'free', pref: [], dirPenalty: 90 },
+        { id: 'right-ds',  nx: 0.89, ny: 0.45, align: 'free', pref: [], dirPenalty: 90 },
+
+        // Çaprazlar (son çare — düz veya sağa-eğik bulunmazsa)
+        { id: 'br', nx: 0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 200 },
+        { id: 'tr', nx: 0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 220 },
+        { id: 'bl', nx: -0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 260 },
+        { id: 'tl', nx: -0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 280 },
     ];
 
     const ignorePipeId = c.obj.type === 'boru' ? c.obj.id : null;
+    const distances = [1.0, 1.35, 1.8, 2.4, 3.2, 4.2];
 
     let bestScore = Infinity;
-    let bestSpot = { cx: c.anchor.x, cy: c.anchor.y, align: 'free' };
+    let bestSpot = { cx: c.anchor.x + baseOffX, cy: c.anchor.y + baseOffY, align: 'vertical' };
 
-    for (const dir of directions) {
-        const candCX = c.anchor.x + dir.dx;
-        const candCY = c.anchor.y + dir.dy;
-        const candBx = candCX - lblHW;
-        const candBy = candCY - lblHH;
+    for (const d of distances) {
+        let layerBest = Infinity;
+        for (const dir of directions) {
+            const candCX = c.anchor.x + dir.nx * baseOffX * d;
+            const candCY = c.anchor.y + dir.ny * baseOffY * d;
+            const candBx = candCX - lblHW;
+            const candBy = candCY - lblHH;
 
-        let penalty = 0;
+            let penalty = dir.dirPenalty;
+            // Mesafe cezası: yakın ideal
+            penalty += (d - 1.0) * 110;
+            // Doğal yön tercihi
+            if (!dir.pref.includes(c.obj.type)) penalty += 60;
 
-        // 1. Mimari + bileşen engelleriyle çakışma (alan bazlı ağır ceza)
-        for (const obs of obstacleRects) {
-            if (!(candBx + c.bw <= obs.bx || candBx >= obs.bx + obs.bw ||
-                  candBy + c.bh <= obs.by || candBy >= obs.by + obs.bh)) {
-
-                const overlapX = Math.min(candBx + c.bw, obs.bx + obs.bw) - Math.max(candBx, obs.bx);
-                const overlapY = Math.min(candBy + c.bh, obs.by + obs.bh) - Math.max(candBy, obs.by);
-                penalty += (overlapX * overlapY) * 10;
-            }
-        }
-
-        // 2. Boru üstüne düşme cezası (kendi borusu hariç)
-        if (pipeSegments && pipeSegments.length) {
-            for (const seg of pipeSegments) {
-                if (_segmentIntersectsRect(seg, candBx, candBy, c.bw, c.bh, ignorePipeId)) {
-                    penalty += 220;
+            // Engellerle çakışma — KIRMIZI ÇİZGİ: üst üste binme yasak
+            for (const obs of obstacleRects) {
+                if (!(candBx + c.bw <= obs.bx || candBx >= obs.bx + obs.bw ||
+                      candBy + c.bh <= obs.by || candBy >= obs.by + obs.bh)) {
+                    const ox = Math.min(candBx + c.bw, obs.bx + obs.bw) - Math.max(candBx, obs.bx);
+                    const oy = Math.min(candBy + c.bh, obs.by + obs.bh) - Math.max(candBy, obs.by);
+                    // Çok ağır ceza → çakışmasız varyant her zaman kazanır
+                    penalty += (ox * oy) * 50 + 5000;
                 }
             }
-        }
+            // Boru üstüne düşme
+            if (pipeSegments && pipeSegments.length) {
+                for (const seg of pipeSegments) {
+                    if (_segmentIntersectsRect(seg, candBx, candBy, c.bw, c.bh, ignorePipeId)) {
+                        penalty += 400;
+                    }
+                }
+            }
 
-        // 3. Doğal Yön Tercihi Cezası (Örn: Cihazsa alt öncelikli)
-        if (!dir.pref.includes(c.obj.type)) {
-            penalty += 150;
+            if (penalty < bestScore) {
+                bestScore = penalty;
+                bestSpot = { cx: candCX, cy: candCY, align: dir.align };
+            }
+            if (penalty < layerBest) layerBest = penalty;
         }
-
-        // 4. Estetik Çapraz Cezası (Düz çizgileri bozmamak için)
-        if (dir.id.length === 2) { // br, bl, tr, tl
-            penalty += 300; // Sadece düz eksenler tamamen doluysa çapraza geç
-        }
-
-        // En temiz noktayı kaydet
-        if (penalty < bestScore) {
-            bestScore = penalty;
-            bestSpot = { cx: candCX, cy: candCY, align: dir.align };
-        }
-
-        if (penalty === 0 && dir.pref.includes(c.obj.type)) break;
+        // Bu mesafede çakışmasız ve düz-yön çözüm bulunduysa daha uzağa açılma
+        if (layerBest < 200) break;
     }
 
     return bestSpot;
@@ -1690,7 +1704,7 @@ function _getPushVector(r1, r2, pad) {
 }
 
 function _strictSeparation(cands, obstacleRects, pad) {
-    const MAX_PASS = 20; 
+    const MAX_PASS = 80;
     for (let pass = 0; pass < MAX_PASS; pass++) {
         let anyOverlap = false;
 
@@ -1763,8 +1777,8 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
             if (c.align === 'vertical') {
                 // X ekseninden asla sapma (Kusursuz düz dikey çizgi)
                 // Y ekseninde (aşağı doğru) itişmeye izin ver (Stacking için)
-                forceX += dx * 0.8; 
-                forceY += dy * 0.15; 
+                forceX += dx * 0.8;
+                forceY += dy * 0.15;
             } else if (c.align === 'horizontal') {
                 forceX += dx * 0.15;
                 forceY += dy * 0.8;
@@ -1840,18 +1854,23 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
     const nonCihaz = cands.filter(c => c.obj.type !== 'cihaz');
     const cihazCands = cands.filter(c => c.obj.type === 'cihaz');
 
+    // Sıralama: önce sayaç/kutu/vana (sabit-pozisyonlu nesneler), sonra borular.
+    // Borular daha esnek (uzun segment boyunca yerleşebilir) — son sıraya alıp
+    // önceki etiketleri engel sayarak çakışmadan yerleştirilirler.
+    const _typeOrder = { sayac: 0, servis_kutusu: 0, vana: 1, boru: 2 };
+    nonCihaz.sort((a, b) => (_typeOrder[a.obj.type] ?? 3) - (_typeOrder[b.obj.type] ?? 3));
+
+    // Sıralı yerleştirme: her etiket sonrakine engel olur (üstüste binme yasak)
+    const runningObstacles = obstacleRects.slice();
     nonCihaz.forEach(c => {
-        const bestSpot = _findBestLocalPosition(c, obstacleRects, pipeSegments);
+        const bestSpot = _findBestLocalPosition(c, runningObstacles, pipeSegments);
         c.align = bestSpot.align;
         c.idealCX = bestSpot.cx;
         c.idealCY = bestSpot.cy;
         c.bx = c.idealCX - c.bw / 2;
         c.by = c.idealCY - c.bh / 2;
+        runningObstacles.push({ bx: c.bx, by: c.by, bw: c.bw, bh: c.bh });
     });
-
-    // Yerleşmiş diğer etiketler artık cihaz için engel
-    const runningObstacles = obstacleRects.slice();
-    nonCihaz.forEach(c => runningObstacles.push({ bx: c.bx, by: c.by, bw: c.bw, bh: c.bh }));
 
     // AŞAMA 1B: Yan yana cihaz gruplarını bantlara hizala
     _sortCihazByLayout(cihazCands, sceneCenter);
