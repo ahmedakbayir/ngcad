@@ -99,6 +99,7 @@ export class PlumbingRenderer {
             ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.12;
             _skOther.forEach(comp => this.drawComponent(ctx, comp, manager));
             this.drawPipes(ctx, _pipesOther);
+            this.drawPipeWallCrossings(ctx, _pipesOther);
             this.drawTopraklamaSymbols(ctx, _pipesOther);
             this.drawFloorCrossingMarkers(ctx, _pipesOther);
             this.drawComponents(ctx, _digerOther, manager);
@@ -108,6 +109,7 @@ export class PlumbingRenderer {
         // Aktif kat — normal
         _skCurrent.forEach(comp => this.drawComponent(ctx, comp, manager));
         this.drawPipes(ctx, _pipesCurrent);
+        this.drawPipeWallCrossings(ctx, _pipesCurrent);
         this.drawTopraklamaSymbols(ctx, _pipesCurrent);
         this.drawFloorCrossingMarkers(ctx, _pipesCurrent);
         this.drawComponents(ctx, _digerCurrent, manager);
@@ -135,6 +137,15 @@ export class PlumbingRenderer {
             }
 
             this.drawGeciciBoru(ctx, geciciBoru, geciciColorGroup);
+
+            // Ghost preview: kat geçişlerinde işaretleyici + duvar geçişlerinde kırmızı (3D perspektif)
+            if (_is3D) {
+                const _geciciSlices = slicePipeAcrossFloors(geciciBoru, _floors).map(makeSlicedPipeProxy);
+                if (_geciciSlices.length) {
+                    this.drawFloorCrossingMarkers(ctx, _geciciSlices);
+                }
+                this.drawPipeWallCrossings(ctx, [geciciBoru], { isGhost: true });
+            }
         }
 
         // İç tesisat sayaç ekleme - kesikli boru preview

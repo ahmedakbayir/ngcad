@@ -13,6 +13,46 @@ const CUSTOM_COLORS = {
     SELECTED: '#808080' // 0.5 Derece Gri (Tüm seçili elemanlar için)
 };
 
+// Boru segmentinin (plan görünümünde) bir duvarın kalınlık bandı içinde kalan
+// t aralığını hesaplar. Liang-Barsky benzeri 1D klipleme kullanılır.
+// Dönüş: { tStart, tEnd } veya kesişim yoksa null.
+function pipeWallCrossingTRange(pipe, wall) {
+    if (!pipe?.p1 || !pipe?.p2 || !wall?.p1 || !wall?.p2) return null;
+    const dwx = wall.p2.x - wall.p1.x;
+    const dwy = wall.p2.y - wall.p1.y;
+    const L = Math.hypot(dwx, dwy);
+    if (L < 0.001) return null;
+
+    const ux = dwx / L, uy = dwy / L;     // duvar boyunca
+    const vx = -uy,    vy = ux;           // duvara dik
+    const halfT = (wall.thickness || 20) / 2;
+
+    const px1 = pipe.p1.x - wall.p1.x;
+    const py1 = pipe.p1.y - wall.p1.y;
+    const px2 = pipe.p2.x - wall.p1.x;
+    const py2 = pipe.p2.y - wall.p1.y;
+
+    const u0 = px1 * ux + py1 * uy;
+    const du = (px2 * ux + py2 * uy) - u0;
+    const v0 = px1 * vx + py1 * vy;
+    const dv = (px2 * vx + py2 * vy) - v0;
+
+    let tMin = 0, tMax = 1;
+    const clip = (val, dval, lo, hi) => {
+        if (Math.abs(dval) < 1e-9) return val >= lo && val <= hi;
+        let t1 = (lo - val) / dval;
+        let t2 = (hi - val) / dval;
+        if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
+        if (t1 > tMin) tMin = t1;
+        if (t2 < tMax) tMax = t2;
+        return tMin <= tMax;
+    };
+    if (!clip(u0, du, 0, L)) return null;
+    if (!clip(v0, dv, -halfT, halfT)) return null;
+    if (tMin >= tMax - 1e-6) return null;
+    return { tStart: tMin, tEnd: tMax };
+}
+
 // --- VANA RENK PALETLERİ (Light/Dark Mod Destekli) ---
 const VALVE_THEMES = {
     // SARI BORU -> GOLD/SARI VANA
@@ -1523,6 +1563,77 @@ export const PipeMixin = {
      *  - Yalnız üst kattaki slice'ın alt ucunda (crossesBottom): yuvarlak çıkış
      *    sembolü (aşağıdan yukarı geldiği işareti)
      */
+    /**
+     * Tesisat duvar geçişlerinde hat rengini kırmızıya boyar (3D perspektifte).
+     * Hem gerçek borular hem de ghost (geçici) boru için kullanılır.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Array} pipes - boru veya boru benzeri obje dizisi
+     * @param {object} [options] - { isGhost: boolean }
+     */
+    drawPipeWallCrossings(ctx, pipes, options = {}) {
+        if (!pipes || !pipes.length) return;
+        const walls = state.walls;
+        if (!walls || !walls.length) return;
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.5) return; // Yalnız 3D perspektifte
+
+        const zoom = state.zoom || 1;
+        const isGhost = options.isGhost === true;
+        const curFloorId = state.currentFloor?.id || null;
+
+        ctx.save();
+        ctx.strokeStyle = '#FF0000';
+        ctx.lineCap = 'butt';
+
+        pipes.forEach(pipe => {
+            if (!pipe || !pipe.p1 || !pipe.p2) return;
+
+            const pipeFloorId = pipe._sliceFloorId ?? pipe.floorId ?? curFloorId ?? null;
+
+            const z1 = pipe.p1.z || 0;
+            const z2 = pipe.p2.z || 0;
+
+            let width;
+            if (isGhost) {
+                width = 4;
+                if (zoom < 1) width = 4 / zoom;
+            } else {
+                const config = BORU_TIPLERI[pipe.boruTipi] || BORU_TIPLERI.STANDART;
+                width = config.lineWidth;
+                if (zoom < 1) width = 4 / zoom;
+            }
+
+            for (const wall of walls) {
+                if (!wall.p1 || !wall.p2) continue;
+                const wallFloorId = wall.floorId ?? null;
+                if (pipeFloorId && wallFloorId && pipeFloorId !== wallFloorId) continue;
+
+                const range = pipeWallCrossingTRange(pipe, wall);
+                if (!range) continue;
+
+                const ax = pipe.p1.x + (pipe.p2.x - pipe.p1.x) * range.tStart;
+                const ay = pipe.p1.y + (pipe.p2.y - pipe.p1.y) * range.tStart;
+                const az = z1 + (z2 - z1) * range.tStart;
+                const bx = pipe.p1.x + (pipe.p2.x - pipe.p1.x) * range.tEnd;
+                const by = pipe.p1.y + (pipe.p2.y - pipe.p1.y) * range.tEnd;
+                const bz = z1 + (z2 - z1) * range.tEnd;
+
+                const sx1 = ax + az * t;
+                const sy1 = ay - az * t;
+                const sx2 = bx + bz * t;
+                const sy2 = by - bz * t;
+
+                ctx.lineWidth = width;
+                ctx.beginPath();
+                ctx.moveTo(sx1, sy1);
+                ctx.lineTo(sx2, sy2);
+                ctx.stroke();
+            }
+        });
+
+        ctx.restore();
+    },
+
     drawFloorCrossingMarkers(ctx, pipes) {
         if (!pipes || !pipes.length) return;
         const t = state.viewBlendFactor || 0;
