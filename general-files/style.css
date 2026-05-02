@@ -178,6 +178,56 @@ body.light-mode {
     flex: 1 1 50%;
 }
 
+/* 3D Perspektif Panel (sadece tesisat) */
+#pPersp {
+    flex: 0 1 0;
+    display: none;
+    z-index: 9999;
+    position: relative;
+}
+
+.main.show-persp #pPersp {
+    display: block;
+    flex: 1 1 50%;
+    pointer-events: auto;
+}
+
+.main.show-persp:not(.show-3d):not(.show-iso) #p2d {
+    flex: 1 1 50%;
+}
+
+#pPersp.panning, #pPersp.panning canvas {
+    cursor: grabbing !important;
+}
+
+#perspSplitter {
+    flex: 0 0 4px;
+    cursor: col-resize;
+    background-color: var(--border-panel);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='30' viewBox='0 0 4 30'%3E%3Cpath d='M1,10 L1,20 M3,10 L3,20' stroke='%23888' stroke-width='1'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    display: none;
+    margin: 0 3px;
+    border-radius: 5px;
+}
+
+.main.show-persp #perspSplitter {
+    display: block;
+}
+
+#persp-ratio-buttons {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px;
+    border-radius: 6px;
+    z-index: 10;
+}
+
 /* 3D Fullscreen Mode - 2D becomes mini-map */
 .main.fullscreen-3d #p3d {
     flex: 1 1 100% !important;
@@ -253,7 +303,9 @@ canvas {
 
 /* Sürüklenebilir Buton Grubu Container */
 .draggable-group {
-    position: absolute;
+    /* position: fixed → #p2d'nin overflow:hidden sınırından kaçar,
+       3D perspektif paneli (z-index 9999) açıldığında üstte kalır. */
+    position: fixed;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -266,22 +318,24 @@ canvas {
     pointer-events: auto;
     /* Gruplara tıklanabilsin */
     cursor: default;
-    z-index: 100;
+    /* MİMARİ ve TESİSAT ikonları her zaman üstte */
+    z-index: 100000;
 }
 
-/* Varsayılan pozisyonlar - yan yana */
+/* Varsayılan pozisyonlar - yan yana
+   .main margin-top:50px var → fixed positioning'de top:50px ana panelin üstüne denk gelir */
 #group-general {
-    top: 0;
+    top: 50px;
     left: 0;
 }
 
 #group-architecture {
-    top: 0;
+    top: 50px;
     left: 130px;
 }
 
 #group-plumbing {
-    top: 0;
+    top: 50px;
     left: 260px;
 }
 
@@ -297,6 +351,13 @@ canvas {
     margin: -8px -8px 2px -8px;
     background: rgba(60, 64, 67, 0.6);
     border-radius: 8px 8px 0 0;
+    cursor: move;
+    pointer-events: auto;
+    user-select: none;
+}
+
+.group-label.drag-handle:hover {
+    background: rgba(95, 99, 104, 0.7);
 }
 
 /* Light mode için grup etiketi */
@@ -1641,11 +1702,40 @@ body.light-mode .btn.active svg {
 /* viewing-mode-selector içindeki butonlar için eski kuralları override et */
 #viewing-mode-selector .btn-show-3d,
 #viewing-mode-selector .btn-show-iso,
+#viewing-mode-selector .btn-show-persp,
 #viewing-mode-selector .btn-show-3d-perspective {
     position: static;
     top: auto;
     right: auto;
     z-index: auto;
+}
+
+.btn-show-persp {
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #3c4043;
+    border: 1px solid #5f6368;
+    color: #e8eaed;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
+}
+
+.btn-show-persp:hover {
+    background: #5f6368;
+    border-color: #87CEEB;
+    box-shadow: 0 2px 8px rgba(135, 206, 235, 0.3);
+}
+
+.btn-show-persp.active {
+    background: rgba(100, 149, 237, 0.4);
+    color: #87CEEB;
+    border-color: #87CEEB;
+    box-shadow: 0 0 8px rgba(135, 206, 235, 0.5);
+    font-weight: 600;
 }
 
 .viewing-separator {
@@ -2830,7 +2920,8 @@ body.light-mode .vis-panel-inner {
     top: 48px;
     /* viewing-mode-selector (~38px) + boşluk */
     right: 0;
-    z-index: 9400;
+    /* Özellikler paneli her zaman üstte (3D persp paneli z-index 9999) */
+    z-index: 100001;
     width: 272px;
     /* Panel içeriği 50vh'yi geçene kadar max 50vh, geçince tam ekran yüksekliği */
     max-height: calc(100vh - 48px);

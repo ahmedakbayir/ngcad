@@ -87,14 +87,7 @@
   <div id="viewing-mode-selector" style="align-items: center;">
     <button id="b3d" class="mode-btn btn btn-show-3d">Katı Model</button>
     <button id="bIso" class="mode-btn btn btn-show-iso">İzometri</button>
-    
-    <div class="toggle-dynamic-wrapper" title="Görünüm Modu: 2D/3D">
-      <input type="checkbox" id="b3DPerspective" class="toggle-dynamic-input">
-      <label for="b3DPerspective" class="toggle-dynamic-label">
-        <span class="toggle-dynamic-circle"></span>
-        <span class="text-on-left">3D</span> <span class="text-on-right">2D</span>
-      </label>
-    </div>
+    <button id="bPersp" class="mode-btn btn btn-show-persp">3D Perspektif</button>
     
     <div class="viewing-separator"></div>
     
@@ -622,11 +615,6 @@
                 Sil</button>
             </div>
           </div>
-          <div class="context-menu-item-with-submenu">
-            <button class="context-menu-btn submenu-trigger">
-            <button id="plumbing-relayout-labels" class="context-menu-btn">🏷 Etiketleri Yeniden Yerleştir</button>
-            </div>
-          </button>
         </div>
 
         <div id="label-relayout-toast"
@@ -882,6 +870,50 @@
             </svg>
           </button>
           <button id="iso-0" class="split-btn" data-ratio="0" title="İzometri Kapalı">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <rect x="2" y="2" width="20" height="20" fill="#999" stroke="#666" stroke-width="1" />
+              <line x1="8" y1="8" x2="16" y2="16" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+              <line x1="16" y1="8" x2="8" y2="16" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div id="perspSplitter" style="display: none;"></div>
+      <div id="pPersp" class="panel">
+        <canvas id="cPersp"></canvas>
+        <div id="persp-ratio-buttons" style="display: none;">
+          <button id="persp-reset" class="split-btn" title="Orijinal Boyut" style="margin-right: 8px;">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+              <path d="M21 3v5h-5"></path>
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+              <path d="M3 21v-5h5"></path>
+            </svg>
+          </button>
+          <button id="persp-100" class="split-btn" data-ratio="100" title="Tam Ekran 3D Perspektif">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <rect x="2" y="2" width="20" height="20" fill="#A5D6A7" stroke="#666" stroke-width="1" />
+            </svg>
+          </button>
+          <button id="persp-75" class="split-btn" data-ratio="75" title="75% 3D Perspektif">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <rect x="2" y="2" width="5" height="20" fill="#999" stroke="#666" stroke-width="1" />
+              <rect x="7" y="2" width="15" height="20" fill="#A5D6A7" stroke="#666" stroke-width="1" />
+            </svg>
+          </button>
+          <button id="persp-50" class="split-btn" data-ratio="50" title="50% Perspektif / 50% 2D">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <rect x="2" y="2" width="10" height="20" fill="#999" stroke="#666" stroke-width="1" />
+              <rect x="12" y="2" width="10" height="20" fill="#A5D6A7" stroke="#666" stroke-width="1" />
+            </svg>
+          </button>
+          <button id="persp-25" class="split-btn" data-ratio="25" title="25% 3D Perspektif">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+              <rect x="2" y="2" width="15" height="20" fill="#999" stroke="#666" stroke-width="1" />
+              <rect x="17" y="2" width="5" height="20" fill="#A5D6A7" stroke="#666" stroke-width="1" />
+            </svg>
+          </button>
+          <button id="persp-0" class="split-btn" data-ratio="0" title="3D Perspektif Kapalı">
             <svg viewBox="0 0 24 24" width="24" height="24">
               <rect x="2" y="2" width="20" height="20" fill="#999" stroke="#666" stroke-width="1" />
               <line x1="8" y1="8" x2="16" y2="16" stroke="#fff" stroke-width="2" stroke-linecap="round" />

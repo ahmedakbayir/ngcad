@@ -176,7 +176,8 @@ export function onPointerMove(e) {
         // Mimari modda tesisat manager'ı hover olaylarını yutmamalı
         const skipPlumbingInteraction = state.currentDrawingMode === 'MİMARİ' && !plumbingManager.interactionManager.boruCizimAktif;
 
-        if (!skipPlumbingInteraction) {
+        // PAN sırasında plumbing handler'ını atla — çizim modundayken bile orta tuş pan çalışsın
+        if (!skipPlumbingInteraction && !state.isPanning) {
             const handled = plumbingManager.interactionManager.handlePointerMove(e);
             if (handled) {
                 updateMouseCursor(); // Cursor'ı güncelle

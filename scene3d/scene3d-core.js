@@ -17,6 +17,7 @@ export let textureLoader; // <-- Resim çerçeveleri için eklendi
 export let labelRenderer; // <-- Yükseklik etiketleri için CSS2DRenderer
 export let groundPlane = null; // <-- YENİ EKLENDİ: Katı Zemin
 
+
 // --- Malzemeler (Materials) ---
 export let wallMaterial, doorMaterial, windowMaterial, columnMaterial, beamMaterial,
     mullionMaterial, sillMaterial, handleMaterial, floorMaterial,
@@ -403,6 +404,7 @@ export function init3D(canvasElement) {
     perspectiveGrid.material.transparent = true;
     perspectiveGrid.material.opacity = 0.1;
 }
+
 
 /**
  * 3D görünümü sahnedeki nesnelere sığdırır.

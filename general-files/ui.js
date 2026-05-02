@@ -259,6 +259,81 @@ export function toggle3DView() {
     }, 10);
 }
 
+export function togglePerspView() {
+    dom.mainContainer.classList.toggle('show-persp');
+    const isActive = dom.mainContainer.classList.contains('show-persp');
+    if (dom.bPersp) dom.bPersp.classList.toggle('active', isActive);
+
+    if (isActive) {
+        setMode("select");
+        const btns = document.getElementById('persp-ratio-buttons');
+        if (btns) btns.style.display = 'flex';
+        if (dom.perspSplitter) dom.perspSplitter.style.display = 'block';
+        // Default: %50
+        setPerspRatio(50);
+    } else {
+        const btns = document.getElementById('persp-ratio-buttons');
+        if (btns) btns.style.display = 'none';
+        if (dom.perspSplitter) dom.perspSplitter.style.display = 'none';
+    }
+
+    setTimeout(() => {
+        resize();
+        if (dom.mainContainer.classList.contains('show-persp')) {
+            import('../draw/draw-persp.js').then(m => m.syncMainToPersp()).catch(() => {});
+        }
+    }, 30);
+}
+
+export function setPerspRatio(ratio) {
+    const p2dPanel = document.getElementById('p2d');
+    const pPerspPanel = document.getElementById('pPersp');
+
+    document.querySelectorAll('#persp-ratio-buttons .split-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`persp-${ratio}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    if (ratio === 0) {
+        p2dPanel.style.flex = '1 1 100%';
+        pPerspPanel.style.flex = '0 0 0';
+        if (dom.mainContainer.classList.contains('show-persp')) togglePerspView();
+        setTimeout(() => resize(), 10);
+        return;
+    }
+
+    if (!dom.mainContainer.classList.contains('show-persp')) {
+        dom.mainContainer.classList.add('show-persp');
+        if (dom.bPersp) dom.bPersp.classList.add('active');
+        setMode("select");
+        const btns = document.getElementById('persp-ratio-buttons');
+        if (btns) btns.style.display = 'flex';
+        if (dom.perspSplitter) dom.perspSplitter.style.display = 'block';
+        setTimeout(() => setPerspRatio(ratio), 50);
+        return;
+    }
+
+    if (ratio === 100) {
+        p2dPanel.style.flex = '0 0 0';
+        pPerspPanel.style.flex = '1 1 100%';
+    } else if (ratio === 75) {
+        p2dPanel.style.flex = '1 1 25%';
+        pPerspPanel.style.flex = '1 1 75%';
+    } else if (ratio === 50) {
+        p2dPanel.style.flex = '1 1 50%';
+        pPerspPanel.style.flex = '1 1 50%';
+    } else if (ratio === 25) {
+        p2dPanel.style.flex = '1 1 75%';
+        pPerspPanel.style.flex = '1 1 25%';
+    }
+
+    setTimeout(() => {
+        resize();
+        if (dom.mainContainer.classList.contains('show-persp')) {
+            import('../draw/draw-persp.js').then(m => m.syncMainToPersp()).catch(() => {});
+        }
+    }, 30);
+}
+
 export function toggleIsoView() {
     dom.mainContainer.classList.toggle('show-iso');
     // --- YENİ EKLENEN KOD: Butonun rengini aktif/pasif yap ---
@@ -301,89 +376,14 @@ export function toggleIsoView() {
 }
 
 export function toggle3DPerspective() {
-    // Hedef Durum (Mevcut durumun tersi)
-    const targetIsActive = !state.is3DPerspectiveActive;
+    // 2D ► 3D toggle'ı sol canvas'ı dönüştürmez; sağdaki perspektif panelini açıp kapatır.
+    // Sol panel her zaman 2D kalır → viewBlendFactor & is3DPerspectiveActive sıfırla.
+    state.viewBlendFactor = 0;
+    setState({ is3DPerspectiveActive: false });
 
-    // --- 3D Perspektif → TESİSAT modu (mimari gizlenir, etkileşim engellenir) ---
-    // 3D perspektifte mimari arka planda kalmasın: drawingMode TESİSAT'a
-    // geçirilir; çıkışta önceki mod geri yüklenir.
-    if (targetIsActive) {
-        if (state.currentDrawingMode !== 'TESİSAT') {
-            setState({ _preview3DPrevDrawingMode: state.currentDrawingMode });
-            setDrawingMode('TESİSAT');
-        }
-    } else {
-        const prev = state._preview3DPrevDrawingMode;
-        if (prev && prev !== state.currentDrawingMode) {
-            setDrawingMode(prev);
-        }
-        setState({ _preview3DPrevDrawingMode: null });
-    }
-    // -------------------------------------------------------------------------
-
-    // --- UI SENKRONİZASYONU (EKLENDİ) ---
-    // Buton durumunu hedef duruma eşitle (Double Press Ctrl için gerekli)
-    if (dom.b3DPerspective) {
-        dom.b3DPerspective.checked = targetIsActive;
-    }
-    // ------------------------------------
-
-    // Animasyon Hedefleri
-    const targetBlend = targetIsActive ? 1 : 0; // 3D için 1, 2D için 0
-    const targetAngle = targetIsActive ? (Math.PI / 3) : 0; // 3D için 60 derece, 2D için 0
-
-    // Orbit kontrolleri kilitle (çatışmayı önlemek için)
-    if (orbitControls) orbitControls.enabled = false;
-
-    // Animasyon Objesi - MEVCUT durumdan başla, HEDEF duruma git
-    const animObj = {
-        blend: (typeof state.viewBlendFactor === 'number')
-            ? state.viewBlendFactor
-            : (state.is3DPerspectiveActive ? 1 : 0), // MEVCUT duruma göre başlat (targetIsActive değil!)
-        angle: orbitControls ? orbitControls.getPolarAngle() : 0
-    };
-
-    // 3D Kamera Hedef Pozisyonu
-    const targetPos = orbitControls ? orbitControls.target.clone() : new THREE.Vector3();
-    const dist = camera ? camera.position.distanceTo(targetPos) : 1000;
-    const azimuth = orbitControls ? orbitControls.getAzimuthalAngle() : 0;
-
-    // --- GSAP ANİMASYONU ---
-    gsap.to(animObj, {
-        blend: targetBlend,
-        angle: targetAngle,
-        duration: 0.8,
-        ease: "power2.inOut",
-        onUpdate: () => {
-            // 1. 2D Çizim Değişkenini Güncelle
-            state.viewBlendFactor = animObj.blend;
-
-            // 2. 3D Kamerayı Güncelle
-            if (camera && orbitControls) {
-                const spherical = new THREE.Spherical(dist, animObj.angle, azimuth);
-                const offset = new THREE.Vector3().setFromSpherical(spherical);
-                camera.position.copy(targetPos).add(offset);
-                camera.lookAt(targetPos);
-            }
-
-            // 3. Sahneleri Yeniden Çiz
-            draw2D();
-            update3DScene();
-        },
-        onComplete: () => {
-            // Animasyon Bitti
-            state.viewBlendFactor = targetBlend;
-            setState({ is3DPerspectiveActive: targetIsActive });
-
-            if (orbitControls) {
-                orbitControls.enabled = true;
-                orbitControls.update();
-            }
-
-            draw2D();
-            update3DScene();
-        }
-    });
+    const willBeActive = !dom.mainContainer.classList.contains('show-persp');
+    if (dom.b3DPerspective) dom.b3DPerspective.checked = willBeActive;
+    togglePerspView();
 }
 
 // İzometri ekran bölme oranını ayarla
@@ -1110,24 +1110,21 @@ function onSplitterPointerMove(e) {
     const mainRect = dom.mainContainer.getBoundingClientRect();
     const p2dPanel = document.getElementById('p2d');
     const p3dPanel = document.getElementById('p3d');
+    const splitterW = dom.splitter.offsetWidth;
 
     let p2dWidth = e.clientX - mainRect.left;
 
-    // Minimum genişlikler - 2D paneli 0'a kadar küçültülebilir (tam fullscreen için)
-    const min2DWidth = 0; // 2D paneli tamamen kapatılabilir
-    const min3DWidth = 150; // 3D paneli en az 150px olmalı
-
-    // 2D panel için minimum kontrol
+    const min2DWidth = 0;
+    const min3DWidth = 150;
     if (p2dWidth < min2DWidth) p2dWidth = min2DWidth;
-
-    // 3D panel için minimum kontrol (2D panel maksimum genişliği)
-    const max2DWidth = mainRect.width - min3DWidth - dom.splitter.offsetWidth - 20;
+    const max2DWidth = mainRect.width - min3DWidth - splitterW;
     if (p2dWidth > max2DWidth) p2dWidth = max2DWidth;
 
-    let p3dWidth = mainRect.width - p2dWidth - dom.splitter.offsetWidth - 20;
+    const p3dWidth = mainRect.width - p2dWidth - splitterW;
 
-    p2dPanel.style.flex = `1 1 ${p2dWidth} px`;
-    p3dPanel.style.flex = `1 1 ${p3dWidth} px`;
+    // Tam mouse senkronu için: bir taraf sabit basis, diğer taraf "kalanı doldur"
+    p2dPanel.style.flex = `0 0 ${p2dWidth}px`;
+    p3dPanel.style.flex = `1 1 auto`;
 
     resize();
 }
@@ -1149,24 +1146,18 @@ function onIsoSplitterPointerMove(e) {
     const mainRect = dom.mainContainer.getBoundingClientRect();
     const p2dPanel = document.getElementById('p2d');
     const pIsoPanel = document.getElementById('pIso');
+    const splitterW = dom.isoSplitter.offsetWidth;
 
     let p2dWidth = e.clientX - mainRect.left;
 
-    // Minimum genişlikler
-    const min2DWidth = 150; // 2D paneli en az 150px olmalı
-    const minIsoWidth = 150; // İzometri paneli en az 150px olmalı
-
-    // 2D panel için minimum kontrol
+    const min2DWidth = 150;
+    const minIsoWidth = 150;
     if (p2dWidth < min2DWidth) p2dWidth = min2DWidth;
-
-    // İzometri panel için minimum kontrol (2D panel maksimum genişliği)
-    const max2DWidth = mainRect.width - minIsoWidth - dom.isoSplitter.offsetWidth - 20;
+    const max2DWidth = mainRect.width - minIsoWidth - splitterW;
     if (p2dWidth > max2DWidth) p2dWidth = max2DWidth;
 
-    let pIsoWidth = mainRect.width - p2dWidth - dom.isoSplitter.offsetWidth - 20;
-
-    p2dPanel.style.flex = `1 1 ${p2dWidth}px`;
-    pIsoPanel.style.flex = `1 1 ${pIsoWidth}px`;
+    p2dPanel.style.flex = `0 0 ${p2dWidth}px`;
+    pIsoPanel.style.flex = `1 1 auto`;
 
     resize();
     resizeIsoCanvas();
@@ -1180,6 +1171,43 @@ function onIsoSplitterPointerUp() {
     document.body.style.cursor = 'default';
     window.removeEventListener('pointermove', onIsoSplitterPointerMove);
     window.removeEventListener('pointerup', onIsoSplitterPointerUp);
+}
+
+// 3D Perspektif Splitter (sürükleyerek panel oranını değiştir)
+let isPerspResizing = false;
+function onPerspSplitterPointerDown(e) {
+    isPerspResizing = true;
+    dom.p2d.style.pointerEvents = 'none';
+    dom.pPersp.style.pointerEvents = 'none';
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('pointermove', onPerspSplitterPointerMove);
+    window.addEventListener('pointerup', onPerspSplitterPointerUp);
+}
+
+function onPerspSplitterPointerMove(e) {
+    if (!isPerspResizing) return;
+    const mainRect = dom.mainContainer.getBoundingClientRect();
+    const p2dPanel = document.getElementById('p2d');
+    const pPerspPanel = document.getElementById('pPersp');
+    const splitterW = dom.perspSplitter ? dom.perspSplitter.offsetWidth : 4;
+    let p2dWidth = e.clientX - mainRect.left;
+    const minSide = 100;
+    const max2DWidth = mainRect.width - minSide - splitterW;
+    if (p2dWidth < minSide) p2dWidth = minSide;
+    if (p2dWidth > max2DWidth) p2dWidth = max2DWidth;
+    p2dPanel.style.flex = `0 0 ${p2dWidth}px`;
+    pPerspPanel.style.flex = `1 1 auto`;
+    resize();
+    import('../draw/draw-persp.js').then(m => m.syncMainToPersp()).catch(() => {});
+}
+
+function onPerspSplitterPointerUp() {
+    isPerspResizing = false;
+    dom.p2d.style.pointerEvents = 'auto';
+    dom.pPersp.style.pointerEvents = 'auto';
+    document.body.style.cursor = 'default';
+    window.removeEventListener('pointermove', onPerspSplitterPointerMove);
+    window.removeEventListener('pointerup', onPerspSplitterPointerUp);
 }
 
 
@@ -1717,6 +1745,9 @@ export function setupUIListeners() {
     dom.roomNameInput.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); dom.roomNameSelect.focus(); } else if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } else if (e.key === 'Escape') { e.preventDefault(); hideRoomNamePopup(); } });
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
     dom.isoSplitter.addEventListener('pointerdown', onIsoSplitterPointerDown);
+    if (dom.perspSplitter) {
+        dom.perspSplitter.addEventListener('pointerdown', onPerspSplitterPointerDown);
+    }
     dom.lengthInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); confirmLengthEdit(); } else if (e.key === "Escape") { cancelLengthEdit(); } });
     dom.lengthInput.addEventListener("blur", cancelLengthEdit);
 
@@ -1849,6 +1880,26 @@ export function setupUIListeners() {
     dom.bIso.addEventListener('click', () => {
         toggleIsoView();
     });
+
+    // 3D PERSPEKTİF (TESİSAT) BUTONU LISTENER'I — Katı Model / İzometri ile aynı patern
+    if (dom.bPersp) {
+        dom.bPersp.addEventListener('click', () => {
+            togglePerspView();
+        });
+    }
+    // Ratio butonları (25/50/75/100) — orta değer için splitter sürüklenir
+    document.querySelectorAll('#persp-ratio-buttons .split-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const ratio = parseInt(btn.getAttribute('data-ratio'), 10);
+            if (!isNaN(ratio)) setPerspRatio(ratio);
+        });
+    });
+    const perspReset = document.getElementById('persp-reset');
+    if (perspReset) {
+        perspReset.addEventListener('click', () => {
+            setState({ perspZoom: 0.5, perspPanOffset: { x: 0, y: 0 } });
+        });
+    }
 
     // 3D PERSPEKTİF GÖRÜNÜM BUTONU LISTENER'I
     if (dom.b3DPerspective) {

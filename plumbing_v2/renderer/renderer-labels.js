@@ -355,7 +355,7 @@ export const LabelMixin = {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 0.5 / zoom;
         ctx.beginPath();
-        ctx.roundRect(bx, by, boxW, boxH, r);
+        ctx.roundRect(bx, by, boxW, boxH, Math.max(0, r));
         ctx.fill();
         ctx.stroke();
 
@@ -448,7 +448,7 @@ export const LabelMixin = {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 0.5 / zoom;
         ctx.beginPath();
-        ctx.roundRect(bx, by, boxW, boxH, r);
+        ctx.roundRect(bx, by, boxW, boxH, Math.max(0, r));
         ctx.fill();
         ctx.stroke();
 
@@ -700,7 +700,7 @@ export const LabelMixin = {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 1 / zoom;
         ctx.beginPath();
-        ctx.roundRect(bx, by, boxW, boxH, r);
+        ctx.roundRect(bx, by, boxW, boxH, Math.max(0, r));
         ctx.fill();
         ctx.stroke();
 
@@ -1065,7 +1065,7 @@ export const LabelMixin = {
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 0.5 / zoom;
         ctx.beginPath();
-        ctx.roundRect(boxX, boxY, boxW, boxH, r);
+        ctx.roundRect(boxX, boxY, boxW, boxH, Math.max(0, r));
         ctx.fill();
         ctx.stroke();
 

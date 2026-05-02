@@ -253,6 +253,13 @@ export function handlePointerMove(e) {
             }
         }
 
+        // Z fallback: 2D modunda screenToWorld z döndürmez → başlangıç Z'sini koru
+        // Bu sayede 3D perspektif panelinde ghost ucu doğru kotta görünür.
+        const _startZ = this.boruBaslangic.nokta.z || 0;
+        const _zForBitis = (finalTargetPoint && finalTargetPoint.z !== undefined)
+            ? finalTargetPoint.z
+            : _startZ;
+
         // Eğer ölçü girişi aktifse, o ölçüye göre hedef noktayı ayarla
         if (this.measurementActive && this.measurementInput.length > 0) {
             const measurement = parseFloat(this.measurementInput);
@@ -264,21 +271,19 @@ export function handlePointerMove(e) {
                 if (currentLength > 0) {
                     const dirX = dx / currentLength;
                     const dirY = dy / currentLength;
-                    // DÜZELTME 2: Z koordinatını koru (z undefined ise başlangıç z'sini kullan)
-                    const _startZ = this.boruBaslangic.nokta.z || 0;
                     this.geciciBoruBitis = {
                         x: this.boruBaslangic.nokta.x + dirX * measurement,
                         y: this.boruBaslangic.nokta.y + dirY * measurement,
-                        z: targetPoint.z !== undefined ? targetPoint.z : _startZ
+                        z: _zForBitis
                     };
                 } else {
-                    this.geciciBoruBitis = finalTargetPoint;
+                    this.geciciBoruBitis = { ...finalTargetPoint, z: _zForBitis };
                 }
             } else {
-                this.geciciBoruBitis = finalTargetPoint;
+                this.geciciBoruBitis = { ...finalTargetPoint, z: _zForBitis };
             }
         } else {
-            this.geciciBoruBitis = finalTargetPoint;
+            this.geciciBoruBitis = { ...finalTargetPoint, z: _zForBitis };
         }
         return true;
     }

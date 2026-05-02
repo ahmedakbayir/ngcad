@@ -12,6 +12,7 @@ import { clearLabelAutoPos, translateLabel } from '../renderer/renderer-labels.j
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
+import { syncAllFloorAssignments } from '../floor-sync.js';
 
 export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null, skipBostaUcCheck = false) {
     const TOLERANCE = 10;
@@ -1503,6 +1504,9 @@ export function endDrag(interactionManager) {
 
     // TEMİZLİK
     if (interactionManager.snapSystem) interactionManager.snapSystem.clearStartPoint();
+
+    // Sürükleme sonrası: yeni Z aralıkları için katları oluştur ve floorId'leri yeniden ata
+    syncAllFloorAssignments(interactionManager.manager);
 
     interactionManager.manager.saveToState();
     saveState();

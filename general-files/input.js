@@ -1043,7 +1043,7 @@ const mouse = new THREE.Vector2();
 
 // Olay dinleyicilerini ayarlama
 export function setupInputListeners() {
-    const { p2d, c2d, c3d } = dom; // <-- c3d eklendi
+    const { p2d, c2d, c3d, pPersp, cPersp } = dom;
     c2d.addEventListener("pointerdown", onPointerDown);
     p2d.addEventListener("pointermove", onPointerMove);
     p2d.addEventListener("pointerup", onPointerUp);
@@ -1053,6 +1053,53 @@ export function setupInputListeners() {
         c3d.addEventListener("pointerdown", on3DPointerDown);
     }
     // --- YENİ LİSTENER SONU ---
+
+    // --- 3D PERSPEKTİF YAN PANEL: aynı handler'lar, persp state ile wrap ---
+    // Sağ panelde mouse hareketleri sol panelle aynı işlevi görür (seç/sürükle/çiz).
+    // withPerspContext: state.zoom/panOffset/viewBlendFactor + dom.c2d geçici olarak
+    // persp değerleriyle değiştirilir, handler çağrılır, sonra geri yüklenir.
+    function withPerspContext(handler) {
+        return (e) => {
+            if (!dom.mainContainer.classList.contains('show-persp')) return handler(e);
+            const _zoom = state.zoom;
+            const _pan = state.panOffset;
+            const _blend = state.viewBlendFactor;
+            const _active = state.is3DPerspectiveActive;
+            const _c2d = dom.c2d;
+            state.zoom = state.perspZoom;
+            state.panOffset = state.perspPanOffset;
+            state.viewBlendFactor = state.perspBlendFactor;
+            state.is3DPerspectiveActive = true;
+            dom.c2d = dom.cPersp;
+            try {
+                handler(e);
+            } finally {
+                state.perspZoom = state.zoom;
+                state.perspPanOffset = state.panOffset;
+                state.zoom = _zoom;
+                state.panOffset = _pan;
+                state.viewBlendFactor = _blend;
+                state.is3DPerspectiveActive = _active;
+                dom.c2d = _c2d;
+            }
+        };
+    }
+    if (cPersp && pPersp) {
+        const wrappedDown = withPerspContext(onPointerDown);
+        const wrappedMove = withPerspContext(onPointerMove);
+        const wrappedUp = withPerspContext(onPointerUp);
+        const wrappedWheel = withPerspContext(onWheel);
+        cPersp.addEventListener("pointerdown", wrappedDown);
+        pPersp.addEventListener("pointermove", wrappedMove);
+        pPersp.addEventListener("pointerup", wrappedUp);
+        // Wheel = zoom değişimi → iki tarafı senkronla (pan bağımsız)
+        cPersp.addEventListener("wheel", (e) => {
+            wrappedWheel(e);
+            import('../draw/draw-persp.js').then(m => m.syncPerspToMain()).catch(() => {});
+        }, { passive: false });
+        cPersp.addEventListener("contextmenu", (e) => e.preventDefault());
+    }
+    // ---------------------------------------------------------------------
 
     c2d.addEventListener("dblclick", (e) => {
         e.preventDefault();
@@ -1092,7 +1139,12 @@ export function setupInputListeners() {
             splitChimneyAtClickPosition(object.object, clickPos);
         }
     });
-    c2d.addEventListener("wheel", onWheel, { passive: false }); // onWheel'i zoom.js'den kullan
+    c2d.addEventListener("wheel", (e) => {
+        onWheel(e);
+        if (dom.mainContainer.classList.contains('show-persp')) {
+            import('../draw/draw-persp.js').then(m => m.syncMainToPersp()).catch(() => {});
+        }
+    }, { passive: false });
     c2d.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         const rect = c2d.getBoundingClientRect();

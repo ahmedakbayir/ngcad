@@ -4,6 +4,7 @@ import { saveState } from './history.js';
 import { setupFileIOListeners } from './file-io.js';
 import { setupInputListeners, handleDelete } from './input.js';
 import { setupUIListeners, initializeSettings, toggle3DView, toggleIsoView, drawIsoView, setupIsometricControls } from './ui.js';
+import { drawPerspView, setupPerspControls } from '../draw/draw-persp.js';
 import { draw2D } from '../draw/draw2d.js';
 import { initGuideContextMenu } from '../menu/guide-menu.js';
 import { initFloorOperationsMenu } from '../menu/floor-operations-menu.js';
@@ -472,6 +473,13 @@ export let state = {
     isoPanOffset: { x: 0, y: 0 },
     isoPanning: false,
     isoPanStart: { x: 0, y: 0 },
+    // --- 3D PERSPEKTİF YAN PANEL (sadece tesisat) ---
+    perspZoom: 0.5,
+    perspPanOffset: { x: 0, y: 0 },
+    perspBlendFactor: 1, // 1 = tam izometrik perspektif
+    perspPanning: false,
+    perspPanStart: { x: 0, y: 0 },
+    perspHover: false, // mouse bu canvas üzerindeyse true
     // Sürükleme ile değiştirilen boru offsetleri (görsel değişiklikler, projeyi etkilemez)
     isoPipeOffsets: {}, // { pipeId: { dx: number, dy: number } }
     isoDragging: false,
@@ -544,6 +552,11 @@ export const dom = {
     pIso: document.getElementById("pIso"),
     cIso: document.getElementById("cIso"),
     ctxIso: document.getElementById("cIso").getContext("2d"),
+    pPersp: document.getElementById("pPersp"),
+    cPersp: document.getElementById("cPersp"),
+    ctxPersp: document.getElementById("cPersp").getContext("2d"),
+    perspSplitter: document.getElementById("perspSplitter"),
+    bPersp: document.getElementById("bPersp"),
     bSel: document.getElementById("bSel"),
     bDelete: document.getElementById("bDelete"),
     bWall: document.getElementById("bWall"),
@@ -962,6 +975,22 @@ export function resize() {
         }
     }
 
+    // 3D Perspektif canvas'ı resize et (2D)
+    if (dom.mainContainer.classList.contains('show-persp')) {
+        const rPersp = dom.pPersp.getBoundingClientRect();
+        if (rPersp.width > 0 && rPersp.height > 0) {
+            dom.cPersp.width = rPersp.width * dpr;
+            dom.cPersp.height = rPersp.height * dpr;
+            dom.cPersp.style.width = rPersp.width + 'px';
+            dom.cPersp.style.height = rPersp.height + 'px';
+
+            dom.ctxPersp.imageSmoothingEnabled = false;
+            dom.ctxPersp.webkitImageSmoothingEnabled = false;
+            dom.ctxPersp.mozImageSmoothingEnabled = false;
+            dom.ctxPersp.msImageSmoothingEnabled = false;
+        }
+    }
+
 }
 
 let lastTime = performance.now();
@@ -1018,6 +1047,11 @@ function animate() {
         }
     }
     draw2D();
+
+    // 3D Perspektif yan paneli (2D iso, sadece tesisat)
+    if (dom.mainContainer.classList.contains('show-persp')) {
+        drawPerspView();
+    }
 
     if (dom.mainContainer.classList.contains('show-3d')) {
 
@@ -1083,6 +1117,7 @@ function initialize() {
     setupInputListeners();
     setupFileIOListeners();
     setupIsometricControls(); // İzometrik zoom ve pan kontrollerini kur
+    setupPerspControls(); // 3D Perspektif yan panel (2D iso) bağımsız pan + hover
     createWallPanel();
     initializeDefaultFloors(); // Önce katları initialize et
     createFloorPanel(); // Sonra paneli oluştur
@@ -1396,6 +1431,30 @@ function initialize() {
 // Sürüklenebilir grup fonksiyonu
 function initializeDraggableGroups() {
     const groups = document.querySelectorAll('.draggable-group');
+
+    // MIGRATION (per-group): Önceden position:absolute (#p2d içinde) idi, şimdi position:fixed.
+    // .main margin-top:50px → eski Y koordinatlarına 50 eklenir.
+    // Eski v1 global flag'i loop bug nedeniyle sadece ilk grubu düzeltiyordu →
+    // ilk grup için "zaten migrate edildi" işareti olarak kullanılır.
+    const v1Flag = localStorage.getItem('draggable-group-fixed-migrated-v1') === '1';
+    groups.forEach((group, idx) => {
+        const perFlagKey = `group-pos-${group.id}-fixed-migrated`;
+        if (localStorage.getItem(perFlagKey) === '1') return;
+        // v1 sadece ilk grubu migrate etmişti → onu atla
+        if (v1Flag && idx === 0) {
+            localStorage.setItem(perFlagKey, '1');
+            return;
+        }
+        const savedPos = localStorage.getItem(`group-pos-${group.id}`);
+        if (savedPos) {
+            try {
+                const obj = JSON.parse(savedPos);
+                obj.y = (obj.y || 0) + 50;
+                localStorage.setItem(`group-pos-${group.id}`, JSON.stringify(obj));
+            } catch (_) { }
+        }
+        localStorage.setItem(perFlagKey, '1');
+    });
 
     groups.forEach(group => {
         const handle = group.querySelector('.drag-handle');
