@@ -441,8 +441,10 @@ export function handleVanaPlacement(vanaPreview) {
     }
 
     // --- 3. NESNEYİ OLUŞTUR VE AYARLA ---
-    // Vana tipini konuma göre otomatik tespit et (vanaPreview'da zorlanmışsa onu kullan)
-    const vanaTipi = vanaPreview.vanaTipi || _detectVanaTipi(pipe, t, this.manager);
+    // Öncelik: vanaPreview.vanaTipi (context menu) > tempComponent.vanaTipi (V+harf kısayolu) > otomatik tespit
+    const vanaTipi = vanaPreview.vanaTipi
+        || this.manager.tempComponent?.vanaTipi
+        || _detectVanaTipi(pipe, t, this.manager);
     const vana = createVana(x, y, vanaTipi, vanaOptions);
 
     // Z Yüksekliğini Ata

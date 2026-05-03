@@ -843,7 +843,7 @@ export const LabelMixin = {
             lblLines.forEach(t => { if (t) lines.push({ text: t, bold: true }); });
 
         } else if (vt === 'EMNIYET') {
-            // Hiçbir şey yazılmaz
+            lines.push({ text: 'Emn.V', sub: true });
 
         } else if (vt === 'SELENOID') {
             lines.push({ text: 'Selenoid Vana', sub: true });

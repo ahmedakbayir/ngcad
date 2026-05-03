@@ -699,10 +699,12 @@ export const PipeMixin = {
     // ─── REDÜKSİYON SEMBOLÜ ─────────────────────────────────────────────────
     // Bir bağlantı (kavşak) noktasında iki borunun çapı farklıysa, geçiş
     // sembolü olarak huni şekilli gri trapezoid + turuncu kenar (sarma) çizilir.
-    // Konum: KÜÇÜK çaplı (ileri) borunun BAŞINA yerleştirilir.
-    // Kalın tarafta sarma borudan dışa taşar, ince tarafta boruyla eşit kalır.
+    //
+    // KURAL: Redüksiyon her zaman AKIŞ YÖNÜNDE downstream (child) borunun
+    // BAŞINA yerleştirilir — çap büyüse de küçülse de fark etmez. Bu sayede
+    // dirsek + redüksiyon birleşimlerinde sıralama hep "önce dirsek, sonra
+    // redüksiyon" olur.
     drawReducers(ctx, breakPoints) {
-        // Cap → görsel kalınlık (drawPipes ile aynı formül: 10 + DN/10)
         const t = state.viewBlendFactor || 0;
         const light = isLightMode();
         const fill = light ? '#9c5b00' : 'rgb(233, 233, 224)';
@@ -713,7 +715,14 @@ export const PipeMixin = {
             const unique = new Set(bp.caps);
             if (unique.size < 2) return; // tüm caps eşit → redüksiyon yok
 
-            // Junction'daki en büyük çap (referans, geniş kenar)
+            // Akış yönünü belirle: child = baslangicBaglanti junction'daki başka bir pipe'a işaret eden
+            const idsInJunction = new Set(bp.pipes.map(p => p.id));
+            const isChild = bp.pipes.map(p => {
+                const parentId = p.baslangicBaglanti?.hedefId;
+                return parentId && idsInJunction.has(parentId);
+            });
+
+            // Junction'daki en büyük çap (huni geometrisi referansı)
             let bigVal = 0;
             for (let i = 0; i < bp.pipes.length; i++) {
                 const v = this.pipeWidthFromCap(bp.caps[i]);
@@ -721,28 +730,50 @@ export const PipeMixin = {
             }
             if (bigVal <= 0) return;
 
-            // Junction merkezi (Z izdüşümü uygulanmış)
             const jz = (bp.z || 0) * t;
             const cx = bp.x + jz;
             const cy = bp.y - jz;
 
-            // Junction'daki en kalın boru → dirsek geometrisini referans al
             const maxDiameter = bigVal;
             const elbowArmLength = maxDiameter * 0.2;
-            const startOffset = elbowArmLength +2;
+            const startOffset = elbowArmLength;
             const plateauW = Math.max(0.5, maxDiameter * 0.18);
             const plateauN = Math.max(0.4, maxDiameter * 0.15);
             const taper = Math.max(2.0, maxDiameter * 0.7);
             const totalLen = plateauW + taper + plateauN;
-            const wWide = bigVal + 1;
 
-            // Kendisinden küçük çaplı HER kol için ayrı redüksiyon
-            for (let i = 0; i < bp.pipes.length; i++) {
-                const v = this.pipeWidthFromCap(bp.caps[i]);
-                if (v >= bigVal) continue; // en büyük(ler) atlanır
+            // Hangi kol(lar) için redüksiyon çizileceğini bul:
+            //   • Junction'da child olan pipe(lar) → akış yönünde "yeni hat".
+            //   • Bu child'ın çapı diğer kol(lar)'dan farklı ise redüksiyon var.
+            // Akış yönü tespit edilemezse (root pipe + root pipe), fallback olarak
+            // küçük çaplı pipe'ı child kabul et (eski davranış).
+            const childIndices = [];
+            const anyChild = isChild.some(Boolean);
+            if (anyChild) {
+                for (let i = 0; i < bp.pipes.length; i++) {
+                    if (isChild[i]) childIndices.push(i);
+                }
+            } else {
+                for (let i = 0; i < bp.pipes.length; i++) {
+                    if (this.pipeWidthFromCap(bp.caps[i]) < bigVal) childIndices.push(i);
+                }
+            }
 
-                const angle = bp.directions[i];
-                const wNarrow = v;
+            childIndices.forEach(i => {
+                const childCap = this.pipeWidthFromCap(bp.caps[i]);
+                // Junction'daki child DIŞINDAKİ kolların temsili çapı (parent tarafı):
+                // En büyük olanı al — huni "geniş kenar" olarak onu gösterir.
+                let parentCap = 0;
+                for (let k = 0; k < bp.pipes.length; k++) {
+                    if (k === i) continue;
+                    const v = this.pipeWidthFromCap(bp.caps[k]);
+                    if (v > parentCap) parentCap = v;
+                }
+                if (parentCap === childCap) return; // çap farkı yok
+
+                const wWide = parentCap + 1;     // huni geniş kenar (junction tarafı)
+                const wNarrow = childCap;        // huni dar kenar (child tarafı)
+                const angle = bp.directions[i]; // child'ın yönü = downstream yönü
 
                 ctx.save();
                 ctx.translate(cx, cy);
@@ -770,7 +801,7 @@ export const PipeMixin = {
                 ctx.stroke();
 
                 ctx.restore();
-            }
+            });
         });
     },
 

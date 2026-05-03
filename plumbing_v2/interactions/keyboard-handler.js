@@ -273,6 +273,29 @@ export function handleKeyDown(e) {
         return true;
     }
 
+    // V + harf - Vana yerleştirme modundayken vana tipini değiştir
+    // Varsayılan EMNIYET; A=AKV, B=BRANSMAN, S=SELENOID, Y=YANBINA, C=CIHAZ, E=EMNIYET
+    if (this.manager.activeTool === TESISAT_MODLARI.VANA &&
+        this.manager.tempComponent &&
+        this.manager.tempComponent.type === 'vana' &&
+        !e.ctrlKey && !e.altKey && !e.metaKey &&
+        e.key.length === 1) {
+        const VANA_TIP_KISAYOLLARI = {
+            'a': 'AKV',
+            'b': 'BRANSMAN',
+            's': 'SELENOID',
+            'y': 'YANBINA',
+            'c': 'CIHAZ',
+            'e': 'EMNIYET',
+        };
+        const yeniTip = VANA_TIP_KISAYOLLARI[e.key.toLowerCase()];
+        if (yeniTip) {
+            this.manager.tempComponent.vanaTipi = yeniTip;
+            draw2D();
+            return true;
+        }
+    }
+
     // K - Kombi ekle (Ghost mod, ya da 3D + seçili hat varsa otomatik)
     if ((e.key === 'k' || e.key === 'K') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         if ((state.viewBlendFactor || 0) > 0.1) {
@@ -353,8 +376,8 @@ export function handleKeyDown(e) {
         // Mevcut eylemleri iptal et
         this.cancelCurrentAction();
 
-        // Vana ghost modunu başlat
-        this.manager.startPlacement(TESISAT_MODLARI.VANA);
+        // Vana ghost modunu başlat (varsayılan: EMNIYET)
+        this.manager.startPlacement(TESISAT_MODLARI.VANA, { vanaTipi: 'AKV' });
         setMode("plumbingV2", true);
 
         return true;
