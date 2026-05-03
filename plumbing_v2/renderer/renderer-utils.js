@@ -186,6 +186,7 @@ export function makeSlicedPipeProxy(slice) {
     proxy._sliceFloorId = slice.floorId;
     proxy._crossesBottom = slice.crossesBottom;
     proxy._crossesTop = slice.crossesTop;
+    proxy._originalPipe = slice.originalPipe; // Explicit referans (full pipe — kat dilimleme'den etkilenmez)
     return proxy;
 }
 

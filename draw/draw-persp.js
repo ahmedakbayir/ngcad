@@ -6,7 +6,7 @@
  *  - Tesisat: izometrik transform (mevcut çizim/etkileşim altyapısı korunur).
  */
 
-import { state, dom, setState, isLightMode } from '../general-files/main.js';
+import { state, dom, setState, isLightMode, THEME_COLORS } from '../general-files/main.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 
 const ANGLE = Math.PI / 6;
@@ -145,9 +145,16 @@ function _makeProjector(canvas, perspZoom, perspPan) {
 }
 
 function _drawPerspectiveBackground(ctx, canvas, project, light) {
-    // 1) Gökyüzü — düz renk (Katı Model scene.background ile aynı)
+    // 1) Arkaplan — 2D ana panelle aynı radial gradient (THEME_COLORS.canvasGradient)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = light ? '#87CEEB' : '#282c36';
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const radius = Math.max(canvas.width, canvas.height) * 0.7;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    const colors = light ? THEME_COLORS.light.canvasGradient : THEME_COLORS.dark.canvasGradient;
+    grad.addColorStop(0, colors.center);
+    grad.addColorStop(0.5, colors.mid);
+    grad.addColorStop(1, colors.edge);
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // 2) Zemin polygon (Katı Model groundPlane rengi ile aynı), perspektifte projekte

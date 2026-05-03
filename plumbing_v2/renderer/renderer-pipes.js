@@ -355,10 +355,10 @@ export const PipeMixin = {
             const length = Math.hypot(dx, dy);
             const angle = Math.atan2(dy, dx);
 
-            // Zoom ayarı
+            // Zoom ayarı + boruCap'e göre dinamik kalınlık (DN25 = 4)
             const zoom = state.zoom || 1;
-            let width = config.lineWidth;
-            if (zoom < 1) width = 4 / zoom;
+            const capWidth = this.pipeWidthFromCap(pipe.boruCap);
+            let width = zoom < 1 ? capWidth / zoom : capWidth;
 
             ctx.save();
 
@@ -428,6 +428,8 @@ export const PipeMixin = {
 
         // Ekstra çizimler
         this.drawElbows(ctx, pipes, breakPoints);
+        // Çapı farklı borulara birleşim noktalarında redüksiyon sembolü
+        this.drawReducers(ctx, breakPoints);
         this.drawPipeValves(ctx, pipes);
 
         // Seçili borular için yön görselleştirmesi (sınırlayıcı kutu/prizma) - ayara bağlı
@@ -601,6 +603,23 @@ export const PipeMixin = {
     },
 
 
+    /**
+     * Bir borunun çap'ına (boruCap) göre görsel kalınlığını döndürür.
+     * DN25 = mevcut taban (4) ile birebir aynı.
+     * Diğerleri DN25'ten doğrusal hafif sapma: width = 4 + (DN - 25) * 0.03
+     *   DN15 → 3.70   DN20 → 3.85   DN25 → 4.00   DN32 → 4.21
+     *   DN40 → 4.45   DN50 → 4.75   DN65 → 5.20   DN80 → 5.65   DN100 → 6.25
+     * Geçersiz/eksik cap → DN25 varsayılır.
+     */
+    pipeWidthFromCap(boruCap) {
+        const s = String(boruCap || 'DN25').replace(/[^0-9]/g, '');
+        const dn = parseInt(s, 10);
+        const dnSafe = isFinite(dn) && dn > 0 ? dn : 25;
+        const BASE = 4;        // DN25 referans (eski sabit lineWidth)
+        const SLOPE = 0.03;    // hafif farklılaşma
+        return BASE + (dnSafe - 25) * SLOPE;
+    },
+
     findBreakPoints(pipes) {
         const pointMap = new Map();
         const tolerance = 0.5;
@@ -634,14 +653,16 @@ export const PipeMixin = {
                     z: rawZ1, // DÜZELTME: Ham Z değerini sakla
                     pipes: [],
                     directions: [],
-                    diameters: []
+                    diameters: [],
+                    caps: []
                 });
             }
             const entry1 = pointMap.get(key1);
             entry1.pipes.push(pipe);
             // Açıyı İZDÜŞÜM (transformed) koordinatlarına göre hesapla
             entry1.directions.push(Math.atan2(ty2 - ty1, tx2 - tx1));
-            entry1.diameters.push(config.diameter);
+            entry1.diameters.push(this.pipeWidthFromCap(pipe.boruCap));
+            entry1.caps.push(pipe.boruCap || 'DN25');
 
             // p2 noktası için aynı işlemler
             const key2 = `${Math.round(pipe.p2.x / tolerance) * tolerance},${Math.round(pipe.p2.y / tolerance) * tolerance},${Math.round(rawZ2 / tolerance) * tolerance}`;
@@ -652,14 +673,16 @@ export const PipeMixin = {
                     z: rawZ2, // DÜZELTME: Ham Z değerini sakla
                     pipes: [],
                     directions: [],
-                    diameters: []
+                    diameters: [],
+                    caps: []
                 });
             }
             const entry2 = pointMap.get(key2);
             entry2.pipes.push(pipe);
             // Açıyı İZDÜŞÜM koordinatlarına göre hesapla (p2'den p1'e)
             entry2.directions.push(Math.atan2(ty1 - ty2, tx1 - tx2));
-            entry2.diameters.push(config.diameter);
+            entry2.diameters.push(this.pipeWidthFromCap(pipe.boruCap));
+            entry2.caps.push(pipe.boruCap || 'DN25');
         });
 
         // Sadece 2 veya daha fazla borunun birleştiği noktaları döndür
@@ -671,6 +694,103 @@ export const PipeMixin = {
         });
 
         return breakPoints;
+    },
+
+    // ─── REDÜKSİYON SEMBOLÜ ─────────────────────────────────────────────────
+    // Bir bağlantı (kavşak) noktasında iki borunun çapı farklıysa, geçiş
+    // sembolü olarak huni şekilli gri trapezoid + turuncu kenar (sarma) çizilir.
+    // Konum: KÜÇÜK çaplı (ileri) borunun BAŞINA yerleştirilir.
+    // Kalın tarafta sarma borudan dışa taşar, ince tarafta boruyla eşit kalır.
+    drawReducers(ctx, breakPoints) {
+        // Cap → görsel kalınlık (drawPipes ile aynı formül: 10 + DN/10)
+        const t = state.viewBlendFactor || 0;
+        const light = isLightMode();
+        const fill = light ? '#9c5b00' : 'rgb(219, 215, 132)';
+        const accent = light ? '#783a00' : 'rgb(31, 31, 31)';
+
+        breakPoints.forEach(bp => {
+            if (!bp.caps || bp.caps.length < 2) return;
+            const unique = new Set(bp.caps);
+            if (unique.size < 2) return; // tüm caps eşit → redüksiyon yok
+
+            // En büyük ve en küçük çaplı boruları bul (pipe genişlik formülü)
+            let bigIdx = -1, smallIdx = -1, bigVal = 0, smallVal = Infinity;
+            for (let i = 0; i < bp.pipes.length; i++) {
+                const v = this.pipeWidthFromCap(bp.caps[i]);
+                if (v > bigVal) { bigVal = v; bigIdx = i; }
+                if (v < smallVal) { smallVal = v; smallIdx = i; }
+            }
+            if (bigIdx < 0 || smallIdx < 0 || bigIdx === smallIdx) return;
+
+            // Junction merkezi (Z izdüşümü uygulanmış)
+            const jz = (bp.z || 0) * t;
+            const cx = bp.x + jz;
+            const cy = bp.y - jz;
+
+            // Reducer KÜÇÜK borunun yönünde dışa doğru.
+            // bp.directions[i] = pipe i'nin junction'dan UZAĞA yönü
+            const angle = bp.directions[smallIdx];
+
+            // Junction'daki en kalın boru → dirsek geometrisini referans al
+            // (drawElbows ile birebir aynı formül)
+            let maxDiameter = 0;
+            for (const d of bp.diameters) if (d > maxDiameter) maxDiameter = d;
+            if (maxDiameter <= 0) maxDiameter = 4;
+            const elbowArmLength = maxDiameter * 0.2;
+            const elbowRimExtra = maxDiameter * 0.2; // dirsek ucundaki rim payı
+
+            // Konum: dirseğin merkezinden değil, dirseğin BİTİŞ kısmındaki
+            // (kalın rim) noktadan başlasın. Yani küçük yöne armLength kadar ötele.
+            // Hafif kaplama için biraz geriye al.
+            const startOffset = elbowArmLength;
+
+            // Şekil — keskin üçgen değil, basamaklı huni:
+            //   wWide:   kalın boru çapı + hafif kaplama
+            //   wNarrow: ince boru çapı (boruya oturur)
+            //   plateauW: geniş tarafta kısa düz kaplama (rim)
+            //   plateauN: dar tarafta kısa düz devam (boruya geçiş)
+            //   taper:   eğimli geçiş
+            const wWide = bigVal + 1;
+            const wNarrow = smallVal;
+            const plateauW = Math.max(0.5, maxDiameter * 0.18);
+            const plateauN = Math.max(0.4, maxDiameter * 0.15);
+            const taper = Math.max(2.0, maxDiameter * 0.7);
+            const totalLen = plateauW + taper + plateauN;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            // Dirseğin bitiş kalın kısmının üstüne oturt
+            ctx.translate(startOffset, 0);
+
+            // Polygon (basamaklı huni, sol üstten saatin tersine)
+            //   x=0        : geniş başlangıç (rim kaplama)
+            //   x=plateauW : geniş kısım sonu (taper başı)
+            //   x=plateauW+taper : dar tarafa varış
+            //   x=totalLen : dar bitiş
+            const x0 = 0;
+            const x1 = plateauW;
+            const x2 = plateauW + taper;
+            const x3 = totalLen;
+            ctx.beginPath();
+            ctx.moveTo(x0, -wWide / 2);
+            ctx.lineTo(x1, -wWide / 2);
+            ctx.lineTo(x2, -wNarrow / 2);
+            ctx.lineTo(x3, -wNarrow / 2);
+            ctx.lineTo(x3, wNarrow / 2);
+            ctx.lineTo(x2, wNarrow / 2);
+            ctx.lineTo(x1, wWide / 2);
+            ctx.lineTo(x0, wWide / 2);
+            ctx.closePath();
+            ctx.fillStyle = fill;
+            ctx.fill();
+            // Turuncu sarma (örnek görsele uygun)
+            ctx.strokeStyle = accent;
+            ctx.lineWidth = 0.1;
+            ctx.stroke();
+
+            ctx.restore();
+        });
     },
 
     drawElbows(ctx, pipes, breakPoints) {
@@ -720,12 +840,18 @@ export const PipeMixin = {
             const cx = bp.x + z; // X'e Z ekle
             const cy = bp.y - z; // Y'den Z çıkar
 
-            // En büyük genişliği bul (merkez daire için)
-            let maxArmWidth = 0;
-            const armLength = 3;      // 3 cm kol uzunluğu
-            const armExtraWidth = 1;  // Sağdan soldan 1 cm fazla
+            // Bu junction'daki en kalın boruyu bul
+            let maxDiameter = 0;
+            for (const d of bp.diameters) if (d > maxDiameter) maxDiameter = d;
+            if (maxDiameter <= 0) maxDiameter = 4; // güvenlik (DN25)
 
-            const dm = bp.diameters[1] + armExtraWidth * 2;
+            // Geometri DN25 (4 cm) için eski görünümle aynı olacak biçimde kalibre:
+            //  - armWidth = diameter (sarma yok, boruyla eşit)
+            //  - armLength = maxDiameter * 0.75 (DN25 → 3 cm, eski sabit)
+            //  - dm = maxDiameter (merkez daire boruyla eşit, DN25 → 4 cm)
+            const armExtraWidth = 0;
+            const armLength = maxDiameter * 0.75;
+            const dm = maxDiameter;
 
             // Merkez daireyi çiz (Hesaplanan cx, cy'de)
             const adjustedGrayx = ctx.createRadialGradient(cx, cy, dm / 4, cx, cy, dm / 2);
@@ -737,16 +863,15 @@ export const PipeMixin = {
             ctx.arc(cx, cy, dm / 2, 0, Math.PI * 2);
             ctx.fill();
 
-            // Her yön için dirsek kolu çiz
+            // Her yön için dirsek kolu çiz — kol genişliği o borunun KENDİ çapına göre
             for (let i = 0; i < bp.directions.length; i++) {
                 const angle = bp.directions[i];
                 const diameter = bp.diameters[i];
 
+                // Kol genişliği bu borunun kendi çapı + sarma (orantılı)
                 const armWidth = diameter + armExtraWidth * 2;
-                if (armWidth > maxArmWidth) maxArmWidth = armWidth;
 
                 ctx.save();
-                // Translate'i cx, cy'ye yap (dönüşüm uygulanmış merkez)
                 ctx.translate(cx, cy);
                 ctx.rotate(angle);
 
@@ -765,10 +890,10 @@ export const PipeMixin = {
                 gradientgenis.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'dirsek', 1));
                 gradientgenis.addColorStop(1, this.getRenkByGroup(colorGroup, 'dirsek', 0.8));
 
-                // Uç kalınlık
+                // Uç kalınlık (rim) — kol genişliğiyle orantılı
                 ctx.fillStyle = gradientgenis;
-                const lineWidth = armWidth + 0.4;
-                const lineThickness = 1.5;
+                const lineWidth = armWidth + maxDiameter * 0.1;
+                const lineThickness = Math.max(0.6, maxDiameter * 0.18);
                 ctx.fillRect(armLength - 0.2, -lineWidth / 2, lineThickness, lineWidth);
 
                 ctx.restore();
@@ -954,11 +1079,10 @@ export const PipeMixin = {
 
         const dx = x2 - x1;
         const dy = y2 - y1;
-        const length = Math.hypot(dx, dy);
+        const screenLength = Math.hypot(dx, dy);
         const angle = Math.atan2(dy, dx);
 
-
-
+        ctx.save();
         ctx.translate(x1, y1);
         ctx.rotate(angle);
 
@@ -968,7 +1092,56 @@ export const PipeMixin = {
         gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
         gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.3));
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, -width / 2, length, width);
+        ctx.fillRect(0, -width / 2, screenLength, width);
+        ctx.restore();
+
+        // ── ANLIK UZUNLUK ETİKETİ (yatay/düşey/eğik fark etmez) ─────────────
+        // 3D gerçek uzunluk (Z dahil) — cm
+        const trueDx = geciciBoru.p2.x - geciciBoru.p1.x;
+        const trueDy = geciciBoru.p2.y - geciciBoru.p1.y;
+        const trueDz = (geciciBoru.p2.z || 0) - (geciciBoru.p1.z || 0);
+        const trueLength = Math.hypot(trueDx, trueDy, trueDz);
+
+        if (trueLength >= 1) {
+            const label = trueLength >= 100
+                ? `${(trueLength / 100).toFixed(2)} m`
+                : `${Math.round(trueLength)} cm`;
+
+            // Normal ölçü font ~10px (zoom kompanze ile). Anlık etiket: çok daha büyük.
+            // Hem 2D'de hem 3D blend'de okunabilsin diye world-px cinsinden büyük.
+            const baseFontPx = 22;
+            const fontSize = baseFontPx * Math.pow(zoom, -0.6);
+
+            // Hattın orta noktasında, üzerinden hafif offset ile çiz
+            // (aktif uçta değil — kullanıcının ölçüyü hattın üstünde görmesi için)
+            const mx = (x1 + x2) / 2;
+            const my = (y1 + y2) / 2;
+            const norm = screenLength > 0.01
+                ? { x: -dy / screenLength, y: dx / screenLength }
+                : { x: 0, y: -1 };
+            const off = (fontSize * 0.9);
+            const tx = mx + norm.x * off;
+            const ty = my + norm.y * off;
+
+            ctx.save();
+            ctx.font = `bold ${fontSize}px "Segoe UI", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const tw = ctx.measureText(label).width;
+            const padX = fontSize * 0.45;
+            const padY = fontSize * 0.25;
+
+            // Arkaplan kutusu (kontrast)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+            ctx.fillRect(tx - tw / 2 - padX, ty - fontSize / 2 - padY,
+                tw + padX * 2, fontSize + padY * 2);
+
+            // Yazı
+            ctx.fillStyle = '#ffe14a';
+            ctx.fillText(label, tx, ty);
+            ctx.restore();
+        }
 
         ctx.restore();
     },
@@ -985,25 +1158,40 @@ export const PipeMixin = {
         // 3D faktörü (Z izdüşümü için)
         const t = state.viewBlendFactor || 0;
 
+        // Aynı pipe'ın birden fazla slice'ı varsa (kat geçişleri) tek etiket göster.
+        // UZUNLUK ve KONUM her zaman ORİJİNAL (tam) borudan alınır — kat diliminden bağımsız.
+        const _seenPipeIds = new Set();
+
         pipes.forEach(pipe => {
-            // 1. Gerçek 3D Uzunluk Hesapla (Z dahil)
-            const dxWorld = pipe.p2.x - pipe.p1.x;
-            const dyWorld = pipe.p2.y - pipe.p1.y;
-            const dzWorld = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+            // Slice ise orijinal boruya in (explicit _originalPipe veya prototype fallback)
+            const isSlice = !!pipe._isSlice;
+            const fullPipe = isSlice
+                ? (pipe._originalPipe || Object.getPrototypeOf(pipe))
+                : pipe;
+            if (!fullPipe || !fullPipe.p1 || !fullPipe.p2) return;
+            const pipeKey = fullPipe.id || fullPipe;
+            if (_seenPipeIds.has(pipeKey)) return;
+            _seenPipeIds.add(pipeKey);
+
+            // 1. UZUNLUK: HER ZAMAN tam (orijinal) p1/p2 — kat dilimine bağlı değildir
+            const fp1 = fullPipe.p1, fp2 = fullPipe.p2;
+            const dxWorld = fp2.x - fp1.x;
+            const dyWorld = fp2.y - fp1.y;
+            const dzWorld = (fp2.z || 0) - (fp1.z || 0);
             const length3D = Math.hypot(dxWorld, dyWorld, dzWorld);
 
             // Çok kısa borularda ölçü gösterme (15 cm altı)
             if (length3D < 15) return;
 
-            // 2. Ekran Koordinatlarını Hesapla (İzdüşüm)
-            // x' = x + z*t, y' = y - z*t
-            const z1 = (pipe.p1.z || 0) * t;
-            const z2 = (pipe.p2.z || 0) * t;
+            // 2. KONUM: tam borunun orta noktasına koy (kat geçen riser'larda da
+            // hattın gerçek 3D ortasında — slice değil)
+            const z1 = (fp1.z || 0) * t;
+            const z2 = (fp2.z || 0) * t;
 
-            const sx1 = pipe.p1.x + z1;
-            const sy1 = pipe.p1.y - z1;
-            const sx2 = pipe.p2.x + z2;
-            const sy2 = pipe.p2.y - z2;
+            const sx1 = fp1.x + z1;
+            const sy1 = fp1.y - z1;
+            const sx2 = fp2.x + z2;
+            const sy2 = fp2.y - z2;
 
             // Ekran üzerindeki orta nokta
             const midX = (sx1 + sx2) / 2;
