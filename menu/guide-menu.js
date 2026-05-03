@@ -2,6 +2,9 @@
 import { getOrCreateNode } from '../draw/geometry.js';
 import { state, setState, dom, setMode } from '../general-files/main.js';
 import { saveState } from '../general-files/history.js';
+import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { relayoutAllLabels } from '../plumbing_v2/renderer/renderer-labels.js';
+import { draw2D } from '../draw/draw2d.js';
 
 let guideMenuEl = null;
 let menuWorldPos = null;
@@ -68,6 +71,31 @@ export function initGuideContextMenu() {
             }
         }
         hideGuideContextMenu();
+    });
+
+    document.getElementById('guide-relayout-labels')?.addEventListener('click', async () => {
+        hideGuideContextMenu();
+        const manager = plumbingManager?.interactionManager?.manager || plumbingManager;
+        if (!manager) return;
+        const toast = document.getElementById('label-relayout-toast');
+        const toastText = document.getElementById('label-relayout-toast-text');
+        const showToast = (msg) => { if (toast && toastText) { toastText.textContent = msg; toast.style.display = 'block'; } };
+        const hideToast = () => { if (toast) toast.style.display = 'none'; };
+
+        try {
+            saveState();
+            showToast('Etiketler yerleştiriliyor…');
+            await new Promise(res => requestAnimationFrame(() => res()));
+            draw2D();
+            await relayoutAllLabels(manager, 'pipes-last');
+            manager.saveToState?.();
+            draw2D();
+            showToast('Etiketler yerleştirildi');
+            setTimeout(hideToast, 800);
+        } catch (e) {
+            console.error('Etiket yerleşimi hatası:', e);
+            hideToast();
+        }
     });
 }
 

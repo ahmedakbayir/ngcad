@@ -705,91 +705,72 @@ export const PipeMixin = {
         // Cap → görsel kalınlık (drawPipes ile aynı formül: 10 + DN/10)
         const t = state.viewBlendFactor || 0;
         const light = isLightMode();
-        const fill = light ? '#9c5b00' : 'rgb(219, 215, 132)';
-        const accent = light ? '#783a00' : 'rgb(31, 31, 31)';
+        const fill = light ? '#9c5b00' : 'rgb(233, 233, 224)';
+        const accent = light ? '#783a00' : 'rgb(8, 8, 8)';
 
         breakPoints.forEach(bp => {
             if (!bp.caps || bp.caps.length < 2) return;
             const unique = new Set(bp.caps);
             if (unique.size < 2) return; // tüm caps eşit → redüksiyon yok
 
-            // En büyük ve en küçük çaplı boruları bul (pipe genişlik formülü)
-            let bigIdx = -1, smallIdx = -1, bigVal = 0, smallVal = Infinity;
+            // Junction'daki en büyük çap (referans, geniş kenar)
+            let bigVal = 0;
             for (let i = 0; i < bp.pipes.length; i++) {
                 const v = this.pipeWidthFromCap(bp.caps[i]);
-                if (v > bigVal) { bigVal = v; bigIdx = i; }
-                if (v < smallVal) { smallVal = v; smallIdx = i; }
+                if (v > bigVal) bigVal = v;
             }
-            if (bigIdx < 0 || smallIdx < 0 || bigIdx === smallIdx) return;
+            if (bigVal <= 0) return;
 
             // Junction merkezi (Z izdüşümü uygulanmış)
             const jz = (bp.z || 0) * t;
             const cx = bp.x + jz;
             const cy = bp.y - jz;
 
-            // Reducer KÜÇÜK borunun yönünde dışa doğru.
-            // bp.directions[i] = pipe i'nin junction'dan UZAĞA yönü
-            const angle = bp.directions[smallIdx];
-
             // Junction'daki en kalın boru → dirsek geometrisini referans al
-            // (drawElbows ile birebir aynı formül)
-            let maxDiameter = 0;
-            for (const d of bp.diameters) if (d > maxDiameter) maxDiameter = d;
-            if (maxDiameter <= 0) maxDiameter = 4;
+            const maxDiameter = bigVal;
             const elbowArmLength = maxDiameter * 0.2;
-            const elbowRimExtra = maxDiameter * 0.2; // dirsek ucundaki rim payı
-
-            // Konum: dirseğin merkezinden değil, dirseğin BİTİŞ kısmındaki
-            // (kalın rim) noktadan başlasın. Yani küçük yöne armLength kadar ötele.
-            // Hafif kaplama için biraz geriye al.
-            const startOffset = elbowArmLength;
-
-            // Şekil — keskin üçgen değil, basamaklı huni:
-            //   wWide:   kalın boru çapı + hafif kaplama
-            //   wNarrow: ince boru çapı (boruya oturur)
-            //   plateauW: geniş tarafta kısa düz kaplama (rim)
-            //   plateauN: dar tarafta kısa düz devam (boruya geçiş)
-            //   taper:   eğimli geçiş
-            const wWide = bigVal + 1;
-            const wNarrow = smallVal;
+            const startOffset = elbowArmLength +2;
             const plateauW = Math.max(0.5, maxDiameter * 0.18);
             const plateauN = Math.max(0.4, maxDiameter * 0.15);
             const taper = Math.max(2.0, maxDiameter * 0.7);
             const totalLen = plateauW + taper + plateauN;
+            const wWide = bigVal + 1;
 
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.rotate(angle);
-            // Dirseğin bitiş kalın kısmının üstüne oturt
-            ctx.translate(startOffset, 0);
+            // Kendisinden küçük çaplı HER kol için ayrı redüksiyon
+            for (let i = 0; i < bp.pipes.length; i++) {
+                const v = this.pipeWidthFromCap(bp.caps[i]);
+                if (v >= bigVal) continue; // en büyük(ler) atlanır
 
-            // Polygon (basamaklı huni, sol üstten saatin tersine)
-            //   x=0        : geniş başlangıç (rim kaplama)
-            //   x=plateauW : geniş kısım sonu (taper başı)
-            //   x=plateauW+taper : dar tarafa varış
-            //   x=totalLen : dar bitiş
-            const x0 = 0;
-            const x1 = plateauW;
-            const x2 = plateauW + taper;
-            const x3 = totalLen;
-            ctx.beginPath();
-            ctx.moveTo(x0, -wWide / 2);
-            ctx.lineTo(x1, -wWide / 2);
-            ctx.lineTo(x2, -wNarrow / 2);
-            ctx.lineTo(x3, -wNarrow / 2);
-            ctx.lineTo(x3, wNarrow / 2);
-            ctx.lineTo(x2, wNarrow / 2);
-            ctx.lineTo(x1, wWide / 2);
-            ctx.lineTo(x0, wWide / 2);
-            ctx.closePath();
-            ctx.fillStyle = fill;
-            ctx.fill();
-            // Turuncu sarma (örnek görsele uygun)
-            ctx.strokeStyle = accent;
-            ctx.lineWidth = 0.1;
-            ctx.stroke();
+                const angle = bp.directions[i];
+                const wNarrow = v;
 
-            ctx.restore();
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(angle);
+                ctx.translate(startOffset, 0);
+
+                const x0 = 0;
+                const x1 = plateauW;
+                const x2 = plateauW + taper;
+                const x3 = totalLen;
+                ctx.beginPath();
+                ctx.moveTo(x0, -wWide / 2);
+                ctx.lineTo(x1, -wWide / 2);
+                ctx.lineTo(x2, -wNarrow / 2);
+                ctx.lineTo(x3, -wNarrow / 2);
+                ctx.lineTo(x3, wNarrow / 2);
+                ctx.lineTo(x2, wNarrow / 2);
+                ctx.lineTo(x1, wWide / 2);
+                ctx.lineTo(x0, wWide / 2);
+                ctx.closePath();
+                ctx.fillStyle = fill;
+                ctx.fill();
+                ctx.strokeStyle = accent;
+                ctx.lineWidth = 0.2;
+                ctx.stroke();
+
+                ctx.restore();
+            }
         });
     },
 
@@ -798,6 +779,13 @@ export const PipeMixin = {
         const t = state.viewBlendFactor || 0;
 
         breakPoints.forEach(bp => {
+            // Aynı eksen üzerinde iki boru (düz boru bölünmüş) → dirsek çizme
+            if (bp.directions.length === 2) {
+                let diff = Math.abs(bp.directions[0] - bp.directions[1]);
+                if (diff > Math.PI) diff = 2 * Math.PI - diff;
+                if (Math.abs(diff - Math.PI) < 0.01) return;
+            }
+
             const firstPipe = bp.pipes[0];
 
             // Birleşme noktasındaki boruların yönelimini kontrol et
