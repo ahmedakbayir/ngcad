@@ -337,7 +337,7 @@ function renderRow(row, fittingsRow) {
             <td class="bc-cell">${f2(row.Q)}</td>
             <td class="bc-cell">${f2(row.L_m)}</td>
             <td class="bc-cell bc-dn">${dnSelect}</td>
-            <td class="${vClass}" title="${row.vWarn ? 'V > 6 m/s — TS 7363 sınırı aşıldı' : ''}">${f4(row.v)}</td>
+            <td class="${vClass}" title="${row.vWarn ? 'V > 6 m/s — TS 7363 sınırı aşıldı' : ''}">${f2(row.v)}</td>
             <td class="bc-cell">${f4(row.dPR_L)}</td>
             <td class="bc-cell">${f4(row.dPR)}</td>
             <td class="bc-cell bc-xi" title="${escAttr(xiTooltip)}">${f2(row.sigmaXi)}</td>

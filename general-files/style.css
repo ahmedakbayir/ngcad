@@ -4427,7 +4427,7 @@ body.light-mode .fittings-table-wrapper {
 }
 
 .bc-table tbody td {
-    padding: 9px 10px;
+    padding: 12px 10px;
     text-align: center;
     border-bottom: 1px solid var(--ft-border, rgba(255, 255, 255, 0.06));
     background: transparent;
@@ -4489,7 +4489,7 @@ body.light-mode .fittings-table-wrapper {
 
 .bc-dn-select:hover {
     border-color: var(--ft-accent, #6ea8ff);
-    background: rgba(110, 168, 255, 0.06);
+    /* background: rgba(110, 168, 255, 0.06); */
 }
 
 .bc-dn-select:focus {
