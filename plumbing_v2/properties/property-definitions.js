@@ -30,11 +30,11 @@ export const BIRIM_TIPLERI = ['KONUT', 'OFİS', 'TİCARİ', 'KAZAN DAİRESİ'];
 export const ESNEK_BORU_MARKALARI = ['AYVAZ', 'GFS', 'KAS', 'HITACHI', 'PAKTERMO', 'LEXFLEX', 'KALDE', 'GFLEX'];
 
 export const BORU_CAPLARI = {
-    'ÇELİK': ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50', 'DN65', 'DN80', 'DN100'],
-    'ESNEK': ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50', 'DN65', 'DN80', 'DN100'],
+    'ÇELİK': ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50', 'DN65', 'DN80', 'DN100','DN125','DN150','DN200','DN250','DN300','DN400','DN450'],
+    'ESNEK': ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50', 'DN65', 'DN80', 'DN100','DN125','DN150','DN200','DN250','DN300','DN400','DN450'],
 };
 
-export const BORU_CAPLARI_TUMU = ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50', 'DN65', 'DN80', 'DN100'];
+export const BORU_CAPLARI_TUMU = ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50', 'DN65', 'DN80', 'DN100','DN125','DN150','DN200','DN250','DN300','DN400','DN450'];
 
 export const BACA_TIPLERI = ['Hermetik', 'Bacalı', 'Atmosferik'];
 

@@ -707,8 +707,8 @@ export const PipeMixin = {
     drawReducers(ctx, breakPoints) {
         const t = state.viewBlendFactor || 0;
         const light = isLightMode();
-        const fill = light ? '#9c5b00' : 'rgb(233, 233, 224)';
-        const accent = light ? '#783a00' : 'rgb(8, 8, 8)';
+        const fill = light ? '#9c5b00' : 'rgb(251, 232, 213)';
+        const accent = light ? '#783a00' : 'rgb(75, 75, 75)';
 
         breakPoints.forEach(bp => {
             if (!bp.caps || bp.caps.length < 2) return;
@@ -761,18 +761,31 @@ export const PipeMixin = {
 
             childIndices.forEach(i => {
                 const childCap = this.pipeWidthFromCap(bp.caps[i]);
-                // Junction'daki child DIŞINDAKİ kolların temsili çapı (parent tarafı):
-                // En büyük olanı al — huni "geniş kenar" olarak onu gösterir.
+                // Bu child'ın ASIL parent'ı: baslangicBaglanti.hedefId ile bağlanan pipe.
+                // TE'de sibling kollar değil, gerçek upstream boru ile kıyasla.
+                const childPipe = bp.pipes[i];
+                const parentId = childPipe?.baslangicBaglanti?.hedefId;
                 let parentCap = 0;
-                for (let k = 0; k < bp.pipes.length; k++) {
-                    if (k === i) continue;
-                    const v = this.pipeWidthFromCap(bp.caps[k]);
-                    if (v > parentCap) parentCap = v;
+                if (parentId) {
+                    const parentIdx = bp.pipes.findIndex(p => p.id === parentId);
+                    if (parentIdx >= 0) parentCap = this.pipeWidthFromCap(bp.caps[parentIdx]);
+                }
+                // Fallback: parent referansı yoksa en büyük diğer kolu kullan
+                if (parentCap === 0) {
+                    for (let k = 0; k < bp.pipes.length; k++) {
+                        if (k === i) continue;
+                        const v = this.pipeWidthFromCap(bp.caps[k]);
+                        if (v > parentCap) parentCap = v;
+                    }
                 }
                 if (parentCap === childCap) return; // çap farkı yok
 
-                const wWide = parentCap + 1;     // huni geniş kenar (junction tarafı)
-                const wNarrow = childCap;        // huni dar kenar (child tarafı)
+                // Huni geometrisi: geniş kenar her zaman BÜYÜK çaplı boruya bakar.
+                //   • Alçalan (parent>child): geniş kenar junction tarafında, dar kenar child tarafında.
+                //   • Yükselen (parent<child): geniş kenar child tarafında, dar kenar junction tarafında.
+                const wideCap = Math.max(parentCap, childCap) + 1; // junction taraf padding'i için +1
+                const narrowCap = Math.min(parentCap, childCap);
+                const wideAtJunction = parentCap >= childCap;
                 const angle = bp.directions[i]; // child'ın yönü = downstream yönü
 
                 ctx.save();
@@ -780,19 +793,30 @@ export const PipeMixin = {
                 ctx.rotate(angle);
                 ctx.translate(startOffset, 0);
 
+                // Plateau uzunlukları: geniş plateau (plateauW) geniş kenarda, dar plateau (plateauN) dar kenarda
                 const x0 = 0;
-                const x1 = plateauW;
-                const x2 = plateauW + taper;
                 const x3 = totalLen;
+                let x1, x2, wAtX0, wAtX3;
+                if (wideAtJunction) {
+                    x1 = plateauW;
+                    x2 = plateauW + taper;
+                    wAtX0 = wideCap;
+                    wAtX3 = narrowCap;
+                } else {
+                    x1 = plateauN;
+                    x2 = plateauN + taper;
+                    wAtX0 = narrowCap;
+                    wAtX3 = wideCap;
+                }
                 ctx.beginPath();
-                ctx.moveTo(x0, -wWide / 2);
-                ctx.lineTo(x1, -wWide / 2);
-                ctx.lineTo(x2, -wNarrow / 2);
-                ctx.lineTo(x3, -wNarrow / 2);
-                ctx.lineTo(x3, wNarrow / 2);
-                ctx.lineTo(x2, wNarrow / 2);
-                ctx.lineTo(x1, wWide / 2);
-                ctx.lineTo(x0, wWide / 2);
+                ctx.moveTo(x0, -wAtX0 / 2);
+                ctx.lineTo(x1, -wAtX0 / 2);
+                ctx.lineTo(x2, -wAtX3 / 2);
+                ctx.lineTo(x3, -wAtX3 / 2);
+                ctx.lineTo(x3, wAtX3 / 2);
+                ctx.lineTo(x2, wAtX3 / 2);
+                ctx.lineTo(x1, wAtX0 / 2);
+                ctx.lineTo(x0, wAtX0 / 2);
                 ctx.closePath();
                 ctx.fillStyle = fill;
                 ctx.fill();
@@ -802,6 +826,96 @@ export const PipeMixin = {
 
                 ctx.restore();
             });
+        });
+    },
+
+    // ─── SERVİS KUTUSU ÇIKIŞ REDÜKSİYONU ─────────────────────────────────────
+    // Servis kutusunun cikisCap'i ile bağlı borunun boruCap'i farklıysa,
+    // kutu çıkışında redüksiyon huni'si çiz (parent = kutu, child = boru).
+    drawServiceBoxReducers(ctx, components, pipes) {
+        if (!components || !pipes) return;
+        const t = state.viewBlendFactor || 0;
+        const light = isLightMode();
+        const fill = light ? '#9c5b00' : 'rgb(233, 233, 224)';
+        const accent = light ? '#783a00' : 'rgb(8, 8, 8)';
+
+        components.forEach(box => {
+            if (box.type !== 'servis_kutusu' || !box.bagliBoruId || !box.cikisCap) return;
+            const pipe = pipes.find(p => p.id === box.bagliBoruId);
+            if (!pipe || !pipe.boruCap) return;
+
+            const parentCap = this.pipeWidthFromCap(box.cikisCap); // junction = kutu
+            const childCap = this.pipeWidthFromCap(pipe.boruCap);  // child = boru
+            //console.log('parentCap :'+ parentCap);
+            //console.log('childCap :'+ childCap);
+            if (parentCap === childCap) return;
+
+            const cikis = (typeof box.getCikisNoktasi === 'function') ? box.getCikisNoktasi() : null;
+            if (!cikis) return;
+
+            // Borunun kutuya bağlı ucu ile karşı uç
+            const d1 = Math.hypot(pipe.p1.x - cikis.x, pipe.p1.y - cikis.y);
+            const d2 = Math.hypot(pipe.p2.x - cikis.x, pipe.p2.y - cikis.y);
+            const farEnd = d1 <= d2 ? pipe.p2 : pipe.p1;
+
+            // Ekran (izdüşüm) koordinatları üzerinden açı
+            const cz = (cikis.z || 0) * t;
+            const cx = cikis.x + cz;
+            const cy = cikis.y - cz;
+            const fz = (farEnd.z || 0) * t;
+            const fx = farEnd.x + fz;
+            const fy = farEnd.y - fz;
+            const angle = Math.atan2(fy - cy, fx - cx);
+
+            // Geometri (drawReducers ile aynı parametreler)
+            const maxDiameter = Math.max(parentCap, childCap);
+            const elbowArmLength = maxDiameter * 0.2;
+            const startOffset = elbowArmLength;
+            const plateauW = Math.max(0.5, maxDiameter * 0.18);
+            const plateauN = Math.max(0.4, maxDiameter * 0.15);
+            const taper = Math.max(2.0, maxDiameter * 0.7);
+            const totalLen = plateauW + taper + plateauN;
+
+            const wideCap = Math.max(parentCap, childCap) + 1;
+            const narrowCap = Math.min(parentCap, childCap);
+            const wideAtJunction = parentCap >= childCap;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle);
+            ctx.translate(startOffset, 0);
+
+            const x0 = 0;
+            const x3 = totalLen;
+            let x1, x2, wAtX0, wAtX3;
+            if (wideAtJunction) {
+                x1 = plateauW;
+                x2 = plateauW + taper;
+                wAtX0 = wideCap;
+                wAtX3 = narrowCap;
+            } else {
+                x1 = plateauN;
+                x2 = plateauN + taper;
+                wAtX0 = narrowCap;
+                wAtX3 = wideCap;
+            }
+            ctx.beginPath();
+            ctx.moveTo(x0, -wAtX0 / 2);
+            ctx.lineTo(x1, -wAtX0 / 2);
+            ctx.lineTo(x2, -wAtX3 / 2);
+            ctx.lineTo(x3, -wAtX3 / 2);
+            ctx.lineTo(x3, wAtX3 / 2);
+            ctx.lineTo(x2, wAtX3 / 2);
+            ctx.lineTo(x1, wAtX0 / 2);
+            ctx.lineTo(x0, wAtX0 / 2);
+            ctx.closePath();
+            ctx.fillStyle = fill;
+            ctx.fill();
+            ctx.strokeStyle = accent;
+            ctx.lineWidth = 0.2;
+            ctx.stroke();
+
+            ctx.restore();
         });
     },
 

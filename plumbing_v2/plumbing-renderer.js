@@ -99,6 +99,7 @@ export class PlumbingRenderer {
             ctx.globalAlpha = (ctx.globalAlpha || 1) * 0.12;
             _skOther.forEach(comp => this.drawComponent(ctx, comp, manager));
             this.drawPipes(ctx, _pipesOther);
+            this.drawServiceBoxReducers(ctx, _skOther, _pipesOther);
             this.drawPipeWallCrossings(ctx, _pipesOther);
             this.drawTopraklamaSymbols(ctx, _pipesOther);
             this.drawFloorCrossingMarkers(ctx, _pipesOther);
@@ -109,6 +110,7 @@ export class PlumbingRenderer {
         // Aktif kat — normal
         _skCurrent.forEach(comp => this.drawComponent(ctx, comp, manager));
         this.drawPipes(ctx, _pipesCurrent);
+        this.drawServiceBoxReducers(ctx, _skCurrent, _pipesCurrent);
         this.drawPipeWallCrossings(ctx, _pipesCurrent);
         this.drawTopraklamaSymbols(ctx, _pipesCurrent);
         this.drawFloorCrossingMarkers(ctx, _pipesCurrent);

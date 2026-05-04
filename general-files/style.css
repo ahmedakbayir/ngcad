@@ -4299,6 +4299,233 @@ body.light-mode .fittings-table-wrapper {
     font-size: 13px;
 }
 
+/* ───────── Boru Çapı Hesaplama Çizelgesi (Modal + Tablo) ───────── */
+.bc-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 10001;
+}
+
+.bc-modal {
+    background: var(--bg-popup, #2a2a2a);
+    color: var(--color-text, #eaeef5);
+    border: 1px solid var(--border-button, #444);
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    min-width: 920px;
+    max-width: calc(100vw - 60px);
+    max-height: calc(100vh - 60px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: absolute;
+}
+
+.bc-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border-button, #444);
+    background: rgba(255, 255, 255, 0.03);
+    cursor: move;
+    user-select: none;
+}
+
+.bc-modal.dragging {
+    transition: none;
+    box-shadow: 0 16px 56px rgba(0, 0, 0, 0.7);
+}
+
+.bc-modal-header:active { cursor: grabbing; }
+
+.bc-modal-title {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.bc-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--color-text, #eaeef5);
+    font-size: 18px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bc-modal-close:hover { background: rgba(255, 255, 255, 0.08); }
+
+.bc-modal-body {
+    padding: 18px;
+    overflow: auto;
+}
+
+.bc-table-wrapper {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--ft-border, rgba(255, 255, 255, 0.08));
+    background: var(--ft-row, rgba(255, 255, 255, 0.02));
+}
+
+.bc-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--color-text, #e6e8eb);
+    font-variant-numeric: tabular-nums;
+}
+
+.bc-table thead th {
+    background: var(--ft-head, rgba(255, 255, 255, 0.04));
+    color: var(--ft-head-text, rgba(230, 232, 235, 0.85));
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.4px;
+    text-align: center;
+    padding: 12px 10px 6px;
+    border-bottom: 1px solid var(--ft-border, rgba(255, 255, 255, 0.08));
+    white-space: nowrap;
+}
+
+.bc-table thead .bc-units-row th {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--ft-coef-text, rgba(230, 232, 235, 0.45));
+    padding: 0 10px 10px;
+    text-transform: none;
+    letter-spacing: 0;
+    border-bottom: 1px solid var(--ft-border-strong, rgba(255, 255, 255, 0.12));
+}
+
+.bc-table thead .bc-no {
+    vertical-align: middle;
+    width: 50px;
+    text-align: center;
+    border-bottom: 1px solid var(--ft-border-strong, rgba(255, 255, 255, 0.12));
+}
+
+.bc-section-row td {
+    padding: 10px 14px !important;
+    background: rgba(110, 168, 255, 0.06) !important;
+    color: var(--ft-accent, #6ea8ff);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-align: center !important;
+    text-transform: uppercase;
+    border-top: 1px solid var(--ft-border-strong, rgba(255, 255, 255, 0.12));
+    border-bottom: 1px solid var(--ft-border-strong, rgba(255, 255, 255, 0.12));
+}
+
+.bc-table tbody td {
+    padding: 9px 10px;
+    text-align: center;
+    border-bottom: 1px solid var(--ft-border, rgba(255, 255, 255, 0.06));
+    background: transparent;
+}
+
+.bc-table tbody tr:hover td {
+    background: var(--ft-row-hover, rgba(255, 255, 255, 0.04));
+}
+
+.bc-table tbody .bc-no {
+    text-align: center;
+    font-weight: 600;
+    color: var(--ft-coef-text, rgba(230, 232, 235, 0.7));
+    width: 50px;
+}
+
+.bc-table tbody .bc-cell {
+    color: var(--color-text, #e6e8eb);
+    font-weight: 500;
+}
+
+.bc-table tbody .bc-empty {
+    color: var(--ft-coef-text, rgba(230, 232, 235, 0.4));
+    font-style: italic;
+    text-align: center;
+}
+
+.bc-table tbody .bc-total {
+    font-weight: 700;
+    color: var(--ft-accent, #6ea8ff);
+}
+
+.bc-table tbody .bc-warn {
+    color: #ef9a9a;
+    font-weight: 700;
+}
+
+.bc-table tbody .bc-xi {
+    cursor: help;
+    border-bottom: 1px dotted var(--ft-coef-text, rgba(230, 232, 235, 0.35));
+}
+
+.bc-dn {
+    padding: 4px !important;
+}
+
+.bc-dn-select {
+    background: var(--bg-input, rgba(255, 255, 255, 0.06));
+    color: var(--color-text, #e6e8eb);
+    border: 1px solid var(--ft-border-strong, rgba(255, 255, 255, 0.18));
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.bc-dn-select:hover {
+    border-color: var(--ft-accent, #6ea8ff);
+    background: rgba(110, 168, 255, 0.06);
+}
+
+.bc-dn-select:focus {
+    border-color: var(--ft-accent, #6ea8ff);
+    box-shadow: 0 0 0 2px rgba(110, 168, 255, 0.2);
+}
+
+.bc-empty-msg {
+    padding: 40px 20px;
+    text-align: center;
+    opacity: 0.55;
+    font-style: italic;
+    font-size: 13px;
+}
+
+body.light-mode .bc-table-wrapper {
+    --ft-border: rgba(0, 0, 0, 0.08);
+    --ft-border-strong: rgba(0, 0, 0, 0.14);
+    --ft-row: #ffffff;
+    --ft-row-hover: rgba(0, 0, 0, 0.025);
+    --ft-head: rgba(0, 0, 0, 0.025);
+    --ft-head-text: rgba(30, 30, 30, 0.65);
+    --ft-coef-text: rgba(30, 30, 30, 0.4);
+    --ft-accent: #2563eb;
+}
+
+body.light-mode .bc-section-row td {
+    background: rgba(37, 99, 235, 0.07) !important;
+}
+
+body.light-mode .bc-dn-select {
+    background: #ffffff;
+    color: #1f1f1f;
+    border-color: rgba(0, 0, 0, 0.18);
+}
+
 /* Tıklanabilir Proje Adı Alanı */
 .project-name-input {
     background: transparent;

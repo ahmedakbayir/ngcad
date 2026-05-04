@@ -403,15 +403,6 @@ export function initFittingsMenu() {
         }
     });
 
-    const boruCapBtn = document.getElementById('menuHesapBoruCap');
-    if (boruCapBtn) {
-        boruCapBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            mainMenu?.parentElement.classList.remove('show');
-            // Boru çapı hesapları daha sonra eklenecek
-        });
-    }
-
     const hesapTrigger = document.getElementById('menuHesap');
     if (hesapTrigger) {
         hesapTrigger.addEventListener('click', (e) => e.preventDefault());

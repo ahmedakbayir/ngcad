@@ -488,8 +488,6 @@ export const LabelMixin = {
             pipe.p2.y - pipe.p1.y,
             (pipe.p2.z || 0) - (pipe.p1.z || 0)
         );
-        if (len3D < 15) return;
-
         const z1 = (pipe.p1.z || 0) * t, z2 = (pipe.p2.z || 0) * t;
         const sx1 = pipe.p1.x + z1, sy1 = pipe.p1.y - z1;
         const sx2 = pipe.p2.x + z2, sy2 = pipe.p2.y - z2;
