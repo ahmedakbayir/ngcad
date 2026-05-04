@@ -264,7 +264,7 @@ function cascadeHats(hats, fittingsByHat) {
 }
 
 // ─── BİÇİMLENDİRME ─────────────────────────────────────────────────────────────
-const NF4 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+const NF4 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 const NF2 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function f4(n) {
@@ -334,8 +334,8 @@ function renderRow(row, fittingsRow) {
     return `
         <tr>
             <td class="bc-no">${row.hatNo}</td>
-            <td class="bc-cell">${f4(row.Q)}</td>
-            <td class="bc-cell">${f4(row.L_m)}</td>
+            <td class="bc-cell">${f2(row.Q)}</td>
+            <td class="bc-cell">${f2(row.L_m)}</td>
             <td class="bc-cell bc-dn">${dnSelect}</td>
             <td class="${vClass}" title="${row.vWarn ? 'V > 6 m/s — TS 7363 sınırı aşıldı' : ''}">${f4(row.v)}</td>
             <td class="bc-cell">${f4(row.dPR_L)}</td>

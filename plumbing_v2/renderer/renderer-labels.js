@@ -595,7 +595,7 @@ export const LabelMixin = {
         }
 
         // Bilgi satırları (küçük font)
-        const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(1) : null;
+        const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2) : null;
         const debi = typeof pipe.debi === 'number' ? pipe.debi : null;
         const cap = pipe.boruCap || '';
 
