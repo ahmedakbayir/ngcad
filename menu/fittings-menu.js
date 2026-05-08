@@ -56,13 +56,13 @@ function negate3(v) {
     return { x: -v.x, y: -v.y, z: -v.z };
 }
 
-function buildJunctions(pipes, hatMap) {
+function buildJunctions(pipes, hatMap, sectionOf) {
     const tol = 0.5;
     const map = new Map();
 
     const addEntry = (key, x, y, z, pipe, far, near) => {
         if (!map.has(key)) {
-            map.set(key, { x, y, z, pipes: [], dirs: [], caps: [], hatNos: [], ends: [] });
+            map.set(key, { x, y, z, pipes: [], dirs: [], caps: [], hatNos: [], secIdxs: [], ends: [] });
         }
         const entry = map.get(key);
         // 3B çıkış birim vektörü (kavşaktan borunun uzak ucuna)
@@ -72,6 +72,7 @@ function buildJunctions(pipes, hatMap) {
         entry.dirs.push(dir);
         entry.caps.push(pipe.boruCap || 'DN25');
         entry.hatNos.push(hatMap.get(pipe.id));
+        entry.secIdxs.push(sectionOf ? sectionOf.get(pipe.id) : null);
         entry.ends.push(near === pipe.p1 ? 'p1' : 'p2');
     };
 
@@ -90,12 +91,12 @@ function buildJunctions(pipes, hatMap) {
     return map;
 }
 
-function ensureStat(stats, hatNo) {
-    if (hatNo == null) return null;
-    if (!stats.has(hatNo)) {
-        stats.set(hatNo, { dirsek90: 0, dirsek45: 0, reduksiyon: 0, vana: 0, teKol: 0 });
+function ensureStat(stats, key) {
+    if (key == null) return null;
+    if (!stats.has(key)) {
+        stats.set(key, { dirsek90: 0, dirsek45: 0, reduksiyon: 0, vana: 0, teKol: 0 });
     }
-    return stats.get(hatNo);
+    return stats.get(key);
 }
 
 function classifyElbow(aciklikDeg) {
@@ -113,24 +114,35 @@ export function computeFittings(manager) {
         return { rows: [], hatNos: [] };
     }
 
-    const { hatMap } = computeHatGroups(manager.pipes, manager.components || []);
-    const stats = new Map();
+    const { hatMap, sectionOf } = computeHatGroups(manager.pipes, manager.components || []);
 
-    // 0) Tüm mevcut hatlar için boş satır oluştur (fittings olmasa da tabloda görünsün)
-    hatMap.forEach(hatNo => { ensureStat(stats, hatNo); });
+    // Stats SECTION bazında tutulur (hatNo değil) — aynı hatNo'yu paylaşan
+    // birden fazla fiziksel section varsa, her section ayrı ayrı sayılır;
+    // sonda her hatNo için bir temsilci section seçilir (çift sayım önlenir).
+    const stats = new Map();         // sectionIdx → { dirsek90, dirsek45, reduksiyon, vana, teKol }
+    const secToHat = new Map();      // sectionIdx → hatNo
 
-    // 1) VANA — bagliBoruId ile bağlı borunun hatNo'su
+    // 0) Tüm mevcut section'lar için boş satır oluştur
+    hatMap.forEach((hatNo, pipeId) => {
+        const si = sectionOf.get(pipeId);
+        if (si == null) return;
+        ensureStat(stats, si);
+        secToHat.set(si, hatNo);
+    });
+
+    const sectionOfPipe = (pipeId) => sectionOf.get(pipeId);
+
+    // 1) VANA — bagliBoruId ile bağlı borunun section'ı
     (manager.components || []).forEach(c => {
         if (c.type !== 'vana' || !c.bagliBoruId) return;
         const pipe = manager.findPipeById(c.bagliBoruId);
         if (!pipe) return;
-        const hatNo = hatMap.get(pipe.id);
-        const s = ensureStat(stats, hatNo);
+        const s = ensureStat(stats, sectionOfPipe(pipe.id));
         if (s) s.vana++;
     });
 
     // 2) Kavşaklara göre dirsek / redüksiyon / TE KOL AYIRMA
-    const junctions = buildJunctions(manager.pipes, hatMap);
+    const junctions = buildJunctions(manager.pipes, hatMap, sectionOf);
 
     junctions.forEach(j => {
         const n = j.pipes.length;
@@ -173,7 +185,7 @@ export function computeFittings(manager) {
             }
 
             if (elbow) {
-                const s = ensureStat(stats, hatMap.get(upstream.id));
+                const s = ensureStat(stats, sectionOfPipe(upstream.id));
                 if (s) {
                     if (elbow === 'D90') s.dirsek90++;
                     else s.dirsek45++;
@@ -181,7 +193,7 @@ export function computeFittings(manager) {
             }
 
             if (capsDiffer) {
-                const s = ensureStat(stats, hatMap.get(downstream.id));
+                const s = ensureStat(stats, sectionOfPipe(downstream.id));
                 if (s) s.reduksiyon++;
             }
             return;
@@ -207,7 +219,7 @@ export function computeFittings(manager) {
                 const childDir = j.dirs[i];
                 const angleDeg = angleBetweenVec3(gelenFlow, childDir) * 180 / Math.PI;
                 if (angleDeg >= 60 && angleDeg <= 120) {
-                    const s = ensureStat(stats, j.hatNos[i]);
+                    const s = ensureStat(stats, j.secIdxs[i]);
                     if (s) s.teKol++;
                 }
             }
@@ -220,18 +232,32 @@ export function computeFittings(manager) {
             const maxDn = Math.max(...dnVals);
             for (let i = 0; i < n; i++) {
                 if (dnVals[i] < maxDn) {
-                    // "Kendinden sonraki hat" — küçük çaplı borunun kendi hat'ı (downstream)
-                    const s = ensureStat(stats, j.hatNos[i]);
+                    // "Kendinden sonraki hat" — küçük çaplı borunun kendi section'ı (downstream)
+                    const s = ensureStat(stats, j.secIdxs[i]);
                     if (s) s.reduksiyon++;
                 }
             }
         }
     });
 
+    // Section bazlı stats'ı hatNo bazına indirge: her hatNo için en küçük
+    // sectionIdx'li temsilci section seçilir (aynı hatNo'yu paylaşan section'lar
+    // fingerprint'ten dolayı zaten "aynı" varsayılır → bir temsilci yeterli).
+    const hatToRepSec = new Map();
+    Array.from(secToHat.keys()).sort((a, b) => a - b).forEach(si => {
+        const hatNo = secToHat.get(si);
+        if (!hatToRepSec.has(hatNo)) hatToRepSec.set(hatNo, si);
+    });
+
+    const hatStats = new Map();
+    hatToRepSec.forEach((si, hatNo) => {
+        hatStats.set(hatNo, stats.get(si) || { dirsek90: 0, dirsek45: 0, reduksiyon: 0, vana: 0, teKol: 0 });
+    });
+
     // Sonucu sıralı listeye dönüştür
-    const hatNos = Array.from(stats.keys()).sort((a, b) => a - b);
+    const hatNos = Array.from(hatStats.keys()).sort((a, b) => a - b);
     const rows = hatNos.map(hatNo => {
-        const v = stats.get(hatNo);
+        const v = hatStats.get(hatNo);
         const total =
             (v.reduksiyon * COEFFS.REDUKSIYON) +
             (v.dirsek90  * COEFFS.DIRSEK_90)  +

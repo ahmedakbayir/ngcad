@@ -63,13 +63,13 @@ export function syncMainToPersp() {
     const tPersp = (typeof state.perspBlendFactor === 'number') ? state.perspBlendFactor : 1;
     const center = _worldAtCanvasCenter(dom.c2d, state.zoom, state.panOffset, tMain);
     if (!center) return;
-    /*const newZoom = state.zoom;
+    const newZoom = state.zoom;
     const newPan = _panToCenterWorld(dom.cPersp, newZoom, tPersp, center);
     _syncing = true;
     state.perspZoom = newZoom;
     state.perspPanOffset = newPan;
     _syncing = false;
-    */
+    
 }
 
 export function syncPerspToMain() {
@@ -80,12 +80,12 @@ export function syncPerspToMain() {
     const tPersp = (typeof state.perspBlendFactor === 'number') ? state.perspBlendFactor : 1;
     const center = _worldAtCanvasCenter(dom.cPersp, state.perspZoom, state.perspPanOffset, tPersp);
     if (!center) return;
-    /*const newZoom = state.perspZoom;
+    const newZoom = state.perspZoom;
     const newPan = _panToCenterWorld(dom.c2d, newZoom, tMain, center);
     _syncing = true;
     setState({ zoom: newZoom, panOffset: newPan });
     _syncing = false;
-    */
+    
 }
 
 // ─── 3D PERSPEKTİF GRID + ZEMİN (Katı Model kamerasıyla aynı parametreler) ───

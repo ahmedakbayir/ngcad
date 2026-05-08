@@ -259,7 +259,30 @@ export function toggle3DView() {
     }, 10);
 }
 
+// Persp paneli son kullanıcı genişliği (kapatılırken hatırlanır, sonraki açılışta geri yüklenir).
+let _savedPerspP2dFlex = null;
+let _savedPerspPanelFlex = null;
+let _savedPerspRatioBtn = null;
+
+function _capturePerspFlex() {
+    const p2d = document.getElementById('p2d');
+    const pPersp = document.getElementById('pPersp');
+    if (!p2d || !pPersp) return;
+    // Sadece anlamlı (kapalı durumun '0 0 0' / '1 1 100%' kombinasyonu olmayan) genişlikleri yakala.
+    const f2 = p2d.style.flex;
+    const fp = pPersp.style.flex;
+    if (!fp || fp === '0 0 0') return;
+    _savedPerspP2dFlex = f2;
+    _savedPerspPanelFlex = fp;
+    const activeBtn = document.querySelector('#persp-ratio-buttons .split-btn.active');
+    _savedPerspRatioBtn = activeBtn ? activeBtn.id : null;
+}
+
 export function togglePerspView() {
+    const wasActive = dom.mainContainer.classList.contains('show-persp');
+    // Kapatma anı: mevcut genişliği kaydet.
+    if (wasActive) _capturePerspFlex();
+
     dom.mainContainer.classList.toggle('show-persp');
     const isActive = dom.mainContainer.classList.contains('show-persp');
     if (dom.bPersp) dom.bPersp.classList.toggle('active', isActive);
@@ -269,12 +292,31 @@ export function togglePerspView() {
         const btns = document.getElementById('persp-ratio-buttons');
         if (btns) btns.style.display = 'flex';
         if (dom.perspSplitter) dom.perspSplitter.style.display = 'block';
-        // Default: %50
-        setPerspRatio(50);
+        // Önceki kapatmadan kalan genişlik varsa onu geri yükle, yoksa varsayılan %50.
+        if (_savedPerspPanelFlex) {
+            const p2d = document.getElementById('p2d');
+            const pPersp = document.getElementById('pPersp');
+            if (p2d) p2d.style.flex = _savedPerspP2dFlex || '';
+            if (pPersp) pPersp.style.flex = _savedPerspPanelFlex;
+            document.querySelectorAll('#persp-ratio-buttons .split-btn').forEach(b => b.classList.remove('active'));
+            if (_savedPerspRatioBtn) {
+                const btn = document.getElementById(_savedPerspRatioBtn);
+                if (btn) btn.classList.add('active');
+            }
+        } else {
+            setPerspRatio(50);
+        }
     } else {
         const btns = document.getElementById('persp-ratio-buttons');
         if (btns) btns.style.display = 'none';
         if (dom.perspSplitter) dom.perspSplitter.style.display = 'none';
+        // Kapanırken inline flex stillerini temizle ki p2d sabit genişlikte
+        // (örn. splitter veya %100 ratio kalıntısı) takılı kalmasın — CSS varsayılanı
+        // (#p2d { flex: 1 1 auto }) tüm alanı doldurur.
+        const p2d = document.getElementById('p2d');
+        const pPersp = document.getElementById('pPersp');
+        if (p2d) p2d.style.flex = '';
+        if (pPersp) pPersp.style.flex = '';
     }
 
     setTimeout(() => {
@@ -294,6 +336,8 @@ export function setPerspRatio(ratio) {
     if (activeBtn) activeBtn.classList.add('active');
 
     if (ratio === 0) {
+        // Kapatmadan önce mevcut genişliği kaydet ki bir sonraki açılışta geri yüklensin.
+        if (dom.mainContainer.classList.contains('show-persp')) _capturePerspFlex();
         p2dPanel.style.flex = '1 1 100%';
         pPerspPanel.style.flex = '0 0 0';
         if (dom.mainContainer.classList.contains('show-persp')) togglePerspView();
@@ -325,6 +369,9 @@ export function setPerspRatio(ratio) {
         p2dPanel.style.flex = '1 1 75%';
         pPerspPanel.style.flex = '1 1 25%';
     }
+
+    // Son kullanıcı genişliğini kaydet (sonraki açılışta geri yüklenecek).
+    _capturePerspFlex();
 
     setTimeout(() => {
         resize();
@@ -1197,6 +1244,10 @@ function onPerspSplitterPointerMove(e) {
     if (p2dWidth > max2DWidth) p2dWidth = max2DWidth;
     p2dPanel.style.flex = `0 0 ${p2dWidth}px`;
     pPerspPanel.style.flex = `1 1 auto`;
+    // Preset ratio butonlarının aktif durumunu temizle (kullanıcı manuel sürüklüyor).
+    document.querySelectorAll('#persp-ratio-buttons .split-btn').forEach(b => b.classList.remove('active'));
+    // Son kullanıcı genişliğini kaydet.
+    _capturePerspFlex();
     resize();
     import('../draw/draw-persp.js').then(m => m.syncMainToPersp()).catch(() => {});
 }

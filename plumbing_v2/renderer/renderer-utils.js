@@ -684,10 +684,10 @@ export function computePipeDebileri(manager) {
  *   Eşleşme kriterleri: debi · toplam uzunluk · yükseklik farkı · basınç · dirsek sayısı
  *                       · önceki hat çapı · sonraki hat çapı
  *
- * @returns {{ hatMap: Map<pipeId, hatNo>, hatCount: number }}
+ * @returns {{ hatMap: Map<pipeId, hatNo>, sectionOf: Map<pipeId, sectionIdx>, hatCount: number }}
  */
 export function computeHatGroups(pipes, components) {
-    if (!pipes || pipes.length === 0) return { hatMap: new Map(), hatCount: 0 };
+    if (!pipes || pipes.length === 0) return { hatMap: new Map(), sectionOf: new Map(), hatCount: 0 };
 
     const pipeMap = new Map(pipes.map(p => [p.id, p]));
 
@@ -910,5 +910,5 @@ export function computeHatGroups(pipes, components) {
         sayacOncesiAll.forEach(pid => hatMap.delete(pid));
     }
 
-    return { hatMap, hatCount: hatCounter21 + (hatCounter300 - 300) };
+    return { hatMap, sectionOf, hatCount: hatCounter21 + (hatCounter300 - 300) };
 }
