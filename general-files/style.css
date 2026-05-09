@@ -4614,7 +4614,7 @@ body.light-mode .bc-tab-bar {
 .bc-path {
     position: relative;
     display: grid;
-    grid-template-columns: 22px 1fr auto;
+    grid-template-columns: 22px 1fr auto auto;
     align-items: center;
     gap: 10px;
     padding: 8px 14px;
@@ -4703,6 +4703,14 @@ body.light-mode .bc-tab-bar {
 .bc-path.over .bc-path-value {
     color: #ef5350;
     font-weight: 700;
+}
+
+.bc-path-limit {
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--color-secondary, rgba(255, 255, 255, 0.55));
+    min-width: 90px;
+    text-align: right;
 }
 
 /* — Tablo satırı vurgulama (yol seçildiğinde / hat tıklandığında) — */

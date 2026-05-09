@@ -231,6 +231,47 @@ export function buildHatData(manager) {
         hatPipes.get(hatNo).push(pid);
     });
 
+    // Component lookup yardımcıları (endpoint ve regülatör tespiti için)
+    const comps = manager.components || [];
+    const sayacByGirisPipe = new Map();
+    const cihazByGirisPipe = new Map();
+    const vanaByPipe = new Map();
+    const regulatorsByPipe = new Map();
+    comps.forEach(c => {
+        if (c.type === 'sayac' && c.fleksBaglanti?.boruId) {
+            sayacByGirisPipe.set(c.fleksBaglanti.boruId, c);
+        } else if (c.type === 'cihaz' && c.fleksBaglanti?.boruId) {
+            cihazByGirisPipe.set(c.fleksBaglanti.boruId, c);
+        } else if (c.type === 'vana' && c.bagliBoruId) {
+            if (!vanaByPipe.has(c.bagliBoruId)) vanaByPipe.set(c.bagliBoruId, []);
+            vanaByPipe.get(c.bagliBoruId).push(c);
+        } else if (c.type === 'regulator' && c.bagliBoruId) {
+            if (!regulatorsByPipe.has(c.bagliBoruId)) regulatorsByPipe.set(c.bagliBoruId, []);
+            regulatorsByPipe.get(c.bagliBoruId).push(c);
+        }
+    });
+
+    function determineEndpointType(tailPipeId) {
+        if (!tailPipeId) return null;
+        if (sayacByGirisPipe.has(tailPipeId)) return 'SAYAC';
+        if (cihazByGirisPipe.has(tailPipeId)) return 'CIHAZ';
+        const vanas = vanaByPipe.get(tailPipeId) || [];
+        // Sonlanma vanası varsa onu seç
+        const yan = vanas.find(v => v.vanaTipi === 'YANBINA');
+        if (yan) return 'YANBINA';
+        const bran = vanas.find(v => v.vanaTipi === 'BRANSMAN');
+        if (bran) return bran.ilerdeKullanim ? 'BRANSMAN_ILERDE' : 'BRANSMAN';
+        return null;
+    }
+
+    // Bu hattın TAİL pipe'ında p2 ucunda regülatör var mı?
+    // (recomputeAllPressures regülatörü p2 yakınında varsa tetikleyici sayar.)
+    function tailHasRegulator(tailPipeId) {
+        if (!tailPipeId) return false;
+        const regs = regulatorsByPipe.get(tailPipeId) || [];
+        return regs.some(r => (r.boruPozisyonu || 0) >= 0.5);
+    }
+
     const hats = [];
     hatPipes.forEach((pids, hatNo) => {
         const localSet = new Set(pids);
@@ -285,6 +326,12 @@ export function buildHatData(manager) {
         const meter = pids.map(id => meterByPipe.get(id)).find(Boolean) || null;
         const boruTipi = meter?.birimBoruTipi === 'ESNEK' ? 'ESNEK' : 'CELIK';
 
+        // Yaprak hat mı? (alt hatları yok)
+        const allChildIds = pids.flatMap(id => childrenOf.get(id) || []);
+        const isLeafHat = allChildIds.every(cid => localSet.has(cid));
+        const endpointType = isLeafHat ? determineEndpointType(tailPipe.id) : null;
+        const regAtTail = tailHasRegulator(tailPipe.id);
+
         hats.push({
             hatNo,
             dn:       pipeId(pipes[0]),
@@ -298,6 +345,8 @@ export function buildHatData(manager) {
             pipeIds:  pids,
             headPipeId: headPipe.id,
             tailPipeId: tailPipe.id,
+            endpointType,
+            regAtTail,
         });
     });
 
@@ -599,17 +648,81 @@ function renderTable(rows, fittingsByHat, tabId) {
 // ─── YOL ENÜMERASYONU & LİMİT KONTROLÜ ────────────────────────────────────────
 // Limit (mbar) — bu değer ve üstü hatalı (kırmızı).
 export const PATH_LIMITS = {
-    KOLON:       1.0000,   // bina bağlantısı / kolon hattı (21–50 mbar)
-    KOLON_HIGH: 21.0000,   // 300 mbar kutu → vana / sayaç arası
-    TUKETIM:     0.8000,   // sayaç sonrası iç tesisat
+    // 21 mbar kutu → sayaç (varsayılan kolon)
+    KOLON:                   1.0000,
+    // 21 mbar kutu → branşman (ilerde kullanım)
+    KOLON_BRANSMAN:          0.7000,
+    // 21 mbar kutu → yan bina
+    KOLON_YANBINA:           0.4000,
+    // 300 mbar kutu → sayaç (regülatör yok)
+    KOLON_HIGH:             21.0000,
+    // 300 mbar kutu → branşman (ilerde, regülatör yok)
+    KOLON_HIGH_BRANSMAN:    15.0000,
+    // 300 mbar kutu → yan bina (regülatör yok)
+    KOLON_HIGH_YANBINA:     15.0000,
+    // 300 mbar yolda regülatör sonrası → sayaç (regülatör sayaç öncesi)
+    REG_SAYAC:               1.0000,
+    // 300 mbar yolda regülatör sonrası → branşman (ilerde)
+    REG_BRANSMAN:            0.7000,
+    // 300 mbar yolda regülatör sonrası → yan bina
+    REG_YANBINA:             0.4000,
+    // Sayaç sonrası iç tesisat (cihaz)
+    TUKETIM:                 0.8000,
+    // Sayaç sonrası regülatör → cihaz
+    REG_CIHAZ:               1.8000,
 };
 
-// Bir kolon yolunun limiti — yoldaki herhangi bir hat 300 mbar ise yüksek limit kullanılır.
+// Endpoint + start basıncı + regülatör varlığına göre yol limiti ve evalFromIdx
+// (toplama dahil edilecek ilk hat indeksi). Kutu→regülatör segmentine limit yoktur,
+// regülatör sonrası segment ölçülür.
+function getPathLimitInfo(path, byHat, segmentType) {
+    const hatNos = path.hatNos;
+    const lastHat = byHat.get(hatNos[hatNos.length - 1]);
+    const firstHat = byHat.get(hatNos[0]);
+    const endpointType = lastHat?.endpointType || null;
+    const isHighStart  = isHighPressure(firstHat?.basinc);
+
+    // Yoldaki regülatör hattı (regülatör tail'de → bir sonraki hat post-reg)
+    let regHatIdx = -1;
+    for (let i = 0; i < hatNos.length - 1; i++) {
+        if (byHat.get(hatNos[i])?.regAtTail) { regHatIdx = i; break; }
+    }
+    const hasReg     = regHatIdx >= 0;
+    const evalFromIdx = hasReg ? regHatIdx + 1 : 0;
+
+    // TÜKETİM yolları
+    if (segmentType !== 'KOLON') {
+        return {
+            limit: hasReg ? PATH_LIMITS.REG_CIHAZ : PATH_LIMITS.TUKETIM,
+            evalFromIdx,
+            endpointType: endpointType || 'CIHAZ',
+            hasRegulator: hasReg,
+        };
+    }
+
+    // KOLON yolları — endpoint + basınç + regülatör matrixi
+    let limit;
+    if (endpointType === 'BRANSMAN_ILERDE') {
+        if (isHighStart) limit = hasReg ? PATH_LIMITS.REG_BRANSMAN : PATH_LIMITS.KOLON_HIGH_BRANSMAN;
+        else             limit = PATH_LIMITS.KOLON_BRANSMAN;
+    } else if (endpointType === 'YANBINA') {
+        if (isHighStart) limit = hasReg ? PATH_LIMITS.REG_YANBINA : PATH_LIMITS.KOLON_HIGH_YANBINA;
+        else             limit = PATH_LIMITS.KOLON_YANBINA;
+    } else {
+        // SAYAC veya bilinmeyen → varsayılan kolon limiti
+        if (isHighStart) limit = hasReg ? PATH_LIMITS.REG_SAYAC : PATH_LIMITS.KOLON_HIGH;
+        else             limit = PATH_LIMITS.KOLON;
+    }
+
+    return { limit, evalFromIdx, endpointType, hasRegulator: hasReg };
+}
+
+// Geriye dönük uyumluluk: kolon yolu için varsayılan limit (regülatör/endpoint yok varsayımı).
 export function pathLimitForKolon(rows, hatNos) {
     if (!rows || !hatNos) return PATH_LIMITS.KOLON;
     const byHat = rows instanceof Map ? rows : new Map(rows.map(r => [r.hatNo, r]));
-    const isHigh = hatNos.some(h => isHighPressure(byHat.get(h)?.basinc));
-    return isHigh ? PATH_LIMITS.KOLON_HIGH : PATH_LIMITS.KOLON;
+    const fakePath = { hatNos };
+    return getPathLimitInfo(fakePath, byHat, 'KOLON').limit;
 }
 
 // Verilen satır kümesi içinde kök → yaprak yollarını DFS ile çıkar.
@@ -643,33 +756,68 @@ export function enumeratePaths(rows) {
     return paths;
 }
 
-// Kritik (en yüksek kayıp) ve limit aşımı bayraklarını ekler.
-export function annotatePaths(paths, limit) {
+// Her yola özgü limit + evalTotal + overLimit + isCritical hesaplar.
+// segmentType: 'KOLON' veya 'TUKETIM'.
+export function annotatePaths(paths, byHatOrLimit, segmentType = 'KOLON') {
     if (!paths.length) return;
-    let maxTotal = -Infinity;
+
+    // Eski imza: annotatePaths(paths, limit) — sabit limit kullan.
+    if (typeof byHatOrLimit === 'number') {
+        const limit = byHatOrLimit;
+        let maxTotal = -Infinity;
+        paths.forEach(p => {
+            p.limit = limit;
+            p.evalTotal = p.total;
+            p.ratio = limit > 0 ? p.total / limit : 0;
+            p.overLimit = p.total >= limit;
+            if (p.total > maxTotal) maxTotal = p.total;
+        });
+        paths.forEach(p => { p.isCritical = (p.total === maxTotal); });
+        return;
+    }
+
+    const byHat = byHatOrLimit instanceof Map
+        ? byHatOrLimit
+        : new Map((byHatOrLimit || []).map(r => [r.hatNo, r]));
+
     paths.forEach(p => {
-        p.overLimit = p.total >= limit;
-        if (p.total > maxTotal) maxTotal = p.total;
+        const info = getPathLimitInfo(p, byHat, segmentType);
+        p.limit         = info.limit;
+        p.evalFromIdx   = info.evalFromIdx;
+        p.endpointType  = info.endpointType;
+        p.hasRegulator  = info.hasRegulator;
+        let total = 0;
+        for (let i = info.evalFromIdx; i < p.hatNos.length; i++) {
+            total += Number(byHat.get(p.hatNos[i])?.sumDP) || 0;
+        }
+        p.evalTotal = total;
+        p.ratio     = info.limit > 0 ? total / info.limit : 0;
+        p.overLimit = total >= info.limit;
+        p.segmentType = segmentType;
     });
-    paths.forEach(p => {
-        p.isCritical = (p.total === maxTotal);
-    });
+
+    let maxRatio = -Infinity;
+    paths.forEach(p => { if (p.ratio > maxRatio) maxRatio = p.ratio; });
+    paths.forEach(p => { p.isCritical = (p.ratio > 0 && p.ratio === maxRatio); });
 }
 
-function renderPathItem(path, limit) {
+function renderPathItem(path) {
+    const limit = path.limit ?? 0;
+    const value = path.evalTotal ?? path.total ?? 0;
     const status = path.overLimit ? '❌' : '✅';
-    const ratio = limit > 0 ? path.total / limit : 0;
-    const frac = Math.max(0, Math.min(1, ratio));
+    const frac = limit > 0 ? Math.max(0, Math.min(1, value / limit)) : 0;
     const cls = [
         'bc-path',
         path.isCritical ? 'critical' : '',
         path.overLimit  ? 'over'     : '',
     ].filter(Boolean).join(' ');
+    const limitStr = NF4.format(limit);
     return `
         <button type="button" class="${cls}" data-hats="${path.hatNos.join(',')}" style="--bc-bar-frac:${frac.toFixed(4)}">
             <span class="bc-path-status">${status}</span>
             <span class="bc-path-label">${path.hatNos.join(' + ')}</span>
-            <span class="bc-path-value">${f4(path.total)} mbar</span>
+            <span class="bc-path-value">${f4(value)} mbar</span>
+            <span class="bc-path-limit">&lt; ${limitStr} mbar</span>
         </button>`;
 }
 
@@ -684,34 +832,29 @@ function sortPathsByHat(paths) {
     });
 }
 
-function renderPathsBlock(title, paths, limit) {
+function renderPathsBlock(title, paths) {
     if (!paths.length) return '';
     sortPathsByHat(paths);
-    const limitStr = NF4.format(limit);
     return `
         <div class="bc-paths-block">
-            <div class="bc-paths-title">
-                ${title}
-                <span class="bc-paths-limit">limit &lt; ${limitStr} mbar</span>
-            </div>
-            <div class="bc-path-list">${paths.map(p => renderPathItem(p, limit)).join('')}</div>
+            <div class="bc-paths-title">${title}</div>
+            <div class="bc-path-list">${paths.map(p => renderPathItem(p)).join('')}</div>
         </div>`;
 }
 
-function renderPathsSection(rows, tabId) {
+function renderPathsSection(rows) {
     const kolonRows = rows.filter(r => r.segmentType === 'KOLON');
     const tukRows   = rows.filter(r => r.segmentType !== 'KOLON');
     const kolon = enumeratePaths(kolonRows);
     const tuk   = enumeratePaths(tukRows);
-    // 300 mbar tabında kolon limiti 21 mbar (kutu → vana / sayaç).
-    const kolonLimit = tabId === 'CELIK_HIGH' ? PATH_LIMITS.KOLON_HIGH : PATH_LIMITS.KOLON;
-    annotatePaths(kolon, kolonLimit);
-    annotatePaths(tuk,   PATH_LIMITS.TUKETIM);
+    const byHat = new Map(rows.map(r => [r.hatNo, r]));
+    annotatePaths(kolon, byHat, 'KOLON');
+    annotatePaths(tuk,   byHat, 'TUKETIM');
     if (!kolon.length && !tuk.length) return '';
     return `
         <div class="bc-paths">
-            ${renderPathsBlock('KOLON HATTI YOLLARI', kolon, kolonLimit)}
-            ${renderPathsBlock('İÇ TESİSAT YOLLARI', tuk,   PATH_LIMITS.TUKETIM)}
+            ${renderPathsBlock('KOLON HATTI YOLLARI', kolon)}
+            ${renderPathsBlock('İÇ TESİSAT YOLLARI', tuk)}
         </div>`;
 }
 
@@ -784,7 +927,7 @@ function renderInto(bodyEl) {
     bodyEl.innerHTML = `
         ${renderTabBar(availableTabs, _activeTab)}
         ${renderTable(active.rows, fittingsByHat, _activeTab)}
-        ${renderPathsSection(active.rows, _activeTab)}
+        ${renderPathsSection(active.rows)}
     `;
 
     // Tab tıklamaları

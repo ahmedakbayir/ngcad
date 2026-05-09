@@ -30,7 +30,6 @@ import {
     enumeratePaths,
     annotatePaths,
     PATH_LIMITS,
-    pathLimitForKolon,
     DN_LIST,
     ESNEK_DN_LIST,
 } from './boru-cap-menu.js';
@@ -247,21 +246,10 @@ function compute(manager) {
     const kolonPaths = enumeratePaths(kolonRows);
     const tukPaths   = enumeratePaths(tukRows);
 
-    // Her yolun limiti ayrı: 300 mbar kolon → 21 mbar; 21 mbar kolon → 1 mbar.
-    kolonPaths.forEach(p => {
-        p.limit = pathLimitForKolon(rowsByHat, p.hatNos);
-        p.ratio = p.total / p.limit;
-        p.segmentType = 'KOLON';
-        p.overLimit = p.total >= p.limit;
-    });
-    tukPaths.forEach(p => {
-        p.limit = PATH_LIMITS.TUKETIM;
-        p.ratio = p.total / p.limit;
-        p.segmentType = 'TUK';
-        p.overLimit = p.total >= p.limit;
-    });
-    annotatePaths(kolonPaths, PATH_LIMITS.KOLON_HIGH); // kritik bayrak için (limit alanı zaten ayrı)
-    annotatePaths(tukPaths,   PATH_LIMITS.TUKETIM);
+    // Her yolun limiti endpoint + basınç + regülatör matrixinden gelir.
+    // Regülatör varsa toplama yalnızca regülatör sonrası segmenti içerir.
+    annotatePaths(kolonPaths, rowsByHat, 'KOLON');
+    annotatePaths(tukPaths,   rowsByHat, 'TUKETIM');
 
     const allPaths = [...kolonPaths, ...tukPaths];
 
@@ -320,10 +308,14 @@ function raiseHat(manager, state, hatNo) {
 
 // ─── 4) Hedef seçim heuristikleri ─────────────────────────────────────────────
 // Yükseltilecek hat: bir yol (kritik veya limit aşan) üzerindeki en yüksek
-// kayba sahip yükseltilebilir hat.
-function pickRaiseOnPath(state, hatNos) {
+// kayba sahip yükseltilebilir hat. Yolda regülatör varsa yalnızca regülatör
+// sonrası hatlar değerlendirilir (kutu→regülatör segmenti limite tabi değildir).
+function pickRaiseOnPath(state, pathOrHatNos) {
+    const hatNos = Array.isArray(pathOrHatNos) ? pathOrHatNos : pathOrHatNos.hatNos;
+    const fromIdx = (!Array.isArray(pathOrHatNos) && pathOrHatNos.evalFromIdx) || 0;
+    const candidates = hatNos.slice(fromIdx);
     let best = null, bestVal = -Infinity;
-    for (const hn of hatNos) {
+    for (const hn of candidates) {
         if (!canRaise(state, hn)) continue;
         const r = rowByHat(state, hn);
         const contrib = (r.dPR || 0) + (r.dPF || 0);
@@ -500,7 +492,7 @@ function autoSize(manager, mode) {
         } else {
             // Limit aşan yolun en katkılı hattını yükselt
             const worst = findWorstPath(state);
-            if (worst) targetHat = pickRaiseOnPath(state, worst.hatNos);
+            if (worst) targetHat = pickRaiseOnPath(state, worst);
         }
 
         if (targetHat == null) break;
@@ -518,7 +510,7 @@ function autoSize(manager, mode) {
         // Güvenlik: V veya tam limit ihlali yeniden gelirse zorunlu yükselt
         if (state.hasVViolation || state.ratios.max > 1.0) {
             const worst = findWorstPath(state);
-            const t = worst ? pickRaiseOnPath(state, worst.hatNos) : null;
+            const t = worst ? pickRaiseOnPath(state, worst) : null;
             if (t == null || !raiseHat(manager, state, t)) break;
             continue;
         }
@@ -530,7 +522,7 @@ function autoSize(manager, mode) {
 
         if (overBand.length > 0) {
             // En kötü yolda hat yükselt
-            const t = pickRaiseOnPath(state, overBand[0].hatNos);
+            const t = pickRaiseOnPath(state, overBand[0]);
             if (t == null || !raiseHat(manager, state, t)) break;
             continue;
         }
