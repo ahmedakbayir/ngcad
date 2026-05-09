@@ -12,6 +12,12 @@
 // Σξ değerleri "Fittings (Lokal Kayıplar)" tablosundan gelir (computeFittings).
 // İlk hattın P1'i 21 mbar girişler için 1,021 bar; sonraki hatlarda parent
 // hattın P2 değeri kullanılır.
+//
+// ESNEK TESİSAT (sayaç birimBoruTipi = 'ESNEK'): Sayaç sonrası TÜKETİM hatları
+// için ΔPR formül yerine TS EN 15266 BLH hortum tablosundan okunur.
+// V ve ΔPR/L değerleri Q için tabloda lineer interpolasyon ile bulunur.
+// Esnek boru sadece DN15, DN20, DN25, DN32 için tanımlıdır.
+// ΔPZ ve ΔPH normal formülle hesaplanmaya devam eder.
 
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
@@ -41,6 +47,121 @@ const DN_LIST = Object.keys(PIPE_SPECS);
 
 const R_GAS = 0.6;       // gaz sabiti
 const V_LIMIT = 6;       // m/s — Not: V ≤ 6 m/s olmalıdır
+
+// TS EN 15266 — BLH Hortum Takımları (Esnek Tesisat)
+// Q (m³/h) → { v (m/s), dPR_L (mbar/m) }
+// Sadece sayaç birimBoruTipi = 'ESNEK' için ve sayaç sonrası TÜKETİM hatlarına uygulanır.
+const ESNEK_TABLE = {
+    'DN15': [
+        { Q: 0.5, v: 0.79, dPR_L: 0.0092 },
+        { Q: 1.0, v: 1.57, dPR_L: 0.0399 },
+        { Q: 1.5, v: 2.36, dPR_L: 0.0938 },
+        { Q: 2.0, v: 3.14, dPR_L: 0.1722 },
+        { Q: 2.5, v: 3.93, dPR_L: 0.2757 },
+        { Q: 3.0, v: 4.72, dPR_L: 0.4050 },
+        { Q: 3.5, v: 5.50, dPR_L: 0.5606 },
+        { Q: 4.0, v: 6.29, dPR_L: 0.7429 },
+    ],
+    'DN20': [
+        { Q: 0.5, v: 0.44, dPR_L: 0.0025 },
+        { Q: 1.0, v: 0.88, dPR_L: 0.0102 },
+        { Q: 1.5, v: 1.33, dPR_L: 0.0234 },
+        { Q: 2.0, v: 1.77, dPR_L: 0.0422 },
+        { Q: 2.5, v: 2.21, dPR_L: 0.0667 },
+        { Q: 3.0, v: 2.65, dPR_L: 0.0968 },
+        { Q: 3.5, v: 3.09, dPR_L: 0.1328 },
+        { Q: 4.0, v: 3.54, dPR_L: 0.1746 },
+        { Q: 4.5, v: 3.98, dPR_L: 0.2222 },
+        { Q: 5.0, v: 4.42, dPR_L: 0.2757 },
+        { Q: 5.5, v: 4.86, dPR_L: 0.3352 },
+        { Q: 6.0, v: 5.31, dPR_L: 0.4006 },
+        { Q: 6.5, v: 5.75, dPR_L: 0.4720 },
+        { Q: 7.0, v: 6.19, dPR_L: 0.5494 },
+    ],
+    'DN25': [
+        { Q: 1.5,  v: 0.85, dPR_L: 0.0035 },
+        { Q: 2.0,  v: 1.13, dPR_L: 0.0075 },
+        { Q: 2.5,  v: 1.41, dPR_L: 0.0135 },
+        { Q: 3.0,  v: 1.70, dPR_L: 0.0218 },
+        { Q: 3.5,  v: 1.98, dPR_L: 0.0327 },
+        { Q: 4.0,  v: 2.26, dPR_L: 0.0465 },
+        { Q: 4.5,  v: 2.55, dPR_L: 0.0635 },
+        { Q: 5.0,  v: 2.83, dPR_L: 0.0839 },
+        { Q: 5.5,  v: 3.11, dPR_L: 0.1078 },
+        { Q: 6.0,  v: 3.40, dPR_L: 0.1357 },
+        { Q: 6.5,  v: 3.68, dPR_L: 0.1676 },
+        { Q: 7.0,  v: 3.96, dPR_L: 0.2038 },
+        { Q: 7.5,  v: 4.24, dPR_L: 0.2445 },
+        { Q: 8.0,  v: 4.53, dPR_L: 0.2898 },
+        { Q: 8.5,  v: 4.81, dPR_L: 0.3401 },
+        { Q: 9.0,  v: 5.09, dPR_L: 0.3955 },
+        { Q: 9.5,  v: 5.38, dPR_L: 0.4561 },
+        { Q: 10.0, v: 5.66, dPR_L: 0.5223 },
+        { Q: 10.5, v: 5.94, dPR_L: 0.5940 },
+        { Q: 11.0, v: 6.22, dPR_L: 0.6716 },
+    ],
+    'DN32': [
+        { Q: 3.5,  v: 1.21, dPR_L: 0.0302 },
+        { Q: 4.0,  v: 1.38, dPR_L: 0.0337 },
+        { Q: 4.5,  v: 1.55, dPR_L: 0.0371 },
+        { Q: 5.0,  v: 1.73, dPR_L: 0.0405 },
+        { Q: 5.5,  v: 1.90, dPR_L: 0.0438 },
+        { Q: 6.0,  v: 2.07, dPR_L: 0.0470 },
+        { Q: 6.5,  v: 2.25, dPR_L: 0.0502 },
+        { Q: 7.0,  v: 2.42, dPR_L: 0.0533 },
+        { Q: 7.5,  v: 2.59, dPR_L: 0.0565 },
+        { Q: 8.0,  v: 2.76, dPR_L: 0.0595 },
+        { Q: 8.5,  v: 2.94, dPR_L: 0.0626 },
+        { Q: 9.0,  v: 3.11, dPR_L: 0.0656 },
+        { Q: 9.5,  v: 3.28, dPR_L: 0.0685 },
+        { Q: 10.0, v: 3.45, dPR_L: 0.0715 },
+        { Q: 10.5, v: 3.63, dPR_L: 0.0744 },
+        { Q: 11.0, v: 3.80, dPR_L: 0.0773 },
+        { Q: 11.5, v: 3.97, dPR_L: 0.0802 },
+        { Q: 12.0, v: 4.14, dPR_L: 0.0830 },
+        { Q: 12.5, v: 4.32, dPR_L: 0.0859 },
+        { Q: 13.0, v: 4.49, dPR_L: 0.0887 },
+        { Q: 13.5, v: 4.66, dPR_L: 0.0915 },
+        { Q: 14.0, v: 4.84, dPR_L: 0.0942 },
+        { Q: 14.5, v: 5.01, dPR_L: 0.0970 },
+        { Q: 15.0, v: 5.18, dPR_L: 0.0997 },
+        { Q: 15.5, v: 5.35, dPR_L: 0.1024 },
+        { Q: 16.0, v: 5.53, dPR_L: 0.1051 },
+        { Q: 16.5, v: 5.70, dPR_L: 0.1078 },
+        { Q: 17.0, v: 5.87, dPR_L: 0.1105 },
+        { Q: 17.5, v: 6.04, dPR_L: 0.1132 },
+    ],
+};
+const ESNEK_DN_LIST = Object.keys(ESNEK_TABLE);
+
+// Q için tablo değerlerini lineer interpolasyonla bulur.
+// Q tablo aralığı dışındaysa null döner (geçersiz seçim → daha büyük çap gerek).
+// Q < ilk satır: orijinden ilk satıra doğru lineer ölçekle.
+function interpolateEsnek(dn, Q) {
+    const tbl = ESNEK_TABLE[dn];
+    if (!tbl) return null;
+    if (Q <= 0) return { v: 0, dPR_L: 0 };
+
+    const first = tbl[0];
+    if (Q < first.Q) {
+        const t = Q / first.Q;
+        return { v: first.v * t, dPR_L: first.dPR_L * t };
+    }
+    const last = tbl[tbl.length - 1];
+    if (Q > last.Q) return null;
+
+    for (let i = 0; i < tbl.length - 1; i++) {
+        const a = tbl[i], b = tbl[i + 1];
+        if (Q >= a.Q && Q <= b.Q) {
+            const t = (Q - a.Q) / (b.Q - a.Q);
+            return {
+                v: a.v + t * (b.v - a.v),
+                dPR_L: a.dPR_L + t * (b.dPR_L - a.dPR_L),
+            };
+        }
+    }
+    return null;
+}
 
 // İlk hattın P1'i: 21 mbar tesisat → 1,021 bar; 50 mbar (300 mbar değil) → 1,05 bar
 function defaultP1Bar(basinc) {
@@ -75,20 +196,16 @@ function buildHatData(manager) {
         }
     });
 
-    // Sayaç çıkış borusu (TÜKETİM hattının başlangıcı)
-    const sayacCikisIds = new Set(
-        (manager.components || [])
-            .filter(c => c.type === 'sayac' && c.cikisBagliBoruId)
-            .map(c => c.cikisBagliBoruId)
-    );
-
-    // Her boru için: sayaç sonrası mı? (TÜKETİM/CİHAZ HATTI)
+    // Her boru için: sayaç sonrası mı? (TÜKETİM/CİHAZ HATTI) + hangi sayaca ait?
     const downstreamOfMeter = new Set();
-    sayacCikisIds.forEach(rootId => {
-        const queue = [rootId];
+    const meterByPipe = new Map(); // pipeId → sayac component
+    (manager.components || []).forEach(meter => {
+        if (meter.type !== 'sayac' || !meter.cikisBagliBoruId) return;
+        const queue = [meter.cikisBagliBoruId];
         while (queue.length > 0) {
             const id = queue.shift();
-            if (downstreamOfMeter.has(id)) continue;
+            if (meterByPipe.has(id)) continue;
+            meterByPipe.set(id, meter);
             downstreamOfMeter.add(id);
             (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
         }
@@ -151,6 +268,10 @@ function buildHatData(manager) {
             ? 'TUKETIM'
             : 'KOLON';
 
+        // Hat hangi sayaca ait? (TÜKETİM hattı ise) — birimBoruTipi ESNEK ise tablo kullan
+        const meter = pids.map(id => meterByPipe.get(id)).find(Boolean) || null;
+        const boruTipi = meter?.birimBoruTipi === 'ESNEK' ? 'ESNEK' : 'CELIK';
+
         hats.push({
             hatNo,
             dn:       pipeId(pipes[0]),
@@ -160,6 +281,7 @@ function buildHatData(manager) {
             basinc:   String(pipes[0].basinc ?? '21'),
             parentHatNo,
             segmentType,
+            boruTipi,
             pipeIds:  pids,
             headPipeId: headPipe.id,
             tailPipeId: tailPipe.id,
@@ -177,6 +299,41 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
     if (!D_mm || D_mm <= 0) {
         return { ...hat, error: `Bilinmeyen çap: ${hat.dn}`, P1_bar };
     }
+
+    // ESNEK TESİSAT — sadece DN15..DN32 geçerli; ΔPR tablodan, ΔPF/ΔPA aynı.
+    if (hat.boruTipi === 'ESNEK') {
+        if (!ESNEK_TABLE[hat.dn]) {
+            return { ...hat, error: `Esnek tesisatta ${hat.dn} tanımlı değil (sadece DN15–DN32)`, P1_bar };
+        }
+        if (hat.Q <= 0 || hat.L_m <= 0) {
+            return {
+                ...hat, sigmaXi, D_mm,
+                v: 0, dPR_L: 0, dPR: 0, dPF: 0,
+                dPA: 0.049 * (hat.H_m || 0),
+                sumDP: 0.049 * (hat.H_m || 0),
+                P1_bar, P2_bar: P1_bar,
+            };
+        }
+        const interp = interpolateEsnek(hat.dn, hat.Q);
+        if (!interp) {
+            return { ...hat, error: `Q = ${hat.Q} m³/h, ${hat.dn} esnek tablosu kapsamı dışında`, P1_bar };
+        }
+        const v = interp.v;
+        const dPR_L = interp.dPR_L;
+        const dPR = dPR_L * hat.L_m;
+        const drop_bar = dPR / 1000;
+        const P2_bar = Math.max(0.001, P1_bar - drop_bar);
+        const dPF = 3.97e-3 * sigmaXi * v * v;
+        const dPA = 0.049 * (hat.H_m || 0);
+        const sumDP = dPR + dPF + dPA;
+        return {
+            ...hat, sigmaXi, D_mm,
+            v, dPR_L, dPR, dPF, dPA, sumDP,
+            P1_bar, P2_bar,
+            vWarn: v > V_LIMIT,
+        };
+    }
+
     if (hat.Q <= 0 || hat.L_m <= 0) {
         // Akış yok / uzunluk yok → tümü 0
         return {
@@ -318,21 +475,30 @@ function renderTableHead() {
 }
 
 function renderRow(row, fittingsRow) {
-    if (row.error) {
-        return `<tr><td class="bc-no">${row.hatNo}</td><td colspan="${COLS.length}" class="bc-empty">${row.error}</td></tr>`;
-    }
-
+    const isEsnek = row.boruTipi === 'ESNEK';
+    const allowedDns = isEsnek ? ESNEK_DN_LIST : DN_LIST;
+    const invalidDn = !allowedDns.includes(row.dn);
+    // Geçersiz mevcut DN'i de listeye dahil et — kullanıcı geçerli birine geçebilsin.
+    const optionDns = invalidDn ? [row.dn, ...allowedDns] : allowedDns;
     const dnSelect = `
-        <select class="bc-dn-select" data-hat="${row.hatNo}">
-            ${DN_LIST.map(dn => `<option value="${dn}" ${dn === row.dn ? 'selected' : ''}>${dn}</option>`).join('')}
+        <select class="bc-dn-select${invalidDn ? ' bc-warn' : ''}" data-hat="${row.hatNo}"${invalidDn ? ' title="Esnek tesisatta sadece DN15, DN20, DN25, DN32 geçerlidir"' : ''}>
+            ${optionDns.map(dn => `<option value="${dn}" ${dn === row.dn ? 'selected' : ''}>${dn}${invalidDn && dn === row.dn ? ' (geçersiz)' : ''}</option>`).join('')}
         </select>`;
+
+    if (row.error) {
+        return `<tr data-hat-no="${row.hatNo}"><td class="bc-no">${row.hatNo}</td>
+            <td class="bc-cell">${f2(row.Q)}</td>
+            <td class="bc-cell">${f2(row.L_m)}</td>
+            <td class="bc-cell bc-dn">${dnSelect}</td>
+            <td colspan="${COLS.length - 3}" class="bc-empty">${row.error}</td></tr>`;
+    }
 
     const xiTooltip = buildFittingsBreakdown(fittingsRow);
 
     const vClass = row.vWarn ? 'bc-cell bc-warn' : 'bc-cell';
 
     return `
-        <tr>
+        <tr data-hat-no="${row.hatNo}">
             <td class="bc-no">${row.hatNo}</td>
             <td class="bc-cell">${f2(row.Q)}</td>
             <td class="bc-cell">${f2(row.L_m)}</td>
@@ -380,6 +546,132 @@ function renderTable(rows, fittingsByHat) {
         </div>`;
 }
 
+// ─── YOL ENÜMERASYONU & LİMİT KONTROLÜ ────────────────────────────────────────
+// Limit (mbar) — bu değer ve üstü hatalı (kırmızı).
+const PATH_LIMITS = {
+    KOLON:    1.0000,  // bina bağlantısı / kolon hattı
+    TUKETIM:  0.8000,  // sayaç sonrası iç tesisat
+};
+
+// Verilen satır kümesi içinde kök → yaprak yollarını DFS ile çıkar.
+// hat sayısı aynı kalır; parent referansı set dışındaysa kök olarak kabul edilir.
+function enumeratePaths(rows) {
+    if (!rows || rows.length === 0) return [];
+    const byHat = new Map(rows.map(r => [r.hatNo, r]));
+    const hatSet = new Set(byHat.keys());
+    const childrenOf = new Map();
+    rows.forEach(r => {
+        const p = r.parentHatNo;
+        if (p != null && hatSet.has(p)) {
+            if (!childrenOf.has(p)) childrenOf.set(p, []);
+            childrenOf.get(p).push(r.hatNo);
+        }
+    });
+    const roots = rows.filter(r => r.parentHatNo == null || !hatSet.has(r.parentHatNo));
+    const paths = [];
+    function dfs(hatNo, prefix, sum) {
+        const r = byHat.get(hatNo);
+        const newPrefix = [...prefix, hatNo];
+        const newSum = sum + (Number(r.sumDP) || 0);
+        const ch = childrenOf.get(hatNo) || [];
+        if (ch.length === 0) {
+            paths.push({ hatNos: newPrefix, total: newSum, label: newPrefix.join('+') });
+        } else {
+            ch.forEach(cid => dfs(cid, newPrefix, newSum));
+        }
+    }
+    roots.forEach(r => dfs(r.hatNo, [], 0));
+    return paths;
+}
+
+// Kritik (en yüksek kayıp) ve limit aşımı bayraklarını ekler.
+function annotatePaths(paths, limit) {
+    if (!paths.length) return;
+    let maxTotal = -Infinity;
+    paths.forEach(p => {
+        p.overLimit = p.total >= limit;
+        if (p.total > maxTotal) maxTotal = p.total;
+    });
+    paths.forEach(p => {
+        p.isCritical = (p.total === maxTotal);
+    });
+}
+
+function renderPathItem(path) {
+    const status = path.overLimit ? '❌' : '✅';
+    const cls = [
+        'bc-path',
+        path.isCritical ? 'critical' : '',
+        path.overLimit  ? 'over'     : '',
+    ].filter(Boolean).join(' ');
+    return `
+        <button type="button" class="${cls}" data-hats="${path.hatNos.join(',')}">
+            <span class="bc-path-status">${status}</span>
+            <span class="bc-path-label">${path.hatNos.join(' + ')}</span>
+            <span class="bc-path-value">${f4(path.total)} mbar</span>
+        </button>`;
+}
+
+function renderPathsBlock(title, paths, limit) {
+    if (!paths.length) return '';
+    paths.sort((a, b) => b.total - a.total);
+    const limitStr = NF4.format(limit);
+    return `
+        <div class="bc-paths-block">
+            <div class="bc-paths-title">
+                ${title}
+                <span class="bc-paths-limit">limit &lt; ${limitStr} mbar</span>
+            </div>
+            <div class="bc-path-list">${paths.map(renderPathItem).join('')}</div>
+        </div>`;
+}
+
+function renderPathsSection(rows) {
+    const kolon = enumeratePaths(rows.filter(r => r.segmentType === 'KOLON'));
+    const tuk   = enumeratePaths(rows.filter(r => r.segmentType !== 'KOLON'));
+    annotatePaths(kolon, PATH_LIMITS.KOLON);
+    annotatePaths(tuk,   PATH_LIMITS.TUKETIM);
+    if (!kolon.length && !tuk.length) return '';
+    return `
+        <div class="bc-paths">
+            ${renderPathsBlock('KOLON HATTI YOLLARI', kolon, PATH_LIMITS.KOLON)}
+            ${renderPathsBlock('İÇ TESİSAT YOLLARI', tuk,   PATH_LIMITS.TUKETIM)}
+        </div>`;
+}
+
+// ─── TAB TANIMLARI ─────────────────────────────────────────────────────────────
+// Sırası: 50 mbar üstü çelik → 21–50 mbar çelik → esnek
+const TAB_DEFS = [
+    {
+        id: 'CELIK_HIGH',
+        label: 'Çelik Boru Hesabı (50 mbar üstü)',
+        filter: (r) => r.boruTipi !== 'ESNEK' && parseFloat(r.basinc) > 50,
+    },
+    {
+        id: 'CELIK_LOW',
+        label: 'Çelik Boru Hesabı (21–50 mbar)',
+        filter: (r) => r.boruTipi !== 'ESNEK' && parseFloat(r.basinc) <= 50,
+    },
+    {
+        id: 'ESNEK',
+        label: 'Esnek Boru Hesabı',
+        filter: (r) => r.boruTipi === 'ESNEK',
+    },
+];
+
+let _activeTab = null;
+
+function renderTabBar(availableTabs, activeId) {
+    return `
+        <div class="bc-tab-bar">
+            ${availableTabs.map(t => `
+                <button class="bc-tab${t.id === activeId ? ' active' : ''}" data-tab-id="${t.id}">
+                    ${t.label} <span class="bc-tab-count">(${t.rows.length})</span>
+                </button>
+            `).join('')}
+        </div>`;
+}
+
 // ─── MODAL KONTROL ─────────────────────────────────────────────────────────────
 function renderInto(bodyEl) {
     const manager = plumbingManager;
@@ -398,7 +690,37 @@ function renderInto(bodyEl) {
     // 3. Cascade hesabı
     const rows = cascadeHats(hats, fittingsByHat);
 
-    bodyEl.innerHTML = renderTable(rows, fittingsByHat);
+    // 4. Tab'lara böl — sadece dolu olanlar görünür
+    const availableTabs = TAB_DEFS
+        .map(t => ({ ...t, rows: rows.filter(t.filter) }))
+        .filter(t => t.rows.length > 0);
+
+    if (availableTabs.length === 0) {
+        bodyEl.innerHTML = `<div class="bc-empty-msg">Hesaplanacak hat bulunamadı.</div>`;
+        return;
+    }
+
+    if (!_activeTab || !availableTabs.find(t => t.id === _activeTab)) {
+        _activeTab = availableTabs[0].id;
+    }
+    const active = availableTabs.find(t => t.id === _activeTab);
+
+    bodyEl.innerHTML = `
+        ${renderTabBar(availableTabs, _activeTab)}
+        ${renderTable(active.rows, fittingsByHat)}
+        ${renderPathsSection(active.rows)}
+    `;
+
+    // Tab tıklamaları
+    bodyEl.querySelectorAll('.bc-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.tabId;
+            if (id && id !== _activeTab) {
+                _activeTab = id;
+                renderInto(bodyEl);
+            }
+        });
+    });
 
     // DN combobox: değişince ilgili hat pipe'larının boruCap'ini güncelle ve yeniden hesapla
     bodyEl.querySelectorAll('.bc-dn-select').forEach(sel => {
@@ -407,6 +729,22 @@ function renderInto(bodyEl) {
             const newDn = e.target.value;
             applyDnToHat(manager, hatNo, newDn);
             renderInto(bodyEl);
+        });
+    });
+
+    // Yol seçimi → ilgili hat satırlarını vurgula (toggle, tek aktif yol)
+    bodyEl.querySelectorAll('.bc-path').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const wasSelected = btn.classList.contains('selected');
+            bodyEl.querySelectorAll('.bc-path.selected').forEach(b => b.classList.remove('selected'));
+            bodyEl.querySelectorAll('tr.bc-path-highlight').forEach(tr => tr.classList.remove('bc-path-highlight'));
+            if (!wasSelected) {
+                btn.classList.add('selected');
+                btn.dataset.hats.split(',').forEach(h => {
+                    const tr = bodyEl.querySelector(`tr[data-hat-no="${h}"]`);
+                    if (tr) tr.classList.add('bc-path-highlight');
+                });
+            }
         });
     });
 }
