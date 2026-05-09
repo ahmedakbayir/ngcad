@@ -333,8 +333,10 @@ export function handlePointerMove(e) {
         this.pipeSplitPreview = null;
     }
 
-    // 1.6 Vana preview
-    if (this.manager.activeTool === 'vana' && !this.boruCizimAktif) {
+    // 1.6 Vana / Regülatör preview (her ikisi de boru üzerinde serbest kayan, aynı placement mantığı)
+    const _isVanaTool = this.manager.activeTool === 'vana';
+    const _isRegulatorTool = this.manager.activeTool === 'regulator';
+    if ((_isVanaTool || _isRegulatorTool) && !this.boruCizimAktif) {
         // Varsayılan olarak mouse pozisyonuna getir (eğer boru yoksa)
         if (this.manager.tempComponent) {
             this.manager.tempComponent.x = point.x;
@@ -390,8 +392,15 @@ export function handlePointerMove(e) {
                     snapToEnd = true;
                 }
 
-                // Preview nesnesini güncelle
-                this.vanaPreview = { pipe: hoveredPipe, point: vanaPoint, t: vanaT, snapToEnd: snapToEnd };
+                // Preview nesnesini güncelle (vana veya regulator)
+                const _previewObj = { pipe: hoveredPipe, point: vanaPoint, t: vanaT, snapToEnd: snapToEnd };
+                if (_isRegulatorTool) {
+                    this.regulatorPreview = _previewObj;
+                    this.vanaPreview = null;
+                } else {
+                    this.vanaPreview = _previewObj;
+                    this.regulatorPreview = null;
+                }
 
                 // --- GHOST NESNE GÜNCELLEMESİ ---
                 if (this.manager.tempComponent) {
@@ -419,11 +428,16 @@ export function handlePointerMove(e) {
                 }
             } else {
                 this.vanaPreview = null;
+                this.regulatorPreview = null;
             }
-        } else this.vanaPreview = null;
+        } else {
+            this.vanaPreview = null;
+            this.regulatorPreview = null;
+        }
         return true;
     } else {
         this.vanaPreview = null;
+        this.regulatorPreview = null;
     }
 
 

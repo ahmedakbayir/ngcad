@@ -145,6 +145,9 @@ export const ComponentMixin = {
             case 'vana':
                 this.drawVana(ctx, comp, manager);
                 break;
+            case 'regulator':
+                this.drawRegulator(ctx, comp, manager);
+                break;
             case 'cihaz':
                 this.drawCihaz(ctx, comp, manager);
                 break;
@@ -570,6 +573,77 @@ export const ComponentMixin = {
             ctx.rect(capX - 1, capHeight / 2 + 1, capWidth + 1, -0.5);
             ctx.fill();
             //ctx.stroke();
+        }
+    },
+
+    /**
+     * Regülatör — daire içinde eşkenar üçgen.
+     * Üçgenin bir köşesi tesisatın akış yönünde (sağ).
+     */
+    drawRegulator(ctx, comp, manager = null) {
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.1 && manager && comp.bagliBoruId) {
+            const pipe = manager.findPipeById(comp.bagliBoruId);
+            if (pipe) {
+                const dx = pipe.p2.x - pipe.p1.x;
+                const dy = pipe.p2.y - pipe.p1.y;
+                const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+                const len2d = Math.hypot(dx, dy);
+                if (len2d < 2.0 || Math.abs(dz) > len2d) return;
+            }
+        }
+
+        // 2x büyütüldü
+        const radius = 10;
+        const triSize = 11.2;
+        const h = (Math.sqrt(3) / 2) * triSize;
+
+        // Boru rengini takip et
+        let colorGroup = 'YELLOW';
+        if (comp.bagliBoruId && manager) {
+            const bagliBoru = manager.findPipeById(comp.bagliBoruId);
+            if (bagliBoru) colorGroup = bagliBoru.colorGroup || 'YELLOW';
+        }
+        if (colorGroup === 'SARI') colorGroup = 'YELLOW';
+        if (colorGroup === 'TURKUAZ') colorGroup = 'TURQUAZ';
+
+        const mode = isLightMode() ? 'light' : 'dark';
+        const theme = VALVE_THEMES[colorGroup] || VALVE_THEMES.DEFAULT;
+        const palette = theme[mode];
+        const mainColorStop = palette.find(s => s.pos === 0.25) || palette[1];
+        const bodyColor = mainColorStop ? mainColorStop.color : '#A0A0A0';
+        const strokeColor = 'rgba(40,40,40,0.9)';
+
+        getShadow(ctx);
+
+        // Daire — boru rengiyle dolu
+        ctx.fillStyle = comp.isSelected ? this.getSecilenRenk(colorGroup) : bodyColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+
+        // Eşkenar üçgen — bir köşe akış yönünde (sağ)
+        ctx.fillStyle = comp.isSelected ? '#FFFFFF' : (mode === 'dark' ? '#1a1a1a' : '#FFFFFF');
+        ctx.beginPath();
+        ctx.moveTo(h * 2 / 3, 0);
+        ctx.lineTo(-h / 3, -triSize / 2);
+        ctx.lineTo(-h / 3, triSize / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Seçili çerçeve
+        if (comp.isSelected) {
+            ctx.strokeStyle = this.getSecilenRenk(colorGroup);
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius + 2, 0, Math.PI * 2);
+            ctx.stroke();
         }
     },
 

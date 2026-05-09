@@ -10,7 +10,9 @@ import { ServisKutusu } from './objects/service-box.js';
 import { Boru, createBoru } from './objects/pipe.js';
 import { Sayac, createSayac } from './objects/meter.js';
 import { Vana, createVana } from './objects/valve.js';
+import { Regulator, createRegulator } from './objects/regulator.js';
 import { Cihaz, createCihaz } from './objects/device.js';
+import { recomputeAllPressures } from './utils/pressure-recompute.js';
 import { Baca, createBaca } from './objects/chimney.js';
 import { initVerticalPanelListeners } from './interactions/vertical-panel-handler.js';
 import { initPropertiesButton } from './properties/properties-panel.js';
@@ -129,6 +131,12 @@ export class PlumbingManager {
 
             case TESISAT_MODLARI.VANA:
                 this.tempComponent = createVana(0, 0, options.vanaTipi || 'AKV', {
+                    floorId: state.currentFloor?.id
+                });
+                break;
+
+            case TESISAT_MODLARI.REGULATOR:
+                this.tempComponent = createRegulator(0, 0, {
                     floorId: state.currentFloor?.id
                 });
                 break;
@@ -360,6 +368,8 @@ export class PlumbingManager {
                         return Sayac.fromJSON(data);
                     case 'vana':
                         return Vana.fromJSON(data);
+                    case 'regulator':
+                        return Regulator.fromJSON(data);
                     case 'cihaz':
                         return Cihaz.fromJSON(data);
                     case 'baca':
@@ -386,6 +396,9 @@ export class PlumbingManager {
             }
         });
 
+        // Tüm boruların basıncını zincirden yeniden hesapla
+        recomputeAllPressures(this);
+
         // Etiket konumlarını yükle
         setLabelOffsetsJSON(state.plumbingLabelOffsets || {});
     }
@@ -402,9 +415,9 @@ export class PlumbingManager {
         const pipe = this.findPipeById(pipeId);
         if (!pipe) return;
 
-        // Boruda bağlı vanaları bul
+        // Boruda bağlı vana ve regülatörleri bul
         const valves = this.components.filter(
-            c => c.type === 'vana' && c.bagliBoruId === pipeId
+            c => (c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === pipeId
         );
 
         // Her vananın pozisyonunu güncelle
@@ -417,15 +430,17 @@ export class PlumbingManager {
      * Tüm vanaların pozisyonlarını güncelle
      */
     updateAllValvePositions() {
-        const valves = this.components.filter(c => c.type === 'vana');
+        const valves = this.components.filter(c => c.type === 'vana' || c.type === 'regulator');
 
         valves.forEach(vana => {
             if (vana.bagliBoruId) {
                 const pipe = this.findPipeById(vana.bagliBoruId);
                 if (pipe) {
                     vana.updatePositionFromPipe(pipe);
-                    // Kapama sembolü durumunu güncelle
-                    vana.updateEndCapStatus(this);
+                    // Kapama sembolü durumunu güncelle (sadece vana için)
+                    if (vana.type === 'vana' && vana.updateEndCapStatus) {
+                        vana.updateEndCapStatus(this);
+                    }
                 }
             }
         });
@@ -589,7 +604,7 @@ export class PlumbingManager {
 
             const compScreen = getScreenPoint({ x: cx, y: cy, z: comp.z || 0 });
             const dist = Math.hypot(pos.x - compScreen.x, pos.y - compScreen.y);
-            const selectTolerance = comp.type === 'vana' ? 6 : tolerance * 2;
+            const selectTolerance = (comp.type === 'vana' || comp.type === 'regulator') ? 6 : tolerance * 2;
             if (dist < selectTolerance && dist < bestDist) {
                 bestDist = dist;
                 bestHit = { type: 'component', object: comp, handle: 'body' };
@@ -681,6 +696,8 @@ export class PlumbingManager {
                         return Sayac.fromJSON(c);
                     case 'vana':
                         return Vana.fromJSON(c);
+                    case 'regulator':
+                        return Regulator.fromJSON(c);
                     case 'cihaz':
                         return Cihaz.fromJSON(c);
                     case 'baca':
@@ -698,6 +715,8 @@ export class PlumbingManager {
                 vana.updateEndCapStatus(this);
             }
         });
+
+        recomputeAllPressures(this);
     }
 
     // --- ÖZEL EYLEMLER ---

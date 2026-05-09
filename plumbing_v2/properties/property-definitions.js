@@ -3,6 +3,7 @@ import { MAHAL_LISTESI, WALL_HEIGHT, state } from '../../general-files/main.js';
 import { addDoorToWall, addWindowToWall, addVentToWall, addColumnToWall, flipArcWall } from '../../wall/wall-panel.js';
 import { recalculateStepCount } from '../../architectural-objects/stairs.js';
 import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom, syncBirimState, findSayacEnteringRoomUnit } from '../../draw/draw-birim-labels.js';
+import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 /**
  * Özellik Tanımları
@@ -342,6 +343,9 @@ export const PROPERTY_DEFS = {
                 disabledFn: (_obj, manager) => {
                     if (!manager) return false;
                     return manager.components.some(c => c.type === 'servis_kutusu');
+                },
+                afterChange: (_obj, manager) => {
+                    if (manager) recomputeAllPressures(manager);
                 },
             },
         ],
@@ -712,6 +716,51 @@ export const PROPERTY_DEFS = {
     },
 
     // ════════════════════════════════════════════════════════
+    // REGÜLATÖR
+    // ════════════════════════════════════════════════════════
+
+    regulator_sec_tanim: { type: 'section', label: 'Tanım' },
+
+    regulatorCikisBasinc: {
+        label: 'Çıkış Basıncı',
+        type: 'select',
+        key: 'cikisBasinc',
+        options: [
+            { value: '21', label: '21 mbar' },
+            { value: '50', label: '50 mbar' },
+        ],
+        optionsAreObjects: true,
+        default: '21',
+        afterChange: (_obj, manager) => {
+            if (manager) recomputeAllPressures(manager);
+        },
+    },
+
+    regulatorShutOff: {
+        label: 'Shut-Off',
+        type: 'toggle',
+        key: 'shutOff',
+        default: true,
+    },
+
+    regulator_sec_urun: { type: 'section', label: 'Ürün' },
+
+    regulatorMarka: {
+        label: 'Marka',
+        type: 'text',
+        key: 'marka',
+        default: 'ESKA',
+        placeholder: 'Marka...',
+    },
+    regulatorModel: {
+        label: 'Model',
+        type: 'text',
+        key: 'model',
+        default: 'ERG',
+        placeholder: 'Model...',
+    },
+
+    // ════════════════════════════════════════════════════════
     // SERVİS KUTUSU
     // ════════════════════════════════════════════════════════
 
@@ -732,13 +781,12 @@ export const PROPERTY_DEFS = {
         default: '21',
         afterChange: (obj, manager) => {
             if (!manager) return;
-            const basinc = parseFloat(obj.kutuBasinc);
-            if (isNaN(basinc)) return;
-            // Bağlı tüm boru ve sayaçlara basıncı yay
-            manager.pipes.forEach(p => { p.basinc = basinc; });
+            // Sayaçların basıncını da kutu ile senkron tut (kullanıcı varsayımı)
             manager.components.forEach(c => {
-                if (c.type === 'sayac') c.basinc = obj.kutuBasinc; // string, select ile uyumlu
+                if (c.type === 'sayac') c.basinc = String(obj.kutuBasinc);
             });
+            // Tüm boruları kaynaktan başlayarak (regülatör çıkışları dahil) yeniden hesapla
+            recomputeAllPressures(manager);
         },
     },
     kutuCikisYonu: {
@@ -1514,6 +1562,14 @@ export const OBJECT_PROPERTIES = {
         'vanaFlans',
         'vanaMuhafaza',
     ],
+    regulator: [
+        'regulator_sec_tanim',
+        'regulatorCikisBasinc',
+        'regulatorShutOff',
+        'regulator_sec_urun',
+        'regulatorMarka',
+        'regulatorModel',
+    ],
     servis_kutusu: [
         // 'kutu_sec_tanim',
         'kutuTipi',
@@ -1630,6 +1686,7 @@ export function getObjectTypeLabel(type) {
         boru: 'Boru',
         sayac: 'Sayaç',
         vana: 'Vana',
+        regulator: 'Regülatör',
         servis_kutusu: 'Servis Kutusu',
         cihaz: 'Cihaz',
         room: 'Oda',

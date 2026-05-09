@@ -177,6 +177,12 @@ export function handlePointerDown(e) {
         return true;
     }
 
+    // 0.4b Regülatör ekleme - Regülatör tool aktif ve preview var
+    if (this.manager.activeTool === 'regulator' && !this.boruCizimAktif && this.regulatorPreview) {
+        this.handleRegulatorPlacement(this.regulatorPreview);
+        return true;
+    }
+
     // 0.5 Pipe splitting - Boru tool aktif ama çizim modu değil
     if (this.manager.activeTool === 'boru' && !this.boruCizimAktif && this.pipeSplitPreview) {
         this.handlePipeSplit(this.pipeSplitPreview.pipe, this.pipeSplitPreview.point);

@@ -23,6 +23,7 @@ import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
 import { computeFittings } from './fittings-menu.js';
 import { draw2D } from '../draw/draw2d.js';
+import { recomputeAllPressures } from '../plumbing_v2/utils/pressure-recompute.js';
 import {
     buildHatData,
     cascadeHats,
@@ -35,7 +36,16 @@ import {
 } from './boru-cap-menu.js';
 
 const DN_INDEX = Object.fromEntries(DN_LIST.map((dn, i) => [dn, i]));
-const KOLON_MIN_IDX = DN_INDEX['DN25'];
+const KOLON_MIN_IDX_LOW  = DN_INDEX['DN25']; // 21/50 mbar kolonlar için
+const KOLON_MIN_IDX_HIGH = DN_INDEX['DN15']; // 300 mbar kolonlar için
+
+function isHighPressurePipe(pipe) {
+    return parseFloat(pipe?.basinc) > 50;
+}
+
+function kolonMinIdxFor(pipe) {
+    return isHighPressurePipe(pipe) ? KOLON_MIN_IDX_HIGH : KOLON_MIN_IDX_LOW;
+}
 
 const TARGET_RANGES = {
     AGGRESSIVE:   { min: 0.90, max: 0.99, label: 'Sineğin Yağını Çıkar' },
@@ -45,8 +55,34 @@ const TARGET_RANGES = {
 const MAX_ITER = 400;
 
 // ─── Q → varsayılan DN ─────────────────────────────────────────────────────────
-function chartDN(Q) {
+// 300 mbar (yüksek basınç) hatlarda izin verilen hız (15 m/s) ve kayıp limiti
+// (KOLON_HIGH = 21 mbar) çok daha geniş olduğundan, aynı debide daha küçük çap
+// ile başlanabilir. Algoritma rafine ederken zaten gerekirse yükseltir.
+function chartDN(Q, basinc = 21) {
     const q = Number(Q) || 0;
+    const high = parseFloat(basinc) > 50;
+
+    if (high) {
+        // 300 mbar tablosu (V ≤ 15 m/s temelli, kayıp toleransı geniş)
+        if (q <= 6)     return 'DN15';
+        if (q <= 12)    return 'DN20';
+        if (q <= 25)    return 'DN25';
+        if (q <= 50)    return 'DN32';
+        if (q <= 100)   return 'DN40';
+        if (q <= 175)   return 'DN50';
+        if (q <= 300)   return 'DN65';
+        if (q <= 500)   return 'DN80';
+        if (q <= 800)   return 'DN100';
+        if (q <= 1300)  return 'DN125';
+        if (q <= 1800)  return 'DN150';
+        if (q <= 3000)  return 'DN200';
+        if (q <= 5000)  return 'DN250';
+        if (q <= 8000)  return 'DN300';
+        if (q <= 14000) return 'DN400';
+        return 'DN450';
+    }
+
+    // 21/50 mbar tablosu (V ≤ 6 m/s)
     if (q <= 2)   return 'DN15';
     if (q <= 3)   return 'DN20';
     if (q <= 6)   return 'DN25';
@@ -171,15 +207,18 @@ function applyDefaults(manager) {
         const meter = meterByPipe.get(p.id);
         const isEsnek = isTuk && meter?.birimBoruTipi === 'ESNEK';
 
-        let dn = chartDN(Q);
+        let dn = chartDN(Q, p.basinc);
 
-        // KOLON hatlarda DN25 alt sınırı
-        if (!isTuk && dnIdx(dn) < KOLON_MIN_IDX) {
-            dn = 'DN25';
+        // KOLON hatlarda alt sınır basınca göre değişir (300 mbar: DN15, aksi: DN25)
+        const minIdx = kolonMinIdxFor(p);
+        if (!isTuk && dnIdx(dn) < minIdx) {
+            dn = DN_LIST[minIdx];
         }
 
-        // DN15 sadece tek cihaz hattında izinli; aksi halde DN20
-        if (dn === 'DN15' && !isSingleDeviceLine(p.id, ctx)) {
+        // DN15 sadece tek cihaz hattında izinli; aksi halde DN20 (yüksek basınçlı kolon hariç)
+        if (dn === 'DN15' && !isTuk && !isHighPressurePipe(p)) {
+            // Düşük basınçlı kolon DN25 minimum zaten — buraya düşmemeli
+        } else if (dn === 'DN15' && isTuk && !isSingleDeviceLine(p.id, ctx)) {
             dn = 'DN20';
         }
 
@@ -367,12 +406,12 @@ function tryReducePipe(manager, state, pipeId, target, mode) {
     if (localIdx <= 0) return false;
     const newDn = allowed[localIdx - 1];
 
-    // KOLON minimumu (DN25)
+    // KOLON minimumu — basınca göre (300 mbar: DN15, aksi: DN25)
     const isKolon = !ctx.downstreamOfMeter.has(pipe.id);
-    if (isKolon && dnIdx(newDn) < KOLON_MIN_IDX) return false;
+    if (isKolon && dnIdx(newDn) < kolonMinIdxFor(pipe)) return false;
 
-    // DN15 yalnızca tek cihaz hatlarında geçerli
-    if (newDn === 'DN15' && !isSingleDeviceLine(pipe.id, ctx)) return false;
+    // DN15 yalnızca tek cihaz hatlarında veya yüksek basınçlı kolonlarda geçerli
+    if (newDn === 'DN15' && !isSingleDeviceLine(pipe.id, ctx) && !(isKolon && isHighPressurePipe(pipe))) return false;
 
     // Split (hat-içi redüksiyon) sadece AGGRESSIVE modda ve ≥8m hatta
     const isSplit = !isSectionHead(pipe, manager);
@@ -441,6 +480,9 @@ function autoSize(manager, mode) {
     if (!manager?.pipes?.length) return;
     const target = TARGET_RANGES[mode];
     if (!target) return;
+
+    // Boru basınçlarını upstream zincirinden senkronize et — chartDN doğru tabloyu seçsin
+    recomputeAllPressures(manager);
 
     applyDefaults(manager);
 

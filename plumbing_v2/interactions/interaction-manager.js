@@ -22,6 +22,7 @@ import {
     placeComponent,
     restorePreviousMode,
     handleVanaPlacement,
+    handleRegulatorPlacement,
     handleComponentOnPipePlacement,
     handleSayacEndPlacement,
     handleCihazEkleme,
@@ -156,6 +157,7 @@ export const TESISAT_MODLARI = {
     BORU: 'boru',
     SAYAC: 'sayac',
     VANA: 'vana',
+    REGULATOR: 'regulator',
     CIHAZ: 'cihaz',
     BACA: 'baca'
 };
@@ -211,6 +213,9 @@ export class InteractionManager {
 
         // Vana preview (vana tool aktif)
         this.vanaPreview = null; // { pipe, point, t, snapToEnd }
+
+        // Regülatör preview (regulator tool aktif)
+        this.regulatorPreview = null; // { pipe, point, t }
 
         // Sayaç/Cihaz boru üzerine ekleme preview (sayac/cihaz tool aktif)
         this.componentOnPipePreview = null; // { pipe, point, componentType }
@@ -424,6 +429,10 @@ export class InteractionManager {
 
     handleVanaPlacement(vanaPreview) {
         return handleVanaPlacement.call(this, vanaPreview);
+    }
+
+    handleRegulatorPlacement(regulatorPreview) {
+        return handleRegulatorPlacement.call(this, regulatorPreview);
     }
 
     handleComponentOnPipePlacement(pipe, splitPoint, componentType) {

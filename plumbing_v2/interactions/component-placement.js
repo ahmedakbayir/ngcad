@@ -8,6 +8,7 @@ import { saveState } from '../../general-files/history.js';
 import { BAGLANTI_TIPLERI, createBoru } from '../objects/pipe.js';
 import { createSayac } from '../objects/meter.js';
 import { createVana } from '../objects/valve.js';
+import { createRegulator } from '../objects/regulator.js';
 import { createBaca } from '../objects/chimney.js';
 import { canPlaceValveOnPipe, getObjectsOnPipe } from './placement-utils.js';
 import { TESISAT_MODLARI } from './interaction-manager.js';
@@ -15,6 +16,7 @@ import { snapTo15DegreeAngle } from '../../draw/geometry.js';
 import { initObjectDefaults } from '../properties/properties-panel.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
+import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 /**
  * Bileşeni yerleştir
@@ -79,6 +81,14 @@ export function placeComponent(point) {
                 return;
             }
             console.warn("Vana sadece boru üzerine eklenebilir.");
+            break;
+
+        case 'regulator':
+            if (this.regulatorPreview) {
+                this.handleRegulatorPlacement(this.regulatorPreview);
+                return;
+            }
+            console.warn("Regülatör sadece boru üzerine eklenebilir.");
             break;
 
         case 'cihaz':
@@ -480,6 +490,201 @@ export function handleVanaPlacement(vanaPreview) {
 }
 
 /**
+ * Bir borunun upstream (kaynak) basıncını döndürür.
+ * Servis kutusu varsa kutuBasinc; iç tesisat ise (sayaç var, kutu yok) sayaç.basinc.
+ * Hiçbiri yoksa default '21'.
+ */
+function _getPipeUpstreamBasinc(pipe, manager) {
+    if (!manager || !pipe) return '21';
+    let current = pipe;
+    const visited = new Set();
+    while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        const bag = current.baslangicBaglanti;
+        if (!bag?.tip) break;
+        if (bag.tip === 'sayac') {
+            const sayac = manager.components.find(c => c.id === bag.hedefId);
+            return sayac?.basinc != null ? String(sayac.basinc) : '21';
+        }
+        if (bag.tip === 'servis_kutusu') {
+            const kutu = manager.components.find(c => c.id === bag.hedefId);
+            return kutu?.kutuBasinc != null ? String(kutu.kutuBasinc) : '21';
+        }
+        if (bag.tip === 'boru') {
+            current = manager.pipes.find(p => p.id === bag.hedefId) || null;
+            continue;
+        }
+        break;
+    }
+    return '21';
+}
+
+/**
+ * Borunun upstream'inde (yukarı doğru) ilk karşılaşılan kaynak bileşenini döndürür.
+ * Sayaç veya servis kutusu olabilir.
+ */
+function _findUpstreamSource(pipe, manager) {
+    if (!manager || !pipe) return null;
+    let current = pipe;
+    const visited = new Set();
+    while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        const bag = current.baslangicBaglanti;
+        if (!bag?.tip) break;
+        if (bag.tip === 'sayac' || bag.tip === 'servis_kutusu') {
+            return manager.components.find(c => c.id === bag.hedefId) || null;
+        }
+        if (bag.tip === 'boru') {
+            current = manager.pipes.find(p => p.id === bag.hedefId) || null;
+            continue;
+        }
+        break;
+    }
+    return null;
+}
+
+/**
+ * Regülatör yerleştir — vana gibi tıkla, ama fiziksel olarak boruyu bölüp
+ * çıkış noktasından itibaren yeni basınçla devam eden boru oluşturur.
+ *
+ * Otomatik kurallar:
+ *   • Çıkış basıncı default '21'.
+ *   • 21 mbar bir hatta eklenince:
+ *       - servis kutusu varsa kutuBasinc → '300'
+ *       - servis kutusu yoksa upstream sayaç varsa onun basıncı → '300'
+ *   • Yerleştirme sonrası tüm boruların basıncı zincirden recompute edilir.
+ */
+export function handleRegulatorPlacement(regulatorPreview) {
+    const { pipe, point } = regulatorPreview;
+
+    saveState();
+
+    const existingObjects = getObjectsOnPipe(this.manager.components, pipe.id);
+
+    const dx = pipe.p2.x - pipe.p1.x;
+    const dy = pipe.p2.y - pipe.p1.y;
+    const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+    const len2d = Math.hypot(dx, dy);
+    const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+
+    let placementResult;
+    if (isVertical) {
+        let t = 0.5;
+        if (Math.abs(dz) > 0.01) t = ((point.z || 0) - (pipe.p1.z || 0)) / dz;
+        t = Math.max(0, Math.min(1, t));
+        placementResult = {
+            success: true, t,
+            x: pipe.p1.x, y: pipe.p1.y,
+            z: (pipe.p1.z || 0) + t * dz,
+        };
+    } else {
+        placementResult = canPlaceValveOnPipe(pipe, point, existingObjects);
+    }
+
+    if (!placementResult || (placementResult.error && !placementResult.success)) {
+        this.regulatorPreview = null;
+        return;
+    }
+
+    const { x, y } = placementResult;
+    const t = placementResult.t;
+    const z = placementResult.z !== undefined ? placementResult.z : ((pipe.p1.z || 0) + t * dz);
+
+    // Boruyu fiziksel olarak böl — çıkış noktasında yeni hat başlasın
+    const splitPoint = { x, y, z };
+    const splitResult = pipe.splitAt(splitPoint);
+    if (!splitResult) {
+        console.warn('Regülatör için boru bölünemedi.');
+        this.regulatorPreview = null;
+        return;
+    }
+    const { boru1, boru2 } = splitResult;
+
+    // Pipe listesini güncelle (oldPipe sil, yenileri ekle)
+    const idx = this.manager.pipes.findIndex(p => p.id === pipe.id);
+    if (idx !== -1) this.manager.pipes.splice(idx, 1);
+    this.manager.pipes.push(boru1, boru2);
+    this.manager.registerPipeNodes(boru1);
+    this.manager.registerPipeNodes(boru2);
+
+    // Eski boruya bağlı vanalar/regülatörler/fleks bağlantıları yeni borulara dağıt
+    redistributePipeComponentsInline.call(this, pipe, boru1, boru2, splitPoint);
+
+    // T-bağlı çocuk borular ile parent referansını da kurtar (handlePipeSplit'tekine paralel)
+    this.manager.pipes.forEach(childPipe => {
+        if (childPipe === boru1 || childPipe === boru2) return;
+        if (childPipe.baslangicBaglanti?.tip === 'boru' && childPipe.baslangicBaglanti.hedefId === pipe.id) {
+            const proj1 = boru1.projectPoint(childPipe.p1);
+            const proj2 = boru2.projectPoint(childPipe.p1);
+            childPipe.baslangicBaglanti.hedefId = (proj1.distance < proj2.distance) ? boru1.id : boru2.id;
+        }
+    });
+    const parentPipe = this.manager.pipes.find(p =>
+        p.bitisBaglanti?.tip === 'boru' && p.bitisBaglanti.hedefId === pipe.id
+    );
+    if (parentPipe) parentPipe.bitisBaglanti.hedefId = boru1.id;
+
+    // Servis kutusu / sayaç çıkışındaki hedef boru referansını boru1'e taşı
+    this.manager.components.forEach(c => {
+        if (c.type === 'servis_kutusu' && c.bagliBoruId === pipe.id) c.bagliBoruId = boru1.id;
+        if (c.type === 'sayac' && c.cikisBagliBoruId === pipe.id) c.cikisBagliBoruId = boru1.id;
+    });
+
+    // Regülatörü boru1'in p2 ucuna sabitle (vana stili)
+    const REG_GENISLIGI = 6;
+    const fixedDistanceFromEnd = REG_GENISLIGI / 2;
+    const boru1Len = Math.hypot(
+        boru1.p2.x - boru1.p1.x,
+        boru1.p2.y - boru1.p1.y,
+        (boru1.p2.z || 0) - (boru1.p1.z || 0)
+    );
+    const regBoruPos = boru1Len > 0.01 ? Math.max(1 - fixedDistanceFromEnd / boru1Len, 0.05) : 1;
+
+    const regulator = createRegulator(x, y, {
+        floorId: state.currentFloor?.id,
+        bagliBoruId: boru1.id,
+        boruPozisyonu: regBoruPos,
+        fromEnd: 'p2',
+        fixedDistance: fixedDistanceFromEnd,
+    });
+    regulator.z = z;
+    ensureFloorForElevation(z);
+    regulator.floorId = getFloorIdForZ(z);
+    regulator.rotation = isVertical ? -45 : pipe.aciDerece;
+
+    initObjectDefaults(regulator, this.manager);
+    this.manager.components.push(regulator);
+
+    // Snap pozisyonu boru1'e göre yeniden hesapla
+    if (regulator.updatePositionFromPipe) regulator.updatePositionFromPipe(boru1);
+
+    // ── Otomatik kaynak basıncı kuralları ────────────────────────────────
+    const hatBasinc = _getPipeUpstreamBasinc(boru1, this.manager);
+    if (hatBasinc === '21') {
+        const hasServisKutusu = this.manager.components.some(c => c.type === 'servis_kutusu');
+        if (hasServisKutusu) {
+            this.manager.components.forEach(c => {
+                if (c.type === 'servis_kutusu') c.kutuBasinc = '300';
+                if (c.type === 'sayac') c.basinc = '300';
+            });
+        } else {
+            const upstream = _findUpstreamSource(boru1, this.manager);
+            if (upstream && upstream.type === 'sayac') upstream.basinc = '300';
+        }
+    }
+
+    // Tüm boruların basıncını zincirden yeniden hesapla
+    recomputeAllPressures(this.manager);
+
+    this.manager.saveToState();
+
+    this.regulatorPreview = null;
+    this.manager.activeTool = null;
+    this.cancelCurrentAction();
+    setMode("select");
+}
+
+/**
  * Sayaç ekleme işlemleri
  * KURALLAR:
  * - Sayaç SADECE boru uç noktasına eklenebilir
@@ -838,6 +1043,7 @@ export function handleComponentOnPipePlacement(pipe, splitPoint, componentType) 
         // Sayaç yerleştirme fonksiyonunu çağır
         const success = this.handleSayacEndPlacement(tempMeter);
         if (success) {
+            recomputeAllPressures(this.manager);
             // Sayacın çıkış noktasından boru çizimi başlat
             const cikisNoktasi = tempMeter.getCikisNoktasi();
             this.startBoruCizim(cikisNoktasi, tempMeter.id, BAGLANTI_TIPLERI.SAYAC);
@@ -863,6 +1069,7 @@ export function handleComponentOnPipePlacement(pipe, splitPoint, componentType) 
         // Cihaz yerleştirme fonksiyonunu çağır
         const success = this.handleCihazEkleme(tempDevice);
         if (success) {
+            recomputeAllPressures(this.manager);
             // Cihaz eklendikten sonra seç moduna geç
             this.manager.activeTool = null;
             setMode("select", true);
@@ -879,8 +1086,8 @@ export function handleComponentOnPipePlacement(pipe, splitPoint, componentType) 
 function redistributePipeComponentsInline(oldPipe, boru1, boru2, splitPoint) {
     const itemsToReattach = [];
 
-    // Vanalar
-    const valves = this.manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === oldPipe.id);
+    // Vanalar ve regülatörler (boru üzerinde sabit duranlar)
+    const valves = this.manager.components.filter(c => (c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === oldPipe.id);
     valves.forEach(v => {
         const pos = oldPipe.getPointAt(v.boruPozisyonu !== undefined ? v.boruPozisyonu : 0.5);
         itemsToReattach.push({ comp: v, type: 'vana', worldPos: { x: pos.x, y: pos.y } });

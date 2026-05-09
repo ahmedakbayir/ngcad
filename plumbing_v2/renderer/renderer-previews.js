@@ -154,6 +154,55 @@ export const PreviewMixin = {
         ctx.restore();
     },
 
+    drawRegulatorPreview(ctx, regulatorPreview) {
+        if (!regulatorPreview || !regulatorPreview.pipe || !regulatorPreview.point) return;
+
+        const { pipe, point } = regulatorPreview;
+
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+
+        const len2d = Math.hypot(dx, dy);
+        const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+
+        let angle = pipe.aci;
+        const t = state.viewBlendFactor || 0;
+        if (isVertical && t < 0.1) return;
+        if (isVertical && t > 0.1) angle = -45 * Math.PI / 180;
+
+        const z = point.z || 0;
+        const adjustedX = point.x + (z * t);
+        const adjustedY = point.y - (z * t);
+
+        // 2x büyütüldü
+        const radius = 10;
+        const triSize = 11.2;
+        const h = (Math.sqrt(3) / 2) * triSize;
+
+        ctx.save();
+        ctx.translate(adjustedX, adjustedY);
+        ctx.rotate(angle);
+        ctx.globalAlpha = 0.7;
+
+        // Daire
+        ctx.fillStyle = '#00bffa';
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eşkenar üçgen — bir köşe akış yönünde (sağ)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.moveTo(h * 2 / 3, 0);
+        ctx.lineTo(-h / 3, -triSize / 2);
+        ctx.lineTo(-h / 3, triSize / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    },
+
     drawComponentOnPipePreview(ctx, preview) {
         if (!preview || !preview.point) return;
 

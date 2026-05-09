@@ -284,6 +284,9 @@ export const LabelMixin = {
                     case 'cihaz':
                         this._drawCihazObjLabel(ctx, comp, opts);
                         break;
+                    case 'regulator':
+                        this._drawRegulatorObjLabel(ctx, comp, manager, opts);
+                        break;
                 }
             });
         }
@@ -881,6 +884,61 @@ export const LabelMixin = {
         const cy = sc.y + nY * hw;
 
         // Mutlak konum saklandıysa doğrudan kullan (zoom değişse de sabit kalır)
+        let ax, ay;
+        if (off.ax != null) {
+            ax = off.ax;
+            ay = off.ay;
+        } else {
+            ax = sc.x + nX * (hw + 12 / zoom);
+            ay = sc.y + nY * (hw + 12 / zoom);
+        }
+
+        this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts);
+    },
+
+    // ─── REGÜLATÖR ──────────────────────────────────────────────────────────
+    _drawRegulatorObjLabel(ctx, comp, manager, opts) {
+        const { t, zoom } = opts;
+        const sc = this._scrPos(comp, t);
+        const off = _getOffset(comp.id);
+
+        const lines = [];
+        const baslik = comp.shutOff !== false ? 'Shut-Off Regülatör' : 'Regülatör';
+        lines.push({ text: baslik, bold: true });
+
+        const marka = (comp.marka ?? 'ESKA').toString().trim() || 'ESKA';
+        const model = (comp.model ?? 'ERG').toString().trim() || 'ERG';
+        lines.push({ text: `${marka} - ${model}`, sub: true });
+
+        // Giriş basıncı: regülatörün bağlı olduğu boru
+        let girisBasinc = null;
+        if (manager && comp.bagliBoruId) {
+            const bagliBoru = manager.findPipeById(comp.bagliBoruId);
+            if (bagliBoru?.basinc != null) girisBasinc = Math.round(Number(bagliBoru.basinc));
+        }
+        const cikis = comp.cikisBasinc || '21';
+        const basincSatir = girisBasinc != null
+            ? `${girisBasinc}►${cikis} mbar`
+            : `${cikis} mbar`;
+        lines.push({ text: basincSatir, sub: true });
+
+        // Açıklama metni
+        if (comp.description) {
+            comp.description.trimEnd().split('\n').forEach(line => {
+                lines.push({ text: line.trimEnd() || ' ', sub: true });
+            });
+        }
+
+        // Boru açısına dik yönde konumlandır (vana ile aynı mantık)
+        const angle = (comp.rotation || 0) * Math.PI / 180;
+        let nX = -Math.sin(angle);
+        let nY = Math.cos(angle);
+        if (nY > 0) { nX = -nX; nY = -nY; }
+
+        const hw = 10;
+        const cx = sc.x + nX * hw;
+        const cy = sc.y + nY * hw;
+
         let ax, ay;
         if (off.ax != null) {
             ax = off.ax;

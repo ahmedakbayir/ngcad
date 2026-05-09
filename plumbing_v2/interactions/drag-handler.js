@@ -188,7 +188,7 @@ export function startDrag(interactionManager, obj, point) {
         z: obj.z || 0
     };
 
-    if (obj.type === 'vana' && obj.bagliBoruId) {
+    if ((obj.type === 'vana' || obj.type === 'regulator') && obj.bagliBoruId) {
         interactionManager.dragObjectPipe = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
         interactionManager.dragObjectsOnPipe = getObjectsOnPipe(interactionManager.manager.components, obj.bagliBoruId);
         interactionManager.dragStartZ = obj.z || 0;
@@ -396,7 +396,7 @@ export function handleDrag(interactionManager, point, event = null) {
                 isVerticalDrag = true;
                 verticalPipeBase = { x: pipe.p1.x, y: pipe.p1.y, z: pipe.p1.z || 0, p2z: pipe.p2.z || 0 };
             } else {
-                if (obj.type === 'vana') {
+                if (obj.type === 'vana' || obj.type === 'regulator') {
                     const proj = pipe.projectPoint(point);
                     const currentT = (proj && proj.onSegment) ? proj.t : (obj.vanaT || 0);
                     const z1 = pipe.p1.z || 0;
@@ -764,7 +764,7 @@ export function handleDrag(interactionManager, point, event = null) {
         }
 
         const valvesOnPipe = interactionManager.manager.components.filter(comp =>
-            comp.type === 'vana' && comp.bagliBoruId === pipe.id
+            (comp.type === 'vana' || comp.type === 'regulator') && comp.bagliBoruId === pipe.id
         );
         const MIN_EDGE_DISTANCE = 4;
         const OBJECT_MARGIN = 2;
@@ -904,19 +904,20 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
-    // 3. Vana Taşıma (HATA BURADAYDI)
-    if (interactionManager.dragObject.type === 'vana') {
+    // 3. Vana / Regülatör Taşıma (boru üzerinde sürükleme)
+    if (interactionManager.dragObject.type === 'vana' || interactionManager.dragObject.type === 'regulator') {
         const vana = interactionManager.dragObject;
         let targetPipe = interactionManager.dragObjectPipe;
         let objectsOnPipe = interactionManager.dragObjectsOnPipe;
         if (!targetPipe) return;
 
         // 3D Düzeltilmiş nokta (correctedPoint) kullanarak taşı
-        // Düşey boruysa correctedPoint içinde dinamik Z var
-        // Yatay boruysa correctedPoint içinde düzeltilmiş X,Y ve sabit Z var
         vana.moveAlongPipe(targetPipe, correctedPoint, objectsOnPipe);
 
-        vana.updateEndCapStatus(interactionManager.manager);
+        // Sadece vana için kapama sembolü güncelle
+        if (vana.type === 'vana' && vana.updateEndCapStatus) {
+            vana.updateEndCapStatus(interactionManager.manager);
+        }
         return;
     }
 
@@ -1196,8 +1197,8 @@ export function handleDrag(interactionManager, point, event = null) {
             pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
             pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
 
-            // Boru üzerindeki vanaları per-frame delta ile taşı
-            interactionManager.manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === pipe.id)
+            // Boru üzerindeki vana ve regülatörleri per-frame delta ile taşı
+            interactionManager.manager.components.filter(c => (c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === pipe.id)
                 .forEach(v => { v.x += frameDx; v.y += frameDy; v.z = (v.z || 0) + frameDz; });
 
             // Downstream düğümleri per-frame delta ile taşı
@@ -1226,7 +1227,7 @@ export function handleDrag(interactionManager, point, event = null) {
             [pipe, ...allDownstreamPipes].forEach(p => {
                 translateLabel(p.id, frameDx, frameDy);
                 interactionManager.manager.components.forEach(c => {
-                    if (c.type === 'vana' && p === pipe) return; // Sürüklenen borudaki vanalar zaten yukarıda taşındı
+                    if ((c.type === 'vana' || c.type === 'regulator') && p === pipe) return; // Sürüklenen borudaki vana/regülatörler zaten yukarıda taşındı
                     if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
                     if (movedComponents.has(c.id)) return;
                     movedComponents.add(c.id);

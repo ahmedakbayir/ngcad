@@ -8,6 +8,7 @@ import { saveState } from '../../general-files/history.js';
 import { openPropertiesPanel, closePropertiesPanel, onDeselect, isPanelOpen, isPinned } from '../properties/properties-panel.js';
 import { computeHatGroups } from '../renderer/renderer-utils.js';
 import { switchToFloor } from '../../floor/floor-handler.js';
+import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 /**
  * Seçilen borunun kaynaktan o boruya kadar olan hat yolunu bulur.
@@ -139,7 +140,7 @@ export function selectObject(interactionManager, obj, opts = {}) {
 
 
     // Eğer Pin işaretliyse, panel zaten açıksa veya çift tıklandıysa (openPanel) paneli aç/güncelle
-    if (['boru', 'sayac', 'vana', 'servis_kutusu', 'cihaz'].includes(obj.type)) {
+    if (['boru', 'sayac', 'vana', 'regulator', 'servis_kutusu', 'cihaz'].includes(obj.type)) {
         if (isPinned() || isPanelOpen() || openPanel) {
             openPropertiesPanel(obj, interactionManager.manager);
         }
@@ -291,6 +292,7 @@ export function deleteSelectedObject(interactionManager) {
             if (idx !== -1) interactionManager.manager.components.splice(idx, 1);
         }
 
+        recomputeAllPressures(interactionManager.manager);
         interactionManager.manager.saveToState();
         deselectObject(interactionManager);
         return;
@@ -326,6 +328,7 @@ export function deleteSelectedObject(interactionManager) {
     if (obj.type === 'servis_kutusu') {
         if (confirm(obj.getDeleteInfo().uyari)) {
             interactionManager.removeObject(obj);
+            recomputeAllPressures(interactionManager.manager);
             interactionManager.manager.saveToState();
             deselectObject(interactionManager); // Servis kutusu için seçimi kaldır
         } else {
@@ -334,6 +337,7 @@ export function deleteSelectedObject(interactionManager) {
         }
     } else {
         const pipeToSelect = interactionManager.removeObject(obj);
+        recomputeAllPressures(interactionManager.manager);
         interactionManager.manager.saveToState();
 
         // Boru silindiyse ve parent varsa onu seç

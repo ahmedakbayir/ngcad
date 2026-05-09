@@ -10,6 +10,7 @@ import { Boru } from '../objects/pipe.js';
 import { setMode, setDrawingMode, state } from '../../general-files/main.js';
 import { draw2D } from '../../draw/draw2d.js';
 import { relayoutAllLabels } from '../renderer/renderer-labels.js';
+import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 let menuEl = null;
 let menuState = null; // { worldPos, pipe, nokta, t, interactionManager }
@@ -147,7 +148,7 @@ function collectDownstreamFromP2(startPipe, manager) {
 
         // Bu boruya bağlı bileşenler
         for (const c of manager.components) {
-            if (c.type === 'vana' && c.bagliBoruId === curr.id) { addComp(c); }
+            if ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === curr.id) { addComp(c); }
             else if ((c.type === 'sayac' || c.type === 'cihaz') && c.fleksBaglanti?.boruId === curr.id) {
                 addComp(c);
                 if (c.type === 'sayac' && c.cikisBagliBoruId) {
@@ -194,6 +195,7 @@ function deleteDownstreamFrom(pipe, manager) {
 
     manager.pipes      = manager.pipes.filter(p => !pipeIds.has(p.id));
     manager.components = manager.components.filter(c => !compIds.has(c.id));
+    recomputeAllPressures(manager);
     manager.saveToState();
     draw2D();
 }
@@ -224,7 +226,7 @@ function deleteKolonTesisati(manager) {
             const curr = queue.shift();
 
             for (const c of manager.components) {
-                if (c.type === 'vana' && c.bagliBoruId === curr.id) { innerCompIds.add(c.id); }
+                if ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === curr.id) { innerCompIds.add(c.id); }
                 else if ((c.type === 'sayac' || c.type === 'cihaz') && c.fleksBaglanti?.boruId === curr.id) {
                     innerCompIds.add(c.id);
                     if (c.type === 'sayac' && c.cikisBagliBoruId) {
@@ -278,6 +280,7 @@ function deleteKolonTesisati(manager) {
 
     manager.pipes      = manager.pipes.filter(p => innerPipeIds.has(p.id));
     manager.components = manager.components.filter(c => innerCompIds.has(c.id));
+    recomputeAllPressures(manager);
     manager.saveToState();
     draw2D();
 }
@@ -306,7 +309,7 @@ function deleteIcTesisatlar(manager) {
             while (queue.length > 0) {
                 const curr = queue.shift();
                 for (const c of manager.components) {
-                    if (c.type === 'vana' && c.bagliBoruId === curr.id) { toDeleteCompIds.add(c.id); }
+                    if ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === curr.id) { toDeleteCompIds.add(c.id); }
                     else if ((c.type === 'cihaz') && c.fleksBaglanti?.boruId === curr.id) {
                         toDeleteCompIds.add(c.id);
                     }
@@ -334,6 +337,7 @@ function deleteIcTesisatlar(manager) {
 
     manager.pipes      = manager.pipes.filter(p => !toDeletePipeIds.has(p.id));
     manager.components = manager.components.filter(c => !toDeleteCompIds.has(c.id));
+    recomputeAllPressures(manager);
     manager.saveToState();
     draw2D();
 }
@@ -394,6 +398,14 @@ function initMenu() {
             if (pipe) menuState.interactionManager.handleVanaPlacement({ pipe, point: pipe.p2, t: 1.0, vanaTipi: tip });
             hide();
         });
+    });
+
+    // ── Regülatör — tıklanan noktaya ───────────────────────────────────────
+    document.getElementById('plumbing-regulator-add')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const { pipe, nokta, t, interactionManager } = menuState;
+        if (pipe && nokta) interactionManager.handleRegulatorPlacement({ pipe, point: nokta, t });
+        hide();
     });
 
     // ── Sayaç — ghost mod başlat ───────────────────────────────────────────

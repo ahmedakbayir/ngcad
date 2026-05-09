@@ -344,6 +344,18 @@ export class Boru {
         boru1.colorGroup = this.colorGroup;
         boru2.colorGroup = this.colorGroup;
 
+        // Basıncı miras al (split sonrası recompute geçince zincire göre tekrar düzenlenebilir)
+        if (this.basinc != null) {
+            boru1.basinc = this.basinc;
+            boru2.basinc = this.basinc;
+        }
+
+        // Çapı da koru
+        if (this.boruCap) {
+            boru1.boruCap = this.boruCap;
+            boru2.boruCap = this.boruCap;
+        }
+
         // Bağlantıları aktar
         boru1.baslangicBaglanti = { ...this.baslangicBaglanti };
         boru2.bitisBaglanti = { ...this.bitisBaglanti };

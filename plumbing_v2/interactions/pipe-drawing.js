@@ -14,6 +14,7 @@ import { initObjectDefaults } from '../properties/properties-panel.js';
 import { syncBirimState, seedSayacFromRooms } from '../../draw/draw-birim-labels.js';
 import { getFloorAtElevation, switchToFloor } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
+import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 /**
  * Boru çizim modunu başlat
@@ -178,7 +179,7 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
 
     // --- SNAPSHOT ALMA (Vana, Fleks vs.) ---
     const itemsToReattach = [];
-    const valves = interactionManager.manager.components.filter(c => c.type === 'vana' && c.bagliBoruId === pipe.id);
+    const valves = interactionManager.manager.components.filter(c => (c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === pipe.id);
     valves.forEach(v => {
         const pos = (pipe.getVanaPozisyon && pipe.getVanaPozisyon()) || pipe.getPointAt(v.boruPozisyonu !== undefined ? v.boruPozisyonu : 0.5);
         itemsToReattach.push({ comp: v, type: 'vana', worldPos: { x: pos.x, y: pos.y } });
@@ -280,6 +281,9 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
             comp.fleksBaglanti.endpoint = dP1 < dP2 ? 'p1' : 'p2';
         }
     });
+
+    // Tüm boruların basıncını zincirden yeniden hesapla
+    recomputeAllPressures(interactionManager.manager);
 
     interactionManager.manager.saveToState();
 

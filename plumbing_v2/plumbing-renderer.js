@@ -298,6 +298,11 @@ export class PlumbingRenderer {
             this.drawVanaPreview(ctx, manager.interactionManager.vanaPreview);
         }
 
+        // Regülatör preview (regulator tool aktif, hover)
+        if (manager.interactionManager?.regulatorPreview) {
+            this.drawRegulatorPreview(ctx, manager.interactionManager.regulatorPreview);
+        }
+
         // Sayaç/Cihaz boru üzerine ekleme preview (sayac/cihaz tool aktif, hover)
         if (manager.interactionManager?.componentOnPipePreview) {
             this.drawComponentOnPipePreview(ctx, manager.interactionManager.componentOnPipePreview);

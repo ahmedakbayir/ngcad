@@ -572,6 +572,7 @@ export const dom = {
     bServisKutusu: document.getElementById("bServisKutusu"),
     bSayac: document.getElementById("bSayac"),
     bVana: document.getElementById("bVana"),
+    bRegulator: document.getElementById("bRegulator"),
     bKombi: document.getElementById("bKombi"),
     bOcak: document.getElementById("bOcak"),
     bBaca: document.getElementById("bBaca"),
@@ -921,6 +922,7 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bServisKutusu.classList.toggle("active", isPlumbingV2 && activeTool === 'servis_kutusu');
     dom.bSayac.classList.toggle("active", isPlumbingV2 && activeTool === 'sayac');
     dom.bVana.classList.toggle("active", isPlumbingV2 && activeTool === 'vana');
+    if (dom.bRegulator) dom.bRegulator.classList.toggle("active", isPlumbingV2 && activeTool === 'regulator');
     dom.bKombi.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'KOMBI');
     dom.bOcak.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'OCAK');
     dom.bBaca.classList.toggle("active", isPlumbingV2 && activeTool === 'baca');
@@ -1299,6 +1301,16 @@ function initialize() {
                 setDrawingMode("TESİSAT");
             }
             plumbingManager.startPlacement(TESISAT_MODLARI.VANA);
+            setMode("plumbingV2", true);
+        });
+    }
+    if (dom.bRegulator) {
+        dom.bRegulator.addEventListener("click", () => {
+            plumbingManager.interactionManager?.cancelCurrentAction();
+            if (state.currentDrawingMode !== "KARMA") {
+                setDrawingMode("TESİSAT");
+            }
+            plumbingManager.startPlacement(TESISAT_MODLARI.REGULATOR);
             setMode("plumbingV2", true);
         });
     }
