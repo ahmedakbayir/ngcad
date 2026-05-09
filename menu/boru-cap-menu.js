@@ -598,24 +598,37 @@ export function annotatePaths(paths, limit) {
     });
 }
 
-function renderPathItem(path) {
+function renderPathItem(path, limit) {
     const status = path.overLimit ? '❌' : '✅';
+    const ratio = limit > 0 ? path.total / limit : 0;
+    const frac = Math.max(0, Math.min(1, ratio));
     const cls = [
         'bc-path',
         path.isCritical ? 'critical' : '',
         path.overLimit  ? 'over'     : '',
     ].filter(Boolean).join(' ');
     return `
-        <button type="button" class="${cls}" data-hats="${path.hatNos.join(',')}">
+        <button type="button" class="${cls}" data-hats="${path.hatNos.join(',')}" style="--bc-bar-frac:${frac.toFixed(4)}">
             <span class="bc-path-status">${status}</span>
             <span class="bc-path-label">${path.hatNos.join(' + ')}</span>
             <span class="bc-path-value">${f4(path.total)} mbar</span>
         </button>`;
 }
 
+// Hat sırasına göre sırala — ilk farklı hat numarasına bakar (lex).
+function sortPathsByHat(paths) {
+    paths.sort((a, b) => {
+        const len = Math.min(a.hatNos.length, b.hatNos.length);
+        for (let i = 0; i < len; i++) {
+            if (a.hatNos[i] !== b.hatNos[i]) return a.hatNos[i] - b.hatNos[i];
+        }
+        return a.hatNos.length - b.hatNos.length;
+    });
+}
+
 function renderPathsBlock(title, paths, limit) {
     if (!paths.length) return '';
-    paths.sort((a, b) => b.total - a.total);
+    sortPathsByHat(paths);
     const limitStr = NF4.format(limit);
     return `
         <div class="bc-paths-block">
@@ -623,7 +636,7 @@ function renderPathsBlock(title, paths, limit) {
                 ${title}
                 <span class="bc-paths-limit">limit &lt; ${limitStr} mbar</span>
             </div>
-            <div class="bc-path-list">${paths.map(renderPathItem).join('')}</div>
+            <div class="bc-path-list">${paths.map(p => renderPathItem(p, limit)).join('')}</div>
         </div>`;
 }
 
@@ -733,12 +746,18 @@ function renderInto(bodyEl) {
         });
     });
 
+    const clearAllSelection = () => {
+        bodyEl.querySelectorAll('.bc-path.selected').forEach(b => b.classList.remove('selected'));
+        bodyEl.querySelectorAll('.bc-path.bc-path-uses-row').forEach(b => b.classList.remove('bc-path-uses-row'));
+        bodyEl.querySelectorAll('tr.bc-path-highlight').forEach(tr => tr.classList.remove('bc-path-highlight'));
+        bodyEl.querySelectorAll('tr.bc-row-selected').forEach(tr => tr.classList.remove('bc-row-selected'));
+    };
+
     // Yol seçimi → ilgili hat satırlarını vurgula (toggle, tek aktif yol)
     bodyEl.querySelectorAll('.bc-path').forEach(btn => {
         btn.addEventListener('click', () => {
             const wasSelected = btn.classList.contains('selected');
-            bodyEl.querySelectorAll('.bc-path.selected').forEach(b => b.classList.remove('selected'));
-            bodyEl.querySelectorAll('tr.bc-path-highlight').forEach(tr => tr.classList.remove('bc-path-highlight'));
+            clearAllSelection();
             if (!wasSelected) {
                 btn.classList.add('selected');
                 btn.dataset.hats.split(',').forEach(h => {
@@ -758,8 +777,24 @@ function renderInto(bodyEl) {
         });
     });
 
-    // Hat satırına çift tıklama → paneli kapat ve hattı projede seçili hâle getir.
+    // Hat satırı: tek tıklama → bu hattı kullanan yolları vurgula (toggle).
+    // Çift tıklama → paneli kapat ve hattı projede seçili hâle getir.
     bodyEl.querySelectorAll('tr[data-hat-no]').forEach(tr => {
+        tr.addEventListener('click', (e) => {
+            if (e.target.closest('.bc-dn-select')) return;
+            const hatNo = parseInt(tr.dataset.hatNo, 10);
+            if (!Number.isFinite(hatNo)) return;
+            const wasSelected = tr.classList.contains('bc-row-selected');
+            clearAllSelection();
+            if (!wasSelected) {
+                tr.classList.add('bc-row-selected');
+                bodyEl.querySelectorAll('.bc-path').forEach(btn => {
+                    const hats = btn.dataset.hats.split(',').map(s => parseInt(s, 10));
+                    if (hats.includes(hatNo)) btn.classList.add('bc-path-uses-row');
+                });
+            }
+        });
+
         tr.addEventListener('dblclick', (e) => {
             // DN combobox üzerindeki çift tıklamada satır seçimini tetikleme.
             if (e.target.closest('.bc-dn-select')) return;

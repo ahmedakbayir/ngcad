@@ -4570,8 +4570,8 @@ body.light-mode .bc-tab-bar {
 
 /* — Yol listesi (path enumeration) — */
 .bc-paths {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 14px;
     margin-top: 14px;
 }
@@ -4612,6 +4612,7 @@ body.light-mode .bc-tab-bar {
 }
 
 .bc-path {
+    position: relative;
     display: grid;
     grid-template-columns: 22px 1fr auto;
     align-items: center;
@@ -4626,6 +4627,44 @@ body.light-mode .bc-tab-bar {
     text-align: left;
     cursor: pointer;
     transition: background 0.12s;
+    overflow: hidden;
+}
+
+/* Kayıp / limit oranını gösteren alt kenar progres şeridi */
+.bc-path::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 2px;
+    height: 1px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.06);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.bc-path::after {
+    content: '';
+    position: absolute;
+    left: 10px;
+    bottom: 2px;
+    height: 2px;
+    width: calc((100% - 20px) * var(--bc-bar-frac, 0));
+    border-radius: 2px;
+    background: rgba(110, 168, 255, 0.55);
+    pointer-events: none;
+    z-index: 1;
+    transition: width 0.18s ease;
+}
+
+.bc-path.over::after {
+    background: rgba(239, 83, 80, 0.75);
+}
+
+.bc-path > * {
+    position: relative;
+    z-index: 1;
 }
 
 .bc-path:first-child { border-top: none; }
@@ -4634,7 +4673,8 @@ body.light-mode .bc-tab-bar {
     background: var(--ft-row-hover, rgba(255, 255, 255, 0.04));
 }
 
-.bc-path.selected {
+.bc-path.selected,
+.bc-path.bc-path-uses-row {
     background: rgba(110, 168, 255, 0.12);
 }
 
@@ -4665,21 +4705,45 @@ body.light-mode .bc-tab-bar {
     font-weight: 700;
 }
 
-/* — Tablo satırı vurgulama (yol seçildiğinde) — */
-.bc-table tbody tr.bc-path-highlight td {
+/* — Tablo satırı vurgulama (yol seçildiğinde / hat tıklandığında) — */
+.bc-table tbody tr.bc-path-highlight td,
+.bc-table tbody tr.bc-row-selected td {
     background: rgba(110, 168, 255, 0.10);
 }
 
-.bc-table tbody tr.bc-path-highlight:hover td {
+.bc-table tbody tr.bc-path-highlight:hover td,
+.bc-table tbody tr.bc-row-selected:hover td {
     background: rgba(110, 168, 255, 0.16);
 }
 
-body.light-mode .bc-path.selected {
+.bc-table tbody tr.bc-row-selected td {
+    background: rgba(110, 168, 255, 0.18);
+}
+
+body.light-mode .bc-path.selected,
+body.light-mode .bc-path.bc-path-uses-row {
     background: rgba(37, 99, 235, 0.12);
 }
 
-body.light-mode .bc-table tbody tr.bc-path-highlight td {
+body.light-mode .bc-table tbody tr.bc-path-highlight td,
+body.light-mode .bc-table tbody tr.bc-row-selected td {
     background: rgba(37, 99, 235, 0.10);
+}
+
+body.light-mode .bc-table tbody tr.bc-row-selected td {
+    background: rgba(37, 99, 235, 0.18);
+}
+
+body.light-mode .bc-path::before {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+body.light-mode .bc-path::after {
+    background: rgba(37, 99, 235, 0.55);
+}
+
+body.light-mode .bc-path.over::after {
+    background: rgba(211, 47, 47, 0.75);
 }
 
 body.light-mode .bc-path.over .bc-path-value {

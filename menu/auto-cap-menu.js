@@ -365,7 +365,7 @@ function tryReducePipe(manager, state, pipeId, target, mode) {
     if (isSplit) {
         if (mode !== 'AGGRESSIVE') return false;
         const hatRow = getHatRowForPipe(state, pipe.id);
-        if (!hatRow || (hatRow.L_m || 0) < 8) return false;
+        if (!hatRow || (hatRow.L_m || 0) < 4) return false;
     }
 
     // Kuyruk: aynı çaplı, aşağı akıştaki borular
