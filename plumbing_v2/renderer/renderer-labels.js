@@ -833,15 +833,31 @@ export const LabelMixin = {
             lines.push({ text: 'AKV', bold: true });
 
         } else if (vt === 'BRANSMAN') {
-            // Birim tipi: önce vananın kendi property'si, yoksa bağlı sayaçtan
-            let birimTipi = comp.birimTipi || '';
-            if (!birimTipi && manager) {
-                const sayac = manager.components.find(c => c.type === 'sayac' && c.iliskiliVanaId === comp.id);
-                if (sayac?.birimTipi) birimTipi = sayac.birimTipi;
+            // İlerde kullanım modunda: "ilerde kullanım amacıyla" + "{N} {tipi}"
+            if (comp.ilerdeKullanim) {
+                lines.push({ text: 'ilerde kullanım amacıyla', sub: true });
+                const n = parseInt(comp.birimSayisi, 10) || 0;
+                const tipiLbl = (() => {
+                    switch (comp.birimTipi) {
+                        case 'OFİS': return 'dükkan';
+                        case 'TİCARİ': return 'dükkan';
+                        case 'KAZAN DAİRESİ': return 'kazan dairesi';
+                        case 'KONUT':
+                        default: return 'daire';
+                    }
+                })();
+                if (n > 0) lines.push({ text: `${n} ${tipiLbl}`, bold: true });
+            } else {
+                // Birim tipi: önce vananın kendi property'si, yoksa bağlı sayaçtan
+                let birimTipi = comp.birimTipi || '';
+                if (!birimTipi && manager) {
+                    const sayac = manager.components.find(c => c.type === 'sayac' && c.iliskiliVanaId === comp.id);
+                    if (sayac?.birimTipi) birimTipi = sayac.birimTipi;
+                }
+                if (!birimTipi) birimTipi = 'KONUT';
+                const lblLines = getBirimLabelLines(birimTipi, comp.birimNo || '');
+                lblLines.forEach(t => { if (t) lines.push({ text: t, bold: true }); });
             }
-            if (!birimTipi) birimTipi = 'KONUT';
-            const lblLines = getBirimLabelLines(birimTipi, comp.birimNo || '');
-            lblLines.forEach(t => { if (t) lines.push({ text: t, bold: true }); });
 
         } else if (vt === 'EMNIYET') {
             lines.push({ text: 'Emn.V', sub: true });

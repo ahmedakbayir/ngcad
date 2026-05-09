@@ -672,6 +672,8 @@ const dx = pipe.p2.x - pipe.p1.x;
             dukkanSayisi: this.dukkanSayisi,
             ekDebi: this.ekDebi,
             bransmanDebi: this.bransmanDebi,
+            ilerdeKullanim: this.ilerdeKullanim,
+            birimSayisi: this.birimSayisi,
             description: this.description ?? ''
         };
     }
@@ -705,6 +707,8 @@ const dx = pipe.p2.x - pipe.p1.x;
         if (data.dukkanSayisi !== undefined) vana.dukkanSayisi = data.dukkanSayisi;
         if (data.ekDebi !== undefined) vana.ekDebi = data.ekDebi;
         if (data.bransmanDebi !== undefined) vana.bransmanDebi = data.bransmanDebi;
+        if (data.ilerdeKullanim !== undefined) vana.ilerdeKullanim = data.ilerdeKullanim;
+        if (data.birimSayisi !== undefined) vana.birimSayisi = data.birimSayisi;
         vana.description = data.description ?? '';
         return vana;
     }

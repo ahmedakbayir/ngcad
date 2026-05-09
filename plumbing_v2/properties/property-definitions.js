@@ -103,6 +103,25 @@ function _sumDebiAfterSayac(sayac, manager) {
     return pipe?.debi || 0;
 }
 
+/** Birim Tipi → kısa Türkçe etiket (Birim No otomatik metni için) */
+function _birimTipiKisaLabel(birimTipi) {
+    switch (birimTipi) {
+        case 'KONUT': return 'daire';
+        case 'OFİS': return 'ofis';
+        case 'TİCARİ': return 'dükkan';
+        case 'KAZAN DAİRESİ': return 'kazan dairesi';
+        default: return 'daire';
+    }
+}
+
+/** İlerde kullanım modunda Birim No'yu "{sayı} {tipi}" formatına getir */
+function _updateIlerdeBirimNo(obj) {
+    if (!obj?.ilerdeKullanim) return;
+    const n = parseInt(obj.birimSayisi, 10) || 0;
+    const lbl = _birimTipiKisaLabel(obj.birimTipi || 'KONUT');
+    obj.birimNo = n > 0 ? `${n} ${lbl}` : '';
+}
+
 /** P1/P2 koordinat span'ı: değişen siyah, değişmeyen gri */
 function _coordSpan(label, changed) {
     return changed
@@ -600,6 +619,42 @@ export const PROPERTY_DEFS = {
         default: 'KONUT',
         placeholder: '— seçiniz —',
         visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
+        afterChange: (obj, manager, panelEl) => {
+            if (obj.ilerdeKullanim) {
+                _updateIlerdeBirimNo(obj);
+                if (panelEl?._refresh) panelEl._refresh();
+            }
+        },
+    },
+
+    vanaIlerdeKullanim: {
+        label: 'İlerde Kullanım Amacıyla',
+        type: 'toggle',
+        key: 'ilerdeKullanim',
+        default: false,
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
+        afterChange: (obj, manager, panelEl) => {
+            if (obj.ilerdeKullanim) {
+                if (!obj.birimSayisi) obj.birimSayisi = '1';
+                _updateIlerdeBirimNo(obj);
+            }
+            if (panelEl?._refresh) panelEl._refresh();
+            if (manager) recomputeAllPressures(manager);
+        },
+    },
+
+    vanaBirimSayisi: {
+        label: 'Birim Sayısı',
+        type: 'select',
+        key: 'birimSayisi',
+        options: Array.from({ length: 20 }, (_, i) => String(i + 1)),
+        default: '1',
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN' && !!obj.ilerdeKullanim,
+        afterChange: (obj, manager, panelEl) => {
+            _updateIlerdeBirimNo(obj);
+            if (panelEl?._refresh) panelEl._refresh();
+            if (manager) recomputeAllPressures(manager);
+        },
     },
 
     vanaBirimNo: {
@@ -609,6 +664,7 @@ export const PROPERTY_DEFS = {
         default: '',
         placeholder: 'Birim no...',
         visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
+        disabledFn: (obj) => !!obj.ilerdeKullanim,
     },
 
     // YANBINA ek bilgiler
@@ -673,13 +729,23 @@ export const PROPERTY_DEFS = {
         default: '3.5',
         placeholder: '3.50',
         precision: 2,
-        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN' && !obj.ilerdeKullanim,
         afterChange: (obj, manager) => {
             if (!manager || !obj.bagliBoruId) return;
             const debi = parseFloat(obj.bransmanDebi) || 0;
             const pipe = manager.pipes.find(p => p.id === obj.bagliBoruId);
             if (pipe) pipe.debi = debi;
         },
+    },
+    vanaBransmanIlerdeToplam: {
+        label: 'Toplam Debi',
+        type: 'readonly',
+        readonlyFn: (obj) => {
+            const n = parseInt(obj.birimSayisi, 10) || 0;
+            const debi = n > 0 ? getCizelge6Debi(n, 0, true) : 0;
+            return `${debi.toFixed(2)} m³/h`;
+        },
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN' && !!obj.ilerdeKullanim,
     },
     vanaDebi: {
         label: 'Debi',
@@ -1551,6 +1617,9 @@ export const OBJECT_PROPERTIES = {
         'vanaBirimTipi',
         'vanaBirimNo',
         'vanaBransmanDebi',
+        'vanaBransmanIlerdeToplam',
+        'vanaIlerdeKullanim',
+        'vanaBirimSayisi',
         //'vanaDebi',
         'vanaTesisatNo',
         'vanaDaireSayisi',

@@ -514,17 +514,31 @@ export function computePipeDebileri(manager) {
             // Sayaç öncesinde cihaz olmaz — yoksay
 
         } else if (c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && c.bagliBoruId) {
-            const debi = parseFloat(c.bransmanDebi);
-            if (!isNaN(debi) && debi > 0) {
-                const pipe = pipeMap.get(c.bagliBoruId);
-                if (!pipe) return;
+            const pipe = pipeMap.get(c.bagliBoruId);
+            if (!pipe) return;
+
+            if (c.ilerdeKullanim) {
+                // İlerde kullanım: birim sayısı × 3.5 (Çizelge 6 ile, YANBINA gibi)
+                const n = parseInt(c.birimSayisi, 10) || 0;
+                if (n <= 0) return;
                 if (sayacSonrasiIds.has(c.bagliBoruId)) {
-                    pipe._nfd += debi;
+                    pipe._nfd += n * 3.5;
                 } else {
-                    // Sayaç öncesi: 1 birim, ham debi = birimDebi / BRY1
-                    pipe._birim.count   += 1;
-                    pipe._birim.hamDebi += debi / BRY1;
-                    if (Math.abs(debi - 3.5) > 0.001) pipe._birim.hepsi35 = false;
+                    pipe._birim.count   += n;
+                    pipe._birim.hamDebi += n * (3.5 / BRY1);
+                    // Hepsi 3.5 — hepsi35 değişmez
+                }
+            } else {
+                const debi = parseFloat(c.bransmanDebi);
+                if (!isNaN(debi) && debi > 0) {
+                    if (sayacSonrasiIds.has(c.bagliBoruId)) {
+                        pipe._nfd += debi;
+                    } else {
+                        // Sayaç öncesi: 1 birim, ham debi = birimDebi / BRY1
+                        pipe._birim.count   += 1;
+                        pipe._birim.hamDebi += debi / BRY1;
+                        if (Math.abs(debi - 3.5) > 0.001) pipe._birim.hepsi35 = false;
+                    }
                 }
             }
 

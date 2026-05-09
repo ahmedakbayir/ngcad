@@ -1083,7 +1083,8 @@ export function handlePipePaste() {
                 // Panel özellikleri (fromJSON ile aynı alan listesi)
                 ['vanaCap', 'izolator', 'flans', 'muhafaza', 'muhafazaGrupla',
                     'birimNo', 'tesisatNo', 'daireSayisi', 'dukkanSayisi',
-                    'ekDebi', 'bransmanDebi', 'description'].forEach(k => {
+                    'ekDebi', 'bransmanDebi', 'ilerdeKullanim', 'birimSayisi',
+                    'description'].forEach(k => {
                         if (vanaData[k] !== undefined) newVana[k] = vanaData[k];
                     });
 
