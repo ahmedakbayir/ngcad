@@ -11,6 +11,7 @@ import { initFloorOperationsMenu } from '../menu/floor-operations-menu.js';
 import { initPanelDisplayMenu } from '../menu/panel-display-menu.js';
 import { initFittingsMenu } from '../menu/fittings-menu.js';
 import { initBoruCapMenu } from '../menu/boru-cap-menu.js';
+import { initAutoCapMenu } from '../menu/auto-cap-menu.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';
@@ -1128,6 +1129,7 @@ function initialize() {
     initPanelDisplayMenu();
     initFittingsMenu();
     initBoruCapMenu();
+    initAutoCapMenu();
 
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 

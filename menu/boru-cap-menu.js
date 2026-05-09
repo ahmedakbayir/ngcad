@@ -26,7 +26,7 @@ import { draw2D } from '../draw/draw2d.js';
 import { selectHatInProject, selectPathInProject } from './calc-table-helpers.js';
 
 // TS 7363 Çizelge 1 — Çelik borularda dış çap & cidar kalınlığı
-const PIPE_SPECS = {
+export const PIPE_SPECS = {
     'DN15':  { od: 21.3,  wall: 2.80 },
     'DN20':  { od: 26.9,  wall: 2.90 },
     'DN25':  { od: 33.7,  wall: 3.40 },
@@ -44,10 +44,10 @@ const PIPE_SPECS = {
     'DN400': { od: 406.0, wall: 9.50 },
     'DN450': { od: 470.0, wall: 9.50 },
 };
-const DN_LIST = Object.keys(PIPE_SPECS);
+export const DN_LIST = Object.keys(PIPE_SPECS);
 
 const R_GAS = 0.6;       // gaz sabiti
-const V_LIMIT = 6;       // m/s — Not: V ≤ 6 m/s olmalıdır
+export const V_LIMIT = 6; // m/s — Not: V ≤ 6 m/s olmalıdır
 
 // TS EN 15266 — BLH Hortum Takımları (Esnek Tesisat)
 // Q (m³/h) → { v (m/s), dPR_L (mbar/m) }
@@ -133,7 +133,7 @@ const ESNEK_TABLE = {
         { Q: 17.5, v: 6.04, dPR_L: 0.1132 },
     ],
 };
-const ESNEK_DN_LIST = Object.keys(ESNEK_TABLE);
+export const ESNEK_DN_LIST = Object.keys(ESNEK_TABLE);
 
 // Q için tablo değerlerini lineer interpolasyonla bulur.
 // Q tablo aralığı dışındaysa null döner (geçersiz seçim → daha büyük çap gerek).
@@ -181,7 +181,7 @@ function getInternalDiameter(dn) {
 // ─── HAT VERİLERİNİ TOPLA ──────────────────────────────────────────────────────
 // hatMap: pipe.id → hatNo
 // Çıktı: hat → { dn, Q, L_m, H_m, basinc, headPipe, tailPipe, parentHatNo, segmentType }
-function buildHatData(manager) {
+export function buildHatData(manager) {
     if (!manager?.pipes?.length) return { hats: [], hatNos: [] };
 
     const { hatMap } = computeHatGroups(manager.pipes, manager.components || []);
@@ -386,7 +386,7 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
 }
 
 // Hat ağacında BFS ile P1 → P2 cascade
-function cascadeHats(hats, fittingsByHat) {
+export function cascadeHats(hats, fittingsByHat) {
     const byHat = new Map(hats.map(h => [h.hatNo, h]));
     const childrenByParent = new Map();
     hats.forEach(h => {
@@ -549,14 +549,14 @@ function renderTable(rows, fittingsByHat) {
 
 // ─── YOL ENÜMERASYONU & LİMİT KONTROLÜ ────────────────────────────────────────
 // Limit (mbar) — bu değer ve üstü hatalı (kırmızı).
-const PATH_LIMITS = {
+export const PATH_LIMITS = {
     KOLON:    1.0000,  // bina bağlantısı / kolon hattı
     TUKETIM:  0.8000,  // sayaç sonrası iç tesisat
 };
 
 // Verilen satır kümesi içinde kök → yaprak yollarını DFS ile çıkar.
 // hat sayısı aynı kalır; parent referansı set dışındaysa kök olarak kabul edilir.
-function enumeratePaths(rows) {
+export function enumeratePaths(rows) {
     if (!rows || rows.length === 0) return [];
     const byHat = new Map(rows.map(r => [r.hatNo, r]));
     const hatSet = new Set(byHat.keys());
@@ -586,7 +586,7 @@ function enumeratePaths(rows) {
 }
 
 // Kritik (en yüksek kayıp) ve limit aşımı bayraklarını ekler.
-function annotatePaths(paths, limit) {
+export function annotatePaths(paths, limit) {
     if (!paths.length) return;
     let maxTotal = -Infinity;
     paths.forEach(p => {

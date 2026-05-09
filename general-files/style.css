@@ -4087,6 +4087,20 @@ body.light-mode .vis-panel-inner {
     color: var(--color-button-active);
 }
 
+/* Üçüncü seviye (iç içe) alt menü desteği */
+/* 1) İçinde alt menü taşıyan outer submenu, taşan iç menüyü kırpmasın */
+.dropdown-submenu-content:has(.dropdown-submenu-item) {
+    overflow: visible;
+}
+/* 2) İç submenu yalnızca doğrudan kendi item'ı hover olunca açılsın
+       (descendant seçici dış item hover'ında da iç submenu'yu tetikliyordu) */
+.dropdown-submenu-content > .dropdown-submenu-item > .dropdown-submenu-content {
+    display: none;
+}
+.dropdown-submenu-content > .dropdown-submenu-item:hover > .dropdown-submenu-content {
+    display: block;
+}
+
 /* Fittings (Lokal Kayıplar) Tablosu Modal */
 .fittings-modal-overlay {
     position: fixed;
