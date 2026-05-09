@@ -29,7 +29,7 @@ import {
     enumeratePaths,
     annotatePaths,
     PATH_LIMITS,
-    V_LIMIT,
+    pathLimitForKolon,
     DN_LIST,
     ESNEK_DN_LIST,
 } from './boru-cap-menu.js';
@@ -203,15 +203,26 @@ function compute(manager) {
 
     const kolonRows = rows.filter(r => r.segmentType === 'KOLON');
     const tukRows   = rows.filter(r => r.segmentType !== 'KOLON');
+    const rowsByHat = new Map(rows.map(r => [r.hatNo, r]));
 
     const kolonPaths = enumeratePaths(kolonRows);
     const tukPaths   = enumeratePaths(tukRows);
-    annotatePaths(kolonPaths, PATH_LIMITS.KOLON);
-    annotatePaths(tukPaths,   PATH_LIMITS.TUKETIM);
 
-    // Her yola limitine göre oran ve segment tipi ekle
-    kolonPaths.forEach(p => { p.ratio = p.total / PATH_LIMITS.KOLON; p.segmentType = 'KOLON'; });
-    tukPaths  .forEach(p => { p.ratio = p.total / PATH_LIMITS.TUKETIM; p.segmentType = 'TUK'; });
+    // Her yolun limiti ayrı: 300 mbar kolon → 21 mbar; 21 mbar kolon → 1 mbar.
+    kolonPaths.forEach(p => {
+        p.limit = pathLimitForKolon(rowsByHat, p.hatNos);
+        p.ratio = p.total / p.limit;
+        p.segmentType = 'KOLON';
+        p.overLimit = p.total >= p.limit;
+    });
+    tukPaths.forEach(p => {
+        p.limit = PATH_LIMITS.TUKETIM;
+        p.ratio = p.total / p.limit;
+        p.segmentType = 'TUK';
+        p.overLimit = p.total >= p.limit;
+    });
+    annotatePaths(kolonPaths, PATH_LIMITS.KOLON_HIGH); // kritik bayrak için (limit alanı zaten ayrı)
+    annotatePaths(tukPaths,   PATH_LIMITS.TUKETIM);
 
     const allPaths = [...kolonPaths, ...tukPaths];
 
@@ -222,9 +233,16 @@ function compute(manager) {
     ratios.max = Math.max(ratios.kolon, ratios.tuketim);
 
     const maxV = rows.reduce((m, r) => Math.max(m, Number.isFinite(r.v) ? r.v : 0), 0);
+    // Hız ihlali: her hattın kendi limitine göre.
+    const vViolations = rows.filter(r => {
+        if (!Number.isFinite(r.v)) return false;
+        const lim = Number.isFinite(r.vLimit) ? r.vLimit : 6;
+        return r.v > lim;
+    });
+    const hasVViolation = vViolations.length > 0;
     const hasError = rows.some(r => r.error);
 
-    return { rows, kolonPaths, tukPaths, allPaths, ratios, maxV, hasError };
+    return { rows, kolonPaths, tukPaths, allPaths, ratios, maxV, vViolations, hasVViolation, hasError };
 }
 
 function rowByHat(state, hatNo) {
@@ -277,12 +295,8 @@ function pickRaiseOnPath(state, hatNos) {
 
 function findWorstPath(state) {
     let best = null, bestRatio = -Infinity;
-    state.kolonPaths.forEach(p => {
-        const r = p.total / PATH_LIMITS.KOLON;
-        if (r > bestRatio) { bestRatio = r; best = p; }
-    });
-    state.tukPaths.forEach(p => {
-        const r = p.total / PATH_LIMITS.TUKETIM;
+    state.allPaths.forEach(p => {
+        const r = p.ratio ?? 0;
         if (r > bestRatio) { bestRatio = r; best = p; }
     });
     return best;
@@ -390,7 +404,7 @@ function tryReducePipe(manager, state, pipeId, target, mode) {
     if (!changed) return false;
 
     const after = compute(manager);
-    if (after.maxV > V_LIMIT) { restore(manager, snap); return false; }
+    if (after.hasVViolation) { restore(manager, snap); return false; }
     if (after.allPaths.some(p => p.ratio > target.max)) { restore(manager, snap); return false; }
     return true;
 }
@@ -430,15 +444,13 @@ function autoSize(manager, mode) {
 
     applyDefaults(manager);
 
-    // FAZ A: V ≤ 6 ve kritik oran ≤ 1 olana kadar yükselt (zorunlu)
+    // FAZ A: V ihlali olmayana ve kritik oran ≤ 1 olana kadar yükselt (zorunlu)
     for (let i = 0; i < MAX_ITER; i++) {
         const state = compute(manager);
-        if (state.maxV <= V_LIMIT && state.ratios.max <= 1.0 && !state.hasError) break;
+        if (!state.hasVViolation && state.ratios.max <= 1.0 && !state.hasError) break;
 
-        // Hız ihlali olan hatları öncelikle yükselt
-        const vRow = state.rows
-            .filter(r => Number.isFinite(r.v) && r.v > V_LIMIT)
-            .sort((a, b) => b.v - a.v)[0];
+        // Hız ihlali olan hatları öncelikle yükselt (kendi vLimit'ine göre)
+        const vRow = state.vViolations.slice().sort((a, b) => b.v - a.v)[0];
 
         let targetHat = null;
         if (vRow && canRaise(state, vRow.hatNo)) {
@@ -462,7 +474,7 @@ function autoSize(manager, mode) {
         const state = compute(manager);
 
         // Güvenlik: V veya tam limit ihlali yeniden gelirse zorunlu yükselt
-        if (state.maxV > V_LIMIT || state.ratios.max > 1.0) {
+        if (state.hasVViolation || state.ratios.max > 1.0) {
             const worst = findWorstPath(state);
             const t = worst ? pickRaiseOnPath(state, worst.hatNos) : null;
             if (t == null || !raiseHat(manager, state, t)) break;

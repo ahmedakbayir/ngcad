@@ -47,7 +47,18 @@ export const PIPE_SPECS = {
 export const DN_LIST = Object.keys(PIPE_SPECS);
 
 const R_GAS = 0.6;       // gaz sabiti
-export const V_LIMIT = 6; // m/s — Not: V ≤ 6 m/s olmalıdır
+export const V_LIMIT = 6;       // m/s — 21–50 mbar hatlar için
+export const V_LIMIT_HIGH = 15; // m/s — 300 mbar (>50 mbar) hatlar için
+
+// Yüksek basınçlı tesisat eşiği (mbar). > 50 mbar → 300 mbar gibi davranır.
+function isHighPressure(basinc) {
+    return parseFloat(basinc) > 50;
+}
+
+// Hız limiti (m/s) — basınca göre.
+export function vLimitFor(basinc) {
+    return isHighPressure(basinc) ? V_LIMIT_HIGH : V_LIMIT;
+}
 
 // TS EN 15266 — BLH Hortum Takımları (Esnek Tesisat)
 // Q (m³/h) → { v (m/s), dPR_L (mbar/m) }
@@ -164,11 +175,12 @@ function interpolateEsnek(dn, Q) {
     return null;
 }
 
-// İlk hattın P1'i: 21 mbar tesisat → 1,021 bar; 50 mbar (300 mbar değil) → 1,05 bar
+// İlk hattın P1'i (Pmutlak): 1 bar atmosfer + tesisat basıncı (bar).
+// 21 mbar → 1,021 bar; 50 mbar → 1,050 bar; 300 mbar → 1,300 bar.
 function defaultP1Bar(basinc) {
-    const b = String(basinc || '21');
-    if (b === '50')  return 1.05;
-    return 1.021; // 21 mbar (varsayılan)
+    const p_mbar = parseFloat(basinc);
+    if (!Number.isFinite(p_mbar) || p_mbar <= 0) return 1.021;
+    return 1 + p_mbar / 1000;
 }
 
 function pipeId(p) { return p.boruCap || 'DN25'; }
@@ -297,6 +309,8 @@ export function buildHatData(manager) {
 // ─── PER-HAT HESAPLAMA ─────────────────────────────────────────────────────────
 function computeHatRow(hat, sigmaXi, P1_bar) {
     const D_mm = getInternalDiameter(hat.dn);
+    const isHigh = isHighPressure(hat.basinc);
+    const vLimit = isHigh ? V_LIMIT_HIGH : V_LIMIT;
     if (!D_mm || D_mm <= 0) {
         return { ...hat, error: `Bilinmeyen çap: ${hat.dn}`, P1_bar };
     }
@@ -307,12 +321,14 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
             return { ...hat, error: `Esnek tesisatta ${hat.dn} tanımlı değil (sadece DN15–DN32)`, P1_bar };
         }
         if (hat.Q <= 0 || hat.L_m <= 0) {
+            const dPA0 = 0.049 * (hat.H_m || 0);
             return {
                 ...hat, sigmaXi, D_mm,
                 v: 0, dPR_L: 0, dPR: 0, dPF: 0,
-                dPA: 0.049 * (hat.H_m || 0),
-                sumDP: 0.049 * (hat.H_m || 0),
+                dPA: dPA0,
+                sumDP: isHigh ? 0 : dPA0,
                 P1_bar, P2_bar: P1_bar,
+                vLimit,
             };
         }
         const interp = interpolateEsnek(hat.dn, hat.Q);
@@ -326,17 +342,20 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
         const P2_bar = Math.max(0.001, P1_bar - drop_bar);
         const dPF = 3.97e-3 * sigmaXi * v * v;
         const dPA = 0.049 * (hat.H_m || 0);
-        const sumDP = dPR + dPF + dPA;
+        // 300 mbar (>50 mbar) tesisatlarında yükseklik kaybı toplama dahil edilmez.
+        const sumDP = dPR + dPF + (isHigh ? 0 : dPA);
         return {
             ...hat, sigmaXi, D_mm,
             v, dPR_L, dPR, dPF, dPA, sumDP,
             P1_bar, P2_bar,
-            vWarn: v > V_LIMIT,
+            vWarn: v > vLimit,
+            vLimit,
         };
     }
 
     if (hat.Q <= 0 || hat.L_m <= 0) {
         // Akış yok / uzunluk yok → tümü 0
+        const dPA0 = 0.049 * (hat.H_m || 0);
         return {
             ...hat,
             sigmaXi,
@@ -345,10 +364,11 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
             dPR_L: 0,
             dPR: 0,
             dPF: 0,
-            dPA: 0.049 * (hat.H_m || 0),
-            sumDP: 0.049 * (hat.H_m || 0),
+            dPA: dPA0,
+            sumDP: isHigh ? 0 : dPA0,
             P1_bar,
             P2_bar: P1_bar,
+            vLimit,
         };
     }
 
@@ -367,7 +387,8 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
     // ΔPA (yükseklik) = 0.049 × H
     const dPA = 0.049 * (hat.H_m || 0);
 
-    const sumDP = dPR + dPF + dPA;
+    // 300 mbar (>50 mbar) tesisatlarında yükseklik kaybı toplama dahil edilmez.
+    const sumDP = dPR + dPF + (isHigh ? 0 : dPA);
 
     return {
         ...hat,
@@ -381,7 +402,8 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
         sumDP,
         P1_bar,
         P2_bar,
-        vWarn: v > V_LIMIT,
+        vWarn: v > vLimit,
+        vLimit,
     };
 }
 
@@ -448,7 +470,7 @@ function buildFittingsBreakdown(fittingsRow) {
 }
 
 // ─── TABLE RENDER ──────────────────────────────────────────────────────────────
-const COLS = [
+const COLS_LOW = [
     { key: 'Q',     label: 'Q',     unit: 'm³/h' },
     { key: 'L',     label: 'L',     unit: 'm' },
     { key: 'DN',    label: 'DN',    unit: 'mm' },
@@ -462,9 +484,24 @@ const COLS = [
     { key: 'sumDP', label: 'ΣΔP',   unit: 'mbar' },
 ];
 
-function renderTableHead() {
-    const labelRow = COLS.map(c => `<th>${c.label}</th>`).join('');
-    const unitRow  = COLS.map(c => `<th class="bc-unit">${c.unit}</th>`).join('');
+// 300 mbar tablosu — H ve ΔPA yerine P1, P2.
+const COLS_HIGH = [
+    { key: 'Q',     label: 'Q',     unit: 'm³/h' },
+    { key: 'L',     label: 'L',     unit: 'm' },
+    { key: 'DN',    label: 'DN',    unit: 'mm' },
+    { key: 'v',     label: 'v',     unit: 'm/s' },
+    { key: 'dPRL',  label: 'ΔPR/L', unit: 'mbar/m' },
+    { key: 'dPR',   label: 'ΔPR',   unit: 'mbar' },
+    { key: 'xi',    label: 'Σξ',    unit: '' },
+    { key: 'dPF',   label: 'ΔPF',   unit: 'mbar' },
+    { key: 'P1',    label: 'P1',    unit: 'bar' },
+    { key: 'P2',    label: 'P2',    unit: 'bar' },
+    { key: 'sumDP', label: 'ΣΔP',   unit: 'mbar' },
+];
+
+function renderTableHead(cols) {
+    const labelRow = cols.map(c => `<th>${c.label}</th>`).join('');
+    const unitRow  = cols.map(c => `<th class="bc-unit">${c.unit}</th>`).join('');
     return `
         <thead>
             <tr>
@@ -475,7 +512,8 @@ function renderTableHead() {
         </thead>`;
 }
 
-function renderRow(row, fittingsRow) {
+function renderRow(row, fittingsRow, cols) {
+    const isHigh = isHighPressure(row.basinc);
     const isEsnek = row.boruTipi === 'ESNEK';
     const allowedDns = isEsnek ? ESNEK_DN_LIST : DN_LIST;
     const invalidDn = !allowedDns.includes(row.dn);
@@ -491,12 +529,23 @@ function renderRow(row, fittingsRow) {
             <td class="bc-cell">${f2(row.Q)}</td>
             <td class="bc-cell">${f2(row.L_m)}</td>
             <td class="bc-cell bc-dn">${dnSelect}</td>
-            <td colspan="${COLS.length - 3}" class="bc-empty">${row.error}</td></tr>`;
+            <td colspan="${cols.length - 3}" class="bc-empty">${row.error}</td></tr>`;
     }
 
     const xiTooltip = buildFittingsBreakdown(fittingsRow);
 
+    const vLimit = row.vLimit ?? (isHigh ? V_LIMIT_HIGH : V_LIMIT);
     const vClass = row.vWarn ? 'bc-cell bc-warn' : 'bc-cell';
+    const vTitle = row.vWarn ? `V > ${vLimit} m/s — limit aşıldı` : '';
+
+    // Son üç sütun (P1/P2 veya H/ΔPA) basınca göre değişir.
+    const tailCells = isHigh
+        ? `
+            <td class="bc-cell">${f4(row.P1_bar)}</td>
+            <td class="bc-cell">${f4(row.P2_bar)}</td>`
+        : `
+            <td class="bc-cell">${f2(row.H_m)}</td>
+            <td class="bc-cell">${f4(row.dPA)}</td>`;
 
     return `
         <tr data-hat-no="${row.hatNo}">
@@ -504,22 +553,21 @@ function renderRow(row, fittingsRow) {
             <td class="bc-cell">${f2(row.Q)}</td>
             <td class="bc-cell">${f2(row.L_m)}</td>
             <td class="bc-cell bc-dn">${dnSelect}</td>
-            <td class="${vClass}" title="${row.vWarn ? 'V > 6 m/s — TS 7363 sınırı aşıldı' : ''}">${f2(row.v)}</td>
+            <td class="${vClass}" title="${vTitle}">${f2(row.v)}</td>
             <td class="bc-cell">${f4(row.dPR_L)}</td>
             <td class="bc-cell">${f4(row.dPR)}</td>
             <td class="bc-cell bc-xi" title="${escAttr(xiTooltip)}">${f2(row.sigmaXi)}</td>
             <td class="bc-cell">${f4(row.dPF)}</td>
-            <td class="bc-cell">${f2(row.H_m)}</td>
-            <td class="bc-cell">${f4(row.dPA)}</td>
+            ${tailCells}
             <td class="bc-cell bc-total">${f4(row.sumDP)}</td>
         </tr>`;
 }
 
-function renderSection(title, rows, fittingsByHat) {
+function renderSection(title, rows, fittingsByHat, cols) {
     if (rows.length === 0) return '';
-    const body = rows.map(r => renderRow(r, fittingsByHat.get(r.hatNo + '_full'))).join('');
+    const body = rows.map(r => renderRow(r, fittingsByHat.get(r.hatNo + '_full'), cols)).join('');
     return `
-        <tr class="bc-section-row"><td colspan="${COLS.length + 1}">${title}</td></tr>
+        <tr class="bc-section-row"><td colspan="${cols.length + 1}">${title}</td></tr>
         ${body}`;
 }
 
@@ -527,18 +575,19 @@ function escAttr(s) {
     return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function renderTable(rows, fittingsByHat) {
+function renderTable(rows, fittingsByHat, tabId) {
     if (!rows || rows.length === 0) {
         return `<div class="bc-empty-msg">Hesaplanacak hat bulunamadı.</div>`;
     }
 
+    const cols = tabId === 'CELIK_HIGH' ? COLS_HIGH : COLS_LOW;
     const kolon = rows.filter(r => r.segmentType === 'KOLON');
     const tuk   = rows.filter(r => r.segmentType !== 'KOLON');
 
-    const head = renderTableHead();
+    const head = renderTableHead(cols);
     const body = `
-        ${renderSection('BİNA BAĞLANTI / KOLON HATTI', kolon, fittingsByHat)}
-        ${renderSection('TÜKETİM ve CİHAZ HATTI', tuk, fittingsByHat)}
+        ${renderSection('BİNA BAĞLANTI / KOLON HATTI', kolon, fittingsByHat, cols)}
+        ${renderSection('TÜKETİM ve CİHAZ HATTI', tuk, fittingsByHat, cols)}
     `;
 
     return `
@@ -550,9 +599,18 @@ function renderTable(rows, fittingsByHat) {
 // ─── YOL ENÜMERASYONU & LİMİT KONTROLÜ ────────────────────────────────────────
 // Limit (mbar) — bu değer ve üstü hatalı (kırmızı).
 export const PATH_LIMITS = {
-    KOLON:    1.0000,  // bina bağlantısı / kolon hattı
-    TUKETIM:  0.8000,  // sayaç sonrası iç tesisat
+    KOLON:       1.0000,   // bina bağlantısı / kolon hattı (21–50 mbar)
+    KOLON_HIGH: 21.0000,   // 300 mbar kutu → vana / sayaç arası
+    TUKETIM:     0.8000,   // sayaç sonrası iç tesisat
 };
+
+// Bir kolon yolunun limiti — yoldaki herhangi bir hat 300 mbar ise yüksek limit kullanılır.
+export function pathLimitForKolon(rows, hatNos) {
+    if (!rows || !hatNos) return PATH_LIMITS.KOLON;
+    const byHat = rows instanceof Map ? rows : new Map(rows.map(r => [r.hatNo, r]));
+    const isHigh = hatNos.some(h => isHighPressure(byHat.get(h)?.basinc));
+    return isHigh ? PATH_LIMITS.KOLON_HIGH : PATH_LIMITS.KOLON;
+}
 
 // Verilen satır kümesi içinde kök → yaprak yollarını DFS ile çıkar.
 // hat sayısı aynı kalır; parent referansı set dışındaysa kök olarak kabul edilir.
@@ -640,15 +698,19 @@ function renderPathsBlock(title, paths, limit) {
         </div>`;
 }
 
-function renderPathsSection(rows) {
-    const kolon = enumeratePaths(rows.filter(r => r.segmentType === 'KOLON'));
-    const tuk   = enumeratePaths(rows.filter(r => r.segmentType !== 'KOLON'));
-    annotatePaths(kolon, PATH_LIMITS.KOLON);
+function renderPathsSection(rows, tabId) {
+    const kolonRows = rows.filter(r => r.segmentType === 'KOLON');
+    const tukRows   = rows.filter(r => r.segmentType !== 'KOLON');
+    const kolon = enumeratePaths(kolonRows);
+    const tuk   = enumeratePaths(tukRows);
+    // 300 mbar tabında kolon limiti 21 mbar (kutu → vana / sayaç).
+    const kolonLimit = tabId === 'CELIK_HIGH' ? PATH_LIMITS.KOLON_HIGH : PATH_LIMITS.KOLON;
+    annotatePaths(kolon, kolonLimit);
     annotatePaths(tuk,   PATH_LIMITS.TUKETIM);
     if (!kolon.length && !tuk.length) return '';
     return `
         <div class="bc-paths">
-            ${renderPathsBlock('KOLON HATTI YOLLARI', kolon, PATH_LIMITS.KOLON)}
+            ${renderPathsBlock('KOLON HATTI YOLLARI', kolon, kolonLimit)}
             ${renderPathsBlock('İÇ TESİSAT YOLLARI', tuk,   PATH_LIMITS.TUKETIM)}
         </div>`;
 }
@@ -721,8 +783,8 @@ function renderInto(bodyEl) {
 
     bodyEl.innerHTML = `
         ${renderTabBar(availableTabs, _activeTab)}
-        ${renderTable(active.rows, fittingsByHat)}
-        ${renderPathsSection(active.rows)}
+        ${renderTable(active.rows, fittingsByHat, _activeTab)}
+        ${renderPathsSection(active.rows, _activeTab)}
     `;
 
     // Tab tıklamaları
