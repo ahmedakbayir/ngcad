@@ -23,6 +23,7 @@ import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
 import { computeFittings } from './fittings-menu.js';
 import { draw2D } from '../draw/draw2d.js';
+import { selectHatInProject, selectPathInProject } from './calc-table-helpers.js';
 
 // TS 7363 Çizelge 1 — Çelik borularda dış çap & cidar kalınlığı
 const PIPE_SPECS = {
@@ -745,6 +746,27 @@ function renderInto(bodyEl) {
                     if (tr) tr.classList.add('bc-path-highlight');
                 });
             }
+        });
+
+        // Yola çift tıklama → paneli kapat ve yolu projede seçili hâle getir.
+        // Yol birden fazla katta ise 3D perspektif paneli açılır.
+        btn.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            const hatNos = btn.dataset.hats.split(',').map(s => parseInt(s, 10)).filter(n => Number.isFinite(n));
+            hideBoruCapModal();
+            selectPathInProject(hatNos);
+        });
+    });
+
+    // Hat satırına çift tıklama → paneli kapat ve hattı projede seçili hâle getir.
+    bodyEl.querySelectorAll('tr[data-hat-no]').forEach(tr => {
+        tr.addEventListener('dblclick', (e) => {
+            // DN combobox üzerindeki çift tıklamada satır seçimini tetikleme.
+            if (e.target.closest('.bc-dn-select')) return;
+            const hatNo = parseInt(tr.dataset.hatNo, 10);
+            if (!Number.isFinite(hatNo)) return;
+            hideBoruCapModal();
+            selectHatInProject(hatNo);
         });
     });
 }

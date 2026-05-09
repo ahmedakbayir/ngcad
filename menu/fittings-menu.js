@@ -10,6 +10,7 @@
 
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
+import { selectHatInProject } from './calc-table-helpers.js';
 
 const COEFFS = {
     REDUKSIYON: 0.5,
@@ -312,7 +313,7 @@ function renderTable(rows) {
         </thead>`;
 
     const body = rows.map(r => `
-        <tr>
+        <tr data-hat-no="${r.hatNo}">
             <td class="ft-hat">${r.hatNo}</td>
             ${COLS.map(c => {
                 const v = r[c.key];
@@ -344,6 +345,17 @@ export function showFittingsModal() {
     body.innerHTML = renderTable(rows);
     overlay.style.display = 'block';
     centerModal();
+
+    // Hat satırına çift tıklama → paneli kapat ve hattı projede seçili hâle getir.
+    body.querySelectorAll('tr[data-hat-no]').forEach(tr => {
+        tr.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            const hatNo = parseInt(tr.dataset.hatNo, 10);
+            if (!Number.isFinite(hatNo)) return;
+            hideFittingsModal();
+            selectHatInProject(hatNo);
+        });
+    });
 }
 
 function hideFittingsModal() {
