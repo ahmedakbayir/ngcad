@@ -659,13 +659,16 @@ export function handleRegulatorPlacement(regulatorPreview) {
     if (regulator.updatePositionFromPipe) regulator.updatePositionFromPipe(boru1);
 
     // ── Otomatik kaynak basıncı kuralları ────────────────────────────────
+    // Regülatör 21 mbar bir hatta yerleştirildiğinde regülatörün ÜST tarafındaki
+    // kaynağın 300 mbar'a yükseltilmesi gerekir. Aşağı tarafta kalan sayaçların
+    // basıncı recomputeAllPressures içinde upstream zincirinden türetilir —
+    // tüm sayaçları '300'e zorlamak post-regülatör sayaçları yanlış 300 gösterir.
     const hatBasinc = _getPipeUpstreamBasinc(boru1, this.manager);
     if (hatBasinc === '21') {
         const hasServisKutusu = this.manager.components.some(c => c.type === 'servis_kutusu');
         if (hasServisKutusu) {
             this.manager.components.forEach(c => {
                 if (c.type === 'servis_kutusu') c.kutuBasinc = '300';
-                if (c.type === 'sayac') c.basinc = '300';
             });
         } else {
             const upstream = _findUpstreamSource(boru1, this.manager);
@@ -674,6 +677,7 @@ export function handleRegulatorPlacement(regulatorPreview) {
     }
 
     // Tüm boruların basıncını zincirden yeniden hesapla
+    // (sayaçların basıncı da burada upstream zincirinden senkronlanır)
     recomputeAllPressures(this.manager);
 
     this.manager.saveToState();

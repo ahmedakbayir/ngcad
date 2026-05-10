@@ -63,4 +63,14 @@ export function recomputeAllPressures(manager) {
     }
 
     manager.pipes.forEach(p => { p.basinc = compute(p.id); });
+
+    // Sayaç çıkış borusu olmayan sayaçların basıncı yukarıdaki döngüde
+    // güncellenmemiş olabilir — fleks giriş borusundan açıkça türet.
+    (manager.components || []).forEach(sayac => {
+        if (sayac.type !== 'sayac') return;
+        const girisPipeId = sayac.fleksBaglanti?.boruId;
+        if (!girisPipeId || !pipeMap.has(girisPipeId)) return;
+        const p = compute(girisPipeId);
+        if (Number.isFinite(p)) sayac.basinc = String(p);
+    });
 }

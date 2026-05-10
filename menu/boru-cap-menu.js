@@ -24,6 +24,23 @@ import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
 import { computeFittings } from './fittings-menu.js';
 import { draw2D } from '../draw/draw2d.js';
 import { selectHatInProject, selectPathInProject } from './calc-table-helpers.js';
+import { CIHAZ_TIPLERI } from '../plumbing_v2/objects/device.js';
+
+// Birim Tipi + No → "D1", "KD2", "(Ofis) Dük3" gibi kısa daire etiketi.
+// renderer-labels.js içindeki getBirimLabelLines ile aynı mantık.
+function dairePrefix(comp) {
+    if (!comp) return '';
+    const no = comp.birimNo;
+    if (no == null || String(no).trim() === '') return '';
+    const tipi = comp.birimTipi || 'KONUT';
+    switch (tipi) {
+        case 'KONUT': return `D${no}`;
+        case 'OFİS': return `(Ofis) Dük${no}`;
+        case 'TİCARİ': return `(Ticari) Dük${no}`;
+        case 'KAZAN DAİRESİ': return `KD${no}`;
+        default: return `D${no}`;
+    }
+}
 
 // TS 7363 Çizelge 1 — Çelik borularda dış çap & cidar kalınlığı
 export const PIPE_SPECS = {
@@ -251,25 +268,49 @@ export function buildHatData(manager) {
         }
     });
 
-    function determineEndpointType(tailPipeId) {
-        if (!tailPipeId) return null;
-        if (sayacByGirisPipe.has(tailPipeId)) return 'SAYAC';
-        if (cihazByGirisPipe.has(tailPipeId)) return 'CIHAZ';
-        const vanas = vanaByPipe.get(tailPipeId) || [];
-        // Sonlanma vanası varsa onu seç
-        const yan = vanas.find(v => v.vanaTipi === 'YANBINA');
-        if (yan) return 'YANBINA';
-        const bran = vanas.find(v => v.vanaTipi === 'BRANSMAN');
-        if (bran) return bran.ilerdeKullanim ? 'BRANSMAN_ILERDE' : 'BRANSMAN';
-        return null;
-    }
-
     // Bu hattın TAİL pipe'ında p2 ucunda regülatör var mı?
     // (recomputeAllPressures regülatörü p2 yakınında varsa tetikleyici sayar.)
     function tailHasRegulator(tailPipeId) {
         if (!tailPipeId) return false;
         const regs = regulatorsByPipe.get(tailPipeId) || [];
         return regs.some(r => (r.boruPozisyonu || 0) >= 0.5);
+    }
+
+    // Endpoint tipi + ekran etiketi.
+    // Cihaz/sayaç/branşmanda daire no mevcutsa "D1-Kombi", "D1 Sayacı", "D1 Branşmanı".
+    function determineEndpointInfo(tailPipeId) {
+        if (!tailPipeId) return { type: null, label: '' };
+
+        const sayacAtTail = sayacByGirisPipe.get(tailPipeId);
+        if (sayacAtTail) {
+            const pre = dairePrefix(sayacAtTail);
+            return { type: 'SAYAC', label: pre ? `${pre} Sayacı` : 'Sayaç' };
+        }
+
+        const cihazAtTail = cihazByGirisPipe.get(tailPipeId);
+        if (cihazAtTail) {
+            const cihazAd = CIHAZ_TIPLERI[cihazAtTail.cihazTipi]?.name || 'Cihaz';
+            const upstreamSayac = meterByPipe.get(tailPipeId) || null;
+            const pre = dairePrefix(upstreamSayac);
+            return { type: 'CIHAZ', label: pre ? `${pre}-${cihazAd}` : cihazAd };
+        }
+
+        const vanas = vanaByPipe.get(tailPipeId) || [];
+        const yan = vanas.find(v => v.vanaTipi === 'YANBINA');
+        if (yan) return { type: 'YANBINA', label: 'Yan bina' };
+        const bran = vanas.find(v => v.vanaTipi === 'BRANSMAN');
+        if (bran) {
+            const pre = dairePrefix(bran);
+            if (bran.ilerdeKullanim) {
+                return {
+                    type: 'BRANSMAN_ILERDE',
+                    label: pre ? `${pre} (İleride kullanım)` : 'İleride kullanım',
+                };
+            }
+            return { type: 'BRANSMAN', label: pre ? `${pre} Branşmanı` : 'Branşman' };
+        }
+
+        return { type: null, label: '' };
     }
 
     const hats = [];
@@ -329,7 +370,9 @@ export function buildHatData(manager) {
         // Yaprak hat mı? (alt hatları yok)
         const allChildIds = pids.flatMap(id => childrenOf.get(id) || []);
         const isLeafHat = allChildIds.every(cid => localSet.has(cid));
-        const endpointType = isLeafHat ? determineEndpointType(tailPipe.id) : null;
+        const endpointInfo = isLeafHat ? determineEndpointInfo(tailPipe.id) : { type: null, label: '' };
+        const endpointType = endpointInfo.type;
+        const endpointLabel = endpointInfo.label;
         const regAtTail = tailHasRegulator(tailPipe.id);
 
         hats.push({
@@ -346,6 +389,7 @@ export function buildHatData(manager) {
             headPipeId: headPipe.id,
             tailPipeId: tailPipe.id,
             endpointType,
+            endpointLabel,
             regAtTail,
         });
     });
@@ -680,11 +724,14 @@ function getPathLimitInfo(path, byHat, segmentType) {
     const lastHat = byHat.get(hatNos[hatNos.length - 1]);
     const firstHat = byHat.get(hatNos[0]);
     const endpointType = lastHat?.endpointType || null;
+    const endpointLabel = lastHat?.endpointLabel || '';
     const isHighStart  = isHighPressure(firstHat?.basinc);
 
-    // Yoldaki regülatör hattı (regülatör tail'de → bir sonraki hat post-reg)
+    // Yoldaki regülatör hattı (regülatör tail'de → bir sonraki hat post-reg).
+    // Yolun SON hattının tail'inde regülatör varsa o segment endpoint olarak
+    // alınır; sayaç → regülatör arası kayıp toplama dahil edilmez.
     let regHatIdx = -1;
-    for (let i = 0; i < hatNos.length - 1; i++) {
+    for (let i = 0; i < hatNos.length; i++) {
         if (byHat.get(hatNos[i])?.regAtTail) { regHatIdx = i; break; }
     }
     const hasReg     = regHatIdx >= 0;
@@ -696,6 +743,7 @@ function getPathLimitInfo(path, byHat, segmentType) {
             limit: hasReg ? PATH_LIMITS.REG_CIHAZ : PATH_LIMITS.TUKETIM,
             evalFromIdx,
             endpointType: endpointType || 'CIHAZ',
+            endpointLabel: endpointLabel || (endpointType ? '' : 'Cihaz'),
             hasRegulator: hasReg,
         };
     }
@@ -714,7 +762,7 @@ function getPathLimitInfo(path, byHat, segmentType) {
         else             limit = PATH_LIMITS.KOLON;
     }
 
-    return { limit, evalFromIdx, endpointType, hasRegulator: hasReg };
+    return { limit, evalFromIdx, endpointType, endpointLabel, hasRegulator: hasReg };
 }
 
 // Geriye dönük uyumluluk: kolon yolu için varsayılan limit (regülatör/endpoint yok varsayımı).
@@ -785,6 +833,7 @@ export function annotatePaths(paths, byHatOrLimit, segmentType = 'KOLON') {
         p.limit         = info.limit;
         p.evalFromIdx   = info.evalFromIdx;
         p.endpointType  = info.endpointType;
+        p.endpointLabel = info.endpointLabel;
         p.hasRegulator  = info.hasRegulator;
         let total = 0;
         for (let i = info.evalFromIdx; i < p.hatNos.length; i++) {
@@ -801,6 +850,15 @@ export function annotatePaths(paths, byHatOrLimit, segmentType = 'KOLON') {
     paths.forEach(p => { p.isCritical = (p.ratio > 0 && p.ratio === maxRatio); });
 }
 
+// Yol bitiş tipi → Türkçe görüntü etiketi (path.endpointLabel doluysa o yeğlenir).
+const ENDPOINT_LABELS = {
+    SAYAC:           'Sayaç',
+    CIHAZ:           'Cihaz',
+    BRANSMAN:        'Branşman',
+    BRANSMAN_ILERDE: 'İleride kullanım',
+    YANBINA:         'Yan bina',
+};
+
 function renderPathItem(path) {
     const limit = path.limit ?? 0;
     const value = path.evalTotal ?? path.total ?? 0;
@@ -812,10 +870,13 @@ function renderPathItem(path) {
         path.overLimit  ? 'over'     : '',
     ].filter(Boolean).join(' ');
     const limitStr = NF4.format(limit);
+    const epLabel = path.endpointLabel || ENDPOINT_LABELS[path.endpointType] || '';
+    const epHtml = epLabel ? `<span class="bc-path-endpoint">${epLabel}</span>` : '';
     return `
         <button type="button" class="${cls}" data-hats="${path.hatNos.join(',')}" style="--bc-bar-frac:${frac.toFixed(4)}">
             <span class="bc-path-status">${status}</span>
             <span class="bc-path-label">${path.hatNos.join(' + ')}</span>
+            ${epHtml}
             <span class="bc-path-value">${f4(value)} mbar</span>
             <span class="bc-path-limit">&lt; ${limitStr} mbar</span>
         </button>`;
@@ -863,17 +924,17 @@ function renderPathsSection(rows) {
 const TAB_DEFS = [
     {
         id: 'CELIK_HIGH',
-        label: 'Çelik Boru Hesabı (50 mbar üstü)',
+        label: '300 mbar Hesapları',
         filter: (r) => r.boruTipi !== 'ESNEK' && parseFloat(r.basinc) > 50,
     },
     {
         id: 'CELIK_LOW',
-        label: 'Çelik Boru Hesabı (21–50 mbar)',
+        label: '21 mbar Hesapları',
         filter: (r) => r.boruTipi !== 'ESNEK' && parseFloat(r.basinc) <= 50,
     },
     {
         id: 'ESNEK',
-        label: 'Esnek Boru Hesabı',
+        label: 'Esnek Boru Hesapları',
         filter: (r) => r.boruTipi === 'ESNEK',
     },
 ];

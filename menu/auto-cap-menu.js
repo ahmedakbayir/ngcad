@@ -35,15 +35,18 @@ import {
 } from './boru-cap-menu.js';
 
 const DN_INDEX = Object.fromEntries(DN_LIST.map((dn, i) => [dn, i]));
-const KOLON_MIN_IDX_LOW  = DN_INDEX['DN25']; // 21/50 mbar kolonlar için
-const KOLON_MIN_IDX_HIGH = DN_INDEX['DN15']; // 300 mbar kolonlar için
+// Kolon hatlarının minimum çapı — hem 21 hem 300 mbar için DN25.
+const KOLON_MIN_IDX = DN_INDEX['DN25'];
+
+// DN15'in izinli olduğu maksimum debi (m³/h). Bunun üstünde kurtarsa bile DN15 verme.
+const DN15_MAX_Q = 2.0;
 
 function isHighPressurePipe(pipe) {
     return parseFloat(pipe?.basinc) > 50;
 }
 
-function kolonMinIdxFor(pipe) {
-    return isHighPressurePipe(pipe) ? KOLON_MIN_IDX_HIGH : KOLON_MIN_IDX_LOW;
+function kolonMinIdxFor(_pipe) {
+    return KOLON_MIN_IDX;
 }
 
 const TARGET_RANGES = {
@@ -57,13 +60,15 @@ const MAX_ITER = 400;
 // 300 mbar (yüksek basınç) hatlarda izin verilen hız (15 m/s) ve kayıp limiti
 // (KOLON_HIGH = 21 mbar) çok daha geniş olduğundan, aynı debide daha küçük çap
 // ile başlanabilir. Algoritma rafine ederken zaten gerekirse yükseltir.
+//
+// DN15 kuralı: Q > 2.0 m³/h üzerinde DN15 verilmez (her iki basınç için).
 function chartDN(Q, basinc = 21) {
     const q = Number(Q) || 0;
     const high = parseFloat(basinc) > 50;
 
     if (high) {
         // 300 mbar tablosu (V ≤ 15 m/s temelli, kayıp toleransı geniş)
-        if (q <= 6)     return 'DN15';
+        if (q <= DN15_MAX_Q) return 'DN15';
         if (q <= 12)    return 'DN20';
         if (q <= 25)    return 'DN25';
         if (q <= 50)    return 'DN32';
@@ -82,7 +87,7 @@ function chartDN(Q, basinc = 21) {
     }
 
     // 21/50 mbar tablosu (V ≤ 6 m/s)
-    if (q <= 2)   return 'DN15';
+    if (q <= DN15_MAX_Q) return 'DN15';
     if (q <= 3)   return 'DN20';
     if (q <= 6)   return 'DN25';
     if (q <= 12)  return 'DN32';
@@ -208,16 +213,14 @@ function applyDefaults(manager) {
 
         let dn = chartDN(Q, p.basinc);
 
-        // KOLON hatlarda alt sınır basınca göre değişir (300 mbar: DN15, aksi: DN25)
+        // KOLON hatlarda alt sınır: hem 21 hem 300 mbar için DN25
         const minIdx = kolonMinIdxFor(p);
         if (!isTuk && dnIdx(dn) < minIdx) {
             dn = DN_LIST[minIdx];
         }
 
-        // DN15 sadece tek cihaz hattında izinli; aksi halde DN20 (yüksek basınçlı kolon hariç)
-        if (dn === 'DN15' && !isTuk && !isHighPressurePipe(p)) {
-            // Düşük basınçlı kolon DN25 minimum zaten — buraya düşmemeli
-        } else if (dn === 'DN15' && isTuk && !isSingleDeviceLine(p.id, ctx)) {
+        // DN15 yasağı: Q > 2 m³/h üzerinde veya tek cihaz hattı değilse DN15 verme.
+        if (dn === 'DN15' && isTuk && (Q > DN15_MAX_Q || !isSingleDeviceLine(p.id, ctx))) {
             dn = 'DN20';
         }
 
@@ -398,12 +401,17 @@ function tryReducePipe(manager, state, pipeId, target, mode) {
     if (localIdx <= 0) return false;
     const newDn = allowed[localIdx - 1];
 
-    // KOLON minimumu — basınca göre (300 mbar: DN15, aksi: DN25)
+    // KOLON minimumu — hem 21 hem 300 mbar için DN25
     const isKolon = !ctx.downstreamOfMeter.has(pipe.id);
     if (isKolon && dnIdx(newDn) < kolonMinIdxFor(pipe)) return false;
 
-    // DN15 yalnızca tek cihaz hatlarında veya yüksek basınçlı kolonlarda geçerli
-    if (newDn === 'DN15' && !isSingleDeviceLine(pipe.id, ctx) && !(isKolon && isHighPressurePipe(pipe))) return false;
+    // DN15 yasağı:
+    //  • Kolon hattında DN15 olmaz (KOLON_MIN = DN25 zaten yukarıda yakalar).
+    //  • Q > 2 m³/h olan iç tesisatta DN15 verilmez.
+    //  • Tek cihaz hattı olmayan iç tesisatta DN15 verilmez.
+    const pipeQ = Number(pipe.debi) || 0;
+    if (newDn === 'DN15' && pipeQ > DN15_MAX_Q) return false;
+    if (newDn === 'DN15' && !isSingleDeviceLine(pipe.id, ctx)) return false;
 
     // Split (hat-içi redüksiyon) sadece AGGRESSIVE modda ve ≥8m hatta
     const isSplit = !isSectionHead(pipe, manager);

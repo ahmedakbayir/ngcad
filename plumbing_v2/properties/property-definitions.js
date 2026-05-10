@@ -847,11 +847,9 @@ export const PROPERTY_DEFS = {
         default: '21',
         afterChange: (obj, manager) => {
             if (!manager) return;
-            // Sayaçların basıncını da kutu ile senkron tut (kullanıcı varsayımı)
-            manager.components.forEach(c => {
-                if (c.type === 'sayac') c.basinc = String(obj.kutuBasinc);
-            });
-            // Tüm boruları kaynaktan başlayarak (regülatör çıkışları dahil) yeniden hesapla
+            // Sayaçların basıncı recomputeAllPressures içinde upstream zincirinden
+            // türetilir; tüm sayaçları kutu basıncına eşitlemek regülatör sonrası
+            // sayaçları yanlış değerle bırakır.
             recomputeAllPressures(manager);
         },
     },

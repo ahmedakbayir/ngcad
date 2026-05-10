@@ -726,6 +726,20 @@ export function computeHatGroups(pipes, components) {
             .map(c => c.bagliBoruId)
     );
 
+    // Sayaç sonrası (iç tesisat) borularını BFS ile topla — hat numaralandırma
+    // sıralamasında kolon önce, iç tesisat sonra olacak şekilde kullanılacak.
+    const sayacSonrasiIds = new Set();
+    (components || []).forEach(c => {
+        if (c.type !== 'sayac' || !c.cikisBagliBoruId) return;
+        const queue = [c.cikisBagliBoruId];
+        while (queue.length > 0) {
+            const id = queue.shift();
+            if (sayacSonrasiIds.has(id)) continue;
+            sayacSonrasiIds.add(id);
+            (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
+        }
+    });
+
     const rootPipes = pipes.filter(p => !parentOf.has(p.id));
     rootPipes.sort((a, b) => {
         const aS = servisRootIds.has(a.id) ? 0 : sayacStartIds.has(a.id) ? 1 : 2;
@@ -839,12 +853,20 @@ export function computeHatGroups(pipes, components) {
     });
 
     // ── AŞAMA 3: Fingerprint eşleştirme → hat no atan ─────────────────────────
-    // 21 mbar hatlar: 1'den başlar
-    // 300 mbar hatlar: 301'den başlar (ayrı sayaç)
+    // Numaralandırma sırası:
+    //   21 mbar kolon  → 1, 2, 3, ...
+    //   21 mbar iç     → kolonlar bittikten sonra devam
+    //   300 mbar kolon → 301, 302, ... (ayrı sayaç)
+    //   300 mbar iç    → 300 mbar kolonlar bittikten sonra devam
     const fpToHat = new Map();
     let hatCounter21  = 0;
     let hatCounter300 = 300;
     const secHat = new Map(); // secIdx → hatNo
+
+    // Her section için post-meter (iç tesisat) bilgisini hesapla
+    sections.forEach(sec => {
+        sec.isPostMeter = sec.pipeIds.some(pid => sayacSonrasiIds.has(pid));
+    });
 
     // Section'ları ağaç sırasında (BFS) işle
     const secQueue = rootPipes.map(p => sectionOf.get(p.id)).filter(i => i != null);
@@ -858,7 +880,22 @@ export function computeHatGroups(pipes, components) {
         sections[idx].nextSecIdxs.forEach(ni => { if (!secVisited.has(ni)) secQueue.push(ni); });
     }
 
-    secOrder.forEach(idx => {
+    // Grup sıralaması: 0=21-kolon, 1=21-iç, 2=300-kolon, 3=300-iç
+    // BFS sırası grup içinde korunur (stable sort).
+    const bfsRank = new Map(secOrder.map((s, i) => [s, i]));
+    const groupRank = (sec) => {
+        const is300 = String(sec.basınç) === '300';
+        const isTuk = !!sec.isPostMeter;
+        return (is300 ? 2 : 0) + (isTuk ? 1 : 0);
+    };
+    const orderedSecIdxs = secOrder.slice().sort((a, b) => {
+        const ra = groupRank(sections[a]);
+        const rb = groupRank(sections[b]);
+        if (ra !== rb) return ra - rb;
+        return bfsRank.get(a) - bfsRank.get(b);
+    });
+
+    orderedSecIdxs.forEach(idx => {
         const sec = sections[idx];
         const is300 = String(sec.basınç) === '300';
         const fp = [
