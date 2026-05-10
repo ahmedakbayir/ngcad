@@ -304,7 +304,7 @@ export function buildHatData(manager) {
             if (bran.ilerdeKullanim) {
                 return {
                     type: 'BRANSMAN_ILERDE',
-                    label: pre ? `${pre} (İleride kullanım)` : 'İleride kullanım',
+                    label: 'Birden fazla birim',
                 };
             }
             return { type: 'BRANSMAN', label: pre ? `${pre} Branşmanı` : 'Branşman' };
@@ -526,7 +526,11 @@ export function cascadeHats(hats, fittingsByHat) {
         rows.set(hat.hatNo, row);
         (childrenByParent.get(hat.hatNo) || []).forEach(childNo => {
             const ch = byHat.get(childNo);
-            if (ch) bfs.push({ hat: ch, P1_bar: row.P2_bar });
+            if (!ch) return;
+            // Parent hattın ucunda regülatör varsa (ör. 300→21 mbar), çocuk hat
+            // regülatör sonrası kendi basıncına göre başlar — parent'ın P2'si değil.
+            const childP1 = hat.regAtTail ? defaultP1Bar(ch.basinc) : row.P2_bar;
+            bfs.push({ hat: ch, P1_bar: childP1 });
         });
     }
 
