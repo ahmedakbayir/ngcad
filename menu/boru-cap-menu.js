@@ -466,10 +466,14 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
     }
 
     // P1 - P2 = 23,2 × R × Q^1.82 / D^4.82 × L  (bar)
-    const drop_bar = 23.2 * R_GAS * Math.pow(hat.Q, 1.82) / Math.pow(D_mm, 4.82) * hat.L_m;
-    const dPR = drop_bar * 1000; // mbar
+    const P2_bar = isHigh?
+        Math.sqrt( Math.pow(P1_bar,2)-(29.16 * Math.pow(hat.Q, 1.82) / Math.pow(D_mm, 4.82) * hat.L_m)):
+        Math.max(0.001, P1_bar - 23.2 * R_GAS * Math.pow(hat.Q, 1.82) / Math.pow(D_mm, 4.82) * hat.L_m);
+
+    const dPR = (P1_bar-P2_bar) * 1000; // mbar
     const dPR_L = hat.L_m > 0 ? dPR / hat.L_m : 0;
-    const P2_bar = Math.max(0.001, P1_bar - drop_bar);
+
+
 
     // V = 353,677 × Q / (D² × P2)
     const v = 353.677 * hat.Q / (D_mm * D_mm * P2_bar);
@@ -537,6 +541,7 @@ export function cascadeHats(hats, fittingsByHat) {
 }
 
 // ─── BİÇİMLENDİRME ─────────────────────────────────────────────────────────────
+const NF5 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 5, maximumFractionDigits: 5 });
 const NF4 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 const NF2 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -544,6 +549,11 @@ function f4(n) {
     if (n == null || !isFinite(n)) return '–';
     if (Math.abs(n) < 1e-9) return '0,0000';
     return NF4.format(n);
+}
+function f5(n) {
+    if (n == null || !isFinite(n)) return '–';
+    if (Math.abs(n) < 1e-9) return '0,00000';
+    return NF5.format(n);
 }
 function f2(n) {
     if (n == null || !isFinite(n)) return '–';
@@ -583,7 +593,7 @@ const COLS_HIGH = [
     { key: 'L',     label: 'L',     unit: 'm' },
     { key: 'DN',    label: 'DN',    unit: 'mm' },
     { key: 'v',     label: 'v',     unit: 'm/s' },
-    { key: 'dPRL',  label: 'ΔPR/L', unit: 'mbar/m' },
+    //{ key: 'dPRL',  label: 'ΔPR/L', unit: 'mbar/m' },
     { key: 'dPR',   label: 'ΔPR',   unit: 'mbar' },
     { key: 'xi',    label: 'Σξ',    unit: '' },
     { key: 'dPF',   label: 'ΔPF',   unit: 'mbar' },
@@ -634,8 +644,8 @@ function renderRow(row, fittingsRow, cols) {
     // Son üç sütun (P1/P2 veya H/ΔPA) basınca göre değişir.
     const tailCells = isHigh
         ? `
-            <td class="bc-cell">${f4(row.P1_bar)}</td>
-            <td class="bc-cell">${f4(row.P2_bar)}</td>`
+            <td class="bc-cell">${f5(row.P1_bar)}</td>
+            <td class="bc-cell">${f5(row.P2_bar)}</td>`
         : `
             <td class="bc-cell">${f2(row.H_m)}</td>
             <td class="bc-cell">${f4(row.dPA)}</td>`;
@@ -647,7 +657,7 @@ function renderRow(row, fittingsRow, cols) {
             <td class="bc-cell">${f2(row.L_m)}</td>
             <td class="bc-cell bc-dn">${dnSelect}</td>
             <td class="${vClass}" title="${vTitle}">${f2(row.v)}</td>
-            <td class="bc-cell">${f4(row.dPR_L)}</td>
+            ${isHigh ? '' : `<td class="bc-cell">${f4(row.dPR_L)}</td>`}
             <td class="bc-cell">${f4(row.dPR)}</td>
             <td class="bc-cell bc-xi" title="${escAttr(xiTooltip)}">${f2(row.sigmaXi)}</td>
             <td class="bc-cell">${f4(row.dPF)}</td>
@@ -734,17 +744,41 @@ function getPathLimitInfo(path, byHat, segmentType) {
     for (let i = 0; i < hatNos.length; i++) {
         if (byHat.get(hatNos[i])?.regAtTail) { regHatIdx = i; break; }
     }
-    const hasReg     = regHatIdx >= 0;
-    const evalFromIdx = hasReg ? regHatIdx + 1 : 0;
+    let hasReg       = regHatIdx >= 0;
+    let evalFromIdx  = hasReg ? regHatIdx + 1 : 0;
+
+    // Yolun parent zincirinde (bu enumerasyonun dışında, ör. farklı basınç
+    // sekmesindeki hatlar) regülatör varsa, bu yol bütünüyle post-reg sayılır.
+    // Örn. sayaç sonrası regülatör → reg-cihaz hattı 21 mbar sekmesinde tek başına
+    // yer alır; üst zincirdeki sayaç-reg hattı 300 mbar sekmesindedir.
+    if (!hasReg) {
+        let cursor = byHat.get(hatNos[0])?.parentHatNo;
+        const seen = new Set(hatNos);
+        while (cursor != null && !seen.has(cursor)) {
+            seen.add(cursor);
+            const parent = byHat.get(cursor);
+            if (!parent) break;
+            if (parent.regAtTail) { hasReg = true; break; }
+            cursor = parent.parentHatNo;
+        }
+    }
+
+    // Regülatöre gelen kayıp denetlenmez. Tüm hatlar regülatör öncesinde kalıyorsa
+    // (regülatör son hattın ucunda) → değerlendirilecek post-reg parça yok → yolu atla.
+    const allPreReg = evalFromIdx >= hatNos.length;
 
     // TÜKETİM yolları
     if (segmentType !== 'KOLON') {
+        // Kutudan cihaza yolda hiç regülatör yok ve giriş yüksek basınç (>50 mbar)
+        // → cihaz 300 mbar gaza maruz kalır, geçersiz → yol listesinde gösterme.
+        const noRegHighDevice = !hasReg && isHighStart;
         return {
             limit: hasReg ? PATH_LIMITS.REG_CIHAZ : PATH_LIMITS.TUKETIM,
             evalFromIdx,
             endpointType: endpointType || 'CIHAZ',
             endpointLabel: endpointLabel || (endpointType ? '' : 'Cihaz'),
             hasRegulator: hasReg,
+            skip: allPreReg || noRegHighDevice,
         };
     }
 
@@ -762,7 +796,7 @@ function getPathLimitInfo(path, byHat, segmentType) {
         else             limit = PATH_LIMITS.KOLON;
     }
 
-    return { limit, evalFromIdx, endpointType, endpointLabel, hasRegulator: hasReg };
+    return { limit, evalFromIdx, endpointType, endpointLabel, hasRegulator: hasReg, skip: allPreReg };
 }
 
 // Geriye dönük uyumluluk: kolon yolu için varsayılan limit (regülatör/endpoint yok varsayımı).
@@ -835,6 +869,7 @@ export function annotatePaths(paths, byHatOrLimit, segmentType = 'KOLON') {
         p.endpointType  = info.endpointType;
         p.endpointLabel = info.endpointLabel;
         p.hasRegulator  = info.hasRegulator;
+        p.skip          = info.skip;
         let total = 0;
         for (let i = info.evalFromIdx; i < p.hatNos.length; i++) {
             total += Number(byHat.get(p.hatNos[i])?.sumDP) || 0;
@@ -846,8 +881,13 @@ export function annotatePaths(paths, byHatOrLimit, segmentType = 'KOLON') {
     });
 
     let maxRatio = -Infinity;
-    paths.forEach(p => { if (p.ratio > maxRatio) maxRatio = p.ratio; });
-    paths.forEach(p => { p.isCritical = (p.ratio > 0 && p.ratio === maxRatio); });
+    paths.forEach(p => {
+        if (p.skip) return;
+        if (p.ratio > maxRatio) maxRatio = p.ratio;
+    });
+    paths.forEach(p => {
+        p.isCritical = !p.skip && (p.ratio > 0 && p.ratio === maxRatio);
+    });
 }
 
 // Yol bitiş tipi → Türkçe görüntü etiketi (path.endpointLabel doluysa o yeğlenir).
@@ -872,10 +912,12 @@ function renderPathItem(path) {
     const limitStr = NF4.format(limit);
     const epLabel = path.endpointLabel || ENDPOINT_LABELS[path.endpointType] || '';
     const epHtml = epLabel ? `<span class="bc-path-endpoint">${epLabel}</span>` : '';
+    // Sadece post-regülatör hatları göster — kayba bakılmayan (pre-reg) hatlar yol etiketinde yazılmaz.
+    const displayHats = path.hatNos.slice(path.evalFromIdx || 0);
     return `
         <button type="button" class="${cls}" data-hats="${path.hatNos.join(',')}" style="--bc-bar-frac:${frac.toFixed(4)}">
             <span class="bc-path-status">${status}</span>
-            <span class="bc-path-label">${path.hatNos.join(' + ')}</span>
+            <span class="bc-path-label">${displayHats.join(' + ')}</span>
             ${epHtml}
             <span class="bc-path-value">${f4(value)} mbar</span>
             <span class="bc-path-limit">&lt; ${limitStr} mbar</span>
@@ -894,21 +936,26 @@ function sortPathsByHat(paths) {
 }
 
 function renderPathsBlock(title, paths) {
-    if (!paths.length) return '';
-    sortPathsByHat(paths);
+    // Atlanması işaretlenmiş yolları (kayba hiç bakılmayanlar) listeden çıkar.
+    const visible = paths.filter(p => !p.skip);
+    if (!visible.length) return '';
+    sortPathsByHat(visible);
     return `
         <div class="bc-paths-block">
             <div class="bc-paths-title">${title}</div>
-            <div class="bc-path-list">${paths.map(p => renderPathItem(p)).join('')}</div>
+            <div class="bc-path-list">${visible.map(p => renderPathItem(p)).join('')}</div>
         </div>`;
 }
 
-function renderPathsSection(rows) {
+function renderPathsSection(rows, allRows) {
     const kolonRows = rows.filter(r => r.segmentType === 'KOLON');
     const tukRows   = rows.filter(r => r.segmentType !== 'KOLON');
     const kolon = enumeratePaths(kolonRows);
     const tuk   = enumeratePaths(tukRows);
-    const byHat = new Map(rows.map(r => [r.hatNo, r]));
+    // byHat: tüm hatların (sekmeler arası) lookup'ı için global rows kullan —
+    // post-reg hat farklı basınç sekmesinde olsa bile parent zincirinde regülatör
+    // tespit edilebilsin (REG_CIHAZ limiti doğru uygulansın).
+    const byHat = new Map((allRows || rows).map(r => [r.hatNo, r]));
     annotatePaths(kolon, byHat, 'KOLON');
     annotatePaths(tuk,   byHat, 'TUKETIM');
     if (!kolon.length && !tuk.length) return '';
@@ -988,7 +1035,7 @@ function renderInto(bodyEl) {
     bodyEl.innerHTML = `
         ${renderTabBar(availableTabs, _activeTab)}
         ${renderTable(active.rows, fittingsByHat, _activeTab)}
-        ${renderPathsSection(active.rows)}
+        ${renderPathsSection(active.rows, rows)}
     `;
 
     // Tab tıklamaları

@@ -696,7 +696,7 @@ export function computePipeDebileri(manager) {
  *
  * AŞAMA 2 — Birleştirme: Aynı özelliklere sahip farklı section'lar aynı hat no'yu paylaşır.
  *   Eşleşme kriterleri: debi · toplam uzunluk · yükseklik farkı · basınç · dirsek sayısı
- *                       · önceki hat çapı · sonraki hat çapı
+ *                       · önceki hat çapı · sonraki hat çapı · boru tipi (esnek/dişli/kaynaklı)
  *
  * @returns {{ hatMap: Map<pipeId, hatNo>, sectionOf: Map<pipeId, sectionIdx>, hatCount: number }}
  */
@@ -801,9 +801,39 @@ export function computeHatGroups(pipes, components) {
         ch.forEach(cid => { if (!visited.has(cid)) bfsQ.push({ pipeId: cid, parId: pipeId, parSecIdx: secIdx }); });
     }
 
+    // Boru tipi: kaynağa (sayaç veya kutu) kadar zincirleme git.
+    // Aynı kaynaktan beslenen tüm borular aynı tipi paylaşır → section başına bir kez yeterli.
+    const compsArr = components || [];
+    function getBoruTipi(pipe) {
+        let current = pipe;
+        const visited = new Set();
+        while (current && !visited.has(current.id)) {
+            visited.add(current.id);
+            const bag = current.baslangicBaglanti;
+            if (!bag?.tip) break;
+            if (bag.tip === 'sayac') {
+                const sayac = compsArr.find(c => c.id === bag.hedefId);
+                if (sayac?.birimBoruTipi === 'ESNEK') return 'ESNEK';
+                return sayac?.birimBaglantiTipi === 'DİŞLİ' ? 'DİŞLİ_ÇELİK' : 'KAYNAKLI_ÇELİK';
+            }
+            if (bag.tip === 'servis_kutusu') {
+                const kutu = compsArr.find(c => c.id === bag.hedefId);
+                if (kutu?.kutuBoruTipi === 'ESNEK') return 'ESNEK';
+                return kutu?.kutuBaglantiTipi === 'DİŞLİ' ? 'DİŞLİ_ÇELİK' : 'KAYNAKLI_ÇELİK';
+            }
+            if (bag.tip === 'boru') {
+                current = pipeMap.get(bag.hedefId) || null;
+                continue;
+            }
+            break;
+        }
+        return 'KAYNAKLI_ÇELİK';
+    }
+
     // ── AŞAMA 2: Her section için özellik hesapla ─────────────────────────────
     sections.forEach(sec => {
         const idSet = new Set(sec.pipeIds);
+        sec.boruTipi = getBoruTipi(pipeMap.get(sec.pipeIds[0]));
 
         // Toplam uzunluk (cm)
         sec.totalLen = Math.round(sec.pipeIds.reduce((s, pid) => {
@@ -900,6 +930,7 @@ export function computeHatGroups(pipes, components) {
         const is300 = String(sec.basınç) === '300';
         const fp = [
             is300 ? '300' : '21',  // basınç grubu fingerprint'e dahil
+            sec.boruTipi,          // boru tipi (ESNEK / DİŞLİ_ÇELİK / KAYNAKLI_ÇELİK)
             Math.round((sec.debi || 0) * 1000),
             sec.totalLen,
             sec.heightDiff,
