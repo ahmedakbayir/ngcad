@@ -16,7 +16,7 @@ const SAYAC_TURU_LABEL = {
 
 // ─── Birim tipi kısaltması — her zaman satır dizisi döner ─────────────────
 function getBirimLabelLines(birimTipi, birimNo) {
-    const no = birimNo || '';
+    const no = birimNo || '...';
     switch (birimTipi) {
         case 'KONUT': return [`D${no}`];
         case 'OFİS': return [`(Ofis) Dük${no}`];
