@@ -328,12 +328,12 @@ export function handlePointerDown(e) {
                     this.lastClickTime = 0;
                     return true;
                 }
-                // Cihaz/Sayaç/Servis kutusu/Hat etiketi: sürüklemeyi hemen başlatma.
+                // Cihaz/Sayaç/Servis kutusu/Vana/Regülatör/Hat etiketi: sürüklemeyi hemen başlatma.
                 // Pointer hareketsiz bırakılırsa nesneyi seç (hat etiketinde tüm hattı),
                 // eşik aşılırsa etiket sürüklemesine geç.
                 const labelObj =
                     this.manager.components.find(c => c.id === labelId &&
-                        (c.type === 'cihaz' || c.type === 'sayac' || c.type === 'servis_kutusu')) ||
+                        (c.type === 'cihaz' || c.type === 'sayac' || c.type === 'servis_kutusu' || c.type === 'vana' || c.type === 'regulator')) ||
                     this.manager.pipes.find(p => p.id === labelId);
                 if (labelObj) {
                     this._pendingLabelClick = { id: labelId, sx: point.x, sy: point.y, obj: labelObj };
