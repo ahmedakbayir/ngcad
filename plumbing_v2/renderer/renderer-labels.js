@@ -951,7 +951,7 @@ export const LabelMixin = {
             }
 
         } else if (vt === 'EMNIYET') {
-            lines.push({ text: 'Emn.V', sub: true });
+            lines.push({ text: 'Vana', sub: true });
 
         } else if (vt === 'SELENOID') {
             lines.push({ text: 'Selenoid Vana', sub: true });

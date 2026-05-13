@@ -251,6 +251,8 @@ export class Regulator {
             fixedDistance: this.fixedDistance,
             floorId: this.floorId,
             cikisBasinc: this.cikisBasinc,
+            muhafaza: this.muhafaza,
+            muhafazaGrupla: this.muhafazaGrupla,
             shutOff: this.shutOff,
             marka: this.marka,
             model: this.model,
@@ -274,6 +276,8 @@ export class Regulator {
         reg.id = data.id;
         reg.rotation = data.rotation || 0;
         if (data.cikisBasinc !== undefined) reg.cikisBasinc = data.cikisBasinc;
+        if (data.muhafaza !== undefined) reg.muhafaza = data.muhafaza;
+        if (data.muhafazaGrupla !== undefined) reg.muhafazaGrupla = data.muhafazaGrupla;
         reg.description = data.description ?? '';
         return reg;
     }

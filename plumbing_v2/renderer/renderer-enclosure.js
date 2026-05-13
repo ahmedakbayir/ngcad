@@ -115,7 +115,7 @@ export const EnclosureMixin = {
 
         manager.components.forEach(comp => {
             if (!comp.muhafaza) return;
-            if (!['vana', 'sayac', 'cihaz'].includes(comp.type)) return;
+            if (!['vana', 'sayac', 'cihaz', 'regulator'].includes(comp.type)) return;
 
             const bb = _aabb(comp, t);
             const box = {

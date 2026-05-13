@@ -808,6 +808,13 @@ export const PROPERTY_DEFS = {
         key: 'shutOff',
         default: true,
     },
+    regulatorMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
+    },
 
     regulator_sec_urun: { type: 'section', label: 'Ürün' },
 
@@ -1633,6 +1640,7 @@ export const OBJECT_PROPERTIES = {
         'regulator_sec_tanim',
         'regulatorCikisBasinc',
         'regulatorShutOff',
+        'regulatorMuhafaza',
         'regulator_sec_urun',
         'regulatorMarka',
         'regulatorModel',
