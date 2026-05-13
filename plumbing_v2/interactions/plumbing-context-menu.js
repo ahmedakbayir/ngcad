@@ -67,6 +67,7 @@ function placeInisVeSayac(interactionManager, pipe) {
     manager.registerPipeNodes(inisBoru);
     inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
     pipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+    manager.recomputePipeParents();
     manager.saveToState();
 
     // İniş eklendi, şimdi kullanıcı mouse ile sayacı yerleştirsin
@@ -104,6 +105,7 @@ function placeInisVeCihaz(interactionManager, pipe, cihazTipi) {
     manager.registerPipeNodes(inisBoru);
     inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
     pipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+    manager.recomputePipeParents();
     manager.saveToState();
 
     // İniş eklendi, şimdi kullanıcı mouse ile cihazı yerleştirsin
@@ -195,6 +197,7 @@ function deleteDownstreamFrom(pipe, manager) {
 
     manager.pipes      = manager.pipes.filter(p => !pipeIds.has(p.id));
     manager.components = manager.components.filter(c => !compIds.has(c.id));
+    manager.recomputePipeParents();
     recomputeAllPressures(manager);
     manager.saveToState();
     draw2D();
@@ -280,6 +283,7 @@ function deleteKolonTesisati(manager) {
 
     manager.pipes      = manager.pipes.filter(p => innerPipeIds.has(p.id));
     manager.components = manager.components.filter(c => innerCompIds.has(c.id));
+    manager.recomputePipeParents();
     recomputeAllPressures(manager);
     manager.saveToState();
     draw2D();
@@ -337,6 +341,7 @@ function deleteIcTesisatlar(manager) {
 
     manager.pipes      = manager.pipes.filter(p => !toDeletePipeIds.has(p.id));
     manager.components = manager.components.filter(c => !toDeleteCompIds.has(c.id));
+    manager.recomputePipeParents();
     recomputeAllPressures(manager);
     manager.saveToState();
     draw2D();

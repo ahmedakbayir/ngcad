@@ -380,13 +380,9 @@ export class PlumbingManager {
             }).filter(c => c !== null);
         }
 
-        // Tüm sayaçlar için renk güncellemesi yap
-        const sayaclar = this.components.filter(c => c.type === 'sayac');
-        sayaclar.forEach(sayac => {
-            if (sayac.cikisBagliBoruId) {
-                this.updatePipeColorsAfterMeter(sayac.id);
-            }
-        });
+        // Yüklenen topolojiye göre tüm boruların kök kaynağını (parent)
+        // ve colorGroup'unu tek seferde hesapla
+        this.recomputePipeParents();
 
         // Tüm vanaların kapama sembolü durumunu güncelle
         const valves = this.components.filter(c => c.type === 'vana');
@@ -722,55 +718,68 @@ export class PlumbingManager {
     // --- ÖZEL EYLEMLER ---
 
     /**
-     * Sayaç çıkışındaki boruları ve sonrasını TURQUAZ yap
-     * @param {string} sayacId - Sayaç ID
+     * Tüm boruların kök kaynağını (parent) baslangicBaglanti zincirini
+     * YUKARI doğru yürüyerek hesapla, ve buna göre colorGroup'u türet.
+     *
+     * Kural: Bir boru "iç tesisat" (TURQUAZ) sayılması için zincirin
+     * yukarısında bir SAYAÇ olması ŞARTTIR. Aksi halde (servis kutusu
+     * altı, kopuk hat, döngü) "kolon" (YELLOW) olarak işaretlenir.
+     *
+     * Her boruya pipe.parent = { tip: 'sayac'|'servis_kutusu'|null, hedefId } yazılır.
+     * Bu, downstream-traversal hatalarına (T-listesinde olmayan
+     * çocuk dalları kaçırma) karşı bağışıktır.
      */
-    updatePipeColorsAfterMeter(sayacId) {
-        const sayac = this.findComponentById(sayacId);
-        if (!sayac || sayac.type !== 'sayac') return;
+    recomputePipeParents() {
+        const cache = new Map(); // pipeId -> { tip, hedefId } | null
 
-        // Sayaç çıkışına bağlı boruyu bul
-        if (!sayac.cikisBagliBoruId) return;
+        const resolve = (pipeId, visiting) => {
+            if (cache.has(pipeId)) return cache.get(pipeId);
+            if (visiting.has(pipeId)) {
+                // Döngü — kök bulunamadı say
+                cache.set(pipeId, null);
+                return null;
+            }
+            visiting.add(pipeId);
 
-        const cikisBoru = this.findPipeById(sayac.cikisBagliBoruId);
-        if (!cikisBoru) return;
+            const pipe = this.findPipeById(pipeId);
+            if (!pipe) { cache.set(pipeId, null); return null; }
+            const bag = pipe.baslangicBaglanti;
+            if (!bag || !bag.hedefId || !bag.tip) {
+                cache.set(pipeId, null);
+                return null;
+            }
+            if (bag.tip === 'sayac') {
+                const r = { tip: 'sayac', hedefId: bag.hedefId };
+                cache.set(pipeId, r);
+                return r;
+            }
+            if (bag.tip === 'servis_kutusu') {
+                const r = { tip: 'servis_kutusu', hedefId: bag.hedefId };
+                cache.set(pipeId, r);
+                return r;
+            }
+            if (bag.tip === 'boru') {
+                const upstream = resolve(bag.hedefId, visiting);
+                cache.set(pipeId, upstream);
+                return upstream;
+            }
+            cache.set(pipeId, null);
+            return null;
+        };
 
-        // Çıkış borusundan başlayarak tüm boruları TURQUAZ yap (recursive)
-        this.setPipeColorRecursive(cikisBoru, 'TURQUAZ');
-
-        // console.log(`[updatePipeColorsAfterMeter] Sayaç ${sayacId} sonrası borular TURQUAZ yapıldı`);
+        for (const pipe of this.pipes) {
+            const root = resolve(pipe.id, new Set());
+            pipe.parent = root;
+            pipe.colorGroup = (root && root.tip === 'sayac') ? 'TURQUAZ' : 'YELLOW';
+        }
     }
 
     /**
-     * Bir boruyu ve ondan sonraki tüm boruları belirli renge boyar (recursive)
-     * @param {Boru} pipe - Başlangıç borusu
-     * @param {string} colorGroup - Renk grubu ('YELLOW' veya 'TURQUAZ')
-     * @param {Set} visited - Ziyaret edilen borular (sonsuz döngü önleme)
+     * Geriye dönük uyumluluk — eski API. Tüm parent'ları yeniden hesaplar.
+     * @deprecated recomputePipeParents() kullanın.
      */
-    setPipeColorRecursive(pipe, colorGroup, visited = new Set()) {
-        if (!pipe || visited.has(pipe.id)) return;
-
-        // Bu boruyu işaretle
-        visited.add(pipe.id);
-
-        // Rengi değiştir
-        pipe.colorGroup = colorGroup;
-
-        // Bitiş bağlantısına göre sonraki boruyu bul
-        if (pipe.bitisBaglanti.hedefId && pipe.bitisBaglanti.tip === 'boru') {
-            const nextPipe = this.findPipeById(pipe.bitisBaglanti.hedefId);
-            if (nextPipe) {
-                this.setPipeColorRecursive(nextPipe, colorGroup, visited);
-            }
-        }
-
-        // T-bağlantıları da kontrol et
-        pipe.tBaglantilar.forEach(tBaglanti => {
-            const branchPipe = this.findPipeById(tBaglanti.boruId);
-            if (branchPipe) {
-                this.setPipeColorRecursive(branchPipe, colorGroup, visited);
-            }
-        });
+    updatePipeColorsAfterMeter(_sayacId) {
+        this.recomputePipeParents();
     }
 }
 

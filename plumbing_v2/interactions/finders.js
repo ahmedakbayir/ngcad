@@ -682,7 +682,6 @@ export function removeObject(manager, obj) {
             } else {
                 cikisPipe.baslangicBaglanti = { tip: null, hedefId: null, noktaIndex: null };
             }
-            manager.setPipeColorRecursive(cikisPipe, 'YELLOW');
         }
 
         // Sayaç vanasını BRANSMAN'a çevir (sayaç yok, normal kolon vanası gibi davransın)
@@ -721,6 +720,13 @@ export function removeObject(manager, obj) {
         }
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);
+    }
+
+    // Topoloji değişti — her borunun parent'ını (kök kaynağını) ve
+    // colorGroup'unu yeniden hesapla. Bu, sayaç silindiğinde T-listesinde
+    // olmayan çocuk dalların eski TURQUAZ rengini taşımasını engeller.
+    if (typeof manager.recomputePipeParents === 'function') {
+        manager.recomputePipeParents();
     }
 
     return pipeToSelect;

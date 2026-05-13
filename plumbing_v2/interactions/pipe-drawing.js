@@ -282,6 +282,10 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
         }
     });
 
+    // Parent / colorGroup zinciri sayaç/kutu açısından güncellenmiş
+    // olsun (split sonrası çocuk dallar yeni parçaya bağlanmış olabilir).
+    interactionManager.manager.recomputePipeParents();
+
     // Tüm boruların basıncını zincirden yeniden hesapla
     recomputeAllPressures(interactionManager.manager);
 
@@ -375,10 +379,10 @@ export function handleBoruClick(interactionManager, point) {
     initObjectDefaults(boru, interactionManager.manager);
     interactionManager.manager.pipes.push(boru);
 
-    if (interactionManager.boruBaslangic.kaynakTip === BAGLANTI_TIPLERI.SAYAC) {
-        const sayac = interactionManager.manager.components.find(c => c.id === interactionManager.boruBaslangic.kaynakId);
-        if (sayac) interactionManager.manager.updatePipeColorsAfterMeter(sayac.id);
-    }
+    // Boru zincire eklendi — kök kaynak (parent) ve colorGroup'u tüm
+    // borular için yeniden türet. Sayaç'tan başlayan hat TURQUAZ, kutudan
+    // başlayan hat YELLOW olur; sayaç yoksa default zaten YELLOW.
+    interactionManager.manager.recomputePipeParents();
 
     // Boru birime ulaştıysa: sayaç boşsa mahallerden tohumla, sonra sayaç→oda yay
     seedSayacFromRooms();

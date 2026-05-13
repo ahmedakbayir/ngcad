@@ -1310,6 +1310,10 @@ export function handlePipePaste() {
     // Yapıştırma sonrası seçimi sıfırla (artık silinmiş boru referansı kalmasın)
     this.selectedObject = null;
 
+    // Yapıştırma topolojiyi değiştirdi — her borunun kök kaynağını (parent)
+    // ve colorGroup'unu yeniden türet.
+    this.manager.recomputePipeParents();
+
     // Yeni topolojiye göre tüm basınçları yeniden hesapla (regülatör/sayaç zinciri dahil).
     recomputeAllPressures(this.manager);
 
@@ -1545,6 +1549,9 @@ export function applyVerticalPipeInsert() {
             p.baslangicBaglanti = { tip: 'boru', hedefId: newPipe.id };
         }
     });
+
+    // Topoloji değişti (yeni düşey boru, çocuklar yeniden bağlandı)
+    this.manager.recomputePipeParents();
 
     this.manager.saveToState();
 }

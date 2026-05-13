@@ -47,6 +47,8 @@ export function placeComponent(point) {
                 saveState();
                 const successSayac = this.handleSayacEndPlacement(component);
                 if (successSayac) {
+                    // Sayaç eklendi — downstream borular iç tesisat (TURQUAZ) olmalı
+                    this.manager.recomputePipeParents();
                     // Sayacın çıkış noktasından boru çizimi başlat
                     const cikisNoktasi = component.getCikisNoktasi();
                     this.startBoruCizim(cikisNoktasi, component.id, BAGLANTI_TIPLERI.SAYAC);
@@ -676,6 +678,9 @@ export function handleRegulatorPlacement(regulatorPreview) {
         }
     }
 
+    // Boru split nedeniyle topoloji değişti — kök kaynakları yeniden hesapla
+    this.manager.recomputePipeParents();
+
     // Tüm boruların basıncını zincirden yeniden hesapla
     // (sayaçların basıncı da burada upstream zincirinden senkronlanır)
     recomputeAllPressures(this.manager);
@@ -1047,6 +1052,8 @@ export function handleComponentOnPipePlacement(pipe, splitPoint, componentType) 
         // Sayaç yerleştirme fonksiyonunu çağır
         const success = this.handleSayacEndPlacement(tempMeter);
         if (success) {
+            // Sayaç eklendi — downstream borular artık iç tesisat (TURQUAZ) olmalı
+            this.manager.recomputePipeParents();
             recomputeAllPressures(this.manager);
             // Sayacın çıkış noktasından boru çizimi başlat
             const cikisNoktasi = tempMeter.getCikisNoktasi();
@@ -1247,6 +1254,9 @@ export function handleMeterStartPipeSecondClick(endPoint) {
     const success = this.handleSayacEndPlacement(tempMeter);
 
     if (success) {
+        // Sayaç eklendi — downstream borular iç tesisat (TURQUAZ) olmalı
+        this.manager.recomputePipeParents();
+
         // Sayacın çıkış noktasından boru çizimi başlat
         const cikisNoktasi = tempMeter.getCikisNoktasi();
         this.startBoruCizim(cikisNoktasi, tempMeter.id, BAGLANTI_TIPLERI.SAYAC);

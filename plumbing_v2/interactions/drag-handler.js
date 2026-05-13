@@ -1509,6 +1509,10 @@ export function endDrag(interactionManager) {
     // Sürükleme sonrası: yeni Z aralıkları için katları oluştur ve floorId'leri yeniden ata
     syncAllFloorAssignments(interactionManager.manager);
 
+    // Topoloji değişmiş olabilir (bridge boru, snap-merge, vs.) — her
+    // borunun kök kaynağını (parent) ve colorGroup'unu yeniden hesapla.
+    interactionManager.manager.recomputePipeParents();
+
     interactionManager.manager.saveToState();
     saveState();
 }
