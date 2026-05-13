@@ -20,6 +20,12 @@ export function recomputeAllPressures(manager) {
     const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
     const cache = new Map();
 
+    // Sayaç sonrası iç tesisat zincirinde bir regülatör varsa, o sayacın basıncı
+    // KULLANICI tarafından bağımsız belirlenir (auto-promote ile 300 veya manuel seçim).
+    // Bu sayaçların basıncını giriş borusundan türetip üzerine yazmayız;
+    // aksi takdirde handleRegulatorPlacement'ın yazdığı '300' anında '21'e döner.
+    const authoritativeMeterIds = _findMetersWithDownstreamRegulator(manager, pipeMap);
+
     function compute(pipeId, visiting = new Set()) {
         if (cache.has(pipeId)) return cache.get(pipeId);
         if (visiting.has(pipeId)) return 21;
@@ -37,7 +43,21 @@ export function recomputeAllPressures(manager) {
             // Sayacın fleks giriş borusu varsa onun basıncını izle ve sayac.basinc'ı senkronla;
             // yoksa (örn. sayaç kaynak rolündeyse) elle girilmiş sayac.basinc'a düş.
             const girisPipeId = sayac?.fleksBaglanti?.boruId;
-            if (sayac && girisPipeId && pipeMap.has(girisPipeId)) {
+            if (sayac && authoritativeMeterIds.has(sayac.id)) {
+                // Sayaç sonrası regülatör var → sayac.basinc kullanıcı tarafından bağımsız ayarlandı.
+                // Giriş borusu basıncı ile karşılaştır; daha yüksek olan kazanır:
+                //  - Giriş zaten 300 ise (servis_kutusu promote edilmiş) → 300 kullanılır.
+                //  - Giriş 21, sayac.basinc 300 ise (manuel veya auto-promote) → 300 korunur,
+                //    aksi takdirde recompute sayac.basinc'ı 21'e geri çekerdi.
+                const userVal = sayac.basinc != null ? Number(sayac.basinc) : 21;
+                if (girisPipeId && pipeMap.has(girisPipeId)) {
+                    const inputP = compute(girisPipeId, visiting);
+                    result = Math.max(userVal, Number.isFinite(inputP) ? inputP : 21);
+                } else {
+                    result = userVal;
+                }
+                sayac.basinc = String(result);
+            } else if (sayac && girisPipeId && pipeMap.has(girisPipeId)) {
                 result = compute(girisPipeId, visiting);
                 sayac.basinc = String(result);
             } else {
@@ -71,8 +91,10 @@ export function recomputeAllPressures(manager) {
 
     // Sayaç çıkış borusu olmayan sayaçların basıncı yukarıdaki döngüde
     // güncellenmemiş olabilir — fleks giriş borusundan açıkça türet.
+    // ANCAK: sayaç sonrası regülatör varsa basıncı otoriter, override etme.
     (manager.components || []).forEach(sayac => {
         if (sayac.type !== 'sayac') return;
+        if (authoritativeMeterIds.has(sayac.id)) return;
         const girisPipeId = sayac.fleksBaglanti?.boruId;
         if (!girisPipeId || !pipeMap.has(girisPipeId)) return;
         const p = compute(girisPipeId);
@@ -85,6 +107,56 @@ export function recomputeAllPressures(manager) {
     // Her regülatör için aşağı yönlü ağacı (sayaç bağlantılarından da geçerek)
     // gezip pipe.basinc'ı reg.cikisBasinc'a sabitle.
     propagateRegulatorsDownstream(manager, pipeMap);
+}
+
+/**
+ * Sayaç sonrası (iç tesisat) zincirinde regülatör bulunan sayaçları bul.
+ * Bu sayaçların basıncı kullanıcı tarafından bağımsız belirlenir; recompute
+ * onları giriş borusundan türetip üzerine yazmaz.
+ *
+ * Yürüyüş: sayac.cikisBagliBoruId → boru çocukları (baslangicBaglanti.tip === 'boru')
+ * → herhangi bir boruda regulator (bagliBoruId eşleşmesi) varsa sayaç "otoriter".
+ */
+function _findMetersWithDownstreamRegulator(manager, pipeMap) {
+    const result = new Set();
+    if (!manager?.components) return result;
+
+    const childrenOf = new Map();
+    manager.pipes.forEach(p => {
+        const bag = p.baslangicBaglanti;
+        if (bag?.tip === 'boru' && bag.hedefId) {
+            if (!childrenOf.has(bag.hedefId)) childrenOf.set(bag.hedefId, []);
+            childrenOf.get(bag.hedefId).push(p.id);
+        }
+    });
+
+    const pipesWithRegulator = new Set();
+    manager.components.forEach(c => {
+        if (c.type === 'regulator' && c.bagliBoruId) pipesWithRegulator.add(c.bagliBoruId);
+    });
+    if (pipesWithRegulator.size === 0) return result;
+
+    manager.components.forEach(sayac => {
+        if (sayac.type !== 'sayac') return;
+        const startPipeId = sayac.cikisBagliBoruId;
+        if (!startPipeId || !pipeMap.has(startPipeId)) return;
+
+        const queue = [startPipeId];
+        const visited = new Set();
+        while (queue.length > 0) {
+            const pid = queue.shift();
+            if (visited.has(pid)) continue;
+            visited.add(pid);
+            if (pipesWithRegulator.has(pid)) {
+                result.add(sayac.id);
+                break;
+            }
+            const kids = childrenOf.get(pid);
+            if (kids) kids.forEach(k => queue.push(k));
+        }
+    });
+
+    return result;
 }
 
 function propagateRegulatorsDownstream(manager, pipeMap) {

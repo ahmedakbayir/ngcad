@@ -6,6 +6,43 @@ import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, re
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 /**
+ * Sayacın çıkış (iç tesisat) zincirinde bir regülatör var mı?
+ * Bu durumda sayacın basıncı kullanıcı tarafından bağımsız ayarlanabilir.
+ */
+function _hasRegulatorDownstreamOfMeter(sayac, manager) {
+    if (!sayac || !manager) return false;
+    const startPipeId = sayac.cikisBagliBoruId;
+    if (!startPipeId) return false;
+
+    const pipesWithRegulator = new Set();
+    (manager.components || []).forEach(c => {
+        if (c.type === 'regulator' && c.bagliBoruId) pipesWithRegulator.add(c.bagliBoruId);
+    });
+    if (pipesWithRegulator.size === 0) return false;
+
+    const childrenOf = new Map();
+    (manager.pipes || []).forEach(p => {
+        const bag = p.baslangicBaglanti;
+        if (bag?.tip === 'boru' && bag.hedefId) {
+            if (!childrenOf.has(bag.hedefId)) childrenOf.set(bag.hedefId, []);
+            childrenOf.get(bag.hedefId).push(p.id);
+        }
+    });
+
+    const queue = [startPipeId];
+    const visited = new Set();
+    while (queue.length > 0) {
+        const pid = queue.shift();
+        if (visited.has(pid)) continue;
+        visited.add(pid);
+        if (pipesWithRegulator.has(pid)) return true;
+        const kids = childrenOf.get(pid);
+        if (kids) kids.forEach(k => queue.push(k));
+    }
+    return false;
+}
+
+/**
  * Özellik Tanımları
  * Her özellik burada tek bir yerde tanımlanır.
  * Her nesne tipi hangi özellikleri göstereceğini OBJECT_PROPERTIES'te belirtir.
@@ -359,12 +396,26 @@ export const PROPERTY_DEFS = {
                 key: 'basinc',
                 options: KUTU_BASINCLAR,
                 default: '21',
-                disabledFn: (_obj, manager) => {
+                disabledFn: (obj, manager) => {
                     if (!manager) return false;
+                    // Sayaç sonrası iç tesisatta regülatör varsa, sayaç basıncı manuel
+                    // ayarlanabilmeli (regülatör girişi 300, çıkışı 21 gibi senaryolar için).
+                    if (_hasRegulatorDownstreamOfMeter(obj, manager)) return false;
                     return manager.components.some(c => c.type === 'servis_kutusu');
                 },
-                afterChange: (_obj, manager) => {
-                    if (manager) recomputeAllPressures(manager);
+                afterChange: (obj, manager) => {
+                    if (!manager) return;
+                    // Sayaç basıncı manuel olarak 300'e çekildiyse, upstream servis_kutusu
+                    // varsa onu da 300'e yükselt — aksi takdirde recompute kolonu 21'de tutar
+                    // ve sayaç girişi/çıkışı arasında fiziksel olmayan bir basınç farkı oluşur.
+                    if (obj?.basinc === '300') {
+                        manager.components.forEach(c => {
+                            if (c.type === 'servis_kutusu' && c.kutuBasinc !== '300') {
+                                c.kutuBasinc = '300';
+                            }
+                        });
+                    }
+                    recomputeAllPressures(manager);
                 },
             },
         ],

@@ -635,6 +635,62 @@ export function removeObject(manager, obj) {
         }
 
     } else if (obj.type === 'sayac') {
+        const sayac = obj;
+        const girisPipe = sayac.fleksBaglanti?.boruId ? manager.findPipeById(sayac.fleksBaglanti.boruId) : null;
+        const cikisPipe = sayac.cikisBagliBoruId ? manager.findPipeById(sayac.cikisBagliBoruId) : null;
+        const girisEndpoint = sayac.fleksBaglanti?.endpoint; // 'p1' veya 'p2' — kolonun sayaca bakan ucu
+
+        // Sayaç silindiğinde iç tesisat KOLONUN DEVAMI olur:
+        //  • TOPOLOJİK: baslangicBaglanti / bitisBaglanti ile boru zincirini kapa.
+        //  • GEOMETRİK: kolonun sayaca bakan ucu ile çıkış borusunun ilk ucu aynı NODE
+        //    olsun (aksi takdirde sayacın boşluğu (~20cm) "Buradan Sonrasını Sil",
+        //    servis kutusu BFS'i ve renderer komşuluk taramalarını keser).
+        //  • RENK: çıkış borusu ve downstream YELLOW (pre-meter) olur.
+        if (cikisPipe) {
+            if (girisPipe) {
+                // Kolonun "sayaç tarafı" ucu (default: p2). Burada paylaşılacak node.
+                const girisUcu = (girisEndpoint === 'p1') ? 'p1' : 'p2';
+                const girisNode = girisUcu === 'p1' ? girisPipe.p1 : girisPipe.p2;
+                const girisNodeId = girisUcu === 'p1' ? girisPipe.p1NodeId : girisPipe.p2NodeId;
+
+                // Çıkış borusunun p1'ini kolon ucuyla aynı NODE'a bağla.
+                const oldNode = cikisPipe.p1;
+                const oldNodeId = cikisPipe.p1NodeId;
+                cikisPipe.p1 = girisNode;
+                cikisPipe.p1NodeId = girisNodeId;
+                // Artık kullanılmayan eski node'u temizle (başka boru paylaşmıyorsa).
+                if (oldNodeId && oldNodeId !== girisNodeId) {
+                    const stillUsed = manager.pipes.some(p =>
+                        p.id !== cikisPipe.id &&
+                        (p.p1NodeId === oldNodeId || p.p2NodeId === oldNodeId)
+                    );
+                    if (!stillUsed) manager.nodes?.delete(oldNodeId);
+                }
+
+                cikisPipe.baslangicBaglanti = {
+                    tip: BAGLANTI_TIPLERI.BORU,
+                    hedefId: girisPipe.id,
+                    noktaIndex: null,
+                };
+                if (!girisPipe.bitisBaglanti?.tip) {
+                    girisPipe.bitisBaglanti = {
+                        tip: BAGLANTI_TIPLERI.BORU,
+                        hedefId: cikisPipe.id,
+                        noktaIndex: null,
+                    };
+                }
+            } else {
+                cikisPipe.baslangicBaglanti = { tip: null, hedefId: null, noktaIndex: null };
+            }
+            manager.setPipeColorRecursive(cikisPipe, 'YELLOW');
+        }
+
+        // Sayaç vanasını BRANSMAN'a çevir (sayaç yok, normal kolon vanası gibi davransın)
+        if (sayac.iliskiliVanaId) {
+            const vana = manager.findComponentById(sayac.iliskiliVanaId);
+            if (vana) vana.vanaTipi = 'BRANSMAN';
+        }
+
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);
     } else if (obj.type === 'vana') {

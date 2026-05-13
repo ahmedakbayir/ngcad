@@ -17,6 +17,7 @@ import { Baca } from '../objects/chimney.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, currentPanelMode, PANEL_MODES } from '../properties/properties-panel.js';
+import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 
 // Tool modları
@@ -1222,6 +1223,28 @@ export function handlePipePaste() {
         }
     }
 
+    // 3.5. Pipe → komponent bağlantılarını remap et (sayaç / vana / cihaz / servis_kutusu / bransman).
+    // Step 2 yalnızca tip === 'boru' bağlantılarını yeniden eşledi; sayaç çıkış borularının
+    // baslangicBaglanti'si { tip: 'sayac', hedefId: <eski sayac id> } olarak kalmıştı.
+    // recomputeAllPressures bu eski referansı izleyerek KAYNAK sayacın fleksBaglanti.boruId'sine
+    // (yani kaynağın upstream borusuna) düşüyordu — kopyalanan iç tesisatların basıncı kaynağa
+    // bağlanıyordu. Kopya komponentleri oluşturulduktan sonra hedefId'leri componentIdMap ile
+    // güncelle; kopyalanmamış komponente referansı varsa bağlantıyı kopar.
+    const remapComponentRef = (bag) => {
+        if (!bag || !bag.tip || bag.tip === 'boru') return bag;
+        const newId = componentIdMap.get(bag.hedefId);
+        if (newId) { bag.hedefId = newId; return bag; }
+        return null;
+    };
+    for (const newPipe of newPipes) {
+        if (newPipe.baslangicBaglanti && newPipe.baslangicBaglanti.tip && newPipe.baslangicBaglanti.tip !== 'boru') {
+            newPipe.baslangicBaglanti = remapComponentRef(newPipe.baslangicBaglanti);
+        }
+        if (newPipe.bitisBaglanti && newPipe.bitisBaglanti.tip && newPipe.bitisBaglanti.tip !== 'boru') {
+            newPipe.bitisBaglanti = remapComponentRef(newPipe.bitisBaglanti);
+        }
+    }
+
     // 4. Snap noktasındaki boru ile ilk pasted boru arasında bağlantı kur
     const snapInfo = this._pasteSnapOverride;
     if (snapInfo?.snapPipeId && newPipes.length > 0) {
@@ -1286,6 +1309,9 @@ export function handlePipePaste() {
     }
     // Yapıştırma sonrası seçimi sıfırla (artık silinmiş boru referansı kalmasın)
     this.selectedObject = null;
+
+    // Yeni topolojiye göre tüm basınçları yeniden hesapla (regülatör/sayaç zinciri dahil).
+    recomputeAllPressures(this.manager);
 
     // Manager state'i güncelle
     this.manager.saveToState();
