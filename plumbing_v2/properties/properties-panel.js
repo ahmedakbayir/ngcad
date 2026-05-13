@@ -1098,8 +1098,8 @@ function bindInputEvents(panelEl, props, obj, manager) {
             if (key === 'birimBoruTipi') refreshEsnekMarkaDurum(panelEl, obj);
             // vanaTipi değişince visibleFn'ler yeniden değerlendirsin
             if (key === 'vanaTipi') { persist(); renderPanel(obj, manager); return; }
-            // boruCap değişince üzerindeki vananın çapını güncelle
-            if (key === 'boruCap') syncVanaCapOnPipe(obj, manager, e.target.value);
+            // boruCap değişince çapı ilk ayrıma kadar (TE/sayaç/regülatör) tüm hatta uygula
+            if (key === 'boruCap') propagateBoruCapAlongRun(obj, e.target.value, manager);
             const prop = _findPropByKey(props, key);
             if (prop?.afterChange) prop.afterChange(obj, manager, panelEl);
             persist();
@@ -1177,6 +1177,74 @@ function syncVanaCapOnPipe(pipe, manager, newCap) {
             c.vanaCap = newCap;
         }
     });
+}
+
+/**
+ * Borunun çapını "ilk ayrıma kadar" (TE, sayaç veya regülatör sınırı) yayar.
+ *
+ * Sınır kuralları:
+ *  - TE / T-bağlantısı: bir borunun çocuk borusu (baslangicBaglanti.tip='boru')
+ *    sayısı 1'den farklıysa o uçta yayılım durur (0 = uç, ≥2 = T).
+ *  - Sayaç: pipe-to-pipe zinciri sayaca girince doğal olarak durur, çünkü
+ *    sayaç çıkış borusunun baslangicBaglanti.tip='sayac'tır ve 'boru' filtremize uymaz.
+ *  - Regülatör: parent'ın p2 ucunda veya çocuğun p1 ucunda regülatör varsa
+ *    o sınır geçilmez.
+ */
+function propagateBoruCapAlongRun(startPipe, newCap, manager) {
+    if (!manager || !startPipe || startPipe.type !== 'boru') return;
+
+    const childrenOf = new Map();
+    manager.pipes.forEach(p => {
+        const bag = p.baslangicBaglanti;
+        if (bag?.tip === 'boru' && bag.hedefId) {
+            if (!childrenOf.has(bag.hedefId)) childrenOf.set(bag.hedefId, []);
+            childrenOf.get(bag.hedefId).push(p.id);
+        }
+    });
+
+    const hasRegAtP2 = (pipeId) => manager.components.some(c =>
+        c.type === 'regulator' && c.bagliBoruId === pipeId && (c.boruPozisyonu || 0) >= 0.5
+    );
+    const hasRegAtP1 = (pipeId) => manager.components.some(c =>
+        c.type === 'regulator' && c.bagliBoruId === pipeId && (c.boruPozisyonu || 0) < 0.5
+    );
+
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const visited = new Set();
+    const queue = [startPipe.id];
+
+    while (queue.length > 0) {
+        const pid = queue.shift();
+        if (visited.has(pid)) continue;
+        visited.add(pid);
+
+        const p = pipeMap.get(pid);
+        if (!p) continue;
+
+        p.boruCap = newCap;
+        syncVanaCapOnPipe(p, manager, newCap);
+
+        // Yukarı (parent): parent'ın TEK çocuğu biz olmalıyız ve aradaki uçta regülatör olmamalı
+        const bag = p.baslangicBaglanti;
+        if (bag?.tip === 'boru' && bag.hedefId) {
+            const parent = pipeMap.get(bag.hedefId);
+            if (parent) {
+                const parentChildren = childrenOf.get(parent.id) || [];
+                if (parentChildren.length === 1 && !hasRegAtP2(parent.id) && !hasRegAtP1(p.id)) {
+                    if (!visited.has(parent.id)) queue.push(parent.id);
+                }
+            }
+        }
+
+        // Aşağı (child): tek çocuk olmalı ve sınırda regülatör olmamalı
+        const myChildren = childrenOf.get(pid) || [];
+        if (myChildren.length === 1 && !hasRegAtP2(pid)) {
+            const childId = myChildren[0];
+            if (!hasRegAtP1(childId) && !visited.has(childId)) {
+                queue.push(childId);
+            }
+        }
+    }
 }
 
 function refreshEsnekMarkaDurum(panelEl, obj) {

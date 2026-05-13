@@ -116,6 +116,19 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
         }
     }
 
+    // Ayrılan noktadaki kaynak borunun BASINÇ ve ÇAP bilgilerini yakala.
+    // Yeni dal hattı, ayrıldığı noktanın özelliklerini miras alır
+    // (örn. 300 mbar / DN40 bir hattın ortasından T açılırsa yeni hat da 300 mbar / DN40).
+    let kaynakBasinc = null;
+    let kaynakBoruCap = null;
+    if (finalKaynakTip === BAGLANTI_TIPLERI.BORU && finalKaynakId) {
+        const parentPipe = interactionManager.manager.pipes.find(p => p.id === finalKaynakId);
+        if (parentPipe) {
+            if (parentPipe.basinc != null) kaynakBasinc = parentPipe.basinc;
+            if (parentPipe.boruCap) kaynakBoruCap = parentPipe.boruCap;
+        }
+    }
+
     // Kaynak boru varsa cihaz/sayaç engelleme kontrolü
     if (finalKaynakTip === BAGLANTI_TIPLERI.BORU && finalKaynakId) {
         const kaynakBoru = interactionManager.manager.pipes.find(p => p.id === finalKaynakId);
@@ -143,7 +156,9 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
         nokta: baslangicNoktasi,
         kaynakId: finalKaynakId,
         kaynakTip: finalKaynakTip || BAGLANTI_TIPLERI.SERVIS_KUTUSU,
-        kaynakColorGroup: kaynakColorGroup
+        kaynakColorGroup: kaynakColorGroup,
+        kaynakBasinc: kaynakBasinc,
+        kaynakBoruCap: kaynakBoruCap
     };
     interactionManager.snapSystem.setStartPoint(baslangicNoktasi);
     interactionManager.manager.activeTool = 'boru';
@@ -359,6 +374,15 @@ export function handleBoruClick(interactionManager, point) {
     boru.floorId = startFloor?.id || null;
     boru.colorGroup = interactionManager.boruBaslangic.kaynakColorGroup || 'YELLOW';
 
+    // Ayrılan noktadan basınç ve çap miras al — initObjectDefaults sadece undefined
+    // alanları doldurduğundan, buradaki atama varsayılan DN25 ve boş basıncı override eder.
+    if (interactionManager.boruBaslangic.kaynakBasinc != null) {
+        boru.basinc = interactionManager.boruBaslangic.kaynakBasinc;
+    }
+    if (interactionManager.boruBaslangic.kaynakBoruCap) {
+        boru.boruCap = interactionManager.boruBaslangic.kaynakBoruCap;
+    }
+
     if (interactionManager.boruBaslangic.kaynakId) {
         boru.setBaslangicBaglanti(
             interactionManager.boruBaslangic.kaynakTip,
@@ -400,7 +424,9 @@ export function handleBoruClick(interactionManager, point) {
         nokta: point,
         kaynakId: boru.id,
         kaynakTip: BAGLANTI_TIPLERI.BORU,
-        kaynakColorGroup: boru.colorGroup
+        kaynakColorGroup: boru.colorGroup,
+        kaynakBasinc: boru.basinc != null ? boru.basinc : null,
+        kaynakBoruCap: boru.boruCap || null
     };
     interactionManager.snapSystem.setStartPoint(point);
 
