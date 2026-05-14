@@ -4568,6 +4568,121 @@ body.light-mode .bc-tab-bar {
     margin-left: 2px;
 }
 
+/* — Kritik yollar özeti (her limit için en kötü yol) — */
+.bc-crit-summary {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--ft-border, rgba(255, 255, 255, 0.08));
+    border-radius: 10px;
+    background: var(--ft-row, rgba(255, 255, 255, 0.02));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bc-crit-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--ft-head-text, rgba(230, 232, 235, 0.85));
+}
+
+.bc-crit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bc-crit-line {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: var(--color-text, #e6e8eb);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.12s;
+}
+
+.bc-crit-line:hover {
+    background: var(--ft-row-hover, rgba(255, 255, 255, 0.04));
+}
+
+.bc-crit-line.selected,
+.bc-crit-line.bc-path-uses-row {
+    background: rgba(110, 168, 255, 0.14);
+}
+
+.bc-crit-group-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--color-secondary, rgba(255, 255, 255, 0.6));
+    min-width: 72px;
+    text-transform: none;
+    letter-spacing: 0.2px;
+}
+
+.bc-crit-path {
+    font-weight: 600;
+    color: var(--ft-accent, #6ea8ff);
+    letter-spacing: 0.3px;
+    min-width: 80px;
+}
+
+.bc-crit-eq {
+    color: var(--color-text, #e6e8eb);
+}
+
+.bc-crit-status {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.bc-crit-ok .bc-crit-status {
+    color: #4caf50;
+    background: rgba(76, 175, 80, 0.12);
+}
+
+.bc-crit-fail .bc-crit-status {
+    color: #ef5350;
+    background: rgba(239, 83, 80, 0.14);
+}
+
+.bc-crit-fail .bc-crit-eq {
+    color: #ef5350;
+}
+
+body.light-mode .bc-crit-line.selected,
+body.light-mode .bc-crit-line.bc-path-uses-row {
+    background: rgba(37, 99, 235, 0.12);
+}
+
+body.light-mode .bc-crit-ok .bc-crit-status {
+    color: #2e7d32;
+    background: rgba(46, 125, 50, 0.10);
+}
+
+body.light-mode .bc-crit-fail .bc-crit-status {
+    color: #d32f2f;
+    background: rgba(211, 47, 47, 0.10);
+}
+
+body.light-mode .bc-crit-fail .bc-crit-eq {
+    color: #d32f2f;
+}
+
 /* — Yol listesi (path enumeration) — */
 .bc-paths {
     display: flex;
@@ -4593,9 +4708,54 @@ body.light-mode .bc-tab-bar {
     text-transform: uppercase;
     border-bottom: 1px solid var(--ft-border-strong, rgba(255, 255, 255, 0.12));
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.bc-paths-toggle {
+    width: 100%;
+    border: none;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+
+.bc-paths-toggle:hover {
+    background: var(--ft-row-hover, rgba(255, 255, 255, 0.06));
+}
+
+.bc-paths-toggle-icon {
+    display: inline-block;
+    font-size: 10px;
+    width: 12px;
+    transition: transform 0.15s ease;
+    color: var(--color-secondary, rgba(255, 255, 255, 0.55));
+}
+
+.bc-paths-block:not(.bc-paths-block-collapsed) .bc-paths-toggle-icon {
+    transform: rotate(90deg);
+}
+
+.bc-paths-toggle-label {
+    flex: 1;
+}
+
+.bc-paths-toggle-count {
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.4px;
+    text-transform: none;
+    color: var(--ft-coef-text, rgba(230, 232, 235, 0.5));
+}
+
+.bc-paths-block.bc-paths-block-collapsed .bc-paths-title {
+    border-bottom: none;
+}
+
+.bc-paths-block.bc-paths-block-collapsed .bc-path-list {
+    display: none;
 }
 
 .bc-paths-limit {

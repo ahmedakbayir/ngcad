@@ -945,28 +945,82 @@ function renderPathsBlock(title, paths) {
     if (!visible.length) return '';
     sortPathsByHat(visible);
     return `
-        <div class="bc-paths-block">
-            <div class="bc-paths-title">${title}</div>
+        <div class="bc-paths-block bc-paths-block-collapsed">
+            <button type="button" class="bc-paths-title bc-paths-toggle" aria-expanded="false">
+                <span class="bc-paths-toggle-icon">▶</span>
+                <span class="bc-paths-toggle-label">${title}</span>
+                <span class="bc-paths-toggle-count">(${visible.length})</span>
+            </button>
             <div class="bc-path-list">${visible.map(p => renderPathItem(p)).join('')}</div>
         </div>`;
 }
 
-function renderPathsSection(rows, allRows) {
+// Aktif sekmedeki hatlardan KOLON / TÜKETİM yollarını üretip basınç düşüş limitlerine
+// göre annotate eder. byHat tüm sekmelerden gelir; post-reg yolun limiti farklı
+// sekmedeki parent regülatöre rağmen doğru uygulansın.
+function buildAnnotatedPaths(rows, allRows) {
     const kolonRows = rows.filter(r => r.segmentType === 'KOLON');
     const tukRows   = rows.filter(r => r.segmentType !== 'KOLON');
     const kolon = enumeratePaths(kolonRows);
     const tuk   = enumeratePaths(tukRows);
-    // byHat: tüm hatların (sekmeler arası) lookup'ı için global rows kullan —
-    // post-reg hat farklı basınç sekmesinde olsa bile parent zincirinde regülatör
-    // tespit edilebilsin (REG_CIHAZ limiti doğru uygulansın).
     const byHat = new Map((allRows || rows).map(r => [r.hatNo, r]));
     annotatePaths(kolon, byHat, 'KOLON');
     annotatePaths(tuk,   byHat, 'TUKETIM');
+    return { kolon, tuk };
+}
+
+function renderPathsSection(rows, allRows) {
+    const { kolon, tuk } = buildAnnotatedPaths(rows, allRows);
     if (!kolon.length && !tuk.length) return '';
     return `
         <div class="bc-paths">
             ${renderPathsBlock('KOLON HATTI YOLLARI', kolon)}
             ${renderPathsBlock('İÇ TESİSAT YOLLARI', tuk)}
+        </div>`;
+}
+
+// Her limit değerinin en kritik yolunu (ΣΔP en büyük) seçen kompakt özet.
+function pickCriticalsByLimit(paths) {
+    const byLimit = new Map();
+    for (const p of paths) {
+        if (p.skip) continue;
+        const v = Number(p.evalTotal ?? p.total ?? 0);
+        const cur = byLimit.get(p.limit);
+        if (!cur || Number(cur.evalTotal ?? cur.total ?? 0) < v) {
+            byLimit.set(p.limit, p);
+        }
+    }
+    return Array.from(byLimit.values()).sort((a, b) => (b.limit ?? 0) - (a.limit ?? 0));
+}
+
+function renderCriticalLine(groupLabel, p) {
+    const value = Number(p.evalTotal ?? p.total ?? 0);
+    const limit = Number(p.limit ?? 0);
+    const ok = !p.overLimit;
+    const status = ok ? 'UYGUNDUR' : 'UYGUN DEĞİL';
+    const cls = ok ? 'bc-crit-ok' : 'bc-crit-fail';
+    const cmp = ok ? '&lt;' : '≥';
+    const displayHats = p.hatNos.slice(p.evalFromIdx || 0);
+    return `
+        <button type="button" class="bc-crit-line ${cls}" data-hats="${p.hatNos.join(',')}">
+            <span class="bc-crit-group-label">${groupLabel}</span>
+            <span class="bc-crit-path">${displayHats.join('-')}</span>
+            <span class="bc-crit-eq">: ${f4(value)} ${cmp} ${NF4.format(limit)} mbar</span>
+            <span class="bc-crit-status">${status}</span>
+        </button>`;
+}
+
+function renderCriticalSummary(rows, allRows) {
+    const { kolon, tuk } = buildAnnotatedPaths(rows, allRows);
+    const kolonCrit = pickCriticalsByLimit(kolon);
+    const tukCrit   = pickCriticalsByLimit(tuk);
+    if (!kolonCrit.length && !tukCrit.length) return '';
+    const kolonLines = kolonCrit.map(p => renderCriticalLine('Kolon', p)).join('');
+    const tukLines   = tukCrit.map(p => renderCriticalLine('İç Tesisat', p)).join('');
+    return `
+        <div class="bc-crit-summary">
+            <div class="bc-crit-title">Kritik Yollar:</div>
+            <div class="bc-crit-list">${kolonLines}${tukLines}</div>
         </div>`;
 }
 
@@ -1039,6 +1093,7 @@ function renderInto(bodyEl) {
     bodyEl.innerHTML = `
         ${renderTabBar(availableTabs, _activeTab)}
         ${renderTable(active.rows, fittingsByHat, _activeTab)}
+        ${renderCriticalSummary(active.rows, rows)}
         ${renderPathsSection(active.rows, rows)}
     `;
 
@@ -1064,14 +1119,24 @@ function renderInto(bodyEl) {
     });
 
     const clearAllSelection = () => {
-        bodyEl.querySelectorAll('.bc-path.selected').forEach(b => b.classList.remove('selected'));
-        bodyEl.querySelectorAll('.bc-path.bc-path-uses-row').forEach(b => b.classList.remove('bc-path-uses-row'));
+        bodyEl.querySelectorAll('.bc-path.selected, .bc-crit-line.selected').forEach(b => b.classList.remove('selected'));
+        bodyEl.querySelectorAll('.bc-path.bc-path-uses-row, .bc-crit-line.bc-path-uses-row').forEach(b => b.classList.remove('bc-path-uses-row'));
         bodyEl.querySelectorAll('tr.bc-path-highlight').forEach(tr => tr.classList.remove('bc-path-highlight'));
         bodyEl.querySelectorAll('tr.bc-row-selected').forEach(tr => tr.classList.remove('bc-row-selected'));
     };
 
+    // KOLON / İÇ TESİSAT detay listeleri — başlığa tıklayınca aç/kapa
+    bodyEl.querySelectorAll('.bc-paths-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const block = btn.closest('.bc-paths-block');
+            if (!block) return;
+            const collapsed = block.classList.toggle('bc-paths-block-collapsed');
+            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        });
+    });
+
     // Yol seçimi → ilgili hat satırlarını vurgula (toggle, tek aktif yol)
-    bodyEl.querySelectorAll('.bc-path').forEach(btn => {
+    bodyEl.querySelectorAll('.bc-path, .bc-crit-line').forEach(btn => {
         btn.addEventListener('click', () => {
             const wasSelected = btn.classList.contains('selected');
             clearAllSelection();
@@ -1105,7 +1170,7 @@ function renderInto(bodyEl) {
             clearAllSelection();
             if (!wasSelected) {
                 tr.classList.add('bc-row-selected');
-                bodyEl.querySelectorAll('.bc-path').forEach(btn => {
+                bodyEl.querySelectorAll('.bc-path, .bc-crit-line').forEach(btn => {
                     const hats = btn.dataset.hats.split(',').map(s => parseInt(s, 10));
                     if (hats.includes(hatNo)) btn.classList.add('bc-path-uses-row');
                 });
