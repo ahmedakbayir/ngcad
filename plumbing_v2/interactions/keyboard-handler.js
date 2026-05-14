@@ -16,7 +16,7 @@ import { Cihaz } from '../objects/device.js';
 import { Baca } from '../objects/chimney.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
-import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, currentPanelMode, PANEL_MODES } from '../properties/properties-panel.js';
+import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, openEmptyPanel, currentPanelMode, PANEL_MODES } from '../properties/properties-panel.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 
@@ -212,12 +212,13 @@ export function handleKeyDown(e) {
             return true;
         }
         
-        // Hiçbir şey seçili değilse ve panel açıksa kapat
+        // Hiçbir şey seçili değilse: panel açıksa kapat, kapalıysa boş paneli aç
         if (isPanelOpen()) {
             closePropertiesPanel();
-            return true;
+        } else {
+            openEmptyPanel();
         }
-        return false;
+        return true;
     }
     // ESC - iptal ve seç moduna geç
     if (e.key === 'Escape') {
