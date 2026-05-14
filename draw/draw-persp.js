@@ -71,7 +71,7 @@ export function syncMainToPersp() {
     state.perspZoom = newZoom;
     state.perspPanOffset = newPan;
     _syncing = false;
-    
+
 }
 
 export function syncPerspToMain() {
@@ -87,7 +87,7 @@ export function syncPerspToMain() {
     _syncing = true;
     setState({ zoom: newZoom, panOffset: newPan });
     _syncing = false;
-    
+
 }
 
 // ─── 3D PERSPEKTİF GRID + ZEMİN (Katı Model kamerasıyla aynı parametreler) ───
@@ -272,8 +272,8 @@ export function fitDrawingToPerspectiveScreen() {
     if (!dom.cPersp || dom.cPersp.width === 0) return;
     const canvas = dom.cPersp;
     const dpr = window.devicePixelRatio || 1;
-    const cssW = canvas.width / dpr;
-    const cssH = canvas.height / dpr;
+    const cssW = canvas.width;
+    const cssH = canvas.height;
     const PADDING = 30;  // px — 2D fitDrawingToScreen ile aynı
 
     // Render iso matrisi (perspBlendFactor — varsayılan 1)
@@ -302,20 +302,28 @@ export function fitDrawingToPerspectiveScreen() {
         has = true;
     };
 
-    (state.nodes || []).forEach(n => pushXYZ(n.x, n.y, 0));
+    // Aktif kat filtresi — fit sadece bu kattaki tesisat'a göre yapılsın
+    const currentFloorId = state.currentFloor?.id || null;
+    const isOnCurrentFloor = (obj) => {
+        if (!currentFloorId) return true;
+        if (!obj || obj.floorId === undefined || obj.floorId === null) return true;
+        return obj.floorId === currentFloorId;
+    };
+
+    (state.nodes || []).filter(isOnCurrentFloor).forEach(n => pushXYZ(n.x, n.y, 0));
     // Duvarların hem tabanı (z=0) hem tavanı (WALL_HEIGHT) bbox'a katkıda bulunsun
     const WH = 280;
-    (state.walls || []).forEach(w => {
+    (state.walls || []).filter(isOnCurrentFloor).forEach(w => {
         if (w.p1) { pushXYZ(w.p1.x, w.p1.y, 0); pushXYZ(w.p1.x, w.p1.y, WH); }
         if (w.p2) { pushXYZ(w.p2.x, w.p2.y, 0); pushXYZ(w.p2.x, w.p2.y, WH); }
     });
-    // Tesisat: borular ve komponentler — gerçek Z değerleriyle
+    // Tesisat: borular ve komponentler — gerçek Z değerleriyle, sadece aktif kat
     if (plumbingManager) {
-        (plumbingManager.pipes || []).forEach(p => {
+        (plumbingManager.pipes || []).filter(isOnCurrentFloor).forEach(p => {
             if (p.p1) pushXYZ(p.p1.x, p.p1.y, p.p1.z || 0);
             if (p.p2) pushXYZ(p.p2.x, p.p2.y, p.p2.z || 0);
         });
-        (plumbingManager.components || []).forEach(c => pushXYZ(c.x, c.y, c.z || 0));
+        (plumbingManager.components || []).filter(isOnCurrentFloor).forEach(c => pushXYZ(c.x, c.y, c.z || 0));
     }
 
     if (!has) {
@@ -408,7 +416,7 @@ function _isClickOnCpersp(e) {
     const rect = dom.cPersp.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return false;
     return e.clientX >= rect.left && e.clientX <= rect.right &&
-           e.clientY >= rect.top  && e.clientY <= rect.bottom;
+        e.clientY >= rect.top && e.clientY <= rect.bottom;
 }
 
 export function setupPerspControls() {
@@ -418,7 +426,7 @@ export function setupPerspControls() {
 
     // ─── WINDOW-LEVEL CAPTURE: tıklama cPersp üzerindeyse en önce burada yakalanır ───
     // Hiçbir şey (input.js, vs.) önümüze geçemez.
-    window.addEventListener('mousedown', (e) => {
+    window.addEventListener('pointerdown', (e) => {
         if (!_isClickOnCpersp(e)) return;
 
         // ORTA-BUTON
@@ -452,23 +460,10 @@ export function setupPerspControls() {
             return;
         }
 
-        // SAĞ-BUTON → tesisat menüsü (mousedown'da hemen aç)
-        if (e.button === 2) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            if (!plumbingManager || !plumbingManager.interactionManager) return;
-            const rect = dom.cPersp.getBoundingClientRect();
-            const localX = e.clientX - rect.left;
-            const localY = e.clientY - rect.top;
-            let worldPos = _findPerspWorldHitAtScreen(dom.cPersp, localX, localY);
-            if (!worldPos) worldPos = { x: 0, y: 0, z: 0 };
-            showPlumbingContextMenu(e.clientX, e.clientY, worldPos, plumbingManager.interactionManager);
-            return;
-        }
+
     }, { capture: true });
 
-    window.addEventListener('mousemove', (e) => {
+    window.addEventListener('pointermove', (e) => {
         if (!_perspPanState) return;
         const dx = e.clientX - _perspPanState.startClientX;
         const dy = e.clientY - _perspPanState.startClientY;
@@ -478,7 +473,7 @@ export function setupPerspControls() {
         };
     });
 
-    window.addEventListener('mouseup', (e) => {
+    window.addEventListener('pointerup', (e) => {
         if (!_perspPanState) return;
         if (e.button !== 1) return;
         _perspPanState = null;
@@ -488,7 +483,22 @@ export function setupPerspControls() {
     // Tarayıcı sağ-tık menüsünü engelle (cPersp veya alt elemanları)
     window.addEventListener('contextmenu', (e) => {
         if (!_isClickOnCpersp(e)) return;
+
+        // Tarayıcının standart menüsünü kesin olarak durdur
         e.preventDefault();
         e.stopPropagation();
+
+        // Tesisat menüsünü burada açıyoruz (Gerçek sağ tık olayı)
+        if (!plumbingManager || !plumbingManager.interactionManager) return;
+
+        const rect = dom.cPersp.getBoundingClientRect();
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+
+        let worldPos = _findPerspWorldHitAtScreen(dom.cPersp, localX, localY);
+        if (!worldPos) worldPos = { x: 0, y: 0, z: 0 };
+
+        showPlumbingContextMenu(e.clientX, e.clientY, worldPos, plumbingManager.interactionManager);
+
     }, { capture: true });
 }

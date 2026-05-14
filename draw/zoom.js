@@ -86,9 +86,15 @@ export function fitDrawingToScreen() {
     (beams || []).forEach(beam => checkItemBounds(getBeamCorners(beam)));
     (stairs || []).forEach(stair => checkItemBounds(getStairCorners(stair)));
 
-    // Tesisat borularının koordinatlarını dahil et
+    // Tesisat borularının koordinatlarını dahil et — yalnızca aktif kat
+    const currentFloorId = state.currentFloor?.id || null;
+    const isOnCurrentFloor = (obj) => {
+        if (!currentFloorId) return true;
+        if (!obj || obj.floorId === undefined || obj.floorId === null) return true;
+        return obj.floorId === currentFloorId;
+    };
     const plumbingPipes = state.plumbingPipes || [];
-    plumbingPipes.forEach(p => {
+    plumbingPipes.filter(isOnCurrentFloor).forEach(p => {
         if (p.p1) {
             minX = Math.min(minX, p.p1.x); minY = Math.min(minY, p.p1.y);
             maxX = Math.max(maxX, p.p1.x); maxY = Math.max(maxY, p.p1.y);
@@ -101,9 +107,9 @@ export function fitDrawingToScreen() {
         }
     });
 
-    // Tesisat bileşenlerinin koordinatlarını dahil et
+    // Tesisat bileşenlerinin koordinatlarını dahil et — yalnızca aktif kat
     const plumbingBlocks = state.plumbingBlocks || [];
-    plumbingBlocks.forEach(comp => {
+    plumbingBlocks.filter(isOnCurrentFloor).forEach(comp => {
         if (comp.x !== undefined && comp.y !== undefined) {
             minX = Math.min(minX, comp.x - 20); minY = Math.min(minY, comp.y - 20);
             maxX = Math.max(maxX, comp.x + 20); maxY = Math.max(maxY, comp.y + 20);
