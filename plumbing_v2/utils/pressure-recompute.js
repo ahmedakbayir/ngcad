@@ -101,12 +101,61 @@ export function recomputeAllPressures(manager) {
         if (Number.isFinite(p)) sayac.basinc = String(p);
     });
 
+    // ── Regülatör girişi 300 mbar (300►21 kuralı) ─────────────────────────
+    // Her p2-konumlu regülatör için bagliBoruId borusu ve UPSTREAM zinciri
+    // 300 mbar'a çekilir. Zincirin sonundaki kaynak (servis_kutusu veya
+    // CANLI HAT'taki sayaç) da 300'e güncellenir. Bu, recompute'un açık uçlu
+    // canlı hat kolonunu 21 olarak çekmesini engeller (RULE 1).
+    propagateRegulatorsUpstream(manager, pipeMap);
+
     // ── Güvenlik geçişi: regülatör sonrası ağaç regülatör çıkış basıncında olmalı ─
     // Sayaç giriş borusu (fleksBaglanti.boruId) eski/yanlış kalmış olabilir;
     // bu durumda yukarıdaki cascade post-meter hatlara post-reg basıncı taşıyamaz.
     // Her regülatör için aşağı yönlü ağacı (sayaç bağlantılarından da geçerek)
     // gezip pipe.basinc'ı reg.cikisBasinc'a sabitle.
     propagateRegulatorsDownstream(manager, pipeMap);
+}
+
+/**
+ * Her p2-konumlu regülatör için: bagliBoruId borusunu ve UPSTREAM zincirini
+ * (baslangicBaglanti.tip='boru' takip ederek) 300 mbar'a çek. Zincir bir
+ * servis_kutusu'na varırsa kutuBasinc='300', bir sayaca varırsa sayac.basinc='300'.
+ *
+ * Gerekçe: 300►21 regülatör kuralı (CANLI HAT veya normal mod).
+ * Recompute açık uçlu kolonu default 21 olarak hesaplar; bu fonksiyon
+ * regülatörün üst zincirini doğru basınca çekerek sonraki recompute'larda
+ * pipe.basinc=300 olarak korunmasını sağlar.
+ */
+function propagateRegulatorsUpstream(manager, pipeMap) {
+    (manager.components || []).forEach(reg => {
+        if (reg.type !== 'regulator' || !reg.bagliBoruId) return;
+        if ((reg.boruPozisyonu || 0) < 0.5) return;
+        const giris = 300;
+
+        let current = pipeMap.get(reg.bagliBoruId);
+        const visited = new Set();
+        while (current && !visited.has(current.id)) {
+            visited.add(current.id);
+            current.basinc = giris;
+            const bag = current.baslangicBaglanti;
+            if (!bag?.tip) break;
+            if (bag.tip === 'sayac') {
+                const sayac = (manager.components || []).find(c => c.id === bag.hedefId);
+                if (sayac) sayac.basinc = String(giris);
+                break;
+            }
+            if (bag.tip === 'servis_kutusu') {
+                const kutu = (manager.components || []).find(c => c.id === bag.hedefId);
+                if (kutu) kutu.kutuBasinc = String(giris);
+                break;
+            }
+            if (bag.tip === 'boru') {
+                current = pipeMap.get(bag.hedefId);
+                continue;
+            }
+            break;
+        }
+    });
 }
 
 /**

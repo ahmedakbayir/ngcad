@@ -44,6 +44,30 @@ function _hasRegulatorDownstreamOfMeter(sayac, manager) {
 }
 
 /**
+ * CANLI HAT modunda (servis_kutusu yok) sayacın fleksBaglanti.boruId zincirini
+ * (baslangicBaglanti.tip='boru' takip ederek upstream) verilen basınca çeker.
+ * Açık uçlu kolon borularının basıncını recompute korur, böylece sayacın
+ * basıncı sayaç compute() dalında bu zincirden türetilebilir.
+ */
+function _setMeterUpstreamPressure(sayac, manager, value) {
+    if (!sayac || !manager) return;
+    const girisPipeId = sayac.fleksBaglanti?.boruId;
+    if (!girisPipeId) return;
+    let current = (manager.pipes || []).find(p => p.id === girisPipeId) || null;
+    const visited = new Set();
+    while (current && !visited.has(current.id)) {
+        visited.add(current.id);
+        current.basinc = value;
+        const bag = current.baslangicBaglanti;
+        if (bag?.tip === 'boru') {
+            current = (manager.pipes || []).find(p => p.id === bag.hedefId) || null;
+        } else {
+            break;
+        }
+    }
+}
+
+/**
  * Özellik Tanımları
  * Her özellik burada tek bir yerde tanımlanır.
  * Her nesne tipi hangi özellikleri göstereceğini OBJECT_PROPERTIES'te belirtir.
@@ -427,15 +451,27 @@ export const PROPERTY_DEFS = {
                 },
                 afterChange: (obj, manager) => {
                     if (!manager) return;
-                    // Sayaç basıncı manuel olarak 300'e çekildiyse, upstream servis_kutusu
-                    // varsa onu da 300'e yükselt — aksi takdirde recompute kolonu 21'de tutar
+                    const isCanliHat = !manager.components.some(c => c.type === 'servis_kutusu');
+                    // Sayaç basıncı manuel olarak 300'e çekildiyse, upstream kaynağı
+                    // de 300'e yükselt — aksi takdirde recompute kolonu 21'de tutar
                     // ve sayaç girişi/çıkışı arasında fiziksel olmayan bir basınç farkı oluşur.
+                    //  - Normal mod: tüm servis_kutusu.kutuBasinc='300'
+                    //  - CANLI HAT (servis_kutusu yok): fleksBaglanti.boruId zincirini 300'e çek
                     if (obj?.basinc === '300') {
-                        manager.components.forEach(c => {
-                            if (c.type === 'servis_kutusu' && c.kutuBasinc !== '300') {
-                                c.kutuBasinc = '300';
-                            }
-                        });
+                        if (isCanliHat) {
+                            _setMeterUpstreamPressure(obj, manager, 300);
+                        } else {
+                            manager.components.forEach(c => {
+                                if (c.type === 'servis_kutusu' && c.kutuBasinc !== '300') {
+                                    c.kutuBasinc = '300';
+                                }
+                            });
+                        }
+                    } else if (obj?.basinc === '21' && isCanliHat) {
+                        // CANLI HAT'ta 21'e dönüş: zincir önce 300 yapılmıştı, geri çek
+                        // (sayaç öncesi regülatör YOKSA — varsa propagateRegulatorsUpstream
+                        //  zaten 300'e zorlar ve burada 21 yazsak da recompute geri 300 yapar)
+                        _setMeterUpstreamPressure(obj, manager, 21);
                     }
                     recomputeAllPressures(manager);
                 },

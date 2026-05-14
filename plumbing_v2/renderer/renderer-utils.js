@@ -969,14 +969,15 @@ export function computeHatGroups(pipes, components) {
             // Bu sayacın throughput'u (cikis boru debisi) — eşik kontrolü için
             const cikis = c.cikisBagliBoruId ? pipeMap.get(c.cikisBagliBoruId) : null;
             const throughput = cikis ? parseFloat(cikis.debi) || 0 : 0;
-            // Sayaç önceki boruları topla (children chain ile upstream yönde)
+            // Sayaç öncesi (kolon) zincirini topla — fleksBaglanti.boruId'den
+            // parentOf zinciriyle UPSTREAM'e yürü. Regülatör veya başka bir
+            // sebeple kolon birden fazla parçaya bölünmüş olsa da tüm parçalar
+            // toplanır; kolon ucundaki açık parça parentOf'u olmadığı için durur.
             const localUpstream = new Set();
-            const queue = [c.fleksBaglanti.boruId];
-            while (queue.length > 0) {
-                const id = queue.shift();
-                if (localUpstream.has(id)) continue;
-                localUpstream.add(id);
-                (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
+            let cur = c.fleksBaglanti.boruId;
+            while (cur && !localUpstream.has(cur)) {
+                localUpstream.add(cur);
+                cur = parentOf.get(cur) || null;
             }
             // Bu sayaç için throughput ≤ 3.5 ise sayacın TÜM öncesini sil.
             // > 3.5 ise yalnızca debi'si 3.5'i geçen pipe'lar korunur.
