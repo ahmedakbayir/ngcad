@@ -928,9 +928,15 @@ function renderDescriptionsSection(obj) {
                 <button class="desc-save-tpl-btn">Sakla…</button>
             </div>
             <div class="desc-save-key-row" style="display:none">
-                <input class="desc-key-input" type="text" placeholder="Şablon adı">
-                <button class="desc-key-ok">✓</button>
-                <button class="desc-key-cancel">✕</button>
+                <div class="desc-save-key-line">
+                    <input class="desc-key-input" type="text" placeholder="Şablon adı">
+                    <button class="desc-key-ok">✓</button>
+                    <button class="desc-key-cancel">✕</button>
+                </div>
+                <label class="desc-opt-lbl desc-save-always-lbl">
+                    <input type="checkbox" class="desc-save-always-chk">
+                    <span>Her zaman ekle</span>
+                </label>
             </div>
             ${tplEntries.length > 0 ? `
             <div class="desc-tpl-header">Kaydedilmiş Şablonlar</div>
@@ -968,12 +974,15 @@ function bindDescriptionEvents(panelEl, obj) {
     const keyInput = section.querySelector('.desc-key-input');
     const keyOk = section.querySelector('.desc-key-ok');
     const keyCancel = section.querySelector('.desc-key-cancel');
+    const alwaysChk = section.querySelector('.desc-save-always-chk');
 
     function confirmSave() {
         const key = (keyInput?.value || '').trim();
         if (key) {
             const tplObj = _tplsForType(objType);
-            tplObj[key] = { text: mainTa ? mainTa.value : '', alwaysAdd: tplObj[key]?.alwaysAdd || false };
+            const prevAlways = tplObj[key]?.alwaysAdd || false;
+            const always = alwaysChk ? alwaysChk.checked : prevAlways;
+            tplObj[key] = { text: mainTa ? mainTa.value : '', alwaysAdd: always };
             _saveTplStore();
             refresh();
             return;
@@ -985,6 +994,7 @@ function bindDescriptionEvents(panelEl, obj) {
         if (!saveKeyRow) return;
         saveKeyRow.style.display = '';
         if (keyInput) { keyInput.value = ''; keyInput.focus(); }
+        if (alwaysChk) alwaysChk.checked = false;
     });
     keyOk?.addEventListener('click', confirmSave);
     keyCancel?.addEventListener('click', () => { if (saveKeyRow) saveKeyRow.style.display = 'none'; });

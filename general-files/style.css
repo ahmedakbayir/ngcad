@@ -3578,8 +3578,19 @@ body.light-mode .vis-panel-inner {
 /* Key adı satırı */
 .desc-save-key-row {
     display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: stretch;
+}
+
+.desc-save-key-line {
+    display: flex;
     gap: 4px;
     align-items: center;
+}
+
+.desc-save-always-lbl {
+    white-space: nowrap;
 }
 
 .desc-key-input {
