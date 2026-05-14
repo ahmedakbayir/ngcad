@@ -4,6 +4,7 @@ import { addDoorToWall, addWindowToWall, addVentToWall, addColumnToWall, flipArc
 import { recalculateStepCount } from '../../architectural-objects/stairs.js';
 import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom, syncBirimState, findSayacEnteringRoomUnit } from '../../draw/draw-birim-labels.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
+import { getHatRowForPipe, getCumulativeLossForHat } from '../utils/pipe-calculations.js';
 
 /**
  * Sayacın çıkış (iç tesisat) zincirinde bir regülatör var mı?
@@ -265,15 +266,36 @@ export const PROPERTY_DEFS = {
         type: 'readonly',
         readonlyFn: (obj) => obj.basinc != null ? `${Math.round(Number(obj.basinc))} mbar` : '21 mbar',
     },
+    boruHiz: {
+        label: 'Hız',
+        type: 'readonly',
+        readonlyFn: (obj, manager) => {
+            const row = getHatRowForPipe(obj, manager);
+            if (!row || !Number.isFinite(row.v)) return '—';
+            const txt = `${Number(row.v).toFixed(2)} m/s`;
+            return row.vWarn
+                ? `<span style="color:#ff5252;font-weight:600" title="Limit: ${row.vLimit} m/s — aşıldı">${txt}</span>`
+                : txt;
+        },
+    },
     boruHatBasincKaybi: {
         label: 'Hat Basınç Kaybı',
         type: 'readonly',
-        readonlyFn: (obj) => obj.hatBasincKaybi != null ? `${Number(obj.hatBasincKaybi).toFixed(3)} mbar` : '0.200 mbar',
+        readonlyFn: (obj, manager) => {
+            const row = getHatRowForPipe(obj, manager);
+            if (!row || row.sumDP == null || !Number.isFinite(row.sumDP)) return '—';
+            return `${Number(row.sumDP).toFixed(3)} mbar`;
+        },
     },
     boruKumulatifKayip: {
         label: 'Kümülatif Kayıp',
         type: 'readonly',
-        readonlyFn: (obj) => obj.kumulatifKayip != null ? `${Number(obj.kumulatifKayip).toFixed(3)} mbar` : '0.650 mbar',
+        readonlyFn: (obj, manager) => {
+            const hatNo = window._hatMap?.get(obj.id);
+            if (hatNo == null) return '—';
+            const sum = getCumulativeLossForHat(hatNo, manager);
+            return `${Number(sum).toFixed(3)} mbar`;
+        },
     },
 
     boru_sec_konum: { type: 'section', label: 'Konum' },
@@ -1637,6 +1659,7 @@ export const OBJECT_PROPERTIES = {
         'boru_sec_hesap',
         'boruDebi',
         'boruBasinc',
+        'boruHiz',
         'boruHatBasincKaybi',
         'boruKumulatifKayip',
         'boru_sec_konum',
