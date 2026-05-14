@@ -289,7 +289,160 @@ function deleteKolonTesisati(manager) {
     draw2D();
 }
 
-// ─── 3. İç Tesisatları Sil ───────────────────────────────────────────────
+// ─── 3a. Verilen sayaçların iç tesisatlarını sil (sayaç + downstream) ─────
+// İlişkili vana BRANSMAN olarak kalır (sayaç önündeki tek parça).
+
+function deleteIcTesisatForSayaclar(sayaclar, manager) {
+    if (!sayaclar || sayaclar.length === 0) return;
+    saveState();
+
+    const toDeletePipeIds = new Set();
+    const toDeleteCompIds = new Set();
+
+    for (const sayac of sayaclar) {
+        toDeleteCompIds.add(sayac.id);
+
+        if (!sayac.cikisBagliBoruId) continue;
+        const visited = new Set();
+        const queue   = [];
+        const addP = (p) => { if (!visited.has(p.id)) { visited.add(p.id); toDeletePipeIds.add(p.id); queue.push(p); } };
+        const startPipe = manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
+        if (startPipe) addP(startPipe);
+
+        while (queue.length > 0) {
+            const curr = queue.shift();
+            for (const c of manager.components) {
+                if ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === curr.id) { toDeleteCompIds.add(c.id); }
+                else if (c.type === 'cihaz' && c.fleksBaglanti?.boruId === curr.id) {
+                    toDeleteCompIds.add(c.id);
+                }
+            }
+            for (const p of manager.pipes) {
+                if (!visited.has(p.id)) {
+                    const dz = (p.p1.z||0) - (curr.p2.z||0);
+                    if (Math.hypot(p.p1.x - curr.p2.x, p.p1.y - curr.p2.y, dz) < TOPO_TOL) addP(p);
+                }
+            }
+        }
+    }
+
+    // Bacalar (silinen cihazların)
+    const deletedCihazIds = new Set(
+        manager.components.filter(c => c.type === 'cihaz' && toDeleteCompIds.has(c.id)).map(c => c.id)
+    );
+    for (const c of manager.components) {
+        if (c.type === 'baca' && deletedCihazIds.has(c.parentCihazId)) toDeleteCompIds.add(c.id);
+    }
+
+    // İlişkili vanaları BRANSMAN'a çevir (silmiyoruz)
+    sayacVanasiniDonustur(sayaclar, manager, toDeleteCompIds);
+
+    manager.pipes      = manager.pipes.filter(p => !toDeletePipeIds.has(p.id));
+    manager.components = manager.components.filter(c => !toDeleteCompIds.has(c.id));
+    manager.recomputePipeParents();
+    recomputeAllPressures(manager);
+    manager.saveToState();
+    draw2D();
+}
+
+// ─── Yardımcı: bileşenin bağlı olduğu boruyu bul ──────────────────────────
+function componentPipeId(comp) {
+    if (!comp) return null;
+    if (comp.type === 'vana' || comp.type === 'regulator') return comp.bagliBoruId || null;
+    if (comp.type === 'cihaz' || comp.type === 'sayac')   return comp.fleksBaglanti?.boruId || null;
+    return null;
+}
+
+// ─── Yardımcı: bir borunun p2 ucundan downstream'deki sayaçları topla ─────
+function collectDownstreamSayaclar(startPipe, manager) {
+    const sayaclar = [];
+    const sayacIds = new Set();
+    const visitedPipes = new Set([startPipe.id]);
+    const queue = [];
+
+    const addPipe = (p) => { if (!visitedPipes.has(p.id)) { visitedPipes.add(p.id); queue.push(p); } };
+    const addSayac = (s) => {
+        if (sayacIds.has(s.id)) return;
+        sayacIds.add(s.id); sayaclar.push(s);
+        if (s.cikisBagliBoruId) {
+            const np = manager.pipes.find(p => p.id === s.cikisBagliBoruId);
+            if (np) addPipe(np);
+        }
+    };
+
+    // Tohum: startPipe.p2 noktasından çıkan borular
+    for (const p of manager.pipes) {
+        if (p.id === startPipe.id) continue;
+        const dz = (p.p1.z || 0) - (startPipe.p2.z || 0);
+        if (Math.hypot(p.p1.x - startPipe.p2.x, p.p1.y - startPipe.p2.y, dz) < TOPO_TOL) addPipe(p);
+    }
+    // startPipe.p2 ucunda sayaç var mı?
+    for (const c of manager.components) {
+        if (c.type === 'sayac' && c.fleksBaglanti?.boruId === startPipe.id && c.fleksBaglanti?.endpoint === 'p2') {
+            addSayac(c);
+        }
+    }
+
+    while (queue.length > 0) {
+        const curr = queue.shift();
+        for (const c of manager.components) {
+            if (c.type === 'sayac' && c.fleksBaglanti?.boruId === curr.id) addSayac(c);
+        }
+        for (const p of manager.pipes) {
+            if (visitedPipes.has(p.id)) continue;
+            const dz = (p.p1.z || 0) - (curr.p2.z || 0);
+            if (Math.hypot(p.p1.x - curr.p2.x, p.p1.y - curr.p2.y, dz) < TOPO_TOL) addPipe(p);
+        }
+    }
+
+    return sayaclar;
+}
+
+// ─── Yardımcı: "İç Tesisatı Sil" için hedef sayaç(lar)ı belirle ───────────
+// Dönüş: sayaç dizisi (boş ise buton disabled).
+function resolveTargetSayaclarForIcTesisat(menuState) {
+    const manager = menuState.interactionManager?.manager;
+    if (!manager) return [];
+    const sel = menuState.interactionManager?.selectedObject;
+
+    // 1) Doğrudan sayaç seçili
+    if (sel && sel.type === 'sayac') return [sel];
+
+    // 2) İç tesisat bileşeni seçili (vana/regulator/cihaz/baca)
+    if (sel && sel.type !== 'boru' && sel.type !== 'sayac' && sel.type !== 'servis_kutusu') {
+        let pipeId = componentPipeId(sel);
+        if (!pipeId && sel.type === 'baca' && sel.parentCihazId) {
+            const cihaz = manager.components.find(c => c.id === sel.parentCihazId);
+            pipeId = componentPipeId(cihaz);
+        }
+        if (pipeId) {
+            const pipe = manager.findPipeById(pipeId);
+            if (pipe && pipe.parent?.tip === 'sayac') {
+                const s = manager.components.find(c => c.id === pipe.parent.hedefId);
+                return s ? [s] : [];
+            }
+        }
+    }
+
+    // 3) Boru hedefi (sağ tıklananda body hit ya da boru seçili)
+    const pipe = menuState.pipe || (sel && sel.type === 'boru' ? sel : null);
+    if (!pipe) return [];
+
+    // 3a) TURQUAZ → sahibi sayaç
+    if (pipe.colorGroup === 'TURQUAZ' && pipe.parent?.tip === 'sayac') {
+        const s = manager.components.find(c => c.id === pipe.parent.hedefId);
+        return s ? [s] : [];
+    }
+
+    // 3b) YELLOW → downstream'deki tüm sayaçlar
+    if (pipe.colorGroup === 'YELLOW') {
+        return collectDownstreamSayaclar(pipe, manager);
+    }
+
+    return [];
+}
+
+// ─── 4. İç Tesisatları Sil ───────────────────────────────────────────────
 
 function deleteIcTesisatlar(manager) {
     saveState();
@@ -462,6 +615,14 @@ function initMenu() {
         hide();
     });
 
+    // ── İç Tesisatı Sil (hedeflenmiş) ───────────────────────────────────────
+    document.getElementById('plumbing-btn-delete-ic-single')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const sayaclar = resolveTargetSayaclarForIcTesisat(menuState);
+        if (sayaclar.length) deleteIcTesisatForSayaclar(sayaclar, menuState.interactionManager.manager);
+        hide();
+    });
+
     // ── İç Tesisatları Sil ──────────────────────────────────────────────────
     document.getElementById('plumbing-btn-delete-ic')?.addEventListener('click', () => {
         if (!menuState) return;
@@ -520,6 +681,12 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
     document.getElementById('plumbing-btn-copy').disabled = !hasPipe;
     document.getElementById('plumbing-btn-split').disabled = !pipe; // Böl sadece gövdeye tıklanınca
     document.getElementById('plumbing-btn-delete-after').disabled = !hasPipe;
+
+    // İç Tesisatı Sil: hedef sayaç(lar) çözülebiliyorsa aktif
+    const btnDeleteIcSingle = document.getElementById('plumbing-btn-delete-ic-single');
+    if (btnDeleteIcSingle) {
+        btnDeleteIcSingle.disabled = resolveTargetSayaclarForIcTesisat(menuState).length === 0;
+    }
 
     menuEl.style.left = `${screenX + 5}px`;
     menuEl.style.top  = `${screenY + 5}px`;
