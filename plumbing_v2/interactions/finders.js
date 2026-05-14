@@ -95,18 +95,81 @@ export function findObjectAt(manager, point) {
     for (const comp of manager.components) {
         if (!sameFloor(comp)) continue;
         const zBase = comp.z || 0;
+        const rad = ((comp.rotation || 0) * Math.PI) / 180;
+        const sinR = Math.sin(rad);
+        const cosR = Math.cos(rad);
 
-        // Tıklama alanı, gerçek görünür gövdenin boyutuna mümkün olduğunca yakın olsun.
-        // Sayaç: 22×24 cm (flat), Cihaz: comp.config.width/height, Servis Kutusu: ~50×30,
-        // Vana: küçük. Önceki sürüm sayaç için 70×70 cm + 10 cm margin kullanıyordu;
-        // bu, gövdenin çok dışında tıklamayla seçim yapılmasına yol açıyordu.
-        let halfW, halfH, zHeight;
+        // SAYAÇ: renderer'ın drawSayac matrisi gövdeyi pivotY skew ile çiziyor
+        // (rakor folding). Bu yüzden basit AABB+Z shift gövdenin görünür konumuyla
+        // eşleşmiyor (gövdeden cm'lerce kayık bir hit-area oluşuyor). Renderer
+        // matrisinin tam tersi ile tıklamayı lokal frame'e dönüştürüp ±halfW/halfH
+        // kontrolü yaparak hassas hit-test sağlıyoruz.
         if (comp.type === 'sayac') {
             const cfg = comp.config || {};
-            halfW = (cfg.width  || 22) / 2 + 2;  // ~13 cm yarıçap
-            halfH = (cfg.height || 24) / 2 + 2;  // ~14 cm yarıçap
-            zHeight = 0;                          // gövde flat çiziliyor
-        } else if (comp.type === 'cihaz') {
+            const halfWidth  = (cfg.width  || 22) / 2 + 1;
+            const halfHeight = (cfg.height || 24) / 2;
+            const nutH = cfg.nutHeight || 4;
+            // Lokal hit kutusu: X simetrik, Y asimetrik (rakorlar yukarıya taşar)
+            const minLocalY = -halfHeight - nutH - 1;  // rakor üstü + 1 cm margin
+            const maxLocalY =  halfHeight + 1;
+            const pivotY = -halfHeight - nutH - (cfg.rijitUzunluk || 0);
+
+            // drawSayac transform(a, b, c, d, e, f) — birebir aynı katsayılar:
+            const a = cosR;
+            const b = sinR;
+            const c = -sinR * (1 - t) - t * t;
+            const d = cosR * (1 - t) + t * t;
+            const e = comp.x - pivotY * t * sinR + zBase * t + pivotY * t * t;
+            const f = comp.y + pivotY * t * cosR - zBase * t - pivotY * t * t;
+            const det = a * d - b * c;
+            if (Math.abs(det) < 1e-6) continue;
+
+            // Inverse: (px, py) → (localX, localY)
+            const dxp = point.x - e;
+            const dyp = point.y - f;
+            const localX = (dxp * d - dyp * c) / det;
+            const localY = (dyp * a - dxp * b) / det;
+
+            if (Math.abs(localX) > halfWidth) continue;
+            if (localY < minLocalY || localY > maxLocalY) continue;
+
+            candidates.push({
+                obj: comp,
+                kind: 'component',
+                distEdge: 0,
+                distCenter: Math.hypot(localX, localY),
+                frontScore: zBase
+            });
+            continue;
+        }
+
+        // VANA: drawVana 9.6×9.6 cm bowtie çiziyor (config'deki 6×12 kullanılmıyor).
+        // Hit-area görselin iç kısmına sıkıca oturtuluyor — kendi alanı dışında
+        // tıklama vananı seçmemeli. Renderer sadece rotation + Z shift uyguluyor
+        // (özel skew yok), o yüzden Z compensation + ters rotasyon yeter.
+        if (comp.type === 'vana') {
+            const halfWidth  = 4;  // <9.6/2=4.8 görsele göre iç kısım
+            const halfHeight = 4;
+            const dxc = point.x - (comp.x + zBase * t);
+            const dyc = point.y - (comp.y - zBase * t);
+            const localX =  dxc * cosR + dyc * sinR;
+            const localY = -dxc * sinR + dyc * cosR;
+
+            if (Math.abs(localX) > halfWidth || Math.abs(localY) > halfHeight) continue;
+
+            candidates.push({
+                obj: comp,
+                kind: 'component',
+                distEdge: 0,
+                distCenter: Math.hypot(localX, localY),
+                frontScore: zBase + 5  // boru üstünde, hafif öne
+            });
+            continue;
+        }
+
+        // Diğer komponentler: AABB-of-rotated-rect + Z shift
+        let halfW, halfH, zHeight;
+        if (comp.type === 'cihaz') {
             const cfg = comp.config || {};
             halfW = (cfg.width  || 30) / 2 + 3;
             halfH = (cfg.height || 30) / 2 + 3;
@@ -114,15 +177,12 @@ export function findObjectAt(manager, point) {
         } else if (comp.type === 'servis_kutusu') {
             halfW = 25; halfH = 25; zHeight = 35;
         } else {
-            // vana ve diğerleri
+            // regulator vs.
             halfW = 8; halfH = 8; zHeight = 15;
         }
 
-        // Rotasyonu kabaca dahil et: dönmüş eksen-hizalı kutu yerine rotated bbox'un
-        // eksen-hizalı kabuğunu kullan (basit ama güvenli).
-        const rad = ((comp.rotation || 0) * Math.PI) / 180;
-        const aw = Math.abs(halfW * Math.cos(rad)) + Math.abs(halfH * Math.sin(rad));
-        const ah = Math.abs(halfW * Math.sin(rad)) + Math.abs(halfH * Math.cos(rad));
+        const aw = Math.abs(halfW * cosR) + Math.abs(halfH * sinR);
+        const ah = Math.abs(halfW * sinR) + Math.abs(halfH * cosR);
 
         const minX = comp.x - aw, maxX = comp.x + aw;
         const minY = comp.y - ah, maxY = comp.y + ah;
@@ -137,20 +197,16 @@ export function findObjectAt(manager, point) {
         const vMinY = Math.min(minY + shiftY_bot, minY + shiftY_top);
         const vMaxY = Math.max(maxY + shiftY_bot, maxY + shiftY_top);
 
-        // Hit testi: sadece görünür kutunun KENDİ İÇİNDE — fazladan margin yok.
         const inside = point.x >= vMinX && point.x <= vMaxX &&
                        point.y >= vMinY && point.y <= vMaxY;
         if (!inside) continue;
 
-        // Adayın "merkez" ekran konumuna mesafesi (kutu içi tıklamalar için 0'a yakın)
         const cx = (vMinX + vMaxX) / 2;
         const cy = (vMinY + vMaxY) / 2;
         const dx = Math.max(0, Math.max(vMinX - point.x, point.x - vMaxX));
         const dy = Math.max(0, Math.max(vMinY - point.y, point.y - vMaxY));
         const distEdge = Math.hypot(dx, dy);
         const distCenter = Math.hypot(cx - point.x, cy - point.y);
-
-        // Önde olma puanı: yükseklik (zBase + zHeight) ne kadar büyükse o kadar önde sayılır
         const frontScore = zBase + zHeight;
 
         candidates.push({

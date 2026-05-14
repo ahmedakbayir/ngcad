@@ -364,21 +364,10 @@ export function handlePointerDown(e) {
             }
         }
 
-        // --- VANA KONTROLÜ ---
-        const _blendT = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
-        const clickedValve = this.manager.components.find(c => {
-            if (c.type !== 'vana') return false;
-            // 3D blend modunda Z offset'ini geri al
-            const cz = (c.z || 0) * _blendT;
-            const localPt = { x: point.x - cz, y: point.y + cz };
-            return c.containsPoint(localPt);
-        });
-        if (clickedValve) {
-            const pipe = clickedValve.bagliBoruId ? this.manager.pipes.find(p => p.id === clickedValve.bagliBoruId) : null;
-            this.selectValve(pipe, clickedValve, selectOpts);
-            this.startDrag(clickedValve, point);
-            return true;
-        }
+        // Vana seçimi: vana.containsPoint çok geniş tolerance kullanıyor (22×28 cm).
+        // Bunun yerine vana hit-test'i de findObjectAt'in hassas lokal-frame
+        // kontrolüne bırakılır (görsel 9.6×9.6 cm bowtie'a sıkı oturtuldu).
+        // selectObject zaten obj.type === 'vana' için selectedValve'ı senkronlar.
 
         // --- SAYAÇ KONTROLÜ ---
         if (this.manager.activeTool === 'boru' && !this.boruCizimAktif) {
@@ -438,50 +427,31 @@ export function handlePointerDown(e) {
             }
         }
 
-        // Boru ucu
-        // Eğer zaten bir boru seçiliyse, ortak noktalarda o boruyu tercih et
-        const preferredPipeId = (this.selectedObject?.type === 'boru') ? this.selectedObject.id : null;
-        const boruUcu = this.findBoruUcuAt(point, worldTolerance, false, preferredPipeId);
-        if (boruUcu) {
-            const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
-            if (pipe) {
-                if (this.manager.activeTool === 'boru') {
+        // --- BORU ARACI AKTİF: uçtan yeni hat çizimi başlat ---
+        // Bu yalnızca aktif çizim akışı içindir; SEÇİM modunda uç-nokta gövdeye
+        // göre öncelikli OLMAMALI (komponentler/borular findObjectAt ile değerlendirilir).
+        if (this.manager.activeTool === 'boru') {
+            const preferredPipeId = (this.selectedObject?.type === 'boru') ? this.selectedObject.id : null;
+            const boruUcu = this.findBoruUcuAt(point, worldTolerance, false, preferredPipeId);
+            if (boruUcu) {
+                const pipe = this.manager.pipes.find(p => p.id === boruUcu.boruId);
+                if (pipe) {
                     const deviceVar = this.hasDeviceAtEndpoint(pipe.id, boruUcu.uc);
                     const meterVar = this.hasMeterAtEndpoint(pipe.id, boruUcu.uc);
-                    if (deviceVar || meterVar) {
-                        return true;
-                    }
+                    if (deviceVar || meterVar) return true;
                     const ucNokta = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
                     this.startBoruCizim(ucNokta, pipe.id, BAGLANTI_TIPLERI.BORU);
                     return true;
                 }
-
-                // 3D perspektifte tıklanan uç noktasının Z'sine göre katı bul
-                const ucNoktaForZ = boruUcu.uc === 'p1' ? pipe.p1 : pipe.p2;
-                const _vbfEp = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
-                let selectOptsEp = selectOpts;
-                if (_vbfEp >= 0.5 && ucNoktaForZ) {
-                    const floorFromZ = getFloorAtElevation(ucNoktaForZ.z || 0);
-                    if (floorFromZ) selectOptsEp = { ...(selectOpts || {}), preferredFloorId: floorFromZ.id };
-                }
-
-                const ucBaglanti = boruUcu.uc === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
-                if (ucBaglanti.tip === BAGLANTI_TIPLERI.SERVIS_KUTUSU || ucBaglanti.tip === BAGLANTI_TIPLERI.SAYAC) {
-                    this.selectObject(pipe, selectOptsEp);
-                    return true;
-                }
-
-                this.selectObject(pipe, selectOptsEp);
-                this.selectedEndpoint = boruUcu.uc; // Endpoint bilgisini kaydet
-                this.startEndpointDrag(pipe, boruUcu.uc, point);
-                return true;
             }
         }
 
-        // Nesne seçimi
+        // --- 3D HASSAS SEÇİM ---
+        // findObjectAt komponent ve boru adaylarını birlikte sıralar; fareye en
+        // yakın çizilen objeyi seçer. Tesisat uç noktası artık komponent gövdesinin
+        // önüne geçmez — sayaca tıklandığında sayaç, boruya tıklandığında boru seçilir.
         const hitObject = this.findObjectAt(point);
         if (hitObject) {
-            // 3D perspektifte boruya tıklandıysa tıklanan noktanın Z'sine göre katı bul
             let selectOptsForHit = selectOpts;
             if (hitObject.type === 'boru') {
                 const vbf = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
@@ -491,18 +461,43 @@ export function handlePointerDown(e) {
                 }
             }
             this.selectObject(hitObject, selectOptsForHit);
+
             if (hitObject.type === 'boru') {
+                const pipe = hitObject;
                 const bagliKutu = this.manager.components.find(c =>
-                    c.type === 'servis_kutusu' && c.bagliBoruId === hitObject.id
+                    c.type === 'servis_kutusu' && c.bagliBoruId === pipe.id
                 );
                 if (bagliKutu) return true;
-                if (hitObject.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC ||
-                    hitObject.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
+                if (pipe.baslangicBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC ||
+                    pipe.bitisBaglanti?.tip === BAGLANTI_TIPLERI.SAYAC) {
                     return true;
                 }
-                // Doğrudan gövdeden sürükleme: ALT ile (taşıma) veya CTRL ile (kopya).
-                // Modifier'sız tıklama sadece seçer (gizmo okları üzerinden taşıma yapılır).
-                if (e.altKey || e.ctrlKey) this.startBodyDrag(hitObject, point);
+
+                // Uca çok yakın tıklamada (≤6 px) endpoint sürüklemesi — findObjectAt
+                // burada komponent döndürmediği için uçta komponent yok demektir, bu
+                // yüzden güvenli. Aksi durumda endpoint manipülasyonu gizmo okları
+                // üzerinden yapılır (boru seçili → mouse uca yaklaşınca p1/p2 gizmo
+                // otomatik aktifleşir).
+                const t3d = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
+                const p1sx = pipe.p1.x + (pipe.p1.z || 0) * t3d;
+                const p1sy = pipe.p1.y - (pipe.p1.z || 0) * t3d;
+                const p2sx = pipe.p2.x + (pipe.p2.z || 0) * t3d;
+                const p2sy = pipe.p2.y - (pipe.p2.z || 0) * t3d;
+                const d1 = Math.hypot(point.x - p1sx, point.y - p1sy);
+                const d2 = Math.hypot(point.x - p2sx, point.y - p2sy);
+                const endpointPxTolerance = pixelsToWorld(6);
+                if (d1 < endpointPxTolerance && d1 <= d2) {
+                    this.selectedEndpoint = 'p1';
+                    this.startEndpointDrag(pipe, 'p1', point);
+                    return true;
+                }
+                if (d2 < endpointPxTolerance) {
+                    this.selectedEndpoint = 'p2';
+                    this.startEndpointDrag(pipe, 'p2', point);
+                    return true;
+                }
+
+                if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
             } else {
                 this.startDrag(hitObject, point);
             }
