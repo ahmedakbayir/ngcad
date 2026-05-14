@@ -306,6 +306,14 @@ export function onPointerMove(e) {
                 }
                 break;
             case 'guide': onPointerMoveGuide(snappedPos, unsnappedPos); break;
+            case 'textAnnotation': {
+                const ann = state.selectedObject?.object;
+                if (ann) {
+                    ann.x = unsnappedPos.x + state.dragOffset.x;
+                    ann.y = unsnappedPos.y + state.dragOffset.y;
+                }
+                break;
+            }
             case 'column': onPointerMoveColumn(snappedPos, unsnappedPos); break;
             case 'beam': onPointerMoveBeam(snappedPos, unsnappedPos); break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;

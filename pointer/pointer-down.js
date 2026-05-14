@@ -271,6 +271,12 @@ export function onPointerDown(e) {
                         };
                         break;
                     case 'guide': dragInfo = onPointerDownGuide(clickedObject, pos, snappedPos, e); break;
+                    case 'textAnnotation': {
+                        const ann = clickedObject.object;
+                        dragInfo.startPointForDragging = { x: ann.x, y: ann.y };
+                        dragInfo.dragOffset = { x: ann.x - pos.x, y: ann.y - pos.y };
+                        break;
+                    }
                     case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                     case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break;

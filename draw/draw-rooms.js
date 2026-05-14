@@ -205,6 +205,27 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
             ctx2d.fillText(text, room.center[0], room.center[1] - baseNameYOffset + areaYOffset);
         }
 
+        // Açıklama metni — mahal merkezinin altında
+        if (room.description && room.description.trim()) {
+            const baseDescFontSize = 11;
+            let descFontSize = baseDescFontSize * Math.pow(zoom, ZOOM_EXPONENT);
+            const minWorldDescFontSize = 2;
+            const finalDescFontSize = Math.max(minWorldDescFontSize, descFontSize);
+            ctx2d.font = `400 ${finalDescFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+            ctx2d.fillStyle = isLightMode() ? 'rgb(80, 80, 80)' : 'rgb(170, 180, 185)';
+            ctx2d.textBaseline = "top";
+
+            const lines = room.description.split('\n').map(l => l.trimEnd()).filter(l => l.length > 0);
+            const currentNameFontSize = Math.max(minWorldNameFontSize, nameFontSize);
+            const baseDescYStart = nameParts.length === 2 ? currentNameFontSize * 1.5 : currentNameFontSize * 1.1;
+            const descGap = finalDescFontSize * 1.2;
+            let descStartY = room.center[1] - baseNameYOffset + baseDescYStart + (showArea ? finalDescFontSize * 1.2 : 0) + finalDescFontSize * 0.3;
+
+            lines.forEach((line, i) => {
+                ctx2d.fillText(line, room.center[0], descStartY + i * descGap);
+            });
+        }
+
         // Gölgeyi temizle
         if (isHoveredOrDraggingName) {
             ctx2d.shadowColor = 'transparent';

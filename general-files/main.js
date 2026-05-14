@@ -432,6 +432,7 @@ export let state = {
     },
     symmetryPreviewTimer: null, // <-- DÜZELTME: Kilitlenme sorununu çözmek için eklendi
     guides: [],
+    textAnnotations: [], // Serbest metin notları (kullanıcı tarafından eklenir, sürüklenebilir)
     // --- YENİ: RESİM ÇERÇEVESİ İÇİN STATE ---
     pictureFrameCache: [], // Unsplash URL'lerini tutar
     pictureFrameMaterials: {}, // 3D Malzemeleri (URL'ye göre) cache'ler
@@ -628,6 +629,7 @@ export const dom = {
     roomNamePopup: document.getElementById("room-name-popup"),
     roomNameSelect: document.getElementById("room-name-select"),
     roomNameInput: document.getElementById("room-name-input"),
+    roomDescriptionInput: document.getElementById("room-description"),
     splitter: document.getElementById("splitter"),
     isoSplitter: document.getElementById("isoSplitter"),
     bSymmetry: document.getElementById("bSymmetry"), // YENİ SATIR
@@ -840,7 +842,7 @@ export function isObjectInteractable(objectType) {
 
     // Mimari nesneler listesi
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'vent', 'column', 'beam', 'stair', 'stairs', 'arcControl', 'guide' // guide eklendi
+        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'vent', 'column', 'beam', 'stair', 'stairs', 'arcControl', 'guide', 'textAnnotation' // guide eklendi, textAnnotation eklendi
     ];
 
     // Tesisat nesneleri listesi - GÜNCELLENDİ

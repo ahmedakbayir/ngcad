@@ -165,6 +165,7 @@ export function showRoomNamePopup(room, e, initialKey = '') {
     setState({ roomToEdit: room });
     dom.roomNameInput.value = initialKey; // Initial key veya boş
     populateRoomNameList(initialKey); // Listeyi doldur (varsa filtre ile)
+    if (dom.roomDescriptionInput) dom.roomDescriptionInput.value = room.description || '';
 
     // Popup'ı konumlandır
     const popupWidth = dom.roomNamePopup.offsetWidth || 200; // Genişliği al veya varsay
@@ -205,6 +206,14 @@ export function showRoomNamePopup(room, e, initialKey = '') {
 
 // hideRoomNamePopup fonksiyonu
 export function hideRoomNamePopup() {
+    // Popup kapanırken açıklamayı kaydet
+    if (state.roomToEdit && dom.roomDescriptionInput) {
+        const newDesc = dom.roomDescriptionInput.value;
+        if ((state.roomToEdit.description || '') !== newDesc) {
+            state.roomToEdit.description = newDesc;
+            saveState();
+        }
+    }
     dom.roomNamePopup.style.display = 'none';
     if (state.clickOutsideRoomPopupListener) {
         window.removeEventListener('pointerdown', state.clickOutsideRoomPopupListener, { capture: true });
@@ -216,8 +225,11 @@ export function hideRoomNamePopup() {
 function confirmRoomNameChange() {
     if (state.roomToEdit && dom.roomNameSelect.value) {
         state.roomToEdit.name = dom.roomNameSelect.value;
-        saveState(); // İsim değişince kaydet
     }
+    if (state.roomToEdit && dom.roomDescriptionInput) {
+        state.roomToEdit.description = dom.roomDescriptionInput.value;
+    }
+    if (state.roomToEdit) saveState();
     hideRoomNamePopup();
 }
 
@@ -1794,6 +1806,18 @@ export function setupUIListeners() {
     dom.roomNameInput.addEventListener('input', filterRoomNameList);
     dom.roomNameSelect.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } else if (e.key === 'Escape') { e.preventDefault(); hideRoomNamePopup(); } });
     dom.roomNameInput.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); dom.roomNameSelect.focus(); } else if (e.key === 'Enter') { e.preventDefault(); confirmRoomNameChange(); } else if (e.key === 'Escape') { e.preventDefault(); hideRoomNamePopup(); } });
+    if (dom.roomDescriptionInput) {
+        dom.roomDescriptionInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); hideRoomNamePopup(); }
+            else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); confirmRoomNameChange(); }
+            else { e.stopPropagation(); }
+        });
+        dom.roomDescriptionInput.addEventListener('input', (e) => {
+            if (state.roomToEdit) {
+                state.roomToEdit.description = e.target.value;
+            }
+        });
+    }
     dom.splitter.addEventListener('pointerdown', onSplitterPointerDown);
     dom.isoSplitter.addEventListener('pointerdown', onIsoSplitterPointerDown);
     if (dom.perspSplitter) {

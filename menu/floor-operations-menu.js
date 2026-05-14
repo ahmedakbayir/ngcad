@@ -68,7 +68,8 @@ export function copyFloorArchitecture() {
         columns: state.columns.filter(c => c.floorId === currentFloorId),
         beams: state.beams.filter(b => b.floorId === currentFloorId),
         stairs: state.stairs.filter(s => s.floorId === currentFloorId),
-        rooms: state.rooms.filter(r => r.floorId === currentFloorId)
+        rooms: state.rooms.filter(r => r.floorId === currentFloorId),
+        textAnnotations: (state.textAnnotations || []).filter(t => !t.floorId || t.floorId === currentFloorId)
     };
 
     // Derin kopyalama yap
@@ -110,6 +111,9 @@ export function pasteFloorArchitecture() {
     state.beams = state.beams.filter(b => b.floorId !== currentFloorId);
     state.stairs = state.stairs.filter(s => s.floorId !== currentFloorId);
     state.rooms = state.rooms.filter(r => r.floorId !== currentFloorId);
+    if (state.textAnnotations) {
+        state.textAnnotations = state.textAnnotations.filter(t => t.floorId && t.floorId !== currentFloorId);
+    }
 
     // Node mapping için (duvarların node referanslarını korumak için)
     const nodeMap = new Map();
@@ -143,7 +147,8 @@ export function pasteFloorArchitecture() {
             wallType: wallData.wallType || 'normal',
             floorId: currentFloorId,
             windows: [],
-            vents: []
+            vents: [],
+            description: wallData.description || ''
         };
 
         // Pencereleri kopyala
@@ -241,6 +246,18 @@ export function pasteFloorArchitecture() {
         };
         state.rooms.push(newRoom);
     });
+
+    // Metin notlarını yapıştır
+    if (floorClipboard.textAnnotations && floorClipboard.textAnnotations.length > 0) {
+        if (!state.textAnnotations) state.textAnnotations = [];
+        floorClipboard.textAnnotations.forEach(tData => {
+            state.textAnnotations.push({
+                ...tData,
+                id: `text_${Date.now()}_${Math.random().toString(16).slice(2,8)}`,
+                floorId: currentFloorId
+            });
+        });
+    }
 
     console.log('processWalls çağrılıyor...');
     processWalls();

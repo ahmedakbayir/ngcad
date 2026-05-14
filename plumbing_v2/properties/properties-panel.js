@@ -13,6 +13,7 @@ import { processWalls } from '../../wall/wall-processor.js';
 import { saveState } from '../../general-files/history.js';
 import { update3DScene } from '../../scene3d/scene3d-update.js';
 import { setLabelOffsetsJSON, relayoutAllLabels } from '../renderer/renderer-labels.js';
+import { startTextAnnotationPlacement } from '../../architectural-objects/text-annotation-placement.js';
 
 
 export const PANEL_MODES = {
@@ -60,8 +61,12 @@ export function openEmptyPanel() {
             <div style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;">🖱️</div>
             <div style="font-size: 14px; font-weight: bold; color: #aaa;">Nesne Seçilmedi</div>
             <div style="font-size: 12px; margin-top: 5px; opacity: 0.7;">Özelliklerini görmek için sahnede bir nesneye tıklayın.</div>
+            <button id="props-add-text-btn"
+                style="margin-top:24px;padding:8px 14px;background:rgba(138,180,248,0.15);border:1px solid rgba(138,180,248,0.6);color:#8ab4f8;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:0.3px">
+                ✏ Projeye metin ekle
+            </button>
             <button id="props-relabel-all-btn"
-                style="margin-top:24px;padding:8px 14px;background:rgba(0,191,250,0.12);border:1px solid rgba(0,191,250,0.5);color:#7fd9ff;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:0.3px">
+                style="margin-top:10px;padding:8px 14px;background:rgba(0,191,250,0.12);border:1px solid rgba(0,191,250,0.5);color:#7fd9ff;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:0.3px">
                 🏷 Etiketleri yeniden yerleştir
             </button>
         </div>
@@ -78,6 +83,7 @@ export function openEmptyPanel() {
         btn.style.color = newUI.color;
     });
     panelEl.querySelector('#props-relabel-all-btn')?.addEventListener('click', _resetAllLabelOffsets);
+    panelEl.querySelector('#props-add-text-btn')?.addEventListener('click', () => startTextAnnotationPlacement());
 }
 
 /** Tüm etiketleri otomatik yerleşim algoritmasıyla yeniden yerleştirir */

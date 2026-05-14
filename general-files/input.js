@@ -14,6 +14,10 @@ import { showGuideContextMenu, hideGuideContextMenu } from '../menu/guide-menu.j
 import { showPlumbingContextMenu, hidePlumbingContextMenu } from '../plumbing_v2/interactions/plumbing-context-menu.js';
 import { fitDrawingToScreen, onWheel } from '../draw/zoom.js'; // Fit to Screen ve onWheel zoom.js'den
 import { showWallPanel, hideWallPanel } from '../wall/wall-panel.js'; // <-- HIDEWALLPANEL EKLENDİ
+import { showDescriptionPopup, hideDescriptionPopup } from '../architectural-objects/description-popup.js';
+import { showTextAnnotationPopup, hideTextAnnotationPopup } from '../architectural-objects/text-annotation-popup.js';
+import { cancelPlacement as cancelTextPlacement, isTextPlacementActive } from '../architectural-objects/text-annotation-placement.js';
+import { openTextAnnotationEditor, showTextAnnotationContextMenu, deleteTextAnnotation } from '../architectural-objects/text-annotation-actions.js';
 import { copyFloorArchitecture, pasteFloorArchitecture } from '../menu/floor-operations-menu.js'; // <-- KAT MİMARİSİ KOPYALA/YAPIŞTIR
 import { onPointerDownDraw as doorPointerDownDraw } from '../architectural-objects/door-handler.js'; // SAĞTIK İÇİN
 import { onPointerDownDraw as windowPointerDownDraw } from '../architectural-objects/window-handler.js'; // SAĞTIK İÇİN
@@ -306,6 +310,10 @@ export function handleDelete() {
         }
         else if (objType === 'stairs') {
             state.stairs = state.stairs.filter(s => s !== selectedObjectSnapshot.object);
+            deleted = true;
+        }
+        else if (objType === 'textAnnotation') {
+            state.textAnnotations = (state.textAnnotations || []).filter(t => t !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === 'valve') {
@@ -1127,6 +1135,8 @@ export function setupInputListeners() {
 
         if (object && (object.type === 'room' || object.type === 'roomName' || object.type === 'roomArea')) {
             showRoomNamePopup(object.object, e);
+        } else if (object && object.type === 'textAnnotation') {
+            openTextAnnotationEditor(object.object, e.clientX, e.clientY);
         } else if (object && object.type === 'wall' && object.handle === 'body') {
             // Duvar gövdesine çift tıklanırsa bölme işlemi yap
             splitWallAtClickPosition(clickPos); // <-- Pozisyonu parametre olarak gönder
@@ -1171,6 +1181,7 @@ export function setupInputListeners() {
         hideWallPanel();
         hideGuideContextMenu();
         hidePlumbingContextMenu();
+        hideDescriptionPopup();
 
         // MİMARİ nesneler (oda/duvar/merdiven) — mod farketmeksizin kendi menüsü/paneli gelir
         if (object && (object.type === 'room' || object.type === 'roomName')) {
@@ -1179,6 +1190,18 @@ export function setupInputListeners() {
         }
         if (object && object.type === 'wall') {
             showWallPanel(object.object, e.clientX, e.clientY);
+            return;
+        }
+        if (object && object.type === 'door') {
+            showDescriptionPopup(object.object, 'Kapı', e.clientX, e.clientY);
+            return;
+        }
+        if (object && object.type === 'window') {
+            showDescriptionPopup(object.object, 'Pencere', e.clientX, e.clientY);
+            return;
+        }
+        if (object && object.type === 'textAnnotation') {
+            showTextAnnotationContextMenu(object.object, e.clientX, e.clientY);
             return;
         }
         if (object && object.type === 'stairs') {

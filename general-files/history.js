@@ -25,7 +25,8 @@ export function saveState() {
             vents: w.vents ? JSON.parse(JSON.stringify(w.vents)) : [],
             isArc: w.isArc,
             arcControl1: w.arcControl1 ? { ...w.arcControl1 } : null,
-            arcControl2: w.arcControl2 ? { ...w.arcControl2 } : null
+            arcControl2: w.arcControl2 ? { ...w.arcControl2 } : null,
+            description: w.description || ''
         })),
         doors: state.doors.map(d => ({
             wallIndex: state.walls.indexOf(d.wall),
@@ -33,7 +34,8 @@ export function saveState() {
             width: d.width,
             type: d.type,
             floorId: d.floorId,
-            isWidthManuallySet: d.isWidthManuallySet || false
+            isWidthManuallySet: d.isWidthManuallySet || false,
+            description: d.description || ''
         })),
         rooms: state.rooms.map(r => ({
             polygon: r.polygon,
@@ -41,7 +43,8 @@ export function saveState() {
             center: r.center,
             name: r.name,
             floorId: r.floorId,
-            centerOffset: r.centerOffset
+            centerOffset: r.centerOffset,
+            description: r.description || ''
         })),
         columns: JSON.parse(JSON.stringify(state.columns)),
         beams: JSON.parse(JSON.stringify(state.beams)),
@@ -108,6 +111,7 @@ export function saveState() {
         } : null,
 
         guides: JSON.parse(JSON.stringify(state.guides || [])),
+        textAnnotations: JSON.parse(JSON.stringify(state.textAnnotations || [])),
         floors: JSON.parse(JSON.stringify(state.floors || [])),
         currentFloor: state.currentFloor ? { id: state.currentFloor.id } : null
     };
@@ -143,7 +147,8 @@ export function restoreState(snapshot) {
         vents: w.vents ? [...w.vents] : [],
         isArc: w.isArc,
         arcControl1: w.arcControl1 ? { ...w.arcControl1 } : null,
-        arcControl2: w.arcControl2 ? { ...w.arcControl2 } : null
+        arcControl2: w.arcControl2 ? { ...w.arcControl2 } : null,
+        description: w.description || ''
     }));
 
     const restoredDoors = snapshot.doors.map(d => ({
@@ -152,7 +157,8 @@ export function restoreState(snapshot) {
         width: d.width,
         type: d.type,
         floorId: d.floorId,
-        isWidthManuallySet: d.isWidthManuallySet || false
+        isWidthManuallySet: d.isWidthManuallySet || false,
+        description: d.description || ''
     }));
 
     const restoredPlumbingBlocks = snapshot.plumbingBlocks ? JSON.parse(JSON.stringify(snapshot.plumbingBlocks)) : [];
@@ -239,7 +245,8 @@ export function restoreState(snapshot) {
             center: r.center,
             name: r.name,
             floorId: r.floorId,
-            centerOffset: r.centerOffset
+            centerOffset: r.centerOffset,
+            description: r.description || ''
         })),
         columns: snapshot.columns || [],
         beams: snapshot.beams || [],
@@ -265,6 +272,7 @@ export function restoreState(snapshot) {
         plumbingPipes: restoredPlumbingPipes,
 
         guides: snapshot.guides || [],
+        textAnnotations: snapshot.textAnnotations ? JSON.parse(JSON.stringify(snapshot.textAnnotations)) : [],
         floors: restoredFloors,
         currentFloor: restoredCurrentFloor,
         

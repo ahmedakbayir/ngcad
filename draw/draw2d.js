@@ -17,6 +17,8 @@ import { drawSymmetryPreview } from './draw-previews.js';
 import { drawDimension, drawTotalDimensions, drawOuterDimensions } from './dimensions.js';
 import { drawRoomPolygons, drawRoomNames } from './draw-rooms.js';
 import { drawBirimLabels, drawBirimBoundaries } from './draw-birim-labels.js';
+import { drawArchitecturalDescriptions } from './draw-arch-descriptions.js';
+import { drawTextAnnotations, drawTextAnnotationGhost } from '../architectural-objects/text-annotation.js';
 import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { getColumnCorners } from '../architectural-objects/columns.js';
@@ -507,6 +509,17 @@ export function draw2D() {
     // Birim sınır çizgileri – kapı/pencere üzerinde
     if (showArch) {
         drawBirimBoundaries(ctx2d, { ...state, rooms, doors, walls });
+    }
+
+    // Mimari nesne açıklamaları (duvar, kapı, pencere)
+    if (showArch) {
+        drawArchitecturalDescriptions(ctx2d, { walls, doors, zoom: state.zoom });
+    }
+
+    // Serbest metin notları
+    if (showArch) {
+        drawTextAnnotations(ctx2d);
+        drawTextAnnotationGhost(ctx2d);
     }
 
     // 9. Obj. Yerleştirme Önizlemeleri

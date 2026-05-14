@@ -932,6 +932,25 @@ body.light-mode .btn.active svg {
     outline: none;
 }
 
+#room-description {
+    width: calc(100% - 10px);
+    margin-top: 5px;
+    padding: 5px;
+    background-color: var(--bg-input);
+    color: var(--color-text);
+    border: 1px solid var(--border-button);
+    border-radius: 4px;
+    font-size: 11px;
+    resize: vertical;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+#room-description:focus {
+    outline: none;
+    border-color: #8ab4f8;
+}
+
 
 /* wall-panel.js tarafından eklenen stiller */
 #wall-panel label:has(input[type="radio"]):hover {

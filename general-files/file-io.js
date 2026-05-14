@@ -126,14 +126,16 @@ function saveProject() {
             isArc: w.isArc,
             arcControl1: w.arcControl1,
             arcControl2: w.arcControl2,
-            floorId: w.floorId
+            floorId: w.floorId,
+            description: w.description || ''
         })),
         doors: state.doors.map(d => ({
             wallIndex: state.walls.indexOf(d.wall),
             pos: d.pos,
             width: d.width,
             type: d.type,
-            isWidthManuallySet: d.isWidthManuallySet
+            isWidthManuallySet: d.isWidthManuallySet,
+            description: d.description || ''
         })),
         rooms: state.rooms.map(r => ({
             polygon: r.polygon,
@@ -141,7 +143,8 @@ function saveProject() {
             center: r.center,
             name: r.name,
             centerOffset: r.centerOffset,
-            floorId: r.floorId
+            floorId: r.floorId,
+            description: r.description || ''
         })),
         columns: state.columns,
         beams: state.beams, 
@@ -162,6 +165,15 @@ function saveProject() {
             floorId: s.floorId
         })),
         guides: state.guides || [],
+        textAnnotations: (state.textAnnotations || []).map(t => ({
+            type: 'textAnnotation',
+            id: t.id,
+            x: t.x,
+            y: t.y,
+            text: t.text || '',
+            size: t.size || 'medium',
+            floorId: t.floorId
+        })),
         floors: state.floors || [],
         currentFloor: state.currentFloor || null,
         defaultFloorHeight: state.defaultFloorHeight || 300,
@@ -343,7 +355,8 @@ function loadJSONProject(fileContent) {
         isArc: w.isArc,
         arcControl1: w.arcControl1,
         arcControl2: w.arcControl2,
-        floorId: w.floorId // floorId geri yükle
+        floorId: w.floorId, // floorId geri yükle
+        description: w.description || ''
     }));
 
     // Kapıları geri yükle
@@ -352,7 +365,8 @@ function loadJSONProject(fileContent) {
         pos: d.pos,
         width: d.width,
         type: d.type || 'door',
-        isWidthManuallySet: d.isWidthManuallySet
+        isWidthManuallySet: d.isWidthManuallySet,
+        description: d.description || ''
     }));
 
     // Odaları geri yükle
@@ -362,7 +376,8 @@ function loadJSONProject(fileContent) {
         center: r.center,
         name: r.name,
         centerOffset: r.centerOffset,
-        floorId: r.floorId
+        floorId: r.floorId,
+        description: r.description || ''
     }));
 
     // Kolonları, Kirişleri ve Merdivenleri geri yükle
@@ -385,6 +400,15 @@ function loadJSONProject(fileContent) {
          floorId: s.floorId // <-- DÜZELTME: Kat bilgisi geri yükleniyor
     }));
     const restoredGuides = projectData.guides || [];
+    const restoredTextAnnotations = (projectData.textAnnotations || []).map(t => ({
+        type: 'textAnnotation',
+        id: t.id || `text_${Date.now()}_${Math.random().toString(16).slice(2,8)}`,
+        x: t.x,
+        y: t.y,
+        text: t.text || '',
+        size: t.size || 'medium',
+        floorId: t.floorId
+    }));
 
     // Katları geri yükle
     const restoredFloors = projectData.floors || [];
@@ -402,6 +426,7 @@ function loadJSONProject(fileContent) {
         beams: restoredBeams,
         stairs: restoredStairs,
         guides: restoredGuides,
+        textAnnotations: restoredTextAnnotations,
         floors: restoredFloors,
         currentFloor: restoredCurrentFloor,
         defaultFloorHeight: restoredDefaultFloorHeight,

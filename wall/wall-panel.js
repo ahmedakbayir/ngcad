@@ -6,7 +6,8 @@ import { createColumn } from '../architectural-objects/columns.js';
 import { screenToWorld } from '../draw/geometry.js';
 import { state, setState, dom } from '../general-files/main.js'; // dom eklendi
 import { saveState } from '../general-files/history.js';
-import { update3DScene } from '../scene3d/scene3d-update.js'; 
+import { update3DScene } from '../scene3d/scene3d-update.js';
+import { draw2D } from '../draw/draw2d.js';
 
 let wallPanel = null;
 let wallPanelWall = null;
@@ -51,7 +52,7 @@ export function createWallPanel() {
                 <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
             </svg>
         </div>
-        <div style="margin-bottom: 0;">
+        <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0; font-weight: 500;">EKLE:</label>
             <div style="display: flex; flex-direction: column; gap: 6px;">
                 <button id="add-door-btn" class="wall-panel-btn">Kapı Ekle</button>
@@ -59,6 +60,10 @@ export function createWallPanel() {
                 <button id="add-vent-btn" class="wall-panel-btn">Menfez Ekle</button>
                 <button id="add-column-btn" class="wall-panel-btn">Kolon Ekle</button>
             </div>
+        </div>
+        <div style="margin-bottom: 0;">
+            <label style="display: block; margin-bottom: 6px; font-size: 12px; color: #b0b0b0; font-weight: 500;">AÇIKLAMA:</label>
+            <textarea id="wall-description" rows="3" placeholder="Duvar açıklaması — projede gösterilir" style="width: 100%; padding: 6px 8px; background: #3a3b3c; color: #e7e6d0; border: 1px solid #4a4b4c; border-radius: 4px; font-size: 12px; resize: vertical; box-sizing: border-box; font-family: inherit;"></textarea>
         </div>
     `;
     const style = document.createElement('style');
@@ -190,6 +195,17 @@ function setupWallPanelListeners() {
     document.getElementById('add-window-btn').addEventListener('click', () => { if (wallPanelWall) addWindowToWall(wallPanelWall); hideWallPanel(); });
     document.getElementById('add-vent-btn').addEventListener('click', () => { if (wallPanelWall) addVentToWall(wallPanelWall); hideWallPanel(); });
     document.getElementById('add-column-btn').addEventListener('click', () => { if (wallPanelWall) addColumnToWall(wallPanelWall); hideWallPanel(); });
+
+    const descTa = document.getElementById('wall-description');
+    if (descTa) {
+        descTa.addEventListener('input', (e) => {
+            if (wallPanelWall) {
+                wallPanelWall.description = e.target.value;
+                draw2D();
+            }
+        });
+        descTa.addEventListener('change', () => { saveState(); });
+    }
     document.addEventListener('mousedown', (e) => {
         if (wallPanel && wallPanel.style.display === 'block' && !wallPanel.contains(e.target)) { hideWallPanel(); }
     });
@@ -217,6 +233,10 @@ export function showWallPanel(wall, x, y) {
     // Arc wall checkbox durumunu ayarla
     const arcCheckbox = document.getElementById('arc-wall-checkbox');
     if (arcCheckbox) arcCheckbox.checked = wall.isArc || false;
+
+    // Açıklama metnini yükle
+    const descTa = document.getElementById('wall-description');
+    if (descTa) descTa.value = wall.description || '';
 
     // Flip icon'u sadece arc wall aktifse göster
     const flipArcIcon = document.getElementById('flip-arc-icon');

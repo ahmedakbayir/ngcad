@@ -2,7 +2,7 @@
 // GÜNCELLENMİŞ: Bu dosya artık sadece bir "hit testing" yönlendiricisi
 // ve birkaç genel yardımcı fonksiyon içeriyor.
 
-import { state, isObjectInteractable } from './main.js';
+import { state, isObjectInteractable, dom } from './main.js';
 import { getColumnAtPoint } from '../architectural-objects/columns.js';
 import { getBeamAtPoint } from '../architectural-objects/beams.js';
 import { getStairAtPoint } from '../architectural-objects/stairs.js';
@@ -13,6 +13,7 @@ import { getWindowAtPoint } from '../architectural-objects/window-handler.js';
 import { distToSegmentSquared } from '../draw/geometry.js';
 import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
 import { getWallAtPoint } from '../wall/wall-handler.js';
+import { getTextAnnotationAtPoint } from '../architectural-objects/text-annotation.js';
 
 /**
  * Final validation: Seçilen objenin floor'u aktif floor ile eşleşiyor mu kontrol et
@@ -180,6 +181,10 @@ export function getObjectAtPoint(pos) {
 
 
     // 2. Gövde Kontrolleri (Handle'lardan sonra)
+    // 2.0 Serbest Metin Notu (mimari nesnelerden önce — küçük ve görünür olduğu için)
+    const textHit = getTextAnnotationAtPoint(pos, dom?.ctx2d);
+    if (textHit) return validateFloorMatch(textHit, currentFloorId);
+
     // 2.1 Kapı
     const doorHit = getDoorAtPoint(pos, tolerance);
     if (doorHit) return validateFloorMatch(doorHit, currentFloorId);
