@@ -21,6 +21,7 @@ import { gsap } from 'gsap';
 import * as THREE from 'three';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import { draw2D } from '../draw/draw2d.js';
+import { fitDrawingToPerspectiveScreen } from '../draw/draw-persp.js';
 
 // ═══════════════════════════════════════════════════════════════
 // DARK MODE / LIGHT MODE FONKSİYONLARI
@@ -1972,7 +1973,7 @@ export function setupUIListeners() {
     const perspReset = document.getElementById('persp-reset');
     if (perspReset) {
         perspReset.addEventListener('click', () => {
-            setState({ perspZoom: 0.5, perspPanOffset: { x: 0, y: 0 } });
+            fitDrawingToPerspectiveScreen();
         });
     }
 

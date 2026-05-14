@@ -8,6 +8,8 @@
 
 import { state, dom, setState, isLightMode, THEME_COLORS } from '../general-files/main.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { showPlumbingContextMenu, hidePlumbingContextMenu } from '../plumbing_v2/interactions/plumbing-context-menu.js';
+import { fitDrawingToScreen } from './zoom.js';
 
 const ANGLE = Math.PI / 6;
 const ISO_COS = Math.cos(ANGLE);
@@ -259,29 +261,211 @@ export function drawPerspView() {
     ctx.restore();
 }
 
+/**
+ * 3D Perspektif kanavasını çizimin sınırlarına sığdır.
+ * cPersp drawPerspView() içinde izometrik matrisle render ediliyor:
+ *   canvasX = (a*x + c*y) * zoom + pan.x
+ *   canvasY = (b*x + d*y) * zoom + pan.y
+ * Fit hesabı da BU matrisi kullanıyor — perspektif kamerası DEĞİL.
+ */
+export function fitDrawingToPerspectiveScreen() {
+    if (!dom.cPersp || dom.cPersp.width === 0) return;
+    const canvas = dom.cPersp;
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.width / dpr;
+    const cssH = canvas.height / dpr;
+    const PADDING = 30;  // px — 2D fitDrawingToScreen ile aynı
+
+    // Render iso matrisi (perspBlendFactor — varsayılan 1)
+    let t = (typeof state.perspBlendFactor === 'number') ? state.perspBlendFactor : 1;
+    t = Math.max(0, Math.min(1, t));
+    const m = _matrix(t);
+
+    // Renderer her (x, y, z) noktası için (x + z*t, y - z*t) shift uygular,
+    // SONRA iso matris uygular. Fit hesabı tam olarak aynı dönüşümü uygular ki
+    // yükseklikli borular (sayaç sonrası, kolon vs.) ekran-uzayında sığsın.
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let has = false;
+    const pushXYZ = (x, y, z) => {
+        if (typeof x !== 'number' || typeof y !== 'number') return;
+        if (!isFinite(x) || !isFinite(y)) return;
+        const zz = (typeof z === 'number' && isFinite(z)) ? z : 0;
+        // Renderer'ın Z-shift ve iso transform birleşimi
+        const xs = x + zz * t;
+        const ys = y - zz * t;
+        const ix = m.a * xs + m.c * ys;
+        const iy = m.b * xs + m.d * ys;
+        if (ix < minX) minX = ix;
+        if (ix > maxX) maxX = ix;
+        if (iy < minY) minY = iy;
+        if (iy > maxY) maxY = iy;
+        has = true;
+    };
+
+    (state.nodes || []).forEach(n => pushXYZ(n.x, n.y, 0));
+    // Duvarların hem tabanı (z=0) hem tavanı (WALL_HEIGHT) bbox'a katkıda bulunsun
+    const WH = 280;
+    (state.walls || []).forEach(w => {
+        if (w.p1) { pushXYZ(w.p1.x, w.p1.y, 0); pushXYZ(w.p1.x, w.p1.y, WH); }
+        if (w.p2) { pushXYZ(w.p2.x, w.p2.y, 0); pushXYZ(w.p2.x, w.p2.y, WH); }
+    });
+    // Tesisat: borular ve komponentler — gerçek Z değerleriyle
+    if (plumbingManager) {
+        (plumbingManager.pipes || []).forEach(p => {
+            if (p.p1) pushXYZ(p.p1.x, p.p1.y, p.p1.z || 0);
+            if (p.p2) pushXYZ(p.p2.x, p.p2.y, p.p2.z || 0);
+        });
+        (plumbingManager.components || []).forEach(c => pushXYZ(c.x, c.y, c.z || 0));
+    }
+
+    if (!has) {
+        setState({ perspZoom: 1, perspPanOffset: { x: cssW / 2, y: cssH / 2 } });
+        return;
+    }
+
+    const drawingW = Math.max(maxX - minX, 1);
+    const drawingH = Math.max(maxY - minY, 1);
+    // 2D fitDrawingToScreen ile aynı padding mantığı
+    const availW = Math.max(cssW - 2 * PADDING, 50);
+    const availH = Math.max(cssH - 2 * PADDING, 50);
+
+    const newZoom = Math.min(availW / drawingW, availH / drawingH, 3);
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const panX = cssW / 2 - centerX * newZoom;
+    const panY = cssH / 2 - centerY * newZoom;
+
+    setState({ perspZoom: newZoom, perspPanOffset: { x: panX, y: panY } });
+}
+
 // ─── BAĞIMSIZ MIDDLE/RIGHT MOUSE PAN (sync ÇAĞIRMAZ — pan bağımsızdır) ──────
 let _perspPanState = null;
+const _PAN_VS_CLICK_THRESHOLD_PX = 4;
+
+/**
+ * Perspektif kanavasta verilen ekran pikselinde en yakın tesisat objesinin
+ * world pozisyonunu döndürür (boru gövdesi/component). Hiçbiri yoksa null.
+ */
+function _findPerspWorldHitAtScreen(canvas, screenX, screenY, tolerance = 14) {
+    if (!plumbingManager) return null;
+    const project = _makeProjector(canvas, state.perspZoom || 1, state.perspPanOffset || { x: 0, y: 0 });
+    const dpr = window.devicePixelRatio || 1;
+    const tx = screenX * dpr;
+    const ty = screenY * dpr;
+    const tol = tolerance * dpr;
+
+    let bestDist = tol;
+    let bestWorld = null;
+
+    // Bileşenler (sayaç, vana, cihaz, servis kutusu) — merkez ekran mesafesi
+    for (const comp of (plumbingManager.components || [])) {
+        if (typeof comp.x !== 'number' || typeof comp.y !== 'number') continue;
+        const sp = project([comp.x, comp.y, comp.z || 0]);
+        if (!sp) continue;
+        const d = Math.hypot(tx - sp[0], ty - sp[1]);
+        if (d < bestDist) {
+            bestDist = d;
+            bestWorld = { x: comp.x, y: comp.y, z: comp.z || 0 };
+        }
+    }
+
+    // Borular — segmente ekran mesafesi, çakışmada en yakını
+    for (const pipe of (plumbingManager.pipes || [])) {
+        const s1 = project([pipe.p1.x, pipe.p1.y, pipe.p1.z || 0]);
+        const s2 = project([pipe.p2.x, pipe.p2.y, pipe.p2.z || 0]);
+        if (!s1 || !s2) continue;
+        const dx = s2[0] - s1[0];
+        const dy = s2[1] - s1[1];
+        const lenSq = dx * dx + dy * dy;
+        let tt = lenSq > 0.01 ? ((tx - s1[0]) * dx + (ty - s1[1]) * dy) / lenSq : 0;
+        tt = Math.max(0, Math.min(1, tt));
+        const px = s1[0] + tt * dx;
+        const py = s1[1] + tt * dy;
+        const d = Math.hypot(tx - px, ty - py);
+        if (d < bestDist) {
+            bestDist = d;
+            bestWorld = {
+                x: pipe.p1.x + tt * (pipe.p2.x - pipe.p1.x),
+                y: pipe.p1.y + tt * (pipe.p2.y - pipe.p1.y),
+                z: (pipe.p1.z || 0) + tt * ((pipe.p2.z || 0) - (pipe.p1.z || 0))
+            };
+        }
+    }
+
+    return bestWorld;
+}
+
+// Orta-buton çift-tık için manuel zamanlama (browser e.detail orta-buton için güvenilmez)
+let _cpMiddleDownTime = 0;
+let _cpMiddleDownPos = null;
+const _CP_DBLCLICK_MS = 400;
+const _CP_DBLCLICK_DIST = 10;
+
+// cPersp tıklamasının canvas sınırı içinde olup olmadığını kontrol et
+function _isClickOnCpersp(e) {
+    if (!dom.cPersp) return false;
+    if (!dom.mainContainer.classList.contains('show-persp')) return false;
+    const rect = dom.cPersp.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    return e.clientX >= rect.left && e.clientX <= rect.right &&
+           e.clientY >= rect.top  && e.clientY <= rect.bottom;
+}
 
 export function setupPerspControls() {
     if (!dom.cPersp) return;
     dom.cPersp.addEventListener('mouseenter', () => { state.perspHover = true; });
     dom.cPersp.addEventListener('mouseleave', () => { state.perspHover = false; });
 
-    dom.cPersp.addEventListener('mousedown', (e) => {
-        if (!dom.mainContainer.classList.contains('show-persp')) return;
-        if (e.button !== 1 && e.button !== 2) return;
-        e.preventDefault();
-        e.stopPropagation();
-        _perspPanState = {
-            startClientX: e.clientX,
-            startClientY: e.clientY,
-            startPanX: (state.perspPanOffset && state.perspPanOffset.x) || 0,
-            startPanY: (state.perspPanOffset && state.perspPanOffset.y) || 0,
-        };
-        if (dom.cPersp.setPointerCapture && e.pointerId !== undefined) {
-            try { dom.cPersp.setPointerCapture(e.pointerId); } catch (_) { }
+    // ─── WINDOW-LEVEL CAPTURE: tıklama cPersp üzerindeyse en önce burada yakalanır ───
+    // Hiçbir şey (input.js, vs.) önümüze geçemez.
+    window.addEventListener('mousedown', (e) => {
+        if (!_isClickOnCpersp(e)) return;
+
+        // ORTA-BUTON
+        if (e.button === 1) {
+            const now = performance.now();
+            const d = _cpMiddleDownPos
+                ? Math.hypot(e.clientX - _cpMiddleDownPos.x, e.clientY - _cpMiddleDownPos.y)
+                : Infinity;
+            if ((now - _cpMiddleDownTime) < _CP_DBLCLICK_MS && d < _CP_DBLCLICK_DIST) {
+                e.preventDefault();
+                e.stopPropagation();
+                _cpMiddleDownTime = 0;
+                _cpMiddleDownPos = null;
+                fitDrawingToPerspectiveScreen();
+                fitDrawingToScreen();
+                return;
+            }
+            _cpMiddleDownTime = now;
+            _cpMiddleDownPos = { x: e.clientX, y: e.clientY };
+
+            e.preventDefault();
+            e.stopPropagation();
+            hidePlumbingContextMenu();
+            _perspPanState = {
+                startClientX: e.clientX,
+                startClientY: e.clientY,
+                startPanX: (state.perspPanOffset && state.perspPanOffset.x) || 0,
+                startPanY: (state.perspPanOffset && state.perspPanOffset.y) || 0,
+            };
+            if (dom.pPersp) dom.pPersp.classList.add('panning');
+            return;
         }
-        if (dom.pPersp) dom.pPersp.classList.add('panning');
+
+        // SAĞ-BUTON → tesisat menüsü (mousedown'da hemen aç)
+        if (e.button === 2) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            if (!plumbingManager || !plumbingManager.interactionManager) return;
+            const rect = dom.cPersp.getBoundingClientRect();
+            const localX = e.clientX - rect.left;
+            const localY = e.clientY - rect.top;
+            let worldPos = _findPerspWorldHitAtScreen(dom.cPersp, localX, localY);
+            if (!worldPos) worldPos = { x: 0, y: 0, z: 0 };
+            showPlumbingContextMenu(e.clientX, e.clientY, worldPos, plumbingManager.interactionManager);
+            return;
+        }
     }, { capture: true });
 
     window.addEventListener('mousemove', (e) => {
@@ -292,17 +476,19 @@ export function setupPerspControls() {
             x: _perspPanState.startPanX + dx,
             y: _perspPanState.startPanY + dy,
         };
-        // Pan sync YAPILMAZ — pan bağımsız.
     });
 
     window.addEventListener('mouseup', (e) => {
         if (!_perspPanState) return;
-        if (e.button !== 1 && e.button !== 2) return;
+        if (e.button !== 1) return;
         _perspPanState = null;
         if (dom.pPersp) dom.pPersp.classList.remove('panning');
     });
 
-    dom.cPersp.addEventListener('contextmenu', (e) => {
-        if (dom.mainContainer.classList.contains('show-persp')) e.preventDefault();
-    });
+    // Tarayıcı sağ-tık menüsünü engelle (cPersp veya alt elemanları)
+    window.addEventListener('contextmenu', (e) => {
+        if (!_isClickOnCpersp(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+    }, { capture: true });
 }

@@ -9,6 +9,8 @@ import { onPointerDownGuide } from '../architectural-objects/guide-handler.js';
 import { onPointerDownDraw as onPointerDownDrawWindow, onPointerDownSelect as onPointerDownSelectWindow } from '../architectural-objects/window-handler.js';
 import { hideGuideContextMenu } from '../menu/guide-menu.js';
 import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from '../draw/geometry.js';
+import { fitDrawingToScreen } from '../draw/zoom.js';
+import { fitDrawingToPerspectiveScreen } from '../draw/draw-persp.js';
 import { applySymmetry, applyCopy } from '../draw/symmetry.js';
 import { state, dom, setState, setMode } from '../general-files/main.js';
 import { getSmartSnapPoint } from '../general-files/snap.js';
@@ -50,9 +52,38 @@ function markAllDownstreamPipesAsConnected(startPipe) {
     }
 }
 
+// Orta-buton çift-tık için manuel zamanlama (browser e.detail orta-buton için güvenilmez)
+let _lastMiddleDownTime = 0;
+let _lastMiddleDownPos = null;
+const _MIDDLE_DBLCLICK_MS = 400;
+const _MIDDLE_DBLCLICK_DIST = 10;
+
 export function onPointerDown(e) {
     if (e.target !== dom.c2d) return; // Sadece canvas üzerindeki tıklamaları işle
     if (e.button === 1) { // Orta tuş ile pan veya CTRL ile 2D/3D geçiş
+        // Browser autoscroll'ünü engelle — ikinci tıklamanın dbl-click olarak
+        // algılanması için kritik.
+        e.preventDefault();
+        // Orta-buton çift-tık → çizimi ekrana sığdır (CTRL ile çakışmasın)
+        if (!currentModifierKeys.ctrl) {
+            const now = performance.now();
+            const dt = now - _lastMiddleDownTime;
+            const d = _lastMiddleDownPos
+                ? Math.hypot(e.clientX - _lastMiddleDownPos.x, e.clientY - _lastMiddleDownPos.y)
+                : Infinity;
+            if (dt < _MIDDLE_DBLCLICK_MS && d < _MIDDLE_DBLCLICK_DIST) {
+                _lastMiddleDownTime = 0;
+                _lastMiddleDownPos = null;
+                fitDrawingToScreen();
+                // 3D Perspektif paneli de açıksa onu da sığdır
+                if (dom.mainContainer && dom.mainContainer.classList.contains('show-persp')) {
+                    fitDrawingToPerspectiveScreen();
+                }
+                return;
+            }
+            _lastMiddleDownTime = now;
+            _lastMiddleDownPos = { x: e.clientX, y: e.clientY };
+        }
         // CTRL basılıysa 2D/3D kamera toggle (sadece tıklama, sürükleme yok)
         if (currentModifierKeys.ctrl) {
             console.log('[CTRL+MiddleBtn] DOWN - Toggle modu başladı');
