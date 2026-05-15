@@ -87,42 +87,41 @@ export function handlePointerDown(e) {
     // Snap yoksa: serbest yapıştır (mouse noktasında, bağlantı yok).
     if (e.button === 0 && (this.cutPipes || this.copiedPipes) && !this.boruCizimAktif && !this.manager.activeTool) {
         const snap = this.pasteSnapPoint;
-        let pasteX, pasteY, pasteZ;
+
+        // Yapıştırma yalnızca mevcut bir tesisata bağlanırsa yapılır.
+        // Snap yoksa veya çakışma varsa: tıklamayı yut, paste modunu koru,
+        // kullanıcı geçerli bir noktaya yaklaşıp tekrar tıklasın.
+        if (!snap || snap.hasConflict || !snap.pipeId) {
+            return true;
+        }
+
+        let pasteX = snap.x;
+        let pasteY = snap.y;
+        let pasteZ = snap.z || 0;
         let snapPipeId = null;
         let snapType = 'free';
 
-        if (snap && !snap.hasConflict) {
-            pasteX = snap.x;
-            pasteY = snap.y;
-            pasteZ = snap.z || 0;
-
-            if (snap.type === 'body' && snap.pipeId) {
-                // Boruyu split point'te böl, sonra yeni uca yapıştır
-                const pipe = this.manager.findPipeById(snap.pipeId);
-                if (pipe) {
-                    const originalPipeId = pipe.id;
-                    this.handlePipeSplit(pipe, { x: pasteX, y: pasteY, z: pasteZ }, false);
-                    const TOL_PT = 0.5;
-                    const newBoru1 = this.manager.pipes.find(p =>
-                        p.id !== originalPipeId &&
-                        Math.hypot(p.p2.x - pasteX, p.p2.y - pasteY, (p.p2.z || 0) - pasteZ) < TOL_PT
-                    );
-                    if (newBoru1) {
-                        snapPipeId = newBoru1.id;
-                        snapType = 'endpoint';
-                    }
+        if (snap.type === 'body' && snap.pipeId) {
+            // Boruyu split point'te böl, sonra yeni uca yapıştır
+            const pipe = this.manager.findPipeById(snap.pipeId);
+            if (pipe) {
+                const originalPipeId = pipe.id;
+                this.handlePipeSplit(pipe, { x: pasteX, y: pasteY, z: pasteZ }, false);
+                const TOL_PT = 0.5;
+                const newBoru1 = this.manager.pipes.find(p =>
+                    p.id !== originalPipeId &&
+                    Math.hypot(p.p2.x - pasteX, p.p2.y - pasteY, (p.p2.z || 0) - pasteZ) < TOL_PT
+                );
+                if (newBoru1) {
+                    snapPipeId = newBoru1.id;
+                    snapType = 'endpoint';
                 }
-            } else if (snap.type === 'endpoint' && snap.pipeId) {
-                snapPipeId = snap.pipeId;
-                snapType = 'endpoint';
-            } else {
-                snapType = snap.type;
             }
+        } else if (snap.type === 'endpoint' && snap.pipeId) {
+            snapPipeId = snap.pipeId;
+            snapType = 'endpoint';
         } else {
-            // Snap yok → mouse noktasına serbest yapıştır
-            pasteX = point.x;
-            pasteY = point.y;
-            pasteZ = point.z || 0;
+            snapType = snap.type;
         }
 
         this._pasteSnapOverride = {
