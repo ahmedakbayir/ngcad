@@ -96,6 +96,60 @@ export const PreviewMixin = {
         ctx.restore();
     },
 
+    /**
+     * Hat ucu / kesişim hover göstergesi.
+     * Vana veya başka komponent uçta olsa bile, fare uca yaklaşınca
+     * yeşil halka çizilir — kullanıcıya "buradan seçebilirsin" sinyali.
+     */
+    drawPipeEndpointHover(ctx, hover) {
+        if (!hover || !hover.nokta) return;
+        const zoom = state.zoom || 1;
+        const t = state.viewBlendFactor || 0;
+        const z = hover.nokta.z || 0;
+        const screenX = hover.nokta.x + (z * t);
+        const screenY = hover.nokta.y - (z * t);
+
+        ctx.save();
+        ctx.translate(screenX, screenY);
+
+        const r = 11 / zoom;
+
+        // 1) En dış soluk pulse halkası
+        ctx.strokeStyle = 'rgba(68, 255, 136, 0.35)';
+        ctx.lineWidth = 3 / zoom;
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 7 / zoom, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 2) Beyaz kontur (kontrast — koyu zeminde de görünür)
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 5 / zoom;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 3) Ana parlak yeşil halka
+        ctx.strokeStyle = '#22FF66';
+        ctx.lineWidth = 3 / zoom;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 4) İç beyaz halka
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(0, 0, 5 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 5) Merkez yeşil dolu nokta
+        ctx.fillStyle = '#22FF66';
+        ctx.beginPath();
+        ctx.arc(0, 0, 3 / zoom, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    },
+
     drawVanaPreview(ctx, vanaPreview) {
         if (!vanaPreview || !vanaPreview.pipe || !vanaPreview.point) return;
 

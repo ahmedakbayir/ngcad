@@ -472,6 +472,36 @@ export function handlePointerDown(e) {
             }
         }
 
+        // --- SEÇİLİ BORU UCU ÖNCELİĞİ ---
+        // Vanaların ~8cm hit-area'sı uç noktayı örtebiliyor. Boru zaten seçiliyken
+        // kullanıcının uçtan tutma niyetini koru: tek tıkta uca yakın (≤10px) ise
+        // findObjectAt'a girmeden endpoint dragı başlat. Çift tıkta atla — vana
+        // paneli vs. açılabilsin.
+        if (!isDblClick && !isDoubleClick && this.selectedObject?.type === 'boru') {
+            const selPipe = this.selectedObject;
+            const t3d = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
+            const sp1x = selPipe.p1.x + (selPipe.p1.z || 0) * t3d;
+            const sp1y = selPipe.p1.y - (selPipe.p1.z || 0) * t3d;
+            const sp2x = selPipe.p2.x + (selPipe.p2.z || 0) * t3d;
+            const sp2y = selPipe.p2.y - (selPipe.p2.z || 0) * t3d;
+            const d1 = Math.hypot(point.x - sp1x, point.y - sp1y);
+            const d2 = Math.hypot(point.x - sp2x, point.y - sp2y);
+            // Vana hit-area'sı uçtan ~4-12 cm aralığında. Priority'nin bu bandı
+            // tamamen örtmesi için min 12 cm world tutuyoruz; yüksek zoom'da
+            // pixelsToWorld küçülse de minimum sabit kalır.
+            const endpointPriorityTol = Math.max(pixelsToWorld(12), 12);
+            if (d1 < endpointPriorityTol && d1 <= d2) {
+                this.selectedEndpoint = 'p1';
+                this.startEndpointDrag(selPipe, 'p1', point);
+                return true;
+            }
+            if (d2 < endpointPriorityTol) {
+                this.selectedEndpoint = 'p2';
+                this.startEndpointDrag(selPipe, 'p2', point);
+                return true;
+            }
+        }
+
         // --- 3D HASSAS SEÇİM ---
         // findObjectAt komponent ve boru adaylarını birlikte sıralar; fareye en
         // yakın çizilen objeyi seçer. Tesisat uç noktası artık komponent gövdesinin

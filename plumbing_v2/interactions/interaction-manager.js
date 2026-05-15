@@ -220,6 +220,9 @@ export class InteractionManager {
         // Sayaç/Cihaz boru üzerine ekleme preview (sayac/cihaz tool aktif)
         this.componentOnPipePreview = null; // { pipe, point, componentType }
 
+        // Hat ucu / kesişim hover göstergesi (seçim modu, fareyle uç yakalama)
+        this.hoveredPipeEndpoint = null; // { boruId, uc, nokta, isFree }
+
         // İç tesisat (servis kutusu olmadan) sayaç yerleştirme durumu
         this.meterPlacementState = null; // null, 'drawing_start_pipe'
         this.meterStartPoint = null; // Kesikli borunun başlangıç noktası

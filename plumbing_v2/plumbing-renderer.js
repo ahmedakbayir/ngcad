@@ -293,6 +293,11 @@ export class PlumbingRenderer {
             this.drawPipeSplitPreview(ctx, manager.interactionManager.pipeSplitPreview);
         }
 
+        // Hat ucu hover göstergesi (seçim modu, fareyle uç yakalama)
+        if (manager.interactionManager?.hoveredPipeEndpoint) {
+            this.drawPipeEndpointHover(ctx, manager.interactionManager.hoveredPipeEndpoint);
+        }
+
         // Vana preview (vana tool aktif, hover)
         if (manager.interactionManager?.vanaPreview) {
             this.drawVanaPreview(ctx, manager.interactionManager.vanaPreview);

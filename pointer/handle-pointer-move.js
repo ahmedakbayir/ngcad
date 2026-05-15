@@ -130,7 +130,27 @@ export function handlePointerMove(e) {
             draw2D();
             return true;
         }
+        // Hat ucu / kesişim hover göstergesi (seçim modu).
+        // Vana, sayaç vs. örtebilse de fareye yakın uç noktayı yakalayıp ekranda
+        // halka olarak göstererek "buradan seçebilirsin" sinyali veriyoruz.
+        const hoverTolerance = Math.max(pixelsToWorld(5), 5);
+        const preferredId = (this.selectedObject?.type === 'boru') ? this.selectedObject.id : null;
+        const boruUcu = this.findBoruUcuAt(point, hoverTolerance, false, preferredId);
+        const newHover = boruUcu
+            ? { boruId: boruUcu.boruId, uc: boruUcu.uc, nokta: boruUcu.nokta }
+            : null;
+        const prev = this.hoveredPipeEndpoint;
+        const changed = (!!newHover !== !!prev) ||
+            (newHover && prev && (newHover.boruId !== prev.boruId || newHover.uc !== prev.uc));
+        this.hoveredPipeEndpoint = newHover;
+        if (changed) draw2D();
         return false;
+    } else {
+        // Seçim modu dışında hover'ı temizle (boru çizim/sürükleme/araç modlarında gösterilmez)
+        if (this.hoveredPipeEndpoint) {
+            this.hoveredPipeEndpoint = null;
+            draw2D();
+        }
     }
 
     // Debug...
