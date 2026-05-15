@@ -14,6 +14,7 @@ import { saveState } from '../../general-files/history.js';
 import { update3DScene } from '../../scene3d/scene3d-update.js';
 import { setLabelOffsetsJSON, relayoutAllLabels } from '../renderer/renderer-labels.js';
 import { startTextAnnotationPlacement } from '../../architectural-objects/text-annotation-placement.js';
+import { selectObject as plumbingSelectObject } from '../interactions/selection-manager.js';
 
 
 export const PANEL_MODES = {
@@ -767,14 +768,37 @@ function _deleteCurrentPanelObject() {
 
 function _selectConnectedTarget(target) {
     if (!target) return;
-    const ARCH_WRAPPED = ['wall', 'door', 'window', 'vent', 'column', 'beam', 'stairs'];
-    if (target.type === 'room') {
-        setState({ selectedRoom: target, selectedObject: null, selectedGroup: [] });
-    } else if (ARCH_WRAPPED.includes(target.type)) {
-        setState({ selectedObject: { type: target.type, object: target }, selectedRoom: null, selectedGroup: [] });
+    const PLUMBING_TYPES = ['boru', 'vana', 'regulator', 'sayac', 'servis_kutusu', 'cihaz', 'baca'];
+    const im = window.plumbingManager?.interactionManager;
+
+    if (PLUMBING_TYPES.includes(target.type) && im) {
+        // Plumbing nesneleri: selectObject() isSelected, selectedValve, selectedHatPipes vb.
+        // tüm iç durumu doğru biçimde günceller. setState'i de kendisi çağırır.
+        plumbingSelectObject(im, target);
     } else {
-        // Plumbing veya bilinmeyen tipler — clickedObject benzeri wrapper
-        setState({ selectedObject: { type: target.type, object: target }, selectedRoom: null, selectedGroup: [] });
+        // Arch/room hedefler için panel'i kapatmadan önceki plumbing görsel seçimini
+        // sessizce temizle (onDeselect tetiklenmesin diye doğrudan alanları sıfırlıyoruz).
+        if (im) {
+            if (im.selectedObject) {
+                im.selectedObject.isSelected = false;
+                im.selectedObject = null;
+            }
+            if (im.selectedValve) {
+                if (im.selectedValve.vana) im.selectedValve.vana.isSelected = false;
+                im.selectedValve = null;
+            }
+            if (im.selectedHatPipes) {
+                im.selectedHatPipes.forEach(p => { p.isSelected = false; });
+                im.selectedHatPipes = null;
+            }
+            im.selectedEndpoint = null;
+            window._selectedPipePath = null;
+        }
+        if (target.type === 'room') {
+            setState({ selectedRoom: target, selectedObject: null, selectedGroup: [] });
+        } else {
+            setState({ selectedObject: { type: target.type, object: target, handle: 'body' }, selectedRoom: null, selectedGroup: [] });
+        }
     }
     draw2D();
 }
