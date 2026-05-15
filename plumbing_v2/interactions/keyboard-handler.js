@@ -44,7 +44,29 @@ export function handleKeyDown(e) {
 
     // Eğer kullanıcı bir input alanında yazıyorsa (ama düşey panel değilse), ESC ve Delete dışındaki kısayolları devre dışı bırak
     if (isTyping && !isVerticalPanelInput && e.key !== 'Escape' && e.key !== 'Delete') {
+        // Pending K/O timer'ı varsa input'a geçince temizle ki sıra bozulmasın.
+        if (this._doubleKeyTimer) {
+            clearTimeout(this._doubleKeyTimer);
+            this._doubleKeyTimer = null;
+            this._doubleKeyChar = null;
+        }
         return false;
+    }
+
+    // Pending K/O double-press timer var ve şu anki tuş aynı K/O değilse,
+    // tek-tuş aksiyonunu hemen tetikle (chord penceresinden çıktık).
+    if (this._doubleKeyTimer) {
+        const cur = (e.key || '').toLowerCase();
+        const sameAsPending = (cur === this._doubleKeyChar) &&
+            !e.ctrlKey && !e.altKey && !e.metaKey;
+        if (!sameAsPending) {
+            const prev = this._doubleKeyChar;
+            clearTimeout(this._doubleKeyTimer);
+            this._doubleKeyTimer = null;
+            this._doubleKeyChar = null;
+            if (prev === 'k') _doSingleCihaz.call(this, 'KOMBI');
+            else if (prev === 'o') _doSingleCihaz.call(this, 'OCAK');
+        }
     }
 
     // Boru çizim modunda ölçü girişi ve düşey mod
@@ -293,56 +315,79 @@ export function handleKeyDown(e) {
         const yeniTip = VANA_TIP_KISAYOLLARI[e.key.toLowerCase()];
         if (yeniTip) {
             this.manager.tempComponent.vanaTipi = yeniTip;
+
+            // Sonlanma vanası (BRANSMAN/YANBINA) + boş uç varsa tıklama
+            // beklemeden otomatik yerleştir. Önce V handler'ın yakaladığı
+            // chord context'i kullan; yoksa anlık _getSeciliHatinBosUcu.
+            if (yeniTip === 'BRANSMAN' || yeniTip === 'YANBINA') {
+                let boruUcuInfo = null;
+                if (this._vanaChordContext) {
+                    const pipe = this.manager.pipes.find(p => p.id === this._vanaChordContext.pipeId);
+                    if (pipe) {
+                        const end = this._vanaChordContext.end;
+                        boruUcuInfo = { pipe, end, point: pipe[end] };
+                    }
+                }
+                if (!boruUcuInfo) {
+                    boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+                }
+                if (boruUcuInfo) {
+                    const { pipe, end, point } = boruUcuInfo;
+                    this._vanaChordContext = null;
+                    this.handleVanaPlacement({
+                        pipe,
+                        point,
+                        t: end === 'p2' ? 1.0 : 0.0,
+                        vanaTipi: yeniTip
+                    });
+                    return true;
+                }
+            }
+
             draw2D();
             return true;
         }
     }
 
-    // K - Kombi ekle (Ghost mod, ya da 3D + seçili hat varsa otomatik)
-    if ((e.key === 'k' || e.key === 'K') && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        if ((state.viewBlendFactor || 0) > 0.1) {
-            const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
-            if (boruUcuInfo) {
-                this.cancelCurrentAction();
-                this.manager.placeDeviceAtOpenEnd('KOMBI', boruUcuInfo);
-                return true;
-            }
+    // K / O — Kombi / Ocak chord-aware kısayol.
+    //   k tek basış: tek tuş aksiyonu (kombi/ocak otomatik veya ghost)
+    //   kk / oo (~280 ms içinde çift basış): İniş + cihaz
+    // İlk basışta tek-tuş aksiyonu zamanlanır; ikinci aynı tuş gelirse iptal
+    // edilip chord (iniş+cihaz) tetiklenir. Pending'i farklı tuş hemen flush eder.
+    if ((e.key === 'k' || e.key === 'K' || e.key === 'o' || e.key === 'O') &&
+        !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const charLower = e.key.toLowerCase();
+        const cihazTipi = charLower === 'k' ? 'KOMBI' : 'OCAK';
+
+        // İkinci basış? (yukarıdaki "flush" mantığı aynı karakter geldiğinde
+        // pending'i temizlememişti, bu yüzden burada hâlâ ayakta olabilir)
+        if (this._doubleKeyChar === charLower && this._doubleKeyTimer) {
+            clearTimeout(this._doubleKeyTimer);
+            this._doubleKeyTimer = null;
+            this._doubleKeyChar = null;
+            _doInisVeCihazChord.call(this, cihazTipi);
+            return true;
         }
-        // 2D mod veya seçili hat yoksa ghost mod
-        this.previousMode = state.currentMode;
-        this.previousDrawingMode = state.currentDrawingMode;
-        this.previousActiveTool = this.manager.activeTool;
-        if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
-        this.cancelCurrentAction();
-        this.manager.startPlacement('cihaz', { cihazTipi: 'KOMBI' });
-        setMode("plumbingV2", true);
+
+        // İlk basış → tek tuş aksiyonunu ~280 ms zamanla
+        const self = this;
+        this._doubleKeyChar = charLower;
+        this._doubleKeyTimer = setTimeout(() => {
+            self._doubleKeyTimer = null;
+            self._doubleKeyChar = null;
+            _doSingleCihaz.call(self, cihazTipi);
+        }, 280);
         return true;
     }
 
-    // O - Ocak ekle (Ghost mod, ya da 3D + seçili hat varsa otomatik)
-    if ((e.key === 'o' || e.key === 'O') && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        if ((state.viewBlendFactor || 0) > 0.1) {
-            const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
-            if (boruUcuInfo) {
-                this.cancelCurrentAction();
-                this.manager.placeDeviceAtOpenEnd('OCAK', boruUcuInfo);
-                return true;
-            }
-        }
-        // 2D mod veya seçili hat yoksa ghost mod
-        this.previousMode = state.currentMode;
-        this.previousDrawingMode = state.currentDrawingMode;
-        this.previousActiveTool = this.manager.activeTool;
-        this.cancelCurrentAction();
-        if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
-        this.cancelCurrentAction();
-        this.manager.startPlacement('cihaz', { cihazTipi: 'OCAK' });
-        setMode("plumbingV2", true);
-        return true;
-    }
-
-    // S - Sayaç ekle (Ghost mod)
+    // S - Sayaç ekle (seçili/çizilen hatta boş uç varsa otomatik; değilse ghost mod)
     if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+        if (boruUcuInfo) {
+            this.cancelCurrentAction();
+            this.manager.placeMeterAtOpenEnd(boruUcuInfo);
+            return true;
+        }
         // Önceki modu kaydet
         this.previousMode = state.currentMode;
         this.previousDrawingMode = state.currentDrawingMode;
@@ -363,8 +408,16 @@ export function handleKeyDown(e) {
         return true;
     }
 
-    // V - Vana ekle (Ghost mod)
+    // V - Vana ekle (Ghost mod). V→B / V→Y chord'unda otomatik yerleştirme
+    // için aktif boş uç bilgisi cancelCurrentAction'dan ÖNCE yakalanır
+    // (çizim aktifse cancel state'i siler; chord handler context'i kullanır).
     if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Çizim veya seçim varsa boş ucu yakala — chord handler bunu kullanır.
+        const aktifUc = _getSeciliHatinBosUcu.call(this);
+        const chordCtx = aktifUc
+            ? { pipeId: aktifUc.pipe.id, end: aktifUc.end }
+            : null;
+
         // Önceki modu kaydet
         this.previousMode = state.currentMode;
         this.previousDrawingMode = state.currentDrawingMode;
@@ -375,11 +428,15 @@ export function handleKeyDown(e) {
             setDrawingMode("TESİSAT");
         }
 
-        // Mevcut eylemleri iptal et
+        // Mevcut eylemleri iptal et (çizim/seçim state'i temizlenir)
         this.cancelCurrentAction();
 
         // Vana ghost modunu başlat (varsayılan: EMNIYET)
         this.manager.startPlacement(TESISAT_MODLARI.VANA, { vanaTipi: 'AKV' });
+
+        // Chord context'i cancel sonrasında set et — cancelCurrentAction temizliyor.
+        this._vanaChordContext = chordCtx;
+
         setMode("plumbingV2", true);
 
         return true;
@@ -669,29 +726,66 @@ export function applyVerticalHeight() {
  */
 function _getSeciliHatinBosUcu() {
     const manager = this.manager;
-    // Seçili boruları bul
+
+    // Bir borunun belirli ucunda dolu bağlantı (sayaç/kutu/üst boru) var mı?
+    // isTrulyFreeEndpoint sadece komşu boru sayısına bakar; sayaç çıkışı gibi
+    // tek borulu noktaları yanlışlıkla boş gösterir. baglanti.hedefId varsa
+    // o uç DOLUDUR — sayaç/kutu tarafına cihaz eklenmesini bu kontrol önler.
+    const isEndOccupiedByConnection = (pipe, end) => {
+        const bag = end === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
+        return !!(bag && bag.hedefId);
+    };
+
+    const hasFleksAt = (pipe, end) => {
+        return manager.components.some(c =>
+            (c.type === 'cihaz' || c.type === 'sayac') &&
+            c.fleksBaglanti?.boruId === pipe.id &&
+            c.fleksBaglanti?.endpoint === end
+        );
+    };
+
+    const isUcValid = (pipe, end) => {
+        if (isEndOccupiedByConnection(pipe, end)) return false;
+        const pt = end === 'p1' ? pipe.p1 : pipe.p2;
+        if (!manager.isTrulyFreeEndpoint(pt, 1)) return false;
+        if (hasFleksAt(pipe, end)) return false;
+        return true;
+    };
+
+    // 1. AKTİF ÇİZİM: kullanıcı bir hat çiziyorsa, son çizilen borunun çizime
+    //    devam edeceği uç doğal olarak BOŞ UÇTUR; bu uç önceliklidir.
+    if (this.boruCizimAktif && this.boruBaslangic) {
+        const { kaynakTip, kaynakId, nokta } = this.boruBaslangic;
+        if (kaynakTip === 'boru' && kaynakId && nokta) {
+            const pipe = manager.pipes.find(p => p.id === kaynakId);
+            if (pipe) {
+                const d1 = Math.hypot(
+                    pipe.p1.x - nokta.x,
+                    pipe.p1.y - nokta.y,
+                    (pipe.p1.z || 0) - (nokta.z || 0)
+                );
+                const d2 = Math.hypot(
+                    pipe.p2.x - nokta.x,
+                    pipe.p2.y - nokta.y,
+                    (pipe.p2.z || 0) - (nokta.z || 0)
+                );
+                const end = d1 < d2 ? 'p1' : 'p2';
+                if (isUcValid(pipe, end)) {
+                    return { pipe, end, point: pipe[end] };
+                }
+            }
+        }
+    }
+
+    // 2. SEÇİLİ BORULAR: p2 önceliklidir (akış yönünde "boş uç" tipik olarak p2).
     const seciliPipes = manager.pipes.filter(p => p.isSelected);
     if (seciliPipes.length === 0) return null;
 
     for (const pipe of seciliPipes) {
-        // p1 ucunu kontrol et
-        if (manager.isTrulyFreeEndpoint(pipe.p1, 1)) {
-            const hasDevice = manager.components.some(c =>
-                (c.type === 'cihaz' || c.type === 'sayac') &&
-                c.fleksBaglanti?.boruId === pipe.id &&
-                c.fleksBaglanti?.endpoint === 'p1'
-            );
-            if (!hasDevice) return { pipe, end: 'p1', point: pipe.p1 };
-        }
-        // p2 ucunu kontrol et
-        if (manager.isTrulyFreeEndpoint(pipe.p2, 1)) {
-            const hasDevice = manager.components.some(c =>
-                (c.type === 'cihaz' || c.type === 'sayac') &&
-                c.fleksBaglanti?.boruId === pipe.id &&
-                c.fleksBaglanti?.endpoint === 'p2'
-            );
-            if (!hasDevice) return { pipe, end: 'p2', point: pipe.p2 };
-        }
+        if (isUcValid(pipe, 'p2')) return { pipe, end: 'p2', point: pipe.p2 };
+    }
+    for (const pipe of seciliPipes) {
+        if (isUcValid(pipe, 'p1')) return { pipe, end: 'p1', point: pipe.p1 };
     }
     return null;
 }
@@ -1554,5 +1648,80 @@ export function applyVerticalPipeInsert() {
     // Topoloji değişti (yeni düşey boru, çocuklar yeniden bağlandı)
     this.manager.recomputePipeParents();
 
+    // Seçimi yeni düşey boruya aktar — böylece iniş sonrası K/O/S/V-B/V-Y
+    // doğrudan yeni hattın açık ucuna yerleşir (tıklama gerektirmez).
+    if (this.selectedObject) {
+        this.selectedObject.isSelected = false;
+    }
+    newPipe.isSelected = true;
+    this.selectedObject = newPipe;
+
+    this.manager.saveToState();
+}
+
+/**
+ * Tek-tuş kombi/ocak aksiyonu:
+ * Seçili veya çizilen hatta boş uç varsa cihazı otomatik yerleştir;
+ * yoksa cihaz ghost moduna geç.
+ */
+function _doSingleCihaz(cihazTipi) {
+    const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+    if (boruUcuInfo) {
+        this.cancelCurrentAction();
+        this.manager.placeDeviceAtOpenEnd(cihazTipi, boruUcuInfo);
+        return;
+    }
+    // Ghost mod
+    this.previousMode = state.currentMode;
+    this.previousDrawingMode = state.currentDrawingMode;
+    this.previousActiveTool = this.manager.activeTool;
+    if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
+    this.cancelCurrentAction();
+    this.manager.startPlacement('cihaz', { cihazTipi });
+    setMode("plumbingV2", true);
+}
+
+/**
+ * Chord (kk / oo) aksiyonu: iniş borusu ekle, ardından cihazı iniş ucuna yerleştir.
+ * Boş uç yoksa tek-tuş davranışına düşer.
+ */
+function _doInisVeCihazChord(cihazTipi) {
+    const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+    if (!boruUcuInfo) {
+        _doSingleCihaz.call(this, cihazTipi);
+        return;
+    }
+
+    const { pipe: parentPipe, end, point } = boruUcuInfo;
+    const INIS_CM = 100; // context menü "İniş + Cihaz" ile aynı default
+
+    saveState();
+    this.cancelCurrentAction(); // varsa aktif çizim/seçim temizlensin
+
+    const inisBoru = new Boru(
+        point,
+        { x: point.x, y: point.y, z: (point.z || 0) - INIS_CM },
+        parentPipe.boruTipi || 'STANDART'
+    );
+    inisBoru.colorGroup = parentPipe.colorGroup || 'YELLOW';
+    inisBoru.floorId = parentPipe.floorId;
+    this.manager.pipes.push(inisBoru);
+    this.manager.registerPipeNodes(inisBoru);
+
+    // Topoloji: iniş, parent'ın boş ucuna takılır.
+    inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: parentPipe.id };
+    if (end === 'p2') {
+        parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+    } else {
+        parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+    }
+
+    this.manager.recomputePipeParents();
+
+    this.manager.placeDeviceAtOpenEnd(cihazTipi, {
+        pipe: inisBoru,
+        end: 'p2',
+        point: inisBoru.p2
+    });
     this.manager.saveToState();
 }

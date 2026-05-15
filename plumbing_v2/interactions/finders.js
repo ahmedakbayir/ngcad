@@ -364,6 +364,12 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
     const occupiedCandidates = [];
 
     const isFreeUc = (boru, uc) => {
+        // Boru'nun bu ucunda baglanti.hedefId varsa (sayaç çıkışı, kutu çıkışı,
+        // veya başka boruya bağlı T) o uç DOLUDUR. isTrulyFreeEndpoint sadece
+        // komşu boru sayısına bakar; sayaç tarafını yanlışlıkla serbest sayardı.
+        const bag = uc === 'p1' ? boru.baslangicBaglanti : boru.bitisBaglanti;
+        if (bag && bag.hedefId) return false;
+
         const pt = uc === 'p1' ? boru.p1 : boru.p2;
         return manager.isTrulyFreeEndpoint(pt, 1)
             && !hasDeviceAtEndpoint(manager, boru.id, uc)

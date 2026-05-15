@@ -3,11 +3,11 @@
  * Merkezi tesisat yönetim sınıfı - yeni bileşenlerle entegre
  */
 
-import { state, setBoruCursor, dom } from '../general-files/main.js';
+import { state, setBoruCursor, dom, setMode } from '../general-files/main.js';
 import { InteractionManager, TESISAT_MODLARI } from './interactions/interaction-manager.js';
 import { PlumbingRenderer } from './plumbing-renderer.js';
 import { ServisKutusu } from './objects/service-box.js';
-import { Boru, createBoru } from './objects/pipe.js';
+import { Boru, createBoru, BAGLANTI_TIPLERI } from './objects/pipe.js';
 import { Sayac, createSayac } from './objects/meter.js';
 import { Vana, createVana } from './objects/valve.js';
 import { Regulator, createRegulator } from './objects/regulator.js';
@@ -15,8 +15,9 @@ import { Cihaz, createCihaz } from './objects/device.js';
 import { recomputeAllPressures } from './utils/pressure-recompute.js';
 import { Baca, createBaca } from './objects/chimney.js';
 import { initVerticalPanelListeners } from './interactions/vertical-panel-handler.js';
-import { initPropertiesButton } from './properties/properties-panel.js';
+import { initPropertiesButton, initObjectDefaults } from './properties/properties-panel.js';
 import { getLabelOffsetsJSON, setLabelOffsetsJSON } from './renderer/renderer-labels.js';
+import { seedSayacFromRooms, syncBirimState } from '../draw/draw-birim-labels.js';
 
 export class PlumbingManager {
     constructor() {
@@ -478,12 +479,14 @@ export class PlumbingManager {
 
         const floorId = targetPipe.floorId || state.currentFloor?.id;
 
-        // Cihazı oluştur; boru ucundan dik aşağıya (+Y) konumlandır
-        // Cihaz yarısı (15cm) + fleks (15cm) = 30cm offset
+        // Cihazı oluştur; yön = boş uca gelen SON yatay segmentin "dışa" yönü.
+        // Borunun kendisi yatay ise borunun yönü, dikey ise yukarı zincirde
+        // bulunan ilk yatay segmentin yönü kullanılır. Yatay segment yoksa +Y.
         const DEVICE_HALF = 15;
         const FLEKS_UZUNLUK = 15;
-        const devX = targetPoint.x;
-        const devY = targetPoint.y + DEVICE_HALF + FLEKS_UZUNLUK;
+        const dir = _getOutwardHorizontalDir(this, targetPipe, targetEnd) || { x: 0, y: 1 };
+        const devX = targetPoint.x + dir.x * (DEVICE_HALF + FLEKS_UZUNLUK);
+        const devY = targetPoint.y + dir.y * (DEVICE_HALF + FLEKS_UZUNLUK);
 
         const newDevice = createCihaz(devX, devY, deviceType, { floorId });
 
@@ -505,24 +508,116 @@ export class PlumbingManager {
             }
         };
 
-        // interactionManager'ın handleCihazEkleme metodunu kullan
-        // Bu vana, fleks, pozisyon hesaplama gibi her şeyi otomatik yapar
-        // console.log(`[placeDeviceAtOpenEnd] Cihaz oluşturuldu: ${deviceType}, boruUcu:`, {
-        //     boruId: targetPipe.id,
-        //     end: targetEnd,
-        //     nokta: targetPoint
-        // });
+        // Mouse ile yerleştirme yolundaki gibi default property değerlerini
+        // (etiketler dahil) en başta uygula — yoksa cihaz seçilene kadar etiket eksik kalır.
+        initObjectDefaults(newDevice, this);
 
         const success = this.interactionManager.handleCihazEkleme(newDevice);
 
         if (success) {
-            // handleCihazEkleme cihazı components'a ekledi
-            // console.log(`✓ ${deviceType} başarıyla boş boru ucuna eklendi (${targetEnd}) - vana ve fleks ile.`);
+            // Etiketler/birimler tıklama yolundaki gibi senkronlansın
+            seedSayacFromRooms();
+            syncBirimState();
+            // Cihaz terminaldir; select moduna geç
+            this.activeTool = null;
+            setMode("select", true);
             return true;
         } else {
             // console.error(`✗ Cihaz ekleme başarısız oldu. handleCihazEkleme false döndü.`);
             return false;
         }
+    }
+
+    /**
+     * Boş bir boru ucuna sayaç yerleştirir.
+     * Mouse ile yerleştirmeyle aynı görsel: sayaç boru hattının ALTINDA durur
+     * (perpendicular). Giriş tam boru ucunda; gövde fleks uzunluğu kadar aşağıda.
+     * Yön ölçütü: boş uca gelen son yatay segmentin "dışa" yönü → perpendicular
+     * olarak güney tercihli alınır.
+     * @param {object} boruUcuInfo - {pipe, end, point}
+     */
+    placeMeterAtOpenEnd(boruUcuInfo = null) {
+        let targetPipe, targetEnd, targetPoint;
+        if (boruUcuInfo) {
+            targetPipe = boruUcuInfo.pipe;
+            targetEnd = boruUcuInfo.end;
+            targetPoint = boruUcuInfo.point;
+        } else {
+            const openEnds = this.getBosBitisBorular();
+            if (openEnds.length === 0) return false;
+            const { pipe, end } = openEnds[0];
+            targetPipe = pipe;
+            targetEnd = end;
+            targetPoint = pipe[end];
+        }
+
+        const floorId = targetPipe.floorId || state.currentFloor?.id;
+
+        // Yön (pipe boyunca dışa) — son yatay segmenttin yönü. Yatay yoksa +Y.
+        const dir = _getOutwardHorizontalDir(this, targetPipe, targetEnd) || { x: 0, y: 1 };
+
+        // Perpendicular: pipe yönünün dik istikameti; "güney" (ekran aşağı) tercihli
+        // — mouse ile yerleştirmenin varsayılan tarafıyla aynı.
+        let perp = { x: -dir.y, y: dir.x };
+        if (perp.y < 0 || (perp.y === 0 && perp.x < 0)) {
+            perp = { x: -perp.x, y: -perp.y };
+        }
+
+        const FLEKS_UZUNLUK = 15;
+
+        // Sayacı oluştur. Local +Y eksenini perp'e hizala: rotation = atan2(-perpX, perpY)
+        const sayac = createSayac(0, 0, { floorId });
+        const theta = Math.atan2(-perp.x, perp.y);
+        sayac.rotation = theta * 180 / Math.PI;
+
+        // Giriş hedefi: boru ucundan perpendicular yönde fleksUzunluk kadar uzakta.
+        // Center = girisHedef - R(theta) * girisLocal
+        const girisHedefX = targetPoint.x + perp.x * FLEKS_UZUNLUK;
+        const girisHedefY = targetPoint.y + perp.y * FLEKS_UZUNLUK;
+        const girisLocal = sayac.getGirisLocalKoordinat();
+        const cos = Math.cos(theta);
+        const sin = Math.sin(theta);
+        sayac.x = girisHedefX - (girisLocal.x * cos - girisLocal.y * sin);
+        sayac.y = girisHedefY - (girisLocal.x * sin + girisLocal.y * cos);
+        sayac.z = targetPoint.z || 0;
+
+        sayac.ghostConnectionInfo = {
+            boruUcu: {
+                boruId: targetPipe.id,
+                nokta: targetPoint,
+                uc: targetEnd,
+                boru: targetPipe
+            }
+        };
+
+        // Default property'leri (etiketler dahil) önceden uygula — yoksa
+        // sayaç seçilene kadar etiketler eksik gözüküyor.
+        initObjectDefaults(sayac, this);
+
+        const success = this.interactionManager.handleSayacEndPlacement(sayac);
+
+        if (success) {
+            // Downstream borular sayaç sonrası TURQUAZ olmalı
+            this.recomputePipeParents();
+
+            // Etiketler/birimler tıklama yolundaki gibi senkronlansın
+            seedSayacFromRooms();
+            syncBirimState();
+
+            // Sayaç eklendi → çizimi sayacın ÇIKIŞINDAN sürdür (mouse yolundaki
+            // gibi). Kullanıcı iniş+sayaç veya S kısayolundan sonra iç tesisat
+            // çizimine doğrudan devam edebilsin.
+            const cikisNoktasi = sayac.getCikisNoktasi();
+            this.interactionManager.startBoruCizim(
+                cikisNoktasi,
+                sayac.id,
+                BAGLANTI_TIPLERI.SAYAC
+            );
+            this.activeTool = 'boru';
+            setMode("plumbingV2", true);
+        }
+
+        return success;
     }
 
 
@@ -781,6 +876,50 @@ export class PlumbingManager {
     updatePipeColorsAfterMeter(_sayacId) {
         this.recomputePipeParents();
     }
+}
+
+/**
+ * Bir borunun boş ucundan (openEnd) dışarı doğru "endward" yön vektörünü döndürür.
+ * - Boru yataysa: kendi yönü (farPt → openPt) normalize edilir.
+ * - Boru dikeyse (2D uzunluk < eşik): farPt'a bağlı diğer boru bulunur,
+ *   yatay olana ulaşılana kadar zincir takip edilir.
+ * - Yatay segment yoksa null döner; çağıran fallback (örn. +Y) verebilir.
+ */
+function _getOutwardHorizontalDir(manager, openPipe, openEnd) {
+    const TH = 2.0; // cm — bu eşiğin altı dikey sayılır
+    const NODE_TOL = 1.5;
+    const visited = new Set();
+    let pipe = openPipe;
+    let nearEnd = openEnd;
+
+    while (pipe && !visited.has(pipe.id)) {
+        visited.add(pipe.id);
+        const nearPt = nearEnd === 'p1' ? pipe.p1 : pipe.p2;
+        const farPt = nearEnd === 'p1' ? pipe.p2 : pipe.p1;
+        const dx = nearPt.x - farPt.x;
+        const dy = nearPt.y - farPt.y;
+        const len2d = Math.hypot(dx, dy);
+
+        if (len2d >= TH) {
+            return { x: dx / len2d, y: dy / len2d };
+        }
+
+        // Dikey segment — farPt'a bağlı bir sonraki boruyu bul
+        let next = null;
+        let nextEndAtFar = null;
+        for (const p of manager.pipes) {
+            if (p.id === pipe.id) continue;
+            if (visited.has(p.id)) continue;
+            const d1 = Math.hypot(p.p1.x - farPt.x, p.p1.y - farPt.y, (p.p1.z || 0) - (farPt.z || 0));
+            const d2 = Math.hypot(p.p2.x - farPt.x, p.p2.y - farPt.y, (p.p2.z || 0) - (farPt.z || 0));
+            if (d1 < NODE_TOL) { next = p; nextEndAtFar = 'p1'; break; }
+            if (d2 < NODE_TOL) { next = p; nextEndAtFar = 'p2'; break; }
+        }
+        if (!next) break;
+        pipe = next;
+        nearEnd = nextEndAtFar;
+    }
+    return null;
 }
 
 export const plumbingManager = PlumbingManager.getInstance();

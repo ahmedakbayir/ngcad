@@ -48,7 +48,7 @@ function autoPlaceSayac(interactionManager) {
     setMode("plumbingV2", true);
 }
 
-// ─── İniş + Ghost mod: Sayaç ─────────────────────────────────────────────
+// ─── İniş + Otomatik yerleştirme: Sayaç ──────────────────────────────────
 
 function placeInisVeSayac(interactionManager, pipe) {
     saveState();
@@ -68,12 +68,17 @@ function placeInisVeSayac(interactionManager, pipe) {
     inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
     pipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
     manager.recomputePipeParents();
+
+    // İniş eklendi → sayacı doğrudan iniş borusunun p2 (boş ucu) ucuna yerleştir.
+    // placeMeterAtOpenEnd vana/fleks ve yönü (son yatay segment) otomatik kurar.
+    manager.placeMeterAtOpenEnd({
+        pipe: inisBoru,
+        end: 'p2',
+        point: inisBoru.p2
+    });
     manager.saveToState();
 
-    // İniş eklendi, şimdi kullanıcı mouse ile sayacı yerleştirsin
-    interactionManager.cancelCurrentAction();
     if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
-    manager.startPlacement('sayac');
     setMode("plumbingV2", true);
 }
 
@@ -86,7 +91,7 @@ function autoPlaceCihaz(interactionManager, cihazTipi) {
     setMode("plumbingV2", true);
 }
 
-// ─── İniş + Ghost mod: Cihaz ─────────────────────────────────────────────
+// ─── İniş + Otomatik yerleştirme: Cihaz ──────────────────────────────────
 
 function placeInisVeCihaz(interactionManager, pipe, cihazTipi) {
     saveState();
@@ -106,13 +111,18 @@ function placeInisVeCihaz(interactionManager, pipe, cihazTipi) {
     inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
     pipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
     manager.recomputePipeParents();
-    manager.saveToState();
 
-    // İniş eklendi, şimdi kullanıcı mouse ile cihazı yerleştirsin
-    interactionManager.cancelCurrentAction();
-    if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
-    manager.startPlacement('cihaz', { cihazTipi });
-    setMode("plumbingV2", true);
+    // İniş eklendi → cihazı doğrudan iniş borusunun p2 ucuna yerleştir.
+    // Yön: iniş öncesindeki son yatay segmentin "dışa" yönü (continuation).
+    // placeDeviceAtOpenEnd başarılı olunca setMode("select") yapar — cihaz
+    // terminaldir, çizim DEVAM ETMEZ. Burada üstüne setMode("plumbingV2")
+    // YAZMA, kullanıcıyı yanlışlıkla çizim moduna geri sokar.
+    manager.placeDeviceAtOpenEnd(cihazTipi, {
+        pipe: inisBoru,
+        end: 'p2',
+        point: inisBoru.p2
+    });
+    manager.saveToState();
 }
 
 // ─── Silme yardımcısı: pipe.p2'den BFS ile tüm downstream borular + bileşenler ──

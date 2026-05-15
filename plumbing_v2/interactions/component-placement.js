@@ -732,11 +732,24 @@ export function handleSayacEndPlacement(meter) {
         return false;
     }
 
+    // SAYAÇ/KUTU TARAFI KONTROLÜ: Borunun bu ucu zaten bir sayaç veya kutuya
+    // bağlıysa (baglanti.hedefId) sayaç da eklenemez. Kapalı uçtur.
+    const _bagMeter = boruUcu.uc === 'p1' ? boruUcu.boru?.baslangicBaglanti : boruUcu.boru?.bitisBaglanti;
+    if (_bagMeter && _bagMeter.hedefId) {
+        return false;
+    }
+
     // SAYAÇ VAR MI KONTROLÜ: Bir boru ucunda zaten sayaç varsa başka sayaç eklenemez
     const mevcutSayac = this.hasMeterAtEndpoint(boruUcu.boruId, boruUcu.uc);
     if (mevcutSayac) {
         //console.error('[handleSayacEndPlacement] ✗ Bu boru ucunda zaten sayaç var!');
         // alert('⚠️ Bu boru ucunda zaten bir sayaç var!\n\nBir boru ucuna sadece bir sayaç eklenebilir.');
+        return false;
+    }
+
+    // Cihaz var mı kontrolü: Aynı uçta zaten cihaz varsa sayaç eklenemez.
+    const mevcutCihazUc = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
+    if (mevcutCihazUc) {
         return false;
     }
 
@@ -865,11 +878,25 @@ export function handleCihazEkleme(cihaz) {
         return false;
     }
 
+    // SAYAÇ/KUTU TARAFI KONTROLÜ: Borunun bu ucu sayaç çıkışı veya kutu çıkışı ise
+    // (baglanti.hedefId set) cihaz EKLENEMEZ. isTrulyFreeEndpoint sadece komşu
+    // boru sayısına bakar; sayaç tarafını yanlışlıkla serbest sayardı.
+    const _bag = boruUcu.uc === 'p1' ? boruUcu.boru?.baslangicBaglanti : boruUcu.boru?.bitisBaglanti;
+    if (_bag && _bag.hedefId) {
+        return false;
+    }
+
     // CİHAZ VAR MI KONTROLÜ: Bir boru ucunda zaten cihaz varsa başka cihaz eklenemez
     const mevcutCihaz = this.hasDeviceAtEndpoint(boruUcu.boruId, boruUcu.uc);
     if (mevcutCihaz) {
         // console.error('[handleCihazEkleme] ✗ Bu boru ucunda zaten cihaz var!');
         // alert('⚠️ Bu boru ucunda zaten bir cihaz var!\n\nBir boru ucuna sadece bir cihaz eklenebilir.');
+        return false;
+    }
+
+    // Sayaç var mı kontrolü: Aynı uçta zaten sayaç varsa cihaz eklenemez.
+    const mevcutSayacUc = this.hasMeterAtEndpoint(boruUcu.boruId, boruUcu.uc);
+    if (mevcutSayacUc) {
         return false;
     }
 
