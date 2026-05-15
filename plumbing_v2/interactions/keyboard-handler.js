@@ -44,16 +44,17 @@ export function handleKeyDown(e) {
 
     // Eğer kullanıcı bir input alanında yazıyorsa (ama düşey panel değilse), ESC ve Delete dışındaki kısayolları devre dışı bırak
     if (isTyping && !isVerticalPanelInput && e.key !== 'Escape' && e.key !== 'Delete') {
-        // Pending K/O timer'ı varsa input'a geçince temizle ki sıra bozulmasın.
+        // Pending K/O/S/V timer'ı varsa input'a geçince temizle ki sıra bozulmasın.
         if (this._doubleKeyTimer) {
             clearTimeout(this._doubleKeyTimer);
             this._doubleKeyTimer = null;
             this._doubleKeyChar = null;
+            this._doubleKeyData = null;
         }
         return false;
     }
 
-    // Pending K/O double-press timer var ve şu anki tuş aynı K/O değilse,
+    // Pending K/O/S/V double-press timer var ve şu anki tuş aynı değilse,
     // tek-tuş aksiyonunu hemen tetikle (chord penceresinden çıktık).
     if (this._doubleKeyTimer) {
         const cur = (e.key || '').toLowerCase();
@@ -61,11 +62,15 @@ export function handleKeyDown(e) {
             !e.ctrlKey && !e.altKey && !e.metaKey;
         if (!sameAsPending) {
             const prev = this._doubleKeyChar;
+            const prevData = this._doubleKeyData;
             clearTimeout(this._doubleKeyTimer);
             this._doubleKeyTimer = null;
             this._doubleKeyChar = null;
+            this._doubleKeyData = null;
             if (prev === 'k') _doSingleCihaz.call(this, 'KOMBI');
             else if (prev === 'o') _doSingleCihaz.call(this, 'OCAK');
+            else if (prev === 's') _doSingleSayac.call(this);
+            else if (prev === 'v') _doSingleVana.call(this, prevData);
         }
     }
 
@@ -380,65 +385,65 @@ export function handleKeyDown(e) {
         return true;
     }
 
-    // S - Sayaç ekle (seçili/çizilen hatta boş uç varsa otomatik; değilse ghost mod)
+    // S - Sayaç chord-aware kısayol.
+    //   s tek basış: hatta boş uç varsa sayaç yerleştir, yoksa ghost mod
+    //   ss (~280 ms içinde çift basış): İniş + sayaç
     if ((e.key === 's' || e.key === 'S') && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
-        if (boruUcuInfo) {
-            this.cancelCurrentAction();
-            this.manager.placeMeterAtOpenEnd(boruUcuInfo);
+        // İkinci basış? (flush mantığı aynı tuş geldiğinde pending'i temizlemez)
+        if (this._doubleKeyChar === 's' && this._doubleKeyTimer) {
+            clearTimeout(this._doubleKeyTimer);
+            this._doubleKeyTimer = null;
+            this._doubleKeyChar = null;
+            this._doubleKeyData = null;
+            _doInisVeSayacChord.call(this);
             return true;
         }
-        // Önceki modu kaydet
-        this.previousMode = state.currentMode;
-        this.previousDrawingMode = state.currentDrawingMode;
-        this.previousActiveTool = this.manager.activeTool;
 
-        // TESİSAT moduna geç
-        if (state.currentDrawingMode !== "KARMA") {
-            setDrawingMode("TESİSAT");
-        }
-
-        // Mevcut eylemleri iptal et
-        this.cancelCurrentAction();
-
-        // Sayaç ghost modunu başlat
-        this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
-        setMode("plumbingV2", true);
-
+        // İlk basış → tek-tuş aksiyonunu ~280 ms zamanla
+        const self = this;
+        this._doubleKeyChar = 's';
+        this._doubleKeyData = null;
+        this._doubleKeyTimer = setTimeout(() => {
+            self._doubleKeyTimer = null;
+            self._doubleKeyChar = null;
+            self._doubleKeyData = null;
+            _doSingleSayac.call(self);
+        }, 280);
         return true;
     }
 
-    // V - Vana ekle (Ghost mod). V→B / V→Y chord'unda otomatik yerleştirme
-    // için aktif boş uç bilgisi cancelCurrentAction'dan ÖNCE yakalanır
-    // (çizim aktifse cancel state'i siler; chord handler context'i kullanır).
+    // V - Vana chord-aware kısayol.
+    //   v tek basış: ghost mod (V→B / V→Y chord için context yakalanır)
+    //   vv (~280 ms içinde çift basış): 30 cm İniş + BRANSMAN vana
     if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        // Çizim veya seçim varsa boş ucu yakala — chord handler bunu kullanır.
+        // İkinci basış? (flush mantığı aynı tuş geldiğinde pending'i temizlemez)
+        if (this._doubleKeyChar === 'v' && this._doubleKeyTimer) {
+            clearTimeout(this._doubleKeyTimer);
+            this._doubleKeyTimer = null;
+            this._doubleKeyChar = null;
+            this._doubleKeyData = null;
+            _doInisVeBransmanChord.call(this);
+            return true;
+        }
+
+        // Çizim/seçim varsa boş ucu yakala — gecikme sırasında state değişebilir,
+        // bu yüzden chord context'i ilk basış anında snapshot'la.
         const aktifUc = _getSeciliHatinBosUcu.call(this);
         const chordCtx = aktifUc
             ? { pipeId: aktifUc.pipe.id, end: aktifUc.end }
             : null;
 
-        // Önceki modu kaydet
-        this.previousMode = state.currentMode;
-        this.previousDrawingMode = state.currentDrawingMode;
-        this.previousActiveTool = this.manager.activeTool;
-
-        // TESİSAT moduna geç
-        if (state.currentDrawingMode !== "KARMA") {
-            setDrawingMode("TESİSAT");
-        }
-
-        // Mevcut eylemleri iptal et (çizim/seçim state'i temizlenir)
-        this.cancelCurrentAction();
-
-        // Vana ghost modunu başlat (varsayılan: EMNIYET)
-        this.manager.startPlacement(TESISAT_MODLARI.VANA, { vanaTipi: 'AKV' });
-
-        // Chord context'i cancel sonrasında set et — cancelCurrentAction temizliyor.
-        this._vanaChordContext = chordCtx;
-
-        setMode("plumbingV2", true);
-
+        // İlk basış → tek-tuş aksiyonunu ~280 ms zamanla
+        const self = this;
+        this._doubleKeyChar = 'v';
+        this._doubleKeyData = chordCtx;
+        this._doubleKeyTimer = setTimeout(() => {
+            const ctx = self._doubleKeyData;
+            self._doubleKeyTimer = null;
+            self._doubleKeyChar = null;
+            self._doubleKeyData = null;
+            _doSingleVana.call(self, ctx);
+        }, 280);
         return true;
     }
 
@@ -1722,6 +1727,134 @@ function _doInisVeCihazChord(cihazTipi) {
         pipe: inisBoru,
         end: 'p2',
         point: inisBoru.p2
+    });
+    this.manager.saveToState();
+}
+
+/**
+ * Tek-tuş sayaç aksiyonu:
+ * Seçili/çizilen hatta boş uç varsa sayacı otomatik yerleştir; yoksa ghost mod.
+ */
+function _doSingleSayac() {
+    const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+    if (boruUcuInfo) {
+        this.cancelCurrentAction();
+        this.manager.placeMeterAtOpenEnd(boruUcuInfo);
+        return;
+    }
+    this.previousMode = state.currentMode;
+    this.previousDrawingMode = state.currentDrawingMode;
+    this.previousActiveTool = this.manager.activeTool;
+    if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
+    this.cancelCurrentAction();
+    this.manager.startPlacement(TESISAT_MODLARI.SAYAC);
+    setMode("plumbingV2", true);
+}
+
+/**
+ * Tek-tuş vana aksiyonu:
+ * Vana ghost modunu başlat (varsayılan: AKV). V→B / V→Y chord context'i
+ * cancelCurrentAction sonrasında set edilir (cancel _vanaChordContext'i temizler).
+ */
+function _doSingleVana(chordCtx) {
+    this.previousMode = state.currentMode;
+    this.previousDrawingMode = state.currentDrawingMode;
+    this.previousActiveTool = this.manager.activeTool;
+    if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
+    this.cancelCurrentAction();
+    this.manager.startPlacement(TESISAT_MODLARI.VANA, { vanaTipi: 'AKV' });
+    this._vanaChordContext = chordCtx || null;
+    setMode("plumbingV2", true);
+}
+
+/**
+ * Chord (ss) aksiyonu: 30 cm iniş borusu ekle, ardından sayacı iniş ucuna yerleştir.
+ * Boş uç yoksa tek-tuş davranışına düşer.
+ */
+function _doInisVeSayacChord() {
+    const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+    if (!boruUcuInfo) {
+        _doSingleSayac.call(this);
+        return;
+    }
+
+    const { pipe: parentPipe, end, point } = boruUcuInfo;
+    const INIS_CM = 30; // context menü "İniş + Sayaç" ile aynı default
+
+    saveState();
+    this.cancelCurrentAction();
+
+    const inisBoru = new Boru(
+        point,
+        { x: point.x, y: point.y, z: (point.z || 0) - INIS_CM },
+        parentPipe.boruTipi || 'STANDART'
+    );
+    inisBoru.colorGroup = parentPipe.colorGroup || 'YELLOW';
+    inisBoru.floorId = parentPipe.floorId;
+    this.manager.pipes.push(inisBoru);
+    this.manager.registerPipeNodes(inisBoru);
+
+    inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: parentPipe.id };
+    if (end === 'p2') {
+        parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+    } else {
+        parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+    }
+
+    this.manager.recomputePipeParents();
+
+    this.manager.placeMeterAtOpenEnd({
+        pipe: inisBoru,
+        end: 'p2',
+        point: inisBoru.p2
+    });
+    this.manager.saveToState();
+}
+
+/**
+ * Chord (vv) aksiyonu: 30 cm iniş borusu ekle, ardından BRANSMAN vanasını iniş ucuna yerleştir.
+ * Boş uç yoksa tek-tuş davranışına düşer.
+ */
+function _doInisVeBransmanChord() {
+    const boruUcuInfo = _getSeciliHatinBosUcu.call(this);
+    if (!boruUcuInfo) {
+        _doSingleVana.call(this, null);
+        return;
+    }
+
+    const { pipe: parentPipe, end, point } = boruUcuInfo;
+    const INIS_CM = 30;
+
+    saveState();
+    this.cancelCurrentAction();
+
+    const inisBoru = new Boru(
+        point,
+        { x: point.x, y: point.y, z: (point.z || 0) - INIS_CM },
+        parentPipe.boruTipi || 'STANDART'
+    );
+    inisBoru.colorGroup = parentPipe.colorGroup || 'YELLOW';
+    inisBoru.floorId = parentPipe.floorId;
+    this.manager.pipes.push(inisBoru);
+    this.manager.registerPipeNodes(inisBoru);
+
+    inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: parentPipe.id };
+    if (end === 'p2') {
+        parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+    } else {
+        parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+    }
+
+    this.manager.recomputePipeParents();
+
+    // handleVanaPlacement normalde saveState çağırır; chord'da iki ayrı undo
+    // adımı oluşmasın diye skipSaveState ile çağırıyoruz (yukarıda zaten saveState yapıldı).
+    this.handleVanaPlacement({
+        pipe: inisBoru,
+        point: inisBoru.p2,
+        t: 1.0,
+        vanaTipi: 'BRANSMAN',
+        skipSaveState: true
     });
     this.manager.saveToState();
 }

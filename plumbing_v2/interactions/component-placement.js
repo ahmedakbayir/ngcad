@@ -369,10 +369,11 @@ function _detectVanaTipi(pipe, t, manager) {
  * Vana boruyu bölmez, boru üzerinde serbest kayabilir bir nesne olarak eklenir
  */
 export function handleVanaPlacement(vanaPreview) {
-    const { pipe, point } = vanaPreview;
+    const { pipe, point, skipSaveState } = vanaPreview;
 
-    // Undo için state kaydet
-    saveState();
+    // Undo için state kaydet (chord içinden çağrılırken atlanır — iniş+vana
+    // tek undo adımı kalsın diye dışarıdan saveState bir kez yapılır).
+    if (!skipSaveState) saveState();
 
     const existingObjects = getObjectsOnPipe(this.manager.components, pipe.id);
 

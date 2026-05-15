@@ -545,11 +545,12 @@ export function cancelCurrentAction(interactionManager) {
     interactionManager.pasteSnapPoint = null;
     // V→B/V→Y chord context'i de temizle (ESC/diğer iptaller chord'u öldürür)
     interactionManager._vanaChordContext = null;
-    // K/O double-press timer'ı da temizle — bekleyen tek-tuş aksiyonu kalmasın.
+    // K/O/S/V double-press timer'ı da temizle — bekleyen tek-tuş aksiyonu kalmasın.
     if (interactionManager._doubleKeyTimer) {
         clearTimeout(interactionManager._doubleKeyTimer);
         interactionManager._doubleKeyTimer = null;
         interactionManager._doubleKeyChar = null;
+        interactionManager._doubleKeyData = null;
     }
     interactionManager.deselectObject();
 }
