@@ -181,7 +181,14 @@ function sayacVanasiniDonustur(sayaclar, manager, excludeCompIds = new Set()) {
     for (const sayac of sayaclar) {
         if (!sayac.iliskiliVanaId) continue;
         const vana = manager.components.find(c => c.id === sayac.iliskiliVanaId);
-        if (vana && !excludeCompIds.has(vana.id)) vana.vanaTipi = 'BRANSMAN';
+        if (!vana || excludeCompIds.has(vana.id)) continue;
+        vana.vanaTipi = 'BRANSMAN';
+        // Sayacın iliskiliVana'sı EMNIYET olarak yaratıldığı için bransmanDebi
+        // hiç set edilmemiş olabilir; computePipeDebileri parseFloat(undefined) =
+        // NaN nedeniyle bu vanayı yok sayar ve hat debisi 0 görünür.
+        if (vana.bransmanDebi === undefined || vana.bransmanDebi === null || vana.bransmanDebi === '') {
+            vana.bransmanDebi = '3.5';
+        }
     }
 }
 
