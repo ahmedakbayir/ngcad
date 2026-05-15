@@ -356,8 +356,27 @@ const _PAN_VS_CLICK_THRESHOLD_PX = 4;
  */
 function _findPerspWorldHitAtScreen(canvas, screenX, screenY, tolerance = 14) {
     if (!plumbingManager) return null;
-    const project = _makeProjector(canvas, state.perspZoom || 1, state.perspPanOffset || { x: 0, y: 0 });
+
+    // ÖNEMLİ: drawPerspView() tesisatı izometrik matris + Z-shift ile render ediyor
+    // (perspektif kamera DEĞİL). Hit testi de tam olarak aynı dönüşümü kullanmalı,
+    // yoksa kullanıcı çizilen boruya bassa bile projeksiyon başka yere düşer.
     const dpr = window.devicePixelRatio || 1;
+    const zoom = state.perspZoom || 1;
+    const pan = state.perspPanOffset || { x: 0, y: 0 };
+    let t = (typeof state.perspBlendFactor === 'number') ? state.perspBlendFactor : 1;
+    t = Math.max(0, Math.min(1, t));
+    const m = _matrix(t);
+
+    // World (x, y, z) -> canvas device pixels — drawPerspView setTransform ile birebir.
+    const project = (p) => {
+        const z = p[2] || 0;
+        const xs = p[0] + z * t;
+        const ys = p[1] - z * t;
+        const ix = m.a * xs + m.c * ys;
+        const iy = m.b * xs + m.d * ys;
+        return [(ix * zoom + pan.x) * dpr, (iy * zoom + pan.y) * dpr];
+    };
+
     const tx = screenX * dpr;
     const ty = screenY * dpr;
     const tol = tolerance * dpr;
@@ -369,7 +388,6 @@ function _findPerspWorldHitAtScreen(canvas, screenX, screenY, tolerance = 14) {
     for (const comp of (plumbingManager.components || [])) {
         if (typeof comp.x !== 'number' || typeof comp.y !== 'number') continue;
         const sp = project([comp.x, comp.y, comp.z || 0]);
-        if (!sp) continue;
         const d = Math.hypot(tx - sp[0], ty - sp[1]);
         if (d < bestDist) {
             bestDist = d;
@@ -381,7 +399,6 @@ function _findPerspWorldHitAtScreen(canvas, screenX, screenY, tolerance = 14) {
     for (const pipe of (plumbingManager.pipes || [])) {
         const s1 = project([pipe.p1.x, pipe.p1.y, pipe.p1.z || 0]);
         const s2 = project([pipe.p2.x, pipe.p2.y, pipe.p2.z || 0]);
-        if (!s1 || !s2) continue;
         const dx = s2[0] - s1[0];
         const dy = s2[1] - s1[1];
         const lenSq = dx * dx + dy * dy;

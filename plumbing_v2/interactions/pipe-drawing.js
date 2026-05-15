@@ -217,7 +217,11 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
 
     // --- BÖLME ---
     const result = pipe.splitAt(splitPoint);
-    if (!result) return;
+    console.log('[SPLIT-DBG] splitAt result=', result ? { boru1: result.boru1?.id, boru2: result.boru2?.id } : null);
+    if (!result) {
+        console.warn('[SPLIT-DBG] splitAt returned null — onSegment check failed. point=', splitPoint, 'proj=', pipe.projectPoint(splitPoint));
+        return;
+    }
     const { boru1, boru2 } = result;
 
     // Bağlantı: boru1 (gelen) -> boru2 (giden)
