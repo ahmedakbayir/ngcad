@@ -166,6 +166,33 @@ export function handlePointerDown(e) {
         }
     }
 
+    // Boru çift tıklama - split işlemi (yeni hat çizmeden, sadece böl)
+    // Hat çizimi sırasında dokunarak bölmeyle aynı semantik, ama çizim başlatmaz.
+    if (isDoubleClick && !this.boruCizimAktif && !this.manager.activeTool) {
+        const splitTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
+        const hit = this.findBoruGovdeAt(point, splitTolerance);
+        if (hit) {
+            const pipe = this.manager.findPipeById(hit.boruId);
+            // Uç noktaya çok yakınsa bölme — normal seçim akışına bırak
+            const CORNER = 0.5;
+            const nearP1 = Math.hypot(
+                hit.nokta.x - pipe.p1.x,
+                hit.nokta.y - pipe.p1.y,
+                (hit.nokta.z || 0) - (pipe.p1.z || 0)
+            ) < CORNER;
+            const nearP2 = Math.hypot(
+                hit.nokta.x - pipe.p2.x,
+                hit.nokta.y - pipe.p2.y,
+                (hit.nokta.z || 0) - (pipe.p2.z || 0)
+            ) < CORNER;
+            if (pipe && !nearP1 && !nearP2) {
+                this.handlePipeSplit(pipe, hit.nokta, false);
+                this.lastClickTime = 0; // Reset double-click
+                return true;
+            }
+        }
+    }
+
     // Click time ve point'i kaydet
     this.lastClickTime = currentTime;
     this.lastClickPoint = { ...point };

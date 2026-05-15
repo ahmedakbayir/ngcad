@@ -33,7 +33,7 @@ const VALVE_THEMES = {
     YELLOW: {
         light: [
             { pos: 0, color: 'rgba(70, 70, 70, 1)' },
-            { pos: 0.25, color: 'rgba(120, 50, 5, 1)' },   
+            { pos: 0.25, color: 'rgba(120, 50, 5, 1)' },
             { pos: 0.5, color: 'rgba(70, 70, 70, 1)' },
             { pos: 0.75, color: 'rgba(120, 50, 5, 1)' },
             { pos: 1, color: 'rgba(70, 70, 70, 1)' }
@@ -50,7 +50,7 @@ const VALVE_THEMES = {
     TURQUAZ: {
         light: [
             { pos: 0, color: 'rgba(70, 70, 70, 1)' },
-            { pos: 0.25, color: 'rgba(0, 60, 150, 1)' },   
+            { pos: 0.25, color: 'rgba(0, 60, 150, 1)' },
             { pos: 0.5, color: 'rgba(70, 70, 70, 1)' },
             { pos: 0.75, color: 'rgba(0, 60, 150, 1)' },
             { pos: 1, color: 'rgba(70, 70, 70, 1)' }
@@ -542,37 +542,90 @@ export const ComponentMixin = {
         }
 
         // Kapama sembolü (end cap) - vana boru ucunda ve boşta ise
+// Kapama sembolü (end cap) - vana boru ucunda ve boşta ise
         if (comp.showEndCap) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
 
-            // Kapama pozisyonu: vananın sağ tarafı (çıkış)
-            const capX = halfSize + 2; // 0.5 cm boşluk
-            const capWidth = 1; // cm - kalın, belirgin
-            const capHeight = size; // cm - vana ile aynı yükseklikte
+            let dir = 1;
+            let connectedPipe = null;
 
-            // Boruyla aynı renkte kapama çiz
-            // Palette'in ilk rengini kullan (beyaz hariç, sonraki renk)
-            let capColor;
-            if (comp.isSelected) {
-                capColor = this.getSecilenRenk(colorGroup);
-            } else {
-                // Palette'den ana rengi al (pozisyon 0.25'teki renk genellikle ana renk)
-                const mainColorStop = palette.find(s => s.pos === 0.25) || palette[1];
-                capColor = mainColorStop ? mainColorStop.color : 'rgba(255, 215, 0, 1)';
+            // 1. Vana boruya bağlı mı kontrol et (Daha güvenli tespit)
+            if (manager) {
+                if (comp.bagliBoruId) {
+                    connectedPipe = manager.findPipeById(comp.bagliBoruId);
+                }
+                // Eğer ID ile bulunamadıysa, fiziksel koordinatlarına göre boruyu yakala (Güçlü Fallback)
+                if (!connectedPipe && manager.pipes) {
+                    connectedPipe = manager.pipes.find(p => 
+                        (Math.abs(p.p1.x - comp.x) < 1 && Math.abs(p.p1.y - comp.y) < 1) ||
+                        (Math.abs(p.p2.x - comp.x) < 1 && Math.abs(p.p2.y - comp.y) < 1)
+                    );
+                }
             }
+
+            // 2. Yönü hesapla (3D izdüşümleri de hesaba katarak)
+            if (connectedPipe) {
+                const t = state.viewBlendFactor || 0;
+                
+                // Borunun merkezi (3D destekli)
+                const p1z = (connectedPipe.p1.z || 0) * t;
+                const p2z = (connectedPipe.p2.z || 0) * t;
+                const px1 = connectedPipe.p1.x + p1z;
+                const py1 = connectedPipe.p1.y - p1z;
+                const px2 = connectedPipe.p2.x + p2z;
+                const py2 = connectedPipe.p2.y - p2z;
+                const pipeMidX = (px1 + px2) / 2;
+                const pipeMidY = (py1 + py2) / 2;
+                
+                // Vananın merkezi (3D destekli)
+                const vz = (comp.z || 0) * t;
+                const valveX = comp.x + vz;
+                const valveY = comp.y - vz;
+                
+                // Merkeze olan fark
+                const dx = pipeMidX - valveX;
+                const dy = pipeMidY - valveY;
+                
+                const rot = (comp.rotation || 0) * Math.PI / 180;
+                const dot = dx * Math.cos(rot) + dy * Math.sin(rot);
+                
+                // Boru, vananın yerel koordinatlarında +X yönündeyse, tapayı -X yönüne (sola) çizmeliyiz.
+                // Ufak bir tolerans (0.1) ile float hatalarını engelliyoruz.
+                dir = dot > 0.1 ? -1 : 1;
+            } else {
+                dir = (comp.fromEnd === 'p1') ? -1 : 1;
+            }
+
+            // 3. Çizim Aşaması
+            ctx.save();
+            
+            // AYNALAMA: Tapa sol tarafa (-X) çizilecekse, hesaplamaları karıştırmadan 
+            // sadece canvas'ı aynalıyoruz. Böylece her zaman güvenli (pozitif) X yönüne çizebiliriz.
+            if (dir === -1) {
+                ctx.scale(-1, 1);
+            }
+
+            const capWidth = 1;
+            const capHeight = size;
+            const capX = halfSize + 2; // Daima sağ tarafa çiziyoruz, aynalama hallediyor
+
+            let capColor = comp.isSelected ? this.getSecilenRenk(colorGroup) : 
+                ((palette.find(s => s.pos === 0.25) || palette[1])?.color || 'rgba(255, 215, 0, 1)');
 
             ctx.fillStyle = capColor;
             ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.lineWidth = 0.2;
 
-            // Dikdörtgen kapama çiz
             ctx.beginPath();
+            // Ana tapa dikdörtgeni
             ctx.rect(capX, -capHeight / 2 - 0.5, capWidth, capHeight + 1);
+            // Vana ile tapanın arasındaki flanş bağlantıları
             ctx.rect(capX - 1, -capHeight / 2 - 1, capWidth + 1, 0.5);
-            ctx.rect(capX - 1, capHeight / 2 + 1, capWidth + 1, -0.5);
+            ctx.rect(capX - 1, capHeight / 2 + 0.5, capWidth + 1, 0.5); 
             ctx.fill();
-            //ctx.stroke();
+            
+            ctx.restore();
         }
     },
 
@@ -647,7 +700,7 @@ export const ComponentMixin = {
         }
     },
 
-drawSayac(ctx, comp, manager) {
+    drawSayac(ctx, comp, manager) {
         const { width, height, connectionOffset, nutHeight } = comp.config;
         const zoom = state.zoom || 1;
         const rijitUzunluk = comp.config.rijitUzunluk || (comp.ghostConnectionInfo ? 15 : 0);
@@ -680,7 +733,7 @@ drawSayac(ctx, comp, manager) {
                     const ep = comp.fleksBaglanti.endpoint;
                     const epPoint = ep === 'p1' ? pipe.p1 : ep === 'p2' ? pipe.p2 : null;
                     pipeZ = epPoint !== null ? (epPoint.z !== undefined ? epPoint.z : 0)
-                                            : (pipe.p1.z || pipe.p2.z || 0);
+                        : (pipe.p1.z || pipe.p2.z || 0);
                 }
             }
         }
@@ -693,7 +746,7 @@ drawSayac(ctx, comp, manager) {
                 let targetWorld = comp.getFleksBaglantiNoktasi(pipe);
                 if (targetWorld) {
                     if (targetWorld.z === undefined) targetWorld.z = pipeZ;
-                    
+
                     targetScreen = {
                         x: targetWorld.x + targetWorld.z * t,
                         y: targetWorld.y - targetWorld.z * t
@@ -705,16 +758,16 @@ drawSayac(ctx, comp, manager) {
         // Sol rakorun "sarkmış" (folded) halindeki kesin ekran koordinatı
         const lx = -connectionOffset;
         const ly = connY - nutHeight;
-        const sx = comp.x + lx * cos - (pivotY*t + ly*(1-t)) * sin + (pipeZ + pivotY*t - ly*t) * t;
-        const sy = comp.y + lx * sin + (pivotY*t + ly*(1-t)) * cos - (pipeZ + pivotY*t - ly*t) * t;
+        const sx = comp.x + lx * cos - (pivotY * t + ly * (1 - t)) * sin + (pipeZ + pivotY * t - ly * t) * t;
+        const sy = comp.y + lx * sin + (pivotY * t + ly * (1 - t)) * cos - (pipeZ + pivotY * t - ly * t) * t;
         const leftRakorScreen = { x: sx, y: sy };
 
         // Ghost (hayalet) sayacın fleksini yatay değil, aşağı/3D yönünde sarkıt
         if (!targetScreen) {
             const ghostLx = -connectionOffset;
-            const ghostLy = pivotY; 
-            const gSx = comp.x + ghostLx * cos - (pivotY*t + ghostLy*(1-t)) * sin + (pipeZ + pivotY*t - ghostLy*t) * t;
-            const gSy = comp.y + ghostLx * sin + (pivotY*t + ghostLy*(1-t)) * cos - (pipeZ + pivotY*t - ghostLy*t) * t;
+            const ghostLy = pivotY;
+            const gSx = comp.x + ghostLx * cos - (pivotY * t + ghostLy * (1 - t)) * sin + (pipeZ + pivotY * t - ghostLy * t) * t;
+            const gSy = comp.y + ghostLx * sin + (pivotY * t + ghostLy * (1 - t)) * cos - (pipeZ + pivotY * t - ghostLy * t) * t;
             targetScreen = { x: gSx, y: gSy };
         }
 
@@ -756,13 +809,13 @@ drawSayac(ctx, comp, manager) {
         }
 
         const rijitRenk = this.getRenkByGroup(rijitColorGroup, 'boru', 1);
-        
+
         // ÇÖZÜM: Siyah çamurlu çerçeve eklemeden, orijinal normal boru kalınlığına (4) çektik
-        ctx.lineWidth = 4 / zoom; 
+        ctx.lineWidth = 4 / zoom;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.strokeStyle = rijitRenk;
-        
+
         ctx.beginPath();
         ctx.moveTo(rightAnchor_lx, rightAnchor_ly); // Ana Boru Bağlantısı
         ctx.lineTo(connectionOffset, connY - nutHeight); // Sağ Rakor
@@ -804,7 +857,7 @@ drawSayac(ctx, comp, manager) {
 
         ctx.fillStyle = gradient;
         const radius = 4;
-        
+
         ctx.beginPath();
         if (ctx.roundRect) ctx.roundRect(-width / 2, -height / 2, width, height, radius);
         else ctx.rect(-width / 2, -height / 2, width, height);
@@ -859,7 +912,7 @@ drawSayac(ctx, comp, manager) {
         }
 
         // Çubuğu çiz (merkezden yukarı doğru, local koordinatlarda)
-        ctx.strokeStyle =isLightMode()?'#464545':'#949191'
+        ctx.strokeStyle = isLightMode() ? '#464545' : '#949191'
         ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
         ctx.beginPath();
@@ -868,8 +921,8 @@ drawSayac(ctx, comp, manager) {
         ctx.stroke();
 
         // Ucunda tutamaç (daire) - biraz daha küçük
-        ctx.fillStyle = isLightMode()?'#464545':'#949191'
-        ctx.strokeStyle = isLightMode()?'#181818':'#ebe8e8'
+        ctx.fillStyle = isLightMode() ? '#464545' : '#949191'
+        ctx.strokeStyle = isLightMode() ? '#181818' : '#ebe8e8'
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(0, -handleLength, 4, 0, Math.PI * 2);
