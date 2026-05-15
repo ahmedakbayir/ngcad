@@ -305,7 +305,7 @@ function renderTable(rows) {
             <tr>
                 <th class="ft-hat-h" rowspan="2">Hat No</th>
                 ${COLS.map(c => `<th>${c.label}</th>`).join('')}
-                <th class="ft-total-h" rowspan="2">Σζ</th>
+                <th class="ft-total-h" rowspan="2">Σξ</th>
             </tr>
             <tr class="ft-coef-row">
                 ${COLS.map(c => `<th>${fmtCoef(c.coef)}</th>`).join('')}

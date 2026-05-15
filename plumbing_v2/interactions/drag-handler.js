@@ -911,6 +911,14 @@ export function handleDrag(interactionManager, point, event = null) {
         let objectsOnPipe = interactionManager.dragObjectsOnPipe;
         if (!targetPipe) return;
 
+        // Regülatör: split düğümü (boru1.p2 === boru2.p1) regülatörün
+        // CIKIS noktasına kilitli kalsın — böylece çap/basınç değişim yeri
+        // regülatörle birlikte taşınır.
+        if (vana.type === 'regulator') {
+            const moved = slideRegulatorWithSplit(interactionManager.manager, vana, targetPipe, correctedPoint);
+            if (moved) return;
+        }
+
         // 3D Düzeltilmiş nokta (correctedPoint) kullanarak taşı
         vana.moveAlongPipe(targetPipe, correctedPoint, objectsOnPipe);
 
@@ -1645,5 +1653,131 @@ export function collectDownstreamPipes(manager, fromNodes, excludePipe = null) {
         });
     }
     return pipes;
+}
+
+/**
+ * Regülatör sürüklenirken split düğümünü (boru1.p2 === boru2.p1) regülatörün
+ * CIKIS noktasına kilitler. Böylece çap/basınç değişim sınırı regülatörle
+ * birlikte taşınır. Birleşik hat (boru1.p1 → boru2'nin karşı ucu) üzerinde
+ * projeksiyon yapılır; regülatör bu eksen boyunca kaydırılır.
+ *
+ * @returns {boolean} İşlem başarılıysa true; downstream bulunamazsa false.
+ */
+function slideRegulatorWithSplit(manager, regulator, boru1, point) {
+    if (!boru1 || regulator.bagliBoruId !== boru1.id) return false;
+
+    // Split düğümü: boru1.p2. Downstream boru: split node'u paylaşan ve
+    // baslangicBaglanti veya bitisBaglanti'sı boru1'e işaret eden boru.
+    const splitNode = boru1.p2;
+    const downstream = manager.pipes.find(p =>
+        p !== boru1 &&
+        (p.p1 === splitNode || p.p2 === splitNode) &&
+        ((p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId === boru1.id) ||
+         (p.bitisBaglanti?.tip === 'boru' && p.bitisBaglanti.hedefId === boru1.id))
+    );
+    if (!downstream) return false;
+
+    const otherEnd = (downstream.p1 === splitNode) ? downstream.p2 : downstream.p1;
+
+    // Birleşik hat yönü (boru1.p1 → downstream'in karşı ucu)
+    const dx = otherEnd.x - boru1.p1.x;
+    const dy = otherEnd.y - boru1.p1.y;
+    const dz = (otherEnd.z || 0) - (boru1.p1.z || 0);
+    const combinedLen = Math.hypot(dx, dy, dz);
+    if (combinedLen < 1) return false;
+    const dir = { x: dx / combinedLen, y: dy / combinedLen, z: dz / combinedLen };
+
+    const halfW = (regulator.config?.width || 6) / 2;
+    const MIN_EDGE = 1;
+    const MARGIN = 1;
+
+    // Mouse'u birleşik hatta projekte et (boru1.p1 referans)
+    const vx = point.x - boru1.p1.x;
+    const vy = point.y - boru1.p1.y;
+    const vz = (point.z || 0) - (boru1.p1.z || 0);
+    let tAlong = vx * dir.x + vy * dir.y + vz * dir.z;
+
+    // Diğer objelerin (vana vs.) birleşik hatta projeksiyonları — clamp için
+    let minTAlong = MIN_EDGE + halfW + MARGIN;
+    let maxTAlong = combinedLen - MIN_EDGE - halfW - MARGIN;
+
+    const regCenterOld = (function() {
+        const dv = boru1.getPointAt(regulator.boruPozisyonu);
+        return (dv.x - boru1.p1.x) * dir.x + (dv.y - boru1.p1.y) * dir.y + ((dv.z || 0) - (boru1.p1.z || 0)) * dir.z;
+    })();
+
+    const otherComps = manager.components.filter(c =>
+        c.id !== regulator.id &&
+        (c.bagliBoruId === boru1.id || c.bagliBoruId === downstream.id) &&
+        c.boruPozisyonu !== null && c.boruPozisyonu !== undefined
+    );
+    for (const c of otherComps) {
+        const pipe = (c.bagliBoruId === boru1.id) ? boru1 : downstream;
+        const cPos = pipe.getPointAt(c.boruPozisyonu);
+        const tProj = (cPos.x - boru1.p1.x) * dir.x + (cPos.y - boru1.p1.y) * dir.y + ((cPos.z || 0) - (boru1.p1.z || 0)) * dir.z;
+        const objHalfW = (c.config?.width || 6) / 2;
+        if (tProj + objHalfW <= regCenterOld) {
+            minTAlong = Math.max(minTAlong, tProj + objHalfW + MARGIN + halfW);
+        } else if (tProj - objHalfW >= regCenterOld) {
+            maxTAlong = Math.min(maxTAlong, tProj - objHalfW - MARGIN - halfW);
+        }
+    }
+    if (maxTAlong < minTAlong) return false;
+    tAlong = Math.max(minTAlong, Math.min(maxTAlong, tAlong));
+
+    // Diğer objelerin dünya pozisyonlarını taşıma öncesi sakla
+    const preserveObjs = otherComps.map(c => {
+        const pipe = (c.bagliBoruId === boru1.id) ? boru1 : downstream;
+        return { comp: c, world: pipe.getPointAt(c.boruPozisyonu) };
+    });
+
+    // Yeni regülatör merkezi ve split konumu
+    const regCenter = {
+        x: boru1.p1.x + tAlong * dir.x,
+        y: boru1.p1.y + tAlong * dir.y,
+        z: (boru1.p1.z || 0) + tAlong * dir.z,
+    };
+    const newSplit = {
+        x: regCenter.x + halfW * dir.x,
+        y: regCenter.y + halfW * dir.y,
+        z: regCenter.z + halfW * dir.z,
+    };
+
+    // Split düğümünü taşı (boru1.p2 ile downstream'in split tarafı paylaşımlı)
+    splitNode.x = newSplit.x;
+    splitNode.y = newSplit.y;
+    splitNode.z = newSplit.z;
+
+    // Regülatörü güncelle
+    regulator.x = regCenter.x;
+    regulator.y = regCenter.y;
+    regulator.z = regCenter.z;
+    const newBoru1Len = tAlong + halfW;
+    regulator.boruPozisyonu = newBoru1Len > 0 ? Math.max(0.05, Math.min(0.95, tAlong / newBoru1Len)) : 1;
+    regulator.fromEnd = 'p2';
+    regulator.fixedDistance = halfW;
+    const len2d = Math.hypot(dx, dy);
+    const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+    regulator.rotation = isVertical ? -45 : boru1.aciDerece;
+
+    // Diğer objelerin absolute pozisyonlarını koru — yeni pipe boyuna göre
+    // t değerlerini yeniden hesapla; fixedDistance pinlemesini temizle (artık
+    // bu objelerin uçları değiştiği için fixedDistance anlamsızlaşır).
+    preserveObjs.forEach(({ comp, world }) => {
+        const pipe = (comp.bagliBoruId === boru1.id) ? boru1 : downstream;
+        const proj = pipe.projectPoint(world);
+        if (!proj) return;
+        comp.boruPozisyonu = Math.max(0.01, Math.min(0.99, proj.t));
+        // fixedDistance: boru1.p1'den sabit mesafede ise koru; aksi halde temizle.
+        if (comp.fromEnd === 'p2') {
+            comp.fromEnd = null;
+            comp.fixedDistance = null;
+        }
+        comp.x = world.x;
+        comp.y = world.y;
+        comp.z = world.z;
+    });
+
+    return true;
 }
 

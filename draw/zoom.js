@@ -132,9 +132,11 @@ export function fitDrawingToScreen() {
     const availableHeight = c2d.height - 2 * PADDING;
 
     // Gerekli zoom seviyesini hesapla (hem yatay hem dikey sığacak şekilde)
+    // %80 doluluk için 0.8 çarpanı uygulanır — kenarlarda boşluk kalsın.
+    const FIT_FILL = 0.8;
     const zoomX = drawingWidth > 1 ? availableWidth / drawingWidth : 1;
     const zoomY = drawingHeight > 1 ? availableHeight / drawingHeight : 1;
-    const newZoom = Math.min(zoomX, zoomY, 3);
+    const newZoom = Math.min(zoomX, zoomY, 3) * FIT_FILL;
 
     // Çizimin merkezini dünya koordinatlarında bul
     const centerX = minX + drawingWidth / 2;

@@ -22,6 +22,20 @@ import * as THREE from 'three';
 import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import { draw2D } from '../draw/draw2d.js';
 import { fitDrawingToPerspectiveScreen } from '../draw/draw-persp.js';
+import { fitDrawingToScreen } from '../draw/zoom.js';
+
+/**
+ * Persp panel aç/kapat/yeniden boyutlandır olaylarında çağrılır.
+ * 2D ve (panel açıksa) 3D persp'i ekrana sığdırır.
+ * %80 doluluk fit fonksiyonlarının kaynağında uygulanır.
+ */
+function _fitPerspAndMainTo80() {
+    fitDrawingToScreen();
+    if (dom.mainContainer && dom.mainContainer.classList.contains('show-persp')) {
+        import('../draw/draw-persp.js').then(m => m.syncMainToPersp()).catch(() => {});
+        fitDrawingToPerspectiveScreen();
+    }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // DARK MODE / LIGHT MODE FONKSİYONLARI
@@ -334,9 +348,8 @@ export function togglePerspView() {
 
     setTimeout(() => {
         resize();
-        if (dom.mainContainer.classList.contains('show-persp')) {
-            import('../draw/draw-persp.js').then(m => m.syncMainToPersp()).catch(() => {});
-        }
+        // 3D perspektif paneli aç/kapat: 2D + 3D %80 sığdırma.
+        _fitPerspAndMainTo80();
     }, 30);
 }
 
@@ -388,9 +401,8 @@ export function setPerspRatio(ratio) {
 
     setTimeout(() => {
         resize();
-        if (dom.mainContainer.classList.contains('show-persp')) {
-            import('../draw/draw-persp.js').then(m => m.syncMainToPersp()).catch(() => {});
-        }
+        // Ratio değişimi: 2D + 3D %80 sığdırma.
+        _fitPerspAndMainTo80();
     }, 30);
 }
 
@@ -1272,6 +1284,8 @@ function onPerspSplitterPointerUp() {
     document.body.style.cursor = 'default';
     window.removeEventListener('pointermove', onPerspSplitterPointerMove);
     window.removeEventListener('pointerup', onPerspSplitterPointerUp);
+    // Splitter sürükleme bitti: 2D + 3D %80 sığdırma.
+    _fitPerspAndMainTo80();
 }
 
 

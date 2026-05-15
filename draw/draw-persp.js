@@ -337,7 +337,9 @@ export function fitDrawingToPerspectiveScreen() {
     const availW = Math.max(cssW - 2 * PADDING, 50);
     const availH = Math.max(cssH - 2 * PADDING, 50);
 
-    const newZoom = Math.min(availW / drawingW, availH / drawingH, 3);
+    // %80 doluluk için 0.8 çarpanı uygulanır — kenarlarda boşluk kalsın.
+    const FIT_FILL = 0.8;
+    const newZoom = Math.min(availW / drawingW, availH / drawingH, 3) * FIT_FILL;
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
     const panX = cssW / 2 - centerX * newZoom;
