@@ -783,14 +783,34 @@ function _getSeciliHatinBosUcu() {
     }
 
     // 2. SEÇİLİ BORULAR: p2 önceliklidir (akış yönünde "boş uç" tipik olarak p2).
-    const seciliPipes = manager.pipes.filter(p => p.isSelected);
+    // Üç kaynak: pipe.isSelected flag, interactionManager.selectedObject, state.selectedObject.object.
+    // Bunlardan biri set olduğunda, kullanıcı bir parçayı açıkça seçmiş demektir.
+    let seciliPipes = manager.pipes.filter(p => p.isSelected);
+    if (seciliPipes.length === 0 && this.selectedObject?.type === 'boru') {
+        seciliPipes = [this.selectedObject];
+    }
+    if (seciliPipes.length === 0 && state.selectedObject?.object?.type === 'boru') {
+        seciliPipes = [state.selectedObject.object];
+    }
     if (seciliPipes.length === 0) return null;
 
+    // 2a. STRICT: gerçekten boş uç → otomatik yerleştirme (mevcut davranış)
     for (const pipe of seciliPipes) {
         if (isUcValid(pipe, 'p2')) return { pipe, end: 'p2', point: pipe.p2 };
     }
     for (const pipe of seciliPipes) {
         if (isUcValid(pipe, 'p1')) return { pipe, end: 'p1', point: pipe.p1 };
+    }
+
+    // 2b. RELAXED: kullanıcı açıkça bir boruyu seçti → p2'yi (yoksa p1'i) hedef al.
+    // Yalnız fleksli ucu yasakla (sayaç/cihaz çakışması fiziksel sorun). Bu yol
+    // sayesinde kk/oo/ss/vv kısayolları yalnız çizim modunda değil, herhangi bir
+    // boru seçimi varken de p2'ye iniş+bileşen ekleyebilir.
+    for (const pipe of seciliPipes) {
+        if (!hasFleksAt(pipe, 'p2')) return { pipe, end: 'p2', point: pipe.p2 };
+    }
+    for (const pipe of seciliPipes) {
+        if (!hasFleksAt(pipe, 'p1')) return { pipe, end: 'p1', point: pipe.p1 };
     }
     return null;
 }
@@ -1710,15 +1730,24 @@ function _doInisVeCihazChord(cihazTipi) {
     );
     inisBoru.colorGroup = parentPipe.colorGroup || 'YELLOW';
     inisBoru.floorId = parentPipe.floorId;
+    // Parent ile aynı bölümde kalsın
+    inisBoru.boruCap = parentPipe.boruCap || 'DN25';
+    if (parentPipe.basinc != null) inisBoru.basinc = parentPipe.basinc;
     this.manager.pipes.push(inisBoru);
     this.manager.registerPipeNodes(inisBoru);
 
-    // Topoloji: iniş, parent'ın boş ucuna takılır.
+    // Topoloji: iniş, parent'ın ucuna takılır. Parent zaten bir aşağıya
+    // yönelmişse override etme — yeni iniş ikinci dal olur (kk/oo seçili
+    // boruda çağrıldığında p2 dolu olabilir).
     inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: parentPipe.id };
     if (end === 'p2') {
-        parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        if (!parentPipe.bitisBaglanti?.hedefId) {
+            parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        }
     } else {
-        parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        if (!parentPipe.baslangicBaglanti?.hedefId) {
+            parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        }
     }
 
     this.manager.recomputePipeParents();
@@ -1728,6 +1757,7 @@ function _doInisVeCihazChord(cihazTipi) {
         end: 'p2',
         point: inisBoru.p2
     });
+    recomputeAllPressures(this.manager);
     this.manager.saveToState();
 }
 
@@ -1791,14 +1821,22 @@ function _doInisVeSayacChord() {
     );
     inisBoru.colorGroup = parentPipe.colorGroup || 'YELLOW';
     inisBoru.floorId = parentPipe.floorId;
+    // Parent ile aynı bölümde kalsın → hatNo da aynı olsun.
+    inisBoru.boruCap = parentPipe.boruCap || 'DN25';
+    if (parentPipe.basinc != null) inisBoru.basinc = parentPipe.basinc;
     this.manager.pipes.push(inisBoru);
     this.manager.registerPipeNodes(inisBoru);
 
     inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: parentPipe.id };
+    // Parent zaten bir aşağıya yönelmişse override etme — yeni iniş ikinci dal olur.
     if (end === 'p2') {
-        parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        if (!parentPipe.bitisBaglanti?.hedefId) {
+            parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        }
     } else {
-        parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        if (!parentPipe.baslangicBaglanti?.hedefId) {
+            parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        }
     }
 
     this.manager.recomputePipeParents();
@@ -1808,6 +1846,7 @@ function _doInisVeSayacChord() {
         end: 'p2',
         point: inisBoru.p2
     });
+    recomputeAllPressures(this.manager);
     this.manager.saveToState();
 }
 
@@ -1835,14 +1874,21 @@ function _doInisVeBransmanChord() {
     );
     inisBoru.colorGroup = parentPipe.colorGroup || 'YELLOW';
     inisBoru.floorId = parentPipe.floorId;
+    // Parent ile aynı bölümde kalsın → vana üzerindeki hatNo parentla aynı görünsün.
+    inisBoru.boruCap = parentPipe.boruCap || 'DN25';
+    if (parentPipe.basinc != null) inisBoru.basinc = parentPipe.basinc;
     this.manager.pipes.push(inisBoru);
     this.manager.registerPipeNodes(inisBoru);
 
     inisBoru.baslangicBaglanti = { tip: 'boru', hedefId: parentPipe.id };
     if (end === 'p2') {
-        parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        if (!parentPipe.bitisBaglanti?.hedefId) {
+            parentPipe.bitisBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        }
     } else {
-        parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        if (!parentPipe.baslangicBaglanti?.hedefId) {
+            parentPipe.baslangicBaglanti = { tip: 'boru', hedefId: inisBoru.id };
+        }
     }
 
     this.manager.recomputePipeParents();
@@ -1856,5 +1902,6 @@ function _doInisVeBransmanChord() {
         vanaTipi: 'BRANSMAN',
         skipSaveState: true
     });
+    recomputeAllPressures(this.manager);
     this.manager.saveToState();
 }
