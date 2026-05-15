@@ -208,42 +208,64 @@ export const LabelMixin = {
                 }
             });
 
-            // Bağlı bileşenler: aynı hatNo + baslangic-chain ile bağlı borular tek section
+            // Cross-floor: aynı fiziksel hat farklı katlarda dilimlenmiş olabilir;
+            // toplam uzunluk hesabı için tüm katlardaki boruları indeksliyoruz.
+            const allPipes = manager.pipes || [];
+            const allPipeMap = new Map(allPipes.map(p => [p.id, p]));
+            const allChildrenIdx = new Map();
+            allPipes.forEach(p => {
+                if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId) {
+                    const par = p.baslangicBaglanti.hedefId;
+                    if (!allChildrenIdx.has(par)) allChildrenIdx.set(par, []);
+                    allChildrenIdx.get(par).push(p.id);
+                }
+            });
+
+            // Bağlı bileşenler: aynı hatNo + baslangic-chain ile bağlı borular tek section.
+            // BFS tüm katları gezer (cross-floor); ancak etiket sadece bu kattaki borular
+            // arasından çizilir.
             const visitedSec = new Set();
-            const sections = []; // { hatNo, pipes }
+            const sections = []; // { hatNo, pipes, fullPipes }
             _pipesForLabels.forEach(seedPipe => {
                 if (visitedSec.has(seedPipe.id)) return;
                 const hatNo = hatMap.get(seedPipe.id);
                 if (hatNo == null) return;
 
-                const group = [];
+                const group = [];      // bu kattaki borular (etiket konumu için)
+                const fullGroup = [];  // tüm katlardaki borular (toplam uzunluk için)
+                const localVisited = new Set();
                 const queue = [seedPipe.id];
                 while (queue.length > 0) {
                     const id = queue.shift();
-                    if (visitedSec.has(id)) continue;
+                    if (localVisited.has(id)) continue;
                     if (hatMap.get(id) !== hatNo) continue;
-                    const p = pipeMap.get(id);
+                    const p = allPipeMap.get(id);
                     if (!p) continue;
-                    visitedSec.add(id);
-                    group.push(p);
+                    localVisited.add(id);
+                    fullGroup.push(p);
+                    if (pipeMap.has(id)) {
+                        visitedSec.add(id);
+                        group.push(p);
+                    }
 
                     const par = p.baslangicBaglanti?.tip === 'boru' ? p.baslangicBaglanti.hedefId : null;
                     if (par && hatMap.get(par) === hatNo) queue.push(par);
-                    (childrenIdx.get(id) || []).forEach(cid => {
+                    (allChildrenIdx.get(id) || []).forEach(cid => {
                         if (hatMap.get(cid) === hatNo) queue.push(cid);
                     });
                 }
 
-                if (group.length > 0) sections.push({ hatNo, pipes: group });
+                if (group.length > 0) sections.push({ hatNo, pipes: group, fullPipes: fullGroup });
             });
 
             // Her section için etiket borusunu seç ve etiketi çiz
-            sections.forEach(({ hatNo, pipes }) => {
+            sections.forEach(({ hatNo, pipes, fullPipes }) => {
                 let chosen = null;
                 let totalLen = 0;
 
-                // 1. Toplam hat uzunluğu her zaman lazımdır hesaplayalım
-                pipes.forEach(pipe => {
+                // 1. Toplam hat uzunluğu: tüm katlardaki bağlı borular dahil
+                //    (kat değişen hatlar her katta aynı toplamı göstersin)
+                fullPipes.forEach(pipe => {
                     if (!pipe.p1 || !pipe.p2) return;
                     totalLen += Math.hypot(
                         pipe.p2.x - pipe.p1.x,
