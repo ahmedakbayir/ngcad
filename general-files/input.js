@@ -593,6 +593,10 @@ function onKeyDown(e) {
     if (e.ctrlKey  && e.key.toLowerCase() === 'f') {
         e.preventDefault(); // Tarayıcının varsayılan 'F' işlemini (Find) engelle
         fitDrawingToScreen();
+        // 3D sahne açıksa aktif katın içeriğine sığdır
+        if (dom.mainContainer && dom.mainContainer.classList.contains('show-3d')) {
+            import('../scene3d/scene3d-camera.js').then(m => m.fit3DToCurrentFloor()).catch(() => {});
+        }
         return; // Diğer kısayollarla çakışmasın
     }
 

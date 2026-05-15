@@ -507,3 +507,96 @@ export function resetToOrbitCamera() {
     orbitControls.target.set(0, WALL_HEIGHT / 2, 0);
     orbitControls.update();
 }
+
+/**
+ * Orbit kamerayı aktif katın içeriğine (duvar + tesisat) sığdırır.
+ * Mevcut bakış yönü korunur — sadece hedef ve mesafe güncellenir.
+ * 2D fit-to-screen ile birlikte çağrılarak iki sahne aynı içeriği gösterir.
+ *
+ * Koordinat eşlemesi: 2D x → 3D x, 2D y → 3D z, kot (z) → 3D y.
+ */
+export function fit3DToCurrentFloor() {
+    if (!camera || !orbitControls) return;
+
+    const currentFloorId = state.currentFloor?.id || null;
+    const isOnFloor = (obj) => {
+        if (!currentFloorId) return true;
+        if (!obj || obj.floorId === undefined || obj.floorId === null) return true;
+        return obj.floorId === currentFloorId;
+    };
+
+    let minX = Infinity, minY2D = Infinity, minElev = Infinity;
+    let maxX = -Infinity, maxY2D = -Infinity, maxElev = -Infinity;
+    let hasContent = false;
+
+    const includePoint = (x, y, z) => {
+        if (x == null || y == null) return;
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY2D) minY2D = y; if (y > maxY2D) maxY2D = y;
+        const e = z || 0;
+        if (e < minElev) minElev = e; if (e > maxElev) maxElev = e;
+        hasContent = true;
+    };
+
+    // Tesisat boruları
+    (state.plumbingPipes || []).filter(isOnFloor).forEach(p => {
+        if (p.p1) includePoint(p.p1.x, p.p1.y, p.p1.z);
+        if (p.p2) includePoint(p.p2.x, p.p2.y, p.p2.z);
+    });
+    // Tesisat bileşenleri
+    (state.plumbingBlocks || []).filter(isOnFloor).forEach(c => {
+        if (c.x === undefined || c.y === undefined) return;
+        includePoint(c.x - 20, c.y - 20, c.z);
+        includePoint(c.x + 20, c.y + 20, c.z);
+    });
+    // Duvar uçları — tesisat yoksa veya tek noktaysa çerçeveleme için fayda
+    (state.walls || []).filter(isOnFloor).forEach(w => {
+        if (w.p1) includePoint(w.p1.x, w.p1.y, 0);
+        if (w.p2) includePoint(w.p2.x, w.p2.y, 0);
+    });
+
+    if (!hasContent) return;
+
+    // Katın kot tabanını ekle: tesisat z'si genelde göreceli; mutlak konum
+    // için aktif katın bottomElevation'ı tabanı belirler.
+    const floor = (state.floors || []).find(f => f.id === currentFloorId && !f.isPlaceholder);
+    const floorBase = floor ? (floor.bottomElevation || 0) : 0;
+    const floorTop  = floor ? (floor.topElevation || (floorBase + WALL_HEIGHT)) : (floorBase + WALL_HEIGHT);
+
+    // 3D koordinatlar
+    const centerX = (minX + maxX) / 2;
+    const center2DY = (minY2D + maxY2D) / 2;
+    // Y (yükseklik): kotun ortası + katın orta noktası (içerik düz katsa floorBase+halfWall'a düşer)
+    const yLo = Math.min(minElev, floorBase);
+    const yHi = Math.max(maxElev, floorTop);
+    const centerY = (yLo + yHi) / 2;
+
+    const target = new THREE.Vector3(centerX, centerY, center2DY);
+
+    const sizeX = maxX - minX;
+    const sizeY = yHi - yLo;
+    const sizeZ = maxY2D - minY2D;
+    const radius = Math.max(Math.hypot(sizeX, sizeY, sizeZ) / 2, 150) * 1.25;
+
+    // Kameranın yatay FOV'unu hesaba kat (geniş içerikte daha uzaklaşmalı)
+    const fovY = (camera.fov || 75) * Math.PI / 180;
+    const aspect = camera.aspect || 1;
+    const fitDistV = radius / Math.sin(fovY / 2);
+    const fitDistH = aspect >= 1 ? fitDistV / aspect : fitDistV;
+    let distance = Math.max(fitDistV, fitDistH, 300);
+
+    // Mevcut bakış yönünü koru: yön = (cam - target).normalize
+    const dir = new THREE.Vector3().subVectors(camera.position, orbitControls.target);
+    if (dir.lengthSq() < 1e-6) {
+        // Yön belirsiz → izometrik fallback
+        dir.set(Math.cos(Math.PI / 6) * Math.sin(Math.PI / 4),
+                Math.sin(Math.PI / 6),
+                Math.cos(Math.PI / 6) * Math.cos(Math.PI / 4));
+    } else {
+        dir.normalize();
+    }
+
+    camera.position.copy(target).addScaledVector(dir, distance);
+    orbitControls.target.copy(target);
+    orbitControls.update();
+}

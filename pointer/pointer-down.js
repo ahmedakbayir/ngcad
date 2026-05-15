@@ -11,6 +11,7 @@ import { hideGuideContextMenu } from '../menu/guide-menu.js';
 import { screenToWorld, findNodeAt, getOrCreateNode, isPointOnWallBody, distToSegmentSquared, snapTo15DegreeAngle } from '../draw/geometry.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 import { fitDrawingToPerspectiveScreen } from '../draw/draw-persp.js';
+import { fit3DToCurrentFloor } from '../scene3d/scene3d-camera.js';
 import { applySymmetry, applyCopy } from '../draw/symmetry.js';
 import { state, dom, setState, setMode } from '../general-files/main.js';
 import { getSmartSnapPoint } from '../general-files/snap.js';
@@ -78,6 +79,10 @@ export function onPointerDown(e) {
                 // 3D Perspektif paneli de açıksa onu da sığdır
                 if (dom.mainContainer && dom.mainContainer.classList.contains('show-persp')) {
                     fitDrawingToPerspectiveScreen();
+                }
+                // Gerçek 3D sahne açıksa aktif katın içeriğine sığdır
+                if (dom.mainContainer && dom.mainContainer.classList.contains('show-3d')) {
+                    fit3DToCurrentFloor();
                 }
                 return;
             }
