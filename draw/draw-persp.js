@@ -397,6 +397,7 @@ function _findPerspWorldHitAtScreen(canvas, screenX, screenY, tolerance = 14) {
                 y: pipe.p1.y + tt * (pipe.p2.y - pipe.p1.y),
                 z: (pipe.p1.z || 0) + tt * ((pipe.p2.z || 0) - (pipe.p1.z || 0))
             };
+            bestWorld.precalculatedHit = { boruId: pipe.id, nokta: { ...bestWorld } };
         }
     }
 
@@ -424,12 +425,30 @@ export function setupPerspControls() {
     dom.cPersp.addEventListener('mouseenter', () => { state.perspHover = true; });
     dom.cPersp.addEventListener('mouseleave', () => { state.perspHover = false; });
 
-    // ─── WINDOW-LEVEL CAPTURE: tıklama cPersp üzerindeyse en önce burada yakalanır ───
-    // Hiçbir şey (input.js, vs.) önümüze geçemez.
+    // KESİN ÇÖZÜM: Menüyü açan ve üstte kalmasını (Z-Index) garanti eden yardımcı fonksiyon
+    const openMenu = (e) => {
+        if (!plumbingManager || !plumbingManager.interactionManager) return;
+        const rect = dom.cPersp.getBoundingClientRect();
+        const localX = e.clientX - rect.left;
+        const localY = e.clientY - rect.top;
+        
+        let worldPos = _findPerspWorldHitAtScreen(dom.cPersp, localX, localY);
+        if (!worldPos) worldPos = { x: 0, y: 0, z: 0 };
+        
+        showPlumbingContextMenu(e.clientX, e.clientY, worldPos, plumbingManager.interactionManager);
+        
+        // Z-INDEX GÜVENCESİ: Menünün 3D perspektif panelinin arkasında görünmez kalmasını engelle!
+        setTimeout(() => {
+            const menuEl = document.getElementById('plumbing-context-menu');
+            if (menuEl) menuEl.style.zIndex = '999999';
+        }, 0);
+    };
+
+    // WINDOW-LEVEL CAPTURE (Diğer scriptler önümüze geçemez)
     window.addEventListener('pointerdown', (e) => {
         if (!_isClickOnCpersp(e)) return;
 
-        // ORTA-BUTON
+        // ORTA-BUTON (Pan ve Sığdırma)
         if (e.button === 1) {
             const now = performance.now();
             const d = _cpMiddleDownPos
@@ -460,7 +479,14 @@ export function setupPerspControls() {
             return;
         }
 
-
+        // SAĞ-BUTON → Tarayıcı menüsünü bloke et ve en erken aşamada tesisat menüsünü aç!
+        if (e.button === 2) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            openMenu(e);
+            return;
+        }
     }, { capture: true });
 
     window.addEventListener('pointermove', (e) => {
@@ -480,25 +506,12 @@ export function setupPerspControls() {
         if (dom.pPersp) dom.pPersp.classList.remove('panning');
     });
 
-    // Tarayıcı sağ-tık menüsünü engelle (cPersp veya alt elemanları)
+    // Tarayıcı sağ-tık menüsünü engelle ve garanti olsun diye burada da menüyü aç
     window.addEventListener('contextmenu', (e) => {
         if (!_isClickOnCpersp(e)) return;
-
-        // Tarayıcının standart menüsünü kesin olarak durdur
         e.preventDefault();
         e.stopPropagation();
-
-        // Tesisat menüsünü burada açıyoruz (Gerçek sağ tık olayı)
-        if (!plumbingManager || !plumbingManager.interactionManager) return;
-
-        const rect = dom.cPersp.getBoundingClientRect();
-        const localX = e.clientX - rect.left;
-        const localY = e.clientY - rect.top;
-
-        let worldPos = _findPerspWorldHitAtScreen(dom.cPersp, localX, localY);
-        if (!worldPos) worldPos = { x: 0, y: 0, z: 0 };
-
-        showPlumbingContextMenu(e.clientX, e.clientY, worldPos, plumbingManager.interactionManager);
-
+        e.stopImmediatePropagation();
+        openMenu(e);
     }, { capture: true });
 }

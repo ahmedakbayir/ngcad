@@ -408,6 +408,9 @@ export function findBoruUcuAt(manager, point, tolerance = 5, onlyFreeEndpoints =
 }
 
 export function findBoruGovdeAt(manager, point, tolerance = 5) {
+    if (point && point.precalculatedHit) {
+        return point.precalculatedHit;
+    }
     const currentFloor = state.currentFloor || null;
     const t = state.viewBlendFactor || 0;
     const is3D = t >= 0.5;
